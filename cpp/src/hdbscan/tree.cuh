@@ -53,97 +53,192 @@ __device__ value_t get_lambda(value_idx node, value_idx num_points,
 template <typename value_idx, typename value_t>
 __global__ void condense_hierarchy_kernel(
   bool *frontier, value_idx *ignore, value_idx *relabel,
-  value_idx *hierarchy, value_t *deltas, value_idx *sizes, int n_leaves,
-  int num_points, int min_cluster_size) {
+  const value_idx *hierarchy, const value_t *deltas,
+  const value_idx *sizes, int n_leaves,
+  int num_points, int min_cluster_size,
+  value_idx *out_parent, value_idx *out_child,
+  value_t *out_lambda, value_idx *out_count) {
+
   int node = blockDim.x * blockIdx.x + threadIdx.x;
 
   // If node is in frontier, flip frontier for children
-  if (node <= n_leaves * 2 && frontier[node]) {
-    frontier[node] = false;
+  if(node > n_leaves * 2 || !frontier[node])
+    return;
 
-    // TODO: Check bounds
+  frontier[node] = false;
+
+  // TODO: Check bounds
+  value_idx left_child = hierarchy[(node - num_points) * 2];
+  value_idx right_child = hierarchy[((node - num_points) * 2) + 1];
+
+  frontier[left_child] = true;
+  frontier[right_child] = true;
+
+  bool ignore_val = ignore[node];
+  bool should_ignore = ignore_val > -1;
+
+  // If the current node is being ignored (e.g. > -1) then propagate the ignore
+  // to children, if any
+  ignore[left_child] = (should_ignore * ignore_val) + (!should_ignore * -1);
+  ignore[right_child] = (should_ignore * ignore_val) + (!should_ignore * -1);
+
+  if (node < num_points) {
+    out_parent[node] = relabel[should_ignore];
+    out_child[node] = node;
+    out_lambda[node] = get_lambda(should_ignore, num_points, deltas);
+    out_count[node] = 1;
+  }
+
+  // If node is not ignored and is not a leaf, condense its children
+  // if necessary
+  else if (!should_ignore and node >= num_points) {
     value_idx left_child = hierarchy[(node - num_points) * 2];
     value_idx right_child = hierarchy[((node - num_points) * 2) + 1];
 
-    frontier[left_child] = true;
-    frontier[right_child] = true;
+    value_t lambda_value = get_lambda(node, num_points, deltas);
 
-    bool ignore_val = ignore[node];
-    bool should_ignore = ignore_val > -1;
+    int left_count =
+      left_child >= num_points ? sizes[left_child - num_points] : 1;
+    int right_count =
+      right_child >= num_points ? sizes[right_child - num_points] : 1;
 
-    // If the current node is being ignored (e.g. > -1) then propagate the ignore
-    // to children, if any
-    ignore[left_child] = (should_ignore * ignore_val) + (!should_ignore * -1);
-    ignore[right_child] = (should_ignore * ignore_val) + (!should_ignore * -1);
+    // If both children are large enough, they should be relabeled and
+    // included directly in the output hierarchy.
+    if (left_count >= min_cluster_size && right_count >= min_cluster_size) {
+      relabel[left_child] = node;
+      out_parent[node] = relabel[node];
+      out_child[node] = relabel[left_child];
+      out_lambda[node] = lambda_value;
+      out_count[node] = left_count;
 
-    if (node < num_points) {
-      // TODO: append relabel[should_ignore], node, get_lambda(should_ignore), 1
-
+      relabel[right_child] = node;
+      out_parent[node] = relabel[node];
+      out_child[node] = relabel[right_child];
+      out_lambda[node] = lambda_value;
+      out_count[node] = left_count;
     }
 
-    // If node is not ignored and is not a leaf, condense its children
-    // if necessary
-    else if (!should_ignore and node >= num_points) {
-      value_idx left_child = hierarchy[(node - num_points) * 2];
-      value_idx right_child = hierarchy[((node - num_points) * 2) + 1];
+    // Consume left or right child as necessary
+    bool left_child_too_small = left_count < min_cluster_size;
+    bool right_child_too_small = right_count < min_cluster_size;
+    ignore[left_child] =
+      (left_child_too_small * node) + (!left_child_too_small * -1);
+    ignore[right_child] =
+      (right_child_too_small * node) + (!right_child_too_small * -1);
 
-      value_t lambda_value = get_lambda(node, num_points, deltas);
+    // If only left or right child is too small, consume it and relabel the other
+    // (to it can be its own cluster)
+    bool only_left_child_too_small =
+      left_child_too_small && !right_child_too_small;
+    bool only_right_child_too_small =
+      !left_child_too_small && right_child_too_small;
 
-      // TODO: Convert to boolean arithmetic
-      int left_count =
-        left_child >= num_points ? sizes[left_child - num_points] : 1;
-      int right_count =
-        right_child >= num_points ? sizes[right_child - num_points] : 1;
-
-      // If both children are large enough, they should be relabeled and
-      // included directly in the output hierarchy.
-      if (left_count >= min_cluster_size && right_count >= min_cluster_size) {
-        relabel[left_child] = node;
-        // TODO: Output new hierarchy entry for: relabel[node],
-        //  relabel[left], lambda_value, left_count
-
-        relabel[right_child] = node;
-        // TODO Output new hierarchy entry for: relabel[node],
-        //  relabel[right], lambda_value, right_count
-      }
-
-      // Consume left or right child as necessary
-      bool left_child_too_small = left_count < min_cluster_size;
-      bool right_child_too_small = right_count < min_cluster_size;
-      ignore[left_child] =
-        (left_child_too_small * node) + (!left_child_too_small * -1);
-      ignore[right_child] =
-        (right_child_too_small * node) + (!right_child_too_small * -1);
-
-      // If only left or right child is too small, consume it and relabel the other
-      // (to it can be its own cluster)
-      bool only_left_child_too_small =
-        left_child_too_small && !right_child_too_small;
-      bool only_right_child_too_small =
-        !left_child_too_small && right_child_too_small;
-
-      relabel[right_child] = (only_left_child_too_small * relabel[node]) +
-                             (!only_left_child_too_small * -1);
-      relabel[left_child] = (only_right_child_too_small * relabel[node]) +
-                            (!only_right_child_too_small * -1);
-    }
+    relabel[right_child] = (only_left_child_too_small * relabel[node]) +
+                           (!only_left_child_too_small * -1);
+    relabel[left_child] = (only_right_child_too_small * relabel[node]) +
+                          (!only_right_child_too_small * -1);
   }
 }
 
+struct Not_Empty {
+
+template <typename value_t>
+__host__ __device__ __forceinline__ value_t operator()(value_t a) {
+  return a != -1;
+}
+}
+
+
+template<typename value_idx, typename value_t>
+struct CondensedHierarchy {
+
+  CondensedHierarchy(value_idx n_leaves_, cudaStream_t stream_):
+               n_leaves(n_leaves_), parents(0, stream_), children(0, stream_), lambdas(0, stream_), sizes(0, stream_) {}
+
+  void condense(value_idx *full_parents, value_idx *full_children,
+                value_t *full_lambdas, value_idx *full_sizes) {
+
+    n_edges = thrust::transform_reduce(thrust::cuda::par.on(stream),
+                                       full_parents, full_parents + (n_leaves * 2),
+                                       Not_Empty(), 0, thrust::plus<value_idx>());
+
+    thrust::copy_if(thrust::cuda::par.on(stream), full_parents, full_parents + (n_leaves * 2), parents.data(), Not_Empty());
+    thrust::copy_if(thrust::cuda::par.on(stream), full_children, full_children + (n_leaves * 2), children.data(), Not_Empty());
+    thrust::copy_if(thrust::cuda::par.on(stream), full_lambdas, full_lambdas + (n_leaves * 2), lambdas.data(), Not_Empty());
+    thrust::copy_if(thrust::cuda::par.on(stream), full_sizes, full_sizes + (n_leaves * 2), sizes.data(), Not_Empty());
+  }
+
+  value_idx *get_parents() {
+    return parents.data();
+  }
+
+  value_idx *get_children() {
+    return children.data()
+  }
+
+  value_t *get_lambdas() {
+    return lambdas.data();
+  }
+
+  value_idx *get_sizes() {
+    return sizes.data();
+  }
+
+ private:
+  rmm::device_uvector<value_idx> parents;
+  rmm::device_uvector<value_idx> children;
+  rmm::device_uvector<value_t> lambdas;
+  rmm::device_uvector<value_idx> sizes;
+
+  cudaStream_t stream;
+  value_idx n_edges;
+  value_idx n_leaves;
+
+};
+
+/**
+ * Condenses a binary tree dendrogram in the Scipy format
+ * by merging labels that fall below a minimum cluster size.
+ * @tparam value_idx
+ * @tparam value_t
+ * @tparam tpb
+ * @param handle
+ * @param[in] children
+ * @param[in] delta
+ * @param[in] sizes
+ * @param[in] min_cluster_size
+ * @param[in] n_leaves
+ * @param[out] out_parent
+ * @param[out] out_child
+ * @param[out] out_lambda
+ * @param[out] out_size
+ */
 template <typename value_idx, typename value_t, int tpb = 256>
-void condense_hierarchy(raft::handle_t &handle, value_idx *children,
-                        value_t *delta, value_idx *sizes, int min_pts,
-                        int n_leaves) {
-  rmm::device_uvector<bool> frontier(n_leaves * 2, handle.get_stream());
-  rmm::device_uvector<bool> ignore(n_leaves * 2, handle.get_stream());
+void condense_hierarchy(raft::handle_t &handle, const value_idx *children,
+                        const value_t *delta, const value_idx *sizes,
+                        int min_cluster_size, int n_leaves,
+                        CondensedHierarchy<value_idx, value_t> &condensed_tree) {
+
+  cudaStream_t stream = handle.get_stream();
+
+  rmm::device_uvector<bool> frontier(n_leaves * 2, stream);
+  rmm::device_uvector<bool> ignore(n_leaves * 2, stream);
+
+  rmm::device_uvector<value_idx> out_parent(n_leaves * 2, stream);
+  rmm::device_uvector<value_idx> out_child(n_leaves * 2, stream);
+  rmm::device_uvector<value_t> out_lambda(n_leaves * 2, stream);
+  rmm::device_uvector<value_idx> out_size(n_leaves * 2, stream);
 
   int root = 2 * n_leaves;
   int num_points = floor(root / 2.0) + 1;
 
-  rmm::device_uvector<value_idx> relabel(root + 1, handle.get_stream());
+  thrust::fill(thrust::cuda::par.on(stream), out_parent.data(), out_parent.data()+(n_leaves*2), -1);
+  thrust::fill(thrust::cuda::par.on(stream), out_child.data(), out_parent.data()+(n_leaves*2), -1);
+  thrust::fill(thrust::cuda::par.on(stream), out_lambda.data(), out_parent.data()+(n_leaves*2), -1);
+  thrust::fill(thrust::cuda::par.on(stream), out_size.data(), out_parent.data()+(n_leaves*2), -1);
 
-  // TODO: Set this properly on device
-  relabel[root] = root;
+  rmm::device_uvector<value_idx> relabel(root + 1, handle.get_stream());
+  raft::update_device(relabel.data()+root, root, 1, handle.get_stream());
 
   // While frontier is not empty, perform single bfs through tree
   size_t grid = raft::ceildiv(n_leaves * 2, (size_t)tpb);
@@ -160,16 +255,20 @@ void condense_hierarchy(raft::handle_t &handle, value_idx *children,
     n_elements_to_traverse =
       thrust::reduce(thrust::cuda::par.on(handle.get_stream()), frontier.data(),
                      frontier.data() + (n_leaves * 2), 0);
-
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
   }
 
   // TODO: Normalize labels so they are drawn from a monotonically increasing set.
+
+  condensed_tree.condense(out_parent.data(), out_child.data(), out_lambda.data(), out_size.data());
 }
 
 template<typename value_idx, typename value_t>
-void compute_stabilities(value_idx *condensed_hierarchy, value_idx *lambdas, value_idx *sizes,
+void compute_stabilities(value_idx *condensed_parent,
+                         value_idx *condensed_child,
+                         value_t *lambdas,
+                         value_idx *sizes,
                          int n_leaves) {
+
 
   // TODO: Reverse topological sort (e.g. sort hierarchy, lambdas, and sizes by lambda)
 
@@ -214,7 +313,7 @@ void get_probabilities() {
 
   // TODO: Compute deaths array similarly to compute_stabilities
 
-  // TODO: Embarassingly parallel 
+  // TODO: Embarassingly parallel
 }
 
 };  // end namespace Tree
