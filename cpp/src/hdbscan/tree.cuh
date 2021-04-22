@@ -153,7 +153,8 @@ template<typename value_idx, typename value_t>
 struct CondensedHierarchy {
 
   CondensedHierarchy(value_idx n_leaves_, cudaStream_t stream_):
-               n_leaves(n_leaves_), parents(0, stream_), children(0, stream_), lambdas(0, stream_), sizes(0, stream_) {}
+               n_leaves(n_leaves_), parents(0, stream_), children(0, stream_),
+               lambdas(0, stream_), sizes(0, stream_) {}
 
   void condense(value_idx *full_parents, value_idx *full_children,
                 value_t *full_lambdas, value_idx *full_sizes) {
@@ -162,10 +163,19 @@ struct CondensedHierarchy {
                                        full_parents, full_parents + (n_leaves * 2),
                                        Not_Empty(), 0, thrust::plus<value_idx>());
 
-    thrust::copy_if(thrust::cuda::par.on(stream), full_parents, full_parents + (n_leaves * 2), parents.data(), Not_Empty());
-    thrust::copy_if(thrust::cuda::par.on(stream), full_children, full_children + (n_leaves * 2), children.data(), Not_Empty());
-    thrust::copy_if(thrust::cuda::par.on(stream), full_lambdas, full_lambdas + (n_leaves * 2), lambdas.data(), Not_Empty());
-    thrust::copy_if(thrust::cuda::par.on(stream), full_sizes, full_sizes + (n_leaves * 2), sizes.data(), Not_Empty());
+    parents.resize(n_edges, stream);
+    children.resize(n_edges, stream);
+    lambdas.resize(n_edges, stream);
+    sizes.resize(n_edges, stream);
+
+    thrust::copy_if(thrust::cuda::par.on(stream), full_parents,
+                    full_parents + (n_leaves * 2), parents.data(), Not_Empty());
+    thrust::copy_if(thrust::cuda::par.on(stream),
+                    full_children, full_children + (n_leaves * 2), children.data(), Not_Empty());
+    thrust::copy_if(thrust::cuda::par.on(stream),
+                    full_lambdas, full_lambdas + (n_leaves * 2), lambdas.data(), Not_Empty());
+    thrust::copy_if(thrust::cuda::par.on(stream),
+                    full_sizes, full_sizes + (n_leaves * 2), sizes.data(), Not_Empty());
   }
 
   value_idx *get_parents() {
