@@ -369,7 +369,7 @@ __global__ void computeSplitClassificationKernel(
   IdxT min_samples_leaf, DataT min_impurity_decrease, IdxT max_leaves,
   Input<DataT, LabelT, IdxT> input, const Node<DataT, LabelT, IdxT>* nodes,
   IdxT colStart, int* done_count, int* mutex, const IdxT* n_leaves,
-  Split<DataT, IdxT>* splits, CRITERION splitType, IdxT treeid, uint64_t seed,
+  volatile Split<DataT, IdxT>* splits, CRITERION splitType, IdxT treeid, uint64_t seed,
   int* blockid_to_nodeid, int* relative_blockids, bool proportionate_launch) {
   extern __shared__ char smem[];
   IdxT nid;
@@ -530,8 +530,8 @@ __global__ void computeSplitRegressionKernel(
   DataT min_impurity_decrease, IdxT max_leaves,
   Input<DataT, LabelT, IdxT> input, const Node<DataT, LabelT, IdxT>* nodes,
   IdxT colStart, int* done_count, int* mutex, const IdxT* n_leaves,
-  Split<DataT, IdxT>* splits, void* workspace, CRITERION splitType, IdxT treeid,
-  uint64_t seed) {
+  volatile Split<DataT, IdxT>* splits, void* workspace, CRITERION splitType,
+  IdxT treeid, uint64_t seed) {
   extern __shared__ char smem[];
   IdxT nid = blockIdx.z;
   auto node = nodes[nid];
