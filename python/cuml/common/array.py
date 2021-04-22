@@ -92,7 +92,7 @@ class CumlArray(Buffer):
 
     """
 
-    @nvtx.annotate(message="cuml.common.CumlArray.__init__")
+    @nvtx.annotate(message="-- cuml.common.CumlArray.__init__")
     def __init__(self, data=None, owner=None, dtype=None, shape=None,
                  order=None):
 
@@ -207,7 +207,7 @@ class CumlArray(Buffer):
     def item(self):
         return cp.asarray(self).item()
 
-    @nvtx.annotate(message="cuml.common.CumlArray.to_output")
+    @nvtx.annotate(message="-- cuml.common.CumlArray.to_output")
     def to_output(self, output_type='cupy', output_dtype=None):
         """
         Convert array to output format
@@ -286,7 +286,7 @@ class CumlArray(Buffer):
 
         return self
 
-    @nvtx.annotate(message="cuml.common.CumlArray.serialize")
+    @nvtx.annotate(message="-- cuml.common.CumlArray.serialize")
     def serialize(self):
         header, frames = super().serialize()
         header["constructor-kwargs"] = {
@@ -298,7 +298,7 @@ class CumlArray(Buffer):
         return header, frames
 
     @classmethod
-    @nvtx.annotate(message="cuml.common.CumlArray.empty")
+    @nvtx.annotate(message="-- cuml.common.CumlArray.empty")
     def empty(cls, shape, dtype, order='F'):
         """
         Create an empty Array with an allocated but uninitialized DeviceBuffer
@@ -316,7 +316,7 @@ class CumlArray(Buffer):
         return CumlArray(cp.empty(shape, dtype, order))
 
     @classmethod
-    @nvtx.annotate(message="cuml.common.CumlArray.full")
+    @nvtx.annotate(message="-- cuml.common.CumlArray.full")
     def full(cls, shape, value, dtype, order='F'):
         """
         Create an Array with an allocated DeviceBuffer initialized to value.
@@ -334,7 +334,7 @@ class CumlArray(Buffer):
         return CumlArray(cp.full(shape, value, dtype, order))
 
     @classmethod
-    @nvtx.annotate(message="cuml.common.CumlArray.zeros")
+    @nvtx.annotate(message="-- cuml.common.CumlArray.zeros")
     def zeros(cls, shape, dtype='float32', order='F'):
         """
         Create an Array with an allocated DeviceBuffer initialized to zeros.
@@ -351,7 +351,7 @@ class CumlArray(Buffer):
         return CumlArray.full(value=0, shape=shape, dtype=dtype, order=order)
 
     @classmethod
-    @nvtx.annotate(message="cuml.common.CumlArray.ones")
+    @nvtx.annotate(message="-- cuml.common.CumlArray.ones")
     def ones(cls, shape, dtype='float32', order='F'):
         """
         Create an Array with an allocated DeviceBuffer initialized to zeros.

@@ -70,7 +70,7 @@ class SparseCumlArray():
         Number of nonzeros in underlying arrays
     """
 
-    @nvtx.annotate(message="cuml.common.SparseCumlArray.__init__")
+    @nvtx.annotate(message="-- cuml.common.SparseCumlArray.__init__")
     def __init__(self, data=None,
                  convert_to_dtype=False,
                  convert_index=np.int32,
@@ -122,7 +122,7 @@ class SparseCumlArray():
         self.dtype = self.data.dtype
         self.nnz = data.nnz
 
-    @nvtx.annotate(message="cuml.common.SparseCumlArray.to_output")
+    @nvtx.annotate(message="-- cuml.common.SparseCumlArray.to_output")
     def to_output(self, output_type='cupy',
                   output_format=None,
                   output_dtype=None):

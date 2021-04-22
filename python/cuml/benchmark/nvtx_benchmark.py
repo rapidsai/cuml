@@ -74,13 +74,19 @@ class Profiler:
     @staticmethod
     def _display_results(results):
         filtered_results = [r for r in results if 'runtime' in r]
-        max_length = max([len(r['measurement']) for r in filtered_results])
+        max_length = max([len(r['measurement']) for r in filtered_results]) + 4
         for r in filtered_results:
-            measurement = r['measurement'].ljust(max_length + 4)
+            measurement = r['measurement']
+            isutil = measurement.startswith('--')
+            if isutil:
+                measurement = '    ' + measurement
+            measurement = measurement.ljust(max_length + 4)
             runtime = round(int(r['runtime']) / 10**9, 4)
             msg = '{measurement} : {runtime:8.4f} s'
             msg = msg.format(measurement=measurement,
                              runtime=runtime)
+            if not isutil:
+                msg = '\n' + msg
             print(msg)
 
     def profile(self, command):
