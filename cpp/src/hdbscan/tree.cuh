@@ -171,12 +171,9 @@ void compute_stabilities(value_idx *condensed_hierarchy, value_idx *lambdas, val
 
   // TODO: Reverse topological sort (e.g. sort hierarchy, lambdas, and sizes by lambda)
 
-  // TODO: Perform single loop through topologically sorted condensed hierarchy children,
-  //       marking birth lambdas
+  // TODO: Segmented reduction on min_lambda within each cluster
 
-  // TODO: Perform loop through condensed hierarchy in parallel, building array of stabilities for each cluster
-
-  // TODO: Compute sizes of each
+  // TODO: Embarassingly parallel construction of output
 }
 };  // end namespace Tree
 };  // end namespace HDBSCAN
