@@ -99,10 +99,12 @@ __global__ void condense_hierarchy_kernel(
       // included directly in the output hierarchy.
       if (left_count >= min_cluster_size && right_count >= min_cluster_size) {
         relabel[left_child] = node;
-        // TODO: Output new hierarchy entry for: relabel[node], relabel[left], lambda_value, left_count
+        // TODO: Output new hierarchy entry for: relabel[node],
+        //  relabel[left], lambda_value, left_count
 
         relabel[right_child] = node;
-        // TODO Output new hierarchy entry for: relabel[node], relabel[right], lambda_value, right_count
+        // TODO Output new hierarchy entry for: relabel[node],
+        //  relabel[right], lambda_value, right_count
       }
 
       // Consume left or right child as necessary
@@ -175,6 +177,46 @@ void compute_stabilities(value_idx *condensed_hierarchy, value_idx *lambdas, val
 
   // TODO: Embarassingly parallel construction of output
 }
+
+template<typename value_idx, typename value_t>
+void excess_of_mass() {
+
+  // TODO: Build CSR of cluster tree with stabilities of each child as the weights
+
+  // TODO: Segmented reduction over CSR of cluster tree
+
+  // TODO: Perform bfs, starting at root-
+  // TODO:    Maintain frontier and is_cluster array.
+  // TODO:    In each iteration, children are added to tree
+  // TODO:    If node has is_cluster[node] = false, set children to false
+  // TODO:    else subtree stability > stability[node] or cluster_sizes[node] > max_cluster_size
+  // TODO:          set is_cluster[node] = false and stability[node] = subtree_stability
+}
+
+template<typename value_idx, typename value_t>
+void get_stability_scores() {
+
+  // TODO: Perform segmented reduction to compute cluster_size
+
+  // TODO: Embarassingly parallel
+}
+
+template<typename value_idx, typename value_t>
+void do_labelling() {
+
+  // TODO: Similar to SLHC dendrogram construction, this one is probably best done
+  // on host, at least for the first iteration
+}
+
+
+template<typename value_idx, typename value_t>
+void get_probabilities() {
+
+  // TODO: Compute deaths array similarly to compute_stabilities
+
+  // TODO: Embarassingly parallel 
+}
+
 };  // end namespace Tree
 };  // end namespace HDBSCAN
 };  // end namespace ML
