@@ -93,7 +93,7 @@ class BaseRandomForestModel(Base):
                           "random_state is set")
         if quantile_per_tree:
             warnings.warn("The 'quantile_per_tree' parameter is deprecated "
-                          "and will be removed in 0.20 release. Instead use "
+                          "and will be removed in 21.06 release. Instead use "
                           "higher number of global quantile bins.")
         if handle is None:
             handle = Handle(n_streams)

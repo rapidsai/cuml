@@ -172,7 +172,7 @@ class BaseMetaClass(type):
             # If attributeName is `__init__`, wrap in the decorator to
             # deprecate positional args
             if (attributeName == "__init__"):
-                attribute = _check_and_wrap_init(attribute, version="0.20")
+                attribute = _check_and_wrap_init(attribute, version="21.06")
                 classDict[attributeName] = attribute
 
             # For now, skip all additional processing if we are a dask

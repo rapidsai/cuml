@@ -89,7 +89,7 @@ def _handle_zeros_in_scale(scale, copy=True):
         return scale
 
 
-@_deprecate_pos_args(version="0.20")
+@_deprecate_pos_args(version="21.06")
 @api_return_generic(get_output_type=True)
 def scale(X, *, axis=0, with_mean=True, with_std=True, copy=True):
     """Standardize a dataset along any axis
@@ -289,7 +289,7 @@ class MinMaxScaler(TransformerMixin,
     data_max_ = CumlArrayDescriptor()
     data_range_ = CumlArrayDescriptor()
 
-    @_deprecate_pos_args(version="0.20")
+    @_deprecate_pos_args(version="21.06")
     def __init__(self, feature_range=(0, 1), *, copy=True):
         self.feature_range = feature_range
         self.copy = copy
@@ -434,7 +434,7 @@ class MinMaxScaler(TransformerMixin,
         return X
 
 
-@_deprecate_pos_args(version="0.20")
+@_deprecate_pos_args(version="21.06")
 @api_return_generic(get_output_type=True)
 def minmax_scale(X, feature_range=(0, 1), *, axis=0, copy=True):
     """Transform features by scaling each feature to a given range.
@@ -613,7 +613,7 @@ class StandardScaler(TransformerMixin,
     mean_ = CumlArrayDescriptor()
     var_ = CumlArrayDescriptor()
 
-    @_deprecate_pos_args(version="0.20")
+    @_deprecate_pos_args(version="21.06")
     def __init__(self, *, copy=True, with_mean=True, with_std=True):
         self.with_mean = with_mean
         self.with_std = with_std
@@ -918,7 +918,7 @@ class MaxAbsScaler(TransformerMixin,
     n_samples_seen_ = CumlArrayDescriptor()
     max_abs_ = CumlArrayDescriptor()
 
-    @_deprecate_pos_args(version="0.20")
+    @_deprecate_pos_args(version="21.06")
     def __init__(self, *, copy=True):
         self.copy = copy
 
@@ -1040,7 +1040,7 @@ class MaxAbsScaler(TransformerMixin,
         return X
 
 
-@_deprecate_pos_args(version="0.20")
+@_deprecate_pos_args(version="21.06")
 @api_return_generic(get_output_type=True)
 def maxabs_scale(X, *, axis=0, copy=True):
     """Scale each feature to the [-1, 1] range without breaking the sparsity.
@@ -1175,7 +1175,7 @@ class RobustScaler(TransformerMixin,
     center_ = CumlArrayDescriptor()
     scale_ = CumlArrayDescriptor()
 
-    @_deprecate_pos_args(version="0.20")
+    @_deprecate_pos_args(version="21.06")
     def __init__(self, *, with_centering=True, with_scaling=True,
                  quantile_range=(25.0, 75.0), copy=True):
         self.with_centering = with_centering
@@ -1301,7 +1301,7 @@ class RobustScaler(TransformerMixin,
         return X
 
 
-@_deprecate_pos_args(version="0.20")
+@_deprecate_pos_args(version="21.06")
 @api_return_generic(get_output_type=True)
 def robust_scale(X, *, axis=0, with_centering=True, with_scaling=True,
                  quantile_range=(25.0, 75.0), copy=True):
@@ -1448,7 +1448,7 @@ class PolynomialFeatures(TransformerMixin,
     exponentially in the degree. High degrees can cause overfitting.
     """
 
-    @_deprecate_pos_args(version="0.20")
+    @_deprecate_pos_args(version="21.06")
     def __init__(self, degree=2, *, interaction_only=False, include_bias=True,
                  order='C'):
         self.degree = degree
@@ -1662,7 +1662,7 @@ class PolynomialFeatures(TransformerMixin,
         return XP  # TODO keep order
 
 
-@_deprecate_pos_args(version="0.20")
+@_deprecate_pos_args(version="21.06")
 @api_return_generic(get_output_type=True)
 def normalize(X, norm='l2', *, axis=1, copy=True, return_norm=False):
     """Scale input vectors individually to unit norm (vector length).
@@ -1808,7 +1808,7 @@ class Normalizer(TransformerMixin,
     normalize: Equivalent function without the estimator API.
     """
 
-    @_deprecate_pos_args(version="0.20")
+    @_deprecate_pos_args(version="21.06")
     def __init__(self, norm='l2', *, copy=True):
         self.norm = norm
         self.copy = copy
@@ -1842,7 +1842,7 @@ class Normalizer(TransformerMixin,
         return normalize(X, norm=self.norm, axis=1, copy=copy)
 
 
-@_deprecate_pos_args(version="0.20")
+@_deprecate_pos_args(version="21.06")
 @api_return_generic(get_output_type=True)
 def binarize(X, *, threshold=0.0, copy=True):
     """Boolean thresholding of array-like or sparse matrix
@@ -1937,7 +1937,7 @@ class Binarizer(TransformerMixin,
     binarize: Equivalent function without the estimator API.
     """
 
-    @_deprecate_pos_args(version="0.20")
+    @_deprecate_pos_args(version="21.06")
     def __init__(self, *, threshold=0.0, copy=True):
         self.threshold = threshold
         self.copy = copy
@@ -2235,7 +2235,7 @@ class QuantileTransformer(TransformerMixin,
     <sphx_glr_auto_examples_preprocessing_plot_all_scaling.py>`.
     """
 
-    @_deprecate_pos_args(version="0.20")
+    @_deprecate_pos_args(version="21.06")
     def __init__(self, *, n_quantiles=1000, output_distribution='uniform',
                  ignore_implicit_zeros=False, subsample=int(1e5),
                  random_state=None, copy=True):
@@ -2565,7 +2565,7 @@ class QuantileTransformer(TransformerMixin,
         return self._transform(X, inverse=True)
 
 
-@_deprecate_pos_args(version="0.20")
+@_deprecate_pos_args(version="21.06")
 def quantile_transform(X, *, axis=0, n_quantiles=1000,
                        output_distribution='uniform',
                        ignore_implicit_zeros=False,
@@ -2767,7 +2767,7 @@ class PowerTransformer(TransformerMixin,
            of the Royal Statistical Society B, 26, 211-252 (1964).
 
     """
-    @_deprecate_pos_args(version="0.20")
+    @_deprecate_pos_args(version="21.06")
     def __init__(self, method='yeo-johnson', *, standardize=True, copy=True):
         self.method = method
         self.standardize = standardize
@@ -3035,7 +3035,7 @@ class PowerTransformer(TransformerMixin,
         return X
 
 
-@_deprecate_pos_args(version="0.20")
+@_deprecate_pos_args(version="21.06")
 def power_transform(X, method='yeo-johnson', *, standardize=True, copy=True):
     """
     Power transforms are a family of parametric, monotonic transformations

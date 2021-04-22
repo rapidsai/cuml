@@ -110,7 +110,7 @@ def __getattr__(name):
     if name == 'global_output_type':
         import warnings  # pylint: disable=import-outside-toplevel
         warnings.warn("Accessing cuml.global_output_type directly is"
-                      " deprecated and will be removed in v0.20. Use"
+                      " deprecated and will be removed in v21.06. Use"
                       " cuml.global_settings.output_type instead.",
                       DeprecationWarning)
         return __getattr__('global_settings').output_type
