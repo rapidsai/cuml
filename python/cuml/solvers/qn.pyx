@@ -588,4 +588,4 @@ class QN(Base,
         return super().get_param_names() + \
             ['loss', 'fit_intercept', 'l1_strength', 'l2_strength',
                 'max_iter', 'tol', 'linesearch_max_iter', 'lbfgs_memory',
-                'warm_start']
+                'warm_start', 'delta']
