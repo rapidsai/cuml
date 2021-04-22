@@ -365,7 +365,7 @@ class Base(TagsMixin,
             return {'preserves_dtype': [self.dtype]}
         return {}
 
-    def _set_nvtx_annotations(self):
+    def set_nvtx_annotations(self):
         for function in ['fit', 'transform', 'predict', 'fit_predict',
                          'fit_transform']:
             if hasattr(self, function):
