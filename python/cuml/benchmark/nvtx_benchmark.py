@@ -66,6 +66,7 @@ class Profiler:
                 if 'EndTimestamp' in record:
                     runtime = int(record['EndTimestamp']) -\
                               int(record['Timestamp'])
+                    new_record['timestamp'] = int(record['Timestamp'])
                     new_record['runtime'] = runtime
                 return new_record
 
@@ -74,6 +75,7 @@ class Profiler:
     @staticmethod
     def _display_results(results):
         filtered_results = [r for r in results if 'runtime' in r]
+        filtered_results.sort(key=lambda r: r['timestamp'])
         max_length = max([len(r['measurement']) for r in filtered_results]) + 4
         for r in filtered_results:
             measurement = r['measurement']
