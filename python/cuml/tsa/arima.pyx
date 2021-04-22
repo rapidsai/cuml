@@ -499,7 +499,6 @@ class ARIMA(Base):
         raise NotImplementedError("ARIMA is unable to be cloned via "
                                   "`get_params` and `set_params`.")
 
-    @nvtx.annotate(message="cuml.tsa.arima.ARIMA.predict")
     @cuml.internals.api_base_return_autoarray(input_arg=None)
     def predict(
         self,
@@ -681,7 +680,6 @@ class ARIMA(Base):
         estimate_x0(handle_[0], cpp_params, <double*> d_y_ptr,
                     <int> self.batch_size, <int> self.n_obs, order)
 
-    @nvtx.annotate(message="cuml.tsa.arima.ARIMA.fit")
     @cuml.internals.api_base_return_any_skipall
     def fit(self,
             start_params: Optional[Mapping[str, object]] = None,

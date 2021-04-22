@@ -245,7 +245,6 @@ class MultinomialNB(Base, ClassifierMixin):
         self.handle = None
 
     @generate_docstring(X='dense_sparse')
-    @nvtx.annotate(message="cuml.naive_bayes.MultinomialNB.fit")
     def fit(self, X, y,
             sample_weight=None, convert_dtype=True) -> "MultinomialNB":
         """
@@ -388,7 +387,6 @@ class MultinomialNB(Base, ClassifierMixin):
                             'description': 'Predicted values',
                             'shape': '(n_rows, 1)'
                         })
-    @nvtx.annotate(message="cuml.naive_bayes.MultinomialNB.predict")
     def predict(self, X) -> CumlArray:
         """
         Perform classification on an array of test vectors X.
