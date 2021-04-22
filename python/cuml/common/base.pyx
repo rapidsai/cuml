@@ -184,8 +184,6 @@ class Base(TagsMixin,
         self.target_dtype = None
         self.n_features_in_ = None
 
-        self._set_nvtx_annotations()
-
     def __repr__(self):
         """
         Pretty prints the arguments of a class using Scikit-learn standard :)
