@@ -146,7 +146,7 @@ template <typename value_t>
 __host__ __device__ __forceinline__ value_t operator()(value_t a) {
   return a != -1;
 }
-}
+};
 
 
 template<typename value_idx, typename value_t>
