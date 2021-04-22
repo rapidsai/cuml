@@ -19,6 +19,7 @@
 #include <cuml/manifold/umapparams.h>
 #include <cuml/common/logger.hpp>
 #include <cuml/manifold/common.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include "optimize.cuh"
 #include "supervised.cuh"
 
@@ -79,7 +80,8 @@ __global__ void init_transform(int *indices, T *weights, int n,
  * a and b, which are based on min_dist and spread
  * parameters.
  */
-void find_ab(UMAPParams *params, std::shared_ptr<deviceAllocator> d_alloc,
+void find_ab(UMAPParams *params,
+             std::shared_ptr<raft::mr::device::allocator> d_alloc,
              cudaStream_t stream) {
   Optimize::find_params_ab(params, d_alloc, stream);
 }

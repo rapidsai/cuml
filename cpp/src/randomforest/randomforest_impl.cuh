@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#pragma once
 #ifndef _OPENMP
 #define omp_get_thread_num() 0
 #endif
@@ -23,6 +24,7 @@
 #include <cuml/common/logger.hpp>
 #include <decisiontree/quantile/quantile.cuh>
 #include <metrics/scores.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng.cuh>
 #include <random/permute.cuh>
 #include "randomforest_impl.h"
@@ -69,7 +71,7 @@ template <typename T, typename L>
 void rf<T, L>::prepare_fit_per_tree(
   int tree_id, int n_rows, int n_sampled_rows, unsigned int* selected_rows,
   const int num_sms, const cudaStream_t stream,
-  const std::shared_ptr<deviceAllocator> device_allocator) {
+  const std::shared_ptr<raft::mr::device::allocator> device_allocator) {
   ML::PUSH_RANGE("bootstrapping row IDs @randomforest_impl.cuh");
   int rs = tree_id;
   if (rf_params.seed != 0) rs = rf_params.seed + tree_id;
