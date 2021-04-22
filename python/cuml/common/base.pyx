@@ -370,17 +370,21 @@ class Base(TagsMixin,
 
     def _set_nvtx_annotations(self):
         nvtx_benchmark = os.getenv('NVTX_BENCHMARK')
-        if nvtx_benchmark.lower() == 'true':
+        if nvtx_benchmark and nvtx_benchmark.lower() == 'true':
             self.set_nvtx_annotations()
 
     def set_nvtx_annotations(self):
-        for function in ['fit', 'transform', 'predict', 'fit_predict',
-                         'fit_transform']:
-            if hasattr(self, function):
-                message = self.__class__.__module__ + '.' + function
-                func = getattr(self, function)
-                func = nvtx.annotate(message=message)(func)
-                setattr(self, function, func)
+        for func_name in ['fit', 'transform', 'predict', 'fit_predict',
+                          'fit_transform']:
+            if hasattr(self, func_name):
+                message = self.__class__.__module__ + '.' + func_name
+                msg = '{class_name}.{func_name} [{addr}]'
+                msg = msg.format(class_name=self.__class__.__module__,
+                                 func_name=func_name,
+                                 addr=hex(id(self)))
+                func = getattr(self, func_name)
+                func = nvtx.annotate(message=msg)(func)
+                setattr(self, func_name, func)
 
 
 # Internal, non class owned helper functions
