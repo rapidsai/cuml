@@ -208,7 +208,12 @@ class QN(Base,
         Maximum number of iterations taken for the solvers to converge.
     tol: float (default = 1e-4)
         The training process will stop if
-          `norm(current_loss_grad, inf) <= tol * current_loss`
+          `norm(current_loss_grad, inf) <= tol * current_loss`.
+        Note, this differs slightly from the Scikit-learn stopping conditions.
+        As of version 0.24, Scikit-learn condition translates as
+          `norm(current_loss_grad, inf) <= tol / sample_size` in cuML terms.
+        Scikit-learn sums the gradient over the input, we take an average.
+        In addition, we scale the `tol` with the objective value.
     linesearch_max_iter: int (default = 50)
         Max number of linesearch iterations per outer iteration of the
         algorithm.
