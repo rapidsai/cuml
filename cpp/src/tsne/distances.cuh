@@ -29,8 +29,15 @@
 
 #include <raft/error.hpp>
 
+#include "utils.cuh"
+
+#include <rmm/device_uvector.hpp>
+#include <rmm/exec_policy.hpp>
+
 namespace ML {
 namespace TSNE {
+
+auto DEFAULT_DISTANCE_METRIC = raft::distance::DistanceType::L2SqrtExpanded;
 
 /**
  * @brief Uses FAISS's KNN to find the top n_neighbors. This speeds up the attractive forces.
@@ -64,9 +71,10 @@ void get_distances(const raft::handle_t &handle,
                      cudaStream_t userStream,
  */
 
-  raft::spatial::knn::brute_force_knn(handle, input_vec, sizes_vec, input.d,
-                                      input.X, input.n, k_graph.knn_indices,
-                                      k_graph.knn_dists, k_graph.n_neighbors);
+  raft::spatial::knn::brute_force_knn(
+    handle, input_vec, sizes_vec, input.d, input.X, input.n,
+    k_graph.knn_indices, k_graph.knn_dists, k_graph.n_neighbors, true, true,
+    nullptr, DEFAULT_DISTANCE_METRIC);
 }
 
 // dense, int32 indices
@@ -89,7 +97,7 @@ void get_distances(const raft::handle_t &handle,
     k_graph.knn_indices, k_graph.knn_dists, k_graph.n_neighbors,
     handle.get_cusparse_handle(), handle.get_device_allocator(), stream,
     ML::Sparse::DEFAULT_BATCH_SIZE, ML::Sparse::DEFAULT_BATCH_SIZE,
-    raft::distance::DistanceType::L2Expanded);
+    DEFAULT_DISTANCE_METRIC);
 }
 
 // sparse, int64
@@ -113,15 +121,22 @@ template <typename value_idx, typename value_t>
 void normalize_distances(const value_idx n, value_t *distances,
                          const int n_neighbors, cudaStream_t stream) {
   // Now D / max(abs(D)) to allow exp(D) to not explode
-  thrust::device_ptr<value_t> begin = thrust::device_pointer_cast(distances);
-  value_t maxNorm = *thrust::max_element(thrust::cuda::par.on(stream), begin,
-                                         begin + n * n_neighbors);
-  if (maxNorm == 0.0f) maxNorm = 1.0f;
 
-  // Divide distances inplace by max
-  const value_t div = 1.0f / maxNorm;  // Mult faster than div
-  raft::linalg::scalarMultiply(distances, distances, div, n * n_neighbors,
-                               stream);
+  auto policy = rmm::exec_policy(stream);
+
+  auto functional_abs = [] __device__(const value_t &x) { return abs(x); };
+
+  value_t maxNorm =
+    thrust::transform_reduce(policy, distances, distances + n * n_neighbors,
+                             functional_abs, 0.0f, thrust::maximum<float>());
+
+  if (maxNorm == 0.0f) {
+    maxNorm = 1.0f;
+  }
+
+  thrust::constant_iterator<float> division_iterator(1.0f / maxNorm);
+  thrust::transform(policy, distances, distances + n * n_neighbors,
+                    division_iterator, distances, thrust::multiplies<float>());
 }
 
 /**
@@ -130,7 +145,6 @@ void normalize_distances(const value_idx n, value_t *distances,
  * @param[in] indices: The input sorted indices from KNN.
  * @param[in] n: The number of rows in the data X.
  * @param[in] k: The number of nearest neighbors.
- * @param[in] exaggeration: How much early pressure you want the clusters in TSNE to spread out more.
  * @param[out] COO_Matrix: The final P + P.T output COO matrix.
  * @param[in] stream: The GPU stream.
  * @param[in] handle: The GPU handle.
@@ -141,7 +155,7 @@ void symmetrize_perplexity(float *P, value_idx *indices, const value_idx n,
                            raft::sparse::COO<value_t, value_idx> *COO_Matrix,
                            cudaStream_t stream, const raft::handle_t &handle) {
   // Perform (P + P.T) / P_sum * early_exaggeration
-  const value_t div = exaggeration / (2.0f * n);
+  const value_t div = 1.0f / (2.0f * n);
   raft::linalg::scalarMultiply(P, P, div, n * k, stream);
 
   // Symmetrize to form P + P.T
