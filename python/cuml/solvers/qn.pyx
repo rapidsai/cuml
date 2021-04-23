@@ -132,10 +132,10 @@ class QN(Base,
     Two algorithms are implemented underneath cuML's QN class, and which one
     is executed depends on the following rule:
 
-    * Orthant-Wise Limited Memory Quasi-Newton (OWL-QN) if there is l1
-      regularization
+      * Orthant-Wise Limited Memory Quasi-Newton (OWL-QN) if there is l1
+        regularization
 
-    * Limited Memory BFGS (L-BFGS) otherwise.
+      * Limited Memory BFGS (L-BFGS) otherwise.
 
     cuML's QN class can take array-like objects, either in host as
     NumPy arrays or in device (as Numba or __cuda_array_interface__ compliant).
@@ -208,12 +208,23 @@ class QN(Base,
         Maximum number of iterations taken for the solvers to converge.
     tol: float (default = 1e-4)
         The training process will stop if
-          `norm(current_loss_grad, inf) <= tol * current_loss`.
-        Note, this differs slightly from the Scikit-learn stopping conditions.
-        As of version 0.24, Scikit-learn condition translates as
-          `norm(current_loss_grad, inf) <= tol / sample_size` in cuML terms.
-        Scikit-learn sums the gradient over the input, we take an average.
-        In addition, we scale the `tol` with the objective value.
+
+        `norm(current_loss_grad, inf) <= tol * max(current_loss, tol)`.
+
+        This differs slightly from the `gtol`-controlled stopping condition in
+        `scipy.optimize.minimize(method=’L-BFGS-B’)
+        <https://docs.scipy.org/doc/scipy/reference/optimize.minimize-lbfgsb.html>`_:
+
+        `norm(current_loss_projected_grad, inf) <= gtol`.
+
+        Note, `sklearn.LogisticRegression()
+        <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html>`_
+        uses the sum of softmax/logistic loss over the input data, whereas cuML
+        uses the average. As a result, Scikit-learn's loss is usually
+        `sample_size` times larger than cuML's.
+        To account for the differences you may divide the `tol` by the sample
+        size; this would ensure that the cuML solver does not stop earlier than
+        the Scikit-learn solver.
     linesearch_max_iter: int (default = 50)
         Max number of linesearch iterations per outer iteration of the
         algorithm.
@@ -248,12 +259,12 @@ class QN(Base,
     ------
        This class contains implementations of two popular Quasi-Newton methods:
 
-       - Limited-memory Broyden Fletcher Goldfarb Shanno (L-BFGS) [Nocedal,
-         Wright - Numerical Optimization (1999)]
+         - Limited-memory Broyden Fletcher Goldfarb Shanno (L-BFGS) [Nocedal,
+           Wright - Numerical Optimization (1999)]
 
-       - Orthant-wise limited-memory quasi-newton (OWL-QN) [Andrew, Gao - ICML
-         2007]
-         <https://www.microsoft.com/en-us/research/publication/scalable-training-of-l1-regularized-log-linear-models/>
+         - `Orthant-wise limited-memory quasi-newton (OWL-QN)
+            [Andrew, Gao - ICML 2007]
+           <https://www.microsoft.com/en-us/research/publication/scalable-training-of-l1-regularized-log-linear-models/>`_
     """
 
     _coef_ = CumlArrayDescriptor()
