@@ -383,11 +383,6 @@ __global__ void computeSplitClassificationKernel(
   auto range_start = node.start;
   auto range_len = node.count;
 
-  // return if leaf
-  if (leafBasedOnParams<DataT, IdxT>(node.depth, max_depth, min_samples_split,
-                                     max_leaves, n_leaves, range_len)) {
-    return;
-  }
   IdxT relative_blockid, num_blocks;
   if (proportionate_launch) {
     relative_blockid = relative_blockids[blockIdx.x];
