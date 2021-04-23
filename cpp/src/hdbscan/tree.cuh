@@ -274,13 +274,6 @@ void compute_stabilities(
                     stabilities, transform_op);
 }
 
-struct Greater_Than_One {
-  template <typename value_t>
-  __host__ __device__ __forceinline__ value_t operator()(value_t a) {
-    return a > 1;
-  }
-};
-
 /**
  * Computes the excess of mass. This is a cluster extraction
  * strategy that iterates upwards from the leaves of the cluster
@@ -314,27 +307,24 @@ void excess_of_mass(
   value_idx cluster_tree_edges = thrust::transform_reduce(
     thrust::cuda::par.on(stream), condensed_tree.get_lambdas(),
     condensed_tree.get_lambdas() + condensed_tree.get_n_edges(),
-    Greater_Than_One(), 0, thrust::plus<value_idx>());
+    [=] __device__ (value_t a) {return a > 1.0;}, 0, thrust::plus<value_idx>());
 
   rmm::device_uvector<value_idx> parents(cluster_tree_edges, stream);
   rmm::device_uvector<value_idx> children(cluster_tree_edges, stream);
   rmm::device_uvector<value_idx> sizes(cluster_tree_edges, stream);
   rmm::device_uvector<value_idx> indptr(n_clusters + 1, stream);
 
-  thrust::copy_if(thrust::cuda::par.on(stream), condensed_tree.get_parents(),
-                  condensed_tree.get_parents() + (condensed_tree.get_n_edges()),
-                  condensed_tree.get_lambdas(), parents.data(),
-                  Greater_Than_One());
+  auto in = thrust::make_zip_iterator(
+    thrust::make_tuple(condensed_tree.get_parents(), condensed_tree.get_children(),
+                       condensed_tree.get_sizes()));
 
-  thrust::copy_if(
-    thrust::cuda::par.on(stream), condensed_tree.get_children(),
-    condensed_tree.get_children() + (condensed_tree.get_n_edges()),
-    condensed_tree.get_lambdas(), children.data(), Greater_Than_One());
+  auto out = thrust::make_zip_iterator(
+    thrust::make_tuple(parents.data(), children.data(), sizes.data()));
 
-  thrust::copy_if(thrust::cuda::par.on(stream), condensed_tree.get_sizes(),
-                  condensed_tree.get_sizes() + (condensed_tree.get_n_edges()),
-                  condensed_tree.get_lambdas(), sizes.data(),
-                  Greater_Than_One());
+  thrust::copy_if(thrust::cuda::par.on(stream), in,
+                  in + (condensed_tree.get_n_edges()),
+                  condensed_tree.get_lambdas(), out,
+                  [=] __device__ (value_t a) {return a > 1.0;});
 
   raft::sparse::op::coo_sort(
     0, 0, cluster_tree_edges, parents.data(), children.data(), sizes.data(),
@@ -349,13 +339,13 @@ void excess_of_mass(
    *    tree CSR and warp-level reduction to sum stabilities and test whether
    *    or not current cluster should continue to be its own
    */
-  std::vector<value_idx> indptr_h(indptr.size());
-  raft::update_host(indptr_h.data(), indptr.data(), indptr.size(), stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
 
   bool is_cluster_h[n_clusters];
   bool frontier_h[n_clusters];
+
+  std::vector<value_idx> indptr_h(indptr.size());
+  raft::update_host(indptr_h.data(), indptr.data(), indptr.size(), stream);
+  // don't need to sync here- thrust should take care of it.
 
   for (value_idx node = 0; node < n_clusters; node++) {
     value_t node_stability;
@@ -379,7 +369,8 @@ void excess_of_mass(
   }
 
   /**
-   * 3. Perform BFS through is_cluster, propagating cluster "deselection" through subtrees
+   * 3. Perform BFS through is_cluster, propagating cluster
+   * "deselection" through subtrees
    */
   rmm::device_uvector<bool> frontier(n_clusters, stream);
   raft::update_device(is_cluster, is_cluster_h, n_clusters, stream);
@@ -397,8 +388,7 @@ void excess_of_mass(
   // a dense form for purposes of uniform workload/thread scheduling
 
   // While frontier is not empty, perform single bfs through tree
-  // TODO: Corey - add n_leaves here
-  size_t grid = raft::ceildiv(4 * 2, (int)tpb);
+  size_t grid = raft::ceildiv(frontier.size(), (size_t)tpb);
 
   while (n_elements_to_traverse > 0) {
     detail::propagate_cluster_negation<<<grid, tpb, 0, stream>>>(
@@ -464,7 +454,7 @@ void extract_clusters(const raft::handle_t &handle,
 
   rmm::device_uvector<value_t> tree_stabilities(condensed_tree.get_n_clusters(), handle.get_stream());
 
-//  compute_stabilities(handle, condensed_tree, tree_stabilities.data());
+  compute_stabilities(handle, condensed_tree, tree_stabilities.data());
 
   rmm::device_uvector<bool> is_cluster(condensed_tree.get_n_clusters(), handle.get_stream());
 
