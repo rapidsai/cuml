@@ -238,7 +238,8 @@ void compute_stabilities(const raft::handle_t &handle,
   rmm::device_uvector<value_idx> sorted_child(condensed_child, n_points, stream);
   rmm::device_uvector<value_t> sorted_lambdas(lambdas, n_points, stream);
 
-  auto children_lambda_zip = thrust::make_zip_iterator(thrust::make_tuple(sorted_child.begin(), sorted_lambdas.begin()));
+  auto children_lambda_zip = thrust::make_zip_iterator(thrust::make_tuple(sorted_child.begin(),
+                                                                          sorted_lambdas.begin()));
   thrust::sort_by_key(policy, parents, parents + n_edges, children_lambda_zip);
 
   // TODO: Segmented reduction on min_lambda within each cluster
@@ -323,7 +324,7 @@ void excess_of_mass(const raft::handle_t &handle,
   rmm::device_uvector<value_idx> parents(cluster_tree_edges, stream);
   rmm::device_uvector<value_idx> children(cluster_tree_edges, stream);
   rmm::device_uvector<value_idx> sizes(cluster_tree_edges, stream);
-  rmm::device_uvector<value_idx> indptr(n_clusters, stream);
+  rmm::device_uvector<value_idx> indptr(n_clusters+1, stream);
 
   thrust::copy_if(thrust::cuda::par.on(stream), condensed_tree.get_parents(),
                   condensed_tree.get_parents() + (condensed_tree.get_n_edges()), condensed_tree.get_lambdas(),
@@ -405,19 +406,55 @@ void excess_of_mass(const raft::handle_t &handle,
   }
 }
 
-template<typename value_idx, typename value_t>
-void get_stability_scores() {
 
+template<typename value_idx>
+struct ReduceSizes {
+
+  ReduceSizes(value_idx *cluster_sizes_): cluster_sizes(cluster_sizes_){}
+  __host__ __device__ value_idx operator()(value_idx v) {
+    atomicAdd(cluster_sizes+v, 1);
+  }
+
+ private:
+  value_idx *cluster_sizes;
+};
+
+template<typename value_idx, typename value_t>
+void get_stability_scores(const raft::handle_t &handle,
+                          const value_idx *labels,
+                          const value_t *stability,
+                          const value_idx *clusters,
+                          value_idx n_clusters,
+                          value_t max_lambda,
+                          value_idx n_leaves,
+                          value_t *result) {
+
+  rmm::device_uvector<value_idx> cluster_sizes(n_clusters, handle.get_stream());
   // TODO: Perform segmented reduction to compute cluster_size
 
+  thrust::for_each(thrust::cuda::par.on(handle.get_stream()), labels, labels+n_leaves,
+                   ReduceSizes<value_idx>());
+
   // TODO: Embarassingly parallel
+
+  auto enumeration = thrust::make_zip_iterator(thrust::make_tuple(clusters, cluster_sizes.data()));
+  thrust::transform(thrust::cuda::par.on(handle.get_stream()),
+    enumeration, enumeration+n_clusters,
+    result, [=] __device__ (thrust::tuple<value_idx, value_idx> tup) {
+      value_idx size = thrust::get<1>(tup);
+      value_idx c = thrust::get<0>(tup);
+
+      bool expr = max_lambda == std::numeric_limits<value_t>::max() ||
+                  max_lambda == 0.0 ||
+                  size == 0;
+      return (!expr * (stability[c] / size * max_lambda)) + (expr * 1.0);
+    });
 }
 
 template<typename value_idx, typename value_t>
 void do_labelling() {
-
-  // TODO: union find is constructed on host }
-
+  // TODO: This can be done efficiently on host.
+}
 
 template<typename value_idx, typename value_t>
 void get_probabilities() {
