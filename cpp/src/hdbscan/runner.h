@@ -16,14 +16,15 @@
 
 #pragma once
 
-#include <cuml/cuml_api.h>
 #include <raft/cudart_utils.h>
-#include <common/cumlHandle.hpp>
 
+#include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <raft/sparse/hierarchy/detail/agglomerative.cuh>
 #include <raft/sparse/hierarchy/detail/mst.cuh>
+
+#include "tree.cuh"
 #include "reachability.cuh"
 
 namespace ML {
@@ -48,7 +49,7 @@ struct MSTEpilogueReachability {
 template <typename value_idx = int64_t, typename value_t = float>
 void _fit(const raft::handle_t &handle, value_t *X, value_idx m, value_idx n,
           raft::distance::DistanceType metric, int k, int min_pts,
-          float alpha) {
+          float alpha, int min_cluster_size) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
@@ -94,6 +95,10 @@ void _fit(const raft::handle_t &handle, value_t *X, value_idx m, value_idx n,
   /**
    * Condense branches of tree according to min cluster size
    */
+   Tree::CondensedHierarchy<value_idx, value_t> condensed_tree(m, stream);
+   condense_hierarchy(handle, out_src.data(), out_dst.data(),
+                      out_delta.data(), out_size.data(),
+                     min_cluster_size, m, condensed_tree);
 
   /**
    * Extract labels from stability
