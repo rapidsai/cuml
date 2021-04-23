@@ -18,7 +18,7 @@
 
 #include "detail/tree_kernels.cuh"
 
-#include <src_prims/label/classlabels.cuh>
+#include <raft/label/classlabels.cuh>
 
 #include <raft/cudart_utils.h>
 
@@ -47,7 +47,8 @@ template<typename value_idx, typename value_t>
 struct CondensedHierarchy {
 
   CondensedHierarchy(const raft::handle_t &handle_, value_idx n_leaves_):
-               handle(handle_), n_leaves(n_leaves_), parents(0, handle.get_stream()), children(0, handle.get_stream()),
+               handle(handle_), n_leaves(n_leaves_), parents(0, handle.get_stream()),
+                                                                           children(0, handle.get_stream()),
                lambdas(0, handle.get_stream()), sizes(0, handle.get_stream()) {}
 
   void condense(value_idx *full_parents, value_idx *full_children,
@@ -73,6 +74,8 @@ struct CondensedHierarchy {
     thrust::copy_if(thrust::cuda::par.on(stream),
                     full_sizes, full_sizes + (n_leaves * 2), sizes.data(), Not_Empty());
 
+    // TODO: I don't believe this is correct. The whole set of parents/children will need to be made monotonic.
+    // Also, make_monotonic doesn't have a return value.
     n_clusters = MLCommon::Label::make_monotonic(handle, parents.data(), parents.begin(), parents.end());
   }
 
@@ -183,7 +186,7 @@ void condense_hierarchy(const raft::handle_t &handle, const value_idx *src,
                      frontier.data() + (n_leaves * 2), 0);
   }
 
-  // TODO: Normalize labels so they are drawn from a monotonically increasing set.
+  // TODO: Verify the sequence of condensed cluster labels enables topological sort
 
   condensed_tree.condense(out_parent.data(), out_child.data(),
                           out_lambda.data(), out_size.data());
@@ -407,18 +410,6 @@ void excess_of_mass(const raft::handle_t &handle,
 }
 
 
-template<typename value_idx>
-struct ReduceSizes {
-
-  ReduceSizes(value_idx *cluster_sizes_): cluster_sizes(cluster_sizes_){}
-  __host__ __device__ value_idx operator()(value_idx v) {
-    atomicAdd(cluster_sizes+v, 1);
-  }
-
- private:
-  value_idx *cluster_sizes;
-};
-
 template<typename value_idx, typename value_t>
 void get_stability_scores(const raft::handle_t &handle,
                           const value_idx *labels,
@@ -429,14 +420,19 @@ void get_stability_scores(const raft::handle_t &handle,
                           value_idx n_leaves,
                           value_t *result) {
 
+  /**
+   * 1. Populate cluster sizes
+   */
   rmm::device_uvector<value_idx> cluster_sizes(n_clusters, handle.get_stream());
-  // TODO: Perform segmented reduction to compute cluster_size
-
+  value_idx *sizes = cluster_sizes.data();
   thrust::for_each(thrust::cuda::par.on(handle.get_stream()), labels, labels+n_leaves,
-                   ReduceSizes<value_idx>());
+  [=] __device__ (value_idx v) {
+    atomicAdd(sizes+v, 1);
+  });
 
-  // TODO: Embarassingly parallel
-
+  /**
+   * Compute stability scores
+   */
   auto enumeration = thrust::make_zip_iterator(thrust::make_tuple(clusters, cluster_sizes.data()));
   thrust::transform(thrust::cuda::par.on(handle.get_stream()),
     enumeration, enumeration+n_clusters,
