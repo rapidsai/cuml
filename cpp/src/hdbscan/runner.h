@@ -37,14 +37,14 @@ struct MSTEpilogueReachability {
 
   void operator()(const raft::handle_t &handle, value_idx *coo_rows,
                   value_idx *coo_cols, value_t *coo_data, value_idx nnz) {
-
-    auto first = thrust::make_zip_iterator(thrust::make_tuple(coo_rows, coo_cols, coo_data));
-    thrust::transform(thrust::cuda::par.on(handle.get_stream()), first, first+nnz,
-                        coo_data, [=] __device__ (thrust::tuple<value_idx, value_idx, value_t> t) {
-      return max(core_distances[thrust::get<0>(t)],
-                                   core_distances[thrust::get<1>(t)],
-                                   thrust::get<2>(t));
-    });
+    auto first = thrust::make_zip_iterator(
+      thrust::make_tuple(coo_rows, coo_cols, coo_data));
+    thrust::transform(
+      thrust::cuda::par.on(handle.get_stream()), first, first + nnz, coo_data,
+      [=] __device__(thrust::tuple<value_idx, value_idx, value_t> t) {
+        return max(core_distances[thrust::get<0>(t)],
+                   core_distances[thrust::get<1>(t)], thrust::get<2>(t));
+      });
   }
 
  private:
@@ -53,17 +53,15 @@ struct MSTEpilogueReachability {
 };
 
 template <typename value_idx = int64_t, typename value_t = float>
-void _fit(const raft::handle_t &handle, value_t *X, std::size_t m,
-          std::size_t n, raft::distance::DistanceType metric, int k,
-          int min_pts, int min_cluster_size,
-          hdbscan_output<value_idx, value_t> *out) {
+void _fit(const raft::handle_t &handle, value_t *X, value_idx m, value_idx n,
+          raft::distance::DistanceType metric, int k, int min_pts,
+          int min_cluster_size, hdbscan_output<value_idx, value_t> *out) {
   // auto d_alloc = handle.get_device_allocator();
   // auto stream = handle.get_stream();
 
   // /**
   //  * Mutual reachability graph
   //  */
-
   // rmm::device_uvector<value_idx> mutual_reachability_graph_inds(k * m, stream);
   // rmm::device_uvector<value_t> mutual_reachability_graph_dists(k * m, stream);
   // rmm::device_uvector<value_t> core_dists(k * m, stream);
@@ -102,17 +100,17 @@ void _fit(const raft::handle_t &handle, value_t *X, std::size_t m,
   // /**
   //  * Condense branches of tree according to min cluster size
   //  */
-  //  Tree::CondensedHierarchy<value_idx, value_t> condensed_tree(m, stream);
-  //  condense_hierarchy(handle, out_src.data(), out_dst.data(),
-  //                     out_delta.data(), out_size.data(),
-  //                    min_cluster_size, m, condensed_tree);
+  // Tree::CondensedHierarchy<value_idx, value_t> condensed_tree(m, stream);
+  // condense_hierarchy(handle, out_src.data(), out_dst.data(), out_delta.data(),
+  //                    out_size.data(), min_cluster_size, m, condensed_tree);
 
-  // rmm::device_uvector<value_t> stabilities(condensed_tree.get_n_clusters(), handle.get_stream());
+  // rmm::device_uvector<value_t> stabilities(condensed_tree.get_n_clusters(),
+  //                                          handle.get_stream());
   // compute_stabilities(handle, condensed_tree, stabilities);
+
   /**
    * Extract labels from stability
    */
-
 }
 
 };  // end namespace HDBSCAN

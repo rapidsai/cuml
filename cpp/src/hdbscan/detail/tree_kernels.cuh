@@ -130,29 +130,25 @@ __global__ void condense_hierarchy_kernel(
   }
 }
 
-template<typename value_idx, typename value_t>
+template <typename value_idx, typename value_t>
 __global__ void propagate_cluster_negation(const value_idx *indptr,
                                            const value_idx *children,
-                                           bool *frontier,
-                                           bool *is_cluster,
+                                           bool *frontier, bool *is_cluster,
                                            int n_clusters) {
-
   int cluster = blockDim.x * blockIdx.x + threadIdx.x;
 
-  if(cluster < n_clusters && frontier[cluster]) {
+  if (cluster < n_clusters && frontier[cluster]) {
     frontier[cluster] = false;
 
     value_idx children_start = indptr[cluster];
     value_idx children_stop = indptr[cluster];
-    for(int i = 0; i < children_stop - children_start; i++) {
-
+    for (int i = 0; i < children_stop - children_start; i++) {
       value_idx child = children[i];
       frontier[child] = true;
       is_cluster[child] = false;
     }
   }
 }
-    
 
 };  // end namespace detail
 };  // end namespace Tree
