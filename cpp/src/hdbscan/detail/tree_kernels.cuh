@@ -130,7 +130,7 @@ __global__ void condense_hierarchy_kernel(
   }
 }
 
-template <typename value_idx, typename value_t>
+template <typename value_idx>
 __global__ void propagate_cluster_negation(const value_idx *indptr,
                                            const value_idx *children,
                                            bool *frontier, bool *is_cluster,

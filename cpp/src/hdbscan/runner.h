@@ -113,16 +113,15 @@ void _fit(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
    condense_hierarchy(handle, children.data(), out_delta.data(),
                       out_size.data(), min_cluster_size, m, condensed_tree);
 
-
-  rmm::device_uvector<value_idx> labels(m, stream);
-  rmm::device_uvector<value_t> stabilities(m, stream);
-  rmm::device_uvector<value_t> probabilities(m, stream);
-  Tree::extract_clusters(handle, condensed_tree, m, labels.data(),
-                         stabilities.data(), probabilities.data());
-
   /**
    * Extract labels from stability
    */
+   rmm::device_uvector<value_idx> labels(m, stream);
+   rmm::device_uvector<value_t> stabilities(m, stream);
+   rmm::device_uvector<value_t> probabilities(m, stream);
+   Tree::extract_clusters(handle, condensed_tree, m, labels.data(),
+                          stabilities.data(), probabilities.data());
+
 }
 
 };  // end namespace HDBSCAN
