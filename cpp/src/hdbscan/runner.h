@@ -24,8 +24,8 @@
 #include <raft/sparse/hierarchy/detail/agglomerative.cuh>
 #include <raft/sparse/hierarchy/detail/mst.cuh>
 
-#include "tree.cuh"
 #include "reachability.cuh"
+#include "tree.cuh"
 
 namespace ML {
 namespace HDBSCAN {
@@ -37,14 +37,14 @@ struct MSTEpilogueReachability {
 
   void operator()(const raft::handle_t &handle, value_idx *coo_rows,
                   value_idx *coo_cols, value_t *coo_data, value_idx nnz) {
-
-    auto first = thrust::make_zip_iterator(thrust::make_tuple(coo_rows, coo_cols, coo_data));
-    thrust::transform(thrust::cuda::par.on(handle.get_stream()), first, first+nnz,
-                        coo_data, [=] __device__ (thrust::tuple<value_idx, value_idx, value_t> t) {
-      return max(core_distances[thrust::get<0>(t)],
-                                   core_distances[thrust::get<1>(t)],
-                                   thrust::get<2>(t));
-    });
+    auto first = thrust::make_zip_iterator(
+      thrust::make_tuple(coo_rows, coo_cols, coo_data));
+    thrust::transform(
+      thrust::cuda::par.on(handle.get_stream()), first, first + nnz, coo_data,
+      [=] __device__(thrust::tuple<value_idx, value_idx, value_t> t) {
+        return max(core_distances[thrust::get<0>(t)],
+                   core_distances[thrust::get<1>(t)], thrust::get<2>(t));
+      });
   }
 
  private:
@@ -54,8 +54,8 @@ struct MSTEpilogueReachability {
 
 template <typename value_idx = int64_t, typename value_t = float>
 void _fit(const raft::handle_t &handle, value_t *X, value_idx m, value_idx n,
-          raft::distance::DistanceType metric, int k, int min_pts,
-          float alpha, int min_cluster_size) {
+          raft::distance::DistanceType metric, int k, int min_pts, float alpha,
+          int min_cluster_size) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
@@ -100,19 +100,17 @@ void _fit(const raft::handle_t &handle, value_t *X, value_idx m, value_idx n,
   /**
    * Condense branches of tree according to min cluster size
    */
-   Tree::CondensedHierarchy<value_idx, value_t> condensed_tree(m, stream);
-   condense_hierarchy(handle, out_src.data(), out_dst.data(),
-                      out_delta.data(), out_size.data(),
-                     min_cluster_size, m, condensed_tree);
+  Tree::CondensedHierarchy<value_idx, value_t> condensed_tree(m, stream);
+  condense_hierarchy(handle, out_src.data(), out_dst.data(), out_delta.data(),
+                     out_size.data(), min_cluster_size, m, condensed_tree);
 
   rmm::device_uvector<value_t> stabilities(condensed_tree.get_n_clusters(),
-                                            handle.get_stream());
+                                           handle.get_stream());
   compute_stabilities(handle, condensed_tree, stabilities);
 
   /**
    * Extract labels from stability
    */
-
 }
 
 };  // end namespace HDBSCAN
