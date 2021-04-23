@@ -191,10 +191,9 @@ void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
 }
 
 template <typename Type>
-int make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
-                    std::shared_ptr<deviceAllocator> allocator) {
+int make_monotonic(const raft::handle_t &handle, Type *out, Type *in, size_t N) {
   return make_monotonic<Type>(
-    out, in, N, stream, [] __device__(Type val) { return false; }, allocator);
+    out, in, N, handle.get_stream(), [] __device__(Type val) { return false; }, handle.get_device_allocator());
 }
 };  // namespace Label
 };  // end namespace MLCommon
