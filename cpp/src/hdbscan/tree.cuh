@@ -126,7 +126,8 @@ void condense_hierarchy(const raft::handle_t &handle, const value_idx *src,
                         const value_idx *dst,
                         const value_t *delta, const value_idx *sizes,
                         int min_cluster_size, int n_leaves,
-                        CondensedHierarchy<value_idx, value_t> &condensed_tree) {
+                        CondensedHierarchy<value_idx, value_t> &condensed_tree
+                        int &n_condensed_clusters) {
 
   cudaStream_t stream = handle.get_stream();
 
@@ -177,7 +178,7 @@ void condense_hierarchy(const raft::handle_t &handle, const value_idx *src,
 
   auto parents = condensed_tree.get_parents();
   auto parents_len = condensed_tree.get_n_edges();
-  MLCommon::Label::make_monotonic(parents, parents, parents_len, stream, handle.get_device_allocator());
+  n_condensed_clusters = MLCommon::Label::make_monotonic(parents, parents, parents_len, stream, handle.get_device_allocator());
 }
 
 template<typename value_t>
@@ -199,8 +200,10 @@ private:
 };
 
 template <typename value_t, typename value_idx>
-rmm::device_uvector<value_t> compute_stabilities(const raft::handle_t &handle,
-  const CondensedHierarchy<value_idx, value_t> &condensed_tree) {
+void compute_stabilities(const raft::handle_t &handle,
+  const CondensedHierarchy<value_idx, value_t> &condensed_tree,
+  rmm::device_uvector<value_t> &stabilities,
+  int n_condensed_clusters) {
 
   auto parents = condensed_tree.get_parents();
   auto children = condensed_tree.get_children();

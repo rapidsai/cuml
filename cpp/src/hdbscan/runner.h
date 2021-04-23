@@ -95,12 +95,14 @@ void _fit(const raft::handle_t &handle, value_t *X, value_idx m, value_idx n,
   /**
    * Condense branches of tree according to min cluster size
    */
+   int n_condensed_clusters;
    Tree::CondensedHierarchy<value_idx, value_t> condensed_tree(m, stream);
    condense_hierarchy(handle, out_src.data(), out_dst.data(),
                       out_delta.data(), out_size.data(),
-                     min_cluster_size, m, condensed_tree);
+                     min_cluster_size, m, condensed_tree, n_condensed_clusters);
 
-  rmm::device_uvector<value_t> stabilities = compute_stabilities(handle, condensed_tree);
+  rmm::device_uvector<value_t> stabilities(n_condensed_clusters, handle.get_stream());
+  compute_stabilities(handle, condensed_tree, stabilities, n_condensed_clusters);
   /**
    * Extract labels from stability
    */
