@@ -57,24 +57,27 @@ struct CondensedHierarchy {
 
     n_edges = thrust::transform_reduce(
       thrust::cuda::par.on(stream), full_parents, full_parents + (n_leaves * 2),
-      Not_Empty(), 0, thrust::plus<value_idx>());
+      [=] __device__ (value_t a) {return a != -1;}, 0, thrust::plus<value_idx>());
 
     parents.resize(n_edges, stream);
     children.resize(n_edges, stream);
     lambdas.resize(n_edges, stream);
     sizes.resize(n_edges, stream);
 
-    thrust::copy_if(thrust::cuda::par.on(stream), full_parents,
-                    full_parents + (n_leaves * 2), parents.data(), Not_Empty());
-    thrust::copy_if(thrust::cuda::par.on(stream), full_children,
-                    full_children + (n_leaves * 2), children.data(),
-                    Not_Empty());
-    thrust::copy_if(thrust::cuda::par.on(stream), full_lambdas,
-                    full_lambdas + (n_leaves * 2), lambdas.data(), Not_Empty());
-    thrust::copy_if(thrust::cuda::par.on(stream), full_sizes,
-                    full_sizes + (n_leaves * 2), sizes.data(), Not_Empty());
+    auto in = thrust::make_zip_iterator(
+      thrust::make_tuple(full_parents, full_children, full_lambdas, full_sizes));
 
-    // TODO: I don't believe this is correct. The whole set of parents/children will need to be made monotonic.
+    auto out = thrust::make_zip_iterator(
+      thrust::make_tuple(parents.data(), children.data(), lambdas.data(), sizes.data()));
+
+    thrust::copy_if(thrust::cuda::par.on(stream), in, in+(n_leaves*2), out,
+      [=] __device__ (thrust::tuple<value_idx, value_idx, value_t, value_idx> tup) {
+        return thrust::get<0>(tup) != -1 && thrust::get<1>(tup) != -1 &&
+          thrust::get<2>(tup) != -1 && thrust::get<3>(tup) != -1;
+    });
+
+    // TODO: I don't believe this is correct. The whole set of
+    //  parents/children will need to be made monotonic.
     // Also, make_monotonic doesn't have a return value.
 //    n_clusters = MLCommon::Label::make_monotonic(
 //      handle, parents.data(), parents.begin(), parents.end());
