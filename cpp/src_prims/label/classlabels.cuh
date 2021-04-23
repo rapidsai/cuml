@@ -146,7 +146,7 @@ __global__ void map_label_kernel(Type *map_ids, size_t N_labels, Type *in,
    * should have monotonically increasing labels applied to them.
    */
 template <typename Type, typename Lambda>
-void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
+int make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
                     Lambda filter_op,
                     std::shared_ptr<deviceAllocator> allocator) {
   static const size_t TPB_X = 256;
@@ -162,6 +162,8 @@ void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
     map_ids, num_clusters, in, out, N, filter_op);
 
   allocator->deallocate(map_ids, num_clusters * sizeof(Type), stream);
+  
+  return num_clusters;
 }
 
 /**
@@ -185,6 +187,13 @@ template <typename Type>
 void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
                     std::shared_ptr<deviceAllocator> allocator) {
   make_monotonic<Type>(
+    out, in, N, stream, [] __device__(Type val) { return false; }, allocator);
+}
+
+template <typename Type>
+int make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
+                    std::shared_ptr<deviceAllocator> allocator) {
+  return make_monotonic<Type>(
     out, in, N, stream, [] __device__(Type val) { return false; }, allocator);
 }
 };  // namespace Label
