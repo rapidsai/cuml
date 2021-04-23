@@ -137,10 +137,16 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
     LINE_SEARCH_RETCODE lsret =
       ls_backtrack(param, f, fx, x, grad, step, drt, xp, dev_scalar, stream);
 
-    bool isLsSuccess = lsret == LS_SUCCESS;
-    CUML_LOG_TRACE("Iteration %d, fx=%f", *k, fx);
+    bool isLsValid = !isnan(fx) && !isinf(fx);
+    // Linesearch may fail to converge, but still come closer to the solution;
+    // if that is not the case, let `check_convergence` ("insufficient change")
+    // below terminate the loop.
+    bool isLsInDoubt =
+      lsret == LS_INVALID_STEP_MIN || lsret == LS_MAX_ITERS_REACHED;
+    bool isLsSuccess =
+      lsret == LS_SUCCESS || isLsValid && fx <= fxp && isLsSuccess;
 
-    if (!isLsSuccess || isnan(fx) || isinf(fx)) {
+    if (!isLsSuccess || !isLsValid) {
       fx = fxp;
       x.copy_async(xp, stream);
       grad.copy_async(gradp, stream);
@@ -283,8 +289,16 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
       ls_backtrack_projected(param, f_wrap, fx, x, grad, pseudo, step, drt, xp,
                              l1_penalty, dev_scalar, stream);
 
-    bool isLsSuccess = lsret == LS_SUCCESS;
-    if (!isLsSuccess || isnan(fx) || isinf(fx)) {
+    bool isLsValid = !isnan(fx) && !isinf(fx);
+    // Linesearch may fail to converge, but still come closer to the solution;
+    // if that is not the case, let `check_convergence` ("insufficient change")
+    // below terminate the loop.
+    bool isLsInDoubt =
+      lsret == LS_INVALID_STEP_MIN || lsret == LS_MAX_ITERS_REACHED;
+    bool isLsSuccess =
+      lsret == LS_SUCCESS || isLsValid && fx <= fxp && isLsSuccess;
+
+    if (!isLsSuccess || !isLsValid) {
       fx = fxp;
       x.copy_async(xp, stream);
       grad.copy_async(gradp, stream);
