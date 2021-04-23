@@ -272,19 +272,84 @@ void condense_hierarchy(raft::handle_t &handle, const value_idx *children,
   condensed_tree.condense(out_parent.data(), out_child.data(), out_lambda.data(), out_size.data());
 }
 
+template<typename value_t>
+struct transform_functor {
+
+public:
+  transform_op(value_t *stabilities_, value_t *births_) :
+    stabilities(stabilities_),
+    births(births_) {
+
+  }
+
+  __device__ value_t operator()(const &idx) {
+    return stabilities[idx] - births[idx];
+  }
+
+private:
+  value_t *stabilities, *births;
+};
+
 template<typename value_idx, typename value_t>
-void compute_stabilities(value_idx *condensed_parent,
+rmm::device_uvector<value_t> compute_stabilities(value_idx *condensed_parent,
                          value_idx *condensed_child,
                          value_t *lambdas,
                          value_idx *sizes,
+                         int n_points,
                          int n_leaves) {
 
+  auto thrust_policy = rmm::exec_policy(stream);
 
   // TODO: Reverse topological sort (e.g. sort hierarchy, lambdas, and sizes by lambda)
+  rmm::device_uvector<value_idx> sorted_child(condensed_child, n_points, stream);
+  rmm::device_uvector<value_t> sorted_lambdas(lambdas, n_points, stream);
+
+  auto children_lambda_zip = thrust::make_zip_iterator(thrust::make_tuple(sorted_child.begin(), sorted_lambdas.begin()));
+  thrust::sort_by_key(policy, condensed_parent, condensed_parent + n_points, children_lambda_zip);
 
   // TODO: Segmented reduction on min_lambda within each cluster
+  // TODO: Converting child array to CSR offset and using CUB Segmented Reduce
+  // Investigate use of a kernel like coo_spmv
+  auto n_clusters = // max label in parent - n_leaves, which make_monotonic will provide with
+  rmm::device_uvector<value_idx> birth(n_clusters, stream);
+  thrust::fill(thrust_policy, birth.begin(), birth.end(), 0);
+
+  rmm::device_uvector<value_idx> sorted_child_offsets(n_points + 1, stream);
+  auto start_offset = 0;
+  sorted_child_offsets.set_element_async(0, start_offset, stream);
+  thrust::inclusive_scan(thrust_policy, sorted_child.begin(), sorted_child.end(), sorted_child_offsets.begin() + 1);
+
+  void     *d_temp_storage = NULL;
+  size_t   temp_storage_bytes = 0;
+  cub::DeviceSegmentedReduce::Min(d_temp_storage, temp_storage_bytes, lambdas.begin(), birth.begin(),
+    n_clusters, sorted_child_offsets.begin(), sorted_child_offsets.begin() + 1);
+  CUDA_CHECK(cudaMalloc(&d_temp_storage, temp_storage_bytes));
+
+  cub::DeviceSegmentedReduce::Min(d_temp_storage, temp_storage_bytes, lambdas.begin(), birth.begin(),
+    n_clusters, sorted_child_offsets.begin(), sorted_child_offsets.begin() + 1);
+  CUDA_CHECK(cudaFree(d_temp_storage));
 
   // TODO: Embarassingly parallel construction of output
+  // TODO: It can be done with same coo_spmv kernel
+  // Or naive kernel, atomically write to cluster stability
+  rmm::device_uvector<value_t> stabilities(n_clusters, stream);
+  thrust::fill(thrust_policy, stabilities.begin(), stabilities.end(), 0);
+
+  *d_temp_storage = NULL;
+  temp_storage_bytes = 0;
+  cub::DeviceSegmentedReduce::Sum(d_temp_storage, temp_storage_bytes, lambdas.begin(), stabilities.begin(),
+    n_clusters, sorted_child_offsets.begin(), sorted_child_offsets.begin() + 1);
+  CUDA_CHECK(cudaMalloc(&d_temp_storage, temp_storage_bytes));
+
+  cub::DeviceSegmentedReduce::Sum(d_temp_storage, temp_storage_bytes, lambdas.begin(), stabilities.begin(),
+    n_clusters, sorted_child_offsets.begin(), sorted_child_offsets.begin() + 1);
+  CUDA_CHECK(cudaFree(d_temp_storage));
+
+  // now transform
+  auto transform_op = transform_functor<value_t>(stabilities.data(), birth.data());
+  thrust::transform(policy, thrust::make_counting_iterator(0), thrust::make_counting_iterator(n_clusters), stabilities.begin(), transform_op);
+
+  return stabilities;
 }
 
 template<typename value_idx, typename value_t>
