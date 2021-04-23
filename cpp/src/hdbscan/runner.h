@@ -43,7 +43,7 @@ struct MSTEpilogueReachability {
       thrust::cuda::par.on(handle.get_stream()), first, first + nnz, coo_data,
       [=] __device__(thrust::tuple<value_idx, value_idx, value_t> t) {
         return max(core_distances[thrust::get<0>(t)],
-                   core_distances[thrust::get<1>(t)], thrust::get<2>(t));
+                   max(core_distances[thrust::get<1>(t)], thrust::get<2>(t)));
       });
   }
 
@@ -53,60 +53,72 @@ struct MSTEpilogueReachability {
 };
 
 template <typename value_idx = int64_t, typename value_t = float>
-void _fit(const raft::handle_t &handle, value_t *X, value_idx m, value_idx n,
+void _fit(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
           raft::distance::DistanceType metric, int k, int min_pts,
           int min_cluster_size, hdbscan_output<value_idx, value_t> *out) {
-  // auto d_alloc = handle.get_device_allocator();
-  // auto stream = handle.get_stream();
+   auto d_alloc = handle.get_device_allocator();
+   auto stream = handle.get_stream();
 
-  // /**
-  //  * Mutual reachability graph
-  //  */
-  // rmm::device_uvector<value_idx> mutual_reachability_graph_inds(k * m, stream);
-  // rmm::device_uvector<value_t> mutual_reachability_graph_dists(k * m, stream);
-  // rmm::device_uvector<value_t> core_dists(k * m, stream);
+   /**
+    * Mutual reachability graph
+    */
 
-  // Reachability::mutual_reachability_dists(
-  //   handle, X, m, n, metric, min_pts, k, mutual_reachability_graph_inds.data(),
-  //   mutual_reachability_graph_dists.data(), core_dists.data());
+   rmm::device_uvector<value_idx> mutual_reachability_indptr(m + 1, stream);
+   rmm::device_uvector<value_idx> mutual_reachability_graph_inds(k * m, stream);
+   rmm::device_uvector<value_t> mutual_reachability_graph_dists(k * m, stream);
+   rmm::device_uvector<value_t> core_dists(k * m, stream);
 
-  // /**
-  //  * Construct MST sorted by weights
-  //  */
-  // rmm::device_uvector<value_idx> mst_rows(m - 1, stream);
-  // rmm::device_uvector<value_t> mst_cols(m - 1, stream);
-  // rmm::device_uvector<value_idx> mst_data(m - 1, stream);
+   Reachability::mutual_reachability_graph(
+     handle, X, (size_t)m, (size_t)n, metric, min_pts,
+     mutual_reachability_indptr.data(),
+     mutual_reachability_graph_inds.data(),
+     mutual_reachability_graph_dists.data(),
+     core_dists.data());
 
-  // // during knn graph connection
-  // raft::hierarchy::detail::build_sorted_mst(
-  //   handle, X, mutual_reachability_graph_inds.data(),
-  //   mutual_reachability_graph_dists.data(), m, n, mst_rows, mst_cols, mst_data,
-  //   k * m, metric, 10, MSTEpilogueReachability<value_idx, value_t>());
+   /**
+    * Construct MST sorted by weights
+    */
+   rmm::device_uvector<value_idx> mst_rows(m - 1, stream);
+   rmm::device_uvector<value_idx> mst_cols(m - 1, stream);
+   rmm::device_uvector<value_t> mst_data(m - 1, stream);
 
-  // /**
-  //  * Perform hierarchical labeling
-  //  */
-  // value_idx n_edges = m - 1;
+   // during knn graph connection
+   raft::hierarchy::detail::build_sorted_mst(
+     handle, X,
+     mutual_reachability_indptr.data(),
+     mutual_reachability_graph_inds.data(),
+     mutual_reachability_graph_dists.data(),
+     m, n, mst_rows, mst_cols, mst_data,
+     size_t(k * m),
+     MSTEpilogueReachability<value_idx, value_t>(m, core_dists.data()),
+     metric, (size_t)10);
 
-  // rmm::device_uvector<value_idx> out_src(n_edges, stream);
-  // rmm::device_uvector<value_idx> out_dst(n_edges, stream);
-  // rmm::device_uvector<value_t> out_delta(n_edges, stream);
-  // rmm::device_uvector<value_idx> out_size(n_edges, stream);
+   /**
+    * Perform hierarchical labeling
+    */
+   size_t n_edges = m - 1;
 
-  // raft::hierarchy::detail::build_dendrogram_host(
-  //   mst_rows.data(), mst_cols.data(), mst_data.data(), n_edges, out_src.data(),
-  //   out_dst.data(), out_delta.data(), out_size.data());
+   rmm::device_uvector<value_idx> children(n_edges, stream);
+   rmm::device_uvector<value_t> out_delta(n_edges, stream);
+   rmm::device_uvector<value_idx> out_size(n_edges, stream);
 
-  // /**
-  //  * Condense branches of tree according to min cluster size
-  //  */
-  // Tree::CondensedHierarchy<value_idx, value_t> condensed_tree(m, stream);
-  // condense_hierarchy(handle, out_src.data(), out_dst.data(), out_delta.data(),
-  //                    out_size.data(), min_cluster_size, m, condensed_tree);
+   raft::hierarchy::detail::build_dendrogram_host(handle,
+     mst_rows.data(), mst_cols.data(), mst_data.data(), n_edges, children.data(),
+     out_delta, out_size);
 
-  // rmm::device_uvector<value_t> stabilities(condensed_tree.get_n_clusters(),
-  //                                          handle.get_stream());
-  // compute_stabilities(handle, condensed_tree, stabilities);
+   /**
+    * Condense branches of tree according to min cluster size
+    */
+   Tree::CondensedHierarchy<value_idx, value_t> condensed_tree(handle, m);
+   condense_hierarchy(handle, children.data(), out_delta.data(),
+                      out_size.data(), min_cluster_size, m, condensed_tree);
+
+
+//   rmm::device_uvector<value_idx> labels(m, stream);
+//   rmm::device_uvector<value_t> stabilities(m, stream);
+//   rmm::device_uvector<value_t> probabilities(m, stream);
+//   Tree::extract_clusters(handle, condensed_tree, m, labels.data(),
+//                          stabilities.data(), probabilities.data());
 
   /**
    * Extract labels from stability

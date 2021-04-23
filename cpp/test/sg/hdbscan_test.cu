@@ -54,14 +54,14 @@ struct LinkageInputs {
 */
 template <typename T, int BLOCK_DIM_X, int BLOCK_DIM_Y>
 __global__ void computeTheNumerator(const T* firstClusterArray,
-                                    const T* secondClusterArray, uint64_t size,
-                                    uint64_t* a, uint64_t* b) {
+                                    const T* secondClusterArray, int size,
+                                    int* a, int* b) {
   //calculating the indices of pairs of datapoints compared by the current thread
-  uint64_t j = threadIdx.x + blockIdx.x * blockDim.x;
-  uint64_t i = threadIdx.y + blockIdx.y * blockDim.y;
+  int j = threadIdx.x + blockIdx.x * blockDim.x;
+  int i = threadIdx.y + blockIdx.y * blockDim.y;
 
   //thread-local variables to count a and b
-  uint64_t myA = 0, myB = 0;
+  int myA = 0, myB = 0;
 
   if (i < size && j < size && j < i) {
     //checking if the pair have been classified the same by both the clusters
@@ -77,8 +77,8 @@ __global__ void computeTheNumerator(const T* firstClusterArray,
     }
   }
 
-  //specialize blockReduce for a 2D block of 1024 threads of type uint64_t
-  typedef cub::BlockReduce<uint64_t, BLOCK_DIM_X,
+  //specialize blockReduce for a 2D block of 1024 threads of type int
+  typedef cub::BlockReduce<int, BLOCK_DIM_X,
                            cub::BLOCK_REDUCE_WARP_REDUCTIONS, BLOCK_DIM_Y>
     BlockReduce;
 
@@ -103,20 +103,20 @@ __global__ void computeTheNumerator(const T* firstClusterArray,
 * <a href="https://en.wikipedia.org/wiki/Rand_index">more info on rand index</a>
 * @param firstClusterArray: the array of classes of type T
 * @param secondClusterArray: the array of classes of type T
-* @param size: the size of the data points of type uint64_t
+* @param size: the size of the data points of type int
 * @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<MLCommon::deviceAllocator>
 * @param stream: the cudaStream object
 */
 template <typename T>
 double compute_rand_index(
-  T* firstClusterArray, T* secondClusterArray, uint64_t size,
+  T* firstClusterArray, T* secondClusterArray, int size,
   std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream) {
   //rand index for size less than 2 is not defined
   ASSERT(size >= 2, "Rand Index for size less than 2 not defined!");
 
   //allocating and initializing memory for a and b in the GPU
-  raft::mr::device::buffer<uint64_t> arr_buf(allocator, stream, 2);
-  CUDA_CHECK(cudaMemsetAsync(arr_buf.data(), 0, 2 * sizeof(uint64_t), stream));
+  raft::mr::device::buffer<int> arr_buf(allocator, stream, 2);
+  CUDA_CHECK(cudaMemsetAsync(arr_buf.data(), 0, 2 * sizeof(int), stream));
 
   //kernel configuration
   static const int BLOCK_DIM_Y = 16, BLOCK_DIM_X = 16;
@@ -131,7 +131,7 @@ double compute_rand_index(
       arr_buf.data() + 1);
 
   //synchronizing and updating the calculated values of a and b from device to host
-  uint64_t ab_host[2] = {0};
+  int ab_host[2] = {0};
   raft::update_host(ab_host, arr_buf.data(), 2, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -139,7 +139,7 @@ double compute_rand_index(
   CUDA_CHECK(cudaGetLastError());
 
   //denominator
-  uint64_t nChooseTwo = size * (size - 1) / 2;
+  int nChooseTwo = size * (size - 1) / 2;
 
   //calculating the rand_index
   return (double)(((double)(ab_host[0] + ab_host[1])) / (double)nChooseTwo);
@@ -201,7 +201,7 @@ class HDBSCANTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
   double score;
 };
 
-const std::vector<LinkageInputs<float, int64_t>> hdbscan_inputsf2 = {
+const std::vector<LinkageInputs<float, int>> hdbscan_inputsf2 = {
   // Test n_clusters == n_points
   {10,
    5,
@@ -593,11 +593,11 @@ const std::vector<LinkageInputs<float, int64_t>> hdbscan_inputsf2 = {
     4, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}};
 
-typedef HDBSCANTest<float, int64_t> HDBSCANTestF_Int64;
-TEST_P(HDBSCANTestF_Int64, Result) {
+typedef HDBSCANTest<float, int> HDBSCANTestF_Int;
+TEST_P(HDBSCANTestF_Int, Result) {
   //  EXPECT_TRUE(score == 1.0);
 }
 
-INSTANTIATE_TEST_CASE_P(HDBSCANTest, HDBSCANTestF_Int64,
+INSTANTIATE_TEST_CASE_P(HDBSCANTest, HDBSCANTestF_Int,
                         ::testing::ValuesIn(hdbscan_inputsf2));
 }  // end namespace ML

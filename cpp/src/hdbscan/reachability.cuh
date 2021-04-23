@@ -21,6 +21,12 @@
 
 #include <raft/mr/device/buffer.hpp>
 
+#include <raft/sparse/convert/csr.cuh>
+#include <raft/sparse/hierarchy/detail/connectivities.cuh>
+#include <raft/sparse/selection/knn_graph.cuh>
+
+#include <rmm/device_uvector.hpp>
+
 #include <cuml/neighbors/knn.hpp>
 #include <distance/distance.cuh>
 
@@ -71,7 +77,7 @@ __global__ void mutual_reachability_kernel(value_t *pw_dists,
 
   value_t dist = pw_dists[row + col];
 
-  out[row + col] = max(core_a, core_b, dist);
+  out[row + col] = max(core_a, max(core_b, dist));
 }
 
 template <typename value_idx, typename value_t, int tpb = 1024>
@@ -80,7 +86,7 @@ void mutual_reachability(value_t *pw_dists, value_t *core_dists, size_t m,
   int blocks = raft::ceildiv(m * m, (size_t)tpb);
 
   mutual_reachability_kernel<value_idx, value_t>
-    <<<blocks, tpb, 0, stream>>>(pw_dists, core_dists, m, m, stream);
+    <<<blocks, tpb, 0, stream>>>(pw_dists, core_dists, m, m, pw_dists);
 }
 
 /**
@@ -100,16 +106,34 @@ void mutual_reachability(value_t *pw_dists, value_t *core_dists, size_t m,
  * @param[in] k
  */
 template <typename value_idx, typename value_t>
-void mutual_reachability_dists(const raft::handle_t &handle, const value_t *X,
+void mutual_reachability_graph(const raft::handle_t &handle, const value_t *X,
                                size_t m, size_t n,
                                raft::distance::DistanceType metric, int k,
-                               value_idx *inds, value_t *dists,
+                               value_idx *indptr,
+                               value_idx *inds,
+                               value_t *dists,
                                value_t *core_dists) {
   auto stream = handle.get_stream();
 
+  rmm::device_uvector<value_idx> coo_rows(k * m, stream);
+
+  std::vector<value_t *> inputs;
+  inputs.push_back(const_cast<value_t *>(X));
+
+  std::vector<int> sizes;
+  sizes.push_back(m);
+
+  // This is temporary. Once faiss is updated, we should be able to
+  // pass value_idx through to knn.
+  rmm::device_uvector<int64_t> int64_indices(k*m, stream);
+
   // perform knn
-  brute_force_knn(handle, {X}, {m}, n, X, m, inds, dists, k, true, true,
+  brute_force_knn(handle, inputs,
+                  sizes, n, const_cast<value_t*>(X), m, int64_indices.data(), dists, k, true, true,
                   metric);
+
+  // convert from current knn's 64-bit to 32-bit.
+  raft::sparse::selection::conv_indices(int64_indices.data(), inds, k*m, stream);
 
   // Slice core distances (distances to kth nearest neighbor)
   core_distances(dists, k, m, core_dists, stream);
@@ -119,8 +143,14 @@ void mutual_reachability_dists(const raft::handle_t &handle, const value_t *X,
   // at this point so the core distances will need to be returned
   // so additional points can be added to the graph and projected
   // ito mutual reachability space later.
-  mutual_reachability<value_idx, value_t>(inds, dists, core_dists, m, n,
+  mutual_reachability<value_idx, value_t>(dists, core_dists, m,
                                           stream);
+
+  raft::sparse::selection::fill_indices<value_idx><<<raft::ceildiv(k * m, (size_t)256), 256, 0, stream>>>(coo_rows.data(), k, m*k);
+
+  raft::sparse::convert::sorted_coo_to_csr(coo_rows.data(),
+                                           m*k, indptr,
+                                           m + 1, handle.get_device_allocator(), stream);
 }
 
 };  // end namespace Reachability
