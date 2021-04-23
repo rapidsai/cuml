@@ -332,7 +332,7 @@ void excess_of_mass(const raft::handle_t &handle,
    /**
     * Copy indptr to host
     * For each node in sorted stability keys,
-    *    - transformed reduce
+    *    - transformed reducet
     */
 
   /**
