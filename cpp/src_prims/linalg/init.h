@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <raft/cudart_utils.h>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/counting_iterator.h>
@@ -56,6 +57,20 @@ template <typename T, int TPB = 256>
 void range(T *out, int n, cudaStream_t stream) {
   range(out, 0, n, stream);
 }
+
+/**
+ * @brief Zeros the output.
+ *
+ * \param [out] out device array, size [n]
+ * \param [in] n length of the array
+ * \param [in] stream cuda stream
+ */
+template <typename T>
+void zero(T *out, int n, cudaStream_t stream) {
+  CUDA_CHECK(
+    cudaMemsetAsync(static_cast<void *>(out), 0, n * sizeof(T), stream));
+}
+
 }  // unnamed namespace
 }  // namespace LinAlg
 }  // namespace MLCommon

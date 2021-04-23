@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/mr/host/buffer.hpp>
 
 namespace MLCommon {

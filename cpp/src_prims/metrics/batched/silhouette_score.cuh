@@ -140,9 +140,9 @@ rmm::device_uvector<value_t> get_pairwise_distance(
 
   rmm::device_uvector<value_t> distances(n_left_rows * n_right_rows, stream);
 
-  MLCommon::Distance::pairwise_distance(
-    left_begin, right_begin, distances.data(), n_left_rows, n_right_rows,
-    n_cols, workspace, metric, stream);
+  raft::distance::pairwise_distance(left_begin, right_begin, distances.data(),
+                                    n_left_rows, n_right_rows, n_cols,
+                                    workspace, metric, stream);
 
   return distances;
 }
