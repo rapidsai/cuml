@@ -106,6 +106,8 @@ struct Builder {
 
   /** host copy of the number of new nodes in current branch */
   IdxT* h_n_nodes;
+  /** host copy of the number of leaves created so far */
+  IdxT* h_n_leaves;
   /** total number of nodes created so far */
   IdxT h_total_nodes;
   /** range of the currently worked upon nodes */
@@ -258,6 +260,7 @@ struct Builder {
 
     // all nodes in the tree
     h_wsize = calculateAlignedBytes(sizeof(IdxT));  // h_n_nodes
+    h_wsize += calculateAlignedBytes(sizeof(IdxT));  // h_n_leaves
     // h_blockid_to_nodeid
     h_wsize += calculateAlignedBytes(sizeof(IdxT) * max_blocks);
     // h_relative_blockids
@@ -314,6 +317,8 @@ struct Builder {
     relative_blockids = reinterpret_cast<IdxT*>(d_wspace);
     // host
     h_n_nodes = reinterpret_cast<IdxT*>(h_wspace);
+    h_wspace += calculateAlignedBytes(sizeof(IdxT));
+    h_n_leaves = reinterpret_cast<IdxT*>(h_wspace);
     h_wspace += calculateAlignedBytes(sizeof(IdxT));
     h_blockid_to_nodeid = reinterpret_cast<IdxT*>(h_wspace);
     h_wspace += calculateAlignedBytes(sizeof(IdxT) * max_blocks);
@@ -415,12 +420,12 @@ struct Builder {
       int blocks_needed = h_nodes[node_start + n].count /
                           (samples_per_thread * Traits::TPB_DEFAULT);
       blocks_needed = std::max(1, blocks_needed);
-
-      // bool is_leaf = leafBasedOnParams<DataT, IdxT>(
-      //   h_nodes[node_start + n].depth, params.max_depth,
-      //   params.min_samples_split, params.max_leaves, 0,
-      //   h_nodes[node_start + n].count);
-      // if (is_leaf) blocks_needed = 0;
+  
+      bool is_leaf = leafBasedOnParams<DataT, IdxT>(
+        h_nodes[node_start + n].depth, params.max_depth,
+        params.min_samples_split, params.max_leaves, h_n_leaves,
+        h_nodes[node_start + n].count);
+      if (is_leaf) blocks_needed = 0;
 
       for (int b = 0; b < blocks_needed; b++) {
         h_blockid_to_nodeid[total_blocks_needed + b] = n;
@@ -452,11 +457,11 @@ struct Builder {
     // iterate through a batch of columns (to reduce the memory pressure) and
     // compute the best split at the end
     auto n_col_blks = n_blks_for_cols;
-    // if(total_blocks_needed) {
+    if (total_blocks_needed) {
       for (IdxT c = 0; c < input.nSampledCols; c += n_col_blks) {
         Traits::computeSplit(*this, c, batchSize, params.split_criterion, s);
         CUDA_CHECK(cudaGetLastError());
-      // }
+      }
     }
     // create child nodes (or make the current ones leaf)
     auto smemSize = Traits::nodeSplitSmemSize(*this);
@@ -471,6 +476,7 @@ struct Builder {
     ML::POP_RANGE();
     // copy the updated (due to leaf creation) and newly created child nodes
     raft::update_host(h_n_nodes, n_nodes, 1, s);
+    raft::update_host(h_n_leaves, n_leaves, 1, s);
     CUDA_CHECK(cudaStreamSynchronize(s));
     h_nodes.resize(h_nodes.size() + batchSize + *h_n_nodes);
     raft::update_host(h_nodes.data() + node_start, curr_nodes, batchSize, s);
