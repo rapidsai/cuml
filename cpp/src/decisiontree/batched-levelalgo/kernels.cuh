@@ -150,7 +150,7 @@ struct RegDeviceTraits {
  * @return true if the current node is to be declared as a leaf, else false
  */
 template <typename DataT, typename IdxT>
-DI bool leafBasedOnParams(IdxT myDepth, IdxT max_depth, IdxT min_samples_split,
+HDI bool leafBasedOnParams(IdxT myDepth, IdxT max_depth, IdxT min_samples_split,
                           IdxT max_leaves, const IdxT* n_leaves,
                           IdxT nSamples) {
   if (myDepth >= max_depth) return true;
@@ -446,30 +446,29 @@ __global__ void computeSplitClassificationKernel(
 
   // synchronizeing above changes across block
   __syncthreads();
-
-  // update the corresponding global location
-  auto histOffset = ((nid * gridDim.y) + blockIdx.y) * pdf_shist_len;
-  for (IdxT i = threadIdx.x; i < pdf_shist_len; i += blockDim.x) {
-    atomicAdd(hist + histOffset + i, pdf_shist[i]);
-  }
-
-  __threadfence();  // for commit guarantee
-  __syncthreads();
-
-  // last threadblock will go ahead and compute the best split
-  bool last = true;
   if (num_blocks > 1) {
+    // update the corresponding global location
+    auto histOffset = ((nid * gridDim.y) + blockIdx.y) * pdf_shist_len;
+    for (IdxT i = threadIdx.x; i < pdf_shist_len; i += blockDim.x) {
+      atomicAdd(hist + histOffset + i, pdf_shist[i]);
+    }
+
+    __threadfence();  // for commit guarantee
+    __syncthreads();
+
+    // last threadblock will go ahead and compute the best split
+    bool last = true;
     last = MLCommon::signalDone(done_count + nid * gridDim.y + blockIdx.y,
-                                num_blocks, relative_blockid == 0, sDone);
+                                  num_blocks, relative_blockid == 0, sDone);
+    // if not the last threadblock, exit
+    if (!last) return;
+
+    // store the complete global histogram in shared memory of last block
+    for (IdxT i = threadIdx.x; i < pdf_shist_len; i += blockDim.x)
+      pdf_shist[i] = hist[histOffset + i];
+
+    __syncthreads();
   }
-  // if not the last threadblock, exit
-  if (!last) return;
-
-  // store the complete global histogram in shared memory of last block
-  for (IdxT i = threadIdx.x; i < pdf_shist_len; i += blockDim.x)
-    pdf_shist[i] = hist[histOffset + i];
-
-  __syncthreads();
 
   /**
    * Scanning code:
