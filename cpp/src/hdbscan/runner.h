@@ -36,9 +36,13 @@ struct MSTEpilogueReachability {
     : core_distances(core_distances_), m(m_) {}
 
   void operator()(raft::handle_t &handle, value_idx *coo_rows,
-                  value_idx *coo_cols, value_t *coo_data) {
-    // TODO: Schedule kernel that uses the core distances
-    // to perform the max(core_dist(src), core_dist(dst), d(src, dst)) operation
+                  value_idx *coo_cols, value_t *coo_data, value_idx nnz) {
+
+    auto first = thrust::make_zip_iterator(thrust::make_tuple(coo_rows, coo_cols, coo_data));
+    thrust::transform(thrust::cuda::par.on(handle.get_stream()), first, first+nnz,
+                        coo_data, [=] __device__ (thrust::tuple<value_idx, value_idx, value_t> t) {
+      return max(core_distances[thrust::get<0>(t)], core_distances[thrust::get<1>(t)], thrust::get<2>(t));
+    });
   }
 
  private:
@@ -100,11 +104,14 @@ void _fit(const raft::handle_t &handle, value_t *X, value_idx m, value_idx n,
                       out_delta.data(), out_size.data(),
                      min_cluster_size, m, condensed_tree);
 
-  rmm::device_uvector<value_t> stabilities(condensed_tree.get_n_clusters(), handle.get_stream());
+  rmm::device_uvector<value_t> stabilities(condensed_tree.get_n_clusters(),
+                                            handle.get_stream());
   compute_stabilities(handle, condensed_tree, stabilities);
+
   /**
    * Extract labels from stability
    */
+
 }
 
 };  // end namespace HDBSCAN
