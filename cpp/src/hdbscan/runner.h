@@ -24,8 +24,10 @@
 #include <raft/sparse/hierarchy/detail/agglomerative.cuh>
 #include <raft/sparse/hierarchy/detail/mst.cuh>
 
-#include "reachability.cuh"
-#include "tree.cuh"
+#include "detail/common.h"
+#include "detail/condense.cuh"
+#include "detail/extract.cuh"
+#include "detail/reachability.cuh"
 
 namespace ML {
 namespace HDBSCAN {
@@ -68,7 +70,7 @@ void _fit(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
    rmm::device_uvector<value_t> mutual_reachability_graph_dists(k * m, stream);
    rmm::device_uvector<value_t> core_dists(k * m, stream);
 
-   Reachability::mutual_reachability_graph(
+   detail::Reachability::mutual_reachability_graph(
      handle, X, (size_t)m, (size_t)n, metric, min_pts,
      mutual_reachability_indptr.data(),
      mutual_reachability_graph_inds.data(),
@@ -109,8 +111,8 @@ void _fit(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
    /**
     * Condense branches of tree according to min cluster size
     */
-   Tree::CondensedHierarchy<value_idx, value_t> condensed_tree(handle, m);
-   condense_hierarchy(handle, children.data(), out_delta.data(),
+   detail::Common::CondensedHierarchy<value_idx, value_t> condensed_tree(handle, m);
+   detail::Condense::build_condensed_hierarchy(handle, children.data(), out_delta.data(),
                       out_size.data(), min_cluster_size, m, condensed_tree);
 
   /**
@@ -119,9 +121,8 @@ void _fit(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
    rmm::device_uvector<value_idx> labels(m, stream);
    rmm::device_uvector<value_t> stabilities(m, stream);
    rmm::device_uvector<value_t> probabilities(m, stream);
-   Tree::extract_clusters(handle, condensed_tree, m, labels.data(),
+   detail::Extract::extract_clusters(handle, condensed_tree, m, labels.data(),
                           stabilities.data(), probabilities.data());
-
 }
 
 };  // end namespace HDBSCAN

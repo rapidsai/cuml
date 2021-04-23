@@ -32,6 +32,7 @@
 
 namespace ML {
 namespace HDBSCAN {
+namespace detail {
 namespace Reachability {
 
 template <typename value_t>
@@ -109,10 +110,8 @@ template <typename value_idx, typename value_t>
 void mutual_reachability_graph(const raft::handle_t &handle, const value_t *X,
                                size_t m, size_t n,
                                raft::distance::DistanceType metric, int k,
-                               value_idx *indptr,
-                               value_idx *inds,
-                               value_t *dists,
-                               value_t *core_dists) {
+                               value_idx *indptr, value_idx *inds,
+                               value_t *dists, value_t *core_dists) {
   auto stream = handle.get_stream();
 
   rmm::device_uvector<value_idx> coo_rows(k * m, stream);
@@ -125,15 +124,15 @@ void mutual_reachability_graph(const raft::handle_t &handle, const value_t *X,
 
   // This is temporary. Once faiss is updated, we should be able to
   // pass value_idx through to knn.
-  rmm::device_uvector<int64_t> int64_indices(k*m, stream);
+  rmm::device_uvector<int64_t> int64_indices(k * m, stream);
 
   // perform knn
-  brute_force_knn(handle, inputs,
-                  sizes, n, const_cast<value_t*>(X), m, int64_indices.data(), dists, k, true, true,
-                  metric);
+  brute_force_knn(handle, inputs, sizes, n, const_cast<value_t *>(X), m,
+                  int64_indices.data(), dists, k, true, true, metric);
 
   // convert from current knn's 64-bit to 32-bit.
-  raft::sparse::selection::conv_indices(int64_indices.data(), inds, k*m, stream);
+  raft::sparse::selection::conv_indices(int64_indices.data(), inds, k * m,
+                                        stream);
 
   // Slice core distances (distances to kth nearest neighbor)
   core_distances(dists, k, m, core_dists, stream);
@@ -143,16 +142,18 @@ void mutual_reachability_graph(const raft::handle_t &handle, const value_t *X,
   // at this point so the core distances will need to be returned
   // so additional points can be added to the graph and projected
   // ito mutual reachability space later.
-  mutual_reachability<value_idx, value_t>(dists, core_dists, m,
-                                          stream);
+  mutual_reachability<value_idx, value_t>(dists, core_dists, m, stream);
 
-  raft::sparse::selection::fill_indices<value_idx><<<raft::ceildiv(k * m, (size_t)256), 256, 0, stream>>>(coo_rows.data(), k, m*k);
+  raft::sparse::selection::fill_indices<value_idx>
+    <<<raft::ceildiv(k * m, (size_t)256), 256, 0, stream>>>(coo_rows.data(), k,
+                                                            m * k);
 
-  raft::sparse::convert::sorted_coo_to_csr(coo_rows.data(),
-                                           m*k, indptr,
-                                           m + 1, handle.get_device_allocator(), stream);
+  raft::sparse::convert::sorted_coo_to_csr(coo_rows.data(), m * k, indptr,
+                                           m + 1, handle.get_device_allocator(),
+                                           stream);
 }
 
 };  // end namespace Reachability
+};  // end namespace detail
 };  // end namespace HDBSCAN
 };  // end namespace ML

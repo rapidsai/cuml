@@ -16,8 +16,6 @@
 
 #pragma once
 
-#include "detail/tree_kernels.cuh"
-
 #include <label/classlabels.cuh>
 
 #include <cub/cub.cuh>
@@ -29,158 +27,35 @@
 #include <raft/sparse/op/sort.h>
 #include <raft/sparse/convert/csr.cuh>
 
+#include "common.h"
+
+
 #include <thrust/execution_policy.h>
 #include <thrust/reduce.h>
 
 namespace ML {
 namespace HDBSCAN {
-namespace Tree {
+namespace detail {
+namespace Extract {
 
-struct Not_Empty {
-  template <typename value_t>
-  __host__ __device__ __forceinline__ value_t operator()(value_t a) {
-    return a != -1;
+template <typename value_idx>
+__global__ void propagate_cluster_negation(const value_idx *indptr,
+                                           const value_idx *children,
+                                           bool *frontier, bool *is_cluster,
+                                           int n_clusters) {
+  int cluster = blockDim.x * blockIdx.x + threadIdx.x;
+
+  if (cluster < n_clusters && frontier[cluster]) {
+    frontier[cluster] = false;
+
+    value_idx children_start = indptr[cluster];
+    value_idx children_stop = indptr[cluster];
+    for (int i = 0; i < children_stop - children_start; i++) {
+      value_idx child = children[i];
+      frontier[child] = true;
+      is_cluster[child] = false;
+    }
   }
-};
-
-template <typename value_idx, typename value_t>
-struct CondensedHierarchy {
-  CondensedHierarchy(const raft::handle_t &handle_, size_t n_leaves_)
-    : handle(handle_),
-      n_leaves(n_leaves_),
-      parents(0, handle.get_stream()),
-      children(0, handle.get_stream()),
-      lambdas(0, handle.get_stream()),
-      sizes(0, handle.get_stream()) {}
-
-  void condense(value_idx *full_parents, value_idx *full_children,
-                value_t *full_lambdas, value_idx *full_sizes) {
-    auto stream = handle.get_stream();
-
-    n_edges = thrust::transform_reduce(
-      thrust::cuda::par.on(stream), full_parents, full_parents + (n_leaves * 2),
-      [=] __device__ (value_t a) {return a != -1;}, 0, thrust::plus<value_idx>());
-
-    parents.resize(n_edges, stream);
-    children.resize(n_edges, stream);
-    lambdas.resize(n_edges, stream);
-    sizes.resize(n_edges, stream);
-
-    auto in = thrust::make_zip_iterator(
-      thrust::make_tuple(full_parents, full_children, full_lambdas, full_sizes));
-
-    auto out = thrust::make_zip_iterator(
-      thrust::make_tuple(parents.data(), children.data(), lambdas.data(), sizes.data()));
-
-    thrust::copy_if(thrust::cuda::par.on(stream), in, in+(n_leaves*2), out,
-      [=] __device__ (thrust::tuple<value_idx, value_idx, value_t, value_idx> tup) {
-        return thrust::get<0>(tup) != -1 && thrust::get<1>(tup) != -1 &&
-          thrust::get<2>(tup) != -1 && thrust::get<3>(tup) != -1;
-    });
-
-    // TODO: I don't believe this is correct. The whole set of
-    //  parents/children will need to be made monotonic.
-    // Also, make_monotonic doesn't have a return value.
-//    n_clusters = MLCommon::Label::make_monotonic(
-//      handle, parents.data(), parents.begin(), parents.end());
-  }
-
-  value_idx *get_parents() { return parents.data(); }
-
-  value_idx *get_children() { return children.data(); }
-
-  value_t *get_lambdas() { return lambdas.data(); }
-
-  value_idx *get_sizes() { return sizes.data(); }
-
-  value_idx get_n_edges() { return n_edges; }
-
-  int get_n_clusters() { return n_clusters; }
-
- private:
-  const raft::handle_t &handle;
-
-  rmm::device_uvector<value_idx> parents;
-  rmm::device_uvector<value_idx> children;
-  rmm::device_uvector<value_t> lambdas;
-  rmm::device_uvector<value_idx> sizes;
-
-  size_t n_edges;
-  size_t n_leaves;
-  int n_clusters;
-};
-
-/**
- * Condenses a binary tree dendrogram in the Scipy format
- * by merging labels that fall below a minimum cluster size.
- * @tparam value_idx
- * @tparam value_t
- * @tparam tpb
- * @param handle
- * @param[in] children
- * @param[in] delta
- * @param[in] sizes
- * @param[in] min_cluster_size
- * @param[in] n_leaves
- * @param[out] out_parent
- * @param[out] out_child
- * @param[out] out_lambda
- * @param[out] out_size
- */
-template <typename value_idx, typename value_t, int tpb = 256>
-void condense_hierarchy(
-  const raft::handle_t &handle, const value_idx *children,
-  const value_t *delta, const value_idx *sizes, int min_cluster_size,
-  int n_leaves, CondensedHierarchy<value_idx, value_t> &condensed_tree) {
-  cudaStream_t stream = handle.get_stream();
-
-  rmm::device_uvector<bool> frontier(n_leaves * 2, stream);
-  rmm::device_uvector<value_idx> ignore(n_leaves * 2, stream);
-
-  rmm::device_uvector<value_idx> out_parent(n_leaves * 2, stream);
-  rmm::device_uvector<value_idx> out_child(n_leaves * 2, stream);
-  rmm::device_uvector<value_t> out_lambda(n_leaves * 2, stream);
-  rmm::device_uvector<value_idx> out_size(n_leaves * 2, stream);
-
-  int root = 2 * n_leaves;
-  int num_points = floor(root / 2.0) + 1;
-
-  thrust::fill(thrust::cuda::par.on(stream), out_parent.data(),
-               out_parent.data() + (n_leaves * 2), -1);
-  thrust::fill(thrust::cuda::par.on(stream), out_child.data(),
-               out_child.data() + (n_leaves * 2), -1);
-  thrust::fill(thrust::cuda::par.on(stream), out_lambda.data(),
-               out_lambda.data() + (n_leaves * 2), -1);
-  thrust::fill(thrust::cuda::par.on(stream), out_size.data(),
-               out_size.data() + (n_leaves * 2), -1);
-
-  rmm::device_uvector<value_idx> relabel(root + 1, handle.get_stream());
-  raft::update_device(relabel.data() + root, &root, 1, handle.get_stream());
-
-  // While frontier is not empty, perform single bfs through tree
-  size_t grid = raft::ceildiv(n_leaves * 2, (int)tpb);
-
-  value_idx n_elements_to_traverse =
-    thrust::reduce(thrust::cuda::par.on(handle.get_stream()), frontier.data(),
-                   frontier.data() + (n_leaves * 2), 0);
-
-  while (n_elements_to_traverse > 0) {
-    // TODO: Investigate whether it would be worth performing a gather/argmatch in order
-    // to schedule only the number of threads needed. (it might not be worth it)
-    detail::condense_hierarchy_kernel<<<grid, tpb, 0, handle.get_stream()>>>(
-      frontier.data(), ignore.data(), relabel.data(), children,
-      delta, sizes, n_leaves, num_points, min_cluster_size, out_parent.data(),
-      out_child.data(), out_lambda.data(), out_size.data());
-
-    n_elements_to_traverse =
-      thrust::reduce(thrust::cuda::par.on(handle.get_stream()), frontier.data(),
-                     frontier.data() + (n_leaves * 2), 0);
-  }
-
-  // TODO: Verify the sequence of condensed cluster labels enables topological sort
-
-  condensed_tree.condense(out_parent.data(), out_child.data(),
-                          out_lambda.data(), out_size.data());
 }
 
 template <typename value_t>
@@ -217,7 +92,7 @@ void segmented_reduce(const value_t *in, value_t *out, int n_segments,
 template <typename value_idx, typename value_t>
 void compute_stabilities(
   const raft::handle_t &handle,
-  CondensedHierarchy<value_idx, value_t> &condensed_tree,
+  Common::CondensedHierarchy<value_idx, value_t> &condensed_tree,
   value_t  *stabilities) {
   auto parents = condensed_tree.get_parents();
   auto children = condensed_tree.get_children();
@@ -291,7 +166,7 @@ void compute_stabilities(
 template <typename value_idx, typename value_t, int tpb = 256>
 void excess_of_mass(
   const raft::handle_t &handle,
-  CondensedHierarchy<value_idx, value_t> &condensed_tree,
+  Common::CondensedHierarchy<value_idx, value_t> &condensed_tree,
   value_t *stability, bool *is_cluster, value_idx n_clusters,
   value_idx max_cluster_size) {
 
@@ -391,7 +266,7 @@ void excess_of_mass(
   size_t grid = raft::ceildiv(frontier.size(), (size_t)tpb);
 
   while (n_elements_to_traverse > 0) {
-    detail::propagate_cluster_negation<<<grid, tpb, 0, stream>>>(
+    propagate_cluster_negation<<<grid, tpb, 0, stream>>>(
       indptr.data(), children.data(), frontier.data(), is_cluster, n_clusters);
 
     n_elements_to_traverse =
@@ -446,7 +321,7 @@ void get_probabilities(const raft::handle_t &handle, value_t *probabilities) {
 
 template<typename value_idx, typename value_t>
 void extract_clusters(const raft::handle_t &handle,
-                      CondensedHierarchy<value_idx, value_t> &condensed_tree,
+                      Common::CondensedHierarchy<value_idx, value_t> &condensed_tree,
                       size_t n_leaves,
                       value_idx *labels,
                       value_t *stabilities,
@@ -479,6 +354,7 @@ void extract_clusters(const raft::handle_t &handle,
 }
 
 
-};  // end namespace Tree
+};  // end namespace Extract
+};  // end namespace detail
 };  // end namespace HDBSCAN
 };  // end namespace ML

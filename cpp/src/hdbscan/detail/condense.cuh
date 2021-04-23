@@ -16,10 +16,26 @@
 
 #pragma once
 
+#include <label/classlabels.cuh>
+
+#include <cub/cub.cuh>
+
+#include <raft/cudart_utils.h>
+
+#include <rmm/device_uvector.hpp>
+
+#include <raft/sparse/op/sort.h>
+#include <raft/sparse/convert/csr.cuh>
+
+#include "common.h"
+
+#include <thrust/execution_policy.h>
+#include <thrust/reduce.h>
+
 namespace ML {
 namespace HDBSCAN {
-namespace Tree {
 namespace detail {
+namespace Condense {
 
 template <typename value_idx, typename value_t>
 __device__ value_t get_lambda(value_idx node, value_idx num_points,
@@ -79,8 +95,8 @@ __global__ void condense_hierarchy_kernel(
     out_count[node] = 1;
   }
 
-  // If node is not ignored and is not a leaf, condense its children
-  // if necessary
+    // If node is not ignored and is not a leaf, condense its children
+    // if necessary
   else if (!should_ignore and node >= num_points) {
     value_idx left_child = children[(node - num_points) * 2];
     value_idx right_child = children[((node - num_points) * 2)+1];
@@ -130,27 +146,84 @@ __global__ void condense_hierarchy_kernel(
   }
 }
 
-template <typename value_idx>
-__global__ void propagate_cluster_negation(const value_idx *indptr,
-                                           const value_idx *children,
-                                           bool *frontier, bool *is_cluster,
-                                           int n_clusters) {
-  int cluster = blockDim.x * blockIdx.x + threadIdx.x;
 
-  if (cluster < n_clusters && frontier[cluster]) {
-    frontier[cluster] = false;
 
-    value_idx children_start = indptr[cluster];
-    value_idx children_stop = indptr[cluster];
-    for (int i = 0; i < children_stop - children_start; i++) {
-      value_idx child = children[i];
-      frontier[child] = true;
-      is_cluster[child] = false;
-    }
+/**
+ * Condenses a binary tree dendrogram in the Scipy format
+ * by merging labels that fall below a minimum cluster size.
+ * This function accepts an empty instance of `CondensedHierarchy`
+ * and invokes the `condense()` function on it.
+ * @tparam value_idx
+ * @tparam value_t
+ * @tparam tpb
+ * @param handle
+ * @param[in] children
+ * @param[in] delta
+ * @param[in] sizes
+ * @param[in] min_cluster_size
+ * @param[in] n_leaves
+ * @param[out] out_parent
+ * @param[out] out_child
+ * @param[out] out_lambda
+ * @param[out] out_size
+ */
+template <typename value_idx, typename value_t, int tpb = 256>
+void build_condensed_hierarchy(
+  const raft::handle_t &handle, const value_idx *children, const value_t *delta,
+  const value_idx *sizes, int min_cluster_size, int n_leaves,
+  Common::CondensedHierarchy<value_idx, value_t> &condensed_tree) {
+  cudaStream_t stream = handle.get_stream();
+
+  rmm::device_uvector<bool> frontier(n_leaves * 2, stream);
+  rmm::device_uvector<value_idx> ignore(n_leaves * 2, stream);
+
+  rmm::device_uvector<value_idx> out_parent(n_leaves * 2, stream);
+  rmm::device_uvector<value_idx> out_child(n_leaves * 2, stream);
+  rmm::device_uvector<value_t> out_lambda(n_leaves * 2, stream);
+  rmm::device_uvector<value_idx> out_size(n_leaves * 2, stream);
+
+  int root = 2 * n_leaves;
+  int num_points = floor(root / 2.0) + 1;
+
+  thrust::fill(thrust::cuda::par.on(stream), out_parent.data(),
+               out_parent.data() + (n_leaves * 2), -1);
+  thrust::fill(thrust::cuda::par.on(stream), out_child.data(),
+               out_child.data() + (n_leaves * 2), -1);
+  thrust::fill(thrust::cuda::par.on(stream), out_lambda.data(),
+               out_lambda.data() + (n_leaves * 2), -1);
+  thrust::fill(thrust::cuda::par.on(stream), out_size.data(),
+               out_size.data() + (n_leaves * 2), -1);
+
+  rmm::device_uvector<value_idx> relabel(root + 1, handle.get_stream());
+  raft::update_device(relabel.data() + root, &root, 1, handle.get_stream());
+
+  // While frontier is not empty, perform single bfs through tree
+  size_t grid = raft::ceildiv(n_leaves * 2, (int)tpb);
+
+  value_idx n_elements_to_traverse =
+    thrust::reduce(thrust::cuda::par.on(handle.get_stream()), frontier.data(),
+                   frontier.data() + (n_leaves * 2), 0);
+
+  while (n_elements_to_traverse > 0) {
+    // TODO: Investigate whether it would be worth performing a gather/argmatch in order
+    // to schedule only the number of threads needed. (it might not be worth it)
+    condense_hierarchy_kernel<<<grid, tpb, 0, handle.get_stream()>>>(
+      frontier.data(), ignore.data(), relabel.data(), children, delta, sizes,
+      n_leaves, num_points, min_cluster_size, out_parent.data(),
+      out_child.data(), out_lambda.data(), out_size.data());
+
+    n_elements_to_traverse =
+      thrust::reduce(thrust::cuda::par.on(handle.get_stream()), frontier.data(),
+                     frontier.data() + (n_leaves * 2), 0);
   }
+
+  // TODO: Verify the sequence of condensed cluster labels enables topological sort
+
+  condensed_tree.condense(out_parent.data(), out_child.data(),
+                          out_lambda.data(), out_size.data());
 }
 
+};  // end namespace Condense
 };  // end namespace detail
-};  // end namespace Tree
 };  // end namespace HDBSCAN
 };  // end namespace ML
