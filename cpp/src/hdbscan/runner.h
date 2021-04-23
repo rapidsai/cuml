@@ -35,10 +35,16 @@ struct MSTEpilogueReachability {
   MSTEpilogueReachability(value_idx m_, value_t *core_distances_)
     : core_distances(core_distances_), m(m_) {}
 
-  void operator()(raft::handle_t &handle, value_idx *coo_rows,
-                  value_idx *coo_cols, value_t *coo_data) {
-    // TODO: Schedule kernel that uses the core distances
-    // to perform the max(core_dist(src), core_dist(dst), d(src, dst)) operation
+  void operator()(const raft::handle_t &handle, value_idx *coo_rows,
+                  value_idx *coo_cols, value_t *coo_data, value_idx nnz) {
+
+    auto first = thrust::make_zip_iterator(thrust::make_tuple(coo_rows, coo_cols, coo_data));
+    thrust::transform(thrust::cuda::par.on(handle.get_stream()), first, first+nnz,
+                        coo_data, [=] __device__ (thrust::tuple<value_idx, value_idx, value_t> t) {
+      return max(core_distances[thrust::get<0>(t)],
+                                   core_distances[thrust::get<1>(t)],
+                                   thrust::get<2>(t));
+    });
   }
 
  private:
@@ -106,6 +112,7 @@ void _fit(const raft::handle_t &handle, value_t *X, std::size_t m,
   /**
    * Extract labels from stability
    */
+
 }
 
 };  // end namespace HDBSCAN

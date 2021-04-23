@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
+#include <raft/handle.hpp>
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/hierarchy/common.h>
 #include <cuml/cluster/linkage.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
-#include <raft/handle.hpp>
 #include <utility>
 #include "benchmark.cuh"
 
