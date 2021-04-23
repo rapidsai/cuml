@@ -288,7 +288,7 @@ void DecisionTreeBase<T, L>::plant(
   ML::PUSH_RANGE("DecisionTreeBase::plant::bootstrapping features");
   //Bootstrap features
   unsigned int *h_colids = tempmem->h_colids->data();
-  if (tree_params.bootstrap_features) {
+  if (tree_params.max_features != 1.f) {
     srand(treeid * 1000);
     for (int i = 0; i < dinfo.Ncols; i++) {
       h_colids[i] = rand() % dinfo.Ncols;
