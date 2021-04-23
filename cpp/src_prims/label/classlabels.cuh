@@ -22,6 +22,7 @@
 #include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <raft/cuda_utils.cuh>
+#include <raft/handle.hpp>
 #include <raft/linalg/unary_op.cuh>
 
 namespace MLCommon {
@@ -147,8 +148,8 @@ __global__ void map_label_kernel(Type *map_ids, size_t N_labels, Type *in,
    */
 template <typename Type, typename Lambda>
 int make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
-                    Lambda filter_op,
-                    std::shared_ptr<deviceAllocator> allocator) {
+                   Lambda filter_op,
+                   std::shared_ptr<deviceAllocator> allocator) {
   static const size_t TPB_X = 256;
 
   dim3 blocks(raft::ceildiv(N, TPB_X));
@@ -162,7 +163,7 @@ int make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
     map_ids, num_clusters, in, out, N, filter_op);
 
   allocator->deallocate(map_ids, num_clusters * sizeof(Type), stream);
-  
+
   return num_clusters;
 }
 
@@ -191,9 +192,11 @@ void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
 }
 
 template <typename Type>
-int make_monotonic(const raft::handle_t &handle, Type *out, Type *in, size_t N) {
+int make_monotonic(const raft::handle_t &handle, Type *out, Type *in,
+                   size_t N) {
   return make_monotonic<Type>(
-    out, in, N, handle.get_stream(), [] __device__(Type val) { return false; }, handle.get_device_allocator());
+    out, in, N, handle.get_stream(), [] __device__(Type val) { return false; },
+    handle.get_device_allocator());
 }
 };  // namespace Label
 };  // end namespace MLCommon

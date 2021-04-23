@@ -19,6 +19,7 @@
 #include <cuml/cluster/linkage.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/cuml.hpp>
+#include <raft/handle.hpp>
 #include <utility>
 #include "benchmark.cuh"
 

@@ -17,14 +17,23 @@
 #pragma once
 
 #include <raft/linalg/distance_type.h>
-#include <raft/sparse/hierarchy/common.h>
 
 #include <cuml/cuml.hpp>
 
+#include <cstddef>
+
 namespace ML {
 
-template <typename value_idx = int64_t, typename value_t = float>
-void hdbscan(const raft::handle_t &handle, value_t *X, size_t m, size_t n,
-             raft::distance::DistanceType metric, int k, int min_pts,
-             float alpha, hdbscan_output<value_idx, value_t> *out);
+template <typename value_idx, typename value_t>
+struct hdbscan_output {
+  int n_clusters;
+  value_idx *labels;
+  value_t *probabilities;
+};
+
+// template <typename value_idx = int64_t, typename value_t = float>
+void hdbscan(const raft::handle_t &handle, float *X, std::size_t m,
+             std::size_t n, raft::distance::DistanceType metric, int k,
+             int min_pts, int min_cluster_size,
+             hdbscan_output<int64_t, float> *out);
 };  // end namespace ML

@@ -16,9 +16,7 @@
 
 #pragma once
 
-#include <cuml/cuml_api.h>
 #include <raft/cudart_utils.h>
-#include <common/cumlHandle.hpp>
 #include <raft/cuda_utils.cuh>
 
 #include <raft/mr/device/buffer.hpp>
