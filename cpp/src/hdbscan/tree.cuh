@@ -290,7 +290,7 @@ struct Greater_Than_One {
 template <typename value_idx, typename value_t, int tpb = 256>
 void excess_of_mass(
   const raft::handle_t &handle,
-  const CondensedHierarchy<value_idx, value_t> &condensed_tree,
+  CondensedHierarchy<value_idx, value_t> &condensed_tree,
   value_t *stability, bool *is_cluster, value_idx n_clusters,
   value_idx max_cluster_size) {
 
@@ -346,8 +346,8 @@ void excess_of_mass(
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
 
-  std::vector<bool> is_cluster_h(n_clusters, true);
-  std::vector<bool> frontier_h(n_clusters, false);
+  bool is_cluster_h[n_clusters];
+  bool frontier_h[n_clusters];
 
   for (value_idx node = 0; node < n_clusters; node++) {
     value_t node_stability;
@@ -362,7 +362,7 @@ void excess_of_mass(
     if (subtree_stability > stability[node] ||
         cluster_sizes[node] > max_cluster_size) {
       // Deselect / merge cluster with children
-      raft::update_device(stability + node, subtree_stability, 1, stream);
+      raft::update_device(stability + node, &subtree_stability, 1, stream);
       is_cluster[node] = false;
     } else {
       // Mark children to be deselected
@@ -374,7 +374,8 @@ void excess_of_mass(
    * 3. Perform BFS through is_cluster, propagating cluster "deselection" through subtrees
    */
   rmm::device_uvector<bool> frontier(n_clusters, stream);
-  raft::update_device(is_cluster, is_cluster_h.data(), n_clusters, stream);
+  raft::update_device(is_cluster, is_cluster_h, n_clusters, stream);
+  raft::update_device(frontier.data(), frontier_h, n_clusters, stream);
 
   thrust::transform(thrust::cuda::par.on(stream), is_cluster,
                     is_cluster + n_clusters, frontier.data(),
@@ -404,8 +405,8 @@ void excess_of_mass(
 template <typename value_idx, typename value_t>
 void get_stability_scores(const raft::handle_t &handle, const value_idx *labels,
                           const value_t *stability, const value_idx *clusters,
-                          value_idx n_clusters, value_t max_lambda,
-                          value_idx n_leaves, value_t *result) {
+                          size_t n_clusters, value_t max_lambda,
+                          size_t n_leaves, value_t *result) {
   /**
    * 1. Populate cluster sizes
    */
@@ -439,7 +440,7 @@ void do_labelling() {
 }
 
 template <typename value_idx, typename value_t>
-void get_probabilities(const raft::handle_t &handle, value_idx *probabilities) {
+void get_probabilities(const raft::handle_t &handle, value_t *probabilities) {
   // TODO: Compute deaths array similarly to compute_stabilities
 
   // TODO: Embarassingly parallel
@@ -455,11 +456,11 @@ void extract_clusters(const raft::handle_t &handle,
 
   rmm::device_uvector<value_t> tree_stabilities(condensed_tree.get_n_clusters(), handle.get_stream());
 
-  compute_stabilities(handle, condensed_tree, tree_stabilities.data());
+//  compute_stabilities(handle, condensed_tree, tree_stabilities.data());
 
   rmm::device_uvector<bool> is_cluster(condensed_tree.get_n_clusters(), handle.get_stream());
 
-  value_idx max_cluster_size; // TODO
+  value_idx max_cluster_size = -1; // TODO
   excess_of_mass(handle, condensed_tree, tree_stabilities.data(), is_cluster.data(),
                  condensed_tree.get_n_clusters(), max_cluster_size);
 
@@ -473,7 +474,7 @@ void extract_clusters(const raft::handle_t &handle,
   get_probabilities<value_idx, value_t>(handle, probabilities);
 
 
-  value_t max_lambda; //TODO Fill this in
+  value_t max_lambda = -1; //TODO Fill this in
   rmm::device_uvector<value_idx> stability_scores(0, handle.get_stream());
   get_stability_scores(handle, labels, tree_stabilities.data(), clusters.data(),
                        clusters.size(), max_lambda, n_leaves, stabilities);
