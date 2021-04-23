@@ -114,11 +114,11 @@ void _fit(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
                       out_size.data(), min_cluster_size, m, condensed_tree);
 
 
-//   rmm::device_uvector<value_idx> labels(m, stream);
-//   rmm::device_uvector<value_t> stabilities(m, stream);
-//   rmm::device_uvector<value_t> probabilities(m, stream);
-//   Tree::extract_clusters(handle, condensed_tree, m, labels.data(),
-//                          stabilities.data(), probabilities.data());
+  rmm::device_uvector<value_idx> labels(m, stream);
+  rmm::device_uvector<value_t> stabilities(m, stream);
+  rmm::device_uvector<value_t> probabilities(m, stream);
+  Tree::extract_clusters(handle, condensed_tree, m, labels.data(),
+                         stabilities.data(), probabilities.data());
 
   /**
    * Extract labels from stability

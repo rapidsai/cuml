@@ -20,6 +20,8 @@
 
 #include <label/classlabels.cuh>
 
+#include <cub/cub.cuh>
+
 #include <raft/cudart_utils.h>
 
 #include <rmm/device_uvector.hpp>
@@ -195,17 +197,17 @@ public:
   value_t *stabilities, *births;
 };
 
-template <typename value_idx, typename value_t, typename cub_reduce_func>
+template <typename value_idx, typename value_t, typename CUBReduceFunc>
 void segmented_reduce(const value_t *in, value_t *out, int n_segments,
-                      const value_idx *offsets, cudaStream_t stream) {
+                      const value_idx *offsets, cudaStream_t stream, CUBReduceFunc cub_reduce_func) {
   void *d_temp_storage = NULL;
   size_t temp_storage_bytes = 0;
   cub_reduce_func(d_temp_storage, temp_storage_bytes, in, out, n_segments,
-                  offsets, offsets + 1, stream);
+                  offsets, offsets + 1, stream, false);
   CUDA_CHECK(cudaMalloc(&d_temp_storage, temp_storage_bytes));
 
   cub_reduce_func(d_temp_storage, temp_storage_bytes, in, out, n_segments,
-                  offsets, offsets + 1, stream);
+                  offsets, offsets + 1, stream, false);
   CUDA_CHECK(cudaFree(d_temp_storage));
 }
 
@@ -229,39 +231,42 @@ void compute_stabilities(
   rmm::device_uvector<value_t> sorted_lambdas(n_edges, stream);
   raft::copy_async(sorted_lambdas.data(), lambdas, n_edges, stream);
 
-  auto children_lambda_zip = thrust::make_zip_iterator(
-    thrust::make_tuple(sorted_child.begin(), sorted_lambdas.begin()));
-  thrust::sort_by_key(thrust_policy, parents, parents + n_edges,
-                      children_lambda_zip);
+  rmm::device_uvector<value_idx> sorted_parent(n_edges, stream);
+  raft::copy_async(sorted_parent.data(), parents, n_edges, stream);
+  thrust::sort_by_key(thrust_policy->on(stream), sorted_parent.begin(), sorted_parent.end(),
+                      sorted_child.begin());
 
+  raft::copy_async(sorted_parent.data(), parents, n_edges, stream);
+  thrust::sort_by_key(thrust_policy->on(stream), sorted_parent.begin(), sorted_parent.end(),
+                      sorted_lambdas.begin());
   // TODO: Segmented reduction on min_lambda within each cluster
   // TODO: Converting child array to CSR offset and using CUB Segmented Reduce
   // Investigate use of a kernel like coo_spmv
-  rmm::device_uvector<value_idx> births(n_clusters, stream);
-  thrust::fill(thrust_policy, births.begin(), births.end(), 0);
+  rmm::device_uvector<value_t> births(n_clusters, stream);
+  thrust::fill(thrust_policy->on(stream), births.begin(), births.end(), 0.0f);
 
   rmm::device_uvector<value_idx> sorted_child_offsets(n_edges + 1, stream);
 
   raft::sparse::convert::sorted_coo_to_csr(
     sorted_child.data(), n_edges, sorted_child_offsets.data(), n_clusters,
-    handle.get_stream(), handle.get_device_allocator());
+    handle.get_device_allocator(), handle.get_stream());
 
-  segmented_reduce<value_idx, value_t, cub::DeviceSegmentedReduce::Min>(
-    lambdas, births.data(), n_clusters, sorted_child_offsets.data(), stream);
+  segmented_reduce(
+    lambdas, births.data(), n_clusters, sorted_child_offsets.data(), stream, cub::DeviceSegmentedReduce::Min<const value_t*, value_t*, const value_idx*>);
 
   // TODO: Embarassingly parallel construction of output
   // TODO: It can be done with same coo_spmv kernel
   // Or naive kernel, atomically write to cluster stability
-  thrust::fill(thrust_policy, stabilities, stabilities+n_clusters, 0);
+  thrust::fill(thrust_policy->on(stream), stabilities, stabilities+n_clusters, 0.0f);
 
-  segmented_reduce<value_idx, value_t, cub::DeviceSegmentedReduce::Sum>(
+  segmented_reduce(
     lambdas, stabilities, n_clusters, sorted_child_offsets.data(),
-    stream);
+    stream, cub::DeviceSegmentedReduce::Sum<const value_t*, value_t*, const value_idx*>);
 
   // now transform, and calculate summation lambda(point) - lambda(birth)
   auto transform_op =
     transform_functor<value_t>(stabilities, births.data());
-  thrust::transform(thrust_policy, thrust::make_counting_iterator(0),
+  thrust::transform(thrust_policy->on(stream), thrust::make_counting_iterator(0),
                     thrust::make_counting_iterator(n_clusters),
                     stabilities, transform_op);
 }
@@ -290,7 +295,7 @@ struct Greater_Than_One {
 template <typename value_idx, typename value_t, int tpb = 256>
 void excess_of_mass(
   const raft::handle_t &handle,
-  const CondensedHierarchy<value_idx, value_t> &condensed_tree,
+  CondensedHierarchy<value_idx, value_t> &condensed_tree,
   value_t *stability, bool *is_cluster, value_idx n_clusters,
   value_idx max_cluster_size) {
 
