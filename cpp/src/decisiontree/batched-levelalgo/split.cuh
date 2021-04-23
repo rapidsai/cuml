@@ -129,7 +129,7 @@ struct Split {
       warpReduce();
       // only the first thread will go ahead and update the best split info
       // for current node
-      if (threadIdx.x == 0) {
+      if (threadIdx.x == 0 && this->colid != -1) {
         while (atomicCAS(mutex, 0, 1))
           ;
         split->update(*this);
