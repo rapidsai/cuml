@@ -416,9 +416,7 @@ void get_stability_scores() {
 template<typename value_idx, typename value_t>
 void do_labelling() {
 
-  // TODO: Similar to SLHC dendrogram construction, this one is probably best done
-  // on host, at least for the first iteration
-}
+  // TODO: union find is constructed on host }
 
 
 template<typename value_idx, typename value_t>

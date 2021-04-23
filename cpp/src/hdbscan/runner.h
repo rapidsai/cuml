@@ -35,20 +35,22 @@ struct MSTEpilogueReachability {
   MSTEpilogueReachability(value_idx m_, value_t *core_distances_)
     : core_distances(core_distances_), m(m_) {}
 
-  void operator()(raft::handle_t &handle, value_idx *coo_rows,
+  void operator()(const raft::handle_t &handle, value_idx *coo_rows,
                   value_idx *coo_cols, value_t *coo_data, value_idx nnz) {
 
     auto first = thrust::make_zip_iterator(thrust::make_tuple(coo_rows, coo_cols, coo_data));
     thrust::transform(thrust::cuda::par.on(handle.get_stream()), first, first+nnz,
                         coo_data, [=] __device__ (thrust::tuple<value_idx, value_idx, value_t> t) {
-      return max(core_distances[thrust::get<0>(t)], core_distances[thrust::get<1>(t)], thrust::get<2>(t));
+      return max(core_distances[thrust::get<0>(t)],
+                                   core_distances[thrust::get<1>(t)],
+                                   thrust::get<2>(t));
     });
   }
 
  private:
   value_t *core_distances;
   value_idx m;
-}
+};
 
 template <typename value_idx = int64_t, typename value_t = float>
 void _fit(const raft::handle_t &handle, value_t *X, value_idx m, value_idx n,
@@ -60,7 +62,6 @@ void _fit(const raft::handle_t &handle, value_t *X, value_idx m, value_idx n,
   /**
    * Mutual reachability graph
    */
-
   rmm::device_uvector<value_idx> mutual_reachability_graph_inds(k * m, stream);
   rmm::device_uvector<value_t> mutual_reachability_graph_dists(k * m, stream);
   rmm::device_uvector<value_t> core_dists(k * m, stream);
