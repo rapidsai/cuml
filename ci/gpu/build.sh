@@ -75,12 +75,13 @@ gpuci_logger "Removing dask-glm"
 gpuci_conda_retry remove --force rapids-build-env rapids-notebook-env 
 gpuci_conda_retry remove --force dask-glm
 rm -rf /opt/conda/envs/rapids/lib/python3.8/site-packages/dask_glm
+rm -rf /opt/conda/envs/rapids/lib/python3.7/site-packages/dask_glm
 
 gpuci_logger "Install the main version of dask, distributed, and dask-glm"
 set -x
 pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
 pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
-pip install "git+https://github.com/dask/dask-glm@main" --upgrade --no-deps
+pip install "git+https://github.com/dask/dask-glm@main" --force-reinstall --no-deps
 set +x
 
 gpuci_logger "Check compiler versions"
