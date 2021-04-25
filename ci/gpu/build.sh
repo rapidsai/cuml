@@ -74,6 +74,7 @@ fi
 gpuci_logger "Removing dask-glm"
 gpuci_conda_retry remove --force rapids-build-env rapids-notebook-env 
 gpuci_conda_retry remove --force dask-glm
+rm -rf /opt/conda/envs/rapids/lib/python3.8/site-packages/dask_glm
 
 gpuci_logger "Install the main version of dask, distributed, and dask-glm"
 set -x
