@@ -103,8 +103,13 @@ void gemmPredict(const raft::handle_t &handle, const double *input, int n_rows,
  * @param l2                    l2 regularization strength. Note, that as in
  * scikit, the bias will not be regularized.
  * @param max_iter              limit on iteration number
- * @param grad_tol              tolerance for gradient norm convergence check
- * @param change_tol            tolerance for function change convergence check
+ * @param grad_tol              tolerance for gradient norm convergence check.
+ * The training process will stop if
+ * `norm(current_loss_grad, inf) <= grad_tol * max(current_loss, grad_tol)`.
+ * @param change_tol            tolerance for function change convergence check.
+ * The training process will stop if
+ * `abs(current_loss - previous_loss) <= change_tol * max(current_loss, grad_tol)`,
+ * where `previous_loss` is the loss value a small fixed number of steps ago.
  * @param linesearch_max_iter   max number of linesearch iterations per outer
  * iteration
  * @param lbfgs_memory          rank of the lbfgs inverse-Hessian approximation.

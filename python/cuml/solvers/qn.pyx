@@ -229,8 +229,23 @@ class QN(Base,
         the Scikit-learn solver.
     delta: Optional[float] (default = None)
         The training process will stop if
-          `abs(current_loss - previous_loss) <= delta * current_loss`.
+
+        `abs(current_loss - previous_loss) <= delta * max(current_loss, tol)`.
+
         When `None`, it's set to `tol * 0.01`; when `0`, the check is disabled.
+        Assuming current step `k`, parameter `previous_loss` here is the loss at
+        the step `k - p`, where `p` is a small positive integer set internally.
+
+        Note, this parameter corresponds to `ftol` in
+        `scipy.optimize.minimize(method=’L-BFGS-B’)
+        <https://docs.scipy.org/doc/scipy/reference/optimize.minimize-lbfgsb.html>`_,
+        which is set by default to a miniscule `2.2e-9` and is not exposed in
+        `sklearn.LogisticRegression()
+        <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html>`_.
+        This condition is meant to protect the solver against doing vanishingly small
+        linesearch steps or zigzagging.
+        You may choose to set `delta = 0` to make sure the cuML solver does
+        not stop earlier than the Scikit-learn solver.
     linesearch_max_iter: int (default = 50)
         Max number of linesearch iterations per outer iteration of the
         algorithm.
@@ -272,7 +287,7 @@ class QN(Base,
            Wright - Numerical Optimization (1999)]
 
          - `Orthant-wise limited-memory quasi-newton (OWL-QN)
-            [Andrew, Gao - ICML 2007]
+           [Andrew, Gao - ICML 2007]
            <https://www.microsoft.com/en-us/research/publication/scalable-training-of-l1-regularized-log-linear-models/>`_
     """
 
