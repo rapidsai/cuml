@@ -104,7 +104,8 @@ struct CondensedHierarchy {
     return thrust::transform_reduce(
       thrust::cuda::par.on(handle.get_stream()), get_lambdas(),
       get_lambdas() + get_n_edges(),
-      [=] __device__ (value_t a) {return a > 1.0;}, 0, thrust::plus<value_idx>());
+      [=] __device__(value_t a) { return a > 1.0; }, 0,
+      thrust::plus<value_idx>());
   }
 
   value_idx *get_parents() { return parents.data(); }
@@ -132,7 +133,7 @@ struct CondensedHierarchy {
   int n_clusters;
 };
 
-};
-};
-};
-};
+};  // namespace Common
+};  // namespace detail
+};  // namespace HDBSCAN
+};  // namespace ML

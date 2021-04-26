@@ -42,7 +42,6 @@ struct MSTEpilogueReachability {
 
   void operator()(const raft::handle_t &handle, value_idx *coo_rows,
                   value_idx *coo_cols, value_t *coo_data, value_idx nnz) {
-
     printf("nnz=%d\n", nnz);
 
     raft::print_device_vector("coo_rows", coo_rows, 2, std::cout);
@@ -61,7 +60,6 @@ struct MSTEpilogueReachability {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
     CUML_LOG_DEBUG("Executed graph connection");
-
   }
 
  private:
@@ -73,45 +71,43 @@ template <typename value_idx = int64_t, typename value_t = float>
 void _fit(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
           raft::distance::DistanceType metric, int k, int min_pts,
           int min_cluster_size, hdbscan_output<value_idx, value_t> *out) {
-   auto d_alloc = handle.get_device_allocator();
-   auto stream = handle.get_stream();
+  auto d_alloc = handle.get_device_allocator();
+  auto stream = handle.get_stream();
 
-   printf("K=%d\n", k);
-   printf("min_pts: %d\n", min_pts);
+  printf("K=%d\n", k);
+  printf("min_pts: %d\n", min_pts);
 
-   /**
+  /**
     * Mutual reachability graph
     */
 
-   rmm::device_uvector<value_idx> mutual_reachability_indptr(m + 1, stream);
-   raft::sparse::COO<value_t, value_idx> mutual_reachability_coo(d_alloc, stream, k * m * 2);
-   rmm::device_uvector<value_t> core_dists(m, stream);
+  rmm::device_uvector<value_idx> mutual_reachability_indptr(m + 1, stream);
+  raft::sparse::COO<value_t, value_idx> mutual_reachability_coo(d_alloc, stream,
+                                                                k * m * 2);
+  rmm::device_uvector<value_t> core_dists(m, stream);
 
-   detail::Reachability::mutual_reachability_graph(
-     handle, X, (size_t)m, (size_t)n, metric, k,
-     mutual_reachability_indptr.data(),
-     core_dists.data(), mutual_reachability_coo);
+  detail::Reachability::mutual_reachability_graph(
+    handle, X, (size_t)m, (size_t)n, metric, k,
+    mutual_reachability_indptr.data(), core_dists.data(),
+    mutual_reachability_coo);
 
-   CUDA_CHECK(cudaStreamSynchronize(stream));
-   CUML_LOG_DEBUG("Executed mutual reachability");
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  CUML_LOG_DEBUG("Executed mutual reachability");
 
-   /**
+  /**
     * Construct MST sorted by weights
     */
-   rmm::device_uvector<value_idx> mst_rows(m - 1, stream);
-   rmm::device_uvector<value_idx> mst_cols(m - 1, stream);
-   rmm::device_uvector<value_t> mst_data(m - 1, stream);
+  rmm::device_uvector<value_idx> mst_rows(m - 1, stream);
+  rmm::device_uvector<value_idx> mst_cols(m - 1, stream);
+  rmm::device_uvector<value_t> mst_data(m - 1, stream);
 
-   // during knn graph connection
-   raft::hierarchy::detail::build_sorted_mst(
-     handle, X,
-     mutual_reachability_indptr.data(),
-     mutual_reachability_coo.cols(),
-     mutual_reachability_coo.vals(),
-     m, n, mst_rows, mst_cols, mst_data,
-     mutual_reachability_coo.nnz,
-     MSTEpilogueReachability<value_idx, value_t>(m, core_dists.data()),
-     metric, (size_t)10);
+  // during knn graph connection
+  raft::hierarchy::detail::build_sorted_mst(
+    handle, X, mutual_reachability_indptr.data(),
+    mutual_reachability_coo.cols(), mutual_reachability_coo.vals(), m, n,
+    mst_rows, mst_cols, mst_data, mutual_reachability_coo.nnz,
+    MSTEpilogueReachability<value_idx, value_t>(m, core_dists.data()), metric,
+    (size_t)10);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
   CUML_LOG_DEBUG("Executed MST");
@@ -119,15 +115,15 @@ void _fit(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
   /**
    * Perform hierarchical labeling
    */
-   size_t n_edges = m - 1;
+  size_t n_edges = m - 1;
 
-   rmm::device_uvector<value_idx> children(n_edges * 2, stream);
-   rmm::device_uvector<value_t> out_delta(n_edges, stream);
-   rmm::device_uvector<value_idx> out_size(n_edges, stream);
+  rmm::device_uvector<value_idx> children(n_edges * 2, stream);
+  rmm::device_uvector<value_t> out_delta(n_edges, stream);
+  rmm::device_uvector<value_idx> out_size(n_edges, stream);
 
-   raft::hierarchy::detail::build_dendrogram_host(handle,
-     mst_rows.data(), mst_cols.data(), mst_data.data(), n_edges, children.data(),
-     out_delta, out_size);
+  raft::hierarchy::detail::build_dendrogram_host(
+    handle, mst_rows.data(), mst_cols.data(), mst_data.data(), n_edges,
+    children.data(), out_delta, out_size);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
   CUML_LOG_DEBUG("Executed dendrogram labeling");
@@ -135,9 +131,11 @@ void _fit(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
   /**
    * Condense branches of tree according to min cluster size
    */
-   detail::Common::CondensedHierarchy<value_idx, value_t> condensed_tree(handle, m);
-   detail::Condense::build_condensed_hierarchy(handle, children.data(), out_delta.data(),
-                      out_size.data(), min_cluster_size, m, condensed_tree);
+  detail::Common::CondensedHierarchy<value_idx, value_t> condensed_tree(handle,
+                                                                        m);
+  detail::Condense::build_condensed_hierarchy(
+    handle, children.data(), out_delta.data(), out_size.data(),
+    min_cluster_size, m, condensed_tree);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
   CUML_LOG_DEBUG("Executed hierarchy condensing");
@@ -145,15 +143,14 @@ void _fit(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
   /**
    * Extract labels from stability
    */
-   rmm::device_uvector<value_idx> labels(m, stream);
-   rmm::device_uvector<value_t> stabilities(m, stream);
-   rmm::device_uvector<value_t> probabilities(m, stream);
-   detail::Extract::extract_clusters(handle, condensed_tree, m, labels.data(),
-                          stabilities.data(), probabilities.data());
+  rmm::device_uvector<value_idx> labels(m, stream);
+  rmm::device_uvector<value_t> stabilities(m, stream);
+  rmm::device_uvector<value_t> probabilities(m, stream);
+  detail::Extract::extract_clusters(handle, condensed_tree, m, labels.data(),
+                                    stabilities.data(), probabilities.data());
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
   CUML_LOG_DEBUG("Executed cluster extraction");
-
 }
 
 };  // end namespace HDBSCAN

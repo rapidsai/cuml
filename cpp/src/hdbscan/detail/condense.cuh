@@ -62,8 +62,8 @@ __device__ value_t get_lambda(value_idx node, value_idx num_points,
     */
 template <typename value_idx, typename value_t>
 __global__ void condense_hierarchy_kernel(
-  bool *frontier, value_idx *ignore, value_idx *relabel, const value_idx *children,
-  const value_t *deltas, const value_idx *sizes,
+  bool *frontier, value_idx *ignore, value_idx *relabel,
+  const value_idx *children, const value_t *deltas, const value_idx *sizes,
   int n_leaves, int num_points, int min_cluster_size, value_idx *out_parent,
   value_idx *out_child, value_t *out_lambda, value_idx *out_count) {
   int node = blockDim.x * blockIdx.x + threadIdx.x;
@@ -75,7 +75,7 @@ __global__ void condense_hierarchy_kernel(
 
   // TODO: Check bounds
   value_idx left_child = children[(node - num_points) * 2];
-  value_idx right_child = children[((node - num_points) * 2)+1];
+  value_idx right_child = children[((node - num_points) * 2) + 1];
 
   frontier[left_child] = true;
   frontier[right_child] = true;
@@ -95,11 +95,11 @@ __global__ void condense_hierarchy_kernel(
     out_count[node] = 1;
   }
 
-    // If node is not ignored and is not a leaf, condense its children
-    // if necessary
+  // If node is not ignored and is not a leaf, condense its children
+  // if necessary
   else if (!should_ignore and node >= num_points) {
     value_idx left_child = children[(node - num_points) * 2];
-    value_idx right_child = children[((node - num_points) * 2)+1];
+    value_idx right_child = children[((node - num_points) * 2) + 1];
 
     value_t lambda_value = get_lambda(node, num_points, deltas);
 
@@ -145,8 +145,6 @@ __global__ void condense_hierarchy_kernel(
                           (!only_right_child_too_small * -1);
   }
 }
-
-
 
 /**
  * Condenses a binary tree dendrogram in the Scipy format

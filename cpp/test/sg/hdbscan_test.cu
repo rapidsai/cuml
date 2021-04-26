@@ -78,8 +78,8 @@ __global__ void computeTheNumerator(const T* firstClusterArray,
   }
 
   //specialize blockReduce for a 2D block of 1024 threads of type int
-  typedef cub::BlockReduce<int, BLOCK_DIM_X,
-                           cub::BLOCK_REDUCE_WARP_REDUCTIONS, BLOCK_DIM_Y>
+  typedef cub::BlockReduce<int, BLOCK_DIM_X, cub::BLOCK_REDUCE_WARP_REDUCTIONS,
+                           BLOCK_DIM_Y>
     BlockReduce;
 
   //Allocate shared memory for blockReduce
