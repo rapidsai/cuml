@@ -185,7 +185,9 @@ class Base(TagsMixin,
         self.target_dtype = None
         self.n_features_in_ = None
 
-        self._set_nvtx_annotations()
+        nvtx_benchmark = os.getenv('NVTX_BENCHMARK')
+        if nvtx_benchmark and nvtx_benchmark.lower() == 'true':
+            self.set_nvtx_annotations()
 
     def __repr__(self):
         """
@@ -368,14 +370,9 @@ class Base(TagsMixin,
             return {'preserves_dtype': [self.dtype]}
         return {}
 
-    def _set_nvtx_annotations(self):
-        nvtx_benchmark = os.getenv('NVTX_BENCHMARK')
-        if nvtx_benchmark and nvtx_benchmark.lower() == 'true':
-            self.set_nvtx_annotations()
-
     def set_nvtx_annotations(self):
-        for func_name in ['fit', 'transform', 'predict', 'fit_predict',
-                          'fit_transform']:
+        for func_name in ['fit', 'transform', 'predict', 'fit_transform',
+                          'fit_predict']:
             if hasattr(self, func_name):
                 message = self.__class__.__module__ + '.' + func_name
                 msg = '{class_name}.{func_name} [{addr}]'
