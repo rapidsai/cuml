@@ -39,7 +39,7 @@ namespace Condense {
 
 template <typename value_idx, typename value_t>
 __device__ inline value_t get_lambda(value_idx node, value_idx num_points,
-                              const value_t *deltas) {
+                                     const value_t *deltas) {
   value_t delta = deltas[node - num_points];
   bool nonzero_delta = delta > 0.0;
   return ((!nonzero_delta * 1.0) / (nonzero_delta * delta)) +
@@ -103,7 +103,7 @@ __global__ void condense_hierarchy_kernel(
     ignore[right_child] = (should_ignore * ignore_val) + (!should_ignore * -1);
 
     // TODO: Should be able to remove this nested conditional
-    if(!should_ignore) {
+    if (!should_ignore) {
       value_t lambda_value = get_lambda(node, num_points, deltas);
 
       int left_count =
@@ -197,7 +197,6 @@ void build_condensed_hierarchy(
   rmm::device_uvector<value_t> out_lambda(n_leaves * 2, stream);
   rmm::device_uvector<value_idx> out_size(n_leaves * 2, stream);
 
-
   thrust::fill(thrust::cuda::par.on(stream), out_parent.data(),
                out_parent.data() + (n_leaves * 2), -1);
   thrust::fill(thrust::cuda::par.on(stream), out_child.data(),
@@ -211,7 +210,6 @@ void build_condensed_hierarchy(
 
   // While frontier is not empty, perform single bfs through tree
   size_t grid = raft::ceildiv(n_leaves * 2, (int)tpb);
-
 
   value_idx n_elements_to_traverse =
     thrust::reduce(thrust::cuda::par.on(handle.get_stream()), frontier.data(),
