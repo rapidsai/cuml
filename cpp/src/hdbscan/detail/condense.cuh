@@ -65,37 +65,33 @@ template <typename value_idx, typename value_t>
 __global__ void condense_hierarchy_kernel(
   bool *frontier, value_idx *ignore, value_idx *relabel,
   const value_idx *children, const value_t *deltas, const value_idx *sizes,
-  int n_leaves, int num_points, int min_cluster_size, value_idx *out_parent,
+  int n_leaves, int min_cluster_size, value_idx *out_parent,
   value_idx *out_child, value_t *out_lambda, value_idx *out_count) {
   int node = blockDim.x * blockIdx.x + threadIdx.x;
 
-  // If node is in frontier, flip frontier for children
-  if (node > n_leaves * 2 || !frontier[node]) return;
+  if (node >= n_leaves * 2 - 1 || !frontier[node]) return;
 
   frontier[node] = false;
 
-  printf("NODE: %d\n", node);
-
   value_idx ignore_val = ignore[node];
-
-  printf("node=%d, ignore_val=%d\n", node, ignore_val);
   bool should_ignore = ignore_val > -1;
 
   // TODO: Investigate whether this would be better done w/ an additional kernel launch
 
   // If node is a leaf, add it to the condensed hierarchy
-  if (node < num_points) {
+  if (node < n_leaves) {
     out_parent[node] = relabel[ignore_val];
     out_child[node] = node;
-    out_lambda[node] = get_lambda(ignore_val, num_points, deltas);
+    out_lambda[node] = get_lambda(ignore_val, n_leaves, deltas);
     out_count[node] = 1;
   }
 
   // If node is not a leaf, condense its children if necessary
   else {
-    value_idx left_child = children[(node - num_points) * 2];
-    value_idx right_child = children[((node - num_points) * 2) + 1];
+    value_idx left_child = children[(node - n_leaves) * 2];
+    value_idx right_child = children[((node - n_leaves) * 2) + 1];
 
+    // flip frontier for children
     frontier[left_child] = true;
     frontier[right_child] = true;
 
@@ -104,12 +100,12 @@ __global__ void condense_hierarchy_kernel(
 
     // TODO: Should be able to remove this nested conditional
     if (!should_ignore) {
-      value_t lambda_value = get_lambda(node, num_points, deltas);
+      value_t lambda_value = get_lambda(node, n_leaves, deltas);
 
       int left_count =
-        left_child >= num_points ? sizes[left_child - num_points] : 1;
+        left_child >= n_leaves ? sizes[left_child - n_leaves] : 1;
       int right_count =
-        right_child >= num_points ? sizes[right_child - num_points] : 1;
+        right_child >= n_leaves ? sizes[right_child - n_leaves] : 1;
 
       // If both children are large enough, they should be relabeled and
       // included directly in the output hierarchy.
@@ -176,8 +172,8 @@ void build_condensed_hierarchy(
   Common::CondensedHierarchy<value_idx, value_t> &condensed_tree) {
   cudaStream_t stream = handle.get_stream();
 
-  int root = 2 * n_leaves;
-  int num_points = root / 2 + 1;
+  // Root is the last edge in the dendrogram
+  int root = 2 * (n_leaves - 1);
 
   rmm::device_uvector<bool> frontier(root + 1, stream);
 
@@ -186,46 +182,48 @@ void build_condensed_hierarchy(
 
   rmm::device_uvector<value_idx> ignore(root + 1, stream);
 
+  // Propagate labels from root
   rmm::device_uvector<value_idx> relabel(root + 1, handle.get_stream());
   raft::update_device(relabel.data() + root, &root, 1, handle.get_stream());
 
+  // Flip frontier for root
   bool start = true;
   raft::update_device(frontier.data() + root, &start, 1, handle.get_stream());
 
-  rmm::device_uvector<value_idx> out_parent(n_leaves * 2, stream);
-  rmm::device_uvector<value_idx> out_child(n_leaves * 2, stream);
-  rmm::device_uvector<value_t> out_lambda(n_leaves * 2, stream);
-  rmm::device_uvector<value_idx> out_size(n_leaves * 2, stream);
+  rmm::device_uvector<value_idx> out_parent(root, stream);
+  rmm::device_uvector<value_idx> out_child(root, stream);
+  rmm::device_uvector<value_t> out_lambda(root, stream);
+  rmm::device_uvector<value_idx> out_size(root, stream);
 
   thrust::fill(thrust::cuda::par.on(stream), out_parent.data(),
-               out_parent.data() + (n_leaves * 2), -1);
+               out_parent.data() + root, -1);
   thrust::fill(thrust::cuda::par.on(stream), out_child.data(),
-               out_child.data() + (n_leaves * 2), -1);
+               out_child.data() + root, -1);
   thrust::fill(thrust::cuda::par.on(stream), out_lambda.data(),
-               out_lambda.data() + (n_leaves * 2), -1);
+               out_lambda.data() + root, -1);
   thrust::fill(thrust::cuda::par.on(stream), out_size.data(),
-               out_size.data() + (n_leaves * 2), -1);
+               out_size.data() + root, -1);
   thrust::fill(thrust::cuda::par.on(stream), ignore.data(),
                ignore.data() + ignore.size(), -1);
 
   // While frontier is not empty, perform single bfs through tree
-  size_t grid = raft::ceildiv(n_leaves * 2, (int)tpb);
+  size_t grid = raft::ceildiv(root + 1, (int)tpb);
 
   value_idx n_elements_to_traverse =
     thrust::reduce(thrust::cuda::par.on(handle.get_stream()), frontier.data(),
-                   frontier.data() + (n_leaves * 2), 0);
+                   frontier.data() + root + 1, 0);
 
   while (n_elements_to_traverse > 0) {
     // TODO: Investigate whether it would be worth performing a gather/argmatch in order
     // to schedule only the number of threads needed. (it might not be worth it)
     condense_hierarchy_kernel<<<grid, tpb, 0, handle.get_stream()>>>(
       frontier.data(), ignore.data(), relabel.data(), children, delta, sizes,
-      n_leaves, num_points, min_cluster_size, out_parent.data(),
+      n_leaves, min_cluster_size, out_parent.data(),
       out_child.data(), out_lambda.data(), out_size.data());
 
     n_elements_to_traverse =
       thrust::reduce(thrust::cuda::par.on(handle.get_stream()), frontier.data(),
-                     frontier.data() + (n_leaves * 2), 0);
+                     frontier.data() + root + 1, 0);
   }
 
   // TODO: Verify the sequence of condensed cluster labels enables topological sort
