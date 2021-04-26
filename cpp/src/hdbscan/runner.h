@@ -95,11 +95,6 @@ void _fit(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
    CUDA_CHECK(cudaStreamSynchronize(stream));
    CUML_LOG_DEBUG("Executed mutual reachability");
 
-   raft::print_device_vector("mutual_reach_indptr", mutual_reachability_indptr.data(), mutual_reachability_indptr.size(), std::cout);
-  raft::print_device_vector("mutual_reach_col", mutual_reachability_coo.cols(), mutual_reachability_coo.nnz, std::cout);
-  raft::print_device_vector("mutual_reach_val", mutual_reachability_coo.vals(), mutual_reachability_coo.nnz, std::cout);
-  raft::print_device_vector("core_dists", core_dists.data(), core_dists.size(), std::cout);
-
    /**
     * Construct MST sorted by weights
     */
@@ -126,7 +121,7 @@ void _fit(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
    */
    size_t n_edges = m - 1;
 
-   rmm::device_uvector<value_idx> children(n_edges, stream);
+   rmm::device_uvector<value_idx> children(n_edges * 2, stream);
    rmm::device_uvector<value_t> out_delta(n_edges, stream);
    rmm::device_uvector<value_idx> out_size(n_edges, stream);
 
