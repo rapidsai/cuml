@@ -310,7 +310,7 @@ class QN(Base,
         self.l2_strength = l2_strength
         self.max_iter = max_iter
         self.tol = tol
-        self.delta = delta if delta is not None else (tol * 0.01)
+        self.delta = delta
         self.linesearch_max_iter = linesearch_max_iter
         self.lbfgs_memory = lbfgs_memory
         self.num_iter = 0
@@ -400,6 +400,8 @@ class QN(Base,
 
         cdef int num_iters
 
+        delta = self.delta if self.delta is not None else (self.tol * 0.01)
+
         if self.dtype == np.float32:
             qnFit(handle_[0],
                   <float*>X_ptr,
@@ -412,7 +414,7 @@ class QN(Base,
                   <float> self.l2_strength,
                   <int> self.max_iter,
                   <float> self.tol,
-                  <float> self.delta,
+                  <float> delta,
                   <int> self.linesearch_max_iter,
                   <int> self.lbfgs_memory,
                   <int> self.verbose,
@@ -437,7 +439,7 @@ class QN(Base,
                   <double> self.l2_strength,
                   <int> self.max_iter,
                   <double> self.tol,
-                  <double> self.delta,
+                  <double> delta,
                   <int> self.linesearch_max_iter,
                   <int> self.lbfgs_memory,
                   <int> self.verbose,
