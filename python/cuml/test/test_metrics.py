@@ -1113,8 +1113,8 @@ def naive_inner(X, Y, metric=None):
 
 
 def naive_hellinger(X, Y, metric=None):
-    X, Y = np.sqrt(X), np.sqrt(Y)
-    return sklearn_pairwise_distances(X, Y, metric='euclidean') / np.sqrt(2)
+    return sklearn_pairwise_distances(np.sqrt(X), np.sqrt(Y),
+                                      metric='euclidean') / np.sqrt(2)
 
 
 def prepare_sparse_data(size0, size1, dtype, density, metric):
