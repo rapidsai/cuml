@@ -233,8 +233,9 @@ class QN(Base,
         `abs(current_loss - previous_loss) <= delta * max(current_loss, tol)`.
 
         When `None`, it's set to `tol * 0.01`; when `0`, the check is disabled.
-        Assuming current step `k`, parameter `previous_loss` here is the loss at
-        the step `k - p`, where `p` is a small positive integer set internally.
+        Given the current step `k`, parameter `previous_loss` here is the loss
+        at the step `k - p`, where `p` is a small positive integer set
+        internally.
 
         Note, this parameter corresponds to `ftol` in
         `scipy.optimize.minimize(method=’L-BFGS-B’)
@@ -242,8 +243,8 @@ class QN(Base,
         which is set by default to a miniscule `2.2e-9` and is not exposed in
         `sklearn.LogisticRegression()
         <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html>`_.
-        This condition is meant to protect the solver against doing vanishingly small
-        linesearch steps or zigzagging.
+        This condition is meant to protect the solver against doing vanishingly
+        small linesearch steps or zigzagging.
         You may choose to set `delta = 0` to make sure the cuML solver does
         not stop earlier than the Scikit-learn solver.
     linesearch_max_iter: int (default = 50)
