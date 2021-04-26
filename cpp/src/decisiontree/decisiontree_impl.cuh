@@ -294,7 +294,8 @@ void DecisionTreeBase<T, L>::plant(
   if (tree_params.max_features == 1.f) {
     // seed with treeid
     srand(treeid * 1000);
-    std::random_shuffle(h_colids, h_colids + dinfo.Ncols, [](int j){ return rand() % j; });
+    std::random_shuffle(h_colids, h_colids + dinfo.Ncols,
+                        [](int j) { return rand() % j; });
   }
   ML::POP_RANGE();
   prepare_time = prepare_fit_timer.getElapsedSeconds();
