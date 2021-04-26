@@ -218,8 +218,8 @@ void build_condensed_hierarchy(
     // to schedule only the number of threads needed. (it might not be worth it)
     condense_hierarchy_kernel<<<grid, tpb, 0, handle.get_stream()>>>(
       frontier.data(), ignore.data(), relabel.data(), children, delta, sizes,
-      n_leaves, min_cluster_size, out_parent.data(),
-      out_child.data(), out_lambda.data(), out_size.data());
+      n_leaves, min_cluster_size, out_parent.data(), out_child.data(),
+      out_lambda.data(), out_size.data());
 
     n_elements_to_traverse =
       thrust::reduce(thrust::cuda::par.on(handle.get_stream()), frontier.data(),
