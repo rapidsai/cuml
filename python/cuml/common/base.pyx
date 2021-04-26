@@ -382,8 +382,9 @@ class Base(TagsMixin,
                 msg = msg.format(class_name=self.__class__.__module__,
                                  func_name=func_name,
                                  addr=hex(id(self)))
+                msg = msg[5:]  # remove cuml.
                 func = getattr(self, func_name)
-                func = nvtx.annotate(message=msg)(func)
+                func = nvtx.annotate(message=msg, domain="cuml_python")(func)
                 setattr(self, func_name, func)
 
 

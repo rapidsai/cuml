@@ -42,7 +42,7 @@ def _generate_hypercube(samples, dimensions, rng):
     return out
 
 
-@nvtx.annotate(message="cuml.datasets.make_classification")
+@nvtx.annotate(message="datasets.make_classification", domain="cuml_python")
 @cuml.internals.api_return_generic()
 def make_classification(n_samples=100, n_features=20, n_informative=2,
                         n_redundant=2, n_repeated=0, n_classes=2,

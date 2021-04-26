@@ -66,7 +66,7 @@ def _get_centers(rs, centers, center_box, n_samples, n_features, dtype):
     return centers, n_centers
 
 
-@nvtx.annotate(message="cuml.datasets.make_blobs")
+@nvtx.annotate(message="datasets.make_blobs", domain="cuml_python")
 @cuml.internals.api_return_generic()
 def make_blobs(n_samples=100, n_features=2, centers=None, cluster_std=1.0,
                center_box=(-10.0, 10.0), shuffle=True, random_state=None,

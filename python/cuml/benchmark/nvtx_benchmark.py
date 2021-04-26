@@ -56,10 +56,17 @@ class Profiler:
             json_content = json_file.read().replace('\n', ',')[:-1]
             json_content = '{"dict": [\n' + json_content + '\n]}'
             profile = json.loads(json_content)['dict']
-            nvtx_filtered_profile = [p['NvtxEvent'] for p in profile
-                                     if 'NvtxEvent' in p]
-            nvtx_filtered_profile = [p for p in nvtx_filtered_profile
-                                     if 'Text' in p]
+            filtered_profile = [p['NvtxEvent'] for p in profile
+                                if 'NvtxEvent' in p]
+            filtered_profile = [p for p in filtered_profile
+                                if 'Text' in p and
+                                'DomainId' in p]
+            domain_id = [p['DomainId'] for p in filtered_profile
+                         if p['Text'] == 'cuml_python'][0]
+            filtered_profile = [p for p in filtered_profile
+                                if p['DomainId'] == domain_id]
+            utils_category_id = [p['Category'] for p in filtered_profile
+                                 if p['Text'] == 'utils'][0]
 
             def _process_nvtx_record(record):
                 new_record = {'measurement': record['Text']}
@@ -68,9 +75,14 @@ class Profiler:
                               int(record['Timestamp'])
                     new_record['timestamp'] = int(record['Timestamp'])
                     new_record['runtime'] = runtime
+                if 'Category' in record and \
+                   record['Category'] == utils_category_id:
+                    new_record['category'] = 'utils'
+                else:
+                    new_record['category'] = 'none'
                 return new_record
 
-            return list(map(_process_nvtx_record, nvtx_filtered_profile))
+            return list(map(_process_nvtx_record, filtered_profile))
 
     @staticmethod
     def _display_results(results):
@@ -79,7 +91,7 @@ class Profiler:
         max_length = max([len(r['measurement']) for r in filtered_results]) + 4
         for r in filtered_results:
             measurement = r['measurement']
-            isutil = measurement.startswith('--')
+            isutil = r['category'] == 'utils'
             if isutil:
                 measurement = '    ' + measurement
             measurement = measurement.ljust(max_length + 4)

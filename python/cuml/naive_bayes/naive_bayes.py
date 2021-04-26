@@ -253,7 +253,8 @@ class MultinomialNB(Base, ClassifierMixin):
         return self.partial_fit(X, y, sample_weight,
                                 convert_dtype=convert_dtype)
 
-    @nvtx.annotate(message="cuml.naive_bayes.MultinomialNB._partial_fit")
+    @nvtx.annotate(message="naive_bayes.MultinomialNB._partial_fit",
+                   domain="cuml_python")
     def _partial_fit(self,
                      X,
                      y,
