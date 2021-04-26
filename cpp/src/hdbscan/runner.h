@@ -21,6 +21,9 @@
 #include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
 
+#include <cuml/common/logger.hpp>
+
+#include <raft/sparse/coo.cuh>
 #include <raft/sparse/hierarchy/detail/agglomerative.cuh>
 #include <raft/sparse/hierarchy/detail/mst.cuh>
 
@@ -39,6 +42,14 @@ struct MSTEpilogueReachability {
 
   void operator()(const raft::handle_t &handle, value_idx *coo_rows,
                   value_idx *coo_cols, value_t *coo_data, value_idx nnz) {
+
+    printf("nnz=%d\n", nnz);
+
+    raft::print_device_vector("coo_rows", coo_rows, 2, std::cout);
+    raft::print_device_vector("coo_cols", coo_cols, 2, std::cout);
+    raft::print_device_vector("coo_data", coo_data, 2, std::cout);
+    raft::print_device_vector("core", core_distances, 2, std::cout);
+
     auto first = thrust::make_zip_iterator(
       thrust::make_tuple(coo_rows, coo_cols, coo_data));
     thrust::transform(
@@ -47,6 +58,10 @@ struct MSTEpilogueReachability {
         return max(core_distances[thrust::get<0>(t)],
                    max(core_distances[thrust::get<1>(t)], thrust::get<2>(t)));
       });
+
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    CUML_LOG_DEBUG("Executed graph connection");
+
   }
 
  private:
@@ -61,21 +76,29 @@ void _fit(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
    auto d_alloc = handle.get_device_allocator();
    auto stream = handle.get_stream();
 
+   printf("K=%d\n", k);
+   printf("min_pts: %d\n", min_pts);
+
    /**
     * Mutual reachability graph
     */
 
    rmm::device_uvector<value_idx> mutual_reachability_indptr(m + 1, stream);
-   rmm::device_uvector<value_idx> mutual_reachability_graph_inds(k * m, stream);
-   rmm::device_uvector<value_t> mutual_reachability_graph_dists(k * m, stream);
-   rmm::device_uvector<value_t> core_dists(k * m, stream);
+   raft::sparse::COO<value_t, value_idx> mutual_reachability_coo(d_alloc, stream, k * m * 2);
+   rmm::device_uvector<value_t> core_dists(m, stream);
 
    detail::Reachability::mutual_reachability_graph(
-     handle, X, (size_t)m, (size_t)n, metric, min_pts,
+     handle, X, (size_t)m, (size_t)n, metric, k,
      mutual_reachability_indptr.data(),
-     mutual_reachability_graph_inds.data(),
-     mutual_reachability_graph_dists.data(),
-     core_dists.data());
+     core_dists.data(), mutual_reachability_coo);
+
+   CUDA_CHECK(cudaStreamSynchronize(stream));
+   CUML_LOG_DEBUG("Executed mutual reachability");
+
+   raft::print_device_vector("mutual_reach_indptr", mutual_reachability_indptr.data(), mutual_reachability_indptr.size(), std::cout);
+  raft::print_device_vector("mutual_reach_col", mutual_reachability_coo.cols(), mutual_reachability_coo.nnz, std::cout);
+  raft::print_device_vector("mutual_reach_val", mutual_reachability_coo.vals(), mutual_reachability_coo.nnz, std::cout);
+  raft::print_device_vector("core_dists", core_dists.data(), core_dists.size(), std::cout);
 
    /**
     * Construct MST sorted by weights
@@ -88,16 +111,19 @@ void _fit(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
    raft::hierarchy::detail::build_sorted_mst(
      handle, X,
      mutual_reachability_indptr.data(),
-     mutual_reachability_graph_inds.data(),
-     mutual_reachability_graph_dists.data(),
+     mutual_reachability_coo.cols(),
+     mutual_reachability_coo.vals(),
      m, n, mst_rows, mst_cols, mst_data,
-     size_t(k * m),
+     mutual_reachability_coo.nnz,
      MSTEpilogueReachability<value_idx, value_t>(m, core_dists.data()),
      metric, (size_t)10);
 
-   /**
-    * Perform hierarchical labeling
-    */
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  CUML_LOG_DEBUG("Executed MST");
+
+  /**
+   * Perform hierarchical labeling
+   */
    size_t n_edges = m - 1;
 
    rmm::device_uvector<value_idx> children(n_edges, stream);
@@ -108,12 +134,18 @@ void _fit(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
      mst_rows.data(), mst_cols.data(), mst_data.data(), n_edges, children.data(),
      out_delta, out_size);
 
-   /**
-    * Condense branches of tree according to min cluster size
-    */
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  CUML_LOG_DEBUG("Executed dendrogram labeling");
+
+  /**
+   * Condense branches of tree according to min cluster size
+   */
    detail::Common::CondensedHierarchy<value_idx, value_t> condensed_tree(handle, m);
    detail::Condense::build_condensed_hierarchy(handle, children.data(), out_delta.data(),
                       out_size.data(), min_cluster_size, m, condensed_tree);
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  CUML_LOG_DEBUG("Executed hierarchy condensing");
 
   /**
    * Extract labels from stability
@@ -123,6 +155,10 @@ void _fit(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
    rmm::device_uvector<value_t> probabilities(m, stream);
    detail::Extract::extract_clusters(handle, condensed_tree, m, labels.data(),
                           stabilities.data(), probabilities.data());
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  CUML_LOG_DEBUG("Executed cluster extraction");
+
 }
 
 };  // end namespace HDBSCAN

@@ -130,7 +130,8 @@ void compute_stabilities(
     handle.get_device_allocator(), handle.get_stream());
 
   segmented_reduce(
-    lambdas, births.data(), n_clusters, sorted_child_offsets.data(), stream, cub::DeviceSegmentedReduce::Min<const value_t*, value_t*, const value_idx*>);
+    lambdas, births.data(), n_clusters, sorted_child_offsets.data(), stream,
+    cub::DeviceSegmentedReduce::Min<const value_t*, value_t*, const value_idx*>);
 
   // TODO: Embarassingly parallel construction of output
   // TODO: It can be done with same coo_spmv kernel

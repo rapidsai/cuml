@@ -34,7 +34,7 @@ namespace ML {
 using namespace std;
 
 template <typename T, typename IdxT>
-struct LinkageInputs {
+struct HDBSCANInputs {
   IdxT n_row;
   IdxT n_col;
   int k, min_pts, min_cluster_size;
@@ -147,17 +147,17 @@ double compute_rand_index(
 
 template <typename T, typename IdxT>
 ::std::ostream& operator<<(::std::ostream& os,
-                           const LinkageInputs<T, IdxT>& dims) {
+                           const HDBSCANInputs<T, IdxT>& dims) {
   return os;
 }
 
 template <typename T, typename IdxT>
-class HDBSCANTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
+class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
  protected:
   void basicTest() {
     raft::handle_t handle;
 
-    params = ::testing::TestWithParam<LinkageInputs<T, IdxT>>::GetParam();
+    params = ::testing::TestWithParam<HDBSCANInputs<T, IdxT>>::GetParam();
 
     rmm::device_uvector<T> data(params.n_row * params.n_col,
                                 handle.get_stream());
@@ -173,6 +173,8 @@ class HDBSCANTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
 
     rmm::device_uvector<IdxT> out_children(params.n_row * 2,
                                            handle.get_stream());
+
+    Logger::get().setLevel(CUML_LEVEL_DEBUG);
 
     auto* output = new hdbscan_output<IdxT, T>();
     hdbscan(handle, data.data(), params.n_row, params.n_col,
@@ -194,14 +196,14 @@ class HDBSCANTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
   }
 
  protected:
-  LinkageInputs<T, IdxT> params;
+  HDBSCANInputs<T, IdxT> params;
   IdxT *labels, *labels_ref;
   int k;
 
   double score;
 };
 
-const std::vector<LinkageInputs<float, int>> hdbscan_inputsf2 = {
+const std::vector<HDBSCANInputs<float, int>> hdbscan_inputsf2 = {
   // Test n_clusters == n_points
   {10,
    5,

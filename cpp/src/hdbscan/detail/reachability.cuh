@@ -21,9 +21,12 @@
 
 #include <raft/mr/device/buffer.hpp>
 
+#include <raft/linalg/unary_op.cuh>
+
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/hierarchy/detail/connectivities.cuh>
 #include <raft/sparse/selection/knn_graph.cuh>
+#include <raft/sparse/linalg/symmetrize.cuh>
 
 #include <rmm/device_uvector.hpp>
 
@@ -36,10 +39,11 @@ namespace detail {
 namespace Reachability {
 
 template <typename value_t>
-__global__ void core_distances_kernel(value_t *knn_dists, int min_pts,
+__global__ void core_distances_kernel(value_t *knn_dists, int k, size_t n,
                                       value_t *out) {
   int row = blockIdx.x * blockDim.x + threadIdx.x;
-  out[row] = knn_dists[row + min_pts];
+  if(row < n)
+    out[row] = knn_dists[row * k + (k-1)];
 }
 
 /**
@@ -55,39 +59,44 @@ __global__ void core_distances_kernel(value_t *knn_dists, int min_pts,
  * @param stream
  */
 template <typename value_t, int tpb = 1024>
-void core_distances(value_t *knn_dists, int min_pts, size_t n, value_t *out,
+void core_distances(value_t *knn_dists, int k, size_t n, value_t *out,
                     cudaStream_t stream) {
-  int blocks = raft::ceildiv(n * min_pts, (size_t)tpb);
+  int blocks = raft::ceildiv(n, (size_t)tpb);
   core_distances_kernel<value_t>
-    <<<blocks, tpb, 0, stream>>>(knn_dists, min_pts, out);
+    <<<blocks, tpb, 0, stream>>>(knn_dists, k, n, out);
 }
 
 template <typename value_idx, typename value_t>
-__global__ void mutual_reachability_kernel(value_t *pw_dists,
-                                           value_t *core_dists, size_t m,
+__global__ void mutual_reachability_kernel(value_t *dists,
+                                           value_idx *inds,
+                                           value_t *core_dists, int k,
                                            size_t n, value_t *out) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
-  int row = idx / n;
-  int col = idx % n;
+  int row = idx / k;
 
-  value_idx a = row;
-  value_idx b = col;
+  if(idx < k * n) {
+    value_idx a = row;
+    value_idx b = inds[idx];
 
-  value_t core_a = core_dists[a];
-  value_t core_b = core_dists[b];
+    value_t core_a = core_dists[a];
+    value_t core_b = core_dists[b];
 
-  value_t dist = pw_dists[row + col];
+    value_t dist = dists[idx];
 
-  out[row + col] = max(core_a, max(core_b, dist));
+    out[idx] = max(core_a, max(core_b, dist));
+  }
 }
 
 template <typename value_idx, typename value_t, int tpb = 1024>
-void mutual_reachability(value_t *pw_dists, value_t *core_dists, size_t m,
+void mutual_reachability(value_t *pw_dists, value_idx *inds,
+                         value_t *core_dists,
+                         int k, size_t n,
                          cudaStream_t stream) {
-  int blocks = raft::ceildiv(m * m, (size_t)tpb);
+  int blocks = raft::ceildiv(k * n, (size_t)tpb);
 
   mutual_reachability_kernel<value_idx, value_t>
-    <<<blocks, tpb, 0, stream>>>(pw_dists, core_dists, m, m, pw_dists);
+    <<<blocks, tpb, 0, stream>>>(pw_dists, inds, core_dists,
+                                 k, n, pw_dists);
 }
 
 /**
@@ -110,11 +119,11 @@ template <typename value_idx, typename value_t>
 void mutual_reachability_graph(const raft::handle_t &handle, const value_t *X,
                                size_t m, size_t n,
                                raft::distance::DistanceType metric, int k,
-                               value_idx *indptr, value_idx *inds,
-                               value_t *dists, value_t *core_dists) {
+                               value_idx *indptr, value_t *core_dists,
+                               raft::sparse::COO<value_t, value_idx> &out) {
   auto stream = handle.get_stream();
 
-  rmm::device_uvector<value_idx> coo_rows(k * m, stream);
+
 
   std::vector<value_t *> inputs;
   inputs.push_back(const_cast<value_t *>(X));
@@ -124,29 +133,55 @@ void mutual_reachability_graph(const raft::handle_t &handle, const value_t *X,
 
   // This is temporary. Once faiss is updated, we should be able to
   // pass value_idx through to knn.
+  rmm::device_uvector<value_idx> coo_rows(k * m, stream);
   rmm::device_uvector<int64_t> int64_indices(k * m, stream);
+  rmm::device_uvector<value_idx> inds(k * m, stream);
+  rmm::device_uvector<value_t> dists(k * m, stream);
+
 
   // perform knn
   brute_force_knn(handle, inputs, sizes, n, const_cast<value_t *>(X), m,
-                  int64_indices.data(), dists, k, true, true, metric);
+                  int64_indices.data(), dists.data(), k, true, true, metric);
+
+  raft::print_device_vector("knn_inds", int64_indices.data(), int64_indices.size(), std::cout);
+  raft::print_device_vector("knn_dists", dists.data(), dists.size(), std::cout);
 
   // convert from current knn's 64-bit to 32-bit.
-  raft::sparse::selection::conv_indices(int64_indices.data(), inds, k * m,
+  raft::sparse::selection::conv_indices(int64_indices.data(), inds.data(), k * m,
                                         stream);
 
+  raft::linalg::unaryOp<value_t>(
+    dists.data(), dists.data(), k * m,
+    [] __device__(value_t input) {
+      if (input == 0.0)
+        return std::numeric_limits<value_t>::max();
+      else
+        return input;
+    },
+    stream);
+
+
   // Slice core distances (distances to kth nearest neighbor)
-  core_distances(dists, k, m, core_dists, stream);
+  core_distances(dists.data(), k, m, core_dists, stream);
 
   // Project into mutual reachability space.
   // Note that it's not guaranteed the knn graph will be connected
   // at this point so the core distances will need to be returned
   // so additional points can be added to the graph and projected
-  // ito mutual reachability space later.
-  mutual_reachability<value_idx, value_t>(dists, core_dists, m, stream);
+  // into mutual reachability space later.
+  mutual_reachability<value_idx, value_t>(dists.data(), inds.data(), core_dists, k, m, stream);
+
+  raft::print_device_vector("inds", inds.data(), inds.size(), std::cout);
+  raft::print_device_vector("dists", dists.data(), dists.size(), std::cout);
+
 
   raft::sparse::selection::fill_indices<value_idx>
     <<<raft::ceildiv(k * m, (size_t)256), 256, 0, stream>>>(coo_rows.data(), k,
                                                             m * k);
+
+  raft::sparse::linalg::symmetrize(handle, coo_rows.data(), inds.data(),
+                                   dists.data(), m, m, k * m, out);
+
 
   raft::sparse::convert::sorted_coo_to_csr(coo_rows.data(), m * k, indptr,
                                            m + 1, handle.get_device_allocator(),
