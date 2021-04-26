@@ -18,6 +18,10 @@
 #include <raft/sparse/hierarchy/single_linkage.hpp>
 #include "pw_dist_graph.cuh"
 
+namespace raft {
+class handle_t;
+}
+
 namespace ML {
 
 void single_linkage_pairwise(const raft::handle_t &handle, const float *X,

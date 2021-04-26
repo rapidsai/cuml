@@ -21,16 +21,16 @@
 #include <cuml/manifold/umapparams.h>
 #include <datasets/digits.h>
 #include <raft/cudart_utils.h>
-#include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
-#include <cuml/cuml.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/manifold/umap.hpp>
 #include <cuml/neighbors/knn.hpp>
-#include <distance/distance.cuh>
 #include <linalg/reduce_rows_by_key.cuh>
 #include <metrics/trustworthiness.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/distance/distance.cuh>
+#include <raft/handle.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include <selection/knn.cuh>
 #include <umap/runner.cuh>
 
@@ -40,7 +40,6 @@ using namespace ML::Metrics;
 using namespace std;
 
 using namespace MLCommon;
-using namespace MLCommon::Distance;
 using namespace MLCommon::Datasets::Digits;
 
 template <typename T>
@@ -54,7 +53,8 @@ __global__ void has_nan_kernel(T* data, size_t len, bool* answer) {
 }
 
 template <typename T>
-bool has_nan(T* data, size_t len, std::shared_ptr<deviceAllocator> alloc,
+bool has_nan(T* data, size_t len,
+             std::shared_ptr<raft::mr::device::allocator> alloc,
              cudaStream_t stream) {
   dim3 blk(256);
   dim3 grid(raft::ceildiv(len, (size_t)blk.x));
@@ -79,7 +79,8 @@ __global__ void are_equal_kernel(T* embedding1, T* embedding2, size_t len,
 
 template <typename T>
 bool are_equal(T* embedding1, T* embedding2, size_t len,
-               std::shared_ptr<deviceAllocator> alloc, cudaStream_t stream) {
+               std::shared_ptr<raft::mr::device::allocator> alloc,
+               cudaStream_t stream) {
   double h_answer = 0.;
   device_buffer<double> d_answer(alloc, stream, 1);
   raft::update_device(d_answer.data(), &h_answer, 1, stream);
@@ -258,6 +259,8 @@ class UMAPParametrizableTest : public ::testing::Test {
       return;
     }
 
+#if CUDART_VERSION >= 11020
+
     if (!umap_params.multicore_implem) {
       device_buffer<float> embeddings2(alloc, stream,
                                        n_samples * umap_params.n_components);
@@ -275,6 +278,7 @@ class UMAPParametrizableTest : public ::testing::Test {
 
       ASSERT_TRUE(equal);
     }
+#endif
   }
 
   void SetUp() override {
@@ -297,22 +301,14 @@ class UMAPParametrizableTest : public ::testing::Test {
 
     umap_params_vec[2].n_components = 21;
     umap_params_vec[2].random_state = 43;
-#if CUDART_VERSION < 110200
-    umap_params_vec[2].init = 1;
-#else
     umap_params_vec[2].init = 0;
-#endif
     umap_params_vec[2].multicore_implem = false;
     umap_params_vec[2].optim_batch_size = 0;  // use default value
     umap_params_vec[2].n_epochs = 500;
 
     umap_params_vec[3].n_components = 25;
     umap_params_vec[3].random_state = 43;
-#if CUDART_VERSION < 110200
-    umap_params_vec[3].init = 1;
-#else
     umap_params_vec[3].init = 0;
-#endif
     umap_params_vec[3].multicore_implem = false;
     umap_params_vec[3].optim_batch_size = 0;  // use default value
     umap_params_vec[3].n_epochs = 500;

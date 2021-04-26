@@ -118,19 +118,6 @@ if(NOT CUB_IS_PART_OF_CTK)
 endif(NOT CUB_IS_PART_OF_CTK)
 
 ##############################################################################
-# - cutlass - (header only) --------------------------------------------------
-
-set(CUTLASS_DIR ${CMAKE_CURRENT_BINARY_DIR}/cutlass CACHE STRING
-  "Path to the cutlass repo")
-ExternalProject_Add(cutlass
-  GIT_REPOSITORY    https://github.com/NVIDIA/cutlass.git
-  GIT_TAG           v1.0.1
-  PREFIX            ${CUTLASS_DIR}
-  CONFIGURE_COMMAND ""
-  BUILD_COMMAND     ""
-  INSTALL_COMMAND   "")
-
-##############################################################################
 # - spdlog -------------------------------------------------------------------
 
 set(SPDLOG_DIR ${CMAKE_CURRENT_BINARY_DIR}/spdlog CACHE STRING
@@ -257,13 +244,9 @@ set_property(TARGET benchmarklib PROPERTY
 
 # TODO: Change to using build.sh and make targets instead of this
 
-if(CUB_IS_PART_OF_CTK)
-  add_dependencies(cutlass raft)
-else()
+if(NOT CUB_IS_PART_OF_CTK)
   add_dependencies(cub raft)
-  add_dependencies(cutlass cub)
-endif(CUB_IS_PART_OF_CTK)
-add_dependencies(spdlog cutlass)
+endif(NOT CUB_IS_PART_OF_CTK)
 add_dependencies(GTest::GTest spdlog)
 add_dependencies(benchmark GTest::GTest)
 add_dependencies(FAISS::FAISS benchmark)

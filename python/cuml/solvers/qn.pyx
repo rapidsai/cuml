@@ -132,10 +132,10 @@ class QN(Base,
     Two algorithms are implemented underneath cuML's QN class, and which one
     is executed depends on the following rule:
 
-    * Orthant-Wise Limited Memory Quasi-Newton (OWL-QN) if there is l1
-      regularization
+      * Orthant-Wise Limited Memory Quasi-Newton (OWL-QN) if there is l1
+        regularization
 
-    * Limited Memory BFGS (L-BFGS) otherwise.
+      * Limited Memory BFGS (L-BFGS) otherwise.
 
     cuML's QN class can take array-like objects, either in host as
     NumPy arrays or in device (as Numba or __cuda_array_interface__ compliant).
@@ -206,8 +206,25 @@ class QN(Base,
         will not be regularized.
     max_iter: int (default = 1000)
         Maximum number of iterations taken for the solvers to converge.
-    tol: float (default = 1e-3)
-        The training process will stop if current_loss > previous_loss - tol
+    tol: float (default = 1e-4)
+        The training process will stop if
+
+        `norm(current_loss_grad, inf) <= tol * max(current_loss, tol)`.
+
+        This differs slightly from the `gtol`-controlled stopping condition in
+        `scipy.optimize.minimize(method=’L-BFGS-B’)
+        <https://docs.scipy.org/doc/scipy/reference/optimize.minimize-lbfgsb.html>`_:
+
+        `norm(current_loss_projected_grad, inf) <= gtol`.
+
+        Note, `sklearn.LogisticRegression()
+        <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html>`_
+        uses the sum of softmax/logistic loss over the input data, whereas cuML
+        uses the average. As a result, Scikit-learn's loss is usually
+        `sample_size` times larger than cuML's.
+        To account for the differences you may divide the `tol` by the sample
+        size; this would ensure that the cuML solver does not stop earlier than
+        the Scikit-learn solver.
     linesearch_max_iter: int (default = 50)
         Max number of linesearch iterations per outer iteration of the
         algorithm.
@@ -229,6 +246,9 @@ class QN(Base,
         the estimator. If None, it'll inherit the output type set at the
         module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
+    warm_start : bool, default=False
+        When set to True, reuse the solution of the previous call to fit as
+        initialization, otherwise, just erase the previous solution.
 
     Attributes
     -----------
@@ -242,21 +262,22 @@ class QN(Base,
     ------
        This class contains implementations of two popular Quasi-Newton methods:
 
-       - Limited-memory Broyden Fletcher Goldfarb Shanno (L-BFGS) [Nocedal,
-         Wright - Numerical Optimization (1999)]
+         - Limited-memory Broyden Fletcher Goldfarb Shanno (L-BFGS) [Nocedal,
+           Wright - Numerical Optimization (1999)]
 
-       - Orthant-wise limited-memory quasi-newton (OWL-QN) [Andrew, Gao - ICML
-         2007]
-         <https://www.microsoft.com/en-us/research/publication/scalable-training-of-l1-regularized-log-linear-models/>
+         - `Orthant-wise limited-memory quasi-newton (OWL-QN)
+            [Andrew, Gao - ICML 2007]
+           <https://www.microsoft.com/en-us/research/publication/scalable-training-of-l1-regularized-log-linear-models/>`_
     """
 
     _coef_ = CumlArrayDescriptor()
     intercept_ = CumlArrayDescriptor()
 
     def __init__(self, *, loss='sigmoid', fit_intercept=True,
-                 l1_strength=0.0, l2_strength=0.0, max_iter=1000, tol=1e-3,
+                 l1_strength=0.0, l2_strength=0.0, max_iter=1000, tol=1e-4,
                  linesearch_max_iter=50, lbfgs_memory=5,
-                 verbose=False, handle=None, output_type=None):
+                 verbose=False, handle=None, output_type=None,
+                 warm_start=False):
 
         super().__init__(handle=handle,
                          verbose=verbose,
@@ -272,6 +293,7 @@ class QN(Base,
         self.num_iter = 0
         self._coef_ = None
         self.intercept_ = None
+        self.warm_start = warm_start
 
         if loss not in ['sigmoid', 'softmax', 'normal']:
             raise ValueError("loss " + str(loss) + " not supported.")
@@ -343,7 +365,10 @@ class QN(Base,
         else:
             coef_size = (self.n_cols, self._num_classes_dim)
 
-        self._coef_ = CumlArray.ones(coef_size, dtype=self.dtype, order='C')
+        if self._coef_ is None or not self.warm_start:
+            self._coef_ = CumlArray.zeros(
+                coef_size, dtype=self.dtype, order='C')
+
         cdef uintptr_t coef_ptr = self._coef_.ptr
 
         cdef float objective32
@@ -553,4 +578,5 @@ class QN(Base,
     def get_param_names(self):
         return super().get_param_names() + \
             ['loss', 'fit_intercept', 'l1_strength', 'l2_strength',
-                'max_iter', 'tol', 'linesearch_max_iter', 'lbfgs_memory']
+                'max_iter', 'tol', 'linesearch_max_iter', 'lbfgs_memory',
+                'warm_start']
