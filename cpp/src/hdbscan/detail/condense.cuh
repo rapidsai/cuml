@@ -112,6 +112,7 @@ __global__ void condense_hierarchy_kernel(
       // If both children are large enough, they should be relabeled and
       // included directly in the output hierarchy.
       if (left_count >= min_cluster_size && right_count >= min_cluster_size) {
+        printf("node %d is persisting nodes %d and %d\n", node, left_child, right_child);
         relabel[left_child] = node;
         out_parent[node] = relabel[node];
         out_child[node] = node;

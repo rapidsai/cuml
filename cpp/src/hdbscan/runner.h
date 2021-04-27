@@ -112,6 +112,11 @@ void _fit(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
   CUDA_CHECK(cudaStreamSynchronize(stream));
   CUML_LOG_DEBUG("Executed MST");
 
+  raft::print_device_vector("src", mst_rows.data(), mst_rows.size(), std::cout);
+  raft::print_device_vector("dst", mst_cols.data(), mst_cols.size(), std::cout);
+  raft::print_device_vector("weight", mst_data.data(), mst_data.size(), std::cout);
+
+
   /**
    * Perform hierarchical labeling
    */
@@ -128,6 +133,7 @@ void _fit(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
   CUDA_CHECK(cudaStreamSynchronize(stream));
   CUML_LOG_DEBUG("Executed dendrogram labeling");
 
+  raft::print_device_vector("children", children.data(), children.size(), std::cout);
   raft::print_device_vector("delta", out_delta.data(), out_delta.size(), std::cout);
   raft::print_device_vector("size", out_size.data(), out_delta.size(), std::cout);
 
