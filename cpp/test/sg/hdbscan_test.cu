@@ -213,7 +213,7 @@ const std::vector<HDBSCANInputs<float, int>> hdbscan_inputsf2 = {
    5,
    5,
    2,
-   7,
+   3,
    {0.21390334, 0.50261639, 0.91036676, 0.59166485, 0.71162682, 0.10248392,
     0.77782677, 0.43772379, 0.4035871,  0.3282796,  0.47544681, 0.59862974,
     0.12319357, 0.06239463, 0.28200272, 0.1345717,  0.50498218, 0.5113505,
@@ -708,7 +708,7 @@ TEST_P(ClusterCondensingTestF_Int, Result) {
 
 
 const std::vector<ClusterCondensingInputs<float, int>> cluster_condensing_inputs = {
-  {9, 6,
+  {9, 3,
     {0, 2, 4, 6, 7, 1, 8, 8},
     {1, 3, 5, 5, 8, 5, 3, 4},
     {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0},
