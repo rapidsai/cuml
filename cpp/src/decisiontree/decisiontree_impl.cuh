@@ -291,7 +291,7 @@ void DecisionTreeBase<T, L>::plant(
   // fill with ascending range of indices
   std::iota(h_colids, h_colids + dinfo.Ncols, 0);
   // if feature sampling, shuffle
-  if (tree_params.max_features == 1.f) {
+  if (tree_params.max_features != 1.f) {
     // seed with treeid
     srand(treeid * 1000);
     std::random_shuffle(h_colids, h_colids + dinfo.Ncols,
