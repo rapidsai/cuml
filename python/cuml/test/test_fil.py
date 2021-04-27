@@ -425,12 +425,12 @@ def test_print_forest_shape(small_classifier_and_preds):
     import io
     strio = io.BytesIO()
     ForestInference.load(model_path, model_type=model_type, output_class=True,
-                         print_forest_shape=True, forest_shape_file=strio)
+                         forest_shape_file=strio)
     strio.seek(0)
     string = str(strio.read())
     assert 'model size' in string
     assert ' MB' in string
-    assert 'Depth hist' in string
+    assert 'Depth histogram:' in string
     assert 'Avg nodes per tree' in string
     assert 'Leaf depth' in string
     assert 'Depth histogram fingerprint' in string

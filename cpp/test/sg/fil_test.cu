@@ -615,10 +615,23 @@ class TreeliteFilTest : public BaseFilTest {
     params.storage_type = storage_type;
     params.blocks_per_sm = ps.blocks_per_sm;
     char* model_shape_str = nullptr;
-    fil::from_treelite(handle, pforest, (ModelHandle)model.get(), &params,
-                       ps.print_model_shape, &model_shape_str);
+    params.pforest_shape_str =
+      ps.print_model_shape ? &model_shape_str : nullptr;
+    fil::from_treelite(handle, pforest, (ModelHandle)model.get(), &params);
     CUDA_CHECK(cudaStreamSynchronize(stream));
-    if (ps.print_model_shape) printf("%s", model_shape_str);
+    if (ps.print_model_shape) {
+      std::string str(model_shape_str);
+      auto check_substring = [&](const char* substr) {
+        ASSERT(str.find(substr) != std::string::npos,
+               "\"%s\" not found in forest shape", substr);
+      };
+      check_substring("model size");
+      check_substring(" MB");
+      check_substring("Depth histogram:");
+      check_substring("Avg nodes per tree");
+      check_substring("Leaf depth");
+      check_substring("Depth histogram fingerprint");
+    }
   }
 };
 

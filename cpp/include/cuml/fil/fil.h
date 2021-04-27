@@ -86,6 +86,9 @@ struct treelite_params_t {
   // suggested values (if nonzero) are from 2 to 7
   // if zero, launches ceildiv(num_rows, NITEMS) blocks
   int blocks_per_sm;
+  // if non-nullptr, *pforest_shape_str will be set to caller-owned string that
+  // contains forest shape
+  char** pforest_shape_str;
 };
 
 /** from_treelite uses a treelite model to initialize the forest
@@ -93,12 +96,9 @@ struct treelite_params_t {
  * @param pforest pointer to where to store the newly created forest
  * @param model treelite model used to initialize the forest
  * @param tl_params additional parameters for the forest
- * @param forest_shape_str: upon return, will be set to nullptr, or,
- * if print_forest_shape == true, caller-owned string that contains forest shape
  */
 void from_treelite(const raft::handle_t& handle, forest_t* pforest,
-                   ModelHandle model, const treelite_params_t* tl_params,
-                   bool print_forest_shape, char** pforest_shape_str);
+                   ModelHandle model, const treelite_params_t* tl_params);
 
 /** free deletes forest and all resources held by it; after this, forest is no longer usable
  *  @param h cuML handle used by this function
