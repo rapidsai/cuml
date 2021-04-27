@@ -144,14 +144,14 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
     bool isLsInDoubt =
       lsret == LS_INVALID_STEP_MIN || lsret == LS_MAX_ITERS_REACHED;
     bool isLsSuccess =
-      lsret == LS_SUCCESS || isLsValid && fx <= fxp && isLsSuccess;
+      lsret == LS_SUCCESS || isLsValid && fx <= fxp && isLsInDoubt;
 
     if (!isLsSuccess || !isLsValid) {
       fx = fxp;
       x.copy_async(xp, stream);
       grad.copy_async(gradp, stream);
       if (!isLsSuccess) {
-        CUML_LOG_ERROR("L-BFGS line search failed");
+        CUML_LOG_ERROR("L-BFGS line search failed (code %d)", lsret);
         return OPT_LS_FAILED;
       }
       CUML_LOG_ERROR("L-BFGS error fx=%f at iteration %d", fx, *k);
@@ -296,14 +296,14 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
     bool isLsInDoubt =
       lsret == LS_INVALID_STEP_MIN || lsret == LS_MAX_ITERS_REACHED;
     bool isLsSuccess =
-      lsret == LS_SUCCESS || isLsValid && fx <= fxp && isLsSuccess;
+      lsret == LS_SUCCESS || isLsValid && fx <= fxp && isLsInDoubt;
 
     if (!isLsSuccess || !isLsValid) {
       fx = fxp;
       x.copy_async(xp, stream);
       grad.copy_async(gradp, stream);
       if (!isLsSuccess) {
-        CUML_LOG_ERROR("QWL-QN line search failed");
+        CUML_LOG_ERROR("QWL-QN line search failed (code %d)", lsret);
         return OPT_LS_FAILED;
       }
       CUML_LOG_ERROR("OWL-QN error fx=%f at iteration %d", fx, *k);
