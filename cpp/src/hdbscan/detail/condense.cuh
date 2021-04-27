@@ -86,7 +86,6 @@ __global__ void condense_hierarchy_kernel(
     out_child[node] = node;
     out_lambda[node] = get_lambda(subtree_parent, n_leaves, deltas);
     out_count[node] = 1;
-
   }
 
   // If node is not a leaf, condense its children if necessary
@@ -124,7 +123,6 @@ __global__ void condense_hierarchy_kernel(
         out_child[node] = node;
         out_lambda[node] = lambda_value;
         out_count[node] = left_count;
-
       }
 
       // Consume left or right child as necessary
@@ -142,7 +140,6 @@ __global__ void condense_hierarchy_kernel(
       bool only_right_child_too_small =
         !left_child_too_small && right_child_too_small;
 
-      
       relabel[right_child] = (only_left_child_too_small * relabel[node]) +
                              (!only_left_child_too_small * -1);
       relabel[left_child] = (only_right_child_too_small * relabel[node]) +
