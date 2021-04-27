@@ -129,11 +129,24 @@ class Profiler:
                 msg = '\n' + msg
             print(msg)
 
+        def aggregate(calls):
+            agg = {}
+            for c in calls:
+                measurement = c['measurement']
+                runtime = int(c['runtime'])
+                if measurement in agg:
+                    agg[measurement]['runtime'] += runtime
+                else:
+                    agg[measurement] = {'measurement': measurement,
+                                        'runtime': runtime,
+                                        'category': c['category']}
+            return agg.values()
+
         for record, end in zip(py_calls, py_calls_timestamps):
             display(record)
             utils_calls_to_print = [r for r in utils_calls
                                     if r['timestamp'] < end]
-            for u in utils_calls_to_print:
+            for u in aggregate(utils_calls_to_print):
                 display(u)
             utils_calls = [r for r in utils_calls if r['timestamp'] >= end]
 
