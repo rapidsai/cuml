@@ -82,11 +82,19 @@ struct CondensedHierarchy {
                thrust::get<2>(tup) != -1 && thrust::get<3>(tup) != -1;
       });
 
-    // TODO: I don't believe this is correct. The whole set of
-    //  parents/children will need to be made monotonic.
-    // Also, make_monotonic doesn't have a return value.
+    raft::print_device_vector("Parents before monotonic", parents.data(), n_edges, std::cout);
+    raft::print_device_vector("Children before monotonic", children.data(), n_edges, std::cout);
+
+    n_clusters = 10;
+
+    // TODO: Avoid the copies here by updating kernel
+    // rmm::device_uvector<value_idx> parent_child(n_edges * 2, stream);
+    // raft::copy_async(parent_child.begin(), children.begin(), n_edges, stream);
+    // raft::copy_async(parent_child.begin() + n_edges, parents.begin(), n_edges, stream);
     //    n_clusters = MLCommon::Label::make_monotonic(
-    //      handle, parents.data(), parents.begin(), parents.end());
+    //      handle, parent_child.data(), parent_child.data(), parent_child.size());
+    // raft::copy_async(children.begin(), parent_child.begin(), n_edges, stream);
+    // raft::copy_async(parents.begin(), parent_child.begin() + n_edges, n_edges, stream);
   }
 
   /**

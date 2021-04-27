@@ -96,41 +96,50 @@ void compute_stabilities(
   auto lambdas = condensed_tree.get_lambdas();
   auto n_edges = condensed_tree.get_n_edges();
   auto n_clusters = condensed_tree.get_n_clusters();
+  std::cout << "N Edges: " << n_edges << std::endl;
+  std::cout << "N Clusters: " << n_clusters << std::endl;
+
+  raft::print_device_vector("Parents", parents, n_edges, std::cout);
+  raft::print_device_vector("Children", children, n_edges, std::cout);
+  raft::print_device_vector("Lambdas", lambdas, n_edges, std::cout);
 
   auto stream = handle.get_stream();
   auto thrust_policy = rmm::exec_policy(stream);
 
   // TODO: Reverse topological sort (e.g. sort hierarchy, lambdas, and sizes by lambda)
-  rmm::device_uvector<value_idx> sorted_child(n_edges, stream);
+  rmm::device_uvector<value_idx> sorted_children(n_edges, stream);
   raft::copy_async(sorted_child.data(), children, n_edges, stream);
   rmm::device_uvector<value_t> sorted_lambdas(n_edges, stream);
   raft::copy_async(sorted_lambdas.data(), lambdas, n_edges, stream);
 
-  rmm::device_uvector<value_idx> sorted_parent(n_edges, stream);
+  rmm::device_uvector<value_idx> sorted_parents(n_edges, stream);
   raft::copy_async(sorted_parent.data(), parents, n_edges, stream);
-  thrust::sort_by_key(thrust_policy->on(stream), sorted_parent.begin(),
-                      sorted_parent.end(), sorted_child.begin());
 
-  raft::copy_async(sorted_parent.data(), parents, n_edges, stream);
-  thrust::sort_by_key(thrust_policy->on(stream), sorted_parent.begin(),
-                      sorted_parent.end(), sorted_lambdas.begin());
+  auto sorted_child_lambda = thrust::make_zip_iterator(thrust::make_tuple(sorted_children.data(), sorted_lambdas.data()));
+  thrust::sort_by_key(thrust_policy->on(stream), sorted_parents.begin(),
+                      sorted_parents.end(), sorted_child_lambda);
+  raft::print_device_vector("Sorted Parents", sorted_parents.data(), n_edges, std::cout);
+  raft::print_device_vector("Sorted Children", sorted_children.data(), n_edges, std::cout);
+  raft::print_device_vector("Sorted Lambdas", sorted_lambdas.data(), n_edges, std::cout);
   // TODO: Segmented reduction on min_lambda within each cluster
   // TODO: Converting child array to CSR offset and using CUB Segmented Reduce
   // Investigate use of a kernel like coo_spmv
   rmm::device_uvector<value_t> births(n_clusters, stream);
   thrust::fill(thrust_policy->on(stream), births.begin(), births.end(), 0.0f);
 
-  rmm::device_uvector<value_idx> sorted_child_offsets(n_edges + 1, stream);
+  rmm::device_uvector<value_idx> sorted_parents_offsets(n_edges + 1, stream);
 
   raft::sparse::convert::sorted_coo_to_csr(
-    sorted_child.data(), n_edges, sorted_child_offsets.data(), n_clusters,
+    sorted_parents.data(), n_edges, sorted_parents_offsets.data(), n_clusters,
     handle.get_device_allocator(), handle.get_stream());
 
+  raft::print_device_vector("Sorted Parent Offsets", sorted_parent_offsets.data(), n_clusters, std::cout);
+
   segmented_reduce(lambdas, births.data(), n_clusters,
-                   sorted_child_offsets.data(), stream,
+                   sorted_parents_offsets.data(), stream,
                    cub::DeviceSegmentedReduce::Min<const value_t *, value_t *,
                                                    const value_idx *>);
-
+  raft::print_device_vector("Births", births.data(), n_clusters, std::cout);
   // TODO: Embarassingly parallel construction of output
   // TODO: It can be done with same coo_spmv kernel
   // Or naive kernel, atomically write to cluster stability
@@ -138,7 +147,7 @@ void compute_stabilities(
                0.0f);
 
   segmented_reduce(lambdas, stabilities, n_clusters,
-                   sorted_child_offsets.data(), stream,
+                   sorted_parents_offsets.data(), stream,
                    cub::DeviceSegmentedReduce::Sum<const value_t *, value_t *,
                                                    const value_idx *>);
 
@@ -147,6 +156,8 @@ void compute_stabilities(
   thrust::transform(
     thrust_policy->on(stream), thrust::make_counting_iterator(0),
     thrust::make_counting_iterator(n_clusters), stabilities, transform_op);
+
+  raft::print_device_vector("Stabilities", stabilities, n_clusters, std::cout);
 }
 
 /**
@@ -330,27 +341,27 @@ void extract_clusters(
 
   compute_stabilities(handle, condensed_tree, tree_stabilities.data());
 
-  rmm::device_uvector<bool> is_cluster(condensed_tree.get_n_clusters(),
-                                       handle.get_stream());
+  // rmm::device_uvector<bool> is_cluster(condensed_tree.get_n_clusters(),
+  //                                      handle.get_stream());
 
-  value_idx max_cluster_size = -1;  // TODO
-  excess_of_mass(handle, condensed_tree, tree_stabilities.data(),
-                 is_cluster.data(), condensed_tree.get_n_clusters(),
-                 max_cluster_size);
+  // value_idx max_cluster_size = -1;  // TODO
+  // excess_of_mass(handle, condensed_tree, tree_stabilities.data(),
+  //                is_cluster.data(), condensed_tree.get_n_clusters(),
+  //                max_cluster_size);
 
-  // TODO: create final clusters array based on excess of mass
-  rmm::device_uvector<value_idx> clusters(0, handle.get_stream());
+  // // TODO: create final clusters array based on excess of mass
+  // rmm::device_uvector<value_idx> clusters(0, handle.get_stream());
 
-  // TODO: Fill this in
-  do_labelling<value_idx, value_t>();
+  // // TODO: Fill this in
+  // do_labelling<value_idx, value_t>();
 
-  // TODO: Fill this in
-  get_probabilities<value_idx, value_t>(handle, probabilities);
+  // // TODO: Fill this in
+  // get_probabilities<value_idx, value_t>(handle, probabilities);
 
-  value_t max_lambda = -1;  //TODO Fill this in
-  rmm::device_uvector<value_idx> stability_scores(0, handle.get_stream());
-  get_stability_scores(handle, labels, tree_stabilities.data(), clusters.data(),
-                       clusters.size(), max_lambda, n_leaves, stabilities);
+  // value_t max_lambda = -1;  //TODO Fill this in
+  // rmm::device_uvector<value_idx> stability_scores(0, handle.get_stream());
+  // get_stability_scores(handle, labels, tree_stabilities.data(), clusters.data(),
+  //                      clusters.size(), max_lambda, n_leaves, stabilities);
 }
 
 };  // end namespace Extract
