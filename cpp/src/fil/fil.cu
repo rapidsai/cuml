@@ -995,7 +995,7 @@ void from_treelite(const raft::handle_t& handle, forest_t* pforest,
                    ModelHandle model, const treelite_params_t* tl_params,
                    bool print_forest_shape, char** pforest_shape_str) {
   const tl::Model& model_ref = *(tl::Model*)model;
-  model_ref.Dispatch([=, &handle](const auto& model_inner) {
+  model_ref.Dispatch([&](const auto& model_inner) {
     // model_inner is of the concrete type tl::ModelImpl<T, L>
     from_treelite(handle, pforest, model_inner, tl_params, print_forest_shape,
                   pforest_shape_str);
@@ -1007,8 +1007,8 @@ char* sprintf_shape(const tl::ModelImpl<T, L>& model, storage_type_t storage,
                     const std::vector<N>& nodes,
                     const std::vector<int>& trees) {
   char* str = depth_hist_and_max(model, 50);
-  float size_mb = (trees.size() * sizeof trees.front() +
-                   nodes.size() * sizeof nodes.front()) /
+  float size_mb = (trees.size() * sizeof(trees.front()) +
+                   nodes.size() * sizeof(nodes.front())) /
                   1e6;
   sprintf(str + strlen(str), "%s model size %.2f MB\n",
           storage_type_repr[storage], size_mb);
