@@ -59,7 +59,7 @@ struct CondensedHierarchy {
     auto stream = handle.get_stream();
 
     n_edges = thrust::transform_reduce(
-      thrust::cuda::par.on(stream), full_parents, full_parents + (n_leaves * 2),
+      thrust::cuda::par.on(stream), full_parents, full_parents + (2 * n_leaves - 1),
       [=] __device__(value_t a) { return a != -1; }, 0,
       thrust::plus<value_idx>());
 
@@ -75,7 +75,7 @@ struct CondensedHierarchy {
       parents.data(), children.data(), lambdas.data(), sizes.data()));
 
     thrust::copy_if(
-      thrust::cuda::par.on(stream), in, in + (n_leaves * 2), out,
+      thrust::cuda::par.on(stream), in, in + (2 * n_leaves - 1), out,
       [=] __device__(
         thrust::tuple<value_idx, value_idx, value_t, value_idx> tup) {
         return thrust::get<0>(tup) != -1 && thrust::get<1>(tup) != -1 &&
@@ -102,9 +102,9 @@ struct CondensedHierarchy {
 
   value_idx get_cluster_tree_edges() {
     return thrust::transform_reduce(
-      thrust::cuda::par.on(handle.get_stream()), get_lambdas(),
-      get_lambdas() + get_n_edges(),
-      [=] __device__(value_t a) { return a > 1.0; }, 0,
+      thrust::cuda::par.on(handle.get_stream()), get_sizes(),
+      get_sizes() + get_n_edges(),
+      [=] __device__(value_t a) { return a > 1; }, 0,
       thrust::plus<value_idx>());
   }
 

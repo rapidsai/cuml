@@ -42,7 +42,7 @@ __device__ inline value_t get_lambda(value_idx node, value_idx num_points,
                                      const value_t *deltas) {
   value_t delta = deltas[node - num_points];
   bool nonzero_delta = delta > 0.0;
-  return ((!nonzero_delta * 1.0) / (nonzero_delta * delta)) +
+  return ((nonzero_delta * 1.0) / (nonzero_delta * delta)) +
          (!nonzero_delta * std::numeric_limits<value_t>::max());
 }
 
@@ -73,17 +73,20 @@ __global__ void condense_hierarchy_kernel(
 
   frontier[node] = false;
 
-  value_idx ignore_val = ignore[node];
-  bool should_ignore = ignore_val > -1;
+  value_idx subtree_parent = ignore[node];
+
+  bool should_ignore = subtree_parent > -1;
 
   // TODO: Investigate whether this would be better done w/ an additional kernel launch
 
   // If node is a leaf, add it to the condensed hierarchy
   if (node < n_leaves) {
-    out_parent[node] = relabel[ignore_val];
+    printf("Leaf node: %d, parent=%d, ignore_val=%d\n", node, subtree_parent, subtree_parent);
+    out_parent[node] = subtree_parent;
     out_child[node] = node;
-    out_lambda[node] = get_lambda(ignore_val, n_leaves, deltas);
+    out_lambda[node] = get_lambda(subtree_parent, n_leaves, deltas);
     out_count[node] = 1;
+
   }
 
   // If node is not a leaf, condense its children if necessary
@@ -95,8 +98,8 @@ __global__ void condense_hierarchy_kernel(
     frontier[left_child] = true;
     frontier[right_child] = true;
 
-    ignore[left_child] = (should_ignore * ignore_val) + (!should_ignore * -1);
-    ignore[right_child] = (should_ignore * ignore_val) + (!should_ignore * -1);
+    ignore[left_child] = (should_ignore * subtree_parent) + (!should_ignore * -1);
+    ignore[right_child] = (should_ignore * subtree_parent) + (!should_ignore * -1);
 
     // TODO: Should be able to remove this nested conditional
     if (!should_ignore) {
@@ -121,6 +124,7 @@ __global__ void condense_hierarchy_kernel(
         out_child[node] = node;
         out_lambda[node] = lambda_value;
         out_count[node] = left_count;
+
       }
 
       // Consume left or right child as necessary
@@ -138,6 +142,7 @@ __global__ void condense_hierarchy_kernel(
       bool only_right_child_too_small =
         !left_child_too_small && right_child_too_small;
 
+      
       relabel[right_child] = (only_left_child_too_small * relabel[node]) +
                              (!only_left_child_too_small * -1);
       relabel[left_child] = (only_right_child_too_small * relabel[node]) +
@@ -184,6 +189,10 @@ void build_condensed_hierarchy(
 
   // Propagate labels from root
   rmm::device_uvector<value_idx> relabel(root + 1, handle.get_stream());
+  thrust::fill(thrust::cuda::par.on(stream), relabel.data(),
+               relabel.data() + relabel.size(), -1);
+
+
   raft::update_device(relabel.data() + root, &root, 1, handle.get_stream());
 
   // Flip frontier for root
@@ -218,12 +227,22 @@ void build_condensed_hierarchy(
     // to schedule only the number of threads needed. (it might not be worth it)
     condense_hierarchy_kernel<<<grid, tpb, 0, handle.get_stream()>>>(
       frontier.data(), ignore.data(), relabel.data(), children, delta, sizes,
-      n_leaves, min_cluster_size, out_parent.data(), out_child.data(),
-      out_lambda.data(), out_size.data());
+      n_leaves, min_cluster_size, out_parent.data(),
+      out_child.data(), out_lambda.data(), out_size.data());
 
     n_elements_to_traverse =
       thrust::reduce(thrust::cuda::par.on(handle.get_stream()), frontier.data(),
                      frontier.data() + root + 1, 0);
+
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+
+    raft::print_device_vector("parent", out_parent.data(), out_parent.size(), std::cout);
+    raft::print_device_vector("child", out_child.data(), out_child.size(), std::cout);
+    raft::print_device_vector("size", out_size.data(), out_size.size(), std::cout);
+    raft::print_device_vector("lambda", out_lambda.data(), out_lambda.size(), std::cout);
+
+    raft::print_device_vector("relabel", relabel.data(), relabel.size(), std::cout);
+    raft::print_device_vector("ignore", ignore.data(), ignore.size(), std::cout);
   }
 
   // TODO: Verify the sequence of condensed cluster labels enables topological sort
