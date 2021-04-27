@@ -81,7 +81,6 @@ __global__ void condense_hierarchy_kernel(
 
   // If node is a leaf, add it to the condensed hierarchy
   if (node < n_leaves) {
-    printf("Leaf node: %d, parent=%d, ignore_val=%d\n", node, subtree_parent, subtree_parent);
     out_parent[node*2] = subtree_parent;
     out_child[node*2] = node;
     out_lambda[node*2] = get_lambda(subtree_parent, n_leaves, deltas);
@@ -97,10 +96,10 @@ __global__ void condense_hierarchy_kernel(
     frontier[left_child] = true;
     frontier[right_child] = true;
 
-    printf("node %d is pushing its children %d and %d onto frontier\n", node, left_child, right_child);
-
     ignore[left_child] = (should_ignore * subtree_parent) + (!should_ignore * -1);
     ignore[right_child] = (should_ignore * subtree_parent) + (!should_ignore * -1);
+
+    value_idx node_relabel = relabel[node];
 
     // TODO: Should be able to remove this nested conditional
     if (!should_ignore) {
@@ -111,70 +110,37 @@ __global__ void condense_hierarchy_kernel(
       int right_count =
         right_child >= n_leaves ? sizes[right_child - n_leaves] : 1;
 
+      // Consume left or right child as necessary
+      bool left_child_too_small = left_count < min_cluster_size;
+      bool right_child_too_small = right_count < min_cluster_size;
+
+      // Node can "persist" to the cluster tree only if
+      // both children >= min_cluster_size
+      bool can_persist = !left_child_too_small && !right_child_too_small;
+
+      relabel[left_child] = (!can_persist * node_relabel) + (can_persist * left_child);
+      relabel[right_child] = (!can_persist * node_relabel) + (can_persist * right_child);
+
+      // Propagate ignore to either subtree which is too small
+      ignore[left_child] =
+        (left_child_too_small * node_relabel) + (!left_child_too_small * -1);
+      ignore[right_child] =
+        (right_child_too_small * node_relabel) + (!right_child_too_small * -1);
+
       // If both children are large enough, they should be relabeled and
       // included directly in the output hierarchy.
-      if (left_count >= min_cluster_size && right_count >= min_cluster_size) {
-        printf("node %d is persisting nodes %d and %d\n", node, left_child, right_child);
-        relabel[left_child] = left_child;
-        out_parent[node*2] = relabel[node];
+      if (can_persist) {
+        // TODO: Could probably pull this out if this conditional becomes a bottleneck
+        out_parent[node*2] = node_relabel;
         out_child[node*2] = left_child;
         out_lambda[node*2] = lambda_value;
         out_count[node*2] = left_count;
 
-        relabel[right_child] = right_child;
-        out_parent[node*2+1] = relabel[node];
+        out_parent[node*2+1] = node_relabel;
         out_child[node*2+1] = right_child;
         out_lambda[node*2+1] = lambda_value;
         out_count[node*2+1] = right_count;
       }
-
-      else {
-        // Consume left or right child as necessary
-        bool left_child_too_small = left_count < min_cluster_size;
-        bool right_child_too_small = right_count < min_cluster_size;
-
-        if(left_child_too_small && right_child_too_small) {
-          ignore[left_child] = relabel[node];
-          ignore[right_child] = relabel[node];
-          relabel[right_child] = relabel[node];
-          relabel[left_child] = relabel[node];
-          printf("Both: %d is marking left child %d for ignore w/ relabel=%d.\n", node, left_child, relabel[left_child]);
-          printf("Both: %d is marking right child %d for ignore w/ relabel=%d.\n", node, right_child, relabel[left_child]);
-
-        }
-//        ignore[left_child] =
-//          (left_child_too_small * relabel[node]) + (!left_child_too_small * -1);
-//        ignore[right_child] =
-//          (right_child_too_small * relabel[node]) + (!right_child_too_small * -1);
-        else if(left_child_too_small) {
-          ignore[left_child] = relabel[node];
-          printf("%d is marking left child %d for ignore w/ relabel=%d.\n", node, left_child, relabel[left_child]);
-        } else {
-          ignore[right_child] = relabel[node];
-          printf("%d is marking right child %d for ignore w/ relabel=%d.\n", node, right_child, relabel[left_child]);
-        }
-        relabel[left_child] = relabel[node];
-        relabel[right_child] = relabel[node];
-
-
-//        // If only left or right child is too small, consume it and relabel the other
-//        // (to it can be its own cluster)
-//        bool only_left_child_too_small =
-//          left_child_too_small && !right_child_too_small;
-//        bool only_right_child_too_small =
-//          !left_child_too_small && right_child_too_small;
-//
-//
-//        relabel[right_child] = (only_left_child_too_small * relabel[node]) +
-//                               (!only_left_child_too_small * -1);
-//        relabel[left_child] = (only_right_child_too_small * relabel[node]) +
-//                              (!only_right_child_too_small * -1);
-//
-
-
-      }
-
-
     }
   }
 }
