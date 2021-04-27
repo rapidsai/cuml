@@ -46,6 +46,7 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                float l2,
                int max_iter,
                float grad_tol,
+               float change_tol,
                int linesearch_max_iter,
                int lbfgs_memory,
                int verbosity,
@@ -67,6 +68,7 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                double l2,
                int max_iter,
                double grad_tol,
+               double change_tol,
                int linesearch_max_iter,
                int lbfgs_memory,
                int verbosity,
@@ -225,6 +227,26 @@ class QN(Base,
         To account for the differences you may divide the `tol` by the sample
         size; this would ensure that the cuML solver does not stop earlier than
         the Scikit-learn solver.
+    delta: Optional[float] (default = None)
+        The training process will stop if
+
+        `abs(current_loss - previous_loss) <= delta * max(current_loss, tol)`.
+
+        When `None`, it's set to `tol * 0.01`; when `0`, the check is disabled.
+        Given the current step `k`, parameter `previous_loss` here is the loss
+        at the step `k - p`, where `p` is a small positive integer set
+        internally.
+
+        Note, this parameter corresponds to `ftol` in
+        `scipy.optimize.minimize(method=’L-BFGS-B’)
+        <https://docs.scipy.org/doc/scipy/reference/optimize.minimize-lbfgsb.html>`_,
+        which is set by default to a miniscule `2.2e-9` and is not exposed in
+        `sklearn.LogisticRegression()
+        <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html>`_.
+        This condition is meant to protect the solver against doing vanishingly
+        small linesearch steps or zigzagging.
+        You may choose to set `delta = 0` to make sure the cuML solver does
+        not stop earlier than the Scikit-learn solver.
     linesearch_max_iter: int (default = 50)
         Max number of linesearch iterations per outer iteration of the
         algorithm.
@@ -266,7 +288,7 @@ class QN(Base,
            Wright - Numerical Optimization (1999)]
 
          - `Orthant-wise limited-memory quasi-newton (OWL-QN)
-            [Andrew, Gao - ICML 2007]
+           [Andrew, Gao - ICML 2007]
            <https://www.microsoft.com/en-us/research/publication/scalable-training-of-l1-regularized-log-linear-models/>`_
     """
 
@@ -275,7 +297,7 @@ class QN(Base,
 
     def __init__(self, *, loss='sigmoid', fit_intercept=True,
                  l1_strength=0.0, l2_strength=0.0, max_iter=1000, tol=1e-4,
-                 linesearch_max_iter=50, lbfgs_memory=5,
+                 delta=None, linesearch_max_iter=50, lbfgs_memory=5,
                  verbose=False, handle=None, output_type=None,
                  warm_start=False):
 
@@ -288,6 +310,7 @@ class QN(Base,
         self.l2_strength = l2_strength
         self.max_iter = max_iter
         self.tol = tol
+        self.delta = delta
         self.linesearch_max_iter = linesearch_max_iter
         self.lbfgs_memory = lbfgs_memory
         self.num_iter = 0
@@ -377,6 +400,8 @@ class QN(Base,
 
         cdef int num_iters
 
+        delta = self.delta if self.delta is not None else (self.tol * 0.01)
+
         if self.dtype == np.float32:
             qnFit(handle_[0],
                   <float*>X_ptr,
@@ -389,6 +414,7 @@ class QN(Base,
                   <float> self.l2_strength,
                   <int> self.max_iter,
                   <float> self.tol,
+                  <float> delta,
                   <int> self.linesearch_max_iter,
                   <int> self.lbfgs_memory,
                   <int> self.verbose,
@@ -413,6 +439,7 @@ class QN(Base,
                   <double> self.l2_strength,
                   <int> self.max_iter,
                   <double> self.tol,
+                  <double> delta,
                   <int> self.linesearch_max_iter,
                   <int> self.lbfgs_memory,
                   <int> self.verbose,
@@ -579,4 +606,4 @@ class QN(Base,
         return super().get_param_names() + \
             ['loss', 'fit_intercept', 'l1_strength', 'l2_strength',
                 'max_iter', 'tol', 'linesearch_max_iter', 'lbfgs_memory',
-                'warm_start']
+                'warm_start', 'delta']
