@@ -16,6 +16,7 @@
 import sys
 from subprocess import run
 import json
+import math
 
 
 class Profiler:
@@ -61,20 +62,33 @@ class Profiler:
             filtered_profile = [p for p in filtered_profile
                                 if 'Text' in p and
                                 'DomainId' in p]
-            domain_id = [p['DomainId'] for p in filtered_profile
-                         if p['Text'] == 'cuml_python'][0]
+
+            py_domain_id = [p['DomainId'] for p in filtered_profile
+                            if p['Text'] == 'cuml_python']
+            py_domain_id = py_domain_id[0] if len(py_domain_id) > 0 else None
+            cpp_domain_id = [p['DomainId'] for p in filtered_profile
+                             if p['Text'] == 'cuml_cpp']
+            cpp_domain_id = (cpp_domain_id[0] if len(cpp_domain_id) > 0
+                             else None)
+
             filtered_profile = [p for p in filtered_profile
-                                if p['DomainId'] == domain_id]
+                                if p['DomainId'] in [py_domain_id,
+                                                     cpp_domain_id]]
             utils_category_id = [p['Category'] for p in filtered_profile
                                  if p['Text'] == 'utils'][0]
 
             def _process_nvtx_record(record):
-                new_record = {'measurement': record['Text']}
+                new_record = {'measurement': record['Text'],
+                              'timestamp': int(record['Timestamp'])}
                 if 'EndTimestamp' in record:
-                    runtime = int(record['EndTimestamp']) -\
-                              int(record['Timestamp'])
-                    new_record['timestamp'] = int(record['Timestamp'])
+                    runtime = (int(record['EndTimestamp']) -
+                               int(record['Timestamp']))
                     new_record['runtime'] = runtime
+                if 'DomainId' in record:
+                    if record['DomainId'] == py_domain_id:
+                        new_record['domain'] = 'cuml_python'
+                    if record['DomainId'] == cpp_domain_id:
+                        new_record['domain'] = 'cuml_cpp'
                 if 'Category' in record and \
                    record['Category'] == utils_category_id:
                     new_record['category'] = 'utils'
@@ -89,7 +103,19 @@ class Profiler:
         filtered_results = [r for r in results if 'runtime' in r]
         filtered_results.sort(key=lambda r: r['timestamp'])
         max_length = max([len(r['measurement']) for r in filtered_results]) + 4
-        for r in filtered_results:
+
+        py_calls = [r for r in filtered_results
+                    if r['domain'] == 'cuml_python' and
+                    r['category'] != 'utils']
+        utils_calls = [r for r in filtered_results
+                       if r['domain'] == 'cuml_cpp' or
+                       (r['domain'] == 'cuml_python' and
+                        r['category'] == 'utils')]
+
+        py_calls_timestamps = [r['timestamp'] for r in py_calls][1:]
+        py_calls_timestamps.append(math.inf)
+
+        def display(r):
             measurement = r['measurement']
             isutil = r['category'] == 'utils'
             if isutil:
@@ -102,6 +128,14 @@ class Profiler:
             if not isutil:
                 msg = '\n' + msg
             print(msg)
+
+        for record, end in zip(py_calls, py_calls_timestamps):
+            display(record)
+            utils_calls_to_print = [r for r in utils_calls
+                                    if r['timestamp'] < end]
+            for u in utils_calls_to_print:
+                display(u)
+            utils_calls = [r for r in utils_calls if r['timestamp'] >= end]
 
     def profile(self, command):
         self._nsys_profile(command)
