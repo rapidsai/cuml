@@ -288,13 +288,14 @@ void DecisionTreeBase<T, L>::plant(
   ML::PUSH_RANGE("DecisionTreeBase::plant::bootstrapping features");
   //Bootstrap features
   unsigned int *h_colids = tempmem->h_colids->data();
-  if (tree_params.bootstrap_features) {
+  // fill with ascending range of indices
+  std::iota(h_colids, h_colids + dinfo.Ncols, 0);
+  // if feature sampling, shuffle
+  if (tree_params.max_features == 1.f) {
+    // seed with treeid
     srand(treeid * 1000);
-    for (int i = 0; i < dinfo.Ncols; i++) {
-      h_colids[i] = rand() % dinfo.Ncols;
-    }
-  } else {
-    std::iota(h_colids, h_colids + dinfo.Ncols, 0);
+    std::random_shuffle(h_colids, h_colids + dinfo.Ncols,
+                        [](int j) { return rand() % j; });
   }
   ML::POP_RANGE();
   prepare_time = prepare_fit_timer.getElapsedSeconds();
