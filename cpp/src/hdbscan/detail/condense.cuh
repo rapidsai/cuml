@@ -82,10 +82,10 @@ __global__ void condense_hierarchy_kernel(
   // If node is a leaf, add it to the condensed hierarchy
   if (node < n_leaves) {
     printf("Leaf node: %d, parent=%d, ignore_val=%d\n", node, subtree_parent, subtree_parent);
-    out_parent[node] = subtree_parent;
-    out_child[node] = node;
-    out_lambda[node] = get_lambda(subtree_parent, n_leaves, deltas);
-    out_count[node] = 1;
+    out_parent[node*2] = subtree_parent;
+    out_child[node*2] = node;
+    out_lambda[node*2] = get_lambda(subtree_parent, n_leaves, deltas);
+    out_count[node*2] = 1;
   }
 
   // If node is not a leaf, condense its children if necessary
@@ -114,16 +114,16 @@ __global__ void condense_hierarchy_kernel(
       if (left_count >= min_cluster_size && right_count >= min_cluster_size) {
         printf("node %d is persisting nodes %d and %d\n", node, left_child, right_child);
         relabel[left_child] = node;
-        out_parent[node] = relabel[node];
-        out_child[node] = node;
-        out_lambda[node] = lambda_value;
-        out_count[node] = left_count;
+        out_parent[node*2] = node;
+        out_child[node*2] = left_child;
+        out_lambda[node*2] = lambda_value;
+        out_count[node*2] = left_count;
 
         relabel[right_child] = node;
-        out_parent[node] = relabel[node];
-        out_child[node] = node;
-        out_lambda[node] = lambda_value;
-        out_count[node] = left_count;
+        out_parent[node*2+1] = node;
+        out_child[node*2+1] = right_child;
+        out_lambda[node*2+1] = lambda_value;
+        out_count[node*2+1] = right_count;
       }
 
       // Consume left or right child as necessary
@@ -197,19 +197,19 @@ void build_condensed_hierarchy(
   bool start = true;
   raft::update_device(frontier.data() + root, &start, 1, handle.get_stream());
 
-  rmm::device_uvector<value_idx> out_parent(root, stream);
-  rmm::device_uvector<value_idx> out_child(root, stream);
-  rmm::device_uvector<value_t> out_lambda(root, stream);
-  rmm::device_uvector<value_idx> out_size(root, stream);
+  rmm::device_uvector<value_idx> out_parent((root+1) * 2, stream);
+  rmm::device_uvector<value_idx> out_child((root+1) * 2, stream);
+  rmm::device_uvector<value_t> out_lambda((root+1) * 2, stream);
+  rmm::device_uvector<value_idx> out_size((root+1) * 2, stream);
 
   thrust::fill(thrust::cuda::par.on(stream), out_parent.data(),
-               out_parent.data() + root, -1);
+               out_parent.data() + out_parent.size(), -1);
   thrust::fill(thrust::cuda::par.on(stream), out_child.data(),
-               out_child.data() + root, -1);
+               out_child.data() + out_child.size(), -1);
   thrust::fill(thrust::cuda::par.on(stream), out_lambda.data(),
-               out_lambda.data() + root, -1);
+               out_lambda.data() + out_lambda.size(), -1);
   thrust::fill(thrust::cuda::par.on(stream), out_size.data(),
-               out_size.data() + root, -1);
+               out_size.data() + out_size.size(), -1);
   thrust::fill(thrust::cuda::par.on(stream), ignore.data(),
                ignore.data() + ignore.size(), -1);
 

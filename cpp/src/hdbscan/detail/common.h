@@ -59,7 +59,7 @@ struct CondensedHierarchy {
     auto stream = handle.get_stream();
 
     n_edges = thrust::transform_reduce(
-      thrust::cuda::par.on(stream), full_sizes, full_sizes + (2 * (n_leaves - 1)),
+      thrust::cuda::par.on(stream), full_sizes, full_sizes + (4 * (n_leaves - 1) + 2),
       [=] __device__(value_idx a) { return a != -1; }, 0,
       thrust::plus<value_idx>());
 
@@ -75,7 +75,7 @@ struct CondensedHierarchy {
       parents.data(), children.data(), lambdas.data(), sizes.data()));
 
     thrust::copy_if(
-      thrust::cuda::par.on(stream), in, in + (2 * (n_leaves - 1)), out,
+      thrust::cuda::par.on(stream), in, in + (4 * (n_leaves - 1) + 2), out,
       [=] __device__(
         thrust::tuple<value_idx, value_idx, value_t, value_idx> tup) {
         return thrust::get<3>(tup) != -1;
