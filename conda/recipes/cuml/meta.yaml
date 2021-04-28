@@ -41,7 +41,7 @@ requirements:
     - dask-cudf {{ minor_version }}
     - libcuml={{ version }}
     - libcumlprims {{ minor_version }}
-    - cupy>=7.8.0,<9.0.0a0
+    - cupy>=7.8.0,<10.0.0a0
     - treelite=1.1.0
     - nccl>=2.8.4
     - ucx-py {{ minor_version }}
