@@ -13,10 +13,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
+
+import os
 import sys
 from subprocess import run
 import json
-import math
 
 
 class Profiler:
@@ -82,16 +84,19 @@ class Profiler:
 
             def _process_nvtx_record(record):
                 new_record = {'measurement': record['Text'],
-                              'timestamp': int(record['Timestamp'])}
+                              'start': int(record['Timestamp'])}
                 if 'EndTimestamp' in record:
                     runtime = (int(record['EndTimestamp']) -
                                int(record['Timestamp']))
                     new_record['runtime'] = runtime
+                    new_record['end'] = int(record['EndTimestamp'])
                 if 'DomainId' in record:
                     if record['DomainId'] == py_domain_id:
                         new_record['domain'] = 'cuml_python'
-                    if record['DomainId'] == cpp_domain_id:
+                    elif record['DomainId'] == cpp_domain_id:
                         new_record['domain'] = 'cuml_cpp'
+                    else:
+                        new_record['domain'] = 'none'
                 if 'Category' in record and \
                    record['Category'] == utils_category_id:
                     new_record['category'] = 'utils'
@@ -108,30 +113,14 @@ class Profiler:
     @staticmethod
     def _display_results(results):
         filtered_results = [r for r in results if 'runtime' in r]
-        filtered_results.sort(key=lambda r: r['timestamp'])
-        max_length = max([len(r['measurement']) for r in filtered_results]) + 4
+        filtered_results.sort(key=lambda r: r['start'])
+        max_length = max([len(r['measurement'])
+                          for r in filtered_results]) + 16
 
         primary_calls = [r for r in filtered_results
                          if r['is_primary']]
         other_calls = [r for r in filtered_results
                        if not r['is_primary']]
-
-        pr_calls_timestamps = [r['timestamp'] for r in primary_calls][1:]
-        pr_calls_timestamps.append(math.inf)
-
-        def display(r):
-            measurement = r['measurement']
-            is_primary = r['is_primary']
-            if not is_primary:
-                measurement = '    ' + measurement
-            measurement = measurement.ljust(max_length + 4)
-            runtime = round(int(r['runtime']) / 10**9, 4)
-            msg = '{measurement} : {runtime:8.4f} s'
-            msg = msg.format(measurement=measurement,
-                             runtime=runtime)
-            if is_primary:
-                msg = '\n' + msg
-            print(msg)
 
         def aggregate(calls):
             agg = {}
@@ -143,18 +132,56 @@ class Profiler:
                 else:
                     agg[measurement] = {'measurement': measurement,
                                         'runtime': runtime,
+                                        'start': c['start'],
                                         'is_primary': c['is_primary']}
-            return agg.values()
+            agg = list(agg.values())
+            agg.sort(key=lambda r: r['start'])
+            return agg
 
-        for record, end in zip(primary_calls, pr_calls_timestamps):
-            display(record)
+        def nesting_hierarchy(calls):
+            ends = []
+            for c in calls:
+                ends = [e for e in ends if c['start'] < e]
+                c['nesting_hierarchy'] = len(ends)
+                ends.append(c['end'])
+            return calls
+
+        def display(measurement, runtime):
+            measurement = measurement.ljust(max_length + 4)
+            runtime = round(int(runtime) / 10**9, 4)
+            msg = '{measurement} : {runtime:8.4f} s'
+            msg = msg.format(measurement=measurement,
+                             runtime=runtime)
+            print(msg)
+
+        for record in primary_calls:
+            print()
+            display(record['measurement'], record['runtime'])
+            start = record['start']
+            end = record['end']
             other_calls_to_print = [r for r in other_calls
-                                    if r['timestamp'] < end]
-            for u in aggregate(other_calls_to_print):
-                display(u)
-            other_calls = [r for r in other_calls if r['timestamp'] >= end]
+                                    if r['start'] >= start and
+                                    r['start'] < end]
+            utils_calls_to_print = [r for r in other_calls_to_print
+                                    if r['category'] == 'utils']
+            utils_calls_to_print = aggregate(utils_calls_to_print)
+            regular_calls_to_print = [r for r in other_calls_to_print
+                                      if r['category'] != 'utils']
+            regular_calls_to_print = nesting_hierarchy(regular_calls_to_print)
+
+            for u in regular_calls_to_print:
+                measurement = ('    |' + ('==' * u['nesting_hierarchy'])
+                               + '> ' + u['measurement'])
+                display(measurement, u['runtime'])
+            if len(regular_calls_to_print):
+                print()
+            print('    Utils summary:')
+            for u in utils_calls_to_print:
+                display('      ' + u['measurement'], u['runtime'])
+            other_calls = [r for r in other_calls if r['start'] >= end]
 
     def profile(self, command):
+        os.environ['NVTX_BENCHMARK'] = 'TRUE'
         self._nsys_profile(command)
         self._nsys_export2json()
         results = self._parse_json()

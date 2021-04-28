@@ -149,9 +149,7 @@ void PUSH_RANGE(const char *name) {
   nvtxDomainRangePushEx(domain, &eventAttrib);
 }
 
-void POP_RANGE() {
-  nvtxDomainRangePop(domain);
-}
+void POP_RANGE() { nvtxDomainRangePop(domain); }
 
 #else  // NVTX_ENABLED
 
