@@ -136,6 +136,8 @@ uint32_t generateNextColor(const std::string &tag) {
 
 #include <nvToolsExt.h>
 
+nvtxDomainHandle_t domain = nvtxDomainCreateA("cuml_cpp");
+
 void PUSH_RANGE(const char *name) {
   nvtxEventAttributes_t eventAttrib = {0};
   eventAttrib.version = NVTX_VERSION;
@@ -144,10 +146,12 @@ void PUSH_RANGE(const char *name) {
   eventAttrib.color = generateNextColor(name);
   eventAttrib.messageType = NVTX_MESSAGE_TYPE_ASCII;
   eventAttrib.message.ascii = name;
-  nvtxRangePushEx(&eventAttrib);
+  nvtxDomainRangePushEx(domain, &eventAttrib);
 }
 
-void POP_RANGE() { nvtxRangePop(); }
+void POP_RANGE() {
+  nvtxDomainRangePop(domain);
+}
 
 #else  // NVTX_ENABLED
 

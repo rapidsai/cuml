@@ -75,7 +75,10 @@ class Profiler:
                                 if p['DomainId'] in [py_domain_id,
                                                      cpp_domain_id]]
             utils_category_id = [p['Category'] for p in filtered_profile
-                                 if p['Text'] == 'utils'][0]
+                                 if p['Text'] == 'utils']
+            utils_category_id = (utils_category_id[0]
+                                 if len(utils_category_id) > 0
+                                 else None)
 
             def _process_nvtx_record(record):
                 new_record = {'measurement': record['Text'],
@@ -94,6 +97,10 @@ class Profiler:
                     new_record['category'] = 'utils'
                 else:
                     new_record['category'] = 'none'
+                new_record['is_primary'] = (
+                    new_record['domain'] == 'cuml_python' and
+                    new_record['category'] != 'utils'
+                )
                 return new_record
 
             return list(map(_process_nvtx_record, filtered_profile))
@@ -104,28 +111,25 @@ class Profiler:
         filtered_results.sort(key=lambda r: r['timestamp'])
         max_length = max([len(r['measurement']) for r in filtered_results]) + 4
 
-        py_calls = [r for r in filtered_results
-                    if r['domain'] == 'cuml_python' and
-                    r['category'] != 'utils']
-        utils_calls = [r for r in filtered_results
-                       if r['domain'] == 'cuml_cpp' or
-                       (r['domain'] == 'cuml_python' and
-                        r['category'] == 'utils')]
+        primary_calls = [r for r in filtered_results
+                         if r['is_primary']]
+        other_calls = [r for r in filtered_results
+                       if not r['is_primary']]
 
-        py_calls_timestamps = [r['timestamp'] for r in py_calls][1:]
-        py_calls_timestamps.append(math.inf)
+        pr_calls_timestamps = [r['timestamp'] for r in primary_calls][1:]
+        pr_calls_timestamps.append(math.inf)
 
         def display(r):
             measurement = r['measurement']
-            isutil = r['category'] == 'utils'
-            if isutil:
+            is_primary = r['is_primary']
+            if not is_primary:
                 measurement = '    ' + measurement
             measurement = measurement.ljust(max_length + 4)
             runtime = round(int(r['runtime']) / 10**9, 4)
             msg = '{measurement} : {runtime:8.4f} s'
             msg = msg.format(measurement=measurement,
                              runtime=runtime)
-            if not isutil:
+            if is_primary:
                 msg = '\n' + msg
             print(msg)
 
@@ -139,16 +143,16 @@ class Profiler:
                 else:
                     agg[measurement] = {'measurement': measurement,
                                         'runtime': runtime,
-                                        'category': c['category']}
+                                        'is_primary': c['is_primary']}
             return agg.values()
 
-        for record, end in zip(py_calls, py_calls_timestamps):
+        for record, end in zip(primary_calls, pr_calls_timestamps):
             display(record)
-            utils_calls_to_print = [r for r in utils_calls
+            other_calls_to_print = [r for r in other_calls
                                     if r['timestamp'] < end]
-            for u in aggregate(utils_calls_to_print):
+            for u in aggregate(other_calls_to_print):
                 display(u)
-            utils_calls = [r for r in utils_calls if r['timestamp'] >= end]
+            other_calls = [r for r in other_calls if r['timestamp'] >= end]
 
     def profile(self, command):
         self._nsys_profile(command)
