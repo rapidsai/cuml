@@ -24,18 +24,20 @@ from cuml.raft.common.handle cimport handle_t
 from cuml.raft.common.handle import Handle
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
-    double kl_divergence(const handle_t &handle,
-                         const double *y,
-                         const double *y_hat,
-                         int n) except +
-    float kl_divergence(const handle_t &handle,
-                        const float *y,
-                        const float *y_hat,
-                        int n) except +
+    double c_kl_divergence "ML::Metrics::kl_divergence"(
+        const handle_t &handle,
+        const double *y,
+        const double *y_hat,
+        int n) except +
+    float c_kl_divergence "ML::Metrics::kl_divergence"(
+        const handle_t &handle,
+        const float *y,
+        const float *y_hat,
+        int n) except +
 
 
 @cuml.internals.api_return_any()
-def cython_kl_divergence(P, Q, handle=None, convert_dtype=True):
+def kl_divergence(P, Q, handle=None, convert_dtype=True):
     """
     Calculates the "Kullback-Leibler" Divergence
     The KL divergence tells us how well the probability distribution Q
@@ -45,11 +47,13 @@ def cython_kl_divergence(P, Q, handle=None, convert_dtype=True):
 
         Parameters
         ----------
-        P : Array of probabilities corresponding to distribution P
+        P : Dense array of probabilities corresponding to distribution P
+           shape = (n_samples, 1)
            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
            ndarray, cuda array interface compliant array like CuPy.
 
-        Q : Array of probabilities corresponding to distribution Q
+        Q : Dense array of probabilities corresponding to distribution Q
+           shape = (n_samples, 1)
            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
            ndarray, cuda array interface compliant array like CuPy.
 
@@ -68,9 +72,10 @@ def cython_kl_divergence(P, Q, handle=None, convert_dtype=True):
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
     P_m, n_features_p, _, dtype_p = \
-        input_to_cuml_array(P, check_dtype=[np.float32, np.float64])
+        input_to_cuml_array(P, check_cols=1,
+                            check_dtype=[np.float32, np.float64])
     Q_m, n_features_q, _, _ = \
-        input_to_cuml_array(Q,
+        input_to_cuml_array(Q, check_cols=1,
                             convert_to_dtype=(dtype_p if convert_dtype
                                               else None),
                             check_dtype=[dtype_p])
@@ -84,18 +89,14 @@ def cython_kl_divergence(P, Q, handle=None, convert_dtype=True):
     cdef uintptr_t d_Q_ptr = Q_m.ptr
 
     if (dtype_p == np.float32):
-        res = kl_divergence(handle_[0],
-                            <float*> d_P_ptr,
-                            <float*> d_Q_ptr,
-                            <int> n_features_p)
-    elif (dtype_p == np.float64):
-        res = kl_divergence(handle_[0],
-                            <double*> d_P_ptr,
-                            <double*> d_Q_ptr,
-                            <int> n_features_p)
+        res = c_kl_divergence(handle_[0],
+                              <float*> d_P_ptr,
+                              <float*> d_Q_ptr,
+                              <int> n_features_p)
     else:
-        raise NotImplementedError("Unsupported dtype: {}".format(dtype_p))
+        res = c_kl_divergence(handle_[0],
+                              <double*> d_P_ptr,
+                              <double*> d_Q_ptr,
+                              <int> n_features_p)
 
-    del P_m
-    del Q_m
     return res
