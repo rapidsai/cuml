@@ -58,30 +58,31 @@ class Profiler:
             json_content = json_file.read().replace('\n', ',')[:-1]
             json_content = '{"dict": [\n' + json_content + '\n]}'
             profile = json.loads(json_content)['dict']
-            filtered_profile = [p['NvtxEvent'] for p in profile
-                                if 'NvtxEvent' in p]
-            filtered_profile = [p for p in filtered_profile
-                                if 'Text' in p and
-                                'DomainId' in p]
 
-            def get_id(lookfor, name, profiled):
-                idxs = [p[lookfor] for p in profiled
-                        if p['Text'] == name]
+            nvtx_events = [p['NvtxEvent'] for p in profile
+                           if 'NvtxEvent' in p]
+            nvtx_events = [p for p in nvtx_events
+                           if 'Text' in p and
+                           'DomainId' in p]
+
+            def get_id(attribute, lookfor, nvtx_events):
+                idxs = [p[attribute] for p in nvtx_events
+                        if p['Text'] == lookfor]
                 return idxs[0] if len(idxs) > 0 else None
 
             authorized_domains = {}
             for domain_name in ['cuml_python', 'cuml_cpp',
                                 'cudf_python', 'cudf_cpp']:
-                domain_id = get_id('DomainId', domain_name, filtered_profile)
+                domain_id = get_id('DomainId', domain_name, nvtx_events)
                 authorized_domains[domain_id] = domain_name
 
-            filtered_profile = [p for p in filtered_profile
-                                if p['DomainId'] in
-                                authorized_domains.keys()]
+            nvtx_events = [p for p in nvtx_events
+                           if p['DomainId'] in
+                           authorized_domains.keys()]
 
-            utils_category_id = get_id('Category', 'utils', filtered_profile)
+            utils_category_id = get_id('Category', 'utils', nvtx_events)
 
-            def _process_nvtx_record(record):
+            def _process_nvtx_event(record):
                 new_record = {'measurement': record['Text'],
                               'start': int(record['Timestamp'])}
                 if 'EndTimestamp' in record:
@@ -92,55 +93,46 @@ class Profiler:
                 if 'DomainId' in record:
                     domain_id = record['DomainId']
                     new_record['domain'] = authorized_domains[domain_id]
+                # cuDF work and utils from cuML are categorized as utilities
                 if (('Category' in record and
                      record['Category'] == utils_category_id) or
                         new_record['domain'].startswith('cudf')):
                     new_record['category'] = 'utils'
                 else:
                     new_record['category'] = 'none'
-                new_record['is_primary'] = (
-                    new_record['domain'] == 'cuml_python' and
-                    new_record['category'] != 'utils'
-                )
                 return new_record
 
-            return list(map(_process_nvtx_record, filtered_profile))
+            return list(map(_process_nvtx_event, nvtx_events))
 
     @staticmethod
     def _display_results(results):
-        filtered_results = [r for r in results if 'runtime' in r]
-        filtered_results.sort(key=lambda r: r['start'])
+        nvtx_events = [r for r in results if 'runtime' in r]
+        nvtx_events.sort(key=lambda r: r['start'])
         max_length = max([len(r['measurement'])
-                          for r in filtered_results]) + 16
+                         for r in nvtx_events]) + 16
 
-        primary_calls = [r for r in filtered_results
-                         if r['is_primary']]
-        other_calls = [r for r in filtered_results
-                       if not r['is_primary']]
-
-        def aggregate(calls):
+        def aggregate(records):
             agg = {}
-            for c in calls:
-                measurement = c['measurement']
-                runtime = int(c['runtime'])
+            for r in records:
+                measurement = r['measurement']
+                runtime = int(r['runtime'])
                 if measurement in agg:
                     agg[measurement]['runtime'] += runtime
                 else:
                     agg[measurement] = {'measurement': measurement,
                                         'runtime': runtime,
-                                        'start': c['start'],
-                                        'is_primary': c['is_primary']}
+                                        'start': r['start']}
             agg = list(agg.values())
             agg.sort(key=lambda r: r['start'])
             return agg
 
-        def nesting_hierarchy(calls):
+        def nesting_hierarchy(records):
             ends = []
-            for c in calls:
-                ends = [e for e in ends if c['start'] < e]
-                c['nesting_hierarchy'] = len(ends)
-                ends.append(c['end'])
-            return calls
+            for r in records:
+                ends = [e for e in ends if r['start'] < e]
+                r['nesting_hierarchy'] = len(ends)
+                ends.append(r['end'])
+            return records
 
         def display(measurement, runtime):
             measurement = measurement.ljust(max_length + 4)
@@ -150,31 +142,41 @@ class Profiler:
                              runtime=runtime)
             print(msg)
 
-        for record in primary_calls:
-            print()
+        while len(nvtx_events):
+            record = nvtx_events[0]
             display(record['measurement'], record['runtime'])
-            start = record['start']
-            end = record['end']
-            other_calls_to_print = [r for r in other_calls
-                                    if r['start'] >= start and
-                                    r['start'] < end]
-            utils_calls_to_print = [r for r in other_calls_to_print
-                                    if r['category'] == 'utils']
-            utils_calls_to_print = aggregate(utils_calls_to_print)
-            regular_calls_to_print = [r for r in other_calls_to_print
-                                      if r['category'] != 'utils']
-            regular_calls_to_print = nesting_hierarchy(regular_calls_to_print)
 
-            for u in regular_calls_to_print:
-                measurement = ('    |' + ('==' * u['nesting_hierarchy'])
-                               + '> ' + u['measurement'])
-                display(measurement, u['runtime'])
-            if len(regular_calls_to_print):
+            #  Filter events belonging to this event
+            end = record['end']
+            events_to_print = [r for r in nvtx_events[1:]
+                               if r['start'] < end]
+
+            #  Filter events and compute nesting hierarchy
+            reg_events_to_print = [r for r in events_to_print
+                                   if r['category'] != 'utils']
+            reg_events_to_print = nesting_hierarchy(reg_events_to_print)
+
+            for r in reg_events_to_print:
+                measurement = ('    |' + ('==' * r['nesting_hierarchy'])
+                               + '> ' + r['measurement'])
+                display(measurement, r['runtime'])
+
+            #  Filter utils events and aggregate them by adding up runtimes
+            utils_events_to_print = [r for r in events_to_print
+                                     if r['category'] == 'utils']
+            utils_events_to_print = aggregate(utils_events_to_print)
+
+            if len(reg_events_to_print) and len(utils_events_to_print):
                 print()
-            print('    Utils summary:')
-            for u in utils_calls_to_print:
-                display('      ' + u['measurement'], u['runtime'])
-            other_calls = [r for r in other_calls if r['start'] >= end]
+            if len(utils_events_to_print):
+                print('    Utils summary:')
+            for r in utils_events_to_print:
+                display('      ' + r['measurement'], r['runtime'])
+
+            #  Remove events just displayed from the list
+            nvtx_events = [r for r in nvtx_events if r['start'] >= end]
+            if len(nvtx_events):
+                print('\n')
 
     def profile(self, command):
         os.environ['NVTX_BENCHMARK'] = 'TRUE'
