@@ -56,10 +56,10 @@ class LogisticRegression(Base,
     algorithms. Even though it is presented as a single option, this solver
     resolves to two different algorithms underneath:
 
-    - Orthant-Wise Limited Memory Quasi-Newton (OWL-QN) if there is l1
-      regularization
+      - Orthant-Wise Limited Memory Quasi-Newton (OWL-QN) if there is l1
+        regularization
 
-    - Limited Memory BFGS (L-BFGS) otherwise.
+      - Limited Memory BFGS (L-BFGS) otherwise.
 
 
     Note that, just like in Scikit-learn, the bias will not be regularized.
@@ -119,12 +119,17 @@ class LogisticRegression(Base,
         If 'elasticnet' is selected, OWL-QN will be used if l1_ratio > 0,
         otherwise L-BFGS will be used.
     tol: float (default = 1e-4)
-       The training process will stop if current_loss > previous_loss - tol
+        Tolerance for stopping criteria.
+        The exact stopping conditions depend on the chosen solver.
+        Check the solver's documentation for more details:
+
+          * :class:`Quasi-Newton (L-BFGS/OWL-QN)<cuml.QN>`
+
     C: float (default = 1.0)
-       Inverse of regularization strength; must be a positive float.
+        Inverse of regularization strength; must be a positive float.
     fit_intercept: boolean (default = True)
-       If True, the model tries to correct for the global mean of y.
-       If False, the model expects that you have centered the data.
+        If True, the model tries to correct for the global mean of y.
+        If False, the model expects that you have centered the data.
     class_weight: None
         Custom class weighs are currently not supported.
     class_weight: dict or 'balanced', default=None
@@ -181,7 +186,7 @@ class LogisticRegression(Base,
     coefficients and predictions of the model, similar to
     using different solvers in Scikit-learn.
 
-    For additional information, see Scikit-learn's LogistRegression
+    For additional information, see `Scikit-learn's LogisticRegression
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html>`_.
     """
 

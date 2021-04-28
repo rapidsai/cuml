@@ -20,7 +20,6 @@
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
 #include <cuml/common/logger.hpp>
-#include <cuml/cuml.hpp>
 #include <cuml/ensemble/randomforest.hpp>
 #include <utility>
 #include "benchmark.cuh"

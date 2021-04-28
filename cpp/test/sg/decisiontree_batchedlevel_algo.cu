@@ -20,10 +20,10 @@
 #include <raft/linalg/cublas_wrappers.h>
 #include <test_utils.h>
 #include <common/iota.cuh>
-#include <cuml/cuml.hpp>
 #include <decisiontree/batched-levelalgo/builder.cuh>
 #include <memory>
 #include <raft/cuda_utils.cuh>
+#include <raft/handle.hpp>
 #include <random/make_blobs.cuh>
 #include <random/make_regression.cuh>
 

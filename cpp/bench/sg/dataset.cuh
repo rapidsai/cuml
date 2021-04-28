@@ -18,11 +18,11 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/transpose.h>
-#include <cuml/cuml.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <fstream>
 #include <iostream>
 #include <raft/cuda_utils.cuh>
+#include <raft/handle.hpp>
 #include <raft/linalg/unary_op.cuh>
 #include <random/make_regression.cuh>
 #include <sstream>
