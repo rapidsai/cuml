@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <label/classlabels.cuh>
+#include <raft/label/classlabels.cuh>
 
 #include <cub/cub.cuh>
 
@@ -88,10 +88,30 @@ struct CondensedHierarchy {
     rmm::device_uvector<value_idx> parent_child(n_edges * 2, stream);
     raft::copy_async(parent_child.begin(), children.begin(), n_edges, stream);
     raft::copy_async(parent_child.begin() + n_edges, parents.begin(), n_edges, stream);
-    MLCommon::Label::make_monotonic(
-         parent_child.data(), parent_child.data(), parent_child.size(), stream, handle.get_device_allocator());
+
+      // find n_clusters
+    auto parents_ptr = thrust::device_pointer_cast(parents.data());
+    auto parents_min_max = thrust::minmax_element(thrust::cuda::par.on(stream), parents_ptr, parents_ptr + n_edges);
+    auto min_parent = *parents_min_max.first;
+    auto max_parent = *parents_min_max.second;
+
+    n_clusters = max_parent - min_parent + 1;
+
+    // now invert labels
+    auto invert_op = [max_parent, n_leaves = n_leaves] __device__ (auto &x) {
+      return x >= n_leaves ? max_parent - x + n_leaves : x;
+    };
+
+    thrust::transform(thrust::cuda::par.on(stream), parent_child.begin(), parent_child.end(), parent_child.begin(), invert_op);
+
+    raft::label::make_monotonic(
+         parent_child.data(), parent_child.data(), parent_child.size(), stream, handle.get_device_allocator(), true);
+  
     raft::copy_async(children.begin(), parent_child.begin(), n_edges, stream);
     raft::copy_async(parents.begin(), parent_child.begin() + n_edges, n_edges, stream);
+
+    raft::print_device_vector("Parents After transform and monotonic", parent_child.data() + n_edges, n_edges, std::cout);
+    raft::print_device_vector("Children After transform monotonic", parent_child.data(), n_edges, std::cout);
   }
 
   /**
@@ -124,10 +144,6 @@ struct CondensedHierarchy {
   value_idx get_n_edges() { return n_edges; }
 
   int get_n_clusters() { return n_clusters; }
-
-  void set_n_clusters(int n_clusters_) {
-    n_clusters = n_clusters_;
-  }  
 
  private:
   const raft::handle_t &handle;

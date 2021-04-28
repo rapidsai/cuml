@@ -95,9 +95,9 @@ void compute_stabilities(
   auto children = condensed_tree.get_children();
   auto lambdas = condensed_tree.get_lambdas();
   auto n_edges = condensed_tree.get_n_edges();
-  // auto n_clusters = condensed_tree.get_n_clusters();
+  auto n_clusters = condensed_tree.get_n_clusters();
   std::cout << "N Edges: " << n_edges << std::endl;
-  // std::cout << "N Clusters: " << n_clusters << std::endl;
+  std::cout << "N Clusters: " << n_clusters << std::endl;
 
   raft::print_device_vector("Parents", parents, n_edges, std::cout);
   raft::print_device_vector("Children", children, n_edges, std::cout);
@@ -123,26 +123,24 @@ void compute_stabilities(
   raft::print_device_vector("Sorted Lambdas", sorted_lambdas.data(), n_edges, std::cout);
 
   rmm::device_uvector<value_idx> sorted_parents_offsets(n_edges + 1, stream);
-  int n_clusters = MLCommon::Label::make_monotonic(handle, sorted_parents.data(), sorted_parents.data(), n_edges);
-  condensed_tree.set_n_clusters(n_clusters);
-  std::cout << "N Clusters: " << n_clusters << std::endl;
+  raft::label::make_monotonic(sorted_parents.data(), sorted_parents.data(), n_edges, stream, handle.get_device_allocator(), true);
   raft::print_device_vector("Monotonic Sorted Parents", sorted_parents.data(), n_edges, std::cout);
   // value_idx start_offset = 0;
   // raft::update_device(sorted_parents_offsets.data(), &start_offset, 1, stream);
-  // thrust::inclusive_scan(thrust_policy, sorted_parents.begin(), sorted_parents.end(), sorted_parents_offsets.begin() + 1);
+  // thrust::inclusive_scan(thrust_policy->on(stream), sorted_parents.begin(), sorted_parents.end(), sorted_parents_offsets.begin() + 1);
   raft::sparse::convert::sorted_coo_to_csr(
-    sorted_parents.data(), n_edges, sorted_parents_offsets.data(), n_clusters,
+    sorted_parents.data(), n_edges, sorted_parents_offsets.data(), n_clusters + 1,
     handle.get_device_allocator(), handle.get_stream());
 
-  raft::print_device_vector("Sorted Parent Offsets", sorted_parents_offsets.data(), n_clusters, std::cout);
+  raft::print_device_vector("Sorted Parent Offsets", sorted_parents_offsets.data(), n_clusters + 1, std::cout);
 
   // Segmented reduction on min_lambda within each cluster
   // TODO: Converting child array to CSR offset and using CUB Segmented Reduce
   // Investigate use of a kernel like coo_spmv
   rmm::device_uvector<value_t> births(n_clusters, stream);
   thrust::fill(thrust_policy->on(stream), births.begin(), births.end(), 0.0f);
-  segmented_reduce(lambdas, births.data(), n_clusters,
-                   sorted_parents_offsets.data(), stream,
+  segmented_reduce(lambdas + 1, births.data() + 1, n_clusters - 1,
+                   sorted_parents_offsets.data() + 1, stream,
                    cub::DeviceSegmentedReduce::Min<const value_t *, value_t *,
                                                    const value_idx *>);
   raft::print_device_vector("Births", births.data(), n_clusters, std::cout);
@@ -152,8 +150,8 @@ void compute_stabilities(
   thrust::fill(thrust_policy->on(stream), stabilities, stabilities + n_clusters,
                0.0f);
 
-  segmented_reduce(lambdas, stabilities, n_clusters,
-                   sorted_parents_offsets.data(), stream,
+  segmented_reduce(lambdas + 1, stabilities + 1, n_clusters - 1,
+                   sorted_parents_offsets.data() + 1, stream,
                    cub::DeviceSegmentedReduce::Sum<const value_t *, value_t *,
                                                    const value_idx *>);
 
