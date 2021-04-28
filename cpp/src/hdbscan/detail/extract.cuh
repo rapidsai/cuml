@@ -95,9 +95,9 @@ void compute_stabilities(
   auto children = condensed_tree.get_children();
   auto lambdas = condensed_tree.get_lambdas();
   auto n_edges = condensed_tree.get_n_edges();
-  auto n_clusters = condensed_tree.get_n_clusters();
+  // auto n_clusters = condensed_tree.get_n_clusters();
   std::cout << "N Edges: " << n_edges << std::endl;
-  std::cout << "N Clusters: " << n_clusters << std::endl;
+  // std::cout << "N Clusters: " << n_clusters << std::endl;
 
   raft::print_device_vector("Parents", parents, n_edges, std::cout);
   raft::print_device_vector("Children", children, n_edges, std::cout);
@@ -108,12 +108,12 @@ void compute_stabilities(
 
   // TODO: Reverse topological sort (e.g. sort hierarchy, lambdas, and sizes by lambda)
   rmm::device_uvector<value_idx> sorted_children(n_edges, stream);
-  raft::copy_async(sorted_child.data(), children, n_edges, stream);
+  raft::copy_async(sorted_children.data(), children, n_edges, stream);
   rmm::device_uvector<value_t> sorted_lambdas(n_edges, stream);
   raft::copy_async(sorted_lambdas.data(), lambdas, n_edges, stream);
 
   rmm::device_uvector<value_idx> sorted_parents(n_edges, stream);
-  raft::copy_async(sorted_parent.data(), parents, n_edges, stream);
+  raft::copy_async(sorted_parents.data(), parents, n_edges, stream);
 
   auto sorted_child_lambda = thrust::make_zip_iterator(thrust::make_tuple(sorted_children.data(), sorted_lambdas.data()));
   thrust::sort_by_key(thrust_policy->on(stream), sorted_parents.begin(),
@@ -121,26 +121,32 @@ void compute_stabilities(
   raft::print_device_vector("Sorted Parents", sorted_parents.data(), n_edges, std::cout);
   raft::print_device_vector("Sorted Children", sorted_children.data(), n_edges, std::cout);
   raft::print_device_vector("Sorted Lambdas", sorted_lambdas.data(), n_edges, std::cout);
-  // TODO: Segmented reduction on min_lambda within each cluster
-  // TODO: Converting child array to CSR offset and using CUB Segmented Reduce
-  // Investigate use of a kernel like coo_spmv
-  rmm::device_uvector<value_t> births(n_clusters, stream);
-  thrust::fill(thrust_policy->on(stream), births.begin(), births.end(), 0.0f);
 
   rmm::device_uvector<value_idx> sorted_parents_offsets(n_edges + 1, stream);
-
+  int n_clusters = MLCommon::Label::make_monotonic(handle, sorted_parents.data(), sorted_parents.data(), n_edges);
+  condensed_tree.set_n_clusters(n_clusters);
+  std::cout << "N Clusters: " << n_clusters << std::endl;
+  raft::print_device_vector("Monotonic Sorted Parents", sorted_parents.data(), n_edges, std::cout);
+  // value_idx start_offset = 0;
+  // raft::update_device(sorted_parents_offsets.data(), &start_offset, 1, stream);
+  // thrust::inclusive_scan(thrust_policy, sorted_parents.begin(), sorted_parents.end(), sorted_parents_offsets.begin() + 1);
   raft::sparse::convert::sorted_coo_to_csr(
     sorted_parents.data(), n_edges, sorted_parents_offsets.data(), n_clusters,
     handle.get_device_allocator(), handle.get_stream());
 
-  raft::print_device_vector("Sorted Parent Offsets", sorted_parent_offsets.data(), n_clusters, std::cout);
+  raft::print_device_vector("Sorted Parent Offsets", sorted_parents_offsets.data(), n_clusters, std::cout);
 
+  // Segmented reduction on min_lambda within each cluster
+  // TODO: Converting child array to CSR offset and using CUB Segmented Reduce
+  // Investigate use of a kernel like coo_spmv
+  rmm::device_uvector<value_t> births(n_clusters, stream);
+  thrust::fill(thrust_policy->on(stream), births.begin(), births.end(), 0.0f);
   segmented_reduce(lambdas, births.data(), n_clusters,
                    sorted_parents_offsets.data(), stream,
                    cub::DeviceSegmentedReduce::Min<const value_t *, value_t *,
                                                    const value_idx *>);
   raft::print_device_vector("Births", births.data(), n_clusters, std::cout);
-  // TODO: Embarassingly parallel construction of output
+
   // TODO: It can be done with same coo_spmv kernel
   // Or naive kernel, atomically write to cluster stability
   thrust::fill(thrust_policy->on(stream), stabilities, stabilities + n_clusters,

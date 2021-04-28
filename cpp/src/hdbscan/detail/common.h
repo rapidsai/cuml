@@ -59,8 +59,8 @@ struct CondensedHierarchy {
     auto stream = handle.get_stream();
 
     n_edges = thrust::transform_reduce(
-      thrust::cuda::par.on(stream), full_parents, full_parents + (2 * n_leaves - 1),
-      [=] __device__(value_t a) { return a != -1; }, 0,
+      thrust::cuda::par.on(stream), full_sizes, full_sizes + (2 * (n_leaves - 1)),
+      [=] __device__(value_idx a) { return a != -1; }, 0,
       thrust::plus<value_idx>());
 
     parents.resize(n_edges, stream);
@@ -75,26 +75,23 @@ struct CondensedHierarchy {
       parents.data(), children.data(), lambdas.data(), sizes.data()));
 
     thrust::copy_if(
-      thrust::cuda::par.on(stream), in, in + (2 * n_leaves - 1), out,
+      thrust::cuda::par.on(stream), in, in + (2 * (n_leaves - 1)), out,
       [=] __device__(
         thrust::tuple<value_idx, value_idx, value_t, value_idx> tup) {
-        return thrust::get<0>(tup) != -1 && thrust::get<1>(tup) != -1 &&
-               thrust::get<2>(tup) != -1 && thrust::get<3>(tup) != -1;
+        return thrust::get<3>(tup) != -1;
       });
 
     raft::print_device_vector("Parents before monotonic", parents.data(), n_edges, std::cout);
     raft::print_device_vector("Children before monotonic", children.data(), n_edges, std::cout);
 
-    n_clusters = 10;
-
     // TODO: Avoid the copies here by updating kernel
-    // rmm::device_uvector<value_idx> parent_child(n_edges * 2, stream);
-    // raft::copy_async(parent_child.begin(), children.begin(), n_edges, stream);
-    // raft::copy_async(parent_child.begin() + n_edges, parents.begin(), n_edges, stream);
-    //    n_clusters = MLCommon::Label::make_monotonic(
-    //      handle, parent_child.data(), parent_child.data(), parent_child.size());
-    // raft::copy_async(children.begin(), parent_child.begin(), n_edges, stream);
-    // raft::copy_async(parents.begin(), parent_child.begin() + n_edges, n_edges, stream);
+    rmm::device_uvector<value_idx> parent_child(n_edges * 2, stream);
+    raft::copy_async(parent_child.begin(), children.begin(), n_edges, stream);
+    raft::copy_async(parent_child.begin() + n_edges, parents.begin(), n_edges, stream);
+    MLCommon::Label::make_monotonic(
+         parent_child.data(), parent_child.data(), parent_child.size(), stream, handle.get_device_allocator());
+    raft::copy_async(children.begin(), parent_child.begin(), n_edges, stream);
+    raft::copy_async(parents.begin(), parent_child.begin() + n_edges, n_edges, stream);
   }
 
   /**
@@ -127,6 +124,10 @@ struct CondensedHierarchy {
   value_idx get_n_edges() { return n_edges; }
 
   int get_n_clusters() { return n_clusters; }
+
+  void set_n_clusters(int n_clusters_) {
+    n_clusters = n_clusters_;
+  }  
 
  private:
   const raft::handle_t &handle;
