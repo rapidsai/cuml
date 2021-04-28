@@ -20,6 +20,7 @@
 
 #include <cub/cub.cuh>
 
+#include <cuml/common/logger.hpp>
 #include <raft/cudart_utils.h>
 
 #include <rmm/device_uvector.hpp>
