@@ -81,11 +81,10 @@ __global__ void condense_hierarchy_kernel(
 
   // If node is a leaf, add it to the condensed hierarchy
   if (node < n_leaves) {
-    printf("Leaf node: %d, parent=%d, ignore_val=%d\n", node, subtree_parent, subtree_parent);
-    out_parent[node] = subtree_parent;
-    out_child[node] = node;
-    out_lambda[node] = get_lambda(subtree_parent, n_leaves, deltas);
-    out_count[node] = 1;
+    out_parent[node*2] = subtree_parent;
+    out_child[node*2] = node;
+    out_lambda[node*2] = get_lambda(subtree_parent, n_leaves, deltas);
+    out_count[node*2] = 1;
   }
 
   // If node is not a leaf, condense its children if necessary
@@ -100,6 +99,8 @@ __global__ void condense_hierarchy_kernel(
     ignore[left_child] = (should_ignore * subtree_parent) + (!should_ignore * -1);
     ignore[right_child] = (should_ignore * subtree_parent) + (!should_ignore * -1);
 
+    value_idx node_relabel = relabel[node];
+
     // TODO: Should be able to remove this nested conditional
     if (!should_ignore) {
       value_t lambda_value = get_lambda(node, n_leaves, deltas);
@@ -109,41 +110,37 @@ __global__ void condense_hierarchy_kernel(
       int right_count =
         right_child >= n_leaves ? sizes[right_child - n_leaves] : 1;
 
-      // If both children are large enough, they should be relabeled and
-      // included directly in the output hierarchy.
-      if (left_count >= min_cluster_size && right_count >= min_cluster_size) {
-        relabel[left_child] = node;
-        out_parent[node] = relabel[node];
-        out_child[node] = node;
-        out_lambda[node] = lambda_value;
-        out_count[node] = left_count;
-
-        relabel[right_child] = node;
-        out_parent[node] = relabel[node];
-        out_child[node] = node;
-        out_lambda[node] = lambda_value;
-        out_count[node] = left_count;
-      }
-
       // Consume left or right child as necessary
       bool left_child_too_small = left_count < min_cluster_size;
       bool right_child_too_small = right_count < min_cluster_size;
+
+      // Node can "persist" to the cluster tree only if
+      // both children >= min_cluster_size
+      bool can_persist = !left_child_too_small && !right_child_too_small;
+
+      relabel[left_child] = (!can_persist * node_relabel) + (can_persist * left_child);
+      relabel[right_child] = (!can_persist * node_relabel) + (can_persist * right_child);
+
+      // Propagate ignore to either subtree which is too small
       ignore[left_child] =
-        (left_child_too_small * node) + (!left_child_too_small * -1);
+        (left_child_too_small * node_relabel) + (!left_child_too_small * -1);
       ignore[right_child] =
-        (right_child_too_small * node) + (!right_child_too_small * -1);
+        (right_child_too_small * node_relabel) + (!right_child_too_small * -1);
 
-      // If only left or right child is too small, consume it and relabel the other
-      // (to it can be its own cluster)
-      bool only_left_child_too_small =
-        left_child_too_small && !right_child_too_small;
-      bool only_right_child_too_small =
-        !left_child_too_small && right_child_too_small;
+      // If both children are large enough, they should be relabeled and
+      // included directly in the output hierarchy.
+      if (can_persist) {
+        // TODO: Could probably pull this out if this conditional becomes a bottleneck
+        out_parent[node*2] = node_relabel;
+        out_child[node*2] = left_child;
+        out_lambda[node*2] = lambda_value;
+        out_count[node*2] = left_count;
 
-      relabel[right_child] = (only_left_child_too_small * relabel[node]) +
-                             (!only_left_child_too_small * -1);
-      relabel[left_child] = (only_right_child_too_small * relabel[node]) +
-                            (!only_right_child_too_small * -1);
+        out_parent[node*2+1] = node_relabel;
+        out_child[node*2+1] = right_child;
+        out_lambda[node*2+1] = lambda_value;
+        out_count[node*2+1] = right_count;
+      }
     }
   }
 }
@@ -196,19 +193,19 @@ void build_condensed_hierarchy(
   bool start = true;
   raft::update_device(frontier.data() + root, &start, 1, handle.get_stream());
 
-  rmm::device_uvector<value_idx> out_parent(root, stream);
-  rmm::device_uvector<value_idx> out_child(root, stream);
-  rmm::device_uvector<value_t> out_lambda(root, stream);
-  rmm::device_uvector<value_idx> out_size(root, stream);
+  rmm::device_uvector<value_idx> out_parent((root+1) * 2, stream);
+  rmm::device_uvector<value_idx> out_child((root+1) * 2, stream);
+  rmm::device_uvector<value_t> out_lambda((root+1) * 2, stream);
+  rmm::device_uvector<value_idx> out_size((root+1) * 2, stream);
 
   thrust::fill(thrust::cuda::par.on(stream), out_parent.data(),
-               out_parent.data() + root, -1);
+               out_parent.data() + out_parent.size(), -1);
   thrust::fill(thrust::cuda::par.on(stream), out_child.data(),
-               out_child.data() + root, -1);
+               out_child.data() + out_child.size(), -1);
   thrust::fill(thrust::cuda::par.on(stream), out_lambda.data(),
-               out_lambda.data() + root, -1);
+               out_lambda.data() + out_lambda.size(), -1);
   thrust::fill(thrust::cuda::par.on(stream), out_size.data(),
-               out_size.data() + root, -1);
+               out_size.data() + out_size.size(), -1);
   thrust::fill(thrust::cuda::par.on(stream), ignore.data(),
                ignore.data() + ignore.size(), -1);
 
