@@ -24,7 +24,6 @@
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 
-#include <cuml/cuml.hpp>
 #include <cuml/tsa/batched_arima.hpp>
 #include <cuml/tsa/batched_kalman.hpp>
 
@@ -34,6 +33,7 @@
 #include <linalg/batched/matrix.cuh>
 #include <metrics/batched/information_criterion.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/handle.hpp>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <timeSeries/arima_helpers.cuh>
 
