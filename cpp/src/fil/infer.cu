@@ -554,16 +554,16 @@ __global__ void infer_k(storage_type forest, predict_params params) {
     const float* block_input = params.data + block_row0 * num_cols;
     if (cols_in_shmem) {
       // cache the row for all threads to reuse
-      size_t feature = 0;
+      int input_idx = 0;
 #pragma unroll
-      for (feature = threadIdx.x; feature < block_num_rows * num_cols;
-           feature += blockDim.x) {
-        int row = feature / num_cols, col = feature % num_cols;
-        sdata[row * sdata_stride + col] = block_input[feature];
+      for (input_idx = threadIdx.x; input_idx < block_num_rows * num_cols;
+           input_idx += blockDim.x) {
+        int row = input_idx / num_cols, col = input_idx % num_cols;
+        sdata[row * sdata_stride + col] = block_input[input_idx];
       }
 #pragma unroll
-      for (; feature < rows_per_block * num_cols; feature += blockDim.x)
-        sdata[feature] = 0.0f;
+      for (; input_idx < rows_per_block * num_cols; input_idx += blockDim.x)
+        sdata[input_idx] = 0.0f;
     }
 
     tree_aggregator_t<NITEMS, leaf_algo> acc(
