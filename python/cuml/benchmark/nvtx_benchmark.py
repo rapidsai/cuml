@@ -14,7 +14,6 @@
 # limitations under the License.
 #
 
-
 import os
 import sys
 from subprocess import run
@@ -65,22 +64,22 @@ class Profiler:
                                 if 'Text' in p and
                                 'DomainId' in p]
 
-            py_domain_id = [p['DomainId'] for p in filtered_profile
-                            if p['Text'] == 'cuml_python']
-            py_domain_id = py_domain_id[0] if len(py_domain_id) > 0 else None
-            cpp_domain_id = [p['DomainId'] for p in filtered_profile
-                             if p['Text'] == 'cuml_cpp']
-            cpp_domain_id = (cpp_domain_id[0] if len(cpp_domain_id) > 0
-                             else None)
+            def get_id(lookfor, name, profiled):
+                idxs = [p[lookfor] for p in profiled
+                        if p['Text'] == name]
+                return idxs[0] if len(idxs) > 0 else None
+
+            authorized_domains = {}
+            for domain_name in ['cuml_python', 'cuml_cpp',
+                                'cudf_python', 'cudf_cpp']:
+                domain_id = get_id('DomainId', domain_name, filtered_profile)
+                authorized_domains[domain_id] = domain_name
 
             filtered_profile = [p for p in filtered_profile
-                                if p['DomainId'] in [py_domain_id,
-                                                     cpp_domain_id]]
-            utils_category_id = [p['Category'] for p in filtered_profile
-                                 if p['Text'] == 'utils']
-            utils_category_id = (utils_category_id[0]
-                                 if len(utils_category_id) > 0
-                                 else None)
+                                if p['DomainId'] in
+                                authorized_domains.keys()]
+
+            utils_category_id = get_id('Category', 'utils', filtered_profile)
 
             def _process_nvtx_record(record):
                 new_record = {'measurement': record['Text'],
@@ -91,14 +90,11 @@ class Profiler:
                     new_record['runtime'] = runtime
                     new_record['end'] = int(record['EndTimestamp'])
                 if 'DomainId' in record:
-                    if record['DomainId'] == py_domain_id:
-                        new_record['domain'] = 'cuml_python'
-                    elif record['DomainId'] == cpp_domain_id:
-                        new_record['domain'] = 'cuml_cpp'
-                    else:
-                        new_record['domain'] = 'none'
-                if 'Category' in record and \
-                   record['Category'] == utils_category_id:
+                    domain_id = record['DomainId']
+                    new_record['domain'] = authorized_domains[domain_id]
+                if (('Category' in record and
+                     record['Category'] == utils_category_id) or
+                        new_record['domain'].startswith('cudf')):
                     new_record['category'] = 'utils'
                 else:
                     new_record['category'] = 'none'
