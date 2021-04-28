@@ -659,11 +659,7 @@ def test_robust_scale_sparse(failure_logger, sparse_clf_dataset,  # noqa: F811
         reason='Intermittent mismatch with sklearn'
         ' (https://github.com/rapidsai/cuml/issues/3481)'
     )),
-    pytest.param('quantile', marks=pytest.mark.xfail(
-        strict=False,
-        reason='Bug in cupy.percentile'
-        ' (https://github.com/cupy/cupy/issues/4607)'
-    )),
+    'quantile',
     'kmeans'
 ])
 def test_kbinsdiscretizer(failure_logger, blobs_dataset, n_bins,  # noqa: F811
