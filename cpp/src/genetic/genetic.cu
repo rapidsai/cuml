@@ -16,6 +16,8 @@
 
 #include "constants.h"
 #include "genetic.cuh"
+#include <cuml/genetic/common.h>
+#include <cuml/genetic/genetic.h>
 #include <cuml/genetic/program.h>
 #include "node.cuh"
 
@@ -30,8 +32,15 @@ namespace cuml {
 namespace genetic {
 
 /**
- * Simultaneous execution of tournaments on the GPU, 
- * using online random number generation.
+ * @brief Simultaneously execute tournaments using online random number generation.
+ * 
+ * @param progs         Device pointer to programs
+ * @param win_indices   Winning indices for every tournament
+ * @param seeds         Init seeds for choice selection
+ * @param n_progs       Number of programs
+ * @param n_tours       No of tournaments to be conducted
+ * @param tour_size     No of programs considered per tournament(@c <=n_progs><)
+ * @param criterion     Selection criterion for choices(min/max)
  */
 __global__ void batched_tournament_kernel(const program_t progs, 
                                           int* win_indices, uint64_t* seeds, 
@@ -68,8 +77,21 @@ __global__ void batched_tournament_kernel(const program_t progs,
   }
 }
 
-/** 
- * Driver function for evolving 1 generation 
+/**
+ * @brief Driver function for evolving 1 generation
+ * 
+ * @param h               cuML handle
+ * @param h_oldprogs      previous generation host programs
+ * @param d_oldprogs      previous generation device programs
+ * @param h_nextprogs     next generation host programs
+ * @param d_nextprogs     next generation device programs
+ * @param n_samples       No of samples in input dataset
+ * @param data            Device pointer to input dataset
+ * @param y               Device pointer to input predictions
+ * @param sample_weights  Device pointer to input weights
+ * @param params          Training hyperparameters
+ * @param generation      Current generation id
+ * @param seed            Random seed for generators
  */
 void parallel_evolve(const raft::handle_t &h, 
                      const std::vector<program> &h_oldprogs, const program_t d_oldprogs, 
@@ -161,8 +183,9 @@ void parallel_evolve(const raft::handle_t &h,
   }
 
   /* Memcpy individual host nodes to device
-     TODO: Find a better way to do this. Possibilities include a copy utilizing multiple streams,
-     a switch to a unified memory model, or a Structure of Arrays representation 
+     TODO: Find a better way to do this. 
+     Possibilities include a copy utilizing multiple streams,
+     a switch to a unified memory model, or a SoA representation 
      for all programs */
   for(auto i=0;i<n_progs;++i) {
     program_t tmp      = new program(h_nextprogs[i], false);        
@@ -171,7 +194,7 @@ void parallel_evolve(const raft::handle_t &h,
     CUDA_CHECK(cudaMemcpyAsync(tmp->nodes, h_nextprogs[i].nodes,
                                 h_nextprogs[i].len * sizeof(node),
                                 cudaMemcpyHostToDevice, stream));
-    CUDA_CHECK(cudaMemcpyAsync( &d_nextprogs[i], tmp,
+    CUDA_CHECK(cudaMemcpyAsync( d_nextprogs + i, tmp,
                                 sizeof(program),
                                 cudaMemcpyHostToDevice,stream));
   }
@@ -188,5 +211,59 @@ float param::p_reproduce() const { return detail::p_reproduce(*this); }
 int param::max_programs() const { return detail::max_programs(*this); }
 
 int param::criterion() const { return detail::criterion(*this); }
+
+
+void symFit(const raft::handle_t &handle, const float* input, const float* labels, 
+            const float* sample_weights, const int n_rows, const int n_cols, param &params, 
+            program_t final_progs, std::vector<std::vector<program>> &history) {
+  cudaStream_t stream = handle.get_stream();
+  
+  /* Initializations */
+  history.reserve(params.generations);
+  
+  std::vector<program> h_currprogs(params.population_size);
+  std::vector<program> h_nextprogs(params.population_size);
+  // std::vector<float> h_fits(params.population_size);
+  // std::vector<float> h_lengths(params.population_size);
+  program_t d_currprogs = (program_t)handle.get_device_allocator()->allocate(params.population_size*sizeof(program),stream);
+  program_t d_nextprogs = final_progs;                      // Reuse memory already allocated for final_progs
+
+  std::mt19937_64 seed_generator(params.random_state);
+  std::uniform_int_distribution seed_dist;
+  
+  /* Begin training */
+  int gen = 0;
+  for(;gen<params.generations;++gen){
+    //  Evolve
+    parallel_evolve(handle,h_currprogs,d_currprogs,h_nextprogs,d_nextprogs,
+                  n_rows,input,labels,sample_weights,params,gen+1,seed_dist(seed_generator));
+    
+    history.push_back(h_nextprogs);
+    
+    // Swap
+    h_currprogs.swap(h_nextprogs);
+    program_t tmp = d_currprogs;
+    d_currprogs = d_nextprogs;
+    d_nextprogs = tmp;
+
+    // TODO: Update parsimony coefficient for automatic calculation(currently only floats supported)
+  }
+}
+
+void symPredictProbs(const raft::handle_t &handle, const float* input, const int n_rows,
+                     const param &params, const program_t best_prog, float* output){
+  
+}
+
+void symPredict(const raft::handle_t &handle, const float* input, const param &params, 
+                const program_t best_prog, float* output){
+
+}
+
+void symTransform(const raft::handle_t &handle, const float* input, const param &params, 
+                  const program_t final_progs, const int n_rows, const int n_cols, float* output){
+  
+}
+
 }  // namespace genetic
 }  // namespace cuml

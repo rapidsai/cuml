@@ -139,7 +139,7 @@ struct param {
   ///@todo: feature_names
   ///@todo: verbose
   /** random seed used for RNG */
-  uint64_t random_state = 0ull;
+  uint64_t random_state = 0UL;
 
   /** Computes the probability of 'reproduction' */
   float p_reproduce() const;
