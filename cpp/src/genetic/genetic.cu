@@ -223,12 +223,12 @@ void symFit(const raft::handle_t &handle, const float* input, const float* label
   
   std::vector<program> h_currprogs(params.population_size);
   std::vector<program> h_nextprogs(params.population_size);
-  // std::vector<float> h_fits(params.population_size);
+  std::vector<float> h_fitness(params.population_size);
   // std::vector<float> h_lengths(params.population_size);
   program_t d_currprogs = (program_t)handle.get_device_allocator()->allocate(params.population_size*sizeof(program),stream);
   program_t d_nextprogs = final_progs;                      // Reuse memory already allocated for final_progs
 
-  std::mt19937_64 seed_generator(params.random_state);
+  std::mt19937_64 h_gen_engine(params.random_state);
   std::uniform_int_distribution seed_dist;
   
   /* Begin training */
@@ -236,7 +236,7 @@ void symFit(const raft::handle_t &handle, const float* input, const float* label
   for(;gen<params.generations;++gen){
     //  Evolve
     parallel_evolve(handle,h_currprogs,d_currprogs,h_nextprogs,d_nextprogs,
-                  n_rows,input,labels,sample_weights,params,gen+1,seed_dist(seed_generator));
+                  n_rows,input,labels,sample_weights,params,gen+1,seed_dist(h_gen_engine));
     
     history.push_back(h_nextprogs);
     
@@ -246,8 +246,31 @@ void symFit(const raft::handle_t &handle, const float* input, const float* label
     d_currprogs = d_nextprogs;
     d_nextprogs = tmp;
 
-    // TODO: Update parsimony coefficient for automatic calculation(currently only floats supported)
+    // Update fitness values
+    float opt_fit = h_currprogs[0].raw_fitness_;
+    int crit = params.criterion();
+    for(int i=0;i<params.population_size;++i){
+      h_fitness[i] = h_currprogs[i].raw_fitness_;
+      if(crit == 0){
+        opt_fit = std::min(opt_fit,h_fitness[i]);
+      } else{
+        opt_fit = std::max(opt_fit,h_fitness[i]);
+      }
+    }
+
+    // Check for early stop
+    if( (crit==0 && opt_fit <= params.stopping_criteria) || 
+        (crit==1 && opt_fit >= params.stopping_criteria)) {
+      break;
+    }
   }
+
+  /* Set return values */
+  final_progs = d_currprogs;
+
+  std::uniform_int_distribution<uint64_t> rand_state_gen;
+  params.random_state = rand_state_gen(h_gen_engine);     // Update random state of hyperparams
+
 }
 
 void symPredictProbs(const raft::handle_t &handle, const float* input, const int n_rows,
