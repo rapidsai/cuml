@@ -342,6 +342,7 @@ cdef class ForestInference_impl():
                       &treelite_params)
         if kwargs['forest_shape_file'] is not None:
             kwargs['forest_shape_file'].write(forest_shape_str)
+            free(forest_shape_str)
         TreeliteQueryNumClass(<ModelHandle> model_ptr,
                               & self.num_class)
         return self
@@ -377,6 +378,7 @@ cdef class ForestInference_impl():
                       &treelite_params)
         if kwargs['forest_shape_file'] is not None:
             kwargs['forest_shape_file'].write(forest_shape_str)
+            free(forest_shape_str)
         TreeliteQueryNumClass(<ModelHandle> model_ptr,
                               &self.num_class)
         return self
