@@ -19,6 +19,7 @@
 #include <cuml/manifold/umapparams.h>
 #include <cuml/common/logger.hpp>
 #include <cuml/manifold/common.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include "optimize.cuh"
 #include "supervised.cuh"
 
@@ -79,7 +80,8 @@ __global__ void init_transform(int *indices, T *weights, int n,
  * a and b, which are based on min_dist and spread
  * parameters.
  */
-void find_ab(UMAPParams *params, std::shared_ptr<deviceAllocator> d_alloc,
+void find_ab(UMAPParams *params,
+             std::shared_ptr<raft::mr::device::allocator> d_alloc,
              cudaStream_t stream) {
   Optimize::find_params_ab(params, d_alloc, stream);
 }
@@ -459,8 +461,7 @@ void _transform(const raft::handle_t &handle, const umap_inputs &inputs,
     params->callback->on_preprocess_end(transformed);
   }
 
-  params->initial_alpha /=
-    4.0;  // TODO: This value should be passed into "optimize layout" directly to avoid side-effects.
+  auto initial_alpha = params->initial_alpha / 4.0;
 
   SimplSetEmbedImpl::optimize_layout<TPB_X, value_t>(
     transformed, inputs.n, embedding, embedding_n, comp_coo.rows(),
