@@ -23,6 +23,7 @@
 #include <raft/cudart_utils.h>
 
 #include <rmm/device_uvector.hpp>
+#include <rmm/exec_policy.hpp>
 
 #include <raft/sparse/op/sort.h>
 #include <raft/sparse/convert/csr.cuh>
@@ -228,9 +229,6 @@ void excess_of_mass(
    * 1. Build CSR of cluster tree from condensed tree by filtering condensed tree for
    *    only those entries w/ lambda > 1 and constructing a CSR from the result
    */
-
-  std::vector<value_idx> cluster_sizes;
-
   value_idx cluster_tree_edges = thrust::transform_reduce(
     thrust::cuda::par.on(stream), condensed_tree.get_lambdas(),
     condensed_tree.get_lambdas() + condensed_tree.get_n_edges(),
@@ -242,12 +240,19 @@ void excess_of_mass(
   rmm::device_uvector<value_idx> sizes(cluster_tree_edges, stream);
   rmm::device_uvector<value_idx> indptr(n_clusters + 1, stream);
 
+  CUML_LOG_DEBUG("Got here!");
+
   auto in = thrust::make_zip_iterator(thrust::make_tuple(
     condensed_tree.get_parents(), condensed_tree.get_children(),
     condensed_tree.get_sizes()));
 
+  std::vector<value_idx> cluster_sizes;
+
+
   auto out = thrust::make_zip_iterator(
     thrust::make_tuple(parents.data(), children.data(), sizes.data()));
+
+  CUML_LOG_DEBUG("AND HERE!");
 
   thrust::copy_if(thrust::cuda::par.on(stream), in,
                   in + (condensed_tree.get_n_edges()),
@@ -262,6 +267,8 @@ void excess_of_mass(
     parents.data(), cluster_tree_edges, indptr.data(), n_clusters + 1,
     handle.get_device_allocator(), handle.get_stream());
 
+  CUML_LOG_DEBUG("Now here");
+
   /**
    * 2. Iterate through each level from leaves back to root. Use the cluster
    *    tree CSR and warp-level reduction to sum stabilities and test whether
@@ -269,32 +276,40 @@ void excess_of_mass(
    */
 
   int is_cluster_h[n_clusters];
+  int cluster_propagate[n_clusters];
   bool frontier_h[n_clusters];
 
   std::vector<value_idx> indptr_h(indptr.size());
   raft::update_host(indptr_h.data(), indptr.data(), indptr.size(), stream);
   // don't need to sync here- thrust should take care of it.
 
+  CUML_LOG_DEBUG("Yep!");
   for (value_idx node = 0; node < n_clusters; node++) {
-    value_t node_stability;
+    value_t node_stability = 0;
     raft::update_host(&node_stability, stability + node, 1, stream);
 
+    CUML_LOG_DEBUG("calling transform_reduce");
     value_t subtree_stability = thrust::transform_reduce(
       thrust::cuda::par.on(stream), children.data() + indptr_h[node],
       children.data() + indptr_h[node] + 1,
       [=] __device__(value_idx a) { return stability[a]; }, 0,
       thrust::plus<value_t>());
 
-    if (subtree_stability > stability[node] ||
-        cluster_sizes[node] > max_cluster_size) {
+    printf("Subtree_stability=%f, no_stability=%f\n", subtree_stability, node_stability);
+
+    CUML_LOG_DEBUG("Marking is_cluster false");
+    if (subtree_stability > node_stability) {//||
+        //cluster_sizes[node] > max_cluster_size) {
       // Deselect / merge cluster with children
       raft::update_device(stability + node, &subtree_stability, 1, stream);
       is_cluster_h[node] = false;
     } else {
       // Mark children to be deselected
-      is_cluster_h[node] = false;
+      cluster_propagate[node] = false;
     }
   }
+
+  CUML_LOG_DEBUG("AND NOW HEE!");
 
   /**
    * 3. Perform BFS through is_cluster, propagating cluster
@@ -444,7 +459,7 @@ void extract_clusters(
   rmm::device_uvector<value_t> tree_stabilities(condensed_tree.get_n_clusters(),
                                                 handle.get_stream());
 
-  compute_stabilities(handle, condensed_tree, tree_stabilities.data());
+//  compute_stabilities(handle, condensed_tree, tree_stabilities.data());
 
   rmm::device_uvector<int> is_cluster(condensed_tree.get_n_clusters(),
                                       handle.get_stream());

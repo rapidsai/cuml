@@ -22,6 +22,7 @@
 #include <hdbscan/detail/common.h>
 #include <cuml/cluster/hdbscan.hpp>
 #include <hdbscan/detail/condense.cuh>
+#include <hdbscan/detail/extract.cuh>
 #include <raft/sparse/hierarchy/detail/agglomerative.cuh>
 
 #include <raft/linalg/distance_type.h>
@@ -719,5 +720,160 @@ const std::vector<ClusterCondensingInputs<float, int>>
 
 INSTANTIATE_TEST_CASE_P(ClusterCondensingTest, ClusterCondensingTestF_Int,
                         ::testing::ValuesIn(cluster_condensing_inputs));
+
+template <typename T, typename IdxT>
+struct ExcessOfMassInputs {
+  IdxT n_row;
+  int min_cluster_size;
+
+  std::vector<IdxT> condensed_parents;
+  std::vector<IdxT> condensed_children;
+  std::vector<T>    condensed_lambdas;
+  std::vector<IdxT> condensed_sizes;
+
+  std::vector<T> stabilities;
+};
+
+template <typename T, typename IdxT>
+class ExcessOfMassTest
+  : public ::testing::TestWithParam<ExcessOfMassInputs<T, IdxT>> {
+ protected:
+  void basicTest() {
+    raft::handle_t handle;
+
+    params =
+      ::testing::TestWithParam<ExcessOfMassInputs<T, IdxT>>::GetParam();
+
+    Logger::get().setLevel(CUML_LEVEL_DEBUG);
+
+    rmm::device_uvector<IdxT> condensed_parents(params.condensed_parents.size(), handle.get_stream());
+    rmm::device_uvector<IdxT> condensed_children(params.condensed_children.size(), handle.get_stream());
+    rmm::device_uvector<T>    condensed_lambdas(params.condensed_lambdas.size(), handle.get_stream());
+    rmm::device_uvector<IdxT> condensed_sizes(params.condensed_sizes.size(), handle.get_stream());
+    rmm::device_uvector<T> stabilities(params.stabilities.size(), handle.get_stream());
+
+    raft::copy(condensed_parents.data(), params.condensed_parents.data(), condensed_parents.size(),
+               handle.get_stream());
+
+    raft::copy(condensed_children.data(), params.condensed_children.data(), condensed_children.size(),
+               handle.get_stream());
+
+    raft::copy(condensed_lambdas.data(), params.condensed_lambdas.data(), condensed_lambdas.size(),
+               handle.get_stream());
+
+    raft::copy(condensed_sizes.data(), params.condensed_sizes.data(), condensed_sizes.size(),
+               handle.get_stream());
+
+    raft::copy(stabilities.data(), params.stabilities.data(), stabilities.size(),
+               handle.get_stream());
+
+    CUML_LOG_DEBUG("Condensing tree");
+    ML::HDBSCAN::detail::Common::CondensedHierarchy<IdxT, T> condensed_tree(handle, params.n_row);
+    condensed_tree.condense(condensed_parents.data(), condensed_children.data(),
+                            condensed_lambdas.data(), condensed_sizes.data(), condensed_sizes.size());
+
+    CUML_LOG_DEBUG("Creating is_cluster %d", condensed_tree.get_n_clusters());
+    rmm::device_uvector<int> is_cluster(condensed_tree.get_n_clusters(), handle.get_stream());
+
+    CUML_LOG_DEBUG("Calling excess of mass");
+    ML::HDBSCAN::detail::Extract::excess_of_mass(handle, condensed_tree,
+                                                 stabilities.data(), is_cluster.data(),
+                                                 condensed_tree.get_n_clusters(),
+                                                 params.n_row);
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+
+    CUML_LOG_DEBUG("Printing output");
+    raft::print_device_vector("is_cluster", is_cluster.data(),
+                              is_cluster.size(), std::cout);
+  }
+
+  void SetUp() override { basicTest(); }
+
+  void TearDown() override {
+  }
+
+ protected:
+  ExcessOfMassInputs<T, IdxT> params;
+};
+
+typedef ExcessOfMassTest<float, int> ExcessOfMassTestF_Int;
+TEST_P(ExcessOfMassTestF_Int, Result) {
+  //  EXPECT_TRUE(score == 1.0);
+}
+
+const std::vector<ExcessOfMassInputs<float, int>>
+  eom_inputs = {
+  {150,
+   150,
+   {150, 150, 151, 152, 151, 152, 151, 152, 151, 152, 151, 152, 151, 152, 151,
+    152, 151, 152, 152, 151, 152, 151, 152, 151, 152, 151, 152, 151, 152, 151,
+    152, 151, 152, 151, 152, 151, 152, 151, 152, 151, 152, 151, 152, 151, 152,
+    151, 152, 151, 152, 151, 152, 151, 152, 151, 152, 151, 152, 151, 152, 151,
+    152, 151, 152, 151, 152, 151, 152, 151, 152, 151, 152, 151, 151, 152, 151,
+    152, 151, 152, 151, 151, 151, 151, 152, 151, 152, 151, 152, 151, 152, 151,
+    151, 151, 151, 151, 152, 152, 152, 152, 152, 152, 152, 152, 152, 152, 152,
+    152, 152, 152, 152, 153, 154, 153, 154, 153, 153, 154, 155, 156, 154, 155,
+    156, 156, 156, 156, 156, 154, 155, 154, 154, 155, 157, 157, 157, 157, 157,
+    158, 155, 158, 155, 158, 155, 158, 155, 158, 155, 155, 155, 155, 155, 158,
+    158, 158, 158, 158, 158, 158, 158, 158},
+   {151, 152, 41,  131, 15,  117, 14,  118, 22,  106, 18,  98,  13,  109, 33,
+    57,  44,  60,  93,  32,  129, 24,  68,  43,  122, 16,  135, 5,   134, 23,
+    119, 20,  125, 8,   114, 36,  108, 31,  148, 10,  87,  46,  100, 35,  105,
+    6,   62,  19,  107, 42,  113, 25,  130, 11,  64,  38,  59,  37,  50,  48,
+    141, 21,  52,  3,   85,  26,  84,  2,   102, 45,  136, 47,  29,  121, 12,
+    146, 40,  110, 30,  1,   34,  9,   79,  28,  132, 4,   70,  49,  56,  7,
+    27,  17,  39,  0,   137, 133, 73,  144, 53,  63,  81,  138, 72,  90,  66,
+    103, 76,  153, 154, 77,  80,  126, 71,  155, 156, 51,  139, 83,  91,  143,
+    123, 127, 142, 149, 101, 65,  104, 157, 158, 128, 54,  86,  58,  75,  74,
+    97,  116, 61,  115, 88,  124, 67,  111, 78,  147, 145, 112, 120, 140, 55,
+    95,  82,  89,  92,  94,  96,  99,  69},
+   {0.60971076, 0.60971076, 1.25988158, 0.97590007, 1.56173762, 0.98058068,
+    1.71498585, 1.03695169, 1.85695338, 1.13227703, 1.9245009,  1.22169444,
+    2.,         1.24034735, 2.08514414, 1.27000127, 2.08514414, 1.38675049,
+    1.38675049, 2.1821789,  1.41421356, 2.23606798, 1.41421356, 2.3570226,
+    1.42857143, 2.5,        1.42857143, 2.5819889,  1.42857143, 2.5819889,
+    1.5249857,  2.77350098, 1.5430335,  2.77350098, 1.56173762, 2.77350098,
+    1.60128154, 2.88675135, 1.60128154, 3.01511345, 1.62221421, 3.01511345,
+    1.64398987, 3.01511345, 1.64398987, 3.16227766, 1.71498585, 3.16227766,
+    1.79605302, 3.16227766, 1.82574186, 3.33333333, 1.85695338, 3.33333333,
+    1.85695338, 3.33333333, 1.85695338, 3.33333333, 1.9245009,  3.53553391,
+    1.9245009,  3.53553391, 1.96116135, 3.77964473, 1.96116135, 3.77964473,
+    1.96116135, 3.77964473, 2.,         3.77964473, 2.,         4.0824829,
+    4.0824829,  2.04124145, 4.0824829,  2.08514414, 4.0824829,  2.13200716,
+    4.0824829,  4.0824829,  4.0824829,  4.0824829,  2.13200716, 4.47213595,
+    2.13200716, 4.47213595, 2.13200716, 4.47213595, 2.1821789,  4.47213595,
+    4.47213595, 4.47213595, 4.47213595, 4.47213595, 2.1821789,  2.1821789,
+    2.1821789,  2.29415734, 2.29415734, 2.29415734, 2.29415734, 2.29415734,
+    2.29415734, 2.3570226,  2.3570226,  2.3570226,  2.3570226,  2.3570226,
+    2.3570226,  2.3570226,  2.3570226,  2.3570226,  2.42535625, 2.3570226,
+    2.3570226,  2.5819889,  2.42535625, 2.42535625, 2.5819889,  2.5819889,
+    2.67261242, 2.67261242, 2.67261242, 2.67261242, 2.67261242, 2.5819889,
+    2.5819889,  2.5819889,  2.5819889,  2.5819889,  2.5819889,  2.5819889,
+    2.5819889,  2.5819889,  2.5819889,  2.5819889,  2.5819889,  2.67261242,
+    2.5819889,  2.67261242, 2.5819889,  2.67261242, 2.5819889,  2.67261242,
+    2.5819889,  2.5819889,  2.5819889,  2.5819889,  2.5819889,  2.67261242,
+    2.77350098, 2.88675135, 3.01511345, 3.16227766, 3.16227766, 3.16227766,
+    3.16227766, 3.16227766},
+   {50, 100, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  1, 1,  1,  1, 1, 1, 1, 1,  1,
+    1,  1,   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  1, 1,  1,  1, 1, 1, 1, 1,  1,
+    1,  1,   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  1, 1,  1,  1, 1, 1, 1, 1,  1,
+    1,  1,   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  1, 1,  1,  1, 1, 1, 1, 1,  1,
+    1,  1,   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  1, 21, 24, 1, 1, 1, 1, 13, 6,
+    1,  1,   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 5, 14, 1, 1,  1,  1, 1, 1, 1, 1,  1,
+    1,  1,   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  1, 1,  1,  1, 1, 1},
+   {91.45661412745385,
+    132.141415393331,
+    144.79914090562704,
+    6.039613253960852e-14,
+    5.017592103770139,
+    2.7679291686055874,
+    1.6462827222536025,
+    0.0,
+    4.2839605021840645}}
+};
+
+INSTANTIATE_TEST_CASE_P(ExcessOfMassTest, ExcessOfMassTestF_Int,
+                        ::testing::ValuesIn(eom_inputs));
+
 
 }  // end namespace ML

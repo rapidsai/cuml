@@ -44,7 +44,7 @@ struct CondensedHierarchy {
       parents(0, handle.get_stream()),
       children(0, handle.get_stream()),
       lambdas(0, handle.get_stream()),
-      sizes(0, handle.get_stream()) {}
+      sizes(0, handle.get_stream()){}
 
   /**
    * Populates the condensed hierarchy object with the output
@@ -55,19 +55,25 @@ struct CondensedHierarchy {
    * @param full_sizes
    */
   void condense(value_idx *full_parents, value_idx *full_children,
-                value_t *full_lambdas, value_idx *full_sizes) {
+                value_t *full_lambdas, value_idx *full_sizes, value_idx size = -1) {
     auto stream = handle.get_stream();
 
+    if(size == -1)
+      size = 4 * (n_leaves - 1) + 2;
+
+    CUML_LOG_DEBUG("calling transform_reduce");
     n_edges = thrust::transform_reduce(
       thrust::cuda::par.on(stream), full_sizes,
-      full_sizes + (4 * (n_leaves - 1) + 2),
+      full_sizes + size,
       [=] __device__(value_idx a) { return a != -1; }, 0,
       thrust::plus<value_idx>());
 
+    CUML_LOG_DEBUG("resizing parents");
     parents.resize(n_edges, stream);
     children.resize(n_edges, stream);
     lambdas.resize(n_edges, stream);
     sizes.resize(n_edges, stream);
+
 
     auto in = thrust::make_zip_iterator(thrust::make_tuple(
       full_parents, full_children, full_lambdas, full_sizes));
@@ -75,8 +81,9 @@ struct CondensedHierarchy {
     auto out = thrust::make_zip_iterator(thrust::make_tuple(
       parents.data(), children.data(), lambdas.data(), sizes.data()));
 
+    CUML_LOG_DEBUG("Calling copy_if");
     thrust::copy_if(
-      thrust::cuda::par.on(stream), in, in + (4 * (n_leaves - 1) + 2), out,
+      thrust::cuda::par.on(stream), in, in + size, out,
       [=] __device__(
         thrust::tuple<value_idx, value_idx, value_t, value_idx> tup) {
         return thrust::get<3>(tup) != -1;
