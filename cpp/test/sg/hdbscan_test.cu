@@ -19,11 +19,10 @@
 #include <raft/cuda_utils.cuh>
 #include <vector>
 
-#include <cuml/cluster/hdbscan.hpp>
 #include <hdbscan/detail/common.h>
+#include <cuml/cluster/hdbscan.hpp>
 #include <hdbscan/detail/condense.cuh>
 #include <raft/sparse/hierarchy/detail/agglomerative.cuh>
-
 
 #include <raft/linalg/distance_type.h>
 #include <raft/linalg/transpose.h>
@@ -256,7 +255,7 @@ const std::vector<HDBSCANInputs<float, int>> hdbscan_inputsf2 = {
    10,
    50,
    10,
-   25,
+   3,
    {6.26168372e-01, 9.30437651e-01, 6.02450208e-01,
     2.73025296e-01, 9.53050619e-01, 3.32164396e-01,
     6.88942598e-01, 5.79163537e-01, 6.70341547e-01,
@@ -599,8 +598,6 @@ const std::vector<HDBSCANInputs<float, int>> hdbscan_inputsf2 = {
     4, 0, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}};
 
-
-
 typedef HDBSCANTest<float, int> HDBSCANTestF_Int;
 TEST_P(HDBSCANTestF_Int, Result) {
   //  EXPECT_TRUE(score == 1.0);
@@ -622,17 +619,18 @@ struct ClusterCondensingInputs {
 };
 
 template <typename T, typename IdxT>
-class ClusterCondensingTest : public ::testing::TestWithParam<ClusterCondensingInputs<T, IdxT>> {
+class ClusterCondensingTest
+  : public ::testing::TestWithParam<ClusterCondensingInputs<T, IdxT>> {
  protected:
   void basicTest() {
     raft::handle_t handle;
 
-    params = ::testing::TestWithParam<ClusterCondensingInputs<T, IdxT>>::GetParam();
+    params =
+      ::testing::TestWithParam<ClusterCondensingInputs<T, IdxT>>::GetParam();
 
-    rmm::device_uvector<IdxT> mst_src(params.n_row-1,
-                                handle.get_stream());
-    rmm::device_uvector<IdxT> mst_dst(params.n_row-1, handle.get_stream());
-    rmm::device_uvector<T> mst_data(params.n_row-1, handle.get_stream());
+    rmm::device_uvector<IdxT> mst_src(params.n_row - 1, handle.get_stream());
+    rmm::device_uvector<IdxT> mst_dst(params.n_row - 1, handle.get_stream());
+    rmm::device_uvector<T> mst_data(params.n_row - 1, handle.get_stream());
 
     raft::copy(mst_src.data(), params.mst_src.data(), params.mst_src.size(),
                handle.get_stream());
@@ -646,44 +644,49 @@ class ClusterCondensingTest : public ::testing::TestWithParam<ClusterCondensingI
     rmm::device_uvector<IdxT> out_children(params.n_row * 2,
                                            handle.get_stream());
 
-    rmm::device_uvector<IdxT> out_size(params.n_row,
-                                           handle.get_stream());
+    rmm::device_uvector<IdxT> out_size(params.n_row, handle.get_stream());
 
-    rmm::device_uvector<T> out_delta(params.n_row,
-                                           handle.get_stream());
+    rmm::device_uvector<T> out_delta(params.n_row, handle.get_stream());
 
     Logger::get().setLevel(CUML_LEVEL_DEBUG);
 
-//    auto* output = new hdbscan_output<IdxT, T>();
-//    hdbscan(handle, data.data(), params.n_row, params.n_col,
-//            raft::distance::DistanceType::L2SqrtExpanded, params.k,
-//            params.min_pts, params.min_cluster_size, output);
+    //    auto* output = new hdbscan_output<IdxT, T>();
+    //    hdbscan(handle, data.data(), params.n_row, params.n_col,
+    //            raft::distance::DistanceType::L2SqrtExpanded, params.k,
+    //            params.min_pts, params.min_cluster_size, output);
 
     /**
      * Build dendrogram of MST
      */
-    raft::hierarchy::detail::build_dendrogram_host(handle, mst_src.data(),
-                                                           mst_dst.data(), mst_data.data(),
-                                                           params.n_row-1, out_children.data(),
-                                                           out_delta, out_size);
+    raft::hierarchy::detail::build_dendrogram_host(
+      handle, mst_src.data(), mst_dst.data(), mst_data.data(), params.n_row - 1,
+      out_children.data(), out_delta, out_size);
 
-    raft::print_device_vector("children", out_children.data(), out_children.size(), std::cout);
-    raft::print_device_vector("delta", out_delta.data(), out_delta.size(), std::cout);
-    raft::print_device_vector("size", out_size.data(), out_delta.size(), std::cout);
+    raft::print_device_vector("children", out_children.data(),
+                              out_children.size(), std::cout);
+    raft::print_device_vector("delta", out_delta.data(), out_delta.size(),
+                              std::cout);
+    raft::print_device_vector("size", out_size.data(), out_delta.size(),
+                              std::cout);
 
     /**
      * Condense Hierarchy
      */
-    HDBSCAN::detail::Common::CondensedHierarchy<IdxT, T> condensed_tree(handle, params.n_row);
-    HDBSCAN::detail::Condense::build_condensed_hierarchy(handle,
-                                                         out_children.data(), out_delta.data(), out_size.data(),
-                                                         params.min_cluster_size, params.n_row, condensed_tree);
+    HDBSCAN::detail::Common::CondensedHierarchy<IdxT, T> condensed_tree(
+      handle, params.n_row);
+    HDBSCAN::detail::Condense::build_condensed_hierarchy(
+      handle, out_children.data(), out_delta.data(), out_size.data(),
+      params.min_cluster_size, params.n_row, condensed_tree);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    raft::print_device_vector("condensed parents", condensed_tree.get_parents(), condensed_tree.get_n_edges(), std::cout);
-    raft::print_device_vector("condensed children", condensed_tree.get_children(), condensed_tree.get_n_edges(), std::cout);
-    raft::print_device_vector("condensed size", condensed_tree.get_sizes(), condensed_tree.get_n_edges(), std::cout);
+    raft::print_device_vector("condensed parents", condensed_tree.get_parents(),
+                              condensed_tree.get_n_edges(), std::cout);
+    raft::print_device_vector("condensed children",
+                              condensed_tree.get_children(),
+                              condensed_tree.get_n_edges(), std::cout);
+    raft::print_device_vector("condensed size", condensed_tree.get_sizes(),
+                              condensed_tree.get_n_edges(), std::cout);
   }
 
   void SetUp() override { basicTest(); }
@@ -706,17 +709,15 @@ TEST_P(ClusterCondensingTestF_Int, Result) {
   //  EXPECT_TRUE(score == 1.0);
 }
 
-
-const std::vector<ClusterCondensingInputs<float, int>> cluster_condensing_inputs = {
-  {9, 3,
-    {0, 2, 4, 6, 7, 1, 8, 8},
-    {1, 3, 5, 5, 8, 5, 3, 4},
-    {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0},
-    {1}}};
+const std::vector<ClusterCondensingInputs<float, int>>
+  cluster_condensing_inputs = {{9,
+                                3,
+                                {0, 2, 4, 6, 7, 1, 8, 8},
+                                {1, 3, 5, 5, 8, 5, 3, 4},
+                                {1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0},
+                                {1}}};
 
 INSTANTIATE_TEST_CASE_P(ClusterCondensingTest, ClusterCondensingTestF_Int,
                         ::testing::ValuesIn(cluster_condensing_inputs));
 
 }  // end namespace ML
-
-

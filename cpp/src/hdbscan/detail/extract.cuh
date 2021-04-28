@@ -29,6 +29,8 @@
 
 #include "common.h"
 
+#include <algorithm>
+
 #include <thrust/execution_policy.h>
 #include <thrust/reduce.h>
 
@@ -38,9 +40,45 @@ namespace detail {
 namespace Extract {
 
 template <typename value_idx>
+class TreeUnionFind {
+ public:
+  TreeUnionFind(value_idx size) : data(size * 2), is_component(size, true) {}
+
+  void perform_union(value_idx x, value_idx y) {
+    value_idx x_root = find(x);
+    value_idx y_root = find(y);
+
+    if (data[x_root * 2 + 1] < data[y_root * 2 + 1])
+      data[x_root * 2] = y_root;
+    else if (data[x_root * 2 + 1] > data[y_root * 2 + 1])
+      data[y_root * 2] = x_root;
+    else
+      data[y_root * 2] = x_root;
+    data[x_root * 2 + 1] += 1;
+  }
+
+  value_idx find(value_idx x) {
+    if (data[x * 2] != x) {
+      data[x * 2] = find(data[x * 2]);
+      is_component[x] = false;
+    }
+    return data[x * 2];
+  }
+
+  void components(std::vector<value_idx> &out) const {
+    std::copy_if(is_component.begin(), is_component.end(), out.begin(),
+                 [](value_idx x) { return x == 1; });
+  }
+
+ private:
+  std::vector<value_idx> data;
+  std::vector<bool> is_component;
+};
+
+template <typename value_idx>
 __global__ void propagate_cluster_negation(const value_idx *indptr,
                                            const value_idx *children,
-                                           bool *frontier, bool *is_cluster,
+                                           bool *frontier, int *is_cluster,
                                            int n_clusters) {
   int cluster = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -182,7 +220,7 @@ template <typename value_idx, typename value_t, int tpb = 256>
 void excess_of_mass(
   const raft::handle_t &handle,
   Common::CondensedHierarchy<value_idx, value_t> &condensed_tree,
-  value_t *stability, bool *is_cluster, value_idx n_clusters,
+  value_t *stability, int *is_cluster, value_idx n_clusters,
   value_idx max_cluster_size) {
   cudaStream_t stream = handle.get_stream();
 
@@ -230,7 +268,7 @@ void excess_of_mass(
    *    or not current cluster should continue to be its own
    */
 
-  bool is_cluster_h[n_clusters];
+  int is_cluster_h[n_clusters];
   bool frontier_h[n_clusters];
 
   std::vector<value_idx> indptr_h(indptr.size());
@@ -251,7 +289,7 @@ void excess_of_mass(
         cluster_sizes[node] > max_cluster_size) {
       // Deselect / merge cluster with children
       raft::update_device(stability + node, &subtree_stability, 1, stream);
-      is_cluster[node] = false;
+      is_cluster_h[node] = false;
     } else {
       // Mark children to be deselected
       is_cluster_h[node] = false;
@@ -292,9 +330,9 @@ void excess_of_mass(
 
 template <typename value_idx, typename value_t>
 void get_stability_scores(const raft::handle_t &handle, const value_idx *labels,
-                          const value_t *stability, const value_idx *clusters,
-                          size_t n_clusters, value_t max_lambda,
-                          size_t n_leaves, value_t *result) {
+                          const value_t *stability, size_t n_clusters,
+                          value_t max_lambda, size_t n_leaves,
+                          value_t *result) {
   /**
    * 1. Populate cluster sizes
    */
@@ -307,8 +345,9 @@ void get_stability_scores(const raft::handle_t &handle, const value_idx *labels,
   /**
    * Compute stability scores
    */
-  auto enumeration = thrust::make_zip_iterator(
-    thrust::make_tuple(clusters, cluster_sizes.data()));
+
+  auto enumeration = thrust::make_zip_iterator(thrust::make_tuple(
+    thrust::make_counting_iterator(0), cluster_sizes.data()));
   thrust::transform(
     thrust::cuda::par.on(handle.get_stream()), enumeration,
     enumeration + n_clusters, result,
@@ -323,8 +362,68 @@ void get_stability_scores(const raft::handle_t &handle, const value_idx *labels,
 }
 
 template <typename value_idx, typename value_t>
-void do_labelling() {
-  // TODO: This can be done efficiently on host.
+void do_labelling_on_host(
+  const raft::handle_t &handle,
+  Common::CondensedHierarchy<value_idx, value_t> &condensed_tree,
+  std::set<value_idx> &clusters, value_idx n_leaves, bool allow_single_cluster,
+  value_idx *labels) {
+  auto stream = handle.get_stream();
+
+  std::vector<value_idx> children_h(condensed_tree.get_n_edges());
+  std::vector<value_t> lambda_h(condensed_tree.get_n_edges());
+  std::vector<value_idx> parent_h(condensed_tree.get_n_edges());
+
+  raft::update_host(children_h.data(), condensed_tree.get_children(),
+                    condensed_tree.get_n_edges(), stream);
+  raft::update_host(parent_h.data(), condensed_tree.get_parents(),
+                    condensed_tree.get_n_edges(), stream);
+  raft::update_host(lambda_h.data(), condensed_tree.get_lambdas(),
+                    condensed_tree.get_n_edges(), stream);
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  value_idx size = *std::max_element(parent_h.begin(), parent_h.end());
+
+  std::vector<value_idx> result(n_leaves);
+
+  auto union_find = TreeUnionFind<value_idx>(size);
+
+  std::vector<value_t> parent_lambdas(size, 0);
+
+  for (int i = 0; i < condensed_tree.get_n_edges(); i++) {
+    value_idx child = children_h[i];
+    value_idx parent = parent_h[i];
+
+    if (clusters.find(child) == clusters.end())
+      union_find.perform_union(parent, child);
+
+    parent_lambdas[parent_h[i]] = max(parent_lambdas[parent_h[i]], lambda_h[i]);
+  }
+
+  for (int i = 0; i < n_leaves; i++) {
+    value_idx cluster = union_find.find(i);
+
+    if (cluster < n_leaves)
+      result[i] = -1;
+    else if (cluster == n_leaves) {
+      //TODO: Implement the cluster_selection_epsilon / epsilon_search
+      if (clusters.size() == 1 && allow_single_cluster) {
+        auto it = std::find(children_h.begin(), children_h.end(), i);
+        auto child_idx = std::distance(children_h.begin(), it);
+        value_idx child_lambda = lambda_h[child_idx];
+        if (child_lambda >= parent_lambdas[cluster])
+          result[i] = cluster;
+        else
+          result[i] = -1;
+      } else {
+        result[i] = -1;
+      }
+    } else {
+      result[i] = cluster;
+    }
+  }
+
+  raft::update_device(labels, result.data(), n_leaves, stream);
 }
 
 template <typename value_idx, typename value_t>
@@ -339,33 +438,46 @@ void extract_clusters(
   const raft::handle_t &handle,
   Common::CondensedHierarchy<value_idx, value_t> &condensed_tree,
   size_t n_leaves, value_idx *labels, value_t *stabilities,
-  value_t *probabilities) {
+  value_t *probabilities, bool allow_single_cluster = true,
+  value_idx max_cluster_size = 0) {
+  auto stream = handle.get_stream();
   rmm::device_uvector<value_t> tree_stabilities(condensed_tree.get_n_clusters(),
                                                 handle.get_stream());
 
   compute_stabilities(handle, condensed_tree, tree_stabilities.data());
 
-  // rmm::device_uvector<bool> is_cluster(condensed_tree.get_n_clusters(),
-  //                                      handle.get_stream());
+  rmm::device_uvector<int> is_cluster(condensed_tree.get_n_clusters(),
+                                      handle.get_stream());
 
-  // value_idx max_cluster_size = -1;  // TODO
-  // excess_of_mass(handle, condensed_tree, tree_stabilities.data(),
-  //                is_cluster.data(), condensed_tree.get_n_clusters(),
-  //                max_cluster_size);
+  if (max_cluster_size <= 0)
+    max_cluster_size = n_leaves;  // this shouldn't be triggered
 
-  // // TODO: create final clusters array based on excess of mass
-  // rmm::device_uvector<value_idx> clusters(0, handle.get_stream());
+  excess_of_mass(handle, condensed_tree, tree_stabilities.data(),
+                 is_cluster.data(), condensed_tree.get_n_clusters(),
+                 max_cluster_size);
 
-  // // TODO: Fill this in
-  // do_labelling<value_idx, value_t>();
+  std::vector<int> is_cluster_h(is_cluster.size());
+  raft::update_host(is_cluster_h.data(), is_cluster.data(), is_cluster_h.size(),
+                    stream);
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  std::set<value_idx> clusters;
+  for (int i = 0; i < is_cluster_h.size(); i++)
+    if (is_cluster_h[i] != 0) clusters.insert(i);
+
+  do_labelling_on_host<value_idx, value_t>(
+    handle, condensed_tree, clusters, n_leaves, allow_single_cluster, labels);
 
   // // TODO: Fill this in
   // get_probabilities<value_idx, value_t>(handle, probabilities);
 
-  // value_t max_lambda = -1;  //TODO Fill this in
-  // rmm::device_uvector<value_idx> stability_scores(0, handle.get_stream());
-  // get_stability_scores(handle, labels, tree_stabilities.data(), clusters.data(),
-  //                      clusters.size(), max_lambda, n_leaves, stabilities);
+  value_t max_lambda = *(thrust::max_element(
+    condensed_tree.get_lambdas(),
+    condensed_tree.get_lambdas() + condensed_tree.get_n_edges()));
+
+  get_stability_scores(handle, labels, tree_stabilities.data(), clusters.size(),
+                       max_lambda, n_leaves, stabilities);
 }
 
 };  // end namespace Extract

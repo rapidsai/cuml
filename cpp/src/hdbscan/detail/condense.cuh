@@ -81,10 +81,10 @@ __global__ void condense_hierarchy_kernel(
 
   // If node is a leaf, add it to the condensed hierarchy
   if (node < n_leaves) {
-    out_parent[node*2] = subtree_parent;
-    out_child[node*2] = node;
-    out_lambda[node*2] = get_lambda(subtree_parent, n_leaves, deltas);
-    out_count[node*2] = 1;
+    out_parent[node * 2] = subtree_parent;
+    out_child[node * 2] = node;
+    out_lambda[node * 2] = get_lambda(subtree_parent, n_leaves, deltas);
+    out_count[node * 2] = 1;
   }
 
   // If node is not a leaf, condense its children if necessary
@@ -96,8 +96,10 @@ __global__ void condense_hierarchy_kernel(
     frontier[left_child] = true;
     frontier[right_child] = true;
 
-    ignore[left_child] = (should_ignore * subtree_parent) + (!should_ignore * -1);
-    ignore[right_child] = (should_ignore * subtree_parent) + (!should_ignore * -1);
+    ignore[left_child] =
+      (should_ignore * subtree_parent) + (!should_ignore * -1);
+    ignore[right_child] =
+      (should_ignore * subtree_parent) + (!should_ignore * -1);
 
     value_idx node_relabel = relabel[node];
 
@@ -118,8 +120,10 @@ __global__ void condense_hierarchy_kernel(
       // both children >= min_cluster_size
       bool can_persist = !left_child_too_small && !right_child_too_small;
 
-      relabel[left_child] = (!can_persist * node_relabel) + (can_persist * left_child);
-      relabel[right_child] = (!can_persist * node_relabel) + (can_persist * right_child);
+      relabel[left_child] =
+        (!can_persist * node_relabel) + (can_persist * left_child);
+      relabel[right_child] =
+        (!can_persist * node_relabel) + (can_persist * right_child);
 
       // Propagate ignore to either subtree which is too small
       ignore[left_child] =
@@ -131,15 +135,15 @@ __global__ void condense_hierarchy_kernel(
       // included directly in the output hierarchy.
       if (can_persist) {
         // TODO: Could probably pull this out if this conditional becomes a bottleneck
-        out_parent[node*2] = node_relabel;
-        out_child[node*2] = left_child;
-        out_lambda[node*2] = lambda_value;
-        out_count[node*2] = left_count;
+        out_parent[node * 2] = node_relabel;
+        out_child[node * 2] = left_child;
+        out_lambda[node * 2] = lambda_value;
+        out_count[node * 2] = left_count;
 
-        out_parent[node*2+1] = node_relabel;
-        out_child[node*2+1] = right_child;
-        out_lambda[node*2+1] = lambda_value;
-        out_count[node*2+1] = right_count;
+        out_parent[node * 2 + 1] = node_relabel;
+        out_child[node * 2 + 1] = right_child;
+        out_lambda[node * 2 + 1] = lambda_value;
+        out_count[node * 2 + 1] = right_count;
       }
     }
   }
@@ -186,17 +190,16 @@ void build_condensed_hierarchy(
   thrust::fill(thrust::cuda::par.on(stream), relabel.data(),
                relabel.data() + relabel.size(), -1);
 
-
   raft::update_device(relabel.data() + root, &root, 1, handle.get_stream());
 
   // Flip frontier for root
   bool start = true;
   raft::update_device(frontier.data() + root, &start, 1, handle.get_stream());
 
-  rmm::device_uvector<value_idx> out_parent((root+1) * 2, stream);
-  rmm::device_uvector<value_idx> out_child((root+1) * 2, stream);
-  rmm::device_uvector<value_t> out_lambda((root+1) * 2, stream);
-  rmm::device_uvector<value_idx> out_size((root+1) * 2, stream);
+  rmm::device_uvector<value_idx> out_parent((root + 1) * 2, stream);
+  rmm::device_uvector<value_idx> out_child((root + 1) * 2, stream);
+  rmm::device_uvector<value_t> out_lambda((root + 1) * 2, stream);
+  rmm::device_uvector<value_idx> out_size((root + 1) * 2, stream);
 
   thrust::fill(thrust::cuda::par.on(stream), out_parent.data(),
                out_parent.data() + out_parent.size(), -1);
@@ -221,8 +224,8 @@ void build_condensed_hierarchy(
     // to schedule only the number of threads needed. (it might not be worth it)
     condense_hierarchy_kernel<<<grid, tpb, 0, handle.get_stream()>>>(
       frontier.data(), ignore.data(), relabel.data(), children, delta, sizes,
-      n_leaves, min_cluster_size, out_parent.data(),
-      out_child.data(), out_lambda.data(), out_size.data());
+      n_leaves, min_cluster_size, out_parent.data(), out_child.data(),
+      out_lambda.data(), out_size.data());
 
     n_elements_to_traverse =
       thrust::reduce(thrust::cuda::par.on(handle.get_stream()), frontier.data(),
@@ -230,13 +233,19 @@ void build_condensed_hierarchy(
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    // raft::print_device_vector("parent", out_parent.data(), out_parent.size(), std::cout);
-    // raft::print_device_vector("child", out_child.data(), out_child.size(), std::cout);
-    // raft::print_device_vector("size", out_size.data(), out_size.size(), std::cout);
-    // raft::print_device_vector("lambda", out_lambda.data(), out_lambda.size(), std::cout);
+    raft::print_device_vector("parent", out_parent.data(), out_parent.size(),
+                              std::cout);
+    raft::print_device_vector("child", out_child.data(), out_child.size(),
+                              std::cout);
+    raft::print_device_vector("size", out_size.data(), out_size.size(),
+                              std::cout);
+    raft::print_device_vector("lambda", out_lambda.data(), out_lambda.size(),
+                              std::cout);
 
-    // raft::print_device_vector("relabel", relabel.data(), relabel.size(), std::cout);
-    // raft::print_device_vector("ignore", ignore.data(), ignore.size(), std::cout);
+    raft::print_device_vector("relabel", relabel.data(), relabel.size(),
+                              std::cout);
+    raft::print_device_vector("ignore", ignore.data(), ignore.size(),
+                              std::cout);
   }
 
   // TODO: Verify the sequence of condensed cluster labels enables topological sort
