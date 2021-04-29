@@ -31,7 +31,7 @@
 #include <rmm/device_uvector.hpp>
 
 #include <cuml/neighbors/knn.hpp>
-#include <distance/distance.cuh>
+#include <raft/distance/distance.cuh>
 
 namespace ML {
 namespace HDBSCAN {
