@@ -60,8 +60,8 @@ def kl_divergence(P, Q, handle=None, convert_dtype=True):
         handle : cuml.Handle
 
         convert_dtype : bool, optional (default = True)
-            When set to True, the method will, when necessary, convert
-            Q to be the same data type as P if they differ. This
+            When set to True, the method will, convert P and
+            Q to be the same data type: float32. This
             will increase memory used for the method.
         Returns
         -------
@@ -73,6 +73,8 @@ def kl_divergence(P, Q, handle=None, convert_dtype=True):
 
     P_m, n_features_p, _, dtype_p = \
         input_to_cuml_array(P, check_cols=1,
+                            convert_to_dtype=(np.float32 if convert_dtype
+                                              else None),
                             check_dtype=[np.float32, np.float64])
     Q_m, n_features_q, _, _ = \
         input_to_cuml_array(Q, check_cols=1,

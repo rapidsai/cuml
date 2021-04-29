@@ -1391,7 +1391,7 @@ def test_hinge_loss(nrows, ncols, n_info, input_type, n_classes):
                          [
                              unit_param(10),
                              unit_param(300),
-                             unit_param(3000000),
+                             unit_param(30000),
                              stress_param(500000000)
                          ])
 @pytest.mark.parametrize("input_type", ["cudf", "cupy"])
