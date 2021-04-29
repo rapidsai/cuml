@@ -319,7 +319,9 @@ void symClfPredict(const raft::handle_t &handle, const float* input, const int n
 void symTransform(const raft::handle_t &handle, const float* input, const param &params, 
                   const program_t final_progs, const int n_rows, const int n_cols, float* output){
   cudaStream_t stream = handle.get_stream();
-  
+  // Execute final_progs(ordered by fitness) on input
+  // output of size [n_rows,hall_of_fame]
+  execute(handle,final_progs,n_rows,params.hall_of_fame,input,output);
 }
 
 }  // namespace genetic
