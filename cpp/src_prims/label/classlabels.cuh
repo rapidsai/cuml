@@ -19,11 +19,11 @@
 #include <cub/cub.cuh>
 
 #include <raft/cudart_utils.h>
-#include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/mr/device/allocator.hpp>
 
 namespace MLCommon {
 namespace Label {
@@ -48,7 +48,7 @@ using namespace MLCommon;
 template <typename math_t>
 void getUniqueLabels(math_t *y, size_t n, math_t **y_unique, int *n_unique,
                      cudaStream_t stream,
-                     std::shared_ptr<deviceAllocator> allocator) {
+                     std::shared_ptr<raft::mr::device::allocator> allocator) {
   device_buffer<math_t> y2(allocator, stream, n);
   device_buffer<math_t> y3(allocator, stream, n);
   device_buffer<int> d_num_selected(allocator, stream, 1);
@@ -149,7 +149,7 @@ __global__ void map_label_kernel(Type *map_ids, size_t N_labels, Type *in,
 template <typename Type, typename Lambda>
 int make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
                    Lambda filter_op,
-                   std::shared_ptr<deviceAllocator> allocator) {
+                   std::shared_ptr<raft::mr::device::allocator> allocator) {
   static const size_t TPB_X = 256;
 
   dim3 blocks(raft::ceildiv(N, TPB_X));
@@ -186,7 +186,7 @@ int make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
    */
 template <typename Type>
 void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
-                    std::shared_ptr<deviceAllocator> allocator) {
+                    std::shared_ptr<raft::mr::device::allocator> allocator) {
   make_monotonic<Type>(
     out, in, N, stream, [] __device__(Type val) { return false; }, allocator);
 }

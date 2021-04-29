@@ -154,11 +154,6 @@ if(BUILD_PRIMS_TESTS)
     prims/decoupled_lookback.cu
     prims/device_utils.cu
     prims/dispersion.cu
-    prims/dist_adj.cu
-    prims/dist_cos.cu
-    prims/dist_euc_exp.cu
-    prims/dist_euc_unexp.cu
-    prims/dist_l1.cu
     prims/eltwise2d.cu
     prims/entropy.cu
     prims/epsilon_neighborhood.cu

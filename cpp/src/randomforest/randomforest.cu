@@ -618,6 +618,18 @@ RF_params set_rf_params(int max_depth, int max_leaves, float max_features,
                         CRITERION split_criterion, bool quantile_per_tree,
                         int cfg_n_streams, bool use_experimental_backend,
                         int max_batch_size) {
+  // give deprecation notice for use of bootstrap_features
+  if (bootstrap_features) {
+    CUML_LOG_WARN(
+      "Parameter 'bootstrap_features' is deprecated and will be"
+      " removed in 0.21 release. Please use 'max_features' instead.");
+    if (max_features == 1.f) {
+      CUML_LOG_WARN(
+        "Parameter conflict: 'max_features' is set to 1.0 when "
+        "'bootstrap_features' is enabled. "
+        "'max_features' will be used to override 'bootstrap_features'.");
+    }
+  }
   DecisionTree::DecisionTreeParams tree_params;
   DecisionTree::set_tree_params(
     tree_params, max_depth, max_leaves, max_features, n_bins, split_algo,
