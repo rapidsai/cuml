@@ -481,10 +481,95 @@ void do_labelling_on_host(
 }
 
 template <typename value_idx, typename value_t>
-void get_probabilities(const raft::handle_t &handle, value_t *probabilities) {
-  // TODO: Compute deaths array similarly to compute_stabilities
+struct probabilities_functor {
+ public:
+  probabilities_functor(value_t *probabilities_, const value_t *deaths_,
+                      const value_idx *children_,
+                      const value_t *lambdas_, const value_idx root_cluster_)
+    : probabilities(probabilities_),
+      deaths(deaths_),
+      children(children_),
+      lambdas(lambdas_)
+      root_cluster(root_cluster_) {}
 
-  // TODO: Embarassingly parallel
+  __device__ void operator()(const int &idx) {
+    auto child = children[idx];
+
+    // intermediate nodes
+    if (child >= root_cluster) {
+      return;
+    }
+
+    auto cluster = labels[child];
+
+    // noise
+    if (cluster == -1) {
+      return;
+    }
+
+    auto cluster_death = deaths[cluster];
+    auto child_lambda = lambdas[idx];
+
+    if (cluster_death == 0.0 || isnan(child_lambda)) {
+      probabilities[idx] = 1.0;
+    }
+    else {
+      auto min_lambda = min(child_lambda, cluster_death);
+      probabilities[idx] = min_lambda / max_lambda;
+    }
+  }
+
+ private:
+  value_t *probabilities;
+  const value_t *deaths, *lambdas;
+  const value_idx *children, root_cluster;
+};
+
+template <typename value_idx, typename value_t>
+void get_probabilities(const raft::handle_t &handle,
+                       Common::CondensedHierarchy<value_idx, value_t> &condensed_tree,
+                       const value_idx *labels, value_t *probabilities) {
+  auto stream = handle.get_stream();
+  auto thrust_policy = rmm::exec_policy(stream);
+        
+  auto parents = condensed_tree.get_parents();
+  auto childdren = condensed_tree.get_children();
+  auto lambdas = condensed_tree.get_lambdas();
+  auto n_edges = condensed_tree.get_n_edges();
+  auto n_clusters = condensed_tree.get_n_clusters();
+  auto n_leaves = condensed_tree.get_n_leaves();
+
+  rmm::device_uvector<value_idx> sorted_parents(n_edges, stream);
+  raft::copy_async(sorted_parents.data(), parents.data(), n_edges, stream);
+
+  rmm::device_uvector<value_t> sorted_lambdas(n_edges, stream);
+  raft::copy_async(sorted_lambas.data(), parents.data(), n_edges, stream);
+
+  thrust::sort_by_key(thrust_policy, sorted_parents.begin(), sorted_parents.end(), sorted_lambdas.begin());
+  
+  // 0-index sorted parents by subtracting n_leaves for offsets and birth/stability indexing
+  auto index_op = [n_leaves] __device__(const auto &x) { return x - n_leaves; };
+  thrust::transform(thrust_policy, sorted_parents.begin(), sorted_parents.end(),
+                    sorted_parents.begin(), index_op);
+
+  rmm::device_uvector<value_idx> sorted_parents_offsets(n_edges + 1, stream);
+  raft::sparse::convert::sorted_coo_to_csr(
+    sorted_parents.data(), n_edges, sorted_parents_offsets.data(),
+    n_clusters + 1, handle.get_device_allocator(), handle.get_stream());
+
+  // this is to find maximum lambdas of all children under a prent
+  rmm::device_uvector<value_t> deaths(n_clusters, stream);
+  thrust::fill(thrust_policy, deaths.begin(), deaths.end(), 0.0f);
+
+  segmented_reduce(sorted_lambdas.data(), deaths.data() + 1,
+                   n_clusters - 1, sorted_parents_offsets.data() + 1, stream,
+                   cub::DeviceSegmentedReduce::Max<const value_t *, value_t *,
+                                                   const value_idx *>);
+
+  // Calculate probability per point
+  probabilities_functor<value_idx, value_t> probabilities_op(probabilities, deaths.data(), children, lambdas, condensed_tree.get_root_cluster());
+
+  raft::print_device_vector("Probabilities", probabilities, n_edges, std::cout);
 }
 
 template <typename value_idx, typename value_t>

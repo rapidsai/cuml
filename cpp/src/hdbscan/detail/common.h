@@ -101,15 +101,6 @@ struct CondensedHierarchy {
     raft::copy_async(parent_child.begin() + n_edges, parents.begin(), n_edges,
                      stream);
 
-    // find n_clusters
-    auto parents_ptr = thrust::device_pointer_cast(parents.data());
-    auto parents_min_max = thrust::minmax_element(
-      thrust::cuda::par.on(stream), parents_ptr, parents_ptr + n_edges);
-    auto min_parent = *parents_min_max.first;
-    auto max_parent = *parents_min_max.second;
-
-    n_clusters = max_parent - min_parent + 1;
-
     // now invert labels
     auto invert_op = [max_parent, n_leaves = n_leaves] __device__(auto &x) {
       return x >= n_leaves ? max_parent - x + n_leaves : x;
@@ -125,6 +116,15 @@ struct CondensedHierarchy {
     raft::copy_async(children.begin(), parent_child.begin(), n_edges, stream);
     raft::copy_async(parents.begin(), parent_child.begin() + n_edges, n_edges,
                      stream);
+
+    // find n_clusters
+    auto parents_ptr = thrust::device_pointer_cast(parents.data());
+    auto parents_min_max = thrust::minmax_element(
+      thrust::cuda::par.on(stream), parents_ptr, parents_ptr + n_edges);
+    root_cluster = *parents_min_max.first;
+    auto max_parent = *parents_min_max.second;
+
+    n_clusters = max_parent - root_cluster + 1;
 
     raft::print_device_vector("Parents After transform and monotonic",
                               parent_child.data() + n_edges, n_edges,
@@ -195,6 +195,8 @@ struct CondensedHierarchy {
 
   void set_n_leaves(value_idx n_leaves_) { n_leaves = n_leaves_; }
 
+  value_idx get_root_cluster() { return root_cluster; }
+
  private:
   const raft::handle_t &handle;
 
@@ -206,6 +208,7 @@ struct CondensedHierarchy {
   size_t n_edges;
   size_t n_leaves;
   int n_clusters;
+  value_idx root_cluster;
 };
 
 };  // namespace Common
