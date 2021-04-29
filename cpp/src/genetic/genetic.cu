@@ -276,6 +276,7 @@ void symFit(const raft::handle_t &handle, const float* input, const float* label
   /* Set return values */
   final_progs = d_currprogs;
 
+  
   std::uniform_int_distribution<uint64_t> rand_state_gen;
   params.random_state = rand_state_gen(h_gen_engine);     // Update random state of hyperparams
 
@@ -327,7 +328,7 @@ void symTransform(const raft::handle_t &handle, const float* input, const param 
   cudaStream_t stream = handle.get_stream();
   // Execute final_progs(ordered by fitness) on input
   // output of size [n_rows,hall_of_fame]
-  execute(handle,final_progs,n_rows,params.hall_of_fame,input,output);
+  execute(handle,final_progs,n_rows,params.n_components,input,output);
 }
 
 }  // namespace genetic
