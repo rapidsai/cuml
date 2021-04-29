@@ -30,6 +30,8 @@
 
 #include "common.h"
 
+#include <raft/label/classlabels.cuh>
+
 #include <algorithm>
 
 #include <thrust/execution_policy.h>
@@ -482,6 +484,10 @@ void do_labelling_on_host(
   }
 
   raft::update_device(labels, result.data(), n_leaves, stream);
+
+  raft::label::make_monotonic(labels, labels,
+                              n_leaves, stream,
+                              handle.get_device_allocator(), true);
 }
 
 template <typename value_idx, typename value_t>
