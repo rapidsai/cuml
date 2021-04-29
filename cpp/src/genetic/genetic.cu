@@ -120,20 +120,26 @@ void parallel_evolve(const raft::handle_t &h,
   }
   else{
     // Set mutation type
+    float mut_probs[4];
+    mut_probs[0] = params.p_crossover;
+    mut_probs[1] = mut_probs[0] + params.p_subtree_mutation;
+    mut_probs[2] = mut_probs[1] + params.p_hoist_mutation;    
+    mut_probs[3] = mut_probs[2] + params.p_point_mutation;
+
     for(auto i=0; i < n_progs; ++i){
       float prob = dist_01(h_gen);
 
-      if(prob < params.p_crossover) {
+      if(prob < mut_probs[0]) {
         h_nextprogs[i].mut_type = mutation_t::crossover;
         n_tours++;
       }
-      else if(prob < params.p_crossover + params.p_subtree_mutation) {
+      else if(prob < mut_probs[1]) {
         h_nextprogs[i].mut_type = mutation_t::subtree;
       }
-      else if(prob < params.p_crossover+params.p_subtree_mutation+params.p_hoist_mutation) {
+      else if(prob < mut_probs[2]) {
         h_nextprogs[i].mut_type = mutation_t::hoist;
       } 
-      else if(prob < params.p_crossover+params.p_subtree_mutation+params.p_hoist_mutation+params.p_point_mutation) {
+      else if(prob < mut_probs[3]) {
         h_nextprogs[i].mut_type = mutation_t::point;
       }
       else {
