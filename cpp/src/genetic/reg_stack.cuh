@@ -58,7 +58,15 @@ struct stack {
    *       to push more than `MaxSize` elements leads to all sorts of incorrect
    *       behavior.
    */
-  HDI void push(DataT val) { if(!full()) regs_[++elements_] = val; }
+  HDI void push(DataT val) { 
+#pragma unroll
+    for(int i = MaxSize-1; i>=0; --i){
+      if(elements_ == i){
+        ++elements_;
+        regs_[i] = val;
+      }
+    }
+  }
 
   /**
    * @brief Lazily pops the top element from the stack
@@ -71,7 +79,17 @@ struct stack {
    *       designed this way. Trying to pop beyond the bottom of the stack leads
    *       to all sorts of incorrect behavior. 
    */
-  HDI DataT pop() { return !empty() ? regs_[elements_--] : DataT(0); }
+  HDI DataT pop() { 
+#pragma unroll
+    for(int i=0;i<MaxSize;++i){
+      if(elements_ == (i+1)){
+        elements_--;
+        return regs_[i];
+      }
+    }
+
+    return DataT(0);
+  }
 
  private:
   int elements_;
