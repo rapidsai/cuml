@@ -264,14 +264,13 @@ void excess_of_mass(
   rmm::device_uvector<value_idx> children(cluster_tree_edges, stream);
   rmm::device_uvector<value_idx> sizes(cluster_tree_edges, stream);
   rmm::device_uvector<value_idx> indptr(n_clusters + 1, stream);
+  rmm::device_uvector<value_idx> cluster_sizes(cluster_tree_edges, stream);
 
   auto in = thrust::make_zip_iterator(thrust::make_tuple(
     condensed_tree.get_parents(), condensed_tree.get_children(),
     condensed_tree.get_sizes()));
 
   value_idx n_leaves = condensed_tree.get_n_leaves();
-
-  std::vector<value_idx> cluster_sizes;
 
   auto out = thrust::make_zip_iterator(
     thrust::make_tuple(parents.data(), children.data(), sizes.data()));
@@ -281,12 +280,20 @@ void excess_of_mass(
                   condensed_tree.get_sizes(), out,
                   [=] __device__(value_t a) { return a > 1.0; });
 
+  value_idx *cluster_sizes_ptr = cluster_sizes.data();
+
   thrust::transform(thrust::cuda::par.on(stream), parents.data(),
                     parents.data() + parents.size(), parents.data(),
                     [=] __device__(value_idx a) { return a - n_leaves; });
   thrust::transform(thrust::cuda::par.on(stream), children.data(),
                     children.data() + children.size(), children.data(),
                     [=] __device__(value_idx a) { return a - n_leaves; });
+
+  thrust::for_each(thrust::cuda::par.on(stream), out, out+children.size(),
+                   [=] __device__ (const thrust::tuple<value_idx, value_idx, value_idx> &tup) {
+                     cluster_sizes_ptr[thrust::get<1>(tup)] = thrust::get<2>(tup);
+                   });
+
 
   raft::sparse::op::coo_sort(
     0, 0, cluster_tree_edges, parents.data(), children.data(), sizes.data(),
@@ -296,7 +303,6 @@ void excess_of_mass(
     parents.data(), cluster_tree_edges, indptr.data(), n_clusters + 1,
     handle.get_device_allocator(), handle.get_stream());
 
-  CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
   raft::print_device_vector("parents", parents.data(), parents.size(),
                             std::cout);
@@ -313,18 +319,17 @@ void excess_of_mass(
    */
   std::vector<int> is_cluster_h(n_clusters, true);
   std::vector<int> cluster_propagate_h(n_clusters, true);
+  std::vector<value_idx> cluter_sizes_h(n_clusters);
 
   std::vector<value_idx> indptr_h(indptr.size());
   raft::update_host(indptr_h.data(), indptr.data(), indptr.size(), stream);
+  raft::update_host(cluter_sizes_h.data(), cluster_sizes.data(), cluster_sizes.size(), stream);
   // don't need to sync here- thrust should take care of it.
-  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   // Loop through stabilities in "reverse topological order" (e.g. reverse sorted order)
   for (value_idx node = n_clusters - 1; node >= 0; node--) {
     value_t node_stability = 0;
     raft::update_host(&node_stability, stability + node, 1, stream);
-
-    CUDA_CHECK(cudaStreamSynchronize(stream));
 
     value_t subtree_stability = 0;
 
@@ -338,9 +343,8 @@ void excess_of_mass(
 
     CUML_LOG_DEBUG("subtree_stability: %f, node_stability: %f",
                    subtree_stability, node_stability);
-    if (subtree_stability > node_stability) {  //||
-      // TODO: Compute cluster sizes
-      //cluster_sizes[node] > max_cluster_size) {
+    if (subtree_stability > node_stability ||
+      cluter_sizes_h[node] > max_cluster_size) {
       // Deselect / merge cluster with children
       CUML_LOG_DEBUG("Deselecting cluster %d", node);
       raft::update_device(stability + node, &subtree_stability, 1, stream);
