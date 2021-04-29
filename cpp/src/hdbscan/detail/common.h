@@ -25,6 +25,8 @@
 
 #include <rmm/device_uvector.hpp>
 
+#include <raft/handle.hpp>
+
 #include <raft/sparse/op/sort.h>
 #include <raft/sparse/convert/csr.cuh>
 
