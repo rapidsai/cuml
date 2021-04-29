@@ -48,9 +48,19 @@ void symFit(const raft::handle_t &handle, const float* input, const float* label
             program_t final_progs, std::vector<std::vector<program>> &history);
 
 /**
+ * @brief Make predictions for a symbolic regressor
+ * 
+ * @param input       device pointer to feature matrix
+ * @param n_rows      number of rows of the feature matrix
+ * @param best_prog   device pointer to best AST fit during training
+ * @param output      device pointer to output values
+ */
+void symRegPredict(const raft::handle_t &handle, const float* input, const int n_rows, 
+                const program_t best_prog, float* output);
+
+/**
  * @brief Probability prediction for a symbolic classifier. If a transformer(like sigmoid) is
- *        specified, then it is applied on the output before returning it. Currently implemented 
- *        only for binary classification.
+ *        specified, then it is applied on the output before returning it. 
  * 
  * @param input       device pointer to feature matrix
  * @param n_rows      number of rows of the feature matrix
@@ -58,20 +68,20 @@ void symFit(const raft::handle_t &handle, const float* input, const float* label
  * @param best_prog   The best program obtained during training. Inferences are made using this
  * @param output      device pointer to output probability(in col major format)
  */
-void symPredictProbs(const raft::handle_t &handle, const float* input, const int n_rows,
+void symClfPredictProbs(const raft::handle_t &handle, const float* input, const int n_rows,
                      const param &params, const program_t best_prog, float* output);
 
 /**
- * @brief Make predictions. Returns either fitted values(for symbolic regression), or binary class *        labels(for symbolic classification)
+ * @brief Return predictions for a binary classification program defining the decision boundary
  * 
  * @param input       device pointer to feature matrix
  * @param n_rows      number of rows of the feature matrix
- * @param params      host struct containing training hyperparameters
- * @param best_prog   device pointer to best AST fit during training
- * @param output      device pointer to output values
+ * @param params      host struct containg training hyperparameters
+ * @param best_prog 
+ * @param output 
  */
-void symPredict(const raft::handle_t &handle, const float* input, const param &params, 
-                const program_t best_prog, float* output);
+void symClfPredict(const raft::handle_t &handle, const float* input, const int n_rows, 
+                   const param &params, const program_t best_prog, float* output);
 
 /**
  * @brief Transform the values in the input feature matrix according to the supplied programs

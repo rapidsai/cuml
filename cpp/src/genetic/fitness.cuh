@@ -19,7 +19,7 @@
 #include <raft/linalg/strided_reduction.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <stats/weighted_mean.cuh>
+
 #include <raft/stats/mean_center.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/sum.cuh>
@@ -39,7 +39,6 @@
 #include <thrust/iterator/permutation_iterator.h>
 
 #include <raft/cudart_utils.h>
-#include <functions/logisticReg.cuh>
 
 namespace cuml {
 namespace genetic {

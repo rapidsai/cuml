@@ -25,6 +25,8 @@
 #include <raft/cudart_utils.h>
 #include <raft/random/rng_impl.cuh>
 #include <raft/random/rng.cuh>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/linalg/binary_op.cuh>
 #include <random>
 #include <rmm/device_uvector.hpp>
 
@@ -229,7 +231,7 @@ void symFit(const raft::handle_t &handle, const float* input, const float* label
   program_t d_nextprogs = final_progs;                      // Reuse memory already allocated for final_progs
 
   std::mt19937_64 h_gen_engine(params.random_state);
-  std::uniform_int_distribution seed_dist;
+  std::uniform_int_distribution<int> seed_dist;
   
   /* Begin training */
   int gen = 0;
@@ -273,18 +275,50 @@ void symFit(const raft::handle_t &handle, const float* input, const float* label
 
 }
 
-void symPredictProbs(const raft::handle_t &handle, const float* input, const int n_rows,
-                     const param &params, const program_t best_prog, float* output){
-  
+void symRegPredict(const raft::handle_t &handle, const float* input, const int n_rows, 
+                const program_t best_prog, float* output){
+  // Assume best_prog is on device
+  execute(handle,best_prog,n_rows,1,input,output);
 }
 
-void symPredict(const raft::handle_t &handle, const float* input, const param &params, 
-                const program_t best_prog, float* output){
+void symClfPredictProbs(const raft::handle_t &handle, const float* input, const int n_rows,
+                        const param &params, const program_t best_prog, float* output) {
+  cudaStream_t stream = handle.get_stream();
+  
+  // Assume output is of shape [n_rows, 2] in colMajor format
+  execute(handle,best_prog,n_rows,1,input,output);
+  
+  // Apply 2 map operations to get probabilities!
+  if(params.transformer == transformer_t::sigmoid) {
+    raft::linalg::unaryOp(output+n_rows,output,n_rows,
+                          [] __device__(float in){return 1.0f / (1.0f + expf(-in));}, stream);
+    raft::linalg::unaryOp(output,output+n_rows,n_rows,
+                          [] __device__(float in){return 1.0f-in;}, stream);
+  }
+  else {
+    // Only sigmoid supported for now
+  }
+}
 
+void symClfPredict(const raft::handle_t &handle, const float* input, const int n_rows, 
+                   const param &params, const program_t best_prog, float* output){
+  cudaStream_t stream = handle.get_stream();
+  
+  // Memory for probabilities
+  float* probs = (float*)handle.get_device_allocator()->allocate(2*n_rows*sizeof(float),stream);
+  symClfPredictProbs(handle,input,n_rows,params,best_prog,probs);
+
+  // Take argmax along columns
+  // TODO: Further modification needed for n_classes
+  raft::linalg::binaryOp(output,probs,probs+n_rows,n_rows,
+                         [] __device__ (float p0, float p1){
+                           return 1.0f * (p0 <= p1);
+                         },stream);
 }
 
 void symTransform(const raft::handle_t &handle, const float* input, const param &params, 
                   const program_t final_progs, const int n_rows, const int n_cols, float* output){
+  cudaStream_t stream = handle.get_stream();
   
 }
 
