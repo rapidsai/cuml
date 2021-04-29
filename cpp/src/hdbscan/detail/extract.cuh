@@ -155,7 +155,7 @@ void compute_stabilities(
   raft::copy_async(sorted_parents.data(), parents, n_edges, stream);
 
   auto sorted_child_lambda = thrust::make_zip_iterator(thrust::make_tuple(sorted_children.data(), sorted_lambdas.data()));
-  thrust::sort_by_key(thrust_policy->on(stream), sorted_parents.begin(),
+  thrust::sort_by_key(thrust_policy, sorted_parents.begin(),
                       sorted_parents.end(), sorted_child_lambda);
   raft::print_device_vector("Sorted Parents", sorted_parents.data(), n_edges, std::cout);
   raft::print_device_vector("Sorted Children", sorted_children.data(), n_edges, std::cout);
@@ -164,9 +164,7 @@ void compute_stabilities(
   rmm::device_uvector<value_idx> sorted_parents_offsets(n_edges + 1, stream);
   raft::label::make_monotonic(sorted_parents.data(), sorted_parents.data(), n_edges, stream, handle.get_device_allocator(), true);
   raft::print_device_vector("Monotonic Sorted Parents", sorted_parents.data(), n_edges, std::cout);
-  // value_idx start_offset = 0;
-  // raft::update_device(sorted_parents_offsets.data(), &start_offset, 1, stream);
-  // thrust::inclusive_scan(thrust_policy->on(stream), sorted_parents.begin(), sorted_parents.end(), sorted_parents_offsets.begin() + 1);
+
   raft::sparse::convert::sorted_coo_to_csr(
     sorted_parents.data(), n_edges, sorted_parents_offsets.data(), n_clusters + 1,
     handle.get_device_allocator(), handle.get_stream());
@@ -177,7 +175,7 @@ void compute_stabilities(
   // TODO: Converting child array to CSR offset and using CUB Segmented Reduce
   // Investigate use of a kernel like coo_spmv
   rmm::device_uvector<value_t> births(n_clusters, stream);
-  thrust::fill(thrust_policy->on(stream), births.begin(), births.end(), 0.0f);
+  thrust::fill(thrust_policy, births.begin(), births.end(), 0.0f);
   segmented_reduce(lambdas + 1, births.data() + 1, n_clusters - 1,
                    sorted_parents_offsets.data() + 1, stream,
                    cub::DeviceSegmentedReduce::Min<const value_t *, value_t *,
@@ -186,7 +184,7 @@ void compute_stabilities(
 
   // TODO: It can be done with same coo_spmv kernel
   // Or naive kernel, atomically write to cluster stability
-  thrust::fill(thrust_policy->on(stream), stabilities, stabilities + n_clusters,
+  thrust::fill(thrust_policy, stabilities, stabilities + n_clusters,
                0.0f);
 
   segmented_reduce(lambdas + 1, stabilities + 1, n_clusters - 1,
@@ -197,7 +195,7 @@ void compute_stabilities(
   // now transform, and calculate summation lambda(point) - lambda(birth)
   auto transform_op = transform_functor<value_t>(stabilities, births.data());
   thrust::transform(
-    thrust_policy->on(stream), thrust::make_counting_iterator(0),
+    thrust_policy, thrust::make_counting_iterator(0),
     thrust::make_counting_iterator(n_clusters), stabilities, transform_op);
 
   raft::print_device_vector("Stabilities", stabilities, n_clusters, std::cout);
