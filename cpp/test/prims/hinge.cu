@@ -16,8 +16,8 @@
 
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <cuml/common/cuml_allocator.hpp>
 #include <functions/hinge.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng.cuh>
 #include "test_utils.h"
 
@@ -175,7 +175,7 @@ class HingeLossTest : public ::testing::TestWithParam<HingeLossInputs<T>> {
   T *out_grad, *out_lasso_grad, *out_ridge_grad, *out_elasticnet_grad;
   T *out_grad_ref, *out_lasso_grad_ref, *out_ridge_grad_ref,
     *out_elasticnet_grad_ref;
-  std::shared_ptr<deviceAllocator> allocator;
+  std::shared_ptr<raft::mr::device::allocator> allocator;
 };
 
 const std::vector<HingeLossInputs<float>> inputsf = {{0.01f, 3, 2, 6}};

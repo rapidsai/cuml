@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,8 @@
 #include <label/classlabels.cuh>
 
 #include <raft/cudart_utils.h>
-#include <cuml/common/cuml_allocator.hpp>
 #include <raft/cuda_utils.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include "test_utils.h"
 
 #include <iostream>
@@ -57,7 +57,7 @@ TEST_F(MakeMonotonicTest, Result) {
   raft::update_device(data, data_h, m, stream);
   raft::update_device(expected, expected_h, m, stream);
 
-  std::shared_ptr<deviceAllocator> allocator(
+  std::shared_ptr<raft::mr::device::allocator> allocator(
     new raft::mr::device::default_allocator);
   make_monotonic(actual, data, m, stream, allocator);
 
@@ -76,7 +76,7 @@ TEST_F(MakeMonotonicTest, Result) {
 TEST(LabelTest, ClassLabels) {
   cudaStream_t stream;
   CUDA_CHECK(cudaStreamCreate(&stream));
-  std::shared_ptr<deviceAllocator> allocator(
+  std::shared_ptr<raft::mr::device::allocator> allocator(
     new raft::mr::device::default_allocator);
 
   int n_rows = 6;

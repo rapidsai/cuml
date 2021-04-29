@@ -17,7 +17,8 @@
 
 #include <raft/sparse/distance/common.h>
 #include <cuml/metrics/metrics.hpp>
-#include <metrics/pairwise_distance.cuh>
+#include <raft/distance/distance.cuh>
+#include <raft/handle.hpp>
 #include <raft/sparse/distance/distance.cuh>
 
 namespace ML {
@@ -26,17 +27,25 @@ namespace Metrics {
 void pairwise_distance(const raft::handle_t &handle, const double *x,
                        const double *y, double *dist, int m, int n, int k,
                        raft::distance::DistanceType metric, bool isRowMajor) {
-  MLCommon::Metrics::pairwise_distance(x, y, dist, m, n, k, metric,
-                                       handle.get_device_allocator(),
-                                       handle.get_stream(), isRowMajor);
+  //Allocate workspace
+  raft::mr::device::buffer<char> workspace(handle.get_device_allocator(),
+                                           handle.get_stream(), 1);
+
+  //Call the distance function
+  raft::distance::pairwise_distance(x, y, dist, m, n, k, workspace, metric,
+                                    handle.get_stream(), isRowMajor);
 }
 
 void pairwise_distance(const raft::handle_t &handle, const float *x,
                        const float *y, float *dist, int m, int n, int k,
                        raft::distance::DistanceType metric, bool isRowMajor) {
-  MLCommon::Metrics::pairwise_distance(x, y, dist, m, n, k, metric,
-                                       handle.get_device_allocator(),
-                                       handle.get_stream(), isRowMajor);
+  //Allocate workspace
+  raft::mr::device::buffer<char> workspace(handle.get_device_allocator(),
+                                           handle.get_stream(), 1);
+
+  //Call the distance function
+  raft::distance::pairwise_distance(x, y, dist, m, n, k, workspace, metric,
+                                    handle.get_stream(), isRowMajor);
 }
 
 template <typename value_idx = int, typename value_t = float>

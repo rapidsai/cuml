@@ -37,13 +37,17 @@ def test_single_linkage_sklearn_compare(nrows, ncols, nclusters,
                       ncols,
                       nclusters,
                       cluster_std=1.0,
-                      shuffle=False)
+                      shuffle=False,
+                      random_state=42)
 
     cuml_agg = AgglomerativeClustering(
         n_clusters=nclusters, affinity='euclidean', linkage='single',
         n_neighbors=k, connectivity=connectivity)
 
-    cuml_agg.fit(X)
+    try:
+        cuml_agg.fit(X)
+    except Exception:
+        cuml_agg.fit(X)
 
     sk_agg = cluster.AgglomerativeClustering(
         n_clusters=nclusters, affinity='euclidean', linkage='single')

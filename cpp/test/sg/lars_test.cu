@@ -20,6 +20,7 @@
 #include <test_utils.h>
 #include <iomanip>
 #include <raft/handle.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng.cuh>
 #include <solver/lars_impl.cuh>
 #include <sstream>
@@ -279,7 +280,7 @@ class LarsTest : public ::testing::Test {
 
   raft::handle_t handle;
   cudaStream_t stream;
-  std::shared_ptr<deviceAllocator> allocator;
+  std::shared_ptr<raft::mr::device::allocator> allocator;
 
   const int n_rows = 4;
   const int n_cols = 4;
@@ -448,7 +449,7 @@ class LarsTestFitPredict : public ::testing::Test {
 
   raft::handle_t handle;
   cudaStream_t stream;
-  std::shared_ptr<deviceAllocator> allocator;
+  std::shared_ptr<raft::mr::device::allocator> allocator;
 
   const int n_rows = 10;
   const int n_cols = 5;

@@ -20,7 +20,6 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
-#include <cuml/common/cuml_allocator.hpp>
 #include <linalg/ternary_op.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
@@ -28,6 +27,7 @@
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace ML {
@@ -240,6 +240,17 @@ inline T squaredNorm(const SimpleVec<T> &u, T *tmp_dev, cudaStream_t stream) {
 }
 
 template <typename T>
+inline T nrmMax(const SimpleVec<T> &u, T *tmp_dev, cudaStream_t stream) {
+  auto f = [] __device__(const T x) { return raft::myAbs<T>(x); };
+  auto r = [] __device__(const T x, const T y) { return raft::myMax<T>(x, y); };
+  raft::linalg::mapThenReduce(tmp_dev, u.len, T(0), f, r, stream, u.data);
+  T tmp_host;
+  raft::update_host(&tmp_host, tmp_dev, 1, stream);
+  cudaStreamSynchronize(stream);
+  return tmp_host;
+}
+
+template <typename T>
 inline T nrm2(const SimpleVec<T> &u, T *tmp_dev, cudaStream_t stream) {
   return raft::mySqrt<T>(squaredNorm(u, tmp_dev, stream));
 }
@@ -305,7 +316,7 @@ struct SimpleVecOwning : SimpleVec<T> {
 
   SimpleVecOwning() = delete;
 
-  SimpleVecOwning(std::shared_ptr<MLCommon::deviceAllocator> allocator, int n,
+  SimpleVecOwning(std::shared_ptr<raft::mr::device::allocator> allocator, int n,
                   cudaStream_t stream)
     : Super(), buf(n, stream) {
     Super::reset(buf.data(), n);
@@ -325,7 +336,7 @@ struct SimpleMatOwning : SimpleMat<T> {
 
   SimpleMatOwning() = delete;
 
-  SimpleMatOwning(std::shared_ptr<MLCommon::deviceAllocator> allocator, int m,
+  SimpleMatOwning(std::shared_ptr<raft::mr::device::allocator> allocator, int m,
                   int n, cudaStream_t stream, STORAGE_ORDER order = COL_MAJOR)
     : Super(order), buf(m * n, stream) {
     Super::reset(buf.data(), m, n);

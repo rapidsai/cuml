@@ -14,10 +14,13 @@
  * limitations under the License.
  */
 
-#include <cuml/cuml.hpp>
 #include <raft/sparse/coo.cuh>
 
 #include <raft/sparse/linalg/spectral.cuh>
+
+namespace raft {
+class handle_t;
+}
 
 namespace ML {
 
@@ -37,9 +40,10 @@ namespace Spectral {
    * @param out output array for embedding (size n*n_comonents)
    */
 void fit_embedding(const raft::handle_t &handle, int *rows, int *cols,
-                   float *vals, int nnz, int n, int n_components, float *out) {
+                   float *vals, int nnz, int n, int n_components, float *out,
+                   unsigned long long seed) {
   raft::sparse::spectral::fit_embedding(handle, rows, cols, vals, nnz, n,
-                                        n_components, out);
+                                        n_components, out, seed);
 }
 }  // namespace Spectral
 }  // namespace ML

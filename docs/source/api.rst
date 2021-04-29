@@ -335,6 +335,12 @@ DBSCAN
 .. autoclass:: cuml.DBSCAN
     :members:
 
+Agglomerative Clustering
+------------------------
+
+.. autoclass:: cuml.AgglomerativeClustering
+    :members:
+
 Dimensionality Reduction and Manifold Learning
 ==============================================
 
