@@ -255,13 +255,14 @@ void build_program(program &p_out, const param &params,std::mt19937 &gen){
   std::stack<int> arity_stack;
   std::vector<node> nodelist(0);
 
-  // Specify RNG
+  // Specify RNGs
   std::uniform_int_distribution<> dist_func(0,params.function_set.size()-1);
   std::uniform_int_distribution<> dist_depth(1, MAX_STACK_SIZE);
   std::uniform_int_distribution<> dist_t(0,params.num_features);
   std::uniform_int_distribution<> dist_choice(0,params.num_features+params.function_set.size()-1);
   std::uniform_real_distribution<float> dist_const(params.const_range[0],
                                               params.const_range[1]);
+  std::uniform_int_distribution<> dist_init_method(0,1);
 
   // Initialize nodes
   int max_depth = dist_depth(gen);
@@ -269,12 +270,19 @@ void build_program(program &p_out, const param &params,std::mt19937 &gen){
   node* curr_node = new node(func);
   nodelist.push_back(*curr_node);
   arity_stack.push(curr_node->arity());
+  
+  init_method_t method = params.init_method;
+  if(method == init_method_t::half_and_half){
+    // Choose either grow or full for this tree
+    int ch = dist_init_method(gen);
+    method = ch == 0 ? init_method_t::grow : init_method_t::full;
+  }
 
   // Fill tree
   while(!arity_stack.empty()){
     int depth = arity_stack.size();
     int ch = dist_choice(gen);
-    if(ch <= params.function_set.size() && depth < max_depth){
+    if((ch <= params.function_set.size() || method == init_method_t::full) && depth < max_depth){
       // Add a function to node list
       curr_node = new node(params.function_set[dist_func(gen)]);
       nodelist.push_back(*curr_node);
