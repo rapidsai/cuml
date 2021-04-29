@@ -20,8 +20,8 @@
 
 #include <cub/cub.cuh>
 
-#include <cuml/common/logger.hpp>
 #include <raft/cudart_utils.h>
+#include <cuml/common/logger.hpp>
 
 #include <rmm/device_uvector.hpp>
 
@@ -45,7 +45,7 @@ struct CondensedHierarchy {
       parents(0, handle.get_stream()),
       children(0, handle.get_stream()),
       lambdas(0, handle.get_stream()),
-      sizes(0, handle.get_stream()){}
+      sizes(0, handle.get_stream()) {}
 
   /**
    * Populates the condensed hierarchy object with the output
@@ -56,16 +56,15 @@ struct CondensedHierarchy {
    * @param full_sizes
    */
   void condense(value_idx *full_parents, value_idx *full_children,
-                value_t *full_lambdas, value_idx *full_sizes, value_idx size = -1) {
+                value_t *full_lambdas, value_idx *full_sizes,
+                value_idx size = -1) {
     auto stream = handle.get_stream();
 
-    if(size == -1)
-      size = 4 * (n_leaves - 1) + 2;
+    if (size == -1) size = 4 * (n_leaves - 1) + 2;
 
     CUML_LOG_DEBUG("calling transform_reduce");
     n_edges = thrust::transform_reduce(
-      thrust::cuda::par.on(stream), full_sizes,
-      full_sizes + size,
+      thrust::cuda::par.on(stream), full_sizes, full_sizes + size,
       [=] __device__(value_idx a) { return a != -1; }, 0,
       thrust::plus<value_idx>());
 
@@ -74,7 +73,6 @@ struct CondensedHierarchy {
     children.resize(n_edges, stream);
     lambdas.resize(n_edges, stream);
     sizes.resize(n_edges, stream);
-
 
     auto in = thrust::make_zip_iterator(thrust::make_tuple(
       full_parents, full_children, full_lambdas, full_sizes));
@@ -90,37 +88,47 @@ struct CondensedHierarchy {
         return thrust::get<3>(tup) != -1;
       });
 
-    raft::print_device_vector("Parents before monotonic", parents.data(), n_edges, std::cout);
-    raft::print_device_vector("Children before monotonic", children.data(), n_edges, std::cout);
+    raft::print_device_vector("Parents before monotonic", parents.data(),
+                              n_edges, std::cout);
+    raft::print_device_vector("Children before monotonic", children.data(),
+                              n_edges, std::cout);
 
     // TODO: Avoid the copies here by updating kernel
     rmm::device_uvector<value_idx> parent_child(n_edges * 2, stream);
     raft::copy_async(parent_child.begin(), children.begin(), n_edges, stream);
-    raft::copy_async(parent_child.begin() + n_edges, parents.begin(), n_edges, stream);
+    raft::copy_async(parent_child.begin() + n_edges, parents.begin(), n_edges,
+                     stream);
 
-      // find n_clusters
+    // find n_clusters
     auto parents_ptr = thrust::device_pointer_cast(parents.data());
-    auto parents_min_max = thrust::minmax_element(thrust::cuda::par.on(stream), parents_ptr, parents_ptr + n_edges);
+    auto parents_min_max = thrust::minmax_element(
+      thrust::cuda::par.on(stream), parents_ptr, parents_ptr + n_edges);
     auto min_parent = *parents_min_max.first;
     auto max_parent = *parents_min_max.second;
 
     n_clusters = max_parent - min_parent + 1;
 
     // now invert labels
-    auto invert_op = [max_parent, n_leaves = n_leaves] __device__ (auto &x) {
+    auto invert_op = [max_parent, n_leaves = n_leaves] __device__(auto &x) {
       return x >= n_leaves ? max_parent - x + n_leaves : x;
     };
 
-    thrust::transform(thrust::cuda::par.on(stream), parent_child.begin(), parent_child.end(), parent_child.begin(), invert_op);
+    thrust::transform(thrust::cuda::par.on(stream), parent_child.begin(),
+                      parent_child.end(), parent_child.begin(), invert_op);
 
-    raft::label::make_monotonic(
-         parent_child.data(), parent_child.data(), parent_child.size(), stream, handle.get_device_allocator(), true);
-  
+    raft::label::make_monotonic(parent_child.data(), parent_child.data(),
+                                parent_child.size(), stream,
+                                handle.get_device_allocator(), true);
+
     raft::copy_async(children.begin(), parent_child.begin(), n_edges, stream);
-    raft::copy_async(parents.begin(), parent_child.begin() + n_edges, n_edges, stream);
+    raft::copy_async(parents.begin(), parent_child.begin() + n_edges, n_edges,
+                     stream);
 
-    raft::print_device_vector("Parents After transform and monotonic", parent_child.data() + n_edges, n_edges, std::cout);
-    raft::print_device_vector("Children After transform monotonic", parent_child.data(), n_edges, std::cout);
+    raft::print_device_vector("Parents After transform and monotonic",
+                              parent_child.data() + n_edges, n_edges,
+                              std::cout);
+    raft::print_device_vector("Children After transform monotonic",
+                              parent_child.data(), n_edges, std::cout);
   }
 
   /**
@@ -143,15 +151,47 @@ struct CondensedHierarchy {
 
   value_idx *get_parents() { return parents.data(); }
 
+  void set_parents(const rmm::device_uvector<value_idx> &parents_) {
+    parents.resize(parents_.size(), handle.get_stream());
+    raft::copy(parents.begin(), parents_.begin(), parents_.size(),
+               handle.get_stream());
+  }
+
   value_idx *get_children() { return children.data(); }
+
+  void set_children(const rmm::device_uvector<value_idx> &children_) {
+    children.resize(children_.size(), handle.get_stream());
+    raft::copy(children.begin(), children_.begin(), children_.size(),
+               handle.get_stream());
+  }
 
   value_t *get_lambdas() { return lambdas.data(); }
 
+  void set_lambdas(const rmm::device_uvector<value_t> &lambdas_) {
+    lambdas.resize(lambdas_.size(), handle.get_stream());
+    raft::copy(lambdas.begin(), lambdas_.begin(), lambdas_.size(),
+               handle.get_stream());
+  }
+
   value_idx *get_sizes() { return sizes.data(); }
+
+  void set_sizes(const rmm::device_uvector<value_idx> &sizes_) {
+    sizes.resize(sizes_.size(), handle.get_stream());
+    raft::copy(sizes.begin(), sizes_.begin(), sizes_.size(),
+               handle.get_stream());
+  }
 
   value_idx get_n_edges() { return n_edges; }
 
+  void set_n_edges(value_idx n_edges_) { n_edges = n_edges_; }
+
   int get_n_clusters() { return n_clusters; }
+
+  void set_n_clusters(int n_clusters_) { n_clusters = n_clusters_; }
+
+  value_idx get_n_leaves() { return n_leaves; }
+
+  void set_n_leaves(value_idx n_leaves_) { n_leaves = n_leaves_; }
 
  private:
   const raft::handle_t &handle;

@@ -693,8 +693,8 @@ class ClusterCondensingTest
   void SetUp() override { basicTest(); }
 
   void TearDown() override {
-    CUDA_CHECK(cudaFree(labels));
-    CUDA_CHECK(cudaFree(labels_ref));
+    // CUDA_CHECK(cudaFree(labels));
+    // CUDA_CHECK(cudaFree(labels_ref));
   }
 
  protected:
@@ -728,7 +728,7 @@ struct ExcessOfMassInputs {
 
   std::vector<IdxT> condensed_parents;
   std::vector<IdxT> condensed_children;
-  std::vector<T>    condensed_lambdas;
+  std::vector<T> condensed_lambdas;
   std::vector<IdxT> condensed_sizes;
 
   std::vector<T> stabilities;
@@ -741,45 +741,66 @@ class ExcessOfMassTest
   void basicTest() {
     raft::handle_t handle;
 
-    params =
-      ::testing::TestWithParam<ExcessOfMassInputs<T, IdxT>>::GetParam();
+    params = ::testing::TestWithParam<ExcessOfMassInputs<T, IdxT>>::GetParam();
 
     Logger::get().setLevel(CUML_LEVEL_DEBUG);
 
-    rmm::device_uvector<IdxT> condensed_parents(params.condensed_parents.size(), handle.get_stream());
-    rmm::device_uvector<IdxT> condensed_children(params.condensed_children.size(), handle.get_stream());
-    rmm::device_uvector<T>    condensed_lambdas(params.condensed_lambdas.size(), handle.get_stream());
-    rmm::device_uvector<IdxT> condensed_sizes(params.condensed_sizes.size(), handle.get_stream());
-    rmm::device_uvector<T> stabilities(params.stabilities.size(), handle.get_stream());
+    rmm::device_uvector<IdxT> condensed_parents(params.condensed_parents.size(),
+                                                handle.get_stream());
+    rmm::device_uvector<IdxT> condensed_children(
+      params.condensed_children.size(), handle.get_stream());
+    rmm::device_uvector<T> condensed_lambdas(params.condensed_lambdas.size(),
+                                             handle.get_stream());
+    rmm::device_uvector<IdxT> condensed_sizes(params.condensed_sizes.size(),
+                                              handle.get_stream());
+    rmm::device_uvector<T> stabilities(params.stabilities.size(),
+                                       handle.get_stream());
 
-    raft::copy(condensed_parents.data(), params.condensed_parents.data(), condensed_parents.size(),
-               handle.get_stream());
+    raft::copy(condensed_parents.data(), params.condensed_parents.data(),
+               condensed_parents.size(), handle.get_stream());
 
-    raft::copy(condensed_children.data(), params.condensed_children.data(), condensed_children.size(),
-               handle.get_stream());
+    raft::copy(condensed_children.data(), params.condensed_children.data(),
+               condensed_children.size(), handle.get_stream());
 
-    raft::copy(condensed_lambdas.data(), params.condensed_lambdas.data(), condensed_lambdas.size(),
-               handle.get_stream());
+    raft::copy(condensed_lambdas.data(), params.condensed_lambdas.data(),
+               condensed_lambdas.size(), handle.get_stream());
 
-    raft::copy(condensed_sizes.data(), params.condensed_sizes.data(), condensed_sizes.size(),
-               handle.get_stream());
-
-    raft::copy(stabilities.data(), params.stabilities.data(), stabilities.size(),
-               handle.get_stream());
+    raft::copy(condensed_sizes.data(), params.condensed_sizes.data(),
+               condensed_sizes.size(), handle.get_stream());
 
     CUML_LOG_DEBUG("Condensing tree");
-    ML::HDBSCAN::detail::Common::CondensedHierarchy<IdxT, T> condensed_tree(handle, params.n_row);
-    condensed_tree.condense(condensed_parents.data(), condensed_children.data(),
-                            condensed_lambdas.data(), condensed_sizes.data(), condensed_sizes.size());
+    ML::HDBSCAN::detail::Common::CondensedHierarchy<IdxT, T> condensed_tree(
+      handle, params.n_row);
+
+    condensed_tree.set_parents(condensed_parents);
+    condensed_tree.set_children(condensed_children);
+    condensed_tree.set_lambdas(condensed_lambdas);
+    condensed_tree.set_sizes(condensed_sizes);
+
+    auto parents_min_max = std::minmax_element(params.condensed_parents.begin(),
+                                               params.condensed_parents.end());
+    auto n_clusters = *(parents_min_max.second) - *(parents_min_max.first) + 1;
+    auto n_edges = params.condensed_parents.size();
+
+    condensed_tree.set_n_clusters(n_clusters);
+    condensed_tree.set_n_edges(n_edges);
+    condensed_tree.set_n_leaves(params.n_row);
+
+    ML::HDBSCAN::detail::Extract::compute_stabilities(handle, condensed_tree,
+                                                      stabilities.data());
+
+    ASSERT_TRUE(raft::devArrMatch(stabilities.data(), params.stabilities.data(),
+                                  n_clusters, raft::CompareApprox<float>(1e-4),
+                                  handle.get_stream()));
 
     CUML_LOG_DEBUG("Creating is_cluster %d", condensed_tree.get_n_clusters());
-    rmm::device_uvector<int> is_cluster(condensed_tree.get_n_clusters(), handle.get_stream());
+    rmm::device_uvector<int> is_cluster(condensed_tree.get_n_clusters(),
+                                        handle.get_stream());
 
     CUML_LOG_DEBUG("Calling excess of mass");
-    ML::HDBSCAN::detail::Extract::excess_of_mass(handle, condensed_tree,
-                                                 stabilities.data(), is_cluster.data(),
-                                                 condensed_tree.get_n_clusters(),
-                                                 params.n_row);
+    ML::HDBSCAN::detail::Extract::excess_of_mass(
+      handle, condensed_tree, stabilities.data(), is_cluster.data(),
+      condensed_tree.get_n_clusters(), params.n_row);
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     CUML_LOG_DEBUG("Printing output");
@@ -789,8 +810,7 @@ class ExcessOfMassTest
 
   void SetUp() override { basicTest(); }
 
-  void TearDown() override {
-  }
+  void TearDown() override {}
 
  protected:
   ExcessOfMassInputs<T, IdxT> params;
@@ -801,8 +821,7 @@ TEST_P(ExcessOfMassTestF_Int, Result) {
   //  EXPECT_TRUE(score == 1.0);
 }
 
-const std::vector<ExcessOfMassInputs<float, int>>
-  eom_inputs = {
+const std::vector<ExcessOfMassInputs<float, int>> eom_inputs = {
   {150,
    150,
    {150, 150, 151, 152, 151, 152, 151, 152, 151, 152, 151, 152, 151, 152, 151,
@@ -861,19 +880,11 @@ const std::vector<ExcessOfMassInputs<float, int>>
     1,  1,   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  1, 21, 24, 1, 1, 1, 1, 13, 6,
     1,  1,   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 5, 14, 1, 1,  1,  1, 1, 1, 1, 1,  1,
     1,  1,   1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,  1, 1,  1,  1, 1, 1},
-   {91.45661412745385,
-    132.141415393331,
-    144.79914090562704,
-    6.039613253960852e-14,
-    5.017592103770139,
-    2.7679291686055874,
-    1.6462827222536025,
-    0.0,
-    4.2839605021840645}}
-};
+   {91.45661412745385, 132.141415393331, 144.79914090562704,
+    6.039613253960852e-14, 5.017592103770139, 2.7679291686055874,
+    1.6462827222536025, 0.0, 4.2839605021840645}}};
 
 INSTANTIATE_TEST_CASE_P(ExcessOfMassTest, ExcessOfMassTestF_Int,
                         ::testing::ValuesIn(eom_inputs));
-
 
 }  // end namespace ML

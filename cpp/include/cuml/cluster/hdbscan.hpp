@@ -31,11 +31,9 @@ struct hdbscan_output {
   value_t *probabilities;
 
   value_idx *children;
-
 };
 
-void hdbscan(const raft::handle_t &handle, const float *X, size_t m,
-             size_t n, raft::distance::DistanceType metric, int k,
-             int min_pts, int min_cluster_size,
-             hdbscan_output<int, float> *out);
+void hdbscan(const raft::handle_t &handle, const float *X, size_t m, size_t n,
+             raft::distance::DistanceType metric, int k, int min_pts,
+             int min_cluster_size, hdbscan_output<int, float> *out);
 };  // end namespace ML
