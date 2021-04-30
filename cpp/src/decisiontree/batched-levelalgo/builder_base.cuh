@@ -557,14 +557,14 @@ struct ClsTraits {
     int n_blks_for_rows = b.n_blks_for_rows(
       colBlks,
       (const void*)
-        computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT, b.SAMPLES_PER_THREAD>,
+        computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT>,
       TPB_DEFAULT, smemSize, batchSize);
     dim3 grid(n_blks_for_rows, colBlks, batchSize);
     CUDA_CHECK(cudaMemsetAsync(b.hist, 0, sizeof(int) * b.nHistBins, s));
     ML::PUSH_RANGE(
       "computeSplitClassificationKernel @builder_base.cuh [batched-levelalgo]");
     dim3 proportionate_grid(b.total_blocks_needed, colBlks, 1);
-    computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT, b.SAMPLES_PER_THREAD>
+    computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
       <<<proportionate_grid, TPB_DEFAULT, smemSize, s>>>(
         b.hist, b.params.n_bins, b.params.max_depth, b.params.min_samples_split,
         b.params.min_samples_leaf, b.params.min_impurity_decrease,
@@ -670,7 +670,7 @@ struct RegTraits {
     //     b.params.max_leaves, b.input, b.curr_nodes, col, b.done_count, b.mutex,
     //     b.n_leaves, b.splits, b.block_sync, splitType, b.treeid, b.seed);
     dim3 proportionate_grid(b.total_blocks_needed, n_col_blks, 1);
-        computeSplitRegressionKernel_part1<DataT, DataT, IdxT, TPB_DEFAULT, b.SAMPLES_PER_THREAD>
+        computeSplitRegressionKernel_part1<DataT, DataT, IdxT, TPB_DEFAULT>
       <<<proportionate_grid, TPB_DEFAULT, smemSize, s>>>(
         b.pred, b.pred2, b.pred2P, b.pred_count, b.params.n_bins,
         b.params.max_depth, b.params.min_samples_split,
@@ -678,7 +678,7 @@ struct RegTraits {
         b.params.max_leaves, b.input, b.curr_nodes, col, b.done_count, b.mutex,
         b.n_leaves, b.splits, b.block_sync, splitType, b.treeid, b.seed,
         b.workload_info, true);
-          computeSplitRegressionKernel_part2<DataT, DataT, IdxT, TPB_DEFAULT, b.SAMPLES_PER_THREAD>
+          computeSplitRegressionKernel_part2<DataT, DataT, IdxT, TPB_DEFAULT>
       <<<proportionate_grid, TPB_DEFAULT, smemSize, s>>>(
         b.pred, b.pred2, b.pred2P, b.pred_count, b.params.n_bins,
         b.params.max_depth, b.params.min_samples_split,

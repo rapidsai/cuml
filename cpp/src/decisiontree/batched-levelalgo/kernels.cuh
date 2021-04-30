@@ -375,7 +375,7 @@ DI DataT pdf_to_cdf(DataT* pdf_shist, DataT* cdf_shist, IdxT nbins) {
   return total_aggregate;
 }
 
-template <typename DataT, typename LabelT, typename IdxT, int TPB, int samples_per_thread>
+template <typename DataT, typename LabelT, typename IdxT, int TPB>
 __global__ void computeSplitClassificationKernel(
   int* hist, IdxT nbins, IdxT max_depth, IdxT min_samples_split,
   IdxT min_samples_leaf, DataT min_impurity_decrease, IdxT max_leaves,
@@ -388,7 +388,6 @@ __global__ void computeSplitClassificationKernel(
   WorkloadInfo<IdxT> workload_info_cta = workload_info[blockIdx.x];
   IdxT nid;
   if (proportionate_launch) {
-    // nid = blockid_to_nodeid[blockIdx.x];
     nid = workload_info_cta.nodeid;
   } else {
     nid = blockIdx.z;
@@ -400,12 +399,7 @@ __global__ void computeSplitClassificationKernel(
 
   IdxT relative_blockid, num_blocks;
   if (proportionate_launch) {
-    // relative_blockid = relative_blockids[blockIdx.x];
-    // num_blocks = (range_len / (TPB*samples_per_thread)) == 0 ?
-    //            1 : (range_len / (TPB*samples_per_thread));
     relative_blockid = workload_info_cta.offset_blockid;
-    // num_blocks = (range_len + (TPB*samples_per_thread - 1)) /
-    //              (TPB*samples_per_thread);
     num_blocks = workload_info_cta.num_blocks;
   } else {
     relative_blockid = blockIdx.x;

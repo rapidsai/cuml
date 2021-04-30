@@ -1,4 +1,4 @@
-template <typename DataT, typename LabelT, typename IdxT, int TPB, int samples_per_thread>
+template <typename DataT, typename LabelT, typename IdxT, int TPB>
 __global__ void computeSplitRegressionKernel_part1(
   DataT* pred, DataT* pred2, DataT* pred2P, IdxT* count, IdxT nbins,
   IdxT max_depth, IdxT min_samples_split, IdxT min_samples_leaf,
@@ -14,7 +14,6 @@ __global__ void computeSplitRegressionKernel_part1(
   IdxT nid;
   if (proportionate_launch) {
     nid = workload_info_cta.nodeid;
-    // nid = blockid_to_nodeid[blockIdx.x];
   } else {
     nid = blockIdx.z;
   }
@@ -25,12 +24,7 @@ __global__ void computeSplitRegressionKernel_part1(
 
   IdxT relative_blockid, num_blocks;
   if (proportionate_launch) {
-    // relative_blockid = relative_blockids[blockIdx.x];
     relative_blockid = workload_info_cta.offset_blockid;
-    // num_blocks = (range_len / (TPB*samples_per_thread)) == 0 ?
-    //            1 : (range_len / (TPB*samples_per_thread));
-    // num_blocks = (range_len + (TPB*samples_per_thread - 1)) /
-    //              (TPB*samples_per_thread);
     num_blocks = workload_info_cta.num_blocks;
 
   } else {
@@ -43,9 +37,6 @@ __global__ void computeSplitRegressionKernel_part1(
                                      max_leaves, n_leaves, range_len)) {
     return;
   }
-  // if (threadIdx.x == 0 && blockIdx.x == 0 && blockIdx.y == 0) {
-  //   printf("In part1 beginning\n");
-  // }
   // variables
   auto end = range_start + range_len;
   // auto len = nbins * 2;
@@ -56,16 +47,6 @@ __global__ void computeSplitRegressionKernel_part1(
   IdxT col;
 
   // allocating pointers to shared memory
-  // auto* pdf_spred = alignPointer<DataT>(smem);
-  // auto* cdf_spred = alignPointer<DataT>(pdf_spred + pdf_spred_len);
-  // auto* pdf_scount = alignPointer<int>(cdf_spred + cdf_spred_len);
-  // auto* cdf_scount = alignPointer<int>(pdf_scount + nbins);
-  // auto* sbins = alignPointer<DataT>(cdf_scount + nbins);
-  // auto* spred2 = alignPointer<DataT>(sbins + nbins);
-  // auto* spred2P = alignPointer<DataT>(spred2 + len);
-  // auto* spredP = alignPointer<DataT>(spred2P + nbins);
-  // auto* sDone = alignPointer<int>(spredP + nbins);
-
   auto* pdf_spred = alignPointer<DataT>(smem);
   auto* pdf_scount = alignPointer<int>(pdf_spred + pdf_spred_len);
   auto* sbins = alignPointer<DataT>(pdf_scount + nbins);
@@ -84,12 +65,8 @@ __global__ void computeSplitRegressionKernel_part1(
   for (IdxT i = threadIdx.x; i < pdf_spred_len; i += blockDim.x) {
     pdf_spred[i] = DataT(0.0);
   }
-  // for (IdxT i = threadIdx.x; i < cdf_spred_len; i += blockDim.x) {
-  //   cdf_spred[i] = DataT(0.0);
-  // }
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
     pdf_scount[i] = 0;
-    // cdf_scount[i] = 0;
     sbins[i] = input.quantiles[col * nbins + i];
   }
   __syncthreads();
@@ -122,20 +99,9 @@ __global__ void computeSplitRegressionKernel_part1(
   for (IdxT i = threadIdx.x; i < pdf_spred_len; i += blockDim.x) {
     atomicAdd(pred + gOffset + i, pdf_spred[i]);
   }
-  // if (threadIdx.x == 0 && blockIdx.x == 0 && blockIdx.y == 0) {
-  //   printf("In part1 ending\n");
-  // }
-
 }
-  // __threadfence();  // for commit guarantee
-  // __syncthreads();
 
-  // // Wait until all blockIdx.x's are done
-  // MLCommon::GridSync gs(workspace, MLCommon::SyncType::ACROSS_X, false);
-  // gs.sync();
-
-
-template <typename DataT, typename LabelT, typename IdxT, int TPB, int samples_per_thread>
+template <typename DataT, typename LabelT, typename IdxT, int TPB>
 __global__ void computeSplitRegressionKernel_part2(
   DataT* pred, DataT* pred2, DataT* pred2P, IdxT* count, IdxT nbins,
   IdxT max_depth, IdxT min_samples_split, IdxT min_samples_leaf,
@@ -153,7 +119,6 @@ __global__ void computeSplitRegressionKernel_part2(
 
   IdxT nid;
   if (proportionate_launch) {
-    // nid = blockid_to_nodeid[blockIdx.x];
     nid = workload_info_cta.nodeid;
   } else {
     nid = blockIdx.z;
@@ -164,12 +129,7 @@ __global__ void computeSplitRegressionKernel_part2(
 
   IdxT relative_blockid, num_blocks;
   if (proportionate_launch) {
-    // relative_blockid = relative_blockids[blockIdx.x];
     relative_blockid = workload_info_cta.offset_blockid;
-    // num_blocks = (range_len / (TPB*samples_per_thread)) == 0 ?
-    //            1 : (range_len / (TPB*samples_per_thread));
-    // num_blocks = (range_len + (TPB*samples_per_thread - 1)) /
-    //              (TPB*samples_per_thread);
     num_blocks = workload_info_cta.num_blocks;
   } else {
     relative_blockid = blockIdx.x;
@@ -213,14 +173,10 @@ __global__ void computeSplitRegressionKernel_part2(
     col = select(colIndex, treeid, node.info.unique_id, seed, input.N);
   }
 
-  // for (IdxT i = threadIdx.x; i < pdf_spred_len; i += blockDim.x) {
-  //   pdf_spred[i] = DataT(0.0);
-  // }
   for (IdxT i = threadIdx.x; i < cdf_spred_len; i += blockDim.x) {
     cdf_spred[i] = DataT(0.0);
   }
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
-    // pdf_scount[i] = 0;
     cdf_scount[i] = 0;
     sbins[i] = input.quantiles[col * nbins + i];
   }
@@ -329,9 +285,6 @@ __global__ void computeSplitRegressionKernel_part2(
     last = MLCommon::signalDone(done_count + nid * gridDim.y + blockIdx.y,
                                 num_blocks, relative_blockid == 0, sDone);
   }
-  // if (threadIdx.x == 0 && blockIdx.x == 0 && blockIdx.y == 0) {
-  //   printf("In part2 ending\n");
-  // }
   // exit if not last
   if (!last) return;
 
