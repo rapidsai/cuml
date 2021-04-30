@@ -629,28 +629,13 @@ struct RegTraits {
     auto n_col_blks = std::min(b.n_blks_for_cols, b.input.nSampledCols - col);
     auto nbins = b.params.n_bins;
 
-    size_t smemSize1 = (nbins + 1) * sizeof(DataT) +  // pdf_spred
-                       2 * nbins * sizeof(DataT) +    // cdf_spred
-                       nbins * sizeof(int) +          // pdf_scount
-                       nbins * sizeof(int) +          // cdf_scount
-                       nbins * sizeof(DataT) +        // sbins
-                       2 * nbins * sizeof(DataT) +    // spred2
-                       nbins * sizeof(DataT) +        // spred2P
-                       nbins * sizeof(DataT) +        // spredP
-                       sizeof(int);                   // sDone
-    // Room for alignment (see alignPointer in computeSplitRegressionKernel)
-    smemSize1 += 6 * sizeof(DataT) + 3 * sizeof(int);
-    // Calculate the shared memory needed for evalBestSplit
-    size_t smemSize2 =
-      raft::ceildiv(TPB_DEFAULT, raft::WarpSize) * sizeof(Split<DataT, IdxT>);
-    // Pick the max of two
-    size_t smemSize = std::max(smemSize1, smemSize2);
-    int n_blks_for_rows = b.n_blks_for_rows(
-      n_col_blks,
-      (const void*)
-        computeSplitRegressionKernel<DataT, LabelT, IdxT, TPB_DEFAULT>,
-      TPB_DEFAULT, smemSize, batchSize);
-    dim3 grid(n_blks_for_rows, n_col_blks, batchSize);
+
+    // int n_blks_for_rows = b.n_blks_for_rows(
+    //   n_col_blks,
+    //   (const void*)
+    //     computeSplitRegressionKernel<DataT, LabelT, IdxT, TPB_DEFAULT>,
+    //   TPB_DEFAULT, smemSize, batchSize);
+    // dim3 grid(n_blks_for_rows, n_col_blks, batchSize);
 
     CUDA_CHECK(
       cudaMemsetAsync(b.pred, 0, sizeof(DataT) * b.nPredCounts * 2, s));
@@ -669,6 +654,13 @@ struct RegTraits {
     //     b.params.min_samples_leaf, b.params.min_impurity_decrease,
     //     b.params.max_leaves, b.input, b.curr_nodes, col, b.done_count, b.mutex,
     //     b.n_leaves, b.splits, b.block_sync, splitType, b.treeid, b.seed);
+
+    // Compute shared memory size for first pass kernel
+    size_t smemSize = (nbins + 1) * sizeof(DataT) +  // pdf_spred
+                      nbins * sizeof(int) +          // pdf_scount
+                      nbins * sizeof(DataT);         // sbins
+
+
     dim3 proportionate_grid(b.total_blocks_needed, n_col_blks, 1);
         computeSplitRegressionKernel_part1<DataT, DataT, IdxT, TPB_DEFAULT>
       <<<proportionate_grid, TPB_DEFAULT, smemSize, s>>>(
@@ -678,7 +670,26 @@ struct RegTraits {
         b.params.max_leaves, b.input, b.curr_nodes, col, b.done_count, b.mutex,
         b.n_leaves, b.splits, b.block_sync, splitType, b.treeid, b.seed,
         b.workload_info, true);
-          computeSplitRegressionKernel_part2<DataT, DataT, IdxT, TPB_DEFAULT>
+    
+    // Compute shared memory size for second pass kernel
+    size_t smemSize1 = (nbins + 1) * sizeof(DataT) +  // pdf_spred
+                       2 * nbins * sizeof(DataT) +    // cdf_spred
+                       nbins * sizeof(int) +          // pdf_scount
+                       nbins * sizeof(int) +          // cdf_scount
+                       nbins * sizeof(DataT) +        // sbins
+                       2 * nbins * sizeof(DataT) +    // spred2
+                       nbins * sizeof(DataT) +        // spred2P
+                       nbins * sizeof(DataT) +        // spredP
+                       sizeof(int);                   // sDone
+    // Room for alignment (see alignPointer in computeSplitRegressionKernel)
+    smemSize1 += 6 * sizeof(DataT) + 3 * sizeof(int);
+    // Calculate the shared memory needed for evalBestSplit
+    size_t smemSize2 =
+      raft::ceildiv(TPB_DEFAULT, raft::WarpSize) * sizeof(Split<DataT, IdxT>);
+    // Pick the max of two
+    smemSize = std::max(smemSize1, smemSize2);
+
+    computeSplitRegressionKernel_part2<DataT, DataT, IdxT, TPB_DEFAULT>
       <<<proportionate_grid, TPB_DEFAULT, smemSize, s>>>(
         b.pred, b.pred2, b.pred2P, b.pred_count, b.params.n_bins,
         b.params.max_depth, b.params.min_samples_split,
