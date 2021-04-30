@@ -22,28 +22,22 @@ __global__ void computeSplitRegressionKernelPass1(
   auto range_start = node.start;
   auto range_len = node.count;
 
-  IdxT relative_blockid, num_blocks;
+  IdxT offset_blockid, num_blocks;
   if (proportionate_launch) {
-    relative_blockid = workload_info_cta.offset_blockid;
+    offset_blockid = workload_info_cta.offset_blockid;
     num_blocks = workload_info_cta.num_blocks;
-
   } else {
-    relative_blockid = blockIdx.x;
+    offset_blockid = blockIdx.x;
     num_blocks = gridDim.x;
   }
 
-  // exit if current node is leaf
-  if (leafBasedOnParams<DataT, IdxT>(node.depth, max_depth, min_samples_split,
-                                     max_leaves, n_leaves, range_len)) {
-    return;
-  }
   // variables
   auto end = range_start + range_len;
   // auto len = nbins * 2;
   auto pdf_spred_len = 1 + nbins;
   // auto cdf_spred_len = 2 * nbins;
   IdxT stride = blockDim.x * num_blocks;
-  IdxT tid = threadIdx.x + relative_blockid * blockDim.x;
+  IdxT tid = threadIdx.x + offset_blockid * blockDim.x;
   IdxT col;
 
   // allocating pointers to shared memory
@@ -127,30 +121,22 @@ __global__ void computeSplitRegressionKernelPass2(
   auto range_start = node.start;
   auto range_len = node.count;
 
-  IdxT relative_blockid, num_blocks;
+  IdxT offset_blockid, num_blocks;
   if (proportionate_launch) {
-    relative_blockid = workload_info_cta.offset_blockid;
+    offset_blockid = workload_info_cta.offset_blockid;
     num_blocks = workload_info_cta.num_blocks;
   } else {
-    relative_blockid = blockIdx.x;
+    offset_blockid = blockIdx.x;
     num_blocks = gridDim.x;
   }
   
-  // exit if current node is leaf
-  if (leafBasedOnParams<DataT, IdxT>(node.depth, max_depth, min_samples_split,
-                                     max_leaves, n_leaves, range_len)) {
-    return;
-  }
-  // if (threadIdx.x == 0 && blockIdx.x == 0 && blockIdx.y == 0) {
-  //   printf("In part2 beginning\n");
-  // }
   // variables
   auto end = range_start + range_len;
   auto len = nbins * 2;
   auto pdf_spred_len = 1 + nbins;
   auto cdf_spred_len = 2 * nbins;
   IdxT stride = blockDim.x * num_blocks;
-  IdxT tid = threadIdx.x + relative_blockid * blockDim.x;
+  IdxT tid = threadIdx.x + offset_blockid * blockDim.x;
   IdxT col;
 
   // allocating pointers to shared memory
@@ -283,7 +269,7 @@ __global__ void computeSplitRegressionKernelPass2(
   bool last = true;
   if (num_blocks > 1) {
     last = MLCommon::signalDone(done_count + nid * gridDim.y + blockIdx.y,
-                                num_blocks, relative_blockid == 0, sDone);
+                                num_blocks, offset_blockid == 0, sDone);
   }
   // exit if not last
   if (!last) return;

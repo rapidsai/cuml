@@ -396,12 +396,12 @@ __global__ void computeSplitClassificationKernel(
   auto range_start = node.start;
   auto range_len = node.count;
 
-  IdxT relative_blockid, num_blocks;
+  IdxT offset_blockid, num_blocks;
   if (proportionate_launch) {
-    relative_blockid = workload_info_cta.offset_blockid;
+    offset_blockid = workload_info_cta.offset_blockid;
     num_blocks = workload_info_cta.num_blocks;
   } else {
-    relative_blockid = blockIdx.x;
+    offset_blockid = blockIdx.x;
     num_blocks = gridDim.x;
   }
 
@@ -414,7 +414,7 @@ __global__ void computeSplitClassificationKernel(
   auto* sbins = alignPointer<DataT>(cdf_shist + cdf_shist_len);
   auto* sDone = alignPointer<int>(sbins + n_bins);
   IdxT stride = blockDim.x * num_blocks;
-  IdxT tid = threadIdx.x + relative_blockid * blockDim.x;
+  IdxT tid = threadIdx.x + offset_blockid * blockDim.x;
 
   // obtaining the feature to test split on
   IdxT col;
@@ -467,7 +467,7 @@ __global__ void computeSplitClassificationKernel(
     // last threadblock will go ahead and compute the best split
     bool last = true;
     last = MLCommon::signalDone(done_count + nid * gridDim.y + blockIdx.y,
-                                  num_blocks, relative_blockid == 0, sDone);
+                                  num_blocks, offset_blockid == 0, sDone);
     // if not the last threadblock, exit
     if (!last) return;
 
