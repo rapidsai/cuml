@@ -247,7 +247,7 @@ def test_sparse_pca_inputs(nrows, ncols, whiten, return_sparse, cupy_input):
                            with_sign=True)
     else:
         if cupy_input:
-            assert isinstance(i_sparse, cp.core.ndarray)
+            assert isinstance(i_sparse, cp.ndarray)
 
         assert array_equal(i_sparse, X.todense(), 1e-1, with_sign=True)
 
