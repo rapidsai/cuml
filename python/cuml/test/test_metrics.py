@@ -1105,7 +1105,7 @@ def test_pairwise_distances_output_types(input_type, output_type, use_global):
         elif output_type == "numpy":
             assert isinstance(S, np.ndarray)
         elif output_type == "cupy":
-            assert isinstance(S, cp.core.core.ndarray)
+            assert isinstance(S, cp.ndarray)
 
 
 def naive_inner(X, Y, metric=None):
@@ -1338,7 +1338,7 @@ def test_sparse_pairwise_distances_output_types(input_type, output_type):
         elif output_type == "numpy":
             assert isinstance(S, np.ndarray)
         elif output_type == "cupy":
-            assert isinstance(S, cp.core.core.ndarray)
+            assert isinstance(S, cp.ndarray)
 
 
 @pytest.mark.xfail(reason='Temporarily disabling this test. '
