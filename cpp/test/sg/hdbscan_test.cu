@@ -19,8 +19,8 @@
 #include <raft/cuda_utils.cuh>
 #include <vector>
 
-#include <hdbscan/detail/common.h>
 #include <cuml/cluster/hdbscan.hpp>
+#include <hdbscan/condensed_hierarchy.cuh>
 #include <hdbscan/detail/condense.cuh>
 #include <hdbscan/detail/extract.cuh>
 #include <raft/sparse/hierarchy/detail/agglomerative.cuh>
@@ -177,13 +177,27 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
 
     rmm::device_uvector<IdxT> out_children(params.n_row * 2,
                                            handle.get_stream());
+    rmm::device_uvector<T> out_deltas(params.n_row, handle.get_stream());
+
+    rmm::device_uvector<IdxT> out_sizes(params.n_row * 2, handle.get_stream());
+
+    rmm::device_uvector<IdxT> out_labels(params.n_row, handle.get_stream());
+
+    rmm::device_uvector<T> out_probabilities(params.n_row, handle.get_stream());
 
     Logger::get().setLevel(CUML_LEVEL_DEBUG);
 
-    auto* output = new hdbscan_output<IdxT, T>();
+    HDBSCAN::Common::hdbscan_output<IdxT, T> out(
+      handle, params.n_row, out_labels.data(), out_probabilities.data(),
+      out_children.data(), out_sizes.data(), out_deltas.data());
+
+    HDBSCAN::Common::HDBSCANParams hdbscan_params;
+    hdbscan_params.k = params.k;
+    hdbscan_params.min_cluster_size = params.min_cluster_size;
+    hdbscan_params.min_samples = params.min_pts;
+
     hdbscan(handle, data.data(), params.n_row, params.n_col,
-            raft::distance::DistanceType::L2SqrtExpanded, params.k,
-            params.min_pts, params.min_cluster_size, output);
+            raft::distance::DistanceType::L2SqrtExpanded, hdbscan_params, out);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
@@ -661,7 +675,7 @@ class ClusterCondensingTest
      */
     raft::hierarchy::detail::build_dendrogram_host(
       handle, mst_src.data(), mst_dst.data(), mst_data.data(), params.n_row - 1,
-      out_children.data(), out_delta, out_size);
+      out_children.data(), out_delta.data(), out_size.data());
 
     raft::print_device_vector("children", out_children.data(),
                               out_children.size(), std::cout);
@@ -673,8 +687,8 @@ class ClusterCondensingTest
     /**
      * Condense Hierarchy
      */
-    HDBSCAN::detail::Common::CondensedHierarchy<IdxT, T> condensed_tree(
-      handle, params.n_row);
+    HDBSCAN::Common::CondensedHierarchy<IdxT, T> condensed_tree(handle,
+                                                                params.n_row);
     HDBSCAN::detail::Condense::build_condensed_hierarchy(
       handle, out_children.data(), out_delta.data(), out_size.data(),
       params.min_cluster_size, params.n_row, condensed_tree);
@@ -823,28 +837,18 @@ class ExcessOfMassTest
                condensed_sizes.size(), handle.get_stream());
 
     CUML_LOG_DEBUG("Condensing tree");
-    ML::HDBSCAN::detail::Common::CondensedHierarchy<IdxT, T> condensed_tree(
-      handle, params.n_row);
+    ML::HDBSCAN::Common::CondensedHierarchy<IdxT, T> condensed_tree(
+      handle, params.n_row, params.condensed_parents.size(),
+      condensed_parents.data(), condensed_children.data(),
+      condensed_lambdas.data(), condensed_sizes.data());
 
-    condensed_tree.set_parents(condensed_parents);
-    condensed_tree.set_children(condensed_children);
-    condensed_tree.set_lambdas(condensed_lambdas);
-    condensed_tree.set_sizes(condensed_sizes);
-
-    auto parents_min_max = std::minmax_element(params.condensed_parents.begin(),
-                                               params.condensed_parents.end());
-    auto n_clusters = *(parents_min_max.second) - *(parents_min_max.first) + 1;
-    auto n_edges = params.condensed_parents.size();
-
-    condensed_tree.set_n_clusters(n_clusters);
-    condensed_tree.set_n_edges(n_edges);
-    condensed_tree.set_n_leaves(params.n_row);
-
+    CUML_LOG_DEBUG("Calling compute stabilities");
     ML::HDBSCAN::detail::Extract::compute_stabilities(handle, condensed_tree,
                                                       stabilities.data());
 
     ASSERT_TRUE(raft::devArrMatch(stabilities.data(), params.stabilities.data(),
-                                  n_clusters, raft::CompareApprox<float>(1e-4),
+                                  condensed_tree.get_n_clusters(),
+                                  raft::CompareApprox<float>(1e-4),
                                   handle.get_stream()));
 
     CUML_LOG_DEBUG("Creating is_cluster %d", condensed_tree.get_n_clusters());
@@ -883,9 +887,10 @@ class ExcessOfMassTest
     ML::HDBSCAN::detail::Extract::get_probabilities(
       handle, condensed_tree, labels.data(), probabilities.data());
 
-    ASSERT_TRUE(raft::devArrMatch(
-      probabilities.data(), params.probabilities.data(), n_clusters,
-      raft::CompareApprox<float>(1e-4), handle.get_stream()));
+    ASSERT_TRUE(
+      raft::devArrMatch(probabilities.data(), params.probabilities.data(),
+                        condensed_tree.get_n_clusters(),
+                        raft::CompareApprox<float>(1e-4), handle.get_stream()));
   }
 
   void SetUp() override { basicTest(); }
