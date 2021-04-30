@@ -745,5 +745,7 @@ __global__ void computeSplitRegressionKernel(
   sp.evalBestSplit(smem, splits + nid, mutex + nid);
 }
 
+#include "kernels2.cuh"
+
 }  // namespace DecisionTree
 }  // namespace ML

@@ -669,13 +669,30 @@ struct RegTraits {
 
     ML::PUSH_RANGE(
       "computeSplitRegressionKernel @builder_base.cuh [batched-levelalgo]");
-    computeSplitRegressionKernel<DataT, DataT, IdxT, TPB_DEFAULT>
-      <<<grid, TPB_DEFAULT, smemSize, s>>>(
+    // computeSplitRegressionKernel<DataT, DataT, IdxT, TPB_DEFAULT>
+    //   <<<grid, TPB_DEFAULT, smemSize, s>>>(
+    //     b.pred, b.pred2, b.pred2P, b.pred_count, b.params.n_bins,
+    //     b.params.max_depth, b.params.min_samples_split,
+    //     b.params.min_samples_leaf, b.params.min_impurity_decrease,
+    //     b.params.max_leaves, b.input, b.curr_nodes, col, b.done_count, b.mutex,
+    //     b.n_leaves, b.splits, b.block_sync, splitType, b.treeid, b.seed);
+    dim3 proportionate_grid(b.total_blocks_needed, n_col_blks, 1);
+        computeSplitRegressionKernel_part1<DataT, DataT, IdxT, TPB_DEFAULT, b.samples_per_thread>
+      <<<proportionate_grid, TPB_DEFAULT, smemSize, s>>>(
         b.pred, b.pred2, b.pred2P, b.pred_count, b.params.n_bins,
         b.params.max_depth, b.params.min_samples_split,
         b.params.min_samples_leaf, b.params.min_impurity_decrease,
         b.params.max_leaves, b.input, b.curr_nodes, col, b.done_count, b.mutex,
-        b.n_leaves, b.splits, b.block_sync, splitType, b.treeid, b.seed);
+        b.n_leaves, b.splits, b.block_sync, splitType, b.treeid, b.seed,
+        b.blockid_to_nodeid, b.relative_blockids, true);
+          computeSplitRegressionKernel_part2<DataT, DataT, IdxT, TPB_DEFAULT, b.samples_per_thread>
+      <<<proportionate_grid, TPB_DEFAULT, smemSize, s>>>(
+        b.pred, b.pred2, b.pred2P, b.pred_count, b.params.n_bins,
+        b.params.max_depth, b.params.min_samples_split,
+        b.params.min_samples_leaf, b.params.min_impurity_decrease,
+        b.params.max_leaves, b.input, b.curr_nodes, col, b.done_count, b.mutex,
+        b.n_leaves, b.splits, b.block_sync, splitType, b.treeid, b.seed,
+        b.blockid_to_nodeid, b.relative_blockids, true);
     ML::POP_RANGE();  //computeSplitRegressionKernel
     ML::POP_RANGE();  //Builder::computeSplit
   }
