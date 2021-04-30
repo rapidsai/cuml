@@ -669,7 +669,7 @@ struct RegTraits {
         b.params.max_leaves, b.input, b.curr_nodes, col, b.done_count, b.mutex,
         b.n_leaves, b.splits, b.block_sync, splitType, b.treeid, b.seed,
         b.workload_info, true);
-    
+
     // Compute shared memory size for second pass kernel
     size_t smemSize1 = (nbins + 1) * sizeof(DataT) +  // pdf_spred
                        2 * nbins * sizeof(DataT) +    // cdf_spred
@@ -688,7 +688,7 @@ struct RegTraits {
     // Pick the max of two
     smemSize = std::max(smemSize1, smemSize2);
 
-    computeSplitRegressionKernelPass1<DataT, DataT, IdxT, TPB_DEFAULT>
+    computeSplitRegressionKernelPass2<DataT, DataT, IdxT, TPB_DEFAULT>
       <<<proportionate_grid, TPB_DEFAULT, smemSize, s>>>(
         b.pred, b.pred2, b.pred2P, b.pred_count, b.params.n_bins,
         b.params.max_depth, b.params.min_samples_split,
