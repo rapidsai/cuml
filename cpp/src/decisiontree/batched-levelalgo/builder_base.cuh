@@ -628,14 +628,6 @@ struct RegTraits {
     auto n_col_blks = std::min(b.n_blks_for_cols, b.input.nSampledCols - col);
     auto nbins = b.params.n_bins;
 
-
-    // int n_blks_for_rows = b.n_blks_for_rows(
-    //   n_col_blks,
-    //   (const void*)
-    //     computeSplitRegressionKernel<DataT, LabelT, IdxT, TPB_DEFAULT>,
-    //   TPB_DEFAULT, smemSize, batchSize);
-    // dim3 grid(n_blks_for_rows, n_col_blks, batchSize);
-
     CUDA_CHECK(
       cudaMemsetAsync(b.pred, 0, sizeof(DataT) * b.nPredCounts * 2, s));
     CUDA_CHECK(
@@ -646,29 +638,17 @@ struct RegTraits {
 
     ML::PUSH_RANGE(
       "computeSplitRegressionKernel @builder_base.cuh [batched-levelalgo]");
-    // computeSplitRegressionKernel<DataT, DataT, IdxT, TPB_DEFAULT>
-    //   <<<grid, TPB_DEFAULT, smemSize, s>>>(
-    //     b.pred, b.pred2, b.pred2P, b.pred_count, b.params.n_bins,
-    //     b.params.max_depth, b.params.min_samples_split,
-    //     b.params.min_samples_leaf, b.params.min_impurity_decrease,
-    //     b.params.max_leaves, b.input, b.curr_nodes, col, b.done_count, b.mutex,
-    //     b.n_leaves, b.splits, b.block_sync, splitType, b.treeid, b.seed);
 
     // Compute shared memory size for first pass kernel
     size_t smemSize = (nbins + 1) * sizeof(DataT) +  // pdf_spred
                       nbins * sizeof(int) +          // pdf_scount
                       nbins * sizeof(DataT);         // sbins
 
-
     dim3 proportionate_grid(b.total_blocks_needed, n_col_blks, 1);
         computeSplitRegressionKernelPass1<DataT, DataT, IdxT, TPB_DEFAULT>
       <<<proportionate_grid, TPB_DEFAULT, smemSize, s>>>(
-        b.pred, b.pred2, b.pred2P, b.pred_count, b.params.n_bins,
-        b.params.max_depth, b.params.min_samples_split,
-        b.params.min_samples_leaf, b.params.min_impurity_decrease,
-        b.params.max_leaves, b.input, b.curr_nodes, col, b.done_count, b.mutex,
-        b.n_leaves, b.splits, b.block_sync, splitType, b.treeid, b.seed,
-        b.workload_info, true);
+       b.pred, b.pred_count, b.params.n_bins, b.input,
+        b.curr_nodes, col, b.treeid, b.seed, b.workload_info, true);
 
     // Compute shared memory size for second pass kernel
     size_t smemSize1 = (nbins + 1) * sizeof(DataT) +  // pdf_spred
@@ -691,10 +671,9 @@ struct RegTraits {
     computeSplitRegressionKernelPass2<DataT, DataT, IdxT, TPB_DEFAULT>
       <<<proportionate_grid, TPB_DEFAULT, smemSize, s>>>(
         b.pred, b.pred2, b.pred2P, b.pred_count, b.params.n_bins,
-        b.params.max_depth, b.params.min_samples_split,
         b.params.min_samples_leaf, b.params.min_impurity_decrease,
-        b.params.max_leaves, b.input, b.curr_nodes, col, b.done_count, b.mutex,
-        b.n_leaves, b.splits, b.block_sync, splitType, b.treeid, b.seed,
+       b.input, b.curr_nodes, col, b.done_count, b.mutex,
+        b.splits, splitType, b.treeid, b.seed,
         b.workload_info, true);
     ML::POP_RANGE();  //computeSplitRegressionKernel
     ML::POP_RANGE();  //Builder::computeSplit

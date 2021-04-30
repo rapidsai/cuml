@@ -1,13 +1,9 @@
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 __global__ void computeSplitRegressionKernelPass1(
-  DataT* pred, DataT* pred2, DataT* pred2P, IdxT* count, IdxT nbins,
-  IdxT max_depth, IdxT min_samples_split, IdxT min_samples_leaf,
-  DataT min_impurity_decrease, IdxT max_leaves,
-  Input<DataT, LabelT, IdxT> input, const Node<DataT, LabelT, IdxT>* nodes,
-  IdxT colStart, int* done_count, int* mutex, const IdxT* n_leaves,
-  volatile Split<DataT, IdxT>* splits, void* workspace, CRITERION splitType,
-  IdxT treeid, uint64_t seed, 
-  WorkloadInfo<IdxT>* workload_info, bool proportionate_launch) {
+  DataT* pred, IdxT* count, IdxT nbins, Input<DataT, LabelT, IdxT> input,
+  const Node<DataT, LabelT, IdxT>* nodes, IdxT colStart,
+  IdxT treeid, uint64_t seed, WorkloadInfo<IdxT>* workload_info,
+  bool proportionate_launch) {
   extern __shared__ char smem[];
   // Read workload info for this block 
   WorkloadInfo<IdxT> workload_info_cta = workload_info[blockIdx.x];
@@ -98,13 +94,12 @@ __global__ void computeSplitRegressionKernelPass1(
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 __global__ void computeSplitRegressionKernelPass2(
   DataT* pred, DataT* pred2, DataT* pred2P, IdxT* count, IdxT nbins,
-  IdxT max_depth, IdxT min_samples_split, IdxT min_samples_leaf,
-  DataT min_impurity_decrease, IdxT max_leaves,
+  IdxT min_samples_leaf, DataT min_impurity_decrease,
   Input<DataT, LabelT, IdxT> input, const Node<DataT, LabelT, IdxT>* nodes,
-  IdxT colStart, int* done_count, int* mutex, const IdxT* n_leaves,
-  volatile Split<DataT, IdxT>* splits, void* workspace, CRITERION splitType,
-  IdxT treeid, uint64_t seed,
-  WorkloadInfo<IdxT>* workload_info, bool proportionate_launch) {
+  IdxT colStart, int* done_count, int* mutex,
+  volatile Split<DataT, IdxT>* splits, CRITERION splitType,
+  IdxT treeid, uint64_t seed, WorkloadInfo<IdxT>* workload_info,
+  bool proportionate_launch) {
 
   extern __shared__ char smem[];
 
