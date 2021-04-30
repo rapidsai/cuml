@@ -1,5 +1,5 @@
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
-__global__ void computeSplitRegressionKernel_part1(
+__global__ void computeSplitRegressionKernelPass1(
   DataT* pred, DataT* pred2, DataT* pred2P, IdxT* count, IdxT nbins,
   IdxT max_depth, IdxT min_samples_split, IdxT min_samples_leaf,
   DataT min_impurity_decrease, IdxT max_leaves,
@@ -102,7 +102,7 @@ __global__ void computeSplitRegressionKernel_part1(
 }
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
-__global__ void computeSplitRegressionKernel_part2(
+__global__ void computeSplitRegressionKernelPass2(
   DataT* pred, DataT* pred2, DataT* pred2P, IdxT* count, IdxT nbins,
   IdxT max_depth, IdxT min_samples_split, IdxT min_samples_leaf,
   DataT min_impurity_decrease, IdxT max_leaves,

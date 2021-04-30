@@ -566,10 +566,9 @@ struct ClsTraits {
     dim3 proportionate_grid(b.total_blocks_needed, colBlks, 1);
     computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
       <<<proportionate_grid, TPB_DEFAULT, smemSize, s>>>(
-        b.hist, b.params.n_bins, b.params.max_depth, b.params.min_samples_split,
-        b.params.min_samples_leaf, b.params.min_impurity_decrease,
-        b.params.max_leaves, b.input, b.curr_nodes, col, b.done_count, b.mutex,
-        b.n_leaves, b.splits, splitType, b.treeid, b.seed,
+        b.hist, b.params.n_bins, b.params.min_samples_leaf, 
+        b.params.min_impurity_decrease, b.input, b.curr_nodes, col,
+        b.done_count, b.mutex, b.splits, splitType, b.treeid, b.seed,
         b.workload_info, true);
     ML::POP_RANGE();  //computeSplitClassificationKernel
     ML::POP_RANGE();  //Builder::computeSplit
@@ -662,7 +661,7 @@ struct RegTraits {
 
 
     dim3 proportionate_grid(b.total_blocks_needed, n_col_blks, 1);
-        computeSplitRegressionKernel_part1<DataT, DataT, IdxT, TPB_DEFAULT>
+        computeSplitRegressionKernelPass1<DataT, DataT, IdxT, TPB_DEFAULT>
       <<<proportionate_grid, TPB_DEFAULT, smemSize, s>>>(
         b.pred, b.pred2, b.pred2P, b.pred_count, b.params.n_bins,
         b.params.max_depth, b.params.min_samples_split,
@@ -689,7 +688,7 @@ struct RegTraits {
     // Pick the max of two
     smemSize = std::max(smemSize1, smemSize2);
 
-    computeSplitRegressionKernel_part2<DataT, DataT, IdxT, TPB_DEFAULT>
+    computeSplitRegressionKernelPass1<DataT, DataT, IdxT, TPB_DEFAULT>
       <<<proportionate_grid, TPB_DEFAULT, smemSize, s>>>(
         b.pred, b.pred2, b.pred2P, b.pred_count, b.params.n_bins,
         b.params.max_depth, b.params.min_samples_split,

@@ -377,12 +377,11 @@ DI DataT pdf_to_cdf(DataT* pdf_shist, DataT* cdf_shist, IdxT nbins) {
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 __global__ void computeSplitClassificationKernel(
-  int* hist, IdxT nbins, IdxT max_depth, IdxT min_samples_split,
-  IdxT min_samples_leaf, DataT min_impurity_decrease, IdxT max_leaves,
+  int* hist, IdxT n_bins, IdxT min_samples_leaf, DataT min_impurity_decrease,
   Input<DataT, LabelT, IdxT> input, const Node<DataT, LabelT, IdxT>* nodes,
-  IdxT colStart, int* done_count, int* mutex, const IdxT* n_leaves,
-  volatile Split<DataT, IdxT>* splits, CRITERION splitType, IdxT treeid, uint64_t seed,
-  WorkloadInfo<IdxT>* workload_info, bool proportionate_launch) {
+  IdxT colStart, int* done_count, int* mutex,
+  volatile Split<DataT, IdxT>* splits, CRITERION splitType, IdxT treeid,
+  uint64_t seed, WorkloadInfo<IdxT>* workload_info, bool proportionate_launch) {
   extern __shared__ char smem[];
   // Read workload info for this block 
   WorkloadInfo<IdxT> workload_info_cta = workload_info[blockIdx.x];
@@ -408,12 +407,12 @@ __global__ void computeSplitClassificationKernel(
 
   auto end = range_start + range_len;
   auto nclasses = input.nclasses;
-  auto pdf_shist_len = (nbins + 1) * nclasses;
-  auto cdf_shist_len = nbins * 2 * nclasses;
+  auto pdf_shist_len = (n_bins + 1) * nclasses;
+  auto cdf_shist_len = n_bins * 2 * nclasses;
   auto* pdf_shist = alignPointer<int>(smem);
   auto* cdf_shist = alignPointer<int>(pdf_shist + pdf_shist_len);
   auto* sbins = alignPointer<DataT>(cdf_shist + cdf_shist_len);
-  auto* sDone = alignPointer<int>(sbins + nbins);
+  auto* sDone = alignPointer<int>(sbins + n_bins);
   IdxT stride = blockDim.x * num_blocks;
   IdxT tid = threadIdx.x + relative_blockid * blockDim.x;
 
@@ -431,8 +430,8 @@ __global__ void computeSplitClassificationKernel(
     pdf_shist[i] = 0;
   for (IdxT j = threadIdx.x; j < cdf_shist_len; j += blockDim.x)
     cdf_shist[j] = 0;
-  for (IdxT b = threadIdx.x; b < nbins; b += blockDim.x)
-    sbins[b] = input.quantiles[col * nbins + b];
+  for (IdxT b = threadIdx.x; b < n_bins; b += blockDim.x)
+    sbins[b] = input.quantiles[col * n_bins + b];
 
   // synchronizing above changes across block
   __syncthreads();
@@ -444,9 +443,9 @@ __global__ void computeSplitClassificationKernel(
     auto row = input.rowids[i];
     auto d = input.data[row + coloffset];
     auto label = input.labels[row];
-    for (IdxT b = 0; b < nbins; ++b) {
+    for (IdxT b = 0; b < n_bins; ++b) {
       if (d <= sbins[b]) {
-        auto offset = label * (1 + nbins) + b;
+        auto offset = label * (1 + n_bins) + b;
         atomicAdd(pdf_shist + offset, 1);
         break;
       }
@@ -493,21 +492,21 @@ __global__ void computeSplitClassificationKernel(
     /** left to right scan operation for scanning
      *  lesser-than-or-equal-to-bin counts **/
     // offsets to pdf and cdf shist pointers
-    auto offset_pdf = (1 + nbins) * c;
-    auto offset_cdf = (2 * nbins) * c;
+    auto offset_pdf = (1 + n_bins) * c;
+    auto offset_cdf = (2 * n_bins) * c;
     // converting pdf to cdf
     int total_sum = pdf_to_cdf<int, IdxT, TPB>(pdf_shist + offset_pdf,
-                                               cdf_shist + offset_cdf, nbins);
+                                               cdf_shist + offset_cdf, n_bins);
 
     // greater-than split starts after nbins of less-than-equal split
     // locations
-    offset_cdf += nbins;
+    offset_cdf += n_bins;
     /** samples that are greater-than-bin calculated by difference
      *  of count of lesser-than-equal samples from total_sum.
      **/
-    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+    for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
       *(cdf_shist + offset_cdf + i) =
-        total_sum - *(cdf_shist + 2 * nbins * c + i);
+        total_sum - *(cdf_shist + 2 * n_bins * c + i);
     }
   }
 
@@ -518,10 +517,10 @@ __global__ void computeSplitClassificationKernel(
 
   // calculate the best candidate bins (one for each block-thread) in current feature and corresponding information gain for splitting
   if (splitType == CRITERION::GINI) {
-    giniGain<DataT, IdxT>(cdf_shist, sbins, sp, col, range_len, nbins, nclasses,
+    giniGain<DataT, IdxT>(cdf_shist, sbins, sp, col, range_len, n_bins, nclasses,
                           min_samples_leaf, min_impurity_decrease);
   } else {
-    entropyGain<DataT, IdxT>(cdf_shist, sbins, sp, col, range_len, nbins,
+    entropyGain<DataT, IdxT>(cdf_shist, sbins, sp, col, range_len, n_bins,
                              nclasses, min_samples_leaf, min_impurity_decrease);
   }
   __syncthreads();
