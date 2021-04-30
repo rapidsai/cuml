@@ -29,6 +29,18 @@ namespace ML {
 namespace DecisionTree {
 
 /**
+ * This struct has information about workload of a single threadblock of 
+ * computeSplit kernels of classification and regression
+ */
+template<typename IdxT>
+struct WorkloadInfo {
+  IdxT nodeid;  // Node in the batch on which the threadblock needs to work
+  IdxT offset_blockid;  // Offset threadblock id among all the blocks that are
+                       // working on this node
+  IdxT num_blocks;  // Total number of blocks that are working on the node
+};
+
+/**
  * @brief Traits used to customize device-side methods for classification task
  *
  * @tparam _data  data type
@@ -370,11 +382,14 @@ __global__ void computeSplitClassificationKernel(
   Input<DataT, LabelT, IdxT> input, const Node<DataT, LabelT, IdxT>* nodes,
   IdxT colStart, int* done_count, int* mutex, const IdxT* n_leaves,
   volatile Split<DataT, IdxT>* splits, CRITERION splitType, IdxT treeid, uint64_t seed,
-  int* blockid_to_nodeid, int* relative_blockids, bool proportionate_launch) {
+  WorkloadInfo<IdxT>* workload_info, bool proportionate_launch) {
   extern __shared__ char smem[];
+  // Read workload info for this block 
+  WorkloadInfo<IdxT> workload_info_cta = workload_info[blockIdx.x];
   IdxT nid;
   if (proportionate_launch) {
-    nid = blockid_to_nodeid[blockIdx.x];
+    // nid = blockid_to_nodeid[blockIdx.x];
+    nid = workload_info_cta.nodeid;
   } else {
     nid = blockIdx.z;
   }
@@ -385,13 +400,18 @@ __global__ void computeSplitClassificationKernel(
 
   IdxT relative_blockid, num_blocks;
   if (proportionate_launch) {
-    relative_blockid = relative_blockids[blockIdx.x];
-    num_blocks = (range_len / (TPB*samples_per_thread)) == 0 ?
-               1 : (range_len / (TPB*samples_per_thread));
+    // relative_blockid = relative_blockids[blockIdx.x];
+    // num_blocks = (range_len / (TPB*samples_per_thread)) == 0 ?
+    //            1 : (range_len / (TPB*samples_per_thread));
+    relative_blockid = workload_info_cta.offset_blockid;
+    // num_blocks = (range_len + (TPB*samples_per_thread - 1)) /
+    //              (TPB*samples_per_thread);
+    num_blocks = workload_info_cta.num_blocks;
   } else {
     relative_blockid = blockIdx.x;
     num_blocks = gridDim.x;
   }
+
   auto end = range_start + range_len;
   auto nclasses = input.nclasses;
   auto pdf_shist_len = (nbins + 1) * nclasses;

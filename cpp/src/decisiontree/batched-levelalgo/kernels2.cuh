@@ -7,11 +7,14 @@ __global__ void computeSplitRegressionKernel_part1(
   IdxT colStart, int* done_count, int* mutex, const IdxT* n_leaves,
   volatile Split<DataT, IdxT>* splits, void* workspace, CRITERION splitType,
   IdxT treeid, uint64_t seed, 
-  int* blockid_to_nodeid, int* relative_blockids, bool proportionate_launch) {
+  WorkloadInfo<IdxT>* workload_info, bool proportionate_launch) {
   extern __shared__ char smem[];
+  // Read workload info for this block 
+  WorkloadInfo<IdxT> workload_info_cta = workload_info[blockIdx.x];
   IdxT nid;
   if (proportionate_launch) {
-    nid = blockid_to_nodeid[blockIdx.x];
+    nid = workload_info_cta.nodeid;
+    // nid = blockid_to_nodeid[blockIdx.x];
   } else {
     nid = blockIdx.z;
   }
@@ -22,9 +25,14 @@ __global__ void computeSplitRegressionKernel_part1(
 
   IdxT relative_blockid, num_blocks;
   if (proportionate_launch) {
-    relative_blockid = relative_blockids[blockIdx.x];
-    num_blocks = (range_len / (TPB*samples_per_thread)) == 0 ?
-               1 : (range_len / (TPB*samples_per_thread));
+    // relative_blockid = relative_blockids[blockIdx.x];
+    relative_blockid = workload_info_cta.offset_blockid;
+    // num_blocks = (range_len / (TPB*samples_per_thread)) == 0 ?
+    //            1 : (range_len / (TPB*samples_per_thread));
+    // num_blocks = (range_len + (TPB*samples_per_thread - 1)) /
+    //              (TPB*samples_per_thread);
+    num_blocks = workload_info_cta.num_blocks;
+
   } else {
     relative_blockid = blockIdx.x;
     num_blocks = gridDim.x;
@@ -136,12 +144,17 @@ __global__ void computeSplitRegressionKernel_part2(
   IdxT colStart, int* done_count, int* mutex, const IdxT* n_leaves,
   volatile Split<DataT, IdxT>* splits, void* workspace, CRITERION splitType,
   IdxT treeid, uint64_t seed,
-  int* blockid_to_nodeid, int* relative_blockids, bool proportionate_launch) {
+  WorkloadInfo<IdxT>* workload_info, bool proportionate_launch) {
 
   extern __shared__ char smem[];
+
+  // Read workload info for this block 
+  WorkloadInfo<IdxT> workload_info_cta = workload_info[blockIdx.x];
+
   IdxT nid;
   if (proportionate_launch) {
-    nid = blockid_to_nodeid[blockIdx.x];
+    // nid = blockid_to_nodeid[blockIdx.x];
+    nid = workload_info_cta.nodeid;
   } else {
     nid = blockIdx.z;
   }
@@ -151,9 +164,13 @@ __global__ void computeSplitRegressionKernel_part2(
 
   IdxT relative_blockid, num_blocks;
   if (proportionate_launch) {
-    relative_blockid = relative_blockids[blockIdx.x];
-    num_blocks = (range_len / (TPB*samples_per_thread)) == 0 ?
-               1 : (range_len / (TPB*samples_per_thread));
+    // relative_blockid = relative_blockids[blockIdx.x];
+    relative_blockid = workload_info_cta.offset_blockid;
+    // num_blocks = (range_len / (TPB*samples_per_thread)) == 0 ?
+    //            1 : (range_len / (TPB*samples_per_thread));
+    // num_blocks = (range_len + (TPB*samples_per_thread - 1)) /
+    //              (TPB*samples_per_thread);
+    num_blocks = workload_info_cta.num_blocks;
   } else {
     relative_blockid = blockIdx.x;
     num_blocks = gridDim.x;
