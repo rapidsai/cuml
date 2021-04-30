@@ -268,6 +268,8 @@ void excess_of_mass(
   rmm::device_uvector<value_idx> indptr(n_clusters + 1, stream);
   rmm::device_uvector<value_idx> cluster_sizes(cluster_tree_edges, stream);
 
+  thrust::fill(thrust::cuda::par.on(stream), cluster_sizes.data(), cluster_sizes.data()+cluster_sizes.size(), 0);
+
   auto in = thrust::make_zip_iterator(thrust::make_tuple(
     condensed_tree.get_parents(), condensed_tree.get_children(),
     condensed_tree.get_sizes()));
@@ -291,11 +293,11 @@ void excess_of_mass(
                     children.data() + children.size(), children.data(),
                     [=] __device__(value_idx a) { return a - n_leaves; });
 
-  thrust::for_each(
-    thrust::cuda::par.on(stream), out, out + children.size(),
-    [=] __device__(const thrust::tuple<value_idx, value_idx, value_idx> &tup) {
-      cluster_sizes_ptr[thrust::get<1>(tup)] = thrust::get<2>(tup);
-    });
+  thrust::for_each(thrust::cuda::par.on(stream), out, out+children.size(),
+                   [=] __device__ (const thrust::tuple<value_idx, value_idx, value_idx> &tup) {
+                     cluster_sizes_ptr[thrust::get<1>(tup)] + thrust::get<2>(tup);
+                   });
+
 
   raft::sparse::op::coo_sort(
     0, 0, cluster_tree_edges, parents.data(), children.data(), sizes.data(),
@@ -335,10 +337,11 @@ void excess_of_mass(
 
     value_t subtree_stability = 0;
 
-    if (indptr_h[node] + 1 - indptr_h[node] > 0) {
+    if (indptr_h[node+1] - indptr_h[node] > 0) {
+      printf("Node: %d\n", node);
       subtree_stability = thrust::transform_reduce(
         thrust::cuda::par.on(stream), children.data() + indptr_h[node],
-        children.data() + indptr_h[node] + 1,
+        children.data() + indptr_h[node+1],
         [=] __device__(value_idx a) { return stability[a]; }, 0,
         thrust::plus<value_t>());
     }
