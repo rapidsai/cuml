@@ -46,9 +46,9 @@ def predict(neigh_ind, _y, n_neighbors):
     import scipy.stats as stats
 
     neigh_ind = neigh_ind.astype(np.int32)
-    if isinstance(_y, cp.core.core.ndarray):
+    if isinstance(_y, cp.ndarray):
         _y = _y.get()
-    if isinstance(neigh_ind, cp.core.core.ndarray):
+    if isinstance(neigh_ind, cp.ndarray):
         neigh_ind = neigh_ind.get()
 
     ypred, count = stats.mode(_y[neigh_ind], axis=1)
@@ -128,7 +128,7 @@ def test_self_neighboring(datatype, metric_p, nrows):
         neigh_ind = neigh_ind.as_gpu_matrix().copy_to_host()
         neigh_dist = neigh_dist.as_gpu_matrix().copy_to_host()
     else:
-        assert isinstance(neigh_ind, cp.core.core.ndarray)
+        assert isinstance(neigh_ind, cp.ndarray)
         neigh_ind = neigh_ind.get()
         neigh_dist = neigh_dist.get()
 
@@ -187,7 +187,7 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
         assert isinstance(neigh_ind, cudf.DataFrame)
         neigh_ind = neigh_ind.as_gpu_matrix().copy_to_host()
     else:
-        assert isinstance(neigh_ind, cp.core.core.ndarray)
+        assert isinstance(neigh_ind, cp.ndarray)
 
     labels, probs = predict(neigh_ind, y, n_neighbors)
 
@@ -365,8 +365,8 @@ def test_knn_separate_index_search(input_type, nrows, n_feats, k, metric):
         D_cuml_np = D_cuml.as_gpu_matrix().copy_to_host()
         I_cuml_np = I_cuml.as_gpu_matrix().copy_to_host()
     else:
-        assert isinstance(D_cuml, cp.core.core.ndarray)
-        assert isinstance(I_cuml, cp.core.core.ndarray)
+        assert isinstance(D_cuml, cp.ndarray)
+        assert isinstance(I_cuml, cp.ndarray)
         D_cuml_np = D_cuml.get()
         I_cuml_np = I_cuml.get()
 
