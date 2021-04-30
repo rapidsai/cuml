@@ -47,9 +47,11 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
                                    n_classes=4,
                                    dtype=dtype)
 
+        stratify = y.astype(dtype)
         X_train, X_test, y_train, y_test = train_test_split(X.astype(dtype),
                                                             y.astype(dtype),
-                                                            stratify=True)
+                                                            stratify=stratify
+                                                            )
         most_class = cp.unique(y)[cp.argmax(cp.bincount(y))]
 
         baseline_preds = cp.array([most_class] * y_test.shape[0], dtype=dtype)

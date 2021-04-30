@@ -25,14 +25,16 @@ from numba import cuda
 from typing import Union
 
 
-def _stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
+def _stratify_split(X, stratify, labels, n_train, n_test, x_numba, y_numba,
+                    random_state):
     """
-    Function to perform a stratified split based on y lables.
+    Function to perform a stratified split based on stratify column.
     Based on scikit-learn stratified split implementation.
 
     Parameters
     ----------
     X, y: Shuffled input data and labels
+    stratify: column to be stratified on.
     n_train: Number of samples in train set
     n_test: number of samples in test set
     x_numba: Determines whether the data should be converted to numba
@@ -44,7 +46,6 @@ def _stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
     y_train, y_test: Labels divided into train and test sets
     """
     x_cudf = False
-    y_cudf = False
 
     if isinstance(X, cudf.DataFrame):
         x_cudf = True
@@ -54,26 +55,25 @@ def _stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
                                     cp.dtype(X.dtype))
 
     # Converting to cupy array removes the need to add an if-else block
-    # for y column
-    if isinstance(y, cudf.Series):
-        y_cudf = True
-        y = y.values
-    elif hasattr(y, "__cuda_array_interface__"):
-        y = cp.asarray(y)
-    elif isinstance(y, cudf.DataFrame):
-        y_cudf = True
+    # for startify column
+    if isinstance(stratify, cudf.Series):
+        stratify = stratify.values
+    elif hasattr(stratify, "__cuda_array_interface__"):
+        stratify = cp.asarray(stratify)
+    elif isinstance(stratify, cudf.DataFrame):
         # ensuring it has just one column
-        if y.shape[1] != 1:
-            raise ValueError('Expected one label, but found y'
-                             'with shape = %d' % (y.shape))
-        y = y[0].values
+        if stratify.shape[1] != 1:
+            raise ValueError('Expected one column, but found column'
+                             'with shape = %d' % (stratify.shape))
+        stratify = stratify[0].values
 
-    y_order = _strides_to_order(y.__cuda_array_interface__['strides'],
-                                cp.dtype(y.dtype))
-    classes, y_indices = cp.unique(y, return_inverse=True)
+    stratify_order = _strides_to_order(
+                        stratify.__cuda_array_interface__['strides'],
+                        cp.dtype(stratify.dtype))
+    classes, stratify_indices = cp.unique(stratify, return_inverse=True)
 
     n_classes = classes.shape[0]
-    class_counts = cp.bincount(y_indices)
+    class_counts = cp.bincount(stratify_indices)
     if cp.min(class_counts) < 2:
         raise ValueError("The least populated class in y has only 1"
                          " member, which is too few. The minimum"
@@ -85,10 +85,11 @@ def _stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
                          'equal to the number of classes = %d' % (n_train,
                                                                   n_classes))
 
-    class_indices = cp.split(cp.argsort(y_indices),
+    class_indices = cp.split(cp.argsort(stratify_indices),
                              cp.cumsum(class_counts)[:-1].tolist())
 
     X_train = None
+    y_train = None
 
     # random_state won't be None or int, that's handled earlier
     if isinstance(random_state, np.random.RandomState):
@@ -103,11 +104,11 @@ def _stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
         permutation = random_state.permutation(class_counts[i].item())
         perm_indices_class_i = class_indices[i].take(permutation)
 
-        y_train_i = cp.array(y[perm_indices_class_i[:n_i[i]]],
-                             order=y_order)
-        y_test_i = cp.array(y[perm_indices_class_i[n_i[i]:n_i[i] +
-                                                   t_i[i]]],
-                            order=y_order)
+        y_train_i = cp.array(labels[perm_indices_class_i[:n_i[i]]],
+                             order=stratify_order)
+        y_test_i = cp.array(labels[perm_indices_class_i[n_i[i]:n_i[i] +
+                                                        t_i[i]]],
+                            order=stratify_order)
         if hasattr(X, "__cuda_array_interface__") or \
            isinstance(X, cupyx.scipy.sparse.csr_matrix):
 
@@ -119,9 +120,9 @@ def _stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
 
             if X_train is None:
                 X_train = cp.array(X_train_i, order=x_order)
-                y_train = cp.array(y_train_i, order=y_order)
+                y_train = cp.array(y_train_i, order=stratify_order)
                 X_test = cp.array(X_test_i, order=x_order)
-                y_test = cp.array(y_test_i, order=y_order)
+                y_test = cp.array(y_test_i, order=stratify_order)
             else:
                 X_train = cp.concatenate([X_train, X_train_i], axis=0)
                 X_test = cp.concatenate([X_test, X_test_i], axis=0)
@@ -153,7 +154,7 @@ def _stratify_split(X, y, n_train, n_test, x_numba, y_numba, random_state):
     if y_numba:
         y_train = cuda.as_cuda_array(y_train)
         y_test = cuda.as_cuda_array(y_test)
-    elif y_cudf:
+    elif isinstance(labels, cudf.Series):
         y_train = cudf.Series(y_train)
         y_test = cudf.Series(y_test)
 
@@ -434,6 +435,7 @@ def train_test_split(X,
         if stratify is not None:
             split_return = _stratify_split(X,
                                            stratify,
+                                           y,
                                            train_size,
                                            test_size,
                                            x_numba,
