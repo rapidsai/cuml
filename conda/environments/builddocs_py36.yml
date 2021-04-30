@@ -4,7 +4,6 @@ channels:
 - pytorch
 - conda-forge
 - numba
-- defaults
 dependencies:
 - python=3.6*
 - cuml=0.5*
