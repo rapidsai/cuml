@@ -505,7 +505,7 @@ def using_output_type(output_type):
 
         cuML default output
         [0 1 2]
-        <class 'cupy.core.core.ndarray'>
+        <class 'cupy.ndarray'>
 
     """
     prev_output_type = cuml.global_settings.output_type

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,8 @@
 #include <cuda_runtime.h>
 #include <raft/cudart_utils.h>
 #include <cuml/common/logger.hpp>
-#include <cuml/cuml.hpp>
+#include <raft/handle.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include "../common/ml_benchmark.hpp"
 #include "dataset.cuh"
 #include "dataset_ts.cuh"
@@ -33,7 +34,7 @@ class Fixture : public MLCommon::Bench::Fixture {
  public:
   Fixture(const std::string& name)
     : MLCommon::Bench::Fixture(name,
-                               std::shared_ptr<deviceAllocator>(
+                               std::shared_ptr<raft::mr::device::allocator>(
                                  new raft::mr::device::default_allocator)) {}
   Fixture() = delete;
 

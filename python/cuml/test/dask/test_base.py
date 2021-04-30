@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -136,7 +136,7 @@ def test_regressor_sg_train_mg_predict(datatype, keys, data_size,
 
     predictions = dist_model.predict(X_train).compute()
 
-    assert isinstance(predictions, cupy.core.ndarray)
+    assert isinstance(predictions, cupy.ndarray)
 
     # Dataset should be fairly linear already so the predictions should
     # be very close to the training data.
@@ -167,7 +167,7 @@ def test_getattr(client):
     kmeans_model.fit(X)
 
     assert kmeans_model.cluster_centers_ is not None
-    assert isinstance(kmeans_model.cluster_centers_, cupy.core.ndarray)
+    assert isinstance(kmeans_model.cluster_centers_, cupy.ndarray)
 
     # Test getattr on trained distributed model
 
@@ -177,4 +177,4 @@ def test_getattr(client):
     nb_model.fit(X, y)
 
     assert nb_model.feature_count_ is not None
-    assert isinstance(nb_model.feature_count_, cupy.core.ndarray)
+    assert isinstance(nb_model.feature_count_, cupy.ndarray)
