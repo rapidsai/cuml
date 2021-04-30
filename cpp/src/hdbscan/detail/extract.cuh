@@ -252,8 +252,6 @@ void excess_of_mass(
   value_idx max_cluster_size) {
   cudaStream_t stream = handle.get_stream();
 
-  raft::print_device_vector("stabilities", stability, n_clusters, std::cout);
-
   /**
    * 1. Build CSR of cluster tree from condensed tree by filtering condensed tree for
    *    only those entries w/ lambda > 1 and constructing a CSR from the result
@@ -268,7 +266,7 @@ void excess_of_mass(
   rmm::device_uvector<value_idx> children(cluster_tree_edges, stream);
   rmm::device_uvector<value_idx> sizes(cluster_tree_edges, stream);
   rmm::device_uvector<value_idx> indptr(n_clusters + 1, stream);
-  rmm::device_uvector<value_idx> cluster_sizes(cluster_tree_edges, stream);
+  rmm::device_uvector<value_idx> cluster_sizes(n_clusters, stream);
 
   thrust::fill(thrust::cuda::par.on(stream), cluster_sizes.data(),
                cluster_sizes.data() + cluster_sizes.size(), 0);
@@ -310,14 +308,6 @@ void excess_of_mass(
     parents.data(), cluster_tree_edges, indptr.data(), n_clusters + 1,
     handle.get_device_allocator(), handle.get_stream());
 
-  raft::print_device_vector("parents", parents.data(), parents.size(),
-                            std::cout);
-  raft::print_device_vector("childdren", children.data(), children.size(),
-                            std::cout);
-  raft::print_device_vector("sizes", sizes.data(), sizes.size(), std::cout);
-
-  raft::print_device_vector("indptr", indptr.data(), indptr.size(), std::cout);
-
   /**
    * 2. Iterate through each level from leaves back to root. Use the cluster
    *    tree CSR and warp-level reduction to sum stabilities and test whether
@@ -341,7 +331,6 @@ void excess_of_mass(
     value_t subtree_stability = 0;
 
     if (indptr_h[node + 1] - indptr_h[node] > 0) {
-      printf("Node: %d\n", node);
       subtree_stability = thrust::transform_reduce(
         thrust::cuda::par.on(stream), children.data() + indptr_h[node],
         children.data() + indptr_h[node + 1],
@@ -349,19 +338,12 @@ void excess_of_mass(
         thrust::plus<value_t>());
     }
 
-    CUML_LOG_DEBUG(
-      "subtree_stability: %f, node_stability: %f, cluster_size=%d, "
-      "max_cluster_size=%d",
-      subtree_stability, node_stability, cluter_sizes_h[node],
-      max_cluster_size);
     if (subtree_stability > node_stability ||
         cluter_sizes_h[node] > max_cluster_size) {
       // Deselect / merge cluster with children
-      CUML_LOG_DEBUG("Deselecting cluster %d", node);
       raft::update_device(stability + node, &subtree_stability, 1, stream);
       is_cluster_h[node] = false;
     } else {
-      CUML_LOG_DEBUG("Deselecting cluster %d's children", node);
       // Mark children to be deselected
       frontier_h[node] = true;
     }
@@ -376,9 +358,6 @@ void excess_of_mass(
 
   raft::update_device(is_cluster, is_cluster_h.data(), n_clusters, stream);
   raft::update_device(frontier.data(), frontier_h.data(), n_clusters, stream);
-
-  raft::print_device_vector("frontier", frontier.data(), frontier.size(),
-                            std::cout);
 
   value_idx n_elements_to_traverse =
     thrust::reduce(thrust::cuda::par.on(handle.get_stream()), frontier.data(),
@@ -521,7 +500,6 @@ struct probabilities_functor {
     }
 
     auto cluster = labels[child];
-    // printf("Child: %d, Label: %d\n", child, cluster);
 
     // noise
     if (cluster == -1) {
@@ -530,8 +508,6 @@ struct probabilities_functor {
 
     auto cluster_death = deaths[cluster];
     auto child_lambda = lambdas[idx];
-
-    // printf("idx: %d, child: %d, parent: %d, death: %f, lambda: %f\n", idx, child, cluster + root_cluster, cluster_death, child_lambda);
     if (cluster_death == 0.0 || isnan(child_lambda)) {
       probabilities[child] = 1.0;
     } else {
