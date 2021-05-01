@@ -374,28 +374,8 @@ struct Builder {
       if (num_blocks > max_blocks) {
         printf("Hell bells num_blocks > max_blocks\n");
       }
-      // printf("node %d -> samples = %d, blocks = %d\n", h_nodes[node_start + n].info.unique_id,
-      //        h_nodes[node_start + n].count, num_blocks);
     }
     raft::update_device(workload_info, h_workload_info, total_blocks_needed, s);
-    // printf("total_samples_in_curr_batch = %d\n", total_samples_in_curr_batch);
-    // printf("total_blocks_needed = %d\n", total_blocks_needed);
-    // printf("minimum number of blocks needed = %f\n",
-    // (float)total_samples_in_curr_batch / (SAMPLES_PER_THREAD * Traits::TPB_DEFAULT));
-
-    // printf("-------------------------\n");
-    // printf("Splitting %d node\n", batchSize);
-    // for(int i = node_start; i < node_start + batchSize; i++) {
-    //   printf(
-    //   "prediction = %d, colid = %d, quesval = %f, best_metric_val = %f, "
-    //   "left_child_id = %d, start = %d, count = %d, depth = %d, unique_id = %u\n",
-    //   h_nodes[i].info.prediction, h_nodes[i].info.colid, h_nodes[i].info.quesval,
-    //   h_nodes[i].info.best_metric_val, h_nodes[i].info.left_child_id, h_nodes[i].start,
-    //   h_nodes[i].count, h_nodes[i].depth, h_nodes[i].info.unique_id);
-    // }
-    // CUDA_CHECK(cudaDeviceSynchronize());
-    // iterate through a batch of columns (to reduce the memory pressure) and
-    // compute the best split at the end
     auto n_col_blks = n_blks_for_cols;
     if (total_blocks_needed) {
       for (IdxT c = 0; c < input.nSampledCols; c += n_col_blks) {
@@ -422,27 +402,6 @@ struct Builder {
     raft::update_host(h_nodes.data() + node_start, curr_nodes, batchSize, s);
     raft::update_host(h_nodes.data() + h_total_nodes, next_nodes, *h_n_nodes,
                       s);
-    // DEBUG_CODE
-    // cudaStreamSynchronize(s);
-    // printf("Finalizing %d node\n", batchSize);
-    // for(int i = node_start; i < node_start + batchSize; i++) {
-    //   printf(
-    //   "prediction = %d, colid = %d, quesval = %f, best_metric_val = %f, "
-    //   "left_child_id = %d, start = %d, count = %d, depth = %d, unique_id = %u\n",
-    //   h_nodes[i].info.prediction, h_nodes[i].info.colid, h_nodes[i].info.quesval,
-    //   h_nodes[i].info.best_metric_val, h_nodes[i].info.left_child_id, h_nodes[i].start,
-    //   h_nodes[i].count, h_nodes[i].depth, h_nodes[i].info.unique_id);
-    // }
-
-    // printf("New %d nodes\n", *h_n_nodes);
-    // for(int i = h_total_nodes; i < h_total_nodes + *h_n_nodes; i++) {
-    //   printf(
-    //   "prediction = %d, colid = %d, quesval = %f, best_metric_val = %f, "
-    //   "left_child_id = %d, start = %d, count = %d, depth = %d, unique_id = %u\n",
-    //   h_nodes[i].info.prediction, h_nodes[i].info.colid, h_nodes[i].info.quesval,
-    //   h_nodes[i].info.best_metric_val, h_nodes[i].info.left_child_id, h_nodes[i].start,
-    //   h_nodes[i].count, h_nodes[i].depth, h_nodes[i].info.unique_id);
-    // }
     ML::POP_RANGE();
     return *h_n_nodes;
   }
@@ -577,19 +536,20 @@ struct RegTraits {
     CUDA_CHECK(
       cudaMemsetAsync(b.pred_count, 0, sizeof(IdxT) * b.nPredCounts, s));
 
-    ML::PUSH_RANGE(
-      "computeSplitRegressionKernel @builder_base.cuh [batched-levelalgo]");
-
     // Compute shared memory size for first pass kernel
     size_t smemSize = (nbins + 1) * sizeof(DataT) +  // pdf_spred
                       nbins * sizeof(int) +          // pdf_scount
                       nbins * sizeof(DataT);         // sbins
+    ML::PUSH_RANGE(
+      "computeSplitRegressionKernelPass1 @builder_base.cuh [batched-levelalgo]");
 
     dim3 proportionate_grid(b.total_blocks_needed, n_col_blks, 1);
         computeSplitRegressionKernelPass1<DataT, DataT, IdxT, TPB_DEFAULT>
       <<<proportionate_grid, TPB_DEFAULT, smemSize, s>>>(
        b.pred, b.pred_count, b.params.n_bins, b.input, b.curr_nodes, col,
        b.treeid, b.seed, b.workload_info, true);
+
+    ML::POP_RANGE();  //computeSplitRegressionKernelPass1
 
     // Compute shared memory size for second pass kernel
     size_t smemSize1 = (nbins + 1) * sizeof(DataT) +  // pdf_spred
@@ -609,6 +569,9 @@ struct RegTraits {
     // Pick the max of two
     smemSize = std::max(smemSize1, smemSize2);
 
+    ML::PUSH_RANGE(
+      "computeSplitRegressionKernelPass2 @builder_base.cuh [batched-levelalgo]");
+
     computeSplitRegressionKernelPass2<DataT, DataT, IdxT, TPB_DEFAULT>
       <<<proportionate_grid, TPB_DEFAULT, smemSize, s>>>(
         b.pred, b.pred2, b.pred2P, b.pred_count, b.params.n_bins,
@@ -616,7 +579,8 @@ struct RegTraits {
         b.input, b.curr_nodes, col, b.done_count, b.mutex,
         b.splits, splitType, b.treeid, b.seed,
         b.workload_info, true);
-    ML::POP_RANGE();  //computeSplitRegressionKernel
+
+    ML::POP_RANGE();  //computeSplitRegressionKernelPass2
     ML::POP_RANGE();  //Builder::computeSplit
   }
 
