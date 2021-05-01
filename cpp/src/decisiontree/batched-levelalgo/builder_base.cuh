@@ -371,9 +371,6 @@ struct Builder {
         h_workload_info[total_blocks_needed + b].num_blocks = num_blocks;
       }
       total_blocks_needed += num_blocks;
-      if (num_blocks > max_blocks) {
-        printf("Hell bells num_blocks > max_blocks\n");
-      }
     }
     raft::update_device(workload_info, h_workload_info, total_blocks_needed, s);
     auto n_col_blks = n_blks_for_cols;
