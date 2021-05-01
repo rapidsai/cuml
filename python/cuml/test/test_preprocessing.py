@@ -345,6 +345,7 @@ def test_imputer(failure_logger, random_seed, int_dataset,  # noqa: F811
     assert_allclose(t_X, sk_t_X)
 
 
+@pytest.mark.xfail(reason='Related to CuPy 9.0 update (see issue #3813)')
 @pytest.mark.parametrize("strategy", ["mean", "median", "most_frequent",
                          "constant"])
 @pytest.mark.parametrize("missing_values", [np.nan, 1.])
