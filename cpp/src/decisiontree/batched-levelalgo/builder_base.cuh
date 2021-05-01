@@ -465,8 +465,8 @@ struct ClsTraits {
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
         b.hist, b.params.n_bins, b.params.min_samples_leaf, 
         b.params.min_impurity_decrease, b.input, b.curr_nodes, col,
-        b.done_count, b.mutex, b.splits, splitType, b.treeid, b.seed,
-        b.workload_info, true);
+        b.done_count, b.mutex, b.splits, splitType, b.treeid, b.workload_info,
+        b.seed);
     ML::POP_RANGE();  //computeSplitClassificationKernel
     ML::POP_RANGE();  //Builder::computeSplit
   }
@@ -544,7 +544,7 @@ struct RegTraits {
         computeSplitRegressionKernelPass1<DataT, DataT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
        b.pred, b.pred_count, b.params.n_bins, b.input, b.curr_nodes, col,
-       b.treeid, b.seed, b.workload_info, true);
+       b.treeid, b.workload_info, b.seed);
 
     ML::POP_RANGE();  //computeSplitRegressionKernelPass1
 
@@ -574,8 +574,7 @@ struct RegTraits {
         b.pred, b.pred2, b.pred2P, b.pred_count, b.params.n_bins,
         b.params.min_samples_leaf, b.params.min_impurity_decrease,
         b.input, b.curr_nodes, col, b.done_count, b.mutex,
-        b.splits, splitType, b.treeid, b.seed,
-        b.workload_info, true);
+        b.splits, splitType, b.treeid, b.workload_info, b.seed);
 
     ML::POP_RANGE();  //computeSplitRegressionKernelPass2
     ML::POP_RANGE();  //Builder::computeSplit

@@ -381,29 +381,17 @@ __global__ void computeSplitClassificationKernel(
   Input<DataT, LabelT, IdxT> input, const Node<DataT, LabelT, IdxT>* nodes,
   IdxT colStart, int* done_count, int* mutex,
   volatile Split<DataT, IdxT>* splits, CRITERION splitType, IdxT treeid,
-  uint64_t seed, WorkloadInfo<IdxT>* workload_info, bool proportionate_launch) {
+  WorkloadInfo<IdxT>* workload_info, uint64_t seed) {
   extern __shared__ char smem[];
   // Read workload info for this block 
   WorkloadInfo<IdxT> workload_info_cta = workload_info[blockIdx.x];
-  IdxT nid;
-  if (proportionate_launch) {
-    nid = workload_info_cta.nodeid;
-  } else {
-    nid = blockIdx.z;
-  }
-
+  IdxT nid = workload_info_cta.nodeid;
   auto node = nodes[nid];
   auto range_start = node.start;
   auto range_len = node.count;
 
-  IdxT offset_blockid, num_blocks;
-  if (proportionate_launch) {
-    offset_blockid = workload_info_cta.offset_blockid;
-    num_blocks = workload_info_cta.num_blocks;
-  } else {
-    offset_blockid = blockIdx.x;
-    num_blocks = gridDim.x;
-  }
+  IdxT offset_blockid = workload_info_cta.offset_blockid;
+  IdxT num_blocks = workload_info_cta.num_blocks;
 
   auto end = range_start + range_len;
   auto nclasses = input.nclasses;
