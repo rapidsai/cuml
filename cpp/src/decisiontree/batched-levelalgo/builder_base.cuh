@@ -58,8 +58,6 @@ struct Builder {
   IdxT nHistBins;
   /** total number of prediction counts (regression only) */
   IdxT nPredCounts;
-  /** size of block-sync workspace (regression + MAE only) */
-  size_t block_sync_size;
 
   /** Tree index */
   IdxT treeid;
@@ -81,8 +79,6 @@ struct Builder {
   int* done_count;
   /** mutex array used for atomically updating best split */
   int* mutex;
-  /** used for syncing across blocks in a kernel (regression + MAE only) */
-  char* block_sync;
   /** number of leaves created so far */
   IdxT* n_leaves;
   /** max depth reached so far */
@@ -215,18 +211,6 @@ struct Builder {
       maxNodes = 8191;
     }
 
-    if (isRegression()) {
-      int n_blks_for_rows = this->n_blks_for_rows(
-        n_col_blks,
-        (const void*)
-          computeSplitRegressionKernel<DataT, LabelT, IdxT, TPB_DEFAULT>,
-        TPB_DEFAULT, 0, max_batch);
-      dim3 grid(n_blks_for_rows, n_col_blks, max_batch);
-      block_sync_size = MLCommon::GridSync::computeWorkspaceSize(
-        grid, MLCommon::SyncType::ACROSS_X, false);
-    } else {
-      block_sync_size = 0;
-    }
     d_wsize = 0;
     d_wsize += calculateAlignedBytes(sizeof(IdxT));  // n_nodes
     if (!isRegression()) {
@@ -244,7 +228,6 @@ struct Builder {
     d_wsize += calculateAlignedBytes(sizeof(int) * max_batch *
                                      n_col_blks);                  // done_count
     d_wsize += calculateAlignedBytes(sizeof(int) * max_batch);     // mutex
-    d_wsize += calculateAlignedBytes(block_sync_size);             // block_sync
     d_wsize += calculateAlignedBytes(sizeof(IdxT));                // n_leaves
     d_wsize += calculateAlignedBytes(sizeof(IdxT));                // n_depth
     d_wsize += calculateAlignedBytes(sizeof(SplitT) * max_batch);  // splits
@@ -295,8 +278,6 @@ struct Builder {
     d_wspace += calculateAlignedBytes(sizeof(int) * max_batch * n_col_blks);
     mutex = reinterpret_cast<int*>(d_wspace);
     d_wspace += calculateAlignedBytes(sizeof(int) * max_batch);
-    block_sync = reinterpret_cast<char*>(d_wspace);
-    d_wspace += calculateAlignedBytes(block_sync_size);
     n_leaves = reinterpret_cast<IdxT*>(d_wspace);
     d_wspace += calculateAlignedBytes(sizeof(IdxT));
     n_depth = reinterpret_cast<IdxT*>(d_wspace);
@@ -358,10 +339,6 @@ struct Builder {
     CUDA_CHECK(cudaMemsetAsync(mutex, 0, sizeof(int) * max_batch, s));
     CUDA_CHECK(cudaMemsetAsync(n_leaves, 0, sizeof(IdxT), s));
     CUDA_CHECK(cudaMemsetAsync(n_depth, 0, sizeof(IdxT), s));
-    if (isRegression()) {
-      CUDA_CHECK(
-        cudaMemsetAsync(block_sync, 0, sizeof(char) * block_sync_size, s));
-    }
     node_start = 0;
     node_end = h_total_nodes = 1;  // start with root node
     h_nodes.resize(1);
@@ -647,8 +624,8 @@ struct RegTraits {
     dim3 proportionate_grid(b.total_blocks_needed, n_col_blks, 1);
         computeSplitRegressionKernelPass1<DataT, DataT, IdxT, TPB_DEFAULT>
       <<<proportionate_grid, TPB_DEFAULT, smemSize, s>>>(
-       b.pred, b.pred_count, b.params.n_bins, b.input,
-        b.curr_nodes, col, b.treeid, b.seed, b.workload_info, true);
+       b.pred, b.pred_count, b.params.n_bins, b.input, b.curr_nodes, col,
+       b.treeid, b.seed, b.workload_info, true);
 
     // Compute shared memory size for second pass kernel
     size_t smemSize1 = (nbins + 1) * sizeof(DataT) +  // pdf_spred
@@ -672,7 +649,7 @@ struct RegTraits {
       <<<proportionate_grid, TPB_DEFAULT, smemSize, s>>>(
         b.pred, b.pred2, b.pred2P, b.pred_count, b.params.n_bins,
         b.params.min_samples_leaf, b.params.min_impurity_decrease,
-       b.input, b.curr_nodes, col, b.done_count, b.mutex,
+        b.input, b.curr_nodes, col, b.done_count, b.mutex,
         b.splits, splitType, b.treeid, b.seed,
         b.workload_info, true);
     ML::POP_RANGE();  //computeSplitRegressionKernel
