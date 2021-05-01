@@ -517,7 +517,6 @@ struct probabilities_functor {
     }
 
     auto cluster = labels[child];
-    // printf("Child: %d, Label: %d\n", child, cluster);
 
     // noise
     if (cluster == -1) {
@@ -527,7 +526,6 @@ struct probabilities_functor {
     auto cluster_death = deaths[cluster];
     auto child_lambda = lambdas[idx];
 
-    // printf("idx: %d, child: %d, parent: %d, death: %f, lambda: %f\n", idx, child, cluster + root_cluster, cluster_death, child_lambda);
     if (cluster_death == 0.0 || isnan(child_lambda)) {
       probabilities[child] = 1.0;
     } else {
@@ -605,7 +603,7 @@ void extract_clusters(
   Common::CondensedHierarchy<value_idx, value_t> &condensed_tree,
   size_t n_leaves, value_idx *labels, value_t *stabilities,
   value_t *probabilities, bool allow_single_cluster = true,
-  value_idx max_cluster_size = 0) {
+  value_idx max_cluster_size = 0, value_t cluster_selection_epsilon = 0.0) {
   auto stream = handle.get_stream();
   rmm::device_uvector<value_t> tree_stabilities(condensed_tree.get_n_clusters(),
                                                 handle.get_stream());
