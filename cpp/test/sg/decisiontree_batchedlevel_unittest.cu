@@ -284,8 +284,8 @@ TEST_P(TestMetric, RegressionMetricGain) {
   IdxT* pred_count =
     static_cast<IdxT*>(d_allocator->allocate(nPredCounts * sizeof(IdxT), 0));
 
-  WorkloadInfo<IdxT>* workload_info =
-    static_cast<WorkloadInfo<IdxT>*>(d_allocator->allocate(sizeof(WorkloadInfo<IdxT>), 0));
+  WorkloadInfo<IdxT>* workload_info = static_cast<WorkloadInfo<IdxT>*>(
+    d_allocator->allocate(sizeof(WorkloadInfo<IdxT>), 0));
   WorkloadInfo<IdxT> h_workload_info;
 
   // Just one threadBlock would be used
@@ -319,11 +319,9 @@ TEST_P(TestMetric, RegressionMetricGain) {
   smemSize += 2 * sizeof(DataT) + 1 * sizeof(int);
 
   dim3 grid(1, n_col_blks, 1);
-      computeSplitRegressionKernelPass1<DataT, DataT, IdxT, 32>
-    <<<grid, 32, smemSize, 0>>>(
-     pred, pred_count, n_bins, input, curr_nodes, 0,
-     0, workload_info, 1234ULL);
-
+  computeSplitRegressionKernelPass1<DataT, DataT, IdxT, 32>
+    <<<grid, 32, smemSize, 0>>>(pred, pred_count, n_bins, input, curr_nodes, 0,
+                                0, workload_info, 1234ULL);
 
   // Compute shared memory size for second pass kernel
   size_t smemSize1 = (n_bins + 1) * sizeof(DataT) +  // pdf_spred
@@ -345,9 +343,8 @@ TEST_P(TestMetric, RegressionMetricGain) {
 
   computeSplitRegressionKernelPass2<DataT, DataT, IdxT, 32>
     <<<grid, 32, smemSize, 0>>>(
-      pred, pred2, pred2P, pred_count, n_bins,
-      params.min_samples_leaf, params.min_impurity_decrease,
-      input, curr_nodes, 0, done_count, mutex,
+      pred, pred2, pred2P, pred_count, n_bins, params.min_samples_leaf,
+      params.min_impurity_decrease, input, curr_nodes, 0, done_count, mutex,
       splits, split_criterion, 0, workload_info, 1234ULL);
 
   raft::update_host(h_splits.data(), splits, 1, 0);

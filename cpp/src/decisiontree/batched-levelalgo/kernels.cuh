@@ -32,12 +32,12 @@ namespace DecisionTree {
  * This struct has information about workload of a single threadblock of
  * computeSplit kernels of classification and regression
  */
-template<typename IdxT>
+template <typename IdxT>
 struct WorkloadInfo {
   IdxT nodeid;  // Node in the batch on which the threadblock needs to work
   IdxT offset_blockid;  // Offset threadblock id among all the blocks that are
-                       // working on this node
-  IdxT num_blocks;  // Total number of blocks that are working on the node
+                        // working on this node
+  IdxT num_blocks;      // Total number of blocks that are working on the node
 };
 
 /**
@@ -163,8 +163,8 @@ struct RegDeviceTraits {
  */
 template <typename DataT, typename IdxT>
 HDI bool leafBasedOnParams(IdxT myDepth, IdxT max_depth, IdxT min_samples_split,
-                          IdxT max_leaves, const IdxT* n_leaves,
-                          IdxT nSamples) {
+                           IdxT max_leaves, const IdxT* n_leaves,
+                           IdxT nSamples) {
   if (myDepth >= max_depth) return true;
   if (nSamples < min_samples_split) return true;
   if (max_leaves != -1) {
@@ -455,7 +455,7 @@ __global__ void computeSplitClassificationKernel(
     // last threadblock will go ahead and compute the best split
     bool last = true;
     last = MLCommon::signalDone(done_count + nid * gridDim.y + blockIdx.y,
-                                  num_blocks, offset_blockid == 0, sDone);
+                                num_blocks, offset_blockid == 0, sDone);
     // if not the last threadblock, exit
     if (!last) return;
 
@@ -505,8 +505,8 @@ __global__ void computeSplitClassificationKernel(
 
   // calculate the best candidate bins (one for each block-thread) in current feature and corresponding information gain for splitting
   if (splitType == CRITERION::GINI) {
-    giniGain<DataT, IdxT>(cdf_shist, sbins, sp, col, range_len, n_bins, nclasses,
-                          min_samples_leaf, min_impurity_decrease);
+    giniGain<DataT, IdxT>(cdf_shist, sbins, sp, col, range_len, n_bins,
+                          nclasses, min_samples_leaf, min_impurity_decrease);
   } else {
     entropyGain<DataT, IdxT>(cdf_shist, sbins, sp, col, range_len, n_bins,
                              nclasses, min_samples_leaf, min_impurity_decrease);
@@ -521,8 +521,8 @@ __global__ void computeSplitClassificationKernel(
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 __global__ void computeSplitRegressionKernelPass1(
   DataT* pred, IdxT* count, IdxT nbins, Input<DataT, LabelT, IdxT> input,
-  const Node<DataT, LabelT, IdxT>* nodes, IdxT colStart,
-  IdxT treeid, WorkloadInfo<IdxT>* workload_info, uint64_t seed) {
+  const Node<DataT, LabelT, IdxT>* nodes, IdxT colStart, IdxT treeid,
+  WorkloadInfo<IdxT>* workload_info, uint64_t seed) {
   extern __shared__ char smem[];
   // Read workload info for this block
   WorkloadInfo<IdxT> workload_info_cta = workload_info[blockIdx.x];
@@ -548,7 +548,6 @@ __global__ void computeSplitRegressionKernelPass1(
   auto* pdf_spred = alignPointer<DataT>(smem);
   auto* pdf_scount = alignPointer<int>(pdf_spred + pdf_spred_len);
   auto* sbins = alignPointer<DataT>(pdf_scount + nbins);
-
 
   // select random feature to split-check
   // (if feature-sampling is true)
@@ -605,9 +604,8 @@ __global__ void computeSplitRegressionKernelPass2(
   IdxT min_samples_leaf, DataT min_impurity_decrease,
   Input<DataT, LabelT, IdxT> input, const Node<DataT, LabelT, IdxT>* nodes,
   IdxT colStart, int* done_count, int* mutex,
-  volatile Split<DataT, IdxT>* splits, CRITERION splitType,
-  IdxT treeid, WorkloadInfo<IdxT>* workload_info, uint64_t seed) {
-
+  volatile Split<DataT, IdxT>* splits, CRITERION splitType, IdxT treeid,
+  WorkloadInfo<IdxT>* workload_info, uint64_t seed) {
   extern __shared__ char smem[];
 
   // Read workload info for this block

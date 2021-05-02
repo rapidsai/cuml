@@ -94,7 +94,6 @@ struct Builder {
   WorkloadInfo<IdxT>* h_workload_info;
   IdxT total_num_blocks;
 
-
   static constexpr int SAMPLES_PER_THREAD = 1;
   int max_blocks = 0;
 
@@ -168,8 +167,9 @@ struct Builder {
     auto n_col_blks = n_blks_for_cols;
 
     nHistBins = max_batch * (1 + params.n_bins) * n_col_blks * nclasses;
-    max_blocks =  1 + max_batch +
-     input.nSampledRows / (Traits::TPB_DEFAULT * SAMPLES_PER_THREAD);
+    max_blocks =
+      1 + max_batch +
+      input.nSampledRows / (Traits::TPB_DEFAULT * SAMPLES_PER_THREAD);
     // printf("max_blocks = %d\n", max_blocks);
     // x2 for mean and mean-of-square
     nPredCounts = max_batch * params.n_bins * n_col_blks;
@@ -204,14 +204,14 @@ struct Builder {
     d_wsize += calculateAlignedBytes(sizeof(NodeT) * max_batch);   // curr_nodes
     d_wsize +=
       calculateAlignedBytes(sizeof(NodeT) * 2 * max_batch);  // next_nodes
-    d_wsize +=  // workload_info
-      calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks); 
+    d_wsize +=                                               // workload_info
+      calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks);
 
     // all nodes in the tree
-    h_wsize = calculateAlignedBytes(sizeof(IdxT));  // h_n_nodes
+    h_wsize = calculateAlignedBytes(sizeof(IdxT));   // h_n_nodes
     h_wsize += calculateAlignedBytes(sizeof(IdxT));  // h_n_leaves
-    h_wsize +=  // h_workload_info
-      calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks); 
+    h_wsize +=                                       // h_workload_info
+      calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks);
 
     ML::POP_RANGE();
   }
@@ -350,15 +350,15 @@ struct Builder {
 
     // get the current set of nodes to be worked upon
     raft::update_device(curr_nodes, h_nodes.data() + node_start, batchSize, s);
-    // DEBUG_CODE
+
     int total_samples_in_curr_batch = 0;
     total_num_blocks = 0;
     for (int n = 0; n < batchSize; n++) {
       total_samples_in_curr_batch += h_nodes[node_start + n].count;
-      int num_blocks = raft::ceildiv(h_nodes[node_start + n].count, 
-                    SAMPLES_PER_THREAD * Traits::TPB_DEFAULT);
+      int num_blocks = raft::ceildiv(h_nodes[node_start + n].count,
+                                     SAMPLES_PER_THREAD * Traits::TPB_DEFAULT);
       num_blocks = std::max(1, num_blocks);
-  
+
       bool is_leaf = leafBasedOnParams<DataT, IdxT>(
         h_nodes[node_start + n].depth, params.max_depth,
         params.min_samples_split, params.max_leaves, h_n_leaves,
@@ -463,7 +463,7 @@ struct ClsTraits {
     dim3 grid(b.total_num_blocks, colBlks, 1);
     computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
-        b.hist, b.params.n_bins, b.params.min_samples_leaf, 
+        b.hist, b.params.n_bins, b.params.min_samples_leaf,
         b.params.min_impurity_decrease, b.input, b.curr_nodes, col,
         b.done_count, b.mutex, b.splits, splitType, b.treeid, b.workload_info,
         b.seed);
@@ -541,13 +541,14 @@ struct RegTraits {
     // See alignPointer in computeSplitRegressionKernelPass1 for details
     smemSize += 2 * sizeof(DataT) + 1 * sizeof(int);
     ML::PUSH_RANGE(
-      "computeSplitRegressionKernelPass1 @builder_base.cuh [batched-levelalgo]");
+      "computeSplitRegressionKernelPass1 @builder_base.cuh "
+      "[batched-levelalgo]");
 
     dim3 grid(b.total_num_blocks, colBlks, 1);
-        computeSplitRegressionKernelPass1<DataT, DataT, IdxT, TPB_DEFAULT>
+    computeSplitRegressionKernelPass1<DataT, DataT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
-       b.pred, b.pred_count, b.params.n_bins, b.input, b.curr_nodes, col,
-       b.treeid, b.workload_info, b.seed);
+        b.pred, b.pred_count, b.params.n_bins, b.input, b.curr_nodes, col,
+        b.treeid, b.workload_info, b.seed);
 
     ML::POP_RANGE();  //computeSplitRegressionKernelPass1
 
@@ -571,14 +572,15 @@ struct RegTraits {
     smemSize = std::max(smemSize1, smemSize2);
 
     ML::PUSH_RANGE(
-      "computeSplitRegressionKernelPass2 @builder_base.cuh [batched-levelalgo]");
+      "computeSplitRegressionKernelPass2 @builder_base.cuh "
+      "[batched-levelalgo]");
 
     computeSplitRegressionKernelPass2<DataT, DataT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
         b.pred, b.pred2, b.pred2P, b.pred_count, b.params.n_bins,
-        b.params.min_samples_leaf, b.params.min_impurity_decrease,
-        b.input, b.curr_nodes, col, b.done_count, b.mutex,
-        b.splits, splitType, b.treeid, b.workload_info, b.seed);
+        b.params.min_samples_leaf, b.params.min_impurity_decrease, b.input,
+        b.curr_nodes, col, b.done_count, b.mutex, b.splits, splitType, b.treeid,
+        b.workload_info, b.seed);
 
     ML::POP_RANGE();  //computeSplitRegressionKernelPass2
     ML::POP_RANGE();  //Builder::computeSplit
