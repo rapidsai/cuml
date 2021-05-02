@@ -108,13 +108,11 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
 
   // Evaluate function and compute gradient
   fx = f(x, grad, dev_scalar, stream);
-  T xnorm = nrm2(x, dev_scalar, stream);
-  T gnorm = nrm2(grad, dev_scalar, stream);
 
   if (param.past > 0) fx_hist[0] = fx;
 
   // Early exit if the initial x is already a minimizer
-  if (gnorm <= param.epsilon * std::max(xnorm, T(1.0))) {
+  if (check_convergence(param, *k, fx, x, grad, fx_hist, dev_scalar, stream)) {
     CUML_LOG_DEBUG("Initial solution fulfills optimality condition.");
     return OPT_SUCCESS;
   }
@@ -255,13 +253,10 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
   // pseudo.assign_binary(x, grad, pseudo_grad);
   update_pseudo(x, grad, pseudo_grad, pg_limit, pseudo, stream);
 
-  T xnorm = nrm2(x, dev_scalar, stream);
-  T gnorm = nrm2(pseudo, dev_scalar, stream);
-
   if (param.past > 0) fx_hist[0] = fx;
 
   // Early exit if the initial x is already a minimizer
-  if (gnorm <= param.epsilon * std::max(xnorm, T(1.0))) {
+  if (check_convergence(param, *k, fx, x, grad, fx_hist, dev_scalar, stream)) {
     CUML_LOG_DEBUG("Initial solution fulfills optimality condition.");
     return OPT_SUCCESS;
   }
