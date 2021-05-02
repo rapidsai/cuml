@@ -537,6 +537,9 @@ struct RegTraits {
     size_t smemSize = (nbins + 1) * sizeof(DataT) +  // pdf_spred
                       nbins * sizeof(int) +          // pdf_scount
                       nbins * sizeof(DataT);         // sbins
+    // Room for alignment
+    // See alignPointer in computeSplitRegressionKernelPass1 for details
+    smemSize += 2 * sizeof(DataT) + 1 * sizeof(int);
     ML::PUSH_RANGE(
       "computeSplitRegressionKernelPass1 @builder_base.cuh [batched-levelalgo]");
 
@@ -558,7 +561,8 @@ struct RegTraits {
                        nbins * sizeof(DataT) +        // spred2P
                        nbins * sizeof(DataT) +        // spredP
                        sizeof(int);                   // sDone
-    // Room for alignment (see alignPointer in computeSplitRegressionKernel)
+    // Room for alignment
+    // See alignPointer in computeSplitRegressionKernelPass2 for details
     smemSize1 += 6 * sizeof(DataT) + 3 * sizeof(int);
     // Calculate the shared memory needed for evalBestSplit
     size_t smemSize2 =
