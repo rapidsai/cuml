@@ -739,43 +739,42 @@ __global__ void computeSplitRegressionKernelPass2(
     }
   }
   __syncthreads();
-
-  // update the corresponding global location for pred2P
-  for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
-    atomicAdd(pred2P + gcOffset + i, spred2P[i]);
-  }
-
-  // changing gOffset for pred2 from that of pred
-  gOffset = ((nid * gridDim.y) + blockIdx.y) * len;
-  // update the corresponding global location for pred2
-  for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
-    atomicAdd(pred2 + gOffset + i, spred2[i]);
-  }
-  __threadfence();  // for commit guarantee
-  __syncthreads();
-
-  // last threadblock will go ahead and compute the best split
-  bool last = true;
   if (num_blocks > 1) {
-    last = MLCommon::signalDone(done_count + nid * gridDim.y + blockIdx.y,
-                                num_blocks, offset_blockid == 0, sDone);
-  }
-  // exit if not last
-  if (!last) return;
+    // update the corresponding global location for pred2P
+    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+      atomicAdd(pred2P + gcOffset + i, spred2P[i]);
+    }
 
+    // changing gOffset for pred2 from that of pred
+    gOffset = ((nid * gridDim.y) + blockIdx.y) * len;
+    // update the corresponding global location for pred2
+    for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
+      atomicAdd(pred2 + gOffset + i, spred2[i]);
+    }
+    __threadfence();  // for commit guarantee
+    __syncthreads();
+
+    // last threadblock will go ahead and compute the best split
+    bool last = true;
+
+      last = MLCommon::signalDone(done_count + nid * gridDim.y + blockIdx.y,
+                                  num_blocks, offset_blockid == 0, sDone);
+    // exit if not last
+    if (!last) return;
+
+    // store global pred2 and pred2P into shared memory of last x-dim block
+    for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
+      spred2[i] = pred2[gOffset + i];
+    }
+    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+      spred2P[i] = pred2P[gcOffset + i];
+    }
+    __syncthreads();
+  }
   // last block computes the final gain
   // create a split instance to test current feature split
   Split<DataT, IdxT> sp;
   sp.init();
-
-  // store global pred2 and pred2P into shared memory of last x-dim block
-  for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
-    spred2[i] = pred2[gOffset + i];
-  }
-  for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
-    spred2P[i] = pred2P[gcOffset + i];
-  }
-  __syncthreads();
 
   // calculate the best candidate bins (one for each block-thread) in current
   // feature and corresponding regression-metric gain for splitting
