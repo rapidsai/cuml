@@ -93,13 +93,24 @@ class CondensedHierarchy {
   value_idx root_cluster;
 };
 
-struct HDBSCANParams {
-  int k;
-  int min_samples;
-  int min_cluster_size;
-  int max_cluster_size;
+enum CLUSTER_SELECTION_METHOD {
 
-  float cluster_selection_epsilon;
+  EOM = 0,
+  LEAF = 1
+};
+
+class HDBSCANParams {
+ public:
+  int k = 5;
+  int min_samples = 5;
+  int min_cluster_size = 5;
+  int max_cluster_size = 0;
+
+  float cluster_selection_epsilon = 0.0;
+
+  bool allow_single_cluster = false;
+
+  CLUSTER_SELECTION_METHOD cluster_selection_method;
 };
 
 /**
@@ -118,15 +129,18 @@ struct HDBSCANParams {
  * @tparam value_t
  */
 template <typename value_idx, typename value_t>
-struct hdbscan_output {
+class hdbscan_output {
 
+ public:
   hdbscan_output(const raft::handle_t &handle_, int n_leaves_, value_idx *labels_,
                  value_t *probabilities_, value_idx *children_,
-                 value_idx *sizes_, value_t *deltas_):
+                 value_idx *sizes_, value_t *deltas_,
+                 value_idx *mst_src_, value_idx *mst_dst_, value_t *mst_weights_):
     handle(handle_), n_leaves(n_leaves_), n_clusters(0),
     labels(labels_), probabilities(probabilities_),
     children(children_), sizes(sizes_), deltas(deltas_),
-    condensed_tree(handle_, n_leaves_), stabilities(0, handle_.get_stream()) {}
+    condensed_tree(handle_, n_leaves_), stabilities(0, handle_.get_stream()),
+    mst_src(mst_src_), mst_dst(mst_dst_), mst_weights(mst_weights_){}
 
   // Using getters here, making the members private and forcing
   // consistent state with the constructor. This should make
@@ -188,6 +202,10 @@ struct hdbscan_output {
   // know the size ahead of time.
   CondensedHierarchy<value_idx, value_t> condensed_tree;
 };
+
+typedef hdbscan_output<int, float> hdbscan_output_int_float;
+typedef CondensedHierarchy<int, float> CondensedHierarchy_int_float;
+
 };
 };
 

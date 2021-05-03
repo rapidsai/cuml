@@ -183,13 +183,19 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
 
     rmm::device_uvector<IdxT> out_labels(params.n_row, handle.get_stream());
 
+    rmm::device_uvector<IdxT> mst_src(params.n_row-1, handle.get_stream());
+    rmm::device_uvector<IdxT> mst_dst(params.n_row-1, handle.get_stream());
+    rmm::device_uvector<T> mst_weights(params.n_row-1, handle.get_stream());
+
+
     rmm::device_uvector<T> out_probabilities(params.n_row, handle.get_stream());
 
     Logger::get().setLevel(CUML_LEVEL_DEBUG);
 
     HDBSCAN::Common::hdbscan_output<IdxT, T> out(
       handle, params.n_row, out_labels.data(), out_probabilities.data(),
-      out_children.data(), out_sizes.data(), out_deltas.data());
+      out_children.data(), out_sizes.data(), out_deltas.data(),
+      mst_src.data(), mst_dst.data(), mst_weights.data());
 
     HDBSCAN::Common::HDBSCANParams hdbscan_params;
     hdbscan_params.k = params.k;
@@ -664,11 +670,6 @@ class ClusterCondensingTest
     rmm::device_uvector<T> out_delta(params.n_row, handle.get_stream());
 
     Logger::get().setLevel(CUML_LEVEL_DEBUG);
-
-    //    auto* output = new hdbscan_output<IdxT, T>();
-    //    hdbscan(handle, data.data(), params.n_row, params.n_col,
-    //            raft::distance::DistanceType::L2SqrtExpanded, params.k,
-    //            params.min_pts, params.min_cluster_size, output);
 
     /**
      * Build dendrogram of MST
