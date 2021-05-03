@@ -757,8 +757,8 @@ __global__ void computeSplitRegressionKernelPass2(
     // last threadblock will go ahead and compute the best split
     bool last = true;
 
-      last = MLCommon::signalDone(done_count + nid * gridDim.y + blockIdx.y,
-                                  num_blocks, offset_blockid == 0, sDone);
+    last = MLCommon::signalDone(done_count + nid * gridDim.y + blockIdx.y,
+                                num_blocks, offset_blockid == 0, sDone);
     // exit if not last
     if (!last) return;
 
