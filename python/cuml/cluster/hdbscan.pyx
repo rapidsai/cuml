@@ -33,6 +33,7 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.mixins import ClusterMixin
 from cuml.common.mixins import CMajorInputTagMixin
 
+
 from cuml.metrics.distance_type cimport DistanceType
 
 
@@ -60,7 +61,6 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
 
         bool allow_single_cluster,
         CLUSTER_SELECTION_METHOD cluster_selection_method
-
 
     cdef cppclass hdbscan_output[int, float]:
         hdbscan_output(const handle_t &handle,
@@ -96,14 +96,18 @@ _metrics_mapping = {
     'cosine': DistanceType.CosineExpanded
 }
 
+
 class CondensedTree:
     pass
+
 
 class SingleLinkageTree:
     pass
 
+
 class MinimumSpanningTree:
     pass
+
 
 class PredictionData:
     pass
@@ -331,13 +335,18 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
     def _cuml_array_from_ptr(self, ptr, buf_size, shape, dtype):
 
-        mem = cp.cuda.UnownedMemory(ptr=ptr, size=buf_size, owner=self.hdbscan_output_, device_id=-1)
+        mem = cp.cuda.UnownedMemory(ptr=ptr, size=buf_size,
+                                    owner=self.hdbscan_output_,
+                                    device_id=-1)
         mem_ptr = cp.cuda.memory.MemoryPointer(mem, 0)
 
-        return CumlArray(data=cp.ndarray(shape=shape, dtype=dtype, memptr=mem_ptr))
+        return CumlArray(data=cp.ndarray(shape=shape,
+                                         dtype=dtype,
+                                         memptr=mem_ptr))
 
     def _construct_condensed_tree_attribute(self, ptr, dtype="int32"):
-        n_condensed_tree_edges = self.hdbscan_output_.get_condensed_tree().get_n_edges()
+        n_condensed_tree_edges = \
+            self.hdbscan_output_.get_condensed_tree().get_n_edges()
 
         # TODO: Don't hardcode 4 bytes for buffer size multiplier
         return self._cuml_array_from_ptr(
@@ -345,14 +354,14 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
             (1, n_condensed_tree_edges), dtype
         )
 
-
     def _construct_output_attributes(self):
 
         self.n_clusters_ = self.hdbscan_output_.get_n_clusters()
 
         # TODO: Don't hardcode 4 bytes for buffer size multiplier
         self.stabilities_ = self._cuml_array_from_ptr(
-            self.hdbscan_output_.get_stabilities(), self.hdbscan_output_.get_n_clusters() * 4,
+            self.hdbscan_output_.get_stabilities(),
+            self.hdbscan_output_.get_n_clusters() * 4,
             (1, self.hdbscan_output_.get_n_clusters()), "float32"
         )
 
@@ -368,12 +377,18 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         self.condensed_sizes_ = self._construct_condensed_tree_attribute(
             self.hdbscan_output_.get_condensed_tree().get_sizes())
 
-        self._single_linkage_tree = SingleLinkageTree(self.children_, self.lambdas_, self.sizes_)
-        self._condensed_tree = CondensedTree(self.condensed_parent_, self.condensed_child_,
-                                             self.condensed_lambdas_, self.condensed_sizes_)
+        self._single_linkage_tree = SingleLinkageTree(self.children_,
+                                                      self.lambdas_,
+                                                      self.sizes_)
 
-        self._min_spanning_tree = MinimumSpanningTree(self.mst_src_, self.mst_dst_, self.mst_weights_)
+        self._condensed_tree = CondensedTree(self.condensed_parent_,
+                                             self.condensed_child_,
+                                             self.condensed_lambdas_,
+                                             self.condensed_sizes_)
 
+        self._min_spanning_tree = MinimumSpanningTree(self.mst_src_,
+                                                      self.mst_dst_,
+                                                      self.mst_weights_)
 
     @generate_docstring(skip_parameters_heading=True)
     def fit(self, X, y=None, convert_dtype=True) -> "HDBSCAN":
@@ -432,7 +447,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
         self.hdbscan_output_ = <uintptr_t>linkage_output
 
-        cdef HDBSCANParams params;
+        cdef HDBSCANParams params
         params.k = self.n_neighbors
         params.min_samples = self.min_samples
         params.min_cluster_size = self.min_cluster_size

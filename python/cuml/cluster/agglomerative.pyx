@@ -199,7 +199,7 @@ class AgglomerativeClustering(Base, ClusterMixin, CMajorInputTagMixin):
         cdef uintptr_t labels_ptr = self.labels_.ptr
         cdef uintptr_t children_ptr = self.children_.ptr
 
-        cdef linkage_output_int_float linkage_output;
+        cdef linkage_output_int_float linkage_output
         linkage_output.children = <int*>children_ptr
         linkage_output.labels = <int*>labels_ptr
 

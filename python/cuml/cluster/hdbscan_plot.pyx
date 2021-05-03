@@ -31,11 +31,13 @@ from cuml.common.mixins import CMajorInputTagMixin
 
 from cuml.metrics.distance_type cimport DistanceType
 
+
 class MinimumSpanningTree:
 
     # Accepts CumlArray objects for MST parts
     def __init__(self, mst_src, mst_dst, mst_weights):
         pass
+
 
 class CondensedTree:
 
@@ -46,8 +48,8 @@ class CondensedTree:
     def __init__(self, parents, children, lambdas, sizes):
         pass
 
-class SingleLinkageTree:
 
+class SingleLinkageTree:
 
     # Accepts CumlArray objects for dendrogram parts
     def __init__(self, children, deltas, sizes):
