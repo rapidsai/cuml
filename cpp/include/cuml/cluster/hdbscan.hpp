@@ -69,14 +69,14 @@ class CondensedHierarchy {
                 value_t *full_lambdas, value_idx *full_sizes,
                 value_idx size = -1);
 
-  value_idx get_cluster_tree_edges() const;
+  value_idx get_cluster_tree_edges();
 
   value_idx *get_parents() { return parents.data(); }
   value_idx *get_children() { return children.data(); }
   value_t *get_lambdas() { return lambdas.data(); }
   value_idx *get_sizes() { return sizes.data(); }
   value_idx get_n_edges() { return n_edges; }
-  int get_n_clusters() const { return n_clusters; }
+  int get_n_clusters() { return n_clusters; }
   value_idx get_n_leaves() const { return n_leaves; }
 
  private:
@@ -92,6 +92,8 @@ class CondensedHierarchy {
   int n_clusters;
   value_idx root_cluster;
 };
+
+
 
 enum CLUSTER_SELECTION_METHOD {
 
@@ -139,8 +141,9 @@ class hdbscan_output {
     handle(handle_), n_leaves(n_leaves_), n_clusters(0),
     labels(labels_), probabilities(probabilities_),
     children(children_), sizes(sizes_), deltas(deltas_),
-    condensed_tree(handle_, n_leaves_), stabilities(0, handle_.get_stream()),
-    mst_src(mst_src_), mst_dst(mst_dst_), mst_weights(mst_weights_){}
+    mst_src(mst_src_), mst_dst(mst_dst_), mst_weights(mst_weights_),
+    stabilities(0, handle_.get_stream()),
+    condensed_tree(handle_, n_leaves_){}
 
   // Using getters here, making the members private and forcing
   // consistent state with the constructor. This should make
@@ -203,8 +206,8 @@ class hdbscan_output {
   CondensedHierarchy<value_idx, value_t> condensed_tree;
 };
 
-typedef hdbscan_output<int, float> hdbscan_output_int_float;
-typedef CondensedHierarchy<int, float> CondensedHierarchy_int_float;
+template class CondensedHierarchy<int, float>;
+
 
 };
 };

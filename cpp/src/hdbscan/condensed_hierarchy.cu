@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#pragma once
-
 #include <raft/label/classlabels.cuh>
 
 #include <cub/cub.cuh>
@@ -160,8 +158,7 @@ void CondensedHierarchy<value_idx, value_t>::condense(value_idx *full_parents,
 }
 
 template <typename value_idx, typename value_t>
-value_idx CondensedHierarchy<value_idx, value_t>::get_cluster_tree_edges()
-  const {
+value_idx CondensedHierarchy<value_idx, value_t>::get_cluster_tree_edges() {
   return thrust::transform_reduce(
     thrust::cuda::par.on(handle.get_stream()), get_sizes(),
     get_sizes() + get_n_edges(), [=] __device__(value_t a) { return a > 1; }, 0,

@@ -27,7 +27,7 @@
 #include <raft/sparse/op/sort.h>
 #include <raft/sparse/convert/csr.cuh>
 
-#include <hdbscan/condensed_hierarchy.cuh>
+#include <cuml/cluster/hdbscan.hpp>
 
 #include <thrust/execution_policy.h>
 #include <thrust/reduce.h>
