@@ -22,8 +22,8 @@
 
 #include <raft/cudart_utils.h>
 
-#include <rmm/device_uvector.hpp>
 #include <rmm/thrust_rmm_allocator.h>
+#include <rmm/device_uvector.hpp>
 
 #include <raft/sparse/op/sort.h>
 #include <raft/sparse/convert/csr.cuh>
@@ -178,7 +178,6 @@ void build_condensed_hierarchy(
   auto rmm_alloc = rmm::mr::thrust_allocator<char>(
     stream, rmm::mr::get_current_device_resource());
 
-
   // Root is the last edge in the dendrogram
   int root = 2 * (n_leaves - 1);
 
@@ -220,8 +219,8 @@ void build_condensed_hierarchy(
   size_t grid = raft::ceildiv(root + 1, (int)tpb);
 
   value_idx n_elements_to_traverse =
-    thrust::reduce(thrust::cuda::par(rmm_alloc).on(handle.get_stream()), frontier.data(),
-                   frontier.data() + root + 1, 0);
+    thrust::reduce(thrust::cuda::par(rmm_alloc).on(handle.get_stream()),
+                   frontier.data(), frontier.data() + root + 1, 0);
 
   while (n_elements_to_traverse > 0) {
     // TODO: Investigate whether it would be worth performing a gather/argmatch in order
@@ -232,8 +231,8 @@ void build_condensed_hierarchy(
       out_lambda.data(), out_size.data());
 
     n_elements_to_traverse =
-      thrust::reduce(thrust::cuda::par(rmm_alloc).on(handle.get_stream()), frontier.data(),
-                     frontier.data() + root + 1, 0);
+      thrust::reduce(thrust::cuda::par(rmm_alloc).on(handle.get_stream()),
+                     frontier.data(), frontier.data() + root + 1, 0);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
