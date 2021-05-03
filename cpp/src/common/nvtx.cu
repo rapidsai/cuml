@@ -138,6 +138,16 @@ uint32_t generateNextColor(const std::string &tag) {
 
 nvtxDomainHandle_t domain = nvtxDomainCreateA("cuml_cpp");
 
+void PUSH_RANGE(const char *name, cudaStream_t stream) {
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  PUSH_RANGE(name);
+}
+
+void POP_RANGE(cudaStream_t stream) {
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  POP_RANGE();
+}
+
 void PUSH_RANGE(const char *name) {
   nvtxEventAttributes_t eventAttrib = {0};
   eventAttrib.version = NVTX_VERSION;
@@ -152,6 +162,10 @@ void PUSH_RANGE(const char *name) {
 void POP_RANGE() { nvtxDomainRangePop(domain); }
 
 #else  // NVTX_ENABLED
+
+void PUSH_RANGE(const char *name, cudaStream_t stream) {}
+
+void POP_RANGE(cudaStream_t stream) {}
 
 void PUSH_RANGE(const char *name) {}
 

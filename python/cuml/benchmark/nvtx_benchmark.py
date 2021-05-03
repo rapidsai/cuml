@@ -24,6 +24,7 @@ class Profiler:
     def __init__(self, tmp_path='/tmp/nsys_report'):
         self.qdrep_file = tmp_path + '/report.qdrep'
         self.json_file = tmp_path + '/report.json'
+        self._execute(['rm', '-rf', tmp_path])
         self._execute(['mkdir', '-p', tmp_path])
 
     @staticmethod
@@ -39,8 +40,8 @@ class Profiler:
                            '--trace=nvtx',
                            '--force-overwrite=true',
                            '--output={qdrep_file}'.format(
-                               qdrep_file=self.qdrep_file),
-                           command]
+                               qdrep_file=self.qdrep_file)]
+        profile_command.extend(command.split(' '))
         self._execute(profile_command)
 
     def _nsys_export2json(self):
@@ -180,7 +181,6 @@ class Profiler:
                 print('\n')
 
     def profile(self, command):
-        os.environ['NVTX_BENCHMARK'] = 'TRUE'
         self._nsys_profile(command)
         self._nsys_export2json()
         results = self._parse_json()
