@@ -182,10 +182,9 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
 
     rmm::device_uvector<IdxT> out_labels(params.n_row, handle.get_stream());
 
-    rmm::device_uvector<IdxT> mst_src(params.n_row-1, handle.get_stream());
-    rmm::device_uvector<IdxT> mst_dst(params.n_row-1, handle.get_stream());
-    rmm::device_uvector<T> mst_weights(params.n_row-1, handle.get_stream());
-
+    rmm::device_uvector<IdxT> mst_src(params.n_row - 1, handle.get_stream());
+    rmm::device_uvector<IdxT> mst_dst(params.n_row - 1, handle.get_stream());
+    rmm::device_uvector<T> mst_weights(params.n_row - 1, handle.get_stream());
 
     rmm::device_uvector<T> out_probabilities(params.n_row, handle.get_stream());
 
@@ -193,8 +192,8 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
 
     HDBSCAN::Common::hdbscan_output<IdxT, T> out(
       handle, params.n_row, out_labels.data(), out_probabilities.data(),
-      out_children.data(), out_sizes.data(), out_deltas.data(),
-      mst_src.data(), mst_dst.data(), mst_weights.data());
+      out_children.data(), out_sizes.data(), out_deltas.data(), mst_src.data(),
+      mst_dst.data(), mst_weights.data());
 
     HDBSCAN::Common::HDBSCANParams hdbscan_params;
     hdbscan_params.k = params.k;
