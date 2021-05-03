@@ -1,0 +1,503 @@
+#
+# Copyright (c) 2021, NVIDIA CORPORATION.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
+# distutils: language = c++
+
+from libc.stdint cimport uintptr_t
+from libcpp cimport bool
+
+from cython.operator cimport dereference as deref
+
+import numpy as np
+
+from cuml.common.array import CumlArray
+from cuml.common.base import Base
+from cuml.common.doc_utils import generate_docstring
+from cuml.raft.common.handle cimport handle_t
+from cuml.common import input_to_cuml_array
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.mixins import ClusterMixin
+from cuml.common.mixins import CMajorInputTagMixin
+
+from cuml.metrics.distance_type cimport DistanceType
+
+import cp as cp
+
+from hdbscan_plot import CondensedTree
+from hdbscan_plot import SingleLinkageTree
+from hdbscan_plot import MinimumSpanningTree
+
+
+cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
+
+    ctypedef enum CLUSTER_SELECTION_METHOD:
+        EOM "ML::HDBSCAN::Common::CLUSTER_SELECTION_METHOD::EOM"
+        LEAF "ML::HDBSCAN::Common::CLUSTER_SELECTION_METHOD::LEAF"
+
+    cdef cppclass CondensedHierarchy_int_float:
+        void get_cluster_tree_edges() const
+        int *get_parents()
+        int *get_children()
+        float *get_lambdas()
+        int *get_sizes()
+        int get_n_edges()
+        int get_n_clusters()
+        int get_n_leaves()
+
+    cdef cppclass HDBSCANParams:
+        int k
+        int min_samples
+        int min_cluster_size
+        int max_cluster_size,
+
+        float cluster_selection_epsilon,
+
+        bool allow_single_cluster,
+        CLUSTER_SELECTION_METHOD cluster_selection_method
+
+
+    cdef cppclass hdbscan_output_int_float:
+        hdbscan_output_int_float(const handle_t &handle,
+                       int n_leaves,
+                       int *labels,
+                       float *probabilities,
+                       int *children,
+                       int *sizes,
+                       float *deltas,
+                       int *mst_src,
+                       int *mst_dst,
+                       float *mst_weights)
+        int get_n_leaves()
+        int get_n_clusters()
+        float *get_stabilities()
+        CondensedHierarchy_int_float &get_condensed_tree()
+
+cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
+
+    void hdbscan(const handle_t & handle,
+                 const float * X,
+                 size_t m, size_t n,
+                 DistanceType metric,
+                 HDBSCANParams & params,
+                 hdbscan_output_int_float & output)
+
+_metrics_mapping = {
+    'l1': DistanceType.L1,
+    'cityblock': DistanceType.L1,
+    'manhattan': DistanceType.L1,
+    'l2': DistanceType.L2SqrtExpanded,
+    'euclidean': DistanceType.L2SqrtExpanded,
+    'cosine': DistanceType.CosineExpanded
+}
+
+class CondensedTree:
+    pass
+
+class SingleLinkageTree:
+    pass
+
+class MinimumSpanningTree:
+    pass
+
+class PredictionData:
+    pass
+
+
+class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
+
+    """
+    HDBSCAN Clustering
+
+    Recursively merges the pair of clusters that minimally increases a
+    given linkage distance.
+
+    Parameters
+    ----------
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+
+    min_cluster_size : int, optional (default = 5)
+        The minimum number of samples in a group for that group to be
+        considered a cluster; groupings smaller than this size will be left
+        as noise.
+
+    min_samples : int, optional (default=None)
+        The number of samples in a neighborhood for a point
+        to be considered as a core point. This includes the point itself.
+        defaults to the min_cluster_size.
+
+    cluster_selection_epsilon : float, optional (default=0.0)
+        A distance threshold. Clusters below this value will be merged.
+        See [3]_ for more information. Note that this should not be used
+        if we want to predict the cluster labels for new points in future
+        (e.g. using approximate_predict), as the approximate_predict function
+        is not aware of this argument.
+
+    max_cluster_size : int, optional (default=0)
+        A limit to the size of clusters returned by the eom algorithm.
+        Has no effect when using leaf clustering (where clusters are
+        usually small regardless) and can also be overridden in rare
+        cases by a high value for cluster_selection_epsilon. Note that
+        this should not be used if we want to predict the cluster labels
+        for new points in future (e.g. using approximate_predict), as
+        the approximate_predict function is not aware of this argument.
+
+    metric : string or callable, optional (default='minkowski')
+        The metric to use when calculating distance between instances in a
+        feature array. If metric is a string or callable, it must be one of
+        the options allowed by metrics.pairwise.pairwise_distances for its
+        metric parameter.
+        If metric is "precomputed", X is assumed to be a distance matrix and
+        must be square.
+
+    p : int, optional (default=2)
+        p value to use if using the minkowski metric.
+
+    cluster_selection_method : string, optional (default='eom')
+        The method used to select clusters from the condensed tree. The
+        standard approach for HDBSCAN* is to use an Excess of Mass algorithm
+        to find the most persistent clusters. Alternatively you can instead
+        select the clusters at the leaves of the tree -- this provides the
+        most fine grained and homogeneous clusters. Options are:
+            * ``eom``
+            * ``leaf``
+
+    allow_single_cluster : bool, optional (default=False)
+        By default HDBSCAN* will not produce a single cluster, setting this
+        to t=True will override this and allow single cluster results in
+        the case that you feel this is a valid result for your dataset.
+        (default False)
+
+
+    Attributes
+    ----------
+    labels_ : ndarray, shape (n_samples, )
+        Cluster labels for each point in the dataset given to fit().
+        Noisy samples are given the label -1.
+
+    probabilities_ : ndarray, shape (n_samples, )
+        The strength with which each sample is a member of its assigned
+        cluster. Noise points have probability zero; points in clusters
+        have values assigned proportional to the degree that they
+        persist as part of the cluster.
+
+    cluster_persistence_ : ndarray, shape (n_clusters, )
+        A score of how persistent each cluster is. A score of 1.0 represents
+        a perfectly stable cluster that persists over all distance scales,
+        while a score of 0.0 represents a perfectly ephemeral cluster. These
+        scores can be guage the relative coherence of the clusters output
+        by the algorithm.
+
+    condensed_tree_ : CondensedTree object
+        The condensed tree produced by HDBSCAN. The object has methods
+        for converting to pandas, networkx, and plotting.
+
+    single_linkage_tree_ : SingleLinkageTree object
+        The single linkage tree produced by HDBSCAN. The object has methods
+        for converting to pandas, networkx, and plotting.
+
+    minimum_spanning_tree_ : MinimumSpanningTree object
+        The minimum spanning tree of the mutual reachability graph generated
+        by HDBSCAN. Note that this is not generated by default and will only
+        be available if `gen_min_span_tree` was set to True on object creation.
+        Even then in some optimized cases a tre may not be generated.
+
+    outlier_scores_ : ndarray, shape (n_samples, )
+        Outlier scores for clustered points; the larger the score the more
+        outlier-like the point. Useful as an outlier detection technique.
+        Based on the GLOSH algorithm by Campello, Moulavi, Zimek and Sander.
+
+
+    # TODO: Support this
+    prediction_data_ : PredictionData object
+        Cached data used for predicting the cluster labels of new or
+        unseen points. Necessary only if you are using functions from
+        ``hdbscan.prediction`` (see
+        :func:`~hdbscan.prediction.approximate_predict`,
+        :func:`~hdbscan.prediction.membership_vector`,
+        and :func:`~hdbscan.prediction.all_points_membership_vectors`).
+
+    exemplars_ : list
+        A list of exemplar points for clusters. Since HDBSCAN supports
+        arbitrary shapes for clusters we cannot provide a single cluster
+        exemplar per cluster. Instead a list is returned with each element
+        of the list being a numpy array of exemplar points for a cluster --
+        these points are the "most representative" points of the cluster.
+
+    # TODO: Support this
+    relative_validity_ : float
+        A fast approximation of the Density Based Cluster Validity (DBCV)
+        score [4]. The only differece, and the speed, comes from the fact
+        that this relative_validity_ is computed using the mutual-
+        reachability minimum spanning tree, i.e. minimum_spanning_tree_,
+        instead of the all-points minimum spanning tree used in the
+        reference. This score might not be an objective measure of the
+        goodness of clusterering. It may only be used to compare results
+        across different choices of hyper-parameters, therefore is only a
+        relative score.
+
+    """
+
+    labels_ = CumlArrayDescriptor()
+    probabilities_ = CumlArrayDescriptor()
+    outlier_scores_ = CumlArrayDescriptor()
+    probabilities_ = CumlArrayDescriptor()
+
+    # Single Linkage Tree
+    children_ = CumlArrayDescriptor()
+    lambdas_ = CumlArrayDescriptor()
+    sizes_ = CumlArrayDescriptor()
+
+    # Minimum Spanning Tree
+    mst_src_ = CumlArrayDescriptor()
+    mst_dst_ = CumlArrayDescriptor()
+    mst_weights_ = CumlArrayDescriptor()
+
+    # Condensed Tree
+    condensed_parent_= CumlArrayDescriptor()
+    condensed_child_ = CumlArrayDescriptor()
+    condensed_lambdas_ = CumlArrayDescriptor()
+    condensed_sizes_ = CumlArrayDescriptor()
+
+    def __init__(self, *,
+                 min_cluster_size=5,
+                 min_samples=None,
+                 cluster_selection_epsilon=0.0,
+                 max_cluster_size=0,
+                 metric='euclidean',
+                 p=2,
+                 cluster_selection_method='eom',
+                 allow_single_cluster=False,
+                 handle=None,
+                 verbose=False,
+                 connectivity='knn',
+                 n_neighbors=10,
+                 output_type=None):
+
+        super().__init__(handle,
+                         verbose,
+                         output_type)
+
+        if min_samples is None:
+            min_samples = min_cluster_size
+
+        if connectivity not in ["knn", "pairwise"]:
+            raise ValueError("'connectivity' can only be one of "
+                             "{'knn', 'pairwise'}")
+
+        if n_neighbors > 1023 or n_neighbors < 2:
+            raise ValueError("'n_neighbors' must be a positive number "
+                             "between 2 and 1023")
+
+        self.min_cluster_size = min_cluster_size
+        self.min_samples = min_samples
+        self.cluster_selection_epsilon = cluster_selection_epsilon
+        self.max_cluster_size = max_cluster_size
+        self.metric = metric
+        self.p = p
+        self.cluster_selection_method = cluster_selection_method
+        self.allow_single_cluster = allow_single_cluster
+        self.n_neighbors = n_neighbors
+        self.connectivity = connectivity
+
+        self.n_clusters_ = None
+        self.n_leaves_ = None
+
+    def _delete_hdbscan_output(self):
+        cdef hdbscan_output_int_float *output
+        if hasattr(self, "hdbscan_output_"):
+            output = <hdbscan_output_int_float*>\
+                      <uintptr_t> self.hdbscan_output_
+            del output
+            del self.hdbscan_output_
+
+    def __dealloc__(self):
+        self._delete_hdbscan_output()
+
+    def _cuml_array_from_ptr(self, ptr, buf_size, shape, dtype):
+
+        mem = cp.cuda.UnownedMemory(ptr=ptr, size=buf_size, owner=self.hdbscan_output_, device_id=-1)
+        mem_ptr = cp.cuda.memory.MemoryPointer(mem, 0)
+
+        return CumlArray(data=cp.ndarray(shape=shape, dtype=dtype, memptr=mem_ptr))
+
+    def _construct_condensed_tree_attribute(self, ptr, dtype="int32"):
+        n_condensed_tree_edges = self.hdbscan_output_.get_condensed_tree().get_n_edges()
+
+        # TODO: Don't hardcode 4 bytes for buffer size multiplier
+        return self._cuml_array_from_ptr(
+            ptr, n_condensed_tree_edges * 4,
+            (1, n_condensed_tree_edges), dtype
+        )
+
+
+    def _construct_output_attributes(self):
+
+        self.n_clusters_ = self.hdbscan_output_.get_n_clusters()
+
+        # TODO: Don't hardcode 4 bytes for buffer size multiplier
+        self.stabilities_ = self._cuml_array_from_ptr(
+            self.hdbscan_output_.get_stabilities(), self.hdbscan_output_.get_n_clusters() * 4,
+            (1, self.hdbscan_output_.get_n_clusters()), "float32"
+        )
+
+        self.condensed_parent_ = self._construct_condensed_tree_attribute(
+            self.hdbscan_output_.get_condensed_tree().get_parents())
+
+        self.condensed_child_ = self._construct_condensed_tree_attribute(
+            self.hdbscan_output_.get_condensed_tree().get_children())
+
+        self.condensed_lambdas_ = self._construct_condensed_tree_attribute(
+            self.hdbscan_output_.get_condensed_tree().get_lambdas(), "float32")
+
+        self.condensed_sizes_ = self._construct_condensed_tree_attribute(
+            self.hdbscan_output_.get_condensed_tree().get_sizes())
+
+        self._single_linkage_tree = SingleLinkageTree(self.children_, self.lambdas_, self.sizes_)
+        self._condensed_tree = CondensedTree(self.condensed_parent_, self.condensed_child_,
+                                             self.condensed_lambdas_, self.condensed_sizes_)
+
+        self._min_spanning_tree = MinimumSpanningTree(self.mst_src_, self.mst_dst_, self.mst_weights_)
+
+
+    @generate_docstring(skip_parameters_heading=True)
+    def fit(self, X, y=None, convert_dtype=True) -> "HDBSCAN":
+        """
+        Fit HDBSCAN model from features.
+        """
+
+        X_m, n_rows, n_cols, self.dtype = \
+            input_to_cuml_array(X, order='C',
+                                check_dtype=[np.float32],
+                                convert_to_dtype=(np.float32
+                                                  if convert_dtype
+                                                  else None))
+
+        if self.n_clusters > n_rows:
+            raise ValueError("'n_clusters' must be <= n_samples")
+
+        cdef uintptr_t input_ptr = X_m.ptr
+
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+
+        # Hardcode n_components_ to 1 for single linkage. This will
+        # not be the case for other linkage types.
+        self.n_connected_components_ = 1
+        self.n_leaves_ = n_rows
+        self.n_clusters_ = self.n_clusters
+
+        self.labels_ = CumlArray.empty(n_rows, dtype="int32")
+        self.children_ = CumlArray.empty((2, n_rows), dtype="int32")
+        self.probabilities_ = CumlArray.empty(n_rows, dtype="float32")
+        self.sizes_ = CumlArray.empty(n_rows, dtype="int32")
+        self.lambdas_ = CumlArray.empty(n_rows, dtype="float32")
+        self.mst_src_ = CumlArray.empty(n_rows-1, dtype="int32")
+        self.mst_dst_ = CumlArray.empty(n_rows-1, dtype="int32")
+        self.mst_weights_ = CumlArray.empty(n_rows-1, dtype="float32")
+
+        cdef uintptr_t labels_ptr = self.labels_.ptr
+        cdef uintptr_t children_ptr = self.children_.ptr
+        cdef uintptr_t sizes_ptr = self.sizes_.ptr
+        cdef uintptr_t lambdas_ptr = self.lambdas_.ptr
+        cdef uintptr_t probabilities_ptr = self.probabilities_.ptr
+        cdef uintptr_t mst_src_ptr = self.mst_src_.ptr
+        cdef uintptr_t mst_dst_ptr = self.mst_dst_.ptr
+        cdef uintptr_t mst_weights_ptr = self.mst_weights_.ptr
+
+        # If calling fit a second time, release
+        # any memory owned from previous trainings
+        self._delete_hdbscan_output()
+
+        cdef hdbscan_output_int_float *linkage_output = new hdbscan_output_int_float(
+            handle_[0], n_rows,
+            <int*>labels_ptr,
+            <float*>probabilities_ptr,
+            <int*>children_ptr,
+            <int*>sizes_ptr,
+            <float*>lambdas_ptr,
+            <int*>mst_src_ptr,
+            <int*>mst_dst_ptr,
+            <float*>mst_weights_ptr)
+
+        self.hdbscan_output_ = <uintptr_t>linkage_output
+
+        cdef HDBSCANParams params;
+        params.k = self.n_neighbors
+        params.min_samples = self.min_samples
+        params.min_cluster_size = self.min_cluster_size
+        params.max_cluster_size = self.max_cluster_size
+        params.cluster_selection_epsilon = self.cluster_selection_epsilon
+        params.allow_single_cluster = self.allow_single_cluster
+
+        cdef DistanceType metric
+        if self.metric in _metrics_mapping:
+            metric = _metrics_mapping[self.metric]
+        else:
+            raise ValueError("'affinity' %s not supported." % self.affinity)
+
+        if self.connectivity == 'knn':
+            hdbscan(handle_[0],
+                    <float*>input_ptr,
+                    <int> n_rows,
+                    <int> n_cols,
+                    <DistanceType> metric,
+                    params,
+                    deref(linkage_output))
+        else:
+            raise ValueError("'connectivity' can only be one of "
+                             "{'knn', 'pairwise'}")
+
+        self.handle.sync()
+
+        self._construct_output_attributes()
+
+        return self
+
+    @generate_docstring(skip_parameters_heading=True,
+                        return_values={'name': 'preds',
+                                       'type': 'dense',
+                                       'description': 'Cluster indexes',
+                                       'shape': '(n_samples, 1)'})
+    def fit_predict(self, X, y=None) -> CumlArray:
+        """
+        Fit the HDBSCAN model from features and return
+        cluster labels.
+        """
+        return self.fit(X).labels_
+
+    def get_param_names(self):
+        return super().get_param_names() + [
+            "n_neighbors",
+            "metric",
+            "min_cluster_size",
+            "max_cluster_size",
+            "min_samples",
+            "cluster_selection_epsilon",
+            "cluster_selection_method",
+            "p",
+            "allow_single_cluster",
+            "connectivity",
+            "n_neighbors"
+        ]
