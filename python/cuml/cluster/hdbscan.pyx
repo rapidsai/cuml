@@ -22,6 +22,7 @@ from libcpp cimport bool
 from cython.operator cimport dereference as deref
 
 import numpy as np
+import cupy as cp
 
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
@@ -34,11 +35,10 @@ from cuml.common.mixins import CMajorInputTagMixin
 
 from cuml.metrics.distance_type cimport DistanceType
 
-import cp as cp
 
-from hdbscan_plot import CondensedTree
-from hdbscan_plot import SingleLinkageTree
-from hdbscan_plot import MinimumSpanningTree
+from .hdbscan_plot import CondensedTree
+from .hdbscan_plot import SingleLinkageTree
+from .hdbscan_plot import MinimumSpanningTree
 
 
 cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
@@ -48,14 +48,7 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
         LEAF "ML::HDBSCAN::Common::CLUSTER_SELECTION_METHOD::LEAF"
 
     cdef cppclass CondensedHierarchy_int_float:
-        void get_cluster_tree_edges() const
-        int *get_parents()
-        int *get_children()
-        float *get_lambdas()
-        int *get_sizes()
-        int get_n_edges()
-        int get_n_clusters()
-        int get_n_leaves()
+        pass
 
     cdef cppclass HDBSCANParams:
         int k
@@ -69,8 +62,8 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
         CLUSTER_SELECTION_METHOD cluster_selection_method
 
 
-    cdef cppclass hdbscan_output_int_float:
-        hdbscan_output_int_float(const handle_t &handle,
+    cdef cppclass hdbscan_output[int, float]:
+        hdbscan_output(const handle_t &handle,
                        int n_leaves,
                        int *labels,
                        float *probabilities,
@@ -92,7 +85,7 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
                  size_t m, size_t n,
                  DistanceType metric,
                  HDBSCANParams & params,
-                 hdbscan_output_int_float & output)
+                 hdbscan_output & output)
 
 _metrics_mapping = {
     'l1': DistanceType.L1,
@@ -326,9 +319,9 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         self.n_leaves_ = None
 
     def _delete_hdbscan_output(self):
-        cdef hdbscan_output_int_float *output
+        cdef hdbscan_output *output
         if hasattr(self, "hdbscan_output_"):
-            output = <hdbscan_output_int_float*>\
+            output = <hdbscan_output*>\
                       <uintptr_t> self.hdbscan_output_
             del output
             del self.hdbscan_output_
@@ -395,9 +388,6 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                                                   if convert_dtype
                                                   else None))
 
-        if self.n_clusters > n_rows:
-            raise ValueError("'n_clusters' must be <= n_samples")
-
         cdef uintptr_t input_ptr = X_m.ptr
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
@@ -406,7 +396,6 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         # not be the case for other linkage types.
         self.n_connected_components_ = 1
         self.n_leaves_ = n_rows
-        self.n_clusters_ = self.n_clusters
 
         self.labels_ = CumlArray.empty(n_rows, dtype="int32")
         self.children_ = CumlArray.empty((2, n_rows), dtype="int32")
@@ -430,7 +419,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         # any memory owned from previous trainings
         self._delete_hdbscan_output()
 
-        cdef hdbscan_output_int_float *linkage_output = new hdbscan_output_int_float(
+        cdef hdbscan_output *linkage_output = new hdbscan_output(
             handle_[0], n_rows,
             <int*>labels_ptr,
             <float*>probabilities_ptr,
