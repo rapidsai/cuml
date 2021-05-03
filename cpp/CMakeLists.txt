@@ -76,7 +76,7 @@ option(ENABLE_CUMLPRIMS_MG "Enable algorithms that use libcumlprims_mg" ON)
 
 option(KERNEL_INFO "Enable kernel resource usage info" OFF)
 
-option(LINE_INFO "Enable lineinfo in nvcc" ON)
+option(LINE_INFO "Enable lineinfo in nvcc" OFF)
 
 option(NVTX "Enable nvtx markers" OFF)
 

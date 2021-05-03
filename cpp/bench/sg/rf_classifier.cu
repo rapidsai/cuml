@@ -98,7 +98,7 @@ std::vector<Params> getInputs() {
                        ML::CRITERION::GINI, /* split_criterion */
                        false,               /* quantile_per_tree */
                        8,                   /* n_streams */
-                       true,                /* use_experimental_backend */
+                       false,               /* use_experimental_backend */
                        128                  /* max_batch_size */
   );
 

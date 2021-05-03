@@ -161,7 +161,7 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
                           RandomForestMetaData<T, int>*& forest) {
   ML::PUSH_RANGE("rfClassifer::fit @randomforest_impl.cuh");
   this->error_checking(input, labels, n_rows, n_cols, false);
-  MLCommon::TimerCPU timer;
+
   const raft::handle_t& handle = user_handle;
   int n_sampled_rows = 0;
   if (this->rf_params.bootstrap) {
@@ -265,9 +265,6 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
                  this->rf_params.tree_params, this->rf_params.seed,
                  global_quantiles, tempmem[stream_id]);
   }
-  CUDA_CHECK(cudaDeviceSynchronize());
-  double timeToGrow = timer.getElapsedSeconds();
-  printf("Total time needed for growing = %f\n", timeToGrow);
   //Cleanup
   for (int i = 0; i < n_streams; i++) {
     auto s = handle.get_internal_stream(i);

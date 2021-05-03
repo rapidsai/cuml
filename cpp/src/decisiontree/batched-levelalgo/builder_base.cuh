@@ -165,7 +165,6 @@ struct Builder {
     input.quantiles = quantiles;
     auto max_batch = params.max_batch_size;
     auto n_col_blks = n_blks_for_cols;
-
     nHistBins = max_batch * (1 + params.n_bins) * n_col_blks * nclasses;
     max_blocks =
       1 + max_batch +
