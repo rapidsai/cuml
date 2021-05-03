@@ -24,33 +24,34 @@ class Profiler:
     def __init__(self, tmp_path='/tmp/nsys_report'):
         self.qdrep_file = tmp_path + '/report.qdrep'
         self.json_file = tmp_path + '/report.json'
-        self._execute('mkdir -p ' + tmp_path)
+        self._execute(['mkdir', '-p', tmp_path])
 
     @staticmethod
     def _execute(command):
-        res = run(command, shell=True, capture_output=True)
+        res = run(command, shell=False, capture_output=True,
+                  env=dict(os.environ, NVTX_BENCHMARK='TRUE'))
         if res.returncode != 0:
             raise Exception(res.stderr)
 
     def _nsys_profile(self, command):
-        profile_command = ('nsys profile '
-                           '--trace=nvtx '
-                           '--force-overwrite=true '
-                           '--output={qdrep_file} {command}')
-        profile_command = profile_command.format(
-            qdrep_file=self.qdrep_file,
-            command=command)
+        profile_command = ['nsys',
+                           'profile',
+                           '--trace=nvtx',
+                           '--force-overwrite=true',
+                           '--output={qdrep_file}'.format(
+                               qdrep_file=self.qdrep_file),
+                           command]
         self._execute(profile_command)
 
     def _nsys_export2json(self):
-        export_command = ('nsys export '
-                          '--type=json '
-                          '--separate-strings=true '
-                          '--force-overwrite=true '
-                          '--output={json_file} {qdrep_file}')
-        export_command = export_command.format(
-            json_file=self.json_file,
-            qdrep_file=self.qdrep_file)
+        export_command = ['nsys',
+                          'export',
+                          '--type=json',
+                          '--separate-strings=true',
+                          '--force-overwrite=true',
+                          '--output={json_file}'.format(
+                              json_file=self.json_file),
+                          self.qdrep_file]
         self._execute(export_command)
 
     def _parse_json(self):
