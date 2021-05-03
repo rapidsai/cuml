@@ -28,11 +28,13 @@
 #include <raft/sparse/op/sort.h>
 #include <raft/sparse/convert/csr.cuh>
 
-#include "common.h"
+#include <cuml/cluster/hdbscan.hpp>
 
 #include <raft/label/classlabels.cuh>
 
 #include <algorithm>
+
+#include <hdbscan/condensed_hierarchy.cuh>
 
 #include <thrust/execution_policy.h>
 #include <thrust/reduce.h>
@@ -86,8 +88,8 @@ __global__ void propagate_cluster_negation(const value_idx *indptr,
     frontier[cluster] = false;
 
     value_idx children_start = indptr[cluster];
-    value_idx children_stop = indptr[cluster];
-    for (int i = 0; i < children_stop - children_start; i++) {
+    value_idx children_stop = indptr[cluster + 1];
+    for (int i = children_start; i < children_stop; i++) {
       value_idx child = children[i];
       frontier[child] = true;
       is_cluster[child] = false;
@@ -201,8 +203,8 @@ void compute_stabilities(
                    cub::DeviceSegmentedReduce::Min<const value_t *, value_t *,
                                                    const value_idx *>);
 
-  // finally, we find minimum between initialized births where parent=child and births of parents
-  // for their childrens
+  // finally, we find minimum between initialized births where parent=child
+  // and births of parents for their childrens
   auto births_zip = thrust::make_zip_iterator(
     thrust::make_tuple(births.data(), births_parent_min.data()));
   auto min_op =
@@ -225,6 +227,15 @@ void compute_stabilities(
                    thrust::make_counting_iterator(n_edges), stabilities_op);
 
   raft::print_device_vector("Stabilities", stabilities, n_clusters, std::cout);
+}
+
+template <typename value_idx, typename value_t, int tpb = 256>
+void cluster_epsilon_search(const raft::handle_t &handle,
+                            Common::CondensedHierarchy<value_idx, value_t> &condensed_tree,
+                            const value_idx cluster_tree_edges,
+                            int *is_cluster, const value_idx n_clusters,
+                            const bool allow_single_cluster) {
+  
 }
 
 /**
@@ -250,8 +261,6 @@ void excess_of_mass(
   value_idx max_cluster_size) {
   cudaStream_t stream = handle.get_stream();
 
-  raft::print_device_vector("stabilities", stability, n_clusters, std::cout);
-
   /**
    * 1. Build CSR of cluster tree from condensed tree by filtering condensed tree for
    *    only those entries w/ lambda > 1 and constructing a CSR from the result
@@ -266,9 +275,10 @@ void excess_of_mass(
   rmm::device_uvector<value_idx> children(cluster_tree_edges, stream);
   rmm::device_uvector<value_idx> sizes(cluster_tree_edges, stream);
   rmm::device_uvector<value_idx> indptr(n_clusters + 1, stream);
-  rmm::device_uvector<value_idx> cluster_sizes(cluster_tree_edges, stream);
+  rmm::device_uvector<value_idx> cluster_sizes(n_clusters, stream);
 
-  thrust::fill(thrust::cuda::par.on(stream), cluster_sizes.data(), cluster_sizes.data()+cluster_sizes.size(), 0);
+  thrust::fill(thrust::cuda::par.on(stream), cluster_sizes.data(),
+               cluster_sizes.data() + cluster_sizes.size(), 0);
 
   auto in = thrust::make_zip_iterator(thrust::make_tuple(
     condensed_tree.get_parents(), condensed_tree.get_children(),
@@ -293,11 +303,11 @@ void excess_of_mass(
                     children.data() + children.size(), children.data(),
                     [=] __device__(value_idx a) { return a - n_leaves; });
 
-  thrust::for_each(thrust::cuda::par.on(stream), out, out+children.size(),
-                   [=] __device__ (const thrust::tuple<value_idx, value_idx, value_idx> &tup) {
-                     cluster_sizes_ptr[thrust::get<1>(tup)] + thrust::get<2>(tup);
-                   });
-
+  thrust::for_each(
+    thrust::cuda::par.on(stream), out, out + children.size(),
+    [=] __device__(const thrust::tuple<value_idx, value_idx, value_idx> &tup) {
+      cluster_sizes_ptr[thrust::get<1>(tup)] = thrust::get<2>(tup);
+    });
 
   raft::sparse::op::coo_sort(
     0, 0, cluster_tree_edges, parents.data(), children.data(), sizes.data(),
@@ -307,21 +317,13 @@ void excess_of_mass(
     parents.data(), cluster_tree_edges, indptr.data(), n_clusters + 1,
     handle.get_device_allocator(), handle.get_stream());
 
-  raft::print_device_vector("parents", parents.data(), parents.size(),
-                            std::cout);
-  raft::print_device_vector("childdren", children.data(), children.size(),
-                            std::cout);
-  raft::print_device_vector("sizes", sizes.data(), sizes.size(), std::cout);
-
-  raft::print_device_vector("indptr", indptr.data(), indptr.size(), std::cout);
-
   /**
    * 2. Iterate through each level from leaves back to root. Use the cluster
    *    tree CSR and warp-level reduction to sum stabilities and test whether
    *    or not current cluster should continue to be its own
    */
   std::vector<int> is_cluster_h(n_clusters, true);
-  std::vector<int> cluster_propagate_h(n_clusters, true);
+  std::vector<int> frontier_h(n_clusters, false);
   std::vector<value_idx> cluter_sizes_h(n_clusters);
 
   std::vector<value_idx> indptr_h(indptr.size());
@@ -337,27 +339,22 @@ void excess_of_mass(
 
     value_t subtree_stability = 0;
 
-    if (indptr_h[node+1] - indptr_h[node] > 0) {
-      printf("Node: %d\n", node);
+    if (indptr_h[node + 1] - indptr_h[node] > 0) {
       subtree_stability = thrust::transform_reduce(
         thrust::cuda::par.on(stream), children.data() + indptr_h[node],
-        children.data() + indptr_h[node+1],
+        children.data() + indptr_h[node + 1],
         [=] __device__(value_idx a) { return stability[a]; }, 0,
         thrust::plus<value_t>());
     }
 
-    CUML_LOG_DEBUG("subtree_stability: %f, node_stability: %f",
-                   subtree_stability, node_stability);
     if (subtree_stability > node_stability ||
         cluter_sizes_h[node] > max_cluster_size) {
       // Deselect / merge cluster with children
-      CUML_LOG_DEBUG("Deselecting cluster %d", node);
       raft::update_device(stability + node, &subtree_stability, 1, stream);
       is_cluster_h[node] = false;
     } else {
-      CUML_LOG_DEBUG("Deselecting cluster %d's children", node);
       // Mark children to be deselected
-      cluster_propagate_h[node] = false;
+      frontier_h[node] = true;
     }
   }
 
@@ -369,8 +366,7 @@ void excess_of_mass(
   rmm::device_uvector<int> frontier(n_clusters, stream);
 
   raft::update_device(is_cluster, is_cluster_h.data(), n_clusters, stream);
-  raft::update_device(frontier.data(), cluster_propagate_h.data(), n_clusters,
-                      stream);
+  raft::update_device(frontier.data(), frontier_h.data(), n_clusters, stream);
 
   value_idx n_elements_to_traverse =
     thrust::reduce(thrust::cuda::par.on(handle.get_stream()), frontier.data(),
@@ -487,10 +483,6 @@ void do_labelling_on_host(
   }
 
   raft::update_device(labels, result.data(), n_leaves, stream);
-
-  // raft::label::make_monotonic(labels, labels,
-  //                             n_leaves, stream,
-  //                             handle.get_device_allocator(), true);
 }
 
 template <typename value_idx, typename value_t>
@@ -525,7 +517,6 @@ struct probabilities_functor {
 
     auto cluster_death = deaths[cluster];
     auto child_lambda = lambdas[idx];
-
     if (cluster_death == 0.0 || isnan(child_lambda)) {
       probabilities[child] = 1.0;
     } else {
@@ -635,6 +626,9 @@ void extract_clusters(
 
   // // TODO: Fill this in
   // get_probabilities<value_idx, value_t>(handle, probabilities);
+
+  raft::label::make_monotonic(labels, labels, n_leaves, stream,
+                              handle.get_device_allocator(), true);
 
   value_t max_lambda = *(thrust::max_element(
     condensed_tree.get_lambdas(),

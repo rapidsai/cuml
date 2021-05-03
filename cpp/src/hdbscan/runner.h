@@ -27,7 +27,8 @@
 #include <raft/sparse/hierarchy/detail/agglomerative.cuh>
 #include <raft/sparse/hierarchy/detail/mst.cuh>
 
-#include "detail/common.h"
+#include <cuml/cluster/hdbscan.hpp>
+#include <hdbscan/condensed_hierarchy.cuh>
 #include "detail/condense.cuh"
 #include "detail/extract.cuh"
 #include "detail/reachability.cuh"
@@ -69,18 +70,18 @@ struct MSTEpilogueReachability {
 
 template <typename value_idx = int64_t, typename value_t = float>
 void _fit(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
-          raft::distance::DistanceType metric, int k, int min_pts,
-          int min_cluster_size, hdbscan_output<value_idx, value_t> *out) {
+          raft::distance::DistanceType metric, Common::HDBSCANParams &params,
+          Common::hdbscan_output<value_idx, value_t> &out) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
-  printf("K=%d\n", k);
-  printf("min_pts: %d\n", min_pts);
+  int k = params.k;
+  int min_samples = params.min_samples;
+  int min_cluster_size = params.min_cluster_size;
 
   /**
     * Mutual reachability graph
     */
-
   rmm::device_uvector<value_idx> mutual_reachability_indptr(m + 1, stream);
   raft::sparse::COO<value_t, value_idx> mutual_reachability_coo(d_alloc, stream,
                                                                 k * m * 2);
@@ -97,76 +98,49 @@ void _fit(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
   /**
     * Construct MST sorted by weights
     */
-  rmm::device_uvector<value_idx> mst_rows(m - 1, stream);
-  rmm::device_uvector<value_idx> mst_cols(m - 1, stream);
-  rmm::device_uvector<value_t> mst_data(m - 1, stream);
 
   // during knn graph connection
   raft::hierarchy::detail::build_sorted_mst(
     handle, X, mutual_reachability_indptr.data(),
     mutual_reachability_coo.cols(), mutual_reachability_coo.vals(), m, n,
-    mst_rows, mst_cols, mst_data, mutual_reachability_coo.nnz,
+    out.get_mst_src(), out.get_mst_dst(), out.get_mst_weights(),
+    mutual_reachability_coo.nnz,
     MSTEpilogueReachability<value_idx, value_t>(m, core_dists.data()), metric,
     (size_t)10);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
   CUML_LOG_DEBUG("Executed MST");
 
-  raft::print_device_vector("src", mst_rows.data(), mst_rows.size(), std::cout);
-  raft::print_device_vector("dst", mst_cols.data(), mst_cols.size(), std::cout);
-  raft::print_device_vector("weight", mst_data.data(), mst_data.size(),
-                            std::cout);
-
   /**
    * Perform hierarchical labeling
    */
   size_t n_edges = m - 1;
 
-  rmm::device_uvector<value_idx> children(n_edges * 2, stream);
-  rmm::device_uvector<value_t> out_delta(n_edges, stream);
-  rmm::device_uvector<value_idx> out_size(n_edges, stream);
-
   raft::hierarchy::detail::build_dendrogram_host(
-    handle, mst_rows.data(), mst_cols.data(), mst_data.data(), n_edges,
-    children.data(), out_delta, out_size);
+    handle, out.get_mst_src(), out.get_mst_dst(), out.get_mst_weights(),
+    n_edges, out.get_children(), out.get_deltas(), out.get_sizes());
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
   CUML_LOG_DEBUG("Executed dendrogram labeling");
 
-  raft::print_device_vector("children", children.data(), children.size(),
-                            std::cout);
-  raft::print_device_vector("delta", out_delta.data(), out_delta.size(),
-                            std::cout);
-  raft::print_device_vector("size", out_size.data(), out_delta.size(),
-                            std::cout);
-
   /**
    * Condense branches of tree according to min cluster size
    */
-  detail::Common::CondensedHierarchy<value_idx, value_t> condensed_tree(handle,
-                                                                        m);
   detail::Condense::build_condensed_hierarchy(
-    handle, children.data(), out_delta.data(), out_size.data(),
-    min_cluster_size, m, condensed_tree);
+    handle, out.get_children(), out.get_deltas(), out.get_sizes(),
+    min_cluster_size, m, out.get_condensed_tree());
+
+  out.set_n_clusters(out.get_condensed_tree().get_n_clusters());
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
   CUML_LOG_DEBUG("Executed hierarchy condensing");
 
-  raft::print_device_vector("condensed parents", condensed_tree.get_parents(),
-                            condensed_tree.get_n_edges(), std::cout);
-  raft::print_device_vector("condensed children", condensed_tree.get_children(),
-                            condensed_tree.get_n_edges(), std::cout);
-  raft::print_device_vector("condensed size", condensed_tree.get_sizes(),
-                            condensed_tree.get_n_edges(), std::cout);
-
   /**
    * Extract labels from stability
    */
-  rmm::device_uvector<value_idx> labels(m, stream);
-  rmm::device_uvector<value_t> stabilities(m, stream);
-  rmm::device_uvector<value_t> probabilities(m, stream);
-  detail::Extract::extract_clusters(handle, condensed_tree, m, labels.data(),
-                                    stabilities.data(), probabilities.data());
+  detail::Extract::extract_clusters(handle, out.get_condensed_tree(), m,
+                                    out.get_labels(), out.get_stabilities(),
+                                    out.get_probabilities());
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
   CUML_LOG_DEBUG("Executed cluster extraction");

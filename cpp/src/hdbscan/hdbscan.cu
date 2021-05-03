@@ -21,9 +21,10 @@
 namespace ML {
 
 void hdbscan(const raft::handle_t &handle, const float *X, size_t m, size_t n,
-             raft::distance::DistanceType metric, int k, int min_pts,
-             int min_cluster_size, hdbscan_output<int, float> *out) {
-  HDBSCAN::_fit(handle, X, m, n, metric, k, min_pts, min_cluster_size, out);
+             raft::distance::DistanceType metric,
+             HDBSCAN::Common::HDBSCANParams &params,
+             HDBSCAN::Common::hdbscan_output<int, float> &out) {
+  HDBSCAN::_fit(handle, X, m, n, metric, params, out);
 }
 
 };  // end namespace ML
