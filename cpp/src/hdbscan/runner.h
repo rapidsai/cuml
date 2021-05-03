@@ -28,7 +28,6 @@
 #include <raft/sparse/hierarchy/detail/mst.cuh>
 
 #include <cuml/cluster/hdbscan.hpp>
-#include <hdbscan/condensed_hierarchy.cuh>
 #include "detail/condense.cuh"
 #include "detail/extract.cuh"
 #include "detail/reachability.cuh"

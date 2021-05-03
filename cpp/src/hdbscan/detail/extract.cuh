@@ -34,7 +34,7 @@
 
 #include <algorithm>
 
-#include <hdbscan/condensed_hierarchy.cuh>
+#include <hdbscan/condensed_hierarchy.cu>
 
 #include <thrust/execution_policy.h>
 #include <thrust/reduce.h>
