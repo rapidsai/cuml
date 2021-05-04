@@ -45,8 +45,6 @@ struct Builder {
   typedef typename Traits::SplitT SplitT;
   typedef typename Traits::InputT InputT;
 
-  /** default threads per block for most kernels in here */
-  static constexpr int TPB_DEFAULT = 256;
   /** DT params */
   DecisionTreeParams params;
   /** input dataset */
