@@ -499,7 +499,7 @@ struct RegTraits {
   typedef Input<DataT, LabelT, IdxT> InputT;
 
   /** default threads per block for most kernels in here */
-  static constexpr int TPB_DEFAULT = 256;
+  static constexpr int TPB_DEFAULT = 64;
   /** threads per block for the nodeSplitKernel */
   static constexpr int TPB_SPLIT = 128;
 
