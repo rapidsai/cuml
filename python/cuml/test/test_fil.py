@@ -442,7 +442,6 @@ def test_threads_per_tree(threads_per_tree,
     xgb_preds_int = np.around(xgb_preds)
     fil_preds = np.reshape(fil_preds, np.shape(xgb_preds_int))
     assert np.allclose(fil_preds, xgb_preds_int, 1e-3)
-      
 
 
 @pytest.mark.parametrize('output_class', [True, False])

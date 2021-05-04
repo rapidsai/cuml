@@ -102,9 +102,6 @@ struct forest {
           if (ssp.shm_sz < max_shm) ssp_ = ssp;
         }
       }
-      const char* bool2str[2]= {"false", "true"};
-      printf("predict_proba %s cols_in_shmem %s log2_threads_per_tree %d\n",
-        bool2str[predict_proba], bool2str[ssp.cols_in_shmem], ssp.log2_threads_per_tree);
       ASSERT(max_shm >= ssp_.shm_sz,
              "FIL out of shared memory. Perhaps the maximum number of \n"
              "supported classes is exceeded? 5'000 would still be safe.");

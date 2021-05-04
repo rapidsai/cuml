@@ -240,7 +240,7 @@ struct tree_aggregator_t {
     acc += single_tree_prediction;
   }
 
-  __device__ __forceinline__ void finalize(float* block_out, int num_rows,
+  __device__ __forceinline__ void finalize(float* block_out, int block_num_rows,
                                            int output_stride,
                                            output_t transform, int num_trees,
                                            int log2_threads_per_tree) {
@@ -251,11 +251,12 @@ struct tree_aggregator_t {
     acc = multi_sum<5>(per_thread, 1 << log2_threads_per_tree,
                        blockDim.x >> log2_threads_per_tree);
     __syncthreads();
-    if (threadIdx.x * NITEMS >= num_rows) return;
+    if (threadIdx.x * NITEMS >= block_num_rows) return;
 #pragma unroll
     for (int row = 0; row < NITEMS; ++row) {
-      int out_proba_i = (threadIdx.x * NITEMS + row) * output_stride;
-      if (row < num_rows) block_out[out_proba_i] = acc[row];
+      int out_preds_i = threadIdx.x * NITEMS + row;
+      if (out_preds_i < block_num_rows)
+        block_out[out_preds_i * output_stride] = acc[row];
     }
   }
 };
@@ -545,6 +546,7 @@ __global__ void infer_k(storage_type forest, predict_params params) {
   int sdata_stride = params.sdata_stride();
   int rows_per_block = NITEMS << params.log2_threads_per_tree;
   int num_cols = params.num_cols;
+  int thread_row0 = NITEMS * modpow2(threadIdx.x, params.log2_threads_per_tree);
   for (size_t block_row0 = blockIdx.x * rows_per_block;
        block_row0 < params.num_rows; block_row0 += rows_per_block * gridDim.x) {
     int block_num_rows =
@@ -552,16 +554,16 @@ __global__ void infer_k(storage_type forest, predict_params params) {
     const float* block_input = params.data + block_row0 * num_cols;
     if (cols_in_shmem) {
       // cache the row for all threads to reuse
-      int input_idx = 0;
 #pragma unroll
-      for (input_idx = threadIdx.x; input_idx < block_num_rows * num_cols;
+      for (int input_idx = threadIdx.x; input_idx < block_num_rows * num_cols;
            input_idx += blockDim.x) {
         int row = input_idx / num_cols, col = input_idx % num_cols;
         sdata[row * sdata_stride + col] = block_input[input_idx];
       }
 #pragma unroll
-      for (; input_idx < rows_per_block * num_cols; input_idx += blockDim.x)
-        sdata[input_idx] = 0.0f;
+      for (int idx = block_num_rows * sdata_stride;
+           idx < rows_per_block * sdata_stride; idx += blockDim.x)
+        sdata[idx] = 0.0f;
     }
 
     tree_aggregator_t<NITEMS, leaf_algo> acc(
@@ -570,25 +572,24 @@ __global__ void infer_k(storage_type forest, predict_params params) {
     __syncthreads();  // for both row cache init and acc init
     // one block works on NITEMS * threads_per_tree rows and the whole forest
     // one thread works on NITEMS rows
-    int thread_row0 =
-      NITEMS * modpow2(threadIdx.x, params.log2_threads_per_tree);
+
     int thread_tree0 = threadIdx.x >> params.log2_threads_per_tree;
     int tree_stride = blockDim.x >> params.log2_threads_per_tree;
-    int thread_num_rows =
-      min((size_t)NITEMS, params.num_rows - block_row0 - thread_row0);
     for (int tree = thread_tree0; tree - thread_tree0 < forest.num_trees();
          tree += tree_stride) {
       /* tree - thread_tree0 < forest.num_trees() is a necessary but block-uniform
          condition for "tree < forest.num_trees()". It lets use __syncthreads()
          and is made exact below.
+         Same with block_row0 < params.num_rows and thread_row0 < thread_num_rows
       */
-      if (tree < forest.num_trees()) {
+      int thread_num_rows =
+        min((size_t)NITEMS, params.num_rows - block_row0 - thread_row0);
+      if (tree < forest.num_trees() && thread_num_rows > 0) {
         auto prediction = infer_one_tree<NITEMS, leaf_output_t<leaf_algo>::T>(
           forest[tree],
-          cols_in_shmem
-            ? sdata + thread_row0 * sdata_stride
-            : params.data + (block_row0 + thread_row0) * params.num_cols,
-          cols_in_shmem ? sdata_stride : params.num_cols,
+          cols_in_shmem ? sdata + thread_row0 * sdata_stride
+                        : block_input + thread_row0 * num_cols,
+          cols_in_shmem ? sdata_stride : num_cols,
           cols_in_shmem ? NITEMS : thread_num_rows);
         acc.accumulate(prediction, tree);
       }
