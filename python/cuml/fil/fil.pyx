@@ -322,30 +322,8 @@ cdef class ForestInference_impl():
         return preds
 
     def load_from_treelite_model_handle(self, **kwargs):
-        cdef treelite_params_t treelite_params
-
-        self.output_class = kwargs['output_class']
-        treelite_params.output_class = self.output_class
-        treelite_params.threshold = kwargs['threshold']
-        treelite_params.algo = self.get_algo(kwargs['algo'])
-        treelite_params.storage_type =\
-            self.get_storage_type(kwargs['storage_type'])
-        treelite_params.blocks_per_sm = kwargs['blocks_per_sm']
-        treelite_params.threads_per_tree = kwargs['threads_per_tree']
-        treelite_params.n_items = kwargs['n_items']
-
         self.forest_data = NULL
-        cdef handle_t* handle_ =\
-            <handle_t*><size_t>self.handle.getHandle()
-        cdef uintptr_t model_ptr = <uintptr_t>kwargs['model_handle']
-
-        from_treelite(handle_[0],
-                      &self.forest_data,
-                      <ModelHandle> model_ptr,
-                      &treelite_params)
-        TreeliteQueryNumClass(<ModelHandle> model_ptr,
-                              & self.num_class)
-        return self
+        return self.load_using_treelite_handle(**kwargs)
 
     def load_from_treelite_model(self, **kwargs):
         cdef TreeliteModel model = kwargs['model']
@@ -362,8 +340,8 @@ cdef class ForestInference_impl():
         treelite_params.storage_type =\
             self.get_storage_type(kwargs['storage_type'])
         treelite_params.blocks_per_sm = kwargs['blocks_per_sm']
-        treelite_params.threads_per_tree = kwargs['threads_per_tree']
         treelite_params.n_items = kwargs['n_items']
+        treelite_params.threads_per_tree = kwargs['threads_per_tree']
 
         cdef handle_t* handle_ =\
             <handle_t*><size_t>self.handle.getHandle()
