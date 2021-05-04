@@ -22,8 +22,8 @@
 
 #include <raft/cudart_utils.h>
 
-#include <rmm/thrust_rmm_allocator.h>
 #include <rmm/device_uvector.hpp>
+#include <rmm/exec_policy.hpp>
 
 #include <raft/sparse/op/sort.h>
 #include <raft/sparse/convert/csr.cuh>
@@ -175,23 +175,22 @@ void build_condensed_hierarchy(
   const value_idx *sizes, int min_cluster_size, int n_leaves,
   Common::CondensedHierarchy<value_idx, value_t> &condensed_tree) {
   cudaStream_t stream = handle.get_stream();
-  auto rmm_alloc = rmm::mr::thrust_allocator<char>(
-    stream, rmm::mr::get_current_device_resource());
+  auto exec_policy = rmm::exec_policy(stream);
 
   // Root is the last edge in the dendrogram
   int root = 2 * (n_leaves - 1);
 
   rmm::device_uvector<bool> frontier(root + 1, stream);
 
-  thrust::fill(thrust::cuda::par(rmm_alloc).on(stream), frontier.data(),
-               frontier.data() + frontier.size(), false);
+  thrust::fill(exec_policy, frontier.data(), frontier.data() + frontier.size(),
+               false);
 
   rmm::device_uvector<value_idx> ignore(root + 1, stream);
 
   // Propagate labels from root
   rmm::device_uvector<value_idx> relabel(root + 1, handle.get_stream());
-  thrust::fill(thrust::cuda::par(rmm_alloc).on(stream), relabel.data(),
-               relabel.data() + relabel.size(), -1);
+  thrust::fill(exec_policy, relabel.data(), relabel.data() + relabel.size(),
+               -1);
 
   raft::update_device(relabel.data() + root, &root, 1, handle.get_stream());
 
@@ -204,23 +203,21 @@ void build_condensed_hierarchy(
   rmm::device_uvector<value_t> out_lambda((root + 1) * 2, stream);
   rmm::device_uvector<value_idx> out_size((root + 1) * 2, stream);
 
-  thrust::fill(thrust::cuda::par(rmm_alloc).on(stream), out_parent.data(),
+  thrust::fill(exec_policy, out_parent.data(),
                out_parent.data() + out_parent.size(), -1);
-  thrust::fill(thrust::cuda::par(rmm_alloc).on(stream), out_child.data(),
+  thrust::fill(exec_policy, out_child.data(),
                out_child.data() + out_child.size(), -1);
-  thrust::fill(thrust::cuda::par(rmm_alloc).on(stream), out_lambda.data(),
+  thrust::fill(exec_policy, out_lambda.data(),
                out_lambda.data() + out_lambda.size(), -1);
-  thrust::fill(thrust::cuda::par(rmm_alloc).on(stream), out_size.data(),
-               out_size.data() + out_size.size(), -1);
-  thrust::fill(thrust::cuda::par(rmm_alloc).on(stream), ignore.data(),
-               ignore.data() + ignore.size(), -1);
+  thrust::fill(exec_policy, out_size.data(), out_size.data() + out_size.size(),
+               -1);
+  thrust::fill(exec_policy, ignore.data(), ignore.data() + ignore.size(), -1);
 
   // While frontier is not empty, perform single bfs through tree
   size_t grid = raft::ceildiv(root + 1, (int)tpb);
 
   value_idx n_elements_to_traverse =
-    thrust::reduce(thrust::cuda::par(rmm_alloc).on(handle.get_stream()),
-                   frontier.data(), frontier.data() + root + 1, 0);
+    thrust::reduce(exec_policy, frontier.data(), frontier.data() + root + 1, 0);
 
   while (n_elements_to_traverse > 0) {
     // TODO: Investigate whether it would be worth performing a gather/argmatch in order
@@ -230,9 +227,8 @@ void build_condensed_hierarchy(
       n_leaves, min_cluster_size, out_parent.data(), out_child.data(),
       out_lambda.data(), out_size.data());
 
-    n_elements_to_traverse =
-      thrust::reduce(thrust::cuda::par(rmm_alloc).on(handle.get_stream()),
-                     frontier.data(), frontier.data() + root + 1, 0);
+    n_elements_to_traverse = thrust::reduce(exec_policy, frontier.data(),
+                                            frontier.data() + root + 1, 0);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 

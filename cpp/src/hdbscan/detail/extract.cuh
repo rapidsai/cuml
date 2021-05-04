@@ -39,7 +39,6 @@
 #include <thrust/sort.h>
 #include <thrust/transform.h>
 
-#include <rmm/thrust_rmm_allocator.h>
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
@@ -76,6 +75,8 @@ class TreeUnionFind {
 
     return data[x * 2];
   }
+
+  value_idx *get_data() const { return data.data(); }
 
  private:
   std::vector<value_idx> data;
@@ -158,9 +159,7 @@ void compute_stabilities(
   auto n_leaves = condensed_tree.get_n_leaves();
 
   auto stream = handle.get_stream();
-
-  auto rmm_alloc = rmm::mr::thrust_allocator<char>(
-    stream, rmm::mr::get_current_device_resource());
+  auto exec_policy = rmm::exec_policy(stream);
 
   // TODO: Reverse topological sort (e.g. sort hierarchy, lambdas, and sizes by lambda)
   rmm::device_uvector<value_t> sorted_lambdas(n_edges, stream);
@@ -169,14 +168,12 @@ void compute_stabilities(
   rmm::device_uvector<value_idx> sorted_parents(n_edges, stream);
   raft::copy_async(sorted_parents.data(), parents, n_edges, stream);
 
-  thrust::sort_by_key(thrust::cuda::par(rmm_alloc).on(stream),
-                      sorted_parents.begin(), sorted_parents.end(),
+  thrust::sort_by_key(exec_policy, sorted_parents.begin(), sorted_parents.end(),
                       sorted_lambdas.begin());
 
   // 0-index sorted parents by subtracting n_leaves for offsets and birth/stability indexing
   auto index_op = [n_leaves] __device__(const auto &x) { return x - n_leaves; };
-  thrust::transform(thrust::cuda::par(rmm_alloc).on(stream),
-                    sorted_parents.begin(), sorted_parents.end(),
+  thrust::transform(exec_policy, sorted_parents.begin(), sorted_parents.end(),
                     sorted_parents.begin(), index_op);
 
   rmm::device_uvector<value_idx> sorted_parents_offsets(n_edges + 1, stream);
@@ -192,8 +189,7 @@ void compute_stabilities(
   // in which case, births for that parent are initialized to
   // lambda for that child
   rmm::device_uvector<value_t> births(n_clusters, stream);
-  thrust::fill(thrust::cuda::par(rmm_alloc).on(stream), births.begin(),
-               births.end(), 0.0f);
+  thrust::fill(exec_policy, births.begin(), births.end(), 0.0f);
   auto births_init_op = [n_leaves, children, lambdas,
                          births = births.data()] __device__(const auto &idx) {
     auto child = children[idx];
@@ -204,10 +200,8 @@ void compute_stabilities(
 
   // this is to find minimum lambdas of all children under a prent
   rmm::device_uvector<value_t> births_parent_min(n_clusters, stream);
-  thrust::fill(thrust::cuda::par(rmm_alloc).on(stream), births.begin(),
-               births.end(), 0.0f);
-  thrust::for_each(thrust::cuda::par(rmm_alloc).on(stream),
-                   thrust::make_counting_iterator(value_idx(0)),
+  thrust::fill(exec_policy, births.begin(), births.end(), 0.0f);
+  thrust::for_each(exec_policy, thrust::make_counting_iterator(value_idx(0)),
                    thrust::make_counting_iterator(n_edges), births_init_op);
   segmented_reduce(sorted_lambdas.data(), births_parent_min.data() + 1,
                    n_clusters - 1, sorted_parents_offsets.data() + 1, stream,
@@ -225,18 +219,16 @@ void compute_stabilities(
 
       return birth < births_parent_min ? birth : births_parent_min;
     };
-  thrust::transform(thrust::cuda::par(rmm_alloc).on(stream), births_zip,
-                    births_zip + n_clusters, births.begin(), min_op);
+  thrust::transform(exec_policy, births_zip, births_zip + n_clusters,
+                    births.begin(), min_op);
   raft::print_device_vector("Births", births.data(), n_clusters, std::cout);
 
-  thrust::fill(thrust::cuda::par(rmm_alloc).on(stream), stabilities,
-               stabilities + n_clusters, 0.0f);
+  thrust::fill(exec_policy, stabilities, stabilities + n_clusters, 0.0f);
 
   // for each child, calculate summation (lambda[child] - lambda[birth[parent]]) * sizes[child]
   stabilities_functor<value_idx, value_t> stabilities_op(
     stabilities, births.data(), parents, children, lambdas, sizes, n_leaves);
-  thrust::for_each(thrust::cuda::par(rmm_alloc).on(stream),
-                   thrust::make_counting_iterator(value_idx(0)),
+  thrust::for_each(exec_policy, thrust::make_counting_iterator(value_idx(0)),
                    thrust::make_counting_iterator(n_edges), stabilities_op);
 
   raft::print_device_vector("Stabilities", stabilities, n_clusters, std::cout);
@@ -264,16 +256,14 @@ void excess_of_mass(
   value_t *stability, int *is_cluster, value_idx n_clusters,
   value_idx max_cluster_size) {
   cudaStream_t stream = handle.get_stream();
-
-  auto rmm_alloc = rmm::mr::thrust_allocator<char>(
-    stream, rmm::mr::get_current_device_resource());
+  auto exec_policy = rmm::exec_policy(stream);
 
   /**
    * 1. Build CSR of cluster tree from condensed tree by filtering condensed tree for
    *    only those entries w/ lambda > 1 and constructing a CSR from the result
    */
   value_idx cluster_tree_edges = thrust::transform_reduce(
-    thrust::cuda::par(rmm_alloc).on(stream), condensed_tree.get_sizes(),
+    exec_policy, condensed_tree.get_sizes(),
     condensed_tree.get_sizes() + condensed_tree.get_n_edges(),
     [=] __device__(value_t a) { return a > 1.0; }, 0,
     thrust::plus<value_idx>());
@@ -284,7 +274,7 @@ void excess_of_mass(
   rmm::device_uvector<value_idx> indptr(n_clusters + 1, stream);
   rmm::device_uvector<value_idx> cluster_sizes(n_clusters, stream);
 
-  thrust::fill(thrust::cuda::par(rmm_alloc).on(stream), cluster_sizes.data(),
+  thrust::fill(exec_policy, cluster_sizes.data(),
                cluster_sizes.data() + cluster_sizes.size(), 0);
 
   auto in = thrust::make_zip_iterator(thrust::make_tuple(
@@ -296,22 +286,21 @@ void excess_of_mass(
   auto out = thrust::make_zip_iterator(
     thrust::make_tuple(parents.data(), children.data(), sizes.data()));
 
-  thrust::copy_if(thrust::cuda::par(rmm_alloc).on(stream), in,
-                  in + (condensed_tree.get_n_edges()),
+  thrust::copy_if(exec_policy, in, in + (condensed_tree.get_n_edges()),
                   condensed_tree.get_sizes(), out,
                   [=] __device__(value_t a) { return a > 1.0; });
 
   value_idx *cluster_sizes_ptr = cluster_sizes.data();
 
-  thrust::transform(thrust::cuda::par(rmm_alloc).on(stream), parents.data(),
+  thrust::transform(exec_policy, parents.data(),
                     parents.data() + parents.size(), parents.data(),
                     [=] __device__(value_idx a) { return a - n_leaves; });
-  thrust::transform(thrust::cuda::par(rmm_alloc).on(stream), children.data(),
+  thrust::transform(exec_policy, children.data(),
                     children.data() + children.size(), children.data(),
                     [=] __device__(value_idx a) { return a - n_leaves; });
 
   thrust::for_each(
-    thrust::cuda::par(rmm_alloc).on(stream), out, out + children.size(),
+    exec_policy, out, out + children.size(),
     [=] __device__(const thrust::tuple<value_idx, value_idx, value_idx> &tup) {
       cluster_sizes_ptr[thrust::get<1>(tup)] = thrust::get<2>(tup);
     });
@@ -348,8 +337,8 @@ void excess_of_mass(
 
     if (indptr_h[node + 1] - indptr_h[node] > 0) {
       subtree_stability = thrust::transform_reduce(
-        thrust::cuda::par(rmm_alloc).on(stream),
-        children.data() + indptr_h[node], children.data() + indptr_h[node + 1],
+        exec_policy, children.data() + indptr_h[node],
+        children.data() + indptr_h[node + 1],
         [=] __device__(value_idx a) { return stability[a]; }, 0,
         thrust::plus<value_t>());
     }
@@ -375,9 +364,8 @@ void excess_of_mass(
   raft::update_device(is_cluster, is_cluster_h.data(), n_clusters, stream);
   raft::update_device(frontier.data(), frontier_h.data(), n_clusters, stream);
 
-  value_idx n_elements_to_traverse =
-    thrust::reduce(thrust::cuda::par(rmm_alloc).on(stream), frontier.data(),
-                   frontier.data() + frontier.size(), 0);
+  value_idx n_elements_to_traverse = thrust::reduce(
+    exec_policy, frontier.data(), frontier.data() + frontier.size(), 0);
 
   // TODO: Investigate whether it's worth gathering the sparse frontier into
   // a dense form for purposes of uniform workload/thread scheduling
@@ -389,9 +377,8 @@ void excess_of_mass(
     propagate_cluster_negation<<<grid, tpb, 0, stream>>>(
       indptr.data(), children.data(), frontier.data(), is_cluster, n_clusters);
 
-    n_elements_to_traverse =
-      thrust::reduce(thrust::cuda::par(rmm_alloc).on(stream), frontier.data(),
-                     frontier.data() + frontier.size(), 0);
+    n_elements_to_traverse = thrust::reduce(
+      exec_policy, frontier.data(), frontier.data() + frontier.size(), 0);
   }
 }
 
@@ -401,16 +388,14 @@ void get_stability_scores(const raft::handle_t &handle, const value_idx *labels,
                           value_t max_lambda, size_t n_leaves,
                           value_t *result) {
   auto stream = handle.get_stream();
-  auto rmm_alloc = rmm::mr::thrust_allocator<char>(
-    stream, rmm::mr::get_current_device_resource());
+  auto exec_policy = rmm::exec_policy(stream);
 
   /**
    * 1. Populate cluster sizes
    */
   rmm::device_uvector<value_idx> cluster_sizes(n_clusters, handle.get_stream());
   value_idx *sizes = cluster_sizes.data();
-  thrust::for_each(thrust::cuda::par(rmm_alloc).on(stream), labels,
-                   labels + n_leaves,
+  thrust::for_each(exec_policy, labels, labels + n_leaves,
                    [=] __device__(value_idx v) { atomicAdd(sizes + v, 1); });
 
   /**
@@ -419,8 +404,7 @@ void get_stability_scores(const raft::handle_t &handle, const value_idx *labels,
   auto enumeration = thrust::make_zip_iterator(thrust::make_tuple(
     thrust::make_counting_iterator(0), cluster_sizes.data()));
   thrust::transform(
-    thrust::cuda::par(rmm_alloc).on(stream), enumeration,
-    enumeration + n_clusters, result,
+    exec_policy, enumeration, enumeration + n_clusters, result,
     [=] __device__(thrust::tuple<value_idx, value_idx> tup) {
       value_idx size = thrust::get<1>(tup);
       value_idx c = thrust::get<0>(tup);
@@ -496,6 +480,94 @@ void do_labelling_on_host(
   raft::update_device(labels, result.data(), n_leaves, stream);
 }
 
+/**
+ * Extracts flattened labels using a cut point (epsilon) and minimum cluster
+ * size. This is useful for Robust Single Linkage and DBSCAN labeling.
+ * @tparam value_idx
+ * @tparam value_t
+ * @param handle
+ * @param children
+ * @param deltas
+ * @param sizes
+ * @param n_leaves
+ * @param cut
+ * @param min_cluster_size
+ * @param labels
+ */
+template <typename value_idx, typename value_t>
+void do_labelling_at_cut(const raft::handle_t &handle,
+                         const value_idx *children, const value_t *deltas,
+                         const value_idx *sizes, value_idx n_leaves, double cut,
+                         int min_cluster_size, value_idx *labels) {
+  auto stream = handle.get_stream();
+  auto exec_policy = rmm::exec_policy(stream);
+
+  // Root is the last edge in the dendrogram
+  value_idx root = 2 * (n_leaves - 1);
+  value_idx num_points = root / 2 + 1;
+
+  std::vector<value_idx> labels_h(n_leaves);
+
+  auto union_find = TreeUnionFind<value_idx>(root + 1);
+
+  std::vector<value_idx> children_h(n_leaves * 2);
+  std::vector<value_t> delta_h(n_leaves);
+  std::vector<value_idx> sizes_h(n_leaves);
+
+  raft::update_host(children_h.data(), children, n_leaves * 2, stream);
+  raft::update_host(delta_h.data(), deltas, n_leaves, stream);
+  raft::update_host(sizes_h.data(), sizes, n_leaves, stream);
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  value_idx cluster = num_points;
+
+  // Perform union on host to label parents / clusters
+  for (int row = 0; row < n_leaves; row++) {
+    if (delta_h[row] < cut) {
+      union_find.perform_union(children_h[row * 2], cluster);
+      union_find.perform_union(children_h[row * 2 + 1], cluster);
+    }
+    cluster += 1;
+  }
+
+  // Label points in parallel
+  rmm::device_uvector<value_idx> union_find_data((root + 1) * 2, stream);
+  raft::update_device(union_find_data.data(), union_find.get_data(),
+                      union_find_data.size(), stream);
+
+  rmm::device_uvector<value_idx> cluster_sizes(cluster, stream);
+  thrust::fill(exec_policy, cluster_sizes.data(), cluster_sizes.data(), 0);
+
+  auto seq = thrust::make_counting_iterator(0);
+
+  thrust::for_each(exec_policy, seq, seq + n_leaves,
+                   [=] __device__(value_idx leaf) {
+                     // perform find using tree-union find
+                     value_idx cur_find = union_find_data[leaf * 2];
+                     while (cur_find != leaf)
+                       cur_find = union_find_data[cur_find * 2];
+
+                     labels[leaf] = cur_find;
+                     atomicAdd(cluster_sizes.data() + cur_find, 1);
+                   });
+
+  // Label noise points
+  value_idx *cluster_sizes_ptr = cluster_sizes.data();
+  thrust::transform(exec_policy, labels, labels + n_leaves, labels,
+                    [=] __device__(value_idx cluster) {
+                      bool too_small =
+                        cluster_sizes_ptr[cluster] < min_cluster_size;
+                      return (too_small * -1) + (!too_small * cluster);
+                    });
+
+  // Draw non-noise points from a monotonically increasing set
+  raft::label::make_monotonic(
+    labels, labels, n_leaves, stream,
+    [] __device__(value_idx label) { return label == -1; },
+    handle.get_device_allocator(), true);
+}
+
 template <typename value_idx, typename value_t>
 struct probabilities_functor {
  public:
@@ -548,8 +620,7 @@ void get_probabilities(
   Common::CondensedHierarchy<value_idx, value_t> &condensed_tree,
   const value_idx *labels, value_t *probabilities) {
   auto stream = handle.get_stream();
-  auto rmm_alloc = rmm::mr::thrust_allocator<char>(
-    stream, rmm::mr::get_current_device_resource());
+  auto exec_policy = rmm::exec_policy(stream);
 
   auto parents = condensed_tree.get_parents();
   auto children = condensed_tree.get_children();
@@ -564,14 +635,12 @@ void get_probabilities(
   rmm::device_uvector<value_t> sorted_lambdas(n_edges, stream);
   raft::copy_async(sorted_lambdas.data(), lambdas, n_edges, stream);
 
-  thrust::sort_by_key(thrust::cuda::par(rmm_alloc).on(stream),
-                      sorted_parents.begin(), sorted_parents.end(),
+  thrust::sort_by_key(exec_policy, sorted_parents.begin(), sorted_parents.end(),
                       sorted_lambdas.begin());
 
   // 0-index sorted parents by subtracting n_leaves for offsets and birth/stability indexing
   auto index_op = [n_leaves] __device__(const auto &x) { return x - n_leaves; };
-  thrust::transform(thrust::cuda::par(rmm_alloc).on(stream),
-                    sorted_parents.begin(), sorted_parents.end(),
+  thrust::transform(exec_policy, sorted_parents.begin(), sorted_parents.end(),
                     sorted_parents.begin(), index_op);
 
   rmm::device_uvector<value_idx> sorted_parents_offsets(n_edges + 1, stream);
@@ -581,8 +650,7 @@ void get_probabilities(
 
   // this is to find maximum lambdas of all children under a prent
   rmm::device_uvector<value_t> deaths(n_clusters, stream);
-  thrust::fill(thrust::cuda::par(rmm_alloc).on(stream), deaths.begin(),
-               deaths.end(), 0.0f);
+  thrust::fill(exec_policy, deaths.begin(), deaths.end(), 0.0f);
 
   segmented_reduce(sorted_lambdas.data(), deaths.data(), n_clusters,
                    sorted_parents_offsets.data(), stream,
@@ -591,14 +659,12 @@ void get_probabilities(
   raft::print_device_vector("Deaths", deaths.data(), n_clusters, std::cout);
 
   // Calculate probability per point
-  thrust::fill(thrust::cuda::par(rmm_alloc).on(stream), probabilities,
-               probabilities + n_leaves, 0.0f);
+  thrust::fill(exec_policy, probabilities, probabilities + n_leaves, 0.0f);
 
   std::cout << "root cluster: " << n_leaves << std::endl;
   probabilities_functor<value_idx, value_t> probabilities_op(
     probabilities, deaths.data(), parents, children, lambdas, labels, n_leaves);
-  thrust::for_each(thrust::cuda::par(rmm_alloc).on(stream),
-                   thrust::make_counting_iterator(value_idx(0)),
+  thrust::for_each(exec_policy, thrust::make_counting_iterator(value_idx(0)),
                    thrust::make_counting_iterator(n_edges), probabilities_op);
 
   raft::print_device_vector("Probabilities", probabilities, n_leaves,
@@ -613,8 +679,7 @@ void extract_clusters(
   value_t *probabilities, bool allow_single_cluster = true,
   value_idx max_cluster_size = 0) {
   auto stream = handle.get_stream();
-  auto rmm_alloc = rmm::mr::thrust_allocator<char>(
-    stream, rmm::mr::get_current_device_resource());
+  auto exec_policy = rmm::exec_policy(stream);
 
   rmm::device_uvector<value_t> tree_stabilities(condensed_tree.get_n_clusters(),
                                                 handle.get_stream());
@@ -651,7 +716,7 @@ void extract_clusters(
                               handle.get_device_allocator(), true);
 
   value_t max_lambda = *(thrust::max_element(
-    thrust::cuda::par(rmm_alloc).on(stream), condensed_tree.get_lambdas(),
+    exec_policy, condensed_tree.get_lambdas(),
     condensed_tree.get_lambdas() + condensed_tree.get_n_edges()));
 
   get_stability_scores(handle, labels, tree_stabilities.data(), clusters.size(),
