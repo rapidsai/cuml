@@ -76,7 +76,7 @@ class TreeUnionFind {
     return data[x * 2];
   }
 
-  value_idx *get_data() const { return data.data(); }
+  value_idx *get_data() { return data.data(); }
 
  private:
   std::vector<value_idx> data;
@@ -497,7 +497,7 @@ void do_labelling_on_host(
 template <typename value_idx, typename value_t>
 void do_labelling_at_cut(const raft::handle_t &handle,
                          const value_idx *children, const value_t *deltas,
-                         const value_idx *sizes, value_idx n_leaves, double cut,
+                         value_idx n_leaves, double cut,
                          int min_cluster_size, value_idx *labels) {
   auto stream = handle.get_stream();
   auto exec_policy = rmm::exec_policy(stream);
@@ -512,11 +512,9 @@ void do_labelling_at_cut(const raft::handle_t &handle,
 
   std::vector<value_idx> children_h(n_leaves * 2);
   std::vector<value_t> delta_h(n_leaves);
-  std::vector<value_idx> sizes_h(n_leaves);
 
   raft::update_host(children_h.data(), children, n_leaves * 2, stream);
   raft::update_host(delta_h.data(), deltas, n_leaves, stream);
-  raft::update_host(sizes_h.data(), sizes, n_leaves, stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -539,21 +537,23 @@ void do_labelling_at_cut(const raft::handle_t &handle,
   rmm::device_uvector<value_idx> cluster_sizes(cluster, stream);
   thrust::fill(exec_policy, cluster_sizes.data(), cluster_sizes.data(), 0);
 
-  auto seq = thrust::make_counting_iterator(0);
+  auto seq = thrust::make_counting_iterator<value_idx>(0);
+
+  value_idx *union_find_data_ptr = union_find_data.data();
+  value_idx *cluster_sizes_ptr = cluster_sizes.data();
 
   thrust::for_each(exec_policy, seq, seq + n_leaves,
                    [=] __device__(value_idx leaf) {
                      // perform find using tree-union find
-                     value_idx cur_find = union_find_data[leaf * 2];
+                     value_idx cur_find = union_find_data_ptr[leaf * 2];
                      while (cur_find != leaf)
-                       cur_find = union_find_data[cur_find * 2];
+                       cur_find = union_find_data_ptr[cur_find * 2];
 
                      labels[leaf] = cur_find;
-                     atomicAdd(cluster_sizes.data() + cur_find, 1);
+                     atomicAdd(cluster_sizes_ptr + cur_find, 1);
                    });
 
   // Label noise points
-  value_idx *cluster_sizes_ptr = cluster_sizes.data();
   thrust::transform(exec_policy, labels, labels + n_leaves, labels,
                     [=] __device__(value_idx cluster) {
                       bool too_small =
