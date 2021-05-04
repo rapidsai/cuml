@@ -247,8 +247,6 @@ void build_condensed_hierarchy(
                               std::cout);
   }
 
-  // TODO: Verify the sequence of condensed cluster labels enables topological sort
-
   condensed_tree.condense(out_parent.data(), out_child.data(),
                           out_lambda.data(), out_size.data());
 }

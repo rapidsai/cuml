@@ -22,8 +22,7 @@
 #include <cuml/common/logger.hpp>
 
 #include <rmm/device_uvector.hpp>
-
-#include <raft/handle.hpp>
+#include <rmm/exec_policy.hpp>
 
 #include <raft/sparse/op/sort.h>
 #include <raft/sparse/convert/csr.cuh>
@@ -80,6 +79,22 @@ CondensedHierarchy<value_idx, value_t>::CondensedHierarchy(
 
   n_clusters = max_cluster - min_cluster + 1;
 }
+
+template <typename value_idx, typename value_t>
+CondensedHierarchy<value_idx, value_t>::CondensedHierarchy(
+  const raft::handle_t &handle_, size_t n_leaves_, int n_edges_,
+  int n_clusters_, rmm::device_uvector<value_idx> &&parents_,
+  rmm::device_uvector<value_idx> &&children_,
+  rmm::device_uvector<value_t> &&lambdas_,
+  rmm::device_uvector<value_idx> &&sizes_)
+  : handle(handle_),
+    n_leaves(n_leaves_),
+    n_edges(n_edges_),
+    n_clusters(n_clusters_),
+    parents(std::move(parents_)),
+    children(std::move(children_)),
+    lambdas(std::move(lambdas_)),
+    sizes(std::move(sizes_)) {}
 
 /**
  * Populates the condensed hierarchy object with the output

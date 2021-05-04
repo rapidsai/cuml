@@ -341,8 +341,9 @@ set(CUML_INCLUDE_DIRECTORIES
   ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
   ${SPDLOG_DIR}/src/spdlog/include
   ${FAISS_INCLUDE_DIRS}
+  ${RMM_INCLUDE_DIRS}
   ${RAFT_DIR}/cpp/include
-  ${RMM_INCLUDE_DIRS})
+)
 
 # These directories will be used by dependent targets
 set(CUML_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)

@@ -17,8 +17,8 @@
 #pragma once
 
 #include <raft/linalg/distance_type.h>
+#include <raft/handle.hpp>
 
-#include <cuml/cuml.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <cstddef>
@@ -54,6 +54,24 @@ class CondensedHierarchy {
                      int n_edges_, value_idx *parents_, value_idx *children_,
                      value_t *lambdas_, value_idx *sizes_);
 
+  /**
+   * Constructs a condensed hierarchy object with by moving
+   * rmm::device_uvector. Used to construct cluster trees
+   * @param handle_
+   * @param n_leaves_
+   * @param size_
+   * @param n_edges_
+   * @param parents_
+   * @param children_
+   * @param lambdas_
+   * @param sizes_
+   */
+  CondensedHierarchy(const raft::handle_t &handle_, size_t n_leaves_,
+                     int n_edges_, int n_clusters_,
+                     rmm::device_uvector<value_idx> &&parents_,
+                     rmm::device_uvector<value_idx> &&children_,
+                     rmm::device_uvector<value_t> &&lambdas_,
+                     rmm::device_uvector<value_idx> &&sizes_);
   /**
    * Populates the condensed hierarchy object with the output
    * from Condense::condense_hierarchy
@@ -106,6 +124,8 @@ class HDBSCANParams {
   float cluster_selection_epsilon = 0.0;
 
   bool allow_single_cluster = false;
+
+  float alpha = 1.0;
 
   CLUSTER_SELECTION_METHOD cluster_selection_method;
 };
@@ -217,4 +237,10 @@ void hdbscan(const raft::handle_t &handle, const float *X, size_t m, size_t n,
              raft::distance::DistanceType metric,
              HDBSCAN::Common::HDBSCANParams &params,
              HDBSCAN::Common::hdbscan_output<int, float> &out);
+
+void robust_single_linkage(const raft::handle_t &handle, const float *X,
+                           size_t m, size_t n,
+                           raft::distance::DistanceType metric,
+                           HDBSCAN::Common::HDBSCANParams &params,
+                           HDBSCAN::Common::hdbscan_output<int, float> &out);
 };  // end namespace ML

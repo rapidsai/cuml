@@ -87,7 +87,7 @@ void _fit(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
   rmm::device_uvector<value_t> core_dists(m, stream);
 
   detail::Reachability::mutual_reachability_graph(
-    handle, X, (size_t)m, (size_t)n, metric, k,
+    handle, X, (size_t)m, (size_t)n, metric, k, params.alpha,
     mutual_reachability_indptr.data(), core_dists.data(),
     mutual_reachability_coo);
 
@@ -140,6 +140,71 @@ void _fit(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
   detail::Extract::extract_clusters(handle, out.get_condensed_tree(), m,
                                     out.get_labels(), out.get_stabilities(),
                                     out.get_probabilities());
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  CUML_LOG_DEBUG("Executed cluster extraction");
+}
+
+template <typename value_idx = int64_t, typename value_t = float>
+void _fit_rbs(const raft::handle_t &handle, const value_t *X, size_t m,
+              size_t n, raft::distance::DistanceType metric,
+              Common::HDBSCANParams &params,
+              Common::hdbscan_output<value_idx, value_t> &out) {
+  auto d_alloc = handle.get_device_allocator();
+  auto stream = handle.get_stream();
+
+  int k = params.k;
+  int min_samples = params.min_samples;
+  int min_cluster_size = params.min_cluster_size;
+
+  /**
+    * Mutual reachability graph
+    */
+  rmm::device_uvector<value_idx> mutual_reachability_indptr(m + 1, stream);
+  raft::sparse::COO<value_t, value_idx> mutual_reachability_coo(d_alloc, stream,
+                                                                k * m * 2);
+  rmm::device_uvector<value_t> core_dists(m, stream);
+
+  detail::Reachability::mutual_reachability_graph(
+    handle, X, (size_t)m, (size_t)n, metric, k, params.alpha,
+    mutual_reachability_indptr.data(), core_dists.data(),
+    mutual_reachability_coo);
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  CUML_LOG_DEBUG("Executed mutual reachability");
+
+  /**
+    * Construct MST sorted by weights
+    */
+
+  // during knn graph connection
+  raft::hierarchy::detail::build_sorted_mst(
+    handle, X, mutual_reachability_indptr.data(),
+    mutual_reachability_coo.cols(), mutual_reachability_coo.vals(), m, n,
+    out.get_mst_src(), out.get_mst_dst(), out.get_mst_weights(),
+    mutual_reachability_coo.nnz,
+    MSTEpilogueReachability<value_idx, value_t>(m, core_dists.data()), metric,
+    (size_t)10);
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  CUML_LOG_DEBUG("Executed MST");
+
+  /**
+   * Perform hierarchical labeling
+   */
+  size_t n_edges = m - 1;
+
+  raft::hierarchy::detail::build_dendrogram_host(
+    handle, out.get_mst_src(), out.get_mst_dst(), out.get_mst_weights(),
+    n_edges, out.get_children(), out.get_deltas(), out.get_sizes());
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  CUML_LOG_DEBUG("Executed dendrogram labeling");
+
+  detail::Extract::do_labelling_at_cut(
+    handle, out.get_children(), out.get_deltas(), out.get_n_leaves(),
+    params.cluster_selection_epsilon, params.min_cluster_size,
+    out.get_labels());
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
   CUML_LOG_DEBUG("Executed cluster extraction");
