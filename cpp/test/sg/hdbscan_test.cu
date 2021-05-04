@@ -22,6 +22,8 @@
 #include <cuml/cluster/hdbscan.hpp>
 #include <hdbscan/detail/condense.cuh>
 #include <hdbscan/detail/extract.cuh>
+#include <hdbscan/detail/utils.h>
+
 #include <raft/sparse/hierarchy/detail/agglomerative.cuh>
 
 #include <raft/linalg/distance_type.h>
@@ -842,7 +844,7 @@ class ExcessOfMassTest
       condensed_lambdas.data(), condensed_sizes.data());
 
     CUML_LOG_DEBUG("Calling compute stabilities");
-    ML::HDBSCAN::detail::Extract::compute_stabilities(handle, condensed_tree,
+    ML::HDBSCAN::detail::Stability::compute_stabilities(handle, condensed_tree,
                                                       stabilities.data());
 
     ASSERT_TRUE(raft::devArrMatch(stabilities.data(), params.stabilities.data(),
@@ -856,8 +858,8 @@ class ExcessOfMassTest
 
     CUML_LOG_DEBUG("Calling excess of mass");
     auto cluster_tree =
-      ML::HDBSCAN::Common::make_cluster_tree(handle, condensed_tree);
-    ML::HDBSCAN::detail::Extract::excess_of_mass(
+      ML::HDBSCAN::detail::Utils::make_cluster_tree(handle, condensed_tree);
+    ML::HDBSCAN::detail::Select::excess_of_mass(
       handle, cluster_tree, stabilities.data(), is_cluster.data(),
       condensed_tree.get_n_clusters(), params.n_row);
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
@@ -889,7 +891,7 @@ class ExcessOfMassTest
 
     CUML_LOG_DEBUG("Calculating Probabilities");
     rmm::device_uvector<T> probabilities(params.n_row, handle.get_stream());
-    ML::HDBSCAN::detail::Extract::get_probabilities(
+    ML::HDBSCAN::detail::Membership::get_probabilities(
       handle, condensed_tree, labels.data(), probabilities.data());
 
     ASSERT_TRUE(

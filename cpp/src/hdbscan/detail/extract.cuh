@@ -22,6 +22,11 @@
 
 #include <raft/cudart_utils.h>
 
+#include "membership.cuh"
+#include "select.cuh"
+#include "stabilities.cuh"
+#include "utils.h"
+
 #include <raft/sparse/op/sort.h>
 #include <raft/sparse/convert/csr.cuh>
 
@@ -30,8 +35,6 @@
 #include <raft/label/classlabels.cuh>
 
 #include <algorithm>
-
-#include <hdbscan/condensed_hierarchy.cu>
 
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
@@ -81,352 +84,6 @@ class TreeUnionFind {
  private:
   std::vector<value_idx> data;
 };
-
-template <typename value_idx, typename value_t, typename CUBReduceFunc>
-void segmented_reduce(const value_t *in, value_t *out, int n_segments,
-                      const value_idx *offsets, cudaStream_t stream,
-                      CUBReduceFunc cub_reduce_func) {
-  void *d_temp_storage = NULL;
-  size_t temp_storage_bytes = 0;
-  cub_reduce_func(d_temp_storage, temp_storage_bytes, in, out, n_segments,
-                  offsets, offsets + 1, stream, false);
-  CUDA_CHECK(cudaMalloc(&d_temp_storage, temp_storage_bytes));
-
-  cub_reduce_func(d_temp_storage, temp_storage_bytes, in, out, n_segments,
-                  offsets, offsets + 1, stream, false);
-  CUDA_CHECK(cudaFree(d_temp_storage));
-}
-
-template <typename value_idx, typename value_t>
-struct stabilities_functor {
- public:
-  stabilities_functor(value_t *stabilities_, const value_t *births_,
-                      const value_idx *parents_, const value_idx *children_,
-                      const value_t *lambdas_, const value_idx *sizes_,
-                      const value_idx n_leaves_)
-    : stabilities(stabilities_),
-      births(births_),
-      parents(parents_),
-      children(children_),
-      lambdas(lambdas_),
-      sizes(sizes_),
-      n_leaves(n_leaves_) {}
-
-  __device__ void operator()(const int &idx) {
-    auto parent = parents[idx] - n_leaves;
-
-    atomicAdd(&stabilities[parent],
-              (lambdas[idx] - births[parent]) * sizes[idx]);
-  }
-
- private:
-  value_t *stabilities;
-  const value_t *births, *lambdas;
-  const value_idx *parents, *children, *sizes, n_leaves;
-};
-
-template <typename value_idx, typename value_t>
-void compute_stabilities(
-  const raft::handle_t &handle,
-  Common::CondensedHierarchy<value_idx, value_t> &condensed_tree,
-  value_t *stabilities) {
-  auto parents = condensed_tree.get_parents();
-  auto children = condensed_tree.get_children();
-  auto lambdas = condensed_tree.get_lambdas();
-  auto sizes = condensed_tree.get_sizes();
-  auto n_edges = condensed_tree.get_n_edges();
-  auto n_clusters = condensed_tree.get_n_clusters();
-  auto n_leaves = condensed_tree.get_n_leaves();
-
-  auto stream = handle.get_stream();
-  auto exec_policy = rmm::exec_policy(stream);
-
-  // TODO: Reverse topological sort (e.g. sort hierarchy, lambdas, and sizes by lambda)
-  rmm::device_uvector<value_t> sorted_lambdas(n_edges, stream);
-  raft::copy_async(sorted_lambdas.data(), lambdas, n_edges, stream);
-
-  rmm::device_uvector<value_idx> sorted_parents(n_edges, stream);
-  raft::copy_async(sorted_parents.data(), parents, n_edges, stream);
-
-  thrust::sort_by_key(exec_policy, sorted_parents.begin(), sorted_parents.end(),
-                      sorted_lambdas.begin());
-
-  // 0-index sorted parents by subtracting n_leaves for offsets and birth/stability indexing
-  auto index_op = [n_leaves] __device__(const auto &x) { return x - n_leaves; };
-  thrust::transform(exec_policy, sorted_parents.begin(), sorted_parents.end(),
-                    sorted_parents.begin(), index_op);
-
-  rmm::device_uvector<value_idx> sorted_parents_offsets(n_edges + 1, stream);
-  raft::sparse::convert::sorted_coo_to_csr(
-    sorted_parents.data(), n_edges, sorted_parents_offsets.data(),
-    n_clusters + 1, handle.get_device_allocator(), handle.get_stream());
-
-  // Segmented reduction on min_lambda within each cluster
-  // TODO: Converting child array to CSR offset and using CUB Segmented Reduce
-  // Investigate use of a kernel like coo_spmv
-
-  // This is to consider the case where a child may also be a parent
-  // in which case, births for that parent are initialized to
-  // lambda for that child
-  rmm::device_uvector<value_t> births(n_clusters, stream);
-  thrust::fill(exec_policy, births.begin(), births.end(), 0.0f);
-  auto births_init_op = [n_leaves, children, lambdas,
-                         births = births.data()] __device__(const auto &idx) {
-    auto child = children[idx];
-    if (child >= n_leaves) {
-      births[child - n_leaves] = lambdas[idx];
-    }
-  };
-
-  // this is to find minimum lambdas of all children under a prent
-  rmm::device_uvector<value_t> births_parent_min(n_clusters, stream);
-  thrust::fill(exec_policy, births.begin(), births.end(), 0.0f);
-  thrust::for_each(exec_policy, thrust::make_counting_iterator(value_idx(0)),
-                   thrust::make_counting_iterator(n_edges), births_init_op);
-  segmented_reduce(sorted_lambdas.data(), births_parent_min.data() + 1,
-                   n_clusters - 1, sorted_parents_offsets.data() + 1, stream,
-                   cub::DeviceSegmentedReduce::Min<const value_t *, value_t *,
-                                                   const value_idx *>);
-
-  // finally, we find minimum between initialized births where parent=child
-  // and births of parents for their childrens
-  auto births_zip = thrust::make_zip_iterator(
-    thrust::make_tuple(births.data(), births_parent_min.data()));
-  auto min_op =
-    [] __device__(const thrust::tuple<value_t, value_t> &birth_pair) {
-      auto birth = thrust::get<0>(birth_pair);
-      auto births_parent_min = thrust::get<1>(birth_pair);
-
-      return birth < births_parent_min ? birth : births_parent_min;
-    };
-  thrust::transform(exec_policy, births_zip, births_zip + n_clusters,
-                    births.begin(), min_op);
-  raft::print_device_vector("Births", births.data(), n_clusters, std::cout);
-
-  thrust::fill(exec_policy, stabilities, stabilities + n_clusters, 0.0f);
-
-  // for each child, calculate summation (lambda[child] - lambda[birth[parent]]) * sizes[child]
-  stabilities_functor<value_idx, value_t> stabilities_op(
-    stabilities, births.data(), parents, children, lambdas, sizes, n_leaves);
-  thrust::for_each(exec_policy, thrust::make_counting_iterator(value_idx(0)),
-                   thrust::make_counting_iterator(n_edges), stabilities_op);
-
-  raft::print_device_vector("Stabilities", stabilities, n_clusters, std::cout);
-}
-
-template <typename value_idx>
-__global__ void propagate_cluster_negation_kernel(const value_idx *indptr,
-                                                  const value_idx *children,
-                                                  int *frontier,
-                                                  int *is_cluster,
-                                                  int n_clusters) {
-  int cluster = blockDim.x * blockIdx.x + threadIdx.x;
-
-  if (cluster < n_clusters && frontier[cluster]) {
-    frontier[cluster] = false;
-
-    value_idx children_start = indptr[cluster];
-    value_idx children_stop = indptr[cluster + 1];
-    for (int i = children_start; i < children_stop; i++) {
-      value_idx child = children[i];
-      frontier[child] = true;
-      is_cluster[child] = false;
-    }
-  }
-}
-
-template <typename value_idx, int tpb = 256>
-void propagate_cluster_negation(const raft::handle_t &handle,
-                                const value_idx *indptr,
-                                const value_idx *children, int *frontier,
-                                int *is_cluster, int n_clusters) {
-  auto stream = handle.get_stream();
-  auto thrust_policy = rmm::exec_policy(stream);
-
-  value_idx n_elements_to_traverse =
-    thrust::reduce(thrust_policy, frontier, frontier + n_clusters, 0);
-
-  // TODO: Investigate whether it's worth gathering the sparse frontier into
-  // a dense form for purposes of uniform workload/thread scheduling
-
-  // While frontier is not empty, perform single bfs through tree
-  size_t grid = raft::ceildiv(n_clusters, tpb);
-
-  while (n_elements_to_traverse > 0) {
-    propagate_cluster_negation_kernel<<<grid, tpb, 0, stream>>>(
-      indptr, children, frontier, is_cluster, n_clusters);
-
-    n_elements_to_traverse =
-      thrust::reduce(thrust_policy, frontier, frontier + n_clusters, 0);
-  }
-}
-
-/**
-  Function to get a csr index of parents of cluster tree.
-  csr index is created by sorting parents by children then sizes
- */
-template <typename value_idx, typename value_t>
-rmm::device_uvector<value_idx> parent_csr(
-  const raft::handle_t &handle,
-  Common::CondensedHierarchy<value_idx, value_t> &cluster_tree,
-  const int n_clusters) {
-  auto stream = handle.get_stream();
-  auto thrust_policy = rmm::exec_policy(stream);
-
-  auto parents = cluster_tree.get_parents();
-  auto children = cluster_tree.get_children();
-  auto sizes = cluster_tree.get_sizes();
-  auto cluster_tree_edges = cluster_tree.get_n_edges();
-
-  rmm::device_uvector<value_idx> indptr(n_clusters + 1, stream);
-
-  raft::sparse::op::coo_sort(0, 0, cluster_tree_edges, parents, children, sizes,
-                             handle.get_device_allocator(), stream);
-
-  raft::sparse::convert::sorted_coo_to_csr(
-    parents, cluster_tree_edges, indptr.data(), n_clusters + 1,
-    handle.get_device_allocator(), stream);
-
-  return indptr;
-}
-
-/**
- * Computes the excess of mass. This is a cluster extraction
- * strategy that iterates upwards from the leaves of the cluster
- * tree toward the root, selecting a cluster
- * @tparam value_idx
- * @tparam value_t
- * @tparam tpb
- * @param handle
- * @param condensed_tree
- * @param stability an array of nodes from the cluster tree and their
- *                  corresponding stabilities
- * @param is_cluster
- * @param n_clusters
- * @param max_cluster_size
- */
-template <typename value_idx, typename value_t, int tpb = 256>
-void excess_of_mass(
-  const raft::handle_t &handle,
-  Common::CondensedHierarchy<value_idx, value_t> &cluster_tree,
-  value_t *stability, int *is_cluster, int n_clusters,
-  value_idx max_cluster_size) {
-  auto stream = handle.get_stream();
-  auto exec_policy = rmm::exec_policy(stream);
-
-  /**
-   * 1. Build CSR of cluster tree from condensed tree by filtering condensed tree for
-   *    only those entries w/ lambda > 1 and constructing a CSR from the result
-   */
-  auto cluster_tree_edges = cluster_tree.get_n_edges();
-  auto parents = cluster_tree.get_parents();
-  auto children = cluster_tree.get_children();
-  auto lambdas = cluster_tree.get_lambdas();
-  auto sizes = cluster_tree.get_sizes();
-
-  rmm::device_uvector<value_idx> cluster_sizes(n_clusters, stream);
-
-  thrust::fill(exec_policy, cluster_sizes.data(),
-               cluster_sizes.data() + cluster_sizes.size(), 0);
-
-  value_idx *cluster_sizes_ptr = cluster_sizes.data();
-
-  auto out =
-    thrust::make_zip_iterator(thrust::make_tuple(parents, children, sizes));
-  thrust::for_each(
-    exec_policy, out, out + cluster_tree_edges,
-    [=] __device__(const thrust::tuple<value_idx, value_idx, value_idx> &tup) {
-      cluster_sizes_ptr[thrust::get<1>(tup)] = thrust::get<2>(tup);
-    });
-
-  /**
-   * 2. Iterate through each level from leaves back to root. Use the cluster
-   *    tree CSR and warp-level reduction to sum stabilities and test whether
-   *    or not current cluster should continue to be its own
-   */
-  std::vector<int> is_cluster_h(n_clusters, true);
-  std::vector<int> frontier_h(n_clusters, false);
-  std::vector<value_idx> cluster_sizes_h(n_clusters);
-
-  auto indptr = parent_csr(handle, cluster_tree, n_clusters);
-
-  std::vector<value_idx> indptr_h(indptr.size());
-  raft::update_host(indptr_h.data(), indptr.data(), indptr.size(), stream);
-  raft::update_host(cluster_sizes_h.data(), cluster_sizes.data(),
-                    cluster_sizes.size(), stream);
-  // don't need to sync here- thrust should take care of it.
-
-  // Loop through stabilities in "reverse topological order" (e.g. reverse sorted order)
-  for (value_idx node = n_clusters - 1; node >= 0; node--) {
-    value_t node_stability = 0;
-    raft::update_host(&node_stability, stability + node, 1, stream);
-
-    value_t subtree_stability = 0;
-
-    if (indptr_h[node + 1] - indptr_h[node] > 0) {
-      subtree_stability = thrust::transform_reduce(
-        exec_policy, children + indptr_h[node], children + indptr_h[node + 1],
-        [=] __device__(value_idx a) { return stability[a]; }, 0,
-        thrust::plus<value_t>());
-    }
-
-    if (subtree_stability > node_stability ||
-        cluster_sizes_h[node] > max_cluster_size) {
-      // Deselect / merge cluster with children
-      raft::update_device(stability + node, &subtree_stability, 1, stream);
-      is_cluster_h[node] = false;
-    } else {
-      // Mark children to be deselected
-      frontier_h[node] = true;
-    }
-  }
-
-  /**
-   * 3. Perform BFS through is_cluster, propagating cluster
-   * "deselection" through subtrees
-   */
-  rmm::device_uvector<int> cluster_propagate(n_clusters, stream);
-  rmm::device_uvector<int> frontier(n_clusters, stream);
-
-  raft::update_device(is_cluster, is_cluster_h.data(), n_clusters, stream);
-  raft::update_device(frontier.data(), frontier_h.data(), n_clusters, stream);
-
-  propagate_cluster_negation(handle, indptr.data(), children, frontier.data(),
-                             is_cluster, n_clusters);
-}
-
-template <typename value_idx, typename value_t>
-void get_stability_scores(const raft::handle_t &handle, const value_idx *labels,
-                          const value_t *stability, size_t n_clusters,
-                          value_t max_lambda, size_t n_leaves,
-                          value_t *result) {
-  auto stream = handle.get_stream();
-  auto exec_policy = rmm::exec_policy(stream);
-
-  /**
-   * 1. Populate cluster sizes
-   */
-  rmm::device_uvector<value_idx> cluster_sizes(n_clusters, handle.get_stream());
-  value_idx *sizes = cluster_sizes.data();
-  thrust::for_each(exec_policy, labels, labels + n_leaves,
-                   [=] __device__(value_idx v) { atomicAdd(sizes + v, 1); });
-
-  /**
-   * Compute stability scores
-   */
-  auto enumeration = thrust::make_zip_iterator(thrust::make_tuple(
-    thrust::make_counting_iterator(0), cluster_sizes.data()));
-  thrust::transform(
-    exec_policy, enumeration, enumeration + n_clusters, result,
-    [=] __device__(thrust::tuple<value_idx, value_idx> tup) {
-      value_idx size = thrust::get<1>(tup);
-      value_idx c = thrust::get<0>(tup);
-
-      bool expr = max_lambda == std::numeric_limits<value_t>::max() ||
-                  max_lambda == 0.0 || size == 0;
-      return (!expr * (stability[c] / size * max_lambda)) + (expr * 1.0);
-    });
-}
 
 template <typename value_idx, typename value_t>
 void do_labelling_on_host(
@@ -582,215 +239,6 @@ void do_labelling_at_cut(const raft::handle_t &handle,
 }
 
 template <typename value_idx, typename value_t>
-struct probabilities_functor {
- public:
-  probabilities_functor(value_t *probabilities_, const value_t *deaths_,
-                        const value_idx *parents_, const value_idx *children_,
-                        const value_t *lambdas_, const value_idx *labels_,
-                        const value_idx root_cluster_)
-    : probabilities(probabilities_),
-      deaths(deaths_),
-      parents(parents_),
-      children(children_),
-      lambdas(lambdas_),
-      labels(labels_),
-      root_cluster(root_cluster_) {}
-
-  __device__ void operator()(const value_idx &idx) {
-    auto child = children[idx];
-
-    // intermediate nodes
-    if (child >= root_cluster) {
-      return;
-    }
-
-    auto cluster = labels[child];
-
-    // noise
-    if (cluster == -1) {
-      return;
-    }
-
-    auto cluster_death = deaths[cluster];
-    auto child_lambda = lambdas[idx];
-    if (cluster_death == 0.0 || isnan(child_lambda)) {
-      probabilities[child] = 1.0;
-    } else {
-      auto min_lambda = min(child_lambda, cluster_death);
-      probabilities[child] = min_lambda / cluster_death;
-    }
-  }
-
- private:
-  value_t *probabilities;
-  const value_t *deaths, *lambdas;
-  const value_idx *parents, *children, *labels, root_cluster;
-};
-
-template <typename value_idx, typename value_t>
-void get_probabilities(
-  const raft::handle_t &handle,
-  Common::CondensedHierarchy<value_idx, value_t> &condensed_tree,
-  const value_idx *labels, value_t *probabilities) {
-  auto stream = handle.get_stream();
-  auto exec_policy = rmm::exec_policy(stream);
-
-  auto parents = condensed_tree.get_parents();
-  auto children = condensed_tree.get_children();
-  auto lambdas = condensed_tree.get_lambdas();
-  auto n_edges = condensed_tree.get_n_edges();
-  auto n_clusters = condensed_tree.get_n_clusters();
-  auto n_leaves = condensed_tree.get_n_leaves();
-
-  rmm::device_uvector<value_idx> sorted_parents(n_edges, stream);
-  raft::copy_async(sorted_parents.data(), parents, n_edges, stream);
-
-  rmm::device_uvector<value_t> sorted_lambdas(n_edges, stream);
-  raft::copy_async(sorted_lambdas.data(), lambdas, n_edges, stream);
-
-  thrust::sort_by_key(exec_policy, sorted_parents.begin(), sorted_parents.end(),
-                      sorted_lambdas.begin());
-
-  // 0-index sorted parents by subtracting n_leaves for offsets and birth/stability indexing
-  auto index_op = [n_leaves] __device__(const auto &x) { return x - n_leaves; };
-  thrust::transform(exec_policy, sorted_parents.begin(), sorted_parents.end(),
-                    sorted_parents.begin(), index_op);
-
-  rmm::device_uvector<value_idx> sorted_parents_offsets(n_edges + 1, stream);
-  raft::sparse::convert::sorted_coo_to_csr(
-    sorted_parents.data(), n_edges, sorted_parents_offsets.data(),
-    n_clusters + 1, handle.get_device_allocator(), handle.get_stream());
-
-  // this is to find maximum lambdas of all children under a prent
-  rmm::device_uvector<value_t> deaths(n_clusters, stream);
-  thrust::fill(exec_policy, deaths.begin(), deaths.end(), 0.0f);
-
-  segmented_reduce(sorted_lambdas.data(), deaths.data(), n_clusters,
-                   sorted_parents_offsets.data(), stream,
-                   cub::DeviceSegmentedReduce::Max<const value_t *, value_t *,
-                                                   const value_idx *>);
-  raft::print_device_vector("Deaths", deaths.data(), n_clusters, std::cout);
-
-  // Calculate probability per point
-  thrust::fill(exec_policy, probabilities, probabilities + n_leaves, 0.0f);
-
-  std::cout << "root cluster: " << n_leaves << std::endl;
-  probabilities_functor<value_idx, value_t> probabilities_op(
-    probabilities, deaths.data(), parents, children, lambdas, labels, n_leaves);
-  thrust::for_each(exec_policy, thrust::make_counting_iterator(value_idx(0)),
-                   thrust::make_counting_iterator(n_edges), probabilities_op);
-
-  raft::print_device_vector("Probabilities", probabilities, n_leaves,
-                            std::cout);
-}
-
-template <typename value_idx, typename value_t, int tpb = 256>
-__global__ void cluster_epsilon_search_kernel(
-  const int *selected_clusters, const int n_selected_clusters,
-  const value_idx *parents, const value_idx *children, const value_t *lambdas,
-  const value_idx cluster_tree_edges, int *is_cluster, int *frontier,
-  const int n_clusters, const value_t cluster_selection_epsilon,
-  const bool allow_single_cluster) {
-  auto selected_cluster_idx = threadIdx.x + blockDim.x * blockIdx.x;
-
-  if (selected_cluster_idx >= n_selected_clusters) {
-    return;
-  }
-
-  // subtract 1 to offset for root
-  // this is because children array will never have a value of 0
-  // this works because children array is sorted
-  auto child_idx = selected_clusters[selected_cluster_idx] - 1;
-
-  auto eps = 1 / lambdas[child_idx];
-
-  if (eps < cluster_selection_epsilon) {
-    // children clusters start at index 1
-
-    constexpr auto root = 0;
-    auto parent = parents[child_idx];
-
-    value_t parent_eps;
-
-    do {
-      printf("parent: %d, child: %d, parent_eps: %f", parent, child_idx + 1,
-             parent_eps);
-      if (parent == root) {
-        if (!allow_single_cluster) {
-          parent = child_idx + 1;
-        }
-        break;
-      }
-
-      // again offsetting for root
-      child_idx = parent - 1;
-      parent = parents[child_idx];
-      parent_eps = 1 / lambdas[child_idx];
-    } while (parent_eps <= cluster_selection_epsilon);
-
-    frontier[parent] = true;
-    is_cluster[parent] = true;
-  } else {
-    frontier[child_idx + 1] = true;
-  }
-}
-
-template <typename value_idx, typename value_t, int tpb = 256>
-void cluster_epsilon_search(
-  const raft::handle_t &handle,
-  Common::CondensedHierarchy<value_idx, value_t> &cluster_tree, int *is_cluster,
-  const value_idx n_clusters, const value_t cluster_selection_epsilon,
-  const bool allow_single_cluster) {
-  auto stream = handle.get_stream();
-  auto thrust_policy = rmm::exec_policy(stream);
-  auto parents = cluster_tree.get_parents();
-  auto children = cluster_tree.get_children();
-  auto lambdas = cluster_tree.get_lambdas();
-  auto cluster_tree_edges = cluster_tree.get_n_edges();
-  std::cout << "cluster_tree_edges: " << cluster_tree_edges << std::endl;
-  raft::print_device_vector("is_cluster", is_cluster, n_clusters, std::cout);
-
-  auto n_selected_clusters =
-    thrust::reduce(thrust_policy, is_cluster, is_cluster + n_clusters);
-
-  rmm::device_uvector<int> selected_clusters(n_selected_clusters, stream);
-
-  // copying selected clusters by index
-  thrust::copy_if(thrust_policy, thrust::make_counting_iterator(value_idx(0)),
-                  thrust::make_counting_iterator(n_clusters), is_cluster,
-                  selected_clusters.data(),
-                  [] __device__(auto cluster) { return cluster; });
-  raft::print_device_vector("selected_clusters", selected_clusters.data(),
-                            n_selected_clusters, std::cout);
-
-  // sort lambdas and parents by children for epsilon search
-  auto start = thrust::make_zip_iterator(thrust::make_tuple(parents, lambdas));
-  thrust::sort_by_key(thrust_policy, children, children + cluster_tree_edges,
-                      start);
-  // raft::print_device_vector("parents", parents, cluster_tree_edges, std::cout);
-  // raft::print_device_vector("children", children, cluster_tree_edges, std::cout);
-  // raft::print_device_vector("lambdas", lambdas, cluster_tree_edges, std::cout);
-
-  // declare frontier and search
-  rmm::device_uvector<int> frontier(n_clusters, stream);
-  thrust::fill(thrust_policy, frontier.begin(), frontier.end(), false);
-
-  auto nblocks = raft::ceildiv(n_selected_clusters, tpb);
-  cluster_epsilon_search_kernel<<<nblocks, tpb, 0, stream>>>(
-    selected_clusters.data(), n_selected_clusters, parents, children, lambdas,
-    cluster_tree_edges, is_cluster, frontier.data(), n_clusters,
-    cluster_selection_epsilon, allow_single_cluster);
-
-  auto indptr = parent_csr(handle, cluster_tree, n_clusters);
-
-  propagate_cluster_negation(handle, indptr.data(), children, frontier.data(),
-                             is_cluster, n_clusters);
-
-  raft::print_device_vector("is_cluster_epsilon", is_cluster, n_clusters,
-                            std::cout);
-}
-
-template <typename value_idx, typename value_t>
 void extract_clusters(
   const raft::handle_t &handle,
   Common::CondensedHierarchy<value_idx, value_t> &condensed_tree,
@@ -803,7 +251,7 @@ void extract_clusters(
   rmm::device_uvector<value_t> tree_stabilities(condensed_tree.get_n_clusters(),
                                                 handle.get_stream());
 
-  compute_stabilities(handle, condensed_tree, tree_stabilities.data());
+  Stability::compute_stabilities(handle, condensed_tree, tree_stabilities.data());
 
   rmm::device_uvector<int> is_cluster(condensed_tree.get_n_clusters(),
                                       handle.get_stream());
@@ -811,13 +259,13 @@ void extract_clusters(
   if (max_cluster_size <= 0)
     max_cluster_size = n_leaves;  // negates the max cluster size
 
-  auto cluster_tree = Common::make_cluster_tree(handle, condensed_tree);
+  auto cluster_tree = Utils::make_cluster_tree(handle, condensed_tree);
 
-  excess_of_mass(handle, cluster_tree, tree_stabilities.data(),
+  Select::excess_of_mass(handle, cluster_tree, tree_stabilities.data(),
                  is_cluster.data(), condensed_tree.get_n_clusters(),
                  max_cluster_size);
 
-  cluster_epsilon_search(handle, cluster_tree, is_cluster.data(),
+  Select::cluster_epsilon_search(handle, cluster_tree, is_cluster.data(),
                          condensed_tree.get_n_clusters(),
                          cluster_selection_epsilon, allow_single_cluster);
 
@@ -834,7 +282,7 @@ void extract_clusters(
   do_labelling_on_host<value_idx, value_t>(
     handle, condensed_tree, clusters, n_leaves, allow_single_cluster, labels);
 
-  get_probabilities<value_idx, value_t>(handle, condensed_tree, labels,
+  Membership::get_probabilities<value_idx, value_t>(handle, condensed_tree, labels,
                                         probabilities);
 
   raft::label::make_monotonic(labels, labels, n_leaves, stream,
@@ -844,7 +292,7 @@ void extract_clusters(
     exec_policy, condensed_tree.get_lambdas(),
     condensed_tree.get_lambdas() + condensed_tree.get_n_edges()));
 
-  get_stability_scores(handle, labels, tree_stabilities.data(), clusters.size(),
+  Stability::get_stability_scores(handle, labels, tree_stabilities.data(), clusters.size(),
                        max_lambda, n_leaves, stabilities);
 }
 
