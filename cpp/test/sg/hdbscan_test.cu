@@ -19,10 +19,10 @@
 #include <raft/cuda_utils.cuh>
 #include <vector>
 
+#include <hdbscan/detail/utils.h>
 #include <cuml/cluster/hdbscan.hpp>
 #include <hdbscan/detail/condense.cuh>
 #include <hdbscan/detail/extract.cuh>
-#include <hdbscan/detail/utils.h>
 
 #include <raft/sparse/hierarchy/detail/agglomerative.cuh>
 
@@ -845,7 +845,7 @@ class ExcessOfMassTest
 
     CUML_LOG_DEBUG("Calling compute stabilities");
     ML::HDBSCAN::detail::Stability::compute_stabilities(handle, condensed_tree,
-                                                      stabilities.data());
+                                                        stabilities.data());
 
     ASSERT_TRUE(raft::devArrMatch(stabilities.data(), params.stabilities.data(),
                                   condensed_tree.get_n_clusters(),
@@ -859,11 +859,13 @@ class ExcessOfMassTest
     CUML_LOG_DEBUG("Calling excess of mass");
     auto cluster_tree =
       ML::HDBSCAN::detail::Utils::make_cluster_tree(handle, condensed_tree);
-    ML::HDBSCAN::detail::Select::excess_of_mass(
-      handle, cluster_tree, stabilities.data(), is_cluster.data(),
-      condensed_tree.get_n_clusters(), params.n_row);
+    // ML::HDBSCAN::detail::Select::excess_of_mass(
+    //   handle, cluster_tree, stabilities.data(), is_cluster.data(),
+    //   condensed_tree.get_n_clusters(), params.n_row);
+    // CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    ML::HDBSCAN::detail::Select::leaf(handle, cluster_tree, is_cluster.data(),
+                                      condensed_tree.get_n_clusters());
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-
     // CUML_LOG_DEBUG("Calling cluster epsilon search");
     // ML::HDBSCAN::detail::Extract::cluster_epsilon_search(handle, cluster_tree, is_cluster.data(), condensed_tree.get_n_clusters(),
     // 2.0f, true);
