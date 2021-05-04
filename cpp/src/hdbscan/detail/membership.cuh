@@ -47,9 +47,7 @@ namespace HDBSCAN {
 namespace detail {
 namespace Membership {
 
-
 // TODO: Outlier score needs to go here as well
-
 
 template <typename value_idx, typename value_t>
 struct probabilities_functor {
@@ -135,10 +133,11 @@ void get_probabilities(
   rmm::device_uvector<value_t> deaths(n_clusters, stream);
   thrust::fill(exec_policy, deaths.begin(), deaths.end(), 0.0f);
 
-  Utils::segmented_reduce(sorted_lambdas.data(), deaths.data(), n_clusters,
-                   sorted_parents_offsets.data(), stream,
-                   cub::DeviceSegmentedReduce::Max<const value_t *, value_t *,
-                     const value_idx *>);
+  Utils::segmented_reduce(
+    sorted_lambdas.data(), deaths.data(), n_clusters,
+    sorted_parents_offsets.data(), stream,
+    cub::DeviceSegmentedReduce::Max<const value_t *, value_t *,
+                                    const value_idx *>);
   raft::print_device_vector("Deaths", deaths.data(), n_clusters, std::cout);
 
   // Calculate probability per point
@@ -154,7 +153,7 @@ void get_probabilities(
                             std::cout);
 }
 
-};
-};
-};
-};
+};  // namespace Membership
+};  // namespace detail
+};  // namespace HDBSCAN
+};  // namespace ML

@@ -47,8 +47,6 @@ namespace HDBSCAN {
 namespace detail {
 namespace Stability {
 
-
-
 template <typename value_idx, typename value_t>
 struct stabilities_functor {
  public:
@@ -135,10 +133,11 @@ void compute_stabilities(
   thrust::fill(exec_policy, births.begin(), births.end(), 0.0f);
   thrust::for_each(exec_policy, thrust::make_counting_iterator(value_idx(0)),
                    thrust::make_counting_iterator(n_edges), births_init_op);
-  Utils::segmented_reduce(sorted_lambdas.data(), births_parent_min.data() + 1,
-                   n_clusters - 1, sorted_parents_offsets.data() + 1, stream,
-                   cub::DeviceSegmentedReduce::Min<const value_t *, value_t *,
-                                                   const value_idx *>);
+  Utils::segmented_reduce(
+    sorted_lambdas.data(), births_parent_min.data() + 1, n_clusters - 1,
+    sorted_parents_offsets.data() + 1, stream,
+    cub::DeviceSegmentedReduce::Min<const value_t *, value_t *,
+                                    const value_idx *>);
 
   // finally, we find minimum between initialized births where parent=child
   // and births of parents for their childrens
@@ -199,7 +198,7 @@ void get_stability_scores(const raft::handle_t &handle, const value_idx *labels,
     });
 }
 
-};
-};
-};
-};
+};  // namespace Stability
+};  // namespace detail
+};  // namespace HDBSCAN
+};  // namespace ML

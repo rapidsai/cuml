@@ -42,8 +42,6 @@
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
-
-
 namespace ML {
 namespace HDBSCAN {
 namespace detail {
@@ -113,7 +111,7 @@ Common::CondensedHierarchy<value_idx, value_t> make_cluster_tree(
     std::move(cluster_sizes));
 }
 
-};
-};
-};
-};
+};  // namespace Utils
+};  // namespace detail
+};  // namespace HDBSCAN
+};  // namespace ML

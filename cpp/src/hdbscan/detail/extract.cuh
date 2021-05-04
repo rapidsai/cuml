@@ -251,7 +251,8 @@ void extract_clusters(
   rmm::device_uvector<value_t> tree_stabilities(condensed_tree.get_n_clusters(),
                                                 handle.get_stream());
 
-  Stability::compute_stabilities(handle, condensed_tree, tree_stabilities.data());
+  Stability::compute_stabilities(handle, condensed_tree,
+                                 tree_stabilities.data());
 
   rmm::device_uvector<int> is_cluster(condensed_tree.get_n_clusters(),
                                       handle.get_stream());
@@ -262,12 +263,12 @@ void extract_clusters(
   auto cluster_tree = Utils::make_cluster_tree(handle, condensed_tree);
 
   Select::excess_of_mass(handle, cluster_tree, tree_stabilities.data(),
-                 is_cluster.data(), condensed_tree.get_n_clusters(),
-                 max_cluster_size);
+                         is_cluster.data(), condensed_tree.get_n_clusters(),
+                         max_cluster_size);
 
-  Select::cluster_epsilon_search(handle, cluster_tree, is_cluster.data(),
-                         condensed_tree.get_n_clusters(),
-                         cluster_selection_epsilon, allow_single_cluster);
+  Select::cluster_epsilon_search(
+    handle, cluster_tree, is_cluster.data(), condensed_tree.get_n_clusters(),
+    cluster_selection_epsilon, allow_single_cluster);
 
   std::vector<int> is_cluster_h(is_cluster.size());
   raft::update_host(is_cluster_h.data(), is_cluster.data(), is_cluster_h.size(),
@@ -282,8 +283,8 @@ void extract_clusters(
   do_labelling_on_host<value_idx, value_t>(
     handle, condensed_tree, clusters, n_leaves, allow_single_cluster, labels);
 
-  Membership::get_probabilities<value_idx, value_t>(handle, condensed_tree, labels,
-                                        probabilities);
+  Membership::get_probabilities<value_idx, value_t>(handle, condensed_tree,
+                                                    labels, probabilities);
 
   raft::label::make_monotonic(labels, labels, n_leaves, stream,
                               handle.get_device_allocator(), true);
@@ -292,8 +293,9 @@ void extract_clusters(
     exec_policy, condensed_tree.get_lambdas(),
     condensed_tree.get_lambdas() + condensed_tree.get_n_edges()));
 
-  Stability::get_stability_scores(handle, labels, tree_stabilities.data(), clusters.size(),
-                       max_lambda, n_leaves, stabilities);
+  Stability::get_stability_scores(handle, labels, tree_stabilities.data(),
+                                  clusters.size(), max_lambda, n_leaves,
+                                  stabilities);
 }
 
 };  // end namespace Extract

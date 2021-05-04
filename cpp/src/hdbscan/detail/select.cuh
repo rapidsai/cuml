@@ -45,7 +45,6 @@ namespace HDBSCAN {
 namespace detail {
 namespace Select {
 
-
 template <typename value_idx>
 __global__ void propagate_cluster_negation_kernel(const value_idx *indptr,
                                                   const value_idx *children,
@@ -121,7 +120,6 @@ rmm::device_uvector<value_idx> parent_csr(
 
   return indptr;
 }
-
 
 /**
  * Computes the excess of mass. This is a cluster extraction
@@ -279,7 +277,6 @@ __global__ void cluster_epsilon_search_kernel(
   }
 }
 
-
 template <typename value_idx, typename value_t, int tpb = 256>
 void cluster_epsilon_search(
   const raft::handle_t &handle,
@@ -335,7 +332,7 @@ void cluster_epsilon_search(
                             std::cout);
 }
 
-};
-};
-};
-};
+};  // namespace Select
+};  // namespace detail
+};  // namespace HDBSCAN
+};  // namespace ML
