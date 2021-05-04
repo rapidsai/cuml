@@ -240,15 +240,6 @@ void compute_stabilities(
   raft::print_device_vector("Stabilities", stabilities, n_clusters, std::cout);
 }
 
-// template <typename value_idx, typename value_t, int tpb = 256>
-// void cluster_epsilon_search(const raft::handle_t &handle,
-//                             Common::CondensedHierarchy<value_idx, value_t> &condensed_tree,
-//                             const value_idx cluster_tree_edges,
-//                             int *is_cluster, const value_idx n_clusters,
-//                             const bool allow_single_cluster) {
-  
-// }
-
 /**
  * Computes the excess of mass. This is a cluster extraction
  * strategy that iterates upwards from the leaves of the cluster
@@ -590,6 +581,107 @@ void get_probabilities(
                             std::cout);
 }
 
+template <typename value_idx, typename value_t, int tpb = 256>
+__global__
+void cluster_epsilon_search_kernel(const int *selected_clusters,
+                                   const int n_selected_clusters,
+                                   const value_idx *parents,
+                                   const value_idx *children,
+                                   const value_t *lambdas,
+                                   const value_idx cluster_tree_edges,
+                                   int *is_cluster,
+                                   int *frontier,
+                                   const int n_clusters,
+                                   const value_t cluster_selection_epsilon,
+                                   const bool allow_single_cluster) {
+  auto selected_cluster_idx = threadIdx.x + blockDim.x * blockIdx.x;
+
+  if (selected_cluster_idx >= n_selected_clusters) {
+    return;
+  }
+
+  // subtract 1 to offset for root
+  // this is because children array will never have a value of 0
+  // this works because children array is sorted
+  auto child_idx = selected_clusters[selected_cluster_idx] - 1;
+
+  auto eps = 1 / lambdas[child_idx];
+
+  if (eps < cluster_selection_epsilon) {
+    // children clusters start at index 1
+
+    constexpr auto root = 0;
+    auto parent = parents[child_idx];
+
+    value_t parent_eps;
+
+    do
+    {
+      printf("parent: %d, child: %d, parent_eps: %f", parent, child_idx + 1, parent_eps);
+      if (parent == root) {
+        if (!allow_single_cluster) {
+          parent = child_idx + 1;
+        }
+        break;
+      }
+
+      // again offsetting for root
+      child_idx = parent - 1;
+      parent = parents[child_idx];
+      parent_eps = 1 / lambdas[child_idx];
+    } while (parent_eps <= cluster_selection_epsilon);
+
+    frontier[parent] = true;
+    is_cluster[parent] = true;
+  }
+  else {
+    frontier[child_idx + 1] = true;
+  }
+}
+
+template <typename value_idx, typename value_t, int tpb = 256>
+void cluster_epsilon_search(const raft::handle_t &handle,
+                            Common::CondensedHierarchy<value_idx, value_t> &cluster_tree,
+                            int *is_cluster, const value_idx n_clusters,
+                            const value_t cluster_selection_epsilon,
+                            const bool allow_single_cluster) {
+  auto stream = handle.get_stream();
+  auto thrust_policy = rmm::exec_policy(stream);
+  auto parents = cluster_tree.get_parents();
+  auto children = cluster_tree.get_children();
+  auto lambdas = cluster_tree.get_lambdas();
+  auto cluster_tree_edges = cluster_tree.get_n_edges();
+  std::cout << "cluster_tree_edges: " << cluster_tree_edges << std::endl;
+  raft::print_device_vector("is_cluster", is_cluster, n_clusters, std::cout);
+
+  auto n_selected_clusters = thrust::reduce(thrust_policy, is_cluster, is_cluster + n_clusters);
+
+  rmm::device_uvector<int> selected_clusters(n_selected_clusters, stream);
+
+  // copying selected clusters by index
+  thrust::copy_if(thrust_policy, thrust::make_counting_iterator(value_idx(0)), thrust::make_counting_iterator(n_clusters),
+                  is_cluster, selected_clusters.data(), 
+                  [] __device__ (auto cluster) {return cluster; });
+  raft::print_device_vector("selected_clusters", selected_clusters.data(), n_selected_clusters, std::cout);
+
+  // sort lambdas and parents by children for epsilon search
+  auto start = thrust::make_zip_iterator(thrust::make_tuple(parents, lambdas));
+  thrust::sort_by_key(thrust_policy, children, children + cluster_tree_edges, start);
+  raft::print_device_vector("parents", parents, cluster_tree_edges, std::cout);
+  raft::print_device_vector("children", children, cluster_tree_edges, std::cout);
+  raft::print_device_vector("lambdas", lambdas, cluster_tree_edges, std::cout);
+
+  // declare frontier and search
+  rmm::device_uvector<int> frontier(n_clusters, stream);
+  thrust::fill(thrust_policy, frontier.begin(), frontier.end(), false);
+
+  auto nblocks = raft::ceildiv(n_selected_clusters, tpb);
+  cluster_epsilon_search_kernel<<<nblocks, tpb, 0, stream>>>(selected_clusters.data(), n_selected_clusters,
+    parents, children, lambdas, cluster_tree_edges, is_cluster, frontier.data(), n_clusters, cluster_selection_epsilon, allow_single_cluster);
+
+  raft::print_device_vector("is_cluster_epsilon", is_cluster, n_clusters, std::cout);
+}
+
 template <typename value_idx, typename value_t>
 void extract_clusters(
   const raft::handle_t &handle,
@@ -616,6 +708,9 @@ void extract_clusters(
   excess_of_mass(handle, cluster_tree, tree_stabilities.data(),
                  is_cluster.data(), condensed_tree.get_n_clusters(),
                  max_cluster_size);
+
+  cluster_epsilon_search(handle, cluster_tree, is_cluster.data(), condensed_tree.get_n_clusters(),
+                            cluster_selection_epsilon, allow_single_cluster);
 
   std::vector<int> is_cluster_h(is_cluster.size());
   raft::update_host(is_cluster_h.data(), is_cluster.data(), is_cluster_h.size(),

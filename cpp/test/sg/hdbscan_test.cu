@@ -861,6 +861,10 @@ class ExcessOfMassTest
       condensed_tree.get_n_clusters(), params.n_row);
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
+    // CUML_LOG_DEBUG("Calling cluster epsilon search");
+    // ML::HDBSCAN::detail::Extract::cluster_epsilon_search(handle, cluster_tree, is_cluster.data(), condensed_tree.get_n_clusters(),
+    // 2.0f, true);
+
     std::vector<int> is_cluster_h(is_cluster.size());
     raft::update_host(is_cluster_h.data(), is_cluster.data(),
                       is_cluster_h.size(), handle.get_stream());
