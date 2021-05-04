@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <raft/handle.hpp>
 #include <raft/linalg/distance_type.h>
+#include <raft/handle.hpp>
 
 #include <rmm/device_uvector.hpp>
 
@@ -67,8 +67,11 @@ class CondensedHierarchy {
    * @param sizes_
    */
   CondensedHierarchy(const raft::handle_t &handle_, size_t n_leaves_,
-                     int n_edges_, int n_clusters_, rmm::device_uvector<value_idx> &&parents_, rmm::device_uvector<value_idx> &&children_,
-                     rmm::device_uvector<value_t> &&lambdas_, rmm::device_uvector<value_idx> &&sizes_);
+                     int n_edges_, int n_clusters_,
+                     rmm::device_uvector<value_idx> &&parents_,
+                     rmm::device_uvector<value_idx> &&children_,
+                     rmm::device_uvector<value_t> &&lambdas_,
+                     rmm::device_uvector<value_idx> &&sizes_);
   /**
    * Populates the condensed hierarchy object with the output
    * from Condense::condense_hierarchy
@@ -235,7 +238,8 @@ void hdbscan(const raft::handle_t &handle, const float *X, size_t m, size_t n,
              HDBSCAN::Common::HDBSCANParams &params,
              HDBSCAN::Common::hdbscan_output<int, float> &out);
 
-void robust_single_linkage(const raft::handle_t &handle, const float *X, size_t m, size_t n,
+void robust_single_linkage(const raft::handle_t &handle, const float *X,
+                           size_t m, size_t n,
                            raft::distance::DistanceType metric,
                            HDBSCAN::Common::HDBSCANParams &params,
                            HDBSCAN::Common::hdbscan_output<int, float> &out);

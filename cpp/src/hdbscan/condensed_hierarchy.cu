@@ -81,18 +81,20 @@ CondensedHierarchy<value_idx, value_t>::CondensedHierarchy(
 }
 
 template <typename value_idx, typename value_t>
-CondensedHierarchy<value_idx, value_t>::CondensedHierarchy(const raft::handle_t &handle_, size_t n_leaves_,
-  int n_edges_, int n_clusters_, rmm::device_uvector<value_idx> &&parents_, rmm::device_uvector<value_idx> &&children_,
-  rmm::device_uvector<value_t> &&lambdas_, rmm::device_uvector<value_idx> &&sizes_) : 
-    handle(handle_),
+CondensedHierarchy<value_idx, value_t>::CondensedHierarchy(
+  const raft::handle_t &handle_, size_t n_leaves_, int n_edges_,
+  int n_clusters_, rmm::device_uvector<value_idx> &&parents_,
+  rmm::device_uvector<value_idx> &&children_,
+  rmm::device_uvector<value_t> &&lambdas_,
+  rmm::device_uvector<value_idx> &&sizes_)
+  : handle(handle_),
     n_leaves(n_leaves_),
     n_edges(n_edges_),
     n_clusters(n_clusters_),
     parents(std::move(parents_)),
     children(std::move(children_)),
     lambdas(std::move(lambdas_)),
-    sizes(std::move(sizes_))
-  {}
+    sizes(std::move(sizes_)) {}
 
 /**
  * Populates the condensed hierarchy object with the output
@@ -179,8 +181,9 @@ value_idx CondensedHierarchy<value_idx, value_t>::get_cluster_tree_edges() {
 }
 
 template <typename value_idx, typename value_t>
-CondensedHierarchy<value_idx, value_t> make_cluster_tree(const raft::handle_t &handle, 
-                                                         CondensedHierarchy<value_idx, value_t> &condensed_tree) {
+CondensedHierarchy<value_idx, value_t> make_cluster_tree(
+  const raft::handle_t &handle,
+  CondensedHierarchy<value_idx, value_t> &condensed_tree) {
   auto stream = handle.get_stream();
   auto thrust_policy = rmm::exec_policy(stream);
   auto parents = condensed_tree.get_parents();
@@ -189,8 +192,7 @@ CondensedHierarchy<value_idx, value_t> make_cluster_tree(const raft::handle_t &h
   auto sizes = condensed_tree.get_sizes();
 
   value_idx cluster_tree_edges = thrust::transform_reduce(
-    thrust_policy, sizes,
-    sizes + condensed_tree.get_n_edges(),
+    thrust_policy, sizes, sizes + condensed_tree.get_n_edges(),
     [=] __device__(value_idx a) { return a > 1; }, 0,
     thrust::plus<value_idx>());
 
@@ -200,28 +202,31 @@ CondensedHierarchy<value_idx, value_t> make_cluster_tree(const raft::handle_t &h
   rmm::device_uvector<value_t> cluster_lambdas(cluster_tree_edges, stream);
   rmm::device_uvector<value_idx> cluster_sizes(cluster_tree_edges, stream);
 
-  auto in = thrust::make_zip_iterator(thrust::make_tuple(
-    parents, children, lambdas, sizes));
+  auto in = thrust::make_zip_iterator(
+    thrust::make_tuple(parents, children, lambdas, sizes));
 
   auto out = thrust::make_zip_iterator(
-    thrust::make_tuple(cluster_parents.data(), cluster_children.data(), cluster_lambdas.data(), cluster_sizes.data()));
+    thrust::make_tuple(cluster_parents.data(), cluster_children.data(),
+                       cluster_lambdas.data(), cluster_sizes.data()));
 
-  thrust::copy_if(thrust_policy, in,
-                  in + (condensed_tree.get_n_edges()),
-                  sizes, out,
-                  [=] __device__(value_idx a) { return a > 1; });
+  thrust::copy_if(thrust_policy, in, in + (condensed_tree.get_n_edges()), sizes,
+                  out, [=] __device__(value_idx a) { return a > 1; });
 
   auto n_leaves = condensed_tree.get_n_leaves();
-  thrust::transform(thrust_policy, cluster_parents.begin(),
-                  cluster_parents.end(), cluster_parents.begin(),
-                  [n_leaves] __device__(value_idx a) { return a - n_leaves; });
-  thrust::transform(thrust_policy, cluster_children.begin(),
-                  cluster_children.end(), cluster_children.begin(),
-                  [n_leaves] __device__(value_idx a) { return a - n_leaves; });
-                
-  return CondensedHierarchy<value_idx, value_t>(handle, condensed_tree.get_n_leaves(), cluster_tree_edges, condensed_tree.get_n_clusters(),
-                            std::move(cluster_parents), std::move(cluster_children), std::move(cluster_lambdas),
-                            std::move(cluster_sizes));
+  thrust::transform(
+    thrust_policy, cluster_parents.begin(), cluster_parents.end(),
+    cluster_parents.begin(),
+    [n_leaves] __device__(value_idx a) { return a - n_leaves; });
+  thrust::transform(
+    thrust_policy, cluster_children.begin(), cluster_children.end(),
+    cluster_children.begin(),
+    [n_leaves] __device__(value_idx a) { return a - n_leaves; });
+
+  return CondensedHierarchy<value_idx, value_t>(
+    handle, condensed_tree.get_n_leaves(), cluster_tree_edges,
+    condensed_tree.get_n_clusters(), std::move(cluster_parents),
+    std::move(cluster_children), std::move(cluster_lambdas),
+    std::move(cluster_sizes));
 }
 
 };  // namespace Common

@@ -68,8 +68,7 @@ void core_distances(value_t *knn_dists, int k, size_t n, value_t *out,
 template <typename value_idx, typename value_t>
 __global__ void mutual_reachability_kernel(value_t *dists, value_idx *inds,
                                            value_t *core_dists, int k, size_t n,
-                                           float alpha,
-                                           value_t *out) {
+                                           float alpha, value_t *out) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   int row = idx / k;
 
@@ -88,13 +87,12 @@ __global__ void mutual_reachability_kernel(value_t *dists, value_idx *inds,
 
 template <typename value_idx, typename value_t, int tpb = 1024>
 void mutual_reachability(value_t *pw_dists, value_idx *inds,
-                         value_t *core_dists, int k, size_t n,
-                         float alpha,
+                         value_t *core_dists, int k, size_t n, float alpha,
                          cudaStream_t stream) {
   int blocks = raft::ceildiv(k * n, (size_t)tpb);
 
-  mutual_reachability_kernel<value_idx, value_t>
-    <<<blocks, tpb, 0, stream>>>(pw_dists, inds, core_dists, k, n, alpha, pw_dists);
+  mutual_reachability_kernel<value_idx, value_t><<<blocks, tpb, 0, stream>>>(
+    pw_dists, inds, core_dists, k, n, alpha, pw_dists);
 }
 
 /**
@@ -117,8 +115,8 @@ template <typename value_idx, typename value_t>
 void mutual_reachability_graph(const raft::handle_t &handle, const value_t *X,
                                size_t m, size_t n,
                                raft::distance::DistanceType metric, int k,
-                               float alpha,
-                               value_idx *indptr, value_t *core_dists,
+                               float alpha, value_idx *indptr,
+                               value_t *core_dists,
                                raft::sparse::COO<value_t, value_idx> &out) {
   auto stream = handle.get_stream();
 

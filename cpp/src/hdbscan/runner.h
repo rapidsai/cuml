@@ -146,9 +146,10 @@ void _fit(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
 }
 
 template <typename value_idx = int64_t, typename value_t = float>
-void _fit_rbs(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
-          raft::distance::DistanceType metric, Common::HDBSCANParams &params,
-          Common::hdbscan_output<value_idx, value_t> &out) {
+void _fit_rbs(const raft::handle_t &handle, const value_t *X, size_t m,
+              size_t n, raft::distance::DistanceType metric,
+              Common::HDBSCANParams &params,
+              Common::hdbscan_output<value_idx, value_t> &out) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
@@ -200,16 +201,14 @@ void _fit_rbs(const raft::handle_t &handle, const value_t *X, size_t m, size_t n
   CUDA_CHECK(cudaStreamSynchronize(stream));
   CUML_LOG_DEBUG("Executed dendrogram labeling");
 
-  detail::Extract::do_labelling_at_cut(handle, out.get_children(),
-                                       out.get_deltas(), out.get_n_leaves(),
-                                       params.cluster_selection_epsilon,
-                                       params.min_cluster_size,
-                                       out.get_labels());
+  detail::Extract::do_labelling_at_cut(
+    handle, out.get_children(), out.get_deltas(), out.get_n_leaves(),
+    params.cluster_selection_epsilon, params.min_cluster_size,
+    out.get_labels());
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
   CUML_LOG_DEBUG("Executed cluster extraction");
 }
-
 
 };  // end namespace HDBSCAN
 };  // end namespace ML
