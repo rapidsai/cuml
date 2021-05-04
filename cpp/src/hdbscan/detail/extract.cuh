@@ -80,26 +80,6 @@ class TreeUnionFind {
   std::vector<value_idx> data;
 };
 
-template <typename value_idx>
-__global__ void propagate_cluster_negation(const value_idx *indptr,
-                                           const value_idx *children,
-                                           int *frontier, int *is_cluster,
-                                           int n_clusters) {
-  int cluster = blockDim.x * blockIdx.x + threadIdx.x;
-
-  if (cluster < n_clusters && frontier[cluster]) {
-    frontier[cluster] = false;
-
-    value_idx children_start = indptr[cluster];
-    value_idx children_stop = indptr[cluster + 1];
-    for (int i = children_start; i < children_stop; i++) {
-      value_idx child = children[i];
-      frontier[child] = true;
-      is_cluster[child] = false;
-    }
-  }
-}
-
 template <typename value_idx, typename value_t, typename CUBReduceFunc>
 void segmented_reduce(const value_t *in, value_t *out, int n_segments,
                       const value_idx *offsets, cudaStream_t stream,
@@ -240,6 +220,84 @@ void compute_stabilities(
   raft::print_device_vector("Stabilities", stabilities, n_clusters, std::cout);
 }
 
+template <typename value_idx>
+__global__ void propagate_cluster_negation_kernel(const value_idx *indptr,
+                                           const value_idx *children,
+                                           int *frontier, int *is_cluster,
+                                           int n_clusters) {
+  int cluster = blockDim.x * blockIdx.x + threadIdx.x;
+
+  if (cluster < n_clusters && frontier[cluster]) {
+    frontier[cluster] = false;
+
+    value_idx children_start = indptr[cluster];
+    value_idx children_stop = indptr[cluster + 1];
+    for (int i = children_start; i < children_stop; i++) {
+      value_idx child = children[i];
+      frontier[child] = true;
+      is_cluster[child] = false;
+    }
+  }
+}
+
+template <typename value_idx, int tpb=256>
+void propagate_cluster_negation(const raft::handle_t &handle, const value_idx *indptr,
+  const value_idx *children,
+  int *frontier, int *is_cluster,
+  int n_clusters) {
+
+  auto stream = handle.get_stream();
+  auto thrust_policy = rmm::exec_policy(stream);
+
+  value_idx n_elements_to_traverse =
+  thrust::reduce(thrust_policy, frontier,
+                  frontier + n_clusters, 0);
+
+  // TODO: Investigate whether it's worth gathering the sparse frontier into
+  // a dense form for purposes of uniform workload/thread scheduling
+
+  // While frontier is not empty, perform single bfs through tree
+  size_t grid = raft::ceildiv(n_clusters, tpb);
+
+  while (n_elements_to_traverse > 0) {
+    propagate_cluster_negation_kernel<<<grid, tpb, 0, stream>>>(
+      indptr, children, frontier, is_cluster, n_clusters);
+
+    n_elements_to_traverse =
+      thrust::reduce(thrust_policy, frontier,
+                     frontier + n_clusters, 0);
+  }
+}
+
+/**
+  Function to get a csr index of parents of cluster tree.
+  csr index is created by sorting parents by children then sizes
+ */
+template <typename value_idx, typename value_t>
+rmm::device_uvector<value_idx> parent_csr(const raft::handle_t &handle,
+  Common::CondensedHierarchy<value_idx, value_t> &cluster_tree,
+  const int n_clusters) {
+    auto stream = handle.get_stream();
+    auto thrust_policy = rmm::exec_policy(stream);
+
+    auto parents = cluster_tree.get_parents();
+    auto children = cluster_tree.get_children();
+    auto sizes = cluster_tree.get_sizes();
+    auto cluster_tree_edges = cluster_tree.get_n_edges();
+
+    rmm::device_uvector<value_idx> indptr(n_clusters + 1, stream);
+
+    raft::sparse::op::coo_sort(
+      0, 0, cluster_tree_edges, parents, children, sizes,
+      handle.get_device_allocator(), stream);
+  
+    raft::sparse::convert::sorted_coo_to_csr(
+      parents, cluster_tree_edges, indptr.data(), n_clusters + 1,
+      handle.get_device_allocator(), stream);
+
+    return indptr;
+}
+
 /**
  * Computes the excess of mass. This is a cluster extraction
  * strategy that iterates upwards from the leaves of the cluster
@@ -263,7 +321,6 @@ void excess_of_mass(
   value_idx max_cluster_size) {
   std::cout << "N clusters: " << n_clusters << std::endl;
   auto stream = handle.get_stream();
-
   auto thrust_policy = rmm::exec_policy(stream);
 
   /**
@@ -276,10 +333,6 @@ void excess_of_mass(
   auto lambdas = cluster_tree.get_lambdas();
   auto sizes = cluster_tree.get_sizes();
 
-  // rmm::device_uvector<value_idx> parents(cluster_tree_edges, stream);
-  // rmm::device_uvector<value_idx> children(cluster_tree_edges, stream);
-  // rmm::device_uvector<value_idx> sizes(cluster_tree_edges, stream);
-  rmm::device_uvector<value_idx> indptr(n_clusters + 1, stream);
   rmm::device_uvector<value_idx> cluster_sizes(n_clusters, stream);
 
   thrust::fill(thrust_policy, cluster_sizes.data(),
@@ -294,14 +347,6 @@ void excess_of_mass(
       cluster_sizes_ptr[thrust::get<1>(tup)] = thrust::get<2>(tup);
     });
 
-  raft::sparse::op::coo_sort(
-    0, 0, cluster_tree_edges, parents, children, sizes,
-    handle.get_device_allocator(), handle.get_stream());
-
-  raft::sparse::convert::sorted_coo_to_csr(
-    parents, cluster_tree_edges, indptr.data(), n_clusters + 1,
-    handle.get_device_allocator(), handle.get_stream());
-
   /**
    * 2. Iterate through each level from leaves back to root. Use the cluster
    *    tree CSR and warp-level reduction to sum stabilities and test whether
@@ -309,11 +354,13 @@ void excess_of_mass(
    */
   std::vector<int> is_cluster_h(n_clusters, true);
   std::vector<int> frontier_h(n_clusters, false);
-  std::vector<value_idx> cluter_sizes_h(n_clusters);
+  std::vector<value_idx> cluster_sizes_h(n_clusters);
+
+  auto indptr = parent_csr(handle, cluster_tree, n_clusters);
 
   std::vector<value_idx> indptr_h(indptr.size());
   raft::update_host(indptr_h.data(), indptr.data(), indptr.size(), stream);
-  raft::update_host(cluter_sizes_h.data(), cluster_sizes.data(),
+  raft::update_host(cluster_sizes_h.data(), cluster_sizes.data(),
                     cluster_sizes.size(), stream);
   // don't need to sync here- thrust should take care of it.
 
@@ -333,7 +380,7 @@ void excess_of_mass(
     }
 
     if (subtree_stability > node_stability ||
-        cluter_sizes_h[node] > max_cluster_size) {
+        cluster_sizes_h[node] > max_cluster_size) {
       // Deselect / merge cluster with children
       raft::update_device(stability + node, &subtree_stability, 1, stream);
       is_cluster_h[node] = false;
@@ -353,24 +400,7 @@ void excess_of_mass(
   raft::update_device(is_cluster, is_cluster_h.data(), n_clusters, stream);
   raft::update_device(frontier.data(), frontier_h.data(), n_clusters, stream);
 
-  value_idx n_elements_to_traverse =
-    thrust::reduce(thrust_policy, frontier.data(),
-                   frontier.data() + frontier.size(), 0);
-
-  // TODO: Investigate whether it's worth gathering the sparse frontier into
-  // a dense form for purposes of uniform workload/thread scheduling
-
-  // While frontier is not empty, perform single bfs through tree
-  size_t grid = raft::ceildiv(frontier.size(), (size_t)tpb);
-
-  while (n_elements_to_traverse > 0) {
-    propagate_cluster_negation<<<grid, tpb, 0, stream>>>(
-      indptr.data(), children, frontier.data(), is_cluster, n_clusters);
-
-    n_elements_to_traverse =
-      thrust::reduce(thrust_policy, frontier.data(),
-                     frontier.data() + frontier.size(), 0);
-  }
+  propagate_cluster_negation(handle, indptr.data(), children, frontier.data(), is_cluster, n_clusters);
 }
 
 template <typename value_idx, typename value_t>
