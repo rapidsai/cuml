@@ -191,7 +191,7 @@ CondensedHierarchy<value_idx, value_t> make_cluster_tree(const raft::handle_t &h
   value_idx cluster_tree_edges = thrust::transform_reduce(
     thrust_policy, sizes,
     sizes + condensed_tree.get_n_edges(),
-    [=] __device__(value_t a) { return a > 1.0; }, 0,
+    [=] __device__(value_idx a) { return a > 1; }, 0,
     thrust::plus<value_idx>());
 
   // remove leaves from condensed tree
@@ -209,7 +209,7 @@ CondensedHierarchy<value_idx, value_t> make_cluster_tree(const raft::handle_t &h
   thrust::copy_if(thrust_policy, in,
                   in + (condensed_tree.get_n_edges()),
                   sizes, out,
-                  [=] __device__(value_t a) { return a > 1.0; });
+                  [=] __device__(value_idx a) { return a > 1; });
 
   auto n_leaves = condensed_tree.get_n_leaves();
   thrust::transform(thrust_policy, cluster_parents.begin(),
@@ -218,7 +218,7 @@ CondensedHierarchy<value_idx, value_t> make_cluster_tree(const raft::handle_t &h
   thrust::transform(thrust_policy, cluster_children.begin(),
                   cluster_children.end(), cluster_children.begin(),
                   [n_leaves] __device__(value_idx a) { return a - n_leaves; });
-
+                
   return CondensedHierarchy<value_idx, value_t>(handle, condensed_tree.get_n_leaves(), cluster_tree_edges, condensed_tree.get_n_clusters(),
                             std::move(cluster_parents), std::move(cluster_children), std::move(cluster_lambdas),
                             std::move(cluster_sizes));

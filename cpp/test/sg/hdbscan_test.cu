@@ -855,8 +855,9 @@ class ExcessOfMassTest
                                         handle.get_stream());
 
     CUML_LOG_DEBUG("Calling excess of mass");
+    auto cluster_tree = ML::HDBSCAN::Common::make_cluster_tree(handle, condensed_tree);
     ML::HDBSCAN::detail::Extract::excess_of_mass(
-      handle, condensed_tree, stabilities.data(), is_cluster.data(),
+      handle, cluster_tree, stabilities.data(), is_cluster.data(),
       condensed_tree.get_n_clusters(), params.n_row);
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
