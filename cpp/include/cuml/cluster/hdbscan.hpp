@@ -122,6 +122,8 @@ class HDBSCANParams {
 
   bool allow_single_cluster = false;
 
+  float alpha = 1.0;
+
   CLUSTER_SELECTION_METHOD cluster_selection_method;
 };
 
@@ -232,4 +234,9 @@ void hdbscan(const raft::handle_t &handle, const float *X, size_t m, size_t n,
              raft::distance::DistanceType metric,
              HDBSCAN::Common::HDBSCANParams &params,
              HDBSCAN::Common::hdbscan_output<int, float> &out);
+
+void robust_single_linkage(const raft::handle_t &handle, const float *X, size_t m, size_t n,
+                           raft::distance::DistanceType metric,
+                           HDBSCAN::Common::HDBSCANParams &params,
+                           HDBSCAN::Common::hdbscan_output<int, float> &out);
 };  // end namespace ML
