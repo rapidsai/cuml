@@ -16,9 +16,9 @@
 
 #pragma once
 
+#include <raft/handle.hpp>
 #include <raft/linalg/distance_type.h>
 
-#include <cuml/cuml.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <cstddef>
@@ -54,6 +54,21 @@ class CondensedHierarchy {
                      int n_edges_, value_idx *parents_, value_idx *children_,
                      value_t *lambdas_, value_idx *sizes_);
 
+  /**
+   * Constructs a condensed hierarchy object with by moving
+   * rmm::device_uvector. Used to construct cluster trees
+   * @param handle_
+   * @param n_leaves_
+   * @param size_
+   * @param n_edges_
+   * @param parents_
+   * @param children_
+   * @param lambdas_
+   * @param sizes_
+   */
+  CondensedHierarchy(const raft::handle_t &handle_, size_t n_leaves_,
+                     int n_edges_, int n_clusters_, rmm::device_uvector<value_idx> &&parents_, rmm::device_uvector<value_idx> &&children_,
+                     rmm::device_uvector<value_t> &&lambdas_, rmm::device_uvector<value_idx> &&sizes_);
   /**
    * Populates the condensed hierarchy object with the output
    * from Condense::condense_hierarchy
