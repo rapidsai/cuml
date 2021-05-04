@@ -697,9 +697,9 @@ void cluster_epsilon_search(const raft::handle_t &handle,
   // sort lambdas and parents by children for epsilon search
   auto start = thrust::make_zip_iterator(thrust::make_tuple(parents, lambdas));
   thrust::sort_by_key(thrust_policy, children, children + cluster_tree_edges, start);
-  raft::print_device_vector("parents", parents, cluster_tree_edges, std::cout);
-  raft::print_device_vector("children", children, cluster_tree_edges, std::cout);
-  raft::print_device_vector("lambdas", lambdas, cluster_tree_edges, std::cout);
+  // raft::print_device_vector("parents", parents, cluster_tree_edges, std::cout);
+  // raft::print_device_vector("children", children, cluster_tree_edges, std::cout);
+  // raft::print_device_vector("lambdas", lambdas, cluster_tree_edges, std::cout);
 
   // declare frontier and search
   rmm::device_uvector<int> frontier(n_clusters, stream);
@@ -709,7 +709,12 @@ void cluster_epsilon_search(const raft::handle_t &handle,
   cluster_epsilon_search_kernel<<<nblocks, tpb, 0, stream>>>(selected_clusters.data(), n_selected_clusters,
     parents, children, lambdas, cluster_tree_edges, is_cluster, frontier.data(), n_clusters, cluster_selection_epsilon, allow_single_cluster);
 
+  auto indptr = parent_csr(handle, cluster_tree, n_clusters);
+
+  propagate_cluster_negation(handle, indptr.data(), children, frontier.data(), is_cluster, n_clusters);
+
   raft::print_device_vector("is_cluster_epsilon", is_cluster, n_clusters, std::cout);
+
 }
 
 template <typename value_idx, typename value_t>
