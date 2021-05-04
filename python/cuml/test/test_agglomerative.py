@@ -27,7 +27,7 @@ import cupy as cp
 
 @pytest.mark.parametrize('nrows', [100, 1000])
 @pytest.mark.parametrize('ncols', [25, 50])
-@pytest.mark.parametrize('nclusters', [2, 10, 50])
+@pytest.mark.parametrize('nclusters', [1, 2, 10, 50])
 @pytest.mark.parametrize('k', [3, 5, 15])
 @pytest.mark.parametrize('connectivity', ['knn', 'pairwise'])
 def test_single_linkage_sklearn_compare(nrows, ncols, nclusters,
