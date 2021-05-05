@@ -135,6 +135,10 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         handles in several streams.
         If it is None, a new one is created.
 
+    alpha : float, optional (default=1.0)
+        A distance scaling parameter as used in robust single linkage.
+        See [2]_ for more information.
+
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
@@ -288,6 +292,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                  cluster_selection_epsilon=0.0,
                  max_cluster_size=0,
                  metric='euclidean',
+                 alpha=1.0,
                  p=2,
                  cluster_selection_method='eom',
                  allow_single_cluster=False,
@@ -318,6 +323,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         self.max_cluster_size = max_cluster_size
         self.metric = metric
         self.p = p
+        self.alpha = alpha
         self.cluster_selection_method = cluster_selection_method
         self.allow_single_cluster = allow_single_cluster
         self.n_neighbors = n_neighbors
@@ -458,6 +464,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         cdef HDBSCANParams params
         params.k = self.n_neighbors
         params.min_samples = self.min_samples
+        # params.alpha = self.alpha
         params.min_cluster_size = self.min_cluster_size
         params.max_cluster_size = self.max_cluster_size
         params.cluster_selection_epsilon = self.cluster_selection_epsilon
