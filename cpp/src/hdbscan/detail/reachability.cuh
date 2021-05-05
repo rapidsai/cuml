@@ -57,7 +57,7 @@ __global__ void core_distances_kernel(value_t *knn_dists, int k, size_t n,
  * @param out
  * @param stream
  */
-template <typename value_t, int tpb = 1024>
+template <typename value_t, int tpb = 256>
 void core_distances(value_t *knn_dists, int k, size_t n, value_t *out,
                     cudaStream_t stream) {
   int blocks = raft::ceildiv(n, (size_t)tpb);
@@ -160,7 +160,7 @@ void mutual_reachability_graph(const raft::handle_t &handle, const value_t *X,
   // so additional points can be added to the graph and projected
   // into mutual reachability space later.
   mutual_reachability<value_idx, value_t>(dists.data(), inds.data(), core_dists,
-                                          k, alpha, m, stream);
+                                          k, m, alpha, stream);
 
   raft::sparse::selection::fill_indices<value_idx>
     <<<raft::ceildiv(k * m, (size_t)256), 256, 0, stream>>>(coo_rows.data(), k,

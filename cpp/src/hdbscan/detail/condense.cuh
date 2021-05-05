@@ -122,7 +122,7 @@ __global__ void condense_hierarchy_kernel(
       bool can_persist = !left_child_too_small && !right_child_too_small;
 
       if(can_persist) {
-        printf("persisting: left_child=%d, left_child_size=%d, right_child=%d, right_child_size=%d, node=%d\n", left_child, left_count, right_child, right_count, node_relabel);
+          printf("persisting: left_child=%d, left_child_size=%d, right_child=%d, right_child_size=%d, node=%d\n", left_child, left_count, right_child, right_count, node);
       }
 
       relabel[left_child] =
