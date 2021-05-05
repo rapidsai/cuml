@@ -169,7 +169,7 @@ def test_rf_regression_dask_fil(partitions_per_worker,
 
     acc_score = r2_score(cuml_mod_predict, y_test)
 
-    assert acc_score >= 0.67
+    assert acc_score >= 0.59
 
 
 @pytest.mark.parametrize('partitions_per_worker', [5])
