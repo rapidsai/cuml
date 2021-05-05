@@ -30,9 +30,9 @@ import cupy as cp
 
 @pytest.mark.parametrize('nrows', [100, 1000])
 @pytest.mark.parametrize('ncols', [25, 50])
-@pytest.mark.parametrize('nclusters', [2, 10, 50])
+@pytest.mark.parametrize('nclusters', [2, 10])
 @pytest.mark.parametrize('k', [3, 5, 15])
-@pytest.mark.parametrize('connectivity', ['knn', 'pairwise'])
+@pytest.mark.parametrize('connectivity', ['knn'])
 def test_hdbscan_sklearn_compare(nrows, ncols, nclusters,
                                         k, connectivity):
 
@@ -43,15 +43,15 @@ def test_hdbscan_sklearn_compare(nrows, ncols, nclusters,
                       shuffle=False,
                       random_state=42)
 
-    logger.set_level(logger.level_debug)
-    cuml_agg = HDBSCAN(verbose=logger.level_debug)
+    logger.set_level(logger.level_info)
+    cuml_agg = HDBSCAN(verbose=logger.level_info, min_samples=k)
 
     try:
         cuml_agg.fit(X)
     except Exception:
         cuml_agg.fit(X)
 
-    sk_agg = hdbscan.HDBSCAN()
+    sk_agg = hdbscan.HDBSCAN(min_samples=k)
     sk_agg.fit(cp.asnumpy(X))
 
     # Cluster assignments should be exact, even though the actual

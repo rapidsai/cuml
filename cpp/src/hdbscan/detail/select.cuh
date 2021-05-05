@@ -303,9 +303,6 @@ void cluster_epsilon_search(
   auto start = thrust::make_zip_iterator(thrust::make_tuple(parents, lambdas));
   thrust::sort_by_key(thrust_policy, children, children + cluster_tree_edges,
                       start);
-  // raft::print_device_vector("parents", parents, cluster_tree_edges, std::cout);
-  // raft::print_device_vector("children", children, cluster_tree_edges, std::cout);
-  // raft::print_device_vector("lambdas", lambdas, cluster_tree_edges, std::cout);
 
   // declare frontier and search
   rmm::device_uvector<int> frontier(n_clusters, stream);
