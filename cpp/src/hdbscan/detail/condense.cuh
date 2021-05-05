@@ -121,6 +121,10 @@ __global__ void condense_hierarchy_kernel(
       // both children >= min_cluster_size
       bool can_persist = !left_child_too_small && !right_child_too_small;
 
+      if(can_persist) {
+        printf("persisting: left_child=%d, left_child_size=%d, right_child=%d, right_child_size=%d, node=%d\n", left_child, left_count, right_child, right_count, node_relabel);
+      }
+
       relabel[left_child] =
         (!can_persist * node_relabel) + (can_persist * left_child);
       relabel[right_child] =
@@ -171,14 +175,29 @@ __global__ void condense_hierarchy_kernel(
  */
 template <typename value_idx, typename value_t, int tpb = 256>
 void build_condensed_hierarchy(
-  const raft::handle_t &handle, const value_idx *children, const value_t *delta,
-  const value_idx *sizes, int min_cluster_size, int n_leaves,
+  const raft::handle_t &handle,
+  const value_idx *children,
+  const value_t *delta,
+  const value_idx *sizes,
+  int min_cluster_size,
+  int n_leaves,
   Common::CondensedHierarchy<value_idx, value_t> &condensed_tree) {
   cudaStream_t stream = handle.get_stream();
   auto exec_policy = rmm::exec_policy(stream);
 
   // Root is the last edge in the dendrogram
   int root = 2 * (n_leaves - 1);
+
+  auto d_ptr = thrust::device_pointer_cast(children);
+  value_idx n_vertices =
+    *(thrust::max_element(exec_policy, d_ptr, d_ptr + root)) + 1;
+
+  // Prevent potential infinite loop from labeling disconnected
+  // connectivities graph.
+  RAFT_EXPECTS(n_vertices == (n_leaves - 1) * 2,
+               "Multiple components found in MST or MST is invalid. "
+               "Cannot find single-linkage solution.");
+
 
   rmm::device_uvector<bool> frontier(root + 1, stream);
 

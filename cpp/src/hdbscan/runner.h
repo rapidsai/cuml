@@ -74,13 +74,14 @@ struct MSTEpilogueReachability {
 };
 
 template <typename value_idx = int64_t, typename value_t = float>
-void _fit(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
+void _fit(const raft::handle_t &handle,
+          const value_t *X, size_t m, size_t n,
           raft::distance::DistanceType metric, Common::HDBSCANParams &params,
           Common::hdbscan_output<value_idx, value_t> &out) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
-  int k = params.k;
+  int k = params.k+1;
   int min_samples = params.min_samples;
   int min_cluster_size = params.min_cluster_size;
 
@@ -133,8 +134,12 @@ void _fit(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
    * Condense branches of tree according to min cluster size
    */
   detail::Condense::build_condensed_hierarchy(
-    handle, out.get_children(), out.get_deltas(), out.get_sizes(),
-    min_cluster_size, m, out.get_condensed_tree());
+    handle,
+    out.get_children(),
+    out.get_deltas(),
+    out.get_sizes(),
+    min_cluster_size, m,
+    out.get_condensed_tree());
 
   out.set_n_clusters(out.get_condensed_tree().get_n_clusters());
 
@@ -154,7 +159,7 @@ void _fit(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
 }
 
 template <typename value_idx = int64_t, typename value_t = float>
-void _fit_rbs(const raft::handle_t &handle, const value_t *X, size_t m,
+void _fit_rsl(const raft::handle_t &handle, const value_t *X, size_t m,
               size_t n, raft::distance::DistanceType metric,
               Common::HDBSCANParams &params,
               Common::hdbscan_output<value_idx, value_t> &out) {

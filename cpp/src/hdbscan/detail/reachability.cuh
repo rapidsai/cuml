@@ -85,7 +85,7 @@ __global__ void mutual_reachability_kernel(value_t *dists, value_idx *inds,
   }
 }
 
-template <typename value_idx, typename value_t, int tpb = 1024>
+template <typename value_idx, typename value_t, int tpb = 256>
 void mutual_reachability(value_t *pw_dists, value_idx *inds,
                          value_t *core_dists, int k, size_t n, float alpha,
                          cudaStream_t stream) {

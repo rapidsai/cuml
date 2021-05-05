@@ -245,10 +245,12 @@ void extract_clusters(
   size_t n_leaves, value_idx *labels, value_t *stabilities,
   value_t *probabilities,
   Common::CLUSTER_SELECTION_METHOD cluster_selection_method,
-  bool allow_single_cluster = true, value_idx max_cluster_size = 0,
+  bool allow_single_cluster = true,
+  value_idx max_cluster_size = 0,
   value_t cluster_selection_epsilon = 0.0) {
   auto stream = handle.get_stream();
   auto exec_policy = rmm::exec_policy(stream);
+
 
   rmm::device_uvector<value_t> tree_stabilities(condensed_tree.get_n_clusters(),
                                                 handle.get_stream());

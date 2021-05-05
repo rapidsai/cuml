@@ -32,7 +32,7 @@ void robust_single_linkage(const raft::handle_t &handle, const float *X,
                            raft::distance::DistanceType metric,
                            HDBSCAN::Common::HDBSCANParams &params,
                            HDBSCAN::Common::hdbscan_output<int, float> &out) {
-  HDBSCAN::_fit_rbs(handle, X, m, n, metric, params, out);
+  HDBSCAN::_fit_rsl(handle, X, m, n, metric, params, out);
 }
 
 };  // end namespace ML
