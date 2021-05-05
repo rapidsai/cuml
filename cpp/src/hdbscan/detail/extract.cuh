@@ -89,7 +89,9 @@ template <typename value_idx, typename value_t>
 void do_labelling_on_host(
   const raft::handle_t &handle,
   Common::CondensedHierarchy<value_idx, value_t> &condensed_tree,
-  std::set<value_idx> &clusters, value_idx n_leaves, bool allow_single_cluster,
+  std::set<value_idx> &clusters,
+  value_idx n_leaves,
+  bool allow_single_cluster,
   value_idx *labels) {
   auto stream = handle.get_stream();
 
@@ -245,7 +247,7 @@ void extract_clusters(
   size_t n_leaves, value_idx *labels, value_t *stabilities,
   value_t *probabilities,
   Common::CLUSTER_SELECTION_METHOD cluster_selection_method,
-  bool allow_single_cluster = true,
+  bool allow_single_cluster = false,
   value_idx max_cluster_size = 0,
   value_t cluster_selection_epsilon = 0.0) {
   auto stream = handle.get_stream();
@@ -255,6 +257,7 @@ void extract_clusters(
   rmm::device_uvector<value_t> tree_stabilities(condensed_tree.get_n_clusters(),
                                                 handle.get_stream());
 
+  CUML_LOG_DEBUG("Computing stabilities");
   Stability::compute_stabilities(handle, condensed_tree,
                                  tree_stabilities.data());
 
@@ -264,41 +267,40 @@ void extract_clusters(
   if (max_cluster_size <= 0)
     max_cluster_size = n_leaves;  // negates the max cluster size
 
+  CUML_LOG_DEBUG("Building cluster tree");
   auto cluster_tree = Utils::make_cluster_tree(handle, condensed_tree);
 
-  if(!allow_single_cluster || cluster_tree.get_n_edges() > 0) {
+  CUML_LOG_DEBUG("Cluster selection");
+  if (cluster_selection_method == Common::CLUSTER_SELECTION_METHOD::EOM) {
+    Select::excess_of_mass(handle, cluster_tree, tree_stabilities.data(),
+                           is_cluster.data(), condensed_tree.get_n_clusters(),
+                           max_cluster_size);
+  } else {
+    Select::leaf(handle, cluster_tree, is_cluster.data(),
+                 condensed_tree.get_n_clusters());
+  }
+
+  if (cluster_selection_epsilon != 0.0) {
+    auto epsilon_search = true;
+
+    // this is to check when eom finds root as only cluster
+    // in which case, epsilon search is cancelled
     if (cluster_selection_method == Common::CLUSTER_SELECTION_METHOD::EOM) {
-      Select::excess_of_mass(handle, cluster_tree, tree_stabilities.data(),
-                             is_cluster.data(), condensed_tree.get_n_clusters(),
-                             max_cluster_size);
-    } else {
-      Select::leaf(handle, cluster_tree, is_cluster.data(),
-                   condensed_tree.get_n_clusters());
-    }
-
-    if (cluster_selection_epsilon != 0.0) {
-      auto epsilon_search = true;
-
-      // this is to check when eom finds root as only cluster
-      // in which case, epsilon search is cancelled
-      if (cluster_selection_method == Common::CLUSTER_SELECTION_METHOD::EOM) {
-        if (condensed_tree.get_n_clusters() == 1) {
-          int is_root_only_cluster = false;
-          raft::update_host(&is_root_only_cluster, is_cluster.data(), 1, stream);
-          if (is_root_only_cluster) {
-            epsilon_search = false;
-          }
+      if (condensed_tree.get_n_clusters() == 1) {
+        int is_root_only_cluster = false;
+        raft::update_host(&is_root_only_cluster, is_cluster.data(), 1, stream);
+        if (is_root_only_cluster) {
+          epsilon_search = false;
         }
       }
-
-      if (epsilon_search) {
-        Select::cluster_epsilon_search(handle, cluster_tree, is_cluster.data(),
-                                       condensed_tree.get_n_clusters(),
-                                       cluster_selection_epsilon,
-                                       allow_single_cluster);
-      }
     }
 
+    if (epsilon_search) {
+      Select::cluster_epsilon_search(handle, cluster_tree, is_cluster.data(),
+                                     condensed_tree.get_n_clusters(),
+                                     cluster_selection_epsilon,
+                                     allow_single_cluster);
+    }
   }
 
   std::vector<int> is_cluster_h(is_cluster.size());
@@ -310,12 +312,15 @@ void extract_clusters(
   for (int i = 0; i < is_cluster_h.size(); i++)
     if (is_cluster_h[i] != 0) clusters.insert(i + n_leaves);
 
+  CUML_LOG_DEBUG("Cluster labeling");
   do_labelling_on_host<value_idx, value_t>(
     handle, condensed_tree, clusters, n_leaves, allow_single_cluster, labels);
 
+  CUML_LOG_DEBUG("Computing probabilities");
   Membership::get_probabilities<value_idx, value_t>(handle, condensed_tree,
                                                     labels, probabilities);
 
+  CUML_LOG_DEBUG("Calling make_monotonic");
   raft::label::make_monotonic(labels, labels, n_leaves, stream,
                               handle.get_device_allocator(), true);
 
@@ -324,6 +329,7 @@ void extract_clusters(
     exec_policy, lambdas_ptr,
     lambdas_ptr + condensed_tree.get_n_edges()));
 
+  CUML_LOG_DEBUG("Computing stability scores");
   Stability::get_stability_scores(handle, labels, tree_stabilities.data(),
                                   clusters.size(), max_lambda, n_leaves,
                                   stabilities);

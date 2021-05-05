@@ -146,6 +146,11 @@ void _fit(const raft::handle_t &handle,
   CUDA_CHECK(cudaStreamSynchronize(stream));
   CUML_LOG_DEBUG("Executed hierarchy condensing");
 
+  raft::print_device_vector("condensed_parents", out.get_condensed_tree().get_parents(),
+                            out.get_condensed_tree().get_n_edges(), std::cout);
+  raft::print_device_vector("condensed_children", out.get_condensed_tree().get_children(),
+                            out.get_condensed_tree().get_n_edges(), std::cout);
+
   /**
    * Extract labels from stability
    */

@@ -120,10 +120,11 @@ void perform_bfs(const raft::handle_t &handle, const value_idx *indptr,
   csr index is created by sorting parents by children then sizes
  */
 template <typename value_idx, typename value_t>
-rmm::device_uvector<value_idx> parent_csr(
+void parent_csr(
   const raft::handle_t &handle,
   Common::CondensedHierarchy<value_idx, value_t> &cluster_tree,
-  const int n_clusters) {
+  const int n_clusters,
+  value_idx *indptr) {
   auto stream = handle.get_stream();
   auto thrust_policy = rmm::exec_policy(stream);
 
@@ -132,15 +133,12 @@ rmm::device_uvector<value_idx> parent_csr(
   auto sizes = cluster_tree.get_sizes();
   auto cluster_tree_edges = cluster_tree.get_n_edges();
 
-  rmm::device_uvector<value_idx> indptr(n_clusters + 1, stream);
-
   raft::sparse::op::coo_sort(0, 0, cluster_tree_edges, parents, children, sizes,
                              handle.get_device_allocator(), stream);
 
   raft::sparse::convert::sorted_coo_to_csr(
-    parents, cluster_tree_edges, indptr.data(), n_clusters + 1,
+    parents, cluster_tree_edges, indptr, n_clusters + 1,
     handle.get_device_allocator(), stream);
-  return indptr;
 }
 
 /**
@@ -162,7 +160,9 @@ template <typename value_idx, typename value_t, int tpb = 256>
 void excess_of_mass(
   const raft::handle_t &handle,
   Common::CondensedHierarchy<value_idx, value_t> &cluster_tree,
-  value_t *stability, int *is_cluster, int n_clusters,
+  value_t *stability,
+  int *is_cluster,
+  int n_clusters,
   value_idx max_cluster_size) {
   auto stream = handle.get_stream();
   auto exec_policy = rmm::exec_policy(stream);
@@ -201,7 +201,8 @@ void excess_of_mass(
   std::vector<int> frontier_h(n_clusters, false);
   std::vector<value_idx> cluster_sizes_h(n_clusters);
 
-  auto indptr = parent_csr(handle, cluster_tree, n_clusters);
+  rmm::device_uvector<value_idx> indptr(n_clusters + 1, stream);
+  parent_csr(handle, cluster_tree, n_clusters, indptr.data());
 
   std::vector<value_idx> indptr_h(indptr.size());
   raft::update_host(indptr_h.data(), indptr.data(), indptr.size(), stream);
@@ -267,7 +268,8 @@ void leaf(const raft::handle_t &handle,
 
   auto children = cluster_tree.get_children();
 
-  auto indptr = parent_csr(handle, cluster_tree, n_clusters);
+  rmm::device_uvector<value_idx> indptr(n_clusters + 1, stream);
+  parent_csr(handle, cluster_tree, n_clusters, indptr.data());
   thrust::fill(exec_policy, is_cluster, is_cluster + n_clusters, false);
 
   // mark root in frontier
@@ -376,7 +378,8 @@ void cluster_epsilon_search(
     cluster_tree_edges, is_cluster, frontier.data(), n_clusters,
     cluster_selection_epsilon, allow_single_cluster);
 
-  auto indptr = parent_csr(handle, cluster_tree, n_clusters);
+  rmm::device_uvector<value_idx> indptr(n_clusters + 1, stream);
+  parent_csr(handle, cluster_tree, n_clusters, indptr.data());
 
   perform_bfs(handle, indptr.data(), children, frontier.data(), is_cluster,
               n_clusters, propagate_cluster_negation_kernel<value_idx>);
