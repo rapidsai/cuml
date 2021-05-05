@@ -127,7 +127,8 @@ class HDBSCANParams {
 
   float alpha = 1.0;
 
-  CLUSTER_SELECTION_METHOD cluster_selection_method;
+  CLUSTER_SELECTION_METHOD cluster_selection_method =
+    CLUSTER_SELECTION_METHOD::EOM;
 };
 
 /**

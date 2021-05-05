@@ -140,8 +140,6 @@ rmm::device_uvector<value_idx> parent_csr(
   raft::sparse::convert::sorted_coo_to_csr(
     parents, cluster_tree_edges, indptr.data(), n_clusters + 1,
     handle.get_device_allocator(), stream);
-
-  raft::print_device_vector("indptr", indptr.data(), n_clusters + 1, std::cout);
   return indptr;
 }
 

@@ -152,7 +152,10 @@ void _fit(const raft::handle_t &handle,
   detail::Extract::extract_clusters(handle, out.get_condensed_tree(), m,
                                     out.get_labels(), out.get_stabilities(),
                                     out.get_probabilities(),
-                                    params.cluster_selection_method);
+                                    params.cluster_selection_method,
+                                    params.allow_single_cluster,
+                                    params.max_cluster_size,
+                                    params.cluster_selection_epsilon);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
   CUML_LOG_DEBUG("Executed cluster extraction");
