@@ -267,41 +267,11 @@ void extract_clusters(
   if (max_cluster_size <= 0)
     max_cluster_size = n_leaves;  // negates the max cluster size
 
-  CUML_LOG_DEBUG("Building cluster tree");
-  auto cluster_tree = Utils::make_cluster_tree(handle, condensed_tree);
-
   CUML_LOG_DEBUG("Cluster selection");
-  if (cluster_selection_method == Common::CLUSTER_SELECTION_METHOD::EOM) {
-    Select::excess_of_mass(handle, cluster_tree, tree_stabilities.data(),
-                           is_cluster.data(), condensed_tree.get_n_clusters(),
-                           max_cluster_size);
-  } else {
-    Select::leaf(handle, cluster_tree, is_cluster.data(),
-                 condensed_tree.get_n_clusters());
-  }
-
-  if (cluster_selection_epsilon != 0.0) {
-    auto epsilon_search = true;
-
-    // this is to check when eom finds root as only cluster
-    // in which case, epsilon search is cancelled
-    if (cluster_selection_method == Common::CLUSTER_SELECTION_METHOD::EOM) {
-      if (condensed_tree.get_n_clusters() == 1) {
-        int is_root_only_cluster = false;
-        raft::update_host(&is_root_only_cluster, is_cluster.data(), 1, stream);
-        if (is_root_only_cluster) {
-          epsilon_search = false;
-        }
-      }
-    }
-
-    if (epsilon_search) {
-      Select::cluster_epsilon_search(handle, cluster_tree, is_cluster.data(),
-                                     condensed_tree.get_n_clusters(),
-                                     cluster_selection_epsilon,
-                                     allow_single_cluster);
-    }
-  }
+ Select::select_clusters(handle, condensed_tree, tree_stabilities.data(),
+                     is_cluster.data(), cluster_selection_method,
+                     allow_single_cluster, max_cluster_size,
+                     cluster_selection_epsilon);
 
   std::vector<int> is_cluster_h(is_cluster.size());
   raft::update_host(is_cluster_h.data(), is_cluster.data(), is_cluster_h.size(),
@@ -312,7 +282,7 @@ void extract_clusters(
   for (int i = 0; i < is_cluster_h.size(); i++)
     if (is_cluster_h[i] != 0) clusters.insert(i + n_leaves);
 
-  CUML_LOG_DEBUG("Cluster labeling");
+  CUML_LOG_DEBUG("Cluster labeling. n_clusters=%d", clusters.size());
   do_labelling_on_host<value_idx, value_t>(
     handle, condensed_tree, clusters, n_leaves, allow_single_cluster, labels);
 
