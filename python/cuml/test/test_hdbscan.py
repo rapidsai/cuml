@@ -17,7 +17,7 @@ import pytest
 
 
 from cuml.cluster import HDBSCAN
-from cuml.datasets import make_blobs
+from sklearn.datasets import make_blobs
 
 from cuml.metrics import adjusted_rand_score
 
@@ -30,7 +30,7 @@ import cupy as cp
 
 @pytest.mark.parametrize('nrows', [100, 1000])
 @pytest.mark.parametrize('ncols', [25, 50])
-@pytest.mark.parametrize('nclusters', [2, 10])
+@pytest.mark.parametrize('nclusters', [2, 5, 10])
 @pytest.mark.parametrize('k', [3, 5, 15])
 @pytest.mark.parametrize('connectivity', ['knn'])
 def test_hdbscan_sklearn_compare(nrows, ncols, nclusters,
@@ -44,15 +44,17 @@ def test_hdbscan_sklearn_compare(nrows, ncols, nclusters,
                       random_state=42)
 
     logger.set_level(logger.level_info)
-    cuml_agg = HDBSCAN(verbose=logger.level_info, min_samples=k)
+    cuml_agg = HDBSCAN(verbose=logger.level_info, min_samples=k, n_neighbors=k, min_cluster_size=10)
 
     try:
         cuml_agg.fit(X)
     except Exception:
         cuml_agg.fit(X)
 
-    sk_agg = hdbscan.HDBSCAN(min_samples=k)
+    sk_agg = hdbscan.HDBSCAN(min_samples=k, min_cluster_size=10)
     sk_agg.fit(cp.asnumpy(X))
+
+    print("sklabels: %s" % sk_agg.labels_)
 
     # Cluster assignments should be exact, even though the actual
     # labels may differ
