@@ -163,6 +163,8 @@ void compute_stabilities(
     stabilities, births.data(), parents, children, lambdas, sizes, n_leaves);
   thrust::for_each(exec_policy, thrust::make_counting_iterator(value_idx(0)),
                    thrust::make_counting_iterator(n_edges), stabilities_op);
+
+  raft::print_device_vector("stabilities", stabilities, n_clusters, std::cout);
 }
 
 template <typename value_idx, typename value_t>

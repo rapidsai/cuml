@@ -253,13 +253,14 @@ void extract_clusters(
   auto stream = handle.get_stream();
   auto exec_policy = rmm::exec_policy(stream);
 
-
   rmm::device_uvector<value_t> tree_stabilities(condensed_tree.get_n_clusters(),
                                                 handle.get_stream());
 
   CUML_LOG_DEBUG("Computing stabilities");
   Stability::compute_stabilities(handle, condensed_tree,
                                  tree_stabilities.data());
+
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   rmm::device_uvector<int> is_cluster(condensed_tree.get_n_clusters(),
                                       handle.get_stream());
@@ -268,7 +269,7 @@ void extract_clusters(
     max_cluster_size = n_leaves;  // negates the max cluster size
 
   CUML_LOG_DEBUG("Cluster selection");
- Select::select_clusters(handle, condensed_tree, tree_stabilities.data(),
+  Select::select_clusters(handle, condensed_tree, tree_stabilities.data(),
                      is_cluster.data(), cluster_selection_method,
                      allow_single_cluster, max_cluster_size,
                      cluster_selection_epsilon);

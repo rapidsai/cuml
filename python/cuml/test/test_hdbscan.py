@@ -25,6 +25,8 @@ from cuml.common import logger
 
 import hdbscan
 
+from sklearn import datasets
+
 import cupy as cp
 
 
@@ -34,6 +36,13 @@ import cupy as cp
   # different parameter settings
   # duplicate data points
   #
+
+test_datasets = {
+ "digits": datasets.load_digits(),
+ "boston": datasets.load_boston(),
+ "diabetes": datasets.load_diabetes(),
+ "cancer": datasets.load_breast_cancer(),
+}
 
 
 @pytest.mark.parametrize('nrows', [100])
@@ -52,13 +61,17 @@ def test_hdbscan_blobs(nrows, ncols, nclusters,
                       random_state=42)
 
     logger.set_level(logger.level_debug)
-    cuml_agg = HDBSCAN(verbose=logger.level_debug, allow_single_cluster=False, min_samples=k, n_neighbors=k,
+    cuml_agg = HDBSCAN(verbose=logger.level_debug, allow_single_cluster=True,
+                       min_samples=k, n_neighbors=k,
                        min_cluster_size=10)
 
     cuml_agg.fit(X)
     #
-    sk_agg = hdbscan.HDBSCAN(min_samples=k, allow_single_cluster=True, approx_min_span_tree=False,
-                             gen_min_span_tree=True, min_cluster_size=10, algorithm="generic")
+    sk_agg = hdbscan.HDBSCAN(min_samples=k,
+                             allow_single_cluster=True,
+                             approx_min_span_tree=False,
+                             gen_min_span_tree=True,
+                             min_cluster_size=10, algorithm="generic")
     sk_agg.fit(cp.asnumpy(X))
 
     print("sk labels: %s" % sk_agg.labels_)
@@ -66,3 +79,33 @@ def test_hdbscan_blobs(nrows, ncols, nclusters,
     # Cluster assignments should be exact, even though the actual
     # labels may differ
     assert(adjusted_rand_score(cuml_agg.labels_, sk_agg.labels_) == 1.0)
+
+
+@pytest.mark.parametrize('nclusters', [2, 5, 10])
+@pytest.mark.parametrize('k', [25])
+@pytest.mark.parametrize('dataset', test_datasets.values())
+@pytest.mark.parametrize('connectivity', ['knn'])
+def test_hdbscan_sklearn_datasets(dataset, nclusters,
+                                  k, connectivity):
+
+    X = dataset.data
+
+    cuml_agg = HDBSCAN(verbose=logger.level_debug, allow_single_cluster=True,
+                       min_samples=k, n_neighbors=k,
+                       min_cluster_size=10)
+
+    cuml_agg.fit(X)
+    #
+    sk_agg = hdbscan.HDBSCAN(min_samples=k, allow_single_cluster=True,
+                             approx_min_span_tree=False,
+                             gen_min_span_tree=True,
+                             min_cluster_size=10,
+                             algorithm="generic")
+    sk_agg.fit(cp.asnumpy(X))
+
+    print("sk labels: %s" % sk_agg.labels_)
+
+    # Cluster assignments should be exact, even though the actual
+    # labels may differ
+    assert(adjusted_rand_score(cuml_agg.labels_, sk_agg.labels_) == 1.0)
+
