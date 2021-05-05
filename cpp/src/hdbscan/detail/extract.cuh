@@ -293,6 +293,7 @@ void extract_clusters(
 
   CUML_LOG_DEBUG("Calling make_monotonic");
   raft::label::make_monotonic(labels, labels, n_leaves, stream,
+                              [] __device__(value_idx label) { return label == -1; },
                               handle.get_device_allocator(), true);
 
   auto lambdas_ptr = thrust::device_pointer_cast(condensed_tree.get_lambdas());
