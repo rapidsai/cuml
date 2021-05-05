@@ -105,11 +105,11 @@ class SparseCumlArray():
         # In CUDA11, Cusparse provides 64-bit function calls
         # but these are not yet used in RAFT/Cuml
         self.indptr, _, _, _ = cuml.common.input_to_cuml_array(
-            data.indptr, check_dtype=convert_index,
+            data.indptr, check_dtype=data.indptr.dtype,
             convert_to_dtype=convert_index)
 
         self.indices, _, _, _ = cuml.common.input_to_cuml_array(
-            data.indices, check_dtype=convert_index,
+            data.indices, check_dtype=data.indices.dtype,
             convert_to_dtype=convert_index)
 
         self.data, _, _, _ = cuml.common.input_to_cuml_array(

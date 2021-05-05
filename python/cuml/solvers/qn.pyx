@@ -26,10 +26,12 @@ import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.array_sparse import SparseCumlArray
 from cuml.common.doc_utils import generate_docstring
 from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.common.mixins import FMajorInputTagMixin
+from cuml.common.sparse_utils import is_sparse
 from cuml.metrics import accuracy_score
 
 
@@ -78,6 +80,58 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                bool X_col_major,
                int loss_type,
                double *sample_weight) except +
+
+    void qnFitSparse(
+        handle_t& cuml_handle,
+        float *X_values,
+        int *X_cols,
+        int *X_row_ids,
+        int X_nnz,
+        float *y,
+        int N,
+        int D,
+        int C,
+        bool fit_intercept,
+        float l1,
+        float l2,
+        int max_iter,
+        float grad_tol,
+        float change_tol,
+        int linesearch_max_iter,
+        int lbfgs_memory,
+        int verbosity,
+        float *w0,
+        float *f,
+        int *num_iters,
+        bool X_col_major,
+        int loss_type,
+        float *sample_weight) except +
+
+    void qnFitSparse(
+        handle_t& cuml_handle,
+        double *X_values,
+        int *X_cols,
+        int *X_row_ids,
+        int X_nnz,
+        double *y,
+        int N,
+        int D,
+        int C,
+        bool fit_intercept,
+        double l1,
+        double l2,
+        int max_iter,
+        double grad_tol,
+        double change_tol,
+        int linesearch_max_iter,
+        int lbfgs_memory,
+        int verbosity,
+        double *w0,
+        double *f,
+        int *num_iters,
+        bool X_col_major,
+        int loss_type,
+        double *sample_weight) except +
 
     void qnDecisionFunction(handle_t& cuml_handle,
                             float *X,
@@ -344,10 +398,19 @@ class QN(Base,
         Fit the model with X and y.
 
         """
-        X_m, n_rows, self.n_cols, self.dtype = input_to_cuml_array(
-            X, order='F', check_dtype=[np.float32, np.float64]
-        )
-        cdef uintptr_t X_ptr = X_m.ptr
+        sparse_fit = is_sparse(X)
+        # Handle sparse inputs
+        if sparse_fit:
+
+            X_m = SparseCumlArray(X)
+            n_rows, self.n_cols = X_m.shape
+            self.dtype = X_m.dtype
+
+        # Handle dense inputs
+        else:
+            X_m, n_rows, self.n_cols, self.dtype = input_to_cuml_array(
+                X, order='F', check_dtype=[np.float32, np.float64]
+            )
 
         y_m, lab_rows, _, _ = input_to_cuml_array(
             y, check_dtype=self.dtype,
@@ -403,52 +466,110 @@ class QN(Base,
         delta = self.delta if self.delta is not None else (self.tol * 0.01)
 
         if self.dtype == np.float32:
-            qnFit(handle_[0],
-                  <float*>X_ptr,
-                  <float*>y_ptr,
-                  <int>n_rows,
-                  <int>self.n_cols,
-                  <int> self._num_classes,
-                  <bool> self.fit_intercept,
-                  <float> self.l1_strength,
-                  <float> self.l2_strength,
-                  <int> self.max_iter,
-                  <float> self.tol,
-                  <float> delta,
-                  <int> self.linesearch_max_iter,
-                  <int> self.lbfgs_memory,
-                  <int> self.verbose,
-                  <float*> coef_ptr,
-                  <float*> &objective32,
-                  <int*> &num_iters,
-                  <bool> True,
-                  <int> self.loss_type,
-                  <float*>sample_weight_ptr)
+            if sparse_fit:
+                qnFitSparse(
+                    handle_[0],
+                    <float*><uintptr_t> X_m.data.ptr,
+                    <int*><uintptr_t> X_m.indices.ptr,
+                    <int*><uintptr_t> X_m.indptr.ptr,
+                    <int> X_m.nnz,
+                    <float*> y_ptr,
+                    <int> n_rows,
+                    <int> self.n_cols,
+                    <int> self._num_classes,
+                    <bool> self.fit_intercept,
+                    <float> self.l1_strength,
+                    <float> self.l2_strength,
+                    <int> self.max_iter,
+                    <float> self.tol,
+                    <float> delta,
+                    <int> self.linesearch_max_iter,
+                    <int> self.lbfgs_memory,
+                    <int> self.verbose,
+                    <float*> coef_ptr,
+                    <float*> &objective32,
+                    <int*> &num_iters,
+                    <bool> True,
+                    <int> self.loss_type,
+                    <float*> sample_weight_ptr)
+
+            else:
+                qnFit(
+                    handle_[0],
+                    <float*><uintptr_t> X_m.ptr,
+                    <float*> y_ptr,
+                    <int> n_rows,
+                    <int> self.n_cols,
+                    <int> self._num_classes,
+                    <bool> self.fit_intercept,
+                    <float> self.l1_strength,
+                    <float> self.l2_strength,
+                    <int> self.max_iter,
+                    <float> self.tol,
+                    <float> delta,
+                    <int> self.linesearch_max_iter,
+                    <int> self.lbfgs_memory,
+                    <int> self.verbose,
+                    <float*> coef_ptr,
+                    <float*> &objective32,
+                    <int*> &num_iters,
+                    <bool> True,
+                    <int> self.loss_type,
+                    <float*> sample_weight_ptr)
 
             self.objective = objective32
 
         else:
-            qnFit(handle_[0],
-                  <double*>X_ptr,
-                  <double*>y_ptr,
-                  <int>n_rows,
-                  <int>self.n_cols,
-                  <int> self._num_classes,
-                  <bool> self.fit_intercept,
-                  <double> self.l1_strength,
-                  <double> self.l2_strength,
-                  <int> self.max_iter,
-                  <double> self.tol,
-                  <double> delta,
-                  <int> self.linesearch_max_iter,
-                  <int> self.lbfgs_memory,
-                  <int> self.verbose,
-                  <double*> coef_ptr,
-                  <double*> &objective64,
-                  <int*> &num_iters,
-                  <bool> True,
-                  <int> self.loss_type,
-                  <double*>sample_weight_ptr)
+            if sparse_fit:
+                qnFitSparse(
+                    handle_[0],
+                    <double*><uintptr_t> X_m.data.ptr,
+                    <int*><uintptr_t> X_m.indices.ptr,
+                    <int*><uintptr_t> X_m.indptr.ptr,
+                    <int> X_m.nnz,
+                    <double*> y_ptr,
+                    <int> n_rows,
+                    <int> self.n_cols,
+                    <int> self._num_classes,
+                    <bool> self.fit_intercept,
+                    <double> self.l1_strength,
+                    <double> self.l2_strength,
+                    <int> self.max_iter,
+                    <double> self.tol,
+                    <double> delta,
+                    <int> self.linesearch_max_iter,
+                    <int> self.lbfgs_memory,
+                    <int> self.verbose,
+                    <double*> coef_ptr,
+                    <double*> &objective32,
+                    <int*> &num_iters,
+                    <bool> True,
+                    <int> self.loss_type,
+                    <double*> sample_weight_ptr)
+
+            else:
+                qnFit(
+                    handle_[0],
+                    <double*><uintptr_t> X_m.ptr,
+                    <double*> y_ptr,
+                    <int> n_rows,
+                    <int> self.n_cols,
+                    <int> self._num_classes,
+                    <bool> self.fit_intercept,
+                    <double> self.l1_strength,
+                    <double> self.l2_strength,
+                    <int> self.max_iter,
+                    <double> self.tol,
+                    <double> delta,
+                    <int> self.linesearch_max_iter,
+                    <int> self.lbfgs_memory,
+                    <int> self.verbose,
+                    <double*> coef_ptr,
+                    <double*> &objective64,
+                    <int*> &num_iters,
+                    <bool> True,
+                    <int> self.loss_type,
+                    <double*> sample_weight_ptr)
 
             self.objective = objective64
 

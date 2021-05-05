@@ -103,8 +103,8 @@ template <typename T, class Comp>
 
 template <typename T, class LossFunction>
 T run(const raft::handle_t &handle, LossFunction &loss, const SimpleMat<T> &X,
-      const SimpleVec<T> &y, T l1, T l2, T *w, SimpleMat<T> &z, int verbosity,
-      cudaStream_t stream) {
+      const SimpleVec<T> &y, T l1, T l2, T *w, SimpleDenseMat<T> &z,
+      int verbosity, cudaStream_t stream) {
   int max_iter = 100;
   T grad_tol = 1e-16;
   T change_tol = 1e-16;
@@ -115,18 +115,17 @@ T run(const raft::handle_t &handle, LossFunction &loss, const SimpleMat<T> &X,
   T fx;
   SimpleVec<T> w0(w, loss.n_param);
 
-  qn_fit<T, LossFunction>(handle, loss, X.data, y.data, z.data, X.m, l1, l2,
-                          max_iter, grad_tol, change_tol, linesearch_max_iter,
-                          lbfgs_memory, verbosity, w0.data, &fx, &num_iters,
-                          X.ord, stream);
+  qn_fit<T, LossFunction>(handle, loss, X, y, z, l1, l2, max_iter, grad_tol,
+                          change_tol, linesearch_max_iter, lbfgs_memory,
+                          verbosity, w0, &fx, &num_iters, stream);
 
   return fx;
 }
 
 template <typename T>
 T run_api(const raft::handle_t &cuml_handle, int loss_type, int C,
-          bool fit_intercept, const SimpleMat<T> &X, const SimpleVec<T> &y,
-          T l1, T l2, T *w, SimpleMat<T> &z, int verbosity,
+          bool fit_intercept, const SimpleDenseMat<T> &X, const SimpleVec<T> &y,
+          T l1, T l2, T *w, SimpleDenseMat<T> &z, int verbosity,
           cudaStream_t stream) {
   int max_iter = 100;
   T grad_tol = 1e-8;

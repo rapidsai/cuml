@@ -82,9 +82,9 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
   size_t mat_size = raft::alignTo<size_t>(sizeof(T) * param.m * n, qn_align);
   size_t vec_size = raft::alignTo<size_t>(sizeof(T) * n, qn_align);
   T *p_ws = workspace.data;
-  SimpleMat<T> S(p_ws, n, param.m);
+  SimpleDenseMat<T> S(p_ws, n, param.m);
   p_ws += mat_size;
-  SimpleMat<T> Y(p_ws, n, param.m);
+  SimpleDenseMat<T> Y(p_ws, n, param.m);
   p_ws += mat_size;
   SimpleVec<T> xp(p_ws, n);
   p_ws += vec_size;
@@ -206,9 +206,9 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
   size_t mat_size = raft::alignTo<size_t>(sizeof(T) * param.m * n, qn_align);
   size_t vec_size = raft::alignTo<size_t>(sizeof(T) * n, qn_align);
   T *p_ws = workspace.data;
-  SimpleMat<T> S(p_ws, n, param.m);
+  SimpleDenseMat<T> S(p_ws, n, param.m);
   p_ws += mat_size;
-  SimpleMat<T> Y(p_ws, n, param.m);
+  SimpleDenseMat<T> Y(p_ws, n, param.m);
   p_ws += mat_size;
   SimpleVec<T> xp(p_ws, n);
   p_ws += vec_size;

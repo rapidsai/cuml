@@ -140,6 +140,69 @@ void qnFit(const raft::handle_t &cuml_handle, double *X, double *y, int N,
 /** @} */
 
 /**
+ * @defgroup qnFit to fit a GLM using quasi newton methods.
+ * @param cuml_handle           reference to raft::handle_t object
+ * @param X_values              feature matrix values (CSR format),
+ * matrix dimension: NxD.
+ * @param X_cols                feature matrix columns (CSR format)
+ * @param X_row_ids             feature matrix compresses row ids (CSR format)
+ * @param X_nnz                 number of non-zero entries in the feature
+ * matrix (CSR format)
+ * @param y                     device pointer to label vector of length N (for
+ * binary logistic: [0,1], for multinomial:  [0,...,C-1])
+ * @param N                     number of examples
+ * @param D                     number of features
+ * @param C                     number of outputs (C > 1, for multinomial,
+ * indicating number of classes. For logistic and normal, C must be 1.)
+ * @param fit_intercept         true if model should include a bias. If true,
+ * the initial point/result w0 should point to a memory location of size (D+1) *
+ * C
+ * @param l1                    l1 regularization strength (if non-zero, will
+ * run OWL-QN, else L-BFGS). Note, that as in scikit, the bias will not be
+ * regularized.
+ * @param l2                    l2 regularization strength. Note, that as in
+ * scikit, the bias will not be regularized.
+ * @param max_iter              limit on iteration number
+ * @param grad_tol              tolerance for gradient norm convergence check.
+ * The training process will stop if
+ * `norm(current_loss_grad, inf) <= grad_tol * max(current_loss, grad_tol)`.
+ * @param change_tol            tolerance for function change convergence check.
+ * The training process will stop if
+ * `abs(current_loss - previous_loss) <= change_tol * max(current_loss, grad_tol)`,
+ * where `previous_loss` is the loss value a small fixed number of steps ago.
+ * @param linesearch_max_iter   max number of linesearch iterations per outer
+ * iteration
+ * @param lbfgs_memory          rank of the lbfgs inverse-Hessian approximation.
+ * Method will request memory of size O(lbfgs_memory * D).
+ * @param verbosity             verbosity level
+ * @param w0                    device pointer of size (D + (fit_intercept ? 1 :
+ * 0)) * C with initial point, overwritten by final result.
+ * @param f                     host pointer holding the final objective value
+ * @param num_iters             host pointer holding the actual number of
+ * iterations taken
+ * @param X_col_major           true if X is stored column-major, i.e. feature
+ * columns are contiguous
+ * @param loss_type             id of likelihood model (0: logistic/sigmoid, 1:
+ * normal/squared, 2: multinomial/softmax)
+ * @{
+ */
+void qnFitSparse(const raft::handle_t &cuml_handle, float *X_values,
+                 int *X_cols, int *X_row_ids, int X_nnz, float *y, int N, int D,
+                 int C, bool fit_intercept, float l1, float l2, int max_iter,
+                 float grad_tol, float change_tol, int linesearch_max_iter,
+                 int lbfgs_memory, int verbosity, float *w0, float *f,
+                 int *num_iters, bool X_col_major, int loss_type,
+                 float *sample_weight = nullptr);
+void qnFitSparse(const raft::handle_t &cuml_handle, double *X_values,
+                 int *X_cols, int *X_row_ids, int X_nnz, double *y, int N,
+                 int D, int C, bool fit_intercept, double l1, double l2,
+                 int max_iter, double grad_tol, double change_tol,
+                 int linesearch_max_iter, int lbfgs_memory, int verbosity,
+                 double *w0, double *f, int *num_iters, bool X_col_major,
+                 int loss_type, double *sample_weight = nullptr);
+/** @} */
+
+/**
  * @defgroup qnDecisionFunction to obtain the confidence scores of samples
  * @param cuml_handle           reference to raft::handle_t object
  * @param X                     device pointer to feature matrix of dimension NxD (row- or column major: see X_col_major param)

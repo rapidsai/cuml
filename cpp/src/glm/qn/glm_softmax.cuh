@@ -196,8 +196,8 @@ struct Softmax : GLMBase<T, Softmax<T>> {
   Softmax(const raft::handle_t &handle, int D, int C, bool has_bias)
     : Super(handle, D, C, has_bias) {}
 
-  inline void getLossAndDZ(T *loss_val, SimpleMat<T> &Z, const SimpleVec<T> &y,
-                           cudaStream_t stream) {
+  inline void getLossAndDZ(T *loss_val, SimpleDenseMat<T> &Z,
+                           const SimpleVec<T> &y, cudaStream_t stream) {
     launchLogsoftmax(loss_val, Z.data, Z.data, y.data, Z.m, Z.n, stream);
   }
 };
