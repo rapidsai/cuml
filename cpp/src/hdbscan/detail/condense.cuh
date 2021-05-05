@@ -231,20 +231,6 @@ void build_condensed_hierarchy(
                                             frontier.data() + root + 1, 0);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
-
-    raft::print_device_vector("parent", out_parent.data(), out_parent.size(),
-                              std::cout);
-    raft::print_device_vector("child", out_child.data(), out_child.size(),
-                              std::cout);
-    raft::print_device_vector("size", out_size.data(), out_size.size(),
-                              std::cout);
-    raft::print_device_vector("lambda", out_lambda.data(), out_lambda.size(),
-                              std::cout);
-
-    raft::print_device_vector("relabel", relabel.data(), relabel.size(),
-                              std::cout);
-    raft::print_device_vector("ignore", ignore.data(), ignore.size(),
-                              std::cout);
   }
 
   condensed_tree.condense(out_parent.data(), out_child.data(),

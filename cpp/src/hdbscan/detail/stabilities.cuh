@@ -152,8 +152,6 @@ void compute_stabilities(
     };
   thrust::transform(exec_policy, births_zip, births_zip + n_clusters,
                     births.begin(), min_op);
-  raft::print_device_vector("Births", births.data(), n_clusters, std::cout);
-
   thrust::fill(exec_policy, stabilities, stabilities + n_clusters, 0.0f);
 
   // for each child, calculate summation (lambda[child] - lambda[birth[parent]]) * sizes[child]
@@ -161,8 +159,6 @@ void compute_stabilities(
     stabilities, births.data(), parents, children, lambdas, sizes, n_leaves);
   thrust::for_each(exec_policy, thrust::make_counting_iterator(value_idx(0)),
                    thrust::make_counting_iterator(n_edges), stabilities_op);
-
-  raft::print_device_vector("Stabilities", stabilities, n_clusters, std::cout);
 }
 
 template <typename value_idx, typename value_t>

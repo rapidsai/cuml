@@ -35,36 +35,47 @@
 namespace ML {
 namespace HDBSCAN {
 
+
+template<typename value_idx, typename value_t>
+__global__ void set_core_dists(value_idx *rows, value_idx *cols, value_t *vals,
+                               value_idx nnz, value_t *core_distances) {
+  int i = blockDim.x * blockIdx.x + threadIdx.x;
+
+  if(i < nnz) {
+    vals[i] = max(core_distances[rows[i]],
+                  max(core_distances[cols[i]], vals[i]));
+  }
+
+}
+
 template <typename value_idx, typename value_t>
 struct MSTEpilogueReachability {
+
+  value_t *core_distances;
+  value_idx m;
+
+
   MSTEpilogueReachability(value_idx m_, value_t *core_distances_)
     : core_distances(core_distances_), m(m_) {}
 
   void operator()(const raft::handle_t &handle, value_idx *coo_rows,
                   value_idx *coo_cols, value_t *coo_data, value_idx nnz) {
-    printf("nnz=%d\n", nnz);
+    printf("nnz=%d, m=%d\n", nnz, m);
 
-    raft::print_device_vector("coo_rows", coo_rows, 2, std::cout);
-    raft::print_device_vector("coo_cols", coo_cols, 2, std::cout);
-    raft::print_device_vector("coo_data", coo_data, 2, std::cout);
-    raft::print_device_vector("core", core_distances, 2, std::cout);
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    auto first = thrust::make_zip_iterator(
-      thrust::make_tuple(coo_rows, coo_cols, coo_data));
-    thrust::transform(
-      thrust::cuda::par.on(handle.get_stream()), first, first + nnz, coo_data,
-      [=] __device__(thrust::tuple<value_idx, value_idx, value_t> t) {
-        return max(core_distances[thrust::get<0>(t)],
-                   max(core_distances[thrust::get<1>(t)], thrust::get<2>(t)));
-      });
+    raft::print_device_vector("coo_rows", coo_rows, nnz, std::cout);
+    raft::print_device_vector("coo_cols", coo_cols, nnz, std::cout);
+    raft::print_device_vector("coo_data", coo_data, nnz, std::cout);
+    raft::print_device_vector("core", core_distances, m, std::cout);
+
+    set_core_dists<<<raft::ceildiv(nnz, 256), 256, 0, handle.get_stream()>>>(
+      coo_rows, coo_cols, coo_data, nnz, core_distances);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
     CUML_LOG_DEBUG("Executed graph connection");
   }
 
- private:
-  value_t *core_distances;
-  value_idx m;
 };
 
 template <typename value_idx = int64_t, typename value_t = float>
@@ -79,8 +90,8 @@ void _fit(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
   int min_cluster_size = params.min_cluster_size;
 
   /**
-    * Mutual reachability graph
-    */
+   * Mutual reachability graph
+   */
   rmm::device_uvector<value_idx> mutual_reachability_indptr(m + 1, stream);
   raft::sparse::COO<value_t, value_idx> mutual_reachability_coo(d_alloc, stream,
                                                                 k * m * 2);
@@ -95,16 +106,17 @@ void _fit(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
   CUML_LOG_DEBUG("Executed mutual reachability");
 
   /**
-    * Construct MST sorted by weights
-    */
+   * Construct MST sorted by weights
+   */
 
+  MSTEpilogueReachability<value_idx, value_t> core_dist_epilogue(m, core_dists.data());
   // during knn graph connection
   raft::hierarchy::detail::build_sorted_mst(
     handle, X, mutual_reachability_indptr.data(),
     mutual_reachability_coo.cols(), mutual_reachability_coo.vals(), m, n,
     out.get_mst_src(), out.get_mst_dst(), out.get_mst_weights(),
     mutual_reachability_coo.nnz,
-    MSTEpilogueReachability<value_idx, value_t>(m, core_dists.data()), metric,
+    core_dist_epilogue, metric,
     (size_t)10);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -158,8 +170,8 @@ void _fit_rbs(const raft::handle_t &handle, const value_t *X, size_t m,
   int min_cluster_size = params.min_cluster_size;
 
   /**
-    * Mutual reachability graph
-    */
+   * Mutual reachability graph
+   */
   rmm::device_uvector<value_idx> mutual_reachability_indptr(m + 1, stream);
   raft::sparse::COO<value_t, value_idx> mutual_reachability_coo(d_alloc, stream,
                                                                 k * m * 2);
@@ -174,8 +186,8 @@ void _fit_rbs(const raft::handle_t &handle, const value_t *X, size_t m,
   CUML_LOG_DEBUG("Executed mutual reachability");
 
   /**
-    * Construct MST sorted by weights
-    */
+   * Construct MST sorted by weights
+   */
 
   // during knn graph connection
   raft::hierarchy::detail::build_sorted_mst(
