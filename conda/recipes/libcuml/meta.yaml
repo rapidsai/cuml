@@ -45,7 +45,7 @@ requirements:
     - ucx-proc=*=gpu
     - libcumlprims {{ minor_version }}
     - lapack
-    - treelite=1.1.0
+    - treelite=1.2.0
     - faiss-proc=*=cuda
     - gtest=1.10.0
     - conda-forge::libfaiss=1.7.0
