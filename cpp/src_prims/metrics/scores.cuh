@@ -33,6 +33,8 @@
 #include <thrust/device_ptr.h>
 #include <thrust/reduce.h>
 
+#include <cuml/common/device_buffer.hpp>
+
 #define N_THREADS 512
 
 namespace MLCommon {
@@ -40,29 +42,46 @@ namespace Score {
 
 /**
  * @brief Compute a the rank of trustworthiness score
- * @param[in] ind_X: indexes given by pairwise distance and sorting
- * @param[in] ind_X_embedded: indexes given by KNN
- * @param[in] n: Number of samples
- * @param[in] n_neighbors: Number of neighbors considered by trustworthiness score
- * @param[in] work: Batch to consider (to do it at once use n * n_neighbors)
+ * @param[in] X_ind: Indexes of pairwise distance calculations of X and sorting
+ * @param[in] X_dist: Distances of pairwise distance calculations of X and sorting
+ * @param[in] emb_ind: Indexes of KNN on embeddings
+ * @param[in] emb_dist: Distances of KNN on embeddings
+ * @param n: Number of samples
+ * @param n_neighbors: Number of neighbors considered by trustworthiness score
+ * @param work: Batch to consider (to do it at once use n * n_neighbors)
  * @param[out] rank: Resulting rank
  */
 template <typename math_t, typename knn_index_t>
-__global__ void compute_rank(math_t *ind_X, knn_index_t *ind_X_embedded, int n,
-                             int n_neighbors, int work, double *rank) {
+__global__ void compute_rank(int *X_ind, math_t *X_dist, knn_index_t *emb_ind,
+                             math_t *emb_dist, int n, int n_neighbors, int work,
+                             double *rank) {
   int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i >= work) return;
 
-  int n_idx = i / n_neighbors;
+  int sample_idx = i / n_neighbors;
   int nn_idx = (i % n_neighbors) + 1;
 
-  knn_index_t idx = ind_X_embedded[n_idx * (n_neighbors + 1) + nn_idx];
-  math_t *sample_i = &ind_X[n_idx * n];
+  int loc = sample_idx * (n_neighbors + 1) + nn_idx;
+  knn_index_t emb_nn_ind = emb_ind[loc];
+  math_t emb_nn_dist = emb_dist[loc];
 
-  // TODO: This could probably be binary searched, based on
-  // the distances, as well. (re: https://github.com/rapidsai/cuml/issues/1698)
-  for (int r = 1; r < n; r++) {
-    if (sample_i[r] == idx) {
+  loc = sample_idx * n;
+  int *X_pw_ind = &X_ind[loc];
+  math_t *X_pw_dist = &X_dist[loc];
+
+  knn_index_t left = 1;
+  knn_index_t right = n - 1;
+  while (left < right) {
+    knn_index_t mid = std::floor((left + right) / 2);
+    if (X_pw_dist[mid] < emb_nn_dist) {
+      left = mid + 1;
+    } else {
+      right = mid;
+    }
+  }
+
+  for (int r = left; r < n; r++) {
+    if (X_pw_ind[r] == emb_nn_ind) {
       int tmp = r - n_neighbors;
       if (tmp > 0) raft::myAtomicAdd<double>(rank, tmp);
       break;
@@ -72,51 +91,37 @@ __global__ void compute_rank(math_t *ind_X, knn_index_t *ind_X_embedded, int n,
 
 /**
  * @brief Compute a kNN and returns the indices of the nearest neighbors
- * @param input Input matrix holding the dataset
+ * @param h Raft handle
+ * @param[in] input Input matrix containing the dataset
  * @param n Number of samples
  * @param d Number of features
  * @param n_neighbors number of neighbors
- * @param d_alloc the device allocator to use for temp device memory
- * @param stream cuda stream to use
- * @return Matrix holding the indices of the nearest neighbors
+ * @param[out] indices KNN indexes
+ * @param[out] distances KNN distances
  */
-template <typename math_t>
-long *get_knn_indices(const raft::handle_t &h, math_t *input, int n, int d,
-                      int n_neighbors,
-                      raft::distance::DistanceType distance_type) {
-  cudaStream_t stream = h.get_stream();
-  auto d_alloc = h.get_device_allocator();
-
-  long *d_pred_I =
-    (int64_t *)d_alloc->allocate(n * n_neighbors * sizeof(int64_t), stream);
-  math_t *d_pred_D =
-    (math_t *)d_alloc->allocate(n * n_neighbors * sizeof(math_t), stream);
-
+template <raft::distance::DistanceType distance_type, typename math_t>
+void run_knn(const raft::handle_t &h, math_t *input, int n, int d,
+             int n_neighbors, int64_t *indices, math_t *distances) {
   std::vector<float *> ptrs(1);
   std::vector<int> sizes(1);
   ptrs[0] = input;
   sizes[0] = n;
 
-  raft::spatial::knn::brute_force_knn(h, ptrs, sizes, d, input, n, d_pred_I,
-                                      d_pred_D, n_neighbors, true, true,
+  raft::spatial::knn::brute_force_knn(h, ptrs, sizes, d, input, n, indices,
+                                      distances, n_neighbors, true, true,
                                       nullptr, distance_type);
-
-  d_alloc->deallocate(d_pred_D, n * n_neighbors * sizeof(math_t), stream);
-  return d_pred_I;
 }
 
 /**
  * @brief Compute the trustworthiness score
- * @tparam distance_type: Distance type to consider
+ * @param h Raft handle
  * @param X: Data in original dimension
  * @param X_embedded: Data in target dimension (embedding)
  * @param n: Number of samples
  * @param m: Number of features in high/original dimension
  * @param d: Number of features in low/embedded dimension
  * @param n_neighbors Number of neighbors considered by trustworthiness score
- * @param d_alloc device allocator to use for temp device memory
- * @param stream the cuda stream to use
- * @param batchSize batch size
+ * @param batchSize Batch size
  * @return Trustworthiness score
  */
 template <typename math_t, raft::distance::DistanceType distance_type>
@@ -128,16 +133,22 @@ double trustworthiness_score(const raft::handle_t &h, math_t *X,
   cudaStream_t stream = h.get_stream();
   auto d_alloc = h.get_device_allocator();
 
-  math_t *d_pdist_tmp =
-    (math_t *)d_alloc->allocate(TMP_SIZE * sizeof(math_t), stream);
-  int *d_ind_X_tmp = (int *)d_alloc->allocate(TMP_SIZE * sizeof(int), stream);
+  MLCommon::device_buffer<int64_t> emb_ind(d_alloc, stream,
+                                           n * (n_neighbors + 1));
+  MLCommon::device_buffer<math_t> emb_dist(d_alloc, stream,
+                                           n * (n_neighbors + 1));
 
-  int64_t *ind_X_embedded =
-    get_knn_indices(h, X_embedded, n, d, n_neighbors + 1, distance_type);
+  run_knn<distance_type>(h, X_embedded, n, d, n_neighbors + 1, emb_ind.data(),
+                         emb_dist.data());
+
+  MLCommon::device_buffer<int> X_ind(d_alloc, stream, TMP_SIZE);
+  MLCommon::device_buffer<math_t> X_dist(d_alloc, stream, TMP_SIZE);
+  MLCommon::device_buffer<math_t> X_sorted_dist(d_alloc, stream, TMP_SIZE);
 
   double t_tmp = 0.0;
   double t = 0.0;
-  double *d_t = (double *)d_alloc->allocate(sizeof(double), stream);
+  device_buffer<double> t_dbuf(d_alloc, stream, 1);
+  double *d_t = t_dbuf.data();
 
   int toDo = n;
   while (toDo > 0) {
@@ -148,25 +159,25 @@ double trustworthiness_score(const raft::handle_t &h, math_t *X,
     size_t workspaceSize = 0;
 
     raft::distance::distance<distance_type, math_t, math_t, math_t>(
-      &X[(n - toDo) * m], X, d_pdist_tmp, curBatchSize, n, m, (void *)nullptr,
+      &X[(n - toDo) * m], X, X_dist.data(), curBatchSize, n, m, (void *)nullptr,
       workspaceSize, stream);
     CUDA_CHECK(cudaPeekAtLastError());
 
     size_t colSortWorkspaceSize = 0;
     bool bAllocWorkspace = false;
-    char *sortColsWorkspace;
 
     MLCommon::Selection::sortColumnsPerRow(
-      d_pdist_tmp, d_ind_X_tmp, curBatchSize, n, bAllocWorkspace, nullptr,
-      colSortWorkspaceSize, stream);
+      X_dist.data(), X_ind.data(), curBatchSize, n, bAllocWorkspace, nullptr,
+      colSortWorkspaceSize, stream, X_sorted_dist.data());
 
     if (bAllocWorkspace) {
-      sortColsWorkspace =
-        (char *)d_alloc->allocate(colSortWorkspaceSize, stream);
+      MLCommon::device_buffer<char> sortColsWorkspace(d_alloc, stream,
+                                                      colSortWorkspaceSize);
 
       MLCommon::Selection::sortColumnsPerRow(
-        d_pdist_tmp, d_ind_X_tmp, curBatchSize, n, bAllocWorkspace,
-        sortColsWorkspace, colSortWorkspaceSize, stream);
+        X_dist.data(), X_ind.data(), curBatchSize, n, bAllocWorkspace,
+        sortColsWorkspace.data(), colSortWorkspaceSize, stream,
+        X_sorted_dist.data());
     }
     CUDA_CHECK(cudaPeekAtLastError());
 
@@ -176,16 +187,14 @@ double trustworthiness_score(const raft::handle_t &h, math_t *X,
     int work = curBatchSize * n_neighbors;
     int n_blocks = raft::ceildiv(work, N_THREADS);
     compute_rank<<<n_blocks, N_THREADS, 0, stream>>>(
-      d_ind_X_tmp, &ind_X_embedded[(n - toDo) * (n_neighbors + 1)], n,
-      n_neighbors, curBatchSize * n_neighbors, d_t);
+      X_ind.data(), X_sorted_dist.data(),
+      &emb_ind.data()[(n - toDo) * (n_neighbors + 1)],
+      &emb_dist.data()[(n - toDo) * (n_neighbors + 1)], n, n_neighbors,
+      curBatchSize * n_neighbors, d_t);
     CUDA_CHECK(cudaPeekAtLastError());
 
     raft::update_host(&t_tmp, d_t, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
-
-    if (bAllocWorkspace) {
-      d_alloc->deallocate(sortColsWorkspace, colSortWorkspaceSize, stream);
-    }
 
     t += t_tmp;
 
@@ -195,12 +204,6 @@ double trustworthiness_score(const raft::handle_t &h, math_t *X,
   t =
     1.0 -
     ((2.0 / ((n * n_neighbors) * ((2.0 * n) - (3.0 * n_neighbors) - 1.0))) * t);
-
-  d_alloc->deallocate(ind_X_embedded, n * (n_neighbors + 1) * sizeof(int64_t),
-                      stream);
-  d_alloc->deallocate(d_pdist_tmp, TMP_SIZE * sizeof(math_t), stream);
-  d_alloc->deallocate(d_ind_X_tmp, TMP_SIZE * sizeof(int), stream);
-  d_alloc->deallocate(d_t, sizeof(double), stream);
 
   return t;
 }
