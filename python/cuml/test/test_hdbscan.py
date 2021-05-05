@@ -36,7 +36,7 @@ import cupy as cp
   #
 
 
-@pytest.mark.parametrize('nrows', [100, 1000])
+@pytest.mark.parametrize('nrows', [1000])
 @pytest.mark.parametrize('ncols', [25, 50])
 @pytest.mark.parametrize('nclusters', [2, 5, 10])
 @pytest.mark.parametrize('k', [25])
@@ -75,6 +75,11 @@ def test_hdbscan_sklearn_compare(nrows, ncols, nclusters,
     print("cu_lambdas: %s" % cuml_agg.lambdas_[-10:])
 
     print("sk_children: %s" % sk_agg.single_linkage_tree_.to_numpy()[-10:])
+
+    print("sk children shape %s" % str(sk_agg.single_linkage_tree_.to_numpy().shape))
+
+    print("sk_children_1279: %s" % sk_agg.single_linkage_tree_.to_numpy()[279])
+    print("sk_children_1996: %s" % sk_agg.single_linkage_tree_.to_numpy()[996])
 
     print("cu_children (inc): %s" % cuml_agg.children_.flatten()[:20])
     print("cu_sizes (inc): %s" % cuml_agg.sizes_[:10])
