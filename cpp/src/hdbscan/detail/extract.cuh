@@ -316,9 +316,10 @@ void extract_clusters(
   raft::label::make_monotonic(labels, labels, n_leaves, stream,
                               handle.get_device_allocator(), true);
 
+  auto lambdas_ptr = thrust::device_pointer_cast(condensed_tree.get_lambdas());
   value_t max_lambda = *(thrust::max_element(
-    exec_policy, condensed_tree.get_lambdas(),
-    condensed_tree.get_lambdas() + condensed_tree.get_n_edges()));
+    exec_policy, lambdas_ptr,
+    lambdas_ptr + condensed_tree.get_n_edges()));
 
   Stability::get_stability_scores(handle, labels, tree_stabilities.data(),
                                   clusters.size(), max_lambda, n_leaves,

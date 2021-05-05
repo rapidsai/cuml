@@ -351,8 +351,6 @@ void cluster_epsilon_search(
   auto children = cluster_tree.get_children();
   auto lambdas = cluster_tree.get_lambdas();
   auto cluster_tree_edges = cluster_tree.get_n_edges();
-  std::cout << "cluster_tree_edges: " << cluster_tree_edges << std::endl;
-  raft::print_device_vector("is_cluster", is_cluster, n_clusters, std::cout);
 
   auto n_selected_clusters =
     thrust::reduce(thrust_policy, is_cluster, is_cluster + n_clusters);
@@ -364,8 +362,6 @@ void cluster_epsilon_search(
                   thrust::make_counting_iterator(n_clusters), is_cluster,
                   selected_clusters.data(),
                   [] __device__(auto cluster) { return cluster; });
-  raft::print_device_vector("selected_clusters", selected_clusters.data(),
-                            n_selected_clusters, std::cout);
 
   // sort lambdas and parents by children for epsilon search
   auto start = thrust::make_zip_iterator(thrust::make_tuple(parents, lambdas));
@@ -390,8 +386,6 @@ void cluster_epsilon_search(
   perform_bfs(handle, indptr.data(), children, frontier.data(), is_cluster,
               n_clusters, propagate_cluster_negation_kernel<value_idx>);
 
-  raft::print_device_vector("is_cluster_epsilon", is_cluster, n_clusters,
-                            std::cout);
 }
 
 };  // namespace Select

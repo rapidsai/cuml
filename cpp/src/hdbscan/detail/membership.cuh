@@ -138,19 +138,14 @@ void get_probabilities(
     sorted_parents_offsets.data(), stream,
     cub::DeviceSegmentedReduce::Max<const value_t *, value_t *,
                                     const value_idx *>);
-  raft::print_device_vector("Deaths", deaths.data(), n_clusters, std::cout);
 
   // Calculate probability per point
   thrust::fill(exec_policy, probabilities, probabilities + n_leaves, 0.0f);
 
-  std::cout << "root cluster: " << n_leaves << std::endl;
   probabilities_functor<value_idx, value_t> probabilities_op(
     probabilities, deaths.data(), parents, children, lambdas, labels, n_leaves);
   thrust::for_each(exec_policy, thrust::make_counting_iterator(value_idx(0)),
                    thrust::make_counting_iterator(n_edges), probabilities_op);
-
-  raft::print_device_vector("Probabilities", probabilities, n_leaves,
-                            std::cout);
 }
 
 };  // namespace Membership
