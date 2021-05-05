@@ -243,8 +243,10 @@ void extract_clusters(
   const raft::handle_t &handle,
   Common::CondensedHierarchy<value_idx, value_t> &condensed_tree,
   size_t n_leaves, value_idx *labels, value_t *stabilities,
-  value_t *probabilities, bool allow_single_cluster = true,
-  value_idx max_cluster_size = 0, value_t cluster_selection_epsilon = 0.0) {
+  value_t *probabilities,
+  Common::CLUSTER_SELECTION_METHOD cluster_selection_method,
+  bool allow_single_cluster = true, value_idx max_cluster_size = 0,
+  value_t cluster_selection_epsilon = 0.0) {
   auto stream = handle.get_stream();
   auto exec_policy = rmm::exec_policy(stream);
 
@@ -262,13 +264,38 @@ void extract_clusters(
 
   auto cluster_tree = Utils::make_cluster_tree(handle, condensed_tree);
 
-  Select::excess_of_mass(handle, cluster_tree, tree_stabilities.data(),
-                         is_cluster.data(), condensed_tree.get_n_clusters(),
-                         max_cluster_size);
+  if (cluster_selection_method == Common::CLUSTER_SELECTION_METHOD::EOM) {
+    Select::excess_of_mass(handle, cluster_tree, tree_stabilities.data(),
+                           is_cluster.data(), condensed_tree.get_n_clusters(),
+                           max_cluster_size);
+  } else if (cluster_selection_method ==
+             Common::CLUSTER_SELECTION_METHOD::LEAF) {
+    Select::leaf(handle, cluster_tree, is_cluster.data(),
+                 condensed_tree.get_n_clusters());
+  }
 
-  Select::cluster_epsilon_search(
-    handle, cluster_tree, is_cluster.data(), condensed_tree.get_n_clusters(),
-    cluster_selection_epsilon, allow_single_cluster);
+  if (cluster_selection_epsilon != 0.0) {
+    auto epsilon_search = true;
+
+    // this is to check when eom finds root as only cluster
+    // in which case, epsilon search is cancelled
+    if (cluster_selection_method == Common::CLUSTER_SELECTION_METHOD::EOM) {
+      if (condensed_tree.get_n_clusters() == 1) {
+        int is_root_only_cluster = false;
+        raft::update_host(&is_root_only_cluster, is_cluster.data(), 1, stream);
+        if (is_root_only_cluster) {
+          epsilon_search = false;
+        }
+      }
+    }
+
+    if (epsilon_search) {
+      Select::cluster_epsilon_search(handle, cluster_tree, is_cluster.data(),
+                                     condensed_tree.get_n_clusters(),
+                                     cluster_selection_epsilon,
+                                     allow_single_cluster);
+    }
+  }
 
   std::vector<int> is_cluster_h(is_cluster.size());
   raft::update_host(is_cluster_h.data(), is_cluster.data(), is_cluster_h.size(),

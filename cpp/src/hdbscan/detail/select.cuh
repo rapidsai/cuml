@@ -66,11 +66,34 @@ __global__ void propagate_cluster_negation_kernel(const value_idx *indptr,
   }
 }
 
-template <typename value_idx, int tpb = 256>
-void propagate_cluster_negation(const raft::handle_t &handle,
-                                const value_idx *indptr,
-                                const value_idx *children, int *frontier,
-                                int *is_cluster, int n_clusters) {
+template <typename value_idx>
+__global__ void get_cluster_tree_leaves(const value_idx *indptr,
+                                        const value_idx *children,
+                                        int *frontier, int *is_cluster,
+                                        int n_clusters) {
+  int cluster = blockDim.x * blockIdx.x + threadIdx.x;
+
+  if (cluster < n_clusters && frontier[cluster]) {
+    frontier[cluster] = false;
+
+    value_idx children_start = indptr[cluster];
+    value_idx children_stop = indptr[cluster + 1];
+
+    if (children_stop - children_start == 0) {
+      is_cluster[cluster] = true;
+    }
+
+    for (int i = children_start; i < children_stop; i++) {
+      value_idx child = children[i];
+      frontier[child] = true;
+    }
+  }
+}
+
+template <typename value_idx, typename Bfs_Kernel, int tpb = 256>
+void perform_bfs(const raft::handle_t &handle, const value_idx *indptr,
+                 const value_idx *children, int *frontier, int *is_cluster,
+                 int n_clusters, Bfs_Kernel bfs_kernel) {
   auto stream = handle.get_stream();
   auto thrust_policy = rmm::exec_policy(stream);
 
@@ -84,8 +107,8 @@ void propagate_cluster_negation(const raft::handle_t &handle,
   size_t grid = raft::ceildiv(n_clusters, tpb);
 
   while (n_elements_to_traverse > 0) {
-    propagate_cluster_negation_kernel<<<grid, tpb, 0, stream>>>(
-      indptr, children, frontier, is_cluster, n_clusters);
+    bfs_kernel<<<grid, tpb, 0, stream>>>(indptr, children, frontier, is_cluster,
+                                         n_clusters);
 
     n_elements_to_traverse =
       thrust::reduce(thrust_policy, frontier, frontier + n_clusters, 0);
@@ -118,6 +141,7 @@ rmm::device_uvector<value_idx> parent_csr(
     parents, cluster_tree_edges, indptr.data(), n_clusters + 1,
     handle.get_device_allocator(), stream);
 
+  raft::print_device_vector("indptr", indptr.data(), n_clusters + 1, std::cout);
   return indptr;
 }
 
@@ -222,8 +246,50 @@ void excess_of_mass(
   raft::update_device(is_cluster, is_cluster_h.data(), n_clusters, stream);
   raft::update_device(frontier.data(), frontier_h.data(), n_clusters, stream);
 
-  propagate_cluster_negation(handle, indptr.data(), children, frontier.data(),
-                             is_cluster, n_clusters);
+  perform_bfs(handle, indptr.data(), children, frontier.data(), is_cluster,
+              n_clusters, propagate_cluster_negation_kernel<value_idx>);
+}
+
+/**
+ * Computes cluster selection using leaf method
+ * @tparam value_idx
+ * @tparam value_t
+ * @tparam tpb
+ * @param handle
+ * @param condensed_tree
+ * @param is_cluster
+ * @param n_clusters
+ */
+template <typename value_idx, typename value_t, int tpb = 256>
+void leaf(const raft::handle_t &handle,
+          Common::CondensedHierarchy<value_idx, value_t> &cluster_tree,
+          int *is_cluster, int n_clusters) {
+  auto stream = handle.get_stream();
+  auto exec_policy = rmm::exec_policy(stream);
+
+  auto children = cluster_tree.get_children();
+
+  auto indptr = parent_csr(handle, cluster_tree, n_clusters);
+  thrust::fill(exec_policy, is_cluster, is_cluster + n_clusters, false);
+
+  // mark root in frontier
+  rmm::device_uvector<int> frontier(n_clusters, stream);
+  constexpr int root_in_fontier = true;
+  frontier.set_element(0, root_in_fontier, stream);
+
+  perform_bfs(handle, indptr.data(), children, frontier.data(), is_cluster,
+              n_clusters, get_cluster_tree_leaves<value_idx>);
+
+  auto n_selected_clusters =
+    thrust::reduce(exec_policy, is_cluster, is_cluster + n_clusters);
+
+  // if no cluster leaves were found, declare root as cluster
+  if (n_selected_clusters == 0) {
+    int root_is_cluster = true;
+    raft::update_device(is_cluster, &root_is_cluster, 1, stream);
+  }
+  raft::print_device_vector("is_cluster_leaf", is_cluster, n_clusters,
+                            std::cout);
 }
 
 template <typename value_idx, typename value_t, int tpb = 256>
@@ -247,8 +313,6 @@ __global__ void cluster_epsilon_search_kernel(
   auto eps = 1 / lambdas[child_idx];
 
   if (eps < cluster_selection_epsilon) {
-    // children clusters start at index 1
-
     constexpr auto root = 0;
     auto parent = parents[child_idx];
 
@@ -316,8 +380,9 @@ void cluster_epsilon_search(
 
   auto indptr = parent_csr(handle, cluster_tree, n_clusters);
 
-  propagate_cluster_negation(handle, indptr.data(), children, frontier.data(),
-                             is_cluster, n_clusters);
+  perform_bfs(handle, indptr.data(), children, frontier.data(), is_cluster,
+              n_clusters, propagate_cluster_negation_kernel<value_idx>);
+
 }
 
 };  // namespace Select
