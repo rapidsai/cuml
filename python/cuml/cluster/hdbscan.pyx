@@ -470,6 +470,15 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         params.cluster_selection_epsilon = self.cluster_selection_epsilon
         params.allow_single_cluster = self.allow_single_cluster
 
+        if self.cluster_selection_method == 'eom':
+            params.cluster_selection_method = CLUSTER_SELECTION_METHOD.EOM
+        elif self.cluster_selection_method == 'leaf':
+            params.cluster_selection_method = CLUSTER_SELECTION_METHOD.LEAF
+        else:
+            raise ValueError("Cluster selection method not supported. "
+                             "Must one of {'eom', 'leaf'}")
+
+
         cdef DistanceType metric
         if self.metric in _metrics_mapping:
             metric = _metrics_mapping[self.metric]
