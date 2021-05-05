@@ -403,6 +403,7 @@ void select_clusters(const raft::handle_t &handle,
   CUML_LOG_DEBUG("Building cluster tree: n_clusters=%d", condensed_tree.get_n_clusters());
   auto cluster_tree = Utils::make_cluster_tree(handle, condensed_tree);
 
+
   if (cluster_selection_method == Common::CLUSTER_SELECTION_METHOD::EOM) {
     Select::excess_of_mass(handle, cluster_tree, tree_stabilities,
                            is_cluster, condensed_tree.get_n_clusters(),
