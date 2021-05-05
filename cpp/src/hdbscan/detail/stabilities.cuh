@@ -127,6 +127,7 @@ void compute_stabilities(
       births[child - n_leaves] = lambdas[idx];
     }
   };
+  raft::print_device_vector("inital_births", births.data(), n_clusters, std::cout);
 
   // this is to find minimum lambdas of all children under a prent
   rmm::device_uvector<value_t> births_parent_min(n_clusters, stream);
@@ -138,7 +139,7 @@ void compute_stabilities(
     sorted_parents_offsets.data() + 1, stream,
     cub::DeviceSegmentedReduce::Min<const value_t *, value_t *,
                                     const value_idx *>);
-
+  raft::print_device_vector("min_births", births_parent_min.data(), n_clusters, std::cout);
   // finally, we find minimum between initialized births where parent=child
   // and births of parents for their childrens
   auto births_zip = thrust::make_zip_iterator(
@@ -150,8 +151,11 @@ void compute_stabilities(
 
       return birth < births_parent_min ? birth : births_parent_min;
     };
-  thrust::transform(exec_policy, births_zip, births_zip + n_clusters,
-                    births.begin(), min_op);
+  thrust::transform(exec_policy, births_zip + 1, births_zip + n_clusters,
+                    births.begin() + 1, min_op);
+
+  raft::print_device_vector("Final births", births.data(), n_clusters, std::cout);
+
   thrust::fill(exec_policy, stabilities, stabilities + n_clusters, 0.0f);
 
   // for each child, calculate summation (lambda[child] - lambda[birth[parent]]) * sizes[child]

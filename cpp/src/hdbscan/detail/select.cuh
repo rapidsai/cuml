@@ -193,7 +193,7 @@ void excess_of_mass(
     [=] __device__(const thrust::tuple<value_idx, value_idx, value_idx> &tup) {
       cluster_sizes_ptr[thrust::get<1>(tup)] = thrust::get<2>(tup);
     });
-
+  raft::print_device_vector("stabilities", stability, n_clusters, std::cout);
   /**
    * 2. Iterate through each level from leaves back to root. Use the cluster
    *    tree CSR and warp-level reduction to sum stabilities and test whether
