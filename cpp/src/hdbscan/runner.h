@@ -64,11 +64,6 @@ struct MSTEpilogueReachability {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    raft::print_device_vector("coo_rows", coo_rows, nnz, std::cout);
-    raft::print_device_vector("coo_cols", coo_cols, nnz, std::cout);
-    raft::print_device_vector("coo_data", coo_data, nnz, std::cout);
-    raft::print_device_vector("core", core_distances, m, std::cout);
-
     set_core_dists<<<raft::ceildiv(nnz, 256), 256, 0, handle.get_stream()>>>(
       coo_rows, coo_cols, coo_data, nnz, core_distances);
 
