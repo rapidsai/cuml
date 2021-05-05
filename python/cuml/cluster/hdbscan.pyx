@@ -49,7 +49,11 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
         LEAF "ML::HDBSCAN::Common::CLUSTER_SELECTION_METHOD::LEAF"
 
     cdef cppclass CondensedHierarchy_int_float:
-        pass
+        int *get_parents()
+        int *get_children()
+        float *get_lambdas()
+        int *get_sizes()
+        int get_n_edges()
 
     cdef cppclass HDBSCANParams:
         int k
@@ -345,8 +349,10 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                                          memptr=mem_ptr))
 
     def _construct_condensed_tree_attribute(self, ptr, dtype="int32"):
+        cdef hdbscan_output *hdbscan_output_ = <hdbscan_output*><size_t>self.hdbscan_output_
+
         n_condensed_tree_edges = \
-            self.hdbscan_output_.get_condensed_tree().get_n_edges()
+            hdbscan_output_.get_condensed_tree().get_n_edges()
 
         # TODO: Don't hardcode 4 bytes for buffer size multiplier
         return self._cuml_array_from_ptr(
@@ -356,39 +362,41 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
     def _construct_output_attributes(self):
 
-        self.n_clusters_ = self.hdbscan_output_.get_n_clusters()
+        cdef hdbscan_output *hdbscan_output_ = <hdbscan_output*><size_t>self.hdbscan_output_
+
+        self.n_clusters_ = hdbscan_output_.get_n_clusters()
 
         # TODO: Don't hardcode 4 bytes for buffer size multiplier
         self.stabilities_ = self._cuml_array_from_ptr(
-            self.hdbscan_output_.get_stabilities(),
-            self.hdbscan_output_.get_n_clusters() * 4,
-            (1, self.hdbscan_output_.get_n_clusters()), "float32"
+            <size_t>hdbscan_output_.get_stabilities(),
+            hdbscan_output_.get_n_clusters() * 4,
+            (1, hdbscan_output_.get_n_clusters()), "float32"
         )
 
         self.condensed_parent_ = self._construct_condensed_tree_attribute(
-            self.hdbscan_output_.get_condensed_tree().get_parents())
+            <size_t>hdbscan_output_.get_condensed_tree().get_parents())
 
         self.condensed_child_ = self._construct_condensed_tree_attribute(
-            self.hdbscan_output_.get_condensed_tree().get_children())
+            <size_t>hdbscan_output_.get_condensed_tree().get_children())
 
         self.condensed_lambdas_ = self._construct_condensed_tree_attribute(
-            self.hdbscan_output_.get_condensed_tree().get_lambdas(), "float32")
+            <size_t>hdbscan_output_.get_condensed_tree().get_lambdas(), "float32")
 
         self.condensed_sizes_ = self._construct_condensed_tree_attribute(
-            self.hdbscan_output_.get_condensed_tree().get_sizes())
+            <size_t>hdbscan_output_.get_condensed_tree().get_sizes())
 
-        self._single_linkage_tree = SingleLinkageTree(self.children_,
-                                                      self.lambdas_,
-                                                      self.sizes_)
-
-        self._condensed_tree = CondensedTree(self.condensed_parent_,
-                                             self.condensed_child_,
-                                             self.condensed_lambdas_,
-                                             self.condensed_sizes_)
-
-        self._min_spanning_tree = MinimumSpanningTree(self.mst_src_,
-                                                      self.mst_dst_,
-                                                      self.mst_weights_)
+        # self._single_linkage_tree = SingleLinkageTree(self.children_,
+        #                                               self.lambdas_,
+        #                                               self.sizes_)
+        #
+        # self._condensed_tree = CondensedTree(self.condensed_parent_,
+        #                                      self.condensed_child_,
+        #                                      self.condensed_lambdas_,
+        #                                      self.condensed_sizes_)
+        #
+        # self._min_spanning_tree = MinimumSpanningTree(self.mst_src_,
+        #                                               self.mst_dst_,
+        #                                               self.mst_weights_)
 
     @generate_docstring(skip_parameters_heading=True)
     def fit(self, X, y=None, convert_dtype=True) -> "HDBSCAN":
@@ -445,7 +453,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
             <int*>mst_dst_ptr,
             <float*>mst_weights_ptr)
 
-        self.hdbscan_output_ = <uintptr_t>linkage_output
+        self.hdbscan_output_ = <size_t>linkage_output
 
         cdef HDBSCANParams params
         params.k = self.n_neighbors
@@ -476,6 +484,8 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         self.handle.sync()
 
         self._construct_output_attributes()
+
+        print("Labels: %s" % self.labels_.to_output("numpy"))
 
         return self
 
