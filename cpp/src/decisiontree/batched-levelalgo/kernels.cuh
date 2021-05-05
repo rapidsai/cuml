@@ -710,34 +710,62 @@ __global__ void computeSplitRegressionKernelPass2(
   /* Make a second pass over the data to compute gain */
   auto coloffset = col * input.M;
   // 2nd pass over data to compute partial metric across blockIdx.x's
-  if (splitType == CRITERION::MAE) {
-    for (auto i = range_start + tid; i < end; i += stride) {
-      auto row = input.rowids[i];
-      auto d = input.data[row + coloffset];
-      auto label = input.labels[row];
-      for (IdxT b = 0; b < nbins; ++b) {
-        auto isRight = d > sbins[b];  // no divergence
-        auto offset = isRight * nbins + b;
-        auto diff = label - (isRight ? cdf_spred[nbins + b] : cdf_spred[b]);
-        atomicAdd(spred2 + offset, raft::myAbs(diff));
-        atomicAdd(spred2P + b, raft::myAbs(label - spredP[b]));
-      }
+  for (auto j = range_start; j < end; j += stride) {
+    // loop goes from range_start to end, thus i goes from range_start to
+    // (end + TPB). This is necessary as all threads need to participate in
+    // block reduce. We check if i < end where ever data is read using i.
+    int i = j + tid;
+    DataT d, label;
+    // Read sample and lable if i is valid
+    if (i < end) {
+      int row = input.rowids[i];
+      d = input.data[row + coloffset];
+      label = input.labels[row];
     }
-  } else {
-    for (auto i = range_start + tid; i < end; i += stride) {
-      auto row = input.rowids[i];
-      auto d = input.data[row + coloffset];
-      auto label = input.labels[row];
-      for (IdxT b = 0; b < nbins; ++b) {
-        auto isRight = d > sbins[b];  // no divergence
-        auto offset = isRight * nbins + b;
-        auto diff = label - (isRight ? cdf_spred[nbins + b] : cdf_spred[b]);
-        auto diff2 = label - spredP[b];
-        atomicAdd(spred2 + offset, (diff * diff));
-        atomicAdd(spred2P + b, (diff2 * diff2));
+
+    for (IdxT b = 0; b < nbins; ++b) {
+      DataT left_diff, right_diff, diff2;
+      if (i < end) {
+        diff2 = label - spredP[b];
+        if (d > sbins[b]) {
+          right_diff = label - cdf_spred[nbins + b];
+          left_diff = 0;
+        } else {
+          right_diff = 0;
+          left_diff = label - cdf_spred[b];
+        }
+      } else {
+        // i is invalid so don't contribute to any reductions
+        left_diff = 0.0;
+        right_diff = 0.0;
+        diff2 = 0.0;
       }
+
+      if (splitType == CRITERION::MAE) {
+        right_diff = raft::myAbs(right_diff);
+        left_diff = raft::myAbs(left_diff);
+        diff2 = raft::myAbs(diff2);
+      } else {
+        right_diff = right_diff * right_diff;
+        left_diff = left_diff * left_diff;
+        diff2 = diff2 * diff2;
+      }
+
+      typedef cub::BlockReduce<DataT, TPB> BlockReduceT;
+      __shared__ typename BlockReduceT::TempStorage temp[3];
+
+      auto right_diff_total = BlockReduceT(temp[0]).Sum(right_diff);
+      auto left_diff_total = BlockReduceT(temp[1]).Sum(left_diff);
+      auto diff2_total = BlockReduceT(temp[3]).Sum(diff2);
+      if (threadIdx.x == 0) {
+        spred2[b + nbins] += right_diff_total;
+        spred2[b] += left_diff_total;
+        spred2P[b] += diff2_total;
+      }
+      __syncthreads();
     }
   }
+
   __syncthreads();
   if (num_blocks > 1) {
     // update the corresponding global location for pred2P
