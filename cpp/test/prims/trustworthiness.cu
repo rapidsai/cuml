@@ -17,7 +17,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <iostream>
-#include <metrics/scores.cuh>
+#include <metrics/trustworthiness_score.cuh>
 #include <raft/distance/distance.cuh>
 #include <raft/mr/device/allocator.hpp>
 #include <vector>
