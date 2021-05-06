@@ -126,8 +126,11 @@ void do_labelling_on_host(
     parent_lambdas[parent_h[i]] = max(parent_lambdas[parent_h[i]], lambda_h[i]);
   }
 
+  raft::print_host_vector("union_data", union_find.get_data(), 2 * (size + 1), std::cout);
+
   for (int i = 0; i < n_leaves; i++) {
     value_idx cluster = union_find.find(i);
+    // std::cout << "Leaf: " << i << ", Cluster: " << cluster << std::endl;
 
     if (cluster < n_leaves)
       result[i] = -1;
@@ -136,7 +139,8 @@ void do_labelling_on_host(
       if (clusters.size() == 1 && allow_single_cluster) {
         auto it = std::find(children_h.begin(), children_h.end(), i);
         auto child_idx = std::distance(children_h.begin(), it);
-        value_idx child_lambda = lambda_h[child_idx];
+        auto child_lambda = lambda_h[child_idx];
+        // std::cout << "Leaf: " << i << ", child_idx: " << child_idx << ", Child Lambda: " << child_lambda << ", Parent_lambda: " << parent_lambdas[cluster] << std::endl;
         if (child_lambda >= parent_lambdas[cluster])
           result[i] = cluster - n_leaves;
         else
@@ -281,7 +285,11 @@ void extract_clusters(
 
   std::set<value_idx> clusters;
   for (int i = 0; i < is_cluster_h.size(); i++)
-    if (is_cluster_h[i] != 0) clusters.insert(i + n_leaves);
+    if (is_cluster_h[i] != 0) 
+    {
+      std::cout << "Inserting cluster: " << i + n_leaves << std::endl;
+      clusters.insert(i + n_leaves);
+    }
 
   CUML_LOG_DEBUG("Cluster labeling. n_clusters=%d", clusters.size());
   do_labelling_on_host<value_idx, value_t>(

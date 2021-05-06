@@ -249,6 +249,8 @@ void excess_of_mass(
 
   perform_bfs(handle, indptr.data(), children, frontier.data(), is_cluster,
               n_clusters, propagate_cluster_negation_kernel<value_idx>);
+
+  raft::print_device_vector("is_cluster_excess", is_cluster, n_clusters, std::cout);
 }
 
 /**
