@@ -53,7 +53,7 @@ namespace Extract {
 template <typename value_idx>
 class TreeUnionFind {
  public:
-  TreeUnionFind(value_idx size) : data(size * 2, 0) {
+  TreeUnionFind(value_idx size_) : size(size_), data(size_ * 2, 0) {
     for (int i = 0; i < size; i++) {
       data[i * 2] = i;
     }
@@ -70,6 +70,8 @@ class TreeUnionFind {
     else {
       data[y_root * 2] = x_root;
       data[x_root * 2 + 1] += 1;
+
+      printf("Incremented %d to %d\n", x_root, data[x_root * 2 + 1]);
     }
   }
 
@@ -81,7 +83,23 @@ class TreeUnionFind {
 
   value_idx *get_data() { return data.data(); }
 
+  void print() {
+
+    printf("[");
+    for(int i = 0; i < size; i++) {
+      printf("[ %d, %d ]\n", data[i * 2], data[i*2+1]);
+
+      if(i < size-1) {
+        printf(", ");
+      }
+    }
+    printf("]");
+  }
+
+
  private:
+
+  value_idx size;
   std::vector<value_idx> data;
 };
 
@@ -115,16 +133,17 @@ void do_labelling_on_host(
 
   auto union_find = TreeUnionFind<value_idx>(size + 1);
 
-  for (int i = 0; i < condensed_tree.get_n_edges(); i++) {
+  for (int i = condensed_tree.get_cluster_tree_edges(); i >= 0; i--) {
     value_idx child = children_h[i];
     value_idx parent = parent_h[i];
 
-    if (clusters.find(child) == clusters.end()) {
+    if (clusters.find(child) == clusters.end())
       union_find.perform_union(parent, child);
-    }
 
     parent_lambdas[parent_h[i]] = max(parent_lambdas[parent_h[i]], lambda_h[i]);
   }
+
+  union_find.print();
 
   for (int i = 0; i < n_leaves; i++) {
     value_idx cluster = union_find.find(i);
@@ -132,11 +151,12 @@ void do_labelling_on_host(
     if (cluster < n_leaves)
       result[i] = -1;
     else if (cluster == n_leaves) {
+
       //TODO: Implement the cluster_selection_epsilon / epsilon_search
       if (clusters.size() == 1 && allow_single_cluster) {
         auto it = std::find(children_h.begin(), children_h.end(), i);
         auto child_idx = std::distance(children_h.begin(), it);
-        value_idx child_lambda = lambda_h[child_idx];
+        value_t child_lambda = lambda_h[child_idx];
         if (child_lambda >= parent_lambdas[cluster])
           result[i] = cluster - n_leaves;
         else
@@ -148,6 +168,8 @@ void do_labelling_on_host(
       result[i] = cluster - n_leaves;
     }
   }
+
+  union_find.print();
 
   raft::update_device(labels, result.data(), n_leaves, stream);
 }
