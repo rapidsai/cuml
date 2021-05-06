@@ -83,8 +83,6 @@ __global__ void condense_hierarchy_kernel(
 
   // If node is a leaf, add it to the condensed hierarchy
   if (node < n_leaves) {
-    printf("writing parent=%d, child=%d, lambda=%f\n", relabel[node], node,
-           subtree_lambda);
 
     out_parent[node * 2] = relabel[node];
     out_child[node * 2] = node;
@@ -123,9 +121,6 @@ __global__ void condense_hierarchy_kernel(
       int right_count =
         right_child >= n_leaves ? sizes[right_child - n_leaves] : 1;
 
-      printf("parent=%d, left_child=%d, right_child=%d, left_count=%d, right_count=%d\n",
-             node, left_child, right_child, left_count, right_count);
-
       // Consume left or right child as necessary
       bool left_child_too_small = left_count < min_cluster_size;
       bool right_child_too_small = right_count < min_cluster_size;
@@ -148,9 +143,6 @@ __global__ void condense_hierarchy_kernel(
       // If both children are large enough, they should be relabeled and
       // included directly in the output hierarchy.
       if (can_persist) {
-
-        printf("writing parent=%d, left_child=%d, right_child=%d, lambda=%f\n",
-               node_relabel, left_child, right_child, lambda_value);
 
         // TODO: Could probably pull this out if this conditional becomes
         //  a bottleneck
