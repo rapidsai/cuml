@@ -320,8 +320,7 @@ def input_to_cuml_array(X,
     elif hasattr(X, "__array_interface__") or \
             hasattr(X, "__cuda_array_interface__"):
 
-        if hasattr(X, "__array_interface__"):
-            host_array = True
+        host_array = hasattr(X, "__array_interface__")
 
         # Since we create the array with the correct order here, do the order
         # check now if necessary
