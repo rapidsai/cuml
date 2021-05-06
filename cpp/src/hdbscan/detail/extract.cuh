@@ -70,8 +70,6 @@ class TreeUnionFind {
     else {
       data[y_root * 2] = x_root;
       data[x_root * 2 + 1] += 1;
-
-      printf("Incremented %d to %d\n", x_root, data[x_root * 2 + 1]);
     }
   }
 
@@ -86,7 +84,7 @@ class TreeUnionFind {
   void print() {
 
     printf("[");
-    for(int i = 0; i < size; i++) {
+    for(int i = 0; i < size; i++) {+-
       printf("[ %d, %d ]\n", data[i * 2], data[i*2+1]);
 
       if(i < size-1) {
@@ -147,7 +145,7 @@ void do_labelling_on_host(
 
   for (int i = 0; i < n_leaves; i++) {
     value_idx cluster = union_find.find(i);
-    // std::cout << "Leaf: " << i << ", Cluster: " << cluster << std::endl;
+     std::cout << "Leaf: " << i << ", Cluster: " << cluster << std::endl;
 
     if (cluster < n_leaves)
       result[i] = -1;
@@ -170,14 +168,13 @@ void do_labelling_on_host(
     }
   }
 
-  union_find.print();
 
   raft::update_device(labels, result.data(), n_leaves, stream);
 
-  CUML_LOG_DEBUG("Calling make_monotonic");
-  raft::label::make_monotonic(labels, labels, n_leaves, stream,
-                              [] __device__(value_idx label) { return label == -1; },
-                              handle.get_device_allocator(), true);
+//  CUML_LOG_DEBUG("Calling make_monotonic");
+//  raft::label::make_monotonic(labels, labels, n_leaves, stream,
+//                              [] __device__(value_idx label) { return label == -1; },
+//                              handle.get_device_allocator(), true);
 }
 
 /**
