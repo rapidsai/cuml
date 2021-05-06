@@ -133,7 +133,7 @@ void do_labelling_on_host(
 
   auto union_find = TreeUnionFind<value_idx>(size + 1);
 
-  for (int i = condensed_tree.get_cluster_tree_edges(); i >= 0; i--) {
+  for (int i = 0; i < condensed_tree.get_cluster_tree_edges(); i++) {
     value_idx child = children_h[i];
     value_idx parent = parent_h[i];
 
@@ -173,6 +173,11 @@ void do_labelling_on_host(
   union_find.print();
 
   raft::update_device(labels, result.data(), n_leaves, stream);
+
+  CUML_LOG_DEBUG("Calling make_monotonic");
+  raft::label::make_monotonic(labels, labels, n_leaves, stream,
+                              [] __device__(value_idx label) { return label == -1; },
+                              handle.get_device_allocator(), true);
 }
 
 /**
@@ -303,13 +308,12 @@ void extract_clusters(
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   std::set<value_idx> clusters;
-  for (int i = 0; i < is_cluster_h.size(); i++)
-    if (is_cluster_h[i] != 0) 
-    {
+  for (int i = 0; i < is_cluster_h.size(); i++) {
+    if (is_cluster_h[i] != 0) {
       std::cout << "Inserting cluster: " << i + n_leaves << std::endl;
       clusters.insert(i + n_leaves);
     }
-
+  }
   CUML_LOG_DEBUG("Cluster labeling. n_clusters=%d", clusters.size());
   do_labelling_on_host<value_idx, value_t>(
     handle, condensed_tree, clusters, n_leaves, allow_single_cluster, labels);
@@ -317,11 +321,6 @@ void extract_clusters(
   CUML_LOG_DEBUG("Computing probabilities");
   Membership::get_probabilities<value_idx, value_t>(handle, condensed_tree,
                                                     labels, probabilities);
-
-  CUML_LOG_DEBUG("Calling make_monotonic");
-  raft::label::make_monotonic(labels, labels, n_leaves, stream,
-                              [] __device__(value_idx label) { return label == -1; },
-                              handle.get_device_allocator(), true);
 
   auto lambdas_ptr = thrust::device_pointer_cast(condensed_tree.get_lambdas());
   value_t max_lambda = *(thrust::max_element(
