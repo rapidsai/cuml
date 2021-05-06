@@ -50,7 +50,7 @@ class BaseRandomForestModel(object):
         self.client = get_client(client)
         if workers is None:
             # Default to all workers
-            workers = self.client.scheduler_info()['workers'].keys()
+            workers = list(self.client.scheduler_info()['workers'].keys())
         self.workers = workers
         self._set_internal_model(None)
         self.active_workers = list()
@@ -130,6 +130,13 @@ class BaseRandomForestModel(object):
                     workers=[worker],
                     pure=False)
             )
+
+        self.n_active_estimators_per_worker = []
+        for worker in data.worker_to_parts.keys():
+            n = self.workers.index(worker)
+            n_est = self.n_estimators_per_worker[n]
+            self.n_active_estimators_per_worker.append(n_est)
+
         if len(self.workers) > len(self.active_workers):
             if self.ignore_empty_partitions:
                 curent_estimators = self.n_estimators / \
@@ -323,7 +330,7 @@ class BaseRandomForestModel(object):
         correct for this worker's predictions are weighted differently during
         reduction.
         """
-        workers_weights = np.array(self.n_estimators_per_worker)
+        workers_weights = np.array(self.n_active_estimators_per_worker)
         workers_weights = workers_weights[workers_weights != 0]
         workers_weights = workers_weights / workers_weights.sum()
         workers_weights = cp.array(workers_weights)
