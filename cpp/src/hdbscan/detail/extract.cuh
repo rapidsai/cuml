@@ -68,35 +68,25 @@ class TreeUnionFind {
     else if (data[x_root * 2 + 1] > data[y_root * 2 + 1])
       data[y_root * 2] = x_root;
     else {
+
+      printf("Performing union of %d and %d: x_root=%d, y_root=%d\n", x, y, x_root, y_root);
       data[y_root * 2] = x_root;
       data[x_root * 2 + 1] += 1;
     }
   }
 
   value_idx find(value_idx x) {
-    if (data[x * 2] != x) data[x * 2] = find(data[x * 2]);
+    if (data[x * 2] != x) {
+      data[x * 2] = find(data[x * 2]);
+    }
+
 
     return data[x * 2];
   }
 
   value_idx *get_data() { return data.data(); }
 
-  void print() {
-
-    printf("[");
-    for(int i = 0; i < size; i++) {+-
-      printf("[ %d, %d ]\n", data[i * 2], data[i*2+1]);
-
-      if(i < size-1) {
-        printf(", ");
-      }
-    }
-    printf("]");
-  }
-
-
  private:
-
   value_idx size;
   std::vector<value_idx> data;
 };
@@ -131,7 +121,7 @@ void do_labelling_on_host(
 
   auto union_find = TreeUnionFind<value_idx>(size + 1);
 
-  for (int i = 0; i < condensed_tree.get_cluster_tree_edges(); i++) {
+  for (int i = 0; i < condensed_tree.get_n_edges(); i++) {
     value_idx child = children_h[i];
     value_idx parent = parent_h[i];
 
@@ -141,11 +131,8 @@ void do_labelling_on_host(
     parent_lambdas[parent_h[i]] = max(parent_lambdas[parent_h[i]], lambda_h[i]);
   }
 
-  union_find.print();
-
   for (int i = 0; i < n_leaves; i++) {
     value_idx cluster = union_find.find(i);
-     std::cout << "Leaf: " << i << ", Cluster: " << cluster << std::endl;
 
     if (cluster < n_leaves)
       result[i] = -1;
@@ -167,7 +154,6 @@ void do_labelling_on_host(
       result[i] = cluster - n_leaves;
     }
   }
-
 
   raft::update_device(labels, result.data(), n_leaves, stream);
 
