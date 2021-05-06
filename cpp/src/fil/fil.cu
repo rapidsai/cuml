@@ -665,9 +665,9 @@ inline void tree_depth_hist(const tl::Tree<T, L>& tree,
 // implements https://tools.ietf.org/html/draft-eastlake-fnv-17.html
 // algorithm is public domain without export controls and no patents or rights to patent
 auto fowler_noll_vo_fingerprint64(int* begin, int* end) {
-  return std::accumulate(begin, end, 14695981039346656037lu,
-                         [](auto& fingerprint, int& x) {
-                           return (fingerprint * 1099511628211lu) ^ x;
+  return std::accumulate(begin, end, 14695981039346656037ull,
+                         [](const unsigned long long& fingerprint, int x) {
+                           return (fingerprint * 1099511628211ull) ^ x;
                          });
 }
 
@@ -689,8 +689,8 @@ std::stringstream depth_hist_and_max(const tl::ModelImpl<T, L>& model) {
   int min_depth = -1, leaves_times_depth = 0, total_branches = 0,
       total_leaves = 0;
   std::stringstream forest_shape;
-  forest_shape << "Depth histogram:\n"
-               << "depth branches leaves   nodes\n";
+  forest_shape << "Depth histogram:" << std::endl
+               << "depth branches leaves   nodes" << std::endl;
   char line[100];
   for (hist_entry e : vec_hist) {
     sprintf(line, "%5d %8d %6d %7d\n", e.level, e.n_branches, e.n_leaves,
