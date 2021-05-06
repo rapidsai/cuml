@@ -49,6 +49,7 @@ test_datasets = {
 @pytest.mark.parametrize('ncols', [25, 50])
 @pytest.mark.parametrize('nclusters', [2, 5, 10])
 @pytest.mark.parametrize('min_samples', [25])
+@pytest.mark.parametrize('allow_single_cluster', [True])
 @pytest.mark.parametrize('min_cluster_size', [10])
 @pytest.mark.parametrize('cluster_selection_epsilon', [0.0])
 @pytest.mark.parametrize('max_cluster_size', [0])
@@ -58,11 +59,10 @@ def test_hdbscan_blobs(nrows, ncols, nclusters,
                        connectivity,
                        cluster_selection_epsilon,
                        cluster_selection_method,
+                       allow_single_cluster,
                        min_cluster_size,
                        max_cluster_size,
                        min_samples):
-
-    allow_single_cluster=True
 
     X, y = make_blobs(int(nrows),
                       ncols,
@@ -105,6 +105,7 @@ def test_hdbscan_blobs(nrows, ncols, nclusters,
 @pytest.mark.parametrize('min_samples', [25])
 @pytest.mark.parametrize('cluster_selection_epsilon', [0.0])
 @pytest.mark.parametrize('min_cluster_size', [10])
+@pytest.mark.parametrize('allow_single_cluster', [True])
 @pytest.mark.parametrize('max_cluster_size', [0])
 @pytest.mark.parametrize('cluster_selection_method', ['eom', 'leaf'])
 @pytest.mark.parametrize('connectivity', ['knn'])
@@ -113,6 +114,7 @@ def test_hdbscan_sklearn_datasets(dataset, nclusters,
                                   cluster_selection_epsilon,
                                   cluster_selection_method,
                                   min_cluster_size,
+                                  allow_single_cluster,
                                   max_cluster_size,
                                   min_samples):
 
@@ -122,7 +124,7 @@ def test_hdbscan_sklearn_datasets(dataset, nclusters,
 
     logger.set_level(logger.level_debug)
     cuml_agg = HDBSCAN(verbose=logger.level_debug,
-                       allow_single_cluster=True,
+                       allow_single_cluster=allow_single_cluster,
                        n_neighbors=min_samples,
                        min_samples=min_samples,
                        max_cluster_size=max_cluster_size,
@@ -135,7 +137,7 @@ def test_hdbscan_sklearn_datasets(dataset, nclusters,
     # print("condensed_parents: %s" % cuml_agg.condensed_parent_[:])
     # print("condensed child: %s" % cuml_agg.condensed_child_)
 
-    sk_agg = hdbscan.HDBSCAN(allow_single_cluster=True,
+    sk_agg = hdbscan.HDBSCAN(allow_single_cluster=allow_single_cluster,
                              approx_min_span_tree=False,
                              gen_min_span_tree=True,
                              min_samples=min_samples,
@@ -147,13 +149,6 @@ def test_hdbscan_sklearn_datasets(dataset, nclusters,
     sk_agg.fit(cp.asnumpy(X))
 
     print("sk labels: %s" % sk_agg.labels_)
-
-    # import sys
-    # import numpy
-    # numpy.set_printoptions(threshold=sys.maxsize)
-    #
-    # print("condensed tree: %s" % sk_agg.condensed_tree_.to_numpy()[150:])
-    #
 
     # Cluster assignments should be exact, even though the actual
     # labels may differ.
