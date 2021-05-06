@@ -126,7 +126,7 @@ struct SimpleSparseMat : SimpleMat<T> {
       order));
 
     /*
-      Dense matrix A must be have the same order as the cusparse matrix C
+      Dense matrix A must have the same order as the sparse matrix C
       (i.e. swapped order w.r.t. original C).
       To account this requirement, I may need to flip transA (whether to transpose A).
 
@@ -149,17 +149,20 @@ struct SimpleSparseMat : SimpleMat<T> {
     auto opB =
       transB ? CUSPARSE_OPERATION_NON_TRANSPOSE : CUSPARSE_OPERATION_TRANSPOSE;
 
+    auto alg = order == CUSPARSE_ORDER_COL ? CUSPARSE_SPMM_CSR_ALG1
+                                           : CUSPARSE_SPMM_CSR_ALG2;
+
     size_t bufferSize;
     CUSPARSE_CHECK(raft::sparse::cusparsespmm_bufferSize(
       handle.get_cusparse_handle(), opB, opA, &alpha, descrB, descrA, &beta,
-      descrC, CUSPARSE_SPMM_CSR_ALG2, &bufferSize, stream));
+      descrC, alg, &bufferSize, stream));
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
     rmm::device_uvector<T> tmp(bufferSize, stream);
 
     CUSPARSE_CHECK(raft::sparse::cusparsespmm(
       handle.get_cusparse_handle(), opB, opA, &alpha, descrB, descrA, &beta,
-      descrC, CUSPARSE_SPMM_CSR_ALG2, tmp.data(), stream));
+      descrC, alg, tmp.data(), stream));
 
     CUSPARSE_CHECK(cusparseDestroyDnMat(descrA));
     CUSPARSE_CHECK(cusparseDestroySpMat(descrB));
