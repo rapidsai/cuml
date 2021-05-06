@@ -110,7 +110,7 @@ def test_hdbscan_sklearn_datasets(dataset, nclusters,
                              algorithm="generic")
     sk_agg.fit(cp.asnumpy(X))
 
-    print("sk labels: %s" % sk_agg.labels_)
+    print("sk labels: %s" % sk_agg.labels_[-25:])
 
     print("condensed tree: %s" % sk_agg.condensed_tree_.to_numpy().shape[0])
 
