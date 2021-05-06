@@ -31,37 +31,6 @@
 #include <rmm/device_uvector.hpp>
 #include "base.hpp"
 
-// TODO: PR this to raft
-namespace raft {
-namespace sparse {
-/**
- * @defgroup cusparse CreateDnMat operations
- * @{
- */
-template <typename T>
-cusparseStatus_t cusparsecreatednmat(cusparseDnMatDescr_t *dnMatDescr,
-                                     int64_t rows, int64_t cols, int64_t ld,
-                                     T *values, cusparseOrder_t order);
-template <>
-inline cusparseStatus_t cusparsecreatednmat(cusparseDnMatDescr_t *dnMatDescr,
-                                            int64_t rows, int64_t cols,
-                                            int64_t ld, float *values,
-                                            cusparseOrder_t order) {
-  return cusparseCreateDnMat(dnMatDescr, rows, cols, ld, values, CUDA_R_32F,
-                             order);
-}
-template <>
-inline cusparseStatus_t cusparsecreatednmat(cusparseDnMatDescr_t *dnMatDescr,
-                                            int64_t rows, int64_t cols,
-                                            int64_t ld, double *values,
-                                            cusparseOrder_t order) {
-  return cusparseCreateDnMat(dnMatDescr, rows, cols, ld, values, CUDA_R_64F,
-                             order);
-}
-/** @} */
-}  // namespace sparse
-}  // namespace raft
-
 namespace ML {
 
 /**
