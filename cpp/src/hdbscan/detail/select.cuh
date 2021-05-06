@@ -405,39 +405,39 @@ void select_clusters(const raft::handle_t &handle,
   CUML_LOG_DEBUG("Building cluster tree: n_clusters=%d", condensed_tree.get_n_clusters());
   auto cluster_tree = Utils::make_cluster_tree(handle, condensed_tree);
 
-
-  if (cluster_selection_method == Common::CLUSTER_SELECTION_METHOD::EOM) {
-    Select::excess_of_mass(handle, cluster_tree, tree_stabilities,
-                           is_cluster, condensed_tree.get_n_clusters(),
-                           max_cluster_size);
-  } else {
-    leaf(handle, cluster_tree, is_cluster,
-         condensed_tree.get_n_clusters());
-  }
-
-  if (cluster_selection_epsilon != 0.0) {
-    auto epsilon_search = true;
-
-    // this is to check when eom finds root as only cluster
-    // in which case, epsilon search is cancelled
+  if(!allow_single_cluster || cluster_tree.get_n_edges() > 0) {
     if (cluster_selection_method == Common::CLUSTER_SELECTION_METHOD::EOM) {
-      if (condensed_tree.get_n_clusters() == 1) {
-        int is_root_only_cluster = false;
-        raft::update_host(&is_root_only_cluster, is_cluster, 1, stream);
-        if (is_root_only_cluster) {
-          epsilon_search = false;
+      Select::excess_of_mass(handle, cluster_tree, tree_stabilities,
+                             is_cluster, condensed_tree.get_n_clusters(),
+                             max_cluster_size);
+    } else {
+      leaf(handle, cluster_tree, is_cluster,
+           condensed_tree.get_n_clusters());
+    }
+
+    if (cluster_selection_epsilon != 0.0) {
+      auto epsilon_search = true;
+
+      // this is to check when eom finds root as only cluster
+      // in which case, epsilon search is cancelled
+      if (cluster_selection_method == Common::CLUSTER_SELECTION_METHOD::EOM) {
+        if (condensed_tree.get_n_clusters() == 1) {
+          int is_root_only_cluster = false;
+          raft::update_host(&is_root_only_cluster, is_cluster, 1, stream);
+          if (is_root_only_cluster) {
+            epsilon_search = false;
+          }
         }
       }
-    }
 
-    if (epsilon_search) {
-      Select::cluster_epsilon_search(handle, cluster_tree, is_cluster,
-                                     condensed_tree.get_n_clusters(),
-                                     cluster_selection_epsilon,
-                                     allow_single_cluster);
+      if (epsilon_search) {
+        Select::cluster_epsilon_search(handle, cluster_tree, is_cluster,
+                                       condensed_tree.get_n_clusters(),
+                                       cluster_selection_epsilon,
+                                       allow_single_cluster);
+      }
     }
   }
-
 }
 
 };  // namespace Select
