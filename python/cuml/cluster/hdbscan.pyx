@@ -501,7 +501,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
         self._construct_output_attributes()
 
-        print("Labels: %s" % self.labels_.to_output("numpy")[-25:])
+        print("Labels: %s" % self.labels_.to_output("numpy"))
 
         return self
 

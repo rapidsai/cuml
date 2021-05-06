@@ -78,6 +78,14 @@ def test_hdbscan_blobs(nrows, ncols, nclusters,
 
     sk_agg.fit(cp.asnumpy(X))
 
+    print("cu lambdsas: "+ str(cuml_agg.lambdas_))
+
+    print("cu parent: " + str(cuml_agg.condensed_parent_))
+    print("cu lambdas: " + str(cuml_agg.condensed_lambdas_))
+
+    print("sk condensed parent: " + str(sk_agg.condensed_tree_.to_numpy()["parent"]))
+    print("sk condensed lambda: " + str(sk_agg.condensed_tree_.to_numpy()["lambda_val"]))
+
     print("sk labels: %s" % sk_agg.labels_)
 
     # Cluster assignments should be exact, even though the actual
@@ -87,7 +95,7 @@ def test_hdbscan_blobs(nrows, ncols, nclusters,
 
 @pytest.mark.parametrize('nclusters', [2, 5, 10])
 @pytest.mark.parametrize('k', [25])
-@pytest.mark.parametrize('dataset', [test_datasets["digits"]])
+@pytest.mark.parametrize('dataset', test_datasets.values())
 @pytest.mark.parametrize('connectivity', ['knn'])
 def test_hdbscan_sklearn_datasets(dataset, nclusters,
                                   k, connectivity):
@@ -113,7 +121,7 @@ def test_hdbscan_sklearn_datasets(dataset, nclusters,
                              algorithm="generic")
     sk_agg.fit(cp.asnumpy(X))
 
-    print("sk labels: %s" % sk_agg.labels_[-25:])
+    print("sk labels: %s" % sk_agg.labels_)
 
     # import sys
     # import numpy
