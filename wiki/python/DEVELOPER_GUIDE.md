@@ -71,3 +71,7 @@ To know more underlying details about stream ordering refer to the corresponding
 ## Multi GPU
 
 TODO: Add more details.
+
+## Benchmarking
+
+The cuML code including its Python operations can be benchmarked. The `nvtx_benchmark.py` is a helper script that produces a simple benchmark summary. To use it, run `python nvtx_benchmark.py "python test.py"`.
