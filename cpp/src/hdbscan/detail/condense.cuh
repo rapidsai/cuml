@@ -64,7 +64,7 @@ __device__ inline value_t get_lambda(value_idx node, value_idx num_points,
     */
 template <typename value_idx, typename value_t>
 __global__ void condense_hierarchy_kernel(
-  bool *frontier, value_idx *ignore, value_idx *relabel,
+  bool *frontier, value_t *ignore, value_idx *relabel,
   const value_idx *children, const value_t *deltas, const value_idx *sizes,
   int n_leaves, int min_cluster_size, value_idx *out_parent,
   value_idx *out_child, value_t *out_lambda, value_idx *out_count) {
@@ -74,17 +74,21 @@ __global__ void condense_hierarchy_kernel(
 
   frontier[node] = false;
 
-  value_idx subtree_parent = ignore[node];
+  value_t subtree_lambda = ignore[node];
 
-  bool should_ignore = subtree_parent > -1;
+  bool should_ignore = subtree_lambda > -1;
 
-  // TODO: Investigate whether this would be better done w/ an additional kernel launch
+  // TODO: Investigate whether this would be better done w/ an additional
+  //  kernel launch
 
   // If node is a leaf, add it to the condensed hierarchy
   if (node < n_leaves) {
-    out_parent[node * 2] = subtree_parent;
+    printf("writing parent=%d, child=%d, lambda=%f\n", relabel[node], node,
+           subtree_lambda);
+
+    out_parent[node * 2] = relabel[node];
     out_child[node * 2] = node;
-    out_lambda[node * 2] = get_lambda(subtree_parent, n_leaves, deltas);
+    out_lambda[node * 2] = subtree_lambda;
     out_count[node * 2] = 1;
   }
 
@@ -97,10 +101,16 @@ __global__ void condense_hierarchy_kernel(
     frontier[left_child] = true;
     frontier[right_child] = true;
 
+    // propagate ignore down to children
     ignore[left_child] =
-      (should_ignore * subtree_parent) + (!should_ignore * -1);
+      (should_ignore * subtree_lambda) + (!should_ignore * -1);
     ignore[right_child] =
-      (should_ignore * subtree_parent) + (!should_ignore * -1);
+      (should_ignore * subtree_lambda) + (!should_ignore * -1);
+
+    relabel[left_child] = (should_ignore * relabel[node]) +
+                          (!should_ignore * relabel[left_child]);
+    relabel[right_child] = (should_ignore * relabel[node]) +
+                           (!should_ignore * relabel[right_child]);
 
     value_idx node_relabel = relabel[node];
 
@@ -112,6 +122,9 @@ __global__ void condense_hierarchy_kernel(
         left_child >= n_leaves ? sizes[left_child - n_leaves] : 1;
       int right_count =
         right_child >= n_leaves ? sizes[right_child - n_leaves] : 1;
+
+      printf("parent=%d, left_child=%d, right_child=%d, left_count=%d, right_count=%d\n",
+             node, left_child, right_child, left_count, right_count);
 
       // Consume left or right child as necessary
       bool left_child_too_small = left_count < min_cluster_size;
@@ -126,16 +139,21 @@ __global__ void condense_hierarchy_kernel(
       relabel[right_child] =
         (!can_persist * node_relabel) + (can_persist * right_child);
 
-      // Propagate ignore to either subtree which is too small
+      // set ignore for children. This is the node at which the "points underneath fall out"
       ignore[left_child] =
-        (left_child_too_small * node_relabel) + (!left_child_too_small * -1);
+        (left_child_too_small * lambda_value) + (!left_child_too_small * -1);
       ignore[right_child] =
-        (right_child_too_small * node_relabel) + (!right_child_too_small * -1);
+        (right_child_too_small * lambda_value) + (!right_child_too_small * -1);
 
       // If both children are large enough, they should be relabeled and
       // included directly in the output hierarchy.
       if (can_persist) {
-        // TODO: Could probably pull this out if this conditional becomes a bottleneck
+
+        printf("writing parent=%d, left_child=%d, right_child=%d, lambda=%f\n",
+               node_relabel, left_child, right_child, lambda_value);
+
+        // TODO: Could probably pull this out if this conditional becomes
+        //  a bottleneck
         out_parent[node * 2] = node_relabel;
         out_child[node * 2] = left_child;
         out_lambda[node * 2] = lambda_value;
@@ -194,13 +212,12 @@ void build_condensed_hierarchy(
                "Multiple components found in MST or MST is invalid. "
                "Cannot find single-linkage solution.");
 
-
   rmm::device_uvector<bool> frontier(root + 1, stream);
 
   thrust::fill(exec_policy, frontier.data(), frontier.data() + frontier.size(),
                false);
 
-  rmm::device_uvector<value_idx> ignore(root + 1, stream);
+  rmm::device_uvector<value_t> ignore(root + 1, stream);
 
   // Propagate labels from root
   rmm::device_uvector<value_idx> relabel(root + 1, handle.get_stream());
@@ -211,7 +228,8 @@ void build_condensed_hierarchy(
 
   // Flip frontier for root
   bool start = true;
-  raft::update_device(frontier.data() + root, &start, 1, handle.get_stream());
+  raft::update_device(frontier.data() + root, &start, 1,
+                      handle.get_stream());
 
   rmm::device_uvector<value_idx> out_parent((root + 1) * 2, stream);
   rmm::device_uvector<value_idx> out_child((root + 1) * 2, stream);
