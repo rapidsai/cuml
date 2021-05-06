@@ -103,6 +103,9 @@ def test_hdbscan_sklearn_datasets(dataset, nclusters,
 
     cuml_agg.fit(X)
 
+    # print("condensed_parents: %s" % cuml_agg.condensed_parent_[:])
+    # print("condensed child: %s" % cuml_agg.condensed_child_)
+
     sk_agg = hdbscan.HDBSCAN(min_samples=k, allow_single_cluster=True,
                              approx_min_span_tree=False,
                              gen_min_span_tree=True,
@@ -112,9 +115,14 @@ def test_hdbscan_sklearn_datasets(dataset, nclusters,
 
     print("sk labels: %s" % sk_agg.labels_[-25:])
 
-    print("condensed tree: %s" % sk_agg.condensed_tree_.to_numpy().shape[0])
+    # import sys
+    # import numpy
+    # numpy.set_printoptions(threshold=sys.maxsize)
+    #
+    # print("condensed tree: %s" % sk_agg.condensed_tree_.to_numpy()[150:])
+    #
 
     # Cluster assignments should be exact, even though the actual
     # labels may differ
-    # assert(adjusted_rand_score(cuml_agg.labels_, sk_agg.labels_) == 1.0)
+    assert(adjusted_rand_score(cuml_agg.labels_, sk_agg.labels_) == 1.0)
 
