@@ -68,8 +68,6 @@ class TreeUnionFind {
     else if (data[x_root * 2 + 1] > data[y_root * 2 + 1])
       data[y_root * 2] = x_root;
     else {
-
-      printf("Performing union of %d and %d: x_root=%d, y_root=%d\n", x, y, x_root, y_root);
       data[y_root * 2] = x_root;
       data[x_root * 2 + 1] += 1;
     }

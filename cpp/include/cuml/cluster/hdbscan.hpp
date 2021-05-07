@@ -109,12 +109,11 @@ class CondensedHierarchy {
 };
 
 enum CLUSTER_SELECTION_METHOD {
-
   EOM = 0,
   LEAF = 1
 };
 
-class HDBSCANParams {
+class RobustSingleLinkageParams {
  public:
   int k = 5;
   int min_samples = 5;
@@ -126,9 +125,77 @@ class HDBSCANParams {
   bool allow_single_cluster = false;
 
   float alpha = 1.0;
+};
 
+class HDBSCANParams : public RobustSingleLinkageParams {
+
+ public:
   CLUSTER_SELECTION_METHOD cluster_selection_method =
     CLUSTER_SELECTION_METHOD::EOM;
+
+};
+
+template<typename value_idx, typename value_t>
+class robust_single_linkage_output {
+
+ public:
+
+  robust_single_linkage_output(
+    const raft::handle_t &handle_,
+    int n_leaves_,
+    value_idx *labels_,
+    value_idx *children_,
+    value_idx *sizes_,
+    value_t *deltas_,
+    value_idx *mst_src_,
+    value_idx *mst_dst_,
+    value_t *mst_weights_)
+    : handle(handle_),
+      n_leaves(n_leaves_),
+      n_clusters(0),
+      labels(labels_),
+      children(children_),
+      sizes(sizes_),
+      deltas(deltas_),
+      mst_src(mst_src_),
+      mst_dst(mst_dst_),
+      mst_weights(mst_weights_) {}
+
+  int get_n_leaves() const { return n_leaves; }
+  int get_n_clusters() const { return n_clusters; }
+  value_idx *get_labels() { return labels; }
+  value_idx *get_children() { return children; }
+  value_idx *get_sizes() { return sizes; }
+  value_t *get_deltas() { return deltas; }
+  value_idx *get_mst_src() { return mst_src; }
+  value_idx *get_mst_dst() { return mst_dst; }
+  value_t *get_mst_weights() { return mst_weights; }
+
+  void set_n_clusters(int n_clusters_) {
+    n_clusters = n_clusters_;
+  }
+
+ protected:
+
+  const raft::handle_t &get_handle() { return handle; }
+
+  const raft::handle_t &handle;
+
+  int n_leaves;
+  int n_clusters;
+
+  value_idx *labels;       // size n_leaves
+
+  // Dendrogram
+  value_idx *children;  // size n_leaves * 2
+  value_idx *sizes;     // size n_leaves
+  value_t *deltas;      // size n_leaves
+
+  // MST (size n_leaves - 1).
+  value_idx *mst_src;
+  value_idx *mst_dst;
+  value_t *mst_weights;
+
 };
 
 /**
@@ -147,40 +214,25 @@ class HDBSCANParams {
  * @tparam value_t
  */
 template <typename value_idx, typename value_t>
-class hdbscan_output {
+class hdbscan_output :
+  public robust_single_linkage_output<value_idx, value_t> {
  public:
   hdbscan_output(const raft::handle_t &handle_, int n_leaves_,
                  value_idx *labels_, value_t *probabilities_,
                  value_idx *children_, value_idx *sizes_, value_t *deltas_,
                  value_idx *mst_src_, value_idx *mst_dst_,
                  value_t *mst_weights_)
-    : handle(handle_),
-      n_leaves(n_leaves_),
-      n_clusters(0),
-      labels(labels_),
+    : robust_single_linkage_output<value_idx, value_t>(handle_, n_leaves_, labels_, children_,
+                                                       sizes_, deltas_, mst_src_,
+                                                       mst_dst_, mst_weights_),
       probabilities(probabilities_),
-      children(children_),
-      sizes(sizes_),
-      deltas(deltas_),
-      mst_src(mst_src_),
-      mst_dst(mst_dst_),
-      mst_weights(mst_weights_),
       stabilities(0, handle_.get_stream()),
       condensed_tree(handle_, n_leaves_) {}
 
   // Using getters here, making the members private and forcing
   // consistent state with the constructor. This should make
   // it much easier to use / debug.
-  int get_n_leaves() const { return n_leaves; }
-  int get_n_clusters() const { return n_clusters; }
-  value_idx *get_labels() { return labels; }
   value_t *get_probabilities() { return probabilities; }
-  value_idx *get_children() { return children; }
-  value_idx *get_sizes() { return sizes; }
-  value_t *get_deltas() { return deltas; }
-  value_idx *get_mst_src() { return mst_src; }
-  value_idx *get_mst_dst() { return mst_dst; }
-  value_t *get_mst_weights() { return mst_weights; }
   value_t *get_stabilities() {
     ASSERT(stabilities.size() > 0, "stabilities needs to be initialized");
     return stabilities.data();
@@ -192,8 +244,9 @@ class hdbscan_output {
    * @param n_clusters_
    */
   void set_n_clusters(int n_clusters_) {
-    n_clusters = n_clusters_;
-    stabilities.resize(n_clusters_, handle.get_stream());
+    robust_single_linkage_output<value_idx, value_t>::set_n_clusters(n_clusters_);
+    stabilities.resize(n_clusters_,
+                       robust_single_linkage_output<value_idx, value_t>::get_handle().get_stream());
   }
 
   CondensedHierarchy<value_idx, value_t> &get_condensed_tree() {
@@ -201,23 +254,7 @@ class hdbscan_output {
   }
 
  private:
-  const raft::handle_t &handle;
-
-  int n_leaves;
-  int n_clusters;
-
-  value_idx *labels;       // size n_leaves
   value_t *probabilities;  // size n_leaves
-
-  // Dendrogram
-  value_idx *children;  // size n_leaves * 2
-  value_idx *sizes;     // size n_leaves
-  value_t *deltas;      // size n_leaves
-
-  // MST (size n_leaves - 1).
-  value_idx *mst_src;
-  value_idx *mst_dst;
-  value_t *mst_weights;
 
   // Size not known ahead of time. Initialize
   // with `initialize_stabilities()` method.
@@ -242,6 +279,6 @@ void hdbscan(const raft::handle_t &handle, const float *X, size_t m, size_t n,
 void robust_single_linkage(const raft::handle_t &handle, const float *X,
                            size_t m, size_t n,
                            raft::distance::DistanceType metric,
-                           HDBSCAN::Common::HDBSCANParams &params,
-                           HDBSCAN::Common::hdbscan_output<int, float> &out);
+                           HDBSCAN::Common::RobustSingleLinkageParams &params,
+                           HDBSCAN::Common::robust_single_linkage_output<int, float> &out);
 };  // end namespace ML
