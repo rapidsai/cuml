@@ -320,6 +320,8 @@ def input_to_cuml_array(X,
     elif hasattr(X, "__array_interface__") or \
             hasattr(X, "__cuda_array_interface__"):
 
+        host_array = hasattr(X, "__array_interface__")
+
         # Since we create the array with the correct order here, do the order
         # check now if necessary
         interface = getattr(X, "__array_interface__", None) or getattr(
@@ -337,6 +339,11 @@ def input_to_cuml_array(X,
                       "contiguous copy of the data will be done.")
                 # X = cp.array(X, order=order, copy=True)
                 make_copy = True
+
+        # If we have a host array, we copy it first before changing order
+        # to transpose using the GPU
+        if host_array:
+            X = cp.array(X)
 
         cp_arr = cp.array(X, copy=make_copy, order=order)
 
