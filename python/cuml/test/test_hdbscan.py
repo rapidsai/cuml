@@ -30,14 +30,6 @@ from sklearn import datasets
 
 import cupy as cp
 
-
-# TODO: Tests that need to be written:
-  # outlier points
-  # multimodal data
-  # different parameter settings
-  # duplicate data points
-  #
-
 test_datasets = {
  "digits": datasets.load_digits(),
  "boston": datasets.load_boston(),
@@ -49,13 +41,13 @@ dataset_names = ['noisy_circles', 'noisy_moons', 'varied', 'aniso']
 
 
 @pytest.mark.parametrize('nrows', [100])
-@pytest.mark.parametrize('ncols', [25, 50])
-@pytest.mark.parametrize('nclusters', [2, 5, 10])
+@pytest.mark.parametrize('ncols', [25])
+@pytest.mark.parametrize('nclusters', [10])
 @pytest.mark.parametrize('min_samples', [25])
-@pytest.mark.parametrize('allow_single_cluster', [True])
-@pytest.mark.parametrize('min_cluster_size', [10])
+@pytest.mark.parametrize('allow_single_cluster', [True, False])
+@pytest.mark.parametrize('min_cluster_size', [2, 5, 10])
 @pytest.mark.parametrize('cluster_selection_epsilon', [0.0])
-@pytest.mark.parametrize('max_cluster_size', [0])
+@pytest.mark.parametrize('max_cluster_size', [0, 10])
 @pytest.mark.parametrize('cluster_selection_method', ['eom', 'leaf'])
 @pytest.mark.parametrize('connectivity', ['knn'])
 def test_hdbscan_blobs(nrows, ncols, nclusters,
@@ -97,7 +89,27 @@ def test_hdbscan_blobs(nrows, ncols, nclusters,
 
     sk_agg.fit(cp.asnumpy(X))
 
+    print("cu condensed: %s" % cuml_agg.condensed_lambdas_[:101])
+    print("cu condensed: %s" % cuml_agg.condensed_parent_[:101])
+    print("cu condensed: %s" % cuml_agg.condensed_child_[:101])
+
     print("sk labels: %s" % sk_agg.labels_)
+
+
+    import numpy as np
+    print("unique labels: %s" % np.unique(sk_agg.labels_))
+
+    print("sk condensed: %s" % sk_agg.condensed_tree_.to_numpy())
+
+    t = sk_agg.condensed_tree_.to_numpy()
+
+    print("parent min: %s" % t['parent'].min())
+
+    print("condensed tree size: %s" % t.shape)
+
+    print("sk condensed parent max: %s" % t["lambda_val"][t['parent'] == 100].max())
+
+    print("Cluster tree: %s" % t[t['child_size']>1])
 
     # Cluster assignments should be exact, even though the actual
     # labels may differ
@@ -108,8 +120,8 @@ def test_hdbscan_blobs(nrows, ncols, nclusters,
 @pytest.mark.parametrize('dataset', test_datasets.values())
 @pytest.mark.parametrize('min_samples', [25])
 @pytest.mark.parametrize('cluster_selection_epsilon', [0.0])
-@pytest.mark.parametrize('min_cluster_size', [10])
-@pytest.mark.parametrize('allow_single_cluster', [True])
+@pytest.mark.parametrize('min_cluster_size', [5, 10])
+@pytest.mark.parametrize('allow_single_cluster', [False, True])
 @pytest.mark.parametrize('max_cluster_size', [0])
 @pytest.mark.parametrize('cluster_selection_method', ['eom', 'leaf'])
 @pytest.mark.parametrize('connectivity', ['knn'])
@@ -152,7 +164,7 @@ def test_hdbscan_sklearn_datasets(dataset,
                              algorithm="generic")
     sk_agg.fit(cp.asnumpy(X))
 
-    print("sk labels: %s" % sk_agg.labels_)
+    print("sk labels: %s" % sk_agg.labels_[:25])
 
     # Cluster assignments should be exact, even though the actual
     # labels may differ.
@@ -179,6 +191,7 @@ def test_hdbscan_cluster_patterns(dataset, nrows,
                                   max_cluster_size,
                                   min_samples):
 
+    # This also tests duplicate data points
     X, y = get_pattern(dataset, nrows)[0]
 
     logger.set_level(logger.level_debug)
@@ -192,9 +205,6 @@ def test_hdbscan_cluster_patterns(dataset, nrows,
                        cluster_selection_method=cluster_selection_method)
 
     cuml_agg.fit(X)
-
-    # print("condensed_parents: %s" % cuml_agg.condensed_parent_[:])
-    # print("condensed child: %s" % cuml_agg.condensed_child_)
 
     sk_agg = hdbscan.HDBSCAN(allow_single_cluster=allow_single_cluster,
                              approx_min_span_tree=False,
