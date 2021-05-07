@@ -16,9 +16,9 @@
 
 #pragma once
 
+#include <cuml/manifold/umapparams.h>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/cuml.hpp>
-#include <cuml/manifold/umapparams.h>
 
 #include <curand.h>
 #include <math.h>
@@ -29,16 +29,16 @@
 #include <common/fast_int_div.cuh>
 #include <cstdlib>
 #include <cuml/common/logger.hpp>
+#include <raft/linalg/unary_op.cuh>
 #include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng_impl.cuh>
-#include <raft/sparse/coo.cuh>
 #include <raft/sparse/convert/csr.cuh>
-#include <raft/linalg/unary_op.cuh>
+#include <raft/sparse/coo.cuh>
 #include <string>
 #include "optimize_batch_kernel.cuh"
 
-#include <raft/sparse/op/filter.cuh>
 #include <raft/linalg/binary_op.cuh>
+#include <raft/sparse/op/filter.cuh>
 
 #pragma once
 
@@ -121,8 +121,7 @@ inline void optimization_iteration_finalization(UMAPParams *params,
 template <int TPB_X, typename T>
 void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
                      int tail_n, const int *head, const int *tail, int nnz,
-                     T *epochs_per_sample,
-                     int n_vertices, float gamma,
+                     T *epochs_per_sample, int n_vertices, float gamma,
                      UMAPParams *params, int n_epochs,
                      std::shared_ptr<raft::mr::device::allocator> d_alloc,
                      cudaStream_t stream) {
@@ -202,9 +201,8 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
 template <int TPB_X, typename T>
 void optimize_layout(T *embedding, T *other, int *indptr, size_t n_samples,
                      int *indices, size_t n_indices, int nnz,
-                     T *epochs_per_sample, float gamma,
-                     UMAPParams *params, int n_epochs,
-                     std::shared_ptr<deviceAllocator> d_alloc,
+                     T *epochs_per_sample, float gamma, UMAPParams *params,
+                     int n_epochs, std::shared_ptr<deviceAllocator> d_alloc,
                      cudaStream_t stream) {
   if (params->optim_batch_size <= 0) {
     params->optim_batch_size = 100000 / params->n_components;
@@ -237,7 +235,7 @@ void optimize_layout(T *embedding, T *other, int *indptr, size_t n_samples,
 
   for (int n = 0; n < n_epochs; n++) {
     call_optimization_batch_kernel<T, TPB_X>(
-        embedding, buffer.data(), other, indptr, n_samples, indices, n_indices,
+      embedding, buffer.data(), other, indptr, n_samples, indices, n_indices,
       epochs_per_sample, epoch_of_next_sample.data(),
       epoch_of_next_sample_buffer.data(), epoch_of_next_negative_sample.data(),
       params, seed, n, alpha, gamma, grid, blk, stream, nnz);
@@ -257,16 +255,16 @@ void optimize_layout(T *embedding, T *other, int *indptr, size_t n_samples,
  * @pARAM in  COO connectitivity graph
  */
 template <int TPB_X, typename T>
-void launcher(raft::handle_t const& handle, int m, int n, raft::sparse::COO<T> *in, UMAPParams *params,
-              T *embedding) {
+void launcher(raft::handle_t const &handle, int m, int n,
+              raft::sparse::COO<T> *in, UMAPParams *params, T *embedding) {
   int nnz = in->nnz;
 
   /**
    * Find vals.max()
    */
   thrust::device_ptr<const T> d_ptr = thrust::device_pointer_cast(in->vals());
-  T max =
-      *(thrust::max_element(thrust::cuda::par.on(handle.get_stream()), d_ptr, d_ptr + nnz));
+  T max = *(thrust::max_element(thrust::cuda::par.on(handle.get_stream()),
+                                d_ptr, d_ptr + nnz));
 
   int n_epochs = params->n_epochs;
   if (n_epochs <= 0) {
@@ -293,7 +291,8 @@ void launcher(raft::handle_t const& handle, int m, int n, raft::sparse::COO<T> *
   // COO connectivity graph
   raft::sparse::COO<T> out(handle.get_device_allocator(), handle.get_stream());
   // This will set the size correctly.
-  raft::sparse::op::coo_remove_zeros<TPB_X, T>(in, &out, handle.get_device_allocator(), handle.get_stream());
+  raft::sparse::op::coo_remove_zeros<TPB_X, T>(
+    in, &out, handle.get_device_allocator(), handle.get_stream());
 
   MLCommon::device_buffer<T> epochs_per_sample(handle.get_device_allocator(),
                                                handle.get_stream(), out.nnz);
@@ -311,9 +310,12 @@ void launcher(raft::handle_t const& handle, int m, int n, raft::sparse::COO<T> *
   }
 
   // FIXME(jiaming): This is redundent and consumes memory.
-  raft::mr::device::buffer<int> src_offsets(handle.get_device_allocator(), handle.get_stream(), m + 1);
-  raft::mr::device::buffer<int> dst_cols(handle.get_device_allocator(), handle.get_stream(), nnz);
-  raft::mr::device::buffer<T> dst_vals(handle.get_device_allocator(), handle.get_stream(), nnz);
+  raft::mr::device::buffer<int> src_offsets(handle.get_device_allocator(),
+                                            handle.get_stream(), m + 1);
+  raft::mr::device::buffer<int> dst_cols(handle.get_device_allocator(),
+                                         handle.get_stream(), nnz);
+  raft::mr::device::buffer<T> dst_vals(handle.get_device_allocator(),
+                                       handle.get_stream(), nnz);
   raft::sparse::convert::coo_to_csr(handle, out.rows(), out.cols(), out.vals(),
                                     out.nnz, out.n_rows, src_offsets.data(),
                                     dst_cols.data(), dst_vals.data());

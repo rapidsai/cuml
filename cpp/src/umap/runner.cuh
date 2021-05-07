@@ -331,7 +331,7 @@ void _transform(const raft::handle_t &handle, const umap_inputs &inputs,
 
   ML::PUSH_RANGE("umap::smooth_knn");
   float adjusted_local_connectivity =
-      std::max(0.0, params->local_connectivity - 1.0);
+    std::max(0.0, params->local_connectivity - 1.0);
 
   CUML_LOG_DEBUG("Smoothing KNN distances");
 
@@ -461,12 +461,15 @@ void _transform(const raft::handle_t &handle, const umap_inputs &inputs,
 
   auto initial_alpha = params->initial_alpha / 4.0;
   // FIXME(jiaming): This is redundent and consumes memory.
-  raft::mr::device::buffer<int> src_offsets(handle.get_device_allocator(), handle.get_stream(), inputs.n + 1);
-  raft::mr::device::buffer<int> dst_cols(handle.get_device_allocator(), handle.get_stream(), nnz);
-  raft::mr::device::buffer<value_t> dst_vals(handle.get_device_allocator(), handle.get_stream(), nnz);
-  raft::sparse::convert::coo_to_csr(handle, comp_coo.rows(), comp_coo.cols(), comp_coo.vals(),
-                                    comp_coo.nnz, comp_coo.n_rows, src_offsets.data(),
-                                    dst_cols.data(), dst_vals.data());
+  raft::mr::device::buffer<int> src_offsets(handle.get_device_allocator(),
+                                            handle.get_stream(), inputs.n + 1);
+  raft::mr::device::buffer<int> dst_cols(handle.get_device_allocator(),
+                                         handle.get_stream(), nnz);
+  raft::mr::device::buffer<value_t> dst_vals(handle.get_device_allocator(),
+                                             handle.get_stream(), nnz);
+  raft::sparse::convert::coo_to_csr(
+    handle, comp_coo.rows(), comp_coo.cols(), comp_coo.vals(), comp_coo.nnz,
+    comp_coo.n_rows, src_offsets.data(), dst_cols.data(), dst_vals.data());
 
   SimplSetEmbedImpl::optimize_layout<TPB_X, value_t>(
     transformed, embedding, src_offsets.data(), src_offsets.size() - 1,

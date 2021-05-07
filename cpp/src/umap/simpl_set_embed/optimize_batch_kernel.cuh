@@ -18,14 +18,14 @@
 
 #include <cuml/manifold/umapparams.h>
 #include <raft/cudart_utils.h>
-#include <raft/random/rng.cuh>
+#include <thrust/device_vector.h>
+#include <thrust/execution_policy.h>
+#include <thrust/fill.h>
 #include <common/fast_int_div.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <thrust/fill.h>
-#include <thrust/execution_policy.h>
-#include <thrust/device_vector.h>
+#include <raft/random/rng.cuh>
 
 namespace UMAPAlgo {
 namespace SimplSetEmbed {
@@ -215,7 +215,8 @@ DI T warpReduce(T val, uint32_t mask) {
 
 __device__ int warpId() {
   size_t n_warps_per_block = blockDim.x / raft::warp_size();
-  assert(blockDim.x % raft::warp_size() == 0 && "block size must be multiple of warp size");
+  assert(blockDim.x % raft::warp_size() == 0 &&
+         "block size must be multiple of warp size");
   size_t n_warps = n_warps_per_block * blockIdx.x;
   size_t warp_id = n_warps + threadIdx.x / raft::warp_size();
   return warp_id;
@@ -225,13 +226,10 @@ __device__ int warpId() {
  * Positive sampling.
  */
 template <typename T, typename T2>
-__global__ void optimize_batch_attractive(T *embedding, T *buffer, int *indptr,
-                                           size_t n_samples, int *indices,
-                                           size_t n_indices,
-                                           T const *epochs_per_sample,
-                                           T *epoch_of_next_sample,
-                                           UMAPParams params,
-                                           int epoch, T2 alpha, T2 gamma) {
+__global__ void optimize_batch_attractive(
+  T *embedding, T *buffer, int *indptr, size_t n_samples, int *indices,
+  size_t n_indices, T const *epochs_per_sample, T *epoch_of_next_sample,
+  UMAPParams params, int epoch, T2 alpha, T2 gamma) {
   static_assert(std::is_floating_point<T>::value, "Must be floating point");
   static_assert(std::is_floating_point<T2>::value, "Must be floating point");
 
@@ -253,11 +251,12 @@ __global__ void optimize_batch_attractive(T *embedding, T *buffer, int *indptr,
     // FIXME: argue that this is correct edge.
     uint32_t edge = beg + k + lane;
     uint32_t mask = __ballot_sync(raft::warp_full_mask(), edge < end);
-    bool sampled =  epoch_of_next_sample[edge] <= T(epoch);
+    bool sampled = epoch_of_next_sample[edge] <= T(epoch);
     if (edge < end) {
       assert(edge < n_indices);
       size_t col = indices[edge];
-      T const *other = embedding + static_cast<ptrdiff_t>(col * params.n_components);
+      T const *other =
+        embedding + static_cast<ptrdiff_t>(col * params.n_components);
       auto dist_squared = rdist<T, T>(current, other, params.n_components);
       auto attractive_grad_coeff = T(0.0);
       if (dist_squared > T(0.0)) {
@@ -327,11 +326,13 @@ void __global__ optimize_batch_repuslive_kernel(
     int n_neg_samples = int(T(epoch - _epoch_of_next_negative_sample) /
                             epochs_per_negative_sample);
 
-    raft::random::detail::PhiloxGenerator gen((uint64_t)seed, (uint64_t)edge, 0);
+    raft::random::detail::PhiloxGenerator gen((uint64_t)seed, (uint64_t)edge,
+                                              0);
     using WarpReduce = cub::WarpReduce<int>;
-     __shared__ typename WarpReduce::TempStorage temp_storage;
-     // use maximum for the loop to keep warp primitives in sync
-    auto max_n_neg_samples = WarpReduce(temp_storage).Reduce(n_neg_samples, cub::Max());
+    __shared__ typename WarpReduce::TempStorage temp_storage;
+    // use maximum for the loop to keep warp primitives in sync
+    auto max_n_neg_samples =
+      WarpReduce(temp_storage).Reduce(n_neg_samples, cub::Max());
 
     for (int p = 0; p < max_n_neg_samples; p += 1) {
       int r;
@@ -343,7 +344,9 @@ void __global__ optimize_batch_repuslive_kernel(
       auto dist_squared =
         rdist<T, T>(current, negative_sample, params.n_components);
 
-      auto repulsive_grad_coeff = dist_squared > T(0.0) ? repulsive_grad<T>(dist_squared, gamma, params) : T(0.0);
+      auto repulsive_grad_coeff =
+        dist_squared > T(0.0) ? repulsive_grad<T>(dist_squared, gamma, params)
+                              : T(0.0);
       for (int d = 0; d < params.n_components; d++) {
         auto diff = (current[d] - negative_sample[d]);
         auto grad_d = T(0.0);
@@ -377,8 +380,8 @@ void call_optimization_batch_kernel(
   T *embedding, T *buffer, T *other, int *indptr, size_t n_samples,
   int *indices, size_t n_indices, T *epochs_per_sample, T *epoch_of_next_sample,
   T *epoch_of_next_sample_buffer, T *epoch_of_next_negative_sample,
-  UMAPParams *params, uint64_t seed, int epoch, float alpha,
-  float gamma, dim3 &grid, dim3 &blk, cudaStream_t &stream, int nnz) {
+  UMAPParams *params, uint64_t seed, int epoch, float alpha, float gamma,
+  dim3 &grid, dim3 &blk, cudaStream_t &stream, int nnz) {
   raft::copy(epoch_of_next_sample_buffer, epoch_of_next_sample, nnz, stream);
   /**
    * Apply attractive force
