@@ -373,6 +373,7 @@ def test_stratify_retain_index(test_size, train_size):
         assert X_test.shape[0] == (int)(X.shape[0] * test_size)
 
 
+@pytest.mark.skip("See issue https://github.com/rapidsai/cuml/issues/3839")
 def test_stratified_binary_classification():
     X = cp.array([[0.37487513, -2.3031888, 1.662633, 0.7671007],
                   [-0.49796826, -1.0621182, -0.32518214, -0.20583323],
