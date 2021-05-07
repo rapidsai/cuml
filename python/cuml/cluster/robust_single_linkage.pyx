@@ -33,10 +33,64 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.mixins import ClusterMixin
 from cuml.common.mixins import CMajorInputTagMixin
 
-
 from cuml.metrics.distance_type cimport DistanceType
 
 from .hdbscan_plot import SingleLinkageTree
+
+cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
+    cdef cppclass robust_single_linkage_output[int, float]:
+        robust_single_linkage_output(const handle_t &handle,
+                       int n_leaves,
+                       int *labels,
+                       int *children,
+                       int *sizes,
+                       float *deltas,
+                       int *mst_src,
+                       int *mst_dst,
+                       float *mst_weights)
+        int get_n_leaves()
+        int get_n_clusters()
+
+    cdef cppclass RobustSingleLinkageParams:
+        int k
+        int min_samples
+        int min_cluster_size
+
+        float alpha
+
+        float cluster_selection_epsilon,
+
+        bool allow_single_cluster,
+
+
+cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
+
+    void robust_single_linkage(const handle_t &handle,
+                               const float *X,
+                               size_t m,
+                               size_t n,
+                               DistanceType metric,
+                               RobustSingleLinkageParams &params,
+                               robust_single_linkage_output &out)
+
+def delete_output(obj):
+    cdef robust_single_linkage_output *output
+    if hasattr(obj, "hdbscan_output_"):
+        output = <robust_single_linkage_output*>\
+                  <uintptr_t> obj.rsl_output_
+        del output
+        del obj.rsl_output_
+
+
+_metrics_mapping = {
+    'l1': DistanceType.L1,
+    'cityblock': DistanceType.L1,
+    'manhattan': DistanceType.L1,
+    'l2': DistanceType.L2SqrtExpanded,
+    'euclidean': DistanceType.L2SqrtExpanded,
+    'cosine': DistanceType.CosineExpanded
+}
+
 
 class RobustSingleLinkage(Base, ClusterMixin, CMajorInputTagMixin):
     """Perform robust single linkage clustering from a vector array
@@ -92,9 +146,20 @@ class RobustSingleLinkage(Base, ClusterMixin, CMajorInputTagMixin):
 
     """
 
+    labels_ = CumlArrayDescriptor()
+
+    # Single Linkage Tree
+    children_ = CumlArrayDescriptor()
+    lambdas_ = CumlArrayDescriptor()
+    sizes_ = CumlArrayDescriptor()
+
+    # Minimum Spanning Tree
+    mst_src_ = CumlArrayDescriptor()
+    mst_dst_ = CumlArrayDescriptor()
+    mst_weights_ = CumlArrayDescriptor()
+
     def __init__(self, cut=0.4, k=5, alpha=1.4142135623730951, gamma=5,
-                 metric='euclidean', algorithm='best', core_dist_n_jobs=4,
-                 metric_params={}):
+                 metric='euclidean', metric_params={}):
 
         self.cut = cut
         self.k = k
@@ -103,7 +168,88 @@ class RobustSingleLinkage(Base, ClusterMixin, CMajorInputTagMixin):
         self.metric = metric
         self.metric_params = metric_params
 
-    def fit(self, X, y=None):
+    def _construct_output_attributes(self):
 
-        # TODO: Construct SingleLinkageTree
+        cdef robust_single_linkage_output *rsl_output = \
+                <robust_single_linkage_output*><size_t>self.rsl_output_
+
+        self.n_clusters_ = rsl_output.get_n_clusters()
+
+    def fit(self, X, y=None, convert_dtype=-True)->"HDBSCAN":
+
+        X_m, n_rows, n_cols, self.dtype = \
+            input_to_cuml_array(X, order='C',
+                                check_dtype=[np.float32],
+                                convert_to_dtype=(np.float32
+                                                  if convert_dtype
+                                                  else None))
+
+        cdef uintptr_t input_ptr = X_m.ptr
+
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+
+        # Hardcode n_components_ to 1 for single linkage. This will
+        # not be the case for other linkage types.
+
+        self.labels_ = CumlArray.empty(n_rows, dtype="int32")
+        self.children_ = CumlArray.empty((2, n_rows), dtype="int32")
+        self.sizes_ = CumlArray.empty(n_rows, dtype="int32")
+        self.lambdas_ = CumlArray.empty(n_rows, dtype="float32")
+        self.mst_src_ = CumlArray.empty(n_rows-1, dtype="int32")
+        self.mst_dst_ = CumlArray.empty(n_rows-1, dtype="int32")
+        self.mst_weights_ = CumlArray.empty(n_rows-1, dtype="float32")
+
+        cdef uintptr_t labels_ptr = self.labels_.ptr
+        cdef uintptr_t children_ptr = self.children_.ptr
+        cdef uintptr_t sizes_ptr = self.sizes_.ptr
+        cdef uintptr_t lambdas_ptr = self.lambdas_.ptr
+        cdef uintptr_t mst_src_ptr = self.mst_src_.ptr
+        cdef uintptr_t mst_dst_ptr = self.mst_dst_.ptr
+        cdef uintptr_t mst_weights_ptr = self.mst_weights_.ptr
+
+        # If calling fit a second time, release
+        # any memory owned from previous trainings
+        delete_output(self)
+
+        cdef robust_single_linkage_output *linkage_output = \
+            new robust_single_linkage_output(
+                handle_[0], n_rows,
+                <int*>labels_ptr,
+                <int*>children_ptr,
+                <int*>sizes_ptr,
+                <float*>lambdas_ptr,
+                <int*>mst_src_ptr,
+                <int*>mst_dst_ptr,
+                <float*>mst_weights_ptr)
+
+        self.rsl_output_ = <size_t>linkage_output
+
+        cdef RobustSingleLinkageParams params
+        params.k = self.n_neighbors
+        params.min_samples = self.min_samples
+        params.alpha = self.alpha
+        params.min_cluster_size = self.min_cluster_size
+        params.cluster_selection_epsilon = self.cut
+        params.allow_single_cluster = self.allow_single_cluster
+
+        cdef DistanceType metric
+        if self.metric in _metrics_mapping:
+            metric = _metrics_mapping[self.metric]
+        else:
+            raise ValueError("'affinity' %s not supported." % self.affinity)
+
+        robust_single_linkage(handle_[0],
+                < float * > input_ptr,
+                < int > n_rows,
+                < int > n_cols,
+                < DistanceType > metric,
+                  params,
+                  deref(linkage_output))
+
+        self.handle.sync()
+
+        self._construct_output_attributes()
+
+        print("Labels: %s" % self.labels_.to_output("numpy"))
+
         return self

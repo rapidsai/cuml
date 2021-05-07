@@ -33,7 +33,6 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.mixins import ClusterMixin
 from cuml.common.mixins import CMajorInputTagMixin
 
-
 from cuml.metrics.distance_type cimport DistanceType
 
 
@@ -55,17 +54,6 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
         int *get_sizes()
         int get_n_edges()
 
-    cdef cppclass HDBSCANParams:
-        int k
-        int min_samples
-        int min_cluster_size
-        int max_cluster_size,
-
-        float cluster_selection_epsilon,
-
-        bool allow_single_cluster,
-        CLUSTER_SELECTION_METHOD cluster_selection_method
-
     cdef cppclass hdbscan_output[int, float]:
         hdbscan_output(const handle_t &handle,
                        int n_leaves,
@@ -81,6 +69,18 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
         int get_n_clusters()
         float *get_stabilities()
         CondensedHierarchy_int_float &get_condensed_tree()
+
+    cdef cppclass HDBSCANParams:
+        int k
+        int min_samples
+        int min_cluster_size
+        int max_cluster_size,
+
+        float cluster_selection_epsilon,
+
+        bool allow_single_cluster,
+        CLUSTER_SELECTION_METHOD cluster_selection_method
+
 
 cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
 
@@ -115,6 +115,14 @@ class MinimumSpanningTree:
 
 class PredictionData:
     pass
+
+def delete_hdbscan_output(obj):
+    cdef hdbscan_output *output
+    if hasattr(obj, "hdbscan_output_"):
+        output = <hdbscan_output*>\
+                  <uintptr_t> obj.hdbscan_output_
+        del output
+        del obj.hdbscan_output_
 
 
 class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
@@ -332,16 +340,9 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         self.n_clusters_ = None
         self.n_leaves_ = None
 
-    def _delete_hdbscan_output(self):
-        cdef hdbscan_output *output
-        if hasattr(self, "hdbscan_output_"):
-            output = <hdbscan_output*>\
-                      <uintptr_t> self.hdbscan_output_
-            del output
-            del self.hdbscan_output_
 
     def __dealloc__(self):
-        self._delete_hdbscan_output()
+        delete_hdbscan_output(self)
 
     def _cuml_array_from_ptr(self, ptr, buf_size, shape, dtype):
 
@@ -446,7 +447,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
         # If calling fit a second time, release
         # any memory owned from previous trainings
-        self._delete_hdbscan_output()
+        delete_hdbscan_output(self)
 
         cdef hdbscan_output *linkage_output = new hdbscan_output(
             handle_[0], n_rows,
