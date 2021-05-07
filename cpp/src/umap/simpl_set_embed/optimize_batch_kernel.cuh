@@ -227,9 +227,10 @@ __device__ int warpId() {
  */
 template <typename T, typename T2>
 __global__ void optimize_batch_attractive(
-  T *embedding, T *buffer, int *indptr, size_t n_samples, int *indices,
-  size_t n_indices, T const *epochs_per_sample, T *epoch_of_next_sample,
-  UMAPParams params, int epoch, T2 alpha, T2 gamma) {
+  T const *head_embedding, T *buffer, T const *tail_embedding,
+  int const *indptr, size_t n_samples, int const *indices, size_t n_indices,
+  T const *epochs_per_sample, T *epoch_of_next_sample, UMAPParams params,
+  int epoch, T2 alpha, T2 gamma) {
   static_assert(std::is_floating_point<T>::value, "Must be floating point");
   static_assert(std::is_floating_point<T2>::value, "Must be floating point");
 
@@ -238,7 +239,7 @@ __global__ void optimize_batch_attractive(
   if (warp_id >= n_samples) {
     return;
   }
-  T const *current = embedding + (warp_id * params.n_components);
+  T const *current = head_embedding + (warp_id * params.n_components);
   T *writeto = buffer + (warp_id * params.n_components);
 
   auto lane = raft::laneId();
@@ -256,7 +257,7 @@ __global__ void optimize_batch_attractive(
       assert(edge < n_indices);
       size_t col = indices[edge];
       T const *other =
-        embedding + static_cast<ptrdiff_t>(col * params.n_components);
+        tail_embedding + static_cast<ptrdiff_t>(col * params.n_components);
       auto dist_squared = rdist<T, T>(current, other, params.n_components);
       auto attractive_grad_coeff = T(0.0);
       if (dist_squared > T(0.0)) {
@@ -290,7 +291,7 @@ __global__ void optimize_batch_attractive(
 template <typename T>
 void __global__ optimize_batch_repuslive_kernel(
   // embedding
-  T const *embedding, T *buffer,
+  T const *head_embedding, T *buffer, T const *tail_embedding,
   // CSR graph
   int const *indptr, size_t n_samples, int const *indices, size_t n_indices,
   // sampling
@@ -303,7 +304,7 @@ void __global__ optimize_batch_repuslive_kernel(
     return;
   }
   // writes only to current node, so no conflict.
-  T const *current = embedding + (warp_id * params.n_components);
+  T const *current = head_embedding + (warp_id * params.n_components);
   T *writeto = buffer + (warp_id * params.n_components);
 
   auto lane = raft::laneId();
@@ -339,7 +340,7 @@ void __global__ optimize_batch_repuslive_kernel(
       gen.next(r);
       int t = r % n_samples;
       // Get the point in embedded space
-      T const *negative_sample = embedding + (t * params.n_components);
+      T const *negative_sample = tail_embedding + (t * params.n_components);
 
       auto dist_squared =
         rdist<T, T>(current, negative_sample, params.n_components);
@@ -377,7 +378,7 @@ void __global__ optimize_batch_repuslive_kernel(
  */
 template <typename T, int TPB_X>
 void call_optimization_batch_kernel(
-  T *embedding, T *buffer, T *other, int *indptr, size_t n_samples,
+  T *embedding, T *buffer, T const *other, int *indptr, size_t n_samples,
   int *indices, size_t n_indices, T *epochs_per_sample, T *epoch_of_next_sample,
   T *epoch_of_next_sample_buffer, T *epoch_of_next_negative_sample,
   UMAPParams *params, uint64_t seed, int epoch, float alpha, float gamma,
@@ -389,8 +390,8 @@ void call_optimization_batch_kernel(
   size_t embedding_size = n_samples * params->n_components;
   CUDA_CHECK(cudaMemsetAsync(buffer, 0, embedding_size * sizeof(T), stream));
   optimize_batch_attractive<T><<<grid, blk, 0, stream>>>(
-    embedding, buffer, indptr, n_samples, indices, n_indices, epochs_per_sample,
-    epoch_of_next_sample, *params, epoch, alpha, gamma);
+    embedding, buffer, other, indptr, n_samples, indices, n_indices,
+    epochs_per_sample, epoch_of_next_sample, *params, epoch, alpha, gamma);
   raft::linalg::binaryOp(
     embedding, embedding, buffer, embedding_size,
     [] __device__(T l, T r) { return l + r; }, stream);
@@ -400,7 +401,7 @@ void call_optimization_batch_kernel(
   T nsr_inv = T(1.0) / params->negative_sample_rate;
   CUDA_CHECK(cudaMemsetAsync(buffer, 0, embedding_size * sizeof(T), stream));
   optimize_batch_repuslive_kernel<<<grid, blk, 0, stream>>>(
-    embedding, buffer, indptr, n_samples, indices, n_indices, epochs_per_sample,
+    embedding, buffer, other, indptr, n_samples, indices, n_indices, epochs_per_sample,
     epoch_of_next_sample_buffer, epoch_of_next_negative_sample, epoch, nsr_inv,
     *params, seed, alpha, gamma);
   raft::linalg::binaryOp(
