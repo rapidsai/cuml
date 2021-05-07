@@ -178,6 +178,8 @@ void get_stability_scores(const raft::handle_t &handle, const value_idx *labels,
   /**
    * 1. Populate cluster sizes
    */
+
+  // TODO: handle noise points?
   rmm::device_uvector<value_idx> cluster_sizes(n_clusters, handle.get_stream());
   value_idx *sizes = cluster_sizes.data();
   thrust::for_each(exec_policy, labels, labels + n_leaves,

@@ -135,12 +135,20 @@ void parent_csr(
   auto sizes = cluster_tree.get_sizes();
   auto cluster_tree_edges = cluster_tree.get_n_edges();
 
-  raft::sparse::op::coo_sort(0, 0, cluster_tree_edges, parents, children, sizes,
-                             handle.get_device_allocator(), stream);
+  printf("Cluster tree edges: %d\n", cluster_tree_edges);
 
-  raft::sparse::convert::sorted_coo_to_csr(
-    parents, cluster_tree_edges, indptr, n_clusters + 1,
-    handle.get_device_allocator(), stream);
+  if(cluster_tree_edges > 0) {
+    raft::sparse::op::coo_sort(0, 0, cluster_tree_edges, parents,
+                               children, sizes,
+                               handle.get_device_allocator(),
+                               stream);
+
+    raft::sparse::convert::sorted_coo_to_csr(
+      parents, cluster_tree_edges, indptr, n_clusters + 1,
+      handle.get_device_allocator(), stream);
+  } else {
+    thrust::fill(thrust_policy, indptr, indptr+n_clusters+1, 0);
+  }
 }
 
 /**
@@ -165,7 +173,8 @@ void excess_of_mass(
   value_t *stability,
   int *is_cluster,
   int n_clusters,
-  value_idx max_cluster_size) {
+  value_idx max_cluster_size,
+  bool allow_single_cluster) {
   auto stream = handle.get_stream();
   auto exec_policy = rmm::exec_policy(stream);
 
@@ -191,9 +200,14 @@ void excess_of_mass(
   thrust::for_each(
     exec_policy, out, out + cluster_tree_edges,
     [=] __device__(const thrust::tuple<value_idx, value_idx, value_idx> &tup) {
+
+      // if parent is root (0), add to cluster_sizes_ptr
+      if(thrust::get<0>(tup) == 0 && allow_single_cluster)
+        cluster_sizes_ptr[0] += thrust::get<2>(tup);
+
       cluster_sizes_ptr[thrust::get<1>(tup)] = thrust::get<2>(tup);
     });
-  raft::print_device_vector("stabilities", stability, n_clusters, std::cout);
+
   /**
    * 2. Iterate through each level from leaves back to root. Use the cluster
    *    tree CSR and warp-level reduction to sum stabilities and test whether
@@ -206,19 +220,28 @@ void excess_of_mass(
   rmm::device_uvector<value_idx> indptr(n_clusters + 1, stream);
   parent_csr(handle, cluster_tree, n_clusters, indptr.data());
 
-  std::vector<value_idx> indptr_h(indptr.size());
-  raft::update_host(indptr_h.data(), indptr.data(), indptr.size(), stream);
   raft::update_host(cluster_sizes_h.data(), cluster_sizes.data(),
                     cluster_sizes.size(), stream);
+
+  std::vector<value_idx> indptr_h(indptr.size(), 0);
+  if(cluster_tree_edges > 0)
+    raft::update_host(indptr_h.data(), indptr.data(), indptr.size(), stream);
   // don't need to sync here- thrust should take care of it.
 
+  CUML_LOG_DEBUG("About to run through cluster tree");
+
   // Loop through stabilities in "reverse topological order" (e.g. reverse sorted order)
-  for (value_idx node = n_clusters - 1; node >= 0; node--) {
+  value_idx tree_top = allow_single_cluster ? 0 : 1;
+  for (value_idx node = n_clusters - 1; node >= tree_top; node--) {
     value_t node_stability = 0;
+
+    CUML_LOG_DEBUG("Updating host");
     raft::update_host(&node_stability, stability + node, 1, stream);
 
     value_t subtree_stability = 0;
 
+
+    CUML_LOG_DEBUG("Computing subtree staiblity");
     if (indptr_h[node + 1] - indptr_h[node] > 0) {
       subtree_stability = thrust::transform_reduce(
         exec_policy, children + indptr_h[node], children + indptr_h[node + 1],
@@ -226,6 +249,7 @@ void excess_of_mass(
         thrust::plus<value_t>());
     }
 
+    CUML_LOG_DEBUG("Testing subtree / node stability");
     if (subtree_stability > node_stability ||
         cluster_sizes_h[node] > max_cluster_size) {
       // Deselect / merge cluster with children
@@ -237,6 +261,7 @@ void excess_of_mass(
     }
   }
 
+  CUML_LOG_DEBUG("Finished running through cluster tree");
   /**
    * 3. Perform BFS through is_cluster, propagating cluster
    * "deselection" through subtrees
@@ -250,7 +275,11 @@ void excess_of_mass(
   perform_bfs(handle, indptr.data(), children, frontier.data(), is_cluster,
               n_clusters, propagate_cluster_negation_kernel<value_idx>);
 
-  raft::print_device_vector("is_cluster_excess", is_cluster, n_clusters, std::cout);
+  raft::print_device_vector("is_cluster_eom", is_cluster, n_clusters,
+                            std::cout);
+
+
+  CUML_LOG_DEBUG("Finished EOM");
 }
 
 /**
@@ -385,9 +414,10 @@ void cluster_epsilon_search(
   rmm::device_uvector<value_idx> indptr(n_clusters + 1, stream);
   parent_csr(handle, cluster_tree, n_clusters, indptr.data());
 
-  perform_bfs(handle, indptr.data(), children, frontier.data(), is_cluster,
-              n_clusters, propagate_cluster_negation_kernel<value_idx>);
-
+  if(cluster_tree_edges > 0) {
+    perform_bfs(handle, indptr.data(), children, frontier.data(), is_cluster,
+                n_clusters, propagate_cluster_negation_kernel<value_idx>);
+  }
 }
 
 template<typename value_idx, typename value_t>
@@ -405,39 +435,39 @@ void select_clusters(const raft::handle_t &handle,
   CUML_LOG_DEBUG("Building cluster tree: n_clusters=%d", condensed_tree.get_n_clusters());
   auto cluster_tree = Utils::make_cluster_tree(handle, condensed_tree);
 
-  if(!allow_single_cluster || cluster_tree.get_n_edges() > 0) {
+  if (cluster_selection_method == Common::CLUSTER_SELECTION_METHOD::EOM) {
+    Select::excess_of_mass(handle, cluster_tree, tree_stabilities,
+                           is_cluster, condensed_tree.get_n_clusters(),
+                           max_cluster_size, allow_single_cluster);
+  } else {
+    CUML_LOG_DEBUG("Running leaf seleciton method");
+    Select::leaf(handle, cluster_tree, is_cluster, condensed_tree.get_n_clusters());
+  }
+
+  if (cluster_selection_epsilon != 0.0) {
+    auto epsilon_search = true;
+
+    // this is to check when eom finds root as only cluster
+    // in which case, epsilon search is cancelled
     if (cluster_selection_method == Common::CLUSTER_SELECTION_METHOD::EOM) {
-      Select::excess_of_mass(handle, cluster_tree, tree_stabilities,
-                             is_cluster, condensed_tree.get_n_clusters(),
-                             max_cluster_size);
-    } else {
-      leaf(handle, cluster_tree, is_cluster,
-           condensed_tree.get_n_clusters());
-    }
-
-    if (cluster_selection_epsilon != 0.0) {
-      auto epsilon_search = true;
-
-      // this is to check when eom finds root as only cluster
-      // in which case, epsilon search is cancelled
-      if (cluster_selection_method == Common::CLUSTER_SELECTION_METHOD::EOM) {
-        if (condensed_tree.get_n_clusters() == 1) {
-          int is_root_only_cluster = false;
-          raft::update_host(&is_root_only_cluster, is_cluster, 1, stream);
-          if (is_root_only_cluster) {
-            epsilon_search = false;
-          }
+      if (condensed_tree.get_n_clusters() == 1) {
+        int is_root_only_cluster = false;
+        raft::update_host(&is_root_only_cluster, is_cluster, 1, stream);
+        if (is_root_only_cluster) {
+          epsilon_search = false;
         }
       }
+    }
 
-      if (epsilon_search) {
-        Select::cluster_epsilon_search(handle, cluster_tree, is_cluster,
-                                       condensed_tree.get_n_clusters(),
-                                       cluster_selection_epsilon,
-                                       allow_single_cluster);
-      }
+    if (epsilon_search) {
+      Select::cluster_epsilon_search(handle, cluster_tree, is_cluster,
+                                     condensed_tree.get_n_clusters(),
+                                     cluster_selection_epsilon,
+                                     allow_single_cluster);
     }
   }
+
+  CUML_LOG_DEBUG("Finished selection");
 }
 
 };  // namespace Select

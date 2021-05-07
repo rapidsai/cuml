@@ -103,6 +103,8 @@ void do_labelling_on_host(
   std::vector<value_t> lambda_h(condensed_tree.get_n_edges());
   std::vector<value_idx> parent_h(condensed_tree.get_n_edges());
 
+  printf("n_tree_edges=%d\n", condensed_tree.get_n_edges());
+
   raft::update_host(children_h.data(), condensed_tree.get_children(),
                     condensed_tree.get_n_edges(), stream);
   raft::update_host(parent_h.data(), condensed_tree.get_parents(),
@@ -141,6 +143,8 @@ void do_labelling_on_host(
         auto it = std::find(children_h.begin(), children_h.end(), i);
         auto child_idx = std::distance(children_h.begin(), it);
         value_t child_lambda = lambda_h[child_idx];
+
+        printf("i=%d, cluster=%d, child_lambda=%f, parent_lambda=%f\n", i, cluster, child_lambda, parent_lambdas[cluster]);
         if (child_lambda >= parent_lambdas[cluster])
           result[i] = cluster - n_leaves;
         else
