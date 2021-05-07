@@ -170,7 +170,7 @@ def sparsify_and_convert(dataset, conversion_format, sparsify_ratio=0.3):
     if conversion_format.startswith("cupy"):
         dataset = cp.asnumpy(dataset)
 
-    return [cpu_csr_matrix(dataset), converted_dataset]
+    return cpu_csr_matrix(dataset), converted_dataset
 
 
 @pytest.fixture(scope="session",
@@ -247,9 +247,9 @@ def sparse_imputer_dataset(request, random_seed):
                                   replace=False)
 
     randint.ravel()[random_loc] = val
-    arrays = sparsify_and_convert(randint, datatype, sparsify_ratio=0.15)
-    arrays[0] = arrays[0].tocsc()
-    return val, arrays[0], arrays[1]
+    X_sp, X = sparsify_and_convert(randint, datatype, sparsify_ratio=0.15)
+    X_sp = X_sp.tocsc()
+    return val, X_sp, X
 
 
 def assert_allclose(actual, desired, rtol=1e-05, atol=1e-05,
