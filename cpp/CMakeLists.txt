@@ -442,6 +442,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/metrics/trustworthiness.cu
     src/metrics/v_measure.cu
     src/pca/pca.cu
+    src/kpca/kpca.cu
     src/randomforest/randomforest.cu
     src/random_projection/rproj.cu
     src/solver/lars.cu

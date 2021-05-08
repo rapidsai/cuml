@@ -63,6 +63,7 @@ if(BUILD_CUML_TESTS)
     sg/nvtx_test.cpp
     sg/ols.cu
     sg/pca_test.cu
+    sg/kpca_test.cu
     sg/quasi_newton.cu
     sg/rf_accuracy_test.cu
     sg/rf_batched_classification_test.cu
