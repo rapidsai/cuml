@@ -38,36 +38,6 @@ namespace ML {
 
 using namespace MLCommon;
 
-
-
-
-// template <typename math_t, typename enum_solver = solver>
-// void truncCompExpVars(const raft::handle_t &handle, math_t *in,
-//                       math_t *components, math_t *explained_var,
-//                       math_t *explained_var_ratio,
-//                       const paramsTSVDTemplate<enum_solver> prms,
-//                       cudaStream_t stream) {
-//   int len = prms.n_cols * prms.n_cols;
-//   auto allocator = handle.get_device_allocator();
-//   device_buffer<math_t> components_all(allocator, stream, len);
-//   device_buffer<math_t> explained_var_all(allocator, stream, prms.n_cols);
-//   device_buffer<math_t> explained_var_ratio_all(allocator, stream, prms.n_cols);
-
-//   calEig<math_t, enum_solver>(handle, in, components_all.data(),
-//                               explained_var_all.data(), prms, stream);
-//   raft::matrix::truncZeroOrigin(components_all.data(), prms.n_cols, components,
-//                                 prms.n_components, prms.n_cols, stream);
-//   raft::matrix::ratio(handle, explained_var_all.data(),
-//                       explained_var_ratio_all.data(), prms.n_cols, stream);
-//   raft::matrix::truncZeroOrigin(explained_var_all.data(), prms.n_cols,
-//                                 explained_var, prms.n_components, 1, stream);
-//   raft::matrix::truncZeroOrigin(explained_var_ratio_all.data(), prms.n_cols,
-//                                 explained_var_ratio, prms.n_components, 1,
-//                                 stream);
-// }
-
-
-
 /**
  * @brief perform fit operation for the pca. Generates eigenvectors, explained vars, singular vals, etc.
  * @param[in] handle: cuml handle object
@@ -86,7 +56,6 @@ void kpcaFit(const raft::handle_t &handle, math_t *input, math_t *components,
             math_t *explained_var, math_t *explained_var_ratio,
             math_t *singular_vals, math_t *mu, math_t *noise_vars,
             const paramsPCA &prms, cudaStream_t stream) {
-  
   auto cublas_handle = handle.get_cublas_handle();
   ASSERT(prms.n_cols > 1,
          "Parameter n_cols: number of columns cannot be less than two");
@@ -95,24 +64,21 @@ void kpcaFit(const raft::handle_t &handle, math_t *input, math_t *components,
   ASSERT(
     prms.n_components > 0,
     "Parameter n_components: number of components cannot be less than one");
-  std::cout << "IN KPCA FIT 0 \n";
 
   int n_components = prms.n_components;
   if (n_components > prms.n_cols) n_components = prms.n_cols;
+
+  raft::print_device_vector("input matrix (as vector): ", input, prms.n_rows * prms.n_cols, std::cout);
 
   Matrix::KernelParams kparam{Matrix::RBF, 0, 1, 0};
   Matrix::GramMatrixBase<math_t> *kernel =
     Matrix::KernelFactory<math_t>::create(kparam, cublas_handle);
 
+  //  evaluate kernel using callable interface
 
+  //  eigendecomposition
 
-
-
-  std::cout << "IN KPCA FIT 3\n";
-  
-  //  get the eigenvectors and eigenvalues of the gram matrix
-  // truncCompExpVars(handle, kernel, components, explained_var, explained_var_ratio, prms, stream);
-
+  //  scale alphas
   std::cout << "END KPCA FIT\n";
 }
 
@@ -136,15 +102,12 @@ void kpcaFitTransform(const raft::handle_t &handle, math_t *input,
                      math_t *explained_var, math_t *explained_var_ratio,
                      math_t *singular_vals, math_t *mu, math_t *noise_vars,
                      const paramsPCA &prms, cudaStream_t stream) {
-
-  std::cout << "IN KPCA FIT-TRANSFORM \n";
   kpcaFit(handle, input, components, explained_var, explained_var_ratio,
          singular_vals, mu, noise_vars, prms, stream);
   kpcaTransform(handle, input, components, trans_input, singular_vals, mu, prms,
                stream);
   signFlip(trans_input, prms.n_rows, prms.n_components, components, prms.n_cols,
            handle.get_device_allocator(), stream);
-  std::cout << "KPCA FIT-TRANSFORM DONE \n";
 }
 
 /**
@@ -171,7 +134,7 @@ void kpcaTransform(const raft::handle_t &handle, math_t *input,
     prms.n_components > 0,
     "Parameter n_components: number of components cannot be less than one");
   
-  std::cout << "IN KPCA TRANSFORM 1\n";
+  std::cout << "IN KPCA TRANSFORM \n";
   raft::stats::meanCenter(input, input, mu, prms.n_cols, prms.n_rows, false,
                           true, stream);
   

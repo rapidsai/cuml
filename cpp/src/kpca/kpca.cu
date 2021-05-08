@@ -55,20 +55,6 @@ void kpcaFitTransform(raft::handle_t &handle, double *input, double *trans_input
                   handle.get_stream());
 }
 
-void kpcaInverseTransform(raft::handle_t &handle, float *trans_input,
-                         float *components, float *singular_vals, float *mu,
-                         float *input, const paramsPCA &prms) {
-  kpcaInverseTransform(handle, trans_input, components, singular_vals, mu, input,
-                      prms, handle.get_stream());
-}
-
-void kpcaInverseTransform(raft::handle_t &handle, double *trans_input,
-                         double *components, double *singular_vals, double *mu,
-                         double *input, const paramsPCA &prms) {
-  kpcaInverseTransform(handle, trans_input, components, singular_vals, mu, input,
-                      prms, handle.get_stream());
-}
-
 void kpcaTransform(raft::handle_t &handle, float *input, float *components,
                   float *trans_input, float *singular_vals, float *mu,
                   const paramsPCA &prms) {
