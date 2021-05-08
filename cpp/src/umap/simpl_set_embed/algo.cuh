@@ -18,7 +18,6 @@
 
 #include <cuml/manifold/umapparams.h>
 #include <cuml/common/device_buffer.hpp>
-#include <cuml/cuml.hpp>
 
 #include <curand.h>
 #include <math.h>
@@ -202,7 +201,7 @@ template <int TPB_X, typename T>
 void optimize_layout(T *embedding, T *other, int *indptr, size_t n_samples,
                      int *indices, size_t n_indices, int nnz,
                      T *epochs_per_sample, float gamma, UMAPParams *params,
-                     int n_epochs, std::shared_ptr<deviceAllocator> d_alloc,
+                     int n_epochs, std::shared_ptr<raft::mr::device::allocator> d_alloc,
                      cudaStream_t stream) {
   if (params->optim_batch_size <= 0) {
     params->optim_batch_size = 100000 / params->n_components;
