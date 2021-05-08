@@ -198,7 +198,7 @@ void optimize_layout(T *head_embedding, int head_n, T *tail_embedding,
 }
 
 template <int TPB_X, typename T>
-void optimize_layout(T *embedding, T *other, int *indptr, size_t n_samples,
+void optimize_layout(T *head_embedding, T *tail_embedding, int *indptr, size_t n_samples,
                      int *indices, size_t n_indices, int nnz,
                      T *epochs_per_sample, float gamma, UMAPParams *params,
                      int n_epochs, std::shared_ptr<raft::mr::device::allocator> d_alloc,
@@ -234,11 +234,11 @@ void optimize_layout(T *embedding, T *other, int *indptr, size_t n_samples,
 
   for (int n = 0; n < n_epochs; n++) {
     call_optimization_batch_kernel<T, TPB_X>(
-      embedding, buffer.data(), other, indptr, n_samples, indices, n_indices,
+      head_embedding, buffer.data(), tail_embedding, indptr, n_samples, indices, n_indices,
       epochs_per_sample, epoch_of_next_sample.data(),
       epoch_of_next_sample_buffer.data(), epoch_of_next_negative_sample.data(),
       params, seed, n, alpha, gamma, grid, blk, stream, nnz);
-    optimization_iteration_finalization(params, embedding, alpha, n, n_epochs,
+    optimization_iteration_finalization(params, head_embedding, alpha, n, n_epochs,
                                         seed);
     CUDA_CHECK(cudaGetLastError());
   }

@@ -203,23 +203,15 @@ __global__ void optimize_batch_kernel_reg(
     _epoch_of_next_negative_sample + n_neg_samples * epochs_per_negative_sample;
 }
 
-template <typename T>
-DI T warpReduce(T val, uint32_t mask) {
+
+template <typename T, typename Op>
+DI T warpReduce(T val, uint32_t mask, Op op) {
 #pragma unroll
   for (int i = raft::warp_size() / 2; i > 0; i >>= 1) {
     T tmp = raft::shfl(val, raft::laneId() + i, raft::warp_size(), mask);
-    val += tmp;
+    val = op(val, tmp);
   }
   return val;
-}
-
-__device__ int warpId() {
-  size_t n_warps_per_block = blockDim.x / raft::warp_size();
-  assert(blockDim.x % raft::warp_size() == 0 &&
-         "block size must be multiple of warp size");
-  size_t n_warps = n_warps_per_block * blockIdx.x;
-  size_t warp_id = n_warps + threadIdx.x / raft::warp_size();
-  return warp_id;
 }
 
 /**
@@ -235,7 +227,7 @@ __global__ void optimize_batch_attractive(
   static_assert(std::is_floating_point<T2>::value, "Must be floating point");
 
   // handles the connectivity graph with 1 warp for each row.
-  size_t warp_id = warpId();
+  size_t warp_id = raft::warpId();
   if (warp_id >= n_samples) {
     return;
   }
@@ -271,7 +263,7 @@ __global__ void optimize_batch_attractive(
                       alpha
                   : T(0.0);
         // The gradient summed for each compoent among all threads in the warp
-        grad_d = warpReduce(grad_d, mask) * 2.0f;
+        grad_d = raft::warpReduce(grad_d, mask) * 2.0f;
         if (lane == 0) {
           // already reduced, only the first thread in warp does the writing.
           writeto[d] += grad_d;
@@ -299,7 +291,7 @@ void __global__ optimize_batch_repuslive_kernel(
   T *epoch_of_next_negative_sample, int epoch, T nsr_inv,
   // parameters
   UMAPParams params, uint64_t seed, float alpha, float gamma) {
-  size_t warp_id = warpId();
+  size_t warp_id = raft::warpId();
   if (warp_id >= n_samples) {
     return;
   }
@@ -329,11 +321,8 @@ void __global__ optimize_batch_repuslive_kernel(
 
     raft::random::detail::PhiloxGenerator gen((uint64_t)seed, (uint64_t)edge,
                                               0);
-    using WarpReduce = cub::WarpReduce<int>;
-    __shared__ typename WarpReduce::TempStorage temp_storage;
     // use maximum for the loop to keep warp primitives in sync
-    auto max_n_neg_samples =
-      WarpReduce(temp_storage).Reduce(n_neg_samples, cub::Max());
+    auto max_n_neg_samples = warpReduce(n_neg_samples, mask, cub::Max{});
 
     for (int p = 0; p < max_n_neg_samples; p += 1) {
       int r;
@@ -359,7 +348,7 @@ void __global__ optimize_batch_repuslive_kernel(
           }
         }
         grad_d *= alpha;
-        grad_d = warpReduce(grad_d, mask);
+        grad_d = raft::warpReduce(grad_d, mask);
         if (lane == 0) {
           writeto[d] += grad_d;
         }
