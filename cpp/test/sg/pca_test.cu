@@ -53,7 +53,7 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
     params = ::testing::TestWithParam<PcaInputs<T>>::GetParam();
     raft::random::Rng r(params.seed, raft::random::GenTaps);
     int len = params.len;
-    
+
     raft::allocate(data, len);
     raft::allocate(data_back, len);
     raft::allocate(trans_data, len);
