@@ -44,7 +44,7 @@ if(BUILD_CUML_BENCH)
   )
 
   target_include_directories(sg_benchmark
-    PRIVATE 
+    PRIVATE
       ${GBENCH_DIR}/include
       ${CUML_SRC_PRIMS_DIR}
   )
@@ -71,20 +71,15 @@ if(BUILD_CUML_PRIMS_BENCH)
     prims/reduce.cu
     prims/rng.cu)
 
-  if(NOT CUB_IS_PART_OF_CTK)
-    add_dependencies(prims_benchmark cub)
-  endif(NOT CUB_IS_PART_OF_CTK)
-  add_dependencies(prims_benchmark spdlog)
-
-  target_link_libraries(prims_benchmark 
+  target_link_libraries(prims_benchmark
     PUBLIC
-      ${CUDA_cublas_LIBRARY}
+      CUDA::cublas
       benchmarklib
-      ${CUML_CPP_TARGET}
+      cuml
   )
 
   target_include_directories(prims_benchmark
-    PRIVATE 
+    PRIVATE
       ${GBENCH_DIR}/include
       ${CUML_SRC_PRIMS_DIR}
   )
