@@ -96,7 +96,7 @@ void kpcaFit(const raft::handle_t &handle, math_t *input, math_t *components,
                             prms.n_rows * prms.n_rows, std::cout);
 
   //  center the kernel matrix 
-  //  K' = (I - 1n) K (I - 1n)
+  //  K' = (I - 1n) K (I - 1n) 
   math_t * i_mat;
   raft::allocate(i_mat, prms.n_rows * prms.n_rows);
 
@@ -150,18 +150,20 @@ void kpcaFit(const raft::handle_t &handle, math_t *input, math_t *components,
                      prms.n_rows, components, explained_var,
                      stream, tol, sweeps);
 
+
+  //  TODO: sign flip components to enforce deterministic output
+//   signFlip(trans_input, prms.n_rows, prms.n_components, components, prms.n_cols,
+//            handle.get_device_allocator(), stream);
+  
   raft::print_device_vector("components: ", components,
                             prms.n_rows * n_components, std::cout);
   raft::print_device_vector("explained_var (eigenvalues): ", explained_var,
                             n_components, std::cout);
-  
-  
-  //  scale eigenvectors
-  //  sort eigenvectors and eigenvalues
-  //  truncate zero eigenvectors/eigenvalues
-  //  
+  //  TODO: sort components by corresponding eigenvalues (descending)
+  //  TODO: truncate zero eigenvectors/eigenvalues
 
-  //  scale alphas
+
+
   std::cout << "END KPCA FIT\n";
 }
 
@@ -189,8 +191,6 @@ void kpcaFitTransform(const raft::handle_t &handle, math_t *input,
           singular_vals, mu, noise_vars, prms, stream);
   kpcaTransform(handle, input, components, trans_input, singular_vals, mu, prms,
                 stream);
-  signFlip(trans_input, prms.n_rows, prms.n_components, components, prms.n_cols,
-           handle.get_device_allocator(), stream);
 }
 
 /**
@@ -217,14 +217,10 @@ void kpcaTransform(const raft::handle_t &handle, math_t *input,
     prms.n_components > 0,
     "Parameter n_components: number of components cannot be less than one");
 
-  std::cout << "IN KPCA TRANSFORM \n";
-  raft::stats::meanCenter(input, input, mu, prms.n_cols, prms.n_rows, false,
-                          true, stream);
+  //  TODO: multiply each component_i by sqrt(eigenvalue_i)
 
-  tsvdTransform(handle, input, components, trans_input, prms, stream);
-  raft::stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true,
-                       stream);
-  std::cout << "KPCA TRANSFORM DONE \n";
+
+
 }
 
 };  // end namespace ML
