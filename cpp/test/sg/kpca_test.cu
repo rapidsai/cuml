@@ -67,7 +67,7 @@ class KPcaTest : public ::testing::TestWithParam<KPcaInputs<T>> {
 
     raft::allocate(data, len);
     raft::allocate(data_back, len);
-    raft::allocate(trans_data, len);  //  transformed data
+    raft::allocate(trans_data, len);      //  transformed data
     raft::allocate(trans_data_ref, len);  //  ground truth transformed data
 
     std::vector<T> data_h = {1.0, 2.0, 5.0, 4.0, 2.0, 1.0};
@@ -80,31 +80,31 @@ class KPcaTest : public ::testing::TestWithParam<KPcaInputs<T>> {
     trans_data_ref_h.resize(len);
     raft::update_device(trans_data_ref, trans_data_ref_h.data(), len, stream);
 
-    int len_comp = params.n_col * params.n_col;
+    int len_comp = params.n_row * params.n_row;
     raft::allocate(components, len_comp);
-    raft::allocate(explained_vars, params.n_col);
-    raft::allocate(explained_var_ratio, params.n_col);
-    raft::allocate(singular_vals, params.n_col);
-    raft::allocate(mean, params.n_col);
+    raft::allocate(explained_vars, params.n_row);
+    raft::allocate(explained_var_ratio, params.n_row);
+    raft::allocate(singular_vals, params.n_row);
+    raft::allocate(mean, params.n_row);
     raft::allocate(noise_vars, 1);
 
     std::vector<T> components_ref_h = {0.8163, 0.5776, -0.5776, 0.8163};
     components_ref_h.resize(len_comp);
     std::vector<T> explained_vars_ref_h = {6.338, 0.3287};
-    explained_vars_ref_h.resize(params.n_col);
+    explained_vars_ref_h.resize(params.n_row);
 
     raft::allocate(components_ref, len_comp);
-    raft::allocate(explained_vars_ref, params.n_col);
+    raft::allocate(explained_vars_ref, params.n_row);
 
     raft::update_device(components_ref, components_ref_h.data(), len_comp,
                         stream);
     raft::update_device(explained_vars_ref, explained_vars_ref_h.data(),
-                        params.n_col, stream);
+                        params.n_row, stream);
 
     paramsPCA prms;
     prms.n_cols = params.n_col;
     prms.n_rows = params.n_row;
-    prms.n_components = params.n_col;
+    prms.n_components = params.n_row;
     prms.whiten = false;
     if (params.algo == 0)
       prms.algorithm = solver::COV_EIG_DQ;
@@ -113,10 +113,10 @@ class KPcaTest : public ::testing::TestWithParam<KPcaInputs<T>> {
 
     std::cout << "basicTest - 5 \n";
     kpcaFit(handle, data, components, explained_vars, explained_var_ratio,
-           singular_vals, mean, noise_vars, prms, stream);
+            singular_vals, mean, noise_vars, prms, stream);
     std::cout << "basicTest - 6 \n";
     kpcaTransform(handle, data, components, trans_data, singular_vals, mean,
-                 prms, stream);
+                  prms, stream);
   }
 
   void SetUp() override {
@@ -146,7 +146,7 @@ class KPcaTest : public ::testing::TestWithParam<KPcaInputs<T>> {
   T *data, *trans_data, *data_back, *components, *explained_vars,
     *explained_var_ratio, *singular_vals, *mean, *noise_vars, *trans_data_ref,
     *components_ref, *explained_vars_ref;
-  
+
   raft::handle_t handle;
   cudaStream_t stream;
 };

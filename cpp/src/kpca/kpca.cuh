@@ -16,23 +16,25 @@
 
 #pragma once
 
+#include <cuml/matrix/kernelparams.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/transpose.h>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/decomposition/params.hpp>
+#include <matrix/kernelfactory.cuh>
+#include <matrix/kernelmatrices.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
 #include <raft/linalg/eig.cuh>
 #include <raft/linalg/eltwise.cuh>
+#include <raft/linalg/gemm.cuh>
+#include <raft/linalg/subtract.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/mean_center.cuh>
 #include <stats/cov.cuh>
 #include <tsvd/tsvd.cuh>
-#include <matrix/kernelfactory.cuh>
-#include <cuml/matrix/kernelparams.h>
-#include <matrix/kernelmatrices.cuh>
 
 namespace ML {
 
@@ -53,9 +55,9 @@ using namespace MLCommon;
  */
 template <typename math_t>
 void kpcaFit(const raft::handle_t &handle, math_t *input, math_t *components,
-            math_t *explained_var, math_t *explained_var_ratio,
-            math_t *singular_vals, math_t *mu, math_t *noise_vars,
-            const paramsPCA &prms, cudaStream_t stream) {
+             math_t *explained_var, math_t *explained_var_ratio,
+             math_t *singular_vals, math_t *mu, math_t *noise_vars,
+             const paramsPCA &prms, cudaStream_t stream) {
   auto cublas_handle = handle.get_cublas_handle();
   ASSERT(prms.n_cols > 1,
          "Parameter n_cols: number of columns cannot be less than two");
@@ -66,17 +68,71 @@ void kpcaFit(const raft::handle_t &handle, math_t *input, math_t *components,
     "Parameter n_components: number of components cannot be less than one");
 
   int n_components = prms.n_components;
-  if (n_components > prms.n_cols) n_components = prms.n_cols;
+  if (n_components > prms.n_rows) n_components = prms.n_rows;
 
-  raft::print_device_vector("input matrix (as vector): ", input, prms.n_rows * prms.n_cols, std::cout);
+  raft::print_device_vector("input matrix (as vector): ", input,
+                            prms.n_rows * prms.n_cols, std::cout);
 
-  Matrix::KernelParams kparam{Matrix::RBF, 0, 1, 0};
+  //   Matrix::KernelParams kparam{Matrix::RBF, 0, 1, 0};
+  Matrix::KernelParams kparam{Matrix::LINEAR, 0, 0, 0};
   Matrix::GramMatrixBase<math_t> *kernel =
     Matrix::KernelFactory<math_t>::create(kparam, cublas_handle);
+  
+  math_t *kernel_mat;
+  raft::allocate(kernel_mat, prms.n_rows * prms.n_rows);
+  kernel->evaluate(input, prms.n_rows, prms.n_cols, input, prms.n_rows,
+         kernel_mat, false, stream, prms.n_rows, prms.n_rows, prms.n_rows);
+  
+  raft::print_device_vector("kernel matrix (as vector): ", kernel_mat,
+                            prms.n_rows * prms.n_rows, std::cout);
 
-  //  evaluate kernel using callable interface
+  //  center the kernel matrix 
+  //  K' = (I - 1n) K (I - 1n)
+  math_t * i_mat;
+  raft::allocate(i_mat, prms.n_rows * prms.n_rows);
+
+  math_t * diag;
+  raft::allocate(diag, prms.n_rows);
+  float inv_n_rows = 1.0/prms.n_rows;
+
+  math_t * scaling_mat;
+  raft::allocate(scaling_mat, prms.n_rows * prms.n_rows);
+
+  raft::matrix::initializeDiagonalMatrix(diag, i_mat, prms.n_rows, prms.n_rows, stream);
+  raft::linalg::subtractScalar(scaling_mat, i_mat, inv_n_rows, prms.n_rows * prms.n_rows, stream);
+
+
+  math_t * temp_mat;
+  raft::allocate(temp_mat, prms.n_rows * prms.n_rows);
+  
+
+
+  raft::linalg::gemm(handle, scaling_mat, prms.n_rows, prms.n_rows
+              , kernel_mat, temp_mat, prms.n_rows, prms.n_rows
+              , CUBLAS_OP_N, CUBLAS_OP_N, 0.0, 0.0, stream);
+
+
+  math_t * scaled_kern_mat;
+  raft::allocate(scaled_kern_mat, prms.n_rows * prms.n_rows);
+
+
+  raft::linalg::gemm(handle, temp_mat, prms.n_rows, prms.n_rows
+              , scaling_mat, scaled_kern_mat, prms.n_rows, prms.n_rows
+              , CUBLAS_OP_N, CUBLAS_OP_N, 0.0, 0.0, stream);
+
 
   //  eigendecomposition
+  raft::linalg::eigJacobi(handle, kernel_mat, prms.n_rows,
+               prms.n_rows, components, explained_var,
+               stream);//, math_t tol = 1.e-7, int sweeps = 15)
+
+
+  raft::print_device_vector("components (as vector): ", components,
+                            prms.n_rows * n_components, std::cout);
+  raft::print_device_vector("explained_var (as vector): ", explained_var,
+                            n_components, std::cout);
+
+
 
   //  scale alphas
   std::cout << "END KPCA FIT\n";
@@ -98,14 +154,14 @@ void kpcaFit(const raft::handle_t &handle, math_t *input, math_t *components,
  */
 template <typename math_t>
 void kpcaFitTransform(const raft::handle_t &handle, math_t *input,
-                     math_t *trans_input, math_t *components,
-                     math_t *explained_var, math_t *explained_var_ratio,
-                     math_t *singular_vals, math_t *mu, math_t *noise_vars,
-                     const paramsPCA &prms, cudaStream_t stream) {
+                      math_t *trans_input, math_t *components,
+                      math_t *explained_var, math_t *explained_var_ratio,
+                      math_t *singular_vals, math_t *mu, math_t *noise_vars,
+                      const paramsPCA &prms, cudaStream_t stream) {
   kpcaFit(handle, input, components, explained_var, explained_var_ratio,
-         singular_vals, mu, noise_vars, prms, stream);
+          singular_vals, mu, noise_vars, prms, stream);
   kpcaTransform(handle, input, components, trans_input, singular_vals, mu, prms,
-               stream);
+                stream);
   signFlip(trans_input, prms.n_rows, prms.n_components, components, prms.n_cols,
            handle.get_device_allocator(), stream);
 }
@@ -123,9 +179,9 @@ void kpcaFitTransform(const raft::handle_t &handle, math_t *input,
  */
 template <typename math_t>
 void kpcaTransform(const raft::handle_t &handle, math_t *input,
-                  math_t *components, math_t *trans_input,
-                  math_t *singular_vals, math_t *mu, const paramsPCA &prms,
-                  cudaStream_t stream) {
+                   math_t *components, math_t *trans_input,
+                   math_t *singular_vals, math_t *mu, const paramsPCA &prms,
+                   cudaStream_t stream) {
   ASSERT(prms.n_cols > 1,
          "Parameter n_cols: number of columns cannot be less than two");
   ASSERT(prms.n_rows > 0,
@@ -133,11 +189,11 @@ void kpcaTransform(const raft::handle_t &handle, math_t *input,
   ASSERT(
     prms.n_components > 0,
     "Parameter n_components: number of components cannot be less than one");
-  
+
   std::cout << "IN KPCA TRANSFORM \n";
   raft::stats::meanCenter(input, input, mu, prms.n_cols, prms.n_rows, false,
                           true, stream);
-  
+
   tsvdTransform(handle, input, components, trans_input, prms, stream);
   raft::stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true,
                        stream);
