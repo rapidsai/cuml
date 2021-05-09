@@ -88,9 +88,11 @@ class KPcaTest : public ::testing::TestWithParam<KPcaInputs<T>> {
     raft::allocate(mean, params.n_row);
     raft::allocate(noise_vars, 1);
 
-    std::vector<T> components_ref_h = {0.8163, 0.5776, -0.5776, 0.8163};
+    std::vector<T> components_ref_h = {-0.6525, -0.0987, 0.7513, -0.4907, 0.8105, -0.3197};
+
+
     components_ref_h.resize(len_comp);
-    std::vector<T> explained_vars_ref_h = {6.338, 0.3287};
+    std::vector<T> explained_vars_ref_h = {12.6759, 0.6574};
     explained_vars_ref_h.resize(params.n_row);
 
     raft::allocate(components_ref, len_comp);

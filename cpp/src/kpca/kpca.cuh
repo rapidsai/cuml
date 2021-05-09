@@ -139,8 +139,7 @@ void kpcaFit(const raft::handle_t &handle, math_t *input, math_t *components,
   raft::linalg::gemm(handle, temp_mat, prms.n_rows, prms.n_rows
               , centering_mat, centered_kernel, prms.n_rows, prms.n_rows
               , CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta, stream);
-
-
+  
   raft::print_device_vector("centered_kernel: ", centered_kernel,
                             prms.n_rows * prms.n_rows, std::cout);
 
@@ -155,6 +154,12 @@ void kpcaFit(const raft::handle_t &handle, math_t *input, math_t *components,
                             prms.n_rows * n_components, std::cout);
   raft::print_device_vector("explained_var (eigenvalues): ", explained_var,
                             n_components, std::cout);
+  
+  
+  //  scale eigenvectors
+  //  sort eigenvectors and eigenvalues
+  //  truncate zero eigenvectors/eigenvalues
+  //  
 
   //  scale alphas
   std::cout << "END KPCA FIT\n";
