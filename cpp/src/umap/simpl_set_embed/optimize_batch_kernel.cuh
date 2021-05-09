@@ -203,7 +203,6 @@ __global__ void optimize_batch_kernel_reg(
     _epoch_of_next_negative_sample + n_neg_samples * epochs_per_negative_sample;
 }
 
-
 template <typename T, typename Op>
 DI T warpReduce(T val, uint32_t mask, Op op) {
 #pragma unroll
@@ -215,14 +214,36 @@ DI T warpReduce(T val, uint32_t mask, Op op) {
 }
 
 /**
- * Positive sampling.
+ * Kernel for optimization
+ *
+ * @param head_embedding
+ * @param buffer
+ * @param tail_embedding
+ * @param indptr
+ * @param n_samples
+ * @param indices
+ * @param n_indices
+ * @param epochs_per_sample
+ * @param epoch_of_next_sample
+ * @param epoch_of_next_negative_sample
+ * @param seed
+ * @param nsr_inv
+ * @param params
+ * @param epoch
+ * @param alpha
+ * @param gamma
  */
 template <typename T, typename T2>
-__global__ void optimize_batch_attractive(
+__global__ void optimize_batch_kernel(
+  // embedding
   T const *head_embedding, T *buffer, T const *tail_embedding,
+  // CSR graph
   int const *indptr, size_t n_samples, int const *indices, size_t n_indices,
-  T const *epochs_per_sample, T *epoch_of_next_sample, UMAPParams params,
-  int epoch, T2 alpha, T2 gamma) {
+  // sampling
+  T const *epochs_per_sample, T *epoch_of_next_sample,
+  T *epoch_of_next_negative_sample, uint64_t seed, T nsr_inv,
+  // parameters
+  UMAPParams params, int epoch, T2 alpha, T2 gamma) {
   static_assert(std::is_floating_point<T>::value, "Must be floating point");
   static_assert(std::is_floating_point<T2>::value, "Must be floating point");
 
@@ -245,74 +266,39 @@ __global__ void optimize_batch_attractive(
     uint32_t edge = beg + k + lane;
     uint32_t mask = __ballot_sync(raft::warp_full_mask(), edge < end);
     bool sampled = epoch_of_next_sample[edge] <= T(epoch);
-    if (edge < end) {
-      assert(edge < n_indices);
-      size_t col = indices[edge];
-      T const *other =
-        tail_embedding + static_cast<ptrdiff_t>(col * params.n_components);
-      auto dist_squared = rdist<T, T>(current, other, params.n_components);
-      auto attractive_grad_coeff = T(0.0);
-      if (dist_squared > T(0.0)) {
-        attractive_grad_coeff = attractive_grad<T>(dist_squared, params);
-      }
-      // compute gradient for each component in embedded space
-      for (size_t d = 0; d < params.n_components; ++d) {
-        auto grad_d =
-          sampled ? clip<T>(attractive_grad_coeff * (current[d] - other[d]),
-                            T(-4.0), T(4.0)) *
-                      alpha
-                  : T(0.0);
-        // The gradient summed for each compoent among all threads in the warp
-        grad_d = raft::warpReduce(grad_d, mask) * 2.0f;
-        if (lane == 0) {
-          // already reduced, only the first thread in warp does the writing.
-          writeto[d] += grad_d;
-        }
-      }
-      if (sampled) {
-        // FIXME: Verify this is not conflicting and correct
-        auto _epochs_per_sample = epochs_per_sample[edge];
-        // smaller the weight, greater the epochs_per_sample
-        epoch_of_next_sample[edge] += _epochs_per_sample;
-      }
-    }
-  }
-}
-
-// negative sampling needs to be split into a different kernel as it reads and writes to the embedding.
-template <typename T>
-void __global__ optimize_batch_repuslive_kernel(
-  // embedding
-  T const *head_embedding, T *buffer, T const *tail_embedding,
-  // CSR graph
-  int const *indptr, size_t n_samples, int const *indices, size_t n_indices,
-  // sampling
-  T const *epochs_per_sample, T const *epoch_of_next_sample,
-  T *epoch_of_next_negative_sample, int epoch, T nsr_inv,
-  // parameters
-  UMAPParams params, uint64_t seed, float alpha, float gamma) {
-  size_t warp_id = raft::warpId();
-  if (warp_id >= n_samples) {
-    return;
-  }
-  // writes only to current node, so no conflict.
-  T const *current = head_embedding + (warp_id * params.n_components);
-  T *writeto = buffer + (warp_id * params.n_components);
-
-  auto lane = raft::laneId();
-  size_t beg = indptr[warp_id];
-  size_t end = indptr[warp_id + 1];
-  auto nnz = end - beg;  // nnz in each row of the connectivity graph.
-
-  for (size_t k = 0; k < nnz; k += raft::warp_size()) {
-    uint32_t edge = beg + k + lane;
-    uint32_t mask = __ballot_sync(raft::warp_full_mask(), edge < end);
-    bool sampled = epoch_of_next_sample[edge] <= T(epoch);
-    if (!(edge < end)) {
-      assert(lane != 0);
+    if (edge >= end) {
       continue;
     }
+    /**
+     * Apply attractive force
+     */
+    assert(edge < n_indices);
+    size_t col = indices[edge];
+    T const *other =
+      tail_embedding + static_cast<ptrdiff_t>(col * params.n_components);
+    auto dist_squared = rdist<T, T>(current, other, params.n_components);
+    auto attractive_grad_coeff = T(0.0);
+    if (dist_squared > T(0.0)) {
+      attractive_grad_coeff = attractive_grad<T>(dist_squared, params);
+    }
+    // compute gradient for each component in embedded space
+    for (size_t d = 0; d < params.n_components; ++d) {
+      auto grad_d = sampled
+                      ? clip<T>(attractive_grad_coeff * (current[d] - other[d]),
+                                T(-4.0), T(4.0)) *
+                          alpha
+                      : T(0.0);
+      // The gradient summed for each compoent among all threads in the warp
+      grad_d = raft::warpReduce(grad_d, mask) * 2.0f;
+      if (lane == 0) {
+        // already reduced, only the first thread in warp does the writing.
+        writeto[d] += grad_d;
+      }
+    }
 
+    /**
+     * Apply repulsive false
+     */
     auto _epochs_per_sample = epochs_per_sample[edge];
     auto epochs_per_negative_sample = _epochs_per_sample * nsr_inv;
     auto _epoch_of_next_negative_sample = epoch_of_next_negative_sample[edge];
@@ -354,11 +340,31 @@ void __global__ optimize_batch_repuslive_kernel(
         }
       }
     }
+
     if (sampled) {
+      // FIXME: Verify this is not conflicting and correct
+      auto _epochs_per_sample = epochs_per_sample[edge];
+      // smaller the weight, greater the epochs_per_sample
+      epoch_of_next_sample[edge] += _epochs_per_sample;
       epoch_of_next_negative_sample[edge] +=
         T(n_neg_samples) * epochs_per_negative_sample;
     }
   }
+}
+
+template <typename Op>
+void __global__ forRangeKernel(size_t n, Op op) {
+  uint32_t t = blockDim.x * blockIdx.x + threadIdx.x;
+  if (t >= n) {
+    return;
+  }
+  op(t);
+}
+
+template <int TPB_X, typename Op>
+void forRange(size_t n, cudaStream_t const& stream, Op op) {
+  auto n_blocks = raft::ceildiv(n, size_t(TPB_X));
+  forRangeKernel<<<n_blocks, TPB_X, 0, stream>>>(n, op);
 }
 
 /**
@@ -369,34 +375,25 @@ template <typename T, int TPB_X>
 void call_optimization_batch_kernel(
   T *embedding, T *buffer, T const *other, int const *indptr, size_t n_samples,
   int const *indices, size_t n_indices, T const *epochs_per_sample,
-  T *epoch_of_next_sample, T *epoch_of_next_sample_buffer,
-  T *epoch_of_next_negative_sample, UMAPParams const *params, uint64_t seed,
-  int epoch, float alpha, float gamma, dim3 &grid, dim3 &blk,
-  cudaStream_t &stream, int nnz) {
-  raft::copy(epoch_of_next_sample_buffer, epoch_of_next_sample, nnz, stream);
-  /**
-   * Apply attractive force
-   */
+  T *epoch_of_next_sample, T *epoch_of_next_negative_sample,
+  UMAPParams const *params, uint64_t seed, int epoch, float alpha, float gamma,
+  dim3 &grid, dim3 &blk, cudaStream_t &stream, int nnz) {
   size_t embedding_size = n_samples * params->n_components;
-  CUDA_CHECK(cudaMemsetAsync(buffer, 0, embedding_size * sizeof(T), stream));
-  optimize_batch_attractive<T><<<grid, blk, 0, stream>>>(
-    embedding, buffer, other, indptr, n_samples, indices, n_indices,
-    epochs_per_sample, epoch_of_next_sample, *params, epoch, alpha, gamma);
-  raft::linalg::binaryOp(
-    embedding, embedding, buffer, embedding_size,
-    [] __device__(T l, T r) { return l + r; }, stream);
-  /**
-   * Apply replusive force
-   */
   T nsr_inv = T(1.0) / params->negative_sample_rate;
-  CUDA_CHECK(cudaMemsetAsync(buffer, 0, embedding_size * sizeof(T), stream));
-  optimize_batch_repuslive_kernel<<<grid, blk, 0, stream>>>(
-    embedding, buffer, other, indptr, n_samples, indices, n_indices,
-    epochs_per_sample, epoch_of_next_sample_buffer,
-    epoch_of_next_negative_sample, epoch, nsr_inv, *params, seed, alpha, gamma);
-  raft::linalg::binaryOp(
-    embedding, embedding, buffer, n_samples * params->n_components,
-    [] __device__(T l, T r) { return l + r; }, stream);
+  optimize_batch_kernel<T><<<grid, blk, 0, stream>>>(
+    // embedding
+    embedding, buffer, other,
+    // graph
+    indptr, n_samples, indices, n_indices,
+    // sampling
+    epochs_per_sample, epoch_of_next_sample, epoch_of_next_negative_sample,
+    seed, nsr_inv,
+    // parameters
+    *params, epoch, alpha, gamma);
+  forRange<TPB_X>(embedding_size, stream, [=] __device__(uint32_t i) {
+    embedding[i] += buffer[i];
+    buffer[i] = 0.0f;
+  });
 }
 
 /**

@@ -220,7 +220,6 @@ void optimize_layout(T *head_embedding, T *tail_embedding, int *indptr, size_t n
 
   MLCommon::device_buffer<T> epoch_of_next_sample(d_alloc, stream, nnz);
   raft::copy(epoch_of_next_sample.data(), epochs_per_sample, nnz, stream);
-  MLCommon::device_buffer<T> epoch_of_next_sample_buffer(d_alloc, stream, nnz);
 
   static_assert(size_t(TPB_X) % raft::warp_size() == 0,
                 "Block size must be multiple of warp size.");
@@ -230,15 +229,16 @@ void optimize_layout(T *head_embedding, T *tail_embedding, int *indptr, size_t n
 
   uint64_t seed = params->random_state;
 
-  MLCommon::device_buffer<T> buffer(d_alloc, stream,
-                                    n_samples * params->n_components);
+  MLCommon::device_buffer<T> buffer(d_alloc, stream, n_samples * params->n_components);
+  CUDA_CHECK(cudaMemsetAsync(buffer.data(), 0, buffer.size() * sizeof(T), stream));
 
   for (int n = 0; n < n_epochs; n++) {
     ML::PUSH_RANGE("umap::update_one_epoch");
     call_optimization_batch_kernel<T, TPB_X>(
-      head_embedding, buffer.data(), tail_embedding, indptr, n_samples, indices, n_indices,
+      head_embedding, buffer.data(), tail_embedding,
+      indptr, n_samples, indices, n_indices,
       epochs_per_sample, epoch_of_next_sample.data(),
-      epoch_of_next_sample_buffer.data(), epoch_of_next_negative_sample.data(),
+      epoch_of_next_negative_sample.data(),
       params, seed, n, alpha, gamma, grid, blk, stream, nnz);
     optimization_iteration_finalization(params, head_embedding, alpha, n, n_epochs,
                                         seed);
