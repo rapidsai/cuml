@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <thrust/fill.h>
+#include <thrust/device_ptr.h>
 #include <cuml/matrix/kernelparams.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/transpose.h>
@@ -35,6 +37,13 @@
 #include <raft/stats/mean_center.cuh>
 #include <stats/cov.cuh>
 #include <tsvd/tsvd.cuh>
+#include <common/device_utils.cuh>
+#include <rmm/device_vector.hpp>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/host/allocator.hpp>
+#include <rmm/device_uvector.hpp>
+#include <rmm/device_uvector.hpp>
+#include <rmm/exec_policy.hpp>
 
 namespace ML {
 
@@ -93,46 +102,59 @@ void kpcaFit(const raft::handle_t &handle, math_t *input, math_t *components,
 
   math_t * diag;
   raft::allocate(diag, prms.n_rows);
-  float inv_n_rows = 1.0/prms.n_rows;
+  auto thrust_policy = rmm::exec_policy(stream);
+  thrust::fill(thrust_policy, diag, diag + prms.n_rows, 1.0f);
+  math_t inv_n_rows = 1.0/prms.n_rows;
 
-  math_t * scaling_mat;
-  raft::allocate(scaling_mat, prms.n_rows * prms.n_rows);
+  math_t * centering_mat;
+  raft::allocate(centering_mat, prms.n_rows * prms.n_rows);
 
   raft::matrix::initializeDiagonalMatrix(diag, i_mat, prms.n_rows, prms.n_rows, stream);
-  raft::linalg::subtractScalar(scaling_mat, i_mat, inv_n_rows, prms.n_rows * prms.n_rows, stream);
+
+  raft::print_device_vector("identity matrix: ", i_mat,
+                            prms.n_rows * prms.n_rows, std::cout);
+
+  raft::linalg::subtractScalar(centering_mat, i_mat, inv_n_rows, prms.n_rows * prms.n_rows, stream);
+
+  raft::print_device_vector("centering_mat: ", centering_mat,
+                            prms.n_rows * prms.n_rows, std::cout);
 
 
   math_t * temp_mat;
   raft::allocate(temp_mat, prms.n_rows * prms.n_rows);
+  math_t alpha = 1.0f;
+  math_t beta = 0.0f;
   
-
-
-  raft::linalg::gemm(handle, scaling_mat, prms.n_rows, prms.n_rows
+  raft::linalg::gemm(handle, centering_mat, prms.n_rows, prms.n_rows
               , kernel_mat, temp_mat, prms.n_rows, prms.n_rows
-              , CUBLAS_OP_N, CUBLAS_OP_N, 0.0, 0.0, stream);
+              , CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta, stream);
 
 
-  math_t * scaled_kern_mat;
-  raft::allocate(scaled_kern_mat, prms.n_rows * prms.n_rows);
+  raft::print_device_vector("temp_mat: ", temp_mat,
+                            prms.n_rows * prms.n_rows, std::cout);
 
+  math_t * centered_kernel;
+  raft::allocate(centered_kernel, prms.n_rows * prms.n_rows);
 
   raft::linalg::gemm(handle, temp_mat, prms.n_rows, prms.n_rows
-              , scaling_mat, scaled_kern_mat, prms.n_rows, prms.n_rows
-              , CUBLAS_OP_N, CUBLAS_OP_N, 0.0, 0.0, stream);
+              , centering_mat, centered_kernel, prms.n_rows, prms.n_rows
+              , CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta, stream);
 
 
+  raft::print_device_vector("centered_kernel: ", centered_kernel,
+                            prms.n_rows * prms.n_rows, std::cout);
+
+  math_t tol = 1.e-7;
+  math_t sweeps = 15;
   //  eigendecomposition
-  raft::linalg::eigJacobi(handle, kernel_mat, prms.n_rows,
-               prms.n_rows, components, explained_var,
-               stream);//, math_t tol = 1.e-7, int sweeps = 15)
+  raft::linalg::eigJacobi(handle, centered_kernel, prms.n_rows,
+                     prms.n_rows, components, explained_var,
+                     stream, tol, sweeps);
 
-
-  raft::print_device_vector("components (as vector): ", components,
+  raft::print_device_vector("components: ", components,
                             prms.n_rows * n_components, std::cout);
-  raft::print_device_vector("explained_var (as vector): ", explained_var,
+  raft::print_device_vector("explained_var (eigenvalues): ", explained_var,
                             n_components, std::cout);
-
-
 
   //  scale alphas
   std::cout << "END KPCA FIT\n";
