@@ -44,11 +44,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 ##############################################################################
 # - User Options  ------------------------------------------------------------
 
-option(BUILD_CUML_C_LIBRARY "Build libcuml_c shared library. Contains the cuML C API" ON)
+option(BUILD_CUML_C_LIBRARY "Build libcuml_c shared library. Contains the cuML C API" OFF)
 option(BUILD_CUML_CPP_LIBRARY "Build libcuml shared library" ON)
-option(BUILD_CUML_TESTS "Build cuML algorithm tests" ON)
+option(BUILD_CUML_TESTS "Build cuML algorithm tests" OFF)
 option(BUILD_CUML_MG_TESTS "Build cuML multigpu algorithm tests" OFF)
-option(BUILD_PRIMS_TESTS "Build ml-prim tests" ON)
+option(BUILD_PRIMS_TESTS "Build ml-prim tests" OFF)
 option(BUILD_CUML_EXAMPLES "Build C++ API usage examples" ON)
 option(BUILD_CUML_BENCH "Build cuML C++ benchmark tests" ON)
 option(BUILD_CUML_PRIMS_BENCH "Build ml-prims C++ benchmark tests" ON)
@@ -57,6 +57,7 @@ option(BUILD_CUML_MPI_COMMS "Build the MPI+NCCL Communicator (used for testing)"
 option(BUILD_STATIC_FAISS "Build the FAISS library for nearest neighbors search on GPU" OFF)
 option(BUILD_GTEST "Build the GTEST library for running libcuml++ and prims test executables" OFF)
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
+option(DISABLE_DEPRECATION_WARNINGS "Disable depreaction warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(ENABLE_CUMLPRIMS_MG "Enable algorithms that use libcumlprims_mg" ON)
 option(KERNEL_INFO "Enable kernel resource usage info" OFF)
@@ -184,36 +185,9 @@ if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
   include(cmake/thirdparty/get_gtest.cmake)
 endif()
 
-##############################################################################
-# - External Dependencies-----------------------------------------------------
-
-# set(CUML_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include CACHE STRING
-#   "Path to cuml include directories")
-
-##############################################################################
-# - include paths ------------------------------------------------------------
-
-# set(CUML_INCLUDE_DIRECTORIES
-#   ${CUML_INCLUDE_DIR}
-#   ${SPDLOG_DIR}/src/spdlog/include
-#   ${FAISS_INCLUDE_DIRS}
-#   ${RAFT_DIR}/cpp/include
-#   ${RMM_INCLUDE_DIRS})
-
-# # These directories will be used by dependent targets
-# set(CUML_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
-# set(CUML_SRC_PRIMS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src_prims)
-# set(CUML_TEST_PRIMS_DIR ${CMAKE_CURRENT_SOURCE_DIR}/test/prims)
-
-# if(NOT CUB_IS_PART_OF_CTK)
-#   list(APPEND CUML_INCLUDE_DIRECTORIES ${CUB_DIR}/src/cub)
-# endif(NOT CUB_IS_PART_OF_CTK)
-
-# set(CUML_PRIVATE_LINK_LIBRARIES
-#   FAISS::FAISS
-#   treelite::treelite
-#   treelite::treelite_runtime
-#   )
+if(BUILD_CUML_BENCH)
+  include(cmake/thirdparty/get_gbench.cmake)
+endif()
 
 ##############################################################################
 # - build libcuml++ shared library -------------------------------------------
@@ -271,7 +245,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/tsvd/tsvd.cu
     src/umap/umap.cu)
 
-  # mnmg components
+  # multi GPU components
   if(NOT SINGLEGPU)
     target_sources(cuml
       PRIVATE
@@ -310,16 +284,8 @@ if(BUILD_CUML_CPP_LIBRARY)
   )
 
   target_compile_options(cuml
-    PUBLIC
-      $<$<COMPILE_LANGUAGE:CUDA>:--expt-extended-lambda
-                                 --expt-relaxed-constexpr
-                                 -Xcudafe
-                                 --diag_suppress=unrecognized_gcc_pragma
-                                 -ccbin ${CMAKE_CXX_COMPILER}>
-
-    PRIVATE
-      $<$<AND:$<BOOL:${LINE_INFO}>,$<COMPILE_LANGUAGE:CUDA>>:-lineinfo>
-      $<$<AND:$<BOOL:${KERNEL_INFO}>,$<COMPILE_LANGUAGE:CUDA>>:-Xptxas=-v>
+        PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CUML_CXX_FLAGS}>"
+                "$<$<COMPILE_LANGUAGE:CUDA>:${CUML_CUDA_FLAGS}>"
   )
 
   target_include_directories(cuml
@@ -343,6 +309,7 @@ if(BUILD_CUML_CPP_LIBRARY)
       raft::raft
     PRIVATE
       CUDA::cublas
+      CUDA::cufft
       CUDA::curand
       CUDA::cusolver
       CUDA::cudart
@@ -365,55 +332,92 @@ if(BUILD_CUML_CPP_LIBRARY)
 
 endif(BUILD_CUML_CPP_LIBRARY)
 
-##############################################################################
+#############################################################################
 # - build libcuml C shared library -------------------------------------------
 
-# if(BUILD_CUML_C_LIBRARY)
-#   add_library(cuml_c SHARED
-#     src/common/cumlHandle.cpp
-#     src/common/cuml_api.cpp
-#     src/dbscan/dbscan_api.cpp
-#     src/glm/glm_api.cpp
-#     src/holtwinters/holtwinters_api.cpp
-#     src/knn/knn_api.cpp
-#     src/svm/svm_api.cpp
-#   )
+if(BUILD_CUML_C_LIBRARY)
+  add_library(cuml_c SHARED
+    src/common/cumlHandle.cpp
+    src/common/cuml_api.cpp
+    src/dbscan/dbscan_api.cpp
+    src/glm/glm_api.cpp
+    src/holtwinters/holtwinters_api.cpp
+    src/knn/knn_api.cpp
+    src/svm/svm_api.cpp
+  )
 
-#   add_library(cuml::cuml_c ALIAS cuml_c)
+  add_library(cuml::cuml_c ALIAS cuml_c)
 
-#   # target_compile_definitions(cuml_c
-#   #   PRIVATE
-#   #     CUML_C_API)
+  target_compile_definitions(cuml_c
+    PRIVATE
+      CUML_C_API)
 
-#   # target_include_directories(cuml_c
-#   #   PRIVATE
-#   #     ${CUML_SRC_DIR}
-#   # )
+  target_include_directories(cuml_c
+    PRIVATE
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+  )
 
-#   target_link_libraries(cuml_c
-#     PUBLIC
-#       cuml
-#   )
+  target_link_libraries(cuml_c
+    PUBLIC
+      cuml
+  )
 
-# endif(BUILD_CUML_C_LIBRARY)
+endif()
 
 ##############################################################################
 # - build test executables ---------------------------------------------------
 
-# if(CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME)
-#   include(CTest)
-# endif()
-
-# if((CMAKE_PROJECT_NAME STREQUAL PROJECT_NAME OR CUML_BUILD_TESTING) AND BUILD_TESTING)
-#   add_subdirectory(test ${PROJECT_BINARY_DIR}/test)
-# endif()
+if(BUILD_CUML_TESTS)
+  # include(CTest)
+  add_subdirectory(test)
+endif()
 
 ##############################################################################
-# - build examples ------------------------------------------------------------------------------
+# - build examples -----------------------------------------------------------
 
-# if(BUILD_CUML_EXAMPLES)
-#   add_subdirectory(examples)
-# endif(BUILD_CUML_EXAMPLES)
+if(BUILD_CUML_EXAMPLES)
+  add_subdirectory(examples)
+endif(BUILD_CUML_EXAMPLES)
+
+# ###################################################################################################
+# # - install targets -------------------------------------------------------------------------------
+
+# install(TARGETS cugraph
+#         DESTINATION lib
+#         EXPORT cugraph-exports)
+
+# install(DIRECTORY include/
+#         DESTINATION include/cugraph)
+
+# install(FILES ${CMAKE_CURRENT_BINARY_DIR}/include/cugraph/version_config.hpp
+#         DESTINATION include/cugraph)
+
+# ################################################################################################
+# # - install export -------------------------------------------------------------------------------
+# set(doc_string
+# [=[
+# Provide targets for cuGraph.
+
+# cuGraph library is a collection of GPU accelerated graph algorithms that process data found in
+# [GPU DataFrames](https://github.com/rapidsai/cudf).
+
+# ]=])
+
+#  rapids_export(INSTALL cugraph
+#     EXPORT_SET cugraph-exports
+#     GLOBAL_TARGETS cugraph
+#     NAMESPACE cugraph::
+#     DOCUMENTATION doc_string
+#     )
+
+# ################################################################################################
+# # - build export -------------------------------------------------------------------------------
+# rapids_export(BUILD cugraph
+#     EXPORT_SET cugraph-exports
+#     GLOBAL_TARGETS cugraph
+#     NAMESPACE cugraph::
+#     DOCUMENTATION doc_string
+#     )
 
 ##############################################################################
 # - install targets ----------------------------------------------------------
@@ -471,12 +475,12 @@ endif(BUILD_CUML_CPP_LIBRARY)
 # #Register package in user's package registry
 # export(PACKAGE CUML)
 
-##############################################################################
+#############################################################################
 # - build benchmark executable -----------------------------------------------
 
-# if(BUILD_CUML_BENCH)
-#   add_subdirectory(bench ${PROJECT_BINARY_DIR}/bench)
-# endif(BUILD_CUML_BENCH)
+if(BUILD_CUML_BENCH)
+  add_subdirectory(bench)
+endif()
 
 ###################################################################################################
 # - make documentation ----------------------------------------------------------------------------

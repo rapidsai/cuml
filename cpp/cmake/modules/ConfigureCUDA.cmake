@@ -14,24 +14,8 @@
 # limitations under the License.
 #=============================================================================
 
-# todo (DD): Change cuda flags environment variables to use generators to enable using
-# clang as per suggestion from mdemoret:
-# target_compile_options(CUML
-#     PUBLIC
-#       $<$<AND:$<CUDA_COMPILER_ID:NVIDIA>,$<COMPILE_LANGUAGE:CUDA>>:
-#         --expt-extended-lambda
-#         --expt-relaxed-constexpr
-#         -Xcudafe
-#         --diag_suppress=unrecognized_gcc_pragma
-#         -ccbin ${CMAKE_CXX_COMPILER}>
-#     PRIVATE
-#       $<$<AND:$<BOOL:${LINE_INFO}>,$<COMPILE_LANGUAGE:CUDA>>:-lineinfo>
-#       $<$<AND:$<BOOL:${KERNEL_INFO}>,$<COMPILE_LANGUAGE:CUDA>>:-Xptxas=-v>
-#       $<$<CUDA_COMPILER_ID:Clang>:-Wno-everything>
-#   )
-
 if(CMAKE_COMPILER_IS_GNUCXX)
-    list(APPEND CUML_CXX_FLAGS -Wall -Werror -Wno-unknown-pragmas -Wno-error=deprecated-declarations)
+    list(APPEND CUML_CXX_FLAGS -Wall -Werror -Wno-unknown-pragmas)
     if(CUML_BUILD_TESTS OR CUML_BUILD_BENCHMARKS)
         # Suppress parentheses warning which causes gmock to fail
         list(APPEND CUML_CUDA_FLAGS -Xcompiler=-Wno-parentheses)

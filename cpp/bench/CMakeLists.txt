@@ -37,16 +37,22 @@ if(BUILD_CUML_BENCH)
     sg/fil.cu
   )
 
+  target_compile_options(sg_benchmark
+        PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CUML_CXX_FLAGS}>"
+                "$<$<COMPILE_LANGUAGE:CUDA>:${CUML_CUDA_FLAGS}>"
+  )
+
   target_link_libraries(sg_benchmark
     PUBLIC
-      ${CUML_CPP_TARGET}
-      benchmarklib
+      cuml
+      benchmark::benchmark
+      raft::raft
   )
 
   target_include_directories(sg_benchmark
     PRIVATE
-      ${GBENCH_DIR}/include
-      ${CUML_SRC_PRIMS_DIR}
+      # ${GBENCH_DIR}/include
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src_prims>
   )
 endif(BUILD_CUML_BENCH)
 
@@ -71,16 +77,21 @@ if(BUILD_CUML_PRIMS_BENCH)
     prims/reduce.cu
     prims/rng.cu)
 
+  target_compile_options(prims_benchmark
+        PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CUML_CXX_FLAGS}>"
+                "$<$<COMPILE_LANGUAGE:CUDA>:${CUML_CUDA_FLAGS}>"
+  )
+
   target_link_libraries(prims_benchmark
     PUBLIC
       CUDA::cublas
-      benchmarklib
-      cuml
+      benchmark::benchmark
+      raft::raft
   )
 
   target_include_directories(prims_benchmark
     PRIVATE
       ${GBENCH_DIR}/include
-      ${CUML_SRC_PRIMS_DIR}
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src_prims>
   )
 endif(BUILD_CUML_PRIMS_BENCH)
