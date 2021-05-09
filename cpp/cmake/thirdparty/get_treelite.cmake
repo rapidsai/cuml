@@ -34,10 +34,14 @@ function(find_and_configure_nccl)
               "BUILD_STATIC_LIBS ON"
     )
 
-    # if (Treelite_ADDED)
-    #     # todo (DD): Add building nccl from source, works fine for conda installed
+    set(Treelite_ADDED ${Treelite_ADDED} PARENT_SCOPE)
+    set(Treelite_SOURCE_DIR ${Treelite_SOURCE_DIR} PARENT_SCOPE)
 
-    # endif()
+    if(NOT TARGET treelite::treelite_static)
+        add_library(treelite::treelite_static ALIAS treelite_static)
+        add_library(treelite::treelite_runtime_static ALIAS treelite_runtime_static)
+    endif()
+
 endfunction()
 
 find_and_configure_nccl(VERSION     1.1.0

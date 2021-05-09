@@ -32,6 +32,10 @@ rapids_cuda_init_architectures(CUML)
 
 project(CUML VERSION 0.20.0 LANGUAGES CXX CUDA)
 
+# Write the version header
+include(cmake/modules/Version.cmake)
+write_version()
+
 ##############################################################################
 # - build type ---------------------------------------------------------------
 
@@ -44,14 +48,14 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 ##############################################################################
 # - User Options  ------------------------------------------------------------
 
-option(BUILD_CUML_C_LIBRARY "Build libcuml_c shared library. Contains the cuML C API" OFF)
+option(BUILD_CUML_C_LIBRARY "Build libcuml_c shared library. Contains the cuML C API" ON)
 option(BUILD_CUML_CPP_LIBRARY "Build libcuml shared library" ON)
 option(BUILD_CUML_TESTS "Build cuML algorithm tests" OFF)
 option(BUILD_CUML_MG_TESTS "Build cuML multigpu algorithm tests" OFF)
 option(BUILD_PRIMS_TESTS "Build ml-prim tests" OFF)
-option(BUILD_CUML_EXAMPLES "Build C++ API usage examples" ON)
-option(BUILD_CUML_BENCH "Build cuML C++ benchmark tests" ON)
-option(BUILD_CUML_PRIMS_BENCH "Build ml-prims C++ benchmark tests" ON)
+option(BUILD_CUML_EXAMPLES "Build C++ API usage examples" OFF)
+option(BUILD_CUML_BENCH "Build cuML C++ benchmark tests" OFF)
+option(BUILD_CUML_PRIMS_BENCH "Build ml-prims C++ benchmark tests" OFF)
 option(BUILD_CUML_STD_COMMS "Build the standard NCCL+UCX Communicator" ON)
 option(BUILD_CUML_MPI_COMMS "Build the MPI+NCCL Communicator (used for testing)" OFF)
 option(BUILD_STATIC_FAISS "Build the FAISS library for nearest neighbors search on GPU" OFF)
@@ -296,6 +300,7 @@ if(BUILD_CUML_CPP_LIBRARY)
       $<BUILD_INTERFACE:${RAFT_DIR}/cpp/include>
       $<BUILD_INTERFACE:${CUTLASS_DIR}/src/cutlass>
       $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_CUMLPRIMS_MG}>:${cumlprims_mg_INCLUDE_DIRS}>>
+      $<$<BOOL:Treelite_ADDED>:${Treelite_SOURCE_DIR}/include>
     PRIVATE
       $<$<OR:$<BOOL:BUILD_CUML_STD_COMMS>,$<BOOL:BUILD_CUML_MPI_COMMS>>:${NCCL_INCLUDE_DIRS}>
       $<$<BOOL:BUILD_CUML_MPI_COMMS>:${MPI_CXX_INCLUDE_PATH}>
@@ -316,8 +321,8 @@ if(BUILD_CUML_CPP_LIBRARY)
       CUDA::cusparse
       $<$<BOOL:NVTX>:CUDA::nvToolsExt>
       FAISS::FAISS
-      treelite::treelite
-      treelite::treelite_runtime
+      $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_static,treelite::treelite>
+      $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_runtime_static,treelite::treelite_runtime>
       $<$<BOOL:OpenMP_FOUND>:OpenMP::OpenMP_CXX>
       $<$<OR:$<BOOL:${BUILD_CUML_STD_COMMS}>,$<BOOL:${BUILD_CUML_MPI_COMMS}>>:NCCL::NCCL>
       $<$<BOOL:${BUILD_CUML_MPI_COMMS}>:${MPI_CXX_LIBRARIES}>
@@ -382,112 +387,60 @@ endif(BUILD_CUML_EXAMPLES)
 # ###################################################################################################
 # # - install targets -------------------------------------------------------------------------------
 
-# install(TARGETS cugraph
-#         DESTINATION lib
-#         EXPORT cugraph-exports)
+set(CUML_TARGETS
+      cuml)
 
-# install(DIRECTORY include/
-#         DESTINATION include/cugraph)
+if(BUILD_CUML_C_LIBRARY)
+  list(APPEND CUML_TARGETS
+         cuml_c)
+endif()
 
-# install(FILES ${CMAKE_CURRENT_BINARY_DIR}/include/cugraph/version_config.hpp
-#         DESTINATION include/cugraph)
+install(TARGETS
+          ${CUML_TARGETS}
+        DESTINATION
+          lib
+        EXPORT
+          cuml-exports)
+
+install(DIRECTORY include/
+        DESTINATION include/cuml)
+
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/include/cuml/version_config.hpp
+        DESTINATION include/cuml)
 
 # ################################################################################################
 # # - install export -------------------------------------------------------------------------------
-# set(doc_string
-# [=[
-# Provide targets for cuGraph.
+set(doc_string
+[=[
+Provide targets for cuML.
 
-# cuGraph library is a collection of GPU accelerated graph algorithms that process data found in
-# [GPU DataFrames](https://github.com/rapidsai/cudf).
+cuML is a suite of libraries that implement machine learning algorithms and mathematical primitives
+functions that share compatible APIs with other RAPIDS projects.
 
-# ]=])
+]=])
 
-#  rapids_export(INSTALL cugraph
-#     EXPORT_SET cugraph-exports
-#     GLOBAL_TARGETS cugraph
-#     NAMESPACE cugraph::
-#     DOCUMENTATION doc_string
-#     )
+ rapids_export(INSTALL cuml
+    EXPORT_SET cuml-exports
+    GLOBAL_TARGETS cuml
+    NAMESPACE cuml::
+    DOCUMENTATION doc_string
+    )
 
-# ################################################################################################
-# # - build export -------------------------------------------------------------------------------
-# rapids_export(BUILD cugraph
-#     EXPORT_SET cugraph-exports
-#     GLOBAL_TARGETS cugraph
-#     NAMESPACE cugraph::
-#     DOCUMENTATION doc_string
-#     )
-
-##############################################################################
-# - install targets ----------------------------------------------------------
-
-# include(GNUInstallDirs)
-# set(INSTALL_CONFIGDIR ${CMAKE_INSTALL_LIBDIR}/cmake/cuml)
-
-# install(TARGETS
-#           ${CUML_CPP_TARGET}
-#           ${CUML_C_TARGET}
-#         EXPORT
-#           cuml-targets
-#         DESTINATION
-#           ${CMAKE_INSTALL_LIBDIR}
-# )
-
-# # Copy the include and raft directories
-# install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/cuml DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
-# install(DIRECTORY ${RAFT_INCLUDE_DIR} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/cuml)
-
-# include(CMakePackageConfigHelpers)
-# configure_package_config_file(${CMAKE_CURRENT_LIST_DIR}/cmake/cuml-config.cmake.in
-#                               ${CMAKE_CURRENT_BINARY_DIR}/cuml-config.cmake
-#                               INSTALL_DESTINATION ${INSTALL_CONFIGDIR})
-
-# write_basic_package_version_file(${CMAKE_CURRENT_BINARY_DIR}/cuml-config-version.cmake
-#                                  VERSION ${PROJECT_VERSION}
-#                                  COMPATIBILITY SameMinorVersion)
-
-# install(
-#   EXPORT cuml-targets
-#   FILE cuml-targets.cmake
-#   NAMESPACE CUML::
-#   DESTINATION ${INSTALL_CONFIGDIR})
-
-# install(FILES ${CMAKE_CURRENT_BINARY_DIR}/cuml-config.cmake
-#               ${CMAKE_CURRENT_BINARY_DIR}/cuml-config-version.cmake
-#               ${CMAKE_CURRENT_LIST_DIR}/cmake/FindRMM.cmake
-#         DESTINATION ${INSTALL_CONFIGDIR})
-
-##############################################################################
-# - export targets -----------------------------------------------------------
-
-
-# Export any Cmake modules
-# configure_file(${CMAKE_CURRENT_LIST_DIR}/cmake/FindRapidJSON.cmake
-#     ${CMAKE_CURRENT_BINARY_DIR}/FindRapidJSON.cmake
-#     COPYONLY)
-
-# Export targets
-# export(EXPORT cuml-targets
-#     FILE ${CMAKE_CURRENT_BINARY_DIR}/cuml-targets.cmake
-#     NAMESPACE CUML::)
-
-# #Register package in user's package registry
-# export(PACKAGE CUML)
-
-#############################################################################
-# - build benchmark executable -----------------------------------------------
-
-if(BUILD_CUML_BENCH)
-  add_subdirectory(bench)
-endif()
+################################################################################################
+# - build export -------------------------------------------------------------------------------
+rapids_export(BUILD cuml
+    EXPORT_SET cuml-exports
+    GLOBAL_TARGETS cuml
+    NAMESPACE cuml::
+    DOCUMENTATION doc_string
+    )
 
 ###################################################################################################
 # - make documentation ----------------------------------------------------------------------------
 # requires doxygen and graphviz to be installed
 # from build directory, run make docs_cugraph
 
-# doc targets for cugraph
+# doc targets for cuML
 find_package(Doxygen 1.8.11)
 if(Doxygen_FOUND)
     add_custom_command(OUTPUT CUML_DOXYGEN

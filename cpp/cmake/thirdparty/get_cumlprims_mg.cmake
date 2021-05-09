@@ -34,5 +34,7 @@ function(find_and_configure_cumlprims_mg)
 
 endfunction()
 
-find_and_configure_cumlprims_mg(VERSION     0.20)
+set(CUML_MIN_VERSION_cumlprims_mg "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
+
+find_and_configure_cumlprims_mg(VERSION     CUML_MIN_VERSION_cumlprims_mg)
 
