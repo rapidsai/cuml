@@ -367,11 +367,12 @@ void __global__ optimize_batch_repuslive_kernel(
  */
 template <typename T, int TPB_X>
 void call_optimization_batch_kernel(
-  T *embedding, T *buffer, T const *other, int *indptr, size_t n_samples,
-  int *indices, size_t n_indices, T *epochs_per_sample, T *epoch_of_next_sample,
-  T *epoch_of_next_sample_buffer, T *epoch_of_next_negative_sample,
-  UMAPParams *params, uint64_t seed, int epoch, float alpha, float gamma,
-  dim3 &grid, dim3 &blk, cudaStream_t &stream, int nnz) {
+  T *embedding, T *buffer, T const *other, int const *indptr, size_t n_samples,
+  int const *indices, size_t n_indices, T const *epochs_per_sample,
+  T *epoch_of_next_sample, T *epoch_of_next_sample_buffer,
+  T *epoch_of_next_negative_sample, UMAPParams const *params, uint64_t seed,
+  int epoch, float alpha, float gamma, dim3 &grid, dim3 &blk,
+  cudaStream_t &stream, int nnz) {
   raft::copy(epoch_of_next_sample_buffer, epoch_of_next_sample, nnz, stream);
   /**
    * Apply attractive force
@@ -390,9 +391,9 @@ void call_optimization_batch_kernel(
   T nsr_inv = T(1.0) / params->negative_sample_rate;
   CUDA_CHECK(cudaMemsetAsync(buffer, 0, embedding_size * sizeof(T), stream));
   optimize_batch_repuslive_kernel<<<grid, blk, 0, stream>>>(
-    embedding, buffer, other, indptr, n_samples, indices, n_indices, epochs_per_sample,
-    epoch_of_next_sample_buffer, epoch_of_next_negative_sample, epoch, nsr_inv,
-    *params, seed, alpha, gamma);
+    embedding, buffer, other, indptr, n_samples, indices, n_indices,
+    epochs_per_sample, epoch_of_next_sample_buffer,
+    epoch_of_next_negative_sample, epoch, nsr_inv, *params, seed, alpha, gamma);
   raft::linalg::binaryOp(
     embedding, embedding, buffer, n_samples * params->n_components,
     [] __device__(T l, T r) { return l + r; }, stream);

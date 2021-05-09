@@ -15,6 +15,8 @@
  */
 
 #pragma once
+#include <cstdlib>
+#include <string>
 
 #include <cuml/manifold/umapparams.h>
 #include <cuml/common/device_buffer.hpp>
@@ -26,14 +28,13 @@
 #include <thrust/extrema.h>
 #include <thrust/system/cuda/execution_policy.h>
 #include <common/fast_int_div.cuh>
-#include <cstdlib>
+#include <common/nvtx.hpp>
 #include <cuml/common/logger.hpp>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng_impl.cuh>
 #include <raft/sparse/convert/csr.cuh>
 #include <raft/sparse/coo.cuh>
-#include <string>
 #include "optimize_batch_kernel.cuh"
 
 #include <raft/linalg/binary_op.cuh>
@@ -233,6 +234,7 @@ void optimize_layout(T *head_embedding, T *tail_embedding, int *indptr, size_t n
                                     n_samples * params->n_components);
 
   for (int n = 0; n < n_epochs; n++) {
+    ML::PUSH_RANGE("umap::update_one_epoch");
     call_optimization_batch_kernel<T, TPB_X>(
       head_embedding, buffer.data(), tail_embedding, indptr, n_samples, indices, n_indices,
       epochs_per_sample, epoch_of_next_sample.data(),
@@ -241,6 +243,7 @@ void optimize_layout(T *head_embedding, T *tail_embedding, int *indptr, size_t n
     optimization_iteration_finalization(params, head_embedding, alpha, n, n_epochs,
                                         seed);
     CUDA_CHECK(cudaGetLastError());
+    ML::POP_RANGE();
   }
 }
 
