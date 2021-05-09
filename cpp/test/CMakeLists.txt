@@ -28,8 +28,8 @@ set(COMMON_TEST_LINK_LIBRARIES
   GTest::gtest_main
   OpenMP::OpenMP_CXX
   Threads::Threads
-  treelite::treelite
-  treelite::treelite_runtime
+  $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_static,treelite::treelite>
+  $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_runtime_static,treelite::treelite_runtime>
   $<TARGET_NAME_IF_EXISTS:conda_env>
 )
 
@@ -73,14 +73,15 @@ if(BUILD_CUML_TESTS)
     sg/tsne_test.cu
     sg/tsvd_test.cu
     sg/umap_parametrizable_test.cu
+    $<$<BOOL:BUILD_CUML_C_LIBRARY>:sg/handle_test.cu>
   )
 
-  if(BUILD_CUML_C_LIBRARY)
-    target_sources(ml
-      PUBLIC
-        sg/handle_test.cu
-    )
-  endif()
+  # if(BUILD_CUML_C_LIBRARY)
+  #   target_sources(ml
+  #     PUBLIC
+  #       sg/handle_test.cu
+  #   )
+  # endif()
 
   target_compile_options(ml
         PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CUML_CXX_FLAGS}>"

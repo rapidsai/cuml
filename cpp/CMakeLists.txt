@@ -50,12 +50,12 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(BUILD_CUML_C_LIBRARY "Build libcuml_c shared library. Contains the cuML C API" ON)
 option(BUILD_CUML_CPP_LIBRARY "Build libcuml shared library" ON)
-option(BUILD_CUML_TESTS "Build cuML algorithm tests" OFF)
+option(BUILD_CUML_TESTS "Build cuML algorithm tests" ON)
 option(BUILD_CUML_MG_TESTS "Build cuML multigpu algorithm tests" OFF)
-option(BUILD_PRIMS_TESTS "Build ml-prim tests" OFF)
-option(BUILD_CUML_EXAMPLES "Build C++ API usage examples" OFF)
-option(BUILD_CUML_BENCH "Build cuML C++ benchmark tests" OFF)
-option(BUILD_CUML_PRIMS_BENCH "Build ml-prims C++ benchmark tests" OFF)
+option(BUILD_PRIMS_TESTS "Build ml-prim tests" ON)
+option(BUILD_CUML_EXAMPLES "Build C++ API usage examples" ON)
+option(BUILD_CUML_BENCH "Build cuML C++ benchmark tests" ON)
+option(BUILD_CUML_PRIMS_BENCH "Build ml-prims C++ benchmark tests" ON)
 option(BUILD_CUML_STD_COMMS "Build the standard NCCL+UCX Communicator" ON)
 option(BUILD_CUML_MPI_COMMS "Build the MPI+NCCL Communicator (used for testing)" OFF)
 option(BUILD_STATIC_FAISS "Build the FAISS library for nearest neighbors search on GPU" OFF)
@@ -250,6 +250,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/umap/umap.cu)
 
   # multi GPU components
+  # todo: separate mnmg that require cumlprims from those that don't
   if(NOT SINGLEGPU)
     target_sources(cuml
       PRIVATE
@@ -373,7 +374,7 @@ endif()
 # - build test executables ---------------------------------------------------
 
 if(BUILD_CUML_TESTS)
-  # include(CTest)
+  include(CTest)
   add_subdirectory(test)
 endif()
 

@@ -14,9 +14,13 @@
 # limitations under the License.
 #=============================================================================
 
-function(find_and_configure_raft VERSION)
+function(find_and_configure_raft)
 
-    rapids_cpm_find(raft ${VERSION}
+    set(oneValueArgs VERSION PINNED_TAG)
+    cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
+                          "${multiValueArgs}" ${ARGN} )
+
+    rapids_cpm_find(raft ${PKG_VERSION}
       GLOBAL_TARGETS      raft::raft
       BUILD_EXPORT_SET    cuml-exports
       INSTALL_EXPORT_SET  cuml-exports
@@ -24,7 +28,7 @@ function(find_and_configure_raft VERSION)
             # GIT_REPOSITORY https://github.com/rapidsai/raft.git
             # GIT_TAG        branch-${VERSION}
             GIT_REPOSITORY https://github.com/dantegd/raft.git
-            GIT_TAG        020-fea-cpm
+            GIT_TAG        ${PKG_PINNED_TAG}
             SOURCE_SUBDIR  cpp
 
     )
@@ -33,4 +37,8 @@ endfunction()
 
 set(CUML_MIN_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
 
-find_and_configure_raft(${CUML_MIN_VERSION_raft})
+find_and_configure_raft(VERSION ${CUML_MIN_VERSION_raft}
+                        PINNED_TAG 842af95285714104a8eee2d9a3794d264744e7e8
+                        )
+
+

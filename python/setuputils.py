@@ -121,10 +121,11 @@ def use_raft_package(raft_path, cpp_build_path,
 def clone_repo_if_needed(name, cpp_build_path=None,
                          git_info_file=None):
     if git_info_file is None:
-        git_info_file = _get_repo_path() + '/cpp/cmake/Dependencies.cmake'
+        git_info_file = \
+            _get_repo_path() + '/cpp/cmake/thirdparty/get_raft.cmake'
 
     if cpp_build_path is None or cpp_build_path is False:
-        cpp_build_path = _get_repo_path() + '/cpp/build/'
+        cpp_build_path = _get_repo_path() + '/cpp/build/_deps/'
 
     repo_cloned = get_submodule_dependency(name,
                                            cpp_build_path=cpp_build_path,
@@ -134,7 +135,7 @@ def clone_repo_if_needed(name, cpp_build_path=None,
         repo_path = (
             _get_repo_path() + '/python/_external_repositories/' + name + '/')
     else:
-        repo_path = os.path.join(cpp_build_path, name + '/src/' + name + '/')
+        repo_path = os.path.join(cpp_build_path, name + '-src/')
 
     return repo_path, repo_cloned
 
@@ -263,14 +264,11 @@ def get_repo_cmake_info(names, file_path):
     results = {}
 
     for name in names:
-        res = re.findall(r'ExternalProject_Add\(' + re.escape(name)
-                         + '\s.*GIT_REPOSITORY.*\s.*GIT_TAG.*',  # noqa: W605
-                         s)
-
-        res = re.sub(' +', ' ', res[0])
-        res = res.split(' ')
-        res = [res[2][:-1], res[4]]
-        results[name] = res
+        repo = re.findall(r'\s.*GIT_REPOSITORY.*', s)
+        repo = repo[-1].split()[-1]
+        tag = re.findall(r'\s.*PINNED_TAG.*', s)
+        tag = tag[-1].split()[-1]
+        results[name] = [repo, tag]
 
     return results
 

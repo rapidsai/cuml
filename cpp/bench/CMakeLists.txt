@@ -14,8 +14,6 @@
 # limitations under the License.
 #=============================================================================
 
-cmake_policy(SET CMP0079 NEW)
-
 ##############################################################################
 # - build cuml bench executable ----------------------------------------------
 
@@ -51,7 +49,6 @@ if(BUILD_CUML_BENCH)
 
   target_include_directories(sg_benchmark
     PRIVATE
-      # ${GBENCH_DIR}/include
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src_prims>
   )
 endif(BUILD_CUML_BENCH)
@@ -91,7 +88,6 @@ if(BUILD_CUML_PRIMS_BENCH)
 
   target_include_directories(prims_benchmark
     PRIVATE
-      ${GBENCH_DIR}/include
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src_prims>
   )
 endif(BUILD_CUML_PRIMS_BENCH)
