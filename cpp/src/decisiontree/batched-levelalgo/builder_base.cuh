@@ -22,6 +22,7 @@
 #include <raft/cuda_utils.cuh>
 #include "input.cuh"
 #include "kernels.cuh"
+#include "metrics.cuh"
 #include "node.cuh"
 #include "split.cuh"
 
@@ -461,18 +462,33 @@ struct ClsTraits {
     int n_blks_for_rows = b.n_blks_for_rows(
       colBlks,
       (const void*)
-        computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT>,
+        computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT, GiniObjectiveFunction<DataT, IdxT>>,
       TPB_DEFAULT, smemSize, batchSize);
     dim3 grid(n_blks_for_rows, colBlks, batchSize);
     CUDA_CHECK(cudaMemsetAsync(b.hist, 0, sizeof(int) * b.nHistBins, s));
     ML::PUSH_RANGE(
       "computeSplitClassificationKernel @builder_base.cuh [batched-levelalgo]");
-    computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
-      <<<grid, TPB_DEFAULT, smemSize, s>>>(
-        b.hist, b.params.n_bins, b.params.max_depth, b.params.min_samples_split,
-        b.params.min_samples_leaf, b.params.min_impurity_decrease,
-        b.params.max_leaves, b.input, b.curr_nodes, col, b.done_count, b.mutex,
-        b.n_leaves, b.splits, splitType, b.treeid, b.seed);
+    if (splitType == CRITERION::GINI) {
+      GiniObjectiveFunction<DataT, IdxT> objective(
+        b.input.nclasses, b.params.min_impurity_decrease,
+        b.params.min_samples_split);
+      computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
+        <<<grid, TPB_DEFAULT, smemSize, s>>>(
+          b.hist, b.params.n_bins, b.params.max_depth,
+          b.params.min_samples_split,b.params.max_leaves, b.input,
+          b.curr_nodes, col, b.done_count, b.mutex, b.n_leaves, b.splits,
+          objective, b.treeid, b.seed);
+    } else {
+      EntropyObjectiveFunction<DataT, IdxT> objective(
+        b.input.nclasses, b.params.min_impurity_decrease,
+        b.params.min_samples_split);
+      computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
+        <<<grid, TPB_DEFAULT, smemSize, s>>>(
+          b.hist, b.params.n_bins, b.params.max_depth,
+          b.params.min_samples_split,  b.params.max_leaves, b.input,
+          b.curr_nodes, col, b.done_count, b.mutex, b.n_leaves, b.splits,
+          objective, b.treeid, b.seed);
+    }
     ML::POP_RANGE();  //computeSplitClassificationKernel
     ML::POP_RANGE();  //Builder::computeSplit
   }

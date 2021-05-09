@@ -363,14 +363,14 @@ DI DataT pdf_to_cdf(DataT* pdf_shist, DataT* cdf_shist, IdxT nbins) {
   return total_aggregate;
 }
 
-template <typename DataT, typename LabelT, typename IdxT, int TPB>
+template <typename DataT, typename LabelT, typename IdxT, int TPB,
+          typename ObjectiveT>
 __global__ void computeSplitClassificationKernel(
   int* hist, IdxT nbins, IdxT max_depth, IdxT min_samples_split,
-  IdxT min_samples_leaf, DataT min_impurity_decrease, IdxT max_leaves,
-  Input<DataT, LabelT, IdxT> input, const Node<DataT, LabelT, IdxT>* nodes,
-  IdxT colStart, int* done_count, int* mutex, const IdxT* n_leaves,
-  volatile Split<DataT, IdxT>* splits, CRITERION splitType, IdxT treeid,
-  uint64_t seed) {
+  IdxT max_leaves, Input<DataT, LabelT, IdxT> input,
+  const Node<DataT, LabelT, IdxT>* nodes, IdxT colStart, int* done_count,
+  int* mutex, const IdxT* n_leaves, volatile Split<DataT, IdxT>* splits,
+  ObjectiveT objective, IdxT treeid, uint64_t seed) {
   extern __shared__ char smem[];
   IdxT nid = blockIdx.z;
   auto node = nodes[nid];
@@ -383,9 +383,8 @@ __global__ void computeSplitClassificationKernel(
     return;
   }
   auto end = range_start + range_len;
-  auto nclasses = input.nclasses;
-  auto pdf_shist_len = (nbins + 1) * nclasses;
-  auto cdf_shist_len = nbins * 2 * nclasses;
+  auto pdf_shist_len = (nbins + 1) * objective.NumClasses();
+  auto cdf_shist_len = nbins * 2 * objective.NumClasses();
   auto* pdf_shist = alignPointer<int>(smem);
   auto* cdf_shist = alignPointer<int>(pdf_shist + pdf_shist_len);
   auto* sbins = alignPointer<DataT>(cdf_shist + cdf_shist_len);
@@ -466,7 +465,7 @@ __global__ void computeSplitClassificationKernel(
    * * second from right to left to sum-scan the right splits
    *   for each split-point
    */
-  for (IdxT c = 0; c < nclasses; ++c) {
+  for (IdxT c = 0; c < objective.NumClasses(); ++c) {
     /** left to right scan operation for scanning
      *  lesser-than-or-equal-to-bin counts **/
     // offsets to pdf and cdf shist pointers
@@ -489,18 +488,12 @@ __global__ void computeSplitClassificationKernel(
   }
 
   // create a split instance to test current feature split
-  Split<DataT, IdxT> sp;
-  sp.init();
   __syncthreads();
 
   // calculate the best candidate bins (one for each block-thread) in current feature and corresponding information gain for splitting
-  if (splitType == CRITERION::GINI) {
-    giniGain<DataT, IdxT>(cdf_shist, sbins, sp, col, range_len, nbins, nclasses,
-                          min_samples_leaf, min_impurity_decrease);
-  } else {
-    entropyGain<DataT, IdxT>(cdf_shist, sbins, sp, col, range_len, nbins,
-                             nclasses, min_samples_leaf, min_impurity_decrease);
-  }
+  Split<DataT, IdxT> sp =
+    objective.Gain(cdf_shist, sbins, col, range_len, nbins);
+
   __syncthreads();
 
   // calculate best bins among candidate bins per feature using warp reduce
@@ -714,7 +707,6 @@ __global__ void computeSplitRegressionKernel(
   // last block computes the final gain
   // create a split instance to test current feature split
   Split<DataT, IdxT> sp;
-  sp.init();
 
   // store global pred2 and pred2P into shared memory of last x-dim block
   for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
