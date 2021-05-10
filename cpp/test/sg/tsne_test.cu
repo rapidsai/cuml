@@ -32,9 +32,9 @@
 #include <vector>
 
 using namespace MLCommon;
-using namespace MLCommon::Metrics;
 using namespace MLCommon::Datasets;
 using namespace ML;
+using namespace ML::Metrics;
 
 struct TSNEInput {
   int n, p;

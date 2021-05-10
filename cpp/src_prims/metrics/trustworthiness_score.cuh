@@ -41,22 +41,25 @@ namespace Score {
 template <typename math_t, typename knn_index_t>
 __global__ void compute_rank(int *X_ind, math_t *X_dist, knn_index_t *emb_ind,
                              math_t *emb_dist, int n, int n_neighbors, int work,
-                             double *rank) {
+                             int offset, double *rank) {
   int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i >= work) return;
 
   int sample_idx = i / n_neighbors;
-  int nn_idx = (i % n_neighbors) + 1;
+  int nn_idx = i % n_neighbors;
 
-  int loc = sample_idx * (n_neighbors + 1) + nn_idx;
+  int loc = sample_idx * n_neighbors + nn_idx;
   knn_index_t emb_nn_ind = emb_ind[loc];
+
+  if ((offset + nn_idx) == emb_nn_ind) return;
+
   math_t emb_nn_dist = emb_dist[loc];
 
   loc = sample_idx * n;
   int *X_pw_ind = &X_ind[loc];
   math_t *X_pw_dist = &X_dist[loc];
 
-  knn_index_t left = 1;
+  knn_index_t left = 0;
   knn_index_t right = n - 1;
   while (left < right) {
     knn_index_t mid = std::floor((left + right) / 2);
@@ -69,7 +72,7 @@ __global__ void compute_rank(int *X_ind, math_t *X_dist, knn_index_t *emb_ind,
 
   for (int r = left; r < n; r++) {
     if (X_pw_ind[r] == emb_nn_ind) {
-      int tmp = r - n_neighbors;
+      int tmp = r - n_neighbors + 1;
       if (tmp > 0) raft::myAtomicAdd<double>(rank, tmp);
       break;
     }
@@ -115,21 +118,20 @@ template <typename math_t, raft::distance::DistanceType distance_type>
 double trustworthiness_score(const raft::handle_t &h, math_t *X,
                              math_t *X_embedded, int n, int m, int d,
                              int n_neighbors, int batchSize = 512) {
-  const int TMP_SIZE = batchSize * n;
-
   cudaStream_t stream = h.get_stream();
 
-  rmm::device_uvector<int64_t> emb_ind(n * (n_neighbors + 1), stream);
-  rmm::device_uvector<math_t> emb_dist(n * (n_neighbors + 1), stream);
+  const int KNN_ALLOC = n * (n_neighbors + 1);
+  rmm::device_uvector<int64_t> emb_ind(KNN_ALLOC, stream);
+  rmm::device_uvector<math_t> emb_dist(KNN_ALLOC, stream);
 
   run_knn<distance_type>(h, X_embedded, n, d, n_neighbors + 1, emb_ind.data(),
                          emb_dist.data());
 
-  rmm::device_uvector<int> X_ind(TMP_SIZE, stream);
-  rmm::device_uvector<math_t> X_dist(TMP_SIZE, stream);
-  rmm::device_uvector<math_t> X_sorted_dist(TMP_SIZE, stream);
+  const int PAIRWISE_ALLOC = batchSize * n;
+  rmm::device_uvector<int> X_ind(PAIRWISE_ALLOC, stream);
+  rmm::device_uvector<math_t> X_dist(PAIRWISE_ALLOC, stream);
+  rmm::device_uvector<math_t> X_sorted_dist(PAIRWISE_ALLOC, stream);
 
-  double t_tmp = 0.0;
   double t = 0.0;
   rmm::device_uvector<double> t_dbuf(1, stream);
   double *d_t = t_dbuf.data();
@@ -164,21 +166,20 @@ double trustworthiness_score(const raft::handle_t &h, math_t *X,
     }
     CUDA_CHECK(cudaPeekAtLastError());
 
-    t_tmp = 0.0;
-    raft::update_device(d_t, &t_tmp, 1, stream);
+    CUDA_CHECK(cudaMemsetAsync(d_t, 0, sizeof(double), stream));
 
-    int work = curBatchSize * n_neighbors;
+    int work = curBatchSize * (n_neighbors + 1);
     int n_blocks = raft::ceildiv(work, N_THREADS);
     compute_rank<<<n_blocks, N_THREADS, 0, stream>>>(
       X_ind.data(), X_sorted_dist.data(),
       &emb_ind.data()[(n - toDo) * (n_neighbors + 1)],
-      &emb_dist.data()[(n - toDo) * (n_neighbors + 1)], n, n_neighbors,
-      curBatchSize * n_neighbors, d_t);
+      &emb_dist.data()[(n - toDo) * (n_neighbors + 1)], n, n_neighbors + 1,
+      work, n - toDo, d_t);
     CUDA_CHECK(cudaPeekAtLastError());
 
+    double t_tmp = 0.;
     raft::update_host(&t_tmp, d_t, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
-
     t += t_tmp;
 
     toDo -= curBatchSize;
