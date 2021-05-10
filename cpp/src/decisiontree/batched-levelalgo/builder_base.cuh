@@ -72,10 +72,6 @@ struct Builder {
   int* hist;
   /** sum of predictions (regression only) */
   DataT* pred;
-  /** MAE computation (regression only) */
-  DataT* pred2;
-  /** parent MAE computation (regression only) */
-  DataT* pred2P;
   /** node count tracker for averaging (regression only) */
   IdxT* pred_count;
   /** threadblock arrival count */
@@ -223,9 +219,6 @@ struct Builder {
       d_wsize +=
         calculateAlignedBytes(2 * nPredCounts * sizeof(DataT));  // pred
       d_wsize +=
-        calculateAlignedBytes(2 * nPredCounts * sizeof(DataT));       // pred2
-      d_wsize += calculateAlignedBytes(nPredCounts * sizeof(DataT));  // pred2P
-      d_wsize +=
         calculateAlignedBytes(nPredCounts * sizeof(IdxT));  // pred_count
     }
     d_wsize += calculateAlignedBytes(sizeof(int) * max_batch *
@@ -264,10 +257,6 @@ struct Builder {
     } else {
       pred = reinterpret_cast<DataT*>(d_wspace);
       d_wspace += calculateAlignedBytes(2 * nPredCounts * sizeof(DataT));
-      pred2 = reinterpret_cast<DataT*>(d_wspace);
-      d_wspace += calculateAlignedBytes(2 * nPredCounts * sizeof(DataT));
-      pred2P = reinterpret_cast<DataT*>(d_wspace);
-      d_wspace += calculateAlignedBytes(nPredCounts * sizeof(DataT));
       pred_count = reinterpret_cast<IdxT*>(d_wspace);
       d_wspace += calculateAlignedBytes(nPredCounts * sizeof(IdxT));
     }
@@ -552,9 +541,6 @@ struct RegTraits {
                        nbins * sizeof(int) +          // pdf_scount
                        nbins * sizeof(int) +          // cdf_scount
                        nbins * sizeof(DataT) +        // sbins
-                       2 * nbins * sizeof(DataT) +    // spred2
-                       nbins * sizeof(DataT) +        // spred2P
-                       nbins * sizeof(DataT) +        // spredP
                        sizeof(int);                   // sDone
     // Room for alignment (see alignPointer in computeSplitRegressionKernel)
     smemSize1 += 6 * sizeof(DataT) + 3 * sizeof(int);
@@ -573,16 +559,13 @@ struct RegTraits {
     CUDA_CHECK(
       cudaMemsetAsync(b.pred, 0, sizeof(DataT) * b.nPredCounts * 2, s));
     CUDA_CHECK(
-      cudaMemsetAsync(b.pred2, 0, sizeof(DataT) * b.nPredCounts * 2, s));
-    CUDA_CHECK(cudaMemsetAsync(b.pred2P, 0, sizeof(DataT) * b.nPredCounts, s));
-    CUDA_CHECK(
       cudaMemsetAsync(b.pred_count, 0, sizeof(IdxT) * b.nPredCounts, s));
 
     ML::PUSH_RANGE(
       "computeSplitRegressionKernel @builder_base.cuh [batched-levelalgo]");
     computeSplitRegressionKernel<DataT, DataT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
-        b.pred, b.pred2, b.pred2P, b.pred_count, b.params.n_bins,
+        b.pred, b.pred_count, b.params.n_bins,
         b.params.max_depth, b.params.min_samples_split,
         b.params.min_samples_leaf, b.params.min_impurity_decrease,
         b.params.max_leaves, b.input, b.curr_nodes, col, b.done_count, b.mutex,

@@ -95,6 +95,7 @@ void validity_check(const DecisionTreeParams params) {
          "max_features value %f outside permitted (0, 1] range",
          params.max_features);
   ASSERT((params.n_bins > 0), "Invalid n_bins %d", params.n_bins);
+  ASSERT((params.split_algo != 3), "MAE not supported.");
   ASSERT((params.split_algo >= 0) &&
            (params.split_algo < SPLIT_ALGO::SPLIT_ALGO_END),
          "split_algo value %d outside permitted [0, %d) range",

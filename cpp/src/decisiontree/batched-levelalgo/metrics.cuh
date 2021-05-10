@@ -167,47 +167,26 @@ class EntropyObjectiveFunction {
   }
 };
 
-/**
- * @brief Compute gain based on MSE or MAE
- *
- * @param[in]    spred                 left/right child sum of abs diff of
- *                                     prediction for all bins [dim = 2 x bins]
- * @param[in]    spredP                parent's sum of abs diff of prediction
- *                                     for all bins [dim = 2 x bins]
- * @param[in]    scount                left child count for all bins
- *                                     [len = nbins]
- * @param[in]    sbins                 quantiles for the current column
- *                                     [len = nbins]
- * @param[inout] sp                    will contain the per-thread best split
- *                                     so far
- * @param[in]    col                   current column
- * @param[in]    len                   total number of samples for current node
- *                                     to be split
- * @param[in]    nbins                 number of bins
- * @param[in]    min_samples_leaf      minimum number of samples per each leaf.
- *                                     Any splits that lead to a leaf node with
- *                                     samples fewer than min_samples_leaf will
- *                                     be ignored.
- * @param[in]    min_impurity_decrease minimum improvement in MSE metric. Any
- *                                     splits that do not improve (decrease)
- *                                     the MSE metric at least by this amount
- *                                     will be ignored.
- */
 template <typename DataT, typename IdxT>
-DI void regressionMetricGain(DataT* spred, DataT* spredP, IdxT* scount,
-                             DataT* sbins, Split<DataT, IdxT>& sp, IdxT col,
-                             IdxT len, IdxT nbins, IdxT min_samples_leaf,
+DI void regressionMetricGain(DataT* slabel_cdf, IdxT* scount_cdf,
+                             DataT label_sum, DataT* sbins,
+                             Split<DataT, IdxT>& sp, IdxT col, IdxT len,
+                             IdxT nbins, IdxT min_samples_leaf,
                              DataT min_impurity_decrease) {
   auto invlen = DataT(1.0) / len;
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
-    auto nLeft = scount[i];
+    auto nLeft = scount_cdf[i];
     auto nRight = len - nLeft;
     DataT gain;
     // if there aren't enough samples in this split, don't bother!
     if (nLeft < min_samples_leaf || nRight < min_samples_leaf) {
       gain = -NumericLimits<DataT>::kMax;
     } else {
-      gain = spredP[i] - spred[i] - spred[i + nbins];
+      DataT parent_obj = -label_sum * label_sum / len;
+      DataT left_obj = -(slabel_cdf[i] * slabel_cdf[i]) / nLeft;
+      DataT right_label_sum = slabel_cdf[i] - label_sum;
+      DataT right_obj = -(right_label_sum * right_label_sum) / nRight;
+      gain = parent_obj - (left_obj + right_obj);
       gain *= invlen;
     }
     // if the gain is not "enough", don't bother!
