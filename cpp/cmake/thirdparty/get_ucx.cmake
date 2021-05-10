@@ -24,22 +24,10 @@ function(find_and_configure_ucx)
         LIBRARY_NAMES ucp
     )
 
-    rapids_cpm_find(ucx ${PKG_VERSION}
-        CPM_ARGS
-            GIT_REPOSITORY  https://github.com/openucx/ucx
-            GIT_TAG         ${PKG_PINNED_TAG}
-            GIT_SHALLOW     TRUE
-            DOWNLOAD_ONLY   YES
-    )
+    # Currently NCCL has no CMake build-system so we require
+    # it built and installed on the machine already
+    rapids_find_package(ucx REQUIRED)
 
-    set(ucx_SOURCE_DIR "${ucx_SOURCE_DIR}" PARENT_SCOPE)
-
-    if (ucx_ADDED)
-        # todo (DD): Add building ucx from source, works fine for conda installed
-
-
-    endif()
 endfunction()
 
-find_and_configure_ucx(VERSION     0
-                       PINNED_TAG  v1.9.0)
+find_and_configure_ucx()
