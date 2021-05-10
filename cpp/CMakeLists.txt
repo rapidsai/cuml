@@ -93,6 +93,18 @@ set_property(CACHE RMM_LOGGING_LEVEL PROPERTY STRINGS "TRACE" "DEBUG" "INFO" "WA
 message(VERBOSE "CUML: RMM_LOGGING_LEVEL = '${RMM_LOGGING_LEVEL}'.")
 
 ##############################################################################
+# - Target names -------------------------------------------------------------
+
+set(CUML_CPP_TARGET "cuml++")
+set(CUML_CPP_TEST_TARGET "ml")
+set(CUML_CPP_BENCH_TARGET "sg_benchmark")
+set(CUML_C_TARGET "cuml")
+set(CUML_C_TEST_TARGET "${CUML_C_TARGET}_test")
+set(CUML_MG_TEST_TARGET "ml_mg")
+set(PRIMS_TEST_TARGET "prims")
+set(PRIMS_BENCH_TARGET "prims_benchmark")
+
+##############################################################################
 # - Conda environment detection ----------------------------------------------
 
 if(DETECT_CONDA_ENV)
@@ -195,7 +207,7 @@ endif()
 if(BUILD_CUML_CPP_LIBRARY)
 
   # single GPU components
-  add_library(cuml SHARED
+  add_library(${CUML_CPP_TARGET} SHARED
     src/arima/batched_arima.cu
     src/arima/batched_kalman.cu
     src/common/logger.cpp
@@ -248,7 +260,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   # multi GPU components
   # todo: separate mnmg that require cumlprims from those that don't
   if(NOT SINGLEGPU)
-    target_sources(cuml
+    target_sources(${CUML_CPP_TARGET}
       PRIVATE
         src/glm/ols_mg.cu
         src/glm/preprocess_mg.cu
@@ -264,9 +276,9 @@ if(BUILD_CUML_CPP_LIBRARY)
     )
   endif(NOT SINGLEGPU)
 
-  add_library(cuml::cuml ALIAS cuml)
+  add_library(cuml::${CUML_CPP_TARGET} ALIAS ${CUML_CPP_TARGET})
 
-  set_target_properties(cuml
+  set_target_properties(${CUML_CPP_TARGET}
     PROPERTIES BUILD_RPATH                         "\$ORIGIN"
                INSTALL_RPATH                       "\$ORIGIN"
                # set target compile options
@@ -276,7 +288,7 @@ if(BUILD_CUML_CPP_LIBRARY)
                CUDA_STANDARD_REQUIRED              ON
   )
 
-  target_compile_definitions(cuml
+  target_compile_definitions(${CUML_CPP_TARGET}
     PUBLIC
       $<$<BOOL:${NVTX}>:NVTX_ENABLED>
       DISABLE_CUSPARSE_DEPRECATED
@@ -284,12 +296,12 @@ if(BUILD_CUML_CPP_LIBRARY)
       CUML_CPP_API
   )
 
-  target_compile_options(cuml
+  target_compile_options(${CUML_CPP_TARGET}
         PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CUML_CXX_FLAGS}>"
                 "$<$<COMPILE_LANGUAGE:CUDA>:${CUML_CUDA_FLAGS}>"
   )
 
-  target_include_directories(cuml
+  target_include_directories(${CUML_CPP_TARGET}
     PUBLIC
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
@@ -305,7 +317,7 @@ if(BUILD_CUML_CPP_LIBRARY)
       $<INSTALL_INTERFACE:include>
   )
 
-  target_link_libraries(cuml
+  target_link_libraries(${CUML_CPP_TARGET}
     PUBLIC
       rmm::rmm
       raft::raft
@@ -328,9 +340,9 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   # If we export the libdmlc symbols, they can lead to weird crashes with other
   # libraries that use libdmlc. This just hides the symbols internally.
-  target_link_options(cuml PRIVATE "-Wl,--exclude-libs,libdmlc.a")
+  target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libdmlc.a")
   # same as above, but for protobuf library
-  target_link_options(cuml PRIVATE "-Wl,--exclude-libs,libprotobuf.a")
+  target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libprotobuf.a")
 
 endif(BUILD_CUML_CPP_LIBRARY)
 
@@ -338,7 +350,7 @@ endif(BUILD_CUML_CPP_LIBRARY)
 # - build libcuml C shared library -------------------------------------------
 
 if(BUILD_CUML_C_LIBRARY)
-  add_library(cuml_c SHARED
+  add_library(${CUML_C_TARGET} SHARED
     src/common/cumlHandle.cpp
     src/common/cuml_api.cpp
     src/dbscan/dbscan_api.cpp
@@ -348,20 +360,20 @@ if(BUILD_CUML_C_LIBRARY)
     src/svm/svm_api.cpp
   )
 
-  add_library(cuml::cuml_c ALIAS cuml_c)
+  add_library(cuml::${CUML_C_TARGET} ALIAS ${CUML_C_TARGET})
 
-  target_compile_definitions(cuml_c
+  target_compile_definitions(${CUML_C_TARGET}
     PRIVATE
       CUML_C_API)
 
-  target_include_directories(cuml_c
+  target_include_directories(${CUML_C_TARGET}
     PRIVATE
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
   )
 
-  target_link_libraries(cuml_c
+  target_link_libraries(${CUML_C_TARGET}
     PUBLIC
-      cuml
+      ${CUML_CPP_TARGET}
   )
 
 endif()
@@ -385,11 +397,11 @@ endif(BUILD_CUML_EXAMPLES)
 # # - install targets -------------------------------------------------------------------------------
 
 set(CUML_TARGETS
-      cuml)
+      ${CUML_CPP_TARGET})
 
 if(BUILD_CUML_C_LIBRARY)
   list(APPEND CUML_TARGETS
-         cuml_c)
+         ${CUML_C_TARGET})
 endif()
 
 install(TARGETS

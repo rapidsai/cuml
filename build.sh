@@ -255,8 +255,8 @@ fi
 
 MAKE_TARGETS=
 if hasArg libcuml; then
-    MAKE_TARGETS="${MAKE_TARGETS}cuml cuml_c"
-    if !hasArg --nolibcumltest; then
+    MAKE_TARGETS="${MAKE_TARGETS}cuml++ cuml"
+    if ! hasArg --nolibcumltest; then
       MAKE_TARGETS="${MAKE_TARGETS} ml"
     fi
 fi

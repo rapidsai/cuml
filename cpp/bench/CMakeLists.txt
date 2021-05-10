@@ -19,7 +19,7 @@
 
 if(BUILD_CUML_BENCH)
   # (please keep the filenames in alphabetical order)
-  add_executable(sg_benchmark
+  add_executable(${CUML_CPP_BENCH_TARGET}
     sg/arima_loglikelihood.cu
     sg/dbscan.cu
     sg/kmeans.cu
@@ -35,19 +35,19 @@ if(BUILD_CUML_BENCH)
     sg/fil.cu
   )
 
-  target_compile_options(sg_benchmark
+  target_compile_options(${CUML_CPP_BENCH_TARGET}
         PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CUML_CXX_FLAGS}>"
                 "$<$<COMPILE_LANGUAGE:CUDA>:${CUML_CUDA_FLAGS}>"
   )
 
-  target_link_libraries(sg_benchmark
+  target_link_libraries(${CUML_CPP_BENCH_TARGET}
     PUBLIC
       cuml
       benchmark::benchmark
       raft::raft
   )
 
-  target_include_directories(sg_benchmark
+  target_include_directories(${CUML_CPP_BENCH_TARGET}
     PRIVATE
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src_prims>
   )
@@ -58,7 +58,7 @@ endif(BUILD_CUML_BENCH)
 
 if(BUILD_CUML_PRIMS_BENCH)
   # (please keep the filenames in alphabetical order)
-  add_executable(prims_benchmark
+  add_executable(${PRIMS_BENCH_TARGET}
     prims/add.cu
     prims/distance_cosine.cu
     prims/distance_exp_l2.cu
@@ -74,19 +74,19 @@ if(BUILD_CUML_PRIMS_BENCH)
     prims/reduce.cu
     prims/rng.cu)
 
-  target_compile_options(prims_benchmark
+  target_compile_options(${PRIMS_BENCH_TARGET}
         PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CUML_CXX_FLAGS}>"
                 "$<$<COMPILE_LANGUAGE:CUDA>:${CUML_CUDA_FLAGS}>"
   )
 
-  target_link_libraries(prims_benchmark
+  target_link_libraries(${PRIMS_BENCH_TARGET}
     PUBLIC
       CUDA::cublas
       benchmark::benchmark
       raft::raft
   )
 
-  target_include_directories(prims_benchmark
+  target_include_directories(${PRIMS_BENCH_TARGET}
     PRIVATE
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src_prims>
   )
