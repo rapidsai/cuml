@@ -103,7 +103,7 @@ if clean_artifacts:
 ##############################################################################
 # - Cloning RAFT and dependencies if needed ----------------------------------
 
-# Use RAFT repository in cuml.raft
+# Use RAFT repository in raft
 
 raft_include_dir = use_raft_package(raft_path, libcuml_path)
 

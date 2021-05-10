@@ -6,7 +6,7 @@ Contents:
 
 - [cuML Python Package](#cuml-python-package)
     - [Build Configuration](#build-configuration)
-    - [RAFT Integration in cuml.raft](#raft-integration-in-cumlraft)
+    - [RAFT Integration in raft](#raft-integration-in-cumlraft)
     - [Build Requirements](#build-requirements)
     - [Python Tests](#python-tests)
 
@@ -34,7 +34,7 @@ example `setup.py --singlegpu`) are:
 | --singlegpu | Option to build cuML without multiGPU algorithms. Removes dependency on nccl, libcumlprims and ucx-py. |
 
 
-### RAFT Integration in cuml.raft
+### RAFT Integration in raft
 
 RAFT's Python and Cython is located in the [RAFT repository](https://github.com/rapidsai/raft/python). It was designed to be included in projects as opposed to be distributed by itself, so at build time, **setup.py creates a symlink from cuML, located in `/python/cuml/raft/` to the Python folder of RAFT**.
 

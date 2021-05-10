@@ -19,8 +19,8 @@ from cuml.dask.common import flatten_grouped_results
 from cuml.dask.common import raise_mg_import_exception
 from cuml.dask.common.base import BaseEstimator
 
-from cuml.raft.dask.common.comms import get_raft_comm_state
-from cuml.raft.dask.common.comms import Comms
+from raft.dask.common.comms import get_raft_comm_state
+from raft.dask.common.comms import Comms
 from cuml.dask.common.input_utils import to_output
 from cuml.dask.common.input_utils import DistributedDataHandler
 

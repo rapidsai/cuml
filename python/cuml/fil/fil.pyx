@@ -33,7 +33,7 @@ from libc.stdlib cimport calloc, malloc, free
 import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array, logger
 from cuml.common.mixins import CMajorInputTagMixin
 

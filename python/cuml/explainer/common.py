@@ -69,7 +69,7 @@ def get_handle_from_cuml_model_func(func, create_new=False):
         handle = owner.handle
 
     else:
-        handle = cuml.raft.common.handle.Handle() if create_new else None
+        handle = raft.common.handle.Handle() if create_new else None
 
     return handle
 

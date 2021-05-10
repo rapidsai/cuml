@@ -30,7 +30,7 @@ from cuml.explainer.common import model_func_call
 from numba import cuda
 from pandas import DataFrame as pd_df
 
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 
@@ -139,7 +139,7 @@ class PermutationExplainer(SHAPBase):
         (as CuPy arrays), otherwise it will use NumPy arrays to call `model`.
         Set to True to force the explainer to use GPU data,  set to False to
         force the Explainer to use NumPy data.
-    handle : cuml.raft.common.handle (default = None)
+    handle : raft.common.handle (default = None)
         Specifies the handle that holds internal CUDA state for
         computations in this model, a new one is created if it is None.
         Most importantly, this specifies the CUDA stream that will be used for

@@ -25,7 +25,7 @@ from cudf.core import DataFrame as cudfDataFrame
 
 from cuml.neighbors import NearestNeighbors
 
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from cuml.common.opg_data_utils_mg cimport *
 from cuml.common.opg_data_utils_mg import _build_part_inputs
 

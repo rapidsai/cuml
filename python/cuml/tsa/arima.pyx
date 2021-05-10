@@ -30,7 +30,7 @@ import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import Base
-from cuml.raft.common.handle cimport handle_t
+from raft.common.handle cimport handle_t
 from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
 import cuml.common.logger as logger
 from cuml.common import has_scipy
