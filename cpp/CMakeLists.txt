@@ -18,7 +18,7 @@ cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
 include(FetchContent)
 FetchContent_Declare(
   rapids-cmake
-  GIT_REPOSITORY git@github.com:rapidsai/rapids-cmake.git
+  GIT_REPOSITORY https://github.com/rapidsai/rapids-cmake.git
   GIT_TAG        origin/branch-0.20
   )
 FetchContent_MakeAvailable(rapids-cmake)
