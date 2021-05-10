@@ -202,7 +202,7 @@ void excess_of_mass(
     [=] __device__(const thrust::tuple<value_idx, value_idx, value_idx> &tup) {
 
       // if parent is root (0), add to cluster_sizes_ptr
-      if(thrust::get<0>(tup) == 0 && allow_single_cluster)
+      if(thrust::get<0>(tup) == 0)
         cluster_sizes_ptr[0] += thrust::get<2>(tup);
 
       cluster_sizes_ptr[thrust::get<1>(tup)] = thrust::get<2>(tup);
@@ -233,29 +233,30 @@ void excess_of_mass(
   // Loop through stabilities in "reverse topological order" (e.g. reverse sorted order)
   value_idx tree_top = allow_single_cluster ? 0 : 1;
   for (value_idx node = n_clusters - 1; node >= tree_top; node--) {
-    value_t node_stability = 0;
+    value_t node_stability = 0.0;
 
     CUML_LOG_DEBUG("Updating host");
     raft::update_host(&node_stability, stability + node, 1, stream);
 
-    value_t subtree_stability = 0;
+    value_t subtree_stability = 0.0;
 
+    raft::print_device_vector("indptr", indptr.data(), indptr.size(), std::cout);
+    raft::print_device_vector("children", children, cluster_tree_edges, std::cout);
 
-    CUML_LOG_DEBUG("Computing subtree staiblity");
     if (indptr_h[node + 1] - indptr_h[node] > 0) {
 
+      CUML_LOG_DEBUG("Computing subtree staiblity");
       // TODO: VERIFY THIS IS WORKING!!!
       subtree_stability = thrust::transform_reduce(
         exec_policy, children + indptr_h[node], children + indptr_h[node + 1],
-        [=] __device__(value_idx a) { return stability[a]; }, 0,
+        [=] __device__(value_idx a) { return stability[a]; }, 0.0,
         thrust::plus<value_t>());
     }
 
+    printf("cluster=%d, subtree_stability=%f, node_stability=%f, cluster_sizes_h[node]=%d, max_cluster_size=%d\n", node, subtree_stability, node_stability, cluster_sizes_h[node], max_cluster_size);
     CUML_LOG_DEBUG("Testing subtree / node stability");
     if (subtree_stability > node_stability ||
         cluster_sizes_h[node] > max_cluster_size) {
-
-      printf("cluster=%d, subtree_stability=%f, node_stability=%f, cluster_sizes_h[node]=%d, max_cluster_size=%d\n", node, subtree_stability, node_stability, cluster_sizes_h[node], max_cluster_size);
 
       // Deselect / merge cluster with children
       raft::update_device(stability + node, &subtree_stability, 1, stream);
