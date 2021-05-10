@@ -24,7 +24,7 @@ function(find_and_configure_ucx)
         LIBRARY_NAMES ucp
     )
 
-    # Currently NCCL has no CMake build-system so we require
+    # Currently UCX has no CMake build-system so we require
     # it built and installed on the machine already
     rapids_find_package(ucx REQUIRED)
 

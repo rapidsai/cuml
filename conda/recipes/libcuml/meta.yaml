@@ -34,7 +34,7 @@ build:
 
 requirements:
   build:
-    - cmake>=3.14
+    - cmake>=3.20.1
     - clang=8.0.1
     - clang-tools=8.0.1
   host:
