@@ -213,16 +213,32 @@ DI T warpReduce(T val, uint32_t mask, Op op) {
   return val;
 }
 
+template <typename T, typename Op>
+DI T warp_reduce(T val, uint32_t n_partitions, uint32_t mask = raft::warp_full_mask(),
+                 Op op = cub::Sum{}) {
+  for (int i = raft::warp_size() / n_partitions / 2; i > 0; i >>= 1) {
+    T tmp = raft::shfl(val, raft::laneId() + i, raft::warp_size(), mask);
+    val = op(val, tmp);
+  }
+  return val;
+}
+
+size_t __device__ sampleId(size_t samples_per_warp) {
+  size_t partition_size = raft::warp_size() / samples_per_warp;
+  auto sample_id = raft::laneId() / partition_size + raft::warpId() * samples_per_warp;
+  return sample_id;
+}
+
 /**
  * Kernel for optimization
  *
- * @param head_embedding
- * @param buffer
- * @param tail_embedding
- * @param indptr
- * @param n_samples
- * @param indices
- * @param n_indices
+ * @param head_embedding  Embedding being optimized
+ * @param buffer          Temporary buffer used to store the update of gradient
+ * @param tail_embedding  Equal to head_embedding if it's unsupervised training, otherwise it's the reference embedding.
+ * @param indptr          Row index of CSR connectivity graph
+ * @param n_samples       Number of samples
+ * @param indices         Column index of CSR connectivity graph
+ * @param n_indices       Lenght of column index
  * @param epochs_per_sample
  * @param epoch_of_next_sample
  * @param epoch_of_next_negative_sample
@@ -243,36 +259,44 @@ __global__ void optimize_batch_kernel(
   T const *epochs_per_sample, T *epoch_of_next_sample,
   T *epoch_of_next_negative_sample, uint64_t seed, T nsr_inv,
   // parameters
-  UMAPParams params, int epoch, T2 alpha, T2 gamma) {
+  UMAPParams params, int epoch, T2 alpha, T2 gamma, size_t n_samples_per_warp) {
   static_assert(std::is_floating_point<T>::value, "Must be floating point");
   static_assert(std::is_floating_point<T2>::value, "Must be floating point");
+  // each partition of warp handles 1 sample
+  size_t partition_size = raft::warp_size() / n_samples_per_warp;
+  size_t id_in_partition = raft::laneId() % partition_size;
 
   // handles the connectivity graph with 1 warp for each row.
-  size_t warp_id = raft::warpId();
-  if (warp_id >= n_samples) {
-    return;
-  }
-  T const *current = head_embedding + (warp_id * params.n_components);
-  T *writeto = buffer + (warp_id * params.n_components);
+  size_t sample_id = sampleId(n_samples_per_warp);
+  bool valid_sample = sample_id < n_samples;
 
-  auto lane = raft::laneId();
-  size_t beg = indptr[warp_id];
-  size_t end = indptr[warp_id + 1];
+  T const *current = head_embedding + (sample_id * params.n_components);
+  T *writeto = buffer + (sample_id * params.n_components);
+
+  size_t beg = 0;
+  size_t end = 0;
+  if (valid_sample) {
+    beg = indptr[sample_id];
+    end = indptr[sample_id + 1];
+  }
   size_t nnz = end - beg;  // nnz in each row of the connectivity graph.
+  // Use maximum of all samples within a warp
+  nnz = warpReduce(nnz, raft::warp_full_mask(), cub::Max{});
 
   // load column indices into warp.
-  for (size_t k = 0; k < nnz; k += raft::warp_size()) {
-    // FIXME: argue that this is correct edge.
-    uint32_t edge = beg + k + lane;
-    uint32_t mask = __ballot_sync(raft::warp_full_mask(), edge < end);
-    bool sampled = epoch_of_next_sample[edge] <= T(epoch);
-    if (edge >= end) {
+  for (size_t k = 0; k < nnz; k += partition_size) {
+    uint32_t edge = beg + k + id_in_partition;
+    uint32_t mask = __ballot_sync(raft::warp_full_mask(), edge < end && valid_sample);
+    if (!valid_sample || edge >= end) {
       continue;
     }
+    assert(edge < n_indices);
+
+    bool sampled = epoch_of_next_sample[edge] <= T(epoch);
+
     /**
      * Apply attractive force
      */
-    assert(edge < n_indices);
     size_t col = indices[edge];
     T const *other =
       tail_embedding + static_cast<ptrdiff_t>(col * params.n_components);
@@ -283,21 +307,26 @@ __global__ void optimize_batch_kernel(
     }
     // compute gradient for each component in embedded space
     for (size_t d = 0; d < params.n_components; ++d) {
-      auto grad_d = sampled
-                      ? clip<T>(attractive_grad_coeff * (current[d] - other[d]),
-                                T(-4.0), T(4.0)) *
-                          alpha
-                      : T(0.0);
-      // The gradient summed for each compoent among all threads in the warp
-      grad_d = raft::warpReduce(grad_d, mask) * 2.0f;
-      if (lane == 0) {
-        // already reduced, only the first thread in warp does the writing.
+      auto grad_d = clip<T>(attractive_grad_coeff * (current[d] - other[d]),
+                            T(-4.0), T(4.0)) *
+                    alpha;
+      grad_d *= float(sampled);
+      /**
+       * The gradient summed for each compoent among all threads in the warp
+       */
+      // reduce to starting thread of each warp partition, this equals to reducing within
+      // each sample
+      grad_d = warp_reduce(grad_d, n_samples_per_warp, mask, cub::Sum{});
+      // since we are only writing to 1 side of the edge and rdist is symmetric, so we
+      // double the value.
+      grad_d *= T(2.0);
+      if (id_in_partition == 0) {
         writeto[d] += grad_d;
       }
     }
 
     /**
-     * Apply repulsive false
+     * Apply repulsive force
      */
     auto _epochs_per_sample = epochs_per_sample[edge];
     auto epochs_per_negative_sample = _epochs_per_sample * nsr_inv;
@@ -334,15 +363,15 @@ __global__ void optimize_batch_kernel(
           }
         }
         grad_d *= alpha;
-        grad_d = raft::warpReduce(grad_d, mask);
-        if (lane == 0) {
+        grad_d = warp_reduce(grad_d, n_samples_per_warp, mask, cub::Sum{});
+
+        if (id_in_partition == 0) {
           writeto[d] += grad_d;
         }
       }
     }
 
     if (sampled) {
-      // FIXME: Verify this is not conflicting and correct
       auto _epochs_per_sample = epochs_per_sample[edge];
       // smaller the weight, greater the epochs_per_sample
       epoch_of_next_sample[edge] += _epochs_per_sample;
@@ -377,7 +406,7 @@ void call_optimization_batch_kernel(
   int const *indices, size_t n_indices, T const *epochs_per_sample,
   T *epoch_of_next_sample, T *epoch_of_next_negative_sample,
   UMAPParams const *params, uint64_t seed, int epoch, float alpha, float gamma,
-  dim3 &grid, dim3 &blk, cudaStream_t &stream, int nnz) {
+  dim3 &grid, dim3 &blk, cudaStream_t &stream, int nnz, size_t n_samples_per_warp) {
   size_t embedding_size = n_samples * params->n_components;
   T nsr_inv = T(1.0) / params->negative_sample_rate;
   optimize_batch_kernel<T><<<grid, blk, 0, stream>>>(
@@ -389,7 +418,7 @@ void call_optimization_batch_kernel(
     epochs_per_sample, epoch_of_next_sample, epoch_of_next_negative_sample,
     seed, nsr_inv,
     // parameters
-    *params, epoch, alpha, gamma);
+    *params, epoch, alpha, gamma, n_samples_per_warp);
   forRange<TPB_X>(embedding_size, stream, [=] __device__(uint32_t i) {
     embedding[i] += buffer[i];
     buffer[i] = 0.0f;

@@ -224,7 +224,17 @@ void optimize_layout(T *head_embedding, T *tail_embedding, int *indptr, size_t n
   static_assert(size_t(TPB_X) % raft::warp_size() == 0,
                 "Block size must be multiple of warp size.");
   auto warps_per_blk = size_t(TPB_X) / raft::warp_size();
-  dim3 grid(raft::ceildiv(n_samples, warps_per_blk), 1, 1);
+  auto ratio = n_indices / n_samples;
+  size_t n_samples_per_warp;
+  if (ratio < 8) {
+    n_samples_per_warp = 4;
+  } else if(ratio < 16) {
+    n_samples_per_warp = 2;
+  } else {
+    n_samples_per_warp = 1;
+  }
+  auto samples_per_blk = warps_per_blk * n_samples_per_warp;
+  dim3 grid(raft::ceildiv(n_samples, samples_per_blk), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
   uint64_t seed = params->random_state;
@@ -239,7 +249,7 @@ void optimize_layout(T *head_embedding, T *tail_embedding, int *indptr, size_t n
       indptr, n_samples, indices, n_indices,
       epochs_per_sample, epoch_of_next_sample.data(),
       epoch_of_next_negative_sample.data(),
-      params, seed, n, alpha, gamma, grid, blk, stream, nnz);
+      params, seed, n, alpha, gamma, grid, blk, stream, nnz, n_samples_per_warp);
     optimization_iteration_finalization(params, head_embedding, alpha, n, n_epochs,
                                         seed);
     CUDA_CHECK(cudaGetLastError());
