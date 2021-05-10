@@ -15,12 +15,11 @@ The `test` directory has subdirectories that reflect this distinction between th
 ## Setup
 ### Dependencies
 
-1. cmake (>= 3.14)
-2. CUDA (>= 10.0)
-3. gcc (>=5.4.0)
-4. BLAS - Any BLAS compatible with cmake's [FindBLAS](https://cmake.org/cmake/help/v3.14/module/FindBLAS.html). Note that the blas has to be installed to the same folder system as cmake, for example if using conda installed cmake, the blas implementation should also be installed in the conda environment.
-5. clang-format (= 8.0.1) - enforces uniform C++ coding style; required to build cuML from source. The packages `clang=8` and `clang-tools=8` from the conda-forge channel should be sufficient, if you are on conda. If not using conda, install the right version using your OS package manager.
-6. UCX with CUDA support [optional] (>=1.7) - enables point-to-point messaging in the cuML communicator.
+1. cmake (>= 3.20.1)
+2. CUDA (>= 11.0)
+3. gcc (>=9.0.0)
+4. clang-format (= 8.0.1) - enforces uniform C++ coding style; required to build cuML from source. The packages `clang=8` and `clang-tools=8` from the conda-forge channel should be sufficient, if you are on conda. If not using conda, install the right version using your OS package manager.
+5. UCX with CUDA support [optional](>=1.7) - enables point-to-point messaging in the cuML communicator.
 
 ### Building cuML:
 
@@ -28,6 +27,7 @@ The main artifact produced by the build system is the shared library libcuml++. 
 
 Current cmake offers the following configuration options:
 
+ TODO: Update readme before merging
 - Build Configuration Options:
 
 | Flag | Possible Values | Default Value | Behavior |
