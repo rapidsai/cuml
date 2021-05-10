@@ -37,18 +37,18 @@ test_datasets = {
  # "cancer": datasets.load_breast_cancer(),
 }
 
-dataset_names = ['noisy_circles', 'noisy_moons', 'varied', 'aniso']
+dataset_names = ['noisy_circles', 'noisy_moons', 'varied']#, 'aniso']
 
 
 @pytest.mark.parametrize('nrows', [100])
 @pytest.mark.parametrize('ncols', [25])
-@pytest.mark.parametrize('nclusters', [10])
+@pytest.mark.parametrize('nclusters', [1, 10, 50])
 @pytest.mark.parametrize('min_samples', [25])
 @pytest.mark.parametrize('allow_single_cluster', [True, False])
-@pytest.mark.parametrize('min_cluster_size', [2, 5, 10])
+@pytest.mark.parametrize('min_cluster_size', [10])
 @pytest.mark.parametrize('cluster_selection_epsilon', [0.0])
-@pytest.mark.parametrize('max_cluster_size', [0, 10])
-@pytest.mark.parametrize('cluster_selection_method', ['eom', 'leaf'])
+@pytest.mark.parametrize('max_cluster_size', [0])
+@pytest.mark.parametrize('cluster_selection_method', ['eom'])
 @pytest.mark.parametrize('connectivity', ['knn'])
 def test_hdbscan_blobs(nrows, ncols, nclusters,
                        connectivity,
@@ -117,13 +117,13 @@ def test_hdbscan_blobs(nrows, ncols, nclusters,
     assert(adjusted_rand_score(cuml_agg.labels_, sk_agg.labels_) >= 0.95)
 
 
-@pytest.mark.parametrize('dataset', test_datasets.values())
+@pytest.mark.parametrize('dataset', [test_datasets["diabetes"]])
 @pytest.mark.parametrize('min_samples', [25])
 @pytest.mark.parametrize('cluster_selection_epsilon', [0.0])
-@pytest.mark.parametrize('min_cluster_size', [5, 10])
-@pytest.mark.parametrize('allow_single_cluster', [False, True])
+@pytest.mark.parametrize('min_cluster_size', [50])
+@pytest.mark.parametrize('allow_single_cluster', [True])
 @pytest.mark.parametrize('max_cluster_size', [0])
-@pytest.mark.parametrize('cluster_selection_method', ['eom', 'leaf'])
+@pytest.mark.parametrize('cluster_selection_method', ['eom'])
 @pytest.mark.parametrize('connectivity', ['knn'])
 def test_hdbscan_sklearn_datasets(dataset,
                                   connectivity,
@@ -165,6 +165,25 @@ def test_hdbscan_sklearn_datasets(dataset,
     sk_agg.fit(cp.asnumpy(X))
 
     print("sk labels: %s" % sk_agg.labels_[:25])
+
+    print("cu condensed: %s" % cuml_agg.condensed_lambdas_[:101])
+    print("cu condensed: %s" % cuml_agg.condensed_parent_[:101])
+    print("cu condensed: %s" % cuml_agg.condensed_child_[:101])
+
+    print("sk condensed: %s" % sk_agg.condensed_tree_.to_numpy())
+
+    import numpy as np
+
+    print("sk counts: %s" % str(np.unique(sk_agg.labels_, return_counts=True)))
+    print("cu counts: %s" % str(np.unique(cuml_agg.labels_, return_counts=True)))
+
+    cu_asmnt = np.sort(np.unique(cuml_agg.labels_, return_counts=True)[1])
+    sk_asmnt = np.sort(np.unique(sk_agg.labels_, return_counts=True)[1])
+
+    print("cu stabilities: %s" % cuml_agg.stabilities_.to_output("numpy"))
+    print("sk stabiliies: %s" % sk_agg.cluster_persistence_)
+
+    # np.testing.assert_equal(cu_asmnt, sk_asmnt)
 
     # Cluster assignments should be exact, even though the actual
     # labels may differ.
