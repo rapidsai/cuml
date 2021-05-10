@@ -144,7 +144,6 @@ void do_labelling_on_host(
         auto child_idx = std::distance(children_h.begin(), it);
         value_t child_lambda = lambda_h[child_idx];
 
-        printf("i=%d, cluster=%d, child_lambda=%f, parent_lambda=%f\n", i, cluster, child_lambda, parent_lambdas[cluster]);
         if (child_lambda >= parent_lambdas[cluster])
           result[i] = cluster - n_leaves;
         else

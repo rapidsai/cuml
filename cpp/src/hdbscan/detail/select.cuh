@@ -243,6 +243,8 @@ void excess_of_mass(
 
     CUML_LOG_DEBUG("Computing subtree staiblity");
     if (indptr_h[node + 1] - indptr_h[node] > 0) {
+
+      // TODO: VERIFY THIS IS WORKING!!!
       subtree_stability = thrust::transform_reduce(
         exec_policy, children + indptr_h[node], children + indptr_h[node + 1],
         [=] __device__(value_idx a) { return stability[a]; }, 0,
@@ -252,6 +254,9 @@ void excess_of_mass(
     CUML_LOG_DEBUG("Testing subtree / node stability");
     if (subtree_stability > node_stability ||
         cluster_sizes_h[node] > max_cluster_size) {
+
+      printf("cluster=%d, subtree_stability=%f, node_stability=%f, cluster_sizes_h[node]=%d, max_cluster_size=%d\n", node, subtree_stability, node_stability, cluster_sizes_h[node], max_cluster_size);
+
       // Deselect / merge cluster with children
       raft::update_device(stability + node, &subtree_stability, 1, stream);
       is_cluster_h[node] = false;
