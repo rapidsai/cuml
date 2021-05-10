@@ -236,7 +236,7 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
     cd ${LIBCUML_BUILD_DIR}
 
     cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
-          -DCMAKE_CUDA_ARCHITECTURES=${RAFT_CMAKE_CUDA_ARCHITECTURES} \
+          -DCMAKE_CUDA_ARCHITECTURES=${CUML_CMAKE_CUDA_ARCHITECTURES} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DBUILD_CUML_C_LIBRARY=ON \
           -DSINGLEGPU=${SINGLEGPU_CPP_FLAG} \
