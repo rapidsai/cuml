@@ -339,7 +339,6 @@ include(cmake/Dependencies.cmake)
 set(CUML_INCLUDE_DIRECTORIES
   ${CUML_INCLUDE_DIR}
   ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
-  ${CUTLASS_DIR}/src/cutlass
   ${SPDLOG_DIR}/src/spdlog/include
   ${FAISS_INCLUDE_DIRS}
   ${RAFT_DIR}/cpp/include
@@ -356,6 +355,7 @@ endif(NOT CUB_IS_PART_OF_CTK)
 
 set(CUML_PUBLIC_LINK_LIBRARIES
   ${CUDA_cublas_LIBRARY}
+  ${CUDA_cufft_LIBRARY}
   ${CUDA_curand_LIBRARY}
   ${CUDA_cusolver_LIBRARY}
   ${CUDA_CUDART_LIBRARY}

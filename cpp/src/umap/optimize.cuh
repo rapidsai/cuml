@@ -17,9 +17,9 @@
 #pragma once
 
 #include <cuml/manifold/umapparams.h>
-#include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
+#include <raft/mr/device/allocator.hpp>
 
 #include <raft/cudart_utils.h>
 #include <linalg/power.cuh>
@@ -32,10 +32,6 @@
 #include <raft/stats/mean.cuh>
 
 #include <cuda_runtime.h>
-
-#pragma once
-
-using MLCommon::deviceAllocator;
 
 namespace UMAPAlgo {
 
@@ -76,7 +72,8 @@ void f(T *input, int n_rows, T *coef, T *preds) {
  */
 template <typename T, int TPB_X>
 void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads,
-                 UMAPParams *params, std::shared_ptr<deviceAllocator> d_alloc,
+                 UMAPParams *params,
+                 std::shared_ptr<raft::mr::device::allocator> d_alloc,
                  cudaStream_t stream) {
   dim3 grid(raft::ceildiv(n_rows, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
@@ -140,7 +137,7 @@ void abLossGrads(T *input, int n_rows, const T *labels, T *coef, T *grads,
 template <typename T, int TPB_X>
 void optimize_params(T *input, int n_rows, const T *labels, T *coef,
                      UMAPParams *params,
-                     std::shared_ptr<deviceAllocator> d_alloc,
+                     std::shared_ptr<raft::mr::device::allocator> d_alloc,
                      cudaStream_t stream, float tolerance = 1e-6,
                      int max_epochs = 25000) {
   // Don't really need a learning rate since
@@ -178,7 +175,7 @@ void optimize_params(T *input, int n_rows, const T *labels, T *coef,
 }
 
 void find_params_ab(UMAPParams *params,
-                    std::shared_ptr<deviceAllocator> d_alloc,
+                    std::shared_ptr<raft::mr::device::allocator> d_alloc,
                     cudaStream_t stream) {
   float spread = params->spread;
   float min_dist = params->min_dist;

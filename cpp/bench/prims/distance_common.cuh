@@ -15,7 +15,8 @@
  */
 
 #include <raft/cudart_utils.h>
-#include <distance/distance.cuh>
+#include <raft/distance/distance.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include "../common/ml_benchmark.hpp"
 
 namespace MLCommon {
@@ -30,7 +31,7 @@ struct Params {
 template <typename T, raft::distance::DistanceType DType>
 struct Distance : public Fixture {
   Distance(const std::string& name, const Params& p)
-    : Fixture(name, std::shared_ptr<deviceAllocator>(
+    : Fixture(name, std::shared_ptr<raft::mr::device::allocator>(
                       new raft::mr::device::default_allocator)),
       params(p) {}
 
@@ -40,7 +41,7 @@ struct Distance : public Fixture {
     alloc(y, params.n * params.k, true);
     alloc(out, params.m * params.n, true);
     workspace = nullptr;
-    worksize = MLCommon::Distance::getWorkspaceSize<DType, T, T, T>(
+    worksize = raft::distance::getWorkspaceSize<DType, T, T, T>(
       x, y, params.m, params.n, params.k);
     if (worksize != 0) {
       alloc(workspace, worksize, false);
@@ -56,7 +57,7 @@ struct Distance : public Fixture {
 
   void runBenchmark(::benchmark::State& state) override {
     loopOnState(state, [this]() {
-      MLCommon::Distance::distance<DType, T, T, T>(
+      raft::distance::distance<DType, T, T, T>(
         x, y, out, params.m, params.n, params.k, (void*)workspace, worksize,
         stream, params.isRowMajor);
     });

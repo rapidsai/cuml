@@ -175,3 +175,41 @@ def test_min_max_axis(failure_logger, sparse_random_dataset, axis, ignore_nan):
 
     with pytest.raises(Exception):
         cu_min_max_axis(X, axis=axis, ignore_nan=ignore_nan)
+
+
+@pytest.fixture(scope="session",
+                params=["cupy-csr", "cupy-csc"])
+def sparse_extremes(request, random_seed):
+    X = cp.array([
+       [-0.9933658, 0.871748, 0.44418066],
+       [0.87808335, cp.nan, 0.18183318],
+       [cp.nan, 0.25030251, -0.7269053],
+       [cp.nan, 0.17725405, cp.nan],
+       [cp.nan, cp.nan, cp.nan],
+       [0.0, 0.0, 0.44418066],
+       [0.0, 0.0, 0.0],
+       [0.0, 0.0, cp.nan],
+       [0.0, cp.nan, cp.nan]])
+    if request.param == 'cupy-csr':
+        X_sparse = cp.sparse.csr_matrix(X)
+    elif request.param == 'cupy-csc':
+        X_sparse = cp.sparse.csc_matrix(X)
+    return X_sparse.get(), X_sparse
+
+
+@pytest.mark.parametrize("axis", [None, 0, 1])
+@pytest.mark.parametrize("ignore_nan", [False, True])
+def test_min_max_axis_extremes(sparse_extremes, axis, ignore_nan):
+    X_sparse_np, X_sparse = sparse_extremes
+
+    cu_min, cu_max = cu_min_max_axis(X_sparse, axis=axis,
+                                     ignore_nan=ignore_nan)
+    sk_min, sk_max = sk_min_max_axis(X_sparse_np, axis=axis,
+                                     ignore_nan=ignore_nan)
+
+    if axis is not None:
+        assert_allclose(cu_min, sk_min)
+        assert_allclose(cu_max, sk_max)
+    else:
+        assert cu_min == sk_min or (cp.isnan(cu_min) and np.isnan(sk_min))
+        assert cu_max == sk_max or (cp.isnan(cu_max) and np.isnan(sk_max))

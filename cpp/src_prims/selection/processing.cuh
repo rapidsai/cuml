@@ -26,7 +26,7 @@
 
 #include <cuml/common/device_buffer.hpp>
 
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/mr/device/allocator.hpp>
 
 namespace MLCommon {
 namespace Selection {
@@ -58,13 +58,13 @@ class CosineMetricProcessor : public MetricProcessor<math_t> {
   size_t n_rows_;
   size_t n_cols_;
   cudaStream_t stream_;
-  std::shared_ptr<deviceAllocator> device_allocator_;
+  std::shared_ptr<raft::mr::device::allocator> device_allocator_;
   device_buffer<math_t> colsums_;
 
  public:
   CosineMetricProcessor(size_t n_rows, size_t n_cols, int k, bool row_major,
                         cudaStream_t stream,
-                        std::shared_ptr<deviceAllocator> allocator)
+                        std::shared_ptr<raft::mr::device::allocator> allocator)
     : device_allocator_(allocator),
       stream_(stream),
       colsums_(allocator, stream, n_rows),
@@ -105,9 +105,9 @@ class CorrelationMetricProcessor : public CosineMetricProcessor<math_t> {
   using cosine = CosineMetricProcessor<math_t>;
 
  public:
-  CorrelationMetricProcessor(size_t n_rows, size_t n_cols, int k,
-                             bool row_major, cudaStream_t stream,
-                             std::shared_ptr<deviceAllocator> allocator)
+  CorrelationMetricProcessor(
+    size_t n_rows, size_t n_cols, int k, bool row_major, cudaStream_t stream,
+    std::shared_ptr<raft::mr::device::allocator> allocator)
     : CosineMetricProcessor<math_t>(n_rows, n_cols, k, row_major, stream,
                                     allocator),
       means_(allocator, stream, n_rows) {}
@@ -163,7 +163,8 @@ class DefaultMetricProcessor : public MetricProcessor<math_t> {
 template <typename math_t>
 inline std::unique_ptr<MetricProcessor<math_t>> create_processor(
   raft::distance::DistanceType metric, int n, int D, int k, bool rowMajorQuery,
-  cudaStream_t userStream, std::shared_ptr<deviceAllocator> allocator) {
+  cudaStream_t userStream,
+  std::shared_ptr<raft::mr::device::allocator> allocator) {
   MetricProcessor<math_t> *mp = nullptr;
 
   switch (metric) {

@@ -24,9 +24,9 @@
 
 #include <memory>
 
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/mr/device/allocator.hpp>
 
-#include <distance/distance.cuh>
+#include <raft/distance/distance.cuh>
 #include <raft/spatial/knn/knn.hpp>
 #include <selection/columnWiseSort.cuh>
 
@@ -82,7 +82,8 @@ __global__ void compute_rank(math_t *ind_X, knn_index_t *ind_X_embedded, int n,
  */
 template <typename math_t>
 long *get_knn_indices(const raft::handle_t &h, math_t *input, int n, int d,
-                      int n_neighbors) {
+                      int n_neighbors,
+                      raft::distance::DistanceType distance_type) {
   cudaStream_t stream = h.get_stream();
   auto d_alloc = h.get_device_allocator();
 
@@ -97,7 +98,8 @@ long *get_knn_indices(const raft::handle_t &h, math_t *input, int n, int d,
   sizes[0] = n;
 
   raft::spatial::knn::brute_force_knn(h, ptrs, sizes, d, input, n, d_pred_I,
-                                      d_pred_D, n_neighbors);
+                                      d_pred_D, n_neighbors, true, true,
+                                      nullptr, distance_type);
 
   d_alloc->deallocate(d_pred_D, n * n_neighbors * sizeof(math_t), stream);
   return d_pred_I;
@@ -131,7 +133,7 @@ double trustworthiness_score(const raft::handle_t &h, math_t *X,
   int *d_ind_X_tmp = (int *)d_alloc->allocate(TMP_SIZE * sizeof(int), stream);
 
   int64_t *ind_X_embedded =
-    get_knn_indices(h, X_embedded, n, d, n_neighbors + 1);
+    get_knn_indices(h, X_embedded, n, d, n_neighbors + 1, distance_type);
 
   double t_tmp = 0.0;
   double t = 0.0;
@@ -145,7 +147,7 @@ double trustworthiness_score(const raft::handle_t &h, math_t *X,
 
     size_t workspaceSize = 0;
 
-    MLCommon::Distance::distance<distance_type, math_t, math_t, math_t>(
+    raft::distance::distance<distance_type, math_t, math_t, math_t>(
       &X[(n - toDo) * m], X, d_pdist_tmp, curBatchSize, n, m, (void *)nullptr,
       workspaceSize, stream);
     CUDA_CHECK(cudaPeekAtLastError());
@@ -266,7 +268,8 @@ math_t r2_score(math_t *y, math_t *y_hat, int n, cudaStream_t stream) {
  */
 template <typename math_t>
 float accuracy_score(const math_t *predictions, const math_t *ref_predictions,
-                     int n, std::shared_ptr<deviceAllocator> d_alloc,
+                     int n,
+                     std::shared_ptr<raft::mr::device::allocator> d_alloc,
                      cudaStream_t stream) {
   unsigned long long correctly_predicted = 0ULL;
   math_t *diffs_array = (math_t *)d_alloc->allocate(n * sizeof(math_t), stream);
@@ -326,7 +329,7 @@ __global__ void reg_metrics_kernel(const T *predictions,
  */
 template <typename T>
 void regression_metrics(const T *predictions, const T *ref_predictions, int n,
-                        std::shared_ptr<deviceAllocator> d_alloc,
+                        std::shared_ptr<raft::mr::device::allocator> d_alloc,
                         cudaStream_t stream, double &mean_abs_error,
                         double &mean_squared_error, double &median_abs_error) {
   std::vector<double> mean_errors(2);

@@ -82,8 +82,6 @@ if(BUILD_CUML_TESTS)
     sg/umap_parametrizable_test.cu
     )
 
-  add_dependencies(ml cutlass)
-
   target_include_directories(ml
     PRIVATE
       ${CUML_SRC_DIR}
@@ -152,15 +150,9 @@ if(BUILD_PRIMS_TESTS)
     prims/completeness_score.cu
     prims/contingencyMatrix.cu
     prims/cov.cu
-    prims/cutlass_gemm.cu
     prims/decoupled_lookback.cu
     prims/device_utils.cu
     prims/dispersion.cu
-    prims/dist_adj.cu
-    prims/dist_cos.cu
-    prims/dist_euc_exp.cu
-    prims/dist_euc_unexp.cu
-    prims/dist_l1.cu
     prims/eltwise2d.cu
     prims/entropy.cu
     prims/epsilon_neighborhood.cu
@@ -211,8 +203,6 @@ if(BUILD_PRIMS_TESTS)
       ${CUML_SRC_PRIMS_DIR}
       ${CUML_TEST_PRIMS_DIR}
   )
-
-  add_dependencies(prims cutlass)
 
   target_link_libraries(prims
     ${CUML_CPP_TARGET}

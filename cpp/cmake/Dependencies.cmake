@@ -39,7 +39,7 @@ else(DEFINED ENV{RAFT_PATH})
 
   ExternalProject_Add(raft
     GIT_REPOSITORY    https://github.com/rapidsai/raft.git
-    GIT_TAG           f0cd81fb49638eaddc9bf18998cc894f292bc293
+    GIT_TAG           37faba16f263b6556583208517d4237d9041bfc0
     PREFIX            ${RAFT_DIR}
     CONFIGURE_COMMAND ""
     BUILD_COMMAND     ""
@@ -116,19 +116,6 @@ if(NOT CUB_IS_PART_OF_CTK)
     BUILD_COMMAND     ""
     INSTALL_COMMAND   "")
 endif(NOT CUB_IS_PART_OF_CTK)
-
-##############################################################################
-# - cutlass - (header only) --------------------------------------------------
-
-set(CUTLASS_DIR ${CMAKE_CURRENT_BINARY_DIR}/cutlass CACHE STRING
-  "Path to the cutlass repo")
-ExternalProject_Add(cutlass
-  GIT_REPOSITORY    https://github.com/NVIDIA/cutlass.git
-  GIT_TAG           v1.0.1
-  PREFIX            ${CUTLASS_DIR}
-  CONFIGURE_COMMAND ""
-  BUILD_COMMAND     ""
-  INSTALL_COMMAND   "")
 
 ##############################################################################
 # - spdlog -------------------------------------------------------------------
@@ -257,13 +244,9 @@ set_property(TARGET benchmarklib PROPERTY
 
 # TODO: Change to using build.sh and make targets instead of this
 
-if(CUB_IS_PART_OF_CTK)
-  add_dependencies(cutlass raft)
-else()
+if(NOT CUB_IS_PART_OF_CTK)
   add_dependencies(cub raft)
-  add_dependencies(cutlass cub)
-endif(CUB_IS_PART_OF_CTK)
-add_dependencies(spdlog cutlass)
+endif(NOT CUB_IS_PART_OF_CTK)
 add_dependencies(GTest::GTest spdlog)
 add_dependencies(benchmark GTest::GTest)
 add_dependencies(FAISS::FAISS benchmark)

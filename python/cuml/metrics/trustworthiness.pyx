@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018-2019, NVIDIA CORPORATION.
+# Copyright (c) 2018-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -88,6 +88,8 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
         warnings.warn("Parameter should_downcast is deprecated, use "
                       "convert_dtype instead. ")
 
+    handle = cuml.raft.common.handle.Handle() if handle is None else handle
+
     cdef uintptr_t d_X_ptr
     cdef uintptr_t d_X_embedded_ptr
 
@@ -108,7 +110,7 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     if metric == 'euclidean':
-        res = trustworthiness_score[float, euclidean](handle_[0],
+        ret = trustworthiness_score[float, euclidean](handle_[0],
                                                       <float*>d_X_ptr,
                                                       <float*>d_X_embedded_ptr,
                                                       n_samples,
@@ -116,13 +118,9 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
                                                       n_components,
                                                       n_neighbors,
                                                       batch_size)
-        del X_m
-        del X_m2
+        handle.sync()
+
     else:
-        del X_m
-        del X_m2
         raise Exception("Unknown metric")
 
-    if handle is None:
-        del handle_
-    return res
+    return ret

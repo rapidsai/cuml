@@ -35,7 +35,6 @@
 
 namespace ML {
 
-using namespace MLCommon;
 namespace tl = treelite;
 namespace tlf = treelite::frontend;
 using namespace fil;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,10 +23,10 @@
 
 #include <cuda_runtime.h>
 
+#include <raft/handle.hpp>
 #include <raft/mr/device/allocator.hpp>
 
 #include <cuml/cluster/kmeans.hpp>
-#include <cuml/cuml.hpp>
 
 #ifndef CUDA_RT_CALL
 #define CUDA_RT_CALL(call)                                                    \
@@ -128,7 +128,7 @@ int main(int argc, char *argv[]) {
 
     raft::handle_t handle;
 
-    std::shared_ptr<ML::deviceAllocator> allocator(
+    std::shared_ptr<raft::mr::device::allocator> allocator(
       new raft::mr::device::default_allocator());
 
     handle.set_device_allocator(allocator);

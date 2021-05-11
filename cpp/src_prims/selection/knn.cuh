@@ -19,8 +19,8 @@
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 
-#include <distance/distance.cuh>
 #include <label/classlabels.cuh>
+#include <raft/distance/distance.cuh>
 
 #include <faiss/gpu/GpuDistance.h>
 #include <faiss/gpu/GpuIndexFlat.h>
@@ -42,9 +42,9 @@
 
 #include "haversine_knn.cuh"
 
-#include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/neighbors/knn.hpp>
+#include <raft/mr/device/allocator.hpp>
 
 #include <iostream>
 #include <set>
@@ -471,7 +471,7 @@ void class_probs(std::vector<float *> &out, const int64_t *knn_indices,
                  std::vector<int *> &y, size_t n_index_rows,
                  size_t n_query_rows, int k, std::vector<int *> &uniq_labels,
                  std::vector<int> &n_unique,
-                 const std::shared_ptr<deviceAllocator> allocator,
+                 const std::shared_ptr<raft::mr::device::allocator> allocator,
                  cudaStream_t user_stream, cudaStream_t *int_streams = nullptr,
                  int n_int_streams = 0) {
   for (int i = 0; i < y.size(); i++) {
@@ -544,7 +544,7 @@ template <int TPB_X = 32, bool precomp_lbls = false>
 void knn_classify(int *out, const int64_t *knn_indices, std::vector<int *> &y,
                   size_t n_index_rows, size_t n_query_rows, int k,
                   std::vector<int *> &uniq_labels, std::vector<int> &n_unique,
-                  const std::shared_ptr<deviceAllocator> &allocator,
+                  const std::shared_ptr<raft::mr::device::allocator> &allocator,
                   cudaStream_t user_stream, cudaStream_t *int_streams = nullptr,
                   int n_int_streams = 0) {
   std::vector<float *> probs;

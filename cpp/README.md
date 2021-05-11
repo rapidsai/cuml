@@ -82,10 +82,9 @@ The external folder contains submodules that cuML depends on.
 
 Current external submodules are:
 
-1. [CUTLASS](https://github.com/NVIDIA/cutlass)
-2. [CUB](https://github.com/NVlabs/cub)
-3. [Faiss](https://github.com/facebookresearch/faiss)
-4. [Google Test](https://github.com/google/googletest)
+1. [CUB](https://github.com/NVlabs/cub)
+2. [Faiss](https://github.com/facebookresearch/faiss)
+3. [Google Test](https://github.com/google/googletest)
 
 ## Using cuML libraries
 

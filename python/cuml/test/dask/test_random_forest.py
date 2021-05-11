@@ -462,9 +462,12 @@ def test_rf_instance_count(client, max_depth, n_estimators):
         err_msg = "n_estimators cannot be lower than number of dask workers"
         pytest.xfail(err_msg)
 
-    X, y = make_classification(n_samples=350, n_features=20,
-                               n_clusters_per_class=1, n_informative=10,
-                               random_state=123, n_classes=2)
+    n_samples_per_worker = 350
+
+    X, y = make_classification(n_samples=n_samples_per_worker * n_workers,
+                               n_features=20, n_clusters_per_class=1,
+                               n_informative=10, random_state=123,
+                               n_classes=2)
     X = X.astype(np.float32)
     cu_rf_mg = cuRFC_mg(max_features=1.0, max_samples=1.0,
                         n_bins=16, split_algo=1, split_criterion=0,
@@ -494,7 +497,7 @@ def test_rf_instance_count(client, max_depth, n_estimators):
     for tree in json_obj:
         check_instance_count_for_non_leaf(tree)
         # The root's count should be equal to the number of rows in the data
-        assert tree['instance_count'] == X.shape[0]
+        assert tree['instance_count'] == n_samples_per_worker
 
 
 @pytest.mark.parametrize('estimator_type', ['regression', 'classification'])

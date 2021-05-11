@@ -19,11 +19,10 @@
 #include <cuml/ensemble/randomforest.hpp>
 #include <queue>
 #include <raft/cuda_utils.cuh>
+#include <raft/handle.hpp>
 #include <random>
 
 namespace ML {
-
-using namespace MLCommon;
 
 template <typename T>  // template useless for now.
 struct RfInputs {

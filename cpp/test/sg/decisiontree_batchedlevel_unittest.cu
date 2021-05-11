@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <raft/handle.hpp>
+
 #include <decisiontree/memory.h>
 #include <decisiontree/quantile/quantile.h>
 #include <gtest/gtest.h>

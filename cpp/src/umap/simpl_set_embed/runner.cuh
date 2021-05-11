@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cuml/manifold/umapparams.h>
+#include <raft/mr/device/allocator.hpp>
 #include "algo.cuh"
 
 #include <raft/sparse/coo.cuh>
@@ -29,7 +30,7 @@ using namespace ML;
 
 template <int TPB_X, typename T>
 void run(int m, int n, raft::sparse::COO<T> *coo, UMAPParams *params,
-         T *embedding, std::shared_ptr<deviceAllocator> alloc,
+         T *embedding, std::shared_ptr<raft::mr::device::allocator> alloc,
          cudaStream_t stream, int algorithm = 0) {
   switch (algorithm) {
     case 0:

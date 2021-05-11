@@ -21,14 +21,14 @@
 #include <cuml/manifold/umapparams.h>
 #include <datasets/digits.h>
 #include <raft/cudart_utils.h>
-#include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
-#include <cuml/cuml.hpp>
 #include <cuml/neighbors/knn.hpp>
 #include <distance/distance.cuh>
 #include <metrics/trustworthiness.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/handle.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include <umap/runner.cuh>
 
 using namespace ML;

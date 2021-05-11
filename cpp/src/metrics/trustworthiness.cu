@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <distance/distance.cuh>
 #include <metrics/scores.cuh>
+#include <raft/distance/distance.cuh>
 #include <raft/handle.hpp>
 
 namespace ML {

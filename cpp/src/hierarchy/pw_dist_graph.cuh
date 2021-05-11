@@ -21,7 +21,7 @@
 
 #include <common/allocatorAdapter.hpp>
 
-#include <distance/distance.cuh>
+#include <raft/distance/distance.cuh>
 
 #include <rmm/device_uvector.hpp>
 
@@ -88,7 +88,7 @@ void pairwise_distances(const raft::handle_t &handle, const value_t *X,
   // TODO: It would ultimately be nice if the MST could accept
   // dense inputs directly so we don't need to double the memory
   // usage to hand it a sparse array here.
-  MLCommon::Distance::pairwise_distance<value_t, value_idx>(
+  raft::distance::pairwise_distance<value_t, value_idx>(
     X, X, data, m, m, n, workspace, metric, stream);
 }
 

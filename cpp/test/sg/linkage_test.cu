@@ -20,15 +20,15 @@
 #include <vector>
 
 #include <cuml/cluster/linkage.hpp>
-#include <cuml/common/cuml_allocator.hpp>
-#include <cuml/cuml.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <hierarchy/pw_dist_graph.cuh>
+#include <raft/mr/device/allocator.hpp>
 
 #include <raft/linalg/distance_type.h>
 #include <raft/linalg/transpose.h>
 #include <raft/sparse/coo.cuh>
 
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 
 #include <test_utils.h>

@@ -685,7 +685,6 @@ class NearestNeighbors(Base,
                 <int>N
             )
 
-        self.handle.sync()
         return D_ndarr, I_ndarr
 
     def _kneighbors_sparse(self, X, n_neighbors):

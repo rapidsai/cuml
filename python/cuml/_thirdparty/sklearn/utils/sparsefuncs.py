@@ -149,28 +149,25 @@ def mean_variance_axis(X, axis):
 ufunc_dic = {
     'min': np.min,
     'max': np.max,
-    'nanmin': np.min,
+    'nanmin': np.nanmin,
     'nanmax': np.nanmax
 }
 
 
 def _minor_reduce(X, min_or_max):
     fminmax = ufunc_dic[min_or_max]
+
     major_index = np.flatnonzero(np.diff(X.indptr))
-    # reduceat tries casts X.indptr to intp, which errors
-    # if it is int64 on a 32 bit system.
-    # Reinitializing prevents this where possible, see #13737
-    X = type(X)((X.data, X.indices, X.indptr), shape=X.shape)
+    values = cpu_np.zeros(major_index.shape[0], dtype=X.dtype)
+    ptrs = X.indptr[major_index]
 
-    value = cpu_np.zeros(len(X.indptr)-1, dtype=X.dtype)
-    start = X.indptr[0]
-    for i, end in enumerate(X.indptr[1:]):
-        if start != end:
-            value[i] = fminmax(X.data[start:end])
+    start = ptrs[0]
+    for i, end in enumerate(ptrs[1:]):
+        values[i] = fminmax(X.data[start:end])
         start = end
+    values[-1] = fminmax(X.data[end:])
 
-    value = np.array(value)
-    return major_index, value
+    return major_index, np.array(values)
 
 
 def _min_or_max_axis(X, axis, min_or_max):
@@ -207,14 +204,14 @@ def _sparse_min_or_max(X, axis, min_or_max):
     if axis is None:
         if 0 in X.shape:
             raise ValueError("zero-size array to reduction operation")
-        zero = X.dtype.type(0)
         if X.nnz == 0:
-            return zero
+            return X.dtype.type(0)
         fminmax = ufunc_dic[min_or_max]
         m = fminmax(X.data)
-        if np.isnan(m) and 'nan' in min_or_max:
-            m = 0
-        if X.nnz != X.size:
+        if np.isnan(m):
+            if 'nan' in min_or_max:
+                m = 0
+        elif X.nnz != cpu_np.product(X.shape):
             if 'min' in min_or_max:
                 m = m if m <= 0 else 0
             else:

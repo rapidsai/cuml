@@ -34,7 +34,7 @@ namespace TSNE {
  * @param[out] Y: The final embedding. Will overwrite this internally.
  * @param[in] n: Number of rows in data X.
  * @param[in] dim: Number of output columns for the output embedding Y.
- * @param[in] early_exaggeration: How much early pressure you want the clusters in TSNE to spread out more.
+ * @param[in] early_exaggeration: How much pressure to apply to clusters to spread out during the exaggeration phase.
  * @param[in] exaggeration_iter: How many iterations you want the early pressure to run for.
  * @param[in] min_gain: Rounds up small gradient updates.
  * @param[in] pre_learning_rate: The learning rate during the exaggeration phase.
@@ -95,6 +95,7 @@ void Exact_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
   CUML_LOG_DEBUG("Start gradient updates!");
   float momentum = pre_momentum;
   float learning_rate = pre_learning_rate;
+  auto exaggeration = early_exaggeration;
   bool check_convergence = false;
 
   for (int iter = 0; iter < max_iter; iter++) {
@@ -102,10 +103,8 @@ void Exact_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
 
     if (iter == exaggeration_iter) {
       momentum = post_momentum;
-      // Divide perplexities
-      const float div = 1.0f / early_exaggeration;
-      raft::linalg::scalarMultiply(VAL, VAL, div, NNZ, stream);
       learning_rate = post_learning_rate;
+      exaggeration = 1.0f;
     }
 
     // Get row norm of Y
@@ -123,12 +122,14 @@ void Exact_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
     // Apply / integrate forces
     const float gradient_norm = TSNE::apply_forces(
       Y, velocity.data(), attract.data(), repel.data(), means.data(),
-      gains.data(), Z, learning_rate, C, momentum, dim, n, min_gain,
-      gradient.data(), check_convergence, stream);
+      gains.data(), Z, learning_rate, C, exaggeration, momentum, dim, n,
+      min_gain, gradient.data(), check_convergence, stream);
 
     if (check_convergence) {
-      CUML_LOG_DEBUG("Z at iter = %d = %f and gradient norm = %f", iter, Z,
-                     gradient_norm);
+      if (iter % 100 == 0) {
+        CUML_LOG_DEBUG("Z at iter = %d = %f and gradient norm = %f", iter, Z,
+                       gradient_norm);
+      }
       if (gradient_norm < min_grad_norm) {
         CUML_LOG_DEBUG(
           "Gradient norm = %f <= min_grad_norm = %f. Early stopped at iter = "
@@ -137,7 +138,9 @@ void Exact_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
         break;
       }
     } else {
-      CUML_LOG_DEBUG("Z at iter = %d = %f", iter, Z);
+      if (iter % 100 == 0) {
+        CUML_LOG_DEBUG("Z at iter = %d = %f", iter, Z);
+      }
     }
   }
 }
