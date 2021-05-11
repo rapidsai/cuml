@@ -92,14 +92,14 @@ void compute_stabilities(
   auto exec_policy = rmm::exec_policy(stream);
 
   // TODO: Reverse topological sort (e.g. sort hierarchy, lambdas, and sizes by lambda)
-  rmm::device_uvector<value_t> sorted_lambdas(n_edges, stream);
-  raft::copy_async(sorted_lambdas.data(), lambdas, n_edges, stream);
+  // rmm::device_uvector<value_t> sorted_lambdas(n_edges, stream);
+  // raft::copy_async(sorted_lambdas.data(), lambdas, n_edges, stream);
 
   rmm::device_uvector<value_idx> sorted_parents(n_edges, stream);
   raft::copy_async(sorted_parents.data(), parents, n_edges, stream);
 
-  thrust::sort_by_key(exec_policy, sorted_parents.begin(), sorted_parents.end(),
-                      sorted_lambdas.begin());
+  // thrust::sort_by_key(exec_policy, sorted_parents.begin(), sorted_parents.end(),
+  //                     sorted_lambdas.begin());
 
   // 0-index sorted parents by subtracting n_leaves for offsets and birth/stability indexing
   auto index_op = [n_leaves] __device__(const auto &x) { return x - n_leaves; };
@@ -127,15 +127,16 @@ void compute_stabilities(
       births[child - n_leaves] = lambdas[idx];
     }
   };
-  raft::print_device_vector("inital_births", births.data(), n_clusters, std::cout);
 
   // this is to find minimum lambdas of all children under a prent
   rmm::device_uvector<value_t> births_parent_min(n_clusters, stream);
   thrust::fill(exec_policy, births.begin(), births.end(), 0.0f);
   thrust::for_each(exec_policy, thrust::make_counting_iterator(value_idx(0)),
                    thrust::make_counting_iterator(n_edges), births_init_op);
+  raft::print_device_vector("inital_births", births.data(), n_clusters, std::cout);
+
   Utils::segmented_reduce(
-    sorted_lambdas.data(), births_parent_min.data() + 1, n_clusters - 1,
+    lambdas, births_parent_min.data() + 1, n_clusters - 1,
     sorted_parents_offsets.data() + 1, stream,
     cub::DeviceSegmentedReduce::Min<const value_t *, value_t *,
                                     const value_idx *>);
