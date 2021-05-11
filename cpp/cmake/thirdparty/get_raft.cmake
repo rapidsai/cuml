@@ -16,7 +16,7 @@
 
 function(find_and_configure_raft)
 
-    set(oneValueArgs VERSION PINNED_TAG)
+    set(oneValueArgs VERSION FORK PINNED_TAG)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
                           "${multiValueArgs}" ${ARGN} )
 
@@ -25,8 +25,6 @@ function(find_and_configure_raft)
       BUILD_EXPORT_SET    cuml-exports
       INSTALL_EXPORT_SET  cuml-exports
         CPM_ARGS
-            # GIT_REPOSITORY https://github.com/rapidsai/raft.git
-            # GIT_TAG        branch-${VERSION}
             GIT_REPOSITORY https://github.com/${PKG_FORK}/raft.git
             GIT_TAG        ${PKG_PINNED_TAG}
             SOURCE_SUBDIR  cpp
