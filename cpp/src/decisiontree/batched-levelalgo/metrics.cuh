@@ -44,6 +44,26 @@ class NumericLimits<double> {
 namespace ML {
 namespace DecisionTree {
 
+struct IntBin {
+  int x;
+
+  DI static void AtomicAdd(IntBin* hist, int nbins, int b, int label) {
+    auto offset = label * (1 + nbins) + b;
+    atomicAdd(&(hist + offset)->x, 1);
+  }
+  DI static void AtomicAddGlobal(IntBin* address, IntBin val) {
+    atomicAdd(&address->x, val.x);
+  }
+  DI IntBin& operator+=(const IntBin& b) {
+    x += b.x;
+    return *this;
+  }
+  DI IntBin operator+(IntBin b) const {
+    b += *this;
+    return b;
+  }
+};
+
 template <typename DataT, typename IdxT>
 class GiniObjectiveFunction {
   IdxT nclasses;
@@ -51,22 +71,23 @@ class GiniObjectiveFunction {
   IdxT min_samples_leaf;
 
  public:
-  GiniObjectiveFunction(DataT nclasses, IdxT min_impurity_decrease,
+  using BinT = IntBin;
+  GiniObjectiveFunction(IdxT nclasses, DataT min_impurity_decrease,
                         IdxT min_samples_leaf)
     : nclasses(nclasses),
       min_impurity_decrease(min_impurity_decrease),
       min_samples_leaf(min_samples_leaf) {}
 
   DI IdxT NumClasses() const { return nclasses; }
-  DI Split<DataT, IdxT> Gain(int* shist, DataT* sbins, IdxT col, IdxT len,
-                             IdxT nbins) {
+  DI Split<DataT, IdxT> Gain(BinT* scdf_labels, DataT* sbins, IdxT col,
+                             IdxT len, IdxT nbins) {
     Split<DataT, IdxT> sp;
     constexpr DataT One = DataT(1.0);
     DataT invlen = One / len;
     for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
       int nLeft = 0;
       for (IdxT j = 0; j < nclasses; ++j) {
-        nLeft += shist[2 * nbins * j + i];
+        nLeft += scdf_labels[nbins * j + i].x;
       }
       auto nRight = len - nLeft;
       auto gain = DataT(0.0);
@@ -78,12 +99,13 @@ class GiniObjectiveFunction {
         auto invRight = One / nRight;
         for (IdxT j = 0; j < nclasses; ++j) {
           int val_i = 0;
-          auto lval_i = shist[2 * nbins * j + i];
+          auto lval_i = scdf_labels[nbins * j + i].x;
           auto lval = DataT(lval_i);
           gain += lval * invLeft * lval * invlen;
 
           val_i += lval_i;
-          auto rval_i = shist[2 * nbins * j + nbins + i];
+          auto total_sum = scdf_labels[nbins * j + nbins - 1].x;
+          auto rval_i = total_sum - lval_i;
           auto rval = DataT(rval_i);
           gain += rval * invRight * rval * invlen;
 
@@ -109,21 +131,22 @@ class EntropyObjectiveFunction {
   IdxT min_samples_leaf;
 
  public:
-  EntropyObjectiveFunction(DataT nclasses, IdxT min_impurity_decreas,
-                           IdxT min_samples_leafe)
+  using BinT = IntBin;
+  EntropyObjectiveFunction(DataT nclasses, IdxT min_impurity_decrease,
+                           IdxT min_samples_leaf)
     : nclasses(nclasses),
       min_impurity_decrease(min_impurity_decrease),
       min_samples_leaf(min_samples_leaf) {}
   DI IdxT NumClasses() const { return nclasses; }
-  DI Split<DataT, IdxT> Gain(int* shist, DataT* sbins, IdxT col, IdxT len,
-                             IdxT nbins) {
+  DI Split<DataT, IdxT> Gain(BinT* scdf_labels, DataT* sbins, IdxT col,
+                             IdxT len, IdxT nbins) {
     Split<DataT, IdxT> sp;
     constexpr DataT One = DataT(1.0);
     DataT invlen = One / len;
     for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
       int nLeft = 0;
       for (IdxT j = 0; j < nclasses; ++j) {
-        nLeft += shist[2 * nbins * j + i];
+        nLeft += scdf_labels[nbins * j + i].x;
       }
       auto nRight = len - nLeft;
       auto gain = DataT(0.0);
@@ -135,7 +158,7 @@ class EntropyObjectiveFunction {
         auto invRight = One / nRight;
         for (IdxT j = 0; j < nclasses; ++j) {
           int val_i = 0;
-          auto lval_i = shist[2 * nbins * j + i];
+          auto lval_i = scdf_labels[nbins * j + i].x;
           if (lval_i != 0) {
             auto lval = DataT(lval_i);
             gain += raft::myLog(lval * invLeft) / raft::myLog(DataT(2)) * lval *
@@ -143,7 +166,8 @@ class EntropyObjectiveFunction {
           }
 
           val_i += lval_i;
-          auto rval_i = shist[2 * nbins * j + nbins + i];
+          auto total_sum = scdf_labels[2 * nbins * j + nbins - 1].x;
+          auto rval_i = total_sum - lval_i;
           if (rval_i != 0) {
             auto rval = DataT(rval_i);
             gain += raft::myLog(rval * invRight) / raft::myLog(DataT(2)) *
@@ -168,34 +192,44 @@ class EntropyObjectiveFunction {
 };
 
 template <typename DataT, typename IdxT>
-DI void regressionMetricGain(DataT* slabel_cdf, IdxT* scount_cdf,
-                             DataT label_sum, DataT* sbins,
-                             Split<DataT, IdxT>& sp, IdxT col, IdxT len,
-                             IdxT nbins, IdxT min_samples_leaf,
-                             DataT min_impurity_decrease) {
-  auto invlen = DataT(1.0) / len;
-  for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
-    auto nLeft = scount_cdf[i];
-    auto nRight = len - nLeft;
-    DataT gain;
-    // if there aren't enough samples in this split, don't bother!
-    if (nLeft < min_samples_leaf || nRight < min_samples_leaf) {
-      gain = -NumericLimits<DataT>::kMax;
-    } else {
-      DataT parent_obj = -label_sum * label_sum / len;
-      DataT left_obj = -(slabel_cdf[i] * slabel_cdf[i]) / nLeft;
-      DataT right_label_sum = slabel_cdf[i] - label_sum;
-      DataT right_obj = -(right_label_sum * right_label_sum) / nRight;
-      gain = parent_obj - (left_obj + right_obj);
-      gain *= invlen;
+class MSEObjectiveFunction {
+  DataT min_impurity_decrease;
+  IdxT min_samples_leaf;
+
+ public:
+  HDI MSEObjectiveFunction(DataT min_impurity_decrease, IdxT min_samples_leaf)
+    : min_impurity_decrease(min_impurity_decrease),
+      min_samples_leaf(min_samples_leaf) {}
+  DI IdxT NumClasses() const { return 1; }
+  DI Split<DataT, IdxT> Gain(DataT* slabel_cdf, IdxT* scount_cdf,
+                             DataT label_sum, DataT* sbins, IdxT col, IdxT len,
+                             IdxT nbins) {
+    Split<DataT, IdxT> sp;
+    auto invlen = DataT(1.0) / len;
+    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+      auto nLeft = scount_cdf[i];
+      auto nRight = len - nLeft;
+      DataT gain;
+      // if there aren't enough samples in this split, don't bother!
+      if (nLeft < min_samples_leaf || nRight < min_samples_leaf) {
+        gain = -NumericLimits<DataT>::kMax;
+      } else {
+        DataT parent_obj = -label_sum * label_sum / len;
+        DataT left_obj = -(slabel_cdf[i] * slabel_cdf[i]) / nLeft;
+        DataT right_label_sum = slabel_cdf[i] - label_sum;
+        DataT right_obj = -(right_label_sum * right_label_sum) / nRight;
+        gain = parent_obj - (left_obj + right_obj);
+        gain *= invlen;
+      }
+      // if the gain is not "enough", don't bother!
+      if (gain <= min_impurity_decrease) {
+        gain = -NumericLimits<DataT>::kMax;
+      }
+      sp.update({sbins[i], col, gain, nLeft});
     }
-    // if the gain is not "enough", don't bother!
-    if (gain <= min_impurity_decrease) {
-      gain = -NumericLimits<DataT>::kMax;
-    }
-    sp.update({sbins[i], col, gain, nLeft});
+    return sp;
   }
-}
+};
 
 }  // namespace DecisionTree
 }  // namespace ML

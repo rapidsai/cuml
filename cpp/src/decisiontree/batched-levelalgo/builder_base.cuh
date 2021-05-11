@@ -18,6 +18,7 @@
 
 #include <cuml/tree/flatnode.h>
 #include <common/grid_sync.cuh>
+#include <cstdio>
 #include <cuml/tree/decisiontree.hpp>
 #include <raft/cuda_utils.cuh>
 #include "input.cuh"
@@ -437,7 +438,7 @@ struct ClsTraits {
     auto colBlks = std::min(b.n_blks_for_cols, b.input.nSampledCols - col);
 
     size_t smemSize1 = (nbins + 1) * nclasses * sizeof(int) +  // pdf_shist size
-                       2 * nbins * nclasses * sizeof(int) +    // cdf_shist size
+                        nbins * nclasses * sizeof(int) +    // cdf_shist size
                        nbins * sizeof(DataT) +                 // sbins size
                        sizeof(int);                            // sDone size
     // Extra room for alignment (see alignPointer in
@@ -451,7 +452,7 @@ struct ClsTraits {
     int n_blks_for_rows = b.n_blks_for_rows(
       colBlks,
       (const void*)
-        computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT, GiniObjectiveFunction<DataT, IdxT>>,
+        computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT, GiniObjectiveFunction<DataT, IdxT>,typename GiniObjectiveFunction<DataT, IdxT>::BinT>,
       TPB_DEFAULT, smemSize, batchSize);
     dim3 grid(n_blks_for_rows, colBlks, batchSize);
     CUDA_CHECK(cudaMemsetAsync(b.hist, 0, sizeof(int) * b.nHistBins, s));
@@ -461,9 +462,10 @@ struct ClsTraits {
       GiniObjectiveFunction<DataT, IdxT> objective(
         b.input.nclasses, b.params.min_impurity_decrease,
         b.params.min_samples_split);
+      using BinT=typename GiniObjectiveFunction<DataT, IdxT>::BinT;
       computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
         <<<grid, TPB_DEFAULT, smemSize, s>>>(
-          b.hist, b.params.n_bins, b.params.max_depth,
+          reinterpret_cast<BinT*>(b.hist), b.params.n_bins, b.params.max_depth,
           b.params.min_samples_split,b.params.max_leaves, b.input,
           b.curr_nodes, col, b.done_count, b.mutex, b.n_leaves, b.splits,
           objective, b.treeid, b.seed);
@@ -471,9 +473,10 @@ struct ClsTraits {
       EntropyObjectiveFunction<DataT, IdxT> objective(
         b.input.nclasses, b.params.min_impurity_decrease,
         b.params.min_samples_split);
+      using BinT=typename EntropyObjectiveFunction<DataT, IdxT>::BinT;
       computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
         <<<grid, TPB_DEFAULT, smemSize, s>>>(
-          b.hist, b.params.n_bins, b.params.max_depth,
+          reinterpret_cast<BinT*>(b.hist), b.params.n_bins, b.params.max_depth,
           b.params.min_samples_split,  b.params.max_leaves, b.input,
           b.curr_nodes, col, b.done_count, b.mutex, b.n_leaves, b.splits,
           objective, b.treeid, b.seed);

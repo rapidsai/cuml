@@ -336,20 +336,20 @@ DI IdxT select(IdxT k, IdxT treeid, uint32_t nodeid, uint64_t seed, IdxT N) {
  * @return The total sum aggregated over the sumscan,
  *         as well as the modified cdf-histogram pointer
  */
-template <typename DataT, typename IdxT, int TPB>
-DI DataT pdf_to_cdf(DataT* pdf_shist, DataT* cdf_shist, IdxT nbins) {
+template <typename BinT, typename IdxT, int TPB>
+DI BinT pdf_to_cdf(BinT* pdf_shist, BinT* cdf_shist, IdxT nbins) {
   // Blockscan instance preparation
-  typedef cub::BlockScan<DataT, TPB> BlockScan;
+  typedef cub::BlockScan<BinT, TPB> BlockScan;
   __shared__ typename BlockScan::TempStorage temp_storage;
 
   // variable to accumulate aggregate of sumscans of previous iterations
-  DataT total_aggregate = DataT(0);
+  BinT total_aggregate = BinT();
 
   for (IdxT tix = threadIdx.x; tix < max(TPB, nbins); tix += blockDim.x) {
-    DataT result;
-    DataT block_aggregate;
+    BinT result;
+    BinT block_aggregate;
     // getting the scanning element from pdf shist only
-    DataT element = tix < nbins ? pdf_shist[tix] : 0;
+    BinT element = tix < nbins ? pdf_shist[tix] : BinT();
     // inclusive sum scan
     BlockScan(temp_storage).InclusiveSum(element, result, block_aggregate);
     __syncthreads();
@@ -364,9 +364,9 @@ DI DataT pdf_to_cdf(DataT* pdf_shist, DataT* cdf_shist, IdxT nbins) {
 }
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB,
-          typename ObjectiveT>
+          typename ObjectiveT, typename BinT>
 __global__ void computeSplitClassificationKernel(
-  int* hist, IdxT nbins, IdxT max_depth, IdxT min_samples_split,
+  BinT* hist, IdxT nbins, IdxT max_depth, IdxT min_samples_split,
   IdxT max_leaves, Input<DataT, LabelT, IdxT> input,
   const Node<DataT, LabelT, IdxT>* nodes, IdxT colStart, int* done_count,
   int* mutex, const IdxT* n_leaves, volatile Split<DataT, IdxT>* splits,
@@ -384,9 +384,9 @@ __global__ void computeSplitClassificationKernel(
   }
   auto end = range_start + range_len;
   auto pdf_shist_len = (nbins + 1) * objective.NumClasses();
-  auto cdf_shist_len = nbins * 2 * objective.NumClasses();
-  auto* pdf_shist = alignPointer<int>(smem);
-  auto* cdf_shist = alignPointer<int>(pdf_shist + pdf_shist_len);
+  auto cdf_shist_len = nbins * objective.NumClasses();
+  auto* pdf_shist = alignPointer<BinT>(smem);
+  auto* cdf_shist = alignPointer<BinT>(pdf_shist + pdf_shist_len);
   auto* sbins = alignPointer<DataT>(cdf_shist + cdf_shist_len);
   auto* sDone = alignPointer<int>(sbins + nbins);
   IdxT stride = blockDim.x * gridDim.x;
@@ -403,9 +403,9 @@ __global__ void computeSplitClassificationKernel(
 
   // populating shared memory with initial values
   for (IdxT i = threadIdx.x; i < pdf_shist_len; i += blockDim.x)
-    pdf_shist[i] = 0;
+    pdf_shist[i] = BinT();
   for (IdxT j = threadIdx.x; j < cdf_shist_len; j += blockDim.x)
-    cdf_shist[j] = 0;
+    cdf_shist[j] = BinT();
   for (IdxT b = threadIdx.x; b < nbins; b += blockDim.x)
     sbins[b] = input.quantiles[col * nbins + b];
 
@@ -419,10 +419,10 @@ __global__ void computeSplitClassificationKernel(
     auto row = input.rowids[i];
     auto d = input.data[row + coloffset];
     auto label = input.labels[row];
+    // TODO(Rory): Should be binary search?
     for (IdxT b = 0; b < nbins; ++b) {
       if (d <= sbins[b]) {
-        auto offset = label * (1 + nbins) + b;
-        atomicAdd(pdf_shist + offset, 1);
+        IntBin::AtomicAdd(pdf_shist,nbins, b, label);
         break;
       }
     }
@@ -434,7 +434,7 @@ __global__ void computeSplitClassificationKernel(
   // update the corresponding global location
   auto histOffset = ((nid * gridDim.y) + blockIdx.y) * pdf_shist_len;
   for (IdxT i = threadIdx.x; i < pdf_shist_len; i += blockDim.x) {
-    atomicAdd(hist + histOffset + i, pdf_shist[i]);
+      IntBin::AtomicAddGlobal(hist + histOffset + i,pdf_shist[i]);
   }
 
   __threadfence();  // for commit guarantee
@@ -470,21 +470,10 @@ __global__ void computeSplitClassificationKernel(
      *  lesser-than-or-equal-to-bin counts **/
     // offsets to pdf and cdf shist pointers
     auto offset_pdf = (1 + nbins) * c;
-    auto offset_cdf = (2 * nbins) * c;
+    auto offset_cdf = nbins * c;
     // converting pdf to cdf
-    int total_sum = pdf_to_cdf<int, IdxT, TPB>(pdf_shist + offset_pdf,
+    BinT total_sum = pdf_to_cdf<BinT, IdxT, TPB>(pdf_shist + offset_pdf,
                                                cdf_shist + offset_cdf, nbins);
-
-    // greater-than split starts after nbins of less-than-equal split
-    // locations
-    offset_cdf += nbins;
-    /** samples that are greater-than-bin calculated by difference
-     *  of count of lesser-than-equal samples from total_sum.
-     **/
-    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
-      *(cdf_shist + offset_cdf + i) =
-        total_sum - *(cdf_shist + 2 * nbins * c + i);
-    }
   }
 
   // create a split instance to test current feature split
@@ -627,15 +616,12 @@ __global__ void computeSplitRegressionKernel(
   // exit if not last
   if (!last) return;
 
-  // last block computes the final gain
-  // create a split instance to test current feature split
-  Split<DataT, IdxT> sp;
-
   // calculate the best candidate bins (one for each block-thread) in current
   // feature and corresponding regression-metric gain for splitting
-  regressionMetricGain(cdf_spred, cdf_scount, total_sum, sbins, sp, col,
-                       range_len, nbins, min_samples_leaf,
-                       min_impurity_decrease);
+  MSEObjectiveFunction<DataT, IdxT> obj(min_impurity_decrease,
+                                        min_samples_leaf);
+  auto sp =
+    obj.Gain(cdf_spred, cdf_scount, total_sum, sbins, col, range_len, nbins);
   __syncthreads();
 
   // calculate best bins among candidate bins per feature using warp reduce
