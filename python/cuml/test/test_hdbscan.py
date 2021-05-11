@@ -125,10 +125,10 @@ def test_hdbscan_blobs(nrows, ncols, nclusters,
 # TODO: Fix crash when min_samples is changes (due to MST determinism precision error)
 @pytest.mark.parametrize('min_samples', [25])
 @pytest.mark.parametrize('cluster_selection_epsilon', [0.0])
-@pytest.mark.parametrize('cluster_size_bounds', [(15, 0), (25, 0), (60, 0)])
+@pytest.mark.parametrize('cluster_size_bounds', [(15, 0), (25, 0), (70, 0)])
 
 # TODO: Fix small discrepancies in allow_single_cluster=False (single test failure)
-@pytest.mark.parametrize('allow_single_cluster', [True])
+@pytest.mark.parametrize('allow_single_cluster', [True, False])
 
 # TODO: Verify/fix discrepancies in leaf selection method
 @pytest.mark.parametrize('cluster_selection_method', ['eom'])
@@ -220,6 +220,9 @@ def test_hdbscan_sklearn_datasets(dataset,
     print("cu mst: %s" % cuml_agg.mst_weights_)
     print("sk mst_total: %s" % np.sum(sk_agg.minimum_spanning_tree_.to_numpy()[:,2]))
     print("sk mst: %s" % sk_agg.minimum_spanning_tree_.to_numpy()[:,2])
+
+
+    assert(len(np.unique(sk_agg.labels_)) == len(cp.unique(cuml_agg.labels_)))
 
 
     # np.testing.assert_equal(cu_asmnt, sk_asmnt)
