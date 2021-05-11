@@ -192,7 +192,8 @@ def checkCopyright_main():
                            dest='exclude',
                            action="append",
                            required=False,
-                           default=["python/cuml/_thirdparty/"],
+                           default=["python/cuml/_thirdparty/",
+                           "cpp/include/cuml/fil/fnv_hash.h"],
                            help=("Exclude the paths specified (regexp). "
                                  "Can be specified multiple times."))
 
