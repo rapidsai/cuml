@@ -26,11 +26,11 @@
 #include <cmath>
 #include <iomanip>
 #include <limits>
-#include <numeric>
 #include <stack>
 #include <utility>
 
 #include <cuml/fil/fil.h>
+#include <cuml/fil/fnv_hash.h>
 #include <raft/cudart_utils.h>
 #include <cuml/common/logger.hpp>
 #include <raft/handle.hpp>
@@ -668,16 +668,6 @@ inline void tree_depth_hist(const tl::Tree<T, L>& tree,
   }
 }
 
-// implements https://tools.ietf.org/html/draft-eastlake-fnv-17.html
-// algorithm is public domain, non-cryptographic strength and no patents or rights to patent
-template <typename It>
-unsigned long long fowler_noll_vo_fingerprint64(It begin, It end) {
-  return std::accumulate(begin, end, 14695981039346656037ull,
-                         [](const unsigned long long& fingerprint, auto x) {
-                           return (fingerprint * 1099511628211ull) ^ x;
-                         });
-}
-
 template <typename T, typename L>
 std::stringstream depth_hist_and_max(const tl::ModelImpl<T, L>& model) {
   std::vector<level_entry> hist;
@@ -718,17 +708,13 @@ std::stringstream depth_hist_and_max(const tl::ModelImpl<T, L>& model) {
                << " max: " << hist.size() - 1 << endl;
   forest_shape.copyfmt(default_state);
 
-  std::vector<int> flat_hist(hist.size() * sizeof(hist[0]) /
-                             sizeof(flat_hist[0]));
-  for (int i = 0, o = 0; o < hist.size(); ++o) {
-    flat_hist[i++] = hist[o].n_branch_nodes;
-    flat_hist[i++] = hist[o].n_leaves;
-  }
+  std::vector<char> hist_bytes(hist.size() * sizeof(hist[0]));
+  memcpy(&hist_bytes[0], &hist[0], hist_bytes.size());
   // std::hash does not promise to not be identity. Xoring plain numbers which
   // add up to one another erases information, hence, std::hash is unsuitable here
   forest_shape << "Depth histogram fingerprint: " << std::hex
-               << fowler_noll_vo_fingerprint64(flat_hist.begin(),
-                                               flat_hist.end())
+               << fowler_noll_vo_fingerprint64_32(hist_bytes.begin(),
+                                                  hist_bytes.end())
                << endl;
   forest_shape.copyfmt(default_state);
 
@@ -1047,7 +1033,7 @@ char* sprintf_shape(const tl::ModelImpl<T, L>& model, storage_type_t storage,
   // now copy to a non-owning allocation
   void* shape_out = malloc(forest_shape_str.size() + 1);  // incl. \0
   memcpy(shape_out, forest_shape_str.c_str(), forest_shape_str.size() + 1);
-  return shape_out;
+  return (char*)shape_out;
 }
 
 void free(const raft::handle_t& h, forest_t f) {
