@@ -448,7 +448,7 @@ class TrustworthinessScoreTest : public ::testing::Test {
 
 typedef TrustworthinessScoreTest TrustworthinessScoreTestF;
 TEST_F(TrustworthinessScoreTestF, Result) {
-  ASSERT_TRUE(0.9374 < score && score < 0.9376);
+  ASSERT_TRUE(0.9375 < score && score < 0.9379);
 }
 };  // namespace Score
 };  // namespace MLCommon
