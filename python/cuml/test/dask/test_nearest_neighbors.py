@@ -80,8 +80,8 @@ def _scale_rows(client, nrows):
                                          stress_param(100)])
 @pytest.mark.parametrize("n_parts", [unit_param(1), unit_param(5),
                                      quality_param(7), stress_param(50)])
-@pytest.mark.parametrize("streams_per_handle,reverse_worker_order", [(5, True),
-                                                                     (10, False)])
+@pytest.mark.parametrize("streams_per_handle,reverse_worker_order",
+                         [(5, True), (10, False)])
 def test_compare_skl(nrows, ncols, nclusters, n_parts, n_neighbors,
                      streams_per_handle, reverse_worker_order, client):
 
