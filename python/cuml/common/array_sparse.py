@@ -15,6 +15,7 @@
 #
 import cupyx as cpx
 import numpy as np
+import nvtx
 from cuml.common.import_utils import has_scipy
 from cuml.common.memory_utils import class_with_cupy_rmm
 from cuml.common.logger import debug
@@ -69,6 +70,8 @@ class SparseCumlArray():
         Number of nonzeros in underlying arrays
     """
 
+    @nvtx.annotate(message="common.SparseCumlArray.__init__", category="utils",
+                   domain="cuml_python")
     def __init__(self, data=None,
                  convert_to_dtype=False,
                  convert_index=np.int32,
@@ -120,6 +123,8 @@ class SparseCumlArray():
         self.dtype = self.data.dtype
         self.nnz = data.nnz
 
+    @nvtx.annotate(message="common.SparseCumlArray.to_output",
+                   category="utils", domain="cuml_python")
     def to_output(self, output_type='cupy',
                   output_format=None,
                   output_dtype=None):
