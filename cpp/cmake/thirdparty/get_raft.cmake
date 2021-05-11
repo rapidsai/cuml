@@ -27,18 +27,26 @@ function(find_and_configure_raft)
         CPM_ARGS
             # GIT_REPOSITORY https://github.com/rapidsai/raft.git
             # GIT_TAG        branch-${VERSION}
-            GIT_REPOSITORY https://github.com/dantegd/raft.git
+            GIT_REPOSITORY https://github.com/${PKG_FORK}/raft.git
             GIT_TAG        ${PKG_PINNED_TAG}
             SOURCE_SUBDIR  cpp
+            OPTIONS
+              "BUILD_TESTS OFF"
 
     )
+
+    message(VERBOSE "CUML: Using RAFT located in ${raft_SOURCE_DIR}")
 
 endfunction()
 
 set(CUML_MIN_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
 
+# Change pinned tag here to test a commit in CI
+# To use a different RAFT locally, set the CMake variable
+# RPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION    ${CUML_MIN_VERSION_raft}
-                        PINNED_TAG 842af95285714104a8eee2d9a3794d264744e7e8
+                        FORK       dantegd
+                        PINNED_TAG 020-fea-cpm
                         )
 
 

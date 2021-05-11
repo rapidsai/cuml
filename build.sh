@@ -75,9 +75,10 @@ CCACHE=OFF
 CLEAN=0
 BUILD_DISABLE_DEPRECATION_WARNING=ON
 BUILD_CUML_STD_COMMS=ON
+BUILD_CUML_TESTS=ON
 BUILD_CUML_MG_TESTS=OFF
 BUILD_STATIC_FAISS=OFF
-CUDA="auto"
+CMAKE_LOG_LEVEL=WARNING
 
 # Set defaults for vars that may not have been defined externally
 #  FIXME: if INSTALL_PREFIX is not set, check PREFIX, then check
@@ -131,6 +132,7 @@ LONG_ARGUMENT_LIST=(
     "show_depr_warn"
     "codecov"
     "ccache"
+    "nolibcumltest"
 )
 
 # Short arguments
@@ -160,6 +162,7 @@ while true; do
             ;;
         -v | --verbose )
             VERBOSE=true
+            CMAKE_LOG_LEVEL=VERBOSE
             ;;
         -g | --debug )
             BUILD_TYPE=Debug
@@ -191,6 +194,9 @@ while true; do
             ;;
         --ccache )
             CCACHE=ON
+            ;;
+        --nolibcumltest )
+            BUILD_CUML_TESTS=OFF
             ;;
         --)
             shift
@@ -240,13 +246,14 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DBUILD_CUML_C_LIBRARY=ON \
           -DSINGLEGPU=${SINGLEGPU_CPP_FLAG} \
+          -DBUILD_CUML_TESTS=${BUILD_CUML_TESTS} \
           -DBUILD_CUML_MPI_COMMS=${BUILD_CUML_MG_TESTS} \
           -DBUILD_CUML_MG_TESTS=${BUILD_CUML_MG_TESTS} \
           -DNVTX=${NVTX} \
           -DUSE_CCACHE=${CCACHE} \
           -DDISABLE_DEPRECATION_WARNING=${BUILD_DISABLE_DEPRECATION_WARNING} \
           -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} \
-          -DCMAKE_MESSAGE_LOG_LEVEL=VERBOSE \
+          -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
           ${CUML_EXTRA_CMAKE_ARGS} \
           ..
 fi
