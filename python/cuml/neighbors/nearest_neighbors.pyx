@@ -515,7 +515,7 @@ class NearestNeighbors(Base,
             When set to True, the kneighbors method will automatically
             convert the inputs to np.float32.
 
-        _output_type : bool, optional (default = False)
+        _output_cumlarray : bool, optional (default = False)
             When set to True, the class self.output_type is overwritten
             and this method returns the output as a cumlarray
 
