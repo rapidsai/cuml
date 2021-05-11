@@ -24,6 +24,7 @@
 #include <treelite/tree.h>
 #include <algorithm>
 #include <cmath>
+#include <iomanip>
 #include <limits>
 #include <numeric>
 #include <stack>
@@ -638,85 +639,99 @@ int tree2fil_sparse(std::vector<fil_node_t>& nodes, int root,
 }
 
 struct level_entry {
-  int n_branches, n_leaves;
+  int n_branch_nodes, n_leaves;
 };
 typedef std::pair<int, int> pair_t;
 using std::tie;
 // hist has branch and leaf count given depth
 template <typename T, typename L>
 inline void tree_depth_hist(const tl::Tree<T, L>& tree,
-                            std::unordered_map<int, level_entry>& hist) {
+                            std::vector<level_entry>& hist) {
   std::stack<pair_t> stack;  // {tl_id, depth}
   stack.push({tree_root(tree), 0});
   while (!stack.empty()) {
-    int node_id, depth;
-    tie(node_id, depth) = stack.top();
+    const pair_t& top = stack.top();
+    int node_id = top.first;
+    int depth = top.second;
     stack.pop();
+
     while (!tree.IsLeaf(node_id)) {
-      hist[depth].n_branches++;
+      if (depth >= hist.size()) hist.resize(depth + 1, {0, 0});
+      hist[depth].n_branch_nodes++;
       stack.push({tree.LeftChild(node_id), depth + 1});
       node_id = tree.RightChild(node_id);
       depth++;
     }
+
+    if (depth >= hist.size()) hist.resize(depth + 1, {0, 0});
     hist[depth].n_leaves++;
   }
 }
 
 // implements https://tools.ietf.org/html/draft-eastlake-fnv-17.html
-// algorithm is public domain without export controls and no patents or rights to patent
-auto fowler_noll_vo_fingerprint64(int* begin, int* end) {
+// algorithm is public domain, non-cryptographic strength and no patents or rights to patent
+template <typename It>
+unsigned long long fowler_noll_vo_fingerprint64(It begin, It end) {
   return std::accumulate(begin, end, 14695981039346656037ull,
-                         [](const unsigned long long& fingerprint, int x) {
+                         [](const unsigned long long& fingerprint, auto x) {
                            return (fingerprint * 1099511628211ull) ^ x;
                          });
 }
 
 template <typename T, typename L>
 std::stringstream depth_hist_and_max(const tl::ModelImpl<T, L>& model) {
-  std::unordered_map<int, level_entry> depth_hist;
-  for (const auto& tree : model.trees) tree_depth_hist(tree, depth_hist);
-  struct hist_entry {
-    int level, n_branches, n_leaves;
-  };
-  std::vector<hist_entry> vec_hist;
-  for (auto p : depth_hist) {
-    vec_hist.emplace_back(
-      hist_entry{p.first, p.second.n_branches, p.second.n_leaves});
-  }
-  std::sort(vec_hist.begin(), vec_hist.end(),
-            [](auto a, auto b) { return a.level < b.level; });
+  std::vector<level_entry> hist;
+  for (const auto& tree : model.trees) tree_depth_hist(tree, hist);
 
-  int min_depth = -1, leaves_times_depth = 0, total_branches = 0,
+  int min_leaf_depth = -1, leaves_times_depth = 0, total_branches = 0,
       total_leaves = 0;
+  using std::endl;
+  using std::resetiosflags;
+  using std::setprecision;
+  using std::setw;
   std::stringstream forest_shape;
-  forest_shape << "Depth histogram:" << std::endl
-               << "depth branches leaves   nodes" << std::endl;
-  char line[100];
-  for (hist_entry e : vec_hist) {
-    sprintf(line, "%5d %8d %6d %7d\n", e.level, e.n_branches, e.n_leaves,
-            e.n_branches + e.n_leaves);
-    forest_shape << line;
-    if (e.n_leaves && min_depth == -1) min_depth = e.level;
-    leaves_times_depth += e.n_leaves * e.level;
-    total_branches += e.n_branches;
+  std::ios default_state(nullptr);
+  default_state.copyfmt(forest_shape);
+  forest_shape << "Depth histogram:" << endl
+               << "depth branches leaves   nodes" << endl;
+  for (int level = 0; level < hist.size(); ++level) {
+    level_entry e = hist[level];
+    forest_shape << setw(5) << level << setw(9) << e.n_branch_nodes << setw(7)
+                 << e.n_leaves << setw(8) << e.n_branch_nodes + e.n_leaves
+                 << endl;
+    forest_shape.copyfmt(default_state);
+    if (e.n_leaves && min_leaf_depth == -1) min_leaf_depth = level;
+    leaves_times_depth += e.n_leaves * level;
+    total_branches += e.n_branch_nodes;
     total_leaves += e.n_leaves;
   }
   int total_nodes = total_branches + total_leaves;
-  sprintf(line, "Total: branches: %d leaves: %d nodes: %d\n", total_branches,
-          total_leaves, total_nodes);
-  forest_shape << line;
-  sprintf(line, "Avg nodes per tree: %.1f\n",
-          total_nodes / (float)vec_hist[0].n_branches);
-  forest_shape << line;
-  sprintf(line, "Leaf depth: min: %d avg %.1f max %lu\n", min_depth,
-          leaves_times_depth / (float)total_leaves, vec_hist.size() - 1);
-  forest_shape << line;
+  forest_shape << "Total: branches: " << total_branches
+               << " leaves: " << total_leaves << " nodes: " << total_nodes
+               << endl;
+  forest_shape << "Avg nodes per tree: " << setprecision(1)
+               << total_nodes / (float)hist[0].n_branch_nodes << endl;
+  forest_shape.copyfmt(default_state);
+  forest_shape << "Leaf depth: min: " << min_leaf_depth
+               << " avg: " << setprecision(1)
+               << leaves_times_depth / (float)total_leaves
+               << " max: " << hist.size() - 1 << endl;
+  forest_shape.copyfmt(default_state);
+
+  std::vector<int> flat_hist(hist.size() * sizeof(hist[0]) /
+                             sizeof(flat_hist[0]));
+  for (int i = 0, o = 0; o < hist.size(); ++o) {
+    flat_hist[i++] = hist[o].n_branch_nodes;
+    flat_hist[i++] = hist[o].n_leaves;
+  }
   // std::hash does not promise to not be identity. Xoring plain numbers which
   // add up to one another erases information, hence, std::hash is unsuitable here
-  sprintf(line, "Depth histogram fingerprint: %0lx\n",
-          fowler_noll_vo_fingerprint64((int*)&*vec_hist.begin(),
-                                       (int*)&*vec_hist.end()));
-  forest_shape << line;
+  forest_shape << "Depth histogram fingerprint: " << std::hex
+               << fowler_noll_vo_fingerprint64(flat_hist.begin(),
+                                               flat_hist.end())
+               << endl;
+  forest_shape.copyfmt(default_state);
+
   return forest_shape;
 }
 
@@ -1025,13 +1040,13 @@ char* sprintf_shape(const tl::ModelImpl<T, L>& model, storage_type_t storage,
   float size_mb = (trees.size() * sizeof(trees.front()) +
                    nodes.size() * sizeof(nodes.front())) /
                   1e6;
-  char line[100];
-  sprintf(line, "%s model size %.2f MB\n", storage_type_repr[storage], size_mb);
-  forest_shape << line;
-  std::string forest_shape_str =
-    forest_shape.str();  // stream may be discontiguous
-  char* shape_out = new char[forest_shape_str.size()];  // non-owning allocation
-  memcpy(shape_out, forest_shape_str.c_str(), forest_shape_str.size());
+  forest_shape << storage_type_repr[storage] << " model size "
+               << std::setprecision(2) << size_mb << std::endl;
+  // stream may be discontiguous
+  std::string forest_shape_str = forest_shape.str();
+  // now copy to a non-owning allocation
+  void* shape_out = malloc(forest_shape_str.size() + 1);  // incl. \0
+  memcpy(shape_out, forest_shape_str.c_str(), forest_shape_str.size() + 1);
   return shape_out;
 }
 
