@@ -121,10 +121,16 @@ def test_hdbscan_blobs(nrows, ncols, nclusters,
 
 
 @pytest.mark.parametrize('dataset', test_datasets.values())
+
+# TODO: Fix crash when min_samples is changes (due to MST determinism precision error)
 @pytest.mark.parametrize('min_samples', [25])
 @pytest.mark.parametrize('cluster_selection_epsilon', [0.0])
 @pytest.mark.parametrize('cluster_size_bounds', [(15, 0), (25, 0), (60, 0)])
+
+# TODO: Fix small discrepancies in allow_single_cluster=False (single test failure)
 @pytest.mark.parametrize('allow_single_cluster', [True])
+
+# TODO: Verify/fix discrepancies in leaf selection method
 @pytest.mark.parametrize('cluster_selection_method', ['eom'])
 @pytest.mark.parametrize('connectivity', ['knn'])
 def test_hdbscan_sklearn_datasets(dataset,
