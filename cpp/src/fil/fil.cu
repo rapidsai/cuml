@@ -1018,6 +1018,7 @@ void from_treelite(const raft::handle_t& handle, forest_t* pforest,
   });
 }
 
+// allocates caller-owned char* using malloc()
 template <typename T, typename L, typename N>
 char* sprintf_shape(const tl::ModelImpl<T, L>& model, storage_type_t storage,
                     const std::vector<N>& nodes,
