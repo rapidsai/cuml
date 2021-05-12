@@ -210,7 +210,8 @@ DI T warpReduce(T val, uint32_t mask, Op op) {
     T tmp = raft::shfl(val, raft::laneId() + i, raft::warp_size(), mask);
     val = op(val, tmp);
   }
-  return val;
+  auto ret = raft::shfl(val, 0, raft::warp_size(), mask);
+  return ret;
 }
 
 template <typename T, typename Op>
