@@ -212,7 +212,7 @@ void kpcaTransform(const raft::handle_t &handle, math_t *input,
 
   raft::matrix::seqRoot(lambdas, sqrt_vals.data(), prms.n_components, stream);
   raft::matrix::copy(alphas, trans_input, prms.n_components, prms.n_rows, stream);
-  raft::matrix::matrixVectorBinaryMult(trans_input, sqrt_vals.data(), rows, prms.n_components, 
+  raft::matrix::matrixVectorBinaryMult(trans_input, sqrt_vals.data(), prms.n_rows, prms.n_components, 
                                          false, true, stream);
 }
 
