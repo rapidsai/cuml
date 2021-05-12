@@ -15,6 +15,7 @@
  */
 
 #pragma once
+#include <cuml/matrix/kernelparams.h>
 
 namespace ML {
 
@@ -25,11 +26,6 @@ namespace ML {
 enum class solver : int {
   COV_EIG_DQ,
   COV_EIG_JACOBI,
-};
-
-
-enum class kernel_type : int {
-  LINEAR
 };
 
 class params {
@@ -76,18 +72,16 @@ class paramsPCATemplate : public paramsTSVDTemplate<enum_solver> {
   bool whiten = false;
 };
 
-template <typename enum_solver = solver, typename enum_kernel = kernel_type>
+template <typename enum_solver = solver, typename enum_kernel = MLCommon::Matrix::KernelParams>
 class paramsKPCATemplate : public paramsSolver {
  public:
   int n_components = 1;
   enum_solver algorithm = enum_solver::COV_EIG_JACOBI;
-  enum_kernel kernel = enum_kernel::LINEAR;
+  enum_kernel kernel; // Of type MLCommon::Matrix::KernelParams
   bool copy = true;  // TODO unused
   bool remove_zero_eig = false; // TODO unused
   bool fit_inverse_transform = false; // TODO unused
-  // float gamma = 0; // TODO used by rbf, poly and sigmoid kernels
-  // int degree = 3; // TODO used by poly kernels only
-  // float coef0; // TODO independent term in 
+  
 };
 
 typedef paramsTSVDTemplate<> paramsTSVD;
