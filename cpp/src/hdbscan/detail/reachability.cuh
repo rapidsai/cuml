@@ -163,8 +163,6 @@ void mutual_reachability_graph(const raft::handle_t &handle, const value_t *X,
   mutual_reachability<value_idx, value_t>(dists.data(), inds.data(), core_dists,
                                           k, m, alpha, stream);
 
-  raft::print_device_vector("reach_dist", dists.data(), dists.size(), std::cout);
-
   raft::sparse::selection::fill_indices<value_idx>
     <<<raft::ceildiv(k * m, (size_t)256), 256, 0, stream>>>(coo_rows.data(), k,
                                                             m * k);
