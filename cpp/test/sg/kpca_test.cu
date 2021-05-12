@@ -96,7 +96,7 @@ class KPcaTest : public ::testing::TestWithParam<KPcaInputs<T>> {
     paramsPCA prms;
     prms.n_cols = params.n_col;
     prms.n_rows = params.n_row;
-    prms.n_components = params.n_row;
+    prms.n_components = params.n_col;
     prms.whiten = false;
     if (params.algo == 0)
       prms.algorithm = solver::COV_EIG_DQ;
