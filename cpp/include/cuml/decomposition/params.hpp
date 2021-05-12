@@ -80,7 +80,7 @@ template <typename enum_solver = solver, typename enum_kernel = kernel_type>
 class paramsKPCATemplate : public paramsSolver {
  public:
   int n_components = 1;
-  algorithm = enum_solver::COV_EIG_JACOBI;
+  enum_solver algorithm = enum_solver::COV_EIG_JACOBI;
   enum_kernel kernel = enum_kernel::LINEAR;
   bool copy = true;  // TODO unused
   bool remove_zero_eig = false; // TODO unused
