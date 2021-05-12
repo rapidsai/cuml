@@ -90,6 +90,7 @@ void compute_stabilities(
 
   auto stream = handle.get_stream();
   auto exec_policy = rmm::exec_policy(stream);
+  raft::print_device_vector("sizes", sizes, n_edges, std::cout);
 
   // TODO: Reverse topological sort (e.g. sort hierarchy, lambdas, and sizes by lambda)
   // rmm::device_uvector<value_t> sorted_lambdas(n_edges, stream);

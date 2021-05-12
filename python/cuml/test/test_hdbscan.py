@@ -120,11 +120,11 @@ def test_hdbscan_blobs(nrows, ncols, nclusters,
     assert(adjusted_rand_score(cuml_agg.labels_, sk_agg.labels_) >= 0.95)
 
 
-@pytest.mark.parametrize('dataset', test_datasets.values())
+@pytest.mark.parametrize('dataset', "NA")
 @pytest.mark.parametrize('min_samples', [25])
 @pytest.mark.parametrize('cluster_selection_epsilon', [0.0])
-@pytest.mark.parametrize('cluster_size_bounds', [(15, 0), (25, 0), (60, 0)])
-@pytest.mark.parametrize('allow_single_cluster', [True])
+@pytest.mark.parametrize('cluster_size_bounds', [(60, 0)])
+@pytest.mark.parametrize('allow_single_cluster', [False])
 @pytest.mark.parametrize('cluster_selection_method', ['eom'])
 @pytest.mark.parametrize('connectivity', ['knn'])
 def test_hdbscan_sklearn_datasets(dataset,
@@ -137,7 +137,7 @@ def test_hdbscan_sklearn_datasets(dataset,
 
     min_cluster_size, max_cluster_size = cluster_size_bounds
 
-    X = dataset.data
+    X = datasets.load_digits().data
 
     print("points: %s" % X.shape[0])
 
@@ -170,52 +170,100 @@ def test_hdbscan_sklearn_datasets(dataset,
     import numpy as np
     np.set_printoptions(threshold=np.inf)
 
-    print("sk labels: %s" % sk_agg.labels_[:25])
+    # print("sk labels: %s" % sk_agg.labels_[:25])
 
-    print("cu condensed: %s" % cuml_agg.condensed_lambdas_)
-    print("cu condensed: %s" % cuml_agg.condensed_parent_)
-    print("cu condensed: %s" % cuml_agg.condensed_child_)
-    print("cu condensed: %s" % cuml_agg.condensed_sizes_)
+    # print("cu condensed: %s" % cuml_agg.condensed_lambdas_)
+    # print("cu condensed: %s" % cuml_agg.condensed_parent_)
+    # print("cu condensed: %s" % cuml_agg.condensed_child_)
+    # print("cu condensed: %s" % cuml_agg.condensed_sizes_)
 
-    print("sk condensed: %s" % sk_agg.condensed_tree_.to_numpy())
+    # print("sk condensed: %s" % sk_agg.condensed_tree_.to_numpy())
 
     import numpy as np
 
-    print("sk counts: %s" % str(np.unique(sk_agg.labels_, return_counts=True)))
-    print("cu counts: %s" % str(np.unique(cuml_agg.labels_, return_counts=True)))
+    # print("sk counts: %s" % str(np.unique(sk_agg.labels_, return_counts=True)))
+    # print("cu counts: %s" % str(np.unique(cuml_agg.labels_, return_counts=True)))
 
     cu_asmnt = np.sort(np.unique(cuml_agg.labels_, return_counts=True)[1])
     sk_asmnt = np.sort(np.unique(sk_agg.labels_, return_counts=True)[1])
 
-    print("cu stabilities: %s" % cuml_agg.stabilities_.to_output("numpy"))
-    print("sk stabiliies: %s" % sk_agg.cluster_persistence_)
+    # print("cu stabilities: %s" % cuml_agg.stabilities_.to_output("numpy"))
+    # print("sk stabiliies: %s" % sk_agg.cluster_persistence_)
 
 
     t = cuml_agg.condensed_sizes_>1
-    print("cu cluster tree parent %s" % cuml_agg.condensed_parent_[t])
-    print("cu cluster tree child %s" % cuml_agg.condensed_child_[t])
-    print("cu cluster tree lambdas %s" % cuml_agg.condensed_lambdas_[t])
-    print("cu cluster tree sizes %s" % cuml_agg.condensed_sizes_[t])
+    # print("cu cluster tree parent %s" % cuml_agg.condensed_parent_[t])
+    # print("cu cluster tree child %s" % cuml_agg.condensed_child_[t])
+    # print("cu cluster tree lambdas %s" % cuml_agg.condensed_lambdas_[t])
+    # print("cu cluster tree sizes %s" % cuml_agg.condensed_sizes_[t])
 
     t = sk_agg.condensed_tree_.to_numpy()
 
-    print("Cluster tree: %s" % t[t['child_size']>1])
+    # print("Cluster tree: %s" % t[t['child_size']>1])
 
-    print("single linkage tree %s" % sk_agg.single_linkage_tree_.to_numpy())
+    # print("single linkage tree %s" % sk_agg.single_linkage_tree_.to_numpy())
 
-    print("cu children: %s" % cuml_agg.children_)
-    print("cu sizes: %s" % cuml_agg.sizes_)
+    # print("cu children: %s" % cuml_agg.children_)
+    # print("cu sizes: %s" % cuml_agg.sizes_)
 
     import numpy as np
     np.set_printoptions(threshold=np.inf)
 
-    print("cu mst_total: %s" % cp.sum(cuml_agg.mst_weights_))
+    # print("cu mst_total: %s" % cp.sum(cuml_agg.mst_weights_))
+    # print("cu mst_total: %s" % cuml_agg.mst_src_)
+    # print("cu mst_total: %s" % cuml_agg.mst_dst_)
 
-    print("cu mst: %s" % cuml_agg.mst_weights_)
-    print("sk mst_total: %s" % np.sum(sk_agg.minimum_spanning_tree_.to_numpy()[:,2]))
-    print("sk mst: %s" % sk_agg.minimum_spanning_tree_.to_numpy()[:,2])
+    # print("cu mst: %s" % cuml_agg.mst_weights_)
+    # print("sk mst_total: %s" % np.sum(sk_agg.minimum_spanning_tree_.to_numpy()[:,2]))
+    # print("sk mst: %s" % sk_agg.minimum_spanning_tree_.to_numpy()[:,0])
+    # print("sk mst: %s" % sk_agg.minimum_spanning_tree_.to_numpy()[:,1])
+    # print("sk mst: %s" % sk_agg.minimum_spanning_tree_.to_numpy()[:,2])
 
+    cu_mst_src = cp.asnumpy(cuml_agg.mst_src_).reshape((-1, 1))
+    cu_mst_dst = cp.asnumpy(cuml_agg.mst_dst_).reshape((-1, 1))
+    cu_mst_wt = np.array(cp.asnumpy(cuml_agg.mst_weights_).reshape((-1, 1)))
 
+    sk_mst_src = sk_agg.minimum_spanning_tree_.to_numpy()[:,0].reshape((-1, 1))
+    sk_mst_dst = sk_agg.minimum_spanning_tree_.to_numpy()[:,1].reshape((-1, 1))
+    sk_mst_wt = sk_agg.minimum_spanning_tree_.to_numpy()[:,2].reshape((-1, 1))
+
+    cu_mst = np.hstack((cu_mst_src, cu_mst_dst, cu_mst_wt))
+    sk_mst = np.hstack((sk_mst_src, sk_mst_dst, sk_mst_wt))
+
+    cu_mst_sym = np.hstack((cu_mst_dst, cu_mst_src, cu_mst_wt))
+    sk_mst_sym = np.hstack((sk_mst_dst, sk_mst_src, sk_mst_wt))
+
+    cu_mst = np.vstack((cu_mst, cu_mst_sym))
+    sk_mst = np.vstack((sk_mst, sk_mst_sym))
+
+    cu_mst_set = set([tuple(x[:2]) for x in cu_mst])
+    sk_mst_set = set([tuple(x[:2]) for x in sk_mst])
+    # print("fuck")
+    # print(cu_mst_set)
+    # print(sk_mst_set)
+    inter = cu_mst_set & sk_mst_set
+    # print(inter)
+
+    new_cu_mst = np.array([x for x in cu_mst if tuple(x[:2]) not in inter])
+    new_sk_mst = np.array([x for x in sk_mst if tuple(x[:2]) not in inter])
+
+    cu_mst_indices = np.argsort(new_cu_mst[:, 2])
+    sk_mst_indices = np.argsort(new_sk_mst[:, 2])
+
+    new_cu_mst = new_cu_mst[cu_mst_indices, :]
+    new_sk_mst = new_sk_mst[sk_mst_indices, :]
+
+    print(np.sum(new_sk_mst[:, 2]))
+    print(np.sum(new_cu_mst[:, 2]))
+    print("yo")
+    print(new_cu_mst[np.around(new_cu_mst[:, 2], 4) != np.around(new_sk_mst[:, 2], 4), :])
+    print(new_cu_mst)
+    # print(np.sum(new_cu_mst[:, 2]))
+    print("hi")
+    print(new_sk_mst)
+    # print(new_sk_mst[np.around(new_cu_mst[:, 2], 4) != np.around(new_sk_mst[:, 2], 4), :])
+
+    # print(sk_mst[np.abs(cu_mst[:, 2] - sk_mst[:, 2]) >= 1e-3, :])
     # np.testing.assert_equal(cu_asmnt, sk_asmnt)
 
     # Cluster assignments should be exact, even though the actual
@@ -277,3 +325,16 @@ def test_hdbscan_cluster_patterns(dataset, nrows,
     # TODO: Investigating a couple very small label differences
     assert(adjusted_rand_score(cuml_agg.labels_, sk_agg.labels_) > 0.95)
 
+"""
+ [2.93000000e+02 1.27600000e+03 2.60576284e+01]
+ [3.00000000e+00 1.31000000e+03 2.60576284e+01]
+ [1.31000000e+03 3.00000000e+00 2.60576284e+01]
+ [1.27600000e+03 2.93000000e+02 2.60576284e+01]
+ [1.50700000e+03 5.94000000e+02 2.60576284e+01]
+ [5.94000000e+02 1.50700000e+03 2.60576284e+01]
+
+  [2.79000000e+02 1.31000000e+03 2.60576267e+01]
+ [1.27600000e+03 1.68600000e+03 2.60576267e+01]
+ [1.31000000e+03 2.79000000e+02 2.60576267e+01]
+ [1.68600000e+03 1.27600000e+03 2.60576267e+01]
+"""
