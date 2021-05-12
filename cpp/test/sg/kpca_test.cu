@@ -72,37 +72,27 @@ class KPcaTest : public ::testing::TestWithParam<KPcaInputs<T>> {
 
     std::vector<T> data_h = {1.0, 2.0, 5.0, 4.0, 2.0, 1.0};
     data_h.resize(len);
-
     raft::update_device(data, data_h.data(), len, stream);
 
-    std::vector<T> trans_data_ref_h = {-2.3231, -0.3517, 2.6748,
-                                       -0.3979, 0.6571,  -0.2592};
-    trans_data_ref_h.resize(len);
-    raft::update_device(trans_data_ref, trans_data_ref_h.data(), len, stream);
+    //  could change this to n_row * min(n_row, n_col) once truncation is working
+    int len_alphas = params.n_row * params.n_row;  
+    raft::allocate(alphas, len_alphas);
+    raft::allocate(lambdas, params.n_row);
 
-    int len_comp = params.n_row * params.n_row;
-    raft::allocate(components, len_comp);
-    raft::allocate(explained_vars, params.n_row);
-    raft::allocate(explained_var_ratio, params.n_row);
-    raft::allocate(singular_vals, params.n_row);
-    raft::allocate(mean, params.n_row);
-    raft::allocate(noise_vars, 1);
+    //  unscaled eigenvectors - sklearn does not re-scale them until the transform step
+    std::vector<T> alphas_ref_h = {-0.6525, -0.0987, 0.7513, -0.4907, 0.8105, -0.3197};
+    alphas_ref_h.resize(len_alphas);
+    std::vector<T> lambdas_ref_h = {12.6759, 0.6574};
+    lambdas_ref_h.resize(params.n_row);
 
-    std::vector<T> components_ref_h = {-0.6525, -0.0987, 0.7513, -0.4907, 0.8105, -0.3197};
+    raft::allocate(alphas_ref, len_alphas);
+    raft::allocate(lambdas_ref, params.n_row);
 
+    raft::update_device(alphas_ref, alphas_ref_h.data(), len_alphas, stream);
+    raft::update_device(lambdas_ref, lambdas_ref_h.data(), params.n_row, stream);
 
-    components_ref_h.resize(len_comp);
-    std::vector<T> explained_vars_ref_h = {12.6759, 0.6574};
-    explained_vars_ref_h.resize(params.n_row);
-
-    raft::allocate(components_ref, len_comp);
-    raft::allocate(explained_vars_ref, params.n_row);
-
-    raft::update_device(components_ref, components_ref_h.data(), len_comp,
-                        stream);
-    raft::update_device(explained_vars_ref, explained_vars_ref_h.data(),
-                        params.n_row, stream);
-
+    //  standard PCA params work for now
+    //  the only irrelevant one is "whiten"
     paramsPCA prms;
     prms.n_cols = params.n_col;
     prms.n_rows = params.n_row;
@@ -113,12 +103,8 @@ class KPcaTest : public ::testing::TestWithParam<KPcaInputs<T>> {
     else
       prms.algorithm = solver::COV_EIG_JACOBI;
 
-    std::cout << "basicTest - 5 \n";
-    kpcaFit(handle, data, components, explained_vars, explained_var_ratio,
-            singular_vals, mean, noise_vars, prms, stream);
-    std::cout << "basicTest - 6 \n";
-    kpcaTransform(handle, data, components, trans_data, singular_vals, mean,
-                  prms, stream);
+    kpcaFit(handle, data, alphas, lambdas, prms, stream);
+    kpcaTransform(handle, data, alphas, lambdas, trans_data, prms, stream);
   }
 
   void SetUp() override {
@@ -129,25 +115,20 @@ class KPcaTest : public ::testing::TestWithParam<KPcaInputs<T>> {
 
   void TearDown() override {
     CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(components));
     CUDA_CHECK(cudaFree(trans_data));
+    CUDA_CHECK(cudaFree(alphas));
+    CUDA_CHECK(cudaFree(lambdas));
     CUDA_CHECK(cudaFree(data_back));
     CUDA_CHECK(cudaFree(trans_data_ref));
-    CUDA_CHECK(cudaFree(explained_vars));
-    CUDA_CHECK(cudaFree(explained_var_ratio));
-    CUDA_CHECK(cudaFree(singular_vals));
-    CUDA_CHECK(cudaFree(mean));
-    CUDA_CHECK(cudaFree(noise_vars));
-    CUDA_CHECK(cudaFree(components_ref));
-    CUDA_CHECK(cudaFree(explained_vars_ref));
+    CUDA_CHECK(cudaFree(alphas_ref));
+    CUDA_CHECK(cudaFree(lambdas_ref));
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
   KPcaInputs<T> params;
-  T *data, *trans_data, *data_back, *components, *explained_vars,
-    *explained_var_ratio, *singular_vals, *mean, *noise_vars, *trans_data_ref,
-    *components_ref, *explained_vars_ref;
+  T *data, *trans_data, *data_back, *alphas, *lambdas, 
+    *trans_data_ref, *alphas_ref, *lambdas_ref;
 
   raft::handle_t handle;
   cudaStream_t stream;
@@ -157,17 +138,35 @@ const std::vector<KPcaInputs<float>> inputsf2 = {
   {0.01f, 3 * 2, 3, 2, 1024 * 128, 1024, 128, 1234ULL, 0},
   {0.01f, 3 * 2, 3, 2, 256 * 32, 256, 32, 1234ULL, 1}};
 
+const std::vector<KPcaInputs<double>> inputsd2 = {
+  {0.01, 3 * 2, 3, 2, 1024 * 128, 1024, 128, 1234ULL, 0},
+  {0.01, 3 * 2, 3, 2, 256 * 32, 256, 32, 1234ULL, 1}};
+
+
 typedef KPcaTest<float> KPcaTestValF;
 TEST_P(KPcaTestValF, Result) {
-  ASSERT_TRUE(devArrMatch(explained_vars, explained_vars_ref, params.n_col,
+  ASSERT_TRUE(devArrMatch(lambdas, lambdas_ref, params.n_col,
                           raft::CompareApproxAbs<float>(params.tolerance)));
+}
+
+typedef KPcaTest<double> KPcaTestValD;
+TEST_P(KPcaTestValD, Result) {
+  ASSERT_TRUE(devArrMatch(lambdas, lambdas_ref, params.n_col,
+                          raft::CompareApproxAbs<double>(params.tolerance)));
 }
 
 typedef KPcaTest<float> KPcaTestLeftVecF;
 TEST_P(KPcaTestLeftVecF, Result) {
-  ASSERT_TRUE(devArrMatch(components, components_ref,
+  ASSERT_TRUE(devArrMatch(alphas, alphas_ref,
                           (params.n_col * params.n_col),
                           raft::CompareApproxAbs<float>(params.tolerance)));
+}
+
+typedef KPcaTest<double> KPcaTestLeftVecD;
+TEST_P(KPcaTestLeftVecD, Result) {
+  ASSERT_TRUE(devArrMatch(alphas, alphas_ref,
+                          (params.n_col * params.n_col),
+                          raft::CompareApproxAbs<double>(params.tolerance)));
 }
 
 typedef KPcaTest<float> KPcaTestTransDataF;
@@ -177,21 +176,27 @@ TEST_P(KPcaTestTransDataF, Result) {
                           raft::CompareApproxAbs<float>(params.tolerance)));
 }
 
-typedef KPcaTest<float> KPcaTestDataVecSmallF;
-TEST_P(KPcaTestDataVecSmallF, Result) {
-  ASSERT_TRUE(devArrMatch(data, data_back, (params.n_col * params.n_col),
-                          raft::CompareApproxAbs<float>(params.tolerance)));
+typedef KPcaTest<double> KPcaTestTransDataD;
+TEST_P(KPcaTestTransDataD, Result) {
+  ASSERT_TRUE(devArrMatch(trans_data, trans_data_ref,
+                          (params.n_row * params.n_col),
+                          raft::CompareApproxAbs<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(KPcaTests, KPcaTestValF, ::testing::ValuesIn(inputsf2));
 
+INSTANTIATE_TEST_CASE_P(KPcaTests, KPcaTestValD, ::testing::ValuesIn(inputsd2));
+
 INSTANTIATE_TEST_CASE_P(KPcaTests, KPcaTestLeftVecF,
                         ::testing::ValuesIn(inputsf2));
 
-INSTANTIATE_TEST_CASE_P(KPcaTests, KPcaTestDataVecSmallF,
-                        ::testing::ValuesIn(inputsf2));
+INSTANTIATE_TEST_CASE_P(KPcaTests, KPcaTestLeftVecD,
+                        ::testing::ValuesIn(inputsd2));
 
 INSTANTIATE_TEST_CASE_P(KPcaTests, KPcaTestTransDataF,
                         ::testing::ValuesIn(inputsf2));
+
+INSTANTIATE_TEST_CASE_P(KPcaTests, KPcaTestTransDataD,
+                        ::testing::ValuesIn(inputsd2));
 
 }  // end namespace ML
