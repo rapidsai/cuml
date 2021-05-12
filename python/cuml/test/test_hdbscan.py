@@ -160,6 +160,12 @@ def test_hdbscan_sklearn_datasets(dataset,
 
     cuml_agg.fit(X)
 
+    import matplotlib.pyplot as plt
+
+
+    cuml_agg.condensed_tree_().plot()
+    plt.show()
+
     # print("condensed_parents: %s" % cuml_agg.condensed_parent_[:])
     # print("condensed child: %s" % cuml_agg.condensed_child_)
 
