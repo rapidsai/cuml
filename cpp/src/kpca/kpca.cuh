@@ -68,6 +68,7 @@ void kpcaFit(const raft::handle_t &handle, math_t *input, math_t *components,
              math_t *singular_vals, math_t *mu, math_t *noise_vars,
              const paramsPCA &prms, cudaStream_t stream) {
   auto cublas_handle = handle.get_cublas_handle();
+  auto allocator = handle.get_device_allocator();
   ASSERT(prms.n_cols > 1,
          "Parameter n_cols: number of columns cannot be less than two");
   ASSERT(prms.n_rows > 1,
@@ -150,19 +151,18 @@ void kpcaFit(const raft::handle_t &handle, math_t *input, math_t *components,
                      prms.n_rows, components, explained_var,
                      stream, tol, sweeps);
 
+  raft::matrix::colReverse(components, prms.n_rows, prms.n_rows, stream);
 
-  //  TODO: sign flip components to enforce deterministic output
-//   signFlip(trans_input, prms.n_rows, prms.n_components, components, prms.n_cols,
-//            handle.get_device_allocator(), stream);
+  raft::matrix::rowReverse(explained_var, prms.n_rows, 1, stream);
+  signFlip(explained_var, prms.n_rows, n_components, components, prms.n_cols,
+           allocator, stream);
   
   raft::print_device_vector("components: ", components,
                             prms.n_rows * n_components, std::cout);
   raft::print_device_vector("explained_var (eigenvalues): ", explained_var,
                             n_components, std::cout);
-  //  TODO: sort components by corresponding eigenvalues (descending)
+ 
   //  TODO: truncate zero eigenvectors/eigenvalues
-
-
 
   std::cout << "END KPCA FIT\n";
 }
