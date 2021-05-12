@@ -14,8 +14,6 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
-#include <raft/mr/device/allocator.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <raft/distance/distance.cuh>

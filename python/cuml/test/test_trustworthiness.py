@@ -43,9 +43,34 @@ def test_trustworthiness(input_type, n_samples, n_features, n_components,
 
     if input_type == 'dataframe':
         X = cudf.DataFrame(X)
-
         X_embedded = cudf.DataFrame(X_embedded)
 
-    score = cuml_trustworthiness(X, X_embedded, batch_size=batch_size)
+    cu_score = cuml_trustworthiness(X, X_embedded, batch_size=batch_size)
 
-    assert abs(score - sk_score) <= 1e-3
+    assert abs(cu_score - sk_score) <= 1e-3
+
+
+@pytest.mark.parametrize('n_neighbors', [2, 3])
+def test_trustworthiness_extreme(n_neighbors):
+    dimensionality = 100
+    X = np.vstack(
+        [
+            np.zeros(dimensionality),
+            np.ones(dimensionality),
+            np.ones(dimensionality),
+            np.zeros(dimensionality),
+        ]
+    )
+    embeddings = np.array(
+        [
+            [-5.00000000e00, 1.22887811e-14],
+            [5.00000000e00, -1.22887811e-14],
+            [5.00000000e00, -1.22887811e-14],
+            [-5.00000000e00, 1.22887811e-14],
+        ]
+    )
+
+    sk_score = sklearn_trustworthiness(X, embeddings, n_neighbors=n_neighbors)
+    cu_score = cuml_trustworthiness(X, embeddings, n_neighbors=n_neighbors)
+
+    assert abs(cu_score - sk_score) <= 1e-3
