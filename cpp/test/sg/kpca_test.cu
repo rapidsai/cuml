@@ -87,9 +87,7 @@ class KPcaTest : public ::testing::TestWithParam<KPcaInputs<T>> {
     prms.n_cols = params.n_col;
     prms.n_rows = params.n_row;
     prms.n_components = params.n_col;
-    prms.gamma = 0;
-    prms.degree = 3;
-    prms.coef0 = 1;
+    prms.kernel = MLCommon::Matrix::KernelParams{Matrix::LINEAR, 0, 0, 0};
     if (params.algo == 0)
       prms.algorithm = solver::COV_EIG_DQ;
     else

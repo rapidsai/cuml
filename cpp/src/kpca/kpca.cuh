@@ -75,10 +75,8 @@ void kpcaFit(const raft::handle_t &handle, value_t *input, value_t *alphas,
   int n_components = prms.n_components;
   if (n_components > prms.n_rows) n_components = prms.n_rows;
 
-  Matrix::KernelParams kparam{Matrix::LINEAR, 0, 0, 0};
-
   Matrix::GramMatrixBase<value_t> *kernel =
-    Matrix::KernelFactory<value_t>::create(kparam, cublas_handle);
+    Matrix::KernelFactory<value_t>::create(prms.kernel, cublas_handle);
   
   value_t *kernel_mat;
   raft::allocate(kernel_mat, prms.n_rows * prms.n_rows);

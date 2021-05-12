@@ -73,15 +73,12 @@ class paramsPCATemplate : public paramsTSVDTemplate<enum_solver> {
 };
 
 template <typename enum_solver = solver, typename enum_kernel = MLCommon::Matrix::KernelParams>
-class paramsKPCATemplate : public paramsSolver {
+class paramsKPCATemplate : public paramsTSVDTemplate<enum_solver> {
  public:
-  int n_components = 1;
-  enum_solver algorithm = enum_solver::COV_EIG_JACOBI;
-  enum_kernel kernel; // Of type MLCommon::Matrix::KernelParams
+  enum_kernel kernel; // KernelParams
   bool copy = true;  // TODO unused
   bool remove_zero_eig = false; // TODO unused
   bool fit_inverse_transform = false; // TODO unused
-  
 };
 
 typedef paramsTSVDTemplate<> paramsTSVD;
