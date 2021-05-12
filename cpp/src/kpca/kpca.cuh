@@ -199,7 +199,6 @@ void kpcaTransform(const raft::handle_t &handle, math_t *input,
                    math_t *alphas, math_t *lambdas,
                    math_t *trans_input, const paramsKPCA &prms,
                    cudaStream_t stream) {
-  std::cout << "kpcaTransform\n";
   ASSERT(prms.n_cols > 1,
          "Parameter n_cols: number of columns cannot be less than two");
   ASSERT(prms.n_rows > 0,
@@ -207,28 +206,14 @@ void kpcaTransform(const raft::handle_t &handle, math_t *input,
   ASSERT(
     prms.n_components > 0,
     "Parameter n_components: number of components cannot be less than one");
-  // Perform sqrt on eigenvalues.
-  std::cout << "kpcaTransform asserts done\n";
+
   auto allocator = handle.get_device_allocator();
   device_buffer<math_t> sqrt_vals(allocator, stream, prms.n_components);
-  std::cout << "device_buffer alloc done\n";
-  // TODO should adjust seqroot?
+
   raft::matrix::seqRoot(lambdas, sqrt_vals.data(), prms.n_components, stream);
-  std::cout << "seqRoot  done\n";
-  // TODO Element wise multiplications components singular vals and components, store in trans_inout
   raft::matrix::copy(alphas, trans_input, prms.n_components, prms.n_rows, stream);
-  std::cout << "copy  done\n";
-  raft::matrix::matrixVectorBinaryMult(trans_input, sqrt_vals.data(), prms.n_cols, prms.n_components,
-                                         true, false, stream);
-  std::cout << "matrixVectorBinaryMult done\n";
-  raft::print_device_vector("components: ", alphas,
-                          prms.n_rows * prms.n_components, std::cout);
-  raft::print_device_vector("trans_input: ", trans_input,
-                          prms.n_rows * prms.n_components, std::cout);
-  raft::print_device_vector("sqrt_vals: ", sqrt_vals.data(),
-                          prms.n_components, std::cout);
-  raft::print_device_vector("lambdas explained_var (eigenvalues): ", lambdas,
-                            prms.n_components, std::cout);
+  raft::matrix::matrixVectorBinaryMult(trans_input, sqrt_vals.data(), rows, prms.n_components, 
+                                         false, true, stream);
 }
 
 };  // end namespace ML

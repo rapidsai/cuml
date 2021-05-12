@@ -68,7 +68,6 @@ class KPcaTest : public ::testing::TestWithParam<KPcaInputs<T>> {
     raft::allocate(data, len);
     raft::allocate(data_back, len);
     raft::allocate(trans_data, len);      //  transformed data
-    raft::allocate(trans_data_ref, len);  //  ground truth transformed data
 
     std::vector<T> data_h = {1.0, 2.0, 5.0, 4.0, 2.0, 1.0};
     data_h.resize(len);
@@ -84,12 +83,16 @@ class KPcaTest : public ::testing::TestWithParam<KPcaInputs<T>> {
     alphas_ref_h.resize(len_alphas);
     std::vector<T> lambdas_ref_h = {12.6759, 0.6574};
     lambdas_ref_h.resize(params.n_row);
+    std::vector<T> trans_data_ref_h = {-2.32318647,-0.35170213, 2.6748886, -0.39794495, 0.65716145,-0.25921649};
+    trans_data_ref_h.resize(len);
 
     raft::allocate(alphas_ref, len_alphas);
     raft::allocate(lambdas_ref, params.n_row);
+    raft::allocate(trans_data_ref, len);
 
     raft::update_device(alphas_ref, alphas_ref_h.data(), len_alphas, stream);
     raft::update_device(lambdas_ref, lambdas_ref_h.data(), params.n_row, stream);
+    raft::update_device(trans_data_ref, trans_data_ref_h.data(), len, stream);
 
     //  standard PCA params work for now
     //  the only irrelevant one is "whiten"
