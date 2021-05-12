@@ -222,6 +222,7 @@ def test_pca_inverse_transform(datatype, input_type,
 @pytest.mark.parametrize('whiten', [True, False])
 @pytest.mark.parametrize('return_sparse', [True, False])
 @pytest.mark.parametrize('cupy_input', [True, False])
+@pytest.mark.xfail(check_gpu_memory_limits(48), "This test expect more memory")
 def test_sparse_pca_inputs(nrows, ncols, whiten, return_sparse, cupy_input):
 
     if return_sparse:

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import inspect
+import subprocess
 
 import cupy as cp
 import numpy as np
@@ -415,3 +416,26 @@ def get_shap_values(model,
         shap_values = explainer(explained_dataset)
 
     return explainer, shap_values
+
+
+def check_gpu_memory_limits(max_size: int):
+    # max_size: Expected GPU-memory usage in GB
+    global max_gpu_memory
+    if max_gpu_memory == 0:
+        try:
+            bash_command = "nvidia-smi --query-gpu=memory.total --format=csv"
+            output = subprocess.check_output(bash_command).decode("utf-8")
+            lines = output.split("\n")
+            lines.pop(0)
+            gpus_memory = []
+            for l in lines:
+                tokens = l.split(", ")
+                if len(tokens) > 1:
+                    gpus_memory.append(int(tokens[0]))
+            sorted(gpus_memory)
+            max_gpu_memory = gpus_memory[-1] / 1024
+
+        except OSError:
+            logger.info("GPU device is not available")
+    elif max_size > max_gpu_memory:
+        pytest.xfail()
