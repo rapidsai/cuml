@@ -49,24 +49,19 @@ namespace ML {
 
 using namespace MLCommon;
 
+
 /**
  * @brief perform fit operation for the pca. Generates eigenvectors, explained vars, singular vals, etc.
  * @param[in] handle: cuml handle object
  * @param[in] input: the data is fitted to PCA. Size n_rows x n_cols. The size of the data is indicated in prms.
- * @param[out] components: the principal components of the input data. Size n_cols * n_components.
- * @param[out] explained_var: explained variances (eigenvalues) of the principal components. Size n_components * 1.
- * @param[out] explained_var_ratio: the ratio of the explained variance and total variance. Size n_components * 1.
- * @param[out] singular_vals: singular values of the data. Size n_components * 1
- * @param[out] mu: mean of all the features (all the columns in the data). Size n_cols * 1.
- * @param[out] noise_vars: variance of the noise. Size 1 * 1 (scalar).
- * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
+ * @param[out] alphas: the principal components of the input data. Size n_cols * n_components.
+ * @param[out] lambdas: lambdas (eigenvalues) of the principal components. Size n_components * 1.
+ * @param[in] prms: data structure that includes all the parameters from data size to algorithm.
  * @param[in] stream cuda stream
  */
 template <typename math_t>
-void kpcaFit(const raft::handle_t &handle, math_t *input, math_t *components,
-             math_t *explained_var, math_t *explained_var_ratio,
-             math_t *singular_vals, math_t *mu, math_t *noise_vars,
-             const paramsPCA &prms, cudaStream_t stream) {
+void kpcaFit(const raft::handle_t &handle, math_t *input, math_t *alphas,
+             math_t *lambdas, const paramsPCA &prms, cudaStream_t stream) {
   auto cublas_handle = handle.get_cublas_handle();
   auto allocator = handle.get_device_allocator();
   ASSERT(prms.n_cols > 1,
@@ -80,7 +75,7 @@ void kpcaFit(const raft::handle_t &handle, math_t *input, math_t *components,
   int n_components = prms.n_components;
   if (n_components > prms.n_rows) n_components = prms.n_rows;
 
-  raft::print_device_vector("input matrix (as vector): ", input,
+  raft::print_device_vector("data matrix (as vector): ", input,
                             prms.n_rows * prms.n_cols, std::cout);
 
   //   Matrix::KernelParams kparam{Matrix::RBF, 0, 1, 0};
@@ -148,18 +143,18 @@ void kpcaFit(const raft::handle_t &handle, math_t *input, math_t *components,
   math_t sweeps = 15;
   //  eigendecomposition
   raft::linalg::eigJacobi(handle, centered_kernel, prms.n_rows,
-                     prms.n_rows, components, explained_var,
+                     prms.n_rows, alphas, lambdas,
                      stream, tol, sweeps);
 
-  raft::matrix::colReverse(components, prms.n_rows, prms.n_rows, stream);
+  raft::matrix::colReverse(alphas, prms.n_rows, prms.n_rows, stream);
 
-  raft::matrix::rowReverse(explained_var, prms.n_rows, 1, stream);
-  signFlip(explained_var, prms.n_rows, n_components, components, prms.n_cols,
+  raft::matrix::rowReverse(lambdas, prms.n_rows, 1, stream);
+  signFlip(lambdas, prms.n_rows, n_components, alphas, prms.n_cols,
            allocator, stream);
   
-  raft::print_device_vector("components: ", components,
+  raft::print_device_vector("components: ", alphas,
                             prms.n_rows * n_components, std::cout);
-  raft::print_device_vector("explained_var (eigenvalues): ", explained_var,
+  raft::print_device_vector("lambdas (eigenvalues): ", lambdas,
                             n_components, std::cout);
  
   //  TODO: truncate zero eigenvectors/eigenvalues
@@ -175,7 +170,7 @@ void kpcaFit(const raft::handle_t &handle, math_t *input, math_t *components,
  * @param[out] components: the principal components of the input data. Size n_cols * n_components.
  * @param[out] explained_var: explained variances (eigenvalues) of the principal components. Size n_components * 1.
  * @param[out] explained_var_ratio: the ratio of the explained variance and total variance. Size n_components * 1.
- * @param[out] singular_vals: singular values of the data. Size n_components * 1
+ * @param[out] lambdas: singular values of the data. Size n_components * 1
  * @param[out] mu: mean of all the features (all the columns in the data). Size n_cols * 1.
  * @param[out] noise_vars: variance of the noise. Size 1 * 1 (scalar).
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
@@ -183,32 +178,28 @@ void kpcaFit(const raft::handle_t &handle, math_t *input, math_t *components,
  */
 template <typename math_t>
 void kpcaFitTransform(const raft::handle_t &handle, math_t *input,
-                      math_t *trans_input, math_t *components,
-                      math_t *explained_var, math_t *explained_var_ratio,
-                      math_t *singular_vals, math_t *mu, math_t *noise_vars,
-                      const paramsPCA &prms, cudaStream_t stream) {
-  kpcaFit(handle, input, components, explained_var, explained_var_ratio,
-          singular_vals, mu, noise_vars, prms, stream);
-  kpcaTransform(handle, input, components, trans_input, singular_vals, mu, prms,
-                stream);
+                      math_t *trans_input, math_t *alphas,
+                      math_t *lambdas, const paramsPCA &prms, cudaStream_t stream) {
+  kpcaFit(handle, input, alphas, lambdas, prms, stream);
+  kpcaTransform(handle, input, alphas, lambdas, trans_input, prms, stream);
 }
 
 /**
  * @brief performs transform operation for the pca. Transforms the data to eigenspace.
  * @param[in] handle: the internal cuml handle object
  * @param[in] input: the data is transformed. Size n_rows x n_components.
- * @param[in] components: principal components of the input data. Size n_cols * n_components.
- * @param[out] trans_input:  the transformed data. Size n_rows * n_components.
- * @param[in] singular_vals: singular values of the data. Size n_components * 1.
- * @param[in] mu: mean value of the input data
+ * @param[in] alphas: principal components of the input data. Size n_rows * n_components.
+ * @param[in] lambdas: singular values of the data. Size n_components * 1.
+ * @param[out] trans_input:  the transformed data. Size n_cols * n_components.
  * @param[in] prms: data structure that includes all the parameters from input size to algorithm.
  * @param[in] stream cuda stream
  */
 template <typename math_t>
 void kpcaTransform(const raft::handle_t &handle, math_t *input,
-                   math_t *components, math_t *trans_input,
-                   math_t *singular_vals, math_t *mu, const paramsPCA &prms,
+                   math_t *alphas, math_t *lambdas,
+                   math_t *trans_input, const paramsPCA &prms,
                    cudaStream_t stream) {
+  std::cout << "kpcaTransform\n";
   ASSERT(prms.n_cols > 1,
          "Parameter n_cols: number of columns cannot be less than two");
   ASSERT(prms.n_rows > 0,
@@ -217,13 +208,27 @@ void kpcaTransform(const raft::handle_t &handle, math_t *input,
     prms.n_components > 0,
     "Parameter n_components: number of components cannot be less than one");
   // Perform sqrt on eigenvalues.
+  std::cout << "kpcaTransform asserts done\n";
   auto allocator = handle.get_device_allocator();
-  device_buffer<math_t> sqrt_components(allocator, stream, prms.n_components);
+  device_buffer<math_t> sqrt_vals(allocator, stream, prms.n_components);
+  std::cout << "device_buffer alloc done\n";
   // TODO should adjust seqroot?
-  // raft::matrix::seqRoot(singular_vals, sqrt_components.data, prms.n_components, stream);
+  raft::matrix::seqRoot(lambdas, sqrt_vals.data(), prms.n_components, stream);
+  std::cout << "seqRoot  done\n";
   // TODO Element wise multiplications components singular vals and components, store in trans_inout
-
-
+  raft::matrix::copy(alphas, trans_input, prms.n_components, prms.n_rows, stream);
+  std::cout << "copy  done\n";
+  raft::matrix::matrixVectorBinaryMult(trans_input, sqrt_vals.data(), prms.n_cols, prms.n_components,
+                                         true, false, stream);
+  std::cout << "matrixVectorBinaryMult done\n";
+  raft::print_device_vector("components: ", alphas,
+                          prms.n_rows * prms.n_components, std::cout);
+  raft::print_device_vector("trans_input: ", trans_input,
+                          prms.n_rows * prms.n_components, std::cout);
+  raft::print_device_vector("sqrt_vals: ", sqrt_vals.data(),
+                          prms.n_components, std::cout);
+  raft::print_device_vector("lambdas explained_var (eigenvalues): ", lambdas,
+                            prms.n_components, std::cout);
 }
 
 };  // end namespace ML

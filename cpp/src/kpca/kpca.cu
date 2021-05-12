@@ -21,53 +21,38 @@ namespace ML {
 
 using namespace MLCommon;
 
-void kpcaFit(raft::handle_t &handle, float *input, float *components,
-             float *explained_var, float *explained_var_ratio,
-             float *singular_vals, float *mu, float *noise_vars,
-             const paramsPCA &prms) {
-  kpcaFit(handle, input, components, explained_var, explained_var_ratio,
-          singular_vals, mu, noise_vars, prms, handle.get_stream());
+void kpcaFit(raft::handle_t &handle, float *input, float *alphas,
+             float *lambdas, const paramsPCA &prms) {
+  kpcaFit(handle, input, alphas, lambdas, prms, handle.get_stream());
 }
 
-void kpcaFit(raft::handle_t &handle, double *input, double *components,
-             double *explained_var, double *explained_var_ratio,
-             double *singular_vals, double *mu, double *noise_vars,
-             const paramsPCA &prms) {
-  kpcaFit(handle, input, components, explained_var, explained_var_ratio,
-          singular_vals, mu, noise_vars, prms, handle.get_stream());
+
+void kpcaFit(raft::handle_t &handle, double *input, double *alphas,
+             double *lambdas, const paramsPCA &prms) {
+  kpcaFit(handle, input, alphas, lambdas, prms, handle.get_stream());
 }
 
 void kpcaFitTransform(raft::handle_t &handle, float *input, float *trans_input,
-                      float *components, float *explained_var,
-                      float *explained_var_ratio, float *singular_vals,
-                      float *mu, float *noise_vars, const paramsPCA &prms) {
-  kpcaFitTransform(handle, input, trans_input, components, explained_var,
-                   explained_var_ratio, singular_vals, mu, noise_vars, prms,
+                      float *alphas, float *lambdas, const paramsPCA &prms) {
+  kpcaFitTransform(handle, input, trans_input, alphas, lambdas, prms,
                    handle.get_stream());
 }
 
-void kpcaFitTransform(raft::handle_t &handle, double *input,
-                      double *trans_input, double *components,
-                      double *explained_var, double *explained_var_ratio,
-                      double *singular_vals, double *mu, double *noise_vars,
-                      const paramsPCA &prms) {
-  kpcaFitTransform(handle, input, trans_input, components, explained_var,
-                   explained_var_ratio, singular_vals, mu, noise_vars, prms,
+void kpcaFitTransform(raft::handle_t &handle, double *input, double *trans_input,
+                      double *alphas, double *lambdas, const paramsPCA &prms) {
+  kpcaFitTransform(handle, input, trans_input, alphas, lambdas, prms,
                    handle.get_stream());
 }
 
-void kpcaTransform(raft::handle_t &handle, float *input, float *components,
-                   float *trans_input, float *singular_vals, float *mu,
-                   const paramsPCA &prms) {
-  kpcaTransform(handle, input, components, trans_input, singular_vals, mu, prms,
-                handle.get_stream());
+
+void kpcaTransform(raft::handle_t &handle, float *input, float *alphas, float *lambdas,
+                   float *trans_input, const paramsPCA &prms) {
+  kpcaTransform(handle, input, alphas, lambdas, trans_input, prms, handle.get_stream());
 }
 
-void kpcaTransform(raft::handle_t &handle, double *input, double *components,
-                   double *trans_input, double *singular_vals, double *mu,
-                   const paramsPCA &prms) {
-  kpcaTransform(handle, input, components, trans_input, singular_vals, mu, prms,
-                handle.get_stream());
+void kpcaTransform(raft::handle_t &handle, double *input, double *alphas, double *lambdas,
+                   double *trans_input, const paramsPCA &prms) {
+  kpcaTransform(handle, input, alphas, lambdas, trans_input, prms, handle.get_stream());
 }
 
 };  // end namespace ML
