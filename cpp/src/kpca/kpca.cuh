@@ -216,9 +216,12 @@ void kpcaTransform(const raft::handle_t &handle, math_t *input,
   ASSERT(
     prms.n_components > 0,
     "Parameter n_components: number of components cannot be less than one");
-
-  //  TODO: multiply each component_i by sqrt(eigenvalue_i)
-
+  // Perform sqrt on eigenvalues.
+  auto allocator = handle.get_device_allocator();
+  device_buffer<math_t> sqrt_components(allocator, stream, prms.n_components);
+  // TODO should adjust seqroot?
+  // raft::matrix::seqRoot(singular_vals, sqrt_components.data, prms.n_components, stream);
+  // TODO Element wise multiplications components singular vals and components, store in trans_inout
 
 
 }
