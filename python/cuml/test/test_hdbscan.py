@@ -152,6 +152,7 @@ def test_hdbscan_sklearn_datasets(dataset,
     cuml_agg = HDBSCAN(verbose=logger.level_debug,
                        allow_single_cluster=allow_single_cluster,
                        n_neighbors=min_samples*2,
+                       gen_min_span_tree=True,
                        min_samples=min_samples,
                        max_cluster_size=max_cluster_size,
                        min_cluster_size=min_cluster_size,
@@ -163,7 +164,7 @@ def test_hdbscan_sklearn_datasets(dataset,
     import matplotlib.pyplot as plt
 
 
-    cuml_agg.condensed_tree_().plot()
+    cuml_agg.minimum_spanning_tree_.plot()
     plt.show()
 
     # print("condensed_parents: %s" % cuml_agg.condensed_parent_[:])

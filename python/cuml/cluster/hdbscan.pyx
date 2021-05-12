@@ -279,6 +279,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                  p=2,
                  cluster_selection_method='eom',
                  allow_single_cluster=False,
+                 gen_min_span_tree=False,
                  handle=None,
                  verbose=False,
                  connectivity='knn',
@@ -318,6 +319,9 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         self.n_leaves_ = None
 
         self._condensed_tree = None
+        self._single_linkage_tree = None
+
+        self.gen_min_span_tree_ = gen_min_span_tree
 
     def condensed_tree_(self):
         print("INSIDE CONDENSED TREE")
@@ -344,6 +348,46 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
             raise ImportError("hdbscan must be installed to use plots")
 
         return CondensedTree(raw_tree, self.cluster_selection_epsilon, self.allow_single_cluster)
+
+    def single_linkage_tree_(self):
+
+        if not self.fit_called_:
+            return None
+
+        if self._single_linkage_tree is None:
+
+            with cuml.using_output_type("numpy"):
+                raw_tree = np.column_stack((self.children_[0, :self.n_leaves_-1],
+                                            self.children_[1, :self.n_leaves_-1],
+                                            self.lambdas_[:self.n_leaves_-1],
+                                            self.sizes_[:self.n_leaves_-1]))
+
+            print(str(raw_tree))
+
+            raw_tree = raw_tree.astype(np.float64)
+
+        try:
+            from hdbscan.plots import SingleLinkageTree
+        except:
+            raise ImportError("hdbscan must be installed to use plots")
+
+        return SingleLinkageTree(raw_tree)
+
+    def _minimum_spanning_tree(self, X):
+
+        with cuml.using_output_type("numpy"):
+            raw_tree = np.column_stack((self.mst_src_,
+                                        self.mst_dst_,
+                                        self.mst_weights_))
+
+        raw_tree = raw_tree.astype(np.float64)
+
+        try:
+            from hdbscan.plots import MinimumSpanningTree
+        except:
+            raise ImportError("hdbscan must be installed to use plots")
+
+        self.minimum_spanning_tree_ = MinimumSpanningTree(raw_tree, X.to_output("numpy"))
 
 
     def __dealloc__(self):
@@ -495,6 +539,9 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         self.fit_called_ = True
 
         self._construct_output_attributes()
+
+        if self.gen_min_span_tree_:
+            self._minimum_spanning_tree(X_m)
 
         print("Labels: %s" % self.labels_.to_output("numpy")[:25])
 
