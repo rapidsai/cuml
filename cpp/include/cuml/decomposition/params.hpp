@@ -27,6 +27,11 @@ enum class solver : int {
   COV_EIG_JACOBI,
 };
 
+
+enum class kernel_type : int {
+  LINEAR
+};
+
 class params {
  public:
   int n_rows;
@@ -71,8 +76,24 @@ class paramsPCATemplate : public paramsTSVDTemplate<enum_solver> {
   bool whiten = false;
 };
 
+template <typename enum_solver = solver, typename enum_kernel = kernel_type>
+class paramsKPCATemplate : public paramsSolver {
+ public:
+  int n_components = 1;
+  algorithm = enum_solver::COV_EIG_JACOBI;
+  enum_kernel kernel = enum_kernel::LINEAR;
+  bool copy = true;  // TODO unused
+  bool remove_zero_eig = false; // TODO unused
+  bool fit_inverse_transform = false; // TODO unused
+  // float gamma = 0; // TODO used by rbf, poly and sigmoid kernels
+  // int degree = 3; // TODO used by poly kernels only
+  // float coef0; // TODO independent term in 
+};
+
 typedef paramsTSVDTemplate<> paramsTSVD;
 
 typedef paramsPCATemplate<> paramsPCA;
+
+typedef paramsKPCATemplate<> paramsKPCA;
 
 };  // end namespace ML

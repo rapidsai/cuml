@@ -61,7 +61,7 @@ using namespace MLCommon;
  */
 template <typename math_t>
 void kpcaFit(const raft::handle_t &handle, math_t *input, math_t *alphas,
-             math_t *lambdas, const paramsPCA &prms, cudaStream_t stream) {
+             math_t *lambdas, const paramsKPCA &prms, cudaStream_t stream) {
   auto cublas_handle = handle.get_cublas_handle();
   auto allocator = handle.get_device_allocator();
   ASSERT(prms.n_cols > 1,
@@ -179,7 +179,7 @@ void kpcaFit(const raft::handle_t &handle, math_t *input, math_t *alphas,
 template <typename math_t>
 void kpcaFitTransform(const raft::handle_t &handle, math_t *input,
                       math_t *trans_input, math_t *alphas,
-                      math_t *lambdas, const paramsPCA &prms, cudaStream_t stream) {
+                      math_t *lambdas, const paramsKPCA &prms, cudaStream_t stream) {
   kpcaFit(handle, input, alphas, lambdas, prms, stream);
   kpcaTransform(handle, input, alphas, lambdas, trans_input, prms, stream);
 }
@@ -197,7 +197,7 @@ void kpcaFitTransform(const raft::handle_t &handle, math_t *input,
 template <typename math_t>
 void kpcaTransform(const raft::handle_t &handle, math_t *input,
                    math_t *alphas, math_t *lambdas,
-                   math_t *trans_input, const paramsPCA &prms,
+                   math_t *trans_input, const paramsKPCA &prms,
                    cudaStream_t stream) {
   std::cout << "kpcaTransform\n";
   ASSERT(prms.n_cols > 1,
