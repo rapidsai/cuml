@@ -54,20 +54,9 @@ class KPcaTest : public ::testing::TestWithParam<KPcaInputs<T>> {
     raft::random::Rng r(params.seed, raft::random::GenTaps);
     int len = params.len;
 
-    std::cout << "basicTest - 1 \n";
-    std::cout << "test params - tolerance: " << params.tolerance << " \n";
-    std::cout << "test params - length: " << params.len << " \n";
-    std::cout << "test params - nrow: " << params.n_row << " \n";
-    std::cout << "test params - n_col: " << params.n_col << " \n";
-    std::cout << "test params - length2: " << params.len2 << " \n";
-    std::cout << "test params - nrow2: " << params.n_row2 << " \n";
-    std::cout << "test params - n_col2: " << params.n_col2 << " \n";
-    std::cout << "test params - seed: " << params.seed << " \n";
-    std::cout << "test params - algo: " << params.algo << " \n";
-
     raft::allocate(data, len);
     raft::allocate(data_back, len);
-    raft::allocate(trans_data, len);      //  transformed data
+    raft::allocate(trans_data, len); // transformed data
 
     std::vector<T> data_h = {1.0, 2.0, 5.0, 4.0, 2.0, 1.0};
     data_h.resize(len);
@@ -94,12 +83,13 @@ class KPcaTest : public ::testing::TestWithParam<KPcaInputs<T>> {
     raft::update_device(lambdas_ref, lambdas_ref_h.data(), params.n_row, stream);
     raft::update_device(trans_data_ref, trans_data_ref_h.data(), len, stream);
 
-    //  standard PCA params work for now
-    //  the only irrelevant one is "whiten"
     paramsKPCA prms;
     prms.n_cols = params.n_col;
     prms.n_rows = params.n_row;
     prms.n_components = params.n_col;
+    prms.gamma = 0;
+    prms.degree = 3;
+    prms.coef0 = 1;
     if (params.algo == 0)
       prms.algorithm = solver::COV_EIG_DQ;
     else
