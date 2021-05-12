@@ -24,28 +24,17 @@ class handle_t;
 
 namespace ML {
 
-void kpcaFit(raft::handle_t &handle, float *input, float *components,
-             float *explained_var, float *explained_var_ratio,
-             float *singular_vals, float *mu, float *noise_vars,
-             const paramsPCA &prms);
-void kpcaFit(raft::handle_t &handle, double *input, double *components,
-             double *explained_var, double *explained_var_ratio,
-             double *singular_vals, double *mu, double *noise_vars,
-             const paramsPCA &prms);
+void kpcaFit(raft::handle_t &handle, float *input, float *alphas,
+             float *lambdas, const paramsKPCA &prms);
+void kpcaFit(raft::handle_t &handle, double *input, double *alphas,
+             double *lambdas, const paramsKPCA &prms);
 void kpcaFitTransform(raft::handle_t &handle, float *input, float *trans_input,
-                      float *components, float *explained_var,
-                      float *explained_var_ratio, float *singular_vals,
-                      float *mu, float *noise_vars, const paramsPCA &prms);
-void kpcaFitTransform(raft::handle_t &handle, double *input,
-                      double *trans_input, double *components,
-                      double *explained_var, double *explained_var_ratio,
-                      double *singular_vals, double *mu, double *noise_vars,
-                      const paramsPCA &prms);
-void kpcaTransform(raft::handle_t &handle, float *input, float *components,
-                   float *trans_input, float *singular_vals, float *mu,
-                   const paramsPCA &prms);
-void kpcaTransform(raft::handle_t &handle, double *input, double *components,
-                   double *trans_input, double *singular_vals, double *mu,
-                   const paramsPCA &prms);
+                      float *alphas, float *lambdas, const paramsKPCA &prms);
+void kpcaFitTransform(raft::handle_t &handle, double *input, double *trans_input,
+                      double *alphas, double *lambdas, const paramsKPCA &prms);
+void kpcaTransform(raft::handle_t &handle, float *input, float *alphas, float *lambdas,
+                   float *trans_input, const paramsKPCA &prms);
+void kpcaTransform(raft::handle_t &handle, double *input, double *alphas, double *lambdas,
+                   double *trans_input, const paramsKPCA &prms);
 
 };  // end namespace ML

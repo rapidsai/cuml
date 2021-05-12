@@ -29,7 +29,7 @@ enum class solver : int {
 
 
 enum class kernel_type : int {
-  LINEAR
+  LINEAR, POLYNOMIAL, RBF, TANH 
 };
 
 class params {
@@ -76,18 +76,23 @@ class paramsPCATemplate : public paramsTSVDTemplate<enum_solver> {
   bool whiten = false;
 };
 
-template <typename enum_solver = solver, typename enum_kernel = kernel_type>
-class paramsKPCATemplate : public paramsSolver {
+
+/**
+ * @brief structure for kernel pca parameters. Ref: https://scikit-learn.org/stable/modules/generated/sklearn.decomposition.KernelPCA.html
+ * @param n_components: Number of components to keep. if n_components is not set all components are kept:
+ * @param algorithm: the solver to be used in PCA.
+ * @param tol: Tolerance for singular values computed by svd_solver == ‘arpack’ or svd_solver == ‘COV_EIG_JACOBI’
+ * @param n_iterations: Number of iterations for the power method computed by jacobi method (svd_solver == 'COV_EIG_JACOBI').
+ */
+template <typename enum_solver = solver>
+class paramsKPCATemplate : public paramsTSVDTemplate<enum_solver> {
  public:
-  int n_components = 1;
-  enum_solver algorithm = enum_solver::COV_EIG_JACOBI;
-  enum_kernel kernel = enum_kernel::LINEAR;
   bool copy = true;  // TODO unused
   bool remove_zero_eig = false; // TODO unused
   bool fit_inverse_transform = false; // TODO unused
-  // float gamma = 0; // TODO used by rbf, poly and sigmoid kernels
-  // int degree = 3; // TODO used by poly kernels only
-  // float coef0; // TODO independent term in 
+  float gamma = 0;
+  int degree = 3;
+  float coef0 = 1;
 };
 
 typedef paramsTSVDTemplate<> paramsTSVD;
