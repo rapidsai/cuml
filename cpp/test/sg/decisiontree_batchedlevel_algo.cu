@@ -157,7 +157,7 @@ typedef DtRegressorTest<float> DtRegTestF;
 ///@todo: add checks
 TEST_P(DtRegTestF, Test) {
   int num_leaves, depth;
-  grow_tree<float, int>(handle->get_device_allocator(),
+  grow_tree(handle->get_device_allocator(),
                         handle->get_host_allocator(), data, 1, 0, inparams.N,
                         inparams.M, labels, quantiles, rowids, inparams.M, 0,
                         params, stream, sparsetree, num_leaves, depth);
