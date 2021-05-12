@@ -184,9 +184,9 @@ def get_submodule_dependency(repo,
 
     else:
 
-        print("-- Third party repositories have not been found so they " +
-              "will be cloned. To avoid this set the environment " +
-              "variable CUML_BUILD_PATH, containing the absolute " +
+        print("-- Third party repositories have not been found so they "
+              "will be cloned. To avoid this set the environment "
+              "variable CUML_BUILD_PATH, containing the absolute "
               "path to the build folder where libcuml++ was built. ")
 
         for repo in repos:
@@ -266,6 +266,8 @@ def get_repo_cmake_info(names, file_path):
     for name in names:
         repo = re.findall(r'\s.*GIT_REPOSITORY.*', s)
         repo = repo[-1].split()[-1]
+        fork = re.findall(r'\s.*FORK.*', s)
+        fork = fork[-1].split()[-1]
         tag = re.findall(r'\s.*PINNED_TAG.*', s)
         tag = tag[-1].split()[-1]
         results[name] = [repo, tag]

@@ -48,6 +48,7 @@ requirements:
     - treelite=1.1.0
     - faiss-proc=*=cuda
     - gtest=1.10.0
+    - gmock
     - conda-forge::libfaiss=1.7.0
   run:
     - libcumlprims {{ minor_version }}

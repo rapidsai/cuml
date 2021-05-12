@@ -21,12 +21,13 @@ function(find_and_configure_gtest VERSION)
     endif()
 
     rapids_cpm_find(GTest ${VERSION}
-        GLOBAL_TARGETS  gest gtest_main GTest::gtest GTest::gtest_main
+        GLOBAL_TARGETS  gmock gmock_main gtest gtest_main GTest::gmock GTest::gtest GTest::gtest_main
         CPM_ARGS
             GIT_REPOSITORY  https://github.com/google/googletest.git
             GIT_TAG         release-${VERSION}
             GIT_SHALLOW     TRUE
-            OPTIONS         "INSTALL_GTEST ON"
+            OPTIONS
+                "INSTALL_GTEST ON"
             # googletest >= 1.10.0 provides a cmake config file -- use it if it exists
             FIND_PACKAGE_ARGUMENTS "CONFIG"
     )
