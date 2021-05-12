@@ -69,7 +69,7 @@ def test_hdbscan_blobs(nrows, ncols, nclusters,
     logger.set_level(logger.level_debug)
     cuml_agg = HDBSCAN(verbose=logger.level_debug,
                        allow_single_cluster=allow_single_cluster,
-                       n_neighbors=min_samples,
+                       n_neighbors=min_samples*2,
                        min_samples=min_samples,
                        max_cluster_size=max_cluster_size,
                        min_cluster_size=min_cluster_size,
@@ -128,7 +128,7 @@ def test_hdbscan_blobs(nrows, ncols, nclusters,
 @pytest.mark.parametrize('cluster_size_bounds', [(70, 0)])#[(15, 0), (25, 0), (150, 0)])
 
 # TODO: Fix small discrepancies in allow_single_cluster=False (single test failure)
-@pytest.mark.parametrize('allow_single_cluster', [True])
+@pytest.mark.parametrize('allow_single_cluster', [False])
 
 # TODO: Verify/fix discrepancies in leaf selection method
 @pytest.mark.parametrize('cluster_selection_method', ['eom'])
@@ -150,7 +150,7 @@ def test_hdbscan_sklearn_datasets(dataset,
     logger.set_level(logger.level_debug)
     cuml_agg = HDBSCAN(verbose=logger.level_debug,
                        allow_single_cluster=allow_single_cluster,
-                       n_neighbors=min_samples,
+                       n_neighbors=min_samples+25,
                        min_samples=min_samples,
                        max_cluster_size=max_cluster_size,
                        min_cluster_size=min_cluster_size,
@@ -217,7 +217,8 @@ def test_hdbscan_sklearn_datasets(dataset,
     # print("cu children: %s" % cuml_agg.children_)
     # print("cu sizes: %s" % cuml_agg.sizes_)
 
-    print(np.array2string(sk_agg.labels_, separator=","))
+
+
     #
     #
     # print("cu mst_total: %s" % cp.sum(cuml_agg.mst_weights_))
