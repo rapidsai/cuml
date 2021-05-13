@@ -71,7 +71,6 @@ void kpcaFit(const raft::handle_t &handle, value_t *input, value_t *alphas,
     MLCommon::Matrix::KernelFactory<value_t>::create(prms.kernel, cublas_handle);
   
   rmm::device_uvector<value_t> kernel_mat(prms.n_rows * prms.n_rows, stream);
-
   kernel->evaluate(input, prms.n_rows, prms.n_cols, input, prms.n_rows,
          kernel_mat.data(), false, stream, prms.n_rows, prms.n_rows, prms.n_rows);
 
@@ -106,9 +105,9 @@ void kpcaFit(const raft::handle_t &handle, value_t *input, value_t *alphas,
     raft::linalg::eigDC(handle, kernel_mat.data(), prms.n_rows, prms.n_rows, alphas,
                             lambdas, stream);
   }
+
   raft::matrix::colReverse(alphas, prms.n_rows, prms.n_rows, stream);
   raft::matrix::rowReverse(lambdas, prms.n_rows, 1, stream);
-
   ML::signFlip(lambdas, prms.n_rows, n_components, alphas, prms.n_cols,
            allocator, stream);
 }
