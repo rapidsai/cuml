@@ -268,6 +268,7 @@ def get_repo_cmake_info(names, file_path):
         repo = repo[-1].split()[-1]
         fork = re.findall(r'\s.*FORK.*', s)
         fork = fork[-1].split()[-1]
+        repo = repo.replace("${PKG_FORK}", fork)
         tag = re.findall(r'\s.*PINNED_TAG.*', s)
         tag = tag[-1].split()[-1]
         results[name] = [repo, tag]
