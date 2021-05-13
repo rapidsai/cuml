@@ -285,7 +285,7 @@ struct Builder {
    * @return the smem size (in B)
    */
   size_t nodeSplitSmemSize() {
-    return std::max(2 * sizeof(IdxT) * TPB_SPLIT, sizeof(int) * input.nclasses);
+    return std::max(2 * sizeof(IdxT) * TPB_SPLIT, 2*sizeof(BinT) * input.nclasses);
   }
 
  private:

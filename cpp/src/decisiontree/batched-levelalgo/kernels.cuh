@@ -120,6 +120,29 @@ DI void partitionSamples(const Input<DataT, LabelT, IdxT>& input,
   }
 }
 
+template <typename IdxT, typename LabelT, typename DataT, typename ObjectiveT,
+          int TPB>
+DI void computePrediction(IdxT range_start, IdxT range_len,
+                          const Input<DataT, LabelT, IdxT>& input,
+                          volatile Node<DataT, LabelT, IdxT>* nodes,
+                          IdxT* n_leaves, void* smem) {
+  using BinT = typename ObjectiveT::BinT;
+  auto* shist = reinterpret_cast<BinT*>(smem);
+  auto tid = threadIdx.x;
+  for (int i = tid; i < input.nclasses*2; i += blockDim.x) shist[i] = BinT();
+  __syncthreads();
+  auto len = range_start + range_len;
+  for (auto i = range_start + tid; i < len; i += blockDim.x) {
+    auto label = input.labels[input.rowids[i]];
+    BinT::IncrementHistogram(shist, 1, 0, label);
+  }
+  __syncthreads();
+  if (tid == 0) {
+    auto pred = ObjectiveT::LeafPrediction(shist, input.nclasses);
+    nodes[0].makeLeaf(n_leaves, pred);
+  }
+}
+
 template <typename DataT, typename LabelT, typename IdxT, typename ObjectiveT,
           int TPB>
 __global__ void nodeSplitKernel(IdxT max_depth, IdxT min_samples_leaf,
@@ -141,8 +164,8 @@ __global__ void nodeSplitKernel(IdxT max_depth, IdxT min_samples_leaf,
   if (isLeaf || split.best_metric_val <= min_impurity_decrease ||
       split.nLeft < min_samples_leaf ||
       (n_samples - split.nLeft) < min_samples_leaf) {
-    ObjectiveT::computePrediction<TPB>(range_start, n_samples, input, node, n_leaves,
-                                  smem);
+    computePrediction<IdxT, LabelT, DataT, ObjectiveT, TPB>(
+      range_start, n_samples, input, node, n_leaves, smem);
     return;
   }
   partitionSamples<DataT, LabelT, IdxT, TPB>(input, splits, curr_nodes,
@@ -315,7 +338,7 @@ __global__ void computeSplitKernel(
     // TODO(Rory): Should be binary search?
     for (IdxT b = 0; b < nbins; ++b) {
       if (d <= sbins[b]) {
-        BinT::AtomicAdd(pdf_shist, nbins, b, label);
+        BinT::IncrementHistogram(pdf_shist, nbins, b, label);
         break;
       }
     }
@@ -327,7 +350,7 @@ __global__ void computeSplitKernel(
   // update the corresponding global location
   auto histOffset = ((nid * gridDim.y) + blockIdx.y) * pdf_shist_len;
   for (IdxT i = threadIdx.x; i < pdf_shist_len; i += blockDim.x) {
-    BinT::AtomicAddGlobal(hist + histOffset + i, pdf_shist[i]);
+    BinT::AtomicAdd(hist + histOffset + i, pdf_shist[i]);
   }
 
   __threadfence();  // for commit guarantee

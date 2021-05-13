@@ -45,89 +45,15 @@ class NumericLimits<double> {
 namespace ML {
 namespace DecisionTree {
 
-struct Int2Max {
-  DI int2 operator()(const int2& a, const int2& b) {
-    int2 out;
-    if (a.y > b.y)
-      out = a;
-    else if (a.y == b.y && a.x < b.x)
-      out = a;
-    else
-      out = b;
-    return out;
-  }
-};  // struct Int2Max
-
-/**
-   * @note to be called by only one block from all participating blocks
-   *       'smem' must be atleast of size `sizeof(int) * input.nclasses`
-   */
-template <typename IdxT, typename LabelT, typename DataT, int TPB>
-static DI void ComputeClassificationPrediction(
-  IdxT range_start, IdxT range_len, const Input<DataT, LabelT, IdxT>& input,
-  volatile Node<DataT, LabelT, IdxT>* nodes, IdxT* n_leaves, void* smem) {
-  typedef cub::BlockReduce<int2, TPB> BlockReduceT;
-  __shared__ typename BlockReduceT::TempStorage temp;
-  auto* shist = reinterpret_cast<int*>(smem);
-  auto tid = threadIdx.x;
-  for (int i = tid; i < input.nclasses; i += blockDim.x) shist[i] = 0;
-  __syncthreads();
-  auto len = range_start + range_len;
-  for (auto i = range_start + tid; i < len; i += blockDim.x) {
-    auto label = input.labels[input.rowids[i]];
-    atomicAdd(shist + int(label), 1);
-  }
-  __syncthreads();
-  auto op = Int2Max();
-  int2 v = {-1, -1};
-  for (int i = tid; i < input.nclasses; i += blockDim.x) {
-    int2 tmp = {i, shist[i]};
-    v = op(v, tmp);
-  }
-  v = BlockReduceT(temp).Reduce(v, op);
-  __syncthreads();
-  if (tid == 0) {
-    nodes[0].makeLeaf(n_leaves, LabelT(v.x));
-  }
-}
-
-/**
-   * @note to be called by only one block from all participating blocks
-   *       'smem' is not used, but kept for the sake of interface parity with
-   *       the corresponding method for classification
-   */
-template <typename IdxT, typename LabelT, typename DataT, int TPB>
-static DI void ComputeRegressionPrediction(
-  IdxT range_start, IdxT range_len, const Input<DataT, LabelT, IdxT>& input,
-  volatile Node<DataT, LabelT, IdxT>* nodes, IdxT* n_leaves, void* smem) {
-  typedef cub::BlockReduce<LabelT, TPB> BlockReduceT;
-  __shared__ typename BlockReduceT::TempStorage temp;
-  LabelT sum = LabelT(0.0);
-  auto tid = threadIdx.x;
-  auto len = range_start + range_len;
-  for (auto i = range_start + tid; i < len; i += blockDim.x) {
-    auto label = input.labels[input.rowids[i]];
-    sum += label;
-  }
-  sum = BlockReduceT(temp).Sum(sum);
-  __syncthreads();
-  if (tid == 0) {
-    if (range_len != 0) {
-      nodes[0].makeLeaf(n_leaves, sum / range_len);
-    } else {
-      nodes[0].makeLeaf(n_leaves, 0.0);
-    }
-  }
-}
-
+  
 struct IntBin {
   int x;
 
-  DI static void AtomicAdd(IntBin* hist, int nbins, int b, int label) {
+  DI static void IncrementHistogram(IntBin* hist, int nbins, int b, int label) {
     auto offset = label * (1 + nbins) + b;
-    atomicAdd(&(hist + offset)->x, 1);
+    IntBin::AtomicAdd(hist + offset, {1});
   }
-  DI static void AtomicAddGlobal(IntBin* address, IntBin val) {
+  DI static void AtomicAdd(IntBin* address, IntBin val) {
     atomicAdd(&address->x, val.x);
   }
   DI IntBin& operator+=(const IntBin& b) {
@@ -202,13 +128,17 @@ class GiniObjectiveFunction {
     }
     return sp;
   }
-  template <int TPB>
-  static DI void computePrediction(IdxT range_start, IdxT range_len,
-                                   const Input<DataT, LabelT, IdxT>& input,
-                                   volatile Node<DataT, LabelT, IdxT>* nodes,
-                                   IdxT* n_leaves, void* smem) {
-    ComputeClassificationPrediction<IdxT, LabelT, DataT, TPB>(
-      range_start, range_len, input, nodes, n_leaves, smem);
+  static DI LabelT LeafPrediction(BinT* shist, int nclasses) {
+    int class_idx = 0;
+    int count = 0;
+    for (int i = 0; i < nclasses; i++) {
+      auto current_count = shist[i * 2].x;
+      if (current_count > count) {
+        class_idx = i;
+        count = current_count;
+      }
+    }
+    return class_idx;
   }
 };
 
@@ -281,13 +211,10 @@ class EntropyObjectiveFunction {
     }
     return sp;
   }
-  template <int TPB>
-  static DI void computePrediction(IdxT range_start, IdxT range_len,
-                                   const Input<DataT, LabelT, IdxT>& input,
-                                   volatile Node<DataT, LabelT, IdxT>* nodes,
-                                   IdxT* n_leaves, void* smem) {
-    ComputeClassificationPrediction<IdxT, LabelT, DataT, TPB>(
-      range_start, range_len, input, nodes, n_leaves, smem);
+  static DI LabelT LeafPrediction(BinT* shist, int nclasses) {
+    // Same as Gini
+    return GiniObjectiveFunction<DataT, LabelT, IdxT>::LeafPrediction(shist,
+                                                                      nclasses);
   }
 };
 
@@ -307,11 +234,11 @@ class MSEObjectiveFunction {
     double label_sum;
     int count;
 
-    DI static void AtomicAdd(MSEBin* hist, int nbins, int b, double label) {
-      atomicAdd(&(hist + b)->label_sum, label);
-      atomicAdd(&(hist + b)->count, 1);
+    DI static void IncrementHistogram(MSEBin* hist, int nbins, int b,
+                                      double label) {
+      MSEBin::AtomicAdd(hist + b, {label, 1});
     }
-    DI static void AtomicAddGlobal(MSEBin* address, MSEBin val) {
+    DI static void AtomicAdd(MSEBin* address, MSEBin val) {
       atomicAdd(&address->label_sum, val.label_sum);
       atomicAdd(&address->count, val.count);
     }
@@ -359,13 +286,9 @@ class MSEObjectiveFunction {
     }
     return sp;
   }
-  template <int TPB>
-  static DI void computePrediction(IdxT range_start, IdxT range_len,
-                                   const Input<DataT, LabelT, IdxT>& input,
-                                   volatile Node<DataT, LabelT, IdxT>* nodes,
-                                   IdxT* n_leaves, void* smem) {
-    ComputeRegressionPrediction<IdxT, LabelT, DataT, TPB>(
-      range_start, range_len, input, nodes, n_leaves, smem);
+
+  static DI LabelT LeafPrediction(BinT* shist, int nclasses) {
+    return shist[0].label_sum / shist[0].count;
   }
 };
 
