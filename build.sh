@@ -297,7 +297,7 @@ fi
 
 if hasArg cppdocs; then
     cd ${LIBCUML_BUILD_DIR}
-    cmake --build ${LIBCUML_BUILD_DIR} --target doc
+    cmake --build ${LIBCUML_BUILD_DIR} --target docs_cuml
 fi
 
 
