@@ -92,7 +92,7 @@ if(BUILD_CUML_TESTS)
   target_link_libraries(${CUML_CPP_TEST_TARGET}
     PRIVATE
       cuml
-        $<$<BOOL:BUILD_CUML_C_LIBRARY>:cuml_c>
+        $<$<BOOL:BUILD_CUML_C_LIBRARY>:${CUML_C_TARGET}>
         ${COMMON_TEST_LINK_LIBRARIES}
     )
 
