@@ -129,7 +129,7 @@ DI void computePrediction(IdxT range_start, IdxT range_len,
   using BinT = typename ObjectiveT::BinT;
   auto* shist = reinterpret_cast<BinT*>(smem);
   auto tid = threadIdx.x;
-  for (int i = tid; i < input.nclasses*2; i += blockDim.x) shist[i] = BinT();
+  for (int i = tid; i < input.nclasses; i += blockDim.x) shist[i] = BinT();
   __syncthreads();
   auto len = range_start + range_len;
   for (auto i = range_start + tid; i < len; i += blockDim.x) {
@@ -299,7 +299,7 @@ __global__ void computeSplitKernel(
     return;
   }
   auto end = range_start + range_len;
-  auto pdf_shist_len = (nbins + 1) * objective.NumClasses();
+  auto pdf_shist_len = nbins * objective.NumClasses();
   auto cdf_shist_len = nbins * objective.NumClasses();
   auto* pdf_shist = alignPointer<BinT>(smem);
   auto* cdf_shist = alignPointer<BinT>(pdf_shist + pdf_shist_len);
@@ -385,7 +385,7 @@ __global__ void computeSplitKernel(
     /** left to right scan operation for scanning
      *  lesser-than-or-equal-to-bin counts **/
     // offsets to pdf and cdf shist pointers
-    auto offset_pdf = (1 + nbins) * c;
+    auto offset_pdf = nbins * c;
     auto offset_cdf = nbins * c;
     // converting pdf to cdf
     BinT total_sum = pdf_to_cdf<BinT, IdxT, TPB>(pdf_shist + offset_pdf,

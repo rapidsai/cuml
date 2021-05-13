@@ -45,12 +45,11 @@ class NumericLimits<double> {
 namespace ML {
 namespace DecisionTree {
 
-  
 struct IntBin {
   int x;
 
   DI static void IncrementHistogram(IntBin* hist, int nbins, int b, int label) {
-    auto offset = label * (1 + nbins) + b;
+    auto offset = label * nbins + b;
     IntBin::AtomicAdd(hist + offset, {1});
   }
   DI static void AtomicAdd(IntBin* address, IntBin val) {
@@ -132,7 +131,7 @@ class GiniObjectiveFunction {
     int class_idx = 0;
     int count = 0;
     for (int i = 0; i < nclasses; i++) {
-      auto current_count = shist[i * 2].x;
+      auto current_count = shist[i].x;
       if (current_count > count) {
         class_idx = i;
         count = current_count;

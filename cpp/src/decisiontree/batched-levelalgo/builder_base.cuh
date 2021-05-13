@@ -188,7 +188,7 @@ struct Builder {
     input.quantiles = quantiles;
     auto max_batch = params.max_batch_size;
     auto n_col_blks = n_blks_for_cols;
-    nHistBins = max_batch * (1 + params.n_bins) * n_col_blks * nclasses;
+    nHistBins = max_batch * params.n_bins * n_col_blks * nclasses;
     if (params.max_depth < 13) {
       // Start with allocation for a dense tree for depth < 13
       maxNodes = pow(2, (params.max_depth + 1)) - 1;
@@ -285,7 +285,7 @@ struct Builder {
    * @return the smem size (in B)
    */
   size_t nodeSplitSmemSize() {
-    return std::max(2 * sizeof(IdxT) * TPB_SPLIT, 2*sizeof(BinT) * input.nclasses);
+    return std::max(2 * sizeof(IdxT) * TPB_SPLIT, sizeof(BinT) * input.nclasses);
   }
 
  private:
@@ -392,7 +392,7 @@ struct Builder {
     auto nclasses = input.nclasses;
     auto colBlks = std::min(n_blks_for_cols, input.nSampledCols - col);
 
-    size_t smemSize1 = (nbins + 1) * nclasses * sizeof(BinT) +  // pdf_shist size
+    size_t smemSize1 = nbins * nclasses * sizeof(BinT) +  // pdf_shist size
                        nbins * nclasses * sizeof(BinT) +        // cdf_shist size
                        nbins * sizeof(DataT) +                 // sbins size
                        sizeof(int);                            // sDone size
