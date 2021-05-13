@@ -20,7 +20,6 @@
 #include <thrust/device_ptr.h>
 #include <cuml/matrix/kernelparams.h>
 #include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/transpose.h>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/decomposition/params.hpp>
 #include <matrix/kernelfactory.cuh>
@@ -28,20 +27,15 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
 #include <raft/linalg/eig.cuh>
-#include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/subtract.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
-#include <raft/stats/mean.cuh>
-#include <raft/stats/mean_center.cuh>
-#include <stats/cov.cuh>
 #include <tsvd/tsvd.cuh>
 #include <common/device_utils.cuh>
 #include <rmm/device_vector.hpp>
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/host/allocator.hpp>
-#include <rmm/device_uvector.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
@@ -91,6 +85,7 @@ void kpcaFit(const raft::handle_t &handle, value_t *input, value_t *alphas,
   raft::allocate(diag, prms.n_rows);
   auto thrust_policy = rmm::exec_policy(stream);
   thrust::fill(thrust_policy, diag, diag + prms.n_rows, 1.0f);
+
 
   //  create centering matrix 
   value_t * centering_mat;
@@ -151,7 +146,7 @@ void kpcaFitTransform(const raft::handle_t &handle, value_t *input,
 }
 
 /**
- * @brief performs transform operation for the pca. Transforms the data to eigenspace.
+ * @brief performs transform operation for the pca. Transforms the data to kernel eigenspace.
  * @param[in] handle: the internal cuml handle object
  * @param[in] input: data to transform. Size n_rows x n_components.
  * @param[in] alphas: principal components of the input data. Size n_rows * n_components.
