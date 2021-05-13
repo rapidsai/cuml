@@ -16,6 +16,7 @@
 
 #include <cuml/decomposition/kpca.hpp>
 #include "kpca.cuh"
+namespace ML {
 
 void kpcaFit(raft::handle_t &handle, float *input, float *alphas,
              float *lambdas, const ML::paramsKPCA &prms) {
@@ -35,4 +36,6 @@ void kpcaTransform(raft::handle_t &handle, float *input, float *alphas, float *l
 void kpcaTransform(raft::handle_t &handle, double *input, double *alphas, double *lambdas,
                    double *trans_input, const ML::paramsKPCA &prms) {
   kpcaTransform(handle, input, alphas, lambdas, trans_input, prms, handle.get_stream());
+}
+
 }

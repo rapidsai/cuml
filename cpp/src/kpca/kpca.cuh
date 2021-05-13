@@ -38,6 +38,7 @@
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
+namespace ML {
 
 /**
  * @brief perform fit operation for kernel PCA. Generates eigenvalues and alphas (unscaled eigenvectors, per sklearn API)
@@ -141,4 +142,5 @@ void kpcaTransform(const raft::handle_t &handle, value_t *input,
   raft::matrix::copy(alphas, trans_input, prms.n_components, prms.n_rows, stream);
   raft::matrix::matrixVectorBinaryMult(trans_input, sqrt_vals.data(), prms.n_rows, prms.n_components, 
                                          false, true, stream);
+}
 }
