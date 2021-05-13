@@ -108,7 +108,7 @@ class KPcaTest : public ::testing::TestWithParam<KPcaInputs<T>> {
 float tolerance = 0.01f;
 int n_rows = 3;
 int n_cols = 2;
-int n_components = 2;
+int n_components = 3;
 int algo = 1;
 std::vector<float> data_h = {1.0, 2.0, 5.0, 4.0, 2.0, 1.0};
 

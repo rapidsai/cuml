@@ -95,7 +95,7 @@ void kpcaFit(const raft::handle_t &handle, value_t *input, value_t *alphas,
                      , true, true, true, stream);
   temp_mat.release();
   centering_mat.release();
-  
+
   //  either Jacobi (iterative power method) or DnC eigendecomp
   if (prms.algorithm == enum_solver::COV_EIG_JACOBI) {
     raft::linalg::eigJacobi(handle, kernel_mat.data(), prms.n_rows, prms.n_rows, alphas,
@@ -108,7 +108,7 @@ void kpcaFit(const raft::handle_t &handle, value_t *input, value_t *alphas,
 
   raft::matrix::colReverse(alphas, prms.n_rows, prms.n_rows, stream);
   raft::matrix::rowReverse(lambdas, prms.n_rows, 1, stream);
-  ML::signFlip(lambdas, prms.n_rows, n_components, alphas, prms.n_cols,
+  ML::signFlip(lambdas, prms.n_rows, prms.n_rows, alphas, prms.n_rows,
            allocator, stream);
 }
 
