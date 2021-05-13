@@ -297,9 +297,14 @@ void extract_clusters(
       clusters.insert(i + n_leaves);
     }
   }
+
   CUML_LOG_DEBUG("Cluster labeling. n_clusters=%d", clusters.size());
   do_labelling_on_host<value_idx, value_t>(
     handle, condensed_tree, clusters, n_leaves, allow_single_cluster, labels);
+
+  value_idx n_selected_clusters = clusters.size();
+
+  printf("n_selected_clusters=%d\n", clusters.size());
 
   CUML_LOG_DEBUG("Computing probabilities");
   Membership::get_probabilities<value_idx, value_t>(handle, condensed_tree,

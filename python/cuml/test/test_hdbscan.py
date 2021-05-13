@@ -34,7 +34,7 @@ test_datasets = {
  "digits": datasets.load_digits(),
  "boston": datasets.load_boston(),
  "diabetes": datasets.load_diabetes(),
- # "cancer": datasets.load_breast_cancer(),
+ "cancer": datasets.load_breast_cancer(),
 }
 
 dataset_names = ['noisy_circles', 'noisy_moons', 'varied']#, 'aniso']
@@ -69,7 +69,7 @@ def test_hdbscan_blobs(nrows, ncols, nclusters,
     logger.set_level(logger.level_debug)
     cuml_agg = HDBSCAN(verbose=logger.level_debug,
                        allow_single_cluster=allow_single_cluster,
-                       n_neighbors=min_samples,
+                       n_neighbors=min_samples*2,
                        min_samples=min_samples,
                        max_cluster_size=max_cluster_size,
                        min_cluster_size=min_cluster_size,
@@ -121,10 +121,16 @@ def test_hdbscan_blobs(nrows, ncols, nclusters,
 
 
 @pytest.mark.parametrize('dataset', "NA")
+
+# TODO: Fix crash when min_samples is changes (due to MST determinism precision error)
 @pytest.mark.parametrize('min_samples', [25])
 @pytest.mark.parametrize('cluster_selection_epsilon', [0.0])
-@pytest.mark.parametrize('cluster_size_bounds', [(60, 0)])
+@pytest.mark.parametrize('cluster_size_bounds', [(70, 0)])#[(15, 0), (25, 0), (150, 0)])
+
+# TODO: Fix small discrepancies in allow_single_cluster=False (single test failure)
 @pytest.mark.parametrize('allow_single_cluster', [False])
+
+# TODO: Verify/fix discrepancies in leaf selection method
 @pytest.mark.parametrize('cluster_selection_method', ['eom'])
 @pytest.mark.parametrize('connectivity', ['knn'])
 def test_hdbscan_sklearn_datasets(dataset,
@@ -144,7 +150,7 @@ def test_hdbscan_sklearn_datasets(dataset,
     logger.set_level(logger.level_debug)
     cuml_agg = HDBSCAN(verbose=logger.level_debug,
                        allow_single_cluster=allow_single_cluster,
-                       n_neighbors=min_samples,
+                       n_neighbors=min_samples+25,
                        min_samples=min_samples,
                        max_cluster_size=max_cluster_size,
                        min_cluster_size=min_cluster_size,
@@ -167,47 +173,51 @@ def test_hdbscan_sklearn_datasets(dataset,
                              algorithm="generic")
     sk_agg.fit(cp.asnumpy(X))
 
-    import numpy as np
-    np.set_printoptions(threshold=np.inf)
-
+    # import numpy as np
+    # np.set_printoptions(threshold=np.inf)
+    #
     # print("sk labels: %s" % sk_agg.labels_[:25])
-
+    #
     # print("cu condensed: %s" % cuml_agg.condensed_lambdas_)
     # print("cu condensed: %s" % cuml_agg.condensed_parent_)
     # print("cu condensed: %s" % cuml_agg.condensed_child_)
     # print("cu condensed: %s" % cuml_agg.condensed_sizes_)
-
+    #
     # print("sk condensed: %s" % sk_agg.condensed_tree_.to_numpy())
 
     import numpy as np
 
     # print("sk counts: %s" % str(np.unique(sk_agg.labels_, return_counts=True)))
     # print("cu counts: %s" % str(np.unique(cuml_agg.labels_, return_counts=True)))
-
-    cu_asmnt = np.sort(np.unique(cuml_agg.labels_, return_counts=True)[1])
-    sk_asmnt = np.sort(np.unique(sk_agg.labels_, return_counts=True)[1])
-
-    # print("cu stabilities: %s" % cuml_agg.stabilities_.to_output("numpy"))
-    # print("sk stabiliies: %s" % sk_agg.cluster_persistence_)
-
-
-    t = cuml_agg.condensed_sizes_>1
+    #
+    # cu_asmnt = np.sort(np.unique(cuml_agg.labels_, return_counts=True)[1])
+    # sk_asmnt = np.sort(np.unique(sk_agg.labels_, return_counts=True)[1])
+    #
+    print("damn")
+    print("cu stabilities: %s" % cuml_agg.stabilities_.to_output("numpy"))
+    print("sk stabiliies: %s" % sk_agg.cluster_persistence_)
+    #
+    #
+    # t = cuml_agg.condensed_sizes_>1
     # print("cu cluster tree parent %s" % cuml_agg.condensed_parent_[t])
     # print("cu cluster tree child %s" % cuml_agg.condensed_child_[t])
     # print("cu cluster tree lambdas %s" % cuml_agg.condensed_lambdas_[t])
     # print("cu cluster tree sizes %s" % cuml_agg.condensed_sizes_[t])
 
-    t = sk_agg.condensed_tree_.to_numpy()
+    # t = sk_agg.condensed_tree_.to_numpy()
 
     # print("Cluster tree: %s" % t[t['child_size']>1])
-
+    #
     # print("single linkage tree %s" % sk_agg.single_linkage_tree_.to_numpy())
-
+    #
+    import numpy as np
+    np.set_printoptions(threshold=np.inf)
+    # print("sk dendrogram parents: %s" % np.array2string(sk_agg.minimum_spanning_tree_.to_numpy()[:,0].astype('int32'), separator=","))
+    # print("sk dendrogram children: %s" % np.array2string(sk_agg.minimum_spanning_tree_.to_numpy()[:,1].astype('int32'), separator=","))
+    # print("sk dendrogram lambdas: %s" % np.array2string(sk_agg.minimum_spanning_tree_.to_numpy()[:,2].astype('float32'), separator=","))
     # print("cu children: %s" % cuml_agg.children_)
     # print("cu sizes: %s" % cuml_agg.sizes_)
 
-    import numpy as np
-    np.set_printoptions(threshold=np.inf)
 
     # print("cu mst_total: %s" % cp.sum(cuml_agg.mst_weights_))
     # print("cu mst_total: %s" % cuml_agg.mst_src_)
@@ -253,8 +263,8 @@ def test_hdbscan_sklearn_datasets(dataset,
     new_cu_mst = new_cu_mst[cu_mst_indices, :]
     new_sk_mst = new_sk_mst[sk_mst_indices, :]
 
-    print(np.sum(new_sk_mst[:, 2]))
-    print(np.sum(new_cu_mst[:, 2]))
+    print(np.sum(cu_mst[:, 2]))
+    print(np.sum(sk_mst[:, 2]))
     print("yo")
     print(new_cu_mst[np.around(new_cu_mst[:, 2], 4) != np.around(new_sk_mst[:, 2], 4), :])
     print(new_cu_mst)
@@ -270,6 +280,7 @@ def test_hdbscan_sklearn_datasets(dataset,
     # labels may differ.
     #
     # TODO: Investigating a couple very small label differences
+    assert(len(np.unique(sk_agg.labels_)) == len(cp.unique(cuml_agg.labels_)))
     assert(adjusted_rand_score(cuml_agg.labels_, sk_agg.labels_) > 0.95)
 
 

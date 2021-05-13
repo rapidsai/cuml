@@ -24,6 +24,8 @@
 #include <hdbscan/detail/condense.cuh>
 #include <hdbscan/detail/extract.cuh>
 
+#include <metrics/adjusted_rand_index.cuh>
+
 #include <raft/sparse/hierarchy/detail/agglomerative.cuh>
 
 #include <raft/linalg/distance_type.h>
@@ -49,107 +51,6 @@ struct HDBSCANInputs {
 
   std::vector<IdxT> expected_labels;
 };
-
-/**
-* @brief kernel to calculate the values of a and b
-* @param firstClusterArray: the array of classes of type T
-* @param secondClusterArray: the array of classes of type T
-* @param size: the size of the data points
-* @param a: number of pairs of points that both the clusters have classified the same
-* @param b: number of pairs of points that both the clusters have classified differently
-*/
-template <typename T, int BLOCK_DIM_X, int BLOCK_DIM_Y>
-__global__ void computeTheNumerator(const T* firstClusterArray,
-                                    const T* secondClusterArray, int size,
-                                    int* a, int* b) {
-  //calculating the indices of pairs of datapoints compared by the current thread
-  int j = threadIdx.x + blockIdx.x * blockDim.x;
-  int i = threadIdx.y + blockIdx.y * blockDim.y;
-
-  //thread-local variables to count a and b
-  int myA = 0, myB = 0;
-
-  if (i < size && j < size && j < i) {
-    //checking if the pair have been classified the same by both the clusters
-    if (firstClusterArray[i] == firstClusterArray[j] &&
-        secondClusterArray[i] == secondClusterArray[j]) {
-      ++myA;
-    }
-
-    //checking if the pair have been classified differently by both the clusters
-    else if (firstClusterArray[i] != firstClusterArray[j] &&
-             secondClusterArray[i] != secondClusterArray[j]) {
-      ++myB;
-    }
-  }
-
-  //specialize blockReduce for a 2D block of 1024 threads of type int
-  typedef cub::BlockReduce<int, BLOCK_DIM_X, cub::BLOCK_REDUCE_WARP_REDUCTIONS,
-                           BLOCK_DIM_Y>
-    BlockReduce;
-
-  //Allocate shared memory for blockReduce
-  __shared__ typename BlockReduce::TempStorage temp_storage;
-
-  //summing up thread-local counts specific to a block
-  myA = BlockReduce(temp_storage).Sum(myA);
-  __syncthreads();
-  myB = BlockReduce(temp_storage).Sum(myB);
-  __syncthreads();
-
-  //executed once per block
-  if (threadIdx.x == 0 && threadIdx.y == 0) {
-    raft::myAtomicAdd<unsigned long long int>((unsigned long long int*)a, myA);
-    raft::myAtomicAdd<unsigned long long int>((unsigned long long int*)b, myB);
-  }
-}
-
-/**
-* @brief Function to calculate RandIndex
-* <a href="https://en.wikipedia.org/wiki/Rand_index">more info on rand index</a>
-* @param firstClusterArray: the array of classes of type T
-* @param secondClusterArray: the array of classes of type T
-* @param size: the size of the data points of type int
-* @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<MLCommon::deviceAllocator>
-* @param stream: the cudaStream object
-*/
-template <typename T>
-double compute_rand_index(
-  T* firstClusterArray, T* secondClusterArray, int size,
-  std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream) {
-  //rand index for size less than 2 is not defined
-  ASSERT(size >= 2, "Rand Index for size less than 2 not defined!");
-
-  //allocating and initializing memory for a and b in the GPU
-  raft::mr::device::buffer<int> arr_buf(allocator, stream, 2);
-  CUDA_CHECK(cudaMemsetAsync(arr_buf.data(), 0, 2 * sizeof(int), stream));
-
-  //kernel configuration
-  static const int BLOCK_DIM_Y = 16, BLOCK_DIM_X = 16;
-  dim3 numThreadsPerBlock(BLOCK_DIM_X, BLOCK_DIM_Y);
-  dim3 numBlocks(raft::ceildiv<int>(size, numThreadsPerBlock.x),
-                 raft::ceildiv<int>(size, numThreadsPerBlock.y));
-
-  //calling the kernel
-  computeTheNumerator<T, BLOCK_DIM_X, BLOCK_DIM_Y>
-    <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
-      firstClusterArray, secondClusterArray, size, arr_buf.data(),
-      arr_buf.data() + 1);
-
-  //synchronizing and updating the calculated values of a and b from device to host
-  int ab_host[2] = {0};
-  raft::update_host(ab_host, arr_buf.data(), 2, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
-  //error handling
-  CUDA_CHECK(cudaGetLastError());
-
-  //denominator
-  int nChooseTwo = size * (size - 1) / 2;
-
-  //calculating the rand_index
-  return (double)(((double)(ab_host[0] + ab_host[1])) / (double)nChooseTwo);
-}
 
 template <typename T, typename IdxT>
 ::std::ostream& operator<<(::std::ostream& os,
@@ -209,7 +110,7 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     score =
-      compute_rand_index(labels, labels_ref, params.n_row,
+      MLCommon::Metrics::compute_adjusted_rand_index(labels, labels_ref, params.n_row,
                          handle.get_device_allocator(), handle.get_stream());
   }
 
@@ -663,6 +564,9 @@ class ClusterCondensingTest
     raft::copy(mst_data.data(), params.mst_data.data(), params.mst_data.size(),
                handle.get_stream());
 
+    rmm::device_uvector<IdxT> expected_device(params.expected.size(), handle.get_stream());
+    raft::copy(expected_device.data(), params.expected.data(), params.expected.size(), handle.get_stream());
+
     rmm::device_uvector<IdxT> out_children(params.n_row * 2,
                                            handle.get_stream());
 
@@ -707,6 +611,25 @@ class ClusterCondensingTest
                               condensed_tree.get_n_edges(), std::cout);
     raft::print_device_vector("condensed size", condensed_tree.get_sizes(),
                               condensed_tree.get_n_edges(), std::cout);
+
+    rmm::device_uvector<IdxT> labels(params.n_row, handle.get_stream());
+    rmm::device_uvector<T> stabilities(condensed_tree.get_n_clusters(), handle.get_stream());
+    rmm::device_uvector<T> probabilities(params.n_row, handle.get_stream());
+
+    HDBSCAN::detail::Extract::extract_clusters(handle, condensed_tree, params.n_row,
+                                               labels.data(), stabilities.data(), probabilities.data(),
+                                               HDBSCAN::Common::CLUSTER_SELECTION_METHOD::EOM,
+                                               true);
+
+    CUML_LOG_DEBUG("Evaluating results");
+    if(params.expected.size() == params.n_row) {
+      raft::print_device_vector("labels", labels.data(), labels.size(), std::cout);
+      score =
+        MLCommon::Metrics::compute_adjusted_rand_index(labels.data(), expected_device.data(), params.n_row,
+                           handle.get_device_allocator(), handle.get_stream());
+    } else {
+      score = 1.0;
+    }
   }
 
   void SetUp() override { basicTest(); }
@@ -726,7 +649,7 @@ class ClusterCondensingTest
 
 typedef ClusterCondensingTest<float, int> ClusterCondensingTestF_Int;
 TEST_P(ClusterCondensingTestF_Int, Result) {
-  //  EXPECT_TRUE(score == 1.0);
+    EXPECT_TRUE(score == 1.0);
 }
 
 const std::vector<ClusterCondensingInputs<float, int>>
@@ -787,8 +710,10 @@ const std::vector<ClusterCondensingInputs<float, int>>
       0.72111026, 0.72111026, 0.78740079, 0.79372539, 0.80622577, 0.81853528,
       0.88317609, 0.96436508, 1.0198039,  1.02469508, 1.64012195},
      {1}},
+
+     // Digits
       {1797,
-       10,
+       70,
         {0,  305,  434,  434,  434,  396,  396,  396,   79,  464,   79,
           396,   79,  396,  512,   79,  434,  229,  396,  441,  434,  229,
           79,  512,  305,  229,  305,  229,  166,  252,   79,    0,    0,
@@ -1477,7 +1402,81 @@ const std::vector<ClusterCondensingInputs<float, int>>
         37.17526059, 37.28270376, 37.30951621, 37.36308338, 37.41657387,
         37.76241518, 38.05259518, 38.13135193, 38.31448812, 38.45776905,
         38.78143886, 39.79949748, 39.87480407, 40.47221269, 40.52159918,
-        42.11887938}, {1}
+        42.11887938}, {3, 5,-1, 4,-1,-1, 2,-1,-1,-1, 3,-1,-1, 4, 1,-1,-1, 0,-1,-1, 3,-1,-1,-1,
+                                    -1,-1, 2,-1,-1,-1, 3,-1,-1,-1, 2,-1, 3,-1,-1, 4,-1, 1,-1, 0, 0, 4,-1,-1,
+                                    3, 3,-1,-1, 0,-1,-1, 3,-1,-1, 2, 4, 4, 0, 4, 4, 1, 2, 2, 2,-1,-1,-1,-1,
+                                    3,-1,-1,-1,-1,-1, 3, 3,-1, 0, 2,-1,-1,-1,-1,-1, 2, 4,-1,-1,-1,-1, 0,-1,
+                                    -1, 1,-1, 5,-1, 3,-1,-1,-1,-1,-1,-1, 0,-1,-1, 1, 0,-1,-1,-1,-1, 4, 0,-1,
+                                    -1,-1,-1,-1, 1,-1, 3,-1,-1,-1, 3,-1,-1,-1,-1,-1, 2, 0,-1, 4, 3,-1,-1, 4,
+                                    -1,-1, 2, 0, 5,-1, 3,-1,-1,-1,-1,-1, 2, 0,-1, 4, 3,-1, 4,-1, 2, 4, 3,-1,
+                                    -1,-1,-1,-1,-1, 0, 0, 4,-1,-1, 3, 3,-1,-1, 0,-1,-1, 3,-1,-1, 2, 4,-1,-1,
+                                    -1, 4,-1, 2, 2, 2,-1,-1,-1, 4, 3,-1,-1,-1,-1,-1, 3,-1,-1,-1, 2, 4,-1,-1,
+                                    -1,-1,-1, 4,-1,-1, 0, 2,-1,-1,-1,-1,-1, 3,-1,-1, 2,-1, 2,-1, 0,-1,-1,-1,
+                                    0,-1, 5,-1,-1,-1,-1,-1,-1,-1,-1,-1, 3,-1,-1,-1, 3, 5,-1, 4, 1,-1, 2,-1,
+                                    -1,-1, 3,-1,-1, 4, 1,-1, 2, 0,-1,-1, 3,-1,-1, 4, 1, 4, 2,-1,-1, 4, 3,-1,
+                                    4,-1, 2,-1, 3,-1,-1,-1,-1, 1, 5, 0, 0, 4,-1,-1, 3, 3,-1,-1, 0,-1,-1, 3,
+                                    -1,-1, 2,-1, 4,-1, 4, 4, 1, 2, 2, 2,-1,-1, 5,-1, 3,-1, 4,-1,-1,-1, 3, 3,
+                                    -1, 0, 2, 4,-1,-1, 0, 1, 2, 4, 5, 4,-1, 5, 0, 2,-1, 1,-1, 5, 1, 3, 4, 4,
+                                    2,-1,-1,-1,-1,-1,-1, 1, 0,-1,-1,-1,-1,-1, 0,-1,-1, 1,-1,-1, 1,-1, 3,-1,
+                                    -1, 4, 3,-1,-1,-1,-1,-1, 2,-1,-1, 4, 3,-1,-1,-1,-1,-1,-1,-1,-1, 4, 3,-1,
+                                    -1,-1, 1,-1, 2,-1,-1,-1, 3,-1,-1,-1,-1,-1, 3,-1,-1, 4,-1, 1,-1,-1,-1, 4,
+                                    -1,-1, 3, 3,-1,-1,-1,-1,-1, 3,-1,-1,-1,-1,-1,-1,-1,-1, 1, 2, 2, 2, 1, 4,
+                                    -1,-1, 3,-1,-1,-1,-1,-1, 3, 3,-1,-1, 2, 4,-1,-1,-1,-1, 2,-1,-1,-1, 4,-1,
+                                    -1,-1,-1, 1,-1,-1, 1, 3,-1,-1, 2,-1,-1,-1,-1,-1,-1, 1,-1,-1,-1,-1,-1, 4,
+                                    -1,-1,-1,-1,-1,-1,-1,-1, 3,-1, 4,-1, 3,-1,-1,-1, 1,-1, 2,-1,-1,-1, 3,-1,
+                                    -1,-1,-1,-1, 2, 0,-1,-1, 3,-1,-1,-1, 1,-1, 2, 0,-1,-1, 3,-1,-1, 4, 2,-1,
+                                    3,-1,-1,-1,-1, 1,-1, 0, 0,-1, 4,-1, 3, 3,-1,-1, 0,-1,-1, 3,-1,-1,-1,-1,
+                                    -1, 0,-1,-1, 1,-1, 2, 2,-1,-1,-1, 4, 3, 4,-1,-1,-1,-1, 3, 3,-1, 0,-1,-1,
+                                    -1,-1, 0,-1,-1,-1,-1,-1,-1,-1, 0, 2,-1, 1,-1,-1, 1,-1,-1,-1, 2,-1,-1,-1,
+                                    0, 4,-1, 1, 0,-1,-1,-1,-1,-1, 0, 4,-1,-1,-1,-1,-1,-1, 3,-1,-1,-1, 3, 5,
+                                    -1,-1,-1,-1, 2, 0,-1,-1, 3, 5,-1,-1,-1,-1, 2,-1,-1,-1, 3, 5,-1,-1,-1,-1,
+                                    2,-1,-1,-1, 3,-1,-1,-1, 2,-1, 3,-1,-1,-1,-1,-1,-1,-1,-1,-1, 4,-1, 3, 3,
+                                    -1,-1, 0,-1,-1,-1, 5,-1, 2, 4, 4, 0, 4, 4,-1, 2, 2, 2,-1,-1, 5,-1, 3,-1,
+                                    -1,-1,-1,-1, 3, 3,-1, 0, 2,-1,-1,-1,-1, 1,-1,-1,-1,-1,-1, 5, 0, 2,-1,-1,
+                                    -1,-1,-1, 3,-1, 4, 2,-1, 2,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1,-1, 0,-1,-1,-1,
+                                    -1,-1,-1,-1, 3,-1,-1,-1, 3, 5,-1,-1,-1,-1,-1, 0,-1, 4, 3, 5,-1, 4, 1,-1,
+                                    -1, 0,-1,-1, 3, 5,-1, 4, 1,-1, 2, 0,-1,-1, 3,-1,-1,-1, 2,-1, 3,-1,-1, 4,
+                                    -1, 1,-1, 0, 0,-1, 4, 5,-1, 3,-1,-1,-1,-1,-1, 3,-1,-1, 2,-1,-1, 0,-1,-1,
+                                    1, 2,-1,-1, 1,-1,-1,-1, 3, 4,-1,-1,-1,-1, 3, 3,-1, 0, 2, 4,-1, 5, 0, 1,
+                                    -1, 4, 5, 4,-1, 5, 0, 2,-1,-1, 4, 5,-1, 3,-1, 4, 2, 4, 2,-1, 0, 4, 1, 1,
+                                    0,-1,-1,-1,-1,-1, 0,-1,-1,-1,-1,-1, 1,-1, 3,-1, 4,-1,-1,-1,-1, 1,-1, 2,
+                                    -1,-1,-1, 3,-1,-1,-1,-1,-1, 2,-1,-1, 4, 3,-1,-1, 4,-1,-1, 2, 0,-1,-1, 3,
+                                    4,-1, 4, 2,-1, 3,-1,-1, 4, 5,-1,-1, 0, 0,-1,-1,-1,-1,-1,-1,-1, 3,-1,-1,
+                                    2, 4,-1, 0,-1,-1,-1, 2, 2, 2,-1,-1,-1, 4, 3,-1,-1,-1,-1,-1, 3, 3,-1, 0,
+                                    2,-1,-1,-1,-1, 2,-1,-1,-1, 4,-1, 0, 2,-1,-1,-1,-1,-1, 3, 4,-1, 2,-1, 2,
+                                    -1, 0,-1, 1,-1, 0,-1,-1,-1,-1,-1, 0,-1,-1,-1, 1,-1,-1,-1, 4,-1, 3,-1,-1,
+                                    4,-1,-1, 2, 0,-1,-1, 3, 5,-1, 4,-1,-1, 2, 0,-1,-1, 3, 5,-1, 4, 1,-1, 2,
+                                    0,-1,-1, 3,-1,-1,-1, 2,-1, 3,-1,-1,-1,-1,-1, 5,-1, 0, 4, 4, 5,-1,-1,-1,
+                                    -1,-1, 3,-1,-1, 2,-1, 4,-1, 4, 4, 1, 2, 2, 2,-1,-1, 5,-1, 3,-1,-1,-1,-1,
+                                    -1, 3, 3, 5, 0,-1, 4,-1, 5,-1, 1, 2, 4,-1,-1,-1, 5, 0, 2,-1, 1,-1, 5, 1,
+                                    3,-1,-1,-1,-1, 2, 5, 0,-1, 1,-1, 0,-1,-1,-1,-1,-1,-1,-1,-1, 1,-1,-1,-1,
+                                    -1, 3,-1,-1,-1, 3,-1,-1, 4, 1,-1, 2, 0,-1,-1, 3,-1,-1, 4, 1,-1, 2, 0,-1,
+                                    -1, 3,-1,-1,-1, 1,-1, 2,-1,-1,-1, 3, 4,-1,-1, 2,-1, 3,-1,-1, 4,-1, 1, 5,
+                                    -1, 0,-1,-1,-1,-1, 3,-1,-1, 0,-1,-1, 3, 5,-1, 2,-1,-1, 0,-1,-1,-1, 2, 2,
+                                    2, 1, 4, 5,-1, 3,-1,-1,-1,-1,-1, 3, 3, 5, 0, 2, 4,-1,-1, 0, 1, 2, 4, 5,
+                                    -1,-1, 5, 0, 2,-1, 1, 4,-1, 1, 3,-1,-1, 2,-1, 2,-1,-1,-1, 1, 1, 0,-1,-1,
+                                    -1,-1,-1,-1,-1,-1, 1,-1,-1,-1, 4,-1,-1,-1,-1,-1,-1,-1, 5,-1,-1,-1, 0,-1,
+                                    -1, 3,-1,-1, 4,-1,-1, 2, 0,-1,-1, 3,-1,-1,-1,-1,-1,-1, 0,-1,-1, 3, 4,-1,
+                                    -1, 2,-1, 3, 4, 5,-1, 5,-1, 5, 0, 0, 4,-1, 5, 3, 3,-1,-1, 0,-1,-1, 3,-1,
+                                    -1, 2, 4, 4, 0,-1,-1,-1, 2, 2, 2, 1,-1, 5,-1, 3, 4,-1,-1,-1,-1, 3, 3,-1,
+                                    0, 2, 4,-1, 5, 0,-1,-1, 4, 5, 4, 4, 5, 0, 2,-1,-1, 4, 5, 1, 3,-1, 4,-1,
+                                    4,-1, 5, 0,-1,-1,-1, 0,-1,-1,-1,-1,-1, 0,-1,-1,-1, 5,-1,-1,-1, 3,-1, 3,
+                                    -1,-1, 4,-1, 4, 2, 0,-1, 4, 3,-1,-1, 4, 1, 4, 2, 0,-1,-1, 3,-1,-1, 4, 1,
+                                    -1, 2, 0,-1, 4, 3, 4, 4, 4, 2, 4, 3, 4,-1, 4,-1, 1,-1, 0, 0, 4, 4,-1, 3,
+                                    3,-1,-1,-1,-1,-1, 3,-1,-1, 2, 4, 4, 0, 4, 4, 1, 2, 2, 2, 1, 4,-1,-1, 3,
+                                    -1,-1,-1,-1,-1, 3, 3,-1, 0, 2, 4,-1,-1, 0, 1, 2, 4,-1,-1, 4,-1, 0, 2,-1,
+                                    1, 4,-1, 1, 3, 4, 4, 2,-1, 2,-1, 0,-1, 1, 1, 0,-1,-1,-1,-1,-1, 0, 4, 4,
+                                    1,-1,-1, 1,-1, 3,-1,-1,-1, 3, 5,-1,-1, 1,-1,-1,-1,-1,-1, 3, 5,-1,-1, 1,
+                                    -1,-1,-1, 3,-1,-1, 4,-1, 4,-1,-1,-1,-1,-1,-1,-1,-1, 2,-1, 3,-1,-1,-1,-1,
+                                    1, 5, 0,-1,-1,-1, 5,-1,-1,-1,-1,-1,-1,-1, 3,-1,-1, 2,-1,-1,-1,-1,-1,-1,
+                                    2, 2, 2,-1,-1, 5, 4,-1, 4,-1,-1, 0, 3, 5, 0, 2, 4,-1, 5,-1,-1, 2,-1, 5,
+                                    -1,-1, 5,-1, 2,-1, 1, 4, 5, 1, 3,-1, 4,-1,-1,-1, 5, 0,-1, 1,-1, 0,-1,-1,
+                                    -1,-1,-1,-1,-1, 1,-1, 3,-1,-1,-1, 3,-1,-1,-1,-1,-1, 2, 0,-1, 4, 3, 5,-1,
+                                    -1, 1,-1, 2, 0,-1, 4, 3, 5, 0,-1, 1,-1, 2, 0,-1, 4, 3, 4,-1,-1, 2,-1, 3,
+                                    -1,-1, 4,-1,-1,-1,-1, 0,-1,-1, 5, 3, 3,-1,-1, 0,-1,-1, 3,-1,-1, 2,-1,-1,
+                                    -1,-1,-1, 1,-1, 2,-1,-1, 4,-1,-1, 3, 4,-1,-1,-1,-1, 3, 3,-1,-1, 2,-1,-1,
+                                    -1,-1,-1, 2,-1, 5,-1, 4, 5, 0, 2,-1, 1,-1, 5,-1, 3,-1, 4,-1,-1, 2,-1, 0,
+                                    -1,-1,-1, 0,-1,-1,-1,-1,-1, 0,-1,-1, 1,-1,-1, 1, 4, 3,-1,-1,-1}
       }
 };
 
