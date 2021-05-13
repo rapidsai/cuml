@@ -22,25 +22,7 @@
 #include "input.cuh"
 #include "node.cuh"
 #include "split.cuh"
-
-namespace {
-
-template <typename DataT>
-class NumericLimits;
-
-template <>
-class NumericLimits<float> {
- public:
-  static constexpr double kMax = __FLT_MAX__;
-};
-
-template <>
-class NumericLimits<double> {
- public:
-  static constexpr double kMax = __DBL_MAX__;
-};
-
-}  // anonymous namespace
+#include <limits>
 
 namespace ML {
 namespace DecisionTree {
@@ -98,7 +80,7 @@ class GiniObjectiveFunction {
       auto gain = DataT(0.0);
       // if there aren't enough samples in this split, don't bother!
       if (nLeft < min_samples_leaf || nRight < min_samples_leaf) {
-        gain = -NumericLimits<DataT>::kMax;
+        gain = -std::numeric_limits<DataT>::max();
       } else {
         auto invLeft = One / nLeft;
         auto invRight = One / nRight;
@@ -121,7 +103,7 @@ class GiniObjectiveFunction {
       }
       // if the gain is not "enough", don't bother!
       if (gain <= min_impurity_decrease) {
-        gain = -NumericLimits<DataT>::kMax;
+        gain = -std::numeric_limits<DataT>::max();
       }
       sp.update({sbins[i], col, gain, nLeft});
     }
@@ -173,7 +155,7 @@ class EntropyObjectiveFunction {
       auto gain = DataT(0.0);
       // if there aren't enough samples in this split, don't bother!
       if (nLeft < min_samples_leaf || nRight < min_samples_leaf) {
-        gain = -NumericLimits<DataT>::kMax;
+        gain = -std::numeric_limits<DataT>::max();
       } else {
         auto invLeft = One / nLeft;
         auto invRight = One / nRight;
@@ -204,7 +186,7 @@ class EntropyObjectiveFunction {
       }
       // if the gain is not "enough", don't bother!
       if (gain <= min_impurity_decrease) {
-        gain = -NumericLimits<DataT>::kMax;
+        gain = -std::numeric_limits<DataT>::max();
       }
       sp.update({sbins[i], col, gain, nLeft});
     }
@@ -267,7 +249,7 @@ class MSEObjectiveFunction {
       DataT gain;
       // if there aren't enough samples in this split, don't bother!
       if (nLeft < min_samples_leaf || nRight < min_samples_leaf) {
-        gain = -NumericLimits<DataT>::kMax;
+        gain = -std::numeric_limits<DataT>::max();
       } else {
         auto label_sum = shist[nbins - 1].label_sum;
         DataT parent_obj = -label_sum * label_sum / len;
@@ -279,7 +261,7 @@ class MSEObjectiveFunction {
       }
       // if the gain is not "enough", don't bother!
       if (gain <= min_impurity_decrease) {
-        gain = -NumericLimits<DataT>::kMax;
+        gain = -std::numeric_limits<DataT>::max();
       }
       sp.update({sbins[i], col, gain, nLeft});
     }
