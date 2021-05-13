@@ -347,7 +347,9 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         except:
             raise ImportError("hdbscan must be installed to use plots")
 
-        return CondensedTree(raw_tree, self.cluster_selection_epsilon, self.allow_single_cluster)
+        return CondensedTree(raw_tree,
+                             self.cluster_selection_epsilon,
+                             self.allow_single_cluster)
 
     def single_linkage_tree_(self):
 
