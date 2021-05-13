@@ -17,42 +17,22 @@
 #include <cuml/decomposition/kpca.hpp>
 #include "kpca.cuh"
 
-namespace ML {
-
-using namespace MLCommon;
-
 void kpcaFit(raft::handle_t &handle, float *input, float *alphas,
-             float *lambdas, const paramsKPCA &prms) {
+             float *lambdas, const ML::paramsKPCA &prms) {
   kpcaFit(handle, input, alphas, lambdas, prms, handle.get_stream());
 }
-
 
 void kpcaFit(raft::handle_t &handle, double *input, double *alphas,
-             double *lambdas, const paramsKPCA &prms) {
+             double *lambdas, const ML::paramsKPCA &prms) {
   kpcaFit(handle, input, alphas, lambdas, prms, handle.get_stream());
 }
 
-void kpcaFitTransform(raft::handle_t &handle, float *input, float *trans_input,
-                      float *alphas, float *lambdas, const paramsKPCA &prms) {
-  kpcaFitTransform(handle, input, trans_input, alphas, lambdas, prms,
-                   handle.get_stream());
-}
-
-void kpcaFitTransform(raft::handle_t &handle, double *input, double *trans_input,
-                      double *alphas, double *lambdas, const paramsKPCA &prms) {
-  kpcaFitTransform(handle, input, trans_input, alphas, lambdas, prms,
-                   handle.get_stream());
-}
-
-
 void kpcaTransform(raft::handle_t &handle, float *input, float *alphas, float *lambdas,
-                   float *trans_input, const paramsKPCA &prms) {
+                   float *trans_input, const ML::paramsKPCA &prms) {
   kpcaTransform(handle, input, alphas, lambdas, trans_input, prms, handle.get_stream());
 }
 
 void kpcaTransform(raft::handle_t &handle, double *input, double *alphas, double *lambdas,
-                   double *trans_input, const paramsKPCA &prms) {
+                   double *trans_input, const ML::paramsKPCA &prms) {
   kpcaTransform(handle, input, alphas, lambdas, trans_input, prms, handle.get_stream());
 }
-
-};  // end namespace ML

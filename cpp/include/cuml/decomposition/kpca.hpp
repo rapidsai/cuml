@@ -29,13 +29,6 @@ void kpcaFit(raft::handle_t &handle, float *input, float *alphas, float *lambdas
 void kpcaFit(raft::handle_t &handle, double *input, double *alphas,
              double *lambdas, const paramsKPCA &prms);
 
-void kpcaFitTransform(raft::handle_t &handle, float *input, float *trans_input,
-                      float *alphas, float *lambdas, const paramsKPCA &prms);
-
-void kpcaFitTransform(raft::handle_t &handle, double *input, double *trans_input,
-                      double *alphas, double *lambdas, const paramsKPCA &prms);
-
-
 void kpcaTransform(raft::handle_t &handle, float *input, float *alphas, float *lambdas,
                    float *trans_input, const paramsKPCA &prms);
 
