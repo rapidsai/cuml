@@ -64,11 +64,11 @@ int qn_fit(const raft::handle_t &handle, LossFunction &loss,
 
 template <typename T>
 inline void qn_fit_x(const raft::handle_t &handle, SimpleMat<T> &X, T *y_data,
-                     int N, int D, int C, bool fit_intercept, T l1, T l2,
-                     int max_iter, T grad_tol, T change_tol,
-                     int linesearch_max_iter, int lbfgs_memory, int verbosity,
-                     T *w0_data, T *f, int *num_iters, int loss_type,
-                     cudaStream_t stream, T *sample_weight = nullptr) {
+                     int C, bool fit_intercept, T l1, T l2, int max_iter,
+                     T grad_tol, T change_tol, int linesearch_max_iter,
+                     int lbfgs_memory, int verbosity, T *w0_data, T *f,
+                     int *num_iters, int loss_type, cudaStream_t stream,
+                     T *sample_weight = nullptr) {
   /*
    NB:
     N - number of data rows
@@ -81,6 +81,8 @@ inline void qn_fit_x(const raft::handle_t &handle, SimpleMat<T> &X, T *y_data,
 
     Dimensionality of w0 depends on loss, so we initialize it later.
    */
+  int N = X.m;
+  int D = X.n;
   int C_len = (loss_type == 0) ? (C - 1) : C;
   rmm::device_uvector<T> tmp(C_len * N, stream);
   SimpleDenseMat<T> Z(tmp.data(), C_len, N);
@@ -127,9 +129,9 @@ void qnFit(const raft::handle_t &handle, T *X_data, bool X_col_major, T *y_data,
            int verbosity, T *w0_data, T *f, int *num_iters, int loss_type,
            cudaStream_t stream, T *sample_weight = nullptr) {
   SimpleDenseMat<T> X(X_data, N, D, X_col_major ? COL_MAJOR : ROW_MAJOR);
-  qn_fit_x(handle, X, y_data, N, D, C, fit_intercept, l1, l2, max_iter,
-           grad_tol, change_tol, linesearch_max_iter, lbfgs_memory, verbosity,
-           w0_data, f, num_iters, loss_type, stream, sample_weight);
+  qn_fit_x(handle, X, y_data, C, fit_intercept, l1, l2, max_iter, grad_tol,
+           change_tol, linesearch_max_iter, lbfgs_memory, verbosity, w0_data, f,
+           num_iters, loss_type, stream, sample_weight);
 }
 
 template <typename T>
@@ -140,9 +142,9 @@ void qnFitSparse(const raft::handle_t &handle, T *X_values, int *X_cols,
                  int verbosity, T *w0_data, T *f, int *num_iters, int loss_type,
                  cudaStream_t stream, T *sample_weight = nullptr) {
   SimpleSparseMat<T> X(X_values, X_cols, X_row_ids, X_nnz, N, D);
-  qn_fit_x(handle, X, y_data, N, D, C, fit_intercept, l1, l2, max_iter,
-           grad_tol, change_tol, linesearch_max_iter, lbfgs_memory, verbosity,
-           w0_data, f, num_iters, loss_type, stream, sample_weight);
+  qn_fit_x(handle, X, y_data, C, fit_intercept, l1, l2, max_iter, grad_tol,
+           change_tol, linesearch_max_iter, lbfgs_memory, verbosity, w0_data, f,
+           num_iters, loss_type, stream, sample_weight);
 }
 
 template <typename T>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -95,15 +95,21 @@ struct SimpleSparseMat : SimpleMat<T> {
       order));
 
     /*
-      Dense matrix A must have the same order as the sparse matrix C
-      (i.e. swapped order w.r.t. original C).
+      The matrix A must have the same order as the matrix C in the input
+      of function cusparseSpMM (i.e. swapped order w.r.t. original C).
       To account this requirement, I may need to flip transA (whether to transpose A).
 
-         C   C' rowsC' colsC' ldC'   A  A' rowsA' colsA' ldA'
-         c   r    n      m     m     c  r    n      m     m
-         c   r    n      m     m     r  r    m      n     n
-         r   c    n      m     n     c  c    m      n     m
-         r   c    n      m     n     r  c    n      m     n
+         C   C' rowsC' colsC' ldC'   A  A' rowsA' colsA' ldA'  flipTransA
+         c   r    n      m     m     c  r    n      m     m       x
+         c   r    n      m     m     r  r    m      n     n       o
+         r   c    n      m     n     c  c    m      n     m       o
+         r   c    n      m     n     r  c    n      m     n       x
+
+      where:
+        c/r    - column/row major order
+        A,C    - input to gemmb
+        A', C' - input to cusparseSpMM
+        ldX'   - leading dimension - m or n, depending on order and transX
      */
     cusparseDnMatDescr_t descrA;
     CUSPARSE_CHECK(raft::sparse::cusparsecreatednmat(

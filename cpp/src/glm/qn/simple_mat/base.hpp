@@ -33,7 +33,13 @@ struct SimpleMat {
 
   virtual void print(std::ostream &oss) const = 0;
 
-  /** GEMM assigning to C where `this` refers to B. */
+  /**
+   * GEMM assigning to C where `this` refers to B.
+   *
+   * ```
+   * C <- alpha * A^transA * (*this)^transB + beta * C
+   * ```
+   */
   virtual void gemmb(const raft::handle_t &handle, const T alpha,
                      const SimpleDenseMat<T> &A, const bool transA,
                      const bool transB, const T beta, SimpleDenseMat<T> &C,

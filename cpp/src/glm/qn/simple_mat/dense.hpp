@@ -56,6 +56,7 @@ struct SimpleDenseMat : SimpleMat<T> {
     len = m_ * n_;
   }
 
+  // Implemented GEMM as a static method here to improve readability
   inline static void gemm(const raft::handle_t &handle, const T alpha,
                           const SimpleDenseMat<T> &A, const bool transA,
                           const SimpleDenseMat<T> &B, const bool transB,
@@ -117,7 +118,13 @@ struct SimpleDenseMat : SimpleMat<T> {
                             stream);
   }
 
-  /** GEMM assigning to C where `this` refers to C. */
+  /**
+   * GEMM assigning to C where `this` refers to C.
+   *
+   * ```
+   * *this <- alpha * A^transA * B^transB + beta * (*this)
+   * ```
+   */
   inline void assign_gemm(const raft::handle_t &handle, const T alpha,
                           const SimpleDenseMat<T> &A, const bool transA,
                           const SimpleMat<T> &B, const bool transB,

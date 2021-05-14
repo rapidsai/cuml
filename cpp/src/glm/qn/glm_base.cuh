@@ -175,7 +175,6 @@ struct GLMWithData : GLMDims {
   const SimpleVec<T> *y;
   SimpleDenseMat<T> *Z;
   GLMObjective *objective;
-  // SimpleVec<T> lossVal;
 
   GLMWithData(GLMObjective *obj, const SimpleMat<T> &X, const SimpleVec<T> &y,
               SimpleDenseMat<T> &Z)
@@ -191,7 +190,6 @@ struct GLMWithData : GLMDims {
     SimpleDenseMat<T> W(wFlat.data, C, dims);
     SimpleDenseMat<T> G(gradFlat.data, C, dims);
     objective->loss_grad(dev_scalar, G, W, *X, *y, *Z, stream);
-    // lossVal.reset(dev_scalar, 1);
     T loss_host;
     raft::update_host(&loss_host, dev_scalar, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
