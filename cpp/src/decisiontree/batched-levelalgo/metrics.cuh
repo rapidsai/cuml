@@ -109,14 +109,24 @@ class GiniObjectiveFunction {
     }
     return sp;
   }
-  static DI LabelT LeafPrediction(BinT* shist, int nclasses) {
+  static DI LabelT LeafPrediction(BinT* shist, int nclasses, DataT* aux) {
     int class_idx = 0;
     int count = 0;
+    int total_count = 0;
     for (int i = 0; i < nclasses; i++) {
       auto current_count = shist[i].x;
+      total_count += current_count;
       if (current_count > count) {
         class_idx = i;
         count = current_count;
+      }
+    }
+    if (aux) {
+      if (nclasses == 2) {
+        // Special handling for binary classifiers
+        *aux = static_cast<DataT>(shist[1].x) / total_count;
+      } else {
+        *aux = DataT(0);
       }
     }
     return class_idx;
@@ -192,10 +202,10 @@ class EntropyObjectiveFunction {
     }
     return sp;
   }
-  static DI LabelT LeafPrediction(BinT* shist, int nclasses) {
+  static DI LabelT LeafPrediction(BinT* shist, int nclasses, DataT* aux) {
     // Same as Gini
-    return GiniObjectiveFunction<DataT, LabelT, IdxT>::LeafPrediction(shist,
-                                                                      nclasses);
+    return GiniObjectiveFunction<DataT, LabelT, IdxT>::LeafPrediction(
+      shist, nclasses, aux);
   }
 };
 
@@ -268,7 +278,7 @@ class MSEObjectiveFunction {
     return sp;
   }
 
-  static DI LabelT LeafPrediction(BinT* shist, int nclasses) {
+  static DI LabelT LeafPrediction(BinT* shist, int nclasses, DataT* aux) {
     return shist[0].label_sum / shist[0].count;
   }
 };

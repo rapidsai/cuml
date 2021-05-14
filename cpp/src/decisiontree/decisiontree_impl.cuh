@@ -203,6 +203,10 @@ tl::Tree<T, T> build_treelite_tree(
       } else {
         if (num_class == 1) {
           tl_tree.SetLeaf(node_id, static_cast<T>(q_node.node->prediction));
+        } else if (num_class == 2) {
+          ASSERT((q_node.node->quesval > 0),
+                 "Could not fetch fraction of the positive class");
+          tl_tree.SetLeaf(node_id, static_cast<T>(q_node.node->quesval));
         } else {
           std::vector<T> leaf_vector(num_class, 0);
           leaf_vector[q_node.node->prediction] = 1;

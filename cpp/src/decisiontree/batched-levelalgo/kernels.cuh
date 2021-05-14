@@ -138,8 +138,9 @@ DI void computePrediction(IdxT range_start, IdxT range_len,
   }
   __syncthreads();
   if (tid == 0) {
-    auto pred = ObjectiveT::LeafPrediction(shist, input.nclasses);
-    nodes[0].makeLeaf(n_leaves, pred);
+    DataT aux;
+    auto pred = ObjectiveT::LeafPrediction(shist, input.nclasses, &aux);
+    nodes[0].makeLeaf(n_leaves, pred, aux);
   }
 }
 
