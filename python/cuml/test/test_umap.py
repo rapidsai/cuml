@@ -340,7 +340,7 @@ def test_umap_fit_transform_against_fit_and_transform():
                           (21, 8),
                           (21, np.random.RandomState(42)),
                           (25, None),
-                          (50, np.random.RandomState(42))])
+                          (30, np.random.RandomState(42))])
 def test_umap_fit_transform_reproducibility(n_components, random_state):
 
     n_samples = 8000
