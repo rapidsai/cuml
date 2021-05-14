@@ -14,10 +14,9 @@
  * limitations under the License.
  */
 
-#include <rmm/device_uvector.hpp>
-
 #include <raft/distance/distance.cuh>
 #include <raft/spatial/knn/knn.hpp>
+#include <rmm/device_uvector.hpp>
 #include <selection/columnWiseSort.cuh>
 
 #define N_THREADS 512
@@ -27,8 +26,9 @@ namespace Score {
 
 /**
      * @brief Compute a the rank of trustworthiness score
-     * @param[in] X_ind: Indexes of pairwise distance calculations of X and sorting
-     * @param[in] X_dist: Distances of pairwise distance calculations of X and sorting
+     * @param[in] X_ind: Sorted indexes of pairwise distance calculations of X
+     * @param[in] X_nn_order: Nearest neighbors order
+  *                            of pairwise distance calculations of X
      * @param[in] emb_ind: Indexes of KNN on embeddings
      * @param[in] emb_dist: Distances of KNN on embeddings
      * @param n: Number of samples
@@ -36,32 +36,28 @@ namespace Score {
      * @param work: Batch to consider (to do it at once use n * n_neighbors)
      * @param[out] rank: Resulting rank
      */
-template <typename math_t, typename knn_index_t>
-__global__ void compute_rank(int *X_ind, math_t *X_dist, knn_index_t *emb_ind,
-                             math_t *emb_dist, int n, int n_neighbors, int work,
-                             int offset, double *rank) {
+template <typename knn_index_t>
+__global__ void compute_rank(int *X_ind, int *X_nn_order, knn_index_t *emb_ind,
+                             int n, int n_neighbors, int work, int offset,
+                             double *rank) {
   int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i >= work) return;
 
   int sample_idx = i / n_neighbors;
   int nn_idx = i % n_neighbors;
 
-  int loc = sample_idx * n_neighbors + nn_idx;
-  knn_index_t emb_nn_ind = emb_ind[loc];
+  knn_index_t emb_nn_ind = emb_ind[sample_idx * n_neighbors + nn_idx];
 
   if ((offset + nn_idx) == emb_nn_ind) return;
 
-  math_t emb_nn_dist = emb_dist[loc];
-
-  loc = sample_idx * n;
+  int loc = sample_idx * n;
   int *X_pw_ind = &X_ind[loc];
-  math_t *X_pw_dist = &X_dist[loc];
 
   knn_index_t left = 0;
   knn_index_t right = n - 1;
   while (left < right) {
     knn_index_t mid = std::floor((left + right) / 2);
-    if (X_pw_dist[mid] < emb_nn_dist) {
+    if (X_pw_ind[mid] < emb_nn_ind) {
       left = mid + 1;
     } else {
       right = mid;
@@ -70,7 +66,8 @@ __global__ void compute_rank(int *X_ind, math_t *X_dist, knn_index_t *emb_ind,
 
   for (int r = left; r < n; r++) {
     if (X_pw_ind[r] == emb_nn_ind) {
-      int tmp = r - n_neighbors + 1;
+      int *X_pw_ind_index = &X_nn_order[loc];
+      int tmp = X_pw_ind_index[r] - n_neighbors + 1;
       if (tmp > 0) raft::myAtomicAdd<double>(rank, tmp);
       break;
     }
@@ -128,7 +125,9 @@ double trustworthiness_score(const raft::handle_t &h, math_t *X,
   const int PAIRWISE_ALLOC = batchSize * n;
   rmm::device_uvector<int> X_ind(PAIRWISE_ALLOC, stream);
   rmm::device_uvector<math_t> X_dist(PAIRWISE_ALLOC, stream);
-  rmm::device_uvector<math_t> X_sorted_dist(PAIRWISE_ALLOC, stream);
+  rmm::device_uvector<int> X_sorted_ind(PAIRWISE_ALLOC, stream);
+
+  rmm::device_uvector<int> X_nn_order(PAIRWISE_ALLOC, stream);
 
   double t = 0.0;
   rmm::device_uvector<double> t_dbuf(1, stream);
@@ -152,15 +151,35 @@ double trustworthiness_score(const raft::handle_t &h, math_t *X,
 
     MLCommon::Selection::sortColumnsPerRow(
       X_dist.data(), X_ind.data(), curBatchSize, n, bAllocWorkspace, nullptr,
-      colSortWorkspaceSize, stream, X_sorted_dist.data());
+      colSortWorkspaceSize, stream);
 
     if (bAllocWorkspace) {
       rmm::device_uvector<char> sortColsWorkspace(colSortWorkspaceSize, stream);
 
       MLCommon::Selection::sortColumnsPerRow(
         X_dist.data(), X_ind.data(), curBatchSize, n, bAllocWorkspace,
+        sortColsWorkspace.data(), colSortWorkspaceSize, stream);
+    }
+    CUDA_CHECK(cudaPeekAtLastError());
+
+    thrust::tabulate(thrust::cuda::par.on(stream), X_nn_order.data(),
+                     X_nn_order.data() + PAIRWISE_ALLOC,
+                     [=] __device__(int idx) { return idx % n; });
+
+    colSortWorkspaceSize = 0;
+    bAllocWorkspace = false;
+
+    MLCommon::Selection::sortColumnsPerRow(
+      X_ind.data(), X_nn_order.data(), curBatchSize, n, bAllocWorkspace,
+      nullptr, colSortWorkspaceSize, stream, X_sorted_ind.data());
+
+    if (bAllocWorkspace) {
+      rmm::device_uvector<char> sortColsWorkspace(colSortWorkspaceSize, stream);
+
+      MLCommon::Selection::sortColumnsPerRow(
+        X_ind.data(), X_nn_order.data(), curBatchSize, n, bAllocWorkspace,
         sortColsWorkspace.data(), colSortWorkspaceSize, stream,
-        X_sorted_dist.data());
+        X_sorted_ind.data());
     }
     CUDA_CHECK(cudaPeekAtLastError());
 
@@ -169,10 +188,9 @@ double trustworthiness_score(const raft::handle_t &h, math_t *X,
     int work = curBatchSize * (n_neighbors + 1);
     int n_blocks = raft::ceildiv(work, N_THREADS);
     compute_rank<<<n_blocks, N_THREADS, 0, stream>>>(
-      X_ind.data(), X_sorted_dist.data(),
-      &emb_ind.data()[(n - toDo) * (n_neighbors + 1)],
-      &emb_dist.data()[(n - toDo) * (n_neighbors + 1)], n, n_neighbors + 1,
-      work, n - toDo, d_t);
+      X_sorted_ind.data(), X_nn_order.data(),
+      &emb_ind.data()[(n - toDo) * (n_neighbors + 1)], n, n_neighbors + 1, work,
+      n - toDo, d_t);
     CUDA_CHECK(cudaPeekAtLastError());
 
     double t_tmp = 0.;
