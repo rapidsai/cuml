@@ -16,7 +16,7 @@
 import pytest
 
 
-from cuml.cluster import HDBSCAN
+from cuml.experimental.cluster import HDBSCAN
 from sklearn.datasets import make_blobs
 
 from cuml.metrics import adjusted_rand_score
@@ -124,12 +124,12 @@ def test_hdbscan_blobs(nrows, ncols, nclusters,
 
 # TODO: Fix crash when min_samples is changes (due to MST determinism precision error)
 @pytest.mark.parametrize('cluster_selection_epsilon', [0.0])
-@pytest.mark.parametrize('min_samples_cluster_size_bounds', [(25, 10, 0)])
-                                                             #(50, 10, 0),
-                                                             #(25, 10, 0)])
+@pytest.mark.parametrize('min_samples_cluster_size_bounds', [(150, 50, 0),
+                                                             (50, 10, 0),
+                                                             (25, 10, 0)])
 
 # TODO: Fix small discrepancies in allow_single_cluster=False (single test failure)
-@pytest.mark.parametrize('allow_single_cluster', [True])
+@pytest.mark.parametrize('allow_single_cluster', [True, False])
 
 # TODO: Verify/fix discrepancies in leaf selection method
 @pytest.mark.parametrize('cluster_selection_method', ['eom'])
@@ -172,8 +172,6 @@ def test_hdbscan_sklearn_datasets(dataset,
                              algorithm="generic")
     sk_agg.fit(cp.asnumpy(X))
 
-    sk_agg.minimum_spanning_tree_.plot()
-    plt.show()
 
 
     # import numpy as np
@@ -241,7 +239,7 @@ def test_hdbscan_sklearn_datasets(dataset,
     #
     # TODO: Investigating a couple very small label differences
     assert(adjusted_rand_score(cuml_agg.labels_, sk_agg.labels_) > 0.95)
-    # assert(len(np.unique(sk_agg.labels_)) == len(cp.unique(cuml_agg.labels_)))
+    assert(len(np.unique(sk_agg.labels_)) == len(cp.unique(cuml_agg.labels_)))
 
 
 @pytest.mark.parametrize('nrows', [1500])
