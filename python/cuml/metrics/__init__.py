@@ -37,3 +37,4 @@ from cuml.metrics.pairwise_distances import sparse_pairwise_distances
 from cuml.metrics.pairwise_distances import PAIRWISE_DISTANCE_METRICS
 from cuml.metrics.pairwise_distances import PAIRWISE_DISTANCE_SPARSE_METRICS
 from cuml.metrics.hinge_loss import hinge_loss
+from cuml.metrics.kl_divergence import kl_divergence
