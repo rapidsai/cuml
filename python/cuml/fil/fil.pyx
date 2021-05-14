@@ -178,7 +178,7 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
         algo_t algo
         bool output_class
         float threshold
-        # changing below parameters may speed up inference
+        # changing the parameters below may speed up inference
         # tree storage format, tradeoffs in big O(), node size
         # not all formats fit all models
         storage_type_t storage_type
