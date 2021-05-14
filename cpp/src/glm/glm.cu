@@ -70,26 +70,25 @@ void ridgeFit(const raft::handle_t &handle, double *input, int n_rows,
            intercept, fit_intercept, normalize, handle.get_stream(), algo);
 }
 
-void qnFit(const raft::handle_t &cuml_handle, float *X, float *y, int N, int D,
-           int C, bool fit_intercept, float l1, float l2, int max_iter,
-           float grad_tol, float change_tol, int linesearch_max_iter,
-           int lbfgs_memory, int verbosity, float *w0, float *f, int *num_iters,
-           bool X_col_major, int loss_type, float *sample_weight) {
-  qnFit(cuml_handle, X, y, N, D, C, fit_intercept, l1, l2, max_iter, grad_tol,
-        change_tol, linesearch_max_iter, lbfgs_memory, verbosity, w0, f,
-        num_iters, X_col_major, loss_type, cuml_handle.get_stream(),
+void qnFit(const raft::handle_t &cuml_handle, float *X, bool X_col_major,
+           float *y, int N, int D, int C, bool fit_intercept, float l1,
+           float l2, int max_iter, float grad_tol, float change_tol,
+           int linesearch_max_iter, int lbfgs_memory, int verbosity, float *w0,
+           float *f, int *num_iters, int loss_type, float *sample_weight) {
+  qnFit(cuml_handle, X, X_col_major, y, N, D, C, fit_intercept, l1, l2,
+        max_iter, grad_tol, change_tol, linesearch_max_iter, lbfgs_memory,
+        verbosity, w0, f, num_iters, loss_type, cuml_handle.get_stream(),
         sample_weight);
 }
 
-void qnFit(const raft::handle_t &cuml_handle, double *X, double *y, int N,
-           int D, int C, bool fit_intercept, double l1, double l2, int max_iter,
-           double grad_tol, double change_tol, int linesearch_max_iter,
-           int lbfgs_memory, int verbosity, double *w0, double *f,
-           int *num_iters, bool X_col_major, int loss_type,
-           double *sample_weight) {
-  qnFit(cuml_handle, X, y, N, D, C, fit_intercept, l1, l2, max_iter, grad_tol,
-        change_tol, linesearch_max_iter, lbfgs_memory, verbosity, w0, f,
-        num_iters, X_col_major, loss_type, cuml_handle.get_stream(),
+void qnFit(const raft::handle_t &cuml_handle, double *X, bool X_col_major,
+           double *y, int N, int D, int C, bool fit_intercept, double l1,
+           double l2, int max_iter, double grad_tol, double change_tol,
+           int linesearch_max_iter, int lbfgs_memory, int verbosity, double *w0,
+           double *f, int *num_iters, int loss_type, double *sample_weight) {
+  qnFit(cuml_handle, X, X_col_major, y, N, D, C, fit_intercept, l1, l2,
+        max_iter, grad_tol, change_tol, linesearch_max_iter, lbfgs_memory,
+        verbosity, w0, f, num_iters, loss_type, cuml_handle.get_stream(),
         sample_weight);
 }
 
@@ -98,12 +97,11 @@ void qnFitSparse(const raft::handle_t &cuml_handle, float *X_values,
                  int C, bool fit_intercept, float l1, float l2, int max_iter,
                  float grad_tol, float change_tol, int linesearch_max_iter,
                  int lbfgs_memory, int verbosity, float *w0, float *f,
-                 int *num_iters, bool X_col_major, int loss_type,
-                 float *sample_weight) {
+                 int *num_iters, int loss_type, float *sample_weight) {
   qnFitSparse(cuml_handle, X_values, X_cols, X_row_ids, X_nnz, y, N, D, C,
               fit_intercept, l1, l2, max_iter, grad_tol, change_tol,
               linesearch_max_iter, lbfgs_memory, verbosity, w0, f, num_iters,
-              X_col_major, loss_type, cuml_handle.get_stream(), sample_weight);
+              loss_type, cuml_handle.get_stream(), sample_weight);
 }
 
 void qnFitSparse(const raft::handle_t &cuml_handle, double *X_values,
@@ -111,12 +109,12 @@ void qnFitSparse(const raft::handle_t &cuml_handle, double *X_values,
                  int D, int C, bool fit_intercept, double l1, double l2,
                  int max_iter, double grad_tol, double change_tol,
                  int linesearch_max_iter, int lbfgs_memory, int verbosity,
-                 double *w0, double *f, int *num_iters, bool X_col_major,
-                 int loss_type, double *sample_weight) {
+                 double *w0, double *f, int *num_iters, int loss_type,
+                 double *sample_weight) {
   qnFitSparse(cuml_handle, X_values, X_cols, X_row_ids, X_nnz, y, N, D, C,
               fit_intercept, l1, l2, max_iter, grad_tol, change_tol,
               linesearch_max_iter, lbfgs_memory, verbosity, w0, f, num_iters,
-              X_col_major, loss_type, cuml_handle.get_stream(), sample_weight);
+              loss_type, cuml_handle.get_stream(), sample_weight);
 }
 
 void qnDecisionFunction(const raft::handle_t &cuml_handle, float *X, int N,

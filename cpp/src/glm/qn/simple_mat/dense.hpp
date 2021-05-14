@@ -56,19 +56,11 @@ struct SimpleDenseMat : SimpleMat<T> {
     len = m_ * n_;
   }
 
-  /** GEMM assigning to C where `this` refers to C. */
-  inline void assign_gemm(const raft::handle_t &handle, const T alpha,
+  inline static void gemm(const raft::handle_t &handle, const T alpha,
                           const SimpleDenseMat<T> &A, const bool transA,
-                          const SimpleMat<T> &B, const bool transB,
-                          const T beta, cudaStream_t stream) {
-    B.gemmb(handle, alpha, A, transA, transB, beta, *this, stream);
-  }
-
-  inline void gemmb(const raft::handle_t &handle, const T alpha,
-                    const SimpleDenseMat<T> &A, const bool transA,
-                    const bool transB, const T beta, SimpleDenseMat<T> &C,
-                    cudaStream_t stream) const override {
-    const SimpleDenseMat<T> &B = *this;
+                          const SimpleDenseMat<T> &B, const bool transB,
+                          const T beta, SimpleDenseMat<T> &C,
+                          cudaStream_t stream) {
     int kA = A.n;
     int kB = B.m;
 
@@ -87,8 +79,7 @@ struct SimpleDenseMat : SimpleMat<T> {
     }
     ASSERT(kA == kB, "GEMM invalid dims: k");
 
-    if (ord == COL_MAJOR && A.ord == COL_MAJOR &&
-        B.ord == COL_MAJOR) {                                       // base case
+    if (A.ord == COL_MAJOR && B.ord == COL_MAJOR && C.ord == COL_MAJOR) {
       raft::linalg::cublasgemm(handle.get_cublas_handle(),          // handle
                                transA ? CUBLAS_OP_T : CUBLAS_OP_N,  // transA
                                transB ? CUBLAS_OP_T : CUBLAS_OP_N,  // transB
@@ -103,19 +94,35 @@ struct SimpleDenseMat : SimpleMat<T> {
     }
     if (A.ord == ROW_MAJOR) {
       const SimpleDenseMat<T> Acm(A.data, A.n, A.m, COL_MAJOR);
-      B.gemmb(handle, alpha, Acm, !transA, transB, beta, C, stream);
+      gemm(handle, alpha, Acm, !transA, B, transB, beta, C, stream);
       return;
     }
     if (B.ord == ROW_MAJOR) {
       const SimpleDenseMat<T> Bcm(B.data, B.n, B.m, COL_MAJOR);
-      Bcm.gemmb(handle, alpha, A, transA, !transB, beta, C, stream);
+      gemm(handle, alpha, A, transA, Bcm, !transB, beta, C, stream);
       return;
     }
     if (C.ord == ROW_MAJOR) {
-      SimpleDenseMat<T> Ccm(this->data, this->n, this->m, COL_MAJOR);
-      A.gemmb(handle, alpha, B, !transB, !transA, beta, Ccm, stream);
+      SimpleDenseMat<T> Ccm(C.data, C.n, C.m, COL_MAJOR);
+      gemm(handle, alpha, B, !transB, A, !transA, beta, Ccm, stream);
       return;
     }
+  }
+
+  inline void gemmb(const raft::handle_t &handle, const T alpha,
+                    const SimpleDenseMat<T> &A, const bool transA,
+                    const bool transB, const T beta, SimpleDenseMat<T> &C,
+                    cudaStream_t stream) const override {
+    SimpleDenseMat<T>::gemm(handle, alpha, A, transA, *this, transB, beta, C,
+                            stream);
+  }
+
+  /** GEMM assigning to C where `this` refers to C. */
+  inline void assign_gemm(const raft::handle_t &handle, const T alpha,
+                          const SimpleDenseMat<T> &A, const bool transA,
+                          const SimpleMat<T> &B, const bool transB,
+                          const T beta, cudaStream_t stream) {
+    B.gemmb(handle, alpha, A, transA, transB, beta, *this, stream);
   }
 
   // this = a*x

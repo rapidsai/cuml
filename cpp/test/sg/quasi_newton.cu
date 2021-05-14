@@ -113,11 +113,10 @@ T run(const raft::handle_t &handle, LossFunction &loss, const SimpleMat<T> &X,
   int num_iters = 0;
 
   T fx;
-  SimpleVec<T> w0(w, loss.n_param);
 
   qn_fit<T, LossFunction>(handle, loss, X, y, z, l1, l2, max_iter, grad_tol,
                           change_tol, linesearch_max_iter, lbfgs_memory,
-                          verbosity, w0, &fx, &num_iters, stream);
+                          verbosity, w, &fx, &num_iters, stream);
 
   return fx;
 }
@@ -138,9 +137,10 @@ T run_api(const raft::handle_t &cuml_handle, int loss_type, int C,
   w0.fill(T(0), stream);
   T fx;
 
-  qnFit(cuml_handle, X.data, y.data, X.m, X.n, C, fit_intercept, l1, l2,
-        max_iter, grad_tol, change_tol, linesearch_max_iter, lbfgs_memory,
-        verbosity, w, &fx, &num_iters, false, loss_type);
+  qnFit(cuml_handle, X.data, X.ord == COL_MAJOR, y.data, X.m, X.n, C,
+        fit_intercept, l1, l2, max_iter, grad_tol, change_tol,
+        linesearch_max_iter, lbfgs_memory, verbosity, w, &fx, &num_iters,
+        loss_type);
 
   return fx;
 }
@@ -161,7 +161,7 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
   LogisticLoss<double> loss_no_b(handle, D, false);
 
   SimpleVecOwning<double> w0(allocator, D + 1, stream);
-  SimpleVecOwning<double> z(allocator, N, stream);
+  SimpleMatOwning<double> z(allocator, 1, N, stream);
 
   double l1, l2, fx;
 
@@ -307,7 +307,7 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn) {
   double alpha = 0.01 * N;
 
   SimpleVecOwning<double> w0(allocator, D + 1, stream);
-  SimpleVecOwning<double> z(allocator, N, stream);
+  SimpleMatOwning<double> z(allocator, 1, N, stream);
   SquaredLoss<double> loss_b(handle, D, true);
   SquaredLoss<double> loss_no_b(handle, D, false);
 

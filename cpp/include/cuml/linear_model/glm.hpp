@@ -87,6 +87,8 @@ void gemmPredict(const raft::handle_t &handle, const double *input, int n_rows,
  * @defgroup qnFit to fit a GLM using quasi newton methods.
  * @param cuml_handle           reference to raft::handle_t object
  * @param X                     device pointer to feature matrix of dimension
+ * @param X_col_major           true if X is stored column-major, i.e. feature
+ * columns are contiguous
  * NxD (row- or column major: see X_col_major param)
  * @param y                     device pointer to label vector of length N (for
  * binary logistic: [0,1], for multinomial:  [0,...,C-1])
@@ -120,27 +122,26 @@ void gemmPredict(const raft::handle_t &handle, const double *input, int n_rows,
  * @param f                     host pointer holding the final objective value
  * @param num_iters             host pointer holding the actual number of
  * iterations taken
- * @param X_col_major           true if X is stored column-major, i.e. feature
- * columns are contiguous
  * @param loss_type             id of likelihood model (0: logistic/sigmoid, 1:
  * normal/squared, 2: multinomial/softmax)
  * @{
  */
-void qnFit(const raft::handle_t &cuml_handle, float *X, float *y, int N, int D,
-           int C, bool fit_intercept, float l1, float l2, int max_iter,
-           float grad_tol, float change_tol, int linesearch_max_iter,
-           int lbfgs_memory, int verbosity, float *w0, float *f, int *num_iters,
-           bool X_col_major, int loss_type, float *sample_weight = nullptr);
-void qnFit(const raft::handle_t &cuml_handle, double *X, double *y, int N,
-           int D, int C, bool fit_intercept, double l1, double l2, int max_iter,
-           double grad_tol, double change_tol, int linesearch_max_iter,
-           int lbfgs_memory, int verbosity, double *w0, double *f,
-           int *num_iters, bool X_col_major, int loss_type,
+void qnFit(const raft::handle_t &cuml_handle, float *X, bool X_col_major,
+           float *y, int N, int D, int C, bool fit_intercept, float l1,
+           float l2, int max_iter, float grad_tol, float change_tol,
+           int linesearch_max_iter, int lbfgs_memory, int verbosity, float *w0,
+           float *f, int *num_iters, int loss_type,
+           float *sample_weight = nullptr);
+void qnFit(const raft::handle_t &cuml_handle, double *X, bool X_col_major,
+           double *y, int N, int D, int C, bool fit_intercept, double l1,
+           double l2, int max_iter, double grad_tol, double change_tol,
+           int linesearch_max_iter, int lbfgs_memory, int verbosity, double *w0,
+           double *f, int *num_iters, int loss_type,
            double *sample_weight = nullptr);
 /** @} */
 
 /**
- * @defgroup qnFit to fit a GLM using quasi newton methods.
+ * @defgroup qnFitSparse to fit a GLM using quasi newton methods.
  * @param cuml_handle           reference to raft::handle_t object
  * @param X_values              feature matrix values (CSR format),
  * matrix dimension: NxD.
@@ -180,8 +181,6 @@ void qnFit(const raft::handle_t &cuml_handle, double *X, double *y, int N,
  * @param f                     host pointer holding the final objective value
  * @param num_iters             host pointer holding the actual number of
  * iterations taken
- * @param X_col_major           true if X is stored column-major, i.e. feature
- * columns are contiguous
  * @param loss_type             id of likelihood model (0: logistic/sigmoid, 1:
  * normal/squared, 2: multinomial/softmax)
  * @{
@@ -191,15 +190,14 @@ void qnFitSparse(const raft::handle_t &cuml_handle, float *X_values,
                  int C, bool fit_intercept, float l1, float l2, int max_iter,
                  float grad_tol, float change_tol, int linesearch_max_iter,
                  int lbfgs_memory, int verbosity, float *w0, float *f,
-                 int *num_iters, bool X_col_major, int loss_type,
-                 float *sample_weight = nullptr);
+                 int *num_iters, int loss_type, float *sample_weight = nullptr);
 void qnFitSparse(const raft::handle_t &cuml_handle, double *X_values,
                  int *X_cols, int *X_row_ids, int X_nnz, double *y, int N,
                  int D, int C, bool fit_intercept, double l1, double l2,
                  int max_iter, double grad_tol, double change_tol,
                  int linesearch_max_iter, int lbfgs_memory, int verbosity,
-                 double *w0, double *f, int *num_iters, bool X_col_major,
-                 int loss_type, double *sample_weight = nullptr);
+                 double *w0, double *f, int *num_iters, int loss_type,
+                 double *sample_weight = nullptr);
 /** @} */
 
 /**
