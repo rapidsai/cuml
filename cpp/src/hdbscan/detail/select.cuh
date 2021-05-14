@@ -240,9 +240,6 @@ void excess_of_mass(
 
     value_t subtree_stability = 0.0;
 
-    raft::print_device_vector("indptr", indptr.data(), indptr.size(), std::cout);
-    raft::print_device_vector("children", children, cluster_tree_edges, std::cout);
-
     if (indptr_h[node + 1] - indptr_h[node] > 0) {
 
       CUML_LOG_DEBUG("Computing subtree staiblity");
@@ -253,7 +250,6 @@ void excess_of_mass(
         thrust::plus<value_t>());
     }
 
-    printf("cluster=%d, subtree_stability=%f, node_stability=%f, cluster_sizes_h[node]=%d, max_cluster_size=%d\n", node, subtree_stability, node_stability, cluster_sizes_h[node], max_cluster_size);
     CUML_LOG_DEBUG("Testing subtree / node stability");
     if (subtree_stability > node_stability ||
         cluster_sizes_h[node] > max_cluster_size) {
@@ -280,9 +276,6 @@ void excess_of_mass(
 
   perform_bfs(handle, indptr.data(), children, frontier.data(), is_cluster,
               n_clusters, propagate_cluster_negation_kernel<value_idx>);
-
-  raft::print_device_vector("is_cluster_eom", is_cluster, n_clusters,
-                            std::cout);
 
 
   CUML_LOG_DEBUG("Finished EOM");
@@ -327,8 +320,6 @@ void leaf(const raft::handle_t &handle,
     int root_is_cluster = true;
     raft::update_device(is_cluster, &root_is_cluster, 1, stream);
   }
-  raft::print_device_vector("is_cluster_leaf", is_cluster, n_clusters,
-                            std::cout);
 }
 
 template <typename value_idx, typename value_t, int tpb = 256>

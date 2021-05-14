@@ -29,9 +29,12 @@
 #include <raft/sparse/selection/knn_graph.cuh>
 
 #include <rmm/device_uvector.hpp>
+#include <rmm/exec_policy.hpp>
 
 #include <cuml/neighbors/knn.hpp>
 #include <raft/distance/distance.cuh>
+
+#include <thrust/transform.h>
 
 namespace ML {
 namespace HDBSCAN {
@@ -42,7 +45,7 @@ template <typename value_t>
 __global__ void core_distances_kernel(value_t *knn_dists, int k, int min_samples, size_t n,
                                       value_t *out) {
   int row = blockIdx.x * blockDim.x + threadIdx.x;
-  if (row < n) out[row] = knn_dists[row * k + (min_samples - 1)];
+  if (row < n) out[row] = knn_dists[row * k + (min_samples)];
 }
 
 /**
@@ -120,6 +123,8 @@ void mutual_reachability_graph(const raft::handle_t &handle, const value_t *X,
                                raft::sparse::COO<value_t, value_idx> &out) {
   auto stream = handle.get_stream();
 
+  auto exec_policy = rmm::exec_policy(stream);
+
   std::vector<value_t *> inputs;
   inputs.push_back(const_cast<value_t *>(X));
 
@@ -141,17 +146,6 @@ void mutual_reachability_graph(const raft::handle_t &handle, const value_t *X,
   raft::sparse::selection::conv_indices(int64_indices.data(), inds.data(),
                                         k * m, stream);
 
-  raft::linalg::unaryOp<value_t>(
-    dists.data(), dists.data(), k * m,
-    [] __device__(value_t input) {
-      if (input == 0.0)
-        return std::numeric_limits<value_t>::max();
-      else
-        return input;
-    },
-    stream);
-
-
   // Slice core distances (distances to kth nearest neighbor)
   core_distances(dists.data(), k, min_samples, m, core_dists, stream);
 
@@ -172,6 +166,27 @@ void mutual_reachability_graph(const raft::handle_t &handle, const value_t *X,
 
   raft::sparse::convert::sorted_coo_to_csr(
     out.rows(), out.nnz, indptr, m + 1, handle.get_device_allocator(), stream);
+
+  // self-loops get max distance
+  auto transform_in = thrust::make_zip_iterator(thrust::make_tuple(
+    out.rows(), out.cols(), out.vals()));
+
+  thrust::transform(
+    exec_policy, transform_in, transform_in + out.nnz,
+    out.vals(),
+    [=] __device__(const thrust::tuple<value_idx, value_idx, value_t> &tup) {
+
+      if(thrust::get<2>(tup) >= std::numeric_limits<value_t>::max() - 500.0) {
+        printf("i=%d, j=%d, d=%f\n", thrust::get<0>(tup), thrust::get<1>(tup), thrust::get<2>(tup));
+      }
+
+      bool self_loop = thrust::get<0>(tup) == thrust::get<1>(tup);
+      return (self_loop * std::numeric_limits<value_t>::max()) +
+             (!self_loop * thrust::get<2>(tup));
+    });
+
+
+
 }
 
 
