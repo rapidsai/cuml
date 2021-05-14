@@ -90,7 +90,10 @@ class FIL : public RegressionFixture<float> {
       .algo = p_rest.algo,
       .output_class = params.nclasses > 1,  // cuML RF forest
       .threshold = 1.f / params.nclasses,   //Fixture::DatasetParams
-      .storage_type = p_rest.storage};
+      .storage_type = p_rest.storage,
+      .blocks_per_sm = 8,
+      .threads_per_tree = 1,
+      .n_items = 0};
     ML::fil::from_treelite(*handle, &forest, model, &tl_params);
 
     // only time prediction

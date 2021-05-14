@@ -179,16 +179,18 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
         bool output_class
         float threshold
         # changing below parameters may speed up inference
+        # tree storage format, tradeoffs in big O(), node size
+        # not all formats fit all models
         storage_type_t storage_type
-        int blocks_per_sm
         # limit number of CUDA blocks launched per GPU SM (or unlimited if 0)
-        int threads_per_tree
+        int blocks_per_sm
         # multiple (neighboring) threads infer on the same tree within a block
         # this improves memory bandwith near tree root (but uses more shared
         # memory)
-        int n_items
+        int threads_per_tree
         # n_items is how many input samples (items) any thread processes.
         # if 0 is given, FIL chooses itself
+        int n_items
 
     cdef void free(handle_t& handle,
                    forest_t)

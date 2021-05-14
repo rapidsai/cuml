@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <cmath>
 
+#include <cuml/common/int_fastdiv.h>
 #include <thrust/functional.h>
 #include <cuml/fil/multi_sum.cuh>
 #include "common.cuh"
@@ -546,19 +547,24 @@ __global__ void infer_k(storage_type forest, predict_params params) {
   int sdata_stride = params.sdata_stride();
   int rows_per_block = NITEMS << params.log2_threads_per_tree;
   int num_cols = params.num_cols;
+  int_fastdiv if_num_cols(num_cols);
   int thread_row0 = NITEMS * modpow2(threadIdx.x, params.log2_threads_per_tree);
-  for (size_t block_row0 = blockIdx.x * rows_per_block;
+  for (long long block_row0 = blockIdx.x * rows_per_block;
        block_row0 < params.num_rows; block_row0 += rows_per_block * gridDim.x) {
     int block_num_rows =
-      min((size_t)rows_per_block, params.num_rows - block_row0);
+      max(0, (int)min((long long)rows_per_block, params.num_rows - block_row0));
     const float* block_input = params.data + block_row0 * num_cols;
     if (cols_in_shmem) {
       // cache the row for all threads to reuse
 #pragma unroll
       for (int input_idx = threadIdx.x; input_idx < block_num_rows * num_cols;
            input_idx += blockDim.x) {
-        int row = input_idx / num_cols, col = input_idx % num_cols;
-        sdata[row * sdata_stride + col] = block_input[input_idx];
+        // assuming here that sdata_stride == num_cols + 1
+        // then, idx / num_cols * sdata_stride + idx % num_cols == idx + idx / num_cols
+        int sdata_idx = sdata_stride == num_cols
+                          ? input_idx
+                          : input_idx + input_idx / if_num_cols;
+        sdata[sdata_idx] = block_input[input_idx];
       }
 #pragma unroll
       for (int idx = block_num_rows * sdata_stride;
@@ -575,16 +581,15 @@ __global__ void infer_k(storage_type forest, predict_params params) {
 
     int thread_tree0 = threadIdx.x >> params.log2_threads_per_tree;
     int tree_stride = blockDim.x >> params.log2_threads_per_tree;
+    int thread_num_rows = max(0, min(NITEMS, block_num_rows - thread_row0));
     for (int tree = thread_tree0; tree - thread_tree0 < forest.num_trees();
          tree += tree_stride) {
       /* tree - thread_tree0 < forest.num_trees() is a necessary but block-uniform
          condition for "tree < forest.num_trees()". It lets use __syncthreads()
          and is made exact below.
-         Same with block_row0 < params.num_rows and thread_row0 < thread_num_rows
+         Same with thread_num_rows > 0
       */
-      int thread_num_rows =
-        min((size_t)NITEMS, params.num_rows - block_row0 - thread_row0);
-      if (tree < forest.num_trees() && thread_num_rows > 0) {
+      if (tree < forest.num_trees() && thread_num_rows != 0) {
         auto prediction = infer_one_tree<NITEMS, leaf_output_t<leaf_algo>::T>(
           forest[tree],
           cols_in_shmem ? sdata + thread_row0 * sdata_stride

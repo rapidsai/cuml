@@ -157,7 +157,7 @@ struct predict_params : shmem_size_params {
   float* preds;
   const float* data;
   // number of data rows (instances) to predict on
-  size_t num_rows;
+  long long num_rows;
 
   // to signal infer kernel to apply softmax and also average prior to that
   // for GROVE_PER_CLASS for predict_proba
