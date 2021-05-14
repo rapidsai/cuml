@@ -286,6 +286,7 @@ if(BUILD_CUML_CPP_LIBRARY)
                CXX_STANDARD_REQUIRED               ON
                CUDA_STANDARD                       17
                CUDA_STANDARD_REQUIRED              ON
+               INTERFACE_POSITION_INDEPENDENT_CODE ON
   )
 
   target_compile_definitions(${CUML_CPP_TARGET}
