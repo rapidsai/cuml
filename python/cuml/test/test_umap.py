@@ -336,11 +336,12 @@ def test_umap_fit_transform_against_fit_and_transform():
 
 
 @pytest.mark.parametrize('n_components,random_state',
-                         [(21, None),
-                          (21, 8),
-                          (21, np.random.RandomState(42)),
-                          (25, None),
-                          (30, np.random.RandomState(42))])
+                         [unit_param(21, None),
+                          unit_param(21, 8),
+                          unit_param(21, np.random.RandomState(42)),
+                          unit_param(25, None),
+                          unit_param(50, None),
+                          stress_param(50, 8)])
 def test_umap_fit_transform_reproducibility(n_components, random_state):
 
     n_samples = 8000
@@ -382,11 +383,12 @@ def test_umap_fit_transform_reproducibility(n_components, random_state):
 
 
 @pytest.mark.parametrize('n_components,random_state',
-                         [(21, None),
-                          (25, None),
-                          (25, 8),
-                          (25, np.random.RandomState(42)),
-                          (50, 8)])
+                         [unit_param(21, None),
+                          unit_param(25, None),
+                          unit_param(25, 8),
+                          unit_param(25, np.random.RandomState(42)),
+                          unit_param(50, None),
+                          stress_param(50, 8)])
 def test_umap_transform_reproducibility(n_components, random_state):
 
     n_samples = 5000
