@@ -126,7 +126,7 @@ class GiniObjectiveFunction {
         // Special handling for binary classifiers
         *aux = static_cast<DataT>(shist[1].x) / total_count;
       } else {
-        *aux = DataT(0);
+        *aux = DataT(-1);
       }
     }
     return class_idx;

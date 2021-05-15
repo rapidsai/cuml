@@ -138,6 +138,9 @@ std::string get_node_json(const std::string &prefix,
     if (node.instance_count != UINT32_MAX) {
       oss << ", \"instance_count\": " << node.instance_count;
     }
+    if (node.quesval >= 0) {
+      oss << ", \"positive_fraction\": " << node.quesval;
+    }
     oss << "}";
   }
   return oss.str();
@@ -204,7 +207,7 @@ tl::Tree<T, T> build_treelite_tree(
         if (num_class == 1) {
           tl_tree.SetLeaf(node_id, static_cast<T>(q_node.node->prediction));
         } else if (num_class == 2) {
-          ASSERT((q_node.node->quesval > 0),
+          ASSERT((q_node.node->quesval >= 0),
                  "Could not fetch fraction of the positive class");
           tl_tree.SetLeaf(node_id, static_cast<T>(q_node.node->quesval));
         } else {

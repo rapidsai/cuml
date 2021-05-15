@@ -67,7 +67,8 @@ struct Node {
    *
    * @note to be called only by one thread across all participating threadblocks
    */
-  DI void makeLeaf(IdxT* n_leaves, LabelT pred, DataT aux = DataT(0)) volatile {
+  DI void makeLeaf(IdxT* n_leaves, LabelT pred,
+                   DataT aux = DataT(-1)) volatile {
     info.prediction = pred;
     info.colid = Leaf;
     info.quesval = aux;
