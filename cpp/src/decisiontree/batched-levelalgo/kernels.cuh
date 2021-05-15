@@ -77,16 +77,24 @@ struct ClsDeviceTraits {
       atomicAdd(shist + label, 1);
     }
     __syncthreads();
-    auto op = Int2Max();
-    int2 v = {-1, -1};
-    for (int i = tid; i < input.nclasses; i += blockDim.x) {
-      int2 tmp = {i, shist[i]};
-      v = op(v, tmp);
+    int max_class_idx = 0;
+    int max_count = 0;
+    int total_count = 0;
+    for (int i = 0; i < input.nclasses; ++i) {
+      int current_count = shist[i];
+      total_count += current_count;
+      if (current_count > max_count) {
+        max_class_idx = i;
+        max_count = current_count;
+      }
     }
-    v = BlockReduceT(temp).Reduce(v, op);
-    __syncthreads();
     if (tid == 0) {
-      nodes[0].makeLeaf(n_leaves, LabelT(v.x));
+      DataT aux = DataT(-1);
+      if (input.nclasses == 2) {
+        // Special handling for binary classifiers
+        aux = static_cast<DataT>(shist[1]) / total_count;
+      }
+      nodes[0].makeLeaf(n_leaves, LabelT(max_class_idx), aux);
     }
   }
 };  // struct ClsDeviceTraits
