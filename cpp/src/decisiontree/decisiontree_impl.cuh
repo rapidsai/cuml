@@ -205,11 +205,18 @@ tl::Tree<T, T> build_treelite_tree(
 
       } else {
         if (num_class == 1) {
-          tl_tree.SetLeaf(node_id, static_cast<T>(q_node.node->prediction));
-        } else if (num_class == 2) {
-          ASSERT((q_node.node->quesval >= 0),
-                 "Could not fetch fraction of the positive class");
-          tl_tree.SetLeaf(node_id, static_cast<T>(q_node.node->quesval));
+          if (std::is_same<decltype(q_node.node->prediction), int>::value) {
+            // Binary classification; use fraction of the positive class
+            // to produce a "soft output"
+            ASSERT((q_node.node->quesval >= 0),
+                   "Could not fetch fraction of the positive class");
+            static_assert(std::is_floating_point<T>::value,
+                         "Expected T to be a floating-point type");
+            tl_tree.SetLeaf(node_id, static_cast<T>(q_node.node->quesval));
+          } else {
+            // Regression
+            tl_tree.SetLeaf(node_id, static_cast<T>(q_node.node->prediction));
+          }
         } else {
           std::vector<T> leaf_vector(num_class, 0);
           leaf_vector[q_node.node->prediction] = 1;
