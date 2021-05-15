@@ -22,6 +22,8 @@ from sklearn.datasets import make_blobs
 from cuml.metrics import adjusted_rand_score
 from cuml.test.utils import get_pattern
 
+import numpy as np
+
 from cuml.common import logger
 
 import hdbscan
@@ -43,7 +45,7 @@ dataset_names = ['noisy_circles', 'noisy_moons', 'varied']#, 'aniso']
 @pytest.mark.parametrize('nrows', [1000])
 @pytest.mark.parametrize('ncols', [25])
 @pytest.mark.parametrize('nclusters', [10, 50])
-@pytest.mark.parametrize('min_samples', [5, 50])
+@pytest.mark.parametrize('min_samples', [5, 20, 50])
 @pytest.mark.parametrize('allow_single_cluster', [True, False])
 @pytest.mark.parametrize('min_cluster_size', [10, 15])
 @pytest.mark.parametrize('cluster_selection_epsilon', [0.0])
@@ -118,15 +120,16 @@ def test_hdbscan_blobs(nrows, ncols, nclusters,
     # labels may differ
     # TODO: Investigating a couiple very small label differences
     assert(adjusted_rand_score(cuml_agg.labels_, sk_agg.labels_) >= 0.95)
+    assert(len(np.unique(sk_agg.labels_)) == len(cp.unique(cuml_agg.labels_)))
 
 
 @pytest.mark.parametrize('dataset', [test_datasets["digits"]])
 
 # TODO: Fix crash when min_samples is changes (due to MST determinism precision error)
 @pytest.mark.parametrize('cluster_selection_epsilon', [0.0])
-@pytest.mark.parametrize('min_samples_cluster_size_bounds', [(150, 50, 0),
-                                                             (50, 10, 0),
-                                                             (25, 10, 0)])
+@pytest.mark.parametrize('min_samples_cluster_size_bounds', [(150, 10, 0),
+                                                             (15, 5, 0),
+                                                             (3, 2, 0)])
 
 # TODO: Fix small discrepancies in allow_single_cluster=False (single test failure)
 @pytest.mark.parametrize('allow_single_cluster', [True, False])
@@ -186,7 +189,6 @@ def test_hdbscan_sklearn_datasets(dataset,
     #
     # print("sk condensed: %s" % sk_agg.condensed_tree_.to_numpy())
 
-    import numpy as np
 
     print("sk counts: %s" % str(np.unique(sk_agg.labels_, return_counts=True)))
     print("cu counts: %s" % str(np.unique(cuml_agg.labels_, return_counts=True)))
@@ -210,8 +212,6 @@ def test_hdbscan_sklearn_datasets(dataset,
     #
     # print("single linkage tree %s" % sk_agg.single_linkage_tree_.to_numpy())
     #
-    import numpy as np
-    np.set_printoptions(threshold=np.inf)
     # print("sk dendrogram parents: %s" % np.array2string(sk_agg.minimum_spanning_tree_.to_numpy()[:,0].astype('int32'), separator=","))
     # print("sk dendrogram children: %s" % np.array2string(sk_agg.minimum_spanning_tree_.to_numpy()[:,1].astype('int32'), separator=","))
     # print("sk dendrogram lambdas: %s" % np.array2string(sk_agg.minimum_spanning_tree_.to_numpy()[:,2].astype('float32'), separator=","))
@@ -244,7 +244,7 @@ def test_hdbscan_sklearn_datasets(dataset,
 
 @pytest.mark.parametrize('nrows', [1500])
 @pytest.mark.parametrize('dataset', dataset_names)
-@pytest.mark.parametrize('min_samples', [5, 20])
+@pytest.mark.parametrize('min_samples', [5, 20, 50])
 @pytest.mark.parametrize('cluster_selection_epsilon', [0.0])
 @pytest.mark.parametrize('min_cluster_size', [5, 30])
 @pytest.mark.parametrize('allow_single_cluster', [True, False])
@@ -266,7 +266,7 @@ def test_hdbscan_cluster_patterns(dataset, nrows,
     logger.set_level(logger.level_debug)
     cuml_agg = HDBSCAN(verbose=logger.level_debug,
                        allow_single_cluster=allow_single_cluster,
-                       n_neighbors=min_samples*2,
+                       n_neighbors=min_samples,
                        min_samples=min_samples,
                        max_cluster_size=max_cluster_size,
                        min_cluster_size=min_cluster_size,
