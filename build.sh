@@ -206,6 +206,7 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
           -DBUILD_CUML_MPI_COMMS=${BUILD_CPP_MG_TESTS} \
           -DBUILD_CUML_MG_TESTS=${BUILD_CPP_MG_TESTS} \
           -DBUILD_STATIC_FAISS=${BUILD_STATIC_FAISS} \
+          -DBUILD_GTEST=${BUILD_GTEST} \
           -DNVTX=${NVTX} \
           -DPARALLEL_LEVEL=${PARALLEL_LEVEL} \
           -DUSE_CCACHE=${CCACHE} \
