@@ -285,7 +285,8 @@ struct Builder {
    * @return the smem size (in B)
    */
   size_t nodeSplitSmemSize() {
-    return std::max(2 * sizeof(IdxT) * TPB_SPLIT, sizeof(BinT) * input.nclasses);
+    return std::max(2 * sizeof(IdxT) * TPB_SPLIT,
+                    sizeof(BinT) * input.nclasses);
   }
 
  private:
@@ -393,9 +394,9 @@ struct Builder {
     auto colBlks = std::min(n_blks_for_cols, input.nSampledCols - col);
 
     size_t smemSize1 = nbins * nclasses * sizeof(BinT) +  // pdf_shist size
-                       nbins * nclasses * sizeof(BinT) +        // cdf_shist size
-                       nbins * sizeof(DataT) +                 // sbins size
-                       sizeof(int);                            // sDone size
+                       nbins * nclasses * sizeof(BinT) +  // cdf_shist size
+                       nbins * sizeof(DataT) +            // sbins size
+                       sizeof(int);                       // sDone size
     // Extra room for alignment (see alignPointer in
     // computeSplitClassificationKernel)
     smemSize1 += sizeof(DataT) + 3 * sizeof(int);

@@ -229,8 +229,7 @@ TEST_P(TestNodeSplitKernel, MinSamplesSplitLeaf) {
   initSplit<DataT, IdxT, builder.TPB_DEFAULT>(splits, batchSize, 0);
 
   /* { quesval, colid, best_metric_val, nLeft } */
-  std::vector<SplitT> h_splits{{-1.5f, 0, 0.25f, 1},
-                                       {2.0f, 1, 3.555556f, 2}};
+  std::vector<SplitT> h_splits{{-1.5f, 0, 0.25f, 1}, {2.0f, 1, 3.555556f, 2}};
   raft::update_device(splits, h_splits.data(), 2, 0);
 
   nodeSplitKernel<DataT, LabelT, IdxT, ObjectiveT, builder.TPB_SPLIT>
@@ -306,13 +305,11 @@ TEST_P(TestMetric, RegressionMetricGain) {
 
   CRITERION split_criterion = GetParam();
 
-  ObjectiveT obj(1, params.min_impurity_decrease,params.min_samples_leaf);
-  computeSplitKernel<DataT, LabelT, IdxT, 32>
-    <<<grid, 32, smemSize, 0>>>(
-      hist, n_bins, params.max_depth, params.min_samples_split,
-      params.max_leaves,
-      input, curr_nodes, 0, done_count, mutex, n_new_leaves, splits,
-      obj, 0, 1234ULL);
+  ObjectiveT obj(1, params.min_impurity_decrease, params.min_samples_leaf);
+  computeSplitKernel<DataT, LabelT, IdxT, 32><<<grid, 32, smemSize, 0>>>(
+    hist, n_bins, params.max_depth, params.min_samples_split, params.max_leaves,
+    input, curr_nodes, 0, done_count, mutex, n_new_leaves, splits, obj, 0,
+    1234ULL);
 
   raft::update_host(h_splits.data(), splits, 1, 0);
   CUDA_CHECK(cudaGetLastError());

@@ -124,21 +124,18 @@ void grow_tree(std::shared_ptr<raft::mr::device::allocator> d_allocator,
       d_allocator, h_allocator, data, treeid, seed, ncols, nrows, labels,
       quantiles, rowids, n_sampled_rows, unique_labels, params, stream,
       sparsetree, num_leaves, depth);
-  }
-  else if (params.split_criterion == CRITERION::ENTROPY ) {
+  } else if (params.split_criterion == CRITERION::ENTROPY) {
     grow_tree<EntropyObjectiveFunction<DataT, LabelT, IdxT>>(
       d_allocator, h_allocator, data, treeid, seed, ncols, nrows, labels,
       quantiles, rowids, n_sampled_rows, unique_labels, params, stream,
       sparsetree, num_leaves, depth);
-  }
-  else if (params.split_criterion == CRITERION::MSE ) {
+  } else if (params.split_criterion == CRITERION::MSE) {
     grow_tree<MSEObjectiveFunction<DataT, LabelT, IdxT>>(
       d_allocator, h_allocator, data, treeid, seed, ncols, nrows, labels,
       quantiles, rowids, n_sampled_rows, unique_labels, params, stream,
       sparsetree, num_leaves, depth);
-  }
-  else{
-    ASSERT(false,"Unknown split criterion.");
+  } else {
+    ASSERT(false, "Unknown split criterion.");
   }
 }
 }  // namespace DecisionTree
