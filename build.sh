@@ -75,6 +75,7 @@ CLEAN=0
 BUILD_DISABLE_DEPRECATION_WARNING=ON
 BUILD_CUML_STD_COMMS=ON
 BUILD_CPP_MG_TESTS=OFF
+BUILD_GTEST=OFF
 BUILD_STATIC_FAISS=OFF
 
 # Set defaults for vars that may not have been defined externally
@@ -206,6 +207,7 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
           -DBUILD_CUML_MPI_COMMS=${BUILD_CPP_MG_TESTS} \
           -DBUILD_CUML_MG_TESTS=${BUILD_CPP_MG_TESTS} \
           -DBUILD_STATIC_FAISS=${BUILD_STATIC_FAISS} \
+          -DBUILD_GTEST=${BUILD_GTEST} \
           -DNVTX=${NVTX} \
           -DPARALLEL_LEVEL=${PARALLEL_LEVEL} \
           -DUSE_CCACHE=${CCACHE} \
