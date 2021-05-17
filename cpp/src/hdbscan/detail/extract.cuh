@@ -140,6 +140,8 @@ void do_labelling_on_host(
   for (int i = 0; i < n_leaves; i++) {
     value_idx cluster = union_find.find(i);
 
+    printf("i=%d, cluster=%d\n", i, cluster);
+
     if (cluster < n_leaves)
       result[i] = -1;
     else if (cluster == n_leaves) {
