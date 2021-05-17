@@ -19,6 +19,7 @@
 #include <cuml/genetic/common.h>
 #include <cuml/genetic/genetic.h>
 #include <cuml/genetic/program.h>
+#include <cuml/common/logger.hpp>
 #include "node.cuh"
 
 #include <raft/cuda_utils.cuh>
@@ -27,7 +28,12 @@
 #include <raft/random/rng.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/linalg/binary_op.cuh>
+
 #include <random>
+#include <stack>
+#include <algorithm>
+#include <numeric>
+
 #include <rmm/device_uvector.hpp>
 
 namespace cuml {
@@ -73,7 +79,7 @@ __global__ void batched_tournament_kernel(const program_t progs,
       }
 
       opt_score = progs[opt].raw_fitness_;
-    }
+    } 
 
     win_indices[idx] = opt;
   }
@@ -100,6 +106,8 @@ void parallel_evolve(const raft::handle_t &h,
                      std::vector<program> &h_nextprogs, program_t d_nextprogs, 
                      const int n_samples, const float* data, const float* y, 
                      const float* sample_weights, const param &params, const int generation, const int seed) {
+
+  CUML_LOG_DEBUG("Generation #%d",generation);
   cudaStream_t stream = h.get_stream();
   int n_progs    =   params.population_size;
   int tour_size  =   params.tournament_size;
@@ -115,16 +123,29 @@ void parallel_evolve(const raft::handle_t &h,
   if(generation == 1){
     // Build random programs for the first generation
     for(auto i=0; i<n_progs; ++i){
+      
       build_program(h_nextprogs[i],params,h_gen);
+      // CUML_LOG_DEBUG("Gen #1, program #%d, len=%d",i,h_nextprogs[i].len);
+
+      // for(int j=0;j<h_nextprogs[i].len;++j){
+      //   CUML_LOG_DEBUG("Node #%d -> %d (%d inputs)",j+1,
+      //                   static_cast<std::underlying_type<node::type>::type>(h_nextprogs[i].nodes[j].t)
+      //                   ,h_nextprogs[i].nodes[j].arity());
+      // }
+      // CUML_LOG_DEBUG("Program #%d len=%d",(i+1),h_nextprogs[i].len);
+      std::string eqn = stringify(h_nextprogs[i]);
+      std::cerr << eqn <<"\n";
+      // exit(0);
     }
   }
   else{
     // Set mutation type
     float mut_probs[4];
     mut_probs[0] = params.p_crossover;
-    mut_probs[1] = mut_probs[0] + params.p_subtree_mutation;
-    mut_probs[2] = mut_probs[1] + params.p_hoist_mutation;    
-    mut_probs[3] = mut_probs[2] + params.p_point_mutation;
+    mut_probs[1] = params.p_subtree_mutation;
+    mut_probs[2] = params.p_hoist_mutation;    
+    mut_probs[3] = params.p_point_mutation;
+    std::partial_sum(mut_probs,mut_probs+4,mut_probs);
 
     for(auto i=0; i < n_progs; ++i){
       float prob = dist_01(h_gen);
@@ -160,6 +181,8 @@ void parallel_evolve(const raft::handle_t &h,
     // Make sure tournaments have finished running before copying win indices
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
+    CUML_LOG_DEBUG("Finished tournament for Generation #%d",generation);
+    
     // Perform host mutations
     auto donor_pos  = n_progs;
     for(auto pos=0; pos < n_progs; ++pos) {
@@ -170,23 +193,36 @@ void parallel_evolve(const raft::handle_t &h,
         // Get secondary index
         auto donor_index = d_win_indices.element(donor_pos, stream);
         donor_pos++; 
+        CUML_LOG_DEBUG("Gen #%d, program #%d, parent = #%d, donor = #%d - crossover",generation,pos,parent_index,donor_index);
         crossover(h_oldprogs[parent_index], h_oldprogs[donor_index],h_nextprogs[pos], params, h_gen);
       }
       else if(h_nextprogs[pos].mut_type == mutation_t::subtree){
+        CUML_LOG_DEBUG("Gen #%d, program #%d, parent = #%d - subtree",generation,pos,parent_index);
         subtree_mutation(h_oldprogs[parent_index],h_nextprogs[pos],params, h_gen);
       }
       else if(h_nextprogs[pos].mut_type == mutation_t::hoist){
+        CUML_LOG_DEBUG("Gen #%d, program #%d, parent = #%d - hoist",generation,pos,parent_index);
         hoist_mutation(h_oldprogs[parent_index],h_nextprogs[pos],params,h_gen);
       }
       else if(h_nextprogs[pos].mut_type == mutation_t::point){
+        CUML_LOG_DEBUG("Gen #%d, program #%d, parent = #%d - point mut",generation,pos,parent_index);
         point_mutation(h_oldprogs[parent_index],h_nextprogs[pos],params,h_gen);
       }
       else if(h_nextprogs[pos].mut_type == mutation_t::reproduce){
+        CUML_LOG_DEBUG("Gen #%d, program #%d, parent = #%d - reproduce",generation,pos,parent_index);
         h_nextprogs[pos] = h_oldprogs[parent_index];
       }
       else{
         // Should not come here
       }
+
+      // for(int j=0;j<h_nextprogs[pos].len;++j){
+      //   CUML_LOG_DEBUG("Node #%d -> %d (%d inputs)",j+1,
+      //                   static_cast<std::underlying_type<node::type>::type>(h_nextprogs[pos].nodes[j].t)
+      //                   ,h_nextprogs[pos].nodes[j].arity());
+      // }
+      std::string eqn = stringify(h_nextprogs[pos]);
+      std::cerr << eqn <<std::endl;
     }
   }
 
@@ -220,6 +256,146 @@ int param::max_programs() const { return detail::max_programs(*this); }
 
 int param::criterion() const { return detail::criterion(*this); }
 
+std::string stringify(const program &prog){
+  std::string eqn = "";
+  std::string delim = "";
+  std::stack<int> ar_stack;
+  for(int i=0;i<prog.len;++i){
+    if(prog.nodes[i].t == node::type::constant){
+      eqn += delim;
+      eqn += std::to_string(prog.nodes[i].u.val);
+      eqn += " ";
+      if(!ar_stack.empty()){
+        int stop = ar_stack.top();
+        ar_stack.pop();
+        if(stop > 1){ar_stack.push(stop - 1);}else{eqn += ") ";}
+      }
+      delim = ", ";
+    }
+    else if(prog.nodes[i].t == node::type::variable){
+      eqn += delim;
+      // CUML_LOG_DEBUG("Got variable %d",prog.nodes[i].u.fid);
+      eqn += "X";
+      eqn += std::to_string(prog.nodes[i].u.fid);
+      eqn += " ";
+      if(!ar_stack.empty()){
+        int stop = ar_stack.top();
+        ar_stack.pop();
+        if(stop > 1){ar_stack.push(stop - 1);}else{eqn += ") ";}
+      }
+      delim = ", ";
+    }
+    else{
+      ar_stack.push(prog.nodes[i].arity());
+      eqn += delim;
+      switch (prog.nodes[i].t){
+        // binary operators
+        case node::type::add:
+          eqn += "add(";
+          break;
+        case node::type::atan2:
+          eqn += "atan2(";
+          break;
+        case node::type::div:
+          eqn += "div(";
+          break;
+        case node::type::fdim:
+          eqn += "fdim(";
+          break;
+        case node::type::max:
+          eqn += "max(";
+          break;
+        case node::type::min:
+          eqn += "min(";
+          break;
+        case node::type::mul:
+          eqn += "mult(";
+          break;
+        case node::type::pow:
+          eqn += "pow(";
+          break;
+        case node::type::sub:
+          eqn += "sub(";
+          break;
+        // unary operators
+        case node::type::abs:
+          eqn += "abs(";
+          break;
+        case node::type::acos:
+          eqn += "acos(";
+          break;
+        case node::type::acosh:
+          eqn += "acosh(";
+          break;
+        case node::type::asin:
+          eqn += "asin(";
+          break;
+        case node::type::asinh:
+          eqn += "asinh(";
+          break;
+        case node::type::atan:
+          eqn += "atan(";
+          break;
+        case node::type::atanh:
+          eqn += "atanh(";
+          break;
+        case node::type::cbrt:
+          eqn += "cbrt(";
+          break;
+        case node::type::cos:
+          eqn += "cos(";
+          break;
+        case node::type::cosh:
+          eqn += "cosh(";
+          break;
+        case node::type::cube:
+          eqn += "cube(";
+          break;
+        case node::type::exp:
+          eqn += "exp(";
+          break;
+        case node::type::inv:
+          eqn += "inv(";
+          break;
+        case node::type::log:
+          eqn += "log(";
+          break;
+        case node::type::neg:
+          eqn += "neg(";
+          break;
+        case node::type::rcbrt:
+          eqn += "rcbrt(";
+          break;
+        case node::type::rsqrt:
+          eqn += "rsqrt(";
+          break;
+        case node::type::sin:
+          eqn += "sin(";
+          break;
+        case node::type::sinh:
+          eqn += "sinh(";
+          break;
+        case node::type::sq:
+          eqn += "sq(";
+          break;
+        case node::type::sqrt:
+          eqn += "sqrt(";
+          break;
+        case node::type::tan:
+          eqn += "tan(";
+          break;
+        case node::type::tanh:
+          eqn += "tanh(";
+          break;
+        default:
+          break;
+      }
+      eqn += " ";
+      delim = "";
+    }
+  }
+  return eqn;
+}
 
 void symFit(const raft::handle_t &handle, const float* input, const float* labels, 
             const float* sample_weights, const int n_rows, const int n_cols, param &params, 
@@ -227,18 +403,19 @@ void symFit(const raft::handle_t &handle, const float* input, const float* label
   cudaStream_t stream = handle.get_stream();
   
   /* Initializations */
-  history.reserve(params.generations);
   
   std::vector<program> h_currprogs(params.population_size);
   std::vector<program> h_nextprogs(params.population_size);
   std::vector<float> h_fitness(params.population_size);
-  // std::vector<float> h_lengths(params.population_size);
+
   program_t d_currprogs = (program_t)handle.get_device_allocator()->allocate(params.population_size*sizeof(program),stream);
-  program_t d_nextprogs = final_progs;                      // Reuse memory already allocated for final_progs
+  program_t d_nextprogs = final_progs;     // Reuse memory already allocated for final_progs
 
   std::mt19937_64 h_gen_engine(params.random_state);
   std::uniform_int_distribution<int> seed_dist;
   
+  CUML_LOG_DEBUG("# Programs = %d",params.population_size);
+
   /* Begin training */
   int gen = 0;
   for(;gen<params.generations;++gen){
@@ -267,19 +444,14 @@ void symFit(const raft::handle_t &handle, const float* input, const float* label
     }
 
     // Check for early stop
-    if( (crit==0 && opt_fit <= params.stopping_criteria) || 
-        (crit==1 && opt_fit >= params.stopping_criteria)) {
+    if( (crit==0 && opt_fit <= params.stopping_criteria) || (crit==1 && opt_fit >= params.stopping_criteria)) {
+      CUML_LOG_DEBUG("Early stopping reached. num_generations=%d",gen);
       break;
     }
   }
 
   /* Set return values */
   final_progs = d_currprogs;
-
-  
-  std::uniform_int_distribution<uint64_t> rand_state_gen;
-  params.random_state = rand_state_gen(h_gen_engine);     // Update random state of hyperparams
-
 }
 
 void symRegPredict(const raft::handle_t &handle, const float* input, const int n_rows, 
@@ -296,6 +468,7 @@ void symClfPredictProbs(const raft::handle_t &handle, const float* input, const 
   execute(handle,best_prog,n_rows,1,input,output);
   
   // Apply 2 map operations to get probabilities!
+  // TODO: Modification needed for n_classes
   if(params.transformer == transformer_t::sigmoid) {
     raft::linalg::unaryOp(output+n_rows,output,n_rows,
                           [] __device__(float in){return 1.0f / (1.0f + expf(-in));}, stream);

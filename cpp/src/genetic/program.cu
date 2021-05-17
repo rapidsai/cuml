@@ -22,6 +22,8 @@
 
 #include <random>
 #include <stack>
+#include <algorithm>
+#include <numeric>
 
 #include "node.cuh"
 #include "reg_stack.cuh"
@@ -79,9 +81,8 @@ program::program() {
 program::program(const program& src, const bool &dst) : len(src.len), depth(src.depth), raw_fitness_(src.raw_fitness_), metric(src.metric), mut_type(src.mut_type) {
   if(dst) {
     nodes = new node[len];
-    for(auto i=0; i<len; ++i) {
-      nodes[i] = src.nodes[i];
-    }
+    // Replace loop with a std::copy
+    std::copy(src.nodes, src.nodes + src.len, nodes);
   }
 }
 
@@ -93,11 +94,9 @@ program& program::operator=(const program& src){
   metric        = src.metric;
 
   nodes         = new node[len];
-
-  for(auto i=0; i<len; ++i) {
-    nodes[i]    = src.nodes[i];
-  }
-
+  
+  // Replace loop with a memcpy  
+  std::copy(src.nodes, src.nodes + src.len, nodes);
   return *this;
 }
 
@@ -201,14 +200,19 @@ void set_batched_fitness( const raft::handle_t &h, program_t d_progs,
   }
 }
 
-void fitness(const program &prog, const param &params, float &score) { 
+float fitness(const program &prog, const param &params) { 
   int crit      = params.criterion();
   float penalty = params.parsimony_coefficient * prog.len * (2*crit - 1);
-  score         = prog.raw_fitness_ - penalty;
+  return (prog.raw_fitness_ - penalty);
 }
 
 /**
- * Get a random subtree of the current program nodes (on CPU)
+ * @brief Get a random subtree of the current program nodes (on CPU)
+ * 
+ * @param pnodes  AST represented as a list of nodes
+ * @param len     The total number of nodes in the AST
+ * @param gen     Random number generator for subtree selection
+ * @return A tuple [first,last) which contains the required subtree
  */
 std::pair<int, int> get_subtree(node* pnodes, int len, std::mt19937 &gen) {
   
@@ -234,6 +238,11 @@ std::pair<int, int> get_subtree(node* pnodes, int len, std::mt19937 &gen) {
     node_probs[i] /= sum;
   }
 
+  // Compute cumulative sum
+  std::partial_sum(node_probs.begin(),node_probs.end(),node_probs.begin());
+
+  // CUML_LOG_DEBUG("Current bound is %f",bound);
+  
   start = std::lower_bound(node_probs.begin(),node_probs.end(),bound) - node_probs.begin();
   end = start;
 
@@ -253,11 +262,14 @@ void build_program(program &p_out, const param &params,std::mt19937 &gen){
   
   // Define tree
   std::stack<int> arity_stack;
-  std::vector<node> nodelist(0);
+  std::vector<node> nodelist;
+  nodelist.reserve(1 << (MAX_STACK_SIZE-1));
 
   // Specify RNGs
   std::uniform_int_distribution<> dist_func(0,params.function_set.size()-1);
-  std::uniform_int_distribution<> dist_depth(1, MAX_STACK_SIZE);
+
+  // MAX_STACK_SIZE can only handle btree of size MAX_STACK_SIZE - max(arity) + 1
+  std::uniform_int_distribution<> dist_depth(1, MAX_STACK_SIZE-1); 
   std::uniform_int_distribution<> dist_t(0,params.num_features);
   std::uniform_int_distribution<> dist_choice(0,params.num_features+params.function_set.size()-1);
   std::uniform_real_distribution<float> dist_const(params.const_range[0],
@@ -319,17 +331,26 @@ void build_program(program &p_out, const param &params,std::mt19937 &gen){
     }
   }
 
-  // Set new program parameters
-  p_out.nodes = &nodelist[0];
+  // Set new program parameters - need to do a copy as 
+  // nodelist will be deleted using RAII semantics
+  p_out.nodes = new node[nodelist.size()];
+  std::copy(nodelist.begin(),nodelist.end(),p_out.nodes);
+
   p_out.len = nodelist.size();
   p_out.metric = params.metric;
   p_out.depth = MAX_STACK_SIZE;
-  p_out.raw_fitness_ = 0.0f;
+  p_out.raw_fitness_ = 0.0f; 
+
+  // for(int i=0;i<p_out.len;++i){
+  //   CUML_LOG_DEBUG("Node #%d -> %d (%d inputs)",i+1,
+  //                 static_cast<std::underlying_type<node::type>::type>(p_out.nodes[i].t)
+  //                 ,p_out.nodes[i].arity());
+  // }
 }
 
 void point_mutation(const program &prog, program &p_out, const param& params, std::mt19937 &gen){
   
-  // Copy program
+  // deep-copy program
   p_out = prog;
   
   // Specify RNG
@@ -359,11 +380,16 @@ void point_mutation(const program &prog, program &p_out, const param& params, st
           p_out.nodes[i] = *(new node(ch));
         }
       }
-      else{
+      else if(curr.is_nonterminal()){
         // Replace current function with another function of the same arity
-        auto space_size = params.arity_set.at(curr.arity()).size();
+        int ar = curr.arity();
+        // CUML_LOG_DEBUG("Arity of curr func = %d, fname = %d",ar,static_cast<std::underlying_type<node::type>::type>(prog.nodes[i].t));
+        auto space_size = params.arity_set.at(ar).size();
         std::uniform_int_distribution<> dist_nt(0,space_size-1);
-        p_out.nodes[i] = *(new node(params.arity_set.at(curr.arity())[dist_nt(gen)]));
+        p_out.nodes[i] = *(new node(params.arity_set.at(ar)[dist_nt(gen)]));
+      }
+      else{
+        CUML_LOG_DEBUG("Shouldnt reach here!");
       }
     }
   }
@@ -382,21 +408,21 @@ void crossover(const program &prog, const program &donor, program &p_out, const 
   int donor_end = donor_slice.second;
 
   // Evolve 
-  p_out.len = (prog_start) + (donor_end - donor_start + 1) + (prog.len-prog_end);
+  p_out.len = (prog_start) + (donor_end - donor_start) + (prog.len-prog_end);
   p_out.nodes = new node[p_out.len];
+
+  // CUML_LOG_DEBUG("In crossover, par_len = %d, par_start = %d, par_end = %d",prog.len,prog_start,prog_end);
+  // CUML_LOG_DEBUG("In crossover, donor_len = %d, donor_start = %d, donor_end = %d",donor.len,donor_start,donor_end);
+  // CUML_LOG_DEBUG("In crossover, new length = %d",p_out.len);
+
+  // Copy slices using std::copy
+  std::copy(prog.nodes,prog.nodes + prog_start,p_out.nodes);
   
-  int i=0;
-  for(;i<prog_start;++i){
-    p_out.nodes[i] = prog.nodes[i];
-  }
+  std::copy(donor.nodes + donor_start, donor.nodes + donor_end, p_out.nodes + prog_start);
 
-  for(int j=donor_start;j<donor_end;++i,++j){
-    p_out.nodes[i] = donor.nodes[j];
-  }
-
-  for(int j=prog_end;j<prog.len;++j,++i){
-    p_out.nodes[i] = prog.nodes[i];
-  }
+  std::copy(prog.nodes + prog_end, 
+            prog.nodes + prog.len, 
+            p_out.nodes + (prog_start) + (donor_end - donor_start));
 }
 
 void subtree_mutation(const program &prog, program &p_out, const param &params, std::mt19937 &gen){
@@ -418,21 +444,14 @@ void hoist_mutation(const program &prog, program &p_out, const param &params, st
   int sub_start = sub_slice.first;
   int sub_end = sub_slice.second;
 
-  p_out.len = (prog_start) + (sub_end - sub_start + 1) + (prog.len-prog_end);
+  p_out.len = (prog_start) + (sub_end - sub_start) + (prog.len-prog_end);
   p_out.nodes = new node[p_out.len];
   
-  int i=0;
-  for(;i<prog_start;++i){
-    p_out.nodes[i] = prog.nodes[i];
-  }
-
-  for(int j=sub_start;j<sub_end;++i,++j){
-    p_out.nodes[i] = prog.nodes[j];
-  }
-
-  for(int j=prog_end;j<prog.len;++j,++i){
-    p_out.nodes[i] = prog.nodes[i];
-  }
+  // Copy node slices using std::copy
+  std::copy(prog.nodes, prog.nodes + prog_start, p_out.nodes);
+  std::copy(prog.nodes + sub_start, prog.nodes + sub_end, p_out.nodes + prog_start);
+  std::copy(prog.nodes + prog_end, prog.nodes + prog.len,
+                                   p_out.nodes + (prog_start) + (sub_end - sub_start));
 }
 
 } // namespace genetic

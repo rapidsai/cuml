@@ -116,7 +116,7 @@ void set_batched_fitness( const raft::handle_t &h, program_t d_progs, std::vecto
                           const float* y, const float* sample_weights);
 
 /** Returns precomputed fitness score of program on the host */
-void get_fitness(const program &prog, const param &params, float &score);
+float fitness(const program &prog, const param &params);
 
 /** build a random program of max-depth */
 void build_program(program &p_out, const param &params, std::mt19937 &gen);

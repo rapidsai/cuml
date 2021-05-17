@@ -1,5 +1,5 @@
-#
-# Copyright (c) 2019, NVIDIA CORPORATION.
+#=============================================================================
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,8 +12,8 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
+#=============================================================================
 
-add_subdirectory(kmeans)
-add_subdirectory(dbscan)
-add_subdirectory(symreg)
+add_executable(symreg_example symreg_example.cpp)
+target_include_directories(symreg_example PRIVATE ${CUML_INCLUDE_DIRECTORIES})
+target_link_libraries(symreg_example cuml++)
