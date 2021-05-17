@@ -310,15 +310,15 @@ void extract_clusters(
   Membership::get_probabilities<value_idx, value_t>(handle, condensed_tree,
                                                     labels, probabilities);
 
-  auto lambdas_ptr = thrust::device_pointer_cast(condensed_tree.get_lambdas());
-  value_t max_lambda = *(thrust::max_element(
-    exec_policy, lambdas_ptr,
-    lambdas_ptr + condensed_tree.get_n_edges()));
-
-  CUML_LOG_DEBUG("Computing stability scores");
-  Stability::get_stability_scores(handle, labels, tree_stabilities.data(),
-                                  clusters.size(), max_lambda, n_leaves,
-                                  stabilities);
+//  auto lambdas_ptr = thrust::device_pointer_cast(condensed_tree.get_lambdas());
+//  value_t max_lambda = *(thrust::max_element(
+//    exec_policy, lambdas_ptr,
+//    lambdas_ptr + condensed_tree.get_n_edges()));
+//
+//  CUML_LOG_DEBUG("Computing stability scores");
+//  Stability::get_stability_scores(handle, labels, tree_stabilities.data(),
+//                                  clusters.size(), max_lambda, n_leaves,
+//                                  stabilities);
 }
 
 };  // end namespace Extract

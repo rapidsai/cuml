@@ -144,8 +144,8 @@ __global__ void condense_hierarchy_kernel(
       // included directly in the output hierarchy.
       if (can_persist) {
 
-        printf("persisting node=%d, left_child=%d, left_size=%d, right_child=%d, right_size=%d\n",
-               node, left_child, left_count, right_child, right_count);
+//        printf("persisting node=%d, left_child=%d, left_size=%d, right_child=%d, right_size=%d\n",
+//               node, left_child, left_count, right_child, right_count);
 
         // TODO: Could probably pull this out if this conditional becomes
         //  a bottleneck

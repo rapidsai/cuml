@@ -60,18 +60,63 @@ struct MSTEpilogueReachability {
 
   void operator()(const raft::handle_t &handle, value_idx *coo_rows,
                   value_idx *coo_cols, value_t *coo_data, value_idx nnz) {
-    printf("nnz=%d, m=%d\n", nnz, m);
-
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-
-    set_core_dists<<<raft::ceildiv(nnz, 256), 256, 0, handle.get_stream()>>>(
-      coo_rows, coo_cols, coo_data, nnz, core_distances);
-
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-    CUML_LOG_DEBUG("Executed graph connection");
   }
 
 };
+
+/**
+ * Functor with reduction ops for performing fused 1-nn
+ * computation and guaranteeing only cross-component
+ * neighbors are considered.
+ * @tparam value_idx
+ * @tparam value_t
+ */
+template <typename value_idx, typename value_t>
+struct FixConnectivitiesRedOp {
+  value_idx *colors;
+  value_t *core_dists;
+  value_idx m;
+
+  FixConnectivitiesRedOp(value_idx *colors_, value_t *core_dists_, value_idx m_)
+    : colors(colors_), core_dists(core_dists_), m(m_){};
+
+  typedef typename cub::KeyValuePair<value_idx, value_t> KVP;
+  DI void operator()(value_idx rit, KVP *out, const KVP &other) {
+
+    if(rit < m && other.value < std::numeric_limits<value_t>::max() && colors[rit] != colors[other.key]) {
+
+      value_t core_dist_rit = core_dists[rit];
+      value_t core_dist_other = max(core_dist_rit, max(core_dists[other.key], other.value));
+      value_t core_dist_out = max(core_dist_rit, max(core_dists[out->key], out->value));
+
+      bool smaller = core_dist_other < core_dist_out;
+      out->key = (smaller * other.key) + (!smaller * out->key);
+      out->value = (smaller * core_dist_other) + (!smaller * core_dist_out);
+    }
+  }
+
+  DI KVP operator()(value_idx rit, const KVP &a, const KVP &b) {
+    if (rit < m && a.key > -1 && colors[rit] != colors[a.key]) {
+
+      value_t core_dist_rit = core_dists[rit];
+      value_t core_dist_a = max(core_dist_rit, max(core_dists[a.key], a.value));
+      value_t core_dist_b = max(core_dist_rit, max(core_dists[b.key], b.value));
+
+      bool smaller = core_dist_a < core_dist_b;
+      return KVP((smaller * a.key) + (!smaller * b.key),
+                 (smaller * core_dist_a) + (!smaller * core_dist_b));
+    }
+
+    return b;
+  }
+
+  DI void init(value_t *out, value_t maxVal) { *out = maxVal; }
+  DI void init(KVP *out, value_t maxVal) {
+    out->key = -1;
+    out->value = maxVal;
+  }
+};
+
 
 template <typename value_idx = int64_t, typename value_t = float>
 void build_linkage(const raft::handle_t &handle,
@@ -103,15 +148,16 @@ void build_linkage(const raft::handle_t &handle,
    * Construct MST sorted by weights
    */
 
+  rmm::device_uvector<value_idx> color(m, stream);
   MSTEpilogueReachability<value_idx, value_t> core_dist_epilogue(m, core_dists.data());
+  FixConnectivitiesRedOp<value_idx, value_t> red_op(color.data(), core_dists.data(), m);
   // during knn graph connection
   raft::hierarchy::detail::build_sorted_mst(
     handle, X, mutual_reachability_indptr.data(),
     mutual_reachability_coo.cols(), mutual_reachability_coo.vals(), m, n,
-    out.get_mst_src(), out.get_mst_dst(), out.get_mst_weights(),
+    out.get_mst_src(), out.get_mst_dst(), out.get_mst_weights(), color.data(),
     mutual_reachability_coo.nnz,
-    core_dist_epilogue, metric,
-    (size_t)10);
+    core_dist_epilogue, red_op, metric, (size_t)10);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
   CUML_LOG_DEBUG("Executed MST");
@@ -156,11 +202,6 @@ void _fit_hdbscan(const raft::handle_t &handle,
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
   CUML_LOG_DEBUG("Executed hierarchy condensing");
-
-  raft::print_device_vector("condensed_parents", out.get_condensed_tree().get_parents(),
-                            out.get_condensed_tree().get_n_edges(), std::cout);
-  raft::print_device_vector("condensed_children", out.get_condensed_tree().get_children(),
-                            out.get_condensed_tree().get_n_edges(), std::cout);
 
   /**
    * Extract labels from stability

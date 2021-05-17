@@ -134,14 +134,12 @@ void compute_stabilities(
   thrust::fill(exec_policy, births.begin(), births.end(), 0.0f);
   thrust::for_each(exec_policy, thrust::make_counting_iterator(value_idx(0)),
                    thrust::make_counting_iterator(n_edges), births_init_op);
-  raft::print_device_vector("inital_births", births.data(), n_clusters, std::cout);
 
   Utils::segmented_reduce(
     lambdas, births_parent_min.data() + 1, n_clusters - 1,
     sorted_parents_offsets.data() + 1, stream,
     cub::DeviceSegmentedReduce::Min<const value_t *, value_t *,
                                     const value_idx *>);
-  raft::print_device_vector("min_births", births_parent_min.data(), n_clusters, std::cout);
   // finally, we find minimum between initialized births where parent=child
   // and births of parents for their childrens
   auto births_zip = thrust::make_zip_iterator(
@@ -156,8 +154,6 @@ void compute_stabilities(
   thrust::transform(exec_policy, births_zip + 1, births_zip + n_clusters,
                     births.begin() + 1, min_op);
 
-  raft::print_device_vector("Final births", births.data(), n_clusters, std::cout);
-
   thrust::fill(exec_policy, stabilities, stabilities + n_clusters, 0.0f);
 
   // for each child, calculate summation (lambda[child] - lambda[birth[parent]]) * sizes[child]
@@ -165,8 +161,6 @@ void compute_stabilities(
     stabilities, births.data(), parents, children, lambdas, sizes, n_leaves);
   thrust::for_each(exec_policy, thrust::make_counting_iterator(value_idx(0)),
                    thrust::make_counting_iterator(n_edges), stabilities_op);
-
-  raft::print_device_vector("stabilities", stabilities, n_clusters, std::cout);
 }
 
 template <typename value_idx, typename value_t>
