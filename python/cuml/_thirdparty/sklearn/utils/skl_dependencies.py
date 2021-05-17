@@ -12,8 +12,6 @@
 from ....common.base import Base
 from ..utils.validation import check_X_y
 from ....thirdparty_adapters import check_array
-from abc import ABCMeta
-from operator import attrgetter
 
 
 class BaseEstimator(Base):

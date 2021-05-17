@@ -16,6 +16,7 @@ import functools
 import timeit
 import numbers
 from sklearn.base import clone
+from sklearn.utils import Bunch
 from contextlib import contextmanager
 from collections import defaultdict
 

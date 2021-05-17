@@ -26,7 +26,7 @@ from ._function_transformer import FunctionTransformer
 
 from ._column_transformer import ColumnTransformer, \
     make_column_transformer, make_column_selector
-    
+
 
 __all__ = [
     'Binarizer',

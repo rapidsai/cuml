@@ -165,8 +165,8 @@ def test_make_column_transformer(clf_dataset, remainder):  # noqa: F811
 
 @pytest.mark.parametrize('remainder', ['drop', 'passthrough'])
 @pytest.mark.parametrize('sparse_threshold', [0.2, 0.8])
-def test_column_transformer_sparse(sparse_clf_dataset, remainder,  # noqa: F811
-                                   sparse_threshold):
+def test_make_column_transformer_sparse(sparse_clf_dataset,  # noqa: F811
+                                        remainder, sparse_threshold):
     X_np, X = sparse_clf_dataset
 
     if X.format == 'csc':
