@@ -19,7 +19,7 @@ ARGS=$*
 REPODIR=$(cd $(dirname $0); pwd)
 
 VALIDTARGETS="clean libcuml cuml cpp-mgtests prims bench prims-bench cppdocs pydocs"
-VALIDFLAGS="-v -g -n --allgpuarch --buildfaiss --buildgtest --singlegpu --nolibcumltest --nvtx --show_depr_warn --codecov --ccache -h --help "
+VALIDFLAGS="-v -g -n --allgpuarch --singlegpu --nolibcumltest --nvtx --show_depr_warn --codecov --ccache -h --help "
 VALIDARGS="${VALIDTARGETS} ${VALIDFLAGS}"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
@@ -39,8 +39,6 @@ HELP="$0 [<target> ...] [<flag> ...]
    -n               - no install step
    -h               - print this text
    --allgpuarch     - build for all supported GPU architectures
-   --buildfaiss     - build faiss statically into libcuml
-   --buildgtest     - build googletest library
    --singlegpu      - Build libcuml and cuml without multigpu components
    --nolibcumltest  - disable building libcuml C++ tests for a faster build
    --nvtx           - Enable nvtx for profiling support
@@ -126,8 +124,6 @@ LONG_ARGUMENT_LIST=(
     "no-install"
     "allgpuarch"
     "singlegpu"
-    "buildfaiss"
-    "buildgtest"
     "nvtx"
     "show_depr_warn"
     "codecov"
@@ -176,12 +172,6 @@ while true; do
         --singlegpu )
             CUML_EXTRA_PYTHON_ARGS="${CUML_EXTRA_PYTHON_ARGS} --singlegpu"
             SINGLEGPU_CPP_FLAG=ON
-            ;;
-        --buildfaiss )
-            BUILD_STATIC_FAISS=ON
-            ;;
-        --buildgtest )
-            BUILD_GTEST=ON
             ;;
         --nvtx )
             NVTX=ON
