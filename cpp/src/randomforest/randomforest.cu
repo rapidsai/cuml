@@ -611,13 +611,11 @@ RF_metrics score(const raft::handle_t& user_handle,
 }
 
 RF_params set_rf_params(int max_depth, int max_leaves, float max_features,
-                        int n_bins, int split_algo, int min_samples_leaf,
-                        int min_samples_split, float min_impurity_decrease,
-                        bool bootstrap_features, bool bootstrap, int n_trees,
-                        float max_samples, uint64_t seed,
-                        CRITERION split_criterion, bool quantile_per_tree,
-                        int cfg_n_streams, bool use_experimental_backend,
-                        int max_batch_size) {
+                        int n_bins, int min_samples_leaf, int min_samples_split,
+                        float min_impurity_decrease, bool bootstrap_features,
+                        bool bootstrap, int n_trees, float max_samples,
+                        uint64_t seed, CRITERION split_criterion,
+                        int cfg_n_streams, int max_batch_size) {
   // give deprecation notice for use of bootstrap_features
   if (bootstrap_features) {
     CUML_LOG_WARN(
@@ -632,10 +630,9 @@ RF_params set_rf_params(int max_depth, int max_leaves, float max_features,
   }
   DecisionTree::DecisionTreeParams tree_params;
   DecisionTree::set_tree_params(
-    tree_params, max_depth, max_leaves, max_features, n_bins, split_algo,
-    min_samples_leaf, min_samples_split, min_impurity_decrease,
-    bootstrap_features, split_criterion, quantile_per_tree,
-    use_experimental_backend, max_batch_size);
+    tree_params, max_depth, max_leaves, max_features, n_bins, min_samples_leaf,
+    min_samples_split, min_impurity_decrease, bootstrap_features,
+    split_criterion, max_batch_size);
   RF_params rf_params;
   rf_params.n_trees = n_trees;
   rf_params.bootstrap = bootstrap;

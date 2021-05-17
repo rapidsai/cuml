@@ -86,7 +86,6 @@ std::vector<Params> getInputs() {
                        (1 << 20),           /* max_leaves */
                        0.3,                 /* max_features */
                        32,                  /* n_bins */
-                       1,                   /* split_algo */
                        3,                   /* min_samples_leaf */
                        3,                   /* min_samples_split */
                        0.0f,                /* min_impurity_decrease */
@@ -96,9 +95,7 @@ std::vector<Params> getInputs() {
                        1.f,                 /* max_samples */
                        1234ULL,             /* seed */
                        ML::CRITERION::GINI, /* split_criterion */
-                       false,               /* quantile_per_tree */
                        8,                   /* n_streams */
-                       false,               /* use_experimental_backend */
                        128                  /* max_batch_size */
   );
 

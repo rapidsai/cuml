@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <decisiontree/memory.h>
 #include <decisiontree/quantile/quantile.h>
 #include <gtest/gtest.h>
 #include <raft/linalg/cublas_wrappers.h>
@@ -50,9 +49,8 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle->set_stream(stream);
     set_tree_params(params, inparams.max_depth, 1 << inparams.max_depth, 1.f,
-                    inparams.nbins, SPLIT_ALGO::GLOBAL_QUANTILE, 0,
-                    inparams.nbins, inparams.min_gain, false,
-                    inparams.splitType, false, true, 128);
+                    inparams.nbins, 0, inparams.nbins, inparams.min_gain, false,
+                    inparams.splitType, 128);
     auto allocator = handle->get_device_allocator();
     data = (T*)allocator->allocate(sizeof(T) * inparams.M * inparams.N, stream);
     labels = (L*)allocator->allocate(sizeof(L) * inparams.M, stream);
@@ -136,8 +134,6 @@ INSTANTIATE_TEST_CASE_P(BatchedLevelAlgo, DtClsTestF,
 const std::vector<DtTestParams> allR = {
   {1024, 4, 2, 8, 16, 0.00001f, CRITERION::MSE, 12345ULL},
   {1024, 4, 2, 8, 16, 0.00001f, CRITERION::MSE, 12345ULL},
-  {1024, 4, 2, 8, 16, 0.00001f, CRITERION::MAE, 12345ULL},
-  {1024, 4, 2, 8, 16, 0.00001f, CRITERION::MAE, 12345ULL},
 };
 template <typename T>
 class DtRegressorTest : public DtBaseTest<T, T> {
@@ -162,11 +158,6 @@ TEST_P(DtRegTestF, Test) {
                         inparams.M, labels, quantiles, rowids, inparams.M, 0,
                         params, stream, sparsetree, num_leaves, depth);
   // goes all the way to max-depth
-#if CUDART_VERSION >= 11020
-  if (inparams.splitType == CRITERION::MAE) {
-    GTEST_SKIP();
-  }
-#endif
   ASSERT_EQ(depth, inparams.max_depth);
 }
 INSTANTIATE_TEST_CASE_P(BatchedLevelAlgo, DtRegTestF,

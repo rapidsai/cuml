@@ -16,7 +16,6 @@
 
 #include <raft/handle.hpp>
 
-#include <decisiontree/memory.h>
 #include <decisiontree/quantile/quantile.h>
 #include <gtest/gtest.h>
 #include <algorithm>
@@ -55,15 +54,12 @@ class BatchedLevelAlgoUnitTestFixture {
     params.max_leaves = 8;
     params.max_features = 1.0f;
     params.n_bins = n_bins;
-    params.split_algo = 1;
     params.min_samples_leaf = 0;
     params.min_samples_split = 0;
     params.bootstrap_features = false;
-    params.quantile_per_tree = false;
     params.split_criterion = CRITERION::MSE;
     params.min_impurity_decrease = 0.0f;
     params.max_batch_size = 8;
-    params.use_experimental_backend = true;
 
     h_data = {-1.0f, 0.0f, 2.0f, 0.0f, -2.0f,
               0.0f,  1.0f, 0.0f, 3.0f, 0.0f};  // column-major
@@ -75,6 +71,8 @@ class BatchedLevelAlgoUnitTestFixture {
 
     data = static_cast<DataT*>(
       d_allocator->allocate(sizeof(DataT) * n_row * n_col, 0));
+    d_quantiles = static_cast<DataT*>(
+      d_allocator->allocate(sizeof(DataT) * n_bins * n_col, 0));
     labels =
       static_cast<LabelT*>(d_allocator->allocate(sizeof(LabelT) * n_row, 0));
     row_ids =
@@ -98,16 +96,11 @@ class BatchedLevelAlgoUnitTestFixture {
 
     raft::update_device(data, h_data.data(), n_row * n_col, 0);
     raft::update_device(labels, h_labels.data(), n_row, 0);
+    computeQuantiles(d_quantiles, n_bins, data, n_row, n_col, d_allocator,
+                     nullptr);
     MLCommon::iota(row_ids, 0, 1, n_row, 0);
 
-    tempmem = std::make_shared<TemporaryMemory<DataT, LabelT>>(
-      *raft_handle, cudaStream_t(0), n_row, n_col, 0, params);
-    preprocess_quantile(data, reinterpret_cast<unsigned int*>(row_ids), n_row,
-                        n_col, n_row, n_bins, tempmem);
-    DataT* quantiles = tempmem->d_quantile->data();
     CUDA_CHECK(cudaStreamSynchronize(0));
-
-    h_quantiles = tempmem->h_quantile->data();
 
     input.data = data;
     input.labels = labels;
@@ -117,12 +110,13 @@ class BatchedLevelAlgoUnitTestFixture {
     input.nSampledCols = n_col;
     input.rowids = row_ids;
     input.nclasses = 0;  // not applicable for regression
-    input.quantiles = quantiles;
+    input.quantiles = d_quantiles;
   }
 
   void TearDown() {
     auto d_allocator = raft_handle->get_device_allocator();
     d_allocator->deallocate(data, sizeof(DataT) * n_row * n_col, 0);
+    d_allocator->deallocate(d_quantiles, sizeof(DataT) * n_bins * n_col, 0);
     d_allocator->deallocate(labels, sizeof(LabelT) * n_row, 0);
     d_allocator->deallocate(row_ids, sizeof(IdxT) * n_row, 0);
     d_allocator->deallocate(curr_nodes, sizeof(NodeT) * max_batch, 0);
@@ -136,12 +130,11 @@ class BatchedLevelAlgoUnitTestFixture {
   DecisionTreeParams params;
 
   std::unique_ptr<raft::handle_t> raft_handle;
-  std::shared_ptr<TemporaryMemory<DataT, LabelT>> tempmem;
 
   std::vector<DataT> h_data;
   std::vector<LabelT> h_labels;
 
-  DataT* h_quantiles;
+  DataT* d_quantiles;
   Traits::InputT input;
 
   NodeT* curr_nodes;
@@ -154,14 +147,6 @@ class BatchedLevelAlgoUnitTestFixture {
   DataT* data;
   DataT* labels;
   IdxT* row_ids;
-};
-
-class TestQuantiles : public ::testing::TestWithParam<NoOpParams>,
-                      protected BatchedLevelAlgoUnitTestFixture {
- protected:
-  void SetUp() override { BatchedLevelAlgoUnitTestFixture::SetUp(); }
-
-  void TearDown() override { BatchedLevelAlgoUnitTestFixture::TearDown(); }
 };
 
 class TestNodeSplitKernel
@@ -180,23 +165,6 @@ class TestMetric : public ::testing::TestWithParam<CRITERION>,
 
   void TearDown() override { BatchedLevelAlgoUnitTestFixture::TearDown(); }
 };
-
-TEST_P(TestQuantiles, Quantiles) {
-  /* Ensure that quantiles are computed correctly */
-  std::vector<DataT> expected_quantiles[]{{-2.0f, -1.0f, 0.0f, 2.0f},
-                                          {0.0f, 1.0f, 3.0f}};
-  for (int col = 0; col < n_col; col++) {
-    std::vector<DataT> col_quantile(n_bins);
-    std::copy(h_quantiles + n_bins * col, h_quantiles + n_bins * (col + 1),
-              col_quantile.begin());
-    auto last = std::unique(col_quantile.begin(), col_quantile.end());
-    col_quantile.erase(last, col_quantile.end());
-    EXPECT_EQ(col_quantile, expected_quantiles[col]);
-  }
-}
-
-INSTANTIATE_TEST_SUITE_P(BatchedLevelAlgoUnitTest, TestQuantiles,
-                         ::testing::Values(NoOpParams{}));
 
 TEST_P(TestNodeSplitKernel, MinSamplesSplitLeaf) {
   auto test_params = GetParam();
@@ -306,11 +274,10 @@ TEST_P(TestMetric, RegressionMetricGain) {
 
   computeSplitRegressionKernel<DataT, DataT, IdxT, 32>
     <<<grid, 32, smemSize, 0>>>(
-      pred, pred_count, n_bins, params.max_depth,
-      params.min_samples_split, params.min_samples_leaf,
-      params.min_impurity_decrease, params.max_leaves, input, curr_nodes, 0,
-      done_count, mutex, n_new_leaves, splits, block_sync, split_criterion, 0,
-      1234ULL);
+      pred, pred_count, n_bins, params.max_depth, params.min_samples_split,
+      params.min_samples_leaf, params.min_impurity_decrease, params.max_leaves,
+      input, curr_nodes, 0, done_count, mutex, n_new_leaves, splits, block_sync,
+      split_criterion, 0, 1234ULL);
 
   raft::update_host(h_splits.data(), splits, 1, 0);
   CUDA_CHECK(cudaGetLastError());
@@ -374,7 +341,7 @@ TEST_P(TestMetric, RegressionMetricGain) {
 }
 
 INSTANTIATE_TEST_SUITE_P(BatchedLevelAlgoUnitTest, TestMetric,
-                         ::testing::Values(CRITERION::MSE, CRITERION::MAE),
+                         ::testing::Values(CRITERION::MSE),
                          [](const auto& info) {
                            switch (info.param) {
                              case CRITERION::MSE:

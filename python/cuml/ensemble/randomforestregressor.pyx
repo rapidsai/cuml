@@ -192,7 +192,7 @@ class RandomForestRegressor(BaseRandomForestModel,
         If 'auto' then max_features=1.0.
         If 'sqrt' then max_features=1/sqrt(n_features).
         If 'log2' then max_features=log2(n_features)/n_features.
-    n_bins : int (default = 8)
+    n_bins : int (default = 128)
         Number of bins used by the split algorithm.
         For large problems, particularly those with highly-skewed input data,
         increasing the number of bins may improve accuracy.
@@ -218,21 +218,11 @@ class RandomForestRegressor(BaseRandomForestModel,
         for median of abs error : 'median_ae'
         for mean of abs error : 'mean_ae'
         for mean square error' : 'mse'
-    quantile_per_tree : boolean (default = False)
-        Whether quantile is computed for individual trees in RF.
-        Only relevant when `split_algo = GLOBAL_QUANTILE`.
-
-        .. deprecated:: 0.19
-           Parameter 'quantile_per_tree' is deprecated and will be removed in
-           subsequent release.
-    use_experimental_backend : boolean (default = False)
-        If set to true and the following conditions are also met, a new
-        experimental backend for decision tree training will be used. The
-        new backend is available only if `split_algo = 1` (GLOBAL_QUANTILE)
-        and `quantile_per_tree = False` (No per tree quantile computation).
-        The new backend is considered stable for classification tasks but
-        not yet for regression tasks. The RAPIDS team is continuing
-        optimization and evaluation of the new backend for regression tasks.
+    use_experimental_backend : boolean (default = True)
+        Deprecated and currrently has no effect.
+        .. deprecated:: 0.20
+           Parameter 'use_experimental_backend is deprecated and will
+           be removed in subsequent release.
     max_batch_size: int (default = 128)
         Maximum number of nodes that can be processed in a given batch. This is
         used only when 'use_experimental_backend' is true.
@@ -453,7 +443,6 @@ class RandomForestRegressor(BaseRandomForestModel,
                                   <int> self.max_leaves,
                                   <float> max_feature_val,
                                   <int> self.n_bins,
-                                  <int> self.split_algo,
                                   <int> self.min_samples_leaf,
                                   <int> self.min_samples_split,
                                   <float> self.min_impurity_decrease,
@@ -463,9 +452,7 @@ class RandomForestRegressor(BaseRandomForestModel,
                                   <float> self.max_samples,
                                   <uint64_t> seed_val,
                                   <CRITERION> self.split_criterion,
-                                  <bool> self.quantile_per_tree,
                                   <int> self.n_streams,
-                                  <bool> self.use_experimental_backend,
                                   <int> self.max_batch_size)
 
         if self.dtype == np.float32:

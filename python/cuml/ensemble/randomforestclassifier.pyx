@@ -192,10 +192,10 @@ class RandomForestClassifier(BaseRandomForestModel,
         2 and 3 not valid for classification
         (default = 0)
     split_algo : int (default = 1)
-        The algorithm to determine how nodes are split in the tree.
-        0 for HIST and 1 for GLOBAL_QUANTILE. HIST currently uses a slower
-        tree-building algorithm so GLOBAL_QUANTILE is recommended for most
-        cases.
+        Deprecated and currrently has no effect.
+        .. deprecated:: 0.20
+           Parameter 'split_algo' is deprecated and will be removed in
+           subsequent release.
     bootstrap : boolean (default = True)
         Control bootstrapping.
         If True, each tree in the forest is built
@@ -221,7 +221,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         If 'auto' then max_features=1/sqrt(n_features).
         If 'sqrt' then max_features=1/sqrt(n_features).
         If 'log2' then max_features=log2(n_features)/n_features.
-    n_bins : int (default = 32)
+    n_bins : int (default = 128)
         Number of bins used by the split algorithm.
         For large problems, particularly those with highly-skewed input data,
         increasing the number of bins may improve accuracy.
@@ -240,21 +240,11 @@ class RandomForestClassifier(BaseRandomForestModel,
     min_impurity_decrease : float (default = 0.0)
         Minimum decrease in impurity requried for
         node to be spilt.
-    quantile_per_tree : boolean (default = False)
-        Whether quantile is computed for individual trees in RF.
-        Only relevant when `split_algo = GLOBAL_QUANTILE`.
-
-        .. deprecated:: 0.19
-           Parameter 'quantile_per_tree' is deprecated and will be removed in
-           subsequent release.
     use_experimental_backend : boolean (default = True)
-        If set to true and the following conditions are also met, a new
-        experimental backend for decision tree training will be used. The
-        new backend is available only if `split_algo = 1` (GLOBAL_QUANTILE)
-        and `quantile_per_tree = False` (No per tree quantile computation).
-        The new backend is considered stable for classification tasks but
-        not yet for regression tasks. The RAPIDS team is continuing
-        optimization and evaluation of the new backend for regression tasks.
+        Deprecated and currrently has no effect.
+        .. deprecated:: 0.20
+           Parameter 'use_experimental_backend' is deprecated and will
+           be removed in subsequent release.
     max_batch_size: int (default = 128)
         Maximum number of nodes that can be processed in a given batch. This is
         used only when 'use_experimental_backend' is true. Does not currently
@@ -283,7 +273,7 @@ class RandomForestClassifier(BaseRandomForestModel,
     """
 
     def __init__(self, *, split_criterion=0, handle=None, verbose=False,
-                 output_type=None, n_bins=32, use_experimental_backend=True,
+                 output_type=None,
                  **kwargs):
 
         self.RF_type = CLASSIFICATION
@@ -293,8 +283,6 @@ class RandomForestClassifier(BaseRandomForestModel,
             handle=handle,
             verbose=verbose,
             output_type=output_type,
-            n_bins=n_bins,
-            use_experimental_backend=use_experimental_backend,
             **kwargs)
 
     """
@@ -493,7 +481,6 @@ class RandomForestClassifier(BaseRandomForestModel,
                                   <int> self.max_leaves,
                                   <float> max_feature_val,
                                   <int> self.n_bins,
-                                  <int> self.split_algo,
                                   <int> self.min_samples_leaf,
                                   <int> self.min_samples_split,
                                   <float> self.min_impurity_decrease,
@@ -503,9 +490,7 @@ class RandomForestClassifier(BaseRandomForestModel,
                                   <float> self.max_samples,
                                   <uint64_t> seed_val,
                                   <CRITERION> self.split_criterion,
-                                  <bool> self.quantile_per_tree,
                                   <int> self.n_streams,
-                                  <bool> self.use_experimental_backend,
                                   <int> self.max_batch_size)
 
         if self.dtype == np.float32:
