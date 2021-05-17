@@ -63,6 +63,7 @@ __global__ void l2SelectMinK(
   faiss::gpu::Tensor<value_t, 1, true> core_dists,
   faiss::gpu::Tensor<value_t, 2, true> out_dists,
   faiss::gpu::Tensor<int, 2, true> out_inds,
+  int batch_offset,
   int k,
   value_t initK) {
 
@@ -89,20 +90,20 @@ __global__ void l2SelectMinK(
   int i = threadIdx.x;
 
   for (; i < limit; i += blockDim.x) {
-    value_t v = sqrt(faiss::gpu::Math<value_t>::add(sq_norms[row],
+    value_t v = sqrt(faiss::gpu::Math<value_t>::add(sq_norms[row+batch_offset],
                      faiss::gpu::Math<value_t>::add(sq_norms[i],
                                                     inner_products[row][i])));
 
-    v = max(core_dists[i], max(core_dists[row], v));
+    v = max(core_dists[i], max(core_dists[row+batch_offset], v));
     heap.add(v, i);
   }
 
   if (i < inner_products.getSize(1)) {
-    value_t v = sqrt(faiss::gpu::Math<value_t>::add(sq_norms[row],
+    value_t v = sqrt(faiss::gpu::Math<value_t>::add(sq_norms[row+batch_offset],
                      faiss::gpu::Math<value_t>::add(sq_norms[i],
                                                     inner_products[row][i])));
 
-    v = max(core_dists[i], max(core_dists[row], v));
+    v = max(core_dists[i], max(core_dists[row+batch_offset], v));
     heap.addThreadQ(v, i);
   }
 
@@ -121,6 +122,7 @@ void runL2SelectMin(
   faiss::gpu::Tensor<value_t, 1, true>& coreDistances,
   faiss::gpu::Tensor<value_t, 2, true>& outDistances,
   faiss::gpu::Tensor<int, 2, true>& outIndices,
+  int batch_offset,
   int k,
   cudaStream_t stream) {
   FAISS_ASSERT(productDistances.getSize(0) == outDistances.getSize(0));
@@ -140,9 +142,10 @@ void runL2SelectMin(
                       centroidDistances,                 \
                       coreDistances,                   \
                       outDistances,                    \
-                      outIndices,                      \
+                      outIndices,                        \
+                      batch_offset,                    \
                       k,                               \
-                      faiss::gpu::Limits<value_t>::getMax());            \
+                      faiss::gpu::Limits<value_t>::getMax());  \
   } while (0)
 
   // block size 128 for everything <= 1024
@@ -235,6 +238,9 @@ void mutual_reachability_knn_l2(const raft::handle_t &handle,
 
   int numColTiles = raft::ceildiv(m, (size_t)tileCols);
 
+
+  printf("tileRows=%d, tileCols=%d\n", tileRows, tileCols);
+
   faiss::gpu::DeviceTensor<value_t, 2, true> distanceBuf1(
     gpu_res, faiss::gpu::makeTempAlloc(faiss::gpu::AllocType::Other, stream), {tileRows, tileCols});
   faiss::gpu::DeviceTensor<value_t, 2, true> distanceBuf2(
@@ -325,15 +331,19 @@ void mutual_reachability_knn_l2(const raft::handle_t &handle,
       if (tileCols == m) {
         // Write into the final output
 
+        printf("Tile cols == m\n");
         runL2SelectMin<value_t>(
           distanceBufView,
           norms_tensor,
           core_dists_tensor,
           outDistanceView,
           outIndexView,
+          i,
           k,
           streams[curStream]);
       } else {
+
+        printf("Tile cols != m\n");
         auto centroidNormsView =
           norms_tensor.narrow(0, j, curCentroidSize);
 
@@ -344,6 +354,7 @@ void mutual_reachability_knn_l2(const raft::handle_t &handle,
           core_dists_tensor,
           outDistanceBufColView,
           outIndexBufColView,
+          i,
           k,
           streams[curStream]);
       }
@@ -352,6 +363,8 @@ void mutual_reachability_knn_l2(const raft::handle_t &handle,
     // As we're finished with processing a full set of centroids, perform
     // the final k-selection
     if (tileCols != m) {
+
+      printf("Performing final k-selection\n");
       // The indices are tile-relative; for each tile of k, we need to add
       // tileCols to the index
       faiss::gpu::runIncrementIndex(
@@ -362,7 +375,7 @@ void mutual_reachability_knn_l2(const raft::handle_t &handle,
         outIndexBufRowView,
         outDistanceView,
         outIndexView,
-        false ,
+        false,
         k,
         streams[curStream]);
     }
@@ -383,7 +396,7 @@ template <typename value_t>
 __global__ void core_distances_kernel(value_t *knn_dists, int k, int min_samples, size_t n,
                                       value_t *out) {
   int row = blockIdx.x * blockDim.x + threadIdx.x;
-  if (row < n) out[row] = knn_dists[row * k + (min_samples)];
+  if (row < n) out[row] = knn_dists[row * k + (min_samples-1)];
 }
 
 /**
@@ -457,11 +470,16 @@ void mutual_reachability_graph(const raft::handle_t &handle, const value_t *X,
   // Slice core distances (distances to kth nearest neighbor)
   core_distances(dists.data(), k, min_samples, m, core_dists, stream);
 
+  raft::print_device_vector("core_dists", core_dists, min(25, (int)m), std::cout);
+
   /**
    * Compute L2 norm
    */
   mutual_reachability_knn_l2(handle, inds.data(), dists.data(),
                              X, m, n, k, core_dists);
+
+  raft::print_device_vector("inds", inds.data(), min(25, (int)inds.size()), std::cout);
+  raft::print_device_vector("dists", dists.data(), min(25, (int)dists.size()), std::cout);
 
   raft::sparse::selection::fill_indices<value_idx>
     <<<raft::ceildiv(k * m, (size_t)256), 256, 0, stream>>>(coo_rows.data(), k,
