@@ -96,7 +96,8 @@ void do_labelling_on_host(
   std::set<value_idx> &clusters,
   value_idx n_leaves,
   bool allow_single_cluster,
-  value_idx *labels) {
+  value_idx *labels,
+  value_t cluster_selection_epsilon) {
   auto stream = handle.get_stream();
 
   std::vector<value_idx> children_h(condensed_tree.get_n_edges());
@@ -131,6 +132,11 @@ void do_labelling_on_host(
     parent_lambdas[parent_h[i]] = max(parent_lambdas[parent_h[i]], lambda_h[i]);
   }
 
+  value_t inverse_cluster_selection_epsilon;
+  if (cluster_selection_epsilon != 0.0) {
+    inverse_cluster_selection_epsilon = 1 / cluster_selection_epsilon;
+  }
+
   for (int i = 0; i < n_leaves; i++) {
     value_idx cluster = union_find.find(i);
 
@@ -144,7 +150,15 @@ void do_labelling_on_host(
         auto child_idx = std::distance(children_h.begin(), it);
         value_t child_lambda = lambda_h[child_idx];
 
-        if (child_lambda >= parent_lambdas[cluster])
+        if (cluster_selection_epsilon != 0) {
+          if (child_lambda >= inverse_cluster_selection_epsilon) {
+            result[i] = cluster - n_leaves;
+          }
+          else {
+            result[i] = -1;
+          }
+        }
+        else if (child_lambda >= parent_lambdas[cluster])
           result[i] = cluster - n_leaves;
         else
           result[i] = -1;
@@ -300,7 +314,7 @@ void extract_clusters(
 
   CUML_LOG_DEBUG("Cluster labeling. n_clusters=%d", clusters.size());
   do_labelling_on_host<value_idx, value_t>(
-    handle, condensed_tree, clusters, n_leaves, allow_single_cluster, labels);
+    handle, condensed_tree, clusters, n_leaves, allow_single_cluster, labels, cluster_selection_epsilon);
 
   value_idx n_selected_clusters = clusters.size();
 

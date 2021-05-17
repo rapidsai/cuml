@@ -68,30 +68,6 @@ __global__ void propagate_cluster_negation_kernel(const value_idx *indptr,
   }
 }
 
-template <typename value_idx>
-__global__ void get_cluster_tree_leaves(const value_idx *indptr,
-                                        const value_idx *children,
-                                        int *frontier, int *is_cluster,
-                                        int n_clusters) {
-  int cluster = blockDim.x * blockIdx.x + threadIdx.x;
-
-  if (cluster < n_clusters && frontier[cluster]) {
-    frontier[cluster] = false;
-
-    value_idx children_start = indptr[cluster];
-    value_idx children_stop = indptr[cluster + 1];
-
-    if (children_stop - children_start == 0) {
-      is_cluster[cluster] = true;
-    }
-
-    for (int i = children_start; i < children_stop; i++) {
-      value_idx child = children[i];
-      frontier[child] = true;
-    }
-  }
-}
-
 template <typename value_idx, typename Bfs_Kernel, int tpb = 256>
 void perform_bfs(const raft::handle_t &handle, const value_idx *indptr,
                  const value_idx *children, int *frontier, int *is_cluster,
@@ -298,28 +274,27 @@ void leaf(const raft::handle_t &handle,
   auto stream = handle.get_stream();
   auto exec_policy = rmm::exec_policy(stream);
 
+  auto parents = cluster_tree.get_parents();
   auto children = cluster_tree.get_children();
+  auto n_edges = cluster_tree.get_n_edges();
 
-  rmm::device_uvector<value_idx> indptr(n_clusters + 1, stream);
-  parent_csr(handle, cluster_tree, n_clusters, indptr.data());
-  thrust::fill(exec_policy, is_cluster, is_cluster + n_clusters, false);
+  rmm::device_uvector<int> is_parent(n_clusters, stream);
+  thrust::fill(exec_policy, is_parent.begin(), is_parent.end(), false);
+  auto is_parent_op = [is_parent = is_parent.data()] __device__ (auto &p) { is_parent[p] = true; };
+  thrust::for_each(exec_policy, parents, parents + n_edges, is_parent_op);
 
-  // mark root in frontier
-  rmm::device_uvector<int> frontier(n_clusters, stream);
-  constexpr int root_in_fontier = true;
-  frontier.set_element(0, root_in_fontier, stream);
+  auto is_cluster_op = [is_parent = is_parent.data(), is_cluster = is_cluster] __device__ (auto &c) {
+    if (!is_parent[c]) {
+      is_cluster[c] = true;
+    }
+  };
+  thrust::for_each(exec_policy, children, children + n_edges, is_cluster_op);
 
-  perform_bfs(handle, indptr.data(), children, frontier.data(), is_cluster,
-              n_clusters, get_cluster_tree_leaves<value_idx>);
+  raft::print_device_vector("parents_leaf", cluster_tree.get_parents(), cluster_tree.get_n_edges(), std::cout);
+  raft::print_device_vector("children_leaf", cluster_tree.get_children(), cluster_tree.get_n_edges(), std::cout);
+  raft::print_device_vector("sizes_leaf", cluster_tree.get_sizes(), cluster_tree.get_n_edges(), std::cout);
 
-  auto n_selected_clusters =
-    thrust::reduce(exec_policy, is_cluster, is_cluster + n_clusters);
-
-  // if no cluster leaves were found, declare root as cluster
-  if (n_selected_clusters == 0) {
-    int root_is_cluster = true;
-    raft::update_device(is_cluster, &root_is_cluster, 1, stream);
-  }
+  raft::print_device_vector("is_cluster_leaf", is_cluster, n_clusters, std::cout);
 }
 
 template <typename value_idx, typename value_t, int tpb = 256>
@@ -428,17 +403,24 @@ void select_clusters(const raft::handle_t &handle,
                      float cluster_selection_epsilon) {
 
   auto stream = handle.get_stream();
+  auto thrust_policy = rmm::exec_policy(handle.get_stream());
+  
+  auto n_clusters = condensed_tree.get_n_clusters();
 
-  CUML_LOG_DEBUG("Building cluster tree: n_clusters=%d", condensed_tree.get_n_clusters());
+  CUML_LOG_DEBUG("Building cluster tree: n_clusters=%d", n_clusters);
   auto cluster_tree = Utils::make_cluster_tree(handle, condensed_tree);
 
   if (cluster_selection_method == Common::CLUSTER_SELECTION_METHOD::EOM) {
     Select::excess_of_mass(handle, cluster_tree, tree_stabilities,
-                           is_cluster, condensed_tree.get_n_clusters(),
+                           is_cluster, n_clusters,
                            max_cluster_size, allow_single_cluster);
   } else {
     CUML_LOG_DEBUG("Running leaf seleciton method");
-    Select::leaf(handle, cluster_tree, is_cluster, condensed_tree.get_n_clusters());
+
+    thrust::fill(thrust_policy, is_cluster, is_cluster + n_clusters, false);
+    if (cluster_tree.get_n_edges() > 0) {
+      Select::leaf(handle, cluster_tree, is_cluster, n_clusters);
+    }
   }
 
   if (cluster_selection_epsilon != 0.0) {
@@ -447,7 +429,11 @@ void select_clusters(const raft::handle_t &handle,
     // this is to check when eom finds root as only cluster
     // in which case, epsilon search is cancelled
     if (cluster_selection_method == Common::CLUSTER_SELECTION_METHOD::EOM) {
-      if (condensed_tree.get_n_clusters() == 1) {
+      // if cluster tree has no edges then no epsilon search
+      if (cluster_tree.get_n_edges() == 0) {
+        epsilon_search = false;
+      }
+      else if (n_clusters == 1) {
         int is_root_only_cluster = false;
         raft::update_host(&is_root_only_cluster, is_cluster, 1, stream);
         if (is_root_only_cluster) {
@@ -455,10 +441,20 @@ void select_clusters(const raft::handle_t &handle,
         }
       }
     }
+    else if (cluster_selection_method == Common::CLUSTER_SELECTION_METHOD::LEAF) {
+      auto n_selected_clusters =
+      thrust::reduce(thrust_policy, is_cluster, is_cluster + n_clusters);
+  
+      // if no cluster leaves were found, declare root as cluster
+      if (n_selected_clusters == 0 && allow_single_cluster) {
+        constexpr int root_is_cluster = true;
+        raft::update_device(is_cluster, &root_is_cluster, 1, stream);
+      }
+    }
 
     if (epsilon_search) {
       Select::cluster_epsilon_search(handle, cluster_tree, is_cluster,
-                                     condensed_tree.get_n_clusters(),
+                                     n_clusters,
                                      cluster_selection_epsilon,
                                      allow_single_cluster);
     }

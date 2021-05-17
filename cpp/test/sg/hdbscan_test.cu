@@ -1577,7 +1577,7 @@ class ExcessOfMassTest
     rmm::device_uvector<IdxT> labels(params.n_row, handle.get_stream());
 
     ML::HDBSCAN::detail::Extract::do_labelling_on_host(
-      handle, condensed_tree, clusters, params.n_row, true, labels.data());
+      handle, condensed_tree, clusters, params.n_row, true, labels.data(), 0.0f);
 
     raft::print_device_vector("labels", labels.data(), params.n_row, std::cout);
 
