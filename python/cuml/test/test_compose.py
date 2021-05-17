@@ -215,7 +215,27 @@ def test_column_transformer_get_feature_names(clf_dataset):  # noqa: F811
     transformer.fit_transform(X_np)
     sk_feature_names = transformer.get_feature_names()
 
-    cu_feature_names == sk_feature_names
+    assert cu_feature_names == sk_feature_names
+
+
+def test_column_transformer_named_transformers_(clf_dataset):  # noqa: F811
+    X_np, X = clf_dataset
+
+    cu_transformers = [
+        ("PolynomialFeatures", cuPolynomialFeatures(), [0, 2])
+    ]
+    transformer = cuColumnTransformer(cu_transformers)
+    transformer.fit_transform(X)
+    cu_named_transformers = transformer.named_transformers_
+
+    sk_transformers = [
+        ("PolynomialFeatures", skPolynomialFeatures(), [0, 2])
+    ]
+    transformer = skColumnTransformer(sk_transformers)
+    transformer.fit_transform(X_np)
+    sk_named_transformers = transformer.named_transformers_
+
+    assert cu_named_transformers.keys() == sk_named_transformers.keys()
 
 
 def test_make_column_selector():
