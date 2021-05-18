@@ -133,8 +133,8 @@ void parallel_evolve(const raft::handle_t &h,
       //                   ,h_nextprogs[i].nodes[j].arity());
       // }
       // CUML_LOG_DEBUG("Program #%d len=%d",(i+1),h_nextprogs[i].len);
-      std::string eqn = stringify(h_nextprogs[i]);
-      std::cerr << eqn <<"\n";
+      // std::string eqn = stringify(h_nextprogs[i]);
+      // std::cerr << eqn <<"\n";
       // exit(0);
     }
   }
@@ -221,8 +221,8 @@ void parallel_evolve(const raft::handle_t &h,
       //                   static_cast<std::underlying_type<node::type>::type>(h_nextprogs[pos].nodes[j].t)
       //                   ,h_nextprogs[pos].nodes[j].arity());
       // }
-      std::string eqn = stringify(h_nextprogs[pos]);
-      std::cerr << eqn <<std::endl;
+      // std::string eqn = stringify(h_nextprogs[pos]);
+      // std::cerr << eqn <<std::endl;
     }
   }
 
@@ -232,13 +232,13 @@ void parallel_evolve(const raft::handle_t &h,
      a switch to a unified memory model, or a SoA representation 
      for all programs */
   for(auto i=0;i<n_progs;++i) {
-    program_t tmp      = new program(h_nextprogs[i], false);        
-    tmp->nodes         = (node*)h.get_device_allocator()->allocate(tmp->len*sizeof(node),stream);
+    program tmp(h_nextprogs[i], false);        
+    tmp.nodes = (node*)h.get_device_allocator()->allocate(h_nextprogs[i].len*sizeof(node),stream);
 
-    CUDA_CHECK(cudaMemcpyAsync(tmp->nodes, h_nextprogs[i].nodes,
+    CUDA_CHECK(cudaMemcpyAsync(tmp.nodes, h_nextprogs[i].nodes,
                                 h_nextprogs[i].len * sizeof(node),
                                 cudaMemcpyHostToDevice, stream));
-    CUDA_CHECK(cudaMemcpyAsync( d_nextprogs + i, tmp,
+    CUDA_CHECK(cudaMemcpyAsync( d_nextprogs + i, &tmp,
                                 sizeof(program),
                                 cudaMemcpyHostToDevice,stream));
   }
@@ -394,6 +394,9 @@ std::string stringify(const program &prog){
       delim = "";
     }
   }
+  if(prog.nodes[0].is_nonterminal()){
+    eqn += ")";
+  }
   return eqn;
 }
 
@@ -402,6 +405,25 @@ void symFit(const raft::handle_t &handle, const float* input, const float* label
             program_t final_progs, std::vector<std::vector<program>> &history) {
   cudaStream_t stream = handle.get_stream();
   
+  // Update arity map in params - Need to do this only here, as all operations will call Fit atleast once
+  for(auto f : params.function_set){
+    int ar = 1;
+    if(node::type::binary_begin <= f && f <= node::type::binary_end){ar = 2;}
+    
+    if(params.arity_set.find(ar) == params.arity_set.end()){
+      // Create map entry for current arity
+      std::vector<node::type> vec_f(1,f);
+      params.arity_set.insert(std::make_pair(ar,vec_f));
+    }
+    else{
+      // Insert into map
+      std::vector<node::type> vec_f = params.arity_set.at(ar);
+      if(std::find(vec_f.begin(),vec_f.end(),f) == vec_f.end()){
+        params.arity_set.at(ar).push_back(f);
+      }
+    }
+  } 
+
   /* Initializations */
   
   std::vector<program> h_currprogs(params.population_size);

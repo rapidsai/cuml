@@ -37,7 +37,7 @@ namespace genetic {
  * Execution kernel for a single program. We assume that the input data 
  * is stored in column major format.
  */
-template<int MaxSize=MAX_STACK_SIZE>
+template<int MaxSize=2*MAX_STACK_SIZE>
 __global__ void execute_kernel( const program_t d_progs, const float* data, 
                                 float* y_pred, const int n_samples, const int n_progs) {
   
@@ -207,6 +207,40 @@ float fitness(const program &prog, const param &params) {
 }
 
 /**
+ * @brief Checks if the given program is valid or not
+ * 
+ * @param prog The input program
+ */
+void validate_program(program &prog){
+
+  std::stack<int> s;
+  node curr;
+  for(int i=0;i<prog.len; ++i){
+    curr = prog.nodes[i];
+    if(curr.is_nonterminal()){
+      s.push(curr.arity());
+    }
+    else{
+      int end_elem = s.top();
+      s.pop();
+      s.push(end_elem-1);
+      while(s.top() == 0){
+        s.pop();
+        if(s.empty()){break;}
+        end_elem = s.top();
+        s.pop();
+        s.push(end_elem-1);
+      }
+    }
+  }
+
+  if(!s.empty()){
+    CUML_LOG_DEBUG("Incomplete program.");
+    exit(0);
+  }
+}
+
+/**
  * @brief Get a random subtree of the current program nodes (on CPU)
  * 
  * @param pnodes  AST represented as a list of nodes
@@ -220,12 +254,13 @@ std::pair<int, int> get_subtree(node* pnodes, int len, std::mt19937 &gen) {
   start=end=0;
 
   // Specify RNG
-  std::uniform_real_distribution<float> dist(0.0f, 1.0f);
-  float bound = dist(gen);
+  std::uniform_real_distribution<float> dist_U(0.0f, 1.0f);
+  float bound = dist_U(gen);
 
   // Specify subtree start probs acc to Koza's selection approach 
   std::vector<float> node_probs(len,0.1);
   float sum = 0.1 * len;
+  
   for(int i=0; i< len ; ++i){
     if(pnodes[i].is_nonterminal()){
       node_probs[i] = 0.9; 
@@ -255,6 +290,20 @@ std::pair<int, int> get_subtree(node* pnodes, int len, std::mt19937 &gen) {
     ++end;
   }
 
+  // Debug when end > len. Ideally, it should never happen
+  if(end > len){
+    CUML_LOG_DEBUG("Start is -> %d",start);
+    CUML_LOG_DEBUG("End is -> %d",end);
+    CUML_LOG_DEBUG("Length is -> %d",len);
+
+    for(int i=0;i<end;++i){
+      CUML_LOG_DEBUG("Node #%d -> %d (%d inputs)",i,
+                    static_cast<std::underlying_type<node::type>::type>(pnodes[i].t)
+                    ,pnodes[i].arity());
+    }
+    exit(0);
+  }
+  
   return std::make_pair(start,end);
 }
 
@@ -263,59 +312,58 @@ void build_program(program &p_out, const param &params,std::mt19937 &gen){
   // Define tree
   std::stack<int> arity_stack;
   std::vector<node> nodelist;
-  nodelist.reserve(1 << (MAX_STACK_SIZE-1));
+  nodelist.reserve(1 << (MAX_STACK_SIZE));
 
   // Specify RNGs
   std::uniform_int_distribution<> dist_func(0,params.function_set.size()-1);
+  std::uniform_int_distribution<int> dist_depth(1, MAX_STACK_SIZE-1); 
+  std::uniform_int_distribution<int> dist_t(0,params.num_features);
+  std::uniform_int_distribution<int> dist_choice(0,params.num_features+params.function_set.size()-1);
+  std::uniform_real_distribution<float> dist_const(params.const_range[0],params.const_range[1]);
+  std::uniform_int_distribution<int> dist_U(0,1);
 
   // MAX_STACK_SIZE can only handle btree of size MAX_STACK_SIZE - max(arity) + 1
-  std::uniform_int_distribution<> dist_depth(1, MAX_STACK_SIZE-1); 
-  std::uniform_int_distribution<> dist_t(0,params.num_features);
-  std::uniform_int_distribution<> dist_choice(0,params.num_features+params.function_set.size()-1);
-  std::uniform_real_distribution<float> dist_const(params.const_range[0],
-                                              params.const_range[1]);
-  std::uniform_int_distribution<> dist_init_method(0,1);
 
   // Initialize nodes
   int max_depth = dist_depth(gen);
   node::type func = params.function_set[dist_func(gen)];
-  node* curr_node = new node(func);
-  nodelist.push_back(*curr_node);
-  arity_stack.push(curr_node->arity());
+  node curr_node(func);
+  nodelist.push_back(curr_node);
+  arity_stack.push(curr_node.arity());
   
   init_method_t method = params.init_method;
   if(method == init_method_t::half_and_half){
     // Choose either grow or full for this tree
-    int ch = dist_init_method(gen);
+    int ch = dist_U(gen);
     method = ch == 0 ? init_method_t::grow : init_method_t::full;
   }
 
   // Fill tree
   while(!arity_stack.empty()){
     int depth = arity_stack.size();
-    int ch = dist_choice(gen);
-    if((ch <= params.function_set.size() || method == init_method_t::full) && depth < max_depth){
+    int node_choice = dist_U(gen);
+    if((node_choice == 0 || method == init_method_t::full) && depth < max_depth){
       // Add a function to node list
-      curr_node = new node(params.function_set[dist_func(gen)]);
-      nodelist.push_back(*curr_node);
-      arity_stack.push(curr_node->arity());
+      curr_node = node(params.function_set[dist_func(gen)]);
+      nodelist.push_back(curr_node);
+      arity_stack.push(curr_node.arity());
     }
     else{
       // Add terminal
-      int vorc = dist_t(gen);
-      if(vorc == params.num_features){
+      int terminal_choice = dist_t(gen);
+      if(terminal_choice == params.num_features){
         // Add constant
         float val = dist_const(gen);
-        curr_node = new node(val);        
+        curr_node = node(val);        
       }
       else{
         // Add variable
-        int fid = vorc;
-        curr_node = new node(fid);
+        int fid = terminal_choice;
+        curr_node = node(fid);
       }
 
       // Modify nodelist and stack
-      nodelist.push_back(*curr_node);
+      nodelist.push_back(curr_node);
       int end_elem = arity_stack.top();
       arity_stack.pop();
       arity_stack.push(--end_elem);
@@ -340,12 +388,14 @@ void build_program(program &p_out, const param &params,std::mt19937 &gen){
   p_out.metric = params.metric;
   p_out.depth = MAX_STACK_SIZE;
   p_out.raw_fitness_ = 0.0f; 
+  p_out.mut_type = mutation_t::none;
 
   // for(int i=0;i<p_out.len;++i){
   //   CUML_LOG_DEBUG("Node #%d -> %d (%d inputs)",i+1,
   //                 static_cast<std::underlying_type<node::type>::type>(p_out.nodes[i].t)
   //                 ,p_out.nodes[i].arity());
   // }
+  validate_program(p_out);
 }
 
 void point_mutation(const program &prog, program &p_out, const param& params, std::mt19937 &gen){
@@ -353,68 +403,82 @@ void point_mutation(const program &prog, program &p_out, const param& params, st
   // deep-copy program
   p_out = prog;
   
-  // Specify RNG
-  std::uniform_real_distribution<float> dist_01(0.0f, 1.0f);
-  std::uniform_int_distribution<> dist_t(0,params.num_features);
-  std::uniform_real_distribution<float> dist_c(params.const_range[0],
-                                              params.const_range[1]);
+  // Specify RNGs
+  std::uniform_real_distribution<float> dist_U(0.0f, 1.0f);
+  std::uniform_int_distribution<int> dist_terminal(0,params.num_features);
+  std::uniform_real_distribution<float> dist_constant(params.const_range[0],params.const_range[1]);
+
   // Fill with uniform numbers
   std::vector<float> node_probs(p_out.len);
-  std::generate(node_probs.begin(),node_probs.end(),[&]{return dist_01(gen);});
+  std::generate(node_probs.begin(),node_probs.end(),[&dist_U,&gen]{return dist_U(gen);});
 
   // Mutate nodes
   int len = p_out.len;
   for(int i=0;i<len;++i){
-    node curr;
-    curr = prog.nodes[i];
+
+    node curr(prog.nodes[i]);
+
     if(node_probs[i] < params.p_point_replace){
       if(curr.is_terminal()){
-        // Replace with a var or const
-        int ch = dist_t(gen);
-        if(ch == (params.num_features + 1)){
-          // Add random constant
-          p_out.nodes[i] = *(new node(dist_c(gen)));
+
+        int choice = dist_terminal(gen);
+        
+        if(choice == params.num_features){
+          // Add a randomly generated constant
+          curr = node(dist_constant(gen));
         }
         else{
-          // Add variable ch
-          p_out.nodes[i] = *(new node(ch));
+          // Add a variable with fid=choice
+          curr = node(choice);
         }
       }
       else if(curr.is_nonterminal()){
         // Replace current function with another function of the same arity
         int ar = curr.arity();
-        // CUML_LOG_DEBUG("Arity of curr func = %d, fname = %d",ar,static_cast<std::underlying_type<node::type>::type>(prog.nodes[i].t));
-        auto space_size = params.arity_set.at(ar).size();
-        std::uniform_int_distribution<> dist_nt(0,space_size-1);
-        p_out.nodes[i] = *(new node(params.arity_set.at(ar)[dist_nt(gen)]));
+        std::vector<node::type> fset = params.arity_set.at(ar);
+        std::uniform_int_distribution<> dist_fset(0,fset.size()-1);
+        int choice = dist_fset(gen);
+        curr = node(fset[choice]);
       }
-      else{
-        CUML_LOG_DEBUG("Shouldnt reach here!");
-      }
+
+      // Update p_out with updated value
+      p_out.nodes[i] = curr;
     }
   }
+
+  validate_program(p_out);
 }
 
 void crossover(const program &prog, const program &donor, program &p_out, const param &params, std::mt19937 &gen){
 
+  // CUML_LOG_DEBUG("Starting crossover");
   // Get a random subtree of prog to replace
+  CUML_LOG_DEBUG("Parent subtree");
   std::pair<int, int> prog_slice = get_subtree(prog.nodes, prog.len, gen);
   int prog_start = prog_slice.first;
-  int prog_end = prog_slice.second;
+  int prog_end   = prog_slice.second;
 
   // Get subtree of donor
+  CUML_LOG_DEBUG("Donor subtree");
   std::pair<int, int> donor_slice = get_subtree(donor.nodes, donor.len, gen);
+  
   int donor_start = donor_slice.first;
-  int donor_end = donor_slice.second;
+  int donor_end   = donor_slice.second;
 
   // Evolve 
-  p_out.len = (prog_start) + (donor_end - donor_start) + (prog.len-prog_end);
-  p_out.nodes = new node[p_out.len];
+  p_out.len       = (prog_start) + (donor_end - donor_start) + (prog.len-prog_end);
+  CUML_LOG_DEBUG("In crossover, par_len = %d, par_start = %d, par_end = %d",prog.len,prog_start,prog_end);
+  CUML_LOG_DEBUG("In crossover, donor_len = %d, donor_start = %d, donor_end = %d",donor.len,donor_start,donor_end);
+  CUML_LOG_DEBUG("In crossover, new length = %d",p_out.len);
+  p_out.nodes     = new node[p_out.len];
+  p_out.mut_type  = mutation_t::crossover;
+  p_out.metric    = prog.metric;
 
-  // CUML_LOG_DEBUG("In crossover, par_len = %d, par_start = %d, par_end = %d",prog.len,prog_start,prog_end);
-  // CUML_LOG_DEBUG("In crossover, donor_len = %d, donor_start = %d, donor_end = %d",donor.len,donor_start,donor_end);
-  // CUML_LOG_DEBUG("In crossover, new length = %d",p_out.len);
+  if(p_out.len >= (1 << MAX_STACK_SIZE)){
+    CUML_LOG_DEBUG("Crossover tree produced is too big!!");
+  }
 
+  // CUML_LOG_DEBUG("Exiting crossover");
   // Copy slices using std::copy
   std::copy(prog.nodes,prog.nodes + prog_start,p_out.nodes);
   
@@ -423,17 +487,26 @@ void crossover(const program &prog, const program &donor, program &p_out, const 
   std::copy(prog.nodes + prog_end, 
             prog.nodes + prog.len, 
             p_out.nodes + (prog_start) + (donor_end - donor_start));
+
+  validate_program(p_out);
 }
 
 void subtree_mutation(const program &prog, program &p_out, const param &params, std::mt19937 &gen){
   // Generate a random program and perform crossover
-  program_t new_program = new program();
-  build_program(*new_program,params,gen);
-  crossover(prog,*new_program,p_out,params,gen);
-  delete new_program;
+  program new_program;
+  build_program(new_program,params,gen);
+  crossover(prog,new_program,p_out,params,gen);
+
+  if(p_out.len >= (1 << MAX_STACK_SIZE)){
+    CUML_LOG_DEBUG("Subtree mutation tree produced is too big!!");
+  }
+
+  p_out.mut_type = mutation_t::subtree;
+  validate_program(p_out);
 }
 
 void hoist_mutation(const program &prog, program &p_out, const param &params, std::mt19937 &gen){
+  
   // Replace program subtree with a random sub-subtree
 
   std::pair<int, int> prog_slice = get_subtree(prog.nodes, prog.len, gen);
@@ -442,16 +515,27 @@ void hoist_mutation(const program &prog, program &p_out, const param &params, st
 
   std::pair<int,int> sub_slice = get_subtree(&prog.nodes[prog_start],prog_end-prog_start,gen);
   int sub_start = sub_slice.first;
-  int sub_end = sub_slice.second;
+  int sub_end   = sub_slice.second;
 
   p_out.len = (prog_start) + (sub_end - sub_start) + (prog.len-prog_end);
   p_out.nodes = new node[p_out.len];
-  
+  p_out.mut_type = mutation_t::hoist;
+  p_out.metric = prog.metric;
+
+  if(p_out.len >= (1 << MAX_STACK_SIZE)){
+    CUML_LOG_DEBUG("Hoist tree produced is too big!!");
+  }
+
+  // CUML_LOG_DEBUG("In hoist, par_len = %d, par_start = %d, par_end = %d",prog.len,prog_start,prog_end);
+  // CUML_LOG_DEBUG("In hoist, slice_len = %d, slice_start = %d, slice_end = %d",sub_end-sub_start,sub_start,sub_end);
+  // CUML_LOG_DEBUG("In hoist, new length = %d",p_out.len);
+
   // Copy node slices using std::copy
   std::copy(prog.nodes, prog.nodes + prog_start, p_out.nodes);
   std::copy(prog.nodes + sub_start, prog.nodes + sub_end, p_out.nodes + prog_start);
   std::copy(prog.nodes + prog_end, prog.nodes + prog.len,
                                    p_out.nodes + (prog_start) + (sub_end - sub_start));
+  validate_program(p_out);
 }
 
 } // namespace genetic
