@@ -432,7 +432,7 @@ void DecisionTreeBase<T, L>::base_fit(
   } else {
     if (treeid == 0) {
       CUML_LOG_WARN(
-      "The old backend is deprecated and will be removed in 0.21 release.\n");
+      "The old backend is deprecated and will be removed in 21.08 release.\n");
       CUML_LOG_WARN("Using old backend for growing trees\n");
     }
     plant(sparsetree, data, ncols, nrows, labels, rowids, n_sampled_rows,

@@ -199,7 +199,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         HIST currently uses a slower tree-building algorithm so
         GLOBAL_QUANTILE is recommended for most cases.
 
-        .. deprecated:: 0.20
+        .. deprecated:: 21.06
            Parameter 'split_algo' is deprecated and will be removed in
            subsequent release.
     bootstrap : boolean (default = True)

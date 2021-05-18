@@ -165,7 +165,7 @@ class RandomForestRegressor(BaseRandomForestModel,
         HIST currently uses a slower tree-building algorithm so
         GLOBAL_QUANTILE is recommended for most cases.
 
-        .. deprecated:: 0.20
+        .. deprecated:: 21.06
            Parameter 'split_algo' is deprecated and will be removed in
            subsequent release.
     split_criterion : int (default = 2)
