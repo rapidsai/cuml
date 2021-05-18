@@ -37,7 +37,7 @@ function(find_and_configure_raft)
 
 endfunction()
 
-set(CUML_MIN_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
+set(CUML_MIN_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}.00")
 
 # Change pinned tag here to test a commit in CI
 # To use a different RAFT locally, set the CMake variable
@@ -46,5 +46,4 @@ find_and_configure_raft(VERSION    ${CUML_MIN_VERSION_raft}
                         FORK       rapidsai
                         PINNED_TAG branch-21.06
                         )
-
 
