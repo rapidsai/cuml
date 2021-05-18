@@ -55,7 +55,7 @@ gpuci_conda_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=${MINOR_VERSION}" \
       "ucx-proc=*=gpu" \
-      "xgboost=1.4.0dev.rapidsai${MINOR_VERSION}" \
+      "xgboost=1.4.0dev.rapidsai0.20" \
       "rapids-build-env=${MINOR_VERSION}.*" \
       "rapids-notebook-env=${MINOR_VERSION}.*" \
       "rapids-doc-env=${MINOR_VERSION}.*" \
