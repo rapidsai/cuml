@@ -125,7 +125,7 @@ void parallel_evolve(const raft::handle_t &h,
     for(auto i=0; i<n_progs; ++i){
       
       build_program(h_nextprogs[i],params,h_gen);
-      CUML_LOG_DEBUG("Gen #1, program #%d, len=%d",i,h_nextprogs[i].len);
+      // CUML_LOG_DEBUG("Gen #1, program #%d, len=%d",i,h_nextprogs[i].len);
 
       // for(int j=0;j<h_nextprogs[i].len;++j){
       //   CUML_LOG_DEBUG("Node #%d -> %d (%d inputs)",j+1,
@@ -181,7 +181,7 @@ void parallel_evolve(const raft::handle_t &h,
     // Make sure tournaments have finished running before copying win indices
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    CUML_LOG_DEBUG("Finished tournament for Generation #%d",generation);
+    // CUML_LOG_DEBUG("Finished tournament for Generation #%d",generation);
     
     // Perform host mutations
     auto donor_pos  = n_progs;
@@ -193,23 +193,23 @@ void parallel_evolve(const raft::handle_t &h,
         // Get secondary index
         auto donor_index = d_win_indices.element(donor_pos, stream);
         donor_pos++; 
-        CUML_LOG_DEBUG("Gen #%d, program #%d, parent = #%d, donor = #%d - crossover",generation,pos,parent_index,donor_index);
+        // CUML_LOG_DEBUG("Gen #%d, program #%d, parent = #%d, donor = #%d - crossover",generation,pos,parent_index,donor_index);
         crossover(h_oldprogs[parent_index], h_oldprogs[donor_index],h_nextprogs[pos], params, h_gen);
       }
       else if(h_nextprogs[pos].mut_type == mutation_t::subtree){
-        CUML_LOG_DEBUG("Gen #%d, program #%d, parent = #%d - subtree",generation,pos,parent_index);
+        // CUML_LOG_DEBUG("Gen #%d, program #%d, parent = #%d - subtree",generation,pos,parent_index);
         subtree_mutation(h_oldprogs[parent_index],h_nextprogs[pos],params, h_gen);
       }
       else if(h_nextprogs[pos].mut_type == mutation_t::hoist){
-        CUML_LOG_DEBUG("Gen #%d, program #%d, parent = #%d - hoist",generation,pos,parent_index);
+        // CUML_LOG_DEBUG("Gen #%d, program #%d, parent = #%d - hoist",generation,pos,parent_index);
         hoist_mutation(h_oldprogs[parent_index],h_nextprogs[pos],params,h_gen);
       }
       else if(h_nextprogs[pos].mut_type == mutation_t::point){
-        CUML_LOG_DEBUG("Gen #%d, program #%d, parent = #%d - point mut",generation,pos,parent_index);
+        // CUML_LOG_DEBUG("Gen #%d, program #%d, parent = #%d - point mut",generation,pos,parent_index);
         point_mutation(h_oldprogs[parent_index],h_nextprogs[pos],params,h_gen);
       }
       else if(h_nextprogs[pos].mut_type == mutation_t::reproduce){
-        CUML_LOG_DEBUG("Gen #%d, program #%d, parent = #%d - reproduce",generation,pos,parent_index);
+        // CUML_LOG_DEBUG("Gen #%d, program #%d, parent = #%d - reproduce",generation,pos,parent_index);
         h_nextprogs[pos] = h_oldprogs[parent_index];
       }
       else{
@@ -257,31 +257,35 @@ int param::max_programs() const { return detail::max_programs(*this); }
 int param::criterion() const { return detail::criterion(*this); }
 
 std::string stringify(const program &prog){
-  std::string eqn = "";
+  
+  std::string eqn = "( ";
   std::string delim = "";
   std::stack<int> ar_stack;
+  ar_stack.push(0);
+  
   for(int i=0;i<prog.len;++i){
-    if(prog.nodes[i].t == node::type::constant){
+    if(prog.nodes[i].is_terminal()){
       eqn += delim;
-      eqn += std::to_string(prog.nodes[i].u.val);
-      eqn += " ";
-      if(!ar_stack.empty()){
-        int stop = ar_stack.top();
-        ar_stack.pop();
-        if(stop > 1){ar_stack.push(stop - 1);}else{eqn += ") ";}
+      if(prog.nodes[i].t == node::type::variable){
+        // variable
+        eqn += "X";
+        eqn += std::to_string(prog.nodes[i].u.fid);
       }
-      delim = ", ";
-    }
-    else if(prog.nodes[i].t == node::type::variable){
-      eqn += delim;
-      // CUML_LOG_DEBUG("Got variable %d",prog.nodes[i].u.fid);
-      eqn += "X";
-      eqn += std::to_string(prog.nodes[i].u.fid);
-      eqn += " ";
-      if(!ar_stack.empty()){
-        int stop = ar_stack.top();
+      else{
+        // const
+        eqn += std::to_string(prog.nodes[i].u.val);
+      }
+
+      int end_elem = ar_stack.top();
+      ar_stack.pop();
+      ar_stack.push(end_elem - 1);
+      while(ar_stack.top() == 0){
         ar_stack.pop();
-        if(stop > 1){ar_stack.push(stop - 1);}else{eqn += ") ";}
+        eqn += ") ";
+        if(ar_stack.empty()){break;}
+        end_elem = ar_stack.top();
+        ar_stack.pop();
+        ar_stack.push(end_elem-1);
       }
       delim = ", ";
     }
@@ -394,9 +398,8 @@ std::string stringify(const program &prog){
       delim = "";
     }
   }
-  if(prog.nodes[0].is_nonterminal()){
-    eqn += ")";
-  }
+
+  eqn += ")";
   return eqn;
 }
 

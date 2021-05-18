@@ -237,7 +237,7 @@ void validate_program(program &prog){
 
   if(!(s.size() == 1 && s.top() == -1)){
     CUML_LOG_DEBUG("Invalid program.");
-    exit(0);
+    // exit(0);
   }
   
 }
@@ -293,18 +293,18 @@ std::pair<int, int> get_subtree(node* pnodes, int len, std::mt19937 &gen) {
   }
 
   // Debug when end > len. Ideally, it should never happen
-  if(end > len){
-    CUML_LOG_DEBUG("Start is -> %d",start);
-    CUML_LOG_DEBUG("End is -> %d",end);
-    CUML_LOG_DEBUG("Length is -> %d",len);
+  // if(end > len){
+  //   CUML_LOG_DEBUG("Start is -> %d",start);
+  //   CUML_LOG_DEBUG("End is -> %d",end);
+  //   CUML_LOG_DEBUG("Length is -> %d",len);
 
-    for(int i=0;i<end;++i){
-      CUML_LOG_DEBUG("Node #%d -> %d (%d inputs)",i,
-                    static_cast<std::underlying_type<node::type>::type>(pnodes[i].t)
-                    ,pnodes[i].arity());
-    }
-    exit(0);
-  }
+  //   for(int i=0;i<end;++i){
+  //     CUML_LOG_DEBUG("Node #%d -> %d (%d inputs)",i,
+  //                   static_cast<std::underlying_type<node::type>::type>(pnodes[i].t)
+  //                   ,pnodes[i].arity());
+  //   }
+  //   exit(0);
+  // }
   
   return std::make_pair(start,end);
 }
@@ -397,7 +397,7 @@ void build_program(program &p_out, const param &params,std::mt19937 &gen){
   //                 static_cast<std::underlying_type<node::type>::type>(p_out.nodes[i].t)
   //                 ,p_out.nodes[i].arity());
   // }
-  validate_program(p_out);
+  // validate_program(p_out);
 }
 
 void point_mutation(const program &prog, program &p_out, const param& params, std::mt19937 &gen){
@@ -455,13 +455,13 @@ void crossover(const program &prog, const program &donor, program &p_out, const 
 
   // CUML_LOG_DEBUG("Starting crossover");
   // Get a random subtree of prog to replace
-  CUML_LOG_DEBUG("Parent subtree");
+  // CUML_LOG_DEBUG("Parent subtree");
   std::pair<int, int> prog_slice = get_subtree(prog.nodes, prog.len, gen);
   int prog_start = prog_slice.first;
   int prog_end   = prog_slice.second;
 
   // Get subtree of donor
-  CUML_LOG_DEBUG("Donor subtree");
+  // CUML_LOG_DEBUG("Donor subtree");
   std::pair<int, int> donor_slice = get_subtree(donor.nodes, donor.len, gen);
   
   int donor_start = donor_slice.first;
@@ -469,9 +469,9 @@ void crossover(const program &prog, const program &donor, program &p_out, const 
 
   // Evolve 
   p_out.len       = (prog_start) + (donor_end - donor_start) + (prog.len-prog_end);
-  CUML_LOG_DEBUG("In crossover, par_len = %d, par_start = %d, par_end = %d",prog.len,prog_start,prog_end);
-  CUML_LOG_DEBUG("In crossover, donor_len = %d, donor_start = %d, donor_end = %d",donor.len,donor_start,donor_end);
-  CUML_LOG_DEBUG("In crossover, new length = %d",p_out.len);
+  // CUML_LOG_DEBUG("In crossover, par_len = %d, par_start = %d, par_end = %d",prog.len,prog_start,prog_end);
+  // CUML_LOG_DEBUG("In crossover, donor_len = %d, donor_start = %d, donor_end = %d",donor.len,donor_start,donor_end);
+  // CUML_LOG_DEBUG("In crossover, new length = %d",p_out.len);
   p_out.nodes     = new node[p_out.len];
   p_out.mut_type  = mutation_t::crossover;
   p_out.metric    = prog.metric;
@@ -490,7 +490,7 @@ void crossover(const program &prog, const program &donor, program &p_out, const 
             prog.nodes + prog.len, 
             p_out.nodes + (prog_start) + (donor_end - donor_start));
   
-  validate_program(p_out);
+  // validate_program(p_out);
 }
 
 void subtree_mutation(const program &prog, program &p_out, const param &params, std::mt19937 &gen){
@@ -504,7 +504,7 @@ void subtree_mutation(const program &prog, program &p_out, const param &params, 
   }
 
   p_out.mut_type = mutation_t::subtree;
-  validate_program(p_out);
+  // validate_program(p_out);
 }
 
 void hoist_mutation(const program &prog, program &p_out, const param &params, std::mt19937 &gen){
@@ -532,16 +532,16 @@ void hoist_mutation(const program &prog, program &p_out, const param &params, st
     CUML_LOG_DEBUG("Hoist tree produced is too big!!");
   }
 
-  CUML_LOG_DEBUG("In hoist, par_len = %d, par_start = %d, par_end = %d",prog.len,prog_start,prog_end);
-  CUML_LOG_DEBUG("In hoist, slice_len = %d, slice_start = %d, slice_end = %d",sub_end-sub_start,sub_start,sub_end);
-  CUML_LOG_DEBUG("In hoist, new length = %d",p_out.len);
+  // CUML_LOG_DEBUG("In hoist, par_len = %d, par_start = %d, par_end = %d",prog.len,prog_start,prog_end);
+  // CUML_LOG_DEBUG("In hoist, slice_len = %d, slice_start = %d, slice_end = %d",sub_end-sub_start,sub_start,sub_end);
+  // CUML_LOG_DEBUG("In hoist, new length = %d",p_out.len);
 
   // Copy node slices using std::copy
   std::copy(prog.nodes, prog.nodes + prog_start, p_out.nodes);
   std::copy(prog.nodes + sub_start, prog.nodes + sub_end, p_out.nodes + prog_start);
   std::copy(prog.nodes + prog_end, prog.nodes + prog.len,
                                    p_out.nodes + (prog_start) + (sub_end - sub_start));
-  validate_program(p_out);
+  // validate_program(p_out);
 }
 
 } // namespace genetic
