@@ -36,6 +36,6 @@ function(find_and_configure_rmm VERSION)
 
 endfunction()
 
-set(CUML_MIN_VERSION_rmm "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
+set(CUML_MIN_VERSION_rmm "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}.00")
 
 find_and_configure_rmm(${CUML_MIN_VERSION_rmm})
