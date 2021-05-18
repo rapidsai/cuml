@@ -373,7 +373,7 @@ TEST_P(TestMetric, RegressionMetricGain) {
 }
 
 INSTANTIATE_TEST_SUITE_P(BatchedLevelAlgoUnitTest, TestMetric,
-                         ::testing::Values(CRITERION::MSE, CRITERION::MAE),
+                         ::testing::Values(CRITERION::MSE),
                          [](const auto& info) {
                            switch (info.param) {
                              case CRITERION::MSE:
