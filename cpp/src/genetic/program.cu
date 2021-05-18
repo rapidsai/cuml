@@ -214,6 +214,7 @@ float fitness(const program &prog, const param &params) {
 void validate_program(program &prog){
 
   std::stack<int> s;
+  s.push(0);
   node curr;
   for(int i=0;i<prog.len; ++i){
     curr = prog.nodes[i];
@@ -234,10 +235,11 @@ void validate_program(program &prog){
     }
   }
 
-  if(!s.empty()){
-    CUML_LOG_DEBUG("Incomplete program.");
+  if(!(s.size() == 1 && s.top() == -1)){
+    CUML_LOG_DEBUG("Invalid program.");
     exit(0);
   }
+  
 }
 
 /**
@@ -487,7 +489,7 @@ void crossover(const program &prog, const program &donor, program &p_out, const 
   std::copy(prog.nodes + prog_end, 
             prog.nodes + prog.len, 
             p_out.nodes + (prog_start) + (donor_end - donor_start));
-
+  
   validate_program(p_out);
 }
 
@@ -513,9 +515,13 @@ void hoist_mutation(const program &prog, program &p_out, const param &params, st
   int prog_start = prog_slice.first;
   int prog_end = prog_slice.second;
 
-  std::pair<int,int> sub_slice = get_subtree(&prog.nodes[prog_start],prog_end-prog_start,gen);
+  std::pair<int,int> sub_slice = get_subtree(prog.nodes + prog_start,prog_end-prog_start,gen);
   int sub_start = sub_slice.first;
   int sub_end   = sub_slice.second;
+  
+  // Since subtree indices
+  sub_start += prog_start;
+  sub_end += prog_start;
 
   p_out.len = (prog_start) + (sub_end - sub_start) + (prog.len-prog_end);
   p_out.nodes = new node[p_out.len];
@@ -526,9 +532,9 @@ void hoist_mutation(const program &prog, program &p_out, const param &params, st
     CUML_LOG_DEBUG("Hoist tree produced is too big!!");
   }
 
-  // CUML_LOG_DEBUG("In hoist, par_len = %d, par_start = %d, par_end = %d",prog.len,prog_start,prog_end);
-  // CUML_LOG_DEBUG("In hoist, slice_len = %d, slice_start = %d, slice_end = %d",sub_end-sub_start,sub_start,sub_end);
-  // CUML_LOG_DEBUG("In hoist, new length = %d",p_out.len);
+  CUML_LOG_DEBUG("In hoist, par_len = %d, par_start = %d, par_end = %d",prog.len,prog_start,prog_end);
+  CUML_LOG_DEBUG("In hoist, slice_len = %d, slice_start = %d, slice_end = %d",sub_end-sub_start,sub_start,sub_end);
+  CUML_LOG_DEBUG("In hoist, new length = %d",p_out.len);
 
   // Copy node slices using std::copy
   std::copy(prog.nodes, prog.nodes + prog_start, p_out.nodes);

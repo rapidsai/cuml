@@ -125,7 +125,7 @@ void parallel_evolve(const raft::handle_t &h,
     for(auto i=0; i<n_progs; ++i){
       
       build_program(h_nextprogs[i],params,h_gen);
-      // CUML_LOG_DEBUG("Gen #1, program #%d, len=%d",i,h_nextprogs[i].len);
+      CUML_LOG_DEBUG("Gen #1, program #%d, len=%d",i,h_nextprogs[i].len);
 
       // for(int j=0;j<h_nextprogs[i].len;++j){
       //   CUML_LOG_DEBUG("Node #%d -> %d (%d inputs)",j+1,
