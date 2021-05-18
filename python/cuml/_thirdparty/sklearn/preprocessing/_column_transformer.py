@@ -1138,15 +1138,16 @@ class make_column_selector:
 
     Examples
     --------
-    >>> from sklearn.preprocessing import StandardScaler, OneHotEncoder
-    >>> from sklearn.compose import make_column_transformer
-    >>> from sklearn.compose import make_column_selector
-    >>> import pandas as pd  # doctest: +SKIP
-    >>> X = pd.DataFrame({'city': ['London', 'London', 'Paris', 'Sallisaw'],
-    ...                   'rating': [5, 3, 4, 5]})  # doctest: +SKIP
+    >>> from cuml.preprocessing import StandardScaler, OneHotEncoder
+    >>> from cuml.preprocessing import make_column_transformer
+    >>> from cuml.preprocessing import make_column_selector
+    >>> import cupy as cp
+    >>> import cudf  # doctest: +SKIP
+    >>> X = cudf.DataFrame({'city': ['London', 'London', 'Paris', 'Sallisaw'],
+    ...                    'rating': [5, 3, 4, 5]})  # doctest: +SKIP
     >>> ct = make_column_transformer(
     ...       (StandardScaler(),
-    ...        make_column_selector(dtype_include=np.number)),  # rating
+    ...        make_column_selector(dtype_include=cp.number)),  # rating
     ...       (OneHotEncoder(),
     ...        make_column_selector(dtype_include=object)))  # city
     >>> ct.fit_transform(X)  # doctest: +SKIP
