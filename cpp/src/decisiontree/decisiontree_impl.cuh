@@ -430,6 +430,11 @@ void DecisionTreeBase<T, L>::base_fit(
               unique_labels, tree_params, stream_in, sparsetree,
               this->leaf_counter, this->depth_counter);
   } else {
+    if (treeid == 0) {
+      CUML_LOG_WARN(
+      "The old backend is deprecated and will be removed in 0.21 release.\n");
+      CUML_LOG_WARN("Using old backend for growing trees\n");
+    }
     plant(sparsetree, data, ncols, nrows, labels, rowids, n_sampled_rows,
           unique_labels, treeid, seed);
     if (in_tempmem == nullptr) {

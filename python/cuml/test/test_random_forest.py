@@ -213,6 +213,11 @@ def test_rf_classification(small_clf, datatype, split_algo,
      (1, 'sqrt', False, 100),
      (1, 1.0, True, 17),
      (1, 1.0, True, 32),
+     (0, 1.0, True, 16),
+     (1, 1.0, True, 11),
+     (0, 'auto', True, 128),
+     (1, 'log2', True, 100),
+     (1, 'sqrt', True, 100),
      ])
 def test_rf_regression(special_reg, datatype, split_algo, max_features,
                        max_samples, use_experimental_backend, n_bins):
