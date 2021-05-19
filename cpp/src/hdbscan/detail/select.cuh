@@ -111,8 +111,6 @@ void parent_csr(
   auto sizes = cluster_tree.get_sizes();
   auto cluster_tree_edges = cluster_tree.get_n_edges();
 
-  printf("Cluster tree edges: %d\n", cluster_tree_edges);
-
   if(cluster_tree_edges > 0) {
     raft::sparse::op::coo_sort(0, 0, cluster_tree_edges, parents,
                                children, sizes,
@@ -289,12 +287,6 @@ void leaf(const raft::handle_t &handle,
     }
   };
   thrust::for_each(exec_policy, children, children + n_edges, is_cluster_op);
-
-  raft::print_device_vector("parents_leaf", cluster_tree.get_parents(), cluster_tree.get_n_edges(), std::cout);
-  raft::print_device_vector("children_leaf", cluster_tree.get_children(), cluster_tree.get_n_edges(), std::cout);
-  raft::print_device_vector("sizes_leaf", cluster_tree.get_sizes(), cluster_tree.get_n_edges(), std::cout);
-
-  raft::print_device_vector("is_cluster_leaf", is_cluster, n_clusters, std::cout);
 }
 
 template <typename value_idx, typename value_t, int tpb = 256>

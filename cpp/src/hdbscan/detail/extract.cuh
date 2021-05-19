@@ -104,8 +104,6 @@ void do_labelling_on_host(
   std::vector<value_t> lambda_h(condensed_tree.get_n_edges());
   std::vector<value_idx> parent_h(condensed_tree.get_n_edges());
 
-  printf("n_tree_edges=%d\n", condensed_tree.get_n_edges());
-
   raft::update_host(children_h.data(), condensed_tree.get_children(),
                     condensed_tree.get_n_edges(), stream);
   raft::update_host(parent_h.data(), condensed_tree.get_parents(),
@@ -139,8 +137,6 @@ void do_labelling_on_host(
 
   for (int i = 0; i < n_leaves; i++) {
     value_idx cluster = union_find.find(i);
-
-    printf("i=%d, cluster=%d\n", i, cluster);
 
     if (cluster < n_leaves)
       result[i] = -1;
@@ -319,8 +315,6 @@ void extract_clusters(
     handle, condensed_tree, clusters, n_leaves, allow_single_cluster, labels, cluster_selection_epsilon);
 
   value_idx n_selected_clusters = clusters.size();
-
-  printf("n_selected_clusters=%d\n", clusters.size());
 
   CUML_LOG_DEBUG("Computing probabilities");
   Membership::get_probabilities<value_idx, value_t>(handle, condensed_tree,

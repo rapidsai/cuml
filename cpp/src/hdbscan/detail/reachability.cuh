@@ -127,7 +127,7 @@ void runL2SelectMin(
   cudaStream_t stream) {
   FAISS_ASSERT(productDistances.getSize(0) == outDistances.getSize(0));
   FAISS_ASSERT(productDistances.getSize(0) == outIndices.getSize(0));
-  FAISS_ASSERT(centroidDistances.getSize(0) == productDistances.getSize(1));
+//  FAISS_ASSERT(centroidDistances.getSize(0) == productDistances.getSize(1));
   FAISS_ASSERT(outDistances.getSize(1) == k);
   FAISS_ASSERT(outIndices.getSize(1) == k);
   FAISS_ASSERT(k <= GPU_MAX_SELECTION_K);
@@ -330,8 +330,6 @@ void mutual_reachability_knn_l2(const raft::handle_t &handle,
 
       if (tileCols == m) {
         // Write into the final output
-
-        printf("Tile cols == m\n");
         runL2SelectMin<value_t>(
           distanceBufView,
           norms_tensor,
@@ -342,15 +340,13 @@ void mutual_reachability_knn_l2(const raft::handle_t &handle,
           k,
           streams[curStream]);
       } else {
-
-        printf("Tile cols != m\n");
         auto centroidNormsView =
           norms_tensor.narrow(0, j, curCentroidSize);
 
         // Write into our intermediate output
         runL2SelectMin<value_t>(
           distanceBufView,
-          centroidNormsView,
+          norms_tensor,
           core_dists_tensor,
           outDistanceBufColView,
           outIndexBufColView,
@@ -364,7 +360,6 @@ void mutual_reachability_knn_l2(const raft::handle_t &handle,
     // the final k-selection
     if (tileCols != m) {
 
-      printf("Performing final k-selection\n");
       // The indices are tile-relative; for each tile of k, we need to add
       // tileCols to the index
       faiss::gpu::runIncrementIndex(
