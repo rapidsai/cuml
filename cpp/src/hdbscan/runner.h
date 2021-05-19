@@ -35,33 +35,27 @@
 namespace ML {
 namespace HDBSCAN {
 
-
-template<typename value_idx, typename value_t>
+template <typename value_idx, typename value_t>
 __global__ void set_core_dists(value_idx *rows, value_idx *cols, value_t *vals,
                                value_idx nnz, value_t *core_distances) {
   int i = blockDim.x * blockIdx.x + threadIdx.x;
 
-  if(i < nnz) {
-    vals[i] = max(core_distances[rows[i]],
-                  max(core_distances[cols[i]], vals[i]));
+  if (i < nnz) {
+    vals[i] =
+      max(core_distances[rows[i]], max(core_distances[cols[i]], vals[i]));
   }
-
 }
 
 template <typename value_idx, typename value_t>
 struct MSTEpilogueReachability {
-
   value_t *core_distances;
   value_idx m;
-
 
   MSTEpilogueReachability(value_idx m_, value_t *core_distances_)
     : core_distances(core_distances_), m(m_) {}
 
   void operator()(const raft::handle_t &handle, value_idx *coo_rows,
-                  value_idx *coo_cols, value_t *coo_data, value_idx nnz) {
-  }
-
+                  value_idx *coo_cols, value_t *coo_data, value_idx nnz) {}
 };
 
 /**
@@ -82,12 +76,13 @@ struct FixConnectivitiesRedOp {
 
   typedef typename cub::KeyValuePair<value_idx, value_t> KVP;
   DI void operator()(value_idx rit, KVP *out, const KVP &other) {
-
-    if(rit < m && other.value < std::numeric_limits<value_t>::max() && colors[rit] != colors[other.key]) {
-
+    if (rit < m && other.value < std::numeric_limits<value_t>::max() &&
+        colors[rit] != colors[other.key]) {
       value_t core_dist_rit = core_dists[rit];
-      value_t core_dist_other = max(core_dist_rit, max(core_dists[other.key], other.value));
-      value_t core_dist_out = max(core_dist_rit, max(core_dists[out->key], out->value));
+      value_t core_dist_other =
+        max(core_dist_rit, max(core_dists[other.key], other.value));
+      value_t core_dist_out =
+        max(core_dist_rit, max(core_dists[out->key], out->value));
 
       bool smaller = core_dist_other < core_dist_out;
       out->key = (smaller * other.key) + (!smaller * out->key);
@@ -97,7 +92,6 @@ struct FixConnectivitiesRedOp {
 
   DI KVP operator()(value_idx rit, const KVP &a, const KVP &b) {
     if (rit < m && a.key > -1 && colors[rit] != colors[a.key]) {
-
       value_t core_dist_rit = core_dists[rit];
       value_t core_dist_a = max(core_dist_rit, max(core_dists[a.key], a.value));
       value_t core_dist_b = max(core_dist_rit, max(core_dists[b.key], b.value));
@@ -117,16 +111,15 @@ struct FixConnectivitiesRedOp {
   }
 };
 
-
 template <typename value_idx = int64_t, typename value_t = float>
-void build_linkage(const raft::handle_t &handle,
-          const value_t *X, size_t m, size_t n,
-          raft::distance::DistanceType metric, Common::HDBSCANParams &params,
-          Common::robust_single_linkage_output<value_idx, value_t> &out) {
+void build_linkage(
+  const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
+  raft::distance::DistanceType metric, Common::HDBSCANParams &params,
+  Common::robust_single_linkage_output<value_idx, value_t> &out) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
-  int k = params.k+1;
+  int k = params.k + 1;
 
   /**
    * Mutual reachability graph
@@ -137,8 +130,8 @@ void build_linkage(const raft::handle_t &handle,
   rmm::device_uvector<value_t> core_dists(m, stream);
 
   detail::Reachability::mutual_reachability_graph(
-    handle, X, (size_t)m, (size_t)n, metric, k, params.min_samples, params.alpha,
-    mutual_reachability_indptr.data(), core_dists.data(),
+    handle, X, (size_t)m, (size_t)n, metric, k, params.min_samples,
+    params.alpha, mutual_reachability_indptr.data(), core_dists.data(),
     mutual_reachability_coo);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -149,15 +142,17 @@ void build_linkage(const raft::handle_t &handle,
    */
 
   rmm::device_uvector<value_idx> color(m, stream);
-  MSTEpilogueReachability<value_idx, value_t> core_dist_epilogue(m, core_dists.data());
-  FixConnectivitiesRedOp<value_idx, value_t> red_op(color.data(), core_dists.data(), m);
+  MSTEpilogueReachability<value_idx, value_t> core_dist_epilogue(
+    m, core_dists.data());
+  FixConnectivitiesRedOp<value_idx, value_t> red_op(color.data(),
+                                                    core_dists.data(), m);
   // during knn graph connection
   raft::hierarchy::detail::build_sorted_mst(
     handle, X, mutual_reachability_indptr.data(),
     mutual_reachability_coo.cols(), mutual_reachability_coo.vals(), m, n,
     out.get_mst_src(), out.get_mst_dst(), out.get_mst_weights(), color.data(),
-    mutual_reachability_coo.nnz,
-    core_dist_epilogue, red_op, metric, (size_t)10);
+    mutual_reachability_coo.nnz, core_dist_epilogue, red_op, metric,
+    (size_t)10);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
   CUML_LOG_DEBUG("Executed MST");
@@ -176,10 +171,10 @@ void build_linkage(const raft::handle_t &handle,
 }
 
 template <typename value_idx = int64_t, typename value_t = float>
-void _fit_hdbscan(const raft::handle_t &handle,
-                 const value_t *X, size_t m, size_t n,
-                 raft::distance::DistanceType metric, Common::HDBSCANParams &params,
-                 Common::hdbscan_output<value_idx, value_t> &out) {
+void _fit_hdbscan(const raft::handle_t &handle, const value_t *X, size_t m,
+                  size_t n, raft::distance::DistanceType metric,
+                  Common::HDBSCANParams &params,
+                  Common::hdbscan_output<value_idx, value_t> &out) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
@@ -191,12 +186,8 @@ void _fit_hdbscan(const raft::handle_t &handle,
    * Condense branches of tree according to min cluster size
    */
   detail::Condense::build_condensed_hierarchy(
-    handle,
-    out.get_children(),
-    out.get_deltas(),
-    out.get_sizes(),
-    min_cluster_size, m,
-    out.get_condensed_tree());
+    handle, out.get_children(), out.get_deltas(), out.get_sizes(),
+    min_cluster_size, m, out.get_condensed_tree());
 
   out.set_n_clusters(out.get_condensed_tree().get_n_clusters());
 
@@ -206,18 +197,15 @@ void _fit_hdbscan(const raft::handle_t &handle,
   /**
    * Extract labels from stability
    */
-  detail::Extract::extract_clusters(handle, out.get_condensed_tree(), m,
-                                    out.get_labels(), out.get_stabilities(),
-                                    out.get_probabilities(),
-                                    params.cluster_selection_method,
-                                    params.allow_single_cluster,
-                                    params.max_cluster_size,
-                                    params.cluster_selection_epsilon);
+  detail::Extract::extract_clusters(
+    handle, out.get_condensed_tree(), m, out.get_labels(),
+    out.get_stabilities(), out.get_probabilities(),
+    params.cluster_selection_method, params.allow_single_cluster,
+    params.max_cluster_size, params.cluster_selection_epsilon);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
   CUML_LOG_DEBUG("Executed cluster extraction");
 }
-
 
 template <typename value_idx = int64_t, typename value_t = float>
 void _fit_rsl(const raft::handle_t &handle, const value_t *X, size_t m,

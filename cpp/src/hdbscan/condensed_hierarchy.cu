@@ -107,7 +107,6 @@ struct TupleComp {
     if (thrust::get<1>(t1) < thrust::get<1>(t2)) return true;
     if (thrust::get<1>(t1) > thrust::get<1>(t2)) return false;
 
-
     // then sort by value in descending order
     return thrust::get<2>(t1) < thrust::get<2>(t2);
   }
@@ -190,8 +189,8 @@ void CondensedHierarchy<value_idx, value_t>::condense(value_idx *full_parents,
 
   auto sort_keys = thrust::make_zip_iterator(
     thrust::make_tuple(parents.begin(), children.begin(), sizes.begin()));
-  auto sort_values = thrust::make_zip_iterator(
-    thrust::make_tuple(lambdas.begin()));
+  auto sort_values =
+    thrust::make_zip_iterator(thrust::make_tuple(lambdas.begin()));
 
   thrust::sort_by_key(thrust::cuda::par.on(stream), sort_keys,
                       sort_keys + n_edges, sort_values, TupleComp());
