@@ -37,9 +37,8 @@ class TargetEncoder:
         Default number of folds for fitting training data. To prevent
         label leakage in `fit`, we split data into `n_folds` and
         encode one fold using the target variables of the remaining folds.
-    smooth : float (default=0)
-        0 <= smooth <= 1
-        Percentage of samples to smooth the encoding
+    smooth : int (default=0)
+        Count of samples to smooth the encoding. 0 means no smoothing.
     seed : int (default=42)
         Random seed
     split_method : {'random', 'continuous', 'interleaved'},
@@ -83,8 +82,8 @@ class TargetEncoder:
     """
     def __init__(self, n_folds=4, smooth=0, seed=42,
                  split_method='interleaved', output_type='auto'):
-        if smooth < 0 or smooth > 1:
-            raise ValueError('smooth {} is not in range [0,1]'.format(smooth))
+        if smooth < 0:
+            raise ValueError(f'smooth {smooth} is not zero or positive')
         if n_folds < 0 or not isinstance(n_folds, int):
             raise ValueError(
                 'n_folds {} is not a postive integer'.format(n_folds))
@@ -260,7 +259,7 @@ class TargetEncoder:
         Compute the output encoding based on aggregated sum and count
         """
         df_sum = df_sum.merge(df_count, on=cols, how='left')
-        smooth = self.smooth * len(df_sum)
+        smooth = self.smooth
         df_sum[self.out_col] = (df_sum[f'{y_col}_x'] +
                                 smooth*self.mean) / \
                                (df_sum[f'{y_col}_y'] +
