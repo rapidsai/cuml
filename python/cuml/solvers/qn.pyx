@@ -461,7 +461,7 @@ class QN(Base,
         sparse_input = is_sparse(X)
         # Handle sparse inputs
         if sparse_input:
-            X_m = SparseCumlArray(X)
+            X_m = SparseCumlArray(X, convert_index=np.int32)
             n_rows, self.n_cols = X_m.shape
             self.dtype = X_m.dtype
 
@@ -667,7 +667,9 @@ class QN(Base,
         # Handle sparse inputs
         if sparse_input:
             X_m = SparseCumlArray(
-                X, convert_to_dtype=(self.dtype if convert_dtype else None)
+                X,
+                convert_to_dtype=(self.dtype if convert_dtype else None),
+                convert_index=np.int32
             )
             n_rows, n_cols = X_m.shape
             self.dtype = X_m.dtype
@@ -767,7 +769,9 @@ class QN(Base,
         # Handle sparse inputs
         if sparse_input:
             X_m = SparseCumlArray(
-                X, convert_to_dtype=(self.dtype if convert_dtype else None)
+                X,
+                convert_to_dtype=(self.dtype if convert_dtype else None),
+                convert_index=np.int32
             )
             n_rows, n_cols = X_m.shape
             self.dtype = X_m.dtype
