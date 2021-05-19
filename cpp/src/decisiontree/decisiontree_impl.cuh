@@ -208,11 +208,14 @@ tl::Tree<T, T> build_treelite_tree(
           if (std::is_same<decltype(q_node.node->prediction), int>::value) {
             // Binary classification; use fraction of the positive class
             // to produce a "soft output"
-            ASSERT((q_node.node->quesval >= 0),
-                   "Could not fetch fraction of the positive class");
+            // Note. The old RF backend doesn't provide this fraction
             static_assert(std::is_floating_point<T>::value,
                           "Expected T to be a floating-point type");
-            tl_tree.SetLeaf(node_id, static_cast<T>(q_node.node->quesval));
+            if (q_node.node->quesval >= 0) {
+              tl_tree.SetLeaf(node_id, static_cast<T>(q_node.node->quesval));
+            } else {
+              tl_tree.SetLeaf(node_id, static_cast<T>(q_node.node->prediction));
+            }
           } else {
             // Regression
             tl_tree.SetLeaf(node_id, static_cast<T>(q_node.node->prediction));

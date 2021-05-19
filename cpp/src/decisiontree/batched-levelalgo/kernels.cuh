@@ -90,9 +90,13 @@ struct ClsDeviceTraits {
     }
     if (tid == 0) {
       DataT aux = DataT(-1);
-      if (input.nclasses == 2) {
+      if (input.nclasses <= 2) {
         // Special handling for binary classifiers
-        aux = static_cast<DataT>(shist[1]) / total_count;
+        if (input.nclasses == 2) {
+          aux = static_cast<DataT>(shist[1]) / total_count;
+        } else {
+          aux = static_cast<DataT>(0);
+        }
       }
       nodes[0].makeLeaf(n_leaves, LabelT(max_class_idx), aux);
     }
