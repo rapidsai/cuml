@@ -599,7 +599,7 @@ class QN(Base,
                     <int> self.lbfgs_memory,
                     <int> self.verbose,
                     <double*> coef_ptr,
-                    <double*> &objective32,
+                    <double*> &objective64,
                     <int*> &num_iters,
                     <int> self.loss_type,
                     <double*> sample_weight_ptr)
@@ -667,7 +667,8 @@ class QN(Base,
         # Handle sparse inputs
         if sparse_input:
             X_m = SparseCumlArray(
-                X, convert_to_dtype=(self.dtype if convert_dtype else None))
+                X, convert_to_dtype=(self.dtype if convert_dtype else None)
+            )
             n_rows, n_cols = X_m.shape
             self.dtype = X_m.dtype
 
@@ -765,7 +766,8 @@ class QN(Base,
         # Handle sparse inputs
         if sparse_input:
             X_m = SparseCumlArray(
-                X, convert_to_dtype=(self.dtype if convert_dtype else None))
+                X, convert_to_dtype=(self.dtype if convert_dtype else None)
+            )
             n_rows, n_cols = X_m.shape
             self.dtype = X_m.dtype
 
