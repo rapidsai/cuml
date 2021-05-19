@@ -108,35 +108,36 @@ void parallel_evolve(const raft::handle_t &h,
                      const float* sample_weights, const param &params, const int generation, const int seed) {
 
   CUML_LOG_DEBUG("Generation #%d",generation);
+  
   cudaStream_t stream = h.get_stream();
-  int n_progs    =   params.population_size;
-  int tour_size  =   params.tournament_size;
-  int n_tours    =   n_progs;                                 // at least num_progs tournaments
+  auto n_progs    =   params.population_size;
+  auto tour_size  =   params.tournament_size;
+  auto n_tours    =   n_progs;                 // at least num_progs tournaments
 
   // Seed engines
   std::mt19937 h_gen(seed);                    // CPU engine
   raft::random::Rng d_gen(seed);               // GPU engine
 
-  std::uniform_real_distribution<float> dist_01(0.0f,1.0f);
+  std::uniform_real_distribution<float> dist_U(0.0f,1.0f);
   
   // Build, Mutate and Run Tournaments
-  if(generation == 1){
-    // Build random programs for the first generation
-    for(auto i=0; i<n_progs; ++i){
-      
-      build_program(h_nextprogs[i],params,h_gen);
-      // CUML_LOG_DEBUG("Gen #1, program #%d, len=%d",i,h_nextprogs[i].len);
 
+  if(generation == 1){
+
+    // Build random programs for the first generation
+    for(auto i=0; i<n_progs; ++i){  
+      build_program(h_nextprogs[i],params,h_gen);
+      
+      // CUML_LOG_DEBUG("Generation #%d, program #%d",generation,i);
       // for(int j=0;j<h_nextprogs[i].len;++j){
-      //   CUML_LOG_DEBUG("Node #%d -> %d (%d inputs)",j+1,
-      //                   static_cast<std::underlying_type<node::type>::type>(h_nextprogs[i].nodes[j].t)
-      //                   ,h_nextprogs[i].nodes[j].arity());
+      //   int func_id = static_cast<std::underlying_type<node::type>::type>(h_nextprogs[i].nodes[j].t);
+      //   if(func_id > 33 || func_id < 0){
+      //     CUML_LOG_DEBUG("Invalid Node #%d -> %d (%d inputs)",j,func_id,h_nextprogs[i].nodes[j].arity());
+      //     exit(0);
+      //   }
       // }
-      // CUML_LOG_DEBUG("Program #%d len=%d",(i+1),h_nextprogs[i].len);
-      // std::string eqn = stringify(h_nextprogs[i]);
-      // std::cerr << eqn <<"\n";
-      // exit(0);
     }
+
   }
   else{
     // Set mutation type
@@ -148,7 +149,7 @@ void parallel_evolve(const raft::handle_t &h,
     std::partial_sum(mut_probs,mut_probs+4,mut_probs);
 
     for(auto i=0; i < n_progs; ++i){
-      float prob = dist_01(h_gen);
+      float prob = dist_U(h_gen);
 
       if(prob < mut_probs[0]) {
         h_nextprogs[i].mut_type = mutation_t::crossover;
@@ -169,21 +170,23 @@ void parallel_evolve(const raft::handle_t &h,
     } 
 
     // Run tournaments
-    // TODO: Find a better way for subset-seed generation
     rmm::device_uvector<uint64_t> tour_seeds(n_tours,stream);
     rmm::device_uvector<int> d_win_indices(n_tours,stream);
     d_gen.uniformInt(tour_seeds.data(), n_tours, (uint64_t)1, (uint64_t)INT_MAX, stream);
-    int crit = params.criterion();
+
+    auto crit = params.criterion();
     dim3 nblks(raft::ceildiv(n_tours,GENE_TPB),1,1);
-    batched_tournament_kernel<<<nblks,GENE_TPB,0,stream>>>(d_oldprogs,d_win_indices.data(),tour_seeds.data(),n_progs,n_tours,tour_size,crit);
+    batched_tournament_kernel<<<nblks,GENE_TPB,0,stream>>>(d_oldprogs,
+                                                           d_win_indices.data(),tour_seeds.data(),
+                                                           n_progs,n_tours,
+                                                           tour_size,crit);
     CUDA_CHECK(cudaPeekAtLastError());
 
     // Make sure tournaments have finished running before copying win indices
     CUDA_CHECK(cudaStreamSynchronize(stream));
-
-    // CUML_LOG_DEBUG("Finished tournament for Generation #%d",generation);
     
     // Perform host mutations
+
     auto donor_pos  = n_progs;
     for(auto pos=0; pos < n_progs; ++pos) {
       
@@ -217,33 +220,40 @@ void parallel_evolve(const raft::handle_t &h,
       }
 
       // for(int j=0;j<h_nextprogs[pos].len;++j){
-      //   CUML_LOG_DEBUG("Node #%d -> %d (%d inputs)",j+1,
-      //                   static_cast<std::underlying_type<node::type>::type>(h_nextprogs[pos].nodes[j].t)
-      //                   ,h_nextprogs[pos].nodes[j].arity());
+      //   int func_id = static_cast<std::underlying_type<node::type>::type>(h_nextprogs[pos].nodes[j].t);
+      //   if(func_id > 33 || func_id < 0){
+      //     CUML_LOG_DEBUG("Invalid Node #%d -> %d (%d inputs)",j,func_id,h_nextprogs[pos].nodes[j].arity());
+      //     exit(0);
+      //   }
       // }
       // std::string eqn = stringify(h_nextprogs[pos]);
       // std::cerr << eqn <<std::endl;
     }
   }
 
-  /* Memcpy individual host nodes to device
-     TODO: Find a better way to do this. 
-     Possibilities include a copy utilizing multiple streams,
-     a switch to a unified memory model, or a SoA representation 
-     for all programs */
+  /* Memcpy individual host nodes to device and destroy previous generation device nodes
+     TODO: Find a better way to do this. */
   for(auto i=0;i<n_progs;++i) {
-    program tmp(h_nextprogs[i], false);        
-    tmp.nodes = (node*)h.get_device_allocator()->allocate(h_nextprogs[i].len*sizeof(node),stream);
 
-    CUDA_CHECK(cudaMemcpyAsync(tmp.nodes, h_nextprogs[i].nodes,
-                                h_nextprogs[i].len * sizeof(node),
-                                cudaMemcpyHostToDevice, stream));
-    CUDA_CHECK(cudaMemcpyAsync( d_nextprogs + i, &tmp,
-                                sizeof(program),
-                                cudaMemcpyHostToDevice,stream));
+    program tmp(h_nextprogs[i]);        
+    delete[] tmp.nodes;
+
+    // Set current generation device nodes
+    tmp.nodes = (node*)h.get_device_allocator()->allocate(h_nextprogs[i].len*sizeof(node),stream);
+    CUDA_CHECK(cudaMemcpyAsync(tmp.nodes, h_nextprogs[i].nodes,h_nextprogs[i].len * sizeof(node),
+                               cudaMemcpyHostToDevice, stream));
+    CUDA_CHECK(cudaMemcpyAsync(d_nextprogs + i, &tmp,sizeof(program),cudaMemcpyHostToDevice,stream));
+
+    if(generation != 1){
+      // Free memory allocated to program nodes in previous generation
+      CUDA_CHECK(cudaMemcpyAsync(&tmp,d_oldprogs + i,sizeof(program),cudaMemcpyDeviceToHost,stream));
+      h.get_device_allocator()->deallocate(tmp.nodes,h_oldprogs[i].len*sizeof(node),stream);
+    }
+
+    tmp.nodes = nullptr;  // needed for destructor call to tmp
   }
   
-  // Make sure all copying is done
+  // // Make sure all copying is done
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   // Update fitness
@@ -428,10 +438,11 @@ void symFit(const raft::handle_t &handle, const float* input, const float* label
   } 
 
   /* Initializations */
-  
+
   std::vector<program> h_currprogs(params.population_size);
   std::vector<program> h_nextprogs(params.population_size);
-  std::vector<float> h_fitness(params.population_size);
+  
+  std::vector<float>   h_fitness(params.population_size,0.0f);
 
   program_t d_currprogs = (program_t)handle.get_device_allocator()->allocate(params.population_size*sizeof(program),stream);
   program_t d_nextprogs = final_progs;     // Reuse memory already allocated for final_progs
@@ -439,44 +450,57 @@ void symFit(const raft::handle_t &handle, const float* input, const float* label
   std::mt19937_64 h_gen_engine(params.random_state);
   std::uniform_int_distribution<int> seed_dist;
   
-  CUML_LOG_DEBUG("# Programs = %d",params.population_size);
+  CUML_LOG_DEBUG("# of programs per generation = %d",params.population_size);
 
   /* Begin training */
-  int gen = 0;
-  for(;gen<params.generations;++gen){
-    //  Evolve
+  auto gen = 0;
+  while(gen < params.generations){
+    // Generate an init seed
+    auto init_seed = seed_dist(h_gen_engine);
+    
+    // Evolve current generation
     parallel_evolve(handle,h_currprogs,d_currprogs,h_nextprogs,d_nextprogs,
-                  n_rows,input,labels,sample_weights,params,gen+1,seed_dist(h_gen_engine));
-    
-    history.push_back(h_nextprogs);
-    
-    // Swap
-    h_currprogs.swap(h_nextprogs);
-    program_t tmp = d_currprogs;
-    d_currprogs = d_nextprogs;
-    d_nextprogs = tmp;
+                    n_rows,input,labels,sample_weights,params,(gen+1),init_seed);
 
-    // Update fitness values
-    float opt_fit = h_currprogs[0].raw_fitness_;
-    int crit = params.criterion();
-    for(int i=0;i<params.population_size;++i){
+    // Update h_currprogs (deepcopy)
+    h_currprogs = h_nextprogs;
+
+    // Update evolution history (deepcopy)
+    history.push_back(h_currprogs);
+
+    // Swap d_currprogs(to preserve device memory)
+    program_t d_tmp = d_currprogs;
+    d_currprogs = d_nextprogs;
+    d_nextprogs = d_tmp;
+    
+    // Update fitness array [host] and compute stopping criterion
+    auto crit = params.criterion();
+    h_fitness[0] = h_currprogs[0].raw_fitness_;
+    auto opt_fit = h_fitness[0];
+
+    for(auto i = 1; i < params.population_size ; ++i){
       h_fitness[i] = h_currprogs[i].raw_fitness_;
-      if(crit == 0){
-        opt_fit = std::min(opt_fit,h_fitness[i]);
-      } else{
-        opt_fit = std::max(opt_fit,h_fitness[i]);
-      }
+
+      if(crit == 0){opt_fit = std::min(opt_fit,h_fitness[i]);}
+      else {opt_fit = std::max(opt_fit,h_fitness[i]);}
+
     }
 
-    // Check for early stop
-    if( (crit==0 && opt_fit <= params.stopping_criteria) || (crit==1 && opt_fit >= params.stopping_criteria)) {
-      CUML_LOG_DEBUG("Early stopping reached. num_generations=%d",gen);
+    // Check for stop criterion
+    if((crit==0 && opt_fit<=params.stopping_criteria) || (crit==1 && opt_fit>=params.stopping_criteria)){
+      CUML_LOG_DEBUG("Early stopping criterion reached in Generation #%d",(gen+1));
       break;
     }
-  }
 
-  /* Set return values */
+    // Update generation
+    ++gen;
+  }
+  
+  // Set final generation programs
   final_progs = d_currprogs;
+
+  // Deallocate the previous generation device memory
+  handle.get_device_allocator()->deallocate(d_nextprogs,sizeof(program)*params.population_size,stream);
 }
 
 void symRegPredict(const raft::handle_t &handle, const float* input, const int n_rows, 

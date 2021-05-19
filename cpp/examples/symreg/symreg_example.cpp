@@ -279,7 +279,6 @@ int main(int argc, char* argv[]){
   float* d_score        = nullptr;
   cuml::genetic::program_t d_finalprogs;  // pointer to last generation ASTs on device
 
-
   CUDA_RT_CALL(cudaMalloc(&d_traindata,sizeof(float)*n_cols*n_train_rows));
   CUDA_RT_CALL(cudaMemcpyAsync(d_traindata,h_traindata.data(),
                                 sizeof(float)*n_cols*n_train_rows,
@@ -315,20 +314,20 @@ int main(int argc, char* argv[]){
   
   CUDA_RT_CALL(cudaMalloc(&d_score,sizeof(float)));
   
-  // // Initialize AST
+  // Initialize AST
   d_finalprogs = (cuml::genetic::program_t)handle.get_device_allocator()->allocate(params.population_size*sizeof(cuml::genetic::program),stream);
 
   std::vector<std::vector<cuml::genetic::program>> history;
   history.reserve(params.generations);
   
-  // // Begin training
+  // Begin training
   std::cout << "Beginning training on given dataset" << std::endl;
   cuml::genetic::symFit(handle,d_traindata,d_trainlabels,d_trainweights,n_train_rows,n_cols,params,d_finalprogs,history);
 
   int n_gen = history.size();
   std::cout << "Finished training for " << n_gen << " generations." << std::endl;
-
-  // // Find index of best program
+  
+  // Find index of best program
   int best_idx = 0;
   float opt_fitness = history[n_gen-1][0].raw_fitness_;
 
@@ -343,8 +342,8 @@ int main(int argc, char* argv[]){
   std::string eqn = cuml::genetic::stringify(history[n_gen-1][best_idx]);
   std::cout << "Best program index is : " << best_idx << std::endl;
   std::cout << "Best program equation is : " << eqn << std::endl;
-
-  // // Predict values for test dataset
+  
+  // Predict values for test dataset
   cuml::genetic::symRegPredict(handle,d_testdata,n_test_rows,d_finalprogs+best_idx,d_predlabels);
 
   std::vector<float> h_predlabels(n_test_rows,0.0f);
@@ -367,17 +366,17 @@ int main(int argc, char* argv[]){
   
   std::cout << " Fitness score for best program : " << h_score << std::endl;
   
-  // Free up device memory
-  CUDA_RT_CALL(cudaFree(d_traindata));
-  CUDA_RT_CALL(cudaFree(d_trainlabels));
-  CUDA_RT_CALL(cudaFree(d_trainweights));
-  CUDA_RT_CALL(cudaFree(d_testdata));
-  CUDA_RT_CALL(cudaFree(d_testlabels));
-  CUDA_RT_CALL(cudaFree(d_testweights));
-  CUDA_RT_CALL(cudaFree(d_predlabels));
-  CUDA_RT_CALL(cudaFree(d_score));
-  handle.get_device_allocator()->deallocate(d_finalprogs,
-                                sizeof(cuml::genetic::program) * params.population_size, stream);
-  CUDA_RT_CALL(cudaStreamDestroy(stream));
+  // // Free up device memory
+  // CUDA_RT_CALL(cudaFree(d_traindata));
+  // CUDA_RT_CALL(cudaFree(d_trainlabels));
+  // CUDA_RT_CALL(cudaFree(d_trainweights));
+  // CUDA_RT_CALL(cudaFree(d_testdata));
+  // CUDA_RT_CALL(cudaFree(d_testlabels));
+  // CUDA_RT_CALL(cudaFree(d_testweights));
+  // CUDA_RT_CALL(cudaFree(d_predlabels));
+  // CUDA_RT_CALL(cudaFree(d_score));
+  // handle.get_device_allocator()->deallocate(d_finalprogs,
+  //                               sizeof(cuml::genetic::program) * params.population_size, stream);
+  // CUDA_RT_CALL(cudaStreamDestroy(stream));
   return 0;
 }

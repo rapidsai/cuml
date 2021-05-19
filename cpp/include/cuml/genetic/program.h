@@ -46,11 +46,18 @@ struct program {
   explicit program();
   
   /**
-   * @param[in] src source program to be copied
-   * @param[dst] dst boolean indicating location of nodes(true for host, false for device)
+   * @brief Destroy the program object
+   * 
    */
-  explicit program(const program &src, const bool &dst);
+  ~program();
   
+  /**
+   * @brief Copy constructor for a new program object
+   * 
+   * @param src 
+   */
+  explicit program(const program &src);
+
   /**
    * @brief assignment operator
    *

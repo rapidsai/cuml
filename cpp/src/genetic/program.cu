@@ -37,7 +37,7 @@ namespace genetic {
  * Execution kernel for a single program. We assume that the input data 
  * is stored in column major format.
  */
-template<int MaxSize=2*MAX_STACK_SIZE>
+template<int MaxSize=MAX_STACK_SIZE>
 __global__ void execute_kernel( const program_t d_progs, const float* data, 
                                 float* y_pred, const int n_samples, const int n_progs) {
   
@@ -47,7 +47,7 @@ __global__ void execute_kernel( const program_t d_progs, const float* data,
   if(row_id >= n_samples) { return; }
 
   stack<float, MaxSize> eval_stack;                             // Maintain stack only for remaining threads
-  program_t curr_p = &d_progs[pid];                             // Current program
+  program_t curr_p = d_progs + pid;                             // Current program
   
   int e = curr_p->len - 1;
   node* curr_n = &curr_p->nodes[e];
@@ -76,27 +76,32 @@ program::program() {
   raw_fitness_  = 0.0f;
   metric        = metric_t::mse;
   mut_type      = mutation_t::none;
+  nodes         = nullptr;
 }
 
-program::program(const program& src, const bool &dst) : len(src.len), depth(src.depth), raw_fitness_(src.raw_fitness_), metric(src.metric), mut_type(src.mut_type) {
-  if(dst) {
-    nodes = new node[len];
-    // Replace loop with a std::copy
-    std::copy(src.nodes, src.nodes + src.len, nodes);
-  }
+program::~program(){
+  delete[] nodes;
+  nodes=nullptr;
+}
+
+program::program(const program &src): len(src.len), depth(src.depth), raw_fitness_(src.raw_fitness_), metric(src.metric), mut_type(src.mut_type){
+  nodes = new node[len];
+  std::copy(src.nodes,src.nodes + src.len, nodes);
 }
 
 program& program::operator=(const program& src){
-  // Deep copy
+  
   len           = src.len;
   depth         = src.depth;
   raw_fitness_  = src.raw_fitness_;
   metric        = src.metric;
+  mut_type      = src.mut_type;
 
-  nodes         = new node[len];
-  
-  // Replace loop with a memcpy  
+  // Copy nodes
+  delete[] nodes;
+  nodes = new node[len];  
   std::copy(src.nodes, src.nodes + src.len, nodes);
+
   return *this;
 }
 
@@ -185,7 +190,7 @@ void set_batched_fitness( const raft::handle_t &h, program_t d_progs,
                      const float* data, const float* y, const float* sample_weights) {
 
   cudaStream_t stream   = h.get_stream();
-  int n_progs           = params.population_size;
+  auto n_progs           = params.population_size;
   
   rmm::device_uvector<float> score(n_progs,stream);
 
@@ -237,7 +242,6 @@ void validate_program(program &prog){
 
   if(!(s.size() == 1 && s.top() == -1)){
     CUML_LOG_DEBUG("Invalid program.");
-    // exit(0);
   }
   
 }
@@ -291,20 +295,6 @@ std::pair<int, int> get_subtree(node* pnodes, int len, std::mt19937 &gen) {
     if(curr.is_nonterminal())num_args += curr.arity();
     ++end;
   }
-
-  // Debug when end > len. Ideally, it should never happen
-  // if(end > len){
-  //   CUML_LOG_DEBUG("Start is -> %d",start);
-  //   CUML_LOG_DEBUG("End is -> %d",end);
-  //   CUML_LOG_DEBUG("Length is -> %d",len);
-
-  //   for(int i=0;i<end;++i){
-  //     CUML_LOG_DEBUG("Node #%d -> %d (%d inputs)",i,
-  //                   static_cast<std::underlying_type<node::type>::type>(pnodes[i].t)
-  //                   ,pnodes[i].arity());
-  //   }
-  //   exit(0);
-  // }
   
   return std::make_pair(start,end);
 }
@@ -390,14 +380,12 @@ void build_program(program &p_out, const param &params,std::mt19937 &gen){
   p_out.metric = params.metric;
   p_out.depth = MAX_STACK_SIZE;
   p_out.raw_fitness_ = 0.0f; 
-  p_out.mut_type = mutation_t::none;
 
   // for(int i=0;i<p_out.len;++i){
   //   CUML_LOG_DEBUG("Node #%d -> %d (%d inputs)",i+1,
   //                 static_cast<std::underlying_type<node::type>::type>(p_out.nodes[i].t)
   //                 ,p_out.nodes[i].arity());
   // }
-  // validate_program(p_out);
 }
 
 void point_mutation(const program &prog, program &p_out, const param& params, std::mt19937 &gen){
@@ -437,6 +425,7 @@ void point_mutation(const program &prog, program &p_out, const param& params, st
       else if(curr.is_nonterminal()){
         // Replace current function with another function of the same arity
         int ar = curr.arity();
+        // CUML_LOG_DEBUG("Arity is %d, curr function is %d",ar,static_cast<std::underlying_type<node::type>::type>(curr.t));
         std::vector<node::type> fset = params.arity_set.at(ar);
         std::uniform_int_distribution<> dist_fset(0,fset.size()-1);
         int choice = dist_fset(gen);
@@ -448,20 +437,16 @@ void point_mutation(const program &prog, program &p_out, const param& params, st
     }
   }
 
-  validate_program(p_out);
 }
 
 void crossover(const program &prog, const program &donor, program &p_out, const param &params, std::mt19937 &gen){
 
-  // CUML_LOG_DEBUG("Starting crossover");
   // Get a random subtree of prog to replace
-  // CUML_LOG_DEBUG("Parent subtree");
   std::pair<int, int> prog_slice = get_subtree(prog.nodes, prog.len, gen);
   int prog_start = prog_slice.first;
   int prog_end   = prog_slice.second;
 
   // Get subtree of donor
-  // CUML_LOG_DEBUG("Donor subtree");
   std::pair<int, int> donor_slice = get_subtree(donor.nodes, donor.len, gen);
   
   int donor_start = donor_slice.first;
@@ -469,18 +454,13 @@ void crossover(const program &prog, const program &donor, program &p_out, const 
 
   // Evolve 
   p_out.len       = (prog_start) + (donor_end - donor_start) + (prog.len-prog_end);
-  // CUML_LOG_DEBUG("In crossover, par_len = %d, par_start = %d, par_end = %d",prog.len,prog_start,prog_end);
-  // CUML_LOG_DEBUG("In crossover, donor_len = %d, donor_start = %d, donor_end = %d",donor.len,donor_start,donor_end);
-  // CUML_LOG_DEBUG("In crossover, new length = %d",p_out.len);
   p_out.nodes     = new node[p_out.len];
-  p_out.mut_type  = mutation_t::crossover;
   p_out.metric    = prog.metric;
 
   if(p_out.len >= (1 << MAX_STACK_SIZE)){
     CUML_LOG_DEBUG("Crossover tree produced is too big!!");
   }
 
-  // CUML_LOG_DEBUG("Exiting crossover");
   // Copy slices using std::copy
   std::copy(prog.nodes,prog.nodes + prog_start,p_out.nodes);
   
@@ -489,8 +469,11 @@ void crossover(const program &prog, const program &donor, program &p_out, const 
   std::copy(prog.nodes + prog_end, 
             prog.nodes + prog.len, 
             p_out.nodes + (prog_start) + (donor_end - donor_start));
-  
-  // validate_program(p_out);
+
+  // for(int j=0;j<p_out.len;++j){
+  //   int func_id = static_cast<std::underlying_type<node::type>::type>(p_out.nodes[j].t);
+  //   CUML_LOG_DEBUG("Node #%d -> %d (%d inputs)",j,func_id,p_out.nodes[j].arity());
+  // }
 }
 
 void subtree_mutation(const program &prog, program &p_out, const param &params, std::mt19937 &gen){
@@ -502,9 +485,6 @@ void subtree_mutation(const program &prog, program &p_out, const param &params, 
   if(p_out.len >= (1 << MAX_STACK_SIZE)){
     CUML_LOG_DEBUG("Subtree mutation tree produced is too big!!");
   }
-
-  p_out.mut_type = mutation_t::subtree;
-  // validate_program(p_out);
 }
 
 void hoist_mutation(const program &prog, program &p_out, const param &params, std::mt19937 &gen){
@@ -525,23 +505,17 @@ void hoist_mutation(const program &prog, program &p_out, const param &params, st
 
   p_out.len = (prog_start) + (sub_end - sub_start) + (prog.len-prog_end);
   p_out.nodes = new node[p_out.len];
-  p_out.mut_type = mutation_t::hoist;
   p_out.metric = prog.metric;
 
   if(p_out.len >= (1 << MAX_STACK_SIZE)){
     CUML_LOG_DEBUG("Hoist tree produced is too big!!");
   }
 
-  // CUML_LOG_DEBUG("In hoist, par_len = %d, par_start = %d, par_end = %d",prog.len,prog_start,prog_end);
-  // CUML_LOG_DEBUG("In hoist, slice_len = %d, slice_start = %d, slice_end = %d",sub_end-sub_start,sub_start,sub_end);
-  // CUML_LOG_DEBUG("In hoist, new length = %d",p_out.len);
-
   // Copy node slices using std::copy
   std::copy(prog.nodes, prog.nodes + prog_start, p_out.nodes);
   std::copy(prog.nodes + sub_start, prog.nodes + sub_end, p_out.nodes + prog_start);
   std::copy(prog.nodes + prog_end, prog.nodes + prog.len,
                                    p_out.nodes + (prog_start) + (sub_end - sub_start));
-  // validate_program(p_out);
 }
 
 } // namespace genetic
