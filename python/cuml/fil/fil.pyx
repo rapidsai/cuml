@@ -54,6 +54,8 @@ cdef extern from "treelite/c_api.h":
     cdef int TreeliteQueryNumClass(ModelHandle handle, size_t* out) except +
     cdef int TreeliteLoadLightGBMModel(const char* filename,
                                        ModelHandle* out) except +
+    cdef int TreeliteSerializeModel(const char* filename,
+                                    ModelHandle handle) except +
     cdef const char* TreeliteGetLastError()
 
 
@@ -147,6 +149,19 @@ cdef class TreeliteModel():
         model = TreeliteModel()
         model.set_handle(handle)
         return model
+
+    def to_treelite_checkpoint(self, filename):
+        """
+        Serialize to a Treelite binary checkpoint
+
+        Parameters
+        ----------
+        filename : string
+            Path to Treelite binary checkpoint
+        """
+        assert self.handle != NULL
+        filename_bytes = filename.encode("UTF-8")
+        TreeliteSerializeModel(filename_bytes, self.handle)
 
     @staticmethod
     def from_treelite_model_handle(treelite_handle,
