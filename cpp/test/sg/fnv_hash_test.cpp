@@ -18,30 +18,31 @@
 #include <gtest/gtest.h>
 #include <raft/error.hpp>
 
-typedef std::tuple<std::vector<char>, unsigned long long, unsigned long>
-  fnv_vec_t;
+struct fnv_vec_t {
+  std::vector<char> input;
+  unsigned long long correct_64bit;
+  uint32_t correct_32bit;
+};
 
 class FNVHashTest : public testing::TestWithParam<fnv_vec_t> {
  protected:
-  void SetUp() override { std::tie(input, correct64, correct32) = GetParam(); }
+  void SetUp() override { param = GetParam(); }
 
   void check() {
-    unsigned long long real64 =
-      fowler_noll_vo_fingerprint64(input.begin(), input.end());
-    ASSERT(real64 == correct64, "Wrong hash computed");
-    unsigned long real32 =
-      fowler_noll_vo_fingerprint64_32(input.begin(), input.end());
-    ASSERT(real32 == correct32, "Wrong xor-folded hash computed");
+    unsigned long long hash_64bit =
+      fowler_noll_vo_fingerprint64(param.input.begin(), param.input.end());
+    ASSERT(hash_64bit == param.correct_64bit, "Wrong hash computed");
+    unsigned long hash_32bit =
+      fowler_noll_vo_fingerprint64_32(param.input.begin(), param.input.end());
+    ASSERT(hash_32bit == param.correct_32bit, "Wrong xor-folded hash computed");
   }
 
-  // parameters
-  std::vector<char> input;
-  unsigned long long correct64;
-  unsigned long correct32;
+  fnv_vec_t param;
 };
 
 std::vector<fnv_vec_t> fnv_vecs = {
   {{}, 14695981039346656037ull, 0xcbf29ce4 ^ 0x84222325},  // test #0
+  // 32-bit output is xor-folded 64-bit output. The format below makes this obvious.
   {{0}, 0xaf63bd4c8601b7df, 0xaf63bd4c ^ 0x8601b7df},
   {{1}, 0xaf63bd4c8601b7de, 0xaf63bd4c ^ 0x8601b7de},
   {{2}, 0xaf63bd4c8601b7dd, 0xaf63bd4c ^ 0x8601b7dd},

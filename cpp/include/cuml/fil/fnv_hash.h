@@ -15,6 +15,7 @@
  */
 
 #include <limits.h>
+#include <cstdint>
 #include <numeric>
 
 // Implements https://tools.ietf.org/html/draft-eastlake-fnv-17.html
@@ -34,7 +35,7 @@ unsigned long long fowler_noll_vo_fingerprint64(It begin, It end) {
 // xor-folded fingerprint64 to ensure first bits are affected by other input bits
 // should give a 1% collision probability within a 10'000 hash set
 template <typename It>
-unsigned long fowler_noll_vo_fingerprint64_32(It begin, It end) {
+uint32_t fowler_noll_vo_fingerprint64_32(It begin, It end) {
   unsigned long long fp64 = fowler_noll_vo_fingerprint64(begin, end);
   return (fp64 & UINT_MAX) ^ (fp64 >> 32);
 }
