@@ -40,14 +40,14 @@ from .hdbscan_plot import SingleLinkageTree
 cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
     cdef cppclass robust_single_linkage_output[int, float]:
         robust_single_linkage_output(const handle_t &handle,
-                       int n_leaves,
-                       int *labels,
-                       int *children,
-                       int *sizes,
-                       float *deltas,
-                       int *mst_src,
-                       int *mst_dst,
-                       float *mst_weights)
+                                     int n_leaves,
+                                     int *labels,
+                                     int *children,
+                                     int *sizes,
+                                     float *deltas,
+                                     int *mst_src,
+                                     int *mst_dst,
+                                     float *mst_weights)
         int get_n_leaves()
         int get_n_clusters()
 
@@ -72,6 +72,7 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
                                DistanceType metric,
                                RobustSingleLinkageParams &params,
                                robust_single_linkage_output &out)
+
 
 def delete_output(obj):
     cdef robust_single_linkage_output *output
@@ -115,7 +116,7 @@ class RobustSingleLinkage(Base, ClusterMixin, CMajorInputTagMixin):
     alpha : float, optional (default=np.sqrt(2))
         Distance scaling for reachability distance computation. Reachability
         distance is computed as
-        $max \{ core_k(a), core_k(b), 1/\alpha d(a,b) \}$.
+        max { core_k(a), core_k(b), 1/alpha * d(a,b) }.
     gamma : int, optional (default=5)
         Ignore any clusters in the flat clustering with size less than gamma,
         and declare points in such clusters as noise points.
@@ -239,12 +240,12 @@ class RobustSingleLinkage(Base, ClusterMixin, CMajorInputTagMixin):
             raise ValueError("'affinity' %s not supported." % self.affinity)
 
         robust_single_linkage(handle_[0],
-                < float * > input_ptr,
-                < int > n_rows,
-                < int > n_cols,
-                < DistanceType > metric,
-                  params,
-                  deref(linkage_output))
+                              < float * > input_ptr,
+                              < int > n_rows,
+                              < int > n_cols,
+                              < DistanceType > metric,
+                              params,
+                              deref(linkage_output))
 
         self.handle.sync()
 
