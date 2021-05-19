@@ -457,5 +457,5 @@ if(Doxygen_FOUND)
                        COMMAND doxygen Doxyfile
                        VERBATIM)
 
-    add_custom_target(docs_cuml DEPENDS CUGRAPH_DOXYGEN)
+    add_custom_target(docs_cuml DEPENDS CUML_DOXYGEN)
 endif()
