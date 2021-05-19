@@ -695,11 +695,11 @@ std::stringstream depth_hist_and_max(const tl::ModelImpl<T, L>& model) {
   forest_shape << "Total: branches: " << total_branches
                << " leaves: " << total_leaves << " nodes: " << total_nodes
                << endl;
-  forest_shape << "Avg nodes per tree: " << setprecision(1)
-               << total_nodes / (float)hist[0].n_branch_nodes << endl;
+  forest_shape << "Avg nodes per tree: " << setprecision(2) < < < <
+    total_nodes / (float)hist[0].n_branch_nodes << endl;
   forest_shape.copyfmt(default_state);
   forest_shape << "Leaf depth: min: " << min_leaf_depth
-               << " avg: " << setprecision(1)
+               << " avg: " << setprecision(2) << fixed
                << leaves_times_depth / (float)total_leaves
                << " max: " << hist.size() - 1 << endl;
   forest_shape.copyfmt(default_state);
