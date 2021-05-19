@@ -271,6 +271,14 @@ def get_repo_cmake_info(names, file_path):
         repo = repo.replace("${PKG_FORK}", fork)
         tag = re.findall(r'\s.*PINNED_TAG.*', s)
         tag = tag[-1].split()[-1]
+        if tag == 'branch-${CUML_BRANCH_VERSION_raft}':
+            loc = _get_repo_path() + '/cpp/CMakeLists.txt'
+            with open(loc) as f:
+                cmakelists = f.read()
+                tag = re.findall(r'\s.*project\(CUML VERSION.*', cmakelists)
+                tag = tag[-1].split()[-4].split('.')
+                tag = 'branch-{}.{}'.format(tag[0], tag[1])
+
         results[name] = [repo, tag]
 
     return results
