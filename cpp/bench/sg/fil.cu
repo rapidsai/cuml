@@ -156,7 +156,6 @@ std::vector<Params> getInputs() {
                        1.f,                /* max_samples */
                        1234ULL,            /* seed */
                        ML::CRITERION::MSE, /* split_criterion */
-                       false,              /* quantile_per_tree */
                        8,                  /* n_streams */
                        false,              /* use_experimental_backend */
                        128                 /* max_batch_size */

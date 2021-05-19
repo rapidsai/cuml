@@ -117,14 +117,10 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         If float, then min_samples_split represents a fraction and
         ceil(min_samples_split * n_rows) is the minimum number of samples
         for each split.
-    quantile_per_tree : boolean (default = False)
-        Whether quantile is computed for individual RF trees.
-        Only relevant for GLOBAL_QUANTILE split_algo.
     use_experimental_backend : boolean (default = True)
         If set to true and the following conditions are also met, a new
         experimental backend for decision tree training will be used. The
-        new backend is available only if `split_algo = 1` (GLOBAL_QUANTILE)
-        and `quantile_per_tree = False` (No per tree quantile computation).
+        new backend is available only if `split_algo = 1` (GLOBAL_QUANTILE).
         The new backend is considered stable for classification tasks but
         not yet for regression tasks. The RAPIDS team is continuing
         optimization and evaluation of the new backend for regression tasks.

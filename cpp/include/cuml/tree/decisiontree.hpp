@@ -61,11 +61,6 @@ struct DecisionTreeParams {
    */
   bool bootstrap_features;
   /**
-   * Whether a quantile needs to be computed for individual trees in RF.
-   * Default: compute quantiles once per RF. Only affects GLOBAL_QUANTILE split_algo.
-   */
-  bool quantile_per_tree;
-  /**
    * Node split criterion. GINI and Entropy for classification, MSE or MAE for regression.
    */
   CRITERION split_criterion;
@@ -75,7 +70,7 @@ struct DecisionTreeParams {
   float min_impurity_decrease = 0.0f;
 
   /**
-   * Maximum number of nodes that can be processed in a given batch. This is 
+   * Maximum number of nodes that can be processed in a given batch. This is
    * used only for batched-level algo
    */
   int max_batch_size;
@@ -83,8 +78,6 @@ struct DecisionTreeParams {
   * If set to true and following conditions are also met, experimental decision
   *  tree training implementation would be used:
   *     split_algo = 1 (GLOBAL_QUANTILE)
-  *     max_features = 1.0 (Feature sub-sampling disabled)
-  *     quantile_per_tree = false (No per tree quantile computation)
   */
   bool use_experimental_backend;
 };
@@ -105,12 +98,11 @@ struct DecisionTreeParams {
  * @param[in] cfg_bootstrap_features: bootstrapping for features; default false
  * @param[in] cfg_split_criterion: split criterion; default CRITERION_END,
  *            i.e., GINI for classification or MSE for regression
- * @param[in] cfg_quantile_per_tree: compute quantile per tree; default false
  * @param[in] cfg_use_experimental_backend: If set to true, experimental batched
- *            backend is used (provided other conditions are met). Default is 
+ *            backend is used (provided other conditions are met). Default is
               false.
  * @param[in] cfg_max_batch_size: Maximum number of nodes that can be processed
-              in a batch. This is used only for batched-level algo. Default 
+              in a batch. This is used only for batched-level algo. Default
               value 128.
  */
 void set_tree_params(DecisionTreeParams &params, int cfg_max_depth = -1,
@@ -121,7 +113,6 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth = -1,
                      float cfg_min_impurity_decrease = 0.0f,
                      bool cfg_bootstrap_features = false,
                      CRITERION cfg_split_criterion = CRITERION_END,
-                     bool cfg_quantile_per_tree = false,
                      bool cfg_use_experimental_backend = false,
                      int cfg_max_batch_size = 128);
 

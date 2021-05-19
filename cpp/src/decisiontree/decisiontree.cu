@@ -36,7 +36,6 @@ namespace DecisionTree {
  * @param[in] cfg_bootstrap_features: bootstrapping for features; default false
  * @param[in] cfg_split_criterion: split criterion; default CRITERION_END,
  *            i.e., GINI for classification or MSE for regression
- * @param[in] cfg_quantile_per_tree: compute quantile per tree; default false
  * @param[in] cfg_use_experimental_backend: Switch to using experimental
               backend; default false
  * @param[in] cfg_max_batch_size: batch size for experimental backend
@@ -46,7 +45,6 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
                      int cfg_split_algo, int cfg_min_samples_leaf,
                      int cfg_min_samples_split, float cfg_min_impurity_decrease,
                      bool cfg_bootstrap_features, CRITERION cfg_split_criterion,
-                     bool cfg_quantile_per_tree,
                      bool cfg_use_experimental_backend,
                      int cfg_max_batch_size) {
   if (cfg_use_experimental_backend) {
@@ -55,14 +53,6 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
         "Experimental backend does not yet support histogram split algorithm");
       CUML_LOG_WARN(
         "To use experimental backend set split_algo = 1 (GLOBAL_QUANTILE)");
-      cfg_use_experimental_backend = false;
-    }
-    if (cfg_quantile_per_tree) {
-      CUML_LOG_WARN(
-        "Experimental backend does not yet support per tree quantile "
-        "computation");
-      CUML_LOG_WARN(
-        "To use experimental backend set quantile_per_tree = false");
       cfg_use_experimental_backend = false;
     }
     if (!cfg_use_experimental_backend) {
@@ -81,7 +71,6 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
   params.min_samples_split = cfg_min_samples_split;
   params.bootstrap_features = cfg_bootstrap_features;
   params.split_criterion = cfg_split_criterion;
-  params.quantile_per_tree = cfg_quantile_per_tree;
   params.use_experimental_backend = cfg_use_experimental_backend;
   params.min_impurity_decrease = cfg_min_impurity_decrease;
   params.max_batch_size = cfg_max_batch_size;
@@ -117,7 +106,6 @@ void print(const DecisionTreeParams params) {
   CUML_LOG_DEBUG("min_samples_split: %d", params.min_samples_split);
   CUML_LOG_DEBUG("bootstrap_features: %d", params.bootstrap_features);
   CUML_LOG_DEBUG("split_criterion: %d", params.split_criterion);
-  CUML_LOG_DEBUG("quantile_per_tree: %d", params.quantile_per_tree);
   CUML_LOG_DEBUG("min_impurity_decrease: %f", params.min_impurity_decrease);
   CUML_LOG_DEBUG("use_experimental_backend: %s",
                  params.use_experimental_backend ? "True" : "False");

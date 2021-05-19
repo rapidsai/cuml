@@ -278,11 +278,6 @@ void DecisionTreeBase<T, L>::plant(
   dinfo.Ncols = ncols;
   n_unique_labels = unique_labels;
 
-  if (tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE &&
-      tree_params.quantile_per_tree) {
-    preprocess_quantile(data, rowids, n_sampled_rows, ncols, dinfo.NLocalrows,
-                        tree_params.n_bins, tempmem);
-  }
   CUDA_CHECK(cudaStreamSynchronize(
     tempmem->stream));  // added to ensure accurate measurement
   ML::PUSH_RANGE("DecisionTreeBase::plant::bootstrapping features");
@@ -413,7 +408,6 @@ void DecisionTreeBase<T, L>::base_fit(
       tempmem = std::make_shared<TemporaryMemory<T, L>>(
         device_allocator_in, host_allocator_in, stream_in, nrows, ncols,
         unique_labels, tree_params);
-      tree_params.quantile_per_tree = true;
     }
   }
 

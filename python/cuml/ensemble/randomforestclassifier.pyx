@@ -240,18 +240,10 @@ class RandomForestClassifier(BaseRandomForestModel,
     min_impurity_decrease : float (default = 0.0)
         Minimum decrease in impurity requried for
         node to be spilt.
-    quantile_per_tree : boolean (default = False)
-        Whether quantile is computed for individual trees in RF.
-        Only relevant when `split_algo = GLOBAL_QUANTILE`.
-
-        .. deprecated:: 0.19
-           Parameter 'quantile_per_tree' is deprecated and will be removed in
-           subsequent release.
     use_experimental_backend : boolean (default = True)
         If set to true and the following conditions are also met, a new
         experimental backend for decision tree training will be used. The
-        new backend is available only if `split_algo = 1` (GLOBAL_QUANTILE)
-        and `quantile_per_tree = False` (No per tree quantile computation).
+        new backend is available only if `split_algo = 1` (GLOBAL_QUANTILE).
         The new backend is considered stable for classification tasks but
         not yet for regression tasks. The RAPIDS team is continuing
         optimization and evaluation of the new backend for regression tasks.
@@ -503,7 +495,7 @@ class RandomForestClassifier(BaseRandomForestModel,
                                   <float> self.max_samples,
                                   <uint64_t> seed_val,
                                   <CRITERION> self.split_criterion,
-                                  <bool> self.quantile_per_tree,
+                                  <bool> self.,
                                   <int> self.n_streams,
                                   <bool> self.use_experimental_backend,
                                   <int> self.max_batch_size)
