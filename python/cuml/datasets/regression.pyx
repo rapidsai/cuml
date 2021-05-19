@@ -17,6 +17,7 @@
 # distutils: language = c++
 
 import typing
+import nvtx
 
 import numpy as np
 
@@ -72,6 +73,7 @@ inp_to_dtype = {
 }
 
 
+@nvtx.annotate(message="datasets.make_regression", domain="cuml_python")
 @cuml.internals.api_return_generic()
 def make_regression(
     n_samples=100,

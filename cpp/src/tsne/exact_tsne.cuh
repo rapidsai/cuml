@@ -126,8 +126,10 @@ void Exact_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
       min_gain, gradient.data(), check_convergence, stream);
 
     if (check_convergence) {
-      CUML_LOG_DEBUG("Z at iter = %d = %f and gradient norm = %f", iter, Z,
-                     gradient_norm);
+      if (iter % 100 == 0) {
+        CUML_LOG_DEBUG("Z at iter = %d = %f and gradient norm = %f", iter, Z,
+                       gradient_norm);
+      }
       if (gradient_norm < min_grad_norm) {
         CUML_LOG_DEBUG(
           "Gradient norm = %f <= min_grad_norm = %f. Early stopped at iter = "
@@ -136,7 +138,9 @@ void Exact_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
         break;
       }
     } else {
-      CUML_LOG_DEBUG("Z at iter = %d = %f", iter, Z);
+      if (iter % 100 == 0) {
+        CUML_LOG_DEBUG("Z at iter = %d = %f", iter, Z);
+      }
     }
   }
 }

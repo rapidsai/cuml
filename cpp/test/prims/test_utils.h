@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -77,8 +77,8 @@ template <typename T, typename L>
 testing::AssertionResult devArrMatch(const T *expected, const T *actual,
                                      size_t size, L eq_compare,
                                      cudaStream_t stream = 0) {
-  std::shared_ptr<T> exp_h(new T[size]);
-  std::shared_ptr<T> act_h(new T[size]);
+  std::unique_ptr<T[]> exp_h(new T[size]);
+  std::unique_ptr<T[]> act_h(new T[size]);
   raft::update_host<T>(exp_h.get(), expected, size, stream);
   raft::update_host<T>(act_h.get(), actual, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -96,7 +96,7 @@ testing::AssertionResult devArrMatch(const T *expected, const T *actual,
 template <typename T, typename L>
 testing::AssertionResult devArrMatch(T expected, const T *actual, size_t size,
                                      L eq_compare, cudaStream_t stream = 0) {
-  std::shared_ptr<T> act_h(new T[size]);
+  std::unique_ptr<T[]> act_h(new T[size]);
   raft::update_host<T>(act_h.get(), actual, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   for (size_t i(0); i < size; ++i) {
@@ -114,8 +114,8 @@ testing::AssertionResult devArrMatch(const T *expected, const T *actual,
                                      size_t rows, size_t cols, L eq_compare,
                                      cudaStream_t stream = 0) {
   size_t size = rows * cols;
-  std::shared_ptr<T> exp_h(new T[size]);
-  std::shared_ptr<T> act_h(new T[size]);
+  std::unique_ptr<T[]> exp_h(new T[size]);
+  std::unique_ptr<T[]> act_h(new T[size]);
   raft::update_host<T>(exp_h.get(), expected, size, stream);
   raft::update_host<T>(act_h.get(), actual, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -139,7 +139,7 @@ testing::AssertionResult devArrMatch(T expected, const T *actual, size_t rows,
                                      size_t cols, L eq_compare,
                                      cudaStream_t stream = 0) {
   size_t size = rows * cols;
-  std::shared_ptr<T> act_h(new T[size]);
+  std::unique_ptr<T[]> act_h(new T[size]);
   raft::update_host<T>(act_h.get(), actual, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   for (size_t i(0); i < rows; ++i) {
@@ -171,7 +171,7 @@ template <typename T, typename L>
 testing::AssertionResult devArrMatchHost(const T *expected_h, const T *actual_d,
                                          size_t size, L eq_compare,
                                          cudaStream_t stream = 0) {
-  std::shared_ptr<T> act_h(new T[size]);
+  std::unique_ptr<T[]> act_h(new T[size]);
   raft::update_host<T>(act_h.get(), actual_d, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   bool ok = true;
@@ -203,7 +203,7 @@ testing::AssertionResult diagonalMatch(T expected, const T *actual, size_t rows,
                                        size_t cols, L eq_compare,
                                        cudaStream_t stream = 0) {
   size_t size = rows * cols;
-  std::shared_ptr<T> act_h(new T[size]);
+  std::unique_ptr<T[]> act_h(new T[size]);
   raft::update_host<T>(act_h.get(), actual, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   for (size_t i(0); i < rows; ++i) {
