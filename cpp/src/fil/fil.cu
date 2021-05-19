@@ -1028,7 +1028,7 @@ char* sprintf_shape(const tl::ModelImpl<threshold_t, leaf_t>& model,
                    nodes.size() * sizeof(nodes.front())) /
                   1e6;
   forest_shape << storage_type_repr[storage] << " model size "
-               << std::setprecision(2) << size_mb << std::endl;
+               << std::setprecision(2) << size_mb << " MB" << std::endl;
   // stream may be discontiguous
   std::string forest_shape_str = forest_shape.str();
   // now copy to a non-owning allocation
