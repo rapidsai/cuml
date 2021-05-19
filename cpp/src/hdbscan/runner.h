@@ -46,18 +46,6 @@ __global__ void set_core_dists(value_idx *rows, value_idx *cols, value_t *vals,
   }
 }
 
-template <typename value_idx, typename value_t>
-struct MSTEpilogueReachability {
-  value_t *core_distances;
-  value_idx m;
-
-  MSTEpilogueReachability(value_idx m_, value_t *core_distances_)
-    : core_distances(core_distances_), m(m_) {}
-
-  void operator()(const raft::handle_t &handle, value_idx *coo_rows,
-                  value_idx *coo_cols, value_t *coo_data, value_idx nnz) {}
-};
-
 /**
  * Functor with reduction ops for performing fused 1-nn
  * computation and guaranteeing only cross-component
@@ -134,16 +122,11 @@ void build_linkage(
     params.alpha, mutual_reachability_indptr.data(), core_dists.data(),
     mutual_reachability_coo);
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  CUML_LOG_DEBUG("Executed mutual reachability");
-
   /**
    * Construct MST sorted by weights
    */
 
   rmm::device_uvector<value_idx> color(m, stream);
-  MSTEpilogueReachability<value_idx, value_t> core_dist_epilogue(
-    m, core_dists.data());
   FixConnectivitiesRedOp<value_idx, value_t> red_op(color.data(),
                                                     core_dists.data(), m);
   // during knn graph connection
@@ -151,11 +134,7 @@ void build_linkage(
     handle, X, mutual_reachability_indptr.data(),
     mutual_reachability_coo.cols(), mutual_reachability_coo.vals(), m, n,
     out.get_mst_src(), out.get_mst_dst(), out.get_mst_weights(), color.data(),
-    mutual_reachability_coo.nnz, core_dist_epilogue, red_op, metric,
-    (size_t)10);
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  CUML_LOG_DEBUG("Executed MST");
+    mutual_reachability_coo.nnz, red_op, metric, (size_t)10);
 
   /**
    * Perform hierarchical labeling
@@ -165,9 +144,6 @@ void build_linkage(
   raft::hierarchy::detail::build_dendrogram_host(
     handle, out.get_mst_src(), out.get_mst_dst(), out.get_mst_weights(),
     n_edges, out.get_children(), out.get_deltas(), out.get_sizes());
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  CUML_LOG_DEBUG("Executed dendrogram labeling");
 }
 
 template <typename value_idx = int64_t, typename value_t = float>
@@ -191,9 +167,6 @@ void _fit_hdbscan(const raft::handle_t &handle, const value_t *X, size_t m,
 
   out.set_n_clusters(out.get_condensed_tree().get_n_clusters());
 
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  CUML_LOG_DEBUG("Executed hierarchy condensing");
-
   /**
    * Extract labels from stability
    */
@@ -202,9 +175,6 @@ void _fit_hdbscan(const raft::handle_t &handle, const value_t *X, size_t m,
     out.get_stabilities(), out.get_probabilities(),
     params.cluster_selection_method, params.allow_single_cluster,
     params.max_cluster_size, params.cluster_selection_epsilon);
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  CUML_LOG_DEBUG("Executed cluster extraction");
 }
 
 template <typename value_idx = int64_t, typename value_t = float>
@@ -221,9 +191,6 @@ void _fit_rsl(const raft::handle_t &handle, const value_t *X, size_t m,
     handle, out.get_children(), out.get_deltas(), out.get_n_leaves(),
     params.cluster_selection_epsilon, params.min_cluster_size,
     out.get_labels());
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  CUML_LOG_DEBUG("Executed rsl labeling");
 }
 
 };  // end namespace HDBSCAN

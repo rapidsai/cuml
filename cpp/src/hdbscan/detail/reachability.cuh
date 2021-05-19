@@ -220,8 +220,6 @@ void mutual_reachability_knn_l2(const raft::handle_t &handle,
 
   int numColTiles = raft::ceildiv(m, (size_t)tileCols);
 
-  printf("tileRows=%d, tileCols=%d\n", tileRows, tileCols);
-
   faiss::gpu::DeviceTensor<value_t, 2, true> distanceBuf1(
     gpu_res, faiss::gpu::makeTempAlloc(faiss::gpu::AllocType::Other, stream),
     {tileRows, tileCols});
@@ -422,19 +420,11 @@ void mutual_reachability_graph(const raft::handle_t &handle, const value_t *X,
   // Slice core distances (distances to kth nearest neighbor)
   core_distances(dists.data(), k, min_samples, m, core_dists, stream);
 
-  raft::print_device_vector("core_dists", core_dists, min(25, (int)m),
-                            std::cout);
-
   /**
    * Compute L2 norm
    */
   mutual_reachability_knn_l2(handle, inds.data(), dists.data(), X, m, n, k,
                              core_dists);
-
-  raft::print_device_vector("inds", inds.data(), min(25, (int)inds.size()),
-                            std::cout);
-  raft::print_device_vector("dists", dists.data(), min(25, (int)dists.size()),
-                            std::cout);
 
   raft::sparse::selection::fill_indices<value_idx>
     <<<raft::ceildiv(k * m, (size_t)256), 256, 0, stream>>>(coo_rows.data(), k,
@@ -453,11 +443,6 @@ void mutual_reachability_graph(const raft::handle_t &handle, const value_t *X,
   thrust::transform(
     exec_policy, transform_in, transform_in + out.nnz, out.vals(),
     [=] __device__(const thrust::tuple<value_idx, value_idx, value_t> &tup) {
-      if (thrust::get<2>(tup) >= std::numeric_limits<value_t>::max() - 500.0) {
-        printf("i=%d, j=%d, d=%f\n", thrust::get<0>(tup), thrust::get<1>(tup),
-               thrust::get<2>(tup));
-      }
-
       bool self_loop = thrust::get<0>(tup) == thrust::get<1>(tup);
       return (self_loop * std::numeric_limits<value_t>::max()) +
              (!self_loop * thrust::get<2>(tup));

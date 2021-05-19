@@ -163,6 +163,9 @@ void do_labelling_on_host(
 
   raft::update_device(labels, result.data(), n_leaves, stream);
 
+  // TODO: Need to nornalize the labels so they are pulled from a
+  // monotonically increasing set, but need to make sure the first
+  // label starts at 0 in the face of noise.
   //  CUML_LOG_DEBUG("Calling make_monotonic");
   //  raft::label::make_monotonic(labels, labels, n_leaves, stream,
   //                              [] __device__(value_idx label) { return label == -1; },
@@ -272,7 +275,6 @@ void extract_clusters(
   rmm::device_uvector<value_t> tree_stabilities(condensed_tree.get_n_clusters(),
                                                 handle.get_stream());
 
-  CUML_LOG_DEBUG("Computing stabilities");
   Stability::compute_stabilities(handle, condensed_tree,
                                  tree_stabilities.data());
 
@@ -284,7 +286,6 @@ void extract_clusters(
   if (max_cluster_size <= 0)
     max_cluster_size = n_leaves;  // negates the max cluster size
 
-  CUML_LOG_DEBUG("Cluster selection");
   Select::select_clusters(handle, condensed_tree, tree_stabilities.data(),
                           is_cluster.data(), cluster_selection_method,
                           allow_single_cluster, max_cluster_size,
@@ -302,16 +303,16 @@ void extract_clusters(
     }
   }
 
-  CUML_LOG_DEBUG("Cluster labeling. n_clusters=%d", clusters.size());
   do_labelling_on_host<value_idx, value_t>(handle, condensed_tree, clusters,
                                            n_leaves, allow_single_cluster,
                                            labels, cluster_selection_epsilon);
 
   value_idx n_selected_clusters = clusters.size();
 
-  CUML_LOG_DEBUG("Computing probabilities");
   Membership::get_probabilities<value_idx, value_t>(handle, condensed_tree,
                                                     labels, probabilities);
+
+  // TODO: Compute stability scores (below)
 
   //  auto lambdas_ptr = thrust::device_pointer_cast(condensed_tree.get_lambdas());
   //  value_t max_lambda = *(thrust::max_element(

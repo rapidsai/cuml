@@ -193,28 +193,22 @@ void excess_of_mass(
     raft::update_host(indptr_h.data(), indptr.data(), indptr.size(), stream);
   // don't need to sync here- thrust should take care of it.
 
-  CUML_LOG_DEBUG("About to run through cluster tree");
-
   // Loop through stabilities in "reverse topological order" (e.g. reverse sorted order)
   value_idx tree_top = allow_single_cluster ? 0 : 1;
   for (value_idx node = n_clusters - 1; node >= tree_top; node--) {
     value_t node_stability = 0.0;
 
-    CUML_LOG_DEBUG("Updating host");
     raft::update_host(&node_stability, stability + node, 1, stream);
 
     value_t subtree_stability = 0.0;
 
     if (indptr_h[node + 1] - indptr_h[node] > 0) {
-      CUML_LOG_DEBUG("Computing subtree staiblity");
-      // TODO: VERIFY THIS IS WORKING!!!
       subtree_stability = thrust::transform_reduce(
         exec_policy, children + indptr_h[node], children + indptr_h[node + 1],
         [=] __device__(value_idx a) { return stability[a]; }, 0.0,
         thrust::plus<value_t>());
     }
 
-    CUML_LOG_DEBUG("Testing subtree / node stability");
     if (subtree_stability > node_stability ||
         cluster_sizes_h[node] > max_cluster_size) {
       // Deselect / merge cluster with children
@@ -226,7 +220,6 @@ void excess_of_mass(
     }
   }
 
-  CUML_LOG_DEBUG("Finished running through cluster tree");
   /**
    * 3. Perform BFS through is_cluster, propagating cluster
    * "deselection" through subtrees
@@ -239,8 +232,6 @@ void excess_of_mass(
 
   perform_bfs(handle, indptr.data(), children, frontier.data(), is_cluster,
               n_clusters, propagate_cluster_negation_kernel<value_idx>);
-
-  CUML_LOG_DEBUG("Finished EOM");
 }
 
 /**
@@ -388,15 +379,12 @@ void select_clusters(
 
   auto n_clusters = condensed_tree.get_n_clusters();
 
-  CUML_LOG_DEBUG("Building cluster tree: n_clusters=%d", n_clusters);
   auto cluster_tree = Utils::make_cluster_tree(handle, condensed_tree);
 
   if (cluster_selection_method == Common::CLUSTER_SELECTION_METHOD::EOM) {
     Select::excess_of_mass(handle, cluster_tree, tree_stabilities, is_cluster,
                            n_clusters, max_cluster_size, allow_single_cluster);
   } else {
-    CUML_LOG_DEBUG("Running leaf seleciton method");
-
     thrust::fill(thrust_policy, is_cluster, is_cluster + n_clusters, false);
     if (cluster_tree.get_n_edges() > 0) {
       Select::leaf(handle, cluster_tree, is_cluster, n_clusters);
@@ -437,8 +425,6 @@ void select_clusters(
                                      allow_single_cluster);
     }
   }
-
-  CUML_LOG_DEBUG("Finished selection");
 }
 
 };  // namespace Select
