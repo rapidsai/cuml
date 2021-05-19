@@ -360,7 +360,7 @@ def test_logistic_regression_model_digits(
     # smallest sklearn score
     # put it as a constant here, because sklearn 0.23.1 needs a lot of iters
     # to converge and has a bug returning an unrelated error if not converged.
-    acceptable = 0.95
+    acceptable_score = 0.95
 
     digits = load_digits()
 
@@ -376,8 +376,7 @@ def test_logistic_regression_model_digits(
     culog.fit(X_train, y_train)
     score = culog.score(X_test, y_test)
 
-    assert score >= acceptable, \
-        f"Computed score ({score}) is smaller than acceptable ({acceptable})"
+    assert score >= acceptable_score
 
 
 @pytest.mark.parametrize("dtype, nrows, num_classes, fit_intercept", [

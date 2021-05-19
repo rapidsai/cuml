@@ -468,7 +468,7 @@ class QN(Base,
         # Handle dense inputs
         else:
             X_m, n_rows, self.n_cols, self.dtype = input_to_cuml_array(
-                X, check_dtype=[np.float32, np.float64]
+                X, check_dtype=[np.float32, np.float64], order='K'
             )
 
         y_m, lab_rows, _, _ = input_to_cuml_array(
@@ -555,7 +555,7 @@ class QN(Base,
                 qnFit(
                     handle_[0],
                     <float*><uintptr_t> X_m.ptr,
-                    <bool> (X_m.order == 'F'),
+                    <bool> __is_col_major(X_m),
                     <float*> y_ptr,
                     <int> n_rows,
                     <int> self.n_cols,
@@ -608,7 +608,7 @@ class QN(Base,
                 qnFit(
                     handle_[0],
                     <double*><uintptr_t> X_m.ptr,
-                    <bool> (X_m.order == 'F'),
+                    <bool> __is_col_major(X_m),
                     <double*> y_ptr,
                     <int> n_rows,
                     <int> self.n_cols,
@@ -677,7 +677,8 @@ class QN(Base,
             X_m, n_rows, n_cols, self.dtype = input_to_cuml_array(
                 X, check_dtype=self.dtype,
                 convert_to_dtype=(self.dtype if convert_dtype else None),
-                check_cols=self.n_cols
+                check_cols=self.n_cols,
+                order='K'
             )
 
         scores = CumlArray.zeros(shape=(self._num_classes_dim, n_rows),
@@ -707,7 +708,7 @@ class QN(Base,
                 qnDecisionFunction(
                     handle_[0],
                     <float*><uintptr_t> X_m.ptr,
-                    <bool> (X_m.order == 'F'),
+                    <bool> __is_col_major(X_m),
                     <int> n_rows,
                     <int> n_cols,
                     <int> self._num_classes,
@@ -735,7 +736,7 @@ class QN(Base,
                 qnDecisionFunction(
                     handle_[0],
                     <double*><uintptr_t> X_m.ptr,
-                    <bool> (X_m.order == 'F'),
+                    <bool> __is_col_major(X_m),
                     <int> n_rows,
                     <int> n_cols,
                     <int> self._num_classes,
@@ -776,7 +777,8 @@ class QN(Base,
             X_m, n_rows, n_cols, self.dtype = input_to_cuml_array(
                 X, check_dtype=self.dtype,
                 convert_to_dtype=(self.dtype if convert_dtype else None),
-                check_cols=self.n_cols
+                check_cols=self.n_cols,
+                order='K'
             )
 
         preds = CumlArray.zeros(shape=n_rows, dtype=self.dtype)
@@ -804,7 +806,7 @@ class QN(Base,
                 qnPredict(
                     handle_[0],
                     <float*><uintptr_t> X_m.ptr,
-                    <bool> (X_m.order == 'F'),
+                    <bool> __is_col_major(X_m),
                     <int> n_rows,
                     <int> n_cols,
                     <int> self._num_classes,
@@ -832,7 +834,7 @@ class QN(Base,
                 qnPredict(
                     handle_[0],
                     <double*><uintptr_t> X_m.ptr,
-                    <bool> (X_m.order == 'F'),
+                    <bool> __is_col_major(X_m),
                     <int> n_rows,
                     <int> n_cols,
                     <int> self._num_classes,
@@ -869,3 +871,7 @@ class QN(Base,
             ['loss', 'fit_intercept', 'l1_strength', 'l2_strength',
                 'max_iter', 'tol', 'linesearch_max_iter', 'lbfgs_memory',
                 'warm_start', 'delta']
+
+
+def __is_col_major(X):
+    return getattr(X, "order", "F").upper() == "F"
