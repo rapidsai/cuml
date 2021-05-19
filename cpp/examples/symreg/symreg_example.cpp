@@ -366,17 +366,17 @@ int main(int argc, char* argv[]){
   
   std::cout << " Fitness score for best program : " << h_score << std::endl;
   
-  // // Free up device memory
-  // CUDA_RT_CALL(cudaFree(d_traindata));
-  // CUDA_RT_CALL(cudaFree(d_trainlabels));
-  // CUDA_RT_CALL(cudaFree(d_trainweights));
-  // CUDA_RT_CALL(cudaFree(d_testdata));
-  // CUDA_RT_CALL(cudaFree(d_testlabels));
-  // CUDA_RT_CALL(cudaFree(d_testweights));
-  // CUDA_RT_CALL(cudaFree(d_predlabels));
-  // CUDA_RT_CALL(cudaFree(d_score));
-  // handle.get_device_allocator()->deallocate(d_finalprogs,
-  //                               sizeof(cuml::genetic::program) * params.population_size, stream);
-  // CUDA_RT_CALL(cudaStreamDestroy(stream));
+  // Free up device memory
+  CUDA_RT_CALL(cudaFree(d_traindata));
+  CUDA_RT_CALL(cudaFree(d_trainlabels));
+  CUDA_RT_CALL(cudaFree(d_trainweights));
+  CUDA_RT_CALL(cudaFree(d_testdata));
+  CUDA_RT_CALL(cudaFree(d_testlabels));
+  CUDA_RT_CALL(cudaFree(d_testweights));
+  CUDA_RT_CALL(cudaFree(d_predlabels));
+  CUDA_RT_CALL(cudaFree(d_score));
+  handle.get_device_allocator()->deallocate(d_finalprogs,
+                                sizeof(cuml::genetic::program) * params.population_size, stream);
+  CUDA_RT_CALL(cudaStreamDestroy(stream));
   return 0;
 }
