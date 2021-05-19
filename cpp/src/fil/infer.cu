@@ -17,7 +17,6 @@
 #include <algorithm>
 #include <cmath>
 
-#include <cuml/common/int_fastdiv.h>
 #include <thrust/functional.h>
 #include <cuml/fil/multi_sum.cuh>
 #include "common.cuh"
@@ -547,7 +546,6 @@ __global__ void infer_k(storage_type forest, predict_params params) {
   int sdata_stride = params.sdata_stride();
   int rows_per_block = NITEMS << params.log2_threads_per_tree;
   int num_cols = params.num_cols;
-  int_fastdiv if_num_cols(num_cols);
   int thread_row0 = NITEMS * modpow2(threadIdx.x, params.log2_threads_per_tree);
   for (long long block_row0 = blockIdx.x * rows_per_block;
        block_row0 < params.num_rows; block_row0 += rows_per_block * gridDim.x) {
@@ -556,14 +554,17 @@ __global__ void infer_k(storage_type forest, predict_params params) {
     const float* block_input = params.data + block_row0 * num_cols;
     if (cols_in_shmem) {
       // cache the row for all threads to reuse
+      // 2021: latest SMs still do not have >262KB of shared memory/block required to
+      // exceed the unsigned short
 #pragma unroll
-      for (int input_idx = threadIdx.x; input_idx < block_num_rows * num_cols;
-           input_idx += blockDim.x) {
+      for (unsigned short input_idx = threadIdx.x;
+           input_idx < block_num_rows * num_cols; input_idx += blockDim.x) {
         // assuming here that sdata_stride == num_cols + 1
         // then, idx / num_cols * sdata_stride + idx % num_cols == idx + idx / num_cols
-        int sdata_idx = sdata_stride == num_cols
-                          ? input_idx
-                          : input_idx + input_idx / if_num_cols;
+        unsigned short sdata_idx =
+          sdata_stride == num_cols
+            ? input_idx
+            : input_idx + input_idx / (unsigned short)num_cols;
         sdata[sdata_idx] = block_input[input_idx];
       }
 #pragma unroll

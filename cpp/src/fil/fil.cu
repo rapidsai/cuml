@@ -79,6 +79,8 @@ struct forest {
     int max_shm = 0;
     CUDA_CHECK(cudaDeviceGetAttribute(
       &max_shm, cudaDevAttrMaxSharedMemoryPerBlockOptin, device));
+    ASSERT(max_shm < 262144, "internal error: please use a larger type inside"
+                             " infer_k for column count");
     // TODO(canonizer): use >48KiB shared memory if available
     max_shm = std::min(max_shm, max_shm_std);
 
