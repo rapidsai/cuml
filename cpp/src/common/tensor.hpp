@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,8 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/host/allocator.hpp>
 #include <vector>
 
 namespace ML {
@@ -59,7 +60,7 @@ class Tensor {
   // allocate the data using the allocator and release when the object goes out of scope
   // allocating tensor is the owner of the data
   __host__ Tensor(const std::vector<IndexT> &sizes,
-                  std::shared_ptr<MLCommon::deviceAllocator> allocator,
+                  std::shared_ptr<raft::mr::device::allocator> allocator,
                   cudaStream_t stream)
     : _stream(stream), _dAllocator(allocator), _state(AllocState::Owner) {
     static_assert(Dim > 0, "must have > 0 dimensions");
@@ -166,8 +167,8 @@ class Tensor {
   };
 
  protected:
-  std::shared_ptr<MLCommon::deviceAllocator> _dAllocator;
-  std::shared_ptr<MLCommon::hostAllocator> _hAllocator;
+  std::shared_ptr<raft::mr::device::allocator> _dAllocator;
+  std::shared_ptr<raft::mr::host::allocator> _hAllocator;
 
   /// Raw pointer to where the tensor data begins
   DataPtrT _data;

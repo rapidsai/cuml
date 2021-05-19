@@ -180,7 +180,7 @@ class LinearRegression(Base,
         is a regression task (predicting a continuous variable).
 
     For additional information, see `scikitlearn's OLS documentation
-    <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
+    <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`__.
 
     For an additional example see `the OLS notebook
     <https://github.com/rapidsai/cuml/blob/branch-0.15/notebooks/linear_regression_demo.ipynb>`_.
@@ -191,11 +191,11 @@ class LinearRegression(Base,
     coef_ = CumlArrayDescriptor()
     intercept_ = CumlArrayDescriptor()
 
-    def __init__(self, algorithm='eig', fit_intercept=True, normalize=False,
+    def __init__(self, *, algorithm='eig', fit_intercept=True, normalize=False,
                  handle=None, verbose=False, output_type=None):
-        super(LinearRegression, self).__init__(handle=handle,
-                                               verbose=verbose,
-                                               output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
 
         # internal array attributes
         self.coef_ = None

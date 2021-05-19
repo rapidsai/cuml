@@ -25,8 +25,9 @@
 #include <cuml/tree/decisiontree.hpp>
 #include <map>
 #include <numeric>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/host/allocator.hpp>
 #include <vector>
-#include "memory.h"
 
 /** check for treelite runtime API errors and assert accordingly */
 #define TREELITE_CHECK(call)                                            \
@@ -35,6 +36,9 @@
     ASSERT(status >= 0, "TREELITE FAIL: call='%s'. Reason:%s\n", #call, \
            TreeliteGetLastError());                                     \
   } while (0)
+
+template <class T, class L>
+struct TemporaryMemory;
 
 namespace ML {
 
@@ -98,13 +102,13 @@ class DecisionTreeBase {
     const int treeid, std::shared_ptr<TemporaryMemory<T, L>> tempmem) = 0;
 
   void base_fit(
-    const std::shared_ptr<MLCommon::deviceAllocator> device_allocator_in,
-    const std::shared_ptr<MLCommon::hostAllocator> host_allocator_in,
+    const std::shared_ptr<raft::mr::device::allocator> device_allocator_in,
+    const std::shared_ptr<raft::mr::host::allocator> host_allocator_in,
     const cudaStream_t stream_in, const T *data, const int ncols,
     const int nrows, const L *labels, unsigned int *rowids,
     const int n_sampled_rows, int unique_labels,
     std::vector<SparseTreeNode<T, L>> &sparsetree, const int treeid,
-    uint64_t seed, bool is_classifier,
+    uint64_t seed, bool is_classifier, T *d_global_quantiles,
     std::shared_ptr<TemporaryMemory<T, L>> in_tempmem);
 
  public:
@@ -138,17 +142,19 @@ class DecisionTreeClassifier : public DecisionTreeBase<T, int> {
            const int nrows, const int *labels, unsigned int *rowids,
            const int n_sampled_rows, const int unique_labels,
            TreeMetaDataNode<T, int> *&tree, DecisionTreeParams tree_parameters,
-           uint64_t seed,
+           uint64_t seed, T *d_quantiles,
            std::shared_ptr<TemporaryMemory<T, int>> in_tempmem = nullptr);
 
   //This fit fucntion does not take handle , used by RF
-  void fit(const std::shared_ptr<MLCommon::deviceAllocator> device_allocator_in,
-           const std::shared_ptr<MLCommon::hostAllocator> host_allocator_in,
-           const cudaStream_t stream_in, const T *data, const int ncols,
-           const int nrows, const int *labels, unsigned int *rowids,
-           const int n_sampled_rows, const int unique_labels,
-           TreeMetaDataNode<T, int> *&tree, DecisionTreeParams tree_parameters,
-           uint64_t seed, std::shared_ptr<TemporaryMemory<T, int>> in_tempmem);
+  void fit(
+    const std::shared_ptr<raft::mr::device::allocator> device_allocator_in,
+    const std::shared_ptr<raft::mr::host::allocator> host_allocator_in,
+    const cudaStream_t stream_in, const T *data, const int ncols,
+    const int nrows, const int *labels, unsigned int *rowids,
+    const int n_sampled_rows, const int unique_labels,
+    TreeMetaDataNode<T, int> *&tree, DecisionTreeParams tree_parameters,
+    uint64_t seed, T *d_quantiles,
+    std::shared_ptr<TemporaryMemory<T, int>> in_tempmem);
 
  private:
   void grow_deep_tree(const T *data, const int *labels, unsigned int *rowids,
@@ -166,17 +172,18 @@ class DecisionTreeRegressor : public DecisionTreeBase<T, T> {
   void fit(const raft::handle_t &handle, const T *data, const int ncols,
            const int nrows, const T *labels, unsigned int *rowids,
            const int n_sampled_rows, TreeMetaDataNode<T, T> *&tree,
-           DecisionTreeParams tree_parameters, uint64_t seed,
+           DecisionTreeParams tree_parameters, uint64_t seed, T *d_quantiles,
            std::shared_ptr<TemporaryMemory<T, T>> in_tempmem = nullptr);
 
   //This fit function does not take handle. Used by RF
-  void fit(const std::shared_ptr<MLCommon::deviceAllocator> device_allocator_in,
-           const std::shared_ptr<MLCommon::hostAllocator> host_allocator_in,
-           const cudaStream_t stream_in, const T *data, const int ncols,
-           const int nrows, const T *labels, unsigned int *rowids,
-           const int n_sampled_rows, TreeMetaDataNode<T, T> *&tree,
-           DecisionTreeParams tree_parameters, uint64_t seed,
-           std::shared_ptr<TemporaryMemory<T, T>> in_tempmem);
+  void fit(
+    const std::shared_ptr<raft::mr::device::allocator> device_allocator_in,
+    const std::shared_ptr<raft::mr::host::allocator> host_allocator_in,
+    const cudaStream_t stream_in, const T *data, const int ncols,
+    const int nrows, const T *labels, unsigned int *rowids,
+    const int n_sampled_rows, TreeMetaDataNode<T, T> *&tree,
+    DecisionTreeParams tree_parameters, uint64_t seed, T *d_quantiles,
+    std::shared_ptr<TemporaryMemory<T, T>> in_tempmem);
 
  private:
   void grow_deep_tree(const T *data, const T *labels, unsigned int *rowids,

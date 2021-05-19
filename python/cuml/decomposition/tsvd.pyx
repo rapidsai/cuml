@@ -248,12 +248,13 @@ class TruncatedSVD(Base,
     explained_variance_ratio_ = CumlArrayDescriptor()
     singular_values_ = CumlArrayDescriptor()
 
-    def __init__(self, algorithm='full', handle=None, n_components=1,
+    def __init__(self, *, algorithm='full', handle=None, n_components=1,
                  n_iter=15, random_state=None, tol=1e-7,
                  verbose=False, output_type=None):
         # params
-        super(TruncatedSVD, self).__init__(handle=handle, verbose=verbose,
-                                           output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
         self.algorithm = algorithm
         self.n_components = n_components
         self.n_iter = n_iter

@@ -24,8 +24,6 @@
 
 namespace ML {
 
-using namespace MLCommon;
-
 struct RfInputs {
   int n_rows;
   int n_cols;
@@ -52,15 +50,13 @@ class RFBatchedClsTest : public ::testing::TestWithParam<RfInputs> {
   void basicTest() {
     params = ::testing::TestWithParam<RfInputs>::GetParam();
 
-    DecisionTree::DecisionTreeParams tree_params;
-    set_tree_params(tree_params, params.max_depth, params.max_leaves,
-                    params.max_features, params.n_bins, params.split_algo,
-                    params.min_samples_leaf, params.min_samples_split,
-                    params.min_impurity_decrease, params.bootstrap_features,
-                    params.split_criterion, false, true);
     RF_params rf_params;
-    set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
-                      params.max_samples, 0, params.n_streams, tree_params);
+    rf_params = set_rf_params(
+      params.max_depth, params.max_leaves, params.max_features, params.n_bins,
+      params.split_algo, params.min_samples_leaf, params.min_samples_split,
+      params.min_impurity_decrease, params.bootstrap_features, params.bootstrap,
+      params.n_trees, params.max_samples, 0, params.split_criterion, false,
+      params.n_streams, true, 128);
 
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.reset(new raft::handle_t(rf_params.n_streams));

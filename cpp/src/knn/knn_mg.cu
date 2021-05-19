@@ -35,8 +35,7 @@ void knn(raft::handle_t &handle, std::vector<Matrix::Data<int64_t> *> *out_I,
     knn_operation::knn, &idx_data, &idx_desc, &query_data, &query_desc,
     rowMajorIndex, rowMajorQuery, k, batch_size, verbose, out_D, out_I);
 
-  cuda_utils cutils(handle);
-  opg_knn(params, cutils);
+  opg_knn(params, handle);
 }
 };  // namespace opg
 };  // namespace KNN

@@ -15,44 +15,78 @@
  */
 
 #include <algorithm>
+#include <cmath>
+
+#include <thrust/functional.h>
 #include <cuml/fil/multi_sum.cuh>
 #include "common.cuh"
 
 namespace ML {
 namespace fil {
 
-using namespace MLCommon;
-
 // vec wraps float[N] for cub::BlockReduce
 template <int N, typename T>
+struct vec;
+
+template <typename BinaryOp>
+struct Vectorized {
+  BinaryOp op;
+  __device__ Vectorized(BinaryOp op_) : op(op_) {}
+  template <int NITEMS, typename T>
+  constexpr __host__ __device__ __forceinline__ vec<NITEMS, T> operator()(
+    vec<NITEMS, T> a, vec<NITEMS, T> b) const {
+    vec<NITEMS, T> c;
+#pragma unroll
+    for (int i = 0; i < NITEMS; i++) c[i] = op(a[i], b[i]);
+    return c;
+  }
+};
+template <typename BinaryOp>
+constexpr __host__ __device__ Vectorized<BinaryOp> vectorized(BinaryOp op) {
+  return op;
+}
+
+template <int N, typename T>
 struct vec {
+  static const int NITEMS = N;
   T data[N];
-  explicit __host__ __device__ vec(T t = T()) {
+  explicit __host__ __device__ vec(T t) {
 #pragma unroll
     for (int i = 0; i < N; ++i) data[i] = t;
   }
+  __host__ __device__ vec() : vec(T()) {}
   __host__ __device__ T& operator[](int i) { return data[i]; }
   __host__ __device__ T operator[](int i) const { return data[i]; }
-  friend __host__ __device__ void operator+=(vec<N, T>& a, const vec<N, T>& b) {
-#pragma unroll
-    for (int i = 0; i < N; ++i) a[i] += b[i];
-  }
   friend __host__ __device__ vec<N, T> operator+(const vec<N, T>& a,
                                                  const vec<N, T>& b) {
-    vec<N, T> r = a;
-    r += b;
-    return r;
+    return vectorized(cub::Sum())(a, b);
+  }
+  friend __host__ __device__ void operator+=(vec<N, T>& a, const vec<N, T>& b) {
+    a = a + b;
+  }
+  template <typename Vec>
+  friend __host__ __device__ vec<N, T> operator/(vec<N, T>& a, const Vec& b) {
+    return vectorized(thrust::divides<T>())(a, vec<N, T>(b));
+  }
+  template <typename Vec>
+  friend __host__ __device__ void operator/=(vec<N, T>& a, const Vec& b) {
+    a = a / b;
   }
 };
 
-typedef cub::KeyValuePair<int, float> best_margin_label;
+struct best_margin_label : cub::KeyValuePair<int, float> {
+  __host__ __device__ best_margin_label(cub::KeyValuePair<int, float> pair)
+    : cub::KeyValuePair<int, float>(pair) {}
+  __host__ __device__ best_margin_label(int c = 0, float f = -INFINITY)
+    : cub::KeyValuePair<int, float>({c, f}) {}
+};
 
 template <int NITEMS>
 __device__ __forceinline__ vec<NITEMS, best_margin_label> to_vec(
   int c, vec<NITEMS, float> margin) {
   vec<NITEMS, best_margin_label> ret;
 #pragma unroll
-  for (int i = 0; i < NITEMS; i++) ret[i] = best_margin_label(c, margin[i]);
+  for (int i = 0; i < NITEMS; ++i) ret[i] = best_margin_label(c, margin[i]);
   return ret;
 }
 
@@ -134,13 +168,6 @@ __device__ __forceinline__ vec<1, output_type> infer_one_tree(
   return out;
 }
 
-// the device template should achieve the best performance, using up-to-date
-// CUB defaults
-template <int NITEMS>
-using BlockReduce = typename cub::BlockReduce<vec<NITEMS, float>, FIL_TPB>;
-template <int NITEMS>
-using BlockReduceBestClass =
-  typename cub::BlockReduce<vec<NITEMS, best_margin_label>, FIL_TPB>;
 /**
 The shared memory requirements for finalization stage may differ based
 on the set of PTX architectures the kernels were compiled for, as well as 
@@ -157,13 +184,28 @@ See https://rapids.ai/start.html as well as cmake defaults.
 */
 // values below are defaults as of this change.
 template <int NITEMS>
-using BlockReduceHost =
-  typename cub::BlockReduce<vec<NITEMS, float>, FIL_TPB,
-                            cub::BLOCK_REDUCE_WARP_REDUCTIONS, 1, 1, 600>;
+size_t block_reduce_footprint_host() {
+  return sizeof(typename cub::BlockReduce<vec<NITEMS, float>, FIL_TPB,
+                                          cub::BLOCK_REDUCE_WARP_REDUCTIONS, 1,
+                                          1, 600>::TempStorage);
+}
+
 template <int NITEMS>
-using BlockReduceHostBestClass =
-  typename cub::BlockReduce<vec<NITEMS, best_margin_label>, FIL_TPB,
-                            cub::BLOCK_REDUCE_WARP_REDUCTIONS, 1, 1, 600>;
+size_t block_reduce_best_class_footprint_host() {
+  return sizeof(
+    typename cub::BlockReduce<vec<NITEMS, best_margin_label>, FIL_TPB,
+                              cub::BLOCK_REDUCE_WARP_REDUCTIONS, 1, 1,
+                              600>::TempStorage);
+}
+
+// the device template should achieve the best performance, using up-to-date
+// CUB defaults
+template <typename T, typename BinaryOp>
+__device__ __forceinline__ T block_reduce(T value, BinaryOp op, void* storage) {
+  typedef cub::BlockReduce<T, FIL_TPB> BlockReduceT;
+  return BlockReduceT(*(typename BlockReduceT::TempStorage*)storage)
+    .Reduce(value, op, blockDim.x);
+}
 
 template <int NITEMS,
           leaf_algo_t leaf_algo>  // = FLOAT_UNARY_BINARY
@@ -175,8 +217,9 @@ struct tree_aggregator_t {
   the finalization of forest inference kernel, when infer_k output
   value is computed.
   num_classes is used for other template parameters */
-  static size_t smem_finalize_footprint(int num_classes) {
-    return sizeof(typename BlockReduceHost<NITEMS>::TempStorage);
+  static size_t smem_finalize_footprint(size_t data_row_size, int num_classes,
+                                        bool predict_proba) {
+    return block_reduce_footprint_host<NITEMS>();
   }
 
   /** shared memory footprint of the accumulator during
@@ -193,64 +236,139 @@ struct tree_aggregator_t {
     : tmp_storage(finalize_workspace) {}
 
   __device__ __forceinline__ void accumulate(
-    vec<NITEMS, float> single_tree_prediction, int tree) {
+    vec<NITEMS, float> single_tree_prediction, int tree, int num_rows) {
     acc += single_tree_prediction;
   }
 
   __device__ __forceinline__ void finalize(float* out, int num_rows,
-                                           int output_stride) {
+                                           int output_stride,
+                                           output_t transform, int num_trees) {
     __syncthreads();
-    typedef typename BlockReduce<NITEMS>::TempStorage TempStorage;
-    acc = BlockReduce<NITEMS>(*(TempStorage*)tmp_storage).Sum(acc);
+    acc = block_reduce(acc, vectorized(cub::Sum()), tmp_storage);
     if (threadIdx.x > 0) return;
 #pragma unroll
-    for (int row = 0; row < num_rows; ++row)
-      out[row * output_stride] = acc[row];
+    for (int row = 0; row < NITEMS; ++row)
+      if (row < num_rows) out[row * output_stride] = acc[row];
   }
 };
 
-struct finalize_block {
-  void* tmp_storage;
-  int num_classes;
+// tmp_storage may overlap shared memory addressed by [begin, end)
+// allreduce_shmem ensures no race conditions
+template <typename Iterator, typename BinaryOp>
+__device__ __forceinline__ auto allreduce_shmem(Iterator begin, Iterator end,
+                                                BinaryOp op,
+                                                void* tmp_storage) {
+  typedef typename std::iterator_traits<Iterator>::value_type value_type;
+  value_type thread_partial;
+  for (Iterator it = begin + threadIdx.x; it < end; it += blockDim.x)
+    thread_partial = op(thread_partial, *it);
+  __syncthreads();  // free shared memory [begin, end)
+  auto res = block_reduce(thread_partial, op, tmp_storage);
+  // broadcast sum to all threads
+  __syncthreads();  // free up tmp_storage
+  if (threadIdx.x == 0) *(value_type*)tmp_storage = res;
+  __syncthreads();
+  return *(value_type*)tmp_storage;
+}
 
-  __device__ __forceinline__ finalize_block(void* tmp_storage_,
-                                            int num_classes_)
-    : tmp_storage(tmp_storage_), num_classes(num_classes_) {}
-
-  template <int NITEMS>
-  static __host__ __device__ size_t smem_footprint() {
-#ifdef __CUDA_ARCH__
-    return sizeof(typename BlockReduceBestClass<NITEMS>::TempStorage);
-#else
-    return sizeof(typename BlockReduceHostBestClass<NITEMS>::TempStorage);
-#endif
-  }
-
-  template <int NITEMS>
-  __device__ __forceinline__ void write_best_class_in_block(
-    vec<NITEMS, best_margin_label> best, int valid_threads, float* out,
-    int num_rows) {
-    // find best class per block (for each of the NITEMS rows)
-    typedef BlockReduceBestClass<NITEMS> BlockReduceT;
-    best = BlockReduceT(*(typename BlockReduceT::TempStorage*)tmp_storage)
-             .Reduce(best, ArgMax(), valid_threads);
-    // write it out to global memory
-    if (threadIdx.x > 0) return;
+// *begin and *end shall be struct vec
+// tmp_storage may overlap shared memory addressed by [begin, end)
+template <typename Iterator>
+__device__ __forceinline__ void write_best_class(Iterator begin, Iterator end,
+                                                 void* tmp_storage, float* out,
+                                                 int num_rows) {
+  // reduce per-class candidate margins to one best class candidate
+  // per thread (for each of the NITEMS rows)
+  auto best = vec<begin->NITEMS, best_margin_label>();
+  for (int c = threadIdx.x; c < end - begin; c += blockDim.x)
+    best = vectorized(cub::ArgMax())(best, to_vec(c, begin[c]));
+  // [begin, end) may overlap tmp_storage
+  __syncthreads();
+  // find best class per block (for each of the NITEMS rows)
+  best = block_reduce(best, vectorized(cub::ArgMax()), tmp_storage);
+  // write it out to global memory
+  if (threadIdx.x > 0) return;
 #pragma unroll
-    for (int row = 0; row < num_rows; ++row) out[row] = best[row].key;
+  for (int row = 0; row < best.NITEMS; ++row)
+    if (row < num_rows) out[row] = best[row].key;
+}
+
+/// needed for softmax
+__device__ float shifted_exp(float margin, float max) {
+  return expf(margin - max);
+}
+
+// *begin and *end shall be struct vec
+// tmp_storage may NOT overlap shared memory addressed by [begin, end)
+template <typename Iterator>
+__device__ __forceinline__ void block_softmax(Iterator begin, Iterator end,
+                                              void* tmp_storage) {
+  // subtract max before exponentiating for numerical stability
+  typedef typename std::iterator_traits<Iterator>::value_type value_type;
+  value_type max =
+    allreduce_shmem(begin, end, vectorized(cub::Max()), tmp_storage);
+  for (Iterator it = begin + threadIdx.x; it < end; it += blockDim.x)
+    *it = vectorized(shifted_exp)(*it, max);
+  // sum of exponents
+  value_type soe =
+    allreduce_shmem(begin, end, vectorized(cub::Sum()), tmp_storage);
+  // softmax phase 2: normalization
+  for (Iterator it = begin + threadIdx.x; it < end; it += blockDim.x)
+    *it /= soe;
+}
+
+// *begin and *end shall be struct vec
+// tmp_storage may NOT overlap shared memory addressed by [begin, end)
+template <typename Iterator>
+__device__ __forceinline__ void normalize_softmax_and_write(
+  Iterator begin, Iterator end, output_t transform, int trees_per_class,
+  void* tmp_storage, float* out, int num_rows) {
+  if ((transform & output_t::AVG) != 0) {
+    for (Iterator it = begin + threadIdx.x; it < end; it += blockDim.x)
+      *it /= trees_per_class;
   }
-};
+  if ((transform & output_t::SOFTMAX) != 0)
+    block_softmax(begin, end, tmp_storage);
+// write result to global memory
+#pragma unroll
+  for (int row = 0; row < begin->NITEMS; ++row) {
+    for (int c = threadIdx.x; c < end - begin; c += blockDim.x)
+      if (row < num_rows) out[row * (end - begin) + c] = begin[c][row];
+  }
+}
+
+// *begin and *end shall be struct vec
+// tmp_storage may NOT overlap shared memory addressed by [begin, end)
+// in case num_outputs > 1
+template <typename Iterator>
+__device__ __forceinline__ void class_margins_to_global_memory(
+  Iterator begin, Iterator end, output_t transform, int trees_per_class,
+  void* tmp_storage, float* out, int num_rows, int num_outputs) {
+  if (num_outputs == 1) {  // will output class
+    // reduce per-class candidate margins to one best class candidate
+    // per thread (for each of the NITEMS rows)
+    write_best_class(begin, end, tmp_storage, out, num_rows);
+  } else {  // output softmax-ed margin
+    normalize_softmax_and_write(begin, end, transform, trees_per_class,
+                                tmp_storage, out, num_rows);
+  }
+}
 
 template <int NITEMS>
-struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> : finalize_block {
+struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> {
   vec<NITEMS, float> acc;
+  int num_classes;
   vec<NITEMS, float>* per_thread;
+  void* tmp_storage;
 
-  static size_t smem_finalize_footprint(int num_classes) {
+  static size_t smem_finalize_footprint(size_t data_row_size, int num_classes,
+                                        bool predict_proba) {
     size_t phase1 =
       (FIL_TPB - FIL_TPB % num_classes) * sizeof(vec<NITEMS, float>);
-    size_t phase2 = finalize_block::smem_footprint<NITEMS>();
-    return std::max(phase1, phase2);
+    size_t phase2 = predict_proba
+                      ? block_reduce_footprint_host<NITEMS>()
+                      : block_reduce_best_class_footprint_host<NITEMS>();
+    return predict_proba ? phase1 + phase2 : std::max(phase1, phase2);
   }
 
   static size_t smem_accumulate_footprint(int num_classes) { return 0; }
@@ -258,37 +376,48 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> : finalize_block {
   __device__ __forceinline__ tree_aggregator_t(predict_params params,
                                                void* accumulate_workspace,
                                                void* finalize_workspace)
-    : finalize_block(finalize_workspace, params.num_classes),
-      per_thread((vec<NITEMS, float>*)finalize_workspace) {}
+    : num_classes(params.num_classes),
+      per_thread((vec<NITEMS, float>*)finalize_workspace),
+      tmp_storage(params.predict_proba ? per_thread + num_classes
+                                       : finalize_workspace) {}
 
   __device__ __forceinline__ void accumulate(
-    vec<NITEMS, float> single_tree_prediction, int tree) {
+    vec<NITEMS, float> single_tree_prediction, int tree, int num_rows) {
     acc += single_tree_prediction;
   }
 
-  // block-reduce the best candidate class and write it out to global memory
   __device__ __forceinline__ void finalize(float* out, int num_rows,
-                                           int num_outputs) {
-    __syncthreads();  // free up input row
+                                           int num_outputs, output_t transform,
+                                           int num_trees) {
+    __syncthreads();  // free up input row in case it was in shared memory
     // load margin into shared memory
     per_thread[threadIdx.x] = acc;
     __syncthreads();
     acc = multi_sum<6>(per_thread, num_classes, blockDim.x / num_classes);
-    __syncthreads();
-    write_best_class_in_block(to_vec(threadIdx.x, acc), num_classes, out,
-                              num_rows);
+    if (threadIdx.x < num_classes) per_thread[threadIdx.x] = acc;
+    __syncthreads();  // per_thread needs to be fully populated
+
+    class_margins_to_global_memory(per_thread, per_thread + num_classes,
+                                   transform, num_trees / num_classes,
+                                   tmp_storage, out, num_rows, num_outputs);
   }
 };
 
 template <int NITEMS>
-struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES>
-  : finalize_block {
+struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
   vec<NITEMS, float> acc;
+  /// at first, per class margin, then, possibly, different softmax partials
   vec<NITEMS, float>* per_class_margin;
+  void* tmp_storage;
+  int num_classes;
 
-  static size_t smem_finalize_footprint(int num_classes) {
-    // not accounting for lingering accumulate_footprint during finalize()
-    return finalize_block::smem_footprint<NITEMS>();
+  static size_t smem_finalize_footprint(size_t data_row_size, int num_classes,
+                                        bool predict_proba) {
+    size_t phase1 = data_row_size + smem_accumulate_footprint(num_classes);
+    size_t phase2 = predict_proba
+                      ? block_reduce_footprint_host<NITEMS>()
+                      : block_reduce_best_class_footprint_host<NITEMS>();
+    return predict_proba ? phase1 + phase2 : std::max(phase1, phase2);
   }
 
   static __host__ __device__ size_t smem_accumulate_footprint(int num_classes) {
@@ -298,31 +427,28 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES>
   __device__ __forceinline__ tree_aggregator_t(predict_params params,
                                                void* accumulate_workspace,
                                                void* finalize_workspace)
-    : finalize_block(finalize_workspace, params.num_classes),
-      per_class_margin((vec<NITEMS, float>*)accumulate_workspace) {
+    : per_class_margin((vec<NITEMS, float>*)accumulate_workspace),
+      tmp_storage(params.predict_proba ? per_class_margin + num_classes
+                                       : finalize_workspace),
+      num_classes(params.num_classes) {
     for (int c = threadIdx.x; c < num_classes; c += blockDim.x)
-      per_class_margin[c] = vec<NITEMS, float>();  // initialize to 0.0f
+      per_class_margin[c] = vec<NITEMS, float>(0);
     // __syncthreads() is called in infer_k
   }
 
   __device__ __forceinline__ void accumulate(
-    vec<NITEMS, float> single_tree_prediction, int tree) {
+    vec<NITEMS, float> single_tree_prediction, int tree, int num_rows) {
     // since threads are assigned to consecutive classes, no need for atomics
     per_class_margin[tree % num_classes] += single_tree_prediction;
     // __syncthreads() is called in infer_k
   }
 
   __device__ __forceinline__ void finalize(float* out, int num_rows,
-                                           int num_outputs) {
-    // reduce per-class candidate margins to one best class candidate
-    // per thread (for each of the NITEMS rows)
-    vec<NITEMS, best_margin_label> best({-1, -INFINITY});
-
-    for (int c = threadIdx.x; c < num_classes; c += blockDim.x)
-      best = ArgMax()(best, to_vec(c, per_class_margin[c]));
-
-    __syncthreads();  // free up per_class_margin[]
-    write_best_class_in_block(best, blockDim.x, out, num_rows);
+                                           int num_outputs, output_t transform,
+                                           int num_trees) {
+    class_margins_to_global_memory(
+      per_class_margin, per_class_margin + num_classes, transform,
+      num_trees / num_classes, tmp_storage, out, num_rows, num_outputs);
   }
 };
 
@@ -333,7 +459,8 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
   int* votes;
   int num_classes;
 
-  static size_t smem_finalize_footprint(int num_classes) {
+  static size_t smem_finalize_footprint(size_t data_row_size, int num_classes,
+                                        bool predict_proba) {
     // not accounting for lingering accumulate_footprint during finalize()
     return 0;
   }
@@ -351,7 +478,7 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
     // __syncthreads() is called in infer_k
   }
   __device__ __forceinline__ void accumulate(
-    vec<NITEMS, int> single_tree_prediction, int tree) {
+    vec<NITEMS, int> single_tree_prediction, int tree, int num_rows) {
 #pragma unroll
     for (int item = 0; item < NITEMS; ++item)
       raft::myAtomicAdd(votes + single_tree_prediction[item] * NITEMS + item,
@@ -388,7 +515,8 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
     }
   }
   __device__ __forceinline__ void finalize(float* out, int num_rows,
-                                           int num_outputs) {
+                                           int num_outputs, output_t transform,
+                                           int num_trees) {
     if (num_outputs > 1) {
       // only supporting num_outputs == num_classes
       finalize_multiple_outputs(out, num_rows);
@@ -436,12 +564,12 @@ __global__ void infer_k(storage_type forest, predict_params params) {
         acc.accumulate(infer_one_tree<NITEMS, leaf_output_t<leaf_algo>::T>(
                          forest[j], cols_in_shmem ? sdata : block_input,
                          num_cols, num_input_rows),
-                       j);
+                       j, num_input_rows);
       }
       if (leaf_algo == GROVE_PER_CLASS_MANY_CLASSES) __syncthreads();
     }
     acc.finalize(params.preds + params.num_outputs * block_row0, num_input_rows,
-                 params.num_outputs);
+                 params.num_outputs, params.transform, forest.num_trees());
     __syncthreads();  // free up acc's shared memory resources for next row set
   }
 }
@@ -449,7 +577,8 @@ __global__ void infer_k(storage_type forest, predict_params params) {
 template <int NITEMS, leaf_algo_t leaf_algo>
 size_t shmem_size_params::get_smem_footprint() {
   size_t finalize_footprint =
-    tree_aggregator_t<NITEMS, leaf_algo>::smem_finalize_footprint(num_classes);
+    tree_aggregator_t<NITEMS, leaf_algo>::smem_finalize_footprint(
+      cols_shmem_size(), num_classes, predict_proba);
   size_t accumulate_footprint =
     tree_aggregator_t<NITEMS, leaf_algo>::smem_accumulate_footprint(
       num_classes) +

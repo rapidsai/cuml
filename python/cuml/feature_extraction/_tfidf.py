@@ -123,10 +123,9 @@ class TfidfTransformer(Base):
                  sublinear_tf=False, handle=None, verbose=False,
                  output_type=None):
 
-        super(TfidfTransformer, self).__init__(
-            handle=handle,
-            verbose=verbose,
-            output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
         self.norm = norm
         self.use_idf = use_idf
         self.smooth_idf = smooth_idf

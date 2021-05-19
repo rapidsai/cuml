@@ -39,7 +39,7 @@ else(DEFINED ENV{RAFT_PATH})
 
   ExternalProject_Add(raft
     GIT_REPOSITORY    https://github.com/rapidsai/raft.git
-    GIT_TAG           4a79adcb0c0e87964dcdc9b9122f242b5235b702
+    GIT_TAG           c5030a0f9cc7f95ce4208febc89b77ccf251b60e
     PREFIX            ${RAFT_DIR}
     CONFIGURE_COMMAND ""
     BUILD_COMMAND     ""
@@ -92,7 +92,8 @@ message(STATUS "RMM: RMM_INCLUDE_DIRS set to ${RMM_INCLUDE_DIRS}")
 # - NCCL ---------------------------------------------------------------------
 
 if(BUILD_CUML_MPI_COMMS OR BUILD_CUML_STD_COMMS)
-  find_package(NCCL REQUIRED)
+  # At least NCCL 2.8 required for p2p methods on comms
+  find_package(NCCL 2.8 REQUIRED)
 endif(BUILD_CUML_MPI_COMMS OR BUILD_CUML_STD_COMMS)
 
 ##############################################################################
@@ -117,19 +118,6 @@ if(NOT CUB_IS_PART_OF_CTK)
 endif(NOT CUB_IS_PART_OF_CTK)
 
 ##############################################################################
-# - cutlass - (header only) --------------------------------------------------
-
-set(CUTLASS_DIR ${CMAKE_CURRENT_BINARY_DIR}/cutlass CACHE STRING
-  "Path to the cutlass repo")
-ExternalProject_Add(cutlass
-  GIT_REPOSITORY    https://github.com/NVIDIA/cutlass.git
-  GIT_TAG           v1.0.1
-  PREFIX            ${CUTLASS_DIR}
-  CONFIGURE_COMMAND ""
-  BUILD_COMMAND     ""
-  INSTALL_COMMAND   "")
-
-##############################################################################
 # - spdlog -------------------------------------------------------------------
 
 set(SPDLOG_DIR ${CMAKE_CURRENT_BINARY_DIR}/spdlog CACHE STRING
@@ -150,33 +138,32 @@ if(BUILD_STATIC_FAISS)
     "Path to FAISS source directory")
   ExternalProject_Add(faiss
     GIT_REPOSITORY    https://github.com/facebookresearch/faiss.git
-    GIT_TAG           a5b850dec6f1cd6c88ab467bfd5e87b0cac2e41d
+    GIT_TAG           7c2d2388a492d65fdda934c7e74ae87acaeed066
     CONFIGURE_COMMAND LIBS=-pthread
                       CPPFLAGS=-w
                       LDFLAGS=-L${CMAKE_INSTALL_PREFIX}/lib
-                              ${CMAKE_CURRENT_BINARY_DIR}/faiss/src/faiss/configure
-	                      --prefix=${CMAKE_CURRENT_BINARY_DIR}/faiss
-	                      --with-blas=${BLAS_LIBRARIES}
-	                      --with-cuda=${CUDA_TOOLKIT_ROOT_DIR}
-	                      --with-cuda-arch=${FAISS_GPU_ARCHS}
-	                      -v
+                        cmake -B build .
+                        -DCMAKE_BUILD_TYPE=Release
+                        -DBUILD_TESTING=OFF
+                        -DFAISS_ENABLE_PYTHON=OFF
+                        -DBUILD_SHARED_LIBS=OFF
+                        -DFAISS_ENABLE_GPU=ON
+                        -DCUDAToolkit_ROOT=${CUDA_TOOLKIT_ROOT_DIR}
+                        -DCUDA_ARCHITECTURES=${FAISS_GPU_ARCHS}
+                        -DBLAS_LIBRARIES=${BLAS_LIBRARIES}
     PREFIX            ${FAISS_DIR}
-    BUILD_COMMAND     make -j${PARALLEL_LEVEL} VERBOSE=1
-    BUILD_BYPRODUCTS  ${FAISS_DIR}/lib/libfaiss.a
+    BUILD_COMMAND     make -C build -j${PARALLEL_LEVEL} VERBOSE=1
+    BUILD_BYPRODUCTS  ${FAISS_DIR}/src/faiss/build/faiss/libfaiss.a
     BUILD_ALWAYS      1
-    INSTALL_COMMAND   make -s install > /dev/null
+    INSTALL_COMMAND   ""
     UPDATE_COMMAND    ""
-    BUILD_IN_SOURCE   1
-    PATCH_COMMAND     patch -p1 -N < ${CMAKE_CURRENT_SOURCE_DIR}/cmake/faiss_cuda11.patch || true)
+    BUILD_IN_SOURCE   1)
 
   ExternalProject_Get_Property(faiss install_dir)
   add_library(FAISS::FAISS STATIC IMPORTED)
   set_property(TARGET FAISS::FAISS PROPERTY
-    IMPORTED_LOCATION ${FAISS_DIR}/lib/libfaiss.a)
-  # to account for the FAISS file reorg that happened recently after the current
-  # pinned commit, just change the following line to
-  # set(FAISS_INCLUDE_DIRS "${FAISS_DIR}/src/faiss")
-  set(FAISS_INCLUDE_DIRS "${FAISS_DIR}/src")
+    IMPORTED_LOCATION ${FAISS_DIR}/src/faiss/build/faiss/libfaiss.a)
+  set(FAISS_INCLUDE_DIRS "${FAISS_DIR}/src/faiss")
 else()
   set(FAISS_INSTALL_DIR ENV{FAISS_ROOT})
   find_package(FAISS REQUIRED)
@@ -185,7 +172,7 @@ endif(BUILD_STATIC_FAISS)
 ##############################################################################
 # - treelite build -----------------------------------------------------------
 
-find_package(Treelite 1.0.0 REQUIRED)
+find_package(Treelite 1.3.0 EXACT REQUIRED)
 
 ##############################################################################
 # - googletest build -----------------------------------------------------------
@@ -257,13 +244,9 @@ set_property(TARGET benchmarklib PROPERTY
 
 # TODO: Change to using build.sh and make targets instead of this
 
-if(CUB_IS_PART_OF_CTK)
-  add_dependencies(cutlass raft)
-else()
+if(NOT CUB_IS_PART_OF_CTK)
   add_dependencies(cub raft)
-  add_dependencies(cutlass cub)
-endif(CUB_IS_PART_OF_CTK)
-add_dependencies(spdlog cutlass)
+endif(NOT CUB_IS_PART_OF_CTK)
 add_dependencies(GTest::GTest spdlog)
 add_dependencies(benchmark GTest::GTest)
 add_dependencies(FAISS::FAISS benchmark)

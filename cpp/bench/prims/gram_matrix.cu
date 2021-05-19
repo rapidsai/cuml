@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 #include <matrix/grammatrix.cuh>
 #include <matrix/kernelfactory.cuh>
 #include <memory>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng.cuh>
 #include <sstream>
 #include <string>
@@ -35,18 +36,20 @@ struct GramTestParams {
   int k;  // k parameter of the GEMM
   int n;  // n parameter of the GEMM
   KernelParams kernel_params;
+  bool is_row_major;
 };  // struct GramTestParams
 
 template <typename T>
 struct GramMatrix : public Fixture {
   GramMatrix(const std::string& name, const GramTestParams& p)
-    : Fixture(name, std::shared_ptr<deviceAllocator>(
+    : Fixture(name, std::shared_ptr<raft::mr::device::allocator>(
                       new raft::mr::device::default_allocator)),
       params(p) {
     std::vector<std::string> kernel_names{"linear", "poly", "rbf", "tanh"};
     std::ostringstream oss;
     oss << name << "/" << kernel_names[p.kernel_params.kernel] << "/" << p.m
-        << "x" << p.k << "x" << p.n;
+        << "x" << p.k << "x" << p.n << "/"
+        << (p.is_row_major ? "row_major" : "col_major");
     this->SetName(oss.str().c_str());
 
     CUBLAS_CHECK(cublasCreate(&cublas_handle));
@@ -78,7 +81,8 @@ struct GramMatrix : public Fixture {
     }
     loopOnState(state, [this]() {
       (*this->kernel)(this->A, this->params.m, this->params.k, this->B,
-                      this->params.n, this->C, this->stream);
+                      this->params.n, this->C, this->params.is_row_major,
+                      this->stream);
     });
   }
 
@@ -110,7 +114,9 @@ static std::vector<GramTestParams> getInputs() {
   param_vec.reserve(kernel_params.size() * data_size.size());
   for (TestSize s : data_size) {
     for (auto kernel : kernel_params) {
-      param_vec.push_back(GramTestParams{s.m, s.k, s.n, kernel});
+      for (bool row_major : {false, true}) {
+        param_vec.push_back(GramTestParams{s.m, s.k, s.n, kernel, row_major});
+      }
     }
   }
   return param_vec;

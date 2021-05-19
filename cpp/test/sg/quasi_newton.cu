@@ -24,6 +24,7 @@
 #include <glm/qn/glm_softmax.cuh>
 #include <glm/qn/qn.cuh>
 #include <raft/handle.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include <vector>
 
 namespace ML {
@@ -44,7 +45,7 @@ struct QuasiNewtonTest : ::testing::Test {
   std::shared_ptr<SimpleMatOwning<double>> Xdev;
   std::shared_ptr<SimpleVecOwning<double>> ydev;
 
-  std::shared_ptr<deviceAllocator> allocator;
+  std::shared_ptr<raft::mr::device::allocator> allocator;
   QuasiNewtonTest() : handle(cuml_handle) {}
   void SetUp() {
     stream = cuml_handle.get_stream();
@@ -106,6 +107,7 @@ T run(const raft::handle_t &handle, LossFunction &loss, const SimpleMat<T> &X,
       cudaStream_t stream) {
   int max_iter = 100;
   T grad_tol = 1e-16;
+  T change_tol = 1e-16;
   int linesearch_max_iter = 50;
   int lbfgs_memory = 5;
   int num_iters = 0;
@@ -114,8 +116,9 @@ T run(const raft::handle_t &handle, LossFunction &loss, const SimpleMat<T> &X,
   SimpleVec<T> w0(w, loss.n_param);
 
   qn_fit<T, LossFunction>(handle, loss, X.data, y.data, z.data, X.m, l1, l2,
-                          max_iter, grad_tol, linesearch_max_iter, lbfgs_memory,
-                          verbosity, w0.data, &fx, &num_iters, X.ord, stream);
+                          max_iter, grad_tol, change_tol, linesearch_max_iter,
+                          lbfgs_memory, verbosity, w0.data, &fx, &num_iters,
+                          X.ord, stream);
 
   return fx;
 }
@@ -127,6 +130,7 @@ T run_api(const raft::handle_t &cuml_handle, int loss_type, int C,
           cudaStream_t stream) {
   int max_iter = 100;
   T grad_tol = 1e-8;
+  T change_tol = 1e-8;
   int linesearch_max_iter = 50;
   int lbfgs_memory = 5;
   int num_iters = 0;
@@ -136,13 +140,16 @@ T run_api(const raft::handle_t &cuml_handle, int loss_type, int C,
   T fx;
 
   qnFit(cuml_handle, X.data, y.data, X.m, X.n, C, fit_intercept, l1, l2,
-        max_iter, grad_tol, linesearch_max_iter, lbfgs_memory, verbosity, w,
-        &fx, &num_iters, false, loss_type);
+        max_iter, grad_tol, change_tol, linesearch_max_iter, lbfgs_memory,
+        verbosity, w, &fx, &num_iters, false, loss_type);
 
   return fx;
 }
 
 TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
+#if CUDART_VERSION >= 11020
+  GTEST_SKIP();
+#endif
   raft::CompareApprox<double> compApprox(tol);
   // Test case generated in python and solved with sklearn
   double y[N] = {1, 1, 1, 0, 1, 0, 1, 0, 1, 0};
@@ -220,6 +227,9 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
 }
 
 TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn) {
+#if CUDART_VERSION >= 11020
+  GTEST_SKIP();
+#endif
   // The data seems to small for the objective to be strongly convex
   // leaving out exact param checks
 

@@ -21,7 +21,7 @@
 #pragma once
 
 #include <algorithm>
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/mr/device/allocator.hpp>
 
 #include <linalg/init.h>
 #include <raft/cudart_utils.h>

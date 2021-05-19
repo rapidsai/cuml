@@ -19,11 +19,10 @@
 #include <cuml/ensemble/randomforest.hpp>
 #include <queue>
 #include <raft/cuda_utils.cuh>
+#include <raft/handle.hpp>
 #include <random>
 
 namespace ML {
-
-using namespace MLCommon;
 
 template <typename T>  // template useless for now.
 struct RfInputs {
@@ -50,7 +49,7 @@ class RfClassifierDepthTest : public ::testing::TestWithParam<int> {
  protected:
   void basicTest() {
     const int max_depth = ::testing::TestWithParam<int>::GetParam();
-    params = RfInputs<T>{5000,
+    params = RfInputs<T>{10000,
                          10,
                          1,
                          1.0f,
@@ -67,15 +66,13 @@ class RfClassifierDepthTest : public ::testing::TestWithParam<int> {
                          2,
                          CRITERION::ENTROPY};
 
-    DecisionTree::DecisionTreeParams tree_params;
-    set_tree_params(tree_params, params.max_depth, params.max_leaves,
-                    params.max_features, params.n_bins, params.split_algo,
-                    params.min_samples_leaf, params.min_samples_split,
-                    params.min_impurity_decrease, params.bootstrap_features,
-                    params.split_criterion, false);
     RF_params rf_params;
-    set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
-                      params.max_samples, 0, params.n_streams, tree_params);
+    rf_params = set_rf_params(
+      params.max_depth, params.max_leaves, params.max_features, params.n_bins,
+      params.split_algo, params.min_samples_leaf, params.min_samples_split,
+      params.min_impurity_decrease, params.bootstrap_features, params.bootstrap,
+      params.n_trees, params.max_samples, 0, params.split_criterion, false,
+      params.n_streams, true, 128);
 
     int data_len = params.n_rows * params.n_cols;
     raft::allocate(data, data_len);
@@ -161,15 +158,13 @@ class RfRegressorDepthTest : public ::testing::TestWithParam<int> {
                          2,
                          CRITERION::MSE};
 
-    DecisionTree::DecisionTreeParams tree_params;
-    set_tree_params(tree_params, params.max_depth, params.max_leaves,
-                    params.max_features, params.n_bins, params.split_algo,
-                    params.min_samples_leaf, params.min_samples_split,
-                    params.min_impurity_decrease, params.bootstrap_features,
-                    params.split_criterion, false);
     RF_params rf_params;
-    set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
-                      params.max_samples, 0, params.n_streams, tree_params);
+    rf_params = set_rf_params(
+      params.max_depth, params.max_leaves, params.max_features, params.n_bins,
+      params.split_algo, params.min_samples_leaf, params.min_samples_split,
+      params.min_impurity_decrease, params.bootstrap_features, params.bootstrap,
+      params.n_trees, params.max_samples, 0, params.split_criterion, false,
+      params.n_streams, true, 128);
 
     int data_len = params.n_rows * params.n_cols;
     raft::allocate(data, data_len);

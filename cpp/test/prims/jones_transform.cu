@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION. *
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION. *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -15,8 +15,8 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <algorithm>
-#include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
+#include <raft/mr/device/allocator.hpp>
 #include <random>
 #include <timeSeries/jones_transform.cuh>
 #include "test_utils.h"
@@ -99,7 +99,7 @@ template
     raft::update_device(d_params, &arr1[0], (size_t)nElements, stream);
     raft::update_device(d_golden_ar_trans, newParams, (size_t)nElements,
                         stream);
-    std::shared_ptr<MLCommon::deviceAllocator> allocator(
+    std::shared_ptr<raft::mr::device::allocator> allocator(
       new raft::mr::device::default_allocator);
 
     //calling the ar_trans_param CUDA implementation

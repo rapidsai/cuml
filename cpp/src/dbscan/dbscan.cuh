@@ -17,6 +17,7 @@
 #pragma once
 
 #include <common/nvtx.hpp>
+#include <cuml/cluster/dbscan.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include "runner.cuh"
@@ -24,9 +25,7 @@
 #include <algorithm>
 
 namespace ML {
-
-// Default max mem set to a reasonable value for a 16gb card.
-static const size_t DEFAULT_MAX_MEM_MBYTES = 13e3;
+namespace Dbscan {
 
 template <typename Index_ = int>
 Index_ compute_batch_size(size_t &estimated_memory, Index_ n_rows,
@@ -55,14 +54,6 @@ Index_ compute_batch_size(size_t &estimated_memory, Index_ n_rows,
   size_t est_mem_fixed = n_rows * (sizeof(Index_) + sizeof(bool));
   // The rest will be so small that it should fit into what we have left over
   // from the over-estimation of the sparse adjacency matrix
-
-  if (max_mbytes_per_batch <= 0) {
-    /* using default here as in decision tree, waiting for mem info from device allocator
-    size_t total_mem;
-	  CUDA_CHECK(cudaMemGetInfo(&max_mbytes_per_batch, &total_mem));
-    */
-    max_mbytes_per_batch = DEFAULT_MAX_MEM_MBYTES;
-  }
 
   // Batch size determined based on available memory
   Index_ batch_size =
@@ -98,12 +89,13 @@ Index_ compute_batch_size(size_t &estimated_memory, Index_ n_rows,
 
 template <typename T, typename Index_ = int, bool opg = false>
 void dbscanFitImpl(const raft::handle_t &handle, T *input, Index_ n_rows,
-                   Index_ n_cols, T eps, Index_ min_pts, Index_ *labels,
+                   Index_ n_cols, T eps, Index_ min_pts,
+                   raft::distance::DistanceType metric, Index_ *labels,
                    Index_ *core_sample_indices, size_t max_mbytes_per_batch,
                    cudaStream_t stream, int verbosity) {
   ML::PUSH_RANGE("ML::Dbscan::Fit");
   ML::Logger::get().setLevel(verbosity);
-  int algo_vd = 1;
+  int algo_vd = (metric == raft::distance::Precomputed) ? 2 : 1;
   int algo_adj = 1;
   int algo_ccl = 2;
 
@@ -128,7 +120,29 @@ void dbscanFitImpl(const raft::handle_t &handle, T *input, Index_ n_rows,
   CUML_LOG_DEBUG("#%d owns %ld rows", (int)my_rank,
                  (unsigned long)n_owned_rows);
 
-  /// TODO: Query device for remaining memory
+  // Estimate available memory per batch
+  // Note: we can't rely on the reported free memory.
+  if (max_mbytes_per_batch == 0) {
+    // Query memory information to get the total memory on the device
+    size_t free_memory, total_memory;
+    CUDA_CHECK(cudaMemGetInfo(&free_memory, &total_memory));
+
+    // X can either be a feature matrix or distance matrix
+    size_t dataset_memory = (metric == raft::distance::Precomputed)
+                              ? ((size_t)n_rows * (size_t)n_rows * sizeof(T))
+                              : ((size_t)n_rows * (size_t)n_cols * sizeof(T));
+
+    // The estimate is: 80% * total - dataset
+    max_mbytes_per_batch = (80 * total_memory / 100 - dataset_memory) / 1e6;
+
+    CUML_LOG_DEBUG("Dataset memory: %ld MB",
+                   (unsigned long long)(dataset_memory / 1e6));
+
+    CUML_LOG_DEBUG("Estimated available memory: %ld / %ld MB",
+                   (unsigned long long)max_mbytes_per_batch,
+                   (unsigned long long)(total_memory / 1e6));
+  }
+
   size_t estimated_memory;
   Index_ batch_size = compute_batch_size<Index_>(
     estimated_memory, n_rows, n_owned_rows, max_mbytes_per_batch);
@@ -153,4 +167,5 @@ void dbscanFitImpl(const raft::handle_t &handle, T *input, Index_ n_rows,
   ML::POP_RANGE();
 }
 
+}  // namespace Dbscan
 }  // namespace ML

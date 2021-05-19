@@ -30,7 +30,7 @@ class DBSCANMG(DBSCAN):
     """
 
     def __init__(self, **kwargs):
-        super(DBSCANMG, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
     @generate_docstring(skip_parameters_heading=True)
     def fit(self, X, out_dtype="int32") -> "DBSCANMG":

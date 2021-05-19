@@ -15,11 +15,12 @@
  */
 #pragma once
 
-#include <distance/distance.cuh>
-#include <distance/fused_l2_nn.cuh>
 #include <linalg/reduce_cols_by_key.cuh>
 #include <linalg/reduce_rows_by_key.cuh>
 #include <matrix/gather.cuh>
+#include <raft/distance/distance.cuh>
+
+#include <raft/distance/fused_l2_nn.cuh>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/mean_squared_error.cuh>
@@ -75,14 +76,14 @@ struct FusedL2NNReduceOp {
   FusedL2NNReduceOp(LabelT _offset) : offset(_offset){};
 
   typedef typename cub::KeyValuePair<LabelT, DataT> KVP;
-  DI void operator()(KVP *out, const KVP &other) {
+  DI void operator()(LabelT rit, KVP *out, const KVP &other) {
     if (other.value < out->value) {
       out->key = offset + other.key;
       out->value = other.value;
     }
   }
 
-  DI void operator()(DataT *out, const KVP &other) {
+  DI void operator()(LabelT rit, DataT *out, const KVP &other) {
     if (other.value < *out) {
       *out = other.value;
     }
@@ -255,7 +256,7 @@ void pairwise_distance(const raft::handle_t &handle,
 
   ASSERT(X.getSize(1) == centroids.getSize(1),
          "# features in dataset and centroids are different (must be same)");
-  MLCommon::Distance::pairwise_distance<DataT, IndexT>(
+  raft::distance::pairwise_distance<DataT, IndexT>(
     X.data(), centroids.data(), pairwiseDistance.data(), n_samples, n_clusters,
     n_features, workspace, metric, stream);
 }
@@ -335,12 +336,13 @@ void minClusterAndDistance(
         workspace.resize((sizeof(int)) * ns, stream);
 
         FusedL2NNReduceOp<IndexT, DataT> redOp(cIdx);
+        raft::distance::KVPMinReduce<IndexT, DataT> pairRedOp;
 
-        MLCommon::Distance::fusedL2NN<DataT, cub::KeyValuePair<IndexT, DataT>,
-                                      IndexT>(
+        raft::distance::fusedL2NN<DataT, cub::KeyValuePair<IndexT, DataT>,
+                                  IndexT>(
           minClusterAndDistanceView.data(), datasetView.data(),
           centroidsView.data(), L2NormXView.data(), centroidsNormView.data(),
-          ns, nc, n_features, (void *)workspace.data(), redOp,
+          ns, nc, n_features, (void *)workspace.data(), redOp, pairRedOp,
           (metric == raft::distance::DistanceType::L2Expanded) ? false : true,
           false, stream);
       } else {
@@ -452,10 +454,11 @@ void minClusterDistance(const raft::handle_t &handle,
         workspace.resize((sizeof(int)) * ns, stream);
 
         FusedL2NNReduceOp<IndexT, DataT> redOp(cIdx);
-        MLCommon::Distance::fusedL2NN<DataT, DataT, IndexT>(
+        raft::distance::KVPMinReduce<IndexT, DataT> pairRedOp;
+        raft::distance::fusedL2NN<DataT, DataT, IndexT>(
           minClusterDistanceView.data(), datasetView.data(),
           centroidsView.data(), L2NormXView.data(), centroidsNormView.data(),
-          ns, nc, n_features, (void *)workspace.data(), redOp,
+          ns, nc, n_features, (void *)workspace.data(), redOp, pairRedOp,
           (metric == raft::distance::DistanceType::L2Expanded) ? false : true,
           false, stream);
       } else {

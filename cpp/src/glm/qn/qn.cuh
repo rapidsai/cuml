@@ -28,12 +28,14 @@ namespace ML {
 namespace GLM {
 template <typename T, typename LossFunction>
 int qn_fit(const raft::handle_t &handle, LossFunction &loss, T *Xptr, T *yptr,
-           T *zptr, int N, T l1, T l2, int max_iter, T grad_tol,
+           T *zptr, int N, T l1, T l2, int max_iter, T grad_tol, T change_tol,
            int linesearch_max_iter, int lbfgs_memory, int verbosity,
            T *w0,  // initial value and result
            T *fx, int *num_iters, STORAGE_ORDER ordX, cudaStream_t stream) {
   LBFGSParam<T> opt_param;
   opt_param.epsilon = grad_tol;
+  if (change_tol > 0) opt_param.past = 10;  // even number - to detect zig-zags
+  opt_param.delta = change_tol;
   opt_param.max_iterations = max_iter;
   opt_param.m = lbfgs_memory;
   opt_param.max_linesearch = linesearch_max_iter;
@@ -62,9 +64,9 @@ int qn_fit(const raft::handle_t &handle, LossFunction &loss, T *Xptr, T *yptr,
 template <typename T>
 void qnFit(const raft::handle_t &handle, T *X, T *y, int N, int D, int C,
            bool fit_intercept, T l1, T l2, int max_iter, T grad_tol,
-           int linesearch_max_iter, int lbfgs_memory, int verbosity, T *w0,
-           T *f, int *num_iters, bool X_col_major, int loss_type,
-           cudaStream_t stream) {
+           T change_tol, int linesearch_max_iter, int lbfgs_memory,
+           int verbosity, T *w0, T *f, int *num_iters, bool X_col_major,
+           int loss_type, cudaStream_t stream, T *sample_weight = nullptr) {
   STORAGE_ORDER ord = X_col_major ? COL_MAJOR : ROW_MAJOR;
   int C_len = (loss_type == 0) ? (C - 1) : C;
 
@@ -75,23 +77,29 @@ void qnFit(const raft::handle_t &handle, T *X, T *y, int N, int D, int C,
     case 0: {
       ASSERT(C == 2, "qn.h: logistic loss invalid C");
       LogisticLoss<T> loss(handle, D, fit_intercept);
+      if (sample_weight) loss.add_sample_weights(sample_weight, N, stream);
       qn_fit<T, decltype(loss)>(handle, loss, X, y, z.data, N, l1, l2, max_iter,
-                                grad_tol, linesearch_max_iter, lbfgs_memory,
-                                verbosity, w0, f, num_iters, ord, stream);
+                                grad_tol, change_tol, linesearch_max_iter,
+                                lbfgs_memory, verbosity, w0, f, num_iters, ord,
+                                stream);
     } break;
     case 1: {
       ASSERT(C == 1, "qn.h: squared loss invalid C");
       SquaredLoss<T> loss(handle, D, fit_intercept);
+      if (sample_weight) loss.add_sample_weights(sample_weight, N, stream);
       qn_fit<T, decltype(loss)>(handle, loss, X, y, z.data, N, l1, l2, max_iter,
-                                grad_tol, linesearch_max_iter, lbfgs_memory,
-                                verbosity, w0, f, num_iters, ord, stream);
+                                grad_tol, change_tol, linesearch_max_iter,
+                                lbfgs_memory, verbosity, w0, f, num_iters, ord,
+                                stream);
     } break;
     case 2: {
       ASSERT(C > 2, "qn.h: softmax invalid C");
       Softmax<T> loss(handle, D, C, fit_intercept);
+      if (sample_weight) loss.add_sample_weights(sample_weight, N, stream);
       qn_fit<T, decltype(loss)>(handle, loss, X, y, z.data, N, l1, l2, max_iter,
-                                grad_tol, linesearch_max_iter, lbfgs_memory,
-                                verbosity, w0, f, num_iters, ord, stream);
+                                grad_tol, change_tol, linesearch_max_iter,
+                                lbfgs_memory, verbosity, w0, f, num_iters, ord,
+                                stream);
     } break;
     default: {
       ASSERT(false, "qn.h: unknown loss function.");

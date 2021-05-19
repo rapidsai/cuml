@@ -1,4 +1,3 @@
-#
 # Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -49,7 +48,15 @@ from libcpp.memory cimport shared_ptr
 
 cimport cuml.common.cuda
 
-cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
+cdef extern from "cuml/manifold/tsne.h" namespace "ML":
+
+    enum TSNE_ALGORITHM:
+        EXACT = 0,
+        BARNES_HUT = 1,
+        FFT = 2
+
+cdef extern from "cuml/manifold/tsne.h" namespace "ML":
+
     cdef void TSNE_fit(
         handle_t &handle,
         float *X,
@@ -66,6 +73,7 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
         const int perplexity_max_iter,
         const float perplexity_tol,
         const float early_exaggeration,
+        const float late_exaggeration,
         const int exaggeration_iter,
         const float min_gain,
         const float pre_learning_rate,
@@ -77,7 +85,8 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
         const long long random_state,
         int verbosity,
         const bool initialize_embeddings,
-        bool barnes_hut) except +
+        const bool square_distances,
+        TSNE_ALGORITHM algorithm) except +
 
     cdef void TSNE_fit_sparse(
         const handle_t &handle,
@@ -98,6 +107,7 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
         const int perplexity_max_iter,
         const float perplexity_tol,
         const float early_exaggeration,
+        const float late_exaggeration,
         const int exaggeration_iter,
         const float min_gain,
         const float pre_learning_rate,
@@ -109,45 +119,51 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML" nogil:
         const long long random_state,
         int verbosity,
         const bool initialize_embeddings,
-        bool barnes_hut) except +
+        const bool square_distances,
+        TSNE_ALGORITHM algorithm) except +
 
 
 class TSNE(Base,
            CMajorInputTagMixin):
     """
-    TSNE (T-Distributed Stochastic Neighbor Embedding) is an extremely
+    t-SNE (T-Distributed Stochastic Neighbor Embedding) is an extremely
     powerful dimensionality reduction technique that aims to maintain
     local distances between data points. It is extremely robust to whatever
     dataset you give it, and is used in many areas including cancer research,
     music analysis and neural network weight visualizations.
 
-    Currently, cuML's TSNE supports the fast Barnes Hut O(NlogN) TSNE
-    approximation (derived from CannyLabs' BH open source CUDA code). This
-    allows TSNE to produce extremely fast embeddings when n_components = 2.
-    cuML defaults to this algorithm. A slower but more accurate Exact
-    algorithm is also provided.
+    cuML's t-SNE supports three algorithms: the original exact algorithm, the
+    Barnes-Hut approximation and the fast Fourier transform interpolation
+    approximation. The latter two are derived from CannyLabs' open-source CUDA
+    code and produce extremely fast embeddings when n_components = 2. The exact
+    algorithm is more accurate, but too slow to use on large datasets.
 
     Parameters
     -----------
     n_components : int (default 2)
-        The output dimensionality size. Currently only size=2 is tested and
-        supported, but the 'exact' algorithm will support greater
-        dimensionality in future.
+        The output dimensionality size. Currently only 2 is supported.
     perplexity : float (default 30.0)
         Larger datasets require a larger value. Consider choosing different
         perplexity values from 5 to 50 and see the output differences.
     early_exaggeration : float (default 12.0)
         Controls the space between clusters. Not critical to tune this.
+    late_exaggeration : float (default 1.0)
+        Controls the space between clusters. It may be beneficial to increase
+        this slightly to improve cluster separation. This will be applied
+        after `exaggeration_iter` iterations (FFT only).
     learning_rate : float (default 200.0)
         The learning rate usually between (10, 1000). If this is too high,
-        TSNE could look like a cloud / ball of points.
+        t-SNE could look like a cloud / ball of points.
     n_iter : int (default 1000)
         The more epochs, the more stable/accurate the final embedding.
     n_iter_without_progress : int (default 300)
         Currently unused. When the KL Divergence becomes too small after some
-        iterations, terminate TSNE early.
+        iterations, terminate t-SNE early.
     min_grad_norm : float (default 1e-07)
-        The minimum gradient norm for when TSNE will terminate early.
+        The minimum gradient norm for when t-SNE will terminate early.
+        Used in the 'exact' and 'fft' algorithms. Consider reducing if
+        the embeddings are unsatisfactory. It's recommended to use a
+        smaller value for smaller datasets.
     metric : str 'euclidean' only (default 'euclidean')
         Currently only supports euclidean distance. Will support cosine in
         a future release.
@@ -157,22 +173,19 @@ class TSNE(Base,
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     random_state : int (default None)
-        Setting this can allow future runs of TSNE to look mostly the same.
-        It is known that TSNE tends to have vastly different outputs on
-        many runs. Try using PCA intialization (upcoming with change #1098)
-        to possibly counteract this problem.
-        It is known that small perturbations can directly
-        change the result of the embedding for parallel TSNE implementations.
-    method : str 'barnes_hut' or 'exact' (default 'barnes_hut')
-        Options are either barnes_hut or exact. It is recommended that you use
-        the barnes hut approximation for superior O(nlogn) complexity.
+        Setting this can make repeated runs look more similar. Note, however,
+        that this highly parallelized t-SNE implementation is not completely
+        deterministic between runs, even with the same `random_state`.
+    method : str 'barnes_hut', 'fft' or 'exact' (default 'barnes_hut')
+        'barnes_hut' and 'fft' are fast approximations. 'exact' is more
+        accurate but slower.
     angle : float (default 0.5)
-        Tradeoff between accuracy and speed. Choose between (0,2 0.8) where
-        closer to one indicates full accuracy but slower speeds.
+        Valid values are between 0.0 and 1.0, which trade off speed and
+        accuracy, respectively. Generally, these values are set between 0.2 and
+        0.8. (Barnes-Hut only.)
     learning_rate_method : str 'adaptive', 'none' or None (default 'adaptive')
-        Either adaptive or None. Uses a special adpative method that tunes
-        the learning rate, early exaggeration and perplexity automatically
-        based on input size.
+        Either adaptive or None. 'adaptive' tunes the learning rate, early
+        exaggeration and perplexity automatically based on input size.
     n_neighbors : int (default 90)
         The number of datapoints you want to use in the
         attractive forces. Smaller values are better for preserving
@@ -186,6 +199,13 @@ class TSNE(Base,
         During the exaggeration iteration, more forcefully apply gradients.
     post_momentum : float (default 0.8)
         During the late phases, less forcefully apply gradients.
+    square_distances : boolean, default=True
+        Whether TSNE should square the distance values.
+        Internally, this will be used to compute a kNN graph using 'euclidean'
+        metric and then squaring it when True. If a `knn_graph` is passed
+        to `fit` or `fit_transform` methods, all the distances will be
+        squared when True. For example, if a `knn_graph` was obtained using
+        'sqeuclidean' metric, the distances will still be squared when True.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -214,33 +234,32 @@ class TSNE(Base,
         t-distributed Stochastic Neighborhood Embedding
 
     .. tip::
-        Maaten and Linderman showcased how TSNE can be very sensitive to both
-        the starting conditions (ie random initialization), and how parallel
-        versions of TSNE can generate vastly different results. It has been
-        suggested that you run TSNE a few times to settle on the best
-        configuration. Notice specifying random_state and fixing it across runs
-        can help, but TSNE does not guarantee similar results each time.
-
-        As suggested, PCA (upcoming with change #1098) can also help to
-        alleviate this issue.
+        Maaten and Linderman showcased how t-SNE can be very sensitive to both
+        the starting conditions (i.e. random initialization), and how parallel
+        versions of t-SNE can generate vastly different results between runs.
+        You can run t-SNE multiple times to settle on the best configuration.
+        Note that using the same random_state across runs does not guarantee
+        similar results each time.
 
     .. note::
         The CUDA implementation is derived from the excellent CannyLabs open
         source implementation here: https://github.com/CannyLab/tsne-cuda/. The
         CannyLabs code is licensed according to the conditions in
-        cuml/cpp/src/tsne/ cannylabs_tsne_license.txt. A full description of
+        cuml/cpp/src/tsne/cannylabs_tsne_license.txt. A full description of
         their approach is available in their article t-SNE-CUDA:
         GPU-Accelerated t-SNE and its Applications to Modern Data
         (https://arxiv.org/abs/1807.11824).
 
     """
 
+    X_m = CumlArrayDescriptor()
     embedding_ = CumlArrayDescriptor()
 
-    def __init__(self,
+    def __init__(self, *,
                  n_components=2,
                  perplexity=30.0,
                  early_exaggeration=12.0,
+                 late_exaggeration=1.0,
                  learning_rate=200.0,
                  n_iter=1000,
                  n_iter_without_progress=300,
@@ -257,32 +276,33 @@ class TSNE(Base,
                  exaggeration_iter=250,
                  pre_momentum=0.5,
                  post_momentum=0.8,
+                 square_distances=True,
                  handle=None,
                  output_type=None):
 
-        super(TSNE, self).__init__(handle=handle,
-                                   verbose=verbose,
-                                   output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
 
         if n_components < 0:
             raise ValueError("n_components = {} should be more "
                              "than 0.".format(n_components))
-        if n_components != 2 and method == 'barnes_hut':
-            warnings.warn("Barnes Hut only works when n_components == 2. "
-                          "Switching to exact.")
+        if n_components != 2 and (method == 'barnes_hut' or method == 'fft'):
+            warnings.warn("Barnes Hut and FFT only work when "
+                          "n_components == 2. Switching to exact.")
             method = 'exact'
-        if n_components > 2:
+        if n_components != 2:
             raise ValueError("Currently TSNE supports n_components = 2; "
                              "but got n_components = {}".format(n_components))
-        if n_components < 2:
-            warnings.warn("Currently TSNE supports n_components = 2.")
-            n_components = 2
         if perplexity < 0:
             raise ValueError("perplexity = {} should be more than 0.".format(
                              perplexity))
         if early_exaggeration < 0:
             raise ValueError("early_exaggeration = {} should be more "
                              "than 0.".format(early_exaggeration))
+        if late_exaggeration < 0:
+            raise ValueError("late_exaggeration = {} should be more "
+                             "than 0.".format(late_exaggeration))
         if learning_rate < 0:
             raise ValueError("learning_rate = {} should be more "
                              "than 0.".format(learning_rate))
@@ -293,17 +313,17 @@ class TSNE(Base,
             warnings.warn("n_iter = {} might cause TSNE to output wrong "
                           "results. Set it higher.".format(n_iter))
         if metric.lower() != 'euclidean':
-            warnings.warn("TSNE does not support {} but only Euclidean. "
-                          "Will do in the near future.".format(metric))
+            # TODO https://github.com/rapidsai/cuml/issues/1653
+            warnings.warn("TSNE does not support {} (only Euclidean).".format(
+                          metric))
             metric = 'euclidean'
         if init.lower() != 'random':
+            # TODO https://github.com/rapidsai/cuml/issues/3458
             warnings.warn("TSNE does not support {} but only random "
-                          "intialization. Will do in the near "
-                          "future.".format(init))
+                          "intialization.".format(init))
             init = 'random'
         if angle < 0 or angle > 1:
-            raise ValueError("angle = {} should be > 0 and less "
-                             "than 1.".format(angle))
+            raise ValueError("angle = {} should be ≥ 0 and ≤ 1".format(angle))
         if n_neighbors < 0:
             raise ValueError("n_neighbors = {} should be more "
                              "than 0.".format(n_neighbors))
@@ -334,6 +354,7 @@ class TSNE(Base,
         self.n_components = n_components
         self.perplexity = perplexity
         self.early_exaggeration = early_exaggeration
+        self.late_exaggeration = late_exaggeration
         self.learning_rate = learning_rate
         self.n_iter = n_iter
         self.n_iter_without_progress = n_iter_without_progress
@@ -365,10 +386,15 @@ class TSNE(Base,
         self.min_gain = 0.01
         self.pre_learning_rate = learning_rate
         self.post_learning_rate = learning_rate * 2
+        self.square_distances = square_distances
+
+        self.X_m = None
+        self.embedding_ = None
 
         self.sparse_fit = False
 
     @generate_docstring(skip_parameters_heading=True,
+                        X='dense_sparse',
                         convert_dtype_cast='np.float32')
     def fit(self, X, convert_dtype=True, knn_graph=None) -> "TSNE":
         """
@@ -433,15 +459,16 @@ class TSNE(Base,
         cdef uintptr_t knn_dists_raw = knn_dists_ctype or 0
 
         # Prepare output embeddings
-        Y = CumlArray.zeros(
+        self.embedding_ = CumlArray.zeros(
             (n, self.n_components),
             order="F",
             dtype=np.float32)
 
-        cdef uintptr_t embed_ptr = Y.ptr
+        cdef uintptr_t embed_ptr = self.embedding_.ptr
 
         # Find best params if learning rate method is adaptive
-        if self.learning_rate_method=='adaptive' and self.method=="barnes_hut":
+        if self.learning_rate_method=='adaptive' and (self.method=="barnes_hut"
+                                                      or self.method=='fft'):
             logger.debug("Learning rate is adaptive. In TSNE paper, "
                          "it has been shown that as n->inf, "
                          "Barnes Hut works well if n_neighbors->30, "
@@ -467,6 +494,21 @@ class TSNE(Base,
         if self.random_state is not None:
             seed = self.random_state
 
+        if self.method == 'barnes_hut':
+            algo = TSNE_ALGORITHM.BARNES_HUT
+        elif self.method == 'fft':
+            warnings.warn("Method 'fft' is experimental and may be " +
+                          "unstable. If you find this implementation is not" +
+                          " behaving as intended, please consider using one" +
+                          " of the other methods, such as 'barnes_hut' or" +
+                          " 'exact'")
+            algo = TSNE_ALGORITHM.FFT
+        elif self.method == 'exact':
+            algo = TSNE_ALGORITHM.EXACT
+        else:
+            raise ValueError("Allowed methods are 'exact', 'barnes_hut' and "
+                             "'fft'.")
+
         if self.sparse_fit:
             TSNE_fit_sparse(handle_[0],
                             <int*><uintptr_t> self.X_m.indptr.ptr,
@@ -486,6 +528,7 @@ class TSNE(Base,
                             <int> self.perplexity_max_iter,
                             <float> self.perplexity_tol,
                             <float> self.early_exaggeration,
+                            <float> self.late_exaggeration,
                             <int> self.exaggeration_iter,
                             <float> self.min_gain,
                             <float> self.pre_learning_rate,
@@ -497,7 +540,8 @@ class TSNE(Base,
                             <long long> seed,
                             <int> self.verbose,
                             <bool> True,
-                            <bool> (self.method == 'barnes_hut'))
+                            <bool> self.square_distances,
+                            algo)
         else:
             TSNE_fit(handle_[0],
                      <float*><uintptr_t> self.X_m.ptr,
@@ -514,6 +558,7 @@ class TSNE(Base,
                      <int> self.perplexity_max_iter,
                      <float> self.perplexity_tol,
                      <float> self.early_exaggeration,
+                     <float> self.late_exaggeration,
                      <int> self.exaggeration_iter,
                      <float> self.min_gain,
                      <float> self.pre_learning_rate,
@@ -525,16 +570,12 @@ class TSNE(Base,
                      <long long> seed,
                      <int> self.verbose,
                      <bool> True,
-                     <bool> (self.method == 'barnes_hut'))
+                     <bool> self.square_distances,
+                     algo)
 
-        # Clean up memory
-        self.embedding_ = Y
+        self.handle.sync()
+
         return self
-
-    def __del__(self):
-        if hasattr(self, 'embedding_'):
-            del self.embedding_
-            self.embedding_ = None
 
     @generate_docstring(convert_dtype_cast='np.float32',
                         skip_parameters_heading=True,
@@ -544,7 +585,7 @@ class TSNE(Base,
                                                        data in \
                                                        low-dimensional space.',
                                        'shape': '(n_samples, n_components)'})
-    @cuml.internals.api_base_return_array_skipall
+    @cuml.internals.api_base_fit_transform()
     def fit_transform(self, X, convert_dtype=True,
                       knn_graph=None) -> CumlArray:
         """
@@ -558,12 +599,12 @@ class TSNE(Base,
         Internal transform function to allow base wrappers default
         functionality to work
         """
+        return self.embedding_
 
-        data = self.embedding_
+    def __del__(self):
 
-        del self.embedding_
-
-        return data
+        if hasattr(self, "embedding_"):
+            del self.embedding_
 
     def __getstate__(self):
         state = self.__dict__.copy()
@@ -582,6 +623,7 @@ class TSNE(Base,
             "n_components",
             "perplexity",
             "early_exaggeration",
+            "late_exaggeration",
             "learning_rate",
             "n_iter",
             "n_iter_without_progress",
@@ -597,4 +639,5 @@ class TSNE(Base,
             "exaggeration_iter",
             "pre_momentum",
             "post_momentum",
+            "square_distances"
         ]

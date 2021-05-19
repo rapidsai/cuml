@@ -21,7 +21,8 @@
 #include <cuml/common/device_buffer.hpp>
 #include <label/classlabels.cuh>
 #include <raft/cuda_utils.cuh>
-#include <sparse/csr.cuh>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/sparse/csr.cuh>
 #include "adjgraph/runner.cuh"
 #include "corepoints/compute.cuh"
 #include "corepoints/exchange.cuh"
@@ -61,7 +62,7 @@ __global__ void relabelForSkl(Index_* labels, Index_ N, Index_ MAX_LABEL) {
  */
 template <typename Index_ = int>
 void final_relabel(Index_* db_cluster, Index_ N, cudaStream_t stream,
-                   std::shared_ptr<deviceAllocator> allocator) {
+                   std::shared_ptr<raft::mr::device::allocator> allocator) {
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
   MLCommon::Label::make_monotonic(
     db_cluster, db_cluster, N, stream,
@@ -72,7 +73,7 @@ void final_relabel(Index_* db_cluster, Index_ N, cudaStream_t stream,
  * Run the DBSCAN algorithm (common code for single-GPU and multi-GPU)
  * @tparam opg Whether we are running in a multi-node multi-GPU context
  * @param[in]  handle       raft handle
- * @param[in]  x            Input data (N*D row-major device array)
+ * @param[in]  x            Input data (N*D row-major device array, or N*N for precomputed)
  * @param[in]  N            Number of points
  * @param[in]  D            Dimensionality of the points
  * @param[in]  start_row    Index of the offset for this node
@@ -211,7 +212,7 @@ size_t run(const raft::handle_t& handle, const Type_f* x, Index_ N, Index_ D,
     raft::update_host(&curradjlen, vd + n_points, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    CUML_LOG_DEBUG("--> Computing adjacency graph of size %ld samples.",
+    CUML_LOG_DEBUG("--> Computing adjacency graph with %ld nnz.",
                    (unsigned long)curradjlen);
     ML::PUSH_RANGE("Trace::Dbscan::AdjGraph");
     if (curradjlen > maxadjlen || adj_graph.data() == NULL) {

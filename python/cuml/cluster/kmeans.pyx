@@ -211,12 +211,7 @@ class KMeans(Base,
         Number of instances the k-means algorithm will be called with different seeds.
         The final results will be from the instance that produces lowest inertia out
         of n_init instances.
-    oversampling_factor : float64
-        scalable k-means|| oversampling factor
-    max_samples_per_batch : int (default=1<<15)
-        maximum number of samples to use for each batch
-        of the pairwise distance computation.
-    oversampling_factor : int (default = 2)
+    oversampling_factor : float64 (default = 2.0)
         The amount of points to sample
         in scalable k-means++ initialization for potential centroids.
         Increasing this value can lead to better initial centroids at the
@@ -268,11 +263,13 @@ class KMeans(Base,
     labels_ = CumlArrayDescriptor()
     cluster_centers_ = CumlArrayDescriptor()
 
-    def __init__(self, handle=None, n_clusters=8, max_iter=300, tol=1e-4,
+    def __init__(self, *, handle=None, n_clusters=8, max_iter=300, tol=1e-4,
                  verbose=False, random_state=1,
                  init='scalable-k-means++', n_init=1, oversampling_factor=2.0,
                  max_samples_per_batch=1<<15, output_type=None):
-        super(KMeans, self).__init__(handle, verbose, output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
         self.n_clusters = n_clusters
         self.random_state = random_state
         self.max_iter = max_iter

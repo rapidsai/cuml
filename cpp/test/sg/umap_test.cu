@@ -21,14 +21,14 @@
 #include <cuml/manifold/umapparams.h>
 #include <datasets/digits.h>
 #include <raft/cudart_utils.h>
-#include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
-#include <cuml/cuml.hpp>
 #include <cuml/neighbors/knn.hpp>
 #include <distance/distance.cuh>
 #include <metrics/trustworthiness.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/handle.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include <umap/runner.cuh>
 
 using namespace ML;
@@ -82,7 +82,7 @@ class UMAPTest : public ::testing::Test {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    xformed_score = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
+    xformed_score = trustworthiness_score<float, L2SqrtUnexpanded>(
       handle, X_d.data(), xformed.data(), n_samples, n_features,
       umap_params->n_components, umap_params->n_neighbors);
   }
@@ -117,7 +117,7 @@ class UMAPTest : public ::testing::Test {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    fit_score = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
+    fit_score = trustworthiness_score<float, L2SqrtUnexpanded>(
       handle, X_d.data(), embeddings.data(), n_samples, n_features,
       umap_params->n_components, umap_params->n_neighbors);
   }
@@ -154,7 +154,7 @@ class UMAPTest : public ::testing::Test {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    supervised_score = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
+    supervised_score = trustworthiness_score<float, L2SqrtUnexpanded>(
       handle, X_d.data(), embeddings.data(), n_samples, n_features,
       umap_params->n_components, umap_params->n_neighbors);
   }
@@ -199,10 +199,9 @@ class UMAPTest : public ::testing::Test {
     ptrs[0] = X_d.data();
     sizes[0] = n_samples;
 
-    MLCommon::Selection::brute_force_knn(
-      ptrs, sizes, n_features, X_d.data(), n_samples, knn_indices.data(),
-      knn_dists.data(), umap_params->n_neighbors, handle.get_device_allocator(),
-      handle.get_stream());
+    raft::spatial::knn::brute_force_knn(
+      handle, ptrs, sizes, n_features, X_d.data(), n_samples,
+      knn_indices.data(), knn_dists.data(), umap_params->n_neighbors);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
@@ -213,7 +212,7 @@ class UMAPTest : public ::testing::Test {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    fit_with_knn_score = trustworthiness_score<float, EucUnexpandedL2Sqrt>(
+    fit_with_knn_score = trustworthiness_score<float, L2SqrtUnexpanded>(
       handle, X_d.data(), embeddings.data(), n_samples, n_features,
       umap_params->n_components, umap_params->n_neighbors);
   }

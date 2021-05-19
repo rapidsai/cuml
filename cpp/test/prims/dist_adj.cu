@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -96,13 +96,12 @@ class DistanceAdjTest
       raft::allocate(workspace, worksize);
     }
 
-    typedef cutlass::Shape<8, 128, 128> OutputTile_t;
     auto fin_op = [threshold] __device__(DataType d_val, int g_d_idx) {
       return d_val <= threshold;
     };
-    distance<raft::distance::DistanceType::L2Expanded, DataType, DataType, bool,
-             OutputTile_t>(x, y, dist, m, n, k, workspace, worksize, fin_op,
-                           stream, isRowMajor);
+    distance<raft::distance::DistanceType::L2Expanded, DataType, DataType,
+             bool>(x, y, dist, m, n, k, workspace, worksize, fin_op, stream,
+                   isRowMajor);
     CUDA_CHECK(cudaStreamDestroy(stream));
     CUDA_CHECK(cudaFree(workspace));
   }

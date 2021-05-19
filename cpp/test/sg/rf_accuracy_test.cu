@@ -22,8 +22,6 @@
 
 namespace ML {
 
-using namespace MLCommon;
-
 struct RFInputs {
   int n_rows_train;
   int n_rows_test;
@@ -81,27 +79,28 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
 
  private:
   void setRFParams() {
-    DecisionTree::DecisionTreeParams tree_params;
     auto algo = SPLIT_ALGO::GLOBAL_QUANTILE;
     auto sc = CRITERION::CRITERION_END;
-    set_tree_params(tree_params, 0, /* max_depth */
-                    -1,             /* max_leaves */
-                    1.0,            /* max_features */
-                    16,             /* n_bins */
-                    algo,           /* split_algo */
-                    2,              /* min_samples_leaf */
-                    2,              /* min_samples_split */
-                    0.f,            /* min_impurity_decrease */
-                    false,          /* bootstrap_features */
-                    sc,             /* split_criterion */
-                    false           /* quantile_per_tree */
+
+    rfp = set_rf_params(0,     /*max_depth */
+                        -1,    /* max_leaves */
+                        1.0,   /* max_features */
+                        16,    /* n_bins */
+                        algo,  /* split_algo */
+                        2,     /* min_samples_leaf */
+                        2,     /* min_samples_split */
+                        0.f,   /* min_impurity_decrease */
+                        false, /* bootstrap_features */
+                        true,  /* bootstrap */
+                        1,     /* n_trees */
+                        1.0,   /* max_samples */
+                        0,     /* seed */
+                        sc,    /* split_criterion */
+                        false, /* quantile_per_tree */
+                        1,     /* n_streams */
+                        true,  /* use_experimental_backend */
+                        128    /* max_batch_size */
     );
-    set_all_rf_params(rfp, 1, /* n_trees */
-                      true,   /* bootstrap */
-                      1.0,    /* max_samples */
-                      0,      /* seed */
-                      1,      /* n_streams */
-                      tree_params);
   }
 
   void loadData(T *X, int *y, int nrows, int ncols) {

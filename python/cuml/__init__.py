@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2021, NVIDIA CORPORATION.
+# Copyright (c) 2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import cuml.common.cuda as cuda
 
 from cuml.cluster.dbscan import DBSCAN
 from cuml.cluster.kmeans import KMeans
+from cuml.cluster.agglomerative import AgglomerativeClustering
 
 from cuml.datasets.arima import make_arima
 from cuml.datasets.blobs import make_blobs
@@ -34,6 +35,9 @@ from cuml.fil.fil import ForestInference
 
 from cuml.ensemble.randomforestclassifier import RandomForestClassifier
 from cuml.ensemble.randomforestregressor import RandomForestRegressor
+
+from cuml.explainer.kernel_shap import KernelExplainer
+from cuml.explainer.permutation_shap import PermutationExplainer
 
 from cuml.fil import fil
 

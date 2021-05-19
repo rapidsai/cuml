@@ -226,7 +226,7 @@ class SGD(Base,
     coef_ = CumlArrayDescriptor()
     classes_ = CumlArrayDescriptor()
 
-    def __init__(self, loss='squared_loss', penalty='none', alpha=0.0001,
+    def __init__(self, *, loss='squared_loss', penalty='none', alpha=0.0001,
                  l1_ratio=0.15, fit_intercept=True, epochs=1000, tol=1e-3,
                  shuffle=True, learning_rate='constant', eta0=0.001,
                  power_t=0.5, batch_size=32, n_iter_no_change=5, handle=None,
@@ -244,8 +244,9 @@ class SGD(Base,
             msg = "penalty {!r} is not supported"
             raise TypeError(msg.format(penalty))
 
-        super(SGD, self).__init__(handle=handle, verbose=verbose,
-                                  output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
         self.alpha = alpha
         self.l1_ratio = l1_ratio
         self.fit_intercept = fit_intercept

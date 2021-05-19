@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,12 @@
 
 #pragma once
 
-#include <cuml/cuml.hpp>
-#include "umapparams.h"
+namespace raft {
+class handle_t;
+}
 
 namespace ML {
+class UMAPParams;
 namespace UMAP {
 
 void transform(const raft::handle_t &handle, float *X, int n, int d,

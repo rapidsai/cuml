@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -76,7 +76,7 @@ DI void giniGain(int* shist, DataT* sbins, Split<DataT, IdxT>& sp, IdxT col,
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
     int nLeft = 0;
     for (IdxT j = 0; j < nclasses; ++j) {
-      nLeft += shist[i * 2 * nclasses + j];
+      nLeft += shist[2 * nbins * j + i];
     }
     auto nRight = len - nLeft;
     auto gain = DataT(0.0);
@@ -88,12 +88,12 @@ DI void giniGain(int* shist, DataT* sbins, Split<DataT, IdxT>& sp, IdxT col,
       auto invRight = One / nRight;
       for (IdxT j = 0; j < nclasses; ++j) {
         int val_i = 0;
-        auto lval_i = shist[i * 2 * nclasses + j];
+        auto lval_i = shist[2 * nbins * j + i];
         auto lval = DataT(lval_i);
         gain += lval * invLeft * lval * invlen;
 
         val_i += lval_i;
-        auto rval_i = shist[i * 2 * nclasses + nclasses + j];
+        auto rval_i = shist[2 * nbins * j + nbins + i];
         auto rval = DataT(rval_i);
         gain += rval * invRight * rval * invlen;
 
@@ -142,7 +142,7 @@ DI void entropyGain(int* shist, DataT* sbins, Split<DataT, IdxT>& sp, IdxT col,
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
     int nLeft = 0;
     for (IdxT j = 0; j < nclasses; ++j) {
-      nLeft += shist[i * 2 * nclasses + j];
+      nLeft += shist[2 * nbins * j + i];
     }
     auto nRight = len - nLeft;
     auto gain = DataT(0.0);
@@ -154,7 +154,7 @@ DI void entropyGain(int* shist, DataT* sbins, Split<DataT, IdxT>& sp, IdxT col,
       auto invRight = One / nRight;
       for (IdxT j = 0; j < nclasses; ++j) {
         int val_i = 0;
-        auto lval_i = shist[i * 2 * nclasses + j];
+        auto lval_i = shist[2 * nbins * j + i];
         if (lval_i != 0) {
           auto lval = DataT(lval_i);
           gain +=
@@ -162,7 +162,7 @@ DI void entropyGain(int* shist, DataT* sbins, Split<DataT, IdxT>& sp, IdxT col,
         }
 
         val_i += lval_i;
-        auto rval_i = shist[i * 2 * nclasses + nclasses + j];
+        auto rval_i = shist[2 * nbins * j + nbins + i];
         if (rval_i != 0) {
           auto rval = DataT(rval_i);
           gain += raft::myLog(rval * invRight) / raft::myLog(DataT(2)) * rval *

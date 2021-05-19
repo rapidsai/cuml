@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@
 #include <raft/cudart_utils.h>
 #include <iostream>
 #include <metrics/scores.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng.cuh>
 #include <vector>
 #include "test_utils.h"
@@ -120,7 +121,7 @@ class AccuracyTest : public ::testing::TestWithParam<AccuracyInputs> {
 
     raft::random::Rng r(params.seed);
     CUDA_CHECK(cudaStreamCreate(&stream));
-    std::shared_ptr<deviceAllocator> d_allocator(
+    std::shared_ptr<raft::mr::device::allocator> d_allocator(
       new raft::mr::device::default_allocator);
 
     raft::allocate(predictions, params.n);
@@ -263,7 +264,7 @@ class RegressionMetricsTest
     ref_regression_metrics.assign(3, -1.0);
 
     CUDA_CHECK(cudaStreamCreate(&stream));
-    std::shared_ptr<deviceAllocator> d_allocator(
+    std::shared_ptr<raft::mr::device::allocator> d_allocator(
       new raft::mr::device::default_allocator);
 
     raft::allocate(d_predictions, params.n);

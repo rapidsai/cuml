@@ -19,6 +19,7 @@ import pytest
 import random
 import json
 import io
+import os
 from contextlib import redirect_stdout
 
 from numba import cuda
@@ -35,8 +36,11 @@ from sklearn.ensemble import RandomForestClassifier as skrfc
 from sklearn.ensemble import RandomForestRegressor as skrfr
 from sklearn.metrics import accuracy_score, mean_squared_error
 from sklearn.datasets import fetch_california_housing, \
-    make_classification, make_regression
+    make_classification, make_regression, load_iris, load_breast_cancer, \
+    load_boston
 from sklearn.model_selection import train_test_split
+
+import treelite
 
 
 @pytest.fixture(
@@ -145,10 +149,8 @@ def special_reg(request):
 @pytest.mark.parametrize('datatype', [np.float32])
 @pytest.mark.parametrize('split_algo', [0, 1])
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
-@pytest.mark.parametrize('use_experimental_backend', [True, False])
 def test_rf_classification(small_clf, datatype, split_algo,
-                           max_samples, max_features,
-                           use_experimental_backend):
+                           max_samples, max_features):
     use_handle = True
 
     X, y = small_clf
@@ -165,29 +167,26 @@ def test_rf_classification(small_clf, datatype, split_algo,
                        n_bins=16, split_algo=split_algo, split_criterion=0,
                        min_samples_leaf=2, random_state=123, n_streams=1,
                        n_estimators=40, handle=handle, max_leaves=-1,
-                       max_depth=16,
-                       use_experimental_backend=use_experimental_backend)
+                       max_depth=16)
     f = io.StringIO()
     with redirect_stdout(f):
         cuml_model.fit(X_train, y_train)
     captured_stdout = f.getvalue()
-    if use_experimental_backend:
-        is_fallback_used = False
-        if split_algo != 1:
-            assert ('Experimental backend does not yet support histogram ' +
-                    'split algorithm' in captured_stdout)
-            is_fallback_used = True
-        if is_fallback_used:
-            assert ('Not using the experimental backend due to above ' +
-                    'mentioned reason(s)' in captured_stdout)
-        else:
-            assert ('Using experimental backend for growing trees'
-                    in captured_stdout)
+
+    is_fallback_used = False
+    if split_algo != 1:
+        assert ('Experimental backend does not yet support histogram ' +
+                'split algorithm' in captured_stdout)
+        is_fallback_used = True
+    if is_fallback_used:
+        assert ('Not using the experimental backend due to above ' +
+                'mentioned reason(s)' in captured_stdout)
     else:
-        assert captured_stdout == ''
+        assert ('Using experimental backend for growing trees'
+                in captured_stdout)
+
     fil_preds = cuml_model.predict(X_test,
                                    predict_model="GPU",
-                                   output_class=True,
                                    threshold=0.5,
                                    algo='auto')
     cu_preds = cuml_model.predict(X_test, predict_model="CPU")
@@ -428,14 +427,15 @@ def rf_classification(datatype, array_type, max_features, max_samples,
                                 .as_gpu_matrix())
         cu_preds_cpu = cuml_model.predict(X_test_df,
                                           predict_model="CPU").to_array()
-        cu_preds_gpu = cuml_model.predict(X_test_df, output_class=True,
+        cu_preds_gpu = cuml_model.predict(X_test_df,
                                           predict_model="GPU").to_array()
     else:
         cuml_model.fit(X_train, y_train)
         cu_proba_gpu = cuml_model.predict_proba(X_test)
         cu_preds_cpu = cuml_model.predict(X_test, predict_model="CPU")
-        cu_preds_gpu = cuml_model.predict(X_test, predict_model="GPU",
-                                          output_class=True)
+        cu_preds_gpu = cuml_model.predict(X_test, predict_model="GPU")
+    np.testing.assert_array_equal(cu_preds_gpu,
+                                  np.argmax(cu_proba_gpu, axis=1))
 
     cu_acc_cpu = accuracy_score(y_test, cu_preds_cpu)
     cu_acc_gpu = accuracy_score(y_test, cu_preds_gpu)
@@ -507,19 +507,19 @@ def test_rf_classification_sparse(small_clf, datatype,
         with pytest.raises(ValueError):
             fil_preds = cuml_model.predict(X_test,
                                            predict_model="GPU",
-                                           output_class=True,
                                            threshold=0.5,
                                            fil_sparse_format=fil_sparse_format,
                                            algo=algo)
     else:
         fil_preds = cuml_model.predict(X_test,
                                        predict_model="GPU",
-                                       output_class=True,
                                        threshold=0.5,
                                        fil_sparse_format=fil_sparse_format,
                                        algo=algo)
         fil_preds = np.reshape(fil_preds, np.shape(y_test))
         fil_acc = accuracy_score(y_test, fil_preds)
+        np.testing.assert_almost_equal(fil_acc,
+                                       cuml_model.score(X_test, y_test))
 
         fil_model = cuml_model.convert_to_fil_model()
 
@@ -783,14 +783,14 @@ def test_rf_get_json(estimator_type, max_depth, n_estimators):
     if estimator_type == 'classification':
         cuml_model = curfc(max_features=1.0, max_samples=1.0,
                            n_bins=16, split_algo=0, split_criterion=0,
-                           min_samples_leaf=2, seed=23707, n_streams=1,
+                           min_samples_leaf=2, random_state=23707, n_streams=1,
                            n_estimators=n_estimators, max_leaves=-1,
                            max_depth=max_depth)
         y = y.astype(np.int32)
     elif estimator_type == 'regression':
         cuml_model = curfr(max_features=1.0, max_samples=1.0,
                            n_bins=16, split_algo=0,
-                           min_samples_leaf=2, seed=23707, n_streams=1,
+                           min_samples_leaf=2, random_state=23707, n_streams=1,
                            n_estimators=n_estimators, max_leaves=-1,
                            max_depth=max_depth)
         y = y.astype(np.float32)
@@ -852,6 +852,46 @@ def test_rf_get_json(estimator_type, max_depth, n_estimators):
             pred.append(predict_with_json_rf_regressor(json_obj, row))
         pred = np.array(pred, dtype=np.float32)
         np.testing.assert_almost_equal(pred, expected_pred, decimal=6)
+
+
+@pytest.mark.parametrize('max_depth', [1, 2, 3, 5, 10, 15, 20])
+@pytest.mark.parametrize('n_estimators', [5, 10, 20])
+def test_rf_instance_count(max_depth, n_estimators):
+    X, y = make_classification(n_samples=350, n_features=20,
+                               n_clusters_per_class=1, n_informative=10,
+                               random_state=123, n_classes=2)
+    X = X.astype(np.float32)
+    cuml_model = curfc(max_features=1.0, max_samples=1.0,
+                       n_bins=16, split_algo=1, split_criterion=0,
+                       min_samples_leaf=2, random_state=23707, n_streams=1,
+                       n_estimators=n_estimators, max_leaves=-1,
+                       max_depth=max_depth)
+    y = y.astype(np.int32)
+
+    # Train model on the data
+    cuml_model.fit(X, y)
+
+    json_out = cuml_model.get_json()
+    json_obj = json.loads(json_out)
+
+    # The instance count of each node must be equal to the sum of
+    # the instance counts of its children. Note that the instance count
+    # is only available with the new backend.
+    def check_instance_count_for_non_leaf(tree):
+        assert 'instance_count' in tree
+        if 'children' not in tree:
+            return
+        assert 'instance_count' in tree['children'][0]
+        assert 'instance_count' in tree['children'][1]
+        assert (tree['instance_count']
+                == tree['children'][0]['instance_count']
+                + tree['children'][1]['instance_count'])
+        check_instance_count_for_non_leaf(tree['children'][0])
+        check_instance_count_for_non_leaf(tree['children'][1])
+    for tree in json_obj:
+        check_instance_count_for_non_leaf(tree)
+        # The root's count must be equal to the number of rows in the data
+        assert tree['instance_count'] == X.shape[0]
 
 
 @pytest.mark.memleak
@@ -981,7 +1021,7 @@ def test_rf_regression_with_identical_labels(split_criterion,
     # Degenerate case: all labels are identical.
     # RF Regressor must not create any split. It must yield an empty tree
     # with only the root node.
-    clf = curfr(max_features=1.0, rows_sample=1.0, n_bins=5, split_algo=1,
+    clf = curfr(max_features=1.0, max_samples=1.0, n_bins=5, split_algo=1,
                 bootstrap=False, split_criterion=split_criterion,
                 min_samples_leaf=1, min_samples_split=2, random_state=0,
                 n_streams=1, n_estimators=1, max_depth=1,
@@ -989,4 +1029,52 @@ def test_rf_regression_with_identical_labels(split_criterion,
     clf.fit(X, y)
     model_dump = json.loads(clf.get_json())
     assert len(model_dump) == 1
-    assert model_dump[0] == {'nodeid': 0, 'leaf_value': 1.0}
+    expected_dump = {'nodeid': 0, 'leaf_value': 1.0}
+    if use_experimental_backend:
+        expected_dump['instance_count'] = 5
+    assert model_dump[0] == expected_dump
+
+
+def test_rf_regressor_gtil_integration(tmpdir):
+    X, y = load_boston(return_X_y=True)
+    X, y = X.astype(np.float32), y.astype(np.float32)
+    clf = curfr(max_depth=3, random_state=0, n_estimators=10)
+    clf.fit(X, y)
+    expected_pred = clf.predict(X)
+
+    checkpoint_path = os.path.join(tmpdir, 'checkpoint.tl')
+    clf.convert_to_treelite_model().to_treelite_checkpoint(checkpoint_path)
+
+    tl_model = treelite.Model.deserialize(checkpoint_path)
+    out_pred = treelite.gtil.predict(tl_model, X)
+    np.testing.assert_almost_equal(out_pred, expected_pred, decimal=5)
+
+
+def test_rf_binary_classifier_gtil_integration(tmpdir):
+    X, y = load_breast_cancer(return_X_y=True)
+    X, y = X.astype(np.float32), y.astype(np.int32)
+    clf = curfc(max_depth=3, random_state=0, n_estimators=10)
+    clf.fit(X, y)
+    expected_prob = clf.predict_proba(X)[:, 1]
+
+    checkpoint_path = os.path.join(tmpdir, 'checkpoint.tl')
+    clf.convert_to_treelite_model().to_treelite_checkpoint(checkpoint_path)
+
+    tl_model = treelite.Model.deserialize(checkpoint_path)
+    out_prob = treelite.gtil.predict(tl_model, X)
+    np.testing.assert_almost_equal(out_prob, expected_prob, decimal=5)
+
+
+def test_rf_multiclass_classifier_gtil_integration(tmpdir):
+    X, y = load_iris(return_X_y=True)
+    X, y = X.astype(np.float32), y.astype(np.int32)
+    clf = curfc(max_depth=3, random_state=0, n_estimators=10)
+    clf.fit(X, y)
+    expected_prob = clf.predict_proba(X)
+
+    checkpoint_path = os.path.join(tmpdir, 'checkpoint.tl')
+    clf.convert_to_treelite_model().to_treelite_checkpoint(checkpoint_path)
+
+    tl_model = treelite.Model.deserialize(checkpoint_path)
+    out_prob = treelite.gtil.predict(tl_model, X, pred_margin=True)
+    np.testing.assert_almost_equal(out_prob, expected_prob, decimal=5)

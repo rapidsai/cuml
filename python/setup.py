@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018-2020, NVIDIA CORPORATION.
+# Copyright (c) 2018-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -160,6 +160,7 @@ class cuml_build(_build):
             raft_include_dir,
             cuda_include_dir,
             numpy.get_include(),
+            '../cpp/build/faiss/src/faiss',
             os.path.dirname(sysconfig.get_path("include"))
         ]
 

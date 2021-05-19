@@ -32,6 +32,7 @@ struct SparseTreeNode {
   DataT best_metric_val;
   IdxT left_child_id = IdxT(-1);
   uint32_t unique_id = UINT32_MAX;
+  uint32_t instance_count = UINT32_MAX;  // UINT32_MAX indicates n/a
 };
 
 template <typename T, typename L>

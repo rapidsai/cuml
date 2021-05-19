@@ -123,9 +123,8 @@ class LabelEncoder(Base):
 
     """
 
-    def __init__(self,
+    def __init__(self, *,
                  handle_unknown='error',
-                 *,
                  handle=None,
                  verbose=False,
                  output_type=None):

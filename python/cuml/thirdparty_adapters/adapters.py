@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
 
 import numpy as np
 import cupy as cp
-from cuml.common import input_to_cuml_array
 from cuml.common.input_utils import input_to_cupy_array
 from cupy.sparse import csr_matrix as gpu_csr_matrix
 from cupy.sparse import csc_matrix as gpu_csc_matrix
@@ -23,14 +22,7 @@ from cupy.sparse import csc_matrix as gpu_coo_matrix
 from scipy import sparse as cpu_sparse
 from cupy import sparse as gpu_sparse
 
-from numpy import ndarray as numpyArray
-from cupy import ndarray as cupyArray
-from cudf.core import Series as cuSeries
 from cudf.core import DataFrame as cuDataFrame
-from pandas import Series as pdSeries
-from pandas import DataFrame as pdDataFrame
-from numba.cuda import devicearray as numbaArray
-
 
 numeric_types = [
     np.int8, np.int16, np.int32, np.int64,
@@ -283,84 +275,6 @@ def check_array(array, accept_sparse=False, accept_large_sparse=True,
             X = X.astype(correct_dtype)
         check_finite(X, force_all_finite)
         return X
-
-
-_input_type_to_str = {
-    numpyArray: 'numpy',
-    cupyArray: 'cupy',
-    cuSeries: 'series',
-    cuDataFrame: 'dataframe',
-    pdSeries: 'numpy',
-    pdDataFrame: 'numpy'
-}
-
-
-def get_input_type(input):
-    # function to access _input_to_str, while still using the correct
-    # numba check for a numba device_array
-    if type(input) in _input_type_to_str.keys():
-        return _input_type_to_str[type(input)]
-    elif numbaArray.is_cuda_ndarray(input):
-        return 'numba'
-    elif isinstance(input, cpu_sparse.csr_matrix):
-        return 'scipy_csr'
-    elif isinstance(input, cpu_sparse.csc_matrix):
-        return 'scipy_csc'
-    elif isinstance(input, cpu_sparse.coo_matrix):
-        return 'scipy_coo'
-    elif isinstance(input, gpu_sparse.csr_matrix):
-        return 'cupy_csr'
-    elif isinstance(input, gpu_sparse.csc_matrix):
-        return 'cupy_csc'
-    elif isinstance(input, gpu_sparse.coo_matrix):
-        return 'cupy_coo'
-    else:
-        return 'cupy'
-
-
-def to_output_type(array, output_type, order='F'):
-    if output_type == 'scipy_csr':
-        return cpu_sparse.csr_matrix(array.get())
-    if output_type == 'scipy_csc':
-        return cpu_sparse.csc_matrix(array.get())
-    if output_type == 'scipy_coo':
-        return cpu_sparse.coo_matrix(array.get())
-    if output_type == 'cupy_csr':
-        if array.format in ['csc', 'coo']:
-            return array.tocsr()
-        else:
-            return array
-    if output_type == 'cupy_csc':
-        if array.format in ['csr', 'coo']:
-            return array.tocsc()
-        else:
-            return array
-    if output_type == 'cupy_coo':
-        if array.format in ['csr', 'csc']:
-            return array.tocoo()
-        else:
-            return array
-
-    if cpu_sparse.issparse(array):
-        if output_type == 'numpy':
-            return array.todense()
-        elif output_type == 'cupy':
-            return cp.array(array.todense())
-        else:
-            array = array.todense()
-    elif gpu_sparse.issparse(array):
-        if output_type == 'numpy':
-            return cp.asnumpy(array.todense())
-        elif output_type == 'cupy':
-            return array.todense()
-        else:
-            array = array.todense()
-
-    cuml_array = input_to_cuml_array(array, order=order)[0]
-    if output_type == 'series' and len(array.shape) > 1:
-        output_type = 'cudf'
-
-    return cuml_array.to_output(output_type)
 
 
 def _get_mask(X, value_to_mask):

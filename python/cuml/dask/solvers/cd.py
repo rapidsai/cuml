@@ -27,12 +27,12 @@ class CD(BaseEstimator,
     Model-Parallel Multi-GPU Linear Regression Model.
     """
 
-    def __init__(self, client=None, **kwargs):
+    def __init__(self, *, client=None, **kwargs):
         """
         Initializes the linear regression class.
 
         """
-        super(CD, self).__init__(client=client, **kwargs)
+        super().__init__(client=client, **kwargs)
         self._model_fit = False
         self._consec_call = 0
 

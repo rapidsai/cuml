@@ -57,6 +57,7 @@ if(BUILD_CUML_TESTS)
     sg/kmeans_test.cu
     sg/knn_test.cu
     sg/lars_test.cu
+    sg/linkage_test.cu
     sg/logger.cpp
     sg/multi_sum_test.cu
     sg/nvtx_test.cpp
@@ -67,6 +68,7 @@ if(BUILD_CUML_TESTS)
     sg/rf_batched_classification_test.cu
     sg/rf_batched_regression_test.cu
     sg/rf_depth_test.cu
+    sg/rf_quantiles_test.cu
     sg/rf_test.cu
     sg/rf_treelite_test.cu
     sg/ridge.cu
@@ -79,8 +81,6 @@ if(BUILD_CUML_TESTS)
     sg/tsvd_test.cu
     sg/umap_parametrizable_test.cu
     )
-
-  add_dependencies(ml cutlass)
 
   target_include_directories(ml
     PRIVATE
@@ -150,21 +150,13 @@ if(BUILD_PRIMS_TESTS)
     prims/completeness_score.cu
     prims/contingencyMatrix.cu
     prims/cov.cu
-    prims/csr.cu
-    prims/cutlass_gemm.cu
     prims/decoupled_lookback.cu
     prims/device_utils.cu
     prims/dispersion.cu
-    prims/dist_adj.cu
-    prims/dist_cos.cu
-    prims/dist_euc_exp.cu
-    prims/dist_euc_unexp.cu
-    prims/dist_l1.cu
     prims/eltwise2d.cu
     prims/entropy.cu
     prims/epsilon_neighborhood.cu
     prims/fast_int_div.cu
-    prims/fused_l2_nn.cu
     prims/gather.cu
     prims/gram.cu
     prims/grid_sync.cu
@@ -176,7 +168,6 @@ if(BUILD_PRIMS_TESTS)
     prims/kl_divergence.cu
     prims/knn_classify.cu
     prims/knn_regression.cu
-    prims/knn.cu
     prims/kselection.cu
     prims/label.cu
     prims/linearReg.cu
@@ -200,23 +191,6 @@ if(BUILD_PRIMS_TESTS)
     prims/score.cu
     prims/seive.cu
     prims/sigmoid.cu
-    prims/sparse/add.cu
-    prims/sparse/convert_coo.cu
-    prims/sparse/convert_csr.cu
-    prims/sparse/csr_row_slice.cu
-    prims/sparse/csr_to_dense.cu
-    prims/sparse/csr_transpose.cu
-    prims/sparse/degree.cu
-    prims/sparse/dist_coo_spmv.cu
-    prims/sparse/dist_csr_spmv.cu
-    prims/sparse/distance.cu
-    prims/sparse/filter.cu
-    prims/sparse/knn.cu
-    prims/sparse/norm.cu
-    prims/sparse/row_op.cu
-    prims/sparse/selection.cu
-    prims/sparse/sort.cu
-    prims/sparse/symmetrize.cu
     prims/silhouette_score.cu
     prims/sqrt.cu
     prims/ternary_op.cu
@@ -229,8 +203,6 @@ if(BUILD_PRIMS_TESTS)
       ${CUML_SRC_PRIMS_DIR}
       ${CUML_TEST_PRIMS_DIR}
   )
-
-  add_dependencies(prims cutlass)
 
   target_link_libraries(prims
     ${CUML_CPP_TARGET}

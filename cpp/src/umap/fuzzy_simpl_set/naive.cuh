@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,14 +19,15 @@
 #include <cuml/manifold/umapparams.h>
 #include <cuml/common/logger.hpp>
 #include <cuml/neighbors/knn.hpp>
+#include <raft/mr/device/allocator.hpp>
 
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 
-#include <sparse/op/sort.h>
+#include <raft/sparse/op/sort.h>
+#include <raft/sparse/coo.cuh>
+#include <raft/sparse/linalg/symmetrize.cuh>
 #include <raft/stats/mean.cuh>
-#include <sparse/coo.cuh>
-#include <sparse/linalg/symmetrize.cuh>
 
 #include <cuda_runtime.h>
 
@@ -237,7 +238,7 @@ void smooth_knn_dist(int n, const value_idx *knn_indices,
                      const float *knn_dists, value_t *rhos, value_t *sigmas,
                      UMAPParams *params, int n_neighbors,
                      float local_connectivity,
-                     std::shared_ptr<deviceAllocator> d_alloc,
+                     std::shared_ptr<raft::mr::device::allocator> d_alloc,
                      cudaStream_t stream) {
   dim3 grid(raft::ceildiv(n, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
@@ -280,7 +281,8 @@ void smooth_knn_dist(int n, const value_idx *knn_indices,
 template <int TPB_X, typename value_idx, typename value_t>
 void launcher(int n, const value_idx *knn_indices, const value_t *knn_dists,
               int n_neighbors, raft::sparse::COO<value_t> *out,
-              UMAPParams *params, std::shared_ptr<deviceAllocator> d_alloc,
+              UMAPParams *params,
+              std::shared_ptr<raft::mr::device::allocator> d_alloc,
               cudaStream_t stream) {
   /**
    * Calculate mean distance through a parallel reduction

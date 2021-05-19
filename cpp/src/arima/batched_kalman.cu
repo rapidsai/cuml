@@ -22,7 +22,6 @@
 #include <cub/cub.cuh>
 
 #include <cuml/common/device_buffer.hpp>
-#include <cuml/cuml.hpp>
 #include <cuml/tsa/batched_kalman.hpp>
 
 #include <raft/cudart_utils.h>
@@ -49,14 +48,13 @@ DI void Mv_l(const double* A, const double* v, double* out) {
 }
 
 template <int n>
-DI void Mv_l(double alpha, const double* A, const double* v, double beta,
-             double* out) {
+DI void Mv_l(double alpha, const double* A, const double* v, double* out) {
   for (int i = 0; i < n; i++) {
     double sum = 0.0;
     for (int j = 0; j < n; j++) {
       sum += A[i + j * n] * v[j];
     }
-    out[i] = alpha * sum + beta * out[i];
+    out[i] = alpha * sum;
   }
 }
 
@@ -179,7 +177,7 @@ __global__ void batched_kalman_loop_kernel(
           l_K[i] = _1_Fs * l_TP[i];
         }
       } else
-        Mv_l<rd>(_1_Fs, l_TP, l_Z, 0.0, l_K);
+        Mv_l<rd>(_1_Fs, l_TP, l_Z, l_K);
 
       // 4. alpha = T*alpha + K*vs[it] + c
       // tmp = T*alpha

@@ -44,19 +44,6 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
         MAE,
         CRITERION_END
 
-cdef extern from "cuml/tree/decisiontree.hpp" namespace "ML::DecisionTree":
-    cdef struct DecisionTreeParams:
-        int max_depth
-        int max_leaves
-        float max_features
-        int n_bins
-        int split_algo
-        int min_samples_leaf
-        int min_samples_split
-        bool bootstrap_features
-        bool quantile_per_tree
-        CRITERION split_criterion
-
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
 
     cdef enum RF_type:
@@ -103,24 +90,24 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                                            ) except +
     cdef string get_rf_json[T, L](RandomForestMetaData[T, L]*) except +
 
-    cdef RF_params set_rf_class_obj(int,
-                                    int,
-                                    float,
-                                    int,
-                                    int,
-                                    int,
-                                    int,
-                                    float,
-                                    bool,
-                                    bool,
-                                    int,
-                                    float,
-                                    uint64_t,
-                                    CRITERION,
-                                    bool,
-                                    int,
-                                    bool,
-                                    int) except +
+    cdef RF_params set_rf_params(int,
+                                 int,
+                                 float,
+                                 int,
+                                 int,
+                                 int,
+                                 int,
+                                 float,
+                                 bool,
+                                 bool,
+                                 int,
+                                 float,
+                                 uint64_t,
+                                 CRITERION,
+                                 bool,
+                                 int,
+                                 bool,
+                                 int) except +
 
     cdef vector[unsigned char] save_model(ModelHandle)
 

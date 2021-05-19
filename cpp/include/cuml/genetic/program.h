@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include "node.h"
-
 namespace cuml {
 namespace genetic {
+
+struct node;
 
 /**
  * @brief The main data structure to store the AST that represents a program

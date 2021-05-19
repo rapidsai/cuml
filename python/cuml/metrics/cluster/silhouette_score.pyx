@@ -24,6 +24,7 @@ from cuml.metrics.pairwise_distances import _determine_metric
 from cuml.raft.common.handle cimport handle_t
 from cuml.raft.common.handle import Handle
 from cuml.metrics.distance_type cimport DistanceType
+from cuml.prims.label.classlabels import make_monotonic, check_labels
 
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics::Batched":
     float silhouette_score(
@@ -105,6 +106,16 @@ def _silhouette_coeff(
         labels.to_output(output_type='cupy', output_dtype='int')
     ).shape[0]
 
+    if not check_labels(labels, cp.arange(n_labels, dtype=np.int32)):
+        mono_labels, _ = make_monotonic(labels, copy=True)
+        mono_labels, _, _, _ = input_to_cuml_array(
+            mono_labels,
+            order='C',
+            convert_to_dtype=np.int32
+        )
+    else:
+        mono_labels = labels
+
     cdef uintptr_t scores_ptr
     if sil_scores is None:
         scores_ptr = <uintptr_t> NULL
@@ -122,7 +133,7 @@ def _silhouette_coeff(
                                 <float*> <uintptr_t> data.ptr,
                                 <int> n_rows,
                                 <int> n_cols,
-                                <int*> <uintptr_t> labels.ptr,
+                                <int*> <uintptr_t> mono_labels.ptr,
                                 <int> n_labels,
                                 <float*> scores_ptr,
                                 <int> chunksize,
@@ -132,7 +143,7 @@ def _silhouette_coeff(
                                 <double*> <uintptr_t> data.ptr,
                                 <int> n_rows,
                                 <int> n_cols,
-                                <int*> <uintptr_t> labels.ptr,
+                                <int*> <uintptr_t> mono_labels.ptr,
                                 <int> n_labels,
                                 <double*> scores_ptr,
                                 <int> chunksize,

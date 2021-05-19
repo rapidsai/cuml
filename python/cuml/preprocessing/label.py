@@ -151,11 +151,10 @@ class LabelBinarizer(Base):
 
     classes_ = CumlArrayDescriptor()
 
-    def __init__(self,
+    def __init__(self, *,
                  neg_label=0,
                  pos_label=1,
                  sparse_output=False,
-                 *,
                  handle=None,
                  verbose=False,
                  output_type=None):

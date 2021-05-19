@@ -30,16 +30,26 @@ VALID_METRICS = {
         "chebyshev", "linf",
         "jensenshannon",
         "cosine", "correlation",
-        "inner_product", "sqeuclidean"
+        "inner_product", "sqeuclidean",
+        "haversine"
     ]),
-    "ivfflat": set(["l2", "euclidean"]),
-    "ivfpq": set(["l2", "euclidean"]),
-    "ivfsq": set(["l2", "euclidean"])
+    "ivfflat": set([
+        "l2", "euclidean", "sqeuclidean",
+        "inner_product", "cosine", "correlation"
+    ]),
+    "ivfpq": set([
+        "l2", "euclidean", "sqeuclidean",
+        "inner_product", "cosine", "correlation"
+    ]),
+    "ivfsq": set([
+        "l2", "euclidean", "sqeuclidean",
+        "inner_product", "cosine", "correlation"
+    ])
     }
 
 VALID_METRICS_SPARSE = {
     "brute": set(["euclidean", "l2", "inner_product",
                   "l1", "cityblock", "manhattan", "taxicab",
                   "canberra", "linf", "chebyshev", "jaccard",
-                  "minkowski", "lp", "cosine"])
+                  "minkowski", "lp", "cosine", "hellinger"])
 }

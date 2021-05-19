@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,16 +16,23 @@
 
 #include <gtest/gtest.h>
 #include <cuml/explainer/kernel_shap.hpp>
+#include <raft/mr/device/allocator.hpp>
 
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/handle.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
 
 #include <test_utils.h>
 
+namespace MLCommon {
+class raft::mr::device::allocator;
+}
+
 namespace ML {
+
 namespace Explainer {
 
 struct MakeKSHAPDatasetInputs {
@@ -195,7 +202,7 @@ class MakeKSHAPDatasetTest
   bool test_sampled_X;
   bool test_scatter_exact;
   bool test_scatter_sampled;
-  std::shared_ptr<deviceAllocator> allocator;
+  std::shared_ptr<raft::mr::device::allocator> allocator;
   raft::handle_t handle;
   cudaStream_t stream;
 };

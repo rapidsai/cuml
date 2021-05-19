@@ -35,7 +35,6 @@
 
 namespace ML {
 
-using namespace MLCommon;
 namespace tl = treelite;
 namespace tlf = treelite::frontend;
 using namespace fil;
@@ -85,6 +84,7 @@ std::string output2str(fil::output_t output) {
   if (output & fil::AVG) s += "| AVG";
   if (output & fil::CLASS) s += "| CLASS";
   if (output & fil::SIGMOID) s += "| SIGMOID";
+  if (output & fil::SOFTMAX) s += "| SOFTMAX";
   return s;
 }
 
@@ -247,9 +247,22 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     CUDA_CHECK(cudaFree(mask_d));
   }
 
+  void apply_softmax(float* class_scores) {
+    float max = *std::max_element(class_scores, &class_scores[ps.num_classes]);
+    for (int i = 0; i < ps.num_classes; ++i)
+      class_scores[i] = expf(class_scores[i] - max);
+    float sum =
+      std::accumulate(class_scores, &class_scores[ps.num_classes], 0.0f);
+    for (int i = 0; i < ps.num_classes; ++i) class_scores[i] /= sum;
+  }
+
   void transform(float f, float& proba, float& output) {
     if ((ps.output & fil::output_t::AVG) != 0) {
-      f *= (1.0f / ps.num_trees);
+      if (ps.leaf_algo == fil::leaf_algo_t::GROVE_PER_CLASS) {
+        f /= ps.num_trees / ps.num_classes;
+      } else {
+        f *= 1.0f / ps.num_trees;
+      }
     }
     f += ps.global_bias;
     if ((ps.output & fil::output_t::SIGMOID) != 0) {
@@ -291,10 +304,16 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
                              &data_h[row * ps.num_cols])
                 .f;
           }
-          // not supporting predict_proba() with GROVE_PER_CLASS (xgboost-style models)
           want_preds_h[row] =
             std::max_element(class_scores.begin(), class_scores.end()) -
             class_scores.begin();
+          for (int c = 0; c < ps.num_classes; ++c) {
+            float thresholded_proba;  // not used;
+            transform(class_scores[c], want_proba_h[row * ps.num_classes + c],
+                      thresholded_proba);
+          }
+          if ((ps.output & fil::output_t::SOFTMAX) != 0)
+            apply_softmax(&want_proba_h[row * ps.num_classes]);
         }
         break;
       case fil::leaf_algo_t::CATEGORICAL_LEAF:
@@ -339,9 +358,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     raft::allocate(preds_d, ps.num_preds_outputs());
     raft::allocate(proba_d, ps.num_proba_outputs());
     fil::predict(handle, forest, preds_d, data_d, ps.num_rows);
-    // not supporting predict_proba() with GROVE_PER_CLASS (xgboost-style models)
-    if (ps.leaf_algo != fil::leaf_algo_t::GROVE_PER_CLASS)
-      fil::predict(handle, forest, proba_d, data_d, ps.num_rows, true);
+    fil::predict(handle, forest, proba_d, data_d, ps.num_rows, true);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     // cleanup
@@ -349,12 +366,9 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   }
 
   void compare() {
-    // not supporting predict_proba() with GROVE_PER_CLASS (xgboost-style models)
-    if (ps.leaf_algo != fil::leaf_algo_t::GROVE_PER_CLASS) {
-      ASSERT_TRUE(
-        raft::devArrMatch(want_proba_d, proba_d, ps.num_proba_outputs(),
-                          raft::CompareApprox<float>(ps.tolerance), stream));
-    }
+    ASSERT_TRUE(raft::devArrMatch(want_proba_d, proba_d, ps.num_proba_outputs(),
+                                  raft::CompareApprox<float>(ps.tolerance),
+                                  stream));
     float tolerance = ps.leaf_algo == fil::leaf_algo_t::FLOAT_UNARY_BINARY
                         ? ps.tolerance
                         : std::numeric_limits<float>::epsilon();
@@ -556,10 +570,15 @@ class TreeliteFilTest : public BaseFilTest {
 
     // prediction transform
     if ((ps.output & fil::output_t::SIGMOID) != 0) {
-      model_builder->SetModelParam("pred_transform", "sigmoid");
+      if (ps.num_classes > 2)
+        model_builder->SetModelParam("pred_transform", "multiclass_ova");
+      else
+        model_builder->SetModelParam("pred_transform", "sigmoid");
     } else if (ps.leaf_algo != fil::leaf_algo_t::FLOAT_UNARY_BINARY) {
       model_builder->SetModelParam("pred_transform", "max_index");
       ps.output = fil::output_t(ps.output | fil::output_t::CLASS);
+    } else if (ps.leaf_algo == GROVE_PER_CLASS) {
+      model_builder->SetModelParam("pred_transform", "identity_multiclass");
     } else {
       model_builder->SetModelParam("pred_transform", "identity");
     }
@@ -710,13 +729,21 @@ std::vector<FilTestParams> predict_dense_inputs = {
                   num_trees = 512, num_classes = 512),
   FIL_TEST_PARAMS(leaf_algo = GROVE_PER_CLASS, blocks_per_sm = 4,
                   num_trees = 512, num_classes = 512),
+  FIL_TEST_PARAMS(num_trees = 52, output = SOFTMAX, leaf_algo = GROVE_PER_CLASS,
+                  num_classes = 4),
+  FIL_TEST_PARAMS(num_trees = 52, output = AVG_SOFTMAX,
+                  leaf_algo = GROVE_PER_CLASS, num_classes = 4),
+  FIL_TEST_PARAMS(num_trees = 3 * (FIL_TPB + 1), output = SOFTMAX,
+                  leaf_algo = GROVE_PER_CLASS, num_classes = FIL_TPB + 1),
+  FIL_TEST_PARAMS(num_trees = 3 * (FIL_TPB + 1), output = AVG_SOFTMAX,
+                  leaf_algo = GROVE_PER_CLASS, num_classes = FIL_TPB + 1),
   FIL_TEST_PARAMS(num_cols = 100'000, depth = 5, num_trees = 1,
                   leaf_algo = FLOAT_UNARY_BINARY),
-  FIL_TEST_PARAMS(num_rows = 101, num_cols = 100'000, depth = 5, num_trees = 3,
+  FIL_TEST_PARAMS(num_rows = 101, num_cols = 100'000, depth = 5, num_trees = 9,
                   algo = BATCH_TREE_REORG, leaf_algo = GROVE_PER_CLASS,
                   num_classes = 3),
   FIL_TEST_PARAMS(num_rows = 102, num_cols = 100'000, depth = 5,
-                  num_trees = FIL_TPB + 1, algo = BATCH_TREE_REORG,
+                  num_trees = 3 * (FIL_TPB + 1), algo = BATCH_TREE_REORG,
                   leaf_algo = GROVE_PER_CLASS, num_classes = FIL_TPB + 1),
   FIL_TEST_PARAMS(num_rows = 103, num_cols = 100'000, depth = 5, num_trees = 1,
                   algo = BATCH_TREE_REORG, leaf_algo = CATEGORICAL_LEAF,
@@ -868,6 +895,8 @@ std::vector<FilTestParams> import_sparse_inputs = {
   FIL_TEST_PARAMS(output = CLASS, op = kLE, leaf_algo = GROVE_PER_CLASS,
                   num_classes = 5),
   FIL_TEST_PARAMS(num_trees = 51, output = CLASS, global_bias = 0.5,
+                  leaf_algo = GROVE_PER_CLASS, num_classes = 3),
+  FIL_TEST_PARAMS(num_trees = 51, output = SIGMOID_CLASS, global_bias = 0.5,
                   leaf_algo = GROVE_PER_CLASS, num_classes = 3),
 };
 

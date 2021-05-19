@@ -15,6 +15,7 @@
 #
 
 import pytest
+import math
 
 from cuml.test.utils import array_equal, unit_param, quality_param, \
     stress_param
@@ -22,6 +23,8 @@ from cuml.neighbors import NearestNeighbors as cuKNN
 
 from sklearn.neighbors import NearestNeighbors as skKNN
 from cuml.datasets import make_blobs
+
+from sklearn.metrics import pairwise_distances
 
 from cuml.common import logger
 
@@ -43,9 +46,9 @@ def predict(neigh_ind, _y, n_neighbors):
     import scipy.stats as stats
 
     neigh_ind = neigh_ind.astype(np.int32)
-    if isinstance(_y, cp.core.core.ndarray):
+    if isinstance(_y, cp.ndarray):
         _y = _y.get()
-    if isinstance(neigh_ind, cp.core.core.ndarray):
+    if isinstance(neigh_ind, cp.ndarray):
         neigh_ind = neigh_ind.get()
 
     ypred, count = stats.mode(_y[neigh_ind], axis=1)
@@ -56,7 +59,9 @@ def valid_metrics(algo="brute", cuml_algo=None):
     cuml_algo = algo if cuml_algo is None else cuml_algo
     cuml_metrics = cuml.neighbors.VALID_METRICS[cuml_algo]
     sklearn_metrics = sklearn.neighbors.VALID_METRICS[algo]
-    return [value for value in cuml_metrics if value in sklearn_metrics]
+    ret = [value for value in cuml_metrics if value in sklearn_metrics]
+    ret.remove("haversine")  # This is tested on its own
+    return ret
 
 
 def valid_metrics_sparse(algo="brute", cuml_algo=None):
@@ -123,7 +128,7 @@ def test_self_neighboring(datatype, metric_p, nrows):
         neigh_ind = neigh_ind.as_gpu_matrix().copy_to_host()
         neigh_dist = neigh_dist.as_gpu_matrix().copy_to_host()
     else:
-        assert isinstance(neigh_ind, cp.core.core.ndarray)
+        assert isinstance(neigh_ind, cp.ndarray)
         neigh_ind = neigh_ind.get()
         neigh_dist = neigh_dist.get()
 
@@ -182,7 +187,7 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
         assert isinstance(neigh_ind, cudf.DataFrame)
         neigh_ind = neigh_ind.as_gpu_matrix().copy_to_host()
     else:
-        assert isinstance(neigh_ind, cp.core.core.ndarray)
+        assert isinstance(neigh_ind, cp.ndarray)
 
     labels, probs = predict(neigh_ind, y, n_neighbors)
 
@@ -281,6 +286,31 @@ def test_ivfsq_pred(qtype, encodeResidual, nrows, ncols, n_neighbors, nlist):
     assert array_equal(labels, y)
 
 
+@pytest.mark.parametrize("algo", ["brute", "ivfflat", "ivfpq", "ivfsq"])
+@pytest.mark.parametrize("metric", set([
+        "l2", "euclidean", "sqeuclidean",
+        "cosine", "correlation"
+    ]))
+def test_ann_distances_metrics(algo, metric):
+    X, y = make_blobs(n_samples=500, centers=2,
+                      n_features=128, random_state=0)
+
+    cu_knn = cuKNN(algorithm=algo, metric=metric)
+    cu_knn.fit(X)
+    cu_dist, cu_ind = cu_knn.kneighbors(X, n_neighbors=10,
+                                        return_distance=True)
+    del cu_knn
+    gc.collect()
+
+    X = X.get()
+    sk_knn = skKNN(metric=metric)
+    sk_knn.fit(X)
+    sk_dist, sk_ind = sk_knn.kneighbors(X, n_neighbors=10,
+                                        return_distance=True)
+
+    return array_equal(sk_dist, cu_dist)
+
+
 def test_return_dists():
     n_samples = 50
     n_feats = 50
@@ -335,8 +365,8 @@ def test_knn_separate_index_search(input_type, nrows, n_feats, k, metric):
         D_cuml_np = D_cuml.as_gpu_matrix().copy_to_host()
         I_cuml_np = I_cuml.as_gpu_matrix().copy_to_host()
     else:
-        assert isinstance(D_cuml, cp.core.core.ndarray)
-        assert isinstance(I_cuml, cp.core.core.ndarray)
+        assert isinstance(D_cuml, cp.ndarray)
+        assert isinstance(I_cuml, cp.ndarray)
         D_cuml_np = D_cuml.get()
         I_cuml_np = I_cuml.get()
 
@@ -547,3 +577,50 @@ def test_nearest_neighbors_sparse(metric,
         # (.5% in this case) to allow differences from non-determinism.
         diffs = abs(cuI - skI)
         assert (len(diffs[diffs > 0]) / len(np.ravel(skI))) <= 0.005
+
+
+@pytest.mark.parametrize("n_neighbors", [1, 5, 6])
+def test_haversine(n_neighbors):
+
+    hoboken_nj = [40.745255, -74.034775]
+    port_hueneme_ca = [34.155834, -119.202789]
+    auburn_ny = [42.933334, -76.566666]
+    league_city_tx = [29.499722, -95.089722]
+    tallahassee_fl = [30.455000, -84.253334]
+    aurora_il = [41.763889, -88.29001]
+
+    data = np.array([hoboken_nj,
+                     port_hueneme_ca,
+                     auburn_ny,
+                     league_city_tx,
+                     tallahassee_fl,
+                     aurora_il])
+
+    data = data * math.pi / 180
+
+    pw_dists = pairwise_distances(data, metric='haversine')
+
+    cunn = cuKNN(metric='haversine',
+                 n_neighbors=n_neighbors,
+                 algorithm='brute')
+
+    dists, inds = cunn.fit(data).kneighbors(data)
+
+    argsort = np.argsort(pw_dists, axis=1)
+
+    for i in range(pw_dists.shape[0]):
+        cpu_ordered = pw_dists[i, argsort[i]]
+        cp.testing.assert_allclose(cpu_ordered[:n_neighbors], dists[i],
+                                   atol=1e-4, rtol=1e-4)
+
+
+@pytest.mark.xfail(raises=RuntimeError)
+def test_haversine_fails_high_dimensions():
+
+    data = np.array([[0., 1., 2.], [3., 4., 5.]])
+
+    cunn = cuKNN(metric='haversine',
+                 n_neighbors=2,
+                 algorithm='brute')
+
+    cunn.fit(data).kneighbors(data)

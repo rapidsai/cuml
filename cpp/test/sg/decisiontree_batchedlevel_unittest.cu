@@ -14,13 +14,15 @@
  * limitations under the License.
  */
 
+#include <raft/handle.hpp>
+
 #include <decisiontree/memory.h>
+#include <decisiontree/quantile/quantile.h>
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <common/iota.cuh>
 #include <decisiontree/batched-levelalgo/builder_base.cuh>
 #include <decisiontree/batched-levelalgo/kernels.cuh>
-#include <decisiontree/quantile/quantile.cuh>
 #include <functional>
 
 namespace ML {

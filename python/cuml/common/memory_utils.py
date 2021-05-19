@@ -310,6 +310,10 @@ def _check_array_contiguity(ary):
         else:
             raise TypeError("No array_interface attribute detected in input. ")
 
+        # if the strides are not set or none, then the array is C-contiguous
+        if 'strides' not in ary_interface or ary_interface['strides'] is None:
+            return True
+
         shape = ary_interface['shape']
         strides = ary_interface['strides']
         dtype = cp.dtype(ary_interface['typestr'])
@@ -501,7 +505,7 @@ def using_output_type(output_type):
 
         cuML default output
         [0 1 2]
-        <class 'cupy.core.core.ndarray'>
+        <class 'cupy.ndarray'>
 
     """
     prev_output_type = cuml.global_settings.output_type

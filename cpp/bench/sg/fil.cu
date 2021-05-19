@@ -20,7 +20,6 @@
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
 #include <cuml/common/logger.hpp>
-#include <cuml/cuml.hpp>
 #include <cuml/ensemble/randomforest.hpp>
 #include <utility>
 #include "benchmark.cuh"
@@ -143,29 +142,25 @@ std::vector<Params> getInputs() {
     .shuffle = false,
     .seed = 12345ULL};
 
-  set_rf_params(p.rf,     // Output RF parameters
-                1,        // n_trees, just a placeholder value,
-                          //   anyway changed below
-                true,     // bootstrap
-                1.f,      // max_samples
-                1234ULL,  // seed
-                8);       // n_streams
-
-  set_tree_params(p.rf.tree_params,    // Output tree parameters
-                  10,                  // max_depth, just a placeholder value,
-                                       //   anyway changed below
-                  (1 << 20),           // max_leaves
-                  1,                   // max_features
-                  32,                  // n_bins
-                  1,                   // split_algo
-                  3,                   // min_samples_leaf
-                  3,                   // min_samples_split
-                  0.0f,                // min_impurity_decrease
-                  true,                // bootstrap_features
-                  ML::CRITERION::MSE,  // split_criterion
-                  false,               // quantile_per_tree
-                  false,               // use_experimental_backend
-                  128);                // max_batch_size
+  p.rf = set_rf_params(10,                 /*max_depth */
+                       (1 << 20),          /* max_leaves */
+                       1.f,                /* max_features */
+                       32,                 /* n_bins */
+                       1,                  /* split_algo */
+                       3,                  /* min_samples_leaf */
+                       3,                  /* min_samples_split */
+                       0.0f,               /* min_impurity_decrease */
+                       true,               /* bootstrap_features */
+                       true,               /* bootstrap */
+                       1,                  /* n_trees */
+                       1.f,                /* max_samples */
+                       1234ULL,            /* seed */
+                       ML::CRITERION::MSE, /* split_criterion */
+                       false,              /* quantile_per_tree */
+                       8,                  /* n_streams */
+                       false,              /* use_experimental_backend */
+                       128                 /* max_batch_size */
+  );
 
   using ML::fil::algo_t;
   using ML::fil::storage_type_t;

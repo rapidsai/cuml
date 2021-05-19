@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,8 @@ import pytest
 import numpydoc.docscrape
 from cuml.test.utils import (get_classes_from_package,
                              small_classification_dataset)
+from cuml._thirdparty.sklearn.utils.skl_dependencies import BaseEstimator \
+                                                            as sklBaseEstimator
 
 all_base_children = get_classes_from_package(cuml, import_sub_packages=True)
 
@@ -86,6 +88,11 @@ def test_base_subclass_init_matches_docs(child_class: str):
         Classname to test in the dict all_base_children
 
     """
+    klass = all_base_children[child_class]
+
+    if issubclass(klass, sklBaseEstimator):
+        pytest.skip("Exemption for preprocessing models. Preprocessing models"
+                    "do not have base arguments in constructors.")
 
     # To quickly find and replace all instances in the documentation, the below
     # regex's may be useful
@@ -105,8 +112,6 @@ def test_base_subclass_init_matches_docs(child_class: str):
     base_sig = inspect.signature(cuml.Base, follow_wrapped=True)
     base_doc = numpydoc.docscrape.NumpyDocString(cuml.Base.__doc__)
     base_doc_params = base_doc["Parameters"]
-
-    klass = all_base_children[child_class]
 
     # Load the current class signature, parse the docstring and pull out params
     klass_sig = inspect.signature(klass, follow_wrapped=True)

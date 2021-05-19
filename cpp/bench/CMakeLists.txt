@@ -25,6 +25,7 @@ if(BUILD_CUML_BENCH)
     sg/arima_loglikelihood.cu
     sg/dbscan.cu
     sg/kmeans.cu
+    sg/linkage.cu
     sg/main.cpp
     sg/rf_classifier.cu
     # FIXME: RF Regressor is having an issue where the tests now seem to take

@@ -146,7 +146,7 @@ void svcPredict(const raft::handle_t &handle, math_t *input, int n_rows,
       ld1 = n_rows;
     }
     kernel->evaluate(x_ptr, n_batch, n_cols, model.x_support, model.n_support,
-                     K.data(), stream, ld1, model.n_support, n_batch);
+                     K.data(), false, stream, ld1, model.n_support, n_batch);
     math_t one = 1;
     math_t null = 0;
     CUBLAS_CHECK(raft::linalg::cublasgemv(

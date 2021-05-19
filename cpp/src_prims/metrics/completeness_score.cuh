@@ -22,7 +22,7 @@
 
 #pragma once
 
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include "entropy.cuh"
 #include "mutual_info_score.cuh"
 
@@ -37,14 +37,14 @@ namespace Metrics {
 * @param size: the size of the data points of type int
 * @param lowerLabelRange: the lower bound of the range of labels
 * @param upperLabelRange: the upper bound of the range of labels
-* @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<MLCommon::deviceAllocator>
+* @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<raft::mr::device::allocator>
 * @param stream: the cudaStream object
 */
 template <typename T>
-double completeness_score(const T *truthClusterArray, const T *predClusterArray,
-                          int size, T lowerLabelRange, T upperLabelRange,
-                          std::shared_ptr<MLCommon::deviceAllocator> allocator,
-                          cudaStream_t stream) {
+double completeness_score(
+  const T *truthClusterArray, const T *predClusterArray, int size,
+  T lowerLabelRange, T upperLabelRange,
+  std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream) {
   if (size == 0) return 1.0;
 
   double computedMI, computedEntropy;

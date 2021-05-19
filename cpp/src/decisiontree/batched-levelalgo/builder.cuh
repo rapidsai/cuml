@@ -18,6 +18,8 @@
 
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/common/host_buffer.hpp>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/host/allocator.hpp>
 
 #include "builder_base.cuh"
 
@@ -37,6 +39,7 @@ void convertToSparse(const Builder<Traits>& b,
   for (IdxT i = 0; i < b.h_total_nodes; ++i) {
     const auto& hnode = h_nodes[i].info;
     sparsetree[i + len] = hnode;
+    sparsetree[i + len].instance_count = h_nodes[i].count;
     if (hnode.left_child_id != -1) sparsetree[i + len].left_child_id += len;
   }
 }
@@ -45,8 +48,8 @@ void convertToSparse(const Builder<Traits>& b,
 template <typename Traits, typename DataT = typename Traits::DataT,
           typename LabelT = typename Traits::LabelT,
           typename IdxT = typename Traits::IdxT>
-void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
-               std::shared_ptr<MLCommon::hostAllocator> h_allocator,
+void grow_tree(std::shared_ptr<raft::mr::device::allocator> d_allocator,
+               std::shared_ptr<raft::mr::host::allocator> h_allocator,
                const DataT* data, IdxT treeid, uint64_t seed, IdxT ncols,
                IdxT nrows, const LabelT* labels, const DataT* quantiles,
                IdxT* rowids, int n_sampled_rows, int unique_labels,
@@ -106,8 +109,8 @@ void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
  * @{
  */
 template <typename DataT, typename LabelT, typename IdxT>
-void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
-               std::shared_ptr<MLCommon::hostAllocator> h_allocator,
+void grow_tree(std::shared_ptr<raft::mr::device::allocator> d_allocator,
+               std::shared_ptr<raft::mr::host::allocator> h_allocator,
                const DataT* data, IdxT treeid, uint64_t seed, IdxT ncols,
                IdxT nrows, const LabelT* labels, const DataT* quantiles,
                IdxT* rowids, int n_sampled_rows, int unique_labels,
@@ -120,8 +123,8 @@ void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
                     params, stream, sparsetree, num_leaves, depth);
 }
 template <typename DataT, typename IdxT>
-void grow_tree(std::shared_ptr<MLCommon::deviceAllocator> d_allocator,
-               std::shared_ptr<MLCommon::hostAllocator> h_allocator,
+void grow_tree(std::shared_ptr<raft::mr::device::allocator> d_allocator,
+               std::shared_ptr<raft::mr::host::allocator> h_allocator,
                const DataT* data, IdxT treeid, uint64_t seed, IdxT ncols,
                IdxT nrows, const DataT* labels, const DataT* quantiles,
                IdxT* rowids, int n_sampled_rows, int unique_labels,

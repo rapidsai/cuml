@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,12 @@
  */
 
 #pragma once
-#include "../memory.h"
+
+#include <memory>
+#include <raft/mr/device/allocator.hpp>
+
+template <class T, class L>
+struct TemporaryMemory;
 
 namespace ML {
 namespace DecisionTree {
@@ -25,6 +30,12 @@ void preprocess_quantile(const T *data, const unsigned int *rowids,
                          const int n_sampled_rows, const int ncols,
                          const int rowoffset, const int nbins,
                          std::shared_ptr<TemporaryMemory<T, L>> tempmem);
+
+template <typename T>
+void computeQuantiles(
+  T *quantiles, int n_bins, const T *data, int n_rows, int n_cols,
+  const std::shared_ptr<raft::mr::device::allocator> device_allocator,
+  cudaStream_t stream);
 
 }  // namespace DecisionTree
 }  // namespace ML

@@ -300,13 +300,14 @@ class PCA(Base,
     noise_variance_ = CumlArrayDescriptor()
     trans_input_ = CumlArrayDescriptor()
 
-    def __init__(self, copy=True, handle=None, iterated_power=15,
+    def __init__(self, *, copy=True, handle=None, iterated_power=15,
                  n_components=None, random_state=None, svd_solver='auto',
                  tol=1e-7, verbose=False, whiten=False,
                  output_type=None):
         # parameters
-        super(PCA, self).__init__(handle=handle, verbose=verbose,
-                                  output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
         self.copy = copy
         self.iterated_power = iterated_power
         self.n_components = n_components

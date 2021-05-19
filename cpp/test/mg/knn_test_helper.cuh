@@ -26,7 +26,7 @@
 #include <linalg/reduce_rows_by_key.cuh>
 #include <selection/knn.cuh>
 
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/mr/device/allocator.hpp>
 
 #include <raft/cuda_utils.cuh>
 
@@ -51,7 +51,7 @@ struct KNNParams {
 template <typename T>
 void generate_partitions(float *data, T *outputs, size_t n_rows, int n_cols,
                          int n_clusters, int my_rank,
-                         std::shared_ptr<deviceAllocator> allocator,
+                         std::shared_ptr<raft::mr::device::allocator> allocator,
                          cudaStream_t stream);
 
 template <typename T>
@@ -242,7 +242,7 @@ class KNNTestHelper {
   Matrix::PartDescriptor *query_desc;
   std::vector<std::vector<T *>> y;
 
-  std::shared_ptr<deviceAllocator> allocator;
+  std::shared_ptr<raft::mr::device::allocator> allocator;
   cudaStream_t stream;
 
  private:

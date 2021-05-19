@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 #include <cuml/manifold/umapparams.h>
 #include <cuml/common/logger.hpp>
 #include <cuml/neighbors/knn.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include "optimize.cuh"
 
 #include <raft/cudart_utils.h>
@@ -34,12 +35,12 @@
 #include <thrust/scan.h>
 #include <thrust/system/cuda/execution_policy.h>
 
-#include <sparse/convert/csr.cuh>
-#include <sparse/coo.cuh>
-#include <sparse/linalg/add.cuh>
-#include <sparse/linalg/norm.cuh>
-#include <sparse/linalg/symmetrize.cuh>
-#include <sparse/op/filter.cuh>
+#include <raft/sparse/convert/csr.cuh>
+#include <raft/sparse/coo.cuh>
+#include <raft/sparse/linalg/add.cuh>
+#include <raft/sparse/linalg/norm.cuh>
+#include <raft/sparse/linalg/symmetrize.cuh>
+#include <raft/sparse/op/filter.cuh>
 
 #include <raft/cuda_utils.cuh>
 
@@ -67,10 +68,10 @@ __global__ void fast_intersection_kernel(int *rows, int *cols, T *vals, int nnz,
 }
 
 template <typename T, int TPB_X>
-void reset_local_connectivity(raft::sparse::COO<T> *in_coo,
-                              raft::sparse::COO<T> *out_coo,
-                              std::shared_ptr<deviceAllocator> d_alloc,
-                              cudaStream_t stream  // size = nnz*2
+void reset_local_connectivity(
+  raft::sparse::COO<T> *in_coo, raft::sparse::COO<T> *out_coo,
+  std::shared_ptr<raft::mr::device::allocator> d_alloc,
+  cudaStream_t stream  // size = nnz*2
 ) {
   MLCommon::device_buffer<int> row_ind(d_alloc, stream, in_coo->n_rows);
 
@@ -168,7 +169,7 @@ template <typename T, int TPB_X>
 void general_simplicial_set_intersection(
   int *row1_ind, raft::sparse::COO<T> *in1, int *row2_ind,
   raft::sparse::COO<T> *in2, raft::sparse::COO<T> *result, float weight,
-  std::shared_ptr<deviceAllocator> d_alloc, cudaStream_t stream) {
+  std::shared_ptr<raft::mr::device::allocator> d_alloc, cudaStream_t stream) {
   MLCommon::device_buffer<int> result_ind(d_alloc, stream, in1->n_rows);
   CUDA_CHECK(
     cudaMemsetAsync(result_ind.data(), 0, in1->n_rows * sizeof(int), stream));
@@ -215,11 +216,10 @@ void general_simplicial_set_intersection(
 }
 
 template <int TPB_X, typename T>
-void perform_categorical_intersection(T *y, raft::sparse::COO<T> *rgraph_coo,
-                                      raft::sparse::COO<T> *final_coo,
-                                      UMAPParams *params,
-                                      std::shared_ptr<deviceAllocator> d_alloc,
-                                      cudaStream_t stream) {
+void perform_categorical_intersection(
+  T *y, raft::sparse::COO<T> *rgraph_coo, raft::sparse::COO<T> *final_coo,
+  UMAPParams *params, std::shared_ptr<raft::mr::device::allocator> d_alloc,
+  cudaStream_t stream) {
   float far_dist = 1.0e12;  // target weight
   if (params->target_weights < 1.0)
     far_dist = 2.5 * (1.0 / (1.0 - params->target_weights));
