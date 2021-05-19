@@ -204,44 +204,105 @@ void qnFitSparse(const raft::handle_t &cuml_handle, double *X_values,
  * @defgroup qnDecisionFunction to obtain the confidence scores of samples
  * @param cuml_handle           reference to raft::handle_t object
  * @param X                     device pointer to feature matrix of dimension NxD (row- or column major: see X_col_major param)
+ * @param X_col_major           true if X is stored column-major, i.e. feature columns are contiguous
  * @param N                     number of examples
  * @param D                     number of features
  * @param C                     number of outputs (C > 1, for multinomial, indicating number of classes. For logistic, C = 2 and normal, C = 1.)
  * @param fit_intercept         true if model includes a bias.
  * @param params                device pointer to model parameters. Length D if fit_intercept == false else D+1
- * @param X_col_major           true if X is stored column-major, i.e. feature columns are contiguous
  * @param loss_type             id of likelihood model (0: logistic/sigmoid, 1: multinomial/softmax, 2: normal/squared)
  * @param scores                device pointer to confidence scores of length N (for binary logistic: [0,1], for multinomial:  [0,...,C-1])
  * @{
  */
-void qnDecisionFunction(const raft::handle_t &cuml_handle, float *X, int N,
-                        int D, int C, bool fit_intercept, float *params,
-                        bool X_col_major, int loss_type, float *scores);
-void qnDecisionFunction(const raft::handle_t &cuml_handle, double *X, int N,
-                        int D, int C, bool fit_intercept, double *params,
-                        bool X_col_major, int loss_type, double *scores);
+void qnDecisionFunction(const raft::handle_t &cuml_handle, float *X,
+                        bool X_col_major, int N, int D, int C,
+                        bool fit_intercept, float *params, int loss_type,
+                        float *scores);
+void qnDecisionFunction(const raft::handle_t &cuml_handle, double *X,
+                        bool X_col_major, int N, int D, int C,
+                        bool fit_intercept, double *params, int loss_type,
+                        double *scores);
+/** @} */
+
+/**
+ * @defgroup qnDecisionFunctionSparse to obtain the confidence scores of samples
+ * @param cuml_handle           reference to raft::handle_t object
+ * @param X_values              feature matrix values (CSR format),
+ * matrix dimension: NxD.
+ * @param X_cols                feature matrix columns (CSR format)
+ * @param X_row_ids             feature matrix compresses row ids (CSR format)
+ * @param X_nnz                 number of non-zero entries in the feature
+ * matrix (CSR format)
+ * @param N                     number of examples
+ * @param D                     number of features
+ * @param C                     number of outputs (C > 1, for multinomial, indicating number of classes. For logistic, C = 2 and normal, C = 1.)
+ * @param fit_intercept         true if model includes a bias.
+ * @param params                device pointer to model parameters. Length D if fit_intercept == false else D+1
+ * @param loss_type             id of likelihood model (0: logistic/sigmoid, 1: multinomial/softmax, 2: normal/squared)
+ * @param scores                device pointer to confidence scores of length N (for binary logistic: [0,1], for multinomial:  [0,...,C-1])
+ * @{
+ */
+void qnDecisionFunctionSparse(const raft::handle_t &cuml_handle,
+                              float *X_values, int *X_cols, int *X_row_ids,
+                              int X_nnz, int N, int D, int C,
+                              bool fit_intercept, float *params, int loss_type,
+                              float *scores);
+void qnDecisionFunctionSparse(const raft::handle_t &cuml_handle,
+                              double *X_values, int *X_cols, int *X_row_ids,
+                              int X_nnz, int N, int D, int C,
+                              bool fit_intercept, double *params, int loss_type,
+                              double *scores);
 /** @} */
 
 /**
  * @defgroup qnPredict to fit a GLM using quasi newton methods.
  * @param cuml_handle           reference to raft::handle_t object
  * @param X                     device pointer to feature matrix of dimension NxD (row- or column major: see X_col_major param)
+ * @param X_col_major           true if X is stored column-major, i.e. feature columns are contiguous
  * @param N                     number of examples
  * @param D                     number of features
  * @param C                     number of outputs (C > 1, for multinomial, indicating number of classes. For logistic and normal, C must be 1.)
  * @param fit_intercept         true if model includes a bias.
  * @param params                device pointer to model parameters. Length D if fit_intercept == false else D+1
- * @param X_col_major           true if X is stored column-major, i.e. feature columns are contiguous
  * @param loss_type             id of likelihood model (0: logistic/sigmoid, 1: multinomial/softmax, 2: normal/squared)
  * @param preds                 device pointer to predictions of length N (for binary logistic: [0,1], for multinomial:  [0,...,C-1])
  * @{
  */
-void qnPredict(const raft::handle_t &cuml_handle, float *X, int N, int D, int C,
-               bool fit_intercept, float *params, bool X_col_major,
+void qnPredict(const raft::handle_t &cuml_handle, float *X, bool X_col_major,
+               int N, int D, int C, bool fit_intercept, float *params,
                int loss_type, float *preds);
-void qnPredict(const raft::handle_t &cuml_handle, double *X, int N, int D,
-               int C, bool fit_intercept, double *params, bool X_col_major,
+void qnPredict(const raft::handle_t &cuml_handle, double *X, bool X_col_major,
+               int N, int D, int C, bool fit_intercept, double *params,
                int loss_type, double *preds);
+/** @} */
+
+/**
+ * @defgroup qnPredictSparse to fit a GLM using quasi newton methods.
+ * @param cuml_handle           reference to raft::handle_t object
+ * @param X_values              feature matrix values (CSR format),
+ * matrix dimension: NxD.
+ * @param X_cols                feature matrix columns (CSR format)
+ * @param X_row_ids             feature matrix compresses row ids (CSR format)
+ * @param X_nnz                 number of non-zero entries in the feature
+ * matrix (CSR format)
+ * @param N                     number of examples
+ * @param D                     number of features
+ * @param C                     number of outputs (C > 1, for multinomial, indicating number of classes. For logistic and normal, C must be 1.)
+ * @param fit_intercept         true if model includes a bias.
+ * @param params                device pointer to model parameters. Length D if fit_intercept == false else D+1
+ * @param loss_type             id of likelihood model (0: logistic/sigmoid, 1: multinomial/softmax, 2: normal/squared)
+ * @param preds                 device pointer to predictions of length N (for binary logistic: [0,1], for multinomial:  [0,...,C-1])
+ * @{
+ */
+void qnPredictSparse(const raft::handle_t &cuml_handle, float *X_values,
+                     int *X_cols, int *X_row_ids, int X_nnz, int N, int D,
+                     int C, bool fit_intercept, float *params, int loss_type,
+                     float *preds);
+
+void qnPredictSparse(const raft::handle_t &cuml_handle, double *X_values,
+                     int *X_cols, int *X_row_ids, int X_nnz, int N, int D,
+                     int C, bool fit_intercept, double *params, int loss_type,
+                     double *preds);
 /** @} */
 
 }  // namespace GLM

@@ -379,7 +379,7 @@ TEST_F(QuasiNewtonTest, predict) {
 
   raft::update_device(w.data, &w_host[0], w.len, stream);
 
-  qnPredict(handle, Xdev->data, N, D, 2, false, w.data, false, 0, preds.data,
+  qnPredict(handle, Xdev->data, false, N, D, 2, false, w.data, 0, preds.data,
             stream);
   raft::update_host(&preds_host[0], preds.data, preds.len, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -389,7 +389,7 @@ TEST_F(QuasiNewtonTest, predict) {
                              : compApprox(preds_host[it], 0));
   }
 
-  qnPredict(handle, Xdev->data, N, D, 1, false, w.data, false, 1, preds.data,
+  qnPredict(handle, Xdev->data, false, N, D, 1, false, w.data, 1, preds.data,
             stream);
   raft::update_host(&preds_host[0], preds.data, preds.len, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -412,7 +412,7 @@ TEST_F(QuasiNewtonTest, predict_softmax) {
 
   raft::update_device(w.data, &w_host[0], w.len, stream);
 
-  qnPredict(handle, Xdev->data, N, D, C, false, w.data, false, 2, preds.data,
+  qnPredict(handle, Xdev->data, false, N, D, C, false, w.data, 2, preds.data,
             stream);
   raft::update_host(&preds_host[0], preds.data, preds.len, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));

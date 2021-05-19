@@ -133,49 +133,109 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
         int loss_type,
         double *sample_weight) except +
 
-    void qnDecisionFunction(handle_t& cuml_handle,
-                            float *X,
-                            int N,
-                            int D,
-                            int C,
-                            bool fit_intercept,
-                            float *params,
-                            bool X_col_major,
-                            int loss_type,
-                            float *scores) except +
+    void qnDecisionFunction(
+        handle_t& cuml_handle,
+        float *X,
+        bool X_col_major,
+        int N,
+        int D,
+        int C,
+        bool fit_intercept,
+        float *params,
+        int loss_type,
+        float *scores) except +
 
-    void qnDecisionFunction(handle_t& cuml_handle,
-                            double *X,
-                            int N,
-                            int D,
-                            int C,
-                            bool fit_intercept,
-                            double *params,
-                            bool X_col_major,
-                            int loss_type,
-                            double *scores) except +
+    void qnDecisionFunction(
+        handle_t& cuml_handle,
+        double *X,
+        bool X_col_major,
+        int N,
+        int D,
+        int C,
+        bool fit_intercept,
+        double *params,
+        int loss_type,
+        double *scores) except +
 
-    void qnPredict(handle_t& cuml_handle,
-                   float *X,
-                   int N,
-                   int D,
-                   int C,
-                   bool fit_intercept,
-                   float *params,
-                   bool X_col_major,
-                   int loss_type,
-                   float *preds) except +
+    void qnDecisionFunctionSparse(
+        handle_t& cuml_handle,
+        float *X_values,
+        int *X_cols,
+        int *X_row_ids,
+        int X_nnz,
+        int N,
+        int D,
+        int C,
+        bool fit_intercept,
+        float *params,
+        int loss_type,
+        float *scores) except +
 
-    void qnPredict(handle_t& cuml_handle,
-                   double *X,
-                   int N,
-                   int D,
-                   int C,
-                   bool fit_intercept,
-                   double *params,
-                   bool X_col_major,
-                   int loss_type,
-                   double *preds) except +
+    void qnDecisionFunctionSparse(
+        handle_t& cuml_handle,
+        double *X_values,
+        int *X_cols,
+        int *X_row_ids,
+        int X_nnz,
+        int N,
+        int D,
+        int C,
+        bool fit_intercept,
+        double *params,
+        int loss_type,
+        double *scores) except +
+
+    void qnPredict(
+        handle_t& cuml_handle,
+        float *X,
+        bool X_col_major,
+        int N,
+        int D,
+        int C,
+        bool fit_intercept,
+        float *params,
+        int loss_type,
+        float *preds) except +
+
+    void qnPredict(
+        handle_t& cuml_handle,
+        double *X,
+        bool X_col_major,
+        int N,
+        int D,
+        int C,
+        bool fit_intercept,
+        double *params,
+        int loss_type,
+        double *preds) except +
+
+    void qnPredictSparse(
+        handle_t& cuml_handle,
+        float *X_values,
+        int *X_cols,
+        int *X_row_ids,
+        int X_nnz,
+        int N,
+        int D,
+        int C,
+        bool fit_intercept,
+        float *params,
+        int loss_type,
+        float *preds) except +
+
+    void qnPredictSparse(
+        handle_t& cuml_handle,
+        double *X_values,
+        int *X_cols,
+        int *X_row_ids,
+        int X_nnz,
+        int N,
+        int D,
+        int C,
+        bool fit_intercept,
+        double *params,
+        int loss_type,
+        double *preds) except +
 
 
 class QN(Base,
@@ -398,10 +458,9 @@ class QN(Base,
         Fit the model with X and y.
 
         """
-        sparse_fit = is_sparse(X)
+        sparse_input = is_sparse(X)
         # Handle sparse inputs
-        if sparse_fit:
-
+        if sparse_input:
             X_m = SparseCumlArray(X)
             n_rows, self.n_cols = X_m.shape
             self.dtype = X_m.dtype
@@ -409,7 +468,7 @@ class QN(Base,
         # Handle dense inputs
         else:
             X_m, n_rows, self.n_cols, self.dtype = input_to_cuml_array(
-                X, order='F', check_dtype=[np.float32, np.float64]
+                X, check_dtype=[np.float32, np.float64]
             )
 
         y_m, lab_rows, _, _ = input_to_cuml_array(
@@ -466,7 +525,7 @@ class QN(Base,
         delta = self.delta if self.delta is not None else (self.tol * 0.01)
 
         if self.dtype == np.float32:
-            if sparse_fit:
+            if sparse_input:
                 qnFitSparse(
                     handle_[0],
                     <float*><uintptr_t> X_m.data.ptr,
@@ -496,7 +555,7 @@ class QN(Base,
                 qnFit(
                     handle_[0],
                     <float*><uintptr_t> X_m.ptr,
-                    <bool> True,
+                    <bool> (X_m.order == 'F'),
                     <float*> y_ptr,
                     <int> n_rows,
                     <int> self.n_cols,
@@ -519,7 +578,7 @@ class QN(Base,
             self.objective = objective32
 
         else:
-            if sparse_fit:
+            if sparse_input:
                 qnFitSparse(
                     handle_[0],
                     <double*><uintptr_t> X_m.data.ptr,
@@ -549,7 +608,7 @@ class QN(Base,
                 qnFit(
                     handle_[0],
                     <double*><uintptr_t> X_m.ptr,
-                    <bool> True,
+                    <bool> (X_m.order == 'F'),
                     <double*> y_ptr,
                     <int> n_rows,
                     <int> self.n_cols,
@@ -604,12 +663,21 @@ class QN(Base,
         y: array-like (device)
             Dense matrix (floats or doubles) of shape (n_samples, n_classes)
         """
-        X_m, n_rows, n_cols, self.dtype = input_to_cuml_array(
-            X, check_dtype=self.dtype,
-            convert_to_dtype=(self.dtype if convert_dtype else None),
-            check_cols=self.n_cols
-        )
-        cdef uintptr_t X_ptr = X_m.ptr
+        sparse_input = is_sparse(X)
+        # Handle sparse inputs
+        if sparse_input:
+            X_m = SparseCumlArray(
+                X, convert_to_dtype=(self.dtype if convert_dtype else None))
+            n_rows, n_cols = X_m.shape
+            self.dtype = X_m.dtype
+
+        # Handle dense inputs
+        else:
+            X_m, n_rows, n_cols, self.dtype = input_to_cuml_array(
+                X, check_dtype=self.dtype,
+                convert_to_dtype=(self.dtype if convert_dtype else None),
+                check_cols=self.n_cols
+            )
 
         scores = CumlArray.zeros(shape=(self._num_classes_dim, n_rows),
                                  dtype=self.dtype, order='F')
@@ -620,28 +688,60 @@ class QN(Base,
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if self.dtype == np.float32:
-            qnDecisionFunction(handle_[0],
-                               <float*> X_ptr,
-                               <int> n_rows,
-                               <int> n_cols,
-                               <int> self._num_classes,
-                               <bool> self.fit_intercept,
-                               <float*> coef_ptr,
-                               <bool> True,
-                               <int> self.loss_type,
-                               <float*> scores_ptr)
+            if sparse_input:
+                qnDecisionFunctionSparse(
+                    handle_[0],
+                    <float*><uintptr_t> X_m.data.ptr,
+                    <int*><uintptr_t> X_m.indices.ptr,
+                    <int*><uintptr_t> X_m.indptr.ptr,
+                    <int> X_m.nnz,
+                    <int> n_rows,
+                    <int> n_cols,
+                    <int> self._num_classes,
+                    <bool> self.fit_intercept,
+                    <float*> coef_ptr,
+                    <int> self.loss_type,
+                    <float*> scores_ptr)
+            else:
+                qnDecisionFunction(
+                    handle_[0],
+                    <float*><uintptr_t> X_m.ptr,
+                    <bool> (X_m.order == 'F'),
+                    <int> n_rows,
+                    <int> n_cols,
+                    <int> self._num_classes,
+                    <bool> self.fit_intercept,
+                    <float*> coef_ptr,
+                    <int> self.loss_type,
+                    <float*> scores_ptr)
 
         else:
-            qnDecisionFunction(handle_[0],
-                               <double*> X_ptr,
-                               <int> n_rows,
-                               <int> n_cols,
-                               <int> self._num_classes,
-                               <bool> self.fit_intercept,
-                               <double*> coef_ptr,
-                               <bool> True,
-                               <int> self.loss_type,
-                               <double*> scores_ptr)
+            if sparse_input:
+                qnDecisionFunctionSparse(
+                    handle_[0],
+                    <double*><uintptr_t> X_m.data.ptr,
+                    <int*><uintptr_t> X_m.indices.ptr,
+                    <int*><uintptr_t> X_m.indptr.ptr,
+                    <int> X_m.nnz,
+                    <int> n_rows,
+                    <int> n_cols,
+                    <int> self._num_classes,
+                    <bool> self.fit_intercept,
+                    <double*> coef_ptr,
+                    <int> self.loss_type,
+                    <double*> scores_ptr)
+            else:
+                qnDecisionFunction(
+                    handle_[0],
+                    <double*><uintptr_t> X_m.ptr,
+                    <bool> (X_m.order == 'F'),
+                    <int> n_rows,
+                    <int> n_cols,
+                    <int> self._num_classes,
+                    <bool> self.fit_intercept,
+                    <double*> coef_ptr,
+                    <int> self.loss_type,
+                    <double*> scores_ptr)
 
         self._calc_intercept()
 
@@ -661,12 +761,21 @@ class QN(Base,
         Predicts the y for X.
 
         """
-        X_m, n_rows, n_cols, self.dtype = input_to_cuml_array(
-            X, check_dtype=self.dtype,
-            convert_to_dtype=(self.dtype if convert_dtype else None),
-            check_cols=self.n_cols
-        )
-        cdef uintptr_t X_ptr = X_m.ptr
+        sparse_input = is_sparse(X)
+        # Handle sparse inputs
+        if sparse_input:
+            X_m = SparseCumlArray(
+                X, convert_to_dtype=(self.dtype if convert_dtype else None))
+            n_rows, n_cols = X_m.shape
+            self.dtype = X_m.dtype
+
+        # Handle dense inputs
+        else:
+            X_m, n_rows, n_cols, self.dtype = input_to_cuml_array(
+                X, check_dtype=self.dtype,
+                convert_to_dtype=(self.dtype if convert_dtype else None),
+                check_cols=self.n_cols
+            )
 
         preds = CumlArray.zeros(shape=n_rows, dtype=self.dtype)
         cdef uintptr_t coef_ptr = self._coef_.ptr
@@ -675,28 +784,60 @@ class QN(Base,
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if self.dtype == np.float32:
-            qnPredict(handle_[0],
-                      <float*> X_ptr,
-                      <int> n_rows,
-                      <int> n_cols,
-                      <int> self._num_classes,
-                      <bool> self.fit_intercept,
-                      <float*> coef_ptr,
-                      <bool> True,
-                      <int> self.loss_type,
-                      <float*> pred_ptr)
+            if sparse_input:
+                qnPredictSparse(
+                    handle_[0],
+                    <float*><uintptr_t> X_m.data.ptr,
+                    <int*><uintptr_t> X_m.indices.ptr,
+                    <int*><uintptr_t> X_m.indptr.ptr,
+                    <int> X_m.nnz,
+                    <int> n_rows,
+                    <int> n_cols,
+                    <int> self._num_classes,
+                    <bool> self.fit_intercept,
+                    <float*> coef_ptr,
+                    <int> self.loss_type,
+                    <float*> pred_ptr)
+            else:
+                qnPredict(
+                    handle_[0],
+                    <float*><uintptr_t> X_m.ptr,
+                    <bool> (X_m.order == 'F'),
+                    <int> n_rows,
+                    <int> n_cols,
+                    <int> self._num_classes,
+                    <bool> self.fit_intercept,
+                    <float*> coef_ptr,
+                    <int> self.loss_type,
+                    <float*> pred_ptr)
 
         else:
-            qnPredict(handle_[0],
-                      <double*> X_ptr,
-                      <int> n_rows,
-                      <int> n_cols,
-                      <int> self._num_classes,
-                      <bool> self.fit_intercept,
-                      <double*> coef_ptr,
-                      <bool> True,
-                      <int> self.loss_type,
-                      <double*> pred_ptr)
+            if sparse_input:
+                qnPredictSparse(
+                    handle_[0],
+                    <double*><uintptr_t> X_m.data.ptr,
+                    <int*><uintptr_t> X_m.indices.ptr,
+                    <int*><uintptr_t> X_m.indptr.ptr,
+                    <int> X_m.nnz,
+                    <int> n_rows,
+                    <int> n_cols,
+                    <int> self._num_classes,
+                    <bool> self.fit_intercept,
+                    <double*> coef_ptr,
+                    <int> self.loss_type,
+                    <double*> pred_ptr)
+            else:
+                qnPredict(
+                    handle_[0],
+                    <double*><uintptr_t> X_m.ptr,
+                    <bool> (X_m.order == 'F'),
+                    <int> n_rows,
+                    <int> n_cols,
+                    <int> self._num_classes,
+                    <bool> self.fit_intercept,
+                    <double*> coef_ptr,
+                    <int> self.loss_type,
+                    <double*> pred_ptr)
 
         self._calc_intercept()
 
