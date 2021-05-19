@@ -1,4 +1,12 @@
-/* Please do not copyright this code.  This code is in the public domain.
+/*
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -15,7 +23,7 @@
 // the FNV spec.
 template <typename It>
 unsigned long long fowler_noll_vo_fingerprint64(It begin, It end) {
-  static_assert(sizeof *begin == 1,
+  static_assert(sizeof(*begin) == 1,
                 "FNV deals with byte-sized (octet) input arrays only");
   return std::accumulate(begin, end, 14695981039346656037ull,
                          [](const unsigned long long& fingerprint, auto x) {
