@@ -260,6 +260,23 @@ void do_labelling_at_cut(const raft::handle_t &handle,
     handle.get_device_allocator(), true);
 }
 
+/**
+ * Compute cluster stabilities, perform cluster selection, and
+ * label the resulting clusters. In addition, probabilities
+ * are computed and stabilities are normalized into scores.
+ * @tparam value_idx
+ * @tparam value_t
+ * @param[in] handle raft handle for resource management
+ * @param[in] condensed_tree a condensed hierarchy
+ * @param[in] n_leaves number of data samples
+ * @param[out] labels array of labels on device (size n_leaves)
+ * @param[out] stabilities array of stabilities on device (size n_clusters)
+ * @param[out] probabilities array of probabilities on device (size n_leaves)
+ * @param[in] cluster_selection_method method to use for cluster selection
+ * @param[in] allow_single_cluster allows a single cluster to be returned (rather than just noise)
+ * @param[in] max_cluster_size maximium number of points that can be considered in a cluster before it is split into multiple sub-clusters.
+ * @param[in] cluster_selection_epsilon a distance threshold. clusters below this value with will be merged.
+ */
 template <typename value_idx, typename value_t>
 void extract_clusters(
   const raft::handle_t &handle,

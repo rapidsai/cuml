@@ -47,10 +47,23 @@ namespace HDBSCAN {
 namespace detail {
 namespace Utils {
 
+/**
+ * Invokes a cub segmented reduce function over a CSR data array
+ * using the indptr as segment offsets
+ * @tparam value_idx
+ * @tparam value_t
+ * @tparam CUBReduceFunc
+ * @param[in] in data array (size offsets[n_segments]+1)
+ * @param[out] out output data array (size offsets[n_segmented]+1)
+ * @param[in] n_segments number of segments in offsets array
+ * @param[in] offsets array of segment offsets (size n_segments+1)
+ * @param[in] stream cuda stream for ordering operations
+ * @param[in] cub_reduce_func segmented reduction function
+ */
 template <typename value_idx, typename value_t, typename CUBReduceFunc>
-void segmented_reduce(const value_t *in, value_t *out, int n_segments,
-                      const value_idx *offsets, cudaStream_t stream,
-                      CUBReduceFunc cub_reduce_func) {
+void cub_segmented_reduce(const value_t *in, value_t *out, int n_segments,
+                          const value_idx *offsets, cudaStream_t stream,
+                          CUBReduceFunc cub_reduce_func) {
   void *d_temp_storage = NULL;
   size_t temp_storage_bytes = 0;
   cub_reduce_func(d_temp_storage, temp_storage_bytes, in, out, n_segments,
@@ -62,6 +75,15 @@ void segmented_reduce(const value_t *in, value_t *out, int n_segments,
   CUDA_CHECK(cudaFree(d_temp_storage));
 }
 
+/**
+ * Constructs a cluster tree from a CondensedHierarchy by
+ * filtering for only entries with cluster size > 1
+ * @tparam value_idx
+ * @tparam value_t
+ * @param[in] handle raft handle for resource reuse
+ * @param[in] condensed_tree condensed hierarchy (size n_leaves + n_clusters)
+ * @return a new condensed hierarchy with only entries of size > 1
+ */
 template <typename value_idx, typename value_t>
 Common::CondensedHierarchy<value_idx, value_t> make_cluster_tree(
   const raft::handle_t &handle,

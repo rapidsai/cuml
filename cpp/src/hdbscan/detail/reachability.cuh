@@ -62,7 +62,7 @@ __global__ void l2SelectMinK(
   faiss::gpu::Tensor<value_t, 1, true> core_dists,
   faiss::gpu::Tensor<value_t, 2, true> out_dists,
   faiss::gpu::Tensor<int, 2, true> out_inds, int batch_offset, int k,
-  value_t initK) {
+  value_t initK, value_t alpha) {
   // Each block handles a single row of the distances (results)
   constexpr int kNumWarps = ThreadsPerBlock / 32;
 
@@ -84,7 +84,7 @@ __global__ void l2SelectMinK(
       sq_norms[row + batch_offset],
       faiss::gpu::Math<value_t>::add(sq_norms[i], inner_products[row][i])));
 
-    v = max(core_dists[i], max(core_dists[row + batch_offset], v));
+    v = max(core_dists[i], max(core_dists[row + batch_offset], alpha * v));
     heap.add(v, i);
   }
 
@@ -93,7 +93,7 @@ __global__ void l2SelectMinK(
       sq_norms[row + batch_offset],
       faiss::gpu::Math<value_t>::add(sq_norms[i], inner_products[row][i])));
 
-    v = max(core_dists[i], max(core_dists[row + batch_offset], v));
+    v = max(core_dists[i], max(core_dists[row + batch_offset], alpha * v));
     heap.addThreadQ(v, i);
   }
 
@@ -104,13 +104,27 @@ __global__ void l2SelectMinK(
   }
 }
 
+/**
+ * Computes expanded L2 metric, projects points into reachability
+ * space, and performs a k-select.
+ * @tparam value_t
+ * @param[in] productDistances Tensor (or blocked view) of inner products
+ * @param[in] centroidDistances Tensor of l2 norms
+ * @param[in] coreDistances Tensor of core distances
+ * @param[out] outDistances Tensor of output distances
+ * @param[out] outIndices Tensor of output indices
+ * @param[in] batch_offset starting row (used when productDistances is a batch)
+ * @param[in] k number of neighbors to select
+ * @param[in] stream cuda stream for ordering gpu computations
+ */
 template <typename value_t>
 void runL2SelectMin(faiss::gpu::Tensor<value_t, 2, true> &productDistances,
                     faiss::gpu::Tensor<value_t, 1, true> &centroidDistances,
                     faiss::gpu::Tensor<value_t, 1, true> &coreDistances,
                     faiss::gpu::Tensor<value_t, 2, true> &outDistances,
                     faiss::gpu::Tensor<int, 2, true> &outIndices,
-                    int batch_offset, int k, cudaStream_t stream) {
+                    int batch_offset, int k, value_t alpha,
+                    cudaStream_t stream) {
   FAISS_ASSERT(productDistances.getSize(0) == outDistances.getSize(0));
   FAISS_ASSERT(productDistances.getSize(0) == outIndices.getSize(0));
   //  FAISS_ASSERT(centroidDistances.getSize(0) == productDistances.getSize(1));
@@ -120,12 +134,13 @@ void runL2SelectMin(faiss::gpu::Tensor<value_t, 2, true> &productDistances,
 
   auto grid = dim3(outDistances.getSize(0));
 
-#define RUN_L2_SELECT(BLOCK, NUM_WARP_Q, NUM_THREAD_Q)                       \
-  do {                                                                       \
-    l2SelectMinK<value_t, NUM_WARP_Q, NUM_THREAD_Q, BLOCK>                   \
-      <<<grid, BLOCK, 0, stream>>>(                                          \
-        productDistances, centroidDistances, coreDistances, outDistances,    \
-        outIndices, batch_offset, k, faiss::gpu::Limits<value_t>::getMax()); \
+#define RUN_L2_SELECT(BLOCK, NUM_WARP_Q, NUM_THREAD_Q)                      \
+  do {                                                                      \
+    l2SelectMinK<value_t, NUM_WARP_Q, NUM_THREAD_Q, BLOCK>                  \
+      <<<grid, BLOCK, 0, stream>>>(                                         \
+        productDistances, centroidDistances, coreDistances, outDistances,   \
+        outIndices, batch_offset, k, faiss::gpu::Limits<value_t>::getMax(), \
+        alpha);                                                             \
   } while (0)
 
   // block size 128 for everything <= 1024
@@ -153,11 +168,25 @@ void runL2SelectMin(faiss::gpu::Tensor<value_t, 2, true> &productDistances,
   }
 }
 
+/**
+ * Given core distances, Fuses computations of L2 distances between all
+ * points, projection into mutual reachability space, and k-selection.
+ * @tparam value_idx
+ * @tparam value_t
+ * @param[in] handle raft handle for resource reuse
+ * @param[out] out_inds  output indices array (size m * k)
+ * @param[out] out_dists output distances array (size m * k)
+ * @param[in] X input data points (size m * n)
+ * @param[in] m number of rows in X
+ * @param[in] n number of columns in X
+ * @param[in] k neighborhood size (includes self-loop)
+ * @param[in] core_dists array of core distances (size m)
+ */
 template <typename value_idx, typename value_t>
 void mutual_reachability_knn_l2(const raft::handle_t &handle,
                                 value_idx *out_inds, value_t *out_dists,
                                 const value_t *X, size_t m, size_t n, int k,
-                                value_t *core_dists) {
+                                value_t *core_dists, value_t alpha) {
   auto device = faiss::gpu::getCurrentDevice();
   auto stream = handle.get_stream();
 
@@ -307,14 +336,15 @@ void mutual_reachability_knn_l2(const raft::handle_t &handle,
         // Write into the final output
         runL2SelectMin<value_t>(distanceBufView, norms_tensor,
                                 core_dists_tensor, outDistanceView,
-                                outIndexView, i, k, streams[curStream]);
+                                outIndexView, i, k, alpha, streams[curStream]);
       } else {
         auto centroidNormsView = norms_tensor.narrow(0, j, curCentroidSize);
 
         // Write into our intermediate output
         runL2SelectMin<value_t>(distanceBufView, norms_tensor,
                                 core_dists_tensor, outDistanceBufColView,
-                                outIndexBufColView, i, k, streams[curStream]);
+                                outIndexBufColView, i, k, alpha,
+                                streams[curStream]);
       }
     }
 
@@ -342,6 +372,16 @@ void mutual_reachability_knn_l2(const raft::handle_t &handle,
   }
 }
 
+/**
+ * Extract core distances from a knn distance matrix (the neighbor at min_samples).
+ * It is possible for min_samples < k.
+ * @tparam value_t
+ * @param[in] knn_dists knn distance array (size m * k)
+ * @param[in] k neighborhood size
+ * @param[in] min_samples this neighbor will be selected for core distances
+ * @param[in] n number of samples
+ * @param[out] out output array (size n)
+ */
 template <typename value_t>
 __global__ void core_distances_kernel(value_t *knn_dists, int k,
                                       int min_samples, size_t n, value_t *out) {
@@ -355,18 +395,19 @@ __global__ void core_distances_kernel(value_t *knn_dists, int k,
  * @tparam value_idx data type for integrals
  * @tparam value_t data type for distance
  * @tparam tpb block size for kernel
- * @param knn_dists knn distance array
- * @param min_pts
- * @param n
- * @param out
- * @param stream
+ * @param[in] knn_dists knn distance array (size n * k)
+ * @param[in] k neighborhood size
+ * @param[in] min_samples this neighbor will be selected for core distances
+ * @param[in] n number of samples
+ * @param[out] out output array (size n)
+ * @param[in] stream stream for which to order cuda operations
  */
 template <typename value_t, int tpb = 256>
-void core_distances(value_t *knn_dists, int k, int num_points, size_t n,
+void core_distances(value_t *knn_dists, int k, int min_samples, size_t n,
                     value_t *out, cudaStream_t stream) {
   int blocks = raft::ceildiv(n, (size_t)tpb);
   core_distances_kernel<value_t>
-    <<<blocks, tpb, 0, stream>>>(knn_dists, k, num_points, n, out);
+    <<<blocks, tpb, 0, stream>>>(knn_dists, k, min_samples, n, out);
 }
 
 /**
@@ -377,21 +418,29 @@ void core_distances(value_t *knn_dists, int k, int num_points, size_t n,
  *
  * @tparam value_idx
  * @tparam value_t
- * @param[in] handle
- * @param[in] X
- * @param[in] m
- * @param[in] n
- * @param[in] metric
- * @param[out] pw_dists
- * @param[in] k
+ * @param[in] handle raft handle for resource reuse
+ * @param[in] X input data points (size m * n)
+ * @param[in] m number of rows in X
+ * @param[in] n number of columns in X
+ * @param[in] metric distance metric to use
+ * @param[in] k neighborhood size
+ * @param[in] min_samples this neighborhood will be selected for core distances
+ * @param[in] alpha weight applied when internal distance is chosen for
+ *            mutual reachability (value of 1.0 disables the weighting)
+ * @param[out] indptr CSR indptr of output knn graph (size m + 1)
+ * @param[out] core_dists output core distances array (size m)
+ * @param[out] out uninitialized output COO object
  */
 template <typename value_idx, typename value_t>
 void mutual_reachability_graph(const raft::handle_t &handle, const value_t *X,
                                size_t m, size_t n,
                                raft::distance::DistanceType metric, int k,
-                               int min_samples, float alpha, value_idx *indptr,
-                               value_t *core_dists,
+                               int min_samples, value_t alpha,
+                               value_idx *indptr, value_t *core_dists,
                                raft::sparse::COO<value_t, value_idx> &out) {
+  RAFT_EXPECTS(metric == raft::distance::DistanceType::L2SqrtExpanded,
+               "Currently only L2 expanded distance is supported");
+
   auto stream = handle.get_stream();
 
   auto exec_policy = rmm::exec_policy(stream);
@@ -424,7 +473,7 @@ void mutual_reachability_graph(const raft::handle_t &handle, const value_t *X,
    * Compute L2 norm
    */
   mutual_reachability_knn_l2(handle, inds.data(), dists.data(), X, m, n, k,
-                             core_dists);
+                             core_dists, 1.0 / alpha);
 
   raft::sparse::selection::fill_indices<value_idx>
     <<<raft::ceildiv(k * m, (size_t)256), 256, 0, stream>>>(coo_rows.data(), k,

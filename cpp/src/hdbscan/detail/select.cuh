@@ -47,6 +47,17 @@ namespace HDBSCAN {
 namespace detail {
 namespace Select {
 
+/**
+ * For each non-0 value in frontier, deselects children clusters
+ * and adds children to frontier.
+ * @tparam value_idx
+ * @param[in] indptr CSR indptr of array (size n_clusters+1)
+ * @param[in] children array of children indices (size n_clusters)
+ * @param[inout] frontier frontier array storing which nodes need
+ *               processing in each kernel invocation (size n_clusters)
+ * @param[inout] is_cluster array of cluster selections / deselections (size n_clusters)
+ * @param[in] n_clusters number of clusters
+ */
 template <typename value_idx>
 __global__ void propagate_cluster_negation_kernel(const value_idx *indptr,
                                                   const value_idx *children,
@@ -68,6 +79,21 @@ __global__ void propagate_cluster_negation_kernel(const value_idx *indptr,
   }
 }
 
+/**
+ * Given a frontier, iteratively performs a breadth-first search,
+ * launching the given kernel at each level.
+ * @tparam value_idx
+ * @tparam Bfs_Kernel
+ * @tparam tpb
+ * @param[in] handle raft handle for resource reuse
+ * @param[in] indptr CSR indptr of children array (size n_clusters+1)
+ * @param[in] children children hierarchy array (size n_clusters)
+ * @param[inout] frontier array storing which nodes need to be processed
+ *               in each kernel invocation (size n_clusters)
+ * @param[inout] is_cluster array of cluster selection / deselections (size n_clusters)
+ * @param[in] n_clusters number of clusters
+ * @param[in] bfs_kernel kernel accepting indptr, children, frontier, is_cluster, and n_clusters
+ */
 template <typename value_idx, typename Bfs_Kernel, int tpb = 256>
 void perform_bfs(const raft::handle_t &handle, const value_idx *indptr,
                  const value_idx *children, int *frontier, int *is_cluster,
@@ -94,8 +120,14 @@ void perform_bfs(const raft::handle_t &handle, const value_idx *indptr,
 }
 
 /**
-  Function to get a csr index of parents of cluster tree.
-  csr index is created by sorting parents by children then sizes
+ * Computes a CSR index of parents of cluster tree. CSR index is
+ * created by sorting parents by (children, sizes)
+ * @tparam value_idx
+ * @tparam value_t
+ * @param[in] handle raft handle for resource reuse
+ * @param[inout] cluster_tree cluster tree (condensed hierarchy with all nodes of size > 1)
+ * @param[in] n_clusters number of clusters
+ * @param[out] indptr CSR indptr of parents array after sort
  */
 template <typename value_idx, typename value_t>
 void parent_csr(const raft::handle_t &handle,
@@ -122,19 +154,20 @@ void parent_csr(const raft::handle_t &handle,
 }
 
 /**
- * Computes the excess of mass. This is a cluster extraction
+ * Computes the excess of mass. This is a cluster selection
  * strategy that iterates upwards from the leaves of the cluster
- * tree toward the root, selecting a cluster
+ * tree toward the root, selecting clusters based on stabilities and size.
  * @tparam value_idx
  * @tparam value_t
  * @tparam tpb
- * @param handle
- * @param condensed_tree
- * @param stability an array of nodes from the cluster tree and their
- *                  corresponding stabilities
- * @param is_cluster
- * @param n_clusters
- * @param max_cluster_size
+ * @param[in] handle raft handle for resource reuse
+ * @param[inout] cluster_tree condensed hierarchy containing only nodes of size > 1
+ * @param[in] stability an array of nodes from the cluster tree and their
+ *            corresponding stabilities
+ * @param[out] is_cluster array of cluster selections / deselections (size n_clusters)
+ * @param[in] n_clusters number of clusters in cluster tree
+ * @param[in] max_cluster_size max number of points in a cluster before
+ *            it will be deselected (and children selected)
  */
 template <typename value_idx, typename value_t, int tpb = 256>
 void excess_of_mass(
@@ -237,14 +270,14 @@ void excess_of_mass(
 }
 
 /**
- * Computes cluster selection using leaf method
+ * Uses the leaves of the cluster tree as final cluster selections
  * @tparam value_idx
  * @tparam value_t
  * @tparam tpb
- * @param handle
- * @param condensed_tree
- * @param is_cluster
- * @param n_clusters
+ * @param[in] handle raft handle for resource reuse
+ * @param[inout] cluster_tree condensed hierarchy containing only nodes of size > 1
+ * @param[out] is_cluster array of cluster selections / deselections (size n_clusters)
+ * @param[in] n_clusters number of clusters in cluster tree
  */
 template <typename value_idx, typename value_t, int tpb = 256>
 void leaf(const raft::handle_t &handle,
@@ -335,6 +368,19 @@ __global__ void cluster_epsilon_search_kernel(
   }
 }
 
+/**
+ * Selects clusters based on distance threshold.
+ * @tparam value_idx
+ * @tparam value_t
+ * @tparam tpb
+ * @param[in] handle raft handle for resource reuse
+ * @param[in] cluster_tree condensed hierarchy with nodes of size > 1
+ * @param[out] is_cluster array of cluster selections / deselections (size n_clusters)
+ * @param[in] n_clusters number of clusters in cluster tree
+ * @param[in] cluster_selection_epsilon distance threshold
+ * @param[in] allow_single_cluster allows a single cluster with noisy datasets
+ * @param[in] n_selected_clusters numnber of cluster selections in is_cluster
+ */
 template <typename value_idx, typename value_t, int tpb = 256>
 void cluster_epsilon_search(
   const raft::handle_t &handle,
@@ -358,18 +404,14 @@ void cluster_epsilon_search(
                   thrust::make_counting_iterator(n_clusters), is_cluster,
                   selected_clusters.data(),
                   [] __device__(auto cluster) { return cluster; });
-  raft::print_device_vector("selected_clusters", selected_clusters.data(), n_selected_clusters, std::cout);
 
   // sort lambdas and parents by children for epsilon search
   auto start = thrust::make_zip_iterator(thrust::make_tuple(parents, lambdas));
   thrust::sort_by_key(thrust_policy, children, children + cluster_tree_edges,
                       start);
-  raft::print_device_vector("children", children, cluster_tree_edges, std::cout);
-  raft::print_device_vector("parents", parents, cluster_tree_edges, std::cout);
   rmm::device_uvector<value_t> eps(cluster_tree_edges, stream);
-  thrust::transform(thrust_policy, lambdas, lambdas + cluster_tree_edges, eps.begin(), [] __device__ (auto x) {return 1 / x; });
-  raft::print_device_vector("lambdas", lambdas, cluster_tree_edges, std::cout);
-  raft::print_device_vector("eps", eps.begin(), cluster_tree_edges, std::cout);
+  thrust::transform(thrust_policy, lambdas, lambdas + cluster_tree_edges,
+                    eps.begin(), [] __device__(auto x) { return 1 / x; });
 
   // declare frontier and search
   rmm::device_uvector<int> frontier(n_clusters, stream);
@@ -390,6 +432,19 @@ void cluster_epsilon_search(
   }
 }
 
+/**
+ * Entry point for end-to-end cluster selection logic
+ * @tparam value_idx
+ * @tparam value_t
+ * @param[in] handle raft handle for resource reuse
+ * @param[in] condensed_tree condensed hierarchy
+ * @param[in] tree_stabilities stabilities array (size n_leaves from condensed hierarchy)
+ * @param[out] is_cluster array of cluster selections / deselections (size n_clusters from condensed hierarchy)
+ * @param[in] cluster_selection_method method to use for selecting clusters
+ * @param[in] allow_single_cluster whether a single cluster can be selected in noisy conditions
+ * @param[in] max_cluster_size max size cluster to select before selecting children
+ * @param[in] cluster_selection_epsilon distance threshold (0.0 disables distance selection)
+ */
 template <typename value_idx, typename value_t>
 void select_clusters(
   const raft::handle_t &handle,
@@ -415,14 +470,11 @@ void select_clusters(
     }
   }
 
-  raft::print_device_vector("is_cluster", is_cluster, n_clusters, std::cout);
-
   if (cluster_selection_epsilon != 0.0) {
     auto epsilon_search = true;
 
     auto n_selected_clusters =
-    thrust::reduce(thrust_policy, is_cluster, is_cluster + n_clusters);
-    std::cout << "Selected clusters after EOM: " << n_selected_clusters << std::endl;
+      thrust::reduce(thrust_policy, is_cluster, is_cluster + n_clusters);
 
     // this is to check when eom finds root as only cluster
     // in which case, epsilon search is cancelled
@@ -430,19 +482,18 @@ void select_clusters(
       // if cluster tree has no edges then no epsilon search
       if (cluster_tree.get_n_edges() == 0) {
         epsilon_search = false;
-      }
-      else if (n_selected_clusters == 1) {
+      } else if (n_selected_clusters == 1) {
         int is_root_only_cluster = false;
         raft::update_host(&is_root_only_cluster, is_cluster, 1, stream);
         if (is_root_only_cluster && allow_single_cluster) {
           epsilon_search = false;
         }
       }
-    }
-    else if (cluster_selection_method == Common::CLUSTER_SELECTION_METHOD::LEAF) {
+    } else if (cluster_selection_method ==
+               Common::CLUSTER_SELECTION_METHOD::LEAF) {
       // TODO: reenable to match reference implementation when they solve it
       // It's a confirmed bug https://github.com/scikit-learn-contrib/hdbscan/issues/476
-  
+
       // if no cluster leaves were found, declare root as cluster
       // if (n_selected_clusters == 0 && allow_single_cluster) {
       //   constexpr int root_is_cluster = true;
@@ -457,10 +508,8 @@ void select_clusters(
 
     if (epsilon_search) {
       Select::cluster_epsilon_search(handle, cluster_tree, is_cluster,
-                                     n_clusters,
-                                     cluster_selection_epsilon,
-                                     allow_single_cluster, 
-                                     n_selected_clusters);
+                                     n_clusters, cluster_selection_epsilon,
+                                     allow_single_cluster, n_selected_clusters);
     }
   }
 }

@@ -47,6 +47,12 @@ namespace HDBSCAN {
 namespace detail {
 namespace Stability {
 
+/**
+ * Uses cluster distances, births, and sizes to compute stabilities
+ * which are used for cluster selection.
+ * @tparam value_idx
+ * @tparam value_t
+ */
 template <typename value_idx, typename value_t>
 struct stabilities_functor {
  public:
@@ -75,6 +81,16 @@ struct stabilities_functor {
   const value_idx *parents, *children, *sizes, n_leaves;
 };
 
+/**
+ * Computes stability scores which are used for excess of mass cluster
+ * selection. Stabilities are computed over the points in each cluster as the sum
+ * of the lambda (1 / distance) of each point minus the lambda of its parent.
+ * @tparam value_idx
+ * @tparam value_t
+ * @param[in] handle raft handle for resource reuse
+ * @param[in] condensed_tree condensed hierarchy (size n_points + n_clusters)
+ * @param[out] stabilities output stabilities array (size n_clusters)
+ */
 template <typename value_idx, typename value_t>
 void compute_stabilities(
   const raft::handle_t &handle,
@@ -163,6 +179,19 @@ void compute_stabilities(
                    thrust::make_counting_iterator(n_edges), stabilities_op);
 }
 
+/**
+ * Computes stability scores for each cluster by normalizing their
+ * stabilities by their sizes and scaling by the lambda of the root.
+ * @tparam value_idx
+ * @tparam value_t
+ * @param[in] handle raft handle for resource reuse
+ * @param[in] labels labels array (size n_leaves)
+ * @param[in] stability stabilities array (size n_clusters)
+ * @param[in] n_clusters number of clusters in cluster tree
+ * @param[in] max_lambda maximum lambda of cluster hierarchy
+ * @param[in] n_leaves number of data points (non-clusters) in hierarchy
+ * @param[out] result output stability scores
+ */
 template <typename value_idx, typename value_t>
 void get_stability_scores(const raft::handle_t &handle, const value_idx *labels,
                           const value_t *stability, size_t n_clusters,

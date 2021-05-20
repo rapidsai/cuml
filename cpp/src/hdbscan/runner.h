@@ -99,6 +99,21 @@ struct FixConnectivitiesRedOp {
   }
 };
 
+/**
+ * Constructs a linkage by computing mutual reachability, mst, and
+ * dendrogram. This is shared by HDBSCAN and Robust Single Linkage
+ * since the two algorithms differ only in the cluster
+ * selection and extraction.
+ * @tparam value_idx
+ * @tparam value_t
+ * @param[in] handle raft handle for resource reuse
+ * @param[in] X data points (size m * n)
+ * @param[in] m number of rows
+ * @param[in] n number of columns
+ * @param[in] metric distance metric to use
+ * @param[in] params hyper parameters
+ * @param[out] out output container object
+ */
 template <typename value_idx = int64_t, typename value_t = float>
 void build_linkage(
   const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
