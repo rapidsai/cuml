@@ -30,7 +30,7 @@ include(rapids-find)
 
 rapids_cuda_init_architectures(CUML)
 
-project(CUML VERSION 0.20.0 LANGUAGES CXX CUDA)
+project(CUML VERSION 21.06.00 LANGUAGES CXX CUDA)
 
 # Write the version header
 include(cmake/modules/Version.cmake)
@@ -444,18 +444,10 @@ rapids_export(BUILD cuml
     DOCUMENTATION doc_string
     )
 
-###################################################################################################
-# - make documentation ----------------------------------------------------------------------------
-# requires doxygen and graphviz to be installed
-# from build directory, run make docs_cugraph
+##############################################################################
+# - doxygen targets ----------------------------------------------------------
 
-# doc targets for cuML
-find_package(Doxygen 1.8.11)
-if(Doxygen_FOUND)
-    add_custom_command(OUTPUT CUML_DOXYGEN
-                       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/doxygen
-                       COMMAND doxygen Doxyfile
-                       VERBATIM)
-
-    add_custom_target(docs_cuml DEPENDS CUML_DOXYGEN)
-endif()
+include(cmake/doxygen.cmake)
+add_doxygen_target(IN_DOXYFILE Doxyfile.in
+  OUT_DOXYFILE ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
+  CWD ${CMAKE_CURRENT_BINARY_DIR})

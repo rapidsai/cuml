@@ -276,7 +276,7 @@ def get_repo_cmake_info(names, file_path):
             with open(loc) as f:
                 cmakelists = f.read()
                 tag = re.findall(r'\s.*project\(CUML VERSION.*', cmakelists)
-                tag = tag[-1].split()[-4].split('.')
+                tag = tag[-1].split()[2].split('.')
                 tag = 'branch-{}.{}'.format(tag[0], tag[1])
 
         results[name] = [repo, tag]
