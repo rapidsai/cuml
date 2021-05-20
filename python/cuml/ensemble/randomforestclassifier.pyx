@@ -495,7 +495,6 @@ class RandomForestClassifier(BaseRandomForestModel,
                                   <float> self.max_samples,
                                   <uint64_t> seed_val,
                                   <CRITERION> self.split_criterion,
-                                  <bool> self.,
                                   <int> self.n_streams,
                                   <bool> self.use_experimental_backend,
                                   <int> self.max_batch_size)
