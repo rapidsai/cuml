@@ -16,7 +16,8 @@
 
 #pragma once
 
-#include <label/classlabels.cuh>
+#include "kernels/select.cuh"
+#include "utils.h"
 
 #include <cub/cub.cuh>
 
@@ -31,8 +32,6 @@
 
 #include <algorithm>
 
-#include "utils.h"
-
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
 #include <thrust/reduce.h>
@@ -46,38 +45,6 @@ namespace ML {
 namespace HDBSCAN {
 namespace detail {
 namespace Select {
-
-/**
- * For each non-0 value in frontier, deselects children clusters
- * and adds children to frontier.
- * @tparam value_idx
- * @param[in] indptr CSR indptr of array (size n_clusters+1)
- * @param[in] children array of children indices (size n_clusters)
- * @param[inout] frontier frontier array storing which nodes need
- *               processing in each kernel invocation (size n_clusters)
- * @param[inout] is_cluster array of cluster selections / deselections (size n_clusters)
- * @param[in] n_clusters number of clusters
- */
-template <typename value_idx>
-__global__ void propagate_cluster_negation_kernel(const value_idx *indptr,
-                                                  const value_idx *children,
-                                                  int *frontier,
-                                                  int *is_cluster,
-                                                  int n_clusters) {
-  int cluster = blockDim.x * blockIdx.x + threadIdx.x;
-
-  if (cluster < n_clusters && frontier[cluster]) {
-    frontier[cluster] = false;
-
-    value_idx children_start = indptr[cluster];
-    value_idx children_stop = indptr[cluster + 1];
-    for (int i = children_start; i < children_stop; i++) {
-      value_idx child = children[i];
-      frontier[child] = true;
-      is_cluster[child] = false;
-    }
-  }
-}
 
 /**
  * Given a frontier, iteratively performs a breadth-first search,
@@ -306,68 +273,6 @@ void leaf(const raft::handle_t &handle,
   thrust::for_each(exec_policy, children, children + n_edges, is_cluster_op);
 }
 
-template <typename value_idx, typename value_t, int tpb = 256>
-__global__ void cluster_epsilon_search_kernel(
-  const int *selected_clusters, const int n_selected_clusters,
-  const value_idx *parents, const value_idx *children, const value_t *lambdas,
-  const value_idx cluster_tree_edges, int *is_cluster, int *frontier,
-  const int n_clusters, const value_t cluster_selection_epsilon,
-  const bool allow_single_cluster) {
-  auto selected_cluster_idx = threadIdx.x + blockDim.x * blockIdx.x;
-
-  if (selected_cluster_idx >= n_selected_clusters) {
-    return;
-  }
-
-  // don't need to process root as a cluster
-  // offsetting for root by subtracting 1 from the cluster
-  // this is because root isn't involved in epsilon search directly
-  // further, it allows the remaining clusters to be 0-index
-  // and directly access from the children/lambda arrays
-  // since parents/lambdas are sorted by children
-  // the relation is: child = child_idx + 1
-  auto child_idx = selected_clusters[selected_cluster_idx] - 1;
-  if (child_idx == -1) {
-    return;
-  }
-
-  auto eps = 1 / lambdas[child_idx];
-  // printf("child_idx: %d, eps: %f\n", child_idx, eps);
-
-  if (eps < cluster_selection_epsilon) {
-    constexpr auto root = 0;
-
-    value_idx parent;
-    value_t parent_eps;
-
-    do {
-      parent = parents[child_idx];
-      // printf("parent: %d, child_idx: %d\n", parent, child_idx);
-
-      if (parent == root) {
-        if (!allow_single_cluster) {
-          // setting parent to actual value of child
-          // by offsetting
-          parent = child_idx + 1;
-        }
-        break;
-      }
-
-      // again, offsetting for root
-      child_idx = parent - 1;
-      // lambda is picked for where the parent
-      // resides according to where it is a child
-      parent_eps = 1 / lambdas[child_idx];
-    } while (parent_eps <= cluster_selection_epsilon);
-
-    frontier[parent] = true;
-    is_cluster[parent] = true;
-  } else {
-    // offset 1 ahead for root
-    frontier[child_idx + 1] = true;
-  }
-}
-
 /**
  * Selects clusters based on distance threshold.
  * @tparam value_idx
@@ -426,10 +331,8 @@ void cluster_epsilon_search(
   rmm::device_uvector<value_idx> indptr(n_clusters + 1, stream);
   parent_csr(handle, cluster_tree, n_clusters, indptr.data());
 
-  if (cluster_tree_edges > 0) {
-    perform_bfs(handle, indptr.data(), children, frontier.data(), is_cluster,
-                n_clusters, propagate_cluster_negation_kernel<value_idx>);
-  }
+  perform_bfs(handle, indptr.data(), children, frontier.data(), is_cluster,
+              n_clusters, propagate_cluster_negation_kernel<value_idx>);
 }
 
 /**
@@ -465,47 +368,47 @@ void select_clusters(
                            n_clusters, max_cluster_size, allow_single_cluster);
   } else {
     thrust::fill(thrust_policy, is_cluster, is_cluster + n_clusters, false);
+
     if (cluster_tree.get_n_edges() > 0) {
       Select::leaf(handle, cluster_tree, is_cluster, n_clusters);
     }
   }
 
-  if (cluster_selection_epsilon != 0.0) {
-    auto epsilon_search = true;
+  auto n_selected_clusters =
+    thrust::reduce(thrust_policy, is_cluster, is_cluster + n_clusters);
 
-    auto n_selected_clusters =
-      thrust::reduce(thrust_policy, is_cluster, is_cluster + n_clusters);
+  // this variable is only used when cluster_selection_epsilon != 0.0
+  auto epsilon_search = true;
+
+  if (cluster_selection_method == Common::CLUSTER_SELECTION_METHOD::LEAF) {
+    // TODO: reenable to match reference implementation
+    // It's a confirmed bug https://github.com/scikit-learn-contrib/hdbscan/issues/476
+
+    // if no cluster leaves were found, declare root as cluster
+    // if (n_selected_clusters == 0 && allow_single_cluster) {
+    //   constexpr int root_is_cluster = true;
+    //   raft::update_device(is_cluster, &root_is_cluster, 1, stream);
+    //   epsilon_search = false;
+    // }
+  }
+
+  if (cluster_selection_epsilon != 0.0 && cluster_tree.get_n_edges() > 0) {
+    // no epsilon search if no clusters were selected
+    if (n_selected_clusters == 0) {
+      epsilon_search = false;
+    }
 
     // this is to check when eom finds root as only cluster
     // in which case, epsilon search is cancelled
     if (cluster_selection_method == Common::CLUSTER_SELECTION_METHOD::EOM) {
-      // if cluster tree has no edges then no epsilon search
-      if (cluster_tree.get_n_edges() == 0) {
-        epsilon_search = false;
-      } else if (n_selected_clusters == 1) {
+      if (n_selected_clusters == 1) {
         int is_root_only_cluster = false;
         raft::update_host(&is_root_only_cluster, is_cluster, 1, stream);
         if (is_root_only_cluster && allow_single_cluster) {
           epsilon_search = false;
         }
       }
-    } else if (cluster_selection_method ==
-               Common::CLUSTER_SELECTION_METHOD::LEAF) {
-      // TODO: reenable to match reference implementation when they solve it
-      // It's a confirmed bug https://github.com/scikit-learn-contrib/hdbscan/issues/476
-
-      // if no cluster leaves were found, declare root as cluster
-      // if (n_selected_clusters == 0 && allow_single_cluster) {
-      //   constexpr int root_is_cluster = true;
-      //   raft::update_device(is_cluster, &root_is_cluster, 1, stream);
-
-      //   n_selected_clusters = 1;
-      // }
-      if (n_selected_clusters == 0) {
-        epsilon_search = false;
-      }
     }
-
     if (epsilon_search) {
       Select::cluster_epsilon_search(handle, cluster_tree, is_cluster,
                                      n_clusters, cluster_selection_epsilon,

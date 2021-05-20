@@ -16,7 +16,8 @@
 
 #pragma once
 
-#include <label/classlabels.cuh>
+#include "kernels/membership.cuh"
+#include "utils.h"
 
 #include <cub/cub.cuh>
 
@@ -40,60 +41,12 @@
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
-#include "utils.h"
-
 namespace ML {
 namespace HDBSCAN {
 namespace detail {
 namespace Membership {
 
-// TODO: Outlier score needs to go here as well
-
-template <typename value_idx, typename value_t>
-struct probabilities_functor {
- public:
-  probabilities_functor(value_t *probabilities_, const value_t *deaths_,
-                        const value_idx *parents_, const value_idx *children_,
-                        const value_t *lambdas_, const value_idx *labels_,
-                        const value_idx root_cluster_)
-    : probabilities(probabilities_),
-      deaths(deaths_),
-      parents(parents_),
-      children(children_),
-      lambdas(lambdas_),
-      labels(labels_),
-      root_cluster(root_cluster_) {}
-
-  __device__ void operator()(const value_idx &idx) {
-    auto child = children[idx];
-
-    // intermediate nodes
-    if (child >= root_cluster) {
-      return;
-    }
-
-    auto cluster = labels[child];
-
-    // noise
-    if (cluster == -1) {
-      return;
-    }
-
-    auto cluster_death = deaths[cluster];
-    auto child_lambda = lambdas[idx];
-    if (cluster_death == 0.0 || isnan(child_lambda)) {
-      probabilities[child] = 1.0;
-    } else {
-      auto min_lambda = min(child_lambda, cluster_death);
-      probabilities[child] = min_lambda / cluster_death;
-    }
-  }
-
- private:
-  value_t *probabilities;
-  const value_t *deaths, *lambdas;
-  const value_idx *parents, *children, *labels, root_cluster;
-};
+// TODO: Compute outlier scores
 
 template <typename value_idx, typename value_t>
 void get_probabilities(
@@ -113,12 +66,6 @@ void get_probabilities(
   rmm::device_uvector<value_idx> sorted_parents(n_edges, stream);
   raft::copy_async(sorted_parents.data(), parents, n_edges, stream);
 
-  // rmm::device_uvector<value_t> sorted_lambdas(n_edges, stream);
-  // raft::copy_async(sorted_lambdas.data(), lambdas, n_edges, stream);
-
-  // thrust::sort_by_key(exec_policy, sorted_parents.begin(), sorted_parents.end(),
-  //                     sorted_lambdas.begin());
-
   // 0-index sorted parents by subtracting n_leaves for offsets and birth/stability indexing
   auto index_op = [n_leaves] __device__(const auto &x) { return x - n_leaves; };
   thrust::transform(exec_policy, sorted_parents.begin(), sorted_parents.end(),
@@ -134,8 +81,7 @@ void get_probabilities(
   thrust::fill(exec_policy, deaths.begin(), deaths.end(), 0.0f);
 
   Utils::cub_segmented_reduce(
-    lambdas, deaths.data(), n_clusters,
-    sorted_parents_offsets.data(), stream,
+    lambdas, deaths.data(), n_clusters, sorted_parents_offsets.data(), stream,
     cub::DeviceSegmentedReduce::Max<const value_t *, value_t *,
                                     const value_idx *>);
 
@@ -143,7 +89,7 @@ void get_probabilities(
   thrust::fill(exec_policy, probabilities, probabilities + n_leaves, 0.0f);
 
   probabilities_functor<value_idx, value_t> probabilities_op(
-    probabilities, deaths.data(), parents, children, lambdas, labels, n_leaves);
+    probabilities, deaths.data(), children, lambdas, labels, n_leaves);
   thrust::for_each(exec_policy, thrust::make_counting_iterator(value_idx(0)),
                    thrust::make_counting_iterator(n_edges), probabilities_op);
 }

@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "kernels/reachability.cuh"
+
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 
@@ -23,15 +25,12 @@
 
 #include <raft/linalg/unary_op.cuh>
 
-#include <faiss/gpu/GpuResources.h>
-#include <faiss/gpu/utils/DeviceUtils.h>
 #include <faiss/impl/AuxIndexStructures.h>
 #include <cuml/common/logger.hpp>
 #include <faiss/gpu/impl/Distance.cuh>
 #include <faiss/gpu/impl/DistanceUtils.cuh>
 #include <faiss/gpu/impl/L2Norm.cuh>
 #include <faiss/gpu/impl/L2Select.cuh>
-#include <faiss/gpu/utils/BlockSelectKernel.cuh>
 #include <faiss/gpu/utils/CopyUtils.cuh>
 #include <faiss/gpu/utils/DeviceDefs.cuh>
 #include <faiss/gpu/utils/Limits.cuh>
@@ -54,55 +53,6 @@ namespace ML {
 namespace HDBSCAN {
 namespace detail {
 namespace Reachability {
-
-template <typename value_t, int NumWarpQ, int NumThreadQ, int ThreadsPerBlock>
-__global__ void l2SelectMinK(
-  faiss::gpu::Tensor<value_t, 2, true> inner_products,
-  faiss::gpu::Tensor<value_t, 1, true> sq_norms,
-  faiss::gpu::Tensor<value_t, 1, true> core_dists,
-  faiss::gpu::Tensor<value_t, 2, true> out_dists,
-  faiss::gpu::Tensor<int, 2, true> out_inds, int batch_offset, int k,
-  value_t initK, value_t alpha) {
-  // Each block handles a single row of the distances (results)
-  constexpr int kNumWarps = ThreadsPerBlock / 32;
-
-  __shared__ value_t smemK[kNumWarps * NumWarpQ];
-  __shared__ int smemV[kNumWarps * NumWarpQ];
-
-  faiss::gpu::BlockSelect<value_t, int, false, faiss::gpu::Comparator<value_t>,
-                          NumWarpQ, NumThreadQ, ThreadsPerBlock>
-    heap(initK, -1, smemK, smemV, k);
-
-  int row = blockIdx.x;
-
-  // Whole warps must participate in the selection
-  int limit = faiss::gpu::utils::roundDown(inner_products.getSize(1), 32);
-  int i = threadIdx.x;
-
-  for (; i < limit; i += blockDim.x) {
-    value_t v = sqrt(faiss::gpu::Math<value_t>::add(
-      sq_norms[row + batch_offset],
-      faiss::gpu::Math<value_t>::add(sq_norms[i], inner_products[row][i])));
-
-    v = max(core_dists[i], max(core_dists[row + batch_offset], alpha * v));
-    heap.add(v, i);
-  }
-
-  if (i < inner_products.getSize(1)) {
-    value_t v = sqrt(faiss::gpu::Math<value_t>::add(
-      sq_norms[row + batch_offset],
-      faiss::gpu::Math<value_t>::add(sq_norms[i], inner_products[row][i])));
-
-    v = max(core_dists[i], max(core_dists[row + batch_offset], alpha * v));
-    heap.addThreadQ(v, i);
-  }
-
-  heap.reduce();
-  for (int i = threadIdx.x; i < k; i += blockDim.x) {
-    out_dists[row][i] = smemK[i];
-    out_inds[row][i] = smemV[i];
-  }
-}
 
 /**
  * Computes expanded L2 metric, projects points into reachability
@@ -370,23 +320,6 @@ void mutual_reachability_knn_l2(const raft::handle_t &handle,
   if (interrupt) {
     FAISS_THROW_MSG("interrupted");
   }
-}
-
-/**
- * Extract core distances from a knn distance matrix (the neighbor at min_samples).
- * It is possible for min_samples < k.
- * @tparam value_t
- * @param[in] knn_dists knn distance array (size m * k)
- * @param[in] k neighborhood size
- * @param[in] min_samples this neighbor will be selected for core distances
- * @param[in] n number of samples
- * @param[out] out output array (size n)
- */
-template <typename value_t>
-__global__ void core_distances_kernel(value_t *knn_dists, int k,
-                                      int min_samples, size_t n, value_t *out) {
-  int row = blockIdx.x * blockDim.x + threadIdx.x;
-  if (row < n) out[row] = knn_dists[row * k + (min_samples - 1)];
 }
 
 /**

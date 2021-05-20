@@ -522,9 +522,7 @@ const std::vector<HDBSCANInputs<float, int>> hdbscan_inputsf2 = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}};
 
 typedef HDBSCANTest<float, int> HDBSCANTestF_Int;
-TEST_P(HDBSCANTestF_Int, Result) {
-    EXPECT_TRUE(score == 1.0);
-}
+TEST_P(HDBSCANTestF_Int, Result) { EXPECT_TRUE(score == 1.0); }
 
 INSTANTIATE_TEST_CASE_P(HDBSCANTest, HDBSCANTestF_Int,
                         ::testing::ValuesIn(hdbscan_inputsf2));
@@ -639,8 +637,7 @@ class ClusterCondensingTest
 
   void SetUp() override { basicTest(); }
 
-  void TearDown() override {
-  }
+  void TearDown() override {}
 
  protected:
   ClusterCondensingInputs<T, IdxT> params;

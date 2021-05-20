@@ -16,7 +16,8 @@
 
 #pragma once
 
-#include <label/classlabels.cuh>
+#include "kernels/stabilities.cuh"
+#include "utils.h"
 
 #include <cub/cub.cuh>
 
@@ -40,46 +41,10 @@
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
 
-#include "utils.h"
-
 namespace ML {
 namespace HDBSCAN {
 namespace detail {
 namespace Stability {
-
-/**
- * Uses cluster distances, births, and sizes to compute stabilities
- * which are used for cluster selection.
- * @tparam value_idx
- * @tparam value_t
- */
-template <typename value_idx, typename value_t>
-struct stabilities_functor {
- public:
-  stabilities_functor(value_t *stabilities_, const value_t *births_,
-                      const value_idx *parents_, const value_idx *children_,
-                      const value_t *lambdas_, const value_idx *sizes_,
-                      const value_idx n_leaves_)
-    : stabilities(stabilities_),
-      births(births_),
-      parents(parents_),
-      children(children_),
-      lambdas(lambdas_),
-      sizes(sizes_),
-      n_leaves(n_leaves_) {}
-
-  __device__ void operator()(const int &idx) {
-    auto parent = parents[idx] - n_leaves;
-
-    atomicAdd(&stabilities[parent],
-              (lambdas[idx] - births[parent]) * sizes[idx]);
-  }
-
- private:
-  value_t *stabilities;
-  const value_t *births, *lambdas;
-  const value_idx *parents, *children, *sizes, n_leaves;
-};
 
 /**
  * Computes stability scores which are used for excess of mass cluster
@@ -106,17 +71,9 @@ void compute_stabilities(
 
   auto stream = handle.get_stream();
   auto exec_policy = rmm::exec_policy(stream);
-  // raft::print_device_vector("sizes", sizes, n_edges, std::cout);
-
-  // TODO: Reverse topological sort (e.g. sort hierarchy, lambdas, and sizes by lambda)
-  // rmm::device_uvector<value_t> sorted_lambdas(n_edges, stream);
-  // raft::copy_async(sorted_lambdas.data(), lambdas, n_edges, stream);
 
   rmm::device_uvector<value_idx> sorted_parents(n_edges, stream);
   raft::copy_async(sorted_parents.data(), parents, n_edges, stream);
-
-  // thrust::sort_by_key(exec_policy, sorted_parents.begin(), sorted_parents.end(),
-  //                     sorted_lambdas.begin());
 
   // 0-index sorted parents by subtracting n_leaves for offsets and birth/stability indexing
   auto index_op = [n_leaves] __device__(const auto &x) { return x - n_leaves; };
@@ -129,8 +86,6 @@ void compute_stabilities(
     n_clusters + 1, handle.get_device_allocator(), handle.get_stream());
 
   // Segmented reduction on min_lambda within each cluster
-  // TODO: Converting child array to CSR offset and using CUB Segmented Reduce
-  // Investigate use of a kernel like coo_spmv
 
   // This is to consider the case where a child may also be a parent
   // in which case, births for that parent are initialized to
@@ -174,7 +129,7 @@ void compute_stabilities(
 
   // for each child, calculate summation (lambda[child] - lambda[birth[parent]]) * sizes[child]
   stabilities_functor<value_idx, value_t> stabilities_op(
-    stabilities, births.data(), parents, children, lambdas, sizes, n_leaves);
+    stabilities, births.data(), parents, lambdas, sizes, n_leaves);
   thrust::for_each(exec_policy, thrust::make_counting_iterator(value_idx(0)),
                    thrust::make_counting_iterator(n_edges), stabilities_op);
 }
