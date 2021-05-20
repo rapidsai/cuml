@@ -54,7 +54,7 @@ def test_single_linkage_sklearn_compare(nrows, ncols, nclusters,
     X, y = make_blobs(int(nrows),
                       ncols,
                       nclusters,
-                      cluster_std=5.0,
+                      cluster_std=1.0,
                       shuffle=False)
 
     cuml_agg = AgglomerativeClustering(
@@ -66,9 +66,6 @@ def test_single_linkage_sklearn_compare(nrows, ncols, nclusters,
     sk_agg = cluster.AgglomerativeClustering(
         n_clusters=nclusters, affinity='euclidean', linkage='single')
     sk_agg.fit(cp.asnumpy(X))
-
-    print("cuml_labels: %s" % cuml_agg.labels_)
-    print("sk_labels: %s" % sk_agg.labels_)
 
     # Cluster assignments should be exact, even though the actual
     # labels may differ
