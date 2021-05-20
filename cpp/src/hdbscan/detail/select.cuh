@@ -190,6 +190,8 @@ void excess_of_mass(
    *    or not current cluster should continue to be its own
    */
   std::vector<int> is_cluster_h(n_clusters, true);
+  // setting the selection of root
+  is_cluster_h[0] = allow_single_cluster;
   std::vector<int> frontier_h(n_clusters, false);
   std::vector<value_idx> cluster_sizes_h(n_clusters);
 
@@ -310,36 +312,51 @@ __global__ void cluster_epsilon_search_kernel(
     return;
   }
 
-  // subtract 1 to offset for root
-  // this is because children array will never have a value of 0
-  // this works because children array is sorted
+  // don't need to process root as a cluster
+  // offsetting for root by subtracting 1 from the cluster
+  // this is because root isn't involved in epsilon search directly
+  // further, it allows the remaining clusters to be 0-index
+  // and directly access from the children/lambda arrays
+  // since parents/lambdas are sorted by children
+  // the relation is: child = child_idx + 1
   auto child_idx = selected_clusters[selected_cluster_idx] - 1;
+  if (child_idx == -1) {
+    return;
+  }
 
   auto eps = 1 / lambdas[child_idx];
+  // printf("child_idx: %d, eps: %f\n", child_idx, eps);
 
   if (eps < cluster_selection_epsilon) {
     constexpr auto root = 0;
-    auto parent = parents[child_idx];
 
+    value_idx parent;
     value_t parent_eps;
 
     do {
+      parent = parents[child_idx];
+      // printf("parent: %d, child_idx: %d\n", parent, child_idx);
+
       if (parent == root) {
         if (!allow_single_cluster) {
+          // setting parent to actual value of child
+          // by offsetting
           parent = child_idx + 1;
         }
         break;
       }
 
-      // again offsetting for root
+      // again, offsetting for root
       child_idx = parent - 1;
-      parent = parents[child_idx];
+      // lambda is picked for where the parent
+      // resides according to where it is a child
       parent_eps = 1 / lambdas[child_idx];
     } while (parent_eps <= cluster_selection_epsilon);
 
     frontier[parent] = true;
     is_cluster[parent] = true;
   } else {
+    // offset 1 ahead for root
     frontier[child_idx + 1] = true;
   }
 }
@@ -348,8 +365,8 @@ template <typename value_idx, typename value_t, int tpb = 256>
 void cluster_epsilon_search(
   const raft::handle_t &handle,
   Common::CondensedHierarchy<value_idx, value_t> &cluster_tree, int *is_cluster,
-  const value_idx n_clusters, const value_t cluster_selection_epsilon,
-  const bool allow_single_cluster) {
+  const int n_clusters, const value_t cluster_selection_epsilon,
+  const bool allow_single_cluster, const int n_selected_clusters) {
   auto stream = handle.get_stream();
   auto thrust_policy = rmm::exec_policy(stream);
   auto parents = cluster_tree.get_parents();
@@ -357,8 +374,8 @@ void cluster_epsilon_search(
   auto lambdas = cluster_tree.get_lambdas();
   auto cluster_tree_edges = cluster_tree.get_n_edges();
 
-  auto n_selected_clusters =
-    thrust::reduce(thrust_policy, is_cluster, is_cluster + n_clusters);
+  // auto n_selected_clusters =
+  //   thrust::reduce(thrust_policy, is_cluster, is_cluster + n_clusters);
 
   rmm::device_uvector<int> selected_clusters(n_selected_clusters, stream);
 
@@ -367,11 +384,18 @@ void cluster_epsilon_search(
                   thrust::make_counting_iterator(n_clusters), is_cluster,
                   selected_clusters.data(),
                   [] __device__(auto cluster) { return cluster; });
+  raft::print_device_vector("selected_clusters", selected_clusters.data(), n_selected_clusters, std::cout);
 
   // sort lambdas and parents by children for epsilon search
   auto start = thrust::make_zip_iterator(thrust::make_tuple(parents, lambdas));
   thrust::sort_by_key(thrust_policy, children, children + cluster_tree_edges,
                       start);
+  raft::print_device_vector("children", children, cluster_tree_edges, std::cout);
+  raft::print_device_vector("parents", parents, cluster_tree_edges, std::cout);
+  rmm::device_uvector<value_t> eps(cluster_tree_edges, stream);
+  thrust::transform(thrust_policy, lambdas, lambdas + cluster_tree_edges, eps.begin(), [] __device__ (auto x) {return 1 / x; });
+  raft::print_device_vector("lambdas", lambdas, cluster_tree_edges, std::cout);
+  raft::print_device_vector("eps", eps.begin(), cluster_tree_edges, std::cout);
 
   // declare frontier and search
   rmm::device_uvector<int> frontier(n_clusters, stream);
@@ -423,8 +447,14 @@ void select_clusters(const raft::handle_t &handle,
     }
   }
 
+  raft::print_device_vector("is_cluster", is_cluster, n_clusters, std::cout);
+
   if (cluster_selection_epsilon != 0.0) {
     auto epsilon_search = true;
+
+    auto n_selected_clusters =
+    thrust::reduce(thrust_policy, is_cluster, is_cluster + n_clusters);
+    std::cout << "Selected clusters after EOM: " << n_selected_clusters << std::endl;
 
     // this is to check when eom finds root as only cluster
     // in which case, epsilon search is cancelled
@@ -433,17 +463,17 @@ void select_clusters(const raft::handle_t &handle,
       if (cluster_tree.get_n_edges() == 0) {
         epsilon_search = false;
       }
-      else if (n_clusters == 1) {
+      else if (n_selected_clusters == 1) {
         int is_root_only_cluster = false;
         raft::update_host(&is_root_only_cluster, is_cluster, 1, stream);
-        if (is_root_only_cluster) {
+        if (is_root_only_cluster && allow_single_cluster) {
           epsilon_search = false;
         }
       }
     }
     else if (cluster_selection_method == Common::CLUSTER_SELECTION_METHOD::LEAF) {
-      auto n_selected_clusters =
-      thrust::reduce(thrust_policy, is_cluster, is_cluster + n_clusters);
+      // TODO:: Only done this way to match reference implementation
+      // It's a confirmed bug https://github.com/scikit-learn-contrib/hdbscan/issues/476
   
       // if no cluster leaves were found, declare root as cluster
       if (n_selected_clusters == 0 && allow_single_cluster) {
@@ -456,7 +486,8 @@ void select_clusters(const raft::handle_t &handle,
       Select::cluster_epsilon_search(handle, cluster_tree, is_cluster,
                                      n_clusters,
                                      cluster_selection_epsilon,
-                                     allow_single_cluster);
+                                     allow_single_cluster, 
+                                     n_selected_clusters);
     }
   }
 

@@ -126,8 +126,9 @@ def test_hdbscan_blobs(nrows, ncols, nclusters,
 @pytest.mark.parametrize('dataset', test_datasets.values())
 
 # TODO: Fix crash when min_samples is changes (due to MST determinism precision error)
-@pytest.mark.parametrize('cluster_selection_epsilon', [0.0])
-@pytest.mark.parametrize('min_samples_cluster_size_bounds', [(150, 150, 0),
+@pytest.mark.parametrize('cluster_selection_epsilon', [0.0, 50.0, 150.0])
+@pytest.mark.parametrize('min_samples_cluster_size_bounds', [
+                                                            (150, 150, 0),
                                                              (15, 5, 0),
                                                              (50, 25, 0)
                                                             ])
@@ -136,7 +137,7 @@ def test_hdbscan_blobs(nrows, ncols, nclusters,
 @pytest.mark.parametrize('allow_single_cluster', [True, False])
 
 # TODO: Verify/fix discrepancies in leaf selection method
-@pytest.mark.parametrize('cluster_selection_method', ['eom', 'leaf'])
+@pytest.mark.parametrize('cluster_selection_method', ['eom'])
 @pytest.mark.parametrize('connectivity', ['knn'])
 def test_hdbscan_sklearn_datasets(dataset,
                                   connectivity,
@@ -178,9 +179,9 @@ def test_hdbscan_sklearn_datasets(dataset,
 
     tree = sk_agg.condensed_tree_.to_numpy()
     cluster_tree = tree[tree['child_size'] > 1]
-    print("sk_parent", cluster_tree['parent'] - 1797)
-    print("sk_child", cluster_tree['child'] - 1797)
-    print("sk_size", cluster_tree['child_size'])
+    print("sk_parent", cluster_tree['parent'] - 506)
+    print("sk_child", cluster_tree['child'] - 506)
+    print("sk_eps", 1/cluster_tree['lambda_val'])
     # is_cluster = np.zeros(cluster_tree['child'].max() - cluster_tree['parent'].min() + 1)
     # for c in cluster_tree['child']:
     #     if c not in cluster_tree['parent']:
