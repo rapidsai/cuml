@@ -246,7 +246,6 @@ struct tree_aggregator_t {
                                            int log2_threads_per_tree) {
     auto per_thread = (vec<NITEMS, float>*)tmp_storage;
     if (log2_threads_per_tree < 5) {  // >1 tree/warp
-      __syncwarp();                   // warp-synchronous region
 #pragma unroll
       for (int order = 16;
            order >> log2_threads_per_tree != 0;  // don't mix rows
@@ -257,8 +256,7 @@ struct tree_aggregator_t {
 
       // ensure input columns can be overwritten (no threads traversing trees)
       __syncthreads();
-      int row_within_warp = threadIdx.x % 32;
-      int warp_id = threadIdx.x / 32;
+      int warp_id = threadIdx.x / 32, row_within_warp = threadIdx.x % 32;
       if (row_within_warp >> log2_threads_per_tree == 0)
         per_thread[row_within_warp + (warp_id << log2_threads_per_tree)] = acc;
       __syncthreads();
