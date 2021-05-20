@@ -90,7 +90,7 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         int p,
         int64_t* knn_indices,
         float* knn_dists,
-        TSNEParams params) except +
+        TSNEParams &params) except +
 
     cdef void TSNE_fit_sparse(
         const handle_t &handle,
@@ -103,7 +103,7 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         int p,
         int* knn_indices,
         float* knn_dists,
-        TSNEParams params) except +
+        TSNEParams &params) except +
 
 
 class TSNE(Base,
@@ -527,7 +527,7 @@ class TSNE(Base,
                             <int> p,
                             <int*> knn_indices_raw,
                             <float*> knn_dists_raw,
-                            <TSNEParams> params)
+                            <TSNEParams&> params)
         else:
             TSNE_fit(handle_[0],
                      <float*><uintptr_t> self.X_m.ptr,
@@ -536,7 +536,7 @@ class TSNE(Base,
                      <int> p,
                      <int64_t*> knn_indices_raw,
                      <float*> knn_dists_raw,
-                     <TSNEParams> params)
+                     <TSNEParams&> params)
 
         self.handle.sync()
 
