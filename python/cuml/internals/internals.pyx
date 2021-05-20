@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -80,5 +80,7 @@ cdef class GraphBasedDimRedCallback(PyCallback):
 
     def get_native_callback(self):
         if self.native_callback.pyCallbackClass == NULL:
-            raise ValueError("You need to call `super().__init__` in your callback.")
+            raise ValueError(
+                "You need to call `super().__init__` in your callback."
+            )
         return <uintptr_t>&(self.native_callback)
