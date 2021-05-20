@@ -151,7 +151,7 @@ void compute_stabilities(
   thrust::for_each(exec_policy, thrust::make_counting_iterator(value_idx(0)),
                    thrust::make_counting_iterator(n_edges), births_init_op);
 
-  Utils::segmented_reduce(
+  Utils::cub_segmented_reduce(
     lambdas, births_parent_min.data() + 1, n_clusters - 1,
     sorted_parents_offsets.data() + 1, stream,
     cub::DeviceSegmentedReduce::Min<const value_t *, value_t *,

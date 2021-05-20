@@ -473,7 +473,7 @@ void mutual_reachability_graph(const raft::handle_t &handle, const value_t *X,
    * Compute L2 norm
    */
   mutual_reachability_knn_l2(handle, inds.data(), dists.data(), X, m, n, k,
-                             core_dists, 1.0 / alpha);
+                             core_dists, (value_t)1.0 / alpha);
 
   raft::sparse::selection::fill_indices<value_idx>
     <<<raft::ceildiv(k * m, (size_t)256), 256, 0, stream>>>(coo_rows.data(), k,

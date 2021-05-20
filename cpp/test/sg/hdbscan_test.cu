@@ -523,7 +523,7 @@ const std::vector<HDBSCANInputs<float, int>> hdbscan_inputsf2 = {
 
 typedef HDBSCANTest<float, int> HDBSCANTestF_Int;
 TEST_P(HDBSCANTestF_Int, Result) {
-  //  EXPECT_TRUE(score == 1.0);
+    EXPECT_TRUE(score == 1.0);
 }
 
 INSTANTIATE_TEST_CASE_P(HDBSCANTest, HDBSCANTestF_Int,
@@ -640,13 +640,10 @@ class ClusterCondensingTest
   void SetUp() override { basicTest(); }
 
   void TearDown() override {
-    // CUDA_CHECK(cudaFree(labels));
-    // CUDA_CHECK(cudaFree(labels_ref));
   }
 
  protected:
   ClusterCondensingInputs<T, IdxT> params;
-  IdxT *labels, *labels_ref;
   int k;
 
   double score;
@@ -1520,13 +1517,11 @@ class ExcessOfMassTest
     raft::copy(condensed_sizes.data(), params.condensed_sizes.data(),
                condensed_sizes.size(), handle.get_stream());
 
-    CUML_LOG_DEBUG("Condensing tree");
     ML::HDBSCAN::Common::CondensedHierarchy<IdxT, T> condensed_tree(
       handle, params.n_row, params.condensed_parents.size(),
       condensed_parents.data(), condensed_children.data(),
       condensed_lambdas.data(), condensed_sizes.data());
 
-    CUML_LOG_DEBUG("Calling compute stabilities");
     ML::HDBSCAN::detail::Stability::compute_stabilities(handle, condensed_tree,
                                                         stabilities.data());
 
@@ -1535,11 +1530,9 @@ class ExcessOfMassTest
                                   raft::CompareApprox<float>(1e-4),
                                   handle.get_stream()));
 
-    CUML_LOG_DEBUG("Creating is_cluster %d", condensed_tree.get_n_clusters());
     rmm::device_uvector<int> is_cluster(condensed_tree.get_n_clusters(),
                                         handle.get_stream());
 
-    CUML_LOG_DEBUG("Calling excess of mass");
     auto cluster_tree =
       ML::HDBSCAN::detail::Utils::make_cluster_tree(handle, condensed_tree);
     // ML::HDBSCAN::detail::Select::excess_of_mass(
@@ -1569,13 +1562,6 @@ class ExcessOfMassTest
       handle, condensed_tree, clusters, params.n_row, true, labels.data(),
       0.0f);
 
-    raft::print_device_vector("labels", labels.data(), params.n_row, std::cout);
-
-    CUML_LOG_DEBUG("Printing output");
-    raft::print_device_vector("is_cluster", is_cluster.data(),
-                              is_cluster.size(), std::cout);
-
-    CUML_LOG_DEBUG("Calculating Probabilities");
     rmm::device_uvector<T> probabilities(params.n_row, handle.get_stream());
     ML::HDBSCAN::detail::Membership::get_probabilities(
       handle, condensed_tree, labels.data(), probabilities.data());

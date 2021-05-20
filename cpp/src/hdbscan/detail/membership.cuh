@@ -133,7 +133,7 @@ void get_probabilities(
   rmm::device_uvector<value_t> deaths(n_clusters, stream);
   thrust::fill(exec_policy, deaths.begin(), deaths.end(), 0.0f);
 
-  Utils::segmented_reduce(
+  Utils::cub_segmented_reduce(
     sorted_lambdas.data(), deaths.data(), n_clusters,
     sorted_parents_offsets.data(), stream,
     cub::DeviceSegmentedReduce::Max<const value_t *, value_t *,
