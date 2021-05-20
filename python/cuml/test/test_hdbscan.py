@@ -39,15 +39,15 @@ test_datasets = {
  "cancer": datasets.load_breast_cancer(),
 }
 
-dataset_names = ['noisy_circles', 'noisy_moons', 'varied']#, 'aniso']
+dataset_names = ['noisy_circles', 'noisy_moons', 'varied']
 
 
-@pytest.mark.parametrize('nrows', [25])
+@pytest.mark.parametrize('nrows', [1000])
 @pytest.mark.parametrize('ncols', [25])
-@pytest.mark.parametrize('nclusters', [2])
-@pytest.mark.parametrize('min_samples', [3])
-@pytest.mark.parametrize('allow_single_cluster', [True])
-@pytest.mark.parametrize('min_cluster_size', [2])
+@pytest.mark.parametrize('nclusters', [2, 5, 10])
+@pytest.mark.parametrize('min_samples', [3, 15, 50])
+@pytest.mark.parametrize('allow_single_cluster', [True, False])
+@pytest.mark.parametrize('min_cluster_size', [2, 25, 50])
 @pytest.mark.parametrize('cluster_selection_epsilon', [0.0])
 @pytest.mark.parametrize('max_cluster_size', [0])
 @pytest.mark.parametrize('cluster_selection_method', ['eom'])
@@ -79,65 +79,29 @@ def test_hdbscan_blobs(nrows, ncols, nclusters,
                        cluster_selection_method=cluster_selection_method)
 
     cuml_agg.fit(X)
-    sk_agg = hdbscan.HDBSCAN(allow_single_cluster=allow_single_cluster,
-                             approx_min_span_tree=False,
-                             gen_min_span_tree=True,
-                             min_samples=min_samples,
-                             #max_cluster_size=max_cluster_size,
-                             min_cluster_size=min_cluster_size,
-                             cluster_selection_epsilon=cluster_selection_epsilon,
-                             cluster_selection_method=cluster_selection_method,
-                             algorithm="generic")
+    sk_agg = hdbscan.HDBSCAN(
+        allow_single_cluster=allow_single_cluster,
+        approx_min_span_tree=False,
+        gen_min_span_tree=True,
+        min_samples=min_samples,
+        min_cluster_size=min_cluster_size,
+        cluster_selection_epsilon=cluster_selection_epsilon,
+        cluster_selection_method=cluster_selection_method,
+        algorithm="generic")
 
-    # import numpy as np
-    # np.set_printoptions(threshold=np.inf)
-    #
     sk_agg.fit(cp.asnumpy(X))
-    #
-    # print("cu condensed: %s" % cuml_agg.condensed_lambdas_[:101])
-    # print("cu condensed: %s" % cuml_agg.condensed_parent_[:101])
-    # print("cu condensed: %s" % cuml_agg.condensed_child_[:101])
-    #
-    # print("sk labels: %s" % sk_agg.labels_)
-    #
-    #
-    # import numpy as np
-    # print("unique labels: %s" % np.unique(sk_agg.labels_))
-    #
-    # print("sk condensed: %s" % sk_agg.condensed_tree_.to_numpy())
-    #
-    # t = sk_agg.condensed_tree_.to_numpy()
-    #
-    # print("parent min: %s" % t['parent'].min())
-    #
-    # print("condensed tree size: %s" % t.shape)
-    #
-    # print("sk condensed parent max: %s" % t["lambda_val"][t['parent'] == 100].max())
-    #
-    # print("Cluster tree: %s" % t[t['child_size']>1])
 
-    # Cluster assignments should be exact, even though the actual
-    # labels may differ
-    # TODO: Investigating a couiple very small label differences
     assert(adjusted_rand_score(cuml_agg.labels_, sk_agg.labels_) >= 0.95)
     assert(len(np.unique(sk_agg.labels_)) == len(cp.unique(cuml_agg.labels_)))
 
 
 @pytest.mark.parametrize('dataset', test_datasets.values())
-
-# TODO: Fix crash when min_samples is changes (due to MST determinism precision error)
 @pytest.mark.parametrize('cluster_selection_epsilon', [0.0, 50.0, 150.0])
-@pytest.mark.parametrize('min_samples_cluster_size_bounds', [
-                                                            (150, 150, 0),
+@pytest.mark.parametrize('min_samples_cluster_size_bounds', [(150, 150, 0),
                                                              (15, 5, 0),
-                                                             (50, 25, 0)
-                                                            ])
-
-# TODO: Fix small discrepancies in allow_single_cluster=False (single test failure)
+                                                             (50, 25, 0)])
 @pytest.mark.parametrize('allow_single_cluster', [True, False])
-
-# TODO: Verify/fix discrepancies in leaf selection method
-@pytest.mark.parametrize('cluster_selection_method', ['eom'])
+@pytest.mark.parametrize('cluster_selection_method', ['eom', 'leaf'])
 @pytest.mark.parametrize('connectivity', ['knn'])
 def test_hdbscan_sklearn_datasets(dataset,
                                   connectivity,
@@ -166,15 +130,16 @@ def test_hdbscan_sklearn_datasets(dataset,
 
     cuml_agg.fit(X)
 
-    sk_agg = hdbscan.HDBSCAN(allow_single_cluster=allow_single_cluster,
-                             approx_min_span_tree=False,
-                             gen_min_span_tree=True,
-                             min_samples=min_samples,
-                             #max_cluster_size=max_cluster_size,
-                             min_cluster_size=min_cluster_size,
-                             cluster_selection_epsilon=cluster_selection_epsilon,
-                             cluster_selection_method=cluster_selection_method,
-                             algorithm="generic")
+    sk_agg = hdbscan.HDBSCAN(
+        allow_single_cluster=allow_single_cluster,
+        approx_min_span_tree=False,
+        gen_min_span_tree=True,
+        min_samples=min_samples,
+        min_cluster_size=min_cluster_size,
+        cluster_selection_epsilon=cluster_selection_epsilon,
+        cluster_selection_method=cluster_selection_method,
+        algorithm="generic")
+
     sk_agg.fit(cp.asnumpy(X))
 
     tree = sk_agg.condensed_tree_.to_numpy()
@@ -300,7 +265,6 @@ def test_hdbscan_sklearn_datasets(dataset,
     # TODO: Investigating a couple very small label differences
     # assert(len(np.unique(sk_agg.labels_)) == len(cp.unique(cuml_agg.labels_)))
     assert(adjusted_rand_score(cuml_agg.labels_, sk_agg.labels_) > 0.95)
-    # assert(len(np.unique(sk_agg.labels_)) == len(cp.unique(cuml_agg.labels_)))
 
 
 @pytest.mark.parametrize('nrows', [1500])
@@ -336,35 +300,16 @@ def test_hdbscan_cluster_patterns(dataset, nrows,
 
     cuml_agg.fit(X)
 
-    sk_agg = hdbscan.HDBSCAN(allow_single_cluster=allow_single_cluster,
-                             approx_min_span_tree=False,
-                             gen_min_span_tree=True,
-                             min_samples=min_samples,
-                             #max_cluster_size=max_cluster_size,
-                             min_cluster_size=min_cluster_size,
-                             cluster_selection_epsilon=cluster_selection_epsilon,
-                             cluster_selection_method=cluster_selection_method,
-                             algorithm="generic")
+    sk_agg = hdbscan.HDBSCAN(
+        allow_single_cluster=allow_single_cluster,
+        approx_min_span_tree=False,
+        gen_min_span_tree=True,
+        min_samples=min_samples,
+        min_cluster_size=min_cluster_size,
+        cluster_selection_epsilon=cluster_selection_epsilon,
+        cluster_selection_method=cluster_selection_method,
+        algorithm="generic")
+
     sk_agg.fit(cp.asnumpy(X))
 
-    print("sk labels: %s" % sk_agg.labels_)
-
-    # Cluster assignments should be exact, even though the actual
-    # labels may differ.
-    #
-    # TODO: Investigating a couple very small label differences
     assert(adjusted_rand_score(cuml_agg.labels_, sk_agg.labels_) > 0.95)
-
-"""
- [2.93000000e+02 1.27600000e+03 2.60576284e+01]
- [3.00000000e+00 1.31000000e+03 2.60576284e+01]
- [1.31000000e+03 3.00000000e+00 2.60576284e+01]
- [1.27600000e+03 2.93000000e+02 2.60576284e+01]
- [1.50700000e+03 5.94000000e+02 2.60576284e+01]
- [5.94000000e+02 1.50700000e+03 2.60576284e+01]
-
-  [2.79000000e+02 1.31000000e+03 2.60576267e+01]
- [1.27600000e+03 1.68600000e+03 2.60576267e+01]
- [1.31000000e+03 2.79000000e+02 2.60576267e+01]
- [1.68600000e+03 1.27600000e+03 2.60576267e+01]
-"""

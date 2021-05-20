@@ -108,10 +108,7 @@ class CondensedHierarchy {
   value_idx root_cluster;
 };
 
-enum CLUSTER_SELECTION_METHOD {
-  EOM = 0,
-  LEAF = 1
-};
+enum CLUSTER_SELECTION_METHOD { EOM = 0, LEAF = 1 };
 
 class RobustSingleLinkageParams {
  public:
@@ -128,28 +125,19 @@ class RobustSingleLinkageParams {
 };
 
 class HDBSCANParams : public RobustSingleLinkageParams {
-
  public:
   CLUSTER_SELECTION_METHOD cluster_selection_method =
     CLUSTER_SELECTION_METHOD::EOM;
-
 };
 
-template<typename value_idx, typename value_t>
+template <typename value_idx, typename value_t>
 class robust_single_linkage_output {
-
  public:
-
-  robust_single_linkage_output(
-    const raft::handle_t &handle_,
-    int n_leaves_,
-    value_idx *labels_,
-    value_idx *children_,
-    value_idx *sizes_,
-    value_t *deltas_,
-    value_idx *mst_src_,
-    value_idx *mst_dst_,
-    value_t *mst_weights_)
+  robust_single_linkage_output(const raft::handle_t &handle_, int n_leaves_,
+                               value_idx *labels_, value_idx *children_,
+                               value_idx *sizes_, value_t *deltas_,
+                               value_idx *mst_src_, value_idx *mst_dst_,
+                               value_t *mst_weights_)
     : handle(handle_),
       n_leaves(n_leaves_),
       n_clusters(0),
@@ -171,12 +159,9 @@ class robust_single_linkage_output {
   value_idx *get_mst_dst() { return mst_dst; }
   value_t *get_mst_weights() { return mst_weights; }
 
-  void set_n_clusters(int n_clusters_) {
-    n_clusters = n_clusters_;
-  }
+  void set_n_clusters(int n_clusters_) { n_clusters = n_clusters_; }
 
  protected:
-
   const raft::handle_t &get_handle() { return handle; }
 
   const raft::handle_t &handle;
@@ -184,7 +169,7 @@ class robust_single_linkage_output {
   int n_leaves;
   int n_clusters;
 
-  value_idx *labels;       // size n_leaves
+  value_idx *labels;  // size n_leaves
 
   // Dendrogram
   value_idx *children;  // size n_leaves * 2
@@ -195,7 +180,6 @@ class robust_single_linkage_output {
   value_idx *mst_src;
   value_idx *mst_dst;
   value_t *mst_weights;
-
 };
 
 /**
@@ -214,17 +198,16 @@ class robust_single_linkage_output {
  * @tparam value_t
  */
 template <typename value_idx, typename value_t>
-class hdbscan_output :
-  public robust_single_linkage_output<value_idx, value_t> {
+class hdbscan_output : public robust_single_linkage_output<value_idx, value_t> {
  public:
   hdbscan_output(const raft::handle_t &handle_, int n_leaves_,
                  value_idx *labels_, value_t *probabilities_,
                  value_idx *children_, value_idx *sizes_, value_t *deltas_,
                  value_idx *mst_src_, value_idx *mst_dst_,
                  value_t *mst_weights_)
-    : robust_single_linkage_output<value_idx, value_t>(handle_, n_leaves_, labels_, children_,
-                                                       sizes_, deltas_, mst_src_,
-                                                       mst_dst_, mst_weights_),
+    : robust_single_linkage_output<value_idx, value_t>(
+        handle_, n_leaves_, labels_, children_, sizes_, deltas_, mst_src_,
+        mst_dst_, mst_weights_),
       probabilities(probabilities_),
       stabilities(0, handle_.get_stream()),
       condensed_tree(handle_, n_leaves_) {}
@@ -244,9 +227,12 @@ class hdbscan_output :
    * @param n_clusters_
    */
   void set_n_clusters(int n_clusters_) {
-    robust_single_linkage_output<value_idx, value_t>::set_n_clusters(n_clusters_);
-    stabilities.resize(n_clusters_,
-                       robust_single_linkage_output<value_idx, value_t>::get_handle().get_stream());
+    robust_single_linkage_output<value_idx, value_t>::set_n_clusters(
+      n_clusters_);
+    stabilities.resize(
+      n_clusters_,
+      robust_single_linkage_output<value_idx, value_t>::get_handle()
+        .get_stream());
   }
 
   CondensedHierarchy<value_idx, value_t> &get_condensed_tree() {
@@ -276,9 +262,9 @@ void hdbscan(const raft::handle_t &handle, const float *X, size_t m, size_t n,
              HDBSCAN::Common::HDBSCANParams &params,
              HDBSCAN::Common::hdbscan_output<int, float> &out);
 
-void robust_single_linkage(const raft::handle_t &handle, const float *X,
-                           size_t m, size_t n,
-                           raft::distance::DistanceType metric,
-                           HDBSCAN::Common::RobustSingleLinkageParams &params,
-                           HDBSCAN::Common::robust_single_linkage_output<int, float> &out);
+void robust_single_linkage(
+  const raft::handle_t &handle, const float *X, size_t m, size_t n,
+  raft::distance::DistanceType metric,
+  HDBSCAN::Common::RobustSingleLinkageParams &params,
+  HDBSCAN::Common::robust_single_linkage_output<int, float> &out);
 };  // end namespace ML

@@ -336,7 +336,8 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
             print("BUILDING CONDENSED TREE")
             raw_tree = np.recarray(shape=(self.condensed_parent_.shape[0],),
                                    formats=[np.intp, np.intp, float, np.intp],
-                                   names=('parent', 'child', 'lambda_val', 'child_size'))
+                                   names=('parent', 'child', 'lambda_val',
+                                          'child_size'))
             raw_tree['parent'] = self.condensed_parent_
             raw_tree['child'] = self.condensed_child_
             raw_tree['lambda_val'] = self.condensed_lambdas_
@@ -344,7 +345,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
         try:
             from hdbscan.plots import CondensedTree
-        except:
+        except Exception as e:
             raise ImportError("hdbscan must be installed to use plots")
 
         return CondensedTree(raw_tree,
@@ -359,10 +360,11 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         if self._single_linkage_tree is None:
 
             with cuml.using_output_type("numpy"):
-                raw_tree = np.column_stack((self.children_[0, :self.n_leaves_-1],
-                                            self.children_[1, :self.n_leaves_-1],
-                                            self.lambdas_[:self.n_leaves_-1],
-                                            self.sizes_[:self.n_leaves_-1]))
+                raw_tree = np.column_stack(
+                    (self.children_[0, :self.n_leaves_-1],
+                     self.children_[1, :self.n_leaves_-1],
+                     self.lambdas_[:self.n_leaves_-1],
+                     self.sizes_[:self.n_leaves_-1]))
 
             print(str(raw_tree))
 
@@ -370,8 +372,9 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
         try:
             from hdbscan.plots import SingleLinkageTree
-        except:
-            raise ImportError("hdbscan must be installed to use plots")
+        except Exception as e:
+            raise ImportError("hdbscan must be installed "
+                              "to use plots")
 
         return SingleLinkageTree(raw_tree)
 
@@ -386,11 +389,11 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
         try:
             from hdbscan.plots import MinimumSpanningTree
-        except:
+        except Exception as e:
             raise ImportError("hdbscan must be installed to use plots")
 
-        self.minimum_spanning_tree_ = MinimumSpanningTree(raw_tree, X.to_output("numpy"))
-
+        self.minimum_spanning_tree_ = MinimumSpanningTree(
+            raw_tree, X.to_output("numpy"))
 
     def __dealloc__(self):
         delete_hdbscan_output(self)
@@ -407,7 +410,8 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                                          memptr=mem_ptr)).to_output('numpy')
 
     def _construct_condensed_tree_attribute(self, ptr, dtype="int32"):
-        cdef hdbscan_output *hdbscan_output_ = <hdbscan_output*><size_t>self.hdbscan_output_
+        cdef hdbscan_output *hdbscan_output_ = \
+                <hdbscan_output*><size_t>self.hdbscan_output_
 
         n_condensed_tree_edges = \
             hdbscan_output_.get_condensed_tree().get_n_edges()
@@ -420,7 +424,8 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
     def _construct_output_attributes(self):
 
-        cdef hdbscan_output *hdbscan_output_ = <hdbscan_output*><size_t>self.hdbscan_output_
+        cdef hdbscan_output *hdbscan_output_ = \
+                <hdbscan_output*><size_t>self.hdbscan_output_
 
         self.n_clusters_ = hdbscan_output_.get_n_clusters()
 
@@ -437,8 +442,10 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         self.condensed_child_ = self._construct_condensed_tree_attribute(
             <size_t>hdbscan_output_.get_condensed_tree().get_children())
 
-        self.condensed_lambdas_ = self._construct_condensed_tree_attribute(
-            <size_t>hdbscan_output_.get_condensed_tree().get_lambdas(), "float32")
+        self.condensed_lambdas_ = \
+            self._construct_condensed_tree_attribute(
+                <size_t>hdbscan_output_.get_condensed_tree().get_lambdas(),
+                "float32")
 
         self.condensed_sizes_ = self._construct_condensed_tree_attribute(
             <size_t>hdbscan_output_.get_condensed_tree().get_sizes())
@@ -516,7 +523,6 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         else:
             raise ValueError("Cluster selection method not supported. "
                              "Must one of {'eom', 'leaf'}")
-
 
         cdef DistanceType metric
         if self.metric in _metrics_mapping:

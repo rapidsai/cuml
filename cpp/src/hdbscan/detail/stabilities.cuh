@@ -175,13 +175,13 @@ void get_stability_scores(const raft::handle_t &handle, const value_idx *labels,
    * 1. Populate cluster sizes
    */
   rmm::device_uvector<value_idx> cluster_sizes(n_clusters, handle.get_stream());
-  thrust::fill(exec_policy, cluster_sizes.data(), cluster_sizes.data()+cluster_sizes.size(), 0);
+  thrust::fill(exec_policy, cluster_sizes.data(),
+               cluster_sizes.data() + cluster_sizes.size(), 0);
 
   value_idx *sizes = cluster_sizes.data();
   thrust::for_each(exec_policy, labels, labels + n_leaves,
                    [=] __device__(value_idx v) {
-                     if(v > -1)
-                       atomicAdd(sizes + v, 1);
+                     if (v > -1) atomicAdd(sizes + v, 1);
                    });
 
   /**

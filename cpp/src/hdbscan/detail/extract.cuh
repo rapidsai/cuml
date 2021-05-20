@@ -78,7 +78,6 @@ class TreeUnionFind {
       data[x * 2] = find(data[x * 2]);
     }
 
-
     return data[x * 2];
   }
 
@@ -93,18 +92,13 @@ template <typename value_idx, typename value_t>
 void do_labelling_on_host(
   const raft::handle_t &handle,
   Common::CondensedHierarchy<value_idx, value_t> &condensed_tree,
-  std::set<value_idx> &clusters,
-  value_idx n_leaves,
-  bool allow_single_cluster,
-  value_idx *labels,
-  value_t cluster_selection_epsilon) {
+  std::set<value_idx> &clusters, value_idx n_leaves, bool allow_single_cluster,
+  value_idx *labels, value_t cluster_selection_epsilon) {
   auto stream = handle.get_stream();
 
   std::vector<value_idx> children_h(condensed_tree.get_n_edges());
   std::vector<value_t> lambda_h(condensed_tree.get_n_edges());
   std::vector<value_idx> parent_h(condensed_tree.get_n_edges());
-
-  printf("n_tree_edges=%d\n", condensed_tree.get_n_edges());
 
   raft::update_host(children_h.data(), condensed_tree.get_children(),
                     condensed_tree.get_n_edges(), stream);
@@ -143,7 +137,6 @@ void do_labelling_on_host(
     if (cluster < n_leaves)
       result[i] = -1;
     else if (cluster == n_leaves) {
-
       //TODO: Implement the cluster_selection_epsilon / epsilon_search
       if (clusters.size() == 1 && allow_single_cluster) {
         auto it = std::find(children_h.begin(), children_h.end(), i);
@@ -153,12 +146,10 @@ void do_labelling_on_host(
         if (cluster_selection_epsilon != 0) {
           if (child_lambda >= inverse_cluster_selection_epsilon) {
             result[i] = cluster - n_leaves;
-          }
-          else {
+          } else {
             result[i] = -1;
           }
-        }
-        else if (child_lambda >= parent_lambdas[cluster])
+        } else if (child_lambda >= parent_lambdas[cluster])
           result[i] = cluster - n_leaves;
         else
           result[i] = -1;
@@ -172,10 +163,13 @@ void do_labelling_on_host(
 
   raft::update_device(labels, result.data(), n_leaves, stream);
 
-//  CUML_LOG_DEBUG("Calling make_monotonic");
-//  raft::label::make_monotonic(labels, labels, n_leaves, stream,
-//                              [] __device__(value_idx label) { return label == -1; },
-//                              handle.get_device_allocator(), true);
+  // TODO: Need to nornalize the labels so they are pulled from a
+  // monotonically increasing set, but need to make sure the first
+  // label starts at 0 in the face of noise.
+  //  CUML_LOG_DEBUG("Calling make_monotonic");
+  //  raft::label::make_monotonic(labels, labels, n_leaves, stream,
+  //                              [] __device__(value_idx label) { return label == -1; },
+  //                              handle.get_device_allocator(), true);
 }
 
 /**
@@ -273,8 +267,7 @@ void extract_clusters(
   size_t n_leaves, value_idx *labels, value_t *stabilities,
   value_t *probabilities,
   Common::CLUSTER_SELECTION_METHOD cluster_selection_method,
-  bool allow_single_cluster = false,
-  value_idx max_cluster_size = 0,
+  bool allow_single_cluster = false, value_idx max_cluster_size = 0,
   value_t cluster_selection_epsilon = 0.0) {
   auto stream = handle.get_stream();
   auto exec_policy = rmm::exec_policy(stream);
@@ -282,7 +275,6 @@ void extract_clusters(
   rmm::device_uvector<value_t> tree_stabilities(condensed_tree.get_n_clusters(),
                                                 handle.get_stream());
 
-  CUML_LOG_DEBUG("Computing stabilities");
   Stability::compute_stabilities(handle, condensed_tree,
                                  tree_stabilities.data());
 
@@ -294,11 +286,10 @@ void extract_clusters(
   if (max_cluster_size <= 0)
     max_cluster_size = n_leaves;  // negates the max cluster size
 
-  CUML_LOG_DEBUG("Cluster selection");
   Select::select_clusters(handle, condensed_tree, tree_stabilities.data(),
-                     is_cluster.data(), cluster_selection_method,
-                     allow_single_cluster, max_cluster_size,
-                     cluster_selection_epsilon);
+                          is_cluster.data(), cluster_selection_method,
+                          allow_single_cluster, max_cluster_size,
+                          cluster_selection_epsilon);
 
   std::vector<int> is_cluster_h(is_cluster.size());
   raft::update_host(is_cluster_h.data(), is_cluster.data(), is_cluster_h.size(),
@@ -312,27 +303,26 @@ void extract_clusters(
     }
   }
 
-  CUML_LOG_DEBUG("Cluster labeling. n_clusters=%d", clusters.size());
-  do_labelling_on_host<value_idx, value_t>(
-    handle, condensed_tree, clusters, n_leaves, allow_single_cluster, labels, cluster_selection_epsilon);
+  do_labelling_on_host<value_idx, value_t>(handle, condensed_tree, clusters,
+                                           n_leaves, allow_single_cluster,
+                                           labels, cluster_selection_epsilon);
 
   value_idx n_selected_clusters = clusters.size();
 
-  printf("n_selected_clusters=%d\n", clusters.size());
-
-  CUML_LOG_DEBUG("Computing probabilities");
   Membership::get_probabilities<value_idx, value_t>(handle, condensed_tree,
                                                     labels, probabilities);
 
-//  auto lambdas_ptr = thrust::device_pointer_cast(condensed_tree.get_lambdas());
-//  value_t max_lambda = *(thrust::max_element(
-//    exec_policy, lambdas_ptr,
-//    lambdas_ptr + condensed_tree.get_n_edges()));
-//
-//  CUML_LOG_DEBUG("Computing stability scores");
-//  Stability::get_stability_scores(handle, labels, tree_stabilities.data(),
-//                                  clusters.size(), max_lambda, n_leaves,
-//                                  stabilities);
+  // TODO: Compute stability scores (below)
+
+  //  auto lambdas_ptr = thrust::device_pointer_cast(condensed_tree.get_lambdas());
+  //  value_t max_lambda = *(thrust::max_element(
+  //    exec_policy, lambdas_ptr,
+  //    lambdas_ptr + condensed_tree.get_n_edges()));
+  //
+  //  CUML_LOG_DEBUG("Computing stability scores");
+  //  Stability::get_stability_scores(handle, labels, tree_stabilities.data(),
+  //                                  clusters.size(), max_lambda, n_leaves,
+  //                                  stabilities);
 }
 
 };  // end namespace Extract

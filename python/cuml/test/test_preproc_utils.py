@@ -234,6 +234,24 @@ def sparse_int_dataset(request, random_seed):
     return sparsify_and_convert(randint, request.param)
 
 
+@pytest.fixture(scope="session",
+                params=[("scipy-csr", np.nan), ("scipy-csc", np.nan),
+                        ("cupy-csr", np.nan), ("cupy-csc", np.nan),
+                        ("scipy-csr", 1.), ("scipy-csc", 1.),
+                        ("cupy-csr", 1.), ("cupy-csc", 1.)])
+def sparse_imputer_dataset(request, random_seed):
+    datatype, val = request.param
+    randint = create_rand_integers(random_seed)
+    random_loc = cp.random.choice(randint.size,
+                                  int(randint.size * 0.3),
+                                  replace=False)
+
+    randint.ravel()[random_loc] = val
+    X_sp, X = sparsify_and_convert(randint, datatype, sparsify_ratio=0.15)
+    X_sp = X_sp.tocsc()
+    return val, X_sp, X
+
+
 def assert_allclose(actual, desired, rtol=1e-05, atol=1e-05,
                     ratio_tol=None):
     if not isinstance(actual, np.ndarray):

@@ -83,7 +83,6 @@ __global__ void condense_hierarchy_kernel(
 
   // If node is a leaf, add it to the condensed hierarchy
   if (node < n_leaves) {
-
     out_parent[node * 2] = relabel[node];
     out_child[node * 2] = node;
     out_lambda[node * 2] = subtree_lambda;
@@ -105,10 +104,10 @@ __global__ void condense_hierarchy_kernel(
     ignore[right_child] =
       (should_ignore * subtree_lambda) + (!should_ignore * -1);
 
-    relabel[left_child] = (should_ignore * relabel[node]) +
-                          (!should_ignore * relabel[left_child]);
-    relabel[right_child] = (should_ignore * relabel[node]) +
-                           (!should_ignore * relabel[right_child]);
+    relabel[left_child] =
+      (should_ignore * relabel[node]) + (!should_ignore * relabel[left_child]);
+    relabel[right_child] =
+      (should_ignore * relabel[node]) + (!should_ignore * relabel[right_child]);
 
     value_idx node_relabel = relabel[node];
 
@@ -143,10 +142,6 @@ __global__ void condense_hierarchy_kernel(
       // If both children are large enough, they should be relabeled and
       // included directly in the output hierarchy.
       if (can_persist) {
-
-//        printf("persisting node=%d, left_child=%d, left_size=%d, right_child=%d, right_size=%d\n",
-//               node, left_child, left_count, right_child, right_count);
-
         // TODO: Could probably pull this out if this conditional becomes
         //  a bottleneck
         out_parent[node * 2] = node_relabel;
@@ -184,12 +179,8 @@ __global__ void condense_hierarchy_kernel(
  */
 template <typename value_idx, typename value_t, int tpb = 256>
 void build_condensed_hierarchy(
-  const raft::handle_t &handle,
-  const value_idx *children,
-  const value_t *delta,
-  const value_idx *sizes,
-  int min_cluster_size,
-  int n_leaves,
+  const raft::handle_t &handle, const value_idx *children, const value_t *delta,
+  const value_idx *sizes, int min_cluster_size, int n_leaves,
   Common::CondensedHierarchy<value_idx, value_t> &condensed_tree) {
   cudaStream_t stream = handle.get_stream();
   auto exec_policy = rmm::exec_policy(stream);
@@ -223,8 +214,7 @@ void build_condensed_hierarchy(
 
   // Flip frontier for root
   bool start = true;
-  raft::update_device(frontier.data() + root, &start, 1,
-                      handle.get_stream());
+  raft::update_device(frontier.data() + root, &start, 1, handle.get_stream());
 
   rmm::device_uvector<value_idx> out_parent((root + 1) * 2, stream);
   rmm::device_uvector<value_idx> out_child((root + 1) * 2, stream);
