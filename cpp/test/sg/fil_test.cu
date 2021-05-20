@@ -96,10 +96,11 @@ std::ostream& operator<<(std::ostream& os, const FilTestParams& ps) {
      << ", num_trees = " << ps.num_trees << ", leaf_prob = " << ps.leaf_prob
      << ", output = " << output2str(ps.output)
      << ", threshold = " << ps.threshold
-     << ", blocks_per_sm = " << ps.blocks_per_sm << ", algo = " << ps.algo
-     << ", seed = " << ps.seed << ", tolerance = " << ps.tolerance
-     << ", op = " << tl::OpName(ps.op) << ", global_bias = " << ps.global_bias
-     << ", leaf_algo = " << ps.leaf_algo
+     << ", threads_per_tree = " << ps.threads_per_tree
+     << ", n_items = " << ps.n_items << ", blocks_per_sm = " << ps.blocks_per_sm
+     << ", algo = " << ps.algo << ", seed = " << ps.seed
+     << ", tolerance = " << ps.tolerance << ", op = " << tl::OpName(ps.op)
+     << ", global_bias = " << ps.global_bias << ", leaf_algo = " << ps.leaf_algo
      << ", num_classes = " << ps.num_classes;
   return os;
 }

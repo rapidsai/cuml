@@ -244,12 +244,35 @@ struct tree_aggregator_t {
                                            int output_stride,
                                            output_t transform, int num_trees,
                                            int log2_threads_per_tree) {
-    __syncthreads();
     auto per_thread = (vec<NITEMS, float>*)tmp_storage;
-    per_thread[threadIdx.x] = acc;
-    __syncthreads();
-    acc = multi_sum<5>(per_thread, 1 << log2_threads_per_tree,
-                       blockDim.x >> log2_threads_per_tree);
+    if (log2_threads_per_tree < 5) {  // >1 tree/warp
+      __syncwarp();                   // warp-synchronous region
+#pragma unroll
+      for (int order = 16;
+           order >> log2_threads_per_tree != 0;  // don't mix rows
+           order >>= 1)
+#pragma unroll
+        for (int item = 0; item < NITEMS; ++item)
+          acc[item] += __shfl_down_sync(UINT_MAX, acc[item], order);
+
+      // ensure input columns can be overwritten (no threads traversing trees)
+      __syncthreads();
+      int row_within_warp = threadIdx.x % 32;
+      int warp_id = threadIdx.x / 32;
+      if (row_within_warp >> log2_threads_per_tree == 0)
+        per_thread[row_within_warp + (warp_id << log2_threads_per_tree)] = acc;
+      __syncthreads();
+      // we've reached one group/warp after shuffles
+      acc = multi_sum<3>(per_thread, 1 << log2_threads_per_tree, FIL_TPB / 32);
+    } else if (FIL_TPB != 1 << log2_threads_per_tree) {
+      // else if there's anything to reduce
+      // ensure input columns can be overwritten (no threads traversing trees)
+      __syncthreads();
+      per_thread[threadIdx.x] = acc;
+      __syncthreads();
+      acc = multi_sum<5>(per_thread, 1 << log2_threads_per_tree,
+                         FIL_TPB >> log2_threads_per_tree);
+    }
     __syncthreads();
     if (threadIdx.x * NITEMS >= block_num_rows) return;
 #pragma unroll
