@@ -19,6 +19,7 @@ from sklearn.base import clone
 from sklearn.utils import Bunch
 from contextlib import contextmanager
 from collections import defaultdict
+import warnings
 
 from scipy import sparse as sp_sparse
 from cupy import sparse as cu_sparse
@@ -30,7 +31,8 @@ import cuml
 from cuml.internals.global_settings import _global_settings_data
 from cuml.common.array_sparse import SparseCumlArray
 from cuml.internals import _deprecate_pos_args
-from ..utils.skl_dependencies import TransformerMixin, _BaseComposition
+from ..utils.skl_dependencies import TransformerMixin, BaseComposition, \
+    BaseEstimator
 from ..utils.validation import check_is_fitted
 from ....thirdparty_adapters import check_array
 from ..preprocessing import FunctionTransformer
@@ -407,7 +409,7 @@ def _message_with_time(source, message, time):
     return "%s%s%s" % (start_message, dots_len * '.', end_message)
 
 
-class ColumnTransformer(TransformerMixin, _BaseComposition):
+class ColumnTransformer(TransformerMixin, BaseComposition, BaseEstimator):
     """Applies transformers to columns of an array or dataframe.
 
     This estimator allows different columns or column subsets of the input
@@ -541,12 +543,14 @@ class ColumnTransformer(TransformerMixin, _BaseComposition):
 
     @_deprecate_pos_args(version="0.20")
     def __init__(self,
-                 transformers, *,
+                 transformers=None,
                  remainder='drop',
                  sparse_threshold=0.3,
                  n_jobs=None,
                  transformer_weights=None,
                  verbose=False):
+        if not transformers:
+            warnings.warn('Transformers are required')
         self.transformers = transformers
         self.remainder = remainder
         self.sparse_threshold = sparse_threshold

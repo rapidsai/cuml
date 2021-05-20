@@ -165,7 +165,7 @@ class TransformerMixin:
             return self.fit(X, y, **fit_params).transform(X)
 
 
-class _BaseComposition(BaseEstimator):
+class BaseComposition:
     """Handles parameter management for classifiers composed of named estimators.
     """
 
