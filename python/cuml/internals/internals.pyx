@@ -79,4 +79,6 @@ cdef class GraphBasedDimRedCallback(PyCallback):
         self.native_callback.pyCallbackClass = <PyObject *><void*>self
 
     def get_native_callback(self):
+        if self.native_callback.pyCallbackClass == NULL:
+            raise ValueError("You need to call `super().__init__` in your callback.")
         return <uintptr_t>&(self.native_callback)

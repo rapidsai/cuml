@@ -24,6 +24,10 @@ data, target = digits.data, digits.target
 class CustomCallback(GraphBasedDimRedCallback):
     preprocess_event, epoch_event, train_event = False, 0, False
 
+    def __init__(self, skip_init=False):
+        if not skip_init:
+            super().__init__()
+
     def check(self):
         assert(self.preprocess_event)
         assert(self.epoch_event > 10)
@@ -45,3 +49,10 @@ def test_internals_api(n_components):
     reducer = UMAP(n_components=n_components, callback=callback)
     reducer.fit(data)
     callback.check()
+
+    # Make sure super().__init__ is called
+    callback = CustomCallback(skip_init=True)
+    model = UMAP(n_epochs=10, callback=callback)
+
+    with pytest.raises(ValueError):
+        model.fit_transform(data)

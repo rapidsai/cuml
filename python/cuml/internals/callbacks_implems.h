@@ -71,7 +71,7 @@ namespace ML {
                 }
 
             public:
-                PyObject* pyCallbackClass;
+                PyObject* pyCallbackClass = nullptr;
         };
 
     }
