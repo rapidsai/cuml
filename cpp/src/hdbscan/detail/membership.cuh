@@ -113,11 +113,11 @@ void get_probabilities(
   rmm::device_uvector<value_idx> sorted_parents(n_edges, stream);
   raft::copy_async(sorted_parents.data(), parents, n_edges, stream);
 
-  rmm::device_uvector<value_t> sorted_lambdas(n_edges, stream);
-  raft::copy_async(sorted_lambdas.data(), lambdas, n_edges, stream);
+  // rmm::device_uvector<value_t> sorted_lambdas(n_edges, stream);
+  // raft::copy_async(sorted_lambdas.data(), lambdas, n_edges, stream);
 
-  thrust::sort_by_key(exec_policy, sorted_parents.begin(), sorted_parents.end(),
-                      sorted_lambdas.begin());
+  // thrust::sort_by_key(exec_policy, sorted_parents.begin(), sorted_parents.end(),
+  //                     sorted_lambdas.begin());
 
   // 0-index sorted parents by subtracting n_leaves for offsets and birth/stability indexing
   auto index_op = [n_leaves] __device__(const auto &x) { return x - n_leaves; };
@@ -134,7 +134,7 @@ void get_probabilities(
   thrust::fill(exec_policy, deaths.begin(), deaths.end(), 0.0f);
 
   Utils::cub_segmented_reduce(
-    sorted_lambdas.data(), deaths.data(), n_clusters,
+    lambdas, deaths.data(), n_clusters,
     sorted_parents_offsets.data(), stream,
     cub::DeviceSegmentedReduce::Max<const value_t *, value_t *,
                                     const value_idx *>);
