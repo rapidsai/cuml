@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -303,21 +303,21 @@ def test_svm_skl_cmp_decision_function(params, n_rows=4000, n_cols=20):
     cuSVC = cu_svm.SVC(**params)
     cuSVC.fit(X_train, y_train)
 
-    # pred = cuSVC.predict(X_test)
-    # assert pred.dtype == y_train.dtype
+    pred = cuSVC.predict(X_test)
+    assert pred.dtype == y_train.dtype
 
-    # df1 = cuSVC.decision_function(X_test)
-    # assert df1.dtype == X_train.dtype
+    df1 = cuSVC.decision_function(X_test)
+    assert df1.dtype == X_train.dtype
 
-    # sklSVC = svm.SVC(**params)
-    # sklSVC.fit(X_train, y_train)
-    # df2 = sklSVC.decision_function(X_test)
+    sklSVC = svm.SVC(**params)
+    sklSVC.fit(X_train, y_train)
+    df2 = sklSVC.decision_function(X_test)
 
-    # if params["probability"]:
-    #     tol = 2e-2  # See comments in SVC decision_function method
-    # else:
-    #     tol = 1e-5
-    # assert mean_squared_error(df1, df2) < tol
+    if params["probability"]:
+        tol = 2e-2  # See comments in SVC decision_function method
+    else:
+        tol = 1e-5
+    assert mean_squared_error(df1, df2) < tol
 
 
 @pytest.mark.parametrize('params', [
