@@ -37,6 +37,22 @@ namespace ML {
 namespace HDBSCAN {
 namespace Common {
 
+struct TupleComp {
+  template <typename one, typename two>
+  __host__ __device__ bool operator()(const one &t1, const two &t2) {
+    // sort first by each parent,
+    if (thrust::get<0>(t1) < thrust::get<0>(t2)) return true;
+    if (thrust::get<0>(t1) > thrust::get<0>(t2)) return false;
+
+    // within each parent, sort by each child,
+    if (thrust::get<1>(t1) < thrust::get<1>(t2)) return true;
+    if (thrust::get<1>(t1) > thrust::get<1>(t2)) return false;
+
+    // then sort by value in descending order
+    return thrust::get<2>(t1) < thrust::get<2>(t2);
+  }
+};
+
 template <typename value_idx, typename value_t>
 CondensedHierarchy<value_idx, value_t>::CondensedHierarchy(
   const raft::handle_t &handle_, size_t n_leaves_)
@@ -78,6 +94,14 @@ CondensedHierarchy<value_idx, value_t>::CondensedHierarchy(
   auto max_cluster = *parents_min_max.second;
 
   n_clusters = max_cluster - min_cluster + 1;
+
+  auto sort_keys = thrust::make_zip_iterator(
+    thrust::make_tuple(parents.begin(), children.begin(), sizes.begin()));
+  auto sort_values =
+    thrust::make_zip_iterator(thrust::make_tuple(lambdas.begin()));
+
+  thrust::sort_by_key(thrust::cuda::par.on(handle.get_stream()), sort_keys,
+                      sort_keys + n_edges, sort_values, TupleComp());
 }
 
 template <typename value_idx, typename value_t>
@@ -95,22 +119,6 @@ CondensedHierarchy<value_idx, value_t>::CondensedHierarchy(
     children(std::move(children_)),
     lambdas(std::move(lambdas_)),
     sizes(std::move(sizes_)) {}
-
-struct TupleComp {
-  template <typename one, typename two>
-  __host__ __device__ bool operator()(const one &t1, const two &t2) {
-    // sort first by each parent,
-    if (thrust::get<0>(t1) < thrust::get<0>(t2)) return true;
-    if (thrust::get<0>(t1) > thrust::get<0>(t2)) return false;
-
-    // within each parent, sort by each child,
-    if (thrust::get<1>(t1) < thrust::get<1>(t2)) return true;
-    if (thrust::get<1>(t1) > thrust::get<1>(t2)) return false;
-
-    // then sort by value in descending order
-    return thrust::get<2>(t1) < thrust::get<2>(t2);
-  }
-};
 
 /**
  * Populates the condensed hierarchy object with the output

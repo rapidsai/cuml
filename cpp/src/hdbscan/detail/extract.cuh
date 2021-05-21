@@ -294,6 +294,8 @@ void extract_clusters(
 
   Stability::compute_stabilities(handle, condensed_tree,
                                  tree_stabilities.data());
+  raft::print_device_vector("stabilities", tree_stabilities.data(),
+                            condensed_tree.get_n_clusters(), std::cout);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -308,6 +310,8 @@ void extract_clusters(
                           allow_single_cluster, max_cluster_size,
                           cluster_selection_epsilon);
 
+  raft::print_device_vector("is_cluster", is_cluster.data(), is_cluster.size(),
+                            std::cout);
   std::vector<int> is_cluster_h(is_cluster.size());
   raft::update_host(is_cluster_h.data(), is_cluster.data(), is_cluster_h.size(),
                     stream);

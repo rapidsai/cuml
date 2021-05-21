@@ -85,6 +85,7 @@ void get_probabilities(
     cub::DeviceSegmentedReduce::Max<const value_t *, value_t *,
                                     const value_idx *>);
 
+  raft::print_device_vector("deaths", deaths.data(), deaths.size(), std::cout);
   // Calculate probability per point
   thrust::fill(exec_policy, probabilities, probabilities + n_leaves, 0.0f);
 
