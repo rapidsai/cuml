@@ -77,18 +77,18 @@ struct ClsDeviceTraits {
       atomicAdd(shist + label, 1);
     }
     __syncthreads();
-    int max_class_idx = 0;
-    int max_count = 0;
-    int total_count = 0;
-    for (int i = 0; i < input.nclasses; ++i) {
-      int current_count = shist[i];
-      total_count += current_count;
-      if (current_count > max_count) {
-        max_class_idx = i;
-        max_count = current_count;
-      }
-    }
     if (tid == 0) {
+      int max_class_idx = 0;
+      int max_count = 0;
+      int total_count = 0;
+      for (int i = 0; i < input.nclasses; ++i) {
+        int current_count = shist[i];
+        total_count += current_count;
+        if (current_count > max_count) {
+          max_class_idx = i;
+          max_count = current_count;
+        }
+      }
       DataT aux = DataT(-1);
       if (input.nclasses <= 2) {
         // Special handling for binary classifiers
