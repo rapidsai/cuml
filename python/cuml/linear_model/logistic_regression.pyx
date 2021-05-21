@@ -449,20 +449,8 @@ class LogisticRegression(Base,
                             X,
                             convert_dtype=False,
                             log_proba=False) -> CumlArray:
-        # TODO:
-        # We currently need to grab the dtype and ncols attributes via the
-        # qn solver due to https://github.com/rapidsai/cuml/issues/2404
-        X_m, _, _, self.dtype = input_to_cuml_array(
-            X,
-            check_dtype=self.solver_model.dtype,
-            convert_to_dtype=(
-                self.solver_model.dtype if convert_dtype else None
-            ),
-            check_cols=self.solver_model.n_cols,
-        )
-
         scores = cp.asarray(
-            self.decision_function(X_m, convert_dtype=convert_dtype), order="F"
+            self.decision_function(X, convert_dtype=convert_dtype), order="F"
         ).T
         if self._num_classes == 2:
             proba = cp.zeros((scores.shape[0], 2))

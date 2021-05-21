@@ -357,7 +357,7 @@ def test_logistic_regression_model_default(dtype):
 def test_logistic_regression_model_digits(
         dtype, order, sparse_input, fit_intercept, penalty):
 
-    # smallest sklearn score
+    # smallest sklearn score with max_iter = 10000
     # put it as a constant here, because sklearn 0.23.1 needs a lot of iters
     # to converge and has a bug returning an unrelated error if not converged.
     acceptable_score = 0.95
@@ -379,20 +379,44 @@ def test_logistic_regression_model_digits(
     assert score >= acceptable_score
 
 
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_logistic_regression_sparse_only(dtype, nlp_20news):
+
+    # sklearn score with max_iter = 10000
+    sklearn_score = 0.878
+    acceptable_score = sklearn_score - 0.01
+
+    X, y = nlp_20news
+
+    X = csr_matrix(X.astype(dtype))
+    y = y.get().astype(dtype)
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42)
+
+    culog = cuLog()
+    culog.fit(X_train, y_train)
+    score = culog.score(X_test, y_test)
+
+    assert score >= acceptable_score
+
+
 @pytest.mark.parametrize("dtype, nrows, num_classes, fit_intercept", [
     (np.float32, 10, 2, True),
     (np.float64, 100, 10, False),
     (np.float64, 100, 2, True)
 ])
 @pytest.mark.parametrize("column_info", [(20, 10)])
+@pytest.mark.parametrize("sparse_input", [False, True])
 def test_logistic_regression_decision_function(
-    dtype, nrows, column_info, num_classes, fit_intercept
+    dtype, nrows, column_info, num_classes, fit_intercept, sparse_input
 ):
     ncols, n_info = column_info
     X_train, X_test, y_train, y_test = make_classification_dataset(
         datatype=dtype, nrows=nrows, ncols=ncols,
         n_info=n_info, num_classes=num_classes
     )
+    X_train = csr_matrix(X_train) if sparse_input else X_train
+    X_test = csr_matrix(X_test) if sparse_input else X_test
 
     y_train = y_train.astype(dtype)
     y_test = y_test.astype(dtype)
@@ -422,14 +446,17 @@ def test_logistic_regression_decision_function(
     (np.float64, 100, 2, True)
 ])
 @pytest.mark.parametrize("column_info", [(20, 10)])
+@pytest.mark.parametrize("sparse_input", [False, True])
 def test_logistic_regression_predict_proba(
-    dtype, nrows, column_info, num_classes, fit_intercept
+    dtype, nrows, column_info, num_classes, fit_intercept, sparse_input
 ):
     ncols, n_info = column_info
     X_train, X_test, y_train, y_test = make_classification_dataset(
         datatype=dtype, nrows=nrows, ncols=ncols,
         n_info=n_info, num_classes=num_classes
     )
+    X_train = csr_matrix(X_train) if sparse_input else X_train
+    X_test = csr_matrix(X_test) if sparse_input else X_test
 
     y_train = y_train.astype(dtype)
     y_test = y_test.astype(dtype)
