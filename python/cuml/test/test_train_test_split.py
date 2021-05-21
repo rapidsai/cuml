@@ -57,23 +57,14 @@ def test_split_dataframe(train_size, shuffle):
     assert all(out)
 
 
-@pytest.mark.parametrize("train_size", [0.2, 0.6, 0.8])
-@pytest.mark.parametrize("shuffle", [True, False])
+
 @pytest.mark.parametrize("y_type", ["cudf", "cupy"])
-def test_split_dataframe_array(train_size, shuffle, y_type):
+def test_split_dataframe_array(y_type):
     X = cudf.DataFrame({"x": range(100)})
     y = cudf.Series(([0] * (100 // 2)) + ([1] * (100 // 2)))
     if y_type == "cupy":
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y.values, train_size=train_size, shuffle=shuffle
-        )
-
-        assert (
-            len(X_train) == len(y_train) == pytest.approx(train_size * len(X))
-        )
-        assert (
-            len(X_test) == len(y_test) == pytest.approx(
-                (1 - train_size) * len(X))
+            X, y.values
         )
         assert isinstance(X_train, cudf.DataFrame)
         assert isinstance(X_test, cudf.DataFrame)
@@ -81,15 +72,7 @@ def test_split_dataframe_array(train_size, shuffle, y_type):
         assert isinstance(y_test, cp.ndarray)
     elif y_type == "cudf":
         X_train, X_test, y_train, y_test = train_test_split(
-            X, y, train_size=train_size, shuffle=shuffle
-        )
-
-        assert (
-            len(X_train) == len(y_train) == pytest.approx(train_size * len(X))
-        )
-        assert (
-            len(X_test) == len(y_test) == pytest.approx(
-                (1 - train_size) * len(X))
+            X, y
         )
         assert isinstance(X_train, cudf.DataFrame)
         assert isinstance(X_test, cudf.DataFrame)
