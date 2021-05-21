@@ -598,10 +598,6 @@ __global__ void computeSplitRegressionKernel(
   __threadfence();  // for commit guarantee
   __syncthreads();
 
-  // Wait until all blockIdx.x's are done
-  MLCommon::GridSync gs(workspace, MLCommon::SyncType::ACROSS_X, false);
-  gs.sync();
-
   // transfer from global to smem
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
     pdf_scount[i] = count[gcOffset + i];
