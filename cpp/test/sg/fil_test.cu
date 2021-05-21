@@ -624,7 +624,7 @@ class TreeliteFilTest : public BaseFilTest {
            {"model size", " MB", "Depth histogram:", "Avg nodes per tree",
             "Leaf depth", "Depth histogram fingerprint"}) {
         ASSERT(str.find(substr) != std::string::npos,
-               "\"%s\" not found in forest shape", substr);
+               "\"%s\" not found in forest shape :\n%s", substr, str.c_str());
       }
     }
     ::free(forest_shape_str);
