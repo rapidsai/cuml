@@ -32,6 +32,7 @@ from cuml.common import input_to_cuml_array
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.mixins import ClusterMixin
 from cuml.common.mixins import CMajorInputTagMixin
+from cuml.common import logger
 
 import cuml
 from cuml.metrics.distance_type cimport DistanceType
@@ -218,40 +219,6 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         be available if `gen_min_span_tree` was set to True on object creation.
         Even then in some optimized cases a tre may not be generated.
 
-    outlier_scores_ : ndarray, shape (n_samples, )
-        Outlier scores for clustered points; the larger the score the more
-        outlier-like the point. Useful as an outlier detection technique.
-        Based on the GLOSH algorithm by Campello, Moulavi, Zimek and Sander.
-
-
-    # TODO: Support this
-    prediction_data_ : PredictionData object
-        Cached data used for predicting the cluster labels of new or
-        unseen points. Necessary only if you are using functions from
-        ``hdbscan.prediction`` (see
-        :func:`~hdbscan.prediction.approximate_predict`,
-        :func:`~hdbscan.prediction.membership_vector`,
-        and :func:`~hdbscan.prediction.all_points_membership_vectors`).
-
-    exemplars_ : list
-        A list of exemplar points for clusters. Since HDBSCAN supports
-        arbitrary shapes for clusters we cannot provide a single cluster
-        exemplar per cluster. Instead a list is returned with each element
-        of the list being a numpy array of exemplar points for a cluster --
-        these points are the "most representative" points of the cluster.
-
-    # TODO: Support this
-    relative_validity_ : float
-        A fast approximation of the Density Based Cluster Validity (DBCV)
-        score [4]. The only differece, and the speed, comes from the fact
-        that this relative_validity_ is computed using the mutual-
-        reachability minimum spanning tree, i.e. minimum_spanning_tree_,
-        instead of the all-points minimum spanning tree used in the
-        reference. This score might not be an objective measure of the
-        goodness of clusterering. It may only be used to compare results
-        across different choices of hyper-parameters, therefore is only a
-        relative score.
-
     """
 
     labels_ = CumlArrayDescriptor()
@@ -323,17 +290,12 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
         self.gen_min_span_tree_ = gen_min_span_tree
 
-    def condensed_tree_(self):
-        print("INSIDE CONDENSED TREE")
+    def _build_condensed_tree(self):
 
         if not self.fit_called_:
-
-            print("RERUNING NONE")
             return None
 
         if self._condensed_tree is None:
-
-            print("BUILDING CONDENSED TREE")
             raw_tree = np.recarray(shape=(self.condensed_parent_.shape[0],),
                                    formats=[np.intp, np.intp, float, np.intp],
                                    names=('parent', 'child', 'lambda_val',
@@ -352,7 +314,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                              self.cluster_selection_epsilon,
                              self.allow_single_cluster)
 
-    def single_linkage_tree_(self):
+    def _build_single_linkage_tree(self):
 
         if not self.fit_called_:
             return None
@@ -366,8 +328,6 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                      self.lambdas_[:self.n_leaves_-1],
                      self.sizes_[:self.n_leaves_-1]))
 
-            print(str(raw_tree))
-
             raw_tree = raw_tree.astype(np.float64)
 
         try:
@@ -378,7 +338,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
         return SingleLinkageTree(raw_tree)
 
-    def _minimum_spanning_tree(self, X):
+    def _build_minimum_spanning_tree(self, X):
 
         with cuml.using_output_type("numpy"):
             raw_tree = np.column_stack((self.mst_src_,
@@ -416,9 +376,8 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         n_condensed_tree_edges = \
             hdbscan_output_.get_condensed_tree().get_n_edges()
 
-        # TODO: Don't hardcode 4 bytes for buffer size multiplier
         return self._cuml_array_from_ptr(
-            ptr, n_condensed_tree_edges * 4,
+            ptr, n_condensed_tree_edges * sizeof(float),
             (n_condensed_tree_edges,), dtype
         )
 
@@ -429,10 +388,9 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
         self.n_clusters_ = hdbscan_output_.get_n_clusters()
 
-        # TODO: Don't hardcode 4 bytes for buffer size multiplier
-        self.stabilities_ = self._cuml_array_from_ptr(
+        self.cluster_persistence_ = self._cuml_array_from_ptr(
             <size_t>hdbscan_output_.get_stabilities(),
-            hdbscan_output_.get_n_clusters() * 4,
+            hdbscan_output_.get_n_clusters() * sizeof(float),
             (1, hdbscan_output_.get_n_clusters()), "float32"
         )
 
@@ -548,10 +506,19 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
         self._construct_output_attributes()
 
-        if self.gen_min_span_tree_:
-            self._minimum_spanning_tree(X_m)
+        try:
 
-        print("Labels: %s" % self.labels_.to_output("numpy")[:25])
+            from hdbscan.plots import SingleLinkageTree
+
+            if self.gen_min_span_tree_:
+                self._minimum_spanning_tree = \
+                    self._build_minimum_spanning_tree(X_m)
+
+            self._condensed_tree = self._build_condensed_tree()
+            self._single_linkage_tree = self._build_single_linkage_tree()
+
+        except Exception as e:
+            logger.warn("hdbscan must be installed to use plots")
 
         return self
 
