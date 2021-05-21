@@ -25,53 +25,49 @@ namespace MLCommon {
 namespace Score {
 
 /**
-     * @brief Compute a the rank of trustworthiness score
-     * @param[in] X_ind: Sorted indexes of pairwise distance calculations of X
-     * @param[in] X_nn_order: Nearest neighbors order
-  *                            of pairwise distance calculations of X
-     * @param[in] emb_ind: Indexes of KNN on embeddings
-     * @param[in] emb_dist: Distances of KNN on embeddings
-     * @param n: Number of samples
-     * @param n_neighbors: Number of neighbors considered by trustworthiness score
-     * @param work: Batch to consider (to do it at once use n * n_neighbors)
-     * @param[out] rank: Resulting rank
-     */
+  * @brief Build the lookup table
+  * @param[out] lookup_table: Lookup table giving nearest neighbor order
+  *                of pairwise distance calculations given sample index
+  * @param[in] X_ind: Sorted indexes of pairwise distance calculations of X
+  * @param n: Number of samples
+  * @param work: Number of elements to consider
+*/
+__global__ void build_lookup_table(int *lookup_table, int *X_ind, int n,
+                                   int work) {
+  int i = blockIdx.x * blockDim.x + threadIdx.x;
+  if (i >= work) return;
+
+  int sample_idx = i / n;
+  int nn_idx = i % n;
+
+  int idx = X_ind[i];
+  lookup_table[(sample_idx * n) + idx] = nn_idx;
+}
+
+/**
+  * @brief Compute a the rank of trustworthiness score
+  * @param[out] rank: Resulting rank
+  * @param[out] lookup_table: Lookup table giving nearest neighbor order
+  *                of pairwise distance calculations given sample index
+  * @param[in] emb_ind: Indexes of KNN on embeddings
+  * @param n: Number of samples
+  * @param n_neighbors: Number of neighbors considered by trustworthiness score
+  * @param work: Batch to consider (to do it at once use n * n_neighbors)
+*/
 template <typename knn_index_t>
-__global__ void compute_rank(int *X_ind, int *X_nn_order, knn_index_t *emb_ind,
-                             int n, int n_neighbors, int work, int offset,
-                             double *rank) {
+__global__ void compute_rank(double *rank, int *lookup_table,
+                             knn_index_t *emb_ind, int n, int n_neighbors,
+                             int work) {
   int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i >= work) return;
 
   int sample_idx = i / n_neighbors;
-  int nn_idx = i % n_neighbors;
 
-  knn_index_t emb_nn_ind = emb_ind[sample_idx * n_neighbors + nn_idx];
+  knn_index_t emb_nn_ind = emb_ind[i];
 
-  if ((offset + nn_idx) == emb_nn_ind) return;
-
-  int loc = sample_idx * n;
-  int *X_pw_ind = &X_ind[loc];
-
-  knn_index_t left = 0;
-  knn_index_t right = n - 1;
-  while (left < right) {
-    knn_index_t mid = std::floor((left + right) / 2);
-    if (X_pw_ind[mid] < emb_nn_ind) {
-      left = mid + 1;
-    } else {
-      right = mid;
-    }
-  }
-
-  for (int r = left; r < n; r++) {
-    if (X_pw_ind[r] == emb_nn_ind) {
-      int *X_pw_ind_index = &X_nn_order[loc];
-      int tmp = X_pw_ind_index[r] - n_neighbors + 1;
-      if (tmp > 0) raft::myAtomicAdd<double>(rank, tmp);
-      break;
-    }
-  }
+  int r = lookup_table[(sample_idx * n) + emb_nn_ind];
+  int tmp = r - n_neighbors + 1;
+  if (tmp > 0) raft::myAtomicAdd<double>(rank, tmp);
 }
 
 /**
@@ -125,9 +121,7 @@ double trustworthiness_score(const raft::handle_t &h, math_t *X,
   const int PAIRWISE_ALLOC = batchSize * n;
   rmm::device_uvector<int> X_ind(PAIRWISE_ALLOC, stream);
   rmm::device_uvector<math_t> X_dist(PAIRWISE_ALLOC, stream);
-  rmm::device_uvector<int> X_sorted_ind(PAIRWISE_ALLOC, stream);
-
-  rmm::device_uvector<int> X_nn_order(PAIRWISE_ALLOC, stream);
+  rmm::device_uvector<int> lookup_table(PAIRWISE_ALLOC, stream);
 
   double t = 0.0;
   rmm::device_uvector<double> t_dbuf(1, stream);
@@ -144,7 +138,6 @@ double trustworthiness_score(const raft::handle_t &h, math_t *X,
     raft::distance::distance<distance_type, math_t, math_t, math_t>(
       &X[(n - toDo) * m], X, X_dist.data(), curBatchSize, n, m, (void *)nullptr,
       workspaceSize, stream);
-    CUDA_CHECK(cudaPeekAtLastError());
 
     size_t colSortWorkspaceSize = 0;
     bool bAllocWorkspace = false;
@@ -160,37 +153,19 @@ double trustworthiness_score(const raft::handle_t &h, math_t *X,
         X_dist.data(), X_ind.data(), curBatchSize, n, bAllocWorkspace,
         sortColsWorkspace.data(), colSortWorkspaceSize, stream);
     }
-    CUDA_CHECK(cudaPeekAtLastError());
 
-    thrust::tabulate(thrust::cuda::par.on(stream), X_nn_order.data(),
-                     X_nn_order.data() + PAIRWISE_ALLOC,
-                     [=] __device__(int idx) { return idx % n; });
-
-    colSortWorkspaceSize = 0;
-    bAllocWorkspace = false;
-
-    MLCommon::Selection::sortColumnsPerRow(
-      X_ind.data(), X_nn_order.data(), curBatchSize, n, bAllocWorkspace,
-      nullptr, colSortWorkspaceSize, stream, X_sorted_ind.data());
-
-    if (bAllocWorkspace) {
-      rmm::device_uvector<char> sortColsWorkspace(colSortWorkspaceSize, stream);
-
-      MLCommon::Selection::sortColumnsPerRow(
-        X_ind.data(), X_nn_order.data(), curBatchSize, n, bAllocWorkspace,
-        sortColsWorkspace.data(), colSortWorkspaceSize, stream,
-        X_sorted_ind.data());
-    }
-    CUDA_CHECK(cudaPeekAtLastError());
+    int work = curBatchSize * n;
+    int n_blocks = raft::ceildiv(work, N_THREADS);
+    build_lookup_table<<<n_blocks, N_THREADS, 0, stream>>>(
+      lookup_table.data(), X_ind.data(), n, work);
 
     CUDA_CHECK(cudaMemsetAsync(d_t, 0, sizeof(double), stream));
 
-    int work = curBatchSize * (n_neighbors + 1);
-    int n_blocks = raft::ceildiv(work, N_THREADS);
+    work = curBatchSize * (n_neighbors + 1);
+    n_blocks = raft::ceildiv(work, N_THREADS);
     compute_rank<<<n_blocks, N_THREADS, 0, stream>>>(
-      X_sorted_ind.data(), X_nn_order.data(),
-      &emb_ind.data()[(n - toDo) * (n_neighbors + 1)], n, n_neighbors + 1, work,
-      n - toDo, d_t);
+      d_t, lookup_table.data(), &emb_ind.data()[(n - toDo) * (n_neighbors + 1)],
+      n, n_neighbors + 1, work);
     CUDA_CHECK(cudaPeekAtLastError());
 
     double t_tmp = 0.;
