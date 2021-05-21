@@ -439,6 +439,9 @@ TEST_F(QuasiNewtonTest, predict_softmax) {
 }
 
 TEST_F(QuasiNewtonTest, dense_vs_sparse_logistic) {
+#if CUDART_VERSION >= 11020
+  GTEST_SKIP();
+#endif
   // Prepare a sparse input matrix from the dense matrix X.
   // Yes, it's not sparse at all, yet the test does check whether the behaviour
   // of dense and sparse variants is the same.
