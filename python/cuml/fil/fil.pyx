@@ -568,8 +568,8 @@ class ForestInference(Base,
               maximum supported number of threads per GPU. Even if successful,
               it is not guaranteed that blocks_per_sm blocks will run on an SM
               concurrently.
-        forest_shape_file : file, io.StringIO or alike (default=None)
-            if not None, calls forest_shape_file.write(ascii_string)
+        compute_shape_str : boolean (default=False)
+            if True or equivalent, creates a ForestInference.shape_str
             (writes a human-readable forest shape description as a
             multiline ascii string)
 
@@ -645,8 +645,8 @@ class ForestInference(Base,
               maximum supported number of threads per GPU. Even if successful,
               it is not guaranteed that blocks_per_sm blocks will run on an SM
               concurrently.
-        forest_shape_file : file, io.StringIO or alike (default=None)
-            if not None, calls forest_shape_file.write(ascii_string)
+        compute_shape_str : boolean (default=False)
+            if True or equivalent, creates a ForestInference.shape_str
             (writes a human-readable forest shape description as a
             multiline ascii string)
 
@@ -710,8 +710,8 @@ class ForestInference(Base,
               maximum supported number of threads per GPU. Even if successful,
               it is not guaranteed that blocks_per_sm blocks will run on an SM
               concurrently.
-        forest_shape_file : file, io.StringIO or alike (default=None)
-            if not None, calls forest_shape_file.write(ascii_string)
+        compute_shape_str : boolean (default=False)
+            if True or equivalent, creates a ForestInference.shape_str
             (writes a human-readable forest shape description as a
             multiline ascii string)
         model_type : string (default="xgboost")

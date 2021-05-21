@@ -620,16 +620,12 @@ class TreeliteFilTest : public BaseFilTest {
     CUDA_CHECK(cudaStreamSynchronize(stream));
     if (ps.print_forest_shape) {
       std::string str(forest_shape_str);
-      auto check_substring = [&](const char* substr) {
+      for (const char* substr :
+           {"model size", " MB", "Depth histogram:", "Avg nodes per tree",
+            "Leaf depth", "Depth histogram fingerprint"}) {
         ASSERT(str.find(substr) != std::string::npos,
                "\"%s\" not found in forest shape", substr);
-      };
-      check_substring("model size");
-      check_substring(" MB");
-      check_substring("Depth histogram:");
-      check_substring("Avg nodes per tree");
-      check_substring("Leaf depth");
-      check_substring("Depth histogram fingerprint");
+      }
     }
     ::free(forest_shape_str);
   }
