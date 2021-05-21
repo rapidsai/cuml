@@ -63,7 +63,7 @@ def test_split_dataframe(train_size, shuffle):
 def test_split_dataframe_array(train_size, shuffle, y_type):
     X = cudf.DataFrame({"x": range(100)})
     y = cudf.Series(([0] * (100 // 2)) + ([1] * (100 // 2)))
-    if y_type == "cudf":
+    if y_type == "cupy":
         X_train, X_test, y_train, y_test = train_test_split(
             X, y.values, train_size=train_size, shuffle=shuffle
         )
@@ -79,7 +79,7 @@ def test_split_dataframe_array(train_size, shuffle, y_type):
         assert isinstance(X_test, cudf.DataFrame)
         assert isinstance(y_train, cp.ndarray)
         assert isinstance(y_test, cp.ndarray)
-    elif y_type == "cupy":
+    elif y_type == "cudf":
         X_train, X_test, y_train, y_test = train_test_split(
             X, y, train_size=train_size, shuffle=shuffle
         )
