@@ -98,7 +98,8 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
     hdbscan(handle, data.data(), params.n_row, params.n_col,
             raft::distance::DistanceType::L2SqrtExpanded, hdbscan_params, out);
 
-    raft::print_device_vector("outlabels", out.get_labels(), params.n_row, std::cout);
+    raft::print_device_vector("outlabels", out.get_labels(), params.n_row,
+                              std::cout);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
@@ -107,17 +108,13 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
       handle.get_stream());
   }
 
-  void SetUp() override { 
-    basicTest(); 
-  }
+  void SetUp() override { basicTest(); }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(labels_ref));
-  }
+  void TearDown() override { CUDA_CHECK(cudaFree(labels_ref)); }
 
  protected:
   HDBSCANInputs<T, IdxT> params;
-  IdxT *labels_ref;
+  IdxT* labels_ref;
   int k;
 
   double score;
@@ -249,7 +246,8 @@ class ClusterSelectionTest
   void basicTest() {
     raft::handle_t handle;
 
-    params = ::testing::TestWithParam<ClusterSelectionInputs<T, IdxT>>::GetParam();
+    params =
+      ::testing::TestWithParam<ClusterSelectionInputs<T, IdxT>>::GetParam();
 
     Logger::get().setLevel(CUML_LEVEL_DEBUG);
 
@@ -262,11 +260,9 @@ class ClusterSelectionTest
     rmm::device_uvector<IdxT> condensed_sizes(params.condensed_sizes.size(),
                                               handle.get_stream());
 
-    // outputs                                              
-    rmm::device_uvector<T> stabilities(params.n_row,
-                                       handle.get_stream());
-    rmm::device_uvector<T> probabilities(params.n_row,
-                                       handle.get_stream());
+    // outputs
+    rmm::device_uvector<T> stabilities(params.n_row, handle.get_stream());
+    rmm::device_uvector<T> probabilities(params.n_row, handle.get_stream());
     rmm::device_uvector<IdxT> labels(params.n_row, handle.get_stream());
 
     raft::copy(condensed_parents.data(), params.condensed_parents.data(),
@@ -286,25 +282,27 @@ class ClusterSelectionTest
       condensed_parents.data(), condensed_children.data(),
       condensed_lambdas.data(), condensed_sizes.data());
 
-    ML::HDBSCAN::detail::Extract::extract_clusters(handle, condensed_tree, 
-      params.n_row, labels.data(), stabilities.data(), probabilities.data(),
-      params.cluster_selection_method, params.allow_single_cluster, 0, params.cluster_selection_epsilon);
-    
+    ML::HDBSCAN::detail::Extract::extract_clusters(
+      handle, condensed_tree, params.n_row, labels.data(), stabilities.data(),
+      probabilities.data(), params.cluster_selection_method,
+      params.allow_single_cluster, 0, params.cluster_selection_epsilon);
+
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    raft::print_device_vector("probabilities", probabilities.data(), params.n_row, std::cout);
+    raft::print_device_vector("probabilities", probabilities.data(),
+                              params.n_row, std::cout);
     raft::print_device_vector("labels", labels.data(), params.n_row, std::cout);
 
-    ASSERT_TRUE(
-      raft::devArrMatch(probabilities.data(), params.probabilities.data(),
-                        params.n_row,
-                        raft::CompareApprox<float>(1e-4), handle.get_stream()));
+    ASSERT_TRUE(raft::devArrMatch(
+      probabilities.data(), params.probabilities.data(), params.n_row,
+      raft::CompareApprox<float>(1e-4), handle.get_stream()));
 
     rmm::device_uvector<IdxT> labels_ref(params.n_row, handle.get_stream());
-    raft::update_device(labels_ref.data(), params.labels.data(), params.n_row, handle.get_stream());
+    raft::update_device(labels_ref.data(), params.labels.data(), params.n_row,
+                        handle.get_stream());
     score = MLCommon::Metrics::compute_adjusted_rand_index(
-      labels.data(), labels_ref.data(), params.n_row, handle.get_device_allocator(),
-      handle.get_stream());
+      labels.data(), labels_ref.data(), params.n_row,
+      handle.get_device_allocator(), handle.get_stream());
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
   }
 
@@ -318,12 +316,10 @@ class ClusterSelectionTest
 };
 
 typedef ClusterSelectionTest<float, int> ClusterSelectionTestF_Int;
-TEST_P(ClusterSelectionTestF_Int, Result) {
-   EXPECT_TRUE(score == 1.0);
-}
+TEST_P(ClusterSelectionTestF_Int, Result) { EXPECT_TRUE(score == 1.0); }
 
 INSTANTIATE_TEST_CASE_P(ClusterSelectionTest, ClusterSelectionTestF_Int,
                         ::testing::ValuesIn(cluster_selection_inputs));
 
-} // namespace HDBSCAN
+}  // namespace HDBSCAN
 }  // end namespace ML
