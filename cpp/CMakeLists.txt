@@ -179,6 +179,7 @@ endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
 # add third party dependencies using CPM
 rapids_cpm_init()
 
+include(cmake/thirdparty/get_thrust.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
 include(cmake/thirdparty/get_faiss.cmake)
 include(cmake/thirdparty/get_treelite.cmake)
@@ -320,6 +321,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   target_link_libraries(${CUML_CPP_TARGET}
     PUBLIC
       rmm::rmm
+      cuml::Thrust
       raft::raft
     PRIVATE
       CUDA::cublas
