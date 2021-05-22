@@ -219,7 +219,10 @@ struct tree_aggregator_t {
   num_classes is used for other template parameters */
   static size_t smem_finalize_footprint(size_t data_row_size, int num_classes,
                                         bool predict_proba) {
-    return FIL_TPB * NITEMS * sizeof(float);
+    // depends on threads_per_tree, but:
+    // either is O(1KB), so a minimal effect on L1 cache hit rates
+    return max(FIL_TPB * NITEMS * sizeof(float),
+               block_reduce_footprint_host<NITEMS>());
   }
 
   /** shared memory footprint of the accumulator during
@@ -244,34 +247,21 @@ struct tree_aggregator_t {
                                            int output_stride,
                                            output_t transform, int num_trees,
                                            int log2_threads_per_tree) {
-    auto per_thread = (vec<NITEMS, float>*)tmp_storage;
-    if (log2_threads_per_tree < 5) {  // >1 tree/warp
-#pragma unroll
-      for (int order = 16;
-           order >> log2_threads_per_tree != 0;  // don't mix rows
-           order >>= 1)
-#pragma unroll
-        for (int item = 0; item < NITEMS; ++item)
-          acc[item] += __shfl_down_sync(UINT_MAX, acc[item], order);
-
+    if (FIL_TPB != 1 << log2_threads_per_tree) {  // anything to reduce?
       // ensure input columns can be overwritten (no threads traversing trees)
       __syncthreads();
-      int warp_id = threadIdx.x / 32, row_within_warp = threadIdx.x % 32;
-      if (row_within_warp >> log2_threads_per_tree == 0)
-        per_thread[row_within_warp + (warp_id << log2_threads_per_tree)] = acc;
-      __syncthreads();
-      // we've reached one group/warp after shuffles
-      acc = multi_sum<3>(per_thread, 1 << log2_threads_per_tree, FIL_TPB / 32);
-    } else if (FIL_TPB != 1 << log2_threads_per_tree) {
-      // else if there's anything to reduce
-      // ensure input columns can be overwritten (no threads traversing trees)
-      __syncthreads();
-      per_thread[threadIdx.x] = acc;
-      __syncthreads();
-      acc = multi_sum<5>(per_thread, 1 << log2_threads_per_tree,
-                         FIL_TPB >> log2_threads_per_tree);
+      if (log2_threads_per_tree == 0) {
+        acc = block_reduce(acc, vectorized(cub::Sum()), tmp_storage);
+      } else {
+        auto per_thread = (vec<NITEMS, float>*)tmp_storage;
+        per_thread[threadIdx.x] = acc;
+        __syncthreads();
+        acc = multi_sum<5>(per_thread, 1 << log2_threads_per_tree,
+                           FIL_TPB >> log2_threads_per_tree);
+        __syncthreads();
+      }
     }
-    __syncthreads();
+
     if (threadIdx.x * NITEMS >= block_num_rows) return;
 #pragma unroll
     for (int row = 0; row < NITEMS; ++row) {
