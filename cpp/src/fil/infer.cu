@@ -218,11 +218,10 @@ struct tree_aggregator_t {
   value is computed.
   num_classes is used for other template parameters */
   static size_t smem_finalize_footprint(size_t data_row_size, int num_classes,
+                                        int log2_threads_per_tree,
                                         bool predict_proba) {
-    // depends on threads_per_tree, but:
-    // either is O(1KB), so a minimal effect on L1 cache hit rates
-    return max(FIL_TPB * NITEMS * sizeof(float),
-               block_reduce_footprint_host<NITEMS>());
+    return log2_threads_per_tree != 0 ? FIL_TPB * NITEMS * sizeof(float)
+                                      : block_reduce_footprint_host<NITEMS>();
   }
 
   /** shared memory footprint of the accumulator during
@@ -258,7 +257,6 @@ struct tree_aggregator_t {
         __syncthreads();
         acc = multi_sum<5>(per_thread, 1 << log2_threads_per_tree,
                            FIL_TPB >> log2_threads_per_tree);
-        __syncthreads();
       }
     }
 
@@ -382,6 +380,7 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> {
   void* tmp_storage;
 
   static size_t smem_finalize_footprint(size_t data_row_size, int num_classes,
+                                        int log2_threads_per_tree,
                                         bool predict_proba) {
     size_t phase1 =
       (FIL_TPB - FIL_TPB % num_classes) * sizeof(vec<NITEMS, float>);
@@ -433,6 +432,7 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
   int num_classes;
 
   static size_t smem_finalize_footprint(size_t data_row_size, int num_classes,
+                                        int log2_threads_per_tree,
                                         bool predict_proba) {
     size_t phase1 = data_row_size + smem_accumulate_footprint(num_classes);
     size_t phase2 = predict_proba
@@ -482,6 +482,7 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
   int num_classes;
 
   static size_t smem_finalize_footprint(size_t data_row_size, int num_classes,
+                                        int log2_threads_per_tree,
                                         bool predict_proba) {
     // not accounting for lingering accumulate_footprint during finalize()
     return 0;
@@ -623,7 +624,7 @@ template <int NITEMS, leaf_algo_t leaf_algo>
 size_t shmem_size_params::get_smem_footprint() {
   size_t finalize_footprint =
     tree_aggregator_t<NITEMS, leaf_algo>::smem_finalize_footprint(
-      cols_shmem_size(), num_classes, predict_proba);
+      cols_shmem_size(), num_classes, log2_threads_per_tree, predict_proba);
   size_t accumulate_footprint =
     tree_aggregator_t<NITEMS, leaf_algo>::smem_accumulate_footprint(
       num_classes) +
