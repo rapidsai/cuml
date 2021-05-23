@@ -45,6 +45,8 @@ HDI int criterion(const param& p) {
       return 0;
     case metric_t::mae:
       return 0;
+    case metric_t::rmse:
+      return 0;
     case metric_t::pearson:
       return 1;
     case metric_t::spearman:

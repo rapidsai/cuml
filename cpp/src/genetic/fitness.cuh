@@ -218,7 +218,9 @@ void _root_mean_square_error(const raft::handle_t &h, const int n_samples, const
   _mean_square_error(h,n_samples,n_progs,Y,Y_pred,W,out);
 
   // Take sqrt on all entries
-  raft::linalg::unaryOp(out,out,n_progs,[] __device__(math_t in){ return raft::mySqrt(in); },stream);
+  raft::linalg::unaryOp(out,out,n_progs,[] __device__(math_t in){ 
+                          return raft::mySqrt(in); 
+                        },stream);
 }
 
 template <typename math_t>

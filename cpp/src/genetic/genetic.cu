@@ -53,8 +53,8 @@ namespace genetic {
  */
 __global__ void batched_tournament_kernel(const program_t progs, 
                                           int* win_indices, uint64_t* seeds, 
-                                          const uint64_t n_progs, const uint64_t n_tours, 
-                                          const uint64_t tour_size, const int criterion) {
+                                          const int n_progs, const int n_tours, 
+                                          const int tour_size, const int criterion) {
 
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if(idx < n_tours) {
