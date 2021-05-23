@@ -24,3 +24,8 @@ np.savetxt(train_data, X_train.T,fmt='%.7f')
 np.savetxt(test_data, X_test.T,fmt='%.7f')
 np.savetxt(train_labels, y_train,fmt='%.7f')
 np.savetxt(test_labels, y_test,fmt='%.7f')
+
+print("Wrote %d values to %s"%(X_train.size,train_data))
+print("Wrote %d values to %s"%(X_test.size,test_data))
+print("Wrote %d values to %s"%(y_train.size,train_labels))
+print("Wrote %d values to %s"%(y_test.size,test_labels))

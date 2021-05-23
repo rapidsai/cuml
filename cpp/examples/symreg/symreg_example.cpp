@@ -69,9 +69,6 @@ bool get_arg(char **begin, char **end, const std::string &arg) {
 
 int main(int argc, char* argv[]){
 
-  // View debug messages
-  ML::Logger::get().setLevel(CUML_LEVEL_DEBUG);
-
   // Training hyper parameters(contains default vals)
   cg::param params;
 
