@@ -72,10 +72,7 @@ if [ "$py_ver" == "3.6" ];then
 fi
 
 gpuci_logger "Removing dask-glm"
-gpuci_conda_retry remove --force rapids-build-env rapids-notebook-env 
-gpuci_conda_retry remove --force dask-glm
-rm -rf /opt/conda/envs/rapids/lib/python3.8/site-packages/dask_glm
-rm -rf /opt/conda/envs/rapids/lib/python3.7/site-packages/dask_glm
+gpuci_conda_retry remove --force rapids-build-env rapids-notebook-env
 
 gpuci_logger "Install the main version of dask, distributed, and dask-glm"
 set -x
@@ -199,6 +196,13 @@ else
     CONDA_FILE=${CONDA_FILE//-/=} #convert to conda install
     gpuci_logger "Installing $CONDA_FILE"
     conda install -c ${CONDA_ARTIFACT_PATH} "$CONDA_FILE"
+
+    gpuci_logger "Install the main version of dask, distributed, and dask-glm"
+    set -x
+    pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
+    pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
+    pip install "git+https://github.com/dask/dask-glm@main" --force-reinstall --no-deps
+    set +x
 
     gpuci_logger "Building cuml"
     "$WORKSPACE/build.sh" -v cuml --codecov
