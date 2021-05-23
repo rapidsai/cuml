@@ -261,6 +261,7 @@ int main(int argc, char* argv[]){
   }
 
   // Initialize and allocate device memory
+  std::cout << "Allocating device memory..." << std::endl;
   raft::handle_t handle;
   std::shared_ptr<ML::deviceAllocator> allocator(
       new raft::mr::device::default_allocator());
@@ -271,50 +272,41 @@ int main(int argc, char* argv[]){
   CUDA_RT_CALL(cudaStreamCreate(&stream));
   handle.set_stream(stream);
 
-  float* d_traindata    = nullptr;
-  float* d_trainlabels  = nullptr;
-  float* d_trainweights = nullptr;
-  float* d_testdata     = nullptr;
-  float* d_testlabels   = nullptr;
-  float* d_testweights  = nullptr;
-  float* d_predlabels   = nullptr;
-  float* d_score        = nullptr;
+  float* d_traindata    = (float*)handle.get_device_allocator()->allocate(sizeof(float)*n_cols*n_train_rows,stream);
+  float* d_trainlabels  = (float*)handle.get_device_allocator()->allocate(sizeof(float)*n_train_rows,stream);
+  float* d_trainweights = (float*)handle.get_device_allocator()->allocate(sizeof(float)*n_train_rows,stream);
+  float* d_testdata     = (float*)handle.get_device_allocator()->allocate(sizeof(float)*n_cols*n_test_rows,stream);
+  float* d_testlabels   = (float*)handle.get_device_allocator()->allocate(sizeof(float)*n_test_rows,stream);
+  float* d_testweights  = (float*)handle.get_device_allocator()->allocate(sizeof(float)*n_test_rows,stream);
+  float* d_predlabels   = (float*)handle.get_device_allocator()->allocate(sizeof(float)*n_test_rows,stream);
+  float* d_score        = (float*)handle.get_device_allocator()->allocate(sizeof(float),stream);
 
   cg::program_t d_finalprogs;  // pointer to last generation ASTs on device
 
-  CUDA_RT_CALL(cudaMalloc(&d_traindata,sizeof(float)*n_cols*n_train_rows));
   CUDA_RT_CALL(cudaMemcpyAsync(d_traindata,h_traindata.data(),
                                 sizeof(float)*n_cols*n_train_rows,
                                 cudaMemcpyHostToDevice,stream));
   
-  CUDA_RT_CALL(cudaMalloc(&d_trainlabels,sizeof(float)*n_train_rows));
   CUDA_RT_CALL(cudaMemcpyAsync(d_trainlabels,h_trainlabels.data(),
                                sizeof(float)*n_train_rows,
                                cudaMemcpyHostToDevice,stream)); 
 
-  CUDA_RT_CALL(cudaMalloc(&d_trainweights,sizeof(float)*n_train_rows));
   CUDA_RT_CALL(cudaMemcpyAsync(d_trainweights,h_trainweights.data(),
                                sizeof(float)*n_train_rows,
                                cudaMemcpyHostToDevice,stream)); 
 
-  CUDA_RT_CALL(cudaMalloc(&d_testdata,sizeof(float)*n_cols*n_test_rows));
   CUDA_RT_CALL(cudaMemcpyAsync(d_testdata,h_testdata.data(),
                                 sizeof(float)*n_cols*n_test_rows,
                                 cudaMemcpyHostToDevice,stream));
   
-  CUDA_RT_CALL(cudaMalloc(&d_testlabels,sizeof(float)*n_test_rows));
   CUDA_RT_CALL(cudaMemcpyAsync(d_testlabels,h_testlabels.data(),
                                sizeof(float)*n_test_rows,
                                cudaMemcpyHostToDevice,stream));
 
-  CUDA_RT_CALL(cudaMalloc(&d_testweights,sizeof(float)*n_test_rows));
   CUDA_RT_CALL(cudaMemcpyAsync(d_testweights,h_testweights.data(),
                                sizeof(float)*n_test_rows,
                                cudaMemcpyHostToDevice,stream)); 
-  
-  CUDA_RT_CALL(cudaMalloc(&d_predlabels,sizeof(float)*n_test_rows));  
-  CUDA_RT_CALL(cudaMalloc(&d_score,sizeof(float)));
-  
+    
   // Initialize AST
   d_finalprogs = (cg::program_t)handle.get_device_allocator()->allocate(params.population_size*sizeof(cg::program),stream);
 
@@ -354,11 +346,11 @@ int main(int argc, char* argv[]){
   CUDA_RT_CALL(cudaMemcpy(h_predlabels.data(),d_predlabels,n_test_rows * sizeof(float),cudaMemcpyDeviceToHost));
   
   std::cout << "Some Predicted test values:" << std::endl;
-  std::copy(h_predlabels.begin(),h_predlabels.end(),std::ostream_iterator<float>(std::cout,";"));
+  std::copy(h_predlabels.begin(),h_predlabels.begin()+10,std::ostream_iterator<float>(std::cout,";"));
   std::cout << std::endl;
 
-  std::cout << "Some Actual test values vals:" << std::endl;
-  std::copy(h_testlabels.begin(),h_testlabels.end(),std::ostream_iterator<float>(std::cout,";"));
+  std::cout << "Some Actual test values:" << std::endl;
+  std::copy(h_testlabels.begin(),h_testlabels.begin()+10,std::ostream_iterator<float>(std::cout,";"));
   std::cout << std::endl;
 
   // Output fitness score
