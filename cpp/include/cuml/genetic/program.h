@@ -83,66 +83,169 @@ struct program {
 /** program_t is the type of the program */
 typedef program* program_t;
 
-/** Execute given programs on the dataset */
-void execute( const raft::handle_t &h, const program_t d_progs, const int n_samples, const int n_progs,
+/**
+ * @brief Calls the execution kernel to evaluate all programs on the given dataset
+ * 
+ * @param d_progs    Device pointer to programs
+ * @param n_samples  Number of rows in the input dataset
+ * @param n_progs    Total number of programs being evaluated
+ * @param data       Device pointer to input dataset (in col-major format)
+ * @param y_pred     Device pointer to output of program evaluation
+ */
+void execute( const raft::handle_t &h, const program_t &d_progs, const int n_samples, const int n_progs,
               const float* data, float* y_pred);
 
-/** 
- * Function to compute scores for given y and y_pred on the given dataset.
+/**
+ * @brief Compute the loss based on the metric specified in the training hyperparameters. 
+ *        It performs a batched computation for all programs in one shot.
+ * 
+ * @param n_samples The number of labels/rows in the expected output
+ * @param n_progs   The number of programs being batched
+ * @param y         Device pointer to the expected output (SIZE = n_samples)
+ * @param y_pred    Device pointer to the predicted output (SIZE = n_samples * n_progs)
+ * @param w         Device pointer to sample weights (SIZE = n_samples)
+ * @param score     Device pointer to final score (SIZE = n_progs)
+ * @param params    Training hyperparameters
  */
 void compute_metric(const raft::handle_t &h, int n_samples, int n_progs,
                     const float* y, const float* y_pred, const float* w, 
                     float* score, const param& params);
 
-/** 
- * Computes the fitness scores for a single program on the given dataset
+/**
+ * @brief Computes the fitness scores for a sngle program on the given dataset 
+ * 
+ * @param d_prog          Device pointer to program
+ * @param score           Device pointer to fitness vals
+ * @param params          Training hyperparameters
+ * @param n_samples       Number of rows in the input dataset
+ * @param data            Device pointer to input dataset
+ * @param y               Device pointer to input labels
+ * @param sample_weights  Device pointer to sample weights
  */
-void compute_fitness(const raft::handle_t &h, program_t d_prog, float* score,
+void compute_fitness(const raft::handle_t &h, program_t &d_prog, float* score,
                      const param &params, const int n_samples, const float* data, 
                      const float* y, const float* sample_weights);
 
-/** 
- * Computes the fitness scores for all programs on the given dataset 
+/**
+ * @brief Computes the fitness scores for all programs on the given dataset 
+ * 
+ * @param d_progs         Device pointer to list of programs
+ * @param score           Device pointer to fitness vals computed for all programs
+ * @param params          Training hyperparameters
+ * @param n_samples       Number of rows in the input dataset
+ * @param data            Device pointer to input dataset
+ * @param y               Device pointer to input labels
+ * @param sample_weights  Device pointer to sample weights
  */
-void compute_batched_fitness(const raft::handle_t &h, program_t d_progs, float* score,
+void compute_batched_fitness(const raft::handle_t &h, program_t &d_progs, float* score,
                              const param &params, const int n_samples, const float* data, 
                              const float* y, const float* sample_weights);         
 
-/** 
- * Computes and sets the fitness scores for a single program w.r.t the passed dataset
+/**
+ * @brief Computes and sets the fitness scores for a single program on the given dataset
+ * 
+ * @param d_prog          Device pointer to program
+ * @param h_prog          Host program object
+ * @param params          Training hyperparameters
+ * @param n_samples       Number of rows in the input dataset
+ * @param data            Device pointer to input dataset
+ * @param y               Device pointer to input labels
+ * @param sample_weights  Device pointer to sample weights
  */
-void set_fitness(const raft::handle_t &h, program_t d_prog, program &h_prog,
+void set_fitness(const raft::handle_t &h, program_t &d_prog, program &h_prog,
                  const param &params, const int n_samples, const float* data,
                  const float* y, const float* sample_weights);
 
-/** 
- * Computes and sets the fitness scores of all given programs w.r.t the passed dataset
+/**
+ * @brief Computes and sets the fitness scores for all programs on the given dataset
+ * 
+ * @param d_progs         Device pointer to list of programs
+ * @param h_progs         Host vector of programs corresponding to d_progs
+ * @param params          Training hyperparameters
+ * @param n_samples       Number of rows in the input dataset
+ * @param data            Device pointer to input dataset
+ * @param y               Device pointer to input labels
+ * @param sample_weights  Device pointer to sample weights
  */
-void set_batched_fitness( const raft::handle_t &h, program_t d_progs, std::vector<program> &h_progs,
+void set_batched_fitness( const raft::handle_t &h, program_t &d_progs, std::vector<program> &h_progs,
                           const param &params, const int n_samples, const float* data,
                           const float* y, const float* sample_weights);
 
-/** Returns precomputed fitness score of program on the host */
+/**
+ * @brief Returns precomputed fitness score of program on the host, 
+ *        after accounting for parsimony(bloat)
+ * 
+ * @param prog    The host program 
+ * @param params  Training hyperparameters
+ * @return Fitness score corresponding to trained program
+ */
 float fitness(const program &prog, const param &params);
 
-/** build a random program of max-depth */
+/**
+ * @brief Evaluates and returns the depth of the current program. 
+ *        Also sets the program's depth attribute in the process
+ * 
+ * @param p_out The given program
+ * @return The depth of the current program
+ */
+int get_depth(program &p_out);
+
+/**
+ * @brief Build a random program with depth atmost 10
+ * 
+ * @param p_out   The output program
+ * @param params  Training hyperparameters
+ * @param gen     RNG to decide nodes to add
+ */
 void build_program(program &p_out, const param &params, std::mt19937 &gen);
 
-/** Point mutations on CPU */
+/**
+ * @brief Perform a point mutation on the given program(AST)
+ * 
+ * @param prog    The input program
+ * @param p_out   The result program
+ * @param params  Training hyperparameters
+ * @param gen     RNG to decide nodes to mutate
+ */
 void point_mutation(const program &prog, program &p_out, const param &params, 
                     std::mt19937 &gen);
 
-/** Crossover mutations on CPU */
+/**
+ * @brief Perform a 'hoisted' crossover mutation using the parent and donor programs.
+ *        The donor subtree selected is hoisted to ensure our constrains on total depth
+ * 
+ * @param prog    The input program
+ * @param donor   The donor program
+ * @param p_out   The result program
+ * @param params  Training hyperparameters
+ * @param gen     RNG for subtree selection
+ */
 void crossover(const program &prog, const program &donor, program &p_out, 
                const param &params, std::mt19937 &gen);
 
-/** Subtree mutations on CPU*/
+/**
+ * @brief Performs a crossover mutation with a randomly built new program. 
+ *        Since crossover is 'hoisted', this will ensure that depth constrains 
+ *        are not violated.
+ * 
+ * @param prog    The input program 
+ * @param p_out   The result mutated program
+ * @param params  Training hyperparameters
+ * @param gen     RNG to control subtree selection and temporary program addition
+ */
 void subtree_mutation(const program &prog, program &p_out, const param &params, 
                       std::mt19937 &gen);
 
-/** Hoist mutation on CPU*/
+/**
+ * @brief Perform a hoist mutation on a random subtree of the given program
+ *        (replace a subtree with a subtree of a subtree)
+ * 
+ * @param prog    The input program
+ * @param p_out   The output program
+ * @param params  Training hyperparameters
+ * @param gen     RNG to control subtree selection
+ */
 void hoist_mutation(const program &prog, program &p_out, const param &params, 
                     std::mt19937 &gen);
-
 }  // namespace genetic
 }  // namespace cuml

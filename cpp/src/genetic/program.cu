@@ -84,7 +84,11 @@ program::~program(){
   nodes=nullptr;
 }
 
-program::program(const program &src): len(src.len), depth(src.depth), raw_fitness_(src.raw_fitness_), metric(src.metric), mut_type(src.mut_type){
+program::program(const program &src): len(src.len), 
+                                      depth(src.depth), 
+                                      raw_fitness_(src.raw_fitness_), 
+                                      metric(src.metric), 
+                                      mut_type(src.mut_type){
   nodes = new node[len];
   std::copy(src.nodes,src.nodes + src.len, nodes);
 }
@@ -132,19 +136,17 @@ void compute_metric(const raft::handle_t &h, int n_samples, int n_progs,
   }
 }
 
-void execute (const raft::handle_t &h, const program_t d_progs, const int n_samples, 
-              const int n_progs, const float* data, float* y_pred){
-
+void execute(const raft::handle_t &h, const program_t &d_progs, const int n_samples, 
+             const int n_progs, const float* data, float* y_pred){
   cudaStream_t stream = h.get_stream();
-  dim3 blks(raft::ceildiv(n_samples,GENE_TPB),n_progs,1);
-  // CUML_LOG_DEBUG("Launching Program Execution kernel with (%d, %d, %d) blks ; %d threads",blks.x,blks.y,blks.z,GENE_TPB);
 
+  dim3 blks(raft::ceildiv(n_samples,GENE_TPB),n_progs,1);
   execute_kernel<<<blks,GENE_TPB,0,stream>>>(d_progs, data, y_pred, n_samples, n_progs);
   CUDA_CHECK(cudaPeekAtLastError());
 
 }
 
-void compute_fitness(const raft::handle_t &h, program_t d_prog, float* score,
+void compute_fitness(const raft::handle_t &h, program_t &d_prog, float* score,
                      const param &params, const int n_samples, const float* data, 
                      const float* y, const float* sample_weights) {
   cudaStream_t stream = h.get_stream();
@@ -157,7 +159,7 @@ void compute_fitness(const raft::handle_t &h, program_t d_prog, float* score,
   compute_metric(h, n_samples, 1, y, y_pred.data(), sample_weights, score, params);
 }
 
-void compute_batched_fitness(const raft::handle_t &h, program_t d_progs, float* score,
+void compute_batched_fitness(const raft::handle_t &h, program_t &d_progs, float* score,
                              const param &params, const int n_samples, const float* data, 
                              const float* y, const float* sample_weights){
   cudaStream_t stream = h.get_stream();
@@ -170,7 +172,7 @@ void compute_batched_fitness(const raft::handle_t &h, program_t d_progs, float* 
   compute_metric(h, n_samples, n_progs, y, y_pred.data(), sample_weights, score, params);
 }
 
-void set_fitness(const raft::handle_t &h, program_t d_prog, program &h_prog,
+void set_fitness(const raft::handle_t &h, program_t &d_prog, program &h_prog,
                  const param &params, const int n_samples, const float* data,
                  const float* y, const float* sample_weights) {
   cudaStream_t stream = h.get_stream();
@@ -185,7 +187,7 @@ void set_fitness(const raft::handle_t &h, program_t d_prog, program &h_prog,
   h_prog.raw_fitness_ = score.front_element(stream);
 }
 
-void set_batched_fitness( const raft::handle_t &h, program_t d_progs,
+void set_batched_fitness( const raft::handle_t &h, program_t &d_progs,
                      std::vector<program> &h_progs, const param &params, const int n_samples,
                      const float* data, const float* y, const float* sample_weights) {
 
@@ -209,41 +211,6 @@ float fitness(const program &prog, const param &params) {
   int crit      = params.criterion();
   float penalty = params.parsimony_coefficient * prog.len * (2*crit - 1);
   return (prog.raw_fitness_ - penalty);
-}
-
-/**
- * @brief Checks if the given program is valid or not
- * 
- * @param prog The input program
- */
-void validate_program(program &prog){
-
-  std::stack<int> s;
-  s.push(0);
-  node curr;
-  for(int i=0;i<prog.len; ++i){
-    curr = prog.nodes[i];
-    if(curr.is_nonterminal()){
-      s.push(curr.arity());
-    }
-    else{
-      int end_elem = s.top();
-      s.pop();
-      s.push(end_elem-1);
-      while(s.top() == 0){
-        s.pop();
-        if(s.empty()){break;}
-        end_elem = s.top();
-        s.pop();
-        s.push(end_elem-1);
-      }
-    }
-  }
-
-  if(!(s.size() == 1 && s.top() == -1)){
-    CUML_LOG_DEBUG("Invalid program.");
-  }
-  
 }
 
 /**
@@ -299,9 +266,49 @@ std::pair<int, int> get_subtree(node* pnodes, int len, std::mt19937 &gen) {
   return std::make_pair(start,end);
 }
 
+int get_depth(program &p_out){
+  
+  auto depth = 0;
+  std::stack<int> arity_stack;
+  for(auto i = 0; i < p_out.len ; ++i){
+    
+    node curr(p_out.nodes[i]);
+
+    // Update depth
+    int sz = arity_stack.size();
+    depth = std::max(depth,sz);
+    
+    // Update stack
+    if(curr.is_nonterminal()){
+      arity_stack.push(curr.arity());
+    }
+    else{
+      // Only triggered for depth 0 node
+      if(arity_stack.empty())break;
+
+      int e = arity_stack.top();
+      arity_stack.pop();
+      arity_stack.push(e-1);
+
+      while(arity_stack.top() == 0){
+        arity_stack.pop();
+        if(arity_stack.empty())break;
+
+        e = arity_stack.top();
+        arity_stack.pop();
+        arity_stack.push(e-1);
+      }
+    }
+  }
+
+  // Set and return depth 
+  p_out.depth = depth;
+  return depth;
+}
+
 void build_program(program &p_out, const param &params,std::mt19937 &gen){
   
-  // Define tree
+  // Define data structures needed for tree
   std::stack<int> arity_stack;
   std::vector<node> nodelist;
   nodelist.reserve(1 << (MAX_STACK_SIZE));
@@ -314,7 +321,7 @@ void build_program(program &p_out, const param &params,std::mt19937 &gen){
   std::uniform_real_distribution<float> dist_const(params.const_range[0],params.const_range[1]);
   std::uniform_int_distribution<int> dist_U(0,1);
 
-  // MAX_STACK_SIZE can only handle btree of size MAX_STACK_SIZE - max(arity) + 1
+  // MAX_STACK_SIZE can only handle tree of size MAX_STACK_SIZE - max(function_arity=2) + 1
 
   // Initialize nodes
   int max_depth = dist_depth(gen);
@@ -332,8 +339,12 @@ void build_program(program &p_out, const param &params,std::mt19937 &gen){
 
   // Fill tree
   while(!arity_stack.empty()){
+    
     int depth = arity_stack.size();
+    p_out.depth = std::max(depth,p_out.depth);
+    
     int node_choice = dist_U(gen);
+
     if((node_choice == 0 || method == init_method_t::full) && depth < max_depth){
       // Add a function to node list
       curr_node = node(params.function_set[dist_func(gen)]);
@@ -354,19 +365,22 @@ void build_program(program &p_out, const param &params,std::mt19937 &gen){
         curr_node = node(fid);
       }
 
-      // Modify nodelist and stack
+      // Modify nodelist
       nodelist.push_back(curr_node);
-      int end_elem = arity_stack.top();
+
+      // Modify stack
+      int e = arity_stack.top();
       arity_stack.pop();
-      arity_stack.push(--end_elem);
+      arity_stack.push(e-1);
       while(arity_stack.top() == 0){
         arity_stack.pop();
         if(arity_stack.empty()){
           break;
         }
-        end_elem = arity_stack.top();
+
+        e = arity_stack.top();
         arity_stack.pop();
-        arity_stack.push(--end_elem);
+        arity_stack.push(e-1);
       }
     }
   }
@@ -378,18 +392,11 @@ void build_program(program &p_out, const param &params,std::mt19937 &gen){
 
   p_out.len = nodelist.size();
   p_out.metric = params.metric;
-  p_out.depth = MAX_STACK_SIZE;
-  p_out.raw_fitness_ = 0.0f; 
-
-  // for(int i=0;i<p_out.len;++i){
-  //   CUML_LOG_DEBUG("Node #%d -> %d (%d inputs)",i+1,
-  //                 static_cast<std::underlying_type<node::type>::type>(p_out.nodes[i].t)
-  //                 ,p_out.nodes[i].arity());
-  // }
+  p_out.raw_fitness_ = 0.0f;
 }
 
 void point_mutation(const program &prog, program &p_out, const param& params, std::mt19937 &gen){
-  
+
   // deep-copy program
   p_out = prog;
   
@@ -436,7 +443,6 @@ void point_mutation(const program &prog, program &p_out, const param& params, st
       p_out.nodes[i] = curr;
     }
   }
-
 }
 
 void crossover(const program &prog, const program &donor, program &p_out, const param &params, std::mt19937 &gen){
@@ -445,35 +451,47 @@ void crossover(const program &prog, const program &donor, program &p_out, const 
   std::pair<int, int> prog_slice = get_subtree(prog.nodes, prog.len, gen);
   int prog_start = prog_slice.first;
   int prog_end   = prog_slice.second;
-
-  // Get subtree of donor
-  std::pair<int, int> donor_slice = get_subtree(donor.nodes, donor.len, gen);
   
-  int donor_start = donor_slice.first;
-  int donor_end   = donor_slice.second;
-
-  // Evolve 
-  p_out.len       = (prog_start) + (donor_end - donor_start) + (prog.len-prog_end);
-  p_out.nodes     = new node[p_out.len];
+  // Set metric of output program
   p_out.metric    = prog.metric;
 
-  if(p_out.len >= (1 << MAX_STACK_SIZE)){
-    CUML_LOG_DEBUG("Crossover tree produced is too big!!");
-  }
+  // Actual indices in donor
+  int donor_start = 0;
+  int donor_end = donor.len;
+  int output_depth = 0;
+  int iter = 0;
+  do{
+    ++iter;
+    // Get donor subtree
+    std::pair<int, int> donor_slice = get_subtree(donor.nodes+donor_start,donor_end-donor_start,gen);
 
-  // Copy slices using std::copy
-  std::copy(prog.nodes,prog.nodes + prog_start,p_out.nodes);
-  
-  std::copy(donor.nodes + donor_start, donor.nodes + donor_end, p_out.nodes + prog_start);
+    // Get indices w.r.t current subspace [donor_start,donor_end)
+    int donor_substart = donor_slice.first;
+    int donor_subend = donor_slice.second;
 
-  std::copy(prog.nodes + prog_end, 
+    // Update relative indices to global indices
+    donor_substart += donor_start;
+    donor_subend += donor_start;
+    
+    // Update to new subspace
+    donor_start = donor_substart;
+    donor_end = donor_subend;
+
+    // Evolve on current subspace
+    p_out.len       = (prog_start) + (donor_end - donor_start) + (prog.len-prog_end);
+    delete[] p_out.nodes;
+    p_out.nodes     = new node[p_out.len];
+
+    // Copy slices using std::copy
+    std::copy(prog.nodes,prog.nodes + prog_start,p_out.nodes);
+    std::copy(donor.nodes + donor_start, donor.nodes + donor_end, p_out.nodes + prog_start);
+    std::copy(prog.nodes + prog_end, 
             prog.nodes + prog.len, 
             p_out.nodes + (prog_start) + (donor_end - donor_start));
 
-  // for(int j=0;j<p_out.len;++j){
-  //   int func_id = static_cast<std::underlying_type<node::type>::type>(p_out.nodes[j].t);
-  //   CUML_LOG_DEBUG("Node #%d -> %d (%d inputs)",j,func_id,p_out.nodes[j].arity());
-  // }
+    output_depth = get_depth(p_out);
+  } while(output_depth >= MAX_STACK_SIZE);
+
 }
 
 void subtree_mutation(const program &prog, program &p_out, const param &params, std::mt19937 &gen){
@@ -481,10 +499,6 @@ void subtree_mutation(const program &prog, program &p_out, const param &params, 
   program new_program;
   build_program(new_program,params,gen);
   crossover(prog,new_program,p_out,params,gen);
-
-  if(p_out.len >= (1 << MAX_STACK_SIZE)){
-    CUML_LOG_DEBUG("Subtree mutation tree produced is too big!!");
-  }
 }
 
 void hoist_mutation(const program &prog, program &p_out, const param &params, std::mt19937 &gen){
@@ -499,7 +513,7 @@ void hoist_mutation(const program &prog, program &p_out, const param &params, st
   int sub_start = sub_slice.first;
   int sub_end   = sub_slice.second;
   
-  // Since subtree indices
+  // Update subtree indices to global indices
   sub_start += prog_start;
   sub_end += prog_start;
 
@@ -507,15 +521,14 @@ void hoist_mutation(const program &prog, program &p_out, const param &params, st
   p_out.nodes = new node[p_out.len];
   p_out.metric = prog.metric;
 
-  if(p_out.len >= (1 << MAX_STACK_SIZE)){
-    CUML_LOG_DEBUG("Hoist tree produced is too big!!");
-  }
-
   // Copy node slices using std::copy
   std::copy(prog.nodes, prog.nodes + prog_start, p_out.nodes);
   std::copy(prog.nodes + sub_start, prog.nodes + sub_end, p_out.nodes + prog_start);
   std::copy(prog.nodes + prog_end, prog.nodes + prog.len,
                                    p_out.nodes + (prog_start) + (sub_end - sub_start));
+
+  // Update depth
+  p_out.depth = get_depth(p_out);
 }
 
 } // namespace genetic

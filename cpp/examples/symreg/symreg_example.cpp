@@ -29,6 +29,8 @@
 #include <raft/mr/device/allocator.hpp>
 #include <cuml/common/logger.hpp>
 
+// Namspace alias
+namespace cg = cuml::genetic;
 
 #ifndef CUDA_RT_CALL
 #define CUDA_RT_CALL(call)                                                    \
@@ -69,7 +71,7 @@ int main(int argc, char* argv[]){
   ML::Logger::get().setLevel(CUML_LEVEL_DEBUG);
 
   // Training hyper parameters(contains default vals)
-  cuml::genetic::param params;
+  cg::param params;
 
   // Process training arguments
   const int population_size   = get_argval(argv,argv+argc,"-population_size",params.population_size);
@@ -248,11 +250,11 @@ int main(int argc, char* argv[]){
 
   // Set training metric
   if(metric == "mae"){
-    params.metric = cuml::genetic::metric_t::mae;
+    params.metric = cg::metric_t::mae;
   }else if(metric == "mse"){
-    params.metric = cuml::genetic::metric_t::mse;
+    params.metric = cg::metric_t::mse;
   }else if(metric == "rmse"){
-    params.metric = cuml::genetic::metric_t::rmse;
+    params.metric = cg::metric_t::rmse;
   }else{
     std::cerr << "ERROR: Invalid metric specified for regression (can only be mae, mse or rmse) " << std::endl;
     return 1;
@@ -277,7 +279,8 @@ int main(int argc, char* argv[]){
   float* d_testweights  = nullptr;
   float* d_predlabels   = nullptr;
   float* d_score        = nullptr;
-  cuml::genetic::program_t d_finalprogs;  // pointer to last generation ASTs on device
+
+  cg::program_t d_finalprogs;  // pointer to last generation ASTs on device
 
   CUDA_RT_CALL(cudaMalloc(&d_traindata,sizeof(float)*n_cols*n_train_rows));
   CUDA_RT_CALL(cudaMemcpyAsync(d_traindata,h_traindata.data(),
@@ -309,20 +312,18 @@ int main(int argc, char* argv[]){
                                sizeof(float)*n_test_rows,
                                cudaMemcpyHostToDevice,stream)); 
   
-  CUDA_RT_CALL(cudaMalloc(&d_predlabels,sizeof(float)*n_test_rows));
-  CUDA_RT_CALL(cudaMalloc(&d_testlabels,sizeof(float)));
-  
+  CUDA_RT_CALL(cudaMalloc(&d_predlabels,sizeof(float)*n_test_rows));  
   CUDA_RT_CALL(cudaMalloc(&d_score,sizeof(float)));
   
   // Initialize AST
-  d_finalprogs = (cuml::genetic::program_t)handle.get_device_allocator()->allocate(params.population_size*sizeof(cuml::genetic::program),stream);
+  d_finalprogs = (cg::program_t)handle.get_device_allocator()->allocate(params.population_size*sizeof(cg::program),stream);
 
-  std::vector<std::vector<cuml::genetic::program>> history;
+  std::vector<std::vector<cg::program>> history;
   history.reserve(params.generations);
   
   // Begin training
   std::cout << "Beginning training on given dataset" << std::endl;
-  cuml::genetic::symFit(handle,d_traindata,d_trainlabels,d_trainweights,n_train_rows,n_cols,params,d_finalprogs,history);
+  cg::symFit(handle,d_traindata,d_trainlabels,d_trainweights,n_train_rows,n_cols,params,d_finalprogs,history);
 
   int n_gen = history.size();
   std::cout << "Finished training for " << n_gen << " generations." << std::endl;
@@ -339,9 +340,11 @@ int main(int argc, char* argv[]){
     }
   }
 
-  std::string eqn = cuml::genetic::stringify(history[n_gen-1][best_idx]);
-  std::cout << "Best program index is : " << best_idx << std::endl;
-  std::cout << "Best program equation is : " << eqn << std::endl;
+  std::string eqn = cg::stringify(history[n_gen-1][best_idx]);
+  std::cout << "Best AST index is : " << best_idx << std::endl;
+  std::cout << "Best AST depth : " << cg::get_depth(history[n_gen-1][best_idx]) << std::endl;
+  std::cout << "Best AST length : " << history[n_gen-1][best_idx].len << std::endl;
+  std::cout << "Best AST equation is : " << eqn << std::endl;
   
   // Predict values for test dataset
   cuml::genetic::symRegPredict(handle,d_testdata,n_test_rows,d_finalprogs+best_idx,d_predlabels);
@@ -350,11 +353,11 @@ int main(int argc, char* argv[]){
 
   CUDA_RT_CALL(cudaMemcpy(h_predlabels.data(),d_predlabels,n_test_rows * sizeof(float),cudaMemcpyDeviceToHost));
   
-  std::cout << "Predicted vals, size = " << h_predlabels.size() << std::endl;
+  std::cout << "Some Predicted test values:" << std::endl;
   std::copy(h_predlabels.begin(),h_predlabels.end(),std::ostream_iterator<float>(std::cout,";"));
   std::cout << std::endl;
 
-  std::cout << "Actual vals, size=" << h_testlabels.size() << std::endl;
+  std::cout << "Some Actual test values vals:" << std::endl;
   std::copy(h_testlabels.begin(),h_testlabels.end(),std::ostream_iterator<float>(std::cout,";"));
   std::cout << std::endl;
 
@@ -364,7 +367,7 @@ int main(int argc, char* argv[]){
   float h_score = 0.0f;
   CUDA_RT_CALL(cudaMemcpyAsync(&h_score,d_score,sizeof(float),cudaMemcpyDeviceToHost,stream));
   
-  std::cout << " Fitness score for best program : " << h_score << std::endl;
+  std::cout << " Metric Score for test set : " << h_score << std::endl;
   
   // Free up device memory
   CUDA_RT_CALL(cudaFree(d_traindata));

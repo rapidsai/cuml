@@ -45,7 +45,7 @@ std::string stringify(const program &prog);
  */
 void symFit(const raft::handle_t &handle, const float* input, const float* labels, 
             const float* sample_weights, const int n_rows, const int n_cols, param &params, 
-            program_t final_progs, std::vector<std::vector<program>> &history);
+            program_t &final_progs, std::vector<std::vector<program>> &history);
 
 /**
  * @brief Make predictions for a symbolic regressor
@@ -56,7 +56,7 @@ void symFit(const raft::handle_t &handle, const float* input, const float* label
  * @param output      device pointer to output values
  */
 void symRegPredict(const raft::handle_t &handle, const float* input, const int n_rows, 
-                const program_t best_prog, float* output);
+                const program_t &best_prog, float* output);
 
 /**
  * @brief Probability prediction for a symbolic classifier. If a transformer(like sigmoid) is
@@ -69,7 +69,7 @@ void symRegPredict(const raft::handle_t &handle, const float* input, const int n
  * @param output      device pointer to output probability(in col major format)
  */
 void symClfPredictProbs(const raft::handle_t &handle, const float* input, const int n_rows,
-                     const param &params, const program_t best_prog, float* output);
+                     const param &params, const program_t &best_prog, float* output);
 
 /**
  * @brief Return predictions for a binary classification program defining the decision boundary
@@ -81,7 +81,7 @@ void symClfPredictProbs(const raft::handle_t &handle, const float* input, const 
  * @param output 
  */
 void symClfPredict(const raft::handle_t &handle, const float* input, const int n_rows, 
-                   const param &params, const program_t best_prog, float* output);
+                   const param &params, const program_t &best_prog, float* output);
 
 /**
  * @brief Transform the values in the input feature matrix according to the supplied programs
@@ -94,7 +94,7 @@ void symClfPredict(const raft::handle_t &handle, const float* input, const int n
  * @param output      device pointer to transformed input
  */
 void symTransform(const raft::handle_t &handle, const float* input, const param &params, 
-                  const program_t final_progs, const int n_rows, const int n_cols, float* output);
+                  const program_t &final_progs, const int n_rows, const int n_cols, float* output);
 
 } // namespace genetic
 } // namespace cuml
