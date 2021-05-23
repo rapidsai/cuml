@@ -57,33 +57,29 @@ __global__ void batched_tournament_kernel(const program_t progs,
                                           const int tour_size, const int criterion) {
 
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
-  if(idx < n_tours) {
-    raft::random::detail::PhiloxGenerator gen(seeds[idx],(uint64_t)idx,0);
-   
-    int r;
+  if(idx >= n_tours)return;
+  
+  raft::random::detail::PhiloxGenerator gen(seeds[idx],(uint64_t)idx,0);
+  
+  int r;
+  gen.next(r);
+  int opt = r % n_progs;
+  float opt_score = progs[opt].raw_fitness_;
+
+  for (int s = 1; s < tour_size ; ++s){
     gen.next(r);
-    int opt = r % n_progs;
-    float opt_score = progs[opt].raw_fitness_;
+    int curr = r % n_progs;
+    float curr_score = progs[curr].raw_fitness_;
+    
+    // Eliminate thread divergence - b,criterion take values in {0,1}
+    int b = (opt_score < curr_score);
+    opt = opt * (b*(1-criterion) + criterion*(1-b)) + 
+          curr * (b*criterion + (1-b)*(1-criterion));
 
-    for (int s = 1; s < tour_size ; ++s){
-      gen.next(r);
-      int curr = r % n_progs;
-      float curr_score = progs[curr].raw_fitness_;
-      
-      // Reduce thread divergence
-      // criterion = 0 if min is better
-      if(opt_score < curr_score) {
-        opt = (1 - criterion)*opt + criterion*curr;
-      }
-      else {
-        opt = criterion*opt + (1 - criterion)*curr;
-      }
+    opt_score = progs[opt].raw_fitness_;
+  } 
 
-      opt_score = progs[opt].raw_fitness_;
-    } 
-
-    win_indices[idx] = opt;
-  }
+  win_indices[idx] = opt;
 }
 
 /**
@@ -428,7 +424,6 @@ void symFit(const raft::handle_t &handle, const float* input, const float* label
   /* Begin training */
   auto gen = 0;
   while(gen < params.generations){
-    CUML_LOG_DEBUG("Generation #%d",(gen+1));
     // Generate an init seed
     auto init_seed = seed_dist(h_gen_engine);
     

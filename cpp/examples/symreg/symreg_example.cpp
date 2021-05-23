@@ -28,6 +28,8 @@
 #include <cuml/cuml.hpp>
 #include <raft/mr/device/allocator.hpp>
 #include <cuml/common/logger.hpp>
+#include <rmm/device_uvector.hpp>
+#include <rmm/device_scalar.hpp>
 
 // Namspace alias
 namespace cg = cuml::genetic;
@@ -72,6 +74,11 @@ int main(int argc, char* argv[]){
 
   // Training hyper parameters(contains default vals)
   cg::param params;
+
+  // Cuda Events to track execution time for various components
+  cudaEvent_t start,stop;
+  CUDA_RT_CALL(cudaEventCreate(&start));
+  CUDA_RT_CALL(cudaEventCreate(&stop));
 
   // Process training arguments
   const int population_size   = get_argval(argv,argv+argc,"-population_size",params.population_size);
@@ -272,38 +279,41 @@ int main(int argc, char* argv[]){
   CUDA_RT_CALL(cudaStreamCreate(&stream));
   handle.set_stream(stream);
 
-  float* d_traindata    = (float*)handle.get_device_allocator()->allocate(sizeof(float)*n_cols*n_train_rows,stream);
-  float* d_trainlabels  = (float*)handle.get_device_allocator()->allocate(sizeof(float)*n_train_rows,stream);
-  float* d_trainweights = (float*)handle.get_device_allocator()->allocate(sizeof(float)*n_train_rows,stream);
-  float* d_testdata     = (float*)handle.get_device_allocator()->allocate(sizeof(float)*n_cols*n_test_rows,stream);
-  float* d_testlabels   = (float*)handle.get_device_allocator()->allocate(sizeof(float)*n_test_rows,stream);
-  float* d_testweights  = (float*)handle.get_device_allocator()->allocate(sizeof(float)*n_test_rows,stream);
-  float* d_predlabels   = (float*)handle.get_device_allocator()->allocate(sizeof(float)*n_test_rows,stream);
-  float* d_score        = (float*)handle.get_device_allocator()->allocate(sizeof(float),stream);
+  // Begin recording time
+  cudaEventRecord(start,stream);
+  
+  rmm::device_uvector<float> d_traindata(n_cols*n_train_rows,stream);
+  rmm::device_uvector<float> d_trainlabels(n_train_rows,stream);
+  rmm::device_uvector<float> d_trainweights(n_train_rows,stream);
+  rmm::device_uvector<float> d_testdata(n_cols*n_test_rows,stream);
+  rmm::device_uvector<float> d_testlabels(n_test_rows,stream);
+  rmm::device_uvector<float> d_testweights(n_test_rows,stream);
+  rmm::device_uvector<float> d_predlabels(n_test_rows,stream);
+  rmm::device_scalar<float> d_score{stream};
 
   cg::program_t d_finalprogs;  // pointer to last generation ASTs on device
 
-  CUDA_RT_CALL(cudaMemcpyAsync(d_traindata,h_traindata.data(),
+  CUDA_RT_CALL(cudaMemcpyAsync(d_traindata.data(),h_traindata.data(),
                                 sizeof(float)*n_cols*n_train_rows,
                                 cudaMemcpyHostToDevice,stream));
   
-  CUDA_RT_CALL(cudaMemcpyAsync(d_trainlabels,h_trainlabels.data(),
+  CUDA_RT_CALL(cudaMemcpyAsync(d_trainlabels.data(),h_trainlabels.data(),
                                sizeof(float)*n_train_rows,
                                cudaMemcpyHostToDevice,stream)); 
 
-  CUDA_RT_CALL(cudaMemcpyAsync(d_trainweights,h_trainweights.data(),
+  CUDA_RT_CALL(cudaMemcpyAsync(d_trainweights.data(),h_trainweights.data(),
                                sizeof(float)*n_train_rows,
                                cudaMemcpyHostToDevice,stream)); 
 
-  CUDA_RT_CALL(cudaMemcpyAsync(d_testdata,h_testdata.data(),
+  CUDA_RT_CALL(cudaMemcpyAsync(d_testdata.data(),h_testdata.data(),
                                 sizeof(float)*n_cols*n_test_rows,
                                 cudaMemcpyHostToDevice,stream));
   
-  CUDA_RT_CALL(cudaMemcpyAsync(d_testlabels,h_testlabels.data(),
+  CUDA_RT_CALL(cudaMemcpyAsync(d_testlabels.data(),h_testlabels.data(),
                                sizeof(float)*n_test_rows,
                                cudaMemcpyHostToDevice,stream));
 
-  CUDA_RT_CALL(cudaMemcpyAsync(d_testweights,h_testweights.data(),
+  CUDA_RT_CALL(cudaMemcpyAsync(d_testweights.data(),h_testweights.data(),
                                sizeof(float)*n_test_rows,
                                cudaMemcpyHostToDevice,stream)); 
     
@@ -313,9 +323,22 @@ int main(int argc, char* argv[]){
   std::vector<std::vector<cg::program>> history;
   history.reserve(params.generations);
   
+
+  cudaEventRecord(stop,stream);
+  cudaEventSynchronize(stop);
+  float alloc_time;
+  cudaEventElapsedTime(&alloc_time,start,stop);
+
   // Begin training
   std::cout << "Beginning training on given dataset" << std::endl;
-  cg::symFit(handle,d_traindata,d_trainlabels,d_trainweights,n_train_rows,n_cols,params,d_finalprogs,history);
+  cudaEventRecord(start,stream);
+  
+  cg::symFit(handle,d_traindata.data(),d_trainlabels.data(),d_trainweights.data(),n_train_rows,n_cols,params,d_finalprogs,history);
+  
+  cudaEventRecord(stop,stream);
+  cudaEventSynchronize(stop);
+  float training_time;
+  cudaEventElapsedTime(&training_time,start,stop);
 
   int n_gen = history.size();
   std::cout << "Finished training for " << n_gen << " generations." << std::endl;
@@ -339,12 +362,19 @@ int main(int argc, char* argv[]){
   std::cout << "Best AST equation is : " << eqn << std::endl;
   
   // Predict values for test dataset
-  cuml::genetic::symRegPredict(handle,d_testdata,n_test_rows,d_finalprogs+best_idx,d_predlabels);
+  std::cout << "Beginning to predict values on test dataset " << std::endl;
+  cudaEventRecord(start,stream);
+
+  cuml::genetic::symRegPredict(handle,d_testdata.data(),n_test_rows,d_finalprogs+best_idx,d_predlabels.data());
 
   std::vector<float> h_predlabels(n_test_rows,0.0f);
-
-  CUDA_RT_CALL(cudaMemcpy(h_predlabels.data(),d_predlabels,n_test_rows * sizeof(float),cudaMemcpyDeviceToHost));
+  CUDA_RT_CALL(cudaMemcpy(h_predlabels.data(),d_predlabels.data(),n_test_rows * sizeof(float),cudaMemcpyDeviceToHost));
   
+  cudaEventRecord(stop,stream);
+  cudaEventSynchronize(stop);
+  float inference_time;
+  cudaEventElapsedTime(&inference_time,start,stop);
+
   std::cout << "Some Predicted test values:" << std::endl;
   std::copy(h_predlabels.begin(),h_predlabels.begin()+10,std::ostream_iterator<float>(std::cout,";"));
   std::cout << std::endl;
@@ -354,24 +384,22 @@ int main(int argc, char* argv[]){
   std::cout << std::endl;
 
   // Output fitness score
-  cuml::genetic::compute_metric(handle,n_test_rows,1,d_testlabels,d_predlabels,d_testweights,d_score,params);
+  cuml::genetic::compute_metric(handle,n_test_rows,1,
+                                d_testlabels.data(),d_predlabels.data(),d_testweights.data(),
+                                d_score.data(),params);
 
-  float h_score = 0.0f;
-  CUDA_RT_CALL(cudaMemcpyAsync(&h_score,d_score,sizeof(float),cudaMemcpyDeviceToHost,stream));
+  std::cout << " Metric Score for test set : " << d_score.value(stream) << std::endl;
   
-  std::cout << " Metric Score for test set : " << h_score << std::endl;
-  
+  // Print execution time
+  std::cout << std::setw(20) << "Allocation time = " << alloc_time << " ms" << std::endl;
+  std::cout << std::setw(20) << "Training time = "   << training_time << " ms" << std::endl;
+  std::cout << std::setw(20) << "Inference time = "  << inference_time << " ms" << std::endl;
+
   // Free up device memory
-  CUDA_RT_CALL(cudaFree(d_traindata));
-  CUDA_RT_CALL(cudaFree(d_trainlabels));
-  CUDA_RT_CALL(cudaFree(d_trainweights));
-  CUDA_RT_CALL(cudaFree(d_testdata));
-  CUDA_RT_CALL(cudaFree(d_testlabels));
-  CUDA_RT_CALL(cudaFree(d_testweights));
-  CUDA_RT_CALL(cudaFree(d_predlabels));
-  CUDA_RT_CALL(cudaFree(d_score));
   handle.get_device_allocator()->deallocate(d_finalprogs,
                                 sizeof(cuml::genetic::program) * params.population_size, stream);
+  CUDA_RT_CALL(cudaEventDestroy(start));
+  CUDA_RT_CALL(cudaEventDestroy(stop));
   CUDA_RT_CALL(cudaStreamDestroy(stream));
   return 0;
 }
