@@ -67,10 +67,6 @@ struct Builder {
   int* hist;
   /** sum of predictions (regression only) */
   DataT* pred;
-  /** MAE computation (regression only) */
-  DataT* pred2;
-  /** parent MAE computation (regression only) */
-  DataT* pred2P;
   /** node count tracker for averaging (regression only) */
   IdxT* pred_count;
   /** threadblock arrival count */
@@ -187,9 +183,6 @@ struct Builder {
       d_wsize +=
         calculateAlignedBytes(2 * nPredCounts * sizeof(DataT));  // pred
       d_wsize +=
-        calculateAlignedBytes(2 * nPredCounts * sizeof(DataT));       // pred2
-      d_wsize += calculateAlignedBytes(nPredCounts * sizeof(DataT));  // pred2P
-      d_wsize +=
         calculateAlignedBytes(nPredCounts * sizeof(IdxT));  // pred_count
     }
     d_wsize += calculateAlignedBytes(sizeof(int) * max_batch *
@@ -234,10 +227,6 @@ struct Builder {
     } else {
       pred = reinterpret_cast<DataT*>(d_wspace);
       d_wspace += calculateAlignedBytes(2 * nPredCounts * sizeof(DataT));
-      pred2 = reinterpret_cast<DataT*>(d_wspace);
-      d_wspace += calculateAlignedBytes(2 * nPredCounts * sizeof(DataT));
-      pred2P = reinterpret_cast<DataT*>(d_wspace);
-      d_wspace += calculateAlignedBytes(nPredCounts * sizeof(DataT));
       pred_count = reinterpret_cast<IdxT*>(d_wspace);
       d_wspace += calculateAlignedBytes(nPredCounts * sizeof(IdxT));
     }
@@ -525,29 +514,7 @@ struct RegTraits {
     CUDA_CHECK(
       cudaMemsetAsync(b.pred, 0, sizeof(DataT) * b.nPredCounts * 2, s));
     CUDA_CHECK(
-      cudaMemsetAsync(b.pred2, 0, sizeof(DataT) * b.nPredCounts * 2, s));
-    CUDA_CHECK(cudaMemsetAsync(b.pred2P, 0, sizeof(DataT) * b.nPredCounts, s));
-    CUDA_CHECK(
       cudaMemsetAsync(b.pred_count, 0, sizeof(IdxT) * b.nPredCounts, s));
-
-    // Compute shared memory size for first pass kernel
-    size_t smemSize = (nbins + 1) * sizeof(DataT) +  // pdf_spred
-                      nbins * sizeof(int) +          // pdf_scount
-                      nbins * sizeof(DataT);         // sbins
-    // Room for alignment
-    // See alignPointer in computeSplitRegressionKernelPass1 for details
-    smemSize += 2 * sizeof(DataT) + 1 * sizeof(int);
-    ML::PUSH_RANGE(
-      "computeSplitRegressionKernelPass1 @builder_base.cuh "
-      "[batched-levelalgo]");
-
-    dim3 grid(b.total_num_blocks, colBlks, 1);
-    computeSplitRegressionKernelPass1<DataT, DataT, IdxT, TPB_DEFAULT>
-      <<<grid, TPB_DEFAULT, smemSize, s>>>(
-        b.pred, b.pred_count, b.params.n_bins, b.input, b.curr_nodes, col,
-        b.treeid, b.workload_info, b.seed);
-
-    ML::POP_RANGE();  //computeSplitRegressionKernelPass1
 
     // Compute shared memory size for second pass kernel
     size_t smemSize1 = (nbins + 1) * sizeof(DataT) +  // pdf_spred
@@ -555,9 +522,6 @@ struct RegTraits {
                        nbins * sizeof(int) +          // pdf_scount
                        nbins * sizeof(int) +          // cdf_scount
                        nbins * sizeof(DataT) +        // sbins
-                       2 * nbins * sizeof(DataT) +    // spred2
-                       nbins * sizeof(DataT) +        // spred2P
-                       nbins * sizeof(DataT) +        // spredP
                        sizeof(int);                   // sDone
     // Room for alignment
     // See alignPointer in computeSplitRegressionKernelPass2 for details
@@ -566,20 +530,31 @@ struct RegTraits {
     size_t smemSize2 =
       raft::ceildiv(TPB_DEFAULT, raft::WarpSize) * sizeof(Split<DataT, IdxT>);
     // Pick the max of two
-    smemSize = std::max(smemSize1, smemSize2);
+    size_t smemSize = std::max(smemSize1, smemSize2);
+    int n_blks_for_rows = b.n_blks_for_rows(
+      n_col_blks,
+      (const void*)
+        computeSplitRegressionKernel<DataT, LabelT, IdxT, TPB_DEFAULT>,
+      TPB_DEFAULT, smemSize, batchSize);
+    dim3 grid(n_blks_for_rows, n_col_blks, batchSize);
+
+    CUDA_CHECK(
+      cudaMemsetAsync(b.pred, 0, sizeof(DataT) * b.nPredCounts * 2, s));
+    CUDA_CHECK(
+      cudaMemsetAsync(b.pred_count, 0, sizeof(IdxT) * b.nPredCounts, s));
 
     ML::PUSH_RANGE(
-      "computeSplitRegressionKernelPass2 @builder_base.cuh "
+      "computeSplitRegressionKernel @builder_base.cuh "
       "[batched-levelalgo]");
 
-    computeSplitRegressionKernelPass2<DataT, DataT, IdxT, TPB_DEFAULT>
+    computeSplitRegressionKernel<DataT, DataT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
-        b.pred, b.pred2, b.pred2P, b.pred_count, b.params.n_bins,
+        b.pred, b.pred_count, b.params.n_bins,
         b.params.min_samples_leaf, b.params.min_impurity_decrease, b.input,
         b.curr_nodes, col, b.done_count, b.mutex, b.splits, splitType, b.treeid,
         b.workload_info, b.seed);
 
-    ML::POP_RANGE();  //computeSplitRegressionKernelPass2
+    ML::POP_RANGE();  //computeSplitRegressionKernelPass
     ML::POP_RANGE();  //Builder::computeSplit
   }
 

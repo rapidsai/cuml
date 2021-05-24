@@ -1008,7 +1008,7 @@ def test_rf_nbins_small(small_clf):
     cuml_model.fit(X_train[0:3, :], y_train[0:3])
 
 
-@pytest.mark.parametrize('split_criterion', [2, 3], ids=['mse', 'mae'])
+@pytest.mark.parametrize('split_criterion', [2], ids=['mse'])
 @pytest.mark.parametrize('use_experimental_backend', [True, False])
 def test_rf_regression_with_identical_labels(split_criterion,
                                              use_experimental_backend):
