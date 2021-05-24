@@ -349,6 +349,24 @@ void core_distances(value_t *knn_dists, int k, int min_samples, size_t n,
  * function for each data point, where core_distance is the distance
  * to the kth neighbor: max(core_distance(a), core_distance(b), d(a, b))
  *
+ * Unfortunately, points in the tails of the pdf (e.g. in sparse regions
+ * of the space) can have very large neighborhoods, which will impact
+ * nearby neighborhoods. Because of this, it's possible that the
+ * radius for points in the main mass, which might have a very small
+ * radius initially, to expand very large. As a result, the initial
+ * knn which was used to compute the core distances may no longer
+ * capture the actual neighborhoods after projection into mutual
+ * reachability space.
+ *
+ * For the experimental version, we execute the knn twice- once
+ * to compute the radii (core distances) and again to capture
+ * the final neighborhoods. Future iterations of this algorithm
+ * will work improve upon this "exact" version, by using
+ * more specialized data structures, such as space-partitioning
+ * structures. It has also been shown that approximate nearest
+ * neighbors can yield reasonable neighborhoods as the
+ * data sizes increase.
+ *
  * @tparam value_idx
  * @tparam value_t
  * @param[in] handle raft handle for resource reuse
@@ -396,8 +414,9 @@ void mutual_reachability_graph(const raft::handle_t &handle, const value_t *X,
                   int64_indices.data(), dists.data(), k, true, true, metric);
 
   // convert from current knn's 64-bit to 32-bit.
-  raft::sparse::selection::conv_indices(int64_indices.data(), inds.data(),
-                                        k * m, stream);
+  thrust::transform(exec_policy, int64_indices.data(),
+                    int64_indices.data() + int64_indices.size(), inds.data(),
+                    [] __device__(int64_t in, value_idx out) { return in; });
 
   // Slice core distances (distances to kth nearest neighbor)
   core_distances(dists.data(), k, min_samples, m, core_dists, stream);
@@ -408,9 +427,13 @@ void mutual_reachability_graph(const raft::handle_t &handle, const value_t *X,
   mutual_reachability_knn_l2(handle, inds.data(), dists.data(), X, m, n, k,
                              core_dists, (value_t)1.0 / alpha);
 
-  raft::sparse::selection::fill_indices<value_idx>
-    <<<raft::ceildiv(k * m, (size_t)256), 256, 0, stream>>>(coo_rows.data(), k,
-                                                            m * k);
+  // self-loops get max distance
+  auto coo_rows_counting_itr = thrust::make_counting_iterator<value_idx>(0);
+  thrust::transform(coo_rows_counting_itr, coo_rows_counting_itr + (m * k),
+                    coo_rows.data(),
+                    [=] __device__(value_idx c) { return c / k; })
+
+    CUDA_CHECK(cudaPeekAtLastError());
 
   raft::sparse::linalg::symmetrize(handle, coo_rows.data(), inds.data(),
                                    dists.data(), m, m, k * m, out);
@@ -425,9 +448,9 @@ void mutual_reachability_graph(const raft::handle_t &handle, const value_t *X,
   thrust::transform(
     exec_policy, transform_in, transform_in + out.nnz, out.vals(),
     [=] __device__(const thrust::tuple<value_idx, value_idx, value_t> &tup) {
-      bool self_loop = thrust::get<0>(tup) == thrust::get<1>(tup);
-      return (self_loop * std::numeric_limits<value_t>::max()) +
-             (!self_loop * thrust::get<2>(tup));
+      return thrust::get<0>(tup) == thrust::get<1>(tup)
+               ? std::numeric_limits<value_t>::max()
+               : thrust::get<2>(tup);
     });
 }
 

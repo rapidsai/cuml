@@ -72,9 +72,9 @@ struct FixConnectivitiesRedOp {
       value_t core_dist_out =
         max(core_dist_rit, max(core_dists[out->key], out->value));
 
-      bool smaller = core_dist_other < core_dist_out;
-      out->key = (smaller * other.key) + (!smaller * out->key);
-      out->value = (smaller * core_dist_other) + (!smaller * core_dist_out);
+      out = core_dist_other < core_dist_out
+              ? KVP{other.key, core_dist_other}
+              : KVP{core_dist_other, core_dist_out};
     }
   }
 
@@ -84,9 +84,8 @@ struct FixConnectivitiesRedOp {
       value_t core_dist_a = max(core_dist_rit, max(core_dists[a.key], a.value));
       value_t core_dist_b = max(core_dist_rit, max(core_dists[b.key], b.value));
 
-      bool smaller = core_dist_a < core_dist_b;
-      return KVP((smaller * a.key) + (!smaller * b.key),
-                 (smaller * core_dist_a) + (!smaller * core_dist_b));
+      return core_dist_a < core_dist_b ? KVP(a.key, core_dist_a)
+                                       : KVP(b.key, core_dist_b);
     }
 
     return b;

@@ -50,6 +50,15 @@ namespace HDBSCAN {
 namespace detail {
 namespace Extract {
 
+/**
+ * Union-rank data structure with path compression for
+ * labeling data points based on their farthest ancestors
+ * under root.
+ *
+ * For correctness, it is important that all children are
+ * visited before their parents.
+ * @tparam value_idx
+ */
 template <typename value_idx>
 class TreeUnionFind {
  public:

@@ -52,6 +52,7 @@ namespace Condense {
  * @param[in] sizes
  * @param[in] min_cluster_size
  * @param[in] n_leaves
+ * @param[out] condensed_tree
  * @param[out] out_parent
  * @param[out] out_child
  * @param[out] out_lambda

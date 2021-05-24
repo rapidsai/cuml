@@ -55,7 +55,7 @@ class CondensedHierarchy {
                      value_t *lambdas_, value_idx *sizes_);
 
   /**
-   * Constructs a condensed hierarchy object with by moving
+   * Constructs a condensed hierarchy object by moving
    * rmm::device_uvector. Used to construct cluster trees
    * @param handle_
    * @param n_leaves_
@@ -74,7 +74,7 @@ class CondensedHierarchy {
                      rmm::device_uvector<value_idx> &&sizes_);
   /**
    * Populates the condensed hierarchy object with the output
-   * from Condense::condense_hierarchy
+   * from Condense::build_condensed_hierarchy
    * @param full_parents
    * @param full_children
    * @param full_lambdas
@@ -130,9 +130,28 @@ class HDBSCANParams : public RobustSingleLinkageParams {
     CLUSTER_SELECTION_METHOD::EOM;
 };
 
+/**
+ * Container object for output information common between
+ * robust single linkage variants.
+ * @tparam value_idx
+ * @tparam value_t
+ */
 template <typename value_idx, typename value_t>
 class robust_single_linkage_output {
  public:
+  /**
+   * Construct output object with empty device arrays of
+   * known size.
+   * @param handle_ raft handle for ordering cuda operations
+   * @param n_leaves_  number of data points
+   * @param labels_ labels array on device (size n_leaves)
+   * @param children_ dendrogram src/dst array (size n_leaves - 1, 2)
+   * @param sizes_ dendrogram cluster sizes array (size n_leaves - 1)
+   * @param deltas_ dendrogram distances array (size n_leaves - 1)
+   * @param mst_src_ min spanning tree source array (size n_leaves - 1)
+   * @param mst_dst_ min spanning tree destination array (size n_leaves - 1)
+   * @param mst_weights_ min spanninng tree distances array (size n_leaves - 1)
+   */
   robust_single_linkage_output(const raft::handle_t &handle_, int n_leaves_,
                                value_idx *labels_, value_idx *children_,
                                value_idx *sizes_, value_t *deltas_,
@@ -159,6 +178,10 @@ class robust_single_linkage_output {
   value_idx *get_mst_dst() { return mst_dst; }
   value_t *get_mst_weights() { return mst_weights; }
 
+  /**
+   * The number of clusters is set by the algorithm once it is known.
+   * @param n_clusters_ number of resulting clusters
+   */
   void set_n_clusters(int n_clusters_) { n_clusters = n_clusters_; }
 
  protected:
@@ -257,11 +280,32 @@ template class CondensedHierarchy<int, float>;
 };  // namespace Common
 };  // namespace HDBSCAN
 
+/**
+ * Executes HDBSCAN clustering on an mxn-dimensional input array, X.
+ * @param[in] handle raft handle for resource reuse
+ * @param[in] X array (size m, n) on device in row-major format
+ * @param m number of rows in X
+ * @param n number of columns in X
+ * @param metric distance metric to use
+ * @param params struct of configuration hyper-parameters
+ * @param out struct of output data and arrays on device
+ */
 void hdbscan(const raft::handle_t &handle, const float *X, size_t m, size_t n,
              raft::distance::DistanceType metric,
              HDBSCAN::Common::HDBSCANParams &params,
              HDBSCAN::Common::hdbscan_output<int, float> &out);
 
+/**
+ * Executes Robust Single Linkage clustering on an mxn-dimensional
+ * input array, X.
+ * @param handle raft handle for resource reuse
+ * @param X array (size m, n) on device in row-major format
+ * @param m number of rows in X
+ * @param n number of columns in X
+ * @param metric distance metric to use
+ * @param params struct of configuration hyper-parameters
+ * @param out struct of output data and arrays on device
+ */
 void robust_single_linkage(
   const raft::handle_t &handle, const float *X, size_t m, size_t n,
   raft::distance::DistanceType metric,

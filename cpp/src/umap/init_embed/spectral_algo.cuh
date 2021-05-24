@@ -58,8 +58,6 @@ void launcher(const raft::handle_t &handle, int n, int d,
                           coo->nnz, n, params->n_components, tmp_storage.data(),
                           seed);
 
-  raft::print_device_vector("spectral", tmp_storage.data(), 25, std::cout);
-
   raft::linalg::transpose(handle, tmp_storage.data(), embedding, n,
                           params->n_components, stream);
 
