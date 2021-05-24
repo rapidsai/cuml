@@ -57,7 +57,6 @@ def test_split_dataframe(train_size, shuffle):
     assert all(out)
 
 
-
 @pytest.mark.parametrize("y_type", ["cudf", "cupy"])
 def test_split_dataframe_array(y_type):
     X = cudf.DataFrame({"x": range(100)})
