@@ -531,12 +531,6 @@ struct RegTraits {
       raft::ceildiv(TPB_DEFAULT, raft::WarpSize) * sizeof(Split<DataT, IdxT>);
     // Pick the max of two
     size_t smemSize = std::max(smemSize1, smemSize2);
-    int n_blks_for_rows = b.n_blks_for_rows(
-      n_col_blks,
-      (const void*)
-        computeSplitRegressionKernel<DataT, LabelT, IdxT, TPB_DEFAULT>,
-      TPB_DEFAULT, smemSize, batchSize);
-    dim3 grid(n_blks_for_rows, n_col_blks, batchSize);
 
     CUDA_CHECK(
       cudaMemsetAsync(b.pred, 0, sizeof(DataT) * b.nPredCounts * 2, s));
@@ -546,7 +540,7 @@ struct RegTraits {
     ML::PUSH_RANGE(
       "computeSplitRegressionKernel @builder_base.cuh "
       "[batched-levelalgo]");
-
+    dim3 grid(b.total_num_blocks, colBlks, 1);
     computeSplitRegressionKernel<DataT, DataT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
         b.pred, b.pred_count, b.params.n_bins,

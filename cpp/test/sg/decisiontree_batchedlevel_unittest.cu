@@ -304,19 +304,7 @@ TEST_P(TestMetric, RegressionMetricGain) {
 
   CRITERION split_criterion = GetParam();
 
-  // Compute shared memory size for first pass kernel
-  size_t smemSize = (n_bins + 1) * sizeof(DataT) +  // pdf_spred
-                    n_bins * sizeof(int) +          // pdf_scount
-                    n_bins * sizeof(DataT);         // sbins
-  // Room for alignment
-  // (see alignPointer in computeSplitRegressionKernelPass1)
-  smemSize += 2 * sizeof(DataT) + 1 * sizeof(int);
-
   dim3 grid(1, n_col_blks, 1);
-  computeSplitRegressionKernelPass1<DataT, DataT, IdxT, 32>
-    <<<grid, 32, smemSize, 0>>>(pred, pred_count, n_bins, input, curr_nodes, 0,
-                                0, workload_info, 1234ULL);
-
   // Compute shared memory size for second pass kernel
   size_t smemSize1 = (n_bins + 1) * sizeof(DataT) +  // pdf_spred
                      2 * n_bins * sizeof(DataT) +    // cdf_spred
@@ -333,13 +321,13 @@ TEST_P(TestMetric, RegressionMetricGain) {
   size_t smemSize2 =
     raft::ceildiv(32, raft::WarpSize) * sizeof(Split<DataT, IdxT>);
   // Pick the max of two
-  smemSize = std::max(smemSize1, smemSize2);
+  size_t smemSize = std::max(smemSize1, smemSize2);
 
   computeSplitRegressionKernel<DataT, DataT, IdxT, 32>
     <<<grid, 32, smemSize, 0>>>(
       pred, pred_count, n_bins,
       params.min_samples_leaf, params.min_impurity_decrease,
-      input, curr_nodes, 0, done_count, mutex, n_new_leaves, splits, block_sync,
+      input, curr_nodes, 0, done_count, mutex, splits,
       split_criterion, 0, workload_info, 1234ULL);
 
   raft::update_host(h_splits.data(), splits, 1, 0);

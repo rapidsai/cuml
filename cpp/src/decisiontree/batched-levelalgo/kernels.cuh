@@ -521,10 +521,10 @@ __global__ void computeSplitClassificationKernel(
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 __global__ void computeSplitRegressionKernel(
   DataT* pred, IdxT* count, IdxT nbins,
-  IdxT min_samples_leaf, DataT min_impurity_decrease, ,
+  IdxT min_samples_leaf, DataT min_impurity_decrease,
   Input<DataT, LabelT, IdxT> input, const Node<DataT, LabelT, IdxT>* nodes,
   IdxT colStart, int* done_count, int* mutex,
-  volatile Split<DataT, IdxT>* splits, void* workspace, CRITERION splitType,
+  volatile Split<DataT, IdxT>* splits, CRITERION splitType,
   IdxT treeid, WorkloadInfo<IdxT>* workload_info, uint64_t seed) {
 
   extern __shared__ char smem[];
@@ -609,7 +609,6 @@ __global__ void computeSplitRegressionKernel(
     pdf_scount[i] = count[gcOffset + i];
   }
 
-  auto gOffset = ((nid * gridDim.y) + blockIdx.y) * pdf_spred_len;
   for (IdxT i = threadIdx.x; i < pdf_spred_len; i += blockDim.x) {
     pdf_spred[i] = pred[gOffset + i];
   }
@@ -627,19 +626,22 @@ __global__ void computeSplitRegressionKernel(
 
   __threadfence();  // for commit guarantee
   __syncthreads();
-
-  last = MLCommon::signalDone(done_count + nid * gridDim.y + blockIdx.y,
-                                num_blocks, offset_blockid == 0, sDone);
+  // last threadblock will go ahead and compute the best split
+  bool last = true;
+  if (gridDim.x > 1) {
+    last = MLCommon::signalDone(done_count + nid * gridDim.y + blockIdx.y,
+                              num_blocks, offset_blockid == 0, sDone);
+  }
   // exit if not last
   if (!last) return;
 
-    // store global pred2 and pred2P into shared memory of last x-dim block
-  for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
-    spred2[i] = pred2[gOffset + i];
-  }
-  for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
-    spred2P[i] = pred2P[gcOffset + i];
-  }
+  // store global pred2 and pred2P into shared memory of last x-dim block
+  // for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
+  //   spred2[i] = pred2[gOffset + i];
+  // }
+  // for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+  //   spred2P[i] = pred2P[gcOffset + i];
+  // }
   __syncthreads();
 
   // last block computes the final gain
