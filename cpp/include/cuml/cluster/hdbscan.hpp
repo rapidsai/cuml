@@ -294,3 +294,4 @@ void hdbscan(const raft::handle_t &handle, const float *X, size_t m, size_t n,
              raft::distance::DistanceType metric,
              HDBSCAN::Common::HDBSCANParams &params,
              HDBSCAN::Common::hdbscan_output<int, float> &out);
+} // END namespace ML

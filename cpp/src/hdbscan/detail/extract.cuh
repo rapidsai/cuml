@@ -215,9 +215,6 @@ void extract_clusters(
 
   Stability::compute_stabilities(handle, condensed_tree,
                                  tree_stabilities.data());
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
   rmm::device_uvector<int> is_cluster(condensed_tree.get_n_clusters(),
                                       handle.get_stream());
 

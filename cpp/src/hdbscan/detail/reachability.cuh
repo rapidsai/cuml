@@ -335,12 +335,19 @@ void mutual_reachability_knn_l2(const raft::handle_t &handle,
  * @param[out] out output array (size n)
  * @param[in] stream stream for which to order cuda operations
  */
-template <typename value_t, int tpb = 256>
+template <typename value_idx, typename value_t, int tpb = 256>
 void core_distances(value_t *knn_dists, int k, int min_samples, size_t n,
                     value_t *out, cudaStream_t stream) {
   int blocks = raft::ceildiv(n, (size_t)tpb);
-  core_distances_kernel<value_t>
-    <<<blocks, tpb, 0, stream>>>(knn_dists, k, min_samples, n, out);
+
+  auto exec_policy = rmm::exec_policy(stream);
+
+  auto indices = thrust::make_counting_iterator<value_idx>(0);
+
+  thrust::transform(exec_policy, indices, indices + n, out,
+                    [=] __device__(value_idx row) {
+                      return knn_dists[row * k + (min_samples - 1)];
+                    });
 }
 
 /**
@@ -380,7 +387,9 @@ void core_distances(value_t *knn_dists, int k, int min_samples, size_t n,
  *            mutual reachability (value of 1.0 disables the weighting)
  * @param[out] indptr CSR indptr of output knn graph (size m + 1)
  * @param[out] core_dists output core distances array (size m)
- * @param[out] out uninitialized output COO object
+ * @param[out] out COO object, uninitialized on entry, on exit it stores the
+ *             (symmetrized) maximum reachability distance for the k nearest
+ *             neighbors.
  */
 template <typename value_idx, typename value_t>
 void mutual_reachability_graph(const raft::handle_t &handle, const value_t *X,
@@ -416,10 +425,10 @@ void mutual_reachability_graph(const raft::handle_t &handle, const value_t *X,
   // convert from current knn's 64-bit to 32-bit.
   thrust::transform(exec_policy, int64_indices.data(),
                     int64_indices.data() + int64_indices.size(), inds.data(),
-                    [] __device__(int64_t in, value_idx out) { return in; });
+                    [] __device__(int64_t in)->value_idx {return in; });
 
   // Slice core distances (distances to kth nearest neighbor)
-  core_distances(dists.data(), k, min_samples, m, core_dists, stream);
+  core_distances<value_idx>(dists.data(), k, min_samples, m, core_dists, stream);
 
   /**
    * Compute L2 norm
@@ -427,13 +436,17 @@ void mutual_reachability_graph(const raft::handle_t &handle, const value_t *X,
   mutual_reachability_knn_l2(handle, inds.data(), dists.data(), X, m, n, k,
                              core_dists, (value_t)1.0 / alpha);
 
+  printf("Creating coo rows\n");
+
   // self-loops get max distance
   auto coo_rows_counting_itr = thrust::make_counting_iterator<value_idx>(0);
-  thrust::transform(coo_rows_counting_itr, coo_rows_counting_itr + (m * k),
+  thrust::transform(exec_policy, coo_rows_counting_itr, coo_rows_counting_itr + (m * k),
                     coo_rows.data(),
-                    [=] __device__(value_idx c) { return c / k; })
+                    [k] __device__(value_idx c)->value_idx { return c / k; });
 
-    CUDA_CHECK(cudaPeekAtLastError());
+  CUDA_CHECK(cudaPeekAtLastError());
+
+  printf("Done.\n");
 
   raft::sparse::linalg::symmetrize(handle, coo_rows.data(), inds.data(),
                                    dists.data(), m, m, k * m, out);

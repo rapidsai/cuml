@@ -35,17 +35,6 @@
 namespace ML {
 namespace HDBSCAN {
 
-template <typename value_idx, typename value_t>
-__global__ void set_core_dists(value_idx *rows, value_idx *cols, value_t *vals,
-                               value_idx nnz, value_t *core_distances) {
-  int i = blockDim.x * blockIdx.x + threadIdx.x;
-
-  if (i < nnz) {
-    vals[i] =
-      max(core_distances[rows[i]], max(core_distances[cols[i]], vals[i]));
-  }
-}
-
 /**
  * Functor with reduction ops for performing fused 1-nn
  * computation and guaranteeing only cross-component
@@ -72,9 +61,9 @@ struct FixConnectivitiesRedOp {
       value_t core_dist_out =
         max(core_dist_rit, max(core_dists[out->key], out->value));
 
-      out = core_dist_other < core_dist_out
-              ? KVP{other.key, core_dist_other}
-              : KVP{core_dist_other, core_dist_out};
+      bool smaller = core_dist_other < core_dist_out;
+      out->key = smaller ? other.key : out->key ;
+      out->value = smaller ? core_dist_other : core_dist_out;
     }
   }
 
