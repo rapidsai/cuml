@@ -79,7 +79,6 @@ __global__ void cluster_epsilon_search_kernel(
   }
 
   auto eps = 1 / lambdas[child_idx];
-  // printf("child_idx: %d, eps: %f\n", child_idx, eps);
 
   if (eps < cluster_selection_epsilon) {
     constexpr auto root = 0;
@@ -89,7 +88,6 @@ __global__ void cluster_epsilon_search_kernel(
 
     do {
       parent = parents[child_idx];
-      // printf("parent: %d, child_idx: %d\n", parent, child_idx);
 
       if (parent == root) {
         if (!allow_single_cluster) {
