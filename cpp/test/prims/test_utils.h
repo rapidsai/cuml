@@ -58,7 +58,7 @@ struct CompareApproxAbs {
 };
 
 template <typename T>
-T abs(const T &a) {
+HDI T abs(const T &a) {
   return a > T(0) ? a : -a;
 }
 
