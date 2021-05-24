@@ -297,7 +297,6 @@ TEST_P(TestMetric, RegressionMetricGain) {
   CUDA_CHECK(cudaMemsetAsync(pred, 0, 2 * sizeof(DataT) * nPredCounts, 0));
   CUDA_CHECK(cudaMemsetAsync(pred_count, 0, nPredCounts * sizeof(IdxT), 0));
   CUDA_CHECK(cudaMemsetAsync(n_new_leaves, 0, sizeof(IdxT), 0));
-
   initSplit<DataT, IdxT, Traits::TPB_DEFAULT>(splits, batchSize, 0);
 
   std::vector<Traits::SplitT> h_splits(1);
@@ -305,17 +304,14 @@ TEST_P(TestMetric, RegressionMetricGain) {
   CRITERION split_criterion = GetParam();
 
   dim3 grid(1, n_col_blks, 1);
-  // Compute shared memory size for second pass kernel
+  // Compute shared memory size
   size_t smemSize1 = (n_bins + 1) * sizeof(DataT) +  // pdf_spred
                      2 * n_bins * sizeof(DataT) +    // cdf_spred
                      n_bins * sizeof(int) +          // pdf_scount
                      n_bins * sizeof(int) +          // cdf_scount
                      n_bins * sizeof(DataT) +        // sbins
-                     2 * n_bins * sizeof(DataT) +    // spred2
-                     n_bins * sizeof(DataT) +        // spred2P
-                     n_bins * sizeof(DataT) +        // spredP
                      sizeof(int);                    // sDone
-  // Room for alignment (see alignPointer in computeSplitRegression* kernels)
+  // Room for alignment (see alignPointer in computeSplitRegressionkernels)
   smemSize1 += 6 * sizeof(DataT) + 3 * sizeof(int);
   // Calculate the shared memory needed for evalBestSplit
   size_t smemSize2 =

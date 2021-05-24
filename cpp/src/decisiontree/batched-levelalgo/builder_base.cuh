@@ -445,10 +445,10 @@ struct ClsTraits {
       raft::ceildiv(TPB_DEFAULT, raft::WarpSize) * sizeof(Split<DataT, IdxT>);
     // Pick the max of two
     size_t smemSize = std::max(smemSize1, smemSize2);
+    dim3 grid(b.total_num_blocks, colBlks, 1);
     CUDA_CHECK(cudaMemsetAsync(b.hist, 0, sizeof(int) * b.nHistBins, s));
     ML::PUSH_RANGE(
       "computeSplitClassificationKernel @builder_base.cuh [batched-levelalgo]");
-    dim3 grid(b.total_num_blocks, colBlks, 1);
     computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
         b.hist, b.params.n_bins, b.params.min_samples_leaf,
@@ -513,7 +513,7 @@ struct RegTraits {
     auto colBlks = std::min(b.n_blks_for_cols, b.input.nSampledCols - col);
     auto nbins = b.params.n_bins;
 
-    // Compute shared memory size for second pass kernel
+    // Compute shared memory size
     size_t smemSize1 = (nbins + 1) * sizeof(DataT) +  // pdf_spred
                        2 * nbins * sizeof(DataT) +    // cdf_spred
                        nbins * sizeof(int) +          // pdf_scount
@@ -527,6 +527,7 @@ struct RegTraits {
       raft::ceildiv(TPB_DEFAULT, raft::WarpSize) * sizeof(Split<DataT, IdxT>);
     // Pick the max of two
     size_t smemSize = std::max(smemSize1, smemSize2);
+    dim3 grid(b.total_num_blocks, colBlks, 1);
 
     CUDA_CHECK(
       cudaMemsetAsync(b.pred, 0, sizeof(DataT) * b.nPredCounts * 2, s));
@@ -535,7 +536,6 @@ struct RegTraits {
 
     ML::PUSH_RANGE(
       "computeSplitRegressionKernel @builder_base.cuh [batched-levelalgo]");
-    dim3 grid(b.total_num_blocks, colBlks, 1);
     computeSplitRegressionKernel<DataT, DataT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
         b.pred, b.pred_count, b.params.n_bins,
@@ -543,7 +543,7 @@ struct RegTraits {
         b.curr_nodes, col, b.done_count, b.mutex, b.splits, splitType, b.treeid,
         b.workload_info, b.seed);
 
-    ML::POP_RANGE();  //computeSplitRegressionKernelPass
+    ML::POP_RANGE();  //computeSplitRegressionKernel
     ML::POP_RANGE();  //Builder::computeSplit
   }
 

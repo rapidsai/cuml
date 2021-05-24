@@ -569,8 +569,12 @@ __global__ void computeSplitRegressionKernel(
   for (IdxT i = threadIdx.x; i < pdf_spred_len; i += blockDim.x) {
     pdf_spred[i] = DataT(0.0);
   }
+  for (IdxT i = threadIdx.x; i < cdf_spred_len; i += blockDim.x) {
+    cdf_spred[i] = DataT(0.0);
+  }
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
     pdf_scount[i] = 0;
+    cdf_scount[i] = 0;
     sbins[i] = input.quantiles[col * nbins + i];
   }
   __syncthreads();
@@ -603,12 +607,13 @@ __global__ void computeSplitRegressionKernel(
   for (IdxT i = threadIdx.x; i < pdf_spred_len; i += blockDim.x) {
     atomicAdd(pred + gOffset + i, pdf_spred[i]);
   }
+  __threadfence();  // for commit guarantee
+  __syncthreads();
 
   // transfer from global to smem
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
     pdf_scount[i] = count[gcOffset + i];
   }
-
   for (IdxT i = threadIdx.x; i < pdf_spred_len; i += blockDim.x) {
     pdf_spred[i] = pred[gOffset + i];
   }
@@ -626,23 +631,16 @@ __global__ void computeSplitRegressionKernel(
 
   __threadfence();  // for commit guarantee
   __syncthreads();
+
   // last threadblock will go ahead and compute the best split
   bool last = true;
   if (gridDim.x > 1) {
     last = MLCommon::signalDone(done_count + nid * gridDim.y + blockIdx.y,
-                              num_blocks, offset_blockid == 0, sDone);
+                                num_blocks, offset_blockid == 0, sDone);
   }
+
   // exit if not last
   if (!last) return;
-
-  // store global pred2 and pred2P into shared memory of last x-dim block
-  // for (IdxT i = threadIdx.x; i < len; i += blockDim.x) {
-  //   spred2[i] = pred2[gOffset + i];
-  // }
-  // for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
-  //   spred2P[i] = pred2P[gcOffset + i];
-  // }
-  __syncthreads();
 
   // last block computes the final gain
   // create a split instance to test current feature split
