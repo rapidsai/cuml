@@ -476,22 +476,22 @@ def train_test_split(X,
     if hasattr(X, "__cuda_array_interface__") or \
             isinstance(X, cupyx.scipy.sparse.csr_matrix):
         X_train = cp.array(X[0:train_size], order=x_order)
-        if y is not None:
-            y_train = cp.array(y[0:train_size], order=y_order)
-    elif isinstance(X, cudf.DataFrame):
-        X_train = X.iloc[0:train_size]
-        if y is not None:
-            y_train = y.iloc[0:train_size]
-
-    if hasattr(X, "__cuda_array_interface__") or \
-            isinstance(X, cupyx.scipy.sparse.csr_matrix):
         X_test = cp.array(X[-1 * test_size:], order=x_order)
         if y is not None:
+            y_train = cp.array(y[0:train_size], order=y_order)
             y_test = cp.array(y[-1 * test_size:], order=y_order)
     elif isinstance(X, cudf.DataFrame):
+        X_train = X.iloc[0:train_size]
         X_test = X.iloc[-1 * test_size:]
         if y is not None:
-            y_test = y.iloc[-1 * test_size:]
+            if isinstance(y, cudf.Series):
+                y_train = y.iloc[0:train_size]
+                y_test = y.iloc[-1 * test_size:]
+            elif hasattr(y, "__cuda_array_interface__") or \
+                    isinstance(y, cupyx.scipy.sparse.csr_matrix):
+                y_train = cp.array(y[0:train_size], order=y_order)
+                y_test = cp.array(y[-1 * test_size:], order=y_order)
+
     if x_numba:
         X_train = cuda.as_cuda_array(X_train)
         X_test = cuda.as_cuda_array(X_test)
