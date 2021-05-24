@@ -289,10 +289,6 @@ TEST_P(TestMetric, RegressionMetricGain) {
     d_allocator->allocate(sizeof(char) * block_sync_size, 0));
   DataT* pred = static_cast<DataT*>(
     d_allocator->allocate(2 * nPredCounts * sizeof(DataT), 0));
-  DataT* pred2 = static_cast<DataT*>(
-    d_allocator->allocate(2 * nPredCounts * sizeof(DataT), 0));
-  DataT* pred2P =
-    static_cast<DataT*>(d_allocator->allocate(nPredCounts * sizeof(DataT), 0));
   IdxT* pred_count =
     static_cast<IdxT*>(d_allocator->allocate(nPredCounts * sizeof(IdxT), 0));
   CUDA_CHECK(cudaMemsetAsync(mutex, 0, sizeof(int) * max_batch, 0));
@@ -300,8 +296,6 @@ TEST_P(TestMetric, RegressionMetricGain) {
     cudaMemsetAsync(done_count, 0, sizeof(int) * max_batch * n_col_blks, 0));
   CUDA_CHECK(cudaMemsetAsync(block_sync, 0, sizeof(char) * block_sync_size, 0));
   CUDA_CHECK(cudaMemsetAsync(pred, 0, 2 * sizeof(DataT) * nPredCounts, 0));
-  CUDA_CHECK(cudaMemsetAsync(pred2, 0, sizeof(DataT) * nPredCounts * 2, 0));
-  CUDA_CHECK(cudaMemsetAsync(pred2P, 0, sizeof(DataT) * nPredCounts, 0));
   CUDA_CHECK(cudaMemsetAsync(pred_count, 0, nPredCounts * sizeof(IdxT), 0));
   CUDA_CHECK(cudaMemsetAsync(n_new_leaves, 0, sizeof(IdxT), 0));
   initSplit<DataT, IdxT, Traits::TPB_DEFAULT>(splits, batchSize, 0);
@@ -312,11 +306,10 @@ TEST_P(TestMetric, RegressionMetricGain) {
 
   computeSplitRegressionKernel<DataT, DataT, IdxT, 32>
     <<<grid, 32, smemSize, 0>>>(
-      pred, pred2, pred2P, pred_count, n_bins, params.max_depth,
-      params.min_samples_split, params.min_samples_leaf,
-      params.min_impurity_decrease, params.max_leaves, input, curr_nodes, 0,
-      done_count, mutex, n_new_leaves, splits, block_sync, split_criterion, 0,
-      1234ULL);
+      pred, pred_count, n_bins, params.max_depth, params.min_samples_split,
+      params.min_samples_leaf, params.min_impurity_decrease, params.max_leaves,
+      input, curr_nodes, 0, done_count, mutex, n_new_leaves, splits, block_sync,
+      split_criterion, 0, 1234ULL);
 
   raft::update_host(h_splits.data(), splits, 1, 0);
   CUDA_CHECK(cudaGetLastError());
@@ -376,13 +369,11 @@ TEST_P(TestMetric, RegressionMetricGain) {
   d_allocator->deallocate(done_count, sizeof(int) * max_batch * n_col_blks, 0);
   d_allocator->deallocate(block_sync, sizeof(char) * block_sync_size, 0);
   d_allocator->deallocate(pred, 2 * nPredCounts * sizeof(DataT), 0);
-  d_allocator->deallocate(pred2, 2 * nPredCounts * sizeof(DataT), 0);
-  d_allocator->deallocate(pred2P, nPredCounts * sizeof(DataT), 0);
   d_allocator->deallocate(pred_count, nPredCounts * sizeof(IdxT), 0);
 }
 
 INSTANTIATE_TEST_SUITE_P(BatchedLevelAlgoUnitTest, TestMetric,
-                         ::testing::Values(CRITERION::MSE, CRITERION::MAE),
+                         ::testing::Values(CRITERION::MSE),
                          [](const auto& info) {
                            switch (info.param) {
                              case CRITERION::MSE:
