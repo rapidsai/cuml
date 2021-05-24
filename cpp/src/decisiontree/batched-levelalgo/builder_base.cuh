@@ -513,11 +513,6 @@ struct RegTraits {
     auto colBlks = std::min(b.n_blks_for_cols, b.input.nSampledCols - col);
     auto nbins = b.params.n_bins;
 
-    CUDA_CHECK(
-      cudaMemsetAsync(b.pred, 0, sizeof(DataT) * b.nPredCounts * 2, s));
-    CUDA_CHECK(
-      cudaMemsetAsync(b.pred_count, 0, sizeof(IdxT) * b.nPredCounts, s));
-
     // Compute shared memory size for second pass kernel
     size_t smemSize1 = (nbins + 1) * sizeof(DataT) +  // pdf_spred
                        2 * nbins * sizeof(DataT) +    // cdf_spred
@@ -525,8 +520,7 @@ struct RegTraits {
                        nbins * sizeof(int) +          // cdf_scount
                        nbins * sizeof(DataT) +        // sbins
                        sizeof(int);                   // sDone
-    // Room for alignment
-    // See alignPointer in computeSplitRegressionKernelPass2 for details
+    // Room for alignment (See alignPointer in computeSplitRegressionKernel)
     smemSize1 += 6 * sizeof(DataT) + 3 * sizeof(int);
     // Calculate the shared memory needed for evalBestSplit
     size_t smemSize2 =
@@ -540,8 +534,7 @@ struct RegTraits {
       cudaMemsetAsync(b.pred_count, 0, sizeof(IdxT) * b.nPredCounts, s));
 
     ML::PUSH_RANGE(
-      "computeSplitRegressionKernel @builder_base.cuh "
-      "[batched-levelalgo]");
+      "computeSplitRegressionKernel @builder_base.cuh [batched-levelalgo]");
     dim3 grid(b.total_num_blocks, colBlks, 1);
     computeSplitRegressionKernel<DataT, DataT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
