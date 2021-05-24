@@ -419,6 +419,16 @@ def test_output_blocks_per_sm(storage_type, blocks_per_sm,
     assert np.allclose(fil_preds, xgb_preds_int, 1e-3)
 
 
+@pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
+def test_print_forest_shape(small_classifier_and_preds):
+    model_path, model_type, X, xgb_preds = small_classifier_and_preds
+    m = ForestInference.load(model_path, model_type=model_type,
+                             output_class=True, compute_shape_str=True)
+    for substr in ['model size', ' MB', 'Depth histogram:', 'Leaf depth',
+                   'Depth histogram fingerprint', 'Avg nodes per tree']:
+        assert substr in m.shape_str
+
+
 @pytest.mark.parametrize('output_class', [True, False])
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
 def test_thresholding(output_class, small_classifier_and_preds):
