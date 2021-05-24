@@ -135,6 +135,18 @@ def has_shap(min_version="0.37"):
         return False
 
 
+def has_daskglm(min_version=None):
+    try:
+        import dask_glm  # noqa
+        if min_version is None:
+            return True
+        else:
+            return (LooseVersion(str(dask_glm.__version__)) >=
+                    LooseVersion(min_version))
+    except ImportError:
+        return False
+
+
 def dummy_function_always_false(*args, **kwargs):
     return False
 
