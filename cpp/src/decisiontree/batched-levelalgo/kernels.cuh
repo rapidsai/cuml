@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cuml/tree/algo_helper.h>
+#include <thrust/binary_search.h>
 #include <common/grid_sync.cuh>
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
@@ -335,13 +336,9 @@ __global__ void computeSplitKernel(
     auto row = input.rowids[i];
     auto d = input.data[row + coloffset];
     auto label = input.labels[row];
-    // TODO(Rory): Should be binary search?
-    for (IdxT b = 0; b < nbins; ++b) {
-      if (d <= sbins[b]) {
-        BinT::IncrementHistogram(pdf_shist, nbins, b, label);
-        break;
-      }
-    }
+    IdxT bin =
+      thrust::lower_bound(thrust::seq, sbins, sbins + nbins, d) - sbins;
+    BinT::IncrementHistogram(pdf_shist, nbins, bin, label);
   }
 
   // synchronizeing above changes across block

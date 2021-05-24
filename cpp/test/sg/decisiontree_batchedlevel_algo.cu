@@ -134,8 +134,8 @@ INSTANTIATE_TEST_CASE_P(BatchedLevelAlgo, DtClsTestF,
                         ::testing::ValuesIn(allC));
 
 const std::vector<DtTestParams> allR = {
-  {1024, 4, 2, 8, 16, 0.00001f, CRITERION::MSE, 12345ULL},
-  {1024, 4, 2, 8, 16, 0.00001f, CRITERION::MSE, 12345ULL},
+  {2048, 4, 2, 8, 16, 0.00001f, CRITERION::MSE, 12345ULL},
+  {2048, 4, 2, 8, 16, 0.00001f, CRITERION::MSE, 12345ULL},
 };
 template <typename T>
 class DtRegressorTest : public DtBaseTest<T, T> {
@@ -157,13 +157,8 @@ TEST_P(DtRegTestF, Test) {
   int num_leaves, depth;
   grow_tree(handle->get_device_allocator(), handle->get_host_allocator(), data,
             1, 0, inparams.N, inparams.M, labels, quantiles, rowids, inparams.M,
-            0, params, stream, sparsetree, num_leaves, depth);
+            1, params, stream, sparsetree, num_leaves, depth);
   // goes all the way to max-depth
-#if CUDART_VERSION >= 11020
-  if (inparams.splitType == CRITERION::MAE) {
-    GTEST_SKIP();
-  }
-#endif
   ASSERT_EQ(depth, inparams.max_depth);
 }
 INSTANTIATE_TEST_CASE_P(BatchedLevelAlgo, DtRegTestF,

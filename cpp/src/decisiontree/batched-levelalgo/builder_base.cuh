@@ -415,7 +415,7 @@ struct Builder {
     ML::PUSH_RANGE(
       "computeSplitClassificationKernel @builder_base.cuh [batched-levelalgo]");
     ObjectiveT objective(input.nclasses, params.min_impurity_decrease,
-                         params.min_samples_split);
+                         params.min_samples_leaf);
     computeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
         hist, params.n_bins, params.max_depth, params.min_samples_split,

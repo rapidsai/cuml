@@ -207,6 +207,7 @@ TEST_P(TestNodeSplitKernel, MinSamplesSplitLeaf) {
   auto test_params = GetParam();
 
   Builder<ObjectiveT> builder;
+  builder.input = input;
   auto smemSize = builder.nodeSplitSmemSize();
 
   IdxT h_n_total_nodes = 3;  // total number of nodes created so far
@@ -233,7 +234,7 @@ TEST_P(TestNodeSplitKernel, MinSamplesSplitLeaf) {
   raft::update_device(splits, h_splits.data(), 2, 0);
 
   nodeSplitKernel<DataT, LabelT, IdxT, ObjectiveT, builder.TPB_SPLIT>
-    <<<batchSize, TPB_SPLIT, smemSize, 0>>>(
+    <<<batchSize, builder.TPB_SPLIT, smemSize, 0>>>(
       params.max_depth, test_params.min_samples_leaf,
       test_params.min_samples_split, params.max_leaves,
       params.min_impurity_decrease, input, curr_nodes, new_nodes, n_new_nodes,
