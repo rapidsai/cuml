@@ -191,21 +191,5 @@ void _fit_hdbscan(const raft::handle_t &handle, const value_t *X, size_t m,
     params.max_cluster_size, params.cluster_selection_epsilon);
 }
 
-template <typename value_idx = int64_t, typename value_t = float>
-void _fit_rsl(const raft::handle_t &handle, const value_t *X, size_t m,
-              size_t n, raft::distance::DistanceType metric,
-              Common::HDBSCANParams &params,
-              Common::robust_single_linkage_output<value_idx, value_t> &out) {
-  auto d_alloc = handle.get_device_allocator();
-  auto stream = handle.get_stream();
-
-  build_linkage(handle, X, m, n, metric, params, out);
-
-  detail::Extract::do_labelling_at_cut(
-    handle, out.get_children(), out.get_deltas(), out.get_n_leaves(),
-    params.cluster_selection_epsilon, params.min_cluster_size,
-    out.get_labels());
-}
-
 };  // end namespace HDBSCAN
 };  // end namespace ML
