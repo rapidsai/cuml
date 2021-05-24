@@ -634,7 +634,7 @@ __global__ void computeSplitRegressionKernel(
 
   // last threadblock will go ahead and compute the best split
   bool last = true;
-  if (gridDim.x > 1) {
+  if (num_blocks > 1) {
     last = MLCommon::signalDone(done_count + nid * gridDim.y + blockIdx.y,
                                 num_blocks, offset_blockid == 0, sDone);
   }

@@ -57,6 +57,9 @@ void grow_tree(std::shared_ptr<raft::mr::device::allocator> d_allocator,
                std::vector<SparseTreeNode<DataT, LabelT>>& sparsetree,
                IdxT& num_leaves, IdxT& depth) {
   ML::PUSH_RANGE("DecisionTree::grow_tree in batched-levelalgo @builder.cuh");
+  if (treeid = 0) {
+    printf("Latest code\n");
+  }
   Builder<Traits> builder;
   size_t d_wsize, h_wsize;
   builder.workspaceSize(d_wsize, h_wsize, treeid, seed, params, data, labels,
