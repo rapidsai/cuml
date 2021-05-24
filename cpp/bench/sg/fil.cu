@@ -93,7 +93,8 @@ class FIL : public RegressionFixture<float> {
       .storage_type = p_rest.storage,
       .blocks_per_sm = 8,
       .threads_per_tree = 1,
-      .n_items = 0};
+      .n_items = 0,
+      .pforest_shape_str = nullptr};
     ML::fil::from_treelite(*handle, &forest, model, &tl_params);
 
     // only time prediction

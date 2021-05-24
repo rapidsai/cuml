@@ -50,6 +50,7 @@ if(BUILD_CUML_TESTS)
     sg/decisiontree_batchedlevel_algo.cu
     sg/decisiontree_batchedlevel_unittest.cu
     sg/fil_test.cu
+    sg/fnv_hash_test.cpp
     sg/genetic/node_test.cpp
     sg/genetic/param_test.cu
     sg/handle_test.cu

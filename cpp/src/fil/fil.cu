@@ -24,11 +24,13 @@
 #include <treelite/tree.h>
 #include <algorithm>
 #include <cmath>
+#include <iomanip>
 #include <limits>
 #include <stack>
 #include <utility>
 
 #include <cuml/fil/fil.h>
+#include <cuml/fil/fnv_hash.h>
 #include <raft/cudart_utils.h>
 #include <cuml/common/logger.hpp>
 #include <raft/handle.hpp>
@@ -657,6 +659,85 @@ int tree2fil_sparse(std::vector<fil_node_t>& nodes, int root,
   return root;
 }
 
+struct level_entry {
+  int n_branch_nodes, n_leaves;
+};
+typedef std::pair<int, int> pair_t;
+// hist has branch and leaf count given depth
+template <typename T, typename L>
+inline void tree_depth_hist(const tl::Tree<T, L>& tree,
+                            std::vector<level_entry>& hist) {
+  std::stack<pair_t> stack;  // {tl_id, depth}
+  stack.push({tree_root(tree), 0});
+  while (!stack.empty()) {
+    const pair_t& top = stack.top();
+    int node_id = top.first;
+    int depth = top.second;
+    stack.pop();
+
+    while (!tree.IsLeaf(node_id)) {
+      if (depth >= hist.size()) hist.resize(depth + 1, {0, 0});
+      hist[depth].n_branch_nodes++;
+      stack.push({tree.LeftChild(node_id), depth + 1});
+      node_id = tree.RightChild(node_id);
+      depth++;
+    }
+
+    if (depth >= hist.size()) hist.resize(depth + 1, {0, 0});
+    hist[depth].n_leaves++;
+  }
+}
+
+template <typename T, typename L>
+std::stringstream depth_hist_and_max(const tl::ModelImpl<T, L>& model) {
+  using namespace std;
+  vector<level_entry> hist;
+  for (const auto& tree : model.trees) tree_depth_hist(tree, hist);
+
+  int min_leaf_depth = -1, leaves_times_depth = 0, total_branches = 0,
+      total_leaves = 0;
+  stringstream forest_shape;
+  ios default_state(nullptr);
+  default_state.copyfmt(forest_shape);
+  forest_shape << "Depth histogram:" << endl
+               << "depth branches leaves   nodes" << endl;
+  for (int level = 0; level < hist.size(); ++level) {
+    level_entry e = hist[level];
+    forest_shape << setw(5) << level << setw(9) << e.n_branch_nodes << setw(7)
+                 << e.n_leaves << setw(8) << e.n_branch_nodes + e.n_leaves
+                 << endl;
+    forest_shape.copyfmt(default_state);
+    if (e.n_leaves && min_leaf_depth == -1) min_leaf_depth = level;
+    leaves_times_depth += e.n_leaves * level;
+    total_branches += e.n_branch_nodes;
+    total_leaves += e.n_leaves;
+  }
+  int total_nodes = total_branches + total_leaves;
+  forest_shape << "Total: branches: " << total_branches
+               << " leaves: " << total_leaves << " nodes: " << total_nodes
+               << endl;
+  forest_shape << "Avg nodes per tree: " << setprecision(2)
+               << total_nodes / (float)hist[0].n_branch_nodes << endl;
+  forest_shape.copyfmt(default_state);
+  forest_shape << "Leaf depth: min: " << min_leaf_depth
+               << " avg: " << setprecision(2) << fixed
+               << leaves_times_depth / (float)total_leaves
+               << " max: " << hist.size() - 1 << endl;
+  forest_shape.copyfmt(default_state);
+
+  vector<char> hist_bytes(hist.size() * sizeof(hist[0]));
+  memcpy(&hist_bytes[0], &hist[0], hist_bytes.size());
+  // std::hash does not promise to not be identity. Xoring plain numbers which
+  // add up to one another erases information, hence, std::hash is unsuitable here
+  forest_shape << "Depth histogram fingerprint: " << hex
+               << fowler_noll_vo_fingerprint64_32(hist_bytes.begin(),
+                                                  hist_bytes.end())
+               << endl;
+  forest_shape.copyfmt(default_state);
+
+  return forest_shape;
+}
+
 template <typename T, typename L>
 size_t tl_leaf_vector_size(const tl::ModelImpl<T, L>& model) {
   const tl::Tree<T, L>& tree = model.trees[0];
@@ -752,9 +833,9 @@ void tl2fil_common(forest_params_t* params, const tl::ModelImpl<T, L>& model,
 
 // uses treelite model with additional tl_params to initialize FIL params
 // and dense nodes (stored in *pnodes)
-template <typename T, typename L>
+template <typename threshold_t, typename leaf_t>
 void tl2fil_dense(std::vector<dense_node>* pnodes, forest_params_t* params,
-                  const tl::ModelImpl<T, L>& model,
+                  const tl::ModelImpl<threshold_t, leaf_t>& model,
                   const treelite_params_t* tl_params) {
   tl2fil_common(params, model, tl_params);
 
@@ -769,8 +850,8 @@ void tl2fil_dense(std::vector<dense_node>* pnodes, forest_params_t* params,
 
 template <typename fil_node_t>
 struct tl2fil_sparse_check_t {
-  template <typename T, typename L>
-  static void check(const tl::ModelImpl<T, L>& model) {
+  template <typename threshold_t, typename leaf_t>
+  static void check(const tl::ModelImpl<threshold_t, leaf_t>& model) {
     ASSERT(false,
            "internal error: "
            "only a specialization of this template should be used");
@@ -780,16 +861,16 @@ struct tl2fil_sparse_check_t {
 template <>
 struct tl2fil_sparse_check_t<sparse_node16> {
   // no extra check for 16-byte sparse nodes
-  template <typename T, typename L>
-  static void check(const tl::ModelImpl<T, L>& model) {}
+  template <typename threshold_t, typename leaf_t>
+  static void check(const tl::ModelImpl<threshold_t, leaf_t>& model) {}
 };
 
 template <>
 struct tl2fil_sparse_check_t<sparse_node8> {
   static const int MAX_FEATURES = 1 << sparse_node8::FID_NUM_BITS;
   static const int MAX_TREE_NODES = (1 << sparse_node8::LEFT_NUM_BITS) - 1;
-  template <typename T, typename L>
-  static void check(const tl::ModelImpl<T, L>& model) {
+  template <typename threshold_t, typename leaf_t>
+  static void check(const tl::ModelImpl<threshold_t, leaf_t>& model) {
     // check the number of features
     int num_features = model.num_feature;
     ASSERT(num_features <= MAX_FEATURES,
@@ -798,7 +879,7 @@ struct tl2fil_sparse_check_t<sparse_node8> {
            num_features, MAX_FEATURES);
 
     // check the number of tree nodes
-    const std::vector<tl::Tree<T, L>>& trees = model.trees;
+    const std::vector<tl::Tree<threshold_t, leaf_t>>& trees = model.trees;
     for (int i = 0; i < trees.size(); ++i) {
       int num_nodes = trees[i].num_nodes;
       ASSERT(num_nodes <= MAX_TREE_NODES,
@@ -811,9 +892,10 @@ struct tl2fil_sparse_check_t<sparse_node8> {
 
 // uses treelite model with additional tl_params to initialize FIL params,
 // trees (stored in *ptrees) and sparse nodes (stored in *pnodes)
-template <typename fil_node_t, typename T, typename L>
+template <typename fil_node_t, typename threshold_t, typename leaf_t>
 void tl2fil_sparse(std::vector<int>* ptrees, std::vector<fil_node_t>* pnodes,
-                   forest_params_t* params, const tl::ModelImpl<T, L>& model,
+                   forest_params_t* params,
+                   const tl::ModelImpl<threshold_t, leaf_t>& model,
                    const treelite_params_t* tl_params) {
   tl2fil_common(params, model, tl_params);
   tl2fil_sparse_check_t<fil_node_t>::check(model);
@@ -866,18 +948,21 @@ template void init_sparse<sparse_node8>(const raft::handle_t& h, forest_t* pf,
                                         const sparse_node8* nodes,
                                         const forest_params_t* params);
 
-template <typename T, typename L>
+template <typename threshold_t, typename leaf_t>
 void from_treelite(const raft::handle_t& handle, forest_t* pforest,
-                   const tl::ModelImpl<T, L>& model,
+                   const tl::ModelImpl<threshold_t, leaf_t>& model,
                    const treelite_params_t* tl_params) {
   // Invariants on threshold and leaf types
-  static_assert(std::is_same<T, float>::value || std::is_same<T, double>::value,
+  static_assert(std::is_same<threshold_t, float>::value ||
+                  std::is_same<threshold_t, double>::value,
                 "Model must contain float32 or float64 thresholds for splits");
-  ASSERT((std::is_same<L, float>::value || std::is_same<L, double>::value),
-         "Models with integer leaf output are not yet supported");
+  ASSERT(
+    (std::is_same<leaf_t, float>::value || std::is_same<leaf_t, double>::value),
+    "Models with integer leaf output are not yet supported");
   // Display appropriate warnings when float64 values are being casted into
   // float32, as FIL only supports inferencing with float32 for the time being
-  if (std::is_same<T, double>::value || std::is_same<L, double>::value) {
+  if (std::is_same<threshold_t, double>::value ||
+      std::is_same<leaf_t, double>::value) {
     CUML_LOG_WARN(
       "Casting all thresholds and leaf values to float32, as FIL currently "
       "doesn't support inferencing models with float64 values. "
@@ -912,6 +997,10 @@ void from_treelite(const raft::handle_t& handle, forest_t* pforest,
       // sync is necessary as nodes is used in init_dense(),
       // but destructed at the end of this function
       CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+      if (tl_params->pforest_shape_str) {
+        *tl_params->pforest_shape_str =
+          sprintf_shape(model, storage_type, nodes, {});
+      }
       break;
     }
     case storage_type_t::SPARSE: {
@@ -920,6 +1009,10 @@ void from_treelite(const raft::handle_t& handle, forest_t* pforest,
       tl2fil_sparse(&trees, &nodes, &params, model, tl_params);
       init_sparse(handle, pforest, trees.data(), nodes.data(), &params);
       CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+      if (tl_params->pforest_shape_str) {
+        *tl_params->pforest_shape_str =
+          sprintf_shape(model, storage_type, nodes, trees);
+      }
       break;
     }
     case storage_type_t::SPARSE8: {
@@ -928,6 +1021,10 @@ void from_treelite(const raft::handle_t& handle, forest_t* pforest,
       tl2fil_sparse(&trees, &nodes, &params, model, tl_params);
       init_sparse(handle, pforest, trees.data(), nodes.data(), &params);
       CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+      if (tl_params->pforest_shape_str) {
+        *tl_params->pforest_shape_str =
+          sprintf_shape(model, storage_type, nodes, trees);
+      }
       break;
     }
     default:
@@ -938,10 +1035,30 @@ void from_treelite(const raft::handle_t& handle, forest_t* pforest,
 void from_treelite(const raft::handle_t& handle, forest_t* pforest,
                    ModelHandle model, const treelite_params_t* tl_params) {
   const tl::Model& model_ref = *(tl::Model*)model;
-  model_ref.Dispatch([&handle, pforest, tl_params](const auto& model_inner) {
-    // model_inner is of the concrete type tl::ModelImpl<T, L>
+  model_ref.Dispatch([&](const auto& model_inner) {
+    // model_inner is of the concrete type tl::ModelImpl<threshold_t, leaf_t>
     from_treelite(handle, pforest, model_inner, tl_params);
   });
+}
+
+// allocates caller-owned char* using malloc()
+template <typename threshold_t, typename leaf_t, typename node_t>
+char* sprintf_shape(const tl::ModelImpl<threshold_t, leaf_t>& model,
+                    storage_type_t storage, const std::vector<node_t>& nodes,
+                    const std::vector<int>& trees) {
+  std::stringstream forest_shape = depth_hist_and_max(model);
+  float size_mb = (trees.size() * sizeof(trees.front()) +
+                   nodes.size() * sizeof(nodes.front())) /
+                  1e6;
+  forest_shape << storage_type_repr[storage] << " model size "
+               << std::setprecision(2) << size_mb << " MB" << std::endl;
+  // stream may be discontiguous
+  std::string forest_shape_str = forest_shape.str();
+  // now copy to a non-owning allocation
+  char* shape_out = (char*)malloc(forest_shape_str.size() + 1);  // incl. \0
+  memcpy((void*)shape_out, forest_shape_str.c_str(),
+         forest_shape_str.size() + 1);
+  return shape_out;
 }
 
 void free(const raft::handle_t& h, forest_t f) {
