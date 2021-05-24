@@ -465,7 +465,7 @@ void _transform(const raft::handle_t &handle, const umap_inputs &inputs,
 
   SimplSetEmbedImpl::optimize_layout<TPB_X, value_t>(
     transformed, inputs.n, embedding, embedding_n, comp_coo.rows(),
-    comp_coo.cols(), comp_coo.nnz, epochs_per_sample.data(), inputs.n,
+    comp_coo.cols(), comp_coo.nnz, epochs_per_sample.data(),
     params->repulsion_strength, params, n_epochs, d_alloc, stream);
   ML::POP_RANGE();
 

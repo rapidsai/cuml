@@ -475,10 +475,6 @@ const std::vector<RfInputs<float>> inputsf2_reg = {
    2,
    CRITERION::
      CRITERION_END},  // CRITERION_END uses the default criterion (GINI for classification, MSE for regression)
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 2, 0.0,
-   2, CRITERION::MAE},
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, false, 4, SPLIT_ALGO::GLOBAL_QUANTILE,
-   2, 2, 0.0, 2, CRITERION::MAE},
   {4, 2, 5, 1.0f, 1.0f, 4, 7, -1, true, false, 4, SPLIT_ALGO::HIST, 2, 2, 0.0,
    2, CRITERION::CRITERION_END}};
 
