@@ -610,6 +610,16 @@ __global__ void computeSplitRegressionKernel(
   __threadfence();  // for commit guarantee
   __syncthreads();
 
+  // last threadblock will go ahead and compute the best split
+  bool last = true;
+  if (num_blocks > 1) {
+    last = MLCommon::signalDone(done_count + nid * gridDim.y + blockIdx.y,
+                                num_blocks, offset_blockid == 0, sDone);
+  }
+
+  // exit if not last
+  if (!last) return;
+
   // transfer from global to smem
   for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
     pdf_scount[i] = count[gcOffset + i];
@@ -631,16 +641,6 @@ __global__ void computeSplitRegressionKernel(
 
   __threadfence();  // for commit guarantee
   __syncthreads();
-
-  // last threadblock will go ahead and compute the best split
-  bool last = true;
-  if (num_blocks > 1) {
-    last = MLCommon::signalDone(done_count + nid * gridDim.y + blockIdx.y,
-                                num_blocks, offset_blockid == 0, sDone);
-  }
-
-  // exit if not last
-  if (!last) return;
 
   // last block computes the final gain
   // create a split instance to test current feature split
