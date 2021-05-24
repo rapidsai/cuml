@@ -359,6 +359,8 @@ struct Builder {
       total_num_blocks += num_blocks;
     }
     raft::update_device(workload_info, h_workload_info, total_num_blocks, s);
+    // iterate through a batch of columns (to reduce the memory pressure) and
+    // compute the best split at the end
     auto n_col_blks = n_blks_for_cols;
     if (total_num_blocks) {
       for (IdxT c = 0; c < input.nSampledCols; c += n_col_blks) {
