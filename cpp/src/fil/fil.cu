@@ -112,6 +112,11 @@ struct forest {
     fixed_block_count_ = blocks_per_sm * sm_count;
   }
 
+  void init_max_shm(int device) {
+    CUDA_CHECK(cudaDeviceGetAttribute(
+      &max_shm_, cudaDevAttrMaxSharedMemoryPerBlockOptin, device));
+  }
+
   void init_common(const raft::handle_t& h, const forest_params_t* params) {
     depth_ = params->depth;
     num_trees_ = params->num_trees;
@@ -127,6 +132,7 @@ struct forest {
     int device = h.get_device();
     init_n_items(device);  // n_items takes priority over blocks_per_sm
     init_fixed_block_count(device, params->blocks_per_sm);
+    init_max_shm(device);
   }
 
   virtual void infer(predict_params params, cudaStream_t stream) = 0;
@@ -250,6 +256,8 @@ struct forest {
     }
   }
 
+  int max_shm() { return max_shm_; }
+
   virtual void free(const raft::handle_t& h) = 0;
   virtual ~forest() {}
 
@@ -261,6 +269,7 @@ struct forest {
   float global_bias_ = 0;
   shmem_size_params class_ssp_, proba_ssp_;
   int fixed_block_count_ = 0;
+  int max_shm_ = 0;
 };
 
 struct dense_forest : forest {

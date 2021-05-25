@@ -585,20 +585,6 @@ void set_carveout(void* kernel, int footprint, int max_shm) {
     kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, footprint));
 }
 
-template <int N, leaf_algo_t l, bool c>
-void set_carveouts(int footprint) {
-  int device = 0;
-  CUDA_CHECK(cudaGetDevice(&device));
-  int max_shm = 0;
-  CUDA_CHECK(cudaDeviceGetAttribute(
-    &max_shm, cudaDevAttrMaxSharedMemoryPerBlockOptin, device));
-  if (footprint > max_shm) return;
-
-  set_carveout((void*)infer_k<N, l, c, dense_storage>, footprint, max_shm);
-  set_carveout((void*)infer_k<N, l, c, sparse_storage8>, footprint, max_shm);
-  set_carveout((void*)infer_k<N, l, c, sparse_storage16>, footprint, max_shm);
-}
-
 template <int NITEMS, leaf_algo_t leaf_algo>
 int shmem_size_params::get_smem_footprint() {
   int finalize_footprint =
@@ -608,17 +594,7 @@ int shmem_size_params::get_smem_footprint() {
     tree_aggregator_t<NITEMS, leaf_algo>::smem_accumulate_footprint(
       num_classes) +
     cols_shmem_size();
-
-  int footprint = std::max(accumulate_footprint, finalize_footprint);
-  int max_shm_std = 48 * 1024;  // 48 KiB available on any architecture
-  if (footprint > max_shm_std) {
-    // for no cols_in_shmem, it is a matter of supporting this config at all
-    set_carveouts<NITEMS, leaf_algo, false>(footprint);
-    // for cols_in_shmem, it will accelerate performance
-    set_carveouts<NITEMS, leaf_algo, true>(footprint);
-    // This much may not suffice, in which case set_carveouts will do nothing.
-  }
-  return footprint;
+  return std::max(accumulate_footprint, finalize_footprint);
 }
 
 template <int NITEMS>
@@ -659,30 +635,29 @@ void shmem_size_params::compute_smem_footprint() {
 template <leaf_algo_t leaf_algo, bool cols_in_shmem, typename storage_type>
 void infer_k_nitems_launcher(storage_type forest, predict_params params,
                              cudaStream_t stream, int block_dim_x) {
+  void (*kernel)(storage_type, predict_params);
   switch (params.n_items) {
     case 1:
-      infer_k<1, leaf_algo, cols_in_shmem>
-        <<<params.num_blocks, block_dim_x, params.shm_sz, stream>>>(forest,
-                                                                    params);
+      kernel = infer_k<1, leaf_algo, cols_in_shmem>;
       break;
     case 2:
-      infer_k<2, leaf_algo, cols_in_shmem>
-        <<<params.num_blocks, block_dim_x, params.shm_sz, stream>>>(forest,
-                                                                    params);
+      kernel = infer_k<2, leaf_algo, cols_in_shmem>;
       break;
     case 3:
-      infer_k<3, leaf_algo, cols_in_shmem>
-        <<<params.num_blocks, block_dim_x, params.shm_sz, stream>>>(forest,
-                                                                    params);
+      kernel = infer_k<3, leaf_algo, cols_in_shmem>;
       break;
     case 4:
-      infer_k<4, leaf_algo, cols_in_shmem>
-        <<<params.num_blocks, block_dim_x, params.shm_sz, stream>>>(forest,
-                                                                    params);
+      kernel = infer_k<4, leaf_algo, cols_in_shmem>;
       break;
     default:
       ASSERT(false, "internal error: nitems > 4");
   }
+  // Two forests might be using the same handle, so
+  // large batch will run fastest if we set just before launching.
+  // This will not cause a race condition between setting and launching.
+  set_carveout((void*)kernel, params.shm_sz, forest.max_shm());
+  kernel<<<params.num_blocks, block_dim_x, params.shm_sz, stream>>>(forest,
+                                                                    params);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
