@@ -144,15 +144,14 @@ class Matrix {
     // Fill with zeros if requested
     if (setZero)
       CUDA_CHECK(cudaMemsetAsync(
-        m_dense.data(), 0,
+        raw_data(), 0,
         sizeof(T) * m_shape.first * m_shape.second * m_batch_size, m_stream));
 
     // Fill array of pointers to each batch matrix.
     constexpr int TPB = 256;
     fill_strided_pointers_kernel<<<raft::ceildiv<int>(m_batch_size, TPB), TPB,
                                    0, m_stream>>>(
-      m_dense.data(), m_batches.data(), m_batch_size, m_shape.first,
-      m_shape.second);
+      raw_data(), data(), m_batch_size, m_shape.first, m_shape.second);
     CUDA_CHECK(cudaPeekAtLastError());
   }
 
@@ -181,6 +180,35 @@ class Matrix {
     initialize(setZero);
   }
 
+  /**
+   * @brief Constructor that uses pre-allocated memory.
+   * 
+   * @param[in]  m            Number of rows
+   * @param[in]  n            Number of columns
+   * @param[in]  batch_size   Number of matrices in the batch
+   * @param[in]  cublasHandle cuBLAS handle
+   * @param[in]  allocator    Device memory allocator
+   * @param[in]  d_batches    Pre-allocated pointers array
+   * @param[in]  d_dense      Pre-allocated dense data array
+   * @param[in]  stream       CUDA stream
+   * @param[in]  setZero      Should matrix be zeroed on allocation?
+   */
+  Matrix(int m, int n, int batch_size, cublasHandle_t cublasHandle,
+         T** d_batches, T* d_dense,
+         std::shared_ptr<raft::mr::device::allocator> allocator,
+         cudaStream_t stream, bool setZero = true)
+    : m_batch_size(batch_size),
+      m_allocator(allocator),
+      m_cublasHandle(cublasHandle),
+      m_stream(stream),
+      m_shape(m, n),
+      m_batches(allocator, stream, 0),
+      m_dense(allocator, stream, 0),
+      d_batches(d_batches),
+      d_dense(d_dense) {
+    initialize(setZero);
+  }
+
   //! Destructor: nothing to destroy explicitely
   ~Matrix() {}
 
@@ -197,7 +225,7 @@ class Matrix {
     initialize(false);
 
     // Copy the raw data
-    raft::copy(m_dense.data(), other.m_dense.data(),
+    raft::copy(raw_data(), other.raw_data(),
                m_batch_size * m_shape.first * m_shape.second, m_stream);
   }
 
@@ -211,7 +239,7 @@ class Matrix {
     initialize(false);
 
     // Copy the raw data
-    raft::copy(m_dense.data(), other.m_dense.data(),
+    raft::copy(raw_data(), other.raw_data(),
                m_batch_size * m_shape.first * m_shape.second, m_stream);
 
     return *this;
@@ -235,12 +263,36 @@ class Matrix {
   const std::pair<int, int>& shape() const { return m_shape; }
 
   //! Return pointer array
-  T** data() { return m_batches.data(); }
-  const T** data() const { return m_batches.data(); }
+  const T** data() const {
+    if (m_batches.size() == 0) {  // Pre-allocated
+      return d_batches;
+    } else {
+      return m_batches.data();
+    }
+  }
+  T** data() {
+    if (m_batches.size() == 0) {  // Pre-allocated
+      return d_batches;
+    } else {
+      return m_batches.data();
+    }
+  }
 
   //! Return pointer to the underlying memory
-  T* raw_data() { return m_dense.data(); }
-  const T* raw_data() const { return m_dense.data(); }
+  const T* raw_data() const {
+    if (m_dense.size() == 0) {  // Pre-allocated
+      return d_dense;
+    } else {
+      return m_dense.data();
+    }
+  }
+  T* raw_data() {
+    if (m_dense.size() == 0) {  // Pre-allocated
+      return d_dense;
+    } else {
+      return m_dense.data();
+    }
+  }
 
   /**
    * @brief Return pointer to the data of a specific matrix
@@ -249,7 +301,7 @@ class Matrix {
    * @return         A pointer to the raw data of the matrix
    */
   T* operator[](int id) const {
-    return &(m_dense.data()[id * m_shape.first * m_shape.second]);
+    return &(raw_data()[id * m_shape.first * m_shape.second]);
   }
 
   /**
@@ -273,7 +325,7 @@ class Matrix {
     int r = m * n;
     Matrix<T> toVec(r, 1, m_batch_size, m_cublasHandle, m_allocator, m_stream,
                     false);
-    raft::copy(toVec[0], m_dense.data(), m_batch_size * r, m_stream);
+    raft::copy(toVec[0], raw_data(), m_batch_size * r, m_stream);
     return toVec;
   }
 
@@ -290,7 +342,7 @@ class Matrix {
            "ERROR: Size mismatch - Cannot reshape array into desired size");
     Matrix<T> toMat(m, n, m_batch_size, m_cublasHandle, m_allocator, m_stream,
                     false);
-    raft::copy(toMat[0], m_dense.data(), m_batch_size * r, m_stream);
+    raft::copy(toMat[0], raw_data(), m_batch_size * r, m_stream);
 
     return toMat;
   }
@@ -299,7 +351,7 @@ class Matrix {
   void print(std::string name) const {
     size_t len = m_shape.first * m_shape.second * m_batch_size;
     std::vector<T> A(len);
-    raft::update_host(A.data(), m_dense.data(), len, m_stream);
+    raft::update_host(A.data(), raw_data(), len, m_stream);
     std::cout << name << "=\n";
     for (int i = 0; i < m_shape.first; i++) {
       for (int j = 0; j < m_shape.second; j++) {
@@ -340,6 +392,25 @@ class Matrix {
   }
 
   /**
+  * @brief Compute the inverse of a batched matrix and write it to another matrix
+  *
+  * @param[inout] A      Matrix to inverse. Overwritten by this function!
+  * @param[out]   Ainv   Inversed matrix
+  * @param[out]   d_P    Pre-allocated array of size n * batch_size * sizeof(int)
+  * @param[out]   d_info Pre-allocated array of size batch_size * sizeof(int)
+  */
+  static void inv(Matrix<T>& A, Matrix<T>& Ainv, int* d_P, int* d_info) {
+    int n = A.m_shape.first;
+
+    CUBLAS_CHECK(raft::linalg::cublasgetrfBatched(A.m_cublasHandle, n, A.data(),
+                                                  n, d_P, d_info,
+                                                  A.m_batch_size, A.m_stream));
+    CUBLAS_CHECK(raft::linalg::cublasgetriBatched(
+      A.m_cublasHandle, n, A.data(), n, d_P, Ainv.data(), n, d_info,
+      A.m_batch_size, A.m_stream));
+  }
+
+  /**
   * @brief Compute the inverse of the batched matrix
   * 
   * @return Batched inverse matrix
@@ -358,11 +429,7 @@ class Matrix {
     Matrix<T> Ainv(n, n, m_batch_size, m_cublasHandle, m_allocator, m_stream,
                    false);
 
-    CUBLAS_CHECK(raft::linalg::cublasgetrfBatched(
-      m_cublasHandle, n, Acopy.data(), n, P, info, m_batch_size, m_stream));
-    CUBLAS_CHECK(raft::linalg::cublasgetriBatched(
-      m_cublasHandle, n, Acopy.data(), n, P, Ainv.data(), n, info, m_batch_size,
-      m_stream));
+    Matrix<T>::inv(Acopy, Ainv, P, info);
 
     m_allocator->deallocate(P, sizeof(int) * n * m_batch_size, m_stream);
     m_allocator->deallocate(info, sizeof(int) * m_batch_size, m_stream);
@@ -381,8 +448,8 @@ class Matrix {
 
     Matrix<T> At(n, m, m_batch_size, m_cublasHandle, m_allocator, m_stream);
 
-    const T* d_A = m_dense.data();
-    T* d_At = At.m_dense.data();
+    const T* d_A = raw_data();
+    T* d_At = At.raw_data();
 
     // Naive batched transpose ; TODO: improve
     auto counting = thrust::make_counting_iterator<int>(0);
@@ -428,9 +495,11 @@ class Matrix {
 
   //! Array(pointer) to each matrix.
   device_buffer<T*> m_batches;
+  T** d_batches;  // When pre-allocated
 
   //! Data pointer to first element of dense matrix data.
   device_buffer<T> m_dense;
+  T* d_dense;  // When pre-allocated
 
   //! Number of matrices in batch
   int m_batch_size;
@@ -458,21 +527,21 @@ class Matrix {
  */
 template <typename T>
 __global__ void kronecker_product_kernel(const T* A, int m, int n, const T* B,
-                                         int p, int q, T* AkB, int k_m,
-                                         int k_n) {
+                                         int p, int q, T* AkB, int k_m, int k_n,
+                                         T alpha, T beta) {
   const T* A_b = A + blockIdx.x * m * n;
   const T* B_b = B + blockIdx.x * p * q;
   T* AkB_b = AkB + blockIdx.x * k_m * k_n;
 
   for (int ia = 0; ia < m; ia++) {
     for (int ja = 0; ja < n; ja++) {
-      T A_ia_ja = A_b[ia + ja * m];
+      T A_ia_ja = alpha * A_b[ia + ja * m];
 
       for (int ib = threadIdx.x; ib < p; ib += blockDim.x) {
         for (int jb = threadIdx.y; jb < q; jb += blockDim.y) {
           int i_ab = ia * p + ib;
           int j_ab = ja * q + jb;
-          AkB_b[i_ab + j_ab * k_m] = A_ia_ja * B_b[ib + jb * p];
+          AkB_b[i_ab + j_ab * k_m] = A_ia_ja * beta * B_b[ib + jb * p];
         }
       }
     }
@@ -703,6 +772,39 @@ Matrix<T> b_solve(const Matrix<T>& A, const Matrix<T>& b) {
  * @brief The batched kroneker product A (x) B for given batched matrix A
  *        and batched matrix B
  * 
+ * @param[in]  A   Matrix A
+ * @param[in]  B   Matrix B
+ * @param[out] AkB A (x) B
+ */
+template <typename T>
+void b_kron(const Matrix<T>& A, const Matrix<T>& B, Matrix<T>& AkB,
+            T alpha = (T)1, T beta = (T)1) {
+  int m = A.shape().first;
+  int n = A.shape().second;
+
+  int p = B.shape().first;
+  int q = B.shape().second;
+
+  // Resulting shape
+  int k_m = m * p;
+  int k_n = n * q;
+  ASSERT(AkB.shape().first == k_m,
+         "Kronecker product output dimensions mismatch");
+  ASSERT(AkB.shape().second == k_n,
+         "Kronecker product output dimensions mismatch");
+
+  // Run kronecker
+  dim3 threads(std::min(p, 32), std::min(q, 32));
+  kronecker_product_kernel<T><<<A.batches(), threads, 0, A.stream()>>>(
+    A.raw_data(), m, n, B.raw_data(), p, q, AkB.raw_data(), k_m, k_n, alpha,
+    beta);
+  CUDA_CHECK(cudaPeekAtLastError());
+}
+
+/**
+ * @brief The batched kroneker product A (x) B for given batched matrix A
+ *        and batched matrix B
+ * 
  * @param[in]  A  Matrix A
  * @param[in]  B  Matrix B
  * @return A (x) B
@@ -722,11 +824,8 @@ Matrix<T> b_kron(const Matrix<T>& A, const Matrix<T>& B) {
   Matrix<T> AkB(k_m, k_n, A.batches(), A.cublasHandle(), A.allocator(),
                 A.stream());
 
-  // Run kronecker
-  dim3 threads(std::min(p, 32), std::min(q, 32));
-  kronecker_product_kernel<T><<<A.batches(), threads, 0, A.stream()>>>(
-    A.raw_data(), m, n, B.raw_data(), p, q, AkB.raw_data(), k_m, k_n);
-  CUDA_CHECK(cudaPeekAtLastError());
+  b_kron(A, B, AkB);
+
   return AkB;
 }
 
@@ -1711,7 +1810,7 @@ Matrix<T> b_lyapunov(const Matrix<T>& A, Matrix<T>& Q) {
   int n2 = n * n;
   auto counting = thrust::make_counting_iterator(0);
 
-  if (n <= 4 || (n <= 6 && batch_size <= 96)) {
+  if (n <= 5) {
     //
     // Use direct solution with Kronecker product
     //

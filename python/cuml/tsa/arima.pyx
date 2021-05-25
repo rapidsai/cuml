@@ -47,6 +47,12 @@ cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
         DataT* sar
         DataT* sma
         DataT* sigma2
+    
+    cdef cppclass ARIMAMemory[DataT]:
+        ARIMAMemory(const ARIMAOrder& order, int batch_size, int n_obs)
+        ARIMAMemory(const ARIMAOrder& order, int batch_size, int n_obs,
+                    char* in_buf)
+        size_t size
 
 
 cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
@@ -65,32 +71,34 @@ cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
         int n_obs, const ARIMAOrder& order)
 
     void batched_loglike(
-        handle_t& handle, const double* y, int batch_size, int nobs,
-        const ARIMAOrder& order, const double* params, double* loglike,
-        double* d_vs, bool trans, bool host_loglike, LoglikeMethod method,
-        int truncate)
+        handle_t& handle, const ARIMAMemory[double]& arima_mem,
+        const double* y, int batch_size, int nobs, const ARIMAOrder& order,
+        const double* params, double* loglike, double* d_vs, bool trans,
+        bool host_loglike, LoglikeMethod method, int truncate)
 
     void batched_loglike(
-        handle_t& handle, const double* y, int batch_size, int n_obs,
-        const ARIMAOrder& order, const ARIMAParams[double]& params,
-        double* loglike, double* d_vs, bool trans, bool host_loglike,
-        LoglikeMethod method, int truncate)
+        handle_t& handle, const ARIMAMemory[double]& arima_mem,
+        const double* y, int batch_size, int n_obs, const ARIMAOrder& order,
+        const ARIMAParams[double]& params, double* loglike, double* d_vs,
+        bool trans, bool host_loglike, LoglikeMethod method, int truncate)
 
     void batched_loglike_grad(
-        handle_t& handle, const double* d_y, int batch_size, int nobs,
-        const ARIMAOrder& order, const double* d_x, double* d_grad, double h,
-        bool trans, LoglikeMethod method, int truncate)
+        handle_t& handle, const ARIMAMemory[double]& arima_mem,
+        const double* d_y, int batch_size, int nobs, const ARIMAOrder& order,
+        const double* d_x, double* d_grad, double h, bool trans,
+        LoglikeMethod method, int truncate)
 
     void cpp_predict "predict" (
-        handle_t& handle, const double* d_y, int batch_size, int nobs,
-        int start, int end, const ARIMAOrder& order,
-        const ARIMAParams[double]& params, double* d_y_p, bool pre_diff,
-        double level, double* d_lower, double* d_upper)
+        handle_t& handle, const ARIMAMemory[double]& arima_mem,
+        const double* d_y, int batch_size, int nobs, int start, int end,
+        const ARIMAOrder& order, const ARIMAParams[double]& params,
+        double* d_y_p, bool pre_diff, double level, double* d_lower,
+        double* d_upper)
 
     void information_criterion(
-        handle_t& handle, const double* d_y, int batch_size, int nobs,
-        const ARIMAOrder& order, const ARIMAParams[double]& params,
-        double* ic, int ic_type)
+        handle_t& handle, const ARIMAMemory[double]& arima_mem,
+        const double* d_y, int batch_size, int nobs, const ARIMAOrder& order,
+        const ARIMAParams[double]& params, double* ic, int ic_type)
 
     void estimate_x0(
         handle_t& handle, ARIMAParams[double]& params, const double* d_y,
@@ -100,8 +108,9 @@ cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
 cdef extern from "cuml/tsa/batched_kalman.hpp" namespace "ML":
 
     void batched_jones_transform(
-        handle_t& handle, const ARIMAOrder& order, int batchSize,
-        bool isInv, const double* h_params, double* h_Tparams)
+        handle_t& handle, ARIMAMemory[double]& arima_mem,
+        const ARIMAOrder& order, int batchSize, bool isInv,
+        const double* h_params, double* h_Tparams)
 
 
 cdef class ARIMAParamsWrapper:
@@ -266,6 +275,7 @@ class ARIMA(Base):
     d_y = CumlArrayDescriptor()
     # TODO: (MDD) Should this be public? Its not listed in the attributes doc
     _d_y_diff = CumlArrayDescriptor()
+    _temp_mem = CumlArrayDescriptor()
 
     mu_ = CumlArrayDescriptor()
     ar_ = CumlArrayDescriptor()
@@ -339,6 +349,13 @@ class ARIMA(Base):
 
         self.n_obs_diff = self.n_obs - d - D * s
 
+        # Allocate temporary storage
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        arima_mem_ptr = new ARIMAMemory[double](
+            cpp_order, <int> self.batch_size, <int> self.n_obs)
+        temp_mem_size = arima_mem_ptr.size
+        self._temp_mem = CumlArray.empty(temp_mem_size, np.byte)
+
         self._initial_calc()
 
     @cuml.internals.api_base_return_any_skipall
@@ -379,6 +396,7 @@ class ARIMA(Base):
         """
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
+        cdef ARIMAOrder order = self.order
         cdef ARIMAOrder order_kf = \
             self.order_diff if self.simple_differencing else self.order
         cdef ARIMAParams[double] cpp_params = ARIMAParamsWrapper(self).params
@@ -398,10 +416,15 @@ class ARIMA(Base):
         except KeyError as e:
             raise NotImplementedError("IC type '{}' unknown".format(ic_type))
 
-        information_criterion(handle_[0], <double*> d_y_kf_ptr,
-                              <int> self.batch_size, <int> n_obs_kf,
-                              order_kf, cpp_params, <double*> d_ic_ptr,
-                              <int> ic_type_id)
+        cdef uintptr_t d_temp_mem = self._temp_mem.ptr
+        arima_mem_ptr = new ARIMAMemory[double](
+            order, <int> self.batch_size, <int> self.n_obs,
+            <char*> d_temp_mem)
+
+        information_criterion(handle_[0], arima_mem_ptr[0],
+                              <double*> d_y_kf_ptr, <int> self.batch_size,
+                              <int> n_obs_kf, order_kf, cpp_params,
+                              <double*> d_ic_ptr, <int> ic_type_id)
 
         return ic
 
@@ -586,9 +609,14 @@ class ARIMA(Base):
 
         cdef uintptr_t d_y_ptr = self.d_y.ptr
 
-        cpp_predict(handle_[0], <double*>d_y_ptr, <int> self.batch_size,
-                    <int> self.n_obs, <int> start, <int> end, order,
-                    cpp_params, <double*>d_y_p_ptr,
+        cdef uintptr_t d_temp_mem = self._temp_mem.ptr
+        arima_mem_ptr = new ARIMAMemory[double](
+            order, <int> self.batch_size, <int> self.n_obs,
+            <char*> d_temp_mem)
+
+        cpp_predict(handle_[0], arima_mem_ptr[0], <double*>d_y_ptr,
+                    <int> self.batch_size, <int> self.n_obs, <int> start,
+                    <int> end, order, cpp_params, <double*>d_y_p_ptr,
                     <bool> self.simple_differencing,
                     <double> (0 if level is None else level),
                     <double*> d_lower_ptr, <double*> d_upper_ptr)
@@ -806,6 +834,7 @@ class ARIMA(Base):
         cdef LoglikeMethod ll_method = CSS if method == "css" else MLE
         diff = ll_method != MLE or self.simple_differencing
 
+        cdef ARIMAOrder order = self.order
         cdef ARIMAOrder order_kf = self.order_diff if diff else self.order
 
         d_x_array, *_ = \
@@ -817,12 +846,18 @@ class ARIMA(Base):
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
+        # TODO: don't create vs array every time!
         n_obs_kf = (self.n_obs_diff if diff else self.n_obs)
         d_vs = CumlArray.empty((n_obs_kf, self.batch_size), dtype=np.float64,
                                order="F")
         cdef uintptr_t d_vs_ptr = d_vs.ptr
 
-        batched_loglike(handle_[0], <double*> d_y_kf_ptr,
+        cdef uintptr_t d_temp_mem = self._temp_mem.ptr
+        arima_mem_ptr = new ARIMAMemory[double](
+            order, <int> self.batch_size, <int> self.n_obs,
+            <char*> d_temp_mem)
+
+        batched_loglike(handle_[0], arima_mem_ptr[0], <double*> d_y_kf_ptr,
                         <int> self.batch_size, <int> n_obs_kf, order_kf,
                         <double*> d_x_ptr, <double*> vec_loglike.data(),
                         <double*> d_vs_ptr, <bool> trans, <bool> True,
@@ -869,6 +904,7 @@ class ARIMA(Base):
         grad = CumlArray.empty(N * self.batch_size, np.float64)
         cdef uintptr_t d_grad = <uintptr_t> grad.ptr
 
+        cdef ARIMAOrder order = self.order
         cdef ARIMAOrder order_kf = self.order_diff if diff else self.order
 
         d_x_array, *_ = \
@@ -880,8 +916,13 @@ class ARIMA(Base):
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        batched_loglike_grad(handle_[0], <double*> d_y_kf_ptr,
-                             <int> self.batch_size,
+        cdef uintptr_t d_temp_mem = self._temp_mem.ptr
+        arima_mem_ptr = new ARIMAMemory[double](
+            order, <int> self.batch_size, <int> self.n_obs,
+            <char*> d_temp_mem)
+
+        batched_loglike_grad(handle_[0], arima_mem_ptr[0],
+                             <double*> d_y_kf_ptr, <int> self.batch_size,
                              <int> (self.n_obs_diff if diff else self.n_obs),
                              order_kf, <double*> d_x_ptr, <double*> d_grad,
                              <double> h, <bool> trans, ll_method,
@@ -902,6 +943,7 @@ class ARIMA(Base):
         cdef vector[double] vec_loglike
         vec_loglike.resize(self.batch_size)
 
+        cdef ARIMAOrder order = self.order
         cdef ARIMAOrder order_kf = \
             self.order_diff if self.simple_differencing else self.order
         cdef ARIMAParams[double] cpp_params = ARIMAParamsWrapper(self).params
@@ -919,7 +961,12 @@ class ARIMA(Base):
                                order="F")
         cdef uintptr_t d_vs_ptr = d_vs.ptr
 
-        batched_loglike(handle_[0], <double*> d_y_kf_ptr,
+        cdef uintptr_t d_temp_mem = self._temp_mem.ptr
+        arima_mem_ptr = new ARIMAMemory[double](
+            order, <int> self.batch_size, <int> self.n_obs,
+            <char*> d_temp_mem)
+
+        batched_loglike(handle_[0], arima_mem_ptr[0], <double*> d_y_kf_ptr,
                         <int> self.batch_size, <int> n_obs_kf, order_kf,
                         cpp_params, <double*> vec_loglike.data(),
                         <double*> d_vs_ptr, <bool> False, <bool> True,
@@ -1000,9 +1047,15 @@ class ARIMA(Base):
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         Tx = np.zeros(self.batch_size * N)
 
+        cdef uintptr_t d_temp_mem = self._temp_mem.ptr
+        arima_mem_ptr = new ARIMAMemory[double](
+            order, <int> self.batch_size, <int> self.n_obs,
+            <char*> d_temp_mem)
+
         cdef uintptr_t x_ptr = x.ctypes.data
         cdef uintptr_t Tx_ptr = Tx.ctypes.data
-        batched_jones_transform(handle_[0], order, <int> self.batch_size,
-                                <bool> isInv, <double*>x_ptr, <double*>Tx_ptr)
+        batched_jones_transform(
+            handle_[0], arima_mem_ptr[0], order, <int> self.batch_size,
+            <bool> isInv, <double*>x_ptr, <double*>Tx_ptr)
 
         return (Tx)
