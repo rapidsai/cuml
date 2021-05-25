@@ -595,40 +595,39 @@ __global__ void computeSplitRegressionKernel(
     }
   }
   __syncthreads();
-
-  // update the corresponding global location for counts
-  auto gcOffset = ((nid * gridDim.y) + blockIdx.y) * nbins;
-  for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
-    atomicAdd(count + gcOffset + i, pdf_scount[i]);
-  }
-
-  // update the corresponding global location for preds
-  auto gOffset = ((nid * gridDim.y) + blockIdx.y) * pdf_spred_len;
-  for (IdxT i = threadIdx.x; i < pdf_spred_len; i += blockDim.x) {
-    atomicAdd(pred + gOffset + i, pdf_spred[i]);
-  }
-  __threadfence();  // for commit guarantee
-  __syncthreads();
-
-  // last threadblock will go ahead and compute the best split
-  bool last = true;
+  
   if (num_blocks > 1) {
+    // update the corresponding global location for counts
+    auto gcOffset = ((nid * gridDim.y) + blockIdx.y) * nbins;
+    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+      atomicAdd(count + gcOffset + i, pdf_scount[i]);
+    }
+
+    // update the corresponding global location for preds
+    auto gOffset = ((nid * gridDim.y) + blockIdx.y) * pdf_spred_len;
+    for (IdxT i = threadIdx.x; i < pdf_spred_len; i += blockDim.x) {
+      atomicAdd(pred + gOffset + i, pdf_spred[i]);
+    }
+    __threadfence();  // for commit guarantee
+    __syncthreads();
+
+    // last threadblock will go ahead and compute the best split
+    bool last = true;
     last = MLCommon::signalDone(done_count + nid * gridDim.y + blockIdx.y,
                                 num_blocks, offset_blockid == 0, sDone);
-  }
+    
+    // exit if not last
+    if (!last) return;
 
-  // exit if not last
-  if (!last) return;
-
-  // transfer from global to smem
-  for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
-    pdf_scount[i] = count[gcOffset + i];
+    // transfer from global to smem
+    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+      pdf_scount[i] = count[gcOffset + i];
+    }
+    for (IdxT i = threadIdx.x; i < pdf_spred_len; i += blockDim.x) {
+      pdf_spred[i] = pred[gOffset + i];
+    }
+    __syncthreads();
   }
-  for (IdxT i = threadIdx.x; i < pdf_spred_len; i += blockDim.x) {
-    pdf_spred[i] = pred[gOffset + i];
-  }
-  __syncthreads();
-
   /** pdf to cdf conversion **/
 
   /** get cdf of spred from pdf_spred **/
