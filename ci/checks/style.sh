@@ -10,7 +10,7 @@ export PATH=/conda/bin:/usr/local/cuda/bin:$PATH
 
 # Activate common conda env and install any dependencies needed
 source activate gdf
-cd $WORKSPACE
+cd "$WORKSPACE"
 export GIT_DESCRIBE_TAG=`git describe --tags`
 export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 conda install "ucx-py=${MINOR_VERSION}" "ucx-proc=*=gpu"
