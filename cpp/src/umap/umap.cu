@@ -28,7 +28,18 @@ namespace UMAP {
 
 static const int TPB_X = 256;
 
-// Dense transform
+/**
+ * \brief Dense transform
+ *
+ * @param X:      pointer to input array
+ * @param n:      n_samples of input array
+ * @param d:      n_features of input array
+ * @param orig_X: self.X_m.ptr
+ * @param orig_n: self.n_rows
+ * @param embedding:   pointer to stored embedding
+ * @param embedding_n: n_samples in embedding, equals to orig_n
+ * @param transformed: output array with shape n * n_components
+ */
 void transform(const raft::handle_t &handle, float *X, int n, int d,
                knn_indices_dense_t *knn_indices, float *knn_dists,
                float *orig_X, int orig_n, float *embedding, int embedding_n,

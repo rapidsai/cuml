@@ -57,6 +57,28 @@ def test_split_dataframe(train_size, shuffle):
     assert all(out)
 
 
+@pytest.mark.parametrize("y_type", ["cudf", "cupy"])
+def test_split_dataframe_array(y_type):
+    X = cudf.DataFrame({"x": range(100)})
+    y = cudf.Series(([0] * (100 // 2)) + ([1] * (100 // 2)))
+    if y_type == "cupy":
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y.values
+        )
+        assert isinstance(X_train, cudf.DataFrame)
+        assert isinstance(X_test, cudf.DataFrame)
+        assert isinstance(y_train, cp.ndarray)
+        assert isinstance(y_test, cp.ndarray)
+    elif y_type == "cudf":
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y
+        )
+        assert isinstance(X_train, cudf.DataFrame)
+        assert isinstance(X_test, cudf.DataFrame)
+        assert isinstance(y_train, cudf.Series)
+        assert isinstance(y_test, cudf.Series)
+
+
 def test_split_column():
     data = cudf.DataFrame(
         {
