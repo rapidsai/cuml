@@ -541,6 +541,7 @@ __global__ void computeSplitRegressionKernel(
   auto end = range_start + range_len;
   auto pdf_spred_len = 1 + nbins;
   auto cdf_spred_len = nbins;
+
   IdxT stride = blockDim.x * num_blocks;
   IdxT tid = threadIdx.x + offset_blockid * blockDim.x;
 
@@ -634,7 +635,6 @@ __global__ void computeSplitRegressionKernel(
 
   /** get cdf of scount from pdf_scount **/
   pdf_to_cdf<int, IdxT, TPB>(pdf_scount, cdf_scount, nbins);
-  __syncthreads();
 
   __threadfence();  // for commit guarantee
   __syncthreads();
