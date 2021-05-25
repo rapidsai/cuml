@@ -20,6 +20,7 @@
 import numpy as np
 import pytest
 import umap
+import copy
 
 import cupyx
 import scipy.sparse
@@ -336,10 +337,12 @@ def test_umap_fit_transform_against_fit_and_transform():
 
 
 @pytest.mark.parametrize('n_components,random_state',
-                         [unit_param(21, None),
-                          unit_param(21, 8),
+                         [unit_param(2, None),
+                          unit_param(2, 8),
+                          unit_param(2, np.random.RandomState(42)),
+                          unit_param(21, None),
                           unit_param(21, np.random.RandomState(42)),
-                          unit_param(25, None),
+                          unit_param(25, 8),
                           unit_param(50, None),
                           stress_param(50, 8)])
 def test_umap_fit_transform_reproducibility(n_components, random_state):
@@ -359,15 +362,10 @@ def test_umap_fit_transform_reproducibility(n_components, random_state):
                          random_state=random_state)
         return reducer.fit_transform(data, convert_dtype=True)
 
-    if isinstance(random_state, np.random.RandomState):
-        state = random_state.get_state()
-
-    cuml_embedding1 = get_embedding(n_components, random_state)
-
-    if isinstance(random_state, np.random.RandomState):
-        random_state.set_state(state)
-
-    cuml_embedding2 = get_embedding(n_components, random_state)
+    state = copy.copy(random_state)
+    cuml_embedding1 = get_embedding(n_components, state)
+    state = copy.copy(random_state)
+    cuml_embedding2 = get_embedding(n_components, state)
 
     assert not np.isnan(cuml_embedding1).any()
     assert not np.isnan(cuml_embedding2).any()
@@ -375,16 +373,17 @@ def test_umap_fit_transform_reproducibility(n_components, random_state):
     # Reproducibility threshold raised until intermittent failure is fixed
     # Ref: https://github.com/rapidsai/cuml/issues/1903
     mean_diff = np.mean(np.abs(cuml_embedding1 - cuml_embedding2))
-    print("mean diff: %s" % mean_diff)
     if random_state is not None:
-        assert mean_diff < 1.0
+        assert mean_diff == 0.0
     else:
         assert mean_diff > 0.5
 
 
 @pytest.mark.parametrize('n_components,random_state',
-                         [unit_param(21, None),
-                          unit_param(25, None),
+                         [unit_param(2, None),
+                          unit_param(2, 8),
+                          unit_param(2, np.random.RandomState(42)),
+                          unit_param(21, None),
                           unit_param(25, 8),
                           unit_param(25, np.random.RandomState(42)),
                           unit_param(50, None),
@@ -412,15 +411,10 @@ def test_umap_transform_reproducibility(n_components, random_state):
         reducer.fit(fit_data, convert_dtype=True)
         return reducer.transform(transform_data, convert_dtype=True)
 
-    if isinstance(random_state, np.random.RandomState):
-        state = random_state.get_state()
-
-    cuml_embedding1 = get_embedding(n_components, random_state)
-
-    if isinstance(random_state, np.random.RandomState):
-        random_state.set_state(state)
-
-    cuml_embedding2 = get_embedding(n_components, random_state)
+    state = copy.copy(random_state)
+    cuml_embedding1 = get_embedding(n_components, state)
+    state = copy.copy(random_state)
+    cuml_embedding2 = get_embedding(n_components, state)
 
     assert not np.isnan(cuml_embedding1).any()
     assert not np.isnan(cuml_embedding2).any()
@@ -428,9 +422,8 @@ def test_umap_transform_reproducibility(n_components, random_state):
     # Reproducibility threshold raised until intermittent failure is fixed
     # Ref: https://github.com/rapidsai/cuml/issues/1903
     mean_diff = np.mean(np.abs(cuml_embedding1 - cuml_embedding2))
-    print("mean diff: %s" % mean_diff)
     if random_state is not None:
-        assert mean_diff < 1.0
+        assert mean_diff == 0.0
     else:
         assert mean_diff > 0.5
 
