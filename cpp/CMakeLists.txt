@@ -308,7 +308,7 @@ if(BUILD_CUML_CPP_LIBRARY)
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src_prims>
-      $<BUILD_INTERFACE:${RAFT_DIR}/cpp/include>
+      $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_CUMLPRIMS_MG}>:${cumlprims_mg_INCLUDE_DIRS}>>
       $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_CUMLPRIMS_MG}>:${cumlprims_mg_INCLUDE_DIRS}>>
       $<$<BOOL:Treelite_ADDED>:${Treelite_SOURCE_DIR}/include>
     PRIVATE
@@ -376,6 +376,7 @@ if(BUILD_CUML_C_LIBRARY)
   target_link_libraries(${CUML_C_TARGET}
     PUBLIC
       ${CUML_CPP_TARGET}
+      FAISS::FAISS
   )
 
 endif()
