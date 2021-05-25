@@ -17,7 +17,6 @@ import cudf
 import cupy as cp
 import cupyx
 import numpy as np
-import warnings
 
 from cuml.common.memory_utils import _strides_to_order
 from numba import cuda
@@ -236,9 +235,6 @@ def train_test_split(X,
                      random_state: Union[int,
                                          cp.random.RandomState,
                                          np.random.RandomState] = None,
-                     seed: Union[int,
-                                 cp.random.RandomState,
-                                 np.random.RandomState] = None,
                      stratify=None):
     """
     Partitions device data into four collated objects, mimicking
@@ -261,12 +257,6 @@ def train_test_split(X,
         Whether or not to shuffle inputs before splitting
     random_state : int, CuPy RandomState or NumPy RandomState optional
         If shuffle is true, seeds the generator. Unseeded by default
-    seed: random_state : int, CuPy RandomState or NumPy RandomState optional
-        If shuffle is true, seeds the generator. Unseeded by default
-
-        .. deprecated:: 0.11
-           Parameter `seed` is deprecated and will be removed in 0.17. Please
-           use `random_state` instead
 
     stratify: cudf.Series or cuda_array_interface compliant device array,
             optional parameter. When passed, the input is split using this
@@ -380,20 +370,6 @@ def train_test_split(X,
 
     x_numba = cuda.devicearray.is_cuda_ndarray(X)
     y_numba = cuda.devicearray.is_cuda_ndarray(y)
-
-    if seed is not None:
-        if random_state is None:
-            warnings.warn("Parameter 'seed' is deprecated and will be"
-                          " removed in 0.17. Please use 'random_state'"
-                          " instead. Setting 'random_state' as the"
-                          " curent 'seed' value",
-                          DeprecationWarning)
-            random_state = seed
-        else:
-            warnings.warn("Both 'seed' and 'random_state' parameters were"
-                          " set. Using 'random_state' since 'seed' is"
-                          " deprecated and will be removed in 0.17.",
-                          DeprecationWarning)
 
     # Determining sizes of splits
     if isinstance(train_size, float):
