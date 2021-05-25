@@ -520,13 +520,11 @@ __global__ void computeSplitClassificationKernel(
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
 __global__ void computeSplitRegressionKernel(
-  DataT* pred, IdxT* count, IdxT nbins,
-  IdxT min_samples_leaf, DataT min_impurity_decrease,
-  Input<DataT, LabelT, IdxT> input, const Node<DataT, LabelT, IdxT>* nodes,
-  IdxT colStart, int* done_count, int* mutex,
-  volatile Split<DataT, IdxT>* splits, CRITERION splitType,
+  DataT* pred, IdxT* count, IdxT nbins, IdxT min_samples_leaf,
+  DataT min_impurity_decrease, Input<DataT, LabelT, IdxT> input,
+  const Node<DataT, LabelT, IdxT>* nodes, IdxT colStart, int* done_count,
+  int* mutex, volatile Split<DataT, IdxT>* splits, CRITERION splitType,
   IdxT treeid, WorkloadInfo<IdxT>* workload_info, uint64_t seed) {
-
   extern __shared__ char smem[];
   // Read workload info for this block
   WorkloadInfo<IdxT> workload_info_cta = workload_info[blockIdx.x];
@@ -595,7 +593,7 @@ __global__ void computeSplitRegressionKernel(
     }
   }
   __syncthreads();
-  
+
   if (num_blocks > 1) {
     // update the corresponding global location for counts
     auto gcOffset = ((nid * gridDim.y) + blockIdx.y) * nbins;
@@ -615,7 +613,7 @@ __global__ void computeSplitRegressionKernel(
     bool last = true;
     last = MLCommon::signalDone(done_count + nid * gridDim.y + blockIdx.y,
                                 num_blocks, offset_blockid == 0, sDone);
-    
+
     // exit if not last
     if (!last) return;
 

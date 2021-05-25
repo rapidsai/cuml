@@ -538,10 +538,10 @@ struct RegTraits {
       "computeSplitRegressionKernel @builder_base.cuh [batched-levelalgo]");
     computeSplitRegressionKernel<DataT, DataT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
-        b.pred, b.pred_count, b.params.n_bins,
-        b.params.min_samples_leaf, b.params.min_impurity_decrease, b.input,
-        b.curr_nodes, col, b.done_count, b.mutex, b.splits, splitType, b.treeid,
-        b.workload_info, b.seed);
+        b.pred, b.pred_count, b.params.n_bins, b.params.min_samples_leaf,
+        b.params.min_impurity_decrease, b.input, b.curr_nodes, col,
+        b.done_count, b.mutex, b.splits, splitType, b.treeid, b.workload_info,
+        b.seed);
 
     ML::POP_RANGE();  //computeSplitRegressionKernel
     ML::POP_RANGE();  //Builder::computeSplit
