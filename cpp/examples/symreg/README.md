@@ -9,19 +9,30 @@ There are two `CMakeLists.txt` in this folder:
 ```bash
 $ cmake .. -DCUML_LIBRARY_DIR=/path/to/directory/with/libcuml.so -DCUML_INCLUDE_DIR=/path/to/cuml/headers
 ```
-Then build with `make`
-```bash
-$ make
+Then build with `make` or `ninja`
+```
+$ make  
+Scanning dependencies of target raft
+[ 10%] Creating directories for 'raft'
+[ 20%] Performing download step (git clone) for 'raft'
+Cloning into 'raft'...
+[ 30%] Performing update step for 'raft'
+[ 40%] No patch step for 'raft'
+[ 50%] No configure step for 'raft'
+[ 60%] No build step for 'raft'
+[ 70%] No install step for 'raft'
+[ 80%] Completed 'raft'
+[ 80%] Built target raft
 Scanning dependencies of target symreg_example
-[ 50%] Building CXX object CMakeFiles/symreg_example.dir/symreg_example.cpp.o
+[ 90%] Building CXX object CMakeFiles/symreg_example.dir/symreg_example.cpp.o
 [100%] Linking CUDA executable symreg_example
 [100%] Built target symreg_example
 ```
-
+`CMakeLists_standalone.txt` also loads a minimal set of header dependencies(namely [raft](https://github.com/rapidsai/raft) and [cub](https://github.com/NVIDIA/cub)) if they are not detected in the system. 
 ## Run
 
 1. Generate a toy training and test dataset
-```bash
+```
 $ python prepare_input.py
 Training set has n_rows=250 n_cols=2
 Test set has n_rows=50 n_cols=2
