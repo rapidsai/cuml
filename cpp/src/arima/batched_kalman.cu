@@ -690,7 +690,7 @@ void _lyapunov_wrapper(raft::handle_t& handle,
       r2, r2, batch_size, cublasHandle, arima_mem.I_m_AxA_inv_batches,
       arima_mem.I_m_AxA_inv_dense, allocator, stream, false);
 
-    MLCommon::LinAlg::Batched::b_kron(A, A, I_m_AxA, -1.0, 1.0);
+    MLCommon::LinAlg::Batched::b_kron(A, A, I_m_AxA, -1.0);
 
     double* d_I_m_AxA = arima_mem.I_m_AxA_dense;
     thrust::for_each(thrust::cuda::par.on(stream), counting,

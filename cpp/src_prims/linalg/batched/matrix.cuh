@@ -515,20 +515,21 @@ class Matrix {
  * @note The block x is the batch id, the thread x is the starting row
  *       in B and the thread y is the starting column in B
  * 
- * @param[in]   A    Pointer to the raw data of matrix `A`
- * @param[in]   m    Number of rows (A)
- * @param[in]   n    Number of columns (A)
- * @param[in]   B    Pointer to the raw data of matrix `B`
- * @param[in]   p    Number of rows (B)
- * @param[in]   q    Number of columns (B)
- * @param[out]  AkB  Pointer to raw data of the result kronecker product
- * @param[in]   k_m  Number of rows of the result    (m * p)
- * @param[in]   k_n  Number of columns of the result (n * q)
+ * @param[in]  A     Pointer to the raw data of matrix `A`
+ * @param[in]  m     Number of rows (A)
+ * @param[in]  n     Number of columns (A)
+ * @param[in]  B     Pointer to the raw data of matrix `B`
+ * @param[in]  p     Number of rows (B)
+ * @param[in]  q     Number of columns (B)
+ * @param[out] AkB   Pointer to raw data of the result kronecker product
+ * @param[in]  k_m   Number of rows of the result    (m * p)
+ * @param[in]  k_n   Number of columns of the result (n * q)
+ * @param[in]  alpha Multiplying coefficient
  */
 template <typename T>
 __global__ void kronecker_product_kernel(const T* A, int m, int n, const T* B,
                                          int p, int q, T* AkB, int k_m, int k_n,
-                                         T alpha, T beta) {
+                                         T alpha) {
   const T* A_b = A + blockIdx.x * m * n;
   const T* B_b = B + blockIdx.x * p * q;
   T* AkB_b = AkB + blockIdx.x * k_m * k_n;
@@ -541,7 +542,7 @@ __global__ void kronecker_product_kernel(const T* A, int m, int n, const T* B,
         for (int jb = threadIdx.y; jb < q; jb += blockDim.y) {
           int i_ab = ia * p + ib;
           int j_ab = ja * q + jb;
-          AkB_b[i_ab + j_ab * k_m] = A_ia_ja * beta * B_b[ib + jb * p];
+          AkB_b[i_ab + j_ab * k_m] = A_ia_ja * B_b[ib + jb * p];
         }
       }
     }
@@ -772,13 +773,14 @@ Matrix<T> b_solve(const Matrix<T>& A, const Matrix<T>& b) {
  * @brief The batched kroneker product A (x) B for given batched matrix A
  *        and batched matrix B
  * 
- * @param[in]  A   Matrix A
- * @param[in]  B   Matrix B
- * @param[out] AkB A (x) B
+ * @param[in]  A     Matrix A
+ * @param[in]  B     Matrix B
+ * @param[out] AkB   A (x) B
+ * @param[in]  alpha Multiplying coefficient
  */
 template <typename T>
 void b_kron(const Matrix<T>& A, const Matrix<T>& B, Matrix<T>& AkB,
-            T alpha = (T)1, T beta = (T)1) {
+            T alpha = (T)1) {
   int m = A.shape().first;
   int n = A.shape().second;
 
@@ -796,8 +798,7 @@ void b_kron(const Matrix<T>& A, const Matrix<T>& B, Matrix<T>& AkB,
   // Run kronecker
   dim3 threads(std::min(p, 32), std::min(q, 32));
   kronecker_product_kernel<T><<<A.batches(), threads, 0, A.stream()>>>(
-    A.raw_data(), m, n, B.raw_data(), p, q, AkB.raw_data(), k_m, k_n, alpha,
-    beta);
+    A.raw_data(), m, n, B.raw_data(), p, q, AkB.raw_data(), k_m, k_n, alpha);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
