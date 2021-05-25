@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,12 @@
 
 #pragma once
 
-#include <cuml/cuml.hpp>
+#include <stddef.h>
 #include <cuml/ensemble/treelite_defs.hpp>
+
+namespace raft {
+class handle_t;
+}
 
 namespace ML {
 namespace fil {
@@ -61,6 +65,7 @@ enum storage_type_t {
       whether a particular forest can be imported as SPARSE8 */
   SPARSE8,
 };
+static const char* storage_type_repr[] = {"AUTO", "DENSE", "SPARSE", "SPARSE8"};
 
 struct forest;
 
@@ -85,6 +90,9 @@ struct treelite_params_t {
   // suggested values (if nonzero) are from 2 to 7
   // if zero, launches ceildiv(num_rows, NITEMS) blocks
   int blocks_per_sm;
+  // if non-nullptr, *pforest_shape_str will be set to caller-owned string that
+  // contains forest shape
+  char** pforest_shape_str;
 };
 
 /** from_treelite uses a treelite model to initialize the forest

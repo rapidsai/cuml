@@ -18,10 +18,10 @@
 #include <cuml/neighbors/knn_mg.hpp>
 #include <selection/knn.cuh>
 
-#include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include <raft/comms/comms.hpp>
+#include <raft/mr/device/allocator.hpp>
 
 #include <memory>
 #include <set>
@@ -426,7 +426,8 @@ void perform_local_knn(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
   raft::spatial::knn::brute_force_knn(
     handle, ptrs, sizes, params.idx_desc->N, query, query_size,
     work.res_I.data(), work.res_D.data(), params.k, params.rowMajorIndex,
-    params.rowMajorQuery, &start_indices_long);
+    params.rowMajorQuery, &start_indices_long,
+    raft::distance::DistanceType::L2SqrtExpanded);
   CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
   CUDA_CHECK(cudaPeekAtLastError());
 }

@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 
+#include <raft/cudart_utils.h>
+#include <raft/handle.hpp>
+
 #include <cuml/explainer/permutation_shap.hpp>
 
 namespace ML {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@
 #include <raft/cuda_utils.cuh>
 #include <vector>
 
-using namespace MLCommon;
 using namespace ML::Metrics;
 
 class TrustworthinessScoreTest : public ::testing::Test {

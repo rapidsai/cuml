@@ -99,7 +99,7 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
         MetricType target_metric,
         float target_weights,
         uint64_t random_state,
-        bool multicore_implem,
+        bool deterministic,
         int optim_batch_size,
         GraphBasedDimRedCallback * callback
 
@@ -355,7 +355,6 @@ class UMAP(Base,
                  handle=None,
                  hash_input=False,
                  random_state=None,
-                 optim_batch_size=0,
                  callback=None,
                  output_type=None):
 
@@ -391,7 +390,7 @@ class UMAP(Base,
         self.target_n_neighbors = target_n_neighbors
         self.target_weights = target_weights
 
-        self.multicore_implem = random_state is None
+        self.deterministic = random_state is not None
 
         # Check to see if we are already a random_state (type==np.uint64).
         # Reuse this if already passed (can happen from get_params() of another
@@ -414,8 +413,6 @@ class UMAP(Base,
             self.target_metric = target_metric
         else:
             raise Exception("Invalid target metric: {}" % target_metric)
-
-        self.optim_batch_size = <int> optim_batch_size
 
         self.callback = callback  # prevent callback destruction
         self.X_m = None
@@ -458,8 +455,7 @@ class UMAP(Base,
             umap_params.target_metric = MetricType.CATEGORICAL
         umap_params.target_weights = <float> cls.target_weights
         umap_params.random_state = <uint64_t> cls.random_state
-        umap_params.multicore_implem = <bool> cls.multicore_implem
-        umap_params.optim_batch_size = <int> cls.optim_batch_size
+        umap_params.deterministic = <bool> cls.deterministic
 
         cdef uintptr_t callback_ptr = 0
         if cls.callback:
@@ -879,6 +875,5 @@ class UMAP(Base,
             "target_metric",
             "hash_input",
             "random_state",
-            "optim_batch_size",
             "callback",
         ]

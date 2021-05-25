@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -39,6 +39,7 @@
 
 namespace ML {
 namespace TSNE {
+namespace BH {
 
 /**
  * Intializes the states of objects. This speeds the overall kernel up.
@@ -694,9 +695,9 @@ __global__ __launch_bounds__(THREADS6, 1) void IntegrationKernel(
   const auto inc = blockDim.x * gridDim.x;
   const value_t Z_norm = Z[0];
 
-  for (auto i = threadIdx.x + blockIdx.x * blockDim.x; i < N; i += inc) {
-    const value_t dx = attract1[i] - Z_norm * repel1[i];
-    const value_t dy = attract2[i] - Z_norm * repel2[i];
+  for (int i = threadIdx.x + blockIdx.x * blockDim.x; i < N; i += inc) {
+    const value_t dx = exaggeration * attract1[i] - Z_norm * repel1[i];
+    const value_t dy = exaggeration * attract2[i] - Z_norm * repel2[i];
 
     if (signbit(dx) != signbit(ux = old_forces1[i]))
       gx = gains1[i] + 0.2f;
@@ -721,5 +722,6 @@ __global__ __launch_bounds__(THREADS6, 1) void IntegrationKernel(
   }
 }
 
+}  // namespace BH
 }  // namespace TSNE
 }  // namespace ML

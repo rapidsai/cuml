@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <cache/cache.cuh>
-#include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
 #include <raft/cuda_utils.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -29,7 +29,7 @@ class CacheTest : public ::testing::Test {
  protected:
   void SetUp() override {
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocator = std::shared_ptr<deviceAllocator>(
+    allocator = std::shared_ptr<raft::mr::device::allocator>(
       new raft::mr::device::default_allocator());
     raft::allocate(x_dev, n_rows * n_cols);
     raft::update_device(x_dev, x_host, n_rows * n_cols, stream);
@@ -77,7 +77,7 @@ class CacheTest : public ::testing::Test {
 
   int *argfirst_dev;
 
-  std::shared_ptr<deviceAllocator> allocator;
+  std::shared_ptr<raft::mr::device::allocator> allocator;
   cudaStream_t stream;
 
   bool *is_cached;

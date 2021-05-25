@@ -19,7 +19,9 @@
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/hierarchy/common.h>
 
-#include <cuml/cuml.hpp>
+namespace raft {
+class handle_t;
+}
 
 namespace ML {
 

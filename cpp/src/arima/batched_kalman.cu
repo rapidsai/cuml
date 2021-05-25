@@ -22,7 +22,6 @@
 #include <cub/cub.cuh>
 
 #include <cuml/common/device_buffer.hpp>
-#include <cuml/cuml.hpp>
 #include <cuml/tsa/batched_kalman.hpp>
 
 #include <raft/cudart_utils.h>

@@ -17,10 +17,10 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <algorithm>
-#include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
 #include <metrics/adjusted_rand_index.cuh>
 #include <metrics/contingencyMatrix.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <random>
 #include "test_utils.h"
 
@@ -48,7 +48,7 @@ class adjustedRandIndexTest
     raft::allocate(firstClusterArray, nElements, true);
     raft::allocate(secondClusterArray, nElements, true);
     CUDA_CHECK(cudaStreamCreate(&stream));
-    std::shared_ptr<deviceAllocator> allocator(
+    std::shared_ptr<raft::mr::device::allocator> allocator(
       new raft::mr::device::default_allocator);
     if (!params.testZeroArray) {
       SetUpDifferentArrays();

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#pragma once
 #include <raft/cudart_utils.h>
 #include <cuml/common/logger.hpp>
 #include <cuml/manifold/common.hpp>
@@ -22,8 +23,9 @@
 #include "exact_kernels.cuh"
 #include "utils.cuh"
 
-#include "barnes_hut.cuh"
+#include "barnes_hut_tsne.cuh"
 #include "exact_tsne.cuh"
+#include "fft_tsne.cuh"
 
 namespace ML {
 
@@ -34,13 +36,14 @@ class TSNE_runner {
               knn_graph<value_idx, value_t> &k_graph_, const value_idx dim_,
               const float theta_, const float epssq_, float perplexity_,
               const int perplexity_max_iter_, const float perplexity_tol_,
-              const float early_exaggeration_, const int exaggeration_iter_,
-              const float min_gain_, const float pre_learning_rate_,
-              const float post_learning_rate_, const int max_iter_,
-              const float min_grad_norm_, const float pre_momentum_,
-              const float post_momentum_, const long long random_state_,
-              int verbosity_, const bool initialize_embeddings_,
-              bool barnes_hut_)
+              const float early_exaggeration_, const float late_exaggeration_,
+              const int exaggeration_iter_, const float min_gain_,
+              const float pre_learning_rate_, const float post_learning_rate_,
+              const int max_iter_, const float min_grad_norm_,
+              const float pre_momentum_, const float post_momentum_,
+              const long long random_state_, int verbosity_,
+              const bool initialize_embeddings_, const bool square_distances_,
+              TSNE_ALGORITHM algorithm_)
     : handle(handle_),
       input(input_),
       k_graph(k_graph_),
@@ -51,6 +54,7 @@ class TSNE_runner {
       perplexity_max_iter(perplexity_max_iter_),
       perplexity_tol(perplexity_tol_),
       early_exaggeration(early_exaggeration_),
+      late_exaggeration(late_exaggeration_),
       exaggeration_iter(exaggeration_iter_),
       min_gain(min_gain_),
       pre_learning_rate(pre_learning_rate_),
@@ -62,7 +66,8 @@ class TSNE_runner {
       random_state(random_state_),
       verbosity(verbosity_),
       initialize_embeddings(initialize_embeddings_),
-      barnes_hut(barnes_hut_),
+      square_distances(square_distances_),
+      algorithm(algorithm_),
       COO_Matrix(handle_.get_device_allocator(), handle_.get_stream()) {
     this->n = input.n;
     this->p = input.d;
@@ -70,10 +75,11 @@ class TSNE_runner {
     this->n_neighbors = k_graph.n_neighbors;
 
     ML::Logger::get().setLevel(verbosity);
-    if (dim > 2 and barnes_hut) {
-      barnes_hut = false;
+    if (dim > 2 and algorithm != TSNE_ALGORITHM::EXACT) {
+      algorithm = TSNE_ALGORITHM::EXACT;
       CUML_LOG_WARN(
-        "Barnes Hut only works for dim == 2. Switching to exact solution.");
+        "Barnes Hut and FFT only work for dim == 2. Switching to exact "
+        "solution.");
     }
     if (n_neighbors > n) n_neighbors = n;
     if (n_neighbors > 1023) {
@@ -105,18 +111,28 @@ class TSNE_runner {
     const auto *ROW = COO_Matrix.rows();
     //---------------------------------------------------
 
-    if (barnes_hut) {
-      TSNE::Barnes_Hut(VAL, COL, ROW, NNZ, handle, Y, n, theta, epssq,
-                       early_exaggeration, exaggeration_iter, min_gain,
-                       pre_learning_rate, post_learning_rate, max_iter,
-                       min_grad_norm, pre_momentum, post_momentum, random_state,
+    switch (algorithm) {
+      case TSNE_ALGORITHM::BARNES_HUT:
+        TSNE::Barnes_Hut(VAL, COL, ROW, NNZ, handle, Y, n, theta, epssq,
+                         early_exaggeration, exaggeration_iter, min_gain,
+                         pre_learning_rate, post_learning_rate, max_iter,
+                         min_grad_norm, pre_momentum, post_momentum,
+                         random_state, initialize_embeddings);
+        break;
+      case TSNE_ALGORITHM::FFT:
+        TSNE::FFT_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, early_exaggeration,
+                       late_exaggeration, exaggeration_iter, pre_learning_rate,
+                       post_learning_rate, max_iter, min_grad_norm,
+                       pre_momentum, post_momentum, random_state,
                        initialize_embeddings);
-    } else {
-      TSNE::Exact_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, dim,
-                       early_exaggeration, exaggeration_iter, min_gain,
-                       pre_learning_rate, post_learning_rate, max_iter,
-                       min_grad_norm, pre_momentum, post_momentum, random_state,
-                       initialize_embeddings);
+        break;
+      case TSNE_ALGORITHM::EXACT:
+        TSNE::Exact_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, dim,
+                         early_exaggeration, exaggeration_iter, min_gain,
+                         pre_learning_rate, post_learning_rate, max_iter,
+                         min_grad_norm, pre_momentum, post_momentum,
+                         random_state, initialize_embeddings);
+        break;
     }
   }
 
@@ -146,6 +162,14 @@ class TSNE_runner {
       TSNE::get_distances(handle, input, k_graph, stream);
     }
 
+    if (square_distances) {
+      auto policy = rmm::exec_policy(stream);
+
+      thrust::transform(policy, k_graph.knn_dists,
+                        k_graph.knn_dists + n * n_neighbors, k_graph.knn_dists,
+                        TSNE::FunctionalSquare());
+    }
+
     //---------------------------------------------------
     END_TIMER(DistancesTime);
 
@@ -161,7 +185,7 @@ class TSNE_runner {
     //---------------------------------------------------
     // Optimal perplexity
     CUML_LOG_DEBUG("Searching for optimal perplexity via bisection search.");
-    rmm::device_uvector<float> P(n * n_neighbors, stream);
+    rmm::device_uvector<value_t> P(n * n_neighbors, stream);
     TSNE::perplexity_search(k_graph.knn_dists, P.data(), perplexity,
                             perplexity_max_iter, perplexity_tol, n, n_neighbors,
                             handle);
@@ -189,6 +213,7 @@ class TSNE_runner {
   const int perplexity_max_iter;
   const float perplexity_tol;
   const float early_exaggeration;
+  const float late_exaggeration;
   const int exaggeration_iter;
   const float min_gain;
   const float pre_learning_rate;
@@ -200,7 +225,8 @@ class TSNE_runner {
   const long long random_state;
   int verbosity;
   const bool initialize_embeddings;
-  bool barnes_hut;
+  const bool square_distances;
+  TSNE_ALGORITHM algorithm;
 
   raft::sparse::COO<value_t, value_idx> COO_Matrix;
   value_idx n, p;

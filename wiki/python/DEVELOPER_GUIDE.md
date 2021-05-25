@@ -71,3 +71,35 @@ To know more underlying details about stream ordering refer to the corresponding
 ## Multi GPU
 
 TODO: Add more details.
+
+## Benchmarking
+
+The cuML code including its Python operations can be profiled. The `nvtx_benchmark.py` is a helper script that produces a simple benchmark summary. To use it, run `python nvtx_benchmark.py "python test.py"`.
+
+Here is an example with the following script:
+```
+from cuml.datasets import make_blobs
+from cuml.manifold import UMAP
+
+X, y = make_blobs(n_samples=1000, n_features=30)
+
+model = UMAP()
+model.fit(X)
+embeddngs = model.transform(X)
+```
+that once benchmarked can have its profiling summarized:
+```
+datasets.make_blobs                                          :   1.3571 s
+
+manifold.umap.fit [0x7f10eb69d4f0]                           :   0.6629 s
+    |> umap::unsupervised::fit                               :   0.6611 s
+    |==> umap::knnGraph                                      :   0.4693 s
+    |==> umap::simplicial_set                                :   0.0015 s
+    |==> umap::embedding                                     :   0.1902 s
+
+manifold.umap.transform [0x7f10eb69d4f0]                     :   0.0934 s
+    |> umap::transform                                       :   0.0925 s
+    |==> umap::knnGraph                                      :   0.0909 s
+    |==> umap::smooth_knn                                    :   0.0002 s
+    |==> umap::optimization                                  :   0.0011 s
+```

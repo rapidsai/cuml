@@ -24,6 +24,7 @@
 #include <matrix/kernelfactory.cuh>
 #include <memory>
 #include <raft/cuda_utils.cuh>
+#include <raft/mr/host/allocator.hpp>
 #include <raft/random/rng.cuh>
 #include <rmm/device_uvector.hpp>
 #include "test_utils.h"
@@ -188,7 +189,7 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
   cudaStream_t stream;
   GramMatrixInputs params;
 
-  std::shared_ptr<hostAllocator> host_allocator;
+  std::shared_ptr<raft::mr::host::allocator> host_allocator;
 
   rmm::device_uvector<math_t> x1;
   rmm::device_uvector<math_t> x2;

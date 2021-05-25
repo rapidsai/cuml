@@ -62,7 +62,7 @@ struct Split {
    * 
    * @return the reference to the copied object (typically useful for chaining)
    */
-  DI SplitT& operator=(const SplitT& other) {
+  DI volatile SplitT& operator=(const SplitT& other) volatile {
     quesval = other.quesval;
     colid = other.colid;
     best_metric_val = other.best_metric_val;
@@ -73,11 +73,17 @@ struct Split {
   /**
    * @brief updates the current split if the input gain is better
    */
-  DI void update(const SplitT& other) {
-    if (other.best_metric_val == best_metric_val) {
-      if (other.colid < colid) *this = other;
-    } else if (other.best_metric_val > best_metric_val) {
+  DI void update(const SplitT& other) volatile {
+    if (other.best_metric_val > best_metric_val) {
       *this = other;
+    } else if (other.best_metric_val == best_metric_val) {
+      if (other.colid > colid) {
+        *this = other;
+      } else if (other.colid == colid) {
+        if (other.quesval > quesval) {
+          *this = other;
+        }
+      }
     }
   }
 
@@ -107,7 +113,7 @@ struct Split {
    * @note all threads in the block must enter this function together. At the
    *       end thread0 will contain the best split.
    */
-  DI void evalBestSplit(void* smem, SplitT* split, int* mutex) {
+  DI void evalBestSplit(void* smem, volatile SplitT* split, int* mutex) {
     auto* sbest = reinterpret_cast<SplitT*>(smem);
     warpReduce();
     auto warp = threadIdx.x / raft::WarpSize;

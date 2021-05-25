@@ -50,6 +50,7 @@ if(BUILD_CUML_TESTS)
     sg/decisiontree_batchedlevel_algo.cu
     sg/decisiontree_batchedlevel_unittest.cu
     sg/fil_test.cu
+    sg/fnv_hash_test.cpp
     sg/genetic/node_test.cpp
     sg/genetic/param_test.cu
     sg/handle_test.cu
@@ -81,8 +82,6 @@ if(BUILD_CUML_TESTS)
     sg/tsvd_test.cu
     sg/umap_parametrizable_test.cu
     )
-
-  add_dependencies(ml cutlass)
 
   target_include_directories(ml
     PRIVATE
@@ -152,15 +151,9 @@ if(BUILD_PRIMS_TESTS)
     prims/completeness_score.cu
     prims/contingencyMatrix.cu
     prims/cov.cu
-    prims/cutlass_gemm.cu
     prims/decoupled_lookback.cu
     prims/device_utils.cu
     prims/dispersion.cu
-    prims/dist_adj.cu
-    prims/dist_cos.cu
-    prims/dist_euc_exp.cu
-    prims/dist_euc_unexp.cu
-    prims/dist_l1.cu
     prims/eltwise2d.cu
     prims/entropy.cu
     prims/epsilon_neighborhood.cu
@@ -211,8 +204,6 @@ if(BUILD_PRIMS_TESTS)
       ${CUML_SRC_PRIMS_DIR}
       ${CUML_TEST_PRIMS_DIR}
   )
-
-  add_dependencies(prims cutlass)
 
   target_link_libraries(prims
     ${CUML_CPP_TARGET}

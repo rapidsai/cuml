@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <distance/distance.cuh>
+#include <raft/distance/distance.cuh>
 #include <raft/handle.hpp>
 
 namespace ML {

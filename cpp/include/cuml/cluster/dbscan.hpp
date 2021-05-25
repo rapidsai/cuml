@@ -17,8 +17,11 @@
 #pragma once
 
 #include <raft/linalg/distance_type.h>
-#include <cuml/common/logger.hpp>
-#include <cuml/cuml.hpp>
+#include <cuml/common/log_levels.hpp>
+
+namespace raft {
+class handle_t;
+}
 
 namespace ML {
 namespace Dbscan {
