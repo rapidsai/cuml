@@ -321,10 +321,9 @@ TEST_P(TestMetric, RegressionMetricGain) {
 
   computeSplitRegressionKernel<DataT, DataT, IdxT, 32>
     <<<grid, 32, smemSize, 0>>>(
-      pred, pred_count, n_bins,
-      params.min_samples_leaf, params.min_impurity_decrease,
-      input, curr_nodes, 0, done_count, mutex, splits,
-      split_criterion, 0, workload_info, 1234ULL);
+      pred, pred_count, n_bins, params.min_samples_leaf,
+      params.min_impurity_decrease, input, curr_nodes, 0, done_count, mutex,
+      splits, split_criterion, 0, workload_info, 1234ULL);
 
   raft::update_host(h_splits.data(), splits, 1, 0);
   CUDA_CHECK(cudaGetLastError());
