@@ -45,8 +45,6 @@ struct Builder {
   typedef typename Traits::SplitT SplitT;
   typedef typename Traits::InputT InputT;
 
-  /** default threads per block for most kernels in here */
-  static constexpr int TPB_DEFAULT = 256;
   /** DT params */
   DecisionTreeParams params;
   /** input dataset */
@@ -58,8 +56,6 @@ struct Builder {
   IdxT nHistBins;
   /** total number of prediction counts (regression only) */
   IdxT nPredCounts;
-  /** size of block-sync workspace (regression + MAE only) */
-  size_t block_sync_size;
 
   /** Tree index */
   IdxT treeid;
@@ -77,8 +73,6 @@ struct Builder {
   int* done_count;
   /** mutex array used for atomically updating best split */
   int* mutex;
-  /** used for syncing across blocks in a kernel (regression + MAE only) */
-  char* block_sync;
   /** number of leaves created so far */
   IdxT* n_leaves;
   /** max depth reached so far */
@@ -90,8 +84,17 @@ struct Builder {
   /** next batch of nodes */
   NodeT* next_nodes;
 
+  WorkloadInfo<IdxT>* workload_info;
+  WorkloadInfo<IdxT>* h_workload_info;
+  IdxT total_num_blocks;
+
+  static constexpr int SAMPLES_PER_THREAD = 1;
+  int max_blocks = 0;
+
   /** host copy of the number of new nodes in current branch */
   IdxT* h_n_nodes;
+  /** host copy of the number of leaves created so far */
+  IdxT* h_n_leaves;
   /** total number of nodes created so far */
   IdxT h_total_nodes;
   /** range of the currently worked upon nodes */
@@ -104,36 +107,6 @@ struct Builder {
   /** checks if this struct is being used for classification or regression */
   static constexpr bool isRegression() {
     return std::is_same<DataT, LabelT>::value;
-  }
-
-  /**
-   * @brief Assigns number of blocks used to parallelize row-wise computations to maximize occupacy
-   *
-   * @param[out] n_blks_for_rows    Appropriate blocks for rows (gridDim.x)
-   *                                that maximizes occupancy
-   * @param[in] gridDimy            number of blocks assigned in the y-dimension (n_blks_for_cols)
-   * @param[in] func                Kernel function; needed by the occupancy calculator for finding
-   *                                maximum active blocks per multiprocessor
-   * @param[in] blockSize           Threads per Block, passed to cuda occupancy calculator API
-   * @param[in] dynamic_smem_size   dynamic shared memory size, passed to cuda occupancy calculator API
-   * @param[in] gridDimz            Number of blocks along the z-dimension, based
-   *                                on the concurrent nodes of tree available to be processed.
-  */
-  int n_blks_for_rows(const int gridDimy, const void* func, const int blockSize,
-                      const size_t dynamic_smem_size, const int gridDimz) {
-    int devid;
-    CUDA_CHECK(cudaGetDevice(&devid));
-    int mpcount;
-    CUDA_CHECK(
-      cudaDeviceGetAttribute(&mpcount, cudaDevAttrMultiProcessorCount, devid));
-    int maxblks;
-    // get expected max blocks per multiprocessor
-    CUDA_CHECK(cudaOccupancyMaxActiveBlocksPerMultiprocessor(
-      &maxblks, func, blockSize, dynamic_smem_size));
-    // get the total number of blocks
-    int n_blks = maxblks * mpcount;
-    // return appropriate number of blocks in x-dimension
-    return raft::ceildiv(n_blks, gridDimy * gridDimz);
   }
 
   size_t calculateAlignedBytes(const size_t actualSize) {
@@ -187,6 +160,10 @@ struct Builder {
     auto max_batch = params.max_batch_size;
     auto n_col_blks = n_blks_for_cols;
     nHistBins = max_batch * (1 + params.n_bins) * n_col_blks * nclasses;
+    max_blocks =
+      1 + max_batch +
+      input.nSampledRows / (Traits::TPB_DEFAULT * SAMPLES_PER_THREAD);
+    // printf("max_blocks = %d\n", max_blocks);
     // x2 for mean and mean-of-square
     nPredCounts = max_batch * params.n_bins * n_col_blks;
     if (params.max_depth < 13) {
@@ -197,18 +174,6 @@ struct Builder {
       maxNodes = 8191;
     }
 
-    if (isRegression()) {
-      int n_blks_for_rows = this->n_blks_for_rows(
-        n_col_blks,
-        (const void*)
-          computeSplitRegressionKernel<DataT, LabelT, IdxT, TPB_DEFAULT>,
-        TPB_DEFAULT, 0, max_batch);
-      dim3 grid(n_blks_for_rows, n_col_blks, max_batch);
-      block_sync_size = MLCommon::GridSync::computeWorkspaceSize(
-        grid, MLCommon::SyncType::ACROSS_X, false);
-    } else {
-      block_sync_size = 0;
-    }
     d_wsize = 0;
     d_wsize += calculateAlignedBytes(sizeof(IdxT));  // n_nodes
     if (!isRegression()) {
@@ -223,15 +188,21 @@ struct Builder {
     d_wsize += calculateAlignedBytes(sizeof(int) * max_batch *
                                      n_col_blks);                  // done_count
     d_wsize += calculateAlignedBytes(sizeof(int) * max_batch);     // mutex
-    d_wsize += calculateAlignedBytes(block_sync_size);             // block_sync
     d_wsize += calculateAlignedBytes(sizeof(IdxT));                // n_leaves
     d_wsize += calculateAlignedBytes(sizeof(IdxT));                // n_depth
     d_wsize += calculateAlignedBytes(sizeof(SplitT) * max_batch);  // splits
     d_wsize += calculateAlignedBytes(sizeof(NodeT) * max_batch);   // curr_nodes
     d_wsize +=
       calculateAlignedBytes(sizeof(NodeT) * 2 * max_batch);  // next_nodes
+    d_wsize +=                                               // workload_info
+      calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks);
+
     // all nodes in the tree
-    h_wsize = calculateAlignedBytes(sizeof(IdxT));  // h_n_nodes
+    h_wsize = calculateAlignedBytes(sizeof(IdxT));   // h_n_nodes
+    h_wsize += calculateAlignedBytes(sizeof(IdxT));  // h_n_leaves
+    h_wsize +=                                       // h_workload_info
+      calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks);
+
     ML::POP_RANGE();
   }
 
@@ -263,8 +234,6 @@ struct Builder {
     d_wspace += calculateAlignedBytes(sizeof(int) * max_batch * n_col_blks);
     mutex = reinterpret_cast<int*>(d_wspace);
     d_wspace += calculateAlignedBytes(sizeof(int) * max_batch);
-    block_sync = reinterpret_cast<char*>(d_wspace);
-    d_wspace += calculateAlignedBytes(block_sync_size);
     n_leaves = reinterpret_cast<IdxT*>(d_wspace);
     d_wspace += calculateAlignedBytes(sizeof(IdxT));
     n_depth = reinterpret_cast<IdxT*>(d_wspace);
@@ -274,8 +243,15 @@ struct Builder {
     curr_nodes = reinterpret_cast<NodeT*>(d_wspace);
     d_wspace += calculateAlignedBytes(sizeof(NodeT) * max_batch);
     next_nodes = reinterpret_cast<NodeT*>(d_wspace);
+    d_wspace += calculateAlignedBytes(sizeof(NodeT) * 2 * max_batch);
+    workload_info = reinterpret_cast<WorkloadInfo<IdxT>*>(d_wspace);
+    d_wspace += calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks);
     // host
     h_n_nodes = reinterpret_cast<IdxT*>(h_wspace);
+    h_wspace += calculateAlignedBytes(sizeof(IdxT));
+    h_n_leaves = reinterpret_cast<IdxT*>(h_wspace);
+    h_wspace += calculateAlignedBytes(sizeof(IdxT));
+    h_workload_info = reinterpret_cast<WorkloadInfo<IdxT>*>(h_wspace);
     ML::POP_RANGE();
   }
 
@@ -319,10 +295,6 @@ struct Builder {
     CUDA_CHECK(cudaMemsetAsync(mutex, 0, sizeof(int) * max_batch, s));
     CUDA_CHECK(cudaMemsetAsync(n_leaves, 0, sizeof(IdxT), s));
     CUDA_CHECK(cudaMemsetAsync(n_depth, 0, sizeof(IdxT), s));
-    if (isRegression()) {
-      CUDA_CHECK(
-        cudaMemsetAsync(block_sync, 0, sizeof(char) * block_sync_size, s));
-    }
     node_start = 0;
     node_end = h_total_nodes = 1;  // start with root node
     h_nodes.resize(1);
@@ -364,12 +336,37 @@ struct Builder {
 
     // get the current set of nodes to be worked upon
     raft::update_device(curr_nodes, h_nodes.data() + node_start, batchSize, s);
+
+    int total_samples_in_curr_batch = 0;
+    total_num_blocks = 0;
+    for (int n = 0; n < batchSize; n++) {
+      total_samples_in_curr_batch += h_nodes[node_start + n].count;
+      int num_blocks = raft::ceildiv(h_nodes[node_start + n].count,
+                                     SAMPLES_PER_THREAD * Traits::TPB_DEFAULT);
+      num_blocks = std::max(1, num_blocks);
+
+      bool is_leaf = leafBasedOnParams<DataT, IdxT>(
+        h_nodes[node_start + n].depth, params.max_depth,
+        params.min_samples_split, params.max_leaves, h_n_leaves,
+        h_nodes[node_start + n].count);
+      if (is_leaf) num_blocks = 0;
+
+      for (int b = 0; b < num_blocks; b++) {
+        h_workload_info[total_num_blocks + b].nodeid = n;
+        h_workload_info[total_num_blocks + b].offset_blockid = b;
+        h_workload_info[total_num_blocks + b].num_blocks = num_blocks;
+      }
+      total_num_blocks += num_blocks;
+    }
+    raft::update_device(workload_info, h_workload_info, total_num_blocks, s);
     // iterate through a batch of columns (to reduce the memory pressure) and
     // compute the best split at the end
     auto n_col_blks = n_blks_for_cols;
-    for (IdxT c = 0; c < input.nSampledCols; c += n_col_blks) {
-      Traits::computeSplit(*this, c, batchSize, params.split_criterion, s);
-      CUDA_CHECK(cudaGetLastError());
+    if (total_num_blocks) {
+      for (IdxT c = 0; c < input.nSampledCols; c += n_col_blks) {
+        Traits::computeSplit(*this, c, batchSize, params.split_criterion, s);
+        CUDA_CHECK(cudaGetLastError());
+      }
     }
     // create child nodes (or make the current ones leaf)
     auto smemSize = Traits::nodeSplitSmemSize(*this);
@@ -384,6 +381,7 @@ struct Builder {
     ML::POP_RANGE();
     // copy the updated (due to leaf creation) and newly created child nodes
     raft::update_host(h_n_nodes, n_nodes, 1, s);
+    raft::update_host(h_n_leaves, n_leaves, 1, s);
     CUDA_CHECK(cudaStreamSynchronize(s));
     h_nodes.resize(h_nodes.size() + batchSize + *h_n_nodes);
     raft::update_host(h_nodes.data() + node_start, curr_nodes, batchSize, s);
@@ -411,7 +409,7 @@ struct ClsTraits {
   typedef Input<DataT, LabelT, IdxT> InputT;
 
   /** default threads per block for most kernels in here */
-  static constexpr int TPB_DEFAULT = 256;
+  static constexpr int TPB_DEFAULT = 128;
   /** threads per block for the nodeSplitKernel */
   static constexpr int TPB_SPLIT = 128;
 
@@ -447,21 +445,16 @@ struct ClsTraits {
       raft::ceildiv(TPB_DEFAULT, raft::WarpSize) * sizeof(Split<DataT, IdxT>);
     // Pick the max of two
     size_t smemSize = std::max(smemSize1, smemSize2);
-    int n_blks_for_rows = b.n_blks_for_rows(
-      colBlks,
-      (const void*)
-        computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT>,
-      TPB_DEFAULT, smemSize, batchSize);
-    dim3 grid(n_blks_for_rows, colBlks, batchSize);
+    dim3 grid(b.total_num_blocks, colBlks, 1);
     CUDA_CHECK(cudaMemsetAsync(b.hist, 0, sizeof(int) * b.nHistBins, s));
     ML::PUSH_RANGE(
       "computeSplitClassificationKernel @builder_base.cuh [batched-levelalgo]");
     computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
-        b.hist, b.params.n_bins, b.params.max_depth, b.params.min_samples_split,
-        b.params.min_samples_leaf, b.params.min_impurity_decrease,
-        b.params.max_leaves, b.input, b.curr_nodes, col, b.done_count, b.mutex,
-        b.n_leaves, b.splits, splitType, b.treeid, b.seed);
+        b.hist, b.params.n_bins, b.params.min_samples_leaf,
+        b.params.min_impurity_decrease, b.input, b.curr_nodes, col,
+        b.done_count, b.mutex, b.splits, splitType, b.treeid, b.workload_info,
+        b.seed);
     ML::POP_RANGE();  //computeSplitClassificationKernel
     ML::POP_RANGE();  //Builder::computeSplit
   }
@@ -497,7 +490,7 @@ struct RegTraits {
   typedef Input<DataT, LabelT, IdxT> InputT;
 
   /** default threads per block for most kernels in here */
-  static constexpr int TPB_DEFAULT = 256;
+  static constexpr int TPB_DEFAULT = 64;
   /** threads per block for the nodeSplitKernel */
   static constexpr int TPB_SPLIT = 128;
 
@@ -517,28 +510,24 @@ struct RegTraits {
                            cudaStream_t s) {
     ML::PUSH_RANGE(
       "Builder::computeSplit @builder_base.cuh [batched-levelalgo]");
-    auto n_col_blks = std::min(b.n_blks_for_cols, b.input.nSampledCols - col);
+    auto colBlks = std::min(b.n_blks_for_cols, b.input.nSampledCols - col);
     auto nbins = b.params.n_bins;
 
+    // Compute shared memory size
     size_t smemSize1 = (nbins + 1) * sizeof(DataT) +  // pdf_spred
                        2 * nbins * sizeof(DataT) +    // cdf_spred
                        nbins * sizeof(int) +          // pdf_scount
                        nbins * sizeof(int) +          // cdf_scount
                        nbins * sizeof(DataT) +        // sbins
                        sizeof(int);                   // sDone
-    // Room for alignment (see alignPointer in computeSplitRegressionKernel)
+    // Room for alignment (See alignPointer in computeSplitRegressionKernel)
     smemSize1 += 6 * sizeof(DataT) + 3 * sizeof(int);
     // Calculate the shared memory needed for evalBestSplit
     size_t smemSize2 =
       raft::ceildiv(TPB_DEFAULT, raft::WarpSize) * sizeof(Split<DataT, IdxT>);
     // Pick the max of two
     size_t smemSize = std::max(smemSize1, smemSize2);
-    int n_blks_for_rows = b.n_blks_for_rows(
-      n_col_blks,
-      (const void*)
-        computeSplitRegressionKernel<DataT, LabelT, IdxT, TPB_DEFAULT>,
-      TPB_DEFAULT, smemSize, batchSize);
-    dim3 grid(n_blks_for_rows, n_col_blks, batchSize);
+    dim3 grid(b.total_num_blocks, colBlks, 1);
 
     CUDA_CHECK(
       cudaMemsetAsync(b.pred, 0, sizeof(DataT) * b.nPredCounts * 2, s));
@@ -549,11 +538,11 @@ struct RegTraits {
       "computeSplitRegressionKernel @builder_base.cuh [batched-levelalgo]");
     computeSplitRegressionKernel<DataT, DataT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
-        b.pred, b.pred_count, b.params.n_bins, b.params.max_depth,
-        b.params.min_samples_split, b.params.min_samples_leaf,
-        b.params.min_impurity_decrease, b.params.max_leaves, b.input,
-        b.curr_nodes, col, b.done_count, b.mutex, b.n_leaves, b.splits,
-        b.block_sync, splitType, b.treeid, b.seed);
+        b.pred, b.pred_count, b.params.n_bins, b.params.min_samples_leaf,
+        b.params.min_impurity_decrease, b.input, b.curr_nodes, col,
+        b.done_count, b.mutex, b.splits, splitType, b.treeid, b.workload_info,
+        b.seed);
+
     ML::POP_RANGE();  //computeSplitRegressionKernel
     ML::POP_RANGE();  //Builder::computeSplit
   }
