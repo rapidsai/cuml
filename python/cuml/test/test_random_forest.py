@@ -19,6 +19,7 @@ import pytest
 import random
 import json
 import io
+import os
 from contextlib import redirect_stdout
 
 from numba import cuda
@@ -35,8 +36,11 @@ from sklearn.ensemble import RandomForestClassifier as skrfc
 from sklearn.ensemble import RandomForestRegressor as skrfr
 from sklearn.metrics import accuracy_score, mean_squared_error
 from sklearn.datasets import fetch_california_housing, \
-    make_classification, make_regression
+    make_classification, make_regression, load_iris, load_breast_cancer, \
+    load_boston
 from sklearn.model_selection import train_test_split
+
+import treelite
 
 
 @pytest.fixture(
@@ -1029,3 +1033,48 @@ def test_rf_regression_with_identical_labels(split_criterion,
     if use_experimental_backend:
         expected_dump['instance_count'] = 5
     assert model_dump[0] == expected_dump
+
+
+def test_rf_regressor_gtil_integration(tmpdir):
+    X, y = load_boston(return_X_y=True)
+    X, y = X.astype(np.float32), y.astype(np.float32)
+    clf = curfr(max_depth=3, random_state=0, n_estimators=10)
+    clf.fit(X, y)
+    expected_pred = clf.predict(X)
+
+    checkpoint_path = os.path.join(tmpdir, 'checkpoint.tl')
+    clf.convert_to_treelite_model().to_treelite_checkpoint(checkpoint_path)
+
+    tl_model = treelite.Model.deserialize(checkpoint_path)
+    out_pred = treelite.gtil.predict(tl_model, X)
+    np.testing.assert_almost_equal(out_pred, expected_pred, decimal=5)
+
+
+def test_rf_binary_classifier_gtil_integration(tmpdir):
+    X, y = load_breast_cancer(return_X_y=True)
+    X, y = X.astype(np.float32), y.astype(np.int32)
+    clf = curfc(max_depth=3, random_state=0, n_estimators=10)
+    clf.fit(X, y)
+    expected_prob = clf.predict_proba(X)[:, 1]
+
+    checkpoint_path = os.path.join(tmpdir, 'checkpoint.tl')
+    clf.convert_to_treelite_model().to_treelite_checkpoint(checkpoint_path)
+
+    tl_model = treelite.Model.deserialize(checkpoint_path)
+    out_prob = treelite.gtil.predict(tl_model, X)
+    np.testing.assert_almost_equal(out_prob, expected_prob, decimal=5)
+
+
+def test_rf_multiclass_classifier_gtil_integration(tmpdir):
+    X, y = load_iris(return_X_y=True)
+    X, y = X.astype(np.float32), y.astype(np.int32)
+    clf = curfc(max_depth=3, random_state=0, n_estimators=10)
+    clf.fit(X, y)
+    expected_prob = clf.predict_proba(X)
+
+    checkpoint_path = os.path.join(tmpdir, 'checkpoint.tl')
+    clf.convert_to_treelite_model().to_treelite_checkpoint(checkpoint_path)
+
+    tl_model = treelite.Model.deserialize(checkpoint_path)
+    out_prob = treelite.gtil.predict(tl_model, X, pred_margin=True)
+    np.testing.assert_almost_equal(out_prob, expected_prob, decimal=5)
