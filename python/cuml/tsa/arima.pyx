@@ -47,7 +47,7 @@ cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
         DataT* sar
         DataT* sma
         DataT* sigma2
-    
+
     cdef cppclass ARIMAMemory[DataT]:
         ARIMAMemory(const ARIMAOrder& order, int batch_size, int n_obs)
         ARIMAMemory(const ARIMAOrder& order, int batch_size, int n_obs,
