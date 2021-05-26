@@ -20,7 +20,6 @@ from sklearn.datasets import make_blobs
 from umap import UMAP
 
 import cudf
-import numba.cuda
 import numpy as np
 
 
@@ -43,11 +42,9 @@ def test_trustworthiness(input_type, n_samples, n_features, n_components,
     sk_score = sklearn_trustworthiness(X, X_embedded)
 
     if input_type == 'dataframe':
-        X = cudf.DataFrame.from_gpu_matrix(
-            numba.cuda.to_device(X))
+        X = cudf.DataFrame(X)
 
-        X_embedded = cudf.DataFrame.from_gpu_matrix(
-            numba.cuda.to_device(X_embedded))
+        X_embedded = cudf.DataFrame(X_embedded)
 
     score = cuml_trustworthiness(X, X_embedded, batch_size=batch_size)
 

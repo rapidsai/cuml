@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,9 @@
 
 #pragma once
 
-#include <cuml/cuml.hpp>
+namespace raft {
+class handle_t;
+}
 
 namespace ML {
 namespace Datasets {
@@ -51,28 +53,28 @@ namespace Datasets {
  * @param[in]   shuffle         Shuffle the samples and the features
  * @param[in]   seed            Seed for the random number generator
  */
-void make_regression(const cumlHandle& handle, float* out, float* values,
+void make_regression(const raft::handle_t& handle, float* out, float* values,
                      int64_t n_rows, int64_t n_cols, int64_t n_informative,
                      float* coef = nullptr, int64_t n_targets = 1LL,
                      float bias = 0.0f, int64_t effective_rank = -1LL,
                      float tail_strength = 0.5f, float noise = 0.0f,
                      bool shuffle = true, uint64_t seed = 0ULL);
 
-void make_regression(const cumlHandle& handle, double* out, double* values,
+void make_regression(const raft::handle_t& handle, double* out, double* values,
                      int64_t n_rows, int64_t n_cols, int64_t n_informative,
                      double* coef = nullptr, int64_t n_targets = 1LL,
                      double bias = 0.0, int64_t effective_rank = -1LL,
                      double tail_strength = 0.5, double noise = 0.0,
                      bool shuffle = true, uint64_t seed = 0ULL);
 
-void make_regression(const cumlHandle& handle, float* out, float* values,
+void make_regression(const raft::handle_t& handle, float* out, float* values,
                      int n_rows, int n_cols, int n_informative,
                      float* coef = nullptr, int n_targets = 1LL,
                      float bias = 0.0f, int effective_rank = -1LL,
                      float tail_strength = 0.5f, float noise = 0.0f,
                      bool shuffle = true, uint64_t seed = 0ULL);
 
-void make_regression(const cumlHandle& handle, double* out, double* values,
+void make_regression(const raft::handle_t& handle, double* out, double* values,
                      int n_rows, int n_cols, int n_informative,
                      double* coef = nullptr, int n_targets = 1LL,
                      double bias = 0.0, int effective_rank = -1LL,

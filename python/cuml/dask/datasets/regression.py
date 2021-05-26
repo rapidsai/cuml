@@ -134,9 +134,9 @@ def _shuffle(client, rs, X, y, chunksizes, n_features,
     return da.concatenate(X_dela, axis=0), da.concatenate(y_dela, axis=0)
 
 
-def _convert_C_to_F_order(client, X, chunksizes, n_features, dtype):
+def _convert_to_order(client, X, chunksizes, order, n_features, dtype):
     X_ddh = DistributedDataHandler.create(data=X, client=client)
-    X_converted = [client.submit(cp.array, X_part, copy=False, order='F',
+    X_converted = [client.submit(cp.array, X_part, copy=False, order=order,
                                  workers=[w])
                    for idx, (w, X_part) in enumerate(X_ddh.gpu_futures)]
 
@@ -223,7 +223,7 @@ def make_low_rank_matrix(n_samples=100, n_features=100,
     tail_strength : float between 0.0 and 1.0, optional (default=0.5)
         The relative importance of the fat noisy tail of the singular values
         profile.
-    random_state : int, CuPy RandomState instance, Dask RandomState instance
+    random_state : int, CuPy RandomState instance, Dask RandomState instance \
                    or None (default)
         Determines random number generation for dataset creation. Pass an int
         for reproducible output across multiple function calls.
@@ -236,6 +236,7 @@ def make_low_rank_matrix(n_samples=100, n_features=100,
     -------
     X : Dask-CuPy array of shape [n_samples, n_features]
         The matrix.
+
     """
 
     rs = _create_rs_generator(random_state)
@@ -276,7 +277,9 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
                     random_state=None, n_parts=1, n_samples_per_part=None,
                     order='F', dtype='float32', client=None,
                     use_full_low_rank=True):
-    """Generate a random regression problem.
+    """
+    Generate a random regression problem.
+
     The input set can either be well conditioned (by default) or have a low
     rank-fat tail singular profile.
 
@@ -305,9 +308,11 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
             of the input data by linear combinations. Using this kind of
             singular spectrum in the input allows the generator to reproduce
             the correlations often observed in practice.
+
         if None:
             The input set is well conditioned, centered and gaussian with
             unit variance.
+
     tail_strength : float between 0.0 and 1.0, optional (default=0.5)
         The relative importance of the fat noisy tail of the singular values
         profile if "effective_rank" is not None.
@@ -317,7 +322,7 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
         Shuffle the samples and the features.
     coef : boolean, optional (default=False)
         If True, the coefficients of the underlying linear model are returned.
-    random_state : int, CuPy RandomState instance, Dask RandomState instance
+    random_state : int, CuPy RandomState instance, Dask RandomState instance \
                    or None (default)
         Determines random number generation for dataset creation. Pass an int
         for reproducible output across multiple function calls.
@@ -339,24 +344,26 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
         The input samples.
     y : Dask-CuPy array of shape [n_samples] or [n_samples, n_targets]
         The output values.
-    coef : Dask-CuPy array of shape [n_features]
+    coef : Dask-CuPy array of shape [n_features] \
            or [n_features, n_targets], optional
         The coefficient of the underlying linear model. It is returned only if
         coef is True.
 
+    Notes
+    -----
     Known Performance Limitations:
-        1. When `effective_rank` is set and `use_full_low_rank` is True,
-           we cannot generate order `F` by construction, and an explicit
-           transpose is performed on each part. This may cause memory to spike
-           (other parameters make order `F` by construction)
-        2. When `n_targets > 1` and `order = 'F'` as above, we have to
-           explicity transpose the `y` array. If `coef = True`, then we also
-           explicity transpose the `ground_truth` array
-        3. When `shuffle = True` and `order = F`, there are memory spikes to
-           shuffle the `F` order arrays
+     1. When `effective_rank` is set and `use_full_low_rank` is True, \
+        we cannot generate order `F` by construction, and an explicit \
+        transpose is performed on each part. This may cause memory to spike \
+        (other parameters make order `F` by construction)
+     2. When `n_targets > 1` and `order = 'F'` as above, we have to \
+        explicity transpose the `y` array. If `coef = True`, then we also \
+        explicity transpose the `ground_truth` array
+     3. When `shuffle = True` and `order = F`, there are memory spikes to \
+        shuffle the `F` order arrays
 
-    NOTE: If out-of-memory errors are encountered in any of the above
-          configurations, try increasing the `n_parts` parameter.
+    .. note:: If out-of-memory errors are encountered in any of the above
+        configurations, try increasing the `n_parts` parameter.
     """
 
     client = get_client(client=client)
@@ -369,10 +376,7 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
 
     data_chunksizes = [n_samples_per_part] * n_parts
 
-    if n_samples_per_part == 1:
-        data_chunksizes[-1] += n_samples % n_parts
-    else:
-        data_chunksizes[-1] += n_samples % n_samples_per_part
+    data_chunksizes[-1] += (n_samples % n_parts)
 
     data_chunksizes = tuple(data_chunksizes)
 
@@ -411,9 +415,8 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
                                                data_chunksizes, n_features,
                                                dtype)
 
-        if order == 'F':
-            X = _convert_C_to_F_order(client, X, data_chunksizes,
-                                      n_features, dtype)
+        X = _convert_to_order(client, X, data_chunksizes, order,
+                              n_features, dtype)
 
     # Generate a ground truth model with only n_informative features being non
     # zeros (the other features are not correlated to y and should be ignored
@@ -448,11 +451,11 @@ def make_regression(n_samples=100, n_features=100, n_informative=10,
     y = da.squeeze(y)
 
     if order == 'F' and n_targets > 1:
-        y = _convert_C_to_F_order(client, y, y.chunks[0], n_targets, dtype)
+        y = _convert_to_order(client, y, y.chunks[0], order, n_targets, dtype)
         if coef:
-            ground_truth = _convert_C_to_F_order(client, ground_truth,
-                                                 ground_truth.chunks[0],
-                                                 n_targets, dtype)
+            ground_truth = _convert_to_order(client, ground_truth,
+                                             ground_truth.chunks[0], order,
+                                             n_targets, dtype)
 
     if coef:
         ground_truth = da.squeeze(ground_truth)

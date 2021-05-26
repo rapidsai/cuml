@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,6 +14,8 @@
 #
 
 import numpy as np
+import cupy as cp
+import cupyx
 import pytest
 
 from cuml import PCA as cuPCA
@@ -23,7 +25,8 @@ from cuml.test.utils import get_handle, array_equal, unit_param, \
 from sklearn import datasets
 from sklearn.datasets import make_multilabel_classification
 from sklearn.decomposition import PCA as skPCA
-from sklearn.datasets.samples_generator import make_blobs
+from sklearn.datasets import make_blobs
+from cuml.common.exceptions import NotFittedError
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -68,6 +71,41 @@ def test_pca_fit(datatype, input_type, name, use_handle):
         assert array_equal(cuml_res, skl_res, 1e-3, with_sign=with_sign)
 
 
+@pytest.mark.parametrize('n_samples', [200])
+@pytest.mark.parametrize('n_features', [100, 300])
+@pytest.mark.parametrize('sparse', [True, False])
+def test_pca_defaults(n_samples, n_features, sparse):
+    # FIXME: Disable the case True-300-200 due to flaky test
+    if sparse and n_features == 300 and n_samples == 200:
+        pytest.xfail('Skipping the case True-300-200 due to flaky test')
+
+    if sparse:
+        X = cupyx.scipy.sparse.random(n_samples, n_features,
+                                      density=0.03, dtype=cp.float32,
+                                      random_state=10)
+    else:
+        X, Y = make_multilabel_classification(n_samples=n_samples,
+                                              n_features=n_features,
+                                              n_classes=2,
+                                              n_labels=1,
+                                              random_state=1)
+    cupca = cuPCA()
+    cupca.fit(X)
+    curesult = cupca.transform(X)
+    cupca.handle.sync()
+
+    if sparse:
+        X = X.toarray().get()
+    skpca = skPCA()
+    skpca.fit(X)
+    skresult = skpca.transform(X)
+
+    assert skpca.svd_solver == cupca.svd_solver
+    assert cupca.components_.shape[0] == skpca.components_.shape[0]
+    assert curesult.shape == skresult.shape
+    assert array_equal(curesult, skresult, 1e-3, with_sign=False)
+
+
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('input_type', ['ndarray'])
 @pytest.mark.parametrize('use_handle', [True, False])
@@ -103,11 +141,10 @@ def test_pca_fit_then_transform(datatype, input_type,
     X_cupca = cupca.transform(X)
     cupca.handle.sync()
 
-    assert Xskpca.shape[0] == X_cupca.shape[0]
-    assert Xskpca.shape[1] == X_cupca.shape[1]
-
     if name != 'blobs':
         assert array_equal(X_cupca, Xskpca, 1e-3, with_sign=True)
+        assert Xskpca.shape[0] == X_cupca.shape[0]
+        assert Xskpca.shape[1] == X_cupca.shape[1]
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -143,11 +180,10 @@ def test_pca_fit_transform(datatype, input_type,
     X_cupca = cupca.fit_transform(X)
     cupca.handle.sync()
 
-    assert Xskpca.shape[0] == X_cupca.shape[0]
-    assert Xskpca.shape[1] == X_cupca.shape[1]
-
     if name != 'blobs':
         assert array_equal(X_cupca, Xskpca, 1e-3, with_sign=True)
+        assert Xskpca.shape[0] == X_cupca.shape[0]
+        assert Xskpca.shape[1] == X_cupca.shape[1]
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -179,3 +215,48 @@ def test_pca_inverse_transform(datatype, input_type,
     cupca.handle.sync()
     assert array_equal(input_gdf, X,
                        5e-5, with_sign=True)
+
+
+@pytest.mark.parametrize('nrows', [4000, 8000])
+@pytest.mark.parametrize('ncols', [5000, stress_param(20000)])
+@pytest.mark.parametrize('whiten', [True, False])
+@pytest.mark.parametrize('return_sparse', [True, False])
+@pytest.mark.parametrize('cupy_input', [True, False])
+def test_sparse_pca_inputs(nrows, ncols, whiten, return_sparse, cupy_input):
+
+    if return_sparse:
+        pytest.skip("Loss of information in converting to cupy sparse csr")
+
+    X = cupyx.scipy.sparse.random(nrows, ncols, density=0.07, dtype=cp.float32,
+                                  random_state=10)
+    if not(cupy_input):
+        X = X.get()
+
+    p_sparse = cuPCA(n_components=ncols, whiten=whiten)
+
+    p_sparse.fit(X)
+    t_sparse = p_sparse.transform(X)
+    i_sparse = p_sparse.inverse_transform(t_sparse,
+                                          return_sparse=return_sparse)
+
+    if return_sparse:
+
+        assert isinstance(i_sparse, cupyx.scipy.sparse.csr_matrix)
+
+        assert array_equal(i_sparse.todense(), X.todense(), 1e-1,
+                           with_sign=True)
+    else:
+        if cupy_input:
+            assert isinstance(i_sparse, cp.ndarray)
+
+        assert array_equal(i_sparse, X.todense(), 1e-1, with_sign=True)
+
+
+def test_exceptions():
+    with pytest.raises(NotFittedError):
+        X = cp.random.random((10, 10))
+        cuPCA().transform(X)
+
+    with pytest.raises(NotFittedError):
+        X = cp.random.random((10, 10))
+        cuPCA().inverse_transform(X)

@@ -1,18 +1,22 @@
 #!/bin/bash
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #####################
 # cuML Style Tester #
 #####################
 
 # Ignore errors and set path
 set +e
-PATH=/conda/bin:$PATH
+export PATH=/conda/bin:/usr/local/cuda/bin:$PATH
 
-# Activate common conda env
+# Activate common conda env and install any dependencies needed
 source activate gdf
+cd $WORKSPACE
+export GIT_DESCRIBE_TAG=`git describe --tags`
+export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
+conda install "ucx-py=${MINOR_VERSION}" "ucx-proc=*=gpu"
 
 # Run flake8 and get results/return code
-FLAKE=`flake8 --exclude=cpp,thirdparty,__init__.py,versioneer.py && flake8 --config=python/.flake8.cython`
+FLAKE=`flake8 --config=python/setup.cfg`
 RETVAL=$?
 
 # Output results if failure otherwise show pass
@@ -25,7 +29,7 @@ else
 fi
 
 # Check for copyright headers in the files modified currently
-COPYRIGHT=`env PYTHONPATH=cpp/scripts python ci/checks/copyright.py 2>&1`
+COPYRIGHT=`python ci/checks/copyright.py --git-modified-only 2>&1`
 CR_RETVAL=$?
 if [ "$RETVAL" = "0" ]; then
   RETVAL=$CR_RETVAL
@@ -50,6 +54,9 @@ HASH_INCLUDE=`python cpp/scripts/include_checker.py \
                      cpp/comms/std/src \
                      cpp/include \
                      cpp/examples \
+                     cpp/src \
+                     cpp/src_prims \
+                     cpp/test \
                      2>&1`
 HASH_RETVAL=$?
 if [ "$RETVAL" = "0" ]; then
@@ -66,7 +73,6 @@ else
 fi
 
 # Check for a consistent code format
-# TODO: keep adding more dirs when we add more source folders in cuml
 FORMAT=`python cpp/scripts/run-clang-format.py 2>&1`
 FORMAT_RETVAL=$?
 if [ "$RETVAL" = "0" ]; then
@@ -81,5 +87,41 @@ if [ "$FORMAT_RETVAL" != "0" ]; then
 else
   echo -e "\n\n>>>> PASSED: clang format check\n\n"
 fi
+
+# clang-tidy check
+# NOTE:
+#   explicitly pass GPU_ARCHS flag to avoid having to evaluate gpu archs
+# because there's no GPU on the CI machine where this script runs!
+# NOTE:
+#   also, sync all dependencies as they'll be needed by clang-tidy to find
+# relevant headers
+function setup_and_run_clang_tidy() {
+    local LD_LIBRARY_PATH_CACHED=$LD_LIBRARY_PATH
+    export LD_LIBRARY_PATH=$CONDA_PREFIX/lib:$LD_LIBRARY_PATH
+    mkdir cpp/build && \
+        cd cpp/build && \
+        cmake -DGPU_ARCHS=70 \
+              -DBLAS_LIBRARIES=${CONDA_PREFIX}/lib/libopenblas.so.0 \
+              .. && \
+        make treelite && \
+        cd ../.. && \
+        python cpp/scripts/run-clang-tidy.py
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
+}
+TIDY=`setup_and_run_clang_tidy 2>&1`
+TIDY_RETVAL=$?
+if [ "$RETVAL" = "0" ]; then
+  RETVAL=$TIDY_RETVAL
+fi
+
+# Output results if failure otherwise show pass
+if [ "$TIDY_RETVAL" != "0" ]; then
+  echo -e "\n\n>>>> FAILED: clang tidy check; begin output\n\n"
+  echo -e "$TIDY"
+  echo -e "\n\n>>>> FAILED: clang tidy check; end output\n\n"
+else
+  echo -e "\n\n>>>> PASSED: clang tidy check\n\n"
+fi
+
 
 exit $RETVAL

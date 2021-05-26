@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,16 +14,17 @@
 #
 
 from cuml.preprocessing.label import LabelBinarizer as LB
-from dask.distributed import default_client
 from cuml.dask.common.input_utils import _extract_partitions
+from cuml.dask.common.base import BaseEstimator
 
 from cuml.common import rmm_cupy_ary
 
 import dask
 import cupy as cp
+import cupyx
 
 
-class LabelBinarizer(object):
+class LabelBinarizer(BaseEstimator):
     """
     A distributed version of LabelBinarizer for one-hot encoding
     a collection of labels.
@@ -39,6 +40,7 @@ class LabelBinarizer(object):
     .. code-block:: python
 
         import cupy as cp
+        import cupyx
         from cuml.dask.preprocessing import LabelBinarizer
 
         from dask_cuda import LocalCUDACluster
@@ -85,7 +87,9 @@ class LabelBinarizer(object):
 
 
     """
-    def __init__(self, client=None, **kwargs):
+    def __init__(self, *, client=None, **kwargs):
+
+        super().__init__(client=client, **kwargs)
 
         """
         Initialize new LabelBinarizer instance
@@ -96,10 +100,6 @@ class LabelBinarizer(object):
         kwargs : dict of arguments to proxy to underlying single-process
                  LabelBinarizer
         """
-
-        self.client_ = client if client is not None else default_client()
-        self.kwargs = kwargs
-
         # Sparse output will be added once sparse CuPy arrays are supported
         # by Dask.Array: https://github.com/rapidsai/cuml/issues/1665
         if "sparse_output" in self.kwargs and \
@@ -126,7 +126,7 @@ class LabelBinarizer(object):
         return model.inverse_transform(y, threshold)
 
     def fit(self, y):
-        """Fit label binarizer`
+        """Fit label binarizer
 
         Parameters
         ----------
@@ -141,18 +141,16 @@ class LabelBinarizer(object):
         """
 
         # Take the unique classes and broadcast them all around the cluster.
-        futures = self.client_.sync(_extract_partitions, y)
+        futures = self.client.sync(_extract_partitions, y)
 
-        unique = [self.client_.submit(LabelBinarizer._func_unique_classes, f)
+        unique = [self.client.submit(LabelBinarizer._func_unique_classes, f)
                   for w, f in futures]
 
-        classes = self.client_.compute(unique, True)
-        self.classes_ = rmm_cupy_ary(cp.unique,
-                                     rmm_cupy_ary(cp.stack,
-                                                  classes,
-                                                  axis=0))
+        classes = self.client.compute(unique, True)
+        classes = rmm_cupy_ary(cp.unique, rmm_cupy_ary(cp.stack,
+                               classes, axis=0))
 
-        self.model = LB(**self.kwargs).fit(self.classes_)
+        self._set_internal_model(LB(**self.kwargs).fit(classes))
 
         return self
 
@@ -187,18 +185,21 @@ class LabelBinarizer(object):
         arr : Dask.Array backed by CuPy arrays containing encoded labels
         """
 
-        parts = self.client_.sync(_extract_partitions, y)
+        parts = self.client.sync(_extract_partitions, y)
+
+        internal_model = self._get_internal_model()
 
         xform_func = dask.delayed(LabelBinarizer._func_xform)
         meta = rmm_cupy_ary(cp.zeros, 1)
-        if self.model.sparse_output:
-            meta = cp.sparse.csr_matrix(meta)
-        f = [dask.array.from_delayed(xform_func(self.model, part),
+        if internal_model.sparse_output:
+            meta = cupyx.scipy.sparse.csr_matrix(meta)
+        f = [dask.array.from_delayed(xform_func(internal_model, part),
              meta=meta, dtype=cp.float32,
-             shape=(len(y), len(self.classes_))) for w, part in parts]
+             shape=(cp.nan, len(self.classes_))) for w, part in parts]
 
-        arr = dask.array.asarray(f)
-        return arr.reshape(arr.shape[1:])
+        arr = dask.array.concatenate(f, axis=0,
+                                     allow_unknown_chunksizes=True)
+        return arr
 
     def inverse_transform(self, y, threshold=None):
         """
@@ -218,16 +219,19 @@ class LabelBinarizer(object):
         arr : Dask.Array backed by CuPy arrays containing original labels
         """
 
-        parts = self.client_.sync(_extract_partitions, y)
+        parts = self.client.sync(_extract_partitions, y)
         inv_func = dask.delayed(LabelBinarizer._func_inv_xform)
 
         dtype = self.classes_.dtype
         meta = rmm_cupy_ary(cp.zeros, 1, dtype=dtype)
 
+        internal_model = self._get_internal_model()
+
         f = [dask.array.from_delayed(
-            inv_func(self.model, part, threshold),
-            dtype=dtype, shape=(y.shape[0],), meta=meta)
+            inv_func(internal_model, part, threshold),
+            dtype=dtype, shape=(cp.nan,), meta=meta)
              for w, part in parts]
 
-        ret = dask.array.stack(f, axis=0)
-        return ret.reshape(ret.shape[1:])
+        arr = dask.array.concatenate(f, axis=0,
+                                     allow_unknown_chunksizes=True)
+        return arr

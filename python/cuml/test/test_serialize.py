@@ -14,6 +14,7 @@
 #
 
 import cupy as cp
+import cupyx
 import pickle
 
 from cuml.naive_bayes.naive_bayes import MultinomialNB
@@ -30,7 +31,7 @@ def test_naive_bayes_cuda():
 
     mnb = MultinomialNB()
 
-    X = cp.sparse.random(1, 5)
+    X = cupyx.scipy.sparse.random(1, 5)
     y = cp.array([0])
 
     mnb.fit(X, y)
@@ -50,7 +51,7 @@ def test_naive_bayes_cuda():
 
 def test_cupy_sparse_patch():
 
-    sp = cp.sparse.random(50, 2, format='csr')
+    sp = cupyx.scipy.sparse.random(50, 2, format='csr')
 
     pickled = pickle.dumps(sp)
 

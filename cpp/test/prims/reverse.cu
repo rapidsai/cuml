@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include "matrix/reverse.h"
-#include "random/rng.h"
+#include <raft/cudart_utils.h>
+#include <matrix/reverse.cuh>
+#include <raft/random/rng.cuh>
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -37,10 +37,10 @@ class ReverseTest : public ::testing::TestWithParam<ReverseInputs<T>> {
   void SetUp() override {
     CUDA_CHECK(cudaStreamCreate(&stream));
     params = ::testing::TestWithParam<ReverseInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int len = params.nrows * params.ncols;
-    allocate(in, len);
-    allocate(out, len);
+    raft::allocate(in, len);
+    raft::allocate(out, len);
     r.uniform(in, len, T(-1.0), T(1.0), stream);
     // applying reverse twice should yield the same output!
     // this will in turn also verify the inplace mode of reverse method
@@ -75,7 +75,7 @@ const std::vector<ReverseInputs<float>> inputsf = {
 typedef ReverseTest<float> ReverseTestF;
 TEST_P(ReverseTestF, Result) {
   ASSERT_TRUE(devArrMatch(in, out, params.nrows, params.ncols,
-                          CompareApprox<float>(params.tolerance)));
+                          raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ReverseTests, ReverseTestF,
                         ::testing::ValuesIn(inputsf));
@@ -93,7 +93,7 @@ const std::vector<ReverseInputs<double>> inputsd = {
   {0.000001, 41, 41, true, true, 1234ULL}};
 TEST_P(ReverseTestD, Result) {
   ASSERT_TRUE(devArrMatch(in, out, params.nrows, params.ncols,
-                          CompareApprox<double>(params.tolerance)));
+                          raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ReverseTests, ReverseTestD,
                         ::testing::ValuesIn(inputsd));

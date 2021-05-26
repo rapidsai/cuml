@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include "linalg/batched/make_symm.h"
-#include "random/rng.h"
-#include "test_utils.h"
+#include <raft/cudart_utils.h>
+#include <test_utils.h>
+#include <linalg/batched/make_symm.cuh>
+#include <raft/random/rng.cuh>
+#include "../test_utils.h"
 
 namespace MLCommon {
 namespace LinAlg {
@@ -53,7 +54,7 @@ template <typename Type>
 void naiveBatchMakeSymm(Type *y, const Type *x, int batchSize, int n,
                         cudaStream_t stream) {
   dim3 blk(16, 16);
-  int nblks = ceildiv<int>(n, blk.x);
+  int nblks = raft::ceildiv<int>(n, blk.x);
   dim3 grid(nblks, nblks, batchSize);
   naiveBatchMakeSymmKernel<Type><<<grid, blk, 0, stream>>>(y, x, n);
   CUDA_CHECK(cudaPeekAtLastError());
@@ -65,13 +66,13 @@ class BatchMakeSymmTest
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<BatchMakeSymmInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int len = params.batchSize * params.n * params.n;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    allocate(x, len);
-    allocate(out_ref, len);
-    allocate(out, len);
+    raft::allocate(x, len);
+    raft::allocate(out_ref, len);
+    raft::allocate(out, len);
     r.uniform(x, len, T(-1.0), T(1.0), stream);
     naiveBatchMakeSymm(out_ref, x, params.batchSize, params.n, stream);
     make_symm<T, int>(out, x, params.batchSize, params.n, stream);
@@ -100,8 +101,8 @@ const std::vector<BatchMakeSymmInputs<float>> inputsf = {
 typedef BatchMakeSymmTest<float> BatchMakeSymmTestF;
 TEST_P(BatchMakeSymmTestF, Result) {
   int len = params.batchSize * params.n * params.n;
-  ASSERT_TRUE(
-    devArrMatch(out_ref, out, len, CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(out_ref, out, len,
+                          raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(BatchMakeSymmTests, BatchMakeSymmTestF,
                         ::testing::ValuesIn(inputsf));
@@ -114,8 +115,8 @@ const std::vector<BatchMakeSymmInputs<double>> inputsd = {
 };
 TEST_P(BatchMakeSymmTestD, Result) {
   int len = params.batchSize * params.n * params.n;
-  ASSERT_TRUE(
-    devArrMatch(out_ref, out, len, CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(out_ref, out, len,
+                          raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(BatchMakeSymmTests, BatchMakeSymmTestD,
                         ::testing::ValuesIn(inputsd));

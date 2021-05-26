@@ -4,9 +4,11 @@ This folder contains the Python and Cython code of the algorithms and ML primiti
 
 Contents:
 
-- [Build Configuration](#build-configuration)
-- [RAFT Integration in cuml.raft](#raft-integration-in-cumlraft)
-- [Running Unit Tests](#build-requirements)
+- [cuML Python Package](#cuml-python-package)
+    - [Build Configuration](#build-configuration)
+    - [RAFT Integration in cuml.raft](#raft-integration-in-cumlraft)
+    - [Build Requirements](#build-requirements)
+    - [Python Tests](#python-tests)
 
 ### Build Configuration
 
@@ -29,14 +31,14 @@ example `setup.py --singlegpu`) are:
 | Argument | Behavior |
 | --- | --- |
 | clean --all | Cleans all Python and Cython artifacts, including pycache folders, .cpp files resulting of cythonization and compiled extensions. |
-| --singlegpu | Option to build cuML without multiGPU algorithms. Removes dependency on nccl, libcumlcomms and ucx-py. |
+| --singlegpu | Option to build cuML without multiGPU algorithms. Removes dependency on nccl, libcumlprims and ucx-py. |
 
 
 ### RAFT Integration in cuml.raft
 
 RAFT's Python and Cython is located in the [RAFT repository](https://github.com/rapidsai/raft/python). It was designed to be included in projects as opposed to be distributed by itself, so at build time, **setup.py creates a symlink from cuML, located in `/python/cuml/raft/` to the Python folder of RAFT**.
 
-For developers that need to modify RAFT code, please refer to the [RAFT Developer Guide](https://github.com/rapidsai/raft/blob/branch-0.14/BUILD.md#developer-guide) for recommendations.
+For developers that need to modify RAFT code, please refer to the [RAFT Developer Guide](https://github.com/rapidsai/raft/blob/branch-0.15/BUILD.md#developer-guide) for recommendations.
 
 To configure RAFT at build time:
 
@@ -48,7 +50,7 @@ The RAFT Python code gets included in the cuML build and distributable artifacts
 
 ### Build Requirements
 
-cuML's convenience [development yaml files](https://github.com/rapidsai/cuml/tree/branch-0.14/conda/environments) includes all dependencies required to build cuML.
+cuML's convenience [development yaml files](https://github.com/rapidsai/cuml/tree/branch-0.15/conda/environments) includes all dependencies required to build cuML.
 
 To build cuML's Python package, the following dependencies are required:
 
@@ -57,11 +59,10 @@ To build cuML's Python package, the following dependencies are required:
 - cython >= 0.29, < 0.30
 - numpy
 - cmake >= 3.14
-- protobuf >= 3.4.1, < 4.0.0
 - cudf version matching the cuML version
 - libcuml version matching the cuML version
 - libcuml={{ version }}
-- cupy>=7,<8.0.0a0
+- cupy>=7.8.0,<9.0.0a0
 - joblib >=0.11
 
 Packages required for multigpu algorithms*:

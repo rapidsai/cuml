@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 
 import cudf
+import cuml.common.logger as logger
 import cupy as cp
 import numpy as np
 import dask.array as da
@@ -26,13 +27,16 @@ from cuml.common.memory_utils import with_cupy_rmm
 
 from collections import OrderedDict
 from cudf.core import DataFrame, Series
+from dask.dataframe import DataFrame as daskDataFrame
+from dask.dataframe import Series as daskSeries
 from dask_cudf.core import DataFrame as dcDataFrame
-from dask_cudf.core import Series as daskSeries
+from dask_cudf.core import Series as dcSeries
 
 from cuml.dask.common.utils import get_client
 from cuml.dask.common.dask_df_utils import to_dask_cudf
 from cuml.dask.common.dask_arr_utils import validate_dask_array
 from cuml.dask.common.part_utils import _extract_partitions
+
 from dask.distributed import wait
 from dask.distributed import default_client
 from toolz import first
@@ -95,18 +99,7 @@ class DistributedDataHandler:
 
         client = cls.get_client(client)
 
-        multiple = isinstance(data, Sequence)
-
-        if isinstance(first(data) if multiple else data,
-                      (dcDataFrame, daskSeries)):
-            datatype = 'cudf'
-        else:
-            datatype = 'cupy'
-            if multiple:
-                for d in data:
-                    validate_dask_array(d)
-            else:
-                validate_dask_array(data)
+        datatype, multiple = _get_datatype_from_inputs(data)
 
         gpu_futures = client.sync(_extract_partitions, data, client)
 
@@ -153,6 +146,39 @@ class DistributedDataHandler:
             self.total_rows += total
 
 
+def _get_datatype_from_inputs(data):
+
+    """
+    Gets the datatype from a distributed data input.
+
+    Parameters
+    ----------
+
+    data : dask.DataFrame, dask.Series, dask.Array, or
+           Iterable containing either.
+
+    Returns
+    -------
+
+    datatype : str {'cupy', 'cudf}
+    """
+
+    multiple = isinstance(data, Sequence)
+
+    if isinstance(first(data) if multiple else data,
+                  (daskSeries, daskDataFrame, dcDataFrame, dcSeries)):
+        datatype = 'cudf'
+    else:
+        datatype = 'cupy'
+        if multiple:
+            for d in data:
+                validate_dask_array(d)
+        else:
+            validate_dask_array(data)
+
+    return datatype, multiple
+
+
 @with_cupy_rmm
 def concatenate(objs, axis=0):
     if isinstance(objs[0], DataFrame) or isinstance(objs[0], Series):
@@ -168,7 +194,7 @@ def concatenate(objs, axis=0):
 
 
 # TODO: This should be delayed.
-def to_output(futures, type, client=None, verbose=False):
+def to_output(futures, type, client=None):
     if type == 'cupy':
         return to_dask_cupy(futures, client=client)
     else:
@@ -185,7 +211,7 @@ def _get_meta(df):
     return ret
 
 
-def _to_dask_cudf(futures, client=None, verbose=False):
+def _to_dask_cudf(futures, client=None):
     """
     Convert a list of futures containing cudf Dataframes into a Dask.Dataframe
     :param futures: list[cudf.Dataframe] list of futures containing dataframes
@@ -195,8 +221,8 @@ def _to_dask_cudf(futures, client=None, verbose=False):
     c = default_client() if client is None else client
     # Convert a list of futures containing dfs back into a dask_cudf
     dfs = [d for d in futures if d.type != type(None)]  # NOQA
-    if verbose:
-        print("to_dask_cudf dfs=%s" % str(dfs))
+    if logger.should_log_for(logger.level_debug):
+        logger.debug("to_dask_cudf dfs=%s" % str(dfs))
     meta_future = c.submit(_get_meta, dfs[0], pure=False)
     meta = meta_future.result()
     return dd.from_delayed(dfs, meta=meta)
@@ -222,7 +248,7 @@ def _workers_to_parts(futures):
 
 def _get_ary_meta(ary):
 
-    if isinstance(ary, cp.ndarray):
+    if isinstance(ary, (np.ndarray, cp.ndarray)):
         return ary.shape, ary.dtype
     elif isinstance(ary, cudf.DataFrame):
         return ary.shape, first(set(ary.dtypes))

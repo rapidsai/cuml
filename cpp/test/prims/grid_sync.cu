@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include "common/grid_sync.h"
-#include "cuda_utils.h"
+#include <raft/cudart_utils.h>
+#include <common/grid_sync.cuh>
+#include <raft/cuda_utils.cuh>
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -43,7 +43,7 @@ __global__ void gridSyncTestKernel(void* workspace, int* out, SyncType type) {
   int val = out[updatePosition];
   // make sure everybody has read the updated value!
   gs.sync();
-  atomicAdd(out + updatePosition, val);
+  raft::myAtomicAdd(out + updatePosition, val);
 }
 
 struct GridSyncInputs {
@@ -56,7 +56,7 @@ void gridSyncTest(int* out, int* out1, const GridSyncInputs& params) {
   size_t workspaceSize =
     GridSync::computeWorkspaceSize(params.gridDim, params.type, true);
   char* workspace;
-  allocate(workspace, workspaceSize);
+  raft::allocate(workspace, workspaceSize);
   CUDA_CHECK(cudaMemset(workspace, 0, workspaceSize));
   gridSyncTestKernel<<<params.gridDim, params.blockDim>>>(workspace, out,
                                                           params.type);
@@ -79,8 +79,8 @@ class GridSyncTest : public ::testing::TestWithParam<GridSyncInputs> {
   void SetUp() override {
     params = ::testing::TestWithParam<GridSyncInputs>::GetParam();
     size_t len = computeOutLen();
-    allocate(out, len);
-    allocate(out1, len);
+    raft::allocate(out, len);
+    raft::allocate(out1, len);
     gridSyncTest(out, out1, params);
   }
 
@@ -133,15 +133,15 @@ const std::vector<GridSyncInputs> inputs = {
   {{32, 256, 1}, {1, 1, 1}, true, ACROSS_X}};
 TEST_P(GridSyncTest, Result) {
   size_t len = computeOutLen();
-  // number of blocks atomicAdd'ing the same location
+  // number of blocks raft::myAtomicAdd'ing the same location
   int nblks = params.type == ACROSS_X
                 ? params.gridDim.x
                 : params.gridDim.x * params.gridDim.y * params.gridDim.z;
   int nthreads = params.blockDim.x * params.blockDim.y * params.blockDim.z;
   int expected = (nblks * nthreads) + 1;
-  ASSERT_TRUE(devArrMatch(expected, out, len, Compare<int>()));
+  ASSERT_TRUE(raft::devArrMatch(expected, out, len, raft::Compare<int>()));
   if (params.checkWorkspaceReuse) {
-    ASSERT_TRUE(devArrMatch(expected, out1, len, Compare<int>()));
+    ASSERT_TRUE(raft::devArrMatch(expected, out1, len, raft::Compare<int>()));
   }
 }
 INSTANTIATE_TEST_CASE_P(GridSyncTests, GridSyncTest,

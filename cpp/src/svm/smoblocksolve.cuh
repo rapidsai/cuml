@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,14 @@
  * limitations under the License.
  */
 
-/**@file smoblocksolve.h  contains implementation of the blocke SMO solver
+/**@file smoblocksolve.cuh  contains implementation of the blocke SMO solver
 */
 #pragma once
 
-#include <cuda_utils.h>
+#include <cuml/svm/svm_parameter.h>
 #include <stdlib.h>
-#include "cuml/svm/svm_parameter.h"
-#include "ml_utils.h"
-#include "selection/kselection.h"
+#include <raft/cuda_utils.cuh>
+#include <selection/kselection.cuh>
 #include "smo_sets.cuh"
 
 namespace ML {
@@ -133,7 +132,8 @@ namespace SVM {
  * @param [in] kernel kernel function calculated between the working set and all
  *   other training vectors, size [n_rows * n_ws]
  * @param [in] ws_idx indices of traning vectors in the working set, size [n_ws]
- * @param [in] C penalty parameter
+ * @param [in] C_vec penalty parameter vector including class and sample weights
+ *   size [n_train]
  * @param [in] eps tolerance, iterations will stop if the duality gap is smaller
  *  than this value (or if the gap is smaller than 0.1 times the initial gap)
  * @param [out] return_buff, two valies are returned: duality gap and the number
@@ -145,7 +145,7 @@ namespace SVM {
 template <typename math_t, int WSIZE>
 __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
   math_t *y_array, int n_train, math_t *alpha, int n_ws, math_t *delta_alpha,
-  math_t *f_array, const math_t *kernel, const int *ws_idx, math_t C,
+  math_t *f_array, const math_t *kernel, const int *ws_idx, const math_t *C_vec,
   math_t eps, math_t *return_buff, int max_iter = 10000,
   SvmType svmType = C_SVC, const int *kColIdx = nullptr) {
   typedef MLCommon::Selection::KVPair<math_t, int> Pair;
@@ -170,19 +170,19 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
   __shared__ math_t tmp_u, tmp_l;
   __shared__ math_t Kd[WSIZE];  // diagonal elements of the kernel matrix
   __shared__ int k_col_idx_map[WSIZE];
-  __shared__ int k_col_idx_u, k_col_idx_l;
+  __shared__ int64_t k_col_idx_u, k_col_idx_l;
 
   int tid = threadIdx.x;
   int idx = ws_idx[tid];
-  int n_rows = (svmType == EPSILON_SVR) ? n_train / 2 : n_train;
+  int64_t n_rows = (svmType == EPSILON_SVR) ? n_train / 2 : n_train;
 
   // Consult KernelCache::GetTile for the layout of the kernel matrix
   // kernel matrix row and colums indices for workspace vector ws_idx[tid]
   // k_row_idx \in [0..n_rows-1]
-  int k_row_idx =
+  int64_t k_row_idx =
     (svmType == EPSILON_SVR && idx >= n_rows) ? idx - n_rows : idx;
   // k_col_idx \in [0..n_unique-1]
-  int k_col_idx = (svmType == C_SVC) ? tid : kColIdx[tid];
+  int64_t k_col_idx = (svmType == C_SVC) ? tid : kColIdx[tid];
 
   k_col_idx_map[tid] = k_col_idx;
 
@@ -191,6 +191,8 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
   math_t f = f_array[idx];
   math_t a = alpha[idx];
   math_t a_save = a;
+  math_t C = C_vec[idx];
+
   __shared__ math_t diff_end;
   __shared__ math_t diff;
 

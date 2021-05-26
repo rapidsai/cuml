@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,16 +14,21 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <cuml/cuml_api.h>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/host/allocator.hpp>
+
+#include <raft/cudart_utils.h>
 #include <cuml/common/utils.hpp>
 #include <functional>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/host/allocator.hpp>
 #include "cumlHandle.hpp"
 
 namespace ML {
 namespace detail {
 
-class hostAllocatorFunctionWrapper : public MLCommon::hostAllocator {
+class hostAllocatorFunctionWrapper : public raft::mr::host::allocator {
  public:
   hostAllocatorFunctionWrapper(cuml_allocate allocate_fn,
                                cuml_deallocate deallocate_fn)
@@ -44,7 +49,8 @@ class hostAllocatorFunctionWrapper : public MLCommon::hostAllocator {
   const std::function<cudaError_t(void*, size_t, cudaStream_t)> _deallocate_fn;
 };
 
-class deviceAllocatorFunctionWrapper : public MLCommon::deviceAllocator {
+class deviceAllocatorFunctionWrapper
+  : public raft::mr::device::default_allocator {
  public:
   deviceAllocatorFunctionWrapper(cuml_allocate allocate_fn,
                                  cuml_deallocate deallocate_fn)
@@ -87,11 +93,11 @@ extern "C" cumlError_t cumlCreate(cumlHandle_t* handle) {
 
 extern "C" cumlError_t cumlSetStream(cumlHandle_t handle, cudaStream_t stream) {
   cumlError_t status;
-  ML::cumlHandle* handle_ptr;
+  raft::handle_t* handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
   if (status == CUML_SUCCESS) {
     try {
-      handle_ptr->setStream(stream);
+      handle_ptr->set_stream(stream);
     }
     //TODO: Implement this
     //catch (const MLCommon::Exception& e)
@@ -109,11 +115,11 @@ extern "C" cumlError_t cumlSetStream(cumlHandle_t handle, cudaStream_t stream) {
 extern "C" cumlError_t cumlGetStream(cumlHandle_t handle,
                                      cudaStream_t* stream) {
   cumlError_t status;
-  ML::cumlHandle* handle_ptr;
+  raft::handle_t* handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
   if (status == CUML_SUCCESS) {
     try {
-      *stream = handle_ptr->getStream();
+      *stream = handle_ptr->get_stream();
     }
     //TODO: Implement this
     //catch (const MLCommon::Exception& e)
@@ -132,14 +138,14 @@ extern "C" cumlError_t cumlSetDeviceAllocator(cumlHandle_t handle,
                                               cuml_allocate allocate_fn,
                                               cuml_deallocate deallocate_fn) {
   cumlError_t status;
-  ML::cumlHandle* handle_ptr;
+  raft::handle_t* handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
   if (status == CUML_SUCCESS) {
     try {
       std::shared_ptr<ML::detail::deviceAllocatorFunctionWrapper> allocator(
         new ML::detail::deviceAllocatorFunctionWrapper(allocate_fn,
                                                        deallocate_fn));
-      handle_ptr->setDeviceAllocator(allocator);
+      handle_ptr->set_device_allocator(allocator);
     }
     //TODO: Implement this
     //catch (const MLCommon::Exception& e)
@@ -158,14 +164,14 @@ extern "C" cumlError_t cumlSetHostAllocator(cumlHandle_t handle,
                                             cuml_allocate allocate_fn,
                                             cuml_deallocate deallocate_fn) {
   cumlError_t status;
-  ML::cumlHandle* handle_ptr;
+  raft::handle_t* handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
   if (status == CUML_SUCCESS) {
     try {
       std::shared_ptr<ML::detail::hostAllocatorFunctionWrapper> allocator(
         new ML::detail::hostAllocatorFunctionWrapper(allocate_fn,
                                                      deallocate_fn));
-      handle_ptr->setHostAllocator(allocator);
+      handle_ptr->set_host_allocator(allocator);
     }
     //TODO: Implement this
     //catch (const MLCommon::Exception& e)

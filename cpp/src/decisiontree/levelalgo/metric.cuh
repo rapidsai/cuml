@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include "cuda_utils.h"
+#include <raft/cuda_utils.cuh>
 #include "metric_def.cuh"
 
 namespace ML {
@@ -23,12 +23,12 @@ namespace DecisionTree {
 
 template <class T>
 DI T SquareFunctor::exec(T x) {
-  return MLCommon::myPow(x, (T)2);
+  return raft::myPow(x, (T)2);
 }
 
 template <class T>
 DI T AbsFunctor::exec(T x) {
-  return MLCommon::myAbs(x);
+  return raft::myAbs(x);
 }
 
 float GiniFunctor::max_val(int nclass) { return 1.0; }

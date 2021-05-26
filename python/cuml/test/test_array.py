@@ -14,19 +14,32 @@
 # limitations under the License.
 #
 
+import sys
+import gc
+
 import pytest
 
 import cupy as cp
-import numpy as np
 import cudf
-import pickle
+import numpy as np
+import operator
 
 from copy import deepcopy
 from numba import cuda
 from cudf.core.buffer import Buffer
 from cuml.common.array import CumlArray
 from cuml.common.memory_utils import _get_size_from_shape
+from cuml.common.memory_utils import _strides_to_order
 from rmm import DeviceBuffer
+
+if sys.version_info < (3, 8):
+    try:
+        import pickle5 as pickle
+    except ImportError:
+        import pickle
+else:
+    import pickle
+
 
 test_input_types = [
     'numpy', 'numba', 'cupy', 'series', None
@@ -44,9 +57,7 @@ test_output_types = {
 test_dtypes_all = [
     np.float16, np.float32, np.float64,
     np.int8, np.int16, np.int32, np.int64,
-    np.uint8, np.uint16, np.uint32, np.uint64,
-    "float", "float32", "double", "float64",
-    "int8", "short", "int16", "int", "int32", "long", "int64",
+    np.uint8, np.uint16, np.uint32, np.uint64
 ]
 
 test_dtypes_output = [
@@ -73,21 +84,14 @@ def test_array_init(input_type, dtype, shape, order):
                 shape in [(10, 5), (1, 10)]:
             pytest.skip("Unsupported cuDF Series parameter")
 
-    if input_type is not None:
-        inp = create_input(input_type, dtype, shape, order)
-        ary = CumlArray(data=inp)
-    else:
-        inp = create_input('cupy', dtype, shape, order)
-        ptr = inp.__cuda_array_interface__['data'][0]
-        ary = CumlArray(data=ptr, owner=inp, dtype=inp.dtype, shape=inp.shape,
-                        order=order)
+    inp, ary, ptr = create_ary_init_tests(input_type, dtype, shape, order)
 
     if shape == (10, 5):
         assert ary.order == order
 
     if shape == 10:
         assert ary.shape == (10,)
-        len(ary) == 10
+        assert len(ary) == 10
     elif input_type == 'series':
         # cudf Series make their shape (10,) from (10, 1)
         if shape == (10, 1):
@@ -97,17 +101,7 @@ def test_array_init(input_type, dtype, shape, order):
 
     assert ary.dtype == np.dtype(dtype)
 
-    if input_type == 'numpy':
-        assert isinstance(ary._owner, DeviceBuffer)
-    elif input_type in ['cupy', 'numba', 'series']:
-        assert ary._owner is inp
-        inp_copy = deepcopy(cp.asarray(inp))
-
-        # testing owner reference keeps data of ary alive
-        del inp
-        assert cp.all(cp.asarray(ary._owner) == cp.asarray(inp_copy))
-
-    else:
+    if (input_type == "numpy"):
         assert isinstance(ary._owner, cp.ndarray)
 
         truth = cp.asnumpy(inp)
@@ -117,8 +111,70 @@ def test_array_init(input_type, dtype, shape, order):
         data = ary.to_output('numpy')
 
         assert np.array_equal(truth, data)
+    else:
+        helper_test_ownership(ary, inp, False)
 
-    return True
+
+@pytest.mark.parametrize('input_type', test_input_types)
+def test_ownership_with_gc(input_type):
+    # garbage collection slows down the test suite significantly, we only
+    # need to test for each input type, not for shapes/dtypes/etc.
+    if input_type == 'numpy':
+        pytest.skip("test not valid for numpy input")
+
+    inp, ary, ptr = create_ary_init_tests(input_type, np.float32, (10, 10),
+                                          'F')
+
+    helper_test_ownership(ary, inp, True)
+
+
+def create_ary_init_tests(ary_type, dtype, shape, order):
+    if ary_type is not None:
+        inp = create_input(ary_type, dtype, shape, order)
+        ary = CumlArray(data=inp)
+        ptr = ary.ptr
+    else:
+        inp = create_input('cupy', dtype, shape, order)
+        ptr = inp.__cuda_array_interface__['data'][0]
+        ary = CumlArray(data=ptr, owner=inp, dtype=inp.dtype, shape=inp.shape,
+                        order=order)
+
+    return (inp, ary, ptr)
+
+
+def get_owner(curr):
+    if (isinstance(curr, CumlArray)):
+        return curr._owner
+    elif (isinstance(curr, cp.ndarray)):
+        return curr.data.mem._owner
+    else:
+        return None
+
+
+def helper_test_ownership(ary, inp, garbage_collect):
+    found_owner = False
+    # Make sure the input array is in the ownership chain
+    curr_owner = ary
+
+    while (curr_owner is not None):
+        if (curr_owner is inp):
+            found_owner = True
+            break
+
+        curr_owner = get_owner(curr_owner)
+
+    assert found_owner, "GPU input arrays must be in the owner chain"
+
+    inp_copy = deepcopy(cp.asarray(inp))
+
+    # testing owner reference keeps data of ary alive
+    del inp
+
+    if garbage_collect:
+        # Force GC just in case it lingers
+        gc.collect()
+
+    assert cp.all(cp.asarray(ary._owner) == cp.asarray(inp_copy))
 
 
 @pytest.mark.parametrize('data_type', [bytes, bytearray, memoryview])
@@ -149,9 +205,42 @@ def test_array_init_from_bytes(data_type, dtype, shape, order):
     assert cp.all(cp.asarray(cp_ary) == cp_ary)
 
 
+@pytest.mark.parametrize('input_type', test_input_types)
+@pytest.mark.parametrize('dtype', test_dtypes_all)
+@pytest.mark.parametrize('shape', test_shapes)
+@pytest.mark.parametrize('order', ['F', 'C'])
+def test_array_init_bad(input_type, dtype, shape, order):
+    """
+    This test ensures that we assert on incorrect combinations of arguments
+    when creating CumlArray
+    """
+    if input_type == 'series':
+        inp = create_input(input_type, dtype, shape, 'C')
+    else:
+        inp = create_input(input_type, dtype, shape, order)
+
+    # Ensure the array is creatable
+    cuml_ary = CumlArray(inp)
+
+    with pytest.raises(AssertionError):
+        CumlArray(inp, dtype=cuml_ary.dtype)
+
+    with pytest.raises(AssertionError):
+        CumlArray(inp, shape=cuml_ary.shape)
+
+    with pytest.raises(AssertionError):
+        CumlArray(inp,
+                  order=_strides_to_order(cuml_ary.strides, cuml_ary.dtype))
+
+    assert cp.all(cp.asarray(inp) == cp.asarray(cuml_ary))
+
+
 @pytest.mark.parametrize('slice', test_slices)
 @pytest.mark.parametrize('order', ['C', 'F'])
 def test_get_set_item(slice, order):
+    if order == 'F' and slice != 'both':
+        pytest.skip("See issue https://github.com/rapidsai/cuml/issues/2412")
+
     inp = create_input('numpy', 'float32', (10, 10), order)
     ary = CumlArray(data=inp)
 
@@ -192,7 +281,7 @@ def test_create_empty(shape, dtype, order):
     else:
         assert ary.shape == shape
     assert ary.dtype == np.dtype(dtype)
-    assert isinstance(ary._owner, DeviceBuffer)
+    assert isinstance(ary._owner.data.mem._owner, DeviceBuffer)
 
 
 @pytest.mark.parametrize('shape', test_shapes)
@@ -225,9 +314,10 @@ def test_create_full(shape, dtype, order):
 
 @pytest.mark.parametrize('output_type', test_output_types)
 @pytest.mark.parametrize('dtype', test_dtypes_output)
+@pytest.mark.parametrize('out_dtype', test_dtypes_output)
 @pytest.mark.parametrize('order', ['F', 'C'])
 @pytest.mark.parametrize('shape', test_shapes)
-def test_output(output_type, dtype, order, shape):
+def test_output(output_type, dtype, out_dtype, order, shape):
     inp = create_input('numpy', dtype, shape, order)
     ary = CumlArray(inp)
 
@@ -266,10 +356,9 @@ def test_output(output_type, dtype, order, shape):
             assert np.all(comp.to_array())
 
         elif output_type == 'dataframe':
-            mat = cuda.to_device(inp)
-            if len(mat.shape) == 1:
-                mat = mat.reshape(mat.shape[0], 1)
-            comp = cudf.DataFrame.from_gpu_matrix(mat)
+            if len(inp.shape) == 1:
+                inp = inp.reshape(inp.shape[0], 1)
+            comp = cudf.DataFrame(inp)
             comp = comp == res
             assert np.all(comp.as_gpu_matrix().copy_to_host())
 
@@ -281,6 +370,43 @@ def test_output(output_type, dtype, order, shape):
                 assert np.all(inp.reshape((1, 10)) == res2)
             else:
                 assert np.all(inp == res2)
+
+
+@pytest.mark.parametrize('output_type', test_output_types)
+@pytest.mark.parametrize('dtype', [
+    np.float32, np.float64,
+    np.int8, np.int16, np.int32, np.int64,
+])
+@pytest.mark.parametrize('out_dtype', [
+    np.float32, np.float64,
+    np.int8, np.int16, np.int32, np.int64,
+])
+@pytest.mark.parametrize('shape', test_shapes)
+def test_output_dtype(output_type, dtype, out_dtype, shape):
+    inp = create_input('numpy', dtype, shape, order="F")
+    ary = CumlArray(inp)
+
+    if dtype in unsupported_cudf_dtypes and \
+            output_type in ['series', 'dataframe', 'cudf']:
+        with pytest.raises(ValueError):
+            res = ary.to_output(
+                output_type=output_type,
+                output_dtype=out_dtype
+            )
+
+    elif shape in [(10, 5), (1, 10)] and output_type == 'series':
+        with pytest.raises(ValueError):
+            res = ary.to_output(
+                output_type=output_type,
+                output_dtype=out_dtype
+            )
+    else:
+        res = ary.to_output(output_type=output_type, output_dtype=out_dtype)
+
+        if isinstance(res, cudf.DataFrame):
+            res.values.dtype == out_dtype
+        else:
+            res.dtype == out_dtype
 
 
 @pytest.mark.parametrize('dtype', test_dtypes_all)
@@ -345,14 +471,29 @@ def test_serialize(input_type):
 
 
 @pytest.mark.parametrize('input_type', test_input_types)
-def test_pickle(input_type):
+@pytest.mark.parametrize('protocol', [4, 5])
+def test_pickle(input_type, protocol):
+    if protocol > pickle.HIGHEST_PROTOCOL:
+        pytest.skip(
+            f"Trying to test with pickle protocol {protocol},"
+            f" but highest supported protocol is {pickle.HIGHEST_PROTOCOL}."
+        )
     if input_type == 'series':
         inp = create_input(input_type, np.float32, (10, 1), 'C')
     else:
         inp = create_input(input_type, np.float32, (10, 5), 'F')
     ary = CumlArray(data=inp)
-    a = pickle.dumps(ary)
-    b = pickle.loads(a)
+    dumps_kwargs = {"protocol": protocol}
+    loads_kwargs = {}
+    f = []
+    len_f = 0
+    if protocol >= 5:
+        dumps_kwargs["buffer_callback"] = f.append
+        loads_kwargs["buffers"] = f
+        len_f = 1
+    a = pickle.dumps(ary, **dumps_kwargs)
+    b = pickle.loads(a, **loads_kwargs)
+    assert len(f) == len_f
     if input_type == 'numpy':
         assert np.all(inp == b.to_output('numpy'))
     elif input_type == 'series':
@@ -401,14 +542,62 @@ def test_deepcopy(input_type):
         assert ary.order == b.order
 
 
-def create_input(input_type, dtype, shape, order):
-    float_dtypes = [np.float16, np.float32, np.float64]
-    if dtype in float_dtypes:
-        rand_ary = cp.random.random(shape)
-    else:
-        rand_ary = cp.random.randint(100, size=shape)
+@pytest.mark.parametrize('operation', [operator.add, operator.sub])
+def test_cumlary_binops(operation):
+    a = cp.arange(5)
+    b = cp.arange(5)
 
-    rand_ary = cp.array(rand_ary, dtype=dtype, order=order)
+    ary_a = CumlArray(a)
+    ary_b = CumlArray(b)
+
+    c = operation(a, b)
+    ary_c = operation(ary_a, ary_b)
+
+    assert(cp.all(ary_c.to_output('cupy') == c))
+
+
+@pytest.mark.parametrize('order', ['F', 'C'])
+def test_sliced_array_owner(order):
+    """
+    When slicing a CumlArray, a new object can be created created which
+    previously had an incorrect owner. This was due to the requirement by
+    `cudf.core.Buffer` that all data be in "u1" form. CumlArray would satisfy
+    this requirement by calling
+    `cp.asarray(data).ravel(order='A').view('u1')`. If the slice is not
+    contiguous, this would create an intermediate object with no references
+    that would be cleaned up by GC causing an error when using the memory
+    """
+
+    # Create 2 copies of a random array
+    random_cp = cp.array(cp.random.random((500, 4)),
+                         dtype=np.float32,
+                         order=order)
+    cupy_array = cp.array(random_cp, copy=True)
+    cuml_array = CumlArray(random_cp)
+
+    # Make sure we have 2 pieces of data
+    assert cupy_array.data.ptr != cuml_array.ptr
+
+    # Since these are C arrays, slice off the first column to ensure they are
+    # non-contiguous
+    cuml_slice = cuml_array[1:, 1:]
+    cupy_slice = cupy_array[1:, 1:]
+
+    # Delete the input object just to be sure
+    del random_cp
+
+    # Make sure to cleanup any objects. Forces deletion of intermediate owner
+    # object
+    gc.collect()
+
+    # Calling `to_output` forces use of the pointer. This can fail with a cuda
+    # error on `cupy.cuda.runtime.pointerGetAttributes(cuml_slice.ptr)` in CUDA
+    # < 11.0 or cudaErrorInvalidDevice in CUDA > 11.0 (unclear why it changed)
+    assert (cp.all(cuml_slice.to_output('cupy') == cupy_slice))
+
+
+def create_input(input_type, dtype, shape, order):
+    rand_ary = cp.ones(shape, dtype=dtype, order=order)
 
     if input_type == 'numpy':
         return np.array(cp.asnumpy(rand_ary), dtype=dtype, order=order)

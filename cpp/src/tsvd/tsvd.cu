@@ -21,60 +21,58 @@ namespace ML {
 
 using namespace MLCommon;
 
-void tsvdFit(cumlHandle &handle, float *input, float *components,
+void tsvdFit(raft::handle_t &handle, float *input, float *components,
              float *singular_vals, const paramsTSVD &prms) {
-  tsvdFit(handle.getImpl(), input, components, singular_vals, prms,
-          handle.getStream());
+  tsvdFit(handle, input, components, singular_vals, prms, handle.get_stream());
 }
 
-void tsvdFit(cumlHandle &handle, double *input, double *components,
+void tsvdFit(raft::handle_t &handle, double *input, double *components,
              double *singular_vals, const paramsTSVD &prms) {
-  tsvdFit(handle.getImpl(), input, components, singular_vals, prms,
-          handle.getStream());
+  tsvdFit(handle, input, components, singular_vals, prms, handle.get_stream());
 }
 
-void tsvdFitTransform(cumlHandle &handle, float *input, float *trans_input,
+void tsvdFitTransform(raft::handle_t &handle, float *input, float *trans_input,
                       float *components, float *explained_var,
                       float *explained_var_ratio, float *singular_vals,
                       const paramsTSVD &prms) {
-  tsvdFitTransform(handle.getImpl(), input, trans_input, components,
-                   explained_var, explained_var_ratio, singular_vals, prms,
-                   handle.getStream());
+  tsvdFitTransform(handle, input, trans_input, components, explained_var,
+                   explained_var_ratio, singular_vals, prms,
+                   handle.get_stream());
 }
 
-void tsvdFitTransform(cumlHandle &handle, double *input, double *trans_input,
-                      double *components, double *explained_var,
-                      double *explained_var_ratio, double *singular_vals,
-                      const paramsTSVD &prms) {
-  tsvdFitTransform(handle.getImpl(), input, trans_input, components,
-                   explained_var, explained_var_ratio, singular_vals, prms,
-                   handle.getStream());
+void tsvdFitTransform(raft::handle_t &handle, double *input,
+                      double *trans_input, double *components,
+                      double *explained_var, double *explained_var_ratio,
+                      double *singular_vals, const paramsTSVD &prms) {
+  tsvdFitTransform(handle, input, trans_input, components, explained_var,
+                   explained_var_ratio, singular_vals, prms,
+                   handle.get_stream());
 }
 
-void tsvdTransform(cumlHandle &handle, float *input, float *components,
+void tsvdTransform(raft::handle_t &handle, float *input, float *components,
                    float *trans_input, const paramsTSVD &prms) {
-  tsvdTransform(handle.getImpl(), input, components, trans_input, prms,
-                handle.getStream());
+  tsvdTransform(handle, input, components, trans_input, prms,
+                handle.get_stream());
 }
 
-void tsvdTransform(cumlHandle &handle, double *input, double *components,
+void tsvdTransform(raft::handle_t &handle, double *input, double *components,
                    double *trans_input, const paramsTSVD &prms) {
-  tsvdTransform(handle.getImpl(), input, components, trans_input, prms,
-                handle.getStream());
+  tsvdTransform(handle, input, components, trans_input, prms,
+                handle.get_stream());
 }
 
-void tsvdInverseTransform(cumlHandle &handle, float *trans_input,
+void tsvdInverseTransform(raft::handle_t &handle, float *trans_input,
                           float *components, float *input,
                           const paramsTSVD &prms) {
-  tsvdInverseTransform(handle.getImpl(), trans_input, components, input, prms,
-                       handle.getStream());
+  tsvdInverseTransform(handle, trans_input, components, input, prms,
+                       handle.get_stream());
 }
 
-void tsvdInverseTransform(cumlHandle &handle, double *trans_input,
+void tsvdInverseTransform(raft::handle_t &handle, double *trans_input,
                           double *components, double *input,
                           const paramsTSVD &prms) {
-  tsvdInverseTransform(handle.getImpl(), trans_input, components, input, prms,
-                       handle.getStream());
+  tsvdInverseTransform(handle, trans_input, components, input, prms,
+                       handle.get_stream());
 }
 
 };  // end namespace ML

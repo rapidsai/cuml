@@ -13,10 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import ctypes
 import cudf
@@ -30,9 +27,10 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t, uint32_t, uint64_t
 from cython.operator cimport dereference as deref
 
+import cuml.internals
 from cuml.common.base import Base
 from cuml.common.array import CumlArray
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common.opg_data_utils_mg cimport *
 from cuml.common import input_to_cuml_array
 from cuml.decomposition.utils cimport *
@@ -40,15 +38,12 @@ from cuml.decomposition.utils cimport *
 from cuml.linear_model import Ridge
 from cuml.linear_model.base_mg import MGFitMixin
 
-cdef extern from "cumlprims/opg/ridge.hpp" namespace "ML::Ridge::opg":
+cdef extern from "cuml/linear_model/ridge_mg.hpp" namespace "ML::Ridge::opg":
 
-    cdef void fit(cumlHandle& handle,
-                  RankSizePair **rank_sizes,
-                  size_t n_parts,
-                  floatData_t **input,
-                  size_t n_rows,
-                  size_t n_cols,
-                  floatData_t **labels,
+    cdef void fit(handle_t& handle,
+                  vector[floatData_t *] input_data,
+                  PartDescriptor &input_desc,
+                  vector[floatData_t *] labels,
                   float *alpha,
                   int n_alpha,
                   float *coef,
@@ -58,13 +53,10 @@ cdef extern from "cumlprims/opg/ridge.hpp" namespace "ML::Ridge::opg":
                   int algo,
                   bool verbose) except +
 
-    cdef void fit(cumlHandle& handle,
-                  RankSizePair **rank_sizes,
-                  size_t n_parts,
-                  doubleData_t **input,
-                  size_t n_rows,
-                  size_t n_cols,
-                  doubleData_t **labels,
+    cdef void fit(handle_t& handle,
+                  vector[doubleData_t *] input_data,
+                  PartDescriptor &input_desc,
+                  vector[doubleData_t *] labels,
                   double *alpha,
                   int n_alpha,
                   double *coef,
@@ -80,12 +72,12 @@ class RidgeMG(MGFitMixin, Ridge):
     def __init__(self, **kwargs):
         super(RidgeMG, self).__init__(**kwargs)
 
-    def _fit(self, X, y, coef_ptr, rank_to_sizes, n_rows, n_cols,
-             n_total_parts):
+    @cuml.internals.api_base_return_any_skipall
+    def _fit(self, X, y, coef_ptr, input_desc):
 
         cdef float float_intercept
         cdef double double_intercept
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         cdef float float_alpha
         cdef double double_alpha
         # Only one alpha is supported.
@@ -95,12 +87,9 @@ class RidgeMG(MGFitMixin, Ridge):
             float_alpha = self.alpha
 
             fit(handle_[0],
-                <RankSizePair**><size_t>rank_to_sizes,
-                <size_t> n_total_parts,
-                <floatData_t**><size_t>X,
-                <size_t>n_rows,
-                <size_t>n_cols,
-                <floatData_t**><size_t>y,
+                deref(<vector[floatData_t*]*><uintptr_t>X),
+                deref(<PartDescriptor*><uintptr_t>input_desc),
+                deref(<vector[floatData_t*]*><uintptr_t>y),
                 <float*>&float_alpha,
                 <int>self.n_alpha,
                 <float*><size_t>coef_ptr,
@@ -116,12 +105,9 @@ class RidgeMG(MGFitMixin, Ridge):
             double_alpha = self.alpha
 
             fit(handle_[0],
-                <RankSizePair**><size_t>rank_to_sizes,
-                <size_t> n_total_parts,
-                <doubleData_t**><size_t>X,
-                <size_t>n_rows,
-                <size_t>n_cols,
-                <doubleData_t**><size_t>y,
+                deref(<vector[doubleData_t*]*><uintptr_t>X),
+                deref(<PartDescriptor*><uintptr_t>input_desc),
+                deref(<vector[doubleData_t*]*><uintptr_t>y),
                 <double*>&double_alpha,
                 <int>self.n_alpha,
                 <double*><size_t>coef_ptr,

@@ -41,7 +41,7 @@ Author: Martin Burtscher <burtscher@txstate.edu>
 #include <sys/time.h>
 #include <cuda.h>
 #include <chrono>
-#include "bh_tsne.h"
+#include <bh_tsne.h>
 #include <cuda_runtime_api.h>
 
 #ifndef NO_ZMQ

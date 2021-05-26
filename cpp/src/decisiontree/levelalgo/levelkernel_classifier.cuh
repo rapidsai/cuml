@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,9 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #pragma once
+#include <cub/cub.cuh>
 #include "common_kernel.cuh"
-#include "cub/cub.cuh"
 
 namespace ML {
 namespace DecisionTree {
@@ -34,13 +35,14 @@ __global__ void sample_count_histogram_kernel(
   for (int tid = threadid; tid < nrows; tid += blockDim.x * gridDim.x) {
     int label = labels[tid];
     int count = sample_cnt[tid];
-    atomicAdd(&shmemhist[label], count);
+    raft::myAtomicAdd<unsigned int>(&shmemhist[label], count);
   }
 
   __syncthreads();
 
   for (int tid = threadIdx.x; tid < nmax; tid += blockDim.x) {
-    atomicAdd(&histout[tid], shmemhist[tid]);
+    raft::myAtomicAdd<unsigned int>((unsigned int*)&histout[tid],
+                                    shmemhist[tid]);
   }
   return;
 }
@@ -91,8 +93,9 @@ __global__ void get_hist_kernel(
       for (unsigned int binid = 0; binid < nbins; binid++) {
         if (local_data <= question(binid)) {
           unsigned int nodeoff = local_flag * nbins * n_unique_labels;
-          atomicAdd(&shmemhist[nodeoff + binid * n_unique_labels + local_label],
-                    local_cnt);
+          raft::myAtomicAdd<unsigned int>(
+            &shmemhist[nodeoff + binid * n_unique_labels + local_label],
+            local_cnt);
         }
       }
     }
@@ -101,7 +104,7 @@ __global__ void get_hist_kernel(
     for (unsigned int i = threadIdx.x; i < nbins * n_nodes * n_unique_labels;
          i += blockDim.x) {
       unsigned int offset = colcnt * nbins * n_nodes * n_unique_labels;
-      atomicAdd(&histout[offset + i], shmemhist[i]);
+      raft::myAtomicAdd(&histout[offset + i], shmemhist[i]);
     }
     __syncthreads();
   }
@@ -146,9 +149,10 @@ __global__ void get_hist_kernel_global(
           if (local_data <= question(binid)) {
             unsigned int coloff = colcnt * nbins * n_nodes * n_unique_labels;
             unsigned int nodeoff = local_flag * nbins * n_unique_labels;
-            atomicAdd(&histout[coloff + nodeoff + binid * n_unique_labels +
-                               local_label],
-                      local_cnt);
+            raft::myAtomicAdd<unsigned int>(
+              &histout[coloff + nodeoff + binid * n_unique_labels +
+                       local_label],
+              local_cnt);
           }
         }
       }
@@ -173,7 +177,7 @@ struct GiniDevFunctor {
     if (tid < n_unique_labels) {
       float prob = ((float)hist[tid]) / nrows;
       prob = -1 * prob * prob;
-      atomicAdd(metric, prob);
+      raft::myAtomicAdd(metric, prob);
     }
     __syncthreads();
   }
@@ -199,7 +203,7 @@ struct EntropyDevFunctor {
       if (hist[tid] != 0) {
         float prob = ((float)hist[tid]) / nrows;
         prob = -1 * prob * logf(prob);
-        atomicAdd(metric, prob);
+        raft::myAtomicAdd(metric, prob);
       }
     }
     __syncthreads();
@@ -300,9 +304,11 @@ __global__ void get_best_split_classification_kernel(
         unsigned int val_left = hist[coloffset + binoffset + nodeoffset + j];
         unsigned int val_right = parent_hist_local[j] - val_left;
         best_split_hist[j] = val_left;
-        atomicAdd(&best_nrows[0], val_left);
+        raft::myAtomicAdd<unsigned int>((unsigned int*)&best_nrows[0],
+                                        val_left);
         best_split_hist[j + n_unique_labels] = val_right;
-        atomicAdd(&best_nrows[1], val_right);
+        raft::myAtomicAdd<unsigned int>((unsigned int*)&best_nrows[1],
+                                        val_right);
       }
       __syncthreads();
 
@@ -394,7 +400,7 @@ __global__ void best_split_gather_classification_kernel(
   for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
     dataid = samplelist[nodestart + tid];
     local_label = labels[dataid];
-    atomicAdd(&shmemhist_parent[local_label], 1);
+    raft::myAtomicAdd<unsigned int>(&shmemhist_parent[local_label], 1);
   }
   FDEV::execshared(shmemhist_parent, &parent_metric, count, n_unique_labels);
   //Loop over cols
@@ -415,7 +421,7 @@ __global__ void best_split_gather_classification_kernel(
       for (unsigned int binid = 0; binid < nbins; binid++) {
         int histid = binid * n_unique_labels + local_label;
         if (local_data <= question(binid)) {
-          atomicAdd(&shmemhist_left[histid], 1);
+          raft::myAtomicAdd<unsigned int>(&shmemhist_left[histid], 1);
         }
       }
     }
@@ -498,7 +504,7 @@ __global__ void best_split_gather_classification_minmax_kernel(
   for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
     dataid = samplelist[nodestart + tid];
     local_label = labels[dataid];
-    atomicAdd(&shmemhist_parent[local_label], 1);
+    raft::myAtomicAdd<unsigned int>(&shmemhist_parent[local_label], 1);
   }
   FDEV::execshared(shmemhist_parent, &parent_metric, count, n_unique_labels);
   //Loop over cols
@@ -535,7 +541,7 @@ __global__ void best_split_gather_classification_minmax_kernel(
       for (unsigned int binid = 0; binid < nbins; binid++) {
         int histid = binid * n_unique_labels + local_label;
         if (local_data <= threadmin + delta * (binid + 1)) {
-          atomicAdd(&shmemhist_left[histid], 1);
+          raft::myAtomicAdd<unsigned int>(&shmemhist_left[histid], 1);
         }
       }
     }
@@ -596,7 +602,7 @@ __global__ void make_leaf_gather_classification_kernel(
   for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
     unsigned int dataid = samplelist[nodestart + tid];
     int local_label = labels[dataid];
-    atomicAdd(&shmemhist_parent[local_label], 1);
+    raft::myAtomicAdd<unsigned int>(&shmemhist_parent[local_label], 1);
   }
   FDEV::execshared(shmemhist_parent, &parent_metric, count, n_unique_labels);
   __syncthreads();

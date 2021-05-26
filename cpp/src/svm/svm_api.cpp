@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
-#include <cuml/cuml_api.h>
-#include <cuml/matrix/kernelparams.h>
 #include <cuml/svm/svm_api.h>
+
+#include <cuml/matrix/kernelparams.h>
+#include <common/cumlHandle.hpp>
 #include <cuml/svm/svc.hpp>
 #include <tuple>
-#include "common/cumlHandle.hpp"
+
+extern "C" {
 
 cumlError_t cumlSpSvcFit(cumlHandle_t handle, float *input, int n_rows,
                          int n_cols, float *labels, float C, float cache_size,
@@ -46,7 +48,7 @@ cumlError_t cumlSpSvcFit(cumlHandle_t handle, float *input, int n_rows,
   ML::SVM::svmModel<float> model;
 
   cumlError_t status;
-  ML::cumlHandle *handle_ptr;
+  raft::handle_t *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
   if (status == CUML_SUCCESS) {
     try {
@@ -98,7 +100,7 @@ cumlError_t cumlDpSvcFit(cumlHandle_t handle, double *input, int n_rows,
   ML::SVM::svmModel<double> model;
 
   cumlError_t status;
-  ML::cumlHandle *handle_ptr;
+  raft::handle_t *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
   if (status == CUML_SUCCESS) {
     try {
@@ -147,7 +149,7 @@ cumlError_t cumlSpSvcPredict(cumlHandle_t handle, float *input, int n_rows,
   model.unique_labels = unique_labels;
 
   cumlError_t status;
-  ML::cumlHandle *handle_ptr;
+  raft::handle_t *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
   if (status == CUML_SUCCESS) {
     try {
@@ -190,7 +192,7 @@ cumlError_t cumlDpSvcPredict(cumlHandle_t handle, double *input, int n_rows,
   model.unique_labels = unique_labels;
 
   cumlError_t status;
-  ML::cumlHandle *handle_ptr;
+  raft::handle_t *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
   if (status == CUML_SUCCESS) {
     try {
@@ -208,4 +210,5 @@ cumlError_t cumlDpSvcPredict(cumlHandle_t handle, double *input, int n_rows,
     }
   }
   return status;
+}
 }

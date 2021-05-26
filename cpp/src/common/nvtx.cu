@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -54,7 +54,7 @@ uint32_t hsv2rgb(float h, float s, float v) {
   }
   // convert hue from [0, 1] range to [0, 360]
   float h_deg = h * 360.f;
-  if (0.f < h_deg || h_deg >= 360.f) h_deg = 0.f;
+  if (0.f > h_deg || h_deg >= 360.f) h_deg = 0.f;
   h_deg /= 60.f;
   int h_range = (int)h_deg;
   float h_mod = h_deg - h_range;
@@ -136,6 +136,18 @@ uint32_t generateNextColor(const std::string &tag) {
 
 #include <nvToolsExt.h>
 
+nvtxDomainHandle_t domain = nvtxDomainCreateA("cuml_cpp");
+
+void PUSH_RANGE(const char *name, cudaStream_t stream) {
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  PUSH_RANGE(name);
+}
+
+void POP_RANGE(cudaStream_t stream) {
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  POP_RANGE();
+}
+
 void PUSH_RANGE(const char *name) {
   nvtxEventAttributes_t eventAttrib = {0};
   eventAttrib.version = NVTX_VERSION;
@@ -144,21 +156,16 @@ void PUSH_RANGE(const char *name) {
   eventAttrib.color = generateNextColor(name);
   eventAttrib.messageType = NVTX_MESSAGE_TYPE_ASCII;
   eventAttrib.message.ascii = name;
-  nvtxRangePushEx(&eventAttrib);
+  nvtxDomainRangePushEx(domain, &eventAttrib);
 }
 
-#ifdef ENABLE_EMPTY_MARKER_KERNEL
-__global__ void emptyMarkerKernel() {}
-#endif  // ENABLE_EMPTY_MARKER_KERNEL
-
-void POP_RANGE() {
-  nvtxRangePop();
-#ifdef ENABLE_EMPTY_MARKER_KERNEL
-  emptyMarkerKernel<<<1, 1>>>();
-#endif
-}
+void POP_RANGE() { nvtxDomainRangePop(domain); }
 
 #else  // NVTX_ENABLED
+
+void PUSH_RANGE(const char *name, cudaStream_t stream) {}
+
+void POP_RANGE(cudaStream_t stream) {}
 
 void PUSH_RANGE(const char *name) {}
 

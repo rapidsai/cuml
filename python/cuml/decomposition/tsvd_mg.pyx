@@ -13,10 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import ctypes
 import cudf
@@ -30,40 +27,23 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t, uint32_t, uint64_t
 from cython.operator cimport dereference as deref
 
+import cuml.internals
 from cuml.common.base import Base
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.decomposition.utils cimport *
+import cuml.common.opg_data_utils_mg as opg
+from cuml.common.opg_data_utils_mg cimport *
 
 from cuml.decomposition import TruncatedSVD
 from cuml.decomposition.base_mg import BaseDecompositionMG
 
-cdef extern from "cumlprims/opg/matrix/data.hpp" \
-                 namespace "MLCommon::Matrix":
+cdef extern from "cuml/decomposition/tsvd_mg.hpp" namespace "ML::TSVD::opg":
 
-    cdef cppclass floatData_t:
-        floatData_t(float *ptr, size_t totalSize)
-        float *ptr
-        size_t totalSize
-
-    cdef cppclass doubleData_t:
-        doubleData_t(double *ptr, size_t totalSize)
-        double *ptr
-        size_t totalSize
-
-cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" \
-                 namespace "MLCommon::Matrix":
-
-    cdef cppclass RankSizePair:
-        int rank
-        size_t size
-
-cdef extern from "cumlprims/opg/tsvd.hpp" namespace "ML::TSVD::opg":
-
-    cdef void fit_transform(cumlHandle& handle,
-                            RankSizePair **rank_sizes,
-                            size_t n_parts,
-                            floatData_t **input,
-                            floatData_t **trans_input,
+    cdef void fit_transform(handle_t& handle,
+                            vector[floatData_t *] input_data,
+                            PartDescriptor &input_desc,
+                            vector[floatData_t *] trans_data,
+                            PartDescriptor &trans_desc,
                             float *components,
                             float *explained_var,
                             float *explained_var_ratio,
@@ -71,11 +51,11 @@ cdef extern from "cumlprims/opg/tsvd.hpp" namespace "ML::TSVD::opg":
                             paramsTSVD &prms,
                             bool verbose) except +
 
-    cdef void fit_transform(cumlHandle& handle,
-                            RankSizePair **rank_sizes,
-                            size_t n_parts,
-                            doubleData_t **input,
-                            doubleData_t **trans_input,
+    cdef void fit_transform(handle_t& handle,
+                            vector[doubleData_t *] input_data,
+                            PartDescriptor &input_desc,
+                            vector[doubleData_t *] trans_data,
+                            PartDescriptor &trans_desc,
                             double *components,
                             double *explained_var,
                             double *explained_var_ratio,
@@ -84,39 +64,31 @@ cdef extern from "cumlprims/opg/tsvd.hpp" namespace "ML::TSVD::opg":
                             bool verbose) except +
 
 
-class TSVDMG(TruncatedSVD, BaseDecompositionMG):
+class TSVDMG(BaseDecompositionMG, TruncatedSVD):
 
     def __init__(self, **kwargs):
         super(TSVDMG, self).__init__(**kwargs)
 
-    def _call_fit(self, arr_interfaces, p2r, rank, arg_rank_size_pair,
-                  n_total_parts, arg_params):
+    @cuml.internals.api_base_return_any_skipall
+    def _call_fit(self, X, trans, rank, input_desc,
+                  trans_desc, arg_params):
 
-        cdef uintptr_t comp_ptr = self._components_.ptr
-        cdef uintptr_t explained_var_ptr = self._explained_variance_.ptr
+        cdef uintptr_t comp_ptr = self.components_.ptr
+        cdef uintptr_t explained_var_ptr = self.explained_variance_.ptr
         cdef uintptr_t explained_var_ratio_ptr = \
-            self._explained_variance_ratio_.ptr
-        cdef uintptr_t singular_vals_ptr = self._singular_values_.ptr
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-
-        cdef uintptr_t data
-        cdef uintptr_t trans_data
+            self.explained_variance_ratio_.ptr
+        cdef uintptr_t singular_vals_ptr = self.singular_values_.ptr
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         cdef paramsTSVD *params = <paramsTSVD*><size_t>arg_params
 
         if self.dtype == np.float32:
-            data = self._build_dataFloat(arr_interfaces)
-            arr_interfaces_trans = self._build_transData(p2r,
-                                                         rank,
-                                                         self.n_components,
-                                                         np.float32)
-            trans_data = self._build_dataFloat(arr_interfaces_trans)
 
             fit_transform(handle_[0],
-                          <RankSizePair**><size_t>arg_rank_size_pair,
-                          <size_t> n_total_parts,
-                          <floatData_t**> data,
-                          <floatData_t**> trans_data,
+                          deref(<vector[floatData_t*]*><uintptr_t>X),
+                          deref(<PartDescriptor*><uintptr_t>input_desc),
+                          deref(<vector[floatData_t*]*><uintptr_t>trans),
+                          deref(<PartDescriptor*><uintptr_t>trans_desc),
                           <float*> comp_ptr,
                           <float*> explained_var_ptr,
                           <float*> explained_var_ratio_ptr,
@@ -124,18 +96,12 @@ class TSVDMG(TruncatedSVD, BaseDecompositionMG):
                           deref(params),
                           False)
         else:
-            data = self._build_dataDouble(arr_interfaces)
-            arr_interfaces_trans = self._build_transData(p2r,
-                                                         rank,
-                                                         self.n_components,
-                                                         np.float64)
-            trans_data = self._build_dataDouble(arr_interfaces_trans)
 
             fit_transform(handle_[0],
-                          <RankSizePair**><size_t>arg_rank_size_pair,
-                          <size_t> n_total_parts,
-                          <doubleData_t**> data,
-                          <doubleData_t**> trans_data,
+                          deref(<vector[doubleData_t*]*><uintptr_t>X),
+                          deref(<PartDescriptor*><uintptr_t>input_desc),
+                          deref(<vector[doubleData_t*]*><uintptr_t>trans),
+                          deref(<PartDescriptor*><uintptr_t>trans_desc),
                           <double*> comp_ptr,
                           <double*> explained_var_ptr,
                           <double*> explained_var_ratio_ptr,
@@ -144,17 +110,3 @@ class TSVDMG(TruncatedSVD, BaseDecompositionMG):
                           False)
 
         self.handle.sync()
-
-        return arr_interfaces_trans, data, trans_data
-
-    def fit(self, X, n_rows, n_cols, partsToRanks, rank, _transform=False):
-        """
-        Fit function for TSVD MG. This not meant to be used as
-        part of the public API.
-        :param X: array of local dataframes / array partitions
-        :param M: total number of rows
-        :param N: total number of cols
-        :param partsToRanks: array of tuples in the format: [(rank,size)]
-        :return: self
-        """
-        return self._fit(X, n_rows, n_cols, partsToRanks, rank, _transform)

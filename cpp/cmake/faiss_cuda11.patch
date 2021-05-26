@@ -1,0 +1,40 @@
+diff --git a/configure b/configure
+index ed40dae..f88ed0a 100755
+--- a/configure
++++ b/configure
+@@ -2970,7 +2970,7 @@ ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ex
+ ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
+
+
+-  ax_cxx_compile_alternatives="11 0x"    ax_cxx_compile_cxx11_required=true
++  ax_cxx_compile_alternatives="14 11 0x"    ax_cxx_compile_cxx11_required=true
+   ac_ext=cpp
+ ac_cpp='$CXXCPP $CPPFLAGS'
+ ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+diff --git a/gpu/utils/DeviceDefs.cuh b/gpu/utils/DeviceDefs.cuh
+index 89d3dda..bc0f9b5 100644
+--- a/gpu/utils/DeviceDefs.cuh
++++ b/gpu/utils/DeviceDefs.cuh
+@@ -13,7 +13,7 @@
+ namespace faiss { namespace gpu {
+
+ #ifdef __CUDA_ARCH__
+-#if __CUDA_ARCH__ <= 750
++#if __CUDA_ARCH__ <= 800
+ constexpr int kWarpSize = 32;
+ #else
+ #error Unknown __CUDA_ARCH__; please define parameters for compute capability
+diff --git a/gpu/utils/MatrixMult-inl.cuh b/gpu/utils/MatrixMult-inl.cuh
+index ede225e..4f7eb44 100644
+--- a/gpu/utils/MatrixMult-inl.cuh
++++ b/gpu/utils/MatrixMult-inl.cuh
+@@ -51,6 +51,9 @@ rawGemm(cublasHandle_t handle,
+   auto cBT = GetCudaType<BT>::Type;
+
+   // Always accumulate in f32
++# if __CUDACC_VER_MAJOR__ >= 11
++  cublasSetMathMode(handle, CUBLAS_MATH_DISALLOW_REDUCED_PRECISION_REDUCTION);
++# endif
+   return cublasSgemmEx(handle, transa, transb, m, n, k,
+                        &fAlpha, A, cAT, lda,
+                        B, cBT, ldb,

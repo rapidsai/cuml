@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,33 +14,45 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include "binary_op.h"
-#include "linalg/ternary_op.h"
-#include "random/rng.h"
+#include <raft/cudart_utils.h>
+#include <linalg/ternary_op.cuh>
+#include <raft/random/rng.cuh>
 #include "test_utils.h"
 
 namespace MLCommon {
 namespace LinAlg {
+
+template <typename InType, typename IdxType = int, typename OutType = InType>
+struct BinaryOpInputs {
+  InType tolerance;
+  IdxType len;
+  unsigned long long int seed;
+};
+
+template <typename InType, typename IdxType = int, typename OutType = InType>
+::std::ostream &operator<<(::std::ostream &os,
+                           const BinaryOpInputs<InType, IdxType, OutType> &d) {
+  return os;
+}
 
 template <typename T>
 class ternaryOpTest : public ::testing::TestWithParam<BinaryOpInputs<T>> {
  public:
   void SetUp() override {
     params = ::testing::TestWithParam<BinaryOpInputs<T>>::GetParam();
-    Random::Rng rng(params.seed);
+    raft::random::Rng rng(params.seed);
 
     int len = params.len;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(in1, len);
-    allocate(in2, len);
-    allocate(in3, len);
-    allocate(out_add_ref, len);
-    allocate(out_mul_ref, len);
-    allocate(out_add, len);
-    allocate(out_mul, len);
+    raft::allocate(in1, len);
+    raft::allocate(in2, len);
+    raft::allocate(in3, len);
+    raft::allocate(out_add_ref, len);
+    raft::allocate(out_mul_ref, len);
+    raft::allocate(out_add, len);
+    raft::allocate(out_mul, len);
 
     rng.fill(out_add_ref, len, T(6.0), stream);
     rng.fill(out_mul_ref, len, T(6.0), stream);
@@ -77,9 +89,9 @@ const std::vector<BinaryOpInputs<float>> inputsf = {
 typedef ternaryOpTest<float> ternaryOpTestF;
 TEST_P(ternaryOpTestF, Result) {
   ASSERT_TRUE(devArrMatch(out_add_ref, out_add, params.len,
-                          CompareApprox<float>(params.tolerance)));
+                          raft::CompareApprox<float>(params.tolerance)));
   ASSERT_TRUE(devArrMatch(out_mul_ref, out_mul, params.len,
-                          CompareApprox<float>(params.tolerance)));
+                          raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ternaryOpTests, ternaryOpTestF,
                         ::testing::ValuesIn(inputsf));
@@ -91,9 +103,9 @@ const std::vector<BinaryOpInputs<double>> inputsd = {
 typedef ternaryOpTest<double> ternaryOpTestD;
 TEST_P(ternaryOpTestD, Result) {
   ASSERT_TRUE(devArrMatch(out_add_ref, out_add, params.len,
-                          CompareApprox<double>(params.tolerance)));
+                          raft::CompareApprox<double>(params.tolerance)));
   ASSERT_TRUE(devArrMatch(out_mul_ref, out_mul, params.len,
-                          CompareApprox<double>(params.tolerance)));
+                          raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ternaryOpTests, ternaryOpTestD,
                         ::testing::ValuesIn(inputsd));

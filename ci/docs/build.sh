@@ -1,82 +1,68 @@
 #!/bin/bash
-# Copyright (c) 2018-2020, NVIDIA CORPORATION.
-#########################################
-# cuML GPU build and test script for CI #
-#########################################
-set -ex
+# Copyright (c) 2020, NVIDIA CORPORATION.
+#################################
+# cuML Docs build script for CI #
+#################################
 
-# Logger function for build status output
-function logger() {
-  echo -e "\n>>>> $@\n"
-}
+if [ -z "$PROJECT_WORKSPACE" ]; then
+    echo ">>>> ERROR: Could not detect PROJECT_WORKSPACE in environment"
+    echo ">>>> WARNING: This script contains git commands meant for automated building, do not run locally"
+    exit 1
+fi
 
-# Set path and build parallel level
+export DOCS_WORKSPACE=$WORKSPACE/docs
 export PATH=/conda/bin:/usr/local/cuda/bin:$PATH
-export PARALLEL_LEVEL=4
-export CUDA_REL=${CUDA_VERSION%.*}
-export CUDF_VERSION=0.8.*
-export RMM_VERSION=0.8.*
-
-# Set home to the job's workspace
 export HOME=$WORKSPACE
-export DOCS_DIR=/data/docs/html
+export PROJECT_WORKSPACE=/rapids/cuml
+export LIBCUDF_KERNEL_CACHE_PATH="$HOME/.jitify-cache"
+export PROJECTS=(cuml libcuml)
 
-while getopts "d" option; do
-    case ${option} in
-        d)
-            DOCS_DIR=${OPTARG}
-            ;;
-    esac
-done
-
-################################################################################
-# SETUP - Check environment
-################################################################################
-
-logger "Check environment..."
+gpuci_logger "Check environment"
 env
 
-logger "Check GPU usage..."
+gpuci_logger "Check GPU usage"
 nvidia-smi
 
-logger "Activate conda env..."
-source activate gdf
-conda install -c nvidia -c rapidsai -c rapidsai-nightly -c conda-forge \
-    cudf=$CUDF_VERSION rmm=$RMM_VERSION cudatoolkit=$CUDA_REL
 
-pip install numpydoc sphinx sphinx-rtd-theme sphinxcontrib-websupport
+gpuci_logger "Activate conda env"
+. /opt/conda/etc/profile.d/conda.sh
+conda activate rapids
 
-logger "Check versions..."
+# TODO: Move installs to docs-build-env meta package
+conda install -c anaconda beautifulsoup4 jq
+pip install sphinx-markdown-tables
+
+
+gpuci_logger "Check versions"
 python --version
 $CC --version
 $CXX --version
-conda list
 
-################################################################################
-# BUILD - Build libcuml and cuML from source
-################################################################################
+gpuci_logger "Show conda info"
+conda info
+conda config --show-sources
+conda list --show-channel-urls
 
-cd $WORKSPACE
-git submodule update --init --recursive
+# Build Doxygen docs
+gpuci_logger "Build Doxygen docs"
+$PROJECT_WORKSPACE/build.sh cppdocs -v
 
-logger "Build libcuml..."
-$WORKSPACE/build.sh clean libcuml cuml
-
-################################################################################
-# BUILD - Build doxygen docs
-################################################################################
-
-cd $WORKSPACE/cpp/build
-logger "Build doxygen docs..."
-make doc
-
-################################################################################
-# BUILD - Build docs
-################################################################################
-
-logger "Build docs..."
-cd $WORKSPACE/docs
+# Build Python docs
+gpuci_logger "Build Sphinx docs"
+cd $PROJECT_WORKSPACE/docs
 make html
 
-rm -rf ${DOCS_DIR}/*
-mv build/html/* $DOCS_DIR
+#Commit to Website
+cd $DOCS_WORKSPACE
+
+for PROJECT in ${PROJECTS[@]}; do
+    if [ ! -d "api/$PROJECT/$BRANCH_VERSION" ]; then
+        mkdir -p api/$PROJECT/$BRANCH_VERSION
+    fi
+    rm -rf $DOCS_WORKSPACE/api/$PROJECT/$BRANCH_VERSION/*
+done
+
+
+mv $PROJECT_WORKSPACE/cpp/build/html/* $DOCS_WORKSPACE/api/libcuml/$BRANCH_VERSION
+mv $PROJECT_WORKSPACE/docs/build/html/* $DOCS_WORKSPACE/api/cuml/$BRANCH_VERSION
+

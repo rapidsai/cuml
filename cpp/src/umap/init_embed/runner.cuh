@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <cuml/manifold/umapparams.h>
 
-#include "sparse/coo.h"
+#include <raft/sparse/coo.cuh>
 
-#include "random_algo.h"
+#include "random_algo.cuh"
 #include "spectral_algo.cuh"
-
-#pragma once
 
 namespace UMAPAlgo {
 
@@ -29,23 +29,23 @@ namespace InitEmbed {
 
 using namespace ML;
 
-template <typename T>
-void run(const cumlHandle &handle, const T *X, int n, int d,
-         const int64_t *knn_indices, const T *knn_dists,
-         MLCommon::Sparse::COO<float> *coo, UMAPParams *params, T *embedding,
+template <typename value_idx, typename T>
+void run(const raft::handle_t &handle, int n, int d,
+         const value_idx *knn_indices, const T *knn_dists,
+         raft::sparse::COO<float> *coo, UMAPParams *params, T *embedding,
          cudaStream_t stream, int algo = 0) {
   switch (algo) {
     /**
              * Initial algo uses FAISS indices
              */
     case 0:
-      RandomInit::launcher(X, n, d, knn_indices, knn_dists, params, embedding,
-                           handle.getStream());
+      RandomInit::launcher(n, d, knn_indices, knn_dists, params, embedding,
+                           handle.get_stream());
       break;
 
     case 1:
-      SpectralInit::launcher(handle, X, n, d, knn_indices, knn_dists, coo,
-                             params, embedding);
+      SpectralInit::launcher(handle, n, d, knn_indices, knn_dists, coo, params,
+                             embedding);
       break;
   }
 }

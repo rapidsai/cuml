@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,15 +14,16 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
-#include <cuda_utils.h>
 #include <gtest/gtest.h>
-#include <test_utils.h>
+#include <raft/cudart_utils.h>
 #include <iostream>
+#include <label/classlabels.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/spatial/knn/knn.hpp>
+#include <random/make_blobs.cuh>
+#include <selection/knn.cuh>
 #include <vector>
-#include "label/classlabels.h"
-#include "random/make_blobs.h"
-#include "selection/knn.h"
+#include "test_utils.h"
 
 namespace MLCommon {
 namespace Selection {
@@ -38,25 +39,24 @@ struct KNNClassifyInputs {
 class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
  protected:
   void basicTest() {
-    std::shared_ptr<MLCommon::deviceAllocator> alloc(
-      new defaultDeviceAllocator);
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    raft::handle_t handle;
+    cudaStream_t stream = handle.get_stream();
+    auto alloc = handle.get_device_allocator();
 
     params = ::testing::TestWithParam<KNNClassifyInputs>::GetParam();
 
-    allocate(train_samples, params.rows * params.cols);
-    allocate(train_labels, params.rows);
+    raft::allocate(train_samples, params.rows * params.cols);
+    raft::allocate(train_labels, params.rows);
 
-    allocate(pred_labels, params.rows);
-    allocate(unique_labels, params.n_labels, true);
+    raft::allocate(pred_labels, params.rows);
+    raft::allocate(unique_labels, params.n_labels, true);
 
-    allocate(knn_indices, params.rows * params.k);
-    allocate(knn_dists, params.rows * params.k);
+    raft::allocate(knn_indices, params.rows * params.k);
+    raft::allocate(knn_dists, params.rows * params.k);
 
     MLCommon::Random::make_blobs<float, int>(
       train_samples, train_labels, params.rows, params.cols, params.n_labels,
-      alloc, stream, nullptr, nullptr, params.cluster_std);
+      alloc, stream, true, nullptr, nullptr, params.cluster_std);
 
     int n_classes;
     MLCommon::Label::getUniqueLabels(train_labels, params.rows, &unique_labels,
@@ -67,8 +67,9 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
     ptrs[0] = train_samples;
     sizes[0] = params.rows;
 
-    brute_force_knn(ptrs, sizes, params.cols, train_samples, params.rows,
-                    knn_indices, knn_dists, params.k, alloc, stream);
+    raft::spatial::knn::brute_force_knn(handle, ptrs, sizes, params.cols,
+                                        train_samples, params.rows, knn_indices,
+                                        knn_dists, params.k);
 
     std::vector<int *> y;
     y.push_back(train_labels);
@@ -83,7 +84,6 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
                  params.k, uniq_labels, n_unique, alloc, stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void SetUp() override { basicTest(); }
@@ -117,7 +117,7 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
 typedef KNNClassifyTest KNNClassifyTestF;
 TEST_P(KNNClassifyTestF, Fit) {
   ASSERT_TRUE(
-    devArrMatch(train_labels, pred_labels, params.rows, Compare<int>()));
+    devArrMatch(train_labels, pred_labels, params.rows, raft::Compare<int>()));
 }
 
 const std::vector<KNNClassifyInputs> inputsf = {

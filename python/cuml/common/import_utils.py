@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 
 
 import numba
-
 from distutils.version import LooseVersion
 
 
@@ -54,14 +53,6 @@ def has_umap():
         return False
 
 
-def has_treelite():
-    try:
-        import treelite  # NOQA
-        return True
-    except ImportError:
-        return False
-
-
 def has_lightgbm():
     try:
         import lightgbm  # NOQA
@@ -76,12 +67,27 @@ def has_xgboost():
         return True
     except ImportError:
         return False
+    except Exception as ex:
+        import warnings
+        warnings.warn(
+            ("The XGBoost library was found but raised an exception during "
+             "import. Importing xgboost will be skipped. "
+             "Error message:\n{}").format(str(ex)))
+        return False
 
 
 def has_pytest_benchmark():
     try:
         import pytest_benchmark  # NOQA
         return True
+    except ImportError:
+        return False
+
+
+def check_min_dask_version(version):
+    try:
+        import dask
+        return LooseVersion(dask.__version__) >= LooseVersion(version)
     except ImportError:
         return False
 
@@ -98,18 +104,33 @@ def check_min_cupy_version(version):
         return False
 
 
-def has_scipy():
+def has_scipy(raise_if_unavailable=False):
     try:
         import scipy   # NOQA
         return True
     except ImportError:
-        return False
+        if not raise_if_unavailable:
+            return False
+        else:
+            raise ImportError("Scipy is not available.")
 
 
 def has_sklearn():
     try:
         import sklearn   # NOQA
         return True
+    except ImportError:
+        return False
+
+
+def has_shap(min_version="0.37"):
+    try:
+        import shap  # noqa
+        if min_version is None:
+            return True
+        else:
+            return (LooseVersion(str(shap.__version__)) >=
+                    LooseVersion(min_version))
     except ImportError:
         return False
 

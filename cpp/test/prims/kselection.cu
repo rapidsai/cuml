@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <stdlib.h>
 #include <algorithm>
 #include <limits>
-#include "random/rng.h"
-#include "selection/kselection.h"
+#include <raft/random/rng.cuh>
+#include <selection/kselection.cuh>
 
 namespace MLCommon {
 namespace Selection {
@@ -30,12 +30,12 @@ __global__ void sortTestKernel(TypeK *key) {
   KVArray<TypeV, TypeK, N, Greater> arr;
 #pragma unroll
   for (int i = 0; i < N; ++i) {
-    arr.arr[i].val = (TypeV)laneId();
-    arr.arr[i].key = (TypeK)laneId();
+    arr.arr[i].val = (TypeV)raft::laneId();
+    arr.arr[i].key = (TypeK)raft::laneId();
   }
-  warpFence();
+  raft::warpFence();
   arr.sort();
-  warpFence();
+  raft::warpFence();
 #pragma unroll
   for (int i = 0; i < N; ++i)
     arr.arr[i].store(nullptr, key + threadIdx.x + i * TPB);
@@ -47,7 +47,7 @@ void sortTest(TypeK *key) {
   CUDA_CHECK(cudaMalloc((void **)&dkey, sizeof(TypeK) * TPB * N));
   sortTestKernel<TypeV, TypeK, N, TPB, Greater><<<1, TPB>>>(dkey);
   CUDA_CHECK(cudaPeekAtLastError());
-  updateHost<TypeK>(key, dkey, TPB * N, 0);
+  raft::update_host<TypeK>(key, dkey, TPB * N, 0);
   CUDA_CHECK(cudaFree(dkey));
 }
 
@@ -78,7 +78,7 @@ template <typename TypeV, typename TypeK, bool Greater>
   for (int rIndex = 0; rIndex < rows; rIndex++) {
     // input data
     TypeV *h_arr = new TypeV[N];
-    updateHost(h_arr, d_arr + rIndex * N, N, 0);
+    raft::update_host(h_arr, d_arr + rIndex * N, N, 0);
     KVPair<TypeV, TypeK> *topk = new KVPair<TypeV, TypeK>[N];
     for (int j = 0; j < N; j++) {
       topk[j].val = h_arr[j];
@@ -86,9 +86,9 @@ template <typename TypeV, typename TypeK, bool Greater>
     }
     // result reference
     TypeV *h_outv = new TypeV[k];
-    updateHost(h_outv, d_outv + rIndex * k, k, 0);
+    raft::update_host(h_outv, d_outv + rIndex * k, k, 0);
     TypeK *h_outk = new TypeK[k];
-    updateHost(h_outk, d_outk + rIndex * k, k, 0);
+    raft::update_host(h_outk, d_outk + rIndex * k, k, 0);
     // calculate the result
     partSortKVPair<TypeV, TypeK, Greater>(topk, N, k);
 
@@ -132,12 +132,12 @@ class WarpTopKTest : public ::testing::TestWithParam<WarpTopKInputs<T>> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<WarpTopKInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(arr, params.rows * params.cols);
-    allocate(outk, params.rows * params.k);
-    allocate(outv, params.rows * params.k);
+    raft::allocate(arr, params.rows * params.cols);
+    raft::allocate(outk, params.rows * params.k);
+    raft::allocate(outv, params.rows * params.k);
     r.uniform(arr, params.rows * params.cols, T(-1.0), T(1.0), stream);
 
     static const bool Sort = false;

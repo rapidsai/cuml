@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-find_package(Doxygen 1.8.11)
+find_package(Doxygen 1.8.12 REQUIRED)
 
 function(add_doxygen_target)
   if(Doxygen_FOUND)

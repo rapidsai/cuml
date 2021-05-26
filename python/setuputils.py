@@ -84,27 +84,38 @@ def use_raft_package(raft_path, cpp_build_path,
         - Branch/git tag cloned is located in git_info_file in this case.
 
     """
-
-    if not os.path.islink('cuml/raft'):
-        if not raft_path:
-            raft_path, raft_cloned = \
-                clone_repo_if_needed('raft', cpp_build_path,
-                                     git_info_file=git_info_file)
-
-        else:
-            print("-- Using RAFT_PATH variable, RAFT found at " +
-                  str(os.environ['RAFT_PATH']))
-            raft_path = os.environ['RAFT_PATH']
-
-        try:
-            os.symlink(raft_path + '/python/raft', 'cuml/raft')
-        except FileExistsError:
-            os.remove('cuml/raft')
-            os.symlink(raft_path + '/python/raft', 'cuml/raft')
-
+    if os.path.islink('cuml/raft'):
+        raft_path = os.path.realpath('cuml/raft')
+        # walk up two dirs from `python/raft`
+        raft_path = os.path.join(raft_path, '..', '..')
+        print("-- Using existing RAFT folder")
+    elif isinstance(raft_path, (str, os.PathLike)):
+        print('-- Using RAFT_PATH argument')
+    elif os.environ.get('RAFT_PATH', False) is not False:
+        raft_path = str(os.environ['RAFT_PATH'])
+        print('-- Using RAFT_PATH environment variable')
     else:
-        print("-- Using already existing RAFT folder, source located at")
-        print(os.path.realpath('cuml/raft'))
+        raft_path, raft_cloned = \
+            clone_repo_if_needed('raft', cpp_build_path,
+                                 git_info_file=git_info_file)
+        raft_path = os.path.join('../', raft_path)
+
+    raft_path = os.path.realpath(raft_path)
+    print('-- RAFT found at: ' + str(raft_path))
+
+    try:
+        os.symlink(
+            os.path.join(raft_path, 'python/raft'),
+            os.path.join('cuml/raft')
+        )
+    except FileExistsError:
+        os.remove(os.path.join('cuml/raft'))
+        os.symlink(
+            os.path.join(raft_path, 'python/raft'),
+            os.path.join('cuml/raft')
+        )
+
+    return os.path.join(raft_path, 'cpp/include')
 
 
 def clone_repo_if_needed(name, cpp_build_path=None,
@@ -175,7 +186,7 @@ def get_submodule_dependency(repo,
         print("-- Third party repositories have not been found so they " +
               "will be cloned. To avoid this set the environment " +
               "variable CUML_BUILD_PATH, containing the absolute " +
-              "path to the build folder where libcuml++ was built.")
+              "path to the build folder where libcuml++ was built. ")
 
         for repo in repos:
             clone_repo(repo, repo_info[repo][0], repo_info[repo][1])

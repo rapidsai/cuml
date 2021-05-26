@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2018-2020, NVIDIA CORPORATION.
+# Copyright (c) 2018-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,16 +15,29 @@
 #=============================================================================
 
 set(CUML_TEST_INCLUDE_DIRS
-  ${CUML_INCLUDE_DIRECTORIES}
-  ${GTEST_DIR}/include
+  ${GTEST_INCLUDE_DIRS}/include
   ${TREELITE_DIR}/runtime/native/include)
 
 set(CUML_TEST_LINK_LIBRARIES
-  treelite_runtimelib
-  ${CUML_LINK_LIBRARIES}
   ${CUML_CPP_TARGET}
-  gtestlib
-  gtest_mainlib)
+  FAISS::FAISS
+  GTest::GTest
+  GTest::Main
+  treelite::treelite
+  treelite::treelite_runtime
+  ${CUDA_cublas_LIBRARY}
+  ${CUDA_curand_LIBRARY}
+  ${CUDA_cusolver_LIBRARY}
+  ${CUDA_CUDART_LIBRARY}
+  ${CUDA_cusparse_LIBRARY}
+  )
+
+set(PRIMS_TEST_LINK_LIBRARIES
+  ${CUDA_cublas_LIBRARY}
+  ${CUDA_curand_LIBRARY}
+  ${CUDA_cusolver_LIBRARY}
+  ${CUDA_CUDART_LIBRARY}
+  ${CUDA_cusparse_LIBRARY})
 
 ##############################################################################
 # - build ml_test executable -------------------------------------------------
@@ -34,44 +47,89 @@ if(BUILD_CUML_TESTS)
   add_executable(ml
     sg/cd_test.cu
     sg/dbscan_test.cu
+    sg/decisiontree_batchedlevel_algo.cu
+    sg/decisiontree_batchedlevel_unittest.cu
     sg/fil_test.cu
+    sg/genetic/node_test.cpp
+    sg/genetic/param_test.cu
     sg/handle_test.cu
     sg/holtwinters_test.cu
     sg/kmeans_test.cu
     sg/knn_test.cu
+    sg/lars_test.cu
+    sg/linkage_test.cu
     sg/logger.cpp
+    sg/multi_sum_test.cu
+    sg/nvtx_test.cpp
     sg/ols.cu
     sg/pca_test.cu
     sg/quasi_newton.cu
     sg/rf_accuracy_test.cu
+    sg/rf_batched_classification_test.cu
+    sg/rf_batched_regression_test.cu
+    sg/rf_depth_test.cu
+    sg/rf_quantiles_test.cu
     sg/rf_test.cu
     sg/rf_treelite_test.cu
     sg/ridge.cu
     sg/rproj_test.cu
     sg/sgd.cu
-    sg/spectral_test.cu
+    sg/shap_kernel.cu
     sg/svc_test.cu
     sg/trustworthiness_test.cu
     sg/tsne_test.cu
     sg/tsvd_test.cu
-    sg/umap_parametrizable_test.cu)
+    sg/umap_parametrizable_test.cu
+    )
 
-  target_include_directories(ml PRIVATE ${CUML_TEST_INCLUDE_DIRS})
+  target_include_directories(ml
+    PRIVATE
+      ${CUML_SRC_DIR}
+      ${CUML_SRC_PRIMS_DIR}
+      ${CUML_TEST_PRIMS_DIR}
+  )
 
-  target_link_libraries(ml ${CUML_TEST_LINK_LIBRARIES})
+  target_link_libraries(ml ${CUML_TEST_LINK_LIBRARIES} ${CUML_C_TARGET})
+
 endif(BUILD_CUML_TESTS)
 
 ##############################################################################
 # - build test_ml_mg executable ----------------------------------------------
 
 if(BUILD_CUML_MG_TESTS)
-  # (please keep the filenames in alphabetical order)
-  add_executable(ml_mg
-    mg/test_ml_mg_utils.cu)
 
-  target_include_directories(ml_mg PRIVATE ${CUML_TEST_INCLUDE_DIRS})
+  if(MPI_CXX_FOUND)
+    # (please keep the filenames in alphabetical order)
+    add_executable(ml_mg
+      mg/knn.cu
+      mg/knn_classify.cu
+      mg/knn_regress.cu
+      mg/main.cu
+      mg/pca.cu)
 
-  target_link_libraries(ml_mg ${CUML_TEST_LINK_LIBRARIES})
+    set(CUML_TEST_INCLUDE_DIRS
+        ${CUML_TEST_INCLUDE_DIRS}
+        NCCL::NCCL
+        ${MPI_CXX_INCLUDE_PATH}
+        ${cumlprims_mg_INCLUDE_DIRS})
+
+    target_include_directories(ml_mg
+      PRIVATE
+        ${CUML_SRC_DIR}
+        ${CUML_SRC_PRIMS_DIR}
+        ${CUML_TEST_PRIMS_DIR})
+
+    set(CUML_TEST_LINK_LIBRARIES
+    	${CUML_TEST_LINK_LIBRARIES}
+    	NCCL::NCCL
+    	${MPI_CXX_LIBRARIES}
+    	cumlprims_mg::cumlprims_mg)
+
+    target_link_libraries(ml_mg ${CUML_TEST_LINK_LIBRARIES})
+
+  else(MPI_CXX_FOUND)
+   message("OpenMPI not found. Skipping 'ml_mg'")
+  endif(MPI_CXX_FOUND)
 endif(BUILD_CUML_MG_TESTS)
 
 ##############################################################################
@@ -80,114 +138,95 @@ endif(BUILD_CUML_MG_TESTS)
 if(BUILD_PRIMS_TESTS)
   # (please keep the filenames in alphabetical order)
   add_executable(prims
-    prims/add.cu
     prims/add_sub_dev_scalar.cu
-    prims/adjustedRandIndex.cu
+    prims/adjusted_rand_index.cu
     prims/batched/csr.cu
     prims/batched/gemv.cu
     prims/batched/information_criterion.cu
     prims/batched/make_symm.cu
     prims/batched/matrix.cu
-    prims/binary_op.cu
-    prims/ternary_op.cu
     prims/cache.cu
-    prims/coalesced_reduction.cu
-    prims/cuda_utils.cu
     prims/columnSort.cu
-    prims/completenessScore.cu
+    prims/completeness_score.cu
     prims/contingencyMatrix.cu
-    prims/coo.cu
     prims/cov.cu
-    prims/csr.cu
     prims/decoupled_lookback.cu
     prims/device_utils.cu
     prims/dispersion.cu
-    prims/dist_adj.cu
-    prims/dist_cos.cu
-    prims/dist_euc_exp.cu
-    prims/dist_euc_unexp.cu
-    prims/dist_l1.cu
-    prims/divide.cu
-    prims/eig.cu
-    prims/eig_sel.cu
-    prims/eltwise.cu
     prims/eltwise2d.cu
     prims/entropy.cu
     prims/epsilon_neighborhood.cu
     prims/fast_int_div.cu
-    prims/fused_l2_nn.cu
     prims/gather.cu
-    prims/gemm.cu
-    prims/gemm_layout.cu
     prims/gram.cu
     prims/grid_sync.cu
     prims/hinge.cu
     prims/histogram.cu
-    prims/homogeneityScore.cu
+    prims/homogeneity_score.cu
     prims/host_buffer.cu
     prims/jones_transform.cu
-    prims/klDivergence.cu
+    prims/kl_divergence.cu
     prims/knn_classify.cu
     prims/knn_regression.cu
-    prims/knn.cu
     prims/kselection.cu
     prims/label.cu
     prims/linearReg.cu
     prims/log.cu
     prims/logisticReg.cu
+    prims/make_arima.cu
     prims/make_blobs.cu
     prims/make_regression.cu
-    prims/map_then_reduce.cu
-    prims/math.cu
-    prims/matrix.cu
-    prims/matrix_vector_op.cu
-    prims/mean.cu
-    prims/mean_center.cu
+    prims/merge_labels.cu
     prims/minmax.cu
     prims/mvg.cu
-    prims/multiply.cu
-    prims/mutualInfoScore.cu
-    prims/norm.cu
+    prims/mutual_info_score.cu
     prims/penalty.cu
     prims/permute.cu
     prims/power.cu
-    prims/randIndex.cu
-    prims/reduce.cu
+    prims/rand_index.cu
     prims/reduce_cols_by_key.cu
     prims/reduce_rows_by_key.cu
     prims/reverse.cu
-    prims/rng.cu
-    prims/rng_int.cu
     prims/rsvd.cu
-    prims/sample_without_replacement.cu
-    prims/scatter.cu
     prims/score.cu
     prims/seive.cu
     prims/sigmoid.cu
-    prims/silhouetteScore.cu
+    prims/silhouette_score.cu
     prims/sqrt.cu
-    prims/stationarity.cu
-    prims/stddev.cu
-    prims/strided_reduction.cu
-    prims/subtract.cu
-    prims/sum.cu
-    prims/svd.cu
     prims/ternary_op.cu
-    prims/transpose.cu
     prims/trustworthiness.cu
-    prims/unary_op.cu
-    prims/vMeasure.cu
-    prims/weighted_mean.cu
-    ../src/common/logger.cpp  # because prims is header only!
-    )
+    prims/v_measure.cu
+    prims/weighted_mean.cu)
 
-  target_include_directories(prims PRIVATE ${CUML_TEST_INCLUDE_DIRS})
-
-  add_dependencies(prims cutlass)
+  target_include_directories(prims
+    PRIVATE
+      ${CUML_SRC_PRIMS_DIR}
+      ${CUML_TEST_PRIMS_DIR}
+  )
 
   target_link_libraries(prims
-    gtestlib
-    gtest_mainlib
-    ${CUML_LINK_LIBRARIES}
-    faisslib)
+    ${CUML_CPP_TARGET}
+  	GTest::GTest
+  	GTest::Main
+  	FAISS::FAISS
+    ${PRIMS_TEST_LINK_LIBRARIES})
+
 endif(BUILD_PRIMS_TESTS)
+
+##############################################################################
+# - build C-API test library -------------------------------------------------
+
+if(BUILD_CUML_C_LIBRARY)
+  set(CUML_C_TEST_TARGET "${CUML_C_TARGET}_test")
+
+  add_library(${CUML_C_TEST_TARGET} SHARED
+    c_api/dbscan_api_test.c
+    c_api/glm_api_test.c
+    c_api/holtwinters_api_test.c
+    c_api/knn_api_test.c
+    c_api/svm_api_test.c
+  )
+
+  target_link_libraries(${CUML_C_TEST_TARGET} PUBLIC ${CUML_C_TARGET})
+
+endif(BUILD_CUML_C_LIBRARY)

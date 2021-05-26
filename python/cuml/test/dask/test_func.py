@@ -15,7 +15,6 @@
 #
 
 from dask import delayed
-from dask.distributed import Client
 import pytest
 
 from cuml.dask.common.func import reduce
@@ -23,9 +22,7 @@ from cuml.dask.common.func import tree_reduce
 
 
 @pytest.mark.parametrize("n_parts", [1, 2, 10, 15])
-def test_tree_reduce_delayed(n_parts, cluster):
-
-    client = Client(cluster)
+def test_tree_reduce_delayed(n_parts, client):
 
     func = delayed(sum)
 
@@ -44,35 +41,24 @@ def s(x):
 
 
 @pytest.mark.parametrize("n_parts", [1, 2, 10, 15])
-def test_tree_reduce_futures(n_parts, cluster):
+def test_tree_reduce_futures(n_parts, client):
 
-    client = Client(cluster)
-    try:
+    a = [client.submit(s, i) for i in range(n_parts)]
+    b = tree_reduce(a)
+    c = client.compute(b, sync=True)
 
-        a = [client.submit(s, i) for i in range(n_parts)]
-        b = tree_reduce(a)
-        c = client.compute(b, sync=True)
-
-        assert(sum(range(n_parts)) == c)
-    finally:
-        client.close()
+    assert(sum(range(n_parts)) == c)
 
 
 @pytest.mark.parametrize("n_parts", [1, 2, 10, 15])
-def test_reduce_futures(n_parts, cluster):
+def test_reduce_futures(n_parts, client):
 
     def s(x):
         return x
 
-    client = Client(cluster)
+    a = [client.submit(s, i) for i in range(n_parts)]
+    b = reduce(a, sum)
+    c = client.compute(b, sync=True)
 
-    try:
-
-        a = [client.submit(s, i) for i in range(n_parts)]
-        b = reduce(a, sum)
-        c = client.compute(b, sync=True)
-
-        # Testing this gets the correct result for now.
-        assert(sum(range(n_parts)) == c)
-    finally:
-        client.close()
+    # Testing this gets the correct result for now.
+    assert(sum(range(n_parts)) == c)

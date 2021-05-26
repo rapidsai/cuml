@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,14 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <limits>
-#include "cuda_utils.h"
-#include "random/rng.h"
-#include "stats/minmax.h"
+#include <raft/cuda_utils.cuh>
+#include <raft/random/rng.cuh>
+#include <stats/minmax.cuh>
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -58,8 +58,8 @@ __global__ void naiveMinMaxKernel(const T* data, int nrows, int ncols,
   if (col < ncols) {
     T val = data[tid];
     if (!isnan(val)) {
-      myAtomicMin(&globalmin[col], val);
-      myAtomicMax(&globalmax[col], val);
+      raft::myAtomicMin(&globalmin[col], val);
+      raft::myAtomicMax(&globalmax[col], val);
     }
   }
 }
@@ -68,12 +68,12 @@ template <typename T>
 void naiveMinMax(const T* data, int nrows, int ncols, T* globalmin,
                  T* globalmax, cudaStream_t stream) {
   const int TPB = 128;
-  int nblks = ceildiv(ncols, TPB);
+  int nblks = raft::ceildiv(ncols, TPB);
   T init_val = std::numeric_limits<T>::max();
   naiveMinMaxInitKernel<<<nblks, TPB, 0, stream>>>(ncols, globalmin, globalmax,
                                                    init_val);
   CUDA_CHECK(cudaGetLastError());
-  nblks = ceildiv(nrows * ncols, TPB);
+  nblks = raft::ceildiv(nrows * ncols, TPB);
   naiveMinMaxKernel<<<nblks, TPB, 0, stream>>>(data, nrows, ncols, globalmin,
                                                globalmax);
   CUDA_CHECK(cudaGetLastError());
@@ -91,18 +91,18 @@ class MinMaxTest : public ::testing::TestWithParam<MinMaxInputs<T>> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<MinMaxInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int len = params.rows * params.cols;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(data, len);
-    allocate(mask, len);
-    allocate(minmax_act, 2 * params.cols);
-    allocate(minmax_ref, 2 * params.cols);
+    raft::allocate(data, len);
+    raft::allocate(mask, len);
+    raft::allocate(minmax_act, 2 * params.cols);
+    raft::allocate(minmax_ref, 2 * params.cols);
     r.normal(data, len, (T)0.0, (T)1.0, stream);
     T nan_prob = 0.01;
     r.bernoulli(mask, len, nan_prob, stream);
     const int TPB = 256;
-    nanKernel<<<ceildiv(len, TPB), TPB, 0, stream>>>(
+    nanKernel<<<raft::ceildiv(len, TPB), TPB, 0, stream>>>(
       data, mask, len, std::numeric_limits<T>::quiet_NaN());
     CUDA_CHECK(cudaPeekAtLastError());
     naiveMinMax(data, params.rows, params.cols, minmax_ref,
@@ -152,14 +152,14 @@ const std::vector<MinMaxInputs<double>> inputsd = {
 
 typedef MinMaxTest<float> MinMaxTestF;
 TEST_P(MinMaxTestF, Result) {
-  ASSERT_TRUE(devArrMatch(minmax_ref, minmax_act, 2 * params.cols,
-                          CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(minmax_ref, minmax_act, 2 * params.cols,
+                                raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef MinMaxTest<double> MinMaxTestD;
 TEST_P(MinMaxTestD, Result) {
-  ASSERT_TRUE(devArrMatch(minmax_ref, minmax_act, 2 * params.cols,
-                          CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(minmax_ref, minmax_act, 2 * params.cols,
+                                raft::CompareApprox<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(MinMaxTests, MinMaxTestF, ::testing::ValuesIn(inputsf));

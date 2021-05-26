@@ -14,17 +14,15 @@
 # limitations under the License.
 #
 
-# cython: profile=False
-# distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
-
 from libcpp cimport bool
 
-cdef extern from "ml_utils.h" namespace "ML":
+ctypedef int underlying_type_t_solver
 
-    enum solver:
-        COV_EIG_DQ, COV_EIG_JACOBI, RANDOMIZED
+cdef extern from "cuml/decomposition/params.hpp" namespace "ML" nogil:
+
+    ctypedef enum solver "ML::solver":
+        COV_EIG_DQ "ML::solver::COV_EIG_DQ"
+        COV_EIG_JACOBI "ML::solver::COV_EIG_JACOBI"
 
     cdef cppclass params:
         int n_rows

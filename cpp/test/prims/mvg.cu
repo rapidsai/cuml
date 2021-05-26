@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <cmath>
 #include <iostream>
+#include <random/mvg.cuh>
 #include <random>
-#include "random/mvg.h"
 #include "test_utils.h"
 
 // mvg.h takes in matrices that are colomn major (as in fortan)
@@ -37,7 +37,7 @@ __global__ void En_KF_accumulate(const int nPoints, const int dim, const T *X,
   int idx = threadIdx.x + blockDim.x * blockIdx.x;
   int col = idx % dim;
   int row = idx / dim;
-  if (col < dim && row < nPoints) myAtomicAdd(x + col, X[idx]);
+  if (col < dim && row < nPoints) raft::myAtomicAdd(x + col, X[idx]);
 }
 
 template <typename T>
@@ -121,8 +121,8 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
     }
 
     // porting inputs to gpu
-    updateDevice(P_d, P, dim * dim, stream);
-    updateDevice(x_d, x, dim, stream);
+    raft::update_device(P_d, P, dim * dim, stream);
+    raft::update_device(x_d, x, dim, stream);
 
     // initilizing the mvg
     mvg = new MultiVarGaussian<T>(dim, method);
@@ -139,15 +139,15 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
     //@todo can be swapped with a API that calculates mean
     CUDA_CHECK(cudaMemset(Rand_mean, 0, dim * sizeof(T)));
     dim3 block = (64);
-    dim3 grid = (ceildiv(nPoints * dim, (int)block.x));
+    dim3 grid = (raft::ceildiv(nPoints * dim, (int)block.x));
     En_KF_accumulate<<<grid, block>>>(nPoints, dim, X_d, Rand_mean);
     CUDA_CHECK(cudaPeekAtLastError());
-    grid = (ceildiv(dim, (int)block.x));
+    grid = (raft::ceildiv(dim, (int)block.x));
     En_KF_normalize<<<grid, block>>>(nPoints, dim, Rand_mean);
     CUDA_CHECK(cudaPeekAtLastError());
 
     // storing the error wrt random point mean in X_d
-    grid = (ceildiv(dim * nPoints, (int)block.x));
+    grid = (raft::ceildiv(dim * nPoints, (int)block.x));
     En_KF_dif<<<grid, block>>>(nPoints, dim, X_d, Rand_mean, X_d);
     CUDA_CHECK(cudaPeekAtLastError());
 
@@ -155,12 +155,12 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
     T alfa = 1.0 / (nPoints - 1), beta = 0.0;
     cublasHandle_t handle;
     CUBLAS_CHECK(cublasCreate(&handle));
-    CUBLAS_CHECK(LinAlg::cublasgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, dim, dim,
-                                    nPoints, &alfa, X_d, dim, X_d, dim, &beta,
-                                    Rand_cov, dim, stream));
+    CUBLAS_CHECK(raft::linalg::cublasgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, dim,
+                                          dim, nPoints, &alfa, X_d, dim, X_d,
+                                          dim, &beta, Rand_cov, dim, stream));
 
     // restoring cov provided into P_d
-    updateDevice(P_d, P, dim * dim, stream);
+    raft::update_device(P_d, P, dim * dim, stream);
   }
 
   void TearDown() override {
@@ -229,22 +229,23 @@ const std::vector<MVGInputs<double>> inputsd = {
 typedef MVGTest<float> MVGTestF;
 typedef MVGTest<double> MVGTestD;
 TEST_P(MVGTestF, MeanIsCorrectF) {
-  EXPECT_TRUE(devArrMatch(x_d, Rand_mean, dim, CompareApprox<float>(tolerance)))
+  EXPECT_TRUE(raft::devArrMatch(x_d, Rand_mean, dim,
+                                raft::CompareApprox<float>(tolerance)))
     << " in MeanIsCorrect";
 }
 TEST_P(MVGTestF, CovIsCorrectF) {
-  EXPECT_TRUE(
-    devArrMatch(P_d, Rand_cov, dim, dim, CompareApprox<float>(tolerance)))
+  EXPECT_TRUE(raft::devArrMatch(P_d, Rand_cov, dim, dim,
+                                raft::CompareApprox<float>(tolerance)))
     << " in CovIsCorrect";
 }
 TEST_P(MVGTestD, MeanIsCorrectD) {
-  EXPECT_TRUE(
-    devArrMatch(x_d, Rand_mean, dim, CompareApprox<double>(tolerance)))
+  EXPECT_TRUE(raft::devArrMatch(x_d, Rand_mean, dim,
+                                raft::CompareApprox<double>(tolerance)))
     << " in MeanIsCorrect";
 }
 TEST_P(MVGTestD, CovIsCorrectD) {
-  EXPECT_TRUE(
-    devArrMatch(P_d, Rand_cov, dim, dim, CompareApprox<double>(tolerance)))
+  EXPECT_TRUE(raft::devArrMatch(P_d, Rand_cov, dim, dim,
+                                raft::CompareApprox<double>(tolerance)))
     << " in CovIsCorrect";
 }
 

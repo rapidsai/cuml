@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,12 @@
 
 #include <iostream>
 
-#include "common/device_buffer.hpp"
-#include "cuml/svm/svc.hpp"
+#include <raft/linalg/cublas_wrappers.h>
+#include <cuml/svm/svc.hpp>
+#include <label/classlabels.cuh>
+#include <matrix/kernelfactory.cuh>
+#include <raft/linalg/unary_op.cuh>
 #include "kernelcache.cuh"
-#include "label/classlabels.h"
-#include "linalg/cublas_wrappers.h"
-#include "linalg/unary_op.h"
-#include "matrix/kernelfactory.h"
 #include "smosolver.cuh"
 #include "svr_impl.cuh"
 
@@ -30,15 +29,17 @@ namespace ML {
 namespace SVM {
 
 // Explicit instantiation for the library
-template void svrFit<float>(const cumlHandle &handle, float *X, int n_rows,
+template void svrFit<float>(const raft::handle_t &handle, float *X, int n_rows,
                             int n_cols, float *y, const svmParameter &param,
                             MLCommon::Matrix::KernelParams &kernel_params,
-                            svmModel<float> &model);
+                            svmModel<float> &model, const float *sample_weight);
 
-template void svrFit<double>(const cumlHandle &handle, double *X, int n_rows,
-                             int n_cols, double *y, const svmParameter &param,
+template void svrFit<double>(const raft::handle_t &handle, double *X,
+                             int n_rows, int n_cols, double *y,
+                             const svmParameter &param,
                              MLCommon::Matrix::KernelParams &kernel_params,
-                             svmModel<double> &model);
+                             svmModel<double> &model,
+                             const double *sample_weight);
 
 };  // namespace SVM
 };  // end namespace ML

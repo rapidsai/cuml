@@ -14,11 +14,10 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
+
+import sys
 
 from libcpp.string cimport string
 from libcpp cimport bool
@@ -30,9 +29,12 @@ cdef extern from "cuml/common/logger.hpp" namespace "ML" nogil:
         Logger& get()
         void setLevel(int level)
         void setPattern(const string& pattern)
+        void setCallback(void(*callback)(int, char*))
+        void setFlush(void(*flush)())
         bool shouldLogFor(int level) const
         int getLevel() const
         string getPattern() const
+        void flush()
 
 
 cdef extern from "cuml/common/logger.hpp" nogil:
@@ -53,25 +55,66 @@ cdef extern from "cuml/common/logger.hpp" nogil:
 
 
 """Enables all log messages upto and including `trace()`"""
-LEVEL_TRACE = CUML_LEVEL_TRACE
+level_trace = CUML_LEVEL_TRACE
 
 """Enables all log messages upto and including `debug()`"""
-LEVEL_DEBUG = CUML_LEVEL_DEBUG
+level_debug = CUML_LEVEL_DEBUG
 
 """Enables all log messages upto and including `info()`"""
-LEVEL_INFO = CUML_LEVEL_INFO
+level_info = CUML_LEVEL_INFO
 
 """Enables all log messages upto and including `warn()`"""
-LEVEL_WARN = CUML_LEVEL_WARN
+level_warn = CUML_LEVEL_WARN
 
 """Enables all log messages upto and include `error()`"""
-LEVEL_ERROR = CUML_LEVEL_ERROR
+level_error = CUML_LEVEL_ERROR
 
 """Enables only `critical()` messages"""
-LEVEL_CRITICAL = CUML_LEVEL_CRITICAL
+level_critical = CUML_LEVEL_CRITICAL
 
 """Disables all log messages"""
-LEVEL_OFF = CUML_LEVEL_OFF
+level_off = CUML_LEVEL_OFF
+
+cdef void _log_callback(int lvl, const char * msg) nogil:
+    """
+    Default spdlogs callback function to redirect logs correctly to sys.stdout
+
+    Parameters
+    ----------
+    lvl : int
+        Level of the logging message as defined by spdlogs
+    msg : char *
+        Message to be logged
+    """
+    with gil:
+        print(msg.decode('utf-8'), end='')
+
+
+cdef void _nogil_log_callback(int lvl, const char * msg) nogil:
+    """
+    Wrapper for _log_callback to explicitly disable Cython's automatic GIL
+    acquire
+    """
+    with nogil:
+        _log_callback(lvl, msg)
+
+
+cdef void _log_flush() nogil:
+    """
+    Default spdlogs callback function to flush logs
+    """
+    with gil:
+        if sys.stdout is not None:
+            sys.stdout.flush()
+
+
+cdef void _nogil_log_flush() nogil:
+    """
+    Wrapper for _log_flush to explicitly disable Cython's automatic GIL
+    acquire
+    """
+    with nogil:
+        _log_flush()
 
 
 class LogLevelSetter:
@@ -97,14 +140,12 @@ def set_level(level):
 
     .. code-block:: python
 
-        import cuml.common.logger as logger
-
         # regular usage of setting a logging level for all subsequent logs
         # in this case, it will enable all logs upto and including `info()`
-        logger.set_level(logger.LEVEL_INFO)
+        logger.set_level(logger.level_info)
 
         # in case one wants to temporarily set the log level for a code block
-        with logger.set_level(logger.LEVEL_DEBUG) as _:
+        with logger.set_level(logger.level_debug) as _:
             logger.debug("Hello world!")
 
     Parameters
@@ -148,8 +189,6 @@ def set_pattern(pattern):
 
     .. code-block:: python
 
-        import cuml.common.logger as logger
-
         # regular usage of setting a logging pattern for all subsequent logs
         logger.set_pattern("--> [%H-%M-%S] %v")
 
@@ -186,8 +225,7 @@ def should_log_for(level):
 
     .. code-block:: python
 
-        import cuml.common.logger as logger
-        if logger.should_log_for(LEVEL_INFO):
+        if logger.should_log_for(level_info):
             # which could waste precious CPU cycles
             my_message = construct_message()
             logger.info(my_message)
@@ -195,7 +233,7 @@ def should_log_for(level):
     Parameters
     ----------
     level : int
-        Logging level to be set. It must be one of cuml.common.logger.LEVEL_*
+        Logging level to be set. It must be one of cuml.common.logger.level_*
     """
     return Logger.get().shouldLogFor(<int>level)
 
@@ -209,8 +247,7 @@ def trace(msg):
 
     .. code-block:: python
 
-        import cuml.common.logger as logger
-        logger.trace("Hello world! This is a trace message")
+                logger.trace("Hello world! This is a trace message")
 
     Parameters
     ----------
@@ -230,8 +267,7 @@ def debug(msg):
 
     .. code-block:: python
 
-        import cuml.common.logger as logger
-        logger.debug("Hello world! This is a debug message")
+                logger.debug("Hello world! This is a debug message")
 
     Parameters
     ----------
@@ -251,8 +287,7 @@ def info(msg):
 
     .. code-block:: python
 
-        import cuml.common.logger as logger
-        logger.info("Hello world! This is a info message")
+                logger.info("Hello world! This is a info message")
 
     Parameters
     ----------
@@ -272,8 +307,7 @@ def warn(msg):
 
     .. code-block:: python
 
-        import cuml.common.logger as logger
-        logger.warn("Hello world! This is a warning message")
+                logger.warn("Hello world! This is a warning message")
 
     Parameters
     ----------
@@ -293,8 +327,7 @@ def error(msg):
 
     .. code-block:: python
 
-        import cuml.common.logger as logger
-        logger.error("Hello world! This is a error message")
+                logger.error("Hello world! This is a error message")
 
     Parameters
     ----------
@@ -314,8 +347,7 @@ def critical(msg):
 
     .. code-block:: python
 
-        import cuml.common.logger as logger
-        logger.critical("Hello world! This is a critical message")
+                logger.critical("Hello world! This is a critical message")
 
     Parameters
     ----------
@@ -324,3 +356,15 @@ def critical(msg):
     """
     cdef string s = msg.encode("UTF-8")
     CUML_LOG_CRITICAL(s.c_str())
+
+
+def flush():
+    """
+    Flush the logs.
+    """
+    Logger.get().flush()
+
+
+# Set callback functions to handle redirected sys.stdout in Python
+Logger.get().setCallback(_nogil_log_callback)
+Logger.get().setFlush(_nogil_log_flush)

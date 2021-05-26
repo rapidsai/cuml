@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,21 +13,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import dask
-import math
 
-from cuml.dask.common import raise_exception_from_futures
+import warnings
+
 from cuml.dask.common.base import DelayedPredictionMixin
-from cuml.dask.common.input_utils import DistributedDataHandler, \
-    concatenate
 from cuml.ensemble import RandomForestRegressor as cuRFR
+from cuml.dask.ensemble.base import \
+    BaseRandomForestModel
+from cuml.dask.common.base import BaseEstimator
 
-from dask.distributed import default_client, wait
-
-from uuid import uuid1
+import dask
 
 
-class RandomForestRegressor(DelayedPredictionMixin):
+class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
+                            BaseEstimator):
     """
     Experimental API implementing a multi-GPU Random Forest classifier
     model which fits multiple decision tree classifiers in an
@@ -35,10 +34,12 @@ class RandomForestRegressor(DelayedPredictionMixin):
     (possibly on different nodes).
 
     Currently, this API makes the following assumptions:
-    * The set of Dask workers used between instantiation, fit,
-    and predict are all consistent
-    * Training data is comes in the form of cuDF dataframes,
-    distributed so that each worker has at least one partition.
+     * The set of Dask workers used between instantiation, fit,
+       and predict are all consistent
+     * Training data comes in the form of cuDF dataframes or Dask Arrays
+       distributed so that each worker has at least one partition.
+     * The get_summary_text and get_detailed_text functions provides the \
+        text representation of the forest on the worker.
 
     Future versions of the API will support more flexible data
     distribution and additional input types. User-facing APIs are
@@ -63,7 +64,12 @@ class RandomForestRegressor(DelayedPredictionMixin):
     n_estimators : int (default = 10)
         total number of trees in the forest (not per-worker)
     handle : cuml.Handle
-        If it is None, a new one is created just for this class.
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
     split_algo : int (default = 1)
         0 for HIST, 1 for GLOBAL_QUANTILE
         The type of algorithm to be used to create the trees.
@@ -76,11 +82,11 @@ class RandomForestRegressor(DelayedPredictionMixin):
         Control bootstrapping.
         If set, each tree in the forest is built
         on a bootstrapped sample with replacement.
-        If false, sampling without replacement is done.
+        If False, the whole dataset is used to build each tree.
     bootstrap_features : boolean (default = False)
         Control bootstrapping for features.
         If features are drawn with or without replacement
-    rows_sample : float (default = 1.0)
+    max_samples : float (default = 1.0)
         Ratio of dataset rows used while fitting each tree.
     max_depth : int (default = -1)
         Maximum tree depth. Unlimited (i.e, until leaves are pure), if -1.
@@ -97,247 +103,136 @@ class RandomForestRegressor(DelayedPredictionMixin):
         If None, then max_features=n_features which is 1.0.
     n_bins : int (default = 8)
         Number of bins used by the split algorithm.
-    min_rows_per_node : int or float (default = 2)
-        The minimum number of samples (rows) needed to split a node.
-        If int then number of sample rows
-        If float the min_rows_per_sample*n_rows
-    accuracy_metric : string (default = 'mse')
+    min_samples_leaf : int or float (default = 1)
+        The minimum number of samples (rows) in each leaf node.
+        If int, then min_samples_leaf represents the minimum number.
+        If float, then min_samples_leaf represents a fraction and
+        ceil(min_samples_leaf * n_rows) is the minimum number of samples
+        for each leaf node.
+    min_samples_split : int or float (default = 2)
+        The minimum number of samples required to split an internal node.
+        If int, then min_samples_split represents the minimum number.
+        If float, then min_samples_split represents a fraction and
+        ceil(min_samples_split * n_rows) is the minimum number of samples
+        for each split.
+    accuracy_metric : string (default = 'r2')
         Decides the metric used to evaluate the performance of the model.
+        In the 0.16 release, the default scoring metric was changed
+        from mean squared error to r-squared.
+        for r-squared : 'r2'
         for median of abs error : 'median_ae'
         for mean of abs error : 'mean_ae'
         for mean square error' : 'mse'
+    quantile_per_tree : boolean (default = False)
+        Whether quantile is computed for individual RF trees.
+        Only relevant for GLOBAL_QUANTILE split_algo.
+    use_experimental_backend : boolean (default = False)
+        If set to true and the following conditions are also met, a new
+        experimental backend for decision tree training will be used. The
+        new backend is available only if `split_algo = 1` (GLOBAL_QUANTILE)
+        and `quantile_per_tree = False` (No per tree quantile computation).
+        The new backend is considered stable for classification tasks but
+        not yet for regression tasks. The RAPIDS team is continuing
+        optimization and evaluation of the new backend for regression tasks.
     n_streams : int (default = 4 )
         Number of parallel streams used for forest building
     workers : optional, list of strings
         Dask addresses of workers to use for computation.
         If None, all available Dask workers will be used.
+    random_state : int (default = None)
+        Seed for the random number generator. Unseeded by default.
+    seed : int (default = None)
+        Base seed for the random number generator. Unseeded by default. Does
+        not currently fully guarantee the exact same results.
+
+        .. deprecated:: 0.15
+           Parameter `seed` is deprecated and will be removed in 0.17. Please
+           use `random_state` instead
+
+    ignore_empty_partitions: Boolean (default = False)
+        Specify behavior when a worker does not hold any data
+        while splitting. When True, it returns the results from workers
+        with data (the number of trained estimators will be less than
+        n_estimators) When False, throws a RuntimeError.
+        This is an experiemental parameter, and may be removed
+        in the future.
 
     """
 
     def __init__(
         self,
-        n_estimators=10,
-        max_depth=-1,
-        max_features="auto",
-        n_bins=8,
-        split_algo=1,
-        split_criterion=2,
-        bootstrap=True,
-        bootstrap_features=False,
-        verbose=False,
-        min_rows_per_node=2,
-        rows_sample=1.0,
-        max_leaves=-1,
-        n_streams=4,
-        accuracy_metric="mse",
-        min_samples_leaf=None,
-        min_weight_fraction_leaf=None,
-        n_jobs=None,
-        max_leaf_nodes=None,
-        min_impurity_decrease=None,
-        min_impurity_split=None,
-        oob_score=None,
-        random_state=None,
-        warm_start=None,
-        class_weight=None,
-        quantile_per_tree=False,
-        criterion=None,
+        *,
         workers=None,
-        client=None
+        client=None,
+        verbose=False,
+        n_estimators=10,
+        random_state=None,
+        seed=None,
+        ignore_empty_partitions=False,
+        **kwargs
     ):
+        super().__init__(client=client,
+                         verbose=verbose,
+                         **kwargs)
 
-        unsupported_sklearn_params = {
-            "criterion": criterion,
-            "min_samples_leaf": min_samples_leaf,
-            "min_weight_fraction_leaf": min_weight_fraction_leaf,
-            "max_leaf_nodes": max_leaf_nodes,
-            "min_impurity_decrease": min_impurity_decrease,
-            "min_impurity_split": min_impurity_split,
-            "oob_score": oob_score,
-            "n_jobs": n_jobs,
-            "random_state": random_state,
-            "warm_start": warm_start,
-            "class_weight": class_weight,
-        }
+        if seed is not None:
+            if random_state is None:
+                warnings.warn("Parameter 'seed' is deprecated and will be"
+                              " removed in 0.17. Please use 'random_state'"
+                              " instead. Setting 'random_state' as the"
+                              " curent 'seed' value",
+                              DeprecationWarning)
+                random_state = seed
+            else:
+                warnings.warn("Both 'seed' and 'random_state' parameters were"
+                              " set. Using 'random_state' since 'seed' is"
+                              " deprecated and will be removed in 0.17.",
+                              DeprecationWarning)
 
-        for key, vals in unsupported_sklearn_params.items():
-            if vals is not None:
-                raise TypeError(
-                    " The Scikit-learn variable ",
-                    key,
-                    " is not supported in cuML,"
-                    " please read the cuML documentation for"
-                    " more information",
-                )
-
-        self.n_estimators = n_estimators
-        self.n_estimators_per_worker = list()
-
-        self.client = default_client() if client is None else client
-        if workers is None:
-            workers = self.client.has_what().keys()
-        self.workers = workers
-        n_workers = len(workers)
-        if n_estimators < n_workers:
-            raise ValueError(
-                "n_estimators cannot be lower than number of dask workers."
-            )
-
-        n_est_per_worker = math.floor(n_estimators / n_workers)
-
-        for i in range(n_workers):
-            self.n_estimators_per_worker.append(n_est_per_worker)
-
-        remaining_est = n_estimators - (n_est_per_worker * n_workers)
-
-        for i in range(remaining_est):
-            self.n_estimators_per_worker[i] = (
-                self.n_estimators_per_worker[i] + 1
-            )
-
-        seeds = list()
-        seeds.append(0)
-        for i in range(1, len(self.n_estimators_per_worker)):
-            sd = self.n_estimators_per_worker[i-1] + seeds[i-1]
-            seeds.append(sd)
-
-        key = str(uuid1())
-        self.rfs = {
-            worker: self.client.submit(
-                RandomForestRegressor._func_build_rf,
-                self.n_estimators_per_worker[n],
-                max_depth,
-                n_streams,
-                max_features,
-                n_bins,
-                split_algo,
-                split_criterion,
-                bootstrap,
-                bootstrap_features,
-                verbose,
-                min_rows_per_node,
-                rows_sample,
-                max_leaves,
-                accuracy_metric,
-                quantile_per_tree,
-                seeds[n],
-                key="%s-%s" % (key, n),
-                workers=[worker],
-            )
-            for n, worker in enumerate(workers)
-        }
-
-        rfs_wait = list()
-        for r in self.rfs.values():
-            rfs_wait.append(r)
-
-        wait(rfs_wait)
-        raise_exception_from_futures(rfs_wait)
-
-    @staticmethod
-    def _func_build_rf(
-        n_estimators,
-        max_depth,
-        n_streams,
-        max_features,
-        n_bins,
-        split_algo,
-        split_criterion,
-        bootstrap,
-        bootstrap_features,
-        verbose,
-        min_rows_per_node,
-        rows_sample,
-        max_leaves,
-        accuracy_metric,
-        quantile_per_tree,
-        seed,
-    ):
-
-        return cuRFR(
+        self._create_model(
+            model_func=RandomForestRegressor._construct_rf,
+            client=client,
+            workers=workers,
             n_estimators=n_estimators,
-            max_depth=max_depth,
-            handle=None,
-            max_features=max_features,
-            n_bins=n_bins,
-            split_algo=split_algo,
-            split_criterion=split_criterion,
-            bootstrap=bootstrap,
-            bootstrap_features=bootstrap_features,
-            verbose=verbose,
-            min_rows_per_node=min_rows_per_node,
-            rows_sample=rows_sample,
-            max_leaves=max_leaves,
-            n_streams=n_streams,
-            accuracy_metric=accuracy_metric,
-            quantile_per_tree=quantile_per_tree,
-            seed=seed,
+            base_seed=random_state,
+            ignore_empty_partitions=ignore_empty_partitions,
+            **kwargs
         )
 
     @staticmethod
-    def _fit(model, input_data, convert_dtype):
-        X = concatenate([item[0] for item in input_data])
-        y = concatenate([item[1] for item in input_data])
-        return model.fit(X, y, convert_dtype)
+    def _construct_rf(
+        n_estimators,
+        random_state,
+        **kwargs
+    ):
+        return cuRFR(
+            n_estimators=n_estimators,
+            random_state=random_state,
+            **kwargs)
 
     @staticmethod
-    def _print_summary(model):
-        model.print_summary()
-
-    @staticmethod
-    def _get_protobuf_bytes(model):
-        return model._get_protobuf_bytes()
-
-    @staticmethod
-    def _predict_cpu(model, X, convert_dtype):
+    def _predict_model_on_cpu(model, X, convert_dtype):
         return model._predict_model_on_cpu(X, convert_dtype=convert_dtype)
 
-    def print_summary(self):
+    def get_summary_text(self):
         """
-        Print the summary of the forest used to train and test the model.
+        Obtain the text summary of the random forest model
         """
-        c = default_client()
-        futures = list()
-        workers = self.workers
+        return self._get_summary_text()
 
-        for n, w in enumerate(workers):
-            futures.append(
-                c.submit(
-                    RandomForestRegressor._print_summary,
-                    self.rfs[w],
-                    workers=[w],
-                )
-            )
-
-        wait(futures)
-        raise_exception_from_futures(futures)
-        return self
-
-    def _concat_treelite_models(self):
+    def get_detailed_text(self):
         """
-        Convert the cuML Random Forest model present in different workers to
-        the treelite format and then concatenate the different treelite models
-        to create a single model. The concatenated model is then converted to
-        bytes format.
+        Obtain the detailed information for the random forest model, as text
         """
-        model_protobuf_futures = list()
-        for w in self.workers:
-            model_protobuf_futures.append(
-                dask.delayed(RandomForestRegressor._get_protobuf_bytes)
-                (self.rfs[w]))
-        mod_bytes = self.client.compute(model_protobuf_futures, sync=True)
-        last_worker = w
-        all_tl_mod_handles = []
-        model = self.rfs[last_worker].result()
-        for n in range(len(self.workers)):
-            all_tl_mod_handles.append(model._tl_model_handles(mod_bytes[n]))
+        return self._get_detailed_text()
 
-        model._concatenate_treelite_handle(
-            treelite_handle=all_tl_mod_handles)
+    def get_json(self):
+        """
+        Export the Random Forest model as a JSON string
+        """
+        return self._get_json()
 
-        self.local_model = model
-
-    def fit(self, X, y, convert_dtype=False):
+    def fit(self, X, y, convert_dtype=False, broadcast_data=False):
         """
         Fit the input data with a Random Forest regression model
 
@@ -345,7 +240,9 @@ class RandomForestRegressor(DelayedPredictionMixin):
         on each Dask worker being used by the forest (self.workers).
 
         When persisting data, you can use
-        cuml.dask.common.utils.persist_across_workers to simplify this::
+        `cuml.dask.common.utils.persist_across_workers` to simplify this:
+
+        .. code-block:: python
 
             X_dask_cudf = dask_cudf.from_cudf(X_cudf, npartitions=n_workers)
             y_dask_cudf = dask_cudf.from_cudf(y_cudf, npartitions=n_workers)
@@ -353,7 +250,10 @@ class RandomForestRegressor(DelayedPredictionMixin):
                                                               [X_dask_cudf,
                                                                y_dask_cudf])
 
-        (this is equivalent to calling `persist` with the data and workers)::
+        This is equivalent to calling `persist` with the data and workers):
+
+        .. code-block:: python
+
             X_dask_cudf, y_dask_cudf = dask_client.persist([X_dask_cudf,
                                                             y_dask_cudf],
                                                            workers={
@@ -371,33 +271,47 @@ class RandomForestRegressor(DelayedPredictionMixin):
             **y must be partitioned the same way as X**
         convert_dtype : bool, optional (default = False)
             When set to True, the fit method will, when necessary, convert
-            y to be the same data type as X if they differ. This
-            will increase memory used for the method.
-        """
-        data = DistributedDataHandler.create((X, y), client=self.client)
-        self.datatype = data.datatype
-        futures = list()
-        for idx, (worker, worker_data) in \
-                enumerate(data.worker_to_parts.items()):
-            futures.append(
-                self.client.submit(
-                    RandomForestRegressor._fit,
-                    self.rfs[worker],
-                    worker_data,
-                    convert_dtype,
-                    workers=[worker],
-                    pure=False)
-            )
+            y to be the same data type as X if they differ. This will increase
+            memory used for the method.
+        broadcast_data : bool, optional (default = False)
+            When set to True, the whole dataset is broadcasted
+            to train the workers, otherwise each worker
+            is trained on its partition
 
-        wait(futures)
-        raise_exception_from_futures(futures)
+        """
+        self.internal_model = None
+        self._fit(model=self.rfs,
+                  dataset=(X, y),
+                  convert_dtype=convert_dtype,
+                  broadcast_data=broadcast_data)
         return self
 
     def predict(self, X, predict_model="GPU", algo='auto',
                 convert_dtype=True, fil_sparse_format='auto',
-                delayed=True):
+                delayed=True, broadcast_data=False):
         """
         Predicts the regressor outputs for X.
+
+
+        GPU-based prediction in a multi-node, multi-GPU context works
+        by sending the sub-forest from each worker to the client,
+        concatenating these into one forest with the full
+        `n_estimators` set of trees, and sending this combined forest to
+        the workers, which will each infer on their local set of data.
+        This allows inference to scale to large datasets, but the forest
+        transmission incurs overheads for very large trees. For inference
+        on small datasets, this overhead may dominate prediction time.
+        Within the worker, this uses the cuML Forest Inference Library
+        (cuml.fil) for high-throughput prediction.
+
+        The 'CPU' fallback method works with sub-forests in-place,
+        broadcasting the datasets to all workers and combining predictions
+        via an averaging method at the end. This method is slower
+        on a per-row basis but may be faster for problems with many trees
+        and few rows.
+
+        In the 0.15 cuML release, inference will be updated with much
+        faster tree transfer.
 
         Parameters
         ----------
@@ -407,14 +321,16 @@ class RandomForestRegressor(DelayedPredictionMixin):
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
-            'naive' - simple inference using shared memory
-            'tree_reorg' - similar to naive but trees rearranged to be more
-            coalescing-friendly
-            'batch_tree_reorg' - similar to tree_reorg but predicting
-            multiple rows per thread block
-            `algo` - choose the algorithm automatically. Currently
-            'batch_tree_reorg' is used for dense storage
-            and 'naive' for sparse storage
+
+             * ``'naive'`` - simple inference using shared memory
+             * ``'tree_reorg'`` - similar to naive but trees rearranged to be
+               more coalescing-friendly
+             * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
+               multiple rows per thread block
+             * ``'auto'`` - choose the algorithm automatically. Currently
+             * ``'batch_tree_reorg'`` is used for dense storage
+               and 'naive' for sparse storage
+
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
@@ -427,48 +343,85 @@ class RandomForestRegressor(DelayedPredictionMixin):
             This variable is used to choose the type of forest that will be
             created in the Forest Inference Library. It is not required
             while using predict_model='CPU'.
-            'auto' - choose the storage type automatically
-            (currently True is chosen by auto)
-            False - create a dense forest
-            True - create a sparse forest, requires algo='naive'
-            or algo='auto'
+
+             * ``'auto'`` - choose the storage type automatically
+               (currently True is chosen by auto)
+             * ``False`` - create a dense forest
+             * ``True`` - create a sparse forest, requires algo='naive'
+               or algo='auto'
+
         delayed : bool (default = True)
             Whether to do a lazy prediction (and return Delayed objects) or an
             eagerly executed one.
+        broadcast_data : bool (default = False)
+            If broadcast_data=False, the trees are merged in a single model
+            before the workers perform inference on their share of the
+            prediction workload. When broadcast_data=True, trees aren't merged.
+            Instead each of the workers infer the whole prediction work
+            from trees at disposal. The results are reduced on the client.
+            May be advantageous when the model is larger than the data used
+            for inference.
 
         Returns
-        ----------
-        y : Dask cuDF dataframe  or CuPy backed Dask Array (n_rows, 1)
+        -------
+        y : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, 1)
+
         """
         if predict_model == "CPU":
-            preds = self._predict_using_cpu(X, convert_dtype=convert_dtype)
+            preds = self.predict_model_on_cpu(X, convert_dtype=convert_dtype)
 
         else:
-            preds = \
-                self._predict_using_fil(X, predict_model=predict_model,
-                                        algo=algo,
-                                        convert_dtype=convert_dtype,
-                                        fil_sparse_format=fil_sparse_format,
-                                        delayed=delayed)
+            if broadcast_data:
+                preds = \
+                    self.partial_inference(
+                        X,
+                        algo=algo,
+                        convert_dtype=convert_dtype,
+                        fil_sparse_format=fil_sparse_format,
+                        delayed=delayed
+                    )
+            else:
+                preds = \
+                    self._predict_using_fil(
+                        X,
+                        algo=algo,
+                        convert_dtype=convert_dtype,
+                        fil_sparse_format=fil_sparse_format,
+                        delayed=delayed
+                    )
         return preds
 
-    def _predict_using_fil(self, X, predict_model="GPU", algo='auto',
-                           convert_dtype=True, fil_sparse_format='auto',
-                           delayed=True):
-        self._concat_treelite_models()
+    def partial_inference(self, X, delayed, **kwargs):
+        partial_infs = \
+            self._partial_inference(X=X,
+                                    op_type='regression',
+                                    delayed=delayed,
+                                    **kwargs)
 
-        data = DistributedDataHandler.create(X, client=self.client)
-        self.datatype = data.datatype
-        kwargs = {"convert_dtype": convert_dtype,
-                  "predict_model": predict_model, "algo": algo,
-                  "fil_sparse_format": fil_sparse_format}
-        return self._predict(X, delayed=delayed, **kwargs)
+        def reduce(partial_infs, workers_weights,
+                   unique_classes=None):
+            regressions = dask.array.average(partial_infs, axis=1,
+                                             weights=workers_weights)
+            merged_regressions = regressions.compute()
+            return merged_regressions
+
+        datatype = 'daskArray' if isinstance(X, dask.array.Array) \
+            else 'daskDataframe'
+
+        return self.apply_reduction(reduce, partial_infs, datatype, delayed)
+
+    def predict_using_fil(self, X, delayed, **kwargs):
+        if self._get_internal_model() is None:
+            self._set_internal_model(self._concat_treelite_models())
+        return self._predict_using_fil(X=X,
+                                       delayed=delayed,
+                                       **kwargs)
 
     """
     TODO : Update function names used for CPU predict.
            Cuml issue #1854 has been created to track this.
     """
-    def _predict_using_cpu(self, X, convert_dtype):
+    def predict_model_on_cpu(self, X, convert_dtype):
         workers = self.workers
 
         X_Scattered = self.client.scatter(X)
@@ -477,7 +430,7 @@ class RandomForestRegressor(DelayedPredictionMixin):
         for n, w in enumerate(workers):
             futures.append(
                 self.client.submit(
-                    RandomForestRegressor._predict_cpu,
+                    RandomForestRegressor._predict_model_on_cpu,
                     self.rfs[w],
                     X_Scattered,
                     convert_dtype,
@@ -485,15 +438,7 @@ class RandomForestRegressor(DelayedPredictionMixin):
                 )
             )
 
-        wait(futures)
-        raise_exception_from_futures(futures)
-
-        indexes = list()
-        rslts = list()
-        for d in range(len(futures)):
-            rslts.append(futures[d].result())
-            indexes.append(0)
-
+        rslts = self.client.gather(futures, errors="raise")
         pred = list()
 
         for i in range(len(X)):
@@ -514,11 +459,7 @@ class RandomForestRegressor(DelayedPredictionMixin):
         -----------
         deep : boolean (default = True)
         """
-        params = dict()
-        for key in RandomForestRegressor.variables:
-            var_value = getattr(self, key, None)
-            params[key] = var_value
-        return params
+        return self._get_params(deep)
 
     def set_params(self, **params):
         """
@@ -530,12 +471,4 @@ class RandomForestRegressor(DelayedPredictionMixin):
         -----------
         params : dict of new params
         """
-        if not params:
-            return self
-        for key, value in params.items():
-            if key not in RandomForestRegressor.variables:
-                raise ValueError("Invalid parameter for estimator")
-            else:
-                setattr(self, key, value)
-
-        return self
+        return self._set_params(**params)

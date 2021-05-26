@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,79 +19,83 @@ from cuml.dask.common.input_utils import DistributedDataHandler
 
 class UMAP(BaseEstimator,
            DelayedTransformMixin):
-    def __init__(self, model, client=None, **kwargs):
-        """Uniform Manifold Approximation and Projection
-        Finds a low dimensional embedding of the data that approximates
-        an underlying manifold.
+    """
+    Uniform Manifold Approximation and Projection
 
-        Adapted from https://github.com/lmcinnes/umap/blob/master/umap/umap_.py
+    Finds a low dimensional embedding of the data that approximates
+    an underlying manifold.
 
-        Examples
-        ----------
+    Adapted from https://github.com/lmcinnes/umap/blob/master/umap/umap_.py
 
-        .. code-block:: python
+    Examples
+    --------
 
-            from dask_cuda import LocalCUDACluster
-            from dask.distributed import Client
-            from cuml.dask.datasets import make_blobs
-            from cuml.manifold import UMAP
-            from cuml.dask.manifold import UMAP as MNMG_UMAP
-            import numpy as np
+    .. code-block:: python
 
-            cluster = LocalCUDACluster(threads_per_worker=1)
-            client = Client(cluster)
+        from dask_cuda import LocalCUDACluster
+        from dask.distributed import Client
+        from cuml.dask.datasets import make_blobs
+        from cuml.manifold import UMAP
+        from cuml.dask.manifold import UMAP as MNMG_UMAP
+        import numpy as np
 
-            X, y = make_blobs(1000, 10,
-                            centers=42,
-                            cluster_std=0.1,
-                            dtype=np.float32,
-                            n_parts=2,
-                            output='array')
+        cluster = LocalCUDACluster(threads_per_worker=1)
+        client = Client(cluster)
 
-            local_model = UMAP()
+        X, y = make_blobs(1000, 10,
+                        centers=42,
+                        cluster_std=0.1,
+                        dtype=np.float32,
+                        n_parts=2,
+                        output='array')
 
-            selection = np.random.choice(1000, 100)
-            X_train = X[selection].compute()
-            y_train = y[selection].compute()
+        local_model = UMAP()
 
-            local_model.fit(X_train, y=y_train)
+        selection = np.random.choice(1000, 100)
+        X_train = X[selection].compute()
+        y_train = y[selection].compute()
 
-            distributed_model = MNMG_UMAP(local_model)
-            embedding = distributed_model.transform(X)
+        local_model.fit(X_train, y=y_train)
 
-        Note: Everytime this code is run, the output will be different because
-            "make_blobs" function generates random matrices.
+        distributed_model = MNMG_UMAP(local_model)
+        embedding = distributed_model.transform(X)
 
-        Notes
-        -----
-        This module is heavily based on Leland McInnes' reference UMAP package.
-        However, there are a number of differences and features that are
-        not yet implemented in cuml.umap:
-        * Using a non-Euclidean distance metric (support for a fixed set
-            of non-Euclidean metrics is planned for an upcoming release).
-        * Using a pre-computed pairwise distance matrix (under consideration
-            for future releases)
-        * Manual initialization of initial embedding positions
+    .. note:: Everytime this code is run, the output will be different because
+        "make_blobs" function generates random matrices.
 
-        In addition to these missing features, you should expect to see
-        the final embeddings differing between cuml.umap and the reference
-        UMAP. In particular, the reference UMAP uses an approximate kNN
-        algorithm for large data sizes while cuml.umap always uses exact
-        kNN.
+    Notes
+    -----
+    This module is heavily based on Leland McInnes' reference UMAP package
+    [1]_.
 
-        Known issue: If a UMAP model has not yet been fit, it cannot be pickled
-        However, after fitting, a UMAP mode.
+    However, there are a number of differences and features that are
+    not yet implemented in `cuml.umap`:
 
-        References
-        ----------
-        * Leland McInnes, John Healy, James Melville
-        UMAP: Uniform Manifold Approximation and Projection for Dimension
-        Reduction
-        https://arxiv.org/abs/1802.03426
+    * Using a non-Euclidean distance metric (support for a fixed set
+      of non-Euclidean metrics is planned for an upcoming release).
+    * Using a pre-computed pairwise distance matrix (under consideration
+      for future releases)
+    * Manual initialization of initial embedding positions
 
-        """
-        super(UMAP, self).__init__(client, **kwargs)
-        self.local_model = model
+    In addition to these missing features, you should expect to see
+    the final embeddings differing between `cuml.umap` and the reference
+    UMAP. In particular, the reference UMAP uses an approximate kNN
+    algorithm for large data sizes while cuml.umap always uses exact
+    kNN.
+
+    **Known issue:** If a UMAP model has not yet been fit, it cannot be pickled
+
+    References
+    ----------
+    .. [1] `Leland McInnes, John Healy, James Melville
+       UMAP: Uniform Manifold Approximation and Projection for Dimension
+       Reduction. <https://arxiv.org/abs/1802.03426>`_
+
+    """
+    def __init__(self, *, model, client=None, **kwargs):
+        super().__init__(client, **kwargs)
+
+        self._set_internal_model(model)
 
     def transform(self, X, convert_dtype=True):
         """

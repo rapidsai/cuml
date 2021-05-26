@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
-#include <cuda_utils.h>
+#include <cuml/random_projection/rproj_c.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/transpose.h>
 #include <test_utils.h>
 #include <iostream>
+#include <raft/cuda_utils.cuh>
+#include <raft/distance/distance.cuh>
 #include <random>
 #include <vector>
-#include "cuml/random_projection/rproj_c.h"
-#include "distance/distance.h"
-#include "linalg/transpose.h"
 
 namespace ML {
 
@@ -33,12 +33,11 @@ template <typename T, int N, int M>
 class RPROJTest : public ::testing::Test {
  protected:
   T* transpose(T* in, int n_rows, int n_cols) {
-    cudaStream_t stream = h.getStream();
-    cublasHandle_t cublas_handle = h.getImpl().getCublasHandle();
+    cudaStream_t stream = h.get_stream();
+    cublasHandle_t cublas_handle = h.get_cublas_handle();
     T* result;
-    allocate(result, n_rows * n_cols);
-    MLCommon::LinAlg::transpose(in, result, n_rows, n_cols, cublas_handle,
-                                stream);
+    raft::allocate(result, n_rows * n_cols);
+    raft::linalg::transpose(h, in, result, n_rows, n_cols, stream);
     CUDA_CHECK(cudaPeekAtLastError());
     CUDA_CHECK(cudaFree(in));
     return result;
@@ -53,8 +52,8 @@ class RPROJTest : public ::testing::Test {
     for (auto& i : h_input) {
       i = dist(rng);
     }
-    allocate(d_input, h_input.size());
-    updateDevice(d_input, h_input.data(), h_input.size(), NULL);
+    raft::allocate(d_input, h_input.size());
+    raft::update_device(d_input, h_input.data(), h_input.size(), NULL);
     //d_input = transpose(d_input, N, M);
     // From row major to column major (this operation is only useful for non-random datasets)
   }
@@ -72,9 +71,11 @@ class RPROJTest : public ::testing::Test {
       42        // random seed
     };
 
-    random_matrix1 = new rand_mat<T>();
+    cudaStream_t stream = h.get_stream();
+    auto alloc = h.get_device_allocator();
+    random_matrix1 = new rand_mat<T>(alloc, stream);
     RPROJfit(h, random_matrix1, params1);
-    allocate(d_output1, N * params1->n_components);
+    raft::allocate(d_output1, N * params1->n_components);
     RPROJtransform(h, d_input, random_matrix1, d_output1, params1);
     d_output1 = transpose(
       d_output1, N, params1->n_components);  // From column major to row major
@@ -93,10 +94,12 @@ class RPROJTest : public ::testing::Test {
       42        // random seed
     };
 
-    random_matrix2 = new rand_mat<T>();
+    cudaStream_t stream = h.get_stream();
+    auto alloc = h.get_device_allocator();
+    random_matrix2 = new rand_mat<T>(alloc, stream);
     RPROJfit(h, random_matrix2, params2);
 
-    allocate(d_output2, N * params2->n_components);
+    raft::allocate(d_output2, N * params2->n_components);
 
     RPROJtransform(h, d_input, random_matrix2, d_output2, params2);
 
@@ -125,56 +128,56 @@ class RPROJTest : public ::testing::Test {
     size_t D = johnson_lindenstrauss_min_dim(N, epsilon);
 
     ASSERT_TRUE(params1->n_components == D);
-    ASSERT_TRUE(random_matrix1->dense_data);
+    ASSERT_TRUE(random_matrix1->dense_data.size() > 0);
+    ASSERT_TRUE(random_matrix1->type == dense);
 
     ASSERT_TRUE(params2->n_components == D);
     ASSERT_TRUE(params2->density == 1 / sqrt(M));
-    ASSERT_TRUE(random_matrix2->indices);
-    ASSERT_TRUE(random_matrix2->indptr);
-    ASSERT_TRUE(random_matrix2->sparse_data);
-    ASSERT_TRUE(random_matrix2->sparse_data_size = N * D);
+    ASSERT_TRUE(random_matrix2->indices.size() > 0);
+    ASSERT_TRUE(random_matrix2->indptr.size() > 0);
+    ASSERT_TRUE(random_matrix2->sparse_data.size() > 0);
+    ASSERT_TRUE(random_matrix2->type == sparse);
   }
 
   void epsilon_check() {
     int D = johnson_lindenstrauss_min_dim(N, epsilon);
 
     constexpr auto distance_type =
-      MLCommon::Distance::DistanceType::EucUnexpandedL2Sqrt;
+      raft::distance::DistanceType::L2SqrtUnexpanded;
     size_t workspaceSize = 0;
-    typedef cutlass::Shape<8, 128, 128> OutputTile_t;
 
     T* d_pdist;
-    allocate(d_pdist, N * N);
+    raft::allocate(d_pdist, N * N);
 
-    MLCommon::Distance::distance<distance_type, T, T, T, OutputTile_t>(
+    raft::distance::distance<distance_type, T, T, T>(
       d_input, d_input, d_pdist, N, N, M, (void*)nullptr, workspaceSize,
-      h.getStream());
+      h.get_stream());
     CUDA_CHECK(cudaPeekAtLastError());
 
     T* h_pdist = new T[N * N];
-    updateHost(h_pdist, d_pdist, N * N, NULL);
+    raft::update_host(h_pdist, d_pdist, N * N, NULL);
     CUDA_CHECK(cudaFree(d_pdist));
 
     T* d_pdist1;
-    allocate(d_pdist1, N * N);
-    MLCommon::Distance::distance<distance_type, T, T, T, OutputTile_t>(
+    raft::allocate(d_pdist1, N * N);
+    raft::distance::distance<distance_type, T, T, T>(
       d_output1, d_output1, d_pdist1, N, N, D, (void*)nullptr, workspaceSize,
-      h.getStream());
+      h.get_stream());
     CUDA_CHECK(cudaPeekAtLastError());
 
     T* h_pdist1 = new T[N * N];
-    updateHost(h_pdist1, d_pdist1, N * N, NULL);
+    raft::update_host(h_pdist1, d_pdist1, N * N, NULL);
     CUDA_CHECK(cudaFree(d_pdist1));
 
     T* d_pdist2;
-    allocate(d_pdist2, N * N);
-    MLCommon::Distance::distance<distance_type, T, T, T, OutputTile_t>(
+    raft::allocate(d_pdist2, N * N);
+    raft::distance::distance<distance_type, T, T, T>(
       d_output2, d_output2, d_pdist2, N, N, D, (void*)nullptr, workspaceSize,
-      h.getStream());
+      h.get_stream());
     CUDA_CHECK(cudaPeekAtLastError());
 
     T* h_pdist2 = new T[N * N];
-    updateHost(h_pdist2, d_pdist2, N * N, NULL);
+    raft::update_host(h_pdist2, d_pdist2, N * N, NULL);
     CUDA_CHECK(cudaFree(d_pdist2));
 
     for (size_t i = 0; i < N; i++) {
@@ -197,7 +200,7 @@ class RPROJTest : public ::testing::Test {
   }
 
  protected:
-  ML::cumlHandle h;
+  raft::handle_t h;
   paramsRPROJ* params1;
   T epsilon;
 

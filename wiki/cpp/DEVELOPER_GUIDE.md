@@ -6,13 +6,13 @@ Please start by reading [CONTRIBUTING.md](../../CONTRIBUTING.md).
 
 ## Performance
 1. In performance critical sections of the code, favor `cudaDeviceGetAttribute` over `cudaDeviceGetProperties`. See corresponding CUDA devblog [here](https://devblogs.nvidia.com/cuda-pro-tip-the-fast-way-to-query-device-properties/) to know more.
-2. If an algo requires you to launch GPU work in multiple cuda streams, do not create multiple `cumlHandle` objects, one for each such work stream. Instead, expose a `n_streams` parameter in that algo's cuML C++ interface and then rely on `cumlHandle_impl::getInternalStream()` to pick up the right cuda stream. Refer to the section on [CUDA Resources](#cuda-resources) and the section on [Threading](#TBD) for more details. TIP: use `cumlHandle_impl::getNumInternalStreams()` to know how many such streams are available at your disposal.
+2. If an algo requires you to launch GPU work in multiple cuda streams, do not create multiple `raft::handle_t` objects, one for each such work stream. Instead, expose a `n_streams` parameter in that algo's cuML C++ interface and then rely on `raft::handle_t::get_internal_stream()` to pick up the right cuda stream. Refer to the section on [CUDA Resources](#cuda-resources) and the section on [Threading](#TBD) for more details. TIP: use `raft::handle_t::get_num_internal_streams` to know how many such streams are available at your disposal.
 
 ## Threading Model
 
-With the exception of the cumlHandle, cuML algorithms should maintain thread-safety and are, in general, 
+With the exception of the raft::handle_t, cuML algorithms should maintain thread-safety and are, in general, 
 assumed to be single threaded. This means they should be able to be called from multiple host threads so 
-long as different instances of `cumlHandle` are used.
+long as different instances of `raft::handle_t` are used.
 
 Exceptions are made for algorithms that can take advantage of multiple CUDA streams within multiple host threads
 in order to oversubscribe or increase occupancy on a single GPU. In these cases, the use of multiple host 
@@ -23,9 +23,9 @@ computations.
 A good example of an acceptable use of host threads within a cuML algorithm might look like the following
 
 ```
-cudaStreamSynchronize(handle.getStream());
+cudaStreamSynchronize(handle.get_stream());
 
-int n_streams = handle.getNumInternalStreams();
+int n_streams = handle.get_num_internal_streams();
 
 #pragma omp parallel for num_threads(n_threads)
 for(int i = 0; i < n; i++) {
@@ -45,9 +45,9 @@ for(int i = 0; i < n; i++) {
 In the example above, if there is no CPU pre-processing at the beginning of the for-loop, an event can be registered in
 each of the streams within the for-loop to make them wait on the stream from the handle. 
 
-This can be done easily by replacing `cudaStreamSynchronize(handle.getStream())` with `handle.waitOnUserStream()` 
+This can be done easily by replacing `cudaStreamSynchronize(handle.get_stream())` with `handle.wait_on_user_stream()` 
 for a lighter-weight synchronization. If there is no CPU post-processing at the end of each for-loop iteration, 
-`cudaStreamSynchronize(s)` can be replaced with a single `handle.waitOnInternalStreams()` after the for-loop. 
+`cudaStreamSynchronize(s)` can be replaced with a single `handle.wait_on_internal_streams()` after the for-loop. 
 
 To avoid compatibility issues between different threading models, the only threading programming allowed in cuML is OpenMP.
 Though cuML's build enables OpenMP by default, cuML algorithms should still function properly even when OpenMP has been
@@ -72,7 +72,7 @@ Thus, this section lays out guidelines for managing state along the API of cuML.
 ### General guideline
 As mentioned before, functions exposed via the C++ API must be stateless. Things that are OK to be exposed on the interface:
 1. Any [POD](https://en.wikipedia.org/wiki/Passive_data_structure) - see [std::is_pod](https://en.cppreference.com/w/cpp/types/is_pod) as a reference for C++11  POD types.
-2. `cumlHandle` - since it stores GPU-related state which has nothing to do with the model/algo state. If you're working on a C-binding, use `cumlHandle_t`([reference](../../cpp/src/cuML_api.h)), instead.
+2. `raft::handle_t` - since it stores GPU-related state which has nothing to do with the model/algo state. If you're working on a C-binding, use `cumlHandle_t`([reference](../../cpp/src/cuML_api.h)), instead.
 3. Pointers to POD types (explicitly putting it out, even though it can be considered as a POD).
 Internal to the C++ API, these stateless functions are free to use their own temporary classes, as long as they are not exposed on the interface.
 
@@ -83,17 +83,17 @@ template <typename T>
 class DecisionTreeClassifier {
   TreeNode<T>* root;
   DTParams params;
-  const cumlHandle &handle;
+  const raft::handle_t &handle;
 public:
-  DecisionTreeClassifier(const cumlHandle &handle, DTParams& params, bool verbose=false);
+  DecisionTreeClassifier(const raft::handle_t &handle, DTParams& params, bool verbose=false);
   void fit(const T *input, int n_rows, int n_cols, const int *labels);
   void predict(const T *input, int n_rows, int n_cols, int *predictions);
 };
 
-void decisionTreeClassifierFit(const cumlHandle &handle, const float *input, int n_rows, int n_cols,
+void decisionTreeClassifierFit(const raft::handle_t &handle, const float *input, int n_rows, int n_cols,
                                const int *labels, DecisionTreeClassifier<float> *model, DTParams params,
                                bool verbose=false);
-void decisionTreeClassifierPredict(const cumlHandle &handle, const float* input,
+void decisionTreeClassifierPredict(const raft::handle_t &handle, const float* input,
                                    DecisionTreeClassifier<float> *model, int n_rows,
                                    int n_cols, int* predictions, bool verbose=false);
 ```
@@ -107,10 +107,10 @@ struct DTParams { /* hyper-params for building DT */ };
 typedef TreeNode<float> TreeNodeF;
 typedef TreeNode<double> TreeNodeD;
 
-void decisionTreeClassifierFit(const cumlHandle &handle, const float *input, int n_rows, int n_cols,
+void decisionTreeClassifierFit(const raft::handle_t &handle, const float *input, int n_rows, int n_cols,
                                const int *labels, TreeNodeF *&root, DTParams params,
                                bool verbose=false);
-void decisionTreeClassifierPredict(const cumlHandle &handle, const double* input, int n_rows,
+void decisionTreeClassifierPredict(const raft::handle_t &handle, const double* input, int n_rows,
                                    int n_cols, const TreeNodeD *root, int* predictions,
                                    bool verbose=false);
 ```
@@ -131,6 +131,15 @@ Following the guidelines outlined above will ease the process of "C-wrapping" th
 1. Use only C compatible types or objects that can be passed as opaque handles (like `cumlHandle_t`).
 2. Using templates is fine if those can be instantiated from a specialized C++ function with `extern "C"` linkage.
 3. Expose custom create/load/store/destroy methods, if the model is more complex than an array of parameters (eg: Random Forest). One possible way of working with such exposed states from the C++ layer is shown in a sample repo [here](https://github.com/teju85/managing-state-cuml).
+
+#### C API Header Files
+
+With the exception of `cumlHandle.h|cpp`, all C-API headers and source files end with the suffix `*_api`. Any file ending in `*_api` should not be included from the C++ API. Incorrectly including `cuml_api.h` in the C++ API will generate the error:
+```
+This header is only for the C-API and should not be included from the C++ API.
+```
+
+If this error is shown during compilation, there is an issue with how the `#include` statements have been set up. To debug the issue, run `./build.sh cppdocs` and open the page `cpp/build/html/cuml__api_8h.html` in a browser. This will show which files directly and indirectly include this file. Only files ending in `*_api` or `cumlHandle` should include this header.
 
 ### Stateful C++ API
 This scikit-learn-esq C++ API should always be a wrapper around the stateless C++ API, NEVER the other way around. The design discussion about the right way to expose such a wrapper around `libcuml++.so` is [still going on](https://github.com/rapidsai/cuml/issues/456)  So, stay tuned for more details.
@@ -177,6 +186,28 @@ From the root of the cuML repository.
 
 ### clang-format version?
 To avoid spurious code style violations we specify the exact clang-format version required, currently `8.0.0`. This is enforced by the [run-clang-format.py](../../cpp/scripts/run-clang-format.py) script itself. Refer [here](../../cpp/README.md#dependencies) for the list of build-time dependencies.
+
+### Additional scripts
+Along with clang, there are are the include checker and copyright checker scripts for checking style, which can be performed as part of CI, as well as manually.
+
+#### #include style
+[include_checker.py](../../cpp/scripts/include_checker.py) is used to enforce the include style as follows:
+1. `#include "..."` should be used for referencing local files only. It is acceptable to be used for referencing files in a sub-folder/parent-folder of the same algorithm, but should never be used to include files in other algorithms or between algorithms and the primitives or other dependencies.
+2. `#include <...>` should be used for referencing everything else
+
+Manually, run the following to bulk-fix include style issues:
+```bash
+python ./cpp/scripts/include_checker.py --inplace [cpp/include cpp/src cpp/src_prims cpp/test ... list of folders which you want to fix]
+```
+
+#### Copyright header
+[copyright.py](../../ci/checks/copyright.py) checks the Copyright header for all git-modified files
+
+Manually, you can run the following to bulk-fix the header if only the years need to be updated:
+```bash
+python ./ci/checks/copyright.py --update-current-year
+```
+Keep in mind that this only applies to files tracked by git and having been modified.
 
 ## Error handling
 Call CUDA APIs via the provided helper macros `CUDA_CHECK`, `CUBLAS_CHECK` and `CUSOLVER_CHECK`. These macros take care of checking the return values of the used API calls and generate an exception when the command is not successful. If you need to avoid an exception, e.g. inside a destructor, use `CUDA_CHECK_NO_THROW`, `CUBLAS_CHECK_NO_THROW ` and `CUSOLVER_CHECK_NO_THROW ` (currently not available, see https://github.com/rapidsai/cuml/issues/229). These macros log the error but do not throw an exception.
@@ -245,32 +276,32 @@ TODO: Add this
 To enable `libcuml.so` users to control how memory for temporary data is allocated, allocate device memory using the allocator provided:
 ```cpp
 template<typename T>
-void foo(const ML::cumlHandle_impl& h, cudaStream_t stream, ... )
+void foo(const raft::handle_t& h, cudaStream_t stream, ... )
 {
-    T* temp_h = h.getDeviceAllocator()->allocate(n*sizeof(T), stream);
+    T* temp_h = h.get_device_allocator()->allocate(n*sizeof(T), stream);
     ...
-    h.getDeviceAllocator()->deallocate(temp_h, n*sizeof(T), stream);
+    h.get_device_allocator()->deallocate(temp_h, n*sizeof(T), stream);
 }
 ```
 The same rule applies to larger amounts of host heap memory:
 ```cpp
 template<typename T>
-void foo(const ML::cumlHandle_impl& h, cudaStream_t stream, ... )
+void foo(const raft::handle_t& h, cudaStream_t stream, ... )
 {
-    T* temp_h = h.getHostAllocator()->allocate(n*sizeof(T), stream);
+    T* temp_h = h.get_host_allocator()->allocate(n*sizeof(T), stream);
     ...
-    h.getHostAllocator()->deallocate(temp_h, n*sizeof(T), stream);
+    h.get_host_allocator()->deallocate(temp_h, n*sizeof(T), stream);
 }
 ```
 Small host memory heap allocations, e.g. as internally done by STL containers, are fine, e.g. an `std::vector` managing only a handful of integers.
 Both the Host and the Device Allocators might allow asynchronous stream ordered allocation and deallocation. This can provide significant performance benefits so a stream always needs to be specified when allocating or deallocating (see [Asynchronous operations and stream ordering](#asynchronous-operations-and-stream-ordering)). `ML::deviceAllocator` returns pinned device memory on the current device, while `ML::hostAllocator` returns host memory. A user of cuML can write customized allocators and pass them into cuML. If a cuML user does not provide custom allocators default allocators will be used. For `ML::deviceAllocator` the default is to use `cudaMalloc`/`cudaFree`. For `ML::hostAllocator` the default is to use `cudaMallocHost`/`cudaFreeHost`.
-There are two simple container classes compatible with the allocator interface `MLCommon::device_buffer` available in `ml-prims/src/common/device_buffer.hpp` and `MLCommon::host_buffer` available in `ml-prims/src/common/host_buffer.hpp`. These allow to follow the [RAII idiom](https://en.wikipedia.org/wiki/Resource_acquisition_is_initialization) to avoid resources leaks and enable exception safe code. These containers also allow asynchronous allocation and deallocation using the `resize` and `release` member functions:
+There are two simple container classes compatible with the allocator interface `MLCommon::device_buffer` available in `src_prims/common/device_buffer.hpp` and `MLCommon::host_buffer` available in `src_prims/common/host_buffer.hpp`. These allow to follow the [RAII idiom](https://en.wikipedia.org/wiki/Resource_acquisition_is_initialization) to avoid resources leaks and enable exception safe code. These containers also allow asynchronous allocation and deallocation using the `resize` and `release` member functions:
 ```cpp
 template<typename T>
-void foo(const ML::cumlHandle_impl& h, ..., cudaStream_t stream )
+void foo(const raft::handle_t& h, ..., cudaStream_t stream )
 {
     ...
-    MLCommon::device_buffer<T> temp( h.getDeviceAllocator(), stream, 0 )
+    MLCommon::device_buffer<T> temp( h.get_device_allocator(), stream, 0 )
     
     temp.resize(n, stream);
     kernelA<<<grid, block, 0, stream>>>(..., temp.data(), ...);
@@ -282,10 +313,10 @@ The motivation for `MLCommon::host_buffer` and `MLCommon::device_buffer` over us
 To use `ML::hostAllocator` with a STL container the header `src/common/allocatorAdapter.hpp` provides `ML::stdAllocatorAdapter`:
 ```cpp
 template<typename T>
-void foo(const ML::cumlHandle_impl& h, ..., cudaStream_t stream )
+void foo(const raft::handle_t& h, ..., cudaStream_t stream )
 {
     ...
-    std::vector<T,ML::stdAllocatorAdapter<T> > temp( n, val, ML::stdAllocatorAdapter<T>(h.getHostAllocator(), stream) )
+    std::vector<T,ML::stdAllocatorAdapter<T> > temp( n, val, ML::stdAllocatorAdapter<T>(h.get_host_allocator(), stream) )
     ...
 }
 ```
@@ -294,45 +325,45 @@ If thrust 1.9.4 or later is avaiable for use in cuML a similar allocator can be 
 ### <a name="allocationsthrust"></a>Using Thrust
 To ensure that thrust algorithms allocate temporary memory via the provided device memory allocator, use the `ML::thrustAllocatorAdapter` available in `src/common/allocatorAdapter.hpp` with the `thrust::cuda::par` execution policy:
 ```cpp
-void foo(const ML::cumlHandle_impl& h, ..., cudaStream_t stream )
+void foo(const raft::handle_t& h, ..., cudaStream_t stream )
 {
-    ML::thrustAllocatorAdapter alloc( h.getDeviceAllocator(), stream );
+    ML::thrustAllocatorAdapter alloc( h.get_device_allocator(), stream );
     auto execution_policy = thrust::cuda::par(alloc).on(stream);
     thrust::for_each(execution_policy, ... );
 }
 ```
 The header `src/common/allocatorAdapter.hpp` also provides a helper function to create an execution policy:
 ```cpp
-void foo(const ML::cumlHandle_impl& h, ... , cudaStream_t stream )
+void foo(const raft::handle_t& h, ... , cudaStream_t stream )
 {
-    auto execution_policy = ML::thrust_exec_policy(h.getDeviceAllocator(),stream);
+    auto execution_policy = ML::thrust_exec_policy(h.get_device_allocator(),stream);
     thrust::for_each(execution_policy->on(stream), ... );
 }
 ```
 
 ## Asynchronous operations and stream ordering
-All ML algorithms should be as asynchronous as possible avoiding the use of the default stream (aka as NULL or `0` stream). Implementations that require only one CUDA Stream should use the stream from `ML::cumlHandle_impl`:
+All ML algorithms should be as asynchronous as possible avoiding the use of the default stream (aka as NULL or `0` stream). Implementations that require only one CUDA Stream should use the stream from `raft::handle_t`:
 ```cpp
-void foo(const ML::cumlHandle_impl& h, ...)
+void foo(const raft::handle_t& h, ...)
 {
-    cudaStream_t stream = h.getStream();
+    cudaStream_t stream = h.get_stream();
 }
 ```
-When multiple streams are needed, e.g. to manage a pipeline, use the internal streams available in `ML::cumlHandle_impl` (see [CUDA Resources](#cuda-resources)). If multiple streams are used all operations still must be ordered according to `ML::cumlHandle::getStream()`. Before any operation in any of the internal CUDA streams is started, all previous work in `ML::cumlHandle::getStream()` must have completed. Any work enqueued in `ML::cumlHandle::getStream()` after a cuML function returns should not start before all work enqueued in the internal streams has completed. E.g. if a cuML algorithm is called like this: 
+When multiple streams are needed, e.g. to manage a pipeline, use the internal streams available in `raft::handle_t` (see [CUDA Resources](#cuda-resources)). If multiple streams are used all operations still must be ordered according to `raft::handle_t::get_stream()`. Before any operation in any of the internal CUDA streams is started, all previous work in `raft::handle_t::get_stream()` must have completed. Any work enqueued in `raft::handle_t::get_stream()` after a cuML function returns should not start before all work enqueued in the internal streams has completed. E.g. if a cuML algorithm is called like this: 
 ```cpp
 void foo(const double* const srcdata, double* const result)
 {
-    ML::cumlHandle cumlHandle;
+    raft::handle_t raftHandle;
 
     cudaStream_t stream;
     CUDA_RT_CALL( cudaStreamCreate( &stream ) );
-    cumlHandle.setStream( stream );
+    raftHandle.set_stream( stream );
 
     ...
 
     CUDA_CHECK( cudaMemcpyAsync( srcdata, h_srcdata.data(), n*sizeof(double), cudaMemcpyHostToDevice, stream ) );
 
-    ML::algo(cumlHandle, dopredict, srcdata, result, ... );
+    ML::algo(raft::handle_t, dopredict, srcdata, result, ... );
 
     CUDA_CHECK( cudaMemcpyAsync( h_result.data(), result, m*sizeof(int), cudaMemcpyDeviceToHost, stream ) );
 
@@ -341,12 +372,12 @@ void foo(const double* const srcdata, double* const result)
 ```
 No work in any stream should start in `ML::algo` before the `cudaMemcpyAsync` in `stream` launched before the call to `ML::algo` is done. And all work in all streams used in `ML::algo` should be done before the `cudaMemcpyAsync` in `stream` launched after the call to `ML::algo` starts.
 
-This can be ensured by introducing interstream dependencies with CUDA events and `cudaStreamWaitEvent`. For convenience, the header `cumlHandle.hpp` provides the class `ML::detail::streamSyncer` which lets all `ML::cumlHandle_impl` internal CUDA streams wait on `ML::cumlHandle::getStream()` in its constructor and in its destructor and lets `ML::cumlHandle::getStream()` wait on all work enqueued in the `ML::cumlHandle_impl` internal CUDA streams. The intended use would be to create a `ML::detail::streamSyncer` object as the first thing in a entry function of the public cuML API: 
+This can be ensured by introducing interstream dependencies with CUDA events and `cudaStreamWaitEvent`. For convenience, the header `raft/handle.hpp` provides the class `raft::stream_syncer` which lets all `raft::handle_t` internal CUDA streams wait on `raft::handle_t:get_stream()` in its constructor and in its destructor and lets `raft::handle_t::get_stream()` wait on all work enqueued in the `raft::handle_t` internal CUDA streams. The intended use would be to create a `raft::stream_syncer` object as the first thing in a entry function of the public cuML API: 
 
 ```cpp
-void cumlAlgo(const ML::cumlHandle& handle, ...)
+void cumlAlgo(const raft::handle_t& handle, ...)
 {
-    ML::detail::streamSyncer _(handle.getImpl());
+    raft::streamSyncer _(handle);
 }
 ```
 This ensures the stream ordering behavior described above.
@@ -356,56 +387,39 @@ To ensure that thrust algorithms are executed in the intended stream the `thrust
 
 ## CUDA Resources
 
-Do not create reusable CUDA resources directly in implementations of ML algorithms. Instead, use the existing resources in `ML::cumlHandle_impl` to avoid constant creation and deletion of reusable resources such as CUDA streams, CUDA events or library handles. Please file a feature request if a resource handle is missing in `ML::cumlHandle_impl `.
+Do not create reusable CUDA resources directly in implementations of ML algorithms. Instead, use the existing resources in `raft::handle_t` to avoid constant creation and deletion of reusable resources such as CUDA streams, CUDA events or library handles. Please file a feature request if a resource handle is missing in `raft::handle_t`.
 The resources can be obtained like this
 ```cpp
-void foo(const ML::cumlHandle_impl& h, ...)
+void foo(const raft::handle_t& h, ...)
 {
-    cublasHandle_t cublasHandle = h.getCublasHandle();
-    const int num_streams       = h.getNumInternalStreams();
+    cublasHandle_t cublasHandle = h.get_cublas_handle();
+    const int num_streams       = h.get_num_internal_streams();
     const int stream_idx        = ...
-    cudaStream_t stream         = h.getInternalStream(stream_idx);
+    cudaStream_t stream         = h.get_internal_stream(stream_idx);
     ...
 }
 ```
 
-The example below shows one way to create `nStreams` number of internal cuda streams which can later be used by the algos inside cuML. For a full working example of how to use internal streams to schedule work on a single GPU, the reader is further referred to [this PR](https://github.com/rapidsai/cuml/pull/1015). In this PR, the internal streams inside `cumlHandle_impl` are used to schedule more work onto a GPU for Random Forest building.
+The example below shows one way to create `nStreams` number of internal cuda streams which can later be used by the algos inside cuML. For a full working example of how to use internal streams to schedule work on a single GPU, the reader is further referred to [this PR](https://github.com/rapidsai/cuml/pull/1015). In this PR, the internal streams inside `raft::handle_t` are used to schedule more work onto a GPU for Random Forest building.
 ```cpp
 int main(int argc, char** argv)
 {
     int nStreams = argc > 1 ? atoi(argv[1]) : 0;
-    ML::cumlHandle handle(nStreams);
-    foo(handle.getImpl(), ...);
-}
-```
-
-### `ML::cumlHandle` and `ML::cumlHandle_impl`
-
-The purpose of `ML::cumlHandle` is to be the public interface of cuML, i.e. it is meant to be used by developers using cuML in their application. This is differentiated from `ML::cumlHandle_impl` to avoid that the public interface of cuML depends on cuML internals, such as CUDA library handles, e.g. for cuBLAS. This is implemented via the "Pointer to implementation" or [pImpl](https://en.cppreference.com/w/cpp/language/pimpl) idiom. From a `ML::cumlHandle` the implementation `ML::cumlHandle_impl` can be obtained by calling `ML::cumlHandle::getImpl()`. The implementation of cuML should use `ML::cumlHandle_impl` and not `ML::cumlHandle`. E.g. for the function `ml_algo` from the public cuML interface an implementation calling the internal functions `foo` and `bar` could look like this:
-
-```cpp
-void ml_algo(const ML::cumlHandle& handle, ...)
-{
-    const ML::cumlHandle_impl& h = handle.getImpl();
-    ML::detail::streamSyncer _(h);
-    ...
-    foo(h, ...);
-    ...
-    bar(h, ...);
-    ...
+    raft::handle_t handle(nStreams);
+    foo(handle, ...);
 }
 ```
 
 ## Multi-GPU
 
-The multi GPU paradigm of cuML is **O**ne **P**rocess per **G**PU (OPG). Each algorithm should be implemented in a way that it can run with a single GPU without any specific dependencies to a particular communication library. A multi-GPU implementation should use the methods offered by the class `MLCommon::cumlCommunicator` from [cuml_comms_int.hpp](src_prims/src/common/cuml_comms_int.hpp) for inter-rank/GPU communication. It is the responsibility of the user of cuML to create an initialized instance of `MLCommon::cumlCommunicator`.
+The multi GPU paradigm of cuML is **O**ne **P**rocess per **G**PU (OPG). Each algorithm should be implemented in a way that it can run with a single GPU without any specific dependencies to a particular communication library. A multi-GPU implementation should use the methods offered by the class `raft::comms::comms_t` from [raft/comms/comms.hpp] for inter-rank/GPU communication. It is the responsibility of the user of cuML to create an initialized instance of `raft::comms::comms_t`.
 
-E.g. with a CUDA-aware MPI, a cuML user could use code like this to inject an initialized instance of `MLCommon:cumlCommunicator` into a `cumlHandle`:
+E.g. with a CUDA-aware MPI, a cuML user could use code like this to inject an initialized instance of `raft::comms::mpi_comms` into a `raft::handle_t`:
 
 ```cpp
 #include <mpi.h>
-#include <cuML.hpp>
-#include <cuML_comms.hpp>
+#include <raft/handle.hpp>
+#include <raft/comms/mpi_comms.hpp>
 #include <mlalgo/mlalgo.hpp>
 ...
 int main(int argc, char * argv[])
@@ -426,19 +440,19 @@ int main(int argc, char * argv[])
 
     cudaSetDevice(local_rank);
 
-    MPI_Comm cuml_mpi_comm;
-    MPI_Comm_dup(MPI_COMM_WORLD, &cuml_mpi_comm);
+    mpi_comms raft_mpi_comms;
+    MPI_Comm_dup(MPI_COMM_WORLD, &raft_mpi_comms);
 
     {
-        ML::cumlHandle cumlHandle;
-        inject_comms(cumlHandle, cuml_mpi_comm);
+        raft::handle_t raftHandle;
+        initialize_mpi_comms(raftHandle, raft_mpi_comms);
         
         ...
         
-        ML::mlalgo(cumlHandle, ... );
+        ML::mlalgo(raftHandle, ... );
     }
 
-    MPI_Comm_free(&cuml_mpi_comm);
+    MPI_Comm_free(&raft_mpi_comms);
 
     MPI_Finalize();
     return 0;
@@ -446,17 +460,17 @@ int main(int argc, char * argv[])
 ```
 
 A cuML developer can assume the following:
- * A instance of `MLCommon::cumlCommunicator` was correctly initialized.
- * All processes that are part of `MLCommon::cumlCommunicator` call into the ML algorithm cooperatively.
+ * A instance of `raft::comms::comms_t` was correctly initialized.
+ * All processes that are part of `raft::comms::comms_t` call into the ML algorithm cooperatively.
 
-The initialized instance of `MLCommon::cumlCommunicator` can be accessed from the `ML::cumlHandle_impl` instance:
+The initialized instance of `raft::comms::comms_t` can be accessed from the `raft::handle_t` instance:
 
 ```cpp
-void foo(const ML::cumlHandle_impl& h, ...)
+void foo(const raft::handle_t& h, ...)
 {
-    const MLCommon::cumlCommunicator& communicator = h.getCommunicator();
-    const int rank = communicator.getRank();
-    const int size = communicator.getSize();
+    const MLCommon::cumlCommunicator& communicator = h.get_comms();
+    const int rank = communicator.get_rank();
+    const int size = communicator.get_size();
     ...
 }
 ```

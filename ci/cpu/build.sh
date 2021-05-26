@@ -1,33 +1,30 @@
 #!/bin/bash
-# Copyright (c) 2018, NVIDIA CORPORATION.
-######################################
-# cuML CPU conda build script for CI #
-######################################
+# Copyright (c) 2018-2021, NVIDIA CORPORATION.
+##############################################
+# cuML CPU conda build script for CI         #
+##############################################
 set -ex
 
-# Logger function for build status output
-function logger() {
-  echo -e "\n>>>> $@\n"
-}
-
 # Set path and build parallel level
-export PATH=/conda/bin:/usr/local/cuda/bin:$PATH
-export PARALLEL_LEVEL=4
-
-# Set versions of packages needed to be grabbed
-export CUDF_VERSION=0.8.*
-export NVSTRINGS_VERSION=0.8.*
-export RMM_VERSION=0.8.*
+export PATH=/opt/conda/bin:/usr/local/cuda/bin:$PATH
+export PARALLEL_LEVEL=${PARALLEL_LEVEL:-4}
 
 # Set home to the job's workspace
 export HOME=$WORKSPACE
 
+# Determine CUDA release version
+export CUDA_REL=${CUDA_VERSION%.*}
+
+ # Setup 'gpuci_conda_retry' for build retries (results in 2 total attempts)
+export GPUCI_CONDA_RETRY_MAX=1
+export GPUCI_CONDA_RETRY_SLEEP=30
+
+# Use Ninja to build, setup Conda Build Dir
+export CMAKE_GENERATOR="Ninja"
+export CONDA_BLD_DIR="${WORKSPACE}/.conda-bld"
+
 # Switch to project root; also root of repo checkout
 cd $WORKSPACE
-
-# Get latest tag and number of commits since tag
-export GIT_DESCRIBE_TAG=`git describe --abbrev=0 --tags`
-export GIT_DESCRIBE_NUMBER=`git rev-list ${GIT_DESCRIBE_TAG}..HEAD --count`
 
 # If nightly build, append current YYMMDD to version
 if [[ "$BUILD_MODE" = "branch" && "$SOURCE_BRANCH" = branch-* ]] ; then
@@ -38,17 +35,27 @@ fi
 # SETUP - Check environment
 ################################################################################
 
-logger "Get env..."
+gpuci_logger "Check environment variables"
 env
 
-logger "Activate conda env..."
-source activate gdf
+gpuci_logger "Activate conda env"
+. /opt/conda/etc/profile.d/conda.sh
+conda activate rapids
 
-logger "Check versions..."
+# Remove rapidsai-nightly channel if we are building main branch
+if [ "$SOURCE_BRANCH" = "main" ]; then
+  conda config --system --remove channels rapidsai-nightly
+fi
+
+gpuci_logger "Check compiler versions"
 python --version
-gcc --version
-g++ --version
-conda list
+$CC --version
+$CXX --version
+
+gpuci_logger "Check conda environment"
+conda info
+conda config --show-sources
+conda list --show-channel-urls
 
 # FIX Added to deal with Anancoda SSL verification issues during conda builds
 conda config --set ssl_verify False
@@ -57,18 +64,34 @@ conda config --set ssl_verify False
 # BUILD - Conda package builds (conda deps: libcuml <- cuml)
 ################################################################################
 
-logger "Build conda pkg for libcuml..."
-source ci/cpu/libcuml/build_libcuml.sh
+if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
+  if [ "$BUILD_LIBCUML" == '1' -o "$BUILD_CUML" == '1' ]; then
+    gpuci_logger "Build conda pkg for libcuml"
+    gpuci_conda_retry build --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libcuml
+  fi
+else
+  if [ "$BUILD_LIBCUML" == '1' ]; then
+    gpuci_logger "PROJECT FLASH: Build conda pkg for libcuml"
+    gpuci_conda_retry build --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libcuml --dirty --no-remove-work-dir
+    mkdir -p ${CONDA_BLD_DIR}/libcuml/work
+    cp -r ${CONDA_BLD_DIR}/work/* ${CONDA_BLD_DIR}/libcuml/work
+  fi
+fi
 
-logger "Build conda pkg for cuml..."
-source ci/cpu/cuml/build_cuml.sh
+if [ "$BUILD_CUML" == '1' ]; then
+  if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
+    gpuci_logger "Build conda pkg for cuml"
+    gpuci_conda_retry build --croot ${CONDA_BLD_DIR} conda/recipes/cuml --python=${PYTHON}
+  else
+    gpuci_logger "PROJECT FLASH: Build conda pkg for cuml"
+    gpuci_conda_retry build --croot ${CONDA_BLD_DIR} -c ci/artifacts/cuml/cpu/.conda-bld/ --dirty --no-remove-work-dir conda/recipes/cuml --python=${PYTHON}
+  fi
+fi
 
 ################################################################################
 # UPLOAD - Conda packages
 ################################################################################
 
-logger "Upload conda pkgs for libcuml..."
-source ci/cpu/libcuml/upload-anaconda.sh
+gpuci_logger "Upload conda pkgs"
+source ci/cpu/upload.sh
 
-logger "Upload conda pkg for cuml..."
-source ci/cpu/cuml/upload-anaconda.sh

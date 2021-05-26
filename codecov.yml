@@ -1,0 +1,14 @@
+#Configuration File for CodeCov
+coverage:
+  status:
+    project: off
+    patch: off
+comment:
+  behavior: new
+
+# Suggested workaround to fix "missing base report" issue when using Squash and
+# Merge Strategy in GitHub. See this comment from CodeCov support about this
+# undocumented option:
+# https://community.codecov.io/t/unable-to-determine-a-parent-commit-to-compare-against-in-base-branch-after-squash-and-merge/2480/15
+codecov:
+  allow_coverage_offsets: true

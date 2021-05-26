@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,87 +16,12 @@
 
 #pragma once
 
-#include <mutex>
-#include <unordered_map>
-#include <utility>
-#include <vector>
-
-#include <cublas_v2.h>
-#include <cusolverDn.h>
-#include <cusolverSp.h>
-#include <cusparse.h>
-
-#include <common/cuml_comms_int.hpp>
-
 #include <cuml/cuml_api.h>
-#include <cuml/cuml.hpp>
-
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/handle.hpp>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/host/allocator.hpp>
 
 namespace ML {
-
-using MLCommon::deviceAllocator;
-using MLCommon::hostAllocator;
-
-/**
- * @todo: Add doxygen documentation
- */
-class cumlHandle_impl {
- public:
-  cumlHandle_impl(int n_streams = cumlHandle::getDefaultNumInternalStreams());
-  ~cumlHandle_impl();
-  int getDevice() const;
-  void setStream(cudaStream_t stream);
-  cudaStream_t getStream() const;
-  void setDeviceAllocator(std::shared_ptr<deviceAllocator> allocator);
-  std::shared_ptr<deviceAllocator> getDeviceAllocator() const;
-  void setHostAllocator(std::shared_ptr<hostAllocator> allocator);
-  std::shared_ptr<hostAllocator> getHostAllocator() const;
-
-  cublasHandle_t getCublasHandle() const;
-  cusolverDnHandle_t getcusolverDnHandle() const;
-  cusolverSpHandle_t getcusolverSpHandle() const;
-  cusparseHandle_t getcusparseHandle() const;
-
-  cudaStream_t getInternalStream(int sid) const;
-  int getNumInternalStreams() const;
-
-  std::vector<cudaStream_t> getInternalStreams() const;
-
-  void waitOnUserStream() const;
-  void waitOnInternalStreams() const;
-
-  void setCommunicator(
-    std::shared_ptr<MLCommon::cumlCommunicator> communicator);
-  const MLCommon::cumlCommunicator& getCommunicator() const;
-  bool commsInitialized() const;
-
-  const cudaDeviceProp& getDeviceProperties() const;
-
- private:
-  const int _dev_id;
-  const int _num_streams;
-  std::vector<cudaStream_t> _streams;
-  mutable cublasHandle_t _cublas_handle;
-  mutable bool _cublasInitialized;
-  mutable cusolverDnHandle_t _cusolverDn_handle;
-  mutable bool _cusolverDnInitialized;
-  mutable cusolverSpHandle_t _cusolverSp_handle;
-  mutable bool _cusolverSpInitialized;
-  mutable cusparseHandle_t _cusparse_handle;
-  mutable bool _cusparseInitialized;
-  std::shared_ptr<deviceAllocator> _deviceAllocator;
-  std::shared_ptr<hostAllocator> _hostAllocator;
-  cudaStream_t _userStream;
-  cudaEvent_t _event;
-  mutable cudaDeviceProp _prop;
-  mutable bool _devicePropInitialized;
-
-  std::shared_ptr<MLCommon::cumlCommunicator> _communicator;
-
-  void createResources();
-  void destroyResources();
-};
 
 /**
  * Map from integral cumlHandle_t identifiers to cumlHandle pointer protected
@@ -119,7 +44,7 @@ class HandleMap {
      *                   the handle is INVALID_HANDLE. Error code CUML_INAVLID_HANDLE
      *                   is returned if the provided `handle` is invald.
      */
-  std::pair<cumlHandle*, cumlError_t> lookupHandlePointer(
+  std::pair<raft::handle_t*, cumlError_t> lookupHandlePointer(
     cumlHandle_t handle) const;
 
   /**
@@ -135,7 +60,7 @@ class HandleMap {
     -1;  //!< sentinel value for invalid ID
 
  private:
-  std::unordered_map<cumlHandle_t, cumlHandle*>
+  std::unordered_map<cumlHandle_t, raft::handle_t*>
     _handleMap;                  //!< map from ID to pointer
   mutable std::mutex _mapMutex;  //!< mutex protecting the map
   cumlHandle_t _nextHandle;      //!< value of next handle ID
@@ -143,26 +68,5 @@ class HandleMap {
 
 /// Static handle map instance (see cumlHandle.cpp)
 extern HandleMap handleMap;
-
-namespace detail {
-
-/**
- * @todo: Add doxygen documentation
- */
-class streamSyncer {
- public:
-  streamSyncer(const cumlHandle_impl& handle) : _handle(handle) {
-    _handle.waitOnUserStream();
-  }
-  ~streamSyncer() { _handle.waitOnInternalStreams(); }
-
-  streamSyncer(const streamSyncer& other) = delete;
-  streamSyncer& operator=(const streamSyncer& other) = delete;
-
- private:
-  const cumlHandle_impl& _handle;
-};
-
-}  // end namespace detail
 
 }  // end namespace ML

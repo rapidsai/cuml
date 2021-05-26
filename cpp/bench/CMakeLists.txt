@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,10 +25,16 @@ if(BUILD_CUML_BENCH)
     sg/arima_loglikelihood.cu
     sg/dbscan.cu
     sg/kmeans.cu
+    sg/linkage.cu
     sg/main.cpp
     sg/rf_classifier.cu
-    sg/rf_regressor.cu
+    # FIXME: RF Regressor is having an issue where the tests now seem to take
+    # forever to finish, as opposed to the classifier counterparts!
+    # sg/rf_regressor.cu
+    sg/svc.cu
+    sg/svr.cu
     sg/umap.cu
+    sg/fil.cu
     )
 
   target_link_libraries(sg_benchmark
@@ -36,8 +42,10 @@ if(BUILD_CUML_BENCH)
     benchmarklib)
 
   target_include_directories(sg_benchmark
-    PRIVATE ${GBENCH_DIR}/include
-    ${CUML_INCLUDE_DIRECTORIES})
+    PRIVATE 
+      ${GBENCH_DIR}/include
+      ${CUML_SRC_PRIMS_DIR}
+  )
 endif(BUILD_CUML_BENCH)
 
 ##############################################################################
@@ -52,20 +60,30 @@ if(BUILD_CUML_PRIMS_BENCH)
     prims/distance_l1.cu
     prims/distance_unexp_l2.cu
     prims/fused_l2_nn.cu
+    prims/gram_matrix.cu
     prims/main.cpp
+    prims/make_blobs.cu
     prims/map_then_reduce.cu
     prims/matrix_vector_op.cu
     prims/permute.cu
     prims/reduce.cu
-    prims/rng.cu
-    ../src/common/logger.cpp  # because prims is header only!
-    )
+    prims/rng.cu)
 
+  if(NOT CUB_IS_PART_OF_CTK)
+    add_dependencies(prims_benchmark cub)
+  endif(NOT CUB_IS_PART_OF_CTK)
   add_dependencies(prims_benchmark spdlog)
 
-  target_link_libraries(prims_benchmark benchmarklib)
+  target_link_libraries(prims_benchmark 
+    PUBLIC
+      ${CUDA_cublas_LIBRARY}
+      benchmarklib
+      ${CUML_CPP_TARGET}
+  )
 
   target_include_directories(prims_benchmark
-    PRIVATE ${GBENCH_DIR}/include
-    ${CUML_INCLUDE_DIRECTORIES})
+    PRIVATE 
+      ${GBENCH_DIR}/include
+      ${CUML_SRC_PRIMS_DIR}
+  )
 endif(BUILD_CUML_PRIMS_BENCH)

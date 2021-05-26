@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include "random/rng.h"
-#include "stats/cov.h"
-#include "stats/mean.h"
+#include <raft/cudart_utils.h>
+#include <raft/random/rng.cuh>
+#include <raft/stats/mean.cuh>
+#include <stats/cov.cuh>
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -41,35 +41,37 @@ template <typename T>
 class CovTest : public ::testing::TestWithParam<CovInputs<T>> {
  protected:
   void SetUp() override {
-    CUBLAS_CHECK(cublasCreate(&handle));
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    raft::handle_t handle;
+    cudaStream_t stream = handle.get_stream();
+
     params = ::testing::TestWithParam<CovInputs<T>>::GetParam();
     params.tolerance *= 2;
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols;
     int len = rows * cols;
     T var = params.var;
-    allocate(data, len);
-    allocate(mean_act, cols);
-    allocate(cov_act, cols * cols);
+    raft::allocate(data, len);
+    raft::allocate(mean_act, cols);
+    raft::allocate(cov_act, cols * cols);
     r.normal(data, len, params.mean, var, stream);
-    mean(mean_act, data, cols, rows, params.sample, params.rowMajor, stream);
-    cov(cov_act, data, mean_act, cols, rows, params.sample, params.rowMajor,
-        params.stable, handle, stream);
+    raft::stats::mean(mean_act, data, cols, rows, params.sample,
+                      params.rowMajor, stream);
+    cov(handle, cov_act, data, mean_act, cols, rows, params.sample,
+        params.rowMajor, params.stable, stream);
 
     T data_h[6] = {1.0, 2.0, 5.0, 4.0, 2.0, 1.0};
     T cov_cm_ref_h[4] = {4.3333, -2.8333, -2.8333, 2.333};
 
-    allocate(data_cm, 6);
-    allocate(cov_cm, 4);
-    allocate(cov_cm_ref, 4);
-    allocate(mean_cm, 2);
+    raft::allocate(data_cm, 6);
+    raft::allocate(cov_cm, 4);
+    raft::allocate(cov_cm_ref, 4);
+    raft::allocate(mean_cm, 2);
 
-    updateDevice(data_cm, data_h, 6, stream);
-    updateDevice(cov_cm_ref, cov_cm_ref_h, 4, stream);
+    raft::update_device(data_cm, data_h, 6, stream);
+    raft::update_device(cov_cm_ref, cov_cm_ref_h, 4, stream);
 
-    mean(mean_cm, data_cm, 2, 3, true, false, stream);
-    cov(cov_cm, data_cm, mean_cm, 2, 3, true, false, true, handle, stream);
+    raft::stats::mean(mean_cm, data_cm, 2, 3, true, false, stream);
+    cov(handle, cov_cm, data_cm, mean_cm, 2, 3, true, false, true, stream);
   }
 
   void TearDown() override {
@@ -80,8 +82,6 @@ class CovTest : public ::testing::TestWithParam<CovInputs<T>> {
     CUDA_CHECK(cudaFree(cov_cm));
     CUDA_CHECK(cudaFree(cov_cm_ref));
     CUDA_CHECK(cudaFree(mean_cm));
-    CUBLAS_CHECK(cublasDestroy(handle));
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
@@ -132,28 +132,28 @@ const std::vector<CovInputs<double>> inputsd = {
 
 typedef CovTest<float> CovTestF;
 TEST_P(CovTestF, Result) {
-  ASSERT_TRUE(diagonalMatch(params.var * params.var, cov_act, params.cols,
-                            params.cols,
-                            CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::diagonalMatch(
+    params.var * params.var, cov_act, params.cols, params.cols,
+    raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef CovTest<double> CovTestD;
 TEST_P(CovTestD, Result) {
-  ASSERT_TRUE(diagonalMatch(params.var * params.var, cov_act, params.cols,
-                            params.cols,
-                            CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::diagonalMatch(
+    params.var * params.var, cov_act, params.cols, params.cols,
+    raft::CompareApprox<double>(params.tolerance)));
 }
 
 typedef CovTest<float> CovTestSmallF;
 TEST_P(CovTestSmallF, Result) {
-  ASSERT_TRUE(devArrMatch(cov_cm_ref, cov_cm, 2, 2,
-                          CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(cov_cm_ref, cov_cm, 2, 2,
+                                raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef CovTest<double> CovTestSmallD;
 TEST_P(CovTestSmallD, Result) {
-  ASSERT_TRUE(devArrMatch(cov_cm_ref, cov_cm, 2, 2,
-                          CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(cov_cm_ref, cov_cm, 2, 2,
+                                raft::CompareApprox<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(CovTests, CovTestF, ::testing::ValuesIn(inputsf));

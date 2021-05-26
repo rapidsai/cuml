@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 #include <gtest/gtest.h>
 
-#include "cuml/cuml_api.h"
+#include <cuml/cuml_api.h>
 
 TEST(HandleTest, CreateHandleAndDestroy) {
   cumlHandle_t handle;
@@ -39,7 +39,7 @@ TEST(HandleTest, DoubleDestoryFails) {
   EXPECT_EQ(CUML_INVALID_HANDLE, status);
 }
 
-TEST(HandleTest, SetStream) {
+TEST(HandleTest, set_stream) {
   cumlHandle_t handle;
   cumlError_t status = cumlCreate(&handle);
   EXPECT_EQ(CUML_SUCCESS, status);

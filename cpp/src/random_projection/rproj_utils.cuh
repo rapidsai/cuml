@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,11 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
-#include <cuda_utils.h>
 #include <cuml/random_projection/rproj_c.h>
-#include <random/rng.h>
-#include <common/cumlHandle.hpp>
-#include "sys/time.h"
+#include <raft/cudart_utils.h>
+#include <sys/time.h>
+#include <raft/cuda_utils.cuh>
+#include <raft/random/rng.cuh>
 
 const int TPB_X = 256;
 
@@ -50,40 +49,40 @@ __global__ void sum_bools(bool* in_bools, int n, int* out_val) {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
   if (row < n) {
     bool v = in_bools[row];
-    if (v) atomicAdd(out_val, (int)in_bools[row]);
+    if (v) raft::myAtomicAdd(out_val, (int)in_bools[row]);
   }
 }
 
-inline size_t binomial(const ML::cumlHandle& h, size_t n, double p,
+inline size_t binomial(const raft::handle_t& h, size_t n, double p,
                        int random_state) {
-  auto alloc = h.getDeviceAllocator();
+  auto alloc = h.get_device_allocator();
 
   struct timeval tp;
   gettimeofday(&tp, NULL);
   long long seed = tp.tv_sec * 1000 + tp.tv_usec;
 
-  auto rng = MLCommon::Random::Rng(random_state + seed);
+  auto rng = raft::random::Rng(random_state + seed);
 
-  bool* rand_array = (bool*)alloc->allocate(n * sizeof(bool), h.getStream());
-  int* successes = (int*)alloc->allocate(sizeof(int), h.getStream());
+  bool* rand_array = (bool*)alloc->allocate(n * sizeof(bool), h.get_stream());
+  int* successes = (int*)alloc->allocate(sizeof(int), h.get_stream());
 
-  rng.bernoulli(rand_array, n, p, h.getStream());
+  rng.bernoulli(rand_array, n, p, h.get_stream());
 
-  cudaMemsetAsync(successes, 0, sizeof(int), h.getStream());
+  cudaMemsetAsync(successes, 0, sizeof(int), h.get_stream());
 
-  dim3 grid_n(MLCommon::ceildiv(n, (size_t)TPB_X), 1, 1);
+  dim3 grid_n(raft::ceildiv(n, (size_t)TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
-  sum_bools<<<grid_n, blk, 0, h.getStream()>>>(rand_array, n, successes);
+  sum_bools<<<grid_n, blk, 0, h.get_stream()>>>(rand_array, n, successes);
   CUDA_CHECK(cudaPeekAtLastError());
 
   int ret = 0;
-  MLCommon::updateHost(&ret, successes, 1, h.getStream());
-  cudaStreamSynchronize(h.getStream());
+  raft::update_host(&ret, successes, 1, h.get_stream());
+  cudaStreamSynchronize(h.get_stream());
   CUDA_CHECK(cudaPeekAtLastError());
 
-  alloc->deallocate(rand_array, n * sizeof(bool), h.getStream());
-  alloc->deallocate(successes, sizeof(int), h.getStream());
+  alloc->deallocate(rand_array, n * sizeof(bool), h.get_stream());
+  alloc->deallocate(successes, sizeof(int), h.get_stream());
 
   return n - ret;
 }
@@ -139,19 +138,5 @@ inline void build_parameters(paramsRPROJ& params) {
   if (!params.gaussian_method) {
     params.density = check_density(params.density, params.n_features);
   }
-}
-
-template <typename math_t>
-void rand_mat<math_t>::reset() {
-  if (this->dense_data) CUDA_CHECK(cudaFree(this->dense_data));
-  if (this->indices) CUDA_CHECK(cudaFree(this->indices));
-  if (this->indptr) CUDA_CHECK(cudaFree(this->indptr));
-  if (this->sparse_data) CUDA_CHECK(cudaFree(this->sparse_data));
-
-  this->dense_data = nullptr;
-  this->indices = nullptr;
-  this->indptr = nullptr;
-  this->sparse_data = nullptr;
-  this->sparse_data_size = 0;
 }
 }  // namespace ML

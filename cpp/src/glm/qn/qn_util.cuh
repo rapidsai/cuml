@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,8 @@
 
 #pragma once
 #include <cuml/common/logger.hpp>
-#include "cuda_utils.h"
+#include <limits>
+#include <raft/cuda_utils.cuh>
 
 namespace ML {
 namespace GLM {
@@ -119,21 +120,23 @@ inline bool check_convergence(const LBFGSParam<T> &param, const int k,
                               const T fx, SimpleVec<T> &x, SimpleVec<T> &grad,
                               std::vector<T> &fx_hist, T *dev_scalar,
                               cudaStream_t stream) {
-  // New x norm and gradient norm
-  T xnorm = nrm2(x, dev_scalar, stream);
-  T gnorm = nrm2(grad, dev_scalar, stream);
+  // Gradient norm is now in Linf to match the reference implementation
+  // (originally it was L2-norm)
+  T gnorm = nrmMax(grad, dev_scalar, stream);
+  // Positive scale factor for the stop condition
+  T fmag = std::max(fx, param.epsilon);
 
-  CUML_LOG_DEBUG("%04d: f(x)=%.8f conv.crit=%.8f (gnorm=%.8f, xnorm=%.8f)", k,
-                 fx, gnorm / std::max(T(1), xnorm), gnorm, xnorm);
+  CUML_LOG_DEBUG("%04d: f(x)=%.8f conv.crit=%.8f (gnorm=%.8f, fmag=%.8f)", k,
+                 fx, gnorm / fmag, gnorm, fmag);
   // Convergence test -- gradient
-  if (gnorm <= param.epsilon * std::max(xnorm, T(1.0))) {
+  if (gnorm <= param.epsilon * fmag) {
     CUML_LOG_DEBUG("Converged after %d iterations: f(x)=%.6f", k, fx);
     return true;
   }
   // Convergence test -- objective function value
   if (param.past > 0) {
     if (k >= param.past &&
-        std::abs((fx_hist[k % param.past] - fx) / fx) < param.delta) {
+        std::abs(fx_hist[k % param.past] - fx) <= param.delta * fmag) {
       CUML_LOG_DEBUG("Insufficient change in objective value");
       return true;
     }
@@ -149,7 +152,7 @@ inline bool check_convergence(const LBFGSParam<T> &param, const int k,
  * e.g. to compute the new search direction for g = \nabla f(x)
  */
 template <typename T>
-inline int lbfgs_search_dir(const LBFGSParam<T> &param, const int k,
+inline int lbfgs_search_dir(const LBFGSParam<T> &param, int *n_vec,
                             const int end_prev, const SimpleMat<T> &S,
                             const SimpleMat<T> &Y, const SimpleVec<T> &g,
                             const SimpleVec<T> &svec, const SimpleVec<T> &yvec,
@@ -161,14 +164,32 @@ inline int lbfgs_search_dir(const LBFGSParam<T> &param, const int k,
   // note: update_state assigned svec, yvec to m_s[:,end], m_y[:,end]
   T ys = dot(svec, yvec, dev_scalar, stream);
   T yy = dot(yvec, yvec, dev_scalar, stream);
-  if (ys == 0 || yy == 0) {
-    CUML_LOG_WARN("WARNING: zero detected");
+  CUML_LOG_TRACE("ys=%e, yy=%e", ys, yy);
+  // Skipping test:
+  if (ys <= std::numeric_limits<T>::epsilon() * yy) {
+    // We can land here for example if yvec == 0 (no change in the gradient,
+    // g_k == g_k+1). That means the Hessian is approximately zero. We cannot
+    // use the QN model to update the search dir, we just continue along the
+    // previous direction.
+    //
+    // See eq (3.9) and Section 6 in "A limited memory algorithm for bound
+    // constrained optimization" Richard H. Byrd, Peihuang Lu, Jorge Nocedal and
+    // Ciyou Zhu Technical Report NAM-08 (1994) NORTHWESTERN UNIVERSITY.
+    //
+    // Alternative condition to skip update is: ys / (-gs) <= epsmch,
+    // (where epsmch = std::numeric_limits<T>::epsilon) given in Section 5 of
+    // "L-BFGS-B Fortran subroutines for large-scale bound constrained
+    // optimization" Ciyou Zhu, Richard H. Byrd, Peihuang Lu and Jorge Nocedal
+    // (1994).
+    CUML_LOG_DEBUG("L-BFGS WARNING: skipping update step ys=%f, yy=%f", ys, yy);
+    return end;
   }
+  (*n_vec)++;
   yhist[end] = ys;
 
   // Recursive formula to compute d = -H * g
   drt.ax(-1.0, g, stream);
-  int bound = std::min(param.m, k);
+  int bound = std::min(param.m, *n_vec);
   end = (end + 1) % param.m;
   int j = end;
   for (int i = 0; i < bound; i++) {
@@ -195,7 +216,7 @@ inline int lbfgs_search_dir(const LBFGSParam<T> &param, const int k,
 template <typename T>
 HDI T get_pseudo_grad(T x, T dlossx, T C) {
   if (x != 0) {
-    return dlossx + MLCommon::sgn(x) * C;
+    return dlossx + raft::sgn(x) * C;
   }
   T dplus = dlossx + C;
   T dmins = dlossx - C;

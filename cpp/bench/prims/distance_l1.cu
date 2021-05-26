@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,13 +14,13 @@
  * limitations under the License.
  */
 
-#include "distance_common.h"
+#include "distance_common.cuh"
 
 namespace MLCommon {
 namespace Bench {
 namespace Distance {
 
-DIST_BENCH_REGISTER(DistanceL1, MLCommon::Distance::EucUnexpandedL1);
+DIST_BENCH_REGISTER(DistanceL1, raft::distance::DistanceType::L1);
 
 }  // namespace Distance
 }  // namespace Bench

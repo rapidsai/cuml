@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,30 +11,35 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import math
+
+import cupy as cp
+import numpy as np
+import pandas as pd
 import pytest
 from cudf import DataFrame
 from cuml.preprocessing import OneHotEncoder
-
-import cupy as cp
-import pandas as pd
-import numpy as np
-
+from cuml.test.utils import stress_param
+from pandas.testing import assert_frame_equal
 from sklearn.preprocessing import OneHotEncoder as SkOneHotEncoder
 
-from cuml.test.utils import stress_param
-from pandas.util.testing import assert_frame_equal
 
-
-def _from_df_to_array(df):
-    return list(zip(*[df[feature] for feature in df.columns]))
+def from_df_to_array(df):
+    if isinstance(df, pd.DataFrame):
+        return list(zip(*[df[feature] for feature in df.columns]))
+    else:
+        return list(zip(*[df[feature].values_host for feature in df.columns]))
 
 
 def _from_df_to_cupy(df):
     """Transform char columns to integer columns, and then create an array"""
     for col in df.columns:
         if not np.issubdtype(df[col].dtype, np.number):
-            df[col] = [ord(c) for c in df[col]]
-    return cp.array(_from_df_to_array(df))
+            if isinstance(df, pd.DataFrame):
+                df[col] = [ord(c) for c in df[col]]
+            else:
+                df[col] = [ord(c) for c in df[col].values_host]
+    return cp.array(from_df_to_array(df))
 
 
 def _convert_drop(drop):
@@ -43,10 +48,10 @@ def _convert_drop(drop):
     return [ord(x) if isinstance(x, str) else x for x in drop.values()]
 
 
-def _generate_inputs_from_categories(categories=None,
-                                     n_samples=10,
-                                     seed=5060,
-                                     as_array=False):
+def generate_inputs_from_categories(categories=None,
+                                    n_samples=10,
+                                    seed=5060,
+                                    as_array=False):
     if categories is None:
         if as_array:
             categories = {'strings': list(range(1000, 4000, 3)),
@@ -58,7 +63,7 @@ def _generate_inputs_from_categories(categories=None,
     rd = np.random.RandomState(seed)
     pandas_df = pd.DataFrame({name: rd.choice(cat, n_samples)
                               for name, cat in categories.items()})
-    ary = _from_df_to_array(pandas_df)
+    ary = from_df_to_array(pandas_df)
     if as_array:
         inp_ary = cp.array(ary)
         return inp_ary, ary
@@ -77,7 +82,7 @@ def assert_inverse_equal(ours, ref):
 @pytest.mark.parametrize('as_array', [True, False], ids=['cupy', 'cudf'])
 def test_onehot_vs_skonehot(as_array):
     X = DataFrame({'gender': ['M', 'F', 'F'], 'int': [1, 3, 2]})
-    skX = _from_df_to_array(X)
+    skX = from_df_to_array(X)
     if as_array:
         X = _from_df_to_cupy(X)
         skX = cp.asnumpy(X)
@@ -181,8 +186,8 @@ def test_onehot_inverse_transform_handle_unknown(as_array):
 @pytest.mark.parametrize("n_samples", [10, 1000, 20000, stress_param(250000)])
 @pytest.mark.parametrize('as_array', [True, False], ids=['cupy', 'cudf'])
 def test_onehot_random_inputs(drop, sparse, n_samples, as_array):
-    X, ary = _generate_inputs_from_categories(n_samples=n_samples,
-                                              as_array=as_array)
+    X, ary = generate_inputs_from_categories(n_samples=n_samples,
+                                             as_array=as_array)
 
     enc = OneHotEncoder(sparse=sparse, drop=drop, categories='auto')
     sk_enc = SkOneHotEncoder(sparse=sparse, drop=drop, categories='auto')
@@ -218,7 +223,7 @@ def test_onehot_drop_idx_first(as_array):
 def test_onehot_drop_one_of_each(as_array):
     X = DataFrame({'chars': ['c', 'b'], 'int': [2, 2], 'letters': ['a', 'b']})
     drop = dict({'chars': 'b', 'int': 2, 'letters': 'b'})
-    X_ary = _from_df_to_array(X)
+    X_ary = from_df_to_array(X)
     drop_ary = ['b', 2, 'b']
     if as_array:
         X = _from_df_to_cupy(X)
@@ -275,7 +280,7 @@ def test_onehot_sparse_drop(as_array):
     X = DataFrame({'g': ['M', 'F', 'F'], 'i': [1, 3, 2], 'l': [5, 5, 6]})
     drop = {'g': 'F', 'i': 3, 'l': 6}
 
-    ary = _from_df_to_array(X)
+    ary = from_df_to_array(X)
     drop_ary = ['F', 3, 6]
     if as_array:
         X = _from_df_to_cupy(X)
@@ -299,3 +304,70 @@ def test_onehot_categories_shape_mismatch(as_array):
 
     with pytest.raises(ValueError):
         OneHotEncoder(categories=categories, sparse=False).fit(X)
+
+
+def test_onehot_category_specific_cases():
+    # See this for reasoning: https://github.com/rapidsai/cuml/issues/2690
+
+    # All of these cases use sparse=False, where
+    # test_onehot_category_class_count uses sparse=True
+
+    # ==== 2 Rows (Low before High) ====
+    example_df = DataFrame()
+    example_df["low_cardinality_column"] = ["A"] * 200 + ["B"] * 56
+    example_df["high_cardinality_column"] = cp.linspace(0, 255, 256)
+
+    encoder = OneHotEncoder(handle_unknown="ignore", sparse=False)
+    encoder.fit_transform(example_df)
+
+    # ==== 2 Rows (High before Low, used to fail) ====
+    example_df = DataFrame()
+    example_df["high_cardinality_column"] = cp.linspace(0, 255, 256)
+    example_df["low_cardinality_column"] = ["A"] * 200 + ["B"] * 56
+
+    encoder = OneHotEncoder(handle_unknown="ignore", sparse=False)
+    encoder.fit_transform(example_df)
+
+
+@pytest.mark.parametrize('total_classes',
+                         [np.iinfo(np.uint8).max, np.iinfo(np.uint16).max],
+                         ids=['uint8', 'uint16'])
+def test_onehot_category_class_count(total_classes: int):
+    # See this for reasoning: https://github.com/rapidsai/cuml/issues/2690
+    # All tests use sparse=True to avoid memory errors
+
+    encoder = OneHotEncoder(handle_unknown="ignore", sparse=True)
+
+    # ==== 2 Rows ====
+    example_df = DataFrame()
+    example_df["high_cardinality_column"] = cp.linspace(
+        0, total_classes - 1, total_classes)
+    example_df["low_cardinality_column"] = ["A"] * 200 + ["B"] * (
+        total_classes - 200)
+
+    assert (encoder.fit_transform(example_df).shape[1] == total_classes + 2)
+
+    # ==== 3 Rows ====
+    example_df = DataFrame()
+    example_df["high_cardinality_column"] = cp.linspace(
+        0, total_classes - 1, total_classes)
+    example_df["low_cardinality_column"] = ["A"] * total_classes
+    example_df["med_cardinality_column"] = ["B"] * total_classes
+
+    assert (encoder.fit_transform(example_df).shape[1] == total_classes + 2)
+
+    # ==== N Rows (Even Split) ====
+    num_rows = [3, 10, 100]
+
+    for row_count in num_rows:
+
+        class_per_row = int(math.ceil(total_classes / float(row_count))) + 1
+        example_df = DataFrame()
+
+        for row_idx in range(row_count):
+            example_df[str(row_idx)] = cp.linspace(
+                row_idx * class_per_row, ((row_idx + 1) * class_per_row) - 1,
+                class_per_row)
+
+        assert (encoder.fit_transform(example_df).shape[1] == class_per_row *
+                row_count)

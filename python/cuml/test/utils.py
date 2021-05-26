@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@ def array_equal(a, b, unit_tol=1e-4, total_tol=1e-4, with_sign=True):
 
     if not with_sign:
         a, b = np.abs(a), np.abs(b)
-    res = (np.sum(np.abs(a-b) > unit_tol)) / len(a) < total_tol
+    res = (np.sum(np.abs(a - b) > unit_tol)) / a.size < total_tol
     return res
 
 
@@ -58,8 +58,12 @@ def get_pattern(name, n_samples):
 
     if name == 'noisy_circles':
         data = datasets.make_circles(n_samples=n_samples, factor=.5, noise=.05)
-        params = {'damping': .77, 'preference': -240,
-                  'quantile': .2, 'n_clusters': 2}
+        params = {
+            'damping': .77,
+            'preference': -240,
+            'quantile': .2,
+            'n_clusters': 2
+        }
 
     elif name == 'noisy_moons':
         data = datasets.make_moons(n_samples=n_samples, noise=.05)
@@ -125,6 +129,45 @@ def clusters_equal(a0, b0, n_clusters, tol=1e-4):
     return array_equal(a, b, total_tol=tol)
 
 
+def assert_dbscan_equal(ref, actual, X, core_indices, eps):
+    """
+    Utility function to compare two numpy label arrays.
+    The labels of core/noise points are expected to be equal, and the labels
+    of border points are verified by finding a neighboring core point with the
+    same label.
+    """
+    core_set = set(core_indices)
+    N, _ = X.shape
+    eps2 = eps**2
+
+    def sqnorm(x):
+        return np.inner(x, x)
+
+    for i in range(N):
+        la, lb = ref[i], actual[i]
+
+        if i in core_set:  # core point
+            assert la == lb, ("Core point mismatch at #{}: "
+                              "{} (expected {})".format(i, lb, la))
+        elif la == -1:  # noise point
+            assert lb == -1, "Noise mislabelled at #{}: {}".format(i, lb)
+        else:  # border point
+            found = False
+            for j in range(N):
+                # Check if j is a core point with the same label
+                if j in core_set and lb == actual[j]:
+                    # Check if j is a neighbor of i
+                    if sqnorm(X[i] - X[j]) <= eps2:
+                        found = True
+                        break
+            assert found, ("Border point not connected to cluster at #{}: "
+                           "{} (reference: {})".format(i, lb, la))
+
+    # Note: we can also do it in a rand score fashion by checking that pairs
+    # correspond in both label arrays for core points, if we need to drop the
+    # requirement of minimality for core points
+
+
 def get_handle(use_handle, n_streams=0):
     if not use_handle:
         return None, None
@@ -135,7 +178,7 @@ def get_handle(use_handle, n_streams=0):
 
 
 def small_regression_dataset(datatype):
-    X, y = make_regression(n_samples=500, n_features=20,
+    X, y = make_regression(n_samples=1000, n_features=20,
                            n_informative=10, random_state=10)
     X = X.astype(datatype)
     y = y.astype(datatype)
@@ -182,14 +225,48 @@ class ClassEnumerator:
     custom_constructors: dictionary of {class_name: lambda}
         Custom constructors to use instead of the default one.
         ex: {'LogisticRegression': lambda: cuml.LogisticRegression(handle=1)}
+    recursive: bool, default=False
+        Instructs the class to recursively search submodules when True,
+        otherwise only classes in the specified model will be enumerated
     """
-    def __init__(self, module, exclude_classes=None, custom_constructors=None):
+    def __init__(self,
+                 module,
+                 exclude_classes=None,
+                 custom_constructors=None,
+                 recursive=False):
         self.module = module
         self.exclude_classes = exclude_classes or []
         self.custom_constructors = custom_constructors or []
+        self.recursive = recursive
 
     def _get_classes(self):
-        return inspect.getmembers(self.module, inspect.isclass)
+        def recurse_module(module):
+            classes = {}
+
+            modules = []
+
+            if (self.recursive):
+                modules = inspect.getmembers(module, inspect.ismodule)
+
+            # Enumerate child modules only if they are a submodule of the
+            # current one. i.e. `{parent_module}.{submodule}`
+            for _, m in modules:
+                if (module.__name__ + "." in m.__name__):
+                    classes.update(recurse_module(m))
+
+            # Ensure we only get classes that are part of this module
+            classes.update({
+                (".".join((klass.__module__, klass.__qualname__))): klass
+                for name,
+                klass in inspect.getmembers(module, inspect.isclass)
+                if module.__name__ + "." in ".".join((klass.__module__,
+                                                      klass.__qualname__))
+            })
+
+            return classes
+
+        return [(val.__name__, val) for key,
+                val in recurse_module(self.module).items()]
 
     def get_models(self):
         """Picks up every models classes from self.module.
@@ -203,17 +280,53 @@ class ClassEnumerator:
             specified custom_constructor.
         """
         classes = self._get_classes()
-        models = {name: cls for name, cls in classes
-                  if cls not in self.exclude_classes and
-                  issubclass(cls, cuml.Base)}
+        models = {
+            name: cls
+            for name,
+            cls in classes
+            if cls not in self.exclude_classes and issubclass(cls, cuml.Base)
+        }
         models.update(self.custom_constructors)
         return models
 
 
-def get_classes_from_package(package):
-    modules = [m for name, m in inspect.getmembers(package, inspect.ismodule)]
-    classes = [ClassEnumerator(module).get_models() for module in modules]
-    return {k: v for dictionary in classes for k, v in dictionary.items()}
+def get_classes_from_package(package, import_sub_packages=False):
+    """
+    Gets all modules imported in the specified package and returns a dictionary
+    of any classes that derive from `cuml.Base`
+
+    Parameters
+    ----------
+    package : python module The python module to search import_sub_packages :
+        bool, default=False When set to True, will try to import sub packages
+        by searching the directory tree for __init__.py files and importing
+        them accordingly. By default this is set to False
+
+    Returns
+    -------
+    ClassEnumerator Class enumerator for the specified package
+    """
+
+    if (import_sub_packages):
+        import os
+        import importlib
+
+        # First, find all __init__.py files in subdirectories of this package
+        root_dir = os.path.dirname(package.__file__)
+
+        root_relative = os.path.dirname(root_dir)
+
+        # Now loop
+        for root, _, files in os.walk(root_dir):
+
+            if "__init__.py" in files:
+
+                module_name = os.path.relpath(root, root_relative).replace(
+                    os.sep, ".")
+
+                importlib.import_module(module_name)
+
+    return ClassEnumerator(module=package, recursive=True).get_models()
 
 
 def generate_random_labels(random_generation_lambda, seed=1234, as_cupy=False):
@@ -254,7 +367,10 @@ def generate_random_labels(random_generation_lambda, seed=1234, as_cupy=False):
         return cuda.to_device(a), cuda.to_device(b), a, b
 
 
-def score_labeling_with_handle(func, ground_truth, predictions, use_handle,
+def score_labeling_with_handle(func,
+                               ground_truth,
+                               predictions,
+                               use_handle,
                                dtype=np.int32):
     """Test helper to standardize inputs between sklearn and our prims metrics.
 
@@ -267,3 +383,35 @@ def score_labeling_with_handle(func, ground_truth, predictions, use_handle,
     handle, stream = get_handle(use_handle)
 
     return func(a, b, handle=handle)
+
+
+def get_number_positional_args(func, default=2):
+    # function to return number of positional arguments in func
+    if hasattr(func, "__code__"):
+        all_args = func.__code__.co_argcount
+        if func.__defaults__ is not None:
+            kwargs = len(func.__defaults__)
+        else:
+            kwargs = 0
+        return all_args - kwargs
+    return default
+
+
+def get_shap_values(model,
+                    explainer,
+                    background_dataset,
+                    explained_dataset,
+                    api_type='shap_values'):
+    # function to get shap values from an explainer using SHAP style API.
+    # This function allows isolating all calls in test suite for the case of
+    # API changes.
+    explainer = explainer(
+        model=model,
+        data=background_dataset
+    )
+    if api_type == 'shap_values':
+        shap_values = explainer.shap_values(explained_dataset)
+    elif api_type == '__call__':
+        shap_values = explainer(explained_dataset)
+
+    return explainer, shap_values

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
-#include <cuda_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
+#include <test_utils.h>
+#include <cuml/decomposition/params.hpp>
+#include <raft/random/rng.cuh>
+#include <tsvd/tsvd.cuh>
 #include <vector>
-#include "ml_utils.h"
-#include "random/rng.h"
-#include "test_utils.h"
-#include "tsvd/tsvd.cuh"
 
 namespace ML {
 
@@ -50,27 +49,28 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
  protected:
   void basicTest() {
     params = ::testing::TestWithParam<TsvdInputs<T>>::GetParam();
-    Random::Rng r(params.seed, MLCommon::Random::GenTaps);
+    raft::random::Rng r(params.seed, raft::random::GenTaps);
     int len = params.len;
 
-    allocate(data, len);
+    raft::allocate(data, len);
 
     std::vector<T> data_h = {1.0, 2.0, 4.0, 2.0, 4.0, 5.0,
                              5.0, 4.0, 2.0, 1.0, 6.0, 4.0};
     data_h.resize(len);
-    updateDevice(data, data_h.data(), len, stream);
+    raft::update_device(data, data_h.data(), len, stream);
 
     int len_comp = params.n_col * params.n_col;
-    allocate(components, len_comp);
-    allocate(singular_vals, params.n_col);
+    raft::allocate(components, len_comp);
+    raft::allocate(singular_vals, params.n_col);
 
     std::vector<T> components_ref_h = {-0.3951, 0.1532,  0.9058,
                                        -0.7111, -0.6752, -0.1959,
                                        -0.5816, 0.7215,  -0.3757};
     components_ref_h.resize(len_comp);
 
-    allocate(components_ref, len_comp);
-    updateDevice(components_ref, components_ref_h.data(), len_comp, stream);
+    raft::allocate(components_ref, len_comp);
+    raft::update_device(components_ref, components_ref_h.data(), len_comp,
+                        stream);
 
     paramsTSVD prms;
     prms.n_cols = params.n_col;
@@ -81,12 +81,12 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
     else
       prms.algorithm = solver::COV_EIG_JACOBI;
 
-    tsvdFit(handle.getImpl(), data, components, singular_vals, prms, stream);
+    tsvdFit(handle, data, components, singular_vals, prms, stream);
   }
 
   void advancedTest() {
     params = ::testing::TestWithParam<TsvdInputs<T>>::GetParam();
-    Random::Rng r(params.seed, MLCommon::Random::GenTaps);
+    raft::random::Rng r(params.seed, raft::random::GenTaps);
     int len = params.len2;
 
     paramsTSVD prms;
@@ -97,33 +97,30 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
       prms.algorithm = solver::COV_EIG_DQ;
     else if (params.algo == 1)
       prms.algorithm = solver::COV_EIG_JACOBI;
-    else if (params.algo == 2) {
-      prms.algorithm = solver::RANDOMIZED;
+    else
       prms.n_components = params.n_col2 - 15;
-    }
 
-    allocate(data2, len);
+    raft::allocate(data2, len);
     r.uniform(data2, len, T(-1.0), T(1.0), stream);
-    allocate(data2_trans, prms.n_rows * prms.n_components);
+    raft::allocate(data2_trans, prms.n_rows * prms.n_components);
 
     int len_comp = params.n_col2 * prms.n_components;
-    allocate(components2, len_comp);
-    allocate(explained_vars2, prms.n_components);
-    allocate(explained_var_ratio2, prms.n_components);
-    allocate(singular_vals2, prms.n_components);
+    raft::allocate(components2, len_comp);
+    raft::allocate(explained_vars2, prms.n_components);
+    raft::allocate(explained_var_ratio2, prms.n_components);
+    raft::allocate(singular_vals2, prms.n_components);
 
-    tsvdFitTransform(handle.getImpl(), data2, data2_trans, components2,
-                     explained_vars2, explained_var_ratio2, singular_vals2,
-                     prms, stream);
+    tsvdFitTransform(handle, data2, data2_trans, components2, explained_vars2,
+                     explained_var_ratio2, singular_vals2, prms, stream);
 
-    allocate(data2_back, len);
-    tsvdInverseTransform(handle.getImpl(), data2_trans, components2, data2_back,
-                         prms, stream);
+    raft::allocate(data2_back, len);
+    tsvdInverseTransform(handle, data2_trans, components2, data2_back, prms,
+                         stream);
   }
 
   void SetUp() override {
     CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.setStream(stream);
+    handle.set_stream(stream);
     basicTest();
     advancedTest();
   }
@@ -148,7 +145,7 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
   T *data, *components, *singular_vals, *components_ref, *explained_vars_ref;
   T *data2, *data2_trans, *data2_back, *components2, *explained_vars2,
     *explained_var_ratio2, *singular_vals2;
-  cumlHandle handle;
+  raft::handle_t handle;
   cudaStream_t stream;
 };
 
@@ -166,28 +163,30 @@ const std::vector<TsvdInputs<double>> inputsd2 = {
 
 typedef TsvdTest<float> TsvdTestLeftVecF;
 TEST_P(TsvdTestLeftVecF, Result) {
-  ASSERT_TRUE(devArrMatch(components, components_ref,
-                          (params.n_col * params.n_col),
-                          CompareApproxAbs<float>(params.tolerance)));
+  ASSERT_TRUE(
+    raft::devArrMatch(components, components_ref, (params.n_col * params.n_col),
+                      raft::CompareApproxAbs<float>(params.tolerance)));
 }
 
 typedef TsvdTest<double> TsvdTestLeftVecD;
 TEST_P(TsvdTestLeftVecD, Result) {
-  ASSERT_TRUE(devArrMatch(components, components_ref,
-                          (params.n_col * params.n_col),
-                          CompareApproxAbs<double>(params.tolerance)));
+  ASSERT_TRUE(
+    raft::devArrMatch(components, components_ref, (params.n_col * params.n_col),
+                      raft::CompareApproxAbs<double>(params.tolerance)));
 }
 
 typedef TsvdTest<float> TsvdTestDataVecF;
 TEST_P(TsvdTestDataVecF, Result) {
-  ASSERT_TRUE(devArrMatch(data2, data2_back, (params.n_col2 * params.n_col2),
-                          CompareApproxAbs<float>(params.tolerance)));
+  ASSERT_TRUE(
+    raft::devArrMatch(data2, data2_back, (params.n_col2 * params.n_col2),
+                      raft::CompareApproxAbs<float>(params.tolerance)));
 }
 
 typedef TsvdTest<double> TsvdTestDataVecD;
 TEST_P(TsvdTestDataVecD, Result) {
-  ASSERT_TRUE(devArrMatch(data2, data2_back, (params.n_col2 * params.n_col2),
-                          CompareApproxAbs<double>(params.tolerance)));
+  ASSERT_TRUE(
+    raft::devArrMatch(data2, data2_back, (params.n_col2 * params.n_col2),
+                      raft::CompareApproxAbs<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(TsvdTests, TsvdTestLeftVecF,

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
+#include <cuml/solvers/params.hpp>
 #include <cuml/solvers/solver.hpp>
 #include "cd.cuh"
-#include "ml_utils.h"
 #include "sgd.cuh"
 
 namespace ML {
@@ -24,7 +24,7 @@ namespace Solver {
 
 using namespace ML;
 
-void sgdFit(cumlHandle &handle, float *input, int n_rows, int n_cols,
+void sgdFit(raft::handle_t &handle, float *input, int n_rows, int n_cols,
             float *labels, float *coef, float *intercept, bool fit_intercept,
             int batch_size, int epochs, int lr_type, float eta0, float power_t,
             int loss, int penalty, float alpha, float l1_ratio, bool shuffle,
@@ -67,13 +67,12 @@ void sgdFit(cumlHandle &handle, float *input, int n_rows, int n_cols,
     ASSERT(false, "glm.cu: this learning rate type is not supported.");
   }
 
-  sgdFit(handle.getImpl(), input, n_rows, n_cols, labels, coef, intercept,
-         fit_intercept, batch_size, epochs, learning_rate_type, eta0, power_t,
-         loss_funct, pen, alpha, l1_ratio, shuffle, tol, n_iter_no_change,
-         handle.getStream());
+  sgdFit(handle, input, n_rows, n_cols, labels, coef, intercept, fit_intercept,
+         batch_size, epochs, learning_rate_type, eta0, power_t, loss_funct, pen,
+         alpha, l1_ratio, shuffle, tol, n_iter_no_change, handle.get_stream());
 }
 
-void sgdFit(cumlHandle &handle, double *input, int n_rows, int n_cols,
+void sgdFit(raft::handle_t &handle, double *input, int n_rows, int n_cols,
             double *labels, double *coef, double *intercept, bool fit_intercept,
             int batch_size, int epochs, int lr_type, double eta0,
             double power_t, int loss, int penalty, double alpha,
@@ -115,14 +114,14 @@ void sgdFit(cumlHandle &handle, double *input, int n_rows, int n_cols,
     ASSERT(false, "glm.cu: this learning rate type is not supported.");
   }
 
-  sgdFit(handle.getImpl(), input, n_rows, n_cols, labels, coef, intercept,
-         fit_intercept, batch_size, epochs, learning_rate_type, eta0, power_t,
-         loss_funct, pen, alpha, l1_ratio, shuffle, tol, n_iter_no_change,
-         handle.getStream());
+  sgdFit(handle, input, n_rows, n_cols, labels, coef, intercept, fit_intercept,
+         batch_size, epochs, learning_rate_type, eta0, power_t, loss_funct, pen,
+         alpha, l1_ratio, shuffle, tol, n_iter_no_change, handle.get_stream());
 }
 
-void sgdPredict(cumlHandle &handle, const float *input, int n_rows, int n_cols,
-                const float *coef, float intercept, float *preds, int loss) {
+void sgdPredict(raft::handle_t &handle, const float *input, int n_rows,
+                int n_cols, const float *coef, float intercept, float *preds,
+                int loss) {
   ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
   if (loss == 0) {
     loss_funct = ML::loss_funct::SQRD_LOSS;
@@ -134,12 +133,13 @@ void sgdPredict(cumlHandle &handle, const float *input, int n_rows, int n_cols,
     ASSERT(false, "glm.cu: other functions are not supported yet.");
   }
 
-  sgdPredict(handle.getImpl(), input, n_rows, n_cols, coef, intercept, preds,
-             loss_funct, handle.getStream());
+  sgdPredict(handle, input, n_rows, n_cols, coef, intercept, preds, loss_funct,
+             handle.get_stream());
 }
 
-void sgdPredict(cumlHandle &handle, const double *input, int n_rows, int n_cols,
-                const double *coef, double intercept, double *preds, int loss) {
+void sgdPredict(raft::handle_t &handle, const double *input, int n_rows,
+                int n_cols, const double *coef, double intercept, double *preds,
+                int loss) {
   ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
   if (loss == 0) {
     loss_funct = ML::loss_funct::SQRD_LOSS;
@@ -151,13 +151,13 @@ void sgdPredict(cumlHandle &handle, const double *input, int n_rows, int n_cols,
     ASSERT(false, "glm.cu: other functions are not supported yet.");
   }
 
-  sgdPredict(handle.getImpl(), input, n_rows, n_cols, coef, intercept, preds,
-             loss_funct, handle.getStream());
+  sgdPredict(handle, input, n_rows, n_cols, coef, intercept, preds, loss_funct,
+             handle.get_stream());
 }
 
-void sgdPredictBinaryClass(cumlHandle &handle, const float *input, int n_rows,
-                           int n_cols, const float *coef, float intercept,
-                           float *preds, int loss) {
+void sgdPredictBinaryClass(raft::handle_t &handle, const float *input,
+                           int n_rows, int n_cols, const float *coef,
+                           float intercept, float *preds, int loss) {
   ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
   if (loss == 0) {
     loss_funct = ML::loss_funct::SQRD_LOSS;
@@ -169,13 +169,13 @@ void sgdPredictBinaryClass(cumlHandle &handle, const float *input, int n_rows,
     ASSERT(false, "glm.cu: other functions are not supported yet.");
   }
 
-  sgdPredictBinaryClass(handle.getImpl(), input, n_rows, n_cols, coef,
-                        intercept, preds, loss_funct, handle.getStream());
+  sgdPredictBinaryClass(handle, input, n_rows, n_cols, coef, intercept, preds,
+                        loss_funct, handle.get_stream());
 }
 
-void sgdPredictBinaryClass(cumlHandle &handle, const double *input, int n_rows,
-                           int n_cols, const double *coef, double intercept,
-                           double *preds, int loss) {
+void sgdPredictBinaryClass(raft::handle_t &handle, const double *input,
+                           int n_rows, int n_cols, const double *coef,
+                           double intercept, double *preds, int loss) {
   ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
   if (loss == 0) {
     loss_funct = ML::loss_funct::SQRD_LOSS;
@@ -187,11 +187,11 @@ void sgdPredictBinaryClass(cumlHandle &handle, const double *input, int n_rows,
     ASSERT(false, "glm.cu: other functions are not supported yet.");
   }
 
-  sgdPredictBinaryClass(handle.getImpl(), input, n_rows, n_cols, coef,
-                        intercept, preds, loss_funct, handle.getStream());
+  sgdPredictBinaryClass(handle, input, n_rows, n_cols, coef, intercept, preds,
+                        loss_funct, handle.get_stream());
 }
 
-void cdFit(cumlHandle &handle, float *input, int n_rows, int n_cols,
+void cdFit(raft::handle_t &handle, float *input, int n_rows, int n_cols,
            float *labels, float *coef, float *intercept, bool fit_intercept,
            bool normalize, int epochs, int loss, float alpha, float l1_ratio,
            bool shuffle, float tol) {
@@ -200,12 +200,12 @@ void cdFit(cumlHandle &handle, float *input, int n_rows, int n_cols,
 
   ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
 
-  cdFit(handle.getImpl(), input, n_rows, n_cols, labels, coef, intercept,
-        fit_intercept, normalize, epochs, loss_funct, alpha, l1_ratio, shuffle,
-        tol, handle.getStream());
+  cdFit(handle, input, n_rows, n_cols, labels, coef, intercept, fit_intercept,
+        normalize, epochs, loss_funct, alpha, l1_ratio, shuffle, tol,
+        handle.get_stream());
 }
 
-void cdFit(cumlHandle &handle, double *input, int n_rows, int n_cols,
+void cdFit(raft::handle_t &handle, double *input, int n_rows, int n_cols,
            double *labels, double *coef, double *intercept, bool fit_intercept,
            bool normalize, int epochs, int loss, double alpha, double l1_ratio,
            bool shuffle, double tol) {
@@ -214,13 +214,14 @@ void cdFit(cumlHandle &handle, double *input, int n_rows, int n_cols,
 
   ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
 
-  cdFit(handle.getImpl(), input, n_rows, n_cols, labels, coef, intercept,
-        fit_intercept, normalize, epochs, loss_funct, alpha, l1_ratio, shuffle,
-        tol, handle.getStream());
+  cdFit(handle, input, n_rows, n_cols, labels, coef, intercept, fit_intercept,
+        normalize, epochs, loss_funct, alpha, l1_ratio, shuffle, tol,
+        handle.get_stream());
 }
 
-void cdPredict(cumlHandle &handle, const float *input, int n_rows, int n_cols,
-               const float *coef, float intercept, float *preds, int loss) {
+void cdPredict(raft::handle_t &handle, const float *input, int n_rows,
+               int n_cols, const float *coef, float intercept, float *preds,
+               int loss) {
   ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
   if (loss == 0) {
     loss_funct = ML::loss_funct::SQRD_LOSS;
@@ -228,12 +229,13 @@ void cdPredict(cumlHandle &handle, const float *input, int n_rows, int n_cols,
     ASSERT(false, "glm.cu: other functions are not supported yet.");
   }
 
-  cdPredict(handle.getImpl(), input, n_rows, n_cols, coef, intercept, preds,
-            loss_funct, handle.getStream());
+  cdPredict(handle, input, n_rows, n_cols, coef, intercept, preds, loss_funct,
+            handle.get_stream());
 }
 
-void cdPredict(cumlHandle &handle, const double *input, int n_rows, int n_cols,
-               const double *coef, double intercept, double *preds, int loss) {
+void cdPredict(raft::handle_t &handle, const double *input, int n_rows,
+               int n_cols, const double *coef, double intercept, double *preds,
+               int loss) {
   ML::loss_funct loss_funct = ML::loss_funct::SQRD_LOSS;
   if (loss == 0) {
     loss_funct = ML::loss_funct::SQRD_LOSS;
@@ -241,8 +243,8 @@ void cdPredict(cumlHandle &handle, const double *input, int n_rows, int n_cols,
     ASSERT(false, "glm.cu: other functions are not supported yet.");
   }
 
-  cdPredict(handle.getImpl(), input, n_rows, n_cols, coef, intercept, preds,
-            loss_funct, handle.getStream());
+  cdPredict(handle, input, n_rows, n_cols, coef, intercept, preds, loss_funct,
+            handle.get_stream());
 }
 
 }  // namespace Solver

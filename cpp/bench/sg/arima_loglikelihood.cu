@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-#include <cuml/cuml.hpp>
-
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 
 #include <cuml/tsa/arima_common.h>
-#include <random/rng.h>
 #include <cuml/tsa/batched_arima.hpp>
+#include <raft/handle.hpp>
+#include <raft/random/rng.cuh>
 
+#include <raft/cudart_utils.h>
 #include "benchmark.cuh"
 
 namespace ML {
@@ -46,13 +46,12 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
     using MLCommon::Bench::CudaEventTimer;
 
     auto& handle = *this->handle;
-    auto stream = handle.getStream();
+    auto stream = handle.get_stream();
     auto counting = thrust::make_counting_iterator(0);
 
     // Generate random parameters
     int N = order.complexity();
-    MLCommon::Random::Rng gpu_gen(this->params.seed,
-                                  MLCommon::Random::GenPhilox);
+    raft::random::Rng gpu_gen(this->params.seed, raft::random::GenPhilox);
     gpu_gen.uniform(param, N * this->params.batch_size, -1.0, 1.0, stream);
     // Set sigma2 parameters to 1.0
     DataT* x = param;  // copy the object attribute for thrust
@@ -75,8 +74,8 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
     Fixture::allocateBuffers(state);
 
     auto& handle = *this->handle;
-    auto stream = handle.getStream();
-    auto allocator = handle.getDeviceAllocator();
+    auto stream = handle.get_stream();
+    auto allocator = handle.get_device_allocator();
 
     // Buffer for the model parameters
     param = (DataT*)allocator->allocate(
@@ -86,28 +85,24 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
     loglike = (DataT*)allocator->allocate(
       this->params.batch_size * sizeof(DataT), stream);
     residual = (DataT*)allocator->allocate(
-      this->params.batch_size * (this->params.n_obs - order.lost_in_diff()) *
-        sizeof(DataT),
-      stream);
+      this->params.batch_size * this->params.n_obs * sizeof(DataT), stream);
   }
 
   void deallocateBuffers(const ::benchmark::State& state) {
     Fixture::deallocateBuffers(state);
 
     auto& handle = *this->handle;
-    auto stream = handle.getStream();
-    auto allocator = handle.getDeviceAllocator();
+    auto stream = handle.get_stream();
+    auto allocator = handle.get_device_allocator();
 
     allocator->deallocate(
       param, order.complexity() * this->params.batch_size * sizeof(DataT),
       stream);
     allocator->deallocate(loglike, this->params.batch_size * sizeof(DataT),
                           stream);
-    allocator->deallocate(residual,
-                          this->params.batch_size *
-                            (this->params.n_obs - order.lost_in_diff()) *
-                            sizeof(DataT),
-                          stream);
+    allocator->deallocate(
+      residual, this->params.batch_size * this->params.n_obs * sizeof(DataT),
+      stream);
   }
 
  protected:

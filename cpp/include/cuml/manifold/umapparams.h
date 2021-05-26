@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,10 @@
 
 #pragma once
 
-#include <internals/internals.h>
+#include <cuml/common/callback.hpp>
 #include <cuml/common/logger.hpp>
-#include <string>
 
 namespace ML {
-
-using namespace ML::Internals;
 
 class UMAPParams {
  public:
@@ -153,11 +150,14 @@ class UMAPParams {
 
   uint64_t random_state = 0;
 
-  bool multicore_implem = true;
+  /**
+   *  Whether should we use deterministic algorithm.  This should be set to true if
+      random_state is provided, otherwise it's false.  When it's true, cuml will have
+      higher memory usage but produce stable numeric output.
+   */
+  bool deterministic = true;
 
-  int optim_batch_size = 0;
-
-  GraphBasedDimRedCallback* callback = nullptr;
+  Internals::GraphBasedDimRedCallback* callback = nullptr;
 };
 
 }  // namespace ML

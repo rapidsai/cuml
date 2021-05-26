@@ -26,8 +26,6 @@
 namespace ML {
 namespace Solver {
 
-using namespace MLCommon;
-
 template <typename math_t>
 void initShuffle(std::vector<math_t> &rand_indices, std::mt19937 &g,
                  math_t random_state = 0) {

@@ -17,8 +17,6 @@
 # DEPRECATED: to be removed once full migration to CumlArray is done
 # remaining usages: blobs.pyx, regression.pyx
 
-import rmm
-
 from numba import cuda
 from numba.cuda.cudadrv.driver import driver
 
@@ -37,11 +35,11 @@ def gpu_zeros_2d(out):
         out[i][j] = 0
 
 
-def zeros(size, dtype, order='F'):
+def zeros(size, dtype, order="F"):
     """
     Return device array of zeros generated on device.
     """
-    out = rmm.device_array(size, dtype=dtype, order=order)
+    out = cuda.device_array(size, dtype=dtype, order=order)
     if isinstance(size, tuple):
         tpb = driver.get_device().MAX_THREADS_PER_BLOCK
         nrows = size[0]

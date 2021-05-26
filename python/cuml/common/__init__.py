@@ -15,8 +15,9 @@
 #
 
 from cuml.common.array import CumlArray
+from cuml.common.array_sparse import SparseCumlArray
 
-## utils
+# utils
 
 from cuml.common.pointer_utils import device_of_gpu_matrix
 
@@ -34,12 +35,7 @@ from cuml.common.import_utils import has_dask
 from cuml.common.import_utils import check_min_numba_version
 from cuml.common.import_utils import check_min_cupy_version, has_scipy
 
-from cuml.common.kernel_utils import get_dtype_str
-from cuml.common.kernel_utils import cuda_kernel_factory
+# legacy to be removed after complete CumlAray migration
 
-## legacy to be removed after complete CumlAray migration
-
-from cuml.common.numba_utils import zeros
-from cuml.common.input_utils import get_cudf_column_ptr
-from cuml.common.input_utils import get_dev_array_ptr
-from cuml.common.input_utils import input_to_dev_array
+from cuml.common.input_utils import sparse_scipy_to_cp
+from cuml.common.timing_utils import timed

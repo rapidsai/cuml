@@ -15,3 +15,5 @@
 #
 
 from cuml.dask.preprocessing.label import LabelBinarizer
+from cuml.dask.preprocessing.encoders import OneHotEncoder
+from cuml.dask.preprocessing.LabelEncoder import LabelEncoder

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,9 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 #pragma once
+#include <cub/cub.cuh>
 #include "common_kernel.cuh"
-#include "cub/cub.cuh"
 
 namespace ML {
 namespace DecisionTree {
@@ -87,14 +88,14 @@ __global__ void pred_kernel_level(const T *__restrict__ labels,
   for (int tid = threadid; tid < nrows; tid += blockDim.x * gridDim.x) {
     T label = labels[tid];
     unsigned int count = sample_cnt[tid];
-    atomicAdd(&shmemcnt, count);
-    atomicAdd(&shmempred, label * count);
+    raft::myAtomicAdd(&shmemcnt, count);
+    raft::myAtomicAdd(&shmempred, label * count);
   }
   __syncthreads();
 
   if (threadIdx.x == 0) {
-    atomicAdd(predout, shmempred);
-    atomicAdd(countout, shmemcnt);
+    raft::myAtomicAdd(predout, shmempred);
+    raft::myAtomicAdd(countout, shmemcnt);
   }
   return;
 }
@@ -114,13 +115,13 @@ __global__ void mse_kernel_level(const T *__restrict__ labels,
     T label = labels[tid];
     unsigned int local_count = sample_cnt[tid];
     T value = F::exec(label - mean);
-    atomicAdd(&shmemmse, local_count * value);
+    raft::myAtomicAdd(&shmemmse, local_count * value);
   }
 
   __syncthreads();
 
   if (threadIdx.x == 0) {
-    atomicAdd(mseout, shmemmse);
+    raft::myAtomicAdd(mseout, shmemmse);
   }
   return;
 }
@@ -173,8 +174,10 @@ __global__ void get_pred_kernel(
       for (unsigned int binid = 0; binid < nbins; binid++) {
         if (local_data <= question(binid)) {
           unsigned int nodeoff = local_flag * nbins;
-          atomicAdd(&shmempred[nodeoff + binid], local_label * local_cnt);
-          atomicAdd(&shmemcount[nodeoff + binid], local_cnt);
+          raft::myAtomicAdd(&shmempred[nodeoff + binid],
+                            local_label * local_cnt);
+          raft::myAtomicAdd<unsigned int>(&shmemcount[nodeoff + binid],
+                                          local_cnt);
         }
       }
     }
@@ -182,8 +185,8 @@ __global__ void get_pred_kernel(
     __syncthreads();
     for (unsigned int i = threadIdx.x; i < nbins * n_nodes; i += blockDim.x) {
       unsigned int offset = colcnt * nbins * n_nodes;
-      atomicAdd(&predout[offset + i], shmempred[i]);
-      atomicAdd(&countout[offset + i], shmemcount[i]);
+      raft::myAtomicAdd(&predout[offset + i], shmempred[i]);
+      raft::myAtomicAdd(&countout[offset + i], shmemcount[i]);
     }
     __syncthreads();
   }
@@ -257,13 +260,13 @@ __global__ void get_mse_kernel(
         unsigned int local_count = shmem_countout[nodeoff + binid];
         if (local_data <= question(binid)) {
           T leftmean = local_pred / local_count;
-          atomicAdd(&shmem_mse[2 * (nodeoff + binid)],
-                    local_cnt * F::exec(local_label - leftmean));
+          raft::myAtomicAdd(&shmem_mse[2 * (nodeoff + binid)],
+                            local_cnt * F::exec(local_label - leftmean));
         } else {
           T rightmean = parent_pred * parent_count - local_pred;
           rightmean = rightmean / (parent_count - local_count);
-          atomicAdd(&shmem_mse[2 * (nodeoff + binid) + 1],
-                    local_cnt * F::exec(local_label - rightmean));
+          raft::myAtomicAdd(&shmem_mse[2 * (nodeoff + binid) + 1],
+                            local_cnt * F::exec(local_label - rightmean));
         }
       }
     }
@@ -271,7 +274,7 @@ __global__ void get_mse_kernel(
     __syncthreads();
     for (unsigned int i = threadIdx.x; i < 2 * nbins * n_nodes;
          i += blockDim.x) {
-      atomicAdd(&mseout[2 * coloff + i], shmem_mse[i]);
+      raft::myAtomicAdd(&mseout[2 * coloff + i], shmem_mse[i]);
     }
     __syncthreads();
   }
@@ -313,9 +316,10 @@ __global__ void get_pred_kernel_global(
         for (unsigned int binid = 0; binid < nbins; binid++) {
           if (local_data <= question(binid)) {
             unsigned int nodeoff = local_flag * nbins;
-            atomicAdd(&predout[coloffset + nodeoff + binid],
-                      local_label * local_cnt);
-            atomicAdd(&countout[coloffset + nodeoff + binid], local_cnt);
+            raft::myAtomicAdd(&predout[coloffset + nodeoff + binid],
+                              local_label * local_cnt);
+            raft::myAtomicAdd<unsigned int>(
+              &countout[coloffset + nodeoff + binid], local_cnt);
           }
         }
       }
@@ -368,13 +372,13 @@ __global__ void get_mse_kernel_global(
           unsigned int local_count = countout[coloff + nodeoff + binid];
           if (local_data <= question(binid)) {
             T leftmean = local_pred / local_count;
-            atomicAdd(&mseout[2 * (coloff + nodeoff + binid)],
-                      local_cnt * F::exec(local_label - leftmean));
+            raft::myAtomicAdd(&mseout[2 * (coloff + nodeoff + binid)],
+                              local_cnt * F::exec(local_label - leftmean));
           } else {
             T rightmean = parent_pred * parent_count - local_pred;
             rightmean = rightmean / (parent_count - local_count);
-            atomicAdd(&mseout[2 * (coloff + nodeoff + binid) + 1],
-                      local_cnt * F::exec(local_label - rightmean));
+            raft::myAtomicAdd(&mseout[2 * (coloff + nodeoff + binid) + 1],
+                              local_cnt * F::exec(local_label - rightmean));
           }
         }
       }
@@ -549,7 +553,7 @@ __global__ void best_split_gather_regression_mse_kernel(
   for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
     dataid = samplelist[nodestart + tid];
     local_label = labels[dataid];
-    atomicAdd(&mean_parent, local_label);
+    raft::myAtomicAdd(&mean_parent, local_label);
   }
 
   //Loop over cols
@@ -572,9 +576,9 @@ __global__ void best_split_gather_regression_mse_kernel(
 #pragma unroll(8)
       for (unsigned int binid = 0; binid < nbins; binid++) {
         if (local_data <= question(binid)) {
-          atomicAdd(&shmean_left[binid], local_label);
+          raft::myAtomicAdd(&shmean_left[binid], local_label);
         } else {
-          atomicAdd(&shcount_right[binid], 1);
+          raft::myAtomicAdd<unsigned int>(&shcount_right[binid], 1);
         }
       }
     }
@@ -653,7 +657,7 @@ __global__ void best_split_gather_regression_mse_minmax_kernel(
   for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
     dataid = samplelist[nodestart + tid];
     local_label = labels[dataid];
-    atomicAdd(&mean_parent, local_label);
+    raft::myAtomicAdd(&mean_parent, local_label);
   }
 
   //Loop over cols
@@ -692,9 +696,9 @@ __global__ void best_split_gather_regression_mse_minmax_kernel(
 #pragma unroll(8)
       for (unsigned int binid = 0; binid < nbins; binid++) {
         if (local_data <= threadmin + delta * (binid + 1)) {
-          atomicAdd(&shmean_left[binid], local_label);
+          raft::myAtomicAdd(&shmean_left[binid], local_label);
         } else {
-          atomicAdd(&shcount_right[binid], 1);
+          raft::myAtomicAdd<unsigned int>(&shcount_right[binid], 1);
         }
       }
     }
@@ -748,7 +752,7 @@ __global__ void make_leaf_gather_regression_kernel(
   for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
     unsigned int dataid = samplelist[nodestart + tid];
     T local_label = labels[dataid];
-    atomicAdd(&mean_parent, local_label);
+    raft::myAtomicAdd(&mean_parent, local_label);
   }
   __syncthreads();
   if (threadIdx.x == 0) {
@@ -803,14 +807,14 @@ __global__ void best_split_gather_regression_mae_kernel(
   for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
     dataid = samplelist[nodestart + tid];
     local_label = labels[dataid];
-    atomicAdd(&mean_parent, local_label);
+    raft::myAtomicAdd(&mean_parent, local_label);
   }
   __syncthreads();
   for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
     dataid = get_samplelist(samplelist, dataid, nodestart, tid, count);
     local_label = get_label(labels, local_label, dataid, count);
     T value = (mean_parent / count) - local_label;
-    atomicAdd(&mae_parent, MLCommon::myAbs(value));
+    raft::myAtomicAdd(&mae_parent, raft::myAbs(value));
   }
   //Loop over cols
   for (unsigned int colcnt = 0; colcnt < ncols_sampled; colcnt++) {
@@ -835,9 +839,9 @@ __global__ void best_split_gather_regression_mae_kernel(
 #pragma unroll(8)
       for (unsigned int binid = 0; binid < nbins; binid++) {
         if (local_data <= question(binid)) {
-          atomicAdd(&shmean_left[binid], local_label);
+          raft::myAtomicAdd(&shmean_left[binid], local_label);
         } else {
-          atomicAdd(&shcount_right[binid], 1);
+          raft::myAtomicAdd<unsigned int>(&shcount_right[binid], 1);
         }
       }
     }
@@ -852,12 +856,12 @@ __global__ void best_split_gather_regression_mae_kernel(
         if (local_data <= question(binid)) {
           T value =
             (shmean_left[binid] / (count - shcount_right[binid])) - local_label;
-          atomicAdd(&shmae_left[binid], MLCommon::myAbs(value));
+          raft::myAtomicAdd(&shmae_left[binid], raft::myAbs(value));
         } else {
           T value =
             ((mean_parent - shmean_left[binid]) / shcount_right[binid]) -
             local_label;
-          atomicAdd(&shmae_right[binid], MLCommon::myAbs(value));
+          raft::myAtomicAdd(&shmae_right[binid], raft::myAbs(value));
         }
       }
     }
@@ -939,14 +943,14 @@ __global__ void best_split_gather_regression_mae_minmax_kernel(
   for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
     dataid = samplelist[nodestart + tid];
     local_label = labels[dataid];
-    atomicAdd(&mean_parent, local_label);
+    raft::myAtomicAdd(&mean_parent, local_label);
   }
   __syncthreads();
   for (int tid = threadIdx.x; tid < count; tid += blockDim.x) {
     dataid = get_samplelist(samplelist, dataid, nodestart, tid, count);
     local_label = get_label(labels, local_label, dataid, count);
     T value = (mean_parent / count) - local_label;
-    atomicAdd(&mae_parent, MLCommon::myAbs(value));
+    raft::myAtomicAdd(&mae_parent, raft::myAbs(value));
   }
 
   //Loop over cols
@@ -989,9 +993,9 @@ __global__ void best_split_gather_regression_mae_minmax_kernel(
 #pragma unroll(8)
       for (unsigned int binid = 0; binid < nbins; binid++) {
         if (local_data <= threadmin + delta * (binid + 1)) {
-          atomicAdd(&shmean_left[binid], local_label);
+          raft::myAtomicAdd(&shmean_left[binid], local_label);
         } else {
-          atomicAdd(&shcount_right[binid], 1);
+          raft::myAtomicAdd<unsigned int>(&shcount_right[binid], 1);
         }
       }
     }
@@ -1006,12 +1010,12 @@ __global__ void best_split_gather_regression_mae_minmax_kernel(
         if (local_data <= threadmin + delta * (binid + 1)) {
           T value =
             (shmean_left[binid] / (count - shcount_right[binid])) - local_label;
-          atomicAdd(&shmae_left[binid], MLCommon::myAbs(value));
+          raft::myAtomicAdd(&shmae_left[binid], raft::myAbs(value));
         } else {
           T value =
             ((mean_parent - shmean_left[binid]) / shcount_right[binid]) -
             local_label;
-          atomicAdd(&shmae_right[binid], MLCommon::myAbs(value));
+          raft::myAtomicAdd(&shmae_right[binid], raft::myAbs(value));
         }
       }
     }

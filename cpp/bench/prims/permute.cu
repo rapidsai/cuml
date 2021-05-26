@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,10 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
-#include <random/permute.h>
-#include <random/rng.h>
+#include <raft/cudart_utils.h>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/random/rng.cuh>
+#include <random/permute.cuh>
 #include "../common/ml_benchmark.hpp"
 
 namespace MLCommon {
@@ -31,8 +32,8 @@ struct Params {
 template <typename T>
 struct Permute : public Fixture {
   Permute(const std::string& name, const Params& p)
-    : Fixture(name,
-              std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)),
+    : Fixture(name, std::shared_ptr<raft::mr::device::allocator>(
+                      new raft::mr::device::default_allocator)),
       params(p) {}
 
  protected:
@@ -44,7 +45,7 @@ struct Permute : public Fixture {
     } else {
       perms = nullptr;
     }
-    MLCommon::Random::Rng r(123456ULL);
+    raft::random::Rng r(123456ULL);
     if (params.needShuffle) {
       alloc(out, matLen);
       alloc(in, matLen);
@@ -67,7 +68,7 @@ struct Permute : public Fixture {
   }
 
   void runBenchmark(::benchmark::State& state) override {
-    MLCommon::Random::Rng r(123456ULL);
+    raft::random::Rng r(123456ULL);
     loopOnState(state, [this, &r]() {
       MLCommon::Random::permute(perms, out, in, params.cols, params.rows,
                                 params.rowMajor, stream);

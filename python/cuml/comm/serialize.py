@@ -33,6 +33,8 @@ try:
 
     from distributed.protocol import register_generic
 
+    from cuml.common.array_sparse import SparseCumlArray
+
     from cuml.ensemble import RandomForestRegressor
     from cuml.ensemble import RandomForestClassifier
 
@@ -59,6 +61,12 @@ try:
     @cuda_deserialize.register(RandomForestClassifier)
     def rfc_deserialize(header, frames):
         return pickle_loads(header, frames)
+
+    register_generic(SparseCumlArray, 'cuda',
+                     cuda_serialize, cuda_deserialize)
+
+    register_generic(SparseCumlArray, 'dask',
+                     dask_serialize, dask_deserialize)
 
     register_generic(cuml.Base, 'cuda',
                      cuda_serialize, cuda_deserialize)

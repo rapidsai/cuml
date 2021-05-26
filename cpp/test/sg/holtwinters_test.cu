@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,18 +14,17 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
-#include <cuda_utils.h>
 #include <cuml/tsa/holtwinters.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <test_utils.h>
 #include <algorithm>
 #include <cuml/common/logger.hpp>
+#include <raft/cuda_utils.cuh>
+#include <raft/handle.hpp>
 #include "time_series_datasets.h"
 
 namespace ML {
-
-using namespace MLCommon;
 
 template <typename T>
 struct HoltWintersInputs {
@@ -68,17 +67,17 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs<T>> {
       &leveltrend_coef_offset,  // = (n-wlen-1)*batch_size (last row)
       &season_coef_offset);  // = (n-wlen-frequency)*batch_size(last freq rows)
 
-    allocate(level_ptr, components_len, stream);
-    allocate(trend_ptr, components_len, stream);
-    allocate(season_ptr, components_len, stream);
-    allocate(SSE_error_ptr, batch_size, stream);
-    allocate(forecast_ptr, batch_size * h, stream);
+    raft::allocate(level_ptr, components_len, stream);
+    raft::allocate(trend_ptr, components_len, stream);
+    raft::allocate(season_ptr, components_len, stream);
+    raft::allocate(SSE_error_ptr, batch_size, stream);
+    raft::allocate(forecast_ptr, batch_size * h, stream);
 
-    allocate(data, batch_size * n);
-    updateDevice(data, dataset_h, batch_size * n, stream);
+    raft::allocate(data, batch_size * n);
+    raft::update_device(data, dataset_h, batch_size * n, stream);
 
-    cumlHandle handle;
-    handle.setStream(stream);
+    raft::handle_t handle;
+    handle.set_stream(stream);
 
     ML::HoltWinters::fit(handle, n, batch_size, frequency, start_periods,
                          seasonal, epsilon, data, level_ptr, trend_ptr,
@@ -153,7 +152,7 @@ T calculate_MAE(T *test, T *forecast, int batch_size, int h) {
   normalise(forecast, batch_size * h);
   std::vector<T> ae(batch_size * h);
   for (int i = 0; i < batch_size * h; i++) {
-    ae[i] = abs(test[i] - forecast[i]);
+    ae[i] = raft::abs(test[i] - forecast[i]);
   }
   std::sort(ae.begin(), ae.end());
   T mae;
@@ -168,8 +167,9 @@ T calculate_MAE(T *test, T *forecast, int batch_size, int h) {
 typedef HoltWintersTest<float> HoltWintersTestF;
 TEST_P(HoltWintersTestF, Fit) {
   std::vector<float> forecast_h(batch_size * h);
-  updateHost(forecast_h.data(), forecast_ptr, batch_size * h, stream);
-  myPrintHostVector("forecast", forecast_h.data(), batch_size * h);
+  raft::update_host(forecast_h.data(), forecast_ptr, batch_size * h, stream);
+  raft::print_host_vector("forecast", forecast_h.data(), batch_size * h,
+                          std::cout);
   float mae = calculate_MAE<float>(test, forecast_h.data(), batch_size, h);
   CUML_LOG_DEBUG("MAE: %f", mae);
   ASSERT_TRUE(mae < mae_tolerance);
@@ -178,8 +178,9 @@ TEST_P(HoltWintersTestF, Fit) {
 typedef HoltWintersTest<double> HoltWintersTestD;
 TEST_P(HoltWintersTestD, Fit) {
   std::vector<double> forecast_h(batch_size * h);
-  updateHost(forecast_h.data(), forecast_ptr, batch_size * h, stream);
-  myPrintHostVector("forecast", forecast_h.data(), batch_size * h);
+  raft::update_host(forecast_h.data(), forecast_ptr, batch_size * h, stream);
+  raft::print_host_vector("forecast", forecast_h.data(), batch_size * h,
+                          std::cout);
   double mae = calculate_MAE<double>(test, forecast_h.data(), batch_size, h);
   CUML_LOG_DEBUG("MAE: %f", mae);
   ASSERT_TRUE(mae < mae_tolerance);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,12 +18,13 @@
 
 #include <cublas_v2.h>
 #include <cuml/matrix/kernelparams.h>
-#include <common/cumlHandle.hpp>
-#include "svm_model.h"
-#include "svm_parameter.h"
 
 namespace ML {
 namespace SVM {
+
+template <typename math_t>
+struct svmModel;
+struct svmParameter;
 
 // Forward declarations of the stateless API
 /**
@@ -43,12 +44,13 @@ namespace SVM {
  * @param [in] param parameters for training
  * @param [in] kernel_params parameters for the kernel function
  * @param [out] model parameters of the trained model
+ * @param [in] sample_weight optional sample weights, size [n_rows]
  */
 template <typename math_t>
-void svrFit(const cumlHandle &handle, math_t *X, int n_rows, int n_cols,
+void svrFit(const raft::handle_t &handle, math_t *X, int n_rows, int n_cols,
             math_t *y, const svmParameter &param,
             MLCommon::Matrix::KernelParams &kernel_params,
-            svmModel<math_t> &model);
+            svmModel<math_t> &model, const math_t *sample_weight = nullptr);
 
 // For prediction we use svcPredict
 

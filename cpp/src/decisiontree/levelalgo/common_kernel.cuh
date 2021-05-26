@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 #pragma once
-#include "cuda_utils.h"
+#include <raft/cuda_utils.cuh>
 #define LEAF 0xFFFFFFFF
 #define PUSHRIGHT 0x00000001
-#include "stats/minmax.h"
+#include <stats/minmax.cuh>
 
 namespace ML {
 namespace DecisionTree {
@@ -192,7 +192,7 @@ __global__ void setup_counts_kernel(unsigned int* sample_cnt,
   for (int tid = threadid; tid < n_sampled_rows;
        tid += blockDim.x * gridDim.x) {
     unsigned int stid = rowids[tid];
-    atomicAdd(&sample_cnt[stid], 1);
+    raft::myAtomicAdd<unsigned int>(&sample_cnt[stid], 1);
   }
 }
 //This initializes the flags to 0x00000000. IF a sample is not used at all we Leaf out.
@@ -307,7 +307,7 @@ __global__ void fill_counts(const unsigned int* __restrict__ flagsptr,
     unsigned int nodeid = flagsptr[tid];
     if (nodeid != LEAF) {
       unsigned int count = sample_cnt[tid];
-      atomicAdd(&nodecount[nodeid], count);
+      raft::myAtomicAdd(&nodecount[nodeid], count);
     }
   }
 }

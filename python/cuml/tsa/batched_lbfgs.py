@@ -14,6 +14,7 @@
 # limitations under the License.
 #
 
+import cuml.common.logger as logger
 import numpy as np
 
 from cuml.common.cuda import nvtx_range_push, nvtx_range_pop
@@ -164,8 +165,8 @@ def batched_fmin_lbfgs_b(func, x0, num_batches, fprime=None, args=(),
         for ib in range(num_batches):
             if converged[ib]:
                 continue
-            task_str = task[ib].tostring()
-            task_str_strip = task[ib].tostring().strip(b'\x00').strip()
+            task_str = task[ib].tobytes()
+            task_str_strip = task[ib].tobytes().strip(b'\x00').strip()
             if task_str.startswith(b'FG'):
                 # needs function evalation
                 f[ib] = fk[ib]
@@ -186,7 +187,7 @@ def batched_fmin_lbfgs_b(func, x0, num_batches, fprime=None, args=(),
     xk = np.concatenate(x)
 
     if iprint > 0:
-        print("CONVERGED in ({}-{}) iterations (|\\/f|={})".format(
+        logger.info("CONVERGED in ({}-{}) iterations (|\\/f|={})".format(
             np.min(n_iterations),
             np.max(n_iterations),
             np.linalg.norm(fprime(xk), np.inf)))
@@ -194,8 +195,8 @@ def batched_fmin_lbfgs_b(func, x0, num_batches, fprime=None, args=(),
         if (warn_flag > 0).any():
             for ib in range(num_batches):
                 if warn_flag[ib] > 0:
-                    print("WARNING: id={} convergence issue: {}".format(
-                        ib, task[ib].tostring()))
+                    logger.info("WARNING: id={} convergence issue: {}".format(
+                        ib, task[ib].tobytes()))
 
     nvtx_range_pop()
     return xk, n_iterations, warn_flag

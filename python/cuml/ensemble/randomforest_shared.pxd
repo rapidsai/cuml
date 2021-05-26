@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,35 +14,26 @@
 # limitations under the License.
 #
 
-# cython: profile=False
-# distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
-
 import ctypes
 import math
 import numpy as np
 import warnings
 
 from libcpp cimport bool
-from libc.stdint cimport uintptr_t
+from libc.stdint cimport uintptr_t, uint64_t
 from libc.stdlib cimport calloc, malloc, free
 from libcpp.vector cimport vector
+from libcpp.string cimport string
 
-from cuml.common.handle import Handle
+from cuml.raft.common.handle import Handle
 from cuml import ForestInference
 from cuml.common.base import Base
-from cuml.common.handle cimport cumlHandle
-from cuml.common import get_cudf_column_ptr, get_dev_array_ptr, \
-    input_to_dev_array, zeros
-cimport cuml.common.handle
+from cuml.raft.common.handle cimport handle_t
 cimport cuml.common.cuda
 
 cdef extern from "treelite/c_api.h":
     ctypedef void* ModelHandle
     ctypedef void* ModelBuilderHandle
-    cdef int TreeliteExportProtobufModel(const char* filename,
-                                         ModelHandle model)
     cdef const char* TreeliteGetLastError()
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
@@ -52,18 +43,6 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
         MSE,
         MAE,
         CRITERION_END
-
-cdef extern from "cuml/tree/decisiontree.hpp" namespace "ML::DecisionTree":
-    cdef struct DecisionTreeParams:
-        int max_depth
-        int max_leaves
-        float max_features
-        int n_bins
-        int split_algo
-        int min_rows_per_node
-        bool bootstrap_features
-        bool quantile_per_tree
-        CRITERION split_criterion
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
 
@@ -85,7 +64,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
     cdef struct RF_params:
         int n_trees
         bool bootstrap
-        float rows_sample
+        float max_samples
         int seed
         pass
 
@@ -99,29 +78,36 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
     cdef void build_treelite_forest[T, L](ModelHandle*,
                                           RandomForestMetaData[T, L]*,
                                           int,
-                                          int,
-                                          vector[unsigned char] &) except +
+                                          int) except +
 
-    cdef vector[unsigned char] save_model_protobuf(ModelHandle) except +
+    cdef void delete_rf_metadata[T, L](RandomForestMetaData[T, L]*) except +
 
-    cdef void print_rf_summary[T, L](RandomForestMetaData[T, L]*) except +
-    cdef void print_rf_detailed[T, L](RandomForestMetaData[T, L]*) except +
+    #
+    # Text representation of random forest
+    #
+    cdef string get_rf_summary_text[T, L](RandomForestMetaData[T, L]*) except +
+    cdef string get_rf_detailed_text[T, L](RandomForestMetaData[T, L]*
+                                           ) except +
+    cdef string get_rf_json[T, L](RandomForestMetaData[T, L]*) except +
 
-    cdef RF_params set_rf_class_obj(int,
-                                    int,
-                                    float,
-                                    int,
-                                    int,
-                                    int,
-                                    float,
-                                    bool,
-                                    bool,
-                                    int,
-                                    float,
-                                    int,
-                                    CRITERION,
-                                    bool,
-                                    int) except +
+    cdef RF_params set_rf_params(int,
+                                 int,
+                                 float,
+                                 int,
+                                 int,
+                                 int,
+                                 int,
+                                 float,
+                                 bool,
+                                 bool,
+                                 int,
+                                 float,
+                                 uint64_t,
+                                 CRITERION,
+                                 bool,
+                                 int,
+                                 bool,
+                                 int) except +
 
     cdef vector[unsigned char] save_model(ModelHandle)
 

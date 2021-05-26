@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ class TruncatedSVD(BaseDecomposition,
                    DecompositionSyncFitMixin):
     """
     Examples
-    ---------
+    --------
 
     .. code-block:: python
 
@@ -45,7 +45,8 @@ class TruncatedSVD(BaseDecomposition,
         n_parts = 2
 
         X_cudf, _ = make_blobs(nrows, ncols, 1, n_parts,
-                        cluster_std=1.8, verbose=False,
+                        cluster_std=1.8,
+                        verbose=cuml.logger.level_info,
                         random_state=10, dtype=np.float32)
 
         wait(X_cudf)
@@ -63,38 +64,45 @@ class TruncatedSVD(BaseDecomposition,
 
     .. code-block:: python
 
-          Input Matrix:
-                              0         1          2
-                    0 -8.519647 -8.519222  -8.865648
-                    1 -6.107700 -8.350124 -10.351215
-                    2 -8.026635 -9.442240  -7.561770
-                    0 -8.519647 -8.519222  -8.865648
-                    1 -6.107700 -8.350124 -10.351215
-                    2 -8.026635 -9.442240  -7.561770
+        Input Matrix:
+                            0         1          2
+                  0 -8.519647 -8.519222  -8.865648
+                  1 -6.107700 -8.350124 -10.351215
+                  2 -8.026635 -9.442240  -7.561770
+                  0 -8.519647 -8.519222  -8.865648
+                  1 -6.107700 -8.350124 -10.351215
+                  2 -8.026635 -9.442240  -7.561770
 
-          Transformed Input Matrix:
-                               0
-                    0  14.928891
-                    1  14.487295
-                    2  14.431235
-                    0  14.928891
-                    1  14.487295
-                    2  14.431235
-    Note: Everytime this code is run, the output will be different because
-          "make_blobs" function generates random matrices.
+        Transformed Input Matrix:
+                             0
+                  0  14.928891
+                  1  14.487295
+                  2  14.431235
+                  0  14.928891
+                  1  14.487295
+                  2  14.431235
+
+    .. note:: Everytime this code is run, the output will be different because
+        "make_blobs" function generates random matrices.
 
     Parameters
     ----------
     handle : cuml.Handle
-        If it is None, a new one is created just for this class
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
     n_components : int (default = 1)
         The number of top K singular vectors / values you want.
         Must be <= number(columns).
     svd_solver : 'full'
         Only Full algorithm is supported since it's significantly faster on GPU
         then the other solvers including randomized SVD.
-    verbose : bool
-        Whether to print debug spews
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
 
     Attributes
     ----------
@@ -106,15 +114,16 @@ class TruncatedSVD(BaseDecomposition,
         How much in % the variance is explained given by S**2/sum(S**2)
     singular_values_ : array
         The top K singular values. Remember all singular values >= 0
+
     """
 
-    def __init__(self, client=None, **kwargs):
+    def __init__(self, *, client=None, **kwargs):
         """
         Constructor for distributed TruncatedSVD model
         """
-        super(TruncatedSVD, self).__init__(TruncatedSVD._create_tsvd,
-                                           client,
-                                           **kwargs)
+        super().__init__(TruncatedSVD._create_tsvd,
+                         client,
+                         **kwargs)
 
     def fit(self, X, _transform=False):
         """
@@ -125,7 +134,11 @@ class TruncatedSVD(BaseDecomposition,
         X : dask cuDF input
 
         """
-        out = self._fit(X, _transform)
+
+        # `_transform=True` here as tSVD currently needs to
+        # call `fit_transform` to be able to build
+        # `explained_variance_`
+        out = self._fit(X, _transform=True)
         if _transform:
             return out
         return self
@@ -146,9 +159,9 @@ class TruncatedSVD(BaseDecomposition,
 
     def transform(self, X, delayed=True):
         """
-        Apply dimensionality reduction to X.
+        Apply dimensionality reduction to `X`.
 
-        X is projected on the first principal components previously extracted
+        `X` is projected on the first principal components previously extracted
         from a training set.
 
         Parameters

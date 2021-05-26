@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import pytest
 
 from sklearn.metrics import accuracy_score
 from cuml.naive_bayes import MultinomialNB
+from cuml.common.input_utils import sparse_scipy_to_cp
 
 from numpy.testing import assert_allclose
 from sklearn.naive_bayes import MultinomialNB as skNB
@@ -27,17 +28,6 @@ from sklearn.naive_bayes import MultinomialNB as skNB
 import math
 
 import numpy as np
-
-
-def scipy_to_cp(sp, dtype):
-    coo = sp.tocoo()
-    values = coo.data
-
-    r = cp.asarray(coo.row)
-    c = cp.asarray(coo.col)
-    v = cp.asarray(values, dtype=dtype)
-
-    return cp.sparse.coo_matrix((v, (r, c)), sp.shape)
 
 
 @pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
@@ -49,7 +39,7 @@ def test_basic_fit_predict_sparse(x_dtype, y_dtype, nlp_20news):
 
     X, y = nlp_20news
 
-    X = scipy_to_cp(X, x_dtype).astype(x_dtype)
+    X = sparse_scipy_to_cp(X, x_dtype).astype(x_dtype)
     y = y.astype(y_dtype)
 
     # Priming it seems to lower the end-to-end runtime
@@ -70,7 +60,31 @@ def test_basic_fit_predict_sparse(x_dtype, y_dtype, nlp_20news):
     assert accuracy_score(y, y_hat) >= 0.924
 
 
-@pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
+@pytest.mark.parametrize("x_dtype", [cp.int32, cp.int64])
+@pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
+def test_sparse_integral_dtype_fails(x_dtype, y_dtype, nlp_20news):
+    X, y = nlp_20news
+
+    X = X.astype(x_dtype)
+    y = y.astype(y_dtype)
+
+    # Priming it seems to lower the end-to-end runtime
+    model = MultinomialNB()
+
+    with pytest.raises(ValueError):
+        model.fit(X, y)
+
+    X = X.astype(cp.float32)
+    model.fit(X, y)
+
+    X = X.astype(x_dtype)
+
+    with pytest.raises(ValueError):
+        model.predict(X)
+
+
+@pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64,
+                                     cp.int32])
 @pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
 def test_basic_fit_predict_dense_numpy(x_dtype, y_dtype, nlp_20news):
     """
@@ -78,14 +92,14 @@ def test_basic_fit_predict_dense_numpy(x_dtype, y_dtype, nlp_20news):
     """
     X, y = nlp_20news
 
-    X = scipy_to_cp(X, x_dtype).astype(x_dtype)
+    X = sparse_scipy_to_cp(X, cp.float32)
     y = y.astype(y_dtype)
 
     X = X.tocsr()[0:500].todense()
     y = y[:500]
 
     model = MultinomialNB()
-    model.fit(np.ascontiguousarray(cp.asnumpy(X)), y)
+    model.fit(np.ascontiguousarray(cp.asnumpy(X).astype(x_dtype)), y)
 
     y_hat = model.predict(X)
 
@@ -96,13 +110,14 @@ def test_basic_fit_predict_dense_numpy(x_dtype, y_dtype, nlp_20news):
 
 
 @pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
-@pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
+@pytest.mark.parametrize("y_dtype", [cp.int32,
+                                     cp.float32, cp.float64])
 def test_partial_fit(x_dtype, y_dtype, nlp_20news):
     chunk_size = 500
 
     X, y = nlp_20news
 
-    X = scipy_to_cp(X, x_dtype).astype(x_dtype)
+    X = sparse_scipy_to_cp(X, x_dtype).astype(x_dtype)
     y = y.astype(y_dtype)
 
     X = X.tocsr()
@@ -147,7 +162,7 @@ def test_predict_proba(x_dtype, y_dtype, nlp_20news):
 
     X, y = nlp_20news
 
-    cu_X = scipy_to_cp(X, x_dtype).astype(x_dtype)
+    cu_X = sparse_scipy_to_cp(X, x_dtype).astype(x_dtype)
     cu_y = y.astype(y_dtype)
 
     cu_X = cu_X.tocsr()
@@ -173,7 +188,7 @@ def test_predict_log_proba(x_dtype, y_dtype, nlp_20news):
 
     X, y = nlp_20news
 
-    cu_X = scipy_to_cp(X, x_dtype).astype(x_dtype)
+    cu_X = sparse_scipy_to_cp(X, x_dtype).astype(x_dtype)
     cu_y = y.astype(y_dtype)
 
     cu_X = cu_X.tocsr()
@@ -199,7 +214,7 @@ def test_score(x_dtype, y_dtype, nlp_20news):
 
     X, y = nlp_20news
 
-    cu_X = scipy_to_cp(X, x_dtype).astype(x_dtype)
+    cu_X = sparse_scipy_to_cp(X, x_dtype).astype(x_dtype)
     cu_y = y.astype(y_dtype)
 
     cu_X = cu_X.tocsr()

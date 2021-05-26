@@ -14,7 +14,6 @@
 #
 
 import pytest
-from dask.distributed import Client
 from cuml.dask.common import utils as dask_utils
 from sklearn.metrics import mean_squared_error
 from sklearn.datasets import make_regression
@@ -56,43 +55,36 @@ def make_regression_dataset(datatype, nrows, ncols, n_info):
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("nrows", [1e4])
-@pytest.mark.parametrize("ncols", [10])
+@pytest.mark.parametrize("nrows", [1e5])
+@pytest.mark.parametrize("ncols", [20])
 @pytest.mark.parametrize("n_parts", [2, 23])
 @pytest.mark.parametrize("fit_intercept", [False, True])
 @pytest.mark.parametrize("normalize", [False])
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize("delayed", [True, False])
 def test_ols(nrows, ncols, n_parts, fit_intercept,
-             normalize, datatype, delayed, cluster):
+             normalize, datatype, delayed, client):
 
-    client = Client(cluster)
+    def imp():
+        import cuml.comm.serialize  # NOQA
 
-    try:
+    client.run(imp)
 
-        def imp():
-            import cuml.comm.serialize  # NOQA
+    from cuml.dask.linear_model import LinearRegression as cumlOLS_dask
 
-        client.run(imp)
+    n_info = 5
+    nrows = np.int(nrows)
+    ncols = np.int(ncols)
+    X, y = make_regression_dataset(datatype, nrows, ncols, n_info)
 
-        from cuml.dask.linear_model import LinearRegression as cumlOLS_dask
+    X_df, y_df = _prep_training_data(client, X, y, n_parts)
 
-        n_info = 5
-        nrows = np.int(nrows)
-        ncols = np.int(ncols)
-        X, y = make_regression_dataset(datatype, nrows, ncols, n_info)
+    lr = cumlOLS_dask(fit_intercept=fit_intercept, normalize=normalize)
 
-        X_df, y_df = _prep_training_data(client, X, y, n_parts)
+    lr.fit(X_df, y_df)
 
-        lr = cumlOLS_dask(fit_intercept=fit_intercept, normalize=normalize)
+    ret = lr.predict(X_df, delayed=delayed)
 
-        lr.fit(X_df, y_df)
+    error_cuml = mean_squared_error(y, ret.compute().to_pandas().values)
 
-        ret = lr.predict(X_df, delayed=delayed)
-
-        error_cuml = mean_squared_error(y, ret.compute().to_pandas().values)
-
-        assert(error_cuml < 1e-6)
-
-    finally:
-        client.close()
+    assert(error_cuml < 1e-6)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
 
 #include <cuml/manifold/umapparams.h>
+#include <raft/mr/device/allocator.hpp>
 #include "naive.cuh"
 
-#include "sparse/coo.h"
-
-#pragma once
+#include <raft/sparse/coo.cuh>
 
 namespace UMAPAlgo {
 
@@ -39,15 +39,15 @@ using namespace ML;
  * @param stream cuda stream
  * @param algorithm algo type to choose
  */
-template <int TPB_X, typename T>
-void run(int n, const int64_t *knn_indices, const T *knn_dists, int n_neighbors,
-         MLCommon::Sparse::COO<T> *coo, UMAPParams *params,
-         std::shared_ptr<deviceAllocator> alloc, cudaStream_t stream,
-         int algorithm = 0) {
+template <int TPB_X, typename value_idx, typename T>
+void run(int n, const value_idx *knn_indices, const T *knn_dists,
+         int n_neighbors, raft::sparse::COO<T> *coo, UMAPParams *params,
+         std::shared_ptr<raft::mr::device::allocator> alloc,
+         cudaStream_t stream, int algorithm = 0) {
   switch (algorithm) {
     case 0:
-      Naive::launcher<TPB_X, T>(n, knn_indices, knn_dists, n_neighbors, coo,
-                                params, alloc, stream);
+      Naive::launcher<TPB_X, value_idx, T>(
+        n, knn_indices, knn_dists, n_neighbors, coo, params, alloc, stream);
       break;
   }
 }

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,12 +22,18 @@ import sklearn.ensemble
 import sklearn.random_projection
 import sklearn.naive_bayes
 from sklearn import metrics
+from sklearn.impute import SimpleImputer as skSimpleImputer
 import cuml.metrics
 import cuml.decomposition
 import cuml.naive_bayes
 from cuml.common.import_utils import has_umap
 import numpy as np
 import tempfile
+
+from cuml.preprocessing import StandardScaler, MinMaxScaler, \
+                               MaxAbsScaler, Normalizer, \
+                               SimpleImputer, RobustScaler, \
+                               PolynomialFeatures
 
 from cuml.benchmark.bench_helper_funcs import (
     fit,
@@ -40,11 +46,8 @@ from cuml.benchmark.bench_helper_funcs import (
     _build_treelite_classifier,
     _treelite_fil_accuracy_score,
 )
-from cuml.common.import_utils import has_treelite
-
-if has_treelite():
-    import treelite
-    import treelite.runtime
+import treelite
+import treelite_runtime
 
 if has_umap():
     import umap
@@ -190,14 +193,7 @@ def _labels_to_int_hook(data):
 
 def _treelite_format_hook(data):
     """Helper function converting data into treelite format"""
-    from cuml.common.import_utils import has_treelite
-
-    if has_treelite():
-        import treelite
-        import treelite.runtime
-    else:
-        raise ImportError("No treelite package found")
-    return treelite.runtime.Batch.from_npy2d(data[0]), data[1]
+    return treelite_runtime.DMatrix(data[0]), data[1]
 
 
 def all_algorithms():
@@ -399,14 +395,14 @@ def all_algorithms():
             accuracy_function=cuml.metrics.accuracy_score
         ),
         AlgorithmPair(
-            treelite if has_treelite() else None,
+            treelite,
             cuml.ForestInference,
             shared_args=dict(num_rounds=100, max_depth=10),
             cuml_args=dict(
                 fil_algo="AUTO",
                 output_class=False,
                 threshold=0.5,
-                storage_type="AUTO",
+                storage_type="auto",
             ),
             name="FIL",
             accepts_labels=False,
@@ -417,7 +413,7 @@ def all_algorithms():
             bench_func=predict,
         ),
         AlgorithmPair(
-            treelite if has_treelite() else None,
+            treelite,
             cuml.ForestInference,
             shared_args=dict(n_estimators=100, max_leaf_nodes=2**10),
             cuml_args=dict(
@@ -448,6 +444,118 @@ def all_algorithms():
             name="UMAP-Supervised",
             accepts_labels=True,
             accuracy_function=cuml.metrics.trustworthiness,
+        ),
+        AlgorithmPair(
+            sklearn.preprocessing.StandardScaler,
+            StandardScaler,
+            shared_args=dict(),
+            name="StandardScaler",
+            accepts_labels=False,
+            bench_func=fit_transform
+        ),
+        AlgorithmPair(
+            sklearn.preprocessing.MinMaxScaler,
+            MinMaxScaler,
+            shared_args=dict(),
+            name="MinMaxScaler",
+            accepts_labels=False,
+            bench_func=fit_transform
+        ),
+        AlgorithmPair(
+            sklearn.preprocessing.MaxAbsScaler,
+            MaxAbsScaler,
+            shared_args=dict(),
+            name="MaxAbsScaler",
+            accepts_labels=False,
+            bench_func=fit_transform
+        ),
+        AlgorithmPair(
+            sklearn.preprocessing.Normalizer,
+            Normalizer,
+            shared_args=dict(),
+            name="Normalizer",
+            accepts_labels=False,
+            bench_func=fit_transform
+        ),
+        AlgorithmPair(
+            skSimpleImputer,
+            SimpleImputer,
+            shared_args=dict(),
+            name="SimpleImputer",
+            accepts_labels=False,
+            bench_func=fit_transform
+        ),
+        AlgorithmPair(
+            sklearn.preprocessing.RobustScaler,
+            RobustScaler,
+            shared_args=dict(),
+            name="RobustScaler",
+            accepts_labels=False,
+            bench_func=fit_transform
+        ),
+        AlgorithmPair(
+            sklearn.preprocessing.PolynomialFeatures,
+            PolynomialFeatures,
+            shared_args=dict(),
+            name="PolynomialFeatures",
+            accepts_labels=False,
+            bench_func=fit_transform
+        ),
+        AlgorithmPair(
+            sklearn.preprocessing.StandardScaler,
+            StandardScaler,
+            shared_args=dict(),
+            name="SparseCSRStandardScaler",
+            accepts_labels=False,
+            bench_func=fit_transform
+        ),
+        AlgorithmPair(
+            sklearn.preprocessing.MinMaxScaler,
+            MinMaxScaler,
+            shared_args=dict(),
+            name="SparseCSRMinMaxScaler",
+            accepts_labels=False,
+            bench_func=fit_transform
+        ),
+        AlgorithmPair(
+            sklearn.preprocessing.MaxAbsScaler,
+            MaxAbsScaler,
+            shared_args=dict(),
+            name="SparseCSRMaxAbsScaler",
+            accepts_labels=False,
+            bench_func=fit_transform
+        ),
+        AlgorithmPair(
+            sklearn.preprocessing.Normalizer,
+            Normalizer,
+            shared_args=dict(),
+            name="SparseCSRNormalizer",
+            accepts_labels=False,
+            bench_func=fit_transform
+        ),
+        AlgorithmPair(
+            sklearn.preprocessing.RobustScaler,
+            RobustScaler,
+            shared_args=dict(),
+            name="SparseCSCRobustScaler",
+            accepts_labels=False,
+            bench_func=fit_transform
+        ),
+        AlgorithmPair(
+            skSimpleImputer,
+            SimpleImputer,
+            shared_args=dict(),
+            name="SparseCSCSimpleImputer",
+            accepts_labels=False,
+            bench_func=fit_transform
+        ),
+        AlgorithmPair(
+            sklearn.preprocessing.PolynomialFeatures,
+            PolynomialFeatures,
+            shared_args=dict(),
+            name="SparseCSRPolynomialFeatures",
+            accepts_labels=False,
+            bench_func=fit_transform
         )
     ]
 

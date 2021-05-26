@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include <glm/qn/simple_mat.cuh>
-#include "cuda_utils.h"
-#include "glm/qn/glm_base.cuh"
-#include "linalg/binary_op.h"
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/binary_op.cuh>
+#include "glm_base.cuh"
+#include "simple_mat.cuh"
 
 namespace ML {
 namespace GLM {
@@ -28,7 +28,7 @@ template <typename T>
 struct SquaredLoss : GLMBase<T, SquaredLoss<T>> {
   typedef GLMBase<T, SquaredLoss<T>> Super;
 
-  SquaredLoss(const cumlHandle_impl &handle, int D, bool has_bias)
+  SquaredLoss(const raft::handle_t &handle, int D, bool has_bias)
     : Super(handle, D, 1, has_bias) {}
 
   inline __device__ T lz(const T y, const T z) const {

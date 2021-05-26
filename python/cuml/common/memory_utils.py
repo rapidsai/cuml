@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,15 +15,17 @@
 #
 
 import contextlib
+import functools
+import operator
+import re
+from dataclasses import dataclass
+from functools import wraps
+
 import cuml
 import cupy as cp
-import functools
 import numpy as np
-import operator
 import rmm
-
 from cuml.common.import_utils import check_min_cupy_version
-from functools import wraps
 from numba import cuda as nbcuda
 
 try:
@@ -33,6 +35,37 @@ except ImportError:
         from cupy.cuda.memory import using_allocator as cupy_using_allocator
     except ImportError:
         pass
+
+
+@dataclass(frozen=True)
+class ArrayInfo:
+    """
+    Calculate the necessary shape, order, stride and dtype of an array from an
+    ``__array_interface__`` or ``__cuda_array_interface__``
+    """
+    shape: tuple
+    order: str
+    dtype: np.dtype
+    strides: tuple
+
+    @staticmethod
+    def from_interface(interface: dict) -> "ArrayInfo":
+        out_shape = interface['shape']
+        out_type = np.dtype(interface['typestr'])
+        out_order = "C"
+        out_strides = None
+
+        if interface.get('strides', None) is None:
+            out_order = 'C'
+            out_strides = _order_to_strides(out_order, out_shape, out_type)
+        else:
+            out_strides = interface['strides']
+            out_order = _strides_to_order(out_strides, out_type)
+
+        return ArrayInfo(shape=out_shape,
+                         order=out_order,
+                         dtype=out_type,
+                         strides=out_strides)
 
 
 def with_cupy_rmm(func):
@@ -50,19 +83,83 @@ def with_cupy_rmm(func):
             a = cp.arange(10) # uses RMM for allocation
 
     """
+
+    if (func.__dict__.get("__cuml_rmm_wrapped", False)):
+        return func
+
     @wraps(func)
     def cupy_rmm_wrapper(*args, **kwargs):
         with cupy_using_allocator(rmm.rmm_cupy_allocator):
             return func(*args, **kwargs)
 
+    # Mark the function as already wrapped
+    cupy_rmm_wrapper.__dict__["__cuml_rmm_wrapped"] = True
+
     return cupy_rmm_wrapper
+
+
+def class_with_cupy_rmm(skip_init=False,
+                        skip_private=True,
+                        skip_dunder=True,
+                        ignore_pattern: list = []):
+
+    regex_list = ignore_pattern
+
+    if (skip_private):
+        # Match private but not dunder
+        regex_list.append(r"^_(?!(_))\w+$")
+
+    if (skip_dunder):
+        if (not skip_init):
+            # Make sure to not match __init__
+            regex_list.append(r"^__(?!(init))\w+__$")
+        else:
+            # Match all dunder
+            regex_list.append(r"^__\w+__$")
+    elif (skip_init):
+        regex_list.append(r"^__init__$")
+
+    final_regex = '(?:%s)' % '|'.join(regex_list)
+
+    def inner(klass):
+
+        for attributeName, attribute in klass.__dict__.items():
+
+            # Skip patters that dont match
+            if (re.match(final_regex, attributeName)):
+                continue
+
+            if callable(attribute):
+
+                # Passed the ignore patters. Wrap the function (will do nothing
+                # if already wrapped)
+                setattr(klass, attributeName, with_cupy_rmm(attribute))
+
+            # Class/Static methods work differently since they are descriptors
+            # (and not callable). Instead unwrap the function, and rewrap it
+            elif (isinstance(attribute, classmethod)):
+                unwrapped = attribute.__func__
+
+                setattr(klass,
+                        attributeName,
+                        classmethod(with_cupy_rmm(unwrapped)))
+
+            elif (isinstance(attribute, staticmethod)):
+                unwrapped = attribute.__func__
+
+                setattr(klass,
+                        attributeName,
+                        staticmethod(with_cupy_rmm(unwrapped)))
+
+        return klass
+
+    return inner
 
 
 def rmm_cupy_ary(cupy_fn, *args, **kwargs):
     """
 
     Function to call CuPy functions with RMM memory management
-
 
     Parameters
     ----------
@@ -76,13 +173,13 @@ def rmm_cupy_ary(cupy_fn, *args, **kwargs):
         Keyword named arguments to pass to the CuPy function
 
 
-    Note: this function should be used if the result of cupy_fn creates
+    .. note:: this function should be used if the result of cupy_fn creates
     a new array. Functions to create a new CuPy array by reference to
     existing device array (through __cuda_array_interface__) can be used
     directly.
 
     Examples
-    ---------
+    --------
 
     .. code-block:: python
 
@@ -127,6 +224,9 @@ def _rmm_cupy6_array_like(ary, order):
 
 
 def _strides_to_order(strides, dtype):
+    # cuda array interface specification
+    if strides is None:
+        return 'C'
     if strides[0] == dtype.itemsize or len(strides) == 1:
         return 'F'
     elif strides[1] == dtype.itemsize:
@@ -138,10 +238,13 @@ def _strides_to_order(strides, dtype):
 def _order_to_strides(order, shape, dtype):
     itemsize = cp.dtype(dtype).itemsize
     if isinstance(shape, int):
-        return (itemsize,)
+        return (itemsize, )
+
+    elif len(shape) == 0:
+        return None
 
     elif len(shape) == 1:
-        return (itemsize,)
+        return (itemsize, )
 
     elif order == 'C':
         dim_minor = shape[1] * itemsize
@@ -163,10 +266,11 @@ def _get_size_from_shape(shape, dtype):
 
     if shape is None or dtype is None:
         return (None, None)
+
     itemsize = cp.dtype(dtype).itemsize
     if isinstance(shape, int):
         size = itemsize * shape
-        shape = (shape,)
+        shape = (shape, )
     elif isinstance(shape, tuple):
         size = functools.reduce(operator.mul, shape)
         size = size * itemsize
@@ -175,47 +279,151 @@ def _get_size_from_shape(shape, dtype):
     return (size, shape)
 
 
+def _check_array_contiguity(ary):
+    """
+    Check if array-like ary is contioguous.
+
+    Parameters
+    ----------
+    ary: __cuda_array_interface__ or __array_interface__ compliant array.
+    """
+
+    if hasattr(ary, 'ndim'):
+        if ary.ndim == 1:
+            return True
+
+    # Use contiguity flags if present
+    if hasattr(ary, 'flags'):
+        if ary.flags['C_CONTIGUOUS'] or ary.flags['F_CONTIGUOUS']:
+            return True
+        else:
+            return False
+
+    # Check contiguity from shape and strides if not
+    else:
+        if hasattr(ary, "__array_interface__"):
+            ary_interface = ary.__array_interface__
+
+        elif hasattr(ary, "__cuda_array_interface__"):
+            ary_interface = ary.__cuda_array_interface__
+
+        else:
+            raise TypeError("No array_interface attribute detected in input. ")
+
+        # if the strides are not set or none, then the array is C-contiguous
+        if 'strides' not in ary_interface or ary_interface['strides'] is None:
+            return True
+
+        shape = ary_interface['shape']
+        strides = ary_interface['strides']
+        dtype = cp.dtype(ary_interface['typestr'])
+        order = _strides_to_order(strides, dtype)
+        itemsize = cp.dtype(dtype).itemsize
+
+        # We check if the strides jump on the non contiguous dimension
+        # does not correspond to the array dimension size, which indicates
+        # this is a view to a non contiguous array.
+        if order == 'F':
+            if (shape[0] * itemsize) != strides[1]:
+                return False
+
+        elif order == 'C':
+            if (shape[1] * itemsize) != strides[0]:
+                return False
+
+        return True
+
+
 def set_global_output_type(output_type):
     """
     Method to set cuML's single GPU estimators global output type.
     It will be used by all estimators unless overriden in their initialization
     with their own output_type parameter. Can also be overriden by the context
-    manager method `using_output_type`
+    manager method :func:`using_output_type`.
 
     Parameters
     ----------
-    output_type : {'input', 'cudf', 'cupy', 'numba', numpy'} (default = 'input')  # noqa
+    output_type : {'input', 'cudf', 'cupy', 'numpy'} (default = 'input')
         Desired output type of results and attributes of the estimators.
-        'input' will mean that the parameters and methods will mirror the
-        format of the data sent to the estimators/methods. 'cudf' will
-        return cuDF Series for single dimensional results and DataFrames
-        for the rest. 'cupy' will return CuPy ndarrays. 'numpy' will return
-        NumPy ndarrays.
+
+        * ``'input'`` will mean that the parameters and methods will mirror the
+          format of the data sent to the estimators/methods as much as
+          possible. Specifically:
+
+          +---------------------------------------+--------------------------+
+          | Input type                            | Output type              |
+          +=======================================+==========================+
+          | cuDF DataFrame or Series              | cuDF DataFrame or Series |
+          +---------------------------------------+--------------------------+
+          | NumPy arrays                          | NumPy arrays             |
+          +---------------------------------------+--------------------------+
+          | Pandas DataFrame or Series            | NumPy arrays             |
+          +---------------------------------------+--------------------------+
+          | Numba device arrays                   | Numba device arrays      |
+          +---------------------------------------+--------------------------+
+          | CuPy arrays                           | CuPy arrays              |
+          +---------------------------------------+--------------------------+
+          | Other `__cuda_array_interface__` objs | CuPy arrays              |
+          +---------------------------------------+--------------------------+
+
+        * ``'cudf'`` will return cuDF Series for single dimensional results and
+          DataFrames for the rest.
+
+        * ``'cupy'`` will return CuPy arrays.
+
+        * ``'numpy'`` will return NumPy arrays.
+
+    Examples
+    --------
+
+    .. code-block:: python
+
+        import cuml
+        import cupy as cp
+
+        ary = [[1.0, 4.0, 4.0], [2.0, 2.0, 2.0], [5.0, 1.0, 1.0]]
+        ary = cp.asarray(ary)
+
+        cuml.set_global_output_type('cudf'):
+        dbscan_float = cuml.DBSCAN(eps=1.0, min_samples=1)
+        dbscan_float.fit(ary)
+
+        print("cuML output type")
+        print(dbscan_float.labels_)
+        print(type(dbscan_float.labels_))
+
+    Output:
+
+    .. code-block::
+
+        cuML output type
+        0    0
+        1    1
+        2    2
+        dtype: int32
+        <class 'cudf.core.series.Series'>
 
     Notes
     -----
-    'cupy' and 'numba' options (as well as 'input' when using Numba and CuPy
-    ndarrays for input) have the least overhead. cuDF add memory consumption
-    and processing time needed to build the Series and DataFrames. 'numpy' has
-    the biggest overhead due to the need to transfer data to CPU memory.
+    ``'cupy'`` and ``'numba'`` options (as well as ``'input'`` when using Numba
+    and CuPy ndarrays for input) have the least overhead. cuDF add memory
+    consumption and processing time needed to build the Series and DataFrames.
+    ``'numpy'`` has the biggest overhead due to the need to transfer data to
+    CPU memory.
 
-    cuML is transitioning to support this parameter for all its estimators.
-    Currently the following single GPU estimators have this new behavior:
-
-    - DBSCAN
-    - KMeans
     """
-    if isinstance(output_type, str):
+    if (isinstance(output_type, str)):
         output_type = output_type.lower()
-        if output_type in ['numpy', 'cupy', 'cudf', 'numba', 'input']:
-            cuml.global_output_type = output_type
-        else:
-            raise ValueError('Parameter output_type must be one of ' +
-                             '"series", "dataframe", cupy", "numpy", ' +
-                             '"numba" or "input')
-    else:
-        raise ValueError('Parameter output_type must be one of "series" ' +
-                         '"dataframe", cupy", "numpy", "numba" or "input')
+
+    # Check for allowed types. Allow 'cuml' to support internal estimators
+    if output_type not in [
+            'numpy', 'cupy', 'cudf', 'numba', 'cuml', "input", None
+    ]:
+        # Omit 'cuml' from the error message. Should only be used internally
+        raise ValueError('Parameter output_type must be one of "numpy", '
+                         '"cupy", cudf", "numba", "input" or None')
+
+    cuml.global_settings.output_type = output_type
 
 
 @contextlib.contextmanager
@@ -227,16 +435,38 @@ def using_output_type(output_type):
 
     Parameters
     ----------
-    output_type : {'input', 'cudf', 'cupy', 'numba', numpy'} (default = 'input')  # noqa
+    output_type : {'input', 'cudf', 'cupy', 'numpy'} (default = 'input')
         Desired output type of results and attributes of the estimators.
-        'input' will mean that the parameters and methods will mirror the
-        format of the data sent to the estimators/methods. 'cudf' will
-        return cuDF Series for single dimensional results and DataFrames
-        for the rest. 'cupy' will return CuPy ndarrays. 'numpy' will return
-        NumPy ndarrays.
 
-    Example
-    -------
+        * ``'input'`` will mean that the parameters and methods will mirror the
+          format of the data sent to the estimators/methods as much as
+          possible. Specifically:
+
+          +---------------------------------------+--------------------------+
+          | Input type                            | Output type              |
+          +=======================================+==========================+
+          | cuDF DataFrame or Series              | cuDF DataFrame or Series |
+          +---------------------------------------+--------------------------+
+          | NumPy arrays                          | NumPy arrays             |
+          +---------------------------------------+--------------------------+
+          | Pandas DataFrame or Series            | NumPy arrays             |
+          +---------------------------------------+--------------------------+
+          | Numba device arrays                   | Numba device arrays      |
+          +---------------------------------------+--------------------------+
+          | CuPy arrays                           | CuPy arrays              |
+          +---------------------------------------+--------------------------+
+          | Other `__cuda_array_interface__` objs | CuPy arrays              |
+          +---------------------------------------+--------------------------+
+
+        * ``'cudf'`` will return cuDF Series for single dimensional results and
+          DataFrames for the rest.
+
+        * ``'cupy'`` will return CuPy arrays.
+
+        * ``'numpy'`` will return NumPy arrays.
+
+    Examples
+    --------
 
     .. code-block:: python
 
@@ -250,7 +480,7 @@ def using_output_type(output_type):
             dbscan_float = cuml.DBSCAN(eps=1.0, min_samples=1)
             dbscan_float.fit(ary)
 
-            print("cuML output inside `with` context")
+            print("cuML output inside 'with' context")
             print(dbscan_float.labels_)
             print(type(dbscan_float.labels_))
 
@@ -264,35 +494,26 @@ def using_output_type(output_type):
 
     Output:
 
-    .. code-block:: python
-        cuML output inside `with` context
+    .. code-block::
+
+        cuML output inside 'with' context
         0    0
         1    1
         2    2
         dtype: int32
         <class 'cudf.core.series.Series'>
 
-
         cuML default output
         [0 1 2]
-        <class 'cupy.core.core.ndarray'>
+        <class 'cupy.ndarray'>
 
     """
-    if isinstance(output_type, str):
-        output_type = output_type.lower()
-        if output_type in ['numpy', 'cupy', 'cudf', 'numba', 'input']:
-            prev_output_type = cuml.global_output_type
-            try:
-                cuml.global_output_type = output_type
-                yield
-            finally:
-                cuml.global_output_type = prev_output_type
-        else:
-            raise ValueError('Parameter output_type must be one of "series" ' +
-                             '"dataframe", cupy", "numpy", "numba" or "input')
-    else:
-        raise ValueError('Parameter output_type must be one of "series" ' +
-                         '"dataframe", cupy", "numpy", "numba" or "input')
+    prev_output_type = cuml.global_settings.output_type
+    try:
+        set_global_output_type(output_type)
+        yield prev_output_type
+    finally:
+        cuml.global_settings.output_type = prev_output_type
 
 
 @with_cupy_rmm

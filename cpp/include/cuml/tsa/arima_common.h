@@ -20,6 +20,7 @@
 
 #include <algorithm>
 
+#include <raft/cudart_utils.h>
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
@@ -39,11 +40,13 @@ struct ARIMAOrder {
   int s;  // Seasonal period
   int k;  // Fit intercept?
 
-  inline int r() const { return std::max(p + s * P, q + s * Q + 1); }
+  inline int n_diff() const { return d + s * D; }
+  inline int n_phi() const { return p + s * P; }
+  inline int n_theta() const { return q + s * Q; }
+  inline int r() const { return std::max(n_phi(), n_theta() + 1); }
+  inline int rd() const { return n_diff() + r(); }
   inline int complexity() const { return p + P + q + Q + k + 1; }
-  inline int lost_in_diff() const { return d + s * D; }
-
-  inline bool need_prep() const { return static_cast<bool>(d + D); }
+  inline bool need_diff() const { return static_cast<bool>(d + D); }
 };
 
 /**

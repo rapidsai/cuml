@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,12 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
-#include <distance/fused_l2_nn.h>
-#include <linalg/norm.h>
-#include <random/rng.h>
+#include <raft/cudart_utils.h>
 #include <limits>
+#include <raft/distance/fused_l2_nn.cuh>
+#include <raft/linalg/norm.cuh>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/random/rng.cuh>
 #include "../common/ml_benchmark.hpp"
 
 namespace MLCommon {
@@ -32,8 +33,8 @@ struct FLNParams {
 template <typename T>
 struct FusedL2NN : public Fixture {
   FusedL2NN(const std::string& name, const FLNParams& p)
-    : Fixture(name,
-              std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)),
+    : Fixture(name, std::shared_ptr<raft::mr::device::allocator>(
+                      new raft::mr::device::default_allocator)),
       params(p) {}
 
  protected:
@@ -44,15 +45,15 @@ struct FusedL2NN : public Fixture {
     alloc(yn, params.n);
     alloc(out, params.m);
     alloc(workspace, params.m);
-    MLCommon::Random::Rng r(123456ULL);
+    raft::random::Rng r(123456ULL);
     r.uniform(x, params.m * params.k, T(-1.0), T(1.0), stream);
     r.uniform(y, params.n * params.k, T(-1.0), T(1.0), stream);
-    MLCommon::LinAlg::rowNorm(xn, x, params.k, params.m,
-                              MLCommon::LinAlg::L2Norm, true, stream);
-    MLCommon::LinAlg::rowNorm(yn, y, params.k, params.n,
-                              MLCommon::LinAlg::L2Norm, true, stream);
-    auto blks = ceildiv(params.m, 256);
-    MLCommon::Distance::initKernel<T, cub::KeyValuePair<int, T>, int>
+    raft::linalg::rowNorm(xn, x, params.k, params.m, raft::linalg::L2Norm, true,
+                          stream);
+    raft::linalg::rowNorm(yn, y, params.k, params.n, raft::linalg::L2Norm, true,
+                          stream);
+    auto blks = raft::ceildiv(params.m, 256);
+    raft::distance::initKernel<T, cub::KeyValuePair<int, T>, int>
       <<<blks, 256, 0, stream>>>(out, params.m, std::numeric_limits<T>::max(),
                                  op);
   }
@@ -69,9 +70,9 @@ struct FusedL2NN : public Fixture {
   void runBenchmark(::benchmark::State& state) override {
     loopOnState(state, [this]() {
       // it is enough to only benchmark the L2-squared metric
-      MLCommon::Distance::fusedL2NN<T, cub::KeyValuePair<int, T>, int>(
+      raft::distance::fusedL2NN<T, cub::KeyValuePair<int, T>, int>(
         out, x, y, xn, yn, params.m, params.n, params.k, (void*)workspace, op,
-        false, false, stream);
+        pairRedOp, false, false, stream);
     });
   }
 
@@ -80,7 +81,8 @@ struct FusedL2NN : public Fixture {
   T *x, *y, *xn, *yn;
   cub::KeyValuePair<int, T>* out;
   int* workspace;
-  MLCommon::Distance::MinAndDistanceReduceOp<int, T> op;
+  raft::distance::KVPMinReduce<int, T> pairRedOp;
+  raft::distance::MinAndDistanceReduceOp<int, T> op;
 };  // struct FusedL2NN
 
 static std::vector<FLNParams> getInputs() {

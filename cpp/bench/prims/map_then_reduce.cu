@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 
-#include <linalg/map_then_reduce.h>
+#include <raft/linalg/map_then_reduce.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include "../common/ml_benchmark.hpp"
 
 namespace MLCommon {
@@ -33,8 +34,8 @@ struct Identity {
 template <typename T>
 struct MapThenReduce : public Fixture {
   MapThenReduce(const std::string& name, const Params& p)
-    : Fixture(name,
-              std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)),
+    : Fixture(name, std::shared_ptr<raft::mr::device::allocator>(
+                      new raft::mr::device::default_allocator)),
       params(p) {}
 
  protected:
@@ -50,8 +51,8 @@ struct MapThenReduce : public Fixture {
 
   void runBenchmark(::benchmark::State& state) override {
     loopOnState(state, [this]() {
-      MLCommon::LinAlg::mapThenSumReduce(out, params.len, Identity<T>(), stream,
-                                         in);
+      raft::linalg::mapThenSumReduce(out, params.len, Identity<T>(), stream,
+                                     in);
     });
   }
 

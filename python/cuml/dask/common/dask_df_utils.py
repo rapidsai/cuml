@@ -13,8 +13,10 @@
 # limitations under the License.
 #
 
-from dask.distributed import default_client
+import cuml.common.logger as logger
 import dask.dataframe as dd
+
+from dask.distributed import default_client
 
 
 def get_meta(df):
@@ -27,7 +29,7 @@ def get_meta(df):
     return ret
 
 
-def to_dask_cudf(futures, client=None, verbose=False):
+def to_dask_cudf(futures, client=None):
     """
     Convert a list of futures containing cudf Dataframes into a Dask.Dataframe
     :param futures: list[cudf.Dataframe] list of futures containing dataframes
@@ -37,8 +39,8 @@ def to_dask_cudf(futures, client=None, verbose=False):
     c = default_client() if client is None else client
     # Convert a list of futures containing dfs back into a dask_cudf
     dfs = [d for d in futures if d.type != type(None)]  # NOQA
-    if verbose:
-        print("to_dask_cudf dfs=%s" % str(dfs))
+    if logger.should_log_for(logger.level_debug):
+        logger.debug("to_dask_cudf dfs=%s" % str(dfs))
     meta = c.submit(get_meta, dfs[0])
     meta_local = meta.result()
     return dd.from_delayed(dfs, meta=meta_local)

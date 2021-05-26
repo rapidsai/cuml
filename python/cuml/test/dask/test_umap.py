@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,12 +14,11 @@
 #
 
 import pytest
-from dask.distributed import Client
 
 import cupy as cp
 import numpy as np
+from cuml.common import logger
 from cuml.metrics import trustworthiness
-from cuml.datasets import make_blobs
 
 import math
 
@@ -29,32 +28,23 @@ from sklearn.datasets import load_iris
 
 def _load_dataset(dataset, n_rows):
 
-    if dataset == "make_blobs":
-        local_X, local_y = make_blobs(n_samples=n_rows, n_features=10,
-                                      centers=200, cluster_std=0.8,
-                                      random_state=42)
+    if dataset == "digits":
+        local_X, local_y = load_digits(return_X_y=True)
 
-        local_X = cp.asarray(local_X)
-        local_y = cp.asarray(local_y)
+    else:  # dataset == "iris"
+        local_X, local_y = load_iris(return_X_y=True)
 
-    else:
-        if dataset == "digits":
-            local_X, local_y = load_digits(return_X_y=True)
+    local_X = cp.asarray(local_X)
+    local_y = cp.asarray(local_y)
 
-        else:  # dataset == "iris"
-            local_X, local_y = load_iris(return_X_y=True)
+    local_X = local_X.repeat(
+        math.ceil(n_rows / len(local_X)), axis=0)
+    local_y = local_y.repeat(
+        math.ceil(n_rows / len(local_y)), axis=0)
 
-        local_X = cp.asarray(local_X)
-        local_y = cp.asarray(local_y)
-
-        local_X = local_X.repeat(
-            math.ceil(n_rows / len(local_X)), axis=0)
-        local_y = local_y.repeat(
-            math.ceil(n_rows / len(local_y)), axis=0)
-
-        # Add some gaussian noise
-        local_X += cp.random.standard_normal(local_X.shape,
-                                             dtype=cp.float32)
+    # Add some gaussian noise
+    local_X += cp.random.standard_normal(local_X.shape,
+                                         dtype=cp.float32)
 
     return local_X, local_y
 
@@ -68,7 +58,7 @@ def _local_umap_trustworthiness(local_X, local_y,
     from cuml.manifold import UMAP
 
     local_model = UMAP(n_neighbors=n_neighbors,
-                       random_state=42)
+                       random_state=42, init="random")
     y_train = None
     if supervised:
         y_train = local_y
@@ -94,7 +84,7 @@ def _umap_mnmg_trustworthiness(local_X, local_y,
     from cuml.manifold import UMAP
 
     local_model = UMAP(n_neighbors=n_neighbors,
-                       random_state=42)
+                       random_state=42, init="random")
 
     n_samples = local_X.shape[0]
     n_samples_per_part = math.ceil(n_samples / n_parts)
@@ -123,44 +113,28 @@ def _umap_mnmg_trustworthiness(local_X, local_y,
 
 
 @pytest.mark.mg
-@pytest.mark.parametrize("n_parts", [2, 5, 10])
-@pytest.mark.parametrize("n_rows", [10000, 50000])
-@pytest.mark.parametrize("sampling_ratio", [0.1, 0.2, 0.4, 0.5])
+@pytest.mark.parametrize("n_parts", [2, 9])
+@pytest.mark.parametrize("n_rows", [100, 500])
+@pytest.mark.parametrize("sampling_ratio", [0.4, 0.9])
 @pytest.mark.parametrize("supervised", [True, False])
 @pytest.mark.parametrize("dataset", ["digits", "iris"])
 @pytest.mark.parametrize("n_neighbors", [10])
 def test_umap_mnmg(n_parts, n_rows, sampling_ratio, supervised,
-                   dataset, n_neighbors, cluster):
+                   dataset, n_neighbors, client):
+    local_X, local_y = _load_dataset(dataset, n_rows)
 
-    client = Client(cluster)
+    dist_umap = _umap_mnmg_trustworthiness(local_X, local_y,
+                                           n_neighbors, supervised,
+                                           n_parts, sampling_ratio)
 
-    try:
+    loc_umap = _local_umap_trustworthiness(local_X, local_y,
+                                           n_neighbors, supervised)
 
-        local_X, local_y = _load_dataset(dataset, n_rows)
+    logger.debug("\nLocal UMAP trustworthiness score : {:.2f}"
+                 .format(loc_umap))
+    logger.debug("UMAP MNMG trustworthiness score : {:.2f}"
+                 .format(dist_umap))
 
-        dist_umap = _umap_mnmg_trustworthiness(local_X, local_y,
-                                               n_neighbors, supervised,
-                                               n_parts, sampling_ratio)
+    trust_diff = loc_umap - dist_umap
 
-        loc_umap = _local_umap_trustworthiness(local_X, local_y,
-                                               n_neighbors, supervised)
-
-        print("\nLocal UMAP trustworthiness score : {:.2f}".format(loc_umap))
-        print("UMAP MNMG trustworthiness score : {:.2f}".format(dist_umap))
-
-        trust_diff = loc_umap - dist_umap
-
-        if sampling_ratio == 0.1:
-            assert trust_diff <= 0.4
-        elif sampling_ratio == 0.2:
-            assert trust_diff <= 0.3
-        elif sampling_ratio == 0.4:
-            assert trust_diff <= 0.2
-        elif sampling_ratio == 0.5:
-            assert trust_diff <= 0.11
-        else:
-            raise ValueError("No assertion for sampling ratio. "
-                             "Please update.")
-
-    finally:
-        client.close()
+    assert trust_diff <= 0.1

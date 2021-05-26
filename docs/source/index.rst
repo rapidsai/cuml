@@ -22,12 +22,13 @@ Support for Windows is possible in the near future.
    :caption: Contents:
 
    api.rst
-   
+
    cuml_intro.rst
    cuml_blogs.rst
    estimator_intro.ipynb
-  
-   
+   pickling_cuml_models.ipynb
+
+
 Indices and tables
 ==================
 

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,10 +20,21 @@ from cuml.metrics.regression import mean_squared_error
 from cuml.metrics.regression import mean_squared_log_error
 from cuml.metrics.regression import mean_absolute_error
 from cuml.metrics.accuracy import accuracy_score
-from cuml.metrics.cluster.adjustedrandindex import adjusted_rand_score
+from cuml.metrics.cluster.adjusted_rand_index import adjusted_rand_score
 from cuml.metrics._ranking import roc_auc_score
-from cuml.metrics.cluster.homogeneity_score import homogeneity_score
-from cuml.metrics.cluster.completeness_score import completeness_score
-from cuml.metrics.cluster.mutual_info_score import mutual_info_score
+from cuml.metrics._ranking import precision_recall_curve
+from cuml.metrics._classification import log_loss
+from cuml.metrics.cluster.homogeneity_score import \
+    cython_homogeneity_score as homogeneity_score
+from cuml.metrics.cluster.completeness_score import \
+    cython_completeness_score as completeness_score
+from cuml.metrics.cluster.mutual_info_score import \
+    cython_mutual_info_score as mutual_info_score
 from cuml.metrics.confusion_matrix import confusion_matrix
 from cuml.metrics.cluster.entropy import cython_entropy as entropy
+from cuml.metrics.pairwise_distances import pairwise_distances
+from cuml.metrics.pairwise_distances import sparse_pairwise_distances
+from cuml.metrics.pairwise_distances import PAIRWISE_DISTANCE_METRICS
+from cuml.metrics.pairwise_distances import PAIRWISE_DISTANCE_SPARSE_METRICS
+from cuml.metrics.hinge_loss import hinge_loss
+from cuml.metrics.kl_divergence import kl_divergence

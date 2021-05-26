@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,8 +14,15 @@
 # limitations under the License.
 #
 
-from cuml.metrics.cluster.adjustedrandindex import adjusted_rand_score
-from cuml.metrics.cluster.homogeneity_score import homogeneity_score
-from cuml.metrics.cluster.completeness_score import completeness_score
-from cuml.metrics.cluster.mutual_info_score import mutual_info_score
+from cuml.metrics.cluster.adjusted_rand_index import adjusted_rand_score
+from cuml.metrics.cluster.homogeneity_score import \
+   cython_homogeneity_score as homogeneity_score
+from cuml.metrics.cluster.completeness_score import \
+   cython_completeness_score as completeness_score
+from cuml.metrics.cluster.mutual_info_score import \
+   cython_mutual_info_score as mutual_info_score
 from cuml.metrics.cluster.entropy import cython_entropy as entropy
+from cuml.metrics.cluster.silhouette_score import \
+    cython_silhouette_score as silhouette_score
+from cuml.metrics.cluster.silhouette_score import \
+    cython_silhouette_samples as silhouette_samples

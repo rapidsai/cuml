@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,120 +13,101 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
-import cudf
 import ctypes
 import numpy as np
-from libcpp.vector cimport vector
 from libc.stdint cimport uintptr_t
+from libcpp cimport bool
 
-import cuml
-from cuml.common.handle cimport cumlHandle
-from cuml.common.input_utils import input_to_dev_array
+import cuml.internals
+from cuml.common.array import CumlArray
+from cuml.raft.common.handle cimport handle_t
+from cuml.raft.common.handle import Handle
+from cuml.common.input_utils import input_to_cuml_array
 
 
 cdef extern from "cuml/tsa/stationarity.h" namespace "ML":
-    int cpp_stationarity "ML::Stationarity::stationarity" (
-        const cumlHandle& handle,
-        const float* y_d,
-        int* d,
-        int n_batches,
-        int n_samples,
+    int cpp_kpss "ML::Stationarity::kpss_test" (
+        const handle_t& handle,
+        const float* d_y,
+        bool* results,
+        int batch_size,
+        int n_obs,
+        int d, int D, int s,
         float pval_threshold)
 
-    int cpp_stationarity "ML::Stationarity::stationarity" (
-        const cumlHandle& handle,
-        const double* y_d,
-        int* d,
-        int n_batches,
-        int n_samples,
+    int cpp_kpss "ML::Stationarity::kpss_test" (
+        const handle_t& handle,
+        const double* d_y,
+        bool* results,
+        int batch_size,
+        int n_obs,
+        int d, int D, int s,
         double pval_threshold)
 
 
-def stationarity(y, pval_threshold=0.05, handle=None):
+@cuml.internals.api_return_array(input_arg="y", get_output_type=True)
+def kpss_test(y, d=0, D=0, s=0, pval_threshold=0.05,
+              handle=None) -> CumlArray:
     """
-    Compute recommended trend parameter (d=0 or 1) for a batched series
-
-    Example
-    -------
-    .. code-block:: python
-
-        import numpy as np
-        from cuml.tsa.stationarity import stationarity
-
-        num_samples = 200
-        xs = np.linspace(0, 1, num_samples)
-        np.random.seed(12)
-        noise = np.random.normal(scale=0.1, size=num_samples)
-        ys1 = noise + 0.5*xs  # d = 1
-        ys2 = noise           # d = 0
-
-        num_batches = 2
-        ys_df = np.zeros((num_samples, num_batches), order="F")
-        ys_df[:, 0] = ys1
-        ys_df[:, 1] = ys2
-
-        d_b = stationarity(ys_df)
-        print(d_b)
-
-    Output:
-
-    .. code-block:: none
-
-        [1, 0]
+    Perform the KPSS stationarity test on the data differenced according
+    to the given order
 
     Parameters
     ----------
-    y : array-like (device or host)
-        Batched series to compute the trend parameters of.
+    y : dataframe or array-like (device or host)
+        The time series data, assumed to have each time series in columns.
         Acceptable formats: cuDF DataFrame, cuDF Series, NumPy ndarray,
-        numba device ndarray, cuda array interface compliant array like CuPy.
-        Note: cuDF.DataFrame types assumes data is in columns, while all other
-        datatypes assume data is in rows.
+        Numba device ndarray, cuda array interface compliant array like CuPy.
+    d: integer
+        Order of simple differencing
+    D: integer
+        Order of seasonal differencing
+    s: integer
+        Seasonal period if D > 0
     pval_threshold : float
-                     The p-value threshold above which a series is considered
-                     stationary.
-    handle : cuml.Handle (default=None)
-             If it is None, a new one is created just for this function call.
+        The p-value threshold above which a series is considered stationary.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
 
     Returns
     -------
-    stationarity : list[int]
-                   The recommended `d` for each series
-
+    stationarity : List[bool]
+        A list of the stationarity test result for each series in the batch
     """
-    cdef uintptr_t y_d_ptr
-    y_d, y_d_ptr, n_samples, n_batches, dtype = \
-        input_to_dev_array(y, check_dtype=[np.float32, np.float64])
+    d_y, n_obs, batch_size, dtype = \
+        input_to_cuml_array(y, check_dtype=[np.float32, np.float64])
+    cdef uintptr_t d_y_ptr = d_y.ptr
 
     if handle is None:
-        handle = cuml.common.handle.Handle()
-    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
+        handle = Handle()
+    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
-    cdef vector[int] d
-    d.resize(n_batches)
+    results = CumlArray.empty(batch_size, dtype=np.bool)
+    cdef uintptr_t d_results = results.ptr
 
     # Call C++ function
     if dtype == np.float32:
-        ret_value = cpp_stationarity(handle_[0],
-                                     <float*> y_d_ptr,
-                                     <int*> d.data(),
-                                     <int> n_batches,
-                                     <int> n_samples,
-                                     <float> pval_threshold)
+        cpp_kpss(handle_[0],
+                 <float*> d_y_ptr,
+                 <bool*> d_results,
+                 <int> batch_size,
+                 <int> n_obs,
+                 <int> d, <int> D, <int> s,
+                 <float> pval_threshold)
     elif dtype == np.float64:
-        ret_value = cpp_stationarity(handle_[0],
-                                     <double*> y_d_ptr,
-                                     <int*> d.data(),
-                                     <int> n_batches,
-                                     <int> n_samples,
-                                     <double> pval_threshold)
+        cpp_kpss(handle_[0],
+                 <double*> d_y_ptr,
+                 <bool*> d_results,
+                 <int> batch_size,
+                 <int> n_obs,
+                 <int> d, <int> D, <int> s,
+                 <double> pval_threshold)
 
-    if ret_value < 0:
-        raise ValueError("Stationarity test failed for d=0 or 1.")
-
-    return d
+    return results

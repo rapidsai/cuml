@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,8 +23,10 @@ from dask.distributed import futures_of, default_client, wait
 from toolz import first
 
 from dask.array.core import Array as daskArray
-from dask_cudf.core import DataFrame as daskDataFrame
-from dask_cudf.core import Series as daskSeries
+from dask.dataframe import DataFrame as daskDataFrame
+from dask.dataframe import Series as daskSeries
+from dask_cudf.core import DataFrame as dcDataFrame
+from dask_cudf.core import Series as dcSeries
 
 from cuml.dask.common.utils import parse_host_port
 
@@ -62,7 +64,10 @@ def workers_to_parts(futures):
 
 
 def _func_get_rows(df):
-    return df.shape[0]
+    if isinstance(df, tuple):
+        return df[0].shape[0]
+    else:
+        return df.shape[0]
 
 
 def parts_to_ranks(client, worker_info, part_futures):
@@ -130,7 +135,8 @@ def _extract_partitions(dask_obj, client=None):
     client = default_client() if client is None else client
 
     # dask.dataframe or dask.array
-    if isinstance(dask_obj, (daskDataFrame, daskArray, daskSeries)):
+    if isinstance(dask_obj, (daskArray, daskSeries, daskDataFrame,
+                             dcSeries, dcDataFrame)):
         persisted = client.persist(dask_obj)
         parts = futures_of(persisted)
 
@@ -145,7 +151,7 @@ def _extract_partitions(dask_obj, client=None):
         # TODO: ravel() is causing strange behavior w/ delayed Arrays which are
         # not yet backed by futures. Need to investigate this behavior.
         # ref: https://github.com/rapidsai/cuml/issues/2045
-        raveled = [d.flatten() for d in dela]
+        raveled = [d.ravel() for d in dela]
         parts = client.compute([p for p in zip(*raveled)])
 
     yield wait(parts)

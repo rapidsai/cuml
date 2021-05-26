@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,16 +16,15 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
-#include <linalg/gemm.h>
-#include <linalg/norm.h>
-#include <matrix/math.h>
-#include <matrix/matrix.h>
-#include <stats/mean.h>
-#include <stats/mean_center.h>
-#include <stats/stddev.h>
-#include "common/cumlHandle.hpp"
-#include "ml_utils.h"
+#include <raft/cudart_utils.h>
+#include <raft/linalg/gemm.cuh>
+#include <raft/linalg/norm.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
+#include <raft/stats/mean.cuh>
+#include <raft/stats/mean_center.cuh>
+#include <raft/stats/stddev.cuh>
+#include <rmm/device_uvector.hpp>
 
 namespace ML {
 namespace GLM {
@@ -33,7 +32,7 @@ namespace GLM {
 using namespace MLCommon;
 
 template <typename math_t>
-void preProcessData(const cumlHandle_impl &handle, math_t *input, int n_rows,
+void preProcessData(const raft::handle_t &handle, math_t *input, int n_rows,
                     int n_cols, math_t *labels, math_t *intercept,
                     math_t *mu_input, math_t *mu_labels, math_t *norm2_input,
                     bool fit_intercept, bool normalize, cudaStream_t stream) {
@@ -43,26 +42,26 @@ void preProcessData(const cumlHandle_impl &handle, math_t *input, int n_rows,
          "Parameter n_rows: number of rows cannot be less than two");
 
   if (fit_intercept) {
-    Stats::mean(mu_input, input, n_cols, n_rows, false, false, stream);
-    Stats::meanCenter(input, input, mu_input, n_cols, n_rows, false, true,
-                      stream);
+    raft::stats::mean(mu_input, input, n_cols, n_rows, false, false, stream);
+    raft::stats::meanCenter(input, input, mu_input, n_cols, n_rows, false, true,
+                            stream);
 
-    Stats::mean(mu_labels, labels, 1, n_rows, false, false, stream);
-    Stats::meanCenter(labels, labels, mu_labels, 1, n_rows, false, true,
-                      stream);
+    raft::stats::mean(mu_labels, labels, 1, n_rows, false, false, stream);
+    raft::stats::meanCenter(labels, labels, mu_labels, 1, n_rows, false, true,
+                            stream);
 
     if (normalize) {
-      LinAlg::colNorm(norm2_input, input, n_cols, n_rows, LinAlg::L2Norm, false,
-                      stream,
-                      [] __device__(math_t v) { return MLCommon::mySqrt(v); });
-      Matrix::matrixVectorBinaryDivSkipZero(input, norm2_input, n_rows, n_cols,
-                                            false, true, stream, true);
+      raft::linalg::colNorm(
+        norm2_input, input, n_cols, n_rows, raft::linalg::L2Norm, false, stream,
+        [] __device__(math_t v) { return raft::mySqrt(v); });
+      raft::matrix::matrixVectorBinaryDivSkipZero(
+        input, norm2_input, n_rows, n_cols, false, true, stream, true);
     }
   }
 }
 
 template <typename math_t>
-void postProcessData(const cumlHandle_impl &handle, math_t *input, int n_rows,
+void postProcessData(const raft::handle_t &handle, math_t *input, int n_rows,
                      int n_cols, math_t *labels, math_t *coef,
                      math_t *intercept, math_t *mu_input, math_t *mu_labels,
                      math_t *norm2_input, bool fit_intercept, bool normalize,
@@ -72,28 +71,29 @@ void postProcessData(const cumlHandle_impl &handle, math_t *input, int n_rows,
   ASSERT(n_rows > 1,
          "Parameter n_rows: number of rows cannot be less than two");
 
-  cublasHandle_t cublas_handle = handle.getCublasHandle();
-  auto allocator = handle.getDeviceAllocator();
-  device_buffer<math_t> d_intercept(allocator, stream, 1);
+  cublasHandle_t cublas_handle = handle.get_cublas_handle();
+  rmm::device_uvector<math_t> d_intercept(1, stream);
 
   if (normalize) {
-    Matrix::matrixVectorBinaryMult(input, norm2_input, n_rows, n_cols, false,
-                                   true, stream);
-    Matrix::matrixVectorBinaryDivSkipZero(coef, norm2_input, 1, n_cols, false,
-                                          true, stream, true);
+    raft::matrix::matrixVectorBinaryMult(input, norm2_input, n_rows, n_cols,
+                                         false, true, stream);
+    raft::matrix::matrixVectorBinaryDivSkipZero(coef, norm2_input, 1, n_cols,
+                                                false, true, stream, true);
   }
 
-  LinAlg::gemm(mu_input, 1, n_cols, coef, d_intercept.data(), 1, 1, CUBLAS_OP_N,
-               CUBLAS_OP_N, cublas_handle, stream);
+  raft::linalg::gemm(handle, mu_input, 1, n_cols, coef, d_intercept.data(), 1,
+                     1, CUBLAS_OP_N, CUBLAS_OP_N, stream);
 
-  LinAlg::subtract(d_intercept.data(), mu_labels, d_intercept.data(), 1,
-                   stream);
-  updateHost(intercept, d_intercept.data(), 1, stream);
+  raft::linalg::subtract(d_intercept.data(), mu_labels, d_intercept.data(), 1,
+                         stream);
+  raft::update_host(intercept, d_intercept.data(), 1, stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  Stats::meanAdd(input, input, mu_input, n_cols, n_rows, false, true, stream);
-  Stats::meanAdd(labels, labels, mu_labels, 1, n_rows, false, true, stream);
+  raft::stats::meanAdd(input, input, mu_input, n_cols, n_rows, false, true,
+                       stream);
+  raft::stats::meanAdd(labels, labels, mu_labels, 1, n_rows, false, true,
+                       stream);
 }
 
 };  // namespace GLM

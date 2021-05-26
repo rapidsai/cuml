@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-#include <cuda_utils.h>
 #include <gtest/gtest.h>
-#include <metrics/trustworthiness.h>
+#include <raft/cudart_utils.h>
+#include <metrics/trustworthiness.cuh>
+#include <raft/cuda_utils.cuh>
 #include <vector>
 
-using namespace MLCommon;
 using namespace ML::Metrics;
 
 class TrustworthinessScoreTest : public ::testing::Test {
@@ -409,20 +409,22 @@ class TrustworthinessScoreTest : public ::testing::Test {
       -0.1128775,  -0.0078648,  -0.02323332, 0.04292452,  0.39291084,
       -0.94897962, -0.63863206, -0.16546988, 0.23698957,  -0.30633628};
 
-    ML::cumlHandle h;
-    cudaStream_t stream = h.getStream();
-    auto d_alloc = h.getDeviceAllocator();
+    raft::handle_t h;
+    cudaStream_t stream = h.get_stream();
+    auto d_alloc = h.get_device_allocator();
 
     float* d_X = (float*)d_alloc->allocate(X.size() * sizeof(float), stream);
     float* d_X_embedded =
       (float*)d_alloc->allocate(X_embedded.size() * sizeof(float), stream);
 
-    updateDevice(d_X, X.data(), X.size(), stream);
-    updateDevice(d_X_embedded, X_embedded.data(), X_embedded.size(), stream);
+    raft::update_device(d_X, X.data(), X.size(), stream);
+    raft::update_device(d_X_embedded, X_embedded.data(), X_embedded.size(),
+                        stream);
 
     // euclidean test
     score =
-      trustworthiness_score<float, MLCommon::Distance::EucUnexpandedL2Sqrt>(
+      trustworthiness_score<float,
+                            raft::distance::DistanceType::L2SqrtUnexpanded>(
         h, d_X, d_X_embedded, 50, 30, 8, 5);
 
     d_alloc->deallocate(d_X, X.size() * sizeof(float), stream);

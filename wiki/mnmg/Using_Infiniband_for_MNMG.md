@@ -292,18 +292,18 @@ dask-cuda-worker ucx://10.0.0.50:8786
 
 ## 7. Run cumlCommunicator test:
 
-### First, create a Dask `Client` and cuML `CommsContext`:
+### First, create a Dask `Client` and cuML `Comms`:
 ```python
 from dask.distributed import Client, wait
-from cuml.dask.common.comms import CommsContext
-from cuml.dask.common import worker_state
+from cuml.raft.dask.common.comms import Comms
+from cuml.dask.common import get_raft_comm_state
 from cuml.dask.common import perform_test_comms_send_recv
 from cuml.dask.common import perform_test_comms_allreduce
 
 import random
 
 c = Client("ucx://10.0.0.50:8786")
-cb = CommsContext(comms_p2p=True)
+cb = Comms(comms_p2p=True)
 cb.init()
 ```
 
@@ -312,7 +312,7 @@ cb.init()
 n_trials = 2
 
 def func_test_send_recv(sessionId, n_trials, r):
-    handle = worker_state(sessionId)["handle"]
+    handle = get_raft_comm_state(sessionId)["handle"]
     return perform_test_comms_send_recv(handle, n_trials)
 
 p2p_dfs=[c.submit(func_test_send_recv, cb.sessionId, n_trials, random.random(), workers=[w]) for wid, w in zip(range(len(cb.worker_addresses)), cb.worker_addresses)]
@@ -355,7 +355,7 @@ Rank 7 received: [2, 11, 12, 9, 10, 13, 14, 8, 15, 4, 1, 6, 5, 0, 3]
 ### Test collective communications:
 ```python
 def func_test_allreduce(sessionId, r):
-    handle = worker_state(sessionId)["handle"]
+    handle = get_raft_comm_state(sessionId)["handle"]
     return perform_test_comms_allreduce(handle)
 
 coll_dfs = [c.submit(func_test_allreduce, cb.sessionId, random.random(), workers=[w]) for wid, w in zip(range(len(cb.worker_addresses)), cb.worker_addresses)]

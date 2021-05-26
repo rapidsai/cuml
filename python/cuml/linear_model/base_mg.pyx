@@ -13,10 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 
 import ctypes
@@ -28,16 +25,18 @@ import rmm
 from libc.stdint cimport uintptr_t
 from cython.operator cimport dereference as deref
 
+import cuml.internals
 from cuml.common.base import Base
 from cuml.common.array import CumlArray
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common.opg_data_utils_mg cimport *
-from cuml.common import input_to_cuml_array
+from cuml.common.input_utils import input_to_cuml_array
 from cuml.decomposition.utils cimport *
 
 
 class MGFitMixin(object):
 
+    @cuml.internals.api_base_return_any_skipall
     def fit(self, input_data, n_rows, n_cols, partsToSizes, rank):
         """
         Fit function for MNMG linear regression classes
@@ -50,6 +49,7 @@ class MGFitMixin(object):
         :return: self
         """
         self._set_output_type(input_data[0][0])
+        self._set_n_features_in(n_cols)
 
         X_arys = []
         y_arys = []
@@ -71,34 +71,31 @@ class MGFitMixin(object):
                                           check_dtype=self.dtype)
             y_arys.append(y_m)
 
-        n_total_parts = len(input_data)
-
-        self._coef_ = CumlArray.zeros(self.n_cols,
-                                      dtype=self.dtype)
-        cdef uintptr_t coef_ptr = self._coef_.ptr
+        self.coef_ = CumlArray.zeros(self.n_cols,
+                                     dtype=self.dtype)
+        cdef uintptr_t coef_ptr = self.coef_.ptr
         coef_ptr_arg = <size_t>coef_ptr
 
-        cdef uintptr_t rank_to_sizes = opg.build_rank_size_pair(input_data,
+        cdef uintptr_t rank_to_sizes = opg.build_rank_size_pair(partsToSizes,
                                                                 rank)
-        rank_to_size_arg = <size_t>rank_to_sizes
 
-        cdef uintptr_t data = opg.build_data_t(X_arys)
-        X_arg = <size_t>data
-        cdef uintptr_t labels = opg.build_data_t(y_arys)
-        y_arg = <size_t>labels
+        cdef uintptr_t part_desc = opg.build_part_descriptor(n_rows,
+                                                             n_cols,
+                                                             rank_to_sizes,
+                                                             rank)
+
+        cdef uintptr_t X_arg = opg.build_data_t(X_arys)
+        cdef uintptr_t y_arg = opg.build_data_t(y_arys)
 
         # call inheriting class _fit that does all cython pointers and calls
         self._fit(X=X_arg,
                   y=y_arg,
                   coef_ptr=coef_ptr_arg,
-                  rank_to_sizes=rank_to_size_arg,
-                  n_rows=n_rows,
-                  n_cols=n_cols,
-                  n_total_parts=n_total_parts)
+                  input_desc=part_desc)
 
-        opg.free_rank_size_pair(rank_to_sizes, n_total_parts)
-
-        opg.free_data_t(data, n_total_parts, self.dtype)
-        opg.free_data_t(labels, n_total_parts, self.dtype)
+        opg.free_rank_size_pair(rank_to_sizes)
+        opg.free_part_descriptor(part_desc)
+        opg.free_data_t(X_arg, self.dtype)
+        opg.free_data_t(y_arg, self.dtype)
 
         return self

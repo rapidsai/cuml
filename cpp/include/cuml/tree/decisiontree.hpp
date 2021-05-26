@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,9 +15,13 @@
  */
 
 #pragma once
-#include <common/cumlHandle.hpp>
+#include <vector>
 #include "algo_helper.h"
 #include "flatnode.h"
+
+namespace raft {
+class handle_t;
+}
 
 namespace ML {
 
@@ -45,9 +49,13 @@ struct DecisionTreeParams {
    */
   int split_algo;
   /**
-   * The minimum number of samples (rows) needed to split a node.
+   * The minimum number of samples (rows) in each leaf node.
    */
-  int min_rows_per_node;
+  int min_samples_leaf;
+  /**
+   * The minimum number of samples (rows) needed to split an internal node.
+   */
+  int min_samples_split;
   /**
    * Control bootstrapping for features. If features are drawn with or without replacement
    */
@@ -62,13 +70,23 @@ struct DecisionTreeParams {
    */
   CRITERION split_criterion;
   /**
-   * Weahther to fully reshuffle the features for subsampling at each tree node. Default is one shuffle per depth with random start point in the shuffled feature list per node
-   */
-  bool shuffle_features;
-  /**
    * Minimum impurity decrease required for spliting a node. If the impurity decrease is below this value, node is leafed out. Default is 0.0
    */
   float min_impurity_decrease = 0.0f;
+
+  /**
+   * Maximum number of nodes that can be processed in a given batch. This is 
+   * used only for batched-level algo
+   */
+  int max_batch_size;
+  /**
+  * If set to true and following conditions are also met, experimental decision
+  *  tree training implementation would be used:
+  *     split_algo = 1 (GLOBAL_QUANTILE)
+  *     max_features = 1.0 (Feature sub-sampling disabled)
+  *     quantile_per_tree = false (No per tree quantile computation)
+  */
+  bool use_experimental_backend;
 };
 
 /**
@@ -79,24 +97,33 @@ struct DecisionTreeParams {
  * @param[in] cfg_max_features: maximum number of features; default 1.0f
  * @param[in] cfg_n_bins: number of bins; default 8
  * @param[in] cfg_split_algo: split algorithm; default SPLIT_ALGO::HIST
- * @param[in] cfg_min_rows_per_node: min. rows per node; default 2
+ * @param[in] cfg_min_samples_leaf: min. rows in each leaf node; default 1
+ * @param[in] cfg_min_samples_split: min. rows needed to split an internal node;
+ *            default 2
  * @param[in] cfg_min_impurity_decrease: split a node only if its reduction in
  *                                       impurity is more than this value
  * @param[in] cfg_bootstrap_features: bootstrapping for features; default false
  * @param[in] cfg_split_criterion: split criterion; default CRITERION_END,
  *            i.e., GINI for classification or MSE for regression
  * @param[in] cfg_quantile_per_tree: compute quantile per tree; default false
- * @param[in] cfg_shuffle_features: whether to shuffle features or not
+ * @param[in] cfg_use_experimental_backend: If set to true, experimental batched
+ *            backend is used (provided other conditions are met). Default is 
+              false.
+ * @param[in] cfg_max_batch_size: Maximum number of nodes that can be processed
+              in a batch. This is used only for batched-level algo. Default 
+              value 128.
  */
 void set_tree_params(DecisionTreeParams &params, int cfg_max_depth = -1,
                      int cfg_max_leaves = -1, float cfg_max_features = 1.0f,
                      int cfg_n_bins = 8, int cfg_split_algo = SPLIT_ALGO::HIST,
-                     int cfg_min_rows_per_node = 2,
+                     int cfg_min_samples_leaf = 1,
+                     int cfg_min_samples_split = 2,
                      float cfg_min_impurity_decrease = 0.0f,
                      bool cfg_bootstrap_features = false,
                      CRITERION cfg_split_criterion = CRITERION_END,
                      bool cfg_quantile_per_tree = false,
-                     bool cfg_shuffle_features = false);
+                     bool cfg_use_experimental_backend = false,
+                     int cfg_max_batch_size = 128);
 
 /**
  * @brief Check validity of all decision tree hyper-parameters.
@@ -121,22 +148,34 @@ struct TreeMetaDataNode {
 };
 
 /**
- * @brief Print high-level tree information.
+ * @brief Obtain high-level tree information.
  * @tparam T: data type for input data (float or double).
  * @tparam L: data type for labels (int type for classification, T type for regression).
  * @param[in] tree: CPU pointer to TreeMetaDataNode
+ * @return High-level tree information as string
  */
 template <class T, class L>
-void print_tree_summary(const TreeMetaDataNode<T, L> *tree);
+std::string get_tree_summary_text(const TreeMetaDataNode<T, L> *tree);
 
 /**
- * @brief Print detailed tree information.
+ * @brief Obtain detailed tree information.
  * @tparam T: data type for input data (float or double).
  * @tparam L: data type for labels (int type for classification, T type for regression).
  * @param[in] tree: CPU pointer to TreeMetaDataNode
+ * @return Detailed tree information as string
  */
 template <class T, class L>
-void print_tree(const TreeMetaDataNode<T, L> *tree);
+std::string get_tree_text(const TreeMetaDataNode<T, L> *tree);
+
+/**
+ * @brief Export tree as a JSON string
+ * @tparam T: data type for input data (float or double).
+ * @tparam L: data type for labels (int type for classification, T type for regression).
+ * @param[in] tree: CPU pointer to TreeMetaDataNode
+ * @return Tree structure as JSON stsring
+ */
+template <class T, class L>
+std::string get_tree_json(const TreeMetaDataNode<T, L> *tree);
 
 // ----------------------------- Classification ----------------------------------- //
 
@@ -146,7 +185,7 @@ typedef TreeMetaDataNode<double, int> TreeClassifierD;
 /**
  * @defgroup DecisionTreeClassifierFit Fit functions
  * @brief Build (i.e., fit, train) Decision Tree classifier for input data.
- * @param[in] handle: cumlHandle
+ * @param[in] handle: raft::handle_t
  * @param[in, out] tree: CPU pointer to TreeMetaDataNode. User allocated.
  * @param[in] data: train data (nrows samples, ncols features) in column major format,
  *    excluding labels. Device pointer.
@@ -164,27 +203,30 @@ typedef TreeMetaDataNode<double, int> TreeClassifierD;
  * @param[in] n_unique_labels: number of unique label values. Number of
  *                             categories of classification.
  * @param[in] tree_params: Decision Tree training hyper parameter struct.
+ * @param[in] seed: Controls the randomness in tree fitting/growing algorithm.
  * @{
  */
-void decisionTreeClassifierFit(const ML::cumlHandle &handle,
+void decisionTreeClassifierFit(const raft::handle_t &handle,
                                TreeClassifierF *&tree, float *data,
                                const int ncols, const int nrows, int *labels,
                                unsigned int *rowids, const int n_sampled_rows,
                                int unique_labels,
-                               DecisionTree::DecisionTreeParams tree_params);
-void decisionTreeClassifierFit(const ML::cumlHandle &handle,
+                               DecisionTree::DecisionTreeParams tree_params,
+                               uint64_t seed);
+void decisionTreeClassifierFit(const raft::handle_t &handle,
                                TreeClassifierD *&tree, double *data,
                                const int ncols, const int nrows, int *labels,
                                unsigned int *rowids, const int n_sampled_rows,
                                int unique_labels,
-                               DecisionTree::DecisionTreeParams tree_params);
+                               DecisionTree::DecisionTreeParams tree_params,
+                               uint64_t seed);
 /** @} */
 
 /**
  * @defgroup DecisionTreeClassifierPredict Predict functions
  * @brief Predict target feature for input data; n-ary classification for
  *   single feature supported. Inference of trees is CPU only for now.
- * @param[in] handle: cumlHandle (currently unused; API placeholder)
+ * @param[in] handle: raft::handle_t (currently unused; API placeholder)
  * @param[in] tree: CPU pointer to TreeMetaDataNode.
  * @param[in] rows: test data (n_rows samples, n_cols features) in row major format.
  *    Current impl. expects a CPU pointer. TODO future API change.
@@ -198,12 +240,12 @@ void decisionTreeClassifierFit(const ML::cumlHandle &handle,
  *                       the caller itself might have set.
  * @{
  */
-void decisionTreeClassifierPredict(const ML::cumlHandle &handle,
+void decisionTreeClassifierPredict(const raft::handle_t &handle,
                                    const TreeClassifierF *tree,
                                    const float *rows, const int n_rows,
                                    const int n_cols, int *predictions,
                                    int verbosity = -1);
-void decisionTreeClassifierPredict(const ML::cumlHandle &handle,
+void decisionTreeClassifierPredict(const raft::handle_t &handle,
                                    const TreeClassifierD *tree,
                                    const double *rows, const int n_rows,
                                    const int n_cols, int *predictions,
@@ -218,7 +260,7 @@ typedef TreeMetaDataNode<double, double> TreeRegressorD;
 /**
  * @defgroup DecisionTreeRegressorFit Fit functions
  * @brief Build (i.e., fit, train) Decision Tree regressor for input data.
- * @param[in] handle: cumlHandle
+ * @param[in] handle: raft::handle_t
  * @param[in, out] tree: CPU pointer to TreeMetaDataNode. User allocated.
  * @param[in] data: train data (nrows samples, ncols features) in column major format,
  *   excluding labels. Device pointer.
@@ -232,25 +274,28 @@ typedef TreeMetaDataNode<double, double> TreeRegressorD;
  * @param[in] n_sampled_rows: number of training samples, after sampling. If using decision
  *   tree directly over the whole dataset: n_sampled_rows = nrows
  * @param[in] tree_params: Decision Tree training hyper parameter struct.
+ * @param[in] seed: Controls the randomness in tree fitting/growing algorithm.
  * @{
  */
-void decisionTreeRegressorFit(const ML::cumlHandle &handle,
+void decisionTreeRegressorFit(const raft::handle_t &handle,
                               TreeRegressorF *&tree, float *data,
                               const int ncols, const int nrows, float *labels,
                               unsigned int *rowids, const int n_sampled_rows,
-                              DecisionTree::DecisionTreeParams tree_params);
-void decisionTreeRegressorFit(const ML::cumlHandle &handle,
+                              DecisionTree::DecisionTreeParams tree_params,
+                              uint64_t seed);
+void decisionTreeRegressorFit(const raft::handle_t &handle,
                               TreeRegressorD *&tree, double *data,
                               const int ncols, const int nrows, double *labels,
                               unsigned int *rowids, const int n_sampled_rows,
-                              DecisionTree::DecisionTreeParams tree_params);
+                              DecisionTree::DecisionTreeParams tree_params,
+                              uint64_t seed);
 /** @} */
 
 /**
  * @defgroup DecisionTreeRegressorPredict Predict functions
  * @brief Predict target feature for input data; regression for single feature supported.
  *   Inference of trees is CPU only for now.
- * @param[in] handle: cumlHandle (currently unused; API placeholder)
+ * @param[in] handle: raft::handle_t (currently unused; API placeholder)
  * @param[in] tree: CPU pointer to TreeMetaDataNode.
  * @param[in] rows: test data (n_rows samples, n_cols features) in row major format.
  *   Current impl. expects a CPU pointer. TODO future API change.
@@ -264,11 +309,11 @@ void decisionTreeRegressorFit(const ML::cumlHandle &handle,
  *                       the caller itself might have set.
  * @{
  */
-void decisionTreeRegressorPredict(const ML::cumlHandle &handle,
+void decisionTreeRegressorPredict(const raft::handle_t &handle,
                                   const TreeRegressorF *tree, const float *rows,
                                   const int n_rows, const int n_cols,
                                   float *predictions, int verbosity = -1);
-void decisionTreeRegressorPredict(const ML::cumlHandle &handle,
+void decisionTreeRegressorPredict(const raft::handle_t &handle,
                                   const TreeRegressorD *tree,
                                   const double *rows, const int n_rows,
                                   const int n_cols, double *predictions,

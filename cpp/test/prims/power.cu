@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2020, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include "linalg/power.h"
-#include "random/rng.h"
+#include <raft/cudart_utils.h>
+#include <linalg/power.cuh>
+#include <raft/random/rng.cuh>
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -28,7 +28,7 @@ __global__ void naivePowerElemKernel(Type *out, const Type *in1,
                                      const Type *in2, int len) {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   if (idx < len) {
-    out[idx] = myPow(in1[idx], in2[idx]);
+    out[idx] = raft::myPow(in1[idx], in2[idx]);
   }
 }
 
@@ -36,7 +36,7 @@ template <typename Type>
 void naivePowerElem(Type *out, const Type *in1, const Type *in2, int len,
                     cudaStream_t stream) {
   static const int TPB = 64;
-  int nblks = ceildiv(len, TPB);
+  int nblks = raft::ceildiv(len, TPB);
   naivePowerElemKernel<Type><<<nblks, TPB, 0, stream>>>(out, in1, in2, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
@@ -46,7 +46,7 @@ __global__ void naivePowerScalarKernel(Type *out, const Type *in1,
                                        const Type in2, int len) {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   if (idx < len) {
-    out[idx] = myPow(in1[idx], in2);
+    out[idx] = raft::myPow(in1[idx], in2);
   }
 }
 
@@ -54,7 +54,7 @@ template <typename Type>
 void naivePowerScalar(Type *out, const Type *in1, const Type in2, int len,
                       cudaStream_t stream) {
   static const int TPB = 64;
-  int nblks = ceildiv(len, TPB);
+  int nblks = raft::ceildiv(len, TPB);
   naivePowerScalarKernel<Type><<<nblks, TPB, 0, stream>>>(out, in1, in2, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
@@ -76,14 +76,14 @@ class PowerTest : public ::testing::TestWithParam<PowerInputs<T>> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<PowerInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int len = params.len;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(in1, len);
-    allocate(in2, len);
-    allocate(out_ref, len);
-    allocate(out, len);
+    raft::allocate(in1, len);
+    raft::allocate(in2, len);
+    raft::allocate(out_ref, len);
+    raft::allocate(out, len);
     r.uniform(in1, len, T(1.0), T(2.0), stream);
     r.uniform(in2, len, T(1.0), T(2.0), stream);
 
@@ -118,20 +118,20 @@ const std::vector<PowerInputs<double>> inputsd2 = {
 
 typedef PowerTest<float> PowerTestF;
 TEST_P(PowerTestF, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(out_ref, out, params.len,
+                                raft::CompareApprox<float>(params.tolerance)));
 
-  ASSERT_TRUE(devArrMatch(out_ref, in1, params.len,
-                          CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(out_ref, in1, params.len,
+                                raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef PowerTest<double> PowerTestD;
 TEST_P(PowerTestD, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(out_ref, out, params.len,
+                                raft::CompareApprox<double>(params.tolerance)));
 
-  ASSERT_TRUE(devArrMatch(out_ref, in1, params.len,
-                          CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(out_ref, in1, params.len,
+                                raft::CompareApprox<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(PowerTests, PowerTestF, ::testing::ValuesIn(inputsf2));

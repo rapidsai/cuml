@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,17 +16,17 @@
 
 #pragma once
 
-#include <glm/qn/simple_mat.cuh>
-#include "cuda_utils.h"
-#include "glm/qn/glm_base.cuh"
-#include "linalg/binary_op.h"
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/binary_op.cuh>
+#include "glm_base.cuh"
+#include "simple_mat.cuh"
 
 namespace ML {
 namespace GLM {
-using MLCommon::ceildiv;
-using MLCommon::myExp;
-using MLCommon::myLog;
-using MLCommon::myMax;
+using raft::ceildiv;
+using raft::myExp;
+using raft::myLog;
+using raft::myMax;
 
 // Input: matrix Z (dims: CxN)
 // Computes softmax cross entropy loss across columns, i.e. normalization
@@ -59,7 +59,11 @@ __global__ void logSoftmaxKernel(T *out, T *dZ, const T *in, const T *labels,
   bool delta = false;
   // TODO is there a better way to read this?
   if (getDerivative && threadIdx.x == 0) {
-    shm.sh_val[threadIdx.y] = labels[y];
+    if (y < N) {
+      shm.sh_val[threadIdx.y] = labels[y];
+    } else {
+      shm.sh_val[threadIdx.y] = std::numeric_limits<T>::lowest();
+    }
   }
   __syncthreads();
   T label = shm.sh_val[threadIdx.y];
@@ -152,7 +156,7 @@ __global__ void logSoftmaxKernel(T *out, T *dZ, const T *in, const T *labels,
    */
   T blockSum = BlockRed(shm.blockStore).Sum(lossVal);
   if (threadIdx.x == 0 && threadIdx.y == 0) {
-    atomicAdd(out, blockSum);
+    raft::myAtomicAdd(out, blockSum);
   }
 }
 
@@ -189,7 +193,7 @@ template <typename T>
 struct Softmax : GLMBase<T, Softmax<T>> {
   typedef GLMBase<T, Softmax<T>> Super;
 
-  Softmax(const cumlHandle_impl &handle, int D, int C, bool has_bias)
+  Softmax(const raft::handle_t &handle, int D, int C, bool has_bias)
     : Super(handle, D, C, has_bias) {}
 
   inline void getLossAndDZ(T *loss_val, SimpleMat<T> &Z, const SimpleVec<T> &y,

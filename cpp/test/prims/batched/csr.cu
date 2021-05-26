@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,16 +15,16 @@
  */
 
 #include <gtest/gtest.h>
-#include <cuml/common/cuml_allocator.hpp>
-#include <cuml/cuml.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include <random>
 #include <vector>
 
-#include <common/cudart_utils.h>
-#include "linalg/batched/matrix.h"
-#include "linalg_naive.h"
-#include "sparse/batched/csr.h"
-#include "test_utils.h"
+#include <linalg_naive.h>
+#include <raft/cudart_utils.h>
+#include <test_utils.h>
+#include <linalg/batched/matrix.cuh>
+#include <sparse/batched/csr.cuh>
+#include "../test_utils.h"
 
 namespace MLCommon {
 namespace Sparse {
@@ -104,7 +104,7 @@ class CSRTest : public ::testing::TestWithParam<CSRInputs<T>> {
     CUBLAS_CHECK(cublasCreate(&handle));
     CUDA_CHECK(cudaStreamCreate(&stream));
     CUSOLVER_CHECK(cusolverSpCreate(&cusolverSpHandle));
-    auto allocator = std::make_shared<MLCommon::defaultDeviceAllocator>();
+    auto allocator = std::make_shared<raft::mr::device::default_allocator>();
 
     // Created batched dense matrices
     LinAlg::Batched::Matrix<T> AbM(params.m, params.n, params.batch_size,
@@ -117,9 +117,9 @@ class CSRTest : public ::testing::TestWithParam<CSRInputs<T>> {
                                             allocator, stream);
 
     // Copy the data to the device
-    updateDevice(AbM.raw_data(), A.data(), A.size(), stream);
-    updateDevice(BxbM.raw_data(), Bx.data(), Bx.size(), stream);
-    updateDevice(res_bM->raw_data(), res_h.data(), res_h.size(), stream);
+    raft::update_device(AbM.raw_data(), A.data(), A.size(), stream);
+    raft::update_device(BxbM.raw_data(), Bx.data(), Bx.size(), stream);
+    raft::update_device(res_bM->raw_data(), res_h.data(), res_h.size(), stream);
 
     // Create sparse matrix A from the dense A and the mask
     CSR<T> AbS = CSR<T>::from_dense(AbM, mask, cusolverSpHandle);
@@ -197,11 +197,13 @@ using BatchedCSRTestD = CSRTest<double>;
 using BatchedCSRTestF = CSRTest<float>;
 TEST_P(BatchedCSRTestD, Result) {
   ASSERT_TRUE(devArrMatchHost(res_h.data(), res_bM->raw_data(), res_h.size(),
-                              CompareApprox<double>(params.tolerance), stream));
+                              raft::CompareApprox<double>(params.tolerance),
+                              stream));
 }
 TEST_P(BatchedCSRTestF, Result) {
   ASSERT_TRUE(devArrMatchHost(res_h.data(), res_bM->raw_data(), res_h.size(),
-                              CompareApprox<float>(params.tolerance), stream));
+                              raft::CompareApprox<float>(params.tolerance),
+                              stream));
 }
 
 INSTANTIATE_TEST_CASE_P(BatchedCSRTests, BatchedCSRTestD,
