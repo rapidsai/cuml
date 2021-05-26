@@ -123,6 +123,8 @@ struct shmem_size_params {
   bool cols_in_shmem = true;
   /// n_items is the most items per thread that fit into shared memory
   int n_items = 0;
+  /// max_shm is the maximum opt-in shared memory on the device
+  int max_shm = 0;
   /// shm_sz is the associated shared memory footprint
   int shm_sz = INT_MAX;
 

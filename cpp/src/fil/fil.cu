@@ -76,11 +76,6 @@ __global__ void transform_k(float* preds, size_t n, output_t output,
 
 struct forest {
   void init_n_items(int device) {
-    /// the most shared memory a kernel can request on the GPU in question
-    int max_shm = 0;
-    CUDA_CHECK(cudaDeviceGetAttribute(
-      &max_shm, cudaDevAttrMaxSharedMemoryPerBlockOptin, device));
-
     // searching for the most items per block while respecting the shared
     // memory limits creates a full linear programming problem.
     // solving it in a single equation looks less tractable than this
@@ -94,10 +89,10 @@ struct forest {
              ssp.n_items <= (algo_ == algo_t::BATCH_TREE_REORG ? 4 : 1);
              ++ssp.n_items) {
           ssp.compute_smem_footprint();
-          if (ssp.shm_sz <= max_shm) ssp_ = ssp;
+          if (ssp.shm_sz <= ssp.max_shm) ssp_ = ssp;
         }
       }
-      ASSERT(max_shm >= ssp_.shm_sz,
+      ASSERT(ssp_.max_shm >= ssp_.shm_sz,
              "FIL out of shared memory. Perhaps the maximum number of \n"
              "supported classes is exceeded? 5'000 would still be safe.");
     }
@@ -116,12 +111,13 @@ struct forest {
     fixed_block_count_ = blocks_per_sm * sm_count;
   }
 
-  void init_max_shm(int device) {
-    CUDA_CHECK(cudaDeviceGetAttribute(
-      &max_shm_, cudaDevAttrMaxSharedMemoryPerBlockOptin, device));
-  }
+  void init_max_shm(int device) {}
 
   void init_common(const raft::handle_t& h, const forest_params_t* params) {
+    int device = h.get_device();
+    CUDA_CHECK(cudaDeviceGetAttribute(
+      &proba_ssp_.max_shm, cudaDevAttrMaxSharedMemoryPerBlockOptin, device));
+
     depth_ = params->depth;
     num_trees_ = params->num_trees;
     algo_ = params->algo;
@@ -133,10 +129,8 @@ struct forest {
     proba_ssp_.num_classes = params->num_classes;
     class_ssp_ = proba_ssp_;
 
-    int device = h.get_device();
     init_n_items(device);  // n_items takes priority over blocks_per_sm
     init_fixed_block_count(device, params->blocks_per_sm);
-    init_max_shm(device);
   }
 
   virtual void infer(predict_params params, cudaStream_t stream) = 0;

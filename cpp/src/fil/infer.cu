@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <mutex>
 
 #include <thrust/functional.h>
 #include <cuml/fil/multi_sum.cuh>
@@ -23,6 +24,8 @@
 
 namespace ML {
 namespace fil {
+
+std::mutex shmem_carveout_mutex;
 
 // vec wraps float[N] for cub::BlockReduce
 template <int N, typename T>
@@ -575,11 +578,13 @@ __global__ void infer_k(storage_type forest, predict_params params) {
 }
 
 void set_carveout(void* kernel, int footprint, int max_shm) {
-  CUDA_CHECK(
+  // ensure optimal occupancy in case default allows less blocks/SM
+  CUDA_CHECK_NO_THROW(
     cudaFuncSetAttribute(kernel, cudaFuncAttributePreferredSharedMemoryCarveout,
                          // footprint in % of max_shm, rounding up
                          (100 * footprint + max_shm - 1) / max_shm));
-  CUDA_CHECK(cudaFuncSetAttribute(
+  // even if the footprint < 48'000, ensure that we reset after previous forest
+  CUDA_CHECK_NO_THROW(cudaFuncSetAttribute(
     kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, footprint));
 }
 
@@ -633,30 +638,30 @@ void shmem_size_params::compute_smem_footprint() {
 template <leaf_algo_t leaf_algo, bool cols_in_shmem, typename storage_type>
 void infer_k_nitems_launcher(storage_type forest, predict_params params,
                              cudaStream_t stream, int block_dim_x) {
-  void (*kernel)(storage_type, predict_params);
-  switch (params.n_items) {
-    case 1:
-      kernel = infer_k<1, leaf_algo, cols_in_shmem>;
-      break;
-    case 2:
-      kernel = infer_k<2, leaf_algo, cols_in_shmem>;
-      break;
-    case 3:
-      kernel = infer_k<3, leaf_algo, cols_in_shmem>;
-      break;
-    case 4:
-      kernel = infer_k<4, leaf_algo, cols_in_shmem>;
-      break;
-    default:
-      ASSERT(false, "internal error: nitems > 4");
-  }
+  void (*kernels[])(storage_type, predict_params) = {
+    nullptr,
+    infer_k<1, leaf_algo, cols_in_shmem, storage_type>,
+    infer_k<2, leaf_algo, cols_in_shmem, storage_type>,
+    infer_k<3, leaf_algo, cols_in_shmem, storage_type>,
+    infer_k<4, leaf_algo, cols_in_shmem, storage_type>,
+  };
+  ASSERT(params.n_items <= 4, "internal error: nitems > 4");
+  void (*kernel)(storage_type, predict_params) = kernels[params.n_items];
   // Two forests might be using the same handle, so
   // large batch will run fastest if we set just before launching.
-  // This will not cause a race condition between setting and launching.
-  set_carveout((void*)kernel, params.shm_sz, forest.max_shm());
+  // This will not cause a race condition between setting and launching despite
+  // CPU-GPU asynchronicity.
+  shmem_carveout_mutex.lock();
+  set_carveout((void*)kernel, params.shm_sz, params.max_shm);
   kernel<<<params.num_blocks, block_dim_x, params.shm_sz, stream>>>(forest,
                                                                     params);
-  CUDA_CHECK(cudaPeekAtLastError());
+  CUDA_CHECK_NO_THROW(cudaPeekAtLastError());
+  shmem_carveout_mutex.unlock();  // a CUDA error should not hang other threads
+  if (cudaPeekAtLastError() != cudaSuccess) {
+    // a wrong thread might throw, it's OK
+    throw raft::cuda_error(
+      "CUDA error in ML::fil::predict() (see stdout for details)");
+  }
 }
 
 template <leaf_algo_t leaf_algo, typename storage_type>
