@@ -425,10 +425,11 @@ void mutual_reachability_graph(const raft::handle_t &handle, const value_t *X,
   // convert from current knn's 64-bit to 32-bit.
   thrust::transform(exec_policy, int64_indices.data(),
                     int64_indices.data() + int64_indices.size(), inds.data(),
-                    [] __device__(int64_t in)->value_idx {return in; });
+                    [] __device__(int64_t in) -> value_idx { return in; });
 
   // Slice core distances (distances to kth nearest neighbor)
-  core_distances<value_idx>(dists.data(), k, min_samples, m, core_dists, stream);
+  core_distances<value_idx>(dists.data(), k, min_samples, m, core_dists,
+                            stream);
 
   /**
    * Compute L2 norm
@@ -440,9 +441,9 @@ void mutual_reachability_graph(const raft::handle_t &handle, const value_t *X,
 
   // self-loops get max distance
   auto coo_rows_counting_itr = thrust::make_counting_iterator<value_idx>(0);
-  thrust::transform(exec_policy, coo_rows_counting_itr, coo_rows_counting_itr + (m * k),
-                    coo_rows.data(),
-                    [k] __device__(value_idx c)->value_idx { return c / k; });
+  thrust::transform(exec_policy, coo_rows_counting_itr,
+                    coo_rows_counting_itr + (m * k), coo_rows.data(),
+                    [k] __device__(value_idx c) -> value_idx { return c / k; });
 
   CUDA_CHECK(cudaPeekAtLastError());
 

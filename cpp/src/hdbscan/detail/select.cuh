@@ -146,10 +146,6 @@ void excess_of_mass(
   auto stream = handle.get_stream();
   auto exec_policy = rmm::exec_policy(stream);
 
-  /**
-   * 1. Build CSR of cluster tree from condensed tree by filtering condensed tree for
-   *    only those entries w/ lambda > 1 and constructing a CSR from the result
-   */
   auto cluster_tree_edges = cluster_tree.get_n_edges();
   auto parents = cluster_tree.get_parents();
   auto children = cluster_tree.get_children();
@@ -194,7 +190,7 @@ void excess_of_mass(
   std::vector<value_idx> indptr_h(indptr.size(), 0);
   if (cluster_tree_edges > 0)
     raft::update_host(indptr_h.data(), indptr.data(), indptr.size(), stream);
-  // don't need to sync here- thrust should take care of it.
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   // Loop through stabilities in "reverse topological order" (e.g. reverse sorted order)
   value_idx tree_top = allow_single_cluster ? 0 : 1;

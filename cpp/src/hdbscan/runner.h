@@ -62,7 +62,7 @@ struct FixConnectivitiesRedOp {
         max(core_dist_rit, max(core_dists[out->key], out->value));
 
       bool smaller = core_dist_other < core_dist_out;
-      out->key = smaller ? other.key : out->key ;
+      out->key = smaller ? other.key : out->key;
       out->value = smaller ? core_dist_other : core_dist_out;
     }
   }

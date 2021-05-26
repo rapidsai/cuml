@@ -74,7 +74,11 @@ class CondensedHierarchy {
                      rmm::device_uvector<value_idx> &&sizes_);
   /**
    * Populates the condensed hierarchy object with the output
-   * from Condense::build_condensed_hierarchy
+   * from Condense::build_condensed_hierarchy. First, it reverses
+   * values in the parent array since root has the largest value.
+   * Then, it makes the combined parent and children arrays monotonic.
+   * Finally, (parent, children, sizes) as key sort lamba array as
+   * value
    * @param full_parents
    * @param full_children
    * @param full_lambdas
@@ -294,4 +298,4 @@ void hdbscan(const raft::handle_t &handle, const float *X, size_t m, size_t n,
              raft::distance::DistanceType metric,
              HDBSCAN::Common::HDBSCANParams &params,
              HDBSCAN::Common::hdbscan_output<int, float> &out);
-} // END namespace ML
+}  // END namespace ML

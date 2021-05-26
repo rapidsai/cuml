@@ -118,7 +118,10 @@ void do_labelling_on_host(
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  value_idx size = *std::max_element(parent_h.begin(), parent_h.end());
+  auto parents = thrust::device_pointer_cast(condensed_tree.get_parents());
+  auto thrust_policy = rmm::exec_policy(stream);
+  value_idx size = *thrust::max_element(thrust_policy, parents,
+                                        parents + condensed_tree.get_n_edges());
 
   std::vector<value_idx> result(n_leaves);
   std::vector<value_t> parent_lambdas(size + 1, 0);
