@@ -126,16 +126,16 @@ struct shmem_size_params {
   /// max_shm is the maximum opt-in shared memory on the device
   int max_shm = 0;
   /// shm_sz is the associated shared memory footprint
-  int shm_sz = INT_MAX;
+  size_t shm_sz = INT_MAX;
 
   __host__ __device__ size_t cols_shmem_size() {
     return cols_in_shmem ? sizeof(float) * num_cols * n_items : 0;
   }
   void compute_smem_footprint();
   template <int NITEMS>
-  int get_smem_footprint();
+  size_t get_smem_footprint();
   template <int NITEMS, leaf_algo_t leaf_algo>
-  int get_smem_footprint();
+  size_t get_smem_footprint();
 };
 
 // predict_params are parameters for prediction

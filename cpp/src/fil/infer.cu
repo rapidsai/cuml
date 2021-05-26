@@ -577,23 +577,23 @@ __global__ void infer_k(storage_type forest, predict_params params) {
   }
 }
 
-void set_carveout(void* kernel, int footprint, int max_shm) {
+void set_carveout(void* kernel, size_t footprint, int max_shm) {
   // ensure optimal occupancy in case default allows less blocks/SM
   CUDA_CHECK_NO_THROW(
     cudaFuncSetAttribute(kernel, cudaFuncAttributePreferredSharedMemoryCarveout,
                          // footprint in % of max_shm, rounding up
                          (100 * footprint + max_shm - 1) / max_shm));
-  // even if the footprint < 48'000, ensure that we reset after previous forest
+  // even if the footprint < 48 * 1024, ensure that we reset after previous forest
   CUDA_CHECK_NO_THROW(cudaFuncSetAttribute(
     kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, footprint));
 }
 
 template <int NITEMS, leaf_algo_t leaf_algo>
-int shmem_size_params::get_smem_footprint() {
-  int finalize_footprint =
+size_t shmem_size_params::get_smem_footprint() {
+  size_t finalize_footprint =
     tree_aggregator_t<NITEMS, leaf_algo>::smem_finalize_footprint(
       cols_shmem_size(), num_classes, predict_proba);
-  int accumulate_footprint =
+  size_t accumulate_footprint =
     tree_aggregator_t<NITEMS, leaf_algo>::smem_accumulate_footprint(
       num_classes) +
     cols_shmem_size();
@@ -601,7 +601,7 @@ int shmem_size_params::get_smem_footprint() {
 }
 
 template <int NITEMS>
-int shmem_size_params::get_smem_footprint() {
+size_t shmem_size_params::get_smem_footprint() {
   switch (leaf_algo) {
     case FLOAT_UNARY_BINARY:
       return get_smem_footprint<NITEMS, FLOAT_UNARY_BINARY>();

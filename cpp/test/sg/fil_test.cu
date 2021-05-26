@@ -763,7 +763,8 @@ std::vector<FilTestParams> predict_dense_inputs = {
                   algo = BATCH_TREE_REORG, leaf_algo = CATEGORICAL_LEAF,
                   num_classes = 3),
   // use shared memory opt-in carveout if available, or infer out of L1 cache
-  FIL_TEST_PARAMS(num_cols = ((48 + 1) * 1024) / sizeof(float), algo = NAIVE),
+  FIL_TEST_PARAMS(num_rows = 103, num_cols = ((48 + 1) * 1024) / sizeof(float),
+                  algo = NAIVE),
 };
 
 TEST_P(PredictDenseFilTest, Predict) { compare(); }
