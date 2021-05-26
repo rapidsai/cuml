@@ -121,27 +121,12 @@ std::pair<value_t, value_t> min_max(const value_t *Y, const value_idx n,
  * @param[in] handle: The GPU handle.
  * @param[out] Y: The final embedding (col-major).
  * @param[in] n: Number of rows in data X.
- * @param[in] early_exaggeration: How much pressure to apply to clusters to spread out during the exaggeration phase.
- * @param[in] late_exaggeration: How much pressure to apply to clusters to spread out after the exaggeration phase.
- * @param[in] exaggeration_iter: How many iterations you want the early exaggeration to run for. Late exaggeration will begin after this number of iterations if >1.0. 
- * @param[in] pre_learning_rate: The learning rate during the exaggeration phase.
- * @param[in] post_learning_rate: The learning rate after the exaggeration phase.
- * @param[in] max_iter: The maximum number of iterations TSNE should run for.
- * @param[in] min_grad_norm: The smallest gradient norm TSNE should terminate on.
- * @param[in] pre_momentum: The momentum used during the exaggeration phase.
- * @param[in] post_momentum: The momentum used after the exaggeration phase.
- * @param[in] random_state: Set this to -1 for random intializations or >= 0 to see the PRNG.
- * @param[in] initialize_embeddings: Whether to overwrite the current Y vector with random noise.
+ * @param[in] params: Parameters for TSNE model.
  */
 template <typename value_idx, typename value_t>
 void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
               const value_idx NNZ, const raft::handle_t &handle, value_t *Y,
-              const value_idx n, const float early_exaggeration,
-              const float late_exaggeration, const int exaggeration_iter,
-              const float pre_learning_rate, const float post_learning_rate,
-              const int max_iter, const float min_grad_norm,
-              const float pre_momentum, const float post_momentum,
-              const long long random_state, const bool initialize_embeddings) {
+              const value_idx n, const TSNEParams &params) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
   auto thrust_policy = rmm::exec_policy(stream);
@@ -304,15 +289,15 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
                                n_fft_coeffs * n_fft_coeffs, CUFFT_C2R, n_terms,
                                &work_size_idft));
 
-  value_t momentum = pre_momentum;
-  value_t learning_rate = pre_learning_rate;
-  value_t exaggeration = early_exaggeration;
+  value_t momentum = params.pre_momentum;
+  value_t learning_rate = params.pre_learning_rate;
+  value_t exaggeration = params.early_exaggeration;
 
-  if (initialize_embeddings) {
-    random_vector(Y, 0.0000f, 0.0001f, n * 2, stream, random_state);
+  if (params.initialize_embeddings) {
+    random_vector(Y, 0.0000f, 0.0001f, n * 2, stream, params.random_state);
   }
 
-  for (int iter = 0; iter < max_iter; iter++) {
+  for (int iter = 0; iter < params.max_iter; iter++) {
     // Compute charges Q_ij
     {
       int num_blocks = raft::ceildiv(n, (value_idx)NTHREADS_1024);
@@ -320,10 +305,10 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
         chargesQij_device.data(), Y, Y + n, n, n_terms);
     }
 
-    if (iter == exaggeration_iter) {
-      momentum = post_momentum;
-      learning_rate = post_learning_rate;
-      exaggeration = late_exaggeration;
+    if (iter == params.exaggeration_iter) {
+      momentum = params.post_momentum;
+      learning_rate = params.post_learning_rate;
+      exaggeration = params.late_exaggeration;
     }
 
     MLCommon::LinAlg::zero(w_coefficients_device.data(),
@@ -510,7 +495,7 @@ void FFT_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
                      thrust::plus<value_t>()) /
       attractive_forces_device.size();
 
-    if (grad_norm <= min_grad_norm) {
+    if (grad_norm <= params.min_grad_norm) {
       CUML_LOG_DEBUG(
         "Breaking early as `min_grad_norm` was satisifed, after %d iterations",
         iter);
