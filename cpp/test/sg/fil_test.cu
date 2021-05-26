@@ -141,6 +141,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     // helper data
     /// weights, used as float* or int*
     int* weights_d = nullptr;
+    float* vector_leaf_d = nullptr;
     float* thresholds_d = nullptr;
     int* fids_d = nullptr;
     bool* def_lefts_d = nullptr;
@@ -150,6 +151,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
     // allocate GPU data
     raft::allocate(weights_d, num_nodes);
+    raft::allocate(vector_leaf_d, num_nodes * ps.num_classes);
     // sizeof(float) == sizeof(int)
     raft::allocate(thresholds_d, num_nodes);
     raft::allocate(fids_d, num_nodes);
@@ -158,11 +160,13 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
     // generate on-GPU random data
     raft::random::Rng r(ps.seed);
-    if (ps.leaf_algo != fil::leaf_algo_t::CATEGORICAL_LEAF) {
-      r.uniform((float*)weights_d, num_nodes, -1.0f, 1.0f, stream);
-    } else {
+    if (ps.leaf_algo == fil::leaf_algo_t::CATEGORICAL_LEAF) {
       // [0..num_classes)
       r.uniformInt((int*)weights_d, num_nodes, 0, ps.num_classes, stream);
+    } else if (ps.leaf_algo == fil::leaf_algo_t::VECTOR_LEAF) {
+      r.uniform(vector_leaf_d, num_nodes * ps.num_classes, 0.0f, 1.0f, stream);
+    } else {
+      r.uniform((float*)weights_d, num_nodes, -1.0f, 1.0f, stream);
     }
     r.uniform(thresholds_d, num_nodes, -1.0f, 1.0f, stream);
     r.uniformInt(fids_d, num_nodes, 0, ps.num_cols, stream);
@@ -172,10 +176,13 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     // copy data to host
     std::vector<float> thresholds_h(num_nodes);
     std::vector<int> weights_h(num_nodes), fids_h(num_nodes);
+    vector_leaf.resize(num_nodes * ps.num_classes);
     def_lefts_h = new bool[num_nodes];
     is_leafs_h = new bool[num_nodes];
 
     raft::update_host(weights_h.data(), (int*)weights_d, num_nodes, stream);
+    raft::update_host((float*)vector_leaf.data(), vector_leaf_d,
+                      num_nodes * ps.num_classes, stream);
     raft::update_host(thresholds_h.data(), thresholds_d, num_nodes, stream);
     raft::update_host(fids_h.data(), fids_d, num_nodes, stream);
     raft::update_host(def_lefts_h, def_lefts_d, num_nodes, stream);
@@ -206,6 +213,9 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
           // merely that we copied floats into weights_h earlier
           std::memcpy(&w.f, &weights_h[i], sizeof w.f);
           break;
+        case fil::leaf_algo_t::VECTOR_LEAF:
+          w.idx = i * ps.num_classes;
+          break;
         default:
           ASSERT(false, "internal error: invalid ps.leaf_algo");
       }
@@ -221,6 +231,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     CUDA_CHECK(cudaFree(fids_d));
     CUDA_CHECK(cudaFree(thresholds_d));
     CUDA_CHECK(cudaFree(weights_d));
+    CUDA_CHECK(cudaFree(vector_leaf_d));
   }
 
   void generate_data() {
@@ -409,6 +420,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
   // forest data
   std::vector<fil::dense_node> nodes;
+  std::vector<val_t> vector_leaf;
 
   // parameters
   cudaStream_t stream;
@@ -432,7 +444,7 @@ class PredictDenseFilTest : public BaseFilTest {
     fil_ps.num_classes = ps.num_classes;
     fil_ps.blocks_per_sm = ps.blocks_per_sm;
 
-    fil::init_dense(handle, pforest, nodes.data(), &fil_ps);
+    fil::init_dense(handle, pforest, nodes.data(), &fil_ps, vector_leaf);
   }
 };
 
@@ -491,7 +503,7 @@ class BasePredictSparseFilTest : public BaseFilTest {
     dense2sparse();
     fil_params.num_nodes = sparse_nodes.size();
     fil::init_sparse(handle, pforest, trees.data(), sparse_nodes.data(),
-                     &fil_params);
+                     &fil_params, vector_leaf);
   }
   std::vector<fil_node_t> sparse_nodes;
   std::vector<int> trees;
@@ -710,6 +722,8 @@ std::vector<FilTestParams> predict_dense_inputs = {
   FIL_TEST_PARAMS(output = SIGMOID, algo = ALGO_AUTO),
   FIL_TEST_PARAMS(output = AVG_CLASS, algo = BATCH_TREE_REORG,
                   leaf_algo = CATEGORICAL_LEAF, num_classes = 5),
+  FIL_TEST_PARAMS(output = AVG_CLASS, algo = BATCH_TREE_REORG,
+                  leaf_algo = VECTOR_LEAF, num_classes = 5),
   FIL_TEST_PARAMS(output = AVG_CLASS, num_classes = 2),
   FIL_TEST_PARAMS(algo = TREE_REORG, leaf_algo = CATEGORICAL_LEAF,
                   num_classes = 5),

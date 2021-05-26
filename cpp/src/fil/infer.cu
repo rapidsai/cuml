@@ -598,6 +598,8 @@ size_t shmem_size_params::get_smem_footprint() {
       if (num_classes > FIL_TPB)
         return get_smem_footprint<NITEMS, GROVE_PER_CLASS_MANY_CLASSES>();
       return get_smem_footprint<NITEMS, GROVE_PER_CLASS_FEW_CLASSES>();
+    case VECTOR_LEAF:
+      return get_smem_footprint<NITEMS, VECTOR_LEAF>();
     default:
       ASSERT(false, "internal error: unexpected leaf_algo_t");
   }
