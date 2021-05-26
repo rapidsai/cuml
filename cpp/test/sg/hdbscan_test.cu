@@ -171,13 +171,6 @@ class ClusterCondensingTest
       handle, mst_src.data(), mst_dst.data(), mst_data.data(), params.n_row - 1,
       out_children.data(), out_delta.data(), out_size.data());
 
-    raft::print_device_vector("children", out_children.data(),
-                              out_children.size(), std::cout);
-    raft::print_device_vector("delta", out_delta.data(), out_delta.size(),
-                              std::cout);
-    raft::print_device_vector("size", out_size.data(), out_delta.size(),
-                              std::cout);
-
     /**
      * Condense Hierarchy
      */
@@ -188,14 +181,6 @@ class ClusterCondensingTest
       params.min_cluster_size, params.n_row, condensed_tree);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-
-    raft::print_device_vector("condensed parents", condensed_tree.get_parents(),
-                              condensed_tree.get_n_edges(), std::cout);
-    raft::print_device_vector("condensed children",
-                              condensed_tree.get_children(),
-                              condensed_tree.get_n_edges(), std::cout);
-    raft::print_device_vector("condensed size", condensed_tree.get_sizes(),
-                              condensed_tree.get_n_edges(), std::cout);
 
     rmm::device_uvector<IdxT> labels(params.n_row, handle.get_stream());
     rmm::device_uvector<T> stabilities(condensed_tree.get_n_clusters(),
@@ -209,8 +194,6 @@ class ClusterCondensingTest
 
     CUML_LOG_DEBUG("Evaluating results");
     if (params.expected.size() == params.n_row) {
-      raft::print_device_vector("labels", labels.data(), labels.size(),
-                                std::cout);
       score = MLCommon::Metrics::compute_adjusted_rand_index(
         labels.data(), expected_device.data(), params.n_row,
         handle.get_device_allocator(), handle.get_stream());

@@ -99,7 +99,7 @@ void perform_bfs(const raft::handle_t &handle, const value_idx *indptr,
 template <typename value_idx, typename value_t>
 void parent_csr(const raft::handle_t &handle,
                 Common::CondensedHierarchy<value_idx, value_t> &cluster_tree,
-                const int n_clusters, value_idx *indptr) {
+                value_idx *indptr) {
   auto stream = handle.get_stream();
   auto thrust_policy = rmm::exec_policy(stream);
 
@@ -107,6 +107,7 @@ void parent_csr(const raft::handle_t &handle,
   auto children = cluster_tree.get_children();
   auto sizes = cluster_tree.get_sizes();
   auto cluster_tree_edges = cluster_tree.get_n_edges();
+  auto n_clusters = cluster_tree.get_n_clusters();
 
   if (cluster_tree_edges > 0) {
     raft::sparse::op::coo_sort(0, 0, cluster_tree_edges, parents, children,
@@ -185,7 +186,7 @@ void excess_of_mass(
   std::vector<value_idx> cluster_sizes_h(n_clusters);
 
   rmm::device_uvector<value_idx> indptr(n_clusters + 1, stream);
-  parent_csr(handle, cluster_tree, n_clusters, indptr.data());
+  parent_csr(handle, cluster_tree, indptr.data());
 
   raft::update_host(cluster_sizes_h.data(), cluster_sizes.data(),
                     cluster_sizes.size(), stream);
@@ -299,9 +300,6 @@ void cluster_epsilon_search(
   auto lambdas = cluster_tree.get_lambdas();
   auto cluster_tree_edges = cluster_tree.get_n_edges();
 
-  // auto n_selected_clusters =
-  //   thrust::reduce(thrust_policy, is_cluster, is_cluster + n_clusters);
-
   rmm::device_uvector<int> selected_clusters(n_selected_clusters, stream);
 
   // copying selected clusters by index
@@ -329,7 +327,7 @@ void cluster_epsilon_search(
     cluster_selection_epsilon, allow_single_cluster);
 
   rmm::device_uvector<value_idx> indptr(n_clusters + 1, stream);
-  parent_csr(handle, cluster_tree, n_clusters, indptr.data());
+  parent_csr(handle, cluster_tree, indptr.data());
 
   perform_bfs(handle, indptr.data(), children, frontier.data(), is_cluster,
               n_clusters, propagate_cluster_negation_kernel<value_idx>);

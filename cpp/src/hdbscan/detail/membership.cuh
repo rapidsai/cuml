@@ -66,17 +66,11 @@ void get_probabilities(
   rmm::device_uvector<value_idx> sorted_parents(n_edges, stream);
   raft::copy_async(sorted_parents.data(), parents, n_edges, stream);
 
-  // 0-index sorted parents by subtracting n_leaves for offsets and birth/stability indexing
-  auto index_op = [n_leaves] __device__(const auto &x) { return x - n_leaves; };
-  thrust::transform(exec_policy, sorted_parents.begin(), sorted_parents.end(),
-                    sorted_parents.begin(), index_op);
+  rmm::device_uvector<value_idx> sorted_parents_offsets(n_clusters + 1, stream);
+  Utils::parent_csr(handle, condensed_tree, sorted_parents.data(),
+                    sorted_parents_offsets.data());
 
-  rmm::device_uvector<value_idx> sorted_parents_offsets(n_edges + 1, stream);
-  raft::sparse::convert::sorted_coo_to_csr(
-    sorted_parents.data(), n_edges, sorted_parents_offsets.data(),
-    n_clusters + 1, handle.get_device_allocator(), handle.get_stream());
-
-  // this is to find maximum lambdas of all children under a prent
+  // this is to find maximum lambdas of all children under a parent
   rmm::device_uvector<value_t> deaths(n_clusters, stream);
   thrust::fill(exec_policy, deaths.begin(), deaths.end(), 0.0f);
 

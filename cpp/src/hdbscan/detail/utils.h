@@ -133,6 +133,38 @@ Common::CondensedHierarchy<value_idx, value_t> make_cluster_tree(
     std::move(cluster_sizes));
 }
 
+/**
+ * Computes a CSR index of sorted parents of condensed tree. 
+ * @tparam value_idx
+ * @tparam value_t
+ * @param[in] handle raft handle for resource reuse
+ * @param[inout] cluster_tree cluster tree (condensed hierarchy with all nodes of size > 1)
+ * @param[in] n_clusters number of clusters
+ * @param[out] indptr CSR indptr of parents array after sort
+ */
+template <typename value_idx, typename value_t>
+void parent_csr(const raft::handle_t &handle,
+                Common::CondensedHierarchy<value_idx, value_t> &condensed_tree,
+                value_idx *sorted_parents, value_idx *indptr) {
+  auto stream = handle.get_stream();
+  auto thrust_policy = rmm::exec_policy(stream);
+
+  auto children = condensed_tree.get_children();
+  auto sizes = condensed_tree.get_sizes();
+  auto n_edges = condensed_tree.get_n_edges();
+  auto n_leaves = condensed_tree.get_n_leaves();
+  auto n_clusters = condensed_tree.get_n_clusters();
+
+  // 0-index sorted parents by subtracting n_leaves for offsets and birth/stability indexing
+  auto index_op = [n_leaves] __device__(const auto &x) { return x - n_leaves; };
+  thrust::transform(thrust_policy, sorted_parents, sorted_parents + n_edges,
+                    sorted_parents, index_op);
+
+  raft::sparse::convert::sorted_coo_to_csr(
+    sorted_parents, n_edges, indptr, n_clusters + 1,
+    handle.get_device_allocator(), stream);
+}
+
 };  // namespace Utils
 };  // namespace detail
 };  // namespace HDBSCAN

@@ -75,17 +75,9 @@ void compute_stabilities(
   rmm::device_uvector<value_idx> sorted_parents(n_edges, stream);
   raft::copy_async(sorted_parents.data(), parents, n_edges, stream);
 
-  // 0-index sorted parents by subtracting n_leaves for offsets and birth/stability indexing
-  auto index_op = [n_leaves] __device__(const auto &x) { return x - n_leaves; };
-  thrust::transform(exec_policy, sorted_parents.begin(), sorted_parents.end(),
-                    sorted_parents.begin(), index_op);
-
   rmm::device_uvector<value_idx> sorted_parents_offsets(n_edges + 1, stream);
-  raft::sparse::convert::sorted_coo_to_csr(
-    sorted_parents.data(), n_edges, sorted_parents_offsets.data(),
-    n_clusters + 1, handle.get_device_allocator(), handle.get_stream());
-
-  // Segmented reduction on min_lambda within each cluster
+  Utils::parent_csr(handle, condensed_tree, sorted_parents.data(),
+                    sorted_parents_offsets.data());
 
   // This is to consider the case where a child may also be a parent
   // in which case, births for that parent are initialized to
@@ -100,9 +92,8 @@ void compute_stabilities(
     }
   };
 
-  // this is to find minimum lambdas of all children under a prent
+  // this is to find minimum lambdas of all children under a parent
   rmm::device_uvector<value_t> births_parent_min(n_clusters, stream);
-  thrust::fill(exec_policy, births.begin(), births.end(), 0.0f);
   thrust::for_each(exec_policy, thrust::make_counting_iterator(value_idx(0)),
                    thrust::make_counting_iterator(n_edges), births_init_op);
 
@@ -127,7 +118,7 @@ void compute_stabilities(
 
   thrust::fill(exec_policy, stabilities, stabilities + n_clusters, 0.0f);
 
-  // for each child, calculate summation (lambda[child] - lambda[birth[parent]]) * sizes[child]
+  // for each child, calculate summation (lambda[child] - birth[parent]) * sizes[child]
   stabilities_functor<value_idx, value_t> stabilities_op(
     stabilities, births.data(), parents, lambdas, sizes, n_leaves);
   thrust::for_each(exec_policy, thrust::make_counting_iterator(value_idx(0)),
