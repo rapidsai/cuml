@@ -33,34 +33,13 @@ namespace TSNE {
  * @param[in] handle: The GPU handle.
  * @param[out] Y: The final embedding. Will overwrite this internally.
  * @param[in] n: Number of rows in data X.
- * @param[in] theta: repulsion threshold
- * @param[in] epssq: A tiny jitter to promote numerical stability.
- * @param[in] early_exaggeration: How much pressure to apply to clusters to spread out during the exaggeration phase.
- * @param[in] exaggeration_iter: How many iterations you want the early pressure to run for. If late exaggeration is used, it will begin after this number of iterations. 
- * @param[in] min_gain: Rounds up small gradient updates.
- * @param[in] pre_learning_rate: The learning rate during the exaggeration phase.
- * @param[in] post_learning_rate: The learning rate after the exaggeration phase.
- * @param[in] max_iter: The maximum number of iterations TSNE should run for.
- * @param[in] min_grad_norm: The smallest gradient norm TSNE should terminate on. 
-              This argument is currently ignored.
- * @param[in] pre_momentum: The momentum used during the exaggeration phase.
- * @param[in] post_momentum: The momentum used after the exaggeration phase.
- * @param[in] random_state: Set this to -1 for pure random intializations or >= 0 for reproducible outputs.
+ * @param[in] params: Parameters for TSNE model.
  */
 
 template <typename value_idx, typename value_t>
 void Barnes_Hut(value_t *VAL, const value_idx *COL, const value_idx *ROW,
                 const value_idx NNZ, const raft::handle_t &handle, value_t *Y,
-                const value_idx n, const float theta = 0.5f,
-                const float epssq = 0.0025,
-                const float early_exaggeration = 12.0f,
-                const int exaggeration_iter = 250, const float min_gain = 0.01f,
-                const float pre_learning_rate = 200.0f,
-                const float post_learning_rate = 500.0f,
-                const int max_iter = 1000, const float min_grad_norm = 1e-7,
-                const float pre_momentum = 0.5, const float post_momentum = 0.8,
-                const long long random_state = -1,
-                const bool initialize_embeddings = true) {
+                const value_idx n, const TSNEParams &params) {
   auto d_alloc = handle.get_device_allocator();
   cudaStream_t stream = handle.get_stream();
 
@@ -89,7 +68,7 @@ void Barnes_Hut(value_t *VAL, const value_idx *COL, const value_idx *ROW,
 
   const value_idx FOUR_NNODES = 4 * nnodes;
   const value_idx FOUR_N = 4 * n;
-  const float theta_squared = theta * theta;
+  const float theta_squared = params.theta * params.theta;
   const value_idx NNODES = nnodes;
 
   // Actual allocations
@@ -136,9 +115,9 @@ void Barnes_Hut(value_t *VAL, const value_idx *COL, const value_idx *ROW,
     cudaMemsetAsync(old_forces.data(), 0, sizeof(value_t) * n * 2, stream));
 
   MLCommon::device_buffer<value_t> YY(d_alloc, stream, (nnodes + 1) * 2);
-  if (initialize_embeddings) {
+  if (params.initialize_embeddings) {
     random_vector(YY.data(), -0.0001f, 0.0001f, (nnodes + 1) * 2, stream,
-                  random_state);
+                  params.random_state);
   } else {
     raft::copy(YY.data(), Y, n, stream);
     raft::copy(YY.data() + nnodes + 1, Y + n, n, stream);
@@ -168,10 +147,10 @@ void Barnes_Hut(value_t *VAL, const value_idx *COL, const value_idx *ROW,
   //---------------------------------------------------
   CUML_LOG_DEBUG("Start gradient updates!");
 
-  value_t momentum = pre_momentum;
-  value_t learning_rate = pre_learning_rate;
+  value_t momentum = params.pre_momentum;
+  value_t learning_rate = params.pre_learning_rate;
 
-  for (int iter = 0; iter < max_iter; iter++) {
+  for (int iter = 0; iter < params.max_iter; iter++) {
     CUDA_CHECK(cudaMemsetAsync(static_cast<void *>(rep_forces.data()), 0,
                                rep_forces.size() * sizeof(*rep_forces.data()),
                                stream));
@@ -184,14 +163,14 @@ void Barnes_Hut(value_t *VAL, const value_idx *COL, const value_idx *ROW,
       radiusd.data());
     CUDA_CHECK(cudaPeekAtLastError());
 
-    if (iter == exaggeration_iter) {
-      momentum = post_momentum;
+    if (iter == params.exaggeration_iter) {
+      momentum = params.post_momentum;
 
       // Divide perplexities
-      const value_t div = 1.0f / early_exaggeration;
+      const value_t div = 1.0f / params.early_exaggeration;
       raft::linalg::scalarMultiply(VAL, VAL, div, NNZ, stream);
 
-      learning_rate = post_learning_rate;
+      learning_rate = params.post_learning_rate;
     }
 
     START_TIMER;
@@ -243,8 +222,8 @@ void Barnes_Hut(value_t *VAL, const value_idx *COL, const value_idx *ROW,
 
     START_TIMER;
     BH::RepulsionKernel<<<blocks * FACTOR5, THREADS5, 0, stream>>>(
-      /*errl.data(),*/ theta, epssq, sortl.data(), childl.data(), massl.data(),
-      YY.data(), YY.data() + nnodes + 1, rep_forces.data(),
+      /*errl.data(),*/ params.theta, params.epssq, sortl.data(), childl.data(),
+      massl.data(), YY.data(), YY.data() + nnodes + 1, rep_forces.data(),
       rep_forces.data() + nnodes + 1, Z_norm.data(), theta_squared, NNODES,
       FOUR_NNODES, n, radiusd_squared.data(), maxdepthd.data());
     CUDA_CHECK(cudaPeekAtLastError());
@@ -269,7 +248,7 @@ void Barnes_Hut(value_t *VAL, const value_idx *COL, const value_idx *ROW,
 
     START_TIMER;
     BH::IntegrationKernel<<<blocks * FACTOR6, THREADS6, 0, stream>>>(
-      learning_rate, momentum, early_exaggeration, YY.data(),
+      learning_rate, momentum, params.early_exaggeration, YY.data(),
       YY.data() + nnodes + 1, attr_forces.data(), attr_forces.data() + n,
       rep_forces.data(), rep_forces.data() + nnodes + 1, gains_bh.data(),
       gains_bh.data() + n, old_forces.data(), old_forces.data() + n,
