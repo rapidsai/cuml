@@ -74,23 +74,6 @@ __global__ void l2SelectMinK(
   }
 }
 
-/**
- * Extract core distances from a knn distance matrix (the neighbor at min_samples).
- * It is possible for min_samples < k.
- * @tparam value_t
- * @param[in] knn_dists knn distance array (size m * k)
- * @param[in] k neighborhood size
- * @param[in] min_samples this neighbor will be selected for core distances
- * @param[in] n number of samples
- * @param[out] out output array (size n)
- */
-template <typename value_t>
-__global__ void core_distances_kernel(value_t *knn_dists, int k,
-                                      int min_samples, size_t n, value_t *out) {
-  int row = blockIdx.x * blockDim.x + threadIdx.x;
-  if (row < n) out[row] = knn_dists[row * k + (min_samples - 1)];
-}
-
 };  // end namespace Reachability
 };  // end namespace detail
 };  // end namespace HDBSCAN

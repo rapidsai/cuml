@@ -50,6 +50,15 @@ namespace HDBSCAN {
 namespace detail {
 namespace Extract {
 
+/**
+ * Union-rank data structure with path compression for
+ * labeling data points based on their farthest ancestors
+ * under root.
+ *
+ * For correctness, it is important that all children are
+ * visited before their parents.
+ * @tparam value_idx
+ */
 template <typename value_idx>
 class TreeUnionFind {
  public:
@@ -173,94 +182,6 @@ void do_labelling_on_host(
 }
 
 /**
- * Extracts flattened labels using a cut point (epsilon) and minimum cluster
- * size. This is useful for Robust Single Linkage and DBSCAN labeling.
- * @tparam value_idx
- * @tparam value_t
- * @param handle
- * @param children
- * @param deltas
- * @param sizes
- * @param n_leaves
- * @param cut
- * @param min_cluster_size
- * @param labels
- */
-template <typename value_idx, typename value_t>
-void do_labelling_at_cut(const raft::handle_t &handle,
-                         const value_idx *children, const value_t *deltas,
-                         value_idx n_leaves, double cut, int min_cluster_size,
-                         value_idx *labels) {
-  auto stream = handle.get_stream();
-  auto exec_policy = rmm::exec_policy(stream);
-
-  // Root is the last edge in the dendrogram
-  value_idx root = 2 * (n_leaves - 1);
-  value_idx num_points = root / 2 + 1;
-
-  std::vector<value_idx> labels_h(n_leaves);
-
-  auto union_find = TreeUnionFind<value_idx>(root + 1);
-
-  std::vector<value_idx> children_h(n_leaves * 2);
-  std::vector<value_t> delta_h(n_leaves);
-
-  raft::update_host(children_h.data(), children, n_leaves * 2, stream);
-  raft::update_host(delta_h.data(), deltas, n_leaves, stream);
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
-  value_idx cluster = num_points;
-
-  // Perform union on host to label parents / clusters
-  for (int row = 0; row < n_leaves; row++) {
-    if (delta_h[row] < cut) {
-      union_find.perform_union(children_h[row * 2], cluster);
-      union_find.perform_union(children_h[row * 2 + 1], cluster);
-    }
-    cluster += 1;
-  }
-
-  // Label points in parallel
-  rmm::device_uvector<value_idx> union_find_data((root + 1) * 2, stream);
-  raft::update_device(union_find_data.data(), union_find.get_data(),
-                      union_find_data.size(), stream);
-
-  rmm::device_uvector<value_idx> cluster_sizes(cluster, stream);
-  thrust::fill(exec_policy, cluster_sizes.data(), cluster_sizes.data(), 0);
-
-  auto seq = thrust::make_counting_iterator<value_idx>(0);
-
-  value_idx *union_find_data_ptr = union_find_data.data();
-  value_idx *cluster_sizes_ptr = cluster_sizes.data();
-
-  thrust::for_each(exec_policy, seq, seq + n_leaves,
-                   [=] __device__(value_idx leaf) {
-                     // perform find using tree-union find
-                     value_idx cur_find = union_find_data_ptr[leaf * 2];
-                     while (cur_find != leaf)
-                       cur_find = union_find_data_ptr[cur_find * 2];
-
-                     labels[leaf] = cur_find;
-                     atomicAdd(cluster_sizes_ptr + cur_find, 1);
-                   });
-
-  // Label noise points
-  thrust::transform(exec_policy, labels, labels + n_leaves, labels,
-                    [=] __device__(value_idx cluster) {
-                      bool too_small =
-                        cluster_sizes_ptr[cluster] < min_cluster_size;
-                      return (too_small * -1) + (!too_small * cluster);
-                    });
-
-  // Draw non-noise points from a monotonically increasing set
-  raft::label::make_monotonic(
-    labels, labels, n_leaves, stream,
-    [] __device__(value_idx label) { return label == -1; },
-    handle.get_device_allocator(), true);
-}
-
-/**
  * Compute cluster stabilities, perform cluster selection, and
  * label the resulting clusters. In addition, probabilities
  * are computed and stabilities are normalized into scores.
@@ -294,9 +215,6 @@ void extract_clusters(
 
   Stability::compute_stabilities(handle, condensed_tree,
                                  tree_stabilities.data());
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
   rmm::device_uvector<int> is_cluster(condensed_tree.get_n_clusters(),
                                       handle.get_stream());
 

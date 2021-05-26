@@ -35,17 +35,6 @@
 namespace ML {
 namespace HDBSCAN {
 
-template <typename value_idx, typename value_t>
-__global__ void set_core_dists(value_idx *rows, value_idx *cols, value_t *vals,
-                               value_idx nnz, value_t *core_distances) {
-  int i = blockDim.x * blockIdx.x + threadIdx.x;
-
-  if (i < nnz) {
-    vals[i] =
-      max(core_distances[rows[i]], max(core_distances[cols[i]], vals[i]));
-  }
-}
-
 /**
  * Functor with reduction ops for performing fused 1-nn
  * computation and guaranteeing only cross-component
@@ -73,8 +62,8 @@ struct FixConnectivitiesRedOp {
         max(core_dist_rit, max(core_dists[out->key], out->value));
 
       bool smaller = core_dist_other < core_dist_out;
-      out->key = (smaller * other.key) + (!smaller * out->key);
-      out->value = (smaller * core_dist_other) + (!smaller * core_dist_out);
+      out->key = smaller ? other.key : out->key ;
+      out->value = smaller ? core_dist_other : core_dist_out;
     }
   }
 
@@ -84,9 +73,8 @@ struct FixConnectivitiesRedOp {
       value_t core_dist_a = max(core_dist_rit, max(core_dists[a.key], a.value));
       value_t core_dist_b = max(core_dist_rit, max(core_dists[b.key], b.value));
 
-      bool smaller = core_dist_a < core_dist_b;
-      return KVP((smaller * a.key) + (!smaller * b.key),
-                 (smaller * core_dist_a) + (!smaller * core_dist_b));
+      return core_dist_a < core_dist_b ? KVP(a.key, core_dist_a)
+                                       : KVP(b.key, core_dist_b);
     }
 
     return b;
@@ -190,22 +178,6 @@ void _fit_hdbscan(const raft::handle_t &handle, const value_t *X, size_t m,
     out.get_stabilities(), out.get_probabilities(),
     params.cluster_selection_method, params.allow_single_cluster,
     params.max_cluster_size, params.cluster_selection_epsilon);
-}
-
-template <typename value_idx = int64_t, typename value_t = float>
-void _fit_rsl(const raft::handle_t &handle, const value_t *X, size_t m,
-              size_t n, raft::distance::DistanceType metric,
-              Common::HDBSCANParams &params,
-              Common::robust_single_linkage_output<value_idx, value_t> &out) {
-  auto d_alloc = handle.get_device_allocator();
-  auto stream = handle.get_stream();
-
-  build_linkage(handle, X, m, n, metric, params, out);
-
-  detail::Extract::do_labelling_at_cut(
-    handle, out.get_children(), out.get_deltas(), out.get_n_leaves(),
-    params.cluster_selection_epsilon, params.min_cluster_size,
-    out.get_labels());
 }
 
 };  // end namespace HDBSCAN
