@@ -476,7 +476,7 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
 
 template <int NITEMS>
 struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
-  // could switch to unsigned short to save shared memory
+  // could switch to uint16_t to save shared memory
   // provided raft::myAtomicAdd(short*) simulated with appropriate shifts
   int* votes;
   int num_classes;
@@ -559,24 +559,25 @@ __global__ void infer_k(storage_type forest, predict_params params) {
   int rows_per_block = NITEMS << params.log2_threads_per_tree;
   int num_cols = params.num_cols;
   int thread_row0 = NITEMS * modpow2(threadIdx.x, params.log2_threads_per_tree);
-  for (long long block_row0 = blockIdx.x * rows_per_block;
+  for (int64_t block_row0 = blockIdx.x * rows_per_block;
        block_row0 < params.num_rows; block_row0 += rows_per_block * gridDim.x) {
-    int block_num_rows =
-      max(0, (int)min((long long)rows_per_block, params.num_rows - block_row0));
+    int block_num_rows = max(
+      0,
+      (int)min((int64_t)rows_per_block, (int64_t)params.num_rows - block_row0));
     const float* block_input = params.data + block_row0 * num_cols;
     if (cols_in_shmem) {
       // cache the row for all threads to reuse
-      // 2021: latest SMs still do not have >262KB of shared memory/block required to
-      // exceed the unsigned short
+      // 2021: latest SMs still do not have >256KiB of shared memory/block required to
+      // exceed the uint16_t
 #pragma unroll
-      for (unsigned short input_idx = threadIdx.x;
+      for (uint16_t input_idx = threadIdx.x;
            input_idx < block_num_rows * num_cols; input_idx += blockDim.x) {
+        // for even num_cols, we need to pad sdata_stride to reduce bank conflicts
         // assuming here that sdata_stride == num_cols + 1
         // then, idx / num_cols * sdata_stride + idx % num_cols == idx + idx / num_cols
-        unsigned short sdata_idx =
-          sdata_stride == num_cols
-            ? input_idx
-            : input_idx + input_idx / (unsigned short)num_cols;
+        uint16_t sdata_idx = sdata_stride == num_cols
+                               ? input_idx
+                               : input_idx + input_idx / (uint16_t)num_cols;
         sdata[sdata_idx] = block_input[input_idx];
       }
 #pragma unroll
@@ -603,7 +604,8 @@ __global__ void infer_k(storage_type forest, predict_params params) {
          Same with thread_num_rows > 0
       */
       if (tree < forest.num_trees() && thread_num_rows != 0) {
-        auto prediction = infer_one_tree<NITEMS, leaf_output_t<leaf_algo>::T>(
+        typedef typename leaf_output_t<leaf_algo>::T pred_t;
+        vec<NITEMS, pred_t> prediction = infer_one_tree<NITEMS, pred_t>(
           forest[tree],
           cols_in_shmem ? sdata + thread_row0 * sdata_stride
                         : block_input + thread_row0 * num_cols,

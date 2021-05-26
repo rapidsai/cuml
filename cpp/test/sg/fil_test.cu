@@ -818,9 +818,16 @@ std::vector<FilTestParams> predict_sparse_inputs = {
   FIL_TEST_PARAMS(num_trees = 51, output = CLASS, leaf_algo = GROVE_PER_CLASS,
                   num_classes = 3),
   FIL_TEST_PARAMS(num_trees = 51, leaf_algo = GROVE_PER_CLASS, num_classes = 3),
+  FIL_TEST_PARAMS(algo = NAIVE, threads_per_tree = 2),
+  FIL_TEST_PARAMS(algo = NAIVE, threads_per_tree = 8, n_items = 1),
+  FIL_TEST_PARAMS(algo = ALGO_AUTO, threads_per_tree = 16, n_items = 1),
   FIL_TEST_PARAMS(algo = ALGO_AUTO, threads_per_tree = 32),
+  FIL_TEST_PARAMS(num_cols = 1, num_trees = 1, algo = NAIVE,
+                  threads_per_tree = 64, n_items = 1),
   FIL_TEST_PARAMS(num_rows = 500, num_cols = 2000, algo = NAIVE,
                   threads_per_tree = 64),
+  FIL_TEST_PARAMS(num_rows = 500, num_cols = 2000, algo = ALGO_AUTO,
+                  threads_per_tree = 256, n_items = 1),
 };
 
 TEST_P(PredictSparse16FilTest, Predict) { compare(); }
