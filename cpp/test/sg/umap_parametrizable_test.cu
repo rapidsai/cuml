@@ -21,6 +21,7 @@
 #include <cuml/manifold/umapparams.h>
 #include <datasets/digits.h>
 #include <raft/cudart_utils.h>
+#include <test_utils.h>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/manifold/umap.hpp>
@@ -65,37 +66,6 @@ bool has_nan(T* data, size_t len,
   raft::update_host(&h_answer, d_answer.data(), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   return h_answer;
-}
-
-template <typename T>
-__global__ void are_equal_kernel(T* embedding1, T* embedding2, size_t len,
-                                 double* diff) {
-  int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  if (tid >= len) return;
-  if (embedding1[tid] != embedding2[tid]) {
-    atomicAdd(diff, abs(embedding1[tid] - embedding2[tid]));
-  }
-}
-
-template <typename T>
-bool are_equal(T* embedding1, T* embedding2, size_t len,
-               std::shared_ptr<raft::mr::device::allocator> alloc,
-               cudaStream_t stream) {
-  double h_answer = 0.;
-  device_buffer<double> d_answer(alloc, stream, 1);
-  raft::update_device(d_answer.data(), &h_answer, 1, stream);
-
-  are_equal_kernel<<<raft::ceildiv(len, (size_t)32), 32, 0, stream>>>(
-    embedding1, embedding2, len, d_answer.data());
-  raft::update_host(&h_answer, d_answer.data(), 1, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-
-  double tolerance = 1.0;
-  if (h_answer > tolerance) {
-    std::cout << "Not equal, difference : " << h_answer << std::endl;
-    return false;
-  }
-  return true;
 }
 
 class UMAPParametrizableTest : public ::testing::Test {
@@ -215,7 +185,7 @@ class UMAPParametrizableTest : public ::testing::Test {
     std::cout << "\numap_params : [" << std::boolalpha
               << umap_params.n_neighbors << "-" << umap_params.n_components
               << "-" << umap_params.n_epochs << "-" << umap_params.random_state
-              << "-" << umap_params.multicore_implem << "]" << std::endl;
+              << std::endl;
 
     std::cout << "test_params : [" << std::boolalpha
               << test_params.fit_transform << "-" << test_params.supervised
@@ -260,26 +230,14 @@ class UMAPParametrizableTest : public ::testing::Test {
       return;
     }
 
-#if CUDART_VERSION >= 11020
+    device_buffer<float> embeddings2(alloc, stream,
+                                     n_samples * umap_params.n_components);
+    float* e2 = embeddings2.data();
+    get_embedding(handle, X_d.data(), (float*)y_d.data(), e2, test_params,
+                  umap_params);
 
-    if (!umap_params.multicore_implem) {
-      device_buffer<float> embeddings2(alloc, stream,
-                                       n_samples * umap_params.n_components);
-      float* e2 = embeddings2.data();
-      get_embedding(handle, X_d.data(), (float*)y_d.data(), e2, test_params,
-                    umap_params);
-
-      bool equal =
-        are_equal(e1, e2, n_samples * umap_params.n_components, alloc, stream);
-
-      if (!equal) {
-        raft::print_device_vector("e1", e1, 25, std::cout);
-        raft::print_device_vector("e2", e2, 25, std::cout);
-      }
-
-      ASSERT_TRUE(equal);
-    }
-#endif
+    ASSERT_TRUE(raft::devArrMatch(e1, e2, n_samples * umap_params.n_components,
+                                  raft::Compare<float>{}));
   }
 
   void SetUp() override {
@@ -295,23 +253,17 @@ class UMAPParametrizableTest : public ::testing::Test {
 
     std::vector<UMAPParams> umap_params_vec(4);
     umap_params_vec[0].n_components = 2;
-    umap_params_vec[0].multicore_implem = true;
 
     umap_params_vec[1].n_components = 10;
-    umap_params_vec[1].multicore_implem = true;
 
     umap_params_vec[2].n_components = 21;
     umap_params_vec[2].random_state = 43;
     umap_params_vec[2].init = 0;
-    umap_params_vec[2].multicore_implem = false;
-    umap_params_vec[2].optim_batch_size = 0;  // use default value
     umap_params_vec[2].n_epochs = 500;
 
     umap_params_vec[3].n_components = 25;
     umap_params_vec[3].random_state = 43;
     umap_params_vec[3].init = 0;
-    umap_params_vec[3].multicore_implem = false;
-    umap_params_vec[3].optim_batch_size = 0;  // use default value
     umap_params_vec[3].n_epochs = 500;
 
     for (auto& umap_params : umap_params_vec) {

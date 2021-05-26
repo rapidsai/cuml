@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,7 +13,7 @@
 # limitations under the License.
 #
 
-find_package(Doxygen 1.8.12 REQUIRED)
+find_package(Doxygen 1.8.12)
 
 function(add_doxygen_target)
   if(Doxygen_FOUND)
@@ -22,7 +22,7 @@ function(add_doxygen_target)
     set(multiValueArgs "")
     cmake_parse_arguments(dox "${options}" "${oneValueArgs}" "${multiValueArgs}" ${ARGN})
     configure_file(${dox_IN_DOXYFILE} ${dox_OUT_DOXYFILE} @ONLY)
-    add_custom_target(doc
+    add_custom_target(docs_cuml
       ${DOXYGEN_EXECUTABLE} ${dox_OUT_DOXYFILE}
       WORKING_DIRECTORY ${dox_CWD}
       VERBATIM
