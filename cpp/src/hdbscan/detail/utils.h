@@ -64,15 +64,14 @@ template <typename value_idx, typename value_t, typename CUBReduceFunc>
 void cub_segmented_reduce(const value_t *in, value_t *out, int n_segments,
                           const value_idx *offsets, cudaStream_t stream,
                           CUBReduceFunc cub_reduce_func) {
-  void *d_temp_storage = NULL;
+  rmm::device_uvector<char> d_temp_storage(0, stream);
   size_t temp_storage_bytes = 0;
-  cub_reduce_func(d_temp_storage, temp_storage_bytes, in, out, n_segments,
+  cub_reduce_func(nullptr, temp_storage_bytes, in, out, n_segments,
                   offsets, offsets + 1, stream, false);
-  CUDA_CHECK(cudaMalloc(&d_temp_storage, temp_storage_bytes));
+  d_temp_storage.resize(temp_storage_bytes, stream);
 
-  cub_reduce_func(d_temp_storage, temp_storage_bytes, in, out, n_segments,
+  cub_reduce_func(d_temp_storage.data(), temp_storage_bytes, in, out, n_segments,
                   offsets, offsets + 1, stream, false);
-  CUDA_CHECK(cudaFree(d_temp_storage));
 }
 
 /**
