@@ -193,6 +193,9 @@ else
     gpuci_logger "Installing $CONDA_FILE"
     conda install -c ${CONDA_ARTIFACT_PATH} "$CONDA_FILE"
 
+    gpuci_conda_retry remove --force rapids-build-env rapids-notebook-env
+    gpuci_conda_retry install -y "nccl=2.9.9"
+
     gpuci_logger "Building cuml"
     "$WORKSPACE/build.sh" -v cuml --codecov
 
