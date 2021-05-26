@@ -940,7 +940,7 @@ def test_pairwise_distances_sklearn_comparison(metric: str, matrix_size):
     Y = rng.random_sample(matrix_size)
 
     # For fp64, compare at 10 decimals, (5 places less than the ~15 max)
-    compare_precision = 10
+    compare_precision = 8
 
     # Compare to sklearn, fp64
     S = pairwise_distances(X, Y, metric=metric)
@@ -950,7 +950,7 @@ def test_pairwise_distances_sklearn_comparison(metric: str, matrix_size):
         cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
     # For fp32, compare at 4 decimals, (3 places less than the ~7 max)
-    compare_precision = 4
+    compare_precision = 3
 
     X = np.asfarray(X, dtype=np.float32)
     Y = np.asfarray(Y, dtype=np.float32)
