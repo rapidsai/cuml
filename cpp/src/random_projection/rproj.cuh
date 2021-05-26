@@ -73,11 +73,10 @@ void sparse_random_matrix(const raft::handle_t& h,
   } else {
     auto alloc = h.get_host_allocator();
 
-    double max_total_density = params.density * 1.2;
     size_t indices_alloc =
-      (params.n_features * params.n_components * max_total_density) *
-      sizeof(int);
+      params.n_features * params.n_components * sizeof(int);
     size_t indptr_alloc = (params.n_components + 1) * sizeof(int);
+
     int* indices = (int*)alloc->allocate(indices_alloc, stream);
     int* indptr = (int*)alloc->allocate(indptr_alloc, stream);
 
@@ -87,9 +86,9 @@ void sparse_random_matrix(const raft::handle_t& h,
 
     for (size_t i = 0; i < params.n_components; i++) {
       int n_nonzero =
-        binomial(h, params.n_features, params.density, params.random_state);
-      sample_without_replacement(params.n_features, n_nonzero, indices,
-                                 indices_idx);
+        binomial(params.n_features, params.density, params.random_state + i);
+      sample_without_replacement(params.n_features, n_nonzero, indices, offset,
+                                 params.random_state + i);
       indptr[indptr_idx] = offset;
       indptr_idx++;
       offset += n_nonzero;
