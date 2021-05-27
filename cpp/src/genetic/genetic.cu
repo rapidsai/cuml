@@ -405,7 +405,13 @@ void symFit(const raft::handle_t &handle, const float* input, const float* label
         params.arity_set.at(ar).push_back(f);
       }
     }
-  } 
+  }
+
+  // Check terminalRatio to dynamically set it
+  bool growAuto = (params.terminalRatio == 0.0f) ;
+  if(growAuto){
+    params.terminalRatio = 1.0f * params.num_features / (params.num_features + params.function_set.size());
+  }
 
   /* Initializations */
 
@@ -467,6 +473,11 @@ void symFit(const raft::handle_t &handle, const float* input, const float* label
   
   // Set final generation programs
   final_progs = d_currprogs;
+
+  // Reset automatic growth parameter
+  if(growAuto){
+    params.terminalRatio = 0.0f;
+  }
 
   // Deallocate the previous generation device memory
   handle.get_device_allocator()->deallocate(d_nextprogs,sizeof(program)*params.population_size,stream);

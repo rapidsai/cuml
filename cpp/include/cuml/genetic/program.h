@@ -195,9 +195,9 @@ int get_depth(program &p_out);
  * 
  * @param p_out   The output program
  * @param params  Training hyperparameters
- * @param gen     RNG to decide nodes to add
+ * @param rng     RNG to decide nodes to add
  */
-void build_program(program &p_out, const param &params, std::mt19937 &gen);
+void build_program(program &p_out, const param &params, std::mt19937 &rng);
 
 /**
  * @brief Perform a point mutation on the given program(AST)
@@ -205,10 +205,10 @@ void build_program(program &p_out, const param &params, std::mt19937 &gen);
  * @param prog    The input program
  * @param p_out   The result program
  * @param params  Training hyperparameters
- * @param gen     RNG to decide nodes to mutate
+ * @param rng     RNG to decide nodes to mutate
  */
 void point_mutation(const program &prog, program &p_out, const param &params, 
-                    std::mt19937 &gen);
+                    std::mt19937 &rng);
 
 /**
  * @brief Perform a 'hoisted' crossover mutation using the parent and donor programs.
@@ -218,10 +218,10 @@ void point_mutation(const program &prog, program &p_out, const param &params,
  * @param donor   The donor program
  * @param p_out   The result program
  * @param params  Training hyperparameters
- * @param gen     RNG for subtree selection
+ * @param rng     RNG for subtree selection
  */
 void crossover(const program &prog, const program &donor, program &p_out, 
-               const param &params, std::mt19937 &gen);
+               const param &params, std::mt19937 &rng);
 
 /**
  * @brief Performs a crossover mutation with a randomly built new program. 
@@ -231,10 +231,10 @@ void crossover(const program &prog, const program &donor, program &p_out,
  * @param prog    The input program 
  * @param p_out   The result mutated program
  * @param params  Training hyperparameters
- * @param gen     RNG to control subtree selection and temporary program addition
+ * @param rng     RNG to control subtree selection and temporary program addition
  */
 void subtree_mutation(const program &prog, program &p_out, const param &params, 
-                      std::mt19937 &gen);
+                      std::mt19937 &rng);
 
 /**
  * @brief Perform a hoist mutation on a random subtree of the given program
@@ -243,9 +243,9 @@ void subtree_mutation(const program &prog, program &p_out, const param &params,
  * @param prog    The input program
  * @param p_out   The output program
  * @param params  Training hyperparameters
- * @param gen     RNG to control subtree selection
+ * @param rng     RNG to control subtree selection
  */
 void hoist_mutation(const program &prog, program &p_out, const param &params, 
-                    std::mt19937 &gen);
+                    std::mt19937 &rng);
 }  // namespace genetic
 }  // namespace cuml

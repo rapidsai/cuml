@@ -132,6 +132,8 @@ struct param {
   float p_point_replace = 0.05f;
   /** subsampling factor */
   float max_samples = 1.0f;
+  /* Terminal ratio for node selection during grow initialization. 0 -> auto-selection*/
+  float terminalRatio = 0.0f;
   /** list of feature names for generating syntax trees from the programs */
   std::vector<std::string> feature_names;
   /** number of features in current dataset */

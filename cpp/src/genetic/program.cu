@@ -218,17 +218,17 @@ float fitness(const program &prog, const param &params) {
  * 
  * @param pnodes  AST represented as a list of nodes
  * @param len     The total number of nodes in the AST
- * @param gen     Random number generator for subtree selection
+ * @param rng     Random number generator for subtree selection
  * @return A tuple [first,last) which contains the required subtree
  */
-std::pair<int, int> get_subtree(node* pnodes, int len, std::mt19937 &gen) {
+std::pair<int, int> get_subtree(node* pnodes, int len, std::mt19937 &rng) {
   
   int start,end;
   start=end=0;
 
   // Specify RNG
-  std::uniform_real_distribution<float> dist_U(0.0f, 1.0f);
-  float bound = dist_U(gen);
+  std::uniform_real_distribution<float> dist_uniform(0.0f, 1.0f);
+  float bound = dist_uniform(rng);
 
   // Specify subtree start probs acc to Koza's selection approach 
   std::vector<float> node_probs(len,0.1);
@@ -306,26 +306,24 @@ int get_depth(program &p_out){
   return depth;
 }
 
-void build_program(program &p_out, const param &params,std::mt19937 &gen){
+void build_program(program &p_out, const param &params,std::mt19937 &rng){
   
   // Define data structures needed for tree
   std::stack<int> arity_stack;
   std::vector<node> nodelist;
   nodelist.reserve(1 << (MAX_STACK_SIZE));
 
-  // Specify RNGs
-  std::uniform_int_distribution<> dist_func(0,params.function_set.size()-1);
-  std::uniform_int_distribution<int> dist_depth(1, MAX_STACK_SIZE-1); 
-  std::uniform_int_distribution<int> dist_t(0,params.num_features);
-  std::uniform_int_distribution<int> dist_choice(0,params.num_features+params.function_set.size()-1);
-  std::uniform_real_distribution<float> dist_const(params.const_range[0],params.const_range[1]);
-  std::uniform_int_distribution<int> dist_U(0,1);
-
-  // MAX_STACK_SIZE can only handle tree of size MAX_STACK_SIZE - max(function_arity=2) + 1
+  // Specify Distributions with parameters
+  std::uniform_int_distribution<int>    dist_function(0,params.function_set.size()-1);
+  std::uniform_int_distribution<int>    dist_initDepth(params.init_depth[0], params.init_depth[1]); 
+  std::uniform_int_distribution<int>    dist_terminalChoice(0,params.num_features);
+  std::uniform_real_distribution<float> dist_constVal(params.const_range[0],params.const_range[1]);
+  std::bernoulli_distribution           dist_nodeChoice(params.terminalRatio);
+  std::bernoulli_distribution           dist_coinToss(0.5);
 
   // Initialize nodes
-  int max_depth = dist_depth(gen);
-  node::type func = params.function_set[dist_func(gen)];
+  int max_depth = dist_initDepth(rng);
+  node::type func = params.function_set[dist_function(rng)];
   node curr_node(func);
   nodelist.push_back(curr_node);
   arity_stack.push(curr_node.arity());
@@ -333,8 +331,8 @@ void build_program(program &p_out, const param &params,std::mt19937 &gen){
   init_method_t method = params.init_method;
   if(method == init_method_t::half_and_half){
     // Choose either grow or full for this tree
-    int ch = dist_U(gen);
-    method = ch == 0 ? init_method_t::grow : init_method_t::full;
+    bool choice = dist_coinToss(rng);
+    method = choice ? init_method_t::grow : init_method_t::full;
   }
 
   // Fill tree
@@ -342,21 +340,20 @@ void build_program(program &p_out, const param &params,std::mt19937 &gen){
     
     int depth = arity_stack.size();
     p_out.depth = std::max(depth,p_out.depth);
-    
-    int node_choice = dist_U(gen);
+    bool node_choice = dist_nodeChoice(rng);
 
-    if((node_choice == 0 || method == init_method_t::full) && depth < max_depth){
+    if((node_choice == false || method == init_method_t::full) && depth < max_depth){
       // Add a function to node list
-      curr_node = node(params.function_set[dist_func(gen)]);
+      curr_node = node(params.function_set[dist_function(rng)]);
       nodelist.push_back(curr_node);
       arity_stack.push(curr_node.arity());
     }
     else{
       // Add terminal
-      int terminal_choice = dist_t(gen);
+      int terminal_choice = dist_terminalChoice(rng);
       if(terminal_choice == params.num_features){
         // Add constant
-        float val = dist_const(gen);
+        float val = dist_constVal(rng);
         curr_node = node(val);        
       }
       else{
@@ -395,19 +392,19 @@ void build_program(program &p_out, const param &params,std::mt19937 &gen){
   p_out.raw_fitness_ = 0.0f;
 }
 
-void point_mutation(const program &prog, program &p_out, const param& params, std::mt19937 &gen){
+void point_mutation(const program &prog, program &p_out, const param& params, std::mt19937 &rng){
 
   // deep-copy program
   p_out = prog;
   
   // Specify RNGs
-  std::uniform_real_distribution<float> dist_U(0.0f, 1.0f);
-  std::uniform_int_distribution<int> dist_terminal(0,params.num_features);
-  std::uniform_real_distribution<float> dist_constant(params.const_range[0],params.const_range[1]);
+  std::uniform_real_distribution<float> dist_uniform(0.0f, 1.0f);
+  std::uniform_int_distribution<int>    dist_terminalChoice(0,params.num_features);
+  std::uniform_real_distribution<float> dist_constantVal(params.const_range[0],params.const_range[1]);
 
   // Fill with uniform numbers
   std::vector<float> node_probs(p_out.len);
-  std::generate(node_probs.begin(),node_probs.end(),[&dist_U,&gen]{return dist_U(gen);});
+  std::generate(node_probs.begin(),node_probs.end(),[&dist_uniform,&rng]{return dist_uniform(rng);});
 
   // Mutate nodes
   int len = p_out.len;
@@ -418,11 +415,11 @@ void point_mutation(const program &prog, program &p_out, const param& params, st
     if(node_probs[i] < params.p_point_replace){
       if(curr.is_terminal()){
 
-        int choice = dist_terminal(gen);
+        int choice = dist_terminalChoice(rng);
         
         if(choice == params.num_features){
           // Add a randomly generated constant
-          curr = node(dist_constant(gen));
+          curr = node(dist_constantVal(rng));
         }
         else{
           // Add a variable with fid=choice
@@ -435,7 +432,7 @@ void point_mutation(const program &prog, program &p_out, const param& params, st
         // CUML_LOG_DEBUG("Arity is %d, curr function is %d",ar,static_cast<std::underlying_type<node::type>::type>(curr.t));
         std::vector<node::type> fset = params.arity_set.at(ar);
         std::uniform_int_distribution<> dist_fset(0,fset.size()-1);
-        int choice = dist_fset(gen);
+        int choice = dist_fset(rng);
         curr = node(fset[choice]);
       }
 
@@ -445,16 +442,18 @@ void point_mutation(const program &prog, program &p_out, const param& params, st
   }
 }
 
-void crossover(const program &prog, const program &donor, program &p_out, const param &params, std::mt19937 &gen){
+void crossover(const program &prog, const program &donor, program &p_out, const param &params, std::mt19937 &rng){
 
   // Get a random subtree of prog to replace
-  std::pair<int, int> prog_slice = get_subtree(prog.nodes, prog.len, gen);
+  std::pair<int, int> prog_slice = get_subtree(prog.nodes, prog.len, rng);
   int prog_start = prog_slice.first;
   int prog_end   = prog_slice.second;
   
   // Set metric of output program
   p_out.metric    = prog.metric;
 
+  // MAX_STACK_SIZE can only handle tree of depth MAX_STACK_SIZE - max(func_arity=2) + 1
+  // Thus we continuously hoist the donor subtree.
   // Actual indices in donor
   int donor_start = 0;
   int donor_end = donor.len;
@@ -463,7 +462,7 @@ void crossover(const program &prog, const program &donor, program &p_out, const 
   do{
     ++iter;
     // Get donor subtree
-    std::pair<int, int> donor_slice = get_subtree(donor.nodes+donor_start,donor_end-donor_start,gen);
+    std::pair<int, int> donor_slice = get_subtree(donor.nodes+donor_start,donor_end-donor_start,rng);
 
     // Get indices w.r.t current subspace [donor_start,donor_end)
     int donor_substart = donor_slice.first;
@@ -494,22 +493,22 @@ void crossover(const program &prog, const program &donor, program &p_out, const 
 
 }
 
-void subtree_mutation(const program &prog, program &p_out, const param &params, std::mt19937 &gen){
+void subtree_mutation(const program &prog, program &p_out, const param &params, std::mt19937 &rng){
   // Generate a random program and perform crossover
   program new_program;
-  build_program(new_program,params,gen);
-  crossover(prog,new_program,p_out,params,gen);
+  build_program(new_program,params,rng);
+  crossover(prog,new_program,p_out,params,rng);
 }
 
-void hoist_mutation(const program &prog, program &p_out, const param &params, std::mt19937 &gen){
+void hoist_mutation(const program &prog, program &p_out, const param &params, std::mt19937 &rng){
   
   // Replace program subtree with a random sub-subtree
 
-  std::pair<int, int> prog_slice = get_subtree(prog.nodes, prog.len, gen);
+  std::pair<int, int> prog_slice = get_subtree(prog.nodes, prog.len, rng);
   int prog_start = prog_slice.first;
   int prog_end = prog_slice.second;
 
-  std::pair<int,int> sub_slice = get_subtree(prog.nodes + prog_start,prog_end-prog_start,gen);
+  std::pair<int,int> sub_slice = get_subtree(prog.nodes + prog_start,prog_end-prog_start,rng);
   int sub_start = sub_slice.first;
   int sub_end   = sub_slice.second;
   
