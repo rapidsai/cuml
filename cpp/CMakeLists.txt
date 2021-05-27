@@ -450,6 +450,13 @@ rapids_export(BUILD cuml
     )
 
 ##############################################################################
+# - build benchmark executable -----------------------------------------------
+
+if(BUILD_CUML_BENCH)
+  add_subdirectory(bench)
+endif(BUILD_CUML_BENCH)
+
+##############################################################################
 # - doxygen targets ----------------------------------------------------------
 
 include(cmake/doxygen.cmake)
