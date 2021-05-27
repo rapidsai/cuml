@@ -71,12 +71,6 @@ if [ "$py_ver" == "3.6" ];then
     conda install contextvars
 fi
 
-gpuci_logger "Install the main version of dask and distributed"
-set -x
-pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
-pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
-set +x
-
 gpuci_logger "Check compiler versions"
 python --version
 $CC --version
@@ -125,6 +119,12 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
 
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
     export LD_LIBRARY_PATH_CACHED=""
+
+    gpuci_logger "Install the main version of dask and distributed"
+    set -x
+    pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
+    pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
+    set +x
 
     gpuci_logger "Python pytest for cuml"
     cd $WORKSPACE/python
@@ -192,6 +192,12 @@ else
     CONDA_FILE=${CONDA_FILE//-/=} #convert to conda install
     gpuci_logger "Installing $CONDA_FILE"
     conda install -c ${CONDA_ARTIFACT_PATH} "$CONDA_FILE"
+
+    gpuci_logger "Install the main version of dask and distributed"
+    set -x
+    pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
+    pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
+    set +x
 
     gpuci_logger "Building cuml"
     "$WORKSPACE/build.sh" -v cuml --codecov
