@@ -57,6 +57,28 @@ def test_split_dataframe(train_size, shuffle):
     assert all(out)
 
 
+@pytest.mark.parametrize("y_type", ["cudf", "cupy"])
+def test_split_dataframe_array(y_type):
+    X = cudf.DataFrame({"x": range(100)})
+    y = cudf.Series(([0] * (100 // 2)) + ([1] * (100 // 2)))
+    if y_type == "cupy":
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y.values
+        )
+        assert isinstance(X_train, cudf.DataFrame)
+        assert isinstance(X_test, cudf.DataFrame)
+        assert isinstance(y_train, cp.ndarray)
+        assert isinstance(y_test, cp.ndarray)
+    elif y_type == "cudf":
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y
+        )
+        assert isinstance(X_train, cudf.DataFrame)
+        assert isinstance(X_test, cudf.DataFrame)
+        assert isinstance(y_train, cudf.Series)
+        assert isinstance(y_test, cudf.Series)
+
+
 def test_split_column():
     data = cudf.DataFrame(
         {
@@ -362,7 +384,8 @@ def test_stratify_retain_index(test_size, train_size):
                                                         train_size=train_size,
                                                         test_size=test_size,
                                                         shuffle=True,
-                                                        stratify=y)
+                                                        stratify=y,
+                                                        random_state=15)
     assert (X_train["x"] == X_train.index).all()
     assert (X_test["x"] == X_test.index).all()
 
@@ -373,7 +396,6 @@ def test_stratify_retain_index(test_size, train_size):
         assert X_test.shape[0] == (int)(X.shape[0] * test_size)
 
 
-@pytest.mark.skip("See issue https://github.com/rapidsai/cuml/issues/3839")
 def test_stratified_binary_classification():
     X = cp.array([[0.37487513, -2.3031888, 1.662633, 0.7671007],
                   [-0.49796826, -1.0621182, -0.32518214, -0.20583323],
@@ -393,7 +415,8 @@ def test_stratified_binary_classification():
 
     X_train, X_test, y_train, y_test = train_test_split(X, y,
                                                         train_size=0.75,
-                                                        stratify=y)
+                                                        stratify=y,
+                                                        random_state=15)
 
     _, y_counts = cp.unique(y, return_counts=True)
     _, train_counts = cp.unique(y_train, return_counts=True)
@@ -415,7 +438,8 @@ def test_stratify_any_input(test_size, train_size):
                                                         train_size=train_size,
                                                         test_size=test_size,
                                                         shuffle=True,
-                                                        stratify=X['test_col'])
+                                                        stratify=X['test_col'],
+                                                        random_state=15)
     assert (X_train["x"] == X_train.index).all()
     assert (X_test["x"] == X_test.index).all()
 
