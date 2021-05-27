@@ -18,7 +18,7 @@
 #include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng.cuh>
 #include <random/permute.cuh>
-#include "../common/ml_benchmark.hpp"
+#include "common/ml_benchmark.hpp"
 
 namespace MLCommon {
 namespace Bench {
