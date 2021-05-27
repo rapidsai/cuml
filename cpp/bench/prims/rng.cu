@@ -17,7 +17,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng.cuh>
-#include "common/ml_benchmark.hpp"
+#include <common/ml_benchmark.hpp>
 
 namespace MLCommon {
 namespace Bench {

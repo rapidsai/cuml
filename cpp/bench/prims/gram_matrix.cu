@@ -23,7 +23,7 @@
 #include <sstream>
 #include <string>
 #include <vector>
-#include "common/ml_benchmark.hpp"
+#include <common/ml_benchmark.hpp>
 
 namespace MLCommon {
 namespace Bench {
