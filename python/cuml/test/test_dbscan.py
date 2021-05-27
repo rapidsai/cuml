@@ -311,8 +311,9 @@ def test_core_point_prop3():
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
 @pytest.mark.parametrize('use_handle', [True, False])
 @pytest.mark.parametrize('out_dtype', ["int32", np.int32, "int64", np.int64])
-def test_dbscan_propagation(datatype, use_handle, out_dtype):
-    X, y = make_blobs(5000, centers=1, cluster_std=8.0,
+@pytest.mark.parametrize('n_samples', [unit_param(500), stress_param(5000)])
+def test_dbscan_propagation(datatype, use_handle, out_dtype, n_samples):
+    X, y = make_blobs(n_samples, centers=1, cluster_std=8.0,
                       center_box=(-100.0, 100.0), random_state=8)
     X = X.astype(datatype)
 
