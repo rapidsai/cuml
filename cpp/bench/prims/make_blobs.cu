@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
+#include <common/ml_benchmark.hpp>
 #include <raft/mr/device/allocator.hpp>
 #include <random/make_blobs.cuh>
-#include <common/ml_benchmark.hpp>
 
 namespace MLCommon {
 namespace Bench {

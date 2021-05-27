@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <common/ml_benchmark.hpp>
 #include <cuml/matrix/kernelparams.h>
 #include <matrix/grammatrix.cuh>
 #include <matrix/kernelfactory.cuh>
@@ -23,7 +24,6 @@
 #include <sstream>
 #include <string>
 #include <vector>
-#include <common/ml_benchmark.hpp>
 
 namespace MLCommon {
 namespace Bench {
