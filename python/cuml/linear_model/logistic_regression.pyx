@@ -293,7 +293,7 @@ class LogisticRegression(Base,
         else:
             self.verb_prefix = ""
 
-    @generate_docstring()
+    @generate_docstring(X='dense_sparse')
     @cuml.internals.api_base_return_any(set_output_dtype=True)
     def fit(self, X, y, sample_weight=None,
             convert_dtype=True) -> "LogisticRegression":
@@ -387,7 +387,8 @@ class LogisticRegression(Base,
 
         return self
 
-    @generate_docstring(return_values={'name': 'score',
+    @generate_docstring(X='dense_sparse',
+                        return_values={'name': 'score',
                                        'type': 'dense',
                                        'description': 'Confidence score',
                                        'shape': '(n_samples, n_classes)'})
@@ -401,7 +402,8 @@ class LogisticRegression(Base,
             convert_dtype=convert_dtype
         )
 
-    @generate_docstring(return_values={'name': 'preds',
+    @generate_docstring(X='dense_sparse',
+                        return_values={'name': 'preds',
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
@@ -413,7 +415,8 @@ class LogisticRegression(Base,
         """
         return self.solver_model.predict(X, convert_dtype=convert_dtype)
 
-    @generate_docstring(return_values={'name': 'preds',
+    @generate_docstring(X='dense_sparse',
+                        return_values={'name': 'preds',
                                        'type': 'dense',
                                        'description': 'Predicted class \
                                                        probabilities',
@@ -429,7 +432,8 @@ class LogisticRegression(Base,
             log_proba=False
         )
 
-    @generate_docstring(return_values={'name': 'preds',
+    @generate_docstring(X='dense_sparse',
+                        return_values={'name': 'preds',
                                        'type': 'dense',
                                        'description': 'Logaright of predicted \
                                                        class probabilities',

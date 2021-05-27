@@ -452,7 +452,7 @@ class QN(Base,
         else:
             return self._coef_
 
-    @generate_docstring()
+    @generate_docstring(X='dense_sparse')
     def fit(self, X, y, sample_weight=None, convert_dtype=False) -> "QN":
         """
         Fit the model with X and y.
@@ -755,10 +755,14 @@ class QN(Base,
 
         return scores
 
-    @generate_docstring(return_values={'name': 'preds',
-                                       'type': 'dense',
-                                       'description': 'Predicted values',
-                                       'shape': '(n_samples, 1)'})
+    @generate_docstring(
+        X='dense_sparse',
+        return_values={
+            'name': 'preds',
+            'type': 'dense',
+            'description': 'Predicted values',
+            'shape': '(n_samples, 1)'
+        })
     @cuml.internals.api_base_return_array(get_output_dtype=True)
     def predict(self, X, convert_dtype=False) -> CumlArray:
         """
