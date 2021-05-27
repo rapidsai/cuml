@@ -49,10 +49,11 @@ cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
         DataT* sigma2
 
     cdef cppclass ARIMAMemory[DataT]:
-        ARIMAMemory(const ARIMAOrder& order, int batch_size, int n_obs)
         ARIMAMemory(const ARIMAOrder& order, int batch_size, int n_obs,
                     char* in_buf)
-        size_t size
+
+        @staticmethod
+        size_t compute_size(const ARIMAOrder& order, int batch_size, int n_obs)
 
 
 cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
@@ -350,10 +351,8 @@ class ARIMA(Base):
         self.n_obs_diff = self.n_obs - d - D * s
 
         # Allocate temporary storage
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        arima_mem_ptr = new ARIMAMemory[double](
+        temp_mem_size = ARIMAMemory[double].compute_size(
             cpp_order, <int> self.batch_size, <int> self.n_obs)
-        temp_mem_size = arima_mem_ptr.size
         self._temp_mem = CumlArray.empty(temp_mem_size, np.byte)
 
         self._initial_calc()
@@ -425,6 +424,8 @@ class ARIMA(Base):
                               <double*> d_y_kf_ptr, <int> self.batch_size,
                               <int> n_obs_kf, order_kf, cpp_params,
                               <double*> d_ic_ptr, <int> ic_type_id)
+
+        del arima_mem_ptr
 
         return ic
 
@@ -620,6 +621,8 @@ class ARIMA(Base):
                     <bool> self.simple_differencing,
                     <double> (0 if level is None else level),
                     <double*> d_lower_ptr, <double*> d_upper_ptr)
+
+        del arima_mem_ptr
 
         if level is None:
             return d_y_p
@@ -863,6 +866,8 @@ class ARIMA(Base):
                         <double*> d_vs_ptr, <bool> trans, <bool> True,
                         ll_method, <int> truncate)
 
+        del arima_mem_ptr
+
         return np.array(vec_loglike, dtype=np.float64)
 
     @nvtx.annotate(message="tsa.arima.ARIMA._loglike_grad",
@@ -928,6 +933,8 @@ class ARIMA(Base):
                              <double> h, <bool> trans, ll_method,
                              <int> truncate)
 
+        del arima_mem_ptr
+
         return grad.to_output("numpy")
 
     @property
@@ -971,6 +978,8 @@ class ARIMA(Base):
                         cpp_params, <double*> vec_loglike.data(),
                         <double*> d_vs_ptr, <bool> False, <bool> True,
                         ll_method, <int> 0)
+
+        del arima_mem_ptr
 
         return np.array(vec_loglike, dtype=np.float64)
 
@@ -1057,5 +1066,7 @@ class ARIMA(Base):
         batched_jones_transform(
             handle_[0], arima_mem_ptr[0], order, <int> self.batch_size,
             <bool> isInv, <double*>x_ptr, <double*>Tx_ptr)
+
+        del arima_mem_ptr
 
         return (Tx)

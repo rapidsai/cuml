@@ -209,6 +209,9 @@ struct ARIMAParams {
 
 /**
  * Structure to manage ARIMA temporary memory allocations
+ * @note The user is expected to give a preallocated buffer to the constructor,
+ *       and ownership is not transferred to this struct! The buffer must be allocated
+ *       as long as the object lives, and deallocated afterwards.
  */
 template <typename T, int ALIGN = 256>
 struct ARIMAMemory {
@@ -331,16 +334,23 @@ struct ARIMAMemory {
     }
   }
 
- public:
-  // Constructor to estimate max size
+  /** Protected constructor to estimate max size */
   ARIMAMemory(const ARIMAOrder& order, int batch_size, int n_obs) {
     buf_offsets<false>(order, batch_size, n_obs);
   }
 
-  // Constructor to create pointers from buffer
+ public:
+  /** Constructor to create pointers from buffer */
   ARIMAMemory(const ARIMAOrder& order, int batch_size, int n_obs,
               char* in_buf) {
     buf_offsets<true>(order, batch_size, n_obs, in_buf);
+  }
+
+  /** Static method to get the size of the required buffer allocation */
+  static size_t compute_size(const ARIMAOrder& order, int batch_size,
+                             int n_obs) {
+    ARIMAMemory temp(order, batch_size, n_obs);
+    return temp.size;
   }
 };
 

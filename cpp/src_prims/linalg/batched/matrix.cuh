@@ -182,14 +182,17 @@ class Matrix {
 
   /**
    * @brief Constructor that uses pre-allocated memory.
+   * @note The given arrays don't need to be initialized prior to constructing this object.
+   *       Memory ownership is retained by the caller, not this object!
+   *       Some methods might still allocate temporary memory with the provided allocator.
    * 
    * @param[in]  m            Number of rows
    * @param[in]  n            Number of columns
    * @param[in]  batch_size   Number of matrices in the batch
    * @param[in]  cublasHandle cuBLAS handle
    * @param[in]  allocator    Device memory allocator
-   * @param[in]  d_batches    Pre-allocated pointers array
-   * @param[in]  d_dense      Pre-allocated dense data array
+   * @param[in]  d_batches    Pre-allocated pointers array: batch_size * sizeof(T*)
+   * @param[in]  d_dense      Pre-allocated data array: m * n * batch_size * sizeof(T)
    * @param[in]  stream       CUDA stream
    * @param[in]  setZero      Should matrix be zeroed on allocation?
    */
@@ -262,7 +265,7 @@ class Matrix {
   //! Return shape
   const std::pair<int, int>& shape() const { return m_shape; }
 
-  //! Return pointer array
+  //! Return array of pointers to the offsets in the data buffer
   const T** data() const {
     if (m_batches.size() == 0) {  // Pre-allocated
       return d_batches;
@@ -394,7 +397,7 @@ class Matrix {
   /**
   * @brief Compute the inverse of a batched matrix and write it to another matrix
   *
-  * @param[inout] A      Matrix to inverse. Overwritten by this function!
+  * @param[inout] A      Matrix to inverse. Overwritten by its LU factorization!
   * @param[out]   Ainv   Inversed matrix
   * @param[out]   d_P    Pre-allocated array of size n * batch_size * sizeof(int)
   * @param[out]   d_info Pre-allocated array of size batch_size * sizeof(int)
@@ -493,7 +496,7 @@ class Matrix {
   //! Shape (rows, cols) of matrices. We assume all matrices in batch have same shape.
   std::pair<int, int> m_shape;
 
-  //! Array(pointer) to each matrix.
+  //! Pointers to each matrix in the contiguous data buffer (strided offsets)
   device_buffer<T*> m_batches;
   T** d_batches;  // When pre-allocated
 
@@ -770,8 +773,9 @@ Matrix<T> b_solve(const Matrix<T>& A, const Matrix<T>& b) {
 }
 
 /**
- * @brief The batched kroneker product A (x) B for given batched matrix A
- *        and batched matrix B
+ * @brief The batched kroneker product for batched matrices A and B
+ *
+ * Calculates  AkB = alpha * A (x) B
  * 
  * @param[in]  A     Matrix A
  * @param[in]  B     Matrix B
@@ -1790,6 +1794,36 @@ Matrix<T> b_trsyl_uplo(const Matrix<T>& R, const Matrix<T>& S,
   return Y;
 }
 
+/// Auxiliary function for the direct Lyapunov solver
+template <typename T>
+void _direct_lyapunov_helper(const Matrix<T>& A, Matrix<T>& Q, Matrix<T>& X,
+                             Matrix<T>& I_m_AxA, Matrix<T>& I_m_AxA_inv, int* P,
+                             int* info, int r) {
+  auto stream = A.stream();
+  int batch_size = A.batches();
+  int r2 = r * r;
+  auto counting = thrust::make_counting_iterator(0);
+
+  b_kron(A, A, I_m_AxA, (T)-1);
+
+  T* d_I_m_AxA = I_m_AxA.raw_data();
+  thrust::for_each(thrust::cuda::par.on(stream), counting,
+                   counting + batch_size, [=] __device__(int ib) {
+                     T* b_I_m_AxA = d_I_m_AxA + ib * r2 * r2;
+                     for (int i = 0; i < r2; i++) {
+                       b_I_m_AxA[(r2 + 1) * i] += 1.0;
+                     }
+                   });
+
+  Matrix<T>::inv(I_m_AxA, I_m_AxA_inv, P, info);
+
+  Q.reshape(r2, 1);
+  X.reshape(r2, 1);
+  b_gemm(false, false, r2, 1, r2, (T)1, I_m_AxA_inv, Q, (T)0, X);
+  Q.reshape(r, r);
+  X.reshape(r, r);
+}
+
 /**
  * @brief Solve discrete Lyapunov equation A*X*A' - X + Q = 0
  * 
@@ -1815,19 +1849,18 @@ Matrix<T> b_lyapunov(const Matrix<T>& A, Matrix<T>& Q) {
     //
     // Use direct solution with Kronecker product
     //
-    Matrix<T> I_m_AxA = b_kron(-A, A);
-    T* d_I_m_AxA = I_m_AxA.raw_data();
-    thrust::for_each(thrust::cuda::par.on(stream), counting,
-                     counting + batch_size, [=] __device__(int ib) {
-                       T* b_I_m_AxA = d_I_m_AxA + ib * n2 * n2;
-                       for (int i = 0; i < n * n; i++) {
-                         b_I_m_AxA[(n2 + 1) * i] += (T)1;
-                       }
-                     });
-    Q.reshape(n2, 1);
-    Matrix<T> X = b_solve(I_m_AxA, Q);
-    Q.reshape(n, n);
-    X.reshape(n, n);
+    MLCommon::LinAlg::Batched::Matrix<T> I_m_AxA(
+      n2, n2, batch_size, A.cublasHandle(), allocator, stream, false);
+    MLCommon::LinAlg::Batched::Matrix<T> I_m_AxA_inv(
+      n2, n2, batch_size, A.cublasHandle(), allocator, stream, false);
+    MLCommon::LinAlg::Batched::Matrix<T> X(n, n, batch_size, A.cublasHandle(),
+                                           allocator, stream, false);
+    int* P = (int*)allocator->allocate(sizeof(int) * n * batch_size, stream);
+    int* info = (int*)allocator->allocate(sizeof(int) * batch_size, stream);
+    MLCommon::LinAlg::Batched::_direct_lyapunov_helper(A, Q, X, I_m_AxA,
+                                                       I_m_AxA_inv, P, info, n);
+    allocator->deallocate(P, sizeof(int) * n * batch_size, stream);
+    allocator->deallocate(info, sizeof(int) * batch_size, stream);
     return X;
   } else {
     //

@@ -91,9 +91,8 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
       this->params.batch_size * this->params.n_obs * sizeof(DataT), stream);
 
     // Temporary memory
-    size_t temp_buf_size =
-      ARIMAMemory<double>(order, this->params.batch_size, this->params.n_obs)
-        .size;
+    size_t temp_buf_size = ARIMAMemory<double>::compute_size(
+      order, this->params.batch_size, this->params.n_obs);
     temp_mem = (char*)allocator->allocate(temp_buf_size, stream);
   }
 

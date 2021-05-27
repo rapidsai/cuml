@@ -677,7 +677,6 @@ void _lyapunov_wrapper(raft::handle_t& handle,
     auto allocator = handle.get_device_allocator();
     int batch_size = A.batches();
     int r2 = r * r;
-    auto counting = thrust::make_counting_iterator(0);
 
     //
     // Use direct solution with Kronecker product
@@ -690,26 +689,9 @@ void _lyapunov_wrapper(raft::handle_t& handle,
       r2, r2, batch_size, cublasHandle, arima_mem.I_m_AxA_inv_batches,
       arima_mem.I_m_AxA_inv_dense, allocator, stream, false);
 
-    MLCommon::LinAlg::Batched::b_kron(A, A, I_m_AxA, -1.0);
-
-    double* d_I_m_AxA = arima_mem.I_m_AxA_dense;
-    thrust::for_each(thrust::cuda::par.on(stream), counting,
-                     counting + batch_size, [=] __device__(int ib) {
-                       double* b_I_m_AxA = d_I_m_AxA + ib * r2 * r2;
-                       for (int i = 0; i < r2; i++) {
-                         b_I_m_AxA[(r2 + 1) * i] += 1.0;
-                       }
-                     });
-
-    MLCommon::LinAlg::Batched::Matrix<double>::inv(
-      I_m_AxA, I_m_AxA_inv, arima_mem.I_m_AxA_P, arima_mem.I_m_AxA_info);
-
-    Q.reshape(r2, 1);
-    X.reshape(r2, 1);
-    MLCommon::LinAlg::Batched::b_gemm(false, false, r2, 1, r2, 1.0, I_m_AxA_inv,
-                                      Q, 0.0, X);
-    Q.reshape(r, r);
-    X.reshape(r, r);
+    MLCommon::LinAlg::Batched::_direct_lyapunov_helper(
+      A, Q, X, I_m_AxA, I_m_AxA_inv, arima_mem.I_m_AxA_P,
+      arima_mem.I_m_AxA_info, r);
   } else {
     // Note: the other Lyapunov solver is doing temporary mem allocations,
     // but when r > 5, allocation overhead shouldn't be a bottleneck
