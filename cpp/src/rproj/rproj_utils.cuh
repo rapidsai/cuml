@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <cuml/random_projection/rproj_c.h>
+#include <cuml/rproj/rproj_c.h>
 #include <limits.h>
 #include <thrust/sort.h>
 #include <raft/cuda_utils.cuh>
@@ -34,7 +34,6 @@ inline void shuffle(rmm::device_uvector<int>& vals, size_t len,
   rmm::device_uvector<int> keys(len, stream);
   raft::random::Rng rng(random_state);
   rng.uniformInt<int>(keys.begin(), keys.size(), 0, INT_MAX, stream);
-  raft::print_device_vector("uniformInt", keys.data(), 10, std::cout);
   thrust::sort_by_key(thrust::cuda::par.on(stream), keys.begin(), keys.end(),
                       vals.begin());
 }
@@ -51,7 +50,6 @@ inline size_t sample_without_replacement(int* indptr, int* indices,
     int n_nonzero =
       binomial(params.n_features, params.density, params.random_state + i);
     shuffle(vals, params.n_features, params.random_state, stream);
-    raft::print_device_vector("shuffle", vals.data(), 10, std::cout);
     raft::copy(&indices[offset], vals.data(), n_nonzero, stream);
     offset += n_nonzero;
   }

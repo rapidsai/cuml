@@ -20,7 +20,7 @@
 #include <unordered_set>
 #include <vector>
 
-#include <cuml/random_projection/rproj_c.h>
+#include <cuml/rproj/rproj_c.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>

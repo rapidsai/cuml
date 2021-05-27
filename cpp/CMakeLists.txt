@@ -443,7 +443,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/metrics/v_measure.cu
     src/pca/pca.cu
     src/randomforest/randomforest.cu
-    src/random_projection/rproj.cu
+    src/rproj/rproj.cu
     src/solver/lars.cu
     src/solver/solver.cu
     src/spectral/spectral.cu
