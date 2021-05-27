@@ -199,7 +199,7 @@ void do_labelling_on_host(
  * @param[in] cluster_selection_method method to use for cluster selection
  * @param[in] allow_single_cluster allows a single cluster to be returned (rather than just noise)
  * @param[in] max_cluster_size maximium number of points that can be considered in a cluster before it is split into multiple sub-clusters.
- * @param[in] cluster_selection_epsilon a distance threshold. clusters below this value with will be merged.
+ * @param[in] cluster_selection_epsilon a distance threshold. clusters below this value will be merged.
  */
 template <typename value_idx, typename value_t>
 void extract_clusters(

@@ -39,24 +39,27 @@ namespace detail {
 namespace Condense {
 
 /**
- * Condenses a binary tree dendrogram in the Scipy format
- * by merging labels that fall below a minimum cluster size.
- * This function accepts an empty instance of `CondensedHierarchy`
- * and invokes the `condense()` function on it.
+ * Condenses a binary single-linkage tree dendrogram in the Scipy hierarchy
+ * format by collapsing subtrees that fall below a minimum cluster size.
+ *
+ * For increased parallelism, the output array sizes are held fixed but
+ * the result will be sparse (e.g. zeros in place of parents who have been
+ * removed / collapsed). This function accepts an empty instance of
+ * `CondensedHierarchy` and invokes the `condense()` function on it to
+ * convert the sparse output arrays into their dense form.
+ *
  * @tparam value_idx
  * @tparam value_t
  * @tparam tpb
  * @param handle
- * @param[in] children
- * @param[in] delta
- * @param[in] sizes
- * @param[in] min_cluster_size
- * @param[in] n_leaves
- * @param[out] condensed_tree
- * @param[out] out_parent
- * @param[out] out_child
- * @param[out] out_lambda
- * @param[out] out_size
+ * @param[in] children parents/children from single-linkage dendrogram
+ * @param[in] delta distances from single-linkage dendrogram
+ * @param[in] sizes sizes from single-linkage dendrogram
+ * @param[in] min_cluster_size any subtrees less than this size will be
+ *                             collapsed.
+ * @param[in] n_leaves number of actual data samples in the dendrogram
+ * @param[out] condensed_tree output dendrogram. will likely no longer be
+ *                            a binary tree.
  */
 template <typename value_idx, typename value_t, int tpb = 256>
 void build_condensed_hierarchy(
@@ -83,6 +86,8 @@ void build_condensed_hierarchy(
 
   thrust::fill(exec_policy, frontier.begin(), frontier.end(), false);
 
+  // Array to propagate the lambda of subtrees actively being collapsed
+  // through multiple bfs iterations.
   rmm::device_uvector<value_t> ignore(root + 1, stream);
 
   // Propagate labels from root

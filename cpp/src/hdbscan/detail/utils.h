@@ -66,12 +66,12 @@ void cub_segmented_reduce(const value_t *in, value_t *out, int n_segments,
                           CUBReduceFunc cub_reduce_func) {
   rmm::device_uvector<char> d_temp_storage(0, stream);
   size_t temp_storage_bytes = 0;
-  cub_reduce_func(nullptr, temp_storage_bytes, in, out, n_segments,
-                  offsets, offsets + 1, stream, false);
+  cub_reduce_func(nullptr, temp_storage_bytes, in, out, n_segments, offsets,
+                  offsets + 1, stream, false);
   d_temp_storage.resize(temp_storage_bytes, stream);
 
-  cub_reduce_func(d_temp_storage.data(), temp_storage_bytes, in, out, n_segments,
-                  offsets, offsets + 1, stream, false);
+  cub_reduce_func(d_temp_storage.data(), temp_storage_bytes, in, out,
+                  n_segments, offsets, offsets + 1, stream, false);
 }
 
 /**

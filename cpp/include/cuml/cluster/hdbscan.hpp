@@ -73,16 +73,22 @@ class CondensedHierarchy {
                      rmm::device_uvector<value_t> &&lambdas_,
                      rmm::device_uvector<value_idx> &&sizes_);
   /**
-   * Populates the condensed hierarchy object with the output
-   * from Condense::build_condensed_hierarchy. First, it reverses
-   * values in the parent array since root has the largest value.
-   * Then, it makes the combined parent and children arrays monotonic.
-   * Finally, (parent, children, sizes) as key sort lamba array as
-   * value
-   * @param full_parents
-   * @param full_children
-   * @param full_lambdas
-   * @param full_sizes
+   * To maintain a high level of parallelism, the output from
+   * Condense::build_condensed_hierarchy() is sparse (the cluster
+   * nodes inside any collapsed subtrees will be 0).
+   *
+   * This function converts the sparse form to a dense form and renumbers
+   * the cluster nodes into a topological sort order. The renumbering
+   * reverses the values in the parent array since root has the largest value
+   * in the single-linkage tree. Then, it makes the combined parent and
+   * children arrays monotonic. Finally all of the arrays of the dendrogram
+   * are sorted by parent->children->sizes (e.g. topological). The root node
+   * will always have an id of 0 and the largest cluster size.
+   *
+   * Ths single-linkage tree dendrogram is a binary tree and parents/children
+   * can be found with simple indexing arithmetic but the condensed tree no
+   * longer has this property and so the tree now relies on either
+   * special indexing or the topological ordering for efficient traversal.
    */
   void condense(value_idx *full_parents, value_idx *full_children,
                 value_t *full_lambdas, value_idx *full_sizes,
