@@ -375,6 +375,8 @@ if(BUILD_CUML_C_LIBRARY)
   target_link_libraries(${CUML_C_TARGET}
     PUBLIC
       ${CUML_CPP_TARGET}
+    PRIVATE
+      FAISS::FAISS
   )
 
 endif()
