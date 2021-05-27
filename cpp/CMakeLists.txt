@@ -452,7 +452,7 @@ rapids_export(BUILD cuml
 ##############################################################################
 # - build benchmark executable -----------------------------------------------
 
-if(BUILD_CUML_BENCH)
+if(BUILD_CUML_BENCH OR BUILD_CUML_PRIMS_BENCH)
   add_subdirectory(bench)
 endif(BUILD_CUML_BENCH)
 
