@@ -17,37 +17,46 @@
 #pragma once
 
 #include <cuml/random_projection/rproj_c.h>
-#include <raft/cudart_utils.h>
-#include <sys/time.h>
+#include <limits.h>
+#include <thrust/sort.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/random/rng.cuh>
-
-const int TPB_X = 256;
-
-inline void sample_without_replacement(size_t n_population, size_t n_samples,
-                                       int* indices, size_t offset,
-                                       int random_state) {
-  std::mt19937 gen(random_state);
-  std::uniform_int_distribution<int> uni_dist(0, n_population - 1);
-
-  int indices_idx = offset;
-  std::unordered_set<int> s;
-  for (size_t i = 0; i < n_samples; i++) {
-    int rand_idx = uni_dist(gen);
-
-    while (s.find(rand_idx) != s.end()) {
-      rand_idx = uni_dist(gen);
-    }
-    s.insert(rand_idx);
-    indices[indices_idx] = rand_idx;
-    indices_idx++;
-  }
-}
+#include <rmm/device_uvector.hpp>
 
 inline size_t binomial(size_t n, double p, int random_state) {
   std::mt19937 gen(random_state);
   std::binomial_distribution<> binomial_dist(n, p);
   return binomial_dist(gen);
+}
+
+inline void shuffle(rmm::device_uvector<int>& vals, size_t len,
+                    int random_state, cudaStream_t stream) {
+  rmm::device_uvector<int> keys(len, stream);
+  raft::random::Rng rng(random_state);
+  rng.uniformInt<int>(keys.begin(), keys.size(), 0, INT_MAX, stream);
+  raft::print_device_vector("uniformInt", keys.data(), 10, std::cout);
+  thrust::sort_by_key(thrust::cuda::par.on(stream), keys.begin(), keys.end(),
+                      vals.begin());
+}
+
+inline size_t sample_without_replacement(int* indptr, int* indices,
+                                         ML::paramsRPROJ& params,
+                                         cudaStream_t stream) {
+  rmm::device_uvector<int> vals(params.n_features, stream);
+  thrust::sequence(thrust::cuda::par.on(stream), vals.begin(), vals.end());
+
+  size_t offset = 0;
+  for (size_t i = 0; i < params.n_components; i++) {
+    indptr[i] = offset;
+    int n_nonzero =
+      binomial(params.n_features, params.density, params.random_state + i);
+    shuffle(vals, params.n_features, params.random_state, stream);
+    raft::print_device_vector("shuffle", vals.data(), 10, std::cout);
+    raft::copy(&indices[offset], vals.data(), n_nonzero, stream);
+    offset += n_nonzero;
+  }
+  indptr[params.n_components] = offset;
+  return offset;
 }
 
 inline double check_density(double density, size_t n_features) {
