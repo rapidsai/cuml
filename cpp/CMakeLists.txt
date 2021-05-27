@@ -416,7 +416,7 @@ install(TARGETS
           cuml-exports)
 
 install(DIRECTORY include/
-        DESTINATION include/cuml)
+        DESTINATION include)
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/include/cuml/version_config.hpp
         DESTINATION include/cuml)
