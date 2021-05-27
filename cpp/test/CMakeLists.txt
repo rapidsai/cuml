@@ -228,6 +228,9 @@ endif()
 # - build C-API test library -------------------------------------------------
 
 if(BUILD_CUML_C_LIBRARY)
+
+  enable_language(C)
+
   add_library(${CUML_C_TEST_TARGET} SHARED
     c_api/dbscan_api_test.c
     c_api/glm_api_test.c
