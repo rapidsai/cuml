@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <common/ml_benchmark.hpp>
 #include <cuml/matrix/kernelparams.h>
+#include <common/ml_benchmark.hpp>
 #include <matrix/grammatrix.cuh>
 #include <matrix/kernelfactory.cuh>
 #include <memory>
