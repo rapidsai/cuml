@@ -557,10 +557,15 @@ __global__ void computeSplitRegressionKernel(
   IdxT stride = blockDim.x * num_blocks;
   IdxT tid = threadIdx.x + offset_blockid * blockDim.x;
 
+  IdxT col;
+
+  // allocating pointers to shared memory
+  auto* pdf_spred = alignPointer<DataT>(smem);
   auto* cdf_spred = alignPointer<DataT>(pdf_spred + pdf_spred_len);
   auto* pdf_scount = alignPointer<int>(cdf_spred + cdf_spred_len);
   auto* cdf_scount = alignPointer<int>(pdf_scount + nbins);
   auto* sbins = alignPointer<DataT>(cdf_scount + nbins);
+  auto* sDone = alignPointer<int>(sbins + nbins);
 
   // select random feature to split-check
   // (if feature-sampling is true)
