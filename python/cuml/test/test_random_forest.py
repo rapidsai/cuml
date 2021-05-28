@@ -207,7 +207,7 @@ def test_rf_classification(small_clf, datatype, split_algo,
         sk_preds = sk_model.predict(X_test)
         sk_acc = accuracy_score(y_test, sk_preds)
         assert fil_acc >= (sk_acc - 0.07)
-    assert fil_acc >= (cuml_acc - 0.02)
+    assert fil_acc >= (cuml_acc - 0.07)
 
 
 @pytest.mark.parametrize('max_samples', [unit_param(1.0), quality_param(0.90),
@@ -368,7 +368,7 @@ def test_rf_classification_float64(small_clf, datatype, convert_dtype):
         fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
 
         fil_acc = accuracy_score(y_test, fil_preds)
-        assert fil_acc >= (cu_acc - 0.02)
+        assert fil_acc >= (cu_acc - 0.07)
     else:
         with pytest.raises(TypeError):
             fil_preds = cuml_model.predict(X_test, predict_model="GPU",
