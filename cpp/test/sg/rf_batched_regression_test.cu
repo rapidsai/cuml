@@ -120,19 +120,13 @@ class RFBatchedRegTest : public ::testing::TestWithParam<RfInputs> {
 
 //-------------------------------------------------------------------------------------------------------------------------------------
 const std::vector<RfInputs> inputs = {
+  RfInputs{5, 1, 1, 1.0f, 1.0f, 1, -1, false, false, 5,
+           SPLIT_ALGO::GLOBAL_QUANTILE, 1, 2, 0.0, 1, CRITERION::MSE, -5.0},
   // Small datasets to repro corner cases as in #3107 (test for crash)
-  {100, 29, 1, 1.0f, 1.0f, 2, -1, false, false, 16, SPLIT_ALGO::GLOBAL_QUANTILE,
-   2, 2, 0.0, 2, CRITERION::MAE, -10.0},
-  {100, 57, 2, 1.0f, 1.0f, 2, -1, false, false, 16, SPLIT_ALGO::GLOBAL_QUANTILE,
-   2, 2, 0.0, 2, CRITERION::MAE, -10.0},
   {101, 57, 2, 1.0f, 1.0f, 2, -1, false, false, 13, SPLIT_ALGO::GLOBAL_QUANTILE,
    2, 2, 0.0, 2, CRITERION::MSE, -10.0},
-  {100, 1, 2, 1.0f, 1.0f, 2, -1, false, false, 13, SPLIT_ALGO::GLOBAL_QUANTILE,
-   2, 2, 0.0, 2, CRITERION::MAE, -10.0},
 
   // Larger datasets for accuracy
-  {1000, 10, 10, 1.0f, 1.0f, 12, -1, true, false, 10,
-   SPLIT_ALGO::GLOBAL_QUANTILE, 2, 2, 0.0, 2, CRITERION::MAE, 0.7f},
   {2000, 20, 20, 1.0f, 0.6f, 13, -1, true, false, 10,
    SPLIT_ALGO::GLOBAL_QUANTILE, 2, 2, 0.0, 2, CRITERION::MSE, 0.68f}};
 
