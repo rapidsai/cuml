@@ -169,7 +169,7 @@ def test_rf_regression_dask_fil(partitions_per_worker,
 
     acc_score = r2_score(cuml_mod_predict, y_test)
 
-    assert acc_score >= 0.67
+    assert acc_score >= 0.59
 
 
 @pytest.mark.parametrize('partitions_per_worker', [5])
@@ -292,8 +292,8 @@ def test_rf_classification_dask_fil_predict_proba(partitions_per_worker,
     sk_mse = mean_squared_error(y_proba, sk_preds_proba)
 
     # The threshold is required as the test would intermitently
-    # fail with a max difference of 0.022 between the two mse values
-    assert fil_mse <= sk_mse + 0.022
+    # fail with a max difference of 0.029 between the two mse values
+    assert fil_mse <= sk_mse + 0.029
 
 
 @pytest.mark.parametrize('model_type', ['classification', 'regression'])
@@ -383,16 +383,16 @@ def test_rf_get_json(client, estimator_type, max_depth, n_estimators):
     if estimator_type == 'classification':
         cu_rf_mg = cuRFC_mg(max_features=1.0, max_samples=1.0,
                             n_bins=16, split_algo=0, split_criterion=0,
-                            min_samples_leaf=2, seed=23707, n_streams=1,
-                            n_estimators=n_estimators, max_leaves=-1,
-                            max_depth=max_depth)
+                            min_samples_leaf=2, random_state=23707,
+                            n_streams=1, n_estimators=n_estimators,
+                            max_leaves=-1, max_depth=max_depth)
         y = y.astype(np.int32)
     elif estimator_type == 'regression':
         cu_rf_mg = cuRFR_mg(max_features=1.0, max_samples=1.0,
                             n_bins=16, split_algo=0,
-                            min_samples_leaf=2, seed=23707, n_streams=1,
-                            n_estimators=n_estimators, max_leaves=-1,
-                            max_depth=max_depth)
+                            min_samples_leaf=2, random_state=23707,
+                            n_streams=1, n_estimators=n_estimators,
+                            max_leaves=-1, max_depth=max_depth)
         y = y.astype(np.float32)
     else:
         assert False
@@ -471,7 +471,7 @@ def test_rf_instance_count(client, max_depth, n_estimators):
     X = X.astype(np.float32)
     cu_rf_mg = cuRFC_mg(max_features=1.0, max_samples=1.0,
                         n_bins=16, split_algo=1, split_criterion=0,
-                        min_samples_leaf=2, seed=23707, n_streams=1,
+                        min_samples_leaf=2, random_state=23707, n_streams=1,
                         n_estimators=n_estimators, max_leaves=-1,
                         max_depth=max_depth)
     y = y.astype(np.int32)
