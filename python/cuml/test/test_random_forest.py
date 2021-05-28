@@ -151,7 +151,8 @@ def special_reg(request):
 @pytest.mark.parametrize('max_features', [1.0, 'auto', 'log2', 'sqrt'])
 @pytest.mark.parametrize('use_experimental_backend', [True, False])
 def test_rf_classification(small_clf, datatype, split_algo,
-                           max_samples, max_features, use_experimental_backend):
+                           max_samples, max_features,
+                           use_experimental_backend):
     use_handle = True
 
     X, y = small_clf
@@ -168,7 +169,8 @@ def test_rf_classification(small_clf, datatype, split_algo,
                        n_bins=16, split_algo=split_algo, split_criterion=0,
                        min_samples_leaf=2, random_state=123, n_streams=1,
                        n_estimators=40, handle=handle, max_leaves=-1,
-                       max_depth=16, use_experimental_backend=use_experimental_backend)
+                       max_depth=16,
+                       use_experimental_backend=use_experimental_backend)
     f = io.StringIO()
     with redirect_stdout(f):
         cuml_model.fit(X_train, y_train)
@@ -183,10 +185,10 @@ def test_rf_classification(small_clf, datatype, split_algo,
         assert ('Not using the experimental backend due to above ' +
                 'mentioned reason(s)' in captured_stdout)
     if not use_experimental_backend:
-        assert('The old backend is deprecated and will be removed in 21.08 release.'
-                in captured_stdout)
+        assert('The old backend is deprecated and will be removed in 21.08 release.'  # noqa: E501
+               in captured_stdout)
         assert('Using old backend for growing trees'
-                in captured_stdout)
+               in captured_stdout)
 
     fil_preds = cuml_model.predict(X_test,
                                    predict_model="GPU",
@@ -261,10 +263,10 @@ def test_rf_regression(special_reg, datatype, split_algo, max_features,
         assert ('Not using the experimental backend due to above ' +
                 'mentioned reason(s)' in captured_stdout)
     if not use_experimental_backend:
-        assert('The old backend is deprecated and will be removed in 21.08 release.'
-                in captured_stdout)
+        assert('The old backend is deprecated and will be removed in 21.08 release.'  # noqa: E501
+               in captured_stdout)
         assert('Using old backend for growing trees'
-                in captured_stdout)
+               in captured_stdout)
     # predict using FIL
     fil_preds = cuml_model.predict(X_test, predict_model="GPU")
     cu_preds = cuml_model.predict(X_test, predict_model="CPU")
