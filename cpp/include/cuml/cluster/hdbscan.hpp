@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,6 +27,14 @@ namespace ML {
 namespace HDBSCAN {
 namespace Common {
 
+/**
+ * The Condensed hierarchicy is represented by an edge list with
+ * parents as the source vertices, children as the destination,
+ * with attributes for the cluster size and lambda value.
+ *
+ * @tparam value_idx
+ * @tparam value_t
+ */
 template <typename value_idx, typename value_t>
 class CondensedHierarchy {
  public:

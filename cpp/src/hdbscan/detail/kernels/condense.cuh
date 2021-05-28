@@ -39,7 +39,7 @@ __device__ inline value_t get_lambda(value_idx node, value_idx num_points,
   * exposes more parallelism by having any collapsed branches directly
   * inherit the id of the persisted ancestor, rather than having to maintain
   * a synchronized monotonically increasing counter. In this version, a
-  * renumbering is done afterwords, in parallel. The assumption here is that
+  * renumbering is done afterwards, in parallel. The assumption here is that
   * a topological sort order should result from sorting the resulting
   * condensed dendrogram by (cluster size, id).
   *

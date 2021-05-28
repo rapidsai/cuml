@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -163,8 +163,6 @@ void mutual_reachability_graph(const raft::handle_t &handle, const value_t *X,
   thrust::transform(exec_policy, coo_rows_counting_itr,
                     coo_rows_counting_itr + (m * k), coo_rows.data(),
                     [k] __device__(value_idx c) -> value_idx { return c / k; });
-
-  CUDA_CHECK(cudaPeekAtLastError());
 
   raft::sparse::linalg::symmetrize(handle, coo_rows.data(), inds.data(),
                                    dists.data(), m, m, k * m, out);
