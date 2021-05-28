@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -452,6 +452,7 @@ __global__ void best_split_gather_classification_kernel(
       colid = -1;
       localnode.prediction =
         get_class_hist_shared(shmemhist_parent, n_unique_labels);
+      localnode.quesval = -1;
     }
     localnode.colid = colid;
     localnode.best_metric_val = parent_metric;
@@ -574,6 +575,7 @@ __global__ void best_split_gather_classification_minmax_kernel(
       colid = -1;
       localnode.prediction =
         get_class_hist_shared(shmemhist_parent, n_unique_labels);
+      localnode.quesval = -1;
     }
     localnode.colid = colid;
     localnode.best_metric_val = parent_metric;
@@ -611,6 +613,7 @@ __global__ void make_leaf_gather_classification_kernel(
     localnode.prediction =
       get_class_hist_shared(shmemhist_parent, n_unique_labels);
     localnode.colid = -1;
+    localnode.quesval = -1;
     localnode.best_metric_val = parent_metric;
     d_sparsenodes[d_nodelist[blockIdx.x]] = localnode;
   }
