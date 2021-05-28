@@ -87,7 +87,10 @@ def test_pca_fit_transform_fp32(nrows, ncols, n_parts, client):
                            random_state=10, dtype=np.float32)
 
     cupca = daskPCA(n_components=20, whiten=True)
-    cupca.fit_transform(X_cudf)
+    res = cupca.fit_transform(X_cudf)
+    res = res.compute()
+    assert res.shape[0] == nrows and res.shape[1]==20
+
 
 
 @pytest.mark.mg
@@ -107,4 +110,29 @@ def test_pca_fit_transform_fp64(nrows, ncols, n_parts, client):
                            random_state=10, dtype=np.float64)
 
     cupca = daskPCA(n_components=30, whiten=False)
-    cupca.fit_transform(X_cudf)
+    res = cupca.fit_transform(X_cudf)
+    res = res.compute()
+    assert res.shape[0] == nrows and res.shape[1]==30
+
+
+@pytest.mark.mg
+@pytest.mark.parametrize("nrows", [1000])
+@pytest.mark.parametrize("ncols", [20])
+@pytest.mark.parametrize("n_parts", [28])
+def test_pca_fit_transform_fp32_noncomponents(nrows, ncols, n_parts, client):
+    # Tests the case when n_components is not passed for MG scenarios
+    from cuml.dask.decomposition import PCA as daskPCA
+    from cuml.dask.datasets import make_blobs
+
+    X_cudf, _ = make_blobs(n_samples=nrows,
+                           n_features=ncols,
+                           centers=1,
+                           n_parts=n_parts,
+                           cluster_std=1.5,
+                           random_state=10, dtype=np.float32)
+
+    cupca = daskPCA(whiten=False)
+    res = cupca.fit_transform(X_cudf)
+    res = res.compute()
+    assert res.shape[0] == nrows and res.shape[1]==1 #20
+
