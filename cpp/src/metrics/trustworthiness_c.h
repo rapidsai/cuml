@@ -22,7 +22,7 @@ namespace ML {
 namespace Metrics {
 
 template <typename math_t, raft::distance::DistanceType distance_type>
-double trustworthiness_score(const raft::handle_t& h, math_t* X,
+double trustworthiness_score(const raft::handle_t& h, const math_t* X,
                              math_t* X_embedded, int n, int m, int d,
                              int n_neighbors, int batchSize);
 

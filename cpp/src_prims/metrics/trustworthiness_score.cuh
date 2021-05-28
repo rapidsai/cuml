@@ -25,14 +25,14 @@ namespace MLCommon {
 namespace Score {
 
 /**
-  * @brief Build the lookup table
-  * @param[out] lookup_table: Lookup table giving nearest neighbor order
-  *                of pairwise distance calculations given sample index
-  * @param[in] X_ind: Sorted indexes of pairwise distance calculations of X
-  * @param n: Number of samples
-  * @param work: Number of elements to consider
-*/
-__global__ void build_lookup_table(int *lookup_table, int *X_ind, int n,
+ * @brief Build the lookup table
+ * @param[out] lookup_table: Lookup table giving nearest neighbor order
+ *                of pairwise distance calculations given sample index
+ * @param[in] X_ind: Sorted indexes of pairwise distance calculations of X
+ * @param n: Number of samples
+ * @param work: Number of elements to consider
+ */
+__global__ void build_lookup_table(int *lookup_table, const int *X_ind, int n,
                                    int work) {
   int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i >= work) return;
@@ -53,10 +53,10 @@ __global__ void build_lookup_table(int *lookup_table, int *X_ind, int n,
   * @param n: Number of samples
   * @param n_neighbors: Number of neighbors considered by trustworthiness score
   * @param work: Batch to consider (to do it at once use n * n_neighbors)
-*/
+  */
 template <typename knn_index_t>
-__global__ void compute_rank(double *rank, int *lookup_table,
-                             knn_index_t *emb_ind, int n, int n_neighbors,
+__global__ void compute_rank(double *rank, const int *lookup_table,
+                             const knn_index_t *emb_ind, int n, int n_neighbors,
                              int work) {
   int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i >= work) return;
@@ -71,19 +71,19 @@ __global__ void compute_rank(double *rank, int *lookup_table,
 }
 
 /**
-     * @brief Compute a kNN and returns the indices of the nearest neighbors
-     * @param h Raft handle
-     * @param[in] input Input matrix containing the dataset
-     * @param n Number of samples
-     * @param d Number of features
-     * @param n_neighbors number of neighbors
-     * @param[out] indices KNN indexes
-     * @param[out] distances KNN distances
-     */
+ * @brief Compute a kNN and returns the indices of the nearest neighbors
+ * @param h Raft handle
+ * @param[in] input Input matrix containing the dataset
+ * @param n Number of samples
+ * @param d Number of features
+ * @param n_neighbors number of neighbors
+ * @param[out] indices KNN indexes
+ * @param[out] distances KNN distances
+ */
 template <raft::distance::DistanceType distance_type, typename math_t>
 void run_knn(const raft::handle_t &h, math_t *input, int n, int d,
              int n_neighbors, int64_t *indices, math_t *distances) {
-  std::vector<float *> ptrs(1);
+  std::vector<math_t *> ptrs(1);
   std::vector<int> sizes(1);
   ptrs[0] = input;
   sizes[0] = n;
@@ -94,19 +94,19 @@ void run_knn(const raft::handle_t &h, math_t *input, int n, int d,
 }
 
 /**
-     * @brief Compute the trustworthiness score
-     * @param h Raft handle
-     * @param X: Data in original dimension
-     * @param X_embedded: Data in target dimension (embedding)
-     * @param n: Number of samples
-     * @param m: Number of features in high/original dimension
-     * @param d: Number of features in low/embedded dimension
-     * @param n_neighbors Number of neighbors considered by trustworthiness score
-     * @param batchSize Batch size
-     * @return Trustworthiness score
-     */
+ * @brief Compute the trustworthiness score
+ * @param h Raft handle
+ * @param X[in]: Data in original dimension
+ * @param X_embedded[in]: Data in target dimension (embedding)
+ * @param n: Number of samples
+ * @param m: Number of features in high/original dimension
+ * @param d: Number of features in low/embedded dimension
+ * @param n_neighbors Number of neighbors considered by trustworthiness score
+ * @param batchSize Batch size
+ * @return Trustworthiness score
+ */
 template <typename math_t, raft::distance::DistanceType distance_type>
-double trustworthiness_score(const raft::handle_t &h, math_t *X,
+double trustworthiness_score(const raft::handle_t &h, const math_t *X,
                              math_t *X_embedded, int n, int m, int d,
                              int n_neighbors, int batchSize = 512) {
   cudaStream_t stream = h.get_stream();
