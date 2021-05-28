@@ -138,6 +138,9 @@ std::string get_node_json(const std::string &prefix,
     if (node.instance_count != UINT32_MAX) {
       oss << ", \"instance_count\": " << node.instance_count;
     }
+    if (node.quesval >= 0) {
+      oss << ", \"positive_fraction\": " << node.quesval;
+    }
     oss << "}";
   }
   return oss.str();
@@ -202,7 +205,21 @@ tl::Tree<T, T> build_treelite_tree(
 
       } else {
         if (num_class == 1) {
-          tl_tree.SetLeaf(node_id, static_cast<T>(q_node.node->prediction));
+          if (std::is_same<decltype(q_node.node->prediction), int>::value) {
+            // Binary classification; use fraction of the positive class
+            // to produce a "soft output"
+            // Note. The old RF backend doesn't provide this fraction
+            static_assert(std::is_floating_point<T>::value,
+                          "Expected T to be a floating-point type");
+            if (q_node.node->quesval >= 0) {
+              tl_tree.SetLeaf(node_id, static_cast<T>(q_node.node->quesval));
+            } else {
+              tl_tree.SetLeaf(node_id, static_cast<T>(q_node.node->prediction));
+            }
+          } else {
+            // Regression
+            tl_tree.SetLeaf(node_id, static_cast<T>(q_node.node->prediction));
+          }
         } else {
           std::vector<T> leaf_vector(num_class, 0);
           leaf_vector[q_node.node->prediction] = 1;
