@@ -196,7 +196,7 @@ else
     gpuci_logger "Install the main version of dask and distributed"
     set -x
     pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
-    pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
+    pip install "git+https://github.com/jakirkham/dask.git@drop_whowhat_client" --upgrade --no-deps
     set +x
 
     gpuci_conda_retry remove --force rapids-build-env rapids-notebook-env
