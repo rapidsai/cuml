@@ -340,13 +340,24 @@ struct ARIMAMemory {
   }
 
  public:
-  /** Constructor to create pointers from buffer */
+  /** Constructor to create pointers from buffer
+   * @param[in] order      ARIMA order
+   * @param[in] batch_size Number of series in the batch
+   * @param[in] n_obs      Length of the series
+   * @param[in] in_buff    Pointer to the temporary memory buffer.
+   *                       Ownership is retained by the caller
+   */
   ARIMAMemory(const ARIMAOrder& order, int batch_size, int n_obs,
               char* in_buf) {
     buf_offsets<true>(order, batch_size, n_obs, in_buf);
   }
 
-  /** Static method to get the size of the required buffer allocation */
+  /** Static method to get the size of the required buffer allocation
+   * @param[in] order      ARIMA order
+   * @param[in] batch_size Number of series in the batch
+   * @param[in] n_obs      Length of the series
+   * @return Buffer size in bytes
+   */
   static size_t compute_size(const ARIMAOrder& order, int batch_size,
                              int n_obs) {
     ARIMAMemory temp(order, batch_size, n_obs);

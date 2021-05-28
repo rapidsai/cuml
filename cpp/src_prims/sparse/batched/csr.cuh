@@ -152,7 +152,10 @@ class CSR {
       m_nnz(nnz),
       m_values(allocator, stream, nnz * batch_size),
       m_col_index(allocator, stream, nnz),
-      m_row_index(allocator, stream, m + 1) {}
+      m_row_index(allocator, stream, m + 1),
+      d_values(m_values.data()),
+      d_row_index(m_row_index.data()),
+      d_col_index(m_col_index.data()) {}
 
   /**
    * @brief Constructor from pre-allocated memory; leaves the matrix uninitialized
@@ -202,7 +205,10 @@ class CSR {
       m_values(other.m_allocator, other.m_stream,
                other.m_nnz * other.m_batch_size),
       m_col_index(other.m_allocator, other.m_stream, other.m_nnz),
-      m_row_index(other.m_allocator, other.m_stream, other.m_shape.first + 1) {
+      m_row_index(other.m_allocator, other.m_stream, other.m_shape.first + 1),
+      d_values(m_values.data()),
+      d_row_index(m_row_index.data()),
+      d_col_index(m_col_index.data()) {
     // Copy the raw data
     raft::copy(get_values(), other.get_values(), m_nnz * m_batch_size,
                m_stream);
@@ -220,6 +226,9 @@ class CSR {
     m_values.resize(m_nnz * m_batch_size, m_stream);
     m_col_index.resize(m_nnz, m_stream);
     m_row_index.resize(m_shape.first + 1, m_stream);
+    d_values = m_values.data();
+    d_col_index = m_col_index.data();
+    d_row_index = m_row_index.data();
 
     // Copy the raw data
     raft::copy(get_values(), other.get_values(), m_nnz * m_batch_size,
@@ -339,52 +348,16 @@ class CSR {
   const std::pair<int, int>& shape() const { return m_shape; }
 
   //! Return values array
-  T* get_values() {
-    if (m_values.size() == 0) {  // Pre-allocated
-      return d_values;
-    } else {
-      return m_values.data();
-    }
-  }
-  const T* get_values() const {
-    if (m_values.size() == 0) {  // Pre-allocated
-      return d_values;
-    } else {
-      return m_values.data();
-    }
-  }
+  T* get_values() { return d_values; }
+  const T* get_values() const { return d_values; }
 
   //! Return columns index array
-  int* get_col_index() {
-    if (m_col_index.size() == 0) {  // Pre-allocated
-      return d_col_index;
-    } else {
-      return m_col_index.data();
-    }
-  }
-  const int* get_col_index() const {
-    if (m_col_index.size() == 0) {  // Pre-allocated
-      return d_col_index;
-    } else {
-      return m_col_index.data();
-    }
-  }
+  int* get_col_index() { return d_col_index; }
+  const int* get_col_index() const { return d_col_index; }
 
   //! Return rows index array
-  int* get_row_index() {
-    if (m_row_index.size() == 0) {  // Pre-allocated
-      return d_row_index;
-    } else {
-      return m_row_index.data();
-    }
-  }
-  const int* get_row_index() const {
-    if (m_row_index.size() == 0) {  // Pre-allocated
-      return d_row_index;
-    } else {
-      return m_row_index.data();
-    }
-  }
+  int* get_row_index() { return d_row_index; }
+  const int* get_row_index() const { return d_row_index; }
 
  protected:
   //! Shape (rows, cols) of matrices.

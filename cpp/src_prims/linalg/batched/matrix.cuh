@@ -176,7 +176,9 @@ class Matrix {
       m_stream(stream),
       m_shape(m, n),
       m_batches(allocator, stream, batch_size),
-      m_dense(allocator, stream, m * n * batch_size) {
+      m_dense(allocator, stream, m * n * batch_size),
+      d_batches(m_batches.data()),
+      d_dense(m_dense.data()) {
     initialize(setZero);
   }
 
@@ -224,7 +226,9 @@ class Matrix {
       m_shape(other.m_shape),
       m_batches(other.m_allocator, other.m_stream, other.m_batch_size),
       m_dense(other.m_allocator, other.m_stream,
-              other.m_shape.first * other.m_shape.second * other.m_batch_size) {
+              other.m_shape.first * other.m_shape.second * other.m_batch_size),
+      d_batches(m_batches.data()),
+      d_dense(m_dense.data()) {
     initialize(false);
 
     // Copy the raw data
@@ -239,6 +243,8 @@ class Matrix {
 
     m_batches.resize(m_batch_size, m_stream);
     m_dense.resize(m_batch_size * m_shape.first * m_shape.second, m_stream);
+    d_batches = m_batches.data();
+    d_dense = m_dense.data();
     initialize(false);
 
     // Copy the raw data
@@ -266,36 +272,12 @@ class Matrix {
   const std::pair<int, int>& shape() const { return m_shape; }
 
   //! Return array of pointers to the offsets in the data buffer
-  const T** data() const {
-    if (m_batches.size() == 0) {  // Pre-allocated
-      return d_batches;
-    } else {
-      return m_batches.data();
-    }
-  }
-  T** data() {
-    if (m_batches.size() == 0) {  // Pre-allocated
-      return d_batches;
-    } else {
-      return m_batches.data();
-    }
-  }
+  const T** data() const { return d_batches; }
+  T** data() { return d_batches; }
 
   //! Return pointer to the underlying memory
-  const T* raw_data() const {
-    if (m_dense.size() == 0) {  // Pre-allocated
-      return d_dense;
-    } else {
-      return m_dense.data();
-    }
-  }
-  T* raw_data() {
-    if (m_dense.size() == 0) {  // Pre-allocated
-      return d_dense;
-    } else {
-      return m_dense.data();
-    }
-  }
+  const T* raw_data() const { return d_dense; }
+  T* raw_data() { return d_dense; }
 
   /**
    * @brief Return pointer to the data of a specific matrix
