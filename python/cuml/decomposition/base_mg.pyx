@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -71,7 +71,7 @@ class BaseDecompositionMG(object):
             self._n_components = 1
         else:
             self._n_components = self.n_components
-        
+
         X_arys = []
         for i in range(len(X)):
             if i == 0:

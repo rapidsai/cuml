@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -89,8 +89,7 @@ def test_pca_fit_transform_fp32(nrows, ncols, n_parts, client):
     cupca = daskPCA(n_components=20, whiten=True)
     res = cupca.fit_transform(X_cudf)
     res = res.compute()
-    assert res.shape[0] == nrows and res.shape[1]==20
-
+    assert res.shape[0] == nrows and res.shape[1] == 20
 
 
 @pytest.mark.mg
@@ -112,7 +111,7 @@ def test_pca_fit_transform_fp64(nrows, ncols, n_parts, client):
     cupca = daskPCA(n_components=30, whiten=False)
     res = cupca.fit_transform(X_cudf)
     res = res.compute()
-    assert res.shape[0] == nrows and res.shape[1]==30
+    assert res.shape[0] == nrows and res.shape[1] == 30
 
 
 @pytest.mark.mg
@@ -134,5 +133,4 @@ def test_pca_fit_transform_fp32_noncomponents(nrows, ncols, n_parts, client):
     cupca = daskPCA(whiten=False)
     res = cupca.fit_transform(X_cudf)
     res = res.compute()
-    assert res.shape[0] == nrows and res.shape[1]==1 #20
-
+    assert res.shape[0] == nrows and res.shape[1] == 1  # 20
