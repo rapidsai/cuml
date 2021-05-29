@@ -206,7 +206,7 @@ def test_rf_classification(small_clf, datatype, split_algo,
         sk_model.fit(X_train, y_train)
         sk_preds = sk_model.predict(X_test)
         sk_acc = accuracy_score(y_test, sk_preds)
-        assert fil_acc >= (sk_acc - 0.02)
+        assert fil_acc >= (sk_acc - 0.07)
     assert fil_acc >= (cuml_acc - 0.07)
 
 
@@ -283,8 +283,8 @@ def test_rf_regression(special_reg, datatype, split_algo, max_features,
         sk_model.fit(X_train, y_train)
         sk_preds = sk_model.predict(X_test)
         sk_r2 = r2_score(y_test, sk_preds, convert_dtype=datatype)
-        assert fil_r2 >= (sk_r2 - 0.02)
-    assert fil_r2 >= (cu_r2 - 0.07)
+        assert fil_r2 >= (sk_r2 - 0.07)
+    assert fil_r2 >= (cu_r2 - 0.02)
 
 
 @pytest.mark.parametrize('datatype', [np.float32])
@@ -567,7 +567,7 @@ def test_rf_classification_sparse(small_clf, datatype,
             sk_model.fit(X_train, y_train)
             sk_preds = sk_model.predict(X_test)
             sk_acc = accuracy_score(y_test, sk_preds)
-            assert fil_acc >= (sk_acc - 0.02)
+            assert fil_acc >= (sk_acc - 0.07)
 
 
 @pytest.mark.parametrize('datatype', [np.float32])
@@ -632,7 +632,7 @@ def test_rf_regression_sparse(special_reg, datatype, fil_sparse_format, algo):
             sk_model.fit(X_train, y_train)
             sk_preds = sk_model.predict(X_test)
             sk_r2 = r2_score(y_test, sk_preds, convert_dtype=datatype)
-            assert fil_r2 >= (sk_r2 - 0.02)
+            assert fil_r2 >= (sk_r2 - 0.07)
 
 
 @pytest.mark.xfail(reason='Need rapidsai/rmm#415 to detect memleak robustly')
