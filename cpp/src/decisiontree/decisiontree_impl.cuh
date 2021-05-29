@@ -138,6 +138,9 @@ std::string get_node_json(const std::string &prefix,
     if (node.instance_count != UINT32_MAX) {
       oss << ", \"instance_count\": " << node.instance_count;
     }
+    if (node.quesval >= 0) {
+      oss << ", \"positive_fraction\": " << node.quesval;
+    }
     oss << "}";
   }
   return oss.str();
@@ -202,7 +205,21 @@ tl::Tree<T, T> build_treelite_tree(
 
       } else {
         if (num_class == 1) {
-          tl_tree.SetLeaf(node_id, static_cast<T>(q_node.node->prediction));
+          if (std::is_same<decltype(q_node.node->prediction), int>::value) {
+            // Binary classification; use fraction of the positive class
+            // to produce a "soft output"
+            // Note. The old RF backend doesn't provide this fraction
+            static_assert(std::is_floating_point<T>::value,
+                          "Expected T to be a floating-point type");
+            if (q_node.node->quesval >= 0) {
+              tl_tree.SetLeaf(node_id, static_cast<T>(q_node.node->quesval));
+            } else {
+              tl_tree.SetLeaf(node_id, static_cast<T>(q_node.node->prediction));
+            }
+          } else {
+            // Regression
+            tl_tree.SetLeaf(node_id, static_cast<T>(q_node.node->prediction));
+          }
         } else {
           std::vector<T> leaf_vector(num_class, 0);
           leaf_vector[q_node.node->prediction] = 1;
@@ -288,13 +305,14 @@ void DecisionTreeBase<T, L>::plant(
   ML::PUSH_RANGE("DecisionTreeBase::plant::bootstrapping features");
   //Bootstrap features
   unsigned int *h_colids = tempmem->h_colids->data();
-  if (tree_params.bootstrap_features) {
+  // fill with ascending range of indices
+  std::iota(h_colids, h_colids + dinfo.Ncols, 0);
+  // if feature sampling, shuffle
+  if (tree_params.max_features != 1.f) {
+    // seed with treeid
     srand(treeid * 1000);
-    for (int i = 0; i < dinfo.Ncols; i++) {
-      h_colids[i] = rand() % dinfo.Ncols;
-    }
-  } else {
-    std::iota(h_colids, h_colids + dinfo.Ncols, 0);
+    std::random_shuffle(h_colids, h_colids + dinfo.Ncols,
+                        [](int j) { return rand() % j; });
   }
   ML::POP_RANGE();
   prepare_time = prepare_fit_timer.getElapsedSeconds();

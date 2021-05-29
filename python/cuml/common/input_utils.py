@@ -16,6 +16,7 @@
 
 import copy
 from collections import namedtuple
+import nvtx
 
 import cudf
 import cupy as cp
@@ -200,6 +201,8 @@ def is_array_like(X):
     return determine_array_type(X) is not None
 
 
+@nvtx.annotate(message="common.input_utils.input_to_cuml_array",
+               category="utils", domain="cuml_python")
 @cuml.internals.api_return_any()
 def input_to_cuml_array(X,
                         order='F',
@@ -320,6 +323,8 @@ def input_to_cuml_array(X,
     elif hasattr(X, "__array_interface__") or \
             hasattr(X, "__cuda_array_interface__"):
 
+        host_array = hasattr(X, "__array_interface__")
+
         # Since we create the array with the correct order here, do the order
         # check now if necessary
         interface = getattr(X, "__array_interface__", None) or getattr(
@@ -337,6 +342,11 @@ def input_to_cuml_array(X,
                       "contiguous copy of the data will be done.")
                 # X = cp.array(X, order=order, copy=True)
                 make_copy = True
+
+        # If we have a host array, we copy it first before changing order
+        # to transpose using the GPU
+        if host_array:
+            X = cp.array(X)
 
         cp_arr = cp.array(X, copy=make_copy, order=order)
 
@@ -390,6 +400,8 @@ def input_to_cuml_array(X,
     return cuml_array(array=X_m, n_rows=n_rows, n_cols=n_cols, dtype=X_m.dtype)
 
 
+@nvtx.annotate(message="common.input_utils.input_to_cupy_array",
+               category="utils", domain="cuml_python")
 def input_to_cupy_array(X,
                         order='F',
                         deepcopy=False,
@@ -426,6 +438,8 @@ def input_to_cupy_array(X,
     return out_data._replace(array=out_data.array.to_output("cupy"))
 
 
+@nvtx.annotate(message="common.input_utils.input_to_host_array",
+               category="utils", domain="cuml_python")
 def input_to_host_array(X,
                         order='F',
                         deepcopy=False,

@@ -134,6 +134,11 @@ class RandomForestClassifier(BaseRandomForestModel,
       histogram-based algorithm to determine splits, rather than an exact
       count. You can tune the size of the histograms with the n_bins parameter.
 
+    .. note:: You can export cuML Random Forest models and run predictions
+      with them on machines without an NVIDIA GPUs. See
+      https://docs.rapids.ai/api/cuml/nightly/pickling_cuml_models.html
+      for more details.
+
     **Known Limitations**: This is an early release of the cuML
     Random Forest code. It contains a few known limitations:
 
@@ -145,6 +150,19 @@ class RandomForestClassifier(BaseRandomForestModel,
         reduce memory consumption.
       * While training the model for multi class classification problems,
         using deep trees or `max_features=1.0` provides better performance.
+      * Prediction of classes is currently different from how scikit-learn
+        predicts:
+          * scikit-learn predicts random forest classifiers by obtaining class
+            probabilities from each component tree, then averaging these class
+            probabilities over all the ensemble members, and finally resolving
+            to the label with highest probability as prediction.
+          * cuml random forest classifier prediction differs in that, each
+            component tree generates labels instead of class probabilities;
+            with the most frequent label over all the trees (the statistical
+            mode) resolved as prediction.
+        The above differences might cause marginal variations in accuracy in
+        tradeoff to better performance.
+        See: https://github.com/rapidsai/cuml/issues/3764
 
     Examples
     --------

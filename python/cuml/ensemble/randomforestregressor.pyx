@@ -117,6 +117,11 @@ class RandomForestRegressor(BaseRandomForestModel,
       histogram-based algorithm to determine splits, rather than an exact
       count. You can tune the size of the histograms with the n_bins parameter.
 
+    .. note:: You can export cuML Random Forest models and run predictions
+      with them on machines without an NVIDIA GPUs. See
+      https://docs.rapids.ai/api/cuml/nightly/pickling_cuml_models.html
+      for more details.
+
     **Known Limitations**: This is an early release of the cuML
     Random Forest code. It contains a few known limitations:
 
@@ -164,7 +169,7 @@ class RandomForestRegressor(BaseRandomForestModel,
     split_criterion : int (default = 2)
         The criterion used to split nodes.
         0 for GINI, 1 for ENTROPY,
-        2 for MSE, or 3 for MAE
+        2 for MSE
         0 and 1 not valid for regression
     bootstrap : boolean (default = True)
         Control bootstrapping.
