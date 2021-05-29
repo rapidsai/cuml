@@ -14,7 +14,7 @@ dependencies:
 - libcumlprims=21.06.*
 - dask-cudf=21.06.*
 - dask-cuda=21.06.*
-- ucx-py=21.06.*
+- ucx-py=0.20.*
 - ucx-proc=*=gpu
 - dask-ml
 - doxygen>=1.8.20
