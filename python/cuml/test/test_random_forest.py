@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 import cudf
 import numpy as np
 import pytest
@@ -225,12 +224,11 @@ def test_rf_classification(small_clf, datatype, split_algo,
      (0, 1.0, True, 16),
      (1, 1.0, True, 11),
      (0, 'auto', True, 128),
-     (1, 'log2', True, 100),
-     (1, 'sqrt', True, 100),
+     (1, 'log2', True, 128),
+     (1, 'sqrt', True, 128),
      ])
 def test_rf_regression(special_reg, datatype, split_algo, max_features,
                        max_samples, use_experimental_backend, n_bins):
-
     use_handle = True
 
     X, y = special_reg
