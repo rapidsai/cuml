@@ -63,6 +63,5 @@ for PROJECT in ${PROJECTS[@]}; do
 done
 
 
-mv "$PROJECT_WORKSPACE/cpp/build/html/*" "$DOCS_WORKSPACE/api/libcuml/$BRANCH_VERSION"
-mv "$PROJECT_WORKSPACE/docs/build/html/*" "$DOCS_WORKSPACE/api/cuml/$BRANCH_VERSION"
-
+mv "$PROJECT_WORKSPACE/cpp/build/html/"* "$DOCS_WORKSPACE/api/libcuml/$BRANCH_VERSION"
+mv "$PROJECT_WORKSPACE/docs/build/html/"* "$DOCS_WORKSPACE/api/cuml/$BRANCH_VERSION"
