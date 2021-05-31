@@ -477,8 +477,6 @@ void check_params(const forest_params_t* params, bool dense) {
       ASSERT(params->num_classes >= 2,
              "num_classes >= 2 is required for "
              "leaf_algo == VECTOR_LEAF");
-      ASSERT((params->output & output_t::SOFTMAX) == 0,
-             "softmax not supported for leaf_algo == VECTOR_LEAF");
       break;
     default:
       ASSERT(false,
