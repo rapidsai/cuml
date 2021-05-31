@@ -133,4 +133,4 @@ def test_pca_fit_transform_fp32_noncomponents(nrows, ncols, n_parts, client):
     cupca = daskPCA(whiten=False)
     res = cupca.fit_transform(X_cudf)
     res = res.compute()
-    assert res.shape[0] == nrows and res.shape[1] == 1  # 20
+    assert res.shape[0] == nrows and res.shape[1] == 20

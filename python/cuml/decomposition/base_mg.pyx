@@ -30,7 +30,6 @@ from cython.operator cimport dereference as deref
 
 from cuml.common.array import CumlArray
 import cuml.common.opg_data_utils_mg as opg
-import cuml.common.logger as logger
 import cuml.internals
 from cuml.common.base import Base
 from cuml.raft.common.handle cimport handle_t
@@ -60,15 +59,7 @@ class BaseDecompositionMG(object):
         self._set_n_features_in(n_cols)
 
         if self.n_components is None:
-            # logger.warn(
-            #    'Warning(`fit`): As of v0.16, PCA invoked without an'
-            #    ' n_components argument defauts to using'
-            #    ' min(n_samples, n_features) rather than 1'
-            # )
-            # n_rows = total_rows
-            # n_cols = n_cols
-            # self._n_components = min(n_rows, n_cols)
-            self._n_components = 1
+            self._n_components = min(total_rows, n_cols)
         else:
             self._n_components = self.n_components
 
