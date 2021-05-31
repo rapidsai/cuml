@@ -207,18 +207,20 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
 @pytest.mark.parametrize('max_depth,storage_type',
                          [(2, False), (2, True), (10, False), (10, True),
                           (20, True)])
-# FIL not supporting multi-class sklearn RandomForestClassifiers
 # When n_classes=25, fit a single estimator only to reduce test time
 @pytest.mark.parametrize('n_classes,model_class,n_estimators',
                          [(2, GradientBoostingClassifier, 1),
                           (2, GradientBoostingClassifier, 10),
                           (2, RandomForestClassifier, 1),
+                          (5, RandomForestClassifier, 1),
                           (2, RandomForestClassifier, 10),
+                          (5, RandomForestClassifier, 10),
                           (2, ExtraTreesClassifier, 1),
                           (2, ExtraTreesClassifier, 10),
                           (5, GradientBoostingClassifier, 1),
                           (5, GradientBoostingClassifier, 10),
-                          (25, GradientBoostingClassifier, 1)])
+                          (25, GradientBoostingClassifier, 1),
+                          (25, RandomForestClassifier, 1),])
 def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
                                 n_classes, storage_type, model_class):
     # settings
@@ -286,6 +288,8 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
                           (1, GradientBoostingRegressor, 10),
                           (1, RandomForestRegressor, 1),
                           (1, RandomForestRegressor, 10),
+                          (5, RandomForestRegressor, 1),
+                          (5, RandomForestRegressor, 10),
                           (1, ExtraTreesRegressor, 1),
                           (1, ExtraTreesRegressor, 10),
                           (5, GradientBoostingRegressor, 10)])

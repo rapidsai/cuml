@@ -20,6 +20,8 @@
 #include <thrust/functional.h>
 #include <cuml/fil/multi_sum.cuh>
 #include "common.cuh"
+#include "fil/internal.cuh"
+#include "raft/cudart_utils.h"
 
 namespace ML {
 namespace fil {
@@ -232,7 +234,8 @@ struct tree_aggregator_t {
   num_classes is used for other template parameters */
   __device__ __forceinline__ tree_aggregator_t(predict_params params,
                                                void* accumulate_workspace,
-                                               void* finalize_workspace)
+                                               void* finalize_workspace,
+                                               val_t* vector_leaf)
     : tmp_storage(finalize_workspace) {}
 
   __device__ __forceinline__ void accumulate(
@@ -375,7 +378,8 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> {
 
   __device__ __forceinline__ tree_aggregator_t(predict_params params,
                                                void* accumulate_workspace,
-                                               void* finalize_workspace)
+                                               void* finalize_workspace,
+                                               val_t* vector_leaf)
     : num_classes(params.num_classes),
       per_thread((vec<NITEMS, float>*)finalize_workspace),
       tmp_storage(params.predict_proba ? per_thread + num_classes
@@ -426,7 +430,8 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
 
   __device__ __forceinline__ tree_aggregator_t(predict_params params,
                                                void* accumulate_workspace,
-                                               void* finalize_workspace)
+                                               void* finalize_workspace,
+                                               val_t* vector_leaf)
     : per_class_margin((vec<NITEMS, float>*)accumulate_workspace),
       tmp_storage(params.predict_proba ? per_class_margin + num_classes
                                        : finalize_workspace),
@@ -453,6 +458,87 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
 };
 
 template <int NITEMS>
+struct tree_aggregator_t<NITEMS, VECTOR_LEAF> {
+  float* probability_sum;
+  int num_classes;
+  val_t* vector_leaf;
+
+  static size_t smem_finalize_footprint(size_t data_row_size, int num_classes,
+                                        bool predict_proba) {
+    return 0;
+  }
+  static size_t smem_accumulate_footprint(int num_classes) {
+    return sizeof(float) * num_classes * NITEMS;
+  }
+
+  __device__ __forceinline__ tree_aggregator_t(predict_params params,
+                                               void* accumulate_workspace,
+                                               void* finalize_workspace,
+                                               val_t* vector_leaf)
+    : num_classes(params.num_classes),
+      probability_sum((float*)accumulate_workspace),
+      vector_leaf(vector_leaf) {
+    for (int c = threadIdx.x; c < num_classes; c += FIL_TPB * NITEMS)
+#pragma unroll
+      for (int item = 0; item < NITEMS; ++item)
+        probability_sum[c * NITEMS + item] = 0.0f;
+    // __syncthreads() is called in infer_k
+  }
+  __device__ __forceinline__ void accumulate(
+    vec<NITEMS, int> single_tree_prediction, int tree, int num_rows) {
+#pragma unroll
+    for (int item = 0; item < NITEMS; ++item) {
+      for (int k = 0; k < num_classes; ++k) {
+        raft::myAtomicAdd(probability_sum + k * NITEMS + item,
+                          vector_leaf[single_tree_prediction[item] + k].f);
+      }
+    }
+  }
+  // class probabilities or regression. for regression, num_classes
+  // is just the number of outputs for each data instance
+  __device__ __forceinline__ void finalize_multiple_outputs(float* out,
+                                                            int num_rows,
+                                                            int num_trees) {
+    __syncthreads();
+    for (int c = threadIdx.x; c < num_classes; c += blockDim.x) {
+#pragma unroll
+      for (int row = 0; row < num_rows; ++row) {
+        out[row * num_classes + c] = probability_sum[c * NITEMS + row];
+      }
+    }
+  }
+  // using this when predicting a single class label, as opposed to sparse class vector
+  // or class probabilities or regression
+  __device__ __forceinline__ void finalize_class_label(float* out,
+                                                       int num_rows) {
+    __syncthreads();
+    int item = threadIdx.x;
+    int row = item;
+    if (item < NITEMS && row < num_rows) {
+      float max_probabiliity = 0;
+      int best_class = 0;
+      for (int c = 0; c < num_classes; ++c) {
+        if (probability_sum[c * NITEMS + item] > max_probabiliity) {
+          max_probabiliity = probability_sum[c * NITEMS + item];
+          best_class = c;
+        }
+      }
+      out[row] = best_class;
+    }
+  }
+  __device__ __forceinline__ void finalize(float* out, int num_rows,
+                                           int num_outputs, output_t transform,
+                                           int num_trees) {
+    if (num_outputs > 1) {
+      // only supporting num_outputs == num_classes
+      finalize_multiple_outputs(out, num_rows, num_trees);
+    } else {
+      finalize_class_label(out, num_rows);
+    }
+  }
+};
+
+template <int NITEMS>
 struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
   // could switch to unsigned short to save shared memory
   // provided raft::myAtomicAdd(short*) simulated with appropriate shifts
@@ -470,7 +556,8 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
 
   __device__ __forceinline__ tree_aggregator_t(predict_params params,
                                                void* accumulate_workspace,
-                                               void* finalize_workspace)
+                                               void* finalize_workspace,
+                                               val_t* vector_leaf)
     : num_classes(params.num_classes), votes((int*)accumulate_workspace) {
     for (int c = threadIdx.x; c < num_classes; c += FIL_TPB * NITEMS)
 #pragma unroll
@@ -549,7 +636,8 @@ __global__ void infer_k(storage_type forest, predict_params params) {
     }
 
     tree_aggregator_t<NITEMS, leaf_algo> acc(
-      params, (char*)sdata + params.cols_shmem_size(), sdata);
+      params, (char*)sdata + params.cols_shmem_size(), sdata,
+      forest.vector_leaf);
 
     __syncthreads();  // for both row cache init and acc init
 
@@ -688,6 +776,9 @@ void infer(storage_type forest, predict_params params, cudaStream_t stream) {
       break;
     case CATEGORICAL_LEAF:
       infer_k_launcher<CATEGORICAL_LEAF>(forest, params, stream, FIL_TPB);
+      break;
+    case VECTOR_LEAF:
+      infer_k_launcher<VECTOR_LEAF>(forest, params, stream, FIL_TPB);
       break;
     default:
       ASSERT(false, "internal error: invalid leaf_algo");

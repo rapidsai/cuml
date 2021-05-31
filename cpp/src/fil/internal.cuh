@@ -213,7 +213,7 @@ struct leaf_output_t<leaf_algo_t::GROVE_PER_CLASS_MANY_CLASSES> {
 };
 template <>
 struct leaf_output_t<leaf_algo_t::VECTOR_LEAF> {
-  typedef float T;
+  typedef int T;
 };
 
 /** forest_params_t are the trees to initialize the predictor */
@@ -262,7 +262,7 @@ const int FIL_TPB = 256;
  */
 void init_dense(const raft::handle_t& h, forest_t* pf, const dense_node* nodes,
                 const forest_params_t* params,
-            const std::vector<val_t>& vector_leaf);
+                const std::vector<val_t>& vector_leaf);
 
 /** init_sparse uses params, trees and nodes to initialize the sparse forest
  *  with sparse nodes stored in pf
@@ -278,7 +278,7 @@ void init_dense(const raft::handle_t& h, forest_t* pf, const dense_node* nodes,
 template <typename fil_node_t>
 void init_sparse(const raft::handle_t& h, forest_t* pf, const int* trees,
                  const fil_node_t* nodes, const forest_params_t* params,
-            const std::vector<val_t>& vector_leaf);
+                 const std::vector<val_t>& vector_leaf);
 
 }  // namespace fil
 }  // namespace ML
