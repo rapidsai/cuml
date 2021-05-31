@@ -22,6 +22,7 @@ from cuml.test.utils import (
     unit_param,
     quality_param,
     stress_param,
+    get_gpu_memory
 )
 
 from sklearn.datasets import load_boston
@@ -115,6 +116,8 @@ def test_lars_model(datatype, nrows, column_info, precompute, normalize):
 @pytest.mark.parametrize("precompute", [True, False])
 def test_lars_collinear(datatype, nrows, column_info, precompute):
     ncols, n_info = column_info
+    if nrows == 500000 and ncols == 1000 and get_gpu_memory() < 32:
+        pytest.skip("Insufficient GPU Memory for this test.")
 
     X_train, X_test, y_train, y_test = make_regression_dataset(
         datatype, nrows, ncols, n_info

@@ -20,7 +20,7 @@ import pytest
 
 from cuml import PCA as cuPCA
 from cuml.test.utils import get_handle, array_equal, unit_param, \
-    quality_param, stress_param
+    quality_param, stress_param, get_gpu_memory
 
 from sklearn import datasets
 from sklearn.datasets import make_multilabel_classification
@@ -114,6 +114,9 @@ def test_pca_defaults(n_samples, n_features, sparse):
 def test_pca_fit_then_transform(datatype, input_type,
                                 name, use_handle):
 
+    if name == 'blobs' and get_gpu_memory() < 32:
+        pytest.skip("Insufficient GPU Memory for this test.")
+
     if name == 'blobs':
         X, y = make_blobs(n_samples=500000,
                           n_features=1000, random_state=0)
@@ -154,6 +157,9 @@ def test_pca_fit_then_transform(datatype, input_type,
                          stress_param('blobs')])
 def test_pca_fit_transform(datatype, input_type,
                            name, use_handle):
+
+    if name == 'blobs' and get_gpu_memory() < 32:
+        pytest.skip("Insufficient GPU Memory for this test.")
 
     if name == 'blobs':
         X, y = make_blobs(n_samples=500000,
@@ -222,8 +228,9 @@ def test_pca_inverse_transform(datatype, input_type,
 @pytest.mark.parametrize('whiten', [True, False])
 @pytest.mark.parametrize('return_sparse', [True, False])
 @pytest.mark.parametrize('cupy_input', [True, False])
-@pytest.mark.xfail(check_gpu_memory_limits(48), "This test expect more memory")
 def test_sparse_pca_inputs(nrows, ncols, whiten, return_sparse, cupy_input):
+    if ncols == 20000 and get_gpu_memory() < 48:
+        pytest.skip("Insufficient GPU Memory for this test.")
 
     if return_sparse:
         pytest.skip("Loss of information in converting to cupy sparse csr")

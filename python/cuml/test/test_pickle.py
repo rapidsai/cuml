@@ -21,6 +21,7 @@ import pytest
 from cuml.tsa.arima import ARIMA
 from cuml.test.utils import array_equal, unit_param, stress_param, \
     ClassEnumerator, get_classes_from_package
+from cuml.test.utils import get_gpu_memory
 from cuml.test.test_svm import compare_svm, compare_probabilistic_svm
 from sklearn.base import clone
 from sklearn.datasets import load_iris, make_classification, make_regression
@@ -200,6 +201,10 @@ def test_rf_regression_pickle(tmpdir, datatype, nrows, ncols, n_info,
                                        stress_param([500000, 1000, 500])])
 @pytest.mark.parametrize('fit_intercept', [True, False])
 def test_regressor_pickle(tmpdir, datatype, keys, data_size, fit_intercept):
+    if data_size[0] == 500000 and datatype == np.float64 and \
+            ("LogisticRegression" in keys or "Ridge" in keys) and \
+            get_gpu_memory() < 32:
+        pytest.skip("Insufficient GPU Memory for this test.")
     result = {}
 
     def create_mod():
@@ -384,6 +389,10 @@ def test_unfit_clone(model_name):
 @pytest.mark.parametrize('data_info', [unit_param([500, 20, 10, 5]),
                                        stress_param([500000, 1000, 500, 50])])
 def test_neighbors_pickle(tmpdir, datatype, keys, data_info):
+    if data_info[0] == 500000 and get_gpu_memory() < 32 and \
+            ("KNeighborsClassifier" in keys or "KNeighborsRegressor" in keys):
+        pytest.skip("Insufficient GPU Memory for this test.")
+
     result = {}
 
     def create_mod():
@@ -414,6 +423,9 @@ def test_neighbors_pickle(tmpdir, datatype, keys, data_info):
                                                      50])])
 @pytest.mark.parametrize('keys', k_neighbors_models.keys())
 def test_k_neighbors_classifier_pickle(tmpdir, datatype, data_info, keys):
+    if data_info[0] == 500000 and "NearestNeighbors" in keys and \
+            get_gpu_memory() < 32:
+        pytest.skip("Insufficient GPU Memory for this test.")
     result = {}
 
     def create_mod():
@@ -476,6 +488,8 @@ def test_neighbors_pickle_nofit(tmpdir, datatype, data_info):
 @pytest.mark.parametrize('data_size', [unit_param([500, 20, 10]),
                                        stress_param([500000, 1000, 500])])
 def test_dbscan_pickle(tmpdir, datatype, keys, data_size):
+    if data_size[0] == 500000 and get_gpu_memory() < 32:
+        pytest.skip("Insufficient GPU Memory for this test.")
     result = {}
 
     def create_mod():

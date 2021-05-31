@@ -17,7 +17,7 @@ import pytest
 
 import numpy as np
 from cuml.test.utils import array_equal, \
-    unit_param, stress_param
+    unit_param, stress_param, get_gpu_memory
 import cupy as cp
 
 from cuml.dask.common.dask_arr_utils import to_dask_cudf
@@ -30,6 +30,9 @@ from cuml.dask.common.dask_arr_utils import to_dask_cudf
 def test_pca_fit(data_info, input_type, client):
 
     nrows, ncols, n_parts = data_info
+    if nrows == int(9e6) and get_gpu_memory() < 48:
+        pytest.skip("Insufficient GPU Memory for this test.")
+
     from cuml.dask.decomposition import TruncatedSVD as daskTPCA
     from sklearn.decomposition import TruncatedSVD
 

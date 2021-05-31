@@ -19,6 +19,7 @@ import cupy as cp
 from cuml.linear_model import MBSGDRegressor as cumlMBSGRegressor
 from cuml.metrics import r2_score
 from cuml.test.utils import unit_param, quality_param, stress_param
+from cuml.test.utils import get_gpu_memory
 
 from sklearn.linear_model import SGDRegressor
 from cuml.datasets import make_regression
@@ -37,6 +38,8 @@ from sklearn.model_selection import train_test_split
         '500000-1000-500-f32', '500000-1000-500-f64'])
 def make_dataset(request):
     nrows, ncols, n_info, datatype = request.param
+    if nrows == 500000 and datatype == np.float64 and get_gpu_memory() < 32:
+        pytest.skip("Insufficient GPU Memory for this test.")
     X, y = make_regression(n_samples=nrows, n_informative=n_info,
                            n_features=ncols, random_state=0)
     X = cp.array(X).astype(datatype)

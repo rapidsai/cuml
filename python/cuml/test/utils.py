@@ -18,6 +18,7 @@ import cupy as cp
 import numpy as np
 import pandas as pd
 from copy import deepcopy
+from math import ceil
 
 from numba import cuda
 from numbers import Number
@@ -30,6 +31,9 @@ from sklearn.model_selection import train_test_split
 import cudf
 import cuml
 import pytest
+
+# max_gpu_memory: Capacity of the GPU memory in GB
+max_gpu_memory = 0
 
 
 def array_equal(a, b, unit_tol=1e-4, total_tol=1e-4, with_sign=True):
@@ -418,24 +422,20 @@ def get_shap_values(model,
     return explainer, shap_values
 
 
-def check_gpu_memory_limits(max_size: int):
-    # max_size: Expected GPU-memory usage in GB
+def get_gpu_memory():
     global max_gpu_memory
     if max_gpu_memory == 0:
-        try:
-            bash_command = "nvidia-smi --query-gpu=memory.total --format=csv"
-            output = subprocess.check_output(bash_command).decode("utf-8")
-            lines = output.split("\n")
-            lines.pop(0)
-            gpus_memory = []
-            for l in lines:
-                tokens = l.split(", ")
-                if len(tokens) > 1:
-                    gpus_memory.append(int(tokens[0]))
-            sorted(gpus_memory)
-            max_gpu_memory = gpus_memory[-1] / 1024
+        bash_command = "nvidia-smi --query-gpu=memory.total --format=csv"
+        output = subprocess.check_output(bash_command,
+                                         shell=True).decode("utf-8")
+        lines = output.split("\n")
+        lines.pop(0)
+        gpus_memory = []
+        for line in lines:
+            tokens = line.split(" ")
+            if len(tokens) > 1:
+                gpus_memory.append(int(tokens[0]))
+        gpus_memory.sort()
+        max_gpu_memory = ceil(gpus_memory[-1] / 1024)
 
-        except OSError:
-            logger.info("GPU device is not available")
-    elif max_size > max_gpu_memory:
-        pytest.xfail()
+    return max_gpu_memory
