@@ -30,7 +30,7 @@ include(rapids-find)
 
 rapids_cuda_init_architectures(CUML)
 
-project(CUML VERSION 21.06.00 LANGUAGES CXX CUDA)
+project(CUML VERSION 21.08.00 LANGUAGES CXX CUDA)
 
 # Write the version header
 include(cmake/modules/Version.cmake)
@@ -414,7 +414,7 @@ install(TARGETS
           cuml-exports)
 
 install(DIRECTORY include/
-        DESTINATION include/cuml)
+        DESTINATION include)
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/include/cuml/version_config.hpp
         DESTINATION include/cuml)
