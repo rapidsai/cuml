@@ -146,7 +146,7 @@ class UMAPParams {
 
   MetricType target_metric = CATEGORICAL;
 
-  float target_weights = 0.5;
+  float target_weight = 0.5;
 
   uint64_t random_state = 0;
 
