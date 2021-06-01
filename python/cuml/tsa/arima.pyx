@@ -285,7 +285,7 @@ class ARIMA(Base):
     sma_ = CumlArrayDescriptor()
     sigma2_ = CumlArrayDescriptor()
 
-    @_deprecate_pos_args(version="0.20")
+    @_deprecate_pos_args(version="21.06")
     def __init__(self,
                  endog,
                  *,
