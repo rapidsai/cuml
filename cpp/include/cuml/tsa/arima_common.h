@@ -344,7 +344,7 @@ struct ARIMAMemory {
    * @param[in] order      ARIMA order
    * @param[in] batch_size Number of series in the batch
    * @param[in] n_obs      Length of the series
-   * @param[in] in_buff    Pointer to the temporary memory buffer.
+   * @param[in] in_buf     Pointer to the temporary memory buffer.
    *                       Ownership is retained by the caller
    */
   ARIMAMemory(const ARIMAOrder& order, int batch_size, int n_obs,
