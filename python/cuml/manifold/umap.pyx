@@ -97,7 +97,7 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
         int init,
         int target_n_neighbors,
         MetricType target_metric,
-        float target_weights,
+        float target_weight,
         uint64_t random_state,
         bool deterministic,
         int optim_batch_size,
@@ -350,13 +350,14 @@ class UMAP(Base,
                  a=None,
                  b=None,
                  target_n_neighbors=-1,
-                 target_weights=0.5,
+                 target_weight=0.5,
                  target_metric="categorical",
                  handle=None,
                  hash_input=False,
                  random_state=None,
                  callback=None,
-                 output_type=None):
+                 output_type=None,
+                 target_weights=None):
 
         super().__init__(handle=handle,
                          verbose=verbose,
@@ -388,7 +389,16 @@ class UMAP(Base,
         self.negative_sample_rate = negative_sample_rate
         self.transform_queue_size = transform_queue_size
         self.target_n_neighbors = target_n_neighbors
-        self.target_weights = target_weights
+        if target_weights is not None:
+            import warnings
+            warnings.warn("Parameter 'target_weights' is deprecated and"
+                          " will be removed in 21.08. Please use"
+                          " 'target_weight' instead. Setting 'target_weight'"
+                          " as the curent 'target_weights' value",
+                          DeprecationWarning)
+            self.target_weight = target_weights
+        else:
+            self.target_weight = target_weight
 
         self.deterministic = random_state is not None
 
@@ -453,7 +463,7 @@ class UMAP(Base,
             umap_params.target_metric = MetricType.EUCLIDEAN
         else:  # self.target_metric == "categorical"
             umap_params.target_metric = MetricType.CATEGORICAL
-        umap_params.target_weights = <float> cls.target_weights
+        umap_params.target_weight = <float> cls.target_weight
         umap_params.random_state = <uint64_t> cls.random_state
         umap_params.deterministic = <bool> cls.deterministic
 
@@ -871,7 +881,7 @@ class UMAP(Base,
             "a",
             "b",
             "target_n_neighbors",
-            "target_weights",
+            "target_weight",
             "target_metric",
             "hash_input",
             "random_state",
