@@ -369,7 +369,8 @@ DI DataT pdf_to_cdf(DataT* pdf_shist, DataT* cdf_shist, IdxT nbins) {
   // variable to accumulate aggregate of sumscans of previous iterations
   DataT total_aggregate = DataT(0);
 
-  for (IdxT tix = threadIdx.x; tix < raft::ceildiv(nbins, TPB)*TPB; tix += blockDim.x) {
+  for (IdxT tix = threadIdx.x; tix < raft::ceildiv(nbins, TPB) * TPB;
+       tix += blockDim.x) {
     DataT result;
     DataT block_aggregate;
     // getting the scanning element from pdf shist only
