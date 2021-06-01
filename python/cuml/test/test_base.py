@@ -172,7 +172,7 @@ def test_base_children_get_param_names(child_class: str):
         # Now ensure the base parameters are included in get_param_names
         for name, param in sig.parameters.items():
             if child_class == 'UMAP' and name == 'target_weights':
-                continue # Temporary fix to be removed in 21.08. See #3914
+                continue  # Temporary fix to be removed in 21.08. See #3914
 
             if (param.kind == inspect.Parameter.VAR_KEYWORD
                     or param.kind == inspect.Parameter.VAR_POSITIONAL):
