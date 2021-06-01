@@ -35,7 +35,6 @@ requirements:
     - cudatoolkit {{ cuda_version }}.*
     - ucx-py {{ minor_version }}
     - ucx-proc=*=gpu
-    - hdbscan
   run:
     - python x.x
     - cudf {{ minor_version }}
