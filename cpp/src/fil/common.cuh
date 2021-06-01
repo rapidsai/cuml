@@ -49,8 +49,30 @@ __host__ __device__ __forceinline__ int base_node::output<int>() const {
   return val.idx;
 }
 
+struct categorical_sets {
+  // set count is due to tree_idx + node_within_tree_idx are both ints, hence uint32_t result
+  template <typename node_t>
+  __host__ __device__ __forceinline__ branch_node(const node_t& node,
+                                                  int node_idx, void* input) {
+    bool cond;
+    if (node.is_categorical()) {
+      // category is the biggest unsigned that fits 4 bytes from float, uint32_t
+      uint32_t category = *(uint32_t*)input;
+      // standard boolean packing. This layout has better ILP
+      cond =
+        bits[node.set() * bytes_per_node + category / 8] & (1 << category % 8);
+    } else {
+      float val = *(float*)input;
+      cond = isnan(val) ? !node.def_left() : val >= node.thresh();
+    }
+    return node.left(node_idx) + cond;
+  }
+  uint8_t* bits;
+  uint32_t bytes_per_node;
+};
+
 /** dense_tree represents a dense tree */
-struct dense_tree {
+struct dense_tree : tree_base {
   __host__ __device__ dense_tree(dense_node* nodes, int node_pitch)
     : nodes_(nodes), node_pitch_(node_pitch) {}
   __host__ __device__ const dense_node& operator[](int i) const {
@@ -80,7 +102,7 @@ struct dense_storage {
 
 /** sparse_tree is a sparse tree */
 template <typename node_t>
-struct sparse_tree {
+struct sparse_tree : tree_base {
   __host__ __device__ sparse_tree(node_t* nodes) : nodes_(nodes) {}
   __host__ __device__ const node_t& operator[](int i) const {
     return nodes_[i];
