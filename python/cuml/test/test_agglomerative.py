@@ -25,9 +25,27 @@ from sklearn import cluster
 import cupy as cp
 
 
+@pytest.mark.parametrize('connectivity', ['knn', 'pairwise'])
+def test_duplicate_distances(connectivity):
+    X = cp.array([[0.0, 0.0, 0.0], [0.0, 0.0, 0.0], [2.0, 2.0, 2.0]])
+
+    cuml_agg = AgglomerativeClustering(n_clusters=2, affinity="euclidean",
+                                       linkage="single", n_neighbors=3,
+                                       connectivity=connectivity)
+
+    sk_agg = cluster.AgglomerativeClustering(n_clusters=2,
+                                             affinity="euclidean",
+                                             linkage="single")
+
+    cuml_agg.fit(X)
+    sk_agg.fit(X.get())
+
+    assert(adjusted_rand_score(cuml_agg.labels_, sk_agg.labels_) == 1.0)
+
+
 @pytest.mark.parametrize('nrows', [100, 1000])
 @pytest.mark.parametrize('ncols', [25, 50])
-@pytest.mark.parametrize('nclusters', [2, 10, 50])
+@pytest.mark.parametrize('nclusters', [1, 2, 10, 50])
 @pytest.mark.parametrize('k', [3, 5, 15])
 @pytest.mark.parametrize('connectivity', ['knn', 'pairwise'])
 def test_single_linkage_sklearn_compare(nrows, ncols, nclusters,
@@ -37,17 +55,13 @@ def test_single_linkage_sklearn_compare(nrows, ncols, nclusters,
                       ncols,
                       nclusters,
                       cluster_std=1.0,
-                      shuffle=False,
-                      random_state=42)
+                      shuffle=False)
 
     cuml_agg = AgglomerativeClustering(
         n_clusters=nclusters, affinity='euclidean', linkage='single',
         n_neighbors=k, connectivity=connectivity)
 
-    try:
-        cuml_agg.fit(X)
-    except Exception:
-        cuml_agg.fit(X)
+    cuml_agg.fit(X)
 
     sk_agg = cluster.AgglomerativeClustering(
         n_clusters=nclusters, affinity='euclidean', linkage='single')
