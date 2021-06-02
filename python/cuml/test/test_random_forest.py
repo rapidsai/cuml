@@ -206,7 +206,7 @@ def test_rf_classification(small_clf, datatype, split_algo,
         sk_preds = sk_model.predict(X_test)
         sk_acc = accuracy_score(y_test, sk_preds)
         assert fil_acc >= (sk_acc - 0.07)
-    assert fil_acc >= (cuml_acc - 0.07)
+    assert fil_acc >= (cuml_acc - 0.07)  # to be changed to 0.02. see issue #3910: https://github.com/rapidsai/cuml/issues/3910 # noqa
 
 
 @pytest.mark.parametrize('max_samples', [unit_param(1.0), quality_param(0.90),
@@ -224,8 +224,9 @@ def test_rf_classification(small_clf, datatype, split_algo,
      (0, 1.0, True, 16),
      (1, 1.0, True, 11),
      (0, 'auto', True, 128),
-     (1, 'log2', True, 128),
-     (1, 'sqrt', True, 128),
+     (1, 1.0, True, 100),
+     (1, 'log2', True, 100),
+     (1, 'sqrt', True, 100),
      ])
 def test_rf_regression(special_reg, datatype, split_algo, max_features,
                        max_samples, use_experimental_backend, n_bins):
@@ -366,7 +367,7 @@ def test_rf_classification_float64(small_clf, datatype, convert_dtype):
         fil_preds = np.reshape(fil_preds, np.shape(cu_preds))
 
         fil_acc = accuracy_score(y_test, fil_preds)
-        assert fil_acc >= (cu_acc - 0.07)
+        assert fil_acc >= (cu_acc - 0.07)  # to be changed to 0.02. see issue #3910: https://github.com/rapidsai/cuml/issues/3910 # noqa
     else:
         with pytest.raises(TypeError):
             fil_preds = cuml_model.predict(X_test, predict_model="GPU",
