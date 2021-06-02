@@ -321,6 +321,7 @@ void leaf_eval_classification(
     if (condition) {
       node_flag = 0xFFFFFFFF;
       sparsetree[sparsesize + sparse_nodeid].colid = -1;
+      sparsetree[sparsesize + sparse_nodeid].quesval = -1;
       sparsetree[sparsesize + sparse_nodeid].prediction =
         get_class_hist(nodehist, n_unique_labels);
     } else {

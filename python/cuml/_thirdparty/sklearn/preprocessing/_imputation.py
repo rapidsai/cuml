@@ -230,7 +230,7 @@ class SimpleImputer(_BaseImputer, BaseEstimator,
 
     statistics_ = CumlArrayDescriptor()
 
-    @_deprecate_pos_args(version="0.20")
+    @_deprecate_pos_args(version="21.06")
     def __init__(self, *, missing_values=np.nan, strategy="mean",
                  fill_value=None, copy=True, add_indicator=False):
         super().__init__(
@@ -534,7 +534,7 @@ class MissingIndicator(TransformerMixin,
     """
     features_ = CumlArrayDescriptor()
 
-    @_deprecate_pos_args(version="0.20")
+    @_deprecate_pos_args(version="21.06")
     def __init__(self, *, missing_values=np.nan, features="missing-only",
                  sparse="auto", error_on_new=True):
         self.missing_values = missing_values

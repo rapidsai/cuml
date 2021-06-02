@@ -68,6 +68,7 @@ void batched_diff(raft::handle_t& handle, double* d_y_diff, const double* d_y,
  * in a batched context.
  *
  * @param[in]  handle       cuML handle
+ * @param[in]  arima_mem    Pre-allocated temporary memory
  * @param[in]  d_y          Series to fit: shape = (n_obs, batch_size) and
  *                          expects column major data layout. (device)
  * @param[in]  batch_size   Number of time series
@@ -91,13 +92,14 @@ void batched_diff(raft::handle_t& handle, double* d_y_diff, const double* d_y,
  * @param[out] d_lower      Lower limit of the prediction interval
  * @param[out] d_upper      Upper limit of the prediction interval
  */
-void batched_loglike(raft::handle_t& handle, const double* d_y, int batch_size,
-                     int n_obs, const ARIMAOrder& order, const double* d_params,
-                     double* loglike, double* d_vs, bool trans = true,
-                     bool host_loglike = true, LoglikeMethod method = MLE,
-                     int truncate = 0, int fc_steps = 0, double* d_fc = nullptr,
-                     double level = 0, double* d_lower = nullptr,
-                     double* d_upper = nullptr);
+void batched_loglike(raft::handle_t& handle,
+                     const ARIMAMemory<double>& arima_mem, const double* d_y,
+                     int batch_size, int n_obs, const ARIMAOrder& order,
+                     const double* d_params, double* loglike, double* d_vs,
+                     bool trans = true, bool host_loglike = true,
+                     LoglikeMethod method = MLE, int truncate = 0,
+                     int fc_steps = 0, double* d_fc = nullptr, double level = 0,
+                     double* d_lower = nullptr, double* d_upper = nullptr);
 
 /**
  * Compute the loglikelihood of the given parameter on the given time series
@@ -107,6 +109,7 @@ void batched_loglike(raft::handle_t& handle, const double* d_y, int batch_size,
  *        to avoid useless packing / unpacking
  *
  * @param[in]  handle       cuML handle
+ * @param[in]  arima_mem    Pre-allocated temporary memory
  * @param[in]  d_y          Series to fit: shape = (n_obs, batch_size) and
  *                          expects column major data layout. (device)
  * @param[in]  batch_size   Number of time series
@@ -129,8 +132,9 @@ void batched_loglike(raft::handle_t& handle, const double* d_y, int batch_size,
  * @param[out] d_lower      Lower limit of the prediction interval
  * @param[out] d_upper      Upper limit of the prediction interval
  */
-void batched_loglike(raft::handle_t& handle, const double* d_y, int batch_size,
-                     int n_obs, const ARIMAOrder& order,
+void batched_loglike(raft::handle_t& handle,
+                     const ARIMAMemory<double>& arima_mem, const double* d_y,
+                     int batch_size, int n_obs, const ARIMAOrder& order,
                      const ARIMAParams<double>& params, double* loglike,
                      double* d_vs, bool trans = true, bool host_loglike = true,
                      LoglikeMethod method = MLE, int truncate = 0,
@@ -141,6 +145,7 @@ void batched_loglike(raft::handle_t& handle, const double* d_y, int batch_size,
  * Compute the gradient of the log-likelihood
  * 
  * @param[in]  handle       cuML handle
+ * @param[in]  arima_mem    Pre-allocated temporary memory
  * @param[in]  d_y          Series to fit: shape = (n_obs, batch_size) and
  *                          expects column major data layout. (device)
  * @param[in]  batch_size   Number of time series
@@ -154,17 +159,19 @@ void batched_loglike(raft::handle_t& handle, const double* d_y, int batch_size,
  * @param[in]  truncate     For CSS, start the sum-of-squares after a given
  *                          number of observations
  */
-void batched_loglike_grad(raft::handle_t& handle, const double* d_y,
-                          int batch_size, int n_obs, const ARIMAOrder& order,
-                          const double* d_x, double* d_grad, double h,
-                          bool trans = true, LoglikeMethod method = MLE,
-                          int truncate = 0);
+void batched_loglike_grad(raft::handle_t& handle,
+                          const ARIMAMemory<double>& arima_mem,
+                          const double* d_y, int batch_size, int n_obs,
+                          const ARIMAOrder& order, const double* d_x,
+                          double* d_grad, double h, bool trans = true,
+                          LoglikeMethod method = MLE, int truncate = 0);
 
 /**
  * Batched in-sample and out-of-sample prediction of a time-series given all
  * the model parameters
  *
  * @param[in]  handle      cuML handle
+ * @param[in]  arima_mem   Pre-allocated temporary memory
  * @param[in]  d_y         Batched Time series to predict.
  *                         Shape: (num_samples, batch size) (device)
  * @param[in]  batch_size  Total number of batched time series
@@ -181,16 +188,17 @@ void batched_loglike_grad(raft::handle_t& handle, const double* d_y,
  * @param[out] d_lower     Lower limit of the prediction interval
  * @param[out] d_upper     Upper limit of the prediction interval
  */
-void predict(raft::handle_t& handle, const double* d_y, int batch_size,
-             int n_obs, int start, int end, const ARIMAOrder& order,
-             const ARIMAParams<double>& params, double* d_y_p,
-             bool pre_diff = true, double level = 0, double* d_lower = nullptr,
-             double* d_upper = nullptr);
+void predict(raft::handle_t& handle, const ARIMAMemory<double>& arima_mem,
+             const double* d_y, int batch_size, int n_obs, int start, int end,
+             const ARIMAOrder& order, const ARIMAParams<double>& params,
+             double* d_y_p, bool pre_diff = true, double level = 0,
+             double* d_lower = nullptr, double* d_upper = nullptr);
 
 /**
  * Compute an information criterion (AIC, AICc, BIC)
  *
  * @param[in]  handle      cuML handle
+ * @param[in]  arima_mem   Pre-allocated temporary memory
  * @param[in]  d_y         Series to fit: shape = (n_obs, batch_size) and
  *                         expects column major data layout. (device)
  * @param[in]  batch_size  Total number of batched time series
@@ -203,8 +211,10 @@ void predict(raft::handle_t& handle, const double* d_y, int batch_size,
  * @param[in]  ic_type     Type of information criterion wanted.
  *                         0: AIC, 1: AICc, 2: BIC
  */
-void information_criterion(raft::handle_t& handle, const double* d_y,
-                           int batch_size, int n_obs, const ARIMAOrder& order,
+void information_criterion(raft::handle_t& handle,
+                           const ARIMAMemory<double>& arima_mem,
+                           const double* d_y, int batch_size, int n_obs,
+                           const ARIMAOrder& order,
                            const ARIMAParams<double>& params, double* ic,
                            int ic_type);
 
