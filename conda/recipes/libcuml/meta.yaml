@@ -41,7 +41,7 @@ requirements:
     - nccl >=2.8.4
     - cudf {{ minor_version }}
     - cudatoolkit {{ cuda_version }}.*
-    - ucx-py {{ minor_version }}
+    - ucx-py 0.20
     - ucx-proc=*=gpu
     - libcumlprims {{ minor_version }}
     - lapack
@@ -54,7 +54,7 @@ requirements:
     - libcumlprims {{ minor_version }}
     - cudf {{ minor_version }}
     - nccl>=2.8.4
-    - ucx-py {{ minor_version }}
+    - ucx-py 0.20
     - ucx-proc=*=gpu
     - {{ pin_compatible('cudatoolkit', max_pin='x.x') }}
     - treelite=1.3.0

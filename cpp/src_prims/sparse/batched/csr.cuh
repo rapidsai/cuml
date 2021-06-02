@@ -152,7 +152,43 @@ class CSR {
       m_nnz(nnz),
       m_values(allocator, stream, nnz * batch_size),
       m_col_index(allocator, stream, nnz),
-      m_row_index(allocator, stream, m + 1) {}
+      m_row_index(allocator, stream, m + 1),
+      d_values(m_values.data()),
+      d_row_index(m_row_index.data()),
+      d_col_index(m_col_index.data()) {}
+
+  /**
+   * @brief Constructor from pre-allocated memory; leaves the matrix uninitialized
+   * 
+   * @param[in] m                Number of rows per matrix
+   * @param[in] n                Number of columns per matrix
+   * @param[in] nnz              Number of non-zero elements per matrix
+   * @param[in] batch_size       Number of matrices in the batch
+   * @param[in] cublasHandle     cuBLAS handle
+   * @param[in] cusolverSpHandle cuSOLVER sparse handle
+   * @param[in] d_values         Pre-allocated values array
+   * @param[in] d_col_index      Pre-allocated column index array
+   * @param[in] d_row_index      Pre-allocated row index array
+   * @param[in] allocator        Device memory allocator
+   * @param[in] stream           CUDA stream
+   */
+  CSR(int m, int n, int nnz, int batch_size, cublasHandle_t cublasHandle,
+      cusolverSpHandle_t cusolverSpHandle, T* d_values, int* d_col_index,
+      int* d_row_index, std::shared_ptr<raft::mr::device::allocator> allocator,
+      cudaStream_t stream)
+    : m_batch_size(batch_size),
+      m_allocator(allocator),
+      m_cublasHandle(cublasHandle),
+      m_cusolverSpHandle(cusolverSpHandle),
+      m_stream(stream),
+      m_shape(m, n),
+      m_nnz(nnz),
+      m_values(allocator, stream, nnz * batch_size),
+      m_col_index(allocator, stream, nnz),
+      m_row_index(allocator, stream, m + 1),
+      d_values(d_values),
+      d_col_index(d_col_index),
+      d_row_index(d_row_index) {}
 
   //! Destructor: nothing to destroy explicitely
   ~CSR() {}
@@ -169,12 +205,15 @@ class CSR {
       m_values(other.m_allocator, other.m_stream,
                other.m_nnz * other.m_batch_size),
       m_col_index(other.m_allocator, other.m_stream, other.m_nnz),
-      m_row_index(other.m_allocator, other.m_stream, other.m_shape.first + 1) {
+      m_row_index(other.m_allocator, other.m_stream, other.m_shape.first + 1),
+      d_values(m_values.data()),
+      d_row_index(m_row_index.data()),
+      d_col_index(m_col_index.data()) {
     // Copy the raw data
-    raft::copy(m_values.data(), other.m_values.data(), m_nnz * m_batch_size,
+    raft::copy(get_values(), other.get_values(), m_nnz * m_batch_size,
                m_stream);
-    raft::copy(m_col_index.data(), other.m_col_index.data(), m_nnz, m_stream);
-    raft::copy(m_row_index.data(), other.m_row_index.data(), m_shape.first + 1,
+    raft::copy(get_col_index(), other.get_col_index(), m_nnz, m_stream);
+    raft::copy(get_row_index(), other.get_row_index(), m_shape.first + 1,
                m_stream);
   }
 
@@ -187,12 +226,15 @@ class CSR {
     m_values.resize(m_nnz * m_batch_size, m_stream);
     m_col_index.resize(m_nnz, m_stream);
     m_row_index.resize(m_shape.first + 1, m_stream);
+    d_values = m_values.data();
+    d_col_index = m_col_index.data();
+    d_row_index = m_row_index.data();
 
     // Copy the raw data
-    raft::copy(m_values.data(), other.m_values.data(), m_nnz * m_batch_size,
+    raft::copy(get_values(), other.get_values(), m_nnz * m_batch_size,
                m_stream);
-    raft::copy(m_col_index.data(), other.m_col_index.data(), m_nnz, m_stream);
-    raft::copy(m_row_index.data(), other.m_row_index.data(), m_shape.first + 1,
+    raft::copy(get_col_index(), other.get_col_index(), m_nnz, m_stream);
+    raft::copy(get_row_index(), other.get_row_index(), m_shape.first + 1,
                m_stream);
 
     return *this;
@@ -201,19 +243,24 @@ class CSR {
   /**
    * @brief Construct from a dense batched matrix and its mask
    * 
-   * @param[in]  dense  Dense batched matrix
-   * @param[in]  mask   Col-major host device matrix containing a mask of the
-   *                    non-zero values common to all matrices in the batch.
-   *                    Note: the point of using a mask is that some values
-   *                    might be zero in a few matrices but not generally in
-   *                    the batch so we shouldn't rely on a single matrix to
-   *                    get the mask
+   * @param[in] dense            Dense batched matrix
+   * @param[in] mask             Col-major host device matrix containing a mask of the
+   *                             non-zero values common to all matrices in the batch.
+   *                             Note: the point of using a mask is that some values
+   *                             might be zero in a few matrices but not generally in
+   *                             the batch so we shouldn't rely on a single matrix to
+   *                             get the mask
    * @param[in] cusolverSpHandle cusolver sparse handle
+   * @param[in] d_values         Optional pre-allocated values array
+   * @param[in] d_col_index      Optional pre-allocated column index array
+   * @param[in] d_row_index      Optional pre-allocated row index array
    * @return Batched CSR matrix
    */
   static CSR<T> from_dense(const LinAlg::Batched::Matrix<T>& dense,
                            const std::vector<bool>& mask,
-                           cusolverSpHandle_t cusolverSpHandle) {
+                           cusolverSpHandle_t cusolverSpHandle,
+                           T* d_values = nullptr, int* d_col_index = nullptr,
+                           int* d_row_index = nullptr) {
     std::pair<int, int> shape = dense.shape();
 
     // Create the index arrays from the mask
@@ -231,9 +278,14 @@ class CSR {
     }
     h_row_index[shape.first] = nnz;
 
-    CSR<T> out = CSR<T>(shape.first, shape.second, nnz, dense.batches(),
-                        dense.cublasHandle(), cusolverSpHandle,
-                        dense.allocator(), dense.stream());
+    CSR<T> out =
+      (d_values == nullptr)
+        ? CSR<T>(shape.first, shape.second, nnz, dense.batches(),
+                 dense.cublasHandle(), cusolverSpHandle, dense.allocator(),
+                 dense.stream())
+        : CSR<T>(shape.first, shape.second, nnz, dense.batches(),
+                 dense.cublasHandle(), cusolverSpHandle, d_values, d_col_index,
+                 d_row_index, dense.allocator(), dense.stream());
 
     // Copy the host index arrays to the device
     raft::copy(out.get_col_index(), h_col_index.data(), nnz, out.stream());
@@ -265,7 +317,7 @@ class CSR {
     constexpr int TPB = 256;
     csr_to_dense_kernel<<<raft::ceildiv<int>(m_batch_size, TPB), TPB, 0,
                           m_stream>>>(
-      dense.raw_data(), m_col_index.data(), m_row_index.data(), m_values.data(),
+      dense.raw_data(), get_col_index(), get_row_index(), get_values(),
       m_batch_size, m_shape.first, m_shape.second, m_nnz);
     CUDA_CHECK(cudaPeekAtLastError());
 
@@ -296,16 +348,16 @@ class CSR {
   const std::pair<int, int>& shape() const { return m_shape; }
 
   //! Return values array
-  T* get_values() { return m_values.data(); }
-  const T* get_values() const { return m_values.data(); }
+  T* get_values() { return d_values; }
+  const T* get_values() const { return d_values; }
 
   //! Return columns index array
-  int* get_col_index() { return m_col_index.data(); }
-  const int* get_col_index() const { return m_col_index.data(); }
+  int* get_col_index() { return d_col_index; }
+  const int* get_col_index() const { return d_col_index; }
 
   //! Return rows index array
-  int* get_row_index() { return m_row_index.data(); }
-  const int* get_row_index() const { return m_row_index.data(); }
+  int* get_row_index() { return d_row_index; }
+  const int* get_row_index() const { return d_row_index; }
 
  protected:
   //! Shape (rows, cols) of matrices.
@@ -316,12 +368,15 @@ class CSR {
 
   //! Array(pointer) to the values in all the batched matrices.
   device_buffer<T> m_values;
+  T* d_values;
 
   //! Array(pointer) to the column index of the CSR.
   device_buffer<int> m_col_index;
+  int* d_col_index;
 
   //! Array(pointer) to the row index of the CSR.
   device_buffer<int> m_row_index;
+  int* d_row_index;
 
   //! Number of matrices in batch
   size_t m_batch_size;
