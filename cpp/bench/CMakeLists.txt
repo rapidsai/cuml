@@ -81,6 +81,7 @@ if(BUILD_CUML_PRIMS_BENCH)
 
   target_link_libraries(${PRIMS_BENCH_TARGET}
     PUBLIC
+      cuml
       CUDA::cublas
       benchmark::benchmark
       raft::raft
@@ -89,5 +90,6 @@ if(BUILD_CUML_PRIMS_BENCH)
   target_include_directories(${PRIMS_BENCH_TARGET}
     PRIVATE
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src_prims>
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   )
 endif(BUILD_CUML_PRIMS_BENCH)
