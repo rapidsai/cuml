@@ -16,10 +16,12 @@
 
 import pytest
 import os
+import subprocess
 
 import numpy as np
 import cupy as cp
 
+from math import ceil
 from sklearn.datasets import fetch_20newsgroups
 from sklearn.datasets import fetch_california_housing
 from sklearn.datasets import make_classification as skl_make_clas
@@ -30,6 +32,9 @@ from sklearn.model_selection import train_test_split
 
 def pytest_configure(config):
     cp.cuda.set_allocator(None)
+    # max_gpu_memory: Capacity of the GPU memory in GB
+    pytest.max_gpu_memory = get_gpu_memory()
+    pytest.adapt_stress_test = 'CUML_ADAPT_STRESS_TESTS' in os.environ
 
 
 @pytest.fixture(scope="module")
@@ -146,3 +151,20 @@ def exact_shap_classification_dataset():
                                     test_size=3,
                                     random_state_generator=42,
                                     random_state_train_test_split=42)
+
+
+def get_gpu_memory():
+    bash_command = "nvidia-smi --query-gpu=memory.total --format=csv"
+    output = subprocess.check_output(bash_command,
+                                        shell=True).decode("utf-8")
+    lines = output.split("\n")
+    lines.pop(0)
+    gpus_memory = []
+    for line in lines:
+        tokens = line.split(" ")
+        if len(tokens) > 1:
+            gpus_memory.append(int(tokens[0]))
+    gpus_memory.sort()
+    max_gpu_memory = ceil(gpus_memory[-1] / 1024)
+
+    return max_gpu_memory

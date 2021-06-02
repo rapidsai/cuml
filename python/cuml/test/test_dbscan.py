@@ -20,7 +20,6 @@ from cuml.test.utils import get_handle
 from cuml import DBSCAN as cuDBSCAN
 from cuml.test.utils import get_pattern, unit_param, \
     quality_param, stress_param, array_equal, assert_dbscan_equal
-from cuml.test.utils import get_gpu_memory
 
 from sklearn.cluster import DBSCAN as skDBSCAN
 from sklearn.datasets import make_blobs
@@ -42,8 +41,12 @@ from sklearn.preprocessing import StandardScaler
                                        stress_param("int32")])
 def test_dbscan(datatype, use_handle, nrows, ncols,
                 max_mbytes_per_batch, out_dtype):
-    if nrows == 500000 and get_gpu_memory() < 32:
-        pytest.skip("Insufficient GPU Memory for this test.")
+    if nrows == 500000 and pytest.max_gpu_memory < 32:
+        if pytest.adapt_stress_test:
+            nrows = int(nrows * pytest.max_gpu_memory / 32)
+        else:
+            pytest.skip("Insufficient GPU memory for this test. "
+                        "Re-run with 'CUML_ADAPT_STRESS_TESTS=True'")
 
     n_samples = nrows
     n_feats = ncols
@@ -121,8 +124,12 @@ def test_dbscan_precomputed(datatype, nrows, max_mbytes_per_batch, out_dtype):
 # Vary the eps to get a range of core point counts
 @pytest.mark.parametrize('eps', [0.05, 0.1, 0.5])
 def test_dbscan_sklearn_comparison(name, nrows, eps):
-    if nrows == 500000 and name == 'blobs' and get_gpu_memory() < 32:
-        pytest.skip("Insufficient GPU Memory for this test.")
+    if nrows == 500000 and name == 'blobs' and pytest.max_gpu_memory < 32:
+        if pytest.adapt_stress_test:
+            nrows = int(nrows * pytest.max_gpu_memory / 32)
+        else:
+            pytest.skip("Insufficient GPU memory for this test."
+                        "Re-run with 'CUML_ADAPT_STRESS_TESTS=True'")
 
     default_base = {'quantile': .2,
                     'eps': eps,

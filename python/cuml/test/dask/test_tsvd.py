@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ import pytest
 
 import numpy as np
 from cuml.test.utils import array_equal, \
-    unit_param, stress_param, get_gpu_memory
+    unit_param, stress_param
 import cupy as cp
 
 from cuml.dask.common.dask_arr_utils import to_dask_cudf
@@ -30,8 +30,12 @@ from cuml.dask.common.dask_arr_utils import to_dask_cudf
 def test_pca_fit(data_info, input_type, client):
 
     nrows, ncols, n_parts = data_info
-    if nrows == int(9e6) and get_gpu_memory() < 48:
-        pytest.skip("Insufficient GPU Memory for this test.")
+    if nrows == int(9e6) and pytest.max_gpu_memory < 48:
+        if pytest.adapt_stress_test:
+            nrows = int(nrows * pytest.max_gpu_memory / 48)
+        else:
+            pytest.skip("Insufficient GPU memory for this test."
+                        "Re-run with 'CUML_ADAPT_STRESS_TESTS=True'")
 
     from cuml.dask.decomposition import TruncatedSVD as daskTPCA
     from sklearn.decomposition import TruncatedSVD

@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ import cupy as cp
 from cuml.linear_model import MBSGDRegressor as cumlMBSGRegressor
 from cuml.metrics import r2_score
 from cuml.test.utils import unit_param, quality_param, stress_param
-from cuml.test.utils import get_gpu_memory
 
 from sklearn.linear_model import SGDRegressor
 from cuml.datasets import make_regression
@@ -38,8 +37,12 @@ from sklearn.model_selection import train_test_split
         '500000-1000-500-f32', '500000-1000-500-f64'])
 def make_dataset(request):
     nrows, ncols, n_info, datatype = request.param
-    if nrows == 500000 and datatype == np.float64 and get_gpu_memory() < 32:
-        pytest.skip("Insufficient GPU Memory for this test.")
+    if nrows == 500000 and datatype == np.float64 and pytest.max_gpu_memory < 32:
+        if pytest.adapt_stress_test:
+            nrows = int(nrows * pytest.max_gpu_memory / 32)
+        else:
+            pytest.skip("Insufficient GPU memory for this test."
+                        "Re-run with 'CUML_ADAPT_STRESS_TESTS=True'")
     X, y = make_regression(n_samples=nrows, n_informative=n_info,
                            n_features=ncols, random_state=0)
     X = cp.array(X).astype(datatype)

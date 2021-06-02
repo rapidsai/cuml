@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,8 +21,7 @@ from cuml.test.utils import (
     array_equal,
     unit_param,
     quality_param,
-    stress_param,
-    get_gpu_memory
+    stress_param
 )
 
 from sklearn.datasets import load_boston
@@ -116,8 +115,12 @@ def test_lars_model(datatype, nrows, column_info, precompute, normalize):
 @pytest.mark.parametrize("precompute", [True, False])
 def test_lars_collinear(datatype, nrows, column_info, precompute):
     ncols, n_info = column_info
-    if nrows == 500000 and ncols == 1000 and get_gpu_memory() < 32:
-        pytest.skip("Insufficient GPU Memory for this test.")
+    if nrows == 500000 and ncols == 1000 and pytest.max_gpu_memory < 32:
+        if pytest.adapt_stress_test:
+            nrows = int(nrows * pytest.max_gpu_memory / 32)
+        else:
+            pytest.skip("Insufficient GPU memory for this test."
+                        "Re-run with 'CUML_ADAPT_STRESS_TESTS=True'")
 
     X_train, X_test, y_train, y_test = make_regression_dataset(
         datatype, nrows, ncols, n_info
