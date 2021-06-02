@@ -109,6 +109,7 @@ struct Builder {
     return std::is_same<DataT, LabelT>::value;
   }
 
+  int code_version;
   size_t calculateAlignedBytes(const size_t actualSize) {
     return raft::alignTo(actualSize, alignValue);
   }
@@ -159,7 +160,10 @@ struct Builder {
     input.quantiles = quantiles;
     auto max_batch = params.max_batch_size;
     auto n_col_blks = n_blks_for_cols;
-    nHistBins = max_batch * (1 + params.n_bins) * n_col_blks * nclasses;
+    if (code_version == 1)
+      nHistBins = 2 * max_batch * (1 + params.n_bins) * n_col_blks * nclasses;
+    else
+      nHistBins = max_batch * (1 + params.n_bins) * n_col_blks * nclasses;
     max_blocks =
       1 + max_batch +
       input.nSampledRows / (Traits::TPB_DEFAULT * SAMPLES_PER_THREAD);
@@ -363,7 +367,13 @@ struct Builder {
     // compute the best split at the end
     auto n_col_blks = n_blks_for_cols;
     if (total_num_blocks) {
-      for (IdxT c = 0; c < input.nSampledCols; c += n_col_blks) {
+      int nblock_multiplier = 0;
+      if(code_version == 1) {
+        nblock_multiplier = 2;
+      } else {
+        nblock_multiplier = 1;
+      }
+      for (IdxT c = 0; c < input.nSampledCols; c += nblock_multiplier*n_col_blks) {
         Traits::computeSplit(*this, c, batchSize, params.split_criterion, s);
         CUDA_CHECK(cudaGetLastError());
       }
@@ -437,6 +447,12 @@ struct ClsTraits {
                        2 * nbins * nclasses * sizeof(int) +    // cdf_shist size
                        nbins * sizeof(DataT) +                 // sbins size
                        sizeof(int);                            // sDone size
+    if (b.code_version == 1) {
+      smemSize1 += (nbins + 1) * nclasses * sizeof(int) +  // pdf_shist size
+                   2 * nbins * nclasses * sizeof(int) +    // cdf_shist size
+                   nbins * sizeof(DataT);                 // sbins size
+    }
+
     // Extra room for alignment (see alignPointer in
     // computeSplitClassificationKernel)
     smemSize1 += sizeof(DataT) + 3 * sizeof(int);
@@ -449,12 +465,30 @@ struct ClsTraits {
     CUDA_CHECK(cudaMemsetAsync(b.hist, 0, sizeof(int) * b.nHistBins, s));
     ML::PUSH_RANGE(
       "computeSplitClassificationKernel @builder_base.cuh [batched-levelalgo]");
-    computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
-      <<<grid, TPB_DEFAULT, smemSize, s>>>(
-        b.hist, b.params.n_bins, b.params.min_samples_leaf,
-        b.params.min_impurity_decrease, b.input, b.curr_nodes, col,
-        b.done_count, b.mutex, b.splits, splitType, b.treeid, b.workload_info,
-        b.seed);
+    if (b.code_version == 0) {
+      computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
+        <<<grid, TPB_DEFAULT, smemSize, s>>>(
+          b.hist, b.params.n_bins, b.params.min_samples_leaf,
+          b.params.min_impurity_decrease, b.input, b.curr_nodes, col,
+          b.done_count, b.mutex, b.splits, splitType, b.treeid, b.workload_info,
+          b.seed);
+    }
+    if (b.code_version == 1) {
+      computeSplitClassificationKernel_2col<DataT, LabelT, IdxT, TPB_DEFAULT>
+        <<<grid, TPB_DEFAULT, smemSize, s>>>(
+          b.hist, b.params.n_bins, b.params.min_samples_leaf,
+          b.params.min_impurity_decrease, b.input, b.curr_nodes, col,
+          b.done_count, b.mutex, b.splits, splitType, b.treeid, b.workload_info,
+          b.seed);
+    }
+    if (b.code_version == 2) {
+      computeSplitClassificationKernel_static_smem<DataT, LabelT, IdxT, TPB_DEFAULT>
+        <<<grid, TPB_DEFAULT, smemSize2, s>>>(
+          b.hist, b.params.n_bins, b.params.min_samples_leaf,
+          b.params.min_impurity_decrease, b.input, b.curr_nodes, col,
+          b.done_count, b.mutex, b.splits, splitType, b.treeid, b.workload_info,
+          b.seed);
+    }
     ML::POP_RANGE();  //computeSplitClassificationKernel
     ML::POP_RANGE();  //Builder::computeSplit
   }

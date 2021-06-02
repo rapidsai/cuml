@@ -28,6 +28,17 @@
 namespace ML {
 namespace DecisionTree {
 
+int get_code_version() {
+  const char * code_version = std::getenv("CODE_VERSION");
+  if (code_version == nullptr) return 0;
+  printf("$CODE_VERSION = %s\n", code_version);
+  if (strcmp(code_version, "0") == 0) return 0;
+  if (strcmp(code_version, "1") == 0) return 1;
+  if (strcmp(code_version, "2") == 0) return 2;
+
+  return 0;
+}
+
 template <typename Traits, typename DataT = typename Traits::DataT,
           typename LabelT = typename Traits::LabelT,
           typename IdxT = typename Traits::IdxT>
@@ -58,6 +69,9 @@ void grow_tree(std::shared_ptr<raft::mr::device::allocator> d_allocator,
                IdxT& num_leaves, IdxT& depth) {
   ML::PUSH_RANGE("DecisionTree::grow_tree in batched-levelalgo @builder.cuh");
   Builder<Traits> builder;
+  builder.code_version = get_code_version();
+  printf("Running version (%d)\n", builder.code_version);
+
   size_t d_wsize, h_wsize;
   builder.workspaceSize(d_wsize, h_wsize, treeid, seed, params, data, labels,
                         nrows, ncols, n_sampled_rows,
