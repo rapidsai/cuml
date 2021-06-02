@@ -228,6 +228,9 @@ endif()
 # - build C-API test library -------------------------------------------------
 
 if(BUILD_CUML_C_LIBRARY)
+
+  enable_language(C)
+
   add_library(${CUML_C_TEST_TARGET} SHARED
     c_api/dbscan_api_test.c
     c_api/glm_api_test.c
@@ -236,8 +239,6 @@ if(BUILD_CUML_C_LIBRARY)
     c_api/svm_api_test.c
   )
 
-  set_target_properties(${CUML_C_TEST_TARGET} PROPERTIES LINKER_LANGUAGE C)
-
-  target_link_libraries(${CUML_C_TEST_TARGET} PUBLIC cuml_c)
+  target_link_libraries(${CUML_C_TEST_TARGET} PUBLIC ${CUML_C_TARGET})
 
 endif(BUILD_CUML_C_LIBRARY)
