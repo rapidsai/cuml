@@ -183,7 +183,7 @@ class ExponentialSmoothing(Base):
     season = CumlArrayDescriptor()
     SSE = CumlArrayDescriptor()
 
-    @_deprecate_pos_args(version="0.20")
+    @_deprecate_pos_args(version="21.06")
     def __init__(self, endog, *, seasonal="additive",
                  seasonal_periods=2, start_periods=2,
                  ts_num=1, eps=2.24e-3, handle=None,
