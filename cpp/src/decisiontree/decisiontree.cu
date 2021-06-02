@@ -68,7 +68,6 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
     if (!cfg_use_experimental_backend) {
       CUML_LOG_WARN(
         "Not using the experimental backend due to above mentioned reason(s)");
-      CUML_LOG_WARN("Switching back to default backend");
     }
   }
 
