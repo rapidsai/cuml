@@ -67,11 +67,10 @@ struct Node {
    *
    * @note to be called only by one thread across all participating threadblocks
    */
-  DI void makeLeaf(IdxT* n_leaves, LabelT pred,
-                   DataT aux = DataT(-1)) volatile {
+  DI void makeLeaf(IdxT* n_leaves, LabelT pred) volatile {
     info.prediction = pred;
     info.colid = Leaf;
-    info.quesval = aux;
+    info.quesval = DataT(0);          // don't care for leaf nodes
     info.best_metric_val = DataT(0);  // don't care for leaf nodes
     info.left_child_id = Leaf;
     atomicAdd(n_leaves, 1);
