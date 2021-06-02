@@ -433,14 +433,17 @@ void DecisionTreeBase<T, L>::base_fit(
     dinfo.NGlobalrows = nrows;
     dinfo.Ncols = ncols;
     n_unique_labels = unique_labels;
-    if (treeid == 0) {
-      CUML_LOG_WARN("Using experimental backend for growing trees\n");
-    }
     grow_tree(device_allocator_in, host_allocator_in, data, treeid, seed, ncols,
               nrows, labels, d_global_quantiles, (int *)rowids, n_sampled_rows,
               unique_labels, tree_params, stream_in, sparsetree,
               this->leaf_counter, this->depth_counter);
   } else {
+    if (treeid == 0) {
+      CUML_LOG_WARN(
+        "The old backend is deprecated and will be removed in 21.08 "
+        "release.\n");
+      CUML_LOG_WARN("Using old backend for growing trees\n");
+    }
     plant(sparsetree, data, ncols, nrows, labels, rowids, n_sampled_rows,
           unique_labels, treeid, seed);
     if (in_tempmem == nullptr) {

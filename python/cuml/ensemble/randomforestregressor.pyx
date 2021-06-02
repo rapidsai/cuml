@@ -143,10 +143,11 @@ class RandomForestRegressor(BaseRandomForestModel,
         from cuml.test.utils import get_handle
         X = np.asarray([[0,10],[0,20],[0,30],[0,40]], dtype=np.float32)
         y = np.asarray([0.0,1.0,2.0,3.0], dtype=np.float32)
-        cuml_model = curfc(max_features=1.0, n_bins=8,
+        cuml_model = curfc(max_features=1.0, n_bins=128,
                             split_algo=0, min_samples_leaf=1,
                             min_samples_split=2,
-                            n_estimators=40, accuracy_metric='r2')
+                            n_estimators=40, accuracy_metric='r2',
+                            use_experimental_backend=False)
         cuml_model.fit(X,y)
         cuml_score = cuml_model.score(X,y)
         print("MSE score of cuml : ", cuml_score)
@@ -163,9 +164,15 @@ class RandomForestRegressor(BaseRandomForestModel,
         Number of trees in the forest. (Default changed to 100 in cuML 0.11)
     split_algo : int (default = 1)
         The algorithm to determine how nodes are split in the tree.
-        0 for HIST and 1 for GLOBAL_QUANTILE. HIST currently uses a slower
-        tree-building algorithm so GLOBAL_QUANTILE is recommended for most
-        cases.
+        Can be changed only for the old backend [deprecated].
+        0 for HIST and 1 for GLOBAL_QUANTILE. Default is GLOBAL_QUANTILE.
+        The default backend does not support HIST.
+        HIST currently uses a slower tree-building algorithm so
+        GLOBAL_QUANTILE is recommended for most cases.
+
+        .. deprecated:: 21.06
+           Parameter 'split_algo' is deprecated and will be removed in
+           subsequent release.
     split_criterion : int (default = 2)
         The criterion used to split nodes.
         0 for GINI, 1 for ENTROPY,
@@ -197,7 +204,7 @@ class RandomForestRegressor(BaseRandomForestModel,
         If 'auto' then max_features=1.0.
         If 'sqrt' then max_features=1/sqrt(n_features).
         If 'log2' then max_features=log2(n_features)/n_features.
-    n_bins : int (default = 8)
+    n_bins : int (default = 128)
         Number of bins used by the split algorithm.
         For large problems, particularly those with highly-skewed input data,
         increasing the number of bins may improve accuracy.
@@ -223,13 +230,19 @@ class RandomForestRegressor(BaseRandomForestModel,
         for median of abs error : 'median_ae'
         for mean of abs error : 'mean_ae'
         for mean square error' : 'mse'
-    use_experimental_backend : boolean (default = False)
+    quantile_per_tree : boolean (default = False)
+        Whether quantile is computed for individual trees in RF.
+        Only relevant when `split_algo = GLOBAL_QUANTILE`.
+
+        .. deprecated:: 0.19
+           Parameter 'quantile_per_tree' is deprecated and will be removed in
+           subsequent release.
+    use_experimental_backend : boolean (default = True)
         If set to true and the following conditions are also met, a new
         experimental backend for decision tree training will be used. The
         new backend is available only if `split_algo = 1` (GLOBAL_QUANTILE).
-        The new backend is considered stable for classification tasks but
-        not yet for regression tasks. The RAPIDS team is continuing
-        optimization and evaluation of the new backend for regression tasks.
+        The new backend is now considered stable for both classification
+        and regression tasks and is significantly faster than the old backend.
     max_batch_size: int (default = 128)
         Maximum number of nodes that can be processed in a given batch. This is
         used only when 'use_experimental_backend' is true.
