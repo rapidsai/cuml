@@ -64,7 +64,7 @@ class BaseRandomForestModel(Base):
                  n_jobs=None, max_leaf_nodes=None, min_impurity_decrease=0.0,
                  min_impurity_split=None, oob_score=None, random_state=None,
                  warm_start=None, class_weight=None, quantile_per_tree=False,
-                 criterion=None, use_experimental_backend=False,
+                 criterion=None, use_experimental_backend=True,
                  max_batch_size=128):
 
         sklearn_params = {"criterion": criterion,
@@ -93,7 +93,7 @@ class BaseRandomForestModel(Base):
                           "random_state is set")
         if quantile_per_tree:
             warnings.warn("The 'quantile_per_tree' parameter is deprecated "
-                          "and will be removed in 0.20 release. Instead use "
+                          "and will be removed in 21.06 release. Instead use "
                           "higher number of global quantile bins.")
         if handle is None:
             handle = Handle(n_streams)
