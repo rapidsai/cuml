@@ -233,6 +233,12 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         be available if `gen_min_span_tree` was set to True on object creation.
         Even then in some optimized cases a tree may not be generated.
 
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_settings.output_type`.
+        See :ref:`output-data-type-configuration` for more info.
+
     """
 
     labels_ = CumlArrayDescriptor()
@@ -541,5 +547,6 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
             "p",
             "allow_single_cluster",
             "connectivity",
-            "n_neighbors"
+            "n_neighbors",
+            "alpha"
         ]
