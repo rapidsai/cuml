@@ -44,9 +44,22 @@ Wrote 50 values to test_labels.txt
 
 2. Run the symbolic regressor using the 4 files as inputs. An example query is given below
 ```bash
-$ ./symreg_example -n_cols 2 -n_train_rows 250 -n_test_rows 50 -random_state 21 -population_size 5000 -generations 20 -stopping_criteria 0.01 -p_crossover 0.8 -p_subtree 0.05 -p_hoist 0.05 -p_point 0.05 -parsimony_coefficient 0.1 -metric mse
+$ ./symreg_example -n_cols 2                   \
+                   -n_train_rows 250           \
+                   -n_test_rows 50             \
+                   -random_state 21            \
+                   -population_size 4000       \
+                   -generations 20             \
+                   -stopping_criteria 0.01     \
+                   -p_crossover 0.7            \
+                   -p_subtree 0.1              \
+                   -p_hoist 0.05               \ 
+                   -p_point 0.1                \
+                   -parsimony_coefficient 0.01
 ```
-3. The corresponding output for the above query is given below
+
+3. The corresponding output for the above query is given below :
+
 ```
 Reading input with 250 rows and 2 columns from train_data.txt.
 Reading input with 250 rows from train_labels.txt.
@@ -54,18 +67,18 @@ Reading input with 50 rows and 2 columns from test_data.txt.
 Reading input with 50 rows from test_labels.txt.
 Allocating device memory...
 Beginning training on given dataset
-Finished training for 6 generations.
-Best AST index is : 1116
-Best AST depth : 4
+Finished training for 4 generations.
+Best AST index is : 1855
+Best AST depth : 3
 Best AST length : 13
-Best AST equation is : ( add( sub( sub( mult( X0, X0) , div( X0, X0) ) , mult( X1, X1) ) , X1) )
+Best AST equation is : ( add( sub( mult( X0, X0) , div( X1, X1) ) , sub( X1, mult( X1, X1) ) ) )
 Beginning to predict values on test dataset 
 Some Predicted test values:
 -1.65061;-1.64081;-0.91711;-2.28976;-0.280688;-0.229724;-0.442166;-0.771308;-1.68128;-0.664857;
 Some Actual test values:
 -1.65061;-1.64081;-0.91711;-2.28976;-0.280688;-0.229724;-0.442166;-0.771308;-1.68128;-0.664857;
- Metric Score for test set : 6.90084e-15
-  Allocation time = 0.179936 ms
-    Training time = 1548.9 ms
-   Inference time = 0.12128 ms
+ Metric Score for test set : 5.29271e-08
+  Allocation time = 0.237088 ms
+    Training time = 658.542 ms
+   Inference time = 0.195936 ms
 ```
