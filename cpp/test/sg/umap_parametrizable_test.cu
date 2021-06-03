@@ -68,6 +68,37 @@ bool has_nan(T* data, size_t len,
   return h_answer;
 }
 
+template <typename T>
+__global__ void are_equal_kernel(T* embedding1, T* embedding2, size_t len,
+                                 double* diff) {
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  if (tid >= len) return;
+  if (embedding1[tid] != embedding2[tid]) {
+    atomicAdd(diff, abs(embedding1[tid] - embedding2[tid]));
+  }
+}
+
+template <typename T>
+bool are_equal(T* embedding1, T* embedding2, size_t len,
+               std::shared_ptr<raft::mr::device::allocator> alloc,
+               cudaStream_t stream) {
+  double h_answer = 0.;
+  device_buffer<double> d_answer(alloc, stream, 1);
+  raft::update_device(d_answer.data(), &h_answer, 1, stream);
+
+  are_equal_kernel<<<raft::ceildiv(len, (size_t)32), 32, 0, stream>>>(
+    embedding1, embedding2, len, d_answer.data());
+  raft::update_host(&h_answer, d_answer.data(), 1, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  double tolerance = 1.0;
+  if (h_answer > tolerance) {
+    std::cout << "Not equal, difference : " << h_answer << std::endl;
+    return false;
+  }
+  return true;
+}
+
 class UMAPParametrizableTest : public ::testing::Test {
  protected:
   struct TestParams {
@@ -236,8 +267,20 @@ class UMAPParametrizableTest : public ::testing::Test {
     get_embedding(handle, X_d.data(), (float*)y_d.data(), e2, test_params,
                   umap_params);
 
+#if CUDART_VERSION >= 11020
+    bool equal =
+      are_equal(e1, e2, n_samples * umap_params.n_components, alloc, stream);
+
+    if (!equal) {
+      raft::print_device_vector("e1", e1, 25, std::cout);
+      raft::print_device_vector("e2", e2, 25, std::cout);
+    }
+
+    ASSERT_TRUE(equal);
+#else
     ASSERT_TRUE(raft::devArrMatch(e1, e2, n_samples * umap_params.n_components,
                                   raft::Compare<float>{}));
+#endif
   }
 
   void SetUp() override {
