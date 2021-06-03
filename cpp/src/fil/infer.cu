@@ -20,8 +20,8 @@
 #include <thrust/functional.h>
 #include <cuml/fil/multi_sum.cuh>
 #include "common.cuh"
-#include "fil/internal.cuh"
-#include "raft/cudart_utils.h"
+#include <fil/internal.cuh>
+#include <raft/cudart_utils.h>
 
 namespace ML {
 namespace fil {
@@ -235,7 +235,7 @@ struct tree_aggregator_t {
   __device__ __forceinline__ tree_aggregator_t(predict_params params,
                                                void* accumulate_workspace,
                                                void* finalize_workspace,
-                                               val_t* vector_leaf)
+                                               float* vector_leaf)
     : tmp_storage(finalize_workspace) {}
 
   __device__ __forceinline__ void accumulate(
@@ -379,7 +379,7 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> {
   __device__ __forceinline__ tree_aggregator_t(predict_params params,
                                                void* accumulate_workspace,
                                                void* finalize_workspace,
-                                               val_t* vector_leaf)
+                                               float* vector_leaf)
     : num_classes(params.num_classes),
       per_thread((vec<NITEMS, float>*)finalize_workspace),
       tmp_storage(params.predict_proba ? per_thread + num_classes
@@ -431,7 +431,7 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
   __device__ __forceinline__ tree_aggregator_t(predict_params params,
                                                void* accumulate_workspace,
                                                void* finalize_workspace,
-                                               val_t* vector_leaf)
+                                               float* vector_leaf)
     : per_class_margin((vec<NITEMS, float>*)accumulate_workspace),
       tmp_storage(params.predict_proba ? per_class_margin + num_classes
                                        : finalize_workspace),
@@ -461,7 +461,7 @@ template <int NITEMS>
 struct tree_aggregator_t<NITEMS, VECTOR_LEAF> {
   float* probability_sum;
   int num_classes;
-  val_t* vector_leaf;
+  float* vector_leaf;
 
   static size_t smem_finalize_footprint(size_t data_row_size, int num_classes,
                                         bool predict_proba) {
@@ -474,7 +474,7 @@ struct tree_aggregator_t<NITEMS, VECTOR_LEAF> {
   __device__ __forceinline__ tree_aggregator_t(predict_params params,
                                                void* accumulate_workspace,
                                                void* finalize_workspace,
-                                               val_t* vector_leaf)
+                                               float* vector_leaf)
     : num_classes(params.num_classes),
       probability_sum((float*)accumulate_workspace),
       vector_leaf(vector_leaf) {
@@ -486,11 +486,12 @@ struct tree_aggregator_t<NITEMS, VECTOR_LEAF> {
   }
   __device__ __forceinline__ void accumulate(
     vec<NITEMS, int> single_tree_prediction, int tree, int num_rows) {
+    for (int k = 0; k < num_classes; ++k) {
 #pragma unroll
-    for (int item = 0; item < NITEMS; ++item) {
-      for (int k = 0; k < num_classes; ++k) {
-        raft::myAtomicAdd(probability_sum + k * NITEMS + item,
-                          vector_leaf[single_tree_prediction[item] + k].f);
+      for (int item = 0; item < NITEMS; ++item) {
+        raft::myAtomicAdd(
+          probability_sum + k * NITEMS + item,
+          vector_leaf[single_tree_prediction[item] * num_classes + k]);
       }
     }
   }
@@ -557,7 +558,7 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
   __device__ __forceinline__ tree_aggregator_t(predict_params params,
                                                void* accumulate_workspace,
                                                void* finalize_workspace,
-                                               val_t* vector_leaf)
+                                               float* vector_leaf)
     : num_classes(params.num_classes), votes((int*)accumulate_workspace) {
     for (int c = threadIdx.x; c < num_classes; c += FIL_TPB * NITEMS)
 #pragma unroll

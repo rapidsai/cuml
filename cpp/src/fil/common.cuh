@@ -64,7 +64,7 @@ struct dense_tree {
 struct dense_storage {
   __host__ __device__ dense_storage(dense_node* nodes, int num_trees,
                                     int tree_stride, int node_pitch,
-                                    val_t* vector_leaf)
+                                    float* vector_leaf)
     : nodes_(nodes),
       num_trees_(num_trees),
       tree_stride_(tree_stride),
@@ -75,7 +75,7 @@ struct dense_storage {
     return dense_tree(nodes_ + i * tree_stride_, node_pitch_);
   }
   dense_node* nodes_ = nullptr;
-  val_t* vector_leaf = nullptr;
+  float* vector_leaf = nullptr;
   int num_trees_ = 0;
   int tree_stride_ = 0;
   int node_pitch_ = 0;
@@ -96,10 +96,10 @@ template <typename node_t>
 struct sparse_storage {
   int* trees_ = nullptr;
   node_t* nodes_ = nullptr;
-  val_t* vector_leaf = nullptr;
+  float* vector_leaf = nullptr;
   int num_trees_ = 0;
   __host__ __device__ sparse_storage(int* trees, node_t* nodes, int num_trees,
-                                     val_t* vector_leaf)
+                                     float* vector_leaf)
     : trees_(trees),
       nodes_(nodes),
       num_trees_(num_trees),

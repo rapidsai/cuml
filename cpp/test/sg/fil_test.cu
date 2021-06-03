@@ -168,7 +168,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
       std::uniform_real_distribution<> dist(0, 1);
       vector_leaf.resize(num_nodes * ps.num_classes);
       for (auto i = 0ull; i < vector_leaf.size(); i++) {
-        vector_leaf[i].f = dist(gen);
+        vector_leaf[i] = dist(gen);
       }
       // Normalise probabilities to 1
       for (auto i = 0ull; i < vector_leaf.size(); i += ps.num_classes) {
@@ -176,7 +176,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
           std::accumulate((float*)&vector_leaf[i],
                           (float*)&vector_leaf[i + ps.num_classes], 0.0f);
         for (auto j = i; j < i + ps.num_classes; j++) {
-          vector_leaf[j].f /= sum;
+          vector_leaf[j] /= sum;
         }
       }
     } else {
@@ -225,7 +225,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
           std::memcpy(&w.f, &weights_h[i], sizeof w.f);
           break;
         case fil::leaf_algo_t::VECTOR_LEAF:
-          w.idx = i * ps.num_classes;
+          w.idx = i;
           break;
         default:
           ASSERT(false, "internal error: invalid ps.leaf_algo");
@@ -368,8 +368,9 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
                 .idx;
             float sum = 0.0;
             for (auto k = 0; k < ps.num_classes; k++) {
-              class_probabilities[k] += vector_leaf[vector_index + k].f;
-              sum += vector_leaf[vector_index + k].f;
+              class_probabilities[k] +=
+                vector_leaf[vector_index * ps.num_classes + k];
+              sum += vector_leaf[vector_index * ps.num_classes + k];
             }
             ASSERT_LE(std::abs(sum - 1.0f), 1e-5);
           }
@@ -454,7 +455,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
   // forest data
   std::vector<fil::dense_node> nodes;
-  std::vector<val_t> vector_leaf;
+  std::vector<float> vector_leaf;
 
   // parameters
   cudaStream_t stream;
@@ -568,7 +569,7 @@ class TreeliteFilTest : public BaseFilTest {
           std::vector<tlf::Value> vec(ps.num_classes);
           for (int i = 0; i < ps.num_classes; ++i) {
             vec[i] = tlf::Value::Create(
-              i == dense_node.base_node::output<val_t>().idx ? 1.0f : 0.0f);
+              i == dense_node.template output<val_t>().idx ? 1.0f : 0.0f);
           }
           builder->SetLeafVectorNode(key, vec);
           break;
@@ -576,8 +577,8 @@ class TreeliteFilTest : public BaseFilTest {
         case fil::leaf_algo_t::VECTOR_LEAF: {
           std::vector<tlf::Value> vec(ps.num_classes);
           for (int i = 0; i < ps.num_classes; ++i) {
-            auto idx = dense_node.base_node::output<val_t>().idx;
-            vec[i] = tlf::Value::Create(vector_leaf[idx + i].f);
+            auto idx = dense_node.template output<val_t>().idx;
+            vec[i] = tlf::Value::Create(vector_leaf[idx * ps.num_classes + i]);
           }
           builder->SetLeafVectorNode(key, vec);
           break;
@@ -824,6 +825,8 @@ std::vector<FilTestParams> predict_dense_inputs = {
   FIL_TEST_PARAMS(num_rows = 103, num_cols = 100'000, depth = 5, num_trees = 1,
                   algo = BATCH_TREE_REORG, leaf_algo = VECTOR_LEAF,
                   num_classes = 3),
+  FIL_TEST_PARAMS(num_rows = 103, num_cols = 5, depth = 5, num_trees = 3,
+                  leaf_algo = VECTOR_LEAF, num_classes = 4000),
 };
 
 TEST_P(PredictDenseFilTest, Predict) { compare(); }
