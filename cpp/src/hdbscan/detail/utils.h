@@ -137,8 +137,8 @@ Common::CondensedHierarchy<value_idx, value_t> make_cluster_tree(
  * @tparam value_idx
  * @tparam value_t
  * @param[in] handle raft handle for resource reuse
- * @param[inout] cluster_tree cluster tree (condensed hierarchy with all nodes of size > 1)
- * @param[in] n_clusters number of clusters
+ * @param[inout] condensed_tree cluster tree (condensed hierarchy with all nodes of size > 1)
+ * @param[in] sorted_parents parents array sorted
  * @param[out] indptr CSR indptr of parents array after sort
  */
 template <typename value_idx, typename value_t>

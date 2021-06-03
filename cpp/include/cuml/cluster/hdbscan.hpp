@@ -51,7 +51,6 @@ class CondensedHierarchy {
    * which already contain a condensed hierarchy.
    * @param handle_
    * @param n_leaves_
-   * @param size_
    * @param n_edges_
    * @param parents_
    * @param children_
@@ -67,8 +66,8 @@ class CondensedHierarchy {
    * rmm::device_uvector. Used to construct cluster trees
    * @param handle_
    * @param n_leaves_
-   * @param size_
    * @param n_edges_
+   * @param n_clusters_
    * @param parents_
    * @param children_
    * @param lambdas_
