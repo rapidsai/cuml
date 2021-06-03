@@ -217,6 +217,7 @@ class UMAPParametrizableTest : public ::testing::Test {
 
     device_buffer<float> embeddings1(alloc, stream,
                                      n_samples * umap_params.n_components);
+
     float* e1 = embeddings1.data();
 
     get_embedding(handle, X_d.data(), (float*)y_d.data(), e1, test_params,
