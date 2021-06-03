@@ -25,7 +25,7 @@ namespace genetic {
 const int GENE_TPB = 256;
 
 // Max size of stack used for AST evaluation
-const int MAX_STACK_SIZE = 10;
+const int MAX_STACK_SIZE = 20;
 
 } // namespace genetic
 } // namespace cuml

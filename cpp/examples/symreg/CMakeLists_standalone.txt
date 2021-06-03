@@ -15,15 +15,13 @@
 #
 cmake_minimum_required(VERSION 3.8 FATAL_ERROR)
 include(ExternalProject)
+
 project(symreg_example VERSION 0.1.0 LANGUAGES CXX CUDA )
 
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 find_package(CUDAToolkit)
-
-# Set path for modules
-set(CMAKE_MODULE_PATH ${CMAKE_CURRENT_BINARY_DIR}/cmake)
 
 # CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES is needed so that cuda_runtime.h is found
 # CUML_INCLUDE_DIR is needed so that genetic/genetic.h and genetic/common.h is found
@@ -53,7 +51,7 @@ else()
 endif()
 
 ##############################################################################
-# Include dependencies
+# Load dependencies
 
 # 1. raft - (header only)
 
@@ -130,6 +128,8 @@ set(CUML_PUBLIC_LINK_LIBRARIES
   ${CUDA_cusparse_LIBRARY})
 
 add_executable(symreg_example symreg_example.cpp)
+add_dependencies(symreg_example raft)
+
 target_include_directories(symreg_example BEFORE PUBLIC ${CUML_INCLUDE_DIRECTORIES})
 
 # Need to set linker language to CUDA to link the CUDA Runtime

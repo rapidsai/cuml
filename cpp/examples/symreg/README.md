@@ -1,5 +1,5 @@
 # symbolic regression
-This subfolder contains an example on how to use cuML kmeans from C++ application
+This subfolder contains an example on how perform symbolic regression in cuML (from C++) 
 There are two `CMakeLists.txt` in this folder:
 1. `CMakeLists.txt` (default) which is included when building cuML
 2. `CMakeLists_standalone.txt` as an example for a stand alone project linking to `libcuml.so`
