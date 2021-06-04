@@ -80,26 +80,26 @@ struct program {
   mutation_t mut_type;
 };  // struct program
 
-/** program_t is the type of the program */
+/** program_t is a shorthand for device programs */
 typedef program* program_t;
 
 /**
  * @brief Calls the execution kernel to evaluate all programs on the given dataset
  * 
  * @param d_progs    Device pointer to programs
- * @param n_samples  Number of rows in the input dataset
+ * @param n_rows     Number of rows in the input dataset
  * @param n_progs    Total number of programs being evaluated
  * @param data       Device pointer to input dataset (in col-major format)
  * @param y_pred     Device pointer to output of program evaluation
  */
-void execute( const raft::handle_t &h, const program_t &d_progs, const int n_samples, const int n_progs,
+void execute( const raft::handle_t &h, const program_t &d_progs, const int n_rows, const int n_progs,
               const float* data, float* y_pred);
 
 /**
  * @brief Compute the loss based on the metric specified in the training hyperparameters. 
  *        It performs a batched computation for all programs in one shot.
  * 
- * @param n_samples The number of labels/rows in the expected output
+ * @param n_rows    The number of labels/rows in the expected output
  * @param n_progs   The number of programs being batched
  * @param y         Device pointer to the expected output (SIZE = n_samples)
  * @param y_pred    Device pointer to the predicted output (SIZE = n_samples * n_progs)
@@ -107,7 +107,7 @@ void execute( const raft::handle_t &h, const program_t &d_progs, const int n_sam
  * @param score     Device pointer to final score (SIZE = n_progs)
  * @param params    Training hyperparameters
  */
-void compute_metric(const raft::handle_t &h, int n_samples, int n_progs,
+void compute_metric(const raft::handle_t &h, int n_rows, int n_progs,
                     const float* y, const float* y_pred, const float* w, 
                     float* score, const param& params);
 
@@ -117,29 +117,32 @@ void compute_metric(const raft::handle_t &h, int n_samples, int n_progs,
  * @param d_prog          Device pointer to program
  * @param score           Device pointer to fitness vals
  * @param params          Training hyperparameters
- * @param n_samples       Number of rows in the input dataset
+ * @param n_rows          Number of rows in the input dataset
  * @param data            Device pointer to input dataset
  * @param y               Device pointer to input labels
  * @param sample_weights  Device pointer to sample weights
  */
-void compute_fitness(const raft::handle_t &h, program_t &d_prog, float* score,
-                     const param &params, const int n_samples, const float* data, 
-                     const float* y, const float* sample_weights);
+void find_fitness ( const raft::handle_t &h, 
+                    program_t &d_prog, float* score,
+                    const param &params, const int n_rows, const float* data, 
+                    const float* y, const float* sample_weights);
 
 /**
  * @brief Computes the fitness scores for all programs on the given dataset 
  * 
+ * @param n_progs         Batch size(Number of programs)
  * @param d_progs         Device pointer to list of programs
  * @param score           Device pointer to fitness vals computed for all programs
  * @param params          Training hyperparameters
- * @param n_samples       Number of rows in the input dataset
+ * @param n_rows          Number of rows in the input dataset
  * @param data            Device pointer to input dataset
  * @param y               Device pointer to input labels
  * @param sample_weights  Device pointer to sample weights
  */
-void compute_batched_fitness(const raft::handle_t &h, program_t &d_progs, float* score,
-                             const param &params, const int n_samples, const float* data, 
-                             const float* y, const float* sample_weights);         
+void find_batched_fitness ( const raft::handle_t &h, 
+                            int n_progs, program_t &d_progs, float* score,
+                            const param &params, const int n_rows, const float* data, 
+                            const float* y, const float* sample_weights);         
 
 /**
  * @brief Computes and sets the fitness scores for a single program on the given dataset
@@ -147,48 +150,50 @@ void compute_batched_fitness(const raft::handle_t &h, program_t &d_progs, float*
  * @param d_prog          Device pointer to program
  * @param h_prog          Host program object
  * @param params          Training hyperparameters
- * @param n_samples       Number of rows in the input dataset
+ * @param n_rows          Number of rows in the input dataset
  * @param data            Device pointer to input dataset
  * @param y               Device pointer to input labels
  * @param sample_weights  Device pointer to sample weights
  */
-void set_fitness(const raft::handle_t &h, program_t &d_prog, program &h_prog,
-                 const param &params, const int n_samples, const float* data,
-                 const float* y, const float* sample_weights);
+void set_fitness( const raft::handle_t &h, 
+                  program_t &d_prog, program &h_prog,
+                  const param &params, const int n_rows, const float* data,
+                  const float* y, const float* sample_weights);
 
 /**
  * @brief Computes and sets the fitness scores for all programs on the given dataset
  * 
+ * @param n_progs         Batch size
  * @param d_progs         Device pointer to list of programs
  * @param h_progs         Host vector of programs corresponding to d_progs
  * @param params          Training hyperparameters
- * @param n_samples       Number of rows in the input dataset
+ * @param n_rows          Number of rows in the input dataset
  * @param data            Device pointer to input dataset
  * @param y               Device pointer to input labels
  * @param sample_weights  Device pointer to sample weights
  */
-void set_batched_fitness( const raft::handle_t &h, program_t &d_progs, std::vector<program> &h_progs,
-                          const param &params, const int n_samples, const float* data,
+void set_batched_fitness( const raft::handle_t &h, 
+                          int n_progs, program_t &d_progs, std::vector<program> &h_progs,
+                          const param &params, const int n_rows, const float* data,
                           const float* y, const float* sample_weights);
 
 /**
  * @brief Returns precomputed fitness score of program on the host, 
- *        after accounting for parsimony(bloat)
+ *        after accounting for parsimony
  * 
  * @param prog    The host program 
  * @param params  Training hyperparameters
  * @return Fitness score corresponding to trained program
  */
-float fitness(const program &prog, const param &params);
+float get_fitness(const program &prog, const param &params);
 
 /**
  * @brief Evaluates and returns the depth of the current program. 
- *        Also sets the program's depth attribute in the process
  * 
  * @param p_out The given program
  * @return The depth of the current program
  */
-int get_depth(program &p_out);
+int get_depth(const program &p_out);
 
 /**
  * @brief Build a random program with depth atmost 10

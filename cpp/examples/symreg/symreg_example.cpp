@@ -265,6 +265,7 @@ int main(int argc, char* argv[]){
   }
 
   // Initialize and allocate device memory
+  std::cout << "***************************************" << std::endl;
   std::cout << "Allocating device memory..." << std::endl;
   raft::handle_t handle;
   std::shared_ptr<ML::deviceAllocator> allocator(
@@ -326,8 +327,11 @@ int main(int argc, char* argv[]){
   float alloc_time;
   cudaEventElapsedTime(&alloc_time,start,stop);
 
+  std::cout << "Allocation time = " << std::setw(10) << alloc_time << "ms" << std::endl;
+
   // Begin training
-  std::cout << "Beginning training on given dataset" << std::endl;
+  std::cout << "***************************************" << std::endl;
+  std::cout << "Beginning training on given dataset..." << std::endl;
   cudaEventRecord(start,stream);
   
   cg::symFit(handle,d_traindata.data(),d_trainlabels.data(),d_trainweights.data(),n_train_rows,n_cols,params,d_finalprogs,history);
@@ -337,60 +341,58 @@ int main(int argc, char* argv[]){
   float training_time;
   cudaEventElapsedTime(&training_time,start,stop);
 
-  int n_gen = history.size();
+  int n_gen = params.num_epochs;
   std::cout << "Finished training for " << n_gen << " generations." << std::endl;
   
   // Find index of best program
   int best_idx = 0;
-  float opt_fitness = history[n_gen-1][0].raw_fitness_;
+  float opt_fitness = history.back()[0].raw_fitness_;
 
   // For all 3 loss functions - min is better
   for (int i=1; i<params.population_size ; ++i){
-    if(history[n_gen-1][i].raw_fitness_ < opt_fitness){
+    if(history.back()[i].raw_fitness_ < opt_fitness){
       best_idx = i;
-      opt_fitness = history[n_gen-1][i].raw_fitness_;
+      opt_fitness = history.back()[i].raw_fitness_;
     }
   }
 
-  std::string eqn = cg::stringify(history[n_gen-1][best_idx]);
-  std::cout << "Best AST index is : " << best_idx << std::endl;
-  std::cout << "Best AST depth : " << cg::get_depth(history[n_gen-1][best_idx]) << std::endl;
-  std::cout << "Best AST length : " << history[n_gen-1][best_idx].len << std::endl;
-  std::cout << "Best AST equation is : " << eqn << std::endl;
-  
-  // Predict values for test dataset
-  std::cout << "Beginning to predict values on test dataset " << std::endl;
-  cudaEventRecord(start,stream);
+  std::string eqn = cg::stringify(history.back()[best_idx]);
+  std::cout << std::setw(30) << "Best AST index :"    << std::setw(10) << best_idx << std::endl;
+  std::cout << std::setw(30) << "Best AST depth :"    << std::setw(10) << history.back()[best_idx].depth << std::endl;
+  std::cout << std::setw(30) << "Best AST length :"   << std::setw(10) << history.back()[best_idx].len << std::endl;
+  std::cout << std::setw(30) << "Best AST equation :" << std::setw(50) << eqn << std::endl;
+  std::cout <<"Training time = "    << std::setw(10) << training_time  << "ms" << std::endl;
 
+  // Predict values for test dataset
+  std::cout << "***************************************" << std::endl;
+  std::cout << "Beginning Inference on Test dataset... " << std::endl;
+  cudaEventRecord(start,stream);
   cuml::genetic::symRegPredict(handle,d_testdata.data(),n_test_rows,d_finalprogs+best_idx,d_predlabels.data());
 
   std::vector<float> h_predlabels(n_test_rows,0.0f);
   CUDA_RT_CALL(cudaMemcpy(h_predlabels.data(),d_predlabels.data(),n_test_rows * sizeof(float),cudaMemcpyDeviceToHost));
   
+  cuml::genetic::compute_metric(handle,n_test_rows,1,
+                                d_testlabels.data(),d_predlabels.data(),d_testweights.data(),
+                                d_score.data(),params);
+
   cudaEventRecord(stop,stream);
   cudaEventSynchronize(stop);
   float inference_time;
   cudaEventElapsedTime(&inference_time,start,stop);
 
-  std::cout << "Some Predicted test values:" << std::endl;
-  std::copy(h_predlabels.begin(),h_predlabels.begin()+10,std::ostream_iterator<float>(std::cout,";"));
-  std::cout << std::endl;
-
-  std::cout << "Some Actual test values:" << std::endl;
-  std::copy(h_testlabels.begin(),h_testlabels.begin()+10,std::ostream_iterator<float>(std::cout,";"));
-  std::cout << std::endl;
 
   // Output fitness score
-  cuml::genetic::compute_metric(handle,n_test_rows,1,
-                                d_testlabels.data(),d_predlabels.data(),d_testweights.data(),
-                                d_score.data(),params);
-
-  std::cout << " Metric Score for test set : " << d_score.value(stream) << std::endl;
+  std::cout << std::setw(30) << "Inference score on test set = " << std::setw(10) << d_score.value(stream) << std::endl;
+  std::cout << "Inference time = "  << std::setw(10) << inference_time << "ms" << std::endl;
   
-  // Print execution time
-  std::cout << std::setw(20) << "Allocation time = " << alloc_time << " ms" << std::endl;
-  std::cout << std::setw(20) << "Training time = "   << training_time << " ms" << std::endl;
-  std::cout << std::setw(20) << "Inference time = "  << inference_time << " ms" << std::endl;
+  std::cout << "Some Predicted test values:" << std::endl;
+  std::copy(h_predlabels.begin(),h_predlabels.begin()+5,std::ostream_iterator<float>(std::cout,";"));
+  std::cout << std::endl;
+
+  std::cout << "Corresponding Actual test values:" << std::endl;
+  std::copy(h_testlabels.begin(),h_testlabels.begin()+5,std::ostream_iterator<float>(std::cout,";"));
+  std::cout << std::endl;
 
   // Free up device memory
   handle.get_device_allocator()->deallocate(d_finalprogs,

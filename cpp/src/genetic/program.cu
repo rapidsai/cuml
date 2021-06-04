@@ -109,77 +109,79 @@ program& program::operator=(const program& src){
   return *this;
 }
 
-void compute_metric(const raft::handle_t &h, int n_samples, int n_progs, 
+void compute_metric(const raft::handle_t &h, int n_rows, int n_progs, 
                     const float* y, const float* y_pred, const float* w, 
                     float* score, const param& params) {
   // Call appropriate metric function based on metric defined in params
   if(params.metric == metric_t::pearson){
-    _weighted_pearson(h, n_samples, n_progs, y, y_pred, w, score);
+    _weighted_pearson(h, n_rows, n_progs, y, y_pred, w, score);
   } 
   else if(params.metric == metric_t::spearman){
-    _weighted_spearman(h, n_samples, n_progs, y, y_pred, w, score);
+    _weighted_spearman(h, n_rows, n_progs, y, y_pred, w, score);
   } 
   else if(params.metric == metric_t::mae){
-    _mean_absolute_error(h, n_samples, n_progs, y, y_pred, w, score);
+    _mean_absolute_error(h, n_rows, n_progs, y, y_pred, w, score);
   } 
   else if(params.metric == metric_t::mse){
-    _mean_square_error(h, n_samples, n_progs, y, y_pred, w, score);
+    _mean_square_error(h, n_rows, n_progs, y, y_pred, w, score);
   } 
   else if(params.metric == metric_t::rmse){
-    _root_mean_square_error(h, n_samples, n_progs, y, y_pred, w, score);
+    _root_mean_square_error(h, n_rows, n_progs, y, y_pred, w, score);
   } 
   else if(params.metric == metric_t::logloss){
-    _log_loss(h, n_samples, n_progs, y, y_pred, w, score);
+    _log_loss(h, n_rows, n_progs, y, y_pred, w, score);
   } 
   else{
     // This should not be reachable
   }
 }
 
-void execute(const raft::handle_t &h, const program_t &d_progs, const int n_samples, 
+void execute(const raft::handle_t &h, const program_t &d_progs, const int n_rows, 
              const int n_progs, const float* data, float* y_pred){
   cudaStream_t stream = h.get_stream();
 
-  dim3 blks(raft::ceildiv(n_samples,GENE_TPB),n_progs,1);
-  execute_kernel<<<blks,GENE_TPB,0,stream>>>(d_progs, data, y_pred, n_samples, n_progs);
+  dim3 blks(raft::ceildiv(n_rows,GENE_TPB),n_progs,1);
+  execute_kernel<<<blks,GENE_TPB,0,stream>>>(d_progs, data, y_pred, n_rows, n_progs);
   CUDA_CHECK(cudaPeekAtLastError());
 
 }
 
-void compute_fitness(const raft::handle_t &h, program_t &d_prog, float* score,
-                     const param &params, const int n_samples, const float* data, 
-                     const float* y, const float* sample_weights) {
+void find_fitness ( const raft::handle_t &h, 
+                    program_t &d_prog, float* score,
+                    const param &params, const int n_rows, const float* data, 
+                    const float* y, const float* sample_weights) {
   cudaStream_t stream = h.get_stream();
 
   // Compute predicted values
-  rmm::device_uvector<float> y_pred(n_samples, stream);
-  execute(h, d_prog, n_samples, 1, data, y_pred.data());
+  rmm::device_uvector<float> y_pred(n_rows, stream);
+  execute(h, d_prog, n_rows, 1, data, y_pred.data());
 
   // Compute error
-  compute_metric(h, n_samples, 1, y, y_pred.data(), sample_weights, score, params);
+  compute_metric(h, n_rows, 1, y, y_pred.data(), sample_weights, score, params);
 }
 
-void compute_batched_fitness(const raft::handle_t &h, program_t &d_progs, float* score,
-                             const param &params, const int n_samples, const float* data, 
-                             const float* y, const float* sample_weights){
+void find_batched_fitness ( const raft::handle_t &h, 
+                            int n_progs, program_t &d_progs, float* score,
+                            const param &params, const int n_rows, const float* data, 
+                            const float* y, const float* sample_weights) {
   cudaStream_t stream = h.get_stream();
-  int n_progs         = params.population_size;
 
-  rmm::device_uvector<float> y_pred(n_samples * n_progs, stream);
-  execute(h, d_progs, n_samples, n_progs, data, y_pred.data());
+  rmm::device_uvector<float> y_pred(n_rows * n_progs, stream);
+  execute(h, d_progs, n_rows, n_progs, data, y_pred.data());
 
   // Compute error
-  compute_metric(h, n_samples, n_progs, y, y_pred.data(), sample_weights, score, params);
+  compute_metric(h, n_rows, n_progs, y, y_pred.data(), sample_weights, score, params);
 }
 
-void set_fitness(const raft::handle_t &h, program_t &d_prog, program &h_prog,
-                 const param &params, const int n_samples, const float* data,
-                 const float* y, const float* sample_weights) {
+void set_fitness( const raft::handle_t &h, 
+                  program_t &d_prog, program &h_prog,
+                  const param &params, const int n_rows, const float* data,
+                  const float* y, const float* sample_weights) {
   cudaStream_t stream = h.get_stream();
 
   rmm::device_uvector<float> score(1, stream);
 
-  compute_fitness(h, d_prog, score.data(), params, n_samples, data, y, sample_weights);
+  find_fitness(h, d_prog, score.data(), params, n_rows, data, y, sample_weights);
 
   // Update host and device score for program
   CUDA_CHECK(cudaMemcpyAsync( &d_prog[0].raw_fitness_, score.data(), sizeof(float), 
@@ -187,16 +189,16 @@ void set_fitness(const raft::handle_t &h, program_t &d_prog, program &h_prog,
   h_prog.raw_fitness_ = score.front_element(stream);
 }
 
-void set_batched_fitness( const raft::handle_t &h, program_t &d_progs,
-                     std::vector<program> &h_progs, const param &params, const int n_samples,
-                     const float* data, const float* y, const float* sample_weights) {
+void set_batched_fitness( const raft::handle_t &h, 
+                          int n_progs, program_t &d_progs, std::vector<program> &h_progs,
+                          const param &params, const int n_rows, const float* data, 
+                          const float* y, const float* sample_weights) {
 
   cudaStream_t stream   = h.get_stream();
-  auto n_progs           = params.population_size;
   
   rmm::device_uvector<float> score(n_progs,stream);
 
-  compute_batched_fitness(h,d_progs,score.data(),params,n_samples,data,y,sample_weights);
+  find_batched_fitness(h,n_progs,d_progs,score.data(),params,n_rows,data,y,sample_weights);
   
   // Update scores on host and device
   // TODO: Find a way to reduce the number of implicit memory transfers
@@ -207,7 +209,7 @@ void set_batched_fitness( const raft::handle_t &h, program_t &d_progs,
   }
 }
 
-float fitness(const program &prog, const param &params) { 
+float get_fitness(const program &prog, const param &params) { 
   int crit      = params.criterion();
   float penalty = params.parsimony_coefficient * prog.len * (2*crit - 1);
   return (prog.raw_fitness_ - penalty);
@@ -266,9 +268,9 @@ std::pair<int, int> get_subtree(node* pnodes, int len, std::mt19937 &rng) {
   return std::make_pair(start,end);
 }
 
-int get_depth(program &p_out){
+int get_depth(const program &p_out){
   
-  auto depth = 0;
+  int depth = 0;
   std::stack<int> arity_stack;
   for(auto i = 0; i < p_out.len ; ++i){
     
@@ -279,11 +281,9 @@ int get_depth(program &p_out){
     depth = std::max(depth,sz);
     
     // Update stack
-    if(curr.is_nonterminal()){
-      arity_stack.push(curr.arity());
-    }
+    if(curr.is_nonterminal()){arity_stack.push(curr.arity());}
     else{
-      // Only triggered for depth 0 node
+      // Only triggered for a depth 0 node
       if(arity_stack.empty())break;
 
       int e = arity_stack.top();
@@ -301,8 +301,6 @@ int get_depth(program &p_out){
     }
   }
 
-  // Set and return depth 
-  p_out.depth = depth;
   return depth;
 }
 
@@ -491,6 +489,8 @@ void crossover(const program &prog, const program &donor, program &p_out, const 
     output_depth = get_depth(p_out);
   } while(output_depth >= MAX_STACK_SIZE);
 
+  // Set the depth of the final program
+  p_out.depth = output_depth;
 }
 
 void subtree_mutation(const program &prog, program &p_out, const param &params, std::mt19937 &rng){

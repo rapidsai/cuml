@@ -227,7 +227,7 @@ void parallel_evolve(const raft::handle_t &h,
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   // Update raw fitness for all programs
-  set_batched_fitness(h, d_nextprogs, h_nextprogs, params, n_samples, data, y, sample_weights);
+  set_batched_fitness(h, n_progs, d_nextprogs, h_nextprogs, params, n_samples, data, y, sample_weights);
 }
   
 float param::p_reproduce() const { return detail::p_reproduce(*this); }
@@ -383,9 +383,10 @@ std::string stringify(const program &prog){
   return eqn;
 }
 
-void symFit(const raft::handle_t &handle, const float* input, const float* labels, 
-            const float* sample_weights, const int n_rows, const int n_cols, param &params, 
-            program_t &final_progs, std::vector<std::vector<program>> &history) {
+void symFit ( const raft::handle_t &handle, 
+              const float* input, const float* labels, const float* sample_weights, 
+              const int n_rows, const int n_cols, param &params, 
+              program_t &final_progs, std::vector<std::vector<program>> &history) {
   cudaStream_t stream = handle.get_stream();
   
   // Update arity map in params - Need to do this only here, as all operations will call Fit atleast once
@@ -429,19 +430,32 @@ void symFit(const raft::handle_t &handle, const float* input, const float* label
   
   /* Begin training */
   auto gen = 0;
+  params.num_epochs = 0;    
+
   while(gen < params.generations){
     // Generate an init seed
     auto init_seed = seed_dist(h_gen_engine);
     
     // Evolve current generation
-    parallel_evolve(handle,h_currprogs,d_currprogs,h_nextprogs,d_nextprogs,
-                    n_rows,input,labels,sample_weights,params,(gen+1),init_seed);
+    parallel_evolve(handle,
+                    h_currprogs,d_currprogs,
+                    h_nextprogs,d_nextprogs,
+                    n_rows,input,labels,
+                    sample_weights,params,(gen+1),init_seed);
+    
+    // Update epochs
+    ++params.num_epochs;
 
     // Update h_currprogs (deepcopy)
     h_currprogs = h_nextprogs;
 
-    // Update evolution history (deepcopy)
-    history.push_back(h_currprogs);
+    // Update evolution history, depending on the low memory flag
+    if(!params.low_memory || gen==0){
+      history.push_back(h_currprogs);
+    }
+    else{
+      history.back() = h_currprogs;
+    }
 
     // Swap d_currprogs(to preserve device memory)
     program_t d_tmp = d_currprogs;
