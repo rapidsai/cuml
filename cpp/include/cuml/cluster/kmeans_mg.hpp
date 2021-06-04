@@ -47,11 +47,13 @@ namespace opg {
  */
 
 void fit(const raft::handle_t &handle, const KMeansParams &params,
-         const float *X, int n_samples, int n_features, float *centroids,
+         const float *X, int n_samples, int n_features, 
+         const float *sample_weight, float *centroids,
          float &inertia, int &n_iter);
 
 void fit(const raft::handle_t &handle, const KMeansParams &params,
-         const double *X, int n_samples, int n_features, double *centroids,
+         const double *X, int n_samples, int n_features, 
+         const double *sample_weight, double *centroids,
          double &inertia, int &n_iter);
 
 };  // end namespace opg

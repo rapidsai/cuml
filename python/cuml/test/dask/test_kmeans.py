@@ -101,77 +101,63 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts,
 @pytest.mark.parametrize('n_parts', [1, 5])
 @pytest.mark.parametrize('random_state', [i for i in [0, 100]])
 def test_weighted_kmeans(nrows, ncols, nclusters, random_state,
-                         n_parts, cluster):
+                         n_parts, client):
     cluster_std = 10000.0
     np.random.seed(random_state)
+    from cuml.dask.cluster import KMeans as cumlKMeans
 
-    client = None
+    from cuml.dask.datasets import make_blobs
 
-    try:
+    # Using fairly high variance between points in clusters
+    wt = np.array([0.00001 for j in range(nrows)])
 
-        client = Client(cluster)
-        from cuml.dask.cluster import KMeans as cumlKMeans
+    bound = nclusters * 100000
 
-        from cuml.dask.datasets import make_blobs
+    # Open the space really large
+    centers = cp.random.uniform(-bound, bound,
+                                size=(nclusters, ncols))
 
-        # Using fairly high variance between points in clusters
-        wt = np.array([0.00001 for j in range(nrows)])
+    X_cudf, y = make_blobs(n_samples=nrows,
+                           n_features=ncols,
+                           centers=centers,
+                           n_parts=n_parts,
+                           cluster_std=cluster_std,
+                           shuffle=False,
+                           verbose=False,
+                           random_state=10)
+    y_arr = y.compute()
 
-        bound = nclusters * 100000
+    # Choose one sample from each label and increase its weight
+    for i in range(nclusters):
+        wt[cp.argmax(cp.array(y_arr) == i).item()] = 5000.0
 
-        # Open the space really large
-        centers = np.random.uniform(-bound, bound,
-                                    size=(nclusters, ncols))
+    cumlModel = cumlKMeans(verbose=0, init="k-means||",
+                            n_clusters=nclusters,
+                            random_state=10)
 
-        X_cudf, y = make_blobs(n_samples=nrows,
-                               n_features=ncols,
-                               centers=centers,
-                               n_parts=n_parts,
-                               cluster_std=cluster_std,
-                               shuffle=False,
-                               verbose=False,
-                               random_state=10)
+    chunk_parts = int(nrows / n_parts)
+    sample_weights = da.from_array(wt, chunks=(chunk_parts, ))
+    cumlModel.fit(X_cudf, sample_weight=sample_weights)
 
-        wait(X_cudf)
+    X = X_cudf.compute()
 
-        y_arr = y.compute().as_gpu_matrix().copy_to_host()
+    labels_ = cumlModel.predict(X_cudf).compute()
+    cluster_centers_ = cumlModel.cluster_centers_
 
-        # Choose one sample from each label and increase its weight
-        for i in range(nclusters):
-            wt[cp.argmax(cp.array(y_arr) == i).item()] = 5000.0
+    for i in range(nrows):
 
-        cumlModel = cumlKMeans(verbose=0, init="k-means||",
-                               n_clusters=nclusters,
-                               random_state=10)
+        label = labels_[i]
+        actual_center = cluster_centers_[label]
 
-        chunk_parts = int(nrows / n_parts)
-        sample_weights = da.from_array(wt, chunks=(chunk_parts, ))
-        cumlModel.fit(X_cudf, sample_weight=sample_weights)
+        diff = sum(abs(X[i] - actual_center))
 
-        X = X_cudf.compute().as_gpu_matrix()
+        # The large weight should be the centroid
+        if wt[i] > 1.0:
+            assert diff < 1.0
 
-        labels_ = cumlModel.predict(X_cudf).compute()\
-            .to_gpu_array().copy_to_host()
-        cluster_centers_ = cumlModel.cluster_centers_\
-            .as_gpu_matrix().copy_to_host()
-
-        for i in range(nrows):
-
-            label = labels_[i]
-            actual_center = cluster_centers_[label]
-
-            diff = sum(abs(X[i].copy_to_host() - actual_center))
-
-            # The large weight should be the centroid
-            if wt[i] > 1.0:
-                assert diff < 1.0
-
-            # Otherwise it should be pretty far away
-            else:
-                assert diff > 1000.0
-
-    finally:
-        client.close()
+        # Otherwise it should be pretty far away
+        else:
+            assert diff > 1000.0
 
 
 @pytest.mark.mg

@@ -381,7 +381,7 @@ void initKMeansPlusPlus(const raft::handle_t &handle,
 
 template <typename DataT, typename IndexT>
 void fit(const raft::handle_t &handle, const KMeansParams &params,
-         Tensor<DataT, 2, IndexT> &X,
+         Tensor<DataT, 2, IndexT> &X, Tensor<DataT, 1, IndexT> &weight,
          MLCommon::device_buffer<DataT> &centroidsRawData, DataT &inertia,
          int &n_iter, MLCommon::device_buffer<char> &workspace) {
   const auto &comm = handle.get_comms();
@@ -409,10 +409,10 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
   Tensor<DataT, 2, IndexT> newCentroids({n_clusters, n_features},
                                         handle.get_device_allocator(), stream);
 
-  // temporary buffer to store the sample count per cluster, destructor releases
+  // temporary buffer to store the weights per cluster, destructor releases
   // the resource
-  Tensor<int, 1, IndexT> sampleCountInCluster(
-    {n_clusters}, handle.get_device_allocator(), stream);
+  Tensor<DataT, 1, IndexT> wtInCluster({n_clusters}, 
+                                       handle.get_device_allocator(), stream);
 
   // L2 norm of X: ||x||^2
   Tensor<DataT, 1> L2NormX({n_samples}, handle.get_device_allocator(), stream);
@@ -452,21 +452,22 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
 
     workspace.resize(n_samples, stream);
 
-    // Calculates sum of all the samples assigned to cluster-i and store the
-    // result in newCentroids[i]
+    // Calculates weighted sum of all the samples assigned to cluster-i and
+    // store the result in newCentroids[i]
     MLCommon::LinAlg::reduce_rows_by_key(
-      X.data(), X.getSize(1), itr, workspace.data(), X.getSize(0), X.getSize(1),
-      n_clusters, newCentroids.data(), stream);
-
-    // count # of samples in each cluster
-    kmeans::detail::countLabels(handle, itr, sampleCountInCluster.data(),
-                                n_samples, n_clusters, workspace, stream);
+      X.data(), X.getSize(1), itr, weight.data(), workspace.data(), X.getSize(0),
+      X.getSize(1), n_clusters, newCentroids.data(), stream);
+    
+    // Reduce weights by key to compute weight in each cluster
+    MLCommon::LinAlg::reduce_cols_by_key(weight.data(), itr, wtInCluster.data(),
+                                         1, weight.getSize(0), n_clusters,
+                                         stream);
 
     // merge the local histogram from all ranks
-    comm.allreduce<int>(sampleCountInCluster.data(),         // sendbuff
-                        sampleCountInCluster.data(),         // recvbuff
-                        sampleCountInCluster.numElements(),  // count
-                        raft::comms::op_t::SUM, stream);
+    comm.allreduce<DataT>(wtInCluster.data(),         // sendbuff
+                          wtInCluster.data(),         // recvbuff
+                          wtInCluster.numElements(),  // count
+                          raft::comms::op_t::SUM, stream);
 
     // reduces newCentroids from all ranks
     comm.allreduce<DataT>(newCentroids.data(),         // sendbuff
@@ -474,53 +475,38 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
                           newCentroids.numElements(),  // count
                           raft::comms::op_t::SUM, stream);
 
-    // Computes newCentroids[i] = newCentroids[i]/sampleCountInCluster[i] where
-    //   newCentroids[n_samples x n_features] - 2D array, newCentroids[i] has
+    // Computes newCentroids[i] = newCentroids[i]/wtInCluster[i] where
+    //   newCentroids[n_clusters x n_features] - 2D array, newCentroids[i] has 
     //   sum of all the samples assigned to cluster-i
-    //   sampleCountInCluster[n_clusters] - 1D array, sampleCountInCluster[i]
-    //   contains # of samples in cluster-i.
-    // Note - when sampleCountInCluster[i] is 0, newCentroid[i] is reset to 0
-
-    // transforms int values in sampleCountInCluster to its inverse and more
-    // importantly to DataT because matrixVectorOp supports only when matrix and
-    // vector are of same type
-    workspace.resize(sampleCountInCluster.numElements() * sizeof(DataT),
-                     stream);
-    auto sampleCountInClusterInverse = std::move(
-      Tensor<DataT, 1, IndexT>((DataT *)workspace.data(), {n_clusters}));
-
-    ML::thrustAllocatorAdapter alloc(handle.get_device_allocator(), stream);
-    auto execution_policy = thrust::cuda::par(alloc).on(stream);
-    thrust::transform(
-      execution_policy, sampleCountInCluster.begin(),
-      sampleCountInCluster.end(), sampleCountInClusterInverse.begin(),
-      [=] __device__(int count) {
-        if (count == 0)
-          return static_cast<DataT>(0);
-        else
-          return static_cast<DataT>(1.0) / static_cast<DataT>(count);
-      });
+    //   wtInCluster[n_clusters] - 1D array, wtInCluster[i] contains # of
+    //   samples in cluster-i.
+    // Note - when wtInCluster[i] is 0, newCentroid[i] is reset to 0
 
     raft::linalg::matrixVectorOp(
       newCentroids.data(), newCentroids.data(),
-      sampleCountInClusterInverse.data(), newCentroids.getSize(1),
+      wtInCluster.data(), newCentroids.getSize(1),
       newCentroids.getSize(0), true, false,
-      [=] __device__(DataT mat, DataT vec) { return mat * vec; }, stream);
+      [=] __device__(DataT mat, DataT vec) {
+        if (vec == 0)
+          return DataT(0);
+        else
+        return mat / vec;
+      },
+      stream);
 
-    // copy the centroids[i] to newCentroids[i] when sampleCountInCluster[i] is
-    // 0
-    cub::ArgIndexInputIterator<int *> itr_sc(sampleCountInCluster.data());
+    // copy the centroids[i] to newCentroids[i] when wtInCluster[i] is 0
+    cub::ArgIndexInputIterator<DataT *> itr_wt(wtInCluster.data());
     MLCommon::Matrix::gather_if(
-      centroids.data(), centroids.getSize(1), centroids.getSize(0), itr_sc,
-      itr_sc, sampleCountInCluster.numElements(), newCentroids.data(),
-      [=] __device__(cub::KeyValuePair<ptrdiff_t, int> map) {  // predicate
+      centroids.data(), centroids.getSize(1), centroids.getSize(0), itr_wt,
+      itr_wt, wtInCluster.numElements(), newCentroids.data(),
+      [=] __device__(cub::KeyValuePair<ptrdiff_t, DataT> map) {  // predicate
         // copy when the # of samples in the cluster is 0
         if (map.value == 0)
           return true;
         else
           return false;
       },
-      [=] __device__(cub::KeyValuePair<ptrdiff_t, int> map) {  // map
+      [=] __device__(cub::KeyValuePair<ptrdiff_t, DataT> map) {  // map
         return map.key;
       },
       stream);
@@ -599,6 +585,7 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
 template <typename DataT, typename IndexT = int>
 void fit(const raft::handle_t &handle, const KMeansParams &params,
          const DataT *X, const int n_local_samples, const int n_features,
+         const DataT *sample_weight,
          DataT *centroids, DataT &inertia, int &n_iter) {
   cudaStream_t stream = handle.get_stream();
 
@@ -612,6 +599,16 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
 
   Tensor<DataT, 2, IndexT> data((DataT *)X, {n_local_samples, n_features});
 
+  Tensor<DataT, 1, IndexT> weight({n_local_samples}, handle.get_device_allocator(),
+                                  stream);
+  if (sample_weight != nullptr) {
+    raft::copy(weight.data(), sample_weight, n_local_samples, stream);
+  } else {
+    ML::thrustAllocatorAdapter alloc(handle.get_device_allocator(), stream);
+    auto thrust_exec_policy = thrust::cuda::par(alloc).on(stream);
+    thrust::fill(thrust_exec_policy, weight.begin(), weight.end(), 1);
+  }
+
   // underlying expandable storage that holds centroids data
   MLCommon::device_buffer<DataT> centroidsRawData(handle.get_device_allocator(),
                                                   stream);
@@ -619,6 +616,9 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
   // Device-accessible allocation of expandable storage used as temorary buffers
   MLCommon::device_buffer<char> workspace(handle.get_device_allocator(),
                                           stream);
+
+  // check if weights sum up to n_samples
+  kmeans::detail::checkWeights(handle, workspace, weight, stream);
 
   if (params.init == KMeansParams::InitMethod::Random) {
     // initializing with random samples from input dataset
@@ -648,7 +648,7 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
     THROW("unknown initialization method to select initial centers");
   }
 
-  fit(handle, params, data, centroidsRawData, inertia, n_iter, workspace);
+  fit(handle, params, data, weight, centroidsRawData, inertia, n_iter, workspace);
 
   raft::copy(centroids, centroidsRawData.data(), params.n_clusters * n_features,
              stream);
