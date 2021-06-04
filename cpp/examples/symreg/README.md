@@ -65,20 +65,23 @@ Reading input with 250 rows and 2 columns from train_data.txt.
 Reading input with 250 rows from train_labels.txt.
 Reading input with 50 rows and 2 columns from test_data.txt.
 Reading input with 50 rows from test_labels.txt.
+***************************************
 Allocating device memory...
-Beginning training on given dataset
+Allocation time =   0.259072ms
+***************************************
+Beginning training on given dataset...
 Finished training for 4 generations.
-Best AST index is : 1855
-Best AST depth : 3
-Best AST length : 13
-Best AST equation is : ( add( sub( mult( X0, X0) , div( X1, X1) ) , sub( X1, mult( X1, X1) ) ) )
-Beginning to predict values on test dataset 
+              Best AST index :      1855
+              Best AST depth :         3
+             Best AST length :        13
+           Best AST equation :( add( sub( mult( X0, X0) , div( X1, X1) ) , sub( X1, mult( X1, X1) ) ) )
+Training time =    626.658ms
+***************************************
+Beginning Inference on Test dataset... 
+Inference score on test set = 5.29271e-08
+Inference time =    0.35248ms
 Some Predicted test values:
--1.65061;-1.64081;-0.91711;-2.28976;-0.280688;-0.229724;-0.442166;-0.771308;-1.68128;-0.664857;
-Some Actual test values:
--1.65061;-1.64081;-0.91711;-2.28976;-0.280688;-0.229724;-0.442166;-0.771308;-1.68128;-0.664857;
- Metric Score for test set : 5.29271e-08
-  Allocation time = 0.237088 ms
-    Training time = 658.542 ms
-   Inference time = 0.195936 ms
+-1.65061;-1.64081;-0.91711;-2.28976;-0.280688;
+Corresponding Actual test values:
+-1.65061;-1.64081;-0.91711;-2.28976;-0.280688;
 ```
