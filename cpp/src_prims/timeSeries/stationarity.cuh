@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,12 +35,12 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
-#include <common/device_buffer.hpp>
-#include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/reduce.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/stats/mean.cuh>
-#include <timeSeries/arima_helpers.cuh>
+#include "arima_helpers.cuh"
 
 namespace MLCommon {
 
@@ -194,7 +194,8 @@ struct which_col : thrust::unary_function<IdxT, IdxT> {
  */
 template <typename DataT, typename IdxT>
 static void _kpss_test(const DataT* d_y, bool* results, IdxT batch_size,
-                       IdxT n_obs, std::shared_ptr<deviceAllocator> allocator,
+                       IdxT n_obs,
+                       std::shared_ptr<raft::mr::device::allocator> allocator,
                        cudaStream_t stream, DataT pval_threshold) {
   constexpr int TPB = 256;
   dim3 block = choose_block_dims<TPB>(batch_size);
@@ -281,7 +282,8 @@ static void _kpss_test(const DataT* d_y, bool* results, IdxT batch_size,
  */
 template <typename DataT, typename IdxT>
 void kpss_test(const DataT* d_y, bool* results, IdxT batch_size, IdxT n_obs,
-               int d, int D, int s, std::shared_ptr<deviceAllocator> allocator,
+               int d, int D, int s,
+               std::shared_ptr<raft::mr::device::allocator> allocator,
                cudaStream_t stream, DataT pval_threshold = 0.05) {
   const DataT* d_y_diff;
 

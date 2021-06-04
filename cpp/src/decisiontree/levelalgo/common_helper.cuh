@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,8 @@
 #include <stats/minmax.cuh>
 #include "common_kernel.cuh"
 
+#include <common/nvtx.hpp>
+
 namespace ML {
 namespace DecisionTree {
 
@@ -38,6 +40,8 @@ void update_feature_sampling(unsigned int *h_colids, unsigned int *d_colids,
                              std::vector<unsigned int> &feature_selector,
                              std::shared_ptr<TemporaryMemory<T, L>> tempmem,
                              raft::random::Rng &d_rng) {
+  ML::PUSH_RANGE(
+    "update_feature_sampling @common_helper.cuh (does feature subsampling)");
   if (h_colstart != nullptr) {
     if (Ncols != ncols_sampled) {
       std::shuffle(h_colids, h_colids + Ncols, rng);
@@ -63,6 +67,7 @@ void update_feature_sampling(unsigned int *h_colids, unsigned int *d_colids,
     raft::update_device(d_colids, h_colids, ncols_sampled * n_nodes,
                         tempmem->stream);
   }
+  ML::POP_RANGE();
 }
 
 //This function calcualtes min/max from the samples that belong in a given node. This is done for all the nodes at a given level
@@ -104,6 +109,7 @@ void get_minmax(const T *data, const unsigned int *flags,
 void setup_sampling(unsigned int *flagsptr, unsigned int *sample_cnt,
                     const unsigned int *rowids, const int nrows,
                     const int n_sampled_rows, cudaStream_t &stream) {
+  ML::PUSH_RANGE("DecisionTree::setup_sampling @common_helper.cuh");
   CUDA_CHECK(cudaMemsetAsync(sample_cnt, 0, nrows * sizeof(int), stream));
   int threads = 256;
   int blocks = raft::ceildiv(n_sampled_rows, threads);
@@ -114,6 +120,7 @@ void setup_sampling(unsigned int *flagsptr, unsigned int *sample_cnt,
   setup_flags_kernel<<<blocks, threads, 0, stream>>>(sample_cnt, flagsptr,
                                                      nrows);
   CUDA_CHECK(cudaGetLastError());
+  ML::POP_RANGE();  //setup_sampling @common_helper.cuh
 }
 
 //This function call the split kernel

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -29,10 +29,14 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.array import CumlArray
-from cuml.common.base import Base, RegressorMixin
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.base import Base
+from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
+from cuml.linear_model.base import LinearPredictMixin
 from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
+from cuml.common.mixins import FMajorInputTagMixin
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
@@ -56,24 +60,11 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                      bool fit_intercept,
                      bool normalize, int algo) except +
 
-    cdef void olsPredict(handle_t& handle,
-                         const float *input,
-                         int n_rows,
-                         int n_cols,
-                         const float *coef,
-                         float intercept,
-                         float *preds) except +
 
-    cdef void olsPredict(handle_t& handle,
-                         const double *input,
-                         int n_rows,
-                         int n_cols,
-                         const double *coef,
-                         double intercept,
-                         double *preds) except +
-
-
-class LinearRegression(Base, RegressorMixin):
+class LinearRegression(Base,
+                       RegressorMixin,
+                       LinearPredictMixin,
+                       FMajorInputTagMixin):
 
     """
     LinearRegression is a simple machine learning model where the response y is
@@ -162,7 +153,7 @@ class LinearRegression(Base, RegressorMixin):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Attributes
@@ -189,7 +180,7 @@ class LinearRegression(Base, RegressorMixin):
         is a regression task (predicting a continuous variable).
 
     For additional information, see `scikitlearn's OLS documentation
-    <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
+    <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`__.
 
     For an additional example see `the OLS notebook
     <https://github.com/rapidsai/cuml/blob/branch-0.15/notebooks/linear_regression_demo.ipynb>`_.
@@ -197,15 +188,18 @@ class LinearRegression(Base, RegressorMixin):
 
     """
 
-    def __init__(self, algorithm='eig', fit_intercept=True, normalize=False,
+    coef_ = CumlArrayDescriptor()
+    intercept_ = CumlArrayDescriptor()
+
+    def __init__(self, *, algorithm='eig', fit_intercept=True, normalize=False,
                  handle=None, verbose=False, output_type=None):
-        super(LinearRegression, self).__init__(handle=handle,
-                                               verbose=verbose,
-                                               output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
 
         # internal array attributes
-        self._coef_ = None  # accessed via estimator.coef_
-        self._intercept_ = None  # accessed via estimator.intercept_
+        self.coef_ = None
+        self.intercept_ = None
 
         self.fit_intercept = fit_intercept
         self.normalize = normalize
@@ -225,13 +219,11 @@ class LinearRegression(Base, RegressorMixin):
         }[algorithm]
 
     @generate_docstring()
-    def fit(self, X, y, convert_dtype=True):
+    def fit(self, X, y, convert_dtype=True) -> "LinearRegression":
         """
         Fit the model with X and y.
 
         """
-        self._set_base_attributes(output_type=X, n_features=X)
-
         cdef uintptr_t X_ptr, y_ptr
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
@@ -258,8 +250,8 @@ class LinearRegression(Base, RegressorMixin):
                           "column currently.", UserWarning)
             self.algo = 0
 
-        self._coef_ = CumlArray.zeros(self.n_cols, dtype=self.dtype)
-        cdef uintptr_t coef_ptr = self._coef_.ptr
+        self.coef_ = CumlArray.zeros(self.n_cols, dtype=self.dtype)
+        cdef uintptr_t coef_ptr = self.coef_.ptr
 
         cdef float c_intercept1
         cdef double c_intercept2
@@ -299,56 +291,6 @@ class LinearRegression(Base, RegressorMixin):
         del y_m
 
         return self
-
-    @generate_docstring(return_values={'name': 'preds',
-                                       'type': 'dense',
-                                       'description': 'Predicted values',
-                                       'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=True):
-        """
-        Predicts `y` values for `X`.
-
-        """
-
-        out_type = self._get_output_type(X)
-
-        cdef uintptr_t X_ptr
-        X_m, n_rows, n_cols, dtype = \
-            input_to_cuml_array(X, check_dtype=self.dtype,
-                                convert_to_dtype=(self.dtype if convert_dtype
-                                                  else None),
-                                check_cols=self.n_cols)
-        X_ptr = X_m.ptr
-
-        cdef uintptr_t coef_ptr = self._coef_.ptr
-
-        preds = CumlArray.zeros(n_rows, dtype=dtype)
-        cdef uintptr_t preds_ptr = preds.ptr
-
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-
-        if dtype.type == np.float32:
-            olsPredict(handle_[0],
-                       <float*>X_ptr,
-                       <int>n_rows,
-                       <int>n_cols,
-                       <float*>coef_ptr,
-                       <float>self.intercept_,
-                       <float*>preds_ptr)
-        else:
-            olsPredict(handle_[0],
-                       <double*>X_ptr,
-                       <int>n_rows,
-                       <int>n_cols,
-                       <double*>coef_ptr,
-                       <double>self.intercept_,
-                       <double*>preds_ptr)
-
-        self.handle.sync()
-
-        del(X_m)
-
-        return preds.to_output(out_type)
 
     def get_param_names(self):
         return super().get_param_names() + \

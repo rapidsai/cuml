@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ namespace Distance {
 template <typename DataType>
 __global__ void naiveDistanceKernel(DataType *dist, const DataType *x,
                                     const DataType *y, int m, int n, int k,
-                                    ML::Distance::DistanceType type,
+                                    raft::distance::DistanceType type,
                                     bool isRowMajor) {
   int midx = threadIdx.x + blockIdx.x * blockDim.x;
   int nidx = threadIdx.y + blockIdx.y * blockDim.y;
@@ -39,8 +39,8 @@ __global__ void naiveDistanceKernel(DataType *dist, const DataType *x,
     auto diff = x[xidx] - y[yidx];
     acc += diff * diff;
   }
-  if (type == ML::Distance::DistanceType::EucExpandedL2Sqrt ||
-      type == ML::Distance::DistanceType::EucUnexpandedL2Sqrt)
+  if (type == raft::distance::DistanceType::L2SqrtExpanded ||
+      type == raft::distance::DistanceType::L2SqrtUnexpanded)
     acc = raft::mySqrt(acc);
   int outidx = isRowMajor ? midx * n + nidx : midx + m * nidx;
   dist[outidx] = acc;
@@ -103,24 +103,24 @@ __global__ void naiveCosineDistanceKernel(DataType *dist, const DataType *x,
 
 template <typename DataType>
 void naiveDistance(DataType *dist, const DataType *x, const DataType *y, int m,
-                   int n, int k, ML::Distance::DistanceType type,
+                   int n, int k, raft::distance::DistanceType type,
                    bool isRowMajor) {
   static const dim3 TPB(16, 32, 1);
   dim3 nblks(raft::ceildiv(m, (int)TPB.x), raft::ceildiv(n, (int)TPB.y), 1);
 
   switch (type) {
-    case ML::Distance::DistanceType::EucUnexpandedL1:
+    case raft::distance::DistanceType::L1:
       naiveL1DistanceKernel<DataType>
         <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
       break;
-    case ML::Distance::DistanceType::EucUnexpandedL2Sqrt:
-    case ML::Distance::DistanceType::EucUnexpandedL2:
-    case ML::Distance::DistanceType::EucExpandedL2Sqrt:
-    case ML::Distance::DistanceType::EucExpandedL2:
+    case raft::distance::DistanceType::L2SqrtUnexpanded:
+    case raft::distance::DistanceType::L2Unexpanded:
+    case raft::distance::DistanceType::L2SqrtExpanded:
+    case raft::distance::DistanceType::L2Expanded:
       naiveDistanceKernel<DataType>
         <<<nblks, TPB>>>(dist, x, y, m, n, k, type, isRowMajor);
       break;
-    case ML::Distance::DistanceType::EucExpandedCosine:
+    case raft::distance::DistanceType::CosineExpanded:
       naiveCosineDistanceKernel<DataType>
         <<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
       break;
@@ -144,8 +144,7 @@ template <typename DataType>
   return os;
 }
 
-template <ML::Distance::DistanceType distanceType, typename DataType,
-          typename OutputTile_t>
+template <raft::distance::DistanceType distanceType, typename DataType>
 void distanceLauncher(DataType *x, DataType *y, DataType *dist, DataType *dist2,
                       int m, int n, int k, DistanceInputs<DataType> &params,
                       DataType threshold, char *workspace, size_t worksize,
@@ -154,11 +153,11 @@ void distanceLauncher(DataType *x, DataType *y, DataType *dist, DataType *dist2,
     dist2[g_d_idx] = (d_val < threshold) ? 0.f : d_val;
     return d_val;
   };
-  distance<distanceType, DataType, DataType, DataType, OutputTile_t>(
+  distance<distanceType, DataType, DataType, DataType>(
     x, y, dist, m, n, k, workspace, worksize, fin_op, stream, isRowMajor);
 }
 
-template <ML::Distance::DistanceType distanceType, typename DataType>
+template <raft::distance::DistanceType distanceType, typename DataType>
 class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
  public:
   void SetUp() override {
@@ -186,11 +185,10 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
       raft::allocate(workspace, worksize);
     }
 
-    typedef cutlass::Shape<8, 128, 128> OutputTile_t;
     DataType threshold = -10000.f;
-    distanceLauncher<distanceType, DataType, OutputTile_t>(
-      x, y, dist, dist2, m, n, k, params, threshold, workspace, worksize,
-      stream, isRowMajor);
+    distanceLauncher<distanceType, DataType>(x, y, dist, dist2, m, n, k, params,
+                                             threshold, workspace, worksize,
+                                             stream, isRowMajor);
     CUDA_CHECK(cudaStreamDestroy(stream));
     CUDA_CHECK(cudaFree(workspace));
   }

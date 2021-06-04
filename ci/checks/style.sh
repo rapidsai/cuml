@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #####################
 # cuML Style Tester #
 #####################
@@ -13,10 +13,10 @@ source activate gdf
 cd $WORKSPACE
 export GIT_DESCRIBE_TAG=`git describe --tags`
 export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
-conda install "ucx-py=${MINOR_VERSION}"
+conda install "ucx-py=${MINOR_VERSION}" "ucx-proc=*=gpu"
 
 # Run flake8 and get results/return code
-FLAKE=`flake8 --exclude=cpp,thirdparty,__init__.py,versioneer.py && flake8 --config=python/.flake8.cython`
+FLAKE=`flake8 --config=python/setup.cfg`
 RETVAL=$?
 
 # Output results if failure otherwise show pass
@@ -29,7 +29,7 @@ else
 fi
 
 # Check for copyright headers in the files modified currently
-COPYRIGHT=`env PYTHONPATH=cpp/scripts python ci/checks/copyright.py 2>&1`
+COPYRIGHT=`python ci/checks/copyright.py --git-modified-only 2>&1`
 CR_RETVAL=$?
 if [ "$RETVAL" = "0" ]; then
   RETVAL=$CR_RETVAL

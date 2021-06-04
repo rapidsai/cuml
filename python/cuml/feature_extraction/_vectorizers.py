@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -153,7 +153,8 @@ class _VectorizerMixin:
                 'ngram_count': tokens.str.len() - (ngram_size - 1)
             })
             del tokens
-            ngram_count = doc_id_df.groupby('doc_id').sum()['ngram_count']
+            ngram_count = doc_id_df.groupby('doc_id',
+                                            sort=True).sum()['ngram_count']
             return ngram_sr, ngram_count, token_count
 
         if ngram_size == 1:
@@ -292,7 +293,7 @@ def _document_frequency(X):
     """
     doc_freq = (
         X[["token", "doc_id"]]
-        .groupby(["token"])
+        .groupby(["token"], sort=True)
         .count()
     )
     return doc_freq["doc_id"].values
@@ -304,7 +305,7 @@ def _term_frequency(X):
     """
     term_freq = (
         X[["token", "count"]]
-        .groupby(["token"])
+        .groupby(["token"], sort=True)
         .sum()
     )
     return term_freq["count"].values
@@ -437,7 +438,7 @@ class CountVectorizer(_VectorizerMixin):
         # Count of each token in each document
         count_df = (
             tokenized_df[["doc_id", "token"]]
-            .groupby(["doc_id", "token"])
+            .groupby(["doc_id", "token"], sort=True)
             .size()
             .reset_index()
             .rename({0: "count"}, axis=1)
@@ -851,12 +852,14 @@ class HashingVectorizer(_VectorizerMixin):
             tokenized_df["value"] = ((tokenized_df["token"] >= 0) * 2) - 1
             tokenized_df["token"] = tokenized_df["token"].abs() %\
                 self.n_features
-            count_ser = tokenized_df.groupby(["doc_id", "token"]).value.sum()
+            count_ser = tokenized_df.groupby(["doc_id", "token"],
+                                             sort=True).value.sum()
             count_ser.name = "count"
         else:
             tokenized_df["token"] = tokenized_df["token"].abs() %\
                 self.n_features
-            count_ser = tokenized_df.groupby(["doc_id", "token"]).size()
+            count_ser = tokenized_df.groupby(["doc_id", "token"],
+                                             sort=True).size()
             count_ser.name = "count"
 
         count_df = count_ser.reset_index(drop=False)

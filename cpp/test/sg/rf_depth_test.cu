@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,11 +19,10 @@
 #include <cuml/ensemble/randomforest.hpp>
 #include <queue>
 #include <raft/cuda_utils.cuh>
+#include <raft/handle.hpp>
 #include <random>
 
 namespace ML {
-
-using namespace MLCommon;
 
 template <typename T>  // template useless for now.
 struct RfInputs {
@@ -31,14 +30,15 @@ struct RfInputs {
   int n_cols;
   int n_trees;
   float max_features;
-  float rows_sample;
+  float max_samples;
   int max_depth;
   int max_leaves;
   bool bootstrap;
   bool bootstrap_features;
   int n_bins;
   int split_algo;
-  int min_rows_per_node;
+  int min_samples_leaf;
+  int min_samples_split;
   float min_impurity_decrease;
   int n_streams;
   CRITERION split_criterion;
@@ -49,7 +49,7 @@ class RfClassifierDepthTest : public ::testing::TestWithParam<int> {
  protected:
   void basicTest() {
     const int max_depth = ::testing::TestWithParam<int>::GetParam();
-    params = RfInputs<T>{5000,
+    params = RfInputs<T>{10000,
                          10,
                          1,
                          1.0f,
@@ -61,18 +61,18 @@ class RfClassifierDepthTest : public ::testing::TestWithParam<int> {
                          8,
                          SPLIT_ALGO::GLOBAL_QUANTILE,
                          2,
+                         2,
                          0.0,
                          2,
                          CRITERION::ENTROPY};
 
-    DecisionTree::DecisionTreeParams tree_params;
-    set_tree_params(tree_params, params.max_depth, params.max_leaves,
-                    params.max_features, params.n_bins, params.split_algo,
-                    params.min_rows_per_node, params.min_impurity_decrease,
-                    params.bootstrap_features, params.split_criterion, false);
     RF_params rf_params;
-    set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
-                      params.rows_sample, -1, params.n_streams, tree_params);
+    rf_params = set_rf_params(
+      params.max_depth, params.max_leaves, params.max_features, params.n_bins,
+      params.split_algo, params.min_samples_leaf, params.min_samples_split,
+      params.min_impurity_decrease, params.bootstrap_features, params.bootstrap,
+      params.n_trees, params.max_samples, 0, params.split_criterion, false,
+      params.n_streams, true, 128);
 
     int data_len = params.n_rows * params.n_cols;
     raft::allocate(data, data_len);
@@ -153,18 +153,18 @@ class RfRegressorDepthTest : public ::testing::TestWithParam<int> {
                          8,
                          SPLIT_ALGO::GLOBAL_QUANTILE,
                          2,
+                         2,
                          0.0,
                          2,
                          CRITERION::MSE};
 
-    DecisionTree::DecisionTreeParams tree_params;
-    set_tree_params(tree_params, params.max_depth, params.max_leaves,
-                    params.max_features, params.n_bins, params.split_algo,
-                    params.min_rows_per_node, params.min_impurity_decrease,
-                    params.bootstrap_features, params.split_criterion, false);
     RF_params rf_params;
-    set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
-                      params.rows_sample, -1, params.n_streams, tree_params);
+    rf_params = set_rf_params(
+      params.max_depth, params.max_leaves, params.max_features, params.n_bins,
+      params.split_algo, params.min_samples_leaf, params.min_samples_split,
+      params.min_impurity_decrease, params.bootstrap_features, params.bootstrap,
+      params.n_trees, params.max_samples, 0, params.split_criterion, false,
+      params.n_streams, true, 128);
 
     int data_len = params.n_rows * params.n_cols;
     raft::allocate(data, data_len);

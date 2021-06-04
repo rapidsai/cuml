@@ -1,5 +1,5 @@
 /*
-* Copyright (c) 2019, NVIDIA CORPORATION.
+* Copyright (c) 2021, NVIDIA CORPORATION.
 *
 * Licensed under the Apache License, Version 2.0 (the "License");
 * you may not use this file except in compliance with the License.
@@ -16,8 +16,11 @@
 
 #pragma once
 
-#include <cuml/distance/distance_type.h>
-#include <cuml/cuml.hpp>
+#include <raft/linalg/distance_type.h>
+
+namespace raft {
+class handle_t;
+}
 
 namespace ML {
 
@@ -95,7 +98,36 @@ double rand_index(const raft::handle_t &handle, double *y, double *y_hat,
 */
 double silhouette_score(const raft::handle_t &handle, double *y, int nRows,
                         int nCols, int *labels, int nLabels, double *silScores,
-                        int metric);
+                        raft::distance::DistanceType metric);
+
+namespace Batched {
+/**
+* Calculates Batched "Silhouette Score" by tiling the pairwise distance matrix to remove use of quadratic memory
+*
+* The Silhouette Coefficient is calculated using the mean intra-cluster distance (a)
+* and the mean nearest-cluster distance (b) for each sample. The Silhouette Coefficient
+* for a sample is (b - a) / max(a, b). To clarify, b is the distance between a sample
+* and the nearest cluster that the sample is not a part of. Note that Silhouette Coefficient
+* is only defined if number of labels is 2 <= n_labels <= n_samples - 1.
+*
+* @param[in] handle: raft::handle_t
+* @param[in] X: Array of data samples with dimensions (n_rows x n_cols)
+* @param[in] n_rows: number of data samples
+* @param[in] n_cols: number of features
+* @param[in] y: Array containing labels for every data sample (1 x n_rows)
+* @param[in] n_labels: number of Labels
+* @param[in] metric: the numerical value that maps to the type of distance metric to be used in the calculations
+* @param[in] chunk: the row-wise chunk size on which the pairwise distance matrix is tiled
+* @param[out] scores: Array that is optionally taken in as input if required to be populated with the silhouette score for every sample (1 x nRows), else nullptr is passed
+*/
+float silhouette_score(const raft::handle_t &handle, float *X, int n_rows,
+                       int n_cols, int *y, int n_labels, float *scores,
+                       int chunk, raft::distance::DistanceType metric);
+double silhouette_score(const raft::handle_t &handle, double *X, int n_rows,
+                        int n_cols, int *y, int n_labels, double *scores,
+                        int chunk, raft::distance::DistanceType metric);
+
+}  // namespace Batched
 /**
 * Calculates the "adjusted rand index"
 *
@@ -269,7 +301,7 @@ float accuracy_score_py(const raft::handle_t &handle, const int *predictions,
  */
 void pairwise_distance(const raft::handle_t &handle, const double *x,
                        const double *y, double *dist, int m, int n, int k,
-                       ML::Distance::DistanceType metric,
+                       raft::distance::DistanceType metric,
                        bool isRowMajor = true);
 
 /**
@@ -289,8 +321,21 @@ void pairwise_distance(const raft::handle_t &handle, const double *x,
  */
 void pairwise_distance(const raft::handle_t &handle, const float *x,
                        const float *y, float *dist, int m, int n, int k,
-                       ML::Distance::DistanceType metric,
+                       raft::distance::DistanceType metric,
                        bool isRowMajor = true);
+
+void pairwiseDistance_sparse(const raft::handle_t &handle, double *x, double *y,
+                             double *dist, int x_nrows, int y_nrows, int n_cols,
+                             int x_nnz, int y_nnz, int *x_indptr, int *y_indptr,
+                             int *x_indices, int *y_indices,
+                             raft::distance::DistanceType metric,
+                             float metric_arg);
+void pairwiseDistance_sparse(const raft::handle_t &handle, float *x, float *y,
+                             float *dist, int x_nrows, int y_nrows, int n_cols,
+                             int x_nnz, int y_nnz, int *x_indptr, int *y_indptr,
+                             int *x_indices, int *y_indices,
+                             raft::distance::DistanceType metric,
+                             float metric_arg);
 
 }  // namespace Metrics
 }  // namespace ML

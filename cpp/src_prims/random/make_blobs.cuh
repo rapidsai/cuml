@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,10 +17,10 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
-#include <common/device_buffer.hpp>
-#include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng.cuh>
 #include <vector>
 #include "permute.cuh"
@@ -141,7 +141,8 @@ void generate_data(DataT* out, const IdxT* labels, IdxT n_rows, IdxT n_cols,
  */
 template <typename DataT, typename IdxT>
 void make_blobs(DataT* out, IdxT* labels, IdxT n_rows, IdxT n_cols,
-                IdxT n_clusters, std::shared_ptr<deviceAllocator> allocator,
+                IdxT n_clusters,
+                std::shared_ptr<raft::mr::device::allocator> allocator,
                 cudaStream_t stream, bool row_major = true,
                 const DataT* centers = nullptr,
                 const DataT* cluster_std = nullptr,

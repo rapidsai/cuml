@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,6 @@
 
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/transpose.h>
-#include <common/device_buffer.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/eltwise.cuh>
@@ -31,6 +30,7 @@
 #include <raft/mr/device/buffer.hpp>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/sum.cuh>
+#include <rmm/device_uvector.hpp>
 #include "penalty.cuh"
 
 namespace MLCommon {
@@ -82,10 +82,7 @@ void hingeLossGrads(const raft::handle_t &handle, math_t *input, int n_rows,
                     int n_cols, const math_t *labels, const math_t *coef,
                     math_t *grads, penalty pen, math_t alpha, math_t l1_ratio,
                     cudaStream_t stream) {
-  std::shared_ptr<raft::mr::device::allocator> allocator =
-    handle.get_device_allocator();
-
-  raft::mr::device::buffer<math_t> labels_pred(allocator, stream, n_rows);
+  rmm::device_uvector<math_t> labels_pred(n_rows, stream);
 
   raft::linalg::gemm(handle, input, n_rows, n_cols, coef, labels_pred.data(),
                      n_rows, 1, CUBLAS_OP_N, CUBLAS_OP_N, stream);
@@ -95,7 +92,7 @@ void hingeLossGrads(const raft::handle_t &handle, math_t *input, int n_rows,
   hingeLossGradMult(input, labels, labels_pred.data(), n_rows, n_cols, stream);
   raft::stats::mean(grads, input, n_cols, n_rows, false, false, stream);
 
-  raft::mr::device::buffer<math_t> pen_grads(allocator, stream, 0);
+  rmm::device_uvector<math_t> pen_grads(0, stream);
 
   if (pen != penalty::NONE) pen_grads.resize(n_cols, stream);
 
@@ -117,10 +114,7 @@ void hingeLoss(const raft::handle_t &handle, math_t *input, int n_rows,
                int n_cols, const math_t *labels, const math_t *coef,
                math_t *loss, penalty pen, math_t alpha, math_t l1_ratio,
                cudaStream_t stream) {
-  std::shared_ptr<raft::mr::device::allocator> allocator =
-    handle.get_device_allocator();
-
-  raft::mr::device::buffer<math_t> labels_pred(allocator, stream, n_rows);
+  rmm::device_uvector<math_t> labels_pred(n_rows, stream);
 
   raft::linalg::gemm(handle, input, n_rows, n_cols, coef, labels_pred.data(),
                      n_rows, 1, CUBLAS_OP_N, CUBLAS_OP_N, stream);
@@ -133,7 +127,7 @@ void hingeLoss(const raft::handle_t &handle, math_t *input, int n_rows,
 
   raft::stats::sum(loss, labels_pred.data(), 1, n_rows, false, stream);
 
-  raft::mr::device::buffer<math_t> pen_val(allocator, stream, 0);
+  rmm::device_uvector<math_t> pen_val(0, stream);
 
   if (pen != penalty::NONE) pen_val.resize(1, stream);
 

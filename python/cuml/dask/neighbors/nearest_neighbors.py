@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,7 @@ from cuml.dask.common import flatten_grouped_results
 from cuml.dask.common import raise_mg_import_exception
 from cuml.dask.common.base import BaseEstimator
 
-from cuml.raft.dask.common.comms import worker_state
+from cuml.raft.dask.common.comms import get_raft_comm_state
 from cuml.raft.dask.common.comms import Comms
 from cuml.dask.common.input_utils import to_output
 from cuml.dask.common.input_utils import DistributedDataHandler
@@ -27,24 +27,36 @@ from cuml.dask.common.input_utils import DistributedDataHandler
 from uuid import uuid1
 
 
-def _func_get_d(f, idx):
-    i, d = f
-    return d[idx]
-
-
-def _func_get_i(f, idx):
-    i, d = f
-    return i[idx]
-
-
 class NearestNeighbors(BaseEstimator):
     """
     Multi-node Multi-GPU NearestNeighbors Model.
-    """
-    def __init__(self, client=None, streams_per_handle=0, **kwargs):
-        super(NearestNeighbors, self).__init__(client=client,
-                                               **kwargs)
 
+    Parameters
+    ----------
+    n_neighbors : int (default=5)
+        Default number of neighbors to query
+    batch_size: int (optional, default 2000000)
+        Maximum number of query rows processed at once. This parameter can
+        greatly affect the throughput of the algorithm. The optimal setting
+        of this value will vary for different layouts index to query ratios,
+        but it will require `batch_size * n_features * 4` bytes of additional
+        memory on each worker hosting index partitions.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+
+    """
+    def __init__(self, *, client=None, streams_per_handle=0,
+                 **kwargs):
+        super().__init__(client=client,
+                         **kwargs)
         self.streams_per_handle = streams_per_handle
 
     def fit(self, X):
@@ -80,18 +92,17 @@ class NearestNeighbors(BaseEstimator):
         except ImportError:
             raise_mg_import_exception()
 
-        handle = worker_state(sessionId)["handle"]
+        handle = get_raft_comm_state(sessionId)["handle"]
         return cumlNN(handle=handle, **kwargs)
 
     @staticmethod
-    def _func_kneighbors(model, local_idx_parts, idx_m, n, idx_parts_to_ranks,
-                         local_query_parts, query_m, query_parts_to_ranks,
-                         rank, k):
-
+    def _func_kneighbors(model, index, index_parts_to_ranks, index_nrows,
+                         query, query_parts_to_ranks, query_nrows,
+                         ncols, rank, n_neighbors, convert_dtype):
         return model.kneighbors(
-            local_idx_parts, idx_m, n, idx_parts_to_ranks,
-            local_query_parts, query_m, query_parts_to_ranks,
-            rank, k
+            index, index_parts_to_ranks, index_nrows, query,
+            query_parts_to_ranks, query_nrows, ncols, rank,
+            n_neighbors, convert_dtype
         )
 
     @staticmethod
@@ -180,20 +191,26 @@ class NearestNeighbors(BaseEstimator):
                         nn_models[worker],
                         index_handler.worker_to_parts[worker] if
                         worker in index_handler.workers else [],
-                        index_handler.total_rows,
-                        self.n_cols,
                         idx_parts_to_ranks,
+                        index_handler.total_rows,
                         query_handler.worker_to_parts[worker] if
                         worker in query_handler.workers else [],
-                        query_handler.total_rows,
                         query_parts_to_ranks,
+                        query_handler.total_rows,
+                        self.n_cols,
                         worker_info[worker]["rank"],
                         n_neighbors,
+                        False,
                         key="%s-%s" % (key, idx),
                         workers=[worker]))
                        for idx, worker in enumerate(comms.worker_addresses)])
 
         wait_and_raise_from_futures(list(nn_fit.values()))
+
+        def _custom_getter(o):
+            def func_get(f, idx):
+                return f[o][idx]
+            return func_get
 
         """
         Gather resulting partitions and return dask_cudfs
@@ -201,12 +218,12 @@ class NearestNeighbors(BaseEstimator):
         out_d_futures = flatten_grouped_results(self.client,
                                                 query_parts_to_ranks,
                                                 nn_fit,
-                                                getter_func=_func_get_d)
+                                                getter_func=_custom_getter(0))
 
         out_i_futures = flatten_grouped_results(self.client,
                                                 query_parts_to_ranks,
                                                 nn_fit,
-                                                getter_func=_func_get_i)
+                                                getter_func=_custom_getter(1))
 
         return nn_fit, out_d_futures, out_i_futures
 

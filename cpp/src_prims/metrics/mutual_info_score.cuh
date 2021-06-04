@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,11 +26,11 @@
 
 #include <math.h>
 #include <raft/cudart_utils.h>
-#include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
-#include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/reduce.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include "contingencyMatrix.cuh"
 
 namespace MLCommon {
@@ -91,14 +91,14 @@ __global__ void mutual_info_kernel(const int *dContingencyMatrix, const int *a,
 * @param size: the size of the data points of type int
 * @param lowerLabelRange: the lower bound of the range of labels
 * @param upperLabelRange: the upper bound of the range of labels
-* @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<MLCommon::deviceAllocator>
+* @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<raft::mr::device::allocator>
 * @param stream: the cudaStream object
 */
 template <typename T>
 double mutual_info_score(const T *firstClusterArray,
                          const T *secondClusterArray, int size,
                          T lowerLabelRange, T upperLabelRange,
-                         std::shared_ptr<MLCommon::deviceAllocator> allocator,
+                         std::shared_ptr<raft::mr::device::allocator> allocator,
                          cudaStream_t stream) {
   int numUniqueClasses = upperLabelRange - lowerLabelRange + 1;
 

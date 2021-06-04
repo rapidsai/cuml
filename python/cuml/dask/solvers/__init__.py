@@ -1,4 +1,3 @@
-
 # Copyright (c) 2019, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -20,4 +19,5 @@ import warnings
 if has_dask():
     from cuml.dask.solvers.cd import CD  # NOQA
 else:
-    warnings.warn("Dask not found. All Dask-based multi-GPU operation is disabed.")
+    warnings.warn(
+        "Dask not found. All Dask-based multi-GPU operation is disabed.")

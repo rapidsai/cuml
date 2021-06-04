@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,16 +20,10 @@ from cuml.dask.common import parts_to_ranks
 from cuml.dask.common import flatten_grouped_results
 from cuml.dask.common.utils import raise_mg_import_exception
 from cuml.dask.common.utils import wait_and_raise_from_futures
-from cuml.raft.dask.common.comms import worker_state
+from cuml.raft.dask.common.comms import get_raft_comm_state
 from cuml.dask.neighbors import NearestNeighbors
 import dask.array as da
 from uuid import uuid1
-
-
-def _custom_getter(o):
-    def func_get(f, idx):
-        return f[o][idx]
-    return func_get
 
 
 class KNeighborsRegressor(NearestNeighbors):
@@ -39,12 +33,33 @@ class KNeighborsRegressor(NearestNeighbors):
     K-Nearest Neighbors Regressor is an instance-based learning technique,
     that keeps training samples around for prediction, rather than trying
     to learn a generalizable set of model parameters.
+
+    Parameters
+    ----------
+    n_neighbors : int (default=5)
+        Default number of neighbors to query
+    batch_size: int (optional, default 2000000)
+        Maximum number of query rows processed at once. This parameter can
+        greatly affect the throughput of the algorithm. The optimal setting
+        of this value will vary for different layouts and index to query
+        ratios, but it will require `batch_size * n_features * 4` bytes of
+        additional memory on each worker hosting index partitions.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     """
-    def __init__(self, client=None, streams_per_handle=0,
+    def __init__(self, *, client=None, streams_per_handle=0,
                  verbose=False, **kwargs):
-        super(KNeighborsRegressor, self).__init__(client=client,
-                                                  verbose=verbose,
-                                                  **kwargs)
+        super().__init__(client=client,
+                         verbose=verbose,
+                         **kwargs)
         self.streams_per_handle = streams_per_handle
 
     def fit(self, X, y):
@@ -68,7 +83,7 @@ class KNeighborsRegressor(NearestNeighbors):
         self.data_handler = \
             DistributedDataHandler.create(data=[X, y],
                                           client=self.client)
-        self.n_outputs = y.shape[1]
+        self.n_outputs = y.shape[1] if y.ndim != 1 else 1
 
         return self
 
@@ -80,15 +95,15 @@ class KNeighborsRegressor(NearestNeighbors):
         except ImportError:
             raise_mg_import_exception()
 
-        handle = worker_state(sessionId)["handle"]
+        handle = get_raft_comm_state(sessionId)["handle"]
         return cumlKNN(handle=handle, **kwargs)
 
     @staticmethod
-    def _func_predict(model, data, data_parts_to_ranks, data_nrows,
+    def _func_predict(model, index, index_parts_to_ranks, index_nrows,
                       query, query_parts_to_ranks, query_nrows,
                       ncols, rank, n_output, convert_dtype):
         return model.predict(
-            data, data_parts_to_ranks, data_nrows,
+            index, index_parts_to_ranks, index_nrows,
             query, query_parts_to_ranks, query_nrows,
             ncols, rank, n_output, convert_dtype
         )
@@ -183,25 +198,11 @@ class KNeighborsRegressor(NearestNeighbors):
         """
         out_futures = flatten_grouped_results(self.client,
                                               query_parts_to_ranks,
-                                              knn_reg_res,
-                                              getter_func=_custom_getter(0))
-
-        out_i_futures = flatten_grouped_results(self.client,
-                                                query_parts_to_ranks,
-                                                knn_reg_res,
-                                                getter_func=_custom_getter(1))
-
-        out_d_futures = flatten_grouped_results(self.client,
-                                                query_parts_to_ranks,
-                                                knn_reg_res,
-                                                getter_func=_custom_getter(2))
+                                              knn_reg_res)
 
         comms.destroy()
 
-        out = to_output(out_futures, self.datatype)
-        out_i = to_output(out_i_futures, self.datatype)
-        out_d = to_output(out_d_futures, self.datatype)
-        return out, out_i, out_d
+        return to_output(out_futures, self.datatype).squeeze()
 
     def score(self, X, y):
         """
@@ -221,12 +222,14 @@ class KNeighborsRegressor(NearestNeighbors):
         -------
         score
         """
-        if self.data_handler.datatype == 'cupy':
-            preds, _, _ = self.predict(X, convert_dtype=True)
-            y_mean = y.mean(axis=0)
-            residual_sss = ((y - preds) ** 2).sum(axis=0)
-            total_sss = ((y - y_mean) ** 2).sum(axis=0)
-            r2_score = da.mean(1 - (residual_sss / total_sss))
-            return r2_score.compute()
-        else:
-            raise ValueError("Only Dask arrays are supported")
+        y_pred = self.predict(X, convert_dtype=True)
+        if not isinstance(y_pred, da.Array):
+            y_pred = y_pred.to_dask_array(lengths=True)
+        if not isinstance(y, da.Array):
+            y = y.to_dask_array(lengths=True)
+        y_true = y.squeeze()
+        y_mean = y_true.mean(axis=0)
+        residual_sss = ((y_true - y_pred) ** 2).sum(axis=0, dtype='float64')
+        total_sss = ((y_true - y_mean) ** 2).sum(axis=0, dtype='float64')
+        r2_score = da.mean(1 - (residual_sss / total_sss))
+        return r2_score.compute()

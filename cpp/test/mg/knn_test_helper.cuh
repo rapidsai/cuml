@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,10 +26,7 @@
 #include <linalg/reduce_rows_by_key.cuh>
 #include <selection/knn.cuh>
 
-#include <common/device_buffer.hpp>
-#include <cuml/common/cuml_allocator.hpp>
-
-#include <common/cumlHandle.hpp>
+#include <raft/mr/device/allocator.hpp>
 
 #include <raft/cuda_utils.cuh>
 
@@ -54,7 +51,7 @@ struct KNNParams {
 template <typename T>
 void generate_partitions(float *data, T *outputs, size_t n_rows, int n_cols,
                          int n_clusters, int my_rank,
-                         std::shared_ptr<deviceAllocator> allocator,
+                         std::shared_ptr<raft::mr::device::allocator> allocator,
                          cudaStream_t stream);
 
 template <typename T>
@@ -245,7 +242,7 @@ class KNNTestHelper {
   Matrix::PartDescriptor *query_desc;
   std::vector<std::vector<T *>> y;
 
-  std::shared_ptr<deviceAllocator> allocator;
+  std::shared_ptr<raft::mr::device::allocator> allocator;
   cudaStream_t stream;
 
  private:

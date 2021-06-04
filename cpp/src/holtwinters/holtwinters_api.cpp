@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 
-#include "holtwinters_api.h"
-#include <cuml/cuml_api.h>
+#include <cuml/tsa/holtwinters_api.h>
+
 #include <cuml/tsa/holtwinters.h>
 #include <common/cumlHandle.hpp>
+
+extern "C" {
 
 cumlError_t cumlHoltWinters_buffer_size(int n, int batch_size, int frequency,
                                         int *start_leveltrend_len,
@@ -121,4 +123,5 @@ cumlError_t cumlHoltWintersDp_forecast(cumlHandle_t handle, int n,
     }
   }
   return status;
+}
 }

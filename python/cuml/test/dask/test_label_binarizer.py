@@ -27,7 +27,10 @@ import cupy as cp
                ([9, 8, 2, 1, 3, 4],
                 [8, 2, 1, 2, 2])]
 )
-def test_basic_functions(labels, client):
+@pytest.mark.parametrize(
+    "multipart", [True, False]
+)
+def test_basic_functions(labels, multipart, client):
 
     fit_labels, xform_labels = labels
 
@@ -36,6 +39,10 @@ def test_basic_functions(labels, client):
 
     s2 = cp.asarray(xform_labels, dtype=np.int32)
     df2 = dask.array.from_array(s2)
+
+    if multipart:
+        df = df.rechunk((1,))
+        df2 = df2.rechunk((1,))
 
     binarizer = LabelBinarizer(client=client, sparse_output=False)
     binarizer.fit(df)

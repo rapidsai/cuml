@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -62,7 +62,7 @@ struct Split {
    * 
    * @return the reference to the copied object (typically useful for chaining)
    */
-  DI SplitT& operator=(const SplitT& other) {
+  DI volatile SplitT& operator=(const SplitT& other) volatile {
     quesval = other.quesval;
     colid = other.colid;
     best_metric_val = other.best_metric_val;
@@ -73,8 +73,18 @@ struct Split {
   /**
    * @brief updates the current split if the input gain is better
    */
-  DI void update(const SplitT& other) {
-    if (other.best_metric_val > best_metric_val) *this = other;
+  DI void update(const SplitT& other) volatile {
+    if (other.best_metric_val > best_metric_val) {
+      *this = other;
+    } else if (other.best_metric_val == best_metric_val) {
+      if (other.colid > colid) {
+        *this = other;
+      } else if (other.colid == colid) {
+        if (other.quesval > quesval) {
+          *this = other;
+        }
+      }
+    }
   }
 
   /**
@@ -103,7 +113,7 @@ struct Split {
    * @note all threads in the block must enter this function together. At the
    *       end thread0 will contain the best split.
    */
-  DI void evalBestSplit(void* smem, SplitT* split, int* mutex) {
+  DI void evalBestSplit(void* smem, volatile SplitT* split, int* mutex) {
     auto* sbest = reinterpret_cast<SplitT*>(smem);
     warpReduce();
     auto warp = threadIdx.x / raft::WarpSize;
@@ -119,7 +129,7 @@ struct Split {
       warpReduce();
       // only the first thread will go ahead and update the best split info
       // for current node
-      if (threadIdx.x == 0) {
+      if (threadIdx.x == 0 && this->colid != -1) {
         while (atomicCAS(mutex, 0, 1))
           ;
         split->update(*this);
@@ -148,7 +158,7 @@ void initSplit(Split<DataT, IdxT>* splits, IdxT len, cudaStream_t s) {
 template <typename DataT, typename IdxT, int TPB = 256>
 void printSplits(Split<DataT, IdxT>* splits, IdxT len, cudaStream_t s) {
   auto op = [] __device__(Split<DataT, IdxT> * ptr, IdxT idx) {
-    printf("quesval = %f, colid = %d, best_metric_val = %f, nLeft = %d\n",
+    printf("quesval = %e, colid = %d, best_metric_val = %e, nLeft = %d\n",
            ptr->quesval, ptr->colid, ptr->best_metric_val, ptr->nLeft);
   };
   raft::linalg::writeOnlyUnaryOp<Split<DataT, IdxT>, decltype(op), IdxT, TPB>(

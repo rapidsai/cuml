@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,10 @@
 
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/transpose.h>
-#include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
-#include <cuml/cuml.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/decomposition/params.hpp>
 #include <raft/cuda_utils.cuh>
+#include <raft/handle.hpp>
 #include <raft/linalg/eig.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/matrix/math.cuh>

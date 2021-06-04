@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,11 +13,14 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import random
 from itertools import chain, permutations
 from functools import partial
 
 import cuml
+import cuml.common.logger as logger
 import cupy as cp
+import cupyx
 import numpy as np
 import pytest
 import cudf
@@ -25,6 +28,8 @@ import cudf
 from cuml.ensemble import RandomForestClassifier as curfc
 from cuml.metrics.cluster import adjusted_rand_score as cu_ars
 from cuml.metrics import accuracy_score as cu_acc_score
+from cuml.metrics.cluster import silhouette_score as cu_silhouette_score
+from cuml.metrics.cluster import silhouette_samples as cu_silhouette_samples
 from cuml.test.utils import get_handle, get_pattern, array_equal, \
     unit_param, quality_param, stress_param, generate_random_labels, \
     score_labeling_with_handle
@@ -32,26 +37,34 @@ from cuml.test.utils import get_handle, get_pattern, array_equal, \
 from numba import cuda
 from numpy.testing import assert_almost_equal
 
-from sklearn.datasets import make_classification
+from sklearn.metrics import hinge_loss as sk_hinge
+from sklearn.datasets import make_classification, make_blobs
 from sklearn.metrics import accuracy_score as sk_acc_score
 from sklearn.metrics import log_loss as sklearn_log_loss
 from sklearn.metrics.cluster import adjusted_rand_score as sk_ars
 from sklearn.metrics.cluster import homogeneity_score as sk_homogeneity_score
 from sklearn.metrics.cluster import completeness_score as sk_completeness_score
 from sklearn.metrics.cluster import mutual_info_score as sk_mutual_info_score
+from sklearn.metrics.cluster import silhouette_score as sk_silhouette_score
+from sklearn.metrics.cluster import silhouette_samples as sk_silhouette_samples
 from sklearn.preprocessing import StandardScaler
 
+from cuml import LogisticRegression as cu_log
+from cuml.metrics import hinge_loss as cuml_hinge
+from cuml.metrics import kl_divergence as cu_kl_divergence
 from cuml.metrics.cluster import entropy
+from cuml.model_selection import train_test_split
 from cuml.metrics.regression import mean_squared_error, \
     mean_squared_log_error, mean_absolute_error
-from sklearn.metrics.regression import mean_squared_error as sklearn_mse
+from sklearn.metrics import mean_squared_error as sklearn_mse
 from sklearn.metrics import confusion_matrix as sk_confusion_matrix
 
 from cuml.metrics import confusion_matrix
-from sklearn.metrics.regression import mean_absolute_error as sklearn_mae
-from sklearn.metrics.regression import mean_squared_log_error as sklearn_msle
+from sklearn.metrics import mean_absolute_error as sklearn_mae
+from sklearn.metrics import mean_squared_log_error as sklearn_msle
 
 from cuml.common import has_scipy
+from cuml.common.sparsefuncs import csr_row_normalize_l1
 
 from cuml.metrics import roc_auc_score
 from cuml.metrics import precision_recall_curve
@@ -60,8 +73,42 @@ from sklearn.metrics import roc_auc_score as sklearn_roc_auc_score
 from sklearn.metrics import precision_recall_curve \
     as sklearn_precision_recall_curve
 
-from cuml.metrics import pairwise_distances, PAIRWISE_DISTANCE_METRICS
+from cuml.metrics import pairwise_distances, sparse_pairwise_distances, \
+    PAIRWISE_DISTANCE_METRICS, PAIRWISE_DISTANCE_SPARSE_METRICS
 from sklearn.metrics import pairwise_distances as sklearn_pairwise_distances
+
+
+@pytest.fixture(scope='module')
+def random_state():
+    random_state = random.randint(0, 1e6)
+    with logger.set_level(logger.level_debug):
+        logger.debug("Random seed: {}".format(random_state))
+    return random_state
+
+
+@pytest.fixture(
+    scope='module',
+    params=(
+        {'n_clusters': 2, 'n_features': 2, 'label_type': 'int64',
+            'data_type': 'float32'},
+        {'n_clusters': 5, 'n_features': 1000, 'label_type': 'int32',
+            'data_type': 'float64'}
+    )
+)
+def labeled_clusters(request, random_state):
+    data, labels = make_blobs(
+        n_samples=1000,
+        n_features=request.param['n_features'],
+        random_state=random_state,
+        centers=request.param['n_clusters'],
+        center_box=(-1, 1),
+        cluster_std=1.5  # Allow some cluster overlap
+    )
+
+    return (
+        data.astype(request.param['data_type']),
+        labels.astype(request.param['label_type'])
+    )
 
 
 @pytest.mark.parametrize('datatype', [np.float32, np.float64])
@@ -139,7 +186,7 @@ def test_accuracy(nrows, ncols, n_info, datatype):
     # random forest classification model
     cuml_model = curfc(max_features=1.0,
                        n_bins=8, split_algo=0, split_criterion=0,
-                       min_rows_per_node=2,
+                       min_samples_leaf=2,
                        n_estimators=40, handle=handle, max_leaves=-1,
                        max_depth=16)
 
@@ -185,6 +232,64 @@ def test_rand_index_score(name, nrows):
     cu_score_using_sk = sk_ars(y, cp.asnumpy(cu_y_pred))
 
     assert array_equal(cu_score, cu_score_using_sk)
+
+
+@pytest.mark.parametrize('metric', (
+    'cityblock', 'cosine', 'euclidean', 'l1', 'sqeuclidean'
+))
+@pytest.mark.parametrize('chunk_divider', [1, 3, 5])
+def test_silhouette_score_batched(metric, chunk_divider, labeled_clusters):
+    X, labels = labeled_clusters
+    cuml_score = cu_silhouette_score(X, labels, metric=metric,
+                                     chunksize=int(X.shape[0]/chunk_divider))
+    sk_score = sk_silhouette_score(X, labels, metric=metric)
+    assert_almost_equal(cuml_score, sk_score, decimal=2)
+
+
+@pytest.mark.parametrize('metric', (
+    'cityblock', 'cosine', 'euclidean', 'l1', 'sqeuclidean'
+))
+@pytest.mark.parametrize('chunk_divider', [1, 3, 5])
+def test_silhouette_samples_batched(metric, chunk_divider, labeled_clusters):
+    X, labels = labeled_clusters
+    cuml_scores = cu_silhouette_samples(X, labels, metric=metric,
+                                        chunksize=int(X.shape[0] /
+                                                      chunk_divider))
+    sk_scores = sk_silhouette_samples(X, labels, metric=metric)
+
+    cu_trunc = cp.around(cuml_scores, decimals=3)
+    sk_trunc = cp.around(sk_scores, decimals=3)
+
+    diff = cp.absolute(cu_trunc - sk_trunc) > 0
+    over_diff = cp.all(diff)
+
+    # 0.5% elements allowed to be different
+    if len(over_diff.shape) > 0:
+        assert over_diff.shape[0] <= 0.005 * X.shape[0]
+
+    # different elements should not differ more than 1e-1
+    tolerance_diff = cp.absolute(cu_trunc[diff] - sk_trunc[diff]) > 1e-1
+    diff_change = cp.all(tolerance_diff)
+    if len(diff_change.shape) > 0:
+        assert False
+
+
+@pytest.mark.xfail
+def test_silhouette_score_batched_non_monotonic():
+    vecs = np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0],
+                    [2.0, 2.0, 2.0], [10.0, 10.0, 10.0]])
+    labels = np.array([0, 0, 1, 3])
+
+    cuml_samples = cu_silhouette_samples(X=vecs, labels=labels)
+    sk_samples = sk_silhouette_samples(X=vecs, labels=labels)
+    assert array_equal(cuml_samples, sk_samples)
+
+    vecs = np.array([[0.0, 0.0, 0.0], [1.0, 1.0, 1.0], [10.0, 10.0, 10.0]])
+    labels = np.array([1, 1, 3])
+
+    cuml_samples = cu_silhouette_samples(X=vecs, labels=labels)
+    sk_samples = sk_silhouette_samples(X=vecs, labels=labels)
+    assert array_equal(cuml_samples, sk_samples)
 
 
 def score_homogeneity(ground_truth, predictions, use_handle):
@@ -549,14 +654,15 @@ def test_confusion_matrix_binary():
 
 
 @pytest.mark.parametrize('n_samples', [50, 3000, stress_param(500000)])
-@pytest.mark.parametrize('dtype', [np.int32, np.int64])
+@pytest.mark.parametrize('dtype', [np.int32, np.int64, np.float32])
 @pytest.mark.parametrize('problem_type', ['binary', 'multiclass'])
 def test_confusion_matrix_random(n_samples, dtype, problem_type):
     upper_range = 2 if problem_type == 'binary' else 1000
 
     y_true, y_pred, _, _ = generate_random_labels(
         lambda rng: rng.randint(0, upper_range, n_samples).astype(dtype))
-    cm = confusion_matrix(y_true, y_pred)
+    convert_dtype = True if dtype == np.float32 else False
+    cm = confusion_matrix(y_true, y_pred, convert_dtype=convert_dtype)
     ref = sk_confusion_matrix(y_true, y_pred)
     cp.testing.assert_array_almost_equal(ref, cm, decimal=4)
 
@@ -755,7 +861,7 @@ def test_log_loss_at_limits():
         log_loss(y_true, y_pred)
 
 
-@pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_METRICS)
+@pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_METRICS.keys())
 @pytest.mark.parametrize("matrix_size", [(5, 4), (1000, 3), (2, 10),
                                          (500, 400)])
 @pytest.mark.parametrize("is_col_major", [True, False])
@@ -819,7 +925,7 @@ def test_pairwise_distances(metric: str, matrix_size, is_col_major):
         pairwise_distances(X, Y, metric=metric.capitalize())
 
 
-@pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_METRICS)
+@pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_METRICS.keys())
 @pytest.mark.parametrize("matrix_size", [
     unit_param((1000, 100)),
     quality_param((2000, 1000)),
@@ -857,7 +963,7 @@ def test_pairwise_distances_sklearn_comparison(metric: str, matrix_size):
         cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
 
-@pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_METRICS)
+@pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_METRICS.keys())
 def test_pairwise_distances_one_dimension_order(metric: str):
     # Test the pairwise_distance helper function for 1 dimensional cases which
     # can break down when using a size of 1 for either dimension
@@ -918,7 +1024,7 @@ def test_pairwise_distances_one_dimension_order(metric: str):
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
 
-@pytest.mark.parametrize("metric", ["haversine", "nan_euclidean"])
+@pytest.mark.parametrize("metric", ["haversine", "nan_euclidean", "canberra"])
 def test_pairwise_distances_unsuppored_metrics(metric):
     rng = np.random.RandomState(3)
 
@@ -1000,4 +1106,301 @@ def test_pairwise_distances_output_types(input_type, output_type, use_global):
         elif output_type == "numpy":
             assert isinstance(S, np.ndarray)
         elif output_type == "cupy":
-            assert isinstance(S, cp.core.core.ndarray)
+            assert isinstance(S, cp.ndarray)
+
+
+def naive_inner(X, Y, metric=None):
+    return X.dot(Y.T)
+
+
+def naive_hellinger(X, Y, metric=None):
+    return sklearn_pairwise_distances(np.sqrt(X), np.sqrt(Y),
+                                      metric='euclidean') / np.sqrt(2)
+
+
+def prepare_sparse_data(size0, size1, dtype, density, metric):
+    # create sparse array, then normalize every row to one
+    data = cupyx.scipy.sparse.random(size0, size1,
+                                     dtype=dtype,
+                                     random_state=123, density=density).tocsr()
+    if metric == 'hellinger':
+        data = csr_row_normalize_l1(data)
+    return data
+
+
+def ref_sparse_pairwise_dist(X, Y=None, metric=None):
+    # Select sklearn except for IP and Hellinger that sklearn doesn't support
+    # Use sparse input for sklearn calls when possible
+    if Y is None:
+        Y = X
+    if metric not in ['cityblock', 'cosine', 'euclidean', 'l1',
+                      'l2', 'manhattan', 'haversine']:
+        X = X.todense()
+        Y = Y.todense()
+    X = X.get()
+    Y = Y.get()
+    if metric == "inner_product":
+        return naive_inner(X, Y, metric)
+    elif metric == "hellinger":
+        return naive_hellinger(X, Y)
+    else:
+        return sklearn_pairwise_distances(X, Y, metric)
+
+
+@pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_SPARSE_METRICS.keys())
+@pytest.mark.parametrize("matrix_size, density", [
+    ((3, 3), 0.7),
+    ((5, 40), 0.2)])
+def test_sparse_pairwise_distances_corner_cases(metric: str, matrix_size,
+                                                density: float):
+    # Test the sparse_pairwise_distance helper function.
+    # For fp64, compare at 7 decimals, (5 places less than the ~15 max)
+    compare_precision = 7
+
+    # Compare to sklearn, single input
+    X = prepare_sparse_data(matrix_size[0], matrix_size[1],
+                            cp.float64, density, metric)
+    S = sparse_pairwise_distances(X, metric=metric)
+    S2 = ref_sparse_pairwise_dist(X, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # Compare to sklearn, double input with same dimensions
+    Y = X
+    S = pairwise_distances(X, Y, metric=metric)
+    S2 = ref_sparse_pairwise_dist(X, Y, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # Compare to sklearn, with Y dim != X dim
+    Y = prepare_sparse_data(2, matrix_size[1], cp.float64, density, metric)
+    S = pairwise_distances(X, Y, metric=metric)
+    S2 = ref_sparse_pairwise_dist(X, Y, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # Change precision of one parameter, should work (convert_dtype=True)
+    Y = Y.astype(cp.float32)
+    S = sparse_pairwise_distances(X, Y, metric=metric)
+    S2 = ref_sparse_pairwise_dist(X, Y, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # For fp32, compare at 3 decimals, (4 places less than the ~7 max)
+    compare_precision = 3
+
+    # Change precision of both parameters to float
+    X = prepare_sparse_data(matrix_size[0], matrix_size[1],
+                            cp.float32, density, metric)
+    Y = prepare_sparse_data(matrix_size[0], matrix_size[1],
+                            cp.float32, density, metric)
+    S = sparse_pairwise_distances(X, Y, metric=metric)
+    S2 = ref_sparse_pairwise_dist(X, Y, metric=metric)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # Test sending an int type (convert_dtype=True)
+    if metric != 'hellinger':
+        compare_precision = 2
+        Y = Y * 100
+        Y.data = Y.data.astype(cp.int32)
+        S = sparse_pairwise_distances(X, Y, metric=metric)
+        S2 = ref_sparse_pairwise_dist(X, Y, metric=metric)
+        cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+    # Test that uppercase on the metric name throws an error.
+    with pytest.raises(ValueError):
+        sparse_pairwise_distances(X, Y, metric=metric.capitalize())
+
+
+def test_sparse_pairwise_distances_exceptions():
+    if not has_scipy():
+        pytest.skip('Skipping sparse_pairwise_distances_exceptions '
+                    'if Scipy is missing')
+    from scipy import sparse
+    X_int = sparse.random(5, 4, dtype=np.float32,
+                          random_state=123, density=0.3) * 10
+    X_int.dtype = cp.int32
+    X_bool = sparse.random(5, 4, dtype=cp.bool,
+                           random_state=123, density=0.3)
+    X_double = cupyx.scipy.sparse.random(5, 4, dtype=cp.float64,
+                                         random_state=123, density=0.3)
+    X_float = cupyx.scipy.sparse.random(5, 4, dtype=cp.float32,
+                                        random_state=123, density=0.3)
+
+    # Test int inputs (only float/double accepted at this time)
+    with pytest.raises(TypeError):
+        sparse_pairwise_distances(X_int, metric="euclidean")
+
+    # Test second int inputs (should not have an exception with
+    # convert_dtype=True)
+    sparse_pairwise_distances(X_double, X_int, metric="euclidean")
+
+    # Test bool inputs (only float/double accepted at this time)
+    with pytest.raises(TypeError):
+        sparse_pairwise_distances(X_bool, metric="euclidean")
+
+    # Test sending different types with convert_dtype=False
+    with pytest.raises(TypeError):
+        sparse_pairwise_distances(X_double, X_float, metric="euclidean",
+                                  convert_dtype=False)
+
+    # Invalid metric name
+    with pytest.raises(ValueError):
+        sparse_pairwise_distances(X_double, metric="Not a metric")
+
+    # Invalid dimensions
+    X = cupyx.scipy.sparse.random(5, 4, dtype=np.float32, random_state=123)
+    Y = cupyx.scipy.sparse.random(5, 7, dtype=np.float32, random_state=123)
+
+    with pytest.raises(ValueError):
+        sparse_pairwise_distances(X, Y, metric="euclidean")
+
+
+@pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_SPARSE_METRICS.keys())
+@pytest.mark.parametrize("matrix_size,density", [
+    unit_param((1000, 100), 0.4),
+    unit_param((20, 10000), 0.01),
+    quality_param((2000, 1000), 0.05),
+    stress_param((10000, 10000), 0.01)])
+def test_sparse_pairwise_distances_sklearn_comparison(metric: str, matrix_size,
+                                                      density: float):
+    # Test larger sizes to sklearn
+    element_count = matrix_size[0] * matrix_size[1]
+
+    X = prepare_sparse_data(matrix_size[0], matrix_size[1],
+                            cp.float64, density, metric)
+    Y = prepare_sparse_data(matrix_size[0], matrix_size[1],
+                            cp.float64, density, metric)
+
+    # For fp64, compare at 9 decimals, (6 places less than the ~15 max)
+    compare_precision = 9
+
+    # Compare to sklearn, fp64
+    S = sparse_pairwise_distances(X, Y, metric=metric)
+
+    if (element_count <= 2000000):
+        S2 = ref_sparse_pairwise_dist(X, Y, metric=metric)
+        cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+    # For fp32, compare at 3 decimals, (4 places less than the ~7 max)
+    compare_precision = 3
+
+    X = X.astype(np.float32)
+    Y = Y.astype(np.float32)
+
+    # Compare to sklearn, fp32
+    S = sparse_pairwise_distances(X, Y, metric=metric)
+
+    if (element_count <= 2000000):
+        S2 = ref_sparse_pairwise_dist(X, Y, metric=metric)
+        cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+
+
+@pytest.mark.parametrize("input_type", ["numpy", "cupy"])
+@pytest.mark.parametrize("output_type", ["cudf", "numpy", "cupy"])
+def test_sparse_pairwise_distances_output_types(input_type, output_type):
+    # Test larger sizes to sklearn
+    if not has_scipy():
+        pytest.skip('Skipping sparse_pairwise_distances if Scipy is missing')
+    import scipy
+
+    if input_type == "cupy":
+        X = cupyx.scipy.sparse.random(100, 100, dtype=cp.float64,
+                                      random_state=123)
+        Y = cupyx.scipy.sparse.random(100, 100, dtype=cp.float64,
+                                      random_state=456)
+    else:
+        X = scipy.sparse.random(100, 100, dtype=np.float64, random_state=123)
+        Y = scipy.sparse.random(100, 100, dtype=np.float64, random_state=456)
+
+    # Use the global manager object.
+    with cuml.using_output_type(output_type):
+        S = sparse_pairwise_distances(X, Y, metric="euclidean")
+        if output_type == "cudf":
+            assert isinstance(S, cudf.DataFrame)
+        elif output_type == "numpy":
+            assert isinstance(S, np.ndarray)
+        elif output_type == "cupy":
+            assert isinstance(S, cp.ndarray)
+
+
+@pytest.mark.xfail(reason='Temporarily disabling this test. '
+                          'See rapidsai/cuml#3569')
+@pytest.mark.parametrize("nrows, ncols, n_info",
+                         [
+                             unit_param(30, 10, 7),
+                             quality_param(5000, 100, 50),
+                             stress_param(500000, 200, 100)
+                         ])
+@pytest.mark.parametrize("input_type", ["cudf", "cupy"])
+@pytest.mark.parametrize("n_classes", [2, 5])
+def test_hinge_loss(nrows, ncols, n_info, input_type, n_classes):
+    train_rows = np.int32(nrows*0.8)
+    X, y = make_classification(n_samples=nrows, n_features=ncols,
+                               n_clusters_per_class=1, n_informative=n_info,
+                               random_state=123, n_classes=n_classes)
+
+    if input_type == "cudf":
+        X = cudf.DataFrame(X)
+        y = cudf.Series(y)
+    elif input_type == "cupy":
+        X = cp.asarray(X)
+        y = cp.asarray(y)
+
+    X_train, X_test, y_train, y_test = train_test_split(X,
+                                                        y,
+                                                        train_size=train_rows,
+                                                        shuffle=True)
+    cuml_model = cu_log()
+    cuml_model.fit(X_train, y_train)
+    cu_predict_decision = cuml_model.decision_function(X_test)
+    cu_loss = cuml_hinge(y_test, cu_predict_decision.T, labels=cp.unique(y))
+    if input_type == "cudf":
+        y_test = y_test.to_array()
+        y = y.to_array()
+        cu_predict_decision = cp.asnumpy(cu_predict_decision.values)
+    elif input_type == "cupy":
+        y = cp.asnumpy(y)
+        y_test = cp.asnumpy(y_test)
+        cu_predict_decision = cp.asnumpy(cu_predict_decision)
+
+    cu_loss_using_sk = sk_hinge(y_test, cu_predict_decision.T,
+                                labels=np.unique(y))
+    # compare the accuracy of the two models
+    cp.testing.assert_array_almost_equal(cu_loss, cu_loss_using_sk)
+
+
+@pytest.mark.parametrize("nfeatures",
+                         [
+                             unit_param(10),
+                             unit_param(300),
+                             unit_param(30000),
+                             stress_param(500000000)
+                         ])
+@pytest.mark.parametrize("input_type", ["cudf", "cupy"])
+@pytest.mark.parametrize("dtypeP", [cp.float32, cp.float64])
+@pytest.mark.parametrize("dtypeQ", [cp.float32, cp.float64])
+def test_kl_divergence(nfeatures, input_type, dtypeP, dtypeQ):
+    if not has_scipy():
+        pytest.skip('Skipping test_kl_divergence because Scipy is missing')
+
+    from scipy.stats import entropy as sp_entropy
+    rng = np.random.RandomState(5)
+
+    P = rng.random_sample((nfeatures))
+    Q = rng.random_sample((nfeatures))
+
+    P /= P.sum()
+    Q /= Q.sum()
+    sk_res = sp_entropy(P, Q)
+
+    if input_type == "cudf":
+        P = cudf.DataFrame(P, dtype=dtypeP)
+        Q = cudf.DataFrame(Q, dtype=dtypeQ)
+    elif input_type == "cupy":
+        P = cp.asarray(P, dtype=dtypeP)
+        Q = cp.asarray(Q, dtype=dtypeQ)
+
+    if dtypeP != dtypeQ:
+        with pytest.raises(TypeError):
+            cu_kl_divergence(P, Q, convert_dtype=False)
+        cu_res = cu_kl_divergence(P, Q)
+    else:
+        cu_res = cu_kl_divergence(P, Q, convert_dtype=False)
+
+    cp.testing.assert_array_almost_equal(cu_res, sk_res)

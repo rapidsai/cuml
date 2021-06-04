@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +19,9 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/transpose.h>
 #include <test_utils.h>
-#include <distance/distance.cuh>
 #include <iostream>
 #include <raft/cuda_utils.cuh>
+#include <raft/distance/distance.cuh>
 #include <random>
 #include <vector>
 
@@ -143,14 +143,13 @@ class RPROJTest : public ::testing::Test {
     int D = johnson_lindenstrauss_min_dim(N, epsilon);
 
     constexpr auto distance_type =
-      ML::Distance::DistanceType::EucUnexpandedL2Sqrt;
+      raft::distance::DistanceType::L2SqrtUnexpanded;
     size_t workspaceSize = 0;
-    typedef cutlass::Shape<8, 128, 128> OutputTile_t;
 
     T* d_pdist;
     raft::allocate(d_pdist, N * N);
 
-    MLCommon::Distance::distance<distance_type, T, T, T, OutputTile_t>(
+    raft::distance::distance<distance_type, T, T, T>(
       d_input, d_input, d_pdist, N, N, M, (void*)nullptr, workspaceSize,
       h.get_stream());
     CUDA_CHECK(cudaPeekAtLastError());
@@ -161,7 +160,7 @@ class RPROJTest : public ::testing::Test {
 
     T* d_pdist1;
     raft::allocate(d_pdist1, N * N);
-    MLCommon::Distance::distance<distance_type, T, T, T, OutputTile_t>(
+    raft::distance::distance<distance_type, T, T, T>(
       d_output1, d_output1, d_pdist1, N, N, D, (void*)nullptr, workspaceSize,
       h.get_stream());
     CUDA_CHECK(cudaPeekAtLastError());
@@ -172,7 +171,7 @@ class RPROJTest : public ::testing::Test {
 
     T* d_pdist2;
     raft::allocate(d_pdist2, N * N);
-    MLCommon::Distance::distance<distance_type, T, T, T, OutputTile_t>(
+    raft::distance::distance<distance_type, T, T, T>(
       d_output2, d_output2, d_pdist2, N, N, D, (void*)nullptr, workspaceSize,
       h.get_stream());
     CUDA_CHECK(cudaPeekAtLastError());

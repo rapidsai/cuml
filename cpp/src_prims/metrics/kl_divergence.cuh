@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,10 +23,10 @@
 
 #include <math.h>
 #include <raft/cudart_utils.h>
-#include <common/device_buffer.hpp>
-#include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
+#include <raft/mr/device/allocator.hpp>
 
 namespace MLCommon {
 
@@ -58,12 +58,12 @@ namespace Metrics {
 * @param modelPDF: the model array of probability density functions of type DataT
 * @param candidatePDF: the candidate array of probability density functions of type DataT
 * @param size: the size of the data points of type int
-* @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<MLCommon::deviceAllocator>
+* @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<raft::mr::device::allocator>
 * @param stream: the cudaStream object
 */
 template <typename DataT>
 DataT kl_divergence(const DataT* modelPDF, const DataT* candidatePDF, int size,
-                    std::shared_ptr<MLCommon::deviceAllocator> allocator,
+                    std::shared_ptr<raft::mr::device::allocator> allocator,
                     cudaStream_t stream) {
   MLCommon::device_buffer<DataT> d_KLDVal(allocator, stream, 1);
   CUDA_CHECK(cudaMemsetAsync(d_KLDVal.data(), 0, sizeof(DataT), stream));

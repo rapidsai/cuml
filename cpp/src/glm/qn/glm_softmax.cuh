@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -59,7 +59,11 @@ __global__ void logSoftmaxKernel(T *out, T *dZ, const T *in, const T *labels,
   bool delta = false;
   // TODO is there a better way to read this?
   if (getDerivative && threadIdx.x == 0) {
-    shm.sh_val[threadIdx.y] = labels[y];
+    if (y < N) {
+      shm.sh_val[threadIdx.y] = labels[y];
+    } else {
+      shm.sh_val[threadIdx.y] = std::numeric_limits<T>::lowest();
+    }
   }
   __syncthreads();
   T label = shm.sh_val[threadIdx.y];
@@ -192,8 +196,8 @@ struct Softmax : GLMBase<T, Softmax<T>> {
   Softmax(const raft::handle_t &handle, int D, int C, bool has_bias)
     : Super(handle, D, C, has_bias) {}
 
-  inline void getLossAndDZ(T *loss_val, SimpleMat<T> &Z, const SimpleVec<T> &y,
-                           cudaStream_t stream) {
+  inline void getLossAndDZ(T *loss_val, SimpleDenseMat<T> &Z,
+                           const SimpleVec<T> &y, cudaStream_t stream) {
     launchLogsoftmax(loss_val, Z.data, Z.data, y.data, Z.m, Z.n, stream);
   }
 };

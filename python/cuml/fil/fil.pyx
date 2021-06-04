@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,10 +30,12 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
+import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array, logger
+from cuml.common.mixins import CMajorInputTagMixin
 
 import treelite
 import treelite.sklearn as tl_skl
@@ -44,19 +46,16 @@ cdef extern from "treelite/c_api.h":
     ctypedef void* ModelHandle
     cdef int TreeliteLoadXGBoostModel(const char* filename,
                                       ModelHandle* out) except +
-    cdef int TreeliteLoadXGBoostModelFromMemoryBuffer(const void* buf,
-                                                      size_t len,
-                                                      ModelHandle* out) \
-        except +
+    cdef int TreeliteLoadXGBoostJSON(const char* filename,
+                                     ModelHandle* out) except +
     cdef int TreeliteFreeModel(ModelHandle handle) except +
     cdef int TreeliteQueryNumTree(ModelHandle handle, size_t* out) except +
     cdef int TreeliteQueryNumFeature(ModelHandle handle, size_t* out) except +
-    cdef int TreeliteQueryNumOutputGroups(ModelHandle handle,
-                                          size_t* out) except +
+    cdef int TreeliteQueryNumClass(ModelHandle handle, size_t* out) except +
     cdef int TreeliteLoadLightGBMModel(const char* filename,
                                        ModelHandle* out) except +
-    cdef int TreeliteLoadProtobufModel(const char* filename,
-                                       ModelHandle* out) except +
+    cdef int TreeliteSerializeModel(const char* filename,
+                                    ModelHandle handle) except +
     cdef const char* TreeliteGetLastError()
 
 
@@ -123,12 +122,17 @@ cdef class TreeliteModel():
             Path to treelite model file to load
 
         model_type : string
-            Type of model: 'xgboost', or 'lightgbm'
+            Type of model: 'xgboost', 'xgboost_json', or 'lightgbm'
         """
         filename_bytes = filename.encode("UTF-8")
         cdef ModelHandle handle
         if model_type == "xgboost":
             res = TreeliteLoadXGBoostModel(filename_bytes, &handle)
+            if res < 0:
+                err = TreeliteGetLastError()
+                raise RuntimeError("Failed to load %s (%s)" % (filename, err))
+        elif model_type == "xgboost_json":
+            res = TreeliteLoadXGBoostJSON(filename_bytes, &handle)
             if res < 0:
                 err = TreeliteGetLastError()
                 raise RuntimeError("Failed to load %s (%s)" % (filename, err))
@@ -145,6 +149,19 @@ cdef class TreeliteModel():
         model = TreeliteModel()
         model.set_handle(handle)
         return model
+
+    def to_treelite_checkpoint(self, filename):
+        """
+        Serialize to a Treelite binary checkpoint
+
+        Parameters
+        ----------
+        filename : string
+            Path to Treelite binary checkpoint
+        """
+        assert self.handle != NULL
+        filename_bytes = filename.encode("UTF-8")
+        TreeliteSerializeModel(filename_bytes, self.handle)
 
     @staticmethod
     def from_treelite_model_handle(treelite_handle,
@@ -177,6 +194,10 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
         bool output_class
         float threshold
         storage_type_t storage_type
+        int blocks_per_sm
+        # limit number of CUDA blocks launched per GPU SM (or unlimited if 0)
+        # this affects inference performance and will become configurable soon
+        char** pforest_shape_str
 
     cdef void free(handle_t& handle,
                    forest_t)
@@ -191,19 +212,26 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
     cdef forest_t from_treelite(handle_t& handle,
                                 forest_t*,
                                 ModelHandle,
-                                treelite_params_t*)
+                                treelite_params_t*) except +
 
 cdef class ForestInference_impl():
 
-    cpdef object handle
+    cdef object handle
     cdef forest_t forest_data
-    cdef size_t num_output_groups
+    cdef size_t num_class
     cdef bool output_class
+    cdef char* shape_str
 
     def __cinit__(self,
                   handle=None):
         self.handle = handle
         self.forest_data = NULL
+        self.shape_str = NULL
+
+    def get_shape_str(self):
+        if self.shape_str:
+            return unicode(self.shape_str, 'utf-8')
+        return None
 
     def get_algo(self, algo_str):
         algo_dict={'AUTO': algo_t.ALGO_AUTO,
@@ -219,7 +247,8 @@ cdef class ForestInference_impl():
                             ' to the documentation')
         return algo_dict[algo_str]
 
-    def get_storage_type(self, storage_type_str):
+    def get_storage_type(self, storage_type):
+        storage_type_str = str(storage_type)
         storage_type_dict={'auto': storage_type_t.AUTO,
                            'False': storage_type_t.DENSE,
                            'dense': storage_type_t.DENSE,
@@ -237,7 +266,7 @@ cdef class ForestInference_impl():
             logger.info('storage_type=="sparse8" is an experimental feature')
         return storage_type_dict[storage_type_str]
 
-    def predict(self, X, output_type='numpy',
+    def predict(self, X,
                 output_dtype=None, predict_proba=False, preds=None):
         """
         Returns the results of forest inference on the examples in X
@@ -246,10 +275,6 @@ cdef class ForestInference_impl():
         ----------
         X : float32 array-like (device or host) shape = (n_samples, n_features)
             For optimal performance, pass a device array with C-style layout
-        output_type : string (default = 'numpy')
-            possible options are : {'input', 'cudf', 'cupy', 'numpy'}, optional
-            Variable to control output type of the results and attributes of
-            the estimators.
         preds : float32 device array, shape = n_samples
         predict_proba : bool, whether to output class probabilities(vs classes)
             Supported only for binary classification. output format
@@ -261,6 +286,10 @@ cdef class ForestInference_impl():
         Predicted results of type as defined by the output_type variable
 
         """
+
+        # Set the output_dtype. None is fine here
+        cuml.internals.set_api_output_dtype(output_dtype)
+
         if (not self.output_class) and predict_proba:
             raise NotImplementedError("Predict_proba function is not available"
                                       " for Regression models. If you are "
@@ -280,10 +309,10 @@ cdef class ForestInference_impl():
         if preds is None:
             shape = (n_rows, )
             if predict_proba:
-                if self.num_output_groups <= 2:
+                if self.num_class <= 2:
                     shape += (2,)
                 else:
-                    shape += (self.num_output_groups,)
+                    shape += (self.num_class,)
             preds = CumlArray.empty(shape=shape, dtype=np.float32, order='C')
         elif (not isinstance(preds, cudf.Series) and
               not rmm.is_cuda_array(preds)):
@@ -304,86 +333,57 @@ cdef class ForestInference_impl():
         # special case due to predict and predict_proba
         # both coming from the same CUDA/C++ function
         if predict_proba:
-            output_dtype = None
-        return preds.to_output(
-            output_type=output_type,
-            output_dtype=output_dtype
-        )
+            cuml.internals.set_api_output_dtype(None)
 
-    def load_from_treelite_model_handle(self,
-                                        uintptr_t model_handle,
-                                        bool output_class,
-                                        str algo,
-                                        float threshold,
-                                        str storage_type):
-        cdef treelite_params_t treelite_params
+        return preds
 
-        self.output_class = output_class
-        treelite_params.output_class = self.output_class
-        treelite_params.threshold = threshold
-        treelite_params.algo = self.get_algo(algo)
-        treelite_params.storage_type = self.get_storage_type(storage_type)
-
+    def load_from_treelite_model_handle(self, **kwargs):
         self.forest_data = NULL
-        cdef handle_t* handle_ =\
-            <handle_t*><size_t>self.handle.getHandle()
-        cdef uintptr_t model_ptr = <uintptr_t>model_handle
+        return self.load_using_treelite_handle(**kwargs)
 
-        from_treelite(handle_[0],
-                      &self.forest_data,
-                      <ModelHandle> model_ptr,
-                      &treelite_params)
-        TreeliteQueryNumOutputGroups(<ModelHandle> model_ptr,
-                                     & self.num_output_groups)
-        return self
+    def load_from_treelite_model(self, **kwargs):
+        cdef TreeliteModel model = kwargs['model']
+        return self.load_from_treelite_model_handle(
+            model_handle=<uintptr_t>model.handle, **kwargs)
 
-    def load_from_treelite_model(self,
-                                 TreeliteModel model,
-                                 bool output_class,
-                                 str algo,
-                                 float threshold,
-                                 str storage_type):
-        TreeliteQueryNumOutputGroups(<ModelHandle> model.handle,
-                                     & self.num_output_groups)
-        return self.load_from_treelite_model_handle(<uintptr_t>model.handle,
-                                                    output_class, algo,
-                                                    threshold, storage_type)
-
-    def load_using_treelite_handle(self,
-                                   model_handle,
-                                   bool output_class,
-                                   str algo,
-                                   float threshold,
-                                   str storage_type):
-
+    def load_using_treelite_handle(self, **kwargs):
         cdef treelite_params_t treelite_params
 
-        self.output_class = output_class
+        self.output_class = kwargs['output_class']
         treelite_params.output_class = self.output_class
-        treelite_params.threshold = threshold
-        treelite_params.algo = self.get_algo(algo)
-        treelite_params.storage_type = self.get_storage_type(storage_type)
+        treelite_params.threshold = kwargs['threshold']
+        treelite_params.algo = self.get_algo(kwargs['algo'])
+        treelite_params.storage_type =\
+            self.get_storage_type(kwargs['storage_type'])
+        treelite_params.blocks_per_sm = kwargs['blocks_per_sm']
+        if kwargs['compute_shape_str']:
+            if self.shape_str:
+                free(self.shape_str)
+            treelite_params.pforest_shape_str = &self.shape_str
+        else:
+            treelite_params.pforest_shape_str = NULL
+
         cdef handle_t* handle_ =\
             <handle_t*><size_t>self.handle.getHandle()
-        cdef uintptr_t model_ptr = <uintptr_t>model_handle
+        cdef uintptr_t model_ptr = <uintptr_t>kwargs['model_handle']
 
         from_treelite(handle_[0],
                       &self.forest_data,
                       <ModelHandle> model_ptr,
                       &treelite_params)
-        TreeliteQueryNumOutputGroups(<ModelHandle> model_ptr,
-                                     &self.num_output_groups)
+        TreeliteQueryNumClass(<ModelHandle> model_ptr,
+                              &self.num_class)
         return self
 
     def __dealloc__(self):
-        cdef handle_t* handle_ =\
-            <handle_t*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+
         if self.forest_data !=NULL:
-            free(handle_[0],
-                 self.forest_data)
+            free(handle_[0], self.forest_data)
 
 
-class ForestInference(Base):
+class ForestInference(Base,
+                      CMajorInputTagMixin):
     """
     ForestInference provides GPU-accelerated inference (prediction)
     for random forest and boosted decision tree models.
@@ -403,13 +403,14 @@ class ForestInference(Base):
      * A single row of data should fit into the shared memory of a thread
        block, which means that more than 12288 features are not supported.
      * From sklearn.ensemble, only
-       {RandomForest,GradientBoosting}{Classifier,Regressor} models are
-       supported; other sklearn.ensemble models are currently not supported.
+       {RandomForest,GradientBoosting,ExtraTrees}{Classifier,Regressor} models
+       are supported. Other sklearn.ensemble models are currently not
+       supported.
      * Importing large SKLearn models can be slow, as it is done in Python.
      * LightGBM categorical features are not supported.
      * Inference uses a dense matrix format, which is efficient for many
        problems but can be suboptimal for sparse datasets.
-     * Only binary classification and regression are supported.
+     * Only classification and regression are supported.
      * Many other random forest implementations including LightGBM, and SKLearn
        GBDTs make use of 64-bit floating point parameters, but the underlying
        library for ForestInference uses only 32-bit parameters. Because of the
@@ -431,7 +432,7 @@ class ForestInference(Base):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Examples
@@ -465,23 +466,23 @@ class ForestInference(Base):
 
     """
 
-    def __init__(self,
+    def __init__(self, *,
                  handle=None,
                  output_type=None,
                  verbose=False):
-        super(ForestInference, self).__init__(handle=handle,
-                                              output_type=output_type,
-                                              verbose=verbose)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
         self._impl = ForestInference_impl(self.handle)
 
-    def predict(self, X, preds=None):
+    def predict(self, X, preds=None) -> CumlArray:
         """
         Predicts the labels for X with the loaded forest model.
         By default, the result is the raw floating point output
-        from the model, unless output_class was set to True
+        from the model, unless `output_class` was set to True
         during model loading.
 
-        See the documentation of ForestInference.load for details.
+        See the documentation of `ForestInference.load` for details.
 
         Parameters
         ----------
@@ -498,10 +499,9 @@ class ForestInference(Base):
         GPU array of length n_samples with inference results
         (or 'preds' filled with inference results if preds was specified)
         """
-        out_type = self._get_output_type(X)
-        return self._impl.predict(X, out_type, predict_proba=False, preds=None)
+        return self._impl.predict(X, predict_proba=False, preds=None)
 
-    def predict_proba(self, X, preds=None):
+    def predict_proba(self, X, preds=None) -> CumlArray:
         """
         Predicts the class probabilities for X with the loaded forest model.
         The result is the raw floating point output
@@ -515,7 +515,7 @@ class ForestInference(Base):
            ndarray, cuda array interface compliant array like CuPy
            For optimal performance, pass a device array with C-style layout
         preds: gpuarray or cudf.Series, shape = (n_samples,2)
-           binary probability output
+           Binary probability output
            Optional 'out' location to store inference results
 
         Returns
@@ -523,16 +523,16 @@ class ForestInference(Base):
         GPU array of shape (n_samples,2) with inference results
         (or 'preds' filled with inference results if preds was specified)
         """
-        out_type = self._get_output_type(X)
-
-        return self._impl.predict(X, out_type, predict_proba=True, preds=None)
+        return self._impl.predict(X, predict_proba=True, preds=None)
 
     def load_from_treelite_model(self, model, output_class=False,
                                  algo='auto',
                                  threshold=0.5,
-                                 storage_type='auto'):
-        """
-        Creates a FIL model using the treelite model
+                                 storage_type='auto',
+                                 blocks_per_sm=0,
+                                 compute_shape_str=False,
+                                 ):
+        """Creates a FIL model using the treelite model
         passed to the function.
 
         Parameters
@@ -542,49 +542,68 @@ class ForestInference(Base):
             loaded from a saved model using the treelite API
             https://treelite.readthedocs.io/en/latest/treelite-api.html
         output_class: boolean (default=False)
-            For a Classification model output_class must be True.
-            For a Regression model output_class must be False.
+            For a Classification model `output_class` must be True.
+            For a Regression model `output_class` must be False.
         algo : string (default='auto')
-            name of the algo from (from algo_t enum) :
-             - 'AUTO' or 'auto' - choose the algorithm automatically;
-               currently 'BATCH_TREE_REORG' is used for dense storage,
+            Name of the algo from (from algo_t enum):
+
+             - ``'AUTO'`` or ``'auto'``: choose the algorithm automatically.
+               Currently 'BATCH_TREE_REORG' is used for dense storage,
                and 'NAIVE' for sparse storage
-             - 'NAIVE' or 'naive' - simple inference using shared memory
-             - 'TREE_REORG' or 'tree_reorg' - similar to naive but trees
+             - ``'NAIVE'`` or ``'naive'``: simple inference using shared memory
+             - ``'TREE_REORG'`` or ``'tree_reorg'``: similar to naive but trees
                rearranged to be more coalescing-friendly
-             - 'BATCH_TREE_REORG' or 'batch_tree_reorg' - similar to TREE_REORG
-               but predicting multiple rows per thread block
+             - ``'BATCH_TREE_REORG'`` or ``'batch_tree_reorg'``: similar to
+               TREE_REORG but predicting multiple rows per thread block
+
         threshold : float (default=0.5)
             Threshold is used to for classification. It is applied
-            only if output_class == True, else it is ignored.
+            only if ``output_class == True``, else it is ignored.
         storage_type : string or boolean (default='auto')
             In-memory storage format to be used for the FIL model:
-             - 'auto' - choose the storage type automatically
+
+             - ``'auto'``: Choose the storage type automatically
                (currently DENSE is always used)
-             - False - create a dense forest
-             - True - create a sparse forest;
-               requires algo='NAIVE' or algo='AUTO'
-             - 'sparse8' - (experimental) create a sparse forest
-                      with 8-byte nodes; requires algo='NAIVE' or algo='AUTO';
-                      can fail if 8-byte nodes are not enough
-                      to store the forest, e.g. if there are
-                      too many nodes in a tree or too many features
+             - ``False``: Create a dense forest
+             - ``True``: Create a sparse forest. Requires algo='NAIVE' or
+               algo='AUTO'
+             - ``'sparse8'``: (experimental) Create a sparse forest with 8-byte
+               nodes. Requires algo='NAIVE' or algo='AUTO'. Can fail if 8-byte
+               nodes are not enough to store the forest, e.g. if there are too
+               many nodes in a tree or too many features
+
+        blocks_per_sm : integer (default=0)
+            (experimental) Indicates how the number of thread blocks to lauch
+            for the inference kernel is determined.
+
+            - ``0`` (default): Launches the number of blocks proportional to
+              the number of data rows
+            - ``>= 1``: Attempts to lauch blocks_per_sm blocks per SM. This
+              will fail if blocks_per_sm blocks result in more threads than the
+              maximum supported number of threads per GPU. Even if successful,
+              it is not guaranteed that blocks_per_sm blocks will run on an SM
+              concurrently.
+        compute_shape_str : boolean (default=False)
+            if True or equivalent, creates a ForestInference.shape_str
+            (writes a human-readable forest shape description as a
+            multiline ascii string)
 
         Returns
         ----------
         fil_model
             A Forest Inference model which can be used to perform
             inferencing on the random forest/ XGBoost model.
+
         """
         if isinstance(model, TreeliteModel):
             # TreeliteModel defined in this file
-            return self._impl.load_from_treelite_model(
-                model, output_class, algo, threshold, str(storage_type))
+            self._impl.load_from_treelite_model(**locals())
         else:
             # assume it is treelite.Model
-            return self._impl.load_from_treelite_model_handle(
-                model.handle.value, output_class, algo, threshold,
-                str(storage_type))
+            self._impl.load_from_treelite_model_handle(
+                model_handle=model.handle.value, **locals())
+        self.shape_str = self._impl.get_shape_str()
+        return self
 
     @staticmethod
     def load_from_sklearn(skl_model,
@@ -592,38 +611,59 @@ class ForestInference(Base):
                           threshold=0.50,
                           algo='auto',
                           storage_type='auto',
+                          blocks_per_sm=0,
+                          compute_shape_str=False,
                           handle=None):
         """
         Creates a FIL model using the scikit-learn model passed to the
-        function. This function requires Treelite 0.90 to be installed.
+        function. This function requires Treelite 1.0.0+ to be installed.
 
         Parameters
         ----------
         skl_model
             The scikit-learn model from which to build the FIL version.
         output_class: boolean (default=False)
-            For a Classification model output_class must be True.
-            For a Regression model output_class must be False.
+            For a Classification model `output_class` must be True.
+            For a Regression model `output_class` must be False.
         algo : string (default='auto')
-            name of the algo from (from algo_t enum):
-             - 'AUTO' or 'auto' - choose the algorithm automatically;
-               currently 'BATCH_TREE_REORG' is used for dense storage,
+            Name of the algo from (from algo_t enum):
+
+             - ``'AUTO'`` or ``'auto'``: Choose the algorithm automatically.
+               Currently 'BATCH_TREE_REORG' is used for dense storage,
                and 'NAIVE' for sparse storage
-             - 'NAIVE' or 'naive' - simple inference using shared memory
-             - 'TREE_REORG' or 'tree_reorg' - similar to naive but trees
+             - ``'NAIVE'`` or ``'naive'``: Simple inference using shared memory
+             - ``'TREE_REORG'`` or ``'tree_reorg'``: Similar to naive but trees
                rearranged to be more coalescing-friendly
-             - 'BATCH_TREE_REORG' or 'batch_tree_reorg' - similar to TREE_REORG
-               but predicting multiple rows per thread block
+             - ``'BATCH_TREE_REORG'`` or ``'batch_tree_reorg'``: Similar to
+               TREE_REORG but predicting multiple rows per thread block
+
         threshold : float (default=0.5)
             Threshold is used to for classification. It is applied
             only if ``output_class == True``, else it is ignored.
         storage_type : string or boolean (default='auto')
             In-memory storage format to be used for the FIL model:
-             - 'auto' - choose the storage type automatically
+
+             - ``'auto'``: Choose the storage type automatically
                (currently DENSE is always used)
-             - False - create a dense forest
-             - True - create a sparse forest;
-               requires algo='NAIVE' or algo='AUTO'
+             - ``False``: Create a dense forest
+             - ``True``: Create a sparse forest. Requires algo='NAIVE' or
+               algo='AUTO'
+
+        blocks_per_sm : integer (default=0)
+            (experimental) Indicates how the number of thread blocks to lauch
+            for the inference kernel is determined.
+
+            - ``0`` (default): Launches the number of blocks proportional to
+              the number of data rows
+            - ``>= 1``: Attempts to lauch blocks_per_sm blocks per SM. This
+              will fail if blocks_per_sm blocks result in more threads than the
+              maximum supported number of threads per GPU. Even if successful,
+              it is not guaranteed that blocks_per_sm blocks will run on an SM
+              concurrently.
+        compute_shape_str : boolean (default=False)
+            if True or equivalent, creates a ForestInference.shape_str
+            (writes a human-readable forest shape description as a
+            multiline ascii string)
 
         Returns
         ----------
@@ -632,14 +672,14 @@ class ForestInference(Base):
             model passed.
 
         """
+        kwargs = locals()
+        [kwargs.pop(key) for key in ['skl_model', 'handle']]
         cuml_fm = ForestInference(handle=handle)
         logger.warn("Treelite currently does not support float64 model"
                     " parameters. Accuracy may degrade slightly relative to"
                     " native sklearn invocation.")
         tl_model = tl_skl.import_model(skl_model)
-        cuml_fm.load_from_treelite_model(
-            tl_model, algo=algo, output_class=output_class,
-            storage_type=str(storage_type), threshold=threshold)
+        cuml_fm.load_from_treelite_model(model=tl_model, **kwargs)
         return cuml_fm
 
     @staticmethod
@@ -648,6 +688,8 @@ class ForestInference(Base):
              threshold=0.50,
              algo='auto',
              storage_type='auto',
+             blocks_per_sm=0,
+             compute_shape_str=False,
              model_type="xgboost",
              handle=None):
         """
@@ -672,9 +714,24 @@ class ForestInference(Base):
         storage_type : string (default='auto')
             In-memory storage format to be used for the FIL model.
             See documentation in `FIL.load_from_treelite_model`
+        blocks_per_sm : integer (default=0)
+            (experimental) Indicates how the number of thread blocks to lauch
+            for the inference kernel is determined.
+
+            - ``0`` (default): Launches the number of blocks proportional to
+              the number of data rows
+            - ``>= 1``: Attempts to lauch blocks_per_sm blocks per SM. This
+              will fail if blocks_per_sm blocks result in more threads than the
+              maximum supported number of threads per GPU. Even if successful,
+              it is not guaranteed that blocks_per_sm blocks will run on an SM
+              concurrently.
+        compute_shape_str : boolean (default=False)
+            if True or equivalent, creates a ForestInference.shape_str
+            (writes a human-readable forest shape description as a
+            multiline ascii string)
         model_type : string (default="xgboost")
             Format of the saved treelite model to be load.
-            It can be 'xgboost', 'lightgbm'.
+            It can be 'xgboost', 'xgboost_json', 'lightgbm'.
 
         Returns
         ----------
@@ -683,13 +740,11 @@ class ForestInference(Base):
             inferencing on the model read from the file.
 
         """
+        kwargs = locals()
+        [kwargs.pop(key) for key in ['filename', 'handle', 'model_type']]
         cuml_fm = ForestInference(handle=handle)
         tl_model = TreeliteModel.from_filename(filename, model_type=model_type)
-        cuml_fm.load_from_treelite_model(tl_model,
-                                         algo=algo,
-                                         output_class=output_class,
-                                         storage_type=str(storage_type),
-                                         threshold=threshold)
+        cuml_fm.load_from_treelite_model(model=tl_model, **kwargs)
         return cuml_fm
 
     def load_using_treelite_handle(self,
@@ -697,7 +752,10 @@ class ForestInference(Base):
                                    output_class=False,
                                    algo='auto',
                                    storage_type='auto',
-                                   threshold=0.50):
+                                   threshold=0.50,
+                                   blocks_per_sm=0,
+                                   compute_shape_str=False,
+                                   ):
         """
         Returns a FIL instance by converting a treelite model to
         FIL model by using the treelite ModelHandle passed.
@@ -712,13 +770,28 @@ class ForestInference(Base):
             For a Regression model `output_class` must be False.
         threshold : float (default=0.5)
             Cutoff value above which a prediction is set to 1.0
-            Only used if the model is classification and output_class is True
+            Only used if the model is classification and `output_class` is True
         algo : string (default='auto')
             Which inference algorithm to use.
             See documentation in `FIL.load_from_treelite_model`
         storage_type : string (default='auto')
             In-memory storage format to be used for the FIL model.
             See documentation in `FIL.load_from_treelite_model`
+        blocks_per_sm : integer (default=0)
+            (experimental) Indicates how the number of thread blocks to lauch
+            for the inference kernel is determined.
+
+            - ``0`` (default): Launches the number of blocks proportional to
+              the number of data rows
+            - ``>= 1``: Attempts to lauch blocks_per_sm blocks per SM. This
+              will fail if blocks_per_sm blocks result in more threads than the
+              maximum supported number of threads per GPU. Even if successful,
+              it is not guaranteed that blocks_per_sm blocks will run on an SM
+              concurrently.
+        compute_shape_str : boolean (default=False)
+            if True or equivalent, creates a ForestInference.shape_str
+            (writes a human-readable forest shape description as a
+            multiline ascii string)
 
         Returns
         ----------
@@ -726,7 +799,7 @@ class ForestInference(Base):
             A Forest Inference model which can be used to perform
             inferencing on the random forest model.
         """
-        return self._impl.load_using_treelite_handle(model_handle,
-                                                     output_class,
-                                                     algo, threshold,
-                                                     str(storage_type))
+        self._impl.load_using_treelite_handle(**locals())
+        self.shape_str = self._impl.get_shape_str()
+        # DO NOT RETURN self._impl here!!
+        return self

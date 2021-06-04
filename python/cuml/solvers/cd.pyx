@@ -1,4 +1,4 @@
-# Copyright (c) 2018-2020, NVIDIA CORPORATION.
+# Copyright (c) 2018-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,15 +25,13 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
-from cuml.common.array import CumlArray
+from cuml.common import CumlArray
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import Base
 from cuml.common.doc_utils import generate_docstring
 from cuml.raft.common.handle cimport handle_t
-from cuml.common import get_cudf_column_ptr
-from cuml.common import get_dev_array_ptr
-from cuml.common import input_to_dev_array
-from cuml.common import zeros
 from cuml.common.input_utils import input_to_cuml_array
+from cuml.common.mixins import FMajorInputTagMixin
 
 
 cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
@@ -89,7 +87,8 @@ cdef extern from "cuml/solvers/solver.hpp" namespace "ML::Solver":
                         int loss) except +
 
 
-class CD(Base):
+class CD(Base,
+         FMajorInputTagMixin):
     """
     Coordinate Descent (CD) is a very common optimization algorithm that
     minimizes along coordinate directions to find the minimum of a function.
@@ -182,12 +181,14 @@ class CD(Base):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     """
 
-    def __init__(self, loss='squared_loss', alpha=0.0001, l1_ratio=0.15,
+    coef_ = CumlArrayDescriptor()
+
+    def __init__(self, *, loss='squared_loss', alpha=0.0001, l1_ratio=0.15,
                  fit_intercept=True, normalize=False, max_iter=1000, tol=1e-3,
                  shuffle=True, handle=None, output_type=None, verbose=False):
 
@@ -195,8 +196,9 @@ class CD(Base):
             msg = "loss {!r} is not supported"
             raise NotImplementedError(msg.format(loss))
 
-        super(CD, self).__init__(handle=handle, verbose=verbose,
-                                 output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
 
         self.loss = loss
         self.alpha = alpha
@@ -207,7 +209,7 @@ class CD(Base):
         self.tol = tol
         self.shuffle = shuffle
         self.intercept_value = 0.0
-        self._coef_ = None   # accessed via estimator.coef_
+        self.coef_ = None
         self.intercept_ = None
 
     def _check_alpha(self, alpha):
@@ -222,13 +224,11 @@ class CD(Base):
         }[self.loss]
 
     @generate_docstring()
-    def fit(self, X, y, convert_dtype=False):
+    def fit(self, X, y, convert_dtype=False) -> "CD":
         """
         Fit the model with X and y.
 
         """
-
-        self._set_base_attributes(output_type=X)
 
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
@@ -244,8 +244,8 @@ class CD(Base):
 
         self.n_alpha = 1
 
-        self._coef_ = CumlArray.zeros(self.n_cols, dtype=self.dtype)
-        cdef uintptr_t coef_ptr = self._coef_.ptr
+        self.coef_ = CumlArray.zeros(self.n_cols, dtype=self.dtype)
+        cdef uintptr_t coef_ptr = self.coef_.ptr
 
         cdef float c_intercept1
         cdef double c_intercept2
@@ -296,13 +296,11 @@ class CD(Base):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=False):
+    def predict(self, X, convert_dtype=False) -> CumlArray:
         """
         Predicts the y for X.
 
         """
-        out_type = self._get_output_type(X)
-
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
                                 convert_to_dtype=(self.dtype if convert_dtype
@@ -310,7 +308,7 @@ class CD(Base):
                                 check_cols=self.n_cols)
 
         cdef uintptr_t X_ptr = X_m.ptr
-        cdef uintptr_t coef_ptr = self._coef_.ptr
+        cdef uintptr_t coef_ptr = self.coef_.ptr
 
         preds = CumlArray.zeros(n_rows, dtype=self.dtype)
         cdef uintptr_t preds_ptr = preds.ptr
@@ -340,7 +338,7 @@ class CD(Base):
 
         del(X_m)
 
-        return preds.to_output(out_type)
+        return preds
 
     def get_param_names(self):
         return super().get_param_names() + [

@@ -16,12 +16,16 @@
 
 import cupy as cp
 import numpy as np
-from cuml.common.memory_utils import with_cupy_rmm
-from cuml.common import input_to_cuml_array
+import cuml.internals
+from cuml.common.input_utils import input_to_cupy_array
 
 
-@with_cupy_rmm
-def log_loss(y_true, y_pred, eps=1e-15, normalize=True, sample_weight=None):
+@cuml.internals.api_return_any()
+def log_loss(y_true,
+             y_pred,
+             eps=1e-15,
+             normalize=True,
+             sample_weight=None) -> float:
     """ Log loss, aka logistic loss or cross-entropy loss.
     This is the loss function used in (multinomial) logistic regression
     and extensions of it such as neural networks, defined as the negative
@@ -66,21 +70,19 @@ def log_loss(y_true, y_pred, eps=1e-15, normalize=True, sample_weight=None):
 
     """
     y_true, n_rows, n_cols, ytype = \
-        input_to_cuml_array(y_true, check_dtype=[np.int32, np.int64,
+        input_to_cupy_array(y_true, check_dtype=[np.int32, np.int64,
                                                  np.float32, np.float64])
 
-    y_true = y_true.to_output('cupy')
     if y_true.dtype.kind == 'f' and np.any(y_true != y_true.astype(int)):
         raise ValueError("'y_true' can only have integer values")
     if y_true.min() < 0:
         raise ValueError("'y_true' cannot have negative values")
 
     y_pred, _, _, _ = \
-        input_to_cuml_array(y_pred, check_dtype=[np.int32, np.int64,
+        input_to_cupy_array(y_pred, check_dtype=[np.int32, np.int64,
                                                  np.float32, np.float64],
                             check_rows=n_rows)
 
-    y_pred = y_pred.to_output('cupy')
     y_true_max = y_true.max()
     if (y_pred.ndim == 1 and y_true_max > 1) \
        or (y_pred.ndim > 1 and y_pred.shape[1] <= y_true_max):

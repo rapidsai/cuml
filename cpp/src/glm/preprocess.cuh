@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,8 +17,6 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
-#include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/matrix/math.cuh>
@@ -26,6 +24,7 @@
 #include <raft/stats/mean.cuh>
 #include <raft/stats/mean_center.cuh>
 #include <raft/stats/stddev.cuh>
+#include <rmm/device_uvector.hpp>
 
 namespace ML {
 namespace GLM {
@@ -73,8 +72,7 @@ void postProcessData(const raft::handle_t &handle, math_t *input, int n_rows,
          "Parameter n_rows: number of rows cannot be less than two");
 
   cublasHandle_t cublas_handle = handle.get_cublas_handle();
-  auto allocator = handle.get_device_allocator();
-  device_buffer<math_t> d_intercept(allocator, stream, 1);
+  rmm::device_uvector<math_t> d_intercept(1, stream);
 
   if (normalize) {
     raft::matrix::matrixVectorBinaryMult(input, norm2_input, n_rows, n_cols,

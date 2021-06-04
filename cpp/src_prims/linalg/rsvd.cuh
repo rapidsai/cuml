@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <common/device_buffer.hpp>
+#include <cuml/common/device_buffer.hpp>
 
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/cusolver_wrappers.h>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,28 +16,12 @@
 
 #pragma once
 
-#include <mutex>
-#include <unordered_map>
-#include <utility>
-#include <vector>
-
-#include <cublas_v2.h>
-#include <cusolverDn.h>
-#include <cusolverSp.h>
-#include <cusparse.h>
-
-#include <cuml/cuml.hpp>
-#include <raft/comms/comms.hpp>
-
 #include <cuml/cuml_api.h>
 #include <raft/handle.hpp>
-
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/host/allocator.hpp>
 
 namespace ML {
-
-using MLCommon::deviceAllocator;
-using MLCommon::hostAllocator;
 
 /**
  * Map from integral cumlHandle_t identifiers to cumlHandle pointer protected

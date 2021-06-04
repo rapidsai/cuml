@@ -1,7 +1,7 @@
 #!/bin/bash
-# Copyright (c) 2018, NVIDIA CORPORATION.
+# Copyright (c) 2018-2021, NVIDIA CORPORATION.
 ##############################################
-# cuML CPU conda build script for CI         # 
+# cuML CPU conda build script for CI         #
 ##############################################
 set -ex
 
@@ -18,6 +18,10 @@ export CUDA_REL=${CUDA_VERSION%.*}
  # Setup 'gpuci_conda_retry' for build retries (results in 2 total attempts)
 export GPUCI_CONDA_RETRY_MAX=1
 export GPUCI_CONDA_RETRY_SLEEP=30
+
+# Use Ninja to build, setup Conda Build Dir
+export CMAKE_GENERATOR="Ninja"
+export CONDA_BLD_DIR="${WORKSPACE}/.conda-bld"
 
 # Switch to project root; also root of repo checkout
 cd $WORKSPACE
@@ -37,6 +41,11 @@ env
 gpuci_logger "Activate conda env"
 . /opt/conda/etc/profile.d/conda.sh
 conda activate rapids
+
+# Remove rapidsai-nightly channel if we are building main branch
+if [ "$SOURCE_BRANCH" = "main" ]; then
+  conda config --system --remove channels rapidsai-nightly
+fi
 
 gpuci_logger "Check compiler versions"
 python --version
@@ -58,22 +67,24 @@ conda config --set ssl_verify False
 if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
   if [ "$BUILD_LIBCUML" == '1' -o "$BUILD_CUML" == '1' ]; then
     gpuci_logger "Build conda pkg for libcuml"
-    gpuci_conda_retry build conda/recipes/libcuml
+    gpuci_conda_retry build --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libcuml
   fi
 else
   if [ "$BUILD_LIBCUML" == '1' ]; then
     gpuci_logger "PROJECT FLASH: Build conda pkg for libcuml"
-    gpuci_conda_retry build conda/recipes/libcuml --dirty --no-remove-work-dir
+    gpuci_conda_retry build --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libcuml --dirty --no-remove-work-dir
+    mkdir -p ${CONDA_BLD_DIR}/libcuml/work
+    cp -r ${CONDA_BLD_DIR}/work/* ${CONDA_BLD_DIR}/libcuml/work
   fi
 fi
 
 if [ "$BUILD_CUML" == '1' ]; then
   if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     gpuci_logger "Build conda pkg for cuml"
-    gpuci_conda_retry build conda/recipes/cuml --python=${PYTHON}
+    gpuci_conda_retry build --croot ${CONDA_BLD_DIR} conda/recipes/cuml --python=${PYTHON}
   else
     gpuci_logger "PROJECT FLASH: Build conda pkg for cuml"
-    gpuci_conda_retry build -c ci/artifacts/cuml/cpu/conda-bld/ --dirty --no-remove-work-dir conda/recipes/cuml --python=${PYTHON}
+    gpuci_conda_retry build --croot ${CONDA_BLD_DIR} -c ci/artifacts/cuml/cpu/.conda-bld/ --dirty --no-remove-work-dir conda/recipes/cuml --python=${PYTHON}
   fi
 fi
 

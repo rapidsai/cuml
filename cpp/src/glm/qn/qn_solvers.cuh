@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -42,6 +42,7 @@
 
 #include <cuml/common/logger.hpp>
 #include <raft/cuda_utils.cuh>
+#include <rmm/device_uvector.hpp>
 #include "qn_linesearch.cuh"
 #include "qn_util.cuh"
 #include "simple_mat.cuh"
@@ -81,9 +82,9 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
   size_t mat_size = raft::alignTo<size_t>(sizeof(T) * param.m * n, qn_align);
   size_t vec_size = raft::alignTo<size_t>(sizeof(T) * n, qn_align);
   T *p_ws = workspace.data;
-  SimpleMat<T> S(p_ws, n, param.m);
+  SimpleDenseMat<T> S(p_ws, n, param.m);
   p_ws += mat_size;
-  SimpleMat<T> Y(p_ws, n, param.m);
+  SimpleDenseMat<T> Y(p_ws, n, param.m);
   p_ws += mat_size;
   SimpleVec<T> xp(p_ws, n);
   p_ws += vec_size;
@@ -107,13 +108,11 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
 
   // Evaluate function and compute gradient
   fx = f(x, grad, dev_scalar, stream);
-  T xnorm = nrm2(x, dev_scalar, stream);
-  T gnorm = nrm2(grad, dev_scalar, stream);
 
   if (param.past > 0) fx_hist[0] = fx;
 
   // Early exit if the initial x is already a minimizer
-  if (gnorm <= param.epsilon * std::max(xnorm, T(1.0))) {
+  if (check_convergence(param, *k, fx, x, grad, fx_hist, dev_scalar, stream)) {
     CUML_LOG_DEBUG("Initial solution fulfills optimality condition.");
     return OPT_SUCCESS;
   }
@@ -207,9 +206,9 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
   size_t mat_size = raft::alignTo<size_t>(sizeof(T) * param.m * n, qn_align);
   size_t vec_size = raft::alignTo<size_t>(sizeof(T) * n, qn_align);
   T *p_ws = workspace.data;
-  SimpleMat<T> S(p_ws, n, param.m);
+  SimpleDenseMat<T> S(p_ws, n, param.m);
   p_ws += mat_size;
-  SimpleMat<T> Y(p_ws, n, param.m);
+  SimpleDenseMat<T> Y(p_ws, n, param.m);
   p_ws += mat_size;
   SimpleVec<T> xp(p_ws, n);
   p_ws += vec_size;
@@ -254,13 +253,10 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
   // pseudo.assign_binary(x, grad, pseudo_grad);
   update_pseudo(x, grad, pseudo_grad, pg_limit, pseudo, stream);
 
-  T xnorm = nrm2(x, dev_scalar, stream);
-  T gnorm = nrm2(pseudo, dev_scalar, stream);
-
   if (param.past > 0) fx_hist[0] = fx;
 
   // Early exit if the initial x is already a minimizer
-  if (gnorm <= param.epsilon * std::max(xnorm, T(1.0))) {
+  if (check_convergence(param, *k, fx, x, grad, fx_hist, dev_scalar, stream)) {
     CUML_LOG_DEBUG("Initial solution fulfills optimality condition.");
     return OPT_SUCCESS;
   }
@@ -339,8 +335,7 @@ inline int qn_minimize(const raft::handle_t &handle, SimpleVec<T> &x, T *fx,
   // TODO should the worksapce allocation happen outside?
   OPT_RETCODE ret;
   if (l1 == 0.0) {
-    MLCommon::device_buffer<T> tmp(handle.get_device_allocator(), stream,
-                                   lbfgs_workspace_size(opt_param, x.len));
+    rmm::device_uvector<T> tmp(lbfgs_workspace_size(opt_param, x.len), stream);
     SimpleVec<T> workspace(tmp.data(), tmp.size());
 
     ret = min_lbfgs(opt_param,
@@ -360,8 +355,7 @@ inline int qn_minimize(const raft::handle_t &handle, SimpleVec<T> &x, T *fx,
     // handling the term l1norm(x) * l1_pen explicitely, i.e.
     // it needs to evaluate f(x) and its gradient separately
 
-    MLCommon::device_buffer<T> tmp(handle.get_device_allocator(), stream,
-                                   owlqn_workspace_size(opt_param, x.len));
+    rmm::device_uvector<T> tmp(owlqn_workspace_size(opt_param, x.len), stream);
     SimpleVec<T> workspace(tmp.data(), tmp.size());
 
     ret = min_owlqn(opt_param,
@@ -374,6 +368,12 @@ inline int qn_minimize(const raft::handle_t &handle, SimpleVec<T> &x, T *fx,
                     stream, verbosity);
 
     CUML_LOG_DEBUG("OWL-QN Done");
+  }
+  if (ret == OPT_MAX_ITERS_REACHED) {
+    CUML_LOG_WARN(
+      "Maximum iterations reached before solver is converged. To increase "
+      "model accuracy you can increase the number of iterations (max_iter) or "
+      "improve the scaling of the input data.");
   }
   return ret;
 }

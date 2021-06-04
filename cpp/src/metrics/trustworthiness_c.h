@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,13 @@
 
 #pragma once
 
-#include <cuml/distance/distance_type.h>
+#include <raft/linalg/distance_type.h>
 
 namespace ML {
 namespace Metrics {
 
-template <typename math_t, ML::Distance::DistanceType distance_type>
-double trustworthiness_score(const raft::handle_t& h, math_t* X,
+template <typename math_t, raft::distance::DistanceType distance_type>
+double trustworthiness_score(const raft::handle_t& h, const math_t* X,
                              math_t* X_embedded, int n, int m, int d,
                              int n_neighbors, int batchSize);
 

@@ -20,7 +20,7 @@ from cuml.test.utils import get_handle
 from cuml.test.utils import array_equal, unit_param, \
     quality_param, stress_param
 
-from sklearn.datasets.samples_generator import make_blobs
+from sklearn.datasets import make_blobs
 from sklearn.decomposition import TruncatedSVD as skTSVD
 from sklearn.utils import check_random_state
 

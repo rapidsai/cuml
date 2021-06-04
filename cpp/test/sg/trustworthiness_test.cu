@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@
 #include <raft/cuda_utils.cuh>
 #include <vector>
 
-using namespace MLCommon;
 using namespace ML::Metrics;
 
 class TrustworthinessScoreTest : public ::testing::Test {
@@ -425,7 +424,7 @@ class TrustworthinessScoreTest : public ::testing::Test {
     // euclidean test
     score =
       trustworthiness_score<float,
-                            ML::Distance::DistanceType::EucUnexpandedL2Sqrt>(
+                            raft::distance::DistanceType::L2SqrtUnexpanded>(
         h, d_X, d_X_embedded, 50, 30, 8, 5);
 
     d_alloc->deallocate(d_X, X.size() * sizeof(float), stream);
@@ -443,5 +442,5 @@ class TrustworthinessScoreTest : public ::testing::Test {
 
 typedef TrustworthinessScoreTest TrustworthinessScoreTestF;
 TEST_F(TrustworthinessScoreTestF, Result) {
-  ASSERT_TRUE(0.9374 < score && score < 0.9376);
+  ASSERT_TRUE(0.9375 < score && score < 0.9379);
 }

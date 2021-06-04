@@ -22,8 +22,8 @@ import numpy as np
 from pandas import DataFrame as pdDF
 
 from cuml.common import input_to_cuml_array, CumlArray
-from cuml.common import input_to_dev_array
 from cuml.common import input_to_host_array
+from cuml.common.input_utils import input_to_cupy_array
 from cuml.common import has_cupy
 from cuml.common.input_utils import convert_dtype
 from cuml.common.memory_utils import _check_array_contiguity
@@ -205,15 +205,15 @@ def test_dtype_check(dtype, check_dtype, input_type, order):
         pytest.skip('cupy not installed')
 
     if dtype == check_dtype:
-        _, _, _, _, got_dtype = \
-            input_to_dev_array(input_data, check_dtype=check_dtype,
-                               order=order)
+        _, _, _, got_dtype = \
+            input_to_cuml_array(input_data, check_dtype=check_dtype,
+                                order=order)
         assert got_dtype == check_dtype
     else:
         with pytest.raises(TypeError):
-            _, _, _, _, got_dtype = \
-                input_to_dev_array(input_data, check_dtype=check_dtype,
-                                   order=order)
+            _, _, _, got_dtype = \
+                input_to_cuml_array(input_data, check_dtype=check_dtype,
+                                    order=order)
 
 
 @pytest.mark.parametrize('num_rows', test_num_rows)
@@ -345,3 +345,26 @@ def get_input(type, nrows, ncols, dtype, order='C', out_dtype=False):
                                 order=order)
     else:
         return result, np.array(cp.asnumpy(rand_mat), order=order)
+
+
+def test_tocupy_missing_values_handling():
+    df = cudf.DataFrame(data=[[7, 2, 3], [4, 5, 6], [10, 5, 9]])
+    array, n_rows, n_cols, dtype = input_to_cupy_array(df, fail_on_null=False)
+    assert isinstance(array, cp.ndarray)
+    assert str(array.dtype) == 'int64'
+
+    df = cudf.DataFrame(data=[[7, 2, 3], [4, None, 6], [10, 5, 9]])
+    array, n_rows, n_cols, dtype = input_to_cupy_array(df, fail_on_null=False)
+    assert isinstance(array, cp.ndarray)
+    assert str(array.dtype) == 'float64'
+    assert cp.isnan(array[1, 1])
+
+    df = cudf.Series(data=[7, None, 3])
+    array, n_rows, n_cols, dtype = input_to_cupy_array(df, fail_on_null=False)
+    assert str(array.dtype) == 'float64'
+    assert cp.isnan(array[1])
+
+    with pytest.raises(ValueError):
+        df = cudf.Series(data=[7, None, 3])
+        array, n_rows, n_cols, dtype = input_to_cupy_array(df,
+                                                           fail_on_null=True)

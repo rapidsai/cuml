@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020 NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,9 +15,7 @@
  */
 
 #include <raft/cudart_utils.h>
-#include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
-#include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/linear_model/preprocess_mg.hpp>
 #include <cuml/solvers/cd_mg.hpp>
 #include <functions/softThres.cuh>
@@ -32,6 +30,7 @@
 #include <raft/linalg/subtract.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include "shuffle.h"
 
 using namespace MLCommon;

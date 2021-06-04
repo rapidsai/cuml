@@ -1,5 +1,5 @@
 
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ import pytest
 
 import cudf
 
+import cuml
 from cuml.neighbors import KNeighborsClassifier as cuKNN
 from sklearn.neighbors import KNeighborsClassifier as skKNN
 
@@ -224,10 +225,10 @@ def test_predict_non_gaussian(n_samples, n_features, n_neighbors, n_query):
     knn_cuml = cuKNN(n_neighbors=n_neighbors)
     knn_cuml.fit(X_device_train, y_device_train)
 
-    cuml_result = knn_cuml.predict(X_device_test)
+    with cuml.using_output_type("numpy"):
+        cuml_result = knn_cuml.predict(X_device_test)
 
-    assert np.array_equal(
-        np.asarray(cuml_result.to_gpu_array()), sk_result)
+        assert np.array_equal(cuml_result, sk_result)
 
 
 @pytest.mark.parametrize("n_classes", [2, 5])
@@ -290,7 +291,7 @@ def test_predict_multioutput(input_type, output_type):
     elif output_type == "numpy":
         assert isinstance(p, np.ndarray)
     elif output_type == "cupy":
-        assert isinstance(p, cp.core.core.ndarray)
+        assert isinstance(p, cp.ndarray)
 
     assert array_equal(p.astype(np.int32), y)
 
@@ -325,7 +326,7 @@ def test_predict_proba_multioutput(input_type, output_type):
         elif output_type == "numpy":
             assert isinstance(i, np.ndarray)
         elif output_type == "cupy":
-            assert isinstance(i, cp.core.core.ndarray)
+            assert isinstance(i, cp.ndarray)
 
     assert array_equal(p[0].astype(np.float32), expected[0])
     assert array_equal(p[1].astype(np.float32), expected[1])

@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2018-2020, NVIDIA CORPORATION.
+# Copyright (c) 2018-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,47 +14,46 @@
 # limitations under the License.
 #=============================================================================
 
-set(CUML_TEST_INCLUDE_DIRS
-  ${CUML_INCLUDE_DIRECTORIES}
-  ${GTEST_INCLUDE_DIRS}/include
-  ${TREELITE_DIR}/runtime/native/include)
-
-set(CUML_TEST_LINK_LIBRARIES
-  ${CUML_CPP_TARGET}
+set(COMMON_TEST_LINK_LIBRARIES
+  CUDA::cublas
+  CUDA::curand
+  CUDA::cusolver
+  CUDA::cudart
+  CUDA::cusparse
+  CUDA::cufft
+  rmm::rmm
+  raft::raft
   FAISS::FAISS
-  GTest::GTest
-  GTest::Main
-  treelite::treelite
-  treelite::treelite_runtime
-  ${CUDA_cublas_LIBRARY}
-  ${CUDA_curand_LIBRARY}
-  ${CUDA_cusolver_LIBRARY}
-  ${CUDA_CUDART_LIBRARY}
-  ${CUDA_cusparse_LIBRARY}
-  )
-
-set(PRIMS_TEST_LINK_LIBRARIES
-  ${CUDA_cublas_LIBRARY}
-  ${CUDA_curand_LIBRARY}
-  ${CUDA_cusolver_LIBRARY}
-  ${CUDA_CUDART_LIBRARY}
-  ${CUDA_cusparse_LIBRARY})
+  GTest::gtest
+  GTest::gtest_main
+  OpenMP::OpenMP_CXX
+  Threads::Threads
+  $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_static,treelite::treelite>
+  $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_runtime_static,treelite::treelite_runtime>
+  $<TARGET_NAME_IF_EXISTS:conda_env>
+)
 
 ##############################################################################
 # - build ml_test executable -------------------------------------------------
 
 if(BUILD_CUML_TESTS)
   # (please keep the filenames in alphabetical order)
-  add_executable(ml
+  add_executable(${CUML_CPP_TEST_TARGET}
     sg/cd_test.cu
     sg/dbscan_test.cu
     sg/decisiontree_batchedlevel_algo.cu
+    sg/decisiontree_batchedlevel_unittest.cu
     sg/fil_test.cu
-    sg/handle_test.cu
+    sg/fnv_hash_test.cpp
+    sg/genetic/node_test.cpp
+    sg/genetic/param_test.cu
     sg/holtwinters_test.cu
     sg/kmeans_test.cu
     sg/knn_test.cu
+    sg/lars_test.cu
+    sg/linkage_test.cu
     sg/logger.cpp
+    sg/multi_sum_test.cu
     sg/nvtx_test.cpp
     sg/ols.cu
     sg/pca_test.cu
@@ -63,66 +62,89 @@ if(BUILD_CUML_TESTS)
     sg/rf_batched_classification_test.cu
     sg/rf_batched_regression_test.cu
     sg/rf_depth_test.cu
+    sg/rf_quantiles_test.cu
     sg/rf_test.cu
     sg/rf_treelite_test.cu
     sg/ridge.cu
     sg/rproj_test.cu
     sg/sgd.cu
+    sg/shap_kernel.cu
     sg/svc_test.cu
     sg/trustworthiness_test.cu
     sg/tsne_test.cu
     sg/tsvd_test.cu
-    sg/umap_parametrizable_test.cu)
+    sg/umap_parametrizable_test.cu
+    $<$<BOOL:BUILD_CUML_C_LIBRARY>:sg/handle_test.cu>
+  )
 
-  add_dependencies(ml cutlass)
+  target_compile_options(${CUML_CPP_TEST_TARGET}
+        PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CUML_CXX_FLAGS}>"
+                "$<$<COMPILE_LANGUAGE:CUDA>:${CUML_CUDA_FLAGS}>"
+  )
 
-  target_include_directories(ml PRIVATE ${CUML_TEST_INCLUDE_DIRS})
+  target_include_directories(${CUML_CPP_TEST_TARGET}
+    PRIVATE
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src>
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src_prims>
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/prims>
+  )
 
-  target_link_libraries(ml ${CUML_TEST_LINK_LIBRARIES})
+  target_link_libraries(${CUML_CPP_TEST_TARGET}
+    PRIVATE
+      cuml
+        $<$<BOOL:BUILD_CUML_C_LIBRARY>:${CUML_C_TARGET}>
+        ${COMMON_TEST_LINK_LIBRARIES}
+    )
 
-endif(BUILD_CUML_TESTS)
+endif()
 
-##############################################################################
+#############################################################################
 # - build test_ml_mg executable ----------------------------------------------
 
 if(BUILD_CUML_MG_TESTS)
 
   if(MPI_CXX_FOUND)
     # (please keep the filenames in alphabetical order)
-    add_executable(ml_mg
+    add_executable(${CUML_MG_TEST_TARGET}
       mg/knn.cu
       mg/knn_classify.cu
       mg/knn_regress.cu
       mg/main.cu
       mg/pca.cu)
 
-    set(CUML_TEST_INCLUDE_DIRS
-        ${CUML_TEST_INCLUDE_DIRS}
-        NCCL::NCCL
-        ${MPI_CXX_INCLUDE_PATH}
-        ${cumlprims_mg_INCLUDE_DIRS})
+    target_compile_options(${CUML_MG_TEST_TARGET}
+        PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CUML_CXX_FLAGS}>"
+                "$<$<COMPILE_LANGUAGE:CUDA>:${CUML_CUDA_FLAGS}>"
+    )
 
-    target_include_directories(ml_mg PUBLIC ${CUML_TEST_INCLUDE_DIRS})
+    target_include_directories(${CUML_MG_TEST_TARGET}
+      PRIVATE
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src_prims>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/prims>
+      )
 
-    set(CUML_TEST_LINK_LIBRARIES
-    	${CUML_TEST_LINK_LIBRARIES}
-    	NCCL::NCCL
-    	${MPI_CXX_LIBRARIES}
-    	cumlprims_mg::cumlprims_mg)
-
-    target_link_libraries(ml_mg ${CUML_TEST_LINK_LIBRARIES})
+    target_link_libraries(${CUML_MG_TEST_TARGET}
+      cuml
+      ${COMMON_TEST_LINK_LIBRARIES}
+      NCCL::NCCL
+      ${MPI_CXX_LIBRARIES}
+      cumlprims_mg::cumlprims_mg
+    )
 
   else(MPI_CXX_FOUND)
-   message("OpenMPI not found. Skipping 'ml_mg'")
+   message("OpenMPI not found. Skipping test '${CUML_MG_TEST_TARGET}'")
   endif(MPI_CXX_FOUND)
-endif(BUILD_CUML_MG_TESTS)
+endif()
 
 ##############################################################################
 # - build prims_test executable ----------------------------------------------
 
 if(BUILD_PRIMS_TESTS)
   # (please keep the filenames in alphabetical order)
-  add_executable(prims
+  add_executable(${PRIMS_TEST_TARGET}
     prims/add_sub_dev_scalar.cu
     prims/adjusted_rand_index.cu
     prims/batched/csr.cu
@@ -134,23 +156,14 @@ if(BUILD_PRIMS_TESTS)
     prims/columnSort.cu
     prims/completeness_score.cu
     prims/contingencyMatrix.cu
-    prims/coo.cu
     prims/cov.cu
-    prims/csr.cu
-    prims/cutlass_gemm.cu
     prims/decoupled_lookback.cu
     prims/device_utils.cu
     prims/dispersion.cu
-    prims/dist_adj.cu
-    prims/dist_cos.cu
-    prims/dist_euc_exp.cu
-    prims/dist_euc_unexp.cu
-    prims/dist_l1.cu
     prims/eltwise2d.cu
     prims/entropy.cu
     prims/epsilon_neighborhood.cu
     prims/fast_int_div.cu
-    prims/fused_l2_nn.cu
     prims/gather.cu
     prims/gram.cu
     prims/grid_sync.cu
@@ -162,7 +175,6 @@ if(BUILD_PRIMS_TESTS)
     prims/kl_divergence.cu
     prims/knn_classify.cu
     prims/knn_regression.cu
-    prims/knn.cu
     prims/kselection.cu
     prims/label.cu
     prims/linearReg.cu
@@ -171,6 +183,7 @@ if(BUILD_PRIMS_TESTS)
     prims/make_arima.cu
     prims/make_blobs.cu
     prims/make_regression.cu
+    prims/merge_labels.cu
     prims/minmax.cu
     prims/mvg.cu
     prims/mutual_info_score.cu
@@ -190,17 +203,42 @@ if(BUILD_PRIMS_TESTS)
     prims/ternary_op.cu
     prims/trustworthiness.cu
     prims/v_measure.cu
-    prims/weighted_mean.cu
-    ../src/common/logger.cpp)  # because prims is header only!
+    prims/weighted_mean.cu)
 
-  target_include_directories(prims PRIVATE ${CUML_TEST_INCLUDE_DIRS})
+  target_compile_options(${PRIMS_TEST_TARGET}
+        PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CUML_CXX_FLAGS}>"
+                "$<$<COMPILE_LANGUAGE:CUDA>:${CUML_CUDA_FLAGS}>"
+  )
 
-  add_dependencies(prims cutlass)
+  target_include_directories(${PRIMS_TEST_TARGET}
+    PRIVATE
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src_prims>
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/prims>
+  )
 
-  target_link_libraries(prims
-  	GTest::GTest
-  	GTest::Main
-  	FAISS::FAISS
-    ${PRIMS_TEST_LINK_LIBRARIES})
+  target_link_libraries(${PRIMS_TEST_TARGET}
+    PRIVATE
+      cuml
+      ${COMMON_TEST_LINK_LIBRARIES}
+  )
 
-endif(BUILD_PRIMS_TESTS)
+endif()
+
+##############################################################################
+# - build C-API test library -------------------------------------------------
+
+if(BUILD_CUML_C_LIBRARY)
+
+  enable_language(C)
+
+  add_library(${CUML_C_TEST_TARGET} SHARED
+    c_api/dbscan_api_test.c
+    c_api/glm_api_test.c
+    c_api/holtwinters_api_test.c
+    c_api/knn_api_test.c
+    c_api/svm_api_test.c
+  )
+
+  target_link_libraries(${CUML_C_TEST_TARGET} PUBLIC ${CUML_C_TARGET})
+
+endif(BUILD_CUML_C_LIBRARY)

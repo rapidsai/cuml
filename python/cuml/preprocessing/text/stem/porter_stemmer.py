@@ -687,7 +687,7 @@ class PorterStemmer:
 
         ll_suffix_flag = ends_with_suffix(word_str_ser, "ll")
 
-        stem = word_str_ser.str.slice(stops=-1)
+        stem = word_str_ser.str.slice()
         measure_gt_1_flag = measure_gt_n(stem, 1)
 
         valid_flag = measure_gt_1_flag & ll_suffix_flag & can_replace_mask

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,12 +20,13 @@
 #include <iterator>
 
 #include <gtest/gtest.h>
-#include <common/host_buffer.hpp>
+#include <cuml/common/host_buffer.hpp>
+#include <raft/mr/host/allocator.hpp>
 
 namespace MLCommon {
 
 TEST(HostBufferTest, ctor) {
-  std::shared_ptr<hostAllocator> allocator(
+  std::shared_ptr<raft::mr::host::allocator> allocator(
     new raft::mr::host::default_allocator);
   cudaStream_t stream = 0;
 
@@ -35,7 +36,7 @@ TEST(HostBufferTest, ctor) {
 }
 
 TEST(HostBufferTest, clear) {
-  std::shared_ptr<hostAllocator> allocator(
+  std::shared_ptr<raft::mr::host::allocator> allocator(
     new raft::mr::host::default_allocator);
   cudaStream_t stream = 0;
 
@@ -47,7 +48,7 @@ TEST(HostBufferTest, clear) {
 }
 
 TEST(HostBufferTest, itiface) {
-  std::shared_ptr<hostAllocator> allocator(
+  std::shared_ptr<raft::mr::host::allocator> allocator(
     new raft::mr::host::default_allocator);
   cudaStream_t stream = 0;
 
@@ -57,7 +58,7 @@ TEST(HostBufferTest, itiface) {
 }
 
 TEST(HostBufferTest, reserve) {
-  std::shared_ptr<hostAllocator> allocator(
+  std::shared_ptr<raft::mr::host::allocator> allocator(
     new raft::mr::host::default_allocator);
   cudaStream_t stream = 0;
 
@@ -77,7 +78,7 @@ TEST(HostBufferTest, reserve) {
 }
 
 TEST(HostBufferTest, resize) {
-  std::shared_ptr<hostAllocator> allocator(
+  std::shared_ptr<raft::mr::host::allocator> allocator(
     new raft::mr::host::default_allocator);
   cudaStream_t stream = 0;
 
@@ -96,7 +97,7 @@ TEST(HostBufferTest, resize) {
 }
 
 TEST(HostBufferTest, release) {
-  std::shared_ptr<hostAllocator> allocator(
+  std::shared_ptr<raft::mr::host::allocator> allocator(
     new raft::mr::host::default_allocator);
   cudaStream_t stream = 0;
 

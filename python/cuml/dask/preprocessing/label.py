@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -87,9 +87,9 @@ class LabelBinarizer(BaseEstimator):
 
 
     """
-    def __init__(self, client=None, **kwargs):
+    def __init__(self, *, client=None, **kwargs):
 
-        super(LabelBinarizer, self).__init__(client=client, **kwargs)
+        super().__init__(client=client, **kwargs)
 
         """
         Initialize new LabelBinarizer instance
@@ -195,10 +195,11 @@ class LabelBinarizer(BaseEstimator):
             meta = cupyx.scipy.sparse.csr_matrix(meta)
         f = [dask.array.from_delayed(xform_func(internal_model, part),
              meta=meta, dtype=cp.float32,
-             shape=(len(y), len(self.classes_))) for w, part in parts]
+             shape=(cp.nan, len(self.classes_))) for w, part in parts]
 
-        arr = dask.array.asarray(f)
-        return arr.reshape(arr.shape[1:])
+        arr = dask.array.concatenate(f, axis=0,
+                                     allow_unknown_chunksizes=True)
+        return arr
 
     def inverse_transform(self, y, threshold=None):
         """
@@ -228,8 +229,9 @@ class LabelBinarizer(BaseEstimator):
 
         f = [dask.array.from_delayed(
             inv_func(internal_model, part, threshold),
-            dtype=dtype, shape=(y.shape[0],), meta=meta)
+            dtype=dtype, shape=(cp.nan,), meta=meta)
              for w, part in parts]
 
-        ret = dask.array.stack(f, axis=0)
-        return ret.reshape(ret.shape[1:])
+        arr = dask.array.concatenate(f, axis=0,
+                                     allow_unknown_chunksizes=True)
+        return arr

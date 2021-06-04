@@ -72,7 +72,7 @@ class KMeansMG(KMeans):
     def __init__(self, **kwargs):
         super(KMeansMG, self).__init__(**kwargs)
 
-    def fit(self, X):
+    def fit(self, X) -> "KMeansMG":
         """
         Compute k-means clustering with X in a multi-node multi-GPU setting.
 
@@ -84,7 +84,6 @@ class KMeansMG(KMeans):
             ndarray, cuda array interface compliant array like CuPy
 
         """
-        self._set_base_attributes(n_features=X)
 
         X_m, self.n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, order='C')
@@ -94,12 +93,12 @@ class KMeansMG(KMeans):
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if (self.init in ['scalable-k-means++', 'k-means||', 'random']):
-            self._cluster_centers_ = CumlArray.zeros(shape=(self.n_clusters,
-                                                            self.n_cols),
-                                                     dtype=self.dtype,
-                                                     order='C')
+            self.cluster_centers_ = CumlArray.zeros(shape=(self.n_clusters,
+                                                           self.n_cols),
+                                                    dtype=self.dtype,
+                                                    order='C')
 
-        cdef uintptr_t cluster_centers_ptr = self._cluster_centers_.ptr
+        cdef uintptr_t cluster_centers_ptr = self.cluster_centers_.ptr
 
         cdef size_t n_rows = self.n_rows
         cdef size_t n_cols = self.n_cols

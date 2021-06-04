@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -39,6 +39,7 @@ cuml.dask datatype version of the docstrings will come in a future update.
 """
 
 from inspect import signature
+import inspect
 
 
 _parameters_docstrings = {
@@ -426,7 +427,7 @@ def insert_into_docstring(parameters=False,
                 )
 
         if(len(to_add) > 0):
-            func.__doc__ = str(func.__doc__).format(*to_add)
+            func.__doc__ = str(inspect.getdoc(func)).format(*to_add)
 
         func.__doc__ += '\n\n'
 

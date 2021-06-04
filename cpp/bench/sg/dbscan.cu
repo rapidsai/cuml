@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 
 #include <cuml/cluster/dbscan.hpp>
-#include <cuml/cuml.hpp>
+
 #include <utility>
 #include "benchmark.cuh"
 
@@ -51,10 +51,10 @@ class Dbscan : public BlobsFixture<D, int> {
       state.SkipWithError("Dbscan only supports row-major inputs");
     }
     this->loopOnState(state, [this, &state]() {
-      dbscanFit(*this->handle, this->data.X, this->params.nrows,
-                this->params.ncols, D(dParams.eps), dParams.min_pts,
-                this->data.y, this->core_sample_indices,
-                dParams.max_bytes_per_batch);
+      ML::Dbscan::fit(*this->handle, this->data.X, this->params.nrows,
+                      this->params.ncols, D(dParams.eps), dParams.min_pts,
+                      raft::distance::L2SqrtUnexpanded, this->data.y,
+                      this->core_sample_indices, dParams.max_bytes_per_batch);
       state.SetItemsProcessed(this->params.nrows * this->params.ncols);
     });
   }

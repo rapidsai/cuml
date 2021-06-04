@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
  */
 
 #include <cmath>
-#include <cuml/cuml.hpp>
 #include <cuml/ensemble/randomforest.hpp>
 #include <utility>
 #include "benchmark.cuh"
@@ -83,27 +82,25 @@ std::vector<Params> getInputs() {
              10.0,         // center_box_max
              2152953ULL};  //seed
 
-  set_rf_params(p.rf,  // Output RF parameters
-                500,   // n_trees
-                true,  // bootstrap
-                1.f,   // rows_sample
-                1234,  // seed
-                8);    // n_streams
-
-  set_tree_params(p.rf.tree_params,  // Output tree parameters
-                  10,                // max_depth, this is anyway changed below
-                  (1 << 20),         // max_leaves
-                  0.3,               // max_features, just a placeholder value,
-                                     //   anyway changed below
-                  32,                // n_bins
-                  1,                 // split_algo
-                  3,                 // min_rows_per_node
-                  0.0f,              // min_impurity_decrease
-                  true,              // bootstrap_features
-                  ML::CRITERION::GINI,  // split_criterion
-                  false,                // quantile_per_tree
-                  false,                // use_experimental_backend
-                  128);                 // max_batch_size
+  p.rf = set_rf_params(10,                  /*max_depth */
+                       (1 << 20),           /* max_leaves */
+                       0.3,                 /* max_features */
+                       32,                  /* n_bins */
+                       1,                   /* split_algo */
+                       3,                   /* min_samples_leaf */
+                       3,                   /* min_samples_split */
+                       0.0f,                /* min_impurity_decrease */
+                       true,                /* bootstrap_features */
+                       true,                /* bootstrap */
+                       500,                 /* n_trees */
+                       1.f,                 /* max_samples */
+                       1234ULL,             /* seed */
+                       ML::CRITERION::GINI, /* split_criterion */
+                       false,               /* quantile_per_tree */
+                       8,                   /* n_streams */
+                       false,               /* use_experimental_backend */
+                       128                  /* max_batch_size */
+  );
 
   std::vector<Triplets> rowcols = {
     {160000, 64, 2},

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,7 +24,6 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/sparse/cusparse_wrappers.h>
-#include <common/cumlHandle.hpp>
 #include <raft/cuda_utils.cuh>
 #include "rproj_utils.cuh"
 

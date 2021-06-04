@@ -1,6 +1,5 @@
 #!/bin/bash
-#
-# Adopted from https://github.com/tmcdonell/travis-scripts/blob/dfaac280ac2082cd6bcaba3217428347899f2975/update-accelerate-buildbot.sh
+# Copyright (c) 2018-2021, NVIDIA CORPORATION.
 
 set -e
 
@@ -29,8 +28,8 @@ fi
 
 gpuci_logger "Get conda file output locations"
 
-export LIBCUML_FILE=`conda build conda/recipes/libcuml --output`
-export CUML_FILE=`conda build conda/recipes/cuml --python=$PYTHON --output`
+export LIBCUML_FILE=`conda build --no-build-id --croot ${CONDA_BLD_DIR} conda/recipes/libcuml --output`
+export CUML_FILE=`conda build --croot ${CONDA_BLD_DIR} conda/recipes/cuml --python=$PYTHON --output`
 
 ################################################################################
 # UPLOAD - Conda packages
@@ -42,13 +41,13 @@ if [[ "$BUILD_LIBCUML" == "1" && "$UPLOAD_LIBCUML" == "1" ]]; then
   test -e ${LIBCUML_FILE}
   echo "Upload libcuml"
   echo ${LIBCUML_FILE}
-  gpuci_retry anaconda -t ${MY_UPLOAD_KEY} upload -u ${CONDA_USERNAME:-rapidsai} ${LABEL_OPTION} --skip-existing ${LIBCUML_FILE}
+  gpuci_retry anaconda -t ${MY_UPLOAD_KEY} upload -u ${CONDA_USERNAME:-rapidsai} ${LABEL_OPTION} --skip-existing ${LIBCUML_FILE} --no-progress
 fi
 
 if [[ "$BUILD_CUML" == "1" && "$UPLOAD_CUML" == "1" ]]; then
   test -e ${CUML_FILE}
   echo "Upload cuml"
   echo ${CUML_FILE}
-  gpuci_retry anaconda -t ${MY_UPLOAD_KEY} upload -u ${CONDA_USERNAME:-rapidsai} ${LABEL_OPTION} --skip-existing ${CUML_FILE}
+  gpuci_retry anaconda -t ${MY_UPLOAD_KEY} upload -u ${CONDA_USERNAME:-rapidsai} ${LABEL_OPTION} --skip-existing ${CUML_FILE} --no-progress
 fi
 

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,12 +15,19 @@
 #
 
 # distutils: language = c++
-from cuml.common.base import Base, RegressorMixin
+
+import cuml.internals
+from cuml.common.array import CumlArray
+from cuml.common.base import Base
+from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
+from cuml.common.mixins import FMajorInputTagMixin
 from cuml.solvers import SGD
 
 
-class MBSGDRegressor(Base, RegressorMixin):
+class MBSGDRegressor(Base,
+                     RegressorMixin,
+                     FMajorInputTagMixin):
     """
     Linear regression model fitted by minimizing a
     regularized empirical loss with mini-batch SGD.
@@ -133,7 +140,7 @@ class MBSGDRegressor(Base, RegressorMixin):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Notes
@@ -142,14 +149,14 @@ class MBSGDRegressor(Base, RegressorMixin):
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDRegressor.html>`_.
     """
 
-    def __init__(self, loss='squared_loss', penalty='l2', alpha=0.0001,
+    def __init__(self, *, loss='squared_loss', penalty='l2', alpha=0.0001,
                  l1_ratio=0.15, fit_intercept=True, epochs=1000, tol=1e-3,
                  shuffle=True, learning_rate='constant', eta0=0.001,
                  power_t=0.5, batch_size=32, n_iter_no_change=5, handle=None,
                  verbose=False, output_type=None):
-        super(MBSGDRegressor, self).__init__(handle=handle,
-                                             verbose=verbose,
-                                             output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
         if loss in ['squared_loss']:
             self.loss = loss
         else:
@@ -171,12 +178,11 @@ class MBSGDRegressor(Base, RegressorMixin):
         self.solver_model = SGD(**self.get_params())
 
     @generate_docstring()
-    def fit(self, X, y, convert_dtype=True):
+    def fit(self, X, y, convert_dtype=True) -> "MBSGDRegressor":
         """
         Fit the model with X and y.
 
         """
-        self._set_base_attributes(n_features=X)
         self.solver_model.fit(X, y, convert_dtype=convert_dtype)
         return self
 
@@ -184,7 +190,8 @@ class MBSGDRegressor(Base, RegressorMixin):
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=False):
+    @cuml.internals.api_base_return_array_skipall
+    def predict(self, X, convert_dtype=False) -> CumlArray:
         """
         Predicts the y for X.
 

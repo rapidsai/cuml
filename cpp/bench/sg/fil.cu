@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,12 +15,11 @@
  */
 
 #include <cuml/fil/fil.h>
+
 #include <cuml/tree/algo_helper.h>
-#include <decisiontree/decisiontree_impl.h>
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
 #include <cuml/common/logger.hpp>
-#include <cuml/cuml.hpp>
 #include <cuml/ensemble/randomforest.hpp>
 #include <utility>
 #include "benchmark.cuh"
@@ -91,7 +90,9 @@ class FIL : public RegressionFixture<float> {
       .algo = p_rest.algo,
       .output_class = params.nclasses > 1,  // cuML RF forest
       .threshold = 1.f / params.nclasses,   //Fixture::DatasetParams
-      .storage_type = p_rest.storage};
+      .storage_type = p_rest.storage,
+      .blocks_per_sm = 0,
+      .pforest_shape_str = nullptr};
     ML::fil::from_treelite(*handle, &forest, model, &tl_params);
 
     // only time prediction
@@ -143,27 +144,25 @@ std::vector<Params> getInputs() {
     .shuffle = false,
     .seed = 12345ULL};
 
-  set_rf_params(p.rf,  // Output RF parameters
-                1,  // n_trees, just a placeholder value, anyway changed below
-                true,  // bootstrap
-                1.f,   // rows_sample
-                1234,  // seed
-                8);    // n_streams
-
-  set_tree_params(p.rf.tree_params,    // Output tree parameters
-                  10,                  // max_depth, just a placeholder value,
-                                       //   anyway changed below
-                  (1 << 20),           // max_leaves
-                  1,                   // max_features
-                  32,                  // n_bins
-                  1,                   // split_algo
-                  3,                   // min_rows_per_node
-                  0.0f,                // min_impurity_decrease
-                  true,                // bootstrap_features
-                  ML::CRITERION::MSE,  // split_criterion
-                  false,               // quantile_per_tree
-                  false,               // use_experimental_backend
-                  128);                // max_batch_size
+  p.rf = set_rf_params(10,                 /*max_depth */
+                       (1 << 20),          /* max_leaves */
+                       1.f,                /* max_features */
+                       32,                 /* n_bins */
+                       1,                  /* split_algo */
+                       3,                  /* min_samples_leaf */
+                       3,                  /* min_samples_split */
+                       0.0f,               /* min_impurity_decrease */
+                       true,               /* bootstrap_features */
+                       true,               /* bootstrap */
+                       1,                  /* n_trees */
+                       1.f,                /* max_samples */
+                       1234ULL,            /* seed */
+                       ML::CRITERION::MSE, /* split_criterion */
+                       false,              /* quantile_per_tree */
+                       8,                  /* n_streams */
+                       false,              /* use_experimental_backend */
+                       128                 /* max_batch_size */
+  );
 
   using ML::fil::algo_t;
   using ML::fil::storage_type_t;

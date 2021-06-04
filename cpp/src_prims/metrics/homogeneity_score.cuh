@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 * contain only data points which are members of a single class.
 */
 
+#include <raft/mr/device/allocator.hpp>
 #include "entropy.cuh"
 #include "mutual_info_score.cuh"
 
@@ -35,13 +36,13 @@ namespace Metrics {
 * @param size: the size of the data points of type int
 * @param lowerLabelRange: the lower bound of the range of labels
 * @param upperLabelRange: the upper bound of the range of labels
-* @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<MLCommon::deviceAllocator>
+* @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<raft::mr::device::allocator>
 * @param stream: the cudaStream object
 */
 template <typename T>
 double homogeneity_score(const T *truthClusterArray, const T *predClusterArray,
                          int size, T lowerLabelRange, T upperLabelRange,
-                         std::shared_ptr<MLCommon::deviceAllocator> allocator,
+                         std::shared_ptr<raft::mr::device::allocator> allocator,
                          cudaStream_t stream) {
   if (size == 0) return 1.0;
 

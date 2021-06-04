@@ -1,7 +1,7 @@
-# Copyright (c) 2018, NVIDIA CORPORATION.
+# Copyright (c) 2018-2021, NVIDIA CORPORATION.
 
 # Usage:
-#   conda build . -c defaults -c conda-forge -c nvidia -c rapidsai -c pytorch
+#   conda build . -c conda-forge -c nvidia -c rapidsai -c pytorch
 {% set version = environ.get('GIT_DESCRIBE_TAG', '0.0.0.dev').lstrip('v') + environ.get('VERSION_SUFFIX', '') %}
 {% set minor_version =  version.split('.')[0] + '.' + version.split('.')[1] %}
 {% set cuda_version='.'.join(environ.get('CUDA', '9.2').split('.')[:2]) %}
@@ -24,32 +24,42 @@ build:
     - PARALLEL_LEVEL
     - VERSION_SUFFIX
     - PROJECT_FLASH
+    - CCACHE_DIR
+    - CCACHE_NOHASHDIR
+    - CCACHE_COMPILERCHECK
+    - CMAKE_GENERATOR
+    - CMAKE_C_COMPILER_LAUNCHER
+    - CMAKE_CXX_COMPILER_LAUNCHER
+    - CMAKE_CUDA_COMPILER_LAUNCHER
 
 requirements:
   build:
-    - cmake>=3.14
+    - cmake>=3.20.1
     - clang=8.0.1
     - clang-tools=8.0.1
   host:
-    - nccl >=2.5
+    - nccl >=2.8.4
     - cudf {{ minor_version }}
     - cudatoolkit {{ cuda_version }}.*
-    - ucx-py {{ minor_version }}
+    - ucx-py 0.21
+    - ucx-proc=*=gpu
     - libcumlprims {{ minor_version }}
     - lapack
-    - treelite=0.93
+    - treelite=1.3.0
     - faiss-proc=*=cuda
     - gtest=1.10.0
-    - libfaiss=1.6.3
+    - gmock
+    - conda-forge::libfaiss=1.7.0
   run:
     - libcumlprims {{ minor_version }}
     - cudf {{ minor_version }}
-    - nccl>=2.5
-    - ucx-py {{ minor_version }}
+    - nccl>=2.8.4
+    - ucx-py 0.21
+    - ucx-proc=*=gpu
     - {{ pin_compatible('cudatoolkit', max_pin='x.x') }}
-    - treelite=0.93
+    - treelite=1.3.0
     - faiss-proc=*=cuda
-    - libfaiss=1.6.3
+    - conda-forge::libfaiss=1.7.0
 
 about:
   home: http://rapids.ai/

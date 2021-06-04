@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,4 +31,16 @@ struct SparseTreeNode {
   DataT quesval;
   DataT best_metric_val;
   IdxT left_child_id = IdxT(-1);
+  uint32_t unique_id = UINT32_MAX;
+  uint32_t instance_count = UINT32_MAX;  // UINT32_MAX indicates n/a
+};
+
+template <typename T, typename L>
+struct Node_ID_info {
+  const SparseTreeNode<T, L>* node;
+  int unique_node_id;
+
+  Node_ID_info() : node(nullptr), unique_node_id(-1) {}
+  Node_ID_info(const SparseTreeNode<T, L>& cfg_node, int cfg_unique_node_id)
+    : node(&cfg_node), unique_node_id(cfg_unique_node_id) {}
 };

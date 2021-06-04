@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,11 +17,17 @@
 # distutils: language = c++
 
 from cuml.solvers import CD
-from cuml.common.base import Base, RegressorMixin
+from cuml.common.base import Base
+from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
+from cuml.common.mixins import FMajorInputTagMixin
+from cuml.linear_model.base import LinearPredictMixin
 
 
-class Lasso(Base, RegressorMixin):
+class Lasso(Base,
+            LinearPredictMixin,
+            RegressorMixin,
+            FMajorInputTagMixin):
 
     """
     Lasso extends LinearRegression by providing L1 regularization on the
@@ -118,7 +124,7 @@ class Lasso(Base, RegressorMixin):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
@@ -137,13 +143,14 @@ class Lasso(Base, RegressorMixin):
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html>`_.
     """
 
-    def __init__(self, alpha=1.0, fit_intercept=True, normalize=False,
+    def __init__(self, *, alpha=1.0, fit_intercept=True, normalize=False,
                  max_iter=1000, tol=1e-3, selection='cyclic', handle=None,
                  output_type=None, verbose=False):
 
         # Hard-code verbosity as CoordinateDescent does not have verbosity
-        super(Lasso, self).__init__(handle=handle, verbose=verbose,
-                                    output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
 
         self._check_alpha(alpha)
         self.alpha = alpha
@@ -175,27 +182,14 @@ class Lasso(Base, RegressorMixin):
             raise ValueError(msg.format(alpha))
 
     @generate_docstring()
-    def fit(self, X, y, convert_dtype=True):
+    def fit(self, X, y, convert_dtype=True) -> "Lasso":
         """
         Fit the model with X and y.
 
         """
-        self._set_base_attributes(output_type=X, n_features=X)
         self.solver_model.fit(X, y, convert_dtype=convert_dtype)
 
         return self
-
-    @generate_docstring(return_values={'name': 'preds',
-                                       'type': 'dense',
-                                       'description': 'Predicted values',
-                                       'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=True):
-        """
-        Predicts the y for X.
-
-        """
-
-        return self.solver_model.predict(X, convert_dtype=convert_dtype)
 
     def get_param_names(self):
         return super().get_param_names() + [

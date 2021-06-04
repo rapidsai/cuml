@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,9 @@ import numpy as np
 import cupy as cp
 
 from cuml.solvers import QN as cuQN
+from cuml.model_selection import train_test_split
+from cuml.datasets.classification import make_classification
+from cuml.metrics import accuracy_score
 
 
 # todo: add util functions to better compare against precomputed solutions
@@ -34,22 +37,39 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
 
     tol = 1e-6
 
-    X = np.array(precomputed_X, dtype=dtype)
-
-    if loss == 'sigmoid':
-        y = np.array(precomputed_y_log, dtype=dtype)
-    else:
-        y = np.array(precomputed_y_multi, dtype=dtype)
-
     qn = cuQN(loss=loss, fit_intercept=fit_intercept, l1_strength=l1_strength,
               l2_strength=l2_strength, tol=1e-8, output_type="cupy")
 
-    qn.fit(X, y)
+    if loss == 'softmax':
+        X, y = make_classification(n_samples=5000,
+                                   n_informative=10,
+                                   n_features=20,
+                                   n_classes=4,
+                                   dtype=dtype)
 
-    print(qn.objective)
-    print(qn.coef_)
+        stratify = y.astype(dtype)
+        X_train, X_test, y_train, y_test = train_test_split(X.astype(dtype),
+                                                            y.astype(dtype),
+                                                            stratify=stratify
+                                                            )
+        most_class = cp.unique(y)[cp.argmax(cp.bincount(y))]
 
-    if loss == 'sigmoid':
+        baseline_preds = cp.array([most_class] * y_test.shape[0], dtype=dtype)
+        baseline_score = accuracy_score(y_test, baseline_preds)
+
+        y_pred = qn.fit(X_train, y_train).predict(X_test)
+        cuml_score = accuracy_score(y_test, y_pred)
+
+        assert(cuml_score > baseline_score)
+        assert(cuml_score >= 0.50)
+
+    elif loss == 'sigmoid':
+        X = np.array(precomputed_X, dtype=dtype)
+        y = np.array(precomputed_y_log, dtype=dtype)
+        qn.fit(X, y)
+        print(qn.objective)
+        print(qn.coef_)
+
         if penalty == 'none' and l1_strength == 0.0 and l2_strength == 0.0:
             if fit_intercept:
                 assert (qn.objective - 0.40263831615448) < tol
@@ -197,10 +217,6 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
                         decimal=3)
 
                 print()
-
-    elif loss == 'softmax':
-        pytest.skip("Better initial conditions for softmax tests are "
-                    "in progress.")
 
     # todo add tests for softmax dtype=np.float64
     # elasticnet for this points converged to different solution

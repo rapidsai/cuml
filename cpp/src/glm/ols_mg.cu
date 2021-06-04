@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,6 @@
  * limitations under the License.
  */
 
-#include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
-#include <cuml/common/cuml_allocator.hpp>
 #include <cuml/linear_model/ols_mg.hpp>
 #include <cuml/linear_model/preprocess_mg.hpp>
 #include <opg/linalg/lstsq.hpp>
@@ -27,6 +24,9 @@
 #include <raft/linalg/gemm.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/host/allocator.hpp>
+#include <rmm/device_uvector.hpp>
 
 using namespace MLCommon;
 
@@ -44,11 +44,10 @@ void fit_impl(raft::handle_t &handle,
   const auto &comm = handle.get_comms();
   cublasHandle_t cublas_handle = handle.get_cublas_handle();
   cusolverDnHandle_t cusolver_handle = handle.get_cusolver_dn_handle();
-  const auto allocator = handle.get_device_allocator();
 
-  device_buffer<T> mu_input(allocator, streams[0]);
-  device_buffer<T> norm2_input(allocator, streams[0]);
-  device_buffer<T> mu_labels(allocator, streams[0]);
+  rmm::device_uvector<T> mu_input(0, streams[0]);
+  rmm::device_uvector<T> norm2_input(0, streams[0]);
+  rmm::device_uvector<T> mu_labels(0, streams[0]);
 
   if (fit_intercept) {
     mu_input.resize(input_desc.N, streams[0]);

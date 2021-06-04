@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,9 +24,9 @@
 #include <thrust/fill.h>
 #include <thrust/iterator/zip_iterator.h>
 #include <thrust/transform.h>
-#include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
+#include <cuml/common/device_buffer.hpp>
+#include <cuml/common/host_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/svm/svc.hpp>
@@ -37,6 +37,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng.cuh>
 #include <random/make_blobs.cuh>
 #include <string>
@@ -1142,6 +1143,47 @@ TYPED_TEST(SmoSolverTest, MemoryLeak) {
   EXPECT_EQ(delta, 0);
 }
 
+TYPED_TEST(SmoSolverTest, DISABLED_MillionRows) {
+  // Stress test the kernel matrix calculation by calculating a kernel tile
+  // with more the 2.8B elemnts. This would fail with int32 adressing. The test
+  // is currently disabled because the memory usage might be prohibitive on CI
+  // The test will be enabled once https://github.com/rapidsai/cuml/pull/2449
+  // is merged, that PR would reduce the kernel tile memory size.
+  std::vector<std::pair<blobInput, TypeParam>> data{
+    {blobInput{1, 0.001, KernelParams{RBF, 3, 1, 0}, 2800000, 4}, 98},
+    {blobInput{1, 0.001, KernelParams{LINEAR, 3, 1, 0}, 2800000, 4}, 98},
+    {blobInput{1, 0.001, KernelParams{POLYNOMIAL, 3, 1, 0}, 2800000, 4}, 98},
+    {blobInput{1, 0.001, KernelParams{TANH, 3, 1, 0}, 2800000, 4}, 98}};
+  auto allocator = this->handle.get_device_allocator();
+
+  if (sizeof(TypeParam) == 8) {
+    GTEST_SKIP();  // Skip the test for double imput
+  }
+  for (auto d : data) {
+    auto p = d.first;
+    SCOPED_TRACE(p);
+    // explicit centers for the blobs
+    device_buffer<float> centers(allocator, this->stream, 2 * p.n_cols);
+    thrust::device_ptr<float> thrust_ptr(centers.data());
+    thrust::fill(thrust::cuda::par.on(this->stream), thrust_ptr,
+                 thrust_ptr + p.n_cols, -5.0f);
+    thrust::fill(thrust::cuda::par.on(this->stream), thrust_ptr + p.n_cols,
+                 thrust_ptr + 2 * p.n_cols, +5.0f);
+
+    device_buffer<TypeParam> x(allocator, this->stream, p.n_rows * p.n_cols);
+    device_buffer<TypeParam> y(allocator, this->stream, p.n_rows);
+    device_buffer<TypeParam> y_pred(allocator, this->stream, p.n_rows);
+    make_blobs(this->handle, x.data(), y.data(), p.n_rows, p.n_cols, 2,
+               centers.data());
+    const int max_iter = 2;
+    SVC<TypeParam> svc(this->handle, p.C, p.tol, p.kernel_params, 0, max_iter,
+                       50, CUML_LEVEL_DEBUG);
+    svc.fit(x.data(), p.n_rows, p.n_cols, y.data());
+    // predict on the same dataset
+    svc.predict(x.data(), p.n_rows, p.n_cols, y_pred.data());
+  }
+}
+
 template <typename math_t>
 struct SvrInput {
   svmParameter param;
@@ -1295,7 +1337,7 @@ class SvrTest : public ::testing::Test {
          {2, 3}         //y
        },
        smoOutput2<math_t>{
-         2, {-0.8, 0.8}, 1.3, {0.8}, {1, 2, 5, 5}, {0, 1}, {2.1, 2.9}}},
+         2, {-0.8, 0.8}, 1.3, {0.8, 0.0}, {1, 2, 5, 5}, {0, 1}, {2.1, 2.9}}},
 
       {SvrInput<math_t>{
          svmParameter{1, 0, 100, 10, 1e-6, CUML_LEVEL_INFO, 0.1, EPSILON_SVR},
@@ -1363,7 +1405,7 @@ class SvrTest : public ::testing::Test {
  protected:
   raft::handle_t handle;
   cudaStream_t stream;
-  std::shared_ptr<deviceAllocator> allocator;
+  std::shared_ptr<raft::mr::device::allocator> allocator;
   int n_rows = 7;
   int n_train = 2 * n_rows;
   const int n_cols = 1;

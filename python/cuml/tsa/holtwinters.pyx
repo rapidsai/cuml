@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,12 +18,15 @@
 import cudf
 import cupy as cp
 import numpy as np
-from numba import cuda
 from libc.stdint cimport uintptr_t
-from cuml.common import input_to_dev_array
-from cuml.common import get_dev_array_ptr
-from cuml.common import numba_utils
+
+import cuml.internals
+from cuml.common.input_utils import input_to_cupy_array
+from cuml.internals import _deprecate_pos_args
+from cuml.common import using_output_type
 from cuml.common.base import Base
+from cuml.common.array import CumlArray
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.raft.common.handle cimport handle_t
 
 cdef extern from "cuml/tsa/holtwinters_params.h" namespace "ML":
@@ -169,17 +172,26 @@ class ExponentialSmoothing(Base):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     """
-    def __init__(self, endog, seasonal="additive",
+
+    forecasted_points = CumlArrayDescriptor()
+    level = CumlArrayDescriptor()
+    trend = CumlArrayDescriptor()
+    season = CumlArrayDescriptor()
+    SSE = CumlArrayDescriptor()
+
+    @_deprecate_pos_args(version="21.06")
+    def __init__(self, endog, *, seasonal="additive",
                  seasonal_periods=2, start_periods=2,
                  ts_num=1, eps=2.24e-3, handle=None,
                  verbose=False, output_type=None):
 
-        super(ExponentialSmoothing, self).__init__(
-            handle=handle, verbose=verbose, output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
 
         # Total number of Time Series for forecasting
         if type(ts_num) != int:
@@ -240,30 +252,28 @@ class ExponentialSmoothing(Base):
         self.fit_executed_flag = False
         self.h = 0
 
-    def _check_dims(self, ts_input, is_cudf=False):
+    def _check_dims(self, ts_input, is_cudf=False) -> CumlArray:
         err_mess = ("ExponentialSmoothing initialized with "
                     + str(self.ts_num) +
                     " time series, but data has dimension ")
-        if len(ts_input.shape) == 1:
-            self.n = ts_input.shape[0]
+
+        is_cudf = isinstance(ts_input, cudf.DataFrame)
+
+        mod_ts_input = input_to_cupy_array(ts_input, order="C").array
+
+        if len(mod_ts_input.shape) == 1:
+            self.n = mod_ts_input.shape[0]
             if self.ts_num != 1:
                 raise ValueError(err_mess + "1.")
-            if(is_cudf):
-                mod_ts_input = ts_input.as_gpu_matrix()
-            elif(isinstance(ts_input, cudf.Series)):
-                mod_ts_input = ts_input.to_gpu_array()
-            else:
-                mod_ts_input = ts_input
         elif len(ts_input.shape) == 2:
             if(is_cudf):
-                d1 = ts_input.shape[0]
-                d2 = ts_input.shape[1]
-                mod_ts_input = ts_input.as_gpu_matrix()\
-                    .reshape((d1*d2,))
+                d1 = mod_ts_input.shape[0]
+                d2 = mod_ts_input.shape[1]
+                mod_ts_input = mod_ts_input.reshape((d1*d2,))
             else:
-                d1 = ts_input.shape[1]
-                d2 = ts_input.shape[0]
-                mod_ts_input = ts_input.ravel()
+                d1 = mod_ts_input.shape[1]
+                d2 = mod_ts_input.shape[0]
+                mod_ts_input = mod_ts_input.ravel()
             self.n = d1
             if self.ts_num != d2:
                 raise ValueError(err_mess + str(d2))
@@ -271,23 +281,17 @@ class ExponentialSmoothing(Base):
             raise ValueError("Data input must have 1 or 2 dimensions.")
         return mod_ts_input
 
-    def fit(self):
+    @cuml.internals.api_base_return_any_skipall
+    def fit(self) -> "ExponentialSmoothing":
         """
         Perform fitting on the given `endog` dataset.
         Calculates the level, trend, season, and SSE components.
         """
-        if isinstance(self.endog, cudf.Series):
-            arr = self._check_dims(self.endog)
-        elif isinstance(self.endog, cudf.DataFrame):
-            arr = self._check_dims(self.endog, True)
-        elif cuda.is_cuda_array(self.endog):
-            try:
-                import cupy as cp
-                arr = self._check_dims(self.endog)
-            except Exception:
-                arr = cuda.as_cuda_array(self.endog).copy_to_host()
-        if isinstance(self.endog, np.ndarray):
-            arr = self._check_dims(self.endog)
+
+        X_m = self._check_dims(self.endog)
+
+        self.dtype = X_m.dtype
+
         if self.n < self.start_periods*self.seasonal_periods:
             raise ValueError("Length of time series (" + str(self.n) +
                              ") must be at least freq*start_periods (" +
@@ -302,8 +306,7 @@ class ExponentialSmoothing(Base):
         cdef int leveltrend_coef_offset, season_coef_offset
         cdef int error_len
 
-        X_m, input_ptr, _, _, self.dtype = \
-            input_to_dev_array(arr, order='C')
+        input_ptr = X_m.ptr
 
         buffer_size(<int> self.n, <int> self.ts_num,
                     <int> self.seasonal_periods,
@@ -317,14 +320,14 @@ class ExponentialSmoothing(Base):
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         cdef uintptr_t level_ptr, trend_ptr, season_ptr, SSE_ptr
 
-        self.level = numba_utils.zeros(components_len, dtype=self.dtype)
-        self.trend = numba_utils.zeros(components_len, dtype=self.dtype)
-        self.season = numba_utils.zeros(components_len, dtype=self.dtype)
-        self.SSE = numba_utils.zeros(self.ts_num, dtype=self.dtype)
-        level_ptr = get_dev_array_ptr(self.level)
-        trend_ptr = get_dev_array_ptr(self.trend)
-        season_ptr = get_dev_array_ptr(self.season)
-        SSE_ptr = get_dev_array_ptr(self.SSE)
+        self.level = CumlArray.zeros(components_len, dtype=self.dtype)
+        self.trend = CumlArray.zeros(components_len, dtype=self.dtype)
+        self.season = CumlArray.zeros(components_len, dtype=self.dtype)
+        self.SSE = CumlArray.zeros(self.ts_num, dtype=self.dtype)
+        level_ptr = self.level.ptr
+        trend_ptr = self.trend.ptr
+        season_ptr = self.season.ptr
+        SSE_ptr = self.SSE.ptr
 
         cdef float eps_f = np.float32(self.eps)
         cdef double eps_d = np.float64(self.eps)
@@ -352,9 +355,12 @@ class ExponentialSmoothing(Base):
                             " and float64 input, but input type "
                             + str(self.dtype) + " passed.")
         num_rows = int(components_len/self.ts_num)
-        self.level = self.level.reshape((self.ts_num, num_rows), order='F')
-        self.trend = self.trend.reshape((self.ts_num, num_rows), order='F')
-        self.season = self.season.reshape((self.ts_num, num_rows), order='F')
+
+        with using_output_type("cupy"):
+            self.level = self.level.reshape((self.ts_num, num_rows), order='F')
+            self.trend = self.trend.reshape((self.ts_num, num_rows), order='F')
+            self.season = self.season.reshape((self.ts_num, num_rows),
+                                              order='F')
 
         self.handle.sync()
         self.fit_executed_flag = True
@@ -395,12 +401,13 @@ class ExponentialSmoothing(Base):
 
             if h > self.h:
                 self.h = h
-                self.forecasted_points = numba_utils.zeros(self.ts_num*h,
-                                                           dtype=self.dtype)
-                forecast_ptr = get_dev_array_ptr(self.forecasted_points)
-                level_ptr = get_dev_array_ptr(self.level)
-                trend_ptr = get_dev_array_ptr(self.trend)
-                season_ptr = get_dev_array_ptr(self.season)
+                self.forecasted_points = CumlArray.zeros(self.ts_num*h,
+                                                         dtype=self.dtype)
+                with using_output_type("cuml"):
+                    forecast_ptr = self.forecasted_points.ptr
+                    level_ptr = self.level.ptr
+                    trend_ptr = self.trend.ptr
+                    season_ptr = self.season.ptr
 
                 if self.dtype == np.float32:
                     forecast(handle_[0], <int> self.n,
@@ -421,9 +428,11 @@ class ExponentialSmoothing(Base):
                              <double*> trend_ptr,
                              <double*> season_ptr,
                              <double*> forecast_ptr)
-                self.forecasted_points =\
-                    self.forecasted_points.reshape((self.ts_num, h),
-                                                   order='F')
+
+                with using_output_type("cupy"):
+                    self.forecasted_points =\
+                        self.forecasted_points.reshape((self.ts_num, h),
+                                                       order='F')
                 self.handle.sync()
 
             if index is None:

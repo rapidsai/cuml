@@ -20,6 +20,7 @@ from libcpp.vector cimport vector
 from cython.operator cimport dereference as deref, preincrement as inc
 from cpython.object cimport PyObject
 from libc.stdint cimport uintptr_t
+from libcpp.memory cimport unique_ptr
 from typing import Tuple, Dict, List, Union
 import numpy as np
 
@@ -31,7 +32,8 @@ cdef extern from "treelite/tree.h" namespace "treelite":
         size_t nitem
     cdef cppclass Model:
         vector[PyBufferFrame] GetPyBuffer() except +
-        void InitFromPyBuffer(vector[PyBufferFrame] frames) except +
+        @staticmethod
+        unique_ptr[Model] CreateFromPyBuffer(vector[PyBufferFrame]) except +
 
 cdef extern from "Python.h":
     Py_buffer* PyMemoryView_GET_BUFFER(PyObject* mview)
@@ -78,9 +80,7 @@ cdef list _get_frames(ModelHandle model):
             for v in (<Model*>model).GetPyBuffer()]
 
 cdef ModelHandle _init_from_frames(vector[PyBufferFrame] frames) except *:
-    cdef Model* model_obj = new Model()
-    model_obj.InitFromPyBuffer(frames)
-    return <ModelHandle>model_obj
+    return <ModelHandle>Model.CreateFromPyBuffer(frames).release()
 
 
 def get_frames(model: uintptr_t) -> List[memoryview]:

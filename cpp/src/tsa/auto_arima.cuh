@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,9 +28,9 @@
 #include <cub/device/device_scan.cuh>
 
 #include <raft/cudart_utils.h>
-#include <common/device_buffer.hpp>
 #include <common/fast_int_div.cuh>
-#include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/device_buffer.hpp>
+#include <raft/mr/device/allocator.hpp>
 
 namespace ML {
 namespace TimeSeries {
@@ -44,9 +44,9 @@ namespace TimeSeries {
  * @param[in]  allocator  Device memory allocator
  * @param[in]  stream     CUDA stream
  */
-void cumulative_sum_helper(const bool* mask, int* cumul, int mask_size,
-                           std::shared_ptr<MLCommon::deviceAllocator> allocator,
-                           cudaStream_t stream) {
+void cumulative_sum_helper(
+  const bool* mask, int* cumul, int mask_size,
+  std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream) {
   // Determine temporary storage size
   size_t temp_storage_bytes = 0;
   cub::DeviceScan::InclusiveSum(NULL, temp_storage_bytes, mask, cumul,
@@ -75,7 +75,7 @@ void cumulative_sum_helper(const bool* mask, int* cumul, int mask_size,
  */
 inline int divide_by_mask_build_index(
   const bool* d_mask, int* d_index, int batch_size,
-  std::shared_ptr<MLCommon::deviceAllocator> allocator, cudaStream_t stream) {
+  std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream) {
   // Inverse mask
   MLCommon::device_buffer<bool> inv_mask(allocator, stream, batch_size);
   thrust::transform(thrust::cuda::par.on(stream), d_mask, d_mask + batch_size,
@@ -190,7 +190,7 @@ template <typename DataT>
 inline void divide_by_min_build_index(
   const DataT* d_matrix, int* d_batch, int* d_index, int* h_size,
   int batch_size, int n_sub,
-  std::shared_ptr<MLCommon::deviceAllocator> allocator, cudaStream_t stream) {
+  std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream) {
   auto counting = thrust::make_counting_iterator(0);
 
   // In the first pass, compute d_batch and initialize the matrix that will
@@ -275,7 +275,7 @@ template <typename DataT>
 inline void divide_by_min_execute(
   const DataT* d_in, const int* d_batch, const int* d_index, DataT** hd_out,
   int batch_size, int n_sub, int n_obs,
-  std::shared_ptr<MLCommon::deviceAllocator> allocator, cudaStream_t stream) {
+  std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream) {
   // Create a device array of pointers to each sub-batch
   MLCommon::device_buffer<DataT*> out_buffer(allocator, stream, n_sub);
   DataT** d_out = out_buffer.data();
@@ -337,7 +337,7 @@ __global__ void build_division_map_kernel(const int* const* d_id,
 inline void build_division_map(
   const int* const* hd_id, const int* h_size, int* d_id_to_pos,
   int* d_id_to_model, int batch_size, int n_sub,
-  std::shared_ptr<MLCommon::deviceAllocator> allocator, cudaStream_t stream) {
+  std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream) {
   // Copy the pointers to the id trackers of each sub-batch to the device
   MLCommon::device_buffer<int*> id_ptr_buffer(allocator, stream, n_sub);
   const int** d_id = const_cast<const int**>(id_ptr_buffer.data());
@@ -403,7 +403,7 @@ template <typename DataT>
 inline void merge_series(const DataT* const* hd_in, const int* d_id_to_pos,
                          const int* d_id_to_sub, DataT* d_out, int batch_size,
                          int n_sub, int n_obs,
-                         std::shared_ptr<MLCommon::deviceAllocator> allocator,
+                         std::shared_ptr<raft::mr::device::allocator> allocator,
                          cudaStream_t stream) {
   // Copy the pointers to each sub-batch to the device
   MLCommon::device_buffer<DataT*> in_buffer(allocator, stream, n_sub);

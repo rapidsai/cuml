@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-/**@file smoblocksolve.h  contains implementation of the blocke SMO solver
+/**@file smoblocksolve.cuh  contains implementation of the blocke SMO solver
 */
 #pragma once
 
@@ -170,19 +170,19 @@ __global__ __launch_bounds__(WSIZE) void SmoBlockSolve(
   __shared__ math_t tmp_u, tmp_l;
   __shared__ math_t Kd[WSIZE];  // diagonal elements of the kernel matrix
   __shared__ int k_col_idx_map[WSIZE];
-  __shared__ int k_col_idx_u, k_col_idx_l;
+  __shared__ int64_t k_col_idx_u, k_col_idx_l;
 
   int tid = threadIdx.x;
   int idx = ws_idx[tid];
-  int n_rows = (svmType == EPSILON_SVR) ? n_train / 2 : n_train;
+  int64_t n_rows = (svmType == EPSILON_SVR) ? n_train / 2 : n_train;
 
   // Consult KernelCache::GetTile for the layout of the kernel matrix
   // kernel matrix row and colums indices for workspace vector ws_idx[tid]
   // k_row_idx \in [0..n_rows-1]
-  int k_row_idx =
+  int64_t k_row_idx =
     (svmType == EPSILON_SVR && idx >= n_rows) ? idx - n_rows : idx;
   // k_col_idx \in [0..n_unique-1]
-  int k_col_idx = (svmType == C_SVC) ? tid : kColIdx[tid];
+  int64_t k_col_idx = (svmType == C_SVC) ? tid : kColIdx[tid];
 
   k_col_idx_map[tid] = k_col_idx;
 

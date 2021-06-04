@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,6 +43,8 @@ void grow_deep_tree_regression(
   const ML::DecisionTree::DecisionTreeParams& tree_params, int& depth_cnt,
   int& leaf_cnt, std::vector<SparseTreeNode<T, T>>& sparsetree,
   const int treeid, std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
+  ML::PUSH_RANGE(
+    "DecisionTree::grow_deep_tree_classification @levelfunc_regressor.cuh");
   const int ncols_sampled = (int)(colper * Ncols);
   unsigned int* flagsptr = tempmem->d_flags->data();
   unsigned int* sample_cnt = tempmem->d_sample_cnt->data();
@@ -117,6 +119,7 @@ void grow_deep_tree_regression(
 
   int scatter_algo_depth =
     std::min(tempmem->swap_depth, tree_params.max_depth + 1);
+  ML::PUSH_RANGE("scatter phase @levelfunc_regressor");
   for (int depth = 0; (depth < scatter_algo_depth) && (n_nodes_nextitr != 0);
        depth++) {
     depth_cnt = depth;
@@ -142,7 +145,7 @@ void grow_deep_tree_regression(
       get_best_split_regression<T, MSEGain<T>>(
         h_mseout, d_mseout, h_predout, d_predout, h_count, d_count, h_colids,
         d_colids, h_colstart, d_colstart, Ncols, ncols_sampled,
-        tree_params.n_bins, n_nodes, depth, tree_params.min_rows_per_node,
+        tree_params.n_bins, n_nodes, depth, tree_params.min_samples_leaf,
         tree_params.split_algo, sparsesize, infogain, sparse_meanstate,
         sparse_countstate, sparsetree, sparse_nodelist, h_split_colidx,
         h_split_binidx, d_split_colidx, d_split_binidx, tempmem);
@@ -155,7 +158,7 @@ void grow_deep_tree_regression(
       get_best_split_regression<T, MAEGain<T>>(
         h_mseout, d_mseout, h_predout, d_predout, h_count, d_count, h_colids,
         d_colids, h_colstart, d_colstart, Ncols, ncols_sampled,
-        tree_params.n_bins, n_nodes, depth, tree_params.min_rows_per_node,
+        tree_params.n_bins, n_nodes, depth, tree_params.min_samples_leaf,
         tree_params.split_algo, sparsesize, infogain, sparse_meanstate,
         sparse_countstate, sparsetree, sparse_nodelist, h_split_colidx,
         h_split_binidx, d_split_colidx, d_split_binidx, tempmem);
@@ -173,13 +176,18 @@ void grow_deep_tree_regression(
                      n_nodes, tree_params.split_algo, d_split_colidx,
                      d_split_binidx, d_new_node_flags, flagsptr, tempmem);
   }
-
+  ML::POP_RANGE();
+  ML::PUSH_RANGE("gather phase @levelfunc_regressor.cuh");
   // Start of gather algorithm
   //Convertor
 
   int lastsize = sparsetree.size() - sparsesize_nextitr;
   n_nodes = n_nodes_nextitr;
-  if (n_nodes == 0) return;
+  if (n_nodes == 0) {
+    ML::POP_RANGE();  // gather pahse ended
+    ML::POP_RANGE();  // grow_deep_tree_classification end
+    return;
+  }
   unsigned int *d_nodecount, *d_samplelist, *d_nodestart;
   SparseTreeNode<T, T>* d_sparsenodes;
   SparseTreeNode<T, T>* h_sparsenodes;
@@ -244,6 +252,10 @@ void grow_deep_tree_regression(
     sparsetree.insert(sparsetree.end(), h_sparsenodes,
                       h_sparsenodes + lastsize);
   }
+
+  ML::POP_RANGE();  // gather phase @levelfunc_regressor.cuh
+
+  ML::POP_RANGE();  // grow_deep_tree_classification
 }
 
 }  // namespace DecisionTree

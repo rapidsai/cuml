@@ -13,17 +13,23 @@
 import numbers
 import warnings
 
+import numpy
 import cupy as np
+import cuml
 from cupy import sparse
 
-from ....thirdparty_adapters import (get_input_type, to_output_type, _get_mask,
+from ....thirdparty_adapters import (_get_mask,
                                      _masked_column_median,
-                                     _masked_column_mean, _masked_column_mode)
+                                     _masked_column_mean,
+                                     _masked_column_mode)
 from ..utils.skl_dependencies import BaseEstimator, TransformerMixin
+from cuml.common.mixins import AllowNaNTagMixin, SparseInputTagMixin, \
+                               StringInputTagMixin
 from ..utils.validation import check_is_fitted
 from ..utils.validation import FLOAT_DTYPES
-from ..utils.validation import _deprecate_positional_args
-from ....common.import_utils import check_cupy8
+from ....common.array_sparse import SparseCumlArray
+from ....common.array_descriptor import CumlArrayDescriptor
+from ....internals import _deprecate_pos_args
 
 
 def is_scalar_nan(x):
@@ -84,7 +90,7 @@ def _most_frequent(array, extra_value, n_repeat):
     return value
 
 
-class _BaseImputer(TransformerMixin, BaseEstimator):
+class _BaseImputer(TransformerMixin):
     """Base class for all imputers.
 
     It adds automatically support for `add_indicator`.
@@ -97,10 +103,11 @@ class _BaseImputer(TransformerMixin, BaseEstimator):
     def _fit_indicator(self, X):
         """Fit a MissingIndicator."""
         if self.add_indicator:
-            self.indicator_ = MissingIndicator(
-                missing_values=self.missing_values, error_on_new=False
-            )
-            self.indicator_.fit(X)
+            with cuml.using_output_type("cupy"):
+                self.indicator_ = MissingIndicator(
+                    missing_values=self.missing_values, error_on_new=False
+                )
+                self.indicator_.fit(X)
         else:
             self.indicator_ = None
 
@@ -137,7 +144,8 @@ class _BaseImputer(TransformerMixin, BaseEstimator):
         return {'allow_nan': is_scalar_nan(self.missing_values)}
 
 
-class SimpleImputer(_BaseImputer):
+class SimpleImputer(_BaseImputer, BaseEstimator,
+                    SparseInputTagMixin, AllowNaNTagMixin):
     """Imputation transformer for completing missing values.
 
     Parameters
@@ -202,13 +210,13 @@ class SimpleImputer(_BaseImputer):
 
     Examples
     --------
-    >>> import numpy as np
-    >>> from cuml.impute import SimpleImputer
-    >>> imp_mean = SimpleImputer(missing_values=np.nan, strategy='mean')
-    >>> imp_mean.fit([[7, 2, 3], [4, np.nan, 6], [10, 5, 9]])
+    >>> import cupy as cp
+    >>> from cuml.preprocessing import SimpleImputer
+    >>> imp_mean = SimpleImputer(missing_values=cp.nan, strategy='mean')
+    >>> imp_mean.fit(cp.asarray([[7, 2, 3], [4, cp.nan, 6], [10, 5, 9]]))
     SimpleImputer()
-    >>> X = [[np.nan, 2, 3], [4, np.nan, 6], [10, np.nan, 9]]
-    >>> print(imp_mean.transform(X))
+    >>> X = [[cp.nan, 2, 3], [4, cp.nan, 6], [10, cp.nan, 9]]
+    >>> print(imp_mean.transform(cp.asarray(X)))
     [[ 7.   2.   3. ]
      [ 4.   3.5  6. ]
      [10.   3.5  9. ]]
@@ -219,18 +227,27 @@ class SimpleImputer(_BaseImputer):
     upon :meth:`transform` if strategy is not "constant".
 
     """
-    @check_cupy8()
-    @_deprecate_positional_args
+
+    statistics_ = CumlArrayDescriptor()
+
+    @_deprecate_pos_args(version="21.06")
     def __init__(self, *, missing_values=np.nan, strategy="mean",
-                 fill_value=None, verbose=0, copy=True, add_indicator=False):
+                 fill_value=None, copy=True, add_indicator=False):
         super().__init__(
             missing_values=missing_values,
             add_indicator=add_indicator
         )
         self.strategy = strategy
         self.fill_value = fill_value
-        self.verbose = verbose
         self.copy = copy
+
+    def get_param_names(self):
+        return super().get_param_names() + [
+            "strategy",
+            "fill_value",
+            "verbose",
+            "copy"
+        ]
 
     def _validate_input(self, X, in_fit):
         allowed_strategies = ["mean", "median", "most_frequent", "constant"]
@@ -273,7 +290,7 @@ class SimpleImputer(_BaseImputer):
 
         return X
 
-    def fit(self, X, y=None):
+    def fit(self, X, y=None) -> "SimpleImputer":
         """Fit the imputer on X.
 
         Parameters
@@ -286,6 +303,10 @@ class SimpleImputer(_BaseImputer):
         -------
         self : SimpleImputer
         """
+
+        if type(X) is list:
+            X = np.asarray(X)
+
         X = self._validate_input(X, in_fit=True)
         super()._fit_indicator(X)
 
@@ -381,7 +402,7 @@ class SimpleImputer(_BaseImputer):
         elif strategy == "constant":
             return np.full(X.shape[1], fill_value, dtype=X.dtype)
 
-    def transform(self, X):
+    def transform(self, X) -> SparseCumlArray:
         """Impute all missing values in X.
 
         Parameters
@@ -391,7 +412,6 @@ class SimpleImputer(_BaseImputer):
         """
         check_is_fitted(self)
 
-        output_type = get_input_type(X)
         X = self._validate_input(X, in_fit=False)
         X_indicator = super()._transform_indicator(X)
 
@@ -442,20 +462,19 @@ class SimpleImputer(_BaseImputer):
                     X[feature_idxs, vi] = valid_statistics[i]
 
         X = super()._concatenate_indicator(X, X_indicator)
-        X = to_output_type(X, output_type)
         return X
 
 
-class MissingIndicator(TransformerMixin, BaseEstimator):
+class MissingIndicator(TransformerMixin,
+                       BaseEstimator,
+                       AllowNaNTagMixin,
+                       SparseInputTagMixin,
+                       StringInputTagMixin):
     """Binary indicators for missing values.
 
     Note that this component typically should not be used in a vanilla
     :class:`Pipeline` consisting of transformers and a classifier, but rather
     could be added using a :class:`FeatureUnion` or :class:`ColumnTransformer`.
-
-    Read more in the :ref:`User Guide <impute>`.
-
-    .. versionadded:: 0.20
 
     Parameters
     ----------
@@ -513,13 +532,23 @@ class MissingIndicator(TransformerMixin, BaseEstimator):
            [False, False]])
 
     """
-    @_deprecate_positional_args
+    features_ = CumlArrayDescriptor()
+
+    @_deprecate_pos_args(version="21.06")
     def __init__(self, *, missing_values=np.nan, features="missing-only",
                  sparse="auto", error_on_new=True):
         self.missing_values = missing_values
         self.features = features
         self.sparse = sparse
         self.error_on_new = error_on_new
+
+    def get_param_names(self):
+        return super().get_param_names() + [
+            "missing_values",
+            "features",
+            "sparse",
+            "error_on_new"
+        ]
 
     def _get_missing_features_info(self, X):
         """Compute the imputer mask and the indices of the features
@@ -550,11 +579,12 @@ class MissingIndicator(TransformerMixin, BaseEstimator):
                                   else sparse.csc_matrix)
             imputer_mask = sparse_constructor(
                 (mask, X.indices.copy(), X.indptr.copy()),
-                shape=X.shape, dtype=bool)
-            imputer_mask.eliminate_zeros()
+                shape=X.shape, dtype=np.float32)
+            # temporarly switch to using float32 as
+            # cupy cannot operate with bool as of now
 
             if self.features == 'missing-only':
-                n_missing = imputer_mask.getnnz(axis=0)
+                n_missing = imputer_mask.sum(axis=0)
 
             if self.sparse is False:
                 imputer_mask = imputer_mask.toarray()
@@ -635,7 +665,7 @@ class MissingIndicator(TransformerMixin, BaseEstimator):
 
         return missing_features_info[0]
 
-    def fit(self, X, y=None):
+    def fit(self, X, y=None) -> "MissingIndicator":
         """Fit the transformer on X.
 
         Parameters
@@ -653,7 +683,7 @@ class MissingIndicator(TransformerMixin, BaseEstimator):
 
         return self
 
-    def transform(self, X):
+    def transform(self, X) -> SparseCumlArray:
         """Generate missing values indicator for X.
 
         Parameters
@@ -679,18 +709,21 @@ class MissingIndicator(TransformerMixin, BaseEstimator):
         imputer_mask, features = self._get_missing_features_info(X)
 
         if self.features == "missing-only":
-            features_diff_fit_trans = np.setdiff1d(features, self.features_)
-            if (self.error_on_new and features_diff_fit_trans.size > 0):
-                raise ValueError("The features {} have missing values "
-                                 "in transform but have no missing values "
-                                 "in fit.".format(features_diff_fit_trans))
+            with cuml.using_output_type("numpy"):
+                np_features = np.asnumpy(features)
+                features_diff_fit_trans = numpy.setdiff1d(np_features,
+                                                          self.features_)
+                if (self.error_on_new and features_diff_fit_trans.size > 0):
+                    raise ValueError("The features {} have missing values "
+                                     "in transform but have no missing values "
+                                     "in fit.".format(features_diff_fit_trans))
 
             if self.features_.size < self._n_features:
                 imputer_mask = imputer_mask[:, self.features_]
 
         return imputer_mask
 
-    def fit_transform(self, X, y=None):
+    def fit_transform(self, X, y=None) -> SparseCumlArray:
         """Generate missing values indicator for X.
 
         Parameters
@@ -712,7 +745,3 @@ class MissingIndicator(TransformerMixin, BaseEstimator):
             imputer_mask = imputer_mask[:, self.features_]
 
         return imputer_mask
-
-    def _more_tags(self):
-        return {'allow_nan': True,
-                'X_types': ['2darray', 'string']}

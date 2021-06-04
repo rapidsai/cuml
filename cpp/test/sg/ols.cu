@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <test_utils.h>
-#include <cuml/common/cuml_allocator.hpp>
 #include <glm/ols.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <vector>
 
 namespace ML {
@@ -101,8 +101,8 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
     olsFit(handle, data, params.n_row, params.n_col, labels, coef, &intercept,
            false, false, stream, params.algo);
 
-    olsPredict(handle, pred_data, params.n_row_2, params.n_col, coef, intercept,
-               pred, stream);
+    gemmPredict(handle, pred_data, params.n_row_2, params.n_col, coef,
+                intercept, pred, stream);
 
     raft::update_device(data, data_h.data(), len, stream);
     raft::update_device(labels, labels_h.data(), params.n_row, stream);
@@ -111,8 +111,8 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
     olsFit(handle, data, params.n_row, params.n_col, labels, coef2, &intercept2,
            true, false, stream, params.algo);
 
-    olsPredict(handle, pred_data, params.n_row_2, params.n_col, coef2,
-               intercept2, pred2, stream);
+    gemmPredict(handle, pred_data, params.n_row_2, params.n_col, coef2,
+                intercept2, pred2, stream);
 
     raft::update_device(data, data_h.data(), len, stream);
     raft::update_device(labels, labels_h.data(), params.n_row, stream);
@@ -121,8 +121,8 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
     olsFit(handle, data, params.n_row, params.n_col, labels, coef3, &intercept3,
            true, true, stream, params.algo);
 
-    olsPredict(handle, pred_data, params.n_row_2, params.n_col, coef3,
-               intercept3, pred3, stream);
+    gemmPredict(handle, pred_data, params.n_row_2, params.n_col, coef3,
+                intercept3, pred3, stream);
   }
 
   void basicTest2() {

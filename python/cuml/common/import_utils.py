@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,11 +15,8 @@
 #
 
 
-import inspect
 import numba
-
 from distutils.version import LooseVersion
-from functools import wraps
 
 
 def has_dask():
@@ -87,6 +84,14 @@ def has_pytest_benchmark():
         return False
 
 
+def check_min_dask_version(version):
+    try:
+        import dask
+        return LooseVersion(dask.__version__) >= LooseVersion(version)
+    except ImportError:
+        return False
+
+
 def check_min_numba_version(version):
     return LooseVersion(str(numba.__version__)) >= LooseVersion(version)
 
@@ -118,39 +123,21 @@ def has_sklearn():
         return False
 
 
+def has_shap(min_version="0.37"):
+    try:
+        import shap  # noqa
+        if min_version is None:
+            return True
+        else:
+            return (LooseVersion(str(shap.__version__)) >=
+                    LooseVersion(min_version))
+    except ImportError:
+        return False
+
+
 def dummy_function_always_false(*args, **kwargs):
     return False
 
 
 class DummyClass(object):
     pass
-
-
-def check_cupy8(conf=None):
-    """Decorator checking availability of CuPy 8.0+
-
-    Parameters:
-    conf: string (optional, default None): If set to 'pytest' will skip tests.
-    Will otherwise raise an error in case CuPy 8.0+ is unavailable.
-
-    """
-    def check_cupy8_dec(func):
-
-        assert not inspect.isclass(func), \
-            ("Do not use this decorator on classes. Instead decorate "
-             "__init__  and any static or class methods.")
-
-        @wraps(func)
-        def inner(*args, **kwargs):
-            import cupy as cp
-            if LooseVersion(str(cp.__version__)) >= LooseVersion('8.0'):
-                return func(*args, **kwargs)
-            else:
-                err_msg = 'Could not import required module CuPy 8.0+'
-                if conf == 'pytest':
-                    import pytest
-                    pytest.skip(err_msg)
-                else:
-                    raise ImportError(err_msg)
-        return inner
-    return check_cupy8_dec

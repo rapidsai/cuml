@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,9 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <algorithm>
-#include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
 #include <metrics/kl_divergence.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <random>
 #include "test_utils.h"
 
@@ -62,7 +62,7 @@ class klDivergenceTest : public ::testing::TestWithParam<klDivergenceParam> {
     raft::update_device(d_modelPDF, &h_modelPDF[0], (int)nElements, stream);
     raft::update_device(d_candidatePDF, &h_candidatePDF[0], (int)nElements,
                         stream);
-    std::shared_ptr<MLCommon::deviceAllocator> allocator(
+    std::shared_ptr<raft::mr::device::allocator> allocator(
       new raft::mr::device::default_allocator);
 
     //generating the golden output

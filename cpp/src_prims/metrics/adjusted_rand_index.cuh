@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,12 +24,12 @@
 
 #include <math.h>
 #include <raft/cudart_utils.h>
-#include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
-#include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/reduce.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <stats/histogram.cuh>
 #include "contingencyMatrix.cuh"
 
@@ -78,7 +78,7 @@ struct Binner {
  */
 template <typename T>
 int countUnique(const T* arr, int size, T& minLabel, T& maxLabel,
-                std::shared_ptr<deviceAllocator> allocator,
+                std::shared_ptr<raft::mr::device::allocator> allocator,
                 cudaStream_t stream) {
   auto ptr = thrust::device_pointer_cast(arr);
   auto minmax =
@@ -114,10 +114,9 @@ int countUnique(const T* arr, int size, T& minLabel, T& maxLabel,
 * @param stream: the cudaStream object
 */
 template <typename T, typename MathT = int>
-double compute_adjusted_rand_index(const T* firstClusterArray,
-                                   const T* secondClusterArray, int size,
-                                   std::shared_ptr<deviceAllocator> allocator,
-                                   cudaStream_t stream) {
+double compute_adjusted_rand_index(
+  const T* firstClusterArray, const T* secondClusterArray, int size,
+  std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream) {
   ASSERT(size >= 2, "Rand Index for size less than 2 not defined!");
   T minFirst, maxFirst, minSecond, maxSecond;
   auto nUniqFirst =

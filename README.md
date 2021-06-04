@@ -85,10 +85,11 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 ### Supported Algorithms
 | Category | Algorithm | Notes |
 | --- | --- | --- |
-| **Clustering** |  Density-Based Spatial Clustering of Applications with Noise (DBSCAN) | |
+| **Clustering** |  Density-Based Spatial Clustering of Applications with Noise (DBSCAN) | Multi-node multi-GPU via Dask |
 |  | K-Means | Multi-node multi-GPU via Dask |
+|  | Single-Linkage Agglomerative Clustering | |
 | **Dimensionality Reduction** | Principal Components Analysis (PCA) | Multi-node multi-GPU via Dask|
-| | Incremental PCA | Experimental |
+| | Incremental PCA | |
 | | Truncated Singular Value Decomposition (tSVD) | Multi-node multi-GPU via Dask |
 | | Uniform Manifold Approximation and Projection (UMAP) | Multi-node multi-GPU Inference via Dask |
 | | Random Projection | |
@@ -96,7 +97,8 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 | **Linear Models for Regression or Classification** | Linear Regression (OLS) | Multi-node multi-GPU via Dask |
 | | Linear Regression with Lasso or Ridge Regularization | Multi-node multi-GPU via Dask |
 | | ElasticNet Regression | |
-| | Logistic Regression | |
+| | LARS Regression | (experimental) |
+| | Logistic Regression | Multi-node multi-GPU via Dask-GLM [demo](https://github.com/daxiongshu/rapids-demos) |
 | | Naive Bayes | Multi-node multi-GPU via Dask |
 | | Stochastic Gradient Descent (SGD), Coordinate Descent (CD), and Quasi-Newton (QN) (including L-BFGS and OWL-QN) solvers for linear models  | |
 | **Nonlinear Models for Regression or Classification** | Random Forest (RF) Classification | Experimental multi-node multi-GPU via Dask |
@@ -106,9 +108,15 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 |  | K-Nearest Neighbors (KNN) Regression | Multi-node multi-GPU via Dask+[UCX](https://github.com/rapidsai/ucx-py), uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
 |  | Support Vector Machine Classifier (SVC) | |
 |  | Epsilon-Support Vector Regression (SVR) | |
+| **Preprocessing** | Standardization, or mean removal and variance scaling / Normalization / Encoding categorical features / Discretization / Imputation of missing values / Polynomial features generation / and coming soon custom transformers and non-linear transformation | Based on Scikit-Learn preprocessing
 | **Time Series** | Holt-Winters Exponential Smoothing | |
 |  | Auto-regressive Integrated Moving Average (ARIMA) | Supports seasonality (SARIMA) |
-| **Other** | K-Nearest Neighbors (KNN) Search | Multi-node multi-GPU via Dask+[UCX](https://github.com/rapidsai/ucx-py), uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
+| **Model Explanation**                                 | SHAP Kernel Explainer                                                                                                               
+| [Based on SHAP](https://shap.readthedocs.io/en/latest/)                                                                                                                                              |
+|                                                       | SHAP Permutation Explainer                       
+| [Based on SHAP](https://shap.readthedocs.io/en/latest/)                                                                                                                                               |
+| **Other**                                             | K-Nearest Neighbors (KNN) Search                                                                                                          | Multi-node multi-GPU via Dask+[UCX](https://github.com/rapidsai/ucx-py), uses [Faiss](https://github.com/facebookresearch/faiss) for Nearest Neighbors Query. |
+
 ---
 
 ## Installation
@@ -127,11 +135,13 @@ Please see our [guide for contributing to cuML](CONTRIBUTING.md).
 
 ## References
 
+The RAPIDS team has a number of blogs with deeper technical dives and examples. [You can find them here on Medium.](https://medium.com/rapids-ai/tagged/machine-learning)
+
 For additional details on the technologies behind cuML, as well as a broader overview of the Python Machine Learning landscape, see [_Machine Learning in Python: Main developments and technology trends in data science, machine learning, and artificial intelligence_ (2020)](https://arxiv.org/abs/2002.04803) by Sebastian Raschka, Joshua Patterson, and Corey Nolet.
 
 Please consider citing this when using cuML in a project. You can use the citation BibTeX:
 
-```
+```bibtex
 @article{raschka2020machine,
   title={Machine Learning in Python: Main developments and technology trends in data science, machine learning, and artificial intelligence},
   author={Raschka, Sebastian and Patterson, Joshua and Nolet, Corey},

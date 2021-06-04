@@ -1,0 +1,87 @@
+/* This contains code with copyright by the scikit-learn project, subject to
+the license in /thirdparty/LICENSES/LICENSE.scikit_learn */
+
+/* info boxes */
+
+div.topic {
+  padding: 0.5rem;
+  background-color: #eee;
+  margin-bottom: 1rem;
+  border-radius: 0.25rem;
+  border: 1px solid #CCC;
+}
+
+div.topic p {
+  margin-bottom: 0.25rem;
+}
+
+div.topic dd {
+  margin-bottom: 0.25rem;
+}
+
+p.topic-title {
+  font-weight: bold;
+  margin-bottom: 0.5rem;
+}
+
+div.topic > ul.simple {
+  margin-bottom: 0.25rem;
+}
+
+p.admonition-title {
+  margin-right: 0.5rem;
+  font-weight: bold;
+  display: inline;
+}
+
+p.admonition-title:after {
+  content: ":";
+}
+
+div.admonition p.admonition-title + p, div.deprecated p {
+  display: inline;
+}
+
+div.admonition, div.deprecated {
+  padding: 0.5rem;
+  border-radius: 0.5rem;
+  border: 1px solid #ddd;
+  margin-bottom: 1rem;
+}
+
+div.admonition {
+  background-color: #eee;
+}
+
+div.admonition p, div.admonition dl, div.admonition dd {
+  margin-bottom: 0
+}
+
+div.deprecated {
+  color: #b94a48;
+  background-color: #F3E5E5;
+  border: 1px solid #eed3d7;
+}
+
+div.seealso {
+  background-color: #FFFBE8;
+  border: 1px solid #fbeed5;
+  color: #AF8A4B;
+}
+
+div.versionchanged {
+  margin-top: 0.5rem;
+  padding: 0.5rem;
+  background-color: #FFFBE8;
+  border: 1px solid #fbeed5;
+  border-radius: 0.5rem;
+}
+
+div.versionchanged p {
+  margin-bottom: 0;
+}
+
+dt.label {
+  float: left;
+  padding-right: 0.5rem;
+}

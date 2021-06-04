@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,25 +27,28 @@ from enum import IntEnum
 
 import rmm
 
-import cuml
-
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 
 from cython.operator cimport dereference as deref
 
+import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
-from cuml.common.base import _input_to_type
 from cuml.common.doc_utils import generate_docstring
 from cuml.raft.common.handle cimport handle_t
 from cuml.raft.common.handle import Handle
 import cuml.common.logger as logger
 from cuml.decomposition.utils cimport *
-from cuml.common import input_to_cuml_array
-from cuml.common import with_cupy_rmm
+from cuml.common.input_utils import input_to_cuml_array
+from cuml.common.input_utils import input_to_cupy_array
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common import using_output_type
 from cuml.prims.stats import cov
 from cuml.common.input_utils import sparse_scipy_to_cp
+from cuml.common.exceptions import NotFittedError
+from cuml.common.mixins import FMajorInputTagMixin
+from cuml.common.mixins import SparseInputTagMixin
 
 
 cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
@@ -108,7 +111,10 @@ class Solver(IntEnum):
     COV_EIG_JACOBI = <underlying_type_t_solver> solver.COV_EIG_JACOBI
 
 
-class PCA(Base):
+class PCA(Base,
+          FMajorInputTagMixin,
+          SparseInputTagMixin):
+
     """
     PCA (Principal Component Analysis) is a fundamental dimensionality
     reduction technique used to combine features in X in linear combinations
@@ -143,13 +149,13 @@ class PCA(Base):
         pca_float.fit(gdf_float)
 
         print(f'components: {pca_float.components_}')
-        print(f'explained variance: {pca_float._explained_variance_}')
-        exp_var = pca_float._explained_variance_ratio_
+        print(f'explained variance: {pca_float.explained_variance_}')
+        exp_var = pca_float.explained_variance_ratio_
         print(f'explained variance ratio: {exp_var}')
 
-        print(f'singular values: {pca_float._singular_values_}')
-        print(f'mean: {pca_float._mean_}')
-        print(f'noise variance: {pca_float._noise_variance_}')
+        print(f'singular values: {pca_float.singular_values_}')
+        print(f'mean: {pca_float.mean_}')
+        print(f'noise variance: {pca_float.noise_variance_}')
 
         trans_gdf_float = pca_float.transform(gdf_float)
         print(f'Inverse: {trans_gdf_float}')
@@ -247,7 +253,7 @@ class PCA(Base):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Attributes
@@ -286,13 +292,22 @@ class PCA(Base):
     <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html>`_.
     """
 
-    def __init__(self, copy=True, handle=None, iterated_power=15,
+    components_ = CumlArrayDescriptor()
+    explained_variance_ = CumlArrayDescriptor()
+    explained_variance_ratio_ = CumlArrayDescriptor()
+    singular_values_ = CumlArrayDescriptor()
+    mean_ = CumlArrayDescriptor()
+    noise_variance_ = CumlArrayDescriptor()
+    trans_input_ = CumlArrayDescriptor()
+
+    def __init__(self, *, copy=True, handle=None, iterated_power=15,
                  n_components=None, random_state=None, svd_solver='auto',
                  tol=1e-7, verbose=False, whiten=False,
                  output_type=None):
         # parameters
-        super(PCA, self).__init__(handle=handle, verbose=verbose,
-                                  output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
         self.copy = copy
         self.iterated_power = iterated_power
         self.n_components = n_components
@@ -303,19 +318,13 @@ class PCA(Base):
         self.c_algorithm = self._get_algorithm_c_name(self.svd_solver)
 
         # internal array attributes
-        self._components_ = None  # accessed via estimator.components_
-        self._trans_input_ = None  # accessed via estimator.trans_input_
-        self._explained_variance_ = None
-        # accessed via estimator.explained_variance_
-
-        self._explained_variance_ratio_ = None
-        # accessed via estimator.explained_variance_ratio_
-
-        self._singular_values_ = None
-        # accessed via estimator.singular_values_
-
-        self._mean_ = None  # accessed via estimator.mean_
-        self._noise_variance_ = None  # accessed via estimator.noise_variance_
+        self.components_ = None
+        self.trans_input_ = None
+        self.explained_variance_ = None
+        self.explained_variance_ratio_ = None
+        self.singular_values_ = None
+        self.mean_ = None
+        self.noise_variance_ = None
 
         # This variable controls whether a sparse model was fit
         # This can be removed once there is more inter-operability
@@ -338,15 +347,7 @@ class PCA(Base):
 
     def _build_params(self, n_rows, n_cols):
         cpdef paramsPCA *params = new paramsPCA()
-        if self.n_components is None:
-            logger.warn(
-                'Warning(`_build_params`): As of v0.16, PCA invoked without an'
-                ' n_components argument defauts to using'
-                ' min(n_samples, n_features) rather than 1'
-            )
-            params.n_components = min(n_rows, n_cols)
-        else:
-            params.n_components = self.n_components
+        params.n_components = self._n_components
         params.n_rows = n_rows
         params.n_cols = n_cols
         params.whiten = self.whiten
@@ -359,19 +360,18 @@ class PCA(Base):
 
     def _initialize_arrays(self, n_components, n_rows, n_cols):
 
-        self._components_ = CumlArray.zeros((n_components, n_cols),
-                                            dtype=self.dtype)
-        self._explained_variance_ = CumlArray.zeros(n_components,
-                                                    dtype=self.dtype)
-        self._explained_variance_ratio_ = CumlArray.zeros(n_components,
-                                                          dtype=self.dtype)
-        self._mean_ = CumlArray.zeros(n_cols, dtype=self.dtype)
+        self.components_ = CumlArray.zeros((n_components, n_cols),
+                                           dtype=self.dtype)
+        self.explained_variance_ = CumlArray.zeros(n_components,
+                                                   dtype=self.dtype)
+        self.explained_variance_ratio_ = CumlArray.zeros(n_components,
+                                                         dtype=self.dtype)
+        self.mean_ = CumlArray.zeros(n_cols, dtype=self.dtype)
 
-        self._singular_values_ = CumlArray.zeros(n_components,
-                                                 dtype=self.dtype)
-        self._noise_variance_ = CumlArray.zeros(1, dtype=self.dtype)
+        self.singular_values_ = CumlArray.zeros(n_components,
+                                                dtype=self.dtype)
+        self.noise_variance_ = CumlArray.zeros(1, dtype=self.dtype)
 
-    @with_cupy_rmm
     def _sparse_fit(self, X):
 
         self._sparse_model = True
@@ -383,70 +383,67 @@ class PCA(Base):
         # NOTE: All intermediate calculations are done using cupy.ndarray and
         # then converted to CumlArray at the end to minimize conversions
         # between types
-        covariance, temp_mean_, _ = cov(X, X, return_mean=True)
+        covariance, self.mean_, _ = cov(X, X, return_mean=True)
 
-        temp_explained_variance_, temp_components_ = \
+        self.explained_variance_, self.components_ = \
             cp.linalg.eigh(covariance, UPLO='U')
 
         # NOTE: We reverse the eigen vector and eigen values here
         # because cupy provides them in ascending order. Make a copy otherwise
         # it is not C_CONTIGUOUS anymore and would error when converting to
         # CumlArray
-        temp_explained_variance_ = temp_explained_variance_[::-1].copy()
+        self.explained_variance_ = self.explained_variance_[::-1]
 
-        temp_components_ = cp.flip(temp_components_, axis=1)
+        self.components_ = cp.flip(self.components_, axis=1)
 
-        temp_components_ = temp_components_.T[:self.n_components, :]
+        self.components_ = self.components_.T[:self._n_components, :]
 
-        temp_explained_variance_ratio_ = temp_explained_variance_ / cp.sum(
-            temp_explained_variance_)
+        self.explained_variance_ratio_ = self.explained_variance_ / cp.sum(
+            self.explained_variance_)
 
-        if self.n_components < min(self.n_rows, self.n_cols):
-            temp_noise_variance_ = \
-                temp_explained_variance_[self.n_components:].mean()
+        if self._n_components < min(self.n_rows, self.n_cols):
+            self.noise_variance_ = \
+                self.explained_variance_[self._n_components:].mean()
         else:
-            temp_noise_variance_ = cp.array([0.0])
+            self.noise_variance_ = cp.array([0.0])
 
-        temp_explained_variance_ = \
-            temp_explained_variance_[:self.n_components]
+        self.explained_variance_ = \
+            self.explained_variance_[:self._n_components]
 
-        temp_explained_variance_ratio_ = \
-            temp_explained_variance_ratio_[:self.n_components]
+        self.explained_variance_ratio_ = \
+            self.explained_variance_ratio_[:self._n_components]
 
         # Truncating negative explained variance values to 0
-        temp_singular_values_ = \
-            cp.where(temp_explained_variance_ < 0, 0,
-                     temp_explained_variance_)
-        temp_singular_values_ = \
-            cp.sqrt(temp_singular_values_ * (self.n_rows - 1))
-
-        # Since temp_components_ can have a negative stride, copy it to get a
-        # new contiguous array
-        temp_components_ = temp_components_.copy()
-
-        # Finally, store everything as CumlArray to support `to_output`
-        self._mean_ = CumlArray(temp_mean_)
-        self._explained_variance_ = CumlArray(temp_explained_variance_)
-        self._components_ = CumlArray(temp_components_)
-        self._noise_variance_ = CumlArray(temp_noise_variance_)
-        self._explained_variance_ratio_ = \
-            CumlArray(temp_explained_variance_ratio_)
-        self._singular_values_ = CumlArray(temp_singular_values_)
+        self.singular_values_ = \
+            cp.where(self.explained_variance_ < 0, 0,
+                     self.explained_variance_)
+        self.singular_values_ = \
+            cp.sqrt(self.singular_values_ * (self.n_rows - 1))
 
         return self
 
     @generate_docstring(X='dense_sparse')
-    def fit(self, X, y=None):
+    def fit(self, X, y=None) -> "PCA":
         """
         Fit the model with X. y is currently ignored.
 
         """
-        self._set_base_attributes(output_type=X, n_features=X)
+        if self.n_components is None:
+            logger.warn(
+                'Warning(`fit`): As of v0.16, PCA invoked without an'
+                ' n_components argument defauts to using'
+                ' min(n_samples, n_features) rather than 1'
+            )
+            n_rows = X.shape[0]
+            n_cols = X.shape[1]
+            self._n_components = min(n_rows, n_cols)
+        else:
+            self._n_components = self.n_components
 
         if cupyx.scipy.sparse.issparse(X):
             return self._sparse_fit(X)
         elif scipy.sparse.issparse(X):
-            X = sparse_scipy_to_cp(X)
+            X = sparse_scipy_to_cp(X, dtype=None)
             return self._sparse_fit(X)
 
         X_m, self.n_rows, self.n_cols, self.dtype = \
@@ -460,24 +457,25 @@ class PCA(Base):
             raise ValueError('Number of components should not be greater than'
                              'the number of columns in the data')
 
+        # Calling _initialize_arrays, guarantees everything is CumlArray
         self._initialize_arrays(params.n_components,
                                 params.n_rows, params.n_cols)
 
-        cdef uintptr_t comp_ptr = self._components_.ptr
+        cdef uintptr_t comp_ptr = self.components_.ptr
 
         cdef uintptr_t explained_var_ptr = \
-            self._explained_variance_.ptr
+            self.explained_variance_.ptr
 
         cdef uintptr_t explained_var_ratio_ptr = \
-            self._explained_variance_ratio_.ptr
+            self.explained_variance_ratio_.ptr
 
         cdef uintptr_t singular_vals_ptr = \
-            self._singular_values_.ptr
+            self.singular_values_.ptr
 
-        cdef uintptr_t _mean_ptr = self._mean_.ptr
+        cdef uintptr_t _mean_ptr = self.mean_.ptr
 
         cdef uintptr_t noise_vars_ptr = \
-            self._noise_variance_.ptr
+            self.noise_variance_.ptr
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         if self.dtype == np.float32:
@@ -512,7 +510,8 @@ class PCA(Base):
                                        'type': 'dense_sparse',
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_components)'})
-    def fit_transform(self, X, y=None):
+    @cuml.internals.api_base_return_array_skipall
+    def fit_transform(self, X, y=None) -> CumlArray:
         """
         Fit the model with X and apply the dimensionality reduction on X.
 
@@ -520,28 +519,27 @@ class PCA(Base):
 
         return self.fit(X).transform(X)
 
-    @with_cupy_rmm
+    @cuml.internals.api_base_return_array_skipall
     def _sparse_inverse_transform(self, X, return_sparse=False,
-                                  sparse_tol=1e-10, out_type=None):
+                                  sparse_tol=1e-10) -> CumlArray:
 
         # NOTE: All intermediate calculations are done using cupy.ndarray and
         # then converted to CumlArray at the end to minimize conversions
         # between types
-        temp_components_ = cp.asarray(self._components_)
-        temp_mean_ = self._mean_.to_output("cupy")
 
         if self.whiten:
-            temp_components_ *= (1 / cp.sqrt(self.n_rows - 1))
-            temp_components_ *= self._singular_values_
+            cp.multiply(self.components_,
+                        (1 / cp.sqrt(self.n_rows - 1)), out=self.components_)
+            cp.multiply(self.components_,
+                        self.singular_values_.reshape((-1, 1)),
+                        out=self.components_)
 
-        X_inv = X.dot(temp_components_)
-        X_inv += temp_mean_
+        X_inv = cp.dot(X, self.components_)
+        cp.add(X_inv, self.mean_, out=X_inv)
 
         if self.whiten:
-            temp_components_ /= self._singular_values_
-            temp_components_ *= cp.sqrt(self.n_rows - 1)
-
-        self._components_ = CumlArray(temp_components_)
+            self.components_ /= self.singular_values_.reshape((-1, 1))
+            self.components_ *= cp.sqrt(self.n_rows - 1)
 
         if return_sparse:
             X_inv = cp.where(X_inv < sparse_tol, 0, X_inv)
@@ -550,20 +548,15 @@ class PCA(Base):
 
             return X_inv
 
-        if out_type == 'cupy':
-            return X_inv
-        else:
-            X_inv, _, _, _ = input_to_cuml_array(X_inv, order='K')
-            return X_inv.to_output(out_type)
+        return X_inv
 
     @generate_docstring(X='dense_sparse',
                         return_values={'name': 'X_inv',
                                        'type': 'dense_sparse',
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_features)'})
-    @with_cupy_rmm
     def inverse_transform(self, X, convert_dtype=False,
-                          return_sparse=False, sparse_tol=1e-10):
+                          return_sparse=False, sparse_tol=1e-10) -> CumlArray:
         """
         Transform data back to its original space.
 
@@ -571,28 +564,23 @@ class PCA(Base):
 
         """
 
-        out_type = self._get_output_type(X)
-
+        self._check_is_fitted('components_')
         if cupyx.scipy.sparse.issparse(X):
             return self._sparse_inverse_transform(X,
                                                   return_sparse=return_sparse,
-                                                  sparse_tol=sparse_tol,
-                                                  out_type=out_type)
+                                                  sparse_tol=sparse_tol)
         elif scipy.sparse.issparse(X):
-            X = sparse_scipy_to_cp(X)
+            X = sparse_scipy_to_cp(X, dtype=None)
             return self._sparse_inverse_transform(X,
                                                   return_sparse=return_sparse,
-                                                  sparse_tol=sparse_tol,
-                                                  out_type=out_type)
+                                                  sparse_tol=sparse_tol)
         elif self._sparse_model:
             X, _, _, _ = \
-                input_to_cuml_array(X, order='K',
+                input_to_cupy_array(X, order='K',
                                     check_dtype=[cp.float32, cp.float64])
-            X = X.to_output(output_type='cupy')
             return self._sparse_inverse_transform(X,
                                                   return_sparse=return_sparse,
-                                                  sparse_tol=sparse_tol,
-                                                  out_type=out_type)
+                                                  sparse_tol=sparse_tol)
 
         X_m, n_rows, _, dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
@@ -604,7 +592,7 @@ class PCA(Base):
 
         # todo: check n_cols and dtype
         cpdef paramsPCA params
-        params.n_components = self.n_components
+        params.n_components = self._n_components
         params.n_rows = n_rows
         params.n_cols = self.n_cols
         params.whiten = self.whiten
@@ -613,9 +601,9 @@ class PCA(Base):
                                      dtype=dtype.type)
 
         cdef uintptr_t input_ptr = input_data.ptr
-        cdef uintptr_t components_ptr = self._components_.ptr
-        cdef uintptr_t singular_vals_ptr = self._singular_values_.ptr
-        cdef uintptr_t _mean_ptr = self._mean_.ptr
+        cdef uintptr_t components_ptr = self.components_.ptr
+        cdef uintptr_t singular_vals_ptr = self.singular_values_.ptr
+        cdef uintptr_t _mean_ptr = self.mean_.ptr
 
         cdef handle_t* h_ = <handle_t*><size_t>self.handle.getHandle()
         if dtype.type == np.float32:
@@ -639,44 +627,35 @@ class PCA(Base):
         # following transfers start
         self.handle.sync()
 
-        return input_data.to_output(out_type)
+        return input_data
 
-    @with_cupy_rmm
-    def _sparse_transform(self, X, out_type=None):
+    @cuml.internals.api_base_return_array_skipall
+    def _sparse_transform(self, X) -> CumlArray:
 
         # NOTE: All intermediate calculations are done using cupy.ndarray and
         # then converted to CumlArray at the end to minimize conversions
         # between types
-        temp_components_ = self._components_.to_output("cupy")
-        temp_mean_ = self._mean_.to_output("cupy")
+        with using_output_type("cupy"):
 
-        if self.whiten:
-            temp_components_ *= cp.sqrt(self.n_rows - 1)
-            temp_components_ /= self._singular_values_
+            if self.whiten:
+                self.components_ *= cp.sqrt(self.n_rows - 1)
+                self.components_ /= self.singular_values_.reshape((-1, 1))
 
-        X = X - temp_mean_
-        X_transformed = X.dot(temp_components_.T)
+            X = X - self.mean_
+            X_transformed = X.dot(self.components_.T)
 
-        if self.whiten:
-            temp_components_ *= self._singular_values_
-            temp_components_ *= (1 / cp.sqrt(self.n_rows - 1))
+            if self.whiten:
+                self.components_ *= self.singular_values_.reshape((-1, 1))
+                self.components_ *= (1 / cp.sqrt(self.n_rows - 1))
 
-        self._components_ = CumlArray(temp_components_)
-
-        if self._get_output_type(X) == 'cupy':
-            return X_transformed
-        else:
-            X_transformed, _, _, _ = \
-                input_to_cuml_array(X_transformed, order='K')
-            return X_transformed.to_output(out_type)
+        return X_transformed
 
     @generate_docstring(X='dense_sparse',
                         return_values={'name': 'trans',
                                        'type': 'dense_sparse',
                                        'description': 'Transformed values',
                                        'shape': '(n_samples, n_components)'})
-    @with_cupy_rmm
-    def transform(self, X, convert_dtype=False):
+    def transform(self, X, convert_dtype=False) -> CumlArray:
         """
         Apply dimensionality reduction to X.
 
@@ -685,19 +664,17 @@ class PCA(Base):
 
         """
 
-        out_type = self._get_output_type(X)
-
+        self._check_is_fitted('components_')
         if cupyx.scipy.sparse.issparse(X):
-            return self._sparse_transform(X, out_type=out_type)
+            return self._sparse_transform(X)
         elif scipy.sparse.issparse(X):
-            X = sparse_scipy_to_cp(X)
-            return self._sparse_transform(X, out_type=out_type)
+            X = sparse_scipy_to_cp(X, dtype=None)
+            return self._sparse_transform(X)
         elif self._sparse_model:
             X, _, _, _ = \
-                input_to_cuml_array(X, order='K',
+                input_to_cupy_array(X, order='K',
                                     check_dtype=[cp.float32, cp.float64])
-            X = X.to_output(output_type='cupy')
-            return self._sparse_transform(X, out_type=out_type)
+            return self._sparse_transform(X)
 
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
@@ -709,7 +686,7 @@ class PCA(Base):
 
         # todo: check dtype
         cpdef paramsPCA params
-        params.n_components = self.n_components
+        params.n_components = self._n_components
         params.n_rows = n_rows
         params.n_cols = n_cols
         params.whiten = self.whiten
@@ -719,10 +696,10 @@ class PCA(Base):
                             dtype=dtype.type)
 
         cdef uintptr_t _trans_input_ptr = t_input_data.ptr
-        cdef uintptr_t components_ptr = self._components_.ptr
+        cdef uintptr_t components_ptr = self.components_.ptr
         cdef uintptr_t singular_vals_ptr = \
-            self._singular_values_.ptr
-        cdef uintptr_t _mean_ptr = self._mean_.ptr
+            self.singular_values_.ptr
+        cdef uintptr_t _mean_ptr = self.mean_.ptr
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         if dtype.type == np.float32:
@@ -746,21 +723,15 @@ class PCA(Base):
         # following transfers start
         self.handle.sync()
 
-        return t_input_data.to_output(out_type)
+        return t_input_data
 
     def get_param_names(self):
         return super().get_param_names() + \
             ["copy", "iterated_power", "n_components", "svd_solver", "tol",
                 "whiten", "random_state"]
 
-    def __getstate__(self):
-        state = self.__dict__.copy()
-        # Remove the unpicklable handle.
-        if 'handle' in state:
-            del state['handle']
-
-        return state
-
-    def __setstate__(self, state):
-        self.__dict__.update(state)
-        self.handle = Handle()
+    def _check_is_fitted(self, attr):
+        if not hasattr(self, attr) or (getattr(self, attr) is None):
+            msg = ("This instance is not fitted yet. Call 'fit' "
+                   "with appropriate arguments before using this estimator.")
+            raise NotFittedError(msg)

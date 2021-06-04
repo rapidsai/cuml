@@ -1,5 +1,5 @@
 
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,12 +23,15 @@ from cuml.neighbors import KNeighborsClassifier as lKNNClf
 from cuml.dask.neighbors import KNeighborsClassifier as dKNNClf
 
 from sklearn.datasets import make_multilabel_classification
+from sklearn.datasets import make_classification
 from sklearn.model_selection import train_test_split
 
 import dask.array as da
+import dask.dataframe as dd
 from cuml.dask.common.dask_arr_utils import to_dask_cudf
 from cudf.core.dataframe import DataFrame
 import numpy as np
+import cudf
 
 
 def generate_dask_array(np_array, n_parts):
@@ -76,27 +79,12 @@ def dataset(request):
     return train_test_split(X, y, test_size=0.3)
 
 
-def exact_match(output1, output2):
-    l1, i1, d1 = output1
-    l2, i2, d2 = output2
-    l2 = l2.squeeze()
-
+def exact_match(l_outputs, d_outputs):
     # Check shapes
-    assert l1.shape == l2.shape
-    assert i1.shape == i2.shape
-    assert d1.shape == d2.shape
+    assert l_outputs.shape == d_outputs.shape
 
-    # Distances should match
-    d1 = np.round(d1, 4)
-    d2 = np.round(d2, 4)
-    assert np.mean(d1 == d2) > 0.98
-
-    # Indices should match
-    correct_queries = (i1 == i2).all(axis=1)
-    assert np.mean(correct_queries) > 0.95
-
-    # Labels should match
-    correct_queries = (l1 == l2).all(axis=1)
+    # Predictions should match
+    correct_queries = (l_outputs == d_outputs).all(axis=1)
     assert np.mean(correct_queries) > 0.95
 
 
@@ -104,7 +92,7 @@ def check_probabilities(l_probas, d_probas):
     assert len(l_probas) == len(d_probas)
     for i in range(len(l_probas)):
         assert l_probas[i].shape == d_probas[i].shape
-        assert np.array_equal(l_probas[i], d_probas[i])
+        assert np.mean(l_probas[i] == d_probas[i]) > 0.95
 
 
 @pytest.mark.parametrize("datatype", ['dask_array', 'dask_cudf'])
@@ -114,14 +102,11 @@ def check_probabilities(l_probas, d_probas):
 def test_predict_and_score(dataset, datatype, parameters, client):
     n_neighbors, n_parts, batch_size = parameters
     X_train, X_test, y_train, y_test = dataset
-    np_y_test = y_test
 
     l_model = lKNNClf(n_neighbors=n_neighbors)
     l_model.fit(X_train, y_train)
-    l_distances, l_indices = l_model.kneighbors(X_test)
-    l_labels = l_model.predict(X_test)
-    local_out = (l_labels, l_indices, l_distances)
-    handmade_local_score = np.mean(y_test == l_labels)
+    l_outputs = l_model.predict(X_test)
+    handmade_local_score = np.mean(y_test == l_outputs)
     handmade_local_score = round(handmade_local_score, 3)
 
     X_train = generate_dask_array(X_train, n_parts)
@@ -138,30 +123,18 @@ def test_predict_and_score(dataset, datatype, parameters, client):
     d_model = dKNNClf(client=client, n_neighbors=n_neighbors,
                       batch_size=batch_size)
     d_model.fit(X_train, y_train)
-    d_labels, d_indices, d_distances = \
-        d_model.predict(X_test, convert_dtype=True)
-    distributed_out = da.compute(d_labels, d_indices, d_distances)
-    if datatype == 'dask_array':
-        distributed_score = d_model.score(X_test, y_test)
-        distributed_score = round(distributed_score, 3)
+    d_outputs = d_model.predict(X_test, convert_dtype=True)
+    d_outputs = d_outputs.compute()
 
-    if datatype == 'dask_cudf':
-        distributed_out = list(map(lambda o: o.as_matrix()
-                                   if isinstance(o, DataFrame)
-                                   else o.to_array()[..., np.newaxis],
-                                   distributed_out))
+    d_outputs = d_outputs.as_matrix() \
+        if isinstance(d_outputs, DataFrame) \
+        else d_outputs
 
-    exact_match(local_out, distributed_out)
+    exact_match(l_outputs, d_outputs)
 
-    if datatype == 'dask_array':
-        assert distributed_score == pytest.approx(handmade_local_score,
-                                                  abs=1e-2)
-    else:
-        y_pred = distributed_out[0]
-        handmade_distributed_score = np.mean(np_y_test == y_pred)
-        handmade_distributed_score = round(handmade_distributed_score, 3)
-        assert handmade_distributed_score == pytest.approx(
-            handmade_local_score, abs=1e-2)
+    distributed_score = d_model.score(X_test, y_test)
+    distributed_score = round(distributed_score, 3)
+    assert distributed_score == pytest.approx(handmade_local_score, abs=1e-2)
 
 
 @pytest.mark.parametrize("datatype", ['dask_array', 'dask_cudf'])
@@ -197,3 +170,22 @@ def test_predict_proba(dataset, datatype, parameters, client):
                             d_probas))
 
     check_probabilities(l_probas, d_probas)
+
+
+@pytest.mark.parametrize('input_type', ['array', 'dataframe'])
+def test_predict_1D_labels(input_type, client):
+    # Testing that nothing crashes with 1D labels
+
+    X, y = make_classification(n_samples=10000)
+    if input_type == 'array':
+        dX = da.from_array(X)
+        dy = da.from_array(y)
+    elif input_type == 'dataframe':
+        X = cudf.DataFrame(X)
+        y = cudf.Series(y)
+        dX = dd.from_pandas(X, npartitions=1)
+        dy = dd.from_pandas(y, npartitions=1)
+
+    clf = dKNNClf()
+    clf.fit(dX, dy)
+    clf.predict(dX)

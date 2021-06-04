@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -104,12 +104,14 @@ struct Node {
     nodes[pos].depth = depth + 1;
     nodes[pos].start = start;
     nodes[pos].count = split.nLeft;
+    nodes[pos].info.unique_id = 2 * info.unique_id + 1;
     // right
     ++pos;
     nodes[pos].initSpNode();
     nodes[pos].depth = depth + 1;
     nodes[pos].start = start + split.nLeft;
     nodes[pos].count = count - split.nLeft;
+    nodes[pos].info.unique_id = 2 * info.unique_id + 2;
     // update depth
     auto val = atomicMax(n_depth, depth + 1);
     __threadfence();

@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@ def array_equal(a, b, unit_tol=1e-4, total_tol=1e-4, with_sign=True):
 
     if not with_sign:
         a, b = np.abs(a), np.abs(b)
-    res = (np.sum(np.abs(a - b) > unit_tol)) / len(a) < total_tol
+    res = (np.sum(np.abs(a - b) > unit_tol)) / a.size < total_tol
     return res
 
 
@@ -127,6 +127,45 @@ def to_nparray(x):
 def clusters_equal(a0, b0, n_clusters, tol=1e-4):
     a, b = normalize_clusters(a0, b0, n_clusters)
     return array_equal(a, b, total_tol=tol)
+
+
+def assert_dbscan_equal(ref, actual, X, core_indices, eps):
+    """
+    Utility function to compare two numpy label arrays.
+    The labels of core/noise points are expected to be equal, and the labels
+    of border points are verified by finding a neighboring core point with the
+    same label.
+    """
+    core_set = set(core_indices)
+    N, _ = X.shape
+    eps2 = eps**2
+
+    def sqnorm(x):
+        return np.inner(x, x)
+
+    for i in range(N):
+        la, lb = ref[i], actual[i]
+
+        if i in core_set:  # core point
+            assert la == lb, ("Core point mismatch at #{}: "
+                              "{} (expected {})".format(i, lb, la))
+        elif la == -1:  # noise point
+            assert lb == -1, "Noise mislabelled at #{}: {}".format(i, lb)
+        else:  # border point
+            found = False
+            for j in range(N):
+                # Check if j is a core point with the same label
+                if j in core_set and lb == actual[j]:
+                    # Check if j is a neighbor of i
+                    if sqnorm(X[i] - X[j]) <= eps2:
+                        found = True
+                        break
+            assert found, ("Border point not connected to cluster at #{}: "
+                           "{} (reference: {})".format(i, lb, la))
+
+    # Note: we can also do it in a rand score fashion by checking that pairs
+    # correspond in both label arrays for core points, if we need to drop the
+    # requirement of minimality for core points
 
 
 def get_handle(use_handle, n_streams=0):
@@ -344,3 +383,35 @@ def score_labeling_with_handle(func,
     handle, stream = get_handle(use_handle)
 
     return func(a, b, handle=handle)
+
+
+def get_number_positional_args(func, default=2):
+    # function to return number of positional arguments in func
+    if hasattr(func, "__code__"):
+        all_args = func.__code__.co_argcount
+        if func.__defaults__ is not None:
+            kwargs = len(func.__defaults__)
+        else:
+            kwargs = 0
+        return all_args - kwargs
+    return default
+
+
+def get_shap_values(model,
+                    explainer,
+                    background_dataset,
+                    explained_dataset,
+                    api_type='shap_values'):
+    # function to get shap values from an explainer using SHAP style API.
+    # This function allows isolating all calls in test suite for the case of
+    # API changes.
+    explainer = explainer(
+        model=model,
+        data=background_dataset
+    )
+    if api_type == 'shap_values':
+        shap_values = explainer.shap_values(explained_dataset)
+    elif api_type == '__call__':
+        shap_values = explainer(explained_dataset)
+
+    return explainer, shap_values

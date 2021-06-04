@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,6 +18,8 @@ import ctypes
 import cupy as cp
 import math
 import warnings
+import typing
+from inspect import signature
 
 import numpy as np
 from cuml import ForestInference
@@ -25,22 +27,25 @@ from cuml.fil.fil import TreeliteModel
 from cuml.raft.common.handle import Handle
 from cuml.common.base import Base
 from cuml.common.array import CumlArray
+import cuml.internals
 
 from cython.operator cimport dereference as deref
 
 from cuml.ensemble.randomforest_shared import treelite_serialize, \
     treelite_deserialize
 from cuml.ensemble.randomforest_shared cimport *
-from cuml.common import input_to_cuml_array, with_cupy_rmm
+from cuml.common import input_to_cuml_array
+from cuml.common.array_descriptor import CumlArrayDescriptor
 
 
 class BaseRandomForestModel(Base):
     _param_names = ['n_estimators', 'max_depth', 'handle',
                     'max_features', 'n_bins',
-                    'split_algo', 'split_criterion', 'min_rows_per_node',
+                    'split_algo', 'split_criterion', 'min_samples_leaf',
+                    'min_samples_split',
                     'min_impurity_decrease',
                     'bootstrap', 'bootstrap_features',
-                    'verbose', 'rows_sample',
+                    'verbose', 'max_samples',
                     'max_leaves', 'quantile_per_tree',
                     'accuracy_metric', 'use_experimental_backend',
                     'max_batch_size']
@@ -48,24 +53,21 @@ class BaseRandomForestModel(Base):
     criterion_dict = {'0': GINI, '1': ENTROPY, '2': MSE,
                       '3': MAE, '4': CRITERION_END}
 
-    def __init__(self, *, split_criterion, seed=None,
-                 n_streams=8, n_estimators=100,
-                 max_depth=16, handle=None, max_features='auto',
-                 n_bins=8, split_algo=1, bootstrap=True,
-                 bootstrap_features=False,
-                 verbose=False, min_rows_per_node=2,
-                 rows_sample=1.0, max_leaves=-1,
-                 accuracy_metric=None, dtype=None,
-                 output_type=None, min_samples_leaf=None,
-                 min_weight_fraction_leaf=None, n_jobs=None,
-                 max_leaf_nodes=None, min_impurity_decrease=0.0,
-                 min_impurity_split=None, oob_score=None,
-                 random_state=None, warm_start=None, class_weight=None,
-                 quantile_per_tree=False, criterion=None,
-                 use_experimental_backend=False, max_batch_size=128):
+    classes_ = CumlArrayDescriptor()
+
+    def __init__(self, *, split_criterion, n_streams=8, n_estimators=100,
+                 max_depth=16, handle=None, max_features='auto', n_bins=8,
+                 split_algo=1, bootstrap=True, bootstrap_features=False,
+                 verbose=False, min_samples_leaf=1, min_samples_split=2,
+                 max_samples=1.0, max_leaves=-1, accuracy_metric=None,
+                 dtype=None, output_type=None, min_weight_fraction_leaf=None,
+                 n_jobs=None, max_leaf_nodes=None, min_impurity_decrease=0.0,
+                 min_impurity_split=None, oob_score=None, random_state=None,
+                 warm_start=None, class_weight=None, quantile_per_tree=False,
+                 criterion=None, use_experimental_backend=True,
+                 max_batch_size=128):
 
         sklearn_params = {"criterion": criterion,
-                          "min_samples_leaf": min_samples_leaf,
                           "min_weight_fraction_leaf": min_weight_fraction_leaf,
                           "max_leaf_nodes": max_leaf_nodes,
                           "min_impurity_split": min_impurity_split,
@@ -82,20 +84,6 @@ class BaseRandomForestModel(Base):
                     "(https://docs.rapids.ai/api/cuml/nightly/"
                     "api.html#random-forest) for more information")
 
-        if seed is not None:
-            if random_state is None:
-                warnings.warn("Parameter 'seed' is deprecated and will be"
-                              " removed in 0.17. Please use 'random_state'"
-                              " instead. Setting 'random_state' as the"
-                              " curent 'seed' value",
-                              DeprecationWarning)
-                random_state = seed
-            else:
-                warnings.warn("Both 'seed' and 'random_state' parameters were"
-                              " set. Using 'random_state' since 'seed' is"
-                              " deprecated and will be removed in 0.17.",
-                              DeprecationWarning)
-
         if ((random_state is not None) and (n_streams != 1)):
             warnings.warn("For reproducible results in Random Forest"
                           " Classifier or for almost reproducible results"
@@ -103,6 +91,10 @@ class BaseRandomForestModel(Base):
                           "recommended. If n_streams is > 1, results may vary "
                           "due to stream/thread timing differences, even when "
                           "random_state is set")
+        if quantile_per_tree:
+            warnings.warn("The 'quantile_per_tree' parameter is deprecated "
+                          "and will be removed in 21.06 release. Instead use "
+                          "higher number of global quantile bins.")
         if handle is None:
             handle = Handle(n_streams)
 
@@ -125,10 +117,11 @@ class BaseRandomForestModel(Base):
             self.split_criterion = \
                 BaseRandomForestModel.criterion_dict[str(split_criterion)]
 
-        self.min_rows_per_node = min_rows_per_node
+        self.min_samples_leaf = min_samples_leaf
+        self.min_samples_split = min_samples_split
         self.min_impurity_decrease = min_impurity_decrease
         self.bootstrap_features = bootstrap_features
-        self.rows_sample = rows_sample
+        self.max_samples = max_samples
         self.max_leaves = max_leaves
         self.n_estimators = n_estimators
         self.max_depth = max_depth
@@ -149,7 +142,7 @@ class BaseRandomForestModel(Base):
         self.treelite_handle = None
         self.treelite_serialized_model = None
 
-    def _get_max_feat_val(self):
+    def _get_max_feat_val(self) -> float:
         if type(self.max_features) == int:
             return self.max_features/self.n_cols
         elif type(self.max_features) == float:
@@ -228,10 +221,12 @@ class BaseRandomForestModel(Base):
         self.treelite_handle = <uintptr_t> tl_handle
         return self.treelite_handle
 
-    @with_cupy_rmm
-    def _dataset_setup_for_fit(self, X, y, convert_dtype):
-        self._set_output_type(X)
-        self._set_n_features_in(X)
+    @cuml.internals.api_base_return_generic(set_output_type=True,
+                                            set_n_features_in=True,
+                                            get_output_type=False)
+    def _dataset_setup_for_fit(
+            self, X, y,
+            convert_dtype) -> typing.Tuple[CumlArray, CumlArray, float]:
         # Reset the old tree data for new fit call
         self._reset_forest_data()
 
@@ -252,16 +247,14 @@ class BaseRandomForestModel(Base):
             if y_dtype != np.int32:
                 raise TypeError("The labels `y` need to be of dtype"
                                 " `int32`")
-            temp_classes = cp.unique(y_m)
-            self.num_classes = len(temp_classes)
+            self.classes_ = cp.unique(y_m)
+            self.num_classes = len(self.classes_)
             for i in range(self.num_classes):
-                if i not in temp_classes:
+                if i not in self.classes_:
                     raise ValueError("The labels need "
                                      "to be consecutive values from "
                                      "0 to the number of unique label values")
 
-            # Save internally as CumlArray
-            self._classes_ = CumlArray(temp_classes)
         else:
             y_m, _, _, y_dtype = \
                 input_to_cuml_array(
@@ -275,9 +268,12 @@ class BaseRandomForestModel(Base):
                           "train using float32 data to fit the estimator")
 
         max_feature_val = self._get_max_feat_val()
-        if type(self.min_rows_per_node) == float:
-            self.min_rows_per_node = \
-                math.ceil(self.min_rows_per_node*self.n_rows)
+        if type(self.min_samples_leaf) == float:
+            self.min_samples_leaf = \
+                math.ceil(self.min_samples_leaf * self.n_rows)
+        if type(self.min_samples_split) == float:
+            self.min_samples_split = \
+                math.ceil(self.min_samples_split * self.n_rows)
         return X_m, y_m, max_feature_val
 
     def _tl_handle_from_bytes(self, treelite_serialized_model):
@@ -313,8 +309,8 @@ class BaseRandomForestModel(Base):
 
     def _predict_model_on_gpu(self, X, algo, convert_dtype,
                               fil_sparse_format, threshold=0.5,
-                              output_class=False, predict_proba=False):
-        out_type = self._get_output_type(X)
+                              output_class=False,
+                              predict_proba=False) -> CumlArray:
         _, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='F',
                                 check_cols=self.n_cols)
@@ -334,7 +330,8 @@ class BaseRandomForestModel(Base):
             _check_fil_parameter_validity(depth=self.max_depth,
                                           fil_sparse_format=fil_sparse_format,
                                           algo=algo)
-        fil_model = ForestInference()
+        fil_model = ForestInference(handle=self.handle, verbose=self.verbose,
+                                    output_type=self.output_type)
         tl_to_fil_model = \
             fil_model.load_using_treelite_handle(treelite_handle,
                                                  output_class=output_class,
@@ -342,8 +339,10 @@ class BaseRandomForestModel(Base):
                                                  algo=algo,
                                                  storage_type=storage_type)
 
-        preds = tl_to_fil_model.predict(X, output_type=out_type,
-                                        predict_proba=predict_proba)
+        if (predict_proba):
+            preds = tl_to_fil_model.predict_proba(X)
+        else:
+            preds = tl_to_fil_model.predict(X)
         return preds
 
     def get_param_names(self):
@@ -366,23 +365,27 @@ def _check_fil_parameter_validity(depth, algo, fil_sparse_format):
     algo : string (default = 'auto')
         This is optional and required only while performing the
         predict operation on the GPU.
-        'naive' - simple inference using shared memory
-        'tree_reorg' - similar to naive but trees rearranged to be more
-        coalescing-friendly
-        'batch_tree_reorg' - similar to tree_reorg but predicting
-        multiple rows per thread block
-        `auto` - choose the algorithm automatically. Currently
-        'batch_tree_reorg' is used for dense storage
-        and 'naive' for sparse storage
+
+         * ``'naive'`` - simple inference using shared memory
+         * ``'tree_reorg'`` - similar to naive but trees rearranged to be more
+           coalescing-friendly
+         * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
+           multiple rows per thread block
+         * ``'auto'`` - choose the algorithm automatically. Currently
+         * ``'batch_tree_reorg'`` is used for dense storage
+           and 'naive' for sparse storage
+
     fil_sparse_format : boolean or string (default = 'auto')
         This variable is used to choose the type of forest that will be
         created in the Forest Inference Library. It is not required
         while using predict_model='CPU'.
-        'auto' - choose the storage type automatically
-        (currently True is chosen by auto)
-        False - create a dense forest
-        True - create a sparse forest, requires algo='naive'
-        or algo='auto'
+
+         * ``'auto'`` - choose the storage type automatically
+           (currently True is chosen by auto)
+         * ``False`` - create a dense forest
+         * ``True`` - create a sparse forest, requires algo='naive'
+           or algo='auto'
+
     Returns
     ----------
     fil_sparse_format
@@ -427,7 +430,9 @@ def _obtain_fil_model(treelite_handle, depth,
                                       fil_sparse_format=fil_sparse_format,
                                       algo=algo)
 
-    fil_model = ForestInference()
+    # Use output_type="input" to prevent an error
+    fil_model = ForestInference(output_type="input")
+
     tl_to_fil_model = \
         fil_model.load_using_treelite_handle(treelite_handle,
                                              output_class=output_class,

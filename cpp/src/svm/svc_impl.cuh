@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 #pragma once
 
-/** @file svc_impl.h
+/** @file svc_impl.cuh
  * @brief Implementation of the stateless C++ functions to fit an SVM
  * classifier, and predict with it.
  */
@@ -30,8 +30,7 @@
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/counting_iterator.h>
-#include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <label/classlabels.cuh>
 #include <matrix/kernelfactory.cuh>
 #include <raft/linalg/unary_op.cuh>
@@ -147,7 +146,7 @@ void svcPredict(const raft::handle_t &handle, math_t *input, int n_rows,
       ld1 = n_rows;
     }
     kernel->evaluate(x_ptr, n_batch, n_cols, model.x_support, model.n_support,
-                     K.data(), stream, ld1, model.n_support, n_batch);
+                     K.data(), false, stream, ld1, model.n_support, n_batch);
     math_t one = 1;
     math_t null = 0;
     CUBLAS_CHECK(raft::linalg::cublasgemv(

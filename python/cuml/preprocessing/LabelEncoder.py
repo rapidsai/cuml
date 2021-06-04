@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,9 +17,8 @@
 import cudf
 import cupy as cp
 from cuml import Base
+from pandas import Series as pdSeries
 
-
-from cuml.common.memory_utils import with_cupy_rmm
 from cuml.common.exceptions import NotFittedError
 
 
@@ -47,7 +46,7 @@ class LabelEncoder(Base):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Examples
@@ -124,9 +123,8 @@ class LabelEncoder(Base):
 
     """
 
-    def __init__(self,
+    def __init__(self, *,
                  handle_unknown='error',
-                 *,
                  handle=None,
                  verbose=False,
                  output_type=None):
@@ -152,7 +150,6 @@ class LabelEncoder(Base):
                    "got {0}.".format(self.handle_unknown))
             raise ValueError(msg)
 
-    @with_cupy_rmm
     def fit(self, y, _classes=None):
         """
         Fit a LabelEncoder (nvcategory) instance to a set of categories
@@ -172,6 +169,9 @@ class LabelEncoder(Base):
             A fitted instance of itself to allow method chaining
 
         """
+        if isinstance(y, pdSeries):
+            y = cudf.from_pandas(y)
+
         self._validate_keywords()
 
         self.dtype = y.dtype if y.dtype != cp.dtype('O') else str
@@ -207,6 +207,9 @@ class LabelEncoder(Base):
         KeyError
             if a category appears that was not seen in `fit`
         """
+        if isinstance(y, pdSeries):
+            y = cudf.from_pandas(y)
+
         self._check_is_fitted()
 
         y = y.astype('category')
@@ -220,13 +223,16 @@ class LabelEncoder(Base):
 
         return encoded
 
-    def fit_transform(self, y: cudf.Series) -> cudf.Series:
+    def fit_transform(self, y: cudf.Series, z=None) -> cudf.Series:
         """
         Simultaneously fit and transform an input
 
         This is functionally equivalent to (but faster than)
         `LabelEncoder().fit(y).transform(y)`
         """
+        if isinstance(y, pdSeries):
+            y = cudf.from_pandas(y)
+
         self.dtype = y.dtype if y.dtype != cp.dtype('O') else str
 
         y = y.astype('category')
@@ -235,7 +241,6 @@ class LabelEncoder(Base):
         self._fitted = True
         return cudf.Series(y._column.codes, index=y.index)
 
-    @with_cupy_rmm
     def inverse_transform(self, y: cudf.Series) -> cudf.Series:
         """
         Revert ordinal label to original label

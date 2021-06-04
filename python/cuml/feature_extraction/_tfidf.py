@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,10 +13,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import cuml.internals
 from cuml.common.exceptions import NotFittedError
 import cupy as cp
 import cupyx
-from cuml.common import with_cupy_rmm
 from cuml.common.sparsefuncs import csr_row_normalize_l1, csr_row_normalize_l2
 from cuml.common.sparsefuncs import csr_diag_mul
 from cuml.common.array import CumlArray
@@ -108,7 +108,7 @@ class TfidfTransformer(Base):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Attributes
@@ -123,16 +123,14 @@ class TfidfTransformer(Base):
                  sublinear_tf=False, handle=None, verbose=False,
                  output_type=None):
 
-        super(TfidfTransformer, self).__init__(
-            handle=handle,
-            verbose=verbose,
-            output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
         self.norm = norm
         self.use_idf = use_idf
         self.smooth_idf = smooth_idf
         self.sublinear_tf = sublinear_tf
 
-    @with_cupy_rmm
     def _set_doc_stats(self, X):
         """
         We set the following document level statistics here:
@@ -152,7 +150,6 @@ class TfidfTransformer(Base):
 
         return
 
-    @with_cupy_rmm
     def _set_idf_diag(self):
         """
             Sets idf_diagonal sparse array
@@ -172,8 +169,8 @@ class TfidfTransformer(Base):
         # Free up memory occupied by below
         del self.__df
 
-    @with_cupy_rmm
-    def fit(self, X):
+    @cuml.internals.api_base_return_any_skipall
+    def fit(self, X) -> "TfidfTransformer":
         """Learn the idf vector (global term weights).
 
         Parameters
@@ -189,7 +186,7 @@ class TfidfTransformer(Base):
 
         return self
 
-    @with_cupy_rmm
+    @cuml.internals.api_base_return_any_skipall
     def transform(self, X, copy=True):
         """Transform a count matrix to a tf or tf-idf representation
 
@@ -239,6 +236,7 @@ class TfidfTransformer(Base):
 
         return X
 
+    @cuml.internals.api_base_return_any_skipall
     def fit_transform(self, X, copy=True):
         """
         Fit TfidfTransformer to X, then transform X.

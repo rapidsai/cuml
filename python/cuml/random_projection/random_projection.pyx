@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2018-2019, NVIDIA CORPORATION.
+# Copyright (c) 2018-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,10 +22,12 @@ import numpy as np
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool
 
+import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.raft.common.handle cimport *
 from cuml.common import input_to_cuml_array
+from cuml.common.mixins import FMajorInputTagMixin
 
 cdef extern from * nogil:
     ctypedef void* _Stream "cudaStream_t"
@@ -224,6 +226,7 @@ cdef class BaseRandomProjection():
     def density(self, value):
         self.params.density = value
 
+    @cuml.internals.api_base_return_any()
     def fit(self, X, y=None):
         """
         Fit the model. This function generates the random matrix on GPU.
@@ -241,8 +244,6 @@ cdef class BaseRandomProjection():
             generated random matrix as attributes
 
         """
-        self._set_base_attributes(output_type=X, n_features=X)
-
         _, n_samples, n_features, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
 
@@ -259,6 +260,7 @@ cdef class BaseRandomProjection():
 
         return self
 
+    @cuml.internals.api_base_return_array()
     def transform(self, X, convert_dtype=True):
         """
         Apply transformation on provided data. This function outputs
@@ -283,9 +285,6 @@ cdef class BaseRandomProjection():
             Result of multiplication between input matrix and random matrix
 
         """
-
-        out_type = self._get_output_type(X)
-
         X_m, n_samples, n_features, dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
                                 convert_to_dtype=(self.dtype if convert_dtype
@@ -319,13 +318,16 @@ cdef class BaseRandomProjection():
 
         self.handle.sync()
 
-        return X_new.to_output(out_type)
+        return X_new
 
+    @cuml.internals.api_base_return_array(get_output_type=False)
     def fit_transform(self, X, convert_dtype=True):
         return self.fit(X).transform(X, convert_dtype)
 
 
-class GaussianRandomProjection(Base, BaseRandomProjection):
+class GaussianRandomProjection(Base,
+                               BaseRandomProjection,
+                               FMajorInputTagMixin):
     """
     Gaussian Random Projection method derivated from BaseRandomProjection
     class.
@@ -344,7 +346,7 @@ class GaussianRandomProjection(Base, BaseRandomProjection):
     .. code-block:: python
 
         from cuml.random_projection import GaussianRandomProjection
-        from sklearn.datasets.samples_generator import make_blobs
+        from sklearn.datasets import make_blobs
         from sklearn.svm import SVC
 
         # dataset generation
@@ -405,7 +407,7 @@ class GaussianRandomProjection(Base, BaseRandomProjection):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Attributes
@@ -424,7 +426,7 @@ class GaussianRandomProjection(Base, BaseRandomProjection):
 
     """
 
-    def __init__(self, handle=None, n_components='auto', eps=0.1,
+    def __init__(self, *, handle=None, n_components='auto', eps=0.1,
                  random_state=None, verbose=False, output_type=None):
 
         Base.__init__(self,
@@ -449,7 +451,9 @@ class GaussianRandomProjection(Base, BaseRandomProjection):
         ]
 
 
-class SparseRandomProjection(Base, BaseRandomProjection):
+class SparseRandomProjection(Base,
+                             BaseRandomProjection,
+                             FMajorInputTagMixin):
     """
     Sparse Random Projection method derivated from BaseRandomProjection class.
 
@@ -476,7 +480,7 @@ class SparseRandomProjection(Base, BaseRandomProjection):
     .. code-block:: python
 
         from cuml.random_projection import SparseRandomProjection
-        from sklearn.datasets.samples_generator import make_blobs
+        from sklearn.datasets import make_blobs
         from sklearn.svm import SVC
 
         # dataset generation
@@ -545,7 +549,7 @@ class SparseRandomProjection(Base, BaseRandomProjection):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     Attributes
@@ -564,7 +568,7 @@ class SparseRandomProjection(Base, BaseRandomProjection):
 
     """
 
-    def __init__(self, handle=None, n_components='auto', density='auto',
+    def __init__(self, *, handle=None, n_components='auto', density='auto',
                  eps=0.1, dense_output=True, random_state=None,
                  verbose=False, output_type=None):
 

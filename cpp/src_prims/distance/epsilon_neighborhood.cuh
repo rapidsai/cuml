@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,13 +17,14 @@
 #pragma once
 
 #include <common/device_utils.cuh>
-#include <linalg/contractions.cuh>
+#include <raft/linalg/contractions.cuh>
 
 namespace MLCommon {
 namespace Distance {
 
 template <typename DataT, typename IdxT, typename Policy,
-          typename BaseClass = LinAlg::Contractions_NT<DataT, IdxT, Policy>>
+          typename BaseClass =
+            raft::linalg::Contractions_NT<DataT, IdxT, Policy>>
 struct EpsUnexpL2SqNeighborhood : public BaseClass {
  private:
   typedef Policy P;
@@ -174,7 +175,7 @@ template <typename DataT, typename IdxT, int VecLen>
 void epsUnexpL2SqNeighImpl(bool* adj, IdxT* vd, const DataT* x, const DataT* y,
                            IdxT m, IdxT n, IdxT k, DataT eps,
                            cudaStream_t stream) {
-  typedef typename LinAlg::Policy4x4<DataT, VecLen>::Policy Policy;
+  typedef typename raft::linalg::Policy4x4<DataT, VecLen>::Policy Policy;
   dim3 grid(raft::ceildiv<int>(m, Policy::Mblk),
             raft::ceildiv<int>(n, Policy::Nblk));
   dim3 blk(Policy::Nthreads);

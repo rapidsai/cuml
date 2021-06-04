@@ -281,7 +281,7 @@ def test_create_empty(shape, dtype, order):
     else:
         assert ary.shape == shape
     assert ary.dtype == np.dtype(dtype)
-    assert isinstance(ary._owner, DeviceBuffer)
+    assert isinstance(ary._owner.data.mem._owner, DeviceBuffer)
 
 
 @pytest.mark.parametrize('shape', test_shapes)

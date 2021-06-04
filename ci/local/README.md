@@ -32,7 +32,7 @@ Style Check:
 $ bash ci/local/build.sh -r ~/rapids/cuml -s
 $ source activate rapids    # Activate gpuCI conda environment
 $ cd rapids
-$ flake8 python
+$ flake8 --config=python/setup.cfg
 ```
 
 ## Information

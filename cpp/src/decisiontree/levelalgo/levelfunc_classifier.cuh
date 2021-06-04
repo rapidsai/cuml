@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,8 @@
 #include "levelhelper_classifier.cuh"
 #include "metric.cuh"
 
+#include <common/nvtx.hpp>
+
 namespace ML {
 namespace DecisionTree {
 
@@ -45,6 +47,8 @@ void grow_deep_tree_classification(
   const ML::DecisionTree::DecisionTreeParams& tree_params, int& depth_cnt,
   int& leaf_cnt, std::vector<SparseTreeNode<T, int>>& sparsetree,
   const int treeid, std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
+  ML::PUSH_RANGE(
+    "DecisionTree::grow_deep_tree_classification @levelfunc_classifier.cuh");
   const int ncols_sampled = (int)(colper * Ncols);
   unsigned int* flagsptr = tempmem->d_flags->data();
   unsigned int* sample_cnt = tempmem->d_sample_cnt->data();
@@ -111,6 +115,7 @@ void grow_deep_tree_classification(
 
   int scatter_algo_depth =
     std::min(tempmem->swap_depth, tree_params.max_depth + 1);
+  ML::PUSH_RANGE("scatter phase @levelfunc_classifier");
   for (int depth = 0; (depth < scatter_algo_depth) && (n_nodes_nextitr != 0);
        depth++) {
     depth_cnt = depth;
@@ -135,7 +140,7 @@ void grow_deep_tree_classification(
       get_best_split_classification<T, GiniFunctor, GiniDevFunctor>(
         h_histogram, d_histogram, h_colids, d_colids, h_colstart, d_colstart,
         Ncols, ncols_sampled, tree_params.n_bins, n_unique_labels, n_nodes,
-        depth, tree_params.min_rows_per_node, tree_params.split_algo, infogain,
+        depth, tree_params.min_samples_leaf, tree_params.split_algo, infogain,
         h_parent_hist, h_child_hist, sparsetree, sparsesize, sparse_nodelist,
         h_split_colidx, h_split_binidx, d_split_colidx, d_split_binidx,
         tempmem);
@@ -143,7 +148,7 @@ void grow_deep_tree_classification(
       get_best_split_classification<T, EntropyFunctor, EntropyDevFunctor>(
         h_histogram, d_histogram, h_colids, d_colids, h_colstart, d_colstart,
         Ncols, ncols_sampled, tree_params.n_bins, n_unique_labels, n_nodes,
-        depth, tree_params.min_rows_per_node, tree_params.split_algo, infogain,
+        depth, tree_params.min_samples_leaf, tree_params.split_algo, infogain,
         h_parent_hist, h_child_hist, sparsetree, sparsesize, sparse_nodelist,
         h_split_colidx, h_split_binidx, d_split_colidx, d_split_binidx,
         tempmem);
@@ -166,12 +171,19 @@ void grow_deep_tree_classification(
              2 * n_nodes * n_unique_labels * sizeof(unsigned int));
     }
   }
+  ML::POP_RANGE();  //scatter phase @levelfunc_classifier.cuh
+
+  ML::PUSH_RANGE("gather phase @levelfunc_classifier.cuh");
   // Start of gather algorithm
   //Convertor
   CUML_LOG_DEBUG("begin gather ");
   int lastsize = sparsetree.size() - sparsesize_nextitr;
   n_nodes = n_nodes_nextitr;
-  if (n_nodes == 0) return;
+  if (n_nodes == 0) {
+    ML::POP_RANGE();  //gather phase ended
+    ML::POP_RANGE();  //grow_deep_tree_classification end
+    return;
+  }
   unsigned int *d_nodecount, *d_samplelist, *d_nodestart;
   SparseTreeNode<T, int>* d_sparsenodes;
   SparseTreeNode<T, int>* h_sparsenodes;
@@ -250,6 +262,9 @@ void grow_deep_tree_classification(
     sparsetree.insert(sparsetree.end(), h_sparsenodes,
                       h_sparsenodes + lastsize);
   }
+
+  ML::POP_RANGE();  //gather phase @levelfunc_classifier.cuh
+  ML::POP_RANGE();  //grow_deep_tree_classification @levelfunc_classifier.cuh
 }
 
 }  // namespace DecisionTree

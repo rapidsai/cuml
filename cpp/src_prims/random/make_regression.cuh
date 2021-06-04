@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,13 +21,13 @@
 #pragma once
 
 #include <algorithm>
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/mr/device/allocator.hpp>
 
 #include <linalg/init.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/transpose.h>
-#include <common/device_buffer.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <raft/handle.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/qr.cuh>

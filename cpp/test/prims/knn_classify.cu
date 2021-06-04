@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@
 #include <iostream>
 #include <label/classlabels.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/spatial/knn/knn.hpp>
 #include <random/make_blobs.cuh>
 #include <selection/knn.cuh>
 #include <vector>
@@ -38,10 +39,9 @@ struct KNNClassifyInputs {
 class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
  protected:
   void basicTest() {
-    std::shared_ptr<MLCommon::deviceAllocator> alloc(
-      new raft::mr::device::default_allocator);
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    raft::handle_t handle;
+    cudaStream_t stream = handle.get_stream();
+    auto alloc = handle.get_device_allocator();
 
     params = ::testing::TestWithParam<KNNClassifyInputs>::GetParam();
 
@@ -67,8 +67,9 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
     ptrs[0] = train_samples;
     sizes[0] = params.rows;
 
-    brute_force_knn(ptrs, sizes, params.cols, train_samples, params.rows,
-                    knn_indices, knn_dists, params.k, alloc, stream);
+    raft::spatial::knn::brute_force_knn(handle, ptrs, sizes, params.cols,
+                                        train_samples, params.rows, knn_indices,
+                                        knn_dists, params.k);
 
     std::vector<int *> y;
     y.push_back(train_labels);
@@ -83,7 +84,6 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
                  params.k, uniq_labels, n_unique, alloc, stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void SetUp() override { basicTest(); }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,10 +23,10 @@
 #include <sstream>
 #include <vector>
 
+#include <raft/handle.hpp>
 #include <raft/mr/device/allocator.hpp>
 
 #include <cuml/cluster/dbscan.hpp>
-#include <cuml/cuml.hpp>
 
 #ifndef CUDA_RT_CALL
 #define CUDA_RT_CALL(call)                                                    \
@@ -136,7 +136,7 @@ int main(int argc, char* argv[]) {
 
   raft::handle_t handle;
 
-  std::shared_ptr<ML::deviceAllocator> allocator(
+  std::shared_ptr<raft::mr::device::allocator> allocator(
     new raft::mr::device::default_allocator());
 
   handle.set_device_allocator(allocator);
@@ -200,8 +200,9 @@ int main(int argc, char* argv[]) {
             << "eps - " << eps << std::endl
             << "max_bytes_per_batch - " << max_bytes_per_batch << std::endl;
 
-  ML::dbscanFit(handle, d_inputData, nRows, nCols, eps, minPts, d_labels,
-                nullptr, max_bytes_per_batch, false);
+  ML::Dbscan::fit(handle, d_inputData, nRows, nCols, eps, minPts,
+                  raft::distance::L2SqrtUnexpanded, d_labels, nullptr,
+                  max_bytes_per_batch, false);
   CUDA_RT_CALL(cudaMemcpyAsync(h_labels.data(), d_labels, nRows * sizeof(int),
                                cudaMemcpyDeviceToHost, stream));
   CUDA_RT_CALL(cudaStreamSynchronize(stream));

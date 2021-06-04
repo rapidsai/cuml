@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,10 +23,9 @@
 
 #include <math.h>
 #include <raft/cudart_utils.h>
-#include <common/device_buffer.hpp>
-#include <cuml/common/cuml_allocator.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/mr/device/allocator.hpp>
 
 namespace MLCommon {
 
@@ -187,13 +186,13 @@ __global__ void jones_transform_kernel(DataT* newParams, const DataT* params,
 * @param newParams: the inverse transformed params (output)
 * @param isAr: set to true if the params to be transformed are Autoregressive params, false if params are of type MA
 * @param isInv: set to true if the transformation is an inverse type transformation, false if regular transform
-* @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<MLCommon::deviceAllocator>
+* @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<raft::mr::device::allocator>
 * @param stream: the cudaStream object
 */
 template <typename DataT, typename IdxT = int>
 void jones_transform(const DataT* params, IdxT batchSize, IdxT parameter,
                      DataT* newParams, bool isAr, bool isInv,
-                     std::shared_ptr<MLCommon::deviceAllocator> allocator,
+                     std::shared_ptr<raft::mr::device::allocator> allocator,
                      cudaStream_t stream) {
   ASSERT(batchSize >= 1 && parameter >= 1, "not defined!");
 

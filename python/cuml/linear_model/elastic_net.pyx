@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,11 +17,18 @@
 # distutils: language = c++
 
 from cuml.solvers import CD
-from cuml.common.base import Base, RegressorMixin
+from cuml.common.base import Base
+from cuml.common.mixins import RegressorMixin
 from cuml.common.doc_utils import generate_docstring
+from cuml.common.array_descriptor import CumlArrayDescriptor
+from cuml.common.mixins import FMajorInputTagMixin
+from cuml.linear_model.base import LinearPredictMixin
 
 
-class ElasticNet(Base, RegressorMixin):
+class ElasticNet(Base,
+                 LinearPredictMixin,
+                 RegressorMixin,
+                 FMajorInputTagMixin):
 
     """
     ElasticNet extends LinearRegression with combined L1 and L2 regularizations
@@ -122,7 +129,7 @@ class ElasticNet(Base, RegressorMixin):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
     verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
@@ -141,7 +148,9 @@ class ElasticNet(Base, RegressorMixin):
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html>`_.
     """
 
-    def __init__(self, alpha=1.0, l1_ratio=0.5, fit_intercept=True,
+    coef_ = CumlArrayDescriptor()
+
+    def __init__(self, *, alpha=1.0, l1_ratio=0.5, fit_intercept=True,
                  normalize=False, max_iter=1000, tol=1e-3, selection='cyclic',
                  handle=None, output_type=None, verbose=False):
         """
@@ -162,17 +171,15 @@ class ElasticNet(Base, RegressorMixin):
         """
 
         # Hard-code verbosity as CoordinateDescent does not have verbosity
-        super(ElasticNet, self).__init__(handle=handle,
-                                         verbose=verbose,
-                                         output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
 
         self._check_alpha(alpha)
         self._check_l1_ratio(l1_ratio)
 
         self.alpha = alpha
         self.l1_ratio = l1_ratio
-        self._coef_ = None
-        self.intercept_ = None
         self.fit_intercept = fit_intercept
         self.normalize = normalize
         self.max_iter = max_iter
@@ -206,27 +213,14 @@ class ElasticNet(Base, RegressorMixin):
             raise ValueError(msg.format(l1_ratio))
 
     @generate_docstring()
-    def fit(self, X, y, convert_dtype=True):
+    def fit(self, X, y, convert_dtype=True) -> "ElasticNet":
         """
         Fit the model with X and y.
 
         """
-        self._set_base_attributes(output_type=X, n_features=X)
         self.solver_model.fit(X, y, convert_dtype=convert_dtype)
 
         return self
-
-    @generate_docstring(return_values={'name': 'preds',
-                                       'type': 'dense',
-                                       'description': 'Predicted values',
-                                       'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=True):
-        """
-        Predicts `y` values for `X`.
-
-        """
-
-        return self.solver_model.predict(X, convert_dtype=convert_dtype)
 
     def get_param_names(self):
         return super().get_param_names() + [

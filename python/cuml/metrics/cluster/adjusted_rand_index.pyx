@@ -21,6 +21,7 @@ import warnings
 
 from libc.stdint cimport uintptr_t
 
+import cuml.internals
 from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
 from cuml.raft.common.handle import Handle
@@ -34,8 +35,9 @@ cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
                                int n)
 
 
+@cuml.internals.api_return_any()
 def adjusted_rand_score(labels_true, labels_pred, handle=None,
-                        convert_dtype=True):
+                        convert_dtype=True) -> float:
     """
     Adjusted_rand_score is a clustering similarity metric based on the Rand
     index and is corrected for chance.

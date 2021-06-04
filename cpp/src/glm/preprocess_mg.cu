@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,11 +14,9 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
-#include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
-#include <cuml/common/cuml_allocator.hpp>
 #include <cuml/linear_model/preprocess_mg.hpp>
+
+#include <raft/cudart_utils.h>
 #include <opg/linalg/norm.hpp>
 #include <opg/matrix/math.hpp>
 #include <opg/stats/mean.hpp>
@@ -28,6 +26,7 @@
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/subtract.cuh>
 #include <raft/matrix/math.cuh>
+#include <rmm/device_uvector.hpp>
 
 using namespace MLCommon;
 
@@ -46,7 +45,6 @@ void preProcessData_impl(raft::handle_t &handle,
   const auto &comm = handle.get_comms();
   cublasHandle_t cublas_handle = handle.get_cublas_handle();
   cusolverDnHandle_t cusolver_handle = handle.get_cusolver_dn_handle();
-  const auto allocator = handle.get_device_allocator();
 
   if (fit_intercept) {
     Matrix::Data<T> mu_input_data{mu_input, size_t(input_desc.N)};
@@ -87,9 +85,8 @@ void postProcessData_impl(raft::handle_t &handle,
   const auto &comm = handle.get_comms();
   cublasHandle_t cublas_handle = handle.get_cublas_handle();
   cusolverDnHandle_t cusolver_handle = handle.get_cusolver_dn_handle();
-  const auto allocator = handle.get_device_allocator();
 
-  device_buffer<T> d_intercept(allocator, streams[0], 1);
+  rmm::device_uvector<T> d_intercept(1, streams[0]);
 
   if (normalize) {
     Matrix::Data<T> norm2_input_data{norm2_input, input_desc.N};

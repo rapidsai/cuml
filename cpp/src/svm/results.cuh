@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,16 +24,14 @@
 
 #include <linalg/init.h>
 #include <raft/cudart_utils.h>
-#include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
-#include <common/host_buffer.hpp>
 #include <cub/device/device_select.cuh>
-#include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/matrix.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include "ws_util.cuh"
 
 namespace ML {
@@ -263,7 +261,7 @@ class Results {
     return n_selected;
   }
 
-  std::shared_ptr<deviceAllocator> allocator;
+  std::shared_ptr<raft::mr::device::allocator> allocator;
 
  private:
   const raft::handle_t &handle;

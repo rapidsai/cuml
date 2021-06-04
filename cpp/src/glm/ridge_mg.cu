@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,9 +15,6 @@
  */
 
 #include <raft/cudart_utils.h>
-#include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
-#include <cuml/common/cuml_allocator.hpp>
 #include <cuml/linear_model/preprocess_mg.hpp>
 #include <cuml/linear_model/ridge_mg.hpp>
 #include <opg/linalg/mv_aTb.hpp>
@@ -29,6 +26,7 @@
 #include <raft/linalg/gemm.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
+#include <rmm/device_uvector.hpp>
 
 using namespace MLCommon;
 
@@ -46,7 +44,6 @@ void ridgeSolve(const raft::handle_t &handle, T *S, T *V,
   auto cublasH = handle.get_cublas_handle();
   auto cusolverH = handle.get_cusolver_dn_handle();
   const auto &comm = handle.get_comms();
-  const auto allocator = handle.get_device_allocator();
 
   // Implements this: w = V * inv(S^2 + λ*I) * S * U^T * b
   T *S_nnz;
@@ -56,9 +53,8 @@ void ridgeSolve(const raft::handle_t &handle, T *S, T *V,
 
   raft::matrix::setSmallValuesZero(S, UDesc.N, streams[0], thres);
 
-  // TO-DO: Update to use `device_buffer` here
-  // Tracking issue: https://github.com/rapidsai/cuml/issues/2524
-  raft::allocate(S_nnz, UDesc.N, true);
+  rmm::device_uvector<T> S_nnz_vector(UDesc.N, streams[0]);
+  S_nnz = S_nnz_vector.data();
   raft::copy(S_nnz, S, UDesc.N, streams[0]);
   raft::matrix::power(S_nnz, UDesc.N, streams[0]);
   raft::linalg::addScalar(S_nnz, S_nnz, alpha[0], UDesc.N, streams[0]);
@@ -75,8 +71,6 @@ void ridgeSolve(const raft::handle_t &handle, T *S, T *V,
 
   raft::linalg::gemm(handle, V, UDesc.N, UDesc.N, S_nnz, w, UDesc.N, 1,
                      CUBLAS_OP_N, CUBLAS_OP_N, alp, beta, streams[0]);
-
-  CUDA_CHECK(cudaFree(S_nnz));
 }
 
 template <typename T>
@@ -88,12 +82,11 @@ void ridgeEig(raft::handle_t &handle, const std::vector<Matrix::Data<T> *> &A,
   const auto &comm = handle.get_comms();
   const cublasHandle_t cublas_handle = handle.get_cublas_handle();
   const cusolverDnHandle_t cusolver_handle = handle.get_cusolver_dn_handle();
-  const auto allocator = handle.get_device_allocator();
 
   int rank = comm.get_rank();
 
-  device_buffer<T> S(allocator, streams[0], ADesc.N);
-  device_buffer<T> V(allocator, streams[0], ADesc.N * ADesc.N);
+  rmm::device_uvector<T> S(ADesc.N, streams[0]);
+  rmm::device_uvector<T> V(ADesc.N * ADesc.N, streams[0]);
   std::vector<Matrix::Data<T> *> U;
   std::vector<Matrix::Data<T>> U_temp;
 
@@ -105,7 +98,7 @@ void ridgeEig(raft::handle_t &handle, const std::vector<Matrix::Data<T> *> &A,
   }
   total_size = total_size * ADesc.N;
 
-  device_buffer<T> U_parts(allocator, streams[0], total_size);
+  rmm::device_uvector<T> U_parts(total_size, streams[0]);
   T *curr_ptr = U_parts.data();
 
   for (int i = 0; i < partsToRanks.size(); i++) {
@@ -134,11 +127,9 @@ void fit_impl(raft::handle_t &handle,
               std::vector<Matrix::Data<T> *> &labels, T *alpha, int n_alpha,
               T *coef, T *intercept, bool fit_intercept, bool normalize,
               int algo, cudaStream_t *streams, int n_streams, bool verbose) {
-  const auto allocator = handle.get_device_allocator();
-
-  device_buffer<T> mu_input(allocator, streams[0]);
-  device_buffer<T> norm2_input(allocator, streams[0]);
-  device_buffer<T> mu_labels(allocator, streams[0]);
+  rmm::device_uvector<T> mu_input(0, streams[0]);
+  rmm::device_uvector<T> norm2_input(0, streams[0]);
+  rmm::device_uvector<T> mu_labels(0, streams[0]);
 
   if (fit_intercept) {
     mu_input.resize(input_desc.N, streams[0]);

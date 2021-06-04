@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,22 +14,25 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <math.h>
 #include <raft/cudart_utils.h>
+#include <raft/linalg/distance_type.h>
 #include <algorithm>
-#include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
-#include <cuml/common/cuml_allocator.hpp>
-#include <distance/distance.cuh>
+#include <cuml/common/device_buffer.hpp>
 #include <iostream>
 #include <linalg/reduce_cols_by_key.cuh>
 #include <numeric>
 #include <raft/cuda_utils.cuh>
+#include <raft/distance/distance.cuh>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/reduce.cuh>
+#include <raft/mr/device/allocator.hpp>
 
 namespace MLCommon {
 namespace Metrics {
@@ -95,7 +98,7 @@ __global__ void populateAKernel(DataT *sampleToClusterSumOfDistances,
 template <typename DataT, typename LabelT>
 void countLabels(LabelT *labels, DataT *binCountArray, int nRows,
                  int nUniqueLabels, MLCommon::device_buffer<char> &workspace,
-                 std::shared_ptr<MLCommon::deviceAllocator> allocator,
+                 std::shared_ptr<raft::mr::device::allocator> allocator,
                  cudaStream_t stream) {
   int num_levels = nUniqueLabels + 1;
   LabelT lower_level = 0;
@@ -175,8 +178,10 @@ struct MinOp {
 template <typename DataT, typename LabelT>
 DataT silhouette_score(DataT *X_in, int nRows, int nCols, LabelT *labels,
                        int nLabels, DataT *silhouette_scorePerSample,
-                       std::shared_ptr<MLCommon::deviceAllocator> allocator,
-                       cudaStream_t stream, int metric = 4) {
+                       std::shared_ptr<raft::mr::device::allocator> allocator,
+                       cudaStream_t stream,
+                       raft::distance::DistanceType metric =
+                         raft::distance::DistanceType::L2Unexpanded) {
   ASSERT(nLabels >= 2 && nLabels <= (nRows - 1),
          "silhouette Score not defined for the given number of labels!");
 
@@ -185,9 +190,9 @@ DataT silhouette_score(DataT *X_in, int nRows, int nCols, LabelT *labels,
                                                 nRows * nRows);
   MLCommon::device_buffer<char> workspace(allocator, stream, 1);
 
-  Distance::pairwise_distance(
+  raft::distance::pairwise_distance(
     X_in, X_in, distanceMatrix.data(), nRows, nRows, nCols, workspace,
-    static_cast<ML::Distance::DistanceType>(metric), stream);
+    static_cast<raft::distance::DistanceType>(metric), stream);
 
   //deciding on the array of silhouette scores for each dataPoint
   MLCommon::device_buffer<DataT> silhouette_scoreSamples(allocator, stream, 0);

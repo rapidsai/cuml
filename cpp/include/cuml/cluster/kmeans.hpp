@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,11 @@
 
 #pragma once
 
-#include <cuml/common/logger.hpp>
-#include <cuml/cuml.hpp>
+#include <cuml/common/log_levels.hpp>
+
+namespace raft {
+class handle_t;
+}
 
 namespace ML {
 
@@ -53,7 +56,7 @@ struct KMeansParams {
   int seed = 0;
 
   // Metric to use for distance computation. Any metric from
-  // ML::Distance::DistanceType can be used
+  // raft::distance::DistanceType can be used
   int metric = 0;
 
   // Number of instance k-means algorithm will be run with different seeds.
@@ -184,7 +187,7 @@ void predict(const raft::handle_t &handle, const KMeansParams &params,
  * sample in 'X' (it should be same as the dimension for each cluster centers in
  * 'centroids').
  * @param[in]     metric        Metric to use for distance computation. Any
- * metric from ML::Distance::DistanceType can be used
+ * metric from raft::distance::DistanceType can be used
  * @param[out]    X_new         X transformed in the new space..
  */
 void transform(const raft::handle_t &handle, const KMeansParams &params,

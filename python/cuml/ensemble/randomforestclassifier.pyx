@@ -1,6 +1,6 @@
 
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,11 +25,12 @@ import cuml.common.logger as logger
 
 from cuml import ForestInference
 from cuml.common.array import CumlArray
-from cuml.common.base import ClassifierMixin
+from cuml.common.mixins import ClassifierMixin
+import cuml.internals
 from cuml.common.doc_utils import generate_docstring
 from cuml.common.doc_utils import insert_into_docstring
 from cuml.raft.common.handle import Handle
-from cuml.common import input_to_cuml_array, rmm_cupy_ary
+from cuml.common import input_to_cuml_array
 
 from cuml.ensemble.randomforest_common import BaseRandomForestModel
 from cuml.ensemble.randomforest_common import _obtain_fil_model
@@ -41,11 +42,12 @@ from cython.operator cimport dereference as deref
 
 from libcpp cimport bool
 from libcpp.vector cimport vector
-from libc.stdint cimport uintptr_t
+from libc.stdint cimport uintptr_t, uint64_t
 from libc.stdlib cimport calloc, malloc, free
 
 from numba import cuda
 
+from cuml.common.cuda import nvtx_range_wrap, nvtx_range_push, nvtx_range_pop
 from cuml.raft.common.handle cimport handle_t
 cimport cuml.common.cuda
 
@@ -121,45 +123,64 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                           bool) except +
 
 
-class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
+class RandomForestClassifier(BaseRandomForestModel,
+                             ClassifierMixin):
     """
     Implements a Random Forest classifier model which fits multiple decision
     tree classifiers in an ensemble.
 
-    Note that the underlying algorithm for tree node splits differs from that
-    used in scikit-learn. By default, the cuML Random Forest uses a
-    histogram-based algorithms to determine splits, rather than an exact
-    count. You can tune the size of the histograms with the n_bins parameter.
+    .. note:: Note that the underlying algorithm for tree node splits differs
+      from that used in scikit-learn. By default, the cuML Random Forest uses a
+      histogram-based algorithm to determine splits, rather than an exact
+      count. You can tune the size of the histograms with the n_bins parameter.
 
-    .. note:: This is an early release of the cuML
-        Random Forest code. It contains a few known limitations:
+    .. note:: You can export cuML Random Forest models and run predictions
+      with them on machines without an NVIDIA GPUs. See
+      https://docs.rapids.ai/api/cuml/nightly/pickling_cuml_models.html
+      for more details.
 
-       * GPU-based inference is only supported if the model was trained
-         with 32-bit (float32) datatypes. CPU-based inference may be used
-         in this case as a slower fallback.
-       * Very deep / very wide models may exhaust available GPU memory.
-         Future versions of cuML will provide an alternative algorithm to
-         reduce memory consumption.
-       * While training the model for multi class classification problems,
-         using deep trees or `max_features=1.0` provides better performance.
+    **Known Limitations**: This is an early release of the cuML
+    Random Forest code. It contains a few known limitations:
+
+      * GPU-based inference is only supported if the model was trained
+        with 32-bit (float32) datatypes. CPU-based inference may be used
+        in this case as a slower fallback.
+      * Very deep / very wide models may exhaust available GPU memory.
+        Future versions of cuML will provide an alternative algorithm to
+        reduce memory consumption.
+      * While training the model for multi class classification problems,
+        using deep trees or `max_features=1.0` provides better performance.
+      * Prediction of classes is currently different from how scikit-learn
+        predicts:
+          * scikit-learn predicts random forest classifiers by obtaining class
+            probabilities from each component tree, then averaging these class
+            probabilities over all the ensemble members, and finally resolving
+            to the label with highest probability as prediction.
+          * cuml random forest classifier prediction differs in that, each
+            component tree generates labels instead of class probabilities;
+            with the most frequent label over all the trees (the statistical
+            mode) resolved as prediction.
+        The above differences might cause marginal variations in accuracy in
+        tradeoff to better performance.
+        See: https://github.com/rapidsai/cuml/issues/3764
 
     Examples
     --------
     .. code-block:: python
 
-            import numpy as np
-            from cuml.ensemble import RandomForestClassifier as cuRFC
+        import numpy as np
+        from cuml.ensemble import RandomForestClassifier as cuRFC
 
-            X = np.random.normal(size=(10,4)).astype(np.float32)
-            y = np.asarray([0,1]*5, dtype=np.int32)
+        X = np.random.normal(size=(10,4)).astype(np.float32)
+        y = np.asarray([0,1]*5, dtype=np.int32)
 
-            cuml_model = cuRFC(max_features=1.0,
-                               n_bins=8,
-                               n_estimators=40)
-            cuml_model.fit(X,y)
-            cuml_predict = cuml_model.predict(X)
+        cuml_model = cuRFC(max_features=1.0,
+                           n_bins=8,
+                           n_estimators=40)
+        cuml_model.fit(X,y)
+        cuml_predict = cuml_model.predict(X)
 
-            print("Predicted labels : ", cuml_predict)
+        print("Predicted labels : ", cuml_predict)
 
     Output:
 
@@ -177,18 +198,24 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         (default = 0)
     split_algo : int (default = 1)
         The algorithm to determine how nodes are split in the tree.
-        0 for HIST and 1 for GLOBAL_QUANTILE. HIST curently uses a slower
-        tree-building algorithm so GLOBAL_QUANTILE is recommended for most
-        cases.
+        Can be changed only for the old backend [deprecated].
+        0 for HIST and 1 for GLOBAL_QUANTILE. Default is GLOBAL_QUANTILE.
+        The default backend does not support HIST.
+        HIST currently uses a slower tree-building algorithm so
+        GLOBAL_QUANTILE is recommended for most cases.
+
+        .. deprecated:: 21.06
+           Parameter 'split_algo' is deprecated and will be removed in
+           subsequent release.
     bootstrap : boolean (default = True)
         Control bootstrapping.
         If True, each tree in the forest is built
         on a bootstrapped sample with replacement.
-        If False, sampling without replacement is done.
+        If False, the whole dataset is used to build each tree.
     bootstrap_features : boolean (default = False)
         Control bootstrapping for features.
         If features are drawn with or without replacement
-    rows_sample : float (default = 1.0)
+    max_samples : float (default = 1.0)
         Ratio of dataset rows used while fitting each tree.
     max_depth : int (default = 16)
         Maximum tree depth. Unlimited (i.e, until leaves are pure),
@@ -205,32 +232,48 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         If 'auto' then max_features=1/sqrt(n_features).
         If 'sqrt' then max_features=1/sqrt(n_features).
         If 'log2' then max_features=log2(n_features)/n_features.
-    n_bins : int (default = 8)
+    n_bins : int (default = 128)
         Number of bins used by the split algorithm.
-    min_rows_per_node : int or float (default = 2)
-        The minimum number of samples (rows) needed to split a node.
-        If int then number of sample rows.
-        If float the min_rows_per_sample*n_rows
+        For large problems, particularly those with highly-skewed input data,
+        increasing the number of bins may improve accuracy.
+    min_samples_leaf : int or float (default = 1)
+        The minimum number of samples (rows) in each leaf node.
+        If int, then min_samples_leaf represents the minimum number.
+        If float, then min_samples_leaf represents a fraction and
+        ceil(min_samples_leaf * n_rows) is the minimum number of samples
+        for each leaf node.
+    min_samples_split : int or float (default = 2)
+        The minimum number of samples required to split an internal node.
+        If int, then min_samples_split represents the minimum number.
+        If float, then min_samples_split represents a fraction and
+        ceil(min_samples_split * n_rows) is the minimum number of samples
+        for each split.
     min_impurity_decrease : float (default = 0.0)
         Minimum decrease in impurity requried for
         node to be spilt.
     quantile_per_tree : boolean (default = False)
-        Whether quantile is computed for individal trees in RF.
-        Only relevant for GLOBAL_QUANTILE split_algo.
-    use_experimental_backend : boolean (default = False)
-        If set to true and  following conditions are also met, experimental
-         decision tree training implementation would be used:
-            split_algo = 1 (GLOBAL_QUANTILE)
-            max_features = 1.0 (Feature sub-sampling disabled)
-            quantile_per_tree = false (No per tree quantile computation)
+        Whether quantile is computed for individual trees in RF.
+        Only relevant when `split_algo = GLOBAL_QUANTILE`.
+
+        .. deprecated:: 0.19
+           Parameter 'quantile_per_tree' is deprecated and will be removed in
+           subsequent release.
+    use_experimental_backend : boolean (default = True)
+        If set to true and the following conditions are also met, a new
+        experimental backend for decision tree training will be used. The
+        new backend is available only if `split_algo = 1` (GLOBAL_QUANTILE)
+        and `quantile_per_tree = False` (No per tree quantile computation).
+        The new backend is now considered stable for both classification
+        and regression tasks and is significantly faster than the old backend.
     max_batch_size: int (default = 128)
         Maximum number of nodes that can be processed in a given batch. This is
-        used only when 'use_experimental_backend' is true.
+        used only when 'use_experimental_backend' is true. Does not currently
+        fully guarantee the exact same results.
     random_state : int (default = None)
-        Seed for the random number generator. Unseeded by default.
-    seed : int (default = None)
-        Deprecated in favor of `random_state`.
-        Seed for the random number generator. Unseeded by default.
+        Seed for the random number generator. Unseeded by default. Does not
+        currently fully guarantee the exact same results. **Note: Parameter
+        `seed` is removed since release 0.19.**
+
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -244,21 +287,24 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
     output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_output_type`.
+        module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
     """
 
-    def __init__(self, split_criterion=0, handle=None, verbose=False,
-                 output_type=None, **kwargs):
+    def __init__(self, *, split_criterion=0, handle=None, verbose=False,
+                 output_type=None, n_bins=128, use_experimental_backend=True,
+                 **kwargs):
 
         self.RF_type = CLASSIFICATION
         self.num_classes = 2
-        super(RandomForestClassifier, self).__init__(
+        super().__init__(
             split_criterion=split_criterion,
             handle=handle,
             verbose=verbose,
             output_type=output_type,
+            n_bins=n_bins,
+            use_experimental_backend=use_experimental_backend,
             **kwargs)
 
     """
@@ -371,14 +417,16 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
-            'naive' - simple inference using shared memory
-            'tree_reorg' - similar to naive but trees rearranged to be more
-            coalescing-friendly
-            'batch_tree_reorg' - similar to tree_reorg but predicting
-            multiple rows per thread block
-            `auto` - choose the algorithm automatically. Currently
-            'batch_tree_reorg' is used for dense storage
-            and 'naive' for sparse storage
+
+             * ``'naive'`` - simple inference using shared memory
+             * ``'tree_reorg'`` - similar to naive but trees rearranged to be
+               more coalescing-friendly
+             * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
+               multiple rows per thread block
+             * ``'auto'`` - choose the algorithm automatically. Currently
+             * ``'batch_tree_reorg'`` is used for dense storage
+               and 'naive' for sparse storage
+
         threshold : float (default = 0.5)
             Threshold used for classification. Optional and required only
             while performing the predict operation on the GPU.
@@ -387,11 +435,12 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             This variable is used to choose the type of forest that will be
             created in the Forest Inference Library. It is not required
             while using predict_model='CPU'.
-            'auto' - choose the storage type automatically
-            (currently True is chosen by auto)
-            False - create a dense forest
-            True - create a sparse forest, requires algo='naive'
-            or algo='auto'
+
+             * ``'auto'`` - choose the storage type automatically
+               (currently True is chosen by auto)
+             * ``False`` - create a dense forest
+             * ``True`` - create a sparse forest, requires algo='naive'
+               or algo='auto'
 
         Returns
         -------
@@ -412,6 +461,9 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
     @generate_docstring(skip_parameters_heading=True,
                         y='dense_intdtype',
                         convert_dtype_cast='np.float32')
+    @cuml.internals.api_base_return_any(set_output_type=False,
+                                        set_output_dtype=True,
+                                        set_n_features_in=False)
     def fit(self, X, y, convert_dtype=True):
         """
         Perform Random Forest Classification on the input data
@@ -423,7 +475,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             y to be of dtype int32. This will increase memory used for
             the method.
         """
-        self._set_base_attributes(target_dtype=y)
+        nvtx_range_push("Fit RF-Classifier @randomforestclassifier.pyx")
 
         X_m, y_m, max_feature_val = self._dataset_setup_for_fit(X, y,
                                                                 convert_dtype)
@@ -447,23 +499,24 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         else:
             seed_val = <uintptr_t>self.random_state
 
-        rf_params = set_rf_class_obj(<int> self.max_depth,
-                                     <int> self.max_leaves,
-                                     <float> max_feature_val,
-                                     <int> self.n_bins,
-                                     <int> self.split_algo,
-                                     <int> self.min_rows_per_node,
-                                     <float> self.min_impurity_decrease,
-                                     <bool> self.bootstrap_features,
-                                     <bool> self.bootstrap,
-                                     <int> self.n_estimators,
-                                     <float> self.rows_sample,
-                                     <int> seed_val,
-                                     <CRITERION> self.split_criterion,
-                                     <bool> self.quantile_per_tree,
-                                     <int> self.n_streams,
-                                     <bool> self.use_experimental_backend,
-                                     <int> self.max_batch_size)
+        rf_params = set_rf_params(<int> self.max_depth,
+                                  <int> self.max_leaves,
+                                  <float> max_feature_val,
+                                  <int> self.n_bins,
+                                  <int> self.split_algo,
+                                  <int> self.min_samples_leaf,
+                                  <int> self.min_samples_split,
+                                  <float> self.min_impurity_decrease,
+                                  <bool> self.bootstrap_features,
+                                  <bool> self.bootstrap,
+                                  <int> self.n_estimators,
+                                  <float> self.max_samples,
+                                  <uint64_t> seed_val,
+                                  <CRITERION> self.split_criterion,
+                                  <bool> self.quantile_per_tree,
+                                  <int> self.n_streams,
+                                  <bool> self.use_experimental_backend,
+                                  <int> self.max_batch_size)
 
         if self.dtype == np.float32:
             fit(handle_[0],
@@ -497,12 +550,11 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         self.handle.sync()
         del X_m
         del y_m
+        nvtx_range_pop()
         return self
 
-    def _predict_model_on_cpu(self, X, convert_dtype):
-        out_type = self._get_output_type(X)
-        out_dtype = self._get_target_dtype()
-
+    @cuml.internals.api_base_return_array(get_output_dtype=True)
+    def _predict_model_on_cpu(self, X, convert_dtype) -> CumlArray:
         cdef uintptr_t X_ptr
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='C',
@@ -546,15 +598,14 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         self.handle.sync()
         # synchronous w/o a stream
         del(X_m)
-        return preds.to_output(output_type=out_type, output_dtype=out_dtype)
+        return preds
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
-    def predict(self, X, predict_model="GPU",
-                output_class=True, threshold=0.5,
+    def predict(self, X, predict_model="GPU", threshold=0.5,
                 algo='auto', num_classes=None,
                 convert_dtype=True,
-                fil_sparse_format='auto'):
+                fil_sparse_format='auto') -> CumlArray:
         """
         Predicts the labels for X.
 
@@ -565,50 +616,51 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             'GPU' to predict using the GPU, 'CPU' otherwise. The 'GPU' can only
             be used if the model was trained on float32 data and `X` is float32
             or convert_dtype is set to True. Also the 'GPU' should only be
-            used for binary classification problems.
-        output_class : boolean (default = True)
+            used for classification problems.
+        algo : string (default = ``'auto'``)
             This is optional and required only while performing the
             predict operation on the GPU.
-            If true, return a 1 or 0 depending on whether the raw
-            prediction exceeds the threshold. If False, just return
-            the raw prediction.
-        algo : string (default = 'auto')
-            This is optional and required only while performing the
-            predict operation on the GPU.
-            'naive' - simple inference using shared memory
-            'tree_reorg' - similar to naive but trees rearranged to be more
-            coalescing-friendly
-            'batch_tree_reorg' - similar to tree_reorg but predicting
-            multiple rows per thread block
-            `auto` - choose the algorithm automatically. Currently
-            'batch_tree_reorg' is used for dense storage
-            and 'naive' for sparse storage
+
+             * ``'naive'`` - simple inference using shared memory
+             * ``'tree_reorg'`` - similar to naive but trees rearranged to be
+               more coalescing-friendly
+             * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
+               multiple rows per thread block
+             * ``'auto'`` - choose the algorithm automatically. Currently
+             * ``'batch_tree_reorg'`` is used for dense storage
+               and 'naive' for sparse storage
+
         threshold : float (default = 0.5)
             Threshold used for classification. Optional and required only
             while performing the predict operation on the GPU.
-            It is applied if output_class == True, else it is ignored
         num_classes : int (default = None)
-            number of different classes present in the dataset. This variable
-            will be deprecated in 0.16. The number of classes passed
-            must match the number of classes the model was trained on
+            number of different classes present in the dataset.
+
+            .. deprecated:: 0.16
+                Parameter 'num_classes' is deprecated and will be removed in
+                an upcoming version. The number of classes passed must match
+                the number of classes the model was trained on.
+
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
             will increase memory used for the method.
-        fil_sparse_format : boolean or string (default = auto)
+        fil_sparse_format : boolean or string (default = ``'auto'``)
             This variable is used to choose the type of forest that will be
             created in the Forest Inference Library. It is not required
             while using predict_model='CPU'.
-            'auto' - choose the storage type automatically
-            (currently True is chosen by auto)
-            False - create a dense forest
-            True - create a sparse forest, requires algo='naive'
-            or algo='auto'
+
+             * ``'auto'`` - choose the storage type automatically
+               (currently True is chosen by auto)
+             * ``False`` - create a dense forest
+             * ``True`` - create a sparse forest, requires algo='naive'
+               or algo='auto'
 
         Returns
         ----------
         y : {}
         """
+        nvtx_range_push("predict RF-Classifier @randomforestclassifier.pyx")
         if num_classes:
             warnings.warn("num_classes is deprecated and will be removed"
                           " in an upcoming version")
@@ -629,16 +681,17 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
 
         else:
             preds = \
-                self._predict_model_on_gpu(X=X, output_class=output_class,
+                self._predict_model_on_gpu(X=X, output_class=True,
                                            threshold=threshold,
                                            algo=algo,
                                            convert_dtype=convert_dtype,
                                            fil_sparse_format=fil_sparse_format,
                                            predict_proba=False)
 
+        nvtx_range_pop()
         return preds
 
-    def _predict_get_all(self, X, convert_dtype=True):
+    def _predict_get_all(self, X, convert_dtype=True) -> CumlArray:
         """
         Predicts the labels for X.
 
@@ -654,7 +707,6 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         y : NumPy
            Dense vector (int) of shape (n_samples, 1)
         """
-        out_type = self._get_output_type(X)
         cdef uintptr_t X_ptr, preds_ptr
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='C',
@@ -696,14 +748,13 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
                             % (str(self.dtype)))
         self.handle.sync()
         del(X_m)
-        return preds.to_output(out_type)
+        return preds
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
-    def predict_proba(self, X, output_class=True,
-                      threshold=0.5, algo='auto',
+    def predict_proba(self, X, algo='auto',
                       num_classes=None, convert_dtype=True,
-                      fil_sparse_format='auto'):
+                      fil_sparse_format='auto') -> CumlArray:
         """
         Predicts class probabilites for X. This function uses the GPU
         implementation of predict. Therefore, data with 'dtype = np.float32'
@@ -712,31 +763,27 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         Parameters
         ----------
         X : {}
-        output_class: boolean (default = True)
-            This is optional and required only while performing the
-            predict operation on the GPU.
-            If true, return a 1 or 0 depending on whether the raw
-            prediction exceeds the threshold. If False, just return
-            the raw prediction.
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
-            'naive' - simple inference using shared memory
-            'tree_reorg' - similar to naive but trees rearranged to be more
-            coalescing-friendly
-            'batch_tree_reorg' - similar to tree_reorg but predicting
-            multiple rows per thread block
-            `auto` - choose the algorithm automatically. Currently
-            'batch_tree_reorg' is used for dense storage
-            and 'naive' for sparse storage
-        threshold : float (default = 0.5)
-            Threshold used for classification. Optional and required only
-            while performing the predict operation on the GPU.
-            It is applied if output_class == True, else it is ignored
+
+             * ``'naive'`` - simple inference using shared memory
+             * ``'tree_reorg'`` - similar to naive but trees rearranged to be
+               more coalescing-friendly
+             * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
+               multiple rows per thread block
+             * ``'auto'`` - choose the algorithm automatically. Currently
+             * ``'batch_tree_reorg'`` is used for dense storage
+               and 'naive' for sparse storage
+
         num_classes : int (default = None)
-            number of different classes present in the dataset. This variable
-            will be deprecated in 0.16. The number of classes passed
-            must match the number of classes the model was trained on
+            number of different classes present in the dataset.
+
+            .. deprecated:: 0.16
+                Parameter 'num_classes' is deprecated and will be removed in
+                an upcoming version. The number of classes passed must match
+                the number of classes the model was trained on.
+
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
             the input to the data type which was used to train the model. This
@@ -745,11 +792,12 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             This variable is used to choose the type of forest that will be
             created in the Forest Inference Library. It is not required
             while using predict_model='CPU'.
-            'auto' - choose the storage type automatically
-            (currently True is chosen by auto)
-            False - create a dense forest
-            True - create a sparse forest, requires algo='naive'
-            or algo='auto'
+
+             * ``'auto'`` - choose the storage type automatically
+               (currently True is chosen by auto)
+             * ``False`` - create a dense forest
+             * ``True`` - create a sparse forest, requires algo='naive'
+               or algo='auto'
 
         Returns
         -------
@@ -773,8 +821,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
                                           "training dataset.")
 
         preds_proba = \
-            self._predict_model_on_gpu(X, output_class=output_class,
-                                       threshold=threshold,
+            self._predict_model_on_gpu(X, output_class=True,
                                        algo=algo,
                                        convert_dtype=convert_dtype,
                                        fil_sparse_format=fil_sparse_format,
@@ -797,44 +844,53 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         algo : string (default = 'auto')
             This is optional and required only while performing the
             predict operation on the GPU.
-            'naive' - simple inference using shared memory
-            'tree_reorg' - similar to naive but trees rearranged to be more
-            coalescing-friendly
-            'batch_tree_reorg' - similar to tree_reorg but predicting
-            multiple rows per thread block
-            `auto` - choose the algorithm automatically. Currently
-            'batch_tree_reorg' is used for dense storage
-            and 'naive' for sparse storage
+
+             * ``'naive'`` - simple inference using shared memory
+             * ``'tree_reorg'`` - similar to naive but trees rearranged to be
+               more coalescing-friendly
+             * ``'batch_tree_reorg'`` - similar to tree_reorg but predicting
+               multiple rows per thread block
+             * ``'auto'`` - choose the algorithm automatically. Currently
+             * ``'batch_tree_reorg'`` is used for dense storage
+               and 'naive' for sparse storage
+
         threshold : float
             threshold is used to for classification
             This is optional and required only while performing the
             predict operation on the GPU.
         num_classes : int (default = None)
-            number of different classes present in the dataset. This variable
-            will be deprecated in 0.16. The number of classes passed
-            must match the number of classes the model was trained on
+            number of different classes present in the dataset.
+
+            .. deprecated:: 0.16
+                Parameter 'num_classes' is deprecated and will be removed in
+                an upcoming version. The number of classes passed must match
+                the number of classes the model was trained on.
+
         convert_dtype : boolean, default=True
             whether to convert input data to correct dtype automatically
         predict_model : String (default = 'GPU')
             'GPU' to predict using the GPU, 'CPU' otherwise. The 'GPU' can only
             be used if the model was trained on float32 data and `X` is float32
             or convert_dtype is set to True. Also the 'GPU' should only be
-            used for binary classification problems.
+            used for classification problems.
         fil_sparse_format : boolean or string (default = auto)
             This variable is used to choose the type of forest that will be
             created in the Forest Inference Library. It is not required
             while using predict_model='CPU'.
-            'auto' - choose the storage type automatically
-            (currently True is chosen by auto)
-            False - create a dense forest
-            True - create a sparse forest, requires algo='naive'
-            or algo='auto'
+
+             * ``'auto'`` - choose the storage type automatically
+               (currently True is chosen by auto)
+             * ``False`` - create a dense forest
+             * ``True`` - create a sparse forest, requires algo='naive'
+               or algo='auto'
 
         Returns
         -------
         accuracy : float
            Accuracy of the model [0.0 - 1.0]
         """
+
+        nvtx_range_push("score RF-Classifier @randomforestclassifier.pyx")
         cdef uintptr_t X_ptr, y_ptr
         _, n_rows, _, _ = \
             input_to_cuml_array(X, check_dtype=self.dtype,
@@ -846,7 +902,7 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
                                 convert_to_dtype=(np.int32 if convert_dtype
                                                   else False))
         y_ptr = y_m.ptr
-        preds = self.predict(X, output_class=True,
+        preds = self.predict(X,
                              threshold=threshold, algo=algo,
                              convert_dtype=convert_dtype,
                              predict_model=predict_model,
@@ -889,11 +945,12 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
         self.handle.sync()
         del(y_m)
         del(preds_m)
+        nvtx_range_pop()
         return self.stats['accuracy']
 
-    def print_summary(self):
+    def get_summary_text(self):
         """
-        Prints the summary of the forest used to train and test the model
+        Obtain the text summary of the random forest model
         """
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
@@ -902,14 +959,13 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             <RandomForestMetaData[double, int]*><uintptr_t> self.rf_forest64
 
         if self.dtype == np.float64:
-            print_rf_summary(rf_forest64)
+            return get_rf_summary_text(rf_forest64).decode('utf-8')
         else:
-            print_rf_summary(rf_forest)
+            return get_rf_summary_text(rf_forest).decode('utf-8')
 
-    def print_detailed(self):
+    def get_detailed_text(self):
         """
-        Prints the detailed information about the forest used to
-        train and test the Random Forest model
+        Obtain the detailed information for the random forest model, as text
         """
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
@@ -918,13 +974,13 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             <RandomForestMetaData[double, int]*><uintptr_t> self.rf_forest64
 
         if self.dtype == np.float64:
-            print_rf_detailed(rf_forest64)
+            return get_rf_detailed_text(rf_forest64).decode('utf-8')
         else:
-            print_rf_detailed(rf_forest)
+            return get_rf_detailed_text(rf_forest).decode('utf-8')
 
-    def dump_as_json(self):
+    def get_json(self):
         """
-        Dump (export) the Random Forest model as a JSON string
+        Export the Random Forest model as a JSON string
         """
         cdef RandomForestMetaData[float, int] *rf_forest = \
             <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
@@ -933,5 +989,5 @@ class RandomForestClassifier(BaseRandomForestModel, ClassifierMixin):
             <RandomForestMetaData[double, int]*><uintptr_t> self.rf_forest64
 
         if self.dtype == np.float64:
-            return dump_rf_as_json(rf_forest64).decode('utf-8')
-        return dump_rf_as_json(rf_forest).decode('utf-8')
+            return get_rf_json(rf_forest64).decode('utf-8')
+        return get_rf_json(rf_forest).decode('utf-8')

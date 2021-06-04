@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,16 +18,16 @@
 #include <raft/cudart_utils.h>
 #include <test_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/handle.hpp>
 #include <vector>
 
 #include <thrust/fill.h>
-#include <common/device_buffer.hpp>
 #include <cuml/cluster/kmeans.hpp>
-#include <cuml/common/cuml_allocator.hpp>
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
-#include <cuml/cuml.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/metrics/metrics.hpp>
+#include <raft/mr/device/allocator.hpp>
 
 namespace ML {
 

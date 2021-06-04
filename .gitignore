@@ -11,7 +11,7 @@ __pycache__
 *.so
 *.dylib
 .cache
-.coverage
+.coverage*
 .vscode
 *.swp
 *.pytest_cache

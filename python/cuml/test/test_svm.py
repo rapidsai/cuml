@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,6 +19,8 @@ from numba import cuda
 
 import cuml
 import cuml.svm as cu_svm
+from cuml.common import input_to_cuml_array
+from cuml.common.input_utils import is_array_like
 from cuml.test.utils import unit_param, quality_param, stress_param
 
 from sklearn import svm
@@ -128,12 +130,18 @@ def compare_svm(svm1, svm2, X, y, b_tol=None, coef_tol=None,
             coef_tol *= 10
 
     # Compare model parameter b (intercept). In practice some models can have
-    # same differences in the model parameters while still being within
+    # some differences in the model parameters while still being within
     # the accuracy tolerance.
-    if abs(svm2.intercept_) > 1e-6:
-        assert abs((svm1.intercept_-svm2.intercept_)/svm2.intercept_) <= b_tol
-    else:
-        assert abs((svm1.intercept_-svm2.intercept_)) <= b_tol
+    #
+    # We skip this test for multiclass (when intercept_ is an array). Apart
+    # from the larger discrepancies in multiclass case, sklearn also uses a
+    # different sign convention for intercept in that case.
+    if (not is_array_like(svm2.intercept_)) or svm2.intercept_.shape[0] == 1:
+        if abs(svm2.intercept_) > 1e-6:
+            assert abs((svm1.intercept_-svm2.intercept_)/svm2.intercept_) \
+                <= b_tol
+        else:
+            assert abs((svm1.intercept_-svm2.intercept_)) <= b_tol
 
     # For linear kernels we can compare the normal vector of the separating
     # hyperplane w, which is stored in the coef_ attribute.
@@ -158,7 +166,7 @@ def compare_svm(svm1, svm2, X, y, b_tol=None, coef_tol=None,
                   accuracy2)
 
 
-def make_dataset(dataset, n_rows, n_cols, n_classes=2):
+def make_dataset(dataset, n_rows, n_cols, n_classes=2, n_informative=2):
     np.random.seed(137)
     if n_rows*0.25 < 4000:
         # Use at least 4000 test samples
@@ -172,11 +180,11 @@ def make_dataset(dataset, n_rows, n_cols, n_classes=2):
         n_test = n_rows * 0.25
     if dataset == 'classification1':
         X, y = make_classification(
-            n_rows, n_cols, n_informative=2, n_redundant=0,
+            n_rows, n_cols, n_informative=n_informative, n_redundant=0,
             n_classes=n_classes, n_clusters_per_class=1)
     elif dataset == 'classification2':
         X, y = make_classification(
-            n_rows, n_cols, n_informative=2, n_redundant=0,
+            n_rows, n_cols, n_informative=n_informative, n_redundant=0,
             n_classes=n_classes, n_clusters_per_class=2)
     elif dataset == 'gaussian':
         X, y = make_gaussian_quantiles(n_samples=n_rows, n_features=n_cols,
@@ -262,6 +270,26 @@ def test_svm_skl_cmp_datasets(params, dataset, n_rows, n_cols):
                     report_summary=True)
 
 
+@pytest.mark.parametrize('params', [{'kernel': 'rbf', 'C': 1, 'gamma': 1}])
+def test_svm_skl_cmp_multiclass(params, dataset='classification2', n_rows=100,
+                                n_cols=6):
+    X_train, X_test, y_train, y_test = make_dataset(dataset, n_rows, n_cols,
+                                                    n_classes=3,
+                                                    n_informative=6)
+
+    # Default to numpy for testing
+    with cuml.using_output_type("numpy"):
+
+        cuSVC = cu_svm.SVC(**params)
+        cuSVC.fit(X_train, y_train)
+
+        sklSVC = svm.SVC(**params)
+        sklSVC.fit(X_train, y_train)
+
+        compare_svm(cuSVC, sklSVC, X_test, y_test, coef_tol=1e-5,
+                    report_summary=True)
+
+
 @pytest.mark.parametrize('params', [
     {'kernel': 'rbf', 'C': 5, 'gamma': 0.005, "probability": False},
     {'kernel': 'rbf', 'C': 5, 'gamma': 0.005, "probability": True}])
@@ -319,18 +347,25 @@ def compare_probabilistic_svm(svc1, svc2, X_test, y_test, tol=1e-3,
                               brier_tol=1e-3):
     """ Compare the probability output from two support vector classifiers.
     """
+
     prob1 = svc1.predict_proba(X_test)
-    brier1 = brier_score_loss(y_test, prob1[:, 1])
-
     prob2 = svc2.predict_proba(X_test)
-    brier2 = brier_score_loss(y_test, prob2[:, 1])
-
     assert mean_squared_error(prob1, prob2) <= tol
-    # Brier score - smaller is better
-    assert brier1 - brier2 <= brier_tol
+
+    if (svc1.n_classes_ == 2):
+        brier1 = brier_score_loss(y_test, prob1[:, 1])
+        brier2 = brier_score_loss(y_test, prob2[:, 1])
+        # Brier score - smaller is better
+        assert brier1 - brier2 <= brier_tol
 
 
-def test_svm_skl_cmp_predict_proba(n_rows=10000, n_cols=20):
+# Probabilisic SVM uses scikit-learn's CalibratedClassifierCV, and therefore
+# the input array is converted to numpy under the hood. We explicitly test for
+# all supported input types, to avoid errors like
+# https://github.com/rapidsai/cuml/issues/3090
+@pytest.mark.parametrize('in_type', ['numpy', 'numba', 'cudf', 'cupy',
+                                     'pandas', 'cuml'])
+def test_svm_skl_cmp_predict_proba(in_type, n_rows=10000, n_cols=20):
     params = {'kernel': 'rbf', 'C': 1, 'tol': 1e-3, 'gamma': 'scale',
               'probability': True}
     X, y = make_classification(n_samples=n_rows, n_features=n_cols,
@@ -338,8 +373,12 @@ def test_svm_skl_cmp_predict_proba(n_rows=10000, n_cols=20):
                                random_state=137)
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.8,
                                                         random_state=42)
+
+    X_m = input_to_cuml_array(X_train).array
+    y_m = input_to_cuml_array(y_train).array
+
     cuSVC = cu_svm.SVC(**params)
-    cuSVC.fit(X_train, y_train)
+    cuSVC.fit(X_m.to_output(in_type), y_m.to_output(in_type))
     sklSVC = svm.SVC(**params)
     sklSVC.fit(X_train, y_train)
     compare_probabilistic_svm(cuSVC, sklSVC, X_test, y_test, 1e-3, 1e-2)

@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ from cuml.dask.common.input_utils import concatenate
 from cuml.dask.common.input_utils import DistributedDataHandler
 
 from cuml.raft.dask.common.comms import Comms
-from cuml.raft.dask.common.comms import worker_state
+from cuml.raft.dask.common.comms import get_raft_comm_state
 
 from cuml.dask.common.utils import wait_and_raise_from_futures
 
@@ -96,16 +96,16 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
     """
 
-    def __init__(self, client=None, verbose=False, **kwargs):
-        super(KMeans, self).__init__(client=client,
-                                     verbose=verbose,
-                                     **kwargs)
+    def __init__(self, *, client=None, verbose=False, **kwargs):
+        super().__init__(client=client,
+                         verbose=verbose,
+                         **kwargs)
 
     @staticmethod
     @mnmg_import
     def _func_fit(sessionId, objs, datatype, **kwargs):
         from cuml.cluster.kmeans_mg import KMeansMG as cumlKMeans
-        handle = worker_state(sessionId)["handle"]
+        handle = get_raft_comm_state(sessionId)["handle"]
 
         inp_data = concatenate(objs)
 
@@ -132,7 +132,8 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         data = DistributedDataHandler.create(X, client=self.client)
         self.datatype = data.datatype
 
-        comms = Comms(comms_p2p=False)
+        # This needs to happen on the scheduler
+        comms = Comms(comms_p2p=False, client=self.client)
         comms.init(workers=data.workers)
 
         kmeans_fit = [self.client.submit(KMeans._func_fit,

@@ -21,24 +21,28 @@ import cupyx
 from sklearn.decomposition import IncrementalPCA as skIPCA
 
 from cuml.datasets import make_blobs
-from cuml.experimental.decomposition import IncrementalPCA as cuIPCA
+from cuml.decomposition import IncrementalPCA as cuIPCA
+from cuml.decomposition.incremental_pca import _svd_flip
 
 from cuml.test.utils import array_equal
+from cuml.common.exceptions import NotFittedError
 
 
 @pytest.mark.parametrize(
     'nrows, ncols, n_components, sparse_input, density, sparse_format,'
-    ' batch_size_divider', [
-        (500, 15, 2, True, 0.4, 'csr', 5),
-        (5000, 25, 12, False, 0.07, 'csc', 10),
-        (5000, 15, None, True, 0.4, 'csc', 5),
-        (500, 25, 2, False, 0.07, 'csr', 10),
-        (5000, 25, 12, False, 0.07, 'csr', 10)
+    ' batch_size_divider, whiten',  [
+        (500, 15, 2, True, 0.4, 'csr', 5, True),
+        (5000, 25, 12, False, 0.07, 'csc', 10, False),
+        (5000, 15, None, True, 0.4, 'csc', 5, False),
+        (500, 25, 2, False, 0.07, 'csr', 10, False),
+        (5000, 25, 12, False, 0.07, 'csr', 10, True),
+        (500, 2500, 9, False, 0.07, 'csr', 50, True),
+        (500, 250, 14, True, 0.07, 'csr', 1, True),
     ]
 )
 @pytest.mark.no_bad_cuml_array_check
 def test_fit(nrows, ncols, n_components, sparse_input, density,
-             sparse_format, batch_size_divider):
+             sparse_format, batch_size_divider, whiten):
 
     if sparse_format == 'csc':
         pytest.skip("cupyx.scipy.sparse.csc.csc_matrix does not support"
@@ -50,13 +54,13 @@ def test_fit(nrows, ncols, n_components, sparse_input, density,
     else:
         X, _ = make_blobs(n_samples=nrows, n_features=ncols, random_state=10)
 
-    cu_ipca = cuIPCA(n_components=n_components,
+    cu_ipca = cuIPCA(n_components=n_components, whiten=whiten,
                      batch_size=int(nrows / batch_size_divider))
     cu_ipca.fit(X)
     cu_t = cu_ipca.transform(X)
     cu_inv = cu_ipca.inverse_transform(cu_t)
 
-    sk_ipca = skIPCA(n_components=n_components,
+    sk_ipca = skIPCA(n_components=n_components, whiten=whiten,
                      batch_size=int(nrows / batch_size_divider))
     if sparse_input:
         X = X.get()
@@ -71,20 +75,22 @@ def test_fit(nrows, ncols, n_components, sparse_input, density,
 
 
 @pytest.mark.parametrize(
-    'nrows, ncols, n_components, density, batch_size_divider', [
-        (500, 15, 2, 0.07, 5),
-        (5000, 25, 12, 0.07, 10),
-        (5000, 15, 2, 0.4, 5),
-        (500, 25, 12, 0.4, 10),
+    'nrows, ncols, n_components, density, batch_size_divider, whiten', [
+        (500, 15, 2, 0.07, 5, False),
+        (500, 15, 2, 0.07, 5, True),
+        (5000, 25, 12, 0.07, 10, False),
+        (5000, 15, 2, 0.4, 5, True),
+        (500, 25, 12, 0.4, 10, False),
+        (5000, 4, 2, 0.1, 100, False)
     ]
 )
 @pytest.mark.no_bad_cuml_array_check
 def test_partial_fit(nrows, ncols, n_components, density,
-                     batch_size_divider):
+                     batch_size_divider, whiten):
 
     X, _ = make_blobs(n_samples=nrows, n_features=ncols, random_state=10)
 
-    cu_ipca = cuIPCA(n_components=n_components)
+    cu_ipca = cuIPCA(n_components=n_components, whiten=whiten)
 
     sample_size = int(nrows / batch_size_divider)
     for i in range(0, nrows, sample_size):
@@ -93,7 +99,7 @@ def test_partial_fit(nrows, ncols, n_components, density,
     cu_t = cu_ipca.transform(X)
     cu_inv = cu_ipca.inverse_transform(cu_t)
 
-    sk_ipca = skIPCA(n_components=n_components)
+    sk_ipca = skIPCA(n_components=n_components, whiten=whiten)
 
     X = cp.asnumpy(X)
 
@@ -105,3 +111,35 @@ def test_partial_fit(nrows, ncols, n_components, density,
 
     assert array_equal(cu_inv, sk_inv,
                        5e-5, with_sign=True)
+
+
+def test_exceptions():
+    X = cupyx.scipy.sparse.eye(10)
+    ipca = cuIPCA()
+    with pytest.raises(TypeError):
+        ipca.partial_fit(X)
+
+    X = X.toarray()
+    with pytest.raises(NotFittedError):
+        ipca.transform(X)
+
+    with pytest.raises(NotFittedError):
+        ipca.inverse_transform(X)
+
+    with pytest.raises(ValueError):
+        cuIPCA(n_components=8).fit(X[:5])
+
+    with pytest.raises(ValueError):
+        cuIPCA(n_components=8).fit(X[:, :5])
+
+
+def test_svd_flip():
+    x = cp.array(range(-10, 80)).reshape((9, 10))
+    u, s, v = cp.linalg.svd(x, full_matrices=False)
+    u_true, v_true = _svd_flip(u, v, u_based_decision=True)
+    reco_true = cp.dot(u_true * s, v_true)
+    u_false, v_false = _svd_flip(u, v, u_based_decision=False)
+    reco_false = cp.dot(u_false * s, v_false)
+
+    assert array_equal(reco_true, x)
+    assert array_equal(reco_false, x)

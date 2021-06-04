@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include <raft/handle.hpp>
 
 #include "auto_arima.cuh"
 
 #include <cuml/tsa/auto_arima.h>
-#include <common/cumlHandle.hpp>
 
 namespace ML {
 

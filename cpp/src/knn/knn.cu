@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
-#include <common/cumlHandle.hpp>
-
 #include <cuml/common/logger.hpp>
 #include <cuml/neighbors/knn.hpp>
 
 #include <ml_mg_utils.cuh>
 
 #include <label/classlabels.cuh>
+#include <raft/spatial/knn/knn.hpp>
 #include <selection/knn.cuh>
 
 #include <cuda_runtime.h>
@@ -32,21 +31,32 @@
 
 namespace ML {
 
-void brute_force_knn(raft::handle_t &handle, std::vector<float *> &input,
+void brute_force_knn(const raft::handle_t &handle, std::vector<float *> &input,
                      std::vector<int> &sizes, int D, float *search_items, int n,
                      int64_t *res_I, float *res_D, int k, bool rowMajorIndex,
-                     bool rowMajorQuery, MetricType metric, float metric_arg,
-                     bool expanded) {
+                     bool rowMajorQuery, raft::distance::DistanceType metric,
+                     float metric_arg) {
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors must be the same size");
 
-  std::vector<cudaStream_t> int_streams = handle.get_internal_streams();
+  raft::spatial::knn::brute_force_knn(
+    handle, input, sizes, D, search_items, n, res_I, res_D, k, rowMajorIndex,
+    rowMajorQuery, nullptr, metric, metric_arg);
+}
 
-  MLCommon::Selection::brute_force_knn(
-    input, sizes, D, search_items, n, res_I, res_D, k,
-    handle.get_device_allocator(), handle.get_stream(), int_streams.data(),
-    handle.get_num_internal_streams(), rowMajorIndex, rowMajorQuery, nullptr,
-    metric, metric_arg, expanded);
+void approx_knn_build_index(raft::handle_t &handle, ML::knnIndex *index,
+                            ML::knnIndexParam *params,
+                            raft::distance::DistanceType metric,
+                            float metricArg, float *index_array, int n, int D) {
+  MLCommon::Selection::approx_knn_build_index(handle, index, params, metric,
+                                              metricArg, index_array, n, D);
+}
+
+void approx_knn_search(raft::handle_t &handle, float *distances,
+                       int64_t *indices, ML::knnIndex *index, int k,
+                       float *query_array, int n) {
+  MLCommon::Selection::approx_knn_search(handle, distances, indices, index, k,
+                                         query_array, n);
 }
 
 void knn_classify(raft::handle_t &handle, int *out, int64_t *knn_indices,
@@ -94,56 +104,4 @@ void knn_class_proba(raft::handle_t &handle, std::vector<float *> &out,
                                    d_alloc, stream);
 }
 
-/**
- * @brief Flat C API function to perform a brute force knn on
- * a series of input arrays and combine the results into a single
- * output array for indexes and distances.
- *
- * @param[in] handle the cuml handle to use
- * @param[in] input an array of pointers to the input arrays
- * @param[in] sizes an array of sizes of input arrays
- * @param[in] n_params array size of input and sizes
- * @param[in] D the dimensionality of the arrays
- * @param[in] search_items array of items to search of dimensionality D
- * @param[in] n number of rows in search_items
- * @param[out] res_I the resulting index array of size n * k
- * @param[out] res_D the resulting distance array of size n * k
- * @param[in] k the number of nearest neighbors to return
- * @param[in] rowMajorIndex is the index array in row major layout?
- * @param[in] rowMajorQuery is the query array in row major layout?
- */
-extern "C" cumlError_t knn_search(const cumlHandle_t handle, float **input,
-                                  int *sizes, int n_params, int D,
-                                  float *search_items, int n, int64_t *res_I,
-                                  float *res_D, int k, bool rowMajorIndex,
-                                  bool rowMajorQuery, int metric_type,
-                                  float metric_arg, bool expanded) {
-  cumlError_t status;
-
-  raft::handle_t *handle_ptr;
-  std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
-
-  std::vector<cudaStream_t> int_streams = handle_ptr->get_internal_streams();
-
-  std::vector<float *> input_vec(n_params);
-  std::vector<int> sizes_vec(n_params);
-  for (int i = 0; i < n_params; i++) {
-    input_vec.push_back(input[i]);
-    sizes_vec.push_back(sizes[i]);
-  }
-
-  if (status == CUML_SUCCESS) {
-    try {
-      MLCommon::Selection::brute_force_knn(
-        input_vec, sizes_vec, D, search_items, n, res_I, res_D, k,
-        handle_ptr->get_device_allocator(), handle_ptr->get_stream(),
-        int_streams.data(), handle_ptr->get_num_internal_streams(),
-        rowMajorIndex, rowMajorQuery, nullptr, (ML::MetricType)metric_type,
-        metric_arg, expanded);
-    } catch (...) {
-      status = CUML_ERROR_UNKNOWN;
-    }
-  }
-  return status;
-}
 };  // END NAMESPACE ML

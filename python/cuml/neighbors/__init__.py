@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,12 +21,35 @@ from cuml.neighbors.nearest_neighbors import kneighbors_graph
 from cuml.neighbors.kneighbors_classifier import KNeighborsClassifier
 from cuml.neighbors.kneighbors_regressor import KNeighborsRegressor
 
-VALID_METRICS = {"brute": set([
+VALID_METRICS = {
+    "brute": set([
         "l2", "euclidean",
         "l1", "cityblock", "manhattan", "taxicab",
         "braycurtis", "canberra",
         "minkowski", "lp",
         "chebyshev", "linf",
         "jensenshannon",
-        "cosine", "correlation"
-    ])}
+        "cosine", "correlation",
+        "inner_product", "sqeuclidean",
+        "haversine"
+    ]),
+    "ivfflat": set([
+        "l2", "euclidean", "sqeuclidean",
+        "inner_product", "cosine", "correlation"
+    ]),
+    "ivfpq": set([
+        "l2", "euclidean", "sqeuclidean",
+        "inner_product", "cosine", "correlation"
+    ]),
+    "ivfsq": set([
+        "l2", "euclidean", "sqeuclidean",
+        "inner_product", "cosine", "correlation"
+    ])
+    }
+
+VALID_METRICS_SPARSE = {
+    "brute": set(["euclidean", "l2", "inner_product",
+                  "l1", "cityblock", "manhattan", "taxicab",
+                  "canberra", "linf", "chebyshev", "jaccard",
+                  "minkowski", "lp", "cosine", "hellinger"])
+}

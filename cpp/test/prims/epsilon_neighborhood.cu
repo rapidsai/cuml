@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,8 @@
 
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <common/device_buffer.hpp>
 #include <distance/epsilon_neighborhood.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <random/make_blobs.cuh>
 #include "test_utils.h"
 
@@ -67,7 +67,7 @@ class EpsNeighTest : public ::testing::TestWithParam<EpsInputs<T, IdxT>> {
   bool* adj;
   IdxT *labels, *vd;
   IdxT batchSize;
-  std::shared_ptr<deviceAllocator> allocator;
+  std::shared_ptr<raft::mr::device::allocator> allocator;
 };  // class EpsNeighTest
 
 const std::vector<EpsInputs<float, int>> inputsfi = {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,8 +18,12 @@
 
 #pragma once
 
-#include <cuml/cuml.hpp>
+#include <stddef.h>
 #include <cuml/ensemble/treelite_defs.hpp>
+
+namespace raft {
+class handle_t;
+}
 
 namespace ML {
 namespace fil {
@@ -92,143 +96,12 @@ enum storage_type_t {
       whether a particular forest can be imported as SPARSE8 */
   SPARSE8,
 };
-
-/** val_t is the payload within a FIL leaf */
-union val_t {
-  /** threshold value for branch node or output value (e.g. class
-      probability or regression summand) for leaf node */
-  float f;
-  /** class label */
-  int idx;
-};
-
-/** dense_node_t is a node in a densely-stored forest */
-struct dense_node_t {
-  val_t val;
-  int bits;
-};
-
-/** sparse_node16_extra_data is what's missing from a dense node to store
-    a sparse node, that is, extra indexing information due to compressing
-    a sparse tree. */
-struct sparse_node16_extra_data {
-  int left_idx;
-  int dummy;  // make alignment explicit and reserve for future use
-};
-
-/** sparse_node16_t is a 16-byte node in a sparsely-stored forest */
-struct sparse_node16_t : dense_node_t, sparse_node16_extra_data {
-  sparse_node16_t() = default;
-  sparse_node16_t(dense_node_t dn, sparse_node16_extra_data ed)
-    : dense_node_t(dn), sparse_node16_extra_data(ed) {}
-};
-
-/** sparse_node8_t is a node of reduced size (8 bytes)
-    in a sparsely-stored forest */
-struct sparse_node8_t : dense_node_t {
-  sparse_node8_t() = default;
-  sparse_node8_t(dense_node_t dn) : dense_node_t(dn) {}
-};
-
-/** leaf_algo_t describes what the leaves in a FIL forest store (predict)
-    and how FIL aggregates them into class margins/regression result/best class
-**/
-enum leaf_algo_t {
-  /** storing a class probability or regression summand. We add all margins
-      together and determine regression result or use threshold to determine
-      one of the two classes. **/
-  FLOAT_UNARY_BINARY = 0,
-  /** storing a class label. Trees vote on the resulting class.
-      Probabilities are just normalized votes. */
-  CATEGORICAL_LEAF = 1,
-  /** 1-vs-rest, or tree-per-class, where trees are assigned round-robin to
-      consecutive categories and predict a floating-point margin. Used in
-      Gradient Boosted Decision Trees. We sum margins for each group separately
-      **/
-  GROVE_PER_CLASS = 2,
-  /** 1-vs-rest, or tree-per-class, where trees are assigned round-robin to
-      consecutive categories and predict a floating-point margin. Used in
-      Gradient Boosted Decision Trees. We sum margins for each group separately
-      This is a more specific version of GROVE_PER_CLASS.
-      _FEW_CLASSES means fewer (or as many) classes than threads. **/
-  GROVE_PER_CLASS_FEW_CLASSES = 3,
-  /** 1-vs-rest, or tree-per-class, where trees are assigned round-robin to
-      consecutive categories and predict a floating-point margin. Used in
-      Gradient Boosted Decision Trees. We sum margins for each group separately
-      This is a more specific version of GROVE_PER_CLASS.
-      _MANY_CLASSES means more classes than threads. **/
-  GROVE_PER_CLASS_MANY_CLASSES = 4,
-  // to be extended
-};
-
-template <leaf_algo_t leaf_algo>
-struct leaf_output_t {};
-template <>
-struct leaf_output_t<leaf_algo_t::FLOAT_UNARY_BINARY> {
-  typedef float T;
-};
-template <>
-struct leaf_output_t<leaf_algo_t::CATEGORICAL_LEAF> {
-  typedef int T;
-};
-template <>
-struct leaf_output_t<leaf_algo_t::GROVE_PER_CLASS_FEW_CLASSES> {
-  typedef float T;
-};
-template <>
-struct leaf_output_t<leaf_algo_t::GROVE_PER_CLASS_MANY_CLASSES> {
-  typedef float T;
-};
-
-/** node_init initializes node from paramters */
-void node_init(dense_node_t* n, val_t output, float thresh, int fid,
-               bool def_left, bool is_leaf);
-void node_init(sparse_node16_t* node, val_t output, float thresh, int fid,
-               bool def_left, bool is_leaf, int left_index);
-void node_init(sparse_node8_t* node, val_t output, float thresh, int fid,
-               bool def_left, bool is_leaf, int left_index);
-
-/** node_decode extracts individual members from node */
-void node_decode(const dense_node_t* node, val_t* output, float* thresh,
-                 int* fid, bool* def_left, bool* is_leaf);
-void node_decode(const sparse_node16_t* node, val_t* output, float* thresh,
-                 int* fid, bool* def_left, bool* is_leaf, int* left_index);
-void node_decode(const sparse_node8_t* node, val_t* output, float* thresh,
-                 int* fid, bool* def_left, bool* is_leaf, int* left_index);
+static const char* storage_type_repr[] = {"AUTO", "DENSE", "SPARSE", "SPARSE8"};
 
 struct forest;
 
 /** forest_t is the predictor handle */
 typedef forest* forest_t;
-
-/** forest_params_t are the trees to initialize the predictor */
-struct forest_params_t {
-  // total number of nodes; ignored for dense forests
-  int num_nodes;
-  // maximum depth; ignored for sparse forests
-  int depth;
-  // ntrees is the number of trees
-  int num_trees;
-  // num_cols is the number of columns in the data
-  int num_cols;
-  // leaf_algo determines what the leaves store (predict)
-  leaf_algo_t leaf_algo;
-  // algo is the inference algorithm;
-  // sparse forests do not distinguish between NAIVE and TREE_REORG
-  algo_t algo;
-  // output is the desired output type
-  output_t output;
-  // threshold is used to for classification if leaf_algo == FLOAT_UNARY_BINARY && (output & OUTPUT_CLASS) != 0 && !predict_proba,
-  // and is ignored otherwise
-  float threshold;
-  // global_bias is added to the sum of tree predictions
-  // (after averaging, if it is used, but before any further transformations)
-  float global_bias;
-  // only used for CATEGORICAL_LEAF inference. since we're storing the
-  // labels in leaves instead of the whole vector, this keeps track
-  // of the number of classes
-  int num_classes;
-};
 
 /** treelite_params_t are parameters for importing treelite models */
 struct treelite_params_t {
@@ -244,39 +117,14 @@ struct treelite_params_t {
   float threshold;
   // storage_type indicates whether the forest should be imported as dense or sparse
   storage_type_t storage_type;
+  // blocks_per_sm, if nonzero, works as a limit to improve cache hit rate for larger forests
+  // suggested values (if nonzero) are from 2 to 7
+  // if zero, launches ceildiv(num_rows, NITEMS) blocks
+  int blocks_per_sm;
+  // if non-nullptr, *pforest_shape_str will be set to caller-owned string that
+  // contains forest shape
+  char** pforest_shape_str;
 };
-
-/** init_dense uses params and nodes to initialize the dense forest stored in pf
- *  @param h cuML handle used by this function
- *  @param pf pointer to where to store the newly created forest
- *  @param nodes nodes for the forest, of length
-      (2**(params->depth + 1) - 1) * params->ntrees
- *  @param params pointer to parameters used to initialize the forest
- */
-void init_dense(const raft::handle_t& h, forest_t* pf,
-                const dense_node_t* nodes, const forest_params_t* params);
-
-/** init_sparse uses params, trees and nodes to initialize the sparse forest
- *  with 16-byte nodes stored in pf
- *  @param h cuML handle used by this function
- *  @param pf pointer to where to store the newly created forest
- *  @param trees indices of tree roots in the nodes arrray, of length params->ntrees
- *  @param nodes nodes for the forest, of length params->num_nodes
- *  @param params pointer to parameters used to initialize the forest
- */
-void init_sparse(const raft::handle_t& h, forest_t* pf, const int* trees,
-                 const sparse_node16_t* nodes, const forest_params_t* params);
-
-/** init_sparse uses params, trees and nodes to initialize the sparse forest
- *  with 8-byte nodes stored in pf
- *  @param h cuML handle used by this function
- *  @param pf pointer to where to store the newly created forest
- *  @param trees indices of tree roots in the nodes arrray, of length params->ntrees
- *  @param nodes nodes for the forest, of length params->num_nodes
- *  @param params pointer to parameters used to initialize the forest
- */
-void init_sparse(const raft::handle_t& h, forest_t* pf, const int* trees,
-                 const sparse_node8_t* nodes, const forest_params_t* params);
 
 /** from_treelite uses a treelite model to initialize the forest
  * @param handle cuML handle used by this function
