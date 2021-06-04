@@ -637,7 +637,6 @@ Please see https://github.com/rapidsai/cuml/releases/tag/v21.06.00a for the late
 - PR #1867: C++: add logging interface support in cuML based spdlog
 - PR #1902: Multi class inference in FIL C++ and importing multi-class forests from treelite
 - PR #1906: UMAP MNMG
-- PR #2126: MNMG weighted k-means
 - PR #2067: python: wrap logging interface in cython
 - PR #2083: Added dtype, order, and use_full_low_rank to MNMG `make_regression`
 - PR #2074: SG and MNMG `make_classification`
