@@ -401,7 +401,7 @@ class ForestInference(Base,
 
     **Known limitations**:
      * A single row of data should fit into the shared memory of a thread
-       block, which means that more than 5000-12288 features will infer from L1.
+       block, which means that more than 5000-12288 features will infer from L1
      * From sklearn.ensemble, only
        {RandomForest,GradientBoosting,ExtraTrees}{Classifier,Regressor} models
        are supported. Other sklearn.ensemble models are currently not
@@ -539,7 +539,7 @@ class ForestInference(Base,
 
         Parameters
         ----------
-        """ + common_predict_params_docstring
+        """ + common_predict_params_docstring +
         """
         preds: gpuarray or cudf.Series, shape = (n_samples,)
            Optional 'out' location to store inference results
@@ -559,7 +559,7 @@ class ForestInference(Base,
 
         Parameters
         ----------
-        """ + common_predict_params_docstring
+        """ + common_predict_params_docstring +
         """
         preds: gpuarray or cudf.Series, shape = (n_samples,2)
            Binary probability output
@@ -588,7 +588,7 @@ class ForestInference(Base,
             the trained model information in the treelite format
             loaded from a saved model using the treelite API
             https://treelite.readthedocs.io/en/latest/treelite-api.html
-        """ + common_load_params_docstring
+        """ + common_load_params_docstring +
         """
         Returns
         ----------
@@ -624,7 +624,7 @@ class ForestInference(Base,
         ----------
         skl_model
             The scikit-learn model from which to build the FIL version.
-        """ + common_load_params_docstring
+        """ + common_load_params_docstring +
         """
 
         Returns
@@ -664,7 +664,7 @@ class ForestInference(Base,
             Path to saved model file in a treelite-compatible format
             (See https://treelite.readthedocs.io/en/latest/treelite-api.html
             for more information)
-        """ + common_load_params_docstring
+        """ + common_load_params_docstring +
         """
         model_type : string (default="xgboost")
             Format of the saved treelite model to be load.
@@ -702,7 +702,7 @@ class ForestInference(Base,
         model_handle : Modelhandle to the treelite forest model
             (See https://treelite.readthedocs.io/en/latest/treelite-api.html
             for more information)
-        """ + common_load_params_docstring
+        """ + common_load_params_docstring +
         """
 
         Returns
