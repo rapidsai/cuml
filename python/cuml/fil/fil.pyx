@@ -401,7 +401,7 @@ class ForestInference(Base,
 
     **Known limitations**:
      * A single row of data should fit into the shared memory of a thread
-       block, which means that more than 12288 features are not supported.
+       block, which means that more than 5000-12288 features will infer from L1.
      * From sklearn.ensemble, only
        {RandomForest,GradientBoosting,ExtraTrees}{Classifier,Regressor} models
        are supported. Other sklearn.ensemble models are currently not
@@ -466,6 +466,59 @@ class ForestInference(Base,
 
     """
 
+    common_load_params_docstring = """
+    output_class: boolean (default=False)
+        For a Classification model `output_class` must be True.
+        For a Regression model `output_class` must be False.
+    algo : string (default='auto')
+        Name of the algo from (from algo_t enum):
+
+         - ``'AUTO'`` or ``'auto'``: Choose the algorithm automatically.
+           Currently 'BATCH_TREE_REORG' is used for dense storage,
+           and 'NAIVE' for sparse storage
+         - ``'NAIVE'`` or ``'naive'``: Simple inference using shared memory
+         - ``'TREE_REORG'`` or ``'tree_reorg'``: Similar to naive but trees
+           rearranged to be more coalescing-friendly
+         - ``'BATCH_TREE_REORG'`` or ``'batch_tree_reorg'``: Similar to
+           TREE_REORG but predicting multiple rows per thread block
+
+    threshold : float (default=0.5)
+        Threshold is used to for classification. It is applied
+        only if ``output_class == True``, else it is ignored.
+    storage_type : string or boolean (default='auto')
+        In-memory storage format to be used for the FIL model:
+
+         - ``'auto'``: Choose the storage type automatically
+           (currently DENSE is always used)
+         - ``False``: Create a dense forest
+         - ``True``: Create a sparse forest. Requires algo='NAIVE' or
+           algo='AUTO'
+
+    blocks_per_sm : integer (default=0)
+        (experimental) Indicates how the number of thread blocks to lauch
+        for the inference kernel is determined.
+
+        - ``0`` (default): Launches the number of blocks proportional to
+          the number of data rows
+        - ``>= 1``: Attempts to lauch blocks_per_sm blocks per SM. This
+          will fail if blocks_per_sm blocks result in more threads than the
+          maximum supported number of threads per GPU. Even if successful,
+          it is not guaranteed that blocks_per_sm blocks will run on an SM
+          concurrently.
+    compute_shape_str : boolean (default=False)
+        if True or equivalent, creates a ForestInference.shape_str
+        (writes a human-readable forest shape description as a
+        multiline ascii string)
+    """
+
+    common_predict_params_docstring = """
+    X : array-like (device or host) shape = (n_samples, n_features)
+       Dense matrix (floats) of shape (n_samples, n_features).
+       Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
+       ndarray, cuda array interface compliant array like CuPy
+       For optimal performance, pass a device array with C-style layout
+    """
+
     def __init__(self, *,
                  handle=None,
                  output_type=None,
@@ -486,11 +539,8 @@ class ForestInference(Base,
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-           Dense matrix (floats) of shape (n_samples, n_features).
-           Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-           ndarray, cuda array interface compliant array like CuPy
-           For optimal performance, pass a device array with C-style layout
+        """ + common_predict_params_docstring
+        """
         preds: gpuarray or cudf.Series, shape = (n_samples,)
            Optional 'out' location to store inference results
 
@@ -509,11 +559,8 @@ class ForestInference(Base,
 
         Parameters
         ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-           Dense matrix (floats) of shape (n_samples, n_features).
-           Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-           ndarray, cuda array interface compliant array like CuPy
-           For optimal performance, pass a device array with C-style layout
+        """ + common_predict_params_docstring
+        """
         preds: gpuarray or cudf.Series, shape = (n_samples,2)
            Binary probability output
            Optional 'out' location to store inference results
@@ -541,53 +588,8 @@ class ForestInference(Base,
             the trained model information in the treelite format
             loaded from a saved model using the treelite API
             https://treelite.readthedocs.io/en/latest/treelite-api.html
-        output_class: boolean (default=False)
-            For a Classification model `output_class` must be True.
-            For a Regression model `output_class` must be False.
-        algo : string (default='auto')
-            Name of the algo from (from algo_t enum):
-
-             - ``'AUTO'`` or ``'auto'``: choose the algorithm automatically.
-               Currently 'BATCH_TREE_REORG' is used for dense storage,
-               and 'NAIVE' for sparse storage
-             - ``'NAIVE'`` or ``'naive'``: simple inference using shared memory
-             - ``'TREE_REORG'`` or ``'tree_reorg'``: similar to naive but trees
-               rearranged to be more coalescing-friendly
-             - ``'BATCH_TREE_REORG'`` or ``'batch_tree_reorg'``: similar to
-               TREE_REORG but predicting multiple rows per thread block
-
-        threshold : float (default=0.5)
-            Threshold is used to for classification. It is applied
-            only if ``output_class == True``, else it is ignored.
-        storage_type : string or boolean (default='auto')
-            In-memory storage format to be used for the FIL model:
-
-             - ``'auto'``: Choose the storage type automatically
-               (currently DENSE is always used)
-             - ``False``: Create a dense forest
-             - ``True``: Create a sparse forest. Requires algo='NAIVE' or
-               algo='AUTO'
-             - ``'sparse8'``: (experimental) Create a sparse forest with 8-byte
-               nodes. Requires algo='NAIVE' or algo='AUTO'. Can fail if 8-byte
-               nodes are not enough to store the forest, e.g. if there are too
-               many nodes in a tree or too many features
-
-        blocks_per_sm : integer (default=0)
-            (experimental) Indicates how the number of thread blocks to lauch
-            for the inference kernel is determined.
-
-            - ``0`` (default): Launches the number of blocks proportional to
-              the number of data rows
-            - ``>= 1``: Attempts to lauch blocks_per_sm blocks per SM. This
-              will fail if blocks_per_sm blocks result in more threads than the
-              maximum supported number of threads per GPU. Even if successful,
-              it is not guaranteed that blocks_per_sm blocks will run on an SM
-              concurrently.
-        compute_shape_str : boolean (default=False)
-            if True or equivalent, creates a ForestInference.shape_str
-            (writes a human-readable forest shape description as a
-            multiline ascii string)
-
+        """ + common_load_params_docstring
+        """
         Returns
         ----------
         fil_model
@@ -622,48 +624,8 @@ class ForestInference(Base,
         ----------
         skl_model
             The scikit-learn model from which to build the FIL version.
-        output_class: boolean (default=False)
-            For a Classification model `output_class` must be True.
-            For a Regression model `output_class` must be False.
-        algo : string (default='auto')
-            Name of the algo from (from algo_t enum):
-
-             - ``'AUTO'`` or ``'auto'``: Choose the algorithm automatically.
-               Currently 'BATCH_TREE_REORG' is used for dense storage,
-               and 'NAIVE' for sparse storage
-             - ``'NAIVE'`` or ``'naive'``: Simple inference using shared memory
-             - ``'TREE_REORG'`` or ``'tree_reorg'``: Similar to naive but trees
-               rearranged to be more coalescing-friendly
-             - ``'BATCH_TREE_REORG'`` or ``'batch_tree_reorg'``: Similar to
-               TREE_REORG but predicting multiple rows per thread block
-
-        threshold : float (default=0.5)
-            Threshold is used to for classification. It is applied
-            only if ``output_class == True``, else it is ignored.
-        storage_type : string or boolean (default='auto')
-            In-memory storage format to be used for the FIL model:
-
-             - ``'auto'``: Choose the storage type automatically
-               (currently DENSE is always used)
-             - ``False``: Create a dense forest
-             - ``True``: Create a sparse forest. Requires algo='NAIVE' or
-               algo='AUTO'
-
-        blocks_per_sm : integer (default=0)
-            (experimental) Indicates how the number of thread blocks to lauch
-            for the inference kernel is determined.
-
-            - ``0`` (default): Launches the number of blocks proportional to
-              the number of data rows
-            - ``>= 1``: Attempts to lauch blocks_per_sm blocks per SM. This
-              will fail if blocks_per_sm blocks result in more threads than the
-              maximum supported number of threads per GPU. Even if successful,
-              it is not guaranteed that blocks_per_sm blocks will run on an SM
-              concurrently.
-        compute_shape_str : boolean (default=False)
-            if True or equivalent, creates a ForestInference.shape_str
-            (writes a human-readable forest shape description as a
-            multiline ascii string)
+        """ + common_load_params_docstring
+        """
 
         Returns
         ----------
@@ -702,33 +664,8 @@ class ForestInference(Base,
             Path to saved model file in a treelite-compatible format
             (See https://treelite.readthedocs.io/en/latest/treelite-api.html
             for more information)
-        output_class: boolean (default=False)
-            For a Classification model `output_class` must be True.
-            For a Regression model `output_class` must be False.
-        threshold : float (default=0.5)
-            Cutoff value above which a prediction is set to 1.0
-            Only used if the model is classification and `output_class` is True
-        algo : string (default='auto')
-            Which inference algorithm to use.
-            See documentation in `FIL.load_from_treelite_model`
-        storage_type : string (default='auto')
-            In-memory storage format to be used for the FIL model.
-            See documentation in `FIL.load_from_treelite_model`
-        blocks_per_sm : integer (default=0)
-            (experimental) Indicates how the number of thread blocks to lauch
-            for the inference kernel is determined.
-
-            - ``0`` (default): Launches the number of blocks proportional to
-              the number of data rows
-            - ``>= 1``: Attempts to lauch blocks_per_sm blocks per SM. This
-              will fail if blocks_per_sm blocks result in more threads than the
-              maximum supported number of threads per GPU. Even if successful,
-              it is not guaranteed that blocks_per_sm blocks will run on an SM
-              concurrently.
-        compute_shape_str : boolean (default=False)
-            if True or equivalent, creates a ForestInference.shape_str
-            (writes a human-readable forest shape description as a
-            multiline ascii string)
+        """ + common_load_params_docstring
+        """
         model_type : string (default="xgboost")
             Format of the saved treelite model to be load.
             It can be 'xgboost', 'xgboost_json', 'lightgbm'.
@@ -765,33 +702,8 @@ class ForestInference(Base,
         model_handle : Modelhandle to the treelite forest model
             (See https://treelite.readthedocs.io/en/latest/treelite-api.html
             for more information)
-        output_class: boolean (default=False)
-            For a Classification model `output_class` must be True.
-            For a Regression model `output_class` must be False.
-        threshold : float (default=0.5)
-            Cutoff value above which a prediction is set to 1.0
-            Only used if the model is classification and `output_class` is True
-        algo : string (default='auto')
-            Which inference algorithm to use.
-            See documentation in `FIL.load_from_treelite_model`
-        storage_type : string (default='auto')
-            In-memory storage format to be used for the FIL model.
-            See documentation in `FIL.load_from_treelite_model`
-        blocks_per_sm : integer (default=0)
-            (experimental) Indicates how the number of thread blocks to lauch
-            for the inference kernel is determined.
-
-            - ``0`` (default): Launches the number of blocks proportional to
-              the number of data rows
-            - ``>= 1``: Attempts to lauch blocks_per_sm blocks per SM. This
-              will fail if blocks_per_sm blocks result in more threads than the
-              maximum supported number of threads per GPU. Even if successful,
-              it is not guaranteed that blocks_per_sm blocks will run on an SM
-              concurrently.
-        compute_shape_str : boolean (default=False)
-            if True or equivalent, creates a ForestInference.shape_str
-            (writes a human-readable forest shape description as a
-            multiline ascii string)
+        """ + common_load_params_docstring
+        """
 
         Returns
         ----------
