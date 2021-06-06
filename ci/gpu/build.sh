@@ -192,7 +192,7 @@ else
     CONDA_FILE=`basename "$CONDA_FILE" .tar.bz2` #get filename without extension
     CONDA_FILE=${CONDA_FILE//-/=} #convert to conda install
     gpuci_logger "Installing $CONDA_FILE"
-    conda install -c ${CONDA_ARTIFACT_PATH} "$CONDA_FILE"
+    mamba install -c ${CONDA_ARTIFACT_PATH} "$CONDA_FILE"
 
     # Installing xgboost 21.06 in the install above was causing conflicts
     gpuci_conda_retry remove --force rapids-build-env rapids-notebook-env
