@@ -45,8 +45,10 @@ gpuci_logger "Activate conda env"
 . /opt/conda/etc/profile.d/conda.sh
 conda activate rapids
 
+gpuci_conda_retry install -c conda-forge mamba
+
 gpuci_logger "Install dependencies"
-gpuci_conda_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
+mamba install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "cudatoolkit=${CUDA_REL}" \
       "cudf=${MINOR_VERSION}" \
       "rmm=${MINOR_VERSION}" \
@@ -66,7 +68,7 @@ gpuci_conda_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
 
 # Installing xgboost 21.06 in the install above was causing conflicts
 gpuci_conda_retry remove --force rapids-build-env rapids-notebook-env
-gpuci_conda_retry install -y -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia "xgboost=1.4.2dev.rapidsai21.06"
+mamba install -y -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia "xgboost=1.4.2dev.rapidsai21.06"
 
 gpuci_logger "Install contextvars if needed"
 py_ver=$(python -c "import sys; print('.'.join(map(str, sys.version_info[:2])))")
