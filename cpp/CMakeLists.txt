@@ -225,6 +225,8 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/glm/glm.cu
     src/genetic/genetic.cu
     src/genetic/node.cu
+    src/hdbscan/hdbscan.cu
+    src/hdbscan/condensed_hierarchy.cu
     src/holtwinters/holtwinters.cu
     src/kmeans/kmeans.cu
     src/knn/knn.cu
