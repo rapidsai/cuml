@@ -53,7 +53,7 @@ gpuci_conda_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
       "libcumlprims=${MINOR_VERSION}" \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
-      "ucx-py=0.21" \
+      "ucx-py=0.20.*" \
       "ucx-proc=*=gpu" \
       "xgboost=1.4.2dev.rapidsai21.06" \
       "rapids-build-env=${MINOR_VERSION}.*" \
@@ -122,8 +122,8 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
 
     gpuci_logger "Install the main version of dask and distributed"
     set -x
-    pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
-    pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
+    pip install "git+https://github.com/dask/distributed.git@2021.05.1" --upgrade --no-deps
+    pip install "git+https://github.com/dask/dask.git@2021.05.1" --upgrade --no-deps
     set +x
 
     gpuci_logger "Python pytest for cuml"
@@ -195,8 +195,8 @@ else
 
     gpuci_logger "Install the main version of dask and distributed"
     set -x
-    pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
-    pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
+    pip install "git+https://github.com/dask/distributed.git@2021.05.1" --upgrade --no-deps
+    pip install "git+https://github.com/dask/dask.git@2021.05.1" --upgrade --no-deps
     set +x
 
     gpuci_logger "Building cuml"

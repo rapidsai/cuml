@@ -47,6 +47,8 @@ if(BUILD_CUML_TESTS)
     sg/fnv_hash_test.cpp
     sg/genetic/node_test.cpp
     sg/genetic/param_test.cu
+    sg/handle_test.cu
+    sg/hdbscan_test.cu
     sg/holtwinters_test.cu
     sg/kmeans_test.cu
     sg/knn_test.cu
