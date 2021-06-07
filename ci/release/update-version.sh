@@ -40,7 +40,7 @@ for FILE in conda/environments/*.yml; do
    sed_runner "s/rmm=${CURRENT_SHORT_TAG}/rmm=${NEXT_SHORT_TAG}/g" ${FILE};
    sed_runner "s/dask-cuda=${CURRENT_SHORT_TAG}/dask-cuda=${NEXT_SHORT_TAG}/g" ${FILE};
    sed_runner "s/dask-cudf=${CURRENT_SHORT_TAG}/dask-cudf=${NEXT_SHORT_TAG}/g" ${FILE};
-   sed_runner "s/ucx-py=${CURRENT_SHORT_TAG}/ucx-py=${NEXT_SHORT_TAG}/g" ${FILE};
+   sed_runner "s/ucx-py=0.20/ucx-py=0.20/g" ${FILE};
    sed_runner "s/libcumlprims=${CURRENT_SHORT_TAG}/libcumlprims=${NEXT_SHORT_TAG}/g" ${FILE};
    sed_runner "s/rapids-build-env=${CURRENT_SHORT_TAG}/rapids-build-env=${NEXT_SHORT_TAG}/g" ${FILE};
    sed_runner "s/rapids-notebook-env=${CURRENT_SHORT_TAG}/rapids-notebook-env=${NEXT_SHORT_TAG}/g" ${FILE};
