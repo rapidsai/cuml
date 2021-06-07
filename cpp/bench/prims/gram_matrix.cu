@@ -15,6 +15,7 @@
  */
 
 #include <cuml/matrix/kernelparams.h>
+#include <common/ml_benchmark.hpp>
 #include <matrix/grammatrix.cuh>
 #include <matrix/kernelfactory.cuh>
 #include <memory>
@@ -23,7 +24,6 @@
 #include <sstream>
 #include <string>
 #include <vector>
-#include "../common/ml_benchmark.hpp"
 
 namespace MLCommon {
 namespace Bench {

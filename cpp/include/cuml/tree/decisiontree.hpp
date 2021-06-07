@@ -66,7 +66,7 @@ struct DecisionTreeParams {
   float min_impurity_decrease = 0.0f;
 
   /**
-   * Maximum number of nodes that can be processed in a given batch. This is 
+   * Maximum number of nodes that can be processed in a given batch. This is
    * used only for batched-level algo
    */
   int max_batch_size;
@@ -88,7 +88,7 @@ struct DecisionTreeParams {
  * @param[in] cfg_split_criterion: split criterion; default CRITERION_END,
  *            i.e., GINI for classification or MSE for regression
  * @param[in] cfg_max_batch_size: Maximum number of nodes that can be processed
-              in a batch. This is used only for batched-level algo. Default 
+              in a batch. This is used only for batched-level algo. Default
               value 128.
  */
 void set_tree_params(DecisionTreeParams &params, int cfg_max_depth = -1,

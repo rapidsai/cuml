@@ -134,6 +134,11 @@ class RandomForestClassifier(BaseRandomForestModel,
       histogram-based algorithm to determine splits, rather than an exact
       count. You can tune the size of the histograms with the n_bins parameter.
 
+    .. note:: You can export cuML Random Forest models and run predictions
+      with them on machines without an NVIDIA GPUs. See
+      https://docs.rapids.ai/api/cuml/nightly/pickling_cuml_models.html
+      for more details.
+
     **Known Limitations**: This is an early release of the cuML
     Random Forest code. It contains a few known limitations:
 
@@ -193,9 +198,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         (default = 0)
     split_algo : int (default = 1)
         Deprecated and currrently has no effect.
-        .. deprecated:: 0.20
-           Parameter 'split_algo' is deprecated and will be removed in
-           subsequent release.
+        .. deprecated:: 21.06
     bootstrap : boolean (default = True)
         Control bootstrapping.
         If True, each tree in the forest is built
@@ -242,9 +245,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         node to be spilt.
     use_experimental_backend : boolean (default = True)
         Deprecated and currrently has no effect.
-        .. deprecated:: 0.20
-           Parameter 'use_experimental_backend' is deprecated and will
-           be removed in subsequent release.
+        .. deprecated:: 21.06
     max_batch_size: int (default = 128)
         Maximum number of nodes that can be processed in a given batch. This is
         used only when 'use_experimental_backend' is true. Does not currently

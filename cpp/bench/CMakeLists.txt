@@ -14,14 +14,12 @@
 # limitations under the License.
 #=============================================================================
 
-cmake_policy(SET CMP0079 NEW)
-
 ##############################################################################
 # - build cuml bench executable ----------------------------------------------
 
 if(BUILD_CUML_BENCH)
   # (please keep the filenames in alphabetical order)
-  add_executable(sg_benchmark
+  add_executable(${CUML_CPP_BENCH_TARGET}
     sg/arima_loglikelihood.cu
     sg/dbscan.cu
     sg/kmeans.cu
@@ -35,16 +33,23 @@ if(BUILD_CUML_BENCH)
     sg/svr.cu
     sg/umap.cu
     sg/fil.cu
-    )
+  )
 
-  target_link_libraries(sg_benchmark
-    ${CUML_CPP_TARGET}
-    benchmarklib)
+  target_compile_options(${CUML_CPP_BENCH_TARGET}
+        PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CUML_CXX_FLAGS}>"
+                "$<$<COMPILE_LANGUAGE:CUDA>:${CUML_CUDA_FLAGS}>"
+  )
 
-  target_include_directories(sg_benchmark
-    PRIVATE 
-      ${GBENCH_DIR}/include
-      ${CUML_SRC_PRIMS_DIR}
+  target_link_libraries(${CUML_CPP_BENCH_TARGET}
+    PUBLIC
+      cuml
+      benchmark::benchmark
+      raft::raft
+  )
+
+  target_include_directories(${CUML_CPP_BENCH_TARGET}
+    PRIVATE
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src_prims>
   )
 endif(BUILD_CUML_BENCH)
 
@@ -53,7 +58,7 @@ endif(BUILD_CUML_BENCH)
 
 if(BUILD_CUML_PRIMS_BENCH)
   # (please keep the filenames in alphabetical order)
-  add_executable(prims_benchmark
+  add_executable(${PRIMS_BENCH_TARGET}
     prims/add.cu
     prims/distance_cosine.cu
     prims/distance_exp_l2.cu
@@ -69,21 +74,22 @@ if(BUILD_CUML_PRIMS_BENCH)
     prims/reduce.cu
     prims/rng.cu)
 
-  if(NOT CUB_IS_PART_OF_CTK)
-    add_dependencies(prims_benchmark cub)
-  endif(NOT CUB_IS_PART_OF_CTK)
-  add_dependencies(prims_benchmark spdlog)
-
-  target_link_libraries(prims_benchmark 
-    PUBLIC
-      ${CUDA_cublas_LIBRARY}
-      benchmarklib
-      ${CUML_CPP_TARGET}
+  target_compile_options(${PRIMS_BENCH_TARGET}
+        PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CUML_CXX_FLAGS}>"
+                "$<$<COMPILE_LANGUAGE:CUDA>:${CUML_CUDA_FLAGS}>"
   )
 
-  target_include_directories(prims_benchmark
-    PRIVATE 
-      ${GBENCH_DIR}/include
-      ${CUML_SRC_PRIMS_DIR}
+  target_link_libraries(${PRIMS_BENCH_TARGET}
+    PUBLIC
+      cuml
+      CUDA::cublas
+      benchmark::benchmark
+      raft::raft
+  )
+
+  target_include_directories(${PRIMS_BENCH_TARGET}
+    PRIVATE
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src_prims>
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   )
 endif(BUILD_CUML_PRIMS_BENCH)

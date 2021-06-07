@@ -117,6 +117,11 @@ class RandomForestRegressor(BaseRandomForestModel,
       histogram-based algorithm to determine splits, rather than an exact
       count. You can tune the size of the histograms with the n_bins parameter.
 
+    .. note:: You can export cuML Random Forest models and run predictions
+      with them on machines without an NVIDIA GPUs. See
+      https://docs.rapids.ai/api/cuml/nightly/pickling_cuml_models.html
+      for more details.
+
     **Known Limitations**: This is an early release of the cuML
     Random Forest code. It contains a few known limitations:
 
@@ -138,10 +143,11 @@ class RandomForestRegressor(BaseRandomForestModel,
         from cuml.test.utils import get_handle
         X = np.asarray([[0,10],[0,20],[0,30],[0,40]], dtype=np.float32)
         y = np.asarray([0.0,1.0,2.0,3.0], dtype=np.float32)
-        cuml_model = curfc(max_features=1.0, n_bins=8,
+        cuml_model = curfc(max_features=1.0, n_bins=128,
                             split_algo=0, min_samples_leaf=1,
                             min_samples_split=2,
-                            n_estimators=40, accuracy_metric='r2')
+                            n_estimators=40, accuracy_metric='r2',
+                            use_experimental_backend=False)
         cuml_model.fit(X,y)
         cuml_score = cuml_model.score(X,y)
         print("MSE score of cuml : ", cuml_score)
@@ -158,9 +164,15 @@ class RandomForestRegressor(BaseRandomForestModel,
         Number of trees in the forest. (Default changed to 100 in cuML 0.11)
     split_algo : int (default = 1)
         The algorithm to determine how nodes are split in the tree.
-        0 for HIST and 1 for GLOBAL_QUANTILE. HIST currently uses a slower
-        tree-building algorithm so GLOBAL_QUANTILE is recommended for most
-        cases.
+        Can be changed only for the old backend [deprecated].
+        0 for HIST and 1 for GLOBAL_QUANTILE. Default is GLOBAL_QUANTILE.
+        The default backend does not support HIST.
+        HIST currently uses a slower tree-building algorithm so
+        GLOBAL_QUANTILE is recommended for most cases.
+
+        .. deprecated:: 21.06
+           Parameter 'split_algo' is deprecated and will be removed in
+           subsequent release.
     split_criterion : int (default = 2)
         The criterion used to split nodes.
         0 for GINI, 1 for ENTROPY,
@@ -220,9 +232,7 @@ class RandomForestRegressor(BaseRandomForestModel,
         for mean square error' : 'mse'
     use_experimental_backend : boolean (default = True)
         Deprecated and currrently has no effect.
-        .. deprecated:: 0.20
-           Parameter 'use_experimental_backend is deprecated and will
-           be removed in subsequent release.
+        .. deprecated:: 21.06
     max_batch_size: int (default = 128)
         Maximum number of nodes that can be processed in a given batch. This is
         used only when 'use_experimental_backend' is true.

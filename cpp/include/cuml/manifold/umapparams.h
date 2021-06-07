@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -146,13 +146,16 @@ class UMAPParams {
 
   MetricType target_metric = CATEGORICAL;
 
-  float target_weights = 0.5;
+  float target_weight = 0.5;
 
   uint64_t random_state = 0;
 
-  bool multicore_implem = true;
-
-  int optim_batch_size = 0;
+  /**
+   *  Whether should we use deterministic algorithm.  This should be set to true if
+      random_state is provided, otherwise it's false.  When it's true, cuml will have
+      higher memory usage but produce stable numeric output.
+   */
+  bool deterministic = true;
 
   Internals::GraphBasedDimRedCallback* callback = nullptr;
 };
