@@ -45,18 +45,17 @@ gpuci_logger "Activate conda env"
 . /opt/conda/etc/profile.d/conda.sh
 conda activate rapids
 
-gpuci_conda_retry install -c conda-forge mamba
-
 gpuci_logger "Install dependencies"
-mamba install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
+gpuci_conda_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "cudatoolkit=${CUDA_REL}" \
       "cudf=${MINOR_VERSION}" \
       "rmm=${MINOR_VERSION}" \
       "libcumlprims=${MINOR_VERSION}" \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
-      "ucx-py=0.21" \
+      "ucx-py=${MINOR_VERSION}" \
       "ucx-proc=*=gpu" \
+      # "xgboost=1.4.2dev.rapidsai${MINOR_VERSION}" \
       "rapids-build-env=${MINOR_VERSION}.*" \
       "rapids-notebook-env=${MINOR_VERSION}.*" \
       "rapids-doc-env=${MINOR_VERSION}.*" \
@@ -192,11 +191,7 @@ else
     CONDA_FILE=`basename "$CONDA_FILE" .tar.bz2` #get filename without extension
     CONDA_FILE=${CONDA_FILE//-/=} #convert to conda install
     gpuci_logger "Installing $CONDA_FILE"
-    mamba install -c ${CONDA_ARTIFACT_PATH} "$CONDA_FILE"
-
-    # Installing xgboost 21.06 in the install above was causing conflicts
-    gpuci_conda_retry remove --force rapids-build-env rapids-notebook-env
-    mamba install -y -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia "xgboost=1.4.2dev.rapidsai21.06"
+    conda install -c ${CONDA_ARTIFACT_PATH} "$CONDA_FILE"
 
     gpuci_logger "Install the main version of dask and distributed"
     set -x
