@@ -1,6 +1,6 @@
 # cuML 21.08.00 (Date TBD)
 
-Please see https://github.com/rapidsai/cuml/releases/tag/v21.08.0a for the latest changes to this development branch.
+Please see https://github.com/rapidsai/cuml/releases/tag/v21.08.00a for the latest changes to this development branch.
 
 # cuML 21.06.00 (Date TBD)
 
