@@ -1,5 +1,5 @@
 #!/bin/bash
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 ########################
 # cuML Version Updater #
 ########################
