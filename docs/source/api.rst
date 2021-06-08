@@ -165,8 +165,8 @@ Metrics (regression, classification, and distance)
   .. automodule:: cuml.metrics.pairwise_distances
     :members:
 
-Metrics (clustering and trustworthiness)
-----------------------------------------
+Metrics (clustering and manifold learning)
+------------------------------------------
   .. automodule:: cuml.metrics.trustworthiness
     :members:
 
@@ -556,6 +556,12 @@ Preprocessing
       Normalizer, RobustScaler, SimpleImputer, StandardScaler,
       add_dummy_feature, binarize, minmax_scale, normalize,
       PolynomialFeatures, robust_scale, scale
+
+Clustering
+----------
+
+.. autoclass:: cuml.experimental.cluster.HDBSCAN
+   :members:
 
 Linear Models
 -------------

@@ -225,6 +225,8 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/glm/glm.cu
     src/genetic/genetic.cu
     src/genetic/node.cu
+    src/hdbscan/hdbscan.cu
+    src/hdbscan/condensed_hierarchy.cu
     src/holtwinters/holtwinters.cu
     src/kmeans/kmeans.cu
     src/knn/knn.cu
@@ -375,6 +377,7 @@ if(BUILD_CUML_C_LIBRARY)
   target_link_libraries(${CUML_C_TARGET}
     PUBLIC
       ${CUML_CPP_TARGET}
+    PRIVATE
       FAISS::FAISS
   )
 
@@ -447,6 +450,13 @@ rapids_export(BUILD cuml
     DOCUMENTATION doc_string
     FINAL_CODE_BLOCK code_string
     )
+
+##############################################################################
+# - build benchmark executable -----------------------------------------------
+
+if(BUILD_CUML_BENCH OR BUILD_CUML_PRIMS_BENCH)
+  add_subdirectory(bench)
+endif(BUILD_CUML_BENCH)
 
 ##############################################################################
 # - doxygen targets ----------------------------------------------------------

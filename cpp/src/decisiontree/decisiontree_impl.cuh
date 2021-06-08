@@ -138,9 +138,6 @@ std::string get_node_json(const std::string &prefix,
     if (node.instance_count != UINT32_MAX) {
       oss << ", \"instance_count\": " << node.instance_count;
     }
-    if (node.quesval >= 0) {
-      oss << ", \"positive_fraction\": " << node.quesval;
-    }
     oss << "}";
   }
   return oss.str();
@@ -205,21 +202,7 @@ tl::Tree<T, T> build_treelite_tree(
 
       } else {
         if (num_class == 1) {
-          if (std::is_same<decltype(q_node.node->prediction), int>::value) {
-            // Binary classification; use fraction of the positive class
-            // to produce a "soft output"
-            // Note. The old RF backend doesn't provide this fraction
-            static_assert(std::is_floating_point<T>::value,
-                          "Expected T to be a floating-point type");
-            if (q_node.node->quesval >= 0) {
-              tl_tree.SetLeaf(node_id, static_cast<T>(q_node.node->quesval));
-            } else {
-              tl_tree.SetLeaf(node_id, static_cast<T>(q_node.node->prediction));
-            }
-          } else {
-            // Regression
-            tl_tree.SetLeaf(node_id, static_cast<T>(q_node.node->prediction));
-          }
+          tl_tree.SetLeaf(node_id, static_cast<T>(q_node.node->prediction));
         } else {
           std::vector<T> leaf_vector(num_class, 0);
           leaf_vector[q_node.node->prediction] = 1;
@@ -439,14 +422,17 @@ void DecisionTreeBase<T, L>::base_fit(
     dinfo.NGlobalrows = nrows;
     dinfo.Ncols = ncols;
     n_unique_labels = unique_labels;
-    if (treeid == 0) {
-      CUML_LOG_WARN("Using experimental backend for growing trees\n");
-    }
     grow_tree(device_allocator_in, host_allocator_in, data, treeid, seed, ncols,
               nrows, labels, d_global_quantiles, (int *)rowids, n_sampled_rows,
               unique_labels, tree_params, stream_in, sparsetree,
               this->leaf_counter, this->depth_counter);
   } else {
+    if (treeid == 0) {
+      CUML_LOG_WARN(
+        "The old backend is deprecated and will be removed in 21.08 "
+        "release.\n");
+      CUML_LOG_WARN("Using old backend for growing trees\n");
+    }
     plant(sparsetree, data, ncols, nrows, labels, rowids, n_sampled_rows,
           unique_labels, treeid, seed);
     if (in_tempmem == nullptr) {

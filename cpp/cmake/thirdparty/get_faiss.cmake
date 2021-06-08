@@ -39,7 +39,7 @@ function(find_and_configure_faiss)
     )
 
     if(FAISS_ADDED)
-      set(FAISS_GPU_HEADERS ${FAISS_SOURCE_DIR} PARENT_SCOPE)
+      target_include_directories(faiss INTERFACE $<BUILD_INTERFACE:${FAISS_SOURCE_DIR}>)
       add_library(FAISS::FAISS ALIAS faiss)
     endif()
 
