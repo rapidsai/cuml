@@ -77,8 +77,8 @@ struct ClsDeviceTraits {
                                    const Input<DataT, LabelT, IdxT>& input,
                                    volatile Node<DataT, LabelT, IdxT>* nodes,
                                    IdxT* n_leaves, void* smem) {
-    // typedef cub::BlockReduce<int2, TPB> BlockReduceT;
-    // __shared__ typename BlockReduceT::TempStorage temp;
+    typedef cub::BlockReduce<int2, TPB> BlockReduceT;
+    __shared__ typename BlockReduceT::TempStorage temp;
     auto* shist = reinterpret_cast<int*>(smem);
     auto tid = threadIdx.x;
     for (int i = tid; i < input.nclasses; i += blockDim.x) shist[i] = 0;
@@ -294,7 +294,6 @@ HDI IdxT round_to_16x(IdxT in_size) {
   IdxT padding = (16 - (in_size % 16)) % 16;
   out_size = in_size + padding;
 }
-
 
 // 32-bit FNV1a hash
 // Reference: http://www.isthe.com/chongo/tech/comp/fnv/index.html
