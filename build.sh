@@ -50,11 +50,12 @@ HELP="$0 [<target> ...] [<flag> ...]
  default action (no args) is to build and install 'libcuml', 'cuml', and 'prims' targets only for the detected GPU arch
 
  The following environment variables are also accepted to allow further customization:
-   PARALLEL_LEVEL         - Number of parallel threads to use in compilation.
-   CUML_EXTRA_CMAKE_ARGS  - Extra arguments to pass directly to cmake. Values listed in environment
-                            variable will override existing arguments. Example:
-                            CUML_EXTRA_CMAKE_ARGS=\"-DBUILD_CUML_C_LIBRARY=OFF\" ./build.sh
-   CUML_EXTRA_PYTHON_ARGS - Extra argument to pass directly to python setup.py
+   PARALLEL_LEVEL           - Number of parallel threads to use in compilation.
+   CUML_EXTRA_CMAKE_ARGS    - Extra arguments to pass directly to cmake. Values listed in environment
+                              variable will override existing arguments. Example:
+                              CUML_EXTRA_CMAKE_ARGS=\"-DBUILD_CUML_C_LIBRARY=OFF\" ./build.sh
+   CUML_EXTRA_PYTHON_ARGS   - Extra argument to pass directly to python setup.py
+   CMAKE_CUDA_ARCHITECTURES - Override the list of CUDA architecture for which to build cuML
 "
 LIBCUML_BUILD_DIR=${LIBCUML_BUILD_DIR:=${REPODIR}/cpp/build}
 CUML_BUILD_DIR=${REPODIR}/python/build
@@ -92,6 +93,8 @@ export CMAKE_GENERATOR="${CMAKE_GENERATOR:=Ninja}"
 # CUML_EXTRA_CMAKE_ARGS="-DBUILD_CUML_C_LIBRARY=OFF" ./build.sh
 # Will disable building the C library even though it is hard coded to ON
 CUML_EXTRA_CMAKE_ARGS=${CUML_EXTRA_CMAKE_ARGS:=""}
+
+CMAKE_CUDA_ARCHITECTURES=${CMAKE_CUDA_ARCHITECTURES:=""}
 
 function hasArg {
     (( ${NUMARGS} != 0 )) && (echo " ${ARGS} " | grep -q " $1 ")
@@ -220,7 +223,10 @@ fi
 ################################################################################
 # Configure for building all C++ targets
 if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg prims-bench || hasArg cppdocs || hasArg cpp-mgtests; then
-    if (( ${BUILD_ALL_GPU_ARCH} == 0 )); then
+    if [ ! -z ${CMAKE_CUDA_ARCHITECTURES} ]; then
+        CUML_CMAKE_CUDA_ARCHITECTURES="${CMAKE_CUDA_ARCHITECTURES}"
+        echo "Building for the specified GPU architectures: ${CMAKE_CUDA_ARCHITECTURES}"
+    elif (( ${BUILD_ALL_GPU_ARCH} == 0 )); then
         CUML_CMAKE_CUDA_ARCHITECTURES="NATIVE"
         echo "Building for the architecture of the GPU in the system..."
     else
