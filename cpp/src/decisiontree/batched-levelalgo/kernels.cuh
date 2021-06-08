@@ -288,6 +288,14 @@ __device__ OutT* alignPointer(InT input) {
     raft::alignTo(reinterpret_cast<size_t>(input), sizeof(OutT)));
 }
 
+// Return smallest multiple of 16 that is greater than or rqual to in_size
+template <typename IdxT>
+HDI IdxT round_to_16x(IdxT in_size) {
+  IdxT padding = (16 - (in_size % 16)) % 16;
+  out_size = in_size + padding;
+}
+
+
 // 32-bit FNV1a hash
 // Reference: http://www.isthe.com/chongo/tech/comp/fnv/index.html
 const uint32_t fnv1a32_prime = uint32_t(16777619);
@@ -579,11 +587,11 @@ __global__ void computeSplitClassificationKernel_cvta(
   auto cdf_shist_len = n_bins * 2 * nclasses;
 
   int* pdf_shist = (int*)smem; // Assume this is divisible by 16
-  size_t offset = pdf_shist_len*sizeof(int) + (16 - (pdf_shist_len*sizeof(int)) % 16);
+  size_t offset = round_to_16x(pdf_shist_len*sizeof(int));
   int* cdf_shist = (int*)(smem + offset);
-  offset += cdf_shist_len*sizeof(int) + (16 - (cdf_shist_len*sizeof(int)) % 16);
+  offset += round_to_16x(cdf_shist_len*sizeof(int));
   DataT* sbins = (DataT*)(smem + offset);
-  offset += n_bins*sizeof(int) + (16 - (n_bins*sizeof(int)) % 16);
+  offset += round_to_16x(n_bins*sizeof(int));
   int* sDone = (int*)(smem + offset);
 
   IdxT stride = blockDim.x * num_blocks;

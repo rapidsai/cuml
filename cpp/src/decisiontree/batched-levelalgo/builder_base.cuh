@@ -454,13 +454,12 @@ struct ClsTraits {
       smemSize1 += sizeof(DataT) + 3 * sizeof(int);
     }
     if (b.code_version == 1) {
-      smemSize1 = 2 * (nbins + 1) * nclasses * sizeof(int) +  // pdf_shist size
-                   4 * nbins * nclasses * sizeof(int) +        // cdf_shist size
-                   2 * nbins * sizeof(DataT) +                 // sbins size
-                   sizeof(int);                                // sDone size
-      // Extra room for alignment (see alignPointer in
-      // computeSplitClassificationKernel)
-      smemSize1 += 2 * sizeof(DataT) + 3 * sizeof(int);
+      // For each shared memory variable, always allocate space tha is multiple
+      // of 16
+      smemSize1 = round_to_16x((nbins + 1) * nclasses * sizeof(int)) + // pdf_shist size
+                  round_to_16x(2 * nbins * nclasses * sizeof(int)) +   // cdf_shist size
+                  round_to_16x(nbins * sizeof(DataT)) +                // sbins size
+                  sizeof(int);                                         // sDone size
     }
     
     // Calculate the shared memory needed for evalBestSplit
