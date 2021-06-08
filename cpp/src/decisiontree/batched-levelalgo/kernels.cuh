@@ -292,7 +292,8 @@ __device__ OutT* alignPointer(InT input) {
 template <typename IdxT>
 HDI IdxT round_to_16x(IdxT in_size) {
   IdxT padding = (16 - (in_size % 16)) % 16;
-  out_size = in_size + padding;
+  IdxT out_size = in_size + padding;
+  return out_size;
 }
 
 // 32-bit FNV1a hash
