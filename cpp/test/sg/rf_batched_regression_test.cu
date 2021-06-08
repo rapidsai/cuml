@@ -118,7 +118,7 @@ class RFBatchedRegTest : public ::testing::TestWithParam<RfInputs> {
 
 //-------------------------------------------------------------------------------------------------------------------------------------
 const std::vector<RfInputs> inputs = {
-  RfInputs{5, 1, 1, 1.0f, 1.0f, 1, -1, false, false, 5, 1, 2, 0.0, 1,
+  RfInputs{5, 1, 1, 1.0f, 1.0f, 1, -1, false, 5, 1, 2, 0.0, 1,
            CRITERION::MSE, -5.0},
   // Small datasets to repro corner cases as in #3107 (test for crash)
   {101, 57, 2, 1.0f, 1.0f, 2, -1, false, 13, 2, 2, 0.0, 2,

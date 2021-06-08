@@ -48,7 +48,7 @@ class RfClassifierDepthTest : public ::testing::TestWithParam<int> {
   void basicTest() {
     const int max_depth = ::testing::TestWithParam<int>::GetParam();
     params =
-      RfInputs<T>{10000, 10, 1, 1.0f, 1.0f, max_depth,         -1, false, false,
+      RfInputs<T>{10000, 10, 1, 1.0f, 1.0f, max_depth,         -1, false,
                   8,     2,  2, 0.0,  2,    CRITERION::ENTROPY};
 
     RF_params rf_params;
