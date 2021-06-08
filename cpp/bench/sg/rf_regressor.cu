@@ -91,7 +91,6 @@ std::vector<RegParams> getInputs() {
                        3,                  /* min_samples_leaf */
                        3,                  /* min_samples_split */
                        0.0f,               /* min_impurity_decrease */
-                       true,               /* bootstrap_features */
                        true,               /* bootstrap */
                        500,                /* n_trees */
                        1.f,                /* max_samples */

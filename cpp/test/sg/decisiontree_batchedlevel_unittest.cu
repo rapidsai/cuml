@@ -56,7 +56,6 @@ class BatchedLevelAlgoUnitTestFixture {
     params.n_bins = n_bins;
     params.min_samples_leaf = 0;
     params.min_samples_split = 0;
-    params.bootstrap_features = false;
     params.split_criterion = CRITERION::MSE;
     params.min_impurity_decrease = 0.0f;
     params.max_batch_size = 8;

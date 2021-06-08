@@ -88,7 +88,6 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
                         2,     /* min_samples_leaf */
                         2,     /* min_samples_split */
                         0.f,   /* min_impurity_decrease */
-                        false, /* bootstrap_features */
                         true,  /* bootstrap */
                         1,     /* n_trees */
                         1.0,   /* max_samples */

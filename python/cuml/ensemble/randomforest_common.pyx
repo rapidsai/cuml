@@ -44,7 +44,7 @@ class BaseRandomForestModel(Base):
                     'split_algo', 'split_criterion', 'min_samples_leaf',
                     'min_samples_split',
                     'min_impurity_decrease',
-                    'bootstrap', 'bootstrap_features',
+                    'bootstrap',
                     'verbose', 'max_samples',
                     'max_leaves',
                     'accuracy_metric', 'use_experimental_backend',
@@ -57,7 +57,7 @@ class BaseRandomForestModel(Base):
 
     def __init__(self, *, split_criterion, n_streams=8, n_estimators=100,
                  max_depth=16, handle=None, max_features='auto', n_bins=128,
-                 split_algo=1, bootstrap=True, bootstrap_features=False,
+                 split_algo=1, bootstrap=True,
                  verbose=False, min_samples_leaf=1, min_samples_split=2,
                  max_samples=1.0, max_leaves=-1, accuracy_metric=None,
                  dtype=None, output_type=None, min_weight_fraction_leaf=None,
@@ -121,7 +121,6 @@ class BaseRandomForestModel(Base):
         self.min_samples_leaf = min_samples_leaf
         self.min_samples_split = min_samples_split
         self.min_impurity_decrease = min_impurity_decrease
-        self.bootstrap_features = bootstrap_features
         self.max_samples = max_samples
         self.max_leaves = max_leaves
         self.n_estimators = n_estimators

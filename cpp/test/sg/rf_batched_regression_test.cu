@@ -37,7 +37,6 @@ struct RfInputs {
   int max_depth;
   int max_leaves;
   bool bootstrap;
-  bool bootstrap_features;
   int n_bins;
   int min_samples_leaf;
   int min_samples_split;
@@ -57,7 +56,7 @@ class RFBatchedRegTest : public ::testing::TestWithParam<RfInputs> {
     rf_params = set_rf_params(
       params.max_depth, params.max_leaves, params.max_features, params.n_bins,
       params.min_samples_leaf, params.min_samples_split,
-      params.min_impurity_decrease, params.bootstrap_features, params.bootstrap,
+      params.min_impurity_decrease, params.bootstrap,
       params.n_trees, params.max_samples, 0, params.split_criterion,
       params.n_streams, 128);
 
@@ -122,11 +121,11 @@ const std::vector<RfInputs> inputs = {
   RfInputs{5, 1, 1, 1.0f, 1.0f, 1, -1, false, false, 5, 1, 2, 0.0, 1,
            CRITERION::MSE, -5.0},
   // Small datasets to repro corner cases as in #3107 (test for crash)
-  {101, 57, 2, 1.0f, 1.0f, 2, -1, false, false, 13, 2, 2, 0.0, 2,
+  {101, 57, 2, 1.0f, 1.0f, 2, -1, false, 13, 2, 2, 0.0, 2,
    CRITERION::MSE, -10.0},
 
   // Larger datasets for accuracy
-  {2000, 20, 20, 1.0f, 0.6f, 13, -1, true, false, 10, 2, 2, 0.0, 2,
+  {2000, 20, 20, 1.0f, 0.6f, 13, -1, true, 10, 2, 2, 0.0, 2,
    CRITERION::MSE, 0.68f}};
 
 typedef RFBatchedRegTest<float> RFBatchedRegTestF;

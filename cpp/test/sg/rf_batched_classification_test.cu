@@ -33,7 +33,6 @@ struct RfInputs {
   int max_depth;
   int max_leaves;
   bool bootstrap;
-  bool bootstrap_features;
   int n_bins;
   int min_samples_leaf;
   int min_samples_split;
@@ -53,7 +52,7 @@ class RFBatchedClsTest : public ::testing::TestWithParam<RfInputs> {
     rf_params = set_rf_params(
       params.max_depth, params.max_leaves, params.max_features, params.n_bins,
       params.min_samples_leaf, params.min_samples_split,
-      params.min_impurity_decrease, params.bootstrap_features, params.bootstrap,
+      params.min_impurity_decrease, params.bootstrap,
       params.n_trees, params.max_samples, 0, params.split_criterion,
       params.n_streams, 128);
 
@@ -141,16 +140,16 @@ class RFBatchedClsTest : public ::testing::TestWithParam<RfInputs> {
 //-------------------------------------------------------------------------------------------------------------------------------------
 const std::vector<RfInputs> inputsf2_clf = {
   // Simple non-crash tests with small datasets
-  {100, 59, 1, 1.0f, 0.4f, 16, -1, true, false, 10, 2, 2, 0.0, 2,
+  {100, 59, 1, 1.0f, 0.4f, 16, -1, true, 10, 2, 2, 0.0, 2,
    CRITERION::GINI, 0.0f},
-  {101, 59, 2, 1.0f, 0.4f, 10, -1, true, false, 13, 2, 2, 0.0, 2,
+  {101, 59, 2, 1.0f, 0.4f, 10, -1, true, 13, 2, 2, 0.0, 2,
    CRITERION::GINI, 0.0f},
-  {100, 1, 2, 1.0f, 0.4f, 10, -1, true, false, 15, 2, 2, 0.0, 2,
+  {100, 1, 2, 1.0f, 0.4f, 10, -1, true, 15, 2, 2, 0.0, 2,
    CRITERION::GINI, 0.0f},
   // Simple accuracy tests
-  {20000, 10, 25, 1.0f, 0.4f, 16, -1, true, false, 10, 2, 2, 0.0, 2,
+  {20000, 10, 25, 1.0f, 0.4f, 16, -1, true, 10, 2, 2, 0.0, 2,
    CRITERION::GINI},
-  {20000, 10, 5, 1.0f, 0.4f, 14, -1, true, false, 10, 2, 2, 0.0, 2,
+  {20000, 10, 5, 1.0f, 0.4f, 14, -1, true, 10, 2, 2, 0.0, 2,
    CRITERION::ENTROPY}};
 
 typedef RFBatchedClsTest<float> RFBatchedClsTestF;

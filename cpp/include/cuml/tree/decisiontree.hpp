@@ -53,11 +53,7 @@ struct DecisionTreeParams {
    */
   int min_samples_split;
   /**
-   * Control bootstrapping for features. If features are drawn with or without replacement
-   */
-  bool bootstrap_features;
-  /**
-   * Node split criterion. GINI and Entropy for classification, MSE or MAE for regression.
+   * Node split criterion. GINI and Entropy for classification, MSE for regression.
    */
   CRITERION split_criterion;
   /**
@@ -84,7 +80,6 @@ struct DecisionTreeParams {
  *            default 2
  * @param[in] cfg_min_impurity_decrease: split a node only if its reduction in
  *                                       impurity is more than this value
- * @param[in] cfg_bootstrap_features: bootstrapping for features; default false
  * @param[in] cfg_split_criterion: split criterion; default CRITERION_END,
  *            i.e., GINI for classification or MSE for regression
  * @param[in] cfg_max_batch_size: Maximum number of nodes that can be processed
@@ -93,10 +88,9 @@ struct DecisionTreeParams {
  */
 void set_tree_params(DecisionTreeParams &params, int cfg_max_depth = -1,
                      int cfg_max_leaves = -1, float cfg_max_features = 1.0f,
-                     int cfg_n_bins = 8, int cfg_min_samples_leaf = 1,
+                     int cfg_n_bins = 128, int cfg_min_samples_leaf = 1,
                      int cfg_min_samples_split = 2,
                      float cfg_min_impurity_decrease = 0.0f,
-                     bool cfg_bootstrap_features = false,
                      CRITERION cfg_split_criterion = CRITERION_END,
                      int cfg_max_batch_size = 128);
 

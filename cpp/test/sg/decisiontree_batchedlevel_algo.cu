@@ -49,7 +49,7 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle->set_stream(stream);
     set_tree_params(params, inparams.max_depth, 1 << inparams.max_depth, 1.f,
-                    inparams.nbins, 0, inparams.nbins, inparams.min_gain, false,
+                    inparams.nbins, 0, inparams.nbins, inparams.min_gain,
                     inparams.splitType, 128);
     auto allocator = handle->get_device_allocator();
     data = (T*)allocator->allocate(sizeof(T) * inparams.M * inparams.N, stream);

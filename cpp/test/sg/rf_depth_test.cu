@@ -34,7 +34,6 @@ struct RfInputs {
   int max_depth;
   int max_leaves;
   bool bootstrap;
-  bool bootstrap_features;
   int n_bins;
   int min_samples_leaf;
   int min_samples_split;
@@ -56,7 +55,7 @@ class RfClassifierDepthTest : public ::testing::TestWithParam<int> {
     rf_params = set_rf_params(
       params.max_depth, params.max_leaves, params.max_features, params.n_bins,
       params.min_samples_leaf, params.min_samples_split,
-      params.min_impurity_decrease, params.bootstrap_features, params.bootstrap,
+      params.min_impurity_decrease, params.bootstrap,
       params.n_trees, params.max_samples, 0, params.split_criterion,
       params.n_streams, 128);
 
@@ -128,14 +127,14 @@ class RfRegressorDepthTest : public ::testing::TestWithParam<int> {
   void basicTest() {
     const int max_depth = ::testing::TestWithParam<int>::GetParam();
     params =
-      RfInputs<T>{5000, 10, 1, 1.0f, 1.0f, max_depth,     -1, false, false,
+      RfInputs<T>{5000, 10, 1, 1.0f, 1.0f, max_depth,     -1, false,
                   8,    2,  2, 0.0,  2,    CRITERION::MSE};
 
     RF_params rf_params;
     rf_params = set_rf_params(
       params.max_depth, params.max_leaves, params.max_features, params.n_bins,
       params.min_samples_leaf, params.min_samples_split,
-      params.min_impurity_decrease, params.bootstrap_features, params.bootstrap,
+      params.min_impurity_decrease, params.bootstrap,
       params.n_trees, params.max_samples, 0, params.split_criterion,
       params.n_streams, 128);
 

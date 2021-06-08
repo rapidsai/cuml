@@ -34,7 +34,6 @@ namespace DecisionTree {
  * @param[in] cfg_min_samples_leaf: min. rows in each leaf node; default 1
  * @param[in] cfg_min_samples_split: min. rows needed to split an internal node;
  *            default 2
- * @param[in] cfg_bootstrap_features: bootstrapping for features; default false
  * @param[in] cfg_split_criterion: split criterion; default CRITERION_END,
  *            i.e., GINI for classification or MSE for regression
  * @param[in] cfg_max_batch_size: batch size for experimental backend
@@ -42,8 +41,7 @@ namespace DecisionTree {
 void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
                      int cfg_max_leaves, float cfg_max_features, int cfg_n_bins,
                      int cfg_min_samples_leaf, int cfg_min_samples_split,
-                     float cfg_min_impurity_decrease,
-                     bool cfg_bootstrap_features, CRITERION cfg_split_criterion,
+                     float cfg_min_impurity_decrease, CRITERION cfg_split_criterion,
                      int cfg_max_batch_size) {
   params.max_depth = cfg_max_depth;
   params.max_leaves = cfg_max_leaves;
@@ -51,7 +49,6 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
   params.n_bins = cfg_n_bins;
   params.min_samples_leaf = cfg_min_samples_leaf;
   params.min_samples_split = cfg_min_samples_split;
-  params.bootstrap_features = cfg_bootstrap_features;
   params.split_criterion = cfg_split_criterion;
   params.min_impurity_decrease = cfg_min_impurity_decrease;
   params.max_batch_size = cfg_max_batch_size;
@@ -81,7 +78,6 @@ void print(const DecisionTreeParams params) {
   CUML_LOG_DEBUG("n_bins: %d", params.n_bins);
   CUML_LOG_DEBUG("min_samples_leaf: %d", params.min_samples_leaf);
   CUML_LOG_DEBUG("min_samples_split: %d", params.min_samples_split);
-  CUML_LOG_DEBUG("bootstrap_features: %d", params.bootstrap_features);
   CUML_LOG_DEBUG("split_criterion: %d", params.split_criterion);
   CUML_LOG_DEBUG("min_impurity_decrease: %f", params.min_impurity_decrease);
   CUML_LOG_DEBUG("max_batch_size: %d", params.max_batch_size);
