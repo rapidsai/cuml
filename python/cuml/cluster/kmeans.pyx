@@ -265,7 +265,7 @@ class KMeans(Base,
 
     def __init__(self, *, handle=None, n_clusters=8, max_iter=300, tol=1e-4,
                  verbose=False, random_state=1,
-                 init='scalable-k-means++', n_init=10, oversampling_factor=2.0,
+                 init='scalable-k-means++', n_init=1, oversampling_factor=2.0,
                  max_samples_per_batch=1<<15, output_type=None):
         super().__init__(handle=handle,
                          verbose=verbose,
@@ -420,8 +420,9 @@ class KMeans(Base,
         """
         return self.fit(X, sample_weight=sample_weight).labels_
 
-    def _predict_labels(self, X, convert_dtype=False,
-                        sample_weight=None) -> typing.Tuple[CumlArray, float]:
+    def _predict_labels_inertia(self, X, convert_dtype=False,
+                                sample_weight=None) -> typing.Tuple[CumlArray,
+                                                                    float]:
         """
         Predict the closest cluster each sample in X belongs to.
 
@@ -525,9 +526,9 @@ class KMeans(Base,
 
         """
 
-        labels, _ = self._predict_labels(X,
-                                         convert_dtype=convert_dtype,
-                                         sample_weight=sample_weight)
+        labels, _ = self._predict_labels_inertia(X,
+                                                 convert_dtype=convert_dtype,
+                                                 sample_weight=sample_weight)
         return labels
 
     @generate_docstring(return_values={'name': 'X_new',
@@ -602,7 +603,7 @@ class KMeans(Base,
 
         """
 
-        return -1 * self._predict_labels(
+        return -1 * self._predict_labels_inertia(
             X, convert_dtype=convert_dtype,
             sample_weight=sample_weight)[1]
 

@@ -16,7 +16,6 @@
 import random
 
 import cuml
-import cupy as cp
 import cuml.common.logger as logger
 import numpy as np
 import pytest
@@ -29,6 +28,8 @@ from cuml.test.utils import get_pattern, unit_param, \
 from sklearn import cluster
 from sklearn.metrics import adjusted_rand_score
 from sklearn.preprocessing import StandardScaler
+
+import cupy as cp
 
 
 dataset_names = ['blobs', 'noisy_circles', 'noisy_moons', 'varied', 'aniso']
@@ -118,34 +119,25 @@ def test_traditional_kmeans_plus_plus_init(nrows, ncols, nclusters,
 
 
 @pytest.mark.parametrize('nrows', [100, 500])
-@pytest.mark.parametrize('ncols', [3, 5, 25])
-@pytest.mark.parametrize('nclusters', [3, 5, 10])
+@pytest.mark.parametrize('ncols', [25])
+@pytest.mark.parametrize('nclusters', [5, 10])
+@pytest.mark.parametrize('max_weight', [10])
 def test_weighted_kmeans(nrows, ncols, nclusters,
-                         random_state):
+                         max_weight, random_state):
 
     # Using fairly high variance between points in clusters
-    cluster_std = 10000.0
+    cluster_std = 1.0
     np.random.seed(random_state)
 
-    wt = np.array([0.00001 for j in range(nrows)])
-
-    # Open the space really large
-
-    bound = nclusters * 100000
-
-    centers = np.random.uniform(-bound, bound,
-                                size=(nclusters, ncols))
+    # set weight per sample to be from 1 to max_weight
+    wt = np.random.randint(1, high=max_weight, size=nrows)
 
     X, y = make_blobs(nrows,
                       ncols,
-                      centers=centers,
+                      nclusters,
                       cluster_std=cluster_std,
                       shuffle=False,
                       random_state=0)
-
-    # Choose one sample from each label and increase its weight
-    for i in range(nclusters):
-        wt[cp.argmax(cp.array(y) == i).item()] = 5000.0
 
     cuml_kmeans = cuml.KMeans(init="k-means++",
                               n_clusters=nclusters,
@@ -154,21 +146,14 @@ def test_weighted_kmeans(nrows, ncols, nclusters,
                               output_type='numpy')
 
     cuml_kmeans.fit(X, sample_weight=wt)
+    cu_score = cuml_kmeans.score(X)
 
-    for i in range(nrows):
+    sk_kmeans = cluster.KMeans(random_state=random_state,
+                               n_clusters=nclusters)
+    sk_kmeans.fit(cp.asnumpy(X), sample_weight=wt)
+    sk_score = sk_kmeans.score(cp.asnumpy(X))
 
-        label = cuml_kmeans.labels_[i]
-        actual_center = cuml_kmeans.cluster_centers_[label]
-
-        diff = sum(abs(X[i].copy_to_host() - actual_center))
-
-        # The large weight should be the centroid
-        if wt[i] > 1.0:
-            assert diff < 1.0
-
-        # Otherwise it should be pretty far away
-        else:
-            assert diff > 1000.0
+    assert abs(cu_score - sk_score) <= cluster_std * 1.5
 
 
 @pytest.mark.parametrize('nrows', [1000, 10000])

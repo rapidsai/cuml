@@ -99,7 +99,7 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts,
 @pytest.mark.parametrize('ncols', [5])
 @pytest.mark.parametrize('nclusters', [3, 10])
 @pytest.mark.parametrize('n_parts', [1, 5])
-@pytest.mark.parametrize('random_state', [i for i in [0, 100]])
+@pytest.mark.parametrize('random_state', [0, 100])
 def test_weighted_kmeans(nrows, ncols, nclusters, random_state,
                          n_parts, client):
     cluster_std = 10000.0
@@ -125,11 +125,10 @@ def test_weighted_kmeans(nrows, ncols, nclusters, random_state,
                            shuffle=False,
                            verbose=False,
                            random_state=10)
-    y_arr = y.compute()
 
     # Choose one sample from each label and increase its weight
     for i in range(nclusters):
-        wt[cp.argmax(cp.array(y_arr) == i).item()] = 5000.0
+        wt[cp.argmax(cp.array(y.compute()) == i).item()] = 5000.0
 
     cumlModel = cumlKMeans(verbose=0, init="k-means||",
                             n_clusters=nclusters,
