@@ -438,7 +438,7 @@ struct ClsTraits {
     auto colBlks = std::min(b.n_blks_for_cols, b.input.nSampledCols - col);
 
     size_t smemSize1;
-    if (b.code_version == 0 || b.code_version == 3) {
+    if (b.code_version == 0) {
       smemSize1 = (nbins + 1) * nclasses * sizeof(int) +  // pdf_shist size
                    2 * nbins * nclasses * sizeof(int) +    // cdf_shist size
                    nbins * sizeof(DataT) +                 // sbins size
