@@ -13,7 +13,6 @@
 # limitations under the License.
 #
 
-import numpy as np
 import cupy as cp
 import pytest
 
@@ -22,7 +21,6 @@ from cuml.test.utils import quality_param
 from cuml.test.utils import stress_param
 
 import dask.array as da
-from dask.distributed import Client, wait
 
 from cuml.metrics import adjusted_rand_score
 from sklearn.metrics import adjusted_rand_score as sk_adjusted_rand_score
@@ -99,17 +97,14 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts,
 @pytest.mark.parametrize('ncols', [5])
 @pytest.mark.parametrize('nclusters', [3, 10])
 @pytest.mark.parametrize('n_parts', [1, 5])
-@pytest.mark.parametrize('random_state', [0, 100])
-def test_weighted_kmeans(nrows, ncols, nclusters, random_state,
-                         n_parts, client):
+def test_weighted_kmeans(nrows, ncols, nclusters, n_parts, client):
     cluster_std = 10000.0
-    np.random.seed(random_state)
     from cuml.dask.cluster import KMeans as cumlKMeans
 
     from cuml.dask.datasets import make_blobs
 
     # Using fairly high variance between points in clusters
-    wt = np.array([0.00001 for j in range(nrows)])
+    wt = cp.array([0.00001 for j in range(nrows)])
 
     bound = nclusters * 100000
 
