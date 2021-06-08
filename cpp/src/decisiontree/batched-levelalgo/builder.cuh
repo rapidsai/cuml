@@ -35,6 +35,8 @@ int get_code_version() {
   if (strcmp(code_version, "0") == 0) return 0;
   if (strcmp(code_version, "1") == 0) return 1;
   if (strcmp(code_version, "2") == 0) return 2;
+  if (strcmp(code_version, "3") == 0) return 3;
+  if (strcmp(code_version, "4") == 0) return 4;
 
   return 0;
 }

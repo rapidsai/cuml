@@ -443,19 +443,44 @@ struct ClsTraits {
     auto nclasses = b.input.nclasses;
     auto colBlks = std::min(b.n_blks_for_cols, b.input.nSampledCols - col);
 
-    size_t smemSize1 = (nbins + 1) * nclasses * sizeof(int) +  // pdf_shist size
-                       2 * nbins * nclasses * sizeof(int) +    // cdf_shist size
-                       nbins * sizeof(DataT) +                 // sbins size
-                       sizeof(int);                            // sDone size
-    if (b.code_version == 1) {
-      smemSize1 += (nbins + 1) * nclasses * sizeof(int) +  // pdf_shist size
+    size_t smemSize1;
+    if (b.code_version == 0 || b.code_version == 3) {
+      smemSize1 = (nbins + 1) * nclasses * sizeof(int) +  // pdf_shist size
                    2 * nbins * nclasses * sizeof(int) +    // cdf_shist size
-                   nbins * sizeof(DataT);                 // sbins size
+                   nbins * sizeof(DataT) +                 // sbins size
+                   sizeof(int);                            // sDone size
+      // Extra room for alignment (see alignPointer in
+      // computeSplitClassificationKernel)
+      smemSize1 += sizeof(DataT) + 3 * sizeof(int);
+    }
+    if (b.code_version == 1) {
+      smemSize1 = 2 * (nbins + 1) * nclasses * sizeof(int) +  // pdf_shist size
+                   4 * nbins * nclasses * sizeof(int) +        // cdf_shist size
+                   2 * nbins * sizeof(DataT) +                 // sbins size
+                   sizeof(int);                                // sDone size
+      // Extra room for alignment (see alignPointer in
+      // computeSplitClassificationKernel)
+      smemSize1 += 2 * sizeof(DataT) + 3 * sizeof(int);
+    }
+    
+
+    if (b.code_version == 2) {
+      smemSize1 = (nbins + 1) * nclasses * sizeof(int) +  // pdf_shist size
+                  2 * nbins * nclasses * sizeof(int);    // cdf_shist size
+       // // Extra room for alignment (see alignPointer in
+      // // computeSplitClassificationKernel)
+      smemSize1 += 2 * sizeof(int);
+    }
+    if (b.code_version == 4) {
+      smemSize1 = (nbins + 1) * nclasses * sizeof(int) +   // pdf_shist size
+                   2 * nbins * nclasses * sizeof(int) +    // cdf_shist size
+                   nbins * sizeof(DataT) +                 // sbins size
+                   sizeof(int);                            // sDone size
+      // Extra room for alignment (see alignPointer16 in
+      // computeSplitClassificationKernel)
+      smemSize1 += 4 * 15;
     }
 
-    // Extra room for alignment (see alignPointer in
-    // computeSplitClassificationKernel)
-    smemSize1 += sizeof(DataT) + 3 * sizeof(int);
     // Calculate the shared memory needed for evalBestSplit
     size_t smemSize2 =
       raft::ceildiv(TPB_DEFAULT, raft::WarpSize) * sizeof(Split<DataT, IdxT>);
@@ -483,7 +508,23 @@ struct ClsTraits {
     }
     if (b.code_version == 2) {
       computeSplitClassificationKernel_static_smem<DataT, LabelT, IdxT, TPB_DEFAULT>
-        <<<grid, TPB_DEFAULT, smemSize2, s>>>(
+        <<<grid, TPB_DEFAULT, smemSize, s>>>(
+          b.hist, b.params.n_bins, b.params.min_samples_leaf,
+          b.params.min_impurity_decrease, b.input, b.curr_nodes, col,
+          b.done_count, b.mutex, b.splits, splitType, b.treeid, b.workload_info,
+          b.seed);
+    }
+    if (b.code_version == 3) {
+      computeSplitClassificationKernel_hybrid<DataT, LabelT, IdxT, TPB_DEFAULT>
+        <<<grid, TPB_DEFAULT, smemSize, s>>>(
+          b.hist, b.params.n_bins, b.params.min_samples_leaf,
+          b.params.min_impurity_decrease, b.input, b.curr_nodes, col,
+          b.done_count, b.mutex, b.splits, splitType, b.treeid, b.workload_info,
+          b.seed);
+    }
+    if (b.code_version == 4) {
+      computeSplitClassificationKernel_cvta<DataT, LabelT, IdxT, TPB_DEFAULT>
+        <<<grid, TPB_DEFAULT, smemSize, s>>>(
           b.hist, b.params.n_bins, b.params.min_samples_leaf,
           b.params.min_impurity_decrease, b.input, b.curr_nodes, col,
           b.done_count, b.mutex, b.splits, splitType, b.treeid, b.workload_info,
