@@ -367,13 +367,7 @@ struct Builder {
     // compute the best split at the end
     auto n_col_blks = n_blks_for_cols;
     if (total_num_blocks) {
-      int nblock_multiplier = 0;
-      if(code_version == 1) {
-        nblock_multiplier = 2;
-      } else {
-        nblock_multiplier = 1;
-      }
-      for (IdxT c = 0; c < input.nSampledCols; c += nblock_multiplier*n_col_blks) {
+      for (IdxT c = 0; c < input.nSampledCols; c += n_col_blks) {
         Traits::computeSplit(*this, c, batchSize, params.split_criterion, s);
         CUDA_CHECK(cudaGetLastError());
       }
