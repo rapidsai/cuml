@@ -498,22 +498,6 @@ struct ClsTraits {
           b.done_count, b.mutex, b.splits, splitType, b.treeid, b.workload_info,
           b.seed);
     }
-    if (b.code_version == 2) {
-      computeSplitClassificationKernel_static_smem<DataT, LabelT, IdxT, TPB_DEFAULT>
-        <<<grid, TPB_DEFAULT, smemSize, s>>>(
-          b.hist, b.params.n_bins, b.params.min_samples_leaf,
-          b.params.min_impurity_decrease, b.input, b.curr_nodes, col,
-          b.done_count, b.mutex, b.splits, splitType, b.treeid, b.workload_info,
-          b.seed);
-    }
-    if (b.code_version == 3) {
-      computeSplitClassificationKernel_hybrid<DataT, LabelT, IdxT, TPB_DEFAULT>
-        <<<grid, TPB_DEFAULT, smemSize, s>>>(
-          b.hist, b.params.n_bins, b.params.min_samples_leaf,
-          b.params.min_impurity_decrease, b.input, b.curr_nodes, col,
-          b.done_count, b.mutex, b.splits, splitType, b.treeid, b.workload_info,
-          b.seed);
-    }
     if (b.code_version == 4) {
       computeSplitClassificationKernel_cvta<DataT, LabelT, IdxT, TPB_DEFAULT>
         <<<grid, TPB_DEFAULT, smemSize, s>>>(
