@@ -126,8 +126,8 @@ def test_weighted_kmeans(nrows, ncols, nclusters, n_parts, client):
         wt[cp.argmax(cp.array(y.compute()) == i).item()] = 5000.0
 
     cumlModel = cumlKMeans(verbose=0, init="k-means||",
-                            n_clusters=nclusters,
-                            random_state=10)
+                           n_clusters=nclusters,
+                           random_state=10)
 
     chunk_parts = int(nrows / n_parts)
     sample_weights = da.from_array(wt, chunks=(chunk_parts, ))
