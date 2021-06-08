@@ -463,24 +463,6 @@ struct ClsTraits {
       smemSize1 += 2 * sizeof(DataT) + 3 * sizeof(int);
     }
     
-
-    if (b.code_version == 2) {
-      smemSize1 = (nbins + 1) * nclasses * sizeof(int) +  // pdf_shist size
-                  2 * nbins * nclasses * sizeof(int);    // cdf_shist size
-       // // Extra room for alignment (see alignPointer in
-      // // computeSplitClassificationKernel)
-      smemSize1 += 2 * sizeof(int);
-    }
-    if (b.code_version == 4) {
-      smemSize1 = (nbins + 1) * nclasses * sizeof(int) +   // pdf_shist size
-                   2 * nbins * nclasses * sizeof(int) +    // cdf_shist size
-                   nbins * sizeof(DataT) +                 // sbins size
-                   sizeof(int);                            // sDone size
-      // Extra room for alignment (see alignPointer16 in
-      // computeSplitClassificationKernel)
-      smemSize1 += 4 * 15;
-    }
-
     // Calculate the shared memory needed for evalBestSplit
     size_t smemSize2 =
       raft::ceildiv(TPB_DEFAULT, raft::WarpSize) * sizeof(Split<DataT, IdxT>);
@@ -498,7 +480,7 @@ struct ClsTraits {
           b.done_count, b.mutex, b.splits, splitType, b.treeid, b.workload_info,
           b.seed);
     }
-    if (b.code_version == 4) {
+    if (b.code_version == 1) {
       computeSplitClassificationKernel_cvta<DataT, LabelT, IdxT, TPB_DEFAULT>
         <<<grid, TPB_DEFAULT, smemSize, s>>>(
           b.hist, b.params.n_bins, b.params.min_samples_leaf,
