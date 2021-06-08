@@ -153,8 +153,8 @@ inline bool check_convergence(const LBFGSParam<T> &param, const int k,
  */
 template <typename T>
 inline int lbfgs_search_dir(const LBFGSParam<T> &param, int *n_vec,
-                            const int end_prev, const SimpleMat<T> &S,
-                            const SimpleMat<T> &Y, const SimpleVec<T> &g,
+                            const int end_prev, const SimpleDenseMat<T> &S,
+                            const SimpleDenseMat<T> &Y, const SimpleVec<T> &g,
                             const SimpleVec<T> &svec, const SimpleVec<T> &yvec,
                             SimpleVec<T> &drt, std::vector<T> &yhist,
                             std::vector<T> &alpha, T *dev_scalar,

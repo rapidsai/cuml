@@ -134,6 +134,11 @@ class RandomForestClassifier(BaseRandomForestModel,
       histogram-based algorithm to determine splits, rather than an exact
       count. You can tune the size of the histograms with the n_bins parameter.
 
+    .. note:: You can export cuML Random Forest models and run predictions
+      with them on machines without an NVIDIA GPUs. See
+      https://docs.rapids.ai/api/cuml/nightly/pickling_cuml_models.html
+      for more details.
+
     **Known Limitations**: This is an early release of the cuML
     Random Forest code. It contains a few known limitations:
 
@@ -193,9 +198,15 @@ class RandomForestClassifier(BaseRandomForestModel,
         (default = 0)
     split_algo : int (default = 1)
         The algorithm to determine how nodes are split in the tree.
-        0 for HIST and 1 for GLOBAL_QUANTILE. HIST currently uses a slower
-        tree-building algorithm so GLOBAL_QUANTILE is recommended for most
-        cases.
+        Can be changed only for the old backend [deprecated].
+        0 for HIST and 1 for GLOBAL_QUANTILE. Default is GLOBAL_QUANTILE.
+        The default backend does not support HIST.
+        HIST currently uses a slower tree-building algorithm so
+        GLOBAL_QUANTILE is recommended for most cases.
+
+        .. deprecated:: 21.06
+           Parameter 'split_algo' is deprecated and will be removed in
+           subsequent release.
     bootstrap : boolean (default = True)
         Control bootstrapping.
         If True, each tree in the forest is built
@@ -221,7 +232,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         If 'auto' then max_features=1/sqrt(n_features).
         If 'sqrt' then max_features=1/sqrt(n_features).
         If 'log2' then max_features=log2(n_features)/n_features.
-    n_bins : int (default = 32)
+    n_bins : int (default = 128)
         Number of bins used by the split algorithm.
         For large problems, particularly those with highly-skewed input data,
         increasing the number of bins may improve accuracy.
@@ -252,9 +263,8 @@ class RandomForestClassifier(BaseRandomForestModel,
         experimental backend for decision tree training will be used. The
         new backend is available only if `split_algo = 1` (GLOBAL_QUANTILE)
         and `quantile_per_tree = False` (No per tree quantile computation).
-        The new backend is considered stable for classification tasks but
-        not yet for regression tasks. The RAPIDS team is continuing
-        optimization and evaluation of the new backend for regression tasks.
+        The new backend is now considered stable for both classification
+        and regression tasks and is significantly faster than the old backend.
     max_batch_size: int (default = 128)
         Maximum number of nodes that can be processed in a given batch. This is
         used only when 'use_experimental_backend' is true. Does not currently
@@ -283,7 +293,7 @@ class RandomForestClassifier(BaseRandomForestModel,
     """
 
     def __init__(self, *, split_criterion=0, handle=None, verbose=False,
-                 output_type=None, n_bins=32, use_experimental_backend=True,
+                 output_type=None, n_bins=128, use_experimental_backend=True,
                  **kwargs):
 
         self.RF_type = CLASSIFICATION

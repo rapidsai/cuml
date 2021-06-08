@@ -127,7 +127,7 @@ def _determine_metric(metric_str, is_sparse=False):
 
 @cuml.internals.api_return_array(get_output_type=True)
 def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
-                       convert_dtype=True, output_type=None, **kwds):
+                       convert_dtype=True, **kwds):
     """
     Compute the distance matrix from a vector array `X` and optional `Y`.
 
@@ -169,18 +169,6 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
         Y to be the same data type as X if they differ. This
         will increase memory used for the method.
 
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
-
-        .. deprecated:: 0.17
-           `output_type` is deprecated in 0.17 and will be removed in 0.18.
-           Please use the module level output type control,
-           `cuml.global_settings.output_type`.
-           See :ref:`output-data-type-configuration` for more info.
-
     Returns
     -------
     D : array [n_samples_x, n_samples_x] or [n_samples_x, n_samples_y]
@@ -215,15 +203,6 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
             [ 7.,  5.],
             [12., 10.]])
     """
-
-    # Check for deprecated `output_type` and warn. Set manually if specified
-    if (output_type is not None):
-        warnings.warn("Using the `output_type` argument is deprecated and "
-                      "will be removed in 0.18. Please specify the output "
-                      "type using `cuml.using_output_type()` instead",
-                      DeprecationWarning)
-
-        cuml.internals.set_api_output_type(output_type)
 
     if is_sparse(X):
         return sparse_pairwise_distances(X, Y, metric, handle,
