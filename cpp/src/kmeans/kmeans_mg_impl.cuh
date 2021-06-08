@@ -380,6 +380,47 @@ void initKMeansPlusPlus(const raft::handle_t &handle,
 }
 
 template <typename DataT, typename IndexT>
+void checkWeights(const raft::handle_t &handle,
+                  MLCommon::device_buffer<char> &workspace,
+                  Tensor<DataT, 1, IndexT> &weight, cudaStream_t stream) {
+  MLCommon::device_buffer<DataT> wt_aggr(handle.get_device_allocator(), stream,
+                                         1);
+
+  const auto &comm = handle.get_comms();
+
+  int n_samples = weight.getSize(0);
+  size_t temp_storage_bytes = 0;
+  CUDA_CHECK(cub::DeviceReduce::Sum(nullptr, temp_storage_bytes, weight.data(),
+                                    wt_aggr.data(), n_samples, stream));
+
+  workspace.resize(temp_storage_bytes, stream);
+
+  CUDA_CHECK(cub::DeviceReduce::Sum(workspace.data(), temp_storage_bytes,
+                                    weight.data(), wt_aggr.data(), n_samples,
+                                    stream));
+
+  comm.allreduce<DataT>(wt_aggr.data(),  // sendbuff
+                        wt_aggr.data(),  // recvbuff
+                        1,               // count
+                        raft::comms::op_t::SUM, stream);
+  DataT wt_sum = 0;
+  raft::copy(&wt_sum, wt_aggr.data(), 1, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  if (wt_sum != n_samples) {
+    LOG(handle,
+        "[Warning!] KMeans: normalizing the user provided sample weights to "
+        "sum up to %d samples",
+        n_samples);
+
+    DataT scale = n_samples / wt_sum;
+    raft::linalg::unaryOp(
+      weight.data(), weight.data(), weight.numElements(),
+      [=] __device__(const DataT &wt) { return wt * scale; }, stream);
+  }
+}
+
+template <typename DataT, typename IndexT>
 void fit(const raft::handle_t &handle, const KMeansParams &params,
          Tensor<DataT, 2, IndexT> &X, Tensor<DataT, 1, IndexT> &weight,
          MLCommon::device_buffer<DataT> &centroidsRawData, DataT &inertia,
@@ -411,7 +452,7 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
 
   // temporary buffer to store the weights per cluster, destructor releases
   // the resource
-  Tensor<DataT, 1, IndexT> wtInCluster({n_clusters}, 
+  Tensor<DataT, 1, IndexT> wtInCluster({n_clusters},
                                        handle.get_device_allocator(), stream);
 
   // L2 norm of X: ||x||^2
@@ -455,9 +496,9 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
     // Calculates weighted sum of all the samples assigned to cluster-i and
     // store the result in newCentroids[i]
     MLCommon::LinAlg::reduce_rows_by_key(
-      X.data(), X.getSize(1), itr, weight.data(), workspace.data(), X.getSize(0),
-      X.getSize(1), n_clusters, newCentroids.data(), stream);
-    
+      X.data(), X.getSize(1), itr, weight.data(), workspace.data(),
+      X.getSize(0), X.getSize(1), n_clusters, newCentroids.data(), stream);
+
     // Reduce weights by key to compute weight in each cluster
     MLCommon::LinAlg::reduce_cols_by_key(weight.data(), itr, wtInCluster.data(),
                                          1, weight.getSize(0), n_clusters,
@@ -476,21 +517,20 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
                           raft::comms::op_t::SUM, stream);
 
     // Computes newCentroids[i] = newCentroids[i]/wtInCluster[i] where
-    //   newCentroids[n_clusters x n_features] - 2D array, newCentroids[i] has 
+    //   newCentroids[n_clusters x n_features] - 2D array, newCentroids[i] has
     //   sum of all the samples assigned to cluster-i
     //   wtInCluster[n_clusters] - 1D array, wtInCluster[i] contains # of
     //   samples in cluster-i.
     // Note - when wtInCluster[i] is 0, newCentroid[i] is reset to 0
 
     raft::linalg::matrixVectorOp(
-      newCentroids.data(), newCentroids.data(),
-      wtInCluster.data(), newCentroids.getSize(1),
-      newCentroids.getSize(0), true, false,
+      newCentroids.data(), newCentroids.data(), wtInCluster.data(),
+      newCentroids.getSize(1), newCentroids.getSize(0), true, false,
       [=] __device__(DataT mat, DataT vec) {
         if (vec == 0)
           return DataT(0);
         else
-        return mat / vec;
+          return mat / vec;
       },
       stream);
 
@@ -585,8 +625,8 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
 template <typename DataT, typename IndexT = int>
 void fit(const raft::handle_t &handle, const KMeansParams &params,
          const DataT *X, const int n_local_samples, const int n_features,
-         const DataT *sample_weight,
-         DataT *centroids, DataT &inertia, int &n_iter) {
+         const DataT *sample_weight, DataT *centroids, DataT &inertia,
+         int &n_iter) {
   cudaStream_t stream = handle.get_stream();
 
   ASSERT(n_local_samples > 0, "# of samples must be > 0");
@@ -599,8 +639,8 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
 
   Tensor<DataT, 2, IndexT> data((DataT *)X, {n_local_samples, n_features});
 
-  Tensor<DataT, 1, IndexT> weight({n_local_samples}, handle.get_device_allocator(),
-                                  stream);
+  Tensor<DataT, 1, IndexT> weight({n_local_samples},
+                                  handle.get_device_allocator(), stream);
   if (sample_weight != nullptr) {
     raft::copy(weight.data(), sample_weight, n_local_samples, stream);
   } else {
@@ -618,7 +658,7 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
                                           stream);
 
   // check if weights sum up to n_samples
-  kmeans::detail::checkWeights(handle, workspace, weight, stream);
+  checkWeights(handle, workspace, weight, stream);
 
   if (params.init == KMeansParams::InitMethod::Random) {
     // initializing with random samples from input dataset
@@ -648,7 +688,8 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
     THROW("unknown initialization method to select initial centers");
   }
 
-  fit(handle, params, data, weight, centroidsRawData, inertia, n_iter, workspace);
+  fit(handle, params, data, weight, centroidsRawData, inertia, n_iter,
+      workspace);
 
   raft::copy(centroids, centroidsRawData.data(), params.n_clusters * n_features,
              stream);
