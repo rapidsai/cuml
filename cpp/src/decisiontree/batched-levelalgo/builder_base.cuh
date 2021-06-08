@@ -147,7 +147,10 @@ struct Builder {
     params = p;
     this->treeid = treeid;
     this->seed = seed;
-    n_blks_for_cols = std::min(sampledCols, n_blks_for_cols);
+    // int env_blks_for_cols = (int)strtol(std::getenv("BLKS_FOR_COLS"), NULL, 10);
+    // n_blks_for_cols = std::min(sampledCols, env_blks_for_cols);
+    n_blks_for_cols = sampledCols;
+    // CUML_LOG_WARN("blocks for cols: %d, env_var: %d", n_blks_for_cols, env_blks_for_cols);
     input.data = data;
     input.labels = labels;
     input.M = totalRows;
@@ -511,6 +514,7 @@ struct RegTraits {
     ML::PUSH_RANGE(
       "Builder::computeSplit @builder_base.cuh [batched-levelalgo]");
     auto colBlks = std::min(b.n_blks_for_cols, b.input.nSampledCols - col);
+    // CUML_LOG_WARN("column blocks used: %d", colBlks);
     auto nbins = b.params.n_bins;
 
     // Compute shared memory size

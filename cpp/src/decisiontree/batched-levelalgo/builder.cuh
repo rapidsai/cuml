@@ -22,7 +22,7 @@
 #include <raft/mr/host/allocator.hpp>
 
 #include "builder_base.cuh"
-
+#include <fstream>
 #include <common/nvtx.hpp>
 // Usage example: filePutContents("./yourfile.txt", "content", true);
 void filePutContents(const std::string& name, const std::string& content, bool append = false) {
@@ -34,6 +34,7 @@ void filePutContents(const std::string& name, const std::string& content, bool a
     outfile << content << std::endl;
     outfile.close();
 }
+
 namespace ML {
 namespace DecisionTree {
 
@@ -73,7 +74,7 @@ void grow_tree(std::shared_ptr<raft::mr::device::allocator> d_allocator,
                         IdxT(params.max_features * ncols), rowids,
                         unique_labels, quantiles);
   if(treeid == 0) {
-    CUML_LOG_WARN("device workspace allocated: %d kB", raft::ceildiv(d_wsize, 1000));
+    CUML_LOG_WARN("device workspace allocated: %d kB", raft::ceildiv((int)d_wsize, 1000));
     filePutContents("workspace.txt", std::to_string(d_wsize));
   }
   MLCommon::device_buffer<char> d_buff(d_allocator, stream, d_wsize);
