@@ -238,7 +238,7 @@ struct tree_aggregator_t {
     : tmp_storage(finalize_workspace) {}
 
   __device__ __forceinline__ void accumulate(
-    vec<NITEMS, float> single_tree_prediction, int tree) {
+    vec<NITEMS, float> single_tree_prediction, int tree, int num_rows) {
     acc += single_tree_prediction;
   }
 
@@ -255,6 +255,12 @@ struct tree_aggregator_t {
         auto per_thread = (vec<NITEMS, float>*)tmp_storage;
         per_thread[threadIdx.x] = acc;
         __syncthreads();
+        // We have two pertinent cases for splitting FIL_TPB == 256 values:
+        // 1. 2000 columns, which fit few threads/tree in shared memory,
+        // so ~256 groups. These are the models that will run the slowest.
+        // multi_sum performance is not sensitive to the radix here.
+        // 2. 50 columns, so ~32 threads/tree, so ~8 groups. These are the most
+        // popular.
         acc = multi_sum<5>(per_thread, 1 << log2_threads_per_tree,
                            FIL_TPB >> log2_threads_per_tree);
       }
@@ -401,7 +407,7 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> {
                                        : finalize_workspace) {}
 
   __device__ __forceinline__ void accumulate(
-    vec<NITEMS, float> single_tree_prediction, int tree) {
+    vec<NITEMS, float> single_tree_prediction, int tree, int num_rows) {
     acc += single_tree_prediction;
   }
 
@@ -458,7 +464,7 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
   }
 
   __device__ __forceinline__ void accumulate(
-    vec<NITEMS, float> single_tree_prediction, int tree) {
+    vec<NITEMS, float> single_tree_prediction, int tree, int num_rows) {
     // since threads are assigned to consecutive classes, no need for atomics
     per_class_margin[tree % num_classes] += single_tree_prediction;
     // __syncthreads() is called in infer_k
@@ -501,7 +507,7 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
     // __syncthreads() is called in infer_k
   }
   __device__ __forceinline__ void accumulate(
-    vec<NITEMS, int> single_tree_prediction, int tree) {
+    vec<NITEMS, int> single_tree_prediction, int tree, int num_rows) {
 #pragma unroll
     for (int item = 0; item < NITEMS; ++item)
       raft::myAtomicAdd(votes + single_tree_prediction[item] * NITEMS + item,
@@ -611,7 +617,7 @@ __global__ void infer_k(storage_type forest, predict_params params) {
                         : block_input + thread_row0 * num_cols,
           cols_in_shmem ? sdata_stride : num_cols,
           cols_in_shmem ? NITEMS : thread_num_rows);
-        acc.accumulate(prediction, tree);
+        acc.accumulate(prediction, tree, thread_num_rows);
       }
       if (leaf_algo == GROVE_PER_CLASS_MANY_CLASSES) __syncthreads();
     }
