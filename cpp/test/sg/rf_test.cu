@@ -57,9 +57,8 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
     rf_params = set_rf_params(
       params.max_depth, params.max_leaves, params.max_features, params.n_bins,
       params.min_samples_leaf, params.min_samples_split,
-      params.min_impurity_decrease, params.bootstrap,
-      params.n_trees, params.max_samples, 0, params.split_criterion,
-      params.n_streams, 128);
+      params.min_impurity_decrease, params.bootstrap, params.n_trees,
+      params.max_samples, 0, params.split_criterion, params.n_streams, 128);
 
     //--------------------------------------------------------
     // Random Forest
@@ -157,9 +156,8 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
     rf_params = set_rf_params(
       params.max_depth, params.max_leaves, params.max_features, params.n_bins,
       params.min_samples_leaf, params.min_samples_split,
-      params.min_impurity_decrease, params.bootstrap,
-      params.n_trees, params.max_samples, 0, params.split_criterion,
-      params.n_streams, 128);
+      params.min_impurity_decrease, params.bootstrap, params.n_trees,
+      params.max_samples, 0, params.split_criterion, params.n_streams, 128);
 
     //--------------------------------------------------------
     // Random Forest
@@ -254,40 +252,26 @@ const std::vector<RfInputs<float>> inputsf2_clf = {
   {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 1, 2, 0.0, 1,
    CRITERION::
      CRITERION_END},  //forest with 10 trees, with bootstrap and column subsampling enabled, 3 bins, different split algorithm
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2,
-   CRITERION::ENTROPY},
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2,
-   CRITERION::ENTROPY},
-  {4, 2, 10, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2,
-   CRITERION::ENTROPY},
-  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 2, 2, 0.0, 2,
-   CRITERION::ENTROPY},
-  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 1, 2, 0.0, 2,
-   CRITERION::ENTROPY},
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2, CRITERION::ENTROPY},
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2, CRITERION::ENTROPY},
+  {4, 2, 10, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2, CRITERION::ENTROPY},
+  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 2, 2, 0.0, 2, CRITERION::ENTROPY},
+  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 1, 2, 0.0, 2, CRITERION::ENTROPY},
   {50, 10, 10, 0.8f, 0.8f, 10, 7, -1, true, 3, 2, 2, 0.0, 2,
    CRITERION::ENTROPY}};
 
 const std::vector<RfInputs<double>> inputsd2_clf = {  // Same as inputsf2_clf
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2,
-   CRITERION::GINI},
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2,
-   CRITERION::GINI},
-  {4, 2, 10, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2,
-   CRITERION::GINI},
-  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 2, 2, 0.0, 2,
-   CRITERION::GINI},
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2, CRITERION::GINI},
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2, CRITERION::GINI},
+  {4, 2, 10, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2, CRITERION::GINI},
+  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 2, 2, 0.0, 2, CRITERION::GINI},
   {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 1, 2, 0.0, 2,
    CRITERION::CRITERION_END},
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2,
-   CRITERION::ENTROPY},
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2,
-   CRITERION::ENTROPY},
-  {4, 2, 10, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2,
-   CRITERION::ENTROPY},
-  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 2, 2, 0.0, 2,
-   CRITERION::ENTROPY},
-  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 1, 2, 0.0, 2,
-   CRITERION::ENTROPY},
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2, CRITERION::ENTROPY},
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2, CRITERION::ENTROPY},
+  {4, 2, 10, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2, CRITERION::ENTROPY},
+  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 2, 2, 0.0, 2, CRITERION::ENTROPY},
+  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 1, 2, 0.0, 2, CRITERION::ENTROPY},
   {50, 10, 10, 0.8f, 0.8f, 10, 7, -1, true, 3, 2, 2, 0.0, 2,
    CRITERION::ENTROPY}};
 
@@ -336,10 +320,8 @@ TEST_P(RfRegressorTestD, Fit) {
 }
 
 const std::vector<RfInputs<float>> inputsf2_reg = {
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2,
-   CRITERION::MSE},
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2,
-   CRITERION::MSE},
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2, CRITERION::MSE},
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2, CRITERION::MSE},
   {4, 2, 5, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2,
    CRITERION::
      CRITERION_END},  // CRITERION_END uses the default criterion (GINI for classification, MSE for regression)
@@ -347,10 +329,8 @@ const std::vector<RfInputs<float>> inputsf2_reg = {
    CRITERION::CRITERION_END}};
 
 const std::vector<RfInputs<double>> inputsd2_reg = {  // Same as inputsf2_reg
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2,
-   CRITERION::MSE},
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2,
-   CRITERION::MSE},
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2, CRITERION::MSE},
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2, CRITERION::MSE},
   {4, 2, 5, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2,
    CRITERION::CRITERION_END},
   {4, 2, 5, 1.0f, 1.0f, 4, 7, -1, true, 4, 2, 2, 0.0, 2,

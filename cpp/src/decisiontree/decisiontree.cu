@@ -41,8 +41,8 @@ namespace DecisionTree {
 void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
                      int cfg_max_leaves, float cfg_max_features, int cfg_n_bins,
                      int cfg_min_samples_leaf, int cfg_min_samples_split,
-                     float cfg_min_impurity_decrease, CRITERION cfg_split_criterion,
-                     int cfg_max_batch_size) {
+                     float cfg_min_impurity_decrease,
+                     CRITERION cfg_split_criterion, int cfg_max_batch_size) {
   params.max_depth = cfg_max_depth;
   params.max_leaves = cfg_max_leaves;
   params.max_features = cfg_max_features;

@@ -56,9 +56,8 @@ class RFBatchedRegTest : public ::testing::TestWithParam<RfInputs> {
     rf_params = set_rf_params(
       params.max_depth, params.max_leaves, params.max_features, params.n_bins,
       params.min_samples_leaf, params.min_samples_split,
-      params.min_impurity_decrease, params.bootstrap,
-      params.n_trees, params.max_samples, 0, params.split_criterion,
-      params.n_streams, 128);
+      params.min_impurity_decrease, params.bootstrap, params.n_trees,
+      params.max_samples, 0, params.split_criterion, params.n_streams, 128);
 
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.reset(new raft::handle_t(rf_params.n_streams));
@@ -118,15 +117,15 @@ class RFBatchedRegTest : public ::testing::TestWithParam<RfInputs> {
 
 //-------------------------------------------------------------------------------------------------------------------------------------
 const std::vector<RfInputs> inputs = {
-  RfInputs{5, 1, 1, 1.0f, 1.0f, 1, -1, false, 5, 1, 2, 0.0, 1,
-           CRITERION::MSE, -5.0},
+  RfInputs{5, 1, 1, 1.0f, 1.0f, 1, -1, false, 5, 1, 2, 0.0, 1, CRITERION::MSE,
+           -5.0},
   // Small datasets to repro corner cases as in #3107 (test for crash)
-  {101, 57, 2, 1.0f, 1.0f, 2, -1, false, 13, 2, 2, 0.0, 2,
-   CRITERION::MSE, -10.0},
+  {101, 57, 2, 1.0f, 1.0f, 2, -1, false, 13, 2, 2, 0.0, 2, CRITERION::MSE,
+   -10.0},
 
   // Larger datasets for accuracy
-  {2000, 20, 20, 1.0f, 0.6f, 13, -1, true, 10, 2, 2, 0.0, 2,
-   CRITERION::MSE, 0.68f}};
+  {2000, 20, 20, 1.0f, 0.6f, 13, -1, true, 10, 2, 2, 0.0, 2, CRITERION::MSE,
+   0.68f}};
 
 typedef RFBatchedRegTest<float> RFBatchedRegTestF;
 TEST_P(RFBatchedRegTestF, Fit) { ASSERT_GT(accuracy, params.min_expected_acc); }
