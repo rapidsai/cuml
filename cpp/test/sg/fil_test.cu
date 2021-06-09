@@ -367,7 +367,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
               infer_one_tree(&nodes[j * num_nodes], &data_h[r * ps.num_cols])
                 .idx;
             float sum = 0.0;
-            for (auto k = 0; k < ps.num_classes; k++) {
+            for (int k = 0; k < ps.num_classes; k++) {
               class_probabilities[k] +=
                 vector_leaf[vector_index * ps.num_classes + k];
               sum += vector_leaf[vector_index * ps.num_classes + k];
@@ -862,6 +862,11 @@ std::vector<FilTestParams> predict_sparse_inputs = {
                   num_classes = 3),
   FIL_TEST_PARAMS(num_trees = 51, leaf_algo = GROVE_PER_CLASS, num_classes = 3),
   FIL_TEST_PARAMS(num_trees = 51, leaf_algo = VECTOR_LEAF, num_classes = 15),
+  FIL_TEST_PARAMS(leaf_algo = VECTOR_LEAF, num_trees = 9, num_classes = 20),
+  FIL_TEST_PARAMS(num_rows = 103, num_cols = 1000, depth = 5, num_trees = 1,
+                  leaf_algo = VECTOR_LEAF, num_classes = 3),
+  FIL_TEST_PARAMS(num_rows = 103, num_cols = 5, depth = 5, num_trees = 3,
+                  leaf_algo = VECTOR_LEAF, num_classes = 4000),
 };
 
 TEST_P(PredictSparse16FilTest, Predict) { compare(); }

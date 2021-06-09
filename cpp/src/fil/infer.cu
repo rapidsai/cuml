@@ -17,11 +17,11 @@
 #include <algorithm>
 #include <cmath>
 
+#include <raft/cudart_utils.h>
 #include <thrust/functional.h>
 #include <cuml/fil/multi_sum.cuh>
-#include "common.cuh"
 #include <fil/internal.cuh>
-#include <raft/cudart_utils.h>
+#include "common.cuh"
 
 namespace ML {
 namespace fil {
@@ -444,8 +444,10 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
   __device__ __forceinline__ void accumulate(
     vec<NITEMS, float> single_tree_prediction, int tree, int num_rows) {
     // since threads are assigned to consecutive classes, no need for atomics
-    per_class_margin[tree % num_classes] += single_tree_prediction;
-    // __syncthreads() is called in infer_k
+    if (num_rows > 0) {
+      per_class_margin[tree % num_classes] += single_tree_prediction;
+    }
+    __syncthreads();
   }
 
   __device__ __forceinline__ void finalize(float* out, int num_rows,
@@ -459,8 +461,11 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
 
 template <int NITEMS>
 struct tree_aggregator_t<NITEMS, VECTOR_LEAF> {
-  float* probability_sum;
+  vec<NITEMS, float>* per_class_margin;
+  vec<NITEMS, int>* vector_leaf_indices;
+  int* thread_num_rows;
   int num_classes;
+  int num_threads_per_class;
   float* vector_leaf;
 
   static size_t smem_finalize_footprint(size_t data_row_size, int num_classes,
@@ -468,7 +473,9 @@ struct tree_aggregator_t<NITEMS, VECTOR_LEAF> {
     return 0;
   }
   static size_t smem_accumulate_footprint(int num_classes) {
-    return sizeof(float) * num_classes * NITEMS;
+    return sizeof(vec<NITEMS, float>) * num_classes *
+             max(1, FIL_TPB / num_classes) +
+           sizeof(vec<NITEMS, int>) * FIL_TPB + sizeof(int) * FIL_TPB;
   }
 
   __device__ __forceinline__ tree_aggregator_t(predict_params params,
@@ -476,22 +483,44 @@ struct tree_aggregator_t<NITEMS, VECTOR_LEAF> {
                                                void* finalize_workspace,
                                                float* vector_leaf)
     : num_classes(params.num_classes),
-      probability_sum((float*)accumulate_workspace),
+      num_threads_per_class(max(1, blockDim.x / params.num_classes)),
       vector_leaf(vector_leaf) {
-    for (int c = threadIdx.x; c < num_classes; c += FIL_TPB * NITEMS)
-#pragma unroll
-      for (int item = 0; item < NITEMS; ++item)
-        probability_sum[c * NITEMS + item] = 0.0f;
+    // Assign workspace
+    char* ptr = (char*)accumulate_workspace;
+    per_class_margin = (vec<NITEMS, float>*)ptr;
+    ptr += sizeof(vec<NITEMS, float>) * num_classes * num_threads_per_class;
+    vector_leaf_indices = (vec<NITEMS, int>*)ptr;
+    ptr += sizeof(vec<NITEMS, int>) * blockDim.x;
+    thread_num_rows = (int*)ptr;
+
+    // Initialise shared memory
+    for (int i = threadIdx.x; i < num_classes * num_threads_per_class;
+         i += blockDim.x) {
+      per_class_margin[i] = vec<NITEMS, float>();
+    }
+    vector_leaf_indices[threadIdx.x] = vec<NITEMS, int>();
+    thread_num_rows[threadIdx.x] = 0;
     // __syncthreads() is called in infer_k
   }
   __device__ __forceinline__ void accumulate(
     vec<NITEMS, int> single_tree_prediction, int tree, int num_rows) {
-    for (int k = 0; k < num_classes; ++k) {
-#pragma unroll
-      for (int item = 0; item < NITEMS; ++item) {
-        raft::myAtomicAdd(
-          probability_sum + k * NITEMS + item,
-          vector_leaf[single_tree_prediction[item] * num_classes + k]);
+    // Perform a transpose in shared memory
+    // Assign each thread to a class, so they can accumulate without atomics
+    __syncthreads();
+    // Write indices to shared memory
+    vector_leaf_indices[threadIdx.x] = single_tree_prediction;
+    thread_num_rows[threadIdx.x] = num_rows;
+    __syncthreads();
+    for (int i = threadIdx.x; i < num_classes * num_threads_per_class;
+         i += blockDim.x) {
+      int c = i % num_classes;
+      for (int j = threadIdx.x / num_classes; j < blockDim.x;
+           j += num_threads_per_class) {
+        for (int item = 0; item < thread_num_rows[j]; ++item) {
+          float pred =
+            vector_leaf[vector_leaf_indices[j][item] * num_classes + c];
+          per_class_margin[i][item] += pred;
+        }
       }
     }
   }
@@ -504,7 +533,7 @@ struct tree_aggregator_t<NITEMS, VECTOR_LEAF> {
     for (int c = threadIdx.x; c < num_classes; c += blockDim.x) {
 #pragma unroll
       for (int row = 0; row < num_rows; ++row) {
-        out[row * num_classes + c] = probability_sum[c * NITEMS + row];
+        out[row * num_classes + c] = per_class_margin[c][row];
       }
     }
   }
@@ -516,11 +545,12 @@ struct tree_aggregator_t<NITEMS, VECTOR_LEAF> {
     int item = threadIdx.x;
     int row = item;
     if (item < NITEMS && row < num_rows) {
-      float max_probabiliity = 0;
+      float max_margin = 0;
       int best_class = 0;
       for (int c = 0; c < num_classes; ++c) {
-        if (probability_sum[c * NITEMS + item] > max_probabiliity) {
-          max_probabiliity = probability_sum[c * NITEMS + item];
+        float margin = per_class_margin[c][row];
+        if (margin > max_margin) {
+          max_margin = margin;
           best_class = c;
         }
       }
@@ -530,6 +560,16 @@ struct tree_aggregator_t<NITEMS, VECTOR_LEAF> {
   __device__ __forceinline__ void finalize(float* out, int num_rows,
                                            int num_outputs, output_t transform,
                                            int num_trees) {
+    __syncthreads();
+    // Sum up thread accumulators
+    for (int c = threadIdx.x; c < num_classes; c += blockDim.x) {
+      for (int i = threadIdx.x + num_classes;
+           i < num_classes * num_threads_per_class; i += num_classes) {
+        for (int row = 0; row < num_rows; ++row) {
+          per_class_margin[c][row] += per_class_margin[i][row];
+        }
+      }
+    }
     if (num_outputs > 1) {
       // only supporting num_outputs == num_classes
       finalize_multiple_outputs(out, num_rows, num_trees);
@@ -567,10 +607,12 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
   }
   __device__ __forceinline__ void accumulate(
     vec<NITEMS, int> single_tree_prediction, int tree, int num_rows) {
+    if (num_rows == 0) return;
 #pragma unroll
-    for (int item = 0; item < NITEMS; ++item)
+    for (int item = 0; item < NITEMS; ++item) {
       raft::myAtomicAdd(votes + single_tree_prediction[item] * NITEMS + item,
                         1);
+    }
   }
   // class probabilities or regression. for regression, num_classes
   // is just the number of outputs for each data instance
@@ -638,24 +680,20 @@ __global__ void infer_k(storage_type forest, predict_params params) {
 
     tree_aggregator_t<NITEMS, leaf_algo> acc(
       params, (char*)sdata + params.cols_shmem_size(), sdata,
-      forest.vector_leaf);
+      forest.vector_leaf_);
 
     __syncthreads();  // for both row cache init and acc init
 
     // one block works on NITEMS rows and the whole forest
     for (int j = threadIdx.x; j - threadIdx.x < forest.num_trees();
          j += blockDim.x) {
-      /* j - threadIdx.x < forest.num_trees() is a necessary but block-uniform
-         condition for "j < forest.num_trees()". It lets use __syncthreads()
-         and is made exact below.
-      */
-      if (j < forest.num_trees()) {
-        acc.accumulate(infer_one_tree<NITEMS, leaf_output_t<leaf_algo>::T>(
-                         forest[j], cols_in_shmem ? sdata : block_input,
-                         num_cols, num_input_rows),
-                       j, num_input_rows);
-      }
-      if (leaf_algo == GROVE_PER_CLASS_MANY_CLASSES) __syncthreads();
+      auto pred = j < forest.num_trees()
+                    ? infer_one_tree<NITEMS, leaf_output_t<leaf_algo>::T>(
+                        forest[j], cols_in_shmem ? sdata : block_input,
+                        num_cols, num_input_rows)
+                    : vec<NITEMS, typename leaf_output_t<leaf_algo>::T>();
+
+      acc.accumulate(pred, j, j < forest.num_trees() ? num_input_rows : 0);
     }
     acc.finalize(params.preds + params.num_outputs * block_row0, num_input_rows,
                  params.num_outputs, params.transform, forest.num_trees());

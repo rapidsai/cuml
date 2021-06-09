@@ -17,6 +17,7 @@
 /** @file internal.cuh cuML-internal interface to Forest Inference Library. */
 
 #pragma once
+#include <cuml/fil/fil.h>
 #include <vector>
 
 namespace raft {
