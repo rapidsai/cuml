@@ -156,7 +156,7 @@ def exact_shap_classification_dataset():
 def get_gpu_memory():
     bash_command = "nvidia-smi --query-gpu=memory.total --format=csv"
     output = subprocess.check_output(bash_command,
-                                        shell=True).decode("utf-8")
+                                     shell=True).decode("utf-8")
     lines = output.split("\n")
     lines.pop(0)
     gpus_memory = []

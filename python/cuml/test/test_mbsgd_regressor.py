@@ -37,7 +37,8 @@ from sklearn.model_selection import train_test_split
         '500000-1000-500-f32', '500000-1000-500-f64'])
 def make_dataset(request):
     nrows, ncols, n_info, datatype = request.param
-    if nrows == 500000 and datatype == np.float64 and pytest.max_gpu_memory < 32:
+    if nrows == 500000 and datatype == np.float64 and \
+            pytest.max_gpu_memory < 32:
         if pytest.adapt_stress_test:
             nrows = int(nrows * pytest.max_gpu_memory / 32)
         else:
