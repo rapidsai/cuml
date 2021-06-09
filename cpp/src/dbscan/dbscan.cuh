@@ -28,7 +28,7 @@ namespace ML {
 namespace Dbscan {
 
 template <typename Index_ = int>
-Index_ compute_batch_size(size_t &estimated_memory, Index_ n_rows,
+size_t compute_batch_size(size_t &estimated_memory, Index_ n_rows,
                           Index_ n_owned_rows, size_t max_mbytes_per_batch = 0,
                           Index_ neigh_per_row = 0) {
   // In real applications, it's unlikely that the sparse adjacency matrix
