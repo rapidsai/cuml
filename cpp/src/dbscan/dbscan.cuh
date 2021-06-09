@@ -56,11 +56,11 @@ Index_ compute_batch_size(size_t &estimated_memory, Index_ n_rows,
   // from the over-estimation of the sparse adjacency matrix
 
   // Batch size determined based on available memory
-  Index_ batch_size =
+  size_t batch_size =
     (max_mbytes_per_batch * 1000000 - est_mem_fixed) / est_mem_per_row;
 
   // Limit batch size to number of owned rows
-  batch_size = std::min(n_owned_rows, batch_size);
+  batch_size = std::min((size_t)n_owned_rows, batch_size);
 
   // To avoid overflow, we need: batch_size <= MAX_LABEL / n_rows (floor div)
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
@@ -144,7 +144,7 @@ void dbscanFitImpl(const raft::handle_t &handle, T *input, Index_ n_rows,
   }
 
   size_t estimated_memory;
-  Index_ batch_size = compute_batch_size<Index_>(
+  size_t batch_size = compute_batch_size<Index_>(
     estimated_memory, n_rows, n_owned_rows, max_mbytes_per_batch);
 
   CUML_LOG_DEBUG(
