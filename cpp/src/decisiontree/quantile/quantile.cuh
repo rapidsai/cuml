@@ -95,7 +95,7 @@ void preprocess_quantile(const T *data, const unsigned int *rowids,
 
   ML::PUSH_RANGE("preprocessing quantile @quantile.cuh");
   int batch_cols =
-    1;  // Processing one column at a time, for now, until an appropriate getMemInfo function is provided for the deviceAllocator interface.
+    1;  // Processing one column at a time, for now, until an appropriate getMemInfo function is provided for the raft::mr::device::allocator interface.
 
   int threads = 128;
   MLCommon::device_buffer<int> *d_offsets;
@@ -206,10 +206,10 @@ __global__ void computeQuantilesSorted(T *quantiles, const int n_bins,
 }
 
 template <typename T>
-void computeQuantiles(T *quantiles, int n_bins, const T *data, int n_rows,
-                      int n_cols,
-                      const std::shared_ptr<deviceAllocator> device_allocator,
-                      cudaStream_t stream) {
+void computeQuantiles(
+  T *quantiles, int n_bins, const T *data, int n_rows, int n_cols,
+  const std::shared_ptr<raft::mr::device::allocator> device_allocator,
+  cudaStream_t stream) {
   // Determine temporary device storage requirements
   std::unique_ptr<device_buffer<char>> d_temp_storage = nullptr;
   size_t temp_storage_bytes = 0;

@@ -17,13 +17,11 @@
 #pragma once
 
 #include <cuml/cuml_api.h>
-#include <cuml/common/cuml_allocator.hpp>
 #include <raft/handle.hpp>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/host/allocator.hpp>
 
 namespace ML {
-
-using MLCommon::deviceAllocator;
-using MLCommon::hostAllocator;
 
 /**
  * Map from integral cumlHandle_t identifiers to cumlHandle pointer protected

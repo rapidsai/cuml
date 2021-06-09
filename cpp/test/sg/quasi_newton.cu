@@ -24,6 +24,7 @@
 #include <glm/qn/glm_softmax.cuh>
 #include <glm/qn/qn.cuh>
 #include <raft/handle.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include <vector>
 
 namespace ML {
@@ -44,7 +45,7 @@ struct QuasiNewtonTest : ::testing::Test {
   std::shared_ptr<SimpleMatOwning<double>> Xdev;
   std::shared_ptr<SimpleVecOwning<double>> ydev;
 
-  std::shared_ptr<deviceAllocator> allocator;
+  std::shared_ptr<raft::mr::device::allocator> allocator;
   QuasiNewtonTest() : handle(cuml_handle) {}
   void SetUp() {
     stream = cuml_handle.get_stream();
@@ -102,20 +103,20 @@ template <typename T, class Comp>
 
 template <typename T, class LossFunction>
 T run(const raft::handle_t &handle, LossFunction &loss, const SimpleMat<T> &X,
-      const SimpleVec<T> &y, T l1, T l2, T *w, SimpleMat<T> &z, int verbosity,
-      cudaStream_t stream) {
+      const SimpleVec<T> &y, T l1, T l2, T *w, SimpleDenseMat<T> &z,
+      int verbosity, cudaStream_t stream) {
   int max_iter = 100;
   T grad_tol = 1e-16;
+  T change_tol = 1e-16;
   int linesearch_max_iter = 50;
   int lbfgs_memory = 5;
   int num_iters = 0;
 
   T fx;
-  SimpleVec<T> w0(w, loss.n_param);
 
-  qn_fit<T, LossFunction>(handle, loss, X.data, y.data, z.data, X.m, l1, l2,
-                          max_iter, grad_tol, linesearch_max_iter, lbfgs_memory,
-                          verbosity, w0.data, &fx, &num_iters, X.ord, stream);
+  qn_fit<T, LossFunction>(handle, loss, X, y, z, l1, l2, max_iter, grad_tol,
+                          change_tol, linesearch_max_iter, lbfgs_memory,
+                          verbosity, w, &fx, &num_iters, stream);
 
   return fx;
 }
@@ -123,10 +124,11 @@ T run(const raft::handle_t &handle, LossFunction &loss, const SimpleMat<T> &X,
 template <typename T>
 T run_api(const raft::handle_t &cuml_handle, int loss_type, int C,
           bool fit_intercept, const SimpleMat<T> &X, const SimpleVec<T> &y,
-          T l1, T l2, T *w, SimpleMat<T> &z, int verbosity,
+          T l1, T l2, T *w, SimpleDenseMat<T> &z, int verbosity,
           cudaStream_t stream) {
   int max_iter = 100;
   T grad_tol = 1e-8;
+  T change_tol = 1e-8;
   int linesearch_max_iter = 50;
   int lbfgs_memory = 5;
   int num_iters = 0;
@@ -135,9 +137,20 @@ T run_api(const raft::handle_t &cuml_handle, int loss_type, int C,
   w0.fill(T(0), stream);
   T fx;
 
-  qnFit(cuml_handle, X.data, y.data, X.m, X.n, C, fit_intercept, l1, l2,
-        max_iter, grad_tol, linesearch_max_iter, lbfgs_memory, verbosity, w,
-        &fx, &num_iters, false, loss_type);
+  if (auto X_dense = dynamic_cast<const SimpleDenseMat<T> *>(&X)) {
+    qnFit(cuml_handle, X_dense->data, X_dense->ord == COL_MAJOR, y.data,
+          X_dense->m, X_dense->n, C, fit_intercept, l1, l2, max_iter, grad_tol,
+          change_tol, linesearch_max_iter, lbfgs_memory, verbosity, w, &fx,
+          &num_iters, loss_type);
+  } else if (auto X_sparse = dynamic_cast<const SimpleSparseMat<T> *>(&X)) {
+    qnFitSparse(cuml_handle, X_sparse->values, X_sparse->cols,
+                X_sparse->row_ids, X_sparse->nnz, y.data, X_sparse->m,
+                X_sparse->n, C, fit_intercept, l1, l2, max_iter, grad_tol,
+                change_tol, linesearch_max_iter, lbfgs_memory, verbosity, w,
+                &fx, &num_iters, loss_type);
+  } else {
+    ADD_FAILURE();
+  }
 
   return fx;
 }
@@ -158,7 +171,7 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn) {
   LogisticLoss<double> loss_no_b(handle, D, false);
 
   SimpleVecOwning<double> w0(allocator, D + 1, stream);
-  SimpleVecOwning<double> z(allocator, N, stream);
+  SimpleMatOwning<double> z(allocator, 1, N, stream);
 
   double l1, l2, fx;
 
@@ -304,7 +317,7 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn) {
   double alpha = 0.01 * N;
 
   SimpleVecOwning<double> w0(allocator, D + 1, stream);
-  SimpleVecOwning<double> z(allocator, N, stream);
+  SimpleMatOwning<double> z(allocator, 1, N, stream);
   SquaredLoss<double> loss_b(handle, D, true);
   SquaredLoss<double> loss_no_b(handle, D, false);
 
@@ -376,7 +389,7 @@ TEST_F(QuasiNewtonTest, predict) {
 
   raft::update_device(w.data, &w_host[0], w.len, stream);
 
-  qnPredict(handle, Xdev->data, N, D, 2, false, w.data, false, 0, preds.data,
+  qnPredict(handle, Xdev->data, false, N, D, 2, false, w.data, 0, preds.data,
             stream);
   raft::update_host(&preds_host[0], preds.data, preds.len, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -386,7 +399,7 @@ TEST_F(QuasiNewtonTest, predict) {
                              : compApprox(preds_host[it], 0));
   }
 
-  qnPredict(handle, Xdev->data, N, D, 1, false, w.data, false, 1, preds.data,
+  qnPredict(handle, Xdev->data, false, N, D, 1, false, w.data, 1, preds.data,
             stream);
   raft::update_host(&preds_host[0], preds.data, preds.len, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -409,7 +422,7 @@ TEST_F(QuasiNewtonTest, predict_softmax) {
 
   raft::update_device(w.data, &w_host[0], w.len, stream);
 
-  qnPredict(handle, Xdev->data, N, D, C, false, w.data, false, 2, preds.data,
+  qnPredict(handle, Xdev->data, false, N, D, C, false, w.data, 2, preds.data,
             stream);
   raft::update_host(&preds_host[0], preds.data, preds.len, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -423,6 +436,90 @@ TEST_F(QuasiNewtonTest, predict_softmax) {
       ASSERT_TRUE(compApprox(C - 1, preds_host[it]));
     }
   }
+}
+
+TEST_F(QuasiNewtonTest, dense_vs_sparse_logistic) {
+#if CUDART_VERSION >= 11020
+  GTEST_SKIP();
+#endif
+  // Prepare a sparse input matrix from the dense matrix X.
+  // Yes, it's not sparse at all, yet the test does check whether the behaviour
+  // of dense and sparse variants is the same.
+  rmm::device_uvector<int> mem_X_cols(N * D, stream);
+  rmm::device_uvector<int> mem_X_row_ids(N + 1, stream);
+  int host_X_cols[N][D];
+  int host_X_row_ids[N + 1];
+  for (int i = 0; i < N; i++) {
+    for (int j = 0; j < D; j++) {
+      host_X_cols[i][j] = j;
+    }
+  }
+  for (int i = 0; i < N + 1; i++) {
+    host_X_row_ids[i] = i * D;
+  }
+  raft::update_device(mem_X_cols.data(), &host_X_cols[0][0], mem_X_cols.size(),
+                      stream);
+  raft::update_device(mem_X_row_ids.data(), &host_X_row_ids[0],
+                      mem_X_row_ids.size(), stream);
+  SimpleSparseMat<double> X_sparse(Xdev->data, mem_X_cols.data(),
+                                   mem_X_row_ids.data(), N * D, N, D);
+
+  raft::CompareApprox<double> compApprox(tol);
+  double y[N] = {2, 2, 0, 3, 3, 0, 0, 0, 1, 0};
+  raft::update_device(ydev->data, &y[0], ydev->len, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+
+  int C = 4;
+  int loss_type = 2;  // Softmax (loss_b, loss_no_b)
+  double alpha = 0.016 * N;
+  Softmax<double> loss_b(handle, D, C, true);
+  Softmax<double> loss_no_b(handle, D, C, false);
+
+  SimpleMatOwning<double> z_dense(allocator, C, N, stream);
+  SimpleMatOwning<double> z_sparse(allocator, C, N, stream);
+  SimpleVecOwning<double> w0_dense(allocator, C * (D + 1), stream);
+  SimpleVecOwning<double> w0_sparse(allocator, C * (D + 1), stream);
+
+  std::vector<double> preds_dense_host(N);
+  std::vector<double> preds_sparse_host(N);
+  SimpleVecOwning<double> preds_dense(allocator, N, stream);
+  SimpleVecOwning<double> preds_sparse(allocator, N, stream);
+
+  auto test_run = [&](double l1, double l2, Softmax<double> loss) {
+    double f_dense, f_sparse;
+    f_dense = run(handle, loss, *Xdev, *ydev, l1, l2, w0_dense.data, z_dense, 0,
+                  stream);
+    f_sparse = run(handle, loss, X_sparse, *ydev, l1, l2, w0_sparse.data,
+                   z_sparse, 0, stream);
+    ASSERT_TRUE(compApprox(f_dense, f_sparse));
+
+    qnPredict(handle, Xdev->data, Xdev->ord == COL_MAJOR, N, D, C,
+              loss.fit_intercept, w0_dense.data, loss_type, preds_dense.data,
+              stream);
+    qnPredictSparse(handle, X_sparse.values, X_sparse.cols, X_sparse.row_ids,
+                    X_sparse.nnz, N, D, C, loss.fit_intercept, w0_sparse.data,
+                    loss_type, preds_sparse.data, stream);
+
+    raft::update_host(&preds_dense_host[0], preds_dense.data, preds_dense.len,
+                      stream);
+    raft::update_host(&preds_sparse_host[0], preds_sparse.data,
+                      preds_sparse.len, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+    for (int i = 0; i < N; i++) {
+      ASSERT_TRUE(compApprox(preds_dense_host[i], preds_sparse_host[i]));
+    }
+
+    f_dense = run_api(cuml_handle, 2, C, loss.fit_intercept, *Xdev, *ydev, l1,
+                      l2, w0_dense.data, z_dense, 0, stream);
+    f_sparse = run_api(cuml_handle, 2, C, loss.fit_intercept, X_sparse, *ydev,
+                       l1, l2, w0_sparse.data, z_sparse, 0, stream);
+    ASSERT_TRUE(compApprox(f_dense, f_sparse));
+  };
+
+  test_run(alpha, 0.0, loss_b);
+  test_run(0.0, alpha, loss_b);
+  test_run(alpha, 0.0, loss_no_b);
+  test_run(0.0, alpha, loss_no_b);
 }
 
 }  // namespace GLM

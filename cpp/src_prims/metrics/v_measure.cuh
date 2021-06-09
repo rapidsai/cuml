@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +17,7 @@
 * @file v_measure.cuh
 */
 
+#include <raft/mr/device/allocator.hpp>
 #include "homogeneity_score.cuh"
 
 namespace MLCommon {
@@ -31,14 +32,14 @@ namespace Metrics {
 * @param size: the size of the data points of type int
 * @param lowerLabelRange: the lower bound of the range of labels
 * @param upperLabelRange: the upper bound of the range of labels
-* @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<MLCommon::deviceAllocator>
+* @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<raft::mr::device::allocator>
 * @param stream: the cudaStream object
 * @param beta: v_measure parameter
 */
 template <typename T>
 double v_measure(const T *truthClusterArray, const T *predClusterArray,
                  int size, T lowerLabelRange, T upperLabelRange,
-                 std::shared_ptr<MLCommon::deviceAllocator> allocator,
+                 std::shared_ptr<raft::mr::device::allocator> allocator,
                  cudaStream_t stream, double beta = 1.0) {
   double computedHomogeity, computedCompleteness, computedVMeasure;
 

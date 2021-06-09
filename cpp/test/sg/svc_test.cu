@@ -37,6 +37,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng.cuh>
 #include <random/make_blobs.cuh>
 #include <string>
@@ -1404,7 +1405,7 @@ class SvrTest : public ::testing::Test {
  protected:
   raft::handle_t handle;
   cudaStream_t stream;
-  std::shared_ptr<deviceAllocator> allocator;
+  std::shared_ptr<raft::mr::device::allocator> allocator;
   int n_rows = 7;
   int n_train = 2 * n_rows;
   const int n_cols = 1;

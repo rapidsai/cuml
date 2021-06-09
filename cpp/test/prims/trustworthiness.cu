@@ -16,9 +16,10 @@
 
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <distance/distance.cuh>
 #include <iostream>
-#include <metrics/scores.cuh>
+#include <metrics/trustworthiness_score.cuh>
+#include <raft/distance/distance.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <vector>
 #include "test_utils.h"
 
@@ -442,12 +443,12 @@ class TrustworthinessScoreTest : public ::testing::Test {
 
  protected:
   double score;
-  std::shared_ptr<deviceAllocator> allocator;
+  std::shared_ptr<raft::mr::device::allocator> allocator;
 };
 
 typedef TrustworthinessScoreTest TrustworthinessScoreTestF;
 TEST_F(TrustworthinessScoreTestF, Result) {
-  ASSERT_TRUE(0.9374 < score && score < 0.9376);
+  ASSERT_TRUE(0.9375 < score && score < 0.9379);
 }
 };  // namespace Score
 };  // namespace MLCommon

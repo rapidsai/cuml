@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,13 @@
  * limitations under the License.
  */
 
-#include <cuml/cuml.hpp>
-
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 
 #include <cuml/tsa/arima_common.h>
 #include <cuml/tsa/batched_arima.hpp>
+#include <raft/handle.hpp>
 #include <raft/random/rng.cuh>
 
 #include <raft/cudart_utils.h>
@@ -64,10 +63,13 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
 
     // Benchmark loop
     this->loopOnState(state, [this]() {
+      ARIMAMemory<double> arima_mem(order, this->params.batch_size,
+                                    this->params.n_obs, temp_mem);
+
       // Evaluate log-likelihood
-      batched_loglike(*this->handle, this->data.X, this->params.batch_size,
-                      this->params.n_obs, order, param, loglike, residual, true,
-                      false);
+      batched_loglike(*this->handle, arima_mem, this->data.X,
+                      this->params.batch_size, this->params.n_obs, order, param,
+                      loglike, residual, true, false);
     });
   }
 
@@ -87,6 +89,11 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
       this->params.batch_size * sizeof(DataT), stream);
     residual = (DataT*)allocator->allocate(
       this->params.batch_size * this->params.n_obs * sizeof(DataT), stream);
+
+    // Temporary memory
+    size_t temp_buf_size = ARIMAMemory<double>::compute_size(
+      order, this->params.batch_size, this->params.n_obs);
+    temp_mem = (char*)allocator->allocate(temp_buf_size, stream);
   }
 
   void deallocateBuffers(const ::benchmark::State& state) {
@@ -111,6 +118,7 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
   DataT* param;
   DataT* loglike;
   DataT* residual;
+  char* temp_mem;
 };
 
 std::vector<ArimaParams> getInputs() {

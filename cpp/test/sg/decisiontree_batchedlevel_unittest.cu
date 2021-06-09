@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+#include <raft/handle.hpp>
+
 #include <decisiontree/memory.h>
 #include <decisiontree/quantile/quantile.h>
 #include <gtest/gtest.h>
@@ -261,18 +263,9 @@ TEST_P(TestMetric, RegressionMetricGain) {
     {{1.40f, IdxT(-1), DataT(0), DataT(0), NodeT::Leaf}, 0, 5, 0}};
   raft::update_device(curr_nodes, h_nodes.data(), batchSize, 0);
 
-  int n_blks_for_rows = 1;
   auto n_col_blks = 1;  // evaluate only one column (feature)
-  dim3 grid(n_blks_for_rows, n_col_blks, batchSize);
-  size_t smemSize = 7 * n_bins * sizeof(DataT) + n_bins * sizeof(int);
-  smemSize += sizeof(int);
-  // Room for alignment in worst case
-  smemSize += 5 * sizeof(DataT) + 2 * sizeof(int);
 
   IdxT nPredCounts = max_batch * n_bins * n_col_blks;
-  size_t block_sync_size = MLCommon::GridSync::computeWorkspaceSize(
-    dim3(n_blks_for_rows, n_col_blks, max_batch), MLCommon::SyncType::ACROSS_X,
-    false);
 
   auto d_allocator = raft_handle->get_device_allocator();
 
@@ -282,24 +275,26 @@ TEST_P(TestMetric, RegressionMetricGain) {
   // threadblock arrival count
   int* done_count = static_cast<int*>(
     d_allocator->allocate(sizeof(int) * max_batch * n_col_blks, 0));
-  // used for synching across blocks in a kernel
-  char* block_sync = static_cast<char*>(
-    d_allocator->allocate(sizeof(char) * block_sync_size, 0));
   DataT* pred = static_cast<DataT*>(
     d_allocator->allocate(2 * nPredCounts * sizeof(DataT), 0));
-  DataT* pred2 = static_cast<DataT*>(
-    d_allocator->allocate(2 * nPredCounts * sizeof(DataT), 0));
-  DataT* pred2P =
-    static_cast<DataT*>(d_allocator->allocate(nPredCounts * sizeof(DataT), 0));
   IdxT* pred_count =
     static_cast<IdxT*>(d_allocator->allocate(nPredCounts * sizeof(IdxT), 0));
+
+  WorkloadInfo<IdxT>* workload_info = static_cast<WorkloadInfo<IdxT>*>(
+    d_allocator->allocate(sizeof(WorkloadInfo<IdxT>), 0));
+  WorkloadInfo<IdxT> h_workload_info;
+
+  // Just one threadBlock would be used
+  h_workload_info.nodeid = 0;
+  h_workload_info.offset_blockid = 0;
+  h_workload_info.num_blocks = 1;
+
+  raft::update_device(workload_info, &h_workload_info, 1, 0);
+
   CUDA_CHECK(cudaMemsetAsync(mutex, 0, sizeof(int) * max_batch, 0));
   CUDA_CHECK(
     cudaMemsetAsync(done_count, 0, sizeof(int) * max_batch * n_col_blks, 0));
-  CUDA_CHECK(cudaMemsetAsync(block_sync, 0, sizeof(char) * block_sync_size, 0));
   CUDA_CHECK(cudaMemsetAsync(pred, 0, 2 * sizeof(DataT) * nPredCounts, 0));
-  CUDA_CHECK(cudaMemsetAsync(pred2, 0, sizeof(DataT) * nPredCounts * 2, 0));
-  CUDA_CHECK(cudaMemsetAsync(pred2P, 0, sizeof(DataT) * nPredCounts, 0));
   CUDA_CHECK(cudaMemsetAsync(pred_count, 0, nPredCounts * sizeof(IdxT), 0));
   CUDA_CHECK(cudaMemsetAsync(n_new_leaves, 0, sizeof(IdxT), 0));
   initSplit<DataT, IdxT, Traits::TPB_DEFAULT>(splits, batchSize, 0);
@@ -308,13 +303,27 @@ TEST_P(TestMetric, RegressionMetricGain) {
 
   CRITERION split_criterion = GetParam();
 
+  dim3 grid(1, n_col_blks, 1);
+  // Compute shared memory size
+  size_t smemSize1 = (n_bins + 1) * sizeof(DataT) +  // pdf_spred
+                     2 * n_bins * sizeof(DataT) +    // cdf_spred
+                     n_bins * sizeof(int) +          // pdf_scount
+                     n_bins * sizeof(int) +          // cdf_scount
+                     n_bins * sizeof(DataT) +        // sbins
+                     sizeof(int);                    // sDone
+  // Room for alignment (see alignPointer in computeSplitRegressionkernels)
+  smemSize1 += 6 * sizeof(DataT) + 3 * sizeof(int);
+  // Calculate the shared memory needed for evalBestSplit
+  size_t smemSize2 =
+    raft::ceildiv(32, raft::WarpSize) * sizeof(Split<DataT, IdxT>);
+  // Pick the max of two
+  size_t smemSize = std::max(smemSize1, smemSize2);
+
   computeSplitRegressionKernel<DataT, DataT, IdxT, 32>
     <<<grid, 32, smemSize, 0>>>(
-      pred, pred2, pred2P, pred_count, n_bins, params.max_depth,
-      params.min_samples_split, params.min_samples_leaf,
-      params.min_impurity_decrease, params.max_leaves, input, curr_nodes, 0,
-      done_count, mutex, n_new_leaves, splits, block_sync, split_criterion, 0,
-      1234ULL);
+      pred, pred_count, n_bins, params.min_samples_leaf,
+      params.min_impurity_decrease, input, curr_nodes, 0, done_count, mutex,
+      splits, split_criterion, 0, workload_info, 1234ULL);
 
   raft::update_host(h_splits.data(), splits, 1, 0);
   CUDA_CHECK(cudaGetLastError());
@@ -372,15 +381,13 @@ TEST_P(TestMetric, RegressionMetricGain) {
 
   d_allocator->deallocate(mutex, sizeof(int) * max_batch, 0);
   d_allocator->deallocate(done_count, sizeof(int) * max_batch * n_col_blks, 0);
-  d_allocator->deallocate(block_sync, sizeof(char) * block_sync_size, 0);
   d_allocator->deallocate(pred, 2 * nPredCounts * sizeof(DataT), 0);
-  d_allocator->deallocate(pred2, 2 * nPredCounts * sizeof(DataT), 0);
-  d_allocator->deallocate(pred2P, nPredCounts * sizeof(DataT), 0);
   d_allocator->deallocate(pred_count, nPredCounts * sizeof(IdxT), 0);
+  d_allocator->deallocate(workload_info, sizeof(WorkloadInfo<IdxT>), 0);
 }
 
 INSTANTIATE_TEST_SUITE_P(BatchedLevelAlgoUnitTest, TestMetric,
-                         ::testing::Values(CRITERION::MSE, CRITERION::MAE),
+                         ::testing::Values(CRITERION::MSE),
                          [](const auto& info) {
                            switch (info.param) {
                              case CRITERION::MSE:

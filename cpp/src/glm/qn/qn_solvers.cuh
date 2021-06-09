@@ -82,9 +82,9 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
   size_t mat_size = raft::alignTo<size_t>(sizeof(T) * param.m * n, qn_align);
   size_t vec_size = raft::alignTo<size_t>(sizeof(T) * n, qn_align);
   T *p_ws = workspace.data;
-  SimpleMat<T> S(p_ws, n, param.m);
+  SimpleDenseMat<T> S(p_ws, n, param.m);
   p_ws += mat_size;
-  SimpleMat<T> Y(p_ws, n, param.m);
+  SimpleDenseMat<T> Y(p_ws, n, param.m);
   p_ws += mat_size;
   SimpleVec<T> xp(p_ws, n);
   p_ws += vec_size;
@@ -108,13 +108,11 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
 
   // Evaluate function and compute gradient
   fx = f(x, grad, dev_scalar, stream);
-  T xnorm = nrm2(x, dev_scalar, stream);
-  T gnorm = nrm2(grad, dev_scalar, stream);
 
   if (param.past > 0) fx_hist[0] = fx;
 
   // Early exit if the initial x is already a minimizer
-  if (gnorm <= param.epsilon * std::max(xnorm, T(1.0))) {
+  if (check_convergence(param, *k, fx, x, grad, fx_hist, dev_scalar, stream)) {
     CUML_LOG_DEBUG("Initial solution fulfills optimality condition.");
     return OPT_SUCCESS;
   }
@@ -208,9 +206,9 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
   size_t mat_size = raft::alignTo<size_t>(sizeof(T) * param.m * n, qn_align);
   size_t vec_size = raft::alignTo<size_t>(sizeof(T) * n, qn_align);
   T *p_ws = workspace.data;
-  SimpleMat<T> S(p_ws, n, param.m);
+  SimpleDenseMat<T> S(p_ws, n, param.m);
   p_ws += mat_size;
-  SimpleMat<T> Y(p_ws, n, param.m);
+  SimpleDenseMat<T> Y(p_ws, n, param.m);
   p_ws += mat_size;
   SimpleVec<T> xp(p_ws, n);
   p_ws += vec_size;
@@ -255,13 +253,10 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
   // pseudo.assign_binary(x, grad, pseudo_grad);
   update_pseudo(x, grad, pseudo_grad, pg_limit, pseudo, stream);
 
-  T xnorm = nrm2(x, dev_scalar, stream);
-  T gnorm = nrm2(pseudo, dev_scalar, stream);
-
   if (param.past > 0) fx_hist[0] = fx;
 
   // Early exit if the initial x is already a minimizer
-  if (gnorm <= param.epsilon * std::max(xnorm, T(1.0))) {
+  if (check_convergence(param, *k, fx, x, grad, fx_hist, dev_scalar, stream)) {
     CUML_LOG_DEBUG("Initial solution fulfills optimality condition.");
     return OPT_SUCCESS;
   }

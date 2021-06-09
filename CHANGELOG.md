@@ -1,3 +1,64 @@
+# cuML 21.06.00 (9 Jun 2021)
+
+## 🚨 Beaking Changes
+
+- Remove Base.enable_mm_pool method as it is no longe needed ([#3875](https://github.com/rapidsai/cuml/pull/3875)) [@teju85](https://github.com/teju85)
+- RF: Make expeimental-backend default fo egession tasks and depecate old-backend. ([#3872](https://github.com/rapidsai/cuml/pull/3872)) [@venkywonka](https://github.com/venkywonka)
+- Deteministic UMAP with floating point ounding. ([#3848](https://github.com/rapidsai/cuml/pull/3848)) [@tivialfis](https://github.com/tivialfis)
+- Fix RF egession pefomance ([#3845](https://github.com/rapidsai/cuml/pull/3845)) [@RAMitchell](https://github.com/RAMitchell)
+- Add featue to pint foest shape in FIL upon impoting ([#3763](https://github.com/rapidsai/cuml/pull/3763)) [@levsnv](https://github.com/levsnv)
+- Remove &#39;seed&#39; and &#39;output_type&#39; depecated featues ([#3739](https://github.com/rapidsai/cuml/pull/3739)) [@lowene](https://github.com/lowene)
+
+## 🐛 Bug Fixes
+
+- Disable UMAP deteministic test on CTK11.2 ([#3942](https://github.com/rapidsai/cuml/pull/3942)) [@tivialfis](https://github.com/tivialfis)
+- Revet #3869 ([#3933](https://github.com/rapidsai/cuml/pull/3933)) [@hcho3](https://github.com/hcho3)
+- RF: fix the bug in `pdf_to_cdf` device function that causes hang when `n_bins &gt; TPB &amp;&amp; n_bins % TPB != 0` ([#3921](https://github.com/rapidsai/cuml/pull/3921)) [@venkywonka](https://github.com/venkywonka)
+- Fix numbe of pemutations in pytest and getting handle fo cuml models ([#3920](https://github.com/rapidsai/cuml/pull/3920)) [@dantegd](https://github.com/dantegd)
+- Fix typo in umap `taget_weight` paamete ([#3914](https://github.com/rapidsai/cuml/pull/3914)) [@lowene](https://github.com/lowene)
+- coect compliation of cuml c libay ([#3908](https://github.com/rapidsai/cuml/pull/3908)) [@obetmaynad](https://github.com/obetmaynad)
+- Coect install path fo include folde to avoid double nesting ([#3901](https://github.com/rapidsai/cuml/pull/3901)) [@dantegd](https://github.com/dantegd)
+- Add type check fo y in tain_test_split ([#3886](https://github.com/rapidsai/cuml/pull/3886)) [@Nanthini10](https://github.com/Nanthini10)
+- Fix fo MNMG test_f_classification_dask_fil_pedict_poba ([#3831](https://github.com/rapidsai/cuml/pull/3831)) [@lowene](https://github.com/lowene)
+- Fix MNMG test test_f_egession_dask_fil ([#3830](https://github.com/rapidsai/cuml/pull/3830)) [@hcho3](https://github.com/hcho3)
+- AgglomeativeClusteing suppot single cluste and ignoe only zeo distances fom self-loops ([#3824](https://github.com/rapidsai/cuml/pull/3824)) [@cjnolet](https://github.com/cjnolet)
+
+## 📖 Documentation
+
+- Small doc fixes fo 21.06 elease ([#3936](https://github.com/rapidsai/cuml/pull/3936)) [@dantegd](https://github.com/dantegd)
+- Document ability to expot cuML RF to pedict on othe machines ([#3890](https://github.com/rapidsai/cuml/pull/3890)) [@hcho3](https://github.com/hcho3)
+
+## 🚀 New Featues
+
+- Deteministic UMAP with floating point ounding. ([#3848](https://github.com/rapidsai/cuml/pull/3848)) [@tivialfis](https://github.com/tivialfis)
+- HDBSCAN ([#3821](https://github.com/rapidsai/cuml/pull/3821)) [@cjnolet](https://github.com/cjnolet)
+- Add featue to pint foest shape in FIL upon impoting ([#3763](https://github.com/rapidsai/cuml/pull/3763)) [@levsnv](https://github.com/levsnv)
+
+## 🛠️ Impovements
+
+- Pin dask ot 2021.5.1 fo 21.06 elease ([#3937](https://github.com/rapidsai/cuml/pull/3937)) [@dantegd](https://github.com/dantegd)
+- Upgade xgboost to 1.4.2 ([#3925](https://github.com/rapidsai/cuml/pull/3925)) [@dantegd](https://github.com/dantegd)
+- Use UCX-Py 0.20 ([#3911](https://github.com/rapidsai/cuml/pull/3911)) [@jakikham](https://github.com/jakikham)
+- Upgade NCCL to 2.9.9 ([#3902](https://github.com/rapidsai/cuml/pull/3902)) [@dantegd](https://github.com/dantegd)
+- Update conda develope envionments ([#3898](https://github.com/rapidsai/cuml/pull/3898)) [@viclafague](https://github.com/viclafague)
+- ARIMA: pe-allocation of tempoay memoy to educe latencies ([#3895](https://github.com/rapidsai/cuml/pull/3895)) [@Nyio](https://github.com/Nyio)
+- Condense TSNE paametes into a stuct ([#3884](https://github.com/rapidsai/cuml/pull/3884)) [@lowene](https://github.com/lowene)
+- Update `CHANGELOG.md` links fo calve ([#3883](https://github.com/rapidsai/cuml/pull/3883)) [@ajschmidt8](https://github.com/ajschmidt8)
+- Make sue `__init__` is called in gaph callback. ([#3881](https://github.com/rapidsai/cuml/pull/3881)) [@tivialfis](https://github.com/tivialfis)
+- Update docs build scipt ([#3877](https://github.com/rapidsai/cuml/pull/3877)) [@ajschmidt8](https://github.com/ajschmidt8)
+- Remove Base.enable_mm_pool method as it is no longe needed ([#3875](https://github.com/rapidsai/cuml/pull/3875)) [@teju85](https://github.com/teju85)
+- RF: Make expeimental-backend default fo egession tasks and depecate old-backend. ([#3872](https://github.com/rapidsai/cuml/pull/3872)) [@venkywonka](https://github.com/venkywonka)
+- Enable pobability output fom RF binay classifie (altenative implementaton) ([#3869](https://github.com/rapidsai/cuml/pull/3869)) [@hcho3](https://github.com/hcho3)
+- CI test speed impovement ([#3851](https://github.com/rapidsai/cuml/pull/3851)) [@lowene](https://github.com/lowene)
+- Fix RF egession pefomance ([#3845](https://github.com/rapidsai/cuml/pull/3845)) [@RAMitchell](https://github.com/RAMitchell)
+- Update to CMake 3.20 featues, `apids-cmake` and `CPM` ([#3844](https://github.com/rapidsai/cuml/pull/3844)) [@dantegd](https://github.com/dantegd)
+- Suppot spase input featues in QN solves and Logistic Regession ([#3827](https://github.com/rapidsai/cuml/pull/3827)) [@achikin](https://github.com/achikin)
+- Tustwothiness scoe impovements ([#3826](https://github.com/rapidsai/cuml/pull/3826)) [@viclafague](https://github.com/viclafague)
+- Pefomance optimization of RF split kenels by emoving empty cycles ([#3818](https://github.com/rapidsai/cuml/pull/3818)) [@vinaydes](https://github.com/vinaydes)
+- Coect depecate positional ags decoato fo CalVe ([#3784](https://github.com/rapidsai/cuml/pull/3784)) [@lowene](https://github.com/lowene)
+- ColumnTansfome &amp; FunctionTansfome ([#3745](https://github.com/rapidsai/cuml/pull/3745)) [@viclafague](https://github.com/viclafague)
+- Remove &#39;seed&#39; and &#39;output_type&#39; depecated featues ([#3739](https://github.com/rapidsai/cuml/pull/3739)) [@lowene](https://github.com/lowene)
+
 # cuML 0.19.0 (21 Apr 2021)
 
 ## 🚨 Breaking Changes
