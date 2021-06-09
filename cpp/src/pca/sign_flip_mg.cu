@@ -17,13 +17,13 @@
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 #include <common/allocatorAdapter.hpp>
-#include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/decomposition/sign_flip_mg.hpp>
 #include <raft/comms/comms.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
+#include <raft/mr/device/allocator.hpp>
 
 using namespace MLCommon;
 
@@ -34,7 +34,7 @@ namespace opg {
 // TODO: replace these thrust code with cuda kernels or prims
 template <typename T>
 void findMaxAbsOfColumns(T *input, int n_rows, int n_cols, T *max_vals,
-                         std::shared_ptr<deviceAllocator> allocator,
+                         std::shared_ptr<raft::mr::device::allocator> allocator,
                          cudaStream_t stream, bool row_major = false) {
   auto counting = thrust::make_counting_iterator(0);
   auto m = n_rows;
@@ -89,7 +89,8 @@ void findMaxAbsOfColumns(T *input, int n_rows, int n_cols, T *max_vals,
 // TODO: replace these thrust code with cuda kernels or prims
 template <typename T>
 void flip(T *input, int n_rows, int n_cols, T *max_vals,
-          std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream) {
+          std::shared_ptr<raft::mr::device::allocator> allocator,
+          cudaStream_t stream) {
   auto counting = thrust::make_counting_iterator(0);
   auto m = n_rows;
 

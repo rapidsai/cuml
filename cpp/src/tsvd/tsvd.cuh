@@ -32,6 +32,7 @@
 #include <raft/linalg/gemm.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/stddev.cuh>
 #include <raft/stats/sum.cuh>
@@ -115,7 +116,8 @@ void calEig(const raft::handle_t &handle, math_t *in, math_t *components,
  */
 template <typename math_t>
 void signFlip(math_t *input, int n_rows, int n_cols, math_t *components,
-              int n_cols_comp, std::shared_ptr<deviceAllocator> allocator,
+              int n_cols_comp,
+              std::shared_ptr<raft::mr::device::allocator> allocator,
               cudaStream_t stream) {
   auto counting = thrust::make_counting_iterator(0);
   auto m = n_rows;

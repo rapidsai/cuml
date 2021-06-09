@@ -15,14 +15,15 @@
  */
 
 #include <cuml/matrix/kernelparams.h>
+#include <common/ml_benchmark.hpp>
 #include <matrix/grammatrix.cuh>
 #include <matrix/kernelfactory.cuh>
 #include <memory>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng.cuh>
 #include <sstream>
 #include <string>
 #include <vector>
-#include "../common/ml_benchmark.hpp"
 
 namespace MLCommon {
 namespace Bench {
@@ -41,7 +42,7 @@ struct GramTestParams {
 template <typename T>
 struct GramMatrix : public Fixture {
   GramMatrix(const std::string& name, const GramTestParams& p)
-    : Fixture(name, std::shared_ptr<deviceAllocator>(
+    : Fixture(name, std::shared_ptr<raft::mr::device::allocator>(
                       new raft::mr::device::default_allocator)),
       params(p) {
     std::vector<std::string> kernel_names{"linear", "poly", "rbf", "tanh"};

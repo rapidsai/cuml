@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,9 +17,9 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <algorithm>
-#include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
 #include <metrics/rand_index.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <random>
 #include "test_utils.h"
 
@@ -82,7 +82,7 @@ class randIndexTest : public ::testing::TestWithParam<randIndexParam> {
 
     raft::update_device(firstClusterArray, &arr1[0], (int)size, stream);
     raft::update_device(secondClusterArray, &arr2[0], (int)size, stream);
-    std::shared_ptr<MLCommon::deviceAllocator> allocator(
+    std::shared_ptr<raft::mr::device::allocator> allocator(
       new raft::mr::device::default_allocator);
 
     //calling the rand_index CUDA implementation

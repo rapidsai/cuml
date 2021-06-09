@@ -22,8 +22,6 @@
 
 namespace ML {
 
-using namespace MLCommon;
-
 struct RFInputs {
   int n_rows_train;
   int n_rows_test;

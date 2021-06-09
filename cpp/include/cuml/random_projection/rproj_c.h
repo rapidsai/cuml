@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <raft/handle.hpp>
+#include <raft/mr/device/allocator.hpp>
 
 namespace ML {
 
@@ -49,7 +49,7 @@ enum random_matrix_type { unset, dense, sparse };
 
 template <typename math_t>
 struct rand_mat {
-  rand_mat(std::shared_ptr<MLCommon::deviceAllocator> allocator,
+  rand_mat(std::shared_ptr<raft::mr::device::allocator> allocator,
            cudaStream_t stream)
     : dense_data(allocator, stream),
       indices(allocator, stream),

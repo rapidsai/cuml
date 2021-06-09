@@ -15,7 +15,6 @@
  */
 
 #include <cmath>
-#include <cuml/cuml.hpp>
 #include <cuml/ensemble/randomforest.hpp>
 #include <utility>
 #include "benchmark.cuh"

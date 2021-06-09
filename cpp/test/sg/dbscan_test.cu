@@ -21,14 +21,14 @@
 
 #include <raft/linalg/distance_type.h>
 #include <cuml/cluster/dbscan.hpp>
-#include <cuml/common/cuml_allocator.hpp>
-#include <cuml/cuml.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/metrics/metrics.hpp>
-#include <distance/distance.cuh>
+#include <raft/distance/distance.cuh>
+#include <raft/mr/device/allocator.hpp>
 
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/transpose.h>
+#include <raft/handle.hpp>
 
 #include <test_utils.h>
 
@@ -91,8 +91,8 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
       device_buffer<char> workspace(handle.get_device_allocator(),
                                     handle.get_stream(), 0);
 
-      MLCommon::Distance::pairwise_distance_impl<
-        T, IdxT, raft::distance::L2SqrtUnexpanded>(
+      raft::distance::pairwise_distance_impl<T, IdxT,
+                                             raft::distance::L2SqrtUnexpanded>(
         out.data(), out.data(), dist.data(), params.n_row, params.n_row,
         params.n_col, workspace, handle.get_stream(), true);
     }

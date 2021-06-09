@@ -53,9 +53,9 @@ gpuci_conda_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
       "libcumlprims=${MINOR_VERSION}" \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
-      "ucx-py=${MINOR_VERSION}" \
+      "ucx-py=0.20.*" \
       "ucx-proc=*=gpu" \
-      "xgboost=1.4.0dev.rapidsai${MINOR_VERSION}" \
+      "xgboost=1.4.2dev.rapidsai${MINOR_VERSION}" \
       "rapids-build-env=${MINOR_VERSION}.*" \
       "rapids-notebook-env=${MINOR_VERSION}.*" \
       "rapids-doc-env=${MINOR_VERSION}.*" \
@@ -70,12 +70,6 @@ py_ver=$(python -c "import sys; print('.'.join(map(str, sys.version_info[:2])))"
 if [ "$py_ver" == "3.6" ];then
     conda install contextvars
 fi
-
-gpuci_logger "Install the main version of dask and distributed"
-set -x
-pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
-pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
-set +x
 
 gpuci_logger "Check compiler versions"
 python --version
@@ -125,6 +119,12 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
 
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
     export LD_LIBRARY_PATH_CACHED=""
+
+    gpuci_logger "Install the main version of dask and distributed"
+    set -x
+    pip install "git+https://github.com/dask/distributed.git@2021.05.1" --upgrade --no-deps
+    pip install "git+https://github.com/dask/dask.git@2021.05.1" --upgrade --no-deps
+    set +x
 
     gpuci_logger "Python pytest for cuml"
     cd $WORKSPACE/python
@@ -192,6 +192,12 @@ else
     CONDA_FILE=${CONDA_FILE//-/=} #convert to conda install
     gpuci_logger "Installing $CONDA_FILE"
     conda install -c ${CONDA_ARTIFACT_PATH} "$CONDA_FILE"
+
+    gpuci_logger "Install the main version of dask and distributed"
+    set -x
+    pip install "git+https://github.com/dask/distributed.git@2021.05.1" --upgrade --no-deps
+    pip install "git+https://github.com/dask/dask.git@2021.05.1" --upgrade --no-deps
+    set +x
 
     gpuci_logger "Building cuml"
     "$WORKSPACE/build.sh" -v cuml --codecov

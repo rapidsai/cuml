@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#pragma once
 #include <cuml/tree/flatnode.h>
 #include <raft/cudart_utils.h>
 #include <treelite/tree.h>
@@ -21,6 +22,8 @@
 #include <cuml/common/logger.hpp>
 #include <iomanip>
 #include <locale>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/host/allocator.hpp>
 #include <random>
 #include <type_traits>
 #include "batched-levelalgo/builder.cuh"
@@ -285,13 +288,14 @@ void DecisionTreeBase<T, L>::plant(
   ML::PUSH_RANGE("DecisionTreeBase::plant::bootstrapping features");
   //Bootstrap features
   unsigned int *h_colids = tempmem->h_colids->data();
-  if (tree_params.bootstrap_features) {
+  // fill with ascending range of indices
+  std::iota(h_colids, h_colids + dinfo.Ncols, 0);
+  // if feature sampling, shuffle
+  if (tree_params.max_features != 1.f) {
+    // seed with treeid
     srand(treeid * 1000);
-    for (int i = 0; i < dinfo.Ncols; i++) {
-      h_colids[i] = rand() % dinfo.Ncols;
-    }
-  } else {
-    std::iota(h_colids, h_colids + dinfo.Ncols, 0);
+    std::random_shuffle(h_colids, h_colids + dinfo.Ncols,
+                        [](int j) { return rand() % j; });
   }
   ML::POP_RANGE();
   prepare_time = prepare_fit_timer.getElapsedSeconds();
@@ -368,8 +372,8 @@ void DecisionTreeBase<T, L>::set_metadata(TreeMetaDataNode<T, L> *&tree) {
 
 template <typename T, typename L>
 void DecisionTreeBase<T, L>::base_fit(
-  const std::shared_ptr<MLCommon::deviceAllocator> device_allocator_in,
-  const std::shared_ptr<MLCommon::hostAllocator> host_allocator_in,
+  const std::shared_ptr<raft::mr::device::allocator> device_allocator_in,
+  const std::shared_ptr<raft::mr::host::allocator> host_allocator_in,
   const cudaStream_t stream_in, const T *data, const int ncols, const int nrows,
   const L *labels, unsigned int *rowids, const int n_sampled_rows,
   int unique_labels, std::vector<SparseTreeNode<T, L>> &sparsetree,
@@ -418,14 +422,17 @@ void DecisionTreeBase<T, L>::base_fit(
     dinfo.NGlobalrows = nrows;
     dinfo.Ncols = ncols;
     n_unique_labels = unique_labels;
-    if (treeid == 0) {
-      CUML_LOG_WARN("Using experimental backend for growing trees\n");
-    }
     grow_tree(device_allocator_in, host_allocator_in, data, treeid, seed, ncols,
               nrows, labels, d_global_quantiles, (int *)rowids, n_sampled_rows,
               unique_labels, tree_params, stream_in, sparsetree,
               this->leaf_counter, this->depth_counter);
   } else {
+    if (treeid == 0) {
+      CUML_LOG_WARN(
+        "The old backend is deprecated and will be removed in 21.08 "
+        "release.\n");
+      CUML_LOG_WARN("Using old backend for growing trees\n");
+    }
     plant(sparsetree, data, ncols, nrows, labels, rowids, n_sampled_rows,
           unique_labels, treeid, seed);
     if (in_tempmem == nullptr) {
@@ -452,8 +459,8 @@ void DecisionTreeClassifier<T>::fit(
 template <typename T>
 
 void DecisionTreeClassifier<T>::fit(
-  const std::shared_ptr<MLCommon::deviceAllocator> device_allocator_in,
-  const std::shared_ptr<MLCommon::hostAllocator> host_allocator_in,
+  const std::shared_ptr<raft::mr::device::allocator> device_allocator_in,
+  const std::shared_ptr<raft::mr::host::allocator> host_allocator_in,
   const cudaStream_t stream_in, const T *data, const int ncols, const int nrows,
   const int *labels, unsigned int *rowids, const int n_sampled_rows,
   const int unique_labels, TreeMetaDataNode<T, int> *&tree,
@@ -484,8 +491,8 @@ void DecisionTreeRegressor<T>::fit(
 
 template <typename T>
 void DecisionTreeRegressor<T>::fit(
-  const std::shared_ptr<MLCommon::deviceAllocator> device_allocator_in,
-  const std::shared_ptr<MLCommon::hostAllocator> host_allocator_in,
+  const std::shared_ptr<raft::mr::device::allocator> device_allocator_in,
+  const std::shared_ptr<raft::mr::host::allocator> host_allocator_in,
   const cudaStream_t stream_in, const T *data, const int ncols, const int nrows,
   const T *labels, unsigned int *rowids, const int n_sampled_rows,
   TreeMetaDataNode<T, T> *&tree, DecisionTreeParams tree_parameters,

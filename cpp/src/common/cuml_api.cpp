@@ -15,6 +15,8 @@
  */
 
 #include <cuml/cuml_api.h>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/host/allocator.hpp>
 
 #include <raft/cudart_utils.h>
 #include <cuml/common/utils.hpp>

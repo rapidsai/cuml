@@ -56,10 +56,10 @@ class LogisticRegression(Base,
     algorithms. Even though it is presented as a single option, this solver
     resolves to two different algorithms underneath:
 
-    - Orthant-Wise Limited Memory Quasi-Newton (OWL-QN) if there is l1
-      regularization
+      - Orthant-Wise Limited Memory Quasi-Newton (OWL-QN) if there is l1
+        regularization
 
-    - Limited Memory BFGS (L-BFGS) otherwise.
+      - Limited Memory BFGS (L-BFGS) otherwise.
 
 
     Note that, just like in Scikit-learn, the bias will not be regularized.
@@ -119,12 +119,17 @@ class LogisticRegression(Base,
         If 'elasticnet' is selected, OWL-QN will be used if l1_ratio > 0,
         otherwise L-BFGS will be used.
     tol: float (default = 1e-4)
-       The training process will stop if current_loss > previous_loss - tol
+        Tolerance for stopping criteria.
+        The exact stopping conditions depend on the chosen solver.
+        Check the solver's documentation for more details:
+
+          * :class:`Quasi-Newton (L-BFGS/OWL-QN)<cuml.QN>`
+
     C: float (default = 1.0)
-       Inverse of regularization strength; must be a positive float.
+        Inverse of regularization strength; must be a positive float.
     fit_intercept: boolean (default = True)
-       If True, the model tries to correct for the global mean of y.
-       If False, the model expects that you have centered the data.
+        If True, the model tries to correct for the global mean of y.
+        If False, the model expects that you have centered the data.
     class_weight: None
         Custom class weighs are currently not supported.
     class_weight: dict or 'balanced', default=None
@@ -181,7 +186,7 @@ class LogisticRegression(Base,
     coefficients and predictions of the model, similar to
     using different solvers in Scikit-learn.
 
-    For additional information, see Scikit-learn's LogistRegression
+    For additional information, see `Scikit-learn's LogisticRegression
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html>`_.
     """
 
@@ -288,7 +293,7 @@ class LogisticRegression(Base,
         else:
             self.verb_prefix = ""
 
-    @generate_docstring()
+    @generate_docstring(X='dense_sparse')
     @cuml.internals.api_base_return_any(set_output_dtype=True)
     def fit(self, X, y, sample_weight=None,
             convert_dtype=True) -> "LogisticRegression":
@@ -382,7 +387,8 @@ class LogisticRegression(Base,
 
         return self
 
-    @generate_docstring(return_values={'name': 'score',
+    @generate_docstring(X='dense_sparse',
+                        return_values={'name': 'score',
                                        'type': 'dense',
                                        'description': 'Confidence score',
                                        'shape': '(n_samples, n_classes)'})
@@ -396,7 +402,8 @@ class LogisticRegression(Base,
             convert_dtype=convert_dtype
         )
 
-    @generate_docstring(return_values={'name': 'preds',
+    @generate_docstring(X='dense_sparse',
+                        return_values={'name': 'preds',
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
@@ -408,7 +415,8 @@ class LogisticRegression(Base,
         """
         return self.solver_model.predict(X, convert_dtype=convert_dtype)
 
-    @generate_docstring(return_values={'name': 'preds',
+    @generate_docstring(X='dense_sparse',
+                        return_values={'name': 'preds',
                                        'type': 'dense',
                                        'description': 'Predicted class \
                                                        probabilities',
@@ -424,7 +432,8 @@ class LogisticRegression(Base,
             log_proba=False
         )
 
-    @generate_docstring(return_values={'name': 'preds',
+    @generate_docstring(X='dense_sparse',
+                        return_values={'name': 'preds',
                                        'type': 'dense',
                                        'description': 'Logaright of predicted \
                                                        class probabilities',
@@ -444,20 +453,8 @@ class LogisticRegression(Base,
                             X,
                             convert_dtype=False,
                             log_proba=False) -> CumlArray:
-        # TODO:
-        # We currently need to grab the dtype and ncols attributes via the
-        # qn solver due to https://github.com/rapidsai/cuml/issues/2404
-        X_m, _, _, self.dtype = input_to_cuml_array(
-            X,
-            check_dtype=self.solver_model.dtype,
-            convert_to_dtype=(
-                self.solver_model.dtype if convert_dtype else None
-            ),
-            check_cols=self.solver_model.n_cols,
-        )
-
         scores = cp.asarray(
-            self.decision_function(X_m, convert_dtype=convert_dtype), order="F"
+            self.decision_function(X, convert_dtype=convert_dtype), order="F"
         ).T
         if self._num_classes == 2:
             proba = cp.zeros((scores.shape[0], 2))

@@ -20,10 +20,10 @@
 #include <raft/linalg/cublas_wrappers.h>
 #include <test_utils.h>
 #include <common/iota.cuh>
-#include <cuml/cuml.hpp>
 #include <decisiontree/batched-levelalgo/builder.cuh>
 #include <memory>
 #include <raft/cuda_utils.cuh>
+#include <raft/handle.hpp>
 #include <random/make_blobs.cuh>
 #include <random/make_regression.cuh>
 
@@ -136,8 +136,6 @@ INSTANTIATE_TEST_CASE_P(BatchedLevelAlgo, DtClsTestF,
 const std::vector<DtTestParams> allR = {
   {1024, 4, 2, 8, 16, 0.00001f, CRITERION::MSE, 12345ULL},
   {1024, 4, 2, 8, 16, 0.00001f, CRITERION::MSE, 12345ULL},
-  {1024, 4, 2, 8, 16, 0.00001f, CRITERION::MAE, 12345ULL},
-  {1024, 4, 2, 8, 16, 0.00001f, CRITERION::MAE, 12345ULL},
 };
 template <typename T>
 class DtRegressorTest : public DtBaseTest<T, T> {

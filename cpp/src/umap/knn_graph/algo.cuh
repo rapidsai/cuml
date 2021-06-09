@@ -22,10 +22,12 @@
 #include <cuml/neighbors/knn_sparse.hpp>
 #include <iostream>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/sparse/selection/knn.cuh>
 #include <selection/knn.cuh>
 
 #include <raft/cudart_utils.h>
+#include <raft/mr/device/allocator.hpp>
 
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/error.hpp>
@@ -44,7 +46,7 @@ void launcher(const raft::handle_t &handle, const umap_inputs &inputsA,
               const umap_inputs &inputsB,
               ML::knn_graph<value_idx, value_t> &out, int n_neighbors,
               const ML::UMAPParams *params,
-              std::shared_ptr<ML::deviceAllocator> d_alloc,
+              std::shared_ptr<raft::mr::device::allocator> d_alloc,
               cudaStream_t stream);
 
 // Instantiation for dense inputs, int64_t indices
@@ -54,7 +56,7 @@ void launcher(const raft::handle_t &handle,
               const ML::manifold_dense_inputs_t<float> &inputsB,
               ML::knn_graph<int64_t, float> &out, int n_neighbors,
               const ML::UMAPParams *params,
-              std::shared_ptr<ML::deviceAllocator> d_alloc,
+              std::shared_ptr<raft::mr::device::allocator> d_alloc,
               cudaStream_t stream) {
   std::vector<float *> ptrs(1);
   std::vector<int> sizes(1);
@@ -73,7 +75,7 @@ void launcher(const raft::handle_t &handle,
               const ML::manifold_dense_inputs_t<float> &inputsB,
               ML::knn_graph<int, float> &out, int n_neighbors,
               const ML::UMAPParams *params,
-              std::shared_ptr<ML::deviceAllocator> d_alloc,
+              std::shared_ptr<raft::mr::device::allocator> d_alloc,
               cudaStream_t stream) {
   throw raft::exception("Dense KNN doesn't yet support 32-bit integer indices");
 }
@@ -84,7 +86,7 @@ void launcher(const raft::handle_t &handle,
               const ML::manifold_sparse_inputs_t<int, float> &inputsB,
               ML::knn_graph<int, float> &out, int n_neighbors,
               const ML::UMAPParams *params,
-              std::shared_ptr<ML::deviceAllocator> d_alloc,
+              std::shared_ptr<raft::mr::device::allocator> d_alloc,
               cudaStream_t stream) {
   raft::sparse::selection::brute_force_knn(
     inputsA.indptr, inputsA.indices, inputsA.data, inputsA.nnz, inputsA.n,
@@ -101,7 +103,7 @@ void launcher(const raft::handle_t &handle,
               const ML::manifold_sparse_inputs_t<int64_t, float> &inputsB,
               ML::knn_graph<int64_t, float> &out, int n_neighbors,
               const ML::UMAPParams *params,
-              std::shared_ptr<ML::deviceAllocator> d_alloc,
+              std::shared_ptr<raft::mr::device::allocator> d_alloc,
               cudaStream_t stream) {
   throw raft::exception("Sparse KNN doesn't support 64-bit integer indices");
 }
@@ -112,8 +114,8 @@ void launcher(
   const ML::manifold_precomputed_knn_inputs_t<int64_t, float> &inputsA,
   const ML::manifold_precomputed_knn_inputs_t<int64_t, float> &inputsB,
   ML::knn_graph<int64_t, float> &out, int n_neighbors,
-  const ML::UMAPParams *params, std::shared_ptr<ML::deviceAllocator> d_alloc,
-  cudaStream_t stream) {
+  const ML::UMAPParams *params,
+  std::shared_ptr<raft::mr::device::allocator> d_alloc, cudaStream_t stream) {
   out.knn_indices = inputsA.knn_graph.knn_indices;
   out.knn_dists = inputsA.knn_graph.knn_dists;
 }
@@ -125,7 +127,7 @@ void launcher(const raft::handle_t &handle,
               const ML::manifold_precomputed_knn_inputs_t<int, float> &inputsB,
               ML::knn_graph<int, float> &out, int n_neighbors,
               const ML::UMAPParams *params,
-              std::shared_ptr<ML::deviceAllocator> d_alloc,
+              std::shared_ptr<raft::mr::device::allocator> d_alloc,
               cudaStream_t stream) {
   out.knn_indices = inputsA.knn_graph.knn_indices;
   out.knn_dists = inputsA.knn_graph.knn_dists;

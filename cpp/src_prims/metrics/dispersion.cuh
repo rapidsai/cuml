@@ -18,11 +18,11 @@
 
 #include <raft/cudart_utils.h>
 #include <cub/cub.cuh>
-#include <cuml/common/cuml_allocator.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <memory>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/eltwise.cuh>
+#include <raft/mr/device/allocator.hpp>
 
 namespace MLCommon {
 namespace Metrics {
@@ -95,7 +95,7 @@ __global__ void dispersionKernel(DataT *result, const DataT *clusters,
 template <typename DataT, typename IdxT = int, int TPB = 256>
 DataT dispersion(const DataT *centroids, const IdxT *clusterSizes,
                  DataT *globalCentroid, IdxT nClusters, IdxT nPoints, IdxT dim,
-                 std::shared_ptr<deviceAllocator> allocator,
+                 std::shared_ptr<raft::mr::device::allocator> allocator,
                  cudaStream_t stream) {
   static const int RowsPerThread = 4;
   static const int ColsPerBlk = 32;
