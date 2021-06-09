@@ -25,12 +25,11 @@ function(find_and_configure_raft)
       BUILD_EXPORT_SET    cuml-exports
       INSTALL_EXPORT_SET  cuml-exports
         CPM_ARGS
-            GIT_REPOSITORY /share/workspace/raft
-            GIT_TAG        fea-2108-faiss_ann_to_raft
+            GIT_REPOSITORY https://github.com/${PKG_FORK}/raft.git
+            GIT_TAG        ${PKG_PINNED_TAG}
             SOURCE_SUBDIR  cpp
             OPTIONS
               "BUILD_TESTS OFF"
-
     )
 
     message(VERBOSE "CUML: Using RAFT located in ${raft_SOURCE_DIR}")
