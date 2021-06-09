@@ -207,6 +207,14 @@ class cuml_build_ext(cython_build_ext, object):
 
     boolean_options = ["singlegpu"] + cython_build_ext.boolean_options
 
+    def build_extensions(self):
+        try:
+            # Silence the '-Wstrict-prototypes' warning
+            self.compiler.compiler_so.remove("-Wstrict-prototypes")
+        except Exception:
+            pass
+        cython_build_ext.build_extensions(self)
+
     def initialize_options(self):
 
         self.singlegpu = None
