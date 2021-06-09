@@ -81,6 +81,12 @@ struct forest {
     int max_shm = 0;
     CUDA_CHECK(cudaDeviceGetAttribute(
       &max_shm, cudaDevAttrMaxSharedMemoryPerBlockOptin, device));
+    /* Our GPUs have been growing the shared memory size generation after
+       generation. Eventually, a CUDA GPU might come by that supports more 
+       shared memory that would fit into unsigned 16-bit int. For such a GPU,
+       we would have otherwise silently overflowed the index calculation due
+       to short division. It would have failed cpp tests, but we might forget
+       about this source of bugs, if not for the failing assert. */
     ASSERT(max_shm < 262144,
            "internal error: please use a larger type inside"
            " infer_k for column count");

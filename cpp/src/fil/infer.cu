@@ -238,7 +238,7 @@ struct tree_aggregator_t {
     : tmp_storage(finalize_workspace) {}
 
   __device__ __forceinline__ void accumulate(
-    vec<NITEMS, float> single_tree_prediction, int tree, int num_rows) {
+    vec<NITEMS, float> single_tree_prediction, int tree, int thread_num_rows) {
     acc += single_tree_prediction;
   }
 
@@ -407,7 +407,7 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> {
                                        : finalize_workspace) {}
 
   __device__ __forceinline__ void accumulate(
-    vec<NITEMS, float> single_tree_prediction, int tree, int num_rows) {
+    vec<NITEMS, float> single_tree_prediction, int tree, int thread_num_rows) {
     acc += single_tree_prediction;
   }
 
@@ -464,7 +464,7 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
   }
 
   __device__ __forceinline__ void accumulate(
-    vec<NITEMS, float> single_tree_prediction, int tree, int num_rows) {
+    vec<NITEMS, float> single_tree_prediction, int tree, int thread_num_rows) {
     // since threads are assigned to consecutive classes, no need for atomics
     per_class_margin[tree % num_classes] += single_tree_prediction;
     // __syncthreads() is called in infer_k
@@ -507,7 +507,7 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
     // __syncthreads() is called in infer_k
   }
   __device__ __forceinline__ void accumulate(
-    vec<NITEMS, int> single_tree_prediction, int tree, int num_rows) {
+    vec<NITEMS, int> single_tree_prediction, int tree, int thread_num_rows) {
 #pragma unroll
     for (int item = 0; item < NITEMS; ++item)
       raft::myAtomicAdd(votes + single_tree_prediction[item] * NITEMS + item,
