@@ -148,9 +148,8 @@ void _fit(const raft::handle_t &handle, const umap_inputs &inputs,
    * Run initialization method
    */
   ML::PUSH_RANGE("umap::embedding");
-  InitEmbed::run(handle, inputs.n, inputs.d, knn_graph.knn_indices,
-                 knn_graph.knn_dists, &cgraph_coo, params, embeddings, stream,
-                 params->init);
+  InitEmbed::run(handle, inputs.n, inputs.d, &cgraph_coo, params, embeddings,
+                 stream, params->init);
 
   if (params->callback) {
     params->callback->setup<value_t>(inputs.n, params->n_components);
@@ -262,8 +261,7 @@ void _fit_supervised(const raft::handle_t &handle, const umap_inputs &inputs,
    * Initialize embeddings
    */
   ML::PUSH_RANGE("umap::supervised::fit");
-  InitEmbed::run(handle, inputs.n, inputs.d, knn_graph.knn_indices,
-                 knn_graph.knn_dists, &ocoo, params, embeddings, stream,
+  InitEmbed::run(handle, inputs.n, inputs.d, &ocoo, params, embeddings, stream,
                  params->init);
 
   if (params->callback) {

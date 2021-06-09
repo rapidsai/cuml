@@ -40,9 +40,8 @@ using namespace ML;
 /**
    * Performs a spectral layout initialization
    */
-template <typename value_idx, typename T>
+template <typename T>
 void launcher(const raft::handle_t &handle, int n, int d,
-              const value_idx *knn_indices, const T *knn_dists,
               raft::sparse::COO<float> *coo, UMAPParams *params, T *embedding) {
   cudaStream_t stream = handle.get_stream();
 
