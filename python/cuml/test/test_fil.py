@@ -220,7 +220,7 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
                           (5, GradientBoostingClassifier, 1),
                           (5, GradientBoostingClassifier, 10),
                           (25, GradientBoostingClassifier, 1),
-                          (25, RandomForestClassifier, 1),])
+                          (25, RandomForestClassifier, 1)])
 def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
                                 n_classes, storage_type, model_class):
     # settings

@@ -354,7 +354,7 @@ struct dense_forest : forest {
     int num_nodes = forest_num_nodes(num_trees_, depth_);
     h.get_device_allocator()->deallocate(nodes_, sizeof(dense_node) * num_nodes,
                                          h.get_stream());
-    if (vector_leaf_len_) {
+    if (vector_leaf_len_ > 0) {
       h.get_device_allocator()->deallocate(
         vector_leaf_, sizeof(float) * vector_leaf_len_, h.get_stream());
     }
