@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,25 +14,17 @@
  * limitations under the License.
  */
 
-#pragma once
+#include <cuml/cluster/hdbscan.hpp>
 
-#include <cuml/manifold/umapparams.h>
-#include <raft/random/rng.cuh>
+#include <hdbscan/runner.h>
 
-namespace UMAPAlgo {
-namespace InitEmbed {
-namespace RandomInit {
+namespace ML {
 
-using namespace ML;
-
-template <typename T>
-void launcher(int n, int d, UMAPParams *params, T *embedding,
-              cudaStream_t stream) {
-  uint64_t seed = params->random_state;
-
-  raft::random::Rng r(seed);
-  r.uniform<T>(embedding, n * params->n_components, -10, 10, stream);
+void hdbscan(const raft::handle_t &handle, const float *X, size_t m, size_t n,
+             raft::distance::DistanceType metric,
+             HDBSCAN::Common::HDBSCANParams &params,
+             HDBSCAN::Common::hdbscan_output<int, float> &out) {
+  HDBSCAN::_fit_hdbscan(handle, X, m, n, metric, params, out);
 }
-}  // namespace RandomInit
-}  // namespace InitEmbed
-};  // namespace UMAPAlgo
+
+};  // end namespace ML

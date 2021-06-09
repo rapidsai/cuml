@@ -86,6 +86,7 @@ repo](https://github.com/rapidsai/notebooks-contrib).
 | Category | Algorithm | Notes |
 | --- | --- | --- |
 | **Clustering** |  Density-Based Spatial Clustering of Applications with Noise (DBSCAN) | Multi-node multi-GPU via Dask |
+|  | Hierarchical Density-Based Spatial Clustering of Applications with Noise (HDBSCAN)  | Experimental |
 |  | K-Means | Multi-node multi-GPU via Dask |
 |  | Single-Linkage Agglomerative Clustering | |
 | **Dimensionality Reduction** | Principal Components Analysis (PCA) | Multi-node multi-GPU via Dask|
