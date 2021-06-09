@@ -18,6 +18,8 @@
 
 #include <raft/linalg/distance_type.h>
 
+#include <cstdint>
+
 namespace raft {
 class handle_t;
 }
