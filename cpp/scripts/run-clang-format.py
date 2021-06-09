@@ -20,6 +20,7 @@ import os
 import subprocess
 import argparse
 import tempfile
+import shutil
 
 
 EXPECTED_VERSION = "8.0.1"
@@ -129,6 +130,12 @@ def main():
         sys.exit(-1)
     all_files = list_all_src_files(args.regex_compiled, args.ignore_compiled,
                                    args.dirs, args.dstdir, args.inplace)
+
+    # Check whether clang-format exists
+    if shutil.which("clang-format") is None:
+        print("clang-format not found. Exiting...")
+        return
+
     # actual format checker
     status = True
     for src, dst in all_files:
