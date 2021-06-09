@@ -206,6 +206,17 @@ endif()
 ##############################################################################
 # - build libcuml++ shared library -------------------------------------------
 
+if(BUILD_CUML_C_LIBRARY OR BUILD_CUML_CPP_LIBRARY)
+  file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld"
+[=[
+SECTIONS
+{
+.nvFatBinSegment : { *(.nvFatBinSegment) }
+.nv_fatbin : { *(.nv_fatbin) }
+}
+]=])
+endif()
+
 if(BUILD_CUML_CPP_LIBRARY)
 
   # single GPU components
@@ -347,6 +358,8 @@ if(BUILD_CUML_CPP_LIBRARY)
   target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libdmlc.a")
   # same as above, but for protobuf library
   target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libprotobuf.a")
+  # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
+  target_link_options(${CUML_CPP_TARGET} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
 
 endif(BUILD_CUML_CPP_LIBRARY)
 
@@ -381,6 +394,9 @@ if(BUILD_CUML_C_LIBRARY)
     PRIVATE
       FAISS::FAISS
   )
+
+  # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
+  target_link_options(${CUML_C_TARGET} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
 
 endif()
 
