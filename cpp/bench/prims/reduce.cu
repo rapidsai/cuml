@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-#include <linalg/reduce.cuh>
-#include "../common/ml_benchmark.hpp"
+#include <common/ml_benchmark.hpp>
+#include <raft/linalg/reduce.cuh>
+#include <raft/mr/device/allocator.hpp>
 
 namespace MLCommon {
 namespace Bench {
@@ -29,8 +30,8 @@ struct Params {
 template <typename T>
 struct Reduce : public Fixture {
   Reduce(const std::string& name, const Params& p)
-    : Fixture(name,
-              std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)),
+    : Fixture(name, std::shared_ptr<raft::mr::device::allocator>(
+                      new raft::mr::device::default_allocator)),
       params(p) {}
 
  protected:
@@ -46,8 +47,8 @@ struct Reduce : public Fixture {
 
   void runBenchmark(::benchmark::State& state) override {
     loopOnState(state, [this]() {
-      MLCommon::LinAlg::reduce(dots, data, params.cols, params.rows, T(0.f),
-                               true, params.alongRows, stream);
+      raft::linalg::reduce(dots, data, params.cols, params.rows, T(0.f), true,
+                           params.alongRows, stream);
     });
   }
 

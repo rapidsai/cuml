@@ -16,6 +16,7 @@
 
 #include <gtest/gtest.h>
 #include <cuml/common/logger.hpp>
+#include <string>
 
 namespace ML {
 
@@ -34,6 +35,58 @@ TEST(Logger, Test) {
   ASSERT_FALSE(Logger::get().shouldLogFor(CUML_LEVEL_DEBUG));
   ASSERT_TRUE(Logger::get().shouldLogFor(CUML_LEVEL_INFO));
   ASSERT_TRUE(Logger::get().shouldLogFor(CUML_LEVEL_WARN));
+}
+
+std::string logged = "";
+void exampleCallback(int lvl, const char* msg) { logged = std::string(msg); }
+
+int flushCount = 0;
+void exampleFlush() { ++flushCount; }
+
+class LoggerTest : public ::testing::Test {
+ protected:
+  void SetUp() override {
+    flushCount = 0;
+    logged = "";
+    Logger::get().setLevel(CUML_LEVEL_TRACE);
+  }
+
+  void TearDown() override {
+    Logger::get().setCallback(nullptr);
+    Logger::get().setFlush(nullptr);
+    Logger::get().setLevel(CUML_LEVEL_INFO);
+  }
+};
+
+TEST_F(LoggerTest, callback) {
+  std::string testMsg;
+  Logger::get().setCallback(exampleCallback);
+
+  testMsg = "This is a critical message";
+  CUML_LOG_CRITICAL(testMsg.c_str());
+  ASSERT_TRUE(logged.find(testMsg) != std::string::npos);
+
+  testMsg = "This is an error message";
+  CUML_LOG_ERROR(testMsg.c_str());
+  ASSERT_TRUE(logged.find(testMsg) != std::string::npos);
+
+  testMsg = "This is a warning message";
+  CUML_LOG_WARN(testMsg.c_str());
+  ASSERT_TRUE(logged.find(testMsg) != std::string::npos);
+
+  testMsg = "This is an info message";
+  CUML_LOG_INFO(testMsg.c_str());
+  ASSERT_TRUE(logged.find(testMsg) != std::string::npos);
+
+  testMsg = "This is a debug message";
+  CUML_LOG_DEBUG(testMsg.c_str());
+  ASSERT_TRUE(logged.find(testMsg) != std::string::npos);
+}
+
+TEST_F(LoggerTest, flush) {
+  Logger::get().setFlush(exampleFlush);
+  Logger::get().flush();
+  ASSERT_EQ(1, flushCount);
 }
 
 }  // namespace ML

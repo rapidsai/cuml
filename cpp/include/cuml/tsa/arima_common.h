@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 
 #include <algorithm>
 
+#include <raft/cudart_utils.h>
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
@@ -39,11 +40,13 @@ struct ARIMAOrder {
   int s;  // Seasonal period
   int k;  // Fit intercept?
 
-  inline int r() const { return std::max(p + s * P, q + s * Q + 1); }
+  inline int n_diff() const { return d + s * D; }
+  inline int n_phi() const { return p + s * P; }
+  inline int n_theta() const { return q + s * Q; }
+  inline int r() const { return std::max(n_phi(), n_theta() + 1); }
+  inline int rd() const { return n_diff() + r(); }
   inline int complexity() const { return p + P + q + Q + k + 1; }
-  inline int lost_in_diff() const { return d + s * D; }
-
-  inline bool need_prep() const { return static_cast<bool>(d + D); }
+  inline bool need_diff() const { return static_cast<bool>(d + D); }
 };
 
 /**
@@ -201,6 +204,164 @@ struct ARIMAParams {
                        param += order.Q;
                        _sigma2[bid] = *param;
                      });
+  }
+};
+
+/**
+ * Structure to manage ARIMA temporary memory allocations
+ * @note The user is expected to give a preallocated buffer to the constructor,
+ *       and ownership is not transferred to this struct! The buffer must be allocated
+ *       as long as the object lives, and deallocated afterwards.
+ */
+template <typename T, int ALIGN = 256>
+struct ARIMAMemory {
+  T *params_mu, *params_ar, *params_ma, *params_sar, *params_sma,
+    *params_sigma2, *Tparams_mu, *Tparams_ar, *Tparams_ma, *Tparams_sar,
+    *Tparams_sma, *Tparams_sigma2, *d_params, *d_Tparams, *Z_dense, *R_dense,
+    *T_dense, *RQR_dense, *RQ_dense, *P_dense, *alpha_dense, *ImT_dense,
+    *ImT_inv_dense, *T_values, *v_tmp_dense, *m_tmp_dense, *K_dense, *TP_dense,
+    *vs, *y_diff, *loglike, *loglike_base, *loglike_pert, *x_pert, *F_buffer,
+    *sumLogF_buffer, *sigma2_buffer, *I_m_AxA_dense, *I_m_AxA_inv_dense,
+    *Ts_dense, *RQRs_dense, *Ps_dense;
+  T **Z_batches, **R_batches, **T_batches, **RQR_batches, **RQ_batches,
+    **P_batches, **alpha_batches, **ImT_batches, **ImT_inv_batches,
+    **v_tmp_batches, **m_tmp_batches, **K_batches, **TP_batches,
+    **I_m_AxA_batches, **I_m_AxA_inv_batches, **Ts_batches, **RQRs_batches,
+    **Ps_batches;
+  int *T_col_index, *T_row_index, *ImT_inv_P, *ImT_inv_info, *I_m_AxA_P,
+    *I_m_AxA_info;
+
+  size_t size;
+
+ protected:
+  char* buf;
+
+  template <bool assign, typename ValType>
+  inline void append_buffer(ValType*& ptr, size_t n_elem) {
+    if (assign) {
+      ptr = reinterpret_cast<ValType*>(buf + size);
+    }
+    size += ((n_elem * sizeof(ValType) + ALIGN - 1) / ALIGN) * ALIGN;
+  }
+
+  template <bool assign>
+  inline void buf_offsets(const ARIMAOrder& order, int batch_size, int n_obs,
+                          char* in_buf = nullptr) {
+    buf = in_buf;
+    size = 0;
+
+    int r = order.r();
+    int rd = order.rd();
+    int N = order.complexity();
+    int n_diff = order.n_diff();
+
+    append_buffer<assign>(params_mu, order.k * batch_size);
+    append_buffer<assign>(params_ar, order.p * batch_size);
+    append_buffer<assign>(params_ma, order.q * batch_size);
+    append_buffer<assign>(params_sar, order.P * batch_size);
+    append_buffer<assign>(params_sma, order.Q * batch_size);
+    append_buffer<assign>(params_sigma2, batch_size);
+
+    append_buffer<assign>(Tparams_mu, order.k * batch_size);
+    append_buffer<assign>(Tparams_ar, order.p * batch_size);
+    append_buffer<assign>(Tparams_ma, order.q * batch_size);
+    append_buffer<assign>(Tparams_sar, order.P * batch_size);
+    append_buffer<assign>(Tparams_sma, order.Q * batch_size);
+    append_buffer<assign>(Tparams_sigma2, batch_size);
+
+    append_buffer<assign>(d_params, N * batch_size);
+    append_buffer<assign>(d_Tparams, N * batch_size);
+    append_buffer<assign>(Z_dense, rd * batch_size);
+    append_buffer<assign>(Z_batches, batch_size);
+    append_buffer<assign>(R_dense, rd * batch_size);
+    append_buffer<assign>(R_batches, batch_size);
+    append_buffer<assign>(T_dense, rd * rd * batch_size);
+    append_buffer<assign>(T_batches, batch_size);
+    append_buffer<assign>(RQ_dense, rd * batch_size);
+    append_buffer<assign>(RQ_batches, batch_size);
+    append_buffer<assign>(RQR_dense, rd * rd * batch_size);
+    append_buffer<assign>(RQR_batches, batch_size);
+    append_buffer<assign>(P_dense, rd * rd * batch_size);
+    append_buffer<assign>(P_batches, batch_size);
+    append_buffer<assign>(alpha_dense, rd * batch_size);
+    append_buffer<assign>(alpha_batches, batch_size);
+    append_buffer<assign>(ImT_dense, r * r * batch_size);
+    append_buffer<assign>(ImT_batches, batch_size);
+    append_buffer<assign>(ImT_inv_dense, r * r * batch_size);
+    append_buffer<assign>(ImT_inv_batches, batch_size);
+    append_buffer<assign>(ImT_inv_P, r * batch_size);
+    append_buffer<assign>(ImT_inv_info, batch_size);
+    append_buffer<assign>(T_values, rd * rd * batch_size);
+    append_buffer<assign>(T_col_index, rd * rd);
+    append_buffer<assign>(T_row_index, rd + 1);
+    append_buffer<assign>(v_tmp_dense, rd * batch_size);
+    append_buffer<assign>(v_tmp_batches, batch_size);
+    append_buffer<assign>(m_tmp_dense, rd * rd * batch_size);
+    append_buffer<assign>(m_tmp_batches, batch_size);
+    append_buffer<assign>(K_dense, rd * batch_size);
+    append_buffer<assign>(K_batches, batch_size);
+    append_buffer<assign>(TP_dense, rd * rd * batch_size);
+    append_buffer<assign>(TP_batches, batch_size);
+    append_buffer<assign>(F_buffer, n_obs * batch_size);
+    append_buffer<assign>(sumLogF_buffer, batch_size);
+    append_buffer<assign>(sigma2_buffer, batch_size);
+
+    append_buffer<assign>(vs, n_obs * batch_size);
+    append_buffer<assign>(y_diff, n_obs * batch_size);
+    append_buffer<assign>(loglike, batch_size);
+    append_buffer<assign>(loglike_base, batch_size);
+    append_buffer<assign>(loglike_pert, batch_size);
+    append_buffer<assign>(x_pert, N * batch_size);
+
+    if (n_diff > 0) {
+      append_buffer<assign>(Ts_dense, r * r * batch_size);
+      append_buffer<assign>(Ts_batches, batch_size);
+      append_buffer<assign>(RQRs_dense, r * r * batch_size);
+      append_buffer<assign>(RQRs_batches, batch_size);
+      append_buffer<assign>(Ps_dense, r * r * batch_size);
+      append_buffer<assign>(Ps_batches, batch_size);
+    }
+
+    if (r <= 5) {
+      // Note: temp mem for the direct Lyapunov solver grows very quickly!
+      // This solver is used iff the condition above is satisifed
+      append_buffer<assign>(I_m_AxA_dense, r * r * r * r * batch_size);
+      append_buffer<assign>(I_m_AxA_batches, batch_size);
+      append_buffer<assign>(I_m_AxA_inv_dense, r * r * r * r * batch_size);
+      append_buffer<assign>(I_m_AxA_inv_batches, batch_size);
+      append_buffer<assign>(I_m_AxA_P, r * r * batch_size);
+      append_buffer<assign>(I_m_AxA_info, batch_size);
+    }
+  }
+
+  /** Protected constructor to estimate max size */
+  ARIMAMemory(const ARIMAOrder& order, int batch_size, int n_obs) {
+    buf_offsets<false>(order, batch_size, n_obs);
+  }
+
+ public:
+  /** Constructor to create pointers from buffer
+   * @param[in] order      ARIMA order
+   * @param[in] batch_size Number of series in the batch
+   * @param[in] n_obs      Length of the series
+   * @param[in] in_buf     Pointer to the temporary memory buffer.
+   *                       Ownership is retained by the caller
+   */
+  ARIMAMemory(const ARIMAOrder& order, int batch_size, int n_obs,
+              char* in_buf) {
+    buf_offsets<true>(order, batch_size, n_obs, in_buf);
+  }
+
+  /** Static method to get the size of the required buffer allocation
+   * @param[in] order      ARIMA order
+   * @param[in] batch_size Number of series in the batch
+   * @param[in] n_obs      Length of the series
+   * @return Buffer size in bytes
+   */
+  static size_t compute_size(const ARIMAOrder& order, int batch_size,
+                             int n_obs) {
+    ARIMAMemory temp(order, batch_size, n_obs);
+    return temp.size;
   }
 };
 

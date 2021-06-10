@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,22 +14,23 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <decisiontree/decisiontree_impl.h>
+#include <decisiontree/treelite_util.h>
 #include <gtest/gtest.h>
-#include <linalg/gemv.h>
-#include <linalg/transpose.h>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/gemv.h>
+#include <raft/linalg/transpose.h>
 #include <sys/stat.h>
 #include <test_utils.h>
 #include <treelite/c_api.h>
 #include <treelite/c_api_runtime.h>
 #include <cstdlib>
-#include <cuda_utils.cuh>
 #include <cuml/ensemble/randomforest.hpp>
 #include <fstream>
 #include <iostream>
 #include <limits>
-#include <random/rng.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/random/rng.cuh>
 #include <string>
 
 namespace ML {
@@ -42,7 +43,7 @@ struct RfInputs {
   int n_cols;
   int n_trees;
   float max_features;
-  float rows_sample;
+  float max_samples;
   int n_inference_rows;
   int max_depth;
   int max_leaves;
@@ -50,7 +51,8 @@ struct RfInputs {
   bool bootstrap_features;
   int n_bins;
   int split_algo;
-  int min_rows_per_node;
+  int min_samples_leaf;
+  int min_samples_split;
   float min_impurity_decrease;
   int n_streams;
   CRITERION split_criterion;
@@ -121,26 +123,25 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
     TREELITE_CHECK(
       TreelitePredictorLoad(lib_path.c_str(), worker_thread, &predictor));
 
-    DenseBatchHandle dense_batch;
-    // Current RF dosen't seem to support missing value, put NaN to be safe.
-    float missing_value = std::numeric_limits<double>::quiet_NaN();
-    TREELITE_CHECK(TreeliteAssembleDenseBatch(
-      inference_data_h.data(), missing_value, params.n_inference_rows,
-      params.n_cols, &dense_batch));
+    DMatrixHandle dmat;
+    // Current RF doesn't seem to support missing value, put NaN to be safe.
+    T missing_value = std::numeric_limits<T>::quiet_NaN();
+    TREELITE_CHECK(TreeliteDMatrixCreateFromMat(
+      inference_data_h.data(), ML::DecisionTree::TreeliteType<T>::value,
+      params.n_inference_rows, params.n_cols, &missing_value, &dmat));
 
     // Use dense batch so batch_sparse is 0.
     // pred_margin = true means to produce raw margins rather than transformed probability.
-    int batch_sparse = 0;
     bool pred_margin = false;
     // Allocate larger array for treelite predicted label with using multi-class classification to avoid seg faults.
     // Altough later we only use first params.n_inference_rows elements.
     size_t treelite_predicted_labels_size;
 
     TREELITE_CHECK(TreelitePredictorPredictBatch(
-      predictor, dense_batch, batch_sparse, verbose, pred_margin,
-      treelite_predicted_labels.data(), &treelite_predicted_labels_size));
+      predictor, dmat, verbose, pred_margin, treelite_predicted_labels.data(),
+      &treelite_predicted_labels_size));
 
-    TREELITE_CHECK(TreeliteDeleteDenseBatch(dense_batch));
+    TREELITE_CHECK(TreeliteDMatrixFree(dmat));
     TREELITE_CHECK(TreelitePredictorFree(predictor));
     TREELITE_CHECK(TreeliteFreeModel(concatenated_forest_handle));
     TREELITE_CHECK(TreeliteFreeModel(treelite_indiv_handles[0]));
@@ -160,8 +161,8 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
     predicted_labels_h.resize(params.n_inference_rows);
     ref_predicted_labels.resize(params.n_inference_rows);
 
-    updateHost(predicted_labels_h.data(), predicted_labels_d,
-               params.n_inference_rows, stream);
+    raft::update_host(predicted_labels_h.data(), predicted_labels_d,
+                      params.n_inference_rows, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     for (int i = 0; i < params.n_inference_rows; i++) {
@@ -174,37 +175,37 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
       }
     }
 
-    EXPECT_TRUE(devArrMatchHost(
+    EXPECT_TRUE(raft::devArrMatchHost(
       ref_predicted_labels.data(), treelite_predicted_labels.data(),
-      params.n_inference_rows, Compare<float>(), stream));
+      params.n_inference_rows, raft::Compare<float>(), stream));
   }
 
   void SetUp() override {
     params = ::testing::TestWithParam<RfInputs<T>>::GetParam();
 
-    DecisionTree::DecisionTreeParams tree_params;
-    set_tree_params(tree_params, params.max_depth, params.max_leaves,
-                    params.max_features, params.n_bins, params.split_algo,
-                    params.min_rows_per_node, params.min_impurity_decrease,
-                    params.bootstrap_features, params.split_criterion, false);
-    set_all_rf_params(rf_params, params.n_trees, params.bootstrap,
-                      params.rows_sample, -1, params.n_streams, tree_params);
-    handle.reset(new cumlHandle(rf_params.n_streams));
+    rf_params = set_rf_params(
+      params.max_depth, params.max_leaves, params.max_features, params.n_bins,
+      params.split_algo, params.min_samples_leaf, params.min_samples_split,
+      params.min_impurity_decrease, params.bootstrap_features, params.bootstrap,
+      params.n_trees, params.max_samples, 0, params.split_criterion, false,
+      params.n_streams, true, 128);
+
+    handle.reset(new raft::handle_t(rf_params.n_streams));
 
     data_len = params.n_rows * params.n_cols;
     inference_data_len = params.n_inference_rows * params.n_cols;
 
-    allocate(data_d, data_len);
-    allocate(inference_data_d, inference_data_len);
+    raft::allocate(data_d, data_len);
+    raft::allocate(inference_data_d, inference_data_len);
 
-    allocate(labels_d, params.n_rows);
-    allocate(predicted_labels_d, params.n_inference_rows);
+    raft::allocate(labels_d, params.n_rows);
+    raft::allocate(predicted_labels_d, params.n_inference_rows);
 
     treelite_predicted_labels.resize(params.n_inference_rows);
     ref_predicted_labels.resize(params.n_inference_rows);
 
     CUDA_CHECK(cudaStreamCreate(&stream));
-    handle->setStream(stream);
+    handle->set_stream(stream);
 
     forest = new typename ML::RandomForestMetaData<T, L>;
     null_trees_ptr(forest);
@@ -217,16 +218,16 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
     inference_data_h.resize(inference_data_len);
 
     // Random number generator.
-    Random::Rng r1(1234ULL);
+    raft::random::Rng r1(1234ULL);
     // Generate data_d is in column major order.
     r1.uniform(data_d, data_len, T(0.0), T(10.0), stream);
-    Random::Rng r2(4321ULL);
+    raft::random::Rng r2(4321ULL);
     // Generate inference_data_d which is in row major order.
     r2.uniform(inference_data_d, inference_data_len, T(0.0), T(10.0), stream);
 
-    updateHost(data_h.data(), data_d, data_len, stream);
-    updateHost(inference_data_h.data(), inference_data_d, inference_data_len,
-               stream);
+    raft::update_host(data_h.data(), data_d, data_len, stream);
+    raft::update_host(inference_data_h.data(), inference_data_d,
+                      inference_data_len, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
@@ -268,7 +269,7 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
   int inference_data_len;
 
   cudaStream_t stream;
-  std::shared_ptr<cumlHandle> handle;
+  std::shared_ptr<raft::handle_t> handle;
   std::vector<float> treelite_predicted_labels;
   std::vector<float> ref_predicted_labels;
   std::vector<ML::RandomForestMetaData<T, L> *> all_forest_info;
@@ -297,29 +298,28 @@ class RfConcatTestClf : public RfTreeliteTestCommon<T, L> {
     float *weight, *temp_label_d, *temp_data_d;
     std::vector<float> temp_label_h;
 
-    allocate(weight, this->params.n_cols);
-    allocate(temp_label_d, this->params.n_rows);
-    allocate(temp_data_d, this->data_len);
+    raft::allocate(weight, this->params.n_cols);
+    raft::allocate(temp_label_d, this->params.n_rows);
+    raft::allocate(temp_data_d, this->data_len);
 
-    Random::Rng r(1234ULL);
+    raft::random::Rng r(1234ULL);
 
     // Generate weight for each feature.
     r.uniform(weight, this->params.n_cols, T(0.0), T(1.0), this->stream);
     // Generate noise.
     r.uniform(temp_label_d, this->params.n_rows, T(0.0), T(10.0), this->stream);
 
-    LinAlg::transpose<float>(
-      this->data_d, temp_data_d, this->params.n_rows, this->params.n_cols,
-      this->handle->getImpl().getCublasHandle(), this->stream);
+    raft::linalg::transpose<float>(*(this->handle), this->data_d, temp_data_d,
+                                   this->params.n_rows, this->params.n_cols,
+                                   this->stream);
 
-    LinAlg::gemv<float>(temp_data_d, this->params.n_cols, this->params.n_rows,
-                        weight, temp_label_d, true, 1.f, 1.f,
-                        this->handle->getImpl().getCublasHandle(),
-                        this->stream);
+    raft::linalg::gemv<float>(*(this->handle), temp_data_d, this->params.n_cols,
+                              this->params.n_rows, weight, temp_label_d, true,
+                              1.f, 1.f, this->stream);
 
     temp_label_h.resize(this->params.n_rows);
-    updateHost(temp_label_h.data(), temp_label_d, this->params.n_rows,
-               this->stream);
+    raft::update_host(temp_label_h.data(), temp_label_d, this->params.n_rows,
+                      this->stream);
 
     CUDA_CHECK(cudaStreamSynchronize(this->stream));
 
@@ -335,14 +335,13 @@ class RfConcatTestClf : public RfTreeliteTestCommon<T, L> {
       this->labels_h.push_back(value);
     }
 
-    updateDevice(this->labels_d, this->labels_h.data(), this->params.n_rows,
-                 this->stream);
+    raft::update_device(this->labels_d, this->labels_h.data(),
+                        this->params.n_rows, this->stream);
 
     preprocess_labels(this->params.n_rows, this->labels_h, labels_map);
 
     for (int i = 0; i < 3; i++) {
       ModelHandle model;
-      std::vector<unsigned char> vec_data;
 
       this->rf_params.n_trees = this->rf_params.n_trees + i;
 
@@ -350,7 +349,7 @@ class RfConcatTestClf : public RfTreeliteTestCommon<T, L> {
           this->params.n_rows, this->params.n_cols, this->labels_d,
           labels_map.size(), this->rf_params);
       build_treelite_forest(&model, this->all_forest_info[i],
-                            this->params.n_cols, this->task_category, vec_data);
+                            this->params.n_cols, this->task_category);
       this->treelite_indiv_handles.push_back(model);
     }
 
@@ -385,10 +384,10 @@ class RfConcatTestReg : public RfTreeliteTestCommon<T, L> {
     this->task_category = 1;
 
     float *weight, *temp_data_d;
-    allocate(weight, this->params.n_cols);
-    allocate(temp_data_d, this->data_len);
+    raft::allocate(weight, this->params.n_cols);
+    raft::allocate(temp_data_d, this->data_len);
 
-    Random::Rng r(1234ULL);
+    raft::random::Rng r(1234ULL);
 
     // Generate weight for each feature.
     r.uniform(weight, this->params.n_cols, T(0.0), T(1.0), this->stream);
@@ -396,30 +395,29 @@ class RfConcatTestReg : public RfTreeliteTestCommon<T, L> {
     r.uniform(this->labels_d, this->params.n_rows, T(0.0), T(10.0),
               this->stream);
 
-    LinAlg::transpose<float>(
-      this->data_d, temp_data_d, this->params.n_rows, this->params.n_cols,
-      this->handle->getImpl().getCublasHandle(), this->stream);
+    raft::linalg::transpose<float>(*(this->handle), this->data_d, temp_data_d,
+                                   this->params.n_rows, this->params.n_cols,
+                                   this->stream);
 
-    LinAlg::gemv<float>(temp_data_d, this->params.n_cols, this->params.n_rows,
-                        weight, this->labels_d, true, 1.f, 1.f,
-                        this->handle->getImpl().getCublasHandle(),
-                        this->stream);
+    raft::linalg::gemv<float>(*(this->handle), temp_data_d, this->params.n_cols,
+                              this->params.n_rows, weight, this->labels_d, true,
+                              1.f, 1.f, this->stream);
 
     this->labels_h.resize(this->params.n_rows);
-    updateHost(this->labels_h.data(), this->labels_d, this->params.n_rows,
-               this->stream);
+    raft::update_host(this->labels_h.data(), this->labels_d,
+                      this->params.n_rows, this->stream);
     CUDA_CHECK(cudaStreamSynchronize(this->stream));
 
     for (int i = 0; i < 3; i++) {
       ModelHandle model;
-      std::vector<unsigned char> vec_data;
+
       this->rf_params.n_trees = this->rf_params.n_trees + i;
 
       fit(*(this->handle), this->all_forest_info[i], this->data_d,
           this->params.n_rows, this->params.n_cols, this->labels_d,
           this->rf_params);
       build_treelite_forest(&model, this->all_forest_info[i],
-                            this->params.n_cols, this->task_category, vec_data);
+                            this->params.n_cols, this->task_category);
       CUDA_CHECK(cudaStreamSynchronize(this->stream));
       this->treelite_indiv_handles.push_back(model);
     }
@@ -434,30 +432,33 @@ class RfConcatTestReg : public RfTreeliteTestCommon<T, L> {
 
 // //-------------------------------------------------------------------------------------------------------------------------------------
 const std::vector<RfInputs<float>> inputsf2_clf = {
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
-   CRITERION::GINI},  // single tree forest, bootstrap false, depth 8, 4 bins
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 2, 0.0,
+   2, CRITERION::GINI},  // single tree forest, bootstrap false, depth 8, 4 bins
+  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 2, 0.0,
+   2,
    CRITERION::GINI},  // single tree forest, bootstrap false, depth of 8, 4 bins
-  {4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 2, 0.0,
+   2,
    CRITERION::
      GINI},  //forest with 10 trees, all trees should produce identical predictions (no bootstrapping or column subsampling)
-  {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::HIST, 2, 2, 0.0,
+   2,
    CRITERION::
      GINI},  //forest with 10 trees, with bootstrap and column subsampling enabled, 3 bins
   {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::GLOBAL_QUANTILE,
-   2, 0.0, 2,
+   2, 2, 0.0, 2,
    CRITERION::
      CRITERION_END},  //forest with 10 trees, with bootstrap and column subsampling enabled, 3 bins, different split algorithm
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
-   CRITERION::ENTROPY},
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
-   CRITERION::ENTROPY},
-  {4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
-   CRITERION::ENTROPY},
-  {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::HIST, 2, 0.0, 2,
-   CRITERION::ENTROPY},
+  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 2, 0.0,
+   2, CRITERION::ENTROPY},
+  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 2, 0.0,
+   2, CRITERION::ENTROPY},
+  {4, 2, 10, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 2, 0.0,
+   2, CRITERION::ENTROPY},
+  {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::HIST, 2, 2, 0.0,
+   2, CRITERION::ENTROPY},
   {4, 2, 10, 0.8f, 0.8f, 4, 8, -1, true, false, 3, SPLIT_ALGO::GLOBAL_QUANTILE,
-   2, 0.0, 2, CRITERION::ENTROPY}};
+   2, 2, 0.0, 2, CRITERION::ENTROPY}};
 
 typedef RfConcatTestClf<float, int> RfClassifierConcatTestF;
 TEST_P(RfClassifierConcatTestF, Convert_Clf) { testClassifier(); }
@@ -466,19 +467,16 @@ INSTANTIATE_TEST_CASE_P(RfBinaryClassifierConcatTests, RfClassifierConcatTestF,
                         ::testing::ValuesIn(inputsf2_clf));
 
 const std::vector<RfInputs<float>> inputsf2_reg = {
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
-   CRITERION::MSE},
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
-   CRITERION::MSE},
-  {4, 2, 5, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 2, 0.0,
+   2, CRITERION::MSE},
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 2, 0.0,
+   2, CRITERION::MSE},
+  {4, 2, 5, 1.0f, 1.0f, 4, 7, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 2, 0.0,
+   2,
    CRITERION::
      CRITERION_END},  // CRITERION_END uses the default criterion (GINI for classification, MSE for regression)
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
-   CRITERION::MAE},
-  {4, 2, 1, 1.0f, 1.0f, 4, 8, -1, false, false, 4, SPLIT_ALGO::GLOBAL_QUANTILE,
-   2, 0.0, 2, CRITERION::MAE},
-  {4, 2, 5, 1.0f, 1.0f, 4, 8, -1, true, false, 4, SPLIT_ALGO::HIST, 2, 0.0, 2,
-   CRITERION::CRITERION_END}};
+  {4, 2, 5, 1.0f, 1.0f, 4, 7, -1, true, false, 4, SPLIT_ALGO::HIST, 2, 2, 0.0,
+   2, CRITERION::CRITERION_END}};
 
 typedef RfConcatTestReg<float, float> RfRegressorConcatTestF;
 TEST_P(RfRegressorConcatTestF, Convert_Reg) { testRegressor(); }

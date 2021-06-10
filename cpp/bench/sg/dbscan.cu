@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,7 @@
  */
 
 #include <cuml/cluster/dbscan.hpp>
-#include <cuml/cuml.hpp>
+
 #include <utility>
 #include "benchmark.cuh"
 
@@ -27,6 +27,7 @@ struct AlgoParams {
   int min_pts;
   double eps;
   size_t max_bytes_per_batch;
+  bool calc_core_sample_indices;
 };
 
 struct Params {
@@ -36,10 +37,12 @@ struct Params {
 };
 
 template <typename D>
-class Dbscan : public BlobsFixture<D, long> {
+class Dbscan : public BlobsFixture<D, int> {
  public:
   Dbscan(const std::string& name, const Params& p)
-    : BlobsFixture<D, long>(name, p.data, p.blobs), dParams(p.dbscan) {}
+    : BlobsFixture<D, int>(name, p.data, p.blobs),
+      dParams(p.dbscan),
+      core_sample_indices(nullptr) {}
 
  protected:
   void runBenchmark(::benchmark::State& state) override {
@@ -47,18 +50,31 @@ class Dbscan : public BlobsFixture<D, long> {
     if (!this->params.rowMajor) {
       state.SkipWithError("Dbscan only supports row-major inputs");
     }
-    this->loopOnState(state, [this]() {
-      dbscanFit(*this->handle, this->data.X, this->params.nrows,
-                this->params.ncols, D(dParams.eps), dParams.min_pts,
-                this->data.y, dParams.max_bytes_per_batch);
+    this->loopOnState(state, [this, &state]() {
+      ML::Dbscan::fit(*this->handle, this->data.X, this->params.nrows,
+                      this->params.ncols, D(dParams.eps), dParams.min_pts,
+                      raft::distance::L2SqrtUnexpanded, this->data.y,
+                      this->core_sample_indices, dParams.max_bytes_per_batch);
+      state.SetItemsProcessed(this->params.nrows * this->params.ncols);
     });
+  }
+
+  void allocateTempBuffers(const ::benchmark::State& state) override {
+    if (this->dParams.calc_core_sample_indices) {
+      this->alloc(this->core_sample_indices, this->params.nrows);
+    }
+  }
+
+  void deallocateTempBuffers(const ::benchmark::State& state) override {
+    this->dealloc(this->core_sample_indices, this->params.nrows);
   }
 
  private:
   AlgoParams dParams;
+  int* core_sample_indices;
 };
 
-std::vector<Params> getInputs() {
+std::vector<Params> getInputs(bool calc_core_sample_indices) {
   std::vector<Params> out;
   Params p;
   p.data.rowMajor = true;
@@ -68,6 +84,7 @@ std::vector<Params> getInputs() {
   p.blobs.center_box_max = 10.0;
   p.blobs.seed = 12345ULL;
   p.dbscan.max_bytes_per_batch = 0;
+  p.dbscan.calc_core_sample_indices = calc_core_sample_indices;
   std::vector<std::pair<int, int>> rowcols = {
     {10000, 81}, {20000, 128}, {40000, 128}, {50000, 128}, {100000, 128},
   };
@@ -88,8 +105,12 @@ std::vector<Params> getInputs() {
   return out;
 }
 
-ML_BENCH_REGISTER(Params, Dbscan<float>, "blobs", getInputs());
-ML_BENCH_REGISTER(Params, Dbscan<double>, "blobs", getInputs());
+//Calculate the benchmark with and without calculating the core pts
+ML_BENCH_REGISTER(Params, Dbscan<float>, "blobs", getInputs(false));
+ML_BENCH_REGISTER(Params, Dbscan<double>, "blobs", getInputs(false));
+
+ML_BENCH_REGISTER(Params, Dbscan<float>, "blobs_core_ind", getInputs(true));
+ML_BENCH_REGISTER(Params, Dbscan<double>, "blobs_core_ind", getInputs(true));
 
 }  // end namespace dbscan
 }  // end namespace Bench

@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <cuda_utils.cuh>
-#include <vectorized.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/vectorized.cuh>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -26,7 +26,7 @@ template <typename math_t, int veclen_, typename Lambda, typename IdxType>
 __global__ void ternaryOpKernel(math_t *out, const math_t *in1,
                                 const math_t *in2, const math_t *in3,
                                 IdxType len, Lambda op) {
-  typedef TxN_t<math_t, veclen_> VecType;
+  typedef raft::TxN_t<math_t, veclen_> VecType;
   VecType a, b, c;
   IdxType idx = threadIdx.x + ((IdxType)blockIdx.x * blockDim.x);
   idx *= VecType::Ratio;
@@ -46,7 +46,8 @@ template <typename math_t, int veclen_, typename Lambda, typename IdxType,
 void ternaryOpImpl(math_t *out, const math_t *in1, const math_t *in2,
                    const math_t *in3, IdxType len, Lambda op,
                    cudaStream_t stream) {
-  const IdxType nblks = ceildiv(veclen_ ? len / veclen_ : len, (IdxType)TPB);
+  const IdxType nblks =
+    raft::ceildiv(veclen_ ? len / veclen_ : len, (IdxType)TPB);
   ternaryOpKernel<math_t, veclen_, Lambda, IdxType>
     <<<nblks, TPB, 0, stream>>>(out, in1, in2, in3, len, op);
   CUDA_CHECK(cudaPeekAtLastError());

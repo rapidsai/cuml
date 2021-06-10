@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 #pragma once
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include "levelkernel_regressor.cuh"
 
 namespace ML {
@@ -25,6 +25,8 @@ void initial_metric_regression(const T *labels, unsigned int *sample_cnt,
                                const int nrows, T &mean, unsigned int &count,
                                T &initial_metric,
                                std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
+  ML::PUSH_RANGE(
+    "DecisionTree::initial_metric_classification @levelhelper_regressor.cuh");
   CUDA_CHECK(
     cudaMemsetAsync(tempmem->d_mseout->data(), 0, sizeof(T), tempmem->stream));
   CUDA_CHECK(
@@ -32,7 +34,7 @@ void initial_metric_regression(const T *labels, unsigned int *sample_cnt,
   CUDA_CHECK(cudaMemsetAsync(tempmem->d_count->data(), 0, sizeof(unsigned int),
                              tempmem->stream));
   int threads = 128;
-  int blocks = MLCommon::ceildiv(nrows, threads);
+  int blocks = raft::ceildiv(nrows, threads);
 
   pred_kernel_level<<<blocks, threads, 0, tempmem->stream>>>(
     labels, sample_cnt, nrows, tempmem->d_predout->data(),
@@ -42,16 +44,17 @@ void initial_metric_regression(const T *labels, unsigned int *sample_cnt,
     labels, sample_cnt, nrows, tempmem->d_predout->data(),
     tempmem->d_count->data(), tempmem->d_mseout->data());
   CUDA_CHECK(cudaGetLastError());
-  MLCommon::updateHost(tempmem->h_count->data(), tempmem->d_count->data(), 1,
-                       tempmem->stream);
-  MLCommon::updateHost(tempmem->h_predout->data(), tempmem->d_predout->data(),
-                       1, tempmem->stream);
-  MLCommon::updateHost(tempmem->h_mseout->data(), tempmem->d_mseout->data(), 1,
-                       tempmem->stream);
+  raft::update_host(tempmem->h_count->data(), tempmem->d_count->data(), 1,
+                    tempmem->stream);
+  raft::update_host(tempmem->h_predout->data(), tempmem->d_predout->data(), 1,
+                    tempmem->stream);
+  raft::update_host(tempmem->h_mseout->data(), tempmem->d_mseout->data(), 1,
+                    tempmem->stream);
   CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
   count = tempmem->h_count->data()[0];
   mean = tempmem->h_predout->data()[0] / count;
   initial_metric = tempmem->h_mseout->data()[0] / count;
+  ML::POP_RANGE();
 }
 
 template <typename T>
@@ -63,6 +66,8 @@ void get_mse_regression_fused(const T *data, const T *labels,
                               std::shared_ptr<TemporaryMemory<T, T>> tempmem,
                               T *d_mseout, T *d_predout,
                               unsigned int *d_count) {
+  ML::PUSH_RANGE(
+    "DecisionTree::get_mse_regression_fused @levelhelper_regressor.cuh");
   size_t predcount = ncols_sampled * nbins * n_nodes;
   CUDA_CHECK(
     cudaMemsetAsync(d_mseout, 0, 2 * predcount * sizeof(T), tempmem->stream));
@@ -75,7 +80,7 @@ void get_mse_regression_fused(const T *data, const T *labels,
   size_t shmempred = nbins * (sizeof(unsigned int) + sizeof(T)) * n_nodes;
 
   int threads = 256;
-  int blocks = MLCommon::ceildiv(nrows, threads);
+  int blocks = raft::ceildiv(nrows, threads);
   unsigned int *d_colstart = nullptr;
   if (tempmem->d_colstart != nullptr) d_colstart = tempmem->d_colstart->data();
 
@@ -114,6 +119,7 @@ void get_mse_regression_fused(const T *data, const T *labels,
     }
     CUDA_CHECK(cudaGetLastError());
   }
+  ML::POP_RANGE();
 }
 template <typename T, typename F>
 void get_mse_regression(const T *data, const T *labels, unsigned int *flags,
@@ -123,6 +129,7 @@ void get_mse_regression(const T *data, const T *labels, unsigned int *flags,
                         const int split_algo,
                         std::shared_ptr<TemporaryMemory<T, T>> tempmem,
                         T *d_mseout, T *d_predout, unsigned int *d_count) {
+  ML::PUSH_RANGE("DecisionTree::get_mse_regression @levelhelper_regressor.cuh");
   size_t predcount = ncols_sampled * nbins * n_nodes;
   CUDA_CHECK(
     cudaMemsetAsync(d_mseout, 0, 2 * predcount * sizeof(T), tempmem->stream));
@@ -137,7 +144,7 @@ void get_mse_regression(const T *data, const T *labels, unsigned int *flags,
   size_t shmemmse = shmempred + 2 * nbins * n_nodes * sizeof(T);
 
   int threads = 256;
-  int blocks = MLCommon::ceildiv(nrows, threads);
+  int blocks = raft::ceildiv(nrows, threads);
   unsigned int *d_colstart = nullptr;
   if (tempmem->d_colstart != nullptr) d_colstart = tempmem->d_colstart->data();
 
@@ -209,6 +216,7 @@ void get_mse_regression(const T *data, const T *labels, unsigned int *flags,
     }
     CUDA_CHECK(cudaGetLastError());
   }
+  ML::POP_RANGE();
 }
 template <typename T, typename Gain>
 void get_best_split_regression(
@@ -223,6 +231,7 @@ void get_best_split_regression(
   std::vector<int> &sparse_nodelist, int *split_colidx, int *split_binidx,
   int *d_split_colidx, int *d_split_binidx,
   std::shared_ptr<TemporaryMemory<T, T>> tempmem) {
+  ML::PUSH_RANGE("get_best_split_regression @levelhelper_regressor.cuh");
   T *quantile = nullptr;
   T *minmax = nullptr;
   if (tempmem->h_quantile != nullptr) quantile = tempmem->h_quantile->data();
@@ -259,8 +268,8 @@ void get_best_split_regression(
     }
 
     //Here parent mean and count are already updated
-    MLCommon::updateDevice(d_parentmetric, h_parentmetric, n_nodes,
-                           tempmem->stream);
+    raft::update_device(d_parentmetric, h_parentmetric, n_nodes,
+                        tempmem->stream);
     CUDA_CHECK(
       cudaMemsetAsync(d_outgain, 0, n_nodes * sizeof(float), tempmem->stream));
     CUDA_CHECK(cudaMemsetAsync(d_split_binidx, 0, n_nodes * sizeof(int),
@@ -276,17 +285,13 @@ void get_best_split_regression(
         d_childmetric);
     CUDA_CHECK(cudaGetLastError());
 
-    MLCommon::updateHost(h_childmetric, d_childmetric, 2 * n_nodes,
-                         tempmem->stream);
-    MLCommon::updateHost(h_outgain, d_outgain, n_nodes, tempmem->stream);
-    MLCommon::updateHost(h_childmean, d_childmean, 2 * n_nodes,
-                         tempmem->stream);
-    MLCommon::updateHost(h_childcount, d_childcount, 2 * n_nodes,
-                         tempmem->stream);
-    MLCommon::updateHost(split_binidx, d_split_binidx, n_nodes,
-                         tempmem->stream);
-    MLCommon::updateHost(split_colidx, d_split_colidx, n_nodes,
-                         tempmem->stream);
+    raft::update_host(h_childmetric, d_childmetric, 2 * n_nodes,
+                      tempmem->stream);
+    raft::update_host(h_outgain, d_outgain, n_nodes, tempmem->stream);
+    raft::update_host(h_childmean, d_childmean, 2 * n_nodes, tempmem->stream);
+    raft::update_host(h_childcount, d_childcount, 2 * n_nodes, tempmem->stream);
+    raft::update_host(split_binidx, d_split_binidx, n_nodes, tempmem->stream);
+    raft::update_host(split_colidx, d_split_colidx, n_nodes, tempmem->stream);
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
 
     for (int nodecnt = 0; nodecnt < n_nodes; nodecnt++) {
@@ -316,9 +321,9 @@ void get_best_split_regression(
     }
 
   } else {
-    MLCommon::updateHost(mseout, d_mseout, 2 * predcount, tempmem->stream);
-    MLCommon::updateHost(predout, d_predout, predcount, tempmem->stream);
-    MLCommon::updateHost(count, d_count, predcount, tempmem->stream);
+    raft::update_host(mseout, d_mseout, 2 * predcount, tempmem->stream);
+    raft::update_host(predout, d_predout, predcount, tempmem->stream);
+    raft::update_host(count, d_count, predcount, tempmem->stream);
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
     for (int nodecnt = 0; nodecnt < n_nodes; nodecnt++) {
       T bestmetric_left = 0;
@@ -396,11 +401,10 @@ void get_best_split_regression(
       sparsetree.push_back(leftnode);
       sparsetree.push_back(rightnode);
     }
-    MLCommon::updateDevice(d_split_binidx, split_binidx, n_nodes,
-                           tempmem->stream);
-    MLCommon::updateDevice(d_split_colidx, split_colidx, n_nodes,
-                           tempmem->stream);
+    raft::update_device(d_split_binidx, split_binidx, n_nodes, tempmem->stream);
+    raft::update_device(d_split_colidx, split_colidx, n_nodes, tempmem->stream);
   }
+  ML::POP_RANGE();
 }
 
 template <typename T>
@@ -412,11 +416,12 @@ void leaf_eval_regression(float *gain, int curr_depth,
                           const int sparsesize, std::vector<T> &sparse_mean,
                           int &n_nodes_next, std::vector<int> &sparse_nodelist,
                           int &tree_leaf_cnt) {
+  ML::PUSH_RANGE("leaf_eval_regression @levelhelper_regressor.cuh");
   std::vector<int> tmp_sparse_nodelist(sparse_nodelist);
   sparse_nodelist.clear();
 
   int non_leaf_counter = 0;
-  bool condition_global = (curr_depth >= max_depth - 1);
+  bool condition_global = (curr_depth >= max_depth);
   if (max_leaves != -1)
     condition_global = condition_global || (tree_leaf_cnt >= max_leaves);
 
@@ -440,6 +445,7 @@ void leaf_eval_regression(float *gain, int curr_depth,
   int nleafed = tmp_sparse_nodelist.size() - non_leaf_counter;
   tree_leaf_cnt += nleafed;
   n_nodes_next = 2 * non_leaf_counter;
+  ML::POP_RANGE();
 }
 
 template <typename T>
@@ -456,10 +462,10 @@ void init_parent_value(std::vector<T> &sparse_meanstate,
     h_predout[i] = sparse_meanstate[sparsesize + sparse_nodeid];
     h_count[i] = sparse_countstate[sparsesize + sparse_nodeid];
   }
-  MLCommon::updateDevice(tempmem->d_parent_pred->data(), h_predout, n_nodes,
-                         tempmem->stream);
-  MLCommon::updateDevice(tempmem->d_parent_count->data(), h_count, n_nodes,
-                         tempmem->stream);
+  raft::update_device(tempmem->d_parent_pred->data(), h_predout, n_nodes,
+                      tempmem->stream);
+  raft::update_device(tempmem->d_parent_count->data(), h_count, n_nodes,
+                      tempmem->stream);
 }
 
 template <typename T>
@@ -472,6 +478,7 @@ void best_split_gather_regression(
   const float min_impurity_split,
   std::shared_ptr<TemporaryMemory<T, T>> tempmem,
   SparseTreeNode<T, T> *d_sparsenodes, int *d_nodelist) {
+  ML::PUSH_RANGE("get_best_split_gather_regression @levelhelper_regressor.cuh");
   const int TPB = TemporaryMemory<T, T>::gather_threads;
   if (split_cr == ML::CRITERION::MSE) {
     if (split_algo == ML::SPLIT_ALGO::HIST) {
@@ -514,6 +521,7 @@ void best_split_gather_regression(
     }
     CUDA_CHECK(cudaGetLastError());
   }
+  ML::POP_RANGE();
 }
 template <typename T>
 void make_leaf_gather_regression(

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION. *
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION. *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -12,11 +12,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <algorithm>
-#include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
+#include <raft/mr/device/allocator.hpp>
 #include <random>
 #include <timeSeries/jones_transform.cuh>
 #include "test_utils.h"
@@ -92,15 +92,15 @@ template
 
     //allocating and initializing device memory
     CUDA_CHECK(cudaStreamCreate(&stream));
-    MLCommon::allocate(d_golden_ar_trans, nElements, true);
-    MLCommon::allocate(d_computed_ar_trans, nElements, true);
-    MLCommon::allocate(d_params, nElements, true);
+    raft::allocate(d_golden_ar_trans, nElements, true);
+    raft::allocate(d_computed_ar_trans, nElements, true);
+    raft::allocate(d_params, nElements, true);
 
-    MLCommon::updateDevice(d_params, &arr1[0], (size_t)nElements, stream);
-    MLCommon::updateDevice(d_golden_ar_trans, newParams, (size_t)nElements,
-                           stream);
-    std::shared_ptr<MLCommon::deviceAllocator> allocator(
-      new defaultDeviceAllocator);
+    raft::update_device(d_params, &arr1[0], (size_t)nElements, stream);
+    raft::update_device(d_golden_ar_trans, newParams, (size_t)nElements,
+                        stream);
+    std::shared_ptr<raft::mr::device::allocator> allocator(
+      new raft::mr::device::default_allocator);
 
     //calling the ar_trans_param CUDA implementation
     MLCommon::TimeSeries::jones_transform(d_params, params.batchSize,
@@ -142,11 +142,11 @@ template
     }
 
     //allocating and initializing device memory
-    MLCommon::allocate(d_golden_ma_trans, nElements, true);
-    MLCommon::allocate(d_computed_ma_trans, nElements, true);
+    raft::allocate(d_golden_ma_trans, nElements, true);
+    raft::allocate(d_computed_ma_trans, nElements, true);
 
-    MLCommon::updateDevice(d_golden_ma_trans, newParams, (size_t)nElements,
-                           stream);
+    raft::update_device(d_golden_ma_trans, newParams, (size_t)nElements,
+                        stream);
 
     //calling the ma_param_transform CUDA implementation
     MLCommon::TimeSeries::jones_transform(d_params, params.batchSize,
@@ -156,7 +156,7 @@ template
     //>>>>>>>>>>>>>>>>> AR inverse transform <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     //allocating and initializing device memory
-    MLCommon::allocate(d_computed_ar_invtrans, nElements, true);
+    raft::allocate(d_computed_ar_invtrans, nElements, true);
 
     //calling the ar_param_inverse_transform CUDA implementation
     MLCommon::TimeSeries::jones_transform(d_computed_ar_trans, params.batchSize,
@@ -165,7 +165,7 @@ template
 
     //>>>>>>>>>>>>>>>>> MA inverse transform <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-    MLCommon::allocate(d_computed_ma_invtrans, nElements, true);
+    raft::allocate(d_computed_ma_invtrans, nElements, true);
 
     //calling the ma_param_inverse_transform CUDA implementation
     MLCommon::TimeSeries::jones_transform(d_computed_ma_trans, params.batchSize,
@@ -210,20 +210,22 @@ const std::vector<JonesTransParam> inputs = {
 //writing the test suite
 typedef JonesTransTest<double> JonesTransTestClass;
 TEST_P(JonesTransTestClass, Result) {
-  ASSERT_TRUE(devArrMatch(d_computed_ar_trans, d_golden_ar_trans, nElements,
-                          CompareApprox<double>(params.tolerance)));
-  ASSERT_TRUE(devArrMatch(d_computed_ma_trans, d_golden_ma_trans, nElements,
-                          CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(d_computed_ar_trans, d_golden_ar_trans,
+                                nElements,
+                                raft::CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(d_computed_ma_trans, d_golden_ma_trans,
+                                nElements,
+                                raft::CompareApprox<double>(params.tolerance)));
   /*
   Test verifying the inversion property:
   initially generated random coefficients -> ar_param_transform() / ma_param_transform() -> 
   transformed coefficients -> ar_param_inverse_transform()/ma_param_inverse_transform() -> 
   initially generated random coefficients
   */
-  ASSERT_TRUE(devArrMatch(d_computed_ma_invtrans, d_params, nElements,
-                          CompareApprox<double>(params.tolerance)));
-  ASSERT_TRUE(devArrMatch(d_computed_ar_invtrans, d_params, nElements,
-                          CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(d_computed_ma_invtrans, d_params, nElements,
+                                raft::CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(d_computed_ar_invtrans, d_params, nElements,
+                                raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(JonesTrans, JonesTransTestClass,
                         ::testing::ValuesIn(inputs));

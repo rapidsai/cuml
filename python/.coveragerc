@@ -1,0 +1,26 @@
+# Configuration file for Python coverage tests
+[run]
+omit = cuml/test/*
+plugins = Cython.Coverage
+parallel = true
+source = cuml
+
+[report]
+# Regexes for lines to exclude from consideration
+exclude_lines =
+    # Re-specify the `pragma: no cover` since it will be overridden by this
+    # option. See the docs:
+    # https://coverage.readthedocs.io/en/coverage-5.0/excluding.html#advanced-exclusion
+    pragma: no cover
+
+    # Don't complain about missing debug-only code:
+    def __repr__
+    if self\.debug
+
+    # Don't complain if tests don't hit defensive assertion code:
+    raise AssertionError
+    raise NotImplementedError
+
+    # Don't complain if non-runnable code isn't run:
+    if 0:
+    if False:

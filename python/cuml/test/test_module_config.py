@@ -44,6 +44,16 @@ test_output_types = {
 }
 
 
+@pytest.fixture(scope="function", params=global_input_configs)
+def global_output_type(request):
+
+    output_type = request.param
+
+    yield output_type
+
+    # Ensure we reset the type at the end of the test
+    cuml.set_global_output_type(None)
+
 ###############################################################################
 #                                    Tests                                    #
 ###############################################################################
@@ -65,30 +75,28 @@ def test_default_global_output_type(input_type):
         assert isinstance(res, test_output_types[input_type])
 
 
-@pytest.mark.parametrize('global_type', global_input_configs)
 @pytest.mark.parametrize('input_type', global_input_types)
-def test_global_output_type(global_type, input_type):
+def test_global_output_type(global_output_type, input_type):
     dataset = get_small_dataset(input_type)
 
-    cuml.set_global_output_type(global_type)
+    cuml.set_global_output_type(global_output_type)
 
     dbscan_float = cuml.DBSCAN(eps=1.0, min_samples=1)
     dbscan_float.fit(dataset)
 
     res = dbscan_float.labels_
 
-    if global_type == 'numba':
+    if global_output_type == 'numba':
         assert is_cuda_array(res)
     else:
-        assert isinstance(res, test_output_types[global_type])
+        assert isinstance(res, test_output_types[global_output_type])
 
 
-@pytest.mark.parametrize('global_type', global_input_configs)
 @pytest.mark.parametrize('context_type', global_input_configs)
-def test_output_type_context_mgr(global_type, context_type):
+def test_output_type_context_mgr(global_output_type, context_type):
     dataset = get_small_dataset('numba')
 
-    test_type = 'cupy' if global_type != 'cupy' else 'numpy'
+    test_type = 'cupy' if global_output_type != 'cupy' else 'numpy'
     cuml.set_global_output_type(test_type)
 
     # use cuml context manager
@@ -111,9 +119,6 @@ def test_output_type_context_mgr(global_type, context_type):
     res = dbscan_float.labels_
     assert isinstance(res, test_output_types[test_type])
 
-    # reset cuml global output type to 'input' for further tests
-    cuml.set_global_output_type('input')
-
 
 ###############################################################################
 #                           Utility Functions                                 #
@@ -134,7 +139,7 @@ def get_small_dataset(output_type):
         return cp.asnumpy(ary)
 
     elif output_type == 'pandas':
-        return cudf.DataFrame.from_gpu_matrix(as_cuda_array(ary)).to_pandas()
+        return cudf.DataFrame(ary).to_pandas()
 
     else:
-        return cudf.DataFrame.from_gpu_matrix(as_cuda_array(ary))
+        return cudf.DataFrame(ary)

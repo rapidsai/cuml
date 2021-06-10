@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,12 +20,12 @@
 #include <random>
 #include <vector>
 
-#include <cuml/common/cuml_allocator.hpp>
-#include <cuml/cuml.hpp>
+#include <raft/mr/device/allocator.hpp>
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
+#include <test_utils.h>
 #include <linalg/batched/matrix.cuh>
-#include "../add.cuh"
+#include <raft/linalg/add.cuh>
 #include "../linalg_naive.h"
 #include "../test_utils.h"
 
@@ -157,7 +157,7 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
     // Create handles, stream, allocator
     CUBLAS_CHECK(cublasCreate(&handle));
     CUDA_CHECK(cudaStreamCreate(&stream));
-    auto allocator = std::make_shared<MLCommon::defaultDeviceAllocator>();
+    auto allocator = std::make_shared<raft::mr::device::default_allocator>();
 
     // Created batched matrices
     Matrix<T> AbM(params.m, params.n, params.batch_size, handle, allocator,
@@ -168,9 +168,9 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
                   allocator, stream);
 
     // Copy the data to the device
-    if (use_A) updateDevice(AbM.raw_data(), A.data(), A.size(), stream);
-    if (use_B) updateDevice(BbM.raw_data(), B.data(), B.size(), stream);
-    if (use_Z) updateDevice(ZbM.raw_data(), Z.data(), Z.size(), stream);
+    if (use_A) raft::update_device(AbM.raw_data(), A.data(), A.size(), stream);
+    if (use_B) raft::update_device(BbM.raw_data(), B.data(), B.size(), stream);
+    if (use_Z) raft::update_device(ZbM.raw_data(), Z.data(), Z.size(), stream);
 
     // Create fake batched matrices to be overwritten by results
     res_bM = new Matrix<T>(1, 1, 1, handle, allocator, stream);
@@ -219,26 +219,27 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
 
         // Check that H is in Hessenberg form
         std::vector<T> H = std::vector<T>(n * n * params.batch_size);
-        updateHost(H.data(), HbM.raw_data(), H.size(), stream);
+        raft::update_host(H.data(), HbM.raw_data(), H.size(), stream);
         CUDA_CHECK(cudaStreamSynchronize(stream));
         for (int ib = 0; ib < params.batch_size; ib++) {
           for (int j = 0; j < n - 2; j++) {
             for (int i = j + 2; i < n; i++) {
-              ASSERT_TRUE(std::abs(H[n * n * ib + n * j + i]) < zero_tolerance);
+              ASSERT_TRUE(raft::abs(H[n * n * ib + n * j + i]) <
+                          zero_tolerance);
             }
           }
         }
 
         // Check that U is unitary (UU'=I)
         std::vector<T> UUt = std::vector<T>(n * n * params.batch_size);
-        updateHost(UUt.data(), b_gemm(UbM, UbM, false, true).raw_data(),
-                   UUt.size(), stream);
+        raft::update_host(UUt.data(), b_gemm(UbM, UbM, false, true).raw_data(),
+                          UUt.size(), stream);
         CUDA_CHECK(cudaStreamSynchronize(stream));
         for (int ib = 0; ib < params.batch_size; ib++) {
           for (int i = 0; i < n; i++) {
             for (int j = 0; j < n; j++) {
-              ASSERT_TRUE(std::abs(UUt[n * n * ib + n * j + i] -
-                                   (i == j ? (T)1 : (T)0)) < zero_tolerance);
+              ASSERT_TRUE(raft::abs(UUt[n * n * ib + n * j + i] -
+                                    (i == j ? (T)1 : (T)0)) < zero_tolerance);
             }
           }
         }
@@ -258,34 +259,35 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
 
         // Check that S is in Schur form
         std::vector<T> S = std::vector<T>(n * n * params.batch_size);
-        updateHost(S.data(), SbM.raw_data(), S.size(), stream);
+        raft::update_host(S.data(), SbM.raw_data(), S.size(), stream);
         CUDA_CHECK(cudaStreamSynchronize(stream));
         for (int ib = 0; ib < params.batch_size; ib++) {
           for (int j = 0; j < n - 2; j++) {
             for (int i = j + 2; i < n; i++) {
-              ASSERT_TRUE(std::abs(S[n * n * ib + n * j + i]) < zero_tolerance);
+              ASSERT_TRUE(raft::abs(S[n * n * ib + n * j + i]) <
+                          zero_tolerance);
             }
           }
         }
         for (int ib = 0; ib < params.batch_size; ib++) {
           for (int k = 0; k < n - 3; k++) {
             ASSERT_FALSE(
-              std::abs(S[n * n * ib + n * k + k + 1]) > zero_tolerance &&
-              std::abs(S[n * n * ib + n * (k + 1) + k + 2]) > zero_tolerance &&
-              std::abs(S[n * n * ib + n * (k + 2) + k + 3]) > zero_tolerance);
+              raft::abs(S[n * n * ib + n * k + k + 1]) > zero_tolerance &&
+              raft::abs(S[n * n * ib + n * (k + 1) + k + 2]) > zero_tolerance &&
+              raft::abs(S[n * n * ib + n * (k + 2) + k + 3]) > zero_tolerance);
           }
         }
 
         // Check that U is unitary (UU'=I)
         std::vector<T> UUt = std::vector<T>(n * n * params.batch_size);
-        updateHost(UUt.data(), b_gemm(UbM, UbM, false, true).raw_data(),
-                   UUt.size(), stream);
+        raft::update_host(UUt.data(), b_gemm(UbM, UbM, false, true).raw_data(),
+                          UUt.size(), stream);
         CUDA_CHECK(cudaStreamSynchronize(stream));
         for (int ib = 0; ib < params.batch_size; ib++) {
           for (int i = 0; i < n; i++) {
             for (int j = 0; j < n; j++) {
-              ASSERT_TRUE(std::abs(UUt[n * n * ib + n * j + i] -
-                                   (i == j ? (T)1 : (T)0)) < zero_tolerance);
+              ASSERT_TRUE(raft::abs(UUt[n * n * ib + n * j + i] -
+                                    (i == j ? (T)1 : (T)0)) < zero_tolerance);
             }
           }
         }
@@ -458,12 +460,14 @@ const std::vector<MatrixInputs<float>> inputsf = {
 using BatchedMatrixTestD = MatrixTest<double>;
 using BatchedMatrixTestF = MatrixTest<float>;
 TEST_P(BatchedMatrixTestD, Result) {
-  ASSERT_TRUE(devArrMatchHost(res_h.data(), res_bM->raw_data(), res_h.size(),
-                              CompareApprox<double>(params.tolerance), stream));
+  ASSERT_TRUE(raft::devArrMatchHost(
+    res_h.data(), res_bM->raw_data(), res_h.size(),
+    raft::CompareApprox<double>(params.tolerance), stream));
 }
 TEST_P(BatchedMatrixTestF, Result) {
-  ASSERT_TRUE(devArrMatchHost(res_h.data(), res_bM->raw_data(), res_h.size(),
-                              CompareApprox<float>(params.tolerance), stream));
+  ASSERT_TRUE(raft::devArrMatchHost(
+    res_h.data(), res_bM->raw_data(), res_h.size(),
+    raft::CompareApprox<float>(params.tolerance), stream));
 }
 
 INSTANTIATE_TEST_CASE_P(BatchedMatrixTests, BatchedMatrixTestD,

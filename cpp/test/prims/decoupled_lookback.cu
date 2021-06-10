@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include <cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <decoupled_lookback.cuh>
+#include <raft/cuda_utils.cuh>
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -35,7 +35,7 @@ void dlbTest(int len, int *out) {
   int nblks = len;
   size_t workspaceSize = DecoupledLookBack<int>::computeWorkspaceSize(nblks);
   char *workspace;
-  allocate(workspace, workspaceSize);
+  raft::allocate(workspace, workspaceSize);
   CUDA_CHECK(cudaMemset(workspace, 0, workspaceSize));
   dlbTestKernel<TPB><<<nblks, TPB>>>(workspace, len, out);
   CUDA_CHECK(cudaPeekAtLastError());
@@ -55,7 +55,7 @@ class DlbTest : public ::testing::TestWithParam<DlbInputs> {
   void SetUp() override {
     params = ::testing::TestWithParam<DlbInputs>::GetParam();
     int len = params.len;
-    allocate(out, len);
+    raft::allocate(out, len);
     dlbTest(len, out);
   }
 
@@ -71,7 +71,7 @@ template <typename T, typename L>
                                              L eq_compare,
                                              cudaStream_t stream = 0) {
   std::vector<T> act_h(size);
-  updateHost<T>(&(act_h[0]), actual, size, stream);
+  raft::update_host<T>(&(act_h[0]), actual, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   for (size_t i(0); i < size; ++i) {
     auto act = act_h[i];
@@ -86,7 +86,7 @@ template <typename T, typename L>
 
 const std::vector<DlbInputs> inputs = {{4}, {16}, {64}, {256}, {2048}};
 TEST_P(DlbTest, Result) {
-  ASSERT_TRUE(devArrMatchCustom(out, params.len, Compare<int>()));
+  ASSERT_TRUE(devArrMatchCustom(out, params.len, raft::Compare<int>()));
 }
 INSTANTIATE_TEST_CASE_P(DlbTests, DlbTest, ::testing::ValuesIn(inputs));
 

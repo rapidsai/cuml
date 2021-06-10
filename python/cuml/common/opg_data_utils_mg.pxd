@@ -13,17 +13,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# cython: profile=False
-# distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 # Util functions, will be moved to their own file as the other methods are
 # refactored
 # todo: use cuda_array_interface instead of arr_interfaces for building this
 
-from libcpp cimport bool
-from libc.stdint cimport uintptr_t, uint32_t, uint64_t
+from libc.stdint cimport int64_t
+from libcpp.vector cimport vector
 from cuml.common.cython_utils import *
 from cython.operator cimport dereference as deref
 from libcpp.vector cimport vector
@@ -31,6 +27,8 @@ from libcpp.vector cimport vector
 
 cdef extern from "cumlprims/opg/matrix/data.hpp" \
                  namespace "MLCommon::Matrix":
+    cdef cppclass Data[T]:
+        Data(T *ptr, size_t totalSize)
 
     cdef cppclass floatData_t:
         floatData_t(float *ptr, size_t totalSize)
@@ -41,6 +39,11 @@ cdef extern from "cumlprims/opg/matrix/data.hpp" \
         doubleData_t(double *ptr, size_t totalSize)
         double *ptr
         size_t totalSize
+
+ctypedef Data[int64_t] int64Data_t
+ctypedef Data[int] intData_t
+ctypedef vector[int*] int_ptr_vector
+ctypedef vector[float*] float_ptr_vector
 
 cdef extern from "cumlprims/opg/matrix/part_descriptor.hpp" \
                  namespace "MLCommon::Matrix":

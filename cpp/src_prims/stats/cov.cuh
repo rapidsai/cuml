@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <linalg/cublas_wrappers.h>
-#include <linalg/gemm.cuh>
-#include "mean_center.cuh"
+#include <raft/linalg/cublas_wrappers.h>
+#include <raft/linalg/gemm.cuh>
+#include <raft/stats/mean_center.cuh>
 
 namespace MLCommon {
 namespace Stats {
@@ -45,22 +45,24 @@ namespace Stats {
  * function returns!
  */
 template <typename Type>
-void cov(Type *covar, Type *data, const Type *mu, int D, int N, bool sample,
-         bool rowMajor, bool stable, cublasHandle_t handle,
+void cov(const raft::handle_t &handle, Type *covar, Type *data, const Type *mu,
+         int D, int N, bool sample, bool rowMajor, bool stable,
          cudaStream_t stream) {
   if (stable) {
+    cublasHandle_t cublas_h = handle.get_cublas_handle();
+
     // since mean operation is assumed to be along a given column, broadcast
     // must be along rows!
-    meanCenter(data, data, mu, D, N, rowMajor, true, stream);
+    raft::stats::meanCenter(data, data, mu, D, N, rowMajor, true, stream);
     Type alpha = Type(1) / (sample ? Type(N - 1) : Type(N));
     Type beta = Type(0);
     if (rowMajor) {
-      CUBLAS_CHECK(LinAlg::cublasgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, D, D, N,
-                                      &alpha, data, D, data, D, &beta, covar, D,
-                                      stream));
+      CUBLAS_CHECK(raft::linalg::cublasgemm(cublas_h, CUBLAS_OP_N, CUBLAS_OP_T,
+                                            D, D, N, &alpha, data, D, data, D,
+                                            &beta, covar, D, stream));
     } else {
-      LinAlg::gemm(data, N, D, data, covar, D, D, CUBLAS_OP_T, CUBLAS_OP_N,
-                   alpha, beta, handle, stream);
+      raft::linalg::gemm(handle, data, N, D, data, covar, D, D, CUBLAS_OP_T,
+                         CUBLAS_OP_N, alpha, beta, stream);
     }
   } else {
     ///@todo: implement this using cutlass + customized epilogue!

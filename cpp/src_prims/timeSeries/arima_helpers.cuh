@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,12 +18,13 @@
 
 #include <cuda_runtime.h>
 
-#include <common/cudart_utils.h>
 #include <cuml/tsa/arima_common.h>
-#include <cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <linalg/batched/matrix.cuh>
-#include <linalg/matrix_vector_op.cuh>
-#include <linalg/unary_op.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include "jones_transform.cuh"
 
 namespace MLCommon {
@@ -114,7 +115,7 @@ void prepare_data(DataT* d_out, const DataT* d_in, int batch_size, int n_obs,
   }
   // If no difference and the pointers are different, copy in to out
   else if (d + D == 0 && d_in != d_out) {
-    MLCommon::copy(d_out, d_in, n_obs * batch_size, stream);
+    raft::copy(d_out, d_in, n_obs * batch_size, stream);
   }
   // Other cases: no difference and the pointers are the same, nothing to do
 }
@@ -158,7 +159,7 @@ __global__ void _undiff_kernel(DataT* d_fc, const DataT* d_in, int num_steps,
 }
 
 /**
- * @brief Finalizes a forecast by adding the trend and/or undifferencing
+ * @brief Finalizes a forecast by undifferencing
  *
  * @note: It is assumed that d + D <= 2. This is enforced on the Python side
  *
@@ -182,12 +183,12 @@ void finalize_forecast(DataT* d_fc, const DataT* d_in, int num_steps,
   constexpr int TPB = 64;  // One thread per series -> avoid big blocks
   if (d + D == 1) {
     _undiff_kernel<false>
-      <<<MLCommon::ceildiv<int>(batch_size, TPB), TPB, 0, stream>>>(
+      <<<raft::ceildiv<int>(batch_size, TPB), TPB, 0, stream>>>(
         d_fc, d_in, num_steps, batch_size, in_ld, n_in, d ? 1 : s);
     CUDA_CHECK(cudaPeekAtLastError());
   } else if (d + D == 2) {
     _undiff_kernel<true>
-      <<<MLCommon::ceildiv<int>(batch_size, TPB), TPB, 0, stream>>>(
+      <<<raft::ceildiv<int>(batch_size, TPB), TPB, 0, stream>>>(
         d_fc, d_in, num_steps, batch_size, in_ld, n_in, d ? 1 : s,
         d == 2 ? 1 : s);
     CUDA_CHECK(cudaPeekAtLastError());
@@ -208,11 +209,10 @@ void finalize_forecast(DataT* d_fc, const DataT* d_in, int num_steps,
  * @param[in]  stream     CUDA stream
  */
 template <typename DataT>
-void batched_jones_transform(const ML::ARIMAOrder& order, int batch_size,
-                             bool isInv, const ML::ARIMAParams<DataT>& params,
-                             const ML::ARIMAParams<DataT>& Tparams,
-                             std::shared_ptr<deviceAllocator> allocator,
-                             cudaStream_t stream) {
+void batched_jones_transform(
+  const ML::ARIMAOrder& order, int batch_size, bool isInv,
+  const ML::ARIMAParams<DataT>& params, const ML::ARIMAParams<DataT>& Tparams,
+  std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream) {
   if (order.p)
     jones_transform(params.ar, batch_size, order.p, Tparams.ar, true, isInv,
                     allocator, stream);
@@ -228,7 +228,7 @@ void batched_jones_transform(const ML::ARIMAOrder& order, int batch_size,
 
   // Constrain sigma2 to be strictly positive
   constexpr DataT min_sigma2 = 1e-6;
-  LinAlg::unaryOp<DataT>(
+  raft::linalg::unaryOp<DataT>(
     Tparams.sigma2, params.sigma2, batch_size,
     [=] __device__(DataT input) { return max(input, min_sigma2); }, stream);
 }

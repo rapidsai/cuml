@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,18 +16,17 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
 #include <cuml/svm/svm_parameter.h>
 #include <limits.h>
 #include <linalg/init.h>
+#include <raft/cudart_utils.h>
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/permutation_iterator.h>
-#include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
-#include <cuda_utils.cuh>
-#include <linalg/add.cuh>
-#include <linalg/unary_op.cuh>
+#include <cuml/common/device_buffer.hpp>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/unary_op.cuh>
 #include "smo_sets.cuh"
 #include "ws_util.cuh"
 
@@ -64,32 +63,32 @@ class WorkingSet {
    * @param n_ws number of elements in the working set (default 1024)
    * @param svmType classification or regression
    */
-  WorkingSet(const cumlHandle_impl &handle, cudaStream_t stream, int n_rows = 0,
+  WorkingSet(const raft::handle_t &handle, cudaStream_t stream, int n_rows = 0,
              int n_ws = 0, SvmType svmType = C_SVC)
     : handle(handle),
       stream(stream),
       svmType(svmType),
       n_rows(n_rows),
-      available(handle.getDeviceAllocator(), stream),
-      available_sorted(handle.getDeviceAllocator(), stream),
-      cub_storage(handle.getDeviceAllocator(), stream),
-      f_idx(handle.getDeviceAllocator(), stream),
-      f_idx_sorted(handle.getDeviceAllocator(), stream),
-      f_sorted(handle.getDeviceAllocator(), stream),
-      idx_tmp(handle.getDeviceAllocator(), stream),
-      idx(handle.getDeviceAllocator(), stream),
-      ws_idx_sorted(handle.getDeviceAllocator(), stream),
-      ws_idx_selected(handle.getDeviceAllocator(), stream),
-      ws_idx_save(handle.getDeviceAllocator(), stream),
-      ws_priority(handle.getDeviceAllocator(), stream),
-      ws_priority_sorted(handle.getDeviceAllocator(), stream) {
+      available(handle.get_device_allocator(), stream),
+      available_sorted(handle.get_device_allocator(), stream),
+      cub_storage(handle.get_device_allocator(), stream),
+      f_idx(handle.get_device_allocator(), stream),
+      f_idx_sorted(handle.get_device_allocator(), stream),
+      f_sorted(handle.get_device_allocator(), stream),
+      idx_tmp(handle.get_device_allocator(), stream),
+      idx(handle.get_device_allocator(), stream),
+      ws_idx_sorted(handle.get_device_allocator(), stream),
+      ws_idx_selected(handle.get_device_allocator(), stream),
+      ws_idx_save(handle.get_device_allocator(), stream),
+      ws_priority(handle.get_device_allocator(), stream),
+      ws_priority_sorted(handle.get_device_allocator(), stream) {
     n_train = (svmType == EPSILON_SVR) ? n_rows * 2 : n_rows;
     SetSize(n_train, n_ws);
   }
 
   ~WorkingSet() {
-    handle.getDeviceAllocator()->deallocate(d_num_selected, 1 * sizeof(int),
-                                            stream);
+    handle.get_device_allocator()->deallocate(d_num_selected, 1 * sizeof(int),
+                                              stream);
   }
 
   /**
@@ -138,11 +137,11 @@ class WorkingSet {
    * @param f optimality indicator vector, size [n_train]
    * @param alpha dual coefficients, size [n_train]
    * @param y target labels (+/- 1)
-   * @param C penalty parameter
+    * @param C penalty parameter vector size [n_train]
    * @param n_already_selected
    */
 
-  void SimpleSelect(math_t *f, math_t *alpha, math_t *y, math_t C,
+  void SimpleSelect(math_t *f, math_t *alpha, math_t *y, const math_t *C,
                     int n_already_selected = 0) {
     // We are not using the topK kernel, because of the additional lower/upper
     // constraint
@@ -158,20 +157,19 @@ class WorkingSet {
 
     if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG) && n_train < 20) {
       std::stringstream ss;
-      MLCommon::myPrintDevVector("idx_sorted", f_idx_sorted.data(), n_train,
-                                 ss);
+      raft::print_device_vector("idx_sorted", f_idx_sorted.data(), n_train, ss);
       CUML_LOG_DEBUG(ss.str().c_str());
     }
     // Select n_ws/2 elements from the upper set with the smallest f value
     bool *available = this->available.data();
-    set_upper<<<MLCommon::ceildiv(n_train, TPB), TPB, 0, stream>>>(
+    set_upper<<<raft::ceildiv(n_train, TPB), TPB, 0, stream>>>(
       available, n_train, alpha, y, C);
     CUDA_CHECK(cudaPeekAtLastError());
     n_already_selected +=
       GatherAvailable(n_already_selected, n_needed / 2, true);
 
     // Select n_ws/2 elements from the lower set with the highest f values
-    set_lower<<<MLCommon::ceildiv(n_train, TPB), TPB, 0, stream>>>(
+    set_lower<<<raft::ceildiv(n_train, TPB), TPB, 0, stream>>>(
       available, n_train, alpha, y, C);
     CUDA_CHECK(cudaPeekAtLastError());
     n_already_selected +=
@@ -204,8 +202,12 @@ class WorkingSet {
   * [1] Z. Wen et al. ThunderSVM: A Fast SVM Library on GPUs and CPUs, Journal
   *     of Machine Learning Research, 19, 1-5 (2018)
   *
+  * @param f optimality indicator vector, size [n_train]
+  * @param alpha dual coefficients, size [n_train]
+  * @param y class labels, size [n_train]
+  * @param C penalty parameter vector, size [n_train]
   */
-  void Select(math_t *f, math_t *alpha, math_t *y, math_t C) {
+  void Select(math_t *f, math_t *alpha, math_t *y, const math_t *C) {
     if (n_ws >= n_train) {
       // All elements are selected, we have initialized idx to cover this case
       return;
@@ -226,7 +228,7 @@ class WorkingSet {
       // keep 1/2 of the old working set
       if (FIFO_strategy) {
         // FIFO selection following ThunderSVM
-        MLCommon::copy(idx.data(), ws_idx_save.data() + 2 * nc, 2 * nc, stream);
+        raft::copy(idx.data(), ws_idx_save.data() + 2 * nc, 2 * nc, stream);
         n_selected = nc * 2;
       } else {
         // priority based selection preferring to keep newer elements in ws
@@ -234,7 +236,7 @@ class WorkingSet {
       }
     }
     SimpleSelect(f, alpha, y, C, n_selected);
-    MLCommon::copy(ws_idx_save.data(), idx.data(), n_ws, stream);
+    raft::copy(ws_idx_save.data(), idx.data(), n_ws, stream);
   }
 
   /**
@@ -252,10 +254,10 @@ class WorkingSet {
    *     DOI: 10.1080/10556780500140714
    *
    * @param [in] alpha device vector of dual coefficients, size [n_train]
-   * @param [in] C penalty parameter
+   * @param [in] C_vec penalty parameter
    * @param [in] nc number of elements to select
    */
-  int PrioritySelect(math_t *alpha, math_t C, int nc) {
+  int PrioritySelect(math_t *alpha, const math_t *C, int nc) {
     int n_selected = 0;
 
     cub::DeviceRadixSort::SortPairs(
@@ -264,25 +266,26 @@ class WorkingSet {
 
     //Select first from free vectors (0<alpha<C)
     n_selected += SelectPrevWs(2 * nc, n_selected, [alpha, C] HD(int idx) {
-      return 0 < alpha[idx] && alpha[idx] < C;
+      return 0 < alpha[idx] && alpha[idx] < C[idx];
     });
 
     //then from lower bound (alpha=0)
     n_selected += SelectPrevWs(2 * nc, n_selected,
                                [alpha] HD(int idx) { return alpha[idx] <= 0; });
     // and in the end from upper bound vectors (alpha=c)
-    n_selected += SelectPrevWs(
-      2 * nc, n_selected, [alpha, C] HD(int idx) { return alpha[idx] >= C; });
+    n_selected += SelectPrevWs(2 * nc, n_selected, [alpha, C] HD(int idx) {
+      return alpha[idx] >= C[idx];
+    });
     // we have now idx[0:n_selected] indices from the old working set
     // we need to update their priority.
-    update_priority<<<MLCommon::ceildiv(n_selected, TPB), TPB, 0, stream>>>(
+    update_priority<<<raft::ceildiv(n_selected, TPB), TPB, 0, stream>>>(
       ws_priority.data(), n_selected, idx.data(), n_ws, ws_idx_sorted.data(),
       ws_priority_sorted.data());
     return n_selected;
   }
 
  private:
-  const cumlHandle_impl &handle;
+  const raft::handle_t &handle;
   cudaStream_t stream;
 
   bool firstcall = true;
@@ -335,7 +338,7 @@ class WorkingSet {
       ws_priority_sorted.resize(n_ws, stream);
 
       d_num_selected =
-        (int *)handle.getDeviceAllocator()->allocate(1 * sizeof(int), stream);
+        (int *)handle.get_device_allocator()->allocate(1 * sizeof(int), stream);
 
       // Determine temporary device storage requirements for cub
       size_t cub_bytes2 = 0;
@@ -368,13 +371,13 @@ class WorkingSet {
     // First we update the mask to ignores already selected elements
     bool *available = this->available.data();
     if (n_already_selected > 0) {
-      set_unavailable<<<MLCommon::ceildiv(n_train, TPB), TPB, 0, stream>>>(
+      set_unavailable<<<raft::ceildiv(n_train, TPB), TPB, 0, stream>>>(
         available, n_train, idx.data(), n_already_selected);
       CUDA_CHECK(cudaPeekAtLastError());
     }
     if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG) && n_train < 20) {
       std::stringstream ss;
-      MLCommon::myPrintDevVector("avail", available, n_train, ss);
+      raft::print_device_vector("avail", available, n_train, ss);
       CUML_LOG_DEBUG(ss.str().c_str());
     }
 
@@ -388,8 +391,8 @@ class WorkingSet {
                  av_sorted_ptr);
     if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG) && n_train < 20) {
       std::stringstream ss;
-      MLCommon::myPrintDevVector("avail_sorted", available_sorted.data(),
-                                 n_train, ss);
+      raft::print_device_vector("avail_sorted", available_sorted.data(),
+                                n_train, ss);
       CUML_LOG_DEBUG(ss.str().c_str());
     }
 
@@ -398,22 +401,22 @@ class WorkingSet {
                                f_idx_sorted.data(), available_sorted.data(),
                                idx_tmp.data(), d_num_selected, n_train);
     int n_selected;
-    MLCommon::updateHost(&n_selected, d_num_selected, 1, stream);
+    raft::update_host(&n_selected, d_num_selected, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     // Copy to output
     int n_copy = n_selected > n_needed ? n_needed : n_selected;
     if (copy_front) {
-      MLCommon::copy(idx.data() + n_already_selected, idx_tmp.data(), n_copy,
-                     stream);
+      raft::copy(idx.data() + n_already_selected, idx_tmp.data(), n_copy,
+                 stream);
     } else {
-      MLCommon::copy(idx.data() + n_already_selected,
-                     idx_tmp.data() + n_selected - n_copy, n_copy, stream);
+      raft::copy(idx.data() + n_already_selected,
+                 idx_tmp.data() + n_selected - n_copy, n_copy, stream);
     }
     if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG) && n_train < 20) {
       std::stringstream ss;
-      MLCommon::myPrintDevVector("selected", idx.data(),
-                                 n_already_selected + n_copy, ss);
+      raft::print_device_vector("selected", idx.data(),
+                                n_already_selected + n_copy, ss);
       CUML_LOG_DEBUG(ss.str().c_str());
     }
     return n_copy;
@@ -443,11 +446,11 @@ class WorkingSet {
     cub::DeviceSelect::If(cub_storage.data(), cub_bytes, ws_idx_sorted.data(),
                           ws_idx_selected.data(), d_num_selected, n_ws, op);
     int n_selected;
-    MLCommon::updateHost(&n_selected, d_num_selected, 1, stream);
+    raft::update_host(&n_selected, d_num_selected, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     int n_copy = n_selected < n_needed ? n_selected : n_needed;
-    MLCommon::copy(idx.data() + n_already_selected, ws_idx_selected.data(),
-                   n_copy, stream);
+    raft::copy(idx.data() + n_already_selected, ws_idx_selected.data(), n_copy,
+               stream);
     return n_copy;
   }
 };

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,21 +14,26 @@
  * limitations under the License.
  */
 
-#include "dbscan_api.h"
+#include <cuml/cluster/dbscan_api.h>
+
 #include <cuml/cuml_api.h>
 #include <common/cumlHandle.hpp>
 #include <cuml/cluster/dbscan.hpp>
 
+extern "C" {
+
 cumlError_t cumlSpDbscanFit(cumlHandle_t handle, float *input, int n_rows,
                             int n_cols, float eps, int min_pts, int *labels,
+                            int *core_sample_indices,
                             size_t max_bytes_per_batch, int verbosity) {
   cumlError_t status;
-  ML::cumlHandle *handle_ptr;
+  raft::handle_t *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
   if (status == CUML_SUCCESS) {
     try {
-      dbscanFit(*handle_ptr, input, n_rows, n_cols, eps, min_pts, labels,
-                max_bytes_per_batch, verbosity);
+      ML::Dbscan::fit(*handle_ptr, input, n_rows, n_cols, eps, min_pts,
+                      raft::distance::L2SqrtUnexpanded, labels,
+                      core_sample_indices, max_bytes_per_batch, verbosity);
     }
     //TODO: Implement this
     //catch (const MLCommon::Exception& e)
@@ -45,14 +50,16 @@ cumlError_t cumlSpDbscanFit(cumlHandle_t handle, float *input, int n_rows,
 
 cumlError_t cumlDpDbscanFit(cumlHandle_t handle, double *input, int n_rows,
                             int n_cols, double eps, int min_pts, int *labels,
+                            int *core_sample_indices,
                             size_t max_bytes_per_batch, int verbosity) {
   cumlError_t status;
-  ML::cumlHandle *handle_ptr;
+  raft::handle_t *handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
   if (status == CUML_SUCCESS) {
     try {
-      dbscanFit(*handle_ptr, input, n_rows, n_cols, eps, min_pts, labels,
-                max_bytes_per_batch, verbosity);
+      ML::Dbscan::fit(*handle_ptr, input, n_rows, n_cols, eps, min_pts,
+                      raft::distance::L2SqrtUnexpanded, labels,
+                      core_sample_indices, max_bytes_per_batch, verbosity);
     }
     //TODO: Implement this
     //catch (const MLCommon::Exception& e)
@@ -65,4 +72,5 @@ cumlError_t cumlDpDbscanFit(cumlHandle_t handle, double *input, int n_rows,
     }
   }
   return status;
+}
 }

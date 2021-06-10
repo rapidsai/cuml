@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,48 +18,70 @@ import numpy as np
 import cupy as cp
 
 from cuml.solvers import QN as cuQN
+from cuml.model_selection import train_test_split
+from cuml.datasets.classification import make_classification
+from cuml.metrics import accuracy_score
 
 
 # todo: add util functions to better compare against precomputed solutions
 @pytest.mark.parametrize('loss', ['sigmoid', 'softmax'])
 @pytest.mark.parametrize('dtype', [np.float32, np.float64])
 @pytest.mark.parametrize('penalty', ['none', 'l1', 'l2', 'elasticnet'])
-@pytest.mark.parametrize('l1_strength', [0.00, 0.01])
-@pytest.mark.parametrize('l2_strength', [0.00, 0.01])
+@pytest.mark.parametrize('l1_strength', [0.00, 0.10])
+@pytest.mark.parametrize('l2_strength', [0.00, 0.10])
 @pytest.mark.parametrize('fit_intercept', [True, False])
 def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
 
+    if penalty == "none" and (l1_strength > 0 or l2_strength > 0):
+        pytest.skip("`none` penalty does not take l1/l2_strength")
+
     tol = 1e-6
 
-    X = np.array(precomputed_X, dtype=dtype)
-
-    if loss == 'sigmoid':
-        y = np.array(precomputed_y_log, dtype=dtype)
-    else:
-        y = np.array(precomputed_y_multi, dtype=dtype)
-
     qn = cuQN(loss=loss, fit_intercept=fit_intercept, l1_strength=l1_strength,
-              l2_strength=l2_strength, tol=1e-8)
+              l2_strength=l2_strength, tol=1e-8, output_type="cupy")
 
-    qn.fit(X, y)
+    if loss == 'softmax':
+        X, y = make_classification(n_samples=5000,
+                                   n_informative=10,
+                                   n_features=20,
+                                   n_classes=4,
+                                   dtype=dtype)
 
-    print(qn.objective)
-    print(qn.coef_)
+        stratify = y.astype(dtype)
+        X_train, X_test, y_train, y_test = train_test_split(X.astype(dtype),
+                                                            y.astype(dtype),
+                                                            stratify=stratify
+                                                            )
+        most_class = cp.unique(y)[cp.argmax(cp.bincount(y))]
 
-    if loss == 'sigmoid':
+        baseline_preds = cp.array([most_class] * y_test.shape[0], dtype=dtype)
+        baseline_score = accuracy_score(y_test, baseline_preds)
+
+        y_pred = qn.fit(X_train, y_train).predict(X_test)
+        cuml_score = accuracy_score(y_test, y_pred)
+
+        assert(cuml_score > baseline_score)
+        assert(cuml_score >= 0.50)
+
+    elif loss == 'sigmoid':
+        X = np.array(precomputed_X, dtype=dtype)
+        y = np.array(precomputed_y_log, dtype=dtype)
+        qn.fit(X, y)
+        print(qn.objective)
+        print(qn.coef_)
+
         if penalty == 'none' and l1_strength == 0.0 and l2_strength == 0.0:
             if fit_intercept:
                 assert (qn.objective - 0.40263831615448) < tol
                 cp.testing.assert_array_almost_equal(
-                    qn.coef_.to_output('cupy'),
+                    qn.coef_,
                     np.array([[-2.1088872],
-                              [2.4812558],
-                              [0.7960136]]),
+                              [2.4812558]]),
                     decimal=3)
             else:
                 assert (qn.objective - 0.4317452311515808) < tol
                 cp.testing.assert_array_almost_equal(
-                    qn.coef_.to_output('cupy'),
+                    qn.coef_,
                     np.array([[-2.120777],
                               [3.056865]]),
                     decimal=3)
@@ -68,25 +90,23 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
                 if l1_strength == 0.0:
                     assert (qn.objective - 0.40263831615448) < tol
                     cp.testing.assert_array_almost_equal(
-                        qn.coef_.to_output('cupy'),
+                        qn.coef_,
                         np.array([[-2.1088872],
-                                  [2.4812558],
-                                  [0.7960136]]),
+                                  [2.4812558]]),
                         decimal=3)
                 else:
                     assert (qn.objective - 0.44295936822891235) < tol
                     cp.testing.assert_array_almost_equal(
-                        qn.coef_.to_output('cupy'),
+                        qn.coef_,
                         np.array([[-1.6899368],
-                                  [1.9021575],
-                                  [0.8057671]]),
+                                  [1.9021575]]),
                         decimal=3)
 
             else:
                 if l1_strength == 0.0:
                     assert (qn.objective - 0.4317452311515808) < tol
                     cp.testing.assert_array_almost_equal(
-                        qn.coef_.to_output('cupy'),
+                        qn.coef_,
                         np.array([[-2.120777],
                                   [3.056865]]),
                         decimal=3)
@@ -94,7 +114,7 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
                 else:
                     assert (qn.objective - 0.4769895672798157) < tol
                     cp.testing.assert_array_almost_equal(
-                        qn.coef_.to_output('cupy'),
+                        qn.coef_,
                         np.array([[-1.6214856],
                                   [2.3650239]]),
                         decimal=3)
@@ -106,25 +126,23 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
                 if l2_strength == 0.0:
                     assert (qn.objective - 0.40263831615448) < tol
                     cp.testing.assert_array_almost_equal(
-                        qn.coef_.to_output('cupy'),
+                        qn.coef_,
                         np.array([[-2.1088872],
-                                  [2.4812558],
-                                  [0.7960136]]),
+                                  [2.4812558]]),
                         decimal=3)
                 else:
                     assert (qn.objective - 0.43780848383903503) < tol
                     cp.testing.assert_array_almost_equal(
-                        qn.coef_.to_output('cupy'),
+                        qn.coef_,
                         np.array([[-1.5337948],
-                                  [1.678699],
-                                  [0.8060587]]),
+                                  [1.678699]]),
                         decimal=3)
 
             else:
                 if l2_strength == 0.0:
                     assert (qn.objective - 0.4317452311515808) < tol
                     cp.testing.assert_array_almost_equal(
-                        qn.coef_.to_output('cupy'),
+                        qn.coef_,
                         np.array([[-2.120777],
                                   [3.056865]]),
                         decimal=3)
@@ -132,7 +150,7 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
                 else:
                     assert (qn.objective - 0.4750209450721741) < tol
                     cp.testing.assert_array_almost_equal(
-                        qn.coef_.to_output('cupy'),
+                        qn.coef_,
                         np.array([[-1.3931049],
                                   [2.0140104]]),
                         decimal=3)
@@ -142,47 +160,43 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
                 if l1_strength == 0.0 and l2_strength == 0.0:
                     assert (qn.objective - 0.40263831615448) < tol
                     cp.testing.assert_array_almost_equal(
-                        qn.coef_.to_output('cupy'),
+                        qn.coef_,
                         np.array([[-2.1088872],
-                                  [2.4812558],
-                                  [0.7960136]]),
+                                  [2.4812558]]),
                         decimal=3)
                 elif l1_strength == 0.0:
                     assert (qn.objective - 0.43780848383903503) < tol
                     cp.testing.assert_array_almost_equal(
-                        qn.coef_.to_output('cupy'),
+                        qn.coef_,
                         np.array([[-1.5337948],
-                                  [1.678699],
-                                  [0.8060587]]),
+                                  [1.678699]]),
                         decimal=3)
                 elif l2_strength == 0.0:
                     assert (qn.objective - 0.44295936822891235) < tol
                     cp.testing.assert_array_almost_equal(
-                        qn.coef_.to_output('cupy'),
+                        qn.coef_,
                         np.array([[-1.6899368],
-                                  [1.9021575],
-                                  [0.8057671]]),
+                                  [1.9021575]]),
                         decimal=3)
                 else:
                     assert (qn.objective - 0.467987984418869) < tol
                     cp.testing.assert_array_almost_equal(
-                        qn.coef_.to_output('cupy'),
+                        qn.coef_,
                         np.array([[-1.3727235],
-                                  [1.4639963],
-                                  [0.79312485]]),
+                                  [1.4639963]]),
                         decimal=3)
             else:
                 if l1_strength == 0.0 and l2_strength == 0.0:
                     assert (qn.objective - 0.4317452311515808) < tol
                     cp.testing.assert_array_almost_equal(
-                        qn.coef_.to_output('cupy'),
+                        qn.coef_,
                         np.array([[-2.120777],
                                   [3.056865]]),
                         decimal=3)
                 elif l1_strength == 0.0:
                     assert (qn.objective - 0.4750209450721741) < tol
                     cp.testing.assert_array_almost_equal(
-                        qn.coef_.to_output('cupy'),
+                        qn.coef_,
                         np.array([[-1.3931049],
                                   [2.0140104]]),
                         decimal=3)
@@ -190,23 +204,19 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
                 elif l2_strength == 0.0:
                     assert (qn.objective - 0.4769895672798157) < tol
                     cp.testing.assert_array_almost_equal(
-                        qn.coef_.to_output('cupy'),
+                        qn.coef_,
                         np.array([[-1.6214856],
                                   [2.3650239]]),
                         decimal=3)
                 else:
                     assert (qn.objective - 0.5067970156669617) < tol
                     cp.testing.assert_array_almost_equal(
-                        qn.coef_.to_output('cupy'),
+                        qn.coef_,
                         np.array([[-1.2102532],
                                   [1.752459]]),
                         decimal=3)
 
                 print()
-
-    elif penalty == 'softmax':
-        pytest.skip("Better initial conditions for softmax tests are "
-                    "in progress.")
 
     # todo add tests for softmax dtype=np.float64
     # elasticnet for this points converged to different solution
@@ -214,7 +224,7 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
     #     if penalty == 'none' and l1_strength == 0.0 and l2_strength == 0.0:
     #         if fit_intercept:
     #             assert (qn.objective - 0.007433414924889803) < tol
-    #             np.testing.assert_almost_equal(qn.coef_.to_output('cupy'),
+    #             np.testing.assert_almost_equal(qn.coef_
     #                                            np.array([[15.236361,
     #                                                      -41.595913,
     #                                                      -33.55021],
@@ -227,7 +237,7 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
     #                                            decimal=3)
     #         else:
     #             assert (qn.objective - 0.18794211745262146) < tol
-    #             np.testing.assert_almost_equal(qn.coef_.to_output('cupy'),
+    #             np.testing.assert_almost_equal(qn.coef_
     #                                            np.array([[14.2959795,
     #                                                      -104.63812,
     #                                                      -96.41866],
@@ -239,7 +249,7 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
     #         if fit_intercept:
     #             if l1_strength == 0.0:
     #                 assert (qn.objective - 0.007433414924889803) < tol
-    #                 np.testing.assert_almost_equal(qn.coef_.to_output('cupy'),
+    #                 np.testing.assert_almost_equal(qn.coef_
     #                                                np.array([[15.236361,
     #                                                          -41.595913,
     #                                                          -33.55021],
@@ -252,7 +262,7 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
     #                                                decimal=3)
     #             else:
     #                 assert (qn.objective - 0.2925984263420105) < tol
-    #                 np.testing.assert_almost_equal(qn.coef_.to_output('cupy'),
+    #                 np.testing.assert_almost_equal(qn.coef_
     #                                                np.array([[1.2279763,
     #                                                           -2.011927,
     #                                                           -1.8038181],
@@ -267,7 +277,7 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
     #         else:
     #             if l1_strength == 0.0:
     #                 assert (qn.objective - 0.18794211745262146) < tol
-    #                 np.testing.assert_almost_equal(qn.coef_.to_output('cupy'),
+    #                 np.testing.assert_almost_equal(qn.coef_
     #                                                np.array([[14.2959795,
     #                                                          -104.63812,
     #                                                          -96.41866],
@@ -278,7 +288,7 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
 
     #             else:
     #                 assert (qn.objective - 0.3777262568473816) < tol
-    #                 np.testing.assert_almost_equal(qn.coef_.to_output('cupy'),
+    #                 np.testing.assert_almost_equal(qn.coef_
     #                                                np.array([[1.4765631,
     #                                                           -1.569497,
     #                                                           -0.6421711],
@@ -291,7 +301,7 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
         #     if fit_intercept:
         #         if l2_strength == 0.0:
         #             assert (qn.objective - 0.007433414924889803) < tol
-        #             np.testing.assert_almost_equal(qn.coef_.to_output('cupy'),
+        #             np.testing.assert_almost_equal(qn.coef_
         #                                            np.array([[15.236361,
         #                                                      -41.595913,
         #                                                      -33.55021],
@@ -304,7 +314,7 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
         #                                            decimal=3)
         #         else:
         #             assert (qn.objective - 0.28578639030456543) < tol
-        #             np.testing.assert_almost_equal(qn.coef_.to_output('cupy'),
+        #             np.testing.assert_almost_equal(qn.coef_
         #                                            np.array([[1.6702422,
         #                                                      -1.5495867,
         #                                                      -1.193351],
@@ -319,7 +329,7 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
         #     else:
         #         if l2_strength == 0.0:
         #             assert (qn.objective - 0.18794211745262146) < tol
-        #             np.testing.assert_almost_equal(qn.coef_.to_output('cupy'),
+        #             np.testing.assert_almost_equal(qn.coef_
         #                                            np.array([[14.2959795,
         #                                                      -104.63812,
         #                                                      -96.41866],
@@ -330,7 +340,7 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
 
         #         else:
         #             assert (qn.objective - 0.3537392020225525) < tol
-        #             np.testing.assert_almost_equal(qn.coef_.to_output('cupy'),
+        #             np.testing.assert_almost_equal(qn.coef_
         #                                            np.array([[1.3769588,
         #                                                      -1.0002015,
         #                                                      -0.5205092],
@@ -343,7 +353,7 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
         #     if fit_intercept:
         #         if l1_strength == 0.0 and l2_strength == 0.0:
         #             assert (qn.objective - 0.007433414924889803) < tol
-        #             np.testing.assert_almost_equal(qn.coef_.to_output('cupy'),
+        #             np.testing.assert_almost_equal(qn.coef_
         #                                            np.array([[15.236361,
         #                                                      -41.595913,
         #                                                      -33.55021],
@@ -356,7 +366,7 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
         #                                            decimal=3)
         #         elif l1_strength == 0.0:
         #             assert (qn.objective - 0.28578639030456543) < tol
-        #             np.testing.assert_almost_equal(qn.coef_.to_output('cupy'),
+        #             np.testing.assert_almost_equal(qn.coef_
         #                                            np.array([[1.6702422,
         #                                                      -1.5495867,
         #                                                      -1.193351],
@@ -369,7 +379,7 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
         #                                            decimal=3)
         #         elif l2_strength == 0.0:
         #             assert (qn.objective - 0.2925984263420105) < tol
-        #             np.testing.assert_almost_equal(qn.coef_.to_output('cupy'),
+        #             np.testing.assert_almost_equal(qn.coef_
         #                                            np.array([[1.2279763,
         #                                                      -2.011927,
         #                                                      -1.8038181],
@@ -382,7 +392,7 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
         #                                            decimal=3)
         #         else:
         #             assert (qn.objective - 0.34934690594673157) < tol
-        #             np.testing.assert_almost_equal(qn.coef_.to_output('cupy'),
+        #             np.testing.assert_almost_equal(qn.coef_
         #                                            np.array([[1.1901233,
         #                                                      -1.2236115,
         #                                                      -1.0416932],
@@ -396,7 +406,7 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
         #     else:
         #         if l1_strength == 0.0 and l2_strength == 0.0:
         #             assert (qn.objective - 0.18794211745262146) < tol
-        #             np.testing.assert_almost_equal(qn.coef_.to_output('cupy'),
+        #             np.testing.assert_almost_equal(qn.coef_
         #                                            np.array([[14.2959795,
         #                                                      -104.63812,
         #                                                      -96.41866],
@@ -406,7 +416,7 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
         #                                            decimal=3)
         #         elif l1_strength == 0.0:
         #             assert (qn.objective - 0.3537392020225525) < tol
-        #             np.testing.assert_almost_equal(qn.coef_.to_output('cupy'),
+        #             np.testing.assert_almost_equal(qn.coef_
         #                                            np.array([[1.3769588,
         #                                                      -1.0002015,
         #                                                      -0.5205092],
@@ -417,7 +427,7 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
 
         #         elif l2_strength == 0.0:
         #             assert (qn.objective - 0.3777262568473816) < tol
-        #             np.testing.assert_almost_equal(qn.coef_.to_output('cupy'),
+        #             np.testing.assert_almost_equal(qn.coef_
         #                                            np.array([[1.4765631,
         #                                                      -1.569497,
         #                                                      -0.6421711],
@@ -427,7 +437,7 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
         #                                            decimal=3)
         #         else:
         #             assert (qn.objective - 0.40656331181526184) < tol
-        #             np.testing.assert_almost_equal(qn.coef_.to_output('cupy'),
+        #             np.testing.assert_almost_equal(qn.coef_
         #                                            np.array([[1.2176441,
         #                                                      -0.8387626,
         #                                                      -0.3155345],
@@ -435,9 +445,6 @@ def test_qn(loss, dtype, penalty, l1_strength, l2_strength, fit_intercept):
         #                                                      -0.60578823,
         #                                                      -0.26777366]]),
         #                                            decimal=3)
-
-    if penalty == "none" and (l1_strength > 0 or l2_strength > 0):
-        pytest.skip("`none` penalty does not take l1/l2_strength")
 
 
 precomputed_X = [

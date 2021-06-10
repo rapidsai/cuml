@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,10 +15,11 @@
  */
 
 #include <gtest/gtest.h>
-#include <cuda_utils.cuh>
-#include <distance/distance.cuh>
+#include <raft/cudart_utils.h>
 #include <iostream>
-#include <score/scores.cuh>
+#include <metrics/trustworthiness_score.cuh>
+#include <raft/distance/distance.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <vector>
 #include "test_utils.h"
 
@@ -412,27 +413,28 @@ class TrustworthinessScoreTest : public ::testing::Test {
       -0.1128775,  -0.0078648,  -0.02323332, 0.04292452,  0.39291084,
       -0.94897962, -0.63863206, -0.16546988, 0.23698957,  -0.30633628};
 
-    cudaStream_t stream;
-    cudaStreamCreate(&stream);
+    raft::handle_t handle;
 
-    allocator.reset(new defaultDeviceAllocator);
+    cudaStream_t stream = handle.get_stream();
+    auto allocator = handle.get_device_allocator();
 
     float* d_X = (float*)allocator->allocate(X.size() * sizeof(float), stream);
     float* d_X_embedded =
       (float*)allocator->allocate(X_embedded.size() * sizeof(float), stream);
 
-    updateDevice(d_X, X.data(), X.size(), stream);
-    updateDevice(d_X_embedded, X_embedded.data(), X_embedded.size(), stream);
+    raft::update_device(d_X, X.data(), X.size(), stream);
+    raft::update_device(d_X_embedded, X_embedded.data(), X_embedded.size(),
+                        stream);
 
     // euclidean test
-    score = trustworthiness_score<float, Distance::EucUnexpandedL2Sqrt>(
-      d_X, d_X_embedded, 50, 30, 8, 5, allocator, stream);
+    score =
+      trustworthiness_score<float,
+                            raft::distance::DistanceType::L2SqrtUnexpanded>(
+        handle, d_X, d_X_embedded, 50, 30, 8, 5);
 
     allocator->deallocate(d_X, X.size() * sizeof(float), stream);
     allocator->deallocate(d_X_embedded, X_embedded.size() * sizeof(float),
                           stream);
-
-    cudaStreamDestroy(stream);
   }
 
   void SetUp() override { basicTest(); }
@@ -441,12 +443,12 @@ class TrustworthinessScoreTest : public ::testing::Test {
 
  protected:
   double score;
-  std::shared_ptr<deviceAllocator> allocator;
+  std::shared_ptr<raft::mr::device::allocator> allocator;
 };
 
 typedef TrustworthinessScoreTest TrustworthinessScoreTestF;
 TEST_F(TrustworthinessScoreTestF, Result) {
-  ASSERT_TRUE(0.9374 < score && score < 0.9376);
+  ASSERT_TRUE(0.9375 < score && score < 0.9379);
 }
 };  // namespace Score
 };  // namespace MLCommon

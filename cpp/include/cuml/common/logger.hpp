@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,12 +17,20 @@
 
 #include <stdarg.h>
 #include <memory>
+#include <mutex>
 #include <sstream>
 #include <string>
 
+#include <cuml/common/log_levels.hpp>
+
 namespace spdlog {
 class logger;
-};
+namespace sinks {
+template <class Mutex>
+class CallbackSink;
+using callback_sink_mt = CallbackSink<std::mutex>;
+};  // namespace sinks
+};  // namespace spdlog
 
 namespace ML {
 
@@ -41,27 +49,6 @@ namespace ML {
 std::string format(const char* fmt, va_list& vl);
 std::string format(const char* fmt, ...);
 /** @} */
-
-/**
- * @defgroup CumlLogLevels Logging levels used in cuML
- *
- * @note exactly match the corresponding ones (but reverse in terms of value)
- *       in spdlog for wrapping purposes
- *
- * @{
- */
-#define CUML_LEVEL_TRACE 6
-#define CUML_LEVEL_DEBUG 5
-#define CUML_LEVEL_INFO 4
-#define CUML_LEVEL_WARN 3
-#define CUML_LEVEL_ERROR 2
-#define CUML_LEVEL_CRITICAL 1
-#define CUML_LEVEL_OFF 0
-/** @} */
-
-#if !defined(CUML_ACTIVE_LEVEL)
-#define CUML_ACTIVE_LEVEL CUML_LEVEL_DEBUG
-#endif
 
 /**
  * @brief The main Logging class for cuML library.
@@ -105,6 +92,20 @@ class Logger {
   void setPattern(const std::string& pattern);
 
   /**
+   * @brief Register a callback function to be run in place of usual log call
+   *
+   * @param[in] callback the function to be run on all logged messages
+   */
+  void setCallback(void (*callback)(int lvl, const char* msg));
+
+  /**
+   * @brief Register a flush function compatible with the registered callback
+   *
+   * @param[in] flush the function to use when flushing logs
+   */
+  void setFlush(void (*flush)());
+
+  /**
    * @brief Tells whether messages will be logged for the given log level
    *
    * @param[in] level log level to be checked for
@@ -133,10 +134,16 @@ class Logger {
    */
   void log(int level, const char* fmt, ...);
 
+  /**
+   * @brief Flush logs by calling flush on underlying logger
+   */
+  void flush();
+
  private:
   Logger();
   ~Logger() {}
 
+  std::shared_ptr<spdlog::sinks::callback_sink_mt> sink;
   std::shared_ptr<spdlog::logger> logger;
   std::string currPattern;
   static const std::string DefaultPattern;

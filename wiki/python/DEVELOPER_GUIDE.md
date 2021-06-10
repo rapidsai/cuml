@@ -18,12 +18,14 @@ Refer to the section on thread safety in [C++ DEVELOPER_GUIDE.md](../cpp/DEVELOP
 1. Make sure that this algo has been implemented in the C++ side. Refer to [C++ DEVELOPER_GUIDE.md](../cpp/DEVELOPER_GUIDE.md) for guidelines on developing in C++.
 2. Refer to the [next section](DEVELOPER_GUIDE.md#creating-python-wrapper-class-for-an-existing-ml-algo) for the remaining steps.
 
-## Creating python wrapper class for an existing ML algo
+## Creating python estimator wrapper class
 1. Create a corresponding algoName.pyx file inside `python/cuml` folder.
 2. Ensure that the folder structure inside here reflects that of sklearn's. Example, `pca.pyx` should be kept inside the `decomposition` sub-folder of `python/cuml`.
 .  Match the corresponding scikit-learn's interface as closely as possible. Refer to their [developer guide](https://scikit-learn.org/stable/developers/contributing.html#apis-of-scikit-learn-objects) on API design of sklearn objects for details.
 3. Always make sure to have your class inherit from `cuml.Base` class as your parent/ancestor.
 4. Ensure that the estimator's output fields follow the 'underscore on both sides' convention explained in the documentation of `cuml.Base`. This allows it to support configurable output types.
+
+For an in-depth guide to creating estimators, see the [Estimator Guide](ESTIMATOR_GUIDE.md)
 
 ## Error handling
 If you are trying to call into cuda runtime APIs inside `cuml.cuda`, in case of any errors, they'll raise a `cuml.cuda.CudaRuntimeError`. For example:
@@ -67,6 +69,37 @@ algo2.fit(X2, y2)
 To know more underlying details about stream ordering refer to the corresponding section of [C++ DEVELOPER_GUIDE.md](../../cpp/DEVELOPER_GUIDE.md#asynchronous-operations-and-stream-ordering)
 
 ## Multi GPU
-We currently have **S**ingle **P**rocess **M**ultiple **G**PU (SPMG) versions of KNN, OLS and tSVD. Our upcoming versions will concentrate on **O**ne **P**rocess per **G**PU (OPG) paradigm.
 
 TODO: Add more details.
+
+## Benchmarking
+
+The cuML code including its Python operations can be profiled. The `nvtx_benchmark.py` is a helper script that produces a simple benchmark summary. To use it, run `python nvtx_benchmark.py "python test.py"`.
+
+Here is an example with the following script:
+```
+from cuml.datasets import make_blobs
+from cuml.manifold import UMAP
+
+X, y = make_blobs(n_samples=1000, n_features=30)
+
+model = UMAP()
+model.fit(X)
+embeddngs = model.transform(X)
+```
+that once benchmarked can have its profiling summarized:
+```
+datasets.make_blobs                                          :   1.3571 s
+
+manifold.umap.fit [0x7f10eb69d4f0]                           :   0.6629 s
+    |> umap::unsupervised::fit                               :   0.6611 s
+    |==> umap::knnGraph                                      :   0.4693 s
+    |==> umap::simplicial_set                                :   0.0015 s
+    |==> umap::embedding                                     :   0.1902 s
+
+manifold.umap.transform [0x7f10eb69d4f0]                     :   0.0934 s
+    |> umap::transform                                       :   0.0925 s
+    |==> umap::knnGraph                                      :   0.0909 s
+    |==> umap::smooth_knn                                    :   0.0002 s
+    |==> umap::optimization                                  :   0.0011 s
+```

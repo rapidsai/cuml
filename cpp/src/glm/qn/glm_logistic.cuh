@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <cuda_utils.cuh>
-#include <linalg/binary_op.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/binary_op.cuh>
 #include "glm_base.cuh"
 #include "simple_mat.cuh"
 
@@ -28,11 +28,13 @@ template <typename T>
 struct LogisticLoss : GLMBase<T, LogisticLoss<T>> {
   typedef GLMBase<T, LogisticLoss<T>> Super;
 
-  LogisticLoss(const cumlHandle_impl &handle, int D, bool has_bias)
+  LogisticLoss(const raft::handle_t &handle, int D, bool has_bias)
     : Super(handle, D, 1, has_bias) {}
 
   inline __device__ T log_sigmoid(T x) const {
-    return -MLCommon::myLog(1 + MLCommon::myExp(-x));
+    // To avoid floating point overflow in the exp function
+    T temp = raft::myLog(1 + raft::myExp(x < 0 ? x : -x));
+    return x < 0 ? x - temp : -temp;
   }
 
   inline __device__ T lz(const T y, const T z) const {
@@ -41,7 +43,10 @@ struct LogisticLoss : GLMBase<T, LogisticLoss<T>> {
   }
 
   inline __device__ T dlz(const T y, const T z) const {
-    return T(1.0) / (T(1.0) + MLCommon::myExp(-z)) - y;
+    // To avoid fp overflow with exp(z) when abs(z) is large
+    T ez = raft::myExp(z < 0 ? z : -z);
+    T numerator = z < 0 ? ez : T(1.0);
+    return numerator / (T(1.0) + ez) - y;
   }
 };
 };  // namespace GLM

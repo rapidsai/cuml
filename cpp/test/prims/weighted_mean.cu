@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,9 @@
 
 #include <gtest/gtest.h>
 #include <thrust/device_vector.h>
-#include <cuda_utils.cuh>
-#include <random/rng.cuh>
+#include <thrust/host_vector.h>
+#include <raft/cuda_utils.cuh>
+#include <raft/random/rng.cuh>
 #include <stats/weighted_mean.cuh>
 #include "test_utils.h"
 
@@ -62,7 +63,7 @@ class RowWeightedMeanTest
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<WeightedMeanInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int rows = params.M, cols = params.N, len = rows * cols;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
@@ -127,7 +128,7 @@ class ColWeightedMeanTest
   : public ::testing::TestWithParam<WeightedMeanInputs<T>> {
   void SetUp() override {
     params = ::testing::TestWithParam<WeightedMeanInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int rows = params.M, cols = params.N, len = rows * cols;
 
     cudaStream_t stream;
@@ -186,7 +187,7 @@ const std::vector<WeightedMeanInputs<double>> inputsd = {
 using RowWeightedMeanTestF = RowWeightedMeanTest<float>;
 TEST_P(RowWeightedMeanTestF, Result) {
   ASSERT_TRUE(devArrMatch(dexp.data().get(), dact.data().get(), params.M,
-                          CompareApprox<float>(params.tolerance)));
+                          raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(RowWeightedMeanTest, RowWeightedMeanTestF,
                         ::testing::ValuesIn(inputsf));
@@ -194,7 +195,7 @@ INSTANTIATE_TEST_CASE_P(RowWeightedMeanTest, RowWeightedMeanTestF,
 using RowWeightedMeanTestD = RowWeightedMeanTest<double>;
 TEST_P(RowWeightedMeanTestD, Result) {
   ASSERT_TRUE(devArrMatch(dexp.data().get(), dact.data().get(), params.M,
-                          CompareApprox<double>(params.tolerance)));
+                          raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(RowWeightedMeanTest, RowWeightedMeanTestD,
                         ::testing::ValuesIn(inputsd));
@@ -202,7 +203,7 @@ INSTANTIATE_TEST_CASE_P(RowWeightedMeanTest, RowWeightedMeanTestD,
 using ColWeightedMeanTestF = ColWeightedMeanTest<float>;
 TEST_P(ColWeightedMeanTestF, Result) {
   ASSERT_TRUE(devArrMatch(dexp.data().get(), dact.data().get(), params.N,
-                          CompareApprox<float>(params.tolerance)));
+                          raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ColWeightedMeanTest, ColWeightedMeanTestF,
                         ::testing::ValuesIn(inputsf));
@@ -210,7 +211,7 @@ INSTANTIATE_TEST_CASE_P(ColWeightedMeanTest, ColWeightedMeanTestF,
 using ColWeightedMeanTestD = ColWeightedMeanTest<double>;
 TEST_P(ColWeightedMeanTestD, Result) {
   ASSERT_TRUE(devArrMatch(dexp.data().get(), dact.data().get(), params.N,
-                          CompareApprox<double>(params.tolerance)));
+                          raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ColWeightedMeanTest, ColWeightedMeanTestD,
                         ::testing::ValuesIn(inputsd));

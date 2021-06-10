@@ -15,12 +15,11 @@ The `test` directory has subdirectories that reflect this distinction between th
 ## Setup
 ### Dependencies
 
-1. cmake (>= 3.14)
-2. CUDA (>= 10.0)
-3. gcc (>=5.4.0)
-4. BLAS - Any BLAS compatible with cmake's [FindBLAS](https://cmake.org/cmake/help/v3.14/module/FindBLAS.html). Note that the blas has to be installed to the same folder system as cmake, for example if using conda installed cmake, the blas implementation should also be installed in the conda environment.
-5. clang-format (= 8.0.1) - enforces uniform C++ coding style; required to build cuML from source. The packages `clang=8` and `clang-tools=8` from the conda-forge channel should be sufficient, if you are on conda. If not using conda, install the right version using your OS package manager.
-6. UCX with CUDA support [optional] (>=1.7) - enables point-to-point messaging in the cuML communicator.
+1. cmake (>= 3.20.1)
+2. CUDA (>= 11.0)
+3. gcc (>=9.3.0)
+4. clang-format (= 8.0.1) - enforces uniform C++ coding style; required to build cuML from source. The packages `clang=8` and `clang-tools=8` from the conda-forge channel should be sufficient, if you are on conda. If not using conda, install the right version using your OS package manager.
+5. UCX with CUDA support [optional](>=1.7) - enables point-to-point messaging in the cuML communicator.
 
 ### Building cuML:
 
@@ -28,21 +27,30 @@ The main artifact produced by the build system is the shared library libcuml++. 
 
 Current cmake offers the following configuration options:
 
+- Build Configuration Options:
+
 | Flag | Possible Values | Default Value | Behavior |
 | --- | --- | --- | --- |
-| BLAS_LIBRARIES | path/to/blas_lib | "" | Optional variable allowing to manually specify location of BLAS library. |
 | BUILD_CUML_CPP_LIBRARY | [ON, OFF]  | ON  | Enable/disable building libcuml++ shared library. Setting this variable to `OFF` sets the variables BUILD_CUML_TESTS, BUILD_CUML_MG_TESTS and BUILD_CUML_EXAMPLES to `OFF` |
+| BUILD_CUML_C_LIBRARY | [ON, OFF]  | ON  | Enable/disable building libcuml++ shared library. Setting this variable to `OFF` sets the variables BUILD_CUML_TESTS, BUILD_CUML_MG_TESTS and BUILD_CUML_EXAMPLES to `OFF` |
 | BUILD_CUML_TESTS | [ON, OFF]  | ON  |  Enable/disable building cuML algorithm test executable `ml_test`.  |
-| BUILD_CUML_MG_TESTS | [ON, OFF]  | ON  |  Enable/disable building cuML algorithm test executable `ml_mg_test`. |
+| BUILD_CUML_MG_TESTS | [ON, OFF]  | ON  |  Enable/disable building cuML algorithm test executable `ml_mg_test`. Requires MPI to be installed. When enabled, BUILD_CUML_MPI_COMMS will be automatically set to ON. |
 | BUILD_PRIMS_TESTS | [ON, OFF]  | ON  | Enable/disable building cuML algorithm test executable `prims_test`.  |
+| BUILD_CUML_EXAMPLES | [ON, OFF]  | ON  | Enable/disable building cuML C++ API usage examples.  |
+| BUILD_CUML_BENCH | [ON, OFF]  | ON  | Enable/disable building of cuML C++ benchark. |
+| BUILD_CUML_PRIMS_BENCH | [ON, OFF]  | ON  | Enable/disable building of ml-prims C++ benchark. |
 | BUILD_CUML_STD_COMMS | [ON, OFF] | ON | Enable/disable building cuML NCCL+UCX communicator for running multi-node multi-GPU algorithms. Note that UCX support can also be enabled/disabled (see below). The standard communicator and MPI communicator are not mutually exclusive and can both be installed at the same time. |
 | WITH_UCX | [ON, OFF] | OFF | Enable/disable UCX support in the standard cuML communicator. Algorithms requiring point-to-point messaging will not work when this is disabled. This flag is ignored if BUILD_CUML_STD_COMMS is set to OFF. |
-| BUILD_CUML_MPI_COMMS | [ON, OFF] | OFF | Enable/disable building cuML MPI+NCCL communicator for running multi-node multi-GPU C++ tests. MPI communicator and STD communicator are not mutually exclusive and can both be installed at the same time. |
-| BUILD_CUML_EXAMPLES | [ON, OFF]  | ON  | Enable/disable building cuML C++ API usage examples.  |
-| BUILD_CUML_BENCH | [ON, OFF] | ON | Enable/disable building oc cuML C++ benchark.  |
-| CMAKE_CXX11_ABI | [ON, OFF]  | ON  | Enable/disable the GLIBCXX11 ABI  |
+| BUILD_CUML_MPI_COMMS | [ON, OFF] | OFF | Enable/disable building cuML MPI+NCCL communicator for running multi-node multi-GPU C++ tests. MPI communicator and STD communicator may both be installed at the same time. If OFF, it overrides BUILD_CUML_MG_TESTS to be OFF as well. |
+| SINGLEGPU | [ON, OFF] | OFF | Disable all mnmg components. Disables building of all multi-GPU algorithms and all comms library components. Removes libcumlprims, UCX-py and NCCL dependencies. Overrides values of  BUILD_CUML_MG_TESTS, BUILD_CUML_STD_COMMS, WITH_UCX and BUILD_CUML_MPI_COMMS. |
 | DISABLE_OPENMP | [ON, OFF]  | OFF  | Set to `ON` to disable OpenMP  |
-| GPU_ARCHS |  List of GPU architectures, semicolon-separated | Empty  | List of GPU architectures that all artifacts are compiled for. Passing ALL means compiling for all currently supported GPU architectures: 60;70;75. If you don't pass this flag, then the build system will try to look for the GPU card installed on the system and compiles only for that.  |
+| CMAKE_CUDA_ARCHITECTURES |  List of GPU architectures, semicolon-separated | Empty  | List the GPU architectures to compile the GPU targets for. Set to "NATIVE" to auto detect GPU architecture of the system, set to "ALL" to compile for all RAPIDS supported archs: ["60" "62" "70" "72" "75" "80" "86"].  |
+| USE_CCACHE | [ON, OFF]  | ON  | Cache build artifacts with ccache. |
+
+- Debug configuration options:
+
+| Flag | Possible Values | Default Value | Behavior |
+| --- | --- | --- | --- |
 | KERNEL_INFO | [ON, OFF]  | OFF  | Enable/disable kernel resource usage info in nvcc. |
 | LINE_INFO | [ON, OFF]  | OFF  | Enable/disable lineinfo in nvcc.  |
 | NVTX | [ON, OFF]  | OFF  | Enable/disable nvtx markers in libcuml++.  |
@@ -50,12 +58,12 @@ Current cmake offers the following configuration options:
 After running CMake in a `build` directory, if the `BUILD_*` options were not turned `OFF`, the following targets can be built:
 
 ```bash
-$ make -j # Build libcuml++ and all tests
-$ make -j sg_benchmark # Build c++ cuml single gpu benchmark
-$ make -j cuml++ # Build libcuml++
-$ make -j ml # Build ml_test algorithm tests binary
-$ make -j ml_mg # Build ml_mg_test multi GPU algorithms tests binary
-$ make -j prims # Build prims_test ML primitive unit tests binary
+$ cmake --build . -j                        # Build libcuml++ and all tests
+$ cmake --build . -j --target  sg_benchmark # Build c++ cuml single gpu benchmark
+$ cmake --build . -j --target  cuml++       # Build libcuml++
+$ cmake --build . -j --target  ml           # Build ml_test algorithm tests binary
+$ cmake --build . -j --target  ml_mg        # Build ml_mg_test multi GPU algorithms tests binary
+$ cmake --build . -j --target  prims        # Build prims_test ML primitive unit tests binary
 ```
 
 ### Third Party Modules
@@ -64,7 +72,39 @@ The external folder contains submodules that cuML depends on.
 
 Current external submodules are:
 
-1. [CUTLASS](https://github.com/NVIDIA/cutlass)
-2. [CUB](https://github.com/NVlabs/cub)
-3. [Faiss](https://github.com/facebookresearch/faiss)
-4. [Google Test](https://github.com/google/googletest)
+1. [CUB](https://github.com/NVlabs/cub)
+2. [Faiss](https://github.com/facebookresearch/faiss)
+3. [Google Test](https://github.com/google/googletest)
+
+## Using cuML libraries
+
+After building cuML, you can use its functionality in other C/C++ applications
+by linking against the generated libraries. The following trivial example shows
+how to make external use of cuML's logger:
+
+```cpp
+// main.cpp
+#include <cuml/common/logger.hpp>
+
+int main(int argc, char *argv[]) {
+  CUML_LOG_WARN("This is a warning from the cuML logger!");
+  return 0;
+}
+```
+
+To compile this example, we must point the compiler to where cuML was
+installed. Assuming you did not provide a custom `$CMAKE_INSTALL_PREFIX`, this
+will default to the `$CONDA_PREFIX` environment variable.
+
+```bash
+$ export LD_LIBRARY_PATH="${CONDA_PREFIX}/lib"
+$ nvcc \
+       main.cpp \
+       -o cuml_logger_example \
+       "-L${CONDA_PREFIX}/lib" \
+       "-I${CONDA_PREFIX}/include" \
+       "-I${CONDA_PREFIX}/include/cuml/raft" \
+       -lcuml++
+$ ./cuml_logger_example
+[W] [13:26:43.503068] This is a warning from the cuML logger!
+```

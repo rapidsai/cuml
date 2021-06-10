@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,10 @@
  * limitations under the License.
  */
 #pragma once
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include "levelkernel_classifier.cuh"
+
+#include <common/nvtx.hpp>
 
 namespace ML {
 namespace DecisionTree {
@@ -25,22 +27,25 @@ void initial_metric_classification(
   const int *labels, unsigned int *sample_cnt, const int nrows,
   const int n_unique_labels, std::vector<unsigned int> &histvec,
   T &initial_metric, std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
+  ML::PUSH_RANGE(
+    "DecisionTree::initial_metric_classification @levelhelper_classifier.cuh");
   CUDA_CHECK(cudaMemsetAsync(tempmem->d_parent_hist->data(), 0,
                              n_unique_labels * sizeof(unsigned int),
                              tempmem->stream));
-  int blocks = MLCommon::ceildiv(nrows, 128);
+  int blocks = raft::ceildiv(nrows, 128);
   sample_count_histogram_kernel<<<blocks, 128, sizeof(int) * n_unique_labels,
                                   tempmem->stream>>>(
     labels, sample_cnt, nrows, n_unique_labels,
     (int *)tempmem->d_parent_hist->data());
   CUDA_CHECK(cudaGetLastError());
-  MLCommon::updateHost(tempmem->h_parent_hist->data(),
-                       tempmem->d_parent_hist->data(), n_unique_labels,
-                       tempmem->stream);
+  raft::update_host(tempmem->h_parent_hist->data(),
+                    tempmem->d_parent_hist->data(), n_unique_labels,
+                    tempmem->stream);
   CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
   histvec.assign(tempmem->h_parent_hist->data(),
                  tempmem->h_parent_hist->data() + n_unique_labels);
   initial_metric = F::exec(histvec, nrows);
+  ML::POP_RANGE();
 }
 
 template <typename T>
@@ -50,13 +55,16 @@ void get_histogram_classification(
   const int ncols_sampled, const int n_unique_labels, const int nbins,
   const int n_nodes, const int split_algo,
   std::shared_ptr<TemporaryMemory<T, int>> tempmem, unsigned int *histout) {
+  ML::PUSH_RANGE(
+    "DecisionTree::get_histogram_classification @levelhelper_classifier.cuh");
+
   size_t histcount = ncols_sampled * nbins * n_unique_labels * n_nodes;
   CUDA_CHECK(cudaMemsetAsync(histout, 0, histcount * sizeof(unsigned int),
                              tempmem->stream));
   int node_batch = min(n_nodes, tempmem->max_nodes_class);
   size_t shmem = nbins * n_unique_labels * sizeof(int) * node_batch;
   int threads = 256;
-  int blocks = MLCommon::ceildiv(nrows, threads);
+  int blocks = raft::ceildiv(nrows, threads);
   unsigned int *d_colstart = nullptr;
   if (tempmem->d_colstart != nullptr) d_colstart = tempmem->d_colstart->data();
   if (split_algo == 0) {
@@ -94,6 +102,7 @@ void get_histogram_classification(
     }
   }
   CUDA_CHECK(cudaGetLastError());
+  ML::POP_RANGE();
 }
 template <typename T, typename F, typename DF>
 void get_best_split_classification(
@@ -107,6 +116,7 @@ void get_best_split_classification(
   std::vector<int> &sparse_nodelist, int *split_colidx, int *split_binidx,
   int *d_split_colidx, int *d_split_binidx,
   std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
+  ML::PUSH_RANGE("get_best_split_classification @levelhelper_classifier.cuh");
   T *quantile = nullptr;
   T *minmax = nullptr;
   if (tempmem->h_quantile != nullptr) quantile = tempmem->h_quantile->data();
@@ -143,10 +153,10 @@ void get_best_split_classification(
              n_unique_labels * sizeof(int));
     }
 
-    MLCommon::updateDevice(d_parent_hist, h_parent_hist,
-                           n_nodes * n_unique_labels, tempmem->stream);
-    MLCommon::updateDevice(d_parent_metric, h_parent_metric, n_nodes,
-                           tempmem->stream);
+    raft::update_device(d_parent_hist, h_parent_hist, n_nodes * n_unique_labels,
+                        tempmem->stream);
+    raft::update_device(d_parent_metric, h_parent_metric, n_nodes,
+                        tempmem->stream);
     CUDA_CHECK(
       cudaMemsetAsync(d_outgain, 0, n_nodes * sizeof(float), tempmem->stream));
     CUDA_CHECK(cudaMemsetAsync(d_split_binidx, 0, n_nodes * sizeof(int),
@@ -162,15 +172,13 @@ void get_best_split_classification(
         n_unique_labels, min_rpn, d_outgain, d_split_colidx, d_split_binidx,
         d_child_hist, d_child_best_metric);
     CUDA_CHECK(cudaGetLastError());
-    MLCommon::updateHost(h_child_hist, d_child_hist,
-                         2 * n_nodes * n_unique_labels, tempmem->stream);
-    MLCommon::updateHost(h_outgain, d_outgain, n_nodes, tempmem->stream);
-    MLCommon::updateHost(h_child_best_metric, d_child_best_metric, 2 * n_nodes,
-                         tempmem->stream);
-    MLCommon::updateHost(split_binidx, d_split_binidx, n_nodes,
-                         tempmem->stream);
-    MLCommon::updateHost(split_colidx, d_split_colidx, n_nodes,
-                         tempmem->stream);
+    raft::update_host(h_child_hist, d_child_hist, 2 * n_nodes * n_unique_labels,
+                      tempmem->stream);
+    raft::update_host(h_outgain, d_outgain, n_nodes, tempmem->stream);
+    raft::update_host(h_child_best_metric, d_child_best_metric, 2 * n_nodes,
+                      tempmem->stream);
+    raft::update_host(split_binidx, d_split_binidx, n_nodes, tempmem->stream);
+    raft::update_host(split_colidx, d_split_colidx, n_nodes, tempmem->stream);
 
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
     for (int nodecnt = 0; nodecnt < n_nodes; nodecnt++) {
@@ -195,7 +203,7 @@ void get_best_split_classification(
       sparsetree.push_back(rightnode);
     }
   } else {
-    MLCommon::updateHost(hist, d_hist, histcount, tempmem->stream);
+    raft::update_host(hist, d_hist, histcount, tempmem->stream);
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
 
     for (int nodecnt = 0; nodecnt < n_nodes; nodecnt++) {
@@ -283,11 +291,10 @@ void get_best_split_classification(
       memcpy(&h_child_hist[(2 * nodecnt + 1) * n_unique_labels],
              besthist_right.data(), n_unique_labels * sizeof(unsigned int));
     }
-    MLCommon::updateDevice(d_split_binidx, split_binidx, n_nodes,
-                           tempmem->stream);
-    MLCommon::updateDevice(d_split_colidx, split_colidx, n_nodes,
-                           tempmem->stream);
+    raft::update_device(d_split_binidx, split_binidx, n_nodes, tempmem->stream);
+    raft::update_device(d_split_colidx, split_colidx, n_nodes, tempmem->stream);
   }
+  ML::POP_RANGE();
 }
 
 template <typename T>
@@ -302,7 +309,7 @@ void leaf_eval_classification(
 
   int non_leaf_counter = 0;
   // decide if the "next" layer of nodes are to be forcefully marked as leaves
-  bool condition_global = curr_depth >= max_depth - 1;
+  bool condition_global = curr_depth >= max_depth;
   if (max_leaves != -1)
     condition_global = condition_global || (tree_leaf_cnt >= max_leaves);
 

@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include "metric_def.cuh"
 
 namespace ML {
@@ -23,12 +23,12 @@ namespace DecisionTree {
 
 template <class T>
 DI T SquareFunctor::exec(T x) {
-  return MLCommon::myPow(x, (T)2);
+  return raft::myPow(x, (T)2);
 }
 
 template <class T>
 DI T AbsFunctor::exec(T x) {
-  return MLCommon::myAbs(x);
+  return raft::myAbs(x);
 }
 
 float GiniFunctor::max_val(int nclass) { return 1.0; }

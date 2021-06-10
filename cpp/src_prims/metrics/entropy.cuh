@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,14 +18,14 @@
 * @brief Calculates the entropy for a labeling in nats.(ie, uses natural logarithm for the calculations)
 */
 
-#include <common/cudart_utils.h>
 #include <math.h>
-#include <common/device_buffer.hpp>
+#include <raft/cudart_utils.h>
 #include <cub/cub.cuh>
-#include <cuda_utils.cuh>
-#include <cuml/common/cuml_allocator.hpp>
-#include <linalg/divide.cuh>
-#include <linalg/map_then_reduce.cuh>
+#include <cuml/common/device_buffer.hpp>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/divide.cuh>
+#include <raft/linalg/map_then_reduce.cuh>
+#include <raft/mr/device/allocator.hpp>
 
 namespace MLCommon {
 
@@ -63,7 +63,7 @@ template <typename LabelT>
 void countLabels(const LabelT *labels, double *binCountArray, int nRows,
                  LabelT lowerLabelRange, LabelT upperLabelRange,
                  MLCommon::device_buffer<char> &workspace,
-                 std::shared_ptr<MLCommon::deviceAllocator> allocator,
+                 std::shared_ptr<raft::mr::device::allocator> allocator,
                  cudaStream_t stream) {
   int num_levels = upperLabelRange - lowerLabelRange + 2;
   LabelT lower_level = lowerLabelRange;
@@ -89,14 +89,14 @@ void countLabels(const LabelT *labels, double *binCountArray, int nRows,
 * @param size: the size of the data points of type int
 * @param lowerLabelRange: the lower bound of the range of labels
 * @param upperLabelRange: the upper bound of the range of labels
-* @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<MLCommon::deviceAllocator>
+* @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<raft::mr::device::allocator>
 * @param stream: the cudaStream object
 * @return the entropy score
 */
 template <typename T>
 double entropy(const T *clusterArray, const int size, const T lowerLabelRange,
                const T upperLabelRange,
-               std::shared_ptr<MLCommon::deviceAllocator> allocator,
+               std::shared_ptr<raft::mr::device::allocator> allocator,
                cudaStream_t stream) {
   if (!size) return 1.0;
 
@@ -117,17 +117,17 @@ double entropy(const T *clusterArray, const int size, const T lowerLabelRange,
               workspace, allocator, stream);
 
   //scalar dividing by size
-  MLCommon::LinAlg::divideScalar<double>(prob.data(), prob.data(), (double)size,
-                                         numUniqueClasses, stream);
+  raft::linalg::divideScalar<double>(prob.data(), prob.data(), (double)size,
+                                     numUniqueClasses, stream);
 
   //calculating the aggregate entropy
-  MLCommon::LinAlg::mapThenSumReduce<double, entropyOp>(
+  raft::linalg::mapThenSumReduce<double, entropyOp>(
     d_entropy.data(), numUniqueClasses, entropyOp(), stream, prob.data(),
     prob.data());
 
   //updating in the host memory
   double h_entropy;
-  MLCommon::updateHost(&h_entropy, d_entropy.data(), 1, stream);
+  raft::update_host(&h_entropy, d_entropy.data(), 1, stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 

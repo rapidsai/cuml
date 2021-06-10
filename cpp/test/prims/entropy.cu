@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,13 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <algorithm>
-#include <cuda_utils.cuh>
-#include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
 #include <metrics/entropy.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <random>
 #include "test_utils.h"
 
@@ -76,11 +76,11 @@ class entropyTest : public ::testing::TestWithParam<entropyParam> {
 
     //allocating and initializing memory to the GPU
     CUDA_CHECK(cudaStreamCreate(&stream));
-    MLCommon::allocate(clusterArray, nElements, true);
-    MLCommon::updateDevice(clusterArray, &arr1[0], (int)nElements, stream);
+    raft::allocate(clusterArray, nElements, true);
+    raft::update_device(clusterArray, &arr1[0], (int)nElements, stream);
 
-    std::shared_ptr<MLCommon::deviceAllocator> allocator(
-      new defaultDeviceAllocator);
+    std::shared_ptr<raft::mr::device::allocator> allocator(
+      new raft::mr::device::default_allocator);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
     //calling the entropy CUDA implementation

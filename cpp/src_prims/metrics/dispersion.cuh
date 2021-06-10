@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,13 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
-#include <common/device_buffer.hpp>
+#include <raft/cudart_utils.h>
 #include <cub/cub.cuh>
-#include <cuda_utils.cuh>
-#include <cuml/common/cuml_allocator.hpp>
-#include <linalg/eltwise.cuh>
+#include <cuml/common/device_buffer.hpp>
 #include <memory>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/eltwise.cuh>
+#include <raft/mr/device/allocator.hpp>
 
 namespace MLCommon {
 namespace Metrics {
@@ -45,10 +45,10 @@ __global__ void weightedMeanKernel(DataT *mu, const DataT *data,
       (colId < D) ? data[i * D + colId] * (DataT)counts[i] : DataT(0);
   }
   __syncthreads();
-  myAtomicAdd(smu + thisColId, thread_data);
+  raft::myAtomicAdd(smu + thisColId, thread_data);
   __syncthreads();
   if (threadIdx.x < ColsPerBlk && colId < D)
-    myAtomicAdd(mu + colId, smu[thisColId]);
+    raft::myAtomicAdd(mu + colId, smu[thisColId]);
 }
 
 template <typename DataT, typename IdxT, int TPB>
@@ -70,7 +70,7 @@ __global__ void dispersionKernel(DataT *result, const DataT *clusters,
   __syncthreads();
   auto acc = BlockReduce(temp_storage).Sum(sum);
   __syncthreads();
-  if (threadIdx.x == 0) myAtomicAdd(result, acc);
+  if (threadIdx.x == 0) raft::myAtomicAdd(result, acc);
 }
 
 /**
@@ -95,12 +95,13 @@ __global__ void dispersionKernel(DataT *result, const DataT *clusters,
 template <typename DataT, typename IdxT = int, int TPB = 256>
 DataT dispersion(const DataT *centroids, const IdxT *clusterSizes,
                  DataT *globalCentroid, IdxT nClusters, IdxT nPoints, IdxT dim,
-                 std::shared_ptr<deviceAllocator> allocator,
+                 std::shared_ptr<raft::mr::device::allocator> allocator,
                  cudaStream_t stream) {
   static const int RowsPerThread = 4;
   static const int ColsPerBlk = 32;
   static const int RowsPerBlk = (TPB / ColsPerBlk) * RowsPerThread;
-  dim3 grid(ceildiv(nPoints, (IdxT)RowsPerBlk), ceildiv(dim, (IdxT)ColsPerBlk));
+  dim3 grid(raft::ceildiv(nPoints, (IdxT)RowsPerBlk),
+            raft::ceildiv(dim, (IdxT)ColsPerBlk));
   device_buffer<DataT> mean(allocator, stream);
   device_buffer<DataT> result(allocator, stream, 1);
   DataT *mu = globalCentroid;
@@ -114,15 +115,15 @@ DataT dispersion(const DataT *centroids, const IdxT *clusterSizes,
     <<<grid, TPB, 0, stream>>>(mu, centroids, clusterSizes, dim, nClusters);
   CUDA_CHECK(cudaGetLastError());
   DataT ratio = DataT(1) / DataT(nPoints);
-  LinAlg::scalarMultiply(mu, mu, ratio, dim, stream);
+  raft::linalg::scalarMultiply(mu, mu, ratio, dim, stream);
   // finally, compute the dispersion
   constexpr int ItemsPerThread = 4;
-  int nblks = ceildiv<int>(dim * nClusters, TPB * ItemsPerThread);
+  int nblks = raft::ceildiv<int>(dim * nClusters, TPB * ItemsPerThread);
   dispersionKernel<DataT, IdxT, TPB><<<nblks, TPB, 0, stream>>>(
     result.data(), centroids, clusterSizes, mu, dim, nClusters);
   CUDA_CHECK(cudaGetLastError());
   DataT h_result;
-  updateHost(&h_result, result.data(), 1, stream);
+  raft::update_host(&h_result, result.data(), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   return sqrt(h_result);
 }

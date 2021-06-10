@@ -41,12 +41,14 @@ import numpy as np
 import os
 import pandas as pd
 
-import sklearn.datasets
+import cuml.datasets
 import sklearn.model_selection
 
 from urllib.request import urlretrieve
 from cuml.common import input_utils
 from numba import cuda
+
+from cuml.common.import_utils import has_scipy
 
 
 def _gen_data_regression(n_samples, n_features, random_state=42):
@@ -55,13 +57,9 @@ def _gen_data_regression(n_samples, n_features, random_state=42):
         n_samples = int(1e6)
     if n_features == 0:
         n_features = 100
-    X_arr, y_arr = sklearn.datasets.make_regression(
-        n_samples, n_features, random_state=random_state
-    )
-    return (
-        pd.DataFrame(X_arr.astype(np.float32)),
-        pd.Series(y_arr.astype(np.float32)),
-    )
+    X_arr, y_arr = cuml.datasets.make_regression(
+        n_samples=n_samples, n_features=n_features, random_state=random_state)
+    return cudf.DataFrame(X_arr), cudf.Series(y_arr)
 
 
 def _gen_data_blobs(n_samples, n_features, random_state=42, centers=None):
@@ -70,20 +68,20 @@ def _gen_data_blobs(n_samples, n_features, random_state=42, centers=None):
         n_samples = int(1e6)
     if n_features == 0:
         n_samples = 100
-    X_arr, y_arr = sklearn.datasets.make_blobs(
-        n_samples, n_features, centers=centers, random_state=random_state
-    )
+    X_arr, y_arr = cuml.datasets.make_blobs(
+        n_samples=n_samples, n_features=n_features, centers=centers,
+        random_state=random_state)
     return (
-        pd.DataFrame(X_arr.astype(np.float32)),
-        pd.Series(y_arr.astype(np.float32)),
+        cudf.DataFrame(X_arr.astype(np.float32)),
+        cudf.Series(y_arr.astype(np.float32)),
     )
 
 
 def _gen_data_zeros(n_samples, n_features, random_state=42):
     """Dummy generator for use in testing - returns all 0s"""
     return (
-        np.zeros((n_samples, n_features), dtype=np.float32),
-        np.zeros(n_samples, dtype=np.float32),
+        cudf.DataFrame(np.zeros((n_samples, n_features), dtype=np.float32)),
+        cudf.Series(np.zeros(n_samples, dtype=np.float32)),
     )
 
 
@@ -96,13 +94,13 @@ def _gen_data_classification(
     if n_features == 0:
         n_samples = 100
 
-    X_arr, y_arr = sklearn.datasets.make_classification(
-        n_samples, n_features, n_classes, random_state=random_state
-    )
+    X_arr, y_arr = cuml.datasets.make_classification(
+        n_samples=n_samples, n_features=n_features, n_classes=n_classes,
+        random_state=random_state)
 
     return (
-        pd.DataFrame(X_arr.astype(np.float32)),
-        pd.Series(y_arr.astype(np.float32)),
+        cudf.DataFrame(X_arr.astype(np.float32)),
+        cudf.Series(y_arr.astype(np.float32)),
     )
 
 
@@ -160,7 +158,7 @@ def load_higgs():
     )
     X_df = data_df[data_df.columns.difference(['label'])]
     y_df = data_df['label']
-    return X_df, y_df
+    return cudf.DataFrame.from_pandas(X_df), cudf.Series.from_pandas(y_df)
 
 
 def _convert_to_numpy(data):
@@ -171,6 +169,10 @@ def _convert_to_numpy(data):
         return tuple([_convert_to_numpy(d) for d in data])
     elif isinstance(data, np.ndarray):
         return data
+    elif isinstance(data, cudf.DataFrame):
+        return data.as_matrix()
+    elif isinstance(data, cudf.Series):
+        return data.to_array()
     elif isinstance(data, (pd.DataFrame, pd.Series)):
         return data.to_numpy()
     else:
@@ -182,6 +184,8 @@ def _convert_to_cudf(data):
         return None
     elif isinstance(data, tuple):
         return tuple([_convert_to_cudf(d) for d in data])
+    elif isinstance(data, (cudf.DataFrame, cudf.Series)):
+        return data
     elif isinstance(data, pd.DataFrame):
         return cudf.DataFrame.from_pandas(data)
     elif isinstance(data, pd.Series):
@@ -195,11 +199,9 @@ def _convert_to_pandas(data):
         return None
     elif isinstance(data, tuple):
         return tuple([_convert_to_pandas(d) for d in data])
-    elif isinstance(data, pd.DataFrame):
+    elif isinstance(data, (pd.DataFrame, pd.Series)):
         return data
-    elif isinstance(data, pd.Series):
-        return data
-    elif isinstance(data, cudf.DataFrame):
+    elif isinstance(data, (cudf.DataFrame, cudf.Series)):
         return data.to_pandas()
     else:
         raise Exception("Unsupported type %s" % str(type(data)))
@@ -217,11 +219,57 @@ def _convert_to_gpuarray(data, order='F'):
         gs = cudf.Series.from_pandas(data)
         return cuda.as_cuda_array(gs)
     else:
-        return input_utils.input_to_dev_array(data, order=order)[0]
+        return input_utils.input_to_cuml_array(
+            data, order=order)[0].to_output("numba")
 
 
 def _convert_to_gpuarray_c(data):
     return _convert_to_gpuarray(data, order='C')
+
+
+def _sparsify_and_convert(data, input_type, sparsity_ratio=0.3):
+    """Randomly set values to 0 and produce a sparse array."""
+    if not has_scipy():
+        raise RuntimeError("Scipy is required")
+    import scipy
+    random_loc = np.random.choice(data.size,
+                                  int(data.size * sparsity_ratio),
+                                  replace=False)
+    data.ravel()[random_loc] = 0
+    if input_type == 'csr':
+        return scipy.sparse.csr_matrix(data)
+    elif input_type == 'csc':
+        return scipy.sparse.csc_matrix(data)
+    else:
+        TypeError('Wrong sparse input type {}'.format(input_type))
+
+
+def _convert_to_scipy_sparse(data, input_type):
+    """Returns a tuple of arrays. Each of the arrays
+    have some of its values being set randomly to 0,
+    it is then converted to a scipy sparse array"""
+    if data is None:
+        return None
+    elif isinstance(data, tuple):
+        return tuple([_convert_to_scipy_sparse(d, input_type) for d in data])
+    elif isinstance(data, np.ndarray):
+        return _sparsify_and_convert(data, input_type)
+    elif isinstance(data, cudf.DataFrame):
+        return _sparsify_and_convert(data.as_matrix(), input_type)
+    elif isinstance(data, cudf.Series):
+        return _sparsify_and_convert(data.to_array(), input_type)
+    elif isinstance(data, (pd.DataFrame, pd.Series)):
+        return _sparsify_and_convert(data.to_numpy(), input_type)
+    else:
+        raise Exception("Unsupported type %s" % str(type(data)))
+
+
+def _convert_to_scipy_sparse_csr(data):
+    return _convert_to_scipy_sparse(data, 'csr')
+
+
+def _convert_to_scipy_sparse_csc(data):
+    return _convert_to_scipy_sparse(data, 'csc')
 
 
 _data_generators = {
@@ -229,7 +277,7 @@ _data_generators = {
     'zeros': _gen_data_zeros,
     'classification': _gen_data_classification,
     'regression': _gen_data_regression,
-    'higgs': _gen_data_higgs,
+    'higgs': _gen_data_higgs
 }
 _data_converters = {
     'numpy': _convert_to_numpy,
@@ -237,6 +285,8 @@ _data_converters = {
     'pandas': _convert_to_pandas,
     'gpuarray': _convert_to_gpuarray,
     'gpuarray-c': _convert_to_gpuarray_c,
+    'scipy-sparse-csr': _convert_to_scipy_sparse_csr,
+    'scipy-sparse-csc': _convert_to_scipy_sparse_csc
 }
 
 

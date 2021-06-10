@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <linalg/reduce_cols_by_key.cuh>
-#include <random/rng.cuh>
+#include <raft/random/rng.cuh>
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -28,9 +28,9 @@ void naiveReduceColsByKey(const T *in, const uint32_t *keys, T *out_ref,
                           uint32_t nrows, uint32_t ncols, uint32_t nkeys,
                           cudaStream_t stream) {
   std::vector<uint32_t> h_keys(ncols, 0u);
-  copy(&(h_keys[0]), keys, ncols, stream);
+  raft::copy(&(h_keys[0]), keys, ncols, stream);
   std::vector<T> h_in(nrows * ncols);
-  copy(&(h_in[0]), in, nrows * ncols, stream);
+  raft::copy(&(h_in[0]), in, nrows * ncols, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   std::vector<T> out(nrows * nkeys, T(0));
   for (uint32_t i = 0; i < nrows; ++i) {
@@ -38,7 +38,7 @@ void naiveReduceColsByKey(const T *in, const uint32_t *keys, T *out_ref,
       out[i * nkeys + h_keys[j]] += h_in[i * ncols + j];
     }
   }
-  copy(out_ref, &(out[0]), nrows * nkeys, stream);
+  raft::copy(out_ref, &(out[0]), nrows * nkeys, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
 
@@ -62,15 +62,15 @@ class ReduceColsTest : public ::testing::TestWithParam<ReduceColsInputs<T>> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<ReduceColsInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     CUDA_CHECK(cudaStreamCreate(&stream));
     auto nrows = params.rows;
     auto ncols = params.cols;
     auto nkeys = params.nkeys;
-    allocate(in, nrows * ncols);
-    allocate(keys, ncols);
-    allocate(out_ref, nrows * nkeys);
-    allocate(out, nrows * nkeys);
+    raft::allocate(in, nrows * ncols);
+    raft::allocate(keys, ncols);
+    raft::allocate(out_ref, nrows * nkeys);
+    raft::allocate(out, nrows * nkeys);
     r.uniform(in, nrows * ncols, T(-1.0), T(1.0), stream);
     r.uniformInt(keys, ncols, 0u, params.nkeys, stream);
     naiveReduceColsByKey(in, keys, out_ref, nrows, ncols, nkeys, stream);
@@ -97,8 +97,8 @@ const std::vector<ReduceColsInputs<float>> inputsf = {
   {0.0001f, 128, 32, 6, 1234ULL}, {0.0005f, 121, 63, 10, 1234ULL}};
 typedef ReduceColsTest<float> ReduceColsTestF;
 TEST_P(ReduceColsTestF, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.rows * params.nkeys,
-                          CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(out_ref, out, params.rows * params.nkeys,
+                                raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ReduceColsTests, ReduceColsTestF,
                         ::testing::ValuesIn(inputsf));
@@ -107,8 +107,8 @@ const std::vector<ReduceColsInputs<double>> inputsd2 = {
   {0.0000001, 128, 32, 6, 1234ULL}, {0.0000001, 121, 63, 10, 1234ULL}};
 typedef ReduceColsTest<double> ReduceColsTestD;
 TEST_P(ReduceColsTestD, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.rows * params.nkeys,
-                          CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(out_ref, out, params.rows * params.nkeys,
+                                raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ReduceColsTests, ReduceColsTestD,
                         ::testing::ValuesIn(inputsd2));

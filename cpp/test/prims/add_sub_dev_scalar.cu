@@ -14,16 +14,16 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include <linalg/add.cuh>
-#include <linalg/subtract.cuh>
-#include <linalg/unary_op.cuh>
-#include <random/rng.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/subtract.cuh>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/random/rng.cuh>
 #include "test_utils.h"
 
-namespace MLCommon {
-namespace LinAlg {
+namespace raft {
+namespace linalg {
 
 template <typename T, typename IdxType = int>
 struct DevScalarInputs {
@@ -40,7 +40,7 @@ struct DevScalarInputs {
 template <typename T, typename IdxType = int>
 void unaryOpLaunch(T *out, const T *in, T scalar, IdxType len, bool add,
                    cudaStream_t stream) {
-  unaryOp(
+  raft::linalg::unaryOp(
     out, in, len,
     [scalar, add] __device__(T in) { return add ? in + scalar : in - scalar; },
     stream);
@@ -52,17 +52,17 @@ class DevScalarTest
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<DevScalarInputs<T, IdxType>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     auto len = params.len;
 
-    allocate(in, len);
-    allocate(out_ref, len);
-    allocate(out, len);
-    allocate(scalar, (size_t)1);
-    updateDevice(scalar, &params.scalar, 1, stream);
+    raft::allocate(in, len);
+    raft::allocate(out_ref, len);
+    raft::allocate(out, len);
+    raft::allocate(scalar, (size_t)1);
+    raft::update_device(scalar, &params.scalar, 1, stream);
     r.uniform(in, len, T(-1.0), T(1.0), stream);
     unaryOpLaunch(out_ref, in, params.scalar, len, params.add, stream);
     if (params.add) {
@@ -91,7 +91,7 @@ const std::vector<DevScalarInputs<float, int>> inputsf_i32 = {
 typedef DevScalarTest<float, int> DevScalarTestF_i32;
 TEST_P(DevScalarTestF_i32, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<float>(params.tolerance)));
+                          raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(DevScalarTests, DevScalarTestF_i32,
                         ::testing::ValuesIn(inputsf_i32));
@@ -102,7 +102,7 @@ const std::vector<DevScalarInputs<float, size_t>> inputsf_i64 = {
 typedef DevScalarTest<float, size_t> DevScalarTestF_i64;
 TEST_P(DevScalarTestF_i64, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<float>(params.tolerance)));
+                          raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(DevScalarTests, DevScalarTestF_i64,
                         ::testing::ValuesIn(inputsf_i64));
@@ -113,7 +113,7 @@ const std::vector<DevScalarInputs<double, int>> inputsd_i32 = {
 typedef DevScalarTest<double, int> DevScalarTestD_i32;
 TEST_P(DevScalarTestD_i32, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<double>(params.tolerance)));
+                          raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(DevScalarTests, DevScalarTestD_i32,
                         ::testing::ValuesIn(inputsd_i32));
@@ -124,10 +124,10 @@ const std::vector<DevScalarInputs<double, size_t>> inputsd_i64 = {
 typedef DevScalarTest<double, size_t> DevScalarTestD_i64;
 TEST_P(DevScalarTestD_i64, Result) {
   ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<double>(params.tolerance)));
+                          raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(DevScalarTests, DevScalarTestD_i64,
                         ::testing::ValuesIn(inputsd_i64));
 
-}  // end namespace LinAlg
-}  // end namespace MLCommon
+}  // end namespace linalg
+}  // end namespace raft

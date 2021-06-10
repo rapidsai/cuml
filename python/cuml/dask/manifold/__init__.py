@@ -14,10 +14,12 @@
 # limitations under the License.
 #
 
-from cuml.common.import_utils import has_dask
 import warnings
+
+from cuml.common.import_utils import has_dask
 
 if has_dask():
     from cuml.dask.manifold.umap import UMAP
 else:
-    warnings.warn("Dask not found. All Dask-based multi-GPU operation is disabed.")
+    warnings.warn(
+        "Dask not found. All Dask-based multi-GPU operation is disabed.")

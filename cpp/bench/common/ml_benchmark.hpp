@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,12 +17,12 @@
 #pragma once
 
 #include <benchmark/benchmark.h>
-#include <common/cudart_utils.h>
 #include <cuda_runtime.h>
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/cudart_utils.h>
 #include <cuml/common/logger.hpp>
 #include <cuml/common/utils.hpp>
 #include <memory>
+#include <raft/mr/device/allocator.hpp>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -55,14 +55,14 @@ struct CudaEventTimer {
     CUDA_CHECK(cudaEventCreate(&stop));
     // flush L2?
     if (ptr != nullptr && l2CacheSize > 0) {
-      CUDA_CHECK(cudaMemsetAsync(ptr, sizeof(char) * l2CacheSize, 0, s));
+      CUDA_CHECK(cudaMemsetAsync(ptr, 0, sizeof(char) * l2CacheSize, s));
       CUDA_CHECK(cudaStreamSynchronize(stream));
     }
     CUDA_CHECK(cudaEventRecord(start, stream));
   }
   CudaEventTimer() = delete;
 
-  /** 
+  /**
    * @brief The dtor stops the timer and performs a synchroniazation. Time of
    *       the benchmark::State object provided to the ctor will be set to the
    *       value given by `cudaEventElapsedTime()`.
@@ -87,7 +87,8 @@ struct CudaEventTimer {
 /** Main fixture to be inherited and used by all other c++ benchmarks in cuml */
 class Fixture : public ::benchmark::Fixture {
  public:
-  Fixture(const std::string& name, std::shared_ptr<deviceAllocator> _alloc)
+  Fixture(const std::string& name,
+          std::shared_ptr<raft::mr::device::allocator> _alloc)
     : ::benchmark::Fixture(), d_alloc(_alloc) {
     SetName(name.c_str());
   }
@@ -173,7 +174,7 @@ class Fixture : public ::benchmark::Fixture {
     d_alloc->deallocate(ptr, len * sizeof(T), stream);
   }
 
-  std::shared_ptr<deviceAllocator> d_alloc;
+  std::shared_ptr<raft::mr::device::allocator> d_alloc;
   cudaStream_t stream;
   int l2CacheSize;
   char* scratchBuffer;

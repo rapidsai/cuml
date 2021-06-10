@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <algorithm>
 #include <iostream>
 #include <metrics/contingencyMatrix.cuh>
@@ -72,11 +72,11 @@ class ContingencyMatrixTest
     }
 
     CUDA_CHECK(cudaStreamCreate(&stream));
-    MLCommon::allocate(dY, numElements);
-    MLCommon::allocate(dYHat, numElements);
+    raft::allocate(dY, numElements);
+    raft::allocate(dYHat, numElements);
 
-    MLCommon::updateDevice(dYHat, &y_hat[0], numElements, stream);
-    MLCommon::updateDevice(dY, &y[0], numElements, stream);
+    raft::update_device(dYHat, &y_hat[0], numElements, stream);
+    raft::update_device(dY, &y[0], numElements, stream);
 
     if (params.calcCardinality) {
       MLCommon::Metrics::getInputClassCardinality(dY, numElements, stream,
@@ -88,8 +88,8 @@ class ContingencyMatrixTest
 
     numUniqueClasses = maxLabel - minLabel + 1;
 
-    MLCommon::allocate(dComputedOutput, numUniqueClasses * numUniqueClasses);
-    MLCommon::allocate(dGoldenOutput, numUniqueClasses * numUniqueClasses);
+    raft::allocate(dComputedOutput, numUniqueClasses * numUniqueClasses);
+    raft::allocate(dGoldenOutput, numUniqueClasses * numUniqueClasses);
 
     // generate golden output on CPU
     size_t sizeOfMat = numUniqueClasses * numUniqueClasses * sizeof(int);
@@ -102,12 +102,12 @@ class ContingencyMatrixTest
       hGoldenOutput[row * numUniqueClasses + column] += 1;
     }
 
-    MLCommon::updateDevice(dGoldenOutput, hGoldenOutput,
-                           numUniqueClasses * numUniqueClasses, stream);
+    raft::update_device(dGoldenOutput, hGoldenOutput,
+                        numUniqueClasses * numUniqueClasses, stream);
 
     workspaceSz = MLCommon::Metrics::getContingencyMatrixWorkspaceSize(
       numElements, dY, stream, minLabel, maxLabel);
-    if (workspaceSz != 0) MLCommon::allocate(pWorkspace, workspaceSz);
+    if (workspaceSz != 0) raft::allocate(pWorkspace, workspaceSz);
   }
 
   void TearDown() override {
@@ -126,8 +126,9 @@ class ContingencyMatrixTest
     MLCommon::Metrics::contingencyMatrix(
       dY, dYHat, numElements, dComputedOutput, stream, (void *)pWorkspace,
       workspaceSz, minLabel, maxLabel);
-    ASSERT_TRUE(devArrMatch(dComputedOutput, dGoldenOutput,
-                            numUniqueClasses * numUniqueClasses, Compare<T>()));
+    ASSERT_TRUE(raft::devArrMatch(dComputedOutput, dGoldenOutput,
+                                  numUniqueClasses * numUniqueClasses,
+                                  raft::Compare<T>()));
   }
 
   ContingencyMatrixParam params;

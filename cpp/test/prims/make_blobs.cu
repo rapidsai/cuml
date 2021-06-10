@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <cub/cub.cuh>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <random/make_blobs.cuh>
 #include "test_utils.h"
 
@@ -35,10 +36,10 @@ __global__ void meanKernel(T* out, int* lens, const T* data, const int* labels,
     T val = data[tid];
     int label = labels[rowid];
     int idx = row_major ? label * ncols + colid : colid * nclusters + label;
-    myAtomicAdd(out + idx * 2, val);
-    myAtomicAdd(out + idx * 2 + 1, val * val);
+    raft::myAtomicAdd(out + idx * 2, val);
+    raft::myAtomicAdd(out + idx * 2 + 1, val * val);
     if (colid == 0) {
-      myAtomicAdd(lens + label, 1);
+      raft::myAtomicAdd(lens + label, 1);
     }
   }
 }
@@ -64,7 +65,7 @@ struct MakeBlobsInputs {
   int rows, cols, n_clusters;
   T std;
   bool row_major, shuffle;
-  GeneratorType gtype;
+  raft::random::GeneratorType gtype;
   uint64_t seed;
 };
 
@@ -75,17 +76,17 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
     // Tests are configured with their expected test-values sigma. For example,
     // 4 x sigma indicates the test shouldn't fail 99.9% of the time.
     num_sigma = 50;
-    allocator.reset(new defaultDeviceAllocator);
+    allocator.reset(new raft::mr::device::default_allocator);
     params = ::testing::TestWithParam<MakeBlobsInputs<T>>::GetParam();
     int len = params.rows * params.cols;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    Rng r(params.seed, params.gtype);
-    allocate(data, len);
-    allocate(labels, params.rows);
-    allocate(stats, 2 * params.n_clusters * params.cols, true);
-    allocate(mean_var, 2 * params.n_clusters * params.cols, true);
-    allocate(mu_vec, params.cols * params.n_clusters);
-    allocate(lens, params.n_clusters, true);
+    raft::random::Rng r(params.seed, params.gtype);
+    raft::allocate(data, len);
+    raft::allocate(labels, params.rows);
+    raft::allocate(stats, 2 * params.n_clusters * params.cols, true);
+    raft::allocate(mean_var, 2 * params.n_clusters * params.cols, true);
+    raft::allocate(mu_vec, params.cols * params.n_clusters);
+    raft::allocate(lens, params.n_clusters, true);
     r.uniform(mu_vec, params.cols * params.n_clusters, T(-10.0), T(10.0),
               stream);
     T* sigma_vec = nullptr;
@@ -94,11 +95,11 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
                params.std, params.shuffle, T(-10.0), T(10.0), params.seed,
                params.gtype);
     static const int threads = 128;
-    meanKernel<T><<<ceildiv(len, threads), threads, 0, stream>>>(
+    meanKernel<T><<<raft::ceildiv(len, threads), threads, 0, stream>>>(
       stats, lens, data, labels, params.rows, params.cols, params.n_clusters,
       params.row_major);
     int len1 = params.n_clusters * params.cols;
-    compute_mean_var<T><<<ceildiv(len1, threads), threads, 0, stream>>>(
+    compute_mean_var<T><<<raft::ceildiv(len1, threads), threads, 0, stream>>>(
       mean_var, stats, lens, params.n_clusters, params.cols, params.row_major);
   }
 
@@ -113,9 +114,9 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
 
   void check() {
     int len = params.n_clusters * params.cols;
-    auto compare = CompareApprox<T>(num_sigma * params.tolerance);
-    ASSERT_TRUE(devArrMatch(mu_vec, mean_var, len, compare));
-    ASSERT_TRUE(devArrMatch(params.std, mean_var + len, len, compare));
+    auto compare = raft::CompareApprox<T>(num_sigma * params.tolerance);
+    ASSERT_TRUE(raft::devArrMatch(mu_vec, mean_var, len, compare));
+    ASSERT_TRUE(raft::devArrMatch(params.std, mean_var + len, len, compare));
   }
 
  protected:
@@ -123,61 +124,61 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
   MakeBlobsInputs<T> params;
   int *labels, *lens;
   T *data, *stats, *mu_vec, *mean_var;
-  std::shared_ptr<deviceAllocator> allocator;
+  std::shared_ptr<raft::mr::device::allocator> allocator;
   int num_sigma;
 };
 
 typedef MakeBlobsTest<float> MakeBlobsTestF;
 const std::vector<MakeBlobsInputs<float>> inputsf_t = {
-  {0.0055, 1024, 32, 3, 1.f, true, false, GenPhilox, 1234ULL},
-  {0.011, 1024, 8, 3, 1.f, true, false, GenPhilox, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.f, true, false, GenTaps, 1234ULL},
-  {0.011, 1024, 8, 3, 1.f, true, false, GenTaps, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.f, true, false, GenKiss99, 1234ULL},
-  {0.011, 1024, 8, 3, 1.f, true, false, GenKiss99, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.f, false, false, GenPhilox, 1234ULL},
-  {0.011, 1024, 8, 3, 1.f, false, false, GenPhilox, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.f, false, false, GenTaps, 1234ULL},
-  {0.011, 1024, 8, 3, 1.f, false, false, GenTaps, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.f, false, false, GenKiss99, 1234ULL},
-  {0.011, 1024, 8, 3, 1.f, false, false, GenKiss99, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.f, true, true, GenPhilox, 1234ULL},
-  {0.011, 1024, 8, 3, 1.f, true, true, GenPhilox, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.f, true, true, GenTaps, 1234ULL},
-  {0.011, 1024, 8, 3, 1.f, true, true, GenTaps, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.f, true, true, GenKiss99, 1234ULL},
-  {0.011, 1024, 8, 3, 1.f, true, true, GenKiss99, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.f, false, true, GenPhilox, 1234ULL},
-  {0.011, 1024, 8, 3, 1.f, false, true, GenPhilox, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.f, false, true, GenTaps, 1234ULL},
-  {0.011, 1024, 8, 3, 1.f, false, true, GenTaps, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.f, false, true, GenKiss99, 1234ULL},
-  {0.011, 1024, 8, 3, 1.f, false, true, GenKiss99, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.f, true, false, raft::random::GenPhilox, 1234ULL},
+  {0.011, 1024, 8, 3, 1.f, true, false, raft::random::GenPhilox, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.f, true, false, raft::random::GenTaps, 1234ULL},
+  {0.011, 1024, 8, 3, 1.f, true, false, raft::random::GenTaps, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.f, true, false, raft::random::GenKiss99, 1234ULL},
+  {0.011, 1024, 8, 3, 1.f, true, false, raft::random::GenKiss99, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.f, false, false, raft::random::GenPhilox, 1234ULL},
+  {0.011, 1024, 8, 3, 1.f, false, false, raft::random::GenPhilox, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.f, false, false, raft::random::GenTaps, 1234ULL},
+  {0.011, 1024, 8, 3, 1.f, false, false, raft::random::GenTaps, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.f, false, false, raft::random::GenKiss99, 1234ULL},
+  {0.011, 1024, 8, 3, 1.f, false, false, raft::random::GenKiss99, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.f, true, true, raft::random::GenPhilox, 1234ULL},
+  {0.011, 1024, 8, 3, 1.f, true, true, raft::random::GenPhilox, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.f, true, true, raft::random::GenTaps, 1234ULL},
+  {0.011, 1024, 8, 3, 1.f, true, true, raft::random::GenTaps, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.f, true, true, raft::random::GenKiss99, 1234ULL},
+  {0.011, 1024, 8, 3, 1.f, true, true, raft::random::GenKiss99, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.f, false, true, raft::random::GenPhilox, 1234ULL},
+  {0.011, 1024, 8, 3, 1.f, false, true, raft::random::GenPhilox, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.f, false, true, raft::random::GenTaps, 1234ULL},
+  {0.011, 1024, 8, 3, 1.f, false, true, raft::random::GenTaps, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.f, false, true, raft::random::GenKiss99, 1234ULL},
+  {0.011, 1024, 8, 3, 1.f, false, true, raft::random::GenKiss99, 1234ULL},
 
-  {0.0055, 5003, 32, 5, 1.f, true, false, GenPhilox, 1234ULL},
-  {0.011, 5003, 8, 5, 1.f, true, false, GenPhilox, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.f, true, false, GenTaps, 1234ULL},
-  {0.011, 5003, 8, 5, 1.f, true, false, GenTaps, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.f, true, false, GenKiss99, 1234ULL},
-  {0.011, 5003, 8, 5, 1.f, true, false, GenKiss99, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.f, false, false, GenPhilox, 1234ULL},
-  {0.011, 5003, 8, 5, 1.f, false, false, GenPhilox, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.f, false, false, GenTaps, 1234ULL},
-  {0.011, 5003, 8, 5, 1.f, false, false, GenTaps, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.f, false, false, GenKiss99, 1234ULL},
-  {0.011, 5003, 8, 5, 1.f, false, false, GenKiss99, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.f, true, true, GenPhilox, 1234ULL},
-  {0.011, 5003, 8, 5, 1.f, true, true, GenPhilox, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.f, true, true, GenTaps, 1234ULL},
-  {0.011, 5003, 8, 5, 1.f, true, true, GenTaps, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.f, true, true, GenKiss99, 1234ULL},
-  {0.011, 5003, 8, 5, 1.f, true, true, GenKiss99, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.f, false, true, GenPhilox, 1234ULL},
-  {0.011, 5003, 8, 5, 1.f, false, true, GenPhilox, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.f, false, true, GenTaps, 1234ULL},
-  {0.011, 5003, 8, 5, 1.f, false, true, GenTaps, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.f, false, true, GenKiss99, 1234ULL},
-  {0.011, 5003, 8, 5, 1.f, false, true, GenKiss99, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.f, true, false, raft::random::GenPhilox, 1234ULL},
+  {0.011, 5003, 8, 5, 1.f, true, false, raft::random::GenPhilox, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.f, true, false, raft::random::GenTaps, 1234ULL},
+  {0.011, 5003, 8, 5, 1.f, true, false, raft::random::GenTaps, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.f, true, false, raft::random::GenKiss99, 1234ULL},
+  {0.011, 5003, 8, 5, 1.f, true, false, raft::random::GenKiss99, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.f, false, false, raft::random::GenPhilox, 1234ULL},
+  {0.011, 5003, 8, 5, 1.f, false, false, raft::random::GenPhilox, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.f, false, false, raft::random::GenTaps, 1234ULL},
+  {0.011, 5003, 8, 5, 1.f, false, false, raft::random::GenTaps, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.f, false, false, raft::random::GenKiss99, 1234ULL},
+  {0.011, 5003, 8, 5, 1.f, false, false, raft::random::GenKiss99, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.f, true, true, raft::random::GenPhilox, 1234ULL},
+  {0.011, 5003, 8, 5, 1.f, true, true, raft::random::GenPhilox, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.f, true, true, raft::random::GenTaps, 1234ULL},
+  {0.011, 5003, 8, 5, 1.f, true, true, raft::random::GenTaps, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.f, true, true, raft::random::GenKiss99, 1234ULL},
+  {0.011, 5003, 8, 5, 1.f, true, true, raft::random::GenKiss99, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.f, false, true, raft::random::GenPhilox, 1234ULL},
+  {0.011, 5003, 8, 5, 1.f, false, true, raft::random::GenPhilox, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.f, false, true, raft::random::GenTaps, 1234ULL},
+  {0.011, 5003, 8, 5, 1.f, false, true, raft::random::GenTaps, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.f, false, true, raft::random::GenKiss99, 1234ULL},
+  {0.011, 5003, 8, 5, 1.f, false, true, raft::random::GenKiss99, 1234ULL},
 };
 
 TEST_P(MakeBlobsTestF, Result) { check(); }
@@ -186,55 +187,55 @@ INSTANTIATE_TEST_CASE_P(MakeBlobsTests, MakeBlobsTestF,
 
 typedef MakeBlobsTest<double> MakeBlobsTestD;
 const std::vector<MakeBlobsInputs<double>> inputsd_t = {
-  {0.0055, 1024, 32, 3, 1.0, true, false, GenPhilox, 1234ULL},
-  {0.011, 1024, 8, 3, 1.0, true, false, GenPhilox, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.0, true, false, GenTaps, 1234ULL},
-  {0.011, 1024, 8, 3, 1.0, true, false, GenTaps, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.0, true, false, GenKiss99, 1234ULL},
-  {0.011, 1024, 8, 3, 1.0, true, false, GenKiss99, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.0, false, false, GenPhilox, 1234ULL},
-  {0.011, 1024, 8, 3, 1.0, false, false, GenPhilox, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.0, false, false, GenTaps, 1234ULL},
-  {0.011, 1024, 8, 3, 1.0, false, false, GenTaps, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.0, false, false, GenKiss99, 1234ULL},
-  {0.011, 1024, 8, 3, 1.0, false, false, GenKiss99, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.0, true, true, GenPhilox, 1234ULL},
-  {0.011, 1024, 8, 3, 1.0, true, true, GenPhilox, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.0, true, true, GenTaps, 1234ULL},
-  {0.011, 1024, 8, 3, 1.0, true, true, GenTaps, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.0, true, true, GenKiss99, 1234ULL},
-  {0.011, 1024, 8, 3, 1.0, true, true, GenKiss99, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.0, false, true, GenPhilox, 1234ULL},
-  {0.011, 1024, 8, 3, 1.0, false, true, GenPhilox, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.0, false, true, GenTaps, 1234ULL},
-  {0.011, 1024, 8, 3, 1.0, false, true, GenTaps, 1234ULL},
-  {0.0055, 1024, 32, 3, 1.0, false, true, GenKiss99, 1234ULL},
-  {0.011, 1024, 8, 3, 1.0, false, true, GenKiss99, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.0, true, false, raft::random::GenPhilox, 1234ULL},
+  {0.011, 1024, 8, 3, 1.0, true, false, raft::random::GenPhilox, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.0, true, false, raft::random::GenTaps, 1234ULL},
+  {0.011, 1024, 8, 3, 1.0, true, false, raft::random::GenTaps, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.0, true, false, raft::random::GenKiss99, 1234ULL},
+  {0.011, 1024, 8, 3, 1.0, true, false, raft::random::GenKiss99, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.0, false, false, raft::random::GenPhilox, 1234ULL},
+  {0.011, 1024, 8, 3, 1.0, false, false, raft::random::GenPhilox, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.0, false, false, raft::random::GenTaps, 1234ULL},
+  {0.011, 1024, 8, 3, 1.0, false, false, raft::random::GenTaps, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.0, false, false, raft::random::GenKiss99, 1234ULL},
+  {0.011, 1024, 8, 3, 1.0, false, false, raft::random::GenKiss99, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.0, true, true, raft::random::GenPhilox, 1234ULL},
+  {0.011, 1024, 8, 3, 1.0, true, true, raft::random::GenPhilox, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.0, true, true, raft::random::GenTaps, 1234ULL},
+  {0.011, 1024, 8, 3, 1.0, true, true, raft::random::GenTaps, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.0, true, true, raft::random::GenKiss99, 1234ULL},
+  {0.011, 1024, 8, 3, 1.0, true, true, raft::random::GenKiss99, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.0, false, true, raft::random::GenPhilox, 1234ULL},
+  {0.011, 1024, 8, 3, 1.0, false, true, raft::random::GenPhilox, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.0, false, true, raft::random::GenTaps, 1234ULL},
+  {0.011, 1024, 8, 3, 1.0, false, true, raft::random::GenTaps, 1234ULL},
+  {0.0055, 1024, 32, 3, 1.0, false, true, raft::random::GenKiss99, 1234ULL},
+  {0.011, 1024, 8, 3, 1.0, false, true, raft::random::GenKiss99, 1234ULL},
 
-  {0.0055, 5003, 32, 5, 1.0, true, false, GenPhilox, 1234ULL},
-  {0.011, 5003, 8, 5, 1.0, true, false, GenPhilox, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.0, true, false, GenTaps, 1234ULL},
-  {0.011, 5003, 8, 5, 1.0, true, false, GenTaps, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.0, true, false, GenKiss99, 1234ULL},
-  {0.011, 5003, 8, 5, 1.0, true, false, GenKiss99, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.0, false, false, GenPhilox, 1234ULL},
-  {0.011, 5003, 8, 5, 1.0, false, false, GenPhilox, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.0, false, false, GenTaps, 1234ULL},
-  {0.011, 5003, 8, 5, 1.0, false, false, GenTaps, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.0, false, false, GenKiss99, 1234ULL},
-  {0.011, 5003, 8, 5, 1.0, false, false, GenKiss99, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.0, true, true, GenPhilox, 1234ULL},
-  {0.011, 5003, 8, 5, 1.0, true, true, GenPhilox, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.0, true, true, GenTaps, 1234ULL},
-  {0.011, 5003, 8, 5, 1.0, true, true, GenTaps, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.0, true, true, GenKiss99, 1234ULL},
-  {0.011, 5003, 8, 5, 1.0, true, true, GenKiss99, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.0, false, true, GenPhilox, 1234ULL},
-  {0.011, 5003, 8, 5, 1.0, false, true, GenPhilox, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.0, false, true, GenTaps, 1234ULL},
-  {0.011, 5003, 8, 5, 1.0, false, true, GenTaps, 1234ULL},
-  {0.0055, 5003, 32, 5, 1.0, false, true, GenKiss99, 1234ULL},
-  {0.011, 5003, 8, 5, 1.0, false, true, GenKiss99, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.0, true, false, raft::random::GenPhilox, 1234ULL},
+  {0.011, 5003, 8, 5, 1.0, true, false, raft::random::GenPhilox, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.0, true, false, raft::random::GenTaps, 1234ULL},
+  {0.011, 5003, 8, 5, 1.0, true, false, raft::random::GenTaps, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.0, true, false, raft::random::GenKiss99, 1234ULL},
+  {0.011, 5003, 8, 5, 1.0, true, false, raft::random::GenKiss99, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.0, false, false, raft::random::GenPhilox, 1234ULL},
+  {0.011, 5003, 8, 5, 1.0, false, false, raft::random::GenPhilox, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.0, false, false, raft::random::GenTaps, 1234ULL},
+  {0.011, 5003, 8, 5, 1.0, false, false, raft::random::GenTaps, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.0, false, false, raft::random::GenKiss99, 1234ULL},
+  {0.011, 5003, 8, 5, 1.0, false, false, raft::random::GenKiss99, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.0, true, true, raft::random::GenPhilox, 1234ULL},
+  {0.011, 5003, 8, 5, 1.0, true, true, raft::random::GenPhilox, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.0, true, true, raft::random::GenTaps, 1234ULL},
+  {0.011, 5003, 8, 5, 1.0, true, true, raft::random::GenTaps, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.0, true, true, raft::random::GenKiss99, 1234ULL},
+  {0.011, 5003, 8, 5, 1.0, true, true, raft::random::GenKiss99, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.0, false, true, raft::random::GenPhilox, 1234ULL},
+  {0.011, 5003, 8, 5, 1.0, false, true, raft::random::GenPhilox, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.0, false, true, raft::random::GenTaps, 1234ULL},
+  {0.011, 5003, 8, 5, 1.0, false, true, raft::random::GenTaps, 1234ULL},
+  {0.0055, 5003, 32, 5, 1.0, false, true, raft::random::GenKiss99, 1234ULL},
+  {0.011, 5003, 8, 5, 1.0, false, true, raft::random::GenKiss99, 1234ULL},
 };
 TEST_P(MakeBlobsTestD, Result) { check(); }
 INSTANTIATE_TEST_CASE_P(MakeBlobsTests, MakeBlobsTestD,

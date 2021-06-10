@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,15 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
-#include <linalg/cublas_wrappers.h>
-#include <cuda_utils.cuh>
-#include <linalg/add.cuh>
-#include <linalg/binary_op.cuh>
-#include <linalg/map_then_reduce.cuh>
-#include <linalg/matrix_vector_op.cuh>
-#include <stats/mean.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/cublas_wrappers.h>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/map.cuh>
+#include <raft/linalg/map_then_reduce.cuh>
+#include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/stats/mean.cuh>
 #include <vector>
 #include "simple_mat.cuh"
 
@@ -31,23 +32,23 @@ namespace ML {
 namespace GLM {
 
 template <typename T>
-inline void linearFwd(const cumlHandle_impl &handle, SimpleMat<T> &Z,
-                      const SimpleMat<T> &X, const SimpleMat<T> &W,
+inline void linearFwd(const raft::handle_t &handle, SimpleDenseMat<T> &Z,
+                      const SimpleMat<T> &X, const SimpleDenseMat<T> &W,
                       cudaStream_t stream) {
   // Forward pass:  compute Z <- W * X.T + bias
   const bool has_bias = X.n != W.n;
   const int D = X.n;
   if (has_bias) {
     SimpleVec<T> bias;
-    SimpleMat<T> weights;
+    SimpleDenseMat<T> weights;
     col_ref(W, bias, D);
     col_slice(W, weights, 0, D);
     // We implement Z <- W * X^T + b by
     // - Z <- b (broadcast): TODO reads Z unnecessarily atm
     // - Z <- W * X^T + Z    : TODO can be fused in CUTLASS?
     auto set_bias = [] __device__(const T z, const T b) { return b; };
-    MLCommon::LinAlg::matrixVectorOp(Z.data, Z.data, bias.data, Z.n, Z.m, false,
-                                     false, set_bias, stream);
+    raft::linalg::matrixVectorOp(Z.data, Z.data, bias.data, Z.n, Z.m, false,
+                                 false, set_bias, stream);
 
     Z.assign_gemm(handle, 1, weights, false, X, true, 1, stream);
   } else {
@@ -56,8 +57,8 @@ inline void linearFwd(const cumlHandle_impl &handle, SimpleMat<T> &Z,
 }
 
 template <typename T>
-inline void linearBwd(const cumlHandle_impl &handle, SimpleMat<T> &G,
-                      const SimpleMat<T> &X, const SimpleMat<T> &dZ,
+inline void linearBwd(const raft::handle_t &handle, SimpleDenseMat<T> &G,
+                      const SimpleMat<T> &X, const SimpleDenseMat<T> &dZ,
                       bool setZero, cudaStream_t stream) {
   // Backward pass:
   // - compute G <- dZ * X.T
@@ -68,13 +69,13 @@ inline void linearBwd(const cumlHandle_impl &handle, SimpleMat<T> &G,
   const T beta = setZero ? T(0) : T(1);
   if (has_bias) {
     SimpleVec<T> Gbias;
-    SimpleMat<T> Gweights;
+    SimpleDenseMat<T> Gweights;
     col_ref(G, Gbias, D);
     col_slice(G, Gweights, 0, D);
 
     // TODO can this be fused somehow?
     Gweights.assign_gemm(handle, 1.0 / X.m, dZ, false, X, false, beta, stream);
-    MLCommon::Stats::mean(Gbias.data, dZ.data, dZ.m, dZ.n, false, true, stream);
+    raft::stats::mean(Gbias.data, dZ.data, dZ.m, dZ.n, false, true, stream);
   } else {
     G.assign_gemm(handle, 1.0 / X.m, dZ, false, X, false, beta, stream);
   }
@@ -92,13 +93,26 @@ struct GLMDims {
 
 template <typename T, class Loss>
 struct GLMBase : GLMDims {
-  typedef SimpleMat<T> Mat;
+  typedef SimpleDenseMat<T> Mat;
   typedef SimpleVec<T> Vec;
 
-  const cumlHandle_impl &handle;
+  const raft::handle_t &handle;
+  T *sample_weights;
+  T weights_sum;
 
-  GLMBase(const cumlHandle_impl &handle, int D, int C, bool fit_intercept)
-    : GLMDims(C, D, fit_intercept), handle(handle) {}
+  GLMBase(const raft::handle_t &handle, int D, int C, bool fit_intercept)
+    : GLMDims(C, D, fit_intercept),
+      handle(handle),
+      sample_weights(nullptr),
+      weights_sum(0) {}
+
+  void add_sample_weights(T *sample_weights, int n_samples,
+                          cudaStream_t stream) {
+    this->sample_weights = sample_weights;
+    this->weights_sum =
+      thrust::reduce(thrust::cuda::par.on(stream), sample_weights,
+                     sample_weights + n_samples, (T)0, thrust::plus<T>());
+  }
 
   /*
    * Computes the following:
@@ -107,26 +121,40 @@ struct GLMBase : GLMDims {
    *
    * Default: elementwise application of loss and its derivative
    */
-  inline void getLossAndDZ(T *loss_val, SimpleMat<T> &Z, const SimpleVec<T> &y,
-                           cudaStream_t stream) {
+  inline void getLossAndDZ(T *loss_val, SimpleDenseMat<T> &Z,
+                           const SimpleVec<T> &y, cudaStream_t stream) {
     // Base impl assumes simple case C = 1
     Loss *loss = static_cast<Loss *>(this);
-    T invN = 1.0 / y.len;
-
-    auto f_l = [=] __device__(const T y, const T z) {
-      return loss->lz(y, z) * invN;
-    };
 
     // TODO would be nice to have a kernel that fuses these two steps
     // This would be easy, if mapThenSumReduce allowed outputing the result of
     // map (supporting inplace)
-    MLCommon::LinAlg::mapThenSumReduce(loss_val, y.len, f_l, stream, y.data,
-                                       Z.data);
+    if (this->sample_weights) {  // Sample weights are in use
+      T normalization = 1.0 / this->weights_sum;
+      auto f_l = [=] __device__(const T y, const T z, const T weight) {
+        return loss->lz(y, z) * (weight * normalization);
+      };
+      raft::linalg::mapThenSumReduce(loss_val, y.len, f_l, stream, y.data,
+                                     Z.data, sample_weights);
 
-    auto f_dl = [=] __device__(const T y, const T z) {
-      return loss->dlz(y, z);
-    };
-    MLCommon::LinAlg::binaryOp(Z.data, y.data, Z.data, y.len, f_dl, stream);
+      auto f_dl = [=] __device__(const T y, const T z, const T weight) {
+        return weight * loss->dlz(y, z);
+      };
+      raft::linalg::map(Z.data, y.len, f_dl, stream, y.data, Z.data,
+                        sample_weights);
+    } else {  // Sample weights are not used
+      T normalization = 1.0 / y.len;
+      auto f_l = [=] __device__(const T y, const T z) {
+        return loss->lz(y, z) * normalization;
+      };
+      raft::linalg::mapThenSumReduce(loss_val, y.len, f_l, stream, y.data,
+                                     Z.data);
+
+      auto f_dl = [=] __device__(const T y, const T z) {
+        return loss->dlz(y, z);
+      };
+      raft::linalg::binaryOp(Z.data, y.data, Z.data, y.len, f_dl, stream);
+    }
   }
 
   inline void loss_grad(T *loss_val, Mat &G, const Mat &W,
@@ -143,32 +171,27 @@ struct GLMBase : GLMDims {
 
 template <typename T, class GLMObjective>
 struct GLMWithData : GLMDims {
-  typedef SimpleMat<T> Mat;
-  typedef SimpleVec<T> Vec;
-
-  SimpleMat<T> X;
-  Mat Z;
-  Vec y;
+  const SimpleMat<T> *X;
+  const SimpleVec<T> *y;
+  SimpleDenseMat<T> *Z;
   GLMObjective *objective;
-  Vec lossVal;
 
-  GLMWithData(GLMObjective *obj, T *Xptr, T *yptr, T *Zptr, int N,
-              STORAGE_ORDER ordX)
+  GLMWithData(GLMObjective *obj, const SimpleMat<T> &X, const SimpleVec<T> &y,
+              SimpleDenseMat<T> &Z)
     : objective(obj),
-      X(Xptr, N, obj->D, ordX),
-      y(yptr, N),
-      Z(Zptr, obj->C, N),
+      X(&X),
+      y(&y),
+      Z(&Z),
       GLMDims(obj->C, obj->D, obj->fit_intercept) {}
 
   // interface exposed to typical non-linear optimizers
-  inline T operator()(const Vec &wFlat, Vec &gradFlat, T *dev_scalar,
-                      cudaStream_t stream) {
-    Mat W(wFlat.data, C, dims);
-    Mat G(gradFlat.data, C, dims);
-    objective->loss_grad(dev_scalar, G, W, X, y, Z, stream);
-    lossVal.reset(dev_scalar, 1);
+  inline T operator()(const SimpleVec<T> &wFlat, SimpleVec<T> &gradFlat,
+                      T *dev_scalar, cudaStream_t stream) {
+    SimpleDenseMat<T> W(wFlat.data, C, dims);
+    SimpleDenseMat<T> G(gradFlat.data, C, dims);
+    objective->loss_grad(dev_scalar, G, W, *X, *y, *Z, stream);
     T loss_host;
-    MLCommon::updateHost(&loss_host, lossVal.data, 1, stream);
+    raft::update_host(&loss_host, dev_scalar, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     return loss_host;
   }

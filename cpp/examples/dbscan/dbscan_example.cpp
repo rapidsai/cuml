@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,17 +23,10 @@
 #include <sstream>
 #include <vector>
 
-#ifdef HAVE_CUB
-#include <cuml/common/cubAllocatorAdapter.hpp>
-#endif  //HAVE_CUB
-
-#ifdef HAVE_RMM
-#include <rmm/rmm.h>
-#include <cuml/common/rmmAllocatorAdapter.hpp>
-#endif  //HAVE_RMM
+#include <raft/handle.hpp>
+#include <raft/mr/device/allocator.hpp>
 
 #include <cuml/cluster/dbscan.hpp>
-#include <cuml/cuml.hpp>
 
 #ifndef CUDA_RT_CALL
 #define CUDA_RT_CALL(call)                                                    \
@@ -141,29 +134,12 @@ int main(int argc, char* argv[]) {
     }
   }
 
-  ML::cumlHandle cumlHandle;
+  raft::handle_t handle;
 
-#ifdef HAVE_RMM
-  rmmOptions_t rmmOptions;
-  rmmOptions.allocation_mode = PoolAllocation;
-  rmmOptions.initial_pool_size = 0;
-  rmmOptions.enable_logging = false;
-  rmmError_t rmmStatus = rmmInitialize(&rmmOptions);
-  if (RMM_SUCCESS != rmmStatus) {
-    std::cerr << "WARN: Could not initialize RMM: "
-              << rmmGetErrorString(rmmStatus) << std::endl;
-  }
-#endif  //HAVE_RMM
-#ifdef HAVE_RMM
-  std::shared_ptr<ML::deviceAllocator> allocator(new ML::rmmAllocatorAdapter());
-#elif defined(HAVE_CUB)
-  std::shared_ptr<ML::deviceAllocator> allocator(
-    new ML::cachingDeviceAllocator());
-#else
-  std::shared_ptr<ML::deviceAllocator> allocator(
-    new ML::defaultDeviceAllocator());
-#endif  // HAVE_RMM
-  cumlHandle.setDeviceAllocator(allocator);
+  std::shared_ptr<raft::mr::device::allocator> allocator(
+    new raft::mr::device::default_allocator());
+
+  handle.set_device_allocator(allocator);
 
   std::vector<float> h_inputData;
 
@@ -205,7 +181,7 @@ int main(int argc, char* argv[]) {
 
   cudaStream_t stream;
   CUDA_RT_CALL(cudaStreamCreate(&stream));
-  cumlHandle.setStream(stream);
+  handle.set_stream(stream);
 
   std::vector<int> h_labels(nRows);
   int* d_labels = nullptr;
@@ -224,8 +200,9 @@ int main(int argc, char* argv[]) {
             << "eps - " << eps << std::endl
             << "max_bytes_per_batch - " << max_bytes_per_batch << std::endl;
 
-  ML::dbscanFit(cumlHandle, d_inputData, nRows, nCols, eps, minPts, d_labels,
-                max_bytes_per_batch, false);
+  ML::Dbscan::fit(handle, d_inputData, nRows, nCols, eps, minPts,
+                  raft::distance::L2SqrtUnexpanded, d_labels, nullptr,
+                  max_bytes_per_batch, false);
   CUDA_RT_CALL(cudaMemcpyAsync(h_labels.data(), d_labels, nRows * sizeof(int),
                                cudaMemcpyDeviceToHost, stream));
   CUDA_RT_CALL(cudaStreamSynchronize(stream));

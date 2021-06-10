@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,13 +13,13 @@
 # limitations under the License.
 #
 
-
+import cuml.internals
 from cuml.common.import_utils import has_sklearn
 from cuml.datasets.utils import _create_rs_generator
-from cuml.common import with_cupy_rmm
 
 import cupy as cp
 import numpy as np
+import nvtx
 
 
 def _generate_hypercube(samples, dimensions, rng):
@@ -42,7 +42,8 @@ def _generate_hypercube(samples, dimensions, rng):
     return out
 
 
-@with_cupy_rmm
+@nvtx.annotate(message="datasets.make_classification", domain="cuml_python")
+@cuml.internals.api_return_generic()
 def make_classification(n_samples=100, n_features=20, n_informative=2,
                         n_redundant=2, n_repeated=0, n_classes=2,
                         n_clusters_per_class=2, weights=None, flip_y=0.01,
@@ -52,19 +53,20 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
                         _informative_covariance=None,
                         _redundant_covariance=None,
                         _repeated_indices=None):
-    """Generate a random n-class classification problem.
+    """
+    Generate a random n-class classification problem.
     This initially creates clusters of points normally distributed (std=1)
-    about vertices of an ``n_informative``-dimensional hypercube with sides of
-    length ``2*class_sep`` and assigns an equal number of clusters to each
+    about vertices of an `n_informative`-dimensional hypercube with sides of
+    length :py:`2*class_sep` and assigns an equal number of clusters to each
     class. It introduces interdependence between these features and adds
     various types of further noise to the data.
-    Without shuffling, ``X`` horizontally stacks features in the following
-    order: the primary ``n_informative`` features, followed by ``n_redundant``
-    linear combinations of the informative features, followed by ``n_repeated``
+    Without shuffling, `X` horizontally stacks features in the following
+    order: the primary `n_informative` features, followed by `n_redundant`
+    linear combinations of the informative features, followed by `n_repeated`
     duplicates, drawn randomly with replacement from the informative and
     redundant features. The remaining features are filled with random noise.
     Thus, without shuffling, all useful features are contained in the columns
-    ``X[:, :n_informative + n_redundant + n_repeated]``.
+    :py:`X[:, :n_informative + n_redundant + n_repeated]`.
 
     Examples
     --------
@@ -106,15 +108,15 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
     n_samples : int, optional (default=100)
         The number of samples.
     n_features : int, optional (default=20)
-        The total number of features. These comprise ``n_informative``
-        informative features, ``n_redundant`` redundant features,
-        ``n_repeated`` duplicated features and
-        ``n_features-n_informative-n_redundant-n_repeated`` useless features
+        The total number of features. These comprise `n_informative`
+        informative features, `n_redundant` redundant features,
+        `n_repeated` duplicated features and
+        :py:`n_features-n_informative-n_redundant-n_repeated` useless features
         drawn at random.
     n_informative : int, optional (default=2)
         The number of informative features. Each class is composed of a number
         of gaussian clusters each located around the vertices of a hypercube
-        in a subspace of dimension ``n_informative``. For each cluster,
+        in a subspace of dimension `n_informative`. For each cluster,
         informative features are drawn independently from  N(0, 1) and then
         randomly linearly combined within each cluster in order to add
         covariance. The clusters are then placed on the vertices of the
@@ -132,10 +134,10 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
     weights : array-like of shape (n_classes,) or (n_classes - 1,),\
               (default=None)
         The proportions of samples assigned to each class. If None, then
-        classes are balanced. Note that if ``len(weights) == n_classes - 1``,
+        classes are balanced. Note that if :py:`len(weights) == n_classes - 1`,
         then the last class weight is automatically inferred.
-        More than ``n_samples`` samples may be returned if the sum of
-        ``weights`` exceeds 1.
+        More than `n_samples` samples may be returned if the sum of
+        `weights` exceeds 1.
     flip_y : float, optional (default=0.01)
         The fraction of samples whose class is assigned randomly. Larger
         values introduce noise in the labels and make the classification
@@ -180,7 +182,7 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
 
     Notes
     -----
-    The algorithm is adapted from Guyon [1] and was designed to generate
+    The algorithm is adapted from Guyon [1]_ and was designed to generate
     the "Madelon" dataset. How we optimized for GPUs:
 
         1. Firstly, we generate X from a standard univariate instead of zeros.
@@ -188,7 +190,7 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
            time for each feature class (informative, repeated, etc.) while
            also providing the added speedup of generating a big matrix
            on GPU
-        2. We generate `order=F` construction. We exploit the
+        2. We generate :py:`order=F` construction. We exploit the
            fact that X is a generated from a univariate normal, and
            covariance is introduced with matrix multiplications. Which means,
            we can generate X as a 1D array and just reshape it to the
@@ -196,8 +198,8 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
            copies
         3. Lastly, we also shuffle by construction. Centroid indices are
            permuted for each sample, and then we construct the data for
-           each centroid. This shuffle works for both `order=C` and
-           `order=F` and eliminates any need for secondary copies
+           each centroid. This shuffle works for both :py:`order=C` and
+           :py:`order=F` and eliminates any need for secondary copies
 
     References
     ----------
@@ -205,6 +207,8 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
            selection benchmark", 2003.
 
     """
+    cuml.internals.set_api_output_type("cupy")
+
     generator = _create_rs_generator(random_state)
     np_seed = int(generator.randint(n_samples, size=1))
     np.random.seed(np_seed)
@@ -247,7 +251,7 @@ def make_classification(n_samples=100, n_features=20, n_informative=2,
     # Initialize X and y
     X = generator.randn(n_samples * n_features, dtype=dtype)
     X = X.reshape((n_samples, n_features), order=order)
-    y = cp.zeros(n_samples, dtype=np.int)
+    y = cp.zeros(n_samples, dtype=np.int64)
 
     # Build the polytope whose vertices become cluster centroids
     if _centroids is None:

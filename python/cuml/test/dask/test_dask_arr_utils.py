@@ -20,6 +20,7 @@ from cuml.test.utils import array_equal
 import dask_cudf
 import cudf
 import cupy as cp
+import cupyx
 
 
 from cuml.dask.common.dask_arr_utils import validate_dask_array
@@ -43,14 +44,14 @@ def test_to_sparse_dask_array(input_type, nrows, ncols, client):
 
     c = client
 
-    a = cp.sparse.random(nrows, ncols, format='csr', dtype=cp.float32)
+    a = cupyx.scipy.sparse.random(nrows, ncols, format='csr', dtype=cp.float32)
     if input_type == "dask_dataframe":
-        df = cudf.DataFrame.from_gpu_matrix(a.todense())
+        df = cudf.DataFrame(a.todense())
         inp = dask_cudf.from_cudf(df, npartitions=2)
     elif input_type == "dask_array":
         inp = dask.array.from_array(a.todense().get())
     elif input_type == "dataframe":
-        inp = cudf.DataFrame.from_gpu_matrix(a.todense())
+        inp = cudf.DataFrame(a.todense())
     elif input_type == "scipysparse":
         inp = a.get()
     elif input_type == "cupysparse":

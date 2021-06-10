@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,8 @@
  */
 #pragma once
 
-#include <common/cudart_utils.h>
 #include <cuml/tree/flatnode.h>
+#include <raft/cudart_utils.h>
 #include <cuml/common/logger.hpp>
 #include <cuml/tree/decisiontree.hpp>
 #include <iostream>
@@ -24,6 +24,8 @@
 #include "common_helper.cuh"
 #include "levelhelper_classifier.cuh"
 #include "metric.cuh"
+
+#include <common/nvtx.hpp>
 
 namespace ML {
 namespace DecisionTree {
@@ -45,6 +47,8 @@ void grow_deep_tree_classification(
   const ML::DecisionTree::DecisionTreeParams& tree_params, int& depth_cnt,
   int& leaf_cnt, std::vector<SparseTreeNode<T, int>>& sparsetree,
   const int treeid, std::shared_ptr<TemporaryMemory<T, int>> tempmem) {
+  ML::PUSH_RANGE(
+    "DecisionTree::grow_deep_tree_classification @levelfunc_classifier.cuh");
   const int ncols_sampled = (int)(colper * Ncols);
   unsigned int* flagsptr = tempmem->d_flags->data();
   unsigned int* sample_cnt = tempmem->d_sample_cnt->data();
@@ -61,7 +65,7 @@ void grow_deep_tree_classification(
                                                      n_unique_labels, histvec,
                                                      initial_metric, tempmem);
   }
-  int reserve_depth = std::min(tempmem->swap_depth, tree_params.max_depth);
+  int reserve_depth = std::min(tempmem->swap_depth, tree_params.max_depth + 1);
   size_t total_nodes = pow(2, (reserve_depth + 1)) - 1;
 
   unsigned int* h_parent_hist = tempmem->h_parent_hist->data();
@@ -83,7 +87,7 @@ void grow_deep_tree_classification(
 
   //RNG setup
   std::mt19937 mtg(treeid * 1000);
-  MLCommon::Random::Rng d_rng(treeid * 1000);
+  raft::random::Rng d_rng(treeid * 1000);
   std::uniform_int_distribution<unsigned int> dist(0, Ncols - 1);
   //Setup pointers
   unsigned int* d_histogram = tempmem->d_histogram->data();
@@ -105,14 +109,16 @@ void grow_deep_tree_classification(
       d_colstart, 0, tempmem->max_nodes_per_level * sizeof(unsigned int),
       tempmem->stream));
     memset(h_colstart, 0, tempmem->max_nodes_per_level * sizeof(unsigned int));
-    MLCommon::updateDevice(d_colids, h_colids, Ncols, tempmem->stream);
+    raft::update_device(d_colids, h_colids, Ncols, tempmem->stream);
   }
   std::vector<unsigned int> feature_selector(h_colids, h_colids + Ncols);
 
-  int scatter_algo_depth = std::min(tempmem->swap_depth, tree_params.max_depth);
+  int scatter_algo_depth =
+    std::min(tempmem->swap_depth, tree_params.max_depth + 1);
+  ML::PUSH_RANGE("scatter phase @levelfunc_classifier");
   for (int depth = 0; (depth < scatter_algo_depth) && (n_nodes_nextitr != 0);
        depth++) {
-    depth_cnt = depth + 1;
+    depth_cnt = depth;
     n_nodes = n_nodes_nextitr;
     sparsesize = sparsesize_nextitr;
     sparsesize_nextitr = sparsetree.size();
@@ -134,7 +140,7 @@ void grow_deep_tree_classification(
       get_best_split_classification<T, GiniFunctor, GiniDevFunctor>(
         h_histogram, d_histogram, h_colids, d_colids, h_colstart, d_colstart,
         Ncols, ncols_sampled, tree_params.n_bins, n_unique_labels, n_nodes,
-        depth, tree_params.min_rows_per_node, tree_params.split_algo, infogain,
+        depth, tree_params.min_samples_leaf, tree_params.split_algo, infogain,
         h_parent_hist, h_child_hist, sparsetree, sparsesize, sparse_nodelist,
         h_split_colidx, h_split_binidx, d_split_colidx, d_split_binidx,
         tempmem);
@@ -142,7 +148,7 @@ void grow_deep_tree_classification(
       get_best_split_classification<T, EntropyFunctor, EntropyDevFunctor>(
         h_histogram, d_histogram, h_colids, d_colids, h_colstart, d_colstart,
         Ncols, ncols_sampled, tree_params.n_bins, n_unique_labels, n_nodes,
-        depth, tree_params.min_rows_per_node, tree_params.split_algo, infogain,
+        depth, tree_params.min_samples_leaf, tree_params.split_algo, infogain,
         h_parent_hist, h_child_hist, sparsetree, sparsesize, sparse_nodelist,
         h_split_colidx, h_split_binidx, d_split_colidx, d_split_binidx,
         tempmem);
@@ -154,8 +160,8 @@ void grow_deep_tree_classification(
       n_unique_labels, tree_params.max_leaves, h_new_node_flags, sparsetree,
       sparsesize, h_parent_hist, n_nodes_nextitr, sparse_nodelist, leaf_cnt);
 
-    MLCommon::updateDevice(d_new_node_flags, h_new_node_flags, n_nodes,
-                           tempmem->stream);
+    raft::update_device(d_new_node_flags, h_new_node_flags, n_nodes,
+                        tempmem->stream);
     make_level_split(data, nrows, Ncols, ncols_sampled, tree_params.n_bins,
                      n_nodes, tree_params.split_algo, d_split_colidx,
                      d_split_binidx, d_new_node_flags, flagsptr, tempmem);
@@ -165,12 +171,19 @@ void grow_deep_tree_classification(
              2 * n_nodes * n_unique_labels * sizeof(unsigned int));
     }
   }
+  ML::POP_RANGE();  //scatter phase @levelfunc_classifier.cuh
+
+  ML::PUSH_RANGE("gather phase @levelfunc_classifier.cuh");
   // Start of gather algorithm
   //Convertor
   CUML_LOG_DEBUG("begin gather ");
   int lastsize = sparsetree.size() - sparsesize_nextitr;
   n_nodes = n_nodes_nextitr;
-  if (n_nodes == 0) return;
+  if (n_nodes == 0) {
+    ML::POP_RANGE();  //gather phase ended
+    ML::POP_RANGE();  //grow_deep_tree_classification end
+    return;
+  }
   unsigned int *d_nodecount, *d_samplelist, *d_nodestart;
   SparseTreeNode<T, int>* d_sparsenodes;
   SparseTreeNode<T, int>* h_sparsenodes;
@@ -189,12 +202,15 @@ void grow_deep_tree_classification(
   int* d_counter = tempmem->d_counter->data();
   memcpy(h_nodelist, sparse_nodelist.data(),
          sizeof(int) * sparse_nodelist.size());
-  MLCommon::updateDevice(d_nodelist, h_nodelist, sparse_nodelist.size(),
-                         tempmem->stream);
+  raft::update_device(d_nodelist, h_nodelist, sparse_nodelist.size(),
+                      tempmem->stream);
   //Resize to remove trailing nodes from previous algorithm
   sparsetree.resize(sparsetree.size() - lastsize);
   convert_scatter_to_gather(flagsptr, sample_cnt, n_nodes, nrows, d_nodecount,
                             d_nodestart, d_samplelist, tempmem);
+  if (tempmem->swap_depth == tree_params.max_depth) {
+    ++depth_cnt;
+  }
   for (int depth = tempmem->swap_depth;
        (depth < tree_params.max_depth) && (n_nodes != 0); depth++) {
     depth_cnt = depth + 1;
@@ -216,8 +232,7 @@ void grow_deep_tree_classification(
         tree_params.split_algo, sparsetree.size() + lastsize,
         tree_params.min_impurity_decrease, tempmem, d_sparsenodes, d_nodelist);
     }
-    MLCommon::updateHost(h_sparsenodes, d_sparsenodes, lastsize,
-                         tempmem->stream);
+    raft::update_host(h_sparsenodes, d_sparsenodes, lastsize, tempmem->stream);
     //Update nodelist and split nodes
 
     make_split_gather(data, d_nodestart, d_samplelist, n_nodes, nrows,
@@ -242,12 +257,14 @@ void grow_deep_tree_classification(
         labels, d_nodestart, d_samplelist, n_unique_labels, d_sparsenodes,
         d_nodelist, n_nodes, tempmem);
     }
-    MLCommon::updateHost(h_sparsenodes, d_sparsenodes, lastsize,
-                         tempmem->stream);
+    raft::update_host(h_sparsenodes, d_sparsenodes, lastsize, tempmem->stream);
     CUDA_CHECK(cudaStreamSynchronize(tempmem->stream));
     sparsetree.insert(sparsetree.end(), h_sparsenodes,
                       h_sparsenodes + lastsize);
   }
+
+  ML::POP_RANGE();  //gather phase @levelfunc_classifier.cuh
+  ML::POP_RANGE();  //grow_deep_tree_classification @levelfunc_classifier.cuh
 }
 
 }  // namespace DecisionTree

@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,25 +17,22 @@ from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.base import SyncFitMixinLinearModel
-from cuml.dask.common.comms import worker_state
+from cuml.raft.dask.common.comms import get_raft_comm_state
 
 
 class CD(BaseEstimator,
          SyncFitMixinLinearModel,
          DelayedPredictionMixin):
     """
-    Model-Parallel Multi-GPU Linear Regression Model. Single Process Multi GPU
-    supported currently
+    Model-Parallel Multi-GPU Linear Regression Model.
     """
 
-    def __init__(self, client=None, **kwargs):
+    def __init__(self, *, client=None, **kwargs):
         """
         Initializes the linear regression class.
 
         """
-        super(CD, self).__init__(client=client, **kwargs)
-        self.coef_ = None
-        self.intercept_ = None
+        super().__init__(client=client, **kwargs)
         self._model_fit = False
         self._consec_call = 0
 
@@ -53,9 +50,8 @@ class CD(BaseEstimator,
 
         models = self._fit(model_func=CD._create_model, data=(X, y))
 
-        self.local_model = list(models.values())[0].result()
-        self.coef_ = self.local_model.coef_
-        self.intercept_ = self.local_model.intercept_
+        self._set_internal_model(list(models.values())[0])
+
         return self
 
     def predict(self, X, delayed=True):
@@ -82,5 +78,5 @@ class CD(BaseEstimator,
     @mnmg_import
     def _create_model(sessionId, datatype, **kwargs):
         from cuml.solvers.cd_mg import CDMG
-        handle = worker_state(sessionId)["handle"]
+        handle = get_raft_comm_state(sessionId)["handle"]
         return CDMG(handle=handle, output_type=datatype, **kwargs)

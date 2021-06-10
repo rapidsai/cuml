@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-#include <cuda_utils.cuh>
-#include <cuml/cuml.hpp>
+#include <cuml/manifold/umapparams.h>
 #include <cuml/manifold/umap.hpp>
+#include <raft/cuda_utils.cuh>
 #include <utility>
 #include "benchmark.cuh"
 
@@ -40,7 +40,7 @@ __global__ void castKernel(OutT* out, const InT* in, IdxT len) {
 template <typename OutT, typename InT, typename IdxT = int>
 void cast(OutT* out, const InT* in, IdxT len, cudaStream_t stream) {
   static const int TPB = 256;
-  auto nblks = MLCommon::ceildiv<IdxT>(len, TPB);
+  auto nblks = raft::ceildiv<IdxT>(len, TPB);
   castKernel<OutT, InT, IdxT><<<nblks, TPB, 0, stream>>>(out, in, len);
   CUDA_CHECK(cudaGetLastError());
 }
@@ -111,8 +111,8 @@ class UmapSupervised : public UmapBase {
 
  protected:
   void coreBenchmarkMethod() {
-    fit(*this->handle, this->data.X, yFloat, this->params.nrows,
-        this->params.ncols, nullptr, nullptr, &uParams, embeddings);
+    UMAP::fit(*this->handle, this->data.X, yFloat, this->params.nrows,
+              this->params.ncols, nullptr, nullptr, &uParams, embeddings);
   }
 };
 ML_BENCH_REGISTER(Params, UmapSupervised, "blobs", getInputs());
@@ -124,8 +124,8 @@ class UmapUnsupervised : public UmapBase {
 
  protected:
   void coreBenchmarkMethod() {
-    fit(*this->handle, this->data.X, this->params.nrows, this->params.ncols,
-        nullptr, nullptr, &uParams, embeddings);
+    UMAP::fit(*this->handle, this->data.X, nullptr, this->params.nrows,
+              this->params.ncols, nullptr, nullptr, &uParams, embeddings);
   }
 };
 ML_BENCH_REGISTER(Params, UmapUnsupervised, "blobs", getInputs());
@@ -136,17 +136,17 @@ class UmapTransform : public UmapBase {
 
  protected:
   void coreBenchmarkMethod() {
-    transform(*this->handle, this->data.X, this->params.nrows,
-              this->params.ncols, nullptr, nullptr, this->data.X,
-              this->params.nrows, embeddings, this->params.nrows, &uParams,
-              transformed);
+    UMAP::transform(*this->handle, this->data.X, this->params.nrows,
+                    this->params.ncols, nullptr, nullptr, this->data.X,
+                    this->params.nrows, embeddings, this->params.nrows,
+                    &uParams, transformed);
   }
   void allocateBuffers(const ::benchmark::State& state) {
     UmapBase::allocateBuffers(state);
     auto& handle = *this->handle;
     alloc(transformed, this->params.nrows * uParams.n_components);
-    fit(handle, this->data.X, yFloat, this->params.nrows, this->params.ncols,
-        nullptr, nullptr, &uParams, embeddings);
+    UMAP::fit(handle, this->data.X, yFloat, this->params.nrows,
+              this->params.ncols, nullptr, nullptr, &uParams, embeddings);
   }
   void deallocateBuffers(const ::benchmark::State& state) {
     dealloc(transformed, this->params.nrows * uParams.n_components);

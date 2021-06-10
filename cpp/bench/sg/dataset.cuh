@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,15 +16,14 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
-#include <linalg/transpose.h>
-#include <common/cumlHandle.hpp>
-#include <cuda_utils.cuh>
-#include <cuml/cuml.hpp>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/transpose.h>
 #include <cuml/datasets/make_blobs.hpp>
 #include <fstream>
 #include <iostream>
-#include <linalg/unary_op.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/handle.hpp>
+#include <raft/linalg/unary_op.cuh>
 #include <random/make_regression.cuh>
 #include <sstream>
 #include <string>
@@ -81,17 +80,17 @@ struct Dataset {
   L* y;
 
   /** allocate space needed for the dataset */
-  void allocate(const cumlHandle& handle, const DatasetParams& p) {
-    auto allocator = handle.getDeviceAllocator();
-    auto stream = handle.getStream();
+  void allocate(const raft::handle_t& handle, const DatasetParams& p) {
+    auto allocator = handle.get_device_allocator();
+    auto stream = handle.get_stream();
     X = (D*)allocator->allocate(p.nrows * p.ncols * sizeof(D), stream);
     y = (L*)allocator->allocate(p.nrows * sizeof(L), stream);
   }
 
   /** free-up the buffers */
-  void deallocate(const cumlHandle& handle, const DatasetParams& p) {
-    auto allocator = handle.getDeviceAllocator();
-    auto stream = handle.getStream();
+  void deallocate(const raft::handle_t& handle, const DatasetParams& p) {
+    auto allocator = handle.get_device_allocator();
+    auto stream = handle.get_stream();
     allocator->deallocate(X, p.nrows * p.ncols * sizeof(D), stream);
     allocator->deallocate(y, p.nrows * sizeof(L), stream);
   }
@@ -103,12 +102,12 @@ struct Dataset {
    * Generate random blobs data. Args are the same as in make_blobs.
    * Assumes that the user has already called `allocate`
    */
-  void blobs(const cumlHandle& handle, const DatasetParams& p,
+  void blobs(const raft::handle_t& handle, const DatasetParams& p,
              const BlobsParams& b) {
-    const auto& handle_impl = handle.getImpl();
-    auto stream = handle_impl.getStream();
-    auto cublas_handle = handle_impl.getCublasHandle();
-    auto allocator = handle_impl.getDeviceAllocator();
+    const auto& handle_impl = handle;
+    auto stream = handle_impl.get_stream();
+    auto cublas_handle = handle_impl.get_cublas_handle();
+    auto allocator = handle_impl.get_device_allocator();
 
     // Make blobs will generate labels of type IdxT which has to be an integer
     // type. We cast it to a different output type if needed.
@@ -124,7 +123,7 @@ struct Dataset {
                              b.shuffle, D(b.center_box_min),
                              D(b.center_box_max), b.seed);
     if (!std::is_same<L, IdxT>::value) {
-      MLCommon::LinAlg::unaryOp(
+      raft::linalg::unaryOp(
         y, tmpY, p.nrows, [] __device__(IdxT z) { return (L)z; }, stream);
       allocator->deallocate(tmpY, p.nrows * sizeof(IdxT), stream);
     }
@@ -134,15 +133,15 @@ struct Dataset {
    * Generate random regression data. Args are the same as in make_regression.
    * Assumes that the user has already called `allocate`
    */
-  void regression(const cumlHandle& handle, const DatasetParams& p,
+  void regression(const raft::handle_t& handle, const DatasetParams& p,
                   const RegressionParams& r) {
     ASSERT(!isClassification(),
            "make_regression: is only for regression problems!");
-    const auto& handle_impl = handle.getImpl();
-    auto stream = handle_impl.getStream();
-    auto cublas_handle = handle_impl.getCublasHandle();
-    auto cusolver_handle = handle_impl.getcusolverDnHandle();
-    auto allocator = handle_impl.getDeviceAllocator();
+    const auto& handle_impl = handle;
+    auto stream = handle_impl.get_stream();
+    auto cublas_handle = handle_impl.get_cublas_handle();
+    auto cusolver_handle = handle_impl.get_cusolver_dn_handle();
+    auto allocator = handle_impl.get_device_allocator();
 
     D* tmpX = X;
 
@@ -150,12 +149,11 @@ struct Dataset {
       tmpX = (D*)allocator->allocate(p.nrows * p.ncols * sizeof(D), stream);
     }
     MLCommon::Random::make_regression(
-      tmpX, y, p.nrows, p.ncols, r.n_informative, cublas_handle,
-      cusolver_handle, allocator, stream, (D*)nullptr, 1, D(r.bias),
-      r.effective_rank, D(r.tail_strength), D(r.noise), r.shuffle, r.seed);
+      handle, tmpX, y, p.nrows, p.ncols, r.n_informative, stream, (D*)nullptr,
+      1, D(r.bias), r.effective_rank, D(r.tail_strength), D(r.noise), r.shuffle,
+      r.seed);
     if (!p.rowMajor) {
-      MLCommon::LinAlg::transpose(tmpX, X, p.nrows, p.ncols, cublas_handle,
-                                  stream);
+      raft::linalg::transpose(handle, tmpX, X, p.nrows, p.ncols, stream);
       allocator->deallocate(tmpX, p.nrows * p.ncols * sizeof(D), stream);
     }
   }
@@ -173,7 +171,7 @@ struct Dataset {
    *              std::vector<L>& y, int lineNum, const DatasetParams& p);`
    */
   template <typename Lambda>
-  void read_csv(const cumlHandle& handle, const std::string& csvfile,
+  void read_csv(const raft::handle_t& handle, const std::string& csvfile,
                 const DatasetParams& p, Lambda readOp) {
     if (isClassification() && p.nclasses <= 0) {
       ASSERT(false,
@@ -192,9 +190,9 @@ struct Dataset {
       counter++;
     }
     myfile.close();
-    auto stream = handle.getStream();
-    MLCommon::copy(X, &(_X[0]), p.nrows * p.ncols, stream);
-    MLCommon::copy(y, &(_y[0]), p.nrows, stream);
+    auto stream = handle.get_stream();
+    raft::copy(X, &(_X[0]), p.nrows * p.ncols, stream);
+    raft::copy(y, &(_y[0]), p.nrows, stream);
   }
 
  private:

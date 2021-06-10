@@ -13,10 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import ctypes
 import cudf
@@ -30,9 +27,10 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t, uint32_t, uint64_t
 from cython.operator cimport dereference as deref
 
+import cuml.internals
 from cuml.common.base import Base
 from cuml.common.array import CumlArray
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common.opg_data_utils_mg cimport *
 from cuml.common import input_to_cuml_array
 from cuml.decomposition.utils cimport *
@@ -40,9 +38,9 @@ from cuml.decomposition.utils cimport *
 from cuml.linear_model import Ridge
 from cuml.linear_model.base_mg import MGFitMixin
 
-cdef extern from "cumlprims/opg/ridge.hpp" namespace "ML::Ridge::opg":
+cdef extern from "cuml/linear_model/ridge_mg.hpp" namespace "ML::Ridge::opg":
 
-    cdef void fit(cumlHandle& handle,
+    cdef void fit(handle_t& handle,
                   vector[floatData_t *] input_data,
                   PartDescriptor &input_desc,
                   vector[floatData_t *] labels,
@@ -55,7 +53,7 @@ cdef extern from "cumlprims/opg/ridge.hpp" namespace "ML::Ridge::opg":
                   int algo,
                   bool verbose) except +
 
-    cdef void fit(cumlHandle& handle,
+    cdef void fit(handle_t& handle,
                   vector[doubleData_t *] input_data,
                   PartDescriptor &input_desc,
                   vector[doubleData_t *] labels,
@@ -74,11 +72,12 @@ class RidgeMG(MGFitMixin, Ridge):
     def __init__(self, **kwargs):
         super(RidgeMG, self).__init__(**kwargs)
 
+    @cuml.internals.api_base_return_any_skipall
     def _fit(self, X, y, coef_ptr, input_desc):
 
         cdef float float_intercept
         cdef double double_intercept
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         cdef float float_alpha
         cdef double double_alpha
         # Only one alpha is supported.

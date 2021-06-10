@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,12 +21,11 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
 #include <math.h>
-#include <common/device_buffer.hpp>
-#include <cuda_utils.cuh>
-#include <cuml/common/cuml_allocator.hpp>
-#include <linalg/unary_op.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/mr/device/allocator.hpp>
 
 namespace MLCommon {
 
@@ -41,7 +40,7 @@ namespace TimeSeries {
 */
 template <typename Type>
 struct PAC {
-  HDI Type operator()(Type in) { return myTanh(in * 0.5); }
+  HDI Type operator()(Type in) { return raft::myTanh(in * 0.5); }
 };
 
 /**
@@ -129,7 +128,7 @@ inline __device__ void invtransform(DataT* tmp, DataT* myNewParams, bool isAr) {
   }
 
   for (int i = 0; i < VALUE; ++i) {
-    myNewParams[i] = 2 * myATanh(myNewParams[i]);
+    myNewParams[i] = 2 * raft::myATanh(myNewParams[i]);
   }
 }
 
@@ -187,25 +186,25 @@ __global__ void jones_transform_kernel(DataT* newParams, const DataT* params,
 * @param newParams: the inverse transformed params (output)
 * @param isAr: set to true if the params to be transformed are Autoregressive params, false if params are of type MA
 * @param isInv: set to true if the transformation is an inverse type transformation, false if regular transform
-* @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<MLCommon::deviceAllocator>
+* @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<raft::mr::device::allocator>
 * @param stream: the cudaStream object
 */
 template <typename DataT, typename IdxT = int>
 void jones_transform(const DataT* params, IdxT batchSize, IdxT parameter,
                      DataT* newParams, bool isAr, bool isInv,
-                     std::shared_ptr<MLCommon::deviceAllocator> allocator,
+                     std::shared_ptr<raft::mr::device::allocator> allocator,
                      cudaStream_t stream) {
   ASSERT(batchSize >= 1 && parameter >= 1, "not defined!");
 
   IdxT nElements = batchSize * parameter;
 
   //copying contents
-  copy(newParams, params, (size_t)nElements, stream);
+  raft::copy(newParams, params, (size_t)nElements, stream);
 
   //setting the kernel configuration
   static const int BLOCK_DIM_Y = 1, BLOCK_DIM_X = 256;
   dim3 numThreadsPerBlock(BLOCK_DIM_X, BLOCK_DIM_Y);
-  dim3 numBlocks(ceildiv<int>(batchSize, numThreadsPerBlock.x), 1);
+  dim3 numBlocks(raft::ceildiv<int>(batchSize, numThreadsPerBlock.x), 1);
 
   //calling the kernel
 

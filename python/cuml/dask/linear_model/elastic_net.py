@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,11 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-# cython: profile=False
-# distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 from cuml.dask.solvers import CD
 from cuml.dask.common.base import BaseEstimator
@@ -68,29 +63,32 @@ class ElasticNet(BaseEstimator):
         This (setting to ‘random’) often leads to significantly faster
         convergence especially when tol is higher than 1e-4.
     handle : cuml.Handle
-        If it is None, a new one is created just for this class.
-    output_type : (optional) {'input', 'cudf', 'cupy', 'numpy'} default = None
-        Use it to control output type of the results and attributes.
-        If None it'll inherit the output type set at the
-        module level, cuml.output_type. If that has not been changed, by
-        default the estimator will mirror the type of the data used for each
-        fit or predict call.
-        If set, the estimator will override the global option for its behavior.
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_settings.output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Attributes
     -----------
     coef_ : array, shape (n_features)
         The estimated coefficients for the linear regression model.
     intercept_ : array
-        The independent term. If fit_intercept_ is False, will be 0.
+        The independent term. If `fit_intercept` is False, will be 0.
 
 
     For additional docs, see `scikitlearn's ElasticNet
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.ElasticNet.html>`_.
     """
 
-    def __init__(self, client=None, **kwargs):
-        super(ElasticNet, self).__init__(client=client, **kwargs)
+    def __init__(self, *, client=None, **kwargs):
+        super().__init__(client=client, **kwargs)
 
         kwargs['shuffle'] = False
 
@@ -117,10 +115,6 @@ class ElasticNet(BaseEstimator):
         """
 
         self.solver.fit(X, y)
-
-        self.coef_ = self.solver.coef_
-        self.intercept_ = self.solver.intercept_
-
         return self
 
     def predict(self, X, delayed=True):

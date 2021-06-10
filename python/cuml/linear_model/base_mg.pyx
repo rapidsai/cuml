@@ -13,10 +13,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 
 import ctypes
@@ -28,9 +25,10 @@ import rmm
 from libc.stdint cimport uintptr_t
 from cython.operator cimport dereference as deref
 
+import cuml.internals
 from cuml.common.base import Base
 from cuml.common.array import CumlArray
-from cuml.common.handle cimport cumlHandle
+from cuml.raft.common.handle cimport handle_t
 from cuml.common.opg_data_utils_mg cimport *
 from cuml.common.input_utils import input_to_cuml_array
 from cuml.decomposition.utils cimport *
@@ -38,6 +36,7 @@ from cuml.decomposition.utils cimport *
 
 class MGFitMixin(object):
 
+    @cuml.internals.api_base_return_any_skipall
     def fit(self, input_data, n_rows, n_cols, partsToSizes, rank):
         """
         Fit function for MNMG linear regression classes
@@ -50,6 +49,7 @@ class MGFitMixin(object):
         :return: self
         """
         self._set_output_type(input_data[0][0])
+        self._set_n_features_in(n_cols)
 
         X_arys = []
         y_arys = []
@@ -71,9 +71,9 @@ class MGFitMixin(object):
                                           check_dtype=self.dtype)
             y_arys.append(y_m)
 
-        self._coef_ = CumlArray.zeros(self.n_cols,
-                                      dtype=self.dtype)
-        cdef uintptr_t coef_ptr = self._coef_.ptr
+        self.coef_ = CumlArray.zeros(self.n_cols,
+                                     dtype=self.dtype)
+        cdef uintptr_t coef_ptr = self.coef_.ptr
         coef_ptr_arg = <size_t>coef_ptr
 
         cdef uintptr_t rank_to_sizes = opg.build_rank_size_pair(partsToSizes,

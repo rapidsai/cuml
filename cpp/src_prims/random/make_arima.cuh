@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,9 +23,9 @@
 #include <thrust/iterator/counting_iterator.h>
 
 #include <cuml/tsa/arima_common.h>
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/random/rng.cuh>
 #include <timeSeries/arima_helpers.cuh>
-#include "rng.cuh"
 
 namespace MLCommon {
 namespace Random {
@@ -94,7 +94,7 @@ __global__ void make_arima_kernel(DataT* d_diff, const DataT* d_res,
     obs +=
       (threadIdx.x < min(i, n_theta)) ? theta * b_res[i - threadIdx.x - 1] : 0;
 
-    obs = MLCommon::blockReduce(obs, temp_smem);
+    obs = raft::blockReduce(obs, temp_smem);
 
     if (threadIdx.x == 0) {
       // Intercept and residual
@@ -131,17 +131,18 @@ __global__ void make_arima_kernel(DataT* d_diff, const DataT* d_res,
  */
 template <typename DataT>
 void make_arima(DataT* out, int batch_size, int n_obs, ML::ARIMAOrder order,
-                std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream,
-                DataT scale = (DataT)1.0, DataT noise_scale = (DataT)0.2,
+                std::shared_ptr<raft::mr::device::allocator> allocator,
+                cudaStream_t stream, DataT scale = (DataT)1.0,
+                DataT noise_scale = (DataT)0.2,
                 DataT intercept_scale = (DataT)1.0, uint64_t seed = 0ULL,
-                GeneratorType type = GenPhilox) {
+                raft::random::GeneratorType type = raft::random::GenPhilox) {
   int d_sD = order.d + order.s * order.D;
   int n_phi = order.p + order.s * order.P;
   int n_theta = order.q + order.s * order.Q;
   auto counting = thrust::make_counting_iterator(0);
 
   // Create CPU/GPU random generators and distributions
-  Rng gpu_gen(seed, type);
+  raft::random::Rng gpu_gen(seed, type);
 
   // Generate parameters. We draw temporary random parameters and transform
   // them to create the final parameters.
@@ -215,7 +216,7 @@ void make_arima(DataT* out, int batch_size, int n_obs, ML::ARIMAOrder order,
                  noise_scale, stream);
 
   // Call the main kernel to generate the differenced series
-  int n_warps = std::max(ceildiv<int>(std::max(n_phi, n_theta), 32), 1);
+  int n_warps = std::max(raft::ceildiv<int>(std::max(n_phi, n_theta), 32), 1);
   size_t shared_mem_size = (2 * (n_obs - d_sD) + n_warps) * sizeof(double);
   make_arima_kernel<<<batch_size, 32 * n_warps, shared_mem_size, stream>>>(
     d_diff, residuals.data(), params.mu, params.ar, params.ma, params.sar,

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,16 +14,16 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
-import cuml
+import warnings
+
 import numpy as np
 
 from cuml.common.array import CumlArray as cumlArray
-from cuml.common.handle cimport cumlHandle
+import cuml.internals
+from cuml.raft.common.handle cimport handle_t
+from cuml.raft.common.handle import Handle
 from cuml.tsa.arima cimport ARIMAOrder
 
 from libc.stdint cimport uint64_t, uintptr_t
@@ -33,7 +33,7 @@ from random import randint
 
 cdef extern from "cuml/datasets/make_arima.hpp" namespace "ML":
     void cpp_make_arima "ML::Datasets::make_arima" (
-        const cumlHandle& handle,
+        const handle_t& handle,
         float* out,
         int batch_size,
         int n_obs,
@@ -45,7 +45,7 @@ cdef extern from "cuml/datasets/make_arima.hpp" namespace "ML":
     )
 
     void cpp_make_arima "ML::Datasets::make_arima" (
-        const cumlHandle& handle,
+        const handle_t& handle,
         double* out,
         int batch_size,
         int n_obs,
@@ -66,15 +66,16 @@ inp_to_dtype = {
 }
 
 
+@cuml.internals.api_return_array()
 def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
                seasonal_order=(0, 0, 0, 0), intercept=False,
-               random_state=None, dtype='double', output_type='cupy',
+               random_state=None, dtype='double',
                handle=None):
-    r"""Generates a dataset of time series by simulating an ARIMA process
+    """Generates a dataset of time series by simulating an ARIMA process
     of a given order.
 
-    Example
-    -------
+    Examples
+    --------
     .. code-block:: python
 
         from cuml.datasets import make_arima
@@ -97,12 +98,11 @@ def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
     dtype: string or numpy dtype (default: 'single')
         Type of the data. Possible values: float32, float64, 'single', 'float'
         or 'double'
-    output_type: {'cudf', 'cupy', 'numpy'}
-        Type of the returned dataset
+
     handle: cuml.Handle
         If it is None, a new one is created just for this function call
 
-    Returns:
+    Returns
     --------
     out: array-like, shape (n_obs, batch_size)
         Array of the requested type containing the generated dataset
@@ -112,6 +112,11 @@ def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
     cpp_order.p, cpp_order.d, cpp_order.q = order
     cpp_order.P, cpp_order.D, cpp_order.Q, cpp_order.s = seasonal_order
     cpp_order.k = <int>intercept
+
+    # Set the default output type to "cupy". This will be ignored if the user
+    # has set `cuml.global_settings.output_type`. Only necessary for array
+    # generation methods that do not take an array as input
+    cuml.internals.set_api_output_type("cupy")
 
     # Define some parameters based on the order
     scale = 1.0
@@ -123,8 +128,8 @@ def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
     else:
         dtype = inp_to_dtype[dtype]
 
-    handle = cuml.common.handle.Handle() if handle is None else handle
-    cdef cumlHandle* handle_ = <cumlHandle*><size_t>handle.getHandle()
+    handle = Handle() if handle is None else handle
+    cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
     out = cumlArray.empty((n_obs, batch_size), dtype=dtype, order='F')
     cdef uintptr_t out_ptr = <uintptr_t> out.ptr
@@ -144,4 +149,4 @@ def make_arima(batch_size=1000, n_obs=100, order=(1, 1, 1),
                        <double> noise_scale, <double> intercept_scale,
                        <uint64_t> random_state)
 
-    return out.to_output(output_type)
+    return out

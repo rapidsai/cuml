@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,7 +37,7 @@ class PCA(BaseDecomposition,
     then selects the top K eigenvectors.
 
     Examples
-    ---------
+    --------
 
     .. code-block:: python
 
@@ -92,22 +92,27 @@ class PCA(BaseDecomposition,
                     1  0.011454
                     2 -0.008182
 
-    Note: Everytime this code is run, the output will be different because
-          "make_blobs" function generates random matrices.
+    .. note:: Everytime this code is run, the output will be different because
+        "make_blobs" function generates random matrices.
 
     Parameters
     ----------
     handle : cuml.Handle
-        If it is None, a new one is created just for this class
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
     n_components : int (default = 1)
         The number of top K singular vectors / values you want.
         Must be <= number(columns).
     svd_solver : 'full', 'jacobi', or 'tsqr'
         'full': run exact full SVD and select the components by postprocessing
         'jacobi': iteratively compute SVD of the covariance matrix
-        'tsqr': compute qr decomposition of the data matrix
-    verbose : int or boolean (default = False)
-        Logging level
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     whiten : boolean (default = False)
         If True, de-correlates the components. This is done by dividing them by
         the corresponding singular values then multiplying by sqrt(n_samples).
@@ -147,20 +152,16 @@ class PCA(BaseDecomposition,
         datasets of everyday objects and images, and used to distinguish
         between cancerous cells from healthy cells.
 
-
-    For an additional example see `the PCA notebook
-    <https://github.com/rapidsai/notebooks/blob/master/cuml/pca_demo.ipynb>`_.
     For additional docs, see `scikitlearn's PCA
     <http://scikit-learn.org/stable/modules/generated/sklearn.decomposition.PCA.html>`_.
     """
 
-    def __init__(self, client=None, verbose=False, **kwargs):
+    def __init__(self, *, client=None, verbose=False, **kwargs):
 
-        super(PCA, self).__init__(PCA._create_pca,
-                                  client=client,
-                                  verbose=verbose,
-                                  **kwargs)
-        self.noise_variance_ = None
+        super().__init__(PCA._create_pca,
+                         client=client,
+                         verbose=verbose,
+                         **kwargs)
 
     def fit(self, X):
         """
@@ -172,7 +173,6 @@ class PCA(BaseDecomposition,
         """
 
         self._fit(X)
-        self.noise_variance_ = self.local_model.noise_variance_
         return self
 
     def fit_transform(self, X):

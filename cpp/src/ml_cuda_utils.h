@@ -14,20 +14,20 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
-#include <cuda_runtime.h>
-
 #pragma once
+
+#include <cuda_runtime.h>
+#include <raft/cudart_utils.h>
 
 namespace ML {
 
-int get_device(const void *ptr) {
+inline int get_device(const void *ptr) {
   cudaPointerAttributes att;
   cudaPointerGetAttributes(&att, ptr);
   return att.device;
 }
 
-cudaMemoryType memory_type(const void *p) {
+inline cudaMemoryType memory_type(const void *p) {
   cudaPointerAttributes att;
   cudaError_t err = cudaPointerGetAttributes(&att, p);
   ASSERT(err == cudaSuccess || err == cudaErrorInvalidValue, "%s",
@@ -38,10 +38,13 @@ cudaMemoryType memory_type(const void *p) {
     err = cudaGetLastError();
     ASSERT(err == cudaErrorInvalidValue, "%s", cudaGetErrorString(err));
   }
-#if CUDA_VERSION >= 10000
   return att.type;
-#else
-  return att.memoryType;
-#endif
 }
+
+inline bool is_device_or_managed_type(const void *p) {
+  cudaMemoryType p_memory_type = memory_type(p);
+  return p_memory_type == cudaMemoryTypeDevice ||
+         p_memory_type == cudaMemoryTypeManaged;
+}
+
 }  // namespace ML

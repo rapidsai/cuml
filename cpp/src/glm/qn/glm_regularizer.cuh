@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
-#include <cuda_utils.cuh>
-#include <linalg/binary_op.cuh>
-#include <linalg/map_then_reduce.cuh>
-#include <stats/mean.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/map_then_reduce.cuh>
+#include <raft/stats/mean.cuh>
 #include "simple_mat.cuh"
 
 namespace ML {
@@ -34,17 +34,18 @@ struct Tikhonov {
 
   HDI T operator()(const T w) const { return 0.5 * l2_penalty * w * w; }
 
-  inline void reg_grad(T *reg_val, SimpleMat<T> &G, const SimpleMat<T> &W,
-                       const bool has_bias, cudaStream_t stream) const {
+  inline void reg_grad(T *reg_val, SimpleDenseMat<T> &G,
+                       const SimpleDenseMat<T> &W, const bool has_bias,
+                       cudaStream_t stream) const {
     // NOTE: scikit generally does not penalize biases
-    SimpleMat<T> Gweights;
-    SimpleMat<T> Wweights;
+    SimpleDenseMat<T> Gweights;
+    SimpleDenseMat<T> Wweights;
     col_slice(G, Gweights, 0, G.n - has_bias);
     col_slice(W, Wweights, 0, G.n - has_bias);
     Gweights.ax(l2_penalty, Wweights, stream);
 
-    MLCommon::LinAlg::mapThenSumReduce(reg_val, Wweights.len, *this, stream,
-                                       Wweights.data);
+    raft::linalg::mapThenSumReduce(reg_val, Wweights.len, *this, stream,
+                                   Wweights.data);
   }
 };
 
@@ -56,20 +57,20 @@ struct RegularizedGLM : GLMDims {
   RegularizedGLM(Loss *loss, Reg *reg)
     : reg(reg), loss(loss), GLMDims(loss->C, loss->D, loss->fit_intercept) {}
 
-  inline void loss_grad(T *loss_val, SimpleMat<T> &G, const SimpleMat<T> &W,
-                        const SimpleMat<T> &Xb, const SimpleVec<T> &yb,
-                        SimpleMat<T> &Zb, cudaStream_t stream,
-                        bool initGradZero = true) {
+  inline void loss_grad(T *loss_val, SimpleDenseMat<T> &G,
+                        const SimpleDenseMat<T> &W, const SimpleMat<T> &Xb,
+                        const SimpleVec<T> &yb, SimpleDenseMat<T> &Zb,
+                        cudaStream_t stream, bool initGradZero = true) {
     T reg_host, loss_host;
     SimpleVec<T> lossVal(loss_val, 1);
 
     G.fill(0, stream);
 
     reg->reg_grad(lossVal.data, G, W, loss->fit_intercept, stream);
-    MLCommon::updateHost(&reg_host, lossVal.data, 1, stream);
+    raft::update_host(&reg_host, lossVal.data, 1, stream);
 
     loss->loss_grad(lossVal.data, G, W, Xb, yb, Zb, stream, false);
-    MLCommon::updateHost(&loss_host, lossVal.data, 1, stream);
+    raft::update_host(&loss_host, lossVal.data, 1, stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 

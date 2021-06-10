@@ -14,11 +14,11 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
+#include <raft/cudart_utils.h>
 #include <algorithm>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/random/rng.cuh>
 #include <random/permute.cuh>
-#include <random/rng.cuh>
 #include <vector>
 #include "test_utils.h"
 
@@ -47,19 +47,19 @@ class PermTest : public ::testing::TestWithParam<PermInputs<T>> {
     if (params.needShuffle) {
       params.needPerms = true;
     }
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     int N = params.N;
     int D = params.D;
     int len = N * D;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     if (params.needPerms)
-      allocate(outPerms, N);
+      raft::allocate(outPerms, N);
     else
       outPerms = nullptr;
     if (params.needShuffle) {
-      allocate(in, len);
-      allocate(out, len);
+      raft::allocate(in, len);
+      raft::allocate(out, len);
       r.uniform(in, len, T(-1.0), T(1.0), stream);
     } else {
       in = out = nullptr;
@@ -90,7 +90,7 @@ template <typename T, typename L>
                                             bool doSort = true,
                                             cudaStream_t stream = 0) {
   std::vector<T> act_h(size);
-  updateHost<T>(&(act_h[0]), actual, size, stream);
+  raft::update_host<T>(&(act_h[0]), actual, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   if (doSort) std::sort(act_h.begin(), act_h.end());
   for (size_t i(0); i < size; ++i) {
@@ -110,10 +110,10 @@ template <typename T, typename L>
                                               bool rowMajor, L eq_compare,
                                               cudaStream_t stream = 0) {
   std::vector<int> h_perms(N);
-  updateHost<int>(&(h_perms[0]), perms, N, stream);
+  raft::update_host<int>(&(h_perms[0]), perms, N, stream);
   std::vector<T> h_out(N * D), h_in(N * D);
-  updateHost<T>(&(h_out[0]), out, N * D, stream);
-  updateHost<T>(&(h_in[0]), in, N * D, stream);
+  raft::update_host<T>(&(h_out[0]), out, N * D, stream);
+  raft::update_host<T>(&(h_in[0]), in, N * D, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   for (int i = 0; i < N; ++i) {
     for (int j = 0; j < D; ++j) {
@@ -172,11 +172,11 @@ const std::vector<PermInputs<float>> inputsf = {
 typedef PermTest<float> PermTestF;
 TEST_P(PermTestF, Result) {
   if (params.needPerms) {
-    ASSERT_TRUE(devArrMatchRange(outPerms, params.N, 0, Compare<int>()));
+    ASSERT_TRUE(devArrMatchRange(outPerms, params.N, 0, raft::Compare<int>()));
   }
   if (params.needShuffle) {
     ASSERT_TRUE(devArrMatchShuffle(outPerms, out, in, params.D, params.N,
-                                   params.rowMajor, Compare<float>()));
+                                   params.rowMajor, raft::Compare<float>()));
   }
 }
 INSTANTIATE_TEST_CASE_P(PermTests, PermTestF, ::testing::ValuesIn(inputsf));
@@ -221,11 +221,11 @@ const std::vector<PermInputs<double>> inputsd = {
 typedef PermTest<double> PermTestD;
 TEST_P(PermTestD, Result) {
   if (params.needPerms) {
-    ASSERT_TRUE(devArrMatchRange(outPerms, params.N, 0, Compare<int>()));
+    ASSERT_TRUE(devArrMatchRange(outPerms, params.N, 0, raft::Compare<int>()));
   }
   if (params.needShuffle) {
     ASSERT_TRUE(devArrMatchShuffle(outPerms, out, in, params.D, params.N,
-                                   params.rowMajor, Compare<double>()));
+                                   params.rowMajor, raft::Compare<double>()));
   }
 }
 INSTANTIATE_TEST_CASE_P(PermTests, PermTestD, ::testing::ValuesIn(inputsd));

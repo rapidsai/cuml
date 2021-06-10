@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,11 +18,12 @@
 
 #include <cub/cub.cuh>
 
-#include <common/cudart_utils.h>
-#include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
-#include <cuda_utils.cuh>
-#include <linalg/unary_op.cuh>
+#include <raft/cudart_utils.h>
+#include <cuml/common/device_buffer.hpp>
+#include <raft/cuda_utils.cuh>
+#include <raft/handle.hpp>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/mr/device/allocator.hpp>
 
 namespace MLCommon {
 namespace Label {
@@ -47,7 +48,7 @@ using namespace MLCommon;
 template <typename math_t>
 void getUniqueLabels(math_t *y, size_t n, math_t **y_unique, int *n_unique,
                      cudaStream_t stream,
-                     std::shared_ptr<deviceAllocator> allocator) {
+                     std::shared_ptr<raft::mr::device::allocator> allocator) {
   device_buffer<math_t> y2(allocator, stream, n);
   device_buffer<math_t> y3(allocator, stream, n);
   device_buffer<int> d_num_selected(allocator, stream, 1);
@@ -66,12 +67,12 @@ void getUniqueLabels(math_t *y, size_t n, math_t **y_unique, int *n_unique,
   cub::DeviceRadixSort::SortKeys(cub_storage.data(), bytes, y, y2.data(), n);
   cub::DeviceSelect::Unique(cub_storage.data(), bytes, y2.data(), y3.data(),
                             d_num_selected.data(), n);
-  updateHost(n_unique, d_num_selected.data(), 1, stream);
+  raft::update_host(n_unique, d_num_selected.data(), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   // Copy unique classes to output
   *y_unique = (math_t *)allocator->allocate(*n_unique * sizeof(math_t), stream);
-  copy(*y_unique, y3.data(), *n_unique, stream);
+  raft::copy(*y_unique, y3.data(), *n_unique, stream);
 }
 
 /**
@@ -98,7 +99,7 @@ void getOvrLabels(math_t *y, int n, math_t *y_unique, int n_classes,
   ASSERT(idx < n_classes,
          "Parameter idx should not be larger than the number "
          "of classes");
-  LinAlg::unaryOp(
+  raft::linalg::unaryOp(
     y_out, y, n,
     [idx, y_unique] __device__(math_t y) {
       return y == y_unique[idx] ? +1 : -1;
@@ -146,14 +147,13 @@ __global__ void map_label_kernel(Type *map_ids, size_t N_labels, Type *in,
    * should have monotonically increasing labels applied to them.
    */
 template <typename Type, typename Lambda>
-void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
-                    Lambda filter_op) {
+int make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
+                   Lambda filter_op,
+                   std::shared_ptr<raft::mr::device::allocator> allocator) {
   static const size_t TPB_X = 256;
 
-  dim3 blocks(ceildiv(N, TPB_X));
+  dim3 blocks(raft::ceildiv(N, TPB_X));
   dim3 threads(TPB_X);
-
-  std::shared_ptr<deviceAllocator> allocator(new defaultDeviceAllocator);
 
   Type *map_ids;
   int num_clusters;
@@ -163,6 +163,8 @@ void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
     map_ids, num_clusters, in, out, N, filter_op);
 
   allocator->deallocate(map_ids, num_clusters * sizeof(Type), stream);
+
+  return num_clusters;
 }
 
 /**
@@ -183,9 +185,18 @@ void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
    * @param stream cuda stream to use
    */
 template <typename Type>
-void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream) {
-  make_monotonic<Type>(out, in, N, stream,
-                       [] __device__(Type val) { return false; });
+void make_monotonic(Type *out, Type *in, size_t N, cudaStream_t stream,
+                    std::shared_ptr<raft::mr::device::allocator> allocator) {
+  make_monotonic<Type>(
+    out, in, N, stream, [] __device__(Type val) { return false; }, allocator);
+}
+
+template <typename Type>
+int make_monotonic(const raft::handle_t &handle, Type *out, Type *in,
+                   size_t N) {
+  return make_monotonic<Type>(
+    out, in, N, handle.get_stream(), [] __device__(Type val) { return false; },
+    handle.get_device_allocator());
 }
 };  // namespace Label
 };  // end namespace MLCommon

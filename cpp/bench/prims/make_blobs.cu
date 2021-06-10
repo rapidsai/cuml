@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
+#include <common/ml_benchmark.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include <random/make_blobs.cuh>
-#include "../common/ml_benchmark.hpp"
 
 namespace MLCommon {
 namespace Bench {
@@ -29,8 +30,8 @@ struct Params {
 template <typename T>
 struct MakeBlobs : public Fixture {
   MakeBlobs(const std::string& name, const Params& p)
-    : Fixture(name,
-              std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)),
+    : Fixture(name, std::shared_ptr<raft::mr::device::allocator>(
+                      new raft::mr::device::default_allocator)),
       params(p) {}
 
  protected:

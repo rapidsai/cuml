@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <cuda_utils.cuh>
-#include <vectorized.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/vectorized.cuh>
 
 namespace MLCommon {
 namespace Matrix {
@@ -26,7 +26,7 @@ template <typename math_t, int veclen_, typename Lambda>
 __global__ void reverseKernel(math_t *out, const math_t *in, int nrows,
                               int ncols, bool rowMajor, bool alongRows, int len,
                               Lambda op) {
-  typedef TxN_t<math_t, veclen_> VecType;
+  typedef raft::TxN_t<math_t, veclen_> VecType;
   int idx = (threadIdx.x + (blockIdx.x * blockDim.x)) * VecType::Ratio;
   if (idx >= len) return;
   int srcIdx, dstIdx;
@@ -38,7 +38,7 @@ __global__ void reverseKernel(math_t *out, const math_t *in, int nrows,
     srcIdx = idx;
     dstIdx = dstCol * nrows + dstRow;
   } else if (!rowMajor && alongRows) {
-    int mod = ceildiv(nrows, 2);
+    int mod = raft::ceildiv(nrows, 2);
     int srcRow = idx % mod;
     int srcCol = idx / mod;
     int dstRow = nrows - srcRow - VecType::Ratio;
@@ -46,7 +46,7 @@ __global__ void reverseKernel(math_t *out, const math_t *in, int nrows,
     srcIdx = srcCol * nrows + srcRow;
     dstIdx = dstCol * nrows + dstRow;
   } else if (rowMajor && !alongRows) {
-    int mod = ceildiv(ncols, 2);
+    int mod = raft::ceildiv(ncols, 2);
     int srcRow = idx / mod;
     int srcCol = idx % mod;
     int dstRow = srcRow;
@@ -68,8 +68,8 @@ __global__ void reverseKernel(math_t *out, const math_t *in, int nrows,
   if ((rowMajor && !alongRows) || (!rowMajor && alongRows)) {
 #pragma unroll
     for (int i = 0; i < VecType::Ratio; ++i) {
-      swap(a.val.data[i], a.val.data[VecType::Ratio - i - 1]);
-      swap(b.val.data[i], b.val.data[VecType::Ratio - i - 1]);
+      raft::swapVals(a.val.data[i], a.val.data[VecType::Ratio - i - 1]);
+      raft::swapVals(b.val.data[i], b.val.data[VecType::Ratio - i - 1]);
     }
   }
 #pragma unroll
@@ -85,8 +85,9 @@ template <typename math_t, int veclen_, typename Lambda, int TPB>
 void reverseImpl(math_t *out, const math_t *in, int nrows, int ncols,
                  bool rowMajor, bool alongRows, Lambda op,
                  cudaStream_t stream) {
-  int len = alongRows ? ceildiv(nrows, 2) * ncols : nrows * ceildiv(ncols, 2);
-  const int nblks = ceildiv(veclen_ ? len / veclen_ : len, TPB);
+  int len = alongRows ? raft::ceildiv(nrows, 2) * ncols
+                      : nrows * raft::ceildiv(ncols, 2);
+  const int nblks = raft::ceildiv(veclen_ ? len / veclen_ : len, TPB);
   reverseKernel<math_t, veclen_, Lambda><<<nblks, TPB, 0, stream>>>(
     out, in, nrows, ncols, rowMajor, alongRows, len, op);
   CUDA_CHECK(cudaPeekAtLastError());
@@ -107,9 +108,10 @@ void reverseImpl(math_t *out, const math_t *in, int nrows, int ncols,
  * @param op the device-lambda to perform an optional final unary operation on
  *  each element after the reverse
  */
-template <typename math_t, typename Lambda = Nop<math_t>, int TPB = 256>
+template <typename math_t, typename Lambda = raft::Nop<math_t>, int TPB = 256>
 void reverse(math_t *out, const math_t *in, int nrows, int ncols, bool rowMajor,
-             bool alongRows, cudaStream_t stream, Lambda op = Nop<math_t>()) {
+             bool alongRows, cudaStream_t stream,
+             Lambda op = raft::Nop<math_t>()) {
   size_t bytes = (rowMajor ? ncols : nrows) * sizeof(math_t);
   if (16 / sizeof(math_t) && bytes % 16 == 0) {
     reverseImpl<math_t, 16 / sizeof(math_t), Lambda, TPB>(

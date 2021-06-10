@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,12 +15,12 @@
  */
 
 #pragma once
-#include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
+
+#include <cuml/common/device_buffer.hpp>
+#include <raft/handle.hpp>
+#include <raft/mr/device/allocator.hpp>
 
 namespace ML {
-
-using namespace MLCommon;
 
 /**
      * @defgroup paramsRPROJ: structure holding parameters used by random projection model
@@ -49,7 +49,7 @@ enum random_matrix_type { unset, dense, sparse };
 
 template <typename math_t>
 struct rand_mat {
-  rand_mat(std::shared_ptr<MLCommon::deviceAllocator> allocator,
+  rand_mat(std::shared_ptr<raft::mr::device::allocator> allocator,
            cudaStream_t stream)
     : dense_data(allocator, stream),
       indices(allocator, stream),
@@ -61,12 +61,12 @@ struct rand_mat {
   ~rand_mat() { this->reset(); }
 
   // For dense matrices
-  device_buffer<math_t> dense_data;
+  MLCommon::device_buffer<math_t> dense_data;
 
   // For sparse CSC matrices
-  device_buffer<int> indices;
-  device_buffer<int> indptr;
-  device_buffer<math_t> sparse_data;
+  MLCommon::device_buffer<int> indices;
+  MLCommon::device_buffer<int> indptr;
+  MLCommon::device_buffer<math_t> sparse_data;
 
   cudaStream_t stream;
 
@@ -82,11 +82,11 @@ struct rand_mat {
 };
 
 template <typename math_t>
-void RPROJfit(const cumlHandle &handle, rand_mat<math_t> *random_matrix,
+void RPROJfit(const raft::handle_t &handle, rand_mat<math_t> *random_matrix,
               paramsRPROJ *params);
 
 template <typename math_t>
-void RPROJtransform(const cumlHandle &handle, math_t *input,
+void RPROJtransform(const raft::handle_t &handle, math_t *input,
                     rand_mat<math_t> *random_matrix, math_t *output,
                     paramsRPROJ *params);
 

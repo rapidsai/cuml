@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,10 +14,6 @@
 # limitations under the License.
 #
 
-# cython: profile=False
-# distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 from cuml.preprocessing.encoders import OneHotEncoder
 import dask
 import cupy as cp
@@ -33,7 +29,7 @@ class OneHotEncoderMG(OneHotEncoder):
     in `cuml.dask.preprocessing.encoders`.
     """
 
-    def __init__(self, client=None, **kwargs):
+    def __init__(self, *, client=None, **kwargs):
         super().__init__(**kwargs)
         self.client = client
 
@@ -44,7 +40,7 @@ class OneHotEncoderMG(OneHotEncoder):
             if is_categories:
                 X = X.transpose()
             if isinstance(X, cp.ndarray):
-                return DataFrame.from_gpu_matrix(X)
+                return DataFrame(X)
             else:
                 return to_dask_cudf(X, client=self.client)
         else:

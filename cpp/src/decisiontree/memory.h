@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,12 +15,13 @@
  */
 
 #pragma once
-#include <common/cudart_utils.h>
-#include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
-#include <common/host_buffer.hpp>
-#include <cuml/common/cuml_allocator.hpp>
+#include <cuml/tree/flatnode.h>
+#include <raft/cudart_utils.h>
+#include <cuml/common/device_buffer.hpp>
+#include <cuml/common/host_buffer.hpp>
 #include <cuml/tree/decisiontree.hpp>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/host/allocator.hpp>
 
 template <class T, class L>
 struct TemporaryMemory {
@@ -29,8 +30,8 @@ struct TemporaryMemory {
   static const int gather_threads = 256;
   size_t parentsz, childsz, gather_max_nodes;
   //Allocators parsed from CUML handle
-  std::shared_ptr<MLCommon::deviceAllocator> device_allocator;
-  std::shared_ptr<MLCommon::hostAllocator> host_allocator;
+  std::shared_ptr<raft::mr::device::allocator> device_allocator;
+  std::shared_ptr<raft::mr::host::allocator> host_allocator;
 
   //Tree holder for gather algorithm
   MLCommon::device_buffer<SparseTreeNode<T, L>> *d_sparsenodes = nullptr;
@@ -107,13 +108,13 @@ struct TemporaryMemory {
   int max_nodes_per_level = 0;
   int max_nodes_minmax = 0;
   TemporaryMemory(
-    const std::shared_ptr<MLCommon::deviceAllocator> device_allocator_in,
-    const std::shared_ptr<MLCommon::hostAllocator> host_allocator_in,
+    const std::shared_ptr<raft::mr::device::allocator> device_allocator_in,
+    const std::shared_ptr<raft::mr::host::allocator> host_allocator_in,
     const cudaStream_t stream_in, int N, int Ncols, int n_unique,
     const ML::DecisionTree::DecisionTreeParams &tree_params);
 
-  TemporaryMemory(const ML::cumlHandle_impl &handle, cudaStream_t stream_in,
-                  int N, int Ncols, int n_unique,
+  TemporaryMemory(const raft::handle_t &handle, cudaStream_t stream_in, int N,
+                  int Ncols, int n_unique,
                   const ML::DecisionTree::DecisionTreeParams &tree_params);
 
   ~TemporaryMemory();

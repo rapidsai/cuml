@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,11 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <functions/linearReg.cuh>
-#include <random/rng.cuh>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/random/rng.cuh>
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -42,118 +43,107 @@ class LinRegLossTest : public ::testing::TestWithParam<LinRegLossInputs<T>> {
 
     T *labels, *coef;
 
-    cublasHandle_t cublas_handle;
-    CUBLAS_CHECK(cublasCreate(&cublas_handle));
+    raft::handle_t handle;
 
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    cudaStream_t stream = handle.get_stream();
 
-    allocator.reset(new defaultDeviceAllocator);
+    raft::allocate(in, len);
+    raft::allocate(out, 1);
+    raft::allocate(out_lasso, 1);
+    raft::allocate(out_ridge, 1);
+    raft::allocate(out_elasticnet, 1);
+    raft::allocate(out_grad, n_cols);
+    raft::allocate(out_lasso_grad, n_cols);
+    raft::allocate(out_ridge_grad, n_cols);
+    raft::allocate(out_elasticnet_grad, n_cols);
+    raft::allocate(out_ref, 1);
+    raft::allocate(out_lasso_ref, 1);
+    raft::allocate(out_ridge_ref, 1);
+    raft::allocate(out_elasticnet_ref, 1);
+    raft::allocate(out_grad_ref, n_cols);
+    raft::allocate(out_lasso_grad_ref, n_cols);
+    raft::allocate(out_ridge_grad_ref, n_cols);
+    raft::allocate(out_elasticnet_grad_ref, n_cols);
 
-    allocate(in, len);
-    allocate(out, 1);
-    allocate(out_lasso, 1);
-    allocate(out_ridge, 1);
-    allocate(out_elasticnet, 1);
-    allocate(out_grad, n_cols);
-    allocate(out_lasso_grad, n_cols);
-    allocate(out_ridge_grad, n_cols);
-    allocate(out_elasticnet_grad, n_cols);
-    allocate(out_ref, 1);
-    allocate(out_lasso_ref, 1);
-    allocate(out_ridge_ref, 1);
-    allocate(out_elasticnet_ref, 1);
-    allocate(out_grad_ref, n_cols);
-    allocate(out_lasso_grad_ref, n_cols);
-    allocate(out_ridge_grad_ref, n_cols);
-    allocate(out_elasticnet_grad_ref, n_cols);
-
-    allocate(labels, params.n_rows);
-    allocate(coef, params.n_cols);
+    raft::allocate(labels, params.n_rows);
+    raft::allocate(coef, params.n_cols);
 
     T h_in[len] = {0.1, 0.35, -0.9, -1.4, 2.0, 3.1};
-    updateDevice(in, h_in, len, stream);
+    raft::update_device(in, h_in, len, stream);
 
     T h_labels[n_rows] = {0.3, 2.0, -1.1};
-    updateDevice(labels, h_labels, n_rows, stream);
+    raft::update_device(labels, h_labels, n_rows, stream);
 
     T h_coef[n_cols] = {0.35, -0.24};
-    updateDevice(coef, h_coef, n_cols, stream);
+    raft::update_device(coef, h_coef, n_cols, stream);
 
     T h_out_ref[1] = {1.854842};
-    updateDevice(out_ref, h_out_ref, 1, stream);
+    raft::update_device(out_ref, h_out_ref, 1, stream);
 
     T h_out_lasso_ref[1] = {2.2088};
-    updateDevice(out_lasso_ref, h_out_lasso_ref, 1, stream);
+    raft::update_device(out_lasso_ref, h_out_lasso_ref, 1, stream);
 
     T h_out_ridge_ref[1] = {1.9629};
-    updateDevice(out_ridge_ref, h_out_ridge_ref, 1, stream);
+    raft::update_device(out_ridge_ref, h_out_ridge_ref, 1, stream);
 
     T h_out_elasticnet_ref[1] = {2.0858};
-    updateDevice(out_elasticnet_ref, h_out_elasticnet_ref, 1, stream);
+    raft::update_device(out_elasticnet_ref, h_out_elasticnet_ref, 1, stream);
 
     T h_out_grad_ref[n_cols] = {-0.56995, -3.12486};
-    updateDevice(out_grad_ref, h_out_grad_ref, n_cols, stream);
+    raft::update_device(out_grad_ref, h_out_grad_ref, n_cols, stream);
 
     T h_out_lasso_grad_ref[n_cols] = {0.03005, -3.724866};
-    updateDevice(out_lasso_grad_ref, h_out_lasso_grad_ref, n_cols, stream);
+    raft::update_device(out_lasso_grad_ref, h_out_lasso_grad_ref, n_cols,
+                        stream);
 
     T h_out_ridge_grad_ref[n_cols] = {-0.14995, -3.412866};
-    updateDevice(out_ridge_grad_ref, h_out_ridge_grad_ref, n_cols, stream);
+    raft::update_device(out_ridge_grad_ref, h_out_ridge_grad_ref, n_cols,
+                        stream);
 
     T h_out_elasticnet_grad_ref[n_cols] = {-0.05995, -3.568866};
-    updateDevice(out_elasticnet_grad_ref, h_out_elasticnet_grad_ref, n_cols,
-                 stream);
+    raft::update_device(out_elasticnet_grad_ref, h_out_elasticnet_grad_ref,
+                        n_cols, stream);
 
     T alpha = 0.6;
     T l1_ratio = 0.5;
 
-    linearRegLoss(in, params.n_rows, params.n_cols, labels, coef, out,
-                  penalty::NONE, alpha, l1_ratio, cublas_handle, allocator,
-                  stream);
+    linearRegLoss(handle, in, params.n_rows, params.n_cols, labels, coef, out,
+                  penalty::NONE, alpha, l1_ratio, stream);
 
-    updateDevice(in, h_in, len, stream);
+    raft::update_device(in, h_in, len, stream);
 
-    linearRegLossGrads(in, params.n_rows, params.n_cols, labels, coef, out_grad,
-                       penalty::NONE, alpha, l1_ratio, cublas_handle, allocator,
-                       stream);
+    linearRegLossGrads(handle, in, params.n_rows, params.n_cols, labels, coef,
+                       out_grad, penalty::NONE, alpha, l1_ratio, stream);
 
-    updateDevice(in, h_in, len, stream);
+    raft::update_device(in, h_in, len, stream);
 
-    linearRegLoss(in, params.n_rows, params.n_cols, labels, coef, out_lasso,
-                  penalty::L1, alpha, l1_ratio, cublas_handle, allocator,
-                  stream);
+    linearRegLoss(handle, in, params.n_rows, params.n_cols, labels, coef,
+                  out_lasso, penalty::L1, alpha, l1_ratio, stream);
 
-    updateDevice(in, h_in, len, stream);
+    raft::update_device(in, h_in, len, stream);
 
-    linearRegLossGrads(in, params.n_rows, params.n_cols, labels, coef,
-                       out_lasso_grad, penalty::L1, alpha, l1_ratio,
-                       cublas_handle, allocator, stream);
+    linearRegLossGrads(handle, in, params.n_rows, params.n_cols, labels, coef,
+                       out_lasso_grad, penalty::L1, alpha, l1_ratio, stream);
 
-    updateDevice(in, h_in, len, stream);
+    raft::update_device(in, h_in, len, stream);
 
-    linearRegLoss(in, params.n_rows, params.n_cols, labels, coef, out_ridge,
-                  penalty::L2, alpha, l1_ratio, cublas_handle, allocator,
-                  stream);
+    linearRegLoss(handle, in, params.n_rows, params.n_cols, labels, coef,
+                  out_ridge, penalty::L2, alpha, l1_ratio, stream);
 
-    linearRegLossGrads(in, params.n_rows, params.n_cols, labels, coef,
-                       out_ridge_grad, penalty::L2, alpha, l1_ratio,
-                       cublas_handle, allocator, stream);
+    linearRegLossGrads(handle, in, params.n_rows, params.n_cols, labels, coef,
+                       out_ridge_grad, penalty::L2, alpha, l1_ratio, stream);
 
-    updateDevice(in, h_in, len, stream);
+    raft::update_device(in, h_in, len, stream);
 
-    linearRegLoss(in, params.n_rows, params.n_cols, labels, coef,
-                  out_elasticnet, penalty::ELASTICNET, alpha, l1_ratio,
-                  cublas_handle, allocator, stream);
+    linearRegLoss(handle, in, params.n_rows, params.n_cols, labels, coef,
+                  out_elasticnet, penalty::ELASTICNET, alpha, l1_ratio, stream);
 
-    linearRegLossGrads(in, params.n_rows, params.n_cols, labels, coef,
+    linearRegLossGrads(handle, in, params.n_rows, params.n_cols, labels, coef,
                        out_elasticnet_grad, penalty::ELASTICNET, alpha,
-                       l1_ratio, cublas_handle, allocator, stream);
+                       l1_ratio, stream);
 
-    updateDevice(in, h_in, len, stream);
+    raft::update_device(in, h_in, len, stream);
 
-    CUBLAS_CHECK(cublasDestroy(cublas_handle));
-    CUDA_CHECK(cudaStreamDestroy(stream));
     CUDA_CHECK(cudaFree(labels));
     CUDA_CHECK(cudaFree(coef));
   }
@@ -186,7 +176,7 @@ class LinRegLossTest : public ::testing::TestWithParam<LinRegLossInputs<T>> {
   T *out_grad, *out_lasso_grad, *out_ridge_grad, *out_elasticnet_grad;
   T *out_grad_ref, *out_lasso_grad_ref, *out_ridge_grad_ref,
     *out_elasticnet_grad_ref;
-  std::shared_ptr<deviceAllocator> allocator;
+  std::shared_ptr<raft::mr::device::allocator> allocator;
 };
 
 const std::vector<LinRegLossInputs<float>> inputsf = {{0.01f, 3, 2, 6}};
@@ -196,57 +186,57 @@ const std::vector<LinRegLossInputs<double>> inputsd = {{0.01, 3, 2, 6}};
 typedef LinRegLossTest<float> LinRegLossTestF;
 TEST_P(LinRegLossTestF, Result) {
   ASSERT_TRUE(
-    devArrMatch(out_ref, out, 1, CompareApprox<float>(params.tolerance)));
+    devArrMatch(out_ref, out, 1, raft::CompareApprox<float>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_lasso_ref, out_lasso, 1,
-                          CompareApprox<float>(params.tolerance)));
+                          raft::CompareApprox<float>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_ridge_ref, out_ridge, 1,
-                          CompareApprox<float>(params.tolerance)));
+                          raft::CompareApprox<float>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_elasticnet_ref, out_elasticnet, 1,
-                          CompareApprox<float>(params.tolerance)));
+                          raft::CompareApprox<float>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_grad_ref, out_grad, params.n_cols,
-                          CompareApprox<float>(params.tolerance)));
+                          raft::CompareApprox<float>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_lasso_grad_ref, out_lasso_grad, params.n_cols,
-                          CompareApprox<float>(params.tolerance)));
+                          raft::CompareApprox<float>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_ridge_grad_ref, out_ridge_grad, params.n_cols,
-                          CompareApprox<float>(params.tolerance)));
+                          raft::CompareApprox<float>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_elasticnet_grad_ref, out_elasticnet_grad,
                           params.n_cols,
-                          CompareApprox<float>(params.tolerance)));
+                          raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef LinRegLossTest<double> LinRegLossTestD;
 TEST_P(LinRegLossTestD, Result) {
-  ASSERT_TRUE(
-    devArrMatch(out_ref, out, 1, CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(out_ref, out, 1,
+                          raft::CompareApprox<double>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_lasso_ref, out_lasso, 1,
-                          CompareApprox<double>(params.tolerance)));
+                          raft::CompareApprox<double>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_ridge_ref, out_ridge, 1,
-                          CompareApprox<double>(params.tolerance)));
+                          raft::CompareApprox<double>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_elasticnet_ref, out_elasticnet, 1,
-                          CompareApprox<double>(params.tolerance)));
+                          raft::CompareApprox<double>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_grad_ref, out_grad, params.n_cols,
-                          CompareApprox<double>(params.tolerance)));
+                          raft::CompareApprox<double>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_lasso_grad_ref, out_lasso_grad, params.n_cols,
-                          CompareApprox<double>(params.tolerance)));
+                          raft::CompareApprox<double>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_ridge_grad_ref, out_ridge_grad, params.n_cols,
-                          CompareApprox<double>(params.tolerance)));
+                          raft::CompareApprox<double>(params.tolerance)));
 
   ASSERT_TRUE(devArrMatch(out_elasticnet_grad_ref, out_elasticnet_grad,
                           params.n_cols,
-                          CompareApprox<double>(params.tolerance)));
+                          raft::CompareApprox<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(LinRegLossTests, LinRegLossTestF,

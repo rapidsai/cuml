@@ -1,4 +1,4 @@
-# From: https://github.com/rapidsai/cudf/blob/master/Dockerfile
+# From: https://github.com/rapidsai/cudf/blob/main/Dockerfile
 FROM cudf
 
 ENV CONDA_ENV=cudf
@@ -13,15 +13,6 @@ RUN conda env update --name ${CONDA_ENV} \
 # libcuml build/install
 RUN source activate ${CONDA_ENV} && \
     cd cpp && \
-    mkdir build && \
-    cd build && \
-    cmake .. -DCMAKE_INSTALL_PREFIX=${CONDA_PREFIX} && \
-    make -j && \
-    make install
-
-# libcumlcomms build/install
-RUN source activate ${CONDA_ENV} && \
-    cd cpp/comms/std && \
     mkdir build && \
     cd build && \
     cmake .. -DCMAKE_INSTALL_PREFIX=${CONDA_PREFIX} && \

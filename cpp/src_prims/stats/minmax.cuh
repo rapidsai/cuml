@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
-#include <cuda_utils.cuh>
+#include <raft/cudart_utils.h>
 #include <limits>
+#include <raft/cuda_utils.cuh>
 
 namespace MLCommon {
 namespace Stats {
@@ -177,20 +177,20 @@ void minmax(const T* data, const unsigned* rowids, const unsigned* colids,
             int nrows, int ncols, int row_stride, T* globalmin, T* globalmax,
             T* sampledcols, cudaStream_t stream) {
   using E = typename encode_traits<T>::E;
-  int nblks = ceildiv(ncols, TPB);
+  int nblks = raft::ceildiv(ncols, TPB);
   T init_val = std::numeric_limits<T>::max();
   minmaxInitKernel<T, E>
     <<<nblks, TPB, 0, stream>>>(ncols, globalmin, globalmax, init_val);
   CUDA_CHECK(cudaPeekAtLastError());
-  nblks = ceildiv(nrows * ncols, TPB);
+  nblks = raft::ceildiv(nrows * ncols, TPB);
   nblks = min(nblks, 65536);
   size_t smemSize = sizeof(T) * 2 * ncols;
 
   // Compute the batch_ncols, in [1, ncols] range, that meet the available
   // shared memory constraints.
-  auto smemPerBlk = getSharedMemPerBlock();
+  auto smemPerBlk = raft::getSharedMemPerBlock();
   int batch_ncols = min(ncols, (int)(smemPerBlk / (sizeof(T) * 2)));
-  int num_batches = ceildiv(ncols, batch_ncols);
+  int num_batches = raft::ceildiv(ncols, batch_ncols);
   smemSize = sizeof(T) * 2 * batch_ncols;
 
   minmaxKernel<T, E><<<nblks, TPB, smemSize, stream>>>(

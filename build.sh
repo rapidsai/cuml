@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 
 # cuml build script
 
@@ -18,15 +18,18 @@ ARGS=$*
 # script, and that this script resides in the repo dir!
 REPODIR=$(cd $(dirname $0); pwd)
 
-VALIDARGS="clean libcuml cuml prims bench prims-bench cppdocs pydocs -v -g -n --allgpuarch --singlegpu --nvtx --show_depr_warn -h --help"
+VALIDTARGETS="clean libcuml cuml cpp-mgtests prims bench prims-bench cppdocs pydocs"
+VALIDFLAGS="-v -g -n --allgpuarch --singlegpu --nolibcumltest --nvtx --show_depr_warn --codecov --ccache -h --help "
+VALIDARGS="${VALIDTARGETS} ${VALIDFLAGS}"
 HELP="$0 [<target> ...] [<flag> ...]
  where <target> is:
    clean            - remove all existing build artifacts and configuration (start over)
    libcuml          - build the cuml C++ code only. Also builds the C-wrapper library
                       around the C++ code.
    cuml             - build the cuml Python package
-   prims            - build the ML prims tests
-   bench            - build the cuml C++ benchmark
+   cpp-mgtests      - build libcuml mnmg tests. Builds MPI communicator, adding MPI as dependency.
+   prims            - build the ml-prims tests
+   bench            - build the libcuml C++ benchmark
    prims-bench      - build the ml-prims C++ benchmark
    cppdocs          - build the C++ API doxygen documentation
    pydocs           - build the general and Python API documentation
@@ -34,15 +37,26 @@ HELP="$0 [<target> ...] [<flag> ...]
    -v               - verbose build mode
    -g               - build for debug
    -n               - no install step
+   -h               - print this text
    --allgpuarch     - build for all supported GPU architectures
    --singlegpu      - Build libcuml and cuml without multigpu components
+   --nolibcumltest  - disable building libcuml C++ tests for a faster build
    --nvtx           - Enable nvtx for profiling support
    --show_depr_warn - show cmake deprecation warnings
-   -h               - print this text
+   --codecov        - Enable code coverage support by compiling with Cython linetracing
+                      and profiling enabled (WARNING: Impacts performance)
+   --ccache         - Use ccache to cache previous compilations
 
  default action (no args) is to build and install 'libcuml', 'cuml', and 'prims' targets only for the detected GPU arch
+
+ The following environment variables are also accepted to allow further customization:
+   PARALLEL_LEVEL         - Number of parallel threads to use in compilation.
+   CUML_EXTRA_CMAKE_ARGS  - Extra arguments to pass directly to cmake. Values listed in environment
+                            variable will override existing arguments. Example:
+                            CUML_EXTRA_CMAKE_ARGS=\"-DBUILD_CUML_C_LIBRARY=OFF\" ./build.sh
+   CUML_EXTRA_PYTHON_ARGS - Extra argument to pass directly to python setup.py
 "
-LIBCUML_BUILD_DIR=${REPODIR}/cpp/build
+LIBCUML_BUILD_DIR=${LIBCUML_BUILD_DIR:=${REPODIR}/cpp/build}
 CUML_BUILD_DIR=${REPODIR}/python/build
 PYTHON_DEPS_CLONE=${REPODIR}/python/external_repositories
 BUILD_DIRS="${LIBCUML_BUILD_DIR} ${CUML_BUILD_DIR} ${PYTHON_DEPS_CLONE}"
@@ -52,21 +66,45 @@ VERBOSE=""
 BUILD_TYPE=Release
 INSTALL_TARGET=install
 BUILD_ALL_GPU_ARCH=0
-SINGLEGPU=""
+SINGLEGPU_CPP_FLAG=""
+CUML_EXTRA_PYTHON_ARGS=${CUML_EXTRA_PYTHON_ARGS:=""}
 NVTX=OFF
+CCACHE=OFF
 CLEAN=0
 BUILD_DISABLE_DEPRECATION_WARNING=ON
 BUILD_CUML_STD_COMMS=ON
+BUILD_CUML_TESTS=ON
+BUILD_CUML_MG_TESTS=OFF
+BUILD_STATIC_FAISS=OFF
+CMAKE_LOG_LEVEL=WARNING
 
 # Set defaults for vars that may not have been defined externally
 #  FIXME: if INSTALL_PREFIX is not set, check PREFIX, then check
 #         CONDA_PREFIX, but there is no fallback from there!
 INSTALL_PREFIX=${INSTALL_PREFIX:=${PREFIX:=${CONDA_PREFIX}}}
 PARALLEL_LEVEL=${PARALLEL_LEVEL:=""}
-BUILD_ABI=${BUILD_ABI:=ON}
+
+# Default to Ninja if generator is not specified
+export CMAKE_GENERATOR="${CMAKE_GENERATOR:=Ninja}"
+
+# Allow setting arbitrary cmake args via the $CUML_ADDL_CMAKE_ARGS variable. Any
+# values listed here will override existing arguments. For example:
+# CUML_EXTRA_CMAKE_ARGS="-DBUILD_CUML_C_LIBRARY=OFF" ./build.sh
+# Will disable building the C library even though it is hard coded to ON
+CUML_EXTRA_CMAKE_ARGS=${CUML_EXTRA_CMAKE_ARGS:=""}
 
 function hasArg {
     (( ${NUMARGS} != 0 )) && (echo " ${ARGS} " | grep -q " $1 ")
+}
+
+function completeBuild {
+    (( ${NUMARGS} == 0 )) && return
+    for a in ${ARGS}; do
+        if (echo " ${VALIDTARGETS} " | grep -q " ${a} "); then
+          false; return
+        fi
+    done
+    true
 }
 
 if hasArg -h || hasArg --help; then
@@ -74,42 +112,90 @@ if hasArg -h || hasArg --help; then
     exit 0
 fi
 
-# Check for valid usage
-if (( ${NUMARGS} != 0 )); then
-    for a in ${ARGS}; do
-  if ! (echo " ${VALIDARGS} " | grep -q " ${a} "); then
-      echo "Invalid option: ${a}"
-      exit 1
-  fi
-    done
-fi
-
-# Process flags
-if hasArg -v; then
-    VERBOSE=1
-fi
-if hasArg -g; then
-    BUILD_TYPE=Debug
-fi
-if hasArg -n; then
-    INSTALL_TARGET=""
-fi
-if hasArg --allgpuarch; then
-    BUILD_ALL_GPU_ARCH=1
-fi
-if hasArg --singlegpu; then
-    SINGLEGPUPYTHON="--singlegpu"
-    BUILD_CUML_STD_COMMS=OFF
-fi
-if hasArg --nvtx; then
-    NVTX=ON
-fi
-if hasArg --show_depr_warn; then
-    BUILD_DISABLE_DEPRECATION_WARNING=OFF
-fi
 if hasArg clean; then
     CLEAN=1
 fi
+
+
+# Long arguments
+LONG_ARGUMENT_LIST=(
+    "verbose"
+    "debug"
+    "no-install"
+    "allgpuarch"
+    "singlegpu"
+    "nvtx"
+    "show_depr_warn"
+    "codecov"
+    "ccache"
+    "nolibcumltest"
+)
+
+# Short arguments
+ARGUMENT_LIST=(
+    "v"
+    "g"
+    "n"
+)
+
+# read arguments
+opts=$(getopt \
+    --longoptions "$(printf "%s," "${LONG_ARGUMENT_LIST[@]}")" \
+    --name "$(basename "$0")" \
+    --options "$(printf "%s" "${ARGUMENT_LIST[@]}")" \
+    -- "$@"
+)
+
+if [ $? != 0 ] ; then echo "Terminating..." >&2 ; exit 1 ; fi
+
+eval set -- "$opts"
+
+while true; do
+    case "$1" in
+        -h)
+            show_help
+            exit 0
+            ;;
+        -v | --verbose )
+            VERBOSE=true
+            CMAKE_LOG_LEVEL=VERBOSE
+            ;;
+        -g | --debug )
+            BUILD_TYPE=Debug
+            ;;
+        -n | --no-install )
+            INSTALL_TARGET=""
+            ;;
+        --allgpuarch )
+            BUILD_ALL_GPU_ARCH=1
+            ;;
+        --singlegpu )
+            CUML_EXTRA_PYTHON_ARGS="${CUML_EXTRA_PYTHON_ARGS} --singlegpu"
+            SINGLEGPU_CPP_FLAG=ON
+            ;;
+        --nvtx )
+            NVTX=ON
+            ;;
+        --show_depr_warn )
+            BUILD_DISABLE_DEPRECATION_WARNING=OFF
+            ;;
+        --codecov )
+            CUML_EXTRA_PYTHON_ARGS="${CUML_EXTRA_PYTHON_ARGS} --linetrace=1 --profile"
+            ;;
+        --ccache )
+            CCACHE=ON
+            ;;
+        --nolibcumltest )
+            BUILD_CUML_TESTS=OFF
+            ;;
+        --)
+            shift
+            break
+            ;;
+    esac
+    shift
+done
+
 
 # If clean given, run it prior to any other steps
 if (( ${CLEAN} == 1 )); then
@@ -118,10 +204,10 @@ if (( ${CLEAN} == 1 )); then
     # The find removes all contents but leaves the dirs, the rmdir
     # attempts to remove the dirs but can fail safely.
     for bd in ${BUILD_DIRS}; do
-      if [ -d ${bd} ]; then
-          find ${bd} -mindepth 1 -delete
-          rmdir ${bd} || true
-      fi
+        if [ -d ${bd} ]; then
+            find ${bd} -mindepth 1 -delete
+            rmdir ${bd} || true
+        fi
     done
 
     cd ${REPODIR}/python
@@ -129,14 +215,16 @@ if (( ${CLEAN} == 1 )); then
     cd ${REPODIR}
 fi
 
+# Before
+
 ################################################################################
 # Configure for building all C++ targets
-if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench || hasArg prims-bench || hasArg cppdocs; then
+if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg prims-bench || hasArg cppdocs || hasArg cpp-mgtests; then
     if (( ${BUILD_ALL_GPU_ARCH} == 0 )); then
-        GPU_ARCH=""
+        CUML_CMAKE_CUDA_ARCHITECTURES="NATIVE"
         echo "Building for the architecture of the GPU in the system..."
     else
-        GPU_ARCH="-DGPU_ARCHS=ALL"
+        CUML_CMAKE_CUDA_ARCHITECTURES="ALL"
         echo "Building for *ALL* supported GPU architectures..."
     fi
 
@@ -144,28 +232,33 @@ if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench || ha
     cd ${LIBCUML_BUILD_DIR}
 
     cmake -DCMAKE_INSTALL_PREFIX=${INSTALL_PREFIX} \
-          -DCMAKE_CXX11_ABI=${BUILD_ABI} \
-          -DBLAS_LIBRARIES=${INSTALL_PREFIX}/lib/libopenblas.so.0 \
-          ${GPU_ARCH} \
+          -DCMAKE_CUDA_ARCHITECTURES=${CUML_CMAKE_CUDA_ARCHITECTURES} \
           -DCMAKE_BUILD_TYPE=${BUILD_TYPE} \
           -DBUILD_CUML_C_LIBRARY=ON \
-          -DBUILD_CUML_STD_COMMS=${BUILD_CUML_STD_COMMS} \
-          -DWITH_UCX=ON \
-          -DBUILD_CUML_MPI_COMMS=OFF \
+          -DSINGLEGPU=${SINGLEGPU_CPP_FLAG} \
+          -DBUILD_CUML_TESTS=${BUILD_CUML_TESTS} \
+          -DBUILD_CUML_MPI_COMMS=${BUILD_CUML_MG_TESTS} \
+          -DBUILD_CUML_MG_TESTS=${BUILD_CUML_MG_TESTS} \
           -DNVTX=${NVTX} \
-          -DPARALLEL_LEVEL=${PARALLEL_LEVEL} \
-          -DNCCL_PATH=${INSTALL_PREFIX} \
+          -DUSE_CCACHE=${CCACHE} \
           -DDISABLE_DEPRECATION_WARNING=${BUILD_DISABLE_DEPRECATION_WARNING} \
           -DCMAKE_PREFIX_PATH=${INSTALL_PREFIX} \
+          -DCMAKE_MESSAGE_LOG_LEVEL=${CMAKE_LOG_LEVEL} \
+          ${CUML_EXTRA_CMAKE_ARGS} \
           ..
-
 fi
 
 # Run all make targets at once
 
 MAKE_TARGETS=
 if hasArg libcuml; then
-    MAKE_TARGETS="${MAKE_TARGETS}cuml++ cuml ml ml_mg"
+    MAKE_TARGETS="${MAKE_TARGETS}cuml++ cuml"
+    if ! hasArg --nolibcumltest; then
+      MAKE_TARGETS="${MAKE_TARGETS} ml"
+    fi
+fi
+if hasArg cpp-mgtests; then
+    MAKE_TARGETS="${MAKE_TARGETS} ml_mg"
 fi
 if hasArg prims; then
     MAKE_TARGETS="${MAKE_TARGETS} prims"
@@ -178,29 +271,33 @@ if hasArg prims-bench; then
 fi
 
 # If `./build.sh cuml` is called, don't build C/C++ components
-if (( ${NUMARGS} == 0 )) || hasArg libcuml || hasArg prims || hasArg bench; then
-# If there are no targets specified when calling build.sh, it will
-# just call `make -j`. This avoids a lot of extra printing
+if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg cpp-mgtests; then
     cd ${LIBCUML_BUILD_DIR}
-    make -j${PARALLEL_LEVEL} ${MAKE_TARGETS} VERBOSE=${VERBOSE} ${INSTALL_TARGET}
-
+    build_args="--target ${MAKE_TARGETS} ${INSTALL_TARGET}"
+    if [ ! -z ${VERBOSE} ]
+    then
+      build_args="-v ${build_args}"
+    fi
+    if [ ! -z ${PARALLEL_LEVEL} ]
+    then
+      build_args="-j${PARALLEL_LEVEL} ${build_args}"
+    fi
+    cmake --build ${LIBCUML_BUILD_DIR} ${build_args}
 fi
 
 if hasArg cppdocs; then
     cd ${LIBCUML_BUILD_DIR}
-    make doc
+    cmake --build ${LIBCUML_BUILD_DIR} --target docs_cuml
 fi
 
 
 # Build and (optionally) install the cuml Python package
-if (( ${NUMARGS} == 0 )) || hasArg cuml || hasArg pydocs; then
-
+if completeBuild || hasArg cuml || hasArg pydocs; then
     cd ${REPODIR}/python
     if [[ ${INSTALL_TARGET} != "" ]]; then
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace ${SINGLEGPUPYTHON}
-        python setup.py install --single-version-externally-managed --record=record.txt ${SINGLEGPU}
+        python setup.py build_ext -j${PARALLEL_LEVEL:-1} ${CUML_EXTRA_PYTHON_ARGS} --library-dir=${LIBCUML_BUILD_DIR} install --single-version-externally-managed --record=record.txt
     else
-        python setup.py build_ext -j${PARALLEL_LEVEL:-1} --inplace --library-dir=${LIBCUML_BUILD_DIR} ${SINGLEGPU}
+        python setup.py build_ext -j${PARALLEL_LEVEL:-1} ${CUML_EXTRA_PYTHON_ARGS} --library-dir=${LIBCUML_BUILD_DIR}
     fi
 
     if hasArg pydocs; then

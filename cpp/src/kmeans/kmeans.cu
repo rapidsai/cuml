@@ -14,103 +14,82 @@
  * limitations under the License.
  */
 
+#include <cuml/cluster/kmeans.hpp>
 #include "sg_impl.cuh"
 
 namespace ML {
 namespace kmeans {
 
 // -------------------------- fit_predict --------------------------------//
-void fit_predict(const ML::cumlHandle &handle, const KMeansParams &params,
+void fit_predict(const raft::handle_t &handle, const KMeansParams &params,
                  const float *X, int n_samples, int n_features,
                  const float *sample_weight, float *centroids, int *labels,
                  float &inertia, int &n_iter) {
-  const ML::cumlHandle_impl &h = handle.getImpl();
-  ML::detail::streamSyncer _(h);
-
-  fit(h, params, X, n_samples, n_features, sample_weight, centroids, inertia,
-      n_iter);
-  predict(h, params, centroids, X, n_samples, n_features, sample_weight, labels,
-          inertia);
+  impl::fit(handle, params, X, n_samples, n_features, sample_weight, centroids,
+            inertia, n_iter);
+  impl::predict(handle, params, centroids, X, n_samples, n_features,
+                sample_weight, labels, inertia);
 }
 
-void fit_predict(const ML::cumlHandle &handle, const KMeansParams &params,
+void fit_predict(const raft::handle_t &handle, const KMeansParams &params,
                  const double *X, int n_samples, int n_features,
                  const double *sample_weight, double *centroids, int *labels,
                  double &inertia, int &n_iter) {
-  const ML::cumlHandle_impl &h = handle.getImpl();
-  ML::detail::streamSyncer _(h);
-
-  fit(h, params, X, n_samples, n_features, sample_weight, centroids, inertia,
-      n_iter);
-  predict(h, params, centroids, X, n_samples, n_features, sample_weight, labels,
-          inertia);
+  impl::fit(handle, params, X, n_samples, n_features, sample_weight, centroids,
+            inertia, n_iter);
+  impl::predict(handle, params, centroids, X, n_samples, n_features,
+                sample_weight, labels, inertia);
 }
 
 // ----------------------------- fit ---------------------------------//
 
-void fit(const ML::cumlHandle &handle, const KMeansParams &params,
+void fit(const raft::handle_t &handle, const KMeansParams &params,
          const float *X, int n_samples, int n_features,
          const float *sample_weight, float *centroids, float &inertia,
          int &n_iter) {
-  const ML::cumlHandle_impl &h = handle.getImpl();
-  ML::detail::streamSyncer _(h);
-
-  fit(h, params, X, n_samples, n_features, sample_weight, centroids, inertia,
-      n_iter);
+  impl::fit(handle, params, X, n_samples, n_features, sample_weight, centroids,
+            inertia, n_iter);
 }
 
-void fit(const ML::cumlHandle &handle, const KMeansParams &params,
+void fit(const raft::handle_t &handle, const KMeansParams &params,
          const double *X, int n_samples, int n_features,
          const double *sample_weight, double *centroids, double &inertia,
          int &n_iter) {
-  const ML::cumlHandle_impl &h = handle.getImpl();
-  ML::detail::streamSyncer _(h);
-
-  fit(h, params, X, n_samples, n_features, sample_weight, centroids, inertia,
-      n_iter);
+  impl::fit(handle, params, X, n_samples, n_features, sample_weight, centroids,
+            inertia, n_iter);
 }
 
 // ----------------------------- predict ---------------------------------//
 
-void predict(const ML::cumlHandle &handle, const KMeansParams &params,
+void predict(const raft::handle_t &handle, const KMeansParams &params,
              const float *centroids, const float *X, int n_samples,
              int n_features, const float *sample_weight, int *labels,
              float &inertia) {
-  const ML::cumlHandle_impl &h = handle.getImpl();
-  ML::detail::streamSyncer _(h);
-
-  predict(h, params, centroids, X, n_samples, n_features, sample_weight, labels,
-          inertia);
+  impl::predict(handle, params, centroids, X, n_samples, n_features,
+                sample_weight, labels, inertia);
 }
 
-void predict(const ML::cumlHandle &handle, const KMeansParams &params,
+void predict(const raft::handle_t &handle, const KMeansParams &params,
              const double *centroids, const double *X, int n_samples,
              int n_features, const double *sample_weight, int *labels,
              double &inertia) {
-  const ML::cumlHandle_impl &h = handle.getImpl();
-  ML::detail::streamSyncer _(h);
-
-  predict(h, params, centroids, X, n_samples, n_features, sample_weight, labels,
-          inertia);
+  impl::predict(handle, params, centroids, X, n_samples, n_features,
+                sample_weight, labels, inertia);
 }
 
 // ----------------------------- transform ---------------------------------//
-void transform(const ML::cumlHandle &handle, const KMeansParams &params,
+void transform(const raft::handle_t &handle, const KMeansParams &params,
                const float *centroids, const float *X, int n_samples,
                int n_features, int metric, float *X_new) {
-  const ML::cumlHandle_impl &h = handle.getImpl();
-  ML::detail::streamSyncer _(h);
-
-  transform(h, params, centroids, X, n_samples, n_features, metric, X_new);
+  impl::transform(handle, params, centroids, X, n_samples, n_features, metric,
+                  X_new);
 }
 
-void transform(const ML::cumlHandle &handle, const KMeansParams &params,
+void transform(const raft::handle_t &handle, const KMeansParams &params,
                const double *centroids, const double *X, int n_samples,
                int n_features, int metric, double *X_new) {
-  const ML::cumlHandle_impl &h = handle.getImpl();
-  ML::detail::streamSyncer _(h);
-
-  transform(h, params, centroids, X, n_samples, n_features, metric, X_new);
+  impl::transform(handle, params, centroids, X, n_samples, n_features, metric,
+                  X_new);
 }
 
 };  // end namespace kmeans

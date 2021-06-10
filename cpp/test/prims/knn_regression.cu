@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,14 +14,15 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include <linalg/cusolver_wrappers.h>
-#include <cuda_utils.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/cusolver_wrappers.h>
 #include <iostream>
 #include <label/classlabels.cuh>
-#include <linalg/reduce.cuh>
-#include <random/rng.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/reduce.cuh>
+#include <raft/random/rng.cuh>
+#include <raft/spatial/knn/knn.hpp>
 #include <selection/knn.cuh>
 #include <vector>
 #include "test_utils.h"
@@ -42,24 +43,24 @@ struct KNNRegressionInputs {
 
 void generate_data(float *out_samples, float *out_labels, int n_rows,
                    int n_cols, cudaStream_t stream) {
-  Random::Rng r(0ULL, MLCommon::Random::GenTaps);
+  raft::random::Rng r(0ULL, raft::random::GenTaps);
 
   r.uniform(out_samples, n_rows * n_cols, 0.0f, 1.0f, stream);
 
-  MLCommon::LinAlg::unaryOp<float>(
+  raft::linalg::unaryOp<float>(
     out_samples, out_samples, n_rows,
     [=] __device__(float input) { return 2 * input - 1; }, stream);
 
-  MLCommon::LinAlg::reduce(
+  raft::linalg::reduce(
     out_labels, out_samples, n_cols, n_rows, 0.0f, true, true, stream, false,
-    [=] __device__(float in, int n) { return in * in; }, Sum<float>(),
+    [=] __device__(float in, int n) { return in * in; }, raft::Sum<float>(),
     [=] __device__(float in) { return sqrt(in); });
 
   thrust::device_ptr<float> d_ptr = thrust::device_pointer_cast(out_labels);
   float max =
     *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr, d_ptr + n_rows));
 
-  MLCommon::LinAlg::unaryOp<float>(
+  raft::linalg::unaryOp<float>(
     out_labels, out_labels, n_rows,
     [=] __device__(float input) { return input / max; }, stream);
 }
@@ -67,10 +68,9 @@ void generate_data(float *out_samples, float *out_labels, int n_rows,
 class KNNRegressionTest : public ::testing::TestWithParam<KNNRegressionInputs> {
  protected:
   void basicTest() {
-    std::shared_ptr<MLCommon::deviceAllocator> alloc(
-      new defaultDeviceAllocator);
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    raft::handle_t handle;
+    cudaStream_t stream = handle.get_stream();
+    auto alloc = handle.get_device_allocator();
 
     cublasHandle_t cublas_handle;
     CUBLAS_CHECK(cublasCreate(&cublas_handle));
@@ -80,13 +80,13 @@ class KNNRegressionTest : public ::testing::TestWithParam<KNNRegressionInputs> {
 
     params = ::testing::TestWithParam<KNNRegressionInputs>::GetParam();
 
-    allocate(train_samples, params.rows * params.cols);
-    allocate(train_labels, params.rows);
+    raft::allocate(train_samples, params.rows * params.cols);
+    raft::allocate(train_labels, params.rows);
 
-    allocate(pred_labels, params.rows);
+    raft::allocate(pred_labels, params.rows);
 
-    allocate(knn_indices, params.rows * params.k);
-    allocate(knn_dists, params.rows * params.k);
+    raft::allocate(knn_indices, params.rows * params.k);
+    raft::allocate(knn_dists, params.rows * params.k);
 
     generate_data(train_samples, train_labels, params.rows, params.cols,
                   stream);
@@ -96,8 +96,9 @@ class KNNRegressionTest : public ::testing::TestWithParam<KNNRegressionInputs> {
     ptrs[0] = train_samples;
     sizes[0] = params.rows;
 
-    brute_force_knn(ptrs, sizes, params.cols, train_samples, params.rows,
-                    knn_indices, knn_dists, params.k, alloc, stream);
+    raft::spatial::knn::brute_force_knn(handle, ptrs, sizes, params.cols,
+                                        train_samples, params.rows, knn_indices,
+                                        knn_dists, params.k);
 
     std::vector<float *> y;
     y.push_back(train_labels);
@@ -106,7 +107,6 @@ class KNNRegressionTest : public ::testing::TestWithParam<KNNRegressionInputs> {
                 stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   void SetUp() override { basicTest(); }
@@ -136,7 +136,7 @@ class KNNRegressionTest : public ::testing::TestWithParam<KNNRegressionInputs> {
 typedef KNNRegressionTest KNNRegressionTestF;
 TEST_P(KNNRegressionTestF, Fit) {
   ASSERT_TRUE(devArrMatch(train_labels, pred_labels, params.rows,
-                          CompareApprox<float>(0.3)));
+                          raft::CompareApprox<float>(0.3)));
 }
 
 const std::vector<KNNRegressionInputs> inputsf = {

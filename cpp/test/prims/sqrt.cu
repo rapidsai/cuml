@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <linalg/sqrt.cuh>
-#include <random/rng.cuh>
+#include <raft/random/rng.cuh>
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -27,14 +27,14 @@ template <typename Type>
 __global__ void naiveSqrtElemKernel(Type *out, const Type *in1, int len) {
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
   if (idx < len) {
-    out[idx] = mySqrt(in1[idx]);
+    out[idx] = raft::mySqrt(in1[idx]);
   }
 }
 
 template <typename Type>
 void naiveSqrtElem(Type *out, const Type *in1, int len) {
   static const int TPB = 64;
-  int nblks = ceildiv(len, TPB);
+  int nblks = raft::ceildiv(len, TPB);
   naiveSqrtElemKernel<Type><<<nblks, TPB>>>(out, in1, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
@@ -56,13 +56,13 @@ class SqrtTest : public ::testing::TestWithParam<SqrtInputs<T>> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<SqrtInputs<T>>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     int len = params.len;
-    allocate(in1, len);
-    allocate(out_ref, len);
-    allocate(out, len);
+    raft::allocate(in1, len);
+    raft::allocate(out_ref, len);
+    raft::allocate(out, len);
     r.uniform(in1, len, T(1.0), T(2.0), stream);
 
     naiveSqrtElem(out_ref, in1, len);
@@ -92,20 +92,20 @@ const std::vector<SqrtInputs<double>> inputsd2 = {
 
 typedef SqrtTest<float> SqrtTestF;
 TEST_P(SqrtTestF, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(out_ref, out, params.len,
+                                raft::CompareApprox<float>(params.tolerance)));
 
-  ASSERT_TRUE(devArrMatch(out_ref, in1, params.len,
-                          CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(out_ref, in1, params.len,
+                                raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef SqrtTest<double> SqrtTestD;
 TEST_P(SqrtTestD, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(out_ref, out, params.len,
+                                raft::CompareApprox<double>(params.tolerance)));
 
-  ASSERT_TRUE(devArrMatch(out_ref, in1, params.len,
-                          CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(out_ref, in1, params.len,
+                                raft::CompareApprox<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(SqrtTests, SqrtTestF, ::testing::ValuesIn(inputsf2));

@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -73,8 +73,8 @@ def test_end_to_end(nrows, ncols, nclusters, n_parts,
 
     if input_type == "dataframe":
         assert cumlLabels.npartitions == parts_len
-        cumlPred = cp.array(cumlLabels.compute().to_pandas().values)
-        labels = cp.squeeze(y_train.compute().to_pandas().values)
+        cumlPred = cumlLabels.compute().values
+        labels = y_train.compute().values
     elif input_type == "array":
         assert len(cumlLabels.chunks[0]) == parts_len
         cumlPred = cp.array(cumlLabels.compute())
@@ -118,7 +118,7 @@ def test_transform(nrows, ncols, nclusters, n_parts, input_type, client):
     if input_type == "dataframe":
         X_train = to_dask_cudf(X)
         y_train = to_dask_cudf(y)
-        labels = cp.squeeze(y_train.compute().to_pandas().values)
+        labels = y_train.compute().values
     elif input_type == "array":
         X_train, y_train = X, y
         labels = cp.squeeze(y_train.compute())
@@ -159,10 +159,9 @@ def test_transform(nrows, ncols, nclusters, n_parts, input_type, client):
                                        stress_param(50)])
 @pytest.mark.parametrize("n_parts", [unit_param(None), quality_param(7),
                                      stress_param(50)])
-@pytest.mark.parametrize("score_eps", [unit_param(0.06), stress_param(35.0)])
 @pytest.mark.parametrize("input_type", ["dataframe", "array"])
 def test_score(nrows, ncols, nclusters, n_parts,
-               input_type, score_eps, client):
+               input_type, client):
 
     from cuml.dask.cluster import KMeans as cumlKMeans
 
@@ -191,28 +190,7 @@ def test_score(nrows, ncols, nclusters, n_parts,
 
     actual_score = cumlModel.score(X_train)
 
-    predictions = cumlModel.predict(X_train).compute()
+    local_model = cumlModel.get_combined_model()
+    expected_score = local_model.score(X_train.compute())
 
-    if input_type == "dataframe":
-        X = cp.array(X_train.compute().as_gpu_matrix())
-        predictions = cp.array(predictions)
-
-        centers = cp.array(cumlModel.cluster_centers_.as_gpu_matrix())
-    elif input_type == "array":
-        X = X_train.compute()
-        centers = cumlModel.cluster_centers_
-
-    expected_score = 0
-    for idx, label in enumerate(predictions):
-
-        x = X[idx]
-        y = centers[label]
-
-        dist = cp.sqrt(cp.sum((x - y)**2))
-        expected_score += dist**2
-
-    # Threshold increased for stress test to 35.0. This is the
-    # threshold required for `test_score[array-0.8-50-50-30-5000000.0]`
-    assert actual_score + score_eps \
-        >= (-1 * expected_score) \
-        >= actual_score - score_eps
+    assert abs(actual_score - expected_score) < 1e-3

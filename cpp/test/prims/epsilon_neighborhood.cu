@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include <common/device_buffer.hpp>
+#include <raft/cudart_utils.h>
 #include <distance/epsilon_neighborhood.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <random/make_blobs.cuh>
 #include "test_utils.h"
 
@@ -41,12 +41,12 @@ class EpsNeighTest : public ::testing::TestWithParam<EpsInputs<T, IdxT>> {
   void SetUp() override {
     param = ::testing::TestWithParam<EpsInputs<T, IdxT>>::GetParam();
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(data, param.n_row * param.n_col);
-    allocate(labels, param.n_row);
+    raft::allocate(data, param.n_row * param.n_col);
+    raft::allocate(labels, param.n_row);
     batchSize = param.n_row / param.n_batches;
-    allocate(adj, param.n_row * batchSize);
-    allocate(vd, batchSize + 1, true);
-    allocator.reset(new defaultDeviceAllocator);
+    raft::allocate(adj, param.n_row * batchSize);
+    raft::allocate(vd, batchSize + 1, true);
+    allocator.reset(new raft::mr::device::default_allocator);
     Random::make_blobs<T, IdxT>(data, labels, param.n_row, param.n_col,
                                 param.n_centers, allocator, stream, true,
                                 nullptr, nullptr, T(0.01), false);
@@ -67,7 +67,7 @@ class EpsNeighTest : public ::testing::TestWithParam<EpsInputs<T, IdxT>> {
   bool* adj;
   IdxT *labels, *vd;
   IdxT batchSize;
-  std::shared_ptr<deviceAllocator> allocator;
+  std::shared_ptr<raft::mr::device::allocator> allocator;
 };  // class EpsNeighTest
 
 const std::vector<EpsInputs<float, int>> inputsfi = {
@@ -86,8 +86,8 @@ TEST_P(EpsNeighTestFI, Result) {
     epsUnexpL2SqNeighborhood<float, int>(
       adj, vd, data, data + (i * batchSize * param.n_col), param.n_row,
       batchSize, param.n_col, param.eps * param.eps, stream);
-    ASSERT_TRUE(devArrMatch(param.n_row / param.n_centers, vd, batchSize,
-                            Compare<int>(), stream));
+    ASSERT_TRUE(raft::devArrMatch(param.n_row / param.n_centers, vd, batchSize,
+                                  raft::Compare<int>(), stream));
   }
 }
 INSTANTIATE_TEST_CASE_P(EpsNeighTests, EpsNeighTestFI,

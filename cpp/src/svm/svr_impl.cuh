@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,7 +16,7 @@
 
 #pragma once
 
-/** @file svr_impl.h
+/** @file svr_impl.cuh
  * @brief Implementation of the stateless C++ functions to fit an SVM regressor.
  */
 
@@ -25,16 +25,14 @@
 #include <cublas_v2.h>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
-#include <linalg/cublas_wrappers.h>
+#include <raft/linalg/cublas_wrappers.h>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/counting_iterator.h>
-#include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
 #include <label/classlabels.cuh>
-#include <linalg/unary_op.cuh>
 #include <matrix/kernelfactory.cuh>
-#include <matrix/matrix.cuh>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/matrix/matrix.cuh>
 #include "kernelcache.cuh"
 #include "smosolver.cuh"
 #include "svc_impl.cuh"
@@ -43,10 +41,10 @@ namespace ML {
 namespace SVM {
 
 template <typename math_t>
-void svrFit(const cumlHandle &handle, math_t *X, int n_rows, int n_cols,
+void svrFit(const raft::handle_t &handle, math_t *X, int n_rows, int n_cols,
             math_t *y, const svmParameter &param,
             MLCommon::Matrix::KernelParams &kernel_params,
-            svmModel<math_t> &model) {
+            svmModel<math_t> &model, const math_t *sample_weight) {
   ASSERT(n_cols > 0,
          "Parameter n_cols: number of columns cannot be less than one");
   ASSERT(n_rows > 0,
@@ -55,18 +53,17 @@ void svrFit(const cumlHandle &handle, math_t *X, int n_rows, int n_cols,
   // KernelCache could use multiple streams, not implemented currently
   // See Issue #948.
   //ML::detail::streamSyncer _(handle_impl.getImpl());
-  const cumlHandle_impl &handle_impl = handle.getImpl();
+  const raft::handle_t &handle_impl = handle;
 
-  cudaStream_t stream = handle_impl.getStream();
-
+  cudaStream_t stream = handle_impl.get_stream();
   MLCommon::Matrix::GramMatrixBase<math_t> *kernel =
     MLCommon::Matrix::KernelFactory<math_t>::create(
-      kernel_params, handle_impl.getCublasHandle());
+      kernel_params, handle_impl.get_cublas_handle());
 
   SmoSolver<math_t> smo(handle_impl, param, kernel);
-  smo.Solve(X, n_rows, n_cols, y, &(model.dual_coefs), &(model.n_support),
-            &(model.x_support), &(model.support_idx), &(model.b),
-            param.max_iter);
+  smo.Solve(X, n_rows, n_cols, y, sample_weight, &(model.dual_coefs),
+            &(model.n_support), &(model.x_support), &(model.support_idx),
+            &(model.b), param.max_iter);
   model.n_cols = n_cols;
   delete kernel;
 }

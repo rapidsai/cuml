@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -21,13 +21,14 @@ class UMAP(BaseEstimator,
            DelayedTransformMixin):
     """
     Uniform Manifold Approximation and Projection
+
     Finds a low dimensional embedding of the data that approximates
     an underlying manifold.
 
     Adapted from https://github.com/lmcinnes/umap/blob/master/umap/umap_.py
 
     Examples
-    ----------
+    --------
 
     .. code-block:: python
 
@@ -59,39 +60,42 @@ class UMAP(BaseEstimator,
         distributed_model = MNMG_UMAP(local_model)
         embedding = distributed_model.transform(X)
 
-    Note: Everytime this code is run, the output will be different because
+    .. note:: Everytime this code is run, the output will be different because
         "make_blobs" function generates random matrices.
 
     Notes
     -----
-    This module is heavily based on Leland McInnes' reference UMAP package.
+    This module is heavily based on Leland McInnes' reference UMAP package
+    [1]_.
+
     However, there are a number of differences and features that are
-    not yet implemented in cuml.umap:
+    not yet implemented in `cuml.umap`:
+
     * Using a non-Euclidean distance metric (support for a fixed set
-        of non-Euclidean metrics is planned for an upcoming release).
+      of non-Euclidean metrics is planned for an upcoming release).
     * Using a pre-computed pairwise distance matrix (under consideration
-        for future releases)
+      for future releases)
     * Manual initialization of initial embedding positions
 
     In addition to these missing features, you should expect to see
-    the final embeddings differing between cuml.umap and the reference
+    the final embeddings differing between `cuml.umap` and the reference
     UMAP. In particular, the reference UMAP uses an approximate kNN
     algorithm for large data sizes while cuml.umap always uses exact
     kNN.
 
-    Known issue: If a UMAP model has not yet been fit, it cannot be pickled
+    **Known issue:** If a UMAP model has not yet been fit, it cannot be pickled
 
     References
     ----------
-    * Leland McInnes, John Healy, James Melville
-    UMAP: Uniform Manifold Approximation and Projection for Dimension
-    Reduction
-    https://arxiv.org/abs/1802.03426
+    .. [1] `Leland McInnes, John Healy, James Melville
+       UMAP: Uniform Manifold Approximation and Projection for Dimension
+       Reduction. <https://arxiv.org/abs/1802.03426>`_
 
     """
-    def __init__(self, model, client=None, **kwargs):
-        super(UMAP, self).__init__(client, **kwargs)
-        self.local_model = model
+    def __init__(self, *, model, client=None, **kwargs):
+        super().__init__(client, **kwargs)
+
+        self._set_internal_model(model)
 
     def transform(self, X, convert_dtype=True):
         """

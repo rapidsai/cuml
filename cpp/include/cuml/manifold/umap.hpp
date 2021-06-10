@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,105 +16,38 @@
 
 #pragma once
 
-#include <common/cumlHandle.hpp>
-#include <cuml/neighbors/knn.hpp>
-#include "umapparams.h"
+namespace raft {
+class handle_t;
+}
 
 namespace ML {
+class UMAPParams;
+namespace UMAP {
 
-void transform(const cumlHandle &handle, float *X, int n, int d,
+void transform(const raft::handle_t &handle, float *X, int n, int d,
                int64_t *knn_indices, float *knn_dists, float *orig_X,
                int orig_n, float *embedding, int embedding_n,
                UMAPParams *params, float *transformed);
 
-void find_ab(const cumlHandle &handle, UMAPParams *params);
+void transform_sparse(const raft::handle_t &handle, int *indptr, int *indices,
+                      float *data, size_t nnz, int n, int d, int *orig_x_indptr,
+                      int *orig_x_indices, float *orig_x_data, size_t orig_nnz,
+                      int orig_n, float *embedding, int embedding_n,
+                      UMAPParams *params, float *transformed);
 
-void fit(const cumlHandle &handle,
+void find_ab(const raft::handle_t &handle, UMAPParams *params);
+
+void fit(const raft::handle_t &handle,
          float *X,  // input matrix
          float *y,  // labels
          int n, int d, int64_t *knn_indices, float *knn_dists,
          UMAPParams *params, float *embeddings);
 
-void fit(const cumlHandle &handle,
-         float *X,  // input matrix
-         int n,     // rows
-         int d,     // cols
-         int64_t *knn_indices, float *knn_dists, UMAPParams *params,
-         float *embeddings);
-
-class UMAP_API {
-  float *orig_X;
-  int orig_n;
-  cumlHandle *handle;
-  UMAPParams *params;
-
- public:
-  UMAP_API(const cumlHandle &handle, UMAPParams *params);
-  ~UMAP_API();
-
-  /**
-   * Fits an unsupervised UMAP model
-   * @param X
-   *        pointer to an array in row-major format (note: this will be col-major soon)
-   * @param n
-   *        n_samples in X
-   * @param d
-   *        d_features in X
-   * @param knn_indices
-   *        an array containing the n_neighbors nearest neighors indices for each sample
-   * @param knn_dists
-   *        an array containing the n_neighbors nearest neighors distances for each sample
-   * @param embeddings
-   *        an array to return the output embeddings of size (n_samples, n_components)
-   */
-  void fit(float *X, int n, int d, int64_t *knn_indices, float *knn_dists,
-           float *embeddings);
-
-  /**
-   * Fits a supervised UMAP model
-   * @param X
-   *        pointer to an array in row-major format (note: this will be col-major soon)
-   * @param y
-   *        pointer to an array of labels, shape=n_samples
-   * @param n
-   *        n_samples in X
-   * @param d
-   *        d_features in X
-   * @param knn_indices
-   *        an array containing the n_neighbors nearest neighors indices for each sample
-   * @param knn_dists
-   *        an array containing the n_neighbors nearest neighors distances for each sample
-   * @param embeddings
-   *        an array to return the output embeddings of size (n_samples, n_components)
-   */
-  void fit(float *X, float *y, int n, int d, int64_t *knn_indices,
-           float *knn_dists, float *embeddings);
-
-  /**
-   * Project a set of X vectors into the embedding space.
-   * @param X
-   *        pointer to an array in row-major format (note: this will be col-major soon)
-   * @param n
-   *        n_samples in X
-   * @param d
-   *        d_features in X
-   * @param knn_indices
-   *        an array containing the n_neighbors nearest neighors indices for each sample
-   * @param knn_dists
-   *        an array containing the n_neighbors nearest neighors distances for each sample
-   * @param embedding
-   *        pointer to embedding array of size (embedding_n, n_components) that has been created with fit()
-   * @param embedding_n
-   *        n_samples in embedding array
-   * @param out
-   *        pointer to array for storing output embeddings (n, n_components)
-   */
-  void transform(float *X, int n, int d, int64_t *knn_indices, float *knn_dists,
-                 float *embedding, int embedding_n, float *out);
-
-  /**
-   * Get the UMAPParams instance
-   */
-  UMAPParams *get_params();
-};
+void fit_sparse(const raft::handle_t &handle,
+                int *indptr,  // input matrix
+                int *indices, float *data, size_t nnz, float *y,
+                int n,  // rows
+                int d,  // cols
+                UMAPParams *params, float *embeddings);
+}  // namespace UMAP
 }  // namespace ML

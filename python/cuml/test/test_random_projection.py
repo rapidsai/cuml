@@ -23,7 +23,7 @@ from cuml.random_projection import johnson_lindenstrauss_min_dim \
 
 from sklearn.random_projection import johnson_lindenstrauss_min_dim \
                             as sklearn_johnson_lindenstrauss_min_dim
-from sklearn.datasets.samples_generator import make_blobs
+from sklearn.datasets import make_blobs
 
 from cuml.common import has_scipy
 
@@ -94,8 +94,9 @@ def test_johnson_lindenstrauss_min_dim():
     tests = zip(n_samples, eps_values)
 
     for n_samples, eps in tests:
-        cuml_value = cuml_johnson_lindenstrauss_min_dim(n_samples, eps)
-        sklearn_value = sklearn_johnson_lindenstrauss_min_dim(n_samples, eps)
+        cuml_value = cuml_johnson_lindenstrauss_min_dim(n_samples, eps=eps)
+        sklearn_value = sklearn_johnson_lindenstrauss_min_dim(n_samples,
+                                                              eps=eps)
         assert cuml_value == sklearn_value
 
 

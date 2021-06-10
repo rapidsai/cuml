@@ -17,7 +17,7 @@ import cudf
 import numpy as np
 
 import pytest
-from sklearn.exceptions import NotFittedError
+from cuml.common.exceptions import NotFittedError
 
 
 def _df_to_similarity_mat(df):
@@ -79,6 +79,7 @@ def test_labelencoder_unfitted():
         le.transform(df)
 
 
+@pytest.mark.parametrize("use_fit_transform", [False, True])
 @pytest.mark.parametrize(
         "orig_label, ord_label, expected_reverted, bad_ord_label",
         [(cudf.Series(['a', 'b', 'c']),
@@ -98,10 +99,14 @@ def test_labelencoder_unfitted():
           cudf.Series(['.09', '0.09', '09', '1.09']),
           cudf.Series([0, 1, 2, 3, 4]))])
 def test_inverse_transform(orig_label, ord_label,
-                           expected_reverted, bad_ord_label):
+                           expected_reverted, bad_ord_label,
+                           use_fit_transform):
     # prepare LabelEncoder
     le = LabelEncoder()
-    le.fit(orig_label)
+    if use_fit_transform:
+        le.fit_transform(orig_label)
+    else:
+        le.fit(orig_label)
     assert(le._fitted is True)
 
     # test if inverse_transform is correct
@@ -142,3 +147,23 @@ def test_empty_input(empty, ord_label):
     transformed = le.fit_transform(empty)
     assert(le._fitted is True)
     assert(len(transformed) == 0)
+
+
+def test_masked_encode():
+    int_values = [3, 1, 1, 2, 1, 1, 1, 1, 6, 5]
+    cat_values = ['a', 'd', 'b', 'c', 'd', 'd', 'd', 'c', 'b', 'c']
+    df = cudf.DataFrame({"filter_col": int_values,
+                         "cat_col": cat_values})
+
+    df_filter = df[df["filter_col"] == 1]
+    df_filter["cat_col"] = LabelEncoder().fit_transform(df_filter["cat_col"])
+
+    filtered_int_values = [int_values[i] for i in range(len(int_values))
+                           if int_values[i] == 1]
+    filtered_cat_values = [cat_values[i] for i in range(len(int_values))
+                           if int_values[i] == 1]
+    df_test = cudf.DataFrame({"filter_col": filtered_int_values,
+                              "cat_col": filtered_cat_values})
+    df_test["cat_col"] = LabelEncoder().fit_transform(df_test["cat_col"])
+
+    assert(df_filter["cat_col"].values == df_test["cat_col"].values).all()

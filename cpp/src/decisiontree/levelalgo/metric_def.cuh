@@ -15,9 +15,9 @@
  */
 
 #pragma once
-#include <common/cudart_utils.h>
 #include <math.h>
-#include <cuda_utils.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/cuda_utils.cuh>
 #include <vector>
 #include "../memory.h"
 

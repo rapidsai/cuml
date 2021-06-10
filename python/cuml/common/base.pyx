@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,28 +14,25 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
-import cuml
-import cuml.common.cuda
-import cuml.common.handle
-import cuml.common.logger as logger
+import os
 import inspect
+import nvtx
 
-from cudf.core import Series as cuSeries
-from cudf.core import DataFrame as cuDataFrame
-from cuml.common.array import CumlArray
-from cupy import ndarray as cupyArray
-from numba.cuda import devicearray as numbaArray
-from numpy import ndarray as numpyArray
-from pandas import DataFrame as pdDataFrame
-from pandas import Series as pdSeries
+import cuml.common
+import cuml.common.cuda
+import cuml.common.logger as logger
+import cuml.internals
+import cuml.raft.common.handle
+import cuml.common.input_utils
+
+from cuml.common.doc_utils import generate_docstring
+from cuml.common.mixins import TagsMixin
 
 
-class Base:
+class Base(TagsMixin,
+           metaclass=cuml.internals.BaseMetaClass):
     """
     Base class for all the ML algos. It handles some of the common operations
     across all algos. Every ML algo class exposed at cython level must inherit
@@ -107,19 +104,18 @@ class Base:
         stream that will be used for the model's computations, so users can
         run different models concurrently in different streams by creating
         handles in several streams.
-        If it is None, a new one is created just for this class.
-    verbose : int or boolean (default = False)
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
-    output_type : {'input', 'cudf', 'cupy', 'numpy'}, optional
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
         Variable to control output type of the results and attributes of
-        the estimators. If None, it'll inherit the output type set at the
-        module level, cuml.output_type. If set, the estimator will override
-        the global option for its behavior.
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_settings.output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Examples
     --------
-
-
 
     .. code-block:: python
 
@@ -149,7 +145,6 @@ class Base:
         stream = cuml.cuda.Stream()
         handle = cuml.Handle()
         handle.setStream(stream)
-        handle.enableRMM()   # Enable RMM as the device-side allocator
 
         algo = MyAlgo(handle=handle)
         algo.fit(...)
@@ -162,13 +157,16 @@ class Base:
         del base  # optional!
     """
 
-    def __init__(self, handle=None, verbose=False,
+    def __init__(self, *,
+                 handle=None,
+                 verbose=False,
                  output_type=None):
         """
         Constructor. All children must call init method of this base class.
 
         """
-        self.handle = cuml.common.handle.Handle() if handle is None else handle
+        self.handle = cuml.raft.common.handle.Handle() if handle is None \
+            else handle
 
         # Internally, self.verbose follows the spdlog/c++ standard of
         # 0 is most logging, and logging decreases from there.
@@ -180,17 +178,23 @@ class Base:
         else:
             self.verbose = verbose
 
-        self.output_type = cuml.global_output_type if output_type is None \
-            else _check_output_type_str(output_type)
+        self.output_type = _check_output_type_str(
+            cuml.global_settings.output_type
+            if output_type is None else output_type)
+        self._input_type = None
+        self.target_dtype = None
+        self.n_features_in_ = None
 
-        self._mirror_input = True if self.output_type == 'input' else False
+        nvtx_benchmark = os.getenv('NVTX_BENCHMARK')
+        if nvtx_benchmark and nvtx_benchmark.lower() == 'true':
+            self.set_nvtx_annotations()
 
     def __repr__(self):
         """
         Pretty prints the arguments of a class using Scikit-learn standard :)
         """
         cdef list signature = inspect.getfullargspec(self.__init__).args
-        if signature[0] == 'self':
+        if len(signature) > 0 and signature[0] == 'self':
             del signature[0]
         cdef dict state = self.__dict__
         cdef str string = self.__class__.__name__ + '('
@@ -213,7 +217,7 @@ class Base:
         extra set of parameters that it in-turn owns. This is to simplify the
         implementation of `get_params` and `set_params` methods.
         """
-        return []
+        return ["handle", "verbose", "output_type"]
 
     def get_params(self, deep=True):
         """
@@ -256,70 +260,170 @@ class Base:
 
     def __getattr__(self, attr):
         """
-        Method gives access to the correct format of cuml Array attribute to
-        the users. Any variable that starts with `_` and is a cuml Array
-        will return as the cuml Array converted to the appropriate format.
+        Redirects to `solver_model` if the attribute exists.
         """
-        real_name = '_' + attr
-        # using __dict__ due to a bug with scikit-learn hyperparam
-        # when doing hasattr. github issue #1736
-        if real_name in self.__dict__.keys():
-            if isinstance(self.__dict__[real_name], CumlArray):
-                return self.__dict__[real_name].to_output(self.output_type)
-            else:
-                return self.__dict__[real_name]
+        if attr == "solver_model":
+            return self.__dict__['solver_model']
+        if "solver_model" in self.__dict__.keys():
+            return getattr(self.solver_model, attr)
         else:
             raise AttributeError
 
-    def _set_output_type(self, input):
+    def _set_base_attributes(self,
+                             output_type=None,
+                             target_dtype=None,
+                             n_features=None):
         """
-        Method to be called by fit methods of inheriting classes
-        to correctly set the output type depending on the type of inputs,
-        class output type and global output type
-        """
-        if self.output_type == 'input' or self._mirror_input:
-            self.output_type = _input_to_type(input)
+        Method to set the base class attributes - output type,
+        target dtype and n_features. It combines the three different
+        function calls. It's called in fit function from estimators.
 
-    def _get_output_type(self, input):
+        Parameters
+        --------
+        output_type : DataFrame (default = None)
+            Is output_type is passed, aets the output_type on the
+            dataframe passed
+        target_dtype : Target column (default = None)
+            If target_dtype is passed, we call _set_target_dtype
+            on it
+        n_features: int or DataFrame (default=None)
+            If an int is passed, we set it to the number passed
+            If dataframe, we set it based on the passed df.
+
+        Examples
+        --------
+
+        .. code-block:: python
+
+                # To set output_type and n_features based on X
+                self._set_base_attributes(output_type=X, n_features=X)
+
+                # To set output_type on X and n_features to 10
+                self._set_base_attributes(output_type=X, n_features=10)
+
+                # To only set target_dtype
+                self._set_base_attributes(output_type=X, target_dtype=y)
+        """
+        if output_type is not None:
+            self._set_output_type(output_type)
+        if target_dtype is not None:
+            self._set_target_dtype(target_dtype)
+        if n_features is not None:
+            self._set_n_features_in(n_features)
+
+    def _set_output_type(self, inp):
+        self._input_type = cuml.common.input_utils.determine_array_type(inp)
+
+    def _get_output_type(self, inp):
         """
         Method to be called by predict/transform methods of inheriting classes.
         Returns the appropriate output type depending on the type of the input,
         class output type and global output type.
         """
-        if self._mirror_input:
-            return _input_to_type(input)
+
+        # Default to the global type
+        output_type = cuml.global_settings.output_type
+
+        # If its None, default to our type
+        if (output_type is None or output_type == "mirror"):
+            output_type = self.output_type
+
+        # If we are input, get the type from the input
+        if output_type == 'input':
+            output_type = cuml.common.input_utils.determine_array_type(inp)
+
+        return output_type
+
+    def _set_target_dtype(self, target):
+        self.target_dtype = cuml.common.input_utils.determine_array_dtype(
+            target)
+
+    def _get_target_dtype(self):
+        """
+        Method to be called by predict/transform methods of
+        inheriting classifier classes. Returns the appropriate output
+        dtype depending on the dtype of the target.
+        """
+        try:
+            out_dtype = self.target_dtype
+        except AttributeError:
+            out_dtype = None
+        return out_dtype
+
+    def _set_n_features_in(self, X):
+        if isinstance(X, int):
+            self.n_features_in_ = X
         else:
-            return self.output_type
+            self.n_features_in_ = X.shape[1]
+
+    def _more_tags(self):
+        # 'preserves_dtype' tag's Scikit definition currently only appies to
+        # transformers and whether the transform method conserves the dtype
+        # (in that case returns an empty list, otherwise the dtype it
+        # casts to).
+        # By default, our transform methods convert to self.dtype, but
+        # we need to check whether the tag has been defined already.
+        if hasattr(self, 'transform') and hasattr(self, 'dtype'):
+            return {'preserves_dtype': [self.dtype]}
+        return {}
+
+    def set_nvtx_annotations(self):
+        for func_name in ['fit', 'transform', 'predict', 'fit_transform',
+                          'fit_predict']:
+            if hasattr(self, func_name):
+                message = self.__class__.__module__ + '.' + func_name
+                msg = '{class_name}.{func_name} [{addr}]'
+                msg = msg.format(class_name=self.__class__.__module__,
+                                 func_name=func_name,
+                                 addr=hex(id(self)))
+                msg = msg[5:]  # remove cuml.
+                func = getattr(self, func_name)
+                func = nvtx.annotate(message=msg, domain="cuml_python")(func)
+                setattr(self, func_name, func)
 
 
 # Internal, non class owned helper functions
-
-_input_type_to_str = {
-    numpyArray: 'numpy',
-    cupyArray: 'cupy',
-    cuSeries: 'cudf',
-    cuDataFrame: 'cudf',
-    pdSeries: 'numpy',
-    pdDataFrame: 'numpy'
-}
-
-
-def _input_to_type(input):
-    # function to access _input_to_str, while still using the correct
-    # numba check for a numba device_array
-    if type(input) in _input_type_to_str.keys():
-        return _input_type_to_str[type(input)]
-    elif numbaArray.is_cuda_ndarray(input):
-        return 'numba'
-    else:
-        return 'cupy'
-
-
 def _check_output_type_str(output_str):
+
+    if (output_str is None):
+        return "input"
+
+    assert output_str != "mirror", \
+        ("Cannot pass output_type='mirror' in Base.__init__(). Did you forget "
+         "to pass `output_type=self.output_type` to a child estimator? "
+         "Currently `cuml.global_settings.output_type==`{}`"
+         ).format(cuml.global_settings.output_type)
+
     if isinstance(output_str, str):
         output_type = output_str.lower()
-        if output_type in ['numpy', 'cupy', 'cudf', 'numba']:
-            return output_str
-        else:
-            raise ValueError("output_type must be one of " +
-                             "'numpy', 'cupy', 'cudf' or 'numba'")
+        # Check for valid output types + "input"
+        if output_type in ['numpy', 'cupy', 'cudf', 'numba', 'input']:
+            # Return the original version if nothing has changed, otherwise
+            # return the lowered. This is to try and keep references the same
+            # to support sklearn.base.clone() where possible
+            return output_str if output_type == output_str else output_type
+
+    # Did not match any acceptable value
+    raise ValueError("output_type must be one of " +
+                     "'numpy', 'cupy', 'cudf' or 'numba'" +
+                     "Got: {}".format(output_str))
+
+
+def _determine_stateless_output_type(output_type, input_obj):
+    """
+    This function determines the output type using the same steps that are
+    performed in `cuml.common.base.Base`. This can be used to mimic the
+    functionality in `Base` for stateless functions or objects that do not
+    derive from `Base`.
+    """
+
+    # Default to the global type if not specified, otherwise, check the
+    # output_type string
+    temp_output = cuml.global_settings.output_type if output_type is None \
+        else _check_output_type_str(output_type)
+
+    # If we are using 'input', determine the the type from the input object
+    if temp_output == 'input':
+        temp_output = cuml.common.input_utils.determine_array_type(input_obj)
+
+    return temp_output

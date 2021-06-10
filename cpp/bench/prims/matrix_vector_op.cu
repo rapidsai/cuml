@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,8 +14,9 @@
  * limitations under the License.
  */
 
-#include <linalg/matrix_vector_op.cuh>
-#include "../common/ml_benchmark.hpp"
+#include <common/ml_benchmark.hpp>
+#include <raft/linalg/matrix_vector_op.cuh>
+#include <raft/mr/device/allocator.hpp>
 
 namespace MLCommon {
 namespace Bench {
@@ -29,8 +30,8 @@ struct Params {
 template <typename T>
 struct MatVecOp : public Fixture {
   MatVecOp(const std::string& name, const Params& p)
-    : Fixture(name,
-              std::shared_ptr<deviceAllocator>(new defaultDeviceAllocator)),
+    : Fixture(name, std::shared_ptr<raft::mr::device::allocator>(
+                      new raft::mr::device::default_allocator)),
       params(p) {}
 
  protected:
@@ -50,9 +51,9 @@ struct MatVecOp : public Fixture {
 
   void runBenchmark(::benchmark::State& state) override {
     loopOnState(state, [this]() {
-      MLCommon::LinAlg::matrixVectorOp(out, in, vec, params.cols, params.rows,
-                                       params.rowMajor, params.bcastAlongRows,
-                                       Sum<T>(), stream);
+      raft::linalg::matrixVectorOp(out, in, vec, params.cols, params.rows,
+                                   params.rowMajor, params.bcastAlongRows,
+                                   raft::Sum<T>(), stream);
     });
   }
 

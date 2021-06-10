@@ -16,7 +16,7 @@
 
 #pragma once
 
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 
 namespace MLCommon {
 
@@ -192,7 +192,7 @@ struct GridSync {
     __syncthreads();
     if (masterThread()) {
       __threadfence();
-      atomicAdd(arrivalTracker, updateValue);
+      raft::myAtomicAdd(arrivalTracker, updateValue);
       __threadfence();
     }
   }
@@ -219,6 +219,33 @@ struct GridSync {
   DI bool masterThread() const {
     return threadIdx.x == 0 && threadIdx.y == 0 && threadIdx.z == 0;
   }
-};
+};  // struct GridSync
+
+/**
+ * @brief Helper method to have a group of threadblocks signal completion to
+ *        others and also determine who's the last to arrive at this sync point
+ * @param done_count location in global mem used to mark signal done of the
+ *                   current threadblock.
+ * @param nBlks number of blocks involved with this done-handshake
+ * @param master which block is supposed to be considered as master in this
+ *               process of handshake.
+ * @param amIlast shared mem used for 'am i last' signal propagation to all the
+ *                threads in the block
+ * @return true if the current threadblock is the last to arrive else false
+ *
+ * @note This function should be entered by all threads in the block together.
+ *       It is the responsibility of the calling code to ensure that before
+ *       entering this function, all threads in this block really have completed
+ *       whatever their individual tasks were.
+ */
+DI bool signalDone(int* done_count, int nBlks, bool master, int* amIlast) {
+  if (threadIdx.x == 0) {
+    auto delta = master ? nBlks - 1 : -1;
+    auto old = atomicAdd(done_count, delta);
+    *amIlast = ((old + delta) == 0);
+  }
+  __syncthreads();
+  return *amIlast;
+}
 
 };  // end namespace MLCommon

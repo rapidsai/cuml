@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,10 +14,7 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 import ctypes
 import cudf
@@ -32,13 +29,18 @@ from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
 from cuml.common.array import CumlArray
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import Base
-from cuml.common.handle cimport cumlHandle
+from cuml.common.mixins import RegressorMixin
+from cuml.common.doc_utils import generate_docstring
+from cuml.linear_model.base import LinearPredictMixin
+from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
+from cuml.common.mixins import FMajorInputTagMixin
 
 cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
 
-    cdef void olsFit(cumlHandle& handle,
+    cdef void olsFit(handle_t& handle,
                      float *input,
                      int n_rows,
                      int n_cols,
@@ -48,7 +50,7 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                      bool fit_intercept,
                      bool normalize, int algo) except +
 
-    cdef void olsFit(cumlHandle& handle,
+    cdef void olsFit(handle_t& handle,
                      double *input,
                      int n_rows,
                      int n_cols,
@@ -58,24 +60,11 @@ cdef extern from "cuml/linear_model/glm.hpp" namespace "ML::GLM":
                      bool fit_intercept,
                      bool normalize, int algo) except +
 
-    cdef void olsPredict(cumlHandle& handle,
-                         const float *input,
-                         int n_rows,
-                         int n_cols,
-                         const float *coef,
-                         float intercept,
-                         float *preds) except +
 
-    cdef void olsPredict(cumlHandle& handle,
-                         const double *input,
-                         int n_rows,
-                         int n_cols,
-                         const double *coef,
-                         double intercept,
-                         double *preds) except +
-
-
-class LinearRegression(Base):
+class LinearRegression(Base,
+                       RegressorMixin,
+                       LinearPredictMixin,
+                       FMajorInputTagMixin):
 
     """
     LinearRegression is a simple machine learning model where the response y is
@@ -86,7 +75,7 @@ class LinearRegression(Base):
     stable, but Eig (default) is much faster.
 
     Examples
-    ---------
+    --------
 
     .. code-block:: python
 
@@ -151,13 +140,28 @@ class LinearRegression(Base):
         If True, the predictors in X will be normalized by dividing by it's
         L2 norm.
         If False, no scaling will be done.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_settings.output_type`.
+        See :ref:`output-data-type-configuration` for more info.
 
     Attributes
     -----------
     coef_ : array, shape (n_features)
         The estimated coefficients for the linear regression model.
     intercept_ : array
-        The independent term. If `fit_intercept_` is False, will be 0.
+        The independent term. If `fit_intercept` is False, will be 0.
 
     Notes
     ------
@@ -176,23 +180,26 @@ class LinearRegression(Base):
         is a regression task (predicting a continuous variable).
 
     For additional information, see `scikitlearn's OLS documentation
-    <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`_.
+    <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LinearRegression.html>`__.
 
     For an additional example see `the OLS notebook
-    <https://github.com/rapidsai/notebooks/blob/branch-0.12/cuml/linear_regression_demo.ipynb>`_.
+    <https://github.com/rapidsai/cuml/blob/branch-0.15/notebooks/linear_regression_demo.ipynb>`_.
 
 
     """
 
-    def __init__(self, algorithm='eig', fit_intercept=True, normalize=False,
+    coef_ = CumlArrayDescriptor()
+    intercept_ = CumlArrayDescriptor()
+
+    def __init__(self, *, algorithm='eig', fit_intercept=True, normalize=False,
                  handle=None, verbose=False, output_type=None):
-        super(LinearRegression, self).__init__(handle=handle,
-                                               verbose=verbose,
-                                               output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
 
         # internal array attributes
-        self._coef_ = None  # accessed via estimator.coef_
-        self._intercept_ = None  # accessed via estimator.intercept_
+        self.coef_ = None
+        self.intercept_ = None
 
         self.fit_intercept = fit_intercept
         self.normalize = normalize
@@ -211,31 +218,12 @@ class LinearRegression(Base):
             'eig': 1
         }[algorithm]
 
-    def fit(self, X, y, convert_dtype=False):
+    @generate_docstring()
+    def fit(self, X, y, convert_dtype=True) -> "LinearRegression":
         """
         Fit the model with X and y.
 
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        y : array-like (device or host) shape = (n_samples, 1)
-            Dense vector (floats or doubles) of shape (n_samples, 1).
-            Acceptable formats: cuDF Series, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the fit method will, when necessary, convert
-            y to be the same data type as X if they differ. This
-            will increase memory used for the method.
-
         """
-
-        self._set_output_type(X)
-
         cdef uintptr_t X_ptr, y_ptr
         X_m, n_rows, self.n_cols, self.dtype = \
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64])
@@ -262,12 +250,12 @@ class LinearRegression(Base):
                           "column currently.", UserWarning)
             self.algo = 0
 
-        self._coef_ = CumlArray.zeros(self.n_cols, dtype=self.dtype)
-        cdef uintptr_t coef_ptr = self._coef_.ptr
+        self.coef_ = CumlArray.zeros(self.n_cols, dtype=self.dtype)
+        cdef uintptr_t coef_ptr = self.coef_.ptr
 
         cdef float c_intercept1
         cdef double c_intercept2
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if self.dtype == np.float32:
 
@@ -304,68 +292,6 @@ class LinearRegression(Base):
 
         return self
 
-    def predict(self, X, convert_dtype=False):
-        """
-        Predicts `y` values for `X`.
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        convert_dtype : bool, optional (default = False)
-            When set to True, the predict method will, when necessary, convert
-            the input to the data type which was used to train the model. This
-            will increase memory used for the method.
-
-        Returns
-        -------
-        y: cuDF DataFrame
-           Dense vector (floats or doubles) of shape (n_samples, 1)
-
-        """
-
-        out_type = self._get_output_type(X)
-
-        cdef uintptr_t X_ptr
-        X_m, n_rows, n_cols, dtype = \
-            input_to_cuml_array(X, check_dtype=self.dtype,
-                                convert_to_dtype=(self.dtype if convert_dtype
-                                                  else None),
-                                check_cols=self.n_cols)
-        X_ptr = X_m.ptr
-
-        cdef uintptr_t coef_ptr = self._coef_.ptr
-
-        preds = CumlArray.zeros(n_rows, dtype=dtype)
-        cdef uintptr_t preds_ptr = preds.ptr
-
-        cdef cumlHandle* handle_ = <cumlHandle*><size_t>self.handle.getHandle()
-
-        if dtype.type == np.float32:
-            olsPredict(handle_[0],
-                       <float*>X_ptr,
-                       <int>n_rows,
-                       <int>n_cols,
-                       <float*>coef_ptr,
-                       <float>self.intercept_,
-                       <float*>preds_ptr)
-        else:
-            olsPredict(handle_[0],
-                       <double*>X_ptr,
-                       <int>n_rows,
-                       <int>n_cols,
-                       <double*>coef_ptr,
-                       <double>self.intercept_,
-                       <double*>preds_ptr)
-
-        self.handle.sync()
-
-        del(X_m)
-
-        return preds.to_output(out_type)
-
     def get_param_names(self):
-        return ['algorithm', 'fit_intercept', 'normalize']
+        return super().get_param_names() + \
+            ['algorithm', 'fit_intercept', 'normalize']

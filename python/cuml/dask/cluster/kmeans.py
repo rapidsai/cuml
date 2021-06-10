@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,12 +23,11 @@ from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.input_utils import concatenate
 from cuml.dask.common.input_utils import DistributedDataHandler
 
-from cuml.dask.common.comms import CommsContext
-from cuml.dask.common.comms import worker_state
+from cuml.raft.dask.common.comms import Comms
+from cuml.raft.dask.common.comms import get_raft_comm_state
 
-from cuml.dask.common.utils import raise_exception_from_futures
+from cuml.dask.common.utils import wait_and_raise_from_futures
 
-from dask.distributed import wait
 from cuml.common.memory_utils import with_cupy_rmm
 
 
@@ -49,19 +48,25 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
     ----------
 
     handle : cuml.Handle
-        If it is None, a new one is created just for this class.
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
     n_clusters : int (default = 8)
         The number of centroids or clusters you want.
     max_iter : int (default = 300)
         The more iterations of EM, the more accurate, but slower.
     tol : float (default = 1e-4)
         Stopping criterion when centroid means do not change much.
-    verbose : int or boolean (default = False)
-        Logging level for printing diagnostic information
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
     random_state : int (default = 1)
         If you want results to be the same when you restart Python,
         select a state.
-    init : {'scalable-kmeans++', 'k-means||' , 'random' or an ndarray}
+    init : {'scalable-kmeans++', 'k-means||' , 'random' or an ndarray} \
            (default = 'scalable-k-means++')
         'scalable-k-means++' or 'k-means||': Uses fast and stable scalable
         kmeans++ intialization.
@@ -91,16 +96,16 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
     """
 
-    def __init__(self, client=None, verbose=False, **kwargs):
-        super(KMeans, self).__init__(client=client,
-                                     verbose=verbose,
-                                     **kwargs)
+    def __init__(self, *, client=None, verbose=False, **kwargs):
+        super().__init__(client=client,
+                         verbose=verbose,
+                         **kwargs)
 
     @staticmethod
     @mnmg_import
     def _func_fit(sessionId, objs, datatype, **kwargs):
         from cuml.cluster.kmeans_mg import KMeansMG as cumlKMeans
-        handle = worker_state(sessionId)["handle"]
+        handle = get_raft_comm_state(sessionId)["handle"]
 
         inp_data = concatenate(objs)
 
@@ -127,7 +132,8 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
         data = DistributedDataHandler.create(X, client=self.client)
         self.datatype = data.datatype
 
-        comms = CommsContext(comms_p2p=False)
+        # This needs to happen on the scheduler
+        comms = Comms(comms_p2p=False, client=self.client)
         comms.init(workers=data.workers)
 
         kmeans_fit = [self.client.submit(KMeans._func_fit,
@@ -139,13 +145,11 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
                                          pure=False)
                       for idx, wf in enumerate(data.worker_to_parts.items())]
 
-        wait(kmeans_fit)
-        raise_exception_from_futures(kmeans_fit)
+        wait_and_raise_from_futures(kmeans_fit)
 
         comms.destroy()
 
-        self.local_model = kmeans_fit[0].result()
-        self.cluster_centers_ = self.local_model.cluster_centers_
+        self._set_internal_model(kmeans_fit[0])
 
         return self
 

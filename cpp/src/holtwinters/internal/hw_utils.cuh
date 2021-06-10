@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,16 +15,14 @@
  */
 
 #pragma once
-#include <common/cudart_utils.h>
 #include <cuda_runtime.h>
 #include <cuml/tsa/holtwinters_params.h>
-#include <linalg/cublas_wrappers.h>
-#include <linalg/cusolver_wrappers.h>
-#include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/cublas_wrappers.h>
+#include <raft/linalg/cusolver_wrappers.h>
 #include <iostream>
-#include <linalg/eltwise.cuh>
+#include <raft/linalg/eltwise.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <vector>
 
 #define IDX(n, m, N) (n + (m) * (N))

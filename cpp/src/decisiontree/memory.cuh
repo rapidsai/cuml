@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,22 +15,25 @@
  */
 
 #pragma once
-#include <common/cudart_utils.h>
+#include <cuml/tree/algo_helper.h>
 #include <thrust/extrema.h>
 #include <algorithm>
 #include <cub/cub.cuh>
 #include <cuml/common/logger.hpp>
+#include <raft/handle.hpp>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/host/allocator.hpp>
 #include "memory.h"
 
 template <class T, class L>
 TemporaryMemory<T, L>::TemporaryMemory(
-  const std::shared_ptr<MLCommon::deviceAllocator> device_allocator_in,
-  const std::shared_ptr<MLCommon::hostAllocator> host_allocator_in,
+  const std::shared_ptr<raft::mr::device::allocator> device_allocator_in,
+  const std::shared_ptr<raft::mr::host::allocator> host_allocator_in,
   const cudaStream_t stream_in, int N, int Ncols, int n_unique,
   const ML::DecisionTree::DecisionTreeParams& tree_params) {
   stream = stream_in;
-  max_shared_mem = MLCommon::getSharedMemPerBlock();
-  num_sms = MLCommon::getMultiProcessorCount();
+  max_shared_mem = raft::getSharedMemPerBlock();
+  num_sms = raft::getMultiProcessorCount();
   device_allocator = device_allocator_in;
   host_allocator = host_allocator_in;
   LevelMemAllocator(N, Ncols, n_unique, tree_params);
@@ -38,13 +41,13 @@ TemporaryMemory<T, L>::TemporaryMemory(
 
 template <class T, class L>
 TemporaryMemory<T, L>::TemporaryMemory(
-  const ML::cumlHandle_impl& handle, cudaStream_t stream_in, int N, int Ncols,
+  const raft::handle_t& handle, cudaStream_t stream_in, int N, int Ncols,
   int n_unique, const ML::DecisionTree::DecisionTreeParams& tree_params) {
   stream = stream_in;
-  max_shared_mem = MLCommon::getSharedMemPerBlock();
-  num_sms = MLCommon::getMultiProcessorCount();
-  device_allocator = handle.getDeviceAllocator();
-  host_allocator = handle.getHostAllocator();
+  max_shared_mem = raft::getSharedMemPerBlock();
+  num_sms = raft::getMultiProcessorCount();
+  device_allocator = handle.get_device_allocator();
+  host_allocator = handle.get_host_allocator();
   LevelMemAllocator(N, Ncols, n_unique, tree_params);
 }
 
@@ -75,7 +78,7 @@ void TemporaryMemory<T, L>::LevelMemAllocator(
   int nrows, int ncols, int n_unique,
   const ML::DecisionTree::DecisionTreeParams& tree_params) {
   int nbins = tree_params.n_bins;
-  int depth = tree_params.max_depth;
+  int depth = (tree_params.max_depth < 0) ? -1 : (tree_params.max_depth + 1);
   if (depth > swap_depth || (depth == -1)) {
     max_nodes_per_level = pow(2, swap_depth);
   } else {
@@ -83,6 +86,7 @@ void TemporaryMemory<T, L>::LevelMemAllocator(
   }
   size_t maxnodes = max_nodes_per_level;
   size_t ncols_sampled = (size_t)(ncols * tree_params.max_features);
+  ncols_sampled = ncols_sampled > 0 ? ncols_sampled : 1;
   if (depth < 64) {
     gather_max_nodes = std::min((size_t)(nrows + 1),
                                 (size_t)(pow((size_t)2, (size_t)depth) + 1));
@@ -140,25 +144,16 @@ void TemporaryMemory<T, L>::LevelMemAllocator(
   }
   d_sample_cnt =
     new MLCommon::device_buffer<unsigned int>(device_allocator, stream, nrows);
-  if (tree_params.shuffle_features == true) {
-    d_colids = new MLCommon::device_buffer<unsigned int>(
-      device_allocator, stream, ncols_sampled * gather_max_nodes);
-    h_colids = new MLCommon::host_buffer<unsigned int>(
-      host_allocator, stream, ncols_sampled * gather_max_nodes);
-    totalmem += ncols_sampled * maxnodes * sizeof(int);
-
-  } else {
-    //This buffers are also reused by gather algorithm
-    d_colids = new MLCommon::device_buffer<unsigned int>(device_allocator,
-                                                         stream, ncols);
-    d_colstart = new MLCommon::device_buffer<unsigned int>(device_allocator,
-                                                           stream, parentsz);
-    h_colids =
-      new MLCommon::host_buffer<unsigned int>(host_allocator, stream, ncols);
-    h_colstart =
-      new MLCommon::host_buffer<unsigned int>(host_allocator, stream, parentsz);
-    totalmem += ncols * sizeof(int) + parentsz * sizeof(int);
-  }
+  //This buffers are also reused by gather algorithm
+  d_colids =
+    new MLCommon::device_buffer<unsigned int>(device_allocator, stream, ncols);
+  d_colstart = new MLCommon::device_buffer<unsigned int>(device_allocator,
+                                                         stream, parentsz);
+  h_colids =
+    new MLCommon::host_buffer<unsigned int>(host_allocator, stream, ncols);
+  h_colstart =
+    new MLCommon::host_buffer<unsigned int>(host_allocator, stream, parentsz);
+  totalmem += ncols * sizeof(int) + parentsz * sizeof(int);
   //CUB memory for gather algorithms
   size_t temp_storage_bytes = 0;
   void* cub_buffer = NULL;

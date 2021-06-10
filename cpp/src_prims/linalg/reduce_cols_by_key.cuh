@@ -18,8 +18,8 @@
 
 #include <stdlib.h>
 #include <cub/cub.cuh>
-#include <cuda_utils.cuh>
 #include <limits>
+#include <raft/cuda_utils.cuh>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -40,7 +40,7 @@ __global__ void reduce_cols_by_key_kernel(const T* data,
   IdxType colId = idx % ncols;
   IdxType rowId = idx / ncols;
   KeyType key = keys[colId];
-  atomicAdd(out + rowId * nkeys + key, data[idx]);
+  raft::myAtomicAdd(out + rowId * nkeys + key, data[idx]);
 }
 
 /**
@@ -69,7 +69,7 @@ void reduce_cols_by_key(const T* data, const KeyIteratorT keys, T* out,
 
   CUDA_CHECK(cudaMemsetAsync(out, 0, sizeof(T) * nrows * nkeys, stream));
   constexpr int TPB = 256;
-  int nblks = (int)ceildiv<IdxType>(nrows * ncols, TPB);
+  int nblks = (int)raft::ceildiv<IdxType>(nrows * ncols, TPB);
   reduce_cols_by_key_kernel<<<nblks, TPB, 0, stream>>>(data, keys, out, nrows,
                                                        ncols, nkeys);
   CUDA_CHECK(cudaPeekAtLastError());

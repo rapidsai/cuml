@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,8 @@
 
 #pragma once
 
-#include <common/device_buffer.hpp>
 #include <cub/cub.cuh>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include <selection/kselection.cuh>
 
 namespace MLCommon {
@@ -49,10 +48,10 @@ __global__ void get_vecs(const math_t *cache, int n_vec, const int *cache_idx,
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   int row = tid % n_vec;  // row idx
   if (tid < n_vec * n) {
-    int out_col = tid / n_vec;  // col idx
-    int cache_col = cache_idx[out_col];
+    size_t out_col = tid / n_vec;  // col idx
+    size_t cache_col = cache_idx[out_col];
     if (cache_idx[out_col] >= 0) {
-      if (row + out_col * n_vec < n_vec * n) {
+      if (row + out_col * n_vec < (size_t)n_vec * n) {
         out[tid] = cache[row + cache_col * n_vec];
       }
     }
@@ -99,7 +98,8 @@ __global__ void store_vecs(const math_t *tile, int n_tile, int n_vec,
     // We ignore negative values. The rest of the checks should be fulfilled
     // if the cache is used properly
     if (cache_col >= 0 && cache_col < n_cache_vecs && data_col < n_tile) {
-      cache[row + cache_col * n_vec] = tile[row + data_col * n_vec];
+      cache[row + (size_t)cache_col * n_vec] =
+        tile[row + (size_t)data_col * n_vec];
     }
   }
 }
@@ -196,7 +196,7 @@ int DI find_nth_occurrence(const int *array, int n, int val, int k) {
  */
 template <int nthreads, int associativity>
 DI void rank_set_entries(const int *cache_time, int n_cache_sets, int *rank) {
-  const int items_per_thread = ceildiv(associativity, nthreads);
+  const int items_per_thread = raft::ceildiv(associativity, nthreads);
   typedef cub::BlockRadixSort<int, nthreads, items_per_thread, int>
     BlockRadixSort;
   __shared__ typename BlockRadixSort::TempStorage temp_storage;
@@ -256,7 +256,7 @@ __global__ void assign_cache_idx(const int *keys, int n, const int *cache_set,
                                  int *cache_time, int time, int *cache_idx) {
   int block_offset = blockIdx.x * associativity;
 
-  const int items_per_thread = ceildiv(associativity, nthreads);
+  const int items_per_thread = raft::ceildiv(associativity, nthreads);
 
   // the size of rank limits how large associativity can be used in practice
   __shared__ int rank[items_per_thread * nthreads];

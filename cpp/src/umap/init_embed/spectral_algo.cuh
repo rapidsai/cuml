@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,14 +17,14 @@
 #pragma once
 
 #include <cuml/manifold/umapparams.h>
-#include <common/device_buffer.hpp>
+#include <cuml/common/device_buffer.hpp>
 
-#include <sparse/coo.cuh>
+#include <raft/sparse/coo.cuh>
 
-#include <linalg/add.cuh>
+#include <raft/linalg/add.cuh>
 
-#include <linalg/transpose.h>
-#include <random/rng.cuh>
+#include <raft/linalg/transpose.h>
+#include <raft/random/rng.cuh>
 
 #include <cuml/cluster/spectral.hpp>
 #include <iostream>
@@ -40,28 +40,28 @@ using namespace ML;
 /**
    * Performs a spectral layout initialization
    */
-template <typename T>
-void launcher(const cumlHandle &handle, const T *X, int n, int d,
-              const int64_t *knn_indices, const T *knn_dists,
-              MLCommon::Sparse::COO<float> *coo, UMAPParams *params,
-              T *embedding) {
-  cudaStream_t stream = handle.getStream();
+template <typename value_idx, typename T>
+void launcher(const raft::handle_t &handle, int n, int d,
+              const value_idx *knn_indices, const T *knn_dists,
+              raft::sparse::COO<float> *coo, UMAPParams *params, T *embedding) {
+  cudaStream_t stream = handle.get_stream();
 
   ASSERT(n > params->n_components,
          "Spectral layout requires n_samples > n_components");
 
-  MLCommon::device_buffer<T> tmp_storage(handle.getDeviceAllocator(), stream,
+  MLCommon::device_buffer<T> tmp_storage(handle.get_device_allocator(), stream,
                                          n * params->n_components);
 
+  uint64_t seed = params->random_state;
+
   Spectral::fit_embedding(handle, coo->rows(), coo->cols(), coo->vals(),
-                          coo->nnz, n, params->n_components,
-                          tmp_storage.data());
+                          coo->nnz, n, params->n_components, tmp_storage.data(),
+                          seed);
 
-  MLCommon::LinAlg::transpose(tmp_storage.data(), embedding, n,
-                              params->n_components,
-                              handle.getImpl().getCublasHandle(), stream);
+  raft::linalg::transpose(handle, tmp_storage.data(), embedding, n,
+                          params->n_components, stream);
 
-  MLCommon::LinAlg::unaryOp<T>(
+  raft::linalg::unaryOp<T>(
     tmp_storage.data(), tmp_storage.data(), n * params->n_components,
     [=] __device__(T input) { return fabsf(input); }, stream);
 
@@ -69,18 +69,16 @@ void launcher(const cumlHandle &handle, const T *X, int n, int d,
   T max = *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr,
                                 d_ptr + (n * params->n_components)));
 
-  uint64_t seed = params->random_state;
-
   // Reuse tmp_storage to add random noise
-  MLCommon::Random::Rng r(seed);
+  raft::random::Rng r(seed);
   r.normal(tmp_storage.data(), n * params->n_components, 0.0f, 0.0001f, stream);
 
-  MLCommon::LinAlg::unaryOp<T>(
+  raft::linalg::unaryOp<T>(
     embedding, embedding, n * params->n_components,
     [=] __device__(T input) { return (10.0f / max) * input; }, stream);
 
-  MLCommon::LinAlg::add(embedding, embedding, tmp_storage.data(),
-                        n * params->n_components, stream);
+  raft::linalg::add(embedding, embedding, tmp_storage.data(),
+                    n * params->n_components, stream);
 
   CUDA_CHECK(cudaPeekAtLastError());
 }

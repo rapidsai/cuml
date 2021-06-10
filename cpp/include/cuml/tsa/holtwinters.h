@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,11 @@
 
 #pragma once
 
-#include <cuml/cuml.hpp>
 #include "holtwinters_params.h"
+
+namespace raft {
+class handle_t;
+}
 
 namespace ML {
 namespace HoltWinters {
@@ -75,11 +78,11 @@ void buffer_size(int n, int batch_size, int frequency,
              * @param[out] error_d
              *             device pointer to array which will hold training SSE error
              */
-void fit(const ML::cumlHandle &handle, int n, int batch_size, int frequency,
+void fit(const raft::handle_t &handle, int n, int batch_size, int frequency,
          int start_periods, ML::SeasonalType seasonal, float epsilon,
          float *data, float *level_d, float *trend_d, float *season_d,
          float *error_d);
-void fit(const ML::cumlHandle &handle, int n, int batch_size, int frequency,
+void fit(const raft::handle_t &handle, int n, int batch_size, int frequency,
          int start_periods, ML::SeasonalType seasonal, double epsilon,
          double *data, double *level_d, double *trend_d, double *season_d,
          double *error_d);
@@ -107,10 +110,10 @@ void fit(const ML::cumlHandle &handle, int n, int batch_size, int frequency,
              * @param[out] forecast_d
              *             device pointer to array which will hold the forecast points
              */
-void forecast(const ML::cumlHandle &handle, int n, int batch_size,
+void forecast(const raft::handle_t &handle, int n, int batch_size,
               int frequency, int h, ML::SeasonalType seasonal, float *level_d,
               float *trend_d, float *season_d, float *forecast_d);
-void forecast(const ML::cumlHandle &handle, int n, int batch_size,
+void forecast(const raft::handle_t &handle, int n, int batch_size,
               int frequency, int h, ML::SeasonalType seasonal, double *level_d,
               double *trend_d, double *season_d, double *forecast_d);
 

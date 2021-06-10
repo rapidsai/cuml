@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,23 +17,21 @@
 #pragma once
 
 #include <math.h>
-#include <cuda_utils.cuh>
 #include <iostream>
 #include <limits>
 #include <memory>
+#include <raft/cuda_utils.cuh>
 
-#include <common/cudart_utils.h>
 #include <linalg/init.h>
-#include <common/cumlHandle.hpp>
-#include <common/device_buffer.hpp>
-#include <common/host_buffer.hpp>
+#include <raft/cudart_utils.h>
 #include <cub/device/device_select.cuh>
-#include <cuml/common/cuml_allocator.hpp>
-#include <linalg/add.cuh>
-#include <linalg/binary_op.cuh>
-#include <linalg/map_then_reduce.cuh>
-#include <linalg/unary_op.cuh>
-#include <matrix/matrix.cuh>
+#include <cuml/common/device_buffer.hpp>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/map_then_reduce.cuh>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/matrix/matrix.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include "ws_util.cuh"
 
 namespace ML {
@@ -59,10 +57,10 @@ class Results {
    * @param n_cols number of features
    * @param C penalty parameter
    */
-  Results(const cumlHandle_impl &handle, const math_t *x, const math_t *y,
-          int n_rows, int n_cols, math_t C, SvmType svmType)
-    : allocator(handle.getDeviceAllocator()),
-      stream(handle.getStream()),
+  Results(const raft::handle_t &handle, const math_t *x, const math_t *y,
+          int n_rows, int n_cols, const math_t *C, SvmType svmType)
+    : allocator(handle.get_device_allocator()),
+      stream(handle.get_stream()),
       handle(handle),
       n_rows(n_rows),
       n_cols(n_cols),
@@ -71,14 +69,14 @@ class Results {
       C(C),
       svmType(svmType),
       n_train(svmType == EPSILON_SVR ? n_rows * 2 : n_rows),
-      cub_storage(handle.getDeviceAllocator(), stream),
-      d_num_selected(handle.getDeviceAllocator(), stream, 1),
-      d_val_reduced(handle.getDeviceAllocator(), stream, 1),
-      f_idx(handle.getDeviceAllocator(), stream, n_train),
-      idx_selected(handle.getDeviceAllocator(), stream, n_train),
-      val_selected(handle.getDeviceAllocator(), stream, n_train),
-      val_tmp(handle.getDeviceAllocator(), stream, n_train),
-      flag(handle.getDeviceAllocator(), stream, n_train) {
+      cub_storage(handle.get_device_allocator(), stream),
+      d_num_selected(handle.get_device_allocator(), stream, 1),
+      d_val_reduced(handle.get_device_allocator(), stream, 1),
+      f_idx(handle.get_device_allocator(), stream, n_train),
+      idx_selected(handle.get_device_allocator(), stream, n_train),
+      val_selected(handle.get_device_allocator(), stream, n_train),
+      val_tmp(handle.get_device_allocator(), stream, n_train),
+      flag(handle.get_device_allocator(), stream, n_train) {
     InitCubBuffers();
     MLCommon::LinAlg::range(f_idx.data(), n_train, stream);
     CUDA_CHECK(cudaPeekAtLastError());
@@ -131,8 +129,8 @@ class Results {
     math_t *x_support = (math_t *)allocator->allocate(
       n_support * n_cols * sizeof(math_t), stream);
     // Collect support vectors into a contiguous block
-    MLCommon::Matrix::copyRows(x, n_rows, n_cols, x_support, idx, n_support,
-                               stream);
+    raft::matrix::copyRows(x, n_rows, n_cols, x_support, idx, n_support,
+                           stream);
     CUDA_CHECK(cudaPeekAtLastError());
     return x_support;
   }
@@ -156,14 +154,14 @@ class Results {
   void CombineCoefs(const math_t *alpha, math_t *coef) {
     MLCommon::device_buffer<math_t> math_tmp(allocator, stream, n_train);
     // Calculate dual coefficients = alpha * y
-    MLCommon::LinAlg::binaryOp(
+    raft::linalg::binaryOp(
       coef, alpha, y, n_train,
       [] __device__(math_t a, math_t y) { return a * y; }, stream);
 
     if (svmType == EPSILON_SVR) {
       // for regression the final coefficients are
       // coef[0..n-rows-1] = alpha[0..nrows-1] - alpha[nrows..2*n_rows-1]
-      MLCommon::LinAlg::add(coef, coef, coef + n_rows, n_rows, stream);
+      raft::linalg::add(coef, coef, coef + n_rows, n_rows, stream);
     }
   }
 
@@ -176,14 +174,14 @@ class Results {
    */
   void GetDualCoefs(const math_t *val_tmp, math_t **dual_coefs,
                     int *n_support) {
-    auto allocator = handle.getDeviceAllocator();
+    auto allocator = handle.get_device_allocator();
     // Return only the non-zero coefficients
     auto select_op = [] __device__(math_t a) { return 0 != a; };
     *n_support =
       SelectByCoef(val_tmp, n_rows, val_tmp, select_op, val_selected.data());
     *dual_coefs =
       (math_t *)allocator->allocate(*n_support * sizeof(math_t), stream);
-    MLCommon::copy(*dual_coefs, val_selected.data(), *n_support, stream);
+    raft::copy(*dual_coefs, val_selected.data(), *n_support, stream);
   }
 
   /**
@@ -198,7 +196,7 @@ class Results {
     auto select_op = [] __device__(math_t a) -> bool { return 0 != a; };
     SelectByCoef(coef, n_rows, f_idx.data(), select_op, idx_selected.data());
     int *idx = (int *)allocator->allocate(n_support * sizeof(int), stream);
-    MLCommon::copy(idx, idx_selected.data(), n_support, stream);
+    raft::copy(idx, idx_selected.data(), n_support, stream);
     return idx;
   }
 
@@ -220,15 +218,12 @@ class Results {
     // For unbound support vectors f_i = -b.
 
     // Select f for unbound support vectors (0 < alpha < C)
-    math_t C = this->C;
-    auto select = [C] __device__(math_t a) -> bool { return 0 < a && a < C; };
-
-    int n_free = SelectByCoef(alpha, n_train, f, select, val_selected.data());
+    int n_free = SelectUnboundSV(alpha, n_train, f, val_selected.data());
     if (n_free > 0) {
       cub::DeviceReduce::Sum(cub_storage.data(), cub_bytes, val_selected.data(),
                              d_val_reduced.data(), n_free, stream);
       math_t sum;
-      MLCommon::updateHost(&sum, d_val_reduced.data(), 1, stream);
+      raft::update_host(&sum, d_val_reduced.data(), 1, stream);
       return -sum / n_free;
     } else {
       // All support vectors are bound. Let's define
@@ -242,17 +237,41 @@ class Results {
     }
   }
 
-  std::shared_ptr<deviceAllocator> allocator;
+  /**
+  * @brief Select values for unbound support vectors (not bound by C).
+  * @tparam valType type of values that will be selected
+  * @param [in] alpha dual coefficients, size [n]
+  * @param [in] n number of dual coefficients
+  * @param [in] val values to filter, size [n]
+  * @param [out] out buffer size [n]
+  * @return number of selected elements
+  */
+  template <typename valType>
+  int SelectUnboundSV(const math_t *alpha, int n, const valType *val,
+                      valType *out) {
+    auto select = [] __device__(math_t a, math_t C) -> bool {
+      return 0 < a && a < C;
+    };
+    raft::linalg::binaryOp(flag.data(), alpha, C, n, select, stream);
+    cub::DeviceSelect::Flagged(cub_storage.data(), cub_bytes, val, flag.data(),
+                               out, d_num_selected.data(), n, stream);
+    int n_selected;
+    raft::update_host(&n_selected, d_num_selected.data(), 1, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+    return n_selected;
+  }
+
+  std::shared_ptr<raft::mr::device::allocator> allocator;
 
  private:
-  const cumlHandle_impl &handle;
+  const raft::handle_t &handle;
   cudaStream_t stream;
 
   int n_rows;       //!< number of rows in the training vector matrix
   int n_cols;       //!< number of features
   const math_t *x;  //!< training vectors
   const math_t *y;  //!< labels
-  math_t C;         //!< penalty parameter
+  const math_t *C;  //!< penalty parameter
   SvmType svmType;  //!< SVM problem type: SVC or SVR
   int n_train;  //!< number of training vectors (including duplicates for SVR)
 
@@ -304,13 +323,13 @@ class Results {
   template <typename select_op, typename valType>
   int SelectByCoef(const math_t *coef, int n, const valType *val, select_op op,
                    valType *out) {
-    set_flag<<<MLCommon::ceildiv(n, TPB), TPB, 0, stream>>>(flag.data(), coef,
-                                                            n, op);
+    set_flag<<<raft::ceildiv(n, TPB), TPB, 0, stream>>>(flag.data(), coef, n,
+                                                        op);
     CUDA_CHECK(cudaPeekAtLastError());
     cub::DeviceSelect::Flagged(cub_storage.data(), cub_bytes, val, flag.data(),
                                out, d_num_selected.data(), n, stream);
     int n_selected;
-    MLCommon::updateHost(&n_selected, d_num_selected.data(), 1, stream);
+    raft::update_host(&n_selected, d_num_selected.data(), 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     return n_selected;
   }
@@ -323,15 +342,15 @@ class Results {
    */
   math_t SelectReduce(const math_t *alpha, const math_t *f, bool min,
                       void (*flag_op)(bool *, int, const math_t *,
-                                      const math_t *, math_t)) {
-    flag_op<<<MLCommon::ceildiv(n_train, TPB), TPB, 0, stream>>>(
+                                      const math_t *, const math_t *)) {
+    flag_op<<<raft::ceildiv(n_train, TPB), TPB, 0, stream>>>(
       flag.data(), n_train, alpha, y, C);
     CUDA_CHECK(cudaPeekAtLastError());
     cub::DeviceSelect::Flagged(cub_storage.data(), cub_bytes, f, flag.data(),
                                val_selected.data(), d_num_selected.data(),
                                n_train, stream);
     int n_selected;
-    MLCommon::updateHost(&n_selected, d_num_selected.data(), 1, stream);
+    raft::update_host(&n_selected, d_num_selected.data(), 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     math_t res = 0;
     ASSERT(n_selected > 0,
@@ -344,7 +363,7 @@ class Results {
       cub::DeviceReduce::Max(cub_storage.data(), cub_bytes, val_selected.data(),
                              d_val_reduced.data(), n_selected, stream);
     }
-    MLCommon::updateHost(&res, d_val_reduced.data(), 1, stream);
+    raft::update_host(&res, d_val_reduced.data(), 1, stream);
     return res;
   }
 };  // namespace SVM

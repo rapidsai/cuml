@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,78 +16,71 @@
 
 #pragma once
 
-#include <common/device_buffer.hpp>
-#include <cuda_utils.cuh>
-#include <matrix/math.cuh>
-#include <matrix/matrix.cuh>
-#include <random/rng.cuh>
-#include "cublas_wrappers.h"
-#include "cusolver_wrappers.h"
-#include "eig.cuh"
-#include "gemm.cuh"
-#include "gemv.h"
-#include "qr.cuh"
-#include "svd.cuh"
-#include "transpose.h"
+#include <raft/cudart_utils.h>
+#include <raft/linalg/cublas_wrappers.h>
+#include <raft/linalg/cusolver_wrappers.h>
+#include <raft/linalg/gemv.h>
+#include <raft/linalg/transpose.h>
+#include <cuml/common/device_buffer.hpp>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/eig.cuh>
+#include <raft/linalg/gemm.cuh>
+#include <raft/linalg/qr.cuh>
+#include <raft/linalg/svd.cuh>
+#include <raft/matrix/math.cuh>
+#include <raft/matrix/matrix.cuh>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/device/buffer.hpp>
+#include <raft/random/rng.cuh>
+#include <rmm/device_uvector.hpp>
 
 namespace MLCommon {
 namespace LinAlg {
 
 template <typename math_t>
-void lstsqSVD(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
-              cusolverDnHandle_t cusolverH, cublasHandle_t cublasH,
-              std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream) {
-  ASSERT(n_cols > 0, "lstsq: number of columns cannot be less than one");
+void lstsq(const raft::handle_t &handle, math_t *A, int n_rows, int n_cols,
+           math_t *b, math_t *w, int algo, cudaStream_t stream) {
+  cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
+  cublasHandle_t cublasH = handle.get_cublas_handle();
+
   ASSERT(n_rows > 1, "lstsq: number of rows cannot be less than two");
 
   int U_len = n_rows * n_cols;
   int V_len = n_cols * n_cols;
 
-  device_buffer<math_t> S(allocator, stream, n_cols);
-  device_buffer<math_t> V(allocator, stream, V_len);
-  device_buffer<math_t> U(allocator, stream, U_len);
-  device_buffer<math_t> UT_b(allocator, stream, n_rows);
+  rmm::device_uvector<math_t> S(n_cols, stream);
+  rmm::device_uvector<math_t> V(V_len, stream);
+  rmm::device_uvector<math_t> U(U_len, stream);
 
-  svdQR(A, n_rows, n_cols, S.data(), U.data(), V.data(), true, true, true,
-        cusolverH, cublasH, allocator, stream);
+  // we use a temporary vector to avoid doing re-using w in the last step, the
+  // gemv, which could cause a very sporadic race condition in Pascal and
+  // Turing GPUs that caused it to give the wrong results. Details:
+  // https://github.com/rapidsai/cuml/issues/1739
+  rmm::device_uvector<math_t> tmp_vector(n_cols, stream);
 
-  gemv(U.data(), n_rows, n_cols, b, w, true, cublasH, stream);
+  if (algo == 0 || n_cols == 1) {
+    raft::linalg::svdQR(handle, A, n_rows, n_cols, S.data(), U.data(), V.data(),
+                        true, true, true, stream);
+  } else if (algo == 1) {
+    raft::linalg::svdEig(handle, A, n_rows, n_cols, S.data(), U.data(),
+                         V.data(), true, stream);
+  }
 
-  Matrix::matrixVectorBinaryDivSkipZero(w, S.data(), 1, n_cols, false, true,
-                                        stream);
+  raft::linalg::gemv(handle, U.data(), n_rows, n_cols, b, tmp_vector.data(),
+                     true, stream);
 
-  gemv(V.data(), n_cols, n_cols, w, w, false, cublasH, stream);
-}
+  raft::matrix::matrixVectorBinaryDivSkipZero(tmp_vector.data(), S.data(), 1,
+                                              n_cols, false, true, stream);
 
-template <typename math_t>
-void lstsqEig(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
-              cusolverDnHandle_t cusolverH, cublasHandle_t cublasH,
-              std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream) {
-  ASSERT(n_cols > 1, "lstsq: number of columns cannot be less than two");
-  ASSERT(n_rows > 1, "lstsq: number of rows cannot be less than two");
-
-  int U_len = n_rows * n_cols;
-  int V_len = n_cols * n_cols;
-
-  device_buffer<math_t> S(allocator, stream, n_cols);
-  device_buffer<math_t> V(allocator, stream, V_len);
-  device_buffer<math_t> U(allocator, stream, U_len);
-
-  svdEig(A, n_rows, n_cols, S.data(), U.data(), V.data(), true, cublasH,
-         cusolverH, stream, allocator);
-
-  gemv(U.data(), n_rows, n_cols, b, w, true, cublasH, stream);
-
-  Matrix::matrixVectorBinaryDivSkipZero(w, S.data(), 1, n_cols, false, true,
-                                        stream);
-
-  gemv(V.data(), n_cols, n_cols, w, w, false, cublasH, stream);
+  raft::linalg::gemv(handle, V.data(), n_cols, n_cols, tmp_vector.data(), w,
+                     false, stream);
 }
 
 template <typename math_t>
 void lstsqQR(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
              cusolverDnHandle_t cusolverH, cublasHandle_t cublasH,
-             std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream) {
+             std::shared_ptr<raft::mr::device::allocator> allocator,
+             cudaStream_t stream) {
   int m = n_rows;
   int n = n_cols;
 
@@ -105,29 +98,30 @@ void lstsqQR(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
   const int lda = m;
   const int ldb = m;
 
-  CUSOLVER_CHECK(
-    cusolverDngeqrf_bufferSize(cusolverH, m, n, A, lda, &lwork_geqrf));
+  CUSOLVER_CHECK(raft::linalg::cusolverDngeqrf_bufferSize(cusolverH, m, n, A,
+                                                          lda, &lwork_geqrf));
 
-  CUSOLVER_CHECK(cusolverDnormqr_bufferSize(cusolverH, side, trans, m, 1, n, A,
-                                            lda, d_tau.data(), b,  // C,
-                                            lda,                   // ldc,
-                                            &lwork_ormqr));
+  CUSOLVER_CHECK(raft::linalg::cusolverDnormqr_bufferSize(
+    cusolverH, side, trans, m, 1, n, A, lda, d_tau.data(), b,  // C,
+    lda,                                                       // ldc,
+    &lwork_ormqr));
 
   lwork = (lwork_geqrf > lwork_ormqr) ? lwork_geqrf : lwork_ormqr;
 
   device_buffer<math_t> d_work(allocator, stream, lwork);
 
-  CUSOLVER_CHECK(cusolverDngeqrf(cusolverH, m, n, A, lda, d_tau.data(),
-                                 d_work.data(), lwork, d_info.data(), stream));
+  CUSOLVER_CHECK(raft::linalg::cusolverDngeqrf(cusolverH, m, n, A, lda,
+                                               d_tau.data(), d_work.data(),
+                                               lwork, d_info.data(), stream));
 
   CUDA_CHECK(cudaMemcpyAsync(&info, d_info.data(), sizeof(int),
                              cudaMemcpyDeviceToHost, stream));
   CUDA_CHECK(cudaStreamSynchronize(stream));
   ASSERT(0 == info, "lstsq.h: QR wasn't successful");
 
-  CUSOLVER_CHECK(cusolverDnormqr(cusolverH, side, trans, m, 1, n, A, lda,
-                                 d_tau.data(), b, ldb, d_work.data(), lwork,
-                                 d_info.data(), stream));
+  CUSOLVER_CHECK(raft::linalg::cusolverDnormqr(
+    cusolverH, side, trans, m, 1, n, A, lda, d_tau.data(), b, ldb,
+    d_work.data(), lwork, d_info.data(), stream));
 
   CUDA_CHECK(cudaMemcpyAsync(&info, d_info.data(), sizeof(int),
                              cudaMemcpyDeviceToHost, stream));
@@ -136,9 +130,9 @@ void lstsqQR(math_t *A, int n_rows, int n_cols, math_t *b, math_t *w,
 
   const math_t one = 1;
 
-  CUBLAS_CHECK(cublastrsm(cublasH, side, CUBLAS_FILL_MODE_UPPER, CUBLAS_OP_N,
-                          CUBLAS_DIAG_NON_UNIT, n, 1, &one, A, lda, b, ldb,
-                          stream));
+  CUBLAS_CHECK(raft::linalg::cublastrsm(cublasH, side, CUBLAS_FILL_MODE_UPPER,
+                                        CUBLAS_OP_N, CUBLAS_DIAG_NON_UNIT, n, 1,
+                                        &one, A, lda, b, ldb, stream));
 
   CUDA_CHECK(cudaMemcpyAsync(w, b, sizeof(math_t) * n, cudaMemcpyDeviceToDevice,
                              stream));

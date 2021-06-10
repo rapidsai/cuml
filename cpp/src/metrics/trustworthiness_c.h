@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,34 +14,17 @@
  * limitations under the License.
  */
 
-namespace MLCommon {
-namespace Distance {
-enum DistanceType {
-  /** evaluate as dist_ij = sum(x_ik^2) + sum(y_ij)^2 - 2*sum(x_ik * y_jk) */
-  EucExpandedL2 = 0,
-  /** same as above, but inside the epilogue, perform square root operation */
-  EucExpandedL2Sqrt,
-  /** cosine distance */
-  EucExpandedCosine,
-  /** L1 distance */
-  EucUnexpandedL1,
-  /** evaluate as dist_ij += (x_ik - y-jk)^2 */
-  EucUnexpandedL2,
-  /** same as above, but inside the epilogue, perform square root operation */
-  EucUnexpandedL2Sqrt,
-};
-}
-};  // namespace MLCommon
+#pragma once
 
-using namespace MLCommon::Distance;
+#include <raft/linalg/distance_type.h>
 
 namespace ML {
 namespace Metrics {
 
-template <typename math_t, DistanceType distance_type>
-double trustworthiness_score(const cumlHandle& h, math_t* X, math_t* X_embedded,
-                             int n, int m, int d, int n_neighbors,
-                             int batchSize);
+template <typename math_t, raft::distance::DistanceType distance_type>
+double trustworthiness_score(const raft::handle_t& h, const math_t* X,
+                             math_t* X_embedded, int n, int m, int d,
+                             int n_neighbors, int batchSize);
 
 }
 }  // namespace ML

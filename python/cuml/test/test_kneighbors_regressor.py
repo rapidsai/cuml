@@ -1,5 +1,5 @@
 
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@
 import pytest
 
 import cudf
-import rmm
 
 from cuml.neighbors import KNeighborsRegressor as cuKNN
 
@@ -96,12 +95,29 @@ def test_score(nrows, ncols, n_neighbors, n_clusters, datatype):
     y = y.astype(np.float32)
 
     if datatype == "dataframe":
-        X = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X))
-        y = cudf.DataFrame.from_gpu_matrix(rmm.to_device(y.reshape(nrows, 1)))
+        X = cudf.DataFrame(X)
+        y = cudf.DataFrame(y.reshape(nrows, 1))
 
     knn_cu = cuKNN(n_neighbors=n_neighbors)
     knn_cu.fit(X, y)
 
+    assert knn_cu.score(X, y) >= 0.9999
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_score_dtype(dtype):
+    # Using make_blobs here to check averages and neighborhoods
+    X, y = make_blobs(n_samples=1000, centers=2,
+                      cluster_std=0.01,
+                      n_features=50, random_state=0)
+
+    X = X.astype(dtype)
+    y = y.astype(dtype)
+
+    knn_cu = cuKNN(n_neighbors=5)
+    knn_cu.fit(X, y)
+    pred = knn_cu.predict(X)
+    assert pred.dtype == dtype
     assert knn_cu.score(X, y) >= 0.9999
 
 
@@ -113,8 +129,8 @@ def test_predict_multioutput(input_type, output_type):
     y = np.array([[15, 2], [5, 4]]).astype(np.int32)
 
     if input_type == "cudf":
-        X = cudf.DataFrame.from_gpu_matrix(rmm.to_device(X))
-        y = cudf.DataFrame.from_gpu_matrix(rmm.to_device(y))
+        X = cudf.DataFrame(X)
+        y = cudf.DataFrame(y)
     elif input_type == "cupy":
         X = cp.asarray(X)
         y = cp.asarray(y)
@@ -129,6 +145,6 @@ def test_predict_multioutput(input_type, output_type):
     elif output_type == "numpy":
         assert isinstance(p, np.ndarray)
     elif output_type == "cupy":
-        assert isinstance(p, cp.core.core.ndarray)
+        assert isinstance(p, cp.ndarray)
 
     assert array_equal(p.astype(np.int32), y)

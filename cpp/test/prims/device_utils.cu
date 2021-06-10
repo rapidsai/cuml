@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <common/device_utils.cuh>
 #include "test_utils.h"
 
@@ -55,7 +55,7 @@ struct BatchedBlockReduceInputs {
 template <int NThreads>
 void batchedBlockReduceTest(int* out, const BatchedBlockReduceInputs& param,
                             cudaStream_t stream) {
-  size_t smemSize = sizeof(int) * (param.blkDim / WarpSize) * NThreads;
+  size_t smemSize = sizeof(int) * (param.blkDim / raft::WarpSize) * NThreads;
   batchedBlockReduceTestKernel<NThreads>
     <<<1, param.blkDim, smemSize, stream>>>(out);
   CUDA_CHECK(cudaGetLastError());
@@ -73,8 +73,8 @@ class BatchedBlockReduceTest
   void SetUp() override {
     params = ::testing::TestWithParam<BatchedBlockReduceInputs>::GetParam();
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocate(out, NThreads, true);
-    allocate(refOut, NThreads, true);
+    raft::allocate(out, NThreads, true);
+    raft::allocate(refOut, NThreads, true);
     computeRef();
     batchedBlockReduceTest<NThreads>(out, params, stream);
   }
@@ -95,7 +95,7 @@ class BatchedBlockReduceTest
         ref[i] += j * NThreads + i;
       }
     }
-    updateDevice(refOut, ref, NThreads, stream);
+    raft::update_device(refOut, ref, NThreads, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     delete[] ref;
   }
@@ -115,7 +115,7 @@ const std::vector<BatchedBlockReduceInputs> inputs = {
 };
 
 TEST_P(BBTest8, Result) {
-  ASSERT_TRUE(devArrMatch(refOut, out, 8, Compare<int>()));
+  ASSERT_TRUE(devArrMatch(refOut, out, 8, raft::Compare<int>()));
 }
 INSTANTIATE_TEST_CASE_P(BatchedBlockReduceTests, BBTest8,
                         ::testing::ValuesIn(inputs));

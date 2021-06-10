@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ from cuml.dask.common.base import BaseEstimator
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.dask.common.base import mnmg_import
 from cuml.dask.common.base import SyncFitMixinLinearModel
-from cuml.dask.common.comms import worker_state
+from cuml.raft.dask.common.comms import get_raft_comm_state
 
 
 class Ridge(BaseEstimator,
@@ -65,13 +65,14 @@ class Ridge(BaseEstimator,
     coef_ : array, shape (n_features)
         The estimated coefficients for the linear regression model.
     intercept_ : array
-        The independent term. If fit_intercept_ is False, will be 0.
+        The independent term. If `fit_intercept` is False, will be 0.
+
     """
 
-    def __init__(self, client=None, verbose=False, **kwargs):
-        super(Ridge, self).__init__(client=client,
-                                    verbose=verbose,
-                                    **kwargs)
+    def __init__(self, *, client=None, verbose=False, **kwargs):
+        super().__init__(client=client,
+                         verbose=verbose,
+                         **kwargs)
 
         self.coef_ = None
         self.intercept_ = None
@@ -92,9 +93,8 @@ class Ridge(BaseEstimator,
 
         models = self._fit(model_func=Ridge._create_model, data=(X, y))
 
-        self.local_model = list(models.values())[0].result()
-        self.coef_ = self.local_model.coef_
-        self.intercept_ = self.local_model.intercept_
+        self._set_internal_model(models[0])
+
         return self
 
     def predict(self, X, delayed=True):
@@ -124,5 +124,5 @@ class Ridge(BaseEstimator,
     @mnmg_import
     def _create_model(sessionId, datatype, **kwargs):
         from cuml.linear_model.ridge_mg import RidgeMG
-        handle = worker_state(sessionId)["handle"]
+        handle = get_raft_comm_state(sessionId)["handle"]
         return RidgeMG(handle=handle, output_type=datatype, **kwargs)

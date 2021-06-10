@@ -16,7 +16,8 @@
 import pytest
 import numpy as np
 import cupy as cp
-from cuml.feature_extraction.tfidf import TfidfTransformer
+import cupyx
+from cuml.feature_extraction.text import TfidfTransformer
 from sklearn.feature_extraction.text import TfidfTransformer as SkTfidfTransfo
 
 
@@ -73,9 +74,11 @@ def test_tfidf_transformer(data, norm, use_idf, smooth_idf, sublinear_tf):
 @pytest.mark.parametrize('sublinear_tf', [True, False])
 def test_tfidf_transformer_copy(norm, use_idf, smooth_idf, sublinear_tf):
     if use_idf:
-        pytest.xfail("cupy.sparse.csr does not support inplace multiply.")
+        pytest.xfail(
+            "cupyx.scipy.sparse.csr does not support inplace multiply."
+        )
 
-    data_gpu = cp.sparse.csr_matrix(cp.array([
+    data_gpu = cupyx.scipy.sparse.csr_matrix(cp.array([
         [0, 1, 1, 1],
         [0, 2, 0, 1]
     ], dtype=cp.float64, order='F'))
@@ -89,9 +92,9 @@ def test_tfidf_transformer_copy(norm, use_idf, smooth_idf, sublinear_tf):
 
 
 def test_tfidf_transformer_sparse():
-    X = cp.sparse.rand(10, 2000, dtype=np.float64, random_state=123)
-    X_csc = cp.sparse.csc_matrix(X)
-    X_csr = cp.sparse.csr_matrix(X)
+    X = cupyx.scipy.sparse.rand(10, 2000, dtype=np.float64, random_state=123)
+    X_csc = cupyx.scipy.sparse.csc_matrix(X)
+    X_csr = cupyx.scipy.sparse.csr_matrix(X)
 
     X_trans_csc = TfidfTransformer().fit_transform(X_csc).todense()
     X_trans_csr = TfidfTransformer().fit_transform(X_csr).todense()

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,23 @@
 
 #pragma once
 
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
+#include <utility>  // pair
 
 namespace MLCommon {
+
+// TODO move to raft https://github.com/rapidsai/raft/issues/90
+/** helper method to get the compute capability version numbers */
+inline std::pair<int, int> getDeviceCapability() {
+  int devId;
+  CUDA_CHECK(cudaGetDevice(&devId));
+  int major, minor;
+  CUDA_CHECK(
+    cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, devId));
+  CUDA_CHECK(
+    cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, devId));
+  return std::make_pair(major, minor);
+}
 
 /**
  * @brief Batched warp-level sum reduction
@@ -40,8 +54,8 @@ namespace MLCommon {
 template <typename T, int NThreads>
 DI T batchedWarpReduce(T val) {
 #pragma unroll
-  for (int i = NThreads; i < WarpSize; i <<= 1) {
-    val += shfl(val, laneId() + i);
+  for (int i = NThreads; i < raft::WarpSize; i <<= 1) {
+    val += raft::shfl(val, raft::laneId() + i);
   }
   return val;
 }
@@ -68,10 +82,10 @@ DI T batchedWarpReduce(T val) {
 template <typename T, int NThreads>
 DI T batchedBlockReduce(T val, char *smem) {
   auto *sTemp = reinterpret_cast<T *>(smem);
-  constexpr int nGroupsPerWarp = WarpSize / NThreads;
-  static_assert(isPo2(nGroupsPerWarp), "nGroupsPerWarp must be a PO2!");
+  constexpr int nGroupsPerWarp = raft::WarpSize / NThreads;
+  static_assert(raft::isPo2(nGroupsPerWarp), "nGroupsPerWarp must be a PO2!");
   const int nGroups = (blockDim.x + NThreads - 1) / NThreads;
-  const int lid = laneId();
+  const int lid = raft::laneId();
   const int lgid = lid % NThreads;
   const int gid = threadIdx.x / NThreads;
   const auto wrIdx = (gid / nGroupsPerWarp) * NThreads + lgid;

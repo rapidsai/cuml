@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
  */
 
 #include <cmath>
-#include <cuml/cuml.hpp>
 #include <cuml/ensemble/randomforest.hpp>
 #include <utility>
 #include "benchmark.cuh"
@@ -77,23 +76,33 @@ std::vector<RegParams> getInputs() {
   struct std::vector<RegParams> out;
   RegParams p;
   p.data.rowMajor = false;
-  p.regression.shuffle = true;  // better to shuffle when n_informative < ncols
-  p.regression.seed = 12345ULL;
-  p.regression.effective_rank = -1;  // dataset generation will be faster
-  p.regression.bias = 4.5;
-  p.regression.tail_strength = 0.5;  // unused when effective_rank = -1
-  p.regression.noise = 1.;
-  p.rf.bootstrap = true;
-  p.rf.rows_sample = 1.f;
-  p.rf.tree_params.max_leaves = 1 << 20;
-  p.rf.tree_params.min_rows_per_node = 3;
-  p.rf.tree_params.n_bins = 32;
-  p.rf.tree_params.bootstrap_features = true;
-  p.rf.tree_params.quantile_per_tree = false;
-  p.rf.tree_params.split_algo = 1;
-  p.rf.tree_params.split_criterion = ML::CRITERION::MSE;
-  p.rf.n_trees = 500;
-  p.rf.n_streams = 8;
+  p.regression = {
+    .shuffle = true,       // Better to shuffle when n_informative < ncols
+    .effective_rank = -1,  // dataset generation will be faster
+    .bias = 4.5,
+    .tail_strength = 0.5,  // unused when effective_rank = -1
+    .noise = 1.0,
+    .seed = 12345ULL};
+
+  p.rf = set_rf_params(10,                 /*max_depth */
+                       (1 << 20),          /* max_leaves */
+                       0.3,                /* max_features */
+                       32,                 /* n_bins */
+                       1,                  /* split_algo */
+                       3,                  /* min_samples_leaf */
+                       3,                  /* min_samples_split */
+                       0.0f,               /* min_impurity_decrease */
+                       true,               /* bootstrap_features */
+                       true,               /* bootstrap */
+                       500,                /* n_trees */
+                       1.f,                /* max_samples */
+                       1234ULL,            /* seed */
+                       ML::CRITERION::MSE, /* split_criterion */
+                       false,              /* quantile_per_tree */
+                       8,                  /* n_streams */
+                       false,              /* use_experimental_backend */
+                       128                 /* max_batch_size */
+  );
   std::vector<DimInfo> dim_info = {{500000, 500, 400}};
   for (auto& di : dim_info) {
     // Let's run Bosch only for float type
@@ -102,7 +111,7 @@ std::vector<RegParams> getInputs() {
     p.data.ncols = di.ncols;
     p.regression.n_informative = di.n_informative;
     p.rf.tree_params.max_features = 1.f;
-    for (auto max_depth : std::vector<int>({8, 12, 16})) {
+    for (auto max_depth : std::vector<int>({7, 11, 15})) {
       p.rf.tree_params.max_depth = max_depth;
       out.push_back(p);
     }

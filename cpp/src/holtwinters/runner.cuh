@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,9 +16,10 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
 #include <cuml/tsa/holtwinters_params.h>
-#include <linalg/transpose.h>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/transpose.h>
+#include <cuml/common/device_buffer.hpp>
 #include "internal/hw_decompose.cuh"
 #include "internal/hw_eval.cuh"
 #include "internal/hw_forecast.cuh"
@@ -27,16 +28,16 @@
 namespace ML {
 
 template <typename Dtype>
-void HWTranspose(const ML::cumlHandle &handle, Dtype *data_in, int m, int n,
+void HWTranspose(const raft::handle_t &handle, Dtype *data_in, int m, int n,
                  Dtype *data_out) {
   ASSERT(!(!data_in || !data_out || n < 1 || m < 1), "HW error in in line %d",
          __LINE__);
-  const ML::cumlHandle_impl &handle_impl = handle.getImpl();
-  ML::detail::streamSyncer _(handle_impl);
-  cudaStream_t stream = handle_impl.getStream();
-  cublasHandle_t cublas_h = handle_impl.getCublasHandle();
+  const raft::handle_t &handle_impl = handle;
+  raft::stream_syncer _(handle_impl);
+  cudaStream_t stream = handle_impl.get_stream();
+  cublasHandle_t cublas_h = handle_impl.get_cublas_handle();
 
-  MLCommon::LinAlg::transpose<Dtype>(data_in, data_out, n, m, cublas_h, stream);
+  raft::linalg::transpose<Dtype>(handle, data_in, data_out, n, m, stream);
 }
 
 void HoltWintersBufferSize(int n, int batch_size, int frequency, bool use_beta,
@@ -60,25 +61,25 @@ void HoltWintersBufferSize(int n, int batch_size, int frequency, bool use_beta,
 }
 
 template <typename Dtype>
-void HoltWintersDecompose(const ML::cumlHandle &handle, const Dtype *ts, int n,
+void HoltWintersDecompose(const raft::handle_t &handle, const Dtype *ts, int n,
                           int batch_size, int frequency, Dtype *start_level,
                           Dtype *start_trend, Dtype *start_season,
                           int start_periods, ML::SeasonalType seasonal) {
-  const ML::cumlHandle_impl &handle_impl = handle.getImpl();
-  ML::detail::streamSyncer _(handle_impl);
-  cudaStream_t stream = handle_impl.getStream();
-  cublasHandle_t cublas_h = handle_impl.getCublasHandle();
+  const raft::handle_t &handle_impl = handle;
+  raft::stream_syncer _(handle_impl);
+  cudaStream_t stream = handle_impl.get_stream();
+  cublasHandle_t cublas_h = handle_impl.get_cublas_handle();
 
   if (start_level != nullptr && start_trend == nullptr &&
       start_season == nullptr) {  // level decomposition
-    MLCommon::copy(start_level, ts, batch_size, stream);
+    raft::copy(start_level, ts, batch_size, stream);
   } else if (start_level != nullptr && start_trend != nullptr &&
              start_season == nullptr) {  // trend decomposition
-    MLCommon::copy(start_level, ts + batch_size, batch_size, stream);
-    MLCommon::copy(start_trend, ts + batch_size, batch_size, stream);
+    raft::copy(start_level, ts + batch_size, batch_size, stream);
+    raft::copy(start_trend, ts + batch_size, batch_size, stream);
     const Dtype alpha = -1.;
-    CUBLAS_CHECK(MLCommon::LinAlg::cublasaxpy(cublas_h, batch_size, &alpha, ts,
-                                              1, start_trend, 1, stream));
+    CUBLAS_CHECK(raft::linalg::cublasaxpy(cublas_h, batch_size, &alpha, ts, 1,
+                                          start_trend, 1, stream));
     // cublas::axpy(batch_size, (Dtype)-1., ts, start_trend);
   } else if (start_level != nullptr && start_trend != nullptr &&
              start_season != nullptr) {
@@ -89,15 +90,15 @@ void HoltWintersDecompose(const ML::cumlHandle &handle, const Dtype *ts, int n,
 }
 
 template <typename Dtype>
-void HoltWintersEval(const ML::cumlHandle &handle, const Dtype *ts, int n,
+void HoltWintersEval(const raft::handle_t &handle, const Dtype *ts, int n,
                      int batch_size, int frequency, const Dtype *start_level,
                      const Dtype *start_trend, const Dtype *start_season,
                      const Dtype *alpha, const Dtype *beta, const Dtype *gamma,
                      Dtype *level, Dtype *trend, Dtype *season, Dtype *xhat,
                      Dtype *error, ML::SeasonalType seasonal) {
-  const ML::cumlHandle_impl &handle_impl = handle.getImpl();
-  ML::detail::streamSyncer _(handle_impl);
-  cudaStream_t stream = handle_impl.getStream();
+  const raft::handle_t &handle_impl = handle;
+  raft::stream_syncer _(handle_impl);
+  cudaStream_t stream = handle_impl.get_stream();
 
   ASSERT(!((!start_trend) != (!beta) || (!start_season) != (!gamma)),
          "HW error in in line %d", __LINE__);
@@ -116,7 +117,7 @@ void HoltWintersEval(const ML::cumlHandle &handle, const Dtype *ts, int n,
 // and epsilon majorly influences the fitting based on precision. For a summary,
 // https://github.com/rapidsai/cuml/issues/888
 template <typename Dtype>
-void HoltWintersOptim(const ML::cumlHandle &handle, const Dtype *ts, int n,
+void HoltWintersOptim(const raft::handle_t &handle, const Dtype *ts, int n,
                       int batch_size, int frequency, const Dtype *start_level,
                       const Dtype *start_trend, const Dtype *start_season,
                       Dtype *alpha, bool optim_alpha, Dtype *beta,
@@ -125,9 +126,9 @@ void HoltWintersOptim(const ML::cumlHandle &handle, const Dtype *ts, int n,
                       Dtype *xhat, Dtype *error, OptimCriterion *optim_result,
                       OptimParams<Dtype> *optim_params,
                       ML::SeasonalType seasonal) {
-  const ML::cumlHandle_impl &handle_impl = handle.getImpl();
-  ML::detail::streamSyncer _(handle_impl);
-  cudaStream_t stream = handle_impl.getStream();
+  const raft::handle_t &handle_impl = handle;
+  raft::stream_syncer _(handle_impl);
+  cudaStream_t stream = handle_impl.get_stream();
 
   // default values
   OptimParams<Dtype> optim_params_;
@@ -179,13 +180,13 @@ void HoltWintersOptim(const ML::cumlHandle &handle, const Dtype *ts, int n,
 }
 
 template <typename Dtype>
-void HoltWintersForecast(const ML::cumlHandle &handle, Dtype *forecast, int h,
+void HoltWintersForecast(const raft::handle_t &handle, Dtype *forecast, int h,
                          int batch_size, int frequency, const Dtype *level_coef,
                          const Dtype *trend_coef, const Dtype *season_coef,
                          ML::SeasonalType seasonal) {
-  const ML::cumlHandle_impl &handle_impl = handle.getImpl();
-  ML::detail::streamSyncer _(handle_impl);
-  cudaStream_t stream = handle_impl.getStream();
+  const raft::handle_t &handle_impl = handle;
+  raft::stream_syncer _(handle_impl);
+  cudaStream_t stream = handle_impl.get_stream();
 
   ASSERT(!(!level_coef && !trend_coef && !season_coef),
          "HW error in in line %d", __LINE__);
@@ -197,16 +198,15 @@ void HoltWintersForecast(const ML::cumlHandle &handle, Dtype *forecast, int h,
 // change optim_gamma to false here to test bug in Double Exponential Smoothing
 // https://github.com/rapidsai/cuml/issues/889
 template <typename Dtype>
-void HoltWintersFitHelper(const ML::cumlHandle &handle, int n, int batch_size,
+void HoltWintersFitHelper(const raft::handle_t &handle, int n, int batch_size,
                           int frequency, int start_periods,
                           ML::SeasonalType seasonal, Dtype epsilon, Dtype *data,
                           Dtype *level_d, Dtype *trend_d, Dtype *season_d,
                           Dtype *error_d) {
-  const ML::cumlHandle_impl &handle_impl = handle.getImpl();
-  ML::detail::streamSyncer _(handle_impl);
-  cudaStream_t stream = handle_impl.getStream();
-  std::shared_ptr<MLCommon::deviceAllocator> dev_allocator =
-    handle_impl.getDeviceAllocator();
+  const raft::handle_t &handle_impl = handle;
+  raft::stream_syncer _(handle_impl);
+  cudaStream_t stream = handle_impl.get_stream();
+  auto dev_allocator = handle_impl.get_device_allocator();
 
   bool optim_alpha = true, optim_beta = true, optim_gamma = true;
   // initial values for alpha, beta and gamma
@@ -233,14 +233,14 @@ void HoltWintersFitHelper(const ML::cumlHandle &handle, int n, int batch_size,
   MLCommon::device_buffer<Dtype> dataset_d(dev_allocator, stream,
                                            batch_size * n);
   MLCommon::device_buffer<Dtype> alpha_d(dev_allocator, stream, batch_size);
-  MLCommon::updateDevice(alpha_d.data(), alpha_h.data(), batch_size, stream);
+  raft::update_device(alpha_d.data(), alpha_h.data(), batch_size, stream);
   MLCommon::device_buffer<Dtype> level_seed_d(dev_allocator, stream,
                                               leveltrend_seed_len);
 
   if (optim_beta) {
     beta_d =
       (Dtype *)dev_allocator->allocate(sizeof(Dtype) * batch_size, stream);
-    MLCommon::updateDevice(beta_d, beta_h.data(), batch_size, stream);
+    raft::update_device(beta_d, beta_h.data(), batch_size, stream);
     trend_seed_d = (Dtype *)dev_allocator->allocate(
       sizeof(Dtype) * leveltrend_seed_len, stream);
   }
@@ -248,7 +248,7 @@ void HoltWintersFitHelper(const ML::cumlHandle &handle, int n, int batch_size,
   if (optim_gamma) {
     gamma_d =
       (Dtype *)dev_allocator->allocate(sizeof(Dtype) * batch_size, stream);
-    MLCommon::updateDevice(gamma_d, gamma_h.data(), batch_size, stream);
+    raft::update_device(gamma_d, gamma_h.data(), batch_size, stream);
     start_season_d =
       (Dtype *)dev_allocator->allocate(sizeof(Dtype) * season_seed_len, stream);
   }
@@ -279,16 +279,15 @@ void HoltWintersFitHelper(const ML::cumlHandle &handle, int n, int batch_size,
 }
 
 template <typename Dtype>
-void HoltWintersForecastHelper(const ML::cumlHandle &handle, int n,
+void HoltWintersForecastHelper(const raft::handle_t &handle, int n,
                                int batch_size, int frequency, int h,
                                ML::SeasonalType seasonal, Dtype *level_d,
                                Dtype *trend_d, Dtype *season_d,
                                Dtype *forecast_d) {
-  const ML::cumlHandle_impl &handle_impl = handle.getImpl();
-  ML::detail::streamSyncer _(handle_impl);
-  cudaStream_t stream = handle_impl.getStream();
-  std::shared_ptr<MLCommon::deviceAllocator> dev_allocator =
-    handle_impl.getDeviceAllocator();
+  const raft::handle_t &handle_impl = handle;
+  raft::stream_syncer _(handle_impl);
+  cudaStream_t stream = handle_impl.get_stream();
+  auto dev_allocator = handle_impl.get_device_allocator();
 
   bool optim_beta = true, optim_gamma = true;
 

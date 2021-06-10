@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,11 +16,12 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
-#include <common/device_buffer.hpp>
+#include <raft/cudart_utils.h>
 #include <cub/cub.cuh>
-#include <cuda_utils.cuh>
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
+#include <raft/cuda_utils.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include "cache_util.cuh"
 
 namespace MLCommon {
@@ -63,11 +64,11 @@ namespace Cache {
 * // We assume that our ML algo repeatedly calls calc, and the set of keys have
 * // an overlap. We will use the cache to avoid repeated calculations.
 *
-* // Assume we have cumlHandle_impl& h, and cudaStream_t stream
-* Cache<float> cache(h.getDeviceAllocator(), stream, m);
+* // Assume we have raft::handle_t& h, and cudaStream_t stream
+* Cache<float> cache(h.get_device_allocator(), stream, m);
 *
 * // A buffer that we will reuse to store the cache indices.
-* device_buffer<int> cache_idx(h.getDeviceAllocator(), stream, n);
+* device_buffer<int> cache_idx(h.get_device_allocator(), stream, n);
 *
 * void cached_calc(int *key, int n, int m, float *out, stream) {
 *   int n_cached = 0;
@@ -117,8 +118,8 @@ class Cache {
    *   cache entry
    * @param cache_size in MiB
    */
-  Cache(std::shared_ptr<deviceAllocator> allocator, cudaStream_t stream,
-        int n_vec, float cache_size = 200)
+  Cache(std::shared_ptr<raft::mr::device::allocator> allocator,
+        cudaStream_t stream, int n_vec, float cache_size = 200)
     : allocator(allocator),
       n_vec(n_vec),
       cache_size(cache_size),
@@ -182,8 +183,8 @@ class Cache {
    */
   void GetVecs(const int *idx, int n, math_t *out, cudaStream_t stream) {
     if (n > 0) {
-      get_vecs<<<ceildiv(n * n_vec, TPB), TPB, 0, stream>>>(cache.data(), n_vec,
-                                                            idx, n, out);
+      get_vecs<<<raft::ceildiv(n * n_vec, TPB), TPB, 0, stream>>>(
+        cache.data(), n_vec, idx, n, out);
       CUDA_CHECK(cudaPeekAtLastError());
     }
   }
@@ -213,7 +214,7 @@ class Cache {
   void StoreVecs(const math_t *tile, int n_tile, int n, int *cache_idx,
                  cudaStream_t stream, const int *tile_idx = nullptr) {
     if (n > 0) {
-      store_vecs<<<ceildiv(n * n_vec, TPB), TPB, 0, stream>>>(
+      store_vecs<<<raft::ceildiv(n * n_vec, TPB), TPB, 0, stream>>>(
         tile, n_tile, n_vec, tile_idx, n, cache_idx, cache.data(),
         cache.size() / n_vec);
       CUDA_CHECK(cudaPeekAtLastError());
@@ -246,7 +247,7 @@ class Cache {
                    cudaStream_t stream) {
     n_iter++;  // we increase the iteration counter, that is used to time stamp
     // accessing entries from the cache
-    get_cache_idx<<<ceildiv(n, TPB), TPB, 0, stream>>>(
+    get_cache_idx<<<raft::ceildiv(n, TPB), TPB, 0, stream>>>(
       keys, n, cached_keys.data(), n_cache_sets, associativity,
       cache_time.data(), cache_idx, is_cached, n_iter);
     CUDA_CHECK(cudaPeekAtLastError());
@@ -279,10 +280,10 @@ class Cache {
                                   ws_tmp.data(), is_cached.data(), cache_idx,
                                   d_num_selected_out.data(), n, stream);
 
-    updateHost(n_cached, d_num_selected_out.data(), 1, stream);
+    raft::update_host(n_cached, d_num_selected_out.data(), 1, stream);
 
     // Similarily re-group the input indices
-    copy(ws_tmp.data(), keys, n, stream);
+    raft::copy(ws_tmp.data(), keys, n, stream);
     cub::DevicePartition::Flagged(d_temp_storage.data(), d_temp_storage_size,
                                   ws_tmp.data(), is_cached.data(), keys,
                                   d_num_selected_out.data(), n, stream);
@@ -308,7 +309,7 @@ class Cache {
                                     cidx, ws_tmp.data(), keys, idx_tmp.data(),
                                     n, 0, sizeof(int) * 8, stream);
 
-    copy(keys, idx_tmp.data(), n, stream);
+    raft::copy(keys, idx_tmp.data(), n, stream);
 
     // set it to -1
     CUDA_CHECK(cudaMemsetAsync(cidx, 255, n * sizeof(int), stream));
@@ -332,7 +333,7 @@ class Cache {
   int GetSize() const { return cached_keys.size(); }
 
  private:
-  std::shared_ptr<deviceAllocator> allocator;
+  std::shared_ptr<raft::mr::device::allocator> allocator;
 
   int n_vec;         //!< Number of elements in a cached vector
   float cache_size;  //!< in MiB

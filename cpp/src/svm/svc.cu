@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,12 +16,11 @@
 
 #include <iostream>
 
-#include <linalg/cublas_wrappers.h>
-#include <common/device_buffer.hpp>
+#include <raft/linalg/cublas_wrappers.h>
 #include <cuml/svm/svc.hpp>
 #include <label/classlabels.cuh>
-#include <linalg/unary_op.cuh>
 #include <matrix/kernelfactory.cuh>
+#include <raft/linalg/unary_op.cuh>
 #include "kernelcache.cuh"
 #include "smosolver.cuh"
 #include "svc_impl.cuh"
@@ -32,36 +31,37 @@ namespace SVM {
 using namespace MLCommon;
 
 // Explicit instantiation for the library
-template void svcFit<float>(const cumlHandle &handle, float *input, int n_rows,
-                            int n_cols, float *labels,
+template void svcFit<float>(const raft::handle_t &handle, float *input,
+                            int n_rows, int n_cols, float *labels,
                             const svmParameter &param,
                             MLCommon::Matrix::KernelParams &kernel_params,
-                            svmModel<float> &model);
+                            svmModel<float> &model, const float *sample_weight);
 
-template void svcFit<double>(const cumlHandle &handle, double *input,
+template void svcFit<double>(const raft::handle_t &handle, double *input,
                              int n_rows, int n_cols, double *labels,
                              const svmParameter &param,
                              MLCommon::Matrix::KernelParams &kernel_params,
-                             svmModel<double> &model);
+                             svmModel<double> &model,
+                             const double *sample_weight);
 
-template void svcPredict<float>(const cumlHandle &handle, float *input,
+template void svcPredict<float>(const raft::handle_t &handle, float *input,
                                 int n_rows, int n_cols,
                                 MLCommon::Matrix::KernelParams &kernel_params,
                                 const svmModel<float> &model, float *preds,
                                 float buffer_size, bool predict_class);
 
-template void svcPredict<double>(const cumlHandle &handle, double *input,
+template void svcPredict<double>(const raft::handle_t &handle, double *input,
                                  int n_rows, int n_cols,
                                  MLCommon::Matrix::KernelParams &kernel_params,
                                  const svmModel<double> &model, double *preds,
                                  double buffer_size, bool predict_class);
 
-template void svmFreeBuffers(const cumlHandle &handle, svmModel<float> &m);
+template void svmFreeBuffers(const raft::handle_t &handle, svmModel<float> &m);
 
-template void svmFreeBuffers(const cumlHandle &handle, svmModel<double> &m);
+template void svmFreeBuffers(const raft::handle_t &handle, svmModel<double> &m);
 
 template <typename math_t>
-SVC<math_t>::SVC(cumlHandle &handle, math_t C, math_t tol,
+SVC<math_t>::SVC(raft::handle_t &handle, math_t C, math_t tol,
                  Matrix::KernelParams kernel_params, math_t cache_size,
                  int max_iter, int nochange_steps, int verbosity)
   : handle(handle),
@@ -81,10 +81,12 @@ SVC<math_t>::~SVC() {
 }
 
 template <typename math_t>
-void SVC<math_t>::fit(math_t *input, int n_rows, int n_cols, math_t *labels) {
+void SVC<math_t>::fit(math_t *input, int n_rows, int n_cols, math_t *labels,
+                      const math_t *sample_weight) {
   model.n_cols = n_cols;
   if (model.dual_coefs) svmFreeBuffers(handle, model);
-  svcFit(handle, input, n_rows, n_cols, labels, param, kernel_params, model);
+  svcFit(handle, input, n_rows, n_cols, labels, param, kernel_params, model,
+         sample_weight);
 }
 
 template <typename math_t>

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,8 +16,11 @@
 
 #pragma once
 
-#include <cuml/common/logger.hpp>
-#include <cuml/cuml.hpp>
+#include <cuml/common/log_levels.hpp>
+
+namespace raft {
+class handle_t;
+}
 
 namespace ML {
 
@@ -53,7 +56,7 @@ struct KMeansParams {
   int seed = 0;
 
   // Metric to use for distance computation. Any metric from
-  // MLCommon::Distance::DistanceType can be used
+  // raft::distance::DistanceType can be used
   int metric = 0;
 
   // Number of instance k-means algorithm will be run with different seeds.
@@ -96,12 +99,12 @@ struct KMeansParams {
  closest cluster center.
  * @param[out]    n_iter        Number of iterations run.
  */
-void fit_predict(const ML::cumlHandle &handle, const KMeansParams &params,
+void fit_predict(const raft::handle_t &handle, const KMeansParams &params,
                  const float *X, int n_samples, int n_features,
                  const float *sample_weight, float *centroids, int *labels,
                  float &inertia, int &n_iter);
 
-void fit_predict(const ML::cumlHandle &handle, const KMeansParams &params,
+void fit_predict(const raft::handle_t &handle, const KMeansParams &params,
                  const double *X, int n_samples, int n_features,
                  const double *sample_weight, double *centroids, int *labels,
                  double &inertia, int &n_iter);
@@ -128,12 +131,12 @@ void fit_predict(const ML::cumlHandle &handle, const KMeansParams &params,
  * @param[out]    n_iter        Number of iterations run.
  */
 
-void fit(const ML::cumlHandle &handle, const KMeansParams &params,
+void fit(const raft::handle_t &handle, const KMeansParams &params,
          const float *X, int n_samples, int n_features,
          const float *sample_weight, float *centroids, float &inertia,
          int &n_iter);
 
-void fit(const ML::cumlHandle &handle, const KMeansParams &params,
+void fit(const raft::handle_t &handle, const KMeansParams &params,
          const double *X, int n_samples, int n_features,
          const double *sample_weight, double *centroids, double &inertia,
          int &n_iter);
@@ -158,12 +161,12 @@ void fit(const ML::cumlHandle &handle, const KMeansParams &params,
  * closest cluster center.
  */
 
-void predict(const ML::cumlHandle &handle, const KMeansParams &params,
+void predict(const raft::handle_t &handle, const KMeansParams &params,
              const float *centroids, const float *X, int n_samples,
              int n_features, const float *sample_weight, int *labels,
              float &inertia);
 
-void predict(const ML::cumlHandle &handle, const KMeansParams &params,
+void predict(const raft::handle_t &handle, const KMeansParams &params,
              const double *centroids, const double *X, int n_samples,
              int n_features, const double *sample_weight, int *labels,
              double &inertia);
@@ -184,14 +187,14 @@ void predict(const ML::cumlHandle &handle, const KMeansParams &params,
  * sample in 'X' (it should be same as the dimension for each cluster centers in
  * 'centroids').
  * @param[in]     metric        Metric to use for distance computation. Any
- * metric from MLCommon::Distance::DistanceType can be used
+ * metric from raft::distance::DistanceType can be used
  * @param[out]    X_new         X transformed in the new space..
  */
-void transform(const ML::cumlHandle &handle, const KMeansParams &params,
+void transform(const raft::handle_t &handle, const KMeansParams &params,
                const float *centroids, const float *X, int n_samples,
                int n_features, int metric, float *X_new);
 
-void transform(const ML::cumlHandle &handle, const KMeansParams &params,
+void transform(const raft::handle_t &handle, const KMeansParams &params,
                const double *centroids, const double *X, int n_samples,
                int n_features, int metric, double *X_new);
 

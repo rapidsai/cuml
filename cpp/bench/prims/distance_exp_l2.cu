@@ -20,8 +20,9 @@ namespace MLCommon {
 namespace Bench {
 namespace Distance {
 
-DIST_BENCH_REGISTER(DistanceL2Sq, MLCommon::Distance::EucExpandedL2);
-DIST_BENCH_REGISTER(DistanceL2Sqrt, MLCommon::Distance::EucExpandedL2Sqrt);
+DIST_BENCH_REGISTER(DistanceL2Sq, raft::distance::DistanceType::L2Expanded);
+DIST_BENCH_REGISTER(DistanceL2Sqrt,
+                    raft::distance::DistanceType::L2SqrtExpanded);
 
 }  // namespace Distance
 }  // namespace Bench

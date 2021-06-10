@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
-#include <cuda_utils.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/cuda_utils.cuh>
 
 #include <cuda_runtime.h>
 
@@ -40,7 +40,7 @@ template <typename OutType, typename T = size_t>
 void chunk_to_device(const OutType *ptr, T n, int D, int *devices,
                      OutType **output, T *sizes, int n_chunks,
                      cudaStream_t stream) {
-  size_t chunk_size = MLCommon::ceildiv<size_t>((size_t)n, (size_t)n_chunks);
+  size_t chunk_size = raft::ceildiv<size_t>((size_t)n, (size_t)n_chunks);
 
 #pragma omp parallel for
   for (int i = 0; i < n_chunks; i++) {
@@ -51,8 +51,8 @@ void chunk_to_device(const OutType *ptr, T n, int D, int *devices,
     if (length * (i + 1) > n) length = length - ((chunk_size * (i + 1)) - n);
 
     float *ptr_d;
-    MLCommon::allocate(ptr_d, length * D);
-    MLCommon::updateDevice(ptr_d, ptr + (chunk_size * i), length * D, stream);
+    raft::allocate(ptr_d, length * D);
+    raft::update_device(ptr_d, ptr + (chunk_size * i), length * D, stream);
 
     output[i] = ptr_d;
     sizes[i] = length;

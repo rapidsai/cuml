@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -13,11 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-# cython: profile=False
-# distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
 from cuml.dask.solvers import CD
 from cuml.dask.common.base import BaseEstimator
@@ -67,14 +62,14 @@ class Lasso(BaseEstimator):
     coef_ : array, shape (n_features)
         The estimated coefficients for the linear regression model.
     intercept_ : array
-        The independent term. If fit_intercept_ is False, will be 0.
+        The independent term. If `fit_intercept` is False, will be 0.
 
     For additional docs, see `scikitlearn's Lasso
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.Lasso.html>`_.
     """
 
-    def __init__(self, client=None, **kwargs):
-        super(Lasso, self).__init__(client=client, **kwargs)
+    def __init__(self, *, client=None, **kwargs):
+        super().__init__(client=client, **kwargs)
 
         kwargs['shuffle'] = False
 
@@ -101,9 +96,6 @@ class Lasso(BaseEstimator):
         """
 
         self.solver.fit(X, y)
-
-        self.coef_ = self.solver.coef_
-        self.intercept_ = self.solver.intercept_
 
         return self
 

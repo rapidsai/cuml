@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,19 +20,16 @@
 #include <unordered_set>
 #include <vector>
 
-#include <common/cudart_utils.h>
 #include <cuml/random_projection/rproj_c.h>
-#include <linalg/cublas_wrappers.h>
-#include <sparse/cusparse_wrappers.h>
-#include <common/cumlHandle.hpp>
-#include <cuda_utils.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/linalg/cublas_wrappers.h>
+#include <raft/sparse/cusparse_wrappers.h>
+#include <raft/cuda_utils.cuh>
 #include "rproj_utils.cuh"
 
 namespace ML {
 
 using namespace MLCommon;
-using namespace MLCommon::LinAlg;
-using namespace MLCommon::Sparse;
 
 /**
 	 * @brief generates a gaussian random matrix
@@ -41,39 +38,40 @@ using namespace MLCommon::Sparse;
 	 * @param[in] params: data structure that includes all the parameters of the model
 	 */
 template <typename math_t>
-void gaussian_random_matrix(const cumlHandle& h,
+void gaussian_random_matrix(const raft::handle_t& h,
                             rand_mat<math_t>* random_matrix,
                             paramsRPROJ& params) {
-  cudaStream_t stream = h.getStream();
-  auto d_alloc = h.getDeviceAllocator();
+  cudaStream_t stream = h.get_stream();
+  auto d_alloc = h.get_device_allocator();
   int len = params.n_components * params.n_features;
   random_matrix->dense_data.resize(len, stream);
-  auto rng = Random::Rng(params.random_state);
+  auto rng = raft::random::Rng(params.random_state);
   math_t scale = 1.0 / sqrt(double(params.n_components));
   rng.normal(random_matrix->dense_data.data(), len, math_t(0), scale, stream);
 }
 
 /**
-	 * @brief generates a sparse random matrix
-	 * @param[in] h: cuML handle
-	 * @param[out] random_matrix: the random matrix to be allocated and generated
-	 * @param[in] params: data structure that includes all the parameters of the model
-	 */
+ * @brief generates a sparse random matrix
+ * @param[in] h: cuML handle
+ * @param[out] random_matrix: the random matrix to be allocated and generated
+ * @param[in] params: data structure that includes all the parameters of the model
+ */
 template <typename math_t>
-void sparse_random_matrix(const cumlHandle& h, rand_mat<math_t>* random_matrix,
+void sparse_random_matrix(const raft::handle_t& h,
+                          rand_mat<math_t>* random_matrix,
                           paramsRPROJ& params) {
-  cudaStream_t stream = h.getStream();
-  auto d_alloc = h.getDeviceAllocator();
+  cudaStream_t stream = h.get_stream();
+  auto d_alloc = h.get_device_allocator();
 
   if (params.density == 1.0f) {
     int len = params.n_components * params.n_features;
     random_matrix->dense_data.resize(len, stream);
-    auto rng = Random::Rng(params.random_state);
+    auto rng = raft::random::Rng(params.random_state);
     math_t scale = 1.0 / sqrt(math_t(params.n_components));
     rng.scaled_bernoulli(random_matrix->dense_data.data(), len, math_t(0.5),
                          scale, stream);
   } else {
-    auto alloc = h.getHostAllocator();
+    auto alloc = h.get_host_allocator();
 
     double max_total_density = params.density * 1.2;
     size_t indices_alloc =
@@ -101,17 +99,17 @@ void sparse_random_matrix(const cumlHandle& h, rand_mat<math_t>* random_matrix,
 
     size_t len = offset;
     random_matrix->indices.resize(len, stream);
-    updateDevice(random_matrix->indices.data(), indices, len, stream);
+    raft::update_device(random_matrix->indices.data(), indices, len, stream);
     alloc->deallocate(indices, indices_alloc, stream);
 
     len = indptr_idx + 1;
     random_matrix->indptr.resize(len, stream);
-    updateDevice(random_matrix->indptr.data(), indptr, len, stream);
+    raft::update_device(random_matrix->indptr.data(), indptr, len, stream);
     alloc->deallocate(indptr, indptr_alloc, stream);
 
     len = offset;
     random_matrix->sparse_data.resize(len, stream);
-    auto rng = Random::Rng(params.random_state);
+    auto rng = raft::random::Rng(params.random_state);
     math_t scale = sqrt(1.0 / params.density) / sqrt(params.n_components);
     rng.scaled_bernoulli(random_matrix->sparse_data.data(), len, math_t(0.5),
                          scale, stream);
@@ -125,7 +123,7 @@ void sparse_random_matrix(const cumlHandle& h, rand_mat<math_t>* random_matrix,
 	 * @param[in] params: data structure that includes all the parameters of the model
 	 */
 template <typename math_t>
-void RPROJfit(const cumlHandle& handle, rand_mat<math_t>* random_matrix,
+void RPROJfit(const raft::handle_t& handle, rand_mat<math_t>* random_matrix,
               paramsRPROJ* params) {
   random_matrix->reset();
 
@@ -150,15 +148,15 @@ void RPROJfit(const cumlHandle& handle, rand_mat<math_t>* random_matrix,
 	 * @param[in] params: data structure that includes all the parameters of the model
 	 */
 template <typename math_t>
-void RPROJtransform(const cumlHandle& handle, math_t* input,
+void RPROJtransform(const raft::handle_t& handle, math_t* input,
                     rand_mat<math_t>* random_matrix, math_t* output,
                     paramsRPROJ* params) {
-  cudaStream_t stream = handle.getStream();
+  cudaStream_t stream = handle.get_stream();
 
   check_parameters(*params);
 
   if (random_matrix->type == dense) {
-    cublasHandle_t cublas_handle = handle.getImpl().getCublasHandle();
+    cublasHandle_t cublas_handle = handle.get_cublas_handle();
 
     const math_t alfa = 1;
     const math_t beta = 0;
@@ -171,13 +169,12 @@ void RPROJtransform(const cumlHandle& handle, math_t* input,
     int& ldb = k;
     int& ldc = m;
 
-    CUBLAS_CHECK(cublasgemm(cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k,
-                            &alfa, input, lda, random_matrix->dense_data.data(),
-                            ldb, &beta, output, ldc, stream));
+    CUBLAS_CHECK(raft::linalg::cublasgemm(
+      cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N, m, n, k, &alfa, input, lda,
+      random_matrix->dense_data.data(), ldb, &beta, output, ldc, stream));
 
   } else if (random_matrix->type == sparse) {
-    cusparseHandle_t cusparse_handle = handle.getImpl().getcusparseHandle();
-    CUSPARSE_CHECK(cusparseSetStream(cusparse_handle, stream));
+    cusparseHandle_t cusparse_handle = handle.get_cusparse_handle();
 
     const math_t alfa = 1;
     const math_t beta = 0;
@@ -190,10 +187,10 @@ void RPROJtransform(const cumlHandle& handle, math_t* input,
     int& lda = m;
     int& ldc = m;
 
-    CUSPARSE_CHECK(cusparsegemmi(
+    CUSPARSE_CHECK(raft::sparse::cusparsegemmi(
       cusparse_handle, m, n, k, nnz, &alfa, input, lda,
       random_matrix->sparse_data.data(), random_matrix->indptr.data(),
-      random_matrix->indices.data(), &beta, output, ldc));
+      random_matrix->indices.data(), &beta, output, ldc, stream));
   } else {
     ASSERT(false,
            "Could not find a random matrix. Please perform a fit operation "

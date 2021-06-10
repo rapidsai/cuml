@@ -2,14 +2,23 @@
 cuML API Reference
 ~~~~~~~~~~~~~~~~~~~
 
+.. role:: py(code)
+   :language: python
+   :class: highlight
+
+
 Module Configuration
 ====================
+
+.. _output-data-type-configuration:
 
 Output Data Type Configuration
 ------------------------------
 
- .. automethod:: cuml.common.memory_utils.set_global_output_type
- .. automethod:: cuml.common.memory_utils.using_output_type
+ .. autofunction:: cuml.common.memory_utils.set_global_output_type
+ .. autofunction:: cuml.common.memory_utils.using_output_type
+
+.. _verbosity-levels:
 
 Verbosity Levels
 ----------------
@@ -54,20 +63,29 @@ Preprocessing, Metrics, and Utilities
 Model Selection and Data Splitting
 ----------------------------------
 
- .. automethod:: cuml.preprocessing.model_selection.train_test_split
+ .. autofunction:: cuml.preprocessing.model_selection.train_test_split
 
 Feature and Label Encoding (Single-GPU)
 ---------------------------------------
 
- .. autoclass:: cuml.preprocessing.LabelEncoder
+ .. autoclass:: cuml.preprocessing.LabelEncoder.LabelEncoder
     :members:
 
  .. autoclass:: cuml.preprocessing.LabelBinarizer
     :members:
 
- .. automethod:: cuml.preprocessing.label_binarize
+ .. autofunction:: cuml.preprocessing.label_binarize
 
  .. autoclass:: cuml.preprocessing.OneHotEncoder
+    :members:
+
+ .. autoclass:: cuml.preprocessing.TargetEncoder.TargetEncoder
+    :members:
+
+
+Text Preprocessing (Single-GPU)
+---------------------------------------
+ .. autoclass:: cuml.preprocessing.text.stem.PorterStemmer
     :members:
 
 Feature and Label Encoding (Dask-based Multi-GPU)
@@ -79,13 +97,33 @@ Feature and Label Encoding (Dask-based Multi-GPU)
  .. autoclass:: cuml.dask.preprocessing.OneHotEncoder
     :members:
 
-Dataset Generation (Single-GPU)
+Feature Extraction (Single-GPU)
 -------------------------------
 
-  .. automethod:: cuml.datasets.make_blobs
-  .. automethod:: cuml.datasets.make_classification
-  .. automethod:: cuml.datasets.make_regression
-  .. automethod:: cuml.datasets.make_arima
+  .. autoclass:: cuml.feature_extraction.text.CountVectorizer
+    :members:
+
+  .. autoclass:: cuml.feature_extraction.text.HashingVectorizer
+    :members:
+
+  .. autoclass:: cuml.feature_extraction.text.TfidfVectorizer
+    :members:
+
+Feature Extraction (Dask-based Multi-GPU)
+-----------------------------------------
+  .. autoclass:: cuml.dask.feature_extraction.text.TfidfTransformer
+    :members:
+
+Dataset Generation (Single-GPU)
+-------------------------------
+  .. glossary::
+    random_state
+        Determines random number generation for dataset creation. Pass an int
+        for reproducible output across multiple function calls.
+  .. autofunction:: cuml.datasets.make_blobs
+  .. autofunction:: cuml.datasets.make_classification
+  .. autofunction:: cuml.datasets.make_regression
+  .. autofunction:: cuml.datasets.make_arima
 
 
 Dataset Generation (Dask-based Multi-GPU)
@@ -99,9 +137,14 @@ Dataset Generation (Dask-based Multi-GPU)
   .. automodule:: cuml.dask.datasets.regression
      :members:
 
+Array Wrappers (Internal API)
+-----------------------------
 
-Metrics
----------
+.. autoclass:: cuml.common.CumlArray
+    :members:
+
+Metrics (regression, classification, and distance)
+---------------------------------------------------
 
   .. automodule:: cuml.metrics.regression
     :members:
@@ -109,15 +152,41 @@ Metrics
   .. automodule:: cuml.metrics.accuracy
     :members:
 
+  .. autofunction:: cuml.metrics.confusion_matrix
+
+  .. autofunction:: cuml.metrics.kl_divergence
+
+  .. autofunction:: cuml.metrics.log_loss
+
+  .. autofunction:: cuml.metrics.roc_auc_score
+
+  .. autofunction:: cuml.metrics.precision_recall_curve
+
+  .. automodule:: cuml.metrics.pairwise_distances
+    :members:
+
+Metrics (clustering and manifold learning)
+------------------------------------------
   .. automodule:: cuml.metrics.trustworthiness
     :members:
 
-  .. automodule:: cuml.metrics.cluster.adjustedrandindex
+  .. automodule:: cuml.metrics.cluster.adjusted_rand_index
     :members:
 
   .. automodule:: cuml.metrics.cluster.entropy
     :members:
 
+  .. automodule:: cuml.metrics.cluster.homogeneity_score
+    :members:
+
+  .. automodule:: cuml.metrics.cluster.silhouette_score
+    :members:
+
+  .. automodule:: cuml.metrics.cluster.completeness_score
+    :members:
+
+  .. automodule:: cuml.metrics.cluster.mutual_info_score
+    :members:
 
 Benchmarking
 -------------
@@ -177,6 +246,24 @@ Mini Batch SGD Regressor
 .. autoclass:: cuml.MBSGDRegressor
     :members:
 
+Multiclass Classification
+-------------------------
+
+.. autoclass:: cuml.multiclass.MulticlassClassifier
+    :members:
+
+.. autoclass:: cuml.multiclass.OneVsOneClassifier
+    :members:
+
+.. autoclass:: cuml.multiclass.OneVsRestClassifier
+    :members:
+
+Mutinomial Naive Bayes
+----------------------
+
+.. autoclass:: cuml.MultinomialNB
+    :members:
+
 Stochastic Gradient Descent
 ---------------------------
 
@@ -224,12 +311,14 @@ Nearest Neighbors Classification
 
 .. autoclass:: cuml.neighbors.KNeighborsClassifier
     :members:
+    :noindex:
 
 Nearest Neighbors Regression
 ----------------------------
 
 .. autoclass:: cuml.neighbors.KNeighborsRegressor
     :members:
+    :noindex:
 
 Clustering
 ==========
@@ -246,6 +335,12 @@ DBSCAN
 .. autoclass:: cuml.DBSCAN
     :members:
 
+Agglomerative Clustering
+------------------------
+
+.. autoclass:: cuml.AgglomerativeClustering
+    :members:
+
 Dimensionality Reduction and Manifold Learning
 ==============================================
 
@@ -254,6 +349,11 @@ Principal Component Analysis
 
 .. autoclass:: cuml.PCA
     :members:
+
+Incremental PCA
+---------------
+.. autoclass:: cuml.IncrementalPCA
+   :members:
 
 Truncated SVD
 --------------
@@ -276,7 +376,7 @@ Random Projections
 .. autoclass:: cuml.random_projection.SparseRandomProjection
     :members:
 
-.. automethod:: cuml.random_projection.johnson_lindenstrauss_min_dim
+.. autofunction:: cuml.random_projection.johnson_lindenstrauss_min_dim
 
 
 TSNE
@@ -321,8 +421,33 @@ ARIMA
 .. autoclass:: cuml.tsa.ARIMA
     :members:
 
+.. autoclass:: cuml.tsa.auto_arima.AutoARIMA
+    :members:
+
+Model Explainability
+====================
+
+SHAP Kernel Explainer
+---------------------
+
+.. autoclass:: cuml.explainer.KernelExplainer
+   :members:
+
+SHAP Permutation Explainer
+--------------------------
+
+.. autoclass:: cuml.explainer.PermutationExplainer
+   :members:
+
+
 Multi-Node, Multi-GPU Algorithms
 ================================
+
+DBSCAN Clustering
+--------------------
+
+.. autoclass:: cuml.dask.cluster.DBSCAN
+    :members:
 
 K-Means Clustering
 --------------------
@@ -335,6 +460,13 @@ Nearest Neighbors
 
 .. autoclass:: cuml.dask.neighbors.NearestNeighbors
     :members:
+
+.. autoclass:: cuml.dask.neighbors.KNeighborsRegressor
+    :members:
+
+.. autoclass:: cuml.dask.neighbors.KNeighborsClassifier
+    :members:
+
 
 Principal Component Analysis
 -----------------------------
@@ -377,6 +509,12 @@ Linear Models
 .. autoclass:: cuml.dask.linear_model.ElasticNet
     :members:
 
+Naive Bayes
+-----------
+
+.. autoclass:: cuml.dask.naive_bayes.MultinomialNB
+    :members:
+
 Solvers
 -------
 
@@ -398,4 +536,34 @@ Dask Base Classes and Mixins
    :members:
 
 .. autoclass:: cuml.dask.common.base.DelayedInverseTransformMixin
+   :members:
+
+Experimental
+============
+
+.. warning:: The `cuml.experimental` module contains features that are still
+    under development. It is not recommended to depend on features in this
+    module as they may change in future releases.
+
+.. note:: Due to the nature of this module, it is not imported by default by
+    the root `cuml` package. Each `experimental` submodule must be imported
+    separately.
+
+Preprocessing
+-------------
+.. automodule:: cuml.experimental.preprocessing
+   :members: Binarizer, KBinsDiscretizer, MaxAbsScaler, MinMaxScaler,
+      Normalizer, RobustScaler, SimpleImputer, StandardScaler,
+      add_dummy_feature, binarize, minmax_scale, normalize,
+      PolynomialFeatures, robust_scale, scale
+
+Clustering
+----------
+
+.. autoclass:: cuml.experimental.cluster.HDBSCAN
+   :members:
+
+Linear Models
+-------------
+.. autoclass:: cuml.experimental.linear_model.Lars
    :members:

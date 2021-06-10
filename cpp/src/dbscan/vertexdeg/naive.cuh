@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,10 +16,10 @@
 
 #pragma once
 
-#include <common/cumlHandle.hpp>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 #include "pack.h"
 
+namespace ML {
 namespace Dbscan {
 namespace VertexDeg {
 namespace Naive {
@@ -34,56 +34,61 @@ static const int TPB_Y = 8;
 /**
  * @brief Naive distance matrix evaluation and epsilon neighborhood construction
  * @param data input struct containing vertex degree computation params
- * @param startVertexId which vertex to begin the computations from
- * @param batchSize number of vertices in this batch
+ * @param start_vertex_id which vertex to begin the computations from
+ * @param batch_size number of vertices in this batch
  */
 template <typename Type, typename Index_ = int>
 __global__ void vertex_degree_kernel(Pack<Type, Index_> data,
-                                     Index_ startVertexId, Index_ batchSize) {
+                                     Index_ start_vertex_id,
+                                     Index_ batch_size) {
   const Type Zero = (Type)0;
   Index_ row = (blockIdx.y * TPB_Y) + threadIdx.y;
   Index_ col = (blockIdx.x * TPB_X) + threadIdx.x;
   Index_ N = data.N;
-  if ((row >= batchSize) || (col >= N)) return;
+  if ((row >= batch_size) || (col >= N)) return;
   Type eps = data.eps;
   Type eps2 = eps * eps;
   Type sum = Zero;
   Index_ D = data.D;
-  Type *x = data.x;
+  const Type *x = data.x;
   bool *adj = data.adj;
   Index_ *vd = data.vd;
   for (Index_ d = 0; d < D; ++d) {
-    Type a = __ldg(x + (row + startVertexId) * D + d);
+    Type a = __ldg(x + (row + start_vertex_id) * D + d);
     Type b = __ldg(x + col * D + d);
     Type diff = a - b;
     sum += (diff * diff);
   }
   Index_ res = (sum <= eps2);
   adj[row * N + col] = res;
+  /// TODO: change layout or remove; cf #3414
 
   if (sizeof(Index_) == 4) {
-    atomicAdd((int *)(vd + row), (int)res);
-    atomicAdd((int *)(vd + batchSize), (int)res);
+    raft::myAtomicAdd((int *)(vd + row), (int)res);
+    raft::myAtomicAdd((int *)(vd + batch_size), (int)res);
   } else if (sizeof(Index_) == 8) {
-    atomicAdd((unsigned long long *)(vd + row), res);
-    atomicAdd((unsigned long long *)(vd + batchSize), res);
+    raft::myAtomicAdd<unsigned long long>((unsigned long long *)(vd + row),
+                                          res);
+    raft::myAtomicAdd<unsigned long long>(
+      (unsigned long long *)(vd + batch_size), res);
   }
 }
 
 template <typename Type, typename Index_ = int>
-void launcher(Pack<Type, Index_> data, Index_ startVertexId, Index_ batchSize,
-              cudaStream_t stream) {
+void launcher(Pack<Type, Index_> data, Index_ start_vertex_id,
+              Index_ batch_size, cudaStream_t stream) {
   ASSERT(sizeof(Index_) == 4 || sizeof(Index_) == 8,
          "index_t should be 4 or 8 bytes");
 
-  dim3 grid(ceildiv(data.N, (Index_)TPB_X), ceildiv(batchSize, (Index_)TPB_Y),
-            1);
+  dim3 grid(raft::ceildiv(data.N, (Index_)TPB_X),
+            raft::ceildiv(batch_size, (Index_)TPB_Y), 1);
   dim3 blk(TPB_X, TPB_Y, 1);
-  data.resetArray(stream, batchSize + 1);
-  vertex_degree_kernel<<<grid, blk, 0, stream>>>(data, startVertexId,
-                                                 batchSize);
+  data.resetArray(stream, batch_size + 1);
+  vertex_degree_kernel<<<grid, blk, 0, stream>>>(data, start_vertex_id,
+                                                 batch_size);
 }
 
 }  // namespace Naive
 }  // namespace VertexDeg
 }  // namespace Dbscan
+}  // namespace ML

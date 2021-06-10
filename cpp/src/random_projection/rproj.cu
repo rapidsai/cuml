@@ -21,14 +21,14 @@ namespace ML {
 
 using namespace MLCommon;
 
-template void RPROJfit(const cumlHandle& handle, rand_mat<float>* random_matrix,
-                       paramsRPROJ* params);
-template void RPROJfit(const cumlHandle& handle,
+template void RPROJfit(const raft::handle_t& handle,
+                       rand_mat<float>* random_matrix, paramsRPROJ* params);
+template void RPROJfit(const raft::handle_t& handle,
                        rand_mat<double>* random_matrix, paramsRPROJ* params);
-template void RPROJtransform(const cumlHandle& handle, float* input,
+template void RPROJtransform(const raft::handle_t& handle, float* input,
                              rand_mat<float>* random_matrix, float* output,
                              paramsRPROJ* params);
-template void RPROJtransform(const cumlHandle& handle, double* input,
+template void RPROJtransform(const raft::handle_t& handle, double* input,
                              rand_mat<double>* random_matrix, double* output,
                              paramsRPROJ* params);
 

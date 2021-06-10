@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,14 +16,14 @@
 
 #pragma once
 
-#include <common/cudart_utils.h>
-#include <common/device_buffer.hpp>
-#include <cuda_utils.cuh>
-#include <cuml/common/cuml_allocator.hpp>
-#include <linalg/unary_op.cuh>
+#include <raft/cudart_utils.h>
+#include <cuml/common/device_buffer.hpp>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/random/rng.cuh>
 #include <vector>
 #include "permute.cuh"
-#include "rng.cuh"
 
 namespace MLCommon {
 namespace Random {
@@ -33,7 +33,7 @@ namespace {
 // generate the labels first and shuffle them instead of shuffling the dataset
 template <typename IdxT>
 void generate_labels(IdxT* labels, IdxT n_rows, IdxT n_clusters, bool shuffle,
-                     Rng& r, cudaStream_t stream) {
+                     raft::random::Rng& r, cudaStream_t stream) {
   IdxT a, b;
   r.affine_transform_params(n_clusters, a, b);
   auto op = [=] __device__(IdxT * ptr, IdxT idx) {
@@ -47,8 +47,8 @@ void generate_labels(IdxT* labels, IdxT n_rows, IdxT n_clusters, bool shuffle,
       *ptr = idx;
     }
   };
-  LinAlg::writeOnlyUnaryOp<IdxT, decltype(op), IdxT>(labels, n_rows, op,
-                                                     stream);
+  raft::linalg::writeOnlyUnaryOp<IdxT, decltype(op), IdxT>(labels, n_rows, op,
+                                                           stream);
 }
 
 template <typename DataT, typename IdxT>
@@ -70,6 +70,11 @@ DI void get_mu_sigma(DataT& mu, DataT& sigma, IdxT idx, const IdxT* labels,
   } else {
     center_id = 0;
   }
+
+  if (fid >= n_cols) {
+    fid = 0;
+  }
+
   if (row_major) {
     center_id = center_id * n_cols + fid;
   } else {
@@ -83,14 +88,15 @@ template <typename DataT, typename IdxT>
 void generate_data(DataT* out, const IdxT* labels, IdxT n_rows, IdxT n_cols,
                    IdxT n_clusters, cudaStream_t stream, bool row_major,
                    const DataT* centers, const DataT* cluster_std,
-                   const DataT cluster_std_scalar, Rng& rng) {
+                   const DataT cluster_std_scalar, raft::random::Rng& rng) {
   auto op = [=] __device__(DataT & val1, DataT & val2, IdxT idx1, IdxT idx2) {
     DataT mu1, sigma1, mu2, sigma2;
     get_mu_sigma(mu1, sigma1, idx1, labels, row_major, centers, cluster_std,
                  cluster_std_scalar, n_rows, n_cols, n_clusters);
     get_mu_sigma(mu2, sigma2, idx2, labels, row_major, centers, cluster_std,
                  cluster_std_scalar, n_rows, n_cols, n_clusters);
-    box_muller_transform<DataT>(val1, val2, sigma1, mu1, sigma2, mu2);
+    raft::random::box_muller_transform<DataT>(val1, val2, sigma1, mu1, sigma2,
+                                              mu2);
   };
   rng.custom_distribution2<DataT, DataT, IdxT>(out, n_rows * n_cols, op,
                                                stream);
@@ -135,15 +141,16 @@ void generate_data(DataT* out, const IdxT* labels, IdxT n_rows, IdxT n_cols,
  */
 template <typename DataT, typename IdxT>
 void make_blobs(DataT* out, IdxT* labels, IdxT n_rows, IdxT n_cols,
-                IdxT n_clusters, std::shared_ptr<deviceAllocator> allocator,
+                IdxT n_clusters,
+                std::shared_ptr<raft::mr::device::allocator> allocator,
                 cudaStream_t stream, bool row_major = true,
                 const DataT* centers = nullptr,
                 const DataT* cluster_std = nullptr,
                 const DataT cluster_std_scalar = (DataT)1.0,
                 bool shuffle = true, DataT center_box_min = (DataT)-10.0,
                 DataT center_box_max = (DataT)10.0, uint64_t seed = 0ULL,
-                GeneratorType type = GenPhilox) {
-  Rng r(seed, type);
+                raft::random::GeneratorType type = raft::random::GenPhilox) {
+  raft::random::Rng r(seed, type);
   // use the right centers buffer for data generation
   device_buffer<DataT> rand_centers(allocator, stream);
   const DataT* _centers;

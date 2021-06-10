@@ -14,10 +14,10 @@
  * limitations under the License.
  */
 
-#include <common/cudart_utils.h>
 #include <gtest/gtest.h>
-#include <cuda_utils.cuh>
-#include <random/rng.cuh>
+#include <raft/cudart_utils.h>
+#include <raft/cuda_utils.cuh>
+#include <raft/random/rng.cuh>
 #include <stats/histogram.cuh>
 #include "test_utils.h"
 
@@ -37,14 +37,14 @@ __global__ void naiveHistKernel(int* bins, int nbins, int* in, int nrows) {
     else if (id >= nbins)
       id = nbins - 1;
     in[offset + tid] = id;
-    atomicAdd(bins + binOffset + id, 1);
+    raft::myAtomicAdd(bins + binOffset + id, 1);
   }
 }
 
 void naiveHist(int* bins, int nbins, int* in, int nrows, int ncols,
                cudaStream_t stream) {
   const int TPB = 128;
-  int nblksx = ceildiv(nrows, TPB);
+  int nblksx = raft::ceildiv(nrows, TPB);
   dim3 blks(nblksx, ncols);
   naiveHistKernel<<<blks, TPB, 0, stream>>>(bins, nbins, in, nrows);
   CUDA_CHECK(cudaGetLastError());
@@ -62,17 +62,17 @@ class HistTest : public ::testing::TestWithParam<HistInputs> {
  protected:
   void SetUp() override {
     params = ::testing::TestWithParam<HistInputs>::GetParam();
-    Random::Rng r(params.seed);
+    raft::random::Rng r(params.seed);
     CUDA_CHECK(cudaStreamCreate(&stream));
     int len = params.nrows * params.ncols;
-    allocate(in, len);
+    raft::allocate(in, len);
     if (params.isNormal) {
       r.normalInt(in, len, params.start, params.end, stream);
     } else {
       r.uniformInt(in, len, params.start, params.end, stream);
     }
-    allocate(bins, params.nbins * params.ncols);
-    allocate(ref_bins, params.nbins * params.ncols);
+    raft::allocate(bins, params.nbins * params.ncols);
+    raft::allocate(ref_bins, params.nbins * params.ncols);
     CUDA_CHECK(cudaMemsetAsync(
       ref_bins, 0, sizeof(int) * params.nbins * params.ncols, stream));
     naiveHist(ref_bins, params.nbins, in, params.nrows, params.ncols, stream);
@@ -253,8 +253,8 @@ const std::vector<HistInputs> inputs = {
   {oneM + 2, 21, 2 * oneK, true, HistTypeAuto, 1000, 50, 1234ULL},
 };
 TEST_P(HistTest, Result) {
-  ASSERT_TRUE(
-    devArrMatch(ref_bins, bins, params.nbins * params.ncols, Compare<int>()));
+  ASSERT_TRUE(raft::devArrMatch(ref_bins, bins, params.nbins * params.ncols,
+                                raft::Compare<int>()));
 }
 INSTANTIATE_TEST_CASE_P(HistTests, HistTest, ::testing::ValuesIn(inputs));
 

@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2020, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,96 +14,8 @@
 # limitations under the License.
 #
 
-# cython: profile=False
 # distutils: language = c++
-# cython: embedsignature = True
-# cython: language_level = 3
 
+from cuml.raft.common.handle import Handle as raftHandle
 
-import cuml
-from libcpp.memory cimport shared_ptr
-from cuml.common.cuda cimport _Stream, _Error, cudaStreamSynchronize
-
-
-cdef extern from "cuml/common/rmmAllocatorAdapter.hpp" namespace "ML" nogil:
-    cdef cppclass rmmAllocatorAdapter(deviceAllocator):
-        pass
-
-cdef class Handle:
-    """
-    Handle is a lightweight python wrapper around the corresponding C++ class
-    of cumlHandle exposed by cuML's C++ interface. Refer to the header file
-    cuml/cuml.hpp for interface level details of this struct
-
-    Examples
-    --------
-
-    .. code-block:: python
-
-        import cuml
-        stream = cuml.cuda.Stream()
-        handle = cuml.Handle()
-        handle.setStream(stream)
-        handle.enableRMM()   # Enable RMM as the device-side allocator
-
-        # call ML algos here
-
-        # final sync of all work launched in the stream of this handle
-        # this is same as `cuml.cuda.Stream.sync()` call, but safer in case
-        # the default stream inside the `cumlHandle` is being used
-        handle.sync()
-        del handle  # optional!
-    """
-
-    # ML::cumlHandle doesn't have copy operator. So, use pointer for the object
-    # python world cannot access to this raw object directly, hence use
-    # 'size_t'!
-    cdef size_t h
-
-    # not using __dict__ unless we need it to keep this Extension as lean as
-    # possible
-    cdef int n_streams
-
-    def __cinit__(self, n_streams=0):
-        self.n_streams = n_streams
-        self.h = <size_t>(new cumlHandle(n_streams))
-        cdef shared_ptr[deviceAllocator] rmmAlloc = (
-            shared_ptr[deviceAllocator](new rmmAllocatorAdapter()))
-        cdef cumlHandle* h_ = <cumlHandle*>self.h
-        h_.setDeviceAllocator(rmmAlloc)
-
-    def __dealloc__(self):
-        h_ = <cumlHandle*>self.h
-        del h_
-
-    def setStream(self, stream):
-        cdef size_t s = <size_t>stream.getStream()
-        cdef cumlHandle* h_ = <cumlHandle*>self.h
-        h_.setStream(<_Stream>s)
-
-    def sync(self):
-        """
-        Issues a sync on the stream set for this handle.
-
-        Once we make `cuml.cuda.Stream` as a mandatory option for creating
-        `cuml.Handle`, this should go away
-        """
-        cdef cumlHandle* h_ = <cumlHandle*>self.h
-        cdef _Stream stream = h_.getStream()
-        cdef _Error e = cudaStreamSynchronize(stream)
-        if e != 0:
-            raise cuml.cuda.CudaRuntimeError("Stream sync")
-
-    def getHandle(self):
-        return self.h
-
-    def getNumInternalStreams(self):
-        cdef cumlHandle* h_ = <cumlHandle*>self.h
-        return h_.getNumInternalStreams()
-
-    def __getstate__(self):
-        return self.n_streams
-
-    def __setstate__(self, state):
-        self.n_streams = state
-        self.h = <size_t>(new cumlHandle(self.n_streams))
+Handle = raftHandle

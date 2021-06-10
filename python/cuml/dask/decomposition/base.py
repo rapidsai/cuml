@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,8 @@
 #
 
 from cuml.dask.common import raise_exception_from_futures
-from cuml.dask.common.comms import worker_state, CommsContext
+from cuml.raft.dask.common.comms import get_raft_comm_state
+from cuml.raft.dask.common.comms import Comms
 
 from cuml.dask.common.input_utils import to_output
 from cuml.dask.common import parts_to_ranks
@@ -29,23 +30,15 @@ from cuml.dask.common.input_utils import DistributedDataHandler
 
 class BaseDecomposition(BaseEstimator):
 
-    def __init__(self, model_func, client=None, verbose=False,
+    def __init__(self, *, model_func, client=None, verbose=False,
                  **kwargs):
         """
         Constructor for distributed decomposition model
         """
-        super(BaseDecomposition, self).__init__(client=client,
-                                                verbose=verbose,
-                                                **kwargs)
+        super().__init__(client=client,
+                         verbose=verbose,
+                         **kwargs)
         self._model_func = model_func
-
-        # define attributes to make sure they
-        # are available even on untrained object
-        self.local_model = None
-        self.components_ = None
-        self.explained_variance_ = None
-        self.explained_variance_ratio_ = None
-        self.singular_values_ = None
 
 
 class DecompositionSyncFitMixin(object):
@@ -71,9 +64,9 @@ class DecompositionSyncFitMixin(object):
 
         if "svd_solver" in self.kwargs \
                 and self.kwargs["svd_solver"] == "tsqr":
-            comms = CommsContext(comms_p2p=True)
+            comms = Comms(comms_p2p=True)
         else:
-            comms = CommsContext(comms_p2p=False)
+            comms = Comms(comms_p2p=False)
 
         comms.init(workers=data.workers)
 
@@ -113,13 +106,7 @@ class DecompositionSyncFitMixin(object):
 
         comms.destroy()
 
-        self.local_model = list(models.values())[0].result()
-
-        self.components_ = self.local_model.components_
-        self.explained_variance_ = self.local_model.explained_variance_
-        self.explained_variance_ratio_ = \
-            self.local_model.explained_variance_ratio_
-        self.singular_values_ = self.local_model.singular_values_
+        self._set_internal_model(list(models.values())[0])
 
         if _transform:
             out_futures = flatten_grouped_results(self.client,
@@ -129,9 +116,7 @@ class DecompositionSyncFitMixin(object):
 
         return self
 
-        return self
-
     @staticmethod
     def _create_model(sessionId, model_func, datatype, **kwargs):
-        handle = worker_state(sessionId)["handle"]
+        handle = get_raft_comm_state(sessionId)["handle"]
         return model_func(handle, datatype, **kwargs)

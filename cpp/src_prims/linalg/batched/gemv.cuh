@@ -16,8 +16,8 @@
 
 #pragma once
 
-#include <cuda_utils.cuh>
-#include <vectorized.cuh>
+#include <raft/cuda_utils.cuh>
+#include <raft/vectorized.cuh>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -45,7 +45,7 @@ DI DataT dotProduct(const DataT (&x)[VecLen], const DataT (&y)[VecLen],
   for (int i = 0; i < VecLen; ++i) {
     val += x[i] * y[i];
   }
-  auto dot = blockReduce(val, smem);
+  auto dot = raft::blockReduce(val, smem);
   if (broadcast) {
     auto* sDot = reinterpret_cast<DataT*>(smem);
     __syncthreads();
@@ -63,8 +63,8 @@ template <typename DataT, typename IdxT, int VecLenAx, int VecLenY,
 __global__ void gemvKernel(DataT* y, const DataT* A, const DataT* x,
                            const DataT* z, DataT alpha, DataT beta, IdxT m,
                            IdxT n, EpilogueOp op) {
-  typedef TxN_t<DataT, VecLenAx> VecTypeAx;
-  typedef TxN_t<DataT, VecLenY> VecTypeY;
+  typedef raft::TxN_t<DataT, VecLenAx> VecTypeAx;
+  typedef raft::TxN_t<DataT, VecLenY> VecTypeY;
   static constexpr DataT Zero = DataT(0.0);
   extern __shared__ char smem[];
   auto* sdot = smem;
@@ -109,10 +109,10 @@ void gemvImplY(DataT* y, const DataT* A, const DataT* x, const DataT* z,
                DataT alpha, DataT beta, IdxT m, IdxT n, IdxT batchSize,
                EpilogueOp op, cudaStream_t stream) {
   auto nAligned = VecLenAx ? n / VecLenAx : n;
-  int tpb = alignTo<int>(nAligned, WarpSize);
-  int nWarps = tpb / WarpSize;
+  int tpb = raft::alignTo<int>(nAligned, raft::WarpSize);
+  int nWarps = tpb / raft::WarpSize;
   size_t smemSize = sizeof(DataT) * nWarps;
-  auto mAligned = VecLenY ? ceildiv(m, VecLenY) : m;
+  auto mAligned = VecLenY ? raft::ceildiv(m, VecLenY) : m;
   dim3 nblks(mAligned, batchSize);
   gemvKernel<DataT, IdxT, VecLenAx, VecLenY, EpilogueOp>
     <<<nblks, tpb, smemSize, stream>>>(y, A, x, z, alpha, beta, m, n, op);
@@ -161,10 +161,11 @@ void gemvImplAx(DataT* y, const DataT* A, const DataT* x, const DataT* z,
  * @param stream cuda stream
  * @param op epilogue operation
  */
-template <typename DataT, typename IdxT, typename EpilogueOp = Nop<DataT, IdxT>>
+template <typename DataT, typename IdxT,
+          typename EpilogueOp = raft::Nop<DataT, IdxT>>
 void gemv(DataT* y, const DataT* A, const DataT* x, const DataT* z, DataT alpha,
           DataT beta, IdxT m, IdxT n, IdxT batchSize, cudaStream_t stream,
-          EpilogueOp op = Nop<DataT, IdxT>()) {
+          EpilogueOp op = raft::Nop<DataT, IdxT>()) {
   size_t bytes = n * sizeof(DataT);
   if (16 / sizeof(DataT) && bytes % 16 == 0) {
     gemvImplAx<DataT, IdxT, 16 / sizeof(DataT), EpilogueOp>(

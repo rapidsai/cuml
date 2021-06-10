@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,8 +19,10 @@
 #include <cuml/manifold/umapparams.h>
 #include <cuml/common/logger.hpp>
 #include <cuml/neighbors/knn.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include "optimize.cuh"
 
+#include <raft/cudart_utils.h>
 #include "fuzzy_simpl_set/runner.cuh"
 #include "init_embed/runner.cuh"
 #include "knn_graph/runner.cuh"
@@ -33,11 +35,14 @@
 #include <thrust/scan.h>
 #include <thrust/system/cuda/execution_policy.h>
 
-#include <sparse/coo.cuh>
-#include <sparse/csr.cuh>
+#include <raft/sparse/convert/csr.cuh>
+#include <raft/sparse/coo.cuh>
+#include <raft/sparse/linalg/add.cuh>
+#include <raft/sparse/linalg/norm.cuh>
+#include <raft/sparse/linalg/symmetrize.cuh>
+#include <raft/sparse/op/filter.cuh>
 
-#include <common/cudart_utils.h>
-#include <cuda_utils.cuh>
+#include <raft/cuda_utils.cuh>
 
 #include <cuda_runtime.h>
 
@@ -46,8 +51,6 @@ namespace UMAPAlgo {
 namespace Supervised {
 
 using namespace ML;
-
-using namespace MLCommon::Sparse;
 
 template <int TPB_X, typename T>
 __global__ void fast_intersection_kernel(int *rows, int *cols, T *vals, int nnz,
@@ -65,21 +68,23 @@ __global__ void fast_intersection_kernel(int *rows, int *cols, T *vals, int nnz,
 }
 
 template <typename T, int TPB_X>
-void reset_local_connectivity(COO<T> *in_coo, COO<T> *out_coo,
-                              std::shared_ptr<deviceAllocator> d_alloc,
-                              cudaStream_t stream  // size = nnz*2
+void reset_local_connectivity(
+  raft::sparse::COO<T> *in_coo, raft::sparse::COO<T> *out_coo,
+  std::shared_ptr<raft::mr::device::allocator> d_alloc,
+  cudaStream_t stream  // size = nnz*2
 ) {
   MLCommon::device_buffer<int> row_ind(d_alloc, stream, in_coo->n_rows);
 
-  MLCommon::Sparse::sorted_coo_to_csr(in_coo, row_ind.data(), d_alloc, stream);
+  raft::sparse::convert::sorted_coo_to_csr(in_coo, row_ind.data(), d_alloc,
+                                           stream);
 
   // Perform l_inf normalization
-  MLCommon::Sparse::csr_row_normalize_max<TPB_X, T>(
+  raft::sparse::linalg::csr_row_normalize_max<TPB_X, T>(
     row_ind.data(), in_coo->vals(), in_coo->nnz, in_coo->n_rows, in_coo->vals(),
     stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  MLCommon::Sparse::coo_symmetrize<TPB_X, T>(
+  raft::sparse::linalg::coo_symmetrize<TPB_X, T>(
     in_coo, out_coo,
     [] __device__(int row, int col, T result, T transpose) {
       T prod_matrix = result * transpose;
@@ -97,48 +102,46 @@ void reset_local_connectivity(COO<T> *in_coo, COO<T> *out_coo,
  * and this will update the fuzzy simplicial set to respect that label
  * data.
  */
-template <typename T, int TPB_X>
-void categorical_simplicial_set_intersection(COO<T> *graph_coo, T *target,
-                                             cudaStream_t stream,
-                                             float far_dist = 5.0,
-                                             float unknown_dist = 1.0) {
-  dim3 grid(MLCommon::ceildiv(graph_coo->nnz, TPB_X), 1, 1);
+template <typename value_t, int TPB_X>
+void categorical_simplicial_set_intersection(
+  raft::sparse::COO<value_t> *graph_coo, value_t *target, cudaStream_t stream,
+  float far_dist = 5.0, float unknown_dist = 1.0) {
+  dim3 grid(raft::ceildiv(graph_coo->nnz, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
-  fast_intersection_kernel<TPB_X, T><<<grid, blk, 0, stream>>>(
+  fast_intersection_kernel<TPB_X, value_t><<<grid, blk, 0, stream>>>(
     graph_coo->rows(), graph_coo->cols(), graph_coo->vals(), graph_coo->nnz,
     target, unknown_dist, far_dist);
 }
 
-template <typename T, int TPB_X>
-__global__ void sset_intersection_kernel(int *row_ind1, int *cols1, T *vals1,
-                                         int nnz1, int *row_ind2, int *cols2,
-                                         T *vals2, int nnz2, int *result_ind,
-                                         int *result_cols, T *result_vals,
-                                         int nnz, T left_min, T right_min,
-                                         int m, float mix_weight = 0.5) {
+template <typename value_t, int TPB_X>
+__global__ void sset_intersection_kernel(
+  int *row_ind1, int *cols1, value_t *vals1, int nnz1, int *row_ind2,
+  int *cols2, value_t *vals2, int nnz2, int *result_ind, int *result_cols,
+  value_t *result_vals, int nnz, value_t left_min, value_t right_min, int m,
+  float mix_weight = 0.5) {
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
 
   if (row < m) {
     int start_idx_res = result_ind[row];
-    int stop_idx_res = MLCommon::Sparse::get_stop_idx(row, m, nnz, result_ind);
+    int stop_idx_res = raft::sparse::get_stop_idx(row, m, nnz, result_ind);
 
     int start_idx1 = row_ind1[row];
-    int stop_idx1 = MLCommon::Sparse::get_stop_idx(row, m, nnz1, row_ind1);
+    int stop_idx1 = raft::sparse::get_stop_idx(row, m, nnz1, row_ind1);
 
     int start_idx2 = row_ind2[row];
-    int stop_idx2 = MLCommon::Sparse::get_stop_idx(row, m, nnz2, row_ind2);
+    int stop_idx2 = raft::sparse::get_stop_idx(row, m, nnz2, row_ind2);
 
     for (int j = start_idx_res; j < stop_idx_res; j++) {
       int col = result_cols[j];
 
-      T left_val = left_min;
+      value_t left_val = left_min;
       for (int k = start_idx1; k < stop_idx1; k++) {
         if (cols1[k] == col) {
           left_val = vals1[k];
         }
       }
 
-      T right_val = right_min;
+      value_t right_val = right_min;
       for (int k = start_idx2; k < stop_idx2; k++) {
         if (cols2[k] == col) {
           right_val = vals2[k];
@@ -164,13 +167,14 @@ __global__ void sset_intersection_kernel(int *row_ind1, int *cols1, T *vals1,
  */
 template <typename T, int TPB_X>
 void general_simplicial_set_intersection(
-  int *row1_ind, COO<T> *in1, int *row2_ind, COO<T> *in2, COO<T> *result,
-  float weight, std::shared_ptr<deviceAllocator> d_alloc, cudaStream_t stream) {
+  int *row1_ind, raft::sparse::COO<T> *in1, int *row2_ind,
+  raft::sparse::COO<T> *in2, raft::sparse::COO<T> *result, float weight,
+  std::shared_ptr<raft::mr::device::allocator> d_alloc, cudaStream_t stream) {
   MLCommon::device_buffer<int> result_ind(d_alloc, stream, in1->n_rows);
   CUDA_CHECK(
     cudaMemsetAsync(result_ind.data(), 0, in1->n_rows * sizeof(int), stream));
 
-  int result_nnz = MLCommon::Sparse::csr_add_calc_inds<float, 32>(
+  int result_nnz = raft::sparse::linalg::csr_add_calc_inds<float, 32>(
     row1_ind, in1->cols(), in1->vals(), in1->nnz, row2_ind, in2->cols(),
     in2->vals(), in2->nnz, in1->n_rows, result_ind.data(), d_alloc, stream);
 
@@ -179,14 +183,14 @@ void general_simplicial_set_intersection(
   /**
    * Element-wise sum of two simplicial sets
    */
-  MLCommon::Sparse::csr_add_finalize<float, 32>(
+  raft::sparse::linalg::csr_add_finalize<float, 32>(
     row1_ind, in1->cols(), in1->vals(), in1->nnz, row2_ind, in2->cols(),
     in2->vals(), in2->nnz, in1->n_rows, result_ind.data(), result->cols(),
     result->vals(), stream);
 
   //@todo: Write a wrapper function for this
-  MLCommon::Sparse::csr_to_coo<TPB_X>(result_ind.data(), result->n_rows,
-                                      result->rows(), result->nnz, stream);
+  raft::sparse::convert::csr_to_coo<int, TPB_X>(
+    result_ind.data(), result->n_rows, result->rows(), result->nnz, stream);
 
   thrust::device_ptr<const T> d_ptr1 = thrust::device_pointer_cast(in1->vals());
   T min1 = *(thrust::min_element(thrust::cuda::par.on(stream), d_ptr1,
@@ -199,7 +203,7 @@ void general_simplicial_set_intersection(
   T left_min = max(min1 / 2.0, 1e-8);
   T right_min = max(min2 / 2.0, 1e-8);
 
-  dim3 grid(MLCommon::ceildiv(in1->nnz, TPB_X), 1, 1);
+  dim3 grid(raft::ceildiv(in1->nnz, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
   sset_intersection_kernel<T, TPB_X><<<grid, blk, 0, stream>>>(
@@ -208,68 +212,76 @@ void general_simplicial_set_intersection(
     result->nnz, left_min, right_min, in1->n_rows, weight);
   CUDA_CHECK(cudaGetLastError());
 
-  dim3 grid_n(MLCommon::ceildiv(result->nnz, TPB_X), 1, 1);
+  dim3 grid_n(raft::ceildiv(result->nnz, TPB_X), 1, 1);
 }
 
 template <int TPB_X, typename T>
-void perform_categorical_intersection(T *y, COO<T> *rgraph_coo,
-                                      COO<T> *final_coo, UMAPParams *params,
-                                      std::shared_ptr<deviceAllocator> d_alloc,
-                                      cudaStream_t stream) {
+void perform_categorical_intersection(
+  T *y, raft::sparse::COO<T> *rgraph_coo, raft::sparse::COO<T> *final_coo,
+  UMAPParams *params, std::shared_ptr<raft::mr::device::allocator> d_alloc,
+  cudaStream_t stream) {
   float far_dist = 1.0e12;  // target weight
-  if (params->target_weights < 1.0)
-    far_dist = 2.5 * (1.0 / (1.0 - params->target_weights));
+  if (params->target_weight < 1.0)
+    far_dist = 2.5 * (1.0 / (1.0 - params->target_weight));
 
   categorical_simplicial_set_intersection<T, TPB_X>(rgraph_coo, y, stream,
                                                     far_dist);
 
-  COO<T> comp_coo(d_alloc, stream);
-  coo_remove_zeros<TPB_X, T>(rgraph_coo, &comp_coo, d_alloc, stream);
+  raft::sparse::COO<T> comp_coo(d_alloc, stream);
+  raft::sparse::op::coo_remove_zeros<TPB_X, T>(rgraph_coo, &comp_coo, d_alloc,
+                                               stream);
 
   reset_local_connectivity<T, TPB_X>(&comp_coo, final_coo, d_alloc, stream);
 
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-template <int TPB_X, typename T>
-void perform_general_intersection(const cumlHandle &handle, T *y,
-                                  COO<T> *rgraph_coo, COO<T> *final_coo,
+template <int TPB_X, typename value_idx, typename value_t>
+void perform_general_intersection(const raft::handle_t &handle, value_t *y,
+                                  raft::sparse::COO<value_t> *rgraph_coo,
+                                  raft::sparse::COO<value_t> *final_coo,
                                   UMAPParams *params, cudaStream_t stream) {
-  auto d_alloc = handle.getDeviceAllocator();
+  auto d_alloc = handle.get_device_allocator();
 
   /**
    * Calculate kNN for Y
    */
   int knn_dims = rgraph_coo->n_rows * params->target_n_neighbors;
-  MLCommon::device_buffer<int64_t> y_knn_indices(d_alloc, stream, knn_dims);
-  MLCommon::device_buffer<T> y_knn_dists(d_alloc, stream, knn_dims);
+  MLCommon::device_buffer<value_idx> y_knn_indices(d_alloc, stream, knn_dims);
+  MLCommon::device_buffer<value_t> y_knn_dists(d_alloc, stream, knn_dims);
 
-  kNNGraph::run(y, rgraph_coo->n_rows, y, rgraph_coo->n_rows, 1,
-                y_knn_indices.data(), y_knn_dists.data(),
-                params->target_n_neighbors, params, d_alloc, stream);
+  knn_graph<value_idx, value_t> knn_graph(rgraph_coo->n_rows,
+                                          params->target_n_neighbors);
+  knn_graph.knn_indices = y_knn_indices.data();
+  knn_graph.knn_dists = y_knn_dists.data();
+
+  manifold_dense_inputs_t<value_t> y_inputs(y, nullptr, rgraph_coo->n_rows, 1);
+  kNNGraph::run<value_idx, value_t, manifold_dense_inputs_t<value_t>>(
+    handle, y_inputs, y_inputs, knn_graph, params->target_n_neighbors, params,
+    d_alloc, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
     CUML_LOG_DEBUG("Target kNN Graph");
     std::stringstream ss1, ss2;
-    ss1 << MLCommon::arr2Str(y_knn_indices.data(),
-                             rgraph_coo->n_rows * params->target_n_neighbors,
-                             "knn_indices", stream);
+    ss1 << raft::arr2Str(y_knn_indices.data(),
+                         rgraph_coo->n_rows * params->target_n_neighbors,
+                         "knn_indices", stream);
     CUML_LOG_DEBUG("%s", ss1.str().c_str());
-    ss2 << MLCommon::arr2Str(y_knn_dists.data(),
-                             rgraph_coo->n_rows * params->target_n_neighbors,
-                             "knn_dists", stream);
+    ss2 << raft::arr2Str(y_knn_dists.data(),
+                         rgraph_coo->n_rows * params->target_n_neighbors,
+                         "knn_dists", stream);
     CUML_LOG_DEBUG("%s", ss2.str().c_str());
   }
 
   /**
    * Compute fuzzy simplicial set
    */
-  COO<T> ygraph_coo(d_alloc, stream);
+  raft::sparse::COO<value_t> ygraph_coo(d_alloc, stream);
 
-  FuzzySimplSet::run<TPB_X, T>(rgraph_coo->n_rows, y_knn_indices.data(),
-                               y_knn_dists.data(), params->target_n_neighbors,
-                               &ygraph_coo, params, d_alloc, stream);
+  FuzzySimplSet::run<TPB_X, value_idx, value_t>(
+    rgraph_coo->n_rows, y_knn_indices.data(), y_knn_dists.data(),
+    params->target_n_neighbors, &ygraph_coo, params, d_alloc, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
@@ -290,26 +302,28 @@ void perform_general_intersection(const cumlHandle &handle, T *y,
   CUDA_CHECK(cudaMemsetAsync(yrow_ind.data(), 0,
                              ygraph_coo.n_rows * sizeof(int), stream));
 
-  COO<T> cygraph_coo(d_alloc, stream);
-  coo_remove_zeros<TPB_X, T>(&ygraph_coo, &cygraph_coo, d_alloc, stream);
+  raft::sparse::COO<value_t> cygraph_coo(d_alloc, stream);
+  raft::sparse::op::coo_remove_zeros<TPB_X, value_t>(&ygraph_coo, &cygraph_coo,
+                                                     d_alloc, stream);
 
-  MLCommon::Sparse::sorted_coo_to_csr(&cygraph_coo, yrow_ind.data(), d_alloc,
-                                      stream);
-  MLCommon::Sparse::sorted_coo_to_csr(rgraph_coo, xrow_ind.data(), d_alloc,
-                                      stream);
+  raft::sparse::convert::sorted_coo_to_csr(&cygraph_coo, yrow_ind.data(),
+                                           d_alloc, stream);
+  raft::sparse::convert::sorted_coo_to_csr(rgraph_coo, xrow_ind.data(), d_alloc,
+                                           stream);
 
-  COO<T> result_coo(d_alloc, stream);
-  general_simplicial_set_intersection<T, TPB_X>(
+  raft::sparse::COO<value_t> result_coo(d_alloc, stream);
+  general_simplicial_set_intersection<value_t, TPB_X>(
     xrow_ind.data(), rgraph_coo, yrow_ind.data(), &cygraph_coo, &result_coo,
-    params->target_weights, d_alloc, stream);
+    params->target_weight, d_alloc, stream);
 
   /**
    * Remove zeros
    */
-  COO<T> out(d_alloc, stream);
-  coo_remove_zeros<TPB_X, T>(&result_coo, &out, d_alloc, stream);
+  raft::sparse::COO<value_t> out(d_alloc, stream);
+  raft::sparse::op::coo_remove_zeros<TPB_X, value_t>(&result_coo, &out, d_alloc,
+                                                     stream);
 
-  reset_local_connectivity<T, TPB_X>(&out, final_coo, d_alloc, stream);
+  reset_local_connectivity<value_t, TPB_X>(&out, final_coo, d_alloc, stream);
 
   CUDA_CHECK(cudaPeekAtLastError());
 }
