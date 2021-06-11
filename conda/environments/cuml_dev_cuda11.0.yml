@@ -14,8 +14,6 @@ dependencies:
 - libcumlprims=21.08.*
 - dask-cudf=21.08.*
 - dask-cuda=21.08.*
-- dask>=2021.6.0
-- distributed>=2021.6.0
 - ucx-py=0.21
 - ucx-proc=*=gpu
 - dask-ml
@@ -28,6 +26,8 @@ dependencies:
 - pip
 - pip:
     - sphinx_markdown_tables
+    - git+https://github.com/dask/dask.git@main
+    - git+https://github.com/dask/distributed.git@main
 
 # rapids-build-env, notebook-env and doc-env are defined in
 # https://docs.rapids.ai/maintainers/depmgmt/
