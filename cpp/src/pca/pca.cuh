@@ -41,14 +41,17 @@ void truncCompExpVars(const raft::handle_t &handle, math_t *in,
                       math_t *explained_var_ratio,
                       const paramsTSVDTemplate<enum_solver> prms,
                       cudaStream_t stream) {
-  int len = prms.n_cols * prms.n_cols;
+  size_t len = prms.n_cols * prms.n_cols;
   auto allocator = handle.get_device_allocator();
   device_buffer<math_t> components_all(allocator, stream, len);
   device_buffer<math_t> explained_var_all(allocator, stream, prms.n_cols);
   device_buffer<math_t> explained_var_ratio_all(allocator, stream, prms.n_cols);
 
+  printf("About to call calEig\n");
   calEig<math_t, enum_solver>(handle, in, components_all.data(),
                               explained_var_all.data(), prms, stream);
+
+  printf("Called calEig\n");
   raft::matrix::truncZeroOrigin(components_all.data(), prms.n_cols, components,
                                 prms.n_components, prms.n_cols, stream);
   raft::matrix::ratio(handle, explained_var_all.data(),
@@ -93,7 +96,7 @@ void pcaFit(const raft::handle_t &handle, math_t *input, math_t *components,
 
   raft::stats::mean(mu, input, prms.n_cols, prms.n_rows, true, false, stream);
 
-  int len = prms.n_cols * prms.n_cols;
+  size_t len = prms.n_cols * prms.n_cols;
   device_buffer<math_t> cov(handle.get_device_allocator(), stream, len);
 
   Stats::cov(handle, cov.data(), input, mu, prms.n_cols, prms.n_rows, true,
