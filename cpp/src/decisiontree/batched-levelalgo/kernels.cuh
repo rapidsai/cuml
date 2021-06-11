@@ -555,12 +555,32 @@ __device__ inline void lds(float (&x)[4], float* addr) {
 }
 
 __device__ inline void lds(double (&x)[2], double* addr) {
-  auto s2 = __cvta_generic_to_shared(reinterpret_cast<float2*>(addr));
+  auto s2 = __cvta_generic_to_shared(reinterpret_cast<double2*>(addr));
   asm volatile("ld.shared.v2.f64 {%0, %1}, [%2];"
                : "=d"(x[0]), "=d"(x[1])
                : "l"(s2));
-  // x[0] = *addr;
-  // x[1] = *(addr+1);
+}
+
+__device__ inline int search(const float d, const float (&s)[4]) {
+  bool cond[4];
+  cond[0] = d <= s[0];
+  cond[1] = d <= s[1];
+  cond[2] = d <= s[2];
+  cond[3] = d <= s[3];
+  if(cond[0]) return 0;
+  if(cond[1]) return 1;
+  if(cond[2]) return 2;
+  if(cond[3]) return 3;
+  return -1;
+}
+
+__device__ inline int search(const double d, const double (&s)[2]) {
+  bool cond[2];
+  cond[0] = d <= s[0];
+  cond[1] = d <= s[1];
+  if(cond[0]) return 0;
+  if(cond[1]) return 1;
+  return -1;
 }
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB>
@@ -632,14 +652,12 @@ __global__ void computeSplitClassificationKernel_cvta(
     for (b = 0; b < n_bins - n_items + 1; b += n_items) {
       DataT s[n_items];
       lds(s, sbins + b);
-      #pragma unroll 4
-      for (IdxT j = 0; j < n_items; j++) {
-        if (d <= s[j]) {
-          found = true;
-          break;
-        }
+      IdxT res = search(d, s);
+      if (res != -1) {
+        b = b + res;
+        found = true;
+        break;
       }
-      if (found) break;
     }
     if (!found) {
       #pragma unroll 4
