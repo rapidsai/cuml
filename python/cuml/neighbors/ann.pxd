@@ -23,6 +23,10 @@ from libcpp cimport bool
 
 cdef extern from "raft/spatial/knn/ann_common.h" \
         namespace "raft::spatial::knn":
+
+    cdef cppclass knnIndex:
+        pass
+
     cdef cppclass knnIndexParam:
         pass
 
