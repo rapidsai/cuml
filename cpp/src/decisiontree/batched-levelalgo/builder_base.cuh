@@ -536,15 +536,27 @@ struct RegTraits {
     auto colBlks = std::min(b.n_blks_for_cols, b.input.nSampledCols - col);
     auto nbins = b.params.n_bins;
 
-    // Compute shared memory size
-    size_t smemSize1 = (nbins + 1) * sizeof(DataT) +  // pdf_spred
-                       2 * nbins * sizeof(DataT) +    // cdf_spred
-                       nbins * sizeof(int) +          // pdf_scount
-                       nbins * sizeof(int) +          // cdf_scount
-                       nbins * sizeof(DataT) +        // sbins
-                       sizeof(int);                   // sDone
-    // Room for alignment (See alignPointer in computeSplitRegressionKernel)
-    smemSize1 += 6 * sizeof(DataT) + 3 * sizeof(int);
+    size_t smemSize1;
+    if (b.code_version == 0) {
+      // Compute shared memory size
+      smemSize1 = (nbins + 1) * sizeof(DataT) +  // pdf_spred
+                         2 * nbins * sizeof(DataT) +    // cdf_spred
+                         nbins * sizeof(int) +          // pdf_scount
+                         nbins * sizeof(int) +          // cdf_scount
+                         nbins * sizeof(DataT) +        // sbins
+                         sizeof(int);                   // sDone
+      // Room for alignment (See alignPointer in computeSplitRegressionKernel)
+      smemSize1 += 6 * sizeof(DataT) + 3 * sizeof(int);
+    }
+
+    if (b.code_version == 1) {
+      smemSize1 = round_to_16x((nbins + 1) * sizeof(DataT)) +  // pdf_spred
+                  round_to_16x(2 * nbins * sizeof(DataT)) +    // cdf_spred
+                  round_to_16x(nbins * sizeof(int)) +          // pdf_scount
+                  round_to_16x(nbins * sizeof(int)) +          // cdf_scount
+                  round_to_16x(nbins * sizeof(DataT)) +        // sbins
+                  sizeof(int);                                 // sDone
+    }
     // Calculate the shared memory needed for evalBestSplit
     size_t smemSize2 =
       raft::ceildiv(TPB_DEFAULT, raft::WarpSize) * sizeof(Split<DataT, IdxT>);
@@ -559,12 +571,24 @@ struct RegTraits {
 
     ML::PUSH_RANGE(
       "computeSplitRegressionKernel @builder_base.cuh [batched-levelalgo]");
-    computeSplitRegressionKernel<DataT, DataT, IdxT, TPB_DEFAULT>
-      <<<grid, TPB_DEFAULT, smemSize, s>>>(
-        b.pred, b.pred_count, b.params.n_bins, b.params.min_samples_leaf,
-        b.params.min_impurity_decrease, b.input, b.curr_nodes, col,
-        b.done_count, b.mutex, b.splits, splitType, b.treeid, b.workload_info,
-        b.seed);
+    if (b.code_version == 0) {
+      computeSplitRegressionKernel<DataT, DataT, IdxT, TPB_DEFAULT>
+        <<<grid, TPB_DEFAULT, smemSize, s>>>(
+          b.pred, b.pred_count, b.params.n_bins, b.params.min_samples_leaf,
+          b.params.min_impurity_decrease, b.input, b.curr_nodes, col,
+          b.done_count, b.mutex, b.splits, splitType, b.treeid, b.workload_info,
+          b.seed);
+    }
+
+    if (b.code_version == 1) {
+      computeSplitRegressionKernel_cvta<DataT, DataT, IdxT, TPB_DEFAULT>
+        <<<grid, TPB_DEFAULT, smemSize, s>>>(
+          b.pred, b.pred_count, b.params.n_bins, b.params.min_samples_leaf,
+          b.params.min_impurity_decrease, b.input, b.curr_nodes, col,
+          b.done_count, b.mutex, b.splits, splitType, b.treeid, b.workload_info,
+          b.seed);
+    }
+
 
     ML::POP_RANGE();  //computeSplitRegressionKernel
     ML::POP_RANGE();  //Builder::computeSplit
