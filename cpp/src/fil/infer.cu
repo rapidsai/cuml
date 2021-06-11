@@ -461,6 +461,9 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
 
 template <int NITEMS>
 struct tree_aggregator_t<NITEMS, VECTOR_LEAF> {
+  // per_class_margin is a row-major matrix
+  // of size num_threads_per_class * num_classes
+  // used to acccumulate class values
   vec<NITEMS, float>* per_class_margin;
   vec<NITEMS, int>* vector_leaf_indices;
   int* thread_num_rows;
@@ -502,6 +505,7 @@ struct tree_aggregator_t<NITEMS, VECTOR_LEAF> {
     thread_num_rows[threadIdx.x] = 0;
     // __syncthreads() is called in infer_k
   }
+
   __device__ __forceinline__ void accumulate(
     vec<NITEMS, int> single_tree_prediction, int tree, int num_rows) {
     // Perform a transpose in shared memory
@@ -511,11 +515,16 @@ struct tree_aggregator_t<NITEMS, VECTOR_LEAF> {
     vector_leaf_indices[threadIdx.x] = single_tree_prediction;
     thread_num_rows[threadIdx.x] = num_rows;
     __syncthreads();
+    // i here refers to each element of the matrix per_class_margin
     for (int i = threadIdx.x; i < num_classes * num_threads_per_class;
          i += blockDim.x) {
+      // if num_threads_per_class == 1, then c == i
       int c = i % num_classes;
-      for (int j = threadIdx.x / num_classes; j < blockDim.x;
-           j += num_threads_per_class) {
+      int row = i / num_classes;
+      // iterate over original thread inputs with stride num_threads_per_class
+      // j is the original thread input
+      // we have num_classes threads for each j
+      for (int j = row; j < blockDim.x; j += num_threads_per_class) {
         for (int item = 0; item < thread_num_rows[j]; ++item) {
           float pred =
             vector_leaf[vector_leaf_indices[j][item] * num_classes + c];
