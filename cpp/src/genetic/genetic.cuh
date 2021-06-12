@@ -38,7 +38,7 @@ HDI int max_programs(const param& p) {
 
 HDI int criterion(const param& p) {
   // Returns 0 if a smaller value is preferred and 1 for the opposite
-  switch(p.metric){
+  switch (p.metric) {
     case metric_t::mse:
       return 0;
     case metric_t::logloss:

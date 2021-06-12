@@ -42,15 +42,13 @@ HDI int arity(node::type t) {
 }
 
 // `data` assumed to be stored in col-major format
-DI float evaluate_node(const node &n, const float* data, const size_t stride,
+DI float evaluate_node(const node& n, const float* data, const size_t stride,
                        const size_t idx, const float* in) {
   if (n.t == node::type::constant) {
     return n.u.val;
-  } 
-  else if (n.t == node::type::variable) {
-    return data[(stride*n.u.fid) + idx] ;
-  } 
-  else {
+  } else if (n.t == node::type::variable) {
+    return data[(stride * n.u.fid) + idx];
+  } else {
     auto abs_inval = fabsf(in[0]), abs_inval1 = fabsf(in[1]);
     auto small = abs_inval < MIN_VAL;
     // note: keep the case statements in alphabetical order under each category
@@ -58,7 +56,7 @@ DI float evaluate_node(const node &n, const float* data, const size_t stride,
     switch (n.t) {
       // binary operators
       case node::type::add:
-        return in[0]+in[1];
+        return in[0] + in[1];
       case node::type::atan2:
         return atan2f(in[0], in[1]);
       case node::type::div:

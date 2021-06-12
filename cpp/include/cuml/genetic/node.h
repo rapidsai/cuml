@@ -92,7 +92,7 @@ struct node {
    * @brief Default constructor for node
    */
   explicit node();
-  
+
   /**
    * @brief Construct a function node
    *

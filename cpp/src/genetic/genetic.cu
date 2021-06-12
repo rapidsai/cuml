@@ -14,28 +14,28 @@
  * limitations under the License.
  */
 
-#include "constants.h"
-#include "genetic.cuh"
-#include "node.cuh"
 #include <cuml/genetic/common.h>
 #include <cuml/genetic/genetic.h>
 #include <cuml/genetic/program.h>
 #include <cuml/common/logger.hpp>
+#include "constants.h"
+#include "genetic.cuh"
+#include "node.cuh"
 
-#include <raft/cuda_utils.cuh>
 #include <raft/cudart_utils.h>
-#include <raft/random/rng_impl.cuh>
-#include <raft/random/rng.cuh>
-#include <raft/linalg/unary_op.cuh>
+#include <raft/cuda_utils.cuh>
 #include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/random/rng.cuh>
+#include <raft/random/rng_impl.cuh>
 
-#include <random>
-#include <stack>
 #include <algorithm>
 #include <numeric>
+#include <random>
+#include <stack>
 
-#include <rmm/device_uvector.hpp>
 #include <device_launch_parameters.h>
+#include <rmm/device_uvector.hpp>
 
 namespace cuml {
 namespace genetic {
@@ -51,33 +51,33 @@ namespace genetic {
  * @param tour_size     No of programs considered per tournament(@c <=n_progs><)
  * @param criterion     Selection criterion for choices(min/max)
  */
-__global__ void batched_tournament_kernel(const program_t progs, 
-                                          int* win_indices, uint64_t* seeds, 
-                                          const int n_progs, const int n_tours, 
-                                          const int tour_size, const int criterion) {
-
+__global__ void batched_tournament_kernel(const program_t progs,
+                                          int *win_indices, uint64_t *seeds,
+                                          const int n_progs, const int n_tours,
+                                          const int tour_size,
+                                          const int criterion) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
-  if(idx >= n_tours)return;
-  
-  raft::random::detail::PhiloxGenerator gen(seeds[idx],(uint64_t)idx,0);
-  
+  if (idx >= n_tours) return;
+
+  raft::random::detail::PhiloxGenerator gen(seeds[idx], (uint64_t)idx, 0);
+
   int r;
   gen.next(r);
   int opt = r % n_progs;
   float opt_score = progs[opt].raw_fitness_;
 
-  for (int s = 1; s < tour_size ; ++s){
+  for (int s = 1; s < tour_size; ++s) {
     gen.next(r);
     int curr = r % n_progs;
     float curr_score = progs[curr].raw_fitness_;
-    
+
     // Eliminate thread divergence - b,criterion take values in {0,1}
     int b = (opt_score < curr_score);
-    opt = opt * (b*(1-criterion) + criterion*(1-b)) + 
-          curr * (b*criterion + (1-b)*(1-criterion));
+    opt = opt * (b * (1 - criterion) + criterion * (1 - b)) +
+          curr * (b * criterion + (1 - b) * (1 - criterion));
 
     opt_score = progs[opt].raw_fitness_;
-  } 
+  }
 
   win_indices[idx] = opt;
 }
@@ -98,104 +98,98 @@ __global__ void batched_tournament_kernel(const program_t progs,
  * @param generation      Current generation id
  * @param seed            Random seed for generators
  */
-void parallel_evolve(const raft::handle_t &h, 
-                     const std::vector<program> &h_oldprogs,const program_t &d_oldprogs, 
-                     std::vector<program> &h_nextprogs, program_t &d_nextprogs, 
-                     const int n_samples, const float* data, const float* y, 
-                     const float* sample_weights, const param &params, const int generation, const int seed) {
+void parallel_evolve(const raft::handle_t &h,
+                     const std::vector<program> &h_oldprogs,
+                     const program_t &d_oldprogs,
+                     std::vector<program> &h_nextprogs, program_t &d_nextprogs,
+                     const int n_samples, const float *data, const float *y,
+                     const float *sample_weights, const param &params,
+                     const int generation, const int seed) {
   cudaStream_t stream = h.get_stream();
-  auto n_progs    =   params.population_size;
-  auto tour_size  =   params.tournament_size;
-  auto n_tours    =   n_progs;                 // at least num_progs tournaments
+  auto n_progs = params.population_size;
+  auto tour_size = params.tournament_size;
+  auto n_tours = n_progs;  // at least num_progs tournaments
 
   // Seed engines
-  std::mt19937 h_gen(seed);                    // CPU rng
-  raft::random::Rng d_gen(seed);               // GPU rng
+  std::mt19937 h_gen(seed);       // CPU rng
+  raft::random::Rng d_gen(seed);  // GPU rng
 
-  std::uniform_real_distribution<float> dist_U(0.0f,1.0f);
-  
+  std::uniform_real_distribution<float> dist_U(0.0f, 1.0f);
+
   // Build, Mutate and Run Tournaments
 
-  if(generation == 1){
-
+  if (generation == 1) {
     // Build random programs for the first generation
-    for(auto i=0; i<n_progs; ++i){  
-      build_program(h_nextprogs[i],params,h_gen);
+    for (auto i = 0; i < n_progs; ++i) {
+      build_program(h_nextprogs[i], params, h_gen);
     }
 
-  }
-  else{
+  } else {
     // Set mutation type
     float mut_probs[4];
     mut_probs[0] = params.p_crossover;
     mut_probs[1] = params.p_subtree_mutation;
-    mut_probs[2] = params.p_hoist_mutation;    
+    mut_probs[2] = params.p_hoist_mutation;
     mut_probs[3] = params.p_point_mutation;
-    std::partial_sum(mut_probs,mut_probs+4,mut_probs);
+    std::partial_sum(mut_probs, mut_probs + 4, mut_probs);
 
-    for(auto i=0; i < n_progs; ++i){
+    for (auto i = 0; i < n_progs; ++i) {
       float prob = dist_U(h_gen);
 
-      if(prob < mut_probs[0]) {
+      if (prob < mut_probs[0]) {
         h_nextprogs[i].mut_type = mutation_t::crossover;
         n_tours++;
-      }
-      else if(prob < mut_probs[1]) {
+      } else if (prob < mut_probs[1]) {
         h_nextprogs[i].mut_type = mutation_t::subtree;
-      }
-      else if(prob < mut_probs[2]) {
+      } else if (prob < mut_probs[2]) {
         h_nextprogs[i].mut_type = mutation_t::hoist;
-      } 
-      else if(prob < mut_probs[3]) {
+      } else if (prob < mut_probs[3]) {
         h_nextprogs[i].mut_type = mutation_t::point;
-      }
-      else {
+      } else {
         h_nextprogs[i].mut_type = mutation_t::reproduce;
       }
-    } 
+    }
 
     // Run tournaments
-    rmm::device_uvector<uint64_t> tour_seeds(n_tours,stream);
-    rmm::device_uvector<int> d_win_indices(n_tours,stream);
-    d_gen.uniformInt(tour_seeds.data(), n_tours, (uint64_t)1, (uint64_t)INT_MAX, stream);
+    rmm::device_uvector<uint64_t> tour_seeds(n_tours, stream);
+    rmm::device_uvector<int> d_win_indices(n_tours, stream);
+    d_gen.uniformInt(tour_seeds.data(), n_tours, (uint64_t)1, (uint64_t)INT_MAX,
+                     stream);
 
     auto crit = params.criterion();
-    dim3 nblks(raft::ceildiv(n_tours,GENE_TPB),1,1);
-    batched_tournament_kernel<<<nblks,GENE_TPB,0,stream>>>(d_oldprogs,
-                                                           d_win_indices.data(),tour_seeds.data(),
-                                                           n_progs,n_tours,
-                                                           tour_size,crit);
+    dim3 nblks(raft::ceildiv(n_tours, GENE_TPB), 1, 1);
+    batched_tournament_kernel<<<nblks, GENE_TPB, 0, stream>>>(
+      d_oldprogs, d_win_indices.data(), tour_seeds.data(), n_progs, n_tours,
+      tour_size, crit);
     CUDA_CHECK(cudaPeekAtLastError());
 
     // Make sure tournaments have finished running before copying win indices
     CUDA_CHECK(cudaStreamSynchronize(stream));
-    
+
     // Perform host mutations
 
-    auto donor_pos  = n_progs;
-    for(auto pos=0; pos < n_progs; ++pos) {
-      
+    auto donor_pos = n_progs;
+    for (auto pos = 0; pos < n_progs; ++pos) {
       auto parent_index = d_win_indices.element(pos, stream);
-      
-      if(h_nextprogs[pos].mut_type == mutation_t::crossover){
+
+      if (h_nextprogs[pos].mut_type == mutation_t::crossover) {
         // Get secondary index
         auto donor_index = d_win_indices.element(donor_pos, stream);
-        donor_pos++; 
-        crossover(h_oldprogs[parent_index], h_oldprogs[donor_index],h_nextprogs[pos], params, h_gen);
-      }
-      else if(h_nextprogs[pos].mut_type == mutation_t::subtree){
-        subtree_mutation(h_oldprogs[parent_index],h_nextprogs[pos],params, h_gen);
-      }
-      else if(h_nextprogs[pos].mut_type == mutation_t::hoist){
-        hoist_mutation(h_oldprogs[parent_index],h_nextprogs[pos],params,h_gen);
-      }
-      else if(h_nextprogs[pos].mut_type == mutation_t::point){
-        point_mutation(h_oldprogs[parent_index],h_nextprogs[pos],params,h_gen);
-      }
-      else if(h_nextprogs[pos].mut_type == mutation_t::reproduce){
+        donor_pos++;
+        crossover(h_oldprogs[parent_index], h_oldprogs[donor_index],
+                  h_nextprogs[pos], params, h_gen);
+      } else if (h_nextprogs[pos].mut_type == mutation_t::subtree) {
+        subtree_mutation(h_oldprogs[parent_index], h_nextprogs[pos], params,
+                         h_gen);
+      } else if (h_nextprogs[pos].mut_type == mutation_t::hoist) {
+        hoist_mutation(h_oldprogs[parent_index], h_nextprogs[pos], params,
+                       h_gen);
+      } else if (h_nextprogs[pos].mut_type == mutation_t::point) {
+        point_mutation(h_oldprogs[parent_index], h_nextprogs[pos], params,
+                       h_gen);
+      } else if (h_nextprogs[pos].mut_type == mutation_t::reproduce) {
         h_nextprogs[pos] = h_oldprogs[parent_index];
-      }
-      else{
+      } else {
         // Should not come here
       }
     }
@@ -203,23 +197,27 @@ void parallel_evolve(const raft::handle_t &h,
 
   /* Memcpy individual host nodes to device and destroy previous generation device nodes
      TODO: Find a better way to do this. */
-  for(auto i=0;i<n_progs;++i) {
-
-    program tmp(h_nextprogs[i]);        
+  for (auto i = 0; i < n_progs; ++i) {
+    program tmp(h_nextprogs[i]);
     delete[] tmp.nodes;
 
     // Set current generation device nodes
-    tmp.nodes = (node*)h.get_device_allocator()->allocate(h_nextprogs[i].len*sizeof(node),stream);
-    CUDA_CHECK(cudaMemcpyAsync(tmp.nodes, h_nextprogs[i].nodes,h_nextprogs[i].len * sizeof(node),
+    tmp.nodes = (node *)h.get_device_allocator()->allocate(
+      h_nextprogs[i].len * sizeof(node), stream);
+    CUDA_CHECK(cudaMemcpyAsync(tmp.nodes, h_nextprogs[i].nodes,
+                               h_nextprogs[i].len * sizeof(node),
                                cudaMemcpyHostToDevice, stream));
-    CUDA_CHECK(cudaMemcpyAsync(d_nextprogs + i, &tmp,sizeof(program),cudaMemcpyHostToDevice,stream));
+    CUDA_CHECK(cudaMemcpyAsync(d_nextprogs + i, &tmp, sizeof(program),
+                               cudaMemcpyHostToDevice, stream));
 
-    if(generation > 1){
+    if (generation > 1) {
       // Free device memory allocated to program nodes in previous generation
-      CUDA_CHECK(cudaMemcpyAsync(&tmp,d_oldprogs + i,sizeof(program),cudaMemcpyDeviceToHost,stream));
-      h.get_device_allocator()->deallocate(tmp.nodes,h_oldprogs[i].len*sizeof(node),stream);
+      CUDA_CHECK(cudaMemcpyAsync(&tmp, d_oldprogs + i, sizeof(program),
+                                 cudaMemcpyDeviceToHost, stream));
+      h.get_device_allocator()->deallocate(
+        tmp.nodes, h_oldprogs[i].len * sizeof(node), stream);
     }
-    
+
     tmp.nodes = nullptr;
   }
 
@@ -227,31 +225,30 @@ void parallel_evolve(const raft::handle_t &h,
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   // Update raw fitness for all programs
-  set_batched_fitness(h, n_progs, d_nextprogs, h_nextprogs, params, n_samples, data, y, sample_weights);
+  set_batched_fitness(h, n_progs, d_nextprogs, h_nextprogs, params, n_samples,
+                      data, y, sample_weights);
 }
-  
+
 float param::p_reproduce() const { return detail::p_reproduce(*this); }
 
 int param::max_programs() const { return detail::max_programs(*this); }
 
 int param::criterion() const { return detail::criterion(*this); }
 
-std::string stringify(const program &prog){
-  
+std::string stringify(const program &prog) {
   std::string eqn = "( ";
   std::string delim = "";
   std::stack<int> ar_stack;
   ar_stack.push(0);
-  
-  for(int i=0;i<prog.len;++i){
-    if(prog.nodes[i].is_terminal()){
+
+  for (int i = 0; i < prog.len; ++i) {
+    if (prog.nodes[i].is_terminal()) {
       eqn += delim;
-      if(prog.nodes[i].t == node::type::variable){
+      if (prog.nodes[i].t == node::type::variable) {
         // variable
         eqn += "X";
         eqn += std::to_string(prog.nodes[i].u.fid);
-      }
-      else{
+      } else {
         // const
         eqn += std::to_string(prog.nodes[i].u.val);
       }
@@ -259,20 +256,21 @@ std::string stringify(const program &prog){
       int end_elem = ar_stack.top();
       ar_stack.pop();
       ar_stack.push(end_elem - 1);
-      while(ar_stack.top() == 0){
+      while (ar_stack.top() == 0) {
         ar_stack.pop();
         eqn += ") ";
-        if(ar_stack.empty()){break;}
+        if (ar_stack.empty()) {
+          break;
+        }
         end_elem = ar_stack.top();
         ar_stack.pop();
-        ar_stack.push(end_elem-1);
+        ar_stack.push(end_elem - 1);
       }
       delim = ", ";
-    }
-    else{
+    } else {
       ar_stack.push(prog.nodes[i].arity());
       eqn += delim;
-      switch (prog.nodes[i].t){
+      switch (prog.nodes[i].t) {
         // binary operators
         case node::type::add:
           eqn += "add(";
@@ -383,66 +381,68 @@ std::string stringify(const program &prog){
   return eqn;
 }
 
-void symFit ( const raft::handle_t &handle, 
-              const float* input, const float* labels, const float* sample_weights, 
-              const int n_rows, const int n_cols, param &params, 
-              program_t &final_progs, std::vector<std::vector<program>> &history) {
+void symFit(const raft::handle_t &handle, const float *input,
+            const float *labels, const float *sample_weights, const int n_rows,
+            const int n_cols, param &params, program_t &final_progs,
+            std::vector<std::vector<program>> &history) {
   cudaStream_t stream = handle.get_stream();
-  
+
   // Update arity map in params - Need to do this only here, as all operations will call Fit atleast once
-  for(auto f : params.function_set){
+  for (auto f : params.function_set) {
     int ar = 1;
-    if(node::type::binary_begin <= f && f <= node::type::binary_end){ar = 2;}
-    
-    if(params.arity_set.find(ar) == params.arity_set.end()){
-      // Create map entry for current arity
-      std::vector<node::type> vec_f(1,f);
-      params.arity_set.insert(std::make_pair(ar,vec_f));
+    if (node::type::binary_begin <= f && f <= node::type::binary_end) {
+      ar = 2;
     }
-    else{
+
+    if (params.arity_set.find(ar) == params.arity_set.end()) {
+      // Create map entry for current arity
+      std::vector<node::type> vec_f(1, f);
+      params.arity_set.insert(std::make_pair(ar, vec_f));
+    } else {
       // Insert into map
       std::vector<node::type> vec_f = params.arity_set.at(ar);
-      if(std::find(vec_f.begin(),vec_f.end(),f) == vec_f.end()){
+      if (std::find(vec_f.begin(), vec_f.end(), f) == vec_f.end()) {
         params.arity_set.at(ar).push_back(f);
       }
     }
   }
 
   // Check terminalRatio to dynamically set it
-  bool growAuto = (params.terminalRatio == 0.0f) ;
-  if(growAuto){
-    params.terminalRatio = 1.0f * params.num_features / (params.num_features + params.function_set.size());
+  bool growAuto = (params.terminalRatio == 0.0f);
+  if (growAuto) {
+    params.terminalRatio = 1.0f * params.num_features /
+                           (params.num_features + params.function_set.size());
   }
 
   /* Initializations */
 
   std::vector<program> h_currprogs(params.population_size);
   std::vector<program> h_nextprogs(params.population_size);
-  
-  std::vector<float>   h_fitness(params.population_size,0.0f);
 
-  program_t d_currprogs = (program_t)handle.get_device_allocator()->allocate(params.population_size*sizeof(program),stream);
-  program_t d_nextprogs = final_progs;     // Reuse memory already allocated for final_progs
+  std::vector<float> h_fitness(params.population_size, 0.0f);
+
+  program_t d_currprogs = (program_t)handle.get_device_allocator()->allocate(
+    params.population_size * sizeof(program), stream);
+  program_t d_nextprogs =
+    final_progs;  // Reuse memory already allocated for final_progs
   final_progs = nullptr;
 
   std::mt19937_64 h_gen_engine(params.random_state);
   std::uniform_int_distribution<int> seed_dist;
-  
+
   /* Begin training */
   auto gen = 0;
-  params.num_epochs = 0;    
+  params.num_epochs = 0;
 
-  while(gen < params.generations){
+  while (gen < params.generations) {
     // Generate an init seed
     auto init_seed = seed_dist(h_gen_engine);
-    
+
     // Evolve current generation
-    parallel_evolve(handle,
-                    h_currprogs,d_currprogs,
-                    h_nextprogs,d_nextprogs,
-                    n_rows,input,labels,
-                    sample_weights,params,(gen+1),init_seed);
-    
+    parallel_evolve(handle, h_currprogs, d_currprogs, h_nextprogs, d_nextprogs,
+                    n_rows, input, labels, sample_weights, params, (gen + 1),
+                    init_seed);
+
     // Update epochs
     ++params.num_epochs;
 
@@ -450,10 +450,9 @@ void symFit ( const raft::handle_t &handle,
     h_currprogs = h_nextprogs;
 
     // Update evolution history, depending on the low memory flag
-    if(!params.low_memory || gen==0){
+    if (!params.low_memory || gen == 0) {
       history.push_back(h_currprogs);
-    }
-    else{
+    } else {
       history.back() = h_currprogs;
     }
 
@@ -461,92 +460,103 @@ void symFit ( const raft::handle_t &handle,
     program_t d_tmp = d_currprogs;
     d_currprogs = d_nextprogs;
     d_nextprogs = d_tmp;
-    
+
     // Update fitness array [host] and compute stopping criterion
     auto crit = params.criterion();
     h_fitness[0] = h_currprogs[0].raw_fitness_;
     auto opt_fit = h_fitness[0];
 
-    for(auto i = 1; i < params.population_size ; ++i){
+    for (auto i = 1; i < params.population_size; ++i) {
       h_fitness[i] = h_currprogs[i].raw_fitness_;
 
-      if(crit == 0){opt_fit = std::min(opt_fit,h_fitness[i]);}
-      else {opt_fit = std::max(opt_fit,h_fitness[i]);}
-
+      if (crit == 0) {
+        opt_fit = std::min(opt_fit, h_fitness[i]);
+      } else {
+        opt_fit = std::max(opt_fit, h_fitness[i]);
+      }
     }
 
     // Check for stop criterion
-    if((crit==0 && opt_fit<=params.stopping_criteria) || (crit==1 && opt_fit>=params.stopping_criteria)){
-      CUML_LOG_DEBUG("Early stopping criterion reached in Generation #%d, fitness=%f",(gen+1),opt_fit);
+    if ((crit == 0 && opt_fit <= params.stopping_criteria) ||
+        (crit == 1 && opt_fit >= params.stopping_criteria)) {
+      CUML_LOG_DEBUG(
+        "Early stopping criterion reached in Generation #%d, fitness=%f",
+        (gen + 1), opt_fit);
       break;
     }
 
     // Update generation
     ++gen;
   }
-  
+
   // Set final generation programs
   final_progs = d_currprogs;
 
   // Reset automatic growth parameter
-  if(growAuto){
+  if (growAuto) {
     params.terminalRatio = 0.0f;
   }
 
   // Deallocate the previous generation device memory
-  handle.get_device_allocator()->deallocate(d_nextprogs,sizeof(program)*params.population_size,stream);
+  handle.get_device_allocator()->deallocate(
+    d_nextprogs, sizeof(program) * params.population_size, stream);
   d_currprogs = nullptr;
   d_nextprogs = nullptr;
 }
 
-void symRegPredict(const raft::handle_t &handle, const float* input, const int n_rows, 
-                const program_t &best_prog, float* output){
+void symRegPredict(const raft::handle_t &handle, const float *input,
+                   const int n_rows, const program_t &best_prog,
+                   float *output) {
   // Assume best_prog is on device
-  execute(handle,best_prog,n_rows,1,input,output);
+  execute(handle, best_prog, n_rows, 1, input, output);
 }
 
-void symClfPredictProbs(const raft::handle_t &handle, const float* input, const int n_rows,
-                        const param &params, const program_t &best_prog, float* output) {
+void symClfPredictProbs(const raft::handle_t &handle, const float *input,
+                        const int n_rows, const param &params,
+                        const program_t &best_prog, float *output) {
   cudaStream_t stream = handle.get_stream();
-  
+
   // Assume output is of shape [n_rows, 2] in colMajor format
-  execute(handle,best_prog,n_rows,1,input,output);
-  
+  execute(handle, best_prog, n_rows, 1, input, output);
+
   // Apply 2 map operations to get probabilities!
   // TODO: Modification needed for n_classes
-  if(params.transformer == transformer_t::sigmoid) {
-    raft::linalg::unaryOp(output+n_rows,output,n_rows,
-                          [] __device__(float in){return 1.0f / (1.0f + expf(-in));}, stream);
-    raft::linalg::unaryOp(output,output+n_rows,n_rows,
-                          [] __device__(float in){return 1.0f-in;}, stream);
-  }
-  else {
+  if (params.transformer == transformer_t::sigmoid) {
+    raft::linalg::unaryOp(
+      output + n_rows, output, n_rows,
+      [] __device__(float in) { return 1.0f / (1.0f + expf(-in)); }, stream);
+    raft::linalg::unaryOp(
+      output, output + n_rows, n_rows,
+      [] __device__(float in) { return 1.0f - in; }, stream);
+  } else {
     // Only sigmoid supported for now
   }
 }
 
-void symClfPredict(const raft::handle_t &handle, const float* input, const int n_rows, 
-                   const param &params, const program_t &best_prog, float* output){
+void symClfPredict(const raft::handle_t &handle, const float *input,
+                   const int n_rows, const param &params,
+                   const program_t &best_prog, float *output) {
   cudaStream_t stream = handle.get_stream();
-  
+
   // Memory for probabilities
-  float* probs = (float*)handle.get_device_allocator()->allocate(2*n_rows*sizeof(float),stream);
-  symClfPredictProbs(handle,input,n_rows,params,best_prog,probs);
+  float *probs = (float *)handle.get_device_allocator()->allocate(
+    2 * n_rows * sizeof(float), stream);
+  symClfPredictProbs(handle, input, n_rows, params, best_prog, probs);
 
   // Take argmax along columns
   // TODO: Further modification needed for n_classes
-  raft::linalg::binaryOp(output,probs,probs+n_rows,n_rows,
-                         [] __device__ (float p0, float p1){
-                           return 1.0f * (p0 <= p1);
-                         },stream);
+  raft::linalg::binaryOp(
+    output, probs, probs + n_rows, n_rows,
+    [] __device__(float p0, float p1) { return 1.0f * (p0 <= p1); }, stream);
 }
 
-void symTransform(const raft::handle_t &handle, const float* input, const param &params, 
-                  const program_t &final_progs, const int n_rows, const int n_cols, float* output){
+void symTransform(const raft::handle_t &handle, const float *input,
+                  const param &params, const program_t &final_progs,
+                  const int n_rows, const int n_cols, float *output) {
   cudaStream_t stream = handle.get_stream();
   // Execute final_progs(ordered by fitness) on input
   // output of size [n_rows,hall_of_fame]
-  execute(handle,final_progs,n_rows,params.n_components,input,output);
+  execute(handle, final_progs, n_rows, params.n_components, input, output);
 }
 
 }  // namespace genetic

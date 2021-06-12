@@ -22,8 +22,7 @@ namespace genetic {
 
 const int node::kInvalidFeatureId = -1;
 
-node::node(){}
-
+node::node() {}
 
 node::node(node::type ft) : t(ft) {
   ASSERT(is_nonterminal(),
