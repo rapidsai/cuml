@@ -26,15 +26,15 @@
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include <iostream>
-#include <metrics/scores.cuh>
+#include <metrics/trustworthiness.cuh>
 #include <raft/mr/device/allocator.hpp>
 #include <tsne/distances.cuh>
 #include <vector>
 
 using namespace MLCommon;
-using namespace MLCommon::Score;
 using namespace MLCommon::Datasets;
 using namespace ML;
+using namespace ML::Metrics;
 
 struct TSNEInput {
   int n, p;
@@ -76,6 +76,11 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
+    model_params.n_neighbors = 90;
+    model_params.min_grad_norm = 1e-12;
+    model_params.verbosity = CUML_LEVEL_DEBUG;
+    model_params.algorithm = algo;
+
     TSNE_fit(handle,
              X_d.data(),                       // X
              Y_d.data(),                       // embeddings
@@ -83,28 +88,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
              p,                                // n_ftr
              knn ? knn_indices.data() : NULL,  // knn_indices
              knn ? knn_dists.data() : NULL,    // knn_dists
-             2,                                // n_components
-             90,                               // k
-             0.5,                              // theta
-             0.0025,                           // epssq
-             50,                               // perplexity
-             100,                              // perplex_max_iter
-             1e-5,                             // perplex_tol
-             12,                               // early_exagg
-             1.0,                              // late_exagg
-             250,                              // exagg_iter
-             0.01,                             // min_gain
-             200,                              // pre_learn_rate
-             500,                              // post_learn_rate
-             1000,                             // max_iter
-             1e-12,                            // min_grad_norm
-             0.5,                              // pre_momentum
-             0.8,                              // post_momentum
-             -1,                               // rand_state
-             CUML_LEVEL_DEBUG,                 // verbosity
-             true,                             // init
-             true,                             // square_distances
-             algo);                            // algo
+             model_params);                    // model parameters
 
     float *embeddings_h = (float *)malloc(sizeof(float) * n * 2);
     assert(embeddings_h != NULL);
@@ -161,6 +145,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
 
  protected:
   TSNEInput params;
+  TSNEParams model_params;
   std::vector<float> dataset;
   int n, p;
   double score_bh;

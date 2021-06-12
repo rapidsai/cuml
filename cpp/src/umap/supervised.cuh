@@ -221,8 +221,8 @@ void perform_categorical_intersection(
   UMAPParams *params, std::shared_ptr<raft::mr::device::allocator> d_alloc,
   cudaStream_t stream) {
   float far_dist = 1.0e12;  // target weight
-  if (params->target_weights < 1.0)
-    far_dist = 2.5 * (1.0 / (1.0 - params->target_weights));
+  if (params->target_weight < 1.0)
+    far_dist = 2.5 * (1.0 / (1.0 - params->target_weight));
 
   categorical_simplicial_set_intersection<T, TPB_X>(rgraph_coo, y, stream,
                                                     far_dist);
@@ -314,7 +314,7 @@ void perform_general_intersection(const raft::handle_t &handle, value_t *y,
   raft::sparse::COO<value_t> result_coo(d_alloc, stream);
   general_simplicial_set_intersection<value_t, TPB_X>(
     xrow_ind.data(), rgraph_coo, yrow_ind.data(), &cygraph_coo, &result_coo,
-    params->target_weights, d_alloc, stream);
+    params->target_weight, d_alloc, stream);
 
   /**
    * Remove zeros

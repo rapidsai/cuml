@@ -1,6 +1,67 @@
-# cuML 21.06.00 (Date TBD)
+# cuML 21.08.00 (Date TBD)
 
-Please see https://github.com/rapidsai/cuml/releases/tag/v21.06.00a for the latest changes to this development branch.
+Please see https://github.com/rapidsai/cuml/releases/tag/v21.08.00a for the latest changes to this development branch.
+
+# cuML 21.06.00 (9 Jun 2021)
+
+## 🚨 Breaking Changes
+
+- Remove Base.enable_rmm_pool method as it is no longer needed ([#3875](https://github.com/rapidsai/cuml/pull/3875)) [@teju85](https://github.com/teju85)
+- RF: Make experimental-backend default for regression tasks and deprecate old-backend. ([#3872](https://github.com/rapidsai/cuml/pull/3872)) [@venkywonka](https://github.com/venkywonka)
+- Deterministic UMAP with floating point rounding. ([#3848](https://github.com/rapidsai/cuml/pull/3848)) [@trivialfis](https://github.com/trivialfis)
+- Fix RF regression performance ([#3845](https://github.com/rapidsai/cuml/pull/3845)) [@RAMitchell](https://github.com/RAMitchell)
+- Add feature to print forest shape in FIL upon importing ([#3763](https://github.com/rapidsai/cuml/pull/3763)) [@levsnv](https://github.com/levsnv)
+- Remove &#39;seed&#39; and &#39;output_type&#39; deprecated features ([#3739](https://github.com/rapidsai/cuml/pull/3739)) [@lowener](https://github.com/lowener)
+
+## 🐛 Bug Fixes
+
+- Disable UMAP deterministic test on CTK11.2 ([#3942](https://github.com/rapidsai/cuml/pull/3942)) [@trivialfis](https://github.com/trivialfis)
+- Revert #3869 ([#3933](https://github.com/rapidsai/cuml/pull/3933)) [@hcho3](https://github.com/hcho3)
+- RF: fix the bug in `pdf_to_cdf` device function that causes hang when `n_bins &gt; TPB &amp;&amp; n_bins % TPB != 0` ([#3921](https://github.com/rapidsai/cuml/pull/3921)) [@venkywonka](https://github.com/venkywonka)
+- Fix number of permutations in pytest and getting handle for cuml models ([#3920](https://github.com/rapidsai/cuml/pull/3920)) [@dantegd](https://github.com/dantegd)
+- Fix typo in umap `target_weight` parameter ([#3914](https://github.com/rapidsai/cuml/pull/3914)) [@lowener](https://github.com/lowener)
+- correct compliation of cuml c library ([#3908](https://github.com/rapidsai/cuml/pull/3908)) [@robertmaynard](https://github.com/robertmaynard)
+- Correct install path for include folder to avoid double nesting ([#3901](https://github.com/rapidsai/cuml/pull/3901)) [@dantegd](https://github.com/dantegd)
+- Add type check for y in train_test_split ([#3886](https://github.com/rapidsai/cuml/pull/3886)) [@Nanthini10](https://github.com/Nanthini10)
+- Fix for MNMG test_rf_classification_dask_fil_predict_proba ([#3831](https://github.com/rapidsai/cuml/pull/3831)) [@lowener](https://github.com/lowener)
+- Fix MNMG test test_rf_regression_dask_fil ([#3830](https://github.com/rapidsai/cuml/pull/3830)) [@hcho3](https://github.com/hcho3)
+- AgglomerativeClustering support single cluster and ignore only zero distances from self-loops ([#3824](https://github.com/rapidsai/cuml/pull/3824)) [@cjnolet](https://github.com/cjnolet)
+
+## 📖 Documentation
+
+- Small doc fixes for 21.06 release ([#3936](https://github.com/rapidsai/cuml/pull/3936)) [@dantegd](https://github.com/dantegd)
+- Document ability to export cuML RF to predict on other machines ([#3890](https://github.com/rapidsai/cuml/pull/3890)) [@hcho3](https://github.com/hcho3)
+
+## 🚀 New Features
+
+- Deterministic UMAP with floating point rounding. ([#3848](https://github.com/rapidsai/cuml/pull/3848)) [@trivialfis](https://github.com/trivialfis)
+- HDBSCAN ([#3821](https://github.com/rapidsai/cuml/pull/3821)) [@cjnolet](https://github.com/cjnolet)
+- Add feature to print forest shape in FIL upon importing ([#3763](https://github.com/rapidsai/cuml/pull/3763)) [@levsnv](https://github.com/levsnv)
+
+## 🛠️ Improvements
+
+- Pin dask ot 2021.5.1 for 21.06 release ([#3937](https://github.com/rapidsai/cuml/pull/3937)) [@dantegd](https://github.com/dantegd)
+- Upgrade xgboost to 1.4.2 ([#3925](https://github.com/rapidsai/cuml/pull/3925)) [@dantegd](https://github.com/dantegd)
+- Use UCX-Py 0.20 ([#3911](https://github.com/rapidsai/cuml/pull/3911)) [@jakirkham](https://github.com/jakirkham)
+- Upgrade NCCL to 2.9.9 ([#3902](https://github.com/rapidsai/cuml/pull/3902)) [@dantegd](https://github.com/dantegd)
+- Update conda developer environments ([#3898](https://github.com/rapidsai/cuml/pull/3898)) [@viclafargue](https://github.com/viclafargue)
+- ARIMA: pre-allocation of temporary memory to reduce latencies ([#3895](https://github.com/rapidsai/cuml/pull/3895)) [@Nyrio](https://github.com/Nyrio)
+- Condense TSNE parameters into a struct ([#3884](https://github.com/rapidsai/cuml/pull/3884)) [@lowener](https://github.com/lowener)
+- Update `CHANGELOG.md` links for calver ([#3883](https://github.com/rapidsai/cuml/pull/3883)) [@ajschmidt8](https://github.com/ajschmidt8)
+- Make sure `__init__` is called in graph callback. ([#3881](https://github.com/rapidsai/cuml/pull/3881)) [@trivialfis](https://github.com/trivialfis)
+- Update docs build script ([#3877](https://github.com/rapidsai/cuml/pull/3877)) [@ajschmidt8](https://github.com/ajschmidt8)
+- Remove Base.enable_rmm_pool method as it is no longer needed ([#3875](https://github.com/rapidsai/cuml/pull/3875)) [@teju85](https://github.com/teju85)
+- RF: Make experimental-backend default for regression tasks and deprecate old-backend. ([#3872](https://github.com/rapidsai/cuml/pull/3872)) [@venkywonka](https://github.com/venkywonka)
+- Enable probability output from RF binary classifier (alternative implementaton) ([#3869](https://github.com/rapidsai/cuml/pull/3869)) [@hcho3](https://github.com/hcho3)
+- CI test speed improvement ([#3851](https://github.com/rapidsai/cuml/pull/3851)) [@lowener](https://github.com/lowener)
+- Fix RF regression performance ([#3845](https://github.com/rapidsai/cuml/pull/3845)) [@RAMitchell](https://github.com/RAMitchell)
+- Update to CMake 3.20 features, `rapids-cmake` and `CPM` ([#3844](https://github.com/rapidsai/cuml/pull/3844)) [@dantegd](https://github.com/dantegd)
+- Support sparse input features in QN solvers and Logistic Regression ([#3827](https://github.com/rapidsai/cuml/pull/3827)) [@achirkin](https://github.com/achirkin)
+- Trustworthiness score improvements ([#3826](https://github.com/rapidsai/cuml/pull/3826)) [@viclafargue](https://github.com/viclafargue)
+- Performance optimization of RF split kernels by removing empty cycles ([#3818](https://github.com/rapidsai/cuml/pull/3818)) [@vinaydes](https://github.com/vinaydes)
+- Correct deprecate positional args decorator for CalVer ([#3784](https://github.com/rapidsai/cuml/pull/3784)) [@lowener](https://github.com/lowener)
+- ColumnTransformer &amp; FunctionTransformer ([#3745](https://github.com/rapidsai/cuml/pull/3745)) [@viclafargue](https://github.com/viclafargue)
+- Remove &#39;seed&#39; and &#39;output_type&#39; deprecated features ([#3739](https://github.com/rapidsai/cuml/pull/3739)) [@lowener](https://github.com/lowener)
 
 # cuML 0.19.0 (21 Apr 2021)
 

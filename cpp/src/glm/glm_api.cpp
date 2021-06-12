@@ -32,10 +32,9 @@ cumlError_t cumlSpQnFit(cumlHandle_t cuml_handle, float *X, float *y, int N,
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(cuml_handle);
   if (status == CUML_SUCCESS) {
     try {
-      ML::GLM::qnFit(*handle_ptr, X, y, N, D, C, fit_intercept, l1, l2,
-                     max_iter, grad_tol, change_tol, linesearch_max_iter,
-                     lbfgs_memory, verbosity, w0, f, num_iters, X_col_major,
-                     loss_type);
+      ML::GLM::qnFit(*handle_ptr, X, X_col_major, y, N, D, C, fit_intercept, l1,
+                     l2, max_iter, grad_tol, change_tol, linesearch_max_iter,
+                     lbfgs_memory, verbosity, w0, f, num_iters, loss_type);
 
     }
     // TODO: Implement this
@@ -62,10 +61,9 @@ cumlError_t cumlDpQnFit(cumlHandle_t cuml_handle, double *X, double *y, int N,
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(cuml_handle);
   if (status == CUML_SUCCESS) {
     try {
-      ML::GLM::qnFit(*handle_ptr, X, y, N, D, C, fit_intercept, l1, l2,
-                     max_iter, grad_tol, change_tol, linesearch_max_iter,
-                     lbfgs_memory, verbosity, w0, f, num_iters, X_col_major,
-                     loss_type);
+      ML::GLM::qnFit(*handle_ptr, X, X_col_major, y, N, D, C, fit_intercept, l1,
+                     l2, max_iter, grad_tol, change_tol, linesearch_max_iter,
+                     lbfgs_memory, verbosity, w0, f, num_iters, loss_type);
 
     }
     // TODO: Implement this
