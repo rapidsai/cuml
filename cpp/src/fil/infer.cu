@@ -16,7 +16,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <mutex>
 
 #include <thrust/functional.h>
 #include <cuml/fil/multi_sum.cuh>
@@ -24,8 +23,6 @@
 
 namespace ML {
 namespace fil {
-
-std::mutex shmem_carveout_mutex;
 
 // vec wraps float[N] for cub::BlockReduce
 template <int N, typename T>
@@ -577,17 +574,6 @@ __global__ void infer_k(storage_type forest, predict_params params) {
   }
 }
 
-void set_carveout(void* kernel, size_t footprint, int max_shm) {
-  // ensure optimal occupancy in case default allows less blocks/SM
-  CUDA_CHECK_NO_THROW(
-    cudaFuncSetAttribute(kernel, cudaFuncAttributePreferredSharedMemoryCarveout,
-                         // footprint in % of max_shm, rounding up
-                         (100 * footprint + max_shm - 1) / max_shm));
-  // even if the footprint < 48 * 1024, ensure that we reset after previous forest
-  CUDA_CHECK_NO_THROW(cudaFuncSetAttribute(
-    kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, footprint));
-}
-
 template <int NITEMS, leaf_algo_t leaf_algo>
 size_t shmem_size_params::get_smem_footprint() {
   size_t finalize_footprint =
@@ -600,108 +586,25 @@ size_t shmem_size_params::get_smem_footprint() {
   return std::max(accumulate_footprint, finalize_footprint);
 }
 
-template <int NITEMS>
-size_t shmem_size_params::get_smem_footprint() {
-  switch (leaf_algo) {
-    case FLOAT_UNARY_BINARY:
-      return get_smem_footprint<NITEMS, FLOAT_UNARY_BINARY>();
-    case CATEGORICAL_LEAF:
-      return get_smem_footprint<NITEMS, CATEGORICAL_LEAF>();
-    case GROVE_PER_CLASS:
-      if (num_classes > FIL_TPB)
-        return get_smem_footprint<NITEMS, GROVE_PER_CLASS_MANY_CLASSES>();
-      return get_smem_footprint<NITEMS, GROVE_PER_CLASS_FEW_CLASSES>();
-    default:
-      ASSERT(false, "internal error: unexpected leaf_algo_t");
+template <bool cols_in_shmem, leaf_algo_t leaf_algo, int nitems>
+struct infer_k_launcher {
+  template <typename storage_type>
+  static void run(predict_params params, storage_type forest,
+                  cudaStream_t stream) {
+    params.num_blocks = params.num_blocks != 0
+                          ? params.num_blocks
+                          : raft::ceildiv(int(params.num_rows), params.n_items);
+    infer_k<nitems, leaf_algo, cols_in_shmem, storage_type>
+      <<<params.num_blocks, params.blockdim_x, params.shm_sz, stream>>>(forest,
+                                                                        params);
+    CUDA_CHECK(cudaPeekAtLastError());
   }
-}
-
-void shmem_size_params::compute_smem_footprint() {
-  switch (n_items) {
-    case 1:
-      shm_sz = get_smem_footprint<1>();
-      break;
-    case 2:
-      shm_sz = get_smem_footprint<2>();
-      break;
-    case 3:
-      shm_sz = get_smem_footprint<3>();
-      break;
-    case 4:
-      shm_sz = get_smem_footprint<4>();
-      break;
-    default:
-      ASSERT(false, "internal error: n_items > 4");
-  }
-}
-
-template <leaf_algo_t leaf_algo, bool cols_in_shmem, typename storage_type>
-void infer_k_nitems_launcher(storage_type forest, predict_params params,
-                             cudaStream_t stream, int block_dim_x) {
-  void (*kernels[])(storage_type, predict_params) = {
-    nullptr,
-    infer_k<1, leaf_algo, cols_in_shmem, storage_type>,
-    infer_k<2, leaf_algo, cols_in_shmem, storage_type>,
-    infer_k<3, leaf_algo, cols_in_shmem, storage_type>,
-    infer_k<4, leaf_algo, cols_in_shmem, storage_type>,
-  };
-  ASSERT(params.n_items <= 4, "internal error: nitems > 4");
-  void (*kernel)(storage_type, predict_params) = kernels[params.n_items];
-  // Two forests might be using the same handle, so
-  // large batch will run fastest if we set just before launching.
-  // This will not cause a race condition between setting and launching despite
-  // CPU-GPU asynchronicity.
-  shmem_carveout_mutex.lock();
-  set_carveout((void*)kernel, params.shm_sz, params.max_shm);
-  kernel<<<params.num_blocks, block_dim_x, params.shm_sz, stream>>>(forest,
-                                                                    params);
-  CUDA_CHECK_NO_THROW(cudaPeekAtLastError());
-  shmem_carveout_mutex.unlock();  // a CUDA error should not hang other threads
-  if (cudaPeekAtLastError() != cudaSuccess) {
-    // a wrong thread might throw, it's OK
-    throw raft::cuda_error(
-      "CUDA error in ML::fil::predict() (see stdout for details)");
-  }
-}
-
-template <leaf_algo_t leaf_algo, typename storage_type>
-void infer_k_launcher(storage_type forest, predict_params params,
-                      cudaStream_t stream, int blockdim_x) {
-  params.num_blocks = params.num_blocks != 0
-                        ? params.num_blocks
-                        : raft::ceildiv(int(params.num_rows), params.n_items);
-  if (params.cols_in_shmem) {
-    infer_k_nitems_launcher<leaf_algo, true>(forest, params, stream,
-                                             blockdim_x);
-  } else {
-    infer_k_nitems_launcher<leaf_algo, false>(forest, params, stream,
-                                              blockdim_x);
-  }
-}
+};
 
 template <typename storage_type>
 void infer(storage_type forest, predict_params params, cudaStream_t stream) {
-  switch (params.leaf_algo) {
-    case FLOAT_UNARY_BINARY:
-      infer_k_launcher<FLOAT_UNARY_BINARY>(forest, params, stream, FIL_TPB);
-      break;
-    case GROVE_PER_CLASS:
-      if (params.num_classes > FIL_TPB) {
-        params.leaf_algo = GROVE_PER_CLASS_MANY_CLASSES;
-        infer_k_launcher<GROVE_PER_CLASS_MANY_CLASSES>(forest, params, stream,
-                                                       FIL_TPB);
-      } else {
-        params.leaf_algo = GROVE_PER_CLASS_FEW_CLASSES;
-        infer_k_launcher<GROVE_PER_CLASS_FEW_CLASSES>(
-          forest, params, stream, FIL_TPB - FIL_TPB % params.num_classes);
-      }
-      break;
-    case CATEGORICAL_LEAF:
-      infer_k_launcher<CATEGORICAL_LEAF>(forest, params, stream, FIL_TPB);
-      break;
-    default:
-      ASSERT(false, "internal error: invalid leaf_algo");
-  }
+  dispatch_on_FIL_template_params<infer_k_launcher, storage_type>(
+    params, forest, stream);
 }
 
 template void infer<dense_storage>(dense_storage forest, predict_params params,

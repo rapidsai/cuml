@@ -125,15 +125,14 @@ struct shmem_size_params {
   int n_items = 0;
   /// max_shm is the maximum opt-in shared memory on the device
   int max_shm = 0;
+  // blockdim_x is the CUDA block size
+  int blockdim_x = 0;
   /// shm_sz is the associated shared memory footprint
   size_t shm_sz = INT_MAX;
 
   __host__ __device__ size_t cols_shmem_size() {
     return cols_in_shmem ? sizeof(float) * num_cols * n_items : 0;
   }
-  void compute_smem_footprint();
-  template <int NITEMS>
-  size_t get_smem_footprint();
   template <int NITEMS, leaf_algo_t leaf_algo>
   size_t get_smem_footprint();
 };
@@ -157,6 +156,90 @@ struct predict_params : shmem_size_params {
   output_t transform;
   int num_blocks;
 };
+
+namespace dispatch {
+
+template <template <bool, leaf_algo_t, int> class Func, typename storage_type,
+          bool cols_in_shmem, leaf_algo_t leaf_algo, int n_items,
+          typename... Args>
+void dispatch_final(predict_params params, Args... args) {
+  Func<cols_in_shmem, leaf_algo, n_items>::template run<storage_type>(params,
+                                                                      args...);
+}
+
+template <template <bool, leaf_algo_t, int> class Func, typename storage_type,
+          bool cols_in_shmem, leaf_algo_t leaf_algo, typename... Args>
+void dispatch_on_nitems(predict_params params, Args... args) {
+  switch (params.n_items) {
+    case 1:
+      dispatch_final<Func, storage_type, cols_in_shmem, leaf_algo, 1>(params,
+                                                                      args...);
+      break;
+    case 2:
+      dispatch_final<Func, storage_type, cols_in_shmem, leaf_algo, 2>(params,
+                                                                      args...);
+      break;
+    case 3:
+      dispatch_final<Func, storage_type, cols_in_shmem, leaf_algo, 3>(params,
+                                                                      args...);
+      break;
+    case 4:
+      dispatch_final<Func, storage_type, cols_in_shmem, leaf_algo, 4>(params,
+                                                                      args...);
+      break;
+    default:
+      ASSERT(false, "internal error: nitems > 4");
+  }
+}
+
+template <template <bool, leaf_algo_t, int> class Func, typename storage_type,
+          bool cols_in_shmem, typename... Args>
+void dispatch_on_leaf_algo(predict_params params, Args... args) {
+  switch (params.leaf_algo) {
+    case FLOAT_UNARY_BINARY:
+      params.blockdim_x = FIL_TPB;
+      dispatch_on_nitems<Func, storage_type, cols_in_shmem, FLOAT_UNARY_BINARY>(
+        params, args...);
+      break;
+    case GROVE_PER_CLASS:
+      if (params.num_classes > FIL_TPB) {
+        params.leaf_algo = GROVE_PER_CLASS_MANY_CLASSES;
+        params.blockdim_x = FIL_TPB;
+        dispatch_on_nitems<Func, storage_type, cols_in_shmem,
+                           GROVE_PER_CLASS_MANY_CLASSES>(params, args...);
+      } else {
+        params.leaf_algo = GROVE_PER_CLASS_FEW_CLASSES;
+        params.blockdim_x = FIL_TPB - FIL_TPB % params.num_classes;
+        dispatch_on_nitems<Func, storage_type, cols_in_shmem,
+                           GROVE_PER_CLASS_FEW_CLASSES>(params, args...);
+      }
+      break;
+    case CATEGORICAL_LEAF:
+      params.blockdim_x = FIL_TPB;
+      dispatch_on_nitems<Func, storage_type, cols_in_shmem, CATEGORICAL_LEAF>(
+        params, args...);
+      break;
+    default:
+      ASSERT(false, "internal error: invalid leaf_algo");
+  }
+}
+
+template <template <bool, leaf_algo_t, int> class Func, typename storage_type,
+          typename... Args>
+void dispatch_on_cols_in_shmem(predict_params params, Args... args) {
+  if (params.cols_in_shmem)
+    dispatch_on_leaf_algo<Func, storage_type, true>(params, args...);
+  else
+    dispatch_on_leaf_algo<Func, storage_type, false>(params, args...);
+}
+
+}  // namespace dispatch
+
+template <template <bool, leaf_algo_t, int> class Func, typename storage_type,
+          typename... Args>
+void dispatch_on_FIL_template_params(predict_params params, Args... args) {
+  dispatch::dispatch_on_cols_in_shmem<Func, storage_type>(params, args...);
+}
 
 // infer() calls the inference kernel with the parameters on the stream
 template <typename storage_type>

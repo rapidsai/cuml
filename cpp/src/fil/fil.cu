@@ -75,6 +75,14 @@ __global__ void transform_k(float* preds, size_t n, output_t output,
 }
 
 struct forest {
+  template <bool cols_in_shmem, leaf_algo_t leaf_algo, int nitems>
+  struct compute_smem_footprint {
+    template <typename storage_type>
+    static void run(predict_params ssp) {
+      ssp.shm_sz = ssp.get_smem_footprint<nitems, leaf_algo>();
+    }
+  };
+
   void init_n_items(int device) {
     // searching for the most items per block while respecting the shared
     // memory limits creates a full linear programming problem.
@@ -88,7 +96,8 @@ struct forest {
         for (ssp.n_items = 1;
              ssp.n_items <= (algo_ == algo_t::BATCH_TREE_REORG ? 4 : 1);
              ++ssp.n_items) {
-          ssp.compute_smem_footprint();
+          dispatch_on_FIL_template_params<compute_smem_footprint,
+                                          dense_storage>(predict_params(ssp));
           if (ssp.shm_sz <= ssp.max_shm) ssp_ = ssp;
         }
       }
@@ -110,8 +119,6 @@ struct forest {
                                       device));
     fixed_block_count_ = blocks_per_sm * sm_count;
   }
-
-  void init_max_shm(int device) {}
 
   void init_common(const raft::handle_t& h, const forest_params_t* params) {
     int device = h.get_device();
@@ -270,6 +277,22 @@ struct forest {
   int max_shm_ = 0;
 };
 
+template <bool cols_in_shmem, leaf_algo_t leaf_algo, int nitems>
+struct enable_smem_carveout {
+  template <typename storage_type>
+  static void run(predict_params params, int max_shm) {
+    void (*kernel)(storage_type, predict_params) =
+      infer_k<nitems, leaf_algo, cols_in_shmem, storage_type>;
+    // ensure optimal occupancy and L1 cache size in case config at launch is suboptimal
+    CUDA_CHECK_NO_THROW(cudaFuncSetAttribute(
+      kernel, cudaFuncAttributePreferredSharedMemoryCarveout,
+      cudaFuncCachePreferL1));
+    // even if the footprint < 48 * 1024, ensure that we reset after previous forest
+    CUDA_CHECK_NO_THROW(cudaFuncSetAttribute(
+      kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, max_shm));
+  }
+};
+
 struct dense_forest : forest {
   void transform_trees(const dense_node* nodes) {
     /* Populate node information:
@@ -313,6 +336,9 @@ struct dense_forest : forest {
     CUDA_CHECK(cudaMemcpyAsync(nodes_, h_nodes_.data(),
                                num_nodes * sizeof(dense_node),
                                cudaMemcpyHostToDevice, h.get_stream()));
+
+    dispatch_on_FIL_template_params<enable_smem_carveout, dense_storage>(
+      predict_params(class_ssp_), max_shm_);
     // copy must be finished before freeing the host data
     CUDA_CHECK(cudaStreamSynchronize(h.get_stream()));
     h_nodes_.clear();
@@ -356,6 +382,10 @@ struct sparse_forest : forest {
       sizeof(node_t) * num_nodes_, h.get_stream());
     CUDA_CHECK(cudaMemcpyAsync(nodes_, nodes, sizeof(node_t) * num_nodes_,
                                cudaMemcpyHostToDevice, h.get_stream()));
+
+    dispatch_on_FIL_template_params<enable_smem_carveout,
+                                    sparse_storage<node_t>>(
+      predict_params(class_ssp_), max_shm_);
   }
 
   virtual void infer(predict_params params, cudaStream_t stream) override {
