@@ -128,7 +128,7 @@ struct shmem_size_params {
   // blockdim_x is the CUDA block size
   int blockdim_x = 0;
   /// shm_sz is the associated shared memory footprint
-  size_t shm_sz = INT_MAX;
+  int shm_sz = INT_MAX;
 
   __host__ __device__ size_t cols_shmem_size() {
     return cols_in_shmem ? sizeof(float) * num_cols * n_items : 0;
@@ -169,7 +169,7 @@ void dispatch_final(predict_params params, Args... args) {
 
 template <template <bool, leaf_algo_t, int> class Func, typename storage_type,
           bool cols_in_shmem, leaf_algo_t leaf_algo, typename... Args>
-void dispatch_on_nitems(predict_params params, Args... args) {
+void dispatch_on_n_items(predict_params params, Args... args) {
   switch (params.n_items) {
     case 1:
       dispatch_final<Func, storage_type, cols_in_shmem, leaf_algo, 1>(params,
@@ -188,7 +188,7 @@ void dispatch_on_nitems(predict_params params, Args... args) {
                                                                       args...);
       break;
     default:
-      ASSERT(false, "internal error: nitems > 4");
+      ASSERT(false, "internal error: n_items > 4");
   }
 }
 
@@ -198,25 +198,25 @@ void dispatch_on_leaf_algo(predict_params params, Args... args) {
   switch (params.leaf_algo) {
     case FLOAT_UNARY_BINARY:
       params.blockdim_x = FIL_TPB;
-      dispatch_on_nitems<Func, storage_type, cols_in_shmem, FLOAT_UNARY_BINARY>(
-        params, args...);
+      dispatch_on_n_items<Func, storage_type, cols_in_shmem,
+                          FLOAT_UNARY_BINARY>(params, args...);
       break;
     case GROVE_PER_CLASS:
       if (params.num_classes > FIL_TPB) {
         params.leaf_algo = GROVE_PER_CLASS_MANY_CLASSES;
         params.blockdim_x = FIL_TPB;
-        dispatch_on_nitems<Func, storage_type, cols_in_shmem,
-                           GROVE_PER_CLASS_MANY_CLASSES>(params, args...);
+        dispatch_on_n_items<Func, storage_type, cols_in_shmem,
+                            GROVE_PER_CLASS_MANY_CLASSES>(params, args...);
       } else {
         params.leaf_algo = GROVE_PER_CLASS_FEW_CLASSES;
         params.blockdim_x = FIL_TPB - FIL_TPB % params.num_classes;
-        dispatch_on_nitems<Func, storage_type, cols_in_shmem,
-                           GROVE_PER_CLASS_FEW_CLASSES>(params, args...);
+        dispatch_on_n_items<Func, storage_type, cols_in_shmem,
+                            GROVE_PER_CLASS_FEW_CLASSES>(params, args...);
       }
       break;
     case CATEGORICAL_LEAF:
       params.blockdim_x = FIL_TPB;
-      dispatch_on_nitems<Func, storage_type, cols_in_shmem, CATEGORICAL_LEAF>(
+      dispatch_on_n_items<Func, storage_type, cols_in_shmem, CATEGORICAL_LEAF>(
         params, args...);
       break;
     default:

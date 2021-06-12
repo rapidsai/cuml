@@ -75,11 +75,11 @@ __global__ void transform_k(float* preds, size_t n, output_t output,
 }
 
 struct forest {
-  template <bool cols_in_shmem, leaf_algo_t leaf_algo, int nitems>
+  template <bool cols_in_shmem, leaf_algo_t leaf_algo, int n_items>
   struct compute_smem_footprint {
     template <typename storage_type>
     static void run(predict_params ssp) {
-      ssp.shm_sz = ssp.get_smem_footprint<nitems, leaf_algo>();
+      ssp.shm_sz = ssp.get_smem_footprint<n_items, leaf_algo>();
     }
   };
 
@@ -277,18 +277,18 @@ struct forest {
   int max_shm_ = 0;
 };
 
-template <bool cols_in_shmem, leaf_algo_t leaf_algo, int nitems>
+template <bool cols_in_shmem, leaf_algo_t leaf_algo, int n_items>
 struct enable_smem_carveout {
   template <typename storage_type>
   static void run(predict_params params, int max_shm) {
     void (*kernel)(storage_type, predict_params) =
-      infer_k<nitems, leaf_algo, cols_in_shmem, storage_type>;
+      infer_k<n_items, leaf_algo, cols_in_shmem, storage_type>;
     // ensure optimal occupancy and L1 cache size in case config at launch is suboptimal
-    CUDA_CHECK_NO_THROW(cudaFuncSetAttribute(
+    CUDA_CHECK(cudaFuncSetAttribute(
       kernel, cudaFuncAttributePreferredSharedMemoryCarveout,
       cudaFuncCachePreferL1));
     // even if the footprint < 48 * 1024, ensure that we reset after previous forest
-    CUDA_CHECK_NO_THROW(cudaFuncSetAttribute(
+    CUDA_CHECK(cudaFuncSetAttribute(
       kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, max_shm));
   }
 };

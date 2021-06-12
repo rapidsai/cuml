@@ -586,7 +586,7 @@ size_t shmem_size_params::get_smem_footprint() {
   return std::max(accumulate_footprint, finalize_footprint);
 }
 
-template <bool cols_in_shmem, leaf_algo_t leaf_algo, int nitems>
+template <bool cols_in_shmem, leaf_algo_t leaf_algo, int n_items>
 struct infer_k_launcher {
   template <typename storage_type>
   static void run(predict_params params, storage_type forest,
@@ -594,7 +594,7 @@ struct infer_k_launcher {
     params.num_blocks = params.num_blocks != 0
                           ? params.num_blocks
                           : raft::ceildiv(int(params.num_rows), params.n_items);
-    infer_k<nitems, leaf_algo, cols_in_shmem, storage_type>
+    infer_k<n_items, leaf_algo, cols_in_shmem, storage_type>
       <<<params.num_blocks, params.blockdim_x, params.shm_sz, stream>>>(forest,
                                                                         params);
     CUDA_CHECK(cudaPeekAtLastError());
