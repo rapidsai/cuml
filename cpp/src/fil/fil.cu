@@ -200,13 +200,17 @@ struct forest {
 
     The multi-class classification / regression (VECTOR_LEAF) predict_proba() works as follows
       (always num_classes outputs):
+    RAW (no values set): output class votes
     AVG is set: divide by the number of trees (averaging, output class probability)
+    SIGMOID is set: apply sigmoid; if SOFTMAX is also set: error
+    CLASS is set: ignored
+    SOFTMAX is set: softmax is applied after averaging and global_bias
     All other flags (SIGMOID, CLASS, SOFTMAX) are ignored
 
     The multi-class classification / regression (VECTOR_LEAF) predict() works as follows
       (always 1 output):
-    RAW (no values set): output the label of the class with highest probability,
-      equal probabilitiess resolved in favor of smaller label integer
+    RAW (no values set): output the label of the class with highest margin,
+      equal margins resolved in favor of smaller label integer
     All other flags (AVG, SIGMOID, CLASS, SOFTMAX) are ignored
     */
     output_t ot = output_;
@@ -239,8 +243,11 @@ struct forest {
           do_transform = ot != output_t::RAW || global_bias_ != 0.0f;
           break;
         case leaf_algo_t::VECTOR_LEAF:
+          // for VECTOR_LEAF, averaging happens in infer_k
+          ot = output_t(ot & ~output_t::AVG);
           params.num_outputs = params.num_classes;
-          do_transform = ot != output_t::RAW || global_bias_ != 0.0f;
+          do_transform = ot != output_t::RAW && ot != output_t::SOFTMAX ||
+                         global_bias != 0.0f;
           break;
         default:
           ASSERT(false, "internal error: invalid leaf_algo_");

@@ -470,10 +470,15 @@ struct tree_aggregator_t<NITEMS, VECTOR_LEAF> {
   int num_classes;
   int num_threads_per_class;
   float* vector_leaf;
+  void* tmp_storage;
 
   static size_t smem_finalize_footprint(size_t data_row_size, int num_classes,
                                         bool predict_proba) {
-    return 0;
+    size_t phase1 = data_row_size + smem_accumulate_footprint(num_classes);
+    size_t phase2 = predict_proba
+                      ? block_reduce_footprint_host<NITEMS>()
+                      : block_reduce_best_class_footprint_host<NITEMS>();
+    return predict_proba ? phase1 + phase2 : std::max(phase1, phase2);
   }
   static size_t smem_accumulate_footprint(int num_classes) {
     return sizeof(vec<NITEMS, float>) * num_classes *
@@ -487,7 +492,8 @@ struct tree_aggregator_t<NITEMS, VECTOR_LEAF> {
                                                float* vector_leaf)
     : num_classes(params.num_classes),
       num_threads_per_class(max(1, blockDim.x / params.num_classes)),
-      vector_leaf(vector_leaf) {
+      vector_leaf(vector_leaf),
+      tmp_storage(finalize_workspace) {
     // Assign workspace
     char* ptr = (char*)accumulate_workspace;
     per_class_margin = (vec<NITEMS, float>*)ptr;
@@ -570,21 +576,26 @@ struct tree_aggregator_t<NITEMS, VECTOR_LEAF> {
                                            int num_outputs, output_t transform,
                                            int num_trees) {
     __syncthreads();
-    // Sum up thread accumulators
-    for (int c = threadIdx.x; c < num_classes; c += blockDim.x) {
-      for (int i = threadIdx.x + num_classes;
-           i < num_classes * num_threads_per_class; i += num_classes) {
-        for (int row = 0; row < num_rows; ++row) {
-          per_class_margin[c][row] += per_class_margin[i][row];
+    if (num_classes < blockDim.x) {
+      // Efficient implementation for small number of classes
+      auto acc = multi_sum<6>(per_class_margin, num_classes,
+                              max(1, blockDim.x / num_classes));
+      if (threadIdx.x < num_classes) per_class_margin[threadIdx.x] = acc;
+    } else {
+      // For larger numbers of classes
+      for (int c = threadIdx.x; c < num_classes; c += blockDim.x) {
+        for (int i = threadIdx.x + num_classes;
+             i < num_classes * num_threads_per_class; i += num_classes) {
+          for (int row = 0; row < num_rows; ++row) {
+            per_class_margin[c][row] += per_class_margin[i][row];
+          }
         }
       }
     }
-    if (num_outputs > 1) {
-      // only supporting num_outputs == num_classes
-      finalize_multiple_outputs(out, num_rows, num_trees);
-    } else {
-      finalize_class_label(out, num_rows);
-    }
+    __syncthreads();
+    class_margins_to_global_memory(
+      per_class_margin, per_class_margin + num_classes, transform, num_trees,
+      tmp_storage, out, num_rows, num_outputs);
   }
 };
 
