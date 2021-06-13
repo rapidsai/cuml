@@ -539,39 +539,6 @@ struct tree_aggregator_t<NITEMS, VECTOR_LEAF> {
       }
     }
   }
-  // class probabilities or regression. for regression, num_classes
-  // is just the number of outputs for each data instance
-  __device__ __forceinline__ void finalize_multiple_outputs(float* out,
-                                                            int num_rows,
-                                                            int num_trees) {
-    __syncthreads();
-    for (int c = threadIdx.x; c < num_classes; c += blockDim.x) {
-#pragma unroll
-      for (int row = 0; row < num_rows; ++row) {
-        out[row * num_classes + c] = per_class_margin[c][row];
-      }
-    }
-  }
-  // using this when predicting a single class label, as opposed to sparse class vector
-  // or class probabilities or regression
-  __device__ __forceinline__ void finalize_class_label(float* out,
-                                                       int num_rows) {
-    __syncthreads();
-    int item = threadIdx.x;
-    int row = item;
-    if (item < NITEMS && row < num_rows) {
-      float max_margin = 0;
-      int best_class = 0;
-      for (int c = 0; c < num_classes; ++c) {
-        float margin = per_class_margin[c][row];
-        if (margin > max_margin) {
-          max_margin = margin;
-          best_class = c;
-        }
-      }
-      out[row] = best_class;
-    }
-  }
   __device__ __forceinline__ void finalize(float* out, int num_rows,
                                            int num_outputs, output_t transform,
                                            int num_trees) {
