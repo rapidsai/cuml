@@ -16,6 +16,8 @@
 
 #include <cuml/metrics/metrics.hpp>
 
+#include <raft/handle.hpp>
+
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
