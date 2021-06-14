@@ -97,7 +97,7 @@ cdef extern from "cuml/manifold/umapparams.h" namespace "ML":
         int init,
         int target_n_neighbors,
         MetricType target_metric,
-        float target_weights,
+        float target_weight,
         uint64_t random_state,
         bool deterministic,
         int optim_batch_size,
@@ -350,13 +350,14 @@ class UMAP(Base,
                  a=None,
                  b=None,
                  target_n_neighbors=-1,
-                 target_weights=0.5,
+                 target_weight=0.5,
                  target_metric="categorical",
                  handle=None,
                  hash_input=False,
                  random_state=None,
                  callback=None,
-                 output_type=None):
+                 output_type=None,
+                 target_weights=None):
 
         super().__init__(handle=handle,
                          verbose=verbose,
@@ -388,7 +389,16 @@ class UMAP(Base,
         self.negative_sample_rate = negative_sample_rate
         self.transform_queue_size = transform_queue_size
         self.target_n_neighbors = target_n_neighbors
-        self.target_weights = target_weights
+        if target_weights is not None:
+            import warnings
+            warnings.warn("Parameter 'target_weights' is deprecated and"
+                          " will be removed in 21.08. Please use"
+                          " 'target_weight' instead. Setting 'target_weight'"
+                          " as the curent 'target_weights' value",
+                          DeprecationWarning)
+            self.target_weight = target_weights
+        else:
+            self.target_weight = target_weight
 
         self.deterministic = random_state is not None
 
@@ -453,7 +463,7 @@ class UMAP(Base,
             umap_params.target_metric = MetricType.EUCLIDEAN
         else:  # self.target_metric == "categorical"
             umap_params.target_metric = MetricType.CATEGORICAL
-        umap_params.target_weights = <float> cls.target_weights
+        umap_params.target_weight = <float> cls.target_weight
         umap_params.random_state = <uint64_t> cls.random_state
         umap_params.deterministic = <bool> cls.deterministic
 
@@ -492,61 +502,6 @@ class UMAP(Base,
         yv[xv >= min_dist] = np.exp(-(xv[xv >= min_dist] - min_dist) / spread)
         params, covar = curve_fit(curve, xv, yv)
         return params[0], params[1]
-
-    @cuml.internals.api_base_return_generic_skipall
-    def _extract_knn_graph(
-        self,
-        knn_graph,
-        convert_dtype=True
-    ) -> typing.Tuple[typing.Tuple[CumlArray, typing.Any],
-                      typing.Tuple[CumlArray, typing.Any]]:
-        if has_scipy():
-            from scipy.sparse import csr_matrix, coo_matrix, csc_matrix
-        else:
-            from cuml.common.import_utils import DummyClass
-            csr_matrix = DummyClass
-            coo_matrix = DummyClass
-            csc_matrix = DummyClass
-
-        if isinstance(knn_graph, (csc_matrix, cp_csc_matrix)):
-            knn_graph = cp_csr_matrix(knn_graph)
-            n_samples = knn_graph.shape[0]
-            reordering = knn_graph.data.reshape((n_samples, -1))
-            reordering = reordering.argsort()
-            n_neighbors = reordering.shape[1]
-            reordering += (cupy.arange(n_samples) * n_neighbors)[:, np.newaxis]
-            reordering = reordering.flatten()
-            knn_graph.indices = knn_graph.indices[reordering]
-            knn_graph.data = knn_graph.data[reordering]
-
-        knn_indices = None
-        if isinstance(knn_graph, (csr_matrix, cp_csr_matrix)):
-            knn_indices = knn_graph.indices
-        elif isinstance(knn_graph, (coo_matrix, cp_coo_matrix)):
-            knn_indices = knn_graph.col
-
-        knn_indices_ptr, knn_dists_ptr = None, None
-        if knn_indices is not None:
-            knn_dists = knn_graph.data
-            knn_indices_m, _, _, _ = \
-                input_to_cuml_array(knn_indices, order='C',
-                                    deepcopy=True,
-                                    check_dtype=np.int64,
-                                    convert_to_dtype=(np.int64
-                                                      if convert_dtype
-                                                      else None))
-
-            knn_dists_m, _, _, _ = \
-                input_to_cuml_array(knn_dists, order='C',
-                                    deepcopy=True,
-                                    check_dtype=np.float32,
-                                    convert_to_dtype=(np.float32
-                                                      if convert_dtype
-                                                      else None))
-
-            return (knn_indices_m, knn_indices_m.ptr),\
-                   (knn_dists_m, knn_dists_m.ptr)
-        return (None, None), (None, None)
 
     @generate_docstring(convert_dtype_cast='np.float32',
                         X='dense_sparse',
@@ -871,7 +826,7 @@ class UMAP(Base,
             "a",
             "b",
             "target_n_neighbors",
-            "target_weights",
+            "target_weight",
             "target_metric",
             "hash_input",
             "random_state",
