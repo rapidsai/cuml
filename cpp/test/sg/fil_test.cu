@@ -54,6 +54,8 @@ struct FilTestParams {
   float global_bias = 0.0f;
   // runtime parameters
   int blocks_per_sm = 0;
+  int threads_per_tree = 1;
+  int n_items = 0;
   algo_t algo = algo_t::NAIVE;
   int seed = 42;
   float tolerance = 2e-3f;
@@ -95,10 +97,11 @@ std::ostream& operator<<(std::ostream& os, const FilTestParams& ps) {
      << ", num_trees = " << ps.num_trees << ", leaf_prob = " << ps.leaf_prob
      << ", output = " << output2str(ps.output)
      << ", threshold = " << ps.threshold
-     << ", blocks_per_sm = " << ps.blocks_per_sm << ", algo = " << ps.algo
-     << ", seed = " << ps.seed << ", tolerance = " << ps.tolerance
-     << ", op = " << tl::OpName(ps.op) << ", global_bias = " << ps.global_bias
-     << ", leaf_algo = " << ps.leaf_algo
+     << ", threads_per_tree = " << ps.threads_per_tree
+     << ", n_items = " << ps.n_items << ", blocks_per_sm = " << ps.blocks_per_sm
+     << ", algo = " << ps.algo << ", seed = " << ps.seed
+     << ", tolerance = " << ps.tolerance << ", op = " << tl::OpName(ps.op)
+     << ", global_bias = " << ps.global_bias << ", leaf_algo = " << ps.leaf_algo
      << ", num_classes = " << ps.num_classes;
   return os;
 }
@@ -431,6 +434,8 @@ class PredictDenseFilTest : public BaseFilTest {
     fil_ps.leaf_algo = ps.leaf_algo;
     fil_ps.num_classes = ps.num_classes;
     fil_ps.blocks_per_sm = ps.blocks_per_sm;
+    fil_ps.threads_per_tree = ps.threads_per_tree;
+    fil_ps.n_items = ps.n_items;
 
     fil::init_dense(handle, pforest, nodes.data(), &fil_ps);
   }
@@ -487,6 +492,8 @@ class BasePredictSparseFilTest : public BaseFilTest {
     fil_params.leaf_algo = ps.leaf_algo;
     fil_params.num_classes = ps.num_classes;
     fil_params.blocks_per_sm = ps.blocks_per_sm;
+    fil_params.threads_per_tree = ps.threads_per_tree;
+    fil_params.n_items = ps.n_items;
 
     dense2sparse();
     fil_params.num_nodes = sparse_nodes.size();
@@ -607,13 +614,15 @@ class TreeliteFilTest : public BaseFilTest {
     std::unique_ptr<tl::Model> model = model_builder->CommitModel();
 
     // init FIL forest with the model
+    char* forest_shape_str = nullptr;
     fil::treelite_params_t params;
     params.algo = ps.algo;
     params.threshold = ps.threshold;
     params.output_class = (ps.output & fil::output_t::CLASS) != 0;
     params.storage_type = storage_type;
     params.blocks_per_sm = ps.blocks_per_sm;
-    char* forest_shape_str = nullptr;
+    params.threads_per_tree = ps.threads_per_tree;
+    params.n_items = ps.n_items;
     params.pforest_shape_str =
       ps.print_forest_shape ? &forest_shape_str : nullptr;
     fil::from_treelite(handle, pforest, (ModelHandle)model.get(), &params);
@@ -762,6 +771,19 @@ std::vector<FilTestParams> predict_dense_inputs = {
   FIL_TEST_PARAMS(num_rows = 103, num_cols = 100'000, depth = 5, num_trees = 1,
                   algo = BATCH_TREE_REORG, leaf_algo = CATEGORICAL_LEAF,
                   num_classes = 3),
+  FIL_TEST_PARAMS(algo = BATCH_TREE_REORG, threads_per_tree = 2),
+  FIL_TEST_PARAMS(algo = NAIVE, threads_per_tree = 4),
+  FIL_TEST_PARAMS(algo = TREE_REORG, threads_per_tree = 8),
+  FIL_TEST_PARAMS(algo = ALGO_AUTO, threads_per_tree = 16),
+  FIL_TEST_PARAMS(algo = BATCH_TREE_REORG, threads_per_tree = 32),
+  FIL_TEST_PARAMS(algo = NAIVE, threads_per_tree = 64),
+  FIL_TEST_PARAMS(algo = BATCH_TREE_REORG, threads_per_tree = 128, n_items = 3),
+  FIL_TEST_PARAMS(algo = BATCH_TREE_REORG, threads_per_tree = 256),
+  FIL_TEST_PARAMS(algo = TREE_REORG, threads_per_tree = 32, n_items = 1),
+  FIL_TEST_PARAMS(algo = BATCH_TREE_REORG, threads_per_tree = 16, n_items = 4),
+  FIL_TEST_PARAMS(algo = NAIVE, threads_per_tree = 32, n_items = 4),
+  FIL_TEST_PARAMS(num_rows = 500, num_cols = 2000, algo = BATCH_TREE_REORG,
+                  threads_per_tree = 64, n_items = 4),
 };
 
 TEST_P(PredictDenseFilTest, Predict) { compare(); }
@@ -796,6 +818,16 @@ std::vector<FilTestParams> predict_sparse_inputs = {
   FIL_TEST_PARAMS(num_trees = 51, output = CLASS, leaf_algo = GROVE_PER_CLASS,
                   num_classes = 3),
   FIL_TEST_PARAMS(num_trees = 51, leaf_algo = GROVE_PER_CLASS, num_classes = 3),
+  FIL_TEST_PARAMS(algo = NAIVE, threads_per_tree = 2),
+  FIL_TEST_PARAMS(algo = NAIVE, threads_per_tree = 8, n_items = 1),
+  FIL_TEST_PARAMS(algo = ALGO_AUTO, threads_per_tree = 16, n_items = 1),
+  FIL_TEST_PARAMS(algo = ALGO_AUTO, threads_per_tree = 32),
+  FIL_TEST_PARAMS(num_cols = 1, num_trees = 1, algo = NAIVE,
+                  threads_per_tree = 64, n_items = 1),
+  FIL_TEST_PARAMS(num_rows = 500, num_cols = 2000, algo = NAIVE,
+                  threads_per_tree = 64),
+  FIL_TEST_PARAMS(num_rows = 500, num_cols = 2000, algo = ALGO_AUTO,
+                  threads_per_tree = 256, n_items = 1),
 };
 
 TEST_P(PredictSparse16FilTest, Predict) { compare(); }
