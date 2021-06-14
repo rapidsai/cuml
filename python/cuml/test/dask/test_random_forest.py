@@ -561,16 +561,14 @@ def test_rf_get_text(client, n_estimators, detailed_text):
     X, y = _prep_training_data(client, X, y, partitions_per_worker=2)
 
     if n_estimators >= n_workers:
-        cu_rf_mg = cuRFC_mg(n_estimators=n_estimators,
+        cu_rf_mg = cuRFC_mg(n_estimators=n_estimators, n_bins=16,
                             ignore_empty_partitions=True)
     else:
         with pytest.raises(ValueError):
-            cu_rf_mg = cuRFC_mg(n_estimators=n_estimators,
+            cu_rf_mg = cuRFC_mg(n_estimators=n_estimators, n_bins=16,
                                 ignore_empty_partitions=True)
         return
 
-    cu_rf_mg = cuRFC_mg(n_estimators=n_estimators,
-                        ignore_empty_partitions=True)
     cu_rf_mg.fit(X, y)
 
     if detailed_text:
