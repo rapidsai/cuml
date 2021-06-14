@@ -156,6 +156,7 @@ void _fit_hdbscan(const raft::handle_t &handle, const value_t *X, size_t m,
                   Common::hdbscan_output<value_idx, value_t> &out) {
   auto d_alloc = handle.get_device_allocator();
   auto stream = handle.get_stream();
+  auto exec_policy = rmm::exec_policy(stream);
 
   int min_cluster_size = params.min_cluster_size;
 
@@ -168,16 +169,30 @@ void _fit_hdbscan(const raft::handle_t &handle, const value_t *X, size_t m,
     handle, out.get_children(), out.get_deltas(), out.get_sizes(),
     min_cluster_size, m, out.get_condensed_tree());
 
-  out.set_n_clusters(out.get_condensed_tree().get_n_clusters());
-
   /**
    * Extract labels from stability
    */
-  detail::Extract::extract_clusters(
+
+  rmm::device_uvector<value_t> tree_stabilities(
+    out.get_condensed_tree().get_n_clusters(), handle.get_stream());
+
+  value_idx n_selected_clusters = detail::Extract::extract_clusters(
     handle, out.get_condensed_tree(), m, out.get_labels(),
-    out.get_stabilities(), out.get_probabilities(),
+    tree_stabilities.data(), out.get_probabilities(),
     params.cluster_selection_method, params.allow_single_cluster,
     params.max_cluster_size, params.cluster_selection_epsilon);
+
+  out.set_n_clusters(out.get_condensed_tree().get_n_clusters());
+
+  auto lambdas_ptr =
+    thrust::device_pointer_cast(out.get_condensed_tree().get_lambdas());
+  value_t max_lambda = *(
+    thrust::max_element(exec_policy, lambdas_ptr,
+                        lambdas_ptr + out.get_condensed_tree().get_n_edges()));
+
+  detail::Stability::get_stability_scores(
+    handle, out.get_labels(), tree_stabilities.data(), n_selected_clusters,
+    max_lambda, m, out.get_stabilities());
 }
 
 };  // end namespace HDBSCAN

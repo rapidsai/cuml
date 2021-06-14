@@ -202,10 +202,10 @@ void do_labelling_on_host(
  * @param[in] cluster_selection_epsilon a distance threshold. clusters below this value will be merged.
  */
 template <typename value_idx, typename value_t>
-void extract_clusters(
+value_idx extract_clusters(
   const raft::handle_t &handle,
   Common::CondensedHierarchy<value_idx, value_t> &condensed_tree,
-  size_t n_leaves, value_idx *labels, value_t *stabilities,
+  size_t n_leaves, value_idx *labels, value_t *tree_stabilities,
   value_t *probabilities,
   Common::CLUSTER_SELECTION_METHOD cluster_selection_method,
   bool allow_single_cluster = false, value_idx max_cluster_size = 0,
@@ -213,18 +213,14 @@ void extract_clusters(
   auto stream = handle.get_stream();
   auto exec_policy = rmm::exec_policy(stream);
 
-  rmm::device_uvector<value_t> tree_stabilities(condensed_tree.get_n_clusters(),
-                                                handle.get_stream());
-
-  Stability::compute_stabilities(handle, condensed_tree,
-                                 tree_stabilities.data());
+  Stability::compute_stabilities(handle, condensed_tree, tree_stabilities);
   rmm::device_uvector<int> is_cluster(condensed_tree.get_n_clusters(),
                                       handle.get_stream());
 
   if (max_cluster_size <= 0)
     max_cluster_size = n_leaves;  // negates the max cluster size
 
-  Select::select_clusters(handle, condensed_tree, tree_stabilities.data(),
+  Select::select_clusters(handle, condensed_tree, tree_stabilities,
                           is_cluster.data(), cluster_selection_method,
                           allow_single_cluster, max_cluster_size,
                           cluster_selection_epsilon);
@@ -245,22 +241,10 @@ void extract_clusters(
                                            n_leaves, allow_single_cluster,
                                            labels, cluster_selection_epsilon);
 
-  value_idx n_selected_clusters = clusters.size();
-
   Membership::get_probabilities<value_idx, value_t>(handle, condensed_tree,
                                                     labels, probabilities);
 
-  // TODO: Compute stability scores (below)
-
-  //  auto lambdas_ptr = thrust::device_pointer_cast(condensed_tree.get_lambdas());
-  //  value_t max_lambda = *(thrust::max_element(
-  //    exec_policy, lambdas_ptr,
-  //    lambdas_ptr + condensed_tree.get_n_edges()));
-  //
-  //  CUML_LOG_DEBUG("Computing stability scores");
-  //  Stability::get_stability_scores(handle, labels, tree_stabilities.data(),
-  //                                  clusters.size(), max_lambda, n_leaves,
-  //                                  stabilities);
+  return clusters.size();
 }
 
 };  // end namespace Extract
