@@ -28,7 +28,7 @@ void fit_predict(const raft::handle_t &handle, const KMeansParams &params,
   impl::fit(handle, params, X, n_samples, n_features, sample_weight, centroids,
             inertia, n_iter);
   impl::predict(handle, params, centroids, X, n_samples, n_features,
-                sample_weight, labels, inertia);
+                sample_weight, true, labels, inertia);
 }
 
 void fit_predict(const raft::handle_t &handle, const KMeansParams &params,
@@ -38,7 +38,7 @@ void fit_predict(const raft::handle_t &handle, const KMeansParams &params,
   impl::fit(handle, params, X, n_samples, n_features, sample_weight, centroids,
             inertia, n_iter);
   impl::predict(handle, params, centroids, X, n_samples, n_features,
-                sample_weight, labels, inertia);
+                sample_weight, true, labels, inertia);
 }
 
 // ----------------------------- fit ---------------------------------//
@@ -63,18 +63,20 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
 
 void predict(const raft::handle_t &handle, const KMeansParams &params,
              const float *centroids, const float *X, int n_samples,
-             int n_features, const float *sample_weight, int *labels,
+             int n_features, const float *sample_weight, 
+             bool normalize_weights, int *labels,
              float &inertia) {
   impl::predict(handle, params, centroids, X, n_samples, n_features,
-                sample_weight, labels, inertia);
+                sample_weight, normalize_weights, labels, inertia);
 }
 
 void predict(const raft::handle_t &handle, const KMeansParams &params,
              const double *centroids, const double *X, int n_samples,
-             int n_features, const double *sample_weight, int *labels,
+             int n_features, const double *sample_weight,
+             bool normalize_weights, int *labels,
              double &inertia) {
   impl::predict(handle, params, centroids, X, n_samples, n_features,
-                sample_weight, labels, inertia);
+                sample_weight, normalize_weights, labels, inertia);
 }
 
 // ----------------------------- transform ---------------------------------//

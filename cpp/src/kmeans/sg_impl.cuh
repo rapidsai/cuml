@@ -616,7 +616,7 @@ template <typename DataT, typename IndexT = int>
 void predict(const raft::handle_t &handle, const KMeansParams &params,
              const DataT *cptr, const DataT *Xptr, const int n_samples,
              const int n_features, const DataT *sample_weight,
-             IndexT *labelsRawPtr, DataT &inertia) {
+             bool normalize_weights, IndexT *labelsRawPtr, DataT &inertia) {
   ML::Logger::get().setLevel(params.verbosity);
   cudaStream_t stream = handle.get_stream();
   auto n_clusters = params.n_clusters;
@@ -654,7 +654,8 @@ void predict(const raft::handle_t &handle, const KMeansParams &params,
                                           stream);
 
   // check if weights sum up to n_samples
-  kmeans::detail::checkWeights(handle, workspace, weight, stream);
+  if (normalize_weights)
+    kmeans::detail::checkWeights(handle, workspace, weight, stream);
 
   Tensor<cub::KeyValuePair<IndexT, DataT>, 1> minClusterAndDistance(
     {n_samples}, handle.get_device_allocator(), stream);

@@ -217,7 +217,8 @@ class KMeans(BaseEstimator, DelayedPredictionMixin, DelayedTransformMixin):
 
         sample_weight = self._check_normalize_sample_weight(sample_weight)
 
-        return self._predict(X, delayed=delayed, sample_weight=sample_weight)
+        return self._predict(X, delayed=delayed, sample_weight=sample_weight,
+                             normalize_weights=False)
 
     def fit_transform(self, X, sample_weight=None, delayed=True):
         """
