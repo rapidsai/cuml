@@ -239,40 +239,40 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
 //-------------------------------------------------------------------------------------------------------------------------------------
 
 const std::vector<RfInputs<float>> inputsf2_clf = {
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2,
    CRITERION::GINI},  // single tree forest, bootstrap false, depth 8, 4 bins
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2,
    CRITERION::GINI},  // single tree forest, bootstrap false, depth of 8, 4 bins
-  {4, 2, 10, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2,
+  {4, 2, 10, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2,
    CRITERION::
      GINI},  //forest with 10 trees, all trees should produce identical predictions (no bootstrapping or column subsampling)
-  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 2, 2, 0.0, 2,
+  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 1, 2, 0.0, 2,
    CRITERION::
      GINI},  //forest with 10 trees, with bootstrap and column subsampling enabled, 3 bins
   {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 1, 2, 0.0, 1,
    CRITERION::
      CRITERION_END},  //forest with 10 trees, with bootstrap and column subsampling enabled, 3 bins, different split algorithm
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2, CRITERION::ENTROPY},
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2, CRITERION::ENTROPY},
-  {4, 2, 10, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2, CRITERION::ENTROPY},
-  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 2, 2, 0.0, 2, CRITERION::ENTROPY},
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::ENTROPY},
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::ENTROPY},
+  {4, 2, 10, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::ENTROPY},
   {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 1, 2, 0.0, 2, CRITERION::ENTROPY},
-  {50, 10, 10, 0.8f, 0.8f, 10, 7, -1, true, 3, 2, 2, 0.0, 2,
+  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 1, 2, 0.0, 2, CRITERION::ENTROPY},
+  {50, 10, 10, 0.8f, 0.8f, 10, 7, -1, true, 3, 1, 2, 0.0, 2,
    CRITERION::ENTROPY}};
 
 const std::vector<RfInputs<double>> inputsd2_clf = {  // Same as inputsf2_clf
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2, CRITERION::GINI},
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2, CRITERION::GINI},
-  {4, 2, 10, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2, CRITERION::GINI},
-  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 2, 2, 0.0, 2, CRITERION::GINI},
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::GINI},
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::GINI},
+  {4, 2, 10, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::GINI},
+  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 1, 2, 0.0, 2, CRITERION::GINI},
   {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 1, 2, 0.0, 2,
    CRITERION::CRITERION_END},
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2, CRITERION::ENTROPY},
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2, CRITERION::ENTROPY},
-  {4, 2, 10, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2, CRITERION::ENTROPY},
-  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 2, 2, 0.0, 2, CRITERION::ENTROPY},
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::ENTROPY},
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::ENTROPY},
+  {4, 2, 10, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::ENTROPY},
   {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 1, 2, 0.0, 2, CRITERION::ENTROPY},
-  {50, 10, 10, 0.8f, 0.8f, 10, 7, -1, true, 3, 2, 2, 0.0, 2,
+  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 1, 2, 0.0, 2, CRITERION::ENTROPY},
+  {50, 10, 10, 0.8f, 0.8f, 10, 7, -1, true, 3, 1, 2, 0.0, 2,
    CRITERION::ENTROPY}};
 
 typedef RfClassifierTest<float> RfClassifierTestF;
@@ -320,20 +320,20 @@ TEST_P(RfRegressorTestD, Fit) {
 }
 
 const std::vector<RfInputs<float>> inputsf2_reg = {
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2, CRITERION::MSE},
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2, CRITERION::MSE},
-  {4, 2, 5, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::MSE},
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::MSE},
+  {4, 2, 5, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2,
    CRITERION::
      CRITERION_END},  // CRITERION_END uses the default criterion (GINI for classification, MSE for regression)
-  {4, 2, 5, 1.0f, 1.0f, 4, 7, -1, true, 4, 2, 2, 0.0, 2,
+  {4, 2, 5, 1.0f, 1.0f, 4, 7, -1, true, 4, 1, 2, 0.0, 2,
    CRITERION::CRITERION_END}};
 
 const std::vector<RfInputs<double>> inputsd2_reg = {  // Same as inputsf2_reg
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2, CRITERION::MSE},
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2, CRITERION::MSE},
-  {4, 2, 5, 1.0f, 1.0f, 4, 7, -1, false, 4, 2, 2, 0.0, 2,
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::MSE},
+  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::MSE},
+  {4, 2, 5, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2,
    CRITERION::CRITERION_END},
-  {4, 2, 5, 1.0f, 1.0f, 4, 7, -1, true, 4, 2, 2, 0.0, 2,
+  {4, 2, 5, 1.0f, 1.0f, 4, 7, -1, true, 4, 1, 2, 0.0, 2,
    CRITERION::CRITERION_END}};
 
 INSTANTIATE_TEST_CASE_P(RfRegressorTests, RfRegressorTestF,
