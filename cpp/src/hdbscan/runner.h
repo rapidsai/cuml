@@ -182,7 +182,7 @@ void _fit_hdbscan(const raft::handle_t &handle, const value_t *X, size_t m,
     params.cluster_selection_method, params.allow_single_cluster,
     params.max_cluster_size, params.cluster_selection_epsilon);
 
-  out.set_n_clusters(out.get_condensed_tree().get_n_clusters());
+  out.set_n_clusters(n_selected_clusters);
 
   auto lambdas_ptr =
     thrust::device_pointer_cast(out.get_condensed_tree().get_lambdas());
