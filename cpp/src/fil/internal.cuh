@@ -27,6 +27,11 @@ class handle_t;
 namespace ML {
 namespace fil {
 
+/// modpow2 returns a % b == a % pow(2, log2_b)
+__host__ __device__ __forceinline__ int modpow2(int a, int log2_b) {
+  return a & ((1 << log2_b) - 1);
+}
+
 /**
  * output_t are flags that define the output produced by the FIL predictor; a
  * valid output_t values consists of the following, combined using '|' (bitwise
@@ -248,6 +253,12 @@ struct forest_params_t {
   // suggested values (if nonzero) are from 2 to 7
   // if zero, launches ceildiv(num_rows, NITEMS) blocks
   int blocks_per_sm;
+  // threads_per_tree determines how many threads work on a single tree
+  // at once inside a block (sharing trees means splitting input rows)
+  int threads_per_tree;
+  // n_items is how many input samples (items) any thread processes. If 0 is given,
+  // choose most (up to 4) that fit into shared memory.
+  int n_items;
 };
 
 /// FIL_TPB is the number of threads per block to use with FIL kernels

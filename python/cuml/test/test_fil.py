@@ -424,6 +424,31 @@ def test_output_blocks_per_sm(storage_type, blocks_per_sm,
 
 
 @pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
+@pytest.mark.parametrize('threads_per_tree', [2, 4, 8, 16, 32, 64, 128, 256])
+def test_threads_per_tree(threads_per_tree,
+                          small_classifier_and_preds):
+    model_path, model_type, X, xgb_preds = small_classifier_and_preds
+    fm = ForestInference.load(model_path,
+                              model_type=model_type,
+                              output_class=True,
+                              storage_type='auto',
+                              threshold=0.50,
+                              threads_per_tree=threads_per_tree,
+                              n_items=1)
+
+    fil_preds = np.asarray(fm.predict(X))
+    fil_proba = np.asarray(fm.predict_proba(X))
+
+    xgb_proba = np.stack([1-xgb_preds, xgb_preds], axis=1)
+    np.testing.assert_allclose(fil_proba, xgb_proba,
+                               atol=proba_atol[False])
+
+    xgb_preds_int = np.around(xgb_preds)
+    fil_preds = np.reshape(fil_preds, np.shape(xgb_preds_int))
+    assert np.allclose(fil_preds, xgb_preds_int, 1e-3)
+
+
+@pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
 def test_print_forest_shape(small_classifier_and_preds):
     model_path, model_type, X, xgb_preds = small_classifier_and_preds
     m = ForestInference.load(model_path, model_type=model_type,

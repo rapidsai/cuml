@@ -129,13 +129,22 @@ struct shmem_size_params {
   /// are the input columns are prefetched into shared
   /// memory before inferring the row in question
   bool cols_in_shmem = true;
-  /// n_items is the most items per thread that fit into shared memory
+  /// log2_threads_per_tree determines how many threads work on a single tree
+  /// at once inside a block (sharing trees means splitting input rows)
+  int log2_threads_per_tree = 0;
+  /// n_items is how many input samples (items) any thread processes. If 0 is given,
+  /// choose the reasonable most (<=4) that fit into shared memory. See init_n_items()
   int n_items = 0;
   /// shm_sz is the associated shared memory footprint
   int shm_sz = INT_MAX;
 
-  __host__ __device__ size_t cols_shmem_size() {
-    return cols_in_shmem ? sizeof(float) * num_cols * n_items : 0;
+  __host__ __device__ int sdata_stride() {
+    return num_cols | 1;  // pad to odd
+  }
+  __host__ __device__ int cols_shmem_size() {
+    return cols_in_shmem
+             ? sizeof(float) * sdata_stride() * n_items << log2_threads_per_tree
+             : 0;
   }
   void compute_smem_footprint();
   template <int NITEMS>
@@ -156,7 +165,7 @@ struct predict_params : shmem_size_params {
   float* preds;
   const float* data;
   // number of data rows (instances) to predict on
-  size_t num_rows;
+  int64_t num_rows;
 
   // to signal infer kernel to apply softmax and also average prior to that
   // for GROVE_PER_CLASS for predict_proba
