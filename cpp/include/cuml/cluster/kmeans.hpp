@@ -165,8 +165,8 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
 
 void predict(const raft::handle_t &handle, const KMeansParams &params,
              const float *centroids, const float *X, int n_samples,
-             int n_features, const float *sample_weight,
-             bool normalize_weights, int *labels, float &inertia);
+             int n_features, const float *sample_weight, bool normalize_weights,
+             int *labels, float &inertia);
 
 void predict(const raft::handle_t &handle, const KMeansParams &params,
              const double *centroids, const double *X, int n_samples,

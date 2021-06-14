@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -63,9 +63,8 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
 
 void predict(const raft::handle_t &handle, const KMeansParams &params,
              const float *centroids, const float *X, int n_samples,
-             int n_features, const float *sample_weight, 
-             bool normalize_weights, int *labels,
-             float &inertia) {
+             int n_features, const float *sample_weight, bool normalize_weights,
+             int *labels, float &inertia) {
   impl::predict(handle, params, centroids, X, n_samples, n_features,
                 sample_weight, normalize_weights, labels, inertia);
 }
@@ -73,8 +72,7 @@ void predict(const raft::handle_t &handle, const KMeansParams &params,
 void predict(const raft::handle_t &handle, const KMeansParams &params,
              const double *centroids, const double *X, int n_samples,
              int n_features, const double *sample_weight,
-             bool normalize_weights, int *labels,
-             double &inertia) {
+             bool normalize_weights, int *labels, double &inertia) {
   impl::predict(handle, params, centroids, X, n_samples, n_features,
                 sample_weight, normalize_weights, labels, inertia);
 }
