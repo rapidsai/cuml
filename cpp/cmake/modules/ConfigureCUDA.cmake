@@ -34,12 +34,8 @@ if(DISABLE_DEPRECATION_WARNING)
 endif()
 
 # Option to enable line info in CUDA device compilation to allow introspection when profiling / memchecking
-if(CUDA_ENABLE_LINE_INFO)
-  list(APPEND CUML_CUDA_FLAGS -lineinfo)
-endif()
-
-if(CUDA_ENABLE_KERNEL_INFO)
-  list(APPEND CUML_CUDA_FLAGS -Xptxas=-v)
+if(CUDA_ENABLE_LINEINFO)
+    list(APPEND CUML_CUDA_FLAGS -lineinfo)
 endif()
 
 if(OpenMP_FOUND)
