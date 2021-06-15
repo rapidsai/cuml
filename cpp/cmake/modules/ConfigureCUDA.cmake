@@ -36,15 +36,15 @@ endif()
 # Option to enable line info in CUDA device compilation to allow introspection when profiling / memchecking
 if(CUDA_ENABLE_LINE_INFO)
   list(APPEND CUML_CUDA_FLAGS -lineinfo)
-endif(LINE_INFO)
+endif()
 
 if(CUDA_ENABLE_KERNEL_INFO)
   list(APPEND CUML_CUDA_FLAGS -Xptxas=-v)
-endif(KERNEL_INFO)
+endif()
 
 if(OpenMP_FOUND)
     list(APPEND CUML_CUDA_FLAGS -Xcompiler=${OpenMP_CXX_FLAGS})
-endif(OpenMP_FOUND)
+endif()
 
 # Debug options
 if(CMAKE_BUILD_TYPE MATCHES Debug)
