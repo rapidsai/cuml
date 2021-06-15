@@ -572,24 +572,14 @@ struct tree_aggregator_t<NITEMS, VECTOR_LEAF> {
                                            int num_outputs, output_t transform,
                                            int num_trees,
                                            int log2_threads_per_tree) {
-    __syncthreads();
     if (num_classes < blockDim.x) {
+      __syncthreads();
       // Efficient implementation for small number of classes
       auto acc = multi_sum<6>(per_class_margin, num_classes,
                               max(1, blockDim.x / num_classes));
       if (threadIdx.x < num_classes) per_class_margin[threadIdx.x] = acc;
-    } else {
-      // For larger numbers of classes
-      for (int c = threadIdx.x; c < num_classes; c += blockDim.x) {
-        for (int i = threadIdx.x + num_classes;
-             i < num_classes * num_threads_per_class; i += num_classes) {
-          for (int row = 0; row < num_rows; ++row) {
-            per_class_margin[c][row] += per_class_margin[i][row];
-          }
-        }
-      }
+      __syncthreads();
     }
-    __syncthreads();
     class_margins_to_global_memory(
       per_class_margin, per_class_margin + num_classes, transform, num_trees,
       tmp_storage, out, num_rows, num_outputs);
@@ -732,7 +722,7 @@ __global__ void infer_k(storage_type forest, predict_params params) {
       typedef typename leaf_output_t<leaf_algo>::T pred_t;
       vec<NITEMS, pred_t> prediction;
       if (tree < forest.num_trees() && thread_num_rows != 0) {
-         prediction = infer_one_tree<NITEMS, pred_t>(
+        prediction = infer_one_tree<NITEMS, pred_t>(
           forest[tree],
           cols_in_shmem ? sdata + thread_row0 * sdata_stride
                         : block_input + thread_row0 * num_cols,
