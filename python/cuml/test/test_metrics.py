@@ -862,8 +862,8 @@ def test_log_loss_at_limits():
         log_loss(y_true, y_pred)
 
 def ref_dense_pairwise_dist(X, Y=None, metric=None):
-    # Select sklearn except for IP and Hellinger that sklearn doesn't support
-    # Use sparse input for sklearn calls when possible
+    # Select sklearn except for Hellinger that
+    # sklearn doesn't support
     if Y is None:
         Y = X
     if metric == "hellinger":
@@ -873,10 +873,10 @@ def ref_dense_pairwise_dist(X, Y=None, metric=None):
 
 def prep_dense_array(array, metric, col_major=0):
     if metric == "hellinger":
-      normalized_array = preprocessing.normalize(array, norm="l1")
-      return np.asfortranarray(normalized_array) if col_major else normalized_array
+        normalized_array = preprocessing.normalize(array, norm="l1")
+        return np.asfortranarray(normalized_array) if col_major else normalized_array
     else:
-      return np.asfortranarray(array) if col_major else array
+        return np.asfortranarray(array) if col_major else array
 
 @pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_METRICS.keys())
 @pytest.mark.parametrize("matrix_size", [(5, 4), (1000, 3), (2, 10),

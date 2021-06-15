@@ -34,7 +34,8 @@ void pairwise_distance(const raft::handle_t &handle, const double *x,
 
   //Call the distance function
   raft::distance::pairwise_distance(x, y, dist, m, n, k, workspace, metric,
-                                    handle.get_stream(), isRowMajor, metric_arg);
+                                    handle.get_stream(), isRowMajor,
+                                    metric_arg);
 }
 
 void pairwise_distance(const raft::handle_t &handle, const float *x,
@@ -47,7 +48,8 @@ void pairwise_distance(const raft::handle_t &handle, const float *x,
 
   //Call the distance function
   raft::distance::pairwise_distance(x, y, dist, m, n, k, workspace, metric,
-                                    handle.get_stream(), isRowMajor, metric_arg);
+                                    handle.get_stream(), isRowMajor,
+                                    metric_arg);
 }
 
 template <typename value_idx = int, typename value_t = float>
