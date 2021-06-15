@@ -176,9 +176,12 @@ void _fit_hdbscan(const raft::handle_t &handle, const value_t *X, size_t m,
   rmm::device_uvector<value_t> tree_stabilities(
     out.get_condensed_tree().get_n_clusters(), handle.get_stream());
 
+  rmm::device_uvector<value_idx> label_map(m, stream);
+
+  std::vector<value_idx> label_set;
   value_idx n_selected_clusters = detail::Extract::extract_clusters(
     handle, out.get_condensed_tree(), m, out.get_labels(),
-    tree_stabilities.data(), out.get_probabilities(),
+    tree_stabilities.data(), out.get_probabilities(), label_map.data(),
     params.cluster_selection_method, params.allow_single_cluster,
     params.max_cluster_size, params.cluster_selection_epsilon);
 
@@ -191,8 +194,21 @@ void _fit_hdbscan(const raft::handle_t &handle, const value_t *X, size_t m,
                         lambdas_ptr + out.get_condensed_tree().get_n_edges()));
 
   detail::Stability::get_stability_scores(
-    handle, out.get_labels(), tree_stabilities.data(), n_selected_clusters,
-    max_lambda, m, out.get_stabilities());
+    handle, out.get_labels(), tree_stabilities.data(),
+    out.get_condensed_tree().get_n_clusters(), max_lambda, m,
+    out.get_stabilities(), label_map.data());
+
+  /**
+   * Normalize labels so they are drawn from a monotonically increasing set
+   * starting at 0 even in the presence of noise (-1)
+   */
+
+  value_idx *label_map_ptr = label_map.data();
+  thrust::transform(exec_policy, out.get_labels(), out.get_labels() + m,
+                    out.get_labels(), [=] __device__(value_idx label) {
+                      if (label != -1) return label_map_ptr[label];
+                      return -1;
+                    });
 }
 
 };  // end namespace HDBSCAN

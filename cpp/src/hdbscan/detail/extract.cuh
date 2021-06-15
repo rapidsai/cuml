@@ -174,14 +174,6 @@ void do_labelling_on_host(
   }
 
   raft::update_device(labels, result.data(), n_leaves, stream);
-
-  // TODO: Need to nornalize the labels so they are pulled from a
-  // monotonically increasing set, but need to make sure the first
-  // label starts at 0 in the face of noise.
-  //  CUML_LOG_DEBUG("Calling make_monotonic");
-  //  raft::label::make_monotonic(labels, labels, n_leaves, stream,
-  //                              [] __device__(value_idx label) { return label == -1; },
-  //                              handle.get_device_allocator(), true);
 }
 
 /**
@@ -196,6 +188,7 @@ void do_labelling_on_host(
  * @param[out] labels array of labels on device (size n_leaves)
  * @param[out] stabilities array of stabilities on device (size n_clusters)
  * @param[out] probabilities array of probabilities on device (size n_leaves)
+ * @param[out] label_map array mapping condensed label ids to selected label ids (size n_condensed_clusters)
  * @param[in] cluster_selection_method method to use for cluster selection
  * @param[in] allow_single_cluster allows a single cluster to be returned (rather than just noise)
  * @param[in] max_cluster_size maximium number of points that can be considered in a cluster before it is split into multiple sub-clusters.
@@ -206,7 +199,7 @@ value_idx extract_clusters(
   const raft::handle_t &handle,
   Common::CondensedHierarchy<value_idx, value_t> &condensed_tree,
   size_t n_leaves, value_idx *labels, value_t *tree_stabilities,
-  value_t *probabilities,
+  value_t *probabilities, value_idx *label_map,
   Common::CLUSTER_SELECTION_METHOD cluster_selection_method,
   bool allow_single_cluster = false, value_idx max_cluster_size = 0,
   value_t cluster_selection_epsilon = 0.0) {
@@ -237,6 +230,14 @@ value_idx extract_clusters(
     }
   }
 
+  std::vector<value_idx> label_map_h(condensed_tree.get_n_clusters(), -1);
+  value_idx i = 0;
+  for (const value_idx cluster : clusters) {
+    label_map_h[cluster - n_leaves] = i;
+    i++;
+  }
+
+  raft::copy(label_map, label_map_h.data(), label_map_h.size(), stream);
   do_labelling_on_host<value_idx, value_t>(handle, condensed_tree, clusters,
                                            n_leaves, allow_single_cluster,
                                            labels, cluster_selection_epsilon);
