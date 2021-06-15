@@ -218,11 +218,11 @@ def test_hdbscan_plots():
     cuml_agg = HDBSCAN(gen_min_span_tree=True)
     cuml_agg.fit(X)
 
-    assert cuml_agg._condensed_tree is not None
-    assert cuml_agg._minimum_spanning_tree is not None
-    assert cuml_agg._single_linkage_tree is not None
+    assert cuml_agg.condensed_tree_ is not None
+    assert cuml_agg.minimum_spanning_tree_ is not None
+    assert cuml_agg.single_linkage_tree_ is not None
 
     cuml_agg = HDBSCAN(gen_min_span_tree=False)
     cuml_agg.fit(X)
 
-    assert cuml_agg._minimum_spanning_tree is None
+    assert cuml_agg.minimum_spanning_tree_ is None

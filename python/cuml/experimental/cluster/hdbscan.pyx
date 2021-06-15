@@ -308,12 +308,12 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
         self.condensed_tree_obj = None
         self.single_linkage_tree_obj = None
-        self._minimum_spanning_tree = None
+        self.minimum_spanning_tree_ = None
 
         self.gen_min_span_tree_ = gen_min_span_tree
 
     @property
-    def _condensed_tree(self):
+    def condensed_tree_(self):
 
         if self.condensed_tree_obj is None:
             raw_tree = np.recarray(shape=(self.condensed_parent_.shape[0],),
@@ -335,7 +335,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         return self.condensed_tree_obj
 
     @property
-    def _single_linkage_tree(self):
+    def single_linkage_tree_(self):
 
         if self.single_linkage_tree_obj is None:
             with cuml.using_output_type("numpy"):
@@ -355,7 +355,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
     def build_minimum_spanning_tree(self, X):
 
-        if self.gen_min_span_tree_ and self._minimum_spanning_tree is None:
+        if self.gen_min_span_tree_ and self.minimum_spanning_tree_ is None:
             with cuml.using_output_type("numpy"):
                 raw_tree = np.column_stack((self.mst_src_,
                                             self.mst_dst_,
@@ -365,9 +365,9 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
             if has_hdbscan_plots():
                 from hdbscan.plots import MinimumSpanningTree
-                self._minimum_spanning_tree = \
+                self.minimum_spanning_tree_ = \
                     MinimumSpanningTree(raw_tree, X.to_output("numpy"))
-        return self._minimum_spanning_tree
+        return self.minimum_spanning_tree_
 
     def __dealloc__(self):
         delete_hdbscan_output(self)
