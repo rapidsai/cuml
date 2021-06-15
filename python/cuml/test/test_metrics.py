@@ -861,6 +861,7 @@ def test_log_loss_at_limits():
     with pytest.raises(ValueError, match=err_msg):
         log_loss(y_true, y_pred)
 
+
 def ref_dense_pairwise_dist(X, Y=None, metric=None):
     # Select sklearn except for Hellinger that
     # sklearn doesn't support
@@ -871,12 +872,14 @@ def ref_dense_pairwise_dist(X, Y=None, metric=None):
     else:
         return sklearn_pairwise_distances(X, Y, metric)
 
+
 def prep_dense_array(array, metric, col_major=0):
     if metric == "hellinger":
-        normalized_array = preprocessing.normalize(array, norm="l1")
-        return np.asfortranarray(normalized_array) if col_major else normalized_array
+        norm_array = preprocessing.normalize(array, norm="l1")
+        return np.asfortranarray(norm_array) if col_major else norm_array
     else:
         return np.asfortranarray(array) if col_major else array
+
 
 @pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_METRICS.keys())
 @pytest.mark.parametrize("matrix_size", [(5, 4), (1000, 3), (2, 10),
@@ -890,7 +893,8 @@ def test_pairwise_distances(metric: str, matrix_size, is_col_major):
     compare_precision = 6
 
     # Compare to sklearn, single input
-    X = prep_dense_array(rng.random_sample(matrix_size), metric=metric, col_major=is_col_major)
+    X = prep_dense_array(rng.random_sample(matrix_size),
+                         metric=metric, col_major=is_col_major)
     S = pairwise_distances(X, metric=metric)
     S2 = ref_dense_pairwise_dist(X, metric=metric)
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
@@ -907,7 +911,9 @@ def test_pairwise_distances(metric: str, matrix_size, is_col_major):
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
     # Compare to sklearn, with Y dim != X dim
-    Y = prep_dense_array(rng.random_sample((2, matrix_size[1])), metric=metric, col_major=is_col_major)
+    Y = prep_dense_array(rng.random_sample((2, matrix_size[1])),
+                         metric=metric,
+                         col_major=is_col_major)
     S = pairwise_distances(X, Y, metric=metric)
     S2 = ref_dense_pairwise_dist(X, Y, metric=metric)
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
@@ -929,7 +935,8 @@ def test_pairwise_distances(metric: str, matrix_size, is_col_major):
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
     # Test sending an int type with convert_dtype=True
-    Y = prep_dense_array(rng.randint(10, size=Y.shape), metric=metric, col_major=is_col_major)
+    Y = prep_dense_array(rng.randint(10, size=Y.shape),
+                         metric=metric, col_major=is_col_major)
     S = pairwise_distances(X, Y, metric=metric, convert_dtype=True)
     S2 = ref_dense_pairwise_dist(X, Y, metric=metric)
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
@@ -950,8 +957,10 @@ def test_pairwise_distances_sklearn_comparison(metric: str, matrix_size):
 
     element_count = matrix_size[0] * matrix_size[1]
 
-    X = prep_dense_array(rng.random_sample(matrix_size), metric=metric, col_major=0)
-    Y = prep_dense_array(rng.random_sample(matrix_size), metric=metric, col_major=0)
+    X = prep_dense_array(rng.random_sample(matrix_size),
+                         metric=metric, col_major=0)
+    Y = prep_dense_array(rng.random_sample(matrix_size),
+                         metric=metric, col_major=0)
 
     # For fp64, compare at 10 decimals, (5 places less than the ~15 max)
     compare_precision = 10
@@ -983,8 +992,12 @@ def test_pairwise_distances_one_dimension_order(metric: str):
     # can break down when using a size of 1 for either dimension
     rng = np.random.RandomState(2)
 
-    Xc = prep_dense_array(rng.random_sample((1, 4)), metric=metric, col_major=0)
-    Yc = prep_dense_array(rng.random_sample((10, 4)), metric=metric, col_major=0)
+    Xc = prep_dense_array(rng.random_sample((1, 4)),
+                          metric=metric,
+                          col_major=0)
+    Yc = prep_dense_array(rng.random_sample((10, 4)),
+                          metric=metric,
+                          col_major=0)
     Xf = np.asfortranarray(Xc)
     Yf = np.asfortranarray(Yc)
 
@@ -1012,8 +1025,10 @@ def test_pairwise_distances_one_dimension_order(metric: str):
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
     # Switch which input has single dimension
-    Xc = prep_dense_array(rng.random_sample((1, 4)), metric=metric, col_major=0)
-    Yc = prep_dense_array(rng.random_sample((10, 4)), metric=metric, col_major=0)
+    Xc = prep_dense_array(rng.random_sample((1, 4)),
+                          metric=metric, col_major=0)
+    Yc = prep_dense_array(rng.random_sample((10, 4)),
+                          metric=metric, col_major=0)
     Xf = np.asfortranarray(Xc)
     Yf = np.asfortranarray(Yc)
 
