@@ -132,7 +132,7 @@ struct forest {
     fixed_block_count_ = blocks_per_sm * sm_count;
   }
 
-  void init_common(const raft::handle_t& h, const forest_params_t* params) {
+  void init_common(const raft::handle_t& h, const forest_params_t* params,const std::vector<float >& vector_leaf) {
     depth_ = params->depth;
     num_trees_ = params->num_trees;
     algo_ = params->algo;
@@ -149,6 +149,16 @@ struct forest {
     int device = h.get_device();
     init_n_items(device);  // n_items takes priority over blocks_per_sm
     init_fixed_block_count(device, params->blocks_per_sm);
+
+    // vector leaf
+    if (!vector_leaf.empty()) {
+      vector_leaf_len_ = vector_leaf.size();
+      vector_leaf_ = (float*)h.get_device_allocator()->allocate(
+        sizeof(float) * vector_leaf.size(), h.get_stream());
+      CUDA_CHECK(cudaMemcpyAsync(vector_leaf_, vector_leaf.data(),
+                                 vector_leaf.size() * sizeof(float),
+                                 cudaMemcpyHostToDevice, h.get_stream()));
+    }
   }
 
   virtual void infer(predict_params params, cudaStream_t stream) = 0;
@@ -294,7 +304,13 @@ struct forest {
     }
   }
 
-  virtual void free(const raft::handle_t& h) = 0;
+  virtual void free(const raft::handle_t& h) {
+    if (vector_leaf_len_ > 0) {
+      h.get_device_allocator()->deallocate(
+        vector_leaf_, sizeof(float) * vector_leaf_len_, h.get_stream());
+    }
+  }
+
   virtual ~forest() {}
 
   int num_trees_ = 0;
@@ -305,6 +321,9 @@ struct forest {
   float global_bias_ = 0;
   shmem_size_params class_ssp_, proba_ssp_;
   int fixed_block_count_ = 0;
+  // Optionally used
+  float* vector_leaf_ = nullptr;
+  size_t vector_leaf_len_ = 0;
 };
 
 struct dense_forest : forest {
@@ -336,21 +355,13 @@ struct dense_forest : forest {
   void init(const raft::handle_t& h, const dense_node* nodes,
             const forest_params_t* params,
             const std::vector<float>& vector_leaf) {
-    init_common(h, params);
+    init_common(h, params, vector_leaf);
     if (algo_ == algo_t::NAIVE) algo_ = algo_t::BATCH_TREE_REORG;
 
     int num_nodes = forest_num_nodes(num_trees_, depth_);
     nodes_ = (dense_node*)h.get_device_allocator()->allocate(
       sizeof(dense_node) * num_nodes, h.get_stream());
     h_nodes_.resize(num_nodes);
-    if (!vector_leaf.empty()) {
-      vector_leaf_len_ = vector_leaf.size();
-      vector_leaf_ = (float*)h.get_device_allocator()->allocate(
-        sizeof(float) * vector_leaf.size(), h.get_stream());
-      CUDA_CHECK(cudaMemcpyAsync(vector_leaf_, vector_leaf.data(),
-                                 vector_leaf.size() * sizeof(float),
-                                 cudaMemcpyHostToDevice, h.get_stream()));
-    }
     if (algo_ == algo_t::NAIVE) {
       std::copy(nodes, nodes + num_nodes, h_nodes_.begin());
     } else {
@@ -373,19 +384,13 @@ struct dense_forest : forest {
   }
 
   virtual void free(const raft::handle_t& h) override {
+    forest::free(h);
     int num_nodes = forest_num_nodes(num_trees_, depth_);
     h.get_device_allocator()->deallocate(nodes_, sizeof(dense_node) * num_nodes,
                                          h.get_stream());
-    if (vector_leaf_len_ > 0) {
-      h.get_device_allocator()->deallocate(
-        vector_leaf_, sizeof(float) * vector_leaf_len_, h.get_stream());
-    }
   }
 
   dense_node* nodes_ = nullptr;
-  // Optionally used
-  float* vector_leaf_ = nullptr;
-  size_t vector_leaf_len_ = 0;
   thrust::host_vector<dense_node> h_nodes_;
 };
 
@@ -394,7 +399,7 @@ struct sparse_forest : forest {
   void init(const raft::handle_t& h, const int* trees, const node_t* nodes,
             const forest_params_t* params,
             const std::vector<float>& vector_leaf) {
-    init_common(h, params);
+    init_common(h, params, vector_leaf);
     if (algo_ == algo_t::ALGO_AUTO) algo_ = algo_t::NAIVE;
     depth_ = 0;  // a placeholder value
     num_nodes_ = params->num_nodes;
@@ -405,15 +410,6 @@ struct sparse_forest : forest {
     CUDA_CHECK(cudaMemcpyAsync(trees_, trees, sizeof(int) * num_trees_,
                                cudaMemcpyHostToDevice, h.get_stream()));
 
-    // vector leaf
-    if (!vector_leaf.empty()) {
-      vector_leaf_len_ = vector_leaf.size();
-      vector_leaf_ = (float*)h.get_device_allocator()->allocate(
-        sizeof(float) * vector_leaf.size(), h.get_stream());
-      CUDA_CHECK(cudaMemcpyAsync(vector_leaf_, vector_leaf.data(),
-                                 vector_leaf.size() * sizeof(float),
-                                 cudaMemcpyHostToDevice, h.get_stream()));
-    }
 
     // nodes
     nodes_ = (node_t*)h.get_device_allocator()->allocate(
@@ -428,22 +424,16 @@ struct sparse_forest : forest {
   }
 
   void free(const raft::handle_t& h) override {
+    forest::free(h);
     h.get_device_allocator()->deallocate(trees_, sizeof(int) * num_trees_,
                                          h.get_stream());
     h.get_device_allocator()->deallocate(nodes_, sizeof(node_t) * num_nodes_,
                                          h.get_stream());
-    if (vector_leaf_len_) {
-      h.get_device_allocator()->deallocate(
-        vector_leaf_, sizeof(float) * vector_leaf_len_, h.get_stream());
-    }
   }
 
   int num_nodes_ = 0;
   int* trees_ = nullptr;
   node_t* nodes_ = nullptr;
-  // Optionally used
-  float* vector_leaf_ = nullptr;
-  size_t vector_leaf_len_ = 0;
 };
 
 void check_params(const forest_params_t* params, bool dense) {

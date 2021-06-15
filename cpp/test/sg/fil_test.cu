@@ -170,15 +170,14 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
       std::mt19937 gen(3);
       std::uniform_real_distribution<> dist(0, 1);
       vector_leaf.resize(num_nodes * ps.num_classes);
-      for (auto i = 0ull; i < vector_leaf.size(); i++) {
+      for (size_t i = 0; i < vector_leaf.size(); i++) {
         vector_leaf[i] = dist(gen);
       }
       // Normalise probabilities to 1
-      for (auto i = 0ull; i < vector_leaf.size(); i += ps.num_classes) {
-        auto sum =
-          std::accumulate((float*)&vector_leaf[i],
-                          (float*)&vector_leaf[i + ps.num_classes], 0.0f);
-        for (auto j = i; j < i + ps.num_classes; j++) {
+      for (size_t i = 0; i < vector_leaf.size(); i += ps.num_classes) {
+        auto sum = std::accumulate(&vector_leaf[i],
+                                   &vector_leaf[i + ps.num_classes], 0.0f);
+        for (size_t j = i; j < i + ps.num_classes; j++) {
           vector_leaf[j] /= sum;
         }
       }
@@ -899,6 +898,10 @@ std::vector<FilTestParams> predict_sparse_inputs = {
                   leaf_algo = VECTOR_LEAF, num_classes = 3),
   FIL_TEST_PARAMS(num_rows = 103, num_cols = 5, depth = 5, num_trees = 3,
                   leaf_algo = VECTOR_LEAF, num_classes = 4000),
+  FIL_TEST_PARAMS(num_rows = 103, num_cols = 5, depth = 5, num_trees = 530,
+                  leaf_algo = VECTOR_LEAF, num_classes = 11),
+  FIL_TEST_PARAMS(num_rows = 103, num_cols = 5, depth = 5, num_trees = 530,
+                  leaf_algo = VECTOR_LEAF, num_classes = 1111),
 };
 
 TEST_P(PredictSparse16FilTest, Predict) { compare(); }
