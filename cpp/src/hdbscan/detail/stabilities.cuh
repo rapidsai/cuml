@@ -137,7 +137,7 @@ void compute_stabilities(
  * @param[in] max_lambda maximum lambda of cluster hierarchy
  * @param[in] n_leaves number of data points (non-clusters) in hierarchy
  * @param[out] result output stability scores
- * @param[in] label_map map of original labels to new final labels
+ * @param[in] label_map map of original labels to new final labels (size n_leaves)
  */
 template <typename value_idx, typename value_t>
 void get_stability_scores(const raft::handle_t &handle, const value_idx *labels,

@@ -188,7 +188,7 @@ void do_labelling_on_host(
  * @param[out] labels array of labels on device (size n_leaves)
  * @param[out] stabilities array of stabilities on device (size n_clusters)
  * @param[out] probabilities array of probabilities on device (size n_leaves)
- * @param[out] label_map array mapping condensed label ids to selected label ids (size n_condensed_clusters)
+ * @param[out] label_map array mapping condensed label ids to selected label ids (size n_leaves)
  * @param[in] cluster_selection_method method to use for cluster selection
  * @param[in] allow_single_cluster allows a single cluster to be returned (rather than just noise)
  * @param[in] max_cluster_size maximium number of points that can be considered in a cluster before it is split into multiple sub-clusters.
