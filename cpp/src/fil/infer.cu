@@ -637,113 +637,32 @@ size_t shmem_size_params::get_smem_footprint() {
     tree_aggregator_t<NITEMS, leaf_algo>::smem_accumulate_footprint(
       num_classes) +
     cols_shmem_size();
-
   return std::max(accumulate_footprint, finalize_footprint);
 }
 
-template <int NITEMS>
-size_t shmem_size_params::get_smem_footprint() {
-  switch (leaf_algo) {
-    case FLOAT_UNARY_BINARY:
-      return get_smem_footprint<NITEMS, FLOAT_UNARY_BINARY>();
-    case CATEGORICAL_LEAF:
-      return get_smem_footprint<NITEMS, CATEGORICAL_LEAF>();
-    case GROVE_PER_CLASS:
-      if (num_classes > FIL_TPB)
-        return get_smem_footprint<NITEMS, GROVE_PER_CLASS_MANY_CLASSES>();
-      return get_smem_footprint<NITEMS, GROVE_PER_CLASS_FEW_CLASSES>();
-    default:
-      ASSERT(false, "internal error: unexpected leaf_algo_t");
-  }
-}
+// make sure to instantiate all possible get_smem_footprint instantiations
+template void dispatch_on_FIL_template_params<compute_smem_footprint,
+                                              dense_storage>(predict_params&);
 
-void shmem_size_params::compute_smem_footprint() {
-  switch (n_items) {
-    case 1:
-      shm_sz = get_smem_footprint<1>();
-      break;
-    case 2:
-      shm_sz = get_smem_footprint<2>();
-      break;
-    case 3:
-      shm_sz = get_smem_footprint<3>();
-      break;
-    case 4:
-      shm_sz = get_smem_footprint<4>();
-      break;
-    default:
-      ASSERT(false, "internal error: n_items > 4");
+template <bool cols_in_shmem, leaf_algo_t leaf_algo, int n_items>
+struct infer_k_launcher {
+  template <typename storage_type>
+  static void run(predict_params& params, storage_type forest,
+                  cudaStream_t stream) {
+    params.num_blocks = params.num_blocks != 0
+                          ? params.num_blocks
+                          : raft::ceildiv(int(params.num_rows), params.n_items);
+    infer_k<n_items, leaf_algo, cols_in_shmem, storage_type>
+      <<<params.num_blocks, params.blockdim_x, params.shm_sz, stream>>>(forest,
+                                                                        params);
+    CUDA_CHECK(cudaPeekAtLastError());
   }
-}
-
-template <leaf_algo_t leaf_algo, bool cols_in_shmem, typename storage_type>
-void infer_k_nitems_launcher(storage_type forest, predict_params params,
-                             cudaStream_t stream, int block_dim_x) {
-  switch (params.n_items) {
-    case 1:
-      infer_k<1, leaf_algo, cols_in_shmem>
-        <<<params.num_blocks, block_dim_x, params.shm_sz, stream>>>(forest,
-                                                                    params);
-      break;
-    case 2:
-      infer_k<2, leaf_algo, cols_in_shmem>
-        <<<params.num_blocks, block_dim_x, params.shm_sz, stream>>>(forest,
-                                                                    params);
-      break;
-    case 3:
-      infer_k<3, leaf_algo, cols_in_shmem>
-        <<<params.num_blocks, block_dim_x, params.shm_sz, stream>>>(forest,
-                                                                    params);
-      break;
-    case 4:
-      infer_k<4, leaf_algo, cols_in_shmem>
-        <<<params.num_blocks, block_dim_x, params.shm_sz, stream>>>(forest,
-                                                                    params);
-      break;
-    default:
-      ASSERT(false, "internal error: nitems > 4");
-  }
-  CUDA_CHECK(cudaPeekAtLastError());
-}
-
-template <leaf_algo_t leaf_algo, typename storage_type>
-void infer_k_launcher(storage_type forest, predict_params params,
-                      cudaStream_t stream, int blockdim_x) {
-  params.num_blocks = params.num_blocks != 0
-                        ? params.num_blocks
-                        : raft::ceildiv(int(params.num_rows), params.n_items);
-  if (params.cols_in_shmem) {
-    infer_k_nitems_launcher<leaf_algo, true>(forest, params, stream,
-                                             blockdim_x);
-  } else {
-    infer_k_nitems_launcher<leaf_algo, false>(forest, params, stream,
-                                              blockdim_x);
-  }
-}
+};
 
 template <typename storage_type>
 void infer(storage_type forest, predict_params params, cudaStream_t stream) {
-  switch (params.leaf_algo) {
-    case FLOAT_UNARY_BINARY:
-      infer_k_launcher<FLOAT_UNARY_BINARY>(forest, params, stream, FIL_TPB);
-      break;
-    case GROVE_PER_CLASS:
-      if (params.num_classes > FIL_TPB) {
-        params.leaf_algo = GROVE_PER_CLASS_MANY_CLASSES;
-        infer_k_launcher<GROVE_PER_CLASS_MANY_CLASSES>(forest, params, stream,
-                                                       FIL_TPB);
-      } else {
-        params.leaf_algo = GROVE_PER_CLASS_FEW_CLASSES;
-        infer_k_launcher<GROVE_PER_CLASS_FEW_CLASSES>(
-          forest, params, stream, FIL_TPB - FIL_TPB % params.num_classes);
-      }
-      break;
-    case CATEGORICAL_LEAF:
-      infer_k_launcher<CATEGORICAL_LEAF>(forest, params, stream, FIL_TPB);
-      break;
-    default:
-      ASSERT(false, "internal error: invalid leaf_algo");
-  }
+  dispatch_on_FIL_template_params<infer_k_launcher, storage_type>(
+    params, forest, stream);
 }
 
 template void infer<dense_storage>(dense_storage forest, predict_params params,

@@ -74,32 +74,30 @@ __global__ void transform_k(float* preds, size_t n, output_t output,
     preds[i] = result;
 }
 
+extern template void dispatch_on_FIL_template_params<
+  compute_smem_footprint, dense_storage>(predict_params&);
+
 struct forest {
   void init_n_items(int device) {
-    int max_shm_std = 48 * 1024;  // 48 KiB
-    /// the most shared memory a kernel can request on the GPU in question
-    int max_shm = 0;
     CUDA_CHECK(cudaDeviceGetAttribute(
-      &max_shm, cudaDevAttrMaxSharedMemoryPerBlockOptin, device));
+      &max_shm_, cudaDevAttrMaxSharedMemoryPerBlockOptin, device));
     /* Our GPUs have been growing the shared memory size generation after
        generation. Eventually, a CUDA GPU might come by that supports more 
        shared memory that would fit into unsigned 16-bit int. For such a GPU,
        we would have otherwise silently overflowed the index calculation due
        to short division. It would have failed cpp tests, but we might forget
        about this source of bugs, if not for the failing assert. */
-    ASSERT(max_shm < 262144,
+    ASSERT(max_shm_ < 262144,
            "internal error: please use a larger type inside"
            " infer_k for column count");
     // TODO(canonizer): use >48KiB shared memory if available
-    max_shm = std::min(max_shm, max_shm_std);
-
     // searching for the most items per block while respecting the shared
     // memory limits creates a full linear programming problem.
     // solving it in a single equation looks less tractable than this
     for (bool predict_proba : {false, true}) {
       shmem_size_params& ssp_ = predict_proba ? proba_ssp_ : class_ssp_;
       ssp_.predict_proba = predict_proba;
-      shmem_size_params ssp = ssp_;
+      predict_params ssp = ssp_;
       // if n_items was not provided, try from 1 to 4. Otherwise, use as-is.
       int min_n_items = ssp.n_items == 0 ? 1 : ssp.n_items;
       int max_n_items = ssp.n_items == 0
@@ -109,11 +107,12 @@ struct forest {
         ssp.cols_in_shmem = cols_in_shmem;
         for (ssp.n_items = min_n_items; ssp.n_items <= max_n_items;
              ++ssp.n_items) {
-          ssp.compute_smem_footprint();
-          if (ssp.shm_sz < max_shm) ssp_ = ssp;
+          dispatch_on_FIL_template_params<compute_smem_footprint,
+                                          dense_storage>(ssp);
+          if (ssp.shm_sz <= ssp.max_shm) ssp_ = ssp;
         }
       }
-      ASSERT(max_shm >= ssp_.shm_sz,
+      ASSERT(ssp_.max_shm >= ssp_.shm_sz,
              "FIL out of shared memory. Perhaps the maximum number of \n"
              "supported classes is exceeded? 5'000 would still be safe.");
     }
@@ -133,6 +132,10 @@ struct forest {
   }
 
   void init_common(const raft::handle_t& h, const forest_params_t* params) {
+    int device = h.get_device();
+    CUDA_CHECK(cudaDeviceGetAttribute(
+      &proba_ssp_.max_shm, cudaDevAttrMaxSharedMemoryPerBlockOptin, device));
+
     depth_ = params->depth;
     num_trees_ = params->num_trees;
     algo_ = params->algo;
@@ -146,7 +149,6 @@ struct forest {
     proba_ssp_.num_classes = params->num_classes;
     class_ssp_ = proba_ssp_;
 
-    int device = h.get_device();
     init_n_items(device);  // n_items takes priority over blocks_per_sm
     init_fixed_block_count(device, params->blocks_per_sm);
   }
@@ -243,7 +245,8 @@ struct forest {
           do_transform = ot != output_t::RAW || global_bias_ != 0.0f;
           break;
         default:
-          ASSERT(false, "internal error: invalid leaf_algo_");
+          ASSERT(false, "internal error: predict: invalid leaf_algo %d",
+                 params.leaf_algo);
       }
     } else {
       if (params.leaf_algo == leaf_algo_t::FLOAT_UNARY_BINARY) {
@@ -272,6 +275,8 @@ struct forest {
     }
   }
 
+  int max_shm() { return max_shm_; }
+
   virtual void free(const raft::handle_t& h) = 0;
   virtual ~forest() {}
 
@@ -283,6 +288,23 @@ struct forest {
   float global_bias_ = 0;
   shmem_size_params class_ssp_, proba_ssp_;
   int fixed_block_count_ = 0;
+  int max_shm_ = 0;
+};
+
+template <bool cols_in_shmem, leaf_algo_t leaf_algo, int n_items>
+struct enable_smem_carveout {
+  template <typename storage_type>
+  static void run(predict_params& params, int max_shm) {
+    void (*kernel)(storage_type, predict_params) =
+      infer_k<n_items, leaf_algo, cols_in_shmem, storage_type>;
+    // ensure optimal occupancy and L1 cache size in case config at launch is suboptimal
+    CUDA_CHECK(cudaFuncSetAttribute(
+      kernel, cudaFuncAttributePreferredSharedMemoryCarveout,
+      cudaFuncCachePreferL1));
+    // even if the footprint < 48 * 1024, ensure that we reset after previous forest
+    CUDA_CHECK(cudaFuncSetAttribute(
+      kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, max_shm));
+  }
 };
 
 struct dense_forest : forest {
@@ -328,6 +350,10 @@ struct dense_forest : forest {
     CUDA_CHECK(cudaMemcpyAsync(nodes_, h_nodes_.data(),
                                num_nodes * sizeof(dense_node),
                                cudaMemcpyHostToDevice, h.get_stream()));
+
+    predict_params ssp = class_ssp_;
+    dispatch_on_FIL_template_params<enable_smem_carveout, dense_storage>(
+      ssp, max_shm_);
     // copy must be finished before freeing the host data
     CUDA_CHECK(cudaStreamSynchronize(h.get_stream()));
     h_nodes_.clear();
@@ -371,6 +397,10 @@ struct sparse_forest : forest {
       sizeof(node_t) * num_nodes_, h.get_stream());
     CUDA_CHECK(cudaMemcpyAsync(nodes_, nodes, sizeof(node_t) * num_nodes_,
                                cudaMemcpyHostToDevice, h.get_stream()));
+
+    predict_params ssp = class_ssp_;
+    dispatch_on_FIL_template_params<enable_smem_carveout,
+                                    sparse_storage<node_t>>(ssp, max_shm_);
   }
 
   virtual void infer(predict_params params, cudaStream_t stream) override {
