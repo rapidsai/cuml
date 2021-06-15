@@ -26,26 +26,28 @@ namespace ML {
 namespace Metrics {
 void pairwise_distance(const raft::handle_t &handle, const double *x,
                        const double *y, double *dist, int m, int n, int k,
-                       raft::distance::DistanceType metric, bool isRowMajor) {
+                       raft::distance::DistanceType metric, bool isRowMajor,
+                       double metric_arg) {
   //Allocate workspace
   raft::mr::device::buffer<char> workspace(handle.get_device_allocator(),
                                            handle.get_stream(), 1);
 
   //Call the distance function
   raft::distance::pairwise_distance(x, y, dist, m, n, k, workspace, metric,
-                                    handle.get_stream(), isRowMajor);
+                                    handle.get_stream(), isRowMajor, metric_arg);
 }
 
 void pairwise_distance(const raft::handle_t &handle, const float *x,
                        const float *y, float *dist, int m, int n, int k,
-                       raft::distance::DistanceType metric, bool isRowMajor) {
+                       raft::distance::DistanceType metric, bool isRowMajor,
+                       float metric_arg) {
   //Allocate workspace
   raft::mr::device::buffer<char> workspace(handle.get_device_allocator(),
                                            handle.get_stream(), 1);
 
   //Call the distance function
   raft::distance::pairwise_distance(x, y, dist, m, n, k, workspace, metric,
-                                    handle.get_stream(), isRowMajor);
+                                    handle.get_stream(), isRowMajor, metric_arg);
 }
 
 template <typename value_idx = int, typename value_t = float>

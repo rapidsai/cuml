@@ -302,7 +302,7 @@ float accuracy_score_py(const raft::handle_t &handle, const int *predictions,
 void pairwise_distance(const raft::handle_t &handle, const double *x,
                        const double *y, double *dist, int m, int n, int k,
                        raft::distance::DistanceType metric,
-                       bool isRowMajor = true);
+                       bool isRowMajor = true, double metric_arg = 2.0);
 
 /**
  * @brief Calculates the ij pairwise distances between two input arrays of float type
@@ -322,7 +322,7 @@ void pairwise_distance(const raft::handle_t &handle, const double *x,
 void pairwise_distance(const raft::handle_t &handle, const float *x,
                        const float *y, float *dist, int m, int n, int k,
                        raft::distance::DistanceType metric,
-                       bool isRowMajor = true);
+                       bool isRowMajor = true, float metric_arg = 2.0f);
 
 void pairwiseDistance_sparse(const raft::handle_t &handle, double *x, double *y,
                              double *dist, int x_nrows, int y_nrows, int n_cols,
