@@ -242,7 +242,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         node to be spilt.
     use_experimental_backend : boolean (default = True)
         Deprecated and currrently has no effect.
-        .. deprecated:: 21.06
+        .. deprecated:: 21.08
     max_batch_size: int (default = 128)
         Maximum number of nodes that can be processed in a given batch. This is
         used only when 'use_experimental_backend' is true. Does not currently

@@ -93,10 +93,10 @@ class BaseRandomForestModel(Base):
                           "random_state is set")
         if use_experimental_backend:
             warnings.warn("The 'use_experimental_backend' parameter is "
-                          "deprecated and will be removed in 0.21 release.")
+                          "deprecated and will be removed in 21.10 release.")
         if split_algo:
             warnings.warn("The 'split_algo' parameter is deprecated "
-                          "and will be removed in 0.21 release.")
+                          "and will be removed in 21.10 release.")
         if handle is None:
             handle = Handle(n_streams)
 
