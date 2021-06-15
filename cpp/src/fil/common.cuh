@@ -212,15 +212,13 @@ void dispatch_on_leaf_algo(predict_params& params, Args... args) {
       break;
     case GROVE_PER_CLASS:
       if (params.num_classes > FIL_TPB) {
-        case GROVE_PER_CLASS_MANY_CLASSES:
-          params.blockdim_x = FIL_TPB;
-          dispatch_on_n_items<Func, storage_type, cols_in_shmem,
-                              GROVE_PER_CLASS_MANY_CLASSES>(params, args...);
+        params.blockdim_x = FIL_TPB;
+        dispatch_on_n_items<Func, storage_type, cols_in_shmem,
+                            GROVE_PER_CLASS_MANY_CLASSES>(params, args...);
       } else {
-        case GROVE_PER_CLASS_FEW_CLASSES:
-          params.blockdim_x = FIL_TPB - FIL_TPB % params.num_classes;
-          dispatch_on_n_items<Func, storage_type, cols_in_shmem,
-                              GROVE_PER_CLASS_FEW_CLASSES>(params, args...);
+        params.blockdim_x = FIL_TPB - FIL_TPB % params.num_classes;
+        dispatch_on_n_items<Func, storage_type, cols_in_shmem,
+                            GROVE_PER_CLASS_FEW_CLASSES>(params, args...);
       }
       break;
     case CATEGORICAL_LEAF:
