@@ -213,3 +213,25 @@ def test_hdbscan_cluster_patterns(dataset, nrows,
 
     assert np.allclose(np.sort(sk_agg.cluster_persistence_),
            np.sort(cuml_agg.cluster_persistence_), rtol=0.1, atol=0.1)
+
+
+def test_hdbscan_plots():
+
+    X, y = make_blobs(int(100),
+                      100,
+                      10,
+                      cluster_std=0.7,
+                      shuffle=False,
+                      random_state=42)
+
+    cuml_agg = HDBSCAN(gen_min_span_tree=True)
+    cuml_agg.fit(X)
+
+    assert cuml_agg.condensed_tree_ is not None
+    assert cuml_agg.minimum_spanning_tree_ is not None
+    assert cuml_agg.single_linkage_tree_ is not None
+
+    cuml_agg = HDBSCAN(gen_min_span_tree=False)
+    cuml_agg.fit(X)
+
+    assert cuml_agg.minimum_spanning_tree_ is None
