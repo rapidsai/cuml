@@ -64,10 +64,6 @@ if has_scipy():
     import scipy.sparse
 
 cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
-
-    cdef cppclass knnIndex:
-        pass
-
     void brute_force_knn(
         const handle_t &handle,
         vector[float*] &inputs,
