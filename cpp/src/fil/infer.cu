@@ -558,7 +558,8 @@ struct tree_aggregator_t<NITEMS, VECTOR_LEAF> {
       // iterate over original thread inputs with stride num_threads_per_class
       // j is the original thread input
       // we have num_classes threads for each j
-      for (int j = i / num_classes; j < blockDim.x; j += num_threads_per_class) {
+      for (int j = i / num_classes; j < blockDim.x;
+           j += num_threads_per_class) {
         for (int item = 0; item < thread_num_rows[j]; ++item) {
           float pred =
             vector_leaf[vector_leaf_indices[j][item] * num_classes + c];

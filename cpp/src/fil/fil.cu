@@ -132,7 +132,8 @@ struct forest {
     fixed_block_count_ = blocks_per_sm * sm_count;
   }
 
-  void init_common(const raft::handle_t& h, const forest_params_t* params,const std::vector<float >& vector_leaf) {
+  void init_common(const raft::handle_t& h, const forest_params_t* params,
+                   const std::vector<float>& vector_leaf) {
     depth_ = params->depth;
     num_trees_ = params->num_trees;
     algo_ = params->algo;
@@ -410,7 +411,6 @@ struct sparse_forest : forest {
     CUDA_CHECK(cudaMemcpyAsync(trees_, trees, sizeof(int) * num_trees_,
                                cudaMemcpyHostToDevice, h.get_stream()));
 
-
     // nodes
     nodes_ = (node_t*)h.get_device_allocator()->allocate(
       sizeof(node_t) * num_nodes_, h.get_stream());
@@ -616,7 +616,8 @@ template <typename fil_node_t, typename T, typename L>
 void tl2fil_leaf_payload(fil_node_t* fil_node, int fil_node_id,
                          const tl::Tree<T, L>& tl_tree, int tl_node_id,
                          const forest_params_t& forest_params,
-                         std::vector<float>* vector_leaf) {
+                         std::vector<float>* vector_leaf,
+                         size_t* leaf_counter) {
   auto vec = tl_tree.LeafVector(tl_node_id);
   switch (forest_params.leaf_algo) {
     case leaf_algo_t::CATEGORICAL_LEAF:
@@ -627,10 +628,11 @@ void tl2fil_leaf_payload(fil_node_t* fil_node, int fil_node_id,
     case leaf_algo_t::VECTOR_LEAF: {
       ASSERT(vec.size() == forest_params.num_classes,
              "inconsistent number of classes in treelite leaves");
-      fil_node->val.idx = fil_node_id;
+      fil_node->val.idx = *leaf_counter;
       for (int k = 0; k < forest_params.num_classes; k++) {
-        (*vector_leaf)[fil_node_id * forest_params.num_classes + k] = vec[k];
+        (*vector_leaf)[*leaf_counter * forest_params.num_classes + k] = vec[k];
       }
+      (*leaf_counter)++;
       break;
     }
     case leaf_algo_t::FLOAT_UNARY_BINARY:
@@ -648,11 +650,11 @@ template <typename T, typename L>
 void node2fil_dense(std::vector<dense_node>* pnodes, int root, int cur,
                     const tl::Tree<T, L>& tree, int node_id,
                     const forest_params_t& forest_params,
-                    std::vector<float>* vector_leaf) {
+                    std::vector<float>* vector_leaf, size_t* leaf_counter) {
   if (tree.IsLeaf(node_id)) {
     (*pnodes)[root + cur] = dense_node(val_t{.f = NAN}, NAN, 0, false, true);
     tl2fil_leaf_payload(&(*pnodes)[root + cur], root + cur, tree, node_id,
-                        forest_params, vector_leaf);
+                        forest_params, vector_leaf, leaf_counter);
     return;
   }
 
@@ -667,25 +669,26 @@ void node2fil_dense(std::vector<dense_node>* pnodes, int root, int cur,
   (*pnodes)[root + cur] = dense_node(
     val_t{.f = 0}, threshold, tree.SplitIndex(node_id), default_left, false);
   int left = 2 * cur + 1;
-  node2fil_dense(pnodes, root, left, tree, tl_left, forest_params, vector_leaf);
+  node2fil_dense(pnodes, root, left, tree, tl_left, forest_params, vector_leaf,
+                 leaf_counter);
   node2fil_dense(pnodes, root, left + 1, tree, tl_right, forest_params,
-                 vector_leaf);
+                 vector_leaf, leaf_counter);
 }
 
 template <typename T, typename L>
 void tree2fil_dense(std::vector<dense_node>* pnodes, int root,
                     const tl::Tree<T, L>& tree,
                     const forest_params_t& forest_params,
-                    std::vector<float>* vector_leaf) {
+                    std::vector<float>* vector_leaf, size_t* leaf_counter) {
   node2fil_dense(pnodes, root, 0, tree, tree_root(tree), forest_params,
-                 vector_leaf);
+                 vector_leaf, leaf_counter);
 }
 
 template <typename fil_node_t, typename T, typename L>
 int tree2fil_sparse(std::vector<fil_node_t>& nodes, int root,
                     const tl::Tree<T, L>& tree,
                     const forest_params_t& forest_params,
-                    std::vector<float>* vector_leaf) {
+                    std::vector<float>* vector_leaf, size_t* leaf_counter) {
   typedef std::pair<int, int> pair_t;
   std::stack<pair_t> stack;
   int built_index = root + 1;
@@ -728,7 +731,7 @@ int tree2fil_sparse(std::vector<fil_node_t>& nodes, int root,
     // leaf node
     nodes[root + cur] = fil_node_t(val_t{.f = NAN}, NAN, 0, false, true, 0);
     tl2fil_leaf_payload(&nodes[root + cur], root + cur, tree, node_id,
-                        forest_params, vector_leaf);
+                        forest_params, vector_leaf, leaf_counter);
   }
 
   return root;
@@ -914,13 +917,16 @@ void tl2fil_dense(std::vector<dense_node>* pnodes, forest_params_t* params,
 
   // convert the nodes
   int num_nodes = forest_num_nodes(params->num_trees, params->depth);
+  int max_leaves_per_tree = (tree_num_nodes(params->depth) + 1) / 2;
   if (params->leaf_algo == VECTOR_LEAF) {
-    vector_leaf->resize(num_nodes * params->num_classes);
+    vector_leaf->resize(max_leaves_per_tree * params->num_trees *
+                        params->num_classes);
   }
   pnodes->resize(num_nodes, dense_node());
   for (int i = 0; i < model.trees.size(); ++i) {
+    size_t leaf_counter = max_leaves_per_tree * i;
     tree2fil_dense(pnodes, i * tree_num_nodes(params->depth), model.trees[i],
-                   *params, vector_leaf);
+                   *params, vector_leaf, &leaf_counter);
   }
 }
 
@@ -987,7 +993,8 @@ void tl2fil_sparse(std::vector<int>* ptrees, std::vector<fil_node_t>* pnodes,
   size_t total_nodes = ptrees->back() + model.trees.back().num_nodes;
 
   if (params->leaf_algo == VECTOR_LEAF) {
-    vector_leaf->resize(total_nodes * params->num_classes);
+    size_t max_leaves = (total_nodes + num_trees) / 2;
+    vector_leaf->resize(max_leaves * params->num_classes);
   }
 
   pnodes->resize(total_nodes);
@@ -995,8 +1002,10 @@ void tl2fil_sparse(std::vector<int>* ptrees, std::vector<fil_node_t>* pnodes,
   // convert the nodes
 #pragma omp parallel for
   for (int i = 0; i < num_trees; ++i) {
-    tree2fil_sparse(*pnodes, (*ptrees)[i], model.trees[i], *params,
-                    vector_leaf);
+    // Max number of leaves processed so far
+    size_t leaf_counter = ((*ptrees)[i] + i) / 2;
+    tree2fil_sparse(*pnodes, (*ptrees)[i], model.trees[i], *params, vector_leaf,
+                    &leaf_counter);
   }
 
   params->num_nodes = pnodes->size();
