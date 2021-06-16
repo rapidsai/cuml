@@ -34,7 +34,7 @@ import numpy as np
 
 @pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
 @pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
-def test__multinomial_basic_fit_predict_sparse(x_dtype, y_dtype, nlp_20news):
+def test_multinomial_basic_fit_predict_sparse(x_dtype, y_dtype, nlp_20news):
     """
     Cupy Test
     """
@@ -129,7 +129,7 @@ def test_gaussian_basic_fit_predict_sparse(n_features, x_dtype, y_dtype, nlp_20n
 
     X, y = nlp_20news
 
-    X = scipy_to_cp(X[:, :n_features], x_dtype).astype(x_dtype)
+    X = sparse_scipy_to_cp(X[:, :n_features], x_dtype).astype(x_dtype)
     y = y.astype(y_dtype)
 
     model = GaussianNB()

@@ -156,8 +156,9 @@ class _BaseNB(Base, ClassifierMixin):
     class_log_prior_ = CumlArrayDescriptor()
     feature_log_prob_ = CumlArrayDescriptor()
 
-    def __init__(self, verbose=False, output_type=None):
+    def __init__(self, *, verbose=False, handle=None, output_type=None):
         super(_BaseNB, self).__init__(verbose=verbose,
+                                      handle=handle,
                                       output_type=output_type)
 
 
@@ -269,7 +270,7 @@ class _BaseNB(Base, ClassifierMixin):
 
 class GaussianNB(_BaseNB):
 
-    def __init__(self, priors=None, var_smoothing=1e-9,
+    def __init__(self, *, priors=None, var_smoothing=1e-9,
                  output_type=None, verbose=False):
 
         super(GaussianNB, self).__init__(verbose=verbose,
@@ -522,7 +523,7 @@ class _BaseDiscreteNB(_BaseNB):
 
         if class_prior is not None:
 
-            if class_prior.shape[0] != self.n_classes:
+            if class_prior.shape[0] != self.n_classes_:
                 raise ValueError("Number of classes must match "
                                  "number of priors")
 
@@ -629,7 +630,7 @@ class _BaseDiscreteNB(_BaseNB):
             check_labels(Y, self.classes_)
 
         if cp.sparse.isspmatrix(X):
-            self._count_sparse(X.row, X.col, X.data, X.shape, Y)
+            self._count_sparse(X.row, X.col, X.data, X.shape, Y, self.classes_)
         else:
             self._count(X, Y, self.classes_)
 
@@ -655,7 +656,7 @@ class _BaseDiscreteNB(_BaseNB):
         return self.partial_fit(X, y, sample_weight)
 
     def _init_counters(self, n_effective_classes, n_features, dtype):
-        self._class_count_ = cp.zeros(n_effective_classes,
+        self.class_count_ = cp.zeros(n_effective_classes,
                                       order="F",
                                       dtype=dtype)
         self.feature_count_ = cp.zeros((n_effective_classes, n_features),
@@ -683,6 +684,7 @@ class _BaseDiscreteNB(_BaseNB):
         """
 
         n_classes = classes.shape[0]
+        sample_weight = cp.zeros(0)
 
         if X.ndim != 2:
             raise ValueError("Input samples should be a 2D array")
@@ -690,6 +692,9 @@ class _BaseDiscreteNB(_BaseNB):
         if Y.dtype != classes.dtype:
             warnings.warn("Y dtype does not match classes_ dtype. Y will be "
                           "converted, which will increase memory consumption")
+
+        # Make sure Y is a cupy array, not CumlArray
+        Y = cp.asarray(Y)
 
         counts = cp.zeros((n_classes, self.n_features_), order="F",
                           dtype=X.dtype)
@@ -699,48 +704,34 @@ class _BaseDiscreteNB(_BaseNB):
         n_rows = X.shape[0]
         n_cols = X.shape[1]
 
+        tpb = 32
         labels_dtype = classes.dtype
 
-        if cp.sparse.isspmatrix(X):
-            X = X.tocoo()
+        count_features_dense = count_features_dense_kernel(
+            X.dtype, labels_dtype)
+        count_features_dense(
+            (math.ceil(n_rows / tpb), math.ceil(n_cols / tpb), 1),
+            (tpb, tpb, 1),
+            (counts,
+            X,
+            n_rows,
+            n_cols,
+            Y,
+            sample_weight,
+            sample_weight.shape[0] > 0,
+            n_classes,
+            False,
+            X.flags["C_CONTIGUOUS"]))
 
-            count_features_coo = count_features_coo_kernel(X.dtype,
-                                                           labels_dtype)
-            count_features_coo((math.ceil(X.nnz / 32),), (32,),
-                               (counts,
-                                X.row,
-                                X.col,
-                                X.data,
-                                X.nnz,
-                                n_rows,
-                                n_cols,
-                                Y,
-                                n_classes, False))
-
-        else:
-
-            count_features_dense = count_features_dense_kernel(X.dtype,
-                                                               labels_dtype)
-            count_features_dense((math.ceil(n_rows / 32),
-                                  math.ceil(n_cols / 32), 1),
-                                 (32, 32, 1),
-                                 (counts,
-                                  X,
-                                  n_rows,
-                                  n_cols,
-                                  Y,
-                                  n_classes,
-                                  False,
-                                  X.flags["C_CONTIGUOUS"]))
-
+        tpb = 256
         count_classes = count_classes_kernel(X.dtype, labels_dtype)
-        count_classes((math.ceil(n_rows / 32),), (32,),
+        count_classes((math.ceil(n_rows / tpb),), (tpb,),
                       (class_c, n_rows, Y))
 
-        self._feature_count_ += counts
-        self._class_count_ += class_c
+        self.feature_count_ += counts
+        self.class_count_ += class_c
 
-    def _count_sparse(self, x_coo_rows, x_coo_cols, x_coo_data, x_shape, Y):
+    def _count_sparse(self, x_coo_rows, x_coo_cols, x_coo_data, x_shape, Y, classes):
         """
         Sum feature counts & class prior counts and add to current model.
         Parameters
@@ -750,26 +741,28 @@ class _BaseDiscreteNB(_BaseNB):
         x_coo_data : cupy.ndarray of size (nnz)
         Y : cupy.array of monotonic class labels
         """
+        n_classes = classes.shape[0]
 
-        if Y.dtype != self.classes_.dtype:
+        if Y.dtype != classes.dtype:
             warnings.warn("Y dtype does not match classes_ dtype. Y will be "
                           "converted, which will increase memory consumption")
+        sample_weight = cp.zeros(0)
 
         # Make sure Y is a cupy array, not CumlArray
         Y = cp.asarray(Y)
 
-        counts = cp.zeros((self._n_classes_, self._n_features_),
+        counts = cp.zeros((n_classes, self.n_features_),
                           order="F",
                           dtype=x_coo_data.dtype)
 
-        class_c = cp.zeros(self._n_classes_, order="F", dtype=x_coo_data.dtype)
+        class_c = cp.zeros(n_classes, order="F", dtype=x_coo_data.dtype)
 
         n_rows = x_shape[0]
         n_cols = x_shape[1]
 
         tpb = 256
 
-        labels_dtype = self.classes_.dtype
+        labels_dtype = classes.dtype
 
         count_features_coo = count_features_coo_kernel(
             x_coo_data.dtype, labels_dtype)
@@ -782,7 +775,9 @@ class _BaseDiscreteNB(_BaseNB):
                             n_rows,
                             n_cols,
                             Y,
-                            self._n_classes_,
+                            sample_weight,
+                            sample_weight.shape[0] > 0,
+                            n_classes,
                             False))
 
         count_classes = count_classes_kernel(x_coo_data.dtype, labels_dtype)
@@ -1010,7 +1005,7 @@ class BernoulliNB(_BaseDiscreteNB):
     V. Metsis, I. Androutsopoulos and G. Paliouras (2006). Spam filtering with
     naive Bayes -- Which naive Bayes? 3rd Conf. on Email and Anti-Spam (CEAS).
     """
-    def __init__(self, alpha=1.0, binarize=.0, fit_prior=True,
+    def __init__(self, *, alpha=1.0, binarize=.0, fit_prior=True,
                  class_prior=None):
         self.alpha = alpha
         self.binarize = binarize
@@ -1059,7 +1054,7 @@ class BernoulliNB(_BaseDiscreteNB):
         alpha : float amount of smoothing to apply (0. means no smoothing)
         """
         smoothed_fc = self.feature_count_ + alpha
-        smoothed_cc = self._class_count_ + alpha * 2
+        smoothed_cc = self.class_count_ + alpha * 2
         self.feature_log_prob_ = (cp.log(smoothed_fc) -
                                   cp.log(smoothed_cc.reshape(-1, 1)))
 
