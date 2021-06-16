@@ -402,11 +402,13 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
         self.n_clusters_ = hdbscan_output_.get_n_clusters()
 
-        self.cluster_persistence_ = self._cuml_array_from_ptr(
-            <size_t>hdbscan_output_.get_stabilities(),
-            hdbscan_output_.get_n_clusters() * sizeof(float),
-            (1, hdbscan_output_.get_n_clusters()), "float32"
-        )
+        if self.n_clusters_ > 0:
+            self.cluster_persistence_ = self._cuml_array_from_ptr(
+                <size_t>hdbscan_output_.get_stabilities(),
+                hdbscan_output_.get_n_clusters() * sizeof(float),
+                (1, hdbscan_output_.get_n_clusters()), "float32")
+        else:
+            self.cluster_persistence_ = CumlArray.empty((0,), dtype="float32")
 
         self.condensed_parent_ = self._construct_condensed_tree_attribute(
             <size_t>hdbscan_output_.get_condensed_tree().get_parents())

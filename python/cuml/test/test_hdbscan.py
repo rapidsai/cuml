@@ -105,6 +105,9 @@ def test_hdbscan_blobs(nrows, ncols, nclusters,
     assert(adjusted_rand_score(cuml_agg.labels_, sk_agg.labels_) >= 0.95)
     assert(len(np.unique(sk_agg.labels_)) == len(cp.unique(cuml_agg.labels_)))
 
+    assert np.allclose(np.sort(sk_agg.cluster_persistence_),
+           np.sort(cuml_agg.cluster_persistence_), rtol=0.01, atol=0.01)
+
 
 @pytest.mark.parametrize('dataset', test_datasets.values())
 @pytest.mark.parametrize('cluster_selection_epsilon', [0.0, 50.0, 150.0])
@@ -153,6 +156,9 @@ def test_hdbscan_sklearn_datasets(dataset,
 
     assert(len(np.unique(sk_agg.labels_)) == len(cp.unique(cuml_agg.labels_)))
     assert(adjusted_rand_score(cuml_agg.labels_, sk_agg.labels_) > 0.85)
+
+    assert np.allclose(np.sort(sk_agg.cluster_persistence_),
+           np.sort(cuml_agg.cluster_persistence_), rtol=0.1, atol=0.1)
 
 
 @pytest.mark.parametrize('nrows', [1000])
@@ -204,6 +210,9 @@ def test_hdbscan_cluster_patterns(dataset, nrows,
 
     assert(len(np.unique(sk_agg.labels_)) == len(cp.unique(cuml_agg.labels_)))
     assert(adjusted_rand_score(cuml_agg.labels_, sk_agg.labels_) > 0.95)
+
+    assert np.allclose(np.sort(sk_agg.cluster_persistence_),
+           np.sort(cuml_agg.cluster_persistence_), rtol=0.1, atol=0.1)
 
 
 def test_hdbscan_plots():

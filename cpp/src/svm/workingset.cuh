@@ -343,8 +343,8 @@ class WorkingSet {
       // Determine temporary device storage requirements for cub
       size_t cub_bytes2 = 0;
       cub::DeviceRadixSort::SortPairs(
-        NULL, cub_bytes, f_idx.data(), f_idx_sorted.data(), f_sorted.data(),
-        f_sorted.data(), n_train, 0, 8 * sizeof(int), stream);
+        NULL, cub_bytes, f_sorted.data(), f_sorted.data(), f_idx.data(),
+        f_idx_sorted.data(), n_train, 0, 8 * sizeof(math_t), stream);
       cub::DeviceSelect::If(NULL, cub_bytes2, f_idx.data(), f_idx.data(),
                             d_num_selected, n_train, dummy_select_op, stream);
       cub_bytes = max(cub_bytes, cub_bytes2);
