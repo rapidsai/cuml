@@ -692,7 +692,7 @@ void reduce(opg_knn_param<in_t, ind_t, dist_t, out_t> &params,
   }
 
   // Merge all KNN local results
-  MLCommon::Selection::knn_merge_parts(
+  raft::spatial::knn::knn_merge_parts(
     work.res_D.data(), work.res_I.data(), distances, indices, batch_size,
     work.idxRanks.size(), params.k, handle.get_stream(), trans.data());
   CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
