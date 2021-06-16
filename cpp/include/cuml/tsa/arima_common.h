@@ -219,8 +219,8 @@ struct ARIMAMemory {
     *params_sigma2, *Tparams_mu, *Tparams_ar, *Tparams_ma, *Tparams_sar,
     *Tparams_sma, *Tparams_sigma2, *d_params, *d_Tparams, *Z_dense, *R_dense,
     *T_dense, *RQR_dense, *RQ_dense, *P_dense, *alpha_dense, *ImT_dense,
-    *ImT_inv_dense, *T_values, *v_tmp_dense, *m_tmp_dense, *K_dense, *TP_dense,
-    *vs, *y_diff, *loglike, *loglike_base, *loglike_pert, *x_pert, *F_buffer,
+    *ImT_inv_dense, *v_tmp_dense, *m_tmp_dense, *K_dense, *TP_dense, *vs,
+    *y_diff, *loglike, *loglike_base, *loglike_pert, *x_pert, *F_buffer,
     *sumLogF_buffer, *sigma2_buffer, *I_m_AxA_dense, *I_m_AxA_inv_dense,
     *Ts_dense, *RQRs_dense, *Ps_dense;
   T **Z_batches, **R_batches, **T_batches, **RQR_batches, **RQ_batches,
@@ -228,8 +228,7 @@ struct ARIMAMemory {
     **v_tmp_batches, **m_tmp_batches, **K_batches, **TP_batches,
     **I_m_AxA_batches, **I_m_AxA_inv_batches, **Ts_batches, **RQRs_batches,
     **Ps_batches;
-  int *T_col_index, *T_row_index, *ImT_inv_P, *ImT_inv_info, *I_m_AxA_P,
-    *I_m_AxA_info;
+  int *ImT_inv_P, *ImT_inv_info, *I_m_AxA_P, *I_m_AxA_info;
 
   size_t size;
 
@@ -291,9 +290,6 @@ struct ARIMAMemory {
     append_buffer<assign>(ImT_inv_batches, batch_size);
     append_buffer<assign>(ImT_inv_P, r * batch_size);
     append_buffer<assign>(ImT_inv_info, batch_size);
-    append_buffer<assign>(T_values, rd * rd * batch_size);
-    append_buffer<assign>(T_col_index, rd * rd);
-    append_buffer<assign>(T_row_index, rd + 1);
     append_buffer<assign>(v_tmp_dense, rd * batch_size);
     append_buffer<assign>(v_tmp_batches, batch_size);
     append_buffer<assign>(m_tmp_dense, rd * rd * batch_size);

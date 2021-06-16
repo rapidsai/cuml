@@ -17,11 +17,11 @@
 #include <algorithm>
 #include <vector>
 
+#include <cuml/tsa/batched_kalman.hpp>
+
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <cub/cub.cuh>
-
-#include <cuml/tsa/batched_kalman.hpp>
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
@@ -29,8 +29,8 @@
 #include <linalg/batched/matrix.cuh>
 #include <linalg/block.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/handle.hpp>
 #include <raft/linalg/binary_op.cuh>
-#include <sparse/batched/csr.cuh>
 #include <timeSeries/arima_helpers.cuh>
 
 namespace ML {
@@ -513,11 +513,11 @@ void batched_kalman_loop(raft::handle_t& handle,
                          const MLCommon::LinAlg::Batched::Matrix<double>& RQR,
                          MLCommon::LinAlg::Batched::Matrix<double>& P0,
                          MLCommon::LinAlg::Batched::Matrix<double>& alpha,
-                         std::vector<bool>& T_mask, bool intercept,
-                         const double* d_mu, const ARIMAOrder& order,
-                         double* vs, double* Fs, double* sum_logFs,
-                         int fc_steps = 0, double* d_fc = nullptr,
-                         bool conf_int = false, double* d_F_fc = nullptr) {
+                         bool intercept, const double* d_mu,
+                         const ARIMAOrder& order, double* vs, double* Fs,
+                         double* sum_logFs, int fc_steps = 0,
+                         double* d_fc = nullptr, bool conf_int = false,
+                         double* d_F_fc = nullptr) {
   const int batch_size = T.batches();
   auto stream = T.stream();
   int rd = order.rd();
@@ -589,8 +589,8 @@ void batched_kalman_loop(raft::handle_t& handle,
     // using Policy = MLCommon::LinAlg::BlockGemmPolicy<16, 1, 4, 16, 4>;
     using Policy = MLCommon::LinAlg::BlockGemmPolicy<32, 1, 4, 32, 8>;
     _batched_kalman_device_loop_large<Policy>(
-      arima_mem, ys, nobs, T, Z, RQR, P0, alpha, intercept, d_mu, rd,
-      vs, Fs, sum_logFs, n_diff, fc_steps, d_fc, conf_int, d_F_fc);
+      arima_mem, ys, nobs, T, Z, RQR, P0, alpha, intercept, d_mu, rd, vs, Fs,
+      sum_logFs, n_diff, fc_steps, d_fc, conf_int, d_F_fc);
   }
 }
 
@@ -683,15 +683,17 @@ void _lyapunov_wrapper(raft::handle_t& handle,
 }
 
 /// Internal Kalman filter implementation that assumes data exists on GPU.
-void _batched_kalman_filter(
-  raft::handle_t& handle, const ARIMAMemory<double>& arima_mem,
-  const double* d_ys, int nobs, const ARIMAOrder& order,
-  const MLCommon::LinAlg::Batched::Matrix<double>& Zb,
-  const MLCommon::LinAlg::Batched::Matrix<double>& Tb,
-  const MLCommon::LinAlg::Batched::Matrix<double>& Rb,
-  std::vector<bool>& T_mask, double* d_vs, double* d_Fs, double* d_loglike,
-  const double* d_sigma2, bool intercept, const double* d_mu, int fc_steps,
-  double* d_fc, double level, double* d_lower, double* d_upper) {
+void _batched_kalman_filter(raft::handle_t& handle,
+                            const ARIMAMemory<double>& arima_mem,
+                            const double* d_ys, int nobs,
+                            const ARIMAOrder& order,
+                            const MLCommon::LinAlg::Batched::Matrix<double>& Zb,
+                            const MLCommon::LinAlg::Batched::Matrix<double>& Tb,
+                            const MLCommon::LinAlg::Batched::Matrix<double>& Rb,
+                            double* d_vs, double* d_Fs, double* d_loglike,
+                            const double* d_sigma2, bool intercept,
+                            const double* d_mu, int fc_steps, double* d_fc,
+                            double level, double* d_lower, double* d_upper) {
   const size_t batch_size = Zb.batches();
   auto stream = handle.get_stream();
   auto cublasHandle = handle.get_cublas_handle();
@@ -833,7 +835,7 @@ void _batched_kalman_filter(
   }
 
   batched_kalman_loop(handle, arima_mem, d_ys, nobs, Tb, Zb, RQR, P, alpha,
-                      T_mask, intercept, d_mu, order, d_vs, d_Fs,
+                      intercept, d_mu, order, d_vs, d_Fs,
                       arima_mem.sumLogF_buffer, fc_steps, d_fc, level > 0,
                       d_lower);
 
@@ -856,8 +858,7 @@ void init_batched_kalman_matrices(raft::handle_t& handle, const double* d_ar,
                                   const double* d_ma, const double* d_sar,
                                   const double* d_sma, int nb,
                                   const ARIMAOrder& order, int rd,
-                                  double* d_Z_b, double* d_R_b, double* d_T_b,
-                                  std::vector<bool>& T_mask) {
+                                  double* d_Z_b, double* d_R_b, double* d_T_b) {
   ML::PUSH_RANGE(__func__);
 
   auto stream = handle.get_stream();
@@ -959,43 +960,6 @@ void init_batched_kalman_matrices(raft::handle_t& handle, const double* d_ar,
       }
     });
 
-  // T density/sparsity mask
-  T_mask.resize(rd * rd, false);
-  // 1. Differencing component
-  for (int i = 0; i < order.d; i++) {
-    for (int j = i; j < order.d; j++) {
-      T_mask[j * rd + i] = true;
-    }
-  }
-  for (int id = 0; id < order.d; id++) {
-    T_mask[n_diff * rd + id] = true;
-    for (int iD = 1; iD <= order.D; iD++) {
-      T_mask[(order.d + order.s * iD - 1) * rd + id] = true;
-    }
-  }
-  // 2. Seasonal differencing component
-  for (int iD = 0; iD < order.D; iD++) {
-    int offset = order.d + iD * order.s;
-    for (int i = 0; i < order.s - 1; i++) {
-      T_mask[(offset + i) * rd + offset + i + 1] = true;
-    }
-    T_mask[(offset + order.s - 1) * rd + offset] = true;
-    T_mask[n_diff * rd + offset] = true;
-  }
-  if (order.D == 2) {
-    T_mask[(n_diff - 1) * rd + order.d] = true;
-  }
-  // 3. Auto-Regressive component
-  for (int iP = 0; iP < order.P + 1; iP++) {
-    for (int ip = 0; ip < order.p + 1; ip++) {
-      int i = iP * order.s + ip - 1;
-      if (i >= 0) T_mask[n_diff * (rd + 1) + i] = true;
-    }
-  }
-  for (int i = 0; i < r - 1; i++) {
-    T_mask[(n_diff + i + 1) * rd + n_diff + i] = true;
-  }
-
   ML::POP_RANGE();
 }
 
@@ -1023,18 +987,17 @@ void batched_kalman_filter(
     rd, 1, batch_size, cublasHandle, arima_mem.R_batches, arima_mem.R_dense,
     allocator, stream, false);
 
-  std::vector<bool> T_mask;
   init_batched_kalman_matrices(handle, params.ar, params.ma, params.sar,
                                params.sma, batch_size, order, rd, Zb.raw_data(),
-                               Rb.raw_data(), Tb.raw_data(), T_mask);
+                               Rb.raw_data(), Tb.raw_data());
 
   ////////////////////////////////////////////////////////////
   // Computation
 
-  _batched_kalman_filter(handle, arima_mem, d_ys, nobs, order, Zb, Tb, Rb,
-                         T_mask, d_vs, arima_mem.F_buffer, d_loglike,
-                         params.sigma2, static_cast<bool>(order.k), params.mu,
-                         fc_steps, d_fc, level, d_lower, d_upper);
+  _batched_kalman_filter(handle, arima_mem, d_ys, nobs, order, Zb, Tb, Rb, d_vs,
+                         arima_mem.F_buffer, d_loglike, params.sigma2,
+                         static_cast<bool>(order.k), params.mu, fc_steps, d_fc,
+                         level, d_lower, d_upper);
 
   ML::POP_RANGE();
 }
