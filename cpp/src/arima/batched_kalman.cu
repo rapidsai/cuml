@@ -27,6 +27,7 @@
 #include <raft/linalg/cublas_wrappers.h>
 #include <common/nvtx.hpp>
 #include <linalg/batched/matrix.cuh>
+#include <linalg/block.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/binary_op.cuh>
 #include <sparse/batched/csr.cuh>
@@ -266,6 +267,180 @@ __global__ void batched_kalman_loop_kernel(
   }
 }
 
+template <typename Policy, typename T>
+union KalmanLoopSharedMemory {
+  MLCommon::LinAlg::ReductionStorage<Policy::BlockSize, T> reduction_storage;
+  MLCommon::LinAlg::GemmStorage<Policy, T> gemm_storage;
+};
+
+template <typename Policy>
+__global__ void _batched_kalman_device_loop_large_kernel(
+  const double* d_ys, int batch_size, int n_obs, const double* d_T,
+  const double* d_Z, const double* d_RQR, double* d_P, double* d_alpha,
+  double* d_v_tmp, double* d_m_tmp, double* d_K, double* d_TP, bool intercept,
+  const double* d_mu, int rd, double* d_vs, double* d_Fs, double* d_sum_logFs,
+  int n_diff, int fc_steps, double* d_fc, bool conf_int, double* d_F_fc) {
+  int rd2 = rd * rd;
+
+  // Dynamic shared memory allocation
+  extern __shared__ char dyna_shared_mem[];
+  double* shared_vec0 = (double*)dyna_shared_mem;
+  double* shared_vec1 = (double*)(dyna_shared_mem + rd * sizeof(double));
+
+  __shared__ KalmanLoopSharedMemory<Policy, double> shared_mem;
+
+  for (int bid = blockIdx.x; bid < batch_size; bid += gridDim.x) {
+    /* Initialization */
+    double sum_logFs = 0.0;
+
+    /* Kalman loop */
+    for (int it = 0; it < n_obs; it++) {
+      // 1.
+      double vt = d_ys[bid * n_obs + it];
+      if (n_diff == 0) {
+        vt -= (d_alpha + bid * rd)[0];
+      } else {
+        vt -= MLCommon::LinAlg::_block_dot<Policy::BlockSize, true>(
+          rd, d_Z + bid * rd, d_alpha + bid * rd, shared_mem.reduction_storage);
+        __syncthreads();  // necessary to reuse shared memory
+      }
+      if (threadIdx.x == 0) d_vs[bid * n_obs + it] = vt;
+
+      // 2.
+      double _F;
+      if (n_diff == 0) {
+        _F = (d_P + bid * rd2)[0];
+      } else {
+        _F = MLCommon::LinAlg::_block_xAxt<Policy::BlockSize, true>(
+          rd, d_Z + bid * rd, d_P + bid * rd2, shared_mem.reduction_storage,
+          shared_vec0);
+        __syncthreads();  // necessary to reuse shared memory
+      }
+      if (threadIdx.x == 0) d_Fs[bid * n_obs + it] = _F;
+      if (threadIdx.x == 0 && it >= n_diff) sum_logFs += log(_F);
+
+      // 3. K = 1/Fs[it] * T*P*Z'
+      // TP = T*P (also used later)
+      MLCommon::LinAlg::_block_gemm<Policy>(
+        false, false, rd, rd, rd, 1.0, d_T + bid * rd2, d_P + bid * rd2,
+        d_TP + bid * rd2, shared_mem.gemm_storage);
+      __syncthreads();  // for consistency of TP
+      // K = 1/Fs[it] * TP*Z'
+      double _1_Fs = 1.0 / _F;
+      if (n_diff == 0) {
+        MLCommon::LinAlg::_block_ax<Policy::BlockSize>(
+          rd, _1_Fs, d_TP + bid * rd2, d_K + bid * rd);
+      } else {
+        MLCommon::LinAlg::_block_gemv<Policy::BlockSize>(
+          rd, rd, _1_Fs, d_TP + bid * rd2, d_Z + bid * rd, d_K + bid * rd,
+          shared_vec0);
+      }
+
+      // 4. alpha = T*alpha + K*vs[it] + c
+      // v_tmp = T*alpha
+      MLCommon::LinAlg::_block_gemv<Policy::BlockSize>(
+        rd, rd, 1.0, d_T + bid * rd2, d_alpha + bid * rd, d_v_tmp + bid * rd,
+        shared_vec1);
+      __syncthreads();  // For consistency of K and v_tmp
+      // alpha = v_tmp + K*vs[it] + c
+      for (int i = threadIdx.x; i < rd; i += Policy::BlockSize) {
+        double _c = (intercept && i == n_diff) ? d_mu[bid] : 0.0;
+        d_alpha[bid * rd + i] =
+          d_v_tmp[bid * rd + i] + vt * d_K[bid * rd + i] + _c;
+      }
+
+      // 5. L = T - K * Z
+      if (n_diff == 0) {
+        for (int i = threadIdx.x; i < rd2; i += Policy::BlockSize) {
+          double _KZ = (i < rd) ? d_K[bid * rd + i] : 0.0;
+          d_m_tmp[bid * rd2 + i] = d_T[bid * rd2 + i] - _KZ;
+        }
+      } else {
+        /// TODO: shared mem K and Z!
+        for (int i = threadIdx.x; i < rd2; i += Policy::BlockSize) {
+          double _KZ = d_K[bid * rd + i % rd] * d_Z[bid * rd + i / rd];
+          d_m_tmp[bid * rd2 + i] = d_T[bid * rd2 + i] - _KZ;
+        }
+      }
+
+      // 6. P = T*P*L' + R*Q*R'
+      __syncthreads();  // For consistency of L
+      // P = TP*L'
+      MLCommon::LinAlg::_block_gemm<Policy>(
+        false, true, rd, rd, rd, 1.0, d_TP + bid * rd2, d_m_tmp + bid * rd2,
+        d_P + bid * rd2, shared_mem.gemm_storage);
+      __syncthreads();  // For consistency of P
+      // P = P + R*Q*R'
+      /// TODO: shared mem R instead of precomputed matrix?
+      for (int i = threadIdx.x; i < rd2; i += Policy::BlockSize) {
+        d_P[bid * rd2 + i] += d_RQR[bid * rd2 + i];
+      }
+
+      __syncthreads();  // necessary to reuse shared memory
+    }
+
+    /* Forecast */
+    for (int it = 0; it < fc_steps; it++) {
+      // pred = Z * alpha
+      double pred;
+      if (n_diff == 0) {
+        pred = (d_alpha + bid * rd)[0];
+      } else {
+        pred = MLCommon::LinAlg::_block_dot<Policy::BlockSize, false>(
+          rd, d_Z + bid * rd, d_alpha + bid * rd, shared_mem.reduction_storage);
+        __syncthreads();  // necessary to reuse shared memory
+      }
+      if (threadIdx.x == 0) d_fc[bid * fc_steps + it] = pred;
+
+      // alpha = T*alpha + c
+      // v_tmp = T*alpha
+      MLCommon::LinAlg::_block_gemv<Policy::BlockSize>(
+        rd, rd, 1.0, d_T + bid * rd2, d_alpha + bid * rd, d_v_tmp + bid * rd,
+        shared_vec0);
+      __syncthreads();  // for consistency of v_tmp + reuse of shared mem
+      // alpha = v_tmp + c
+      for (int i = threadIdx.x; i < rd; i += Policy::BlockSize) {
+        double _c = (intercept && i == n_diff) ? d_mu[bid] : 0.0;
+        d_alpha[bid * rd + i] = d_v_tmp[bid * rd + i] + _c;
+      }
+
+      double _F;
+      if (conf_int) {
+        if (n_diff == 0) {
+          _F = d_P[bid * rd2];
+        } else {
+          _F = MLCommon::LinAlg::_block_xAxt<Policy::BlockSize, false>(
+            rd, d_Z + bid * rd, d_P + bid * rd2, shared_mem.reduction_storage,
+            shared_vec0);
+          __syncthreads();  // necessary to reuse shared memory
+        }
+
+        if (threadIdx.x == 0) d_F_fc[bid * fc_steps + it] = _F;
+      }
+
+      // P = T*P*T' + R*Q*R'
+      // TP = T*P
+      MLCommon::LinAlg::_block_gemm<Policy>(
+        false, false, rd, rd, rd, 1.0, d_T + bid * rd2, d_P + bid * rd2,
+        d_TP + bid * rd2, shared_mem.gemm_storage);
+      __syncthreads();  // for consistency of TP
+      // P = TP * T'
+      MLCommon::LinAlg::_block_gemm<Policy>(
+        false, true, rd, rd, rd, 1.0, d_TP + bid * rd2, d_T + bid * rd2,
+        d_P + bid * rd2, shared_mem.gemm_storage);
+      __syncthreads();  // for consistency of P
+      // P = P + R*Q*R'
+      /// TODO: shared mem R instead of precomputed matrix?
+      for (int i = threadIdx.x; i < rd2; i += Policy::BlockSize) {
+        d_P[bid * rd2 + i] += d_RQR[bid * rd2 + i];
+      }
+    }
+
+    /* Write to global mem */
+    if (threadIdx.x == 0) d_sum_logFs[bid] = sum_logFs;
+  }
+}
+
 /**
  * Kalman loop for large matrices (r > 8).
  *
@@ -273,27 +448,26 @@ __global__ void batched_kalman_loop_kernel(
  * @param[in]  d_ys         Batched time series
  * @param[in]  nobs         Number of observation per series
  * @param[in]  T            Batched transition matrix.            (r x r)
- * @param[in]  T_sparse     Batched sparse matrix T               (r x r)
  * @param[in]  Z            Batched "design" vector               (1 x r)
  * @param[in]  RQR          Batched R*Q*R'                        (r x r)
  * @param[in]  P            Batched P                             (r x r)
  * @param[in]  alpha        Batched state vector                  (r x 1)
  * @param[in]  intercept    Do we fit an intercept?
  * @param[in]  d_mu         Batched intercept                     (1)
- * @param[in]  r            Dimension of the state vector
+ * @param[in]  rd           Dimension of the state vector
  * @param[out] d_vs         Batched residuals                     (nobs)
  * @param[out] d_Fs         Batched variance of prediction errors (nobs)    
  * @param[out] d_sum_logFs  Batched sum of the logs of Fs         (1)
- * @param[in]  n_diff         d + s*D
+ * @param[in]  n_diff       d + s*D
  * @param[in]  fc_steps     Number of steps to forecast
  * @param[out] d_fc         Array to store the forecast
  * @param[in]  conf_int     Whether to compute confidence intervals
  * @param[out] d_F_fc       Batched variance of forecast errors   (fc_steps)
  */
-void _batched_kalman_loop_large(
-  const ARIMAMemory<double>& arima_mem, const double* d_ys, int nobs,
+template <typename Policy>
+void _batched_kalman_device_loop_large(
+  const ARIMAMemory<double>& arima_mem, const double* d_ys, int n_obs,
   const MLCommon::LinAlg::Batched::Matrix<double>& T,
-  const MLCommon::Sparse::Batched::CSR<double>& T_sparse,
   const MLCommon::LinAlg::Batched::Matrix<double>& Z,
   const MLCommon::LinAlg::Batched::Matrix<double>& RQR,
   MLCommon::LinAlg::Batched::Matrix<double>& P,
@@ -304,219 +478,30 @@ void _batched_kalman_loop_large(
   auto stream = T.stream();
   auto allocator = T.allocator();
   auto cublasHandle = T.cublasHandle();
-  int nb = T.batches();
-  int rd2 = rd * rd;
-  auto counting = thrust::make_counting_iterator(0);
+  int batch_size = T.batches();
 
   // Temporary matrices and vectors
   MLCommon::LinAlg::Batched::Matrix<double> v_tmp(
-    rd, 1, nb, cublasHandle, arima_mem.v_tmp_batches, arima_mem.v_tmp_dense,
-    allocator, stream, false);
+    rd, 1, batch_size, cublasHandle, arima_mem.v_tmp_batches,
+    arima_mem.v_tmp_dense, allocator, stream, false);
   MLCommon::LinAlg::Batched::Matrix<double> m_tmp(
-    rd, rd, nb, cublasHandle, arima_mem.m_tmp_batches, arima_mem.m_tmp_dense,
-    allocator, stream, false);
+    rd, rd, batch_size, cublasHandle, arima_mem.m_tmp_batches,
+    arima_mem.m_tmp_dense, allocator, stream, false);
   MLCommon::LinAlg::Batched::Matrix<double> K(
-    rd, 1, nb, cublasHandle, arima_mem.K_batches, arima_mem.K_dense, allocator,
-    stream, false);
+    rd, 1, batch_size, cublasHandle, arima_mem.K_batches, arima_mem.K_dense,
+    allocator, stream, false);
   MLCommon::LinAlg::Batched::Matrix<double> TP(
-    rd, rd, nb, cublasHandle, arima_mem.TP_batches, arima_mem.TP_dense,
+    rd, rd, batch_size, cublasHandle, arima_mem.TP_batches, arima_mem.TP_dense,
     allocator, stream, false);
 
-  // Shortcuts
-  const double* d_Z = Z.raw_data();
-  double* d_P = P.raw_data();
-  double* d_alpha = alpha.raw_data();
-  double* d_K = K.raw_data();
-  double* d_TP = TP.raw_data();
-  double* d_m_tmp = m_tmp.raw_data();
-  double* d_v_tmp = v_tmp.raw_data();
-
-  CUDA_CHECK(cudaMemsetAsync(d_sum_logFs, 0, sizeof(double) * nb, stream));
-
-  for (int it = 0; it < nobs; it++) {
-    // 1. & 2.
-    thrust::for_each(thrust::cuda::par.on(stream), counting, counting + nb,
-                     [=] __device__(int bid) {
-                       const double* b_P = d_P + bid * rd2;
-                       const double* b_Z = d_Z + bid * rd;
-                       const double* b_alpha = d_alpha + bid * rd;
-
-                       double vt = d_ys[bid * nobs + it];
-                       if (n_diff == 0) {
-                         vt -= b_alpha[0];
-                       } else {
-                         for (int i = 0; i < rd; i++) {
-                           vt -= b_alpha[i] * b_Z[i];
-                         }
-                       }
-                       d_vs[bid * nobs + it] = vt;
-
-                       double _F;
-                       if (n_diff == 0)
-                         _F = b_P[0];
-                       else {
-                         _F = 0.0;
-                         for (int i = 0; i < rd; i++) {
-                           for (int j = 0; j < rd; j++) {
-                             _F += b_P[j * rd + i] * b_Z[i] * b_Z[j];
-                           }
-                         }
-                       }
-                       d_Fs[bid * nobs + it] = _F;
-                       if (it >= n_diff) d_sum_logFs[bid] += log(_F);
-                     });
-
-    // 3. K = 1/Fs[it] * T*P*Z'
-    // TP = T*P (also used later)
-    if (rd <= 32)
-      MLCommon::Sparse::Batched::b_spmm(1.0, T_sparse, P, 0.0, TP);
-    else
-      MLCommon::LinAlg::Batched::b_gemm(false, false, rd, rd, rd, 1.0, T, P,
-                                        0.0, TP);
-    // K = 1/Fs[it] * TP*Z'
-    thrust::for_each(thrust::cuda::par.on(stream), counting, counting + nb,
-                     [=] __device__(int bid) {
-                       const double* b_TP = d_TP + bid * rd2;
-                       double* b_K = d_K + bid * rd;
-
-                       double _1_Fs = 1.0 / d_Fs[bid * nobs + it];
-                       if (n_diff == 0) {
-                         for (int i = 0; i < rd; i++) {
-                           b_K[i] = _1_Fs * b_TP[i];
-                         }
-                       } else {
-                         const double* b_Z = d_Z + bid * rd;
-                         for (int i = 0; i < rd; i++) {
-                           double acc = 0.0;
-                           for (int j = 0; j < rd; j++) {
-                             acc += b_TP[rd * j + i] * b_Z[j];
-                           }
-                           b_K[i] = _1_Fs * acc;
-                         }
-                       }
-                     });
-
-    // 4. alpha = T*alpha + K*vs[it] + c
-    // v_tmp = T*alpha
-    MLCommon::Sparse::Batched::b_spmv(1.0, T_sparse, alpha, 0.0, v_tmp);
-    // alpha = v_tmp + K*vs[it] + c
-    thrust::for_each(thrust::cuda::par.on(stream), counting, counting + nb,
-                     [=] __device__(int bid) {
-                       const double* b_Talpha = d_v_tmp + bid * rd;
-                       const double* b_K = d_K + bid * rd;
-                       double* b_alpha = d_alpha + bid * rd;
-
-                       double _vs = d_vs[bid * nobs + it];
-                       for (int i = 0; i < rd; i++) {
-                         double mu =
-                           (intercept && i == n_diff) ? d_mu[bid] : 0.0;
-                         b_alpha[i] = b_Talpha[i] + b_K[i] * _vs + mu;
-                       }
-                     });
-
-    // 5. L = T - K * Z
-    // L = T (L is m_tmp)
-    raft::copy(m_tmp.raw_data(), T.raw_data(), nb * rd2, stream);
-    // L = L - K * Z
-    thrust::for_each(thrust::cuda::par.on(stream), counting, counting + nb,
-                     [=] __device__(int bid) {
-                       const double* b_K = d_K + bid * rd;
-                       double* b_L = d_m_tmp + bid * rd2;
-
-                       if (n_diff == 0) {
-                         for (int i = 0; i < rd; i++) {
-                           b_L[i] -= b_K[i];
-                         }
-                       } else {
-                         const double* b_Z = d_Z + bid * rd;
-                         for (int i = 0; i < rd; i++) {
-                           for (int j = 0; j < rd; j++) {
-                             b_L[j * rd + i] -= b_K[i] * b_Z[j];
-                           }
-                         }
-                       }
-                     });
-    // MLCommon::LinAlg::Batched::b_gemm(false, false, rd, rd, 1, -1.0, K, Z, 1.0,
-    //                                   m_tmp);  // generic
-
-    // 6. P = T*P*L' + R*Q*R'
-    // P = TP*L'
-    MLCommon::LinAlg::Batched::b_gemm(false, true, rd, rd, rd, 1.0, TP, m_tmp,
-                                      0.0, P);
-    // P = P + R*Q*R'
-    raft::linalg::binaryOp(
-      d_P, d_P, RQR.raw_data(), rd2 * nb,
-      [=] __device__(double a, double b) { return a + b; }, stream);
-  }
-
-  // Forecast
-  for (int it = 0; it < fc_steps; it++) {
-    thrust::for_each(thrust::cuda::par.on(stream), counting, counting + nb,
-                     [=] __device__(int bid) {
-                       const double* b_alpha = d_alpha + bid * rd;
-
-                       double pred;
-                       if (n_diff == 0) {
-                         pred = b_alpha[0];
-                       } else {
-                         const double* b_Z = d_Z + bid * rd;
-
-                         pred = 0.0;
-                         for (int i = 0; i < rd; i++) {
-                           pred += b_alpha[i] * b_Z[i];
-                         }
-                       }
-                       d_fc[bid * fc_steps + it] = pred;
-                     });
-
-    // alpha = T*alpha + c
-    // alpha = T*alpha
-    MLCommon::Sparse::Batched::b_spmv(1.0, T_sparse, alpha, 0.0, v_tmp);
-    raft::copy(d_alpha, v_tmp.raw_data(), rd * nb, stream);
-    // alpha += c
-    if (intercept) {
-      thrust::for_each(
-        thrust::cuda::par.on(stream), counting, counting + nb,
-        [=] __device__(int bid) { d_alpha[bid * rd + n_diff] += d_mu[bid]; });
-    }
-
-    if (conf_int) {
-      thrust::for_each(thrust::cuda::par.on(stream), counting, counting + nb,
-                       [=] __device__(int bid) {
-                         const double* b_P = d_P + bid * rd2;
-
-                         double Ft;
-                         if (n_diff == 0)
-                           Ft = b_P[0];
-                         else {
-                           const double* b_Z = d_Z + bid * rd;
-                           Ft = 0.0;
-                           for (int i = 0; i < rd; i++) {
-                             for (int j = 0; j < rd; j++) {
-                               Ft += b_P[j * rd + i] * b_Z[i] * b_Z[j];
-                             }
-                           }
-                         }
-
-                         d_F_fc[bid * fc_steps + it] = Ft;
-                       });
-
-      // P = T*P*T' + R*Q*R'
-      // TP = T*P
-      if (rd <= 32)
-        MLCommon::Sparse::Batched::b_spmm(1.0, T_sparse, P, 0.0, TP);
-      else
-        MLCommon::LinAlg::Batched::b_gemm(false, false, rd, rd, rd, 1.0, T, P,
-                                          0.0, TP);
-      // P = TP*T'
-      MLCommon::LinAlg::Batched::b_gemm(false, true, rd, rd, rd, 1.0, TP, T,
-                                        0.0, P);
-      // P = P + R*Q*R'
-      raft::linalg::binaryOp(
-        d_P, d_P, RQR.raw_data(), rd2 * nb,
-        [=] __device__(double a, double b) { return a + b; }, stream);
-    }
-  }
+  int grid_size = std::min(batch_size, 65536);
+  size_t shared_mem_size = 2 * rd * sizeof(double);
+  _batched_kalman_device_loop_large_kernel<Policy>
+    <<<grid_size, Policy::BlockSize, shared_mem_size, stream>>>(
+      d_ys, batch_size, n_obs, T.raw_data(), Z.raw_data(), RQR.raw_data(),
+      P.raw_data(), alpha.raw_data(), v_tmp.raw_data(), m_tmp.raw_data(),
+      K.raw_data(), TP.raw_data(), intercept, d_mu, rd, d_vs, d_Fs, d_sum_logFs,
+      n_diff, fc_steps, d_fc, conf_int, d_F_fc);
 }
 
 /// Wrapper around functions that execute the Kalman loop (for performance)
@@ -600,14 +585,12 @@ void batched_kalman_loop(raft::handle_t& handle,
     }
     CUDA_CHECK(cudaPeekAtLastError());
   } else {
-    // Note: not always used
-    MLCommon::Sparse::Batched::CSR<double> T_sparse =
-      MLCommon::Sparse::Batched::CSR<double>::from_dense(
-        T, T_mask, handle.get_cusolver_sp_handle(), arima_mem.T_values,
-        arima_mem.T_col_index, arima_mem.T_row_index);
-    _batched_kalman_loop_large(arima_mem, ys, nobs, T, T_sparse, Z, RQR, P0,
-                               alpha, intercept, d_mu, rd, vs, Fs, sum_logFs,
-                               n_diff, fc_steps, d_fc, conf_int, d_F_fc);
+    /// TODO: select based on rd
+    // using Policy = MLCommon::LinAlg::BlockGemmPolicy<16, 1, 4, 16, 4>;
+    using Policy = MLCommon::LinAlg::BlockGemmPolicy<32, 1, 4, 32, 8>;
+    _batched_kalman_device_loop_large<Policy>(
+      arima_mem, ys, nobs, T, Z, RQR, P0, alpha, intercept, d_mu, rd,
+      vs, Fs, sum_logFs, n_diff, fc_steps, d_fc, conf_int, d_F_fc);
   }
 }
 
