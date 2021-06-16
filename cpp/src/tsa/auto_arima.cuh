@@ -49,7 +49,8 @@ void cumulative_sum_helper(
   std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream) {
   // Determine temporary storage size
   size_t temp_storage_bytes = 0;
-  cub::DeviceScan::InclusiveSum(NULL, temp_storage_bytes, mask, cumul,
+  cub::DeviceScan::InclusiveSum(NULL, temp_storage_bytes,
+                                reinterpret_cast<const char*>(mask), cumul,
                                 mask_size, stream);
 
   // Allocate temporary storage
@@ -58,7 +59,8 @@ void cumulative_sum_helper(
   void* d_temp_storage = (void*)temp_storage.data();
 
   // Execute the scan
-  cub::DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, mask, cumul,
+  cub::DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes,
+                                reinterpret_cast<const char*>(mask), cumul,
                                 mask_size, stream);
 }
 
