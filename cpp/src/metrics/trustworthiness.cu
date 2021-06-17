@@ -15,6 +15,9 @@
  */
 
 #include <metrics/trustworthiness_score.cuh>
+
+#include <cuml/metrics/metrics.hpp>
+
 #include <raft/distance/distance.cuh>
 #include <raft/handle.hpp>
 
@@ -23,14 +26,15 @@ namespace Metrics {
 
 /**
  * @brief Compute the trustworthiness score
- * @param h: Raft handle
- * @param X[in]: Data in original dimension
- * @param X_embedded[in]: Data in target dimension (embedding)
- * @param n[in]: Number of samples
- * @param m[in]: Number of features in high/original dimension
- * @param d[in]: Number of features in low/embedded dimension
- * @param n_neighbors[in]: Number of neighbors considered by 
- *   trustworthiness score
+ *
+ * @param h Raft handle
+ * @param X Data in original dimension
+ * @param X_embedded Data in target dimension (embedding)
+ * @param n Number of samples
+ * @param m Number of features in high/original dimension
+ * @param d Number of features in low/embedded dimension
+ * @param n_neighbors Number of neighbors considered by trustworthiness score
+ * @param batchSize Batch size
  * @tparam distance_type: Distance type to consider
  * @return Trustworthiness score
  */

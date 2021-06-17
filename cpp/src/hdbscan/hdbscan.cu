@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-#pragma once
+#include <cuml/cluster/hdbscan.hpp>
 
-#include <raft/distance/distance.cuh>
-#include <raft/handle.hpp>
+#include <hdbscan/runner.h>
 
 namespace ML {
-namespace Metrics {
 
-template <typename math_t, raft::distance::DistanceType distance_type>
-double trustworthiness_score(const raft::handle_t& h, const math_t* X,
-                             math_t* X_embedded, int n, int m, int d,
-                             int n_neighbors, int batchSize = 512);
+void hdbscan(const raft::handle_t &handle, const float *X, size_t m, size_t n,
+             raft::distance::DistanceType metric,
+             HDBSCAN::Common::HDBSCANParams &params,
+             HDBSCAN::Common::hdbscan_output<int, float> &out) {
+  HDBSCAN::_fit_hdbscan(handle, X, m, n, metric, params, out);
 }
-}  // namespace ML
+
+};  // end namespace ML

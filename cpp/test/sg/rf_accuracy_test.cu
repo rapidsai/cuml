@@ -79,27 +79,22 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
 
  private:
   void setRFParams() {
-    auto algo = SPLIT_ALGO::GLOBAL_QUANTILE;
     auto sc = CRITERION::CRITERION_END;
 
-    rfp = set_rf_params(0,     /*max_depth */
-                        -1,    /* max_leaves */
-                        1.0,   /* max_features */
-                        16,    /* n_bins */
-                        algo,  /* split_algo */
-                        2,     /* min_samples_leaf */
-                        2,     /* min_samples_split */
-                        0.f,   /* min_impurity_decrease */
-                        false, /* bootstrap_features */
-                        true,  /* bootstrap */
-                        1,     /* n_trees */
-                        1.0,   /* max_samples */
-                        0,     /* seed */
-                        sc,    /* split_criterion */
-                        false, /* quantile_per_tree */
-                        1,     /* n_streams */
-                        true,  /* use_experimental_backend */
-                        128    /* max_batch_size */
+    rfp = set_rf_params(0,    /*max_depth */
+                        -1,   /* max_leaves */
+                        1.0,  /* max_features */
+                        16,   /* n_bins */
+                        2,    /* min_samples_leaf */
+                        2,    /* min_samples_split */
+                        0.f,  /* min_impurity_decrease */
+                        true, /* bootstrap */
+                        1,    /* n_trees */
+                        1.0,  /* max_samples */
+                        0,    /* seed */
+                        sc,   /* split_criterion */
+                        1,    /* n_streams */
+                        128   /* max_batch_size */
     );
   }
 

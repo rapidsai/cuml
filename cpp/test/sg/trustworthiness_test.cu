@@ -14,9 +14,12 @@
  * limitations under the License.
  */
 
+#include <cuml/metrics/metrics.hpp>
+
+#include <raft/handle.hpp>
+
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <metrics/trustworthiness.cuh>
 #include <raft/cuda_utils.cuh>
 #include <vector>
 

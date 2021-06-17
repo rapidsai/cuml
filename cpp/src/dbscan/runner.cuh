@@ -96,10 +96,10 @@ template <typename Type_f, typename Index_ = int, bool opg = false>
 size_t run(const raft::handle_t& handle, const Type_f* x, Index_ N, Index_ D,
            Index_ start_row, Index_ n_owned_rows, Type_f eps, Index_ min_pts,
            Index_* labels, Index_* core_indices, int algo_vd, int algo_adj,
-           int algo_ccl, void* workspace, Index_ batch_size,
+           int algo_ccl, void* workspace, size_t batch_size,
            cudaStream_t stream) {
   const size_t align = 256;
-  Index_ n_batches = raft::ceildiv<Index_>(n_owned_rows, batch_size);
+  Index_ n_batches = raft::ceildiv((size_t)n_owned_rows, batch_size);
 
   int my_rank;
   if (opg) {
