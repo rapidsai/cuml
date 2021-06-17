@@ -79,7 +79,6 @@ class DecisionTreeBase {
   DataInfo dinfo;
   int depth_counter = 0;
   int leaf_counter = 0;
-  std::shared_ptr<TemporaryMemory<T, L>> tempmem;
   size_t total_temp_mem;
   const int MAXSTREAMS = 1;
   size_t max_shared_mem;
@@ -90,17 +89,6 @@ class DecisionTreeBase {
   MLCommon::TimerCPU prepare_fit_timer;
   DecisionTreeParams tree_params;
 
-  void plant(std::vector<SparseTreeNode<T, L>> &sparsetree, const T *data,
-             const int ncols, const int nrows, const L *labels,
-             unsigned int *rowids, const int n_sampled_rows, int unique_labels,
-             const int treeid, uint64_t seed);
-
-  virtual void grow_deep_tree(
-    const T *data, const L *labels, unsigned int *rowids,
-    const int n_sampled_rows, const int ncols, const float colper,
-    const int nrows, std::vector<SparseTreeNode<T, L>> &sparsetree,
-    const int treeid, std::shared_ptr<TemporaryMemory<T, L>> tempmem) = 0;
-
   void base_fit(
     const std::shared_ptr<raft::mr::device::allocator> device_allocator_in,
     const std::shared_ptr<raft::mr::host::allocator> host_allocator_in,
@@ -108,8 +96,7 @@ class DecisionTreeBase {
     const int nrows, const L *labels, unsigned int *rowids,
     const int n_sampled_rows, int unique_labels,
     std::vector<SparseTreeNode<T, L>> &sparsetree, const int treeid,
-    uint64_t seed, bool is_classifier, T *d_global_quantiles,
-    std::shared_ptr<TemporaryMemory<T, L>> in_tempmem);
+    uint64_t seed, bool is_classifier, T *d_global_quantiles);
 
  public:
   // Printing utility for high level tree info.
@@ -142,8 +129,7 @@ class DecisionTreeClassifier : public DecisionTreeBase<T, int> {
            const int nrows, const int *labels, unsigned int *rowids,
            const int n_sampled_rows, const int unique_labels,
            TreeMetaDataNode<T, int> *&tree, DecisionTreeParams tree_parameters,
-           uint64_t seed, T *d_quantiles,
-           std::shared_ptr<TemporaryMemory<T, int>> in_tempmem = nullptr);
+           uint64_t seed, T *d_quantiles);
 
   //This fit fucntion does not take handle , used by RF
   void fit(
@@ -153,17 +139,7 @@ class DecisionTreeClassifier : public DecisionTreeBase<T, int> {
     const int nrows, const int *labels, unsigned int *rowids,
     const int n_sampled_rows, const int unique_labels,
     TreeMetaDataNode<T, int> *&tree, DecisionTreeParams tree_parameters,
-    uint64_t seed, T *d_quantiles,
-    std::shared_ptr<TemporaryMemory<T, int>> in_tempmem);
-
- private:
-  void grow_deep_tree(const T *data, const int *labels, unsigned int *rowids,
-                      const int n_sampled_rows, const int ncols,
-                      const float colper, const int nrows,
-                      std::vector<SparseTreeNode<T, int>> &sparsetree,
-                      const int treeid,
-                      std::shared_ptr<TemporaryMemory<T, int>> tempmem);
-
+    uint64_t seed, T *d_quantiles);
 };  // End DecisionTreeClassifier Class
 
 template <class T>
@@ -172,8 +148,7 @@ class DecisionTreeRegressor : public DecisionTreeBase<T, T> {
   void fit(const raft::handle_t &handle, const T *data, const int ncols,
            const int nrows, const T *labels, unsigned int *rowids,
            const int n_sampled_rows, TreeMetaDataNode<T, T> *&tree,
-           DecisionTreeParams tree_parameters, uint64_t seed, T *d_quantiles,
-           std::shared_ptr<TemporaryMemory<T, T>> in_tempmem = nullptr);
+           DecisionTreeParams tree_parameters, uint64_t seed, T *d_quantiles);
 
   //This fit function does not take handle. Used by RF
   void fit(
@@ -182,16 +157,7 @@ class DecisionTreeRegressor : public DecisionTreeBase<T, T> {
     const cudaStream_t stream_in, const T *data, const int ncols,
     const int nrows, const T *labels, unsigned int *rowids,
     const int n_sampled_rows, TreeMetaDataNode<T, T> *&tree,
-    DecisionTreeParams tree_parameters, uint64_t seed, T *d_quantiles,
-    std::shared_ptr<TemporaryMemory<T, T>> in_tempmem);
-
- private:
-  void grow_deep_tree(const T *data, const T *labels, unsigned int *rowids,
-                      const int n_sampled_rows, const int ncols,
-                      const float colper, const int nrows,
-                      std::vector<SparseTreeNode<T, T>> &sparsetree,
-                      const int treeid,
-                      std::shared_ptr<TemporaryMemory<T, T>> tempmem);
+    DecisionTreeParams tree_parameters, uint64_t seed, T *d_quantiles);
 
 };  // End DecisionTreeRegressor Class
 
