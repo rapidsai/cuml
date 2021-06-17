@@ -118,6 +118,13 @@ endif()
 ##############################################################################
 # - compiler options ---------------------------------------------------------
 
+if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
+  find_package(OpenMP)
+  if(OpenMP_FOUND)
+    message(STATUS "CUML: OpenMP found in ${OPENMP_INCLUDE_DIRS}")
+  endif(OpenMP_FOUND)
+endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
+
 # * find CUDAToolkit package
 # * determine GPU architectures
 # * enable the CMake CUDA language
@@ -168,13 +175,6 @@ endif(USE_CCACHE)
 
 ##############################################################################
 # - Requirements -------------------------------------------------------------
-
-if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
-  find_package(OpenMP)
-  if(OpenMP_FOUND)
-    message(STATUS "CUML: OpenMP found in ${OPENMP_INCLUDE_DIRS}")
-  endif(OpenMP_FOUND)
-endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
 
 # add third party dependencies using CPM
 rapids_cpm_init()
@@ -465,3 +465,4 @@ include(cmake/doxygen.cmake)
 add_doxygen_target(IN_DOXYFILE Doxyfile.in
   OUT_DOXYFILE ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
   CWD ${CMAKE_CURRENT_BINARY_DIR})
+
