@@ -42,8 +42,13 @@ if(CUDA_ENABLE_KERNEL_INFO)
   list(APPEND CUML_CUDA_FLAGS -Xptxas=-v)
 endif(KERNEL_INFO)
 
+if(OpenMP_FOUND)
+    list(APPEND CUML_CUDA_FLAGS -Xcompiler=${OpenMP_CXX_FLAGS})
+endif()
+
 # Debug options
 if(CMAKE_BUILD_TYPE MATCHES Debug)
     message(VERBOSE "CUML: Building with debugging flags")
     list(APPEND CUML_CUDA_FLAGS -G -Xcompiler=-rdynamic)
 endif()
+
