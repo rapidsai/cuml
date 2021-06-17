@@ -36,6 +36,8 @@ namespace LinAlg {
 
 using namespace std;
 
+/// TODO: test both preloaded and non-preloaded to shared memory
+
 /* GEMM */
 
 template <typename T>
@@ -193,8 +195,9 @@ __global__ void block_gemv_test_kernel(int m, int n, T alpha, const T* a,
   extern __shared__ char dyna_shared_mem[];
   T* shared_vec = (T*)dyna_shared_mem;
 
-  _block_gemv<Policy>(m, n, alpha, a + m * n * blockIdx.x, x + n * blockIdx.x,
-                      y + m * blockIdx.x, gemv_storage, shared_vec);
+  _block_gemv<Policy, true>(m, n, alpha, a + m * n * blockIdx.x,
+                            x + n * blockIdx.x, y + m * blockIdx.x,
+                            gemv_storage, shared_vec);
 }
 
 template <typename T>
@@ -447,9 +450,9 @@ __global__ void block_xAxt_test_kernel(int n, const T* x, const T* A,
   T* shared_vec = (T*)dyna_shared_mem;
   __shared__ ReductionStorage<BlockSize, T> reduction_storage;
 
-  T res_ = _block_xAxt<BlockSize, Broadcast>(n, x + n * blockIdx.x,
-                                             A + n * n * blockIdx.x,
-                                             reduction_storage, shared_vec);
+  T res_ = _block_xAxt<BlockSize, Broadcast, true>(
+    n, x + n * blockIdx.x, A + n * n * blockIdx.x, reduction_storage,
+    shared_vec);
 
   if (!Broadcast && threadIdx.x == 0)
     d_res[blockIdx.x] = res_;

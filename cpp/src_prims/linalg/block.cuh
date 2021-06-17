@@ -193,16 +193,25 @@ DI void _block_gemm(bool transa, bool transb, int m, int n, int k, T alpha,
  * @todo: docs
  * @note: no beta arg, 0 assumed
  */
-template <typename GemvPolicy, typename T, typename StorageT>
+template <typename GemvPolicy, bool PreloadX, typename T, typename StorageT>
 DI void _block_gemv(int m, int n, T alpha, const T* a, const T* x, T* y,
-                    StorageT& gemv_storage, T* shared_vec) {
+                    StorageT& gemv_storage, T* shared_vec = nullptr) {
   /// TODO: more efficient implementation
 
-  /* Load x into shared vector */
-  for (int i = threadIdx.x; i < n; i += GemvPolicy::BlockSize) {
-    shared_vec[i] = x[i];
+  if (PreloadX) {
+    /* Load x into shared vector */
+    for (int i = threadIdx.x; i < n; i += GemvPolicy::BlockSize) {
+      shared_vec[i] = x[i];
+    }
+    __syncthreads();
+
+    /* Load x into shared vector */
+    for (int i = threadIdx.x; i < n; i += GemvPolicy::BlockSize) {
+      shared_vec[i] = x[i];
+    }
   }
-  __syncthreads();
+
+  const T* x_ = PreloadX ? shared_vec : x;
 
   const int th_off_i = threadIdx.x % GemvPolicy::ThRows;
   const int th_off_j = threadIdx.x / GemvPolicy::ThRows;
@@ -215,7 +224,7 @@ DI void _block_gemv(int m, int n, T alpha, const T* a, const T* x, T* y,
       /* Accumulate values owned by this thread and write to shared mem */
       T acc = 0;
       for (int j = th_off_j; j < n; j += GemvPolicy::ThCols) {
-        acc += a[j * m + i] * shared_vec[j];
+        acc += a[j * m + i] * x_[j];
       }
 
       gemv_storage.acc[threadIdx.x] = acc;
@@ -270,14 +279,19 @@ DI T _block_dot(int n, const T* x, const T* y, StorageT& reduction_storage) {
   return _block_reduce<BlockSize, Broadcast>(acc, reduction_storage);
 }
 
-template <int BlockSize, bool Broadcast, typename T, typename StorageT>
+template <int BlockSize, bool Broadcast, bool PreloadX, typename T,
+          typename StorageT>
 DI T _block_xAxt(int n, const T* x, const T* A, StorageT& reduction_storage,
-                 T* shared_vec) {
-  /* Load x into shared vector */
-  for (int i = threadIdx.x; i < n; i += BlockSize) {
-    shared_vec[i] = x[i];
+                 T* shared_vec = nullptr) {
+  if (PreloadX) {
+    /* Load x into shared vector */
+    for (int i = threadIdx.x; i < n; i += BlockSize) {
+      shared_vec[i] = x[i];
+    }
+    __syncthreads();
   }
-  __syncthreads();
+
+  const T* x_ = PreloadX ? shared_vec : x;
 
   /* Compute terms and sequential reduction per thread */
   T acc = (T)0;
@@ -285,7 +299,7 @@ DI T _block_xAxt(int n, const T* x, const T* A, StorageT& reduction_storage,
     int i = idx % n;
     int j = idx / n;
 
-    acc += shared_vec[i] * A[idx] * shared_vec[j];
+    acc += x_[i] * A[idx] * x_[j];
   }
 
   /* Complete reduction and return dot product */

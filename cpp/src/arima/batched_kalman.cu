@@ -33,6 +33,9 @@
 #include <raft/linalg/binary_op.cuh>
 #include <timeSeries/arima_helpers.cuh>
 
+/// TODO: cleanup
+#include "cuda_profiler_api.h"
+
 namespace ML {
 
 //! Thread-local Matrix-Vector multiplication.
@@ -288,11 +291,25 @@ __global__ void _batched_kalman_device_loop_large_kernel(
   extern __shared__ char dyna_shared_mem[];
   double* shared_vec0 = (double*)dyna_shared_mem;
   double* shared_vec1 = (double*)(dyna_shared_mem + rd * sizeof(double));
+  double* shared_Z = (double*)(dyna_shared_mem + 2 * rd * sizeof(double));
+  double* shared_alpha = (double*)(dyna_shared_mem + 3 * rd * sizeof(double));
+  // double* shared_K = (double*)(dyna_shared_mem + 4 * rd * sizeof(double));
+
+  /// TODO: use shared_K
 
   __shared__ KalmanLoopSharedMemory<GemmPolicy, GemvPolicy, double> shared_mem;
 
   for (int bid = blockIdx.x; bid < batch_size; bid += gridDim.x) {
+    /* Load Z and alpha to shared memory */
+    for (int i = threadIdx.x; i < rd; i += GemmPolicy::BlockSize) {
+      shared_Z[i] = d_Z[bid * rd + i];
+      shared_alpha[i] = d_alpha[bid * rd + i];
+    }
+
+    __syncthreads();  // ensure alpha and Z are loaded before 1.
+
     /* Initialization */
+    double mu_ = intercept ? d_mu[bid] : 0.0;
     double sum_logFs = 0.0;
 
     /* Kalman loop */
@@ -300,10 +317,10 @@ __global__ void _batched_kalman_device_loop_large_kernel(
       // 1.
       double vt = d_ys[bid * n_obs + it];
       if (n_diff == 0) {
-        vt -= (d_alpha + bid * rd)[0];
+        vt -= shared_alpha[0];
       } else {
         vt -= MLCommon::LinAlg::_block_dot<GemmPolicy::BlockSize, true>(
-          rd, d_Z + bid * rd, d_alpha + bid * rd, shared_mem.reduction_storage);
+          rd, shared_Z, shared_alpha, shared_mem.reduction_storage);
         __syncthreads();  // necessary to reuse shared memory
       }
       if (threadIdx.x == 0) d_vs[bid * n_obs + it] = vt;
@@ -313,9 +330,8 @@ __global__ void _batched_kalman_device_loop_large_kernel(
       if (n_diff == 0) {
         _F = (d_P + bid * rd2)[0];
       } else {
-        _F = MLCommon::LinAlg::_block_xAxt<GemmPolicy::BlockSize, true>(
-          rd, d_Z + bid * rd, d_P + bid * rd2, shared_mem.reduction_storage,
-          shared_vec0);
+        _F = MLCommon::LinAlg::_block_xAxt<GemmPolicy::BlockSize, true, false>(
+          rd, shared_Z, d_P + bid * rd2, shared_mem.reduction_storage);
         __syncthreads();  // necessary to reuse shared memory
       }
       if (threadIdx.x == 0) d_Fs[bid * n_obs + it] = _F;
@@ -333,24 +349,23 @@ __global__ void _batched_kalman_device_loop_large_kernel(
         MLCommon::LinAlg::_block_ax<GemmPolicy::BlockSize>(
           rd, _1_Fs, d_TP + bid * rd2, d_K + bid * rd);
       } else {
-        MLCommon::LinAlg::_block_gemv<GemvPolicy>(
-          rd, rd, _1_Fs, d_TP + bid * rd2, d_Z + bid * rd, d_K + bid * rd,
-          shared_mem.gemv_storage, shared_vec0);
+        MLCommon::LinAlg::_block_gemv<GemvPolicy, false>(
+          rd, rd, _1_Fs, d_TP + bid * rd2, shared_Z, d_K + bid * rd,
+          shared_mem.gemv_storage);
       }
       /// TODO: duplicate gemv storage and remove barrier
       __syncthreads();  // For shared mem reuse
 
       // 4. alpha = T*alpha + K*vs[it] + c
-      // v_tmp = T*alpha
-      MLCommon::LinAlg::_block_gemv<GemvPolicy>(
-        rd, rd, 1.0, d_T + bid * rd2, d_alpha + bid * rd, d_v_tmp + bid * rd,
-        shared_mem.gemv_storage, shared_vec1);
-      __syncthreads();  // For consistency of K and v_tmp
-      // alpha = v_tmp + K*vs[it] + c
+      // vec1 = T*alpha
+      MLCommon::LinAlg::_block_gemv<GemvPolicy, false>(
+        rd, rd, 1.0, d_T + bid * rd2, shared_alpha, shared_vec1,
+        shared_mem.gemv_storage);
+      __syncthreads();  // For consistency of K and vec1
+      // alpha = vec1 + K*vs[it] + c
       for (int i = threadIdx.x; i < rd; i += GemmPolicy::BlockSize) {
-        double _c = (intercept && i == n_diff) ? d_mu[bid] : 0.0;
-        d_alpha[bid * rd + i] =
-          d_v_tmp[bid * rd + i] + vt * d_K[bid * rd + i] + _c;
+        double c_ = (i == n_diff) ? mu_ : 0.0;
+        shared_alpha[i] = shared_vec1[i] + vt * d_K[bid * rd + i] + c_;
       }
 
       // 5. L = T - K * Z
@@ -360,9 +375,13 @@ __global__ void _batched_kalman_device_loop_large_kernel(
           d_m_tmp[bid * rd2 + i] = d_T[bid * rd2 + i] - _KZ;
         }
       } else {
-        /// TODO: shared mem K and Z!
+        // Load K and Z in shared memory
+        for (int i = threadIdx.x; i < rd; i += GemmPolicy::BlockSize) {
+          shared_vec0[i] = d_K[bid * rd + i];
+        }
+        __syncthreads();  // Ensure vectors loaded in shared mem
         for (int i = threadIdx.x; i < rd2; i += GemmPolicy::BlockSize) {
-          double _KZ = d_K[bid * rd + i % rd] * d_Z[bid * rd + i / rd];
+          double _KZ = shared_vec0[i % rd] * shared_Z[i / rd];
           d_m_tmp[bid * rd2 + i] = d_T[bid * rd2 + i] - _KZ;
         }
       }
@@ -388,24 +407,24 @@ __global__ void _batched_kalman_device_loop_large_kernel(
       // pred = Z * alpha
       double pred;
       if (n_diff == 0) {
-        pred = (d_alpha + bid * rd)[0];
+        pred = shared_alpha[0];
       } else {
         pred = MLCommon::LinAlg::_block_dot<GemmPolicy::BlockSize, false>(
-          rd, d_Z + bid * rd, d_alpha + bid * rd, shared_mem.reduction_storage);
+          rd, shared_Z, shared_alpha, shared_mem.reduction_storage);
         __syncthreads();  // necessary to reuse shared memory
       }
       if (threadIdx.x == 0) d_fc[bid * fc_steps + it] = pred;
 
       // alpha = T*alpha + c
-      // v_tmp = T*alpha
-      MLCommon::LinAlg::_block_gemv<GemvPolicy>(
-        rd, rd, 1.0, d_T + bid * rd2, d_alpha + bid * rd, d_v_tmp + bid * rd,
-        shared_mem.gemv_storage, shared_vec0);
+      // vec0 = T*alpha
+      MLCommon::LinAlg::_block_gemv<GemvPolicy, false>(
+        rd, rd, 1.0, d_T + bid * rd2, shared_alpha, shared_vec0,
+        shared_mem.gemv_storage);
       __syncthreads();  // for consistency of v_tmp + reuse of shared mem
-      // alpha = v_tmp + c
+      // alpha = vec0 + c
       for (int i = threadIdx.x; i < rd; i += GemmPolicy::BlockSize) {
-        double _c = (intercept && i == n_diff) ? d_mu[bid] : 0.0;
-        d_alpha[bid * rd + i] = d_v_tmp[bid * rd + i] + _c;
+        double c_ = (i == n_diff) ? mu_ : 0.0;
+        shared_alpha[i] = shared_vec0[i] + c_;
       }
 
       double _F;
@@ -413,9 +432,9 @@ __global__ void _batched_kalman_device_loop_large_kernel(
         if (n_diff == 0) {
           _F = d_P[bid * rd2];
         } else {
-          _F = MLCommon::LinAlg::_block_xAxt<GemmPolicy::BlockSize, false>(
-            rd, d_Z + bid * rd, d_P + bid * rd2, shared_mem.reduction_storage,
-            shared_vec0);
+          _F =
+            MLCommon::LinAlg::_block_xAxt<GemmPolicy::BlockSize, false, false>(
+              rd, shared_Z, d_P + bid * rd2, shared_mem.reduction_storage);
           __syncthreads();  // necessary to reuse shared memory
         }
 
@@ -502,7 +521,7 @@ void _batched_kalman_device_loop_large(
     allocator, stream, false);
 
   int grid_size = std::min(batch_size, 65536);
-  size_t shared_mem_size = 2 * rd * sizeof(double);
+  size_t shared_mem_size = 5 * rd * sizeof(double);
   _batched_kalman_device_loop_large_kernel<GemmPolicy, GemvPolicy>
     <<<grid_size, GemmPolicy::BlockSize, shared_mem_size, stream>>>(
       d_ys, batch_size, n_obs, T.raw_data(), Z.raw_data(), RQR.raw_data(),
