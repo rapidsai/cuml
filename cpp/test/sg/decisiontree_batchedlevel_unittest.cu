@@ -121,7 +121,7 @@ class BatchedLevelAlgoUnitTestFixture {
     input.nSampledRows = n_row;
     input.nSampledCols = n_col;
     input.rowids = row_ids;
-    input.nclasses = 1;  // not applicable for regression
+    input.numOutputs = 1;  // not applicable for regression
     input.quantiles = quantiles;
   }
 

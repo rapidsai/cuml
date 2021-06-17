@@ -142,7 +142,7 @@ DI void computePrediction(IdxT range_start, IdxT range_len,
   using BinT = typename ObjectiveT::BinT;
   auto* shist = reinterpret_cast<BinT*>(smem);
   auto tid = threadIdx.x;
-  for (int i = tid; i < input.nclasses; i += blockDim.x) shist[i] = BinT();
+  for (int i = tid; i < input.numOutputs; i += blockDim.x) shist[i] = BinT();
   __syncthreads();
   auto len = range_start + range_len;
   for (auto i = range_start + tid; i < len; i += blockDim.x) {
@@ -151,7 +151,7 @@ DI void computePrediction(IdxT range_start, IdxT range_len,
   }
   __syncthreads();
   if (tid == 0) {
-    auto pred = ObjectiveT::LeafPrediction(shist, input.nclasses);
+    auto pred = ObjectiveT::LeafPrediction(shist, input.numOutputs);
     nodes[0].makeLeaf(n_leaves, pred);
   }
 }

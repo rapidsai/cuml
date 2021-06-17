@@ -18,7 +18,6 @@
 
 #include <cuml/tree/flatnode.h>
 #include <common/grid_sync.cuh>
-#include <cstdio>
 #include <cuml/tree/decisiontree.hpp>
 #include <raft/cuda_utils.cuh>
 #include "input.cuh"
@@ -158,7 +157,7 @@ struct Builder {
     input.nSampledRows = sampledRows;
     input.nSampledCols = sampledCols;
     input.rowids = rowids;
-    input.nclasses = nclasses;
+    input.numOutputs = nclasses;
     ASSERT(nclasses >= 1, "nclasses should be at least 1");
     input.quantiles = quantiles;
     auto max_batch = params.max_batch_size;
@@ -263,17 +262,10 @@ struct Builder {
     raft::update_host(&depth, n_depth, 1, s);
     ML::POP_RANGE();
   }
-
-  /**
-   * @brief Computes the smem size (in B) needed for `nodeSplitKernel`
-   *
-   * @param[in] b         builder object
-   *
-   * @return the smem size (in B)
-   */
+  
   size_t nodeSplitSmemSize() {
     return std::max(2 * sizeof(IdxT) * TPB_SPLIT,
-                    sizeof(BinT) * input.nclasses);
+                    sizeof(BinT) * input.numOutputs);
   }
 
  private:
@@ -399,7 +391,7 @@ struct Builder {
     ML::PUSH_RANGE(
       "Builder::computeSplit @builder_base.cuh [batched-levelalgo]");
     auto nbins = params.n_bins;
-    auto nclasses = input.nclasses;
+    auto nclasses = input.numOutputs;
     auto colBlks = std::min(n_blks_for_cols, input.nSampledCols - col);
 
     size_t smemSize1 = nbins * nclasses * sizeof(BinT) +  // pdf_shist size
@@ -418,7 +410,7 @@ struct Builder {
     CUDA_CHECK(cudaMemsetAsync(hist, 0, sizeof(int) * nHistBins, s));
     ML::PUSH_RANGE(
       "computeSplitClassificationKernel @builder_base.cuh [batched-levelalgo]");
-    ObjectiveT objective(input.nclasses, params.min_impurity_decrease,
+    ObjectiveT objective(input.numOutputs, params.min_impurity_decrease,
                          params.min_samples_leaf);
     computeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
