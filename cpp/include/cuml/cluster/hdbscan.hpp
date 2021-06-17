@@ -176,7 +176,7 @@ class robust_single_linkage_output {
                                value_t *mst_weights_)
     : handle(handle_),
       n_leaves(n_leaves_),
-      n_clusters(0),
+      n_clusters(-1),
       labels(labels_),
       children(children_),
       sizes(sizes_),
@@ -256,10 +256,7 @@ class hdbscan_output : public robust_single_linkage_output<value_idx, value_t> {
   // consistent state with the constructor. This should make
   // it much easier to use / debug.
   value_t *get_probabilities() { return probabilities; }
-  value_t *get_stabilities() {
-    ASSERT(stabilities.size() > 0, "stabilities needs to be initialized");
-    return stabilities.data();
-  }
+  value_t *get_stabilities() { return stabilities.data(); }
 
   /**
    * Once n_clusters is known, the stabilities array

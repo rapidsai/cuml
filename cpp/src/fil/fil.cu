@@ -81,6 +81,15 @@ struct forest {
     int max_shm = 0;
     CUDA_CHECK(cudaDeviceGetAttribute(
       &max_shm, cudaDevAttrMaxSharedMemoryPerBlockOptin, device));
+    /* Our GPUs have been growing the shared memory size generation after
+       generation. Eventually, a CUDA GPU might come by that supports more 
+       shared memory that would fit into unsigned 16-bit int. For such a GPU,
+       we would have otherwise silently overflowed the index calculation due
+       to short division. It would have failed cpp tests, but we might forget
+       about this source of bugs, if not for the failing assert. */
+    ASSERT(max_shm < 262144,
+           "internal error: please use a larger type inside"
+           " infer_k for column count");
     // TODO(canonizer): use >48KiB shared memory if available
     max_shm = std::min(max_shm, max_shm_std);
 
@@ -91,10 +100,14 @@ struct forest {
       shmem_size_params& ssp_ = predict_proba ? proba_ssp_ : class_ssp_;
       ssp_.predict_proba = predict_proba;
       shmem_size_params ssp = ssp_;
+      // if n_items was not provided, try from 1 to 4. Otherwise, use as-is.
+      int min_n_items = ssp.n_items == 0 ? 1 : ssp.n_items;
+      int max_n_items = ssp.n_items == 0
+                          ? (algo_ == algo_t::BATCH_TREE_REORG ? 4 : 1)
+                          : ssp.n_items;
       for (bool cols_in_shmem : {false, true}) {
         ssp.cols_in_shmem = cols_in_shmem;
-        for (ssp.n_items = 1;
-             ssp.n_items <= (algo_ == algo_t::BATCH_TREE_REORG ? 4 : 1);
+        for (ssp.n_items = min_n_items; ssp.n_items <= max_n_items;
              ++ssp.n_items) {
           ssp.compute_smem_footprint();
           if (ssp.shm_sz < max_shm) ssp_ = ssp;
@@ -126,6 +139,8 @@ struct forest {
     output_ = params->output;
     threshold_ = params->threshold;
     global_bias_ = params->global_bias;
+    proba_ssp_.n_items = params->n_items;
+    proba_ssp_.log2_threads_per_tree = log2(params->threads_per_tree);
     proba_ssp_.leaf_algo = params->leaf_algo;
     proba_ssp_.num_cols = params->num_cols;
     proba_ssp_.num_classes = params->num_classes;
@@ -412,12 +427,16 @@ void check_params(const forest_params_t* params, bool dense) {
              "softmax does not make sense for leaf_algo == FLOAT_UNARY_BINARY");
       break;
     case leaf_algo_t::GROVE_PER_CLASS:
+      ASSERT(params->threads_per_tree == 1,
+             "multiclass not supported with threads_per_tree > 1");
       ASSERT(params->num_classes > 2,
              "num_classes > 2 is required for leaf_algo == GROVE_PER_CLASS");
       ASSERT(params->num_trees % params->num_classes == 0,
              "num_classes must divide num_trees evenly for GROVE_PER_CLASS");
       break;
     case leaf_algo_t::CATEGORICAL_LEAF:
+      ASSERT(params->threads_per_tree == 1,
+             "multiclass not supported with threads_per_tree > 1");
       ASSERT(params->num_classes >= 2,
              "num_classes >= 2 is required for "
              "leaf_algo == CATEGORICAL_LEAF");
@@ -437,6 +456,14 @@ void check_params(const forest_params_t* params, bool dense) {
   ASSERT(~params->output & (output_t::SIGMOID | output_t::SOFTMAX),
          "combining softmax and sigmoid is not supported");
   ASSERT(params->blocks_per_sm >= 0, "blocks_per_sm must be nonnegative");
+  ASSERT(params->n_items >= 0, "n_items must be non-negative");
+  ASSERT(params->threads_per_tree > 0, "threads_per_tree must be positive");
+  ASSERT(thrust::detail::is_power_of_2(params->threads_per_tree),
+         "threads_per_tree must be a power of 2");
+  ASSERT(params->threads_per_tree <= FIL_TPB,
+         "threads_per_tree must not "
+         "exceed block size %d",
+         FIL_TPB);
 }
 
 template <typename T, typename L>
@@ -806,6 +833,8 @@ void tl2fil_common(forest_params_t* params, const tl::ModelImpl<T, L>& model,
     params->output = output_t(params->output | output_t::SOFTMAX);
   params->num_trees = model.trees.size();
   params->blocks_per_sm = tl_params->blocks_per_sm;
+  params->threads_per_tree = tl_params->threads_per_tree;
+  params->n_items = tl_params->n_items;
 }
 
 // uses treelite model with additional tl_params to initialize FIL params

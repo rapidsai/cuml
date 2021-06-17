@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <decisiontree/memory.h>
 #include <decisiontree/quantile/quantile.h>
 #include <gtest/gtest.h>
 #include <raft/linalg/cublas_wrappers.h>
@@ -50,9 +49,8 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle->set_stream(stream);
     set_tree_params(params, inparams.max_depth, 1 << inparams.max_depth, 1.f,
-                    inparams.nbins, SPLIT_ALGO::GLOBAL_QUANTILE, 0,
-                    inparams.nbins, inparams.min_gain, false,
-                    inparams.splitType, false, true, 128);
+                    inparams.nbins, 0, inparams.nbins, inparams.min_gain,
+                    inparams.splitType, 128);
     auto allocator = handle->get_device_allocator();
     data = (T*)allocator->allocate(sizeof(T) * inparams.M * inparams.N, stream);
     labels = (L*)allocator->allocate(sizeof(L) * inparams.M, stream);

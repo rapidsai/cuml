@@ -190,7 +190,7 @@ class cuml_build(_build):
                       ],
                       libraries=libs,
                       language='c++',
-                      extra_compile_args=['-std=c++14'])
+                      extra_compile_args=['-std=c++17'])
         ]
 
         self.distribution.ext_modules = extensions
@@ -206,6 +206,14 @@ class cuml_build_ext(cython_build_ext, object):
     ] + cython_build_ext.user_options
 
     boolean_options = ["singlegpu"] + cython_build_ext.boolean_options
+
+    def build_extensions(self):
+        try:
+            # Silence the '-Wstrict-prototypes' warning
+            self.compiler.compiler_so.remove("-Wstrict-prototypes")
+        except Exception:
+            pass
+        cython_build_ext.build_extensions(self)
 
     def initialize_options(self):
 

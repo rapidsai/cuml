@@ -183,9 +183,6 @@ class RandomForestRegressor(BaseRandomForestModel,
         If True, each tree in the forest is built
         on a bootstrapped sample with replacement.
         If False, the whole dataset is used to build each tree.
-    bootstrap_features : boolean (default = False)
-        Control bootstrapping for features.
-        If features are drawn with or without replacement
     max_samples : float (default = 1.0)
         Ratio of dataset rows used while fitting each tree.
     max_depth : int (default = 16)
@@ -230,20 +227,9 @@ class RandomForestRegressor(BaseRandomForestModel,
         for median of abs error : 'median_ae'
         for mean of abs error : 'mean_ae'
         for mean square error' : 'mse'
-    quantile_per_tree : boolean (default = False)
-        Whether quantile is computed for individual trees in RF.
-        Only relevant when `split_algo = GLOBAL_QUANTILE`.
-
-        .. deprecated:: 0.19
-           Parameter 'quantile_per_tree' is deprecated and will be removed in
-           subsequent release.
     use_experimental_backend : boolean (default = True)
-        If set to true and the following conditions are also met, a new
-        experimental backend for decision tree training will be used. The
-        new backend is available only if `split_algo = 1` (GLOBAL_QUANTILE)
-        and `quantile_per_tree = False` (No per tree quantile computation).
-        The new backend is now considered stable for both classification
-        and regression tasks and is significantly faster than the old backend.
+        Deprecated and currrently has no effect.
+        .. deprecated:: 21.08
     max_batch_size: int (default = 128)
         Maximum number of nodes that can be processed in a given batch. This is
         used only when 'use_experimental_backend' is true.
@@ -464,19 +450,15 @@ class RandomForestRegressor(BaseRandomForestModel,
                                   <int> self.max_leaves,
                                   <float> max_feature_val,
                                   <int> self.n_bins,
-                                  <int> self.split_algo,
                                   <int> self.min_samples_leaf,
                                   <int> self.min_samples_split,
                                   <float> self.min_impurity_decrease,
-                                  <bool> self.bootstrap_features,
                                   <bool> self.bootstrap,
                                   <int> self.n_estimators,
                                   <float> self.max_samples,
                                   <uint64_t> seed_val,
                                   <CRITERION> self.split_criterion,
-                                  <bool> self.quantile_per_tree,
                                   <int> self.n_streams,
-                                  <bool> self.use_experimental_backend,
                                   <int> self.max_batch_size)
 
         if self.dtype == np.float32:
