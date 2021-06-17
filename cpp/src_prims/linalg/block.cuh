@@ -40,10 +40,25 @@ struct BlockGemmPolicy {
   static constexpr int BlockSize = ThRows * ThCols;
 };  // struct BlockGemmPolicy
 
-template <typename Policy, typename T>
+/**
+ * @todo: docs
+ */
+template <int _tr, int _tc>
+struct BlockGemvPolicy {
+  static constexpr int ThRows = _tr;
+  static constexpr int ThCols = _tc;
+  static constexpr int BlockSize = ThRows * ThCols;
+};  // struct BlockGemmPolicy
+
+template <typename GemmPolicy, typename T>
 struct GemmStorage {
-  T a_tile[Policy::Mblk * Policy::Kblk];
-  T b_tile[Policy::Nblk * Policy::Kblk];
+  T a_tile[GemmPolicy::Mblk * GemmPolicy::Kblk];
+  T b_tile[GemmPolicy::Nblk * GemmPolicy::Kblk];
+};
+
+template <typename GemvPolicy, typename T>
+struct GemvStorage {
+  T acc[GemvPolicy::BlockSize];
 };
 
 template <int BlockSize, typename T>
@@ -56,10 +71,10 @@ struct ReductionStorage {
 };
 
 /// TODO: more efficient implementation, vectorization
-template <typename Policy, typename T>
+template <typename GemmPolicy, typename T>
 DI void _block_gemm_load_tile(const T* global_matrix, T* shared_tile, int i0,
                               int j0, int m, int n, int tm, int tn) {
-  for (int idx = threadIdx.x; idx < tm * tn; idx += Policy::BlockSize) {
+  for (int idx = threadIdx.x; idx < tm * tn; idx += GemmPolicy::BlockSize) {
     int ti = idx % tm;
     int tj = idx / tm;
     int i = i0 + ti;
@@ -70,11 +85,11 @@ DI void _block_gemm_load_tile(const T* global_matrix, T* shared_tile, int i0,
 }
 
 /// TODO: more efficient implementation, vectorization
-template <typename Policy, typename T>
+template <typename GemmPolicy, typename T>
 DI void _block_gemm_load_transpose_tile(const T* global_matrix, T* shared_tile,
                                         int i0, int j0, int m, int n, int tm,
                                         int tn) {
-  for (int idx = threadIdx.x; idx < tm * tn; idx += Policy::BlockSize) {
+  for (int idx = threadIdx.x; idx < tm * tn; idx += GemmPolicy::BlockSize) {
     int ti = idx / tn;
     int tj = idx % tn;
     int i = i0 + ti;
@@ -88,64 +103,68 @@ DI void _block_gemm_load_transpose_tile(const T* global_matrix, T* shared_tile,
  * @todo: docs
  * @note: no beta arg, 0 assumed
  */
-template <typename Policy, typename T, typename StorageT>
+template <typename GemmPolicy, typename T, typename StorageT>
 DI void _block_gemm(bool transa, bool transb, int m, int n, int k, T alpha,
                     const T* a, const T* b, T* c, StorageT& gemm_storage) {
   /// TODO: more efficient implementation!
   ///       Can base it on raft/linalg/contractions.cuh
 
-  const int th_off_i = threadIdx.x % Policy::ThRows;
-  const int th_off_j = threadIdx.x / Policy::ThRows;
+  const int th_off_i = threadIdx.x % GemmPolicy::ThRows;
+  const int th_off_j = threadIdx.x / GemmPolicy::ThRows;
 
   T* shared_a_tile = gemm_storage.a_tile;
   T* shared_b_tile = gemm_storage.b_tile;
-  T reg_acc[Policy::WorkPerTh];
+  T reg_acc[GemmPolicy::WorkPerTh];
 
   /* Loop over blocks of C */
-  for (int blk_j = 0; blk_j < raft::ceildiv<int>(n, Policy::Nblk); blk_j++) {
-    for (int blk_i = 0; blk_i < raft::ceildiv<int>(m, Policy::Mblk); blk_i++) {
+  for (int blk_j = 0; blk_j < raft::ceildiv<int>(n, GemmPolicy::Nblk);
+       blk_j++) {
+    for (int blk_i = 0; blk_i < raft::ceildiv<int>(m, GemmPolicy::Mblk);
+         blk_i++) {
       /* Initialize accumulation registers */
-      for (int i = 0; i < Policy::WorkPerTh; i++) {
+      for (int i = 0; i < GemmPolicy::WorkPerTh; i++) {
         reg_acc[i] = (T)0;
       }
 
       /* Loop over tiles in A and B corresponding to that block in C */
-      for (int tile_k = 0; tile_k < raft::ceildiv<int>(k, Policy::Kblk);
+      for (int tile_k = 0; tile_k < raft::ceildiv<int>(k, GemmPolicy::Kblk);
            tile_k++) {
         /* Load a tile from A */
         if (transa)
-          _block_gemm_load_transpose_tile<Policy>(
-            a, shared_a_tile, blk_i * Policy::Mblk, tile_k * Policy::Kblk, m, k,
-            Policy::Mblk, Policy::Kblk);
+          _block_gemm_load_transpose_tile<GemmPolicy>(
+            a, shared_a_tile, blk_i * GemmPolicy::Mblk,
+            tile_k * GemmPolicy::Kblk, m, k, GemmPolicy::Mblk,
+            GemmPolicy::Kblk);
         else
-          _block_gemm_load_tile<Policy>(a, shared_a_tile, blk_i * Policy::Mblk,
-                                        tile_k * Policy::Kblk, m, k,
-                                        Policy::Mblk, Policy::Kblk);
+          _block_gemm_load_tile<GemmPolicy>(a, shared_a_tile,
+                                            blk_i * GemmPolicy::Mblk,
+                                            tile_k * GemmPolicy::Kblk, m, k,
+                                            GemmPolicy::Mblk, GemmPolicy::Kblk);
         /* Load a tile from B */
         if (transb)
-          _block_gemm_load_transpose_tile<Policy>(
-            b, shared_b_tile, tile_k * Policy::Kblk, blk_j * Policy::Nblk, k, n,
-            Policy::Kblk, Policy::Nblk);
+          _block_gemm_load_transpose_tile<GemmPolicy>(
+            b, shared_b_tile, tile_k * GemmPolicy::Kblk,
+            blk_j * GemmPolicy::Nblk, k, n, GemmPolicy::Kblk, GemmPolicy::Nblk);
         else
-          _block_gemm_load_tile<Policy>(b, shared_b_tile, tile_k * Policy::Kblk,
-                                        blk_j * Policy::Nblk, k, n,
-                                        Policy::Kblk, Policy::Nblk);
+          _block_gemm_load_tile<GemmPolicy>(
+            b, shared_b_tile, tile_k * GemmPolicy::Kblk,
+            blk_j * GemmPolicy::Nblk, k, n, GemmPolicy::Kblk, GemmPolicy::Nblk);
 
         __syncthreads();
 
         /* Loop over accumulators owned by this thread */
 #pragma unroll
-        for (int th_j = 0; th_j < Policy::ColsPerTh; th_j++) {
+        for (int th_j = 0; th_j < GemmPolicy::ColsPerTh; th_j++) {
 #pragma unroll
-          for (int th_i = 0; th_i < Policy::RowsPerTh; th_i++) {
-            int i = th_off_i + th_i * Policy::ThRows;
-            int j = th_off_j + th_j * Policy::ThCols;
+          for (int th_i = 0; th_i < GemmPolicy::RowsPerTh; th_i++) {
+            int i = th_off_i + th_i * GemmPolicy::ThRows;
+            int j = th_off_j + th_j * GemmPolicy::ThCols;
             /* Loop over corresponding items in the tile and accumulate */
 #pragma unroll
-            for (int th_k = 0; th_k < Policy::Kblk; th_k++) {
-              reg_acc[Policy::RowsPerTh * th_j + th_i] +=
-                shared_a_tile[Policy::Mblk * th_k + i] *
-                shared_b_tile[Policy::Kblk * j + th_k];
+            for (int th_k = 0; th_k < GemmPolicy::Kblk; th_k++) {
+              reg_acc[GemmPolicy::RowsPerTh * th_j + th_i] +=
+                shared_a_tile[GemmPolicy::Mblk * th_k + i] *
+                shared_b_tile[GemmPolicy::Kblk * j + th_k];
             }
           }
         }
@@ -155,13 +174,15 @@ DI void _block_gemm(bool transa, bool transb, int m, int n, int k, T alpha,
 
       /* Write accumulators in C */
 #pragma unroll
-      for (int th_j = 0; th_j < Policy::ColsPerTh; th_j++) {
+      for (int th_j = 0; th_j < GemmPolicy::ColsPerTh; th_j++) {
 #pragma unroll
-        for (int th_i = 0; th_i < Policy::RowsPerTh; th_i++) {
-          int i = blk_i * Policy::Mblk + th_off_i + th_i * Policy::ThRows;
-          int j = blk_j * Policy::Nblk + th_off_j + th_j * Policy::ThCols;
+        for (int th_i = 0; th_i < GemmPolicy::RowsPerTh; th_i++) {
+          int i =
+            blk_i * GemmPolicy::Mblk + th_off_i + th_i * GemmPolicy::ThRows;
+          int j =
+            blk_j * GemmPolicy::Nblk + th_off_j + th_j * GemmPolicy::ThCols;
           if (i < m and j < n)
-            c[j * m + i] = alpha * reg_acc[th_j * Policy::RowsPerTh + th_i];
+            c[j * m + i] = alpha * reg_acc[th_j * GemmPolicy::RowsPerTh + th_i];
         }
       }
     }
@@ -172,24 +193,44 @@ DI void _block_gemm(bool transa, bool transb, int m, int n, int k, T alpha,
  * @todo: docs
  * @note: no beta arg, 0 assumed
  */
-template <int BlockSize, typename T>
+template <typename GemvPolicy, typename T, typename StorageT>
 DI void _block_gemv(int m, int n, T alpha, const T* a, const T* x, T* y,
-                    T* shared_vec) {
+                    StorageT& gemv_storage, T* shared_vec) {
   /// TODO: more efficient implementation
 
   /* Load x into shared vector */
-  for (int i = threadIdx.x; i < n; i += BlockSize) {
+  for (int i = threadIdx.x; i < n; i += GemvPolicy::BlockSize) {
     shared_vec[i] = x[i];
   }
   __syncthreads();
 
-  /* GEMV with one row per thread */
-  for (int i = threadIdx.x; i < m; i += BlockSize) {
-    T acc = (T)0;
-    for (int j = 0; j < n; j++) {
-      acc += a[j * m + i] * shared_vec[j];
+  const int th_off_i = threadIdx.x % GemvPolicy::ThRows;
+  const int th_off_j = threadIdx.x / GemvPolicy::ThRows;
+
+  /* Loop on tiles */
+  for (int tile_i = 0; tile_i < raft::ceildiv<int>(m, GemvPolicy::ThRows);
+       tile_i++) {
+    int i = tile_i * GemvPolicy::ThRows + th_off_i;
+    if (i < m) {
+      /* Accumulate values owned by this thread and write to shared mem */
+      T acc = 0;
+      for (int j = th_off_j; j < n; j += GemvPolicy::ThCols) {
+        acc += a[j * m + i] * shared_vec[j];
+      }
+
+      gemv_storage.acc[threadIdx.x] = acc;
     }
-    y[i] = alpha * acc;
+    __syncthreads();
+    if (i < m) {
+      /* First thread in each row does sequential reduction of other's results */
+      T acc = 0;
+      if (th_off_j == 0) {
+        for (int tj = 0; tj < GemvPolicy::ThCols; tj++) {
+          acc += gemv_storage.acc[tj * GemvPolicy::ThRows + th_off_i];
+        }
+        y[i] = alpha * acc;
+      }
+    }
   }
 }
 

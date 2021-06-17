@@ -267,13 +267,15 @@ __global__ void batched_kalman_loop_kernel(
   }
 }
 
-template <typename Policy, typename T>
+template <typename GemmPolicy, typename GemvPolicy, typename T>
 union KalmanLoopSharedMemory {
-  MLCommon::LinAlg::ReductionStorage<Policy::BlockSize, T> reduction_storage;
-  MLCommon::LinAlg::GemmStorage<Policy, T> gemm_storage;
+  MLCommon::LinAlg::ReductionStorage<GemmPolicy::BlockSize, T>
+    reduction_storage;
+  MLCommon::LinAlg::GemmStorage<GemmPolicy, T> gemm_storage;
+  MLCommon::LinAlg::GemvStorage<GemvPolicy, T> gemv_storage;
 };
 
-template <typename Policy>
+template <typename GemmPolicy, typename GemvPolicy>
 __global__ void _batched_kalman_device_loop_large_kernel(
   const double* d_ys, int batch_size, int n_obs, const double* d_T,
   const double* d_Z, const double* d_RQR, double* d_P, double* d_alpha,
@@ -287,7 +289,7 @@ __global__ void _batched_kalman_device_loop_large_kernel(
   double* shared_vec0 = (double*)dyna_shared_mem;
   double* shared_vec1 = (double*)(dyna_shared_mem + rd * sizeof(double));
 
-  __shared__ KalmanLoopSharedMemory<Policy, double> shared_mem;
+  __shared__ KalmanLoopSharedMemory<GemmPolicy, GemvPolicy, double> shared_mem;
 
   for (int bid = blockIdx.x; bid < batch_size; bid += gridDim.x) {
     /* Initialization */
@@ -300,7 +302,7 @@ __global__ void _batched_kalman_device_loop_large_kernel(
       if (n_diff == 0) {
         vt -= (d_alpha + bid * rd)[0];
       } else {
-        vt -= MLCommon::LinAlg::_block_dot<Policy::BlockSize, true>(
+        vt -= MLCommon::LinAlg::_block_dot<GemmPolicy::BlockSize, true>(
           rd, d_Z + bid * rd, d_alpha + bid * rd, shared_mem.reduction_storage);
         __syncthreads();  // necessary to reuse shared memory
       }
@@ -311,7 +313,7 @@ __global__ void _batched_kalman_device_loop_large_kernel(
       if (n_diff == 0) {
         _F = (d_P + bid * rd2)[0];
       } else {
-        _F = MLCommon::LinAlg::_block_xAxt<Policy::BlockSize, true>(
+        _F = MLCommon::LinAlg::_block_xAxt<GemmPolicy::BlockSize, true>(
           rd, d_Z + bid * rd, d_P + bid * rd2, shared_mem.reduction_storage,
           shared_vec0);
         __syncthreads();  // necessary to reuse shared memory
@@ -321,29 +323,31 @@ __global__ void _batched_kalman_device_loop_large_kernel(
 
       // 3. K = 1/Fs[it] * T*P*Z'
       // TP = T*P (also used later)
-      MLCommon::LinAlg::_block_gemm<Policy>(
+      MLCommon::LinAlg::_block_gemm<GemmPolicy>(
         false, false, rd, rd, rd, 1.0, d_T + bid * rd2, d_P + bid * rd2,
         d_TP + bid * rd2, shared_mem.gemm_storage);
       __syncthreads();  // for consistency of TP
       // K = 1/Fs[it] * TP*Z'
       double _1_Fs = 1.0 / _F;
       if (n_diff == 0) {
-        MLCommon::LinAlg::_block_ax<Policy::BlockSize>(
+        MLCommon::LinAlg::_block_ax<GemmPolicy::BlockSize>(
           rd, _1_Fs, d_TP + bid * rd2, d_K + bid * rd);
       } else {
-        MLCommon::LinAlg::_block_gemv<Policy::BlockSize>(
+        MLCommon::LinAlg::_block_gemv<GemvPolicy>(
           rd, rd, _1_Fs, d_TP + bid * rd2, d_Z + bid * rd, d_K + bid * rd,
-          shared_vec0);
+          shared_mem.gemv_storage, shared_vec0);
       }
+      /// TODO: duplicate gemv storage and remove barrier
+      __syncthreads();  // For shared mem reuse
 
       // 4. alpha = T*alpha + K*vs[it] + c
       // v_tmp = T*alpha
-      MLCommon::LinAlg::_block_gemv<Policy::BlockSize>(
+      MLCommon::LinAlg::_block_gemv<GemvPolicy>(
         rd, rd, 1.0, d_T + bid * rd2, d_alpha + bid * rd, d_v_tmp + bid * rd,
-        shared_vec1);
+        shared_mem.gemv_storage, shared_vec1);
       __syncthreads();  // For consistency of K and v_tmp
       // alpha = v_tmp + K*vs[it] + c
-      for (int i = threadIdx.x; i < rd; i += Policy::BlockSize) {
+      for (int i = threadIdx.x; i < rd; i += GemmPolicy::BlockSize) {
         double _c = (intercept && i == n_diff) ? d_mu[bid] : 0.0;
         d_alpha[bid * rd + i] =
           d_v_tmp[bid * rd + i] + vt * d_K[bid * rd + i] + _c;
@@ -351,13 +355,13 @@ __global__ void _batched_kalman_device_loop_large_kernel(
 
       // 5. L = T - K * Z
       if (n_diff == 0) {
-        for (int i = threadIdx.x; i < rd2; i += Policy::BlockSize) {
+        for (int i = threadIdx.x; i < rd2; i += GemmPolicy::BlockSize) {
           double _KZ = (i < rd) ? d_K[bid * rd + i] : 0.0;
           d_m_tmp[bid * rd2 + i] = d_T[bid * rd2 + i] - _KZ;
         }
       } else {
         /// TODO: shared mem K and Z!
-        for (int i = threadIdx.x; i < rd2; i += Policy::BlockSize) {
+        for (int i = threadIdx.x; i < rd2; i += GemmPolicy::BlockSize) {
           double _KZ = d_K[bid * rd + i % rd] * d_Z[bid * rd + i / rd];
           d_m_tmp[bid * rd2 + i] = d_T[bid * rd2 + i] - _KZ;
         }
@@ -366,13 +370,13 @@ __global__ void _batched_kalman_device_loop_large_kernel(
       // 6. P = T*P*L' + R*Q*R'
       __syncthreads();  // For consistency of L
       // P = TP*L'
-      MLCommon::LinAlg::_block_gemm<Policy>(
+      MLCommon::LinAlg::_block_gemm<GemmPolicy>(
         false, true, rd, rd, rd, 1.0, d_TP + bid * rd2, d_m_tmp + bid * rd2,
         d_P + bid * rd2, shared_mem.gemm_storage);
       __syncthreads();  // For consistency of P
       // P = P + R*Q*R'
       /// TODO: shared mem R instead of precomputed matrix?
-      for (int i = threadIdx.x; i < rd2; i += Policy::BlockSize) {
+      for (int i = threadIdx.x; i < rd2; i += GemmPolicy::BlockSize) {
         d_P[bid * rd2 + i] += d_RQR[bid * rd2 + i];
       }
 
@@ -386,7 +390,7 @@ __global__ void _batched_kalman_device_loop_large_kernel(
       if (n_diff == 0) {
         pred = (d_alpha + bid * rd)[0];
       } else {
-        pred = MLCommon::LinAlg::_block_dot<Policy::BlockSize, false>(
+        pred = MLCommon::LinAlg::_block_dot<GemmPolicy::BlockSize, false>(
           rd, d_Z + bid * rd, d_alpha + bid * rd, shared_mem.reduction_storage);
         __syncthreads();  // necessary to reuse shared memory
       }
@@ -394,12 +398,12 @@ __global__ void _batched_kalman_device_loop_large_kernel(
 
       // alpha = T*alpha + c
       // v_tmp = T*alpha
-      MLCommon::LinAlg::_block_gemv<Policy::BlockSize>(
+      MLCommon::LinAlg::_block_gemv<GemvPolicy>(
         rd, rd, 1.0, d_T + bid * rd2, d_alpha + bid * rd, d_v_tmp + bid * rd,
-        shared_vec0);
+        shared_mem.gemv_storage, shared_vec0);
       __syncthreads();  // for consistency of v_tmp + reuse of shared mem
       // alpha = v_tmp + c
-      for (int i = threadIdx.x; i < rd; i += Policy::BlockSize) {
+      for (int i = threadIdx.x; i < rd; i += GemmPolicy::BlockSize) {
         double _c = (intercept && i == n_diff) ? d_mu[bid] : 0.0;
         d_alpha[bid * rd + i] = d_v_tmp[bid * rd + i] + _c;
       }
@@ -409,7 +413,7 @@ __global__ void _batched_kalman_device_loop_large_kernel(
         if (n_diff == 0) {
           _F = d_P[bid * rd2];
         } else {
-          _F = MLCommon::LinAlg::_block_xAxt<Policy::BlockSize, false>(
+          _F = MLCommon::LinAlg::_block_xAxt<GemmPolicy::BlockSize, false>(
             rd, d_Z + bid * rd, d_P + bid * rd2, shared_mem.reduction_storage,
             shared_vec0);
           __syncthreads();  // necessary to reuse shared memory
@@ -420,18 +424,18 @@ __global__ void _batched_kalman_device_loop_large_kernel(
 
       // P = T*P*T' + R*Q*R'
       // TP = T*P
-      MLCommon::LinAlg::_block_gemm<Policy>(
+      MLCommon::LinAlg::_block_gemm<GemmPolicy>(
         false, false, rd, rd, rd, 1.0, d_T + bid * rd2, d_P + bid * rd2,
         d_TP + bid * rd2, shared_mem.gemm_storage);
       __syncthreads();  // for consistency of TP
       // P = TP * T'
-      MLCommon::LinAlg::_block_gemm<Policy>(
+      MLCommon::LinAlg::_block_gemm<GemmPolicy>(
         false, true, rd, rd, rd, 1.0, d_TP + bid * rd2, d_T + bid * rd2,
         d_P + bid * rd2, shared_mem.gemm_storage);
       __syncthreads();  // for consistency of P
       // P = P + R*Q*R'
       /// TODO: shared mem R instead of precomputed matrix?
-      for (int i = threadIdx.x; i < rd2; i += Policy::BlockSize) {
+      for (int i = threadIdx.x; i < rd2; i += GemmPolicy::BlockSize) {
         d_P[bid * rd2 + i] += d_RQR[bid * rd2 + i];
       }
     }
@@ -464,7 +468,7 @@ __global__ void _batched_kalman_device_loop_large_kernel(
  * @param[in]  conf_int     Whether to compute confidence intervals
  * @param[out] d_F_fc       Batched variance of forecast errors   (fc_steps)
  */
-template <typename Policy>
+template <typename GemmPolicy, typename GemvPolicy>
 void _batched_kalman_device_loop_large(
   const ARIMAMemory<double>& arima_mem, const double* d_ys, int n_obs,
   const MLCommon::LinAlg::Batched::Matrix<double>& T,
@@ -475,6 +479,9 @@ void _batched_kalman_device_loop_large(
   const double* d_mu, int rd, double* d_vs, double* d_Fs, double* d_sum_logFs,
   int n_diff, int fc_steps = 0, double* d_fc = nullptr, bool conf_int = false,
   double* d_F_fc = nullptr) {
+  static_assert(GemmPolicy::BlockSize == GemvPolicy::BlockSize,
+                "Gemm and gemv policies: block size mismatch");
+
   auto stream = T.stream();
   auto allocator = T.allocator();
   auto cublasHandle = T.cublasHandle();
@@ -496,8 +503,8 @@ void _batched_kalman_device_loop_large(
 
   int grid_size = std::min(batch_size, 65536);
   size_t shared_mem_size = 2 * rd * sizeof(double);
-  _batched_kalman_device_loop_large_kernel<Policy>
-    <<<grid_size, Policy::BlockSize, shared_mem_size, stream>>>(
+  _batched_kalman_device_loop_large_kernel<GemmPolicy, GemvPolicy>
+    <<<grid_size, GemmPolicy::BlockSize, shared_mem_size, stream>>>(
       d_ys, batch_size, n_obs, T.raw_data(), Z.raw_data(), RQR.raw_data(),
       P.raw_data(), alpha.raw_data(), v_tmp.raw_data(), m_tmp.raw_data(),
       K.raw_data(), TP.raw_data(), intercept, d_mu, rd, d_vs, d_Fs, d_sum_logFs,
@@ -586,9 +593,10 @@ void batched_kalman_loop(raft::handle_t& handle,
     CUDA_CHECK(cudaPeekAtLastError());
   } else {
     /// TODO: select based on rd
-    // using Policy = MLCommon::LinAlg::BlockGemmPolicy<16, 1, 4, 16, 4>;
-    using Policy = MLCommon::LinAlg::BlockGemmPolicy<32, 1, 4, 32, 8>;
-    _batched_kalman_device_loop_large<Policy>(
+    // using GemmPolicy = MLCommon::LinAlg::BlockGemmPolicy<16, 1, 4, 16, 4>;
+    using GemmPolicy = MLCommon::LinAlg::BlockGemmPolicy<32, 1, 4, 32, 8>;
+    using GemvPolicy = MLCommon::LinAlg::BlockGemvPolicy<32, 8>;
+    _batched_kalman_device_loop_large<GemmPolicy, GemvPolicy>(
       arima_mem, ys, nobs, T, Z, RQR, P0, alpha, intercept, d_mu, rd, vs, Fs,
       sum_logFs, n_diff, fc_steps, d_fc, conf_int, d_F_fc);
   }

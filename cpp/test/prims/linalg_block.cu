@@ -185,14 +185,16 @@ template <typename T>
   return os;
 }
 
-template <int BlockSize, typename T>
+template <typename Policy, typename T>
 __global__ void block_gemv_test_kernel(int m, int n, T alpha, const T* a,
                                        const T* x, T* y) {
+  __shared__ MLCommon::LinAlg::GemvStorage<Policy, T> gemv_storage;
+
   extern __shared__ char dyna_shared_mem[];
   T* shared_vec = (T*)dyna_shared_mem;
 
-  _block_gemv<BlockSize>(m, n, alpha, a + m * n * blockIdx.x,
-                         x + n * blockIdx.x, y + m * blockIdx.x, shared_vec);
+  _block_gemv<Policy>(m, n, alpha, a + m * n * blockIdx.x, x + n * blockIdx.x,
+                      y + m * blockIdx.x, gemv_storage, shared_vec);
 }
 
 template <typename T>
@@ -243,11 +245,11 @@ class BlockGemvTest : public ::testing::TestWithParam<BlockGemvInputs<T>> {
     }
 
     /* Compute using tested prims */
-    constexpr int BlockSize = 64;
+    using Policy = BlockGemvPolicy<32, 8>;
     int shared_mem_size = params.n * sizeof(T);
-    block_gemv_test_kernel<BlockSize>
-      <<<params.batch_size, BlockSize, shared_mem_size, handle.get_stream()>>>(
-        params.m, params.n, alpha, a.data(), x.data(), y.data());
+    block_gemv_test_kernel<Policy><<<params.batch_size, Policy::BlockSize,
+                                     shared_mem_size, handle.get_stream()>>>(
+      params.m, params.n, alpha, a.data(), x.data(), y.data());
 
     /* Copy results to host */
     raft::copy(h_y_dev.data(), y.data(), params.m * params.batch_size,
