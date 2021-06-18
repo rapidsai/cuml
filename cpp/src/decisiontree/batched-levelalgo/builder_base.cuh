@@ -262,7 +262,7 @@ struct Builder {
     raft::update_host(&depth, n_depth, 1, s);
     ML::POP_RANGE();
   }
-  
+
   size_t nodeSplitSmemSize() {
     return std::max(2 * sizeof(IdxT) * TPB_SPLIT,
                     sizeof(BinT) * input.numOutputs);

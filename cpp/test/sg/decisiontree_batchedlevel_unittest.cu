@@ -113,7 +113,7 @@ class BatchedLevelAlgoUnitTestFixture {
     input.nSampledRows = n_row;
     input.nSampledCols = n_col;
     input.rowids = row_ids;
-    input.numOutputs = 1; 
+    input.numOutputs = 1;
     input.quantiles = d_quantiles;
   }
 
