@@ -204,18 +204,20 @@ def test_fil_regression(n_rows, n_columns, num_rounds, tmp_path, max_depth):
 @pytest.mark.parametrize('max_depth,storage_type',
                          [(2, False), (2, True), (10, False), (10, True),
                           (20, True)])
-# FIL not supporting multi-class sklearn RandomForestClassifiers
 # When n_classes=25, fit a single estimator only to reduce test time
 @pytest.mark.parametrize('n_classes,model_class,n_estimators',
                          [(2, GradientBoostingClassifier, 1),
                           (2, GradientBoostingClassifier, 10),
                           (2, RandomForestClassifier, 1),
+                          (5, RandomForestClassifier, 1),
                           (2, RandomForestClassifier, 10),
+                          (5, RandomForestClassifier, 10),
                           (2, ExtraTreesClassifier, 1),
                           (2, ExtraTreesClassifier, 10),
                           (5, GradientBoostingClassifier, 1),
                           (5, GradientBoostingClassifier, 10),
-                          (25, GradientBoostingClassifier, 1)])
+                          (25, GradientBoostingClassifier, 1),
+                          (25, RandomForestClassifier, 1)])
 def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
                                 n_classes, storage_type, model_class):
     # settings
@@ -283,6 +285,8 @@ def test_fil_skl_classification(n_rows, n_columns, n_estimators, max_depth,
                           (1, GradientBoostingRegressor, 10),
                           (1, RandomForestRegressor, 1),
                           (1, RandomForestRegressor, 10),
+                          (5, RandomForestRegressor, 1),
+                          (5, RandomForestRegressor, 10),
                           (1, ExtraTreesRegressor, 1),
                           (1, ExtraTreesRegressor, 10),
                           (5, GradientBoostingRegressor, 10)])
@@ -413,6 +417,31 @@ def test_output_blocks_per_sm(storage_type, blocks_per_sm,
     fil_preds = np.asarray(fm.predict(X))
     fil_preds = np.reshape(fil_preds, np.shape(xgb_preds_int))
 
+    assert np.allclose(fil_preds, xgb_preds_int, 1e-3)
+
+
+@pytest.mark.skipif(has_xgboost() is False, reason="need to install xgboost")
+@pytest.mark.parametrize('threads_per_tree', [2, 4, 8, 16, 32, 64, 128, 256])
+def test_threads_per_tree(threads_per_tree,
+                          small_classifier_and_preds):
+    model_path, model_type, X, xgb_preds = small_classifier_and_preds
+    fm = ForestInference.load(model_path,
+                              model_type=model_type,
+                              output_class=True,
+                              storage_type='auto',
+                              threshold=0.50,
+                              threads_per_tree=threads_per_tree,
+                              n_items=1)
+
+    fil_preds = np.asarray(fm.predict(X))
+    fil_proba = np.asarray(fm.predict_proba(X))
+
+    xgb_proba = np.stack([1-xgb_preds, xgb_preds], axis=1)
+    np.testing.assert_allclose(fil_proba, xgb_proba,
+                               atol=proba_atol[False])
+
+    xgb_preds_int = np.around(xgb_preds)
+    fil_preds = np.reshape(fil_preds, np.shape(xgb_preds_int))
     assert np.allclose(fil_preds, xgb_preds_int, 1e-3)
 
 

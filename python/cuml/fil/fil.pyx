@@ -193,9 +193,19 @@ cdef extern from "cuml/fil/fil.h" namespace "ML::fil":
         algo_t algo
         bool output_class
         float threshold
+        # changing the parameters below may speed up inference
+        # tree storage format, tradeoffs in big O(), node size
+        # not all formats fit all models
         storage_type_t storage_type
-        int blocks_per_sm
         # limit number of CUDA blocks launched per GPU SM (or unlimited if 0)
+        int blocks_per_sm
+        # multiple (neighboring) threads infer on the same tree within a block
+        # this improves memory bandwith near tree root (but uses more shared
+        # memory)
+        int threads_per_tree
+        # n_items is how many input samples (items) any thread processes.
+        # if 0 is given, FIL chooses itself
+        int n_items
         # this affects inference performance and will become configurable soon
         char** pforest_shape_str
 
@@ -356,6 +366,8 @@ cdef class ForestInference_impl():
         treelite_params.storage_type =\
             self.get_storage_type(kwargs['storage_type'])
         treelite_params.blocks_per_sm = kwargs['blocks_per_sm']
+        treelite_params.n_items = kwargs['n_items']
+        treelite_params.threads_per_tree = kwargs['threads_per_tree']
         if kwargs['compute_shape_str']:
             if self.shape_str:
                 free(self.shape_str)
@@ -575,6 +587,8 @@ class ForestInference(Base,
                                  threshold=0.5,
                                  storage_type='auto',
                                  blocks_per_sm=0,
+                                 threads_per_tree=1,
+                                 n_items=0,
                                  compute_shape_str=False,
                                  ):
         """Creates a FIL model using the treelite model
@@ -611,6 +625,8 @@ class ForestInference(Base,
                           algo='auto',
                           storage_type='auto',
                           blocks_per_sm=0,
+                          threads_per_tree=1,
+                          n_items=0,
                           compute_shape_str=False,
                           handle=None):
         """
@@ -647,6 +663,8 @@ class ForestInference(Base,
              algo='auto',
              storage_type='auto',
              blocks_per_sm=0,
+             threads_per_tree=1,
+             n_items=0,
              compute_shape_str=False,
              model_type="xgboost",
              handle=None):
@@ -686,6 +704,8 @@ class ForestInference(Base,
                                    storage_type='auto',
                                    threshold=0.50,
                                    blocks_per_sm=0,
+                                   threads_per_tree=1,
+                                   n_items=0,
                                    compute_shape_str=False,
                                    ):
         """

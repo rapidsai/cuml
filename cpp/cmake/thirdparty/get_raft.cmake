@@ -30,7 +30,6 @@ function(find_and_configure_raft)
             SOURCE_SUBDIR  cpp
             OPTIONS
               "BUILD_TESTS OFF"
-
     )
 
     message(VERBOSE "CUML: Using RAFT located in ${raft_SOURCE_DIR}")
