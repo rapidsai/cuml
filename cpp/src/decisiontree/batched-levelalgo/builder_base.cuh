@@ -147,10 +147,7 @@ struct Builder {
     params = p;
     this->treeid = treeid;
     this->seed = seed;
-    // int env_blks_for_cols = (int)strtol(std::getenv("BLKS_FOR_COLS"), NULL, 10);
-    // n_blks_for_cols = std::min(sampledCols, env_blks_for_cols);
-    n_blks_for_cols = sampledCols;
-    // CUML_LOG_WARN("blocks for cols: %d, env_var: %d", n_blks_for_cols, env_blks_for_cols);
+    n_blks_for_cols = std::min(sampledCols, n_blks_for_cols);
     input.data = data;
     input.labels = labels;
     input.M = totalRows;
@@ -341,12 +338,15 @@ struct Builder {
     raft::update_device(curr_nodes, h_nodes.data() + node_start, batchSize, s);
 
     int total_samples_in_curr_batch = 0;
+    int n_large_nodes_in_curr_batch = 0;
     total_num_blocks = 0;
     for (int n = 0; n < batchSize; n++) {
       total_samples_in_curr_batch += h_nodes[node_start + n].count;
       int num_blocks = raft::ceildiv(h_nodes[node_start + n].count,
                                      SAMPLES_PER_THREAD * Traits::TPB_DEFAULT);
       num_blocks = std::max(1, num_blocks);
+
+      if(num_blocks > 1) ++n_large_nodes_in_curr_batch;
 
       bool is_leaf = leafBasedOnParams<DataT, IdxT>(
         h_nodes[node_start + n].depth, params.max_depth,
@@ -356,6 +356,7 @@ struct Builder {
 
       for (int b = 0; b < num_blocks; b++) {
         h_workload_info[total_num_blocks + b].nodeid = n;
+        h_workload_info[total_num_blocks + b].large_nodeid = n_large_nodes_in_curr_batch - 1;
         h_workload_info[total_num_blocks + b].offset_blockid = b;
         h_workload_info[total_num_blocks + b].num_blocks = num_blocks;
       }
@@ -367,7 +368,7 @@ struct Builder {
     auto n_col_blks = n_blks_for_cols;
     if (total_num_blocks) {
       for (IdxT c = 0; c < input.nSampledCols; c += n_col_blks) {
-        Traits::computeSplit(*this, c, batchSize, params.split_criterion, s);
+        Traits::computeSplit(*this, c, batchSize, params.split_criterion, n_large_nodes_in_curr_batch, s);
         CUDA_CHECK(cudaGetLastError());
       }
     }
@@ -428,7 +429,7 @@ struct ClsTraits {
    * @param[in] s         cuda stream
    */
   static void computeSplit(Builder<ClsTraits<DataT, LabelT, IdxT>>& b, IdxT col,
-                           IdxT batchSize, CRITERION splitType,
+                           IdxT batchSize, CRITERION splitType, int &n_large_nodes_in_curr_batch,
                            cudaStream_t s) {
     ML::PUSH_RANGE(
       "Builder::computeSplit @builder_base.cuh [batched-levelalgo]");
@@ -449,7 +450,9 @@ struct ClsTraits {
     // Pick the max of two
     size_t smemSize = std::max(smemSize1, smemSize2);
     dim3 grid(b.total_num_blocks, colBlks, 1);
-    CUDA_CHECK(cudaMemsetAsync(b.hist, 0, sizeof(int) * b.nHistBins, s));
+    int nHistBins = 0;
+    nHistBins = n_large_nodes_in_curr_batch * (1 + nbins) * colBlks * nclasses;
+    CUDA_CHECK(cudaMemsetAsync(b.hist, 0, sizeof(int) * nHistBins, s));
     ML::PUSH_RANGE(
       "computeSplitClassificationKernel @builder_base.cuh [batched-levelalgo]");
     computeSplitClassificationKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
@@ -509,7 +512,7 @@ struct RegTraits {
    * @param[in] s         cuda stream
    */
   static void computeSplit(Builder<RegTraits<DataT, IdxT>>& b, IdxT col,
-                           IdxT batchSize, CRITERION splitType,
+                           IdxT batchSize, CRITERION splitType, int &n_large_nodes_in_curr_batch,
                            cudaStream_t s) {
     ML::PUSH_RANGE(
       "Builder::computeSplit @builder_base.cuh [batched-levelalgo]");
@@ -533,10 +536,13 @@ struct RegTraits {
     size_t smemSize = std::max(smemSize1, smemSize2);
     dim3 grid(b.total_num_blocks, colBlks, 1);
 
+    int nPredCounts = 0;
+    nPredCounts = n_large_nodes_in_curr_batch * nbins * colBlks;
+    // std::cout<<"nPredCounts = "<<nPredCounts<<std::endl;
     CUDA_CHECK(
-      cudaMemsetAsync(b.pred, 0, sizeof(DataT) * b.nPredCounts * 2, s));
+      cudaMemsetAsync(b.pred, 0, sizeof(DataT) * nPredCounts * 2, s));
     CUDA_CHECK(
-      cudaMemsetAsync(b.pred_count, 0, sizeof(IdxT) * b.nPredCounts, s));
+      cudaMemsetAsync(b.pred_count, 0, sizeof(IdxT) * nPredCounts, s));
 
     ML::PUSH_RANGE(
       "computeSplitRegressionKernel @builder_base.cuh [batched-levelalgo]");

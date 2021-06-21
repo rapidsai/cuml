@@ -35,6 +35,7 @@ namespace DecisionTree {
 template <typename IdxT>
 struct WorkloadInfo {
   IdxT nodeid;  // Node in the batch on which the threadblock needs to work
+  IdxT large_nodeid; // counts only large nodes
   IdxT offset_blockid;  // Offset threadblock id among all the blocks that are
                         // working on this node
   IdxT num_blocks;      // Total number of blocks that are working on the node
@@ -387,6 +388,7 @@ __global__ void computeSplitClassificationKernel(
   // Read workload info for this block
   WorkloadInfo<IdxT> workload_info_cta = workload_info[blockIdx.x];
   IdxT nid = workload_info_cta.nodeid;
+  IdxT large_nid = workload_info_cta.large_nodeid;
   auto node = nodes[nid];
   auto range_start = node.start;
   auto range_len = node.count;
@@ -445,7 +447,7 @@ __global__ void computeSplitClassificationKernel(
   __syncthreads();
   if (num_blocks > 1) {
     // update the corresponding global location
-    auto histOffset = ((nid * gridDim.y) + blockIdx.y) * pdf_shist_len;
+    auto histOffset = ((large_nid * gridDim.y) + blockIdx.y) * pdf_shist_len;
     for (IdxT i = threadIdx.x; i < pdf_shist_len; i += blockDim.x) {
       atomicAdd(hist + histOffset + i, pdf_shist[i]);
     }
@@ -530,6 +532,7 @@ __global__ void computeSplitRegressionKernel(
   // Read workload info for this block
   WorkloadInfo<IdxT> workload_info_cta = workload_info[blockIdx.x];
   IdxT nid = workload_info_cta.nodeid;
+  IdxT large_nid = workload_info_cta.large_nodeid;
 
   auto node = nodes[nid];
   auto range_start = node.start;
@@ -598,13 +601,13 @@ __global__ void computeSplitRegressionKernel(
 
   if (num_blocks > 1) {
     // update the corresponding global location for counts
-    auto gcOffset = ((nid * gridDim.y) + blockIdx.y) * nbins;
+    auto gcOffset = ((large_nid * gridDim.y) + blockIdx.y) * nbins;
     for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
       atomicAdd(count + gcOffset + i, pdf_scount[i]);
     }
 
     // update the corresponding global location for preds
-    auto gOffset = ((nid * gridDim.y) + blockIdx.y) * pdf_spred_len;
+    auto gOffset = ((large_nid * gridDim.y) + blockIdx.y) * pdf_spred_len;
     for (IdxT i = threadIdx.x; i < pdf_spred_len; i += blockDim.x) {
       atomicAdd(pred + gOffset + i, pdf_spred[i]);
     }
