@@ -20,11 +20,11 @@
 #include <unordered_set>
 #include <vector>
 
-#include <cuml/random_projection/rproj_c.h>
-#include <raft/cudart_utils.h>
+#include <cuml/rproj/rproj_c.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/random/rng.cuh>
 #include "rproj_utils.cuh"
 
 namespace ML {
@@ -73,41 +73,27 @@ void sparse_random_matrix(const raft::handle_t& h,
   } else {
     auto alloc = h.get_host_allocator();
 
-    double max_total_density = params.density * 1.2;
-    size_t indices_alloc =
-      (params.n_features * params.n_components * max_total_density) *
-      sizeof(int);
     size_t indptr_alloc = (params.n_components + 1) * sizeof(int);
-    int* indices = (int*)alloc->allocate(indices_alloc, stream);
+    size_t indices_alloc =
+      params.n_features * params.n_components * sizeof(int);
+
     int* indptr = (int*)alloc->allocate(indptr_alloc, stream);
+    int* indices = (int*)alloc->allocate(indices_alloc, stream);
 
-    size_t offset = 0;
-    size_t indices_idx = 0;
-    size_t indptr_idx = 0;
+    size_t n_elements =
+      sample_without_replacement(indptr, indices, params, stream);
 
-    for (size_t i = 0; i < params.n_components; i++) {
-      int n_nonzero =
-        binomial(h, params.n_features, params.density, params.random_state);
-      sample_without_replacement(params.n_features, n_nonzero, indices,
-                                 indices_idx);
-      indptr[indptr_idx] = offset;
-      indptr_idx++;
-      offset += n_nonzero;
-    }
-
-    indptr[indptr_idx] = offset;
-
-    size_t len = offset;
-    random_matrix->indices.resize(len, stream);
-    raft::update_device(random_matrix->indices.data(), indices, len, stream);
-    alloc->deallocate(indices, indices_alloc, stream);
-
-    len = indptr_idx + 1;
+    size_t len = params.n_components + 1;
     random_matrix->indptr.resize(len, stream);
     raft::update_device(random_matrix->indptr.data(), indptr, len, stream);
     alloc->deallocate(indptr, indptr_alloc, stream);
 
-    len = offset;
+    len = n_elements;
+    random_matrix->indices.resize(len, stream);
+    raft::update_device(random_matrix->indices.data(), indices, len, stream);
+    alloc->deallocate(indices, indices_alloc, stream);
+
+    len = n_elements;
     random_matrix->sparse_data.resize(len, stream);
     auto rng = raft::random::Rng(params.random_state);
     math_t scale = sqrt(1.0 / params.density) / sqrt(params.n_components);

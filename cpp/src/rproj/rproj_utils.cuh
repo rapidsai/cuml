@@ -16,75 +16,45 @@
 
 #pragma once
 
-#include <cuml/random_projection/rproj_c.h>
-#include <raft/cudart_utils.h>
-#include <sys/time.h>
+#include <cuml/rproj/rproj_c.h>
+#include <limits.h>
+#include <thrust/sort.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/random/rng.cuh>
+#include <rmm/device_uvector.hpp>
 
-const int TPB_X = 256;
-
-inline void sample_without_replacement(size_t n_population, size_t n_samples,
-                                       int* indices, size_t& indices_idx) {
-  std::random_device dev;
-  std::mt19937 gen(dev());
-
-  std::uniform_int_distribution<int> uni_dist(0, n_population - 1);
-
-  std::unordered_set<int> s;
-
-  for (size_t i = 0; i < n_samples; i++) {
-    int rand_idx = uni_dist(gen);
-
-    while (s.find(rand_idx) != s.end()) {
-      rand_idx = uni_dist(gen);
-    }
-    s.insert(rand_idx);
-    indices[indices_idx] = rand_idx;
-    indices_idx++;
-  }
+inline size_t binomial(size_t n, double p, int random_state) {
+  std::mt19937 gen(random_state);
+  std::binomial_distribution<> binomial_dist(n, p);
+  return binomial_dist(gen);
 }
 
-__global__ void sum_bools(bool* in_bools, int n, int* out_val) {
-  int row = (blockIdx.x * TPB_X) + threadIdx.x;
-  if (row < n) {
-    bool v = in_bools[row];
-    if (v) raft::myAtomicAdd(out_val, (int)in_bools[row]);
-  }
+inline void shuffle(rmm::device_uvector<int>& vals, size_t len,
+                    int random_state, cudaStream_t stream) {
+  rmm::device_uvector<int> keys(len, stream);
+  raft::random::Rng rng(random_state);
+  rng.uniformInt<int>(keys.begin(), keys.size(), 0, INT_MAX, stream);
+  thrust::sort_by_key(thrust::cuda::par.on(stream), keys.begin(), keys.end(),
+                      vals.begin());
 }
 
-inline size_t binomial(const raft::handle_t& h, size_t n, double p,
-                       int random_state) {
-  auto alloc = h.get_device_allocator();
+inline size_t sample_without_replacement(int* indptr, int* indices,
+                                         ML::paramsRPROJ& params,
+                                         cudaStream_t stream) {
+  rmm::device_uvector<int> vals(params.n_features, stream);
+  thrust::sequence(thrust::cuda::par.on(stream), vals.begin(), vals.end());
 
-  struct timeval tp;
-  gettimeofday(&tp, NULL);
-  long long seed = tp.tv_sec * 1000 + tp.tv_usec;
-
-  auto rng = raft::random::Rng(random_state + seed);
-
-  bool* rand_array = (bool*)alloc->allocate(n * sizeof(bool), h.get_stream());
-  int* successes = (int*)alloc->allocate(sizeof(int), h.get_stream());
-
-  rng.bernoulli(rand_array, n, p, h.get_stream());
-
-  cudaMemsetAsync(successes, 0, sizeof(int), h.get_stream());
-
-  dim3 grid_n(raft::ceildiv(n, (size_t)TPB_X), 1, 1);
-  dim3 blk(TPB_X, 1, 1);
-
-  sum_bools<<<grid_n, blk, 0, h.get_stream()>>>(rand_array, n, successes);
-  CUDA_CHECK(cudaPeekAtLastError());
-
-  int ret = 0;
-  raft::update_host(&ret, successes, 1, h.get_stream());
-  cudaStreamSynchronize(h.get_stream());
-  CUDA_CHECK(cudaPeekAtLastError());
-
-  alloc->deallocate(rand_array, n * sizeof(bool), h.get_stream());
-  alloc->deallocate(successes, sizeof(int), h.get_stream());
-
-  return n - ret;
+  size_t offset = 0;
+  for (size_t i = 0; i < params.n_components; i++) {
+    indptr[i] = offset;
+    int n_nonzero =
+      binomial(params.n_features, params.density, params.random_state + i);
+    shuffle(vals, params.n_features, params.random_state, stream);
+    raft::copy(&indices[offset], vals.data(), n_nonzero, stream);
+    offset += n_nonzero;
+  }
+  indptr[params.n_components] = offset;
+  return offset;
 }
 
 inline double check_density(double density, size_t n_features) {

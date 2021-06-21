@@ -33,7 +33,7 @@ cdef extern from * nogil:
     ctypedef void* _Stream "cudaStream_t"
     ctypedef void* _DevAlloc "std::shared_ptr<raft::mr::device::allocator>"
 
-cdef extern from "cuml/random_projection/rproj_c.h" namespace "ML":
+cdef extern from "cuml/rproj/rproj_c.h" namespace "ML":
 
     # Structure holding random projection hyperparameters
     cdef struct paramsRPROJ:
