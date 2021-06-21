@@ -45,6 +45,7 @@ struct BlockGemmInputs {
   int m, k, n;
   bool transa, transb;
   int batch_size;
+  int vec_len;
   T eps;
   unsigned long long int seed;
 };
@@ -121,11 +122,19 @@ class BlockGemmTest : public ::testing::TestWithParam<BlockGemmInputs<T>> {
     }
 
     /* Compute using tested prims */
-    using Policy = BlockGemmPolicy<32, 2, 2, 16, 16>;
-    block_gemm_test_kernel<Policy>
-      <<<params.batch_size, Policy::BlockSize, 0, handle.get_stream()>>>(
-        params.transa, params.transb, params.m, params.n, params.k, alpha,
-        a.data(), b.data(), c.data());
+    if (params.vec_len == 1) {
+      using Policy = BlockGemmPolicy<1, 32, 2, 2, 16, 16>;
+      block_gemm_test_kernel<Policy>
+        <<<params.batch_size, Policy::BlockSize, 0, handle.get_stream()>>>(
+          params.transa, params.transb, params.m, params.n, params.k, alpha,
+          a.data(), b.data(), c.data());
+    } else if (params.vec_len == 2) {
+      using Policy = BlockGemmPolicy<2, 32, 2, 2, 16, 16>;
+      block_gemm_test_kernel<Policy>
+        <<<params.batch_size, Policy::BlockSize, 0, handle.get_stream()>>>(
+          params.transa, params.transb, params.m, params.n, params.k, alpha,
+          a.data(), b.data(), c.data());
+    }
 
     /* Copy results to host */
     raft::copy(h_c_dev.data(), c.data(),
@@ -151,14 +160,26 @@ class BlockGemmTest : public ::testing::TestWithParam<BlockGemmInputs<T>> {
 };
 
 const std::vector<BlockGemmInputs<float>> gemm_inputsf = {
-  {42, 42, 42, false, false, 20, 1e-4, 12345U},
-  {65, 10, 20, false, true, 50, 1e-4, 12345U},
-  {5, 80, 31, true, false, 100, 1e-4, 12345U}};
+  {42, 42, 42, false, false, 20, 1, 1e-4, 12345U},
+  {65, 10, 20, false, true, 50, 1, 1e-4, 12345U},
+  {5, 80, 31, true, false, 80, 1, 1e-4, 12345U},
+  {11, 50, 41, true, true, 100, 1, 1e-4, 12345U},
+  {30, 34, 16, false, false, 20, 2, 1e-4, 12345U},
+  {10, 42, 20, false, true, 20, 2, 1e-4, 12345U},
+  {14, 8, 22, true, false, 20, 2, 1e-4, 12345U},
+  {56, 72, 28, true, true, 20, 2, 1e-4, 12345U},
+};
 
 const std::vector<BlockGemmInputs<double>> gemm_inputsd = {
-  {42, 42, 42, false, false, 20, 1e-4, 12345U},
-  {65, 10, 20, false, true, 50, 1e-4, 12345U},
-  {5, 80, 31, true, false, 100, 1e-4, 12345U}};
+  {42, 42, 42, false, false, 20, 1, 1e-4, 12345U},
+  {65, 10, 20, false, true, 50, 1, 1e-4, 12345U},
+  {5, 80, 31, true, false, 80, 1, 1e-4, 12345U},
+  {11, 50, 41, true, true, 100, 1, 1e-4, 12345U},
+  {30, 34, 16, false, false, 20, 2, 1e-4, 12345U},
+  {10, 42, 20, false, true, 20, 2, 1e-4, 12345U},
+  {14, 8, 22, true, false, 20, 2, 1e-4, 12345U},
+  {56, 72, 28, true, true, 20, 2, 1e-4, 12345U},
+};
 
 typedef BlockGemmTest<float> BlockGemmTestF;
 TEST_P(BlockGemmTestF, Result) { ASSERT_EQ(errors, 0); }

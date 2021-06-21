@@ -17,9 +17,8 @@
 #include <cub/cub.cuh>
 
 #include <raft/cudart_utils.h>
+#include <raft/common/device_loads_stores.cuh>
 #include <raft/cuda_utils.cuh>
-
-/// TODO: move to raft, refactor
 
 namespace MLCommon {
 namespace LinAlg {
@@ -27,8 +26,9 @@ namespace LinAlg {
 /**
  * @todo: docs
  */
-template <int _kblk, int _rpt, int _cpt, int _tr, int _tc>
+template <int _veclen, int _kblk, int _rpt, int _cpt, int _tr, int _tc>
 struct BlockGemmPolicy {
+  static constexpr int VecLen = _veclen;
   static constexpr int RowsPerTh = _rpt;
   static constexpr int ColsPerTh = _cpt;
   static constexpr int WorkPerTh = RowsPerTh * ColsPerTh;
@@ -38,7 +38,24 @@ struct BlockGemmPolicy {
   static constexpr int Mblk = RowsPerTh * ThRows;
   static constexpr int Nblk = ColsPerTh * ThCols;
   static constexpr int BlockSize = ThRows * ThCols;
-};  // struct BlockGemmPolicy
+
+  static constexpr int AN_LdRows = Mblk / VecLen;
+  static constexpr int AT_LdRows = Kblk / VecLen;
+  static constexpr int BN_LdRows = Kblk / VecLen;
+  static constexpr int BT_LdRows = Nblk / VecLen;
+  static_assert(BlockSize % AN_LdRows == 0);
+  static_assert(BlockSize % AT_LdRows == 0);
+  static_assert(BlockSize % BN_LdRows == 0);
+  static_assert(BlockSize % BT_LdRows == 0);
+  static constexpr int AN_LdCols = BlockSize / AN_LdRows;
+  static constexpr int AT_LdCols = BlockSize / AT_LdRows;
+  static constexpr int BN_LdCols = BlockSize / BN_LdRows;
+  static constexpr int BT_LdCols = BlockSize / BT_LdRows;
+  static constexpr int AN_LdCount = Kblk / AN_LdCols;
+  static constexpr int AT_LdCount = Mblk / AT_LdCols;
+  static constexpr int BN_LdCount = Nblk / BN_LdCols;
+  static constexpr int BT_LdCount = Kblk / BT_LdCols;
+};
 
 /**
  * @todo: docs
@@ -48,7 +65,7 @@ struct BlockGemvPolicy {
   static constexpr int ThRows = _tr;
   static constexpr int ThCols = _tc;
   static constexpr int BlockSize = ThRows * ThCols;
-};  // struct BlockGemmPolicy
+};
 
 template <typename GemmPolicy, typename T>
 struct GemmStorage {
@@ -70,32 +87,41 @@ struct ReductionStorage {
   T broadcast;
 };
 
-/// TODO: more efficient implementation, vectorization
-template <typename GemmPolicy, typename T>
-DI void _block_gemm_load_tile(const T* global_matrix, T* shared_tile, int i0,
-                              int j0, int m, int n, int tm, int tn) {
-  for (int idx = threadIdx.x; idx < tm * tn; idx += GemmPolicy::BlockSize) {
-    int ti = idx % tm;
-    int tj = idx / tm;
-    int i = i0 + ti;
-    int j = j0 + tj;
-    shared_tile[tj * tm + ti] =
-      (i < m && j < n) ? global_matrix[j * m + i] : (T)0;
-  }
-}
+/// TODO: private namespace
+template <bool trans, int BlockSize, int VecLen, int LdRows, int LdCols,
+          int LdCount, int TileRows, int TileCols, typename T>
+DI void _load_tile(const T* global_matrix, T* shared_tile, int i0, int j0,
+                   int m, int n) {
+  int th_i = threadIdx.x % LdRows;
+  int th_j = threadIdx.x / LdRows;
 
-/// TODO: more efficient implementation, vectorization
-template <typename GemmPolicy, typename T>
-DI void _block_gemm_load_transpose_tile(const T* global_matrix, T* shared_tile,
-                                        int i0, int j0, int m, int n, int tm,
-                                        int tn) {
-  for (int idx = threadIdx.x; idx < tm * tn; idx += GemmPolicy::BlockSize) {
-    int ti = idx / tn;
-    int tj = idx % tn;
-    int i = i0 + ti;
-    int j = j0 + tj;
-    shared_tile[tj * tm + ti] =
-      (i < m && j < n) ? global_matrix[i * n + j] : (T)0;
+  for (int ld_idx = 0; ld_idx < LdCount; ld_idx++) {
+    T ldgData[VecLen];
+
+    /* First, load from global mem to registers */
+    int i = i0 + VecLen * th_i;
+    int j = j0 + th_j + ld_idx * LdCols;
+    if (i < m && j < n) {
+      raft::ldg(ldgData, global_matrix + j * m + i);
+    } else {
+#pragma unroll
+      for (int h = 0; h < VecLen; h++) {
+        ldgData[h] = (T)0;
+      }
+    }
+
+    /* Then, write to shared memory */
+    if (trans) {
+#pragma unroll
+      for (int h = 0; h < VecLen; h++) {
+        shared_tile[(VecLen * th_i + h) * TileCols + th_j + ld_idx * LdCols] =
+          ldgData[h];
+      }
+    } else {
+      raft::sts(
+        shared_tile + (th_j + ld_idx * LdCols) * TileRows + VecLen * th_i,
+        ldgData);
+    }
   }
 }
 
@@ -131,24 +157,35 @@ DI void _block_gemm(bool transa, bool transb, int m, int n, int k, T alpha,
            tile_k++) {
         /* Load a tile from A */
         if (transa)
-          _block_gemm_load_transpose_tile<GemmPolicy>(
-            a, shared_a_tile, blk_i * GemmPolicy::Mblk,
-            tile_k * GemmPolicy::Kblk, m, k, GemmPolicy::Mblk,
-            GemmPolicy::Kblk);
+          _load_tile<true, GemmPolicy::BlockSize, GemmPolicy::VecLen,
+                     GemmPolicy::AT_LdRows, GemmPolicy::AT_LdCols,
+                     GemmPolicy::AT_LdCount, GemmPolicy::Kblk,
+                     GemmPolicy::Mblk>(a, shared_a_tile,
+                                       tile_k * GemmPolicy::Kblk,
+                                       blk_i * GemmPolicy::Mblk, k, m);
         else
-          _block_gemm_load_tile<GemmPolicy>(a, shared_a_tile,
-                                            blk_i * GemmPolicy::Mblk,
-                                            tile_k * GemmPolicy::Kblk, m, k,
-                                            GemmPolicy::Mblk, GemmPolicy::Kblk);
+          _load_tile<false, GemmPolicy::BlockSize, GemmPolicy::VecLen,
+                     GemmPolicy::AN_LdRows, GemmPolicy::AN_LdCols,
+                     GemmPolicy::AN_LdCount, GemmPolicy::Mblk,
+                     GemmPolicy::Kblk>(a, shared_a_tile,
+                                       blk_i * GemmPolicy::Mblk,
+                                       tile_k * GemmPolicy::Kblk, m, k);
+
         /* Load a tile from B */
         if (transb)
-          _block_gemm_load_transpose_tile<GemmPolicy>(
-            b, shared_b_tile, tile_k * GemmPolicy::Kblk,
-            blk_j * GemmPolicy::Nblk, k, n, GemmPolicy::Kblk, GemmPolicy::Nblk);
+          _load_tile<true, GemmPolicy::BlockSize, GemmPolicy::VecLen,
+                     GemmPolicy::BT_LdRows, GemmPolicy::BT_LdCols,
+                     GemmPolicy::BT_LdCount, GemmPolicy::Nblk,
+                     GemmPolicy::Kblk>(b, shared_b_tile,
+                                       blk_j * GemmPolicy::Nblk,
+                                       tile_k * GemmPolicy::Kblk, n, k);
         else
-          _block_gemm_load_tile<GemmPolicy>(
-            b, shared_b_tile, tile_k * GemmPolicy::Kblk,
-            blk_j * GemmPolicy::Nblk, k, n, GemmPolicy::Kblk, GemmPolicy::Nblk);
+          _load_tile<false, GemmPolicy::BlockSize, GemmPolicy::VecLen,
+                     GemmPolicy::BN_LdRows, GemmPolicy::BN_LdCols,
+                     GemmPolicy::BN_LdCount, GemmPolicy::Kblk,
+                     GemmPolicy::Nblk>(b, shared_b_tile,
+                                       tile_k * GemmPolicy::Kblk,
+                                       blk_j * GemmPolicy::Nblk, k, n);
 
         __syncthreads();
 

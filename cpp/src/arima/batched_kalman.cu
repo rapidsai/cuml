@@ -604,8 +604,8 @@ void batched_kalman_loop(raft::handle_t& handle,
     CUDA_CHECK(cudaPeekAtLastError());
   } else {
     /// TODO: select based on rd
-    // using GemmPolicy = MLCommon::LinAlg::BlockGemmPolicy<16, 1, 4, 16, 4>;
-    using GemmPolicy = MLCommon::LinAlg::BlockGemmPolicy<32, 1, 4, 32, 8>;
+    // using GemmPolicy = MLCommon::LinAlg::BlockGemmPolicy<1, 16, 1, 4, 16, 4>;
+    using GemmPolicy = MLCommon::LinAlg::BlockGemmPolicy<1, 32, 1, 4, 32, 8>;
     using GemvPolicy = MLCommon::LinAlg::BlockGemvPolicy<32, 8>;
     _batched_kalman_device_loop_large<GemmPolicy, GemvPolicy>(
       arima_mem, ys, nobs, T, Z, RQR, P0, alpha, intercept, d_mu, rd, vs, Fs,
