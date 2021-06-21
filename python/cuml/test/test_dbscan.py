@@ -43,7 +43,7 @@ def test_dbscan(datatype, use_handle, nrows, ncols,
                 max_mbytes_per_batch, out_dtype):
     if nrows == 500000 and pytest.max_gpu_memory < 32:
         if pytest.adapt_stress_test:
-            nrows = int(nrows * pytest.max_gpu_memory / 32)
+            nrows = nrows * pytest.max_gpu_memory // 32
         else:
             pytest.skip("Insufficient GPU memory for this test. "
                         "Re-run with 'CUML_ADAPT_STRESS_TESTS=True'")
@@ -126,7 +126,7 @@ def test_dbscan_precomputed(datatype, nrows, max_mbytes_per_batch, out_dtype):
 def test_dbscan_sklearn_comparison(name, nrows, eps):
     if nrows == 500000 and name == 'blobs' and pytest.max_gpu_memory < 32:
         if pytest.adapt_stress_test:
-            nrows = int(nrows * pytest.max_gpu_memory / 32)
+            nrows = nrows * pytest.max_gpu_memory // 32
         else:
             pytest.skip("Insufficient GPU memory for this test."
                         "Re-run with 'CUML_ADAPT_STRESS_TESTS=True'")

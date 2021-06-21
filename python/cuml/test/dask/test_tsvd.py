@@ -32,7 +32,8 @@ def test_pca_fit(data_info, input_type, client):
     nrows, ncols, n_parts = data_info
     if nrows == int(9e6) and pytest.max_gpu_memory < 48:
         if pytest.adapt_stress_test:
-            nrows = int(nrows * pytest.max_gpu_memory / 48)
+            nrows = nrows * pytest.max_gpu_memory // 480
+            ncols = ncols * pytest.max_gpu_memory // 480
         else:
             pytest.skip("Insufficient GPU memory for this test."
                         "Re-run with 'CUML_ADAPT_STRESS_TESTS=True'")

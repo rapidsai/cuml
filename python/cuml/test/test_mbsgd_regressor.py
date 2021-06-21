@@ -40,7 +40,7 @@ def make_dataset(request):
     if nrows == 500000 and datatype == np.float64 and \
             pytest.max_gpu_memory < 32:
         if pytest.adapt_stress_test:
-            nrows = int(nrows * pytest.max_gpu_memory / 32)
+            nrows = nrows * pytest.max_gpu_memory // 32
         else:
             pytest.skip("Insufficient GPU memory for this test."
                         "Re-run with 'CUML_ADAPT_STRESS_TESTS=True'")

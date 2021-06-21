@@ -117,7 +117,7 @@ def test_lars_collinear(datatype, nrows, column_info, precompute):
     ncols, n_info = column_info
     if nrows == 500000 and ncols == 1000 and pytest.max_gpu_memory < 32:
         if pytest.adapt_stress_test:
-            nrows = int(nrows * pytest.max_gpu_memory / 32)
+            nrows = nrows * pytest.max_gpu_memory // 32
         else:
             pytest.skip("Insufficient GPU memory for this test."
                         "Re-run with 'CUML_ADAPT_STRESS_TESTS=True'")

@@ -204,7 +204,9 @@ def test_regressor_pickle(tmpdir, datatype, keys, data_size, fit_intercept):
             ("LogisticRegression" in keys or "Ridge" in keys) and \
             pytest.max_gpu_memory < 32:
         if pytest.adapt_stress_test:
-            data_size[0] = int(data_size[0] * pytest.max_gpu_memory / 32)
+            data_size[0] = data_size[0] * pytest.max_gpu_memory // 640
+            data_size[1] = data_size[1] * pytest.max_gpu_memory // 640
+            data_size[2] = data_size[2] * pytest.max_gpu_memory // 640
         else:
             pytest.skip("Insufficient GPU memory for this test."
                         "Re-run with 'CUML_ADAPT_STRESS_TESTS=True'")
@@ -395,7 +397,7 @@ def test_neighbors_pickle(tmpdir, datatype, keys, data_info):
     if data_info[0] == 500000 and pytest.max_gpu_memory < 32 and \
             ("KNeighborsClassifier" in keys or "KNeighborsRegressor" in keys):
         if pytest.adapt_stress_test:
-            data_info[0] = int(data_info[0] * pytest.max_gpu_memory / 32)
+            data_info[0] = data_info[0] * pytest.max_gpu_memory // 32
         else:
             pytest.skip("Insufficient GPU memory for this test."
                         "Re-run with 'CUML_ADAPT_STRESS_TESTS=True'")
@@ -433,7 +435,7 @@ def test_k_neighbors_classifier_pickle(tmpdir, datatype, data_info, keys):
     if data_info[0] == 500000 and "NearestNeighbors" in keys and \
             pytest.max_gpu_memory < 32:
         if pytest.adapt_stress_test:
-            data_info[0] = int(data_info[0] * pytest.max_gpu_memory / 32)
+            data_info[0] = data_info[0] * pytest.max_gpu_memory // 32
         else:
             pytest.skip("Insufficient GPU memory for this test."
                         "Re-run with 'CUML_ADAPT_STRESS_TESTS=True'")
@@ -501,7 +503,7 @@ def test_neighbors_pickle_nofit(tmpdir, datatype, data_info):
 def test_dbscan_pickle(tmpdir, datatype, keys, data_size):
     if data_size[0] == 500000 and pytest.max_gpu_memory < 32:
         if pytest.adapt_stress_test:
-            data_size[0] = int(data_size[0] * pytest.max_gpu_memory / 32)
+            data_size[0] = data_size[0] * pytest.max_gpu_memory // 32
         else:
             pytest.skip("Insufficient GPU memory for this test."
                         "Re-run with 'CUML_ADAPT_STRESS_TESTS=True'")
