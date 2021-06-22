@@ -40,9 +40,14 @@ void brute_force_knn(const raft::handle_t &handle, std::vector<float *> &input,
   ASSERT(input.size() == sizes.size(),
          "input and sizes vectors must be the same size");
 
-  raft::spatial::knn::brute_force_knn(
-    handle, input, sizes, D, search_items, n, res_I, res_D, k, rowMajorIndex,
-    rowMajorQuery, nullptr, metric, metric_arg);
+  if (metric == raft::distance::DistanceType::Haversine) {
+    raft::spatial::knn::random_ball_cover(handle, input[0], sizes[0], D, k,
+                                          res_I, res_D);
+  } else {
+    raft::spatial::knn::brute_force_knn(
+      handle, input, sizes, D, search_items, n, res_I, res_D, k, rowMajorIndex,
+      rowMajorQuery, nullptr, metric, metric_arg);
+  }
 }
 
 void approx_knn_build_index(raft::handle_t &handle,
