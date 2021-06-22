@@ -346,7 +346,7 @@ struct Builder {
                                      SAMPLES_PER_THREAD * Traits::TPB_DEFAULT);
       num_blocks = std::max(1, num_blocks);
 
-      if(num_blocks > 1) ++n_large_nodes_in_curr_batch;
+      if (num_blocks > 1) ++n_large_nodes_in_curr_batch;
 
       bool is_leaf = leafBasedOnParams<DataT, IdxT>(
         h_nodes[node_start + n].depth, params.max_depth,
@@ -356,7 +356,8 @@ struct Builder {
 
       for (int b = 0; b < num_blocks; b++) {
         h_workload_info[total_num_blocks + b].nodeid = n;
-        h_workload_info[total_num_blocks + b].large_nodeid = n_large_nodes_in_curr_batch - 1;
+        h_workload_info[total_num_blocks + b].large_nodeid =
+          n_large_nodes_in_curr_batch - 1;
         h_workload_info[total_num_blocks + b].offset_blockid = b;
         h_workload_info[total_num_blocks + b].num_blocks = num_blocks;
       }
@@ -368,7 +369,8 @@ struct Builder {
     auto n_col_blks = n_blks_for_cols;
     if (total_num_blocks) {
       for (IdxT c = 0; c < input.nSampledCols; c += n_col_blks) {
-        Traits::computeSplit(*this, c, batchSize, params.split_criterion, n_large_nodes_in_curr_batch, s);
+        Traits::computeSplit(*this, c, batchSize, params.split_criterion,
+                             n_large_nodes_in_curr_batch, s);
         CUDA_CHECK(cudaGetLastError());
       }
     }
@@ -429,8 +431,8 @@ struct ClsTraits {
    * @param[in] s         cuda stream
    */
   static void computeSplit(Builder<ClsTraits<DataT, LabelT, IdxT>>& b, IdxT col,
-                           IdxT batchSize, CRITERION splitType, int &n_large_nodes_in_curr_batch,
-                           cudaStream_t s) {
+                           IdxT batchSize, CRITERION splitType,
+                           int& n_large_nodes_in_curr_batch, cudaStream_t s) {
     ML::PUSH_RANGE(
       "Builder::computeSplit @builder_base.cuh [batched-levelalgo]");
     auto nbins = b.params.n_bins;
@@ -512,8 +514,8 @@ struct RegTraits {
    * @param[in] s         cuda stream
    */
   static void computeSplit(Builder<RegTraits<DataT, IdxT>>& b, IdxT col,
-                           IdxT batchSize, CRITERION splitType, int &n_large_nodes_in_curr_batch,
-                           cudaStream_t s) {
+                           IdxT batchSize, CRITERION splitType,
+                           int& n_large_nodes_in_curr_batch, cudaStream_t s) {
     ML::PUSH_RANGE(
       "Builder::computeSplit @builder_base.cuh [batched-levelalgo]");
     auto colBlks = std::min(b.n_blks_for_cols, b.input.nSampledCols - col);
@@ -537,10 +539,8 @@ struct RegTraits {
 
     int nPredCounts = 0;
     nPredCounts = n_large_nodes_in_curr_batch * nbins * colBlks;
-    CUDA_CHECK(
-      cudaMemsetAsync(b.pred, 0, sizeof(DataT) * nPredCounts * 2, s));
-    CUDA_CHECK(
-      cudaMemsetAsync(b.pred_count, 0, sizeof(IdxT) * nPredCounts, s));
+    CUDA_CHECK(cudaMemsetAsync(b.pred, 0, sizeof(DataT) * nPredCounts * 2, s));
+    CUDA_CHECK(cudaMemsetAsync(b.pred_count, 0, sizeof(IdxT) * nPredCounts, s));
 
     ML::PUSH_RANGE(
       "computeSplitRegressionKernel @builder_base.cuh [batched-levelalgo]");
