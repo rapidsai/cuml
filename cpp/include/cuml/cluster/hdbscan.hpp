@@ -308,4 +308,10 @@ void hdbscan(const raft::handle_t &handle, const float *X, size_t m, size_t n,
              raft::distance::DistanceType metric,
              HDBSCAN::Common::HDBSCANParams &params,
              HDBSCAN::Common::hdbscan_output<int, float> &out);
+
+void build_condensed_hierarchy(
+  const raft::handle_t &handle, const int *children, const float *delta,
+  const int *sizes, int min_cluster_size, int n_leaves,
+  HDBSCAN::Common::CondensedHierarchy<int, float> &condensed_tree);
+
 }  // END namespace ML

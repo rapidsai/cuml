@@ -46,6 +46,9 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
         LEAF "ML::HDBSCAN::Common::CLUSTER_SELECTION_METHOD::LEAF"
 
     cdef cppclass CondensedHierarchy_int_float:
+        CondensedHierarchy_int_float(const handle_t &handle,
+                                           size_t n_leaves)
+
         int *get_parents()
         int *get_children()
         float *get_lambdas()
@@ -88,6 +91,15 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
                  DistanceType metric,
                  HDBSCANParams & params,
                  hdbscan_output & output)
+
+    void build_condensed_hierarchy(
+      const handle_t &handle,
+      const int *children,
+      const float *delta,
+      const int *sizes,
+      int min_cluster_size,
+      int n_leaves,
+      CondensedHierarchy_int_float &condensed_tree)
 
 _metrics_mapping = {
     'l1': DistanceType.L1,
