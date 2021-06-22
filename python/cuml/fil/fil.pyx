@@ -23,6 +23,7 @@ import math
 import numpy as np
 import warnings
 import pandas as pd
+from inspect import getdoc
 
 import rmm
 
@@ -478,7 +479,8 @@ class ForestInference(Base,
 
     """
 
-    common_load_params_docstring = """
+    def common_load_params_docstring(func):
+        func.__doc__ = getdoc(func).format("""
     output_class: boolean (default=False)
         For a Classification model `output_class` must be True.
         For a Regression model `output_class` must be False.
@@ -521,15 +523,18 @@ class ForestInference(Base,
         if True or equivalent, creates a ForestInference.shape_str
         (writes a human-readable forest shape description as a
         multiline ascii string)
-    """
+    """)
+        return func
 
-    common_predict_params_docstring = """
+    def common_predict_params_docstring(func):
+        func.__doc__ = getdoc(func).format("""
     X : array-like (device or host) shape = (n_samples, n_features)
        Dense matrix (floats) of shape (n_samples, n_features).
        Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
        ndarray, cuda array interface compliant array like CuPy
        For optimal performance, pass a device array with C-style layout
-    """
+    """)
+        return func
 
     def __init__(self, *,
                  handle=None,
@@ -540,6 +545,7 @@ class ForestInference(Base,
                          output_type=output_type)
         self._impl = ForestInference_impl(self.handle)
 
+    @common_predict_params_docstring
     def predict(self, X, preds=None) -> CumlArray:
         """
         Predicts the labels for X with the loaded forest model.
@@ -551,8 +557,8 @@ class ForestInference(Base,
 
         Parameters
         ----------
-        """ + ForestInference.common_predict_params_docstring + """
-        preds: gpuarray or cudf.Series, shape = (n_samples,)
+    {}
+        preds : gpuarray or cudf.Series, shape = (n_samples,)
            Optional 'out' location to store inference results
 
         Returns
@@ -562,6 +568,7 @@ class ForestInference(Base,
         """
         return self._impl.predict(X, predict_proba=False, preds=None)
 
+    @common_predict_params_docstring
     def predict_proba(self, X, preds=None) -> CumlArray:
         """
         Predicts the class probabilities for X with the loaded forest model.
@@ -570,7 +577,7 @@ class ForestInference(Base,
 
         Parameters
         ----------
-        """ + ForestInference.common_predict_params_docstring + """
+    {}
         preds: gpuarray or cudf.Series, shape = (n_samples,2)
            Binary probability output
            Optional 'out' location to store inference results
@@ -582,6 +589,7 @@ class ForestInference(Base,
         """
         return self._impl.predict(X, predict_proba=True, preds=None)
 
+    @common_load_params_docstring
     def load_from_treelite_model(self, model, output_class=False,
                                  algo='auto',
                                  threshold=0.5,
@@ -600,7 +608,7 @@ class ForestInference(Base,
             the trained model information in the treelite format
             loaded from a saved model using the treelite API
             https://treelite.readthedocs.io/en/latest/treelite-api.html
-        """ + ForestInference.common_load_params_docstring + """
+    {}
         Returns
         ----------
         fil_model
@@ -619,6 +627,7 @@ class ForestInference(Base,
         return self
 
     @staticmethod
+    @common_load_params_docstring
     def load_from_sklearn(skl_model,
                           output_class=False,
                           threshold=0.50,
@@ -637,7 +646,7 @@ class ForestInference(Base,
         ----------
         skl_model
             The scikit-learn model from which to build the FIL version.
-        """ + ForestInference.common_load_params_docstring + """
+    {}
 
         Returns
         ----------
@@ -656,6 +665,7 @@ class ForestInference(Base,
         cuml_fm.load_from_treelite_model(model=tl_model, **kwargs)
         return cuml_fm
 
+    @common_load_params_docstring
     @staticmethod
     def load(filename,
              output_class=False,
@@ -678,7 +688,7 @@ class ForestInference(Base,
             Path to saved model file in a treelite-compatible format
             (See https://treelite.readthedocs.io/en/latest/treelite-api.html
             for more information)
-        """ + ForestInference.common_load_params_docstring + """
+    {}
         model_type : string (default="xgboost")
             Format of the saved treelite model to be load.
             It can be 'xgboost', 'xgboost_json', 'lightgbm'.
@@ -697,6 +707,7 @@ class ForestInference(Base,
         cuml_fm.load_from_treelite_model(model=tl_model, **kwargs)
         return cuml_fm
 
+    @common_load_params_docstring
     def load_using_treelite_handle(self,
                                    model_handle,
                                    output_class=False,
@@ -717,7 +728,7 @@ class ForestInference(Base,
         model_handle : Modelhandle to the treelite forest model
             (See https://treelite.readthedocs.io/en/latest/treelite-api.html
             for more information)
-        """ + ForestInference.common_load_params_docstring + """
+    {}
 
         Returns
         ----------
