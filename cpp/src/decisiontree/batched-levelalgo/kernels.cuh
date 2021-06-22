@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cuml/tree/algo_helper.h>
+#include <thrust/binary_search.h>
 #include <common/grid_sync.cuh>
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
@@ -40,113 +41,6 @@ struct WorkloadInfo {
                         // working on this node
   IdxT num_blocks;      // Total number of blocks that are working on the node
 };
-
-/**
- * @brief Traits used to customize device-side methods for classification task
- *
- * @tparam _data  data type
- * @tparam _label label type
- * @tparam _idx   index type
- * @tparam TPB    threads per block
- */
-template <typename _data, typename _label, typename _idx, int TPB>
-struct ClsDeviceTraits {
-  typedef _data DataT;
-  typedef _label LabelT;
-  typedef _idx IdxT;
-
- private:
-  struct Int2Max {
-    DI int2 operator()(const int2& a, const int2& b) {
-      int2 out;
-      if (a.y > b.y)
-        out = a;
-      else if (a.y == b.y && a.x < b.x)
-        out = a;
-      else
-        out = b;
-      return out;
-    }
-  };  // struct Int2Max
-
- public:
-  /**
-   * @note to be called by only one block from all participating blocks
-   *       'smem' must be atleast of size `sizeof(int) * input.nclasses`
-   */
-  static DI void computePrediction(IdxT range_start, IdxT range_len,
-                                   const Input<DataT, LabelT, IdxT>& input,
-                                   volatile Node<DataT, LabelT, IdxT>* nodes,
-                                   IdxT* n_leaves, void* smem) {
-    typedef cub::BlockReduce<int2, TPB> BlockReduceT;
-    __shared__ typename BlockReduceT::TempStorage temp;
-    auto* shist = reinterpret_cast<int*>(smem);
-    auto tid = threadIdx.x;
-    for (int i = tid; i < input.nclasses; i += blockDim.x) shist[i] = 0;
-    __syncthreads();
-    auto len = range_start + range_len;
-    for (auto i = range_start + tid; i < len; i += blockDim.x) {
-      auto label = input.labels[input.rowids[i]];
-      atomicAdd(shist + label, 1);
-    }
-    __syncthreads();
-    auto op = Int2Max();
-    int2 v = {-1, -1};
-    for (int i = tid; i < input.nclasses; i += blockDim.x) {
-      int2 tmp = {i, shist[i]};
-      v = op(v, tmp);
-    }
-    v = BlockReduceT(temp).Reduce(v, op);
-    __syncthreads();
-    if (tid == 0) {
-      nodes[0].makeLeaf(n_leaves, LabelT(v.x));
-    }
-  }
-};  // struct ClsDeviceTraits
-
-/**
- * @brief Traits used to customize device-side methods for regression task
- *
- * @tparam _data  data type
- * @tparam _label label type
- * @tparam _idx   index type
- * @tparam TPB    threads per block
- */
-template <typename _data, typename _label, typename _idx, int TPB>
-struct RegDeviceTraits {
-  typedef _data DataT;
-  typedef _label LabelT;
-  typedef _idx IdxT;
-
-  /**
-   * @note to be called by only one block from all participating blocks
-   *       'smem' is not used, but kept for the sake of interface parity with
-   *       the corresponding method for classification
-   */
-  static DI void computePrediction(IdxT range_start, IdxT range_len,
-                                   const Input<DataT, LabelT, IdxT>& input,
-                                   volatile Node<DataT, LabelT, IdxT>* nodes,
-                                   IdxT* n_leaves, void* smem) {
-    typedef cub::BlockReduce<LabelT, TPB> BlockReduceT;
-    __shared__ typename BlockReduceT::TempStorage temp;
-    LabelT sum = LabelT(0.0);
-    auto tid = threadIdx.x;
-    auto len = range_start + range_len;
-    for (auto i = range_start + tid; i < len; i += blockDim.x) {
-      auto label = input.labels[input.rowids[i]];
-      sum += label;
-    }
-    sum = BlockReduceT(temp).Sum(sum);
-    __syncthreads();
-    if (tid == 0) {
-      if (range_len != 0) {
-        nodes[0].makeLeaf(n_leaves, sum / range_len);
-      } else {
-        nodes[0].makeLeaf(n_leaves, 0.0);
-      }
-    }
-  }
-};  // struct RegDeviceTraits
 
 /**
  * @brief Decide whether the current node is to be declared as a leaf entirely
@@ -240,7 +134,30 @@ DI void partitionSamples(const Input<DataT, LabelT, IdxT>& input,
   }
 }
 
-template <typename DataT, typename LabelT, typename IdxT, typename DevTraits,
+template <typename IdxT, typename LabelT, typename DataT, typename ObjectiveT,
+          int TPB>
+DI void computePrediction(IdxT range_start, IdxT range_len,
+                          const Input<DataT, LabelT, IdxT>& input,
+                          volatile Node<DataT, LabelT, IdxT>* nodes,
+                          IdxT* n_leaves, void* smem) {
+  using BinT = typename ObjectiveT::BinT;
+  auto* shist = reinterpret_cast<BinT*>(smem);
+  auto tid = threadIdx.x;
+  for (int i = tid; i < input.numOutputs; i += blockDim.x) shist[i] = BinT();
+  __syncthreads();
+  auto len = range_start + range_len;
+  for (auto i = range_start + tid; i < len; i += blockDim.x) {
+    auto label = input.labels[input.rowids[i]];
+    BinT::IncrementHistogram(shist, 1, 0, label);
+  }
+  __syncthreads();
+  if (tid == 0) {
+    auto pred = ObjectiveT::LeafPrediction(shist, input.numOutputs);
+    nodes[0].makeLeaf(n_leaves, pred);
+  }
+}
+
+template <typename DataT, typename LabelT, typename IdxT, typename ObjectiveT,
           int TPB>
 __global__ void nodeSplitKernel(IdxT max_depth, IdxT min_samples_leaf,
                                 IdxT min_samples_split, IdxT max_leaves,
@@ -261,8 +178,8 @@ __global__ void nodeSplitKernel(IdxT max_depth, IdxT min_samples_leaf,
   if (isLeaf || split.best_metric_val <= min_impurity_decrease ||
       split.nLeft < min_samples_leaf ||
       (n_samples - split.nLeft) < min_samples_leaf) {
-    DevTraits::computePrediction(range_start, n_samples, input, node, n_leaves,
-                                 smem);
+    computePrediction<IdxT, LabelT, DataT, ObjectiveT, TPB>(
+      range_start, n_samples, input, node, n_leaves, smem);
     return;
   }
   partitionSamples<DataT, LabelT, IdxT, TPB>(input, splits, curr_nodes,
@@ -349,21 +266,21 @@ DI IdxT select(IdxT k, IdxT treeid, uint32_t nodeid, uint64_t seed, IdxT N) {
  * @return The total sum aggregated over the sumscan,
  *         as well as the modified cdf-histogram pointer
  */
-template <typename DataT, typename IdxT, int TPB>
-DI DataT pdf_to_cdf(DataT* pdf_shist, DataT* cdf_shist, IdxT nbins) {
+template <typename BinT, typename IdxT, int TPB>
+DI BinT pdf_to_cdf(BinT* pdf_shist, BinT* cdf_shist, IdxT nbins) {
   // Blockscan instance preparation
-  typedef cub::BlockScan<DataT, TPB> BlockScan;
+  typedef cub::BlockScan<BinT, TPB> BlockScan;
   __shared__ typename BlockScan::TempStorage temp_storage;
 
   // variable to accumulate aggregate of sumscans of previous iterations
-  DataT total_aggregate = DataT(0);
+  BinT total_aggregate = BinT();
 
   for (IdxT tix = threadIdx.x; tix < raft::ceildiv(nbins, TPB) * TPB;
        tix += blockDim.x) {
-    DataT result;
-    DataT block_aggregate;
+    BinT result;
+    BinT block_aggregate;
     // getting the scanning element from pdf shist only
-    DataT element = tix < nbins ? pdf_shist[tix] : 0;
+    BinT element = tix < nbins ? pdf_shist[tix] : BinT();
     // inclusive sum scan
     BlockScan(temp_storage).InclusiveSum(element, result, block_aggregate);
     __syncthreads();
@@ -377,13 +294,14 @@ DI DataT pdf_to_cdf(DataT* pdf_shist, DataT* cdf_shist, IdxT nbins) {
   return total_aggregate;
 }
 
-template <typename DataT, typename LabelT, typename IdxT, int TPB>
-__global__ void computeSplitClassificationKernel(
-  int* hist, IdxT n_bins, IdxT min_samples_leaf, DataT min_impurity_decrease,
-  Input<DataT, LabelT, IdxT> input, const Node<DataT, LabelT, IdxT>* nodes,
-  IdxT colStart, int* done_count, int* mutex,
-  volatile Split<DataT, IdxT>* splits, CRITERION splitType, IdxT treeid,
-  WorkloadInfo<IdxT>* workload_info, uint64_t seed) {
+template <typename DataT, typename LabelT, typename IdxT, int TPB,
+          typename ObjectiveT, typename BinT>
+__global__ void computeSplitKernel(
+  BinT* hist, IdxT nbins, IdxT max_depth, IdxT min_samples_split,
+  IdxT max_leaves, Input<DataT, LabelT, IdxT> input,
+  const Node<DataT, LabelT, IdxT>* nodes, IdxT colStart, int* done_count,
+  int* mutex, volatile Split<DataT, IdxT>* splits, ObjectiveT objective,
+  IdxT treeid, WorkloadInfo<IdxT>* workload_info, uint64_t seed) {
   extern __shared__ char smem[];
   // Read workload info for this block
   WorkloadInfo<IdxT> workload_info_cta = workload_info[blockIdx.x];
@@ -397,13 +315,12 @@ __global__ void computeSplitClassificationKernel(
   IdxT num_blocks = workload_info_cta.num_blocks;
 
   auto end = range_start + range_len;
-  auto nclasses = input.nclasses;
-  auto pdf_shist_len = (n_bins + 1) * nclasses;
-  auto cdf_shist_len = n_bins * 2 * nclasses;
-  auto* pdf_shist = alignPointer<int>(smem);
-  auto* cdf_shist = alignPointer<int>(pdf_shist + pdf_shist_len);
+  auto pdf_shist_len = nbins * objective.NumClasses();
+  auto cdf_shist_len = nbins * objective.NumClasses();
+  auto* pdf_shist = alignPointer<BinT>(smem);
+  auto* cdf_shist = alignPointer<BinT>(pdf_shist + pdf_shist_len);
   auto* sbins = alignPointer<DataT>(cdf_shist + cdf_shist_len);
-  auto* sDone = alignPointer<int>(sbins + n_bins);
+  auto* sDone = alignPointer<int>(sbins + nbins);
   IdxT stride = blockDim.x * num_blocks;
   IdxT tid = threadIdx.x + offset_blockid * blockDim.x;
 
@@ -418,11 +335,11 @@ __global__ void computeSplitClassificationKernel(
 
   // populating shared memory with initial values
   for (IdxT i = threadIdx.x; i < pdf_shist_len; i += blockDim.x)
-    pdf_shist[i] = 0;
+    pdf_shist[i] = BinT();
   for (IdxT j = threadIdx.x; j < cdf_shist_len; j += blockDim.x)
-    cdf_shist[j] = 0;
-  for (IdxT b = threadIdx.x; b < n_bins; b += blockDim.x)
-    sbins[b] = input.quantiles[col * n_bins + b];
+    cdf_shist[j] = BinT();
+  for (IdxT b = threadIdx.x; b < nbins; b += blockDim.x)
+    sbins[b] = input.quantiles[col * nbins + b];
 
   // synchronizing above changes across block
   __syncthreads();
@@ -434,13 +351,9 @@ __global__ void computeSplitClassificationKernel(
     auto row = input.rowids[i];
     auto d = input.data[row + coloffset];
     auto label = input.labels[row];
-    for (IdxT b = 0; b < n_bins; ++b) {
-      if (d <= sbins[b]) {
-        auto offset = label * (1 + n_bins) + b;
-        atomicAdd(pdf_shist + offset, 1);
-        break;
-      }
-    }
+    IdxT bin =
+      thrust::lower_bound(thrust::seq, sbins, sbins + nbins, d) - sbins;
+    BinT::IncrementHistogram(pdf_shist, nbins, bin, label);
   }
 
   // synchronizeing above changes across block
@@ -449,7 +362,7 @@ __global__ void computeSplitClassificationKernel(
     // update the corresponding global location
     auto histOffset = ((large_nid * gridDim.y) + blockIdx.y) * pdf_shist_len;
     for (IdxT i = threadIdx.x; i < pdf_shist_len; i += blockDim.x) {
-      atomicAdd(hist + histOffset + i, pdf_shist[i]);
+      BinT::AtomicAdd(hist + histOffset + i, pdf_shist[i]);
     }
 
     __threadfence();  // for commit guarantee
@@ -479,180 +392,24 @@ __global__ void computeSplitClassificationKernel(
    * * second from right to left to sum-scan the right splits
    *   for each split-point
    */
-  for (IdxT c = 0; c < nclasses; ++c) {
+  for (IdxT c = 0; c < objective.NumClasses(); ++c) {
     /** left to right scan operation for scanning
      *  lesser-than-or-equal-to-bin counts **/
     // offsets to pdf and cdf shist pointers
-    auto offset_pdf = (1 + n_bins) * c;
-    auto offset_cdf = (2 * n_bins) * c;
+    auto offset_pdf = nbins * c;
+    auto offset_cdf = nbins * c;
     // converting pdf to cdf
-    int total_sum = pdf_to_cdf<int, IdxT, TPB>(pdf_shist + offset_pdf,
-                                               cdf_shist + offset_cdf, n_bins);
-
-    // greater-than split starts after nbins of less-than-equal split
-    // locations
-    offset_cdf += n_bins;
-    /** samples that are greater-than-bin calculated by difference
-     *  of count of lesser-than-equal samples from total_sum.
-     **/
-    for (IdxT i = threadIdx.x; i < n_bins; i += blockDim.x) {
-      *(cdf_shist + offset_cdf + i) =
-        total_sum - *(cdf_shist + 2 * n_bins * c + i);
-    }
+    BinT total_sum = pdf_to_cdf<BinT, IdxT, TPB>(pdf_shist + offset_pdf,
+                                                 cdf_shist + offset_cdf, nbins);
   }
 
   // create a split instance to test current feature split
-  Split<DataT, IdxT> sp;
-  sp.init();
   __syncthreads();
 
   // calculate the best candidate bins (one for each block-thread) in current feature and corresponding information gain for splitting
-  if (splitType == CRITERION::GINI) {
-    giniGain<DataT, IdxT>(cdf_shist, sbins, sp, col, range_len, n_bins,
-                          nclasses, min_samples_leaf, min_impurity_decrease);
-  } else {
-    entropyGain<DataT, IdxT>(cdf_shist, sbins, sp, col, range_len, n_bins,
-                             nclasses, min_samples_leaf, min_impurity_decrease);
-  }
-  __syncthreads();
+  Split<DataT, IdxT> sp =
+    objective.Gain(cdf_shist, sbins, col, range_len, nbins);
 
-  // calculate best bins among candidate bins per feature using warp reduce
-  // then atomically update across features to get best split per node (in split[nid])
-  sp.evalBestSplit(smem, splits + nid, mutex + nid);
-}
-
-template <typename DataT, typename LabelT, typename IdxT, int TPB>
-__global__ void computeSplitRegressionKernel(
-  DataT* pred, IdxT* count, IdxT nbins, IdxT min_samples_leaf,
-  DataT min_impurity_decrease, Input<DataT, LabelT, IdxT> input,
-  const Node<DataT, LabelT, IdxT>* nodes, IdxT colStart, int* done_count,
-  int* mutex, volatile Split<DataT, IdxT>* splits, CRITERION splitType,
-  IdxT treeid, WorkloadInfo<IdxT>* workload_info, uint64_t seed) {
-  extern __shared__ char smem[];
-  // Read workload info for this block
-  WorkloadInfo<IdxT> workload_info_cta = workload_info[blockIdx.x];
-  IdxT nid = workload_info_cta.nodeid;
-  IdxT large_nid = workload_info_cta.large_nodeid;
-
-  auto node = nodes[nid];
-  auto range_start = node.start;
-  auto range_len = node.count;
-
-  IdxT offset_blockid = workload_info_cta.offset_blockid;
-  IdxT num_blocks = workload_info_cta.num_blocks;
-
-  // variables
-  auto end = range_start + range_len;
-  auto pdf_spred_len = 1 + nbins;
-  auto cdf_spred_len = nbins;
-
-  IdxT stride = blockDim.x * num_blocks;
-  IdxT tid = threadIdx.x + offset_blockid * blockDim.x;
-
-  IdxT col;
-
-  // allocating pointers to shared memory
-  auto* pdf_spred = alignPointer<DataT>(smem);
-  auto* cdf_spred = alignPointer<DataT>(pdf_spred + pdf_spred_len);
-  auto* pdf_scount = alignPointer<int>(cdf_spred + cdf_spred_len);
-  auto* cdf_scount = alignPointer<int>(pdf_scount + nbins);
-  auto* sbins = alignPointer<DataT>(cdf_scount + nbins);
-  auto* sDone = alignPointer<int>(sbins + nbins);
-
-  // select random feature to split-check
-  // (if feature-sampling is true)
-  if (input.nSampledCols == input.N) {
-    col = colStart + blockIdx.y;
-  } else {
-    int colIndex = colStart + blockIdx.y;
-    col = select(colIndex, treeid, node.info.unique_id, seed, input.N);
-  }
-
-  // memset smem pointers
-  for (IdxT i = threadIdx.x; i < pdf_spred_len; i += blockDim.x) {
-    pdf_spred[i] = DataT(0.0);
-  }
-  for (IdxT i = threadIdx.x; i < cdf_spred_len; i += blockDim.x) {
-    cdf_spred[i] = DataT(0.0);
-  }
-  for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
-    pdf_scount[i] = 0;
-    cdf_scount[i] = 0;
-    sbins[i] = input.quantiles[col * nbins + i];
-  }
-  __syncthreads();
-  auto coloffset = col * input.M;
-
-  // compute prediction pdfs and count pdfs
-  for (auto i = range_start + tid; i < end; i += stride) {
-    auto row = input.rowids[i];
-    auto d = input.data[row + coloffset];
-    auto label = input.labels[row];
-    for (IdxT b = 0; b < nbins; ++b) {
-      // if sample is less-than-or-equal to threshold
-      if (d <= sbins[b]) {
-        atomicAdd(pdf_spred + b, label);
-        atomicAdd(pdf_scount + b, 1);
-        break;
-      }
-    }
-  }
-  __syncthreads();
-
-  if (num_blocks > 1) {
-    // update the corresponding global location for counts
-    auto gcOffset = ((large_nid * gridDim.y) + blockIdx.y) * nbins;
-    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
-      atomicAdd(count + gcOffset + i, pdf_scount[i]);
-    }
-
-    // update the corresponding global location for preds
-    auto gOffset = ((large_nid * gridDim.y) + blockIdx.y) * pdf_spred_len;
-    for (IdxT i = threadIdx.x; i < pdf_spred_len; i += blockDim.x) {
-      atomicAdd(pred + gOffset + i, pdf_spred[i]);
-    }
-    __threadfence();  // for commit guarantee
-    __syncthreads();
-
-    // last threadblock will go ahead and compute the best split
-    bool last = true;
-    last = MLCommon::signalDone(done_count + nid * gridDim.y + blockIdx.y,
-                                num_blocks, offset_blockid == 0, sDone);
-
-    // exit if not last
-    if (!last) return;
-
-    // transfer from global to smem
-    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
-      pdf_scount[i] = count[gcOffset + i];
-    }
-    for (IdxT i = threadIdx.x; i < pdf_spred_len; i += blockDim.x) {
-      pdf_spred[i] = pred[gOffset + i];
-    }
-    __syncthreads();
-  }
-  /** pdf to cdf conversion **/
-
-  /** get cdf of spred from pdf_spred **/
-  // cdf of samples lesser-than-equal to threshold
-  DataT total_sum = pdf_to_cdf<DataT, IdxT, TPB>(pdf_spred, cdf_spred, nbins);
-
-  /** get cdf of scount from pdf_scount **/
-  pdf_to_cdf<int, IdxT, TPB>(pdf_scount, cdf_scount, nbins);
-
-  __threadfence();  // for commit guarantee
-  __syncthreads();
-
-  // last block computes the final gain
-  // create a split instance to test current feature split
-  Split<DataT, IdxT> sp;
-  sp.init();
-
-  // calculate the best candidate bins (one for each block-thread) in current
-  // feature and corresponding regression-metric gain for splitting
-  regressionMetricGain(cdf_spred, cdf_scount, total_sum, sbins, sp, col,
-                       range_len, nbins, min_samples_leaf,
-                       min_impurity_decrease);
   __syncthreads();
 
   // calculate best bins among candidate bins per feature using warp reduce
