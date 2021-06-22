@@ -47,7 +47,7 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
 
     cdef cppclass CondensedHierarchy_int_float:
         CondensedHierarchy_int_float(const handle_t &handle,
-                                           size_t n_leaves)
+                                     size_t n_leaves)
 
         int *get_parents()
         int *get_children()
@@ -548,6 +548,29 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         cluster labels.
         """
         return self.fit(X).labels_
+
+    def condense_hierarchy(dendrogram) -> CumlArray:
+
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+
+        n_leaves = dendrogram.shape[0] / 2 - 1
+        CondensedHierarchy_int_float condensed_tree = \
+            CondensedHierarchy_int_float(handle_[0], n_leaves)
+
+        # TODO: Create cuml arrays
+        children = dendrogram[:, 0:1]
+        deltas = dendrogram[:, 2]
+        sizes = dendrogram[:, 3]
+
+        build_condensed_hierarchy(handle_[0],
+                                  <int*> children,
+                                  <float*> deltas,
+                                  <int*> sizes,
+                                  <int>self.min_cluster_size,
+                                  n_leaves,
+                                  condensed_tree)
+
+        # TODO: Return condensed arrays
 
     def get_param_names(self):
         return super().get_param_names() + [
