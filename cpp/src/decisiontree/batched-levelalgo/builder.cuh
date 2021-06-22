@@ -22,6 +22,7 @@
 #include <raft/mr/host/allocator.hpp>
 
 #include "builder_base.cuh"
+
 #include <common/nvtx.hpp>
 
 namespace ML {

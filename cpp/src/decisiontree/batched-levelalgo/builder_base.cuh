@@ -517,7 +517,6 @@ struct RegTraits {
     ML::PUSH_RANGE(
       "Builder::computeSplit @builder_base.cuh [batched-levelalgo]");
     auto colBlks = std::min(b.n_blks_for_cols, b.input.nSampledCols - col);
-    // CUML_LOG_WARN("column blocks used: %d", colBlks);
     auto nbins = b.params.n_bins;
 
     // Compute shared memory size
@@ -538,7 +537,6 @@ struct RegTraits {
 
     int nPredCounts = 0;
     nPredCounts = n_large_nodes_in_curr_batch * nbins * colBlks;
-    // std::cout<<"nPredCounts = "<<nPredCounts<<std::endl;
     CUDA_CHECK(
       cudaMemsetAsync(b.pred, 0, sizeof(DataT) * nPredCounts * 2, s));
     CUDA_CHECK(

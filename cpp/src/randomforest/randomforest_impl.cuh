@@ -442,7 +442,6 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
     n_sampled_rows = n_rows;
   }
   int n_streams = this->rf_params.n_streams;
-  CUML_LOG_WARN("\n rf_params.n_streams: %d \n", n_streams);
   ASSERT(
     n_streams <= handle.get_num_internal_streams(),
     "rf_params.n_streams (=%d) should be <= raft::handle_t.n_streams (=%d)",
