@@ -160,6 +160,9 @@ def test_hdbscan_sklearn_datasets(dataset,
     assert np.allclose(np.sort(sk_agg.cluster_persistence_),
            np.sort(cuml_agg.cluster_persistence_), rtol=0.1, atol=0.1)
 
+    cuml_agg._extract_clusters(sk_agg.condensed_tree_)
+    assert adjusted_rand_score(cuml_agg.labels_test, sk_agg.labels_) == 1.0
+
 
 @pytest.mark.parametrize('nrows', [1000])
 @pytest.mark.parametrize('dataset', dataset_names)

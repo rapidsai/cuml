@@ -308,4 +308,11 @@ void hdbscan(const raft::handle_t &handle, const float *X, size_t m, size_t n,
              raft::distance::DistanceType metric,
              HDBSCAN::Common::HDBSCANParams &params,
              HDBSCAN::Common::hdbscan_output<int, float> &out);
+
+void _extract_clusters(
+  const raft::handle_t &handle, size_t n_leaves, int n_edges, int *parents,
+  int *children, float *lambdas, int *sizes, int *labels, float *probabilities,
+  HDBSCAN::Common::CLUSTER_SELECTION_METHOD cluster_selection_method,
+  bool allow_single_cluster, int max_cluster_size,
+  float cluster_selection_epsilon);
 }  // END namespace ML

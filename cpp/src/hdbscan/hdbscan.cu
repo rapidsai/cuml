@@ -27,4 +27,23 @@ void hdbscan(const raft::handle_t &handle, const float *X, size_t m, size_t n,
   HDBSCAN::_fit_hdbscan(handle, X, m, n, metric, params, out);
 }
 
+void _extract_clusters(
+  const raft::handle_t &handle, size_t n_leaves, int n_edges, int *parents,
+  int *children, float *lambdas, int *sizes, int *labels, float *probabilities,
+  HDBSCAN::Common::CLUSTER_SELECTION_METHOD cluster_selection_method,
+  bool allow_single_cluster, int max_cluster_size,
+  float cluster_selection_epsilon) {
+  HDBSCAN::Common::CondensedHierarchy condensed_tree(
+    handle, n_leaves, n_edges, parents, children, lambdas, sizes);
+
+  rmm::device_uvector<float> stabilities(condensed_tree.get_n_clusters(),
+                                         handle.get_stream());
+  rmm::device_uvector<int> label_map(n_leaves, handle.get_stream());
+
+  HDBSCAN::detail::Extract::extract_clusters(
+    handle, condensed_tree, n_leaves, labels, stabilities.data(), probabilities,
+    label_map.data(), cluster_selection_method, allow_single_cluster,
+    max_cluster_size, cluster_selection_epsilon);
+}
+
 };  // end namespace ML
