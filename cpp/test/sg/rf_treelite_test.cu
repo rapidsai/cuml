@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <decisiontree/decisiontree_impl.h>
+#include <decisiontree/decisiontree.cuh>
 #include <decisiontree/treelite_util.h>
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>

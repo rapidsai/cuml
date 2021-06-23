@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include <decisiontree/decisiontree_impl.h>
+#include <decisiontree/decisiontree.cuh>
 #include <cuml/ensemble/randomforest.hpp>
 #include <map>
 #include <raft/mr/device/allocator.hpp>

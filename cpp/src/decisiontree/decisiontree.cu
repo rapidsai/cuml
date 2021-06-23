@@ -19,7 +19,7 @@
 #include <raft/handle.hpp>
 
 #include <cuml/tree/flatnode.h>
-#include "decisiontree_impl.cuh"
+#include "decisiontree.cuh"
 
 namespace ML {
 namespace DT {
