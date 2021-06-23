@@ -28,7 +28,7 @@
 #include <cuml/common/logger.hpp>
 #include <raft/error.hpp>
 
-#include "randomforest_impl.cuh"
+#include "randomforest.cuh"
 
 #include <cstdio>
 #include <cstring>
