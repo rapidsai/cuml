@@ -185,6 +185,7 @@ include(cmake/thirdparty/get_rmm.cmake)
 include(cmake/thirdparty/get_faiss.cmake)
 include(cmake/thirdparty/get_treelite.cmake)
 include(cmake/thirdparty/get_raft.cmake)
+include(cmake/thirdparty/get_cuco.cmake)
 
 if(NOT SINGLEGPU)
   include(cmake/thirdparty/get_nccl.cmake)
@@ -337,6 +338,7 @@ if(BUILD_CUML_CPP_LIBRARY)
       cuml::Thrust
       raft::raft
     PRIVATE
+      cuco::cuco
       CUDA::cublas
       CUDA::cufft
       CUDA::curand
