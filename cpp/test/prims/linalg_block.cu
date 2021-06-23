@@ -448,7 +448,7 @@ INSTANTIATE_TEST_CASE_P(BlockDotTests, BlockDotTestF,
 INSTANTIATE_TEST_CASE_P(BlockDotTests, BlockDotTestD,
                         ::testing::ValuesIn(dot_inputsd));
 
-/* xAx' */
+/* x*A*x' */
 
 template <typename T>
 struct BlockXaxtInputs {
@@ -585,6 +585,108 @@ INSTANTIATE_TEST_CASE_P(BlockXaxtTests, BlockXaxtTestF,
 
 INSTANTIATE_TEST_CASE_P(BlockXaxtTests, BlockXaxtTestD,
                         ::testing::ValuesIn(xAxt_inputsd));
+
+/* y=alpha*x */
+
+template <typename T>
+struct BlockAxInputs {
+  int n;
+  int batch_size;
+  T eps;
+  unsigned long long int seed;
+};
+
+template <typename T>
+::std::ostream& operator<<(::std::ostream& os, const BlockAxInputs<T>& dims) {
+  return os;
+}
+
+template <typename T>
+__global__ void block_ax_test_kernel(int n, T alpha, const T* x, T* y) {
+  _block_ax(n, alpha, x + n * blockIdx.x, y + n * blockIdx.x);
+}
+
+template <typename T>
+class BlockAxTest : public ::testing::TestWithParam<BlockAxInputs<T>> {
+ protected:
+  void basicTest() {
+    raft::handle_t handle;
+
+    params = ::testing::TestWithParam<BlockAxInputs<T>>::GetParam();
+
+    device_buffer<T> x(handle.get_device_allocator(), handle.get_stream(),
+                       params.n * params.batch_size);
+    device_buffer<T> y(handle.get_device_allocator(), handle.get_stream(),
+                       params.n * params.batch_size);
+
+    std::vector<T> h_x(params.n * params.batch_size);
+    std::vector<T> h_y_ref(params.n * params.batch_size, (T)0);
+    std::vector<T> h_y_dev(params.n * params.batch_size);
+
+    /* Generate random data */
+    std::default_random_engine generator(params.seed);
+    std::uniform_real_distribution<double> distribution(-2.0, 2.0);
+    for (int i = 0; i < params.n * params.batch_size; i++)
+      h_x[i] = distribution(generator);
+    T alpha = distribution(generator);
+
+    /* Copy to device */
+    raft::copy(x.data(), h_x.data(), params.n * params.batch_size,
+               handle.get_stream());
+
+    /* Compute reference results */
+    for (int bid = 0; bid < params.batch_size; bid++) {
+      for (int i = 0; i < params.n; i++) {
+        h_y_ref[bid * params.n + i] = alpha * h_x[bid * params.n + i];
+      }
+    }
+
+    /* Compute using tested prims */
+    constexpr int BlockSize = 64;
+    block_ax_test_kernel<<<params.batch_size, BlockSize, 0,
+                           handle.get_stream()>>>(params.n, alpha, x.data(),
+                                                  y.data());
+
+    /* Copy results to host */
+    raft::copy(h_y_dev.data(), y.data(), params.n * params.batch_size,
+               handle.get_stream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+
+    /* Count errors */
+    errors = 0;
+    for (int i = 0; i < params.n * params.batch_size; i++) {
+      T diff = abs(h_y_dev[i] - h_y_ref[i]);
+      if (std::isnan(diff) || diff > params.eps) errors++;
+    }
+  }
+
+  void SetUp() override { basicTest(); }
+
+  void TearDown() override {}
+
+ protected:
+  BlockAxInputs<T> params;
+
+  int errors;
+};
+
+const std::vector<BlockAxInputs<float>> ax_inputsf = {
+  {9, 20, 1e-4, 12345U}, {65, 50, 1e-4, 12345U}, {200, 100, 1e-4, 12345U}};
+
+const std::vector<BlockAxInputs<double>> ax_inputsd = {
+  {9, 20, 1e-4, 12345U}, {65, 50, 1e-4, 12345U}, {200, 100, 1e-4, 12345U}};
+
+typedef BlockAxTest<float> BlockAxTestF;
+TEST_P(BlockAxTestF, Result) { ASSERT_EQ(errors, 0); }
+
+typedef BlockAxTest<double> BlockAxTestD;
+TEST_P(BlockAxTestD, Result) { ASSERT_EQ(errors, 0); }
+
+INSTANTIATE_TEST_CASE_P(BlockAxTests, BlockAxTestF,
+                        ::testing::ValuesIn(ax_inputsf));
+
+INSTANTIATE_TEST_CASE_P(BlockAxTests, BlockAxTestD,
+                        ::testing::ValuesIn(ax_inputsd));
 
 }  // namespace LinAlg
 }  // namespace MLCommon

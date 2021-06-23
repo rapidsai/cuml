@@ -20,74 +20,9 @@
 #include <raft/common/device_loads_stores.cuh>
 #include <raft/cuda_utils.cuh>
 
-namespace MLCommon {
-namespace LinAlg {
+// Anonymous namespace for internal auxiliary functions
+namespace {
 
-/**
- * @todo: docs
- */
-template <int _veclen, int _kblk, int _rpt, int _cpt, int _tr, int _tc>
-struct BlockGemmPolicy {
-  static constexpr int VecLen = _veclen;
-  static constexpr int RowsPerTh = _rpt;
-  static constexpr int ColsPerTh = _cpt;
-  static constexpr int WorkPerTh = RowsPerTh * ColsPerTh;
-  static constexpr int ThRows = _tr;
-  static constexpr int ThCols = _tc;
-  static constexpr int Kblk = _kblk;
-  static constexpr int Mblk = RowsPerTh * ThRows;
-  static constexpr int Nblk = ColsPerTh * ThCols;
-  static constexpr int BlockSize = ThRows * ThCols;
-
-  static constexpr int AN_LdRows = Mblk / VecLen;
-  static constexpr int AT_LdRows = Kblk / VecLen;
-  static constexpr int BN_LdRows = Kblk / VecLen;
-  static constexpr int BT_LdRows = Nblk / VecLen;
-  static_assert(BlockSize % AN_LdRows == 0);
-  static_assert(BlockSize % AT_LdRows == 0);
-  static_assert(BlockSize % BN_LdRows == 0);
-  static_assert(BlockSize % BT_LdRows == 0);
-  static constexpr int AN_LdCols = BlockSize / AN_LdRows;
-  static constexpr int AT_LdCols = BlockSize / AT_LdRows;
-  static constexpr int BN_LdCols = BlockSize / BN_LdRows;
-  static constexpr int BT_LdCols = BlockSize / BT_LdRows;
-  static constexpr int AN_LdCount = Kblk / AN_LdCols;
-  static constexpr int AT_LdCount = Mblk / AT_LdCols;
-  static constexpr int BN_LdCount = Nblk / BN_LdCols;
-  static constexpr int BT_LdCount = Kblk / BT_LdCols;
-};
-
-/**
- * @todo: docs
- */
-template <int _tr, int _tc>
-struct BlockGemvPolicy {
-  static constexpr int ThRows = _tr;
-  static constexpr int ThCols = _tc;
-  static constexpr int BlockSize = ThRows * ThCols;
-};
-
-template <typename GemmPolicy, typename T>
-struct GemmStorage {
-  T a_tile[GemmPolicy::Mblk * GemmPolicy::Kblk];
-  T b_tile[GemmPolicy::Nblk * GemmPolicy::Kblk];
-};
-
-template <typename GemvPolicy, typename T>
-struct GemvStorage {
-  T acc[GemvPolicy::BlockSize];
-};
-
-template <int BlockSize, typename T>
-struct ReductionStorage {
-  using BlockReduce =
-    cub::BlockReduce<T, BlockSize, cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY>;
-
-  typename BlockReduce::TempStorage temp;
-  T broadcast;
-};
-
-/// TODO: private namespace
 template <bool trans, int BlockSize, int VecLen, int LdRows, int LdCols,
           int LdCount, int TileRows, int TileCols, typename T>
 DI void _load_tile(const T* global_matrix, T* shared_tile, int i0, int j0,
@@ -125,16 +60,151 @@ DI void _load_tile(const T* global_matrix, T* shared_tile, int i0, int j0,
   }
 }
 
+}  // namespace
+
+namespace MLCommon {
+namespace LinAlg {
+
 /**
- * @todo: docs
- * @note: no beta arg, 0 assumed
+ * Execution policy for a block-local GEMM
+ *
+ * @tparam _veclen Length for vectorized loads (1 or 2 for fp64 + 4 for fp32)
+ * @tparam _kblk   Tile dimension k
+ * @tparam _rpt    Rows worked per thread
+ * @tparam _cpt    Columns worked per thread
+ * @tparam _tr     Number of thread rows
+ * @tparam _tc     Number of thread columns
+ */
+template <int _veclen, int _kblk, int _rpt, int _cpt, int _tr, int _tc>
+struct BlockGemmPolicy {
+  /** Length for vectorized loads */
+  static constexpr int VecLen = _veclen;
+  /** Rows worked per thread */
+  static constexpr int RowsPerTh = _rpt;
+  /** Columns worked per thread */
+  static constexpr int ColsPerTh = _cpt;
+  /** Total elements worked per thread */
+  static constexpr int WorkPerTh = RowsPerTh * ColsPerTh;
+  /** Number of thread rows */
+  static constexpr int ThRows = _tr;
+  /** Number of thread columns */
+  static constexpr int ThCols = _tc;
+  /** Tile dimension k */
+  static constexpr int Kblk = _kblk;
+  /** Tile dimension m */
+  static constexpr int Mblk = RowsPerTh * ThRows;
+  /** Tile dimension n */
+  static constexpr int Nblk = ColsPerTh * ThCols;
+  /** Number of threads per block */
+  static constexpr int BlockSize = ThRows * ThCols;
+
+  /** Number of threads required to load a single column of the A tile */
+  static constexpr int AN_LdRows = Mblk / VecLen;
+  /** Number of threads required to load a single row of the A' tile */
+  static constexpr int AT_LdRows = Kblk / VecLen;
+  /** Number of threads required to load a single column of the B tile */
+  static constexpr int BN_LdRows = Kblk / VecLen;
+  /** Number of threads required to load a single row of the B' tile */
+  static constexpr int BT_LdRows = Nblk / VecLen;
+
+  /* Check that the block size is a multiple of LdRows, i.e one load
+   * with the whole block corresponds to a number of full columns */
+  static_assert(BlockSize % AN_LdRows == 0);
+  static_assert(BlockSize % AT_LdRows == 0);
+  static_assert(BlockSize % BN_LdRows == 0);
+  static_assert(BlockSize % BT_LdRows == 0);
+
+  /** Number of columns of the A tile in one load with the whole block */
+  static constexpr int AN_LdCols = BlockSize / AN_LdRows;
+  /** Number of rows of the A' tile in one load with the whole block */
+  static constexpr int AT_LdCols = BlockSize / AT_LdRows;
+  /** Number of columns of the B tile in one load with the whole block */
+  static constexpr int BN_LdCols = BlockSize / BN_LdRows;
+  /** Number of rows of the B' tile in one load with the whole block */
+  static constexpr int BT_LdCols = BlockSize / BT_LdRows;
+
+  /* Number of loads per thread necessary to load the A tile */
+  static constexpr int AN_LdCount = Kblk / AN_LdCols;
+  /* Number of loads per thread necessary to load the A' tile */
+  static constexpr int AT_LdCount = Mblk / AT_LdCols;
+  /* Number of loads per thread necessary to load the B tile */
+  static constexpr int BN_LdCount = Nblk / BN_LdCols;
+  /* Number of loads per thread necessary to load the B' tile */
+  static constexpr int BT_LdCount = Kblk / BT_LdCols;
+};
+
+/**
+ * Execution policy for a block-local GEMV
+ *
+ * @tparam _tr Number of thread rows
+ * @tparam _tc Number of thread columns
+ */
+template <int _tr, int _tc>
+struct BlockGemvPolicy {
+  /** Number of thread rows */
+  static constexpr int ThRows = _tr;
+  /** Number of thread columns */
+  static constexpr int ThCols = _tc;
+  /** Number of threads per block */
+  static constexpr int BlockSize = ThRows * ThCols;
+};
+
+/**
+ * Structure to hold the shared memory used by a block-local GEMM
+ */
+template <typename GemmPolicy, typename T>
+struct GemmStorage {
+  /** Tile of A or A' */
+  T a_tile[GemmPolicy::Mblk * GemmPolicy::Kblk];
+  /** Tile of B or B' */
+  T b_tile[GemmPolicy::Nblk * GemmPolicy::Kblk];
+};
+
+/**
+ * Structure to hold the shared memory used by a block-local GEMV
+ */
+template <typename GemvPolicy, typename T>
+struct GemvStorage {
+  /** Accumulators to be reduced per row */
+  T acc[GemvPolicy::BlockSize];
+};
+
+/**
+ * Structure to hold the shared memory used by a block reduction
+ */
+template <int BlockSize, typename T>
+struct ReductionStorage {
+  using BlockReduce =
+    cub::BlockReduce<T, BlockSize, cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY>;
+
+  /** Temp storage for a cub::BlockReduce */
+  typename BlockReduce::TempStorage temp;
+  /** Holds the value to be broadcasted to all threads */
+  T broadcast;
+};
+
+/**
+ * Block-local GEMM primitive C = alpha * A * B
+ *
+ * @note: This implementation assumes beta == 0
+ *
+ * @tparam     GemmPolicy   Execution policy
+ * @tparam     T            Floating-point type
+ * @tparam     StorageT     Temporary storage type
+ * @param[in]  transa       Transpose A
+ * @param[in]  transa       Transpose B
+ * @param[in]  m            Number of rows of A or A' and C
+ * @param[in]  n            Number of columns of B or B' and C
+ * @param[in]  k            Number of columns of A or A', rows of B or B'
+ * @param[in]  alpha        Coefficient alpha
+ * @param[in]  a            Column-major matrix A (m x k)
+ * @param[in]  b            Column-major matrix B (k x n)
+ * @param[out] c            Column-major matrix C (m x n)
+ * @param[in]  gemm_storage Shared temporary storage
  */
 template <typename GemmPolicy, typename T, typename StorageT>
 DI void _block_gemm(bool transa, bool transb, int m, int n, int k, T alpha,
                     const T* a, const T* b, T* c, StorageT& gemm_storage) {
-  /// TODO: more efficient implementation!
-  ///       Can base it on raft/linalg/contractions.cuh
-
   const int th_off_i = threadIdx.x % GemmPolicy::ThRows;
   const int th_off_j = threadIdx.x / GemmPolicy::ThRows;
 
@@ -227,14 +297,26 @@ DI void _block_gemm(bool transa, bool transb, int m, int n, int k, T alpha,
 }
 
 /**
- * @todo: docs
- * @note: no beta arg, 0 assumed
+ * Block-local GEMV primitive y = alpha * A * x
+ *
+ * @note: This implementation assumes beta == 0
+ *
+ * @tparam     GemvPolicy   Execution policy
+ * @tparam     PreloadX     Whether to preload x to shared memory
+ * @tparam     T            Floating-point type
+ * @tparam     StorageT     Temporary storage type
+ * @param[in]  m            Number of rows of A, length of y
+ * @param[in]  n            Number of columns of A, length of x
+ * @param[in]  alpha        Coefficient alpha
+ * @param[in]  a            Column-major matrix A (m x n)
+ * @param[in]  x            Vector x              (n)
+ * @param[out] y            Vector y              (m)
+ * @param[in]  gemv_storage Shared temporary storage
+ * @param[out] shared_vec   (optional) Temporary storage for preloaded x
  */
 template <typename GemvPolicy, bool PreloadX, typename T, typename StorageT>
 DI void _block_gemv(int m, int n, T alpha, const T* a, const T* x, T* y,
                     StorageT& gemv_storage, T* shared_vec = nullptr) {
-  /// TODO: more efficient implementation
-
   if (PreloadX) {
     /* Load x into shared vector */
     for (int i = threadIdx.x; i < n; i += GemvPolicy::BlockSize) {
@@ -280,30 +362,63 @@ DI void _block_gemv(int m, int n, T alpha, const T* a, const T* x, T* y,
   }
 }
 
-/** y = alpha * x */
-template <int BlockSize, typename T>
+/**
+ * Block-local operation y = alpha * x
+ *
+ * @param[in]  n     Length of x and y
+ * @param[in]  alpha Coefficient alpha
+ * @param[in]  x     Vector x
+ * @param[out] y     Vector y
+ */
+template <typename T>
 DI void _block_ax(int n, T alpha, const T* x, T* y) {
-  for (int i = threadIdx.x; i < n; i += BlockSize) {
+  for (int i = threadIdx.x; i < n; i += blockDim.x) {
     y[i] = alpha * x[i];
   }
 }
 
+/**
+ * Wrapper around CUB::BlockReduce
+ *
+ * @tparam    BlockSize         Number of threads per block
+ * @tparam    Broadcast         Whether to broadcast the result to all threads
+ * @tparam    T                 Floating-point type
+ * @tparam    StorageT          Temporary storage type
+ * @param[in] val               Value to reduce
+ * @param[in] reduction_storage Shared temporary storage
+ *
+ * @return The reduction result 
+ */
 template <int BlockSize, bool Broadcast, typename T, typename StorageT>
 DI T _block_reduce(T& val, StorageT& reduction_storage) {
   using BlockReduce =
     cub::BlockReduce<T, BlockSize, cub::BLOCK_REDUCE_RAKING_COMMUTATIVE_ONLY>;
 
-  T dot = BlockReduce(reduction_storage.temp).Sum(val);
+  T res = BlockReduce(reduction_storage.temp).Sum(val);
 
   if (Broadcast) {
-    if (threadIdx.x == 0) reduction_storage.broadcast = dot;
+    if (threadIdx.x == 0) reduction_storage.broadcast = res;
     __syncthreads();
-    dot = reduction_storage.broadcast;
+    res = reduction_storage.broadcast;
   }
 
-  return dot;
+  return res;
 }
 
+/**
+ * Block local dot product
+ *
+ * @tparam     BlockSize         Number of threads per block
+ * @tparam     Broadcast         Whether to broadcast the result to all threads
+ * @tparam     T                 Floating-point type
+ * @tparam     StorageT          Temporary storage type
+ * @param[in]  n                 Length of x and y
+ * @param[in]  x                 Vector x
+ * @param[out] y                 Vector y
+ * @param[in]  reduction_storage Shared temporary storage
+ *
+ * @return Dot product of x and y
+ */
 template <int BlockSize, bool Broadcast, typename T, typename StorageT>
 DI T _block_dot(int n, const T* x, const T* y, StorageT& reduction_storage) {
   /* Compute dot product terms and sequential reduction per thread */
@@ -316,6 +431,22 @@ DI T _block_dot(int n, const T* x, const T* y, StorageT& reduction_storage) {
   return _block_reduce<BlockSize, Broadcast>(acc, reduction_storage);
 }
 
+/**
+ * Block local operation x * A * x' (if x is a row vector)
+ *
+ * @tparam     BlockSize         Number of threads per block
+ * @tparam     Broadcast         Whether to broadcast the result to all threads
+ * @tparam     PreloadX          Whether to preload x to shared memory
+ * @tparam     T                 Floating-point type
+ * @tparam     StorageT          Temporary storage type
+ * @param[in]  n                 Length of x
+ * @param[in]  x                 Vector x
+ * @param[out] A                 Column-major matrix A (n x n)
+ * @param[in]  reduction_storage Shared temporary storage
+ * @param[out] shared_vec        (optional) Temporary storage for preloaded x
+ *
+ * @return Result of x * A * x'
+ */
 template <int BlockSize, bool Broadcast, bool PreloadX, typename T,
           typename StorageT>
 DI T _block_xAxt(int n, const T* x, const T* A, StorageT& reduction_storage,
