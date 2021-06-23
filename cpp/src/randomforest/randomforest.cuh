@@ -15,14 +15,14 @@
  */
 
 #pragma once
-#include <decisiontree/decisiontree.cuh>
-#include <cuml/ensemble/randomforest.hpp>
-#include <map>
 #include <decisiontree/treelite_util.h>
 #include <raft/cudart_utils.h>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
+#include <cuml/ensemble/randomforest.hpp>
+#include <decisiontree/decisiontree.cuh>
 #include <decisiontree/quantile/quantile.cuh>
+#include <map>
 #include <metrics/scores.cuh>
 #include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng.cuh>
@@ -39,20 +39,18 @@ namespace ML {
 template <class T, class L>
 class RandomForest {
  private:
-  DT::DecisionTree<T, L>* trees = nullptr; // pointer to trees of RF
+  DT::DecisionTree<T, L>* trees = nullptr;  // pointer to trees of RF
 
   /**
    * @brief Return a const pointer to decision trees.
    * @tparam T: data type for input data (float or double).
    * @tparam L: data type for label data (int for classification task; float or double for regression task)
    */
-  const DT::DecisionTree<T, L>*  get_trees_ptr() const {
-    return trees;
-  }
+  const DT::DecisionTree<T, L>* get_trees_ptr() const { return trees; }
 
-protected:
-  RF_params rf_params; // structure containing RF hyperparameters
-  int rf_type; // 0 for classification 1 for regression
+ protected:
+  RF_params rf_params;  // structure containing RF hyperparameters
+  int rf_type;          // 0 for classification 1 for regression
 
   /**
    * @brief Sample row IDs for tree fitting and bootstrap if requested.
@@ -76,22 +74,22 @@ protected:
                           raft::random::GeneratorType::GenKiss99);
     if (rf_params.bootstrap) {
       // Use bootstrapped sample set
-      rng.uniformInt<unsigned>(selected_rows, n_sampled_rows, 0, n_rows, stream);
+      rng.uniformInt<unsigned>(selected_rows, n_sampled_rows, 0, n_rows,
+                               stream);
 
     } else {
       // Use all the samples from the dataset
       thrust::sequence(thrust::cuda::par.on(stream), selected_rows,
-                      selected_rows + n_sampled_rows);
+                       selected_rows + n_sampled_rows);
     }
     ML::POP_RANGE();
   }
 
-  void  error_checking(const T* input, L* predictions,
-                                          int n_rows, int n_cols,
-                                          bool predict) const {
+  void error_checking(const T* input, L* predictions, int n_rows, int n_cols,
+                      bool predict) const {
     if (predict) {
       ASSERT(predictions != nullptr,
-            "Error! User has not allocated memory for predictions.");
+             "Error! User has not allocated memory for predictions.");
     }
     ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
     ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
@@ -101,17 +99,19 @@ protected:
 
     if (!input_is_dev_ptr || (input_is_dev_ptr != preds_is_dev_ptr)) {
       ASSERT(false,
-            "RF Error: Expected both input and labels/predictions to be GPU "
-            "pointers");
+             "RF Error: Expected both input and labels/predictions to be GPU "
+             "pointers");
     }
   }
-public:
+
+ public:
   /**
    * @brief Construct RandomForest object.
    * @param[in] cfg_rf_params: Random forest hyper-parameter struct.
    * @param[in] cfg_rf_type: Task type: 0 for classification, 1 for regression
    */
-  RandomForest(RF_params cfg_rf_params, int cfg_rf_type = RF_type::CLASSIFICATION)
+  RandomForest(RF_params cfg_rf_params,
+               int cfg_rf_type = RF_type::CLASSIFICATION)
     : rf_params(cfg_rf_params), rf_type(cfg_rf_type) {
     trees = new DT::DecisionTree<T, L>[this->rf_params.n_trees];
     validity_check(rf_params);
@@ -120,16 +120,12 @@ public:
   /**
    * @brief Destructor for RandomForest Object
    */
-  ~RandomForest() {
-    delete[] trees;
-  }
+  ~RandomForest() { delete[] trees; }
 
   /**
    * @brief Return number of trees in the forest.
    */
-  int get_ntrees() {
-    return rf_params.n_trees;
-  }
+  int get_ntrees() { return rf_params.n_trees; }
 
   /**
    * @brief Build (i.e., fit, train) random forest for input data.
@@ -146,10 +142,9 @@ public:
   * @param[in] n_unique_labels: (meaningful only for classification) #unique label values (known during preprocessing)
   * @param[in] forest: CPU point to RandomForestMetaData struct.
   */
-  void fit(const raft::handle_t& user_handle, const T* input,
-                              int n_rows, int n_cols, L* labels,
-                              int n_unique_labels,
-                              RandomForestMetaData<T, L>*& forest) {
+  void fit(const raft::handle_t& user_handle, const T* input, int n_rows,
+           int n_cols, L* labels, int n_unique_labels,
+           RandomForestMetaData<T, L>*& forest) {
     ML::PUSH_RANGE("RandomForest::fit @randomforest.cuh");
     this->error_checking(input, labels, n_rows, n_cols, false);
     bool is_classifier = (rf_type == RF_type::CLASSIFICATION) ? true : false;
@@ -189,11 +184,11 @@ public:
     // Using batched backend
     // allocate space for d_global_quantiles
     DT::computeQuantiles(
-      global_quantiles.data(), this->rf_params.tree_params.n_bins, input, n_rows,
-      n_cols, handle.get_device_allocator(), handle.get_stream());
+      global_quantiles.data(), this->rf_params.tree_params.n_bins, input,
+      n_rows, n_cols, handle.get_device_allocator(), handle.get_stream());
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-  #pragma omp parallel for num_threads(n_streams)
+#pragma omp parallel for num_threads(n_streams)
     for (int i = 0; i < this->rf_params.n_trees; i++) {
       int stream_id = omp_get_thread_num();
       unsigned int* rowids = selected_rows[stream_id]->data();
@@ -212,10 +207,10 @@ public:
       */
       DT::TreeMetaDataNode<T, L>* tree_ptr = &(forest->trees[i]);
       tree_ptr->treeid = i;
-      trees[i].fit(handle, input, n_cols, n_rows, labels, rowids, n_sampled_rows,
-                  n_unique_labels, is_classifier, tree_ptr,
-                  this->rf_params.tree_params, this->rf_params.seed,
-                  global_quantiles.data());
+      trees[i].fit(handle, input, n_cols, n_rows, labels, rowids,
+                   n_sampled_rows, n_unique_labels, is_classifier, tree_ptr,
+                   this->rf_params.tree_params, this->rf_params.seed,
+                   global_quantiles.data());
     }
     //Cleanup
     for (int i = 0; i < n_streams; i++) {
@@ -237,11 +232,9 @@ public:
    * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
    * @param[in] verbosity: verbosity level for logging messages during execution
    */
-  void predict(const raft::handle_t& user_handle,
-                                  const T* input, int n_rows, int n_cols,
-                                  L* predictions,
-                                  const RandomForestMetaData<T, L>* forest,
-                                  int verbosity) const {
+  void predict(const raft::handle_t& user_handle, const T* input, int n_rows,
+               int n_cols, L* predictions,
+               const RandomForestMetaData<T, L>* forest, int verbosity) const {
     ML::Logger::get().setLevel(verbosity);
     this->error_checking(input, predictions, n_rows, n_cols, true);
     std::vector<L> h_predictions(n_rows);
@@ -274,8 +267,8 @@ public:
         for (int i = 0; i < this->rf_params.n_trees; i++) {
           L prediction;
           trees[i].predict(user_handle, &forest->trees[i],
-                          &h_input[row_id * row_size], 1, n_cols, &prediction,
-                          verbosity);
+                           &h_input[row_id * row_size], 1, n_cols, &prediction,
+                           verbosity);
           ret = prediction_to_cnt.insert(std::pair<int, int>(prediction, 1));
           if (!(ret.second)) {
             ret.first->second += 1;
@@ -292,8 +285,8 @@ public:
         for (int i = 0; i < this->rf_params.n_trees; i++) {
           L prediction;
           trees[i].predict(user_handle, &forest->trees[i],
-                          &h_input[row_id * row_size], 1, n_cols, &prediction,
-                          verbosity);
+                           &h_input[row_id * row_size], 1, n_cols, &prediction,
+                           verbosity);
           sum_predictions += prediction;
         }
         // Random forest's prediction is the arithmetic mean of all its decision tree predictions.
@@ -314,11 +307,9 @@ public:
    * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
    * @param[in] verbosity: verbosity level for logging messages during execution
    */
-  void predictGetAll(const raft::handle_t& user_handle,
-                                        const T* input, int n_rows, int n_cols,
-                                        L* predictions,
-                                        const RandomForestMetaData<T, L>* forest,
-                                        int verbosity) {
+  void predictGetAll(const raft::handle_t& user_handle, const T* input,
+                     int n_rows, int n_cols, L* predictions,
+                     const RandomForestMetaData<T, L>* forest, int verbosity) {
     // ASSERT(rf_type == RF_type::CLASSIFICATION, "This method does not supported for regression task ");
     ML::Logger::get().setLevel(verbosity);
     int num_trees = this->rf_params.n_trees;
@@ -344,8 +335,8 @@ public:
       for (int i = 0; i < num_trees; i++) {
         L prediction;
         trees[i].predict(user_handle, &forest->trees[i],
-                        &h_input[row_id * row_size], 1, n_cols, &prediction,
-                        verbosity);
+                         &h_input[row_id * row_size], 1, n_cols, &prediction,
+                         verbosity);
         h_predictions[pred_id] = prediction;
         pred_id++;
       }
@@ -367,10 +358,9 @@ public:
    * @param[in] verbosity: verbosity level for logging messages during execution
    * @param[in] rf_type: task type: 0 for classification, 1 for regression
    */
-  RF_metrics score(const raft::handle_t& user_handle,
-                                      const L* ref_labels, int n_rows,
-                                      const L* predictions, int verbosity,
-                                      int rf_type) {
+  RF_metrics score(const raft::handle_t& user_handle, const L* ref_labels,
+                   int n_rows, const L* predictions, int verbosity,
+                   int rf_type) {
     ML::Logger::get().setLevel(verbosity);
     cudaStream_t stream = user_handle.get_stream();
     auto d_alloc = user_handle.get_device_allocator();
@@ -379,7 +369,7 @@ public:
         RF_type::
           CLASSIFICATION) {  // task classifiation: get classification metrics
       float accuracy = MLCommon::Score::accuracy_score(predictions, ref_labels,
-                                                      n_rows, d_alloc, stream);
+                                                       n_rows, d_alloc, stream);
       stats = set_rf_metrics_classification(accuracy);
       if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) print(stats);
 
@@ -398,7 +388,6 @@ public:
 
     return stats;
   }
-
 };
 
 // class specializations

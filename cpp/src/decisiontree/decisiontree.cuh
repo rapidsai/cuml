@@ -16,25 +16,25 @@
 
 #pragma once
 #include <common/Timer.h>
-#include <raft/cudart_utils.h>
 #include <cuml/tree/algo_helper.h>
 #include <cuml/tree/flatnode.h>
+#include <raft/cudart_utils.h>
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
 #include <algorithm>
 #include <climits>
+#include <common/iota.cuh>
+#include <cuml/common/logger.hpp>
 #include <cuml/tree/decisiontree.hpp>
+#include <iomanip>
+#include <locale>
 #include <map>
 #include <numeric>
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/host/allocator.hpp>
-#include <vector>
-#include <common/iota.cuh>
-#include <cuml/common/logger.hpp>
-#include <iomanip>
-#include <locale>
 #include <random>
 #include <type_traits>
+#include <vector>
 #include "batched-levelalgo/builder.cuh"
 #include "quantile/quantile.h"
 #include "treelite_util.h"
@@ -52,7 +52,6 @@
 namespace ML {
 
 namespace tl = treelite;
-
 
 bool is_dev_ptr(const void *p) {
   cudaPointerAttributes pointer_attr;
@@ -244,17 +243,17 @@ struct DataInfo {
 template <class T, class L>
 class DecisionTree {
  protected:
-    DataInfo dinfo;
-    int depth_counter = 0;
-    int leaf_counter = 0;
-    int n_unique_labels = -1;  // number of unique labels in dataset
-    double prepare_time = 0;
-    double train_time = 0;
-    MLCommon::TimerCPU prepare_fit_timer;
-    DecisionTreeParams tree_params;
+  DataInfo dinfo;
+  int depth_counter = 0;
+  int leaf_counter = 0;
+  int n_unique_labels = -1;  // number of unique labels in dataset
+  double prepare_time = 0;
+  double train_time = 0;
+  MLCommon::TimerCPU prepare_fit_timer;
+  DecisionTreeParams tree_params;
 
  public:
-    /**
+  /**
      * @brief Fits a DecisionTree on given input data and labels
      * @param[in] handle             cuML handle
      * @param[in] data               pointer to input training data
@@ -270,38 +269,37 @@ class DecisionTree {
      * @param[in] seed               random seed
      * @param[in] d_global_quantiles device pointer to global quantiles
      */
-    void fit(const raft::handle_t &handle, const T *data,
-                                const int ncols, const int nrows, const L *labels,
-                                unsigned int *rowids, const int n_sampled_rows,
-                                int unique_labels, bool is_classifier,
-                                DT::TreeMetaDataNode<T, L> *&tree,
-                                DecisionTreeParams tree_parameters, uint64_t seed,
-                                T *d_global_quantiles) {
+  void fit(const raft::handle_t &handle, const T *data, const int ncols,
+           const int nrows, const L *labels, unsigned int *rowids,
+           const int n_sampled_rows, int unique_labels, bool is_classifier,
+           DT::TreeMetaDataNode<T, L> *&tree,
+           DecisionTreeParams tree_parameters, uint64_t seed,
+           T *d_global_quantiles) {
     this->tree_params = tree_parameters;
     this->prepare_fit_timer.reset();
     const char *CRITERION_NAME[] = {"GINI", "ENTROPY", "MSE", "MAE", "END"};
     CRITERION default_criterion =
-        (is_classifier) ? CRITERION::GINI : CRITERION::MSE;
+      (is_classifier) ? CRITERION::GINI : CRITERION::MSE;
     CRITERION last_criterion =
-        (is_classifier) ? CRITERION::ENTROPY : CRITERION::MSE;
+      (is_classifier) ? CRITERION::ENTROPY : CRITERION::MSE;
 
     validity_check(tree_params);
     if (tree_params.n_bins > n_sampled_rows) {
-        CUML_LOG_WARN("Calling with number of bins > number of rows!");
-        CUML_LOG_WARN("Resetting n_bins to %d.", n_sampled_rows);
-        tree_params.n_bins = n_sampled_rows;
+      CUML_LOG_WARN("Calling with number of bins > number of rows!");
+      CUML_LOG_WARN("Resetting n_bins to %d.", n_sampled_rows);
+      tree_params.n_bins = n_sampled_rows;
     }
 
     if (
-        tree_params.split_criterion ==
-        CRITERION::
+      tree_params.split_criterion ==
+      CRITERION::
         CRITERION_END) {  // Set default to GINI (classification) or MSE (regression)
-        tree_params.split_criterion = default_criterion;
+      tree_params.split_criterion = default_criterion;
     }
     ASSERT((tree_params.split_criterion >= default_criterion) &&
-            (tree_params.split_criterion <= last_criterion),
-            "Unsupported criterion %s\n",
-            CRITERION_NAME[tree_params.split_criterion]);
+             (tree_params.split_criterion <= last_criterion),
+           "Unsupported criterion %s\n",
+           CRITERION_NAME[tree_params.split_criterion]);
 
     dinfo.NLocalrows = nrows;
     dinfo.NGlobalrows = nrows;
@@ -310,93 +308,92 @@ class DecisionTree {
     this->prepare_time = this->prepare_fit_timer.getElapsedMilliseconds();
     prepare_fit_timer.reset();
     grow_tree(handle.get_device_allocator(), handle.get_host_allocator(), data,
-                tree->treeid, seed, ncols, nrows, labels, d_global_quantiles,
-                (int *)rowids, n_sampled_rows, unique_labels, tree_params,
-                handle.get_stream(), tree->sparsetree, this->leaf_counter,
-                this->depth_counter);
+              tree->treeid, seed, ncols, nrows, labels, d_global_quantiles,
+              (int *)rowids, n_sampled_rows, unique_labels, tree_params,
+              handle.get_stream(), tree->sparsetree, this->leaf_counter,
+              this->depth_counter);
     this->train_time = this->prepare_fit_timer.getElapsedMilliseconds();
     this->set_metadata(tree);
-    }
+  }
 
-    /**
+  /**
      * @brief Print high-level tree information.
      */
-    void print_tree_summary() const {
+  void print_tree_summary() const {
     PatternSetter _("%v");
     CUML_LOG_DEBUG(" Decision Tree depth --> %d and n_leaves --> %d",
-                    depth_counter, leaf_counter);
+                   depth_counter, leaf_counter);
     CUML_LOG_DEBUG(" Tree Fitting - Overall time --> %lf milliseconds",
-                    prepare_time + train_time);
-    CUML_LOG_DEBUG("   - preparing for fit time: %lf milliseconds", prepare_time);
+                   prepare_time + train_time);
+    CUML_LOG_DEBUG("   - preparing for fit time: %lf milliseconds",
+                   prepare_time);
     CUML_LOG_DEBUG("   - tree growing time: %lf milliseconds", train_time);
-    }
+  }
 
-    /**
+  /**
      * @brief Print detailed tree information.
      * @param[in] sparsetree: Sparse tree strcut
      */
-    void print(
-    const std::vector<SparseTreeNode<T, L>> &sparsetree) const {
+  void print(const std::vector<SparseTreeNode<T, L>> &sparsetree) const {
     DecisionTree<T, L>::print_tree_summary();
     get_node_text<T, L>("", sparsetree, 0, false);
-    }
+  }
 
-    void predict(const raft::handle_t &handle,
-                                    const DT::TreeMetaDataNode<T, L> *tree,
-                                    const T *rows, const int n_rows,
-                                    const int n_cols, L *predictions,
-                                    int verbosity) const {
+  void predict(const raft::handle_t &handle,
+               const DT::TreeMetaDataNode<T, L> *tree, const T *rows,
+               const int n_rows, const int n_cols, L *predictions,
+               int verbosity) const {
     if (verbosity >= 0) {
-        ML::Logger::get().setLevel(verbosity);
+      ML::Logger::get().setLevel(verbosity);
     }
-    ASSERT(!is_dev_ptr(rows) && !is_dev_ptr(predictions),
-            "DT Error: Current impl. expects both input and predictions to be CPU "
-            "pointers.\n");
+    ASSERT(
+      !is_dev_ptr(rows) && !is_dev_ptr(predictions),
+      "DT Error: Current impl. expects both input and predictions to be CPU "
+      "pointers.\n");
 
     ASSERT(tree && (tree->sparsetree.size() != 0),
-            "Cannot predict w/ empty tree, tree size %zu",
-            tree->sparsetree.size());
+           "Cannot predict w/ empty tree, tree size %zu",
+           tree->sparsetree.size());
     ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
     ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
 
     predict_all(tree, rows, n_rows, n_cols, predictions);
-    }
+  }
 
-    void predict_all(const DT::TreeMetaDataNode<T, L> *tree,
-                                        const T *rows, const int n_rows,
-                                        const int n_cols, L *preds) const {
+  void predict_all(const DT::TreeMetaDataNode<T, L> *tree, const T *rows,
+                   const int n_rows, const int n_cols, L *preds) const {
     for (int row_id = 0; row_id < n_rows; row_id++) {
-        preds[row_id] = predict_one(&rows[row_id * n_cols], tree->sparsetree, 0);
+      preds[row_id] = predict_one(&rows[row_id * n_cols], tree->sparsetree, 0);
     }
-    }
+  }
 
-    L predict_one(
-    const T *row, const std::vector<SparseTreeNode<T, L>> sparsetree,
-    int idx) const {
+  L predict_one(const T *row,
+                const std::vector<SparseTreeNode<T, L>> sparsetree,
+                int idx) const {
     int colid = sparsetree[idx].colid;
     T quesval = sparsetree[idx].quesval;
     int leftchild = sparsetree[idx].left_child_id;
     if (colid == -1) {
-        CUML_LOG_DEBUG("Leaf node. Predicting %f",
-                    (float)sparsetree[idx].prediction);
-        return sparsetree[idx].prediction;
+      CUML_LOG_DEBUG("Leaf node. Predicting %f",
+                     (float)sparsetree[idx].prediction);
+      return sparsetree[idx].prediction;
     } else if (row[colid] <= quesval) {
-        CUML_LOG_DEBUG("Classifying Left @ node w/ column %d and value %f", colid,
-                    (float)quesval);
-        return predict_one(row, sparsetree, leftchild);
+      CUML_LOG_DEBUG("Classifying Left @ node w/ column %d and value %f", colid,
+                     (float)quesval);
+      return predict_one(row, sparsetree, leftchild);
     } else {
-        CUML_LOG_DEBUG("Classifying Right @ node w/ column %d and value %f", colid,
-                    (float)quesval);
-        return predict_one(row, sparsetree, leftchild + 1);
+      CUML_LOG_DEBUG("Classifying Right @ node w/ column %d and value %f",
+                     colid, (float)quesval);
+      return predict_one(row, sparsetree, leftchild + 1);
     }
-    }
+  }
 
-    void set_metadata(DT::TreeMetaDataNode<T, L> *&tree) {
+  void set_metadata(DT::TreeMetaDataNode<T, L> *&tree) {
     tree->depth_counter = depth_counter;
     tree->leaf_counter = leaf_counter;
     tree->train_time = train_time;
     tree->prepare_time = prepare_time;
-    }
+  }
 
 };  // End DecisionTree Class
 

@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <decisiontree/decisiontree.cuh>
 #include <decisiontree/treelite_util.h>
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
@@ -26,6 +25,7 @@
 #include <treelite/c_api_runtime.h>
 #include <cstdlib>
 #include <cuml/ensemble/randomforest.hpp>
+#include <decisiontree/decisiontree.cuh>
 #include <fstream>
 #include <iostream>
 #include <limits>

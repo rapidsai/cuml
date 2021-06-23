@@ -91,7 +91,8 @@ std::string get_tree_summary_text(const TreeMetaDataNode<T, L> *tree) {
       << " Tree Fitting - Overall time --> "
       << (tree->prepare_time + tree->train_time) << " milliseconds"
       << "\n"
-      << "   - preparing for fit time: " << tree->prepare_time << " milliseconds"
+      << "   - preparing for fit time: " << tree->prepare_time
+      << " milliseconds"
       << "\n"
       << "   - tree growing time: " << tree->train_time << " milliseconds";
   return oss.str();
@@ -121,8 +122,8 @@ void decisionTreeClassifierFit(const raft::handle_t &handle,
   MLCommon::device_buffer<float> global_quantiles_buffer(
     handle.get_device_allocator(), handle.get_stream(), quantile_size);
   DT::computeQuantiles(global_quantiles_buffer.data(), tree_params.n_bins, data,
-                   nrows, ncols, handle.get_device_allocator(),
-                   handle.get_stream());
+                       nrows, ncols, handle.get_device_allocator(),
+                       handle.get_stream());
   dt_classifier->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows,
                      unique_labels, true, tree, tree_params, seed,
                      global_quantiles_buffer.data());
@@ -141,8 +142,8 @@ void decisionTreeClassifierFit(const raft::handle_t &handle,
   MLCommon::device_buffer<double> global_quantiles_buffer(
     handle.get_device_allocator(), handle.get_stream(), quantile_size);
   DT::computeQuantiles(global_quantiles_buffer.data(), tree_params.n_bins, data,
-                   nrows, ncols, handle.get_device_allocator(),
-                   handle.get_stream());
+                       nrows, ncols, handle.get_device_allocator(),
+                       handle.get_stream());
   dt_classifier->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows,
                      unique_labels, true, tree, tree_params, seed,
                      global_quantiles_buffer.data());
@@ -183,7 +184,8 @@ void decisionTreeRegressorFit(const raft::handle_t &handle,
   MLCommon::device_buffer<float> global_quantiles(
     handle.get_device_allocator(), handle.get_stream(), quantile_size);
   DT::computeQuantiles(global_quantiles.data(), tree_params.n_bins, data, nrows,
-                   ncols, handle.get_device_allocator(), handle.get_stream());
+                       ncols, handle.get_device_allocator(),
+                       handle.get_stream());
   dt_regressor->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows,
                     1, false, tree, tree_params, seed, global_quantiles.data());
 }
@@ -200,7 +202,8 @@ void decisionTreeRegressorFit(const raft::handle_t &handle,
   MLCommon::device_buffer<double> global_quantiles(
     handle.get_device_allocator(), handle.get_stream(), quantile_size);
   DT::computeQuantiles(global_quantiles.data(), tree_params.n_bins, data, nrows,
-                   ncols, handle.get_device_allocator(), handle.get_stream());
+                       ncols, handle.get_device_allocator(),
+                       handle.get_stream());
   dt_regressor->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows,
                     1, false, tree, tree_params, seed, global_quantiles.data());
 }
