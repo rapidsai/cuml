@@ -19,7 +19,7 @@ include(FetchContent)
 FetchContent_Declare(
   rapids-cmake
   GIT_REPOSITORY https://github.com/rapidsai/rapids-cmake.git
-  GIT_TAG        origin/branch-21.06
+  GIT_TAG        origin/branch-21.08
   )
 FetchContent_MakeAvailable(rapids-cmake)
 include(rapids-cmake)
