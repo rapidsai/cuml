@@ -27,7 +27,7 @@ class rf {
  protected:
   RF_params rf_params;
   int rf_type;
-  virtual const DecisionTree::DecisionTreeBase<T, L>* get_trees_ptr() const = 0;
+  virtual const DT::DecisionTree<T, L>* get_trees_ptr() const = 0;
   virtual ~rf() = default;
   void prepare_fit_per_tree(
     int tree_id, int n_rows, int n_sampled_rows, unsigned int* selected_rows,
@@ -46,8 +46,8 @@ class rf {
 template <class T>
 class rfClassifier : public rf<T, int> {
  private:
-  DecisionTree::DecisionTreeClassifier<T>* trees = nullptr;
-  const DecisionTree::DecisionTreeClassifier<T>* get_trees_ptr() const;
+  DT::DecisionTree<T, int>* trees = nullptr;
+  const DT::DecisionTree<T, int>* get_trees_ptr() const;
 
  public:
   rfClassifier(RF_params cfg_rf_params);
@@ -70,8 +70,8 @@ class rfClassifier : public rf<T, int> {
 template <class T>
 class rfRegressor : public rf<T, T> {
  private:
-  DecisionTree::DecisionTreeRegressor<T>* trees = nullptr;
-  const DecisionTree::DecisionTreeRegressor<T>* get_trees_ptr() const;
+  DT::DecisionTree<T, T>* trees = nullptr;
+  const DT::DecisionTree<T, T>* get_trees_ptr() const;
 
  public:
   rfRegressor(RF_params cfg_rf_params);

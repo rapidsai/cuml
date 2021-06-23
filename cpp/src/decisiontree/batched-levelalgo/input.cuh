@@ -17,7 +17,7 @@
 #pragma once
 
 namespace ML {
-namespace DecisionTree {
+namespace DT {
 
 template <typename DataT, typename LabelT, typename IdxT>
 struct Input {
@@ -41,5 +41,5 @@ struct Input {
   const DataT* quantiles;
 };
 
-}  // namespace DecisionTree
+}  // namespace DT
 }  // namespace ML

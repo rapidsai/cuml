@@ -46,7 +46,7 @@ namespace tl = treelite;
 
 bool is_dev_ptr(const void *p);
 
-namespace DecisionTree {
+namespace DT {
 
 template <class T, class L>
 void print(const SparseTreeNode<T, L> &node, std::ostream &os);
@@ -63,7 +63,7 @@ std::string get_node_json(const std::string &prefix,
 
 template <class T, class L>
 tl::Tree<T, T> build_treelite_tree(
-  const DecisionTree::TreeMetaDataNode<T, L> &rf_tree, unsigned int num_class,
+  const DT::TreeMetaDataNode<T, L> &rf_tree, unsigned int num_class,
   std::vector<Node_ID_info<T, L>> &working_queue_1,
   std::vector<Node_ID_info<T, L>> &working_queue_2);
 
@@ -74,7 +74,7 @@ struct DataInfo {
 };
 
 template <class T, class L>
-class DecisionTreeBase {
+class DecisionTree {
  protected:
   DataInfo dinfo;
   int depth_counter = 0;
@@ -89,16 +89,17 @@ class DecisionTreeBase {
   MLCommon::TimerCPU prepare_fit_timer;
   DecisionTreeParams tree_params;
 
-  void base_fit(
-    const std::shared_ptr<raft::mr::device::allocator> device_allocator_in,
-    const std::shared_ptr<raft::mr::host::allocator> host_allocator_in,
-    const cudaStream_t stream_in, const T *data, const int ncols,
-    const int nrows, const L *labels, unsigned int *rowids,
-    const int n_sampled_rows, int unique_labels,
-    std::vector<SparseTreeNode<T, L>> &sparsetree, const int treeid,
-    uint64_t seed, bool is_classifier, T *d_global_quantiles);
-
  public:
+
+  // fit function
+  void fit(
+    const raft::handle_t &handle,
+    const T *data, const int ncols, const int nrows,
+    const L *labels, unsigned int *rowids, const int n_sampled_rows,
+    int unique_labels, bool is_classifier,
+    TreeMetaDataNode<T, L> *&tree, DecisionTreeParams tree_parameters,
+    uint64_t seed, T *d_global_quantiles);
+
   // Printing utility for high level tree info.
   void print_tree_summary() const;
 
@@ -117,50 +118,8 @@ class DecisionTreeBase {
 
   void set_metadata(TreeMetaDataNode<T, L> *&tree);
 
-};  // End DecisionTreeBase Class
+};  // End DecisionTree Class
 
-template <class T>
-class DecisionTreeClassifier : public DecisionTreeBase<T, int> {
- public:
-  // Expects column major T dataset, integer labels
-  // data, labels are both device ptr.
-  // Assumption: labels are all mapped to contiguous numbers starting from 0 during preprocessing. Needed for gini hist impl.
-  void fit(const raft::handle_t &handle, const T *data, const int ncols,
-           const int nrows, const int *labels, unsigned int *rowids,
-           const int n_sampled_rows, const int unique_labels,
-           TreeMetaDataNode<T, int> *&tree, DecisionTreeParams tree_parameters,
-           uint64_t seed, T *d_quantiles);
-
-  //This fit fucntion does not take handle , used by RF
-  void fit(
-    const std::shared_ptr<raft::mr::device::allocator> device_allocator_in,
-    const std::shared_ptr<raft::mr::host::allocator> host_allocator_in,
-    const cudaStream_t stream_in, const T *data, const int ncols,
-    const int nrows, const int *labels, unsigned int *rowids,
-    const int n_sampled_rows, const int unique_labels,
-    TreeMetaDataNode<T, int> *&tree, DecisionTreeParams tree_parameters,
-    uint64_t seed, T *d_quantiles);
-};  // End DecisionTreeClassifier Class
-
-template <class T>
-class DecisionTreeRegressor : public DecisionTreeBase<T, T> {
- public:
-  void fit(const raft::handle_t &handle, const T *data, const int ncols,
-           const int nrows, const T *labels, unsigned int *rowids,
-           const int n_sampled_rows, TreeMetaDataNode<T, T> *&tree,
-           DecisionTreeParams tree_parameters, uint64_t seed, T *d_quantiles);
-
-  //This fit function does not take handle. Used by RF
-  void fit(
-    const std::shared_ptr<raft::mr::device::allocator> device_allocator_in,
-    const std::shared_ptr<raft::mr::host::allocator> host_allocator_in,
-    const cudaStream_t stream_in, const T *data, const int ncols,
-    const int nrows, const T *labels, unsigned int *rowids,
-    const int n_sampled_rows, TreeMetaDataNode<T, T> *&tree,
-    DecisionTreeParams tree_parameters, uint64_t seed, T *d_quantiles);
-
-};  // End DecisionTreeRegressor Class
-
-}  //End namespace DecisionTree
+}  //End namespace DT
 
 }  //End namespace ML

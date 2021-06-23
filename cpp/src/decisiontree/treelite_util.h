@@ -18,7 +18,7 @@
 #include <cstdint>
 
 namespace ML {
-namespace DecisionTree {
+namespace DT {
 
 template <typename T>
 class TreeliteType;
@@ -48,6 +48,6 @@ class TreeliteType<int> {
   static constexpr const char* value = "uint32";
 };
 
-}  //End namespace DecisionTree
+}  //End namespace DT
 
 }  //End namespace ML

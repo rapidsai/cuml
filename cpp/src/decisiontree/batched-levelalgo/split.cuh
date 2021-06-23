@@ -20,7 +20,7 @@
 #include <raft/linalg/unary_op.cuh>
 
 namespace ML {
-namespace DecisionTree {
+namespace DT {
 
 /**
  * @brief All info pertaining to splitting a node
@@ -62,7 +62,7 @@ struct Split {
    * @brief Assignment operator overload
    *
    * @param[in] other source object from where to copy
-   * 
+   *
    * @return the reference to the copied object (typically useful for chaining)
    */
   DI volatile SplitT& operator=(const SplitT& other) volatile {
@@ -171,5 +171,5 @@ void printSplits(Split<DataT, IdxT>* splits, IdxT len, cudaStream_t s) {
   CUDA_CHECK(cudaDeviceSynchronize());
 }
 
-}  // namespace DecisionTree
+}  // namespace DT
 }  // namespace ML

@@ -84,7 +84,7 @@ struct RF_params {
    * N streams need N times RF workspace.
    */
   int n_streams;
-  DecisionTree::DecisionTreeParams tree_params;
+  DT::DecisionTreeParams tree_params;
 };
 
 void validity_check(const RF_params rf_params);
@@ -104,7 +104,7 @@ void postprocess_labels(int n_rows, std::vector<int>& labels,
 
 template <class T, class L>
 struct RandomForestMetaData {
-  DecisionTree::TreeMetaDataNode<T, L>* trees;
+  DT::TreeMetaDataNode<T, L>* trees;
   RF_params rf_params;
   //TODO can add prepare, train time, if needed
 

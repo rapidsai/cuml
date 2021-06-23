@@ -118,7 +118,7 @@ void rf<T, L>::error_checking(const T* input, L* predictions, int n_rows,
 template <typename T>
 rfClassifier<T>::rfClassifier(RF_params cfg_rf_params)
   : rf<T, int>::rf(cfg_rf_params, RF_type::CLASSIFICATION) {
-  trees = new DecisionTree::DecisionTreeClassifier<T>[this->rf_params.n_trees];
+  trees = new DT::DecisionTree<T, int>[this->rf_params.n_trees];
 };
 
 /**
@@ -135,7 +135,7 @@ rfClassifier<T>::~rfClassifier() {
  * @tparam T: data type for input data (float or double).
  */
 template <typename T>
-const DecisionTree::DecisionTreeClassifier<T>* rfClassifier<T>::get_trees_ptr()
+const DT::DecisionTree<T, int>* rfClassifier<T>::get_trees_ptr()
   const {
   return trees;
 }
@@ -196,7 +196,7 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
   //Preprocess once only per forest
   // Using batched backend
   // allocate space for d_global_quantiles
-  DecisionTree::computeQuantiles(
+  DT::computeQuantiles(
     global_quantiles.data(), this->rf_params.tree_params.n_bins, input, n_rows,
     n_cols, handle.get_device_allocator(), handle.get_stream());
   CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
@@ -218,12 +218,11 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
          Expectation: Each tree node will contain (a) # n_sampled_rows and
          (b) a pointer to a list of row numbers w.r.t original data.
     */
-    DecisionTree::TreeMetaDataNode<T, int>* tree_ptr = &(forest->trees[i]);
+    DT::TreeMetaDataNode<T, int>* tree_ptr = &(forest->trees[i]);
     tree_ptr->treeid = i;
-    trees[i].fit(handle.get_device_allocator(), handle.get_host_allocator(),
-                 handle.get_internal_stream(stream_id), input, n_cols, n_rows,
-                 labels, rowids, n_sampled_rows, n_unique_labels, tree_ptr,
-                 this->rf_params.tree_params, this->rf_params.seed,
+    trees[i].fit(handle, input, n_cols, n_rows,
+                 labels, rowids, n_sampled_rows, n_unique_labels, true,
+                 tree_ptr, this->rf_params.tree_params, this->rf_params.seed,
                  global_quantiles.data());
   }
   //Cleanup
@@ -389,7 +388,7 @@ RF_metrics rfClassifier<T>::score(const raft::handle_t& user_handle,
 template <typename T>
 rfRegressor<T>::rfRegressor(RF_params cfg_rf_params)
   : rf<T, T>::rf(cfg_rf_params, RF_type::REGRESSION) {
-  trees = new DecisionTree::DecisionTreeRegressor<T>[this->rf_params.n_trees];
+  trees = new DT::DecisionTree<T, T>[this->rf_params.n_trees];
 }
 
 /**
@@ -406,7 +405,7 @@ rfRegressor<T>::~rfRegressor() {
  * @tparam T: data type for input data (float or double).
  */
 template <typename T>
-const DecisionTree::DecisionTreeRegressor<T>* rfRegressor<T>::get_trees_ptr()
+const DT::DecisionTree<T, T>* rfRegressor<T>::get_trees_ptr()
   const {
   return trees;
 }
@@ -460,7 +459,7 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
   MLCommon::device_buffer<T> global_quantiles(
     handle.get_device_allocator(), handle.get_stream(), quantile_size);
 
-  DecisionTree::computeQuantiles(
+  DT::computeQuantiles(
     global_quantiles.data(), this->rf_params.tree_params.n_bins, input, n_rows,
     n_cols, handle.get_device_allocator(), handle.get_stream());
   CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
@@ -481,13 +480,12 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
          used to build the bootstrapped sample. Expectation: Each tree node will contain
          (a) # n_sampled_rows and (b) a pointer to a list of row numbers w.r.t original data.
     */
-    DecisionTree::TreeMetaDataNode<T, T>* tree_ptr = &(forest->trees[i]);
+    DT::TreeMetaDataNode<T, T>* tree_ptr = &(forest->trees[i]);
     tree_ptr->treeid = i;
-    trees[i].fit(handle.get_device_allocator(), handle.get_host_allocator(),
-                 handle.get_internal_stream(stream_id), input, n_cols, n_rows,
-                 labels, rowids, n_sampled_rows, tree_ptr,
-                 this->rf_params.tree_params, this->rf_params.seed,
-                 global_quantiles.data());
+    trees[i].fit(handle, input, n_cols, n_rows,
+                 labels, rowids, n_sampled_rows, 1, false,
+                 tree_ptr, this->rf_params.tree_params,
+                 this->rf_params.seed, global_quantiles.data());
   }
   //Cleanup
   for (int i = 0; i < n_streams; i++) {

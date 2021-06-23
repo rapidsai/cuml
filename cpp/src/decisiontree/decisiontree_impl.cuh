@@ -46,7 +46,7 @@ bool is_dev_ptr(const void *p) {
   }
 }
 
-namespace DecisionTree {
+namespace DT {
 
 template <class T, class L>
 void print(const SparseTreeNode<T, L> &node, std::ostream &os) {
@@ -141,13 +141,13 @@ std::string get_node_json(const std::string &prefix,
 
 template <typename T, typename L>
 std::ostream &operator<<(std::ostream &os, const SparseTreeNode<T, L> &node) {
-  DecisionTree::print(node, os);
+  print(node, os);
   return os;
 }
 
 template <class T, class L>
 tl::Tree<T, T> build_treelite_tree(
-  const DecisionTree::TreeMetaDataNode<T, L> &rf_tree, unsigned int num_class,
+  const TreeMetaDataNode<T, L> &rf_tree, unsigned int num_class,
   std::vector<Node_ID_info<T, L>> &cur_level_queue,
   std::vector<Node_ID_info<T, L>> &next_level_queue) {
   tl::Tree<T, T> tl_tree;
@@ -222,7 +222,7 @@ tl::Tree<T, T> build_treelite_tree(
  * @tparam L: data type for labels (int type for classification, T type for regression).
  */
 template <typename T, typename L>
-void DecisionTreeBase<T, L>::print_tree_summary() const {
+void DecisionTree<T, L>::print_tree_summary() const {
   PatternSetter _("%v");
   CUML_LOG_DEBUG(" Decision Tree depth --> %d and n_leaves --> %d",
                  depth_counter, leaf_counter);
@@ -242,14 +242,14 @@ void DecisionTreeBase<T, L>::print_tree_summary() const {
  * @param[in] sparsetree: Sparse tree strcut
  */
 template <typename T, typename L>
-void DecisionTreeBase<T, L>::print(
+void DecisionTree<T, L>::print(
   const std::vector<SparseTreeNode<T, L>> &sparsetree) const {
-  DecisionTreeBase<T, L>::print_tree_summary();
+  DecisionTree<T, L>::print_tree_summary();
   get_node_text<T, L>("", sparsetree, 0, false);
 }
 
 template <typename T, typename L>
-void DecisionTreeBase<T, L>::predict(const raft::handle_t &handle,
+void DecisionTree<T, L>::predict(const raft::handle_t &handle,
                                      const TreeMetaDataNode<T, L> *tree,
                                      const T *rows, const int n_rows,
                                      const int n_cols, L *predictions,
@@ -271,7 +271,7 @@ void DecisionTreeBase<T, L>::predict(const raft::handle_t &handle,
 }
 
 template <typename T, typename L>
-void DecisionTreeBase<T, L>::predict_all(const TreeMetaDataNode<T, L> *tree,
+void DecisionTree<T, L>::predict_all(const TreeMetaDataNode<T, L> *tree,
                                          const T *rows, const int n_rows,
                                          const int n_cols, L *preds) const {
   for (int row_id = 0; row_id < n_rows; row_id++) {
@@ -280,7 +280,7 @@ void DecisionTreeBase<T, L>::predict_all(const TreeMetaDataNode<T, L> *tree,
 }
 
 template <typename T, typename L>
-L DecisionTreeBase<T, L>::predict_one(
+L DecisionTree<T, L>::predict_one(
   const T *row, const std::vector<SparseTreeNode<T, L>> sparsetree,
   int idx) const {
   int colid = sparsetree[idx].colid;
@@ -302,7 +302,7 @@ L DecisionTreeBase<T, L>::predict_one(
 }
 
 template <typename T, typename L>
-void DecisionTreeBase<T, L>::set_metadata(TreeMetaDataNode<T, L> *&tree) {
+void DecisionTree<T, L>::set_metadata(TreeMetaDataNode<T, L> *&tree) {
   tree->depth_counter = depth_counter;
   tree->leaf_counter = leaf_counter;
   tree->train_time = train_time;
@@ -310,14 +310,16 @@ void DecisionTreeBase<T, L>::set_metadata(TreeMetaDataNode<T, L> *&tree) {
 }
 
 template <typename T, typename L>
-void DecisionTreeBase<T, L>::base_fit(
-  const std::shared_ptr<raft::mr::device::allocator> device_allocator_in,
-  const std::shared_ptr<raft::mr::host::allocator> host_allocator_in,
-  const cudaStream_t stream_in, const T *data, const int ncols, const int nrows,
+void DecisionTree<T, L>::fit(
+  const raft::handle_t &handle,
+  const T *data, const int ncols, const int nrows,
   const L *labels, unsigned int *rowids, const int n_sampled_rows,
-  int unique_labels, std::vector<SparseTreeNode<T, L>> &sparsetree,
-  const int treeid, uint64_t seed, bool is_classifier, T *d_global_quantiles) {
+  int unique_labels, bool is_classifier,
+  TreeMetaDataNode<T, L> *&tree, DecisionTreeParams tree_parameters,
+  uint64_t seed, T *d_global_quantiles) {
+  this->tree_params = tree_parameters;
   prepare_fit_timer.reset();
+  // check to make sure classifer has atleast 2 unique_labeling
   const char *CRITERION_NAME[] = {"GINI", "ENTROPY", "MSE", "MAE", "END"};
   CRITERION default_criterion =
     (is_classifier) ? CRITERION::GINI : CRITERION::MSE;
@@ -346,106 +348,39 @@ void DecisionTreeBase<T, L>::base_fit(
   dinfo.NGlobalrows = nrows;
   dinfo.Ncols = ncols;
   n_unique_labels = unique_labels;
-  grow_tree(device_allocator_in, host_allocator_in, data, treeid, seed, ncols,
+  grow_tree(handle.get_device_allocator(), handle.get_host_allocator(), data, tree->treeid, seed, ncols,
             nrows, labels, d_global_quantiles, (int *)rowids, n_sampled_rows,
-            unique_labels, tree_params, stream_in, sparsetree,
+            unique_labels, tree_params, handle.get_stream(), tree->sparsetree,
             this->leaf_counter, this->depth_counter);
-}
-
-template <typename T>
-void DecisionTreeClassifier<T>::fit(
-  const raft::handle_t &handle, const T *data, const int ncols, const int nrows,
-  const int *labels, unsigned int *rowids, const int n_sampled_rows,
-  const int unique_labels, TreeMetaDataNode<T, int> *&tree,
-  DecisionTreeParams tree_parameters, uint64_t seed, T *d_global_quantiles) {
-  this->tree_params = tree_parameters;
-  this->base_fit(handle.get_device_allocator(), handle.get_host_allocator(),
-                 handle.get_stream(), data, ncols, nrows, labels, rowids,
-                 n_sampled_rows, unique_labels, tree->sparsetree, tree->treeid,
-                 seed, true, d_global_quantiles);
-  this->set_metadata(tree);
-}
-
-template <typename T>
-
-void DecisionTreeClassifier<T>::fit(
-  const std::shared_ptr<raft::mr::device::allocator> device_allocator_in,
-  const std::shared_ptr<raft::mr::host::allocator> host_allocator_in,
-  const cudaStream_t stream_in, const T *data, const int ncols, const int nrows,
-  const int *labels, unsigned int *rowids, const int n_sampled_rows,
-  const int unique_labels, TreeMetaDataNode<T, int> *&tree,
-  DecisionTreeParams tree_parameters, uint64_t seed, T *d_global_quantiles) {
-  this->tree_params = tree_parameters;
-  this->base_fit(device_allocator_in, host_allocator_in, stream_in, data, ncols,
-                 nrows, labels, rowids, n_sampled_rows, unique_labels,
-                 tree->sparsetree, tree->treeid, seed, true,
-                 d_global_quantiles);
-  this->set_metadata(tree);
-}
-
-template <typename T>
-void DecisionTreeRegressor<T>::fit(const raft::handle_t &handle, const T *data,
-                                   const int ncols, const int nrows,
-                                   const T *labels, unsigned int *rowids,
-                                   const int n_sampled_rows,
-                                   TreeMetaDataNode<T, T> *&tree,
-                                   DecisionTreeParams tree_parameters,
-                                   uint64_t seed, T *d_global_quantiles) {
-  this->tree_params = tree_parameters;
-  this->base_fit(handle.get_device_allocator(), handle.get_host_allocator(),
-                 handle.get_stream(), data, ncols, nrows, labels, rowids,
-                 n_sampled_rows, 1, tree->sparsetree, tree->treeid, seed, false,
-                 d_global_quantiles);
-  this->set_metadata(tree);
-}
-
-template <typename T>
-void DecisionTreeRegressor<T>::fit(
-  const std::shared_ptr<raft::mr::device::allocator> device_allocator_in,
-  const std::shared_ptr<raft::mr::host::allocator> host_allocator_in,
-  const cudaStream_t stream_in, const T *data, const int ncols, const int nrows,
-  const T *labels, unsigned int *rowids, const int n_sampled_rows,
-  TreeMetaDataNode<T, T> *&tree, DecisionTreeParams tree_parameters,
-  uint64_t seed, T *d_global_quantiles) {
-  this->tree_params = tree_parameters;
-  this->base_fit(device_allocator_in, host_allocator_in, stream_in, data, ncols,
-                 nrows, labels, rowids, n_sampled_rows, 1, tree->sparsetree,
-                 tree->treeid, seed, false, d_global_quantiles);
   this->set_metadata(tree);
 }
 
 //Class specializations
-template class DecisionTreeBase<float, int>;
-template class DecisionTreeBase<float, float>;
-template class DecisionTreeBase<double, int>;
-template class DecisionTreeBase<double, double>;
-
-template class DecisionTreeClassifier<float>;
-template class DecisionTreeClassifier<double>;
-
-template class DecisionTreeRegressor<float>;
-template class DecisionTreeRegressor<double>;
+template class DecisionTree<float, int>;
+template class DecisionTree<float, float>;
+template class DecisionTree<double, int>;
+template class DecisionTree<double, double>;
 
 template tl::Tree<float, float> build_treelite_tree<float, int>(
-  const DecisionTree::TreeMetaDataNode<float, int> &rf_tree,
+  const TreeMetaDataNode<float, int> &rf_tree,
   unsigned int num_class,
   std::vector<Node_ID_info<float, int>> &working_queue_1,
   std::vector<Node_ID_info<float, int>> &working_queue_2);
 template tl::Tree<double, double> build_treelite_tree<double, int>(
-  const DecisionTree::TreeMetaDataNode<double, int> &rf_tree,
+  const TreeMetaDataNode<double, int> &rf_tree,
   unsigned int num_class,
   std::vector<Node_ID_info<double, int>> &working_queue_1,
   std::vector<Node_ID_info<double, int>> &working_queue_2);
 template tl::Tree<float, float> build_treelite_tree<float, float>(
-  const DecisionTree::TreeMetaDataNode<float, float> &rf_tree,
+  const TreeMetaDataNode<float, float> &rf_tree,
   unsigned int num_class,
   std::vector<Node_ID_info<float, float>> &working_queue_1,
   std::vector<Node_ID_info<float, float>> &working_queue_2);
 template tl::Tree<double, double> build_treelite_tree<double, double>(
-  const DecisionTree::TreeMetaDataNode<double, double> &rf_tree,
+  const TreeMetaDataNode<double, double> &rf_tree,
   unsigned int num_class,
   std::vector<Node_ID_info<double, double>> &working_queue_1,
   std::vector<Node_ID_info<double, double>> &working_queue_2);
-}  //End namespace DecisionTree
+}  //End namespace DT
 
 }  //End namespace ML

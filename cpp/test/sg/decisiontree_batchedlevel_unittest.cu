@@ -26,7 +26,7 @@
 #include <functional>
 
 namespace ML {
-namespace DecisionTree {
+namespace DT {
 
 struct NodeSplitKernelTestParams {
   int min_samples_split;
@@ -362,5 +362,5 @@ INSTANTIATE_TEST_SUITE_P(BatchedLevelAlgoUnitTest, TestMetric,
                            }
                          });
 
-}  // namespace DecisionTree
+}  // namespace DT
 }  // namespace ML

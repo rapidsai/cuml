@@ -24,7 +24,7 @@
 #include <common/nvtx.hpp>
 
 namespace ML {
-namespace DecisionTree {
+namespace DT {
 
 using device_allocator = raft::mr::device::allocator;
 template <typename T>
@@ -88,5 +88,5 @@ void computeQuantiles(
   return;
 }
 
-}  // namespace DecisionTree
+}  // namespace DT
 }  // namespace ML
