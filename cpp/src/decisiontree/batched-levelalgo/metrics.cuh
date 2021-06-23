@@ -222,6 +222,18 @@ class MSEObjectiveFunction {
     DI static void AtomicAdd(MSEBin* address, MSEBin val) {
       atomicAdd(&address->label_sum, val.label_sum);
       atomicAdd(&address->count, val.count);
+    }
+    DI MSEBin& operator+=(const MSEBin& b) {
+      label_sum += b.label_sum;
+      count += b.count;
+      return *this;
+    }
+    DI MSEBin operator+(MSEBin b) const {
+      b += *this;
+      return b;
+    }
+  };
+  using BinT = MSEBin;
   HDI MSEObjectiveFunction(IdxT nclasses, DataT min_impurity_decrease,
                            IdxT min_samples_leaf)
     : min_impurity_decrease(min_impurity_decrease),
@@ -232,6 +244,7 @@ class MSEObjectiveFunction {
     Split<DataT, IdxT> sp;
     auto invlen = DataT(1.0) / len;
     for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+      auto nLeft = shist[i].count;
       auto nRight = len - nLeft;
       DataT gain;
       // if there aren't enough samples in this split, don't bother!
@@ -254,11 +267,6 @@ class MSEObjectiveFunction {
     }
     return sp;
   }
-
-  static DI LabelT LeafPrediction(BinT* shist, int nclasses) {
-    return shist[0].label_sum / shist[0].count;
-  }
-};
 
   static DI LabelT LeafPrediction(BinT* shist, int nclasses) {
     return shist[0].label_sum / shist[0].count;
