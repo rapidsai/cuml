@@ -17,6 +17,8 @@
 /** @file internal.cuh cuML-internal interface to Forest Inference Library. */
 
 #pragma once
+#include <cuml/fil/fil.h>
+#include <vector>
 
 namespace raft {
 class handle_t;
@@ -192,6 +194,8 @@ enum leaf_algo_t {
       This is a more specific version of GROVE_PER_CLASS.
       _MANY_CLASSES means more classes than threads. **/
   GROVE_PER_CLASS_MANY_CLASSES = 4,
+  /** Leaf contains an index into a vector of class probabilities. **/
+  VECTOR_LEAF = 5,
   // to be extended
 };
 
@@ -212,6 +216,10 @@ struct leaf_output_t<leaf_algo_t::GROVE_PER_CLASS_FEW_CLASSES> {
 template <>
 struct leaf_output_t<leaf_algo_t::GROVE_PER_CLASS_MANY_CLASSES> {
   typedef float T;
+};
+template <>
+struct leaf_output_t<leaf_algo_t::VECTOR_LEAF> {
+  typedef int T;
 };
 
 /** forest_params_t are the trees to initialize the predictor */
@@ -262,9 +270,11 @@ const int FIL_TPB = 256;
  *  @param nodes nodes for the forest, of length
       (2**(params->depth + 1) - 1) * params->ntrees
  *  @param params pointer to parameters used to initialize the forest
+ *  @param vector_leaf optional vector leaves
  */
 void init_dense(const raft::handle_t& h, forest_t* pf, const dense_node* nodes,
-                const forest_params_t* params);
+                const forest_params_t* params,
+                const std::vector<float>& vector_leaf);
 
 /** init_sparse uses params, trees and nodes to initialize the sparse forest
  *  with sparse nodes stored in pf
@@ -275,10 +285,12 @@ void init_dense(const raft::handle_t& h, forest_t* pf, const dense_node* nodes,
  *  @param trees indices of tree roots in the nodes arrray, of length params->ntrees
  *  @param nodes nodes for the forest, of length params->num_nodes
  *  @param params pointer to parameters used to initialize the forest
+ *  @param vector_leaf optional vector leaves
  */
 template <typename fil_node_t>
 void init_sparse(const raft::handle_t& h, forest_t* pf, const int* trees,
-                 const fil_node_t* nodes, const forest_params_t* params);
+                 const fil_node_t* nodes, const forest_params_t* params,
+                 const std::vector<float>& vector_leaf);
 
 }  // namespace fil
 }  // namespace ML

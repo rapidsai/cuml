@@ -18,9 +18,9 @@
 #ifndef _OPENMP
 #define omp_get_thread_num() 0
 #endif
-#include <decisiontree/memory.h>
 #include <decisiontree/treelite_util.h>
 #include <raft/cudart_utils.h>
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include <decisiontree/quantile/quantile.cuh>
 #include <metrics/scores.cuh>
@@ -189,56 +189,17 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
     selected_rows[i] = new MLCommon::device_buffer<unsigned int>(
       handle.get_device_allocator(), s, n_sampled_rows);
   }
-
-  std::shared_ptr<TemporaryMemory<T, int>> tempmem[n_streams];
-  if (this->rf_params.tree_params.use_experimental_backend) {
-    // TemporaryMemory is unused for batched (new) backend
-    for (int i = 0; i < n_streams; i++) {
-      tempmem[i] = nullptr;
-    }
-  } else {
-    // Allocate TemporaryMemory for each stream
-    for (int i = 0; i < n_streams; i++) {
-      tempmem[i] = std::make_shared<TemporaryMemory<T, int>>(
-        handle, handle.get_internal_stream(i), n_rows, n_cols, n_unique_labels,
-        this->rf_params.tree_params);
-    }
-  }
-
-  std::unique_ptr<MLCommon::device_buffer<T>> global_quantiles_buffer = nullptr;
-  T* global_quantiles = nullptr;
   auto quantile_size = this->rf_params.tree_params.n_bins * n_cols;
+  MLCommon::device_buffer<T> global_quantiles(
+    handle.get_device_allocator(), handle.get_stream(), quantile_size);
 
   //Preprocess once only per forest
-  if (this->rf_params.tree_params.use_experimental_backend) {
-    // Using batched backend
-    // allocate space for d_global_quantiles
-    global_quantiles_buffer = std::make_unique<MLCommon::device_buffer<T>>(
-      handle.get_device_allocator(), handle.get_stream(), quantile_size);
-    global_quantiles = global_quantiles_buffer->data();
-    DecisionTree::computeQuantiles(
-      global_quantiles, this->rf_params.tree_params.n_bins, input, n_rows,
-      n_cols, handle.get_device_allocator(), handle.get_stream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-  } else {
-    if ((this->rf_params.tree_params.split_algo ==
-         SPLIT_ALGO::GLOBAL_QUANTILE) &&
-        !(this->rf_params.tree_params.quantile_per_tree)) {
-      // Using level (old) backend
-      DecisionTree::preprocess_quantile(input, nullptr, n_rows, n_cols, n_rows,
-                                        this->rf_params.tree_params.n_bins,
-                                        tempmem[0]);
-      for (int i = 1; i < n_streams; i++) {
-        CUDA_CHECK(cudaMemcpyAsync(
-          tempmem[i]->d_quantile->data(), tempmem[0]->d_quantile->data(),
-          this->rf_params.tree_params.n_bins * n_cols * sizeof(T),
-          cudaMemcpyDeviceToDevice, tempmem[i]->stream));
-        memcpy((void*)(tempmem[i]->h_quantile->data()),
-               (void*)(tempmem[0]->h_quantile->data()),
-               this->rf_params.tree_params.n_bins * n_cols * sizeof(T));
-      }
-    }
-  }
+  // Using batched backend
+  // allocate space for d_global_quantiles
+  DecisionTree::computeQuantiles(
+    global_quantiles.data(), this->rf_params.tree_params.n_bins, input, n_rows,
+    n_cols, handle.get_device_allocator(), handle.get_stream());
+  CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
 #pragma omp parallel for num_threads(n_streams)
   for (int i = 0; i < this->rf_params.n_trees; i++) {
@@ -263,7 +224,7 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
                  handle.get_internal_stream(stream_id), input, n_cols, n_rows,
                  labels, rowids, n_sampled_rows, n_unique_labels, tree_ptr,
                  this->rf_params.tree_params, this->rf_params.seed,
-                 global_quantiles, tempmem[stream_id]);
+                 global_quantiles.data());
   }
   //Cleanup
   for (int i = 0; i < n_streams; i++) {
@@ -271,9 +232,6 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
     CUDA_CHECK(cudaStreamSynchronize(s));
     selected_rows[i]->release(s);
     delete selected_rows[i];
-    if (!this->rf_params.tree_params.use_experimental_backend) {
-      tempmem[i].reset();
-    }
   }
   CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
   ML::POP_RANGE();
@@ -498,55 +456,14 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
       handle.get_device_allocator(), s, n_sampled_rows);
   }
 
-  std::shared_ptr<TemporaryMemory<T, T>> tempmem[n_streams];
-  if (this->rf_params.tree_params.use_experimental_backend) {
-    // TemporaryMemory is unused for batched (new) backend
-    for (int i = 0; i < n_streams; i++) {
-      tempmem[i] = nullptr;
-    }
-  } else {
-    // Allocate TemporaryMemory for each stream
-    for (int i = 0; i < n_streams; i++) {
-      tempmem[i] = std::make_shared<TemporaryMemory<T, T>>(
-        handle, handle.get_internal_stream(i), n_rows, n_cols, 1,
-        this->rf_params.tree_params);
-    }
-  }
-
-  std::unique_ptr<MLCommon::device_buffer<T>> global_quantiles_buffer = nullptr;
-  T* global_quantiles = nullptr;
   auto quantile_size = this->rf_params.tree_params.n_bins * n_cols;
+  MLCommon::device_buffer<T> global_quantiles(
+    handle.get_device_allocator(), handle.get_stream(), quantile_size);
 
-  //Preprocess once only per forest
-  if (this->rf_params.tree_params.use_experimental_backend) {
-    // Using batched backend
-    // allocate space for d_global_quantiles
-    global_quantiles_buffer = std::make_unique<MLCommon::device_buffer<T>>(
-      handle.get_device_allocator(), handle.get_stream(), quantile_size);
-    global_quantiles = global_quantiles_buffer->data();
-    DecisionTree::computeQuantiles(
-      global_quantiles, this->rf_params.tree_params.n_bins, input, n_rows,
-      n_cols, handle.get_device_allocator(), handle.get_stream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-  } else {
-    if ((this->rf_params.tree_params.split_algo ==
-         SPLIT_ALGO::GLOBAL_QUANTILE) &&
-        !(this->rf_params.tree_params.quantile_per_tree)) {
-      // Using level (old) backend
-      DecisionTree::preprocess_quantile(input, nullptr, n_rows, n_cols, n_rows,
-                                        this->rf_params.tree_params.n_bins,
-                                        tempmem[0]);
-      for (int i = 1; i < n_streams; i++) {
-        CUDA_CHECK(cudaMemcpyAsync(
-          tempmem[i]->d_quantile->data(), tempmem[0]->d_quantile->data(),
-          this->rf_params.tree_params.n_bins * n_cols * sizeof(T),
-          cudaMemcpyDeviceToDevice, tempmem[i]->stream));
-        memcpy((void*)(tempmem[i]->h_quantile->data()),
-               (void*)(tempmem[0]->h_quantile->data()),
-               this->rf_params.tree_params.n_bins * n_cols * sizeof(T));
-      }
-    }
-  }
+  DecisionTree::computeQuantiles(
+    global_quantiles.data(), this->rf_params.tree_params.n_bins, input, n_rows,
+    n_cols, handle.get_device_allocator(), handle.get_stream());
+  CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
 #pragma omp parallel for num_threads(n_streams)
   for (int i = 0; i < this->rf_params.n_trees; i++) {
@@ -570,7 +487,7 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
                  handle.get_internal_stream(stream_id), input, n_cols, n_rows,
                  labels, rowids, n_sampled_rows, tree_ptr,
                  this->rf_params.tree_params, this->rf_params.seed,
-                 global_quantiles, tempmem[stream_id]);
+                 global_quantiles.data());
   }
   //Cleanup
   for (int i = 0; i < n_streams; i++) {
@@ -578,9 +495,6 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
     CUDA_CHECK(cudaStreamSynchronize(s));
     selected_rows[i]->release(s);
     delete selected_rows[i];
-    if (!this->rf_params.tree_params.use_experimental_backend) {
-      tempmem[i].reset();
-    }
   }
   CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
   ML::POP_RANGE();

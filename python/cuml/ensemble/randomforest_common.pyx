@@ -44,9 +44,9 @@ class BaseRandomForestModel(Base):
                     'split_algo', 'split_criterion', 'min_samples_leaf',
                     'min_samples_split',
                     'min_impurity_decrease',
-                    'bootstrap', 'bootstrap_features',
+                    'bootstrap',
                     'verbose', 'max_samples',
-                    'max_leaves', 'quantile_per_tree',
+                    'max_leaves',
                     'accuracy_metric', 'use_experimental_backend',
                     'max_batch_size']
 
@@ -56,14 +56,14 @@ class BaseRandomForestModel(Base):
     classes_ = CumlArrayDescriptor()
 
     def __init__(self, *, split_criterion, n_streams=8, n_estimators=100,
-                 max_depth=16, handle=None, max_features='auto', n_bins=8,
-                 split_algo=1, bootstrap=True, bootstrap_features=False,
+                 max_depth=16, handle=None, max_features='auto', n_bins=128,
+                 split_algo=1, bootstrap=True,
                  verbose=False, min_samples_leaf=1, min_samples_split=2,
                  max_samples=1.0, max_leaves=-1, accuracy_metric=None,
                  dtype=None, output_type=None, min_weight_fraction_leaf=None,
                  n_jobs=None, max_leaf_nodes=None, min_impurity_decrease=0.0,
                  min_impurity_split=None, oob_score=None, random_state=None,
-                 warm_start=None, class_weight=None, quantile_per_tree=False,
+                 warm_start=None, class_weight=None,
                  criterion=None, use_experimental_backend=True,
                  max_batch_size=128):
 
@@ -91,10 +91,12 @@ class BaseRandomForestModel(Base):
                           "recommended. If n_streams is > 1, results may vary "
                           "due to stream/thread timing differences, even when "
                           "random_state is set")
-        if quantile_per_tree:
-            warnings.warn("The 'quantile_per_tree' parameter is deprecated "
-                          "and will be removed in 21.06 release. Instead use "
-                          "higher number of global quantile bins.")
+        if use_experimental_backend:
+            warnings.warn("The 'use_experimental_backend' parameter is "
+                          "deprecated and will be removed in 21.10 release.")
+        if split_algo:
+            warnings.warn("The 'split_algo' parameter is deprecated "
+                          "and will be removed in 21.10 release.")
         if handle is None:
             handle = Handle(n_streams)
 
@@ -106,7 +108,6 @@ class BaseRandomForestModel(Base):
         if max_depth < 0:
             raise ValueError("Must specify max_depth >0 ")
 
-        self.split_algo = split_algo
         if (str(split_criterion) not in
                 BaseRandomForestModel.criterion_dict.keys()):
             warnings.warn("The split criterion chosen was not present"
@@ -120,7 +121,6 @@ class BaseRandomForestModel(Base):
         self.min_samples_leaf = min_samples_leaf
         self.min_samples_split = min_samples_split
         self.min_impurity_decrease = min_impurity_decrease
-        self.bootstrap_features = bootstrap_features
         self.max_samples = max_samples
         self.max_leaves = max_leaves
         self.n_estimators = n_estimators
@@ -131,8 +131,6 @@ class BaseRandomForestModel(Base):
         self.n_cols = None
         self.dtype = dtype
         self.accuracy_metric = accuracy_metric
-        self.quantile_per_tree = quantile_per_tree
-        self.use_experimental_backend = use_experimental_backend
         self.max_batch_size = max_batch_size
         self.n_streams = handle.getNumInternalStreams()
         self.random_state = random_state
