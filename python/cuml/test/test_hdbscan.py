@@ -163,10 +163,9 @@ def test_hdbscan_sklearn_datasets(dataset,
 
 @pytest.mark.parametrize('dataset', test_datasets.values())
 @pytest.mark.parametrize('cluster_selection_epsilon', [0.0, 50.0, 150.0])
-@pytest.mark.parametrize('min_samples_cluster_size_bounds', [(150, 150, 0),
-                                                             (50, 25, 0),
-                                                             (5, 5, 0),
-                                                             (150, 5, 0)])
+@pytest.mark.parametrize('min_samples', [150, 50, 5, 400])
+@pytest.mark.parametrize('min_cluster_size', [150, 25, 5, 250])
+@pytest.mark.parametrize('max_cluster_size', [0])
 @pytest.mark.parametrize('allow_single_cluster', [True, False])
 @pytest.mark.parametrize('cluster_selection_method', ['eom', 'leaf'])
 @pytest.mark.parametrize('connectivity', ['knn'])
@@ -174,11 +173,10 @@ def test_hdbscan_sklearn_extract_clusters(dataset,
                                           connectivity,
                                           cluster_selection_epsilon,
                                           cluster_selection_method,
-                                          min_samples_cluster_size_bounds,
+                                          min_samples,
+                                          min_cluster_size,
+                                          max_cluster_size,
                                           allow_single_cluster):
-
-    min_samples, min_cluster_size, max_cluster_size = \
-        min_samples_cluster_size_bounds
 
     X = dataset.data
 
@@ -266,9 +264,9 @@ def test_hdbscan_cluster_patterns(dataset, nrows,
 
 @pytest.mark.parametrize('nrows', [1000])
 @pytest.mark.parametrize('dataset', dataset_names)
-@pytest.mark.parametrize('min_samples', [5, 15, 50, 150])
+@pytest.mark.parametrize('min_samples', [5, 50, 400, 800])
 @pytest.mark.parametrize('cluster_selection_epsilon', [0.0])
-@pytest.mark.parametrize('min_cluster_size', [10, 25, 100])
+@pytest.mark.parametrize('min_cluster_size', [10, 25, 100, 350])
 @pytest.mark.parametrize('allow_single_cluster', [True, False])
 @pytest.mark.parametrize('max_cluster_size', [0])
 @pytest.mark.parametrize('cluster_selection_method', ['eom', 'leaf'])
