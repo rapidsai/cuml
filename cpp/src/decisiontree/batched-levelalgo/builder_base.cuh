@@ -327,7 +327,8 @@ struct Builder {
     raft::update_device(curr_nodes, h_nodes.data() + node_start, batchSize, s);
 
     int total_samples_in_curr_batch = 0;
-    int n_large_nodes_in_curr_batch = 0;
+    int n_large_nodes_in_curr_batch =
+      0;  // large nodes are nodes having training instances larger than block size, hence require global memory for histogram construction
     total_num_blocks = 0;
     for (int n = 0; n < batchSize; n++) {
       total_samples_in_curr_batch += h_nodes[node_start + n].count;
@@ -358,8 +359,8 @@ struct Builder {
     auto n_col_blks = n_blks_for_cols;
     if (total_num_blocks) {
       for (IdxT c = 0; c < input.nSampledCols; c += n_col_blks) {
-        Traits::computeSplit(c, batchSize, params.split_criterion,
-                             n_large_nodes_in_curr_batch, s);
+        computeSplit(c, batchSize, params.split_criterion,
+                     n_large_nodes_in_curr_batch, s);
         CUDA_CHECK(cudaGetLastError());
       }
     }
@@ -392,9 +393,8 @@ struct Builder {
    * @param[in] splitType split criterion
    * @param[in] s         cuda stream
    */
-  static void computeSplit(IdxT col,
-                           IdxT batchSize, CRITERION splitType,
-                           int& n_large_nodes_in_curr_batch, cudaStream_t s) {
+  void computeSplit(IdxT col, IdxT batchSize, CRITERION splitType,
+                    const int n_large_nodes_in_curr_batch, cudaStream_t s) {
     ML::PUSH_RANGE(
       "Builder::computeSplit @builder_base.cuh [batched-levelalgo]");
     auto nbins = params.n_bins;
@@ -414,9 +414,8 @@ struct Builder {
     // Pick the max of two
     size_t smemSize = std::max(smemSize1, smemSize2);
     dim3 grid(total_num_blocks, colBlks, 1);
-    int nHistBins = 0;
-    nHistBins = n_large_nodes_in_curr_batch * nbins * colBlks * nclasses;
-    CUDA_CHECK(cudaMemsetAsync(b.hist, 0, sizeof(BinT) * nHistBins, s));
+    int nHistBins = n_large_nodes_in_curr_batch * nbins * colBlks * nclasses;
+    CUDA_CHECK(cudaMemsetAsync(hist, 0, sizeof(BinT) * nHistBins, s));
     ML::PUSH_RANGE(
       "computeSplitClassificationKernel @builder_base.cuh [batched-levelalgo]");
     ObjectiveT objective(input.numOutputs, params.min_impurity_decrease,
