@@ -49,7 +49,7 @@ bool is_dev_ptr(const void *p) {
 namespace DT {
 
 template <class T, class L>
-void print(const SparseTreeNode<T, L> &node, std::ostream &os) {
+void DT::print(const SparseTreeNode<T, L> &node, std::ostream &os) {
   if (node.colid == -1) {
     os << "(leaf, "
        << "prediction: " << node.prediction
@@ -141,13 +141,13 @@ std::string get_node_json(const std::string &prefix,
 
 template <typename T, typename L>
 std::ostream &operator<<(std::ostream &os, const SparseTreeNode<T, L> &node) {
-  print(node, os);
+  DT::print(node, os);
   return os;
 }
 
 template <class T, class L>
 tl::Tree<T, T> build_treelite_tree(
-  const TreeMetaDataNode<T, L> &rf_tree, unsigned int num_class,
+  const DT::TreeMetaDataNode<T, L> &rf_tree, unsigned int num_class,
   std::vector<Node_ID_info<T, L>> &cur_level_queue,
   std::vector<Node_ID_info<T, L>> &next_level_queue) {
   tl::Tree<T, T> tl_tree;
@@ -250,10 +250,10 @@ void DecisionTree<T, L>::print(
 
 template <typename T, typename L>
 void DecisionTree<T, L>::predict(const raft::handle_t &handle,
-                                     const TreeMetaDataNode<T, L> *tree,
-                                     const T *rows, const int n_rows,
-                                     const int n_cols, L *predictions,
-                                     int verbosity) const {
+                                 const DT::TreeMetaDataNode<T, L> *tree,
+                                 const T *rows, const int n_rows,
+                                 const int n_cols, L *predictions,
+                                 int verbosity) const {
   if (verbosity >= 0) {
     ML::Logger::get().setLevel(verbosity);
   }
@@ -271,9 +271,9 @@ void DecisionTree<T, L>::predict(const raft::handle_t &handle,
 }
 
 template <typename T, typename L>
-void DecisionTree<T, L>::predict_all(const TreeMetaDataNode<T, L> *tree,
-                                         const T *rows, const int n_rows,
-                                         const int n_cols, L *preds) const {
+void DecisionTree<T, L>::predict_all(const DT::TreeMetaDataNode<T, L> *tree,
+                                     const T *rows, const int n_rows,
+                                     const int n_cols, L *preds) const {
   for (int row_id = 0; row_id < n_rows; row_id++) {
     preds[row_id] = predict_one(&rows[row_id * n_cols], tree->sparsetree, 0);
   }
@@ -302,7 +302,7 @@ L DecisionTree<T, L>::predict_one(
 }
 
 template <typename T, typename L>
-void DecisionTree<T, L>::set_metadata(TreeMetaDataNode<T, L> *&tree) {
+void DecisionTree<T, L>::set_metadata(DT::TreeMetaDataNode<T, L> *&tree) {
   tree->depth_counter = depth_counter;
   tree->leaf_counter = leaf_counter;
   tree->train_time = train_time;
@@ -310,16 +310,15 @@ void DecisionTree<T, L>::set_metadata(TreeMetaDataNode<T, L> *&tree) {
 }
 
 template <typename T, typename L>
-void DecisionTree<T, L>::fit(
-  const raft::handle_t &handle,
-  const T *data, const int ncols, const int nrows,
-  const L *labels, unsigned int *rowids, const int n_sampled_rows,
-  int unique_labels, bool is_classifier,
-  TreeMetaDataNode<T, L> *&tree, DecisionTreeParams tree_parameters,
-  uint64_t seed, T *d_global_quantiles) {
+void DecisionTree<T, L>::fit(const raft::handle_t &handle, const T *data,
+                             const int ncols, const int nrows, const L *labels,
+                             unsigned int *rowids, const int n_sampled_rows,
+                             int unique_labels, bool is_classifier,
+                             DT::TreeMetaDataNode<T, L> *&tree,
+                             DecisionTreeParams tree_parameters, uint64_t seed,
+                             T *d_global_quantiles) {
   this->tree_params = tree_parameters;
   prepare_fit_timer.reset();
-  // check to make sure classifer has atleast 2 unique_labeling
   const char *CRITERION_NAME[] = {"GINI", "ENTROPY", "MSE", "MAE", "END"};
   CRITERION default_criterion =
     (is_classifier) ? CRITERION::GINI : CRITERION::MSE;
@@ -348,10 +347,11 @@ void DecisionTree<T, L>::fit(
   dinfo.NGlobalrows = nrows;
   dinfo.Ncols = ncols;
   n_unique_labels = unique_labels;
-  grow_tree(handle.get_device_allocator(), handle.get_host_allocator(), data, tree->treeid, seed, ncols,
-            nrows, labels, d_global_quantiles, (int *)rowids, n_sampled_rows,
-            unique_labels, tree_params, handle.get_stream(), tree->sparsetree,
-            this->leaf_counter, this->depth_counter);
+  grow_tree(handle.get_device_allocator(), handle.get_host_allocator(), data,
+            tree->treeid, seed, ncols, nrows, labels, d_global_quantiles,
+            (int *)rowids, n_sampled_rows, unique_labels, tree_params,
+            handle.get_stream(), tree->sparsetree, this->leaf_counter,
+            this->depth_counter);
   this->set_metadata(tree);
 }
 
@@ -362,23 +362,19 @@ template class DecisionTree<double, int>;
 template class DecisionTree<double, double>;
 
 template tl::Tree<float, float> build_treelite_tree<float, int>(
-  const TreeMetaDataNode<float, int> &rf_tree,
-  unsigned int num_class,
+  const DT::TreeMetaDataNode<float, int> &rf_tree, unsigned int num_class,
   std::vector<Node_ID_info<float, int>> &working_queue_1,
   std::vector<Node_ID_info<float, int>> &working_queue_2);
 template tl::Tree<double, double> build_treelite_tree<double, int>(
-  const TreeMetaDataNode<double, int> &rf_tree,
-  unsigned int num_class,
+  const DT::TreeMetaDataNode<double, int> &rf_tree, unsigned int num_class,
   std::vector<Node_ID_info<double, int>> &working_queue_1,
   std::vector<Node_ID_info<double, int>> &working_queue_2);
 template tl::Tree<float, float> build_treelite_tree<float, float>(
-  const TreeMetaDataNode<float, float> &rf_tree,
-  unsigned int num_class,
+  const DT::TreeMetaDataNode<float, float> &rf_tree, unsigned int num_class,
   std::vector<Node_ID_info<float, float>> &working_queue_1,
   std::vector<Node_ID_info<float, float>> &working_queue_2);
 template tl::Tree<double, double> build_treelite_tree<double, double>(
-  const TreeMetaDataNode<double, double> &rf_tree,
-  unsigned int num_class,
+  const DT::TreeMetaDataNode<double, double> &rf_tree, unsigned int num_class,
   std::vector<Node_ID_info<double, double>> &working_queue_1,
   std::vector<Node_ID_info<double, double>> &working_queue_2);
 }  //End namespace DT

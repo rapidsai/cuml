@@ -90,15 +90,12 @@ class DecisionTree {
   DecisionTreeParams tree_params;
 
  public:
-
   // fit function
-  void fit(
-    const raft::handle_t &handle,
-    const T *data, const int ncols, const int nrows,
-    const L *labels, unsigned int *rowids, const int n_sampled_rows,
-    int unique_labels, bool is_classifier,
-    TreeMetaDataNode<T, L> *&tree, DecisionTreeParams tree_parameters,
-    uint64_t seed, T *d_global_quantiles);
+  void fit(const raft::handle_t &handle, const T *data, const int ncols,
+           const int nrows, const L *labels, unsigned int *rowids,
+           const int n_sampled_rows, int unique_labels, bool is_classifier,
+           TreeMetaDataNode<T, L> *&tree, DecisionTreeParams tree_parameters,
+           uint64_t seed, T *d_global_quantiles);
 
   // Printing utility for high level tree info.
   void print_tree_summary() const;

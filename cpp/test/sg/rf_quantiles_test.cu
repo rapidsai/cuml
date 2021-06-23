@@ -110,8 +110,8 @@ class RFQuantileTest : public ::testing::TestWithParam<inputs> {
     int numBlocks = raft::ceildiv(params.n_rows, TPB);
     generateData<<<numBlocks, TPB, 0, stream>>>(data, params.n_rows,
                                                 params.seed);
-    DT::computeQuantiles(quantiles, params.n_bins, data,
-                                   params.n_rows, 1, allocator, stream);
+    DT::computeQuantiles(quantiles, params.n_bins, data, params.n_rows, 1,
+                         allocator, stream);
 
     computeHistogram<<<numBlocks, TPB, 0, stream>>>(
       histogram, data, params.n_rows, quantiles, params.n_bins);

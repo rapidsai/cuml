@@ -215,8 +215,7 @@ std::string _get_rf_text(const RandomForestMetaData<T, L>* forest,
     for (int i = 0; i < forest->rf_params.n_trees; i++) {
       oss << "Tree #" << i << "\n";
       if (summary) {
-        oss << DT::get_tree_summary_text<T, L>(&(forest->trees[i]))
-            << "\n";
+        oss << DT::get_tree_summary_text<T, L>(&(forest->trees[i])) << "\n";
       } else {
         oss << DT::get_tree_text<T, L>(&(forest->trees[i])) << "\n";
       }
@@ -480,12 +479,12 @@ void fit(const raft::handle_t& user_handle, RandomForestClassifierF*& forest,
   ML::PUSH_RANGE("RF::fit @randomforest.cu");
   ML::Logger::get().setLevel(verbosity);
   ASSERT(!forest->trees, "Cannot fit an existing forest.");
-  forest->trees =
-    new DT::TreeMetaDataNode<float, int>[rf_params.n_trees];
+  forest->trees = new DT::TreeMetaDataNode<float, int>[rf_params.n_trees];
   forest->rf_params = rf_params;
 
-  std::shared_ptr<rfClassifier<float>> rf_classifier =
-    std::make_shared<rfClassifier<float>>(rf_params);
+  std::shared_ptr<RandomForest<float, int>> rf_classifier =
+    std::make_shared<RandomForest<float, int>>(rf_params,
+                                               RF_type::CLASSIFICATION);
   rf_classifier->fit(user_handle, input, n_rows, n_cols, labels,
                      n_unique_labels, forest);
   ML::POP_RANGE();
@@ -497,12 +496,12 @@ void fit(const raft::handle_t& user_handle, RandomForestClassifierD*& forest,
   ML::PUSH_RANGE("RF::fit @randomforest.cu");
   ML::Logger::get().setLevel(verbosity);
   ASSERT(!forest->trees, "Cannot fit an existing forest.");
-  forest->trees =
-    new DT::TreeMetaDataNode<double, int>[rf_params.n_trees];
+  forest->trees = new DT::TreeMetaDataNode<double, int>[rf_params.n_trees];
   forest->rf_params = rf_params;
 
-  std::shared_ptr<rfClassifier<double>> rf_classifier =
-    std::make_shared<rfClassifier<double>>(rf_params);
+  std::shared_ptr<RandomForest<double, int>> rf_classifier =
+    std::make_shared<RandomForest<double, int>>(rf_params,
+                                                RF_type::CLASSIFICATION);
   rf_classifier->fit(user_handle, input, n_rows, n_cols, labels,
                      n_unique_labels, forest);
   ML::POP_RANGE();
@@ -527,8 +526,9 @@ void predict(const raft::handle_t& user_handle,
              const RandomForestClassifierF* forest, const float* input,
              int n_rows, int n_cols, int* predictions, int verbosity) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
-  std::shared_ptr<rfClassifier<float>> rf_classifier =
-    std::make_shared<rfClassifier<float>>(forest->rf_params);
+  std::shared_ptr<RandomForest<float, int>> rf_classifier =
+    std::make_shared<RandomForest<float, int>>(forest->rf_params,
+                                               RF_type::CLASSIFICATION);
   rf_classifier->predict(user_handle, input, n_rows, n_cols, predictions,
                          forest, verbosity);
 }
@@ -537,8 +537,9 @@ void predict(const raft::handle_t& user_handle,
              const RandomForestClassifierD* forest, const double* input,
              int n_rows, int n_cols, int* predictions, int verbosity) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
-  std::shared_ptr<rfClassifier<double>> rf_classifier =
-    std::make_shared<rfClassifier<double>>(forest->rf_params);
+  std::shared_ptr<RandomForest<double, int>> rf_classifier =
+    std::make_shared<RandomForest<double, int>>(forest->rf_params,
+                                                RF_type::CLASSIFICATION);
   rf_classifier->predict(user_handle, input, n_rows, n_cols, predictions,
                          forest, verbosity);
 }
@@ -562,8 +563,9 @@ void predictGetAll(const raft::handle_t& user_handle,
                    const RandomForestClassifierF* forest, const float* input,
                    int n_rows, int n_cols, int* predictions, int verbosity) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
-  std::shared_ptr<rfClassifier<float>> rf_classifier =
-    std::make_shared<rfClassifier<float>>(forest->rf_params);
+  std::shared_ptr<RandomForest<float, int>> rf_classifier =
+    std::make_shared<RandomForest<float, int>>(forest->rf_params,
+                                               RF_type::CLASSIFICATION);
   rf_classifier->predictGetAll(user_handle, input, n_rows, n_cols, predictions,
                                forest, verbosity);
 }
@@ -572,8 +574,9 @@ void predictGetAll(const raft::handle_t& user_handle,
                    const RandomForestClassifierD* forest, const double* input,
                    int n_rows, int n_cols, int* predictions, int verbosity) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
-  std::shared_ptr<rfClassifier<double>> rf_classifier =
-    std::make_shared<rfClassifier<double>>(forest->rf_params);
+  std::shared_ptr<RandomForest<double, int>> rf_classifier =
+    std::make_shared<RandomForest<double, int>>(forest->rf_params,
+                                                RF_type::CLASSIFICATION);
   rf_classifier->predictGetAll(user_handle, input, n_rows, n_cols, predictions,
                                forest, verbosity);
 }
@@ -597,7 +600,7 @@ void predictGetAll(const raft::handle_t& user_handle,
 RF_metrics score(const raft::handle_t& user_handle,
                  const RandomForestClassifierF* forest, const int* ref_labels,
                  int n_rows, const int* predictions, int verbosity) {
-  RF_metrics classification_score = rfClassifier<float>::score(
+  RF_metrics classification_score = RandomForest<float, int>::score(
     user_handle, ref_labels, n_rows, predictions, verbosity);
   return classification_score;
 }
@@ -605,7 +608,7 @@ RF_metrics score(const raft::handle_t& user_handle,
 RF_metrics score(const raft::handle_t& user_handle,
                  const RandomForestClassifierD* forest, const int* ref_labels,
                  int n_rows, const int* predictions, int verbosity) {
-  RF_metrics classification_score = rfClassifier<double>::score(
+  RF_metrics classification_score = RandomForest<double, int>::score(
     user_handle, ref_labels, n_rows, predictions, verbosity);
   return classification_score;
 }
@@ -617,9 +620,9 @@ RF_params set_rf_params(int max_depth, int max_leaves, float max_features,
                         CRITERION split_criterion, int cfg_n_streams,
                         int max_batch_size) {
   DT::DecisionTreeParams tree_params;
-  DT::set_tree_params(
-    tree_params, max_depth, max_leaves, max_features, n_bins, min_samples_leaf,
-    min_samples_split, min_impurity_decrease, split_criterion, max_batch_size);
+  DT::set_tree_params(tree_params, max_depth, max_leaves, max_features, n_bins,
+                      min_samples_leaf, min_samples_split,
+                      min_impurity_decrease, split_criterion, max_batch_size);
   RF_params rf_params;
   rf_params.n_trees = n_trees;
   rf_params.bootstrap = bootstrap;
@@ -654,13 +657,13 @@ void fit(const raft::handle_t& user_handle, RandomForestRegressorF*& forest,
   ML::PUSH_RANGE("RF::fit @randomforest.cu");
   ML::Logger::get().setLevel(verbosity);
   ASSERT(!forest->trees, "Cannot fit an existing forest.");
-  forest->trees =
-    new DT::TreeMetaDataNode<float, float>[rf_params.n_trees];
+  forest->trees = new DT::TreeMetaDataNode<float, float>[rf_params.n_trees];
   forest->rf_params = rf_params;
 
-  std::shared_ptr<rfRegressor<float>> rf_regressor =
-    std::make_shared<rfRegressor<float>>(rf_params);
-  rf_regressor->fit(user_handle, input, n_rows, n_cols, labels, forest);
+  std::shared_ptr<RandomForest<float, float>> rf_regressor =
+    std::make_shared<RandomForest<float, float>>(rf_params,
+                                                 RF_type::REGRESSION);
+  rf_regressor->fit(user_handle, input, n_rows, n_cols, labels, 1, forest);
   ML::POP_RANGE();
 }
 
@@ -670,13 +673,13 @@ void fit(const raft::handle_t& user_handle, RandomForestRegressorD*& forest,
   ML::PUSH_RANGE("RF::fit @randomforest.cu");
   ML::Logger::get().setLevel(verbosity);
   ASSERT(!forest->trees, "Cannot fit an existing forest.");
-  forest->trees =
-    new DT::TreeMetaDataNode<double, double>[rf_params.n_trees];
+  forest->trees = new DT::TreeMetaDataNode<double, double>[rf_params.n_trees];
   forest->rf_params = rf_params;
 
-  std::shared_ptr<rfRegressor<double>> rf_regressor =
-    std::make_shared<rfRegressor<double>>(rf_params);
-  rf_regressor->fit(user_handle, input, n_rows, n_cols, labels, forest);
+  std::shared_ptr<RandomForest<double, double>> rf_regressor =
+    std::make_shared<RandomForest<double, double>>(rf_params,
+                                                   RF_type::REGRESSION);
+  rf_regressor->fit(user_handle, input, n_rows, n_cols, labels, 1, forest);
   ML::POP_RANGE();
 }
 /** @} */
@@ -698,8 +701,9 @@ void predict(const raft::handle_t& user_handle,
              const RandomForestRegressorF* forest, const float* input,
              int n_rows, int n_cols, float* predictions, int verbosity) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
-  std::shared_ptr<rfRegressor<float>> rf_regressor =
-    std::make_shared<rfRegressor<float>>(forest->rf_params);
+  std::shared_ptr<RandomForest<float, float>> rf_regressor =
+    std::make_shared<RandomForest<float, float>>(forest->rf_params,
+                                                 RF_type::REGRESSION);
   rf_regressor->predict(user_handle, input, n_rows, n_cols, predictions, forest,
                         verbosity);
 }
@@ -708,8 +712,9 @@ void predict(const raft::handle_t& user_handle,
              const RandomForestRegressorD* forest, const double* input,
              int n_rows, int n_cols, double* predictions, int verbosity) {
   ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
-  std::shared_ptr<rfRegressor<double>> rf_regressor =
-    std::make_shared<rfRegressor<double>>(forest->rf_params);
+  std::shared_ptr<RandomForest<double, double>> rf_regressor =
+    std::make_shared<RandomForest<double, double>>(forest->rf_params,
+                                                   RF_type::REGRESSION);
   rf_regressor->predict(user_handle, input, n_rows, n_cols, predictions, forest,
                         verbosity);
 }
@@ -734,8 +739,9 @@ void predict(const raft::handle_t& user_handle,
 RF_metrics score(const raft::handle_t& user_handle,
                  const RandomForestRegressorF* forest, const float* ref_labels,
                  int n_rows, const float* predictions, int verbosity) {
-  RF_metrics regression_score = rfRegressor<float>::score(
-    user_handle, ref_labels, n_rows, predictions, verbosity);
+  RF_metrics regression_score = RandomForest<float, float>::score(
+    user_handle, ref_labels, n_rows, predictions, verbosity,
+    RF_type::REGRESSION);
 
   return regression_score;
 }
@@ -743,8 +749,9 @@ RF_metrics score(const raft::handle_t& user_handle,
 RF_metrics score(const raft::handle_t& user_handle,
                  const RandomForestRegressorD* forest, const double* ref_labels,
                  int n_rows, const double* predictions, int verbosity) {
-  RF_metrics regression_score = rfRegressor<double>::score(
-    user_handle, ref_labels, n_rows, predictions, verbosity);
+  RF_metrics regression_score = RandomForest<double, double>::score(
+    user_handle, ref_labels, n_rows, predictions, verbosity,
+    RF_type::REGRESSION);
   return regression_score;
 }
 /** @} */

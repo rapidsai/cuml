@@ -114,16 +114,15 @@ void decisionTreeClassifierFit(const raft::handle_t &handle,
                                const int ncols, const int nrows, int *labels,
                                unsigned int *rowids, const int n_sampled_rows,
                                int unique_labels,
-                               DecisionTreeParams tree_params,
-                               uint64_t seed) {
+                               DecisionTreeParams tree_params, uint64_t seed) {
   std::shared_ptr<DecisionTree<float, int>> dt_classifier =
     std::make_shared<DecisionTree<float, int>>();
   auto quantile_size = tree_params.n_bins * ncols;
   MLCommon::device_buffer<float> global_quantiles_buffer(
     handle.get_device_allocator(), handle.get_stream(), quantile_size);
-  computeQuantiles(
-    global_quantiles_buffer.data(), tree_params.n_bins, data, nrows, ncols,
-    handle.get_device_allocator(), handle.get_stream());
+  DT::computeQuantiles(global_quantiles_buffer.data(), tree_params.n_bins, data,
+                   nrows, ncols, handle.get_device_allocator(),
+                   handle.get_stream());
   dt_classifier->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows,
                      unique_labels, true, tree, tree_params, seed,
                      global_quantiles_buffer.data());
@@ -134,17 +133,16 @@ void decisionTreeClassifierFit(const raft::handle_t &handle,
                                const int ncols, const int nrows, int *labels,
                                unsigned int *rowids, const int n_sampled_rows,
                                int unique_labels,
-                               DecisionTreeParams tree_params,
-                               uint64_t seed) {
+                               DecisionTreeParams tree_params, uint64_t seed) {
   std::shared_ptr<DecisionTree<double, int>> dt_classifier =
     std::make_shared<DecisionTree<double, int>>();
 
   auto quantile_size = tree_params.n_bins * ncols;
   MLCommon::device_buffer<double> global_quantiles_buffer(
     handle.get_device_allocator(), handle.get_stream(), quantile_size);
-  computeQuantiles(
-    global_quantiles_buffer.data(), tree_params.n_bins, data, nrows, ncols,
-    handle.get_device_allocator(), handle.get_stream());
+  DT::computeQuantiles(global_quantiles_buffer.data(), tree_params.n_bins, data,
+                   nrows, ncols, handle.get_device_allocator(),
+                   handle.get_stream());
   dt_classifier->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows,
                      unique_labels, true, tree, tree_params, seed,
                      global_quantiles_buffer.data());
@@ -178,16 +176,14 @@ void decisionTreeRegressorFit(const raft::handle_t &handle,
                               TreeRegressorF *&tree, float *data,
                               const int ncols, const int nrows, float *labels,
                               unsigned int *rowids, const int n_sampled_rows,
-                              DecisionTreeParams tree_params,
-                              uint64_t seed) {
+                              DecisionTreeParams tree_params, uint64_t seed) {
   std::shared_ptr<DecisionTree<float, float>> dt_regressor =
     std::make_shared<DecisionTree<float, float>>();
   auto quantile_size = tree_params.n_bins * ncols;
   MLCommon::device_buffer<float> global_quantiles(
     handle.get_device_allocator(), handle.get_stream(), quantile_size);
-  computeQuantiles(
-    global_quantiles.data(), tree_params.n_bins, data, nrows, ncols,
-    handle.get_device_allocator(), handle.get_stream());
+  DT::computeQuantiles(global_quantiles.data(), tree_params.n_bins, data, nrows,
+                   ncols, handle.get_device_allocator(), handle.get_stream());
   dt_regressor->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows,
                     1, false, tree, tree_params, seed, global_quantiles.data());
 }
@@ -196,17 +192,15 @@ void decisionTreeRegressorFit(const raft::handle_t &handle,
                               TreeRegressorD *&tree, double *data,
                               const int ncols, const int nrows, double *labels,
                               unsigned int *rowids, const int n_sampled_rows,
-                              DecisionTreeParams tree_params,
-                              uint64_t seed) {
+                              DecisionTreeParams tree_params, uint64_t seed) {
   std::shared_ptr<DecisionTree<double, double>> dt_regressor =
     std::make_shared<DecisionTree<double, double>>();
 
   auto quantile_size = tree_params.n_bins * ncols;
   MLCommon::device_buffer<double> global_quantiles(
     handle.get_device_allocator(), handle.get_stream(), quantile_size);
-  computeQuantiles(
-    global_quantiles.data(), tree_params.n_bins, data, nrows, ncols,
-    handle.get_device_allocator(), handle.get_stream());
+  DT::computeQuantiles(global_quantiles.data(), tree_params.n_bins, data, nrows,
+                   ncols, handle.get_device_allocator(), handle.get_stream());
   dt_regressor->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows,
                     1, false, tree, tree_params, seed, global_quantiles.data());
 }
