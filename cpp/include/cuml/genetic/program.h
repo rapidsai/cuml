@@ -85,6 +85,7 @@ typedef program *program_t;
 /**
  * @brief Calls the execution kernel to evaluate all programs on the given dataset
  * 
+ * @param h          cuML handle
  * @param d_progs    Device pointer to programs
  * @param n_rows     Number of rows in the input dataset
  * @param n_progs    Total number of programs being evaluated
@@ -99,6 +100,7 @@ void execute(const raft::handle_t &h, const program_t &d_progs,
  * @brief Compute the loss based on the metric specified in the training hyperparameters. 
  *        It performs a batched computation for all programs in one shot.
  * 
+ * @param h         cuML handle
  * @param n_rows    The number of labels/rows in the expected output
  * @param n_progs   The number of programs being batched
  * @param y         Device pointer to the expected output (SIZE = n_samples)
@@ -114,6 +116,7 @@ void compute_metric(const raft::handle_t &h, int n_rows, int n_progs,
 /**
  * @brief Computes the fitness scores for a sngle program on the given dataset 
  * 
+ * @param h cuML handle
  * @param d_prog          Device pointer to program
  * @param score           Device pointer to fitness vals
  * @param params          Training hyperparameters
@@ -129,6 +132,7 @@ void find_fitness(const raft::handle_t &h, program_t &d_prog, float *score,
 /**
  * @brief Computes the fitness scores for all programs on the given dataset 
  * 
+ * @param h cuML handle
  * @param n_progs         Batch size(Number of programs)
  * @param d_progs         Device pointer to list of programs
  * @param score           Device pointer to fitness vals computed for all programs
@@ -146,6 +150,7 @@ void find_batched_fitness(const raft::handle_t &h, int n_progs,
 /**
  * @brief Computes and sets the fitness scores for a single program on the given dataset
  * 
+ * @param h cuML handle
  * @param d_prog          Device pointer to program
  * @param h_prog          Host program object
  * @param params          Training hyperparameters
@@ -161,6 +166,7 @@ void set_fitness(const raft::handle_t &h, program_t &d_prog, program &h_prog,
 /**
  * @brief Computes and sets the fitness scores for all programs on the given dataset
  * 
+ * @param h cuML handle
  * @param n_progs         Batch size
  * @param d_progs         Device pointer to list of programs
  * @param h_progs         Host vector of programs corresponding to d_progs

@@ -30,14 +30,19 @@ namespace genetic {
 enum class metric_t : uint32_t {
   /** mean absolute error (regression-only) */
   mae,
+
   /** mean squared error (regression-only) */
   mse,
+
   /** root mean squared error (regression-only) */
   rmse,
+
   /** pearson product-moment coefficient (regression and transformation) */
   pearson,
+
   /** spearman's rank-order coefficient (regression and transformation) */
   spearman,
+
   /** binary cross-entropy loss (classification-only) */
   logloss,
 };  // enum class metric_t
@@ -46,8 +51,10 @@ enum class metric_t : uint32_t {
 enum class init_method_t : uint32_t {
   /** random nodes chosen, allowing shorter or asymmetrical trees */
   grow,
+
   /** growing till a randomly chosen depth */
   full,
+
   /** 50% of the population on `grow` and the rest with `full` */
   half_and_half,
 };  // enum class init_method_t
@@ -59,17 +66,22 @@ enum class transformer_t : uint32_t {
 
 /** Mutation types for a program */
 enum class mutation_t : uint32_t {
-  /* Placeholder for first generation programs */
+  /** Placeholder for first generation programs */
   none,
-  /* Crossover mutations */
+
+  /** Crossover mutations */
   crossover,
-  /* Subtree mutations */
+
+  /** Subtree mutations */
   subtree,
-  /* Hoise mutations */
+
+  /** Hoise mutations */
   hoist,
-  /* Point mutations */
+
+  /** Point mutations */
   point,
-  /* Program reproduction */
+
+  /** Program reproduction */
   reproduce
 };  // enum class mutation_t
 
