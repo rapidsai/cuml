@@ -90,11 +90,12 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
                  hdbscan_output & output)
 
     void _extract_clusters(const handle_t &handle, size_t n_leaves,
-        int n_edges, int *parents, int *children, float *lambdas,
-        int *sizes, int *labels, float *probabilities,
-        CLUSTER_SELECTION_METHOD cluster_selection_method,
-        bool allow_single_cluster, int max_cluster_size,
-        float cluster_selection_epsilon)
+                           int n_edges, int *parents, int *children,
+                           float *lambdas, int *sizes, int *labels,
+                           float *probabilities,
+                           CLUSTER_SELECTION_METHOD cluster_selection_method,
+                           bool allow_single_cluster, int max_cluster_size,
+                           float cluster_selection_epsilon)
 
 _metrics_mapping = {
     'l1': DistanceType.L1,
