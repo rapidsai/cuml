@@ -17,6 +17,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <algorithm>
+#include <cuml/metrics/metrics.hpp>
 #include <iostream>
 #include <metrics/batched/silhouette_score.cuh>
 #include <metrics/silhouette_score.cuh>
@@ -67,13 +68,11 @@ class silhouetteScoreTest
     //finding the distance matrix
 
     device_buffer<double> d_distanceMatrix(allocator, stream, nRows * nRows);
-    device_buffer<char> workspace(allocator, stream, 1);
     double *h_distanceMatrix =
       (double *)malloc(nRows * nRows * sizeof(double *));
 
-    raft::distance::pairwise_distance(d_X, d_X, d_distanceMatrix.data(), nRows,
-                                      nRows, nCols, workspace, params.metric,
-                                      stream);
+    ML::Metrics::pairwise_distance(handle, d_X, d_X, d_distanceMatrix.data(),
+                                   nRows, nRows, nCols, params.metric);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -171,8 +170,8 @@ class silhouetteScoreTest
 
     //calling the silhouette_score CUDA implementation
     computedSilhouetteScore = MLCommon::Metrics::silhouette_score(
-      d_X, nRows, nCols, d_labels, nLabels, sampleSilScore, allocator, stream,
-      params.metric);
+      handle, d_X, nRows, nCols, d_labels, nLabels, sampleSilScore, allocator,
+      stream, params.metric);
 
     batchedSilhouetteScore =
       Batched::silhouette_score(handle, d_X, nRows, nCols, d_labels, nLabels,
