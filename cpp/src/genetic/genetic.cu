@@ -19,7 +19,6 @@
 #include <cuml/genetic/program.h>
 #include <cuml/common/logger.hpp>
 #include "constants.h"
-#include "genetic.cuh"
 #include "node.cuh"
 
 #include <raft/cudart_utils.h>
@@ -229,11 +228,38 @@ void parallel_evolve(const raft::handle_t &h,
                       data, y, sample_weights);
 }
 
-float param::p_reproduce() const { return detail::p_reproduce(*this); }
+float param::p_reproduce() const {
+  auto sum = this->p_crossover + this->p_subtree_mutation +
+             this->p_hoist_mutation + this->p_point_mutation;
+  auto ret = 1.f - sum;
+  return fmaxf(0.f, fminf(ret, 1.f));
+}
 
-int param::max_programs() const { return detail::max_programs(*this); }
+int param::max_programs() const {
+  // in the worst case every generation's top program ends up reproducing,
+  // thereby adding another program into the population
+  return this->population_size + this->generations;
+}
 
-int param::criterion() const { return detail::criterion(*this); }
+int param::criterion() const {
+  // Returns 0 if a smaller value is preferred and 1 for the opposite
+  switch (this->metric) {
+    case metric_t::mse:
+      return 0;
+    case metric_t::logloss:
+      return 0;
+    case metric_t::mae:
+      return 0;
+    case metric_t::rmse:
+      return 0;
+    case metric_t::pearson:
+      return 1;
+    case metric_t::spearman:
+      return 1;
+    default:
+      return -1;
+  }
+}
 
 std::string stringify(const program &prog) {
   std::string eqn = "( ";
