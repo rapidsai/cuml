@@ -79,6 +79,7 @@ class CondensedHierarchy {
                      rmm::device_uvector<value_idx> &&children_,
                      rmm::device_uvector<value_t> &&lambdas_,
                      rmm::device_uvector<value_idx> &&sizes_);
+
   /**
    * To maintain a high level of parallelism, the output from
    * Condense::build_condensed_hierarchy() is sparse (the cluster
