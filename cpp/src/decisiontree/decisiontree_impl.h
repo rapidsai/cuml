@@ -37,9 +37,6 @@
            TreeliteGetLastError());                                     \
   } while (0)
 
-template <class T, class L>
-struct TemporaryMemory;
-
 namespace ML {
 
 namespace tl = treelite;
@@ -79,10 +76,6 @@ class DecisionTree {
   DataInfo dinfo;
   int depth_counter = 0;
   int leaf_counter = 0;
-  size_t total_temp_mem;
-  const int MAXSTREAMS = 1;
-  size_t max_shared_mem;
-  size_t shmem_used = 0;
   int n_unique_labels = -1;  // number of unique labels in dataset
   double prepare_time = 0;
   double train_time = 0;

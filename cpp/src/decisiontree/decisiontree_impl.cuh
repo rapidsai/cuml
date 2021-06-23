@@ -49,7 +49,7 @@ bool is_dev_ptr(const void *p) {
 namespace DT {
 
 template <class T, class L>
-void DT::print(const SparseTreeNode<T, L> &node, std::ostream &os) {
+void print(const SparseTreeNode<T, L> &node, std::ostream &os) {
   if (node.colid == -1) {
     os << "(leaf, "
        << "prediction: " << node.prediction
@@ -226,13 +226,10 @@ void DecisionTree<T, L>::print_tree_summary() const {
   PatternSetter _("%v");
   CUML_LOG_DEBUG(" Decision Tree depth --> %d and n_leaves --> %d",
                  depth_counter, leaf_counter);
-  CUML_LOG_DEBUG(" Total temporary memory usage--> %lf MB",
-                 ((double)total_temp_mem / (1024 * 1024)));
-  CUML_LOG_DEBUG(" Shared memory used --> %d B", shmem_used);
-  CUML_LOG_DEBUG(" Tree Fitting - Overall time --> %lf s",
+  CUML_LOG_DEBUG(" Tree Fitting - Overall time --> %lf milliseconds",
                  prepare_time + train_time);
-  CUML_LOG_DEBUG("   - preparing for fit time: %lf s", prepare_time);
-  CUML_LOG_DEBUG("   - tree growing time: %lf s", train_time);
+  CUML_LOG_DEBUG("   - preparing for fit time: %lf milliseconds", prepare_time);
+  CUML_LOG_DEBUG("   - tree growing time: %lf milliseconds", train_time);
 }
 
 /**
@@ -318,7 +315,7 @@ void DecisionTree<T, L>::fit(const raft::handle_t &handle, const T *data,
                              DecisionTreeParams tree_parameters, uint64_t seed,
                              T *d_global_quantiles) {
   this->tree_params = tree_parameters;
-  prepare_fit_timer.reset();
+  this->prepare_fit_timer.reset();
   const char *CRITERION_NAME[] = {"GINI", "ENTROPY", "MSE", "MAE", "END"};
   CRITERION default_criterion =
     (is_classifier) ? CRITERION::GINI : CRITERION::MSE;
@@ -347,11 +344,14 @@ void DecisionTree<T, L>::fit(const raft::handle_t &handle, const T *data,
   dinfo.NGlobalrows = nrows;
   dinfo.Ncols = ncols;
   n_unique_labels = unique_labels;
+  this->prepare_time = this->prepare_fit_timer.getElapsedMilliseconds();
+  prepare_fit_timer.reset();
   grow_tree(handle.get_device_allocator(), handle.get_host_allocator(), data,
             tree->treeid, seed, ncols, nrows, labels, d_global_quantiles,
             (int *)rowids, n_sampled_rows, unique_labels, tree_params,
             handle.get_stream(), tree->sparsetree, this->leaf_counter,
             this->depth_counter);
+  this->train_time = this->prepare_fit_timer.getElapsedMilliseconds();
   this->set_metadata(tree);
 }
 
