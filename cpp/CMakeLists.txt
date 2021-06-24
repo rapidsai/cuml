@@ -473,7 +473,7 @@ rapids_export(BUILD cuml
 
 if(BUILD_CUML_BENCH OR BUILD_CUML_PRIMS_BENCH)
   add_subdirectory(bench)
-endif(BUILD_CUML_BENCH)
+endif()
 
 ##############################################################################
 # - doxygen targets ----------------------------------------------------------
@@ -482,4 +482,3 @@ include(cmake/doxygen.cmake)
 add_doxygen_target(IN_DOXYFILE Doxyfile.in
   OUT_DOXYFILE ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
   CWD ${CMAKE_CURRENT_BINARY_DIR})
-
