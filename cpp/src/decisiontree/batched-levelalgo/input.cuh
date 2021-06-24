@@ -35,8 +35,8 @@ struct Input {
   IdxT nSampledCols;
   /** indices of sampled rows */
   IdxT* rowids;
-  /** number of classes (useful only in classification) */
-  IdxT nclasses;
+  /** Number of classes or regression outputs*/
+  IdxT numOutputs;
   /** quantiles/histogram computed on the dataset (col-major) */
   const DataT* quantiles;
 };
