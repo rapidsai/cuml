@@ -641,7 +641,7 @@ size_t shmem_size_params::get_smem_footprint() {
 }
 
 // make sure to instantiate all possible get_smem_footprint instantiations
-template void dispatch_on_FIL_template_params<compute_smem_footprint,
+template void dispatch_on_fil_template_params<compute_smem_footprint,
                                               dense_storage>(predict_params&);
 
 template <bool cols_in_shmem, leaf_algo_t leaf_algo, int n_items>
@@ -661,7 +661,7 @@ struct infer_k_launcher {
 
 template <typename storage_type>
 void infer(storage_type forest, predict_params params, cudaStream_t stream) {
-  dispatch_on_FIL_template_params<infer_k_launcher, storage_type>(
+  dispatch_on_fil_template_params<infer_k_launcher, storage_type>(
     params, forest, stream);
 }
 

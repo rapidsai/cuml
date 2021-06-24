@@ -74,7 +74,7 @@ __global__ void transform_k(float* preds, size_t n, output_t output,
     preds[i] = result;
 }
 
-extern template void dispatch_on_FIL_template_params<
+extern template void dispatch_on_fil_template_params<
   compute_smem_footprint, dense_storage>(predict_params&);
 
 struct forest {
@@ -107,7 +107,7 @@ struct forest {
         ssp.cols_in_shmem = cols_in_shmem;
         for (ssp.n_items = min_n_items; ssp.n_items <= max_n_items;
              ++ssp.n_items) {
-          dispatch_on_FIL_template_params<compute_smem_footprint,
+          dispatch_on_fil_template_params<compute_smem_footprint,
                                           dense_storage>(ssp);
           if (ssp.shm_sz <= ssp.max_shm) ssp_ = ssp;
         }
@@ -291,22 +291,6 @@ struct forest {
   int max_shm_ = 0;
 };
 
-template <bool cols_in_shmem, leaf_algo_t leaf_algo, int n_items>
-struct enable_smem_carveout {
-  template <typename storage_type>
-  static void run(predict_params& params, int max_shm) {
-    void (*kernel)(storage_type, predict_params) =
-      infer_k<n_items, leaf_algo, cols_in_shmem, storage_type>;
-    // ensure optimal occupancy and L1 cache size in case config at launch is suboptimal
-    CUDA_CHECK(cudaFuncSetAttribute(
-      kernel, cudaFuncAttributePreferredSharedMemoryCarveout,
-      cudaFuncCachePreferL1));
-    // even if the footprint < 48 * 1024, ensure that we reset after previous forest
-    CUDA_CHECK(cudaFuncSetAttribute(
-      kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, max_shm));
-  }
-};
-
 struct dense_forest : forest {
   void transform_trees(const dense_node* nodes) {
     /* Populate node information:
@@ -351,9 +335,6 @@ struct dense_forest : forest {
                                num_nodes * sizeof(dense_node),
                                cudaMemcpyHostToDevice, h.get_stream()));
 
-    predict_params ssp = class_ssp_;
-    dispatch_on_FIL_template_params<enable_smem_carveout, dense_storage>(
-      ssp, max_shm_);
     // copy must be finished before freeing the host data
     CUDA_CHECK(cudaStreamSynchronize(h.get_stream()));
     h_nodes_.clear();
@@ -397,10 +378,6 @@ struct sparse_forest : forest {
       sizeof(node_t) * num_nodes_, h.get_stream());
     CUDA_CHECK(cudaMemcpyAsync(nodes_, nodes, sizeof(node_t) * num_nodes_,
                                cudaMemcpyHostToDevice, h.get_stream()));
-
-    predict_params ssp = class_ssp_;
-    dispatch_on_FIL_template_params<enable_smem_carveout,
-                                    sparse_storage<node_t>>(ssp, max_shm_);
   }
 
   virtual void infer(predict_params params, cudaStream_t stream) override {

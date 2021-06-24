@@ -171,33 +171,17 @@ namespace dispatch {
 template <template <bool, leaf_algo_t, int> class Func, typename storage_type,
           bool cols_in_shmem, leaf_algo_t leaf_algo, int n_items,
           typename... Args>
-void dispatch_final(predict_params& params, Args... args) {
-  Func<cols_in_shmem, leaf_algo, n_items>::template run<storage_type>(params,
-                                                                      args...);
-}
-
-template <template <bool, leaf_algo_t, int> class Func, typename storage_type,
-          bool cols_in_shmem, leaf_algo_t leaf_algo, typename... Args>
 void dispatch_on_n_items(predict_params& params, Args... args) {
-  switch (params.n_items) {
-    case 1:
-      dispatch_final<Func, storage_type, cols_in_shmem, leaf_algo, 1>(params,
-                                                                      args...);
-      break;
-    case 2:
-      dispatch_final<Func, storage_type, cols_in_shmem, leaf_algo, 2>(params,
-                                                                      args...);
-      break;
-    case 3:
-      dispatch_final<Func, storage_type, cols_in_shmem, leaf_algo, 3>(params,
-                                                                      args...);
-      break;
-    case 4:
-      dispatch_final<Func, storage_type, cols_in_shmem, leaf_algo, 4>(params,
-                                                                      args...);
-      break;
-    default:
+  if (params.n_items == n_items) {
+    Func<cols_in_shmem, leaf_algo, n_items>::template run<storage_type>(
+      params, args...);
+  } else {
+    if constexpr (n_items < 4) {
+      dispatch_on_n_items<Func, storage_type, cols_in_shmem, FLOAT_UNARY_BINARY,
+                          n_items + 1>(params, args...);
+    } else {
       ASSERT(false, "internal error: n_items > 4");
+    }
   }
 }
 
@@ -207,24 +191,24 @@ void dispatch_on_leaf_algo(predict_params& params, Args... args) {
   switch (params.leaf_algo) {
     case FLOAT_UNARY_BINARY:
       params.blockdim_x = FIL_TPB;
-      dispatch_on_n_items<Func, storage_type, cols_in_shmem,
-                          FLOAT_UNARY_BINARY>(params, args...);
+      dispatch_on_n_items<Func, storage_type, cols_in_shmem, FLOAT_UNARY_BINARY,
+                          1>(params, args...);
       break;
     case GROVE_PER_CLASS:
       if (params.num_classes > FIL_TPB) {
         params.blockdim_x = FIL_TPB;
         dispatch_on_n_items<Func, storage_type, cols_in_shmem,
-                            GROVE_PER_CLASS_MANY_CLASSES>(params, args...);
+                            GROVE_PER_CLASS_MANY_CLASSES, 1>(params, args...);
       } else {
         params.blockdim_x = FIL_TPB - FIL_TPB % params.num_classes;
         dispatch_on_n_items<Func, storage_type, cols_in_shmem,
-                            GROVE_PER_CLASS_FEW_CLASSES>(params, args...);
+                            GROVE_PER_CLASS_FEW_CLASSES, 1>(params, args...);
       }
       break;
     case CATEGORICAL_LEAF:
       params.blockdim_x = FIL_TPB;
-      dispatch_on_n_items<Func, storage_type, cols_in_shmem, CATEGORICAL_LEAF>(
-        params, args...);
+      dispatch_on_n_items<Func, storage_type, cols_in_shmem, CATEGORICAL_LEAF,
+                          1>(params, args...);
       break;
     default:
       ASSERT(false, "internal error: dispatch: invalid leaf_algo %d",
@@ -245,7 +229,7 @@ void dispatch_on_cols_in_shmem(predict_params& params, Args... args) {
 
 template <template <bool, leaf_algo_t, int> class Func, typename storage_type,
           typename... Args>
-void dispatch_on_FIL_template_params(predict_params& params, Args... args) {
+void dispatch_on_fil_template_params(predict_params& params, Args... args) {
   dispatch::dispatch_on_cols_in_shmem<Func, storage_type>(params, args...);
 }
 
