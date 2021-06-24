@@ -481,4 +481,3 @@ include(cmake/doxygen.cmake)
 add_doxygen_target(IN_DOXYFILE Doxyfile.in
   OUT_DOXYFILE ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
   CWD ${CMAKE_CURRENT_BINARY_DIR})
-

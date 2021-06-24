@@ -86,7 +86,7 @@ def test_dbscan_precomputed(datatype, nrows, max_mbytes_per_batch, out_dtype):
 
     # Precompute distances
     Xc = np.array([[complex(p[0], p[1]) for p in X]])
-    X_dist = np.abs(Xc - Xc.T, dtype=datatype)
+    X_dist = np.abs(Xc - Xc.T).astype(datatype)
 
     eps = 1
     cuml_dbscan = cuDBSCAN(eps=eps, min_samples=2, metric='precomputed',
