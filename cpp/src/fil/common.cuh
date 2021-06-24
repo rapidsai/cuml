@@ -178,16 +178,13 @@ template <template <bool, leaf_algo_t, int> class Func, typename storage_type,
           bool cols_in_shmem, leaf_algo_t leaf_algo, int n_items,
           typename... Args>
 void dispatch_on_n_items(predict_params& params, Args... args) {
+  ASSERT(params.n_items <= 4, "internal error: n_items > 4");
   if (params.n_items == n_items) {
     Func<cols_in_shmem, leaf_algo, n_items>::template run<storage_type>(
       params, args...);
-  } else {
-    if constexpr (n_items < 4) {
-      dispatch_on_n_items<Func, storage_type, cols_in_shmem, FLOAT_UNARY_BINARY,
-                          n_items + 1>(params, args...);
-    } else {
-      ASSERT(false, "internal error: n_items > 4");
-    }
+  } else if constexpr (n_items < 4) {
+    dispatch_on_n_items<Func, storage_type, cols_in_shmem, leaf_algo,
+                        n_items + 1>(params, args...);
   }
 }
 
