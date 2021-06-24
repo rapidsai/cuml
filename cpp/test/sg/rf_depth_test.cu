@@ -71,7 +71,7 @@ class RfClassifierDepthTest : public ::testing::TestWithParam<int> {
       params.max_depth, params.max_leaves, params.max_features, params.n_bins,
       params.split_algo, params.min_samples_leaf, params.min_samples_split,
       params.min_impurity_decrease, params.bootstrap_features, params.bootstrap,
-      params.n_trees, params.max_samples, 0, params.split_criterion, false,
+      params.n_trees, params.max_samples, 0, params.split_criterion,
       params.n_streams, true, 128);
 
     int data_len = params.n_rows * params.n_cols;
@@ -163,7 +163,7 @@ class RfRegressorDepthTest : public ::testing::TestWithParam<int> {
       params.max_depth, params.max_leaves, params.max_features, params.n_bins,
       params.split_algo, params.min_samples_leaf, params.min_samples_split,
       params.min_impurity_decrease, params.bootstrap_features, params.bootstrap,
-      params.n_trees, params.max_samples, 0, params.split_criterion, false,
+      params.n_trees, params.max_samples, 0, params.split_criterion,
       params.n_streams, true, 128);
 
     int data_len = params.n_rows * params.n_cols;

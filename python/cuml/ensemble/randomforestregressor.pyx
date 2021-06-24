@@ -240,8 +240,7 @@ class RandomForestRegressor(BaseRandomForestModel,
     use_experimental_backend : boolean (default = True)
         If set to true and the following conditions are also met, a new
         experimental backend for decision tree training will be used. The
-        new backend is available only if `split_algo = 1` (GLOBAL_QUANTILE)
-        and `quantile_per_tree = False` (No per tree quantile computation).
+        new backend is available only if `split_algo = 1` (GLOBAL_QUANTILE).
         The new backend is now considered stable for both classification
         and regression tasks and is significantly faster than the old backend.
     max_batch_size: int (default = 128)
@@ -474,7 +473,6 @@ class RandomForestRegressor(BaseRandomForestModel,
                                   <float> self.max_samples,
                                   <uint64_t> seed_val,
                                   <CRITERION> self.split_criterion,
-                                  <bool> self.quantile_per_tree,
                                   <int> self.n_streams,
                                   <bool> self.use_experimental_backend,
                                   <int> self.max_batch_size)

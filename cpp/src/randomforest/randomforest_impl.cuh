@@ -221,16 +221,23 @@ void rfClassifier<T>::fit(const raft::handle_t& user_handle, const T* input,
       n_cols, handle.get_device_allocator(), handle.get_stream());
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
   } else {
-    if ((this->rf_params.tree_params.split_algo ==
-         SPLIT_ALGO::GLOBAL_QUANTILE) &&
-        !(this->rf_params.tree_params.quantile_per_tree)) {
+    if (this->rf_params.tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) {
       // Using level (old) backend
-      DecisionTree::preprocess_quantile(input, nullptr, n_rows, n_cols, n_rows,
-                                        this->rf_params.tree_params.n_bins,
-                                        tempmem[0]);
+      global_quantiles = tempmem[0]->d_quantile->data();
+      // compute global quantiles in first index of tempmem
+      DecisionTree::computeQuantiles(
+        global_quantiles, this->rf_params.tree_params.n_bins, input, n_rows,
+        n_cols, handle.get_device_allocator(), handle.get_stream());
+      CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+      // device to host for first index of tempmem
+      CUDA_CHECK(cudaMemcpyAsync(
+        (void*)tempmem[0]->h_quantile->data(), (void*)global_quantiles,
+        this->rf_params.tree_params.n_bins * n_cols * sizeof(T),
+        cudaMemcpyDeviceToHost, tempmem[0]->stream));
+      // copy to rest of indices in tempmem from index:0
       for (int i = 1; i < n_streams; i++) {
         CUDA_CHECK(cudaMemcpyAsync(
-          tempmem[i]->d_quantile->data(), tempmem[0]->d_quantile->data(),
+          tempmem[i]->d_quantile->data(), global_quantiles,
           this->rf_params.tree_params.n_bins * n_cols * sizeof(T),
           cudaMemcpyDeviceToDevice, tempmem[i]->stream));
         memcpy((void*)(tempmem[i]->h_quantile->data()),
@@ -529,16 +536,23 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
       n_cols, handle.get_device_allocator(), handle.get_stream());
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
   } else {
-    if ((this->rf_params.tree_params.split_algo ==
-         SPLIT_ALGO::GLOBAL_QUANTILE) &&
-        !(this->rf_params.tree_params.quantile_per_tree)) {
+    if (this->rf_params.tree_params.split_algo == SPLIT_ALGO::GLOBAL_QUANTILE) {
       // Using level (old) backend
-      DecisionTree::preprocess_quantile(input, nullptr, n_rows, n_cols, n_rows,
-                                        this->rf_params.tree_params.n_bins,
-                                        tempmem[0]);
+      global_quantiles = tempmem[0]->d_quantile->data();
+      // compute global quantiles in first index of tempmem
+      DecisionTree::computeQuantiles(
+        global_quantiles, this->rf_params.tree_params.n_bins, input, n_rows,
+        n_cols, handle.get_device_allocator(), handle.get_stream());
+      CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+      // device to host for first index of tempmem
+      CUDA_CHECK(cudaMemcpyAsync(
+        (void*)tempmem[0]->h_quantile->data(), (void*)global_quantiles,
+        this->rf_params.tree_params.n_bins * n_cols * sizeof(T),
+        cudaMemcpyDeviceToHost, tempmem[0]->stream));
+      // copy to rest of indices in tempmem from index:0
       for (int i = 1; i < n_streams; i++) {
         CUDA_CHECK(cudaMemcpyAsync(
-          tempmem[i]->d_quantile->data(), tempmem[0]->d_quantile->data(),
+          tempmem[i]->d_quantile->data(), global_quantiles,
           this->rf_params.tree_params.n_bins * n_cols * sizeof(T),
           cudaMemcpyDeviceToDevice, tempmem[i]->stream));
         memcpy((void*)(tempmem[i]->h_quantile->data()),
@@ -547,7 +561,6 @@ void rfRegressor<T>::fit(const raft::handle_t& user_handle, const T* input,
       }
     }
   }
-
 #pragma omp parallel for num_threads(n_streams)
   for (int i = 0; i < this->rf_params.n_trees; i++) {
     int stream_id = omp_get_thread_num();

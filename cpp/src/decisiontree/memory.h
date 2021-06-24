@@ -37,8 +37,6 @@ struct TemporaryMemory {
   MLCommon::device_buffer<SparseTreeNode<T, L>> *d_sparsenodes = nullptr;
   MLCommon::host_buffer<SparseTreeNode<T, L>> *h_sparsenodes = nullptr;
 
-  //Temporary data buffer
-  MLCommon::device_buffer<T> *temp_data = nullptr;
   //Temporary CUB buffer
   MLCommon::device_buffer<char> *temp_cub_buffer = nullptr;
   size_t temp_cub_bytes;

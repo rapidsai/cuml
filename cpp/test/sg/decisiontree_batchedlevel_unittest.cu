@@ -59,7 +59,6 @@ class BatchedLevelAlgoUnitTestFixture {
     params.min_samples_leaf = 0;
     params.min_samples_split = 0;
     params.bootstrap_features = false;
-    params.quantile_per_tree = false;
     params.split_criterion = CRITERION::MSE;
     params.min_impurity_decrease = 0.0f;
     params.max_batch_size = 8;
@@ -72,6 +71,7 @@ class BatchedLevelAlgoUnitTestFixture {
 
     raft_handle = std::make_unique<raft::handle_t>();
     auto d_allocator = raft_handle->get_device_allocator();
+    auto h_allocator = raft_handle->get_host_allocator();
 
     data = static_cast<DataT*>(
       d_allocator->allocate(sizeof(DataT) * n_row * n_col, 0));
@@ -100,14 +100,15 @@ class BatchedLevelAlgoUnitTestFixture {
     raft::update_device(labels, h_labels.data(), n_row, 0);
     MLCommon::iota(row_ids, 0, 1, n_row, 0);
 
-    tempmem = std::make_shared<TemporaryMemory<DataT, LabelT>>(
-      *raft_handle, cudaStream_t(0), n_row, n_col, 0, params);
-    preprocess_quantile(data, reinterpret_cast<unsigned int*>(row_ids), n_row,
-                        n_col, n_row, n_bins, tempmem);
-    DataT* quantiles = tempmem->d_quantile->data();
+    // computing the quantiles
+    d_quantiles =
+      (DataT*)d_allocator->allocate(sizeof(DataT) * params.n_bins * n_col, 0);
+    h_quantiles =
+      (DataT*)h_allocator->allocate(sizeof(DataT) * params.n_bins * n_col, 0);
+    computeQuantiles(d_quantiles, params.n_bins, data, n_row, n_col,
+                     d_allocator, 0);
+    raft::update_host(h_quantiles, d_quantiles, params.n_bins * n_col, 0);
     CUDA_CHECK(cudaStreamSynchronize(0));
-
-    h_quantiles = tempmem->h_quantile->data();
 
     input.data = data;
     input.labels = labels;
@@ -117,11 +118,13 @@ class BatchedLevelAlgoUnitTestFixture {
     input.nSampledCols = n_col;
     input.rowids = row_ids;
     input.nclasses = 0;  // not applicable for regression
-    input.quantiles = quantiles;
+    input.quantiles = d_quantiles;
   }
 
   void TearDown() {
+    CUDA_CHECK(cudaStreamSynchronize(0));
     auto d_allocator = raft_handle->get_device_allocator();
+    auto h_allocator = raft_handle->get_host_allocator();
     d_allocator->deallocate(data, sizeof(DataT) * n_row * n_col, 0);
     d_allocator->deallocate(labels, sizeof(LabelT) * n_row, 0);
     d_allocator->deallocate(row_ids, sizeof(IdxT) * n_row, 0);
@@ -131,17 +134,21 @@ class BatchedLevelAlgoUnitTestFixture {
     d_allocator->deallocate(n_new_leaves, sizeof(IdxT), 0);
     d_allocator->deallocate(new_depth, sizeof(IdxT), 0);
     d_allocator->deallocate(splits, sizeof(Traits::SplitT) * max_batch, 0);
+    d_allocator->deallocate(d_quantiles, sizeof(DataT) * n_bins * n_col, 0);
+    CUDA_CHECK(cudaStreamSynchronize(0));
+    raft_handle.reset();
+    h_allocator->deallocate(h_quantiles, sizeof(DataT) * n_bins * n_col, 0);
   }
 
   DecisionTreeParams params;
 
   std::unique_ptr<raft::handle_t> raft_handle;
-  std::shared_ptr<TemporaryMemory<DataT, LabelT>> tempmem;
 
   std::vector<DataT> h_data;
   std::vector<LabelT> h_labels;
 
   DataT* h_quantiles;
+  DataT* d_quantiles;
   Traits::InputT input;
 
   NodeT* curr_nodes;
