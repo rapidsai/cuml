@@ -18,6 +18,7 @@
 
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/hierarchy/common.h>
+#include <raft/handle.hpp>
 
 namespace raft {
 class handle_t;

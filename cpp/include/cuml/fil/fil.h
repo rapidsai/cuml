@@ -90,6 +90,12 @@ struct treelite_params_t {
   // suggested values (if nonzero) are from 2 to 7
   // if zero, launches ceildiv(num_rows, NITEMS) blocks
   int blocks_per_sm;
+  // threads_per_tree determines how many threads work on a single tree at once inside a block
+  // can only be a power of 2
+  int threads_per_tree;
+  // n_items is how many input samples (items) any thread processes. If 0 is given,
+  // choose most (up to 4) that fit into shared memory.
+  int n_items;
   // if non-nullptr, *pforest_shape_str will be set to caller-owned string that
   // contains forest shape
   char** pforest_shape_str;

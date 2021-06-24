@@ -14,7 +14,9 @@
  * limitations under the License.
  */
 
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/tree/decisiontree.hpp>
+#include <raft/handle.hpp>
 
 #include <cuml/tree/flatnode.h>
 #include "decisiontree_impl.cuh"
@@ -29,59 +31,25 @@ namespace DecisionTree {
  * @param[in] cfg_max_leaves: maximum leaves; default -1
  * @param[in] cfg_max_features: maximum number of features; default 1.0f
  * @param[in] cfg_n_bins: number of bins; default 8
- * @param[in] cfg_split_algo: split algorithm; default SPLIT_ALGO::HIST
  * @param[in] cfg_min_samples_leaf: min. rows in each leaf node; default 1
  * @param[in] cfg_min_samples_split: min. rows needed to split an internal node;
  *            default 2
- * @param[in] cfg_bootstrap_features: bootstrapping for features; default false
  * @param[in] cfg_split_criterion: split criterion; default CRITERION_END,
  *            i.e., GINI for classification or MSE for regression
- * @param[in] cfg_quantile_per_tree: compute quantile per tree; default false
- * @param[in] cfg_use_experimental_backend: Switch to using experimental
-              backend; default false
  * @param[in] cfg_max_batch_size: batch size for experimental backend
  */
 void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
                      int cfg_max_leaves, float cfg_max_features, int cfg_n_bins,
-                     int cfg_split_algo, int cfg_min_samples_leaf,
-                     int cfg_min_samples_split, float cfg_min_impurity_decrease,
-                     bool cfg_bootstrap_features, CRITERION cfg_split_criterion,
-                     bool cfg_quantile_per_tree,
-                     bool cfg_use_experimental_backend,
-                     int cfg_max_batch_size) {
-  if (cfg_use_experimental_backend) {
-    if (cfg_split_algo != SPLIT_ALGO::GLOBAL_QUANTILE) {
-      CUML_LOG_WARN(
-        "Experimental backend does not yet support histogram split algorithm");
-      CUML_LOG_WARN(
-        "To use experimental backend set split_algo = 1 (GLOBAL_QUANTILE)");
-      cfg_use_experimental_backend = false;
-    }
-    if (cfg_quantile_per_tree) {
-      CUML_LOG_WARN(
-        "Experimental backend does not yet support per tree quantile "
-        "computation");
-      CUML_LOG_WARN(
-        "To use experimental backend set quantile_per_tree = false");
-      cfg_use_experimental_backend = false;
-    }
-    if (!cfg_use_experimental_backend) {
-      CUML_LOG_WARN(
-        "Not using the experimental backend due to above mentioned reason(s)");
-    }
-  }
-
+                     int cfg_min_samples_leaf, int cfg_min_samples_split,
+                     float cfg_min_impurity_decrease,
+                     CRITERION cfg_split_criterion, int cfg_max_batch_size) {
   params.max_depth = cfg_max_depth;
   params.max_leaves = cfg_max_leaves;
   params.max_features = cfg_max_features;
   params.n_bins = cfg_n_bins;
-  params.split_algo = cfg_split_algo;
   params.min_samples_leaf = cfg_min_samples_leaf;
   params.min_samples_split = cfg_min_samples_split;
-  params.bootstrap_features = cfg_bootstrap_features;
   params.split_criterion = cfg_split_criterion;
-  params.quantile_per_tree = cfg_quantile_per_tree;
-  params.use_experimental_backend = cfg_use_experimental_backend;
   params.min_impurity_decrease = cfg_min_impurity_decrease;
   params.max_batch_size = cfg_max_batch_size;
 }
@@ -95,10 +63,6 @@ void validity_check(const DecisionTreeParams params) {
          params.max_features);
   ASSERT((params.n_bins > 0), "Invalid n_bins %d", params.n_bins);
   ASSERT((params.split_criterion != 3), "MAE not supported.");
-  ASSERT((params.split_algo >= 0) &&
-           (params.split_algo < SPLIT_ALGO::SPLIT_ALGO_END),
-         "split_algo value %d outside permitted [0, %d) range",
-         params.split_algo, SPLIT_ALGO::SPLIT_ALGO_END);
   ASSERT((params.min_samples_leaf >= 1),
          "Invalid value for min_samples_leaf %d. Should be >= 1.",
          params.min_samples_leaf);
@@ -112,15 +76,10 @@ void print(const DecisionTreeParams params) {
   CUML_LOG_DEBUG("max_leaves: %d", params.max_leaves);
   CUML_LOG_DEBUG("max_features: %f", params.max_features);
   CUML_LOG_DEBUG("n_bins: %d", params.n_bins);
-  CUML_LOG_DEBUG("split_algo: %d", params.split_algo);
   CUML_LOG_DEBUG("min_samples_leaf: %d", params.min_samples_leaf);
   CUML_LOG_DEBUG("min_samples_split: %d", params.min_samples_split);
-  CUML_LOG_DEBUG("bootstrap_features: %d", params.bootstrap_features);
   CUML_LOG_DEBUG("split_criterion: %d", params.split_criterion);
-  CUML_LOG_DEBUG("quantile_per_tree: %d", params.quantile_per_tree);
   CUML_LOG_DEBUG("min_impurity_decrease: %f", params.min_impurity_decrease);
-  CUML_LOG_DEBUG("use_experimental_backend: %s",
-                 params.use_experimental_backend ? "True" : "False");
   CUML_LOG_DEBUG("max_batch_size: %d", params.max_batch_size);
 }
 
@@ -159,21 +118,15 @@ void decisionTreeClassifierFit(const raft::handle_t &handle,
                                uint64_t seed) {
   std::shared_ptr<DecisionTreeClassifier<float>> dt_classifier =
     std::make_shared<DecisionTreeClassifier<float>>();
-  std::unique_ptr<MLCommon::device_buffer<float>> global_quantiles_buffer =
-    nullptr;
-  float *global_quantiles = nullptr;
-
-  if (tree_params.use_experimental_backend) {
-    auto quantile_size = tree_params.n_bins * ncols;
-    global_quantiles_buffer = std::make_unique<MLCommon::device_buffer<float>>(
-      handle.get_device_allocator(), handle.get_stream(), quantile_size);
-    global_quantiles = global_quantiles_buffer->data();
-    DecisionTree::computeQuantiles(global_quantiles, tree_params.n_bins, data,
-                                   nrows, ncols, handle.get_device_allocator(),
-                                   handle.get_stream());
-  }
+  auto quantile_size = tree_params.n_bins * ncols;
+  MLCommon::device_buffer<float> global_quantiles_buffer(
+    handle.get_device_allocator(), handle.get_stream(), quantile_size);
+  DecisionTree::computeQuantiles(
+    global_quantiles_buffer.data(), tree_params.n_bins, data, nrows, ncols,
+    handle.get_device_allocator(), handle.get_stream());
   dt_classifier->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows,
-                     unique_labels, tree, tree_params, seed, global_quantiles);
+                     unique_labels, tree, tree_params, seed,
+                     global_quantiles_buffer.data());
 }
 
 void decisionTreeClassifierFit(const raft::handle_t &handle,
@@ -185,21 +138,16 @@ void decisionTreeClassifierFit(const raft::handle_t &handle,
                                uint64_t seed) {
   std::shared_ptr<DecisionTreeClassifier<double>> dt_classifier =
     std::make_shared<DecisionTreeClassifier<double>>();
-  std::unique_ptr<MLCommon::device_buffer<double>> global_quantiles_buffer =
-    nullptr;
-  double *global_quantiles = nullptr;
 
-  if (tree_params.use_experimental_backend) {
-    auto quantile_size = tree_params.n_bins * ncols;
-    global_quantiles_buffer = std::make_unique<MLCommon::device_buffer<double>>(
-      handle.get_device_allocator(), handle.get_stream(), quantile_size);
-    global_quantiles = global_quantiles_buffer->data();
-    DecisionTree::computeQuantiles(global_quantiles, tree_params.n_bins, data,
-                                   nrows, ncols, handle.get_device_allocator(),
-                                   handle.get_stream());
-  }
+  auto quantile_size = tree_params.n_bins * ncols;
+  MLCommon::device_buffer<double> global_quantiles_buffer(
+    handle.get_device_allocator(), handle.get_stream(), quantile_size);
+  DecisionTree::computeQuantiles(
+    global_quantiles_buffer.data(), tree_params.n_bins, data, nrows, ncols,
+    handle.get_device_allocator(), handle.get_stream());
   dt_classifier->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows,
-                     unique_labels, tree, tree_params, seed, global_quantiles);
+                     unique_labels, tree, tree_params, seed,
+                     global_quantiles_buffer.data());
 }
 
 void decisionTreeClassifierPredict(const raft::handle_t &handle,
@@ -234,21 +182,14 @@ void decisionTreeRegressorFit(const raft::handle_t &handle,
                               uint64_t seed) {
   std::shared_ptr<DecisionTreeRegressor<float>> dt_regressor =
     std::make_shared<DecisionTreeRegressor<float>>();
-  std::unique_ptr<MLCommon::device_buffer<float>> global_quantiles_buffer =
-    nullptr;
-  float *global_quantiles = nullptr;
-
-  if (tree_params.use_experimental_backend) {
-    auto quantile_size = tree_params.n_bins * ncols;
-    global_quantiles_buffer = std::make_unique<MLCommon::device_buffer<float>>(
-      handle.get_device_allocator(), handle.get_stream(), quantile_size);
-    global_quantiles = global_quantiles_buffer->data();
-    DecisionTree::computeQuantiles(global_quantiles, tree_params.n_bins, data,
-                                   nrows, ncols, handle.get_device_allocator(),
-                                   handle.get_stream());
-  }
+  auto quantile_size = tree_params.n_bins * ncols;
+  MLCommon::device_buffer<float> global_quantiles(
+    handle.get_device_allocator(), handle.get_stream(), quantile_size);
+  DecisionTree::computeQuantiles(
+    global_quantiles.data(), tree_params.n_bins, data, nrows, ncols,
+    handle.get_device_allocator(), handle.get_stream());
   dt_regressor->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows,
-                    tree, tree_params, seed, global_quantiles);
+                    tree, tree_params, seed, global_quantiles.data());
 }
 
 void decisionTreeRegressorFit(const raft::handle_t &handle,
@@ -259,21 +200,15 @@ void decisionTreeRegressorFit(const raft::handle_t &handle,
                               uint64_t seed) {
   std::shared_ptr<DecisionTreeRegressor<double>> dt_regressor =
     std::make_shared<DecisionTreeRegressor<double>>();
-  std::unique_ptr<MLCommon::device_buffer<double>> global_quantiles_buffer =
-    nullptr;
-  double *global_quantiles = nullptr;
 
-  if (tree_params.use_experimental_backend) {
-    auto quantile_size = tree_params.n_bins * ncols;
-    global_quantiles_buffer = std::make_unique<MLCommon::device_buffer<double>>(
-      handle.get_device_allocator(), handle.get_stream(), quantile_size);
-    global_quantiles = global_quantiles_buffer->data();
-    DecisionTree::computeQuantiles(global_quantiles, tree_params.n_bins, data,
-                                   nrows, ncols, handle.get_device_allocator(),
-                                   handle.get_stream());
-  }
+  auto quantile_size = tree_params.n_bins * ncols;
+  MLCommon::device_buffer<double> global_quantiles(
+    handle.get_device_allocator(), handle.get_stream(), quantile_size);
+  DecisionTree::computeQuantiles(
+    global_quantiles.data(), tree_params.n_bins, data, nrows, ncols,
+    handle.get_device_allocator(), handle.get_stream());
   dt_regressor->fit(handle, data, ncols, nrows, labels, rowids, n_sampled_rows,
-                    tree, tree_params, seed, global_quantiles);
+                    tree, tree_params, seed, global_quantiles.data());
 }
 
 void decisionTreeRegressorPredict(const raft::handle_t &handle,
