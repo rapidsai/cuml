@@ -20,6 +20,7 @@
 #include <ml_mg_utils.cuh>
 
 #include <label/classlabels.cuh>
+#include <raft/spatial/knn/ann.hpp>
 #include <raft/spatial/knn/knn.hpp>
 #include <selection/knn.cuh>
 
@@ -44,19 +45,20 @@ void brute_force_knn(const raft::handle_t &handle, std::vector<float *> &input,
     rowMajorQuery, nullptr, metric, metric_arg);
 }
 
-void approx_knn_build_index(raft::handle_t &handle, ML::knnIndex *index,
-                            ML::knnIndexParam *params,
+void approx_knn_build_index(raft::handle_t &handle,
+                            raft::spatial::knn::knnIndex *index,
+                            raft::spatial::knn::knnIndexParam *params,
                             raft::distance::DistanceType metric,
                             float metricArg, float *index_array, int n, int D) {
-  MLCommon::Selection::approx_knn_build_index(handle, index, params, metric,
-                                              metricArg, index_array, n, D);
+  raft::spatial::knn::approx_knn_build_index(handle, index, params, metric,
+                                             metricArg, index_array, n, D);
 }
 
 void approx_knn_search(raft::handle_t &handle, float *distances,
-                       int64_t *indices, ML::knnIndex *index, int k,
-                       float *query_array, int n) {
-  MLCommon::Selection::approx_knn_search(handle, distances, indices, index, k,
-                                         query_array, n);
+                       int64_t *indices, raft::spatial::knn::knnIndex *index,
+                       int k, float *query_array, int n) {
+  raft::spatial::knn::approx_knn_search(handle, distances, indices, index, k,
+                                        query_array, n);
 }
 
 void knn_classify(raft::handle_t &handle, int *out, int64_t *knn_indices,

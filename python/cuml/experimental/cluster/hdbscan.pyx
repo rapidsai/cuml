@@ -268,8 +268,6 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                  cluster_selection_method='eom',
                  allow_single_cluster=False,
                  gen_min_span_tree=False,
-                 gen_condensed_tree=False,
-                 gen_single_linkage_tree=False,
                  handle=None,
                  verbose=False,
                  connectivity='knn',
@@ -308,16 +306,16 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         self.n_clusters_ = None
         self.n_leaves_ = None
 
-        self._condensed_tree = None
-        self._single_linkage_tree = None
+        self.condensed_tree_obj = None
+        self.single_linkage_tree_obj = None
+        self.minimum_spanning_tree_ = None
 
         self.gen_min_span_tree_ = gen_min_span_tree
-        self.gen_condensed_tree = gen_condensed_tree
-        self.gen_single_linkage_tree = gen_single_linkage_tree
 
-    def _build_condensed_tree(self):
+    @property
+    def condensed_tree_(self):
 
-        if self.gen_condensed_tree:
+        if self.condensed_tree_obj is None:
             raw_tree = np.recarray(shape=(self.condensed_parent_.shape[0],),
                                    formats=[np.intp, np.intp, float, np.intp],
                                    names=('parent', 'child', 'lambda_val',
@@ -329,14 +327,17 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
             if has_hdbscan_plots():
                 from hdbscan.plots import CondensedTree
-                self.condensed_tree_ = \
+                self.condensed_tree_obj = \
                     CondensedTree(raw_tree,
                                   self.cluster_selection_epsilon,
                                   self.allow_single_cluster)
 
-    def _build_single_linkage_tree(self):
+        return self.condensed_tree_obj
 
-        if self.gen_single_linkage_tree:
+    @property
+    def single_linkage_tree_(self):
+
+        if self.single_linkage_tree_obj is None:
             with cuml.using_output_type("numpy"):
                 raw_tree = np.column_stack(
                     (self.children_[0, :self.n_leaves_-1],
@@ -348,10 +349,13 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
             if has_hdbscan_plots():
                 from hdbscan.plots import SingleLinkageTree
-                self.single_linkage_tree_ = SingleLinkageTree(raw_tree)
+                self.single_linkage_tree_obj = SingleLinkageTree(raw_tree)
 
-    def _build_minimum_spanning_tree(self, X):
-        if self.gen_min_span_tree_:
+        return self.single_linkage_tree_obj
+
+    def build_minimum_spanning_tree(self, X):
+
+        if self.gen_min_span_tree_ and self.minimum_spanning_tree_ is None:
             with cuml.using_output_type("numpy"):
                 raw_tree = np.column_stack((self.mst_src_,
                                             self.mst_dst_,
@@ -363,6 +367,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                 from hdbscan.plots import MinimumSpanningTree
                 self.minimum_spanning_tree_ = \
                     MinimumSpanningTree(raw_tree, X.to_output("numpy"))
+        return self.minimum_spanning_tree_
 
     def __dealloc__(self):
         delete_hdbscan_output(self)
@@ -397,11 +402,13 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
         self.n_clusters_ = hdbscan_output_.get_n_clusters()
 
-        self.cluster_persistence_ = self._cuml_array_from_ptr(
-            <size_t>hdbscan_output_.get_stabilities(),
-            hdbscan_output_.get_n_clusters() * sizeof(float),
-            (1, hdbscan_output_.get_n_clusters()), "float32"
-        )
+        if self.n_clusters_ > 0:
+            self.cluster_persistence_ = self._cuml_array_from_ptr(
+                <size_t>hdbscan_output_.get_stabilities(),
+                hdbscan_output_.get_n_clusters() * sizeof(float),
+                (1, hdbscan_output_.get_n_clusters()), "float32")
+        else:
+            self.cluster_persistence_ = CumlArray.empty((0,), dtype="float32")
 
         self.condensed_parent_ = self._construct_condensed_tree_attribute(
             <size_t>hdbscan_output_.get_condensed_tree().get_parents())
@@ -497,8 +504,6 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         else:
             raise ValueError("'affinity' %s not supported." % self.affinity)
 
-        print("Calling HDBSCAN")
-
         if self.connectivity == 'knn':
             hdbscan(handle_[0],
                     <float*>input_ptr,
@@ -513,15 +518,11 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
         self.handle.sync()
 
-        print("Done")
-
         self.fit_called_ = True
 
         self._construct_output_attributes()
 
-        self._build_minimum_spanning_tree(X_m)
-        self._build_condensed_tree()
-        self._build_single_linkage_tree()
+        self.build_minimum_spanning_tree(X_m)
 
         return self
 
@@ -551,6 +552,4 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
             "n_neighbors",
             "alpha",
             "gen_min_span_tree",
-            "gen_single_linkage_tree",
-            "gen_condensed_tree"
         ]

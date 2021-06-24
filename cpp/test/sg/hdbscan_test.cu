@@ -186,11 +186,12 @@ class ClusterCondensingTest
     rmm::device_uvector<T> stabilities(condensed_tree.get_n_clusters(),
                                        handle.get_stream());
     rmm::device_uvector<T> probabilities(params.n_row, handle.get_stream());
+    rmm::device_uvector<IdxT> label_map(params.n_row, handle.get_stream());
 
     HDBSCAN::detail::Extract::extract_clusters(
       handle, condensed_tree, params.n_row, labels.data(), stabilities.data(),
-      probabilities.data(), HDBSCAN::Common::CLUSTER_SELECTION_METHOD::EOM,
-      false);
+      probabilities.data(), label_map.data(),
+      HDBSCAN::Common::CLUSTER_SELECTION_METHOD::EOM, false);
 
     //    CUML_LOG_DEBUG("Evaluating results");
     //    if (params.expected.size() == params.n_row) {
@@ -264,9 +265,11 @@ class ClusterSelectionTest
       condensed_parents.data(), condensed_children.data(),
       condensed_lambdas.data(), condensed_sizes.data());
 
+    rmm::device_uvector<IdxT> label_map(params.n_row, handle.get_stream());
+
     ML::HDBSCAN::detail::Extract::extract_clusters(
       handle, condensed_tree, params.n_row, labels.data(), stabilities.data(),
-      probabilities.data(), params.cluster_selection_method,
+      probabilities.data(), label_map.data(), params.cluster_selection_method,
       params.allow_single_cluster, 0, params.cluster_selection_epsilon);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
