@@ -58,7 +58,7 @@ void pairwiseDistance_sparse(const raft::handle_t &handle, value_t *x,
                              raft::distance::DistanceType metric,
                              float metric_arg) {
   raft::sparse::distance::distances_config_t<value_idx, value_t> dist_config(
-    const_cast<raft::handle_t &>(handle));
+    handle);
 
   dist_config.b_nrows = x_nrows;
   dist_config.b_ncols = n_cols;

@@ -94,9 +94,9 @@ void get_distances(const raft::handle_t &handle,
   raft::sparse::selection::brute_force_knn(
     input.indptr, input.indices, input.data, input.nnz, input.n, input.d,
     input.indptr, input.indices, input.data, input.nnz, input.n, input.d,
-    k_graph.knn_indices, k_graph.knn_dists, k_graph.n_neighbors,
-    const_cast<raft::handle_t &>(handle), ML::Sparse::DEFAULT_BATCH_SIZE,
-    ML::Sparse::DEFAULT_BATCH_SIZE, DEFAULT_DISTANCE_METRIC);
+    k_graph.knn_indices, k_graph.knn_dists, k_graph.n_neighbors, handle,
+    ML::Sparse::DEFAULT_BATCH_SIZE, ML::Sparse::DEFAULT_BATCH_SIZE,
+    DEFAULT_DISTANCE_METRIC);
 }
 
 // sparse, int64
