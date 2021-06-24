@@ -418,8 +418,7 @@ endif(BUILD_CUML_EXAMPLES)
 # ###################################################################################################
 # # - install targets -------------------------------------------------------------------------------
 
-set(CUML_TARGETS
-      ${CUML_CPP_TARGET})
+set(CUML_TARGETS ${CUML_CPP_TARGET})
 
 if(BUILD_CUML_C_LIBRARY)
   list(APPEND CUML_TARGETS
@@ -433,8 +432,8 @@ install(TARGETS
         EXPORT
           cuml-exports)
 
-install(DIRECTORY include/
-        DESTINATION include)
+install(DIRECTORY include/cuml/
+        DESTINATION include/cuml)
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/include/cuml/version_config.hpp
         DESTINATION include/cuml)
@@ -473,7 +472,7 @@ rapids_export(BUILD cuml
 
 if(BUILD_CUML_BENCH OR BUILD_CUML_PRIMS_BENCH)
   add_subdirectory(bench)
-endif(BUILD_CUML_BENCH)
+endif()
 
 ##############################################################################
 # - doxygen targets ----------------------------------------------------------
