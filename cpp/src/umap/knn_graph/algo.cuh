@@ -92,9 +92,8 @@ void launcher(const raft::handle_t &handle,
     inputsA.indptr, inputsA.indices, inputsA.data, inputsA.nnz, inputsA.n,
     inputsA.d, inputsB.indptr, inputsB.indices, inputsB.data, inputsB.nnz,
     inputsB.n, inputsB.d, out.knn_indices, out.knn_dists, n_neighbors,
-    const_cast<raft::handle_t&>(handle),
-    ML::Sparse::DEFAULT_BATCH_SIZE, ML::Sparse::DEFAULT_BATCH_SIZE,
-    raft::distance::DistanceType::L2Expanded);
+    const_cast<raft::handle_t &>(handle), ML::Sparse::DEFAULT_BATCH_SIZE,
+    ML::Sparse::DEFAULT_BATCH_SIZE, raft::distance::DistanceType::L2Expanded);
 }
 
 template <>
