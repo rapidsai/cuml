@@ -79,18 +79,23 @@ extern template void dispatch_on_fil_template_params<
 
 struct forest {
   void init_n_items(int device) {
+    int max_shm_std = 48 * 1024;  // 48 KiB
+    /// the most shared memory a kernel can request on the GPU in question
+    int max_shm = 0;
     CUDA_CHECK(cudaDeviceGetAttribute(
-      &max_shm_, cudaDevAttrMaxSharedMemoryPerBlockOptin, device));
+      &max_shm, cudaDevAttrMaxSharedMemoryPerBlockOptin, device));
     /* Our GPUs have been growing the shared memory size generation after
        generation. Eventually, a CUDA GPU might come by that supports more 
        shared memory that would fit into unsigned 16-bit int. For such a GPU,
        we would have otherwise silently overflowed the index calculation due
        to short division. It would have failed cpp tests, but we might forget
        about this source of bugs, if not for the failing assert. */
-    ASSERT(max_shm_ < 262144,
+    ASSERT(max_shm < 262144,
            "internal error: please use a larger type inside"
            " infer_k for column count");
     // TODO(canonizer): use >48KiB shared memory if available
+    max_shm = std::min(max_shm, max_shm_std);
+
     // searching for the most items per block while respecting the shared
     // memory limits creates a full linear programming problem.
     // solving it in a single equation looks less tractable than this
@@ -109,10 +114,10 @@ struct forest {
              ++ssp.n_items) {
           dispatch_on_fil_template_params<compute_smem_footprint,
                                           dense_storage>(ssp);
-          if (ssp.shm_sz <= ssp.max_shm) ssp_ = ssp;
+          if (ssp.shm_sz < max_shm) ssp_ = ssp;
         }
       }
-      ASSERT(ssp_.max_shm >= ssp_.shm_sz,
+      ASSERT(max_shm >= ssp_.shm_sz,
              "FIL out of shared memory. Perhaps the maximum number of \n"
              "supported classes is exceeded? 5'000 would still be safe.");
     }
@@ -133,10 +138,6 @@ struct forest {
 
   void init_common(const raft::handle_t& h, const forest_params_t* params,
                    const std::vector<float>& vector_leaf) {
-    int device = h.get_device();
-    CUDA_CHECK(cudaDeviceGetAttribute(
-      &proba_ssp_.max_shm, cudaDevAttrMaxSharedMemoryPerBlockOptin, device));
-
     depth_ = params->depth;
     num_trees_ = params->num_trees;
     algo_ = params->algo;
@@ -150,6 +151,7 @@ struct forest {
     proba_ssp_.num_classes = params->num_classes;
     class_ssp_ = proba_ssp_;
 
+    int device = h.get_device();
     init_n_items(device);  // n_items takes priority over blocks_per_sm
     init_fixed_block_count(device, params->blocks_per_sm);
 
@@ -308,8 +310,6 @@ struct forest {
     }
   }
 
-  int max_shm() { return max_shm_; }
-
   virtual void free(const raft::handle_t& h) {
     if (vector_leaf_len_ > 0) {
       h.get_device_allocator()->deallocate(
@@ -327,7 +327,6 @@ struct forest {
   float global_bias_ = 0;
   shmem_size_params class_ssp_, proba_ssp_;
   int fixed_block_count_ = 0;
-  int max_shm_ = 0;
   // Optionally used
   float* vector_leaf_ = nullptr;
   size_t vector_leaf_len_ = 0;
@@ -377,7 +376,6 @@ struct dense_forest : forest {
     CUDA_CHECK(cudaMemcpyAsync(nodes_, h_nodes_.data(),
                                num_nodes * sizeof(dense_node),
                                cudaMemcpyHostToDevice, h.get_stream()));
-
     // copy must be finished before freeing the host data
     CUDA_CHECK(cudaStreamSynchronize(h.get_stream()));
     h_nodes_.clear();
