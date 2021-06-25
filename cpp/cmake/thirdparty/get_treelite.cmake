@@ -14,7 +14,7 @@
 # limitations under the License.
 #=============================================================================
 
-function(find_and_configure_nccl)
+function(find_and_configure_treelite)
 
     if(TARGET treelite::treelite)
         return()
@@ -44,5 +44,5 @@ function(find_and_configure_nccl)
 
 endfunction()
 
-find_and_configure_nccl(VERSION     1.1.0
+find_and_configure_treelite(VERSION     1.3.0
                         PINNED_TAG  342be01cde4fd99f81e529c1a0c85c496b2a3226)
