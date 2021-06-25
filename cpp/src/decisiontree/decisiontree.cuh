@@ -53,7 +53,9 @@ namespace ML {
 
 namespace tl = treelite;
 
-bool is_dev_ptr(const void *p) {
+namespace DT {
+
+inline bool is_dev_ptr(const void *p) {
   cudaPointerAttributes pointer_attr;
   cudaError_t err = cudaPointerGetAttributes(&pointer_attr, p);
   if (err == cudaSuccess) {
@@ -63,8 +65,6 @@ bool is_dev_ptr(const void *p) {
     return false;
   }
 }
-
-namespace DT {
 
 template <class T, class L>
 void print(const SparseTreeNode<T, L> &node, std::ostream &os) {

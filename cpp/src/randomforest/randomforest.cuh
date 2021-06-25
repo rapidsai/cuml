@@ -94,8 +94,8 @@ class RandomForest {
     ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
     ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
 
-    bool input_is_dev_ptr = is_dev_ptr(input);
-    bool preds_is_dev_ptr = is_dev_ptr(predictions);
+    bool input_is_dev_ptr = DT::is_dev_ptr(input);
+    bool preds_is_dev_ptr = DT::is_dev_ptr(predictions);
 
     if (!input_is_dev_ptr || (input_is_dev_ptr != preds_is_dev_ptr)) {
       ASSERT(false,
@@ -358,9 +358,9 @@ class RandomForest {
    * @param[in] verbosity: verbosity level for logging messages during execution
    * @param[in] rf_type: task type: 0 for classification, 1 for regression
    */
-  RF_metrics score(const raft::handle_t& user_handle, const L* ref_labels,
-                   int n_rows, const L* predictions, int verbosity,
-                   int rf_type) {
+  static RF_metrics score(const raft::handle_t& user_handle,
+                          const L* ref_labels, int n_rows, const L* predictions,
+                          int verbosity, int rf_type) {
     ML::Logger::get().setLevel(verbosity);
     cudaStream_t stream = user_handle.get_stream();
     auto d_alloc = user_handle.get_device_allocator();

@@ -601,7 +601,8 @@ RF_metrics score(const raft::handle_t& user_handle,
                  const RandomForestClassifierF* forest, const int* ref_labels,
                  int n_rows, const int* predictions, int verbosity) {
   RF_metrics classification_score = RandomForest<float, int>::score(
-    user_handle, ref_labels, n_rows, predictions, verbosity);
+    user_handle, ref_labels, n_rows, predictions, verbosity,
+    RF_type::CLASSIFICATION);
   return classification_score;
 }
 
@@ -609,7 +610,8 @@ RF_metrics score(const raft::handle_t& user_handle,
                  const RandomForestClassifierD* forest, const int* ref_labels,
                  int n_rows, const int* predictions, int verbosity) {
   RF_metrics classification_score = RandomForest<double, int>::score(
-    user_handle, ref_labels, n_rows, predictions, verbosity);
+    user_handle, ref_labels, n_rows, predictions, verbosity,
+    RF_type::REGRESSION);
   return classification_score;
 }
 
