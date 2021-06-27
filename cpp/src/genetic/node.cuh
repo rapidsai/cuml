@@ -50,7 +50,6 @@ DI float evaluate_node(const node& n, const float* data, const size_t stride,
     return data[(stride * n.u.fid) + idx];
   } else {
     auto abs_inval = fabsf(in[0]), abs_inval1 = fabsf(in[1]);
-    auto small = abs_inval < MIN_VAL;
     // note: keep the case statements in alphabetical order under each category
     // of operators.
     switch (n.t) {

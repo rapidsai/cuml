@@ -117,17 +117,17 @@ void compute_metric(const raft::handle_t &h, int n_rows, int n_progs,
                     float *score, const param &params) {
   // Call appropriate metric function based on metric defined in params
   if (params.metric == metric_t::pearson) {
-    _weighted_pearson(h, n_rows, n_progs, y, y_pred, w, score);
+    weightedPearson(h, n_rows, n_progs, y, y_pred, w, score);
   } else if (params.metric == metric_t::spearman) {
-    _weighted_spearman(h, n_rows, n_progs, y, y_pred, w, score);
+    weightedSpearman(h, n_rows, n_progs, y, y_pred, w, score);
   } else if (params.metric == metric_t::mae) {
-    _mean_absolute_error(h, n_rows, n_progs, y, y_pred, w, score);
+    meanAbsoluteError(h, n_rows, n_progs, y, y_pred, w, score);
   } else if (params.metric == metric_t::mse) {
-    _mean_square_error(h, n_rows, n_progs, y, y_pred, w, score);
+    meanSquareError(h, n_rows, n_progs, y, y_pred, w, score);
   } else if (params.metric == metric_t::rmse) {
-    _root_mean_square_error(h, n_rows, n_progs, y, y_pred, w, score);
+    rootMeanSquareError(h, n_rows, n_progs, y, y_pred, w, score);
   } else if (params.metric == metric_t::logloss) {
-    _log_loss(h, n_rows, n_progs, y, y_pred, w, score);
+    logLoss(h, n_rows, n_progs, y, y_pred, w, score);
   } else {
     // This should not be reachable
   }
