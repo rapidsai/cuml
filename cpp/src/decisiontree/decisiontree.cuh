@@ -271,7 +271,7 @@ class DecisionTree {
      */
   void fit(const raft::handle_t &handle, const T *data, const int ncols,
            const int nrows, const L *labels, unsigned int *rowids,
-           const int n_sampled_rows, int unique_labels, bool is_classifier,
+           const int n_sampled_rows, int unique_labels,
            DT::TreeMetaDataNode<T, L> *&tree,
            DecisionTreeParams tree_parameters, uint64_t seed,
            T *d_global_quantiles) {
@@ -279,9 +279,10 @@ class DecisionTree {
     this->prepare_fit_timer.reset();
     const char *CRITERION_NAME[] = {"GINI", "ENTROPY", "MSE", "MAE", "END"};
     CRITERION default_criterion =
-      (is_classifier) ? CRITERION::GINI : CRITERION::MSE;
-    CRITERION last_criterion =
-      (is_classifier) ? CRITERION::ENTROPY : CRITERION::MSE;
+      (std::numeric_limits<L>::is_integer) ? CRITERION::GINI : CRITERION::MSE;
+    CRITERION last_criterion = (std::numeric_limits<L>::is_integer)
+                                 ? CRITERION::ENTROPY
+                                 : CRITERION::MSE;
 
     validity_check(tree_params);
     if (tree_params.n_bins > n_sampled_rows) {

@@ -147,8 +147,6 @@ class RandomForest {
            RandomForestMetaData<T, L>*& forest) {
     ML::PUSH_RANGE("RandomForest::fit @randomforest.cuh");
     this->error_checking(input, labels, n_rows, n_cols, false);
-    bool is_classifier = (rf_type == RF_type::CLASSIFICATION) ? true : false;
-
     const raft::handle_t& handle = user_handle;
     int n_sampled_rows = 0;
     if (this->rf_params.bootstrap) {
@@ -208,7 +206,7 @@ class RandomForest {
       DT::TreeMetaDataNode<T, L>* tree_ptr = &(forest->trees[i]);
       tree_ptr->treeid = i;
       trees[i].fit(handle, input, n_cols, n_rows, labels, rowids,
-                   n_sampled_rows, n_unique_labels, is_classifier, tree_ptr,
+                   n_sampled_rows, n_unique_labels, tree_ptr,
                    this->rf_params.tree_params, this->rf_params.seed,
                    global_quantiles.data());
     }
@@ -360,7 +358,8 @@ class RandomForest {
    */
   static RF_metrics score(const raft::handle_t& user_handle,
                           const L* ref_labels, int n_rows, const L* predictions,
-                          int verbosity, int rf_type) {
+                          int verbosity,
+                          int rf_type = RF_type::CLASSIFICATION) {
     ML::Logger::get().setLevel(verbosity);
     cudaStream_t stream = user_handle.get_stream();
     auto d_alloc = user_handle.get_device_allocator();
