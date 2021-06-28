@@ -45,4 +45,4 @@ function(find_and_configure_treelite)
 endfunction()
 
 find_and_configure_treelite(VERSION     1.3.0
-                        PINNED_TAG  342be01cde4fd99f81e529c1a0c85c496b2a3226)
+                        PINNED_TAG  ae5436c45563a5c2ed7aa8f0f41f88fff48f49e4)
