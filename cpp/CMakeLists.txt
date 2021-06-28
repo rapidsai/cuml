@@ -131,8 +131,8 @@ endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
 # * enable the CMake CUDA language
 # * set other CUDA compilation flags
 rapids_find_package(CUDAToolkit REQUIRED
-    BUILD_EXPORT_SET raft-exports
-    INSTALL_EXPORT_SET raft-exports
+    BUILD_EXPORT_SET cuml-exports
+    INSTALL_EXPORT_SET cuml-exports
     )
 include(cmake/modules/ConfigureCUDA.cmake)
 
