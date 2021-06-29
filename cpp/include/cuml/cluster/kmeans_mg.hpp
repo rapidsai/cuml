@@ -37,6 +37,7 @@ namespace opg {
  * @param[in]     n_samples     Number of samples in the input X.
  * @param[in]     n_features    Number of features or the dimensions of each
  * sample.
+ * @param[in]     sample_weight The weights for each observation in X.
  * @param[inout]  centroids     When init is InitMethod::Array, use
  centroids as the initial cluster centers
  *                              [out] Otherwise, generated centroids from the
