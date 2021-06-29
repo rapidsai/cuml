@@ -17,7 +17,6 @@
 #pragma once
 #include <raft/distance/distance.cuh>
 #include <raft/handle.hpp>
-#include "pairwise_distance_l1.cuh"
 
 namespace ML {
 

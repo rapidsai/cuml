@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-//#include <cuml/metrics/metrics.hpp>
 #pragma once
 
 #include <raft/distance/distance.cuh>
