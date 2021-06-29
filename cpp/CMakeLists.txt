@@ -131,8 +131,8 @@ endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
 # * enable the CMake CUDA language
 # * set other CUDA compilation flags
 rapids_find_package(CUDAToolkit REQUIRED
-    BUILD_EXPORT_SET raft-exports
-    INSTALL_EXPORT_SET raft-exports
+    BUILD_EXPORT_SET cuml-exports
+    INSTALL_EXPORT_SET cuml-exports
     )
 include(cmake/modules/ConfigureCUDA.cmake)
 
@@ -418,8 +418,7 @@ endif(BUILD_CUML_EXAMPLES)
 # ###################################################################################################
 # # - install targets -------------------------------------------------------------------------------
 
-set(CUML_TARGETS
-      ${CUML_CPP_TARGET})
+set(CUML_TARGETS ${CUML_CPP_TARGET})
 
 if(BUILD_CUML_C_LIBRARY)
   list(APPEND CUML_TARGETS
@@ -433,8 +432,8 @@ install(TARGETS
         EXPORT
           cuml-exports)
 
-install(DIRECTORY include/
-        DESTINATION include)
+install(DIRECTORY include/cuml/
+        DESTINATION include/cuml)
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/include/cuml/version_config.hpp
         DESTINATION include/cuml)
@@ -473,7 +472,7 @@ rapids_export(BUILD cuml
 
 if(BUILD_CUML_BENCH OR BUILD_CUML_PRIMS_BENCH)
   add_subdirectory(bench)
-endif(BUILD_CUML_BENCH)
+endif()
 
 ##############################################################################
 # - doxygen targets ----------------------------------------------------------
@@ -482,4 +481,3 @@ include(cmake/doxygen.cmake)
 add_doxygen_target(IN_DOXYFILE Doxyfile.in
   OUT_DOXYFILE ${CMAKE_CURRENT_BINARY_DIR}/Doxyfile
   CWD ${CMAKE_CURRENT_BINARY_DIR})
-
