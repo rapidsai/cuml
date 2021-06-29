@@ -184,7 +184,12 @@ class cuml_build(_build):
             Extension("*",
                       sources=["cuml/**/*.pyx"],
                       include_dirs=include_dirs,
-                      library_dirs=[get_python_lib(), libcuml_path, cuda_lib_dir, os.path.join(os.sys.prefix, "lib")],
+                      library_dirs=[
+                          get_python_lib(),
+                          libcuml_path,
+                          cuda_lib_dir,
+                          os.path.join(os.sys.prefix, "lib")
+                      ],
                       libraries=libs,
                       language='c++',
                       extra_compile_args=['-std=c++17'])
