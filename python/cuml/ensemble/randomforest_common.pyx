@@ -55,7 +55,7 @@ class BaseRandomForestModel(Base):
 
     classes_ = CumlArrayDescriptor()
 
-    def __init__(self, *, split_criterion, n_streams=8, n_estimators=100,
+    def __init__(self, *, split_criterion, n_streams=4, n_estimators=100,
                  max_depth=16, handle=None, max_features='auto', n_bins=128,
                  split_algo=1, bootstrap=True,
                  verbose=False, min_samples_leaf=1, min_samples_split=2,
