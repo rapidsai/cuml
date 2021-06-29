@@ -44,5 +44,5 @@ set(CUML_BRANCH_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION    ${CUML_MIN_VERSION_raft}
                         FORK       mdoijade
-                        PINNED_TAG chebyshevDist
+                        PINNED_TAG  chebyshevDist
                         )
