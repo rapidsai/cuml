@@ -118,7 +118,6 @@ def count_features_dense_kernel(float_dtype, int_dtype):
       if(has_weights)
         val *= weights[row];
 
-      printf("val=%f\n", val);
 
       if(val == 0.0) return;
 
@@ -126,7 +125,9 @@ def count_features_dense_kernel(float_dtype, int_dtype):
       
       {1} label = labels[row];
       
-      {1} idx = !rowMajor ? col : row;
+      {1} idx = rowMajor ? col : row;
+
+      // printf("val=%f, idx=%i, label=%i\n", val, idx, label);
 
       atomicAdd(out + ((idx * n_classes) + label), val);
     }'''
@@ -281,27 +282,54 @@ class GaussianNB(_BaseNB):
         self.classes_ = None
 
     def fit(self, X, y, sample_weight=None) -> "GaussianNB":
-        return self._partial_fit(X, y, classes=None, _refit=True,
+        return self._partial_fit(X, y, _classes=None, _refit=True,
                                  sample_weight=sample_weight)
 
     @nvtx.annotate(message="naive_bayes.GaussianNB._partial_fit",
                    domain="cuml_python")
-    def _partial_fit(self, X, y, classes=None, _refit=False,
-                     sample_weight=None) -> "GaussianNB":
+    def _partial_fit(self, X, y, _classes=None, _refit=False,
+                     sample_weight=None, convert_dtype=True) -> "GaussianNB":
+        if has_scipy():
+            from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
+        else:
+            from cuml.common.import_utils import dummy_function_always_false \
+                as scipy_sparse_isspmatrix
+        if scipy_sparse_isspmatrix(X) or cp.sparse.isspmatrix(X):
+            X = _convert_x_sparse(X)
+            # TODO: Expanded this since sparse kernel doesn't
+            # actually require the scipy sparse container format.
+        else:
+            X = input_to_cupy_array(X, order='K',
+                                    check_dtype=[cp.float32, cp.float64,
+                                                 cp.int32]).array
 
-        if _refit:
-            self.classes_ = None
+
+        expected_y_dtype = cp.int32 if X.dtype in [cp.float32,
+                                                   cp.int32] else cp.int64
+        y = input_to_cupy_array(y,
+                                convert_to_dtype=(expected_y_dtype
+                                                  if convert_dtype
+                                                  else False),
+                                check_dtype=expected_y_dtype).array
 
         Y, label_classes = make_monotonic(y, copy=True)
-
-        logger.debug("LABELS: "+ str(label_classes))
+        if _refit:
+            self.classes_ = None
 
         self.epsilon_ = self.var_smoothing #* cp.var(X, axis=0).max()
 
         if not self.fit_called:
 
             # Original labels are stored on the instance
-            if self.classes_ is None:
+            if _classes is not None:
+                _classes, *_ = input_to_cuml_array(_classes, order='K',
+                                                   convert_to_dtype=(
+                                                       expected_y_dtype
+                                                       if convert_dtype
+                                                       else False))
+                check_labels(Y, _classes.to_output('cupy'))
+                self.classes_ = _classes
+            else:
                 self.classes_ = label_classes
 
             logger.debug("self classes: " + str(self.classes_))
@@ -320,7 +348,7 @@ class GaussianNB(_BaseNB):
             self.sigma_[:, :] -= self.epsilon_
 
         unique_y = cp.unique(y)
-        unique_y_in_classes = cp.in1d(unique_y, self.classes_)
+        unique_y_in_classes = cp.in1d(unique_y, cp.array(self.classes_))
 
         if not cp.all(unique_y_in_classes):
             raise ValueError("The target label(s) %s in y do not exist "
@@ -362,14 +390,21 @@ class GaussianNB(_BaseNB):
 
         early_return = self.class_count_.sum() == 0
         n_past = self.class_count_
+        tpb = 32
+        n_rows = X.shape[0]
+        n_cols = X.shape[1]
 
         if X.shape[0] == 0:
             return mu, var
 
+        # Make sure Y is cp array not CumlArray
+        Y = cp.asarray(Y)
         logger.debug(str(Y))
 
-        new_mu = cp.zeros((n_classes, n_features))
-        new_var = cp.zeros((n_classes, n_features))
+        new_mu = cp.zeros((n_classes, n_features), order="F",
+                          dtype=X.dtype)
+        new_var = cp.zeros((n_classes, n_features), order="F",
+                          dtype=X.dtype)
         if cp.sparse.isspmatrix(X):
             X = X.tocoo()
 
@@ -377,28 +412,28 @@ class GaussianNB(_BaseNB):
                                                            labels_dtype)
 
             # Run once for averages
-            count_features_coo((math.ceil(X.nnz / 32),), (32,),
+            count_features_coo((math.ceil(X.nnz / tpb),), (tpb,),
                                (new_mu,
                                 X.row,
                                 X.col,
                                 X.data,
                                 X.nnz,
-                                X.shape[0],
-                                X.shape[1],
+                                n_rows,
+                                n_cols,
                                 Y,
                                 sample_weight,
                                 sample_weight.shape[0] > 0,
                                 self.n_classes_, False))
 
             # Run again for variance
-            count_features_coo((math.ceil(X.nnz / 32),), (32,),
+            count_features_coo((math.ceil(X.nnz / tpb),), (tpb,),
                                (new_var,
                                 X.row,
                                 X.col,
                                 X.data,
                                 X.nnz,
-                                X.shape[0],
-                                X.shape[1],
+                                n_rows,
+                                n_cols,
                                 Y,
                                 sample_weight,
                                 sample_weight.shape[0] > 0,
@@ -410,28 +445,28 @@ class GaussianNB(_BaseNB):
                                                                labels_dtype)
 
             # Run once for averages
-            count_features_dense((math.ceil(X.shape[0] / 32),
-                                  math.ceil(X.shape[1] / 32), 1),
-                                 (32, 32, 1),
+            count_features_dense((math.ceil(n_rows / tpb),
+                                  math.ceil(n_cols / tpb), 1),
+                                 (tpb, tpb, 1),
                                  (new_mu,
                                   X,
-                                  X.shape[0],
-                                  X.shape[1],
+                                  n_rows,
+                                  n_cols,
                                   Y,
                                   sample_weight,
                                   sample_weight.shape[0] > 0,
-                                  self.n_classes_,
+                                  n_classes,
                                   False,
                                   X.flags["C_CONTIGUOUS"]))
 
             # Run again for variance
-            count_features_dense((math.ceil(X.shape[0] / 32),
-                                  math.ceil(X.shape[1] / 32), 1),
-                                 (32, 32, 1),
+            count_features_dense((math.ceil(n_rows / tpb),
+                                  math.ceil(n_cols / tpb), 1),
+                                 (tpb, tpb, 1),
                                  (new_var,
                                   X,
-                                  X.shape[0],
-                                  X.shape[1],
+                                  n_rows,
+                                  n_cols,
                                   Y,
                                   sample_weight,
                                   sample_weight.shape[0] > 0,
@@ -440,8 +475,16 @@ class GaussianNB(_BaseNB):
                                   X.flags["C_CONTIGUOUS"]))
 
         count_classes = count_classes_kernel(X.dtype, labels_dtype)
-        count_classes((math.ceil(X.shape[0] / 32),), (32,),
-                      (self.class_count_, X.shape[0], Y))
+        count_classes((math.ceil(n_rows / tpb),), (tpb,),
+                      (self.class_count_, n_rows, Y))
+
+        class_counts = cp.expand_dims(self.class_count_, axis=1)
+        new_mu /= class_counts
+
+        logger.debug("n_past: "+ str(n_past))
+
+        # Construct variance from sum squares
+        new_var = (new_var / class_counts) - new_mu ** 2
 
         if early_return:
             logger.debug("RETURNING EARLY")
@@ -453,13 +496,6 @@ class GaussianNB(_BaseNB):
         else:
             n_new = X.shape[0]
 
-        class_counts = cp.expand_dims(self.class_count_, axis=1)
-        new_mu /= class_counts
-
-        logger.debug("n_past: "+ str(n_past))
-
-        # Construct variance from sum squares
-        new_var = (var / class_counts) - new_mu ** 2
 
         n_total = n_past + n_new
 
@@ -491,12 +527,12 @@ class GaussianNB(_BaseNB):
     def _joint_log_likelihood(self, X):
         joint_log_likelihood = []
 
-        for i in range(cp.size(self.classes_)):
+        for i in range(len(self.classes_)):
             joint1 = cp.log(self.class_prior_[i])
 
             n_ij = -0.5 * cp.sum(cp.log(2. * cp.pi * self.sigma_[i, :]))
 
-            centered = X - self.theta_[i, :] ** 2
+            centered = (X - self.theta_[i, :]) ** 2
             zvals = centered / self.sigma_[i, :]
             summed = cp.sum(zvals, axis=1)
             logger.debug("normalized: "+ str(zvals.shape))
