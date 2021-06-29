@@ -151,7 +151,7 @@ class cuml_build(_build):
         # object has all the args used by the user, we can check that.
         self.singlegpu = '--singlegpu' in self.distribution.script_args
 
-        libs = ['cuml++']
+        libs = ['cuml++', 'cudart', 'cusparse', 'cusolver']
 
         include_dirs = [
             '../cpp/src',
@@ -184,10 +184,7 @@ class cuml_build(_build):
             Extension("*",
                       sources=["cuml/**/*.pyx"],
                       include_dirs=include_dirs,
-                      library_dirs=[get_python_lib(), libcuml_path],
-                      runtime_library_dirs=[
-                          cuda_lib_dir, os.path.join(os.sys.prefix, "lib")
-                      ],
+                      library_dirs=[get_python_lib(), libcuml_path, cuda_lib_dir, os.path.join(os.sys.prefix, "lib")],
                       libraries=libs,
                       language='c++',
                       extra_compile_args=['-std=c++17'])
