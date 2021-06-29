@@ -565,14 +565,13 @@ void symClfPredict(const raft::handle_t &handle, const float *input,
   cudaStream_t stream = handle.get_stream();
 
   // Memory for probabilities
-  float *probs = (float *)handle.get_device_allocator()->allocate(
-    2 * n_rows * sizeof(float), stream);
-  symClfPredictProbs(handle, input, n_rows, params, best_prog, probs);
+  rmm::device_uvector<float> probs(2*n_rows,stream);
+  symClfPredictProbs(handle, input, n_rows, params, best_prog, probs.data());
 
   // Take argmax along columns
   // TODO: Further modification needed for n_classes
   raft::linalg::binaryOp(
-    output, probs, probs + n_rows, n_rows,
+    output, probs.data(), probs.data() + n_rows, n_rows,
     [] __device__(float p0, float p1) { return 1.0f * (p0 <= p1); }, stream);
 }
 
