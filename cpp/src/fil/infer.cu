@@ -757,38 +757,46 @@ size_t shmem_size_params::get_smem_footprint() {
 template void dispatch_on_fil_template_params<compute_smem_footprint,
                                               dense_storage>(predict_params&);
 
-template <typename STORAGE_TYPE>
+template <bool cols_in_shmem, leaf_algo_t leaf_algo, int n_items>
 struct infer_k_launcher {
-  predict_params params;
-  storage_type forest;
-  cudaStream_t stream;
-  template <bool COLS_IN_SHMEM>
-  auto operator() {
-    return struct {
-      template <leaf_algo_t LEAF_ALGO>
-      auto operator() {
-        return struct {
-          template <int N_ITEMS>
-          auto operator() {
-            params.num_blocks =
-              params.num_blocks != 0
-                ? params.num_blocks
-                : raft::ceildiv(int(params.num_rows), params.n_items);
-            infer_k<N_ITEMS, LEAF_ALGO, COLS_IN_SHMEM, STORAGE_TYPE>
-              <<<params.num_blocks, params.blockdim_x, params.shm_sz, stream>>>(
-                forest, params);
-            CUDA_CHECK(cudaPeekAtLastError());
-          }
-        };
-      }
-    };
+  template <typename storage_type>
+  static void run(predict_params& params, storage_type forest,
+                  cudaStream_t stream) {
+    params.num_blocks = params.num_blocks != 0
+                          ? params.num_blocks
+                          : raft::ceildiv(int(params.num_rows), params.n_items);
+    infer_k<n_items, leaf_algo, cols_in_shmem, storage_type>
+      <<<params.num_blocks, params.blockdim_x, params.shm_sz, stream>>>(forest,
+                                                                        params);
+    CUDA_CHECK(cudaPeekAtLastError());
   }
 };
+/*template <typename STORAGE_TYPE>
+void infer_k_launcher(predict_params& params, storage_type forest,
+                      cudaStream_t stream) {
+  return template <bool COLS_IN_SHMEM>
+  [&]() {
+    return template <int N_ITEMS>
+    [&]() {
+      return template <leaf_algo_t LEAF_ALGO>
+      [&]() {
+        params.num_blocks =
+          params.num_blocks != 0
+            ? params.num_blocks
+            : raft::ceildiv(int(params.num_rows), params.n_items);
+        infer_k<N_ITEMS, LEAF_ALGO, COLS_IN_SHMEM, STORAGE_TYPE>
+          <<<params.num_blocks, params.blockdim_x, params.shm_sz, stream>>>(
+            forest, params);
+        CUDA_CHECK(cudaPeekAtLastError());
+      };
+    };
+  };
+}*/
 
 template <typename storage_type>
 void infer(storage_type forest, predict_params params, cudaStream_t stream) {
-  dispatch_on_fil_template_params(
-    params, infer_k_launcher<storage_type>{params, forest, stream});
+  dispatch_on_fil_template_params<infer_k_launcher, storage_type>(
+    params, forest, stream);
 }
 
 template void infer<dense_storage>(dense_storage forest, predict_params params,

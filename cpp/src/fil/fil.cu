@@ -74,9 +74,8 @@ __global__ void transform_k(float* preds, size_t n, output_t output,
     preds[i] = result;
 }
 
-extern template void dispatch_on_fil_template_params(
-  predict_params,
-  decltype(compute_smem_footprint<dense_storage>(shmem_size_params&)));
+extern template void dispatch_on_fil_template_params<
+  compute_smem_footprint, dense_storage>(predict_params&);
 
 struct forest {
   void init_n_items(int device) {
@@ -103,7 +102,7 @@ struct forest {
     for (bool predict_proba : {false, true}) {
       shmem_size_params& ssp_ = predict_proba ? proba_ssp_ : class_ssp_;
       ssp_.predict_proba = predict_proba;
-      shmem_size_params ssp = ssp_;
+      predict_params ssp = ssp_;
       // if n_items was not provided, try from 1 to 4. Otherwise, use as-is.
       int min_n_items = ssp.n_items == 0 ? 1 : ssp.n_items;
       int max_n_items = ssp.n_items == 0
@@ -113,8 +112,8 @@ struct forest {
         ssp.cols_in_shmem = cols_in_shmem;
         for (ssp.n_items = min_n_items; ssp.n_items <= max_n_items;
              ++ssp.n_items) {
-          dispatch_on_fil_template_params(
-            predict_params(ssp), compute_smem_footprint<dense_storage>(ssp));
+          dispatch_on_fil_template_params<compute_smem_footprint,
+                                          dense_storage>(ssp);
           if (ssp.shm_sz < max_shm) ssp_ = ssp;
         }
       }
