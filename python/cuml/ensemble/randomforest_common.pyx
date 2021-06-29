@@ -48,7 +48,11 @@ class BaseRandomForestModel(Base):
                     'verbose', 'max_samples',
                     'max_leaves',
                     'accuracy_metric', 'use_experimental_backend',
-                    'max_batch_size']
+                    'max_batch_size', 'n_streams', 'dtype',
+                    'output_type', 'min_weight_fraction_leaf', 'n_jobs',
+                    'max_leaf_nodes', 'min_impurity_split', 'oob_score',
+                    'random_state', 'warm_start', 'class_weight',
+                    'criterion']
 
     criterion_dict = {'0': GINI, '1': ENTROPY, '2': MSE,
                       '3': MAE, '4': CRITERION_END}
