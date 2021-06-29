@@ -205,6 +205,8 @@ class RandomForestRegressor(BaseRandomForestModel,
         Number of bins used by the split algorithm.
         For large problems, particularly those with highly-skewed input data,
         increasing the number of bins may improve accuracy.
+    n_streams : int (default = 4 )
+        Number of parallel streams used for forest building
     min_samples_leaf : int or float (default = 1)
         The minimum number of samples (rows) in each leaf node.
         If int, then min_samples_leaf represents the minimum number.
@@ -230,14 +232,13 @@ class RandomForestRegressor(BaseRandomForestModel,
     use_experimental_backend : boolean (default = True)
         Deprecated and currrently has no effect.
         .. deprecated:: 21.08
-    max_batch_size: int (default = 128)
+    max_batch_size: int (default = 4096)
         Maximum number of nodes that can be processed in a given batch. This is
         used only when 'use_experimental_backend' is true.
     random_state : int (default = None)
         Seed for the random number generator. Unseeded by default. Does not
         currently fully guarantee the exact same results. **Note: Parameter
         `seed` is removed since release 0.19.**
-
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
