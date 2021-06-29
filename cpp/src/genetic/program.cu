@@ -74,18 +74,16 @@ __global__ void execute_kernel(const program_t d_progs, const float *data,
   y_pred[pid * n_samples + row_id] = eval_stack.pop();
 }
 
-program::program() {
-  depth = MAX_STACK_SIZE;
-  len = 0;
-  raw_fitness_ = 0.0f;
-  metric = metric_t::mse;
-  mut_type = mutation_t::none;
-  nodes = nullptr;
-}
+program::program()
+  : len(0),
+    depth(0),
+    raw_fitness_(0.0f),
+    metric(metric_t::mse),
+    mut_type(mutation_t::none),
+    nodes(nullptr) {}
 
 program::~program() {
   delete[] nodes;
-  nodes = nullptr;
 }
 
 program::program(const program &src)
