@@ -771,6 +771,27 @@ struct infer_k_launcher {
     CUDA_CHECK(cudaPeekAtLastError());
   }
 };
+/*template <typename STORAGE_TYPE>
+void infer_k_launcher(predict_params& params, storage_type forest,
+                      cudaStream_t stream) {
+  return template <bool COLS_IN_SHMEM>
+  [&]() {
+    return template <int N_ITEMS>
+    [&]() {
+      return template <leaf_algo_t LEAF_ALGO>
+      [&]() {
+        params.num_blocks =
+          params.num_blocks != 0
+            ? params.num_blocks
+            : raft::ceildiv(int(params.num_rows), params.n_items);
+        infer_k<N_ITEMS, LEAF_ALGO, COLS_IN_SHMEM, STORAGE_TYPE>
+          <<<params.num_blocks, params.blockdim_x, params.shm_sz, stream>>>(
+            forest, params);
+        CUDA_CHECK(cudaPeekAtLastError());
+      };
+    };
+  };
+}*/
 
 template <typename storage_type>
 void infer(storage_type forest, predict_params params, cudaStream_t stream) {
