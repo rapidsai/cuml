@@ -37,6 +37,7 @@ from cuml.common.base import Base
 from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array, logger
 from cuml.common.mixins import CMajorInputTagMixin
+from cuml.common.doc_utils import _parameters_docstrings
 
 import treelite
 import treelite.sklearn as tl_skl
@@ -528,13 +529,11 @@ class ForestInference(Base,
         return func
 
     def common_predict_params_docstring(func):
-        func.__doc__ = getdoc(func).format("""
-    X : array-like (device or host) shape = (n_samples, n_features)
-       Dense matrix (floats) of shape (n_samples, n_features).
-       Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-       ndarray, cuda array interface compliant array like CuPy
-       For optimal performance, pass a device array with C-style layout
-    """)
+        func.__doc__ = getdoc(func).format(
+          _parameters_docstrings['dense'].format(
+            name='X', shape='(n_samples, n_features)') +
+          '\n    For optimal performance, pass a float device array '
+          'with C-style layout')
         return func
 
     def __init__(self, *,
