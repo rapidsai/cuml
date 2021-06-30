@@ -55,7 +55,7 @@ class BaseRandomForestModel(Base):
 
     classes_ = CumlArrayDescriptor()
 
-    def __init__(self, *, split_criterion, n_streams=8, n_estimators=100,
+    def __init__(self, *, split_criterion, n_streams=4, n_estimators=100,
                  max_depth=16, handle=None, max_features='auto', n_bins=128,
                  split_algo=1, bootstrap=True,
                  verbose=False, min_samples_leaf=1, min_samples_split=2,
@@ -65,7 +65,7 @@ class BaseRandomForestModel(Base):
                  min_impurity_split=None, oob_score=None, random_state=None,
                  warm_start=None, class_weight=None,
                  criterion=None, use_experimental_backend=True,
-                 max_batch_size=128):
+                 max_batch_size=4096):
 
         sklearn_params = {"criterion": criterion,
                           "min_weight_fraction_leaf": min_weight_fraction_leaf,
