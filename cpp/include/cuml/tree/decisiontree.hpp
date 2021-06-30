@@ -92,7 +92,7 @@ void set_tree_params(DecisionTreeParams &params, int cfg_max_depth = -1,
                      int cfg_min_samples_split = 2,
                      float cfg_min_impurity_decrease = 0.0f,
                      CRITERION cfg_split_criterion = CRITERION_END,
-                     int cfg_max_batch_size = 128);
+                     int cfg_max_batch_size = 4096);
 
 /**
  * @brief Check validity of all decision tree hyper-parameters.
