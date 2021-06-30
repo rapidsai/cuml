@@ -499,6 +499,7 @@ void check_params(const forest_params_t* params, bool dense) {
              "leaf_algo must be FLOAT_UNARY_BINARY, CATEGORICAL_LEAF"
              " or GROVE_PER_CLASS");
   }
+  // output_t::RAW == 0, and doesn't have a separate flag
   if ((params->output & ~output_t::ALL_SET) != 0) {
     ASSERT(
       false,

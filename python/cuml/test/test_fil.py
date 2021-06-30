@@ -70,22 +70,19 @@ def _build_and_save_xgboost(model_path,
     dtrain = xgb.DMatrix(X_train, label=y_train)
 
     # instantiate params
-    params = {'silent': 1}
+    params = {'eval_metric': 'error', 'max_depth': 25}
 
     # learning task params
     if classification:
-        params['eval_metric'] = 'error'
         if n_classes == 2:
             params['objective'] = 'binary:logistic'
         else:
             params['num_class'] = n_classes
             params['objective'] = 'multi:softprob'
     else:
-        params['eval_metric'] = 'error'
         params['objective'] = 'reg:squarederror'
         params['base_score'] = 0.0
 
-    params['max_depth'] = 25
     params.update(xgboost_params)
     bst = xgb.train(params, dtrain, num_rounds)
     bst.save_model(model_path)

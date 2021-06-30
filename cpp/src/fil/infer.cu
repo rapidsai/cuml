@@ -166,7 +166,9 @@ __device__ __forceinline__ vec<1, output_type> infer_one_tree(
     curr = n.left(curr) + cond;
   }
   vec<1, output_type> out;
-  out[0] = tree[curr].base_node::output<output_type>();
+  /** dependent names are not considered templates by default,
+      unless it's a member of a current [template] instantiation.**/
+  out[0] = tree[curr].template output<output_type>();
   return out;
 }
 
@@ -637,7 +639,7 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
   // or class probabilities or regression
   __device__ __forceinline__ void finalize_class_label(float* out,
                                                        int num_rows) {
-    __syncthreads();
+    __syncthreads();  // make sure all votes[] are final
     int item = threadIdx.x;
     int row = item;
     if (item < NITEMS && row < num_rows) {
