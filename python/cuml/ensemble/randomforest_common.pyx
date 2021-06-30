@@ -61,15 +61,15 @@ class BaseRandomForestModel(Base):
 
     def __init__(self, *, split_criterion, n_streams=8, n_estimators=100,
                  max_depth=16, handle=None, max_features='auto', n_bins=128,
-                 split_algo=1, bootstrap=True,
+                 bootstrap=True,
                  verbose=False, min_samples_leaf=1, min_samples_split=2,
                  max_samples=1.0, max_leaves=-1, accuracy_metric=None,
                  dtype=None, output_type=None, min_weight_fraction_leaf=None,
                  n_jobs=None, max_leaf_nodes=None, min_impurity_decrease=0.0,
                  min_impurity_split=None, oob_score=None, random_state=None,
                  warm_start=None, class_weight=None,
-                 criterion=None, use_experimental_backend=True,
-                 max_batch_size=128):
+                 criterion=None,
+                 max_batch_size=128, **kwargs):
 
         sklearn_params = {"criterion": criterion,
                           "min_weight_fraction_leaf": min_weight_fraction_leaf,
@@ -88,6 +88,15 @@ class BaseRandomForestModel(Base):
                     "(https://docs.rapids.ai/api/cuml/nightly/"
                     "api.html#random-forest) for more information")
 
+        for key in kwargs.keys():
+            if key not in self._param_names:
+                raise TypeError(
+                    " The variable ", key,
+                    " is not supported in cuML,"
+                    " please read the cuML documentation at "
+                    "(https://docs.rapids.ai/api/cuml/nightly/"
+                    "api.html#random-forest) for more information")
+
         if ((random_state is not None) and (n_streams != 1)):
             warnings.warn("For reproducible results in Random Forest"
                           " Classifier or for almost reproducible results"
@@ -95,12 +104,14 @@ class BaseRandomForestModel(Base):
                           "recommended. If n_streams is > 1, results may vary "
                           "due to stream/thread timing differences, even when "
                           "random_state is set")
-        if use_experimental_backend:
+        if 'use_experimental_backend' in kwargs.keys():
             warnings.warn("The 'use_experimental_backend' parameter is "
-                          "deprecated and will be removed in 21.10 release.")
-        if split_algo:
-            warnings.warn("The 'split_algo' parameter is deprecated "
-                          "and will be removed in 21.10 release.")
+                          "deprecated and has no effect. "
+                          "It will be removed in 21.10 release.")
+        if 'split_algo' in kwargs.keys():
+            warnings.warn("The 'split_algo' parameter is "
+                          "deprecated and has no effect. "
+                          "It will be removed in 21.10 release.")
         if handle is None:
             handle = Handle(n_streams)
 
