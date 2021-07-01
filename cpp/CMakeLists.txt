@@ -321,6 +321,7 @@ if(BUILD_CUML_CPP_LIBRARY)
     PUBLIC
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
       $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_CUMLPRIMS_MG}>:${cumlprims_mg_INCLUDE_DIRS}>>
+      $<BUILD_INTERFACE:$<$<BOOL:Treelite_ADDED>:${Treelite_BINARY_DIR}/include>>
       $<$<BOOL:Treelite_ADDED>:${Treelite_SOURCE_DIR}/include>
     PRIVATE
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
