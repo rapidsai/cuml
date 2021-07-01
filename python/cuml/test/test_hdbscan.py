@@ -32,8 +32,6 @@ from sklearn import datasets
 
 import cupy as cp
 
-import rmm
-
 test_datasets = {
  "digits": datasets.load_digits(),
  "boston": datasets.load_boston(),
