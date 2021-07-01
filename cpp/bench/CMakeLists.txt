@@ -87,6 +87,8 @@ if(BUILD_CUML_PRIMS_BENCH)
       CUDA::cublas
       benchmark::benchmark
       raft::raft
+      $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_static,treelite::treelite>
+      $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_runtime_static,treelite::treelite_runtime>
   )
 
   target_include_directories(${PRIMS_BENCH_TARGET}
