@@ -46,7 +46,7 @@ class GeneticEvolutionTest : public ::testing::Test{
     // Set training param vals
     hyper_params.population_size = 5000;
     hyper_params.num_features = n_cols;
-    hyper_params.random_state = 1123;
+    hyper_params.random_state = 11;
     hyper_params.generations = 20;
     hyper_params.stopping_criteria = 0.01;
     hyper_params.p_crossover = 0.7;
@@ -469,7 +469,7 @@ TEST_F(GeneticEvolutionTest,SymReg){
   std::cout << "Raw fitness score on train set is " << history[n_gen-1][best_idx].raw_fitness_ << std::endl;
   // std::cout << "Best AST length : " << history[n_gen-1][best_idx].len << std::endl;
   std::cout << "Best AST equation is : " << eqn << std::endl;
-  ASSERT_TRUE(compApprox(history[n_gen-1][best_idx].raw_fitness_, 0.0041f));
+  ASSERT_TRUE(compApprox(history[n_gen-1][best_idx].raw_fitness_, 0.0036f));
   
   // Predict values for test dataset
   rmm::device_uvector<float> d_predlabels(n_tst_rows,stream);
@@ -494,8 +494,8 @@ TEST_F(GeneticEvolutionTest,SymReg){
   std::copy(h_testlab.begin(),h_testlab.begin()+10,std::ostream_iterator<float>(std::cout,";"));
   std::cout << std::endl;
 
-  std::cout << std::setw(20) << "Training time = "   << training_time << " ms" << std::endl;
-  std::cout << std::setw(20) << "Inference time = "  << inference_time << " ms" << std::endl;
+  std::cout <<  "Training time = "   << training_time << " ms" << std::endl;
+  std::cout <<  "Inference time = "  << inference_time << " ms" << std::endl;
 }
 
 } // namespace genetic

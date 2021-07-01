@@ -40,7 +40,9 @@ namespace cuml {
 namespace genetic {
 
 /**
- * @brief Simultaneously execute tournaments using online random number generation.
+ * @brief Simultaneously execute tournaments for all programs. 
+ *        The fitness values being compared are adjusted for bloat (program length), 
+ *        using the given parsimony coefficient.
  * 
  * @param progs         Device pointer to programs
  * @param win_indices   Winning indices for every tournament
@@ -49,40 +51,53 @@ namespace genetic {
  * @param n_tours       No of tournaments to be conducted
  * @param tour_size     No of programs considered per tournament(@c <=n_progs><)
  * @param criterion     Selection criterion for choices(min/max)
+ * @param parsimony     Parsimony coefficient to account for bloat
  */
 __global__ void batched_tournament_kernel(const program_t progs,
-                                          int *win_indices, uint64_t *seeds,
+                                          int *win_indices, const int *seeds,
                                           const int n_progs, const int n_tours,
                                           const int tour_size,
-                                          const int criterion) {
+                                          const int criterion,
+                                          const float parsimony) {
   int idx = blockIdx.x * blockDim.x + threadIdx.x;
   if (idx >= n_tours) return;
 
-  raft::random::detail::PhiloxGenerator gen(seeds[idx], (uint64_t)idx, 0);
+  raft::random::detail::PhiloxGenerator rng(seeds[idx], idx, 0);
 
   int r;
-  gen.next(r);
+  rng.next(r);
+
+  // Define optima values
   int opt = r % n_progs;
-  float opt_score = progs[opt].raw_fitness_;
+  float opt_penalty = parsimony * progs[opt].len * (2 * criterion - 1);
+  float opt_score = progs[opt].raw_fitness_ - opt_penalty;
 
   for (int s = 1; s < tour_size; ++s) {
-    gen.next(r);
+    rng.next(r);
     int curr = r % n_progs;
-    float curr_score = progs[curr].raw_fitness_;
+    float curr_penalty = parsimony * progs[curr].len * (2 * criterion - 1);
+    float curr_score = progs[curr].raw_fitness_ - curr_penalty;
 
-    // Eliminate thread divergence - b,criterion take values in {0,1}
+    // Eliminate thread divergence - b takes values in {0,1}
+    // All threads have same criterion but mostly have different 'b'
     int b = (opt_score < curr_score);
-    opt = opt * (b * (1 - criterion) + criterion * (1 - b)) +
-          curr * (b * criterion + (1 - b) * (1 - criterion));
-
-    opt_score = progs[opt].raw_fitness_;
+    if (criterion) {
+      opt = (1 - b) * opt + b * curr;
+      opt_penalty = (1 - b) * opt_penalty + b * curr_penalty;
+      opt_score = (1 - b) * opt_score + b * curr_score;
+    } else {
+      opt = b * opt + (1 - b) * curr;
+      opt_penalty = b * opt_penalty + (1 - b) * curr_penalty;
+      opt_score = b * opt_score + (1 - b) * curr_score;
+    }
   }
 
+  // Set win index
   win_indices[idx] = opt;
 }
 
 /**
- * @brief Driver function for evolving 1 generation
+ * @brief Driver function for evolving a generation of programs
  * 
  * @param h               cuML handle
  * @param h_oldprogs      previous generation host programs
@@ -150,16 +165,17 @@ void parallel_evolve(const raft::handle_t &h,
     }
 
     // Run tournaments
-    rmm::device_uvector<uint64_t> tour_seeds(n_tours, stream);
+    rmm::device_uvector<int> tour_seeds(n_tours, stream);
     rmm::device_uvector<int> d_win_indices(n_tours, stream);
-    d_gen.uniformInt(tour_seeds.data(), n_tours, (uint64_t)1, (uint64_t)INT_MAX,
+    d_gen.uniformInt(tour_seeds.data(), n_tours, 1, INT_MAX,
                      stream);
 
-    auto crit = params.criterion();
+    auto criterion = params.criterion();
     dim3 nblks(raft::ceildiv(n_tours, GENE_TPB), 1, 1);
     batched_tournament_kernel<<<nblks, GENE_TPB, 0, stream>>>(
       d_oldprogs, d_win_indices.data(), tour_seeds.data(), n_progs, n_tours,
-      tour_size, crit);
+      tour_size, criterion, params.parsimony_coefficient);
+
     CUDA_CHECK(cudaPeekAtLastError());
 
     // Make sure tournaments have finished running before copying win indices
@@ -565,7 +581,7 @@ void symClfPredict(const raft::handle_t &handle, const float *input,
   cudaStream_t stream = handle.get_stream();
 
   // Memory for probabilities
-  rmm::device_uvector<float> probs(2*n_rows,stream);
+  rmm::device_uvector<float> probs(2 * n_rows, stream);
   symClfPredictProbs(handle, input, n_rows, params, best_prog, probs.data());
 
   // Take argmax along columns
