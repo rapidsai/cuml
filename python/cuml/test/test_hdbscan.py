@@ -34,8 +34,6 @@ import cupy as cp
 
 import rmm
 
-IS_A100 = 'A100' in rmm._cuda.gpu.deviceGetName(0)
-
 test_datasets = {
  "digits": datasets.load_digits(),
  "boston": datasets.load_boston(),
@@ -56,7 +54,6 @@ def assert_cluster_counts(sk_agg, cuml_agg, digits=25):
     np.testing.assert_almost_equal(sk_counts, cu_counts, decimal=-1 * digits)
 
 
-@pytest.mark.skipif(IS_A100, reason="Skipping test on A100")
 @pytest.mark.parametrize('nrows', [500])
 @pytest.mark.parametrize('ncols', [25])
 @pytest.mark.parametrize('nclusters', [2, 5])
@@ -114,7 +111,6 @@ def test_hdbscan_blobs(nrows, ncols, nclusters,
            np.sort(cuml_agg.cluster_persistence_), rtol=0.01, atol=0.01)
 
 
-@pytest.mark.skipif(IS_A100, reason="Skipping test on A100")
 @pytest.mark.parametrize('dataset', test_datasets.values())
 @pytest.mark.parametrize('cluster_selection_epsilon', [0.0, 50.0, 150.0])
 @pytest.mark.parametrize('min_samples_cluster_size_bounds', [(150, 150, 0),
@@ -167,7 +163,6 @@ def test_hdbscan_sklearn_datasets(dataset,
            np.sort(cuml_agg.cluster_persistence_), rtol=0.1, atol=0.1)
 
 
-@pytest.mark.skipif(IS_A100, reason="Skipping test on A100")
 @pytest.mark.parametrize('nrows', [1000])
 @pytest.mark.parametrize('dataset', dataset_names)
 @pytest.mark.parametrize('min_samples', [15])

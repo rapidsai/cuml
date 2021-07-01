@@ -92,6 +92,7 @@ __global__ void condense_hierarchy_kernel(
   if (node >= n_leaves * 2 - 1 || !frontier[node]) return;
 
   frontier[node] = false;
+  __threadfence();
 
   value_t subtree_lambda = ignore[node];
 
