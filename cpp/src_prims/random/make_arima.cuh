@@ -146,7 +146,6 @@ void make_arima(DataT* out, int batch_size, int n_obs, ML::ARIMAOrder order,
 
   // Generate parameters. We draw temporary random parameters and transform
   // them to create the final parameters.
-  // Note: sigma2 is unused so we don't even initialize it
   ML::ARIMAParams<DataT> params_temp, params;
   params_temp.allocate(order, batch_size, allocator, stream, false);
   params.allocate(order, batch_size, allocator, stream, true);
@@ -170,7 +169,11 @@ void make_arima(DataT* out, int batch_size, int n_obs, ML::ARIMAOrder order,
     gpu_gen.uniform(params_temp.sma, batch_size * order.Q, (DataT)-1.0,
                     (DataT)1.0, stream);
   }
-  params.mu = params_temp.mu;  // No need to copy, just reuse the pointer
+  // Note: sigma2 is unused, we just memset it to zero
+  CUDA_CHECK(
+    cudaMemsetAsync(params_temp.sigma2, 0, batch_size * sizeof(DataT), stream));
+  // No need to copy, just reuse the pointer
+  params.mu = params_temp.mu;
   TimeSeries::batched_jones_transform(order, batch_size, false, params_temp,
                                       params, allocator, stream);
 

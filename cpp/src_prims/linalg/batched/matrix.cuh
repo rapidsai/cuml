@@ -1147,8 +1147,8 @@ __global__ void hessenberg_reduction_kernel(T* d_U, T* d_H, T* d_hh, int n) {
       if (i < n) {
         b_H[j * n + i] -= (T)2 * hh_k_i * shared_mem[0];
       }
+      __syncthreads();
     }
-    __syncthreads();
 
     // H[:, k+1:] = H[:, k+1:] - 2 * (H[:, k+1:] * uk) * uk'
     // Note: we do a coalesced load of hh_k in shared memory
@@ -1203,8 +1203,8 @@ __global__ void hessenberg_reduction_kernel(T* d_U, T* d_H, T* d_hh, int n) {
       if (i < n) {
         b_U[j * n + i] -= (T)2 * hh_k_i * shared_mem[0];
       }
+      __syncthreads();
     }
-    __syncthreads();
 
     b_hh_k -= n - k;
   }
