@@ -19,6 +19,7 @@
 #include <fstream>
 #include <iomanip>
 #include <iostream>
+#include <iterator>
 #include <sstream>
 #include <vector>
 
@@ -57,6 +58,21 @@ T get_argval(char **begin, char **end, const std::string &arg,
     inbuf >> argval;
   }
   return argval;
+}
+
+template <typename math_t = float>
+int parse_col_major(const std::string fname, std::vector<math_t> &vec,
+                    const int n_rows, const int n_cols) {
+  std::ifstream is(fname);
+  if (!is.is_open()) {
+    std::cerr << "ERROR: Could not open file " << fname << std::endl;
+    return 1;
+  }
+
+  std::istream_iterator<math_t> start(is), end;
+  vec.reserve(n_rows * n_cols);
+  vec.assign(start, end);
+  return 0;
 }
 
 int main(int argc, char *argv[]) {
@@ -98,144 +114,40 @@ int main(int argc, char *argv[]) {
   const int n_train_rows = get_argval(argv, argv + argc, "-n_train_rows", 0);
   const int n_test_rows = get_argval(argv, argv + argc, "-n_test_rows", 0);
 
-  const std::string train_data =
+  const std::string fX_train =
     get_argval(argv, argv + argc, "-train_data", std::string("train_data.txt"));
-  const std::string train_labels = get_argval(
-    argv, argv + argc, "-train_labels", std::string("train_labels.txt"));
-  const std::string test_data =
+  const std::string fy_train = get_argval(argv, argv + argc, "-train_labels",
+                                          std::string("train_labels.txt"));
+  const std::string fX_test =
     get_argval(argv, argv + argc, "-test_data", std::string("test_data.txt"));
-  const std::string test_labels = get_argval(argv, argv + argc, "-test_labels",
-                                             std::string("test_labels.txt"));
+  const std::string fy_test = get_argval(argv, argv + argc, "-test_labels",
+                                         std::string("test_labels.txt"));
 
   // Optionally accept files containing sample weights - if none are specified, then we consider a uniform distribution
-  const std::string train_weights =
-    get_argval(argv, argv + argc, "-train_weights", std::string(""));
-  const std::string test_weights =
-    get_argval(argv, argv + argc, "-test_weights", std::string(""));
+  const std::string fw_train = get_argval(argv, argv + argc, "-train_weights",
+                                          std::string("train_weights.txt"));
+  const std::string fw_test = get_argval(argv, argv + argc, "-test_weights",
+                                         std::string("test_weights.txt"));
 
-  std::vector<float> h_traindata;
-  std::vector<float> h_testdata;
-  std::vector<float> h_trainlabels;
-  std::vector<float> h_testlabels;
-  std::vector<float> h_trainweights;
-  std::vector<float> h_testweights;
+  std::vector<float> X_train;
+  std::vector<float> X_test;
+  std::vector<float> y_train;
+  std::vector<float> y_test;
+  std::vector<float> w_train;
+  std::vector<float> w_test;
 
-  // Read dataset inputs
-  {
-    float val = 0.0f;
-    // Read train dataset
-    std::ifstream input_stream(train_data, std::ios::in);
-    if (!input_stream.is_open()) {
-      std::cerr << "ERROR: Could not open input file " << train_data
-                << std::endl;
-      return 1;
-    }
-
-    std::cout << "Reading input with " << n_train_rows << " rows and " << n_cols
-              << " columns from " << train_data << "." << std::endl;
-
-    h_traindata.reserve(n_train_rows * n_cols);
-    while (input_stream >> val) {
-      h_traindata.push_back(val);
-    }
-    input_stream.close();
-    input_stream.clear();
-
-    // Read training labels
-    input_stream.open(train_labels, std::ios::in);
-    if (!input_stream.is_open()) {
-      std::cerr << "ERROR: Could not open input file " << train_labels
-                << std::endl;
-      return 1;
-    }
-
-    std::cout << "Reading input with " << n_train_rows << " rows "
-              << "from " << train_labels << "." << std::endl;
-
-    h_trainlabels.reserve(n_train_rows);
-    while (input_stream >> val) {
-      h_trainlabels.push_back(val);
-    }
-    input_stream.close();
-    input_stream.clear();
-
-    // Read test dataset
-    input_stream.open(test_data, std::ios::in);
-    if (!input_stream.is_open()) {
-      std::cerr << "ERROR: Could not open input file " << test_data
-                << std::endl;
-      return 1;
-    }
-
-    std::cout << "Reading input with " << n_test_rows << " rows and " << n_cols
-              << " columns from " << test_data << "." << std::endl;
-
-    h_testdata.reserve(n_test_rows * n_cols);
-    while (input_stream >> val) {
-      h_testdata.push_back(val);
-    }
-    input_stream.close();
-    input_stream.clear();
-
-    // Read test labels
-    input_stream.open(test_labels, std::ios::in);
-    if (!input_stream.is_open()) {
-      std::cerr << "ERROR: Could not open input file " << test_labels
-                << std::endl;
-      return 1;
-    }
-
-    std::cout << "Reading input with " << n_test_rows << " rows"
-              << " from " << test_labels << "." << std::endl;
-
-    h_traindata.reserve(n_test_rows);
-    while (input_stream >> val) {
-      h_testlabels.push_back(val);
-    }
-    input_stream.close();
-    input_stream.clear();
-
-    // Read training weights
-    if (train_weights != "") {
-      input_stream.open(train_weights, std::ios::in);
-      if (!input_stream.is_open()) {
-        std::cerr << "ERROR: Could not open input file " << train_weights
-                  << std::endl;
-        return 1;
-      }
-
-      std::cout << "Reading input with " << n_train_rows << " rows"
-                << " from " << train_weights << "." << std::endl;
-      h_trainweights.reserve(n_train_rows);
-      while (input_stream >> val) {
-        h_trainweights.push_back(val);
-      }
-      input_stream.close();
-      input_stream.clear();
-    } else {
-      h_trainweights.resize(n_train_rows, 1.0f);
-    }
-
-    // Read test weights
-    if (test_weights != "") {
-      input_stream.open(test_weights, std::ios::in);
-      if (!input_stream.is_open()) {
-        std::cerr << "ERROR: Could not open input file " << test_weights
-                  << std::endl;
-        return 1;
-      }
-
-      std::cout << "Reading input with " << n_test_rows << " rows"
-                << " from " << test_weights << "." << std::endl;
-      h_testweights.reserve(n_test_rows);
-      while (input_stream >> val) {
-        h_testweights.push_back(val);
-      }
-      input_stream.close();
-      input_stream.clear();
-    } else {
-      h_testweights.resize(n_test_rows, 1.0f);
-    }
+  // Read input
+  if (parse_col_major(fX_train, X_train, n_train_rows, n_cols)) return 1;
+  if (parse_col_major(fX_test, X_test, n_test_rows, n_cols)) return 1;
+  if (parse_col_major(fy_train, y_train, n_train_rows, 1)) return 1;
+  if (parse_col_major(fy_test, y_test, n_test_rows, 1)) return 1;
+  if (parse_col_major(fw_train, w_train, n_train_rows, 1)) {
+    std::cerr << "Defaulting to uniform training weights" << std::endl;
+    w_train.resize(n_train_rows, 1.0f);
+  }
+  if (parse_col_major(fw_test, w_test, n_test_rows, 1)) {
+    std::cerr << "Defaulting to uniform test weights" << std::endl;
+    w_test.resize(n_test_rows, 1.0f);
   }
 
   // Check for valid mutation probability distribution
@@ -282,9 +194,8 @@ int main(int argc, char *argv[]) {
     return 1;
   }
 
-  // Initialize and allocate device memory
+  /* ======================= Begin GPU memory allocation ======================= */
   std::cout << "***************************************" << std::endl;
-  std::cout << "Allocating device memory..." << std::endl;
   raft::handle_t handle;
   std::shared_ptr<raft::mr::device::allocator> allocator(
     new raft::mr::device::default_allocator());
@@ -298,38 +209,38 @@ int main(int argc, char *argv[]) {
   // Begin recording time
   cudaEventRecord(start, stream);
 
-  rmm::device_uvector<float> d_traindata(n_cols * n_train_rows, stream);
-  rmm::device_uvector<float> d_trainlabels(n_train_rows, stream);
-  rmm::device_uvector<float> d_trainweights(n_train_rows, stream);
-  rmm::device_uvector<float> d_testdata(n_cols * n_test_rows, stream);
-  rmm::device_uvector<float> d_testlabels(n_test_rows, stream);
-  rmm::device_uvector<float> d_testweights(n_test_rows, stream);
-  rmm::device_uvector<float> d_predlabels(n_test_rows, stream);
+  rmm::device_uvector<float> dX_train(n_cols * n_train_rows, stream);
+  rmm::device_uvector<float> dy_train(n_train_rows, stream);
+  rmm::device_uvector<float> dw_train(n_train_rows, stream);
+  rmm::device_uvector<float> dX_test(n_cols * n_test_rows, stream);
+  rmm::device_uvector<float> dy_test(n_test_rows, stream);
+  rmm::device_uvector<float> dw_test(n_test_rows, stream);
+  rmm::device_uvector<float> dy_pred(n_test_rows, stream);
   rmm::device_scalar<float> d_score{stream};
 
   cg::program_t d_finalprogs;  // pointer to last generation ASTs on device
 
-  CUDA_RT_CALL(cudaMemcpyAsync(d_traindata.data(), h_traindata.data(),
-                               sizeof(float) * n_cols * n_train_rows,
+  CUDA_RT_CALL(cudaMemcpyAsync(dX_train.data(), X_train.data(),
+                               sizeof(float) * dX_train.size(),
                                cudaMemcpyHostToDevice, stream));
 
-  CUDA_RT_CALL(cudaMemcpyAsync(d_trainlabels.data(), h_trainlabels.data(),
-                               sizeof(float) * n_train_rows,
+  CUDA_RT_CALL(cudaMemcpyAsync(dy_train.data(), y_train.data(),
+                               sizeof(float) * dy_train.size(),
                                cudaMemcpyHostToDevice, stream));
 
-  CUDA_RT_CALL(cudaMemcpyAsync(d_trainweights.data(), h_trainweights.data(),
-                               sizeof(float) * n_train_rows,
+  CUDA_RT_CALL(cudaMemcpyAsync(dw_train.data(), w_train.data(),
+                               sizeof(float) * dw_train.size(),
                                cudaMemcpyHostToDevice, stream));
 
-  CUDA_RT_CALL(cudaMemcpyAsync(d_testdata.data(), h_testdata.data(),
-                               sizeof(float) * n_cols * n_test_rows,
+  CUDA_RT_CALL(cudaMemcpyAsync(dX_test.data(), X_test.data(),
+                               sizeof(float) * dX_test.size(),
                                cudaMemcpyHostToDevice, stream));
 
-  CUDA_RT_CALL(cudaMemcpyAsync(d_testlabels.data(), h_testlabels.data(),
-                               sizeof(float) * n_test_rows,
+  CUDA_RT_CALL(cudaMemcpyAsync(dy_test.data(), y_test.data(),
+                               sizeof(float) * dy_test.size(),
                                cudaMemcpyHostToDevice, stream));
 
-  CUDA_RT_CALL(cudaMemcpyAsync(d_testweights.data(), h_testweights.data(),
+  CUDA_RT_CALL(cudaMemcpyAsync(dw_test.data(), w_test.data(),
                                sizeof(float) * n_test_rows,
                                cudaMemcpyHostToDevice, stream));
 
@@ -345,17 +256,18 @@ int main(int argc, char *argv[]) {
   float alloc_time;
   cudaEventElapsedTime(&alloc_time, start, stop);
 
-  std::cout << "Allocation time = " << std::setw(10) << alloc_time << "ms"
-            << std::endl;
+  std::cout << "Allocated device memory in " << std::setw(10) << alloc_time
+            << "ms" << std::endl;
 
-  // Begin training
+  /* ======================= Begin training ======================= */
+
   std::cout << "***************************************" << std::endl;
-  std::cout << "Beginning training on given dataset..." << std::endl;
+  std::cout << std::setw(30) << "Beginning training for " << std::setw(15)
+            << params.generations << " generations" << std::endl;
   cudaEventRecord(start, stream);
 
-  cg::symFit(handle, d_traindata.data(), d_trainlabels.data(),
-             d_trainweights.data(), n_train_rows, n_cols, params, d_finalprogs,
-             history);
+  cg::symFit(handle, dX_train.data(), dy_train.data(), dw_train.data(),
+             n_train_rows, n_cols, params, d_finalprogs, history);
 
   cudaEventRecord(stop, stream);
   cudaEventSynchronize(stop);
@@ -363,8 +275,8 @@ int main(int argc, char *argv[]) {
   cudaEventElapsedTime(&training_time, start, stop);
 
   int n_gen = params.num_epochs;
-  std::cout << "Finished training for " << n_gen << " generations."
-            << std::endl;
+  std::cout << std::setw(30) << "Convergence achieved in " << std::setw(15)
+            << n_gen << " generations." << std::endl;
 
   // Find index of best program
   int best_idx = 0;
@@ -379,31 +291,29 @@ int main(int argc, char *argv[]) {
   }
 
   std::string eqn = cg::stringify(history.back()[best_idx]);
-  std::cout << std::setw(30) << "Best AST index :" << std::setw(10) << best_idx
-            << std::endl;
-  std::cout << std::setw(30) << "Best AST depth :" << std::setw(10)
+  std::cout << std::setw(30) << "Best AST depth " << std::setw(15)
             << history.back()[best_idx].depth << std::endl;
-  std::cout << std::setw(30) << "Best AST length :" << std::setw(10)
+  std::cout << std::setw(30) << "Best AST length " << std::setw(15)
             << history.back()[best_idx].len << std::endl;
-  std::cout << std::setw(30) << "Best AST equation :" << std::setw(50) << eqn
+  std::cout << std::setw(30) << "Best AST equation " << std::setw(15) << eqn
             << std::endl;
-  std::cout << "Training time = " << std::setw(10) << training_time << "ms"
-            << std::endl;
+  std::cout << "Training time = " << training_time << "ms" << std::endl;
 
-  // Predict values for test dataset
+  /* ======================= Begin testing ======================= */
+
   std::cout << "***************************************" << std::endl;
-  std::cout << "Beginning Inference on Test dataset... " << std::endl;
+  std::cout << "Beginning Inference on test dataset " << std::endl;
   cudaEventRecord(start, stream);
-  cuml::genetic::symRegPredict(handle, d_testdata.data(), n_test_rows,
-                               d_finalprogs + best_idx, d_predlabels.data());
+  cuml::genetic::symRegPredict(handle, dX_test.data(), n_test_rows,
+                               d_finalprogs + best_idx, dy_pred.data());
 
-  std::vector<float> h_predlabels(n_test_rows, 0.0f);
-  CUDA_RT_CALL(cudaMemcpy(h_predlabels.data(), d_predlabels.data(),
+  std::vector<float> hy_pred(n_test_rows, 0.0f);
+  CUDA_RT_CALL(cudaMemcpy(hy_pred.data(), dy_pred.data(),
                           n_test_rows * sizeof(float), cudaMemcpyDeviceToHost));
 
-  cuml::genetic::compute_metric(handle, n_test_rows, 1, d_testlabels.data(),
-                                d_predlabels.data(), d_testweights.data(),
-                                d_score.data(), params);
+  cuml::genetic::compute_metric(handle, n_test_rows, 1, dy_test.data(),
+                                dy_pred.data(), dw_test.data(), d_score.data(),
+                                params);
 
   cudaEventRecord(stop, stream);
   cudaEventSynchronize(stop);
@@ -411,23 +321,21 @@ int main(int argc, char *argv[]) {
   cudaEventElapsedTime(&inference_time, start, stop);
 
   // Output fitness score
-  std::cout << std::setw(30)
-            << "Inference score on test set = " << std::setw(10)
-            << d_score.value(stream) << std::endl;
-  std::cout << "Inference time = " << std::setw(10) << inference_time << "ms"
-            << std::endl;
+  std::cout << "Inference score = " << d_score.value(stream) << std::endl;
+  std::cout << "Inference time = " << inference_time << "ms" << std::endl;
 
   std::cout << "Some Predicted test values:" << std::endl;
-  std::copy(h_predlabels.begin(), h_predlabels.begin() + 5,
+  std::copy(hy_pred.begin(), hy_pred.begin() + 5,
             std::ostream_iterator<float>(std::cout, ";"));
   std::cout << std::endl;
 
   std::cout << "Corresponding Actual test values:" << std::endl;
-  std::copy(h_testlabels.begin(), h_testlabels.begin() + 5,
+  std::copy(y_test.begin(), y_test.begin() + 5,
             std::ostream_iterator<float>(std::cout, ";"));
   std::cout << std::endl;
 
-  // Free up device memory
+  /* ======================= Reset data ======================= */
+
   handle.get_device_allocator()->deallocate(
     d_finalprogs, sizeof(cuml::genetic::program) * params.population_size,
     stream);
