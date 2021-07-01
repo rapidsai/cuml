@@ -20,7 +20,7 @@
 #include <raft/mr/device/allocator.hpp>
 
 namespace ML {
-namespace DecisionTree {
+namespace DT {
 
 template <typename T>
 void computeQuantiles(
@@ -28,5 +28,5 @@ void computeQuantiles(
   const std::shared_ptr<raft::mr::device::allocator> device_allocator,
   cudaStream_t stream);
 
-}  // namespace DecisionTree
+}  // namespace DT
 }  // namespace ML

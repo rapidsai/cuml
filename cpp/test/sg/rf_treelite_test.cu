@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <decisiontree/decisiontree_impl.h>
 #include <decisiontree/treelite_util.h>
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
@@ -26,6 +25,7 @@
 #include <treelite/c_api_runtime.h>
 #include <cstdlib>
 #include <cuml/ensemble/randomforest.hpp>
+#include <decisiontree/decisiontree.cuh>
 #include <fstream>
 #include <iostream>
 #include <limits>
@@ -125,7 +125,7 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
     // Current RF doesn't seem to support missing value, put NaN to be safe.
     T missing_value = std::numeric_limits<T>::quiet_NaN();
     TREELITE_CHECK(TreeliteDMatrixCreateFromMat(
-      inference_data_h.data(), ML::DecisionTree::TreeliteType<T>::value,
+      inference_data_h.data(), ML::DT::TreeliteType<T>::value,
       params.n_inference_rows, params.n_cols, &missing_value, &dmat));
 
     // Use dense batch so batch_sparse is 0.
