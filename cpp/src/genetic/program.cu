@@ -40,12 +40,12 @@ namespace genetic {
  */
 template <int MaxSize = MAX_STACK_SIZE>
 __global__ void execute_kernel(const program_t d_progs, const float *data,
-                               float *y_pred, const int n_samples,
-                               const int n_progs) {
-  size_t pid = blockIdx.y;                                // current program
-  size_t row_id = blockIdx.x * blockDim.x + threadIdx.x;  // current dataset row
+                               float *y_pred, const uint64_t n_rows) {
+  uint64_t pid = blockIdx.y;  // current program
+  uint64_t row_id =
+    blockIdx.x * blockDim.x + threadIdx.x;  // current dataset row
 
-  if (row_id >= n_samples) {
+  if (row_id >= n_rows) {
     return;
   }
 
@@ -53,25 +53,26 @@ __global__ void execute_kernel(const program_t d_progs, const float *data,
     eval_stack;  // Maintain stack only for remaining threads
   program_t curr_p = d_progs + pid;  // Current program
 
-  int e = curr_p->len - 1;
-  node *curr_n = &curr_p->nodes[e];
+  int end = curr_p->len - 1;
+  node *curr_node = curr_p->nodes + end;
+
   float res = 0.0f;
   float in[2] = {0.0f, 0.0f};
 
-  while (e >= 0) {
-    if (detail::is_nonterminal(curr_n->t)) {
-      int ar = detail::arity(curr_n->t);
+  while (end >= 0) {
+    if (detail::is_nonterminal(curr_node->t)) {
+      int ar = detail::arity(curr_node->t);
       in[0] = eval_stack.pop();  // Min arity of function is 1
       if (ar > 1) in[1] = eval_stack.pop();
     }
-    res = detail::evaluate_node(*curr_n, data, n_samples, row_id, in);
+    res = detail::evaluate_node(*curr_node, data, n_rows, row_id, in);
     eval_stack.push(res);
-    curr_n--;
-    e--;
+    curr_node--;
+    end--;
   }
 
   // Outputs stored in col-major format
-  y_pred[pid * n_samples + row_id] = eval_stack.pop();
+  y_pred[pid * n_rows + row_id] = eval_stack.pop();
 }
 
 program::program()
@@ -82,9 +83,7 @@ program::program()
     mut_type(mutation_t::none),
     nodes(nullptr) {}
 
-program::~program() {
-  delete[] nodes;
-}
+program::~program() { delete[] nodes; }
 
 program::program(const program &src)
   : len(src.len),
@@ -138,8 +137,8 @@ void execute(const raft::handle_t &h, const program_t &d_progs,
   cudaStream_t stream = h.get_stream();
 
   dim3 blks(raft::ceildiv(n_rows, GENE_TPB), n_progs, 1);
-  execute_kernel<<<blks, GENE_TPB, 0, stream>>>(d_progs, data, y_pred, n_rows,
-                                                n_progs);
+  execute_kernel<<<blks, GENE_TPB, 0, stream>>>(
+    d_progs, data, y_pred, (uint64_t)n_rows);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -168,13 +167,14 @@ void find_batched_fitness(const raft::handle_t &h, int n_progs,
                           const float *sample_weights) {
   cudaStream_t stream = h.get_stream();
 
-  rmm::device_uvector<float> y_pred(n_rows * n_progs, stream);
+  rmm::device_uvector<float> y_pred((uint64_t)n_rows * (uint64_t)n_progs,
+                                    stream);
   execute(h, d_progs, n_rows, n_progs, data, y_pred.data());
 
   // Transform y_pred for classification problems
   if (params.metric == metric_t::logloss) {
     raft::linalg::unaryOp(
-      y_pred.data(), y_pred.data(), (uint64_t)(n_rows * n_progs),
+      y_pred.data(), y_pred.data(), (uint64_t)n_rows * (uint64_t)n_progs,
       [] __device__(float in) { return 1.0f / (1.0f + expf(-in)); }, stream);
   }
 

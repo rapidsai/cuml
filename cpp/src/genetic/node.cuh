@@ -42,8 +42,8 @@ HDI int arity(node::type t) {
 }
 
 // `data` assumed to be stored in col-major format
-DI float evaluate_node(const node& n, const float* data, const size_t stride,
-                       const size_t idx, const float* in) {
+DI float evaluate_node(const node& n, const float* data, const uint64_t stride,
+                       const uint64_t idx, const float* in) {
   if (n.t == node::type::constant) {
     return n.u.val;
   } else if (n.t == node::type::variable) {
