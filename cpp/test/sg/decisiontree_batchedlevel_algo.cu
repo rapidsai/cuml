@@ -27,7 +27,7 @@
 #include <random/make_regression.cuh>
 
 namespace ML {
-namespace DecisionTree {
+namespace DT {
 
 struct DtTestParams {
   int M, N, nclasses, max_depth, nbins;
@@ -162,5 +162,5 @@ TEST_P(DtRegTestF, Test) {
 INSTANTIATE_TEST_CASE_P(BatchedLevelAlgo, DtRegTestF,
                         ::testing::ValuesIn(allR));
 
-}  // namespace DecisionTree
+}  // namespace DT
 }  // end namespace ML

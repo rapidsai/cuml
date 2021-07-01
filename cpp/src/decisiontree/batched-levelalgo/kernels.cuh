@@ -27,7 +27,7 @@
 #include "split.cuh"
 
 namespace ML {
-namespace DecisionTree {
+namespace DT {
 
 /**
  * This struct has information about workload of a single threadblock of
@@ -419,5 +419,5 @@ __global__ void computeSplitKernel(
   sp.evalBestSplit(smem, splits + nid, mutex + nid);
 }
 
-}  // namespace DecisionTree
+}  // namespace DT
 }  // namespace ML
