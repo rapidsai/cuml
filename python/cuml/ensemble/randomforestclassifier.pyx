@@ -225,6 +225,8 @@ class RandomForestClassifier(BaseRandomForestModel,
         Number of bins used by the split algorithm.
         For large problems, particularly those with highly-skewed input data,
         increasing the number of bins may improve accuracy.
+    n_streams : int (default = 4)
+        Number of parallel streams used for forest building.
     min_samples_leaf : int or float (default = 1)
         The minimum number of samples (rows) in each leaf node.
         If int, then min_samples_leaf represents the minimum number.
