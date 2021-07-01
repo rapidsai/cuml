@@ -29,7 +29,7 @@
 #include <common/nvtx.hpp>
 
 namespace ML {
-namespace DecisionTree {
+namespace DT {
 
 /**
  * Internal struct used to do all the heavy-lifting required for tree building
@@ -430,5 +430,5 @@ struct Builder {
   }
 };  // end Builder
 
-}  // namespace DecisionTree
+}  // namespace DT
 }  // namespace ML
