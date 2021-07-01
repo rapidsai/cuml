@@ -34,54 +34,27 @@ function(find_and_configure_treelite)
               "BUILD_STATIC_LIBS ON"
     )
 
-    message(STATUS "CUML: Treelite_ADDED=${Treelite_ADDED}")
     set(Treelite_ADDED ${Treelite_ADDED} PARENT_SCOPE)
 
-    if(Treelite_ADDED AND NOT TARGET treelite::treelite_static)
-        add_library(treelite::treelite_static ALIAS treelite_static)
-        add_library(treelite::treelite_runtime_static ALIAS treelite_runtime_static)
-    endif()
+    if(Treelite_ADDED)
+        target_include_directories(treelite
+            PUBLIC $<BUILD_INTERFACE:${Treelite_SOURCE_DIR}/include>
+                   $<BUILD_INTERFACE:${Treelite_BINARY_DIR}/include>)
+        target_include_directories(treelite_static
+            PUBLIC $<BUILD_INTERFACE:${Treelite_SOURCE_DIR}/include>
+                   $<BUILD_INTERFACE:${Treelite_BINARY_DIR}/include>)
+        target_include_directories(treelite_runtime
+            PUBLIC $<BUILD_INTERFACE:${Treelite_SOURCE_DIR}/include>
+                   $<BUILD_INTERFACE:${Treelite_BINARY_DIR}/include>)
+        target_include_directories(treelite_runtime_static
+            PUBLIC $<BUILD_INTERFACE:${Treelite_SOURCE_DIR}/include>
+                   $<BUILD_INTERFACE:${Treelite_BINARY_DIR}/include>)
 
-    message(STATUS "CUML: Treelite_SOURCE_DIR=${Treelite_SOURCE_DIR}")
-    if(Treelite_SOURCE_DIR)
-        if (TARGET treelite)
-            target_include_directories(treelite
-                PUBLIC $<BUILD_INTERFACE:${Treelite_SOURCE_DIR}/include>)
-        endif()
-        if (TARGET treelite_static)
-            target_include_directories(treelite_static
-                PUBLIC $<BUILD_INTERFACE:${Treelite_SOURCE_DIR}/include>)
-        endif()
-        if (TARGET treelite_runtime)
-            target_include_directories(treelite_runtime
-                PUBLIC $<BUILD_INTERFACE:${Treelite_SOURCE_DIR}/include>)
-        endif()
-        if (TARGET treelite_runtime_static)
-            target_include_directories(treelite_runtime_static
-                PUBLIC $<BUILD_INTERFACE:${Treelite_SOURCE_DIR}/include>)
+        if(NOT TARGET treelite::treelite_static)
+            add_library(treelite::treelite_static ALIAS treelite_static)
+            add_library(treelite::treelite_runtime_static ALIAS treelite_runtime_static)
         endif()
     endif()
-
-    message(STATUS "CUML: Treelite_BINARY_DIR=${Treelite_BINARY_DIR}")
-    if(Treelite_BINARY_DIR)
-        if (TARGET treelite)
-            target_include_directories(treelite
-                PUBLIC $<BUILD_INTERFACE:${Treelite_BINARY_DIR}/include>)
-        endif()
-        if (TARGET treelite_static)
-            target_include_directories(treelite_static
-                PUBLIC $<BUILD_INTERFACE:${Treelite_BINARY_DIR}/include>)
-        endif()
-        if (TARGET treelite_runtime)
-            target_include_directories(treelite_runtime
-                PUBLIC $<BUILD_INTERFACE:${Treelite_BINARY_DIR}/include>)
-        endif()
-        if (TARGET treelite_runtime_static)
-            target_include_directories(treelite_runtime_static
-                PUBLIC $<BUILD_INTERFACE:${Treelite_BINARY_DIR}/include>)
-        endif()
-    endif()
-
 
 endfunction()
 

@@ -45,6 +45,8 @@ if(BUILD_CUML_BENCH)
       cuml
       benchmark::benchmark
       raft::raft
+      $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_static,treelite::treelite>
+      $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_runtime_static,treelite::treelite_runtime>
   )
 
   target_include_directories(${CUML_CPP_BENCH_TARGET}
