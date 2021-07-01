@@ -20,6 +20,7 @@
 #include <thrust/binary_search.h>
 #include <common/grid_sync.cuh>
 #include <cub/cub.cuh>
+#include <limits>
 #include <raft/cuda_utils.cuh>
 #include "input.cuh"
 #include "metrics.cuh"
@@ -138,20 +139,20 @@ template <typename IdxT, typename LabelT, typename DataT, typename ObjectiveT,
 DI void computePrediction(IdxT range_start, IdxT range_len,
                           const Input<DataT, LabelT, IdxT>& input,
                           volatile Node<DataT, LabelT, IdxT>* nodes,
-                          IdxT* n_leaves, void* smem) {
+                          IdxT* n_leaves, void* smem, ObjectiveT objective) {
   using BinT = typename ObjectiveT::BinT;
   auto* shist = reinterpret_cast<BinT*>(smem);
   auto tid = threadIdx.x;
+  auto len = range_start + range_len;
   for (int i = tid; i < input.numOutputs; i += blockDim.x) shist[i] = BinT();
   __syncthreads();
-  auto len = range_start + range_len;
   for (auto i = range_start + tid; i < len; i += blockDim.x) {
     auto label = input.labels[input.rowids[i]];
-    BinT::IncrementHistogram(shist, 1, 0, label);
+    objective.IncrementHistogram(shist, 1, 0, label);
   }
   __syncthreads();
   if (tid == 0) {
-    auto pred = ObjectiveT::LeafPrediction(shist, input.numOutputs);
+    auto pred = objective.LeafPrediction(shist, input.numOutputs);
     nodes[0].makeLeaf(n_leaves, pred);
   }
 }
@@ -165,8 +166,8 @@ __global__ void nodeSplitKernel(IdxT max_depth, IdxT min_samples_leaf,
                                 volatile Node<DataT, LabelT, IdxT>* curr_nodes,
                                 volatile Node<DataT, LabelT, IdxT>* next_nodes,
                                 IdxT* n_nodes, const Split<DataT, IdxT>* splits,
-                                IdxT* n_leaves, IdxT total_nodes,
-                                IdxT* n_depth) {
+                                IdxT* n_leaves, IdxT total_nodes, IdxT* n_depth,
+                                ObjectiveT objective) {
   extern __shared__ char smem[];
   IdxT nid = blockIdx.x;
   volatile auto* node = curr_nodes + nid;
@@ -178,7 +179,7 @@ __global__ void nodeSplitKernel(IdxT max_depth, IdxT min_samples_leaf,
       split.nLeft < min_samples_leaf ||
       (n_samples - split.nLeft) < min_samples_leaf) {
     computePrediction<IdxT, LabelT, DataT, ObjectiveT, TPB>(
-      range_start, n_samples, input, node, n_leaves, smem);
+      range_start, n_samples, input, node, n_leaves, smem, objective);
     return;
   }
   partitionSamples<DataT, LabelT, IdxT, TPB>(input, splits, curr_nodes,
@@ -351,7 +352,7 @@ __global__ void computeSplitKernel(
     auto label = input.labels[row];
     IdxT bin =
       thrust::lower_bound(thrust::seq, sbins, sbins + nbins, d) - sbins;
-    BinT::IncrementHistogram(pdf_shist, nbins, bin, label);
+    objective.IncrementHistogram(pdf_shist, nbins, bin, label);
   }
 
   // synchronizeing above changes across block

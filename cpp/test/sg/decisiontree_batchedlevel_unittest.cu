@@ -201,13 +201,14 @@ TEST_P(TestNodeSplitKernel, MinSamplesSplitLeaf) {
   /* { quesval, colid, best_metric_val, nLeft } */
   std::vector<SplitT> h_splits{{-1.5f, 0, 0.25f, 1}, {2.0f, 1, 3.555556f, 2}};
   raft::update_device(splits, h_splits.data(), 2, 0);
-
+  ObjectiveT objective(input.numOutputs, params.min_impurity_decrease,
+                       test_params.min_samples_leaf, -1, 6);
   nodeSplitKernel<DataT, LabelT, IdxT, ObjectiveT, builder.TPB_SPLIT>
     <<<batchSize, builder.TPB_SPLIT, smemSize, 0>>>(
       params.max_depth, test_params.min_samples_leaf,
       test_params.min_samples_split, params.max_leaves,
       params.min_impurity_decrease, input, curr_nodes, new_nodes, n_new_nodes,
-      splits, n_new_leaves, h_n_total_nodes, new_depth);
+      splits, n_new_leaves, h_n_total_nodes, new_depth, objective);
   CUDA_CHECK(cudaGetLastError());
   raft::update_host(&h_n_new_nodes, n_new_nodes, 1, 0);
   CUDA_CHECK(cudaStreamSynchronize(0));
@@ -273,7 +274,8 @@ TEST_P(TestMetric, RegressionMetricGain) {
 
   CRITERION split_criterion = GetParam();
 
-  ObjectiveT obj(1, params.min_impurity_decrease, params.min_samples_leaf);
+  ObjectiveT obj(1, params.min_impurity_decrease, params.min_samples_leaf, -1.0,
+                 6);
   size_t smemSize1 = n_bins * sizeof(ObjectiveT::BinT) +  // pdf_shist size
                      n_bins * sizeof(ObjectiveT::BinT) +  // cdf_shist size
                      n_bins * sizeof(DataT) +             // sbins size
@@ -364,118 +366,6 @@ INSTANTIATE_TEST_SUITE_P(BatchedLevelAlgoUnitTest, TestMetric,
                            }
                          });
 
-template <int k>
-struct CosBin {
-  double moments[k + 1];
-
-  void Add(double x, std::pair<double, double> min_max) {
-    double scaled_x =
-      (x - min_max.first) * M_PI / (min_max.second - min_max.first);
-    moments[0] += 1.0;
-    for (int i = 1; i < k + 1; i++) {
-      moments[i] += cos(i * scaled_x);
-    }
-  }
-
-  void Normalise() {
-    if (moments[0] == (1.0 / M_PI)) return;
-    for (int i = 1; i < k + 1; i++) {
-      moments[i] *= 2.0 / (M_PI * moments[0]);
-    }
-    moments[0] = 1.0 / M_PI;
-  }
-
-  double Pdf(double x, std::pair<double, double> min_max) {
-    this->Normalise();
-    double a = min_max.first;
-    double b = min_max.second;
-    double L = b - a;
-    double scaled_x = (x - a) * M_PI / L;
-    double sum = 1.0 / M_PI;
-    for (int i = 1; i < k + 1; i++) {
-      sum += moments[i] * cos(i * scaled_x);
-    }
-    return sum * M_PI / L;
-  }
-
-  double Cdf(double y, std::pair<double, double> min_max) {
-    this->Normalise();
-    double a = min_max.first;
-    double b = min_max.second;
-    double L = b - a;
-    if (L == 0.0) return 0.5;
-    double y_scaled = (y - a) * M_PI / L;
-    double sum = y_scaled / M_PI;
-    for (int i = 1; i < k + 1; i++) {
-      sum += moments[i] * sin(i * y_scaled) / i;
-    }
-    return sum;
-  }
-
-  double CdfIntegral(double z, std::pair<double, double> min_max) {
-    this->Normalise();
-    double a = min_max.first;
-    double b = min_max.second;
-    double L = b - a;
-    if (L == 0.0) return 0.0;
-    double z_scaled = (z - a) * M_PI / L;
-    double sum = z_scaled * z_scaled / (2.0 * M_PI);
-    for (int i = 1; i < k + 1; i++) {
-      sum += (moments[i] - moments[i] * cos(i * z_scaled)) / (i * i);
-    }
-    return sum * L / M_PI;
-    /*
-    double sum = z * (moments[0] / 2.0) * (1 - min_max.first);
-    for (int i = 1; i < k + 1; i++) {
-      sum -= moments[i] * L * L * cos(i * (z - min_max.first) * M_PI / L) /
-             pow(i * M_PI, 2);
-    }
-    return sum * 2.0 / (L * moments[0]);
-    */
-  }
-
-  double Mae(std::pair<double, double> min_max) {
-    double median = this->Median(min_max);
-    double mae_l = this->CdfIntegral(median, min_max);
-    double mae_r = mae_l - this->CdfIntegral(min_max.second, min_max);
-    return mae_l + mae_r + min_max.second - median;
-  }
-
-  // Bisection algorithm
-  double Median(std::pair<double, double> min_max) {
-    const int iter = 20;
-    double dx = min_max.second - min_max.first;
-    double ymid = min_max.second;
-    double fmid = 0.0;
-    double rtb = min_max.first;
-    for (int i = 0; i < iter; i++) {
-      ymid = rtb + (dx *= 0.5);
-      fmid = this->Cdf(ymid, min_max);
-      if (fmid <= 0.5) rtb = ymid;
-      if (fmid == 0.5) break;
-    }
-    return rtb;
-  }
-
-  DI static void IncrementHistogram(IntBin* hist, int nbins, int b, int label) {
-  }
-  DI static void AtomicAdd(CosBin* address, CosBin val) {}
-  DI CosBin& operator+=(const CosBin& b) {
-    for (int i = 0; i < k + 1; i++) {
-      moments[i] += b.moments[i];
-    }
-    return *this;
-  }
-  DI CosBin operator+(CosBin b) const {
-    b += *this;
-    return b;
-  }
-};
-
-double normal_pdf(double x, double mean, double std) {
-  return 1.0 / (std * sqrt(2 * M_PI)) * exp(-0.5 * pow((x - mean) / std, 2));
-}
-
 std::vector<double> normal_samples(double mean, double std, size_t n) {
   std::default_random_engine gen(43);
   std::normal_distribution<double> dist(mean, std);
@@ -498,38 +388,6 @@ std::vector<double> gamma_samples(double k, size_t theta, size_t n) {
   return X;
 }
 
-template <typename BinT>
-double IntegratedPdfError(BinT bin) {
-  double mean = 100.0;
-  double std = 10.0;
-  size_t n = 100000;
-  auto X = normal_samples(mean, std, n);
-  auto ref = std::minmax_element(X.begin(), X.end());
-  std::pair<double, double> min_max{*ref.first, *ref.second};
-
-  for (size_t i = 0; i < n; i++) {
-    bin.Add(X[i], min_max);
-  }
-
-  size_t num_samples = 1000;
-  double est = 0.0;
-  for (auto i = 0ull; i <= num_samples; i++) {
-    double x = min_max.first +
-               (min_max.second - min_max.first) * double(i) / num_samples;
-    double p_cos = bin.Pdf(x, min_max);
-    est += abs(p_cos - normal_pdf(x, mean, std));
-  }
-  est /= num_samples + 1;
-  return est;
-}
-
-TEST(TestObjective, CosPdf) {
-  EXPECT_LE(IntegratedPdfError(CosBin<5>()), 1e-2);
-  EXPECT_LE(IntegratedPdfError(CosBin<10>()), 1e-2);
-  EXPECT_LE(IntegratedPdfError(CosBin<15>()), 1e-2);
-  EXPECT_LE(IntegratedPdfError(CosBin<30>()), 1e-2);
-}
-
 double EmpiricalCdf(double y, const std::vector<double>& X) {
   EXPECT_TRUE(std::is_sorted(X.begin(), X.end()));
   return double(std::upper_bound(X.begin(), X.end(), y) - X.begin()) / X.size();
@@ -538,18 +396,17 @@ double EmpiricalCdf(double y, const std::vector<double>& X) {
 template <typename BinT>
 double IntegratedCdfError(BinT bin, const std::vector<double>& X) {
   auto ref = std::minmax_element(X.begin(), X.end());
-  std::pair<double, double> min_max{*ref.first, *ref.second};
+  double min = *ref.first, max = *ref.second;
 
   for (auto x : X) {
-    bin.Add(x, min_max);
+    bin.Add(x, min, max);
   }
 
   size_t num_samples = 1000;
   double est = 0.0;
   for (auto i = 0ull; i <= num_samples; i++) {
-    double y = min_max.first +
-               (min_max.second - min_max.first) * double(i) / num_samples;
-    double p_cos = bin.Cdf(y, min_max);
+    double y = min + (max - min) * double(i) / num_samples;
+    double p_cos = bin.Cdf(y, min, max);
     est += abs(p_cos - EmpiricalCdf(y, X));
   }
   est /= num_samples + 1;
@@ -560,21 +417,22 @@ TEST(TestObjective, CosCdfEndpoints) {
   std::vector<double> X = {1.0};
   CosBin<2> bin;
   auto ref = std::minmax_element(X.begin(), X.end());
-  std::pair<double, double> min_max{*ref.first, *ref.second};
-  bin.Add(X[0], min_max);
-  EXPECT_FLOAT_EQ(bin.Cdf(X[0], min_max), 0.5);
-  EXPECT_FLOAT_EQ(bin.Median(min_max), X[0]);
-  EXPECT_FLOAT_EQ(bin.Mae(min_max), 0.0);
+  double min = *ref.first, max = *ref.second;
+  bin.Add(X[0], min, max);
+  EXPECT_FLOAT_EQ(bin.Cdf(X[0], min, max), 0.5);
+  EXPECT_FLOAT_EQ(bin.Median(min, max), X[0]);
+  EXPECT_FLOAT_EQ(bin.AbsoluteError(min, max), 0.0);
 
   X.emplace_back(2.0);
   ref = std::minmax_element(X.begin(), X.end());
-  min_max = {*ref.first, *ref.second};
+  min = *ref.first;
+  max = *ref.second;
   bin = CosBin<2>();
-  bin.Add(X[0], min_max);
-  bin.Add(X[1], min_max);
-  EXPECT_FLOAT_EQ(bin.Cdf(X[0], min_max), 0.0);
-  EXPECT_FLOAT_EQ(bin.Cdf(X[1], min_max), 1.0);
-  EXPECT_LE(abs(bin.Median(min_max) - 1.5), 1e-1);
+  bin.Add(X[0], min, max);
+  bin.Add(X[1], min, max);
+  EXPECT_FLOAT_EQ(bin.Cdf(X[0], min, max), 0.0);
+  EXPECT_FLOAT_EQ(bin.Cdf(X[1], min, max), 1.0);
+  EXPECT_LE(abs(bin.Median(min, max) - 1.5), 1e-1);
 }
 
 double EmpiricalMedian(const std::vector<double>& X) {
@@ -605,11 +463,11 @@ TEST(TestObjective, CosCdfDistribution) {
 template <typename BinT>
 double MedianError(BinT bin, const std::vector<double>& X) {
   auto ref = std::minmax_element(X.begin(), X.end());
-  std::pair<double, double> min_max{*ref.first, *ref.second};
+  double min = *ref.first, max = *ref.second;
   for (auto x : X) {
-    bin.Add(x, min_max);
+    bin.Add(x, min, max);
   }
-  return abs(EmpiricalMedian(X) - bin.Median(min_max));
+  return abs(EmpiricalMedian(X) - bin.Median(min, max));
 }
 
 TEST(TestObjective, CosMedian) {
@@ -635,11 +493,11 @@ double EmpiricalMae(const std::vector<double>& X) {
 template <typename BinT>
 double MaeError(BinT bin, const std::vector<double>& X) {
   auto ref = std::minmax_element(X.begin(), X.end());
-  std::pair<double, double> min_max{*ref.first, *ref.second};
+  double min = *ref.first, max = *ref.second;
   for (auto x : X) {
-    bin.Add(x, min_max);
+    bin.Add(x, min, max);
   }
-  return abs(EmpiricalMae(X) - bin.Mae(min_max));
+  return abs(EmpiricalMae(X) - bin.AbsoluteError(min, max) / bin.NumItems());
 }
 
 TEST(TestObjective, CosMae) {
@@ -651,37 +509,22 @@ TEST(TestObjective, CosMae) {
   EXPECT_LE(MaeError(CosBin<5>(), gamma), 1e-1);
   EXPECT_LE(MaeError(CosBin<15>(), gamma), 1e-2);
   EXPECT_LE(MaeError(CosBin<30>(), gamma), 1e-2);
-  std::cout << MaeError(CosBin<5>(), gamma)<<"\n";
-  std::cout << MaeError(CosBin<10>(), gamma)<<"\n";
-  std::cout << MaeError(CosBin<15>(), gamma)<<"\n";
-  std::cout << MaeError(CosBin<30>(), gamma)<<"\n";
-  std::cout << MaeError(CosBin<60>(), gamma)<<"\n";
 }
-/*
-template <typename DataT_, typename LabelT_, typename IdxT_>
-class MAEObjectiveFunction {
- public:
-  using DataT = DataT_;
-  using LabelT = LabelT_;
-  using IdxT = IdxT_;
-  DataT min_impurity_decrease;
-  IdxT min_samples_leaf;
 
- public:
-  using BinT = CosBin;
-  MAEObjectiveFunction(IdxT nclasses, DataT min_impurity_decrease,
-                       IdxT min_samples_leaf)
-    : min_impurity_decrease(min_impurity_decrease),
-      min_samples_leaf(min_samples_leaf) {}
-
-  DI IdxT NumClasses() const { return 1; }
-  DI Split<DataT, IdxT> Gain(BinT* scdf_labels, DataT* sbins, IdxT col,
-                             IdxT len, IdxT nbins) {
-    Split<DataT, IdxT> sp;
-    return sp;
-  }
-  static DI LabelT LeafPrediction(BinT* shist, int nclasses) { return 0; }
-};
-*/
+TEST(TestObjective, CosMaeGain) {
+  using ObjectiveT = MAEObjectiveFunction<double, double, int>;
+  double min = 0.0;
+  double max = 1.0;
+  ObjectiveT obj(1, 0.0, 1, min, max);
+  std::vector<ObjectiveT::BinT> hist(2);
+  hist[0].Add(0.0, min, max);
+  hist[1].Add(1.0, min, max);
+  auto parent = hist[0] + hist[1];
+  double gain =
+    parent.AbsoluteError(min, max) -
+    (hist[0].AbsoluteError(min, max) + hist[1].AbsoluteError(min, max));
+  gain /= parent.NumItems();
+  EXPECT_GE(gain, 0.0);
+}
 }  // namespace DecisionTree
 }  // namespace ML

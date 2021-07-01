@@ -322,7 +322,7 @@ void DecisionTreeBase<T, L>::base_fit(
   CRITERION default_criterion =
     (is_classifier) ? CRITERION::GINI : CRITERION::MSE;
   CRITERION last_criterion =
-    (is_classifier) ? CRITERION::ENTROPY : CRITERION::MSE;
+    (is_classifier) ? CRITERION::ENTROPY : CRITERION::MAE;
 
   validity_check(tree_params);
   if (tree_params.n_bins > n_sampled_rows) {
@@ -330,7 +330,6 @@ void DecisionTreeBase<T, L>::base_fit(
     CUML_LOG_WARN("Resetting n_bins to %d.", n_sampled_rows);
     tree_params.n_bins = n_sampled_rows;
   }
-
   if (
     tree_params.split_criterion ==
     CRITERION::
