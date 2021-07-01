@@ -229,6 +229,26 @@ void jones_transform(const DataT* params, IdxT batchSize, IdxT parameter,
         <<<numBlocks, numThreadsPerBlock, 0, stream>>>(newParams, params,
                                                        batchSize, isAr, isInv);
       break;
+    case 5:
+      jones_transform_kernel<DataT, 5, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
+        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(newParams, params,
+                                                       batchSize, isAr, isInv);
+      break;
+    case 6:
+      jones_transform_kernel<DataT, 6, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
+        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(newParams, params,
+                                                       batchSize, isAr, isInv);
+      break;
+    case 7:
+      jones_transform_kernel<DataT, 7, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
+        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(newParams, params,
+                                                       batchSize, isAr, isInv);
+      break;
+    case 8:
+      jones_transform_kernel<DataT, 8, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
+        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(newParams, params,
+                                                       batchSize, isAr, isInv);
+      break;
     default:
       ASSERT(false, "Unsupported parameter '%d'!", parameter);
   }
