@@ -546,7 +546,7 @@ TEST_F(GeneticProgramTest,LogLoss){
   hyper_params.metric = metric_t::logloss;
 
   // Unitary weights
-  float h_expected_score[2] = {0.92371192,0.91325318};
+  float h_expected_score[2] = {0.72276,0.724011};
   compute_metric(handle,250,2,d_lY,d_lYpred,d_lunitW,d_score,hyper_params);
   CUDA_CHECK(cudaMemcpyAsync(h_score,d_score,2*sizeof(float),cudaMemcpyDeviceToHost,stream));
   std::copy(h_score,h_score+2,std::ostream_iterator<float>(std::cerr,";"));std::cerr<<std::endl; 
@@ -554,9 +554,9 @@ TEST_F(GeneticProgramTest,LogLoss){
     ASSERT_TRUE(compApprox(h_score[i],h_expected_score[i]));
   }
 
-  // Non-unitary weights
-  h_expected_score[0] = 0.908311777f;
-  h_expected_score[1] = 0.9289842684f;
+  // Non-unitary weights 
+  h_expected_score[0] = 0.715887f;
+  h_expected_score[1] = 0.721293f;
   compute_metric(handle,250,2,d_lY,d_lYpred,d_lW,d_score,hyper_params);
   CUDA_CHECK(cudaMemcpyAsync(h_score,d_score,2*sizeof(float),cudaMemcpyDeviceToHost,stream));
   std::copy(h_score,h_score+2,std::ostream_iterator<float>(std::cerr,";"));std::cerr<<std::endl;

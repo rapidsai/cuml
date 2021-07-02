@@ -277,14 +277,26 @@ void logLoss(const raft::handle_t& h, const uint64_t n_samples,
   raft::stats::sum(dWS.data(), W, (uint64_t)1, n_samples, false, stream);
   math_t WS = dWS.value(stream);
 
-  // Populate logistic error as matrix vector op
+  // Compute logistic loss as described in
+  // http://fa.bianp.net/blog/2019/evaluate_logistic/
+  // in an attempt to avoid encountering nan values. Modified for weighted logistic regression.
   raft::linalg::matrixVectorOp(
     error.data(), Y_pred, Y, W, n_progs, n_samples, false, false,
-    [N, WS] __device__(math_t y_p, math_t y, math_t w) {
-      return N * w * (-y * logf(y_p) - (1 - y) * logf(1 - y_p)) / WS;
+    [N, WS] __device__(math_t yp, math_t y, math_t w) {
+      math_t logsig;
+      if (yp < -33.3)
+        logsig = yp;
+      else if (yp <= -18)
+        logsig = yp - expf(yp);
+      else if (yp <= 37)
+        logsig = -log1pf(expf(-yp));
+      else
+        logsig = -expf(-yp);
+
+      return ((1 - y) * yp - logsig) * (N * w / WS);
     },
     stream);
-
+  // raft::stats::sum(out,error.data(),n_progs,n_samples,false,stream);
   // Take average along rows
   raft::stats::mean(out, error.data(), n_progs, n_samples, false, false,
                     stream);

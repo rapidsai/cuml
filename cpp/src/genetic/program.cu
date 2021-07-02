@@ -137,8 +137,8 @@ void execute(const raft::handle_t &h, const program_t &d_progs,
   cudaStream_t stream = h.get_stream();
 
   dim3 blks(raft::ceildiv(n_rows, GENE_TPB), n_progs, 1);
-  execute_kernel<<<blks, GENE_TPB, 0, stream>>>(
-    d_progs, data, y_pred, (uint64_t)n_rows);
+  execute_kernel<<<blks, GENE_TPB, 0, stream>>>(d_progs, data, y_pred,
+                                                (uint64_t)n_rows);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -150,12 +150,6 @@ void find_fitness(const raft::handle_t &h, program_t &d_prog, float *score,
   // Compute predicted values
   rmm::device_uvector<float> y_pred(n_rows, stream);
   execute(h, d_prog, n_rows, 1, data, y_pred.data());
-
-  if (params.metric == metric_t::logloss) {
-    raft::linalg::unaryOp(
-      y_pred.data(), y_pred.data(), (uint64_t)n_rows,
-      [] __device__(float in) { return 1.0f / (1.0f + expf(-in)); }, stream);
-  }
 
   // Compute error
   compute_metric(h, n_rows, 1, y, y_pred.data(), sample_weights, score, params);
@@ -170,13 +164,6 @@ void find_batched_fitness(const raft::handle_t &h, int n_progs,
   rmm::device_uvector<float> y_pred((uint64_t)n_rows * (uint64_t)n_progs,
                                     stream);
   execute(h, d_progs, n_rows, n_progs, data, y_pred.data());
-
-  // Transform y_pred for classification problems
-  if (params.metric == metric_t::logloss) {
-    raft::linalg::unaryOp(
-      y_pred.data(), y_pred.data(), (uint64_t)n_rows * (uint64_t)n_progs,
-      [] __device__(float in) { return 1.0f / (1.0f + expf(-in)); }, stream);
-  }
 
   // Compute error
   compute_metric(h, n_rows, n_progs, y, y_pred.data(), sample_weights, score,
