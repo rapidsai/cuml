@@ -83,7 +83,7 @@ __device__ inline value_t get_lambda(value_idx node, value_idx num_points,
   */
 template <typename value_idx, typename value_t>
 __global__ void condense_hierarchy_kernel(
-  bool *frontier, value_t *ignore, value_idx *relabel,
+  bool *frontier, bool *next_frontier, value_t *ignore, value_idx *relabel,
   const value_idx *children, const value_t *deltas, const value_idx *sizes,
   int n_leaves, int min_cluster_size, value_idx *out_parent,
   value_idx *out_child, value_t *out_lambda, value_idx *out_count) {
@@ -92,7 +92,6 @@ __global__ void condense_hierarchy_kernel(
   if (node >= n_leaves * 2 - 1 || !frontier[node]) return;
 
   frontier[node] = false;
-  __threadfence();
 
   value_t subtree_lambda = ignore[node];
 
@@ -115,8 +114,8 @@ __global__ void condense_hierarchy_kernel(
     value_idx right_child = children[((node - n_leaves) * 2) + 1];
 
     // flip frontier for children
-    frontier[left_child] = true;
-    frontier[right_child] = true;
+    next_frontier[left_child] = true;
+    next_frontier[right_child] = true;
 
     // propagate ignore down to children
     ignore[left_child] = should_ignore ? subtree_lambda : -1;
