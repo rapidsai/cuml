@@ -84,7 +84,7 @@ struct RF_params {
    * N streams need N times RF workspace.
    */
   int n_streams;
-  DecisionTree::DecisionTreeParams tree_params;
+  DT::DecisionTreeParams tree_params;
 };
 
 void validity_check(const RF_params rf_params);
@@ -104,7 +104,7 @@ void postprocess_labels(int n_rows, std::vector<int>& labels,
 
 template <class T, class L>
 struct RandomForestMetaData {
-  DecisionTree::TreeMetaDataNode<T, L>* trees;
+  DT::TreeMetaDataNode<T, L>* trees;
   RF_params rf_params;
   //TODO can add prepare, train time, if needed
 
@@ -181,12 +181,10 @@ RF_metrics score(const raft::handle_t& user_handle,
                  int verbosity = CUML_LEVEL_INFO);
 
 RF_params set_rf_params(int max_depth, int max_leaves, float max_features,
-                        int n_bins, int split_algo, int min_samples_leaf,
-                        int min_samples_split, float min_impurity_decrease,
-                        bool bootstrap_features, bool bootstrap, int n_trees,
-                        float max_samples, uint64_t seed,
-                        CRITERION split_criterion, bool quantile_per_tree,
-                        int cfg_n_streams, bool use_experimental_backend,
+                        int n_bins, int min_samples_leaf, int min_samples_split,
+                        float min_impurity_decrease, bool bootstrap,
+                        int n_trees, float max_samples, uint64_t seed,
+                        CRITERION split_criterion, int cfg_n_streams,
                         int max_batch_size);
 
 // ----------------------------- Regression ----------------------------------- //

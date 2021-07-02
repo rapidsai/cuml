@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import subprocess
 import argparse
 import json
 import multiprocessing as mp
+import shutil
 
 
 EXPECTED_VERSION = "8.0.1"
@@ -237,6 +238,10 @@ def main():
     # Attempt to making sure that we run this script from root of repo always
     if not os.path.exists(".git"):
         raise Exception("This needs to always be run from the root of repo")
+    # Check whether clang-tidy exists
+    if shutil.which("clang-tidy") is not None:
+        print("clang-tidy not found. Exiting...")
+        return
     all_files = get_all_commands(args.cdb)
     status = run_tidy_for_all_files(args, all_files)
     if not status:

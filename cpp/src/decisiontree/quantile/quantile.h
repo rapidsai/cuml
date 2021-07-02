@@ -19,17 +19,8 @@
 #include <memory>
 #include <raft/mr/device/allocator.hpp>
 
-template <class T, class L>
-struct TemporaryMemory;
-
 namespace ML {
-namespace DecisionTree {
-
-template <typename T, typename L>
-void preprocess_quantile(const T *data, const unsigned int *rowids,
-                         const int n_sampled_rows, const int ncols,
-                         const int rowoffset, const int nbins,
-                         std::shared_ptr<TemporaryMemory<T, L>> tempmem);
+namespace DT {
 
 template <typename T>
 void computeQuantiles(
@@ -37,5 +28,5 @@ void computeQuantiles(
   const std::shared_ptr<raft::mr::device::allocator> device_allocator,
   cudaStream_t stream);
 
-}  // namespace DecisionTree
+}  // namespace DT
 }  // namespace ML

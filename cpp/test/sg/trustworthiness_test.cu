@@ -14,9 +14,12 @@
  * limitations under the License.
  */
 
+#include <cuml/metrics/metrics.hpp>
+
+#include <raft/handle.hpp>
+
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <metrics/trustworthiness.cuh>
 #include <raft/cuda_utils.cuh>
 #include <vector>
 
@@ -442,5 +445,5 @@ class TrustworthinessScoreTest : public ::testing::Test {
 
 typedef TrustworthinessScoreTest TrustworthinessScoreTestF;
 TEST_F(TrustworthinessScoreTestF, Result) {
-  ASSERT_TRUE(0.9374 < score && score < 0.9376);
+  ASSERT_TRUE(0.9375 < score && score < 0.9379);
 }

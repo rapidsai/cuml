@@ -25,6 +25,8 @@
 #include <cstdio>
 #include <limits>
 #include <memory>
+#include <numeric>
+#include <ostream>
 #include <raft/cuda_utils.cuh>
 #include <raft/random/rng.cuh>
 #include <utility>
@@ -54,6 +56,8 @@ struct FilTestParams {
   float global_bias = 0.0f;
   // runtime parameters
   int blocks_per_sm = 0;
+  int threads_per_tree = 1;
+  int n_items = 0;
   algo_t algo = algo_t::NAIVE;
   int seed = 42;
   float tolerance = 2e-3f;
@@ -95,10 +99,11 @@ std::ostream& operator<<(std::ostream& os, const FilTestParams& ps) {
      << ", num_trees = " << ps.num_trees << ", leaf_prob = " << ps.leaf_prob
      << ", output = " << output2str(ps.output)
      << ", threshold = " << ps.threshold
-     << ", blocks_per_sm = " << ps.blocks_per_sm << ", algo = " << ps.algo
-     << ", seed = " << ps.seed << ", tolerance = " << ps.tolerance
-     << ", op = " << tl::OpName(ps.op) << ", global_bias = " << ps.global_bias
-     << ", leaf_algo = " << ps.leaf_algo
+     << ", threads_per_tree = " << ps.threads_per_tree
+     << ", n_items = " << ps.n_items << ", blocks_per_sm = " << ps.blocks_per_sm
+     << ", algo = " << ps.algo << ", seed = " << ps.seed
+     << ", tolerance = " << ps.tolerance << ", op = " << tl::OpName(ps.op)
+     << ", global_bias = " << ps.global_bias << ", leaf_algo = " << ps.leaf_algo
      << ", num_classes = " << ps.num_classes;
   return os;
 }
@@ -158,11 +163,26 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
     // generate on-GPU random data
     raft::random::Rng r(ps.seed);
-    if (ps.leaf_algo != fil::leaf_algo_t::CATEGORICAL_LEAF) {
-      r.uniform((float*)weights_d, num_nodes, -1.0f, 1.0f, stream);
-    } else {
+    if (ps.leaf_algo == fil::leaf_algo_t::CATEGORICAL_LEAF) {
       // [0..num_classes)
       r.uniformInt((int*)weights_d, num_nodes, 0, ps.num_classes, stream);
+    } else if (ps.leaf_algo == fil::leaf_algo_t::VECTOR_LEAF) {
+      std::mt19937 gen(3);
+      std::uniform_real_distribution<> dist(0, 1);
+      vector_leaf.resize(num_nodes * ps.num_classes);
+      for (size_t i = 0; i < vector_leaf.size(); i++) {
+        vector_leaf[i] = dist(gen);
+      }
+      // Normalise probabilities to 1
+      for (size_t i = 0; i < vector_leaf.size(); i += ps.num_classes) {
+        auto sum = std::accumulate(&vector_leaf[i],
+                                   &vector_leaf[i + ps.num_classes], 0.0f);
+        for (size_t j = i; j < i + ps.num_classes; j++) {
+          vector_leaf[j] /= sum;
+        }
+      }
+    } else {
+      r.uniform((float*)weights_d, num_nodes, -1.0f, 1.0f, stream);
     }
     r.uniform(thresholds_d, num_nodes, -1.0f, 1.0f, stream);
     r.uniformInt(fids_d, num_nodes, 0, ps.num_cols, stream);
@@ -205,6 +225,9 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
           // not relying on fil::val_t internals
           // merely that we copied floats into weights_h earlier
           std::memcpy(&w.f, &weights_h[i], sizeof w.f);
+          break;
+        case fil::leaf_algo_t::VECTOR_LEAF:
+          w.idx = i;
           break;
         default:
           ASSERT(false, "internal error: invalid ps.leaf_algo");
@@ -317,7 +340,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
             apply_softmax(&want_proba_h[row * ps.num_classes]);
         }
         break;
-      case fil::leaf_algo_t::CATEGORICAL_LEAF:
+      case fil::leaf_algo_t::CATEGORICAL_LEAF: {
         std::vector<int> class_votes(ps.num_classes);
         for (int r = 0; r < ps.num_rows; ++r) {
           std::fill(class_votes.begin(), class_votes.end(), 0);
@@ -335,6 +358,31 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
           want_preds_h[r] =
             std::max_element(class_votes.begin(), class_votes.end()) -
             class_votes.begin();
+        }
+        break;
+      }
+      case fil::leaf_algo_t::VECTOR_LEAF:
+        for (int r = 0; r < ps.num_rows; ++r) {
+          std::vector<float> class_probabilities(ps.num_classes);
+          for (int j = 0; j < ps.num_trees; ++j) {
+            int vector_index =
+              infer_one_tree(&nodes[j * num_nodes], &data_h[r * ps.num_cols])
+                .idx;
+            float sum = 0.0;
+            for (int k = 0; k < ps.num_classes; k++) {
+              class_probabilities[k] +=
+                vector_leaf[vector_index * ps.num_classes + k];
+              sum += vector_leaf[vector_index * ps.num_classes + k];
+            }
+            ASSERT_LE(std::abs(sum - 1.0f), 1e-5);
+          }
+
+          for (int c = 0; c < ps.num_classes; ++c) {
+            want_proba_h[r * ps.num_classes + c] = class_probabilities[c];
+          }
+          want_preds_h[r] = std::max_element(class_probabilities.begin(),
+                                             class_probabilities.end()) -
+                            class_probabilities.begin();
         }
         break;
     }
@@ -409,6 +457,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
   // forest data
   std::vector<fil::dense_node> nodes;
+  std::vector<float> vector_leaf;
 
   // parameters
   cudaStream_t stream;
@@ -431,8 +480,10 @@ class PredictDenseFilTest : public BaseFilTest {
     fil_ps.leaf_algo = ps.leaf_algo;
     fil_ps.num_classes = ps.num_classes;
     fil_ps.blocks_per_sm = ps.blocks_per_sm;
+    fil_ps.threads_per_tree = ps.threads_per_tree;
+    fil_ps.n_items = ps.n_items;
 
-    fil::init_dense(handle, pforest, nodes.data(), &fil_ps);
+    fil::init_dense(handle, pforest, nodes.data(), &fil_ps, vector_leaf);
   }
 };
 
@@ -487,11 +538,13 @@ class BasePredictSparseFilTest : public BaseFilTest {
     fil_params.leaf_algo = ps.leaf_algo;
     fil_params.num_classes = ps.num_classes;
     fil_params.blocks_per_sm = ps.blocks_per_sm;
+    fil_params.threads_per_tree = ps.threads_per_tree;
+    fil_params.n_items = ps.n_items;
 
     dense2sparse();
     fil_params.num_nodes = sparse_nodes.size();
     fil::init_sparse(handle, pforest, trees.data(), sparse_nodes.data(),
-                     &fil_params);
+                     &fil_params, vector_leaf);
   }
   std::vector<fil_node_t> sparse_nodes;
   std::vector<int> trees;
@@ -518,13 +571,24 @@ class TreeliteFilTest : public BaseFilTest {
           builder->SetLeafNode(
             key, tlf::Value::Create(dense_node.base_node::output<val_t>().f));
           break;
-        case fil::leaf_algo_t::CATEGORICAL_LEAF:
+        case fil::leaf_algo_t::CATEGORICAL_LEAF: {
           std::vector<tlf::Value> vec(ps.num_classes);
           for (int i = 0; i < ps.num_classes; ++i) {
             vec[i] = tlf::Value::Create(
-              i == dense_node.base_node::output<val_t>().idx ? 1.0f : 0.0f);
+              i == dense_node.template output<val_t>().idx ? 1.0f : 0.0f);
           }
           builder->SetLeafVectorNode(key, vec);
+          break;
+        }
+        case fil::leaf_algo_t::VECTOR_LEAF: {
+          std::vector<tlf::Value> vec(ps.num_classes);
+          for (int i = 0; i < ps.num_classes; ++i) {
+            auto idx = dense_node.template output<val_t>().idx;
+            vec[i] = tlf::Value::Create(vector_leaf[idx * ps.num_classes + i]);
+          }
+          builder->SetLeafVectorNode(key, vec);
+          break;
+        }
       }
     } else {
       int left = root + 2 * (node - root) + 1;
@@ -607,13 +671,15 @@ class TreeliteFilTest : public BaseFilTest {
     std::unique_ptr<tl::Model> model = model_builder->CommitModel();
 
     // init FIL forest with the model
+    char* forest_shape_str = nullptr;
     fil::treelite_params_t params;
     params.algo = ps.algo;
     params.threshold = ps.threshold;
     params.output_class = (ps.output & fil::output_t::CLASS) != 0;
     params.storage_type = storage_type;
     params.blocks_per_sm = ps.blocks_per_sm;
-    char* forest_shape_str = nullptr;
+    params.threads_per_tree = ps.threads_per_tree;
+    params.n_items = ps.n_items;
     params.pforest_shape_str =
       ps.print_forest_shape ? &forest_shape_str : nullptr;
     fil::from_treelite(handle, pforest, (ModelHandle)model.get(), &params);
@@ -762,6 +828,26 @@ std::vector<FilTestParams> predict_dense_inputs = {
   FIL_TEST_PARAMS(num_rows = 103, num_cols = 100'000, depth = 5, num_trees = 1,
                   algo = BATCH_TREE_REORG, leaf_algo = CATEGORICAL_LEAF,
                   num_classes = 3),
+  FIL_TEST_PARAMS(algo = BATCH_TREE_REORG, threads_per_tree = 2),
+  FIL_TEST_PARAMS(algo = NAIVE, threads_per_tree = 4),
+  FIL_TEST_PARAMS(algo = TREE_REORG, threads_per_tree = 8),
+  FIL_TEST_PARAMS(algo = ALGO_AUTO, threads_per_tree = 16),
+  FIL_TEST_PARAMS(algo = BATCH_TREE_REORG, threads_per_tree = 32),
+  FIL_TEST_PARAMS(algo = NAIVE, threads_per_tree = 64),
+  FIL_TEST_PARAMS(algo = BATCH_TREE_REORG, threads_per_tree = 128, n_items = 3),
+  FIL_TEST_PARAMS(algo = BATCH_TREE_REORG, threads_per_tree = 256),
+  FIL_TEST_PARAMS(algo = TREE_REORG, threads_per_tree = 32, n_items = 1),
+  FIL_TEST_PARAMS(algo = BATCH_TREE_REORG, threads_per_tree = 16, n_items = 4),
+  FIL_TEST_PARAMS(algo = NAIVE, threads_per_tree = 32, n_items = 4),
+  FIL_TEST_PARAMS(num_rows = 500, num_cols = 2000, algo = BATCH_TREE_REORG,
+                  threads_per_tree = 64, n_items = 4),
+  FIL_TEST_PARAMS(leaf_algo = VECTOR_LEAF, num_classes = 2),
+  FIL_TEST_PARAMS(leaf_algo = VECTOR_LEAF, num_trees = 9, num_classes = 20),
+  FIL_TEST_PARAMS(num_rows = 103, num_cols = 100'000, depth = 5, num_trees = 1,
+                  algo = BATCH_TREE_REORG, leaf_algo = VECTOR_LEAF,
+                  num_classes = 3),
+  FIL_TEST_PARAMS(num_rows = 103, num_cols = 5, depth = 5, num_trees = 3,
+                  leaf_algo = VECTOR_LEAF, num_classes = 4000),
 };
 
 TEST_P(PredictDenseFilTest, Predict) { compare(); }
@@ -796,6 +882,26 @@ std::vector<FilTestParams> predict_sparse_inputs = {
   FIL_TEST_PARAMS(num_trees = 51, output = CLASS, leaf_algo = GROVE_PER_CLASS,
                   num_classes = 3),
   FIL_TEST_PARAMS(num_trees = 51, leaf_algo = GROVE_PER_CLASS, num_classes = 3),
+  FIL_TEST_PARAMS(algo = NAIVE, threads_per_tree = 2),
+  FIL_TEST_PARAMS(algo = NAIVE, threads_per_tree = 8, n_items = 1),
+  FIL_TEST_PARAMS(algo = ALGO_AUTO, threads_per_tree = 16, n_items = 1),
+  FIL_TEST_PARAMS(algo = ALGO_AUTO, threads_per_tree = 32),
+  FIL_TEST_PARAMS(num_cols = 1, num_trees = 1, algo = NAIVE,
+                  threads_per_tree = 64, n_items = 1),
+  FIL_TEST_PARAMS(num_rows = 500, num_cols = 2000, algo = NAIVE,
+                  threads_per_tree = 64),
+  FIL_TEST_PARAMS(num_rows = 500, num_cols = 2000, algo = ALGO_AUTO,
+                  threads_per_tree = 256, n_items = 1),
+  FIL_TEST_PARAMS(num_trees = 51, leaf_algo = VECTOR_LEAF, num_classes = 15),
+  FIL_TEST_PARAMS(leaf_algo = VECTOR_LEAF, num_trees = 9, num_classes = 20),
+  FIL_TEST_PARAMS(num_rows = 103, num_cols = 1000, depth = 5, num_trees = 1,
+                  leaf_algo = VECTOR_LEAF, num_classes = 3),
+  FIL_TEST_PARAMS(num_rows = 103, num_cols = 5, depth = 5, num_trees = 3,
+                  leaf_algo = VECTOR_LEAF, num_classes = 4000),
+  FIL_TEST_PARAMS(num_rows = 103, num_cols = 5, depth = 5, num_trees = 530,
+                  leaf_algo = VECTOR_LEAF, num_classes = 11),
+  FIL_TEST_PARAMS(num_rows = 103, num_cols = 5, depth = 5, num_trees = 530,
+                  leaf_algo = VECTOR_LEAF, num_classes = 1111),
 };
 
 TEST_P(PredictSparse16FilTest, Predict) { compare(); }
@@ -876,6 +982,8 @@ std::vector<FilTestParams> import_dense_inputs = {
   FIL_TEST_PARAMS(num_trees = 48, output = CLASS, leaf_algo = GROVE_PER_CLASS,
                   num_classes = 6),
   FIL_TEST_PARAMS(print_forest_shape = true),
+  FIL_TEST_PARAMS(leaf_algo = VECTOR_LEAF, num_classes = 2),
+  FIL_TEST_PARAMS(leaf_algo = VECTOR_LEAF, num_trees = 19, num_classes = 20),
 };
 
 TEST_P(TreeliteDenseFilTest, Import) { compare(); }
@@ -895,14 +1003,13 @@ std::vector<FilTestParams> import_sparse_inputs = {
   FIL_TEST_PARAMS(output = AVG_CLASS, threshold = 1.0, global_bias = 0.5,
                   op = kGE, num_classes = 2),
   FIL_TEST_PARAMS(algo = ALGO_AUTO),
-  FIL_TEST_PARAMS(output = AVG_CLASS, threshold = 1.0, global_bias = 0.5,
-                  op = kGE, leaf_algo = CATEGORICAL_LEAF, num_classes = 10),
+  FIL_TEST_PARAMS(output = AVG_CLASS, threshold = 1.0, op = kGE,
+                  leaf_algo = CATEGORICAL_LEAF, num_classes = 10),
   FIL_TEST_PARAMS(output = AVG, algo = ALGO_AUTO, leaf_algo = CATEGORICAL_LEAF,
                   num_classes = 4),
   FIL_TEST_PARAMS(output = AVG, op = kLE, leaf_algo = CATEGORICAL_LEAF,
                   num_classes = 5),
-  FIL_TEST_PARAMS(output = AVG, global_bias = 0.5, leaf_algo = CATEGORICAL_LEAF,
-                  num_classes = 3),
+  FIL_TEST_PARAMS(output = AVG, leaf_algo = CATEGORICAL_LEAF, num_classes = 3),
   FIL_TEST_PARAMS(output = CLASS, threshold = 1.0, global_bias = 0.5, op = kGE,
                   leaf_algo = GROVE_PER_CLASS, num_classes = 10),
   FIL_TEST_PARAMS(num_trees = 52, output = CLASS, algo = ALGO_AUTO,
@@ -913,6 +1020,8 @@ std::vector<FilTestParams> import_sparse_inputs = {
                   leaf_algo = GROVE_PER_CLASS, num_classes = 3),
   FIL_TEST_PARAMS(num_trees = 51, output = SIGMOID_CLASS, global_bias = 0.5,
                   leaf_algo = GROVE_PER_CLASS, num_classes = 3),
+  FIL_TEST_PARAMS(leaf_algo = VECTOR_LEAF, num_classes = 2),
+  FIL_TEST_PARAMS(leaf_algo = VECTOR_LEAF, num_trees = 19, num_classes = 20),
 };
 
 TEST_P(TreeliteSparse16FilTest, Import) { compare(); }
@@ -934,6 +1043,7 @@ std::vector<FilTestParams> import_auto_inputs = {
                   leaf_algo = CATEGORICAL_LEAF, num_classes = 3),
   FIL_TEST_PARAMS(depth = 10, num_trees = 51, output = CLASS, algo = ALGO_AUTO,
                   leaf_algo = GROVE_PER_CLASS, num_classes = 3),
+  FIL_TEST_PARAMS(leaf_algo = VECTOR_LEAF, num_classes = 3, algo = ALGO_AUTO),
 #if 0
  FIL_TEST_PARAMS(depth = 19, output = AVG, algo = BATCH_TREE_REORG,
                  leaf_algo = CATEGORICAL_LEAF, num_classes = 6),

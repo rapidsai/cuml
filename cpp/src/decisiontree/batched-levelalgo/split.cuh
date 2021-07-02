@@ -20,7 +20,7 @@
 #include <raft/linalg/unary_op.cuh>
 
 namespace ML {
-namespace DecisionTree {
+namespace DT {
 
 /**
  * @brief All info pertaining to splitting a node
@@ -46,10 +46,13 @@ struct Split {
   /** number of samples in the left child */
   IdxT nLeft;
 
-  /**
-   * @brief Initialize the current object
-   */
-  DI void init() {
+  DI Split(DataT quesval, IdxT colid, DataT best_metric_val, IdxT nLeft)
+    : quesval(quesval),
+      colid(colid),
+      best_metric_val(best_metric_val),
+      nLeft(nLeft) {}
+
+  DI Split() {
     quesval = best_metric_val = Min;
     colid = Invalid;
     nLeft = 0;
@@ -59,7 +62,7 @@ struct Split {
    * @brief Assignment operator overload
    *
    * @param[in] other source object from where to copy
-   * 
+   *
    * @return the reference to the copied object (typically useful for chaining)
    */
   DI volatile SplitT& operator=(const SplitT& other) volatile {
@@ -125,11 +128,11 @@ struct Split {
       if (lane < nWarps)
         *this = sbest[lane];
       else
-        this->init();
+        *this = SplitT();
       warpReduce();
       // only the first thread will go ahead and update the best split info
       // for current node
-      if (threadIdx.x == 0) {
+      if (threadIdx.x == 0 && this->colid != -1) {
         while (atomicCAS(mutex, 0, 1))
           ;
         split->update(*this);
@@ -150,7 +153,9 @@ struct Split {
  */
 template <typename DataT, typename IdxT, int TPB = 256>
 void initSplit(Split<DataT, IdxT>* splits, IdxT len, cudaStream_t s) {
-  auto op = [] __device__(Split<DataT, IdxT> * ptr, IdxT idx) { ptr->init(); };
+  auto op = [] __device__(Split<DataT, IdxT> * ptr, IdxT idx) {
+    *ptr = Split<DataT, IdxT>();
+  };
   raft::linalg::writeOnlyUnaryOp<Split<DataT, IdxT>, decltype(op), IdxT, TPB>(
     splits, len, op, s);
 }
@@ -166,5 +171,5 @@ void printSplits(Split<DataT, IdxT>* splits, IdxT len, cudaStream_t s) {
   CUDA_CHECK(cudaDeviceSynchronize());
 }
 
-}  // namespace DecisionTree
+}  // namespace DT
 }  // namespace ML

@@ -19,7 +19,7 @@ include(FetchContent)
 FetchContent_Declare(
   rapids-cmake
   GIT_REPOSITORY https://github.com/rapidsai/rapids-cmake.git
-  GIT_TAG        origin/branch-21.06
+  GIT_TAG        origin/branch-21.08
   )
 FetchContent_MakeAvailable(rapids-cmake)
 include(rapids-cmake)
@@ -30,7 +30,7 @@ include(rapids-find)
 
 rapids_cuda_init_architectures(CUML)
 
-project(CUML VERSION 21.06.00 LANGUAGES CXX CUDA)
+project(CUML VERSION 21.08.00 LANGUAGES CXX CUDA)
 
 # Write the version header
 include(cmake/modules/Version.cmake)
@@ -58,12 +58,12 @@ option(BUILD_CUML_BENCH "Build cuML C++ benchmark tests" ON)
 option(BUILD_CUML_PRIMS_BENCH "Build ml-prims C++ benchmark tests" ON)
 option(BUILD_CUML_STD_COMMS "Build the standard NCCL+UCX Communicator" ON)
 option(BUILD_CUML_MPI_COMMS "Build the MPI+NCCL Communicator (used for testing)" OFF)
+option(CUDA_ENABLE_KERNEL_INFO "Enable kernel resource usage info" OFF)
+option(CUDA_ENABLE_LINE_INFO "Enable lineinfo in nvcc" OFF)
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
 option(DISABLE_DEPRECATION_WARNINGS "Disable depreaction warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(ENABLE_CUMLPRIMS_MG "Enable algorithms that use libcumlprims_mg" ON)
-option(KERNEL_INFO "Enable kernel resource usage info" OFF)
-option(LINE_INFO "Enable lineinfo in nvcc" OFF)
 option(NVTX "Enable nvtx markers" OFF)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 option(USE_CCACHE "Cache build artifacts with ccache" OFF)
@@ -82,7 +82,8 @@ message(VERBOSE "CUML: Enabling detection of conda environment for dependencies:
 message(VERBOSE "CUML: Disabling OpenMP: ${DISABLE_OPENMP}")
 message(VERBOSE "CUML: Enabling algorithms that use libcumlprims_mg: ${ENABLE_CUMLPRIMS_MG}")
 message(VERBOSE "CUML: Enabling kernel resource usage info: ${KERNEL_INFO}")
-message(VERBOSE "CUML: Enabling lineinfo in nvcc: ${LINE_INFO}")
+message(VERBOSE "CUML: Enabling kernelinfo in nvcc: ${CUDA_ENABLE_KERNEL_INFO}")
+message(VERBOSE "CUML: Enabling lineinfo in nvcc: ${CUDA_ENABLE_LINE_INFO}")
 message(VERBOSE "CUML: Enabling nvtx markers: ${NVTX}")
 message(VERBOSE "CUML: Disabling all mnmg components and comms libraries: ${SINGLEGPU}")
 message(VERBOSE "CUML: Cache build artifacts with ccache: ${USE_CCACHE}")
@@ -118,13 +119,20 @@ endif()
 ##############################################################################
 # - compiler options ---------------------------------------------------------
 
+if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
+  find_package(OpenMP)
+  if(OpenMP_FOUND)
+    message(STATUS "CUML: OpenMP found in ${OPENMP_INCLUDE_DIRS}")
+  endif(OpenMP_FOUND)
+endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
+
 # * find CUDAToolkit package
 # * determine GPU architectures
 # * enable the CMake CUDA language
 # * set other CUDA compilation flags
 rapids_find_package(CUDAToolkit REQUIRED
-    BUILD_EXPORT_SET raft-exports
-    INSTALL_EXPORT_SET raft-exports
+    BUILD_EXPORT_SET cuml-exports
+    INSTALL_EXPORT_SET cuml-exports
     )
 include(cmake/modules/ConfigureCUDA.cmake)
 
@@ -169,13 +177,6 @@ endif(USE_CCACHE)
 ##############################################################################
 # - Requirements -------------------------------------------------------------
 
-if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
-  find_package(OpenMP)
-  if(OpenMP_FOUND)
-    message(STATUS "CUML: OpenMP found in ${OPENMP_INCLUDE_DIRS}")
-  endif(OpenMP_FOUND)
-endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
-
 # add third party dependencies using CPM
 rapids_cpm_init()
 
@@ -205,6 +206,17 @@ endif()
 ##############################################################################
 # - build libcuml++ shared library -------------------------------------------
 
+if(BUILD_CUML_C_LIBRARY OR BUILD_CUML_CPP_LIBRARY)
+  file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld"
+[=[
+SECTIONS
+{
+.nvFatBinSegment : { *(.nvFatBinSegment) }
+.nv_fatbin : { *(.nv_fatbin) }
+}
+]=])
+endif()
+
 if(BUILD_CUML_CPP_LIBRARY)
 
   # single GPU components
@@ -225,6 +237,8 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/glm/glm.cu
     src/genetic/genetic.cu
     src/genetic/node.cu
+    src/hdbscan/hdbscan.cu
+    src/hdbscan/condensed_hierarchy.cu
     src/holtwinters/holtwinters.cu
     src/kmeans/kmeans.cu
     src/knn/knn.cu
@@ -306,13 +320,12 @@ if(BUILD_CUML_CPP_LIBRARY)
   target_include_directories(${CUML_CPP_TARGET}
     PUBLIC
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+      $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_CUMLPRIMS_MG}>:${cumlprims_mg_INCLUDE_DIRS}>>
+    PRIVATE
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src_prims>
-      $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_CUMLPRIMS_MG}>:${cumlprims_mg_INCLUDE_DIRS}>>
-      $<$<BOOL:Treelite_ADDED>:${Treelite_SOURCE_DIR}/include>
-    PRIVATE
-      $<$<OR:$<BOOL:BUILD_CUML_STD_COMMS>,$<BOOL:BUILD_CUML_MPI_COMMS>>:${NCCL_INCLUDE_DIRS}>
-      $<$<BOOL:BUILD_CUML_MPI_COMMS>:${MPI_CXX_INCLUDE_PATH}>
+      $<$<OR:$<BOOL:${BUILD_CUML_STD_COMMS}>,$<BOOL:${BUILD_CUML_MPI_COMMS}>>:${NCCL_INCLUDE_DIRS}>
+      $<$<BOOL:${BUILD_CUML_MPI_COMMS}>:${MPI_CXX_INCLUDE_PATH}>
     INTERFACE
       $<INSTALL_INTERFACE:include>
   )
@@ -329,11 +342,11 @@ if(BUILD_CUML_CPP_LIBRARY)
       CUDA::cusolver
       CUDA::cudart
       CUDA::cusparse
-      $<$<BOOL:NVTX>:CUDA::nvToolsExt>
+      $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
       FAISS::FAISS
       $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_static,treelite::treelite>
       $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_runtime_static,treelite::treelite_runtime>
-      $<$<BOOL:OpenMP_FOUND>:OpenMP::OpenMP_CXX>
+      $<$<BOOL:${OpenMP_FOUND}>:OpenMP::OpenMP_CXX>
       $<$<OR:$<BOOL:${BUILD_CUML_STD_COMMS}>,$<BOOL:${BUILD_CUML_MPI_COMMS}>>:NCCL::NCCL>
       $<$<BOOL:${BUILD_CUML_MPI_COMMS}>:${MPI_CXX_LIBRARIES}>
       $<$<BOOL:${ENABLE_CUMLPRIMS_MG}>:cumlprims_mg::cumlprims_mg>
@@ -344,6 +357,8 @@ if(BUILD_CUML_CPP_LIBRARY)
   target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libdmlc.a")
   # same as above, but for protobuf library
   target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libprotobuf.a")
+  # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
+  target_link_options(${CUML_CPP_TARGET} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
 
 endif(BUILD_CUML_CPP_LIBRARY)
 
@@ -375,8 +390,12 @@ if(BUILD_CUML_C_LIBRARY)
   target_link_libraries(${CUML_C_TARGET}
     PUBLIC
       ${CUML_CPP_TARGET}
+    PRIVATE
       FAISS::FAISS
   )
+
+  # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
+  target_link_options(${CUML_C_TARGET} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
 
 endif()
 
@@ -398,8 +417,7 @@ endif(BUILD_CUML_EXAMPLES)
 # ###################################################################################################
 # # - install targets -------------------------------------------------------------------------------
 
-set(CUML_TARGETS
-      ${CUML_CPP_TARGET})
+set(CUML_TARGETS ${CUML_CPP_TARGET})
 
 if(BUILD_CUML_C_LIBRARY)
   list(APPEND CUML_TARGETS
@@ -413,7 +431,7 @@ install(TARGETS
         EXPORT
           cuml-exports)
 
-install(DIRECTORY include/
+install(DIRECTORY include/cuml/
         DESTINATION include/cuml)
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/include/cuml/version_config.hpp
@@ -447,6 +465,13 @@ rapids_export(BUILD cuml
     DOCUMENTATION doc_string
     FINAL_CODE_BLOCK code_string
     )
+
+##############################################################################
+# - build benchmark executable -----------------------------------------------
+
+if(BUILD_CUML_BENCH OR BUILD_CUML_PRIMS_BENCH)
+  add_subdirectory(bench)
+endif()
 
 ##############################################################################
 # - doxygen targets ----------------------------------------------------------

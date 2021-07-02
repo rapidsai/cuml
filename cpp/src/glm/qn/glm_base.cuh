@@ -32,15 +32,15 @@ namespace ML {
 namespace GLM {
 
 template <typename T>
-inline void linearFwd(const raft::handle_t &handle, SimpleMat<T> &Z,
-                      const SimpleMat<T> &X, const SimpleMat<T> &W,
+inline void linearFwd(const raft::handle_t &handle, SimpleDenseMat<T> &Z,
+                      const SimpleMat<T> &X, const SimpleDenseMat<T> &W,
                       cudaStream_t stream) {
   // Forward pass:  compute Z <- W * X.T + bias
   const bool has_bias = X.n != W.n;
   const int D = X.n;
   if (has_bias) {
     SimpleVec<T> bias;
-    SimpleMat<T> weights;
+    SimpleDenseMat<T> weights;
     col_ref(W, bias, D);
     col_slice(W, weights, 0, D);
     // We implement Z <- W * X^T + b by
@@ -57,8 +57,8 @@ inline void linearFwd(const raft::handle_t &handle, SimpleMat<T> &Z,
 }
 
 template <typename T>
-inline void linearBwd(const raft::handle_t &handle, SimpleMat<T> &G,
-                      const SimpleMat<T> &X, const SimpleMat<T> &dZ,
+inline void linearBwd(const raft::handle_t &handle, SimpleDenseMat<T> &G,
+                      const SimpleMat<T> &X, const SimpleDenseMat<T> &dZ,
                       bool setZero, cudaStream_t stream) {
   // Backward pass:
   // - compute G <- dZ * X.T
@@ -69,7 +69,7 @@ inline void linearBwd(const raft::handle_t &handle, SimpleMat<T> &G,
   const T beta = setZero ? T(0) : T(1);
   if (has_bias) {
     SimpleVec<T> Gbias;
-    SimpleMat<T> Gweights;
+    SimpleDenseMat<T> Gweights;
     col_ref(G, Gbias, D);
     col_slice(G, Gweights, 0, D);
 
@@ -93,7 +93,7 @@ struct GLMDims {
 
 template <typename T, class Loss>
 struct GLMBase : GLMDims {
-  typedef SimpleMat<T> Mat;
+  typedef SimpleDenseMat<T> Mat;
   typedef SimpleVec<T> Vec;
 
   const raft::handle_t &handle;
@@ -121,8 +121,8 @@ struct GLMBase : GLMDims {
    *
    * Default: elementwise application of loss and its derivative
    */
-  inline void getLossAndDZ(T *loss_val, SimpleMat<T> &Z, const SimpleVec<T> &y,
-                           cudaStream_t stream) {
+  inline void getLossAndDZ(T *loss_val, SimpleDenseMat<T> &Z,
+                           const SimpleVec<T> &y, cudaStream_t stream) {
     // Base impl assumes simple case C = 1
     Loss *loss = static_cast<Loss *>(this);
 
@@ -171,32 +171,27 @@ struct GLMBase : GLMDims {
 
 template <typename T, class GLMObjective>
 struct GLMWithData : GLMDims {
-  typedef SimpleMat<T> Mat;
-  typedef SimpleVec<T> Vec;
-
-  SimpleMat<T> X;
-  Mat Z;
-  Vec y;
+  const SimpleMat<T> *X;
+  const SimpleVec<T> *y;
+  SimpleDenseMat<T> *Z;
   GLMObjective *objective;
-  Vec lossVal;
 
-  GLMWithData(GLMObjective *obj, T *Xptr, T *yptr, T *Zptr, int N,
-              STORAGE_ORDER ordX)
+  GLMWithData(GLMObjective *obj, const SimpleMat<T> &X, const SimpleVec<T> &y,
+              SimpleDenseMat<T> &Z)
     : objective(obj),
-      X(Xptr, N, obj->D, ordX),
-      y(yptr, N),
-      Z(Zptr, obj->C, N),
+      X(&X),
+      y(&y),
+      Z(&Z),
       GLMDims(obj->C, obj->D, obj->fit_intercept) {}
 
   // interface exposed to typical non-linear optimizers
-  inline T operator()(const Vec &wFlat, Vec &gradFlat, T *dev_scalar,
-                      cudaStream_t stream) {
-    Mat W(wFlat.data, C, dims);
-    Mat G(gradFlat.data, C, dims);
-    objective->loss_grad(dev_scalar, G, W, X, y, Z, stream);
-    lossVal.reset(dev_scalar, 1);
+  inline T operator()(const SimpleVec<T> &wFlat, SimpleVec<T> &gradFlat,
+                      T *dev_scalar, cudaStream_t stream) {
+    SimpleDenseMat<T> W(wFlat.data, C, dims);
+    SimpleDenseMat<T> G(gradFlat.data, C, dims);
+    objective->loss_grad(dev_scalar, G, W, *X, *y, *Z, stream);
     T loss_host;
-    raft::update_host(&loss_host, lossVal.data, 1, stream);
+    raft::update_host(&loss_host, dev_scalar, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     return loss_host;
   }

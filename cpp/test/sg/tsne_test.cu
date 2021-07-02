@@ -15,6 +15,8 @@
  */
 
 #include <cuml/manifold/tsne.h>
+#include <cuml/metrics/metrics.hpp>
+
 #include <datasets/boston.h>
 #include <datasets/breast_cancer.h>
 #include <datasets/diabetes.h>
@@ -26,15 +28,14 @@
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include <iostream>
-#include <metrics/scores.cuh>
 #include <raft/mr/device/allocator.hpp>
 #include <tsne/distances.cuh>
 #include <vector>
 
 using namespace MLCommon;
-using namespace MLCommon::Score;
 using namespace MLCommon::Datasets;
 using namespace ML;
+using namespace ML::Metrics;
 
 struct TSNEInput {
   int n, p;
