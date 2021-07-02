@@ -21,6 +21,7 @@ from cuml.test.utils import get_pattern, unit_param, \
 
 from sklearn.cluster import DBSCAN as skDBSCAN
 from sklearn.datasets import make_blobs
+from sklearn.metrics import pairwise_distances
 from sklearn.preprocessing import StandardScaler
 
 
@@ -87,8 +88,7 @@ def test_dbscan_precomputed(datatype, nrows, max_mbytes_per_batch, out_dtype,
                       n_features=2, random_state=0)
 
     # Precompute distances
-    Xc = np.array([[complex(p[0], p[1]) for p in X]])
-    X_dist = np.abs(Xc - Xc.T, dtype=datatype)
+    X_dist = pairwise_distances(X).astype(datatype)
 
     eps = 1
     cuml_dbscan = cuDBSCAN(eps=eps, min_samples=2, metric='precomputed',

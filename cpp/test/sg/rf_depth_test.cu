@@ -191,7 +191,7 @@ class RfRegressorDepthTest : public ::testing::TestWithParam<int> {
 };
 
 template <typename L, typename T>
-int MaxDepthOfDecisionTree(const DecisionTree::TreeMetaDataNode<T, L>* tree) {
+int MaxDepthOfDecisionTree(const DT::TreeMetaDataNode<T, L>* tree) {
   const auto& node_array = tree->sparsetree;
   std::queue<std::pair<int, int>> q;  // (node ID, depth)
   // Traverse the tree breadth-first
