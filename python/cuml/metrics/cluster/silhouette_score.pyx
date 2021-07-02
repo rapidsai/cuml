@@ -70,7 +70,7 @@ def _silhouette_coeff(
         An optional array in which to store the silhouette score for each
         sample.
     chunksize : integer (default = None)
-        An integer, 1 <= chunksize <= n_rows to tile the pairwise distance
+        An integer, 1 <= chunksize <= n_samples to tile the pairwise distance
         matrix computations, so as to reduce the quadratic memory usage of
         having the entire pairwise distance matrix in GPU memory.
         If None, chunksize will automatically be set to 40000, which through
@@ -174,7 +174,7 @@ def cython_silhouette_score(
         the silhouette score. Available options are "cityblock", "cosine",
         "euclidean", "l1", "l2", "manhattan", and "sqeuclidean".
     chunksize : integer (default = None)
-        An integer, 1 <= chunksize <= n_rows to tile the pairwise distance
+        An integer, 1 <= chunksize <= n_samples to tile the pairwise distance
         matrix computations, so as to reduce the quadratic memory usage of
         having the entire pairwise distance matrix in GPU memory.
         If None, chunksize will automatically be set to 40000, which through
@@ -218,7 +218,7 @@ def cython_silhouette_samples(
         the silhouette score. Available options are "cityblock", "cosine",
         "euclidean", "l1", "l2", "manhattan", and "sqeuclidean".
     chunksize : integer (default = None)
-        An integer, 1 <= chunksize <= n_rows to tile the pairwise distance
+        An integer, 1 <= chunksize <= n_samples to tile the pairwise distance
         matrix computations, so as to reduce the quadratic memory usage of
         having the entire pairwise distance matrix in GPU memory.
         If None, chunksize will automatically be set to 40000, which through
