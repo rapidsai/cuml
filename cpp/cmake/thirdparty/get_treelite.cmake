@@ -35,11 +35,25 @@ function(find_and_configure_treelite)
     )
 
     set(Treelite_ADDED ${Treelite_ADDED} PARENT_SCOPE)
-    set(Treelite_SOURCE_DIR ${Treelite_SOURCE_DIR} PARENT_SCOPE)
 
-    if(Treelite_ADDED AND NOT TARGET treelite::treelite_static)
-        add_library(treelite::treelite_static ALIAS treelite_static)
-        add_library(treelite::treelite_runtime_static ALIAS treelite_runtime_static)
+    if(Treelite_ADDED)
+        target_include_directories(treelite
+            PUBLIC $<BUILD_INTERFACE:${Treelite_SOURCE_DIR}/include>
+                   $<BUILD_INTERFACE:${Treelite_BINARY_DIR}/include>)
+        target_include_directories(treelite_static
+            PUBLIC $<BUILD_INTERFACE:${Treelite_SOURCE_DIR}/include>
+                   $<BUILD_INTERFACE:${Treelite_BINARY_DIR}/include>)
+        target_include_directories(treelite_runtime
+            PUBLIC $<BUILD_INTERFACE:${Treelite_SOURCE_DIR}/include>
+                   $<BUILD_INTERFACE:${Treelite_BINARY_DIR}/include>)
+        target_include_directories(treelite_runtime_static
+            PUBLIC $<BUILD_INTERFACE:${Treelite_SOURCE_DIR}/include>
+                   $<BUILD_INTERFACE:${Treelite_BINARY_DIR}/include>)
+
+        if(NOT TARGET treelite::treelite_static)
+            add_library(treelite::treelite_static ALIAS treelite_static)
+            add_library(treelite::treelite_runtime_static ALIAS treelite_runtime_static)
+        endif()
     endif()
 
 endfunction()
