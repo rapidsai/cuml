@@ -86,7 +86,7 @@ void build_condensed_hierarchy(
   rmm::device_uvector<bool> next_frontier(root + 1, stream);
 
   thrust::fill(exec_policy, frontier.begin(), frontier.end(), false);
-  thrust::fill(exec_policy, next_frontier.begin(), frontier.end(), false);
+  thrust::fill(exec_policy, next_frontier.begin(), next_frontier.end(), false);
 
   // Array to propagate the lambda of subtrees actively being collapsed
   // through multiple bfs iterations.
