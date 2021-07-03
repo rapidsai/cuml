@@ -74,8 +74,8 @@ __global__ void transform_k(float* preds, size_t n, output_t output,
     preds[i] = result;
 }
 
-extern template void dispatch_on_fil_template_params<compute_smem_footprint>(
-  predict_params&);
+extern void dispatch_on_fil_template_params(compute_smem_footprint,
+                                            predict_params&);
 
 struct forest {
   void init_n_items(int device) {
@@ -112,7 +112,7 @@ struct forest {
         ssp.cols_in_shmem = cols_in_shmem;
         for (ssp.n_items = min_n_items; ssp.n_items <= max_n_items;
              ++ssp.n_items) {
-          dispatch_on_fil_template_params<compute_smem_footprint>(ssp);
+          dispatch_on_fil_template_params(compute_smem_footprint(), ssp);
           if (ssp.shm_sz < max_shm) ssp_ = ssp;
         }
       }

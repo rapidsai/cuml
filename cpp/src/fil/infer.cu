@@ -756,32 +756,30 @@ size_t shmem_size_params::get_smem_footprint() {
 }
 
 // make sure to instantiate all possible get_smem_footprint instantiations
-template void dispatch_on_fil_template_params<compute_smem_footprint>(
-  predict_params&);
+void dispatch_on_fil_template_params(compute_smem_footprint, predict_params&);
 
 template <typename storage_type>
 struct infer_k_storage_template {
+  storage_type forest;
+  cudaStream_t stream;
+
   template <class KernelParams>
-  struct Func {
-    Func(predict_params& params, storage_type forest, cudaStream_t stream) {
-      params.num_blocks =
-        params.num_blocks != 0
-          ? params.num_blocks
-          : raft::ceildiv(int(params.num_rows), params.n_items);
-      infer_k<KernelParams::n_items, KernelParams::leaf_algo,
-              KernelParams::cols_in_shmem, storage_type>
-        <<<params.num_blocks, params.block_dim_x, params.shm_sz, stream>>>(
-          forest, params);
-      CUDA_CHECK(cudaPeekAtLastError());
-    }
-  };
+  void run(predict_params& params) {
+    params.num_blocks = params.num_blocks != 0
+                          ? params.num_blocks
+                          : raft::ceildiv(int(params.num_rows), params.n_items);
+    infer_k<KernelParams::n_items, KernelParams::leaf_algo,
+            KernelParams::cols_in_shmem, storage_type>
+      <<<params.num_blocks, params.block_dim_x, params.shm_sz, stream>>>(
+        forest, params);
+    CUDA_CHECK(cudaPeekAtLastError());
+  }
 };
 
 template <typename storage_type>
 void infer(storage_type forest, predict_params params, cudaStream_t stream) {
-  dispatch_on_fil_template_params<
-    infer_k_storage_template<storage_type>::template Func>(params, forest,
-                                                           stream);
+  dispatch_on_fil_template_params(
+    infer_k_storage_template<storage_type>{forest, stream}, params);
 }
 
 template void infer<dense_storage>(dense_storage forest, predict_params params,
