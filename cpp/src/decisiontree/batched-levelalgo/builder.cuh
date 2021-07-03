@@ -27,7 +27,7 @@
 #include <common/nvtx.hpp>
 
 namespace ML {
-namespace DecisionTree {
+namespace DT {
 
 template <typename ObjectiveT, typename DataT = typename ObjectiveT::DataT,
           typename LabelT = typename ObjectiveT::LabelT,
@@ -57,7 +57,7 @@ void grow_tree(std::shared_ptr<raft::mr::device::allocator> d_allocator,
                const DecisionTreeParams& params, cudaStream_t stream,
                std::vector<SparseTreeNode<DataT, LabelT>>& sparsetree,
                IdxT& num_leaves, IdxT& depth) {
-  ML::PUSH_RANGE("DecisionTree::grow_tree in batched-levelalgo @builder.cuh");
+  ML::PUSH_RANGE("DT::grow_tree in batched-levelalgo @builder.cuh");
   Builder<ObjectiveT> builder;
   size_t d_wsize, h_wsize;
   builder.workspaceSize(d_wsize, h_wsize, treeid, seed, params, data, labels,
@@ -143,5 +143,5 @@ void grow_tree(std::shared_ptr<raft::mr::device::allocator> d_allocator,
     ASSERT(false, "Unknown split criterion.");
   }
 }
-}  // namespace DecisionTree
+}  // namespace DT
 }  // namespace ML

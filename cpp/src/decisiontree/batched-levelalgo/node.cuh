@@ -20,7 +20,7 @@
 #include "split.cuh"
 
 namespace ML {
-namespace DecisionTree {
+namespace DT {
 
 /**
  * @brief All info pertaining to a node in the decision tree.
@@ -134,5 +134,5 @@ void printNodes(Node<DataT, LabelT, IdxT>* nodes, IdxT len, cudaStream_t s) {
   CUDA_CHECK(cudaDeviceSynchronize());
 }
 
-}  // namespace DecisionTree
+}  // namespace DT
 }  // namespace ML

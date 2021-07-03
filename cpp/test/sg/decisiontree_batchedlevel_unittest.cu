@@ -28,7 +28,7 @@
 #include <random>
 
 namespace ML {
-namespace DecisionTree {
+namespace DT {
 
 struct NodeSplitKernelTestParams {
   int min_samples_split;
@@ -526,5 +526,5 @@ TEST(TestObjective, CosMaeGain) {
   gain /= parent.NumItems();
   EXPECT_GE(gain, 0.0);
 }
-}  // namespace DecisionTree
+}  // namespace DT
 }  // namespace ML
