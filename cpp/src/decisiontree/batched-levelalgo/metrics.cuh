@@ -58,7 +58,8 @@ class GiniObjectiveFunction {
   using BinT = IntBin;
   GiniObjectiveFunction() = default;
   GiniObjectiveFunction(IdxT nclasses, DataT min_impurity_decrease,
-                        IdxT min_samples_leaf, double min, double max)
+                        IdxT min_samples_leaf, double label_min,
+                        double label_max)
     : nclasses(nclasses),
       min_impurity_decrease(min_impurity_decrease),
       min_samples_leaf(min_samples_leaf) {}
@@ -139,7 +140,8 @@ class EntropyObjectiveFunction {
   using BinT = IntBin;
   EntropyObjectiveFunction() = default;
   EntropyObjectiveFunction(IdxT nclasses, DataT min_impurity_decrease,
-                           IdxT min_samples_leaf, double min, double max)
+                           IdxT min_samples_leaf, double label_min,
+                           double label_max)
     : nclasses(nclasses),
       min_impurity_decrease(min_impurity_decrease),
       min_samples_leaf(min_samples_leaf) {}
@@ -246,7 +248,8 @@ class MSEObjectiveFunction {
   using BinT = MSEBin;
   MSEObjectiveFunction() = default;
   HDI MSEObjectiveFunction(IdxT nclasses, DataT min_impurity_decrease,
-                           IdxT min_samples_leaf, double min, double max)
+                           IdxT min_samples_leaf, double label_min,
+                           double label_max)
     : min_impurity_decrease(min_impurity_decrease),
       min_samples_leaf(min_samples_leaf) {}
   DI IdxT NumClasses() const { return 1; }
@@ -314,7 +317,7 @@ struct CosBin {
     return sum;
   }
 
-  HDI double CdfIntegral(double z, double min, double max)const  {
+  HDI double CdfIntegral(double z, double min, double max) const {
     double a = min;
     double b = max;
     double L = b - a;
@@ -363,8 +366,8 @@ struct CosBin {
     return *this;
   }
   HDI CosBin operator+(CosBin b) const {
-    CosBin<k> tmp=*this;
-    tmp  += b;
+    CosBin<k> tmp = *this;
+    tmp += b;
     return tmp;
   }
   HDI CosBin& operator-=(const CosBin& b) {
@@ -374,7 +377,7 @@ struct CosBin {
     return *this;
   }
   HDI CosBin operator-(CosBin b) const {
-    CosBin<k> tmp=*this;
+    CosBin<k> tmp = *this;
     tmp -= b;
     return tmp;
   }
@@ -388,29 +391,30 @@ class MAEObjectiveFunction {
   using IdxT = IdxT_;
   DataT min_impurity_decrease;
   IdxT min_samples_leaf;
-  double min;
-  double max;
+  double label_min;
+  double label_max;
 
  public:
   using BinT = CosBin<8>;
   MAEObjectiveFunction() = default;
   MAEObjectiveFunction(IdxT nclasses, DataT min_impurity_decrease,
-                       IdxT min_samples_leaf, double min, double max)
+                       IdxT min_samples_leaf, double label_min,
+                       double label_max)
     : min_impurity_decrease(min_impurity_decrease),
       min_samples_leaf(min_samples_leaf),
-      min(min),
-      max(max) {}
+      label_min(label_min),
+      label_max(label_max) {}
 
   DI IdxT NumClasses() const { return 1; }
   DI void IncrementHistogram(BinT* bins, int nbins, int b, double label) {
-    double scaled_label = (label - min) * M_PI / (max - min);
+    double scaled_label = (label - label_min) * M_PI / (label_max - label_min);
     atomicAdd(&(bins + b)->moments[0], 1.0);
     for (int i = 1; i < BinT::k + 1; i++) {
       atomicAdd(&(bins + b)->moments[i], cos(i * scaled_label));
     }
   }
   HDI Split<DataT, IdxT> Gain(BinT* scdf_labels, DataT* sbins, IdxT col,
-                             IdxT len, IdxT nbins) {
+                              IdxT len, IdxT nbins) {
     Split<DataT, IdxT> sp;
     for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
       double gain = 0.0;
@@ -421,9 +425,9 @@ class MAEObjectiveFunction {
           right_bin.NumItems() < min_samples_leaf) {
         gain = -std::numeric_limits<DataT>::max();
       } else {
-        gain = parent_bin.AbsoluteError(min, max) -
-               (left_bin.AbsoluteError(min, max) +
-                right_bin.AbsoluteError(min, max));
+        gain = parent_bin.AbsoluteError(label_min, label_max) -
+               (left_bin.AbsoluteError(label_min, label_max) +
+                right_bin.AbsoluteError(label_min, label_max));
         gain /= parent_bin.NumItems();
       }
       // if the gain is not "enough", don't bother!
@@ -435,7 +439,7 @@ class MAEObjectiveFunction {
     return sp;
   }
   DI LabelT LeafPrediction(BinT* shist, int nclasses) {
-    return shist[0].Median(min, max);
+    return shist[0].Median(label_min, label_max);
   }
 };
 

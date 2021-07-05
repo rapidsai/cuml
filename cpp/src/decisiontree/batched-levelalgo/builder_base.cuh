@@ -22,6 +22,7 @@
 #include <cuml/tree/decisiontree.hpp>
 #include <limits>
 #include <raft/cuda_utils.cuh>
+#include "cuml/tree/algo_helper.h"
 #include "input.cuh"
 #include "kernels.cuh"
 #include "metrics.cuh"
@@ -165,10 +166,7 @@ struct Builder {
     input.quantiles = quantiles;
 
     double label_min, label_max;
-    if (std::is_same<ObjectiveT,
-                     MAEObjectiveFunction<typename ObjectiveT::DataT,
-                                          typename ObjectiveT::LabelT,
-                                          typename ObjectiveT::IdxT>>::value) {
+    if (params.split_criterion == CRITERION::MAE) {
       thrust::tuple<double, double> init = {
         std::numeric_limits<double>::max(),
         -std::numeric_limits<double>::max()};
