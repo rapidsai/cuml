@@ -21,11 +21,10 @@
 namespace MLCommon {
 
 template <typename DataT, typename IdxT>
-__global__ void iotaKernel(DataT* out, DataT start, DataT step, IdxT len) {
+__global__ void iotaKernel(DataT* out, DataT start, DataT step, IdxT len)
+{
   auto tid = (IdxT)blockDim.x * blockIdx.x + threadIdx.x;
-  if (tid < len) {
-    out[tid] = start + DataT(tid) * step;
-  }
+  if (tid < len) { out[tid] = start + DataT(tid) * step; }
 }
 
 /**
@@ -39,9 +38,10 @@ __global__ void iotaKernel(DataT* out, DataT start, DataT step, IdxT len) {
  * @param stream cuda stream
  */
 template <typename DataT, typename IdxT>
-void iota(DataT* out, DataT start, DataT step, IdxT len, cudaStream_t stream) {
+void iota(DataT* out, DataT start, DataT step, IdxT len, cudaStream_t stream)
+{
   static const int TPB = 512;
-  IdxT nblks = raft::ceildiv<IdxT>(len, TPB);
+  IdxT nblks           = raft::ceildiv<IdxT>(len, TPB);
   iotaKernel<DataT, IdxT><<<nblks, TPB, 0, stream>>>(out, start, step, len);
   CUDA_CHECK(cudaGetLastError());
 }

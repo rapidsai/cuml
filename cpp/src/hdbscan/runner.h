@@ -44,45 +44,45 @@ namespace HDBSCAN {
  */
 template <typename value_idx, typename value_t>
 struct FixConnectivitiesRedOp {
-  value_idx *colors;
-  value_t *core_dists;
+  value_idx* colors;
+  value_t* core_dists;
   value_idx m;
 
-  FixConnectivitiesRedOp(value_idx *colors_, value_t *core_dists_, value_idx m_)
+  FixConnectivitiesRedOp(value_idx* colors_, value_t* core_dists_, value_idx m_)
     : colors(colors_), core_dists(core_dists_), m(m_){};
 
   typedef typename cub::KeyValuePair<value_idx, value_t> KVP;
-  DI void operator()(value_idx rit, KVP *out, const KVP &other) {
+  DI void operator()(value_idx rit, KVP* out, const KVP& other)
+  {
     if (rit < m && other.value < std::numeric_limits<value_t>::max() &&
         colors[rit] != colors[other.key]) {
-      value_t core_dist_rit = core_dists[rit];
-      value_t core_dist_other =
-        max(core_dist_rit, max(core_dists[other.key], other.value));
-      value_t core_dist_out =
-        max(core_dist_rit, max(core_dists[out->key], out->value));
+      value_t core_dist_rit   = core_dists[rit];
+      value_t core_dist_other = max(core_dist_rit, max(core_dists[other.key], other.value));
+      value_t core_dist_out   = max(core_dist_rit, max(core_dists[out->key], out->value));
 
       bool smaller = core_dist_other < core_dist_out;
-      out->key = smaller ? other.key : out->key;
-      out->value = smaller ? core_dist_other : core_dist_out;
+      out->key     = smaller ? other.key : out->key;
+      out->value   = smaller ? core_dist_other : core_dist_out;
     }
   }
 
-  DI KVP operator()(value_idx rit, const KVP &a, const KVP &b) {
+  DI KVP operator()(value_idx rit, const KVP& a, const KVP& b)
+  {
     if (rit < m && a.key > -1 && colors[rit] != colors[a.key]) {
       value_t core_dist_rit = core_dists[rit];
-      value_t core_dist_a = max(core_dist_rit, max(core_dists[a.key], a.value));
-      value_t core_dist_b = max(core_dist_rit, max(core_dists[b.key], b.value));
+      value_t core_dist_a   = max(core_dist_rit, max(core_dists[a.key], a.value));
+      value_t core_dist_b   = max(core_dist_rit, max(core_dists[b.key], b.value));
 
-      return core_dist_a < core_dist_b ? KVP(a.key, core_dist_a)
-                                       : KVP(b.key, core_dist_b);
+      return core_dist_a < core_dist_b ? KVP(a.key, core_dist_a) : KVP(b.key, core_dist_b);
     }
 
     return b;
   }
 
-  DI void init(value_t *out, value_t maxVal) { *out = maxVal; }
-  DI void init(KVP *out, value_t maxVal) {
-    out->key = -1;
+  DI void init(value_t* out, value_t maxVal) { *out = maxVal; }
+  DI void init(KVP* out, value_t maxVal)
+  {
+    out->key   = -1;
     out->value = maxVal;
   }
 };
@@ -103,12 +103,16 @@ struct FixConnectivitiesRedOp {
  * @param[out] out output container object
  */
 template <typename value_idx = int64_t, typename value_t = float>
-void build_linkage(
-  const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
-  raft::distance::DistanceType metric, Common::HDBSCANParams &params,
-  Common::robust_single_linkage_output<value_idx, value_t> &out) {
+void build_linkage(const raft::handle_t& handle,
+                   const value_t* X,
+                   size_t m,
+                   size_t n,
+                   raft::distance::DistanceType metric,
+                   Common::HDBSCANParams& params,
+                   Common::robust_single_linkage_output<value_idx, value_t>& out)
+{
   auto d_alloc = handle.get_device_allocator();
-  auto stream = handle.get_stream();
+  auto stream  = handle.get_stream();
 
   int k = params.k + 1;
 
@@ -116,46 +120,70 @@ void build_linkage(
    * Mutual reachability graph
    */
   rmm::device_uvector<value_idx> mutual_reachability_indptr(m + 1, stream);
-  raft::sparse::COO<value_t, value_idx> mutual_reachability_coo(d_alloc, stream,
-                                                                k * m * 2);
+  raft::sparse::COO<value_t, value_idx> mutual_reachability_coo(d_alloc, stream, k * m * 2);
   rmm::device_uvector<value_t> core_dists(m, stream);
 
-  detail::Reachability::mutual_reachability_graph(
-    handle, X, (size_t)m, (size_t)n, metric, k, params.min_samples,
-    params.alpha, mutual_reachability_indptr.data(), core_dists.data(),
-    mutual_reachability_coo);
+  detail::Reachability::mutual_reachability_graph(handle,
+                                                  X,
+                                                  (size_t)m,
+                                                  (size_t)n,
+                                                  metric,
+                                                  k,
+                                                  params.min_samples,
+                                                  params.alpha,
+                                                  mutual_reachability_indptr.data(),
+                                                  core_dists.data(),
+                                                  mutual_reachability_coo);
 
   /**
    * Construct MST sorted by weights
    */
 
   rmm::device_uvector<value_idx> color(m, stream);
-  FixConnectivitiesRedOp<value_idx, value_t> red_op(color.data(),
-                                                    core_dists.data(), m);
+  FixConnectivitiesRedOp<value_idx, value_t> red_op(color.data(), core_dists.data(), m);
   // during knn graph connection
-  raft::hierarchy::detail::build_sorted_mst(
-    handle, X, mutual_reachability_indptr.data(),
-    mutual_reachability_coo.cols(), mutual_reachability_coo.vals(), m, n,
-    out.get_mst_src(), out.get_mst_dst(), out.get_mst_weights(), color.data(),
-    mutual_reachability_coo.nnz, red_op, metric, (size_t)10);
+  raft::hierarchy::detail::build_sorted_mst(handle,
+                                            X,
+                                            mutual_reachability_indptr.data(),
+                                            mutual_reachability_coo.cols(),
+                                            mutual_reachability_coo.vals(),
+                                            m,
+                                            n,
+                                            out.get_mst_src(),
+                                            out.get_mst_dst(),
+                                            out.get_mst_weights(),
+                                            color.data(),
+                                            mutual_reachability_coo.nnz,
+                                            red_op,
+                                            metric,
+                                            (size_t)10);
 
   /**
    * Perform hierarchical labeling
    */
   size_t n_edges = m - 1;
 
-  raft::hierarchy::detail::build_dendrogram_host(
-    handle, out.get_mst_src(), out.get_mst_dst(), out.get_mst_weights(),
-    n_edges, out.get_children(), out.get_deltas(), out.get_sizes());
+  raft::hierarchy::detail::build_dendrogram_host(handle,
+                                                 out.get_mst_src(),
+                                                 out.get_mst_dst(),
+                                                 out.get_mst_weights(),
+                                                 n_edges,
+                                                 out.get_children(),
+                                                 out.get_deltas(),
+                                                 out.get_sizes());
 }
 
 template <typename value_idx = int64_t, typename value_t = float>
-void _fit_hdbscan(const raft::handle_t &handle, const value_t *X, size_t m,
-                  size_t n, raft::distance::DistanceType metric,
-                  Common::HDBSCANParams &params,
-                  Common::hdbscan_output<value_idx, value_t> &out) {
-  auto d_alloc = handle.get_device_allocator();
-  auto stream = handle.get_stream();
+void _fit_hdbscan(const raft::handle_t& handle,
+                  const value_t* X,
+                  size_t m,
+                  size_t n,
+                  raft::distance::DistanceType metric,
+                  Common::HDBSCANParams& params,
+                  Common::hdbscan_output<value_idx, value_t>& out)
+{
+  auto d_alloc     = handle.get_device_allocator();
+  auto stream      = handle.get_stream();
   auto exec_policy = rmm::exec_policy(stream);
 
   int min_cluster_size = params.min_cluster_size;
@@ -165,47 +193,63 @@ void _fit_hdbscan(const raft::handle_t &handle, const value_t *X, size_t m,
   /**
    * Condense branches of tree according to min cluster size
    */
-  detail::Condense::build_condensed_hierarchy(
-    handle, out.get_children(), out.get_deltas(), out.get_sizes(),
-    min_cluster_size, m, out.get_condensed_tree());
+  detail::Condense::build_condensed_hierarchy(handle,
+                                              out.get_children(),
+                                              out.get_deltas(),
+                                              out.get_sizes(),
+                                              min_cluster_size,
+                                              m,
+                                              out.get_condensed_tree());
 
   /**
    * Extract labels from stability
    */
 
-  rmm::device_uvector<value_t> tree_stabilities(
-    out.get_condensed_tree().get_n_clusters(), handle.get_stream());
+  rmm::device_uvector<value_t> tree_stabilities(out.get_condensed_tree().get_n_clusters(),
+                                                handle.get_stream());
 
   rmm::device_uvector<value_idx> label_map(m, stream);
 
   std::vector<value_idx> label_set;
-  value_idx n_selected_clusters = detail::Extract::extract_clusters(
-    handle, out.get_condensed_tree(), m, out.get_labels(),
-    tree_stabilities.data(), out.get_probabilities(), label_map.data(),
-    params.cluster_selection_method, params.allow_single_cluster,
-    params.max_cluster_size, params.cluster_selection_epsilon);
+  value_idx n_selected_clusters =
+    detail::Extract::extract_clusters(handle,
+                                      out.get_condensed_tree(),
+                                      m,
+                                      out.get_labels(),
+                                      tree_stabilities.data(),
+                                      out.get_probabilities(),
+                                      label_map.data(),
+                                      params.cluster_selection_method,
+                                      params.allow_single_cluster,
+                                      params.max_cluster_size,
+                                      params.cluster_selection_epsilon);
 
   out.set_n_clusters(n_selected_clusters);
 
-  auto lambdas_ptr =
-    thrust::device_pointer_cast(out.get_condensed_tree().get_lambdas());
-  value_t max_lambda = *(
-    thrust::max_element(exec_policy, lambdas_ptr,
-                        lambdas_ptr + out.get_condensed_tree().get_n_edges()));
+  auto lambdas_ptr   = thrust::device_pointer_cast(out.get_condensed_tree().get_lambdas());
+  value_t max_lambda = *(thrust::max_element(
+    exec_policy, lambdas_ptr, lambdas_ptr + out.get_condensed_tree().get_n_edges()));
 
-  detail::Stability::get_stability_scores(
-    handle, out.get_labels(), tree_stabilities.data(),
-    out.get_condensed_tree().get_n_clusters(), max_lambda, m,
-    out.get_stabilities(), label_map.data());
+  detail::Stability::get_stability_scores(handle,
+                                          out.get_labels(),
+                                          tree_stabilities.data(),
+                                          out.get_condensed_tree().get_n_clusters(),
+                                          max_lambda,
+                                          m,
+                                          out.get_stabilities(),
+                                          label_map.data());
 
   /**
    * Normalize labels so they are drawn from a monotonically increasing set
    * starting at 0 even in the presence of noise (-1)
    */
 
-  value_idx *label_map_ptr = label_map.data();
-  thrust::transform(exec_policy, out.get_labels(), out.get_labels() + m,
-                    out.get_labels(), [=] __device__(value_idx label) {
+  value_idx* label_map_ptr = label_map.data();
+  thrust::transform(exec_policy,
+                    out.get_labels(),
+                    out.get_labels() + m,
+                    out.get_labels(),
+                    [=] __device__(value_idx label) {
                       if (label != -1) return label_map_ptr[label];
                       return -1;
                     });

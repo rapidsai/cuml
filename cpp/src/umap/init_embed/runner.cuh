@@ -30,20 +30,22 @@ namespace InitEmbed {
 using namespace ML;
 
 template <typename T>
-void run(const raft::handle_t &handle, int n, int d,
-         raft::sparse::COO<float> *coo, UMAPParams *params, T *embedding,
-         cudaStream_t stream, int algo = 0) {
+void run(const raft::handle_t& handle,
+         int n,
+         int d,
+         raft::sparse::COO<float>* coo,
+         UMAPParams* params,
+         T* embedding,
+         cudaStream_t stream,
+         int algo = 0)
+{
   switch (algo) {
     /**
-             * Initial algo uses FAISS indices
-             */
-    case 0:
-      RandomInit::launcher(n, d, params, embedding, handle.get_stream());
-      break;
+     * Initial algo uses FAISS indices
+     */
+    case 0: RandomInit::launcher(n, d, params, embedding, handle.get_stream()); break;
 
-    case 1:
-      SpectralInit::launcher(handle, n, d, coo, params, embedding);
-      break;
+    case 1: SpectralInit::launcher(handle, n, d, coo, params, embedding); break;
   }
 }
 }  // namespace InitEmbed

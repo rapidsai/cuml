@@ -21,7 +21,8 @@
 
 namespace MLCommon {
 
-TEST(FastIntDiv, CpuTest) {
+TEST(FastIntDiv, CpuTest)
+{
   for (int i = 0; i < 100; ++i) {
     // get a positive divisor
     int divisor;
@@ -31,38 +32,40 @@ TEST(FastIntDiv, CpuTest) {
     FastIntDiv fid(divisor);
     // run it against a few random numbers and compare the outputs
     for (int i = 0; i < 10000; ++i) {
-      auto num = rand();
-      auto correct = num / divisor;
+      auto num      = rand();
+      auto correct  = num / divisor;
       auto computed = num / fid;
       ASSERT_EQ(correct, computed) << " divisor=" << divisor << " num=" << num;
-      num = rand();
-      correct = num % divisor;
+      num      = rand();
+      correct  = num % divisor;
       computed = num % fid;
       ASSERT_EQ(correct, computed) << " divisor=" << divisor << " num=" << num;
-      num = -num;
-      correct = num / divisor;
+      num      = -num;
+      correct  = num / divisor;
       computed = num / fid;
       ASSERT_EQ(correct, computed) << " divisor=" << divisor << " num=" << num;
-      num = rand();
-      correct = num % divisor;
+      num      = rand();
+      correct  = num % divisor;
       computed = num % fid;
       ASSERT_EQ(correct, computed) << " divisor=" << divisor << " num=" << num;
     }
   }
 }
 
-__global__ void fastIntDivTestKernel(int* computed, int* correct, const int* in,
-                                     FastIntDiv fid, int divisor, int len) {
+__global__ void fastIntDivTestKernel(
+  int* computed, int* correct, const int* in, FastIntDiv fid, int divisor, int len)
+{
   auto tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < len) {
-    computed[tid] = in[tid] % fid;
-    correct[tid] = in[tid] % divisor;
+    computed[tid]       = in[tid] % fid;
+    correct[tid]        = in[tid] % divisor;
     computed[len + tid] = -in[tid] % fid;
-    correct[len + tid] = -in[tid] % divisor;
+    correct[len + tid]  = -in[tid] % divisor;
   }
 }
 
-TEST(FastIntDiv, GpuTest) {
+TEST(FastIntDiv, GpuTest)
+{
   static const int len = 100000;
   static const int TPB = 128;
   int *computed, *correct, *in;
@@ -83,20 +86,21 @@ TEST(FastIntDiv, GpuTest) {
     }
     raft::update_device(in, h_in, len, 0);
     int nblks = raft::ceildiv(len, TPB);
-    fastIntDivTestKernel<<<nblks, TPB, 0, 0>>>(computed, correct, in, fid,
-                                               divisor, len);
+    fastIntDivTestKernel<<<nblks, TPB, 0, 0>>>(computed, correct, in, fid, divisor, len);
     CUDA_CHECK(cudaStreamSynchronize(0));
     ASSERT_TRUE(devArrMatch(correct, computed, len * 2, raft::Compare<int>()))
       << " divisor=" << divisor;
   }
 }
 
-FastIntDiv dummyFunc(int num) {
+FastIntDiv dummyFunc(int num)
+{
   FastIntDiv fd(num);
   return fd;
 }
 
-TEST(FastIntDiv, IncorrectUsage) {
+TEST(FastIntDiv, IncorrectUsage)
+{
   ASSERT_THROW(dummyFunc(-1), raft::exception);
   ASSERT_THROW(dummyFunc(0), raft::exception);
 }

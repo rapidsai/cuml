@@ -37,15 +37,14 @@ namespace MLCommon {
  */
 
 template <int NThreads>
-__global__ void batchedBlockReduceTestKernel(int* out) {
+__global__ void batchedBlockReduceTestKernel(int* out)
+{
   extern __shared__ char smem[];
   int val = threadIdx.x;
-  val = batchedBlockReduce<int, NThreads>(val, reinterpret_cast<char*>(smem));
+  val     = batchedBlockReduce<int, NThreads>(val, reinterpret_cast<char*>(smem));
   int gid = threadIdx.x / NThreads;
   int lid = threadIdx.x % NThreads;
-  if (gid == 0) {
-    out[lid] = val;
-  }
+  if (gid == 0) { out[lid] = val; }
 }
 
 struct BatchedBlockReduceInputs {
@@ -53,24 +52,20 @@ struct BatchedBlockReduceInputs {
 };
 
 template <int NThreads>
-void batchedBlockReduceTest(int* out, const BatchedBlockReduceInputs& param,
-                            cudaStream_t stream) {
+void batchedBlockReduceTest(int* out, const BatchedBlockReduceInputs& param, cudaStream_t stream)
+{
   size_t smemSize = sizeof(int) * (param.blkDim / raft::WarpSize) * NThreads;
-  batchedBlockReduceTestKernel<NThreads>
-    <<<1, param.blkDim, smemSize, stream>>>(out);
+  batchedBlockReduceTestKernel<NThreads><<<1, param.blkDim, smemSize, stream>>>(out);
   CUDA_CHECK(cudaGetLastError());
 }
 
-::std::ostream& operator<<(::std::ostream& os,
-                           const BatchedBlockReduceInputs& dims) {
-  return os;
-}
+::std::ostream& operator<<(::std::ostream& os, const BatchedBlockReduceInputs& dims) { return os; }
 
 template <int NThreads>
-class BatchedBlockReduceTest
-  : public ::testing::TestWithParam<BatchedBlockReduceInputs> {
+class BatchedBlockReduceTest : public ::testing::TestWithParam<BatchedBlockReduceInputs> {
  protected:
-  void SetUp() override {
+  void SetUp() override
+  {
     params = ::testing::TestWithParam<BatchedBlockReduceInputs>::GetParam();
     CUDA_CHECK(cudaStreamCreate(&stream));
     raft::allocate(out, NThreads, true);
@@ -79,15 +74,17 @@ class BatchedBlockReduceTest
     batchedBlockReduceTest<NThreads>(out, params, stream);
   }
 
-  void TearDown() override {
+  void TearDown() override
+  {
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaStreamDestroy(stream));
     CUDA_CHECK(cudaFree(out));
     CUDA_CHECK(cudaFree(refOut));
   }
 
-  void computeRef() {
-    int* ref = new int[NThreads];
+  void computeRef()
+  {
+    int* ref    = new int[NThreads];
     int nGroups = params.blkDim / NThreads;
     for (int i = 0; i < NThreads; ++i) {
       ref[i] = 0;
@@ -111,13 +108,14 @@ typedef BatchedBlockReduceTest<16> BBTest16;
 typedef BatchedBlockReduceTest<32> BBTest32;
 
 const std::vector<BatchedBlockReduceInputs> inputs = {
-  {32}, {64}, {128}, {256}, {512},
+  {32},
+  {64},
+  {128},
+  {256},
+  {512},
 };
 
-TEST_P(BBTest8, Result) {
-  ASSERT_TRUE(devArrMatch(refOut, out, 8, raft::Compare<int>()));
-}
-INSTANTIATE_TEST_CASE_P(BatchedBlockReduceTests, BBTest8,
-                        ::testing::ValuesIn(inputs));
+TEST_P(BBTest8, Result) { ASSERT_TRUE(devArrMatch(refOut, out, 8, raft::Compare<int>())); }
+INSTANTIATE_TEST_CASE_P(BatchedBlockReduceTests, BBTest8, ::testing::ValuesIn(inputs));
 
 }  // end namespace MLCommon

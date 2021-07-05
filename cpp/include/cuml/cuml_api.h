@@ -27,8 +27,7 @@
 // directly and indirectly include this file. Only files ending in '*_api' or
 // 'cumlHandle' should include this header.
 #ifdef CUML_CPP_API
-#error \
-  "This header is only for the C-API and should not be included from the C++ API."
+#error "This header is only for the C-API and should not be included from the C++ API."
 #endif
 
 #ifdef __cplusplus
@@ -37,18 +36,14 @@ extern "C" {
 
 typedef int cumlHandle_t;
 
-typedef enum cumlError_t {
-  CUML_SUCCESS,
-  CUML_ERROR_UNKNOWN,
-  CUML_INVALID_HANDLE
-} cumlError_t;
+typedef enum cumlError_t { CUML_SUCCESS, CUML_ERROR_UNKNOWN, CUML_INVALID_HANDLE } cumlError_t;
 
 typedef cudaError_t (*cuml_allocate)(void** p, size_t n, cudaStream_t stream);
 typedef cudaError_t (*cuml_deallocate)(void* p, size_t n, cudaStream_t stream);
 
 /**
  * @brief Get a human readable error string for the passed in error code.
- * 
+ *
  * @param[in] error the error code to decipher.
  * @return a string with a human readable error message.
  */
@@ -56,7 +51,7 @@ const char* cumlGetErrorString(cumlError_t error);
 
 /**
  * @brief Creates a cumlHandle_t
- * 
+ *
  * @param[inout] handle     pointer to the handle to create.
  * @return CUML_SUCCESS on success, @todo: add more error codes
  */
@@ -64,7 +59,7 @@ cumlError_t cumlCreate(cumlHandle_t* handle);
 
 /**
  * @brief sets the stream to which all cuML work issued via the passed handle should be ordered.
- * 
+ *
  * @param[inout] handle     handle to set the stream for.
  * @param[in] stream        the stream to which cuML work should be ordered.
  * @return CUML_SUCCESS on success, @todo: add more error codes
@@ -72,7 +67,7 @@ cumlError_t cumlCreate(cumlHandle_t* handle);
 cumlError_t cumlSetStream(cumlHandle_t handle, cudaStream_t stream);
 /**
  * @brief gets the stream to which all cuML work issued via the passed handle should be ordered.
- * 
+ *
  * @param[inout] handle     handle to get the stream of.
  * @param[out] stream       pointer to the stream to which cuML work should be ordered.
  * @return CUML_SUCCESS on success, @todo: add more error codes
@@ -81,19 +76,19 @@ cumlError_t cumlGetStream(cumlHandle_t handle, cudaStream_t* stream);
 
 /**
  * @brief sets the allocator to use for all device allocations done in cuML.
- * 
+ *
  * Example use:
  * @code{.c}
  * cudaError_t device_allocate(void** p,size_t n, cudaStream_t)
  * {
  *     return cudaMalloc(p,n);
  * }
- * 
+ *
  * cudaError_t device_deallocate(void* p, size_t, cudaStream_t)
  * {
  *     return cudaFree(p);
  * }
- * 
+ *
  * void foo()
  * {
  *     cumlHandle_t cumlHandle;
@@ -105,8 +100,10 @@ cumlError_t cumlGetStream(cumlHandle_t handle, cudaStream_t* stream);
  * }
  * @endcode
  * @param[inout] handle     the cumlHandle_t to set the device allocator for.
- * @param[in] allocate_fn    function pointer to the allocate function to use for device allocations.
- * @param[in] deallocate_fn  function pointer to the deallocate function to use for device allocations.
+ * @param[in] allocate_fn    function pointer to the allocate function to use for device
+ allocations.
+ * @param[in] deallocate_fn  function pointer to the deallocate function to use for device
+ allocations.
  * @return CUML_SUCCESS on success, @todo: add more error codes
  */
 cumlError_t cumlSetDeviceAllocator(cumlHandle_t handle,
@@ -114,7 +111,7 @@ cumlError_t cumlSetDeviceAllocator(cumlHandle_t handle,
                                    cuml_deallocate deallocate_fn);
 /**
  * @brief sets the allocator to use for substantial host allocations done in cuML.
- * 
+ *
  * Example use:
  * @code{.c}
  * cudaError_t host_allocate(void** p,size_t n, cudaStream_t)
@@ -122,13 +119,13 @@ cumlError_t cumlSetDeviceAllocator(cumlHandle_t handle,
  *     *p = malloc(n);
  *     return NULL != *p ? cudaSuccess : cudaErrorUnknown;
  * }
- * 
+ *
  * cudaError_t host_deallocate(void* p, size_t, cudaStream_t stream)
  * {
  *     free(p);
  *     return cudaSuccess;
  * }
- * 
+ *
  * void foo()
  * {
  *     cumlHandle_t cumlHandle;
@@ -141,15 +138,17 @@ cumlError_t cumlSetDeviceAllocator(cumlHandle_t handle,
  * @endcode
  * @param[inout] handle      the cumlHandle_t to set the host allocator for.
  * @param[in] allocate_fn    function pointer to the allocate function to use for host allocations.
- * @param[in] deallocate_fn  function pointer to the deallocate function to use for host allocations.
+ * @param[in] deallocate_fn  function pointer to the deallocate function to use for host
+ allocations.
  * @return CUML_SUCCESS on success, @todo: add more error codes
  */
-cumlError_t cumlSetHostAllocator(cumlHandle_t handle, cuml_allocate allocate_fn,
+cumlError_t cumlSetHostAllocator(cumlHandle_t handle,
+                                 cuml_allocate allocate_fn,
                                  cuml_deallocate deallocate_fn);
 
 /**
  * @brief Release all resource internally managed by cumlHandle_t
- * 
+ *
  * @param[inout] handle     the cumlHandle_t to destroy.
  * @return CUML_SUCCESS on success, @todo: add more error codes
  */

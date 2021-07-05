@@ -21,17 +21,19 @@
 namespace ML {
 namespace SVM {
 
-__global__ void set_unavailable(bool *available, int n_rows, const int *idx,
-                                int n_selected) {
+__global__ void set_unavailable(bool* available, int n_rows, const int* idx, int n_selected)
+{
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  if (tid < n_selected) {
-    available[idx[tid]] = false;
-  }
+  if (tid < n_selected) { available[idx[tid]] = false; }
 }
 
-__global__ void update_priority(int *new_priority, int n_selected,
-                                const int *new_idx, int n_ws, const int *idx,
-                                const int *priority) {
+__global__ void update_priority(int* new_priority,
+                                int n_selected,
+                                const int* new_idx,
+                                int n_ws,
+                                const int* idx,
+                                const int* priority)
+{
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < n_selected) {
     int my_new_idx = new_idx[tid];

@@ -37,5 +37,5 @@ struct KernelParams {
   double coef0;       //!< additive constant in poly and tanh kernels
 };
 
-};  //end namespace Matrix
-};  //end namespace MLCommon
+};  // end namespace Matrix
+};  // end namespace MLCommon

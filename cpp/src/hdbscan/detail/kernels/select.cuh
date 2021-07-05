@@ -33,38 +33,43 @@ namespace Select {
  * @param[in] n_clusters number of clusters
  */
 template <typename value_idx>
-__global__ void propagate_cluster_negation_kernel(const value_idx *indptr,
-                                                  const value_idx *children,
-                                                  int *frontier,
-                                                  int *is_cluster,
-                                                  int n_clusters) {
+__global__ void propagate_cluster_negation_kernel(const value_idx* indptr,
+                                                  const value_idx* children,
+                                                  int* frontier,
+                                                  int* is_cluster,
+                                                  int n_clusters)
+{
   int cluster = blockDim.x * blockIdx.x + threadIdx.x;
 
   if (cluster < n_clusters && frontier[cluster]) {
     frontier[cluster] = false;
 
     value_idx children_start = indptr[cluster];
-    value_idx children_stop = indptr[cluster + 1];
+    value_idx children_stop  = indptr[cluster + 1];
     for (int i = children_start; i < children_stop; i++) {
-      value_idx child = children[i];
-      frontier[child] = true;
+      value_idx child   = children[i];
+      frontier[child]   = true;
       is_cluster[child] = false;
     }
   }
 }
 
 template <typename value_idx, typename value_t, int tpb = 256>
-__global__ void cluster_epsilon_search_kernel(
-  const int *selected_clusters, const int n_selected_clusters,
-  const value_idx *parents, const value_idx *children, const value_t *lambdas,
-  const value_idx cluster_tree_edges, int *is_cluster, int *frontier,
-  const int n_clusters, const value_t cluster_selection_epsilon,
-  const bool allow_single_cluster) {
+__global__ void cluster_epsilon_search_kernel(const int* selected_clusters,
+                                              const int n_selected_clusters,
+                                              const value_idx* parents,
+                                              const value_idx* children,
+                                              const value_t* lambdas,
+                                              const value_idx cluster_tree_edges,
+                                              int* is_cluster,
+                                              int* frontier,
+                                              const int n_clusters,
+                                              const value_t cluster_selection_epsilon,
+                                              const bool allow_single_cluster)
+{
   auto selected_cluster_idx = threadIdx.x + blockDim.x * blockIdx.x;
 
-  if (selected_cluster_idx >= n_selected_clusters) {
-    return;
-  }
+  if (selected_cluster_idx >= n_selected_clusters) { return; }
 
   // don't need to process root as a cluster
   // offsetting for root by subtracting 1 from the cluster
@@ -74,9 +79,7 @@ __global__ void cluster_epsilon_search_kernel(
   // since parents/lambdas are sorted by children
   // the relation is: child = child_idx + 1
   auto child_idx = selected_clusters[selected_cluster_idx] - 1;
-  if (child_idx == -1) {
-    return;
-  }
+  if (child_idx == -1) { return; }
 
   auto eps = 1 / lambdas[child_idx];
 
@@ -105,7 +108,7 @@ __global__ void cluster_epsilon_search_kernel(
       parent_eps = 1 / lambdas[child_idx];
     } while (parent_eps <= cluster_selection_epsilon);
 
-    frontier[parent] = true;
+    frontier[parent]   = true;
     is_cluster[parent] = true;
   } else {
     // offset 1 ahead for root

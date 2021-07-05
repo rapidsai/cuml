@@ -27,14 +27,16 @@ namespace ML {
 namespace Solver {
 
 template <typename math_t>
-void initShuffle(std::vector<math_t> &rand_indices, std::mt19937 &g,
-                 math_t random_state = 0) {
+void initShuffle(std::vector<math_t>& rand_indices, std::mt19937& g, math_t random_state = 0)
+{
   g.seed((int)random_state);
-  for (int i = 0; i < rand_indices.size(); ++i) rand_indices[i] = i;
+  for (int i = 0; i < rand_indices.size(); ++i)
+    rand_indices[i] = i;
 }
 
 template <typename math_t>
-void shuffle(std::vector<math_t> &rand_indices, std::mt19937 &g) {
+void shuffle(std::vector<math_t>& rand_indices, std::mt19937& g)
+{
   std::shuffle(rand_indices.begin(), rand_indices.end(), g);
 }
 

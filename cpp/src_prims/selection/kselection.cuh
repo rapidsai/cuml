@@ -54,30 +54,32 @@ struct KVPair {
    * @param reverse whether the comparison needs to be reversed or not
    */
   template <bool Greater>
-  DI void cas(Pair &other, bool reverse) {
+  DI void cas(Pair& other, bool reverse)
+  {
     bool swap_ = compare<Greater>(other, reverse);
     if (swap_) swap(other);
   }
 
   /** assign the contents of other pair to the current */
-  HDI void operator=(const Pair &other) {
+  HDI void operator=(const Pair& other)
+  {
     val = other.val;
     key = other.key;
   }
 
   /** equality comparison */
-  DI bool operator==(const Pair &other) const {
-    return val == other.val && key == other.key;
-  }
+  DI bool operator==(const Pair& other) const { return val == other.val && key == other.key; }
 
   /** greater than operator */
-  DI bool operator>(const Pair &other) const {
+  DI bool operator>(const Pair& other) const
+  {
     ///@todo: should we also consider the key when values are the same?
     return val > other.val;
   }
 
   /** lesser than operator */
-  DI bool operator<(const Pair &other) const {
+  DI bool operator<(const Pair& other) const
+  {
     ///@todo: should we also consider the key when values are the same?
     return val < other.val;
   }
@@ -89,11 +91,11 @@ struct KVPair {
    * @param mask mask of participating threads (Volta+)
    * @return the shuffled value
    */
-  DI Pair shfl(int srcLane, int width = raft::WarpSize,
-               uint32_t mask = 0xffffffffu) {
+  DI Pair shfl(int srcLane, int width = raft::WarpSize, uint32_t mask = 0xffffffffu)
+  {
     Pair ret = *this;
-    ret.val = raft::shfl(ret.val, srcLane, width, mask);
-    ret.key = raft::shfl(ret.key, srcLane, width, mask);
+    ret.val  = raft::shfl(ret.val, srcLane, width, mask);
+    ret.key  = raft::shfl(ret.key, srcLane, width, mask);
     return ret;
   }
 
@@ -104,31 +106,34 @@ struct KVPair {
    * @param mask mask of participating threads (Volta+)
    * @return the shuffled value
    */
-  DI Pair shfl_xor(int laneMask, int width = raft::WarpSize,
-                   uint32_t mask = 0xffffffffu) {
+  DI Pair shfl_xor(int laneMask, int width = raft::WarpSize, uint32_t mask = 0xffffffffu)
+  {
     Pair ret = *this;
-    ret.val = raft::shfl_xor(ret.val, laneMask, width, mask);
-    ret.key = raft::shfl_xor(ret.key, laneMask, width, mask);
+    ret.val  = raft::shfl_xor(ret.val, laneMask, width, mask);
+    ret.key  = raft::shfl_xor(ret.key, laneMask, width, mask);
     return ret;
   }
 
   /** store the data to global memory */
-  DI void store(TypeV *vptr, TypeK *kptr) const {
+  DI void store(TypeV* vptr, TypeK* kptr) const
+  {
     if (vptr != nullptr) *vptr = val;
     if (kptr != nullptr) *kptr = key;
   }
 
  private:
   template <bool Greater>
-  DI bool compare(const Pair &other, bool reverse) {
+  DI bool compare(const Pair& other, bool reverse)
+  {
     return reverse ? Compare<!Greater, TypeV>::op(val, other.val)
                    : Compare<Greater, TypeV>::op(val, other.val);
   }
 
-  DI void swap(Pair &other) {
+  DI void swap(Pair& other)
+  {
     auto tmp = *this;
-    *this = other;
-    other = tmp;
+    *this    = other;
+    other    = tmp;
   }
 };
 
@@ -141,17 +146,18 @@ struct KVPair {
  * @param current current thread's value
  */
 template <typename TypeV, typename TypeK, bool Greater, int Log2Stride>
-DI void bitonicSortStage(KVPair<TypeV, TypeK> &current) {
+DI void bitonicSortStage(KVPair<TypeV, TypeK>& current)
+{
   constexpr int Stride2 = 1 << (Log2Stride + 1);
-  int lid = raft::laneId();
-  const bool lidMask = lid & Stride2;
+  int lid               = raft::laneId();
+  const bool lidMask    = lid & Stride2;
 #pragma unroll
   for (int stage = Log2Stride; stage >= 0; --stage) {
-    int stride = 1 << stage;
-    bool group = lidMask;
-    bool phase = lid & stride;
+    int stride   = 1 << stage;
+    bool group   = lidMask;
+    bool phase   = lid & stride;
     bool reverse = phase ^ group;
-    auto other = current.shfl_xor(stride);
+    auto other   = current.shfl_xor(stride);
     current.cas<Greater>(other, reverse);
   }
 }
@@ -164,7 +170,8 @@ DI void bitonicSortStage(KVPair<TypeV, TypeK> &current) {
  * @param current the pair that needs to be sorted across this warp
  */
 template <typename TypeV, typename TypeK, bool Greater>
-DI void bitonicSort(KVPair<TypeV, TypeK> &current) {
+DI void bitonicSort(KVPair<TypeV, TypeK>& current)
+{
   bitonicSortStage<TypeV, TypeK, Greater, 0>(current);
   bitonicSortStage<TypeV, TypeK, Greater, 1>(current);
   bitonicSortStage<TypeV, TypeK, Greater, 2>(current);
@@ -181,7 +188,8 @@ DI void bitonicSort(KVPair<TypeV, TypeK> &current) {
  * @param current current thread's value
  */
 template <typename TypeV, typename TypeK, bool Greater>
-DI void warpSort(KVPair<TypeV, TypeK> &current) {
+DI void warpSort(KVPair<TypeV, TypeK>& current)
+{
   int lid = raft::laneId();
 #pragma unroll
   for (int stride = raft::WarpSize / 2; stride >= 1; stride /= 2) {
@@ -212,7 +220,8 @@ struct KVArray {
   constexpr static int WarpMask = raft::WarpSize - 1;
 
   /** reset the contents of the array */
-  DI void reset(TypeV iV, TypeK iK) {
+  DI void reset(TypeV iV, TypeK iK)
+  {
 #pragma unroll
     for (int i = 0; i < N; ++i) {
       arr[i].val = iV;
@@ -220,7 +229,8 @@ struct KVArray {
     }
   }
 
-  DI void topkUpdate(Pair &other) {
+  DI void topkUpdate(Pair& other)
+  {
 #pragma unroll
     for (int i = 0; i < N; ++i) {
       // perform the sort in the reverse order as to minimize the
@@ -235,7 +245,8 @@ struct KVArray {
   ///@todo: this fails for N=8 onwards!!
   ///@todo: it also generates "stack frame" for N>=8
   /** sort the elements in this array */
-  DI void sort() {
+  DI void sort()
+  {
     // start by sorting along the warp, first
     warpWideSort();
 // iteratively merge each of these "warp-wide" sorted arrays
@@ -243,7 +254,8 @@ struct KVArray {
     for (int stride = 1; stride < N; stride *= 2) {
       const int s2 = 2 * stride;
 #pragma unroll
-      for (int start = 0; start < N; start += s2) mergeHalves(stride, start);
+      for (int start = 0; start < N; start += s2)
+        mergeHalves(stride, start);
 #pragma unroll
       for (int start = 0; start < N; start += stride)
         postMergeSort(stride, start);
@@ -252,12 +264,13 @@ struct KVArray {
   }
 
  private:
-  DI void mergeHalves(int stride, int start) {
+  DI void mergeHalves(int stride, int start)
+  {
     const int mask = 2 * stride - 1;
 #pragma unroll
     for (int i = 0; i < stride; ++i) {
-      int src = i + start;
-      int dst = (i + start) ^ mask;
+      int src           = i + start;
+      int dst           = (i + start) ^ mask;
       auto srcOtherPair = arr[src].shfl_xor(WarpMask);
       auto dstOtherPair = arr[dst].shfl_xor(WarpMask);
       arr[src].cas<Greater>(dstOtherPair, true);
@@ -265,7 +278,8 @@ struct KVArray {
     }
   }
 
-  DI void postMergeSort(int stride, int start) {
+  DI void postMergeSort(int stride, int start)
+  {
 #pragma unroll
     for (int s = stride / 2; s >= 1; s /= 2) {
 #pragma unroll
@@ -276,23 +290,25 @@ struct KVArray {
     }
   }
 
-  DI void warpWideSort() {
+  DI void warpWideSort()
+  {
 #pragma unroll
-    for (int i = 0; i < N; ++i) warpSort<TypeV, TypeK, Greater>(arr[i]);
+    for (int i = 0; i < N; ++i)
+      warpSort<TypeV, TypeK, Greater>(arr[i]);
   }
 };
 
 ///@todo: specialize this for k=1
-template <typename TypeV, typename TypeK, int N, int TPB, bool Greater,
-          bool Sort>
-__global__ void warpTopKkernel(TypeV *outV, TypeK *outK, const TypeV *arr,
-                               int k, int rows, int cols, TypeV iV, TypeK iK) {
+template <typename TypeV, typename TypeK, int N, int TPB, bool Greater, bool Sort>
+__global__ void warpTopKkernel(
+  TypeV* outV, TypeK* outK, const TypeV* arr, int k, int rows, int cols, TypeV iV, TypeK iK)
+{
   // static_assert(Sort==false, "warpTopK: Sort=true is not yet supported!");
 
   if (Sort == false) {
     constexpr int RowsPerBlk = TPB / raft::WarpSize;
-    const int warpId = threadIdx.x / raft::WarpSize;
-    const int rowId = blockIdx.x * RowsPerBlk + warpId;
+    const int warpId         = threadIdx.x / raft::WarpSize;
+    const int rowId          = blockIdx.x * RowsPerBlk + warpId;
     if (rowId >= rows) return;
     const int maxCols = raft::alignTo(cols, raft::WarpSize);
     KVArray<TypeV, TypeK, N, Greater> topk;
@@ -300,7 +316,7 @@ __global__ void warpTopKkernel(TypeV *outV, TypeK *outK, const TypeV *arr,
     topk.reset(iV, iK);
     int colId = threadIdx.x % raft::WarpSize;
     for (; colId < maxCols; colId += raft::WarpSize) {
-      auto idx = rowId * cols + colId;
+      auto idx  = rowId * cols + colId;
       other.val = colId < cols ? arr[idx] : iV;
       other.key = colId;
       raft::warpFence();
@@ -333,19 +349,17 @@ __global__ void warpTopKkernel(TypeV *outV, TypeK *outK, const TypeV *arr,
  * @todo verify and extend support to k <= 1024
  */
 template <typename TypeV, typename TypeK, bool Greater, bool Sort>
-void warpTopK(TypeV *outV, TypeK *outK, const TypeV *arr, int k, int rows,
-              TypeK cols, cudaStream_t stream) {
-  static_assert(
-    std::is_same<TypeV, float>::value && (std::is_same<TypeK, int>::value),
-    "type not support");
-  constexpr int TPB = 256;
+void warpTopK(
+  TypeV* outV, TypeK* outK, const TypeV* arr, int k, int rows, TypeK cols, cudaStream_t stream)
+{
+  static_assert(std::is_same<TypeV, float>::value && (std::is_same<TypeK, int>::value),
+                "type not support");
+  constexpr int TPB        = 256;
   constexpr int RowsPerBlk = TPB / raft::WarpSize;
-  const int nblks = raft::ceildiv(rows, RowsPerBlk);
-  const int kAligned = raft::alignTo(k, raft::WarpSize) / raft::WarpSize;
-  const TypeV iV = Greater ? std::numeric_limits<TypeV>::max()
-                           : std::numeric_limits<TypeV>::min();
-  const TypeK iK = Greater ? std::numeric_limits<TypeK>::max()
-                           : std::numeric_limits<TypeK>::min();
+  const int nblks          = raft::ceildiv(rows, RowsPerBlk);
+  const int kAligned       = raft::alignTo(k, raft::WarpSize) / raft::WarpSize;
+  const TypeV iV = Greater ? std::numeric_limits<TypeV>::max() : std::numeric_limits<TypeV>::min();
+  const TypeK iK = Greater ? std::numeric_limits<TypeK>::max() : std::numeric_limits<TypeK>::min();
   switch (kAligned) {
     CASE_K(1);
     CASE_K(2);
@@ -379,8 +393,7 @@ void warpTopK(TypeV *outV, TypeK *outK, const TypeV *arr, int k, int rows,
     CASE_K(30);
     CASE_K(31);
     CASE_K(32);
-    default:
-      ASSERT(false, "TopK kernels only support k <= 1024 [%d]", k);
+    default: ASSERT(false, "TopK kernels only support k <= 1024 [%d]", k);
   };
 }
 #undef CASE_K

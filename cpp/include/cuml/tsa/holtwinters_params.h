@@ -25,9 +25,9 @@ enum SeasonalType { ADDITIVE, MULTIPLICATIVE };
 
 enum OptimCriterion {
   OPTIM_BFGS_ITER_LIMIT = 0,
-  OPTIM_MIN_PARAM_DIFF = 1,
-  OPTIM_MIN_ERROR_DIFF = 2,
-  OPTIM_MIN_GRAD_NORM = 3,
+  OPTIM_MIN_PARAM_DIFF  = 1,
+  OPTIM_MIN_ERROR_DIFF  = 2,
+  OPTIM_MIN_GRAD_NORM   = 3,
 };
 
 // These are the parameters used for optimizing alpha, beta, and gamma values

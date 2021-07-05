@@ -35,7 +35,8 @@
    to the same group and @n_groups for values that are to be added together
 */
 template <int R = 5, typename T = float>
-__device__ T multi_sum(T* data, int n_groups, int n_values) {
+__device__ T multi_sum(T* data, int n_groups, int n_values)
+{
   T acc = threadIdx.x < n_groups * n_values ? data[threadIdx.x] : T();
   while (n_values > 1) {
     // n_targets is the number of values per group after the end of this iteration

@@ -44,25 +44,48 @@ struct KNNInputs {
 };
 
 template <typename T, typename IdxT>
-::std::ostream &operator<<(::std::ostream &os, const KNNInputs &dims) {
+::std::ostream& operator<<(::std::ostream& os, const KNNInputs& dims)
+{
   return os;
 }
 
 template <typename T>
-void gen_blobs(raft::handle_t &handle, T *out, int *l, int rows, int cols,
-               int centers, const T *centroids) {
-  Datasets::make_blobs(handle, out, l, rows, cols, centers, true, centroids,
-                       nullptr, 0.1f, true, -10.0f, 10.0f, 1234ULL);
+void gen_blobs(
+  raft::handle_t& handle, T* out, int* l, int rows, int cols, int centers, const T* centroids)
+{
+  Datasets::make_blobs(handle,
+                       out,
+                       l,
+                       rows,
+                       cols,
+                       centers,
+                       true,
+                       centroids,
+                       nullptr,
+                       0.1f,
+                       true,
+                       -10.0f,
+                       10.0f,
+                       1234ULL);
 }
 
-void create_index_parts(raft::handle_t &handle, float *query_data,
-                        int *query_labels, vector<float *> &part_inputs,
-                        vector<int *> &part_labels, vector<int> &part_sizes,
-                        const KNNInputs &params, const float *centers) {
+void create_index_parts(raft::handle_t& handle,
+                        float* query_data,
+                        int* query_labels,
+                        vector<float*>& part_inputs,
+                        vector<int*>& part_labels,
+                        vector<int>& part_sizes,
+                        const KNNInputs& params,
+                        const float* centers)
+{
   cudaStream_t stream = handle.get_stream();
-  gen_blobs<float>(handle, query_data, query_labels,
-                   params.n_rows * params.n_parts, params.n_cols,
-                   params.n_centers, centers);
+  gen_blobs<float>(handle,
+                   query_data,
+                   query_labels,
+                   params.n_rows * params.n_parts,
+                   params.n_cols,
+                   params.n_centers,
+                   centers);
 
   for (int i = 0; i < params.n_parts; i++) {
     part_inputs.push_back(query_data + (i * params.n_rows * params.n_cols));
@@ -71,24 +94,25 @@ void create_index_parts(raft::handle_t &handle, float *query_data,
   }
 }
 
-__global__ void to_float(float *out, int *in, int size) {
+__global__ void to_float(float* out, int* in, int size)
+{
   int element = threadIdx.x + blockDim.x * blockIdx.x;
   if (element >= size) return;
   out[element] = float(in[element]);
 }
 
-__global__ void build_actual_output(int *output, int n_rows, int k,
-                                    const int *idx_labels,
-                                    const int64_t *indices) {
+__global__ void build_actual_output(
+  int* output, int n_rows, int k, const int* idx_labels, const int64_t* indices)
+{
   int element = threadIdx.x + blockDim.x * blockIdx.x;
   if (element >= n_rows * k) return;
 
-  int ind = (int)indices[element];
+  int ind         = (int)indices[element];
   output[element] = idx_labels[ind];
 }
 
-__global__ void build_expected_output(int *output, int n_rows, int k,
-                                      const int *labels) {
+__global__ void build_expected_output(int* output, int n_rows, int k, const int* labels)
+{
   int row = threadIdx.x + blockDim.x * blockIdx.x;
   if (row >= n_rows) return;
 
@@ -101,38 +125,44 @@ __global__ void build_expected_output(int *output, int n_rows, int k,
 template <typename T>
 class KNNTest : public ::testing::TestWithParam<KNNInputs> {
  protected:
-  void testBruteForce() {
+  void testBruteForce()
+  {
     cudaStream_t stream = handle.get_stream();
 
-    raft::allocate(actual_labels,
-                   params.n_query_row * params.n_neighbors * params.n_parts,
-                   true);
-    raft::allocate(expected_labels,
-                   params.n_query_row * params.n_neighbors * params.n_parts,
-                   true);
+    raft::allocate(actual_labels, params.n_query_row * params.n_neighbors * params.n_parts, true);
+    raft::allocate(expected_labels, params.n_query_row * params.n_neighbors * params.n_parts, true);
 
     create_data();
 
-    brute_force_knn(handle, part_inputs, part_sizes, params.n_cols, search_data,
-                    params.n_query_row, output_indices, output_dists,
-                    params.n_neighbors, true, true);
+    brute_force_knn(handle,
+                    part_inputs,
+                    part_sizes,
+                    params.n_cols,
+                    search_data,
+                    params.n_query_row,
+                    output_indices,
+                    output_dists,
+                    params.n_neighbors,
+                    true,
+                    true);
 
-    build_actual_output<<<raft::ceildiv(params.n_query_row * params.n_neighbors,
-                                        32),
-                          32, 0, stream>>>(actual_labels, params.n_query_row,
-                                           params.n_neighbors, index_labels,
-                                           output_indices);
+    build_actual_output<<<raft::ceildiv(params.n_query_row * params.n_neighbors, 32),
+                          32,
+                          0,
+                          stream>>>(
+      actual_labels, params.n_query_row, params.n_neighbors, index_labels, output_indices);
 
-    build_expected_output<<<raft::ceildiv(params.n_query_row, 32), 32, 0,
-                            stream>>>(expected_labels, params.n_query_row,
-                                      params.n_neighbors, search_labels);
+    build_expected_output<<<raft::ceildiv(params.n_query_row, 32), 32, 0, stream>>>(
+      expected_labels, params.n_query_row, params.n_neighbors, search_labels);
 
-    ASSERT_TRUE(devArrMatch(expected_labels, actual_labels,
+    ASSERT_TRUE(devArrMatch(expected_labels,
+                            actual_labels,
                             params.n_query_row * params.n_neighbors,
                             raft::Compare<int>()));
   }
 
-  void testClassification() {
+  void testClassification()
+  {
     cudaStream_t stream = handle.get_stream();
 
     raft::allocate(actual_labels, params.n_query_row, true);
@@ -140,22 +170,35 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
 
     create_data();
 
-    brute_force_knn(handle, part_inputs, part_sizes, params.n_cols, search_data,
-                    params.n_query_row, output_indices, output_dists,
-                    params.n_neighbors, true, true);
+    brute_force_knn(handle,
+                    part_inputs,
+                    part_sizes,
+                    params.n_cols,
+                    search_data,
+                    params.n_query_row,
+                    output_indices,
+                    output_dists,
+                    params.n_neighbors,
+                    true,
+                    true);
 
-    vector<int *> full_labels(1);
+    vector<int*> full_labels(1);
     full_labels[0] = index_labels;
 
-    knn_classify(handle, actual_labels, output_indices, full_labels,
-                 params.n_rows * params.n_parts, params.n_query_row,
+    knn_classify(handle,
+                 actual_labels,
+                 output_indices,
+                 full_labels,
+                 params.n_rows * params.n_parts,
+                 params.n_query_row,
                  params.n_neighbors);
 
-    ASSERT_TRUE(devArrMatch(search_labels, actual_labels, params.n_query_row,
-                            raft::Compare<int>()));
+    ASSERT_TRUE(
+      devArrMatch(search_labels, actual_labels, params.n_query_row, raft::Compare<int>()));
   }
 
-  void testRegression() {
+  void testRegression()
+  {
     cudaStream_t stream = handle.get_stream();
 
     raft::allocate(actual_labels, params.n_query_row, true);
@@ -163,57 +206,67 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
 
     create_data();
 
-    brute_force_knn(handle, part_inputs, part_sizes, params.n_cols, search_data,
-                    params.n_query_row, output_indices, output_dists,
-                    params.n_neighbors, true, true);
+    brute_force_knn(handle,
+                    part_inputs,
+                    part_sizes,
+                    params.n_cols,
+                    search_data,
+                    params.n_query_row,
+                    output_indices,
+                    output_dists,
+                    params.n_neighbors,
+                    true,
+                    true);
 
     device_buffer<float> index_labels_float(
       handle.get_device_allocator(), stream, params.n_rows * params.n_parts);
-    device_buffer<float> query_labels_float(handle.get_device_allocator(),
-                                            stream, params.n_query_row);
-    to_float<<<raft::ceildiv((int)index_labels_float.size(), 32), 32, 0,
-               stream>>>(index_labels_float.data(), index_labels,
-                         index_labels_float.size());
+    device_buffer<float> query_labels_float(
+      handle.get_device_allocator(), stream, params.n_query_row);
+    to_float<<<raft::ceildiv((int)index_labels_float.size(), 32), 32, 0, stream>>>(
+      index_labels_float.data(), index_labels, index_labels_float.size());
     to_float<<<raft::ceildiv(params.n_query_row, 32), 32, 0, stream>>>(
       query_labels_float.data(), search_labels, params.n_query_row);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaPeekAtLastError());
 
-    device_buffer<float> actual_labels_float(handle.get_device_allocator(),
-                                             stream, params.n_query_row);
+    device_buffer<float> actual_labels_float(
+      handle.get_device_allocator(), stream, params.n_query_row);
 
-    vector<float *> full_labels(1);
+    vector<float*> full_labels(1);
     full_labels[0] = index_labels_float.data();
 
-    knn_regress(handle, actual_labels_float.data(), output_indices, full_labels,
-                params.n_rows, params.n_query_row, params.n_neighbors);
+    knn_regress(handle,
+                actual_labels_float.data(),
+                output_indices,
+                full_labels,
+                params.n_rows,
+                params.n_query_row,
+                params.n_neighbors);
 
     ASSERT_TRUE(raft::devArrMatch(query_labels_float.data(),
                                   actual_labels_float.data(),
-                                  params.n_query_row, raft::Compare<float>()));
+                                  params.n_query_row,
+                                  raft::Compare<float>()));
   }
 
-  void SetUp() override {
+  void SetUp() override
+  {
     cudaStream_t stream = handle.get_stream();
 
     params = ::testing::TestWithParam<KNNInputs>::GetParam();
 
-    raft::allocate(index_data, params.n_rows * params.n_cols * params.n_parts,
-                   true);
+    raft::allocate(index_data, params.n_rows * params.n_cols * params.n_parts, true);
     raft::allocate(index_labels, params.n_rows * params.n_parts, true);
 
     raft::allocate(search_data, params.n_query_row * params.n_cols, true);
     raft::allocate(search_labels, params.n_query_row, true);
 
-    raft::allocate(output_indices,
-                   params.n_query_row * params.n_neighbors * params.n_parts,
-                   true);
-    raft::allocate(output_dists,
-                   params.n_query_row * params.n_neighbors * params.n_parts,
-                   true);
+    raft::allocate(output_indices, params.n_query_row * params.n_neighbors * params.n_parts, true);
+    raft::allocate(output_dists, params.n_query_row * params.n_neighbors * params.n_parts, true);
   }
 
-  void TearDown() override {
+  void TearDown() override
+  {
     CUDA_CHECK(cudaFree(index_data));
     CUDA_CHECK(cudaFree(index_labels));
     CUDA_CHECK(cudaFree(search_data));
@@ -225,47 +278,61 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
   }
 
  private:
-  void create_data() {
+  void create_data()
+  {
     cudaStream_t stream = handle.get_stream();
 
-    device_buffer<T> rand_centers(handle.get_device_allocator(), stream,
-                                  params.n_centers * params.n_cols);
+    device_buffer<T> rand_centers(
+      handle.get_device_allocator(), stream, params.n_centers * params.n_cols);
     Rng r(0, GeneratorType::GenPhilox);
-    r.uniform(rand_centers.data(), params.n_centers * params.n_cols, -10.0f,
-              10.0f, stream);
+    r.uniform(rand_centers.data(), params.n_centers * params.n_cols, -10.0f, 10.0f, stream);
 
     // Create index parts
-    create_index_parts(handle, index_data, index_labels, part_inputs,
-                       part_labels, part_sizes, params, rand_centers.data());
+    create_index_parts(handle,
+                       index_data,
+                       index_labels,
+                       part_inputs,
+                       part_labels,
+                       part_sizes,
+                       params,
+                       rand_centers.data());
 
-    gen_blobs(handle, search_data, search_labels, params.n_query_row,
-              params.n_cols, params.n_centers, rand_centers.data());
+    gen_blobs(handle,
+              search_data,
+              search_labels,
+              params.n_query_row,
+              params.n_cols,
+              params.n_centers,
+              rand_centers.data());
   }
 
   raft::handle_t handle;
 
   KNNInputs params;
 
-  float *index_data;
-  int *index_labels;
+  float* index_data;
+  int* index_labels;
 
-  vector<float *> part_inputs;
-  vector<int *> part_labels;
+  vector<float*> part_inputs;
+  vector<int*> part_labels;
   vector<int> part_sizes;
 
-  float *search_data;
-  int *search_labels;
+  float* search_data;
+  int* search_labels;
 
-  float *output_dists;
-  int64_t *output_indices;
+  float* output_dists;
+  int64_t* output_indices;
 
-  int *actual_labels;
-  int *expected_labels;
+  int* actual_labels;
+  int* expected_labels;
 };
 
-const std::vector<KNNInputs> inputs = {
-  {50, 5, 2, 25, 5, 2},    {50, 5, 2, 25, 10, 2},  {500, 5, 2, 25, 5, 7},
-  {500, 50, 2, 25, 10, 7}, {500, 50, 7, 25, 5, 7}, {50, 5, 3, 15, 5, 7}};
+const std::vector<KNNInputs> inputs = {{50, 5, 2, 25, 5, 2},
+                                       {50, 5, 2, 25, 10, 2},
+                                       {500, 5, 2, 25, 5, 7},
+                                       {500, 50, 2, 25, 10, 7},
+                                       {500, 50, 7, 25, 5, 7},
+                                       {50, 5, 3, 15, 5, 7}};
 
 typedef KNNTest<float> KNNTestF;
 TEST_P(KNNTestF, BruteForce) { this->testBruteForce(); }

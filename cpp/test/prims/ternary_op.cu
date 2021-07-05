@@ -31,15 +31,16 @@ struct BinaryOpInputs {
 };
 
 template <typename InType, typename IdxType = int, typename OutType = InType>
-::std::ostream &operator<<(::std::ostream &os,
-                           const BinaryOpInputs<InType, IdxType, OutType> &d) {
+::std::ostream& operator<<(::std::ostream& os, const BinaryOpInputs<InType, IdxType, OutType>& d)
+{
   return os;
 }
 
 template <typename T>
 class ternaryOpTest : public ::testing::TestWithParam<BinaryOpInputs<T>> {
  public:
-  void SetUp() override {
+  void SetUp() override
+  {
     params = ::testing::TestWithParam<BinaryOpInputs<T>>::GetParam();
     raft::random::Rng rng(params.seed);
 
@@ -67,7 +68,8 @@ class ternaryOpTest : public ::testing::TestWithParam<BinaryOpInputs<T>> {
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
-  void TearDown() override {
+  void TearDown() override
+  {
     CUDA_CHECK(cudaFree(in1));
     CUDA_CHECK(cudaFree(in2));
     CUDA_CHECK(cudaFree(in3));
@@ -82,33 +84,31 @@ class ternaryOpTest : public ::testing::TestWithParam<BinaryOpInputs<T>> {
   T *in1, *in2, *in3, *out_add_ref, *out_mul_ref, *out_add, *out_mul;
 };
 
-const std::vector<BinaryOpInputs<float>> inputsf = {
-  {0.000001f, 1024 * 1024, 1234ULL},
-  {0.000001f, 1024 * 1024 + 2, 1234ULL},
-  {0.000001f, 1024 * 1024 + 1, 1234ULL}};
+const std::vector<BinaryOpInputs<float>> inputsf = {{0.000001f, 1024 * 1024, 1234ULL},
+                                                    {0.000001f, 1024 * 1024 + 2, 1234ULL},
+                                                    {0.000001f, 1024 * 1024 + 1, 1234ULL}};
 typedef ternaryOpTest<float> ternaryOpTestF;
-TEST_P(ternaryOpTestF, Result) {
-  ASSERT_TRUE(devArrMatch(out_add_ref, out_add, params.len,
-                          raft::CompareApprox<float>(params.tolerance)));
-  ASSERT_TRUE(devArrMatch(out_mul_ref, out_mul, params.len,
-                          raft::CompareApprox<float>(params.tolerance)));
+TEST_P(ternaryOpTestF, Result)
+{
+  ASSERT_TRUE(
+    devArrMatch(out_add_ref, out_add, params.len, raft::CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(
+    devArrMatch(out_mul_ref, out_mul, params.len, raft::CompareApprox<float>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(ternaryOpTests, ternaryOpTestF,
-                        ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(ternaryOpTests, ternaryOpTestF, ::testing::ValuesIn(inputsf));
 
-const std::vector<BinaryOpInputs<double>> inputsd = {
-  {0.00000001, 1024 * 1024, 1234ULL},
-  {0.00000001, 1024 * 1024 + 2, 1234ULL},
-  {0.00000001, 1024 * 1024 + 1, 1234ULL}};
+const std::vector<BinaryOpInputs<double>> inputsd = {{0.00000001, 1024 * 1024, 1234ULL},
+                                                     {0.00000001, 1024 * 1024 + 2, 1234ULL},
+                                                     {0.00000001, 1024 * 1024 + 1, 1234ULL}};
 typedef ternaryOpTest<double> ternaryOpTestD;
-TEST_P(ternaryOpTestD, Result) {
-  ASSERT_TRUE(devArrMatch(out_add_ref, out_add, params.len,
-                          raft::CompareApprox<double>(params.tolerance)));
-  ASSERT_TRUE(devArrMatch(out_mul_ref, out_mul, params.len,
-                          raft::CompareApprox<double>(params.tolerance)));
+TEST_P(ternaryOpTestD, Result)
+{
+  ASSERT_TRUE(
+    devArrMatch(out_add_ref, out_add, params.len, raft::CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(
+    devArrMatch(out_mul_ref, out_mul, params.len, raft::CompareApprox<double>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(ternaryOpTests, ternaryOpTestD,
-                        ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_CASE_P(ternaryOpTests, ternaryOpTestD, ::testing::ValuesIn(inputsd));
 
 }  // end namespace LinAlg
 }  // end namespace MLCommon

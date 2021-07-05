@@ -22,11 +22,13 @@ namespace ML {
 
 namespace Metrics {
 
-float accuracy_score_py(const raft::handle_t &handle, const int *predictions,
-                        const int *ref_predictions, int n) {
-  return MLCommon::Score::accuracy_score(predictions, ref_predictions, n,
-                                         handle.get_device_allocator(),
-                                         handle.get_stream());
+float accuracy_score_py(const raft::handle_t& handle,
+                        const int* predictions,
+                        const int* ref_predictions,
+                        int n)
+{
+  return MLCommon::Score::accuracy_score(
+    predictions, ref_predictions, n, handle.get_device_allocator(), handle.get_stream());
 }
 }  // namespace Metrics
 }  // namespace ML

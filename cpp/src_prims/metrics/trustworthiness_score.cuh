@@ -32,32 +32,36 @@ namespace Score {
  * @param n: Number of samples
  * @param work: Number of elements to consider
  */
-__global__ void build_lookup_table(int *lookup_table, const int *X_ind, int n,
-                                   int work) {
+__global__ void build_lookup_table(int* lookup_table, const int* X_ind, int n, int work)
+{
   int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i >= work) return;
 
   int sample_idx = i / n;
-  int nn_idx = i % n;
+  int nn_idx     = i % n;
 
-  int idx = X_ind[i];
+  int idx                              = X_ind[i];
   lookup_table[(sample_idx * n) + idx] = nn_idx;
 }
 
 /**
-  * @brief Compute a the rank of trustworthiness score
-  * @param[out] rank: Resulting rank
-  * @param[out] lookup_table: Lookup table giving nearest neighbor order
-  *                of pairwise distance calculations given sample index
-  * @param[in] emb_ind: Indexes of KNN on embeddings
-  * @param n: Number of samples
-  * @param n_neighbors: Number of neighbors considered by trustworthiness score
-  * @param work: Batch to consider (to do it at once use n * n_neighbors)
-  */
+ * @brief Compute a the rank of trustworthiness score
+ * @param[out] rank: Resulting rank
+ * @param[out] lookup_table: Lookup table giving nearest neighbor order
+ *                of pairwise distance calculations given sample index
+ * @param[in] emb_ind: Indexes of KNN on embeddings
+ * @param n: Number of samples
+ * @param n_neighbors: Number of neighbors considered by trustworthiness score
+ * @param work: Batch to consider (to do it at once use n * n_neighbors)
+ */
 template <typename knn_index_t>
-__global__ void compute_rank(double *rank, const int *lookup_table,
-                             const knn_index_t *emb_ind, int n, int n_neighbors,
-                             int work) {
+__global__ void compute_rank(double* rank,
+                             const int* lookup_table,
+                             const knn_index_t* emb_ind,
+                             int n,
+                             int n_neighbors,
+                             int work)
+{
   int i = blockIdx.x * blockDim.x + threadIdx.x;
   if (i >= work) return;
 
@@ -65,7 +69,7 @@ __global__ void compute_rank(double *rank, const int *lookup_table,
 
   knn_index_t emb_nn_ind = emb_ind[i];
 
-  int r = lookup_table[(sample_idx * n) + emb_nn_ind];
+  int r   = lookup_table[(sample_idx * n) + emb_nn_ind];
   int tmp = r - n_neighbors + 1;
   if (tmp > 0) raft::myAtomicAdd<double>(rank, tmp);
 }
@@ -81,16 +85,32 @@ __global__ void compute_rank(double *rank, const int *lookup_table,
  * @param[out] distances KNN distances
  */
 template <raft::distance::DistanceType distance_type, typename math_t>
-void run_knn(const raft::handle_t &h, math_t *input, int n, int d,
-             int n_neighbors, int64_t *indices, math_t *distances) {
-  std::vector<math_t *> ptrs(1);
+void run_knn(const raft::handle_t& h,
+             math_t* input,
+             int n,
+             int d,
+             int n_neighbors,
+             int64_t* indices,
+             math_t* distances)
+{
+  std::vector<math_t*> ptrs(1);
   std::vector<int> sizes(1);
-  ptrs[0] = input;
+  ptrs[0]  = input;
   sizes[0] = n;
 
-  raft::spatial::knn::brute_force_knn(h, ptrs, sizes, d, input, n, indices,
-                                      distances, n_neighbors, true, true,
-                                      nullptr, distance_type);
+  raft::spatial::knn::brute_force_knn(h,
+                                      ptrs,
+                                      sizes,
+                                      d,
+                                      input,
+                                      n,
+                                      indices,
+                                      distances,
+                                      n_neighbors,
+                                      true,
+                                      true,
+                                      nullptr,
+                                      distance_type);
 }
 
 /**
@@ -106,17 +126,22 @@ void run_knn(const raft::handle_t &h, math_t *input, int n, int d,
  * @return Trustworthiness score
  */
 template <typename math_t, raft::distance::DistanceType distance_type>
-double trustworthiness_score(const raft::handle_t &h, const math_t *X,
-                             math_t *X_embedded, int n, int m, int d,
-                             int n_neighbors, int batchSize = 512) {
+double trustworthiness_score(const raft::handle_t& h,
+                             const math_t* X,
+                             math_t* X_embedded,
+                             int n,
+                             int m,
+                             int d,
+                             int n_neighbors,
+                             int batchSize = 512)
+{
   cudaStream_t stream = h.get_stream();
 
   const int KNN_ALLOC = n * (n_neighbors + 1);
   rmm::device_uvector<int64_t> emb_ind(KNN_ALLOC, stream);
   rmm::device_uvector<math_t> emb_dist(KNN_ALLOC, stream);
 
-  run_knn<distance_type>(h, X_embedded, n, d, n_neighbors + 1, emb_ind.data(),
-                         emb_dist.data());
+  run_knn<distance_type>(h, X_embedded, n, d, n_neighbors + 1, emb_ind.data(), emb_dist.data());
 
   const int PAIRWISE_ALLOC = batchSize * n;
   rmm::device_uvector<int> X_ind(PAIRWISE_ALLOC, stream);
@@ -125,7 +150,7 @@ double trustworthiness_score(const raft::handle_t &h, const math_t *X,
 
   double t = 0.0;
   rmm::device_uvector<double> t_dbuf(1, stream);
-  double *d_t = t_dbuf.data();
+  double* d_t = t_dbuf.data();
 
   int toDo = n;
   while (toDo > 0) {
@@ -135,37 +160,57 @@ double trustworthiness_score(const raft::handle_t &h, const math_t *X,
 
     size_t workspaceSize = 0;
 
-    raft::distance::distance<distance_type, math_t, math_t, math_t>(
-      &X[(n - toDo) * m], X, X_dist.data(), curBatchSize, n, m, (void *)nullptr,
-      workspaceSize, stream);
+    raft::distance::distance<distance_type, math_t, math_t, math_t>(&X[(n - toDo) * m],
+                                                                    X,
+                                                                    X_dist.data(),
+                                                                    curBatchSize,
+                                                                    n,
+                                                                    m,
+                                                                    (void*)nullptr,
+                                                                    workspaceSize,
+                                                                    stream);
 
     size_t colSortWorkspaceSize = 0;
-    bool bAllocWorkspace = false;
+    bool bAllocWorkspace        = false;
 
-    MLCommon::Selection::sortColumnsPerRow(
-      X_dist.data(), X_ind.data(), curBatchSize, n, bAllocWorkspace, nullptr,
-      colSortWorkspaceSize, stream);
+    MLCommon::Selection::sortColumnsPerRow(X_dist.data(),
+                                           X_ind.data(),
+                                           curBatchSize,
+                                           n,
+                                           bAllocWorkspace,
+                                           nullptr,
+                                           colSortWorkspaceSize,
+                                           stream);
 
     if (bAllocWorkspace) {
       rmm::device_uvector<char> sortColsWorkspace(colSortWorkspaceSize, stream);
 
-      MLCommon::Selection::sortColumnsPerRow(
-        X_dist.data(), X_ind.data(), curBatchSize, n, bAllocWorkspace,
-        sortColsWorkspace.data(), colSortWorkspaceSize, stream);
+      MLCommon::Selection::sortColumnsPerRow(X_dist.data(),
+                                             X_ind.data(),
+                                             curBatchSize,
+                                             n,
+                                             bAllocWorkspace,
+                                             sortColsWorkspace.data(),
+                                             colSortWorkspaceSize,
+                                             stream);
     }
 
-    int work = curBatchSize * n;
+    int work     = curBatchSize * n;
     int n_blocks = raft::ceildiv(work, N_THREADS);
     build_lookup_table<<<n_blocks, N_THREADS, 0, stream>>>(
       lookup_table.data(), X_ind.data(), n, work);
 
     CUDA_CHECK(cudaMemsetAsync(d_t, 0, sizeof(double), stream));
 
-    work = curBatchSize * (n_neighbors + 1);
+    work     = curBatchSize * (n_neighbors + 1);
     n_blocks = raft::ceildiv(work, N_THREADS);
     compute_rank<<<n_blocks, N_THREADS, 0, stream>>>(
-      d_t, lookup_table.data(), &emb_ind.data()[(n - toDo) * (n_neighbors + 1)],
-      n, n_neighbors + 1, work);
+      d_t,
+      lookup_table.data(),
+      &emb_ind.data()[(n - toDo) * (n_neighbors + 1)],
+      n,
+      n_neighbors + 1,
+      work);
     CUDA_CHECK(cudaPeekAtLastError());
 
     double t_tmp = 0.;
@@ -176,9 +221,7 @@ double trustworthiness_score(const raft::handle_t &h, const math_t *X,
     toDo -= curBatchSize;
   }
 
-  t =
-    1.0 -
-    ((2.0 / ((n * n_neighbors) * ((2.0 * n) - (3.0 * n_neighbors) - 1.0))) * t);
+  t = 1.0 - ((2.0 / ((n * n_neighbors) * ((2.0 * n) - (3.0 * n_neighbors) - 1.0))) * t);
 
   return t;
 }

@@ -39,9 +39,10 @@ struct RidgeInputs {
 template <typename T>
 class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
  protected:
-  void basicTest() {
-    params = ::testing::TestWithParam<RidgeInputs<T>>::GetParam();
-    int len = params.n_row * params.n_col;
+  void basicTest()
+  {
+    params   = ::testing::TestWithParam<RidgeInputs<T>>::GetParam();
+    int len  = params.n_row * params.n_col;
     int len2 = params.n_row_2 * params.n_col;
 
     raft::allocate(data, len);
@@ -90,35 +91,66 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
 
     intercept = T(0);
 
-    ridgeFit(handle, data, params.n_row, params.n_col, labels, &alpha, 1, coef,
-             &intercept, false, false, stream, params.algo);
+    ridgeFit(handle,
+             data,
+             params.n_row,
+             params.n_col,
+             labels,
+             &alpha,
+             1,
+             coef,
+             &intercept,
+             false,
+             false,
+             stream,
+             params.algo);
 
-    gemmPredict(handle, pred_data, params.n_row_2, params.n_col, coef,
-                intercept, pred, stream);
+    gemmPredict(handle, pred_data, params.n_row_2, params.n_col, coef, intercept, pred, stream);
 
     raft::update_device(data, data_h, len, stream);
     raft::update_device(labels, labels_h, params.n_row, stream);
 
     intercept2 = T(0);
-    ridgeFit(handle, data, params.n_row, params.n_col, labels, &alpha, 1, coef2,
-             &intercept2, true, false, stream, params.algo);
+    ridgeFit(handle,
+             data,
+             params.n_row,
+             params.n_col,
+             labels,
+             &alpha,
+             1,
+             coef2,
+             &intercept2,
+             true,
+             false,
+             stream,
+             params.algo);
 
-    gemmPredict(handle, pred_data, params.n_row_2, params.n_col, coef2,
-                intercept2, pred2, stream);
+    gemmPredict(handle, pred_data, params.n_row_2, params.n_col, coef2, intercept2, pred2, stream);
 
     raft::update_device(data, data_h, len, stream);
     raft::update_device(labels, labels_h, params.n_row, stream);
 
     intercept3 = T(0);
-    ridgeFit(handle, data, params.n_row, params.n_col, labels, &alpha, 1, coef3,
-             &intercept3, true, true, stream, params.algo);
+    ridgeFit(handle,
+             data,
+             params.n_row,
+             params.n_col,
+             labels,
+             &alpha,
+             1,
+             coef3,
+             &intercept3,
+             true,
+             true,
+             stream,
+             params.algo);
 
-    gemmPredict(handle, pred_data, params.n_row_2, params.n_col, coef3,
-                intercept3, pred3, stream);
+    gemmPredict(handle, pred_data, params.n_row_2, params.n_col, coef3, intercept3, pred3, stream);
   }
 
-  void basicTest2() {
-    params = ::testing::TestWithParam<RidgeInputs<T>>::GetParam();
+  void basicTest2()
+  {
+    params  = ::testing::TestWithParam<RidgeInputs<T>>::GetParam();
     int len = params.n_row * params.n_col;
 
     raft::allocate(data_sc, len);
@@ -139,20 +171,33 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
     raft::update_device(coef_sc_ref, coef_sc_ref_h.data(), 1, stream);
 
     T intercept_sc = T(0);
-    T alpha_sc = T(1.0);
+    T alpha_sc     = T(1.0);
 
-    ridgeFit(handle, data_sc, len, 1, labels_sc, &alpha_sc, 1, coef_sc,
-             &intercept_sc, true, false, stream, params.algo);
+    ridgeFit(handle,
+             data_sc,
+             len,
+             1,
+             labels_sc,
+             &alpha_sc,
+             1,
+             coef_sc,
+             &intercept_sc,
+             true,
+             false,
+             stream,
+             params.algo);
   }
 
-  void SetUp() override {
+  void SetUp() override
+  {
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.set_stream(stream);
     basicTest();
     basicTest2();
   }
 
-  void TearDown() override {
+  void TearDown() override
+  {
     CUDA_CHECK(cudaFree(data));
     CUDA_CHECK(cudaFree(labels));
     CUDA_CHECK(cudaFree(coef));
@@ -194,51 +239,53 @@ const std::vector<RidgeInputs<double>> inputsd2 = {{0.001, 3, 2, 2, 0, 0.5},
                                                    {0.001, 3, 2, 2, 1, 0.5}};
 
 typedef RidgeTest<float> RidgeTestF;
-TEST_P(RidgeTestF, Fit) {
-  ASSERT_TRUE(raft::devArrMatch(coef_ref, coef, params.n_col,
-                                raft::CompareApproxAbs<float>(params.tol)));
+TEST_P(RidgeTestF, Fit)
+{
+  ASSERT_TRUE(
+    raft::devArrMatch(coef_ref, coef, params.n_col, raft::CompareApproxAbs<float>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(coef2_ref, coef2, params.n_col,
-                                raft::CompareApproxAbs<float>(params.tol)));
+  ASSERT_TRUE(
+    raft::devArrMatch(coef2_ref, coef2, params.n_col, raft::CompareApproxAbs<float>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(coef3_ref, coef3, params.n_col,
-                                raft::CompareApproxAbs<float>(params.tol)));
+  ASSERT_TRUE(
+    raft::devArrMatch(coef3_ref, coef3, params.n_col, raft::CompareApproxAbs<float>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(pred_ref, pred, params.n_row_2,
-                                raft::CompareApproxAbs<float>(params.tol)));
+  ASSERT_TRUE(
+    raft::devArrMatch(pred_ref, pred, params.n_row_2, raft::CompareApproxAbs<float>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(pred2_ref, pred2, params.n_row_2,
-                                raft::CompareApproxAbs<float>(params.tol)));
+  ASSERT_TRUE(
+    raft::devArrMatch(pred2_ref, pred2, params.n_row_2, raft::CompareApproxAbs<float>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(pred3_ref, pred3, params.n_row_2,
-                                raft::CompareApproxAbs<float>(params.tol)));
+  ASSERT_TRUE(
+    raft::devArrMatch(pred3_ref, pred3, params.n_row_2, raft::CompareApproxAbs<float>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(coef_sc_ref, coef_sc, 1,
-                                raft::CompareApproxAbs<float>(params.tol)));
+  ASSERT_TRUE(
+    raft::devArrMatch(coef_sc_ref, coef_sc, 1, raft::CompareApproxAbs<float>(params.tol)));
 }
 
 typedef RidgeTest<double> RidgeTestD;
-TEST_P(RidgeTestD, Fit) {
-  ASSERT_TRUE(raft::devArrMatch(coef_ref, coef, params.n_col,
-                                raft::CompareApproxAbs<double>(params.tol)));
+TEST_P(RidgeTestD, Fit)
+{
+  ASSERT_TRUE(
+    raft::devArrMatch(coef_ref, coef, params.n_col, raft::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(coef2_ref, coef2, params.n_col,
-                                raft::CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(
+    raft::devArrMatch(coef2_ref, coef2, params.n_col, raft::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(coef3_ref, coef3, params.n_col,
-                                raft::CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(
+    raft::devArrMatch(coef3_ref, coef3, params.n_col, raft::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(pred_ref, pred, params.n_row_2,
-                                raft::CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(
+    raft::devArrMatch(pred_ref, pred, params.n_row_2, raft::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(pred2_ref, pred2, params.n_row_2,
-                                raft::CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(raft::devArrMatch(
+    pred2_ref, pred2, params.n_row_2, raft::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(pred3_ref, pred3, params.n_row_2,
-                                raft::CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(raft::devArrMatch(
+    pred3_ref, pred3, params.n_row_2, raft::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(coef_sc_ref, coef_sc, 1,
-                                raft::CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(
+    raft::devArrMatch(coef_sc_ref, coef_sc, 1, raft::CompareApproxAbs<double>(params.tol)));
 }
 
 INSTANTIATE_TEST_CASE_P(RidgeTests, RidgeTestF, ::testing::ValuesIn(inputsf2));

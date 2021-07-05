@@ -22,10 +22,13 @@ namespace MLCommon {
 namespace Functions {
 
 template <typename math_t>
-void softThres(math_t *out, const math_t *in, const math_t thres, const int len,
-               cudaStream_t stream) {
+void softThres(
+  math_t* out, const math_t* in, const math_t thres, const int len, cudaStream_t stream)
+{
   raft::linalg::unaryOp(
-    out, in, len,
+    out,
+    in,
+    len,
     [thres] __device__(math_t in) {
       if (in > math_t(0) && thres < raft::myAbs(in))
         return in - thres;

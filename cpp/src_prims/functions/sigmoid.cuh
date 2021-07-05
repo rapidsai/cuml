@@ -23,11 +23,11 @@ namespace MLCommon {
 namespace Functions {
 
 template <typename T, typename IdxType = int>
-void sigmoid(T *out, T *in, IdxType len, cudaStream_t stream) {
+void sigmoid(T* out, T* in, IdxType len, cudaStream_t stream)
+{
   T one = T(1);
   raft::linalg::unaryOp(
-    out, in, len,
-    [one] __device__(T in) { return one / (one + raft::myExp(-in)); }, stream);
+    out, in, len, [one] __device__(T in) { return one / (one + raft::myExp(-in)); }, stream);
 }
 
 };  // end namespace Functions

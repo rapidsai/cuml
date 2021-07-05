@@ -25,36 +25,41 @@ namespace Solver {
 using namespace MLCommon;
 
 template <typename math_t>
-math_t max(math_t a, math_t b) {
+math_t max(math_t a, math_t b)
+{
   return (a < b) ? b : a;
   ;
 }
 
 template <typename math_t>
-math_t invScaling(math_t eta, math_t power_t, int t) {
+math_t invScaling(math_t eta, math_t power_t, int t)
+{
   return (eta / pow(t, power_t));
 }
 
 template <typename math_t>
-math_t regDLoss(math_t a, math_t b) {
+math_t regDLoss(math_t a, math_t b)
+{
   return a - b;
 }
 
 template <typename math_t>
-math_t calOptimalInit(math_t alpha) {
-  math_t typw = sqrt(math_t(1.0) / sqrt(alpha));
+math_t calOptimalInit(math_t alpha)
+{
+  math_t typw         = sqrt(math_t(1.0) / sqrt(alpha));
   math_t initial_eta0 = typw / max(math_t(1.0), regDLoss(-typw, math_t(1.0)));
   return (math_t(1.0) / (initial_eta0 * alpha));
 }
 
 template <typename math_t>
-math_t optimal(math_t alpha, math_t optimal_init, int t) {
+math_t optimal(math_t alpha, math_t optimal_init, int t)
+{
   return math_t(1.0) / (alpha * (optimal_init + t - 1));
 }
 
 template <typename math_t>
-math_t calLearningRate(ML::lr_type lr_type, math_t eta, math_t power_t,
-                       math_t alpha, math_t t) {
+math_t calLearningRate(ML::lr_type lr_type, math_t eta, math_t power_t, math_t alpha, math_t t)
+{
   if (lr_type == ML::lr_type::CONSTANT) {
     return eta;
   } else if (lr_type == ML::lr_type::INVSCALING) {

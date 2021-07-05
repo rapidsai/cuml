@@ -32,8 +32,8 @@ namespace Random {
 /// @todo Duplicate called vctwiseAccumulate in utils.h (Kalman Filters,
 // i think that is much better to use., more general)
 template <typename T>
-__global__ void En_KF_accumulate(const int nPoints, const int dim, const T *X,
-                                 T *x) {
+__global__ void En_KF_accumulate(const int nPoints, const int dim, const T* X, T* x)
+{
   int idx = threadIdx.x + blockDim.x * blockIdx.x;
   int col = idx % dim;
   int row = idx / dim;
@@ -41,14 +41,15 @@ __global__ void En_KF_accumulate(const int nPoints, const int dim, const T *X,
 }
 
 template <typename T>
-__global__ void En_KF_normalize(const int divider, const int dim, T *x) {
+__global__ void En_KF_normalize(const int divider, const int dim, T* x)
+{
   int xi = threadIdx.x + blockDim.x * blockIdx.x;
   if (xi < dim) x[xi] = x[xi] / divider;
 }
 
 template <typename T>
-__global__ void En_KF_dif(const int nPoints, const int dim, const T *X,
-                          const T *x, T *X_diff) {
+__global__ void En_KF_dif(const int nPoints, const int dim, const T* X, const T* x, T* X_diff)
+{
   int idx = threadIdx.x + blockDim.x * blockIdx.x;
   int col = idx % dim;
   int row = idx / dim;
@@ -71,20 +72,22 @@ struct MVGInputs {
 };
 
 template <typename T>
-::std::ostream &operator<<(::std::ostream &os, const MVGInputs<T> &dims) {
+::std::ostream& operator<<(::std::ostream& os, const MVGInputs<T>& dims)
+{
   return os;
 }
 
 template <typename T>
 class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
  protected:
-  void SetUp() override {
+  void SetUp() override
+  {
     // getting params
-    params = ::testing::TestWithParam<MVGInputs<T>>::GetParam();
-    dim = params.dim;
-    nPoints = params.nPoints;
-    method = params.method;
-    corr = params.corr;
+    params    = ::testing::TestWithParam<MVGInputs<T>>::GetParam();
+    dim       = params.dim;
+    nPoints   = params.nPoints;
+    method    = params.method;
+    corr      = params.corr;
     tolerance = params.tolerance;
 
     CUBLAS_CHECK(cublasCreate(&cublasH));
@@ -92,18 +95,19 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     // preparing to store stuff
-    P = (T *)malloc(sizeof(T) * dim * dim);
-    x = (T *)malloc(sizeof(T) * dim);
-    X = (T *)malloc(sizeof(T) * dim * nPoints);
-    CUDA_CHECK(cudaMalloc((void **)&P_d, sizeof(T) * dim * dim));
-    CUDA_CHECK(cudaMalloc((void **)&X_d, sizeof(T) * nPoints * dim));
-    CUDA_CHECK(cudaMalloc((void **)&x_d, sizeof(T) * dim));
-    CUDA_CHECK(cudaMalloc((void **)&Rand_cov, sizeof(T) * dim * dim));
-    CUDA_CHECK(cudaMalloc((void **)&Rand_mean, sizeof(T) * dim));
+    P = (T*)malloc(sizeof(T) * dim * dim);
+    x = (T*)malloc(sizeof(T) * dim);
+    X = (T*)malloc(sizeof(T) * dim * nPoints);
+    CUDA_CHECK(cudaMalloc((void**)&P_d, sizeof(T) * dim * dim));
+    CUDA_CHECK(cudaMalloc((void**)&X_d, sizeof(T) * nPoints * dim));
+    CUDA_CHECK(cudaMalloc((void**)&x_d, sizeof(T) * dim));
+    CUDA_CHECK(cudaMalloc((void**)&Rand_cov, sizeof(T) * dim * dim));
+    CUDA_CHECK(cudaMalloc((void**)&Rand_mean, sizeof(T) * dim));
 
     // generating random mean and cov.
     srand(params.seed);
-    for (int j = 0; j < dim; j++) x[j] = rand() % 100 + 5.0f;
+    for (int j = 0; j < dim; j++)
+      x[j] = rand() % 100 + 5.0f;
 
     // for random Cov. martix
     std::default_random_engine generator(params.seed);
@@ -125,11 +129,11 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
     raft::update_device(x_d, x, dim, stream);
 
     // initilizing the mvg
-    mvg = new MultiVarGaussian<T>(dim, method);
+    mvg      = new MultiVarGaussian<T>(dim, method);
     size_t o = mvg->init(cublasH, cusolverH, stream);
 
     // give the workspace area to mvg
-    CUDA_CHECK(cudaMalloc((void **)&workspace_d, o));
+    CUDA_CHECK(cudaMalloc((void**)&workspace_d, o));
     mvg->set_workspace(workspace_d);
 
     // get gaussians in X_d | P_d is destroyed.
@@ -139,7 +143,7 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
     //@todo can be swapped with a API that calculates mean
     CUDA_CHECK(cudaMemset(Rand_mean, 0, dim * sizeof(T)));
     dim3 block = (64);
-    dim3 grid = (raft::ceildiv(nPoints * dim, (int)block.x));
+    dim3 grid  = (raft::ceildiv(nPoints * dim, (int)block.x));
     En_KF_accumulate<<<grid, block>>>(nPoints, dim, X_d, Rand_mean);
     CUDA_CHECK(cudaPeekAtLastError());
     grid = (raft::ceildiv(dim, (int)block.x));
@@ -155,15 +159,28 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
     T alfa = 1.0 / (nPoints - 1), beta = 0.0;
     cublasHandle_t handle;
     CUBLAS_CHECK(cublasCreate(&handle));
-    CUBLAS_CHECK(raft::linalg::cublasgemm(handle, CUBLAS_OP_N, CUBLAS_OP_T, dim,
-                                          dim, nPoints, &alfa, X_d, dim, X_d,
-                                          dim, &beta, Rand_cov, dim, stream));
+    CUBLAS_CHECK(raft::linalg::cublasgemm(handle,
+                                          CUBLAS_OP_N,
+                                          CUBLAS_OP_T,
+                                          dim,
+                                          dim,
+                                          nPoints,
+                                          &alfa,
+                                          X_d,
+                                          dim,
+                                          X_d,
+                                          dim,
+                                          &beta,
+                                          Rand_cov,
+                                          dim,
+                                          stream));
 
     // restoring cov provided into P_d
     raft::update_device(P_d, P, dim * dim, stream);
   }
 
-  void TearDown() override {
+  void TearDown() override
+  {
     // freeing mallocs
     CUDA_CHECK(cudaFree(P_d));
     CUDA_CHECK(cudaFree(X_d));
@@ -187,7 +204,7 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
   int dim, nPoints;
   typename MultiVarGaussian<T>::Decomposer method;
   Correlation corr;
-  MultiVarGaussian<T> *mvg = NULL;
+  MultiVarGaussian<T>* mvg = NULL;
   T *Rand_cov, *Rand_mean, tolerance;
   cublasHandle_t cublasH;
   cusolverDnHandle_t cusolverH;
@@ -197,30 +214,35 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
 ///@todo find out the reason that Un-correlated covs are giving problems (in qr)
 // Declare your inputs
 const std::vector<MVGInputs<float>> inputsf = {
-  {0.3f, MultiVarGaussian<float>::Decomposer::chol_decomp,
-   Correlation::CORRELATED, 5, 30000, 6ULL},
-  {0.1f, MultiVarGaussian<float>::Decomposer::chol_decomp,
-   Correlation::UNCORRELATED, 5, 30000, 6ULL},
-  {0.25f, MultiVarGaussian<float>::Decomposer::jacobi, Correlation::CORRELATED,
-   5, 30000, 6ULL},
-  {0.1f, MultiVarGaussian<float>::Decomposer::jacobi, Correlation::UNCORRELATED,
-   5, 30000, 6ULL},
-  {0.2f, MultiVarGaussian<float>::Decomposer::qr, Correlation::CORRELATED, 5,
-   30000, 6ULL},
+  {0.3f, MultiVarGaussian<float>::Decomposer::chol_decomp, Correlation::CORRELATED, 5, 30000, 6ULL},
+  {0.1f,
+   MultiVarGaussian<float>::Decomposer::chol_decomp,
+   Correlation::UNCORRELATED,
+   5,
+   30000,
+   6ULL},
+  {0.25f, MultiVarGaussian<float>::Decomposer::jacobi, Correlation::CORRELATED, 5, 30000, 6ULL},
+  {0.1f, MultiVarGaussian<float>::Decomposer::jacobi, Correlation::UNCORRELATED, 5, 30000, 6ULL},
+  {0.2f, MultiVarGaussian<float>::Decomposer::qr, Correlation::CORRELATED, 5, 30000, 6ULL},
   // { 0.2f,          MultiVarGaussian<float>::Decomposer::qr,
   // Correlation::UNCORRELATED, 5, 30000, 6ULL}
 };
 const std::vector<MVGInputs<double>> inputsd = {
-  {0.25, MultiVarGaussian<double>::Decomposer::chol_decomp,
-   Correlation::CORRELATED, 10, 3000000, 6ULL},
-  {0.1, MultiVarGaussian<double>::Decomposer::chol_decomp,
-   Correlation::UNCORRELATED, 10, 3000000, 6ULL},
-  {0.25, MultiVarGaussian<double>::Decomposer::jacobi, Correlation::CORRELATED,
-   10, 3000000, 6ULL},
-  {0.1, MultiVarGaussian<double>::Decomposer::jacobi, Correlation::UNCORRELATED,
-   10, 3000000, 6ULL},
-  {0.2, MultiVarGaussian<double>::Decomposer::qr, Correlation::CORRELATED, 10,
-   3000000, 6ULL},
+  {0.25,
+   MultiVarGaussian<double>::Decomposer::chol_decomp,
+   Correlation::CORRELATED,
+   10,
+   3000000,
+   6ULL},
+  {0.1,
+   MultiVarGaussian<double>::Decomposer::chol_decomp,
+   Correlation::UNCORRELATED,
+   10,
+   3000000,
+   6ULL},
+  {0.25, MultiVarGaussian<double>::Decomposer::jacobi, Correlation::CORRELATED, 10, 3000000, 6ULL},
+  {0.1, MultiVarGaussian<double>::Decomposer::jacobi, Correlation::UNCORRELATED, 10, 3000000, 6ULL},
+  {0.2, MultiVarGaussian<double>::Decomposer::qr, Correlation::CORRELATED, 10, 3000000, 6ULL},
   // { 0.2,          MultiVarGaussian<double>::Decomposer::qr,
   // Correlation::UNCORRELATED, 10, 3000000, 6ULL}
 };
@@ -228,24 +250,24 @@ const std::vector<MVGInputs<double>> inputsd = {
 // make the tests
 typedef MVGTest<float> MVGTestF;
 typedef MVGTest<double> MVGTestD;
-TEST_P(MVGTestF, MeanIsCorrectF) {
-  EXPECT_TRUE(raft::devArrMatch(x_d, Rand_mean, dim,
-                                raft::CompareApprox<float>(tolerance)))
+TEST_P(MVGTestF, MeanIsCorrectF)
+{
+  EXPECT_TRUE(raft::devArrMatch(x_d, Rand_mean, dim, raft::CompareApprox<float>(tolerance)))
     << " in MeanIsCorrect";
 }
-TEST_P(MVGTestF, CovIsCorrectF) {
-  EXPECT_TRUE(raft::devArrMatch(P_d, Rand_cov, dim, dim,
-                                raft::CompareApprox<float>(tolerance)))
+TEST_P(MVGTestF, CovIsCorrectF)
+{
+  EXPECT_TRUE(raft::devArrMatch(P_d, Rand_cov, dim, dim, raft::CompareApprox<float>(tolerance)))
     << " in CovIsCorrect";
 }
-TEST_P(MVGTestD, MeanIsCorrectD) {
-  EXPECT_TRUE(raft::devArrMatch(x_d, Rand_mean, dim,
-                                raft::CompareApprox<double>(tolerance)))
+TEST_P(MVGTestD, MeanIsCorrectD)
+{
+  EXPECT_TRUE(raft::devArrMatch(x_d, Rand_mean, dim, raft::CompareApprox<double>(tolerance)))
     << " in MeanIsCorrect";
 }
-TEST_P(MVGTestD, CovIsCorrectD) {
-  EXPECT_TRUE(raft::devArrMatch(P_d, Rand_cov, dim, dim,
-                                raft::CompareApprox<double>(tolerance)))
+TEST_P(MVGTestD, CovIsCorrectD)
+{
+  EXPECT_TRUE(raft::devArrMatch(P_d, Rand_cov, dim, dim, raft::CompareApprox<double>(tolerance)))
     << " in CovIsCorrect";
 }
 

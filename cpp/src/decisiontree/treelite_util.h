@@ -48,6 +48,6 @@ class TreeliteType<int> {
   static constexpr const char* value = "uint32";
 };
 
-}  //End namespace DT
+}  // End namespace DT
 
-}  //End namespace ML
+}  // End namespace ML

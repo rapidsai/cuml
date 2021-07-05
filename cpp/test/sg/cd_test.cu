@@ -36,8 +36,9 @@ struct CdInputs {
 template <typename T>
 class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
  protected:
-  void lasso() {
-    params = ::testing::TestWithParam<CdInputs<T>>::GetParam();
+  void lasso()
+  {
+    params  = ::testing::TestWithParam<CdInputs<T>>::GetParam();
     int len = params.n_row * params.n_col;
 
     raft::allocate(data, len);
@@ -69,49 +70,103 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
     T coef4_ref_h[params.n_col] = {0.569439, -0.00542};
     raft::update_device(coef4_ref, coef4_ref_h, params.n_col, stream);
 
-    bool fit_intercept = false;
-    bool normalize = false;
-    int epochs = 200;
-    T alpha = T(0.2);
-    T l1_ratio = T(1.0);
-    bool shuffle = false;
-    T tol = T(1e-4);
+    bool fit_intercept  = false;
+    bool normalize      = false;
+    int epochs          = 200;
+    T alpha             = T(0.2);
+    T l1_ratio          = T(1.0);
+    bool shuffle        = false;
+    T tol               = T(1e-4);
     ML::loss_funct loss = ML::loss_funct::SQRD_LOSS;
 
     intercept = T(0);
-    cdFit(handle, data, params.n_row, params.n_col, labels, coef, &intercept,
-          fit_intercept, normalize, epochs, loss, alpha, l1_ratio, shuffle, tol,
+    cdFit(handle,
+          data,
+          params.n_row,
+          params.n_col,
+          labels,
+          coef,
+          &intercept,
+          fit_intercept,
+          normalize,
+          epochs,
+          loss,
+          alpha,
+          l1_ratio,
+          shuffle,
+          tol,
           stream);
 
     fit_intercept = true;
-    intercept2 = T(0);
-    cdFit(handle, data, params.n_row, params.n_col, labels, coef2, &intercept2,
-          fit_intercept, normalize, epochs, loss, alpha, l1_ratio, shuffle, tol,
+    intercept2    = T(0);
+    cdFit(handle,
+          data,
+          params.n_row,
+          params.n_col,
+          labels,
+          coef2,
+          &intercept2,
+          fit_intercept,
+          normalize,
+          epochs,
+          loss,
+          alpha,
+          l1_ratio,
+          shuffle,
+          tol,
           stream);
 
-    alpha = T(1.0);
-    l1_ratio = T(0.5);
+    alpha         = T(1.0);
+    l1_ratio      = T(0.5);
     fit_intercept = false;
-    intercept = T(0);
-    cdFit(handle, data, params.n_row, params.n_col, labels, coef3, &intercept,
-          fit_intercept, normalize, epochs, loss, alpha, l1_ratio, shuffle, tol,
+    intercept     = T(0);
+    cdFit(handle,
+          data,
+          params.n_row,
+          params.n_col,
+          labels,
+          coef3,
+          &intercept,
+          fit_intercept,
+          normalize,
+          epochs,
+          loss,
+          alpha,
+          l1_ratio,
+          shuffle,
+          tol,
           stream);
 
     fit_intercept = true;
-    normalize = true;
-    intercept2 = T(0);
-    cdFit(handle, data, params.n_row, params.n_col, labels, coef4, &intercept2,
-          fit_intercept, normalize, epochs, loss, alpha, l1_ratio, shuffle, tol,
+    normalize     = true;
+    intercept2    = T(0);
+    cdFit(handle,
+          data,
+          params.n_row,
+          params.n_col,
+          labels,
+          coef4,
+          &intercept2,
+          fit_intercept,
+          normalize,
+          epochs,
+          loss,
+          alpha,
+          l1_ratio,
+          shuffle,
+          tol,
           stream);
   }
 
-  void SetUp() override {
+  void SetUp() override
+  {
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.set_stream(stream);
     lasso();
   }
 
-  void TearDown() override {
+  void TearDown() override
+  {
     CUDA_CHECK(cudaFree(data));
     CUDA_CHECK(cudaFree(labels));
     CUDA_CHECK(cudaFree(coef));
@@ -141,33 +196,35 @@ const std::vector<CdInputs<float>> inputsf2 = {{0.01f, 4, 2}};
 const std::vector<CdInputs<double>> inputsd2 = {{0.01, 4, 2}};
 
 typedef CdTest<float> CdTestF;
-TEST_P(CdTestF, Fit) {
-  ASSERT_TRUE(raft::devArrMatch(coef_ref, coef, params.n_col,
-                                raft::CompareApproxAbs<float>(params.tol)));
+TEST_P(CdTestF, Fit)
+{
+  ASSERT_TRUE(
+    raft::devArrMatch(coef_ref, coef, params.n_col, raft::CompareApproxAbs<float>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(coef2_ref, coef2, params.n_col,
-                                raft::CompareApproxAbs<float>(params.tol)));
+  ASSERT_TRUE(
+    raft::devArrMatch(coef2_ref, coef2, params.n_col, raft::CompareApproxAbs<float>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(coef3_ref, coef3, params.n_col,
-                                raft::CompareApproxAbs<float>(params.tol)));
+  ASSERT_TRUE(
+    raft::devArrMatch(coef3_ref, coef3, params.n_col, raft::CompareApproxAbs<float>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(coef4_ref, coef4, params.n_col,
-                                raft::CompareApproxAbs<float>(params.tol)));
+  ASSERT_TRUE(
+    raft::devArrMatch(coef4_ref, coef4, params.n_col, raft::CompareApproxAbs<float>(params.tol)));
 }
 
 typedef CdTest<double> CdTestD;
-TEST_P(CdTestD, Fit) {
-  ASSERT_TRUE(raft::devArrMatch(coef_ref, coef, params.n_col,
-                                raft::CompareApproxAbs<double>(params.tol)));
+TEST_P(CdTestD, Fit)
+{
+  ASSERT_TRUE(
+    raft::devArrMatch(coef_ref, coef, params.n_col, raft::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(coef2_ref, coef2, params.n_col,
-                                raft::CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(
+    raft::devArrMatch(coef2_ref, coef2, params.n_col, raft::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(coef3_ref, coef3, params.n_col,
-                                raft::CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(
+    raft::devArrMatch(coef3_ref, coef3, params.n_col, raft::CompareApproxAbs<double>(params.tol)));
 
-  ASSERT_TRUE(raft::devArrMatch(coef4_ref, coef4, params.n_col,
-                                raft::CompareApproxAbs<double>(params.tol)));
+  ASSERT_TRUE(
+    raft::devArrMatch(coef4_ref, coef4, params.n_col, raft::CompareApproxAbs<double>(params.tol)));
 }
 
 INSTANTIATE_TEST_CASE_P(CdTests, CdTestF, ::testing::ValuesIn(inputsf2));

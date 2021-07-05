@@ -71,34 +71,30 @@ enum HistType {
 static const int ThreadsPerBlock = 256;
 
 template <typename IdxT, int VecLen>
-dim3 computeGridDim(IdxT nrows, IdxT ncols, const void* kernel) {
+dim3 computeGridDim(IdxT nrows, IdxT ncols, const void* kernel)
+{
   int occupancy;
-  CUDA_CHECK(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&occupancy, kernel,
-                                                           ThreadsPerBlock, 0));
+  CUDA_CHECK(cudaOccupancyMaxActiveBlocksPerMultiprocessor(&occupancy, kernel, ThreadsPerBlock, 0));
   const auto maxBlks = occupancy * raft::getMultiProcessorCount();
-  int nblksx =
-    raft::ceildiv<int>(VecLen ? nrows / VecLen : nrows, ThreadsPerBlock);
+  int nblksx         = raft::ceildiv<int>(VecLen ? nrows / VecLen : nrows, ThreadsPerBlock);
   // for cases when there aren't a lot of blocks for computing one histogram
   nblksx = std::min(nblksx, maxBlks);
   return dim3(nblksx, ncols);
 }
 
-template <typename DataT, typename BinnerOp, typename IdxT, int VecLen,
-          typename CoreOp>
-DI void histCoreOp(const DataT* data, IdxT nrows, IdxT nbins, BinnerOp binner,
-                   CoreOp op, IdxT col) {
+template <typename DataT, typename BinnerOp, typename IdxT, int VecLen, typename CoreOp>
+DI void histCoreOp(const DataT* data, IdxT nrows, IdxT nbins, BinnerOp binner, CoreOp op, IdxT col)
+{
   IdxT offset = col * nrows;
-  auto bdim = IdxT(blockDim.x);
-  IdxT tid = threadIdx.x + bdim * blockIdx.x;
+  auto bdim   = IdxT(blockDim.x);
+  IdxT tid    = threadIdx.x + bdim * blockIdx.x;
   tid *= VecLen;
   IdxT stride = bdim * gridDim.x * VecLen;
-  int nCeil = raft::alignTo<int>(nrows, stride);
+  int nCeil   = raft::alignTo<int>(nrows, stride);
   typedef raft::TxN_t<DataT, VecLen> VecType;
   VecType a;
   for (auto i = tid; i < nCeil; i += stride) {
-    if (i < nrows) {
-      a.load(data, offset + i);
-    }
+    if (i < nrows) { a.load(data, offset + i); }
 #pragma unroll
     for (int j = 0; j < VecLen; ++j) {
       int binId = binner(a.val.data[j], i + j, col);
@@ -108,39 +104,43 @@ DI void histCoreOp(const DataT* data, IdxT nrows, IdxT nbins, BinnerOp binner,
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
-__global__ void gmemHistKernel(int* bins, const DataT* data, IdxT nrows,
-                               IdxT nbins, BinnerOp binner) {
+__global__ void gmemHistKernel(
+  int* bins, const DataT* data, IdxT nrows, IdxT nbins, BinnerOp binner)
+{
   auto op = [=] __device__(int binId, IdxT row, IdxT col) {
     if (row >= nrows) return;
     auto binOffset = col * nbins;
 #if __CUDA_ARCH__ < 700
     raft::myAtomicAdd(bins + binOffset + binId, 1);
 #else
-    auto amask = __activemask();
-    auto mask = __match_any_sync(amask, binId);
+    auto amask  = __activemask();
+    auto mask   = __match_any_sync(amask, binId);
     auto leader = __ffs(mask) - 1;
-    if (raft::laneId() == leader) {
-      raft::myAtomicAdd(bins + binOffset + binId, __popc(mask));
-    }
+    if (raft::laneId() == leader) { raft::myAtomicAdd(bins + binOffset + binId, __popc(mask)); }
 #endif  // __CUDA_ARCH__
   };
-  histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, nrows, nbins, binner, op,
-                                            blockIdx.y);
+  histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, nrows, nbins, binner, op, blockIdx.y);
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
-void gmemHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows, IdxT ncols,
-              BinnerOp binner, cudaStream_t stream) {
+void gmemHist(int* bins,
+              IdxT nbins,
+              const DataT* data,
+              IdxT nrows,
+              IdxT ncols,
+              BinnerOp binner,
+              cudaStream_t stream)
+{
   auto blks = computeGridDim<IdxT, VecLen>(
     nrows, ncols, (const void*)gmemHistKernel<DataT, BinnerOp, IdxT, VecLen>);
   gmemHistKernel<DataT, BinnerOp, IdxT, VecLen>
     <<<blks, ThreadsPerBlock, 0, stream>>>(bins, data, nrows, nbins, binner);
 }
 
-template <typename DataT, typename BinnerOp, typename IdxT, int VecLen,
-          bool UseMatchAny>
-__global__ void smemHistKernel(int* bins, const DataT* data, IdxT nrows,
-                               IdxT nbins, BinnerOp binner) {
+template <typename DataT, typename BinnerOp, typename IdxT, int VecLen, bool UseMatchAny>
+__global__ void smemHistKernel(
+  int* bins, const DataT* data, IdxT nrows, IdxT nbins, BinnerOp binner)
+{
   extern __shared__ unsigned sbins[];
   for (auto i = threadIdx.x; i < nbins; i += blockDim.x) {
     sbins[i] = 0;
@@ -152,8 +152,8 @@ __global__ void smemHistKernel(int* bins, const DataT* data, IdxT nrows,
     raft::myAtomicAdd<unsigned int>(sbins + binId, 1);
 #else
     if (UseMatchAny) {
-      auto amask = __activemask();
-      auto mask = __match_any_sync(amask, binId);
+      auto amask  = __activemask();
+      auto mask   = __match_any_sync(amask, binId);
       auto leader = __ffs(mask) - 1;
       if (raft::laneId() == leader) {
         raft::myAtomicAdd<unsigned int>(sbins + binId, __popc(mask));
@@ -164,58 +164,56 @@ __global__ void smemHistKernel(int* bins, const DataT* data, IdxT nrows,
 #endif  // __CUDA_ARCH__
   };
   IdxT col = blockIdx.y;
-  histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, nrows, nbins, binner, op,
-                                            col);
+  histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, nrows, nbins, binner, op, col);
   __syncthreads();
   auto binOffset = col * nbins;
   for (auto i = threadIdx.x; i < nbins; i += blockDim.x) {
     auto val = sbins[i];
-    if (val > 0) {
-      raft::myAtomicAdd<unsigned int>((unsigned int*)bins + binOffset + i, val);
-    }
+    if (val > 0) { raft::myAtomicAdd<unsigned int>((unsigned int*)bins + binOffset + i, val); }
   }
 }
 
-template <typename DataT, typename BinnerOp, typename IdxT, int VecLen,
-          bool UseMatchAny>
-void smemHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows, IdxT ncols,
-              BinnerOp binner, cudaStream_t stream) {
+template <typename DataT, typename BinnerOp, typename IdxT, int VecLen, bool UseMatchAny>
+void smemHist(int* bins,
+              IdxT nbins,
+              const DataT* data,
+              IdxT nrows,
+              IdxT ncols,
+              BinnerOp binner,
+              cudaStream_t stream)
+{
   auto blks = computeGridDim<IdxT, VecLen>(
-    nrows, ncols,
-    (const void*)smemHistKernel<DataT, BinnerOp, IdxT, VecLen, UseMatchAny>);
+    nrows, ncols, (const void*)smemHistKernel<DataT, BinnerOp, IdxT, VecLen, UseMatchAny>);
   size_t smemSize = nbins * sizeof(unsigned);
   smemHistKernel<DataT, BinnerOp, IdxT, VecLen, UseMatchAny>
-    <<<blks, ThreadsPerBlock, smemSize, stream>>>(bins, data, nrows, nbins,
-                                                  binner);
+    <<<blks, ThreadsPerBlock, smemSize, stream>>>(bins, data, nrows, nbins, binner);
 }
 
 template <unsigned _BIN_BITS>
 struct BitsInfo {
-  static unsigned const BIN_BITS = _BIN_BITS;
+  static unsigned const BIN_BITS  = _BIN_BITS;
   static unsigned const WORD_BITS = sizeof(unsigned) * 8;
   static unsigned const WORD_BINS = WORD_BITS / BIN_BITS;
-  static unsigned const BIN_MASK = (1 << BIN_BITS) - 1;
+  static unsigned const BIN_MASK  = (1 << BIN_BITS) - 1;
 };
 
 template <unsigned BIN_BITS>
-DI void incrementBin(unsigned* sbins, int* bins, int nbins, int binId) {
+DI void incrementBin(unsigned* sbins, int* bins, int nbins, int binId)
+{
   typedef BitsInfo<BIN_BITS> Bits;
-  auto iword = binId / Bits::WORD_BINS;
-  auto ibin = binId % Bits::WORD_BINS;
-  auto sh = ibin * Bits::BIN_BITS;
+  auto iword    = binId / Bits::WORD_BINS;
+  auto ibin     = binId % Bits::WORD_BINS;
+  auto sh       = ibin * Bits::BIN_BITS;
   auto old_word = atomicAdd(sbins + iword, unsigned(1 << sh));
   auto new_word = old_word + unsigned(1 << sh);
   if ((new_word >> sh & Bits::BIN_MASK) != 0) return;
   // overflow
-  raft::myAtomicAdd<unsigned int>((unsigned int*)bins + binId,
-                                  Bits::BIN_MASK + 1);
-  for (int dbin = 1; ibin + dbin < Bits::WORD_BINS && binId + dbin < nbins;
-       ++dbin) {
+  raft::myAtomicAdd<unsigned int>((unsigned int*)bins + binId, Bits::BIN_MASK + 1);
+  for (int dbin = 1; ibin + dbin < Bits::WORD_BINS && binId + dbin < nbins; ++dbin) {
     auto sh1 = (ibin + dbin) * Bits::BIN_BITS;
     if ((new_word >> sh1 & Bits::BIN_MASK) == 0) {
       // overflow
-      raft::myAtomicAdd<unsigned int>((unsigned int*)bins + binId + dbin,
-                                      Bits::BIN_MASK);
+      raft::myAtomicAdd<unsigned int>((unsigned int*)bins + binId + dbin, Bits::BIN_MASK);
     } else {
       // correction
       raft::myAtomicAdd(bins + binId + dbin, -1);
@@ -225,18 +223,19 @@ DI void incrementBin(unsigned* sbins, int* bins, int nbins, int binId) {
 }
 
 template <>
-DI void incrementBin<1>(unsigned* sbins, int* bins, int nbins, int binId) {
+DI void incrementBin<1>(unsigned* sbins, int* bins, int nbins, int binId)
+{
   typedef BitsInfo<1> Bits;
-  auto iword = binId / Bits::WORD_BITS;
-  auto sh = binId % Bits::WORD_BITS;
+  auto iword    = binId / Bits::WORD_BITS;
+  auto sh       = binId % Bits::WORD_BITS;
   auto old_word = atomicXor(sbins + iword, unsigned(1 << sh));
   if ((old_word >> sh & 1) != 0) raft::myAtomicAdd(bins + binId, 2);
 }
 
-template <typename DataT, typename BinnerOp, typename IdxT, int BIN_BITS,
-          int VecLen>
-__global__ void smemBitsHistKernel(int* bins, const DataT* data, IdxT nrows,
-                                   IdxT nbins, BinnerOp binner) {
+template <typename DataT, typename BinnerOp, typename IdxT, int BIN_BITS, int VecLen>
+__global__ void smemBitsHistKernel(
+  int* bins, const DataT* data, IdxT nrows, IdxT nbins, BinnerOp binner)
+{
   extern __shared__ unsigned sbins[];
   typedef BitsInfo<BIN_BITS> Bits;
   auto nwords = raft::ceildiv<int>(nbins, Bits::WORD_BINS);
@@ -244,66 +243,65 @@ __global__ void smemBitsHistKernel(int* bins, const DataT* data, IdxT nrows,
     sbins[j] = 0;
   }
   __syncthreads();
-  IdxT col = blockIdx.y;
+  IdxT col       = blockIdx.y;
   IdxT binOffset = col * nbins;
-  auto op = [=] __device__(int binId, IdxT row, IdxT col) {
+  auto op        = [=] __device__(int binId, IdxT row, IdxT col) {
     if (row >= nrows) return;
     incrementBin<Bits::BIN_BITS>(sbins, bins + binOffset, (int)nbins, binId);
   };
-  histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, nrows, nbins, binner, op,
-                                            col);
+  histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, nrows, nbins, binner, op, col);
   __syncthreads();
   for (auto j = threadIdx.x; j < (int)nbins; j += blockDim.x) {
     auto shift = j % Bits::WORD_BINS * Bits::BIN_BITS;
-    int count = sbins[j / Bits::WORD_BINS] >> shift & Bits::BIN_MASK;
+    int count  = sbins[j / Bits::WORD_BINS] >> shift & Bits::BIN_MASK;
     if (count > 0) raft::myAtomicAdd(bins + binOffset + j, count);
   }
 }
 
-template <typename DataT, typename BinnerOp, typename IdxT, int BIN_BITS,
-          int VecLen>
-void smemBitsHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows,
-                  IdxT ncols, BinnerOp binner, cudaStream_t stream) {
+template <typename DataT, typename BinnerOp, typename IdxT, int BIN_BITS, int VecLen>
+void smemBitsHist(int* bins,
+                  IdxT nbins,
+                  const DataT* data,
+                  IdxT nrows,
+                  IdxT ncols,
+                  BinnerOp binner,
+                  cudaStream_t stream)
+{
   typedef BitsInfo<BIN_BITS> Bits;
   auto blks = computeGridDim<IdxT, VecLen>(
-    nrows, ncols,
-    (const void*)
-      smemBitsHistKernel<DataT, BinnerOp, IdxT, Bits::BIN_BITS, VecLen>);
-  size_t smemSize =
-    raft::ceildiv<size_t>(nbins, Bits::WORD_BITS / Bits::BIN_BITS) *
-    sizeof(int);
+    nrows, ncols, (const void*)smemBitsHistKernel<DataT, BinnerOp, IdxT, Bits::BIN_BITS, VecLen>);
+  size_t smemSize = raft::ceildiv<size_t>(nbins, Bits::WORD_BITS / Bits::BIN_BITS) * sizeof(int);
   smemBitsHistKernel<DataT, BinnerOp, IdxT, Bits::BIN_BITS, VecLen>
-    <<<blks, ThreadsPerBlock, smemSize, stream>>>(bins, data, nrows, nbins,
-                                                  binner);
+    <<<blks, ThreadsPerBlock, smemSize, stream>>>(bins, data, nrows, nbins, binner);
 }
 
 #define INVALID_KEY -1
-DI void clearHashTable(int2* ht, int hashSize) {
+DI void clearHashTable(int2* ht, int hashSize)
+{
   for (auto i = threadIdx.x; i < hashSize; i += blockDim.x) {
     ht[i] = {INVALID_KEY, 0};
   }
 }
 
-DI int findEntry(int2* ht, int hashSize, int binId, int threshold) {
+DI int findEntry(int2* ht, int hashSize, int binId, int threshold)
+{
   int idx = binId % hashSize;
   int t;
   int count = 0;
-  while ((t = atomicCAS(&(ht[idx].x), INVALID_KEY, binId)) != INVALID_KEY &&
-         t != binId) {
+  while ((t = atomicCAS(&(ht[idx].x), INVALID_KEY, binId)) != INVALID_KEY && t != binId) {
     ++count;
     if (count >= threshold) {
       idx = INVALID_KEY;
       break;
     }
     ++idx;
-    if (idx >= hashSize) {
-      idx = 0;
-    }
+    if (idx >= hashSize) { idx = 0; }
   }
   return idx;
 }
 
-DI void flushHashTable(int2* ht, int hashSize, int* bins, int nbins, int col) {
+DI void flushHashTable(int2* ht, int hashSize, int* bins, int nbins, int col)
+{
   int binOffset = col * nbins;
   for (auto i = threadIdx.x; i < hashSize; i += blockDim.x) {
     if (ht[i].x != INVALID_KEY && ht[i].y > 0) {
@@ -316,14 +314,17 @@ DI void flushHashTable(int2* ht, int hashSize, int* bins, int nbins, int col) {
 
 ///@todo: honor VecLen template param
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
-__global__ void smemHashHistKernel(int* bins, const DataT* data, IdxT nrows,
-                                   IdxT nbins, BinnerOp binner, int hashSize,
-                                   int threshold) {
+__global__ void smemHashHistKernel(int* bins,
+                                   const DataT* data,
+                                   IdxT nrows,
+                                   IdxT nbins,
+                                   BinnerOp binner,
+                                   int hashSize,
+                                   int threshold)
+{
   extern __shared__ int2 ht[];
   int* needFlush = (int*)&(ht[hashSize]);
-  if (threadIdx.x == 0) {
-    needFlush[0] = 0;
-  }
+  if (threadIdx.x == 0) { needFlush[0] = 0; }
   clearHashTable(ht, hashSize);
   __syncthreads();
   auto op = [=] __device__(int binId, IdxT row, IdxT col) {
@@ -334,16 +335,14 @@ __global__ void smemHashHistKernel(int* bins, const DataT* data, IdxT nrows,
         raft::myAtomicAdd(&(ht[hidx].y), 1);
       } else {
         needFlush[0] = 1;
-        iNeedFlush = true;
+        iNeedFlush   = true;
       }
     }
     __syncthreads();
     if (needFlush[0]) {
       flushHashTable(ht, hashSize, bins, nbins, col);
       __syncthreads();
-      if (threadIdx.x == 0) {
-        needFlush[0] = 0;
-      }
+      if (threadIdx.x == 0) { needFlush[0] = 0; }
       __syncthreads();
     }
     if (iNeedFlush) {
@@ -355,13 +354,13 @@ __global__ void smemHashHistKernel(int* bins, const DataT* data, IdxT nrows,
     }
   };
   IdxT col = blockIdx.y;
-  histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, nrows, nbins, binner, op,
-                                            col);
+  histCoreOp<DataT, BinnerOp, IdxT, VecLen>(data, nrows, nbins, binner, op, col);
   __syncthreads();
   flushHashTable(ht, hashSize, bins, nbins, col);
 }
 
-inline int computeHashTableSize() {
+inline int computeHashTableSize()
+{
   // we shouldn't have this much of shared memory available anytime soon!
   static const unsigned maxBinsEverPossible = 256 * 1024;
   static Seive primes(maxBinsEverPossible);
@@ -375,70 +374,84 @@ inline int computeHashTableSize() {
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
-void smemHashHist(int* bins, IdxT nbins, const DataT* data, IdxT nrows,
-                  IdxT ncols, BinnerOp binner, cudaStream_t stream) {
+void smemHashHist(int* bins,
+                  IdxT nbins,
+                  const DataT* data,
+                  IdxT nrows,
+                  IdxT ncols,
+                  BinnerOp binner,
+                  cudaStream_t stream)
+{
   static const int flushThreshold = 10;
-  auto blks = computeGridDim<IdxT, 1>(
+  auto blks                       = computeGridDim<IdxT, 1>(
     nrows, ncols, (const void*)smemHashHistKernel<DataT, BinnerOp, IdxT, 1>);
-  int hashSize = computeHashTableSize();
+  int hashSize    = computeHashTableSize();
   size_t smemSize = hashSize * sizeof(int2) + sizeof(int);
-  smemHashHistKernel<DataT, BinnerOp, IdxT, 1>
-    <<<blks, ThreadsPerBlock, smemSize, stream>>>(
-      bins, data, nrows, nbins, binner, hashSize, flushThreshold);
+  smemHashHistKernel<DataT, BinnerOp, IdxT, 1><<<blks, ThreadsPerBlock, smemSize, stream>>>(
+    bins, data, nrows, nbins, binner, hashSize, flushThreshold);
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT, int VecLen>
-void histogramVecLen(HistType type, int* bins, IdxT nbins, const DataT* data,
-                     IdxT nrows, IdxT ncols, cudaStream_t stream,
-                     BinnerOp binner) {
+void histogramVecLen(HistType type,
+                     int* bins,
+                     IdxT nbins,
+                     const DataT* data,
+                     IdxT nrows,
+                     IdxT ncols,
+                     cudaStream_t stream,
+                     BinnerOp binner)
+{
   CUDA_CHECK(cudaMemsetAsync(bins, 0, ncols * nbins * sizeof(int), stream));
   switch (type) {
     case HistTypeGmem:
-      gmemHist<DataT, BinnerOp, IdxT, VecLen>(bins, nbins, data, nrows, ncols,
-                                              binner, stream);
+      gmemHist<DataT, BinnerOp, IdxT, VecLen>(bins, nbins, data, nrows, ncols, binner, stream);
       break;
     case HistTypeSmem:
-      smemHist<DataT, BinnerOp, IdxT, VecLen, false>(bins, nbins, data, nrows,
-                                                     ncols, binner, stream);
+      smemHist<DataT, BinnerOp, IdxT, VecLen, false>(
+        bins, nbins, data, nrows, ncols, binner, stream);
       break;
     case HistTypeSmemMatchAny:
-      smemHist<DataT, BinnerOp, IdxT, VecLen, true>(bins, nbins, data, nrows,
-                                                    ncols, binner, stream);
+      smemHist<DataT, BinnerOp, IdxT, VecLen, true>(
+        bins, nbins, data, nrows, ncols, binner, stream);
       break;
     case HistTypeSmemBits16:
-      smemBitsHist<DataT, BinnerOp, IdxT, 16, VecLen>(bins, nbins, data, nrows,
-                                                      ncols, binner, stream);
+      smemBitsHist<DataT, BinnerOp, IdxT, 16, VecLen>(
+        bins, nbins, data, nrows, ncols, binner, stream);
       break;
     case HistTypeSmemBits8:
-      smemBitsHist<DataT, BinnerOp, IdxT, 8, VecLen>(bins, nbins, data, nrows,
-                                                     ncols, binner, stream);
+      smemBitsHist<DataT, BinnerOp, IdxT, 8, VecLen>(
+        bins, nbins, data, nrows, ncols, binner, stream);
       break;
     case HistTypeSmemBits4:
-      smemBitsHist<DataT, BinnerOp, IdxT, 4, VecLen>(bins, nbins, data, nrows,
-                                                     ncols, binner, stream);
+      smemBitsHist<DataT, BinnerOp, IdxT, 4, VecLen>(
+        bins, nbins, data, nrows, ncols, binner, stream);
       break;
     case HistTypeSmemBits2:
-      smemBitsHist<DataT, BinnerOp, IdxT, 2, VecLen>(bins, nbins, data, nrows,
-                                                     ncols, binner, stream);
+      smemBitsHist<DataT, BinnerOp, IdxT, 2, VecLen>(
+        bins, nbins, data, nrows, ncols, binner, stream);
       break;
     case HistTypeSmemBits1:
-      smemBitsHist<DataT, BinnerOp, IdxT, 1, VecLen>(bins, nbins, data, nrows,
-                                                     ncols, binner, stream);
+      smemBitsHist<DataT, BinnerOp, IdxT, 1, VecLen>(
+        bins, nbins, data, nrows, ncols, binner, stream);
       break;
     case HistTypeSmemHash:
-      smemHashHist<DataT, BinnerOp, IdxT, VecLen>(bins, nbins, data, nrows,
-                                                  ncols, binner, stream);
+      smemHashHist<DataT, BinnerOp, IdxT, VecLen>(bins, nbins, data, nrows, ncols, binner, stream);
       break;
-    default:
-      ASSERT(false, "histogram: Invalid type passed '%d'!", type);
+    default: ASSERT(false, "histogram: Invalid type passed '%d'!", type);
   };
   CUDA_CHECK(cudaGetLastError());
 }
 
 template <typename DataT, typename BinnerOp, typename IdxT>
-void histogramImpl(HistType type, int* bins, IdxT nbins, const DataT* data,
-                   IdxT nrows, IdxT ncols, cudaStream_t stream,
-                   BinnerOp binner) {
+void histogramImpl(HistType type,
+                   int* bins,
+                   IdxT nbins,
+                   const DataT* data,
+                   IdxT nrows,
+                   IdxT ncols,
+                   cudaStream_t stream,
+                   BinnerOp binner)
+{
   size_t bytes = nrows * sizeof(DataT);
   if (nrows <= 0) return;
   if (16 % sizeof(DataT) == 0 && bytes % 16 == 0) {
@@ -454,24 +467,21 @@ void histogramImpl(HistType type, int* bins, IdxT nbins, const DataT* data,
     histogramVecLen<DataT, BinnerOp, IdxT, 2 / sizeof(DataT)>(
       type, bins, nbins, data, nrows, ncols, stream, binner);
   } else {
-    histogramVecLen<DataT, BinnerOp, IdxT, 1>(type, bins, nbins, data, nrows,
-                                              ncols, stream, binner);
+    histogramVecLen<DataT, BinnerOp, IdxT, 1>(
+      type, bins, nbins, data, nrows, ncols, stream, binner);
   }
 }
 
 template <typename IdxT>
-HistType selectBestHistAlgo(IdxT nbins) {
-  size_t smem = raft::getSharedMemPerBlock();
+HistType selectBestHistAlgo(IdxT nbins)
+{
+  size_t smem         = raft::getSharedMemPerBlock();
   size_t requiredSize = nbins * sizeof(unsigned);
-  if (requiredSize <= smem) {
-    return HistTypeSmem;
-  }
+  if (requiredSize <= smem) { return HistTypeSmem; }
   for (int bits = 16; bits >= 1; bits >>= 1) {
     auto nBytesForBins = raft::ceildiv<size_t>(bits * nbins, 8);
-    requiredSize = raft::alignTo<size_t>(nBytesForBins, sizeof(unsigned));
-    if (requiredSize <= smem) {
-      return static_cast<HistType>(bits);
-    }
+    requiredSize       = raft::alignTo<size_t>(nBytesForBins, sizeof(unsigned));
+    if (requiredSize <= smem) { return static_cast<HistType>(bits); }
   }
   return HistTypeGmem;
 }
@@ -494,17 +504,20 @@ HistType selectBestHistAlgo(IdxT nbins) {
  *
  * @note signature of BinnerOp is `int func(DataT, IdxT);`
  */
-template <typename DataT, typename IdxT = int,
-          typename BinnerOp = IdentityBinner<DataT, IdxT>>
-void histogram(HistType type, int* bins, IdxT nbins, const DataT* data,
-               IdxT nrows, IdxT ncols, cudaStream_t stream,
-               BinnerOp binner = IdentityBinner<DataT, IdxT>()) {
+template <typename DataT, typename IdxT = int, typename BinnerOp = IdentityBinner<DataT, IdxT>>
+void histogram(HistType type,
+               int* bins,
+               IdxT nbins,
+               const DataT* data,
+               IdxT nrows,
+               IdxT ncols,
+               cudaStream_t stream,
+               BinnerOp binner = IdentityBinner<DataT, IdxT>())
+{
   HistType computedType = type;
-  if (type == HistTypeAuto) {
-    computedType = selectBestHistAlgo(nbins);
-  }
-  histogramImpl<DataT, BinnerOp, IdxT>(computedType, bins, nbins, data, nrows,
-                                       ncols, stream, binner);
+  if (type == HistTypeAuto) { computedType = selectBestHistAlgo(nbins); }
+  histogramImpl<DataT, BinnerOp, IdxT>(
+    computedType, bins, nbins, data, nrows, ncols, stream, binner);
 }
 
 };  // end namespace Stats

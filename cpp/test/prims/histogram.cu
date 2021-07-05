@@ -25,10 +25,11 @@ namespace MLCommon {
 namespace Stats {
 
 // Note: this kernel also updates the input vector to take care of OOB bins!
-__global__ void naiveHistKernel(int* bins, int nbins, int* in, int nrows) {
-  int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  int stride = blockDim.x * gridDim.x;
-  auto offset = blockIdx.y * nrows;
+__global__ void naiveHistKernel(int* bins, int nbins, int* in, int nrows)
+{
+  int tid        = threadIdx.x + blockIdx.x * blockDim.x;
+  int stride     = blockDim.x * gridDim.x;
+  auto offset    = blockIdx.y * nrows;
   auto binOffset = blockIdx.y * nbins;
   for (; tid < nrows; tid += stride) {
     int id = in[offset + tid];
@@ -41,10 +42,10 @@ __global__ void naiveHistKernel(int* bins, int nbins, int* in, int nrows) {
   }
 }
 
-void naiveHist(int* bins, int nbins, int* in, int nrows, int ncols,
-               cudaStream_t stream) {
+void naiveHist(int* bins, int nbins, int* in, int nrows, int ncols, cudaStream_t stream)
+{
   const int TPB = 128;
-  int nblksx = raft::ceildiv(nrows, TPB);
+  int nblksx    = raft::ceildiv(nrows, TPB);
   dim3 blks(nblksx, ncols);
   naiveHistKernel<<<blks, TPB, 0, stream>>>(bins, nbins, in, nrows);
   CUDA_CHECK(cudaGetLastError());
@@ -60,7 +61,8 @@ struct HistInputs {
 
 class HistTest : public ::testing::TestWithParam<HistInputs> {
  protected:
-  void SetUp() override {
+  void SetUp() override
+  {
     params = ::testing::TestWithParam<HistInputs>::GetParam();
     raft::random::Rng r(params.seed);
     CUDA_CHECK(cudaStreamCreate(&stream));
@@ -73,15 +75,14 @@ class HistTest : public ::testing::TestWithParam<HistInputs> {
     }
     raft::allocate(bins, params.nbins * params.ncols);
     raft::allocate(ref_bins, params.nbins * params.ncols);
-    CUDA_CHECK(cudaMemsetAsync(
-      ref_bins, 0, sizeof(int) * params.nbins * params.ncols, stream));
+    CUDA_CHECK(cudaMemsetAsync(ref_bins, 0, sizeof(int) * params.nbins * params.ncols, stream));
     naiveHist(ref_bins, params.nbins, in, params.nrows, params.ncols, stream);
-    histogram<int>(params.type, bins, params.nbins, in, params.nrows,
-                   params.ncols, stream);
+    histogram<int>(params.type, bins, params.nbins, in, params.nrows, params.ncols, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
-  void TearDown() override {
+  void TearDown() override
+  {
     CUDA_CHECK(cudaFree(in));
     CUDA_CHECK(cudaFree(bins));
     CUDA_CHECK(cudaFree(ref_bins));
@@ -95,8 +96,8 @@ class HistTest : public ::testing::TestWithParam<HistInputs> {
   int *bins, *ref_bins;
 };
 
-static const int oneK = 1024;
-static const int oneM = oneK * oneK;
+static const int oneK                = 1024;
+static const int oneM                = oneK * oneK;
 const std::vector<HistInputs> inputs = {
   {oneM, 1, 2 * oneM, false, HistTypeGmem, 0, 2 * oneM, 1234ULL},
   {oneM, 1, 2 * oneM, true, HistTypeGmem, 1000, 50, 1234ULL},
@@ -252,9 +253,9 @@ const std::vector<HistInputs> inputs = {
   {oneM + 2, 21, 2 * oneK, false, HistTypeAuto, 0, 2 * oneK, 1234ULL},
   {oneM + 2, 21, 2 * oneK, true, HistTypeAuto, 1000, 50, 1234ULL},
 };
-TEST_P(HistTest, Result) {
-  ASSERT_TRUE(raft::devArrMatch(ref_bins, bins, params.nbins * params.ncols,
-                                raft::Compare<int>()));
+TEST_P(HistTest, Result)
+{
+  ASSERT_TRUE(raft::devArrMatch(ref_bins, bins, params.nbins * params.ncols, raft::Compare<int>()));
 }
 INSTANTIATE_TEST_CASE_P(HistTests, HistTest, ::testing::ValuesIn(inputs));
 

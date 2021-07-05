@@ -27,8 +27,7 @@ namespace SVM {
  * \param [in] idx list of indices already selected, size [n_selected]
  * \param [in] n_selected number of elements in the idx list
  */
-__global__ void set_unavailable(bool *available, int n_rows, const int *idx,
-                                int n_selected);
+__global__ void set_unavailable(bool* available, int n_rows, const int* idx, int n_selected);
 
 /** Set availability to true for elements in the upper set, otherwise false.
  * @param [out] available size [n]
@@ -38,8 +37,9 @@ __global__ void set_unavailable(bool *available, int n_rows, const int *idx,
  * @param [in] C penalty factor
  */
 template <typename math_t>
-__global__ void set_upper(bool *available, int n, const math_t *alpha,
-                          const math_t *y, const math_t *C) {
+__global__ void set_upper(
+  bool* available, int n, const math_t* alpha, const math_t* y, const math_t* C)
+{
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < n) available[tid] = in_upper(alpha[tid], y[tid], C[tid]);
 }
@@ -52,26 +52,30 @@ __global__ void set_upper(bool *available, int n, const math_t *alpha,
  * @param [in] C penalty factor
  */
 template <typename math_t>
-__global__ void set_lower(bool *available, int n, const math_t *alpha,
-                          const math_t *y, const math_t *C) {
+__global__ void set_lower(
+  bool* available, int n, const math_t* alpha, const math_t* y, const math_t* C)
+{
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < n) available[tid] = in_lower(alpha[tid], y[tid], C[tid]);
 }
 /**
-* Get the priority of the elements that are selected by new_idx.
-*
-* We look up these indices from the old working set (idx), and return their
-* priority increased by one.
-*
-* @param [out] new_priority size [n_selected]
-* @param [in] n_selected (less equal n_ws)
-* @param [in] new_idx size [n_selected]
-* @param [in] n_ws working set size
-* @param [in] idx indices in the old working set, size [n_ws]
-* @param [in] priority of elements in the old working set, size [n_ws]
-*/
-__global__ void update_priority(int *new_priority, int n_selected,
-                                const int *new_idx, int n_ws, const int *idx,
-                                const int *priority);
+ * Get the priority of the elements that are selected by new_idx.
+ *
+ * We look up these indices from the old working set (idx), and return their
+ * priority increased by one.
+ *
+ * @param [out] new_priority size [n_selected]
+ * @param [in] n_selected (less equal n_ws)
+ * @param [in] new_idx size [n_selected]
+ * @param [in] n_ws working set size
+ * @param [in] idx indices in the old working set, size [n_ws]
+ * @param [in] priority of elements in the old working set, size [n_ws]
+ */
+__global__ void update_priority(int* new_priority,
+                                int n_selected,
+                                const int* new_idx,
+                                int n_ws,
+                                const int* idx,
+                                const int* priority);
 }  // namespace SVM
 }  // namespace ML

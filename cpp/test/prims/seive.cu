@@ -19,7 +19,8 @@
 
 namespace MLCommon {
 
-TEST(Seive, Test) {
+TEST(Seive, Test)
+{
   Seive s1(32);
   ASSERT_TRUE(s1.isPrime(17));
   ASSERT_FALSE(s1.isPrime(28));

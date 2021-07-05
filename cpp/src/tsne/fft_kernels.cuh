@@ -34,7 +34,8 @@ __global__ void compute_chargesQij(volatile value_t* __restrict__ chargesQij,
                                    const value_t* __restrict__ xs,
                                    const value_t* __restrict__ ys,
                                    const value_idx num_points,
-                                   const value_idx n_terms) {
+                                   const value_idx n_terms)
+{
   int TID = threadIdx.x + blockIdx.x * blockDim.x;
   if (TID >= num_points) return;
 
@@ -49,46 +50,53 @@ __global__ void compute_chargesQij(volatile value_t* __restrict__ chargesQij,
 
 template <typename value_idx, typename value_t>
 __global__ void compute_bounds(volatile value_t* __restrict__ box_lower_bounds,
-                               const value_t box_width, const value_t x_min,
-                               const value_t y_min, const value_idx n_boxes,
-                               const value_idx n_total_boxes) {
+                               const value_t box_width,
+                               const value_t x_min,
+                               const value_t y_min,
+                               const value_idx n_boxes,
+                               const value_idx n_total_boxes)
+{
   const int TID = threadIdx.x + blockIdx.x * blockDim.x;
   if (TID >= n_boxes * n_boxes) return;
 
   const int i = TID / n_boxes;
   const int j = TID % n_boxes;
 
-  box_lower_bounds[i * n_boxes + j] = j * box_width + x_min;
+  box_lower_bounds[i * n_boxes + j]                 = j * box_width + x_min;
   box_lower_bounds[n_total_boxes + i * n_boxes + j] = i * box_width + y_min;
 }
 
 template <typename value_t>
-HDI value_t squared_cauchy_2d(value_t x1, value_t x2, value_t y1, value_t y2) {
+HDI value_t squared_cauchy_2d(value_t x1, value_t x2, value_t y1, value_t y2)
+{
   value_t x1_m_y1 = x1 - y1;
   value_t x2_m_y2 = x2 - y2;
-  value_t t = 1.0f + x1_m_y1 * x1_m_y1 + x2_m_y2 * x2_m_y2;
+  value_t t       = 1.0f + x1_m_y1 * x1_m_y1 + x2_m_y2 * x2_m_y2;
   return 1.0f / (t * t);
 }
 
 template <typename value_idx, typename value_t>
-__global__ void compute_kernel_tilde(
-  volatile value_t* __restrict__ kernel_tilde, const value_t x_min,
-  const value_t y_min, const value_t h,
-  const value_idx n_interpolation_points_1d, const value_idx n_fft_coeffs) {
+__global__ void compute_kernel_tilde(volatile value_t* __restrict__ kernel_tilde,
+                                     const value_t x_min,
+                                     const value_t y_min,
+                                     const value_t h,
+                                     const value_idx n_interpolation_points_1d,
+                                     const value_idx n_fft_coeffs)
+{
   const int TID = threadIdx.x + blockIdx.x * blockDim.x;
   if (TID >= n_interpolation_points_1d * n_interpolation_points_1d) return;
 
   const value_idx i = TID / n_interpolation_points_1d;
   const value_idx j = TID % n_interpolation_points_1d;
 
-  value_t tmp = squared_cauchy_2d(y_min + h / 2, x_min + h / 2,
-                                  y_min + h / 2 + i * h, x_min + h / 2 + j * h);
+  value_t tmp =
+    squared_cauchy_2d(y_min + h / 2, x_min + h / 2, y_min + h / 2 + i * h, x_min + h / 2 + j * h);
   const value_idx n_interpolation_points_1d_p_i = n_interpolation_points_1d + i;
   const value_idx n_interpolation_points_1d_m_i = n_interpolation_points_1d - i;
   const value_idx n_interpolation_points_1d_p_j = n_interpolation_points_1d + j;
   const value_idx n_interpolation_points_1d_m_j = n_interpolation_points_1d - j;
-  const value_idx p_i_n = n_interpolation_points_1d_p_i * n_fft_coeffs;
-  const value_idx m_i_n = n_interpolation_points_1d_m_i * n_fft_coeffs;
+  const value_idx p_i_n                         = n_interpolation_points_1d_p_i * n_fft_coeffs;
+  const value_idx m_i_n                         = n_interpolation_points_1d_m_i * n_fft_coeffs;
   kernel_tilde[p_i_n + n_interpolation_points_1d_p_j] = tmp;
   kernel_tilde[m_i_n + n_interpolation_points_1d_p_j] = tmp;
   kernel_tilde[p_i_n + n_interpolation_points_1d_m_j] = tmp;
@@ -96,13 +104,18 @@ __global__ void compute_kernel_tilde(
 }
 
 template <typename value_idx, typename value_t>
-__global__ void compute_point_box_idx(
-  volatile value_idx* __restrict__ point_box_idx,
-  volatile value_t* __restrict__ x_in_box,
-  volatile value_t* __restrict__ y_in_box, const value_t* const xs,
-  const value_t* const ys, const value_t* const box_lower_bounds,
-  const value_t min_coord, const value_t box_width, const value_idx n_boxes,
-  const value_idx n_total_boxes, const value_idx N) {
+__global__ void compute_point_box_idx(volatile value_idx* __restrict__ point_box_idx,
+                                      volatile value_t* __restrict__ x_in_box,
+                                      volatile value_t* __restrict__ y_in_box,
+                                      const value_t* const xs,
+                                      const value_t* const ys,
+                                      const value_t* const box_lower_bounds,
+                                      const value_t min_coord,
+                                      const value_t box_width,
+                                      const value_idx n_boxes,
+                                      const value_idx n_total_boxes,
+                                      const value_idx N)
+{
   const value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
   if (TID >= N) return;
 
@@ -115,65 +128,64 @@ __global__ void compute_point_box_idx(
   y_idx = max((value_idx)0, y_idx);
   y_idx = min(n_boxes - 1, y_idx);
 
-  value_idx box_idx = y_idx * n_boxes + x_idx;
+  value_idx box_idx  = y_idx * n_boxes + x_idx;
   point_box_idx[TID] = box_idx;
 
   x_in_box[TID] = (xs[TID] - box_lower_bounds[box_idx]) / box_width;
-  y_in_box[TID] =
-    (ys[TID] - box_lower_bounds[n_total_boxes + box_idx]) / box_width;
+  y_in_box[TID] = (ys[TID] - box_lower_bounds[n_total_boxes + box_idx]) / box_width;
 }
 
 template <typename value_idx, typename value_t>
-__global__ void interpolate_device(
-  volatile value_t* __restrict__ interpolated_values,
-  const value_t* const y_in_box, const value_t* const y_tilde_spacings,
-  const value_t* const denominator, const value_idx n_interpolation_points,
-  const value_idx N) {
+__global__ void interpolate_device(volatile value_t* __restrict__ interpolated_values,
+                                   const value_t* const y_in_box,
+                                   const value_t* const y_tilde_spacings,
+                                   const value_t* const denominator,
+                                   const value_idx n_interpolation_points,
+                                   const value_idx N)
+{
   const value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
   if (TID >= N * n_interpolation_points) return;
 
   value_idx i = TID % N;
   value_idx j = TID / N;
 
-  value_t value = 1.0f;
+  value_t value  = 1.0f;
   value_t ybox_i = y_in_box[i];
 
   for (value_idx k = 0; k < n_interpolation_points; k++) {
-    if (j != k) {
-      value *= ybox_i - y_tilde_spacings[k];
-    }
+    if (j != k) { value *= ybox_i - y_tilde_spacings[k]; }
   }
 
   interpolated_values[j * N + i] = value / denominator[j];
 }
 
 template <typename value_idx, typename value_t>
-__global__ void compute_interpolated_indices(
-  value_t* __restrict__ w_coefficients_device,
-  const value_idx* const point_box_indices, const value_t* const chargesQij,
-  const value_t* const x_interpolated_values,
-  const value_t* const y_interpolated_values, const value_idx N,
-  const value_idx n_interpolation_points, const value_idx n_boxes,
-  const value_idx n_terms) {
+__global__ void compute_interpolated_indices(value_t* __restrict__ w_coefficients_device,
+                                             const value_idx* const point_box_indices,
+                                             const value_t* const chargesQij,
+                                             const value_t* const x_interpolated_values,
+                                             const value_t* const y_interpolated_values,
+                                             const value_idx N,
+                                             const value_idx n_interpolation_points,
+                                             const value_idx n_boxes,
+                                             const value_idx n_terms)
+{
   value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
-  if (TID >= n_terms * n_interpolation_points * n_interpolation_points * N)
-    return;
+  if (TID >= n_terms * n_interpolation_points * n_interpolation_points * N) return;
 
   value_idx current_term = TID % n_terms;
-  value_idx i = (TID / n_terms) % N;
-  value_idx interp_j = ((TID / n_terms) / N) % n_interpolation_points;
-  value_idx interp_i = ((TID / n_terms) / N) / n_interpolation_points;
+  value_idx i            = (TID / n_terms) % N;
+  value_idx interp_j     = ((TID / n_terms) / N) % n_interpolation_points;
+  value_idx interp_i     = ((TID / n_terms) / N) / n_interpolation_points;
 
   value_idx box_idx = point_box_indices[i];
-  value_idx box_i = box_idx % n_boxes;
-  value_idx box_j = box_idx / n_boxes;
+  value_idx box_i   = box_idx % n_boxes;
+  value_idx box_j   = box_idx / n_boxes;
 
-  value_idx idx = (box_i * n_interpolation_points + interp_i) *
-                    (n_boxes * n_interpolation_points) +
+  value_idx idx = (box_i * n_interpolation_points + interp_i) * (n_boxes * n_interpolation_points) +
                   (box_j * n_interpolation_points) + interp_j;
   atomicAdd(w_coefficients_device + idx * n_terms + current_term,
-            x_interpolated_values[i + interp_i * N] *
-              y_interpolated_values[i + interp_j * N] *
+            x_interpolated_values[i + interp_i * N] * y_interpolated_values[i + interp_j * N] *
               chargesQij[i * n_terms + current_term]);
 }
 
@@ -182,84 +194,86 @@ __global__ void copy_to_fft_input(volatile value_t* __restrict__ fft_input,
                                   const value_t* w_coefficients_device,
                                   const value_idx n_fft_coeffs,
                                   const value_idx n_fft_coeffs_half,
-                                  const value_idx n_terms) {
+                                  const value_idx n_terms)
+{
   const value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
   if (TID >= n_terms * n_fft_coeffs_half * n_fft_coeffs_half) return;
 
   value_idx current_term = TID / (n_fft_coeffs_half * n_fft_coeffs_half);
-  value_idx current_loc = TID % (n_fft_coeffs_half * n_fft_coeffs_half);
+  value_idx current_loc  = TID % (n_fft_coeffs_half * n_fft_coeffs_half);
 
   value_idx i = current_loc / n_fft_coeffs_half;
   value_idx j = current_loc % n_fft_coeffs_half;
 
-  fft_input[current_term * (n_fft_coeffs * n_fft_coeffs) + i * n_fft_coeffs +
-            j] = w_coefficients_device[current_term + current_loc * n_terms];
+  fft_input[current_term * (n_fft_coeffs * n_fft_coeffs) + i * n_fft_coeffs + j] =
+    w_coefficients_device[current_term + current_loc * n_terms];
 }
 
 template <typename value_idx, typename value_t>
-__global__ void copy_from_fft_output(
-  volatile value_t* __restrict__ y_tilde_values, const value_t* fft_output,
-  const value_idx n_fft_coeffs, const value_idx n_fft_coeffs_half,
-  const value_idx n_terms) {
+__global__ void copy_from_fft_output(volatile value_t* __restrict__ y_tilde_values,
+                                     const value_t* fft_output,
+                                     const value_idx n_fft_coeffs,
+                                     const value_idx n_fft_coeffs_half,
+                                     const value_idx n_terms)
+{
   const value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
   if (TID >= n_terms * n_fft_coeffs_half * n_fft_coeffs_half) return;
 
   value_idx current_term = TID / (n_fft_coeffs_half * n_fft_coeffs_half);
-  value_idx current_loc = TID % (n_fft_coeffs_half * n_fft_coeffs_half);
+  value_idx current_loc  = TID % (n_fft_coeffs_half * n_fft_coeffs_half);
 
   value_idx i = current_loc / n_fft_coeffs_half + n_fft_coeffs_half;
   value_idx j = current_loc % n_fft_coeffs_half + n_fft_coeffs_half;
 
   y_tilde_values[current_term + n_terms * current_loc] =
-    fft_output[current_term * (n_fft_coeffs * n_fft_coeffs) + i * n_fft_coeffs +
-               j] /
+    fft_output[current_term * (n_fft_coeffs * n_fft_coeffs) + i * n_fft_coeffs + j] /
     (value_t)(n_fft_coeffs * n_fft_coeffs);
 }
 
 // Template so that division is by compile-time divisors.
-template <typename value_idx, typename value_t, int n_terms,
-          int n_interpolation_points>
-__global__ void compute_potential_indices(
-  value_t* __restrict__ potentialsQij, const value_idx* const point_box_indices,
-  const value_t* const y_tilde_values,
-  const value_t* const x_interpolated_values,
-  const value_t* const y_interpolated_values, const value_idx N,
-  const value_idx n_boxes) {
+template <typename value_idx, typename value_t, int n_terms, int n_interpolation_points>
+__global__ void compute_potential_indices(value_t* __restrict__ potentialsQij,
+                                          const value_idx* const point_box_indices,
+                                          const value_t* const y_tilde_values,
+                                          const value_t* const x_interpolated_values,
+                                          const value_t* const y_interpolated_values,
+                                          const value_idx N,
+                                          const value_idx n_boxes)
+{
   const value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
-  if (TID >= n_terms * n_interpolation_points * n_interpolation_points * N)
-    return;
+  if (TID >= n_terms * n_interpolation_points * n_interpolation_points * N) return;
 
   value_idx current_term = TID % n_terms;
-  value_idx i = (TID / n_terms) % N;
-  value_idx interp_j = ((TID / n_terms) / N) % n_interpolation_points;
-  value_idx interp_i = ((TID / n_terms) / N) / n_interpolation_points;
+  value_idx i            = (TID / n_terms) % N;
+  value_idx interp_j     = ((TID / n_terms) / N) % n_interpolation_points;
+  value_idx interp_i     = ((TID / n_terms) / N) / n_interpolation_points;
 
   value_idx box_idx = point_box_indices[i];
-  value_idx box_i = box_idx % n_boxes;
-  value_idx box_j = box_idx / n_boxes;
+  value_idx box_i   = box_idx % n_boxes;
+  value_idx box_j   = box_idx / n_boxes;
 
-  value_idx idx = (box_i * n_interpolation_points + interp_i) *
-                    (n_boxes * n_interpolation_points) +
+  value_idx idx = (box_i * n_interpolation_points + interp_i) * (n_boxes * n_interpolation_points) +
                   (box_j * n_interpolation_points) + interp_j;
   // interpolated_values[TID] = x_interpolated_values[i + interp_i * N] *
   // y_interpolated_values[i + interp_j * N] * y_tilde_values[idx * n_terms + current_term];
   // interpolated_indices[TID] = i * n_terms + current_term;
   atomicAdd(potentialsQij + i * n_terms + current_term,
-            x_interpolated_values[i + interp_i * N] *
-              y_interpolated_values[i + interp_j * N] *
+            x_interpolated_values[i + interp_i * N] * y_interpolated_values[i + interp_j * N] *
               y_tilde_values[idx * n_terms + current_term]);
 }
 
 template <typename value_idx>
 __global__ void broadcast_column_vector(cuComplex* __restrict__ mat,
                                         cuComplex* __restrict__ vec,
-                                        value_idx n, value_idx m) {
+                                        value_idx n,
+                                        value_idx m)
+{
   const value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
-  const value_idx i = TID % n;
-  const value_idx j = TID / n;
+  const value_idx i   = TID % n;
+  const value_idx j   = TID / n;
   if (j < m) {
     value_idx idx = j * n + i;
-    mat[idx] = cuCmulf(mat[idx], vec[i]);
+    mat[idx]      = cuCmulf(mat[idx], vec[i]);
   }
 }
 
@@ -267,9 +281,12 @@ template <typename value_idx, typename value_t>
 __global__ void compute_repulsive_forces_kernel(
   volatile value_t* __restrict__ repulsive_forces_device,
   volatile value_t* __restrict__ normalization_vec_device,
-  const value_t* const xs, const value_t* const ys,
-  const value_t* const potentialsQij, const value_idx num_points,
-  const value_idx n_terms) {
+  const value_t* const xs,
+  const value_t* const ys,
+  const value_t* const potentialsQij,
+  const value_idx num_points,
+  const value_idx n_terms)
+{
   value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
   if (TID >= num_points) return;
 
@@ -281,10 +298,10 @@ __global__ void compute_repulsive_forces_kernel(
   value_t x_pt = xs[TID];
   value_t y_pt = ys[TID];
 
-  normalization_vec_device[TID] = (1 + x_pt * x_pt + y_pt * y_pt) * phi1 -
-                                  2 * (x_pt * phi2 + y_pt * phi3) + phi4;
+  normalization_vec_device[TID] =
+    (1 + x_pt * x_pt + y_pt * y_pt) * phi1 - 2 * (x_pt * phi2 + y_pt * phi3) + phi4;
 
-  repulsive_forces_device[TID] = x_pt * phi1 - phi2;
+  repulsive_forces_device[TID]              = x_pt * phi1 - phi2;
   repulsive_forces_device[TID + num_points] = y_pt * phi1 - phi3;
 }
 
@@ -295,7 +312,8 @@ __global__ void compute_Pij_x_Qij_kernel(value_t* __restrict__ attr_forces,
                                          const value_idx* __restrict__ coo_cols,
                                          const value_t* __restrict__ points,
                                          const value_idx num_points,
-                                         const value_idx num_nonzero) {
+                                         const value_idx num_nonzero)
+{
   const value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
   if (TID >= num_nonzero) return;
   const value_idx i = coo_rows[TID];
@@ -326,19 +344,18 @@ __global__ void IntegrationKernel(volatile value_t* __restrict__ points,
                                   const value_t normalization,
                                   const value_t momentum,
                                   const value_t exaggeration,
-                                  const value_idx num_points) {
+                                  const value_idx num_points)
+{
   // iterate over all bodies assigned to thread
   const value_idx inc = blockDim.x * gridDim.x;
-  for (value_idx i = threadIdx.x + blockIdx.x * blockDim.x; i < num_points;
-       i += inc) {
+  for (value_idx i = threadIdx.x + blockIdx.x * blockDim.x; i < num_points; i += inc) {
     value_t ux = old_forces[i];
     value_t uy = old_forces[num_points + i];
     value_t gx = gains[i];
     value_t gy = gains[num_points + i];
-    value_t dx =
-      exaggeration * attr_forces[i] - (rep_forces[i] / normalization);
-    value_t dy = exaggeration * attr_forces[i + num_points] -
-                 (rep_forces[i + num_points] / normalization);
+    value_t dx = exaggeration * attr_forces[i] - (rep_forces[i] / normalization);
+    value_t dy =
+      exaggeration * attr_forces[i + num_points] - (rep_forces[i + num_points] / normalization);
 
     gx = signbit(dx) != signbit(ux) ? gx + 0.2 : gx * 0.8;
     gy = signbit(dy) != signbit(uy) ? gy + 0.2 : gy * 0.8;
@@ -351,14 +368,14 @@ __global__ void IntegrationKernel(volatile value_t* __restrict__ points,
     points[i] += ux;
     points[i + num_points] += uy;
 
-    attr_forces[i] = 0.0f;
+    attr_forces[i]              = 0.0f;
     attr_forces[num_points + i] = 0.0f;
-    rep_forces[i] = 0.0f;
-    rep_forces[num_points + i] = 0.0f;
-    old_forces[i] = ux;
-    old_forces[num_points + i] = uy;
-    gains[i] = gx;
-    gains[num_points + i] = gy;
+    rep_forces[i]               = 0.0f;
+    rep_forces[num_points + i]  = 0.0f;
+    old_forces[i]               = ux;
+    old_forces[num_points + i]  = uy;
+    gains[i]                    = gx;
+    gains[num_points + i]       = gy;
   }
 }
 

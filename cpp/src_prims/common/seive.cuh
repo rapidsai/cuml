@@ -31,7 +31,8 @@ class Seive {
   /**
    * @param _num number of integers for which seive is needed
    */
-  Seive(unsigned _num) {
+  Seive(unsigned _num)
+  {
     N = _num;
     generateSeive();
   }
@@ -41,39 +42,33 @@ class Seive {
    * @param num number to be checked
    * @return true if the 'num' is prime, else false
    */
-  bool isPrime(unsigned num) const {
+  bool isPrime(unsigned num) const
+  {
     unsigned mask, pos;
-    if (num <= 1) {
-      return false;
-    }
-    if (num == 2) {
-      return true;
-    }
-    if (!(num & 1)) {
-      return false;
-    }
+    if (num <= 1) { return false; }
+    if (num == 2) { return true; }
+    if (!(num & 1)) { return false; }
     getMaskPos(num, mask, pos);
     return (seive[pos] & mask);
   }
 
  private:
-  void generateSeive() {
-    auto sqN = fastIntSqrt(N);
+  void generateSeive()
+  {
+    auto sqN  = fastIntSqrt(N);
     auto size = raft::ceildiv<unsigned>(N, sizeof(unsigned) * 8);
     seive.resize(size);
     // assume all to be primes initially
     for (auto& itr : seive) {
       itr = 0xffffffffu;
     }
-    unsigned cid = 0;
+    unsigned cid  = 0;
     unsigned cnum = getNum(cid);
     while (cnum <= sqN) {
       do {
         ++cid;
         cnum = getNum(cid);
-        if (isPrime(cnum)) {
-          break;
-        }
+        if (isPrime(cnum)) { break; }
       } while (cnum <= sqN);
       auto cnum2 = cnum << 1;
       // 'unmark' all the 'odd' multiples of the current prime
@@ -85,27 +80,29 @@ class Seive {
 
   unsigned getId(unsigned num) const { return (num >> 1); }
 
-  unsigned getNum(unsigned id) const {
-    if (id == 0) {
-      return 2;
-    }
+  unsigned getNum(unsigned id) const
+  {
+    if (id == 0) { return 2; }
     return ((id << 1) + 1);
   }
 
-  void getMaskPos(unsigned num, unsigned& mask, unsigned& pos) const {
-    pos = getId(num);
+  void getMaskPos(unsigned num, unsigned& mask, unsigned& pos) const
+  {
+    pos  = getId(num);
     mask = 1 << (pos & 0x1f);
     pos >>= 5;
   }
 
-  void unmark(unsigned num) {
+  void unmark(unsigned num)
+  {
     unsigned mask, pos;
     getMaskPos(num, mask, pos);
     seive[pos] &= ~mask;
   }
 
   // REF: http://www.azillionmonkeys.com/qed/ulerysqroot.pdf
-  unsigned fastIntSqrt(unsigned val) {
+  unsigned fastIntSqrt(unsigned val)
+  {
     unsigned g = 0;
     auto bshft = 15u, b = 1u << bshft;
     do {

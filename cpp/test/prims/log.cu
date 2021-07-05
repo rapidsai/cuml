@@ -30,14 +30,16 @@ struct LogInputs {
 };
 
 template <typename T>
-::std::ostream& operator<<(::std::ostream& os, const LogInputs<T>& dims) {
+::std::ostream& operator<<(::std::ostream& os, const LogInputs<T>& dims)
+{
   return os;
 }
 
 template <typename T>
 class LogTest : public ::testing::TestWithParam<LogInputs<T>> {
  protected:
-  void SetUp() override {
+  void SetUp() override
+  {
     params = ::testing::TestWithParam<LogInputs<T>>::GetParam();
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
@@ -50,15 +52,15 @@ class LogTest : public ::testing::TestWithParam<LogInputs<T>> {
 
     raft::allocate(result, len);
     raft::allocate(result_ref, len);
-    T result_ref_h[params.len] = {0.74193734, 1.5040774, -1.07880966,
-                                  2.30258509};
+    T result_ref_h[params.len] = {0.74193734, 1.5040774, -1.07880966, 2.30258509};
     raft::update_device(result_ref, result_ref_h, len, stream);
 
     f_log(result, data, T(1), len, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
-  void TearDown() override {
+  void TearDown() override
+  {
     CUDA_CHECK(cudaFree(data));
     CUDA_CHECK(cudaFree(result));
     CUDA_CHECK(cudaFree(result_ref));
@@ -74,15 +76,17 @@ const std::vector<LogInputs<float>> inputsf2 = {{0.001f, 4}};
 const std::vector<LogInputs<double>> inputsd2 = {{0.001, 4}};
 
 typedef LogTest<float> LogTestValF;
-TEST_P(LogTestValF, Result) {
-  ASSERT_TRUE(devArrMatch(result_ref, result, params.len,
-                          raft::CompareApproxAbs<float>(params.tolerance)));
+TEST_P(LogTestValF, Result)
+{
+  ASSERT_TRUE(
+    devArrMatch(result_ref, result, params.len, raft::CompareApproxAbs<float>(params.tolerance)));
 }
 
 typedef LogTest<double> LogTestValD;
-TEST_P(LogTestValD, Result) {
-  ASSERT_TRUE(devArrMatch(result_ref, result, params.len,
-                          raft::CompareApproxAbs<double>(params.tolerance)));
+TEST_P(LogTestValD, Result)
+{
+  ASSERT_TRUE(
+    devArrMatch(result_ref, result, params.len, raft::CompareApproxAbs<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(LogTests, LogTestValF, ::testing::ValuesIn(inputsf2));

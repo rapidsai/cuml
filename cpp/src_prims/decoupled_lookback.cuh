@@ -33,21 +33,23 @@ struct DecoupledLookBack {
   DI DecoupledLookBack(void* workspace) : flags((Flags*)workspace) {}
 
   /**
-     * @brief Computes workspace needed (in B) for decoupled lookback
-     * @param nblks number of blocks to be launched
-     */
-  static size_t computeWorkspaceSize(int nblks) {
+   * @brief Computes workspace needed (in B) for decoupled lookback
+   * @param nblks number of blocks to be launched
+   */
+  static size_t computeWorkspaceSize(int nblks)
+  {
     size_t workspaceSize = sizeof(Flags) * nblks;
     return workspaceSize;
   }
 
   /**
-     * @brief main decoupled lookback operator
-     * @param sum the summed value for the current thread
-     * @return the inclusive prefix sum computed for the current threadblock
-     * @note Should be called unconditionally by all threads in the threadblock!
-     */
-  DI Type operator()(Type sum) {
+   * @brief main decoupled lookback operator
+   * @param sum the summed value for the current thread
+   * @return the inclusive prefix sum computed for the current threadblock
+   * @note Should be called unconditionally by all threads in the threadblock!
+   */
+  DI Type operator()(Type sum)
+  {
     sumDone(sum);
     auto prefix = predecessorSum();
     communicateDone(prefix, sum);
@@ -65,7 +67,8 @@ struct DecoupledLookBack {
 
   DI bool isLast() { return threadIdx.x == blockDim.x - 1; }
 
-  DI void sumDone(Type sum) {
+  DI void sumDone(Type sum)
+  {
     volatile Flags* myFlag = flags + blockIdx.x;
     __syncthreads();
     if (isLast()) myFlag->sum = sum;
@@ -78,11 +81,12 @@ struct DecoupledLookBack {
     __threadfence();
   }
 
-  DI Type predecessorSum() {
+  DI Type predecessorSum()
+  {
     __shared__ char s_buff[sizeof(Type)];
     auto* s_excl_sum = (Type*)s_buff;
     if (isLast()) {
-      int bidx = blockIdx.x - 1;
+      int bidx      = blockIdx.x - 1;
       Type excl_sum = 0;
       while (bidx >= 0) {
         volatile Flags* others = flags + bidx;
@@ -108,7 +112,8 @@ struct DecoupledLookBack {
     return s_excl_sum[0];
   }
 
-  DI void communicateDone(Type prefix, Type sum) {
+  DI void communicateDone(Type prefix, Type sum)
+  {
     if (blockIdx.x > 0) {
       volatile Flags* myFlag = flags + blockIdx.x;
       __syncthreads();

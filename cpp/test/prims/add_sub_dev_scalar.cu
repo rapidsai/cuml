@@ -38,19 +38,21 @@ struct DevScalarInputs {
 // for an extended __device__ lambda cannot have private or protected access
 // within its class
 template <typename T, typename IdxType = int>
-void unaryOpLaunch(T *out, const T *in, T scalar, IdxType len, bool add,
-                   cudaStream_t stream) {
+void unaryOpLaunch(T* out, const T* in, T scalar, IdxType len, bool add, cudaStream_t stream)
+{
   raft::linalg::unaryOp(
-    out, in, len,
+    out,
+    in,
+    len,
     [scalar, add] __device__(T in) { return add ? in + scalar : in - scalar; },
     stream);
 }
 
 template <typename T, typename IdxType>
-class DevScalarTest
-  : public ::testing::TestWithParam<DevScalarInputs<T, IdxType>> {
+class DevScalarTest : public ::testing::TestWithParam<DevScalarInputs<T, IdxType>> {
  protected:
-  void SetUp() override {
+  void SetUp() override
+  {
     params = ::testing::TestWithParam<DevScalarInputs<T, IdxType>>::GetParam();
     raft::random::Rng r(params.seed);
     cudaStream_t stream;
@@ -73,7 +75,8 @@ class DevScalarTest
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
-  void TearDown() override {
+  void TearDown() override
+  {
     CUDA_CHECK(cudaFree(in));
     CUDA_CHECK(cudaFree(out_ref));
     CUDA_CHECK(cudaFree(out));
@@ -86,48 +89,40 @@ class DevScalarTest
 };
 
 const std::vector<DevScalarInputs<float, int>> inputsf_i32 = {
-  {0.000001f, 1024 * 1024, 2.f, true, 1234ULL},
-  {0.000001f, 1024 * 1024, 2.f, false, 1234ULL}};
+  {0.000001f, 1024 * 1024, 2.f, true, 1234ULL}, {0.000001f, 1024 * 1024, 2.f, false, 1234ULL}};
 typedef DevScalarTest<float, int> DevScalarTestF_i32;
-TEST_P(DevScalarTestF_i32, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          raft::CompareApprox<float>(params.tolerance)));
+TEST_P(DevScalarTestF_i32, Result)
+{
+  ASSERT_TRUE(devArrMatch(out_ref, out, params.len, raft::CompareApprox<float>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(DevScalarTests, DevScalarTestF_i32,
-                        ::testing::ValuesIn(inputsf_i32));
+INSTANTIATE_TEST_CASE_P(DevScalarTests, DevScalarTestF_i32, ::testing::ValuesIn(inputsf_i32));
 
 const std::vector<DevScalarInputs<float, size_t>> inputsf_i64 = {
-  {0.000001f, 1024 * 1024, 2.f, true, 1234ULL},
-  {0.000001f, 1024 * 1024, 2.f, false, 1234ULL}};
+  {0.000001f, 1024 * 1024, 2.f, true, 1234ULL}, {0.000001f, 1024 * 1024, 2.f, false, 1234ULL}};
 typedef DevScalarTest<float, size_t> DevScalarTestF_i64;
-TEST_P(DevScalarTestF_i64, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          raft::CompareApprox<float>(params.tolerance)));
+TEST_P(DevScalarTestF_i64, Result)
+{
+  ASSERT_TRUE(devArrMatch(out_ref, out, params.len, raft::CompareApprox<float>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(DevScalarTests, DevScalarTestF_i64,
-                        ::testing::ValuesIn(inputsf_i64));
+INSTANTIATE_TEST_CASE_P(DevScalarTests, DevScalarTestF_i64, ::testing::ValuesIn(inputsf_i64));
 
 const std::vector<DevScalarInputs<double, int>> inputsd_i32 = {
-  {0.00000001, 1024 * 1024, 2.0, true, 1234ULL},
-  {0.00000001, 1024 * 1024, 2.0, false, 1234ULL}};
+  {0.00000001, 1024 * 1024, 2.0, true, 1234ULL}, {0.00000001, 1024 * 1024, 2.0, false, 1234ULL}};
 typedef DevScalarTest<double, int> DevScalarTestD_i32;
-TEST_P(DevScalarTestD_i32, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          raft::CompareApprox<double>(params.tolerance)));
+TEST_P(DevScalarTestD_i32, Result)
+{
+  ASSERT_TRUE(devArrMatch(out_ref, out, params.len, raft::CompareApprox<double>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(DevScalarTests, DevScalarTestD_i32,
-                        ::testing::ValuesIn(inputsd_i32));
+INSTANTIATE_TEST_CASE_P(DevScalarTests, DevScalarTestD_i32, ::testing::ValuesIn(inputsd_i32));
 
 const std::vector<DevScalarInputs<double, size_t>> inputsd_i64 = {
-  {0.00000001, 1024 * 1024, 2.0, true, 1234ULL},
-  {0.00000001, 1024 * 1024, 2.0, false, 1234ULL}};
+  {0.00000001, 1024 * 1024, 2.0, true, 1234ULL}, {0.00000001, 1024 * 1024, 2.0, false, 1234ULL}};
 typedef DevScalarTest<double, size_t> DevScalarTestD_i64;
-TEST_P(DevScalarTestD_i64, Result) {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len,
-                          raft::CompareApprox<double>(params.tolerance)));
+TEST_P(DevScalarTestD_i64, Result)
+{
+  ASSERT_TRUE(devArrMatch(out_ref, out, params.len, raft::CompareApprox<double>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(DevScalarTests, DevScalarTestD_i64,
-                        ::testing::ValuesIn(inputsd_i64));
+INSTANTIATE_TEST_CASE_P(DevScalarTests, DevScalarTestD_i64, ::testing::ValuesIn(inputsd_i64));
 
 }  // end namespace linalg
 }  // end namespace raft

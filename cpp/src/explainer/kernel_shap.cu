@@ -46,10 +46,16 @@ namespace Explainer {
 */
 
 template <typename DataT, typename IdxT>
-__global__ void exact_rows_kernel(float* X, IdxT nrows_X, IdxT ncols,
-                                  DataT* background, IdxT nrows_background,
-                                  DataT* dataset, DataT* observation) {
-  // Each block processes one row of X. Columns are iterated over by blockDim.x at a time to ensure data coelescing
+__global__ void exact_rows_kernel(float* X,
+                                  IdxT nrows_X,
+                                  IdxT ncols,
+                                  DataT* background,
+                                  IdxT nrows_background,
+                                  DataT* dataset,
+                                  DataT* observation)
+{
+  // Each block processes one row of X. Columns are iterated over by blockDim.x at a time to ensure
+  // data coelescing
   int col = threadIdx.x;
   int row = blockIdx.x * ncols;
 
@@ -62,8 +68,7 @@ __global__ void exact_rows_kernel(float* X, IdxT nrows_X, IdxT ncols,
          row_idx < blockIdx.x * nrows_background + nrows_background;
          row_idx += 1) {
       if (curr_X == 0) {
-        dataset[row_idx * ncols + col] =
-          background[(row_idx % nrows_background) * ncols + col];
+        dataset[row_idx * ncols + col] = background[(row_idx % nrows_background) * ncols + col];
       } else {
         dataset[row_idx * ncols + col] = observation[col];
       }
@@ -76,7 +81,8 @@ __global__ void exact_rows_kernel(float* X, IdxT nrows_X, IdxT ncols,
 /*
 * Kernel distributes sampled part of the kernel shap dataset
 * The first thread of each block calculates the sampling of `k` entries of `observation`
-* to scatter into `dataset`. Afterwards each block scatters the data of a row of `X` into the (number of rows of
+* to scatter into `dataset`. Afterwards each block scatters the data of a row of `X` into the
+(number of rows of
 * background) in `dataset`.
 * So, given:
 * background = [[0, 1, 2, 3],
@@ -97,10 +103,16 @@ __global__ void exact_rows_kernel(float* X, IdxT nrows_X, IdxT ncols,
 *
 */
 template <typename DataT, typename IdxT>
-__global__ void sampled_rows_kernel(IdxT* nsamples, float* X, IdxT nrows_X,
-                                    IdxT ncols, DataT* background,
-                                    IdxT nrows_background, DataT* dataset,
-                                    DataT* observation, uint64_t seed) {
+__global__ void sampled_rows_kernel(IdxT* nsamples,
+                                    float* X,
+                                    IdxT nrows_X,
+                                    IdxT ncols,
+                                    DataT* background,
+                                    IdxT nrows_background,
+                                    DataT* dataset,
+                                    DataT* observation,
+                                    uint64_t seed)
+{
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   // see what k this block will generate
   int k_blk = nsamples[blockIdx.x];
@@ -111,18 +123,20 @@ __global__ void sampled_rows_kernel(IdxT* nsamples, float* X, IdxT nrows_X,
     curand_init((unsigned long long)seed, (unsigned long long)tid, 0, &state);
     int rand_idx = (int)(curand_uniform(&state) * ncols);
 
-    // Since X is initialized to 0, we quickly check for collisions (if k_blk << ncols the likelyhood of collisions is low)
+    // Since X is initialized to 0, we quickly check for collisions (if k_blk << ncols the
+    // likelyhood of collisions is low)
     while (atomicExch(&(X[2 * blockIdx.x * ncols + rand_idx]), 1) == 1) {
       rand_idx = (int)(curand_uniform(&state) * ncols);
     }
   }
   __syncthreads();
 
-  // Each block processes one row of X. Columns are iterated over by blockDim.x at a time to ensure data coelescing
+  // Each block processes one row of X. Columns are iterated over by blockDim.x at a time to ensure
+  // data coelescing
   int col_idx = threadIdx.x;
   while (col_idx < ncols) {
     // Load the X idx for the current column
-    int curr_X = (int)X[2 * blockIdx.x * ncols + col_idx];
+    int curr_X                                = (int)X[2 * blockIdx.x * ncols + col_idx];
     X[(2 * blockIdx.x + 1) * ncols + col_idx] = 1 - curr_X;
 
     for (int bg_row_idx = 2 * blockIdx.x * nrows_background;
@@ -137,8 +151,7 @@ __global__ void sampled_rows_kernel(IdxT* nsamples, float* X, IdxT nrows_X,
     }
 
     for (int bg_row_idx = (2 * blockIdx.x + 1) * nrows_background;
-         bg_row_idx <
-         (2 * blockIdx.x + 1) * nrows_background + nrows_background;
+         bg_row_idx < (2 * blockIdx.x + 1) * nrows_background + nrows_background;
          bg_row_idx += 1) {
       if (curr_X == 0) {
         dataset[bg_row_idx * ncols + col_idx] = observation[col_idx];
@@ -154,18 +167,27 @@ __global__ void sampled_rows_kernel(IdxT* nsamples, float* X, IdxT nrows_X,
 }
 
 template <typename DataT, typename IdxT>
-void kernel_dataset_impl(const raft::handle_t& handle, float* X, IdxT nrows_X,
-                         IdxT ncols, DataT* background, IdxT nrows_background,
-                         DataT* dataset, DataT* observation, int* nsamples,
-                         int len_samples, int maxsample, uint64_t seed) {
+void kernel_dataset_impl(const raft::handle_t& handle,
+                         float* X,
+                         IdxT nrows_X,
+                         IdxT ncols,
+                         DataT* background,
+                         IdxT nrows_background,
+                         DataT* dataset,
+                         DataT* observation,
+                         int* nsamples,
+                         int len_samples,
+                         int maxsample,
+                         uint64_t seed)
+{
   const auto& handle_impl = handle;
-  cudaStream_t stream = handle_impl.get_stream();
+  cudaStream_t stream     = handle_impl.get_stream();
 
   IdxT nblks;
   IdxT nthreads;
 
   nthreads = min(512, ncols);
-  nblks = nrows_X - len_samples;
+  nblks    = nrows_X - len_samples;
 
   if (nblks > 0) {
     exact_rows_kernel<<<nblks, nthreads, 0, stream>>>(
@@ -179,30 +201,71 @@ void kernel_dataset_impl(const raft::handle_t& handle, float* X, IdxT nrows_X,
     nblks = len_samples / 2;
     // each block does a sample and its compliment
     sampled_rows_kernel<<<nblks, nthreads, 0, stream>>>(
-      nsamples, &X[(nrows_X - len_samples) * ncols], len_samples, ncols,
-      background, nrows_background,
-      &dataset[(nrows_X - len_samples) * nrows_background * ncols], observation,
+      nsamples,
+      &X[(nrows_X - len_samples) * ncols],
+      len_samples,
+      ncols,
+      background,
+      nrows_background,
+      &dataset[(nrows_X - len_samples) * nrows_background * ncols],
+      observation,
       seed);
   }
 
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-void kernel_dataset(const raft::handle_t& handle, float* X, int nrows_X,
-                    int ncols, float* background, int nrows_background,
-                    float* dataset, float* observation, int* nsamples,
-                    int len_nsamples, int maxsample, uint64_t seed) {
-  kernel_dataset_impl(handle, X, nrows_X, ncols, background, nrows_background,
-                      dataset, observation, nsamples, len_nsamples, maxsample,
+void kernel_dataset(const raft::handle_t& handle,
+                    float* X,
+                    int nrows_X,
+                    int ncols,
+                    float* background,
+                    int nrows_background,
+                    float* dataset,
+                    float* observation,
+                    int* nsamples,
+                    int len_nsamples,
+                    int maxsample,
+                    uint64_t seed)
+{
+  kernel_dataset_impl(handle,
+                      X,
+                      nrows_X,
+                      ncols,
+                      background,
+                      nrows_background,
+                      dataset,
+                      observation,
+                      nsamples,
+                      len_nsamples,
+                      maxsample,
                       seed);
 }
 
-void kernel_dataset(const raft::handle_t& handle, float* X, int nrows_X,
-                    int ncols, double* background, int nrows_background,
-                    double* dataset, double* observation, int* nsamples,
-                    int len_nsamples, int maxsample, uint64_t seed) {
-  kernel_dataset_impl(handle, X, nrows_X, ncols, background, nrows_background,
-                      dataset, observation, nsamples, len_nsamples, maxsample,
+void kernel_dataset(const raft::handle_t& handle,
+                    float* X,
+                    int nrows_X,
+                    int ncols,
+                    double* background,
+                    int nrows_background,
+                    double* dataset,
+                    double* observation,
+                    int* nsamples,
+                    int len_nsamples,
+                    int maxsample,
+                    uint64_t seed)
+{
+  kernel_dataset_impl(handle,
+                      X,
+                      nrows_X,
+                      ncols,
+                      background,
+                      nrows_background,
+                      dataset,
+                      observation,
+                      nsamples,
+                      len_nsamples,
+                      maxsample,
                       seed);
 }
 

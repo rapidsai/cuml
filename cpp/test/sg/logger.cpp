@@ -20,7 +20,8 @@
 
 namespace ML {
 
-TEST(Logger, Test) {
+TEST(Logger, Test)
+{
   CUML_LOG_CRITICAL("This is a critical message");
   CUML_LOG_ERROR("This is an error message");
   CUML_LOG_WARN("This is a warning message");
@@ -45,20 +46,23 @@ void exampleFlush() { ++flushCount; }
 
 class LoggerTest : public ::testing::Test {
  protected:
-  void SetUp() override {
+  void SetUp() override
+  {
     flushCount = 0;
-    logged = "";
+    logged     = "";
     Logger::get().setLevel(CUML_LEVEL_TRACE);
   }
 
-  void TearDown() override {
+  void TearDown() override
+  {
     Logger::get().setCallback(nullptr);
     Logger::get().setFlush(nullptr);
     Logger::get().setLevel(CUML_LEVEL_INFO);
   }
 };
 
-TEST_F(LoggerTest, callback) {
+TEST_F(LoggerTest, callback)
+{
   std::string testMsg;
   Logger::get().setCallback(exampleCallback);
 
@@ -83,7 +87,8 @@ TEST_F(LoggerTest, callback) {
   ASSERT_TRUE(logged.find(testMsg) != std::string::npos);
 }
 
-TEST_F(LoggerTest, flush) {
+TEST_F(LoggerTest, flush)
+{
   Logger::get().setFlush(exampleFlush);
   Logger::get().flush();
   ASSERT_EQ(1, flushCount);

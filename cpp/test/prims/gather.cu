@@ -25,13 +25,13 @@ namespace MLCommon {
 namespace Matrix {
 
 template <typename MatrixIteratorT, typename MapIteratorT>
-void naiveGatherImpl(MatrixIteratorT in, int D, int N, MapIteratorT map,
-                     int map_length, MatrixIteratorT out) {
+void naiveGatherImpl(
+  MatrixIteratorT in, int D, int N, MapIteratorT map, int map_length, MatrixIteratorT out)
+{
   for (int outRow = 0; outRow < map_length; ++outRow) {
-    typename std::iterator_traits<MapIteratorT>::value_type map_val =
-      map[outRow];
-    int inRowStart = map_val * D;
-    int outRowStart = outRow * D;
+    typename std::iterator_traits<MapIteratorT>::value_type map_val = map[outRow];
+    int inRowStart                                                  = map_val * D;
+    int outRowStart                                                 = outRow * D;
     for (int i = 0; i < D; ++i) {
       out[outRowStart + i] = in[inRowStart + i];
     }
@@ -39,14 +39,21 @@ void naiveGatherImpl(MatrixIteratorT in, int D, int N, MapIteratorT map,
 }
 
 template <typename MatrixIteratorT, typename MapIteratorT>
-void naiveGather(MatrixIteratorT in, int D, int N, MapIteratorT map,
-                 int map_length, MatrixIteratorT out) {
+void naiveGather(
+  MatrixIteratorT in, int D, int N, MapIteratorT map, int map_length, MatrixIteratorT out)
+{
   naiveGatherImpl(in, D, N, map, map_length, out);
 }
 
 template <typename MatrixIteratorT, typename MapIteratorT>
-void gatherLaunch(MatrixIteratorT in, int D, int N, MapIteratorT map,
-                  int map_length, MatrixIteratorT out, cudaStream_t stream) {
+void gatherLaunch(MatrixIteratorT in,
+                  int D,
+                  int N,
+                  MapIteratorT map,
+                  int map_length,
+                  MatrixIteratorT out,
+                  cudaStream_t stream)
+{
   typedef typename std::iterator_traits<MapIteratorT>::value_type MapValueT;
   Matrix::gather(in, D, N, map, map_length, out, stream);
 }
@@ -61,31 +68,32 @@ struct GatherInputs {
 template <typename MatrixT, typename MapT>
 class GatherTest : public ::testing::TestWithParam<GatherInputs> {
  protected:
-  void SetUp() override {
+  void SetUp() override
+  {
     params = ::testing::TestWithParam<GatherInputs>::GetParam();
     raft::random::Rng r(params.seed);
     raft::random::Rng r_int(params.seed);
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    uint32_t nrows = params.nrows;
-    uint32_t ncols = params.ncols;
+    uint32_t nrows      = params.nrows;
+    uint32_t ncols      = params.ncols;
     uint32_t map_length = params.map_length;
-    uint32_t len = nrows * ncols;
+    uint32_t len        = nrows * ncols;
 
     // input matrix setup
     raft::allocate(d_in, nrows * ncols);
-    h_in = (MatrixT *)malloc(sizeof(MatrixT) * nrows * ncols);
+    h_in = (MatrixT*)malloc(sizeof(MatrixT) * nrows * ncols);
     r.uniform(d_in, len, MatrixT(-1.0), MatrixT(1.0), stream);
     raft::update_host(h_in, d_in, len, stream);
 
     // map setup
     raft::allocate(d_map, map_length);
-    h_map = (MapT *)malloc(sizeof(MapT) * map_length);
+    h_map = (MapT*)malloc(sizeof(MapT) * map_length);
     r_int.uniformInt(d_map, map_length, (MapT)0, nrows, stream);
     raft::update_host(h_map, d_map, map_length, stream);
 
     // expected and actual output matrix setup
-    h_out = (MatrixT *)malloc(sizeof(MatrixT) * map_length * ncols);
+    h_out = (MatrixT*)malloc(sizeof(MatrixT) * map_length * ncols);
     raft::allocate(d_out_exp, map_length * ncols);
     raft::allocate(d_out_act, map_length * ncols);
 
@@ -98,7 +106,8 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs> {
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
-  void TearDown() override {
+  void TearDown() override
+  {
     CUDA_CHECK(cudaFree(d_in));
     CUDA_CHECK(cudaFree(d_map));
     CUDA_CHECK(cudaFree(d_out_act));
@@ -117,26 +126,31 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs> {
   MapT *d_map, *h_map;
 };
 
-const std::vector<GatherInputs> inputs = {
-  {1024, 32, 128, 1234ULL},  {1024, 32, 256, 1234ULL},
-  {1024, 32, 512, 1234ULL},  {1024, 32, 1024, 1234ULL},
-  {1024, 64, 128, 1234ULL},  {1024, 64, 256, 1234ULL},
-  {1024, 64, 512, 1234ULL},  {1024, 64, 1024, 1234ULL},
-  {1024, 128, 128, 1234ULL}, {1024, 128, 256, 1234ULL},
-  {1024, 128, 512, 1234ULL}, {1024, 128, 1024, 1234ULL}};
+const std::vector<GatherInputs> inputs = {{1024, 32, 128, 1234ULL},
+                                          {1024, 32, 256, 1234ULL},
+                                          {1024, 32, 512, 1234ULL},
+                                          {1024, 32, 1024, 1234ULL},
+                                          {1024, 64, 128, 1234ULL},
+                                          {1024, 64, 256, 1234ULL},
+                                          {1024, 64, 512, 1234ULL},
+                                          {1024, 64, 1024, 1234ULL},
+                                          {1024, 128, 128, 1234ULL},
+                                          {1024, 128, 256, 1234ULL},
+                                          {1024, 128, 512, 1234ULL},
+                                          {1024, 128, 1024, 1234ULL}};
 
 typedef GatherTest<float, uint32_t> GatherTestF;
-TEST_P(GatherTestF, Result) {
-  ASSERT_TRUE(devArrMatch(d_out_exp, d_out_act,
-                          params.map_length * params.ncols,
-                          raft::Compare<float>()));
+TEST_P(GatherTestF, Result)
+{
+  ASSERT_TRUE(
+    devArrMatch(d_out_exp, d_out_act, params.map_length * params.ncols, raft::Compare<float>()));
 }
 
 typedef GatherTest<double, uint32_t> GatherTestD;
-TEST_P(GatherTestD, Result) {
-  ASSERT_TRUE(devArrMatch(d_out_exp, d_out_act,
-                          params.map_length * params.ncols,
-                          raft::Compare<double>()));
+TEST_P(GatherTestD, Result)
+{
+  ASSERT_TRUE(
+    devArrMatch(d_out_exp, d_out_act, params.map_length * params.ncols, raft::Compare<double>()));
 }
 
 INSTANTIATE_TEST_CASE_P(GatherTests, GatherTestF, ::testing::ValuesIn(inputs));

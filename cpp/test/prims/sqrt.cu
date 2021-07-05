@@ -24,17 +24,17 @@ namespace MLCommon {
 namespace LinAlg {
 
 template <typename Type>
-__global__ void naiveSqrtElemKernel(Type *out, const Type *in1, int len) {
+__global__ void naiveSqrtElemKernel(Type* out, const Type* in1, int len)
+{
   int idx = threadIdx.x + blockIdx.x * blockDim.x;
-  if (idx < len) {
-    out[idx] = raft::mySqrt(in1[idx]);
-  }
+  if (idx < len) { out[idx] = raft::mySqrt(in1[idx]); }
 }
 
 template <typename Type>
-void naiveSqrtElem(Type *out, const Type *in1, int len) {
+void naiveSqrtElem(Type* out, const Type* in1, int len)
+{
   static const int TPB = 64;
-  int nblks = raft::ceildiv(len, TPB);
+  int nblks            = raft::ceildiv(len, TPB);
   naiveSqrtElemKernel<Type><<<nblks, TPB>>>(out, in1, len);
   CUDA_CHECK(cudaPeekAtLastError());
 }
@@ -47,14 +47,16 @@ struct SqrtInputs {
 };
 
 template <typename T>
-::std::ostream &operator<<(::std::ostream &os, const SqrtInputs<T> &dims) {
+::std::ostream& operator<<(::std::ostream& os, const SqrtInputs<T>& dims)
+{
   return os;
 }
 
 template <typename T>
 class SqrtTest : public ::testing::TestWithParam<SqrtInputs<T>> {
  protected:
-  void SetUp() override {
+  void SetUp() override
+  {
     params = ::testing::TestWithParam<SqrtInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     cudaStream_t stream;
@@ -72,7 +74,8 @@ class SqrtTest : public ::testing::TestWithParam<SqrtInputs<T>> {
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
-  void TearDown() override {
+  void TearDown() override
+  {
     CUDA_CHECK(cudaFree(in1));
     CUDA_CHECK(cudaFree(out_ref));
     CUDA_CHECK(cudaFree(out));
@@ -84,28 +87,28 @@ class SqrtTest : public ::testing::TestWithParam<SqrtInputs<T>> {
   int device_count = 0;
 };
 
-const std::vector<SqrtInputs<float>> inputsf2 = {
-  {0.000001f, 1024 * 1024, 1234ULL}};
+const std::vector<SqrtInputs<float>> inputsf2 = {{0.000001f, 1024 * 1024, 1234ULL}};
 
-const std::vector<SqrtInputs<double>> inputsd2 = {
-  {0.00000001, 1024 * 1024, 1234ULL}};
+const std::vector<SqrtInputs<double>> inputsd2 = {{0.00000001, 1024 * 1024, 1234ULL}};
 
 typedef SqrtTest<float> SqrtTestF;
-TEST_P(SqrtTestF, Result) {
-  ASSERT_TRUE(raft::devArrMatch(out_ref, out, params.len,
-                                raft::CompareApprox<float>(params.tolerance)));
+TEST_P(SqrtTestF, Result)
+{
+  ASSERT_TRUE(
+    raft::devArrMatch(out_ref, out, params.len, raft::CompareApprox<float>(params.tolerance)));
 
-  ASSERT_TRUE(raft::devArrMatch(out_ref, in1, params.len,
-                                raft::CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(
+    raft::devArrMatch(out_ref, in1, params.len, raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef SqrtTest<double> SqrtTestD;
-TEST_P(SqrtTestD, Result) {
-  ASSERT_TRUE(raft::devArrMatch(out_ref, out, params.len,
-                                raft::CompareApprox<double>(params.tolerance)));
+TEST_P(SqrtTestD, Result)
+{
+  ASSERT_TRUE(
+    raft::devArrMatch(out_ref, out, params.len, raft::CompareApprox<double>(params.tolerance)));
 
-  ASSERT_TRUE(raft::devArrMatch(out_ref, in1, params.len,
-                                raft::CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(
+    raft::devArrMatch(out_ref, in1, params.len, raft::CompareApprox<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(SqrtTests, SqrtTestF, ::testing::ValuesIn(inputsf2));
