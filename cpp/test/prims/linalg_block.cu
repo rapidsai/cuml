@@ -25,7 +25,7 @@
 #include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng.cuh>
 
-#include <test_utils.h>
+#include "test_utils.h"
 
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
