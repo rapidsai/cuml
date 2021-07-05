@@ -15,6 +15,10 @@ export GIT_DESCRIBE_TAG=`git describe --tags`
 export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 conda install "ucx-py=0.21.*" "ucx-proc=*=gpu"
 
+gpuci_conda_retry remove --force rapids-build-env rapids-notebook-env
+gpuci_conda_retry install -y "clang=11.0.0"
+gpuci_conda_retry install -y "clang-tools=11.0.0"
+
 # Run flake8 and get results/return code
 FLAKE=`flake8 --config=python/setup.cfg`
 RETVAL=$?
