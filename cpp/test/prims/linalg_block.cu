@@ -107,6 +107,12 @@ class BlockGemmTest : public ::testing::TestWithParam<BlockGemmInputs<T>> {
                       handle.get_stream());
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
+    /* Compute using tested prims */
+    block_gemm_test_kernel<Policy>
+      <<<params.batch_size, Policy::BlockSize, 0, handle.get_stream()>>>(
+        params.transa, params.transb, params.m, params.n, params.k, alpha,
+        a.data(), b.data(), c.data());
+
     /* Compute reference results */
     for (int bid = 0; bid < params.batch_size; bid++) {
       for (int i = 0; i < params.m; i++) {
@@ -126,12 +132,6 @@ class BlockGemmTest : public ::testing::TestWithParam<BlockGemmInputs<T>> {
         }
       }
     }
-
-    /* Compute using tested prims */
-    block_gemm_test_kernel<Policy>
-      <<<params.batch_size, Policy::BlockSize, 0, handle.get_stream()>>>(
-        params.transa, params.transb, params.m, params.n, params.k, alpha,
-        a.data(), b.data(), c.data());
 
     /* Check results */
     match = devArrMatchHost(
@@ -314,6 +314,12 @@ class BlockGemvTest : public ::testing::TestWithParam<BlockGemvInputs<T>> {
                       handle.get_stream());
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
+    /* Compute using tested prims */
+    int shared_mem_size = params.n * sizeof(T);
+    block_gemv_test_kernel<Policy><<<params.batch_size, Policy::BlockSize,
+                                     shared_mem_size, handle.get_stream()>>>(
+      params.m, params.n, alpha, a.data(), x.data(), y.data());
+
     /* Compute reference results */
     for (int bid = 0; bid < params.batch_size; bid++) {
       for (int i = 0; i < params.m; i++) {
@@ -325,12 +331,6 @@ class BlockGemvTest : public ::testing::TestWithParam<BlockGemvInputs<T>> {
         h_y_ref[bid * params.m + i] = alpha * acc;
       }
     }
-
-    /* Compute using tested prims */
-    int shared_mem_size = params.n * sizeof(T);
-    block_gemv_test_kernel<Policy><<<params.batch_size, Policy::BlockSize,
-                                     shared_mem_size, handle.get_stream()>>>(
-      params.m, params.n, alpha, a.data(), x.data(), y.data());
 
     /* Check results */
     match =
@@ -456,13 +456,6 @@ class BlockDotTest : public ::testing::TestWithParam<BlockDotInputs<T>> {
                       handle.get_stream());
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    /* Compute reference results */
-    for (int bid = 0; bid < params.batch_size; bid++) {
-      for (int i = 0; i < params.n; i++) {
-        h_dot_ref[bid] += h_x[bid * params.n + i] * h_y[bid * params.n + i];
-      }
-    }
-
     /* Compute using tested prims */
     constexpr int BlockSize = 64;
     if (params.broadcast)
@@ -473,6 +466,13 @@ class BlockDotTest : public ::testing::TestWithParam<BlockDotInputs<T>> {
       block_dot_test_kernel<BlockSize, false>
         <<<params.batch_size, BlockSize, 0, handle.get_stream()>>>(
           params.n, x.data(), y.data(), dot_dev.data());
+
+    /* Compute reference results */
+    for (int bid = 0; bid < params.batch_size; bid++) {
+      for (int i = 0; i < params.n; i++) {
+        h_dot_ref[bid] += h_x[bid * params.n + i] * h_y[bid * params.n + i];
+      }
+    }
 
     /* Check results */
     match =
@@ -581,18 +581,6 @@ class BlockXaxtTest : public ::testing::TestWithParam<BlockXaxtInputs<T>> {
                       handle.get_stream());
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    /* Compute reference results */
-    for (int bid = 0; bid < params.batch_size; bid++) {
-      for (int i = 0; i < params.n; i++) {
-        T acc = 0;
-        for (int j = 0; j < params.n; j++) {
-          acc += h_A[bid * params.n * params.n + j * params.n + i] *
-                 h_x[bid * params.n + j];
-        }
-        h_res_ref[bid] += acc * h_x[bid * params.n + i];
-      }
-    }
-
     /* Compute using tested prims */
     constexpr int BlockSize = 64;
     int shared_mem_size = params.n * sizeof(T);
@@ -604,6 +592,18 @@ class BlockXaxtTest : public ::testing::TestWithParam<BlockXaxtInputs<T>> {
       block_xAxt_test_kernel<BlockSize, false>
         <<<params.batch_size, BlockSize, shared_mem_size,
            handle.get_stream()>>>(params.n, x.data(), A.data(), res_dev.data());
+
+    /* Compute reference results */
+    for (int bid = 0; bid < params.batch_size; bid++) {
+      for (int i = 0; i < params.n; i++) {
+        T acc = 0;
+        for (int j = 0; j < params.n; j++) {
+          acc += h_A[bid * params.n * params.n + j * params.n + i] *
+                 h_x[bid * params.n + j];
+        }
+        h_res_ref[bid] += acc * h_x[bid * params.n + i];
+      }
+    }
 
     /* Check results */
     match =
@@ -696,18 +696,18 @@ class BlockAxTest : public ::testing::TestWithParam<BlockAxInputs<T>> {
                       handle.get_stream());
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
+    /* Compute using tested prims */
+    constexpr int BlockSize = 64;
+    block_ax_test_kernel<<<params.batch_size, BlockSize, 0,
+                           handle.get_stream()>>>(params.n, alpha, x.data(),
+                                                  y.data());
+
     /* Compute reference results */
     for (int bid = 0; bid < params.batch_size; bid++) {
       for (int i = 0; i < params.n; i++) {
         h_y_ref[bid * params.n + i] = alpha * h_x[bid * params.n + i];
       }
     }
-
-    /* Compute using tested prims */
-    constexpr int BlockSize = 64;
-    block_ax_test_kernel<<<params.batch_size, BlockSize, 0,
-                           handle.get_stream()>>>(params.n, alpha, x.data(),
-                                                  y.data());
 
     /* Check results */
     match =
