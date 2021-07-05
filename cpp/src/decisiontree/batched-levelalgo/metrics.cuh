@@ -290,6 +290,9 @@ class MSEObjectiveFunction {
   }
 };
 
+// Each histogram bin contains a density estimate of labels
+// We use k terms of an orthogonal cosine series to estimate the label pdf
+// See https://dl.acm.org/doi/10.1145/3442337
 template <int k_>
 struct CosBin {
   static const int k = k_;
@@ -306,6 +309,8 @@ struct CosBin {
 
   HDI double NumItems() const { return moments[0]; }
 
+  // Approximate cumulative distribution function of the labels
+  // This is the integral of the cosine series density estimate
   HDI double Cdf(double y, double min, double max) const {
     if ((max - min) == 0.0 || moments[0] == 0.0) return 0.5;
     double y_scaled = (y - min) * M_PI / (max - min);
@@ -316,7 +321,7 @@ struct CosBin {
     }
     return sum;
   }
-
+  // Integral of the CDF evaluated from min to z
   HDI double CdfIntegral(double z, double min, double max) const {
     double a = min;
     double b = max;
@@ -331,6 +336,11 @@ struct CosBin {
     return sum * L / M_PI;
   }
 
+  // Find the approximate median of the labels in this bin
+  // The median is the minimizer of MAE
+  // Find the absolute error of this set of labels, given our median
+  // The MAE can be directly obtained from the density function and median
+  // by integration by parts.
   HDI double AbsoluteError(double min, double max) const {
     double median = this->Median(min, max);
     double mae_l = this->CdfIntegral(median, min, max);
@@ -338,9 +348,9 @@ struct CosBin {
     return (mae_l + mae_r + max - median) * this->NumItems();
   }
 
-  // Bisection algorithm
+  // Bisect the CDF to find the mediian y such that F(y)=0.5
   HDI double Median(double min, double max) const {
-    const int iter = 20;
+    const int iter = 10;
     double dx = max - min;
     double ymid = max;
     double fmid = 0.0;
@@ -407,6 +417,8 @@ class MAEObjectiveFunction {
 
   DI IdxT NumClasses() const { return 1; }
   DI void IncrementHistogram(BinT* bins, int nbins, int b, double label) {
+    // Accumulate the coefficients of an orthoogonal cosine series
+    // Scaled/shifted to [0,pi)
     double scaled_label = (label - label_min) * M_PI / (label_max - label_min);
     atomicAdd(&(bins + b)->moments[0], 1.0);
     for (int i = 1; i < BinT::k + 1; i++) {
