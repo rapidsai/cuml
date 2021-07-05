@@ -67,7 +67,7 @@ __global__ void block_gemm_test_kernel(bool transa, bool transb, int m, int n,
                       gemm_storage);
 }
 
-template <typename T>
+template <typename Policy, typename T>
 class BlockGemmTest : public ::testing::TestWithParam<BlockGemmInputs<T>> {
  protected:
   void basicTest() {
@@ -128,19 +128,10 @@ class BlockGemmTest : public ::testing::TestWithParam<BlockGemmInputs<T>> {
     }
 
     /* Compute using tested prims */
-    if (params.vec_len == 1) {
-      using Policy = BlockGemmPolicy<1, 32, 2, 2, 16, 16>;
-      block_gemm_test_kernel<Policy>
-        <<<params.batch_size, Policy::BlockSize, 0, handle.get_stream()>>>(
-          params.transa, params.transb, params.m, params.n, params.k, alpha,
-          a.data(), b.data(), c.data());
-    } else if (params.vec_len == 2) {
-      using Policy = BlockGemmPolicy<2, 32, 2, 2, 16, 16>;
-      block_gemm_test_kernel<Policy>
-        <<<params.batch_size, Policy::BlockSize, 0, handle.get_stream()>>>(
-          params.transa, params.transb, params.m, params.n, params.k, alpha,
-          a.data(), b.data(), c.data());
-    }
+    block_gemm_test_kernel<Policy>
+      <<<params.batch_size, Policy::BlockSize, 0, handle.get_stream()>>>(
+        params.transa, params.transb, params.m, params.n, params.k, alpha,
+        a.data(), b.data(), c.data());
 
     /* Check results */
     match = devArrMatchHost(
@@ -163,10 +154,6 @@ const std::vector<BlockGemmInputs<float>> gemm_inputsf = {
   {65, 10, 20, false, true, 50, 1, 1e-4, 12345U},
   {5, 80, 31, true, false, 80, 1, 1e-4, 12345U},
   {11, 50, 41, true, true, 100, 1, 1e-4, 12345U},
-  {30, 34, 16, false, false, 20, 2, 1e-4, 12345U},
-  {10, 42, 20, false, true, 20, 2, 1e-4, 12345U},
-  {14, 8, 22, true, false, 20, 2, 1e-4, 12345U},
-  {56, 72, 28, true, true, 20, 2, 1e-4, 12345U},
 };
 
 const std::vector<BlockGemmInputs<double>> gemm_inputsd = {
@@ -174,23 +161,91 @@ const std::vector<BlockGemmInputs<double>> gemm_inputsd = {
   {65, 10, 20, false, true, 50, 1, 1e-4, 12345U},
   {5, 80, 31, true, false, 80, 1, 1e-4, 12345U},
   {11, 50, 41, true, true, 100, 1, 1e-4, 12345U},
+};
+
+const std::vector<BlockGemmInputs<float>> gemm_inputsf_vec2 = {
   {30, 34, 16, false, false, 20, 2, 1e-4, 12345U},
   {10, 42, 20, false, true, 20, 2, 1e-4, 12345U},
   {14, 8, 22, true, false, 20, 2, 1e-4, 12345U},
   {56, 72, 28, true, true, 20, 2, 1e-4, 12345U},
 };
 
-typedef BlockGemmTest<float> BlockGemmTestF;
-TEST_P(BlockGemmTestF, Result) { EXPECT_TRUE(match); }
+const std::vector<BlockGemmInputs<double>> gemm_inputsd_vec2 = {
+  {30, 34, 16, false, false, 20, 2, 1e-4, 12345U},
+  {10, 42, 20, false, true, 20, 2, 1e-4, 12345U},
+  {14, 8, 22, true, false, 20, 2, 1e-4, 12345U},
+  {56, 72, 28, true, true, 20, 2, 1e-4, 12345U},
+};
 
-typedef BlockGemmTest<double> BlockGemmTestD;
-TEST_P(BlockGemmTestD, Result) { EXPECT_TRUE(match); }
+typedef BlockGemmTest<BlockGemmPolicy<1, 16, 1, 4, 16, 4>, float>
+  BlockGemmTestF_1_16_1_4_16_4;
+TEST_P(BlockGemmTestF_1_16_1_4_16_4, Result) { EXPECT_TRUE(match); }
 
-INSTANTIATE_TEST_CASE_P(BlockGemmTests, BlockGemmTestF,
+typedef BlockGemmTest<BlockGemmPolicy<1, 16, 1, 4, 16, 4>, double>
+  BlockGemmTestD_1_16_1_4_16_4;
+TEST_P(BlockGemmTestD_1_16_1_4_16_4, Result) { EXPECT_TRUE(match); }
+
+typedef BlockGemmTest<BlockGemmPolicy<1, 32, 1, 4, 32, 8>, float>
+  BlockGemmTestF_1_32_1_4_32_8;
+TEST_P(BlockGemmTestF_1_32_1_4_32_8, Result) { EXPECT_TRUE(match); }
+
+typedef BlockGemmTest<BlockGemmPolicy<1, 32, 1, 4, 32, 8>, double>
+  BlockGemmTestD_1_32_1_4_32_8;
+TEST_P(BlockGemmTestD_1_32_1_4_32_8, Result) { EXPECT_TRUE(match); }
+
+typedef BlockGemmTest<BlockGemmPolicy<1, 32, 1, 16, 64, 4>, float>
+  BlockGemmTestF_1_32_1_16_64_4;
+TEST_P(BlockGemmTestF_1_32_1_16_64_4, Result) { EXPECT_TRUE(match); }
+
+typedef BlockGemmTest<BlockGemmPolicy<1, 32, 1, 16, 64, 4>, double>
+  BlockGemmTestD_1_32_1_16_64_4;
+TEST_P(BlockGemmTestD_1_32_1_16_64_4, Result) { EXPECT_TRUE(match); }
+
+typedef BlockGemmTest<BlockGemmPolicy<1, 16, 1, 16, 128, 2>, float>
+  BlockGemmTestF_1_16_1_16_128_2;
+TEST_P(BlockGemmTestF_1_16_1_16_128_2, Result) { EXPECT_TRUE(match); }
+
+typedef BlockGemmTest<BlockGemmPolicy<1, 16, 1, 16, 128, 2>, double>
+  BlockGemmTestD_1_16_1_16_128_2;
+TEST_P(BlockGemmTestD_1_16_1_16_128_2, Result) { EXPECT_TRUE(match); }
+
+typedef BlockGemmTest<BlockGemmPolicy<2, 32, 2, 2, 16, 16>, float>
+  BlockGemmTestF_2_32_2_2_16_16;
+TEST_P(BlockGemmTestF_2_32_2_2_16_16, Result) { EXPECT_TRUE(match); }
+
+typedef BlockGemmTest<BlockGemmPolicy<2, 32, 2, 2, 16, 16>, double>
+  BlockGemmTestD_2_32_2_2_16_16;
+TEST_P(BlockGemmTestD_2_32_2_2_16_16, Result) { EXPECT_TRUE(match); }
+
+INSTANTIATE_TEST_CASE_P(BlockGemmTests, BlockGemmTestF_1_16_1_4_16_4,
                         ::testing::ValuesIn(gemm_inputsf));
 
-INSTANTIATE_TEST_CASE_P(BlockGemmTests, BlockGemmTestD,
+INSTANTIATE_TEST_CASE_P(BlockGemmTests, BlockGemmTestD_1_16_1_4_16_4,
                         ::testing::ValuesIn(gemm_inputsd));
+
+INSTANTIATE_TEST_CASE_P(BlockGemmTests, BlockGemmTestF_1_32_1_4_32_8,
+                        ::testing::ValuesIn(gemm_inputsf));
+
+INSTANTIATE_TEST_CASE_P(BlockGemmTests, BlockGemmTestD_1_32_1_4_32_8,
+                        ::testing::ValuesIn(gemm_inputsd));
+
+INSTANTIATE_TEST_CASE_P(BlockGemmTests, BlockGemmTestF_1_32_1_16_64_4,
+                        ::testing::ValuesIn(gemm_inputsf));
+
+INSTANTIATE_TEST_CASE_P(BlockGemmTests, BlockGemmTestD_1_32_1_16_64_4,
+                        ::testing::ValuesIn(gemm_inputsd));
+
+INSTANTIATE_TEST_CASE_P(BlockGemmTests, BlockGemmTestF_1_16_1_16_128_2,
+                        ::testing::ValuesIn(gemm_inputsf));
+
+INSTANTIATE_TEST_CASE_P(BlockGemmTests, BlockGemmTestD_1_16_1_16_128_2,
+                        ::testing::ValuesIn(gemm_inputsd));
+
+INSTANTIATE_TEST_CASE_P(BlockGemmTests, BlockGemmTestF_2_32_2_2_16_16,
+                        ::testing::ValuesIn(gemm_inputsf_vec2));
+
+INSTANTIATE_TEST_CASE_P(BlockGemmTests, BlockGemmTestD_2_32_2_2_16_16,
+                        ::testing::ValuesIn(gemm_inputsd_vec2));
 
 /* GEMV */
 
@@ -220,7 +275,7 @@ __global__ void block_gemv_test_kernel(int m, int n, T alpha, const T* a,
                             gemv_storage, shared_vec);
 }
 
-template <typename T>
+template <typename Policy, typename T>
 class BlockGemvTest : public ::testing::TestWithParam<BlockGemvInputs<T>> {
  protected:
   void basicTest() {
@@ -272,7 +327,6 @@ class BlockGemvTest : public ::testing::TestWithParam<BlockGemvInputs<T>> {
     }
 
     /* Compute using tested prims */
-    using Policy = BlockGemvPolicy<32, 8>;
     int shared_mem_size = params.n * sizeof(T);
     block_gemv_test_kernel<Policy><<<params.batch_size, Policy::BlockSize,
                                      shared_mem_size, handle.get_stream()>>>(
@@ -304,16 +358,40 @@ const std::vector<BlockGemvInputs<double>> gemv_inputsd = {
   {65, 10, 50, 1e-4, 12345U},
   {5, 80, 100, 1e-4, 12345U}};
 
-typedef BlockGemvTest<float> BlockGemvTestF;
-TEST_P(BlockGemvTestF, Result) { EXPECT_TRUE(match); }
+typedef BlockGemvTest<BlockGemvPolicy<16, 4>, float> BlockGemvTestF_16_4;
+TEST_P(BlockGemvTestF_16_4, Result) { EXPECT_TRUE(match); }
 
-typedef BlockGemvTest<double> BlockGemvTestD;
-TEST_P(BlockGemvTestD, Result) { EXPECT_TRUE(match); }
+typedef BlockGemvTest<BlockGemvPolicy<16, 4>, double> BlockGemvTestD_16_4;
+TEST_P(BlockGemvTestD_16_4, Result) { EXPECT_TRUE(match); }
 
-INSTANTIATE_TEST_CASE_P(BlockGemvTests, BlockGemvTestF,
+typedef BlockGemvTest<BlockGemvPolicy<32, 8>, float> BlockGemvTestF_32_8;
+TEST_P(BlockGemvTestF_32_8, Result) { EXPECT_TRUE(match); }
+
+typedef BlockGemvTest<BlockGemvPolicy<32, 8>, double> BlockGemvTestD_32_8;
+TEST_P(BlockGemvTestD_32_8, Result) { EXPECT_TRUE(match); }
+
+typedef BlockGemvTest<BlockGemvPolicy<128, 2>, float> BlockGemvTestF_128_2;
+TEST_P(BlockGemvTestF_128_2, Result) { EXPECT_TRUE(match); }
+
+typedef BlockGemvTest<BlockGemvPolicy<128, 2>, double> BlockGemvTestD_128_2;
+TEST_P(BlockGemvTestD_128_2, Result) { EXPECT_TRUE(match); }
+
+INSTANTIATE_TEST_CASE_P(BlockGemvTests, BlockGemvTestF_16_4,
                         ::testing::ValuesIn(gemv_inputsf));
 
-INSTANTIATE_TEST_CASE_P(BlockGemvTests, BlockGemvTestD,
+INSTANTIATE_TEST_CASE_P(BlockGemvTests, BlockGemvTestD_16_4,
+                        ::testing::ValuesIn(gemv_inputsd));
+
+INSTANTIATE_TEST_CASE_P(BlockGemvTests, BlockGemvTestF_32_8,
+                        ::testing::ValuesIn(gemv_inputsf));
+
+INSTANTIATE_TEST_CASE_P(BlockGemvTests, BlockGemvTestD_32_8,
+                        ::testing::ValuesIn(gemv_inputsd));
+
+INSTANTIATE_TEST_CASE_P(BlockGemvTests, BlockGemvTestF_128_2,
+                        ::testing::ValuesIn(gemv_inputsf));
+
+INSTANTIATE_TEST_CASE_P(BlockGemvTests, BlockGemvTestD_128_2,
                         ::testing::ValuesIn(gemv_inputsd));
 
 /* DOT */
