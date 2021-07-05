@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -323,11 +323,6 @@ DI void _block_gemv(int m, int n, T alpha, const T* a, const T* x, T* y,
       shared_vec[i] = x[i];
     }
     __syncthreads();
-
-    /* Load x into shared vector */
-    for (int i = threadIdx.x; i < n; i += GemvPolicy::BlockSize) {
-      shared_vec[i] = x[i];
-    }
   }
 
   const T* x_ = PreloadX ? shared_vec : x;

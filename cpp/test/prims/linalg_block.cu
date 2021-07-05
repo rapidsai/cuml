@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
 #include <raft/mr/device/allocator.hpp>
+#include <raft/random/rng.cuh>
 
 #include <test_utils.h>
 
@@ -84,22 +85,27 @@ class BlockGemmTest : public ::testing::TestWithParam<BlockGemmInputs<T>> {
     std::vector<T> h_a(params.m * params.k * params.batch_size);
     std::vector<T> h_b(params.k * params.n * params.batch_size);
     std::vector<T> h_c_ref(params.m * params.n * params.batch_size);
-    std::vector<T> h_c_dev(params.m * params.n * params.batch_size);
 
-    /* Generate random data */
+    /* Generate random data on device */
+    raft::random::Rng r(params.seed);
+    r.uniform(a.data(), params.m * params.k * params.batch_size, (T)-2, (T)2,
+              handle.get_stream());
+    r.uniform(b.data(), params.k * params.n * params.batch_size, (T)-2, (T)2,
+              handle.get_stream());
+
+    /* Generate random alpha */
     std::default_random_engine generator(params.seed);
-    std::uniform_real_distribution<double> distribution(-2.0, 2.0);
-    for (int i = 0; i < params.m * params.k * params.batch_size; i++)
-      h_a[i] = distribution(generator);
-    for (int i = 0; i < params.k * params.n * params.batch_size; i++)
-      h_b[i] = distribution(generator);
+    std::uniform_real_distribution<T> distribution(-2.0, 2.0);
     T alpha = distribution(generator);
 
-    /* Copy to device */
-    raft::copy(a.data(), h_a.data(), params.m * params.k * params.batch_size,
-               handle.get_stream());
-    raft::copy(b.data(), h_b.data(), params.k * params.n * params.batch_size,
-               handle.get_stream());
+    /* Copy to host */
+    raft::update_host(h_a.data(), a.data(),
+                      params.m * params.k * params.batch_size,
+                      handle.get_stream());
+    raft::update_host(h_b.data(), b.data(),
+                      params.k * params.n * params.batch_size,
+                      handle.get_stream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     /* Compute reference results */
     for (int bid = 0; bid < params.batch_size; bid++) {
@@ -136,17 +142,10 @@ class BlockGemmTest : public ::testing::TestWithParam<BlockGemmInputs<T>> {
           a.data(), b.data(), c.data());
     }
 
-    /* Copy results to host */
-    raft::copy(h_c_dev.data(), c.data(),
-               params.m * params.n * params.batch_size, handle.get_stream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-
-    /* Count errors */
-    errors = 0;
-    for (int i = 0; i < params.m * params.n * params.batch_size; i++) {
-      T diff = abs(h_c_ref[i] - h_c_dev[i]);
-      if (std::isnan(diff) || diff > params.eps) errors++;
-    }
+    /* Check results */
+    match = devArrMatchHost(
+      h_c_ref.data(), c.data(), params.m * params.n * params.batch_size,
+      raft::CompareApprox<T>(params.eps), handle.get_stream());
   }
 
   void SetUp() override { basicTest(); }
@@ -156,7 +155,7 @@ class BlockGemmTest : public ::testing::TestWithParam<BlockGemmInputs<T>> {
  protected:
   BlockGemmInputs<T> params;
 
-  int errors;
+  testing::AssertionResult match = testing::AssertionFailure();
 };
 
 const std::vector<BlockGemmInputs<float>> gemm_inputsf = {
@@ -182,10 +181,10 @@ const std::vector<BlockGemmInputs<double>> gemm_inputsd = {
 };
 
 typedef BlockGemmTest<float> BlockGemmTestF;
-TEST_P(BlockGemmTestF, Result) { ASSERT_EQ(errors, 0); }
+TEST_P(BlockGemmTestF, Result) { EXPECT_TRUE(match); }
 
 typedef BlockGemmTest<double> BlockGemmTestD;
-TEST_P(BlockGemmTestD, Result) { ASSERT_EQ(errors, 0); }
+TEST_P(BlockGemmTestD, Result) { EXPECT_TRUE(match); }
 
 INSTANTIATE_TEST_CASE_P(BlockGemmTests, BlockGemmTestF,
                         ::testing::ValuesIn(gemm_inputsf));
@@ -239,22 +238,26 @@ class BlockGemvTest : public ::testing::TestWithParam<BlockGemvInputs<T>> {
     std::vector<T> h_a(params.m * params.n * params.batch_size);
     std::vector<T> h_x(params.n * params.batch_size);
     std::vector<T> h_y_ref(params.m * params.batch_size);
-    std::vector<T> h_y_dev(params.m * params.batch_size);
 
-    /* Generate random data */
+    /* Generate random data on device */
+    raft::random::Rng r(params.seed);
+    r.uniform(a.data(), params.m * params.n * params.batch_size, (T)-2, (T)2,
+              handle.get_stream());
+    r.uniform(x.data(), params.n * params.batch_size, (T)-2, (T)2,
+              handle.get_stream());
+
+    /* Generate random alpha */
     std::default_random_engine generator(params.seed);
-    std::uniform_real_distribution<double> distribution(-2.0, 2.0);
-    for (int i = 0; i < params.m * params.n * params.batch_size; i++)
-      h_a[i] = distribution(generator);
-    for (int i = 0; i < params.n * params.batch_size; i++)
-      h_x[i] = distribution(generator);
+    std::uniform_real_distribution<T> distribution(-2.0, 2.0);
     T alpha = distribution(generator);
 
-    /* Copy to device */
-    raft::copy(a.data(), h_a.data(), params.m * params.n * params.batch_size,
-               handle.get_stream());
-    raft::copy(x.data(), h_x.data(), params.n * params.batch_size,
-               handle.get_stream());
+    /* Copy to host */
+    raft::update_host(h_a.data(), a.data(),
+                      params.m * params.n * params.batch_size,
+                      handle.get_stream());
+    raft::update_host(h_x.data(), x.data(), params.n * params.batch_size,
+                      handle.get_stream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     /* Compute reference results */
     for (int bid = 0; bid < params.batch_size; bid++) {
@@ -275,17 +278,10 @@ class BlockGemvTest : public ::testing::TestWithParam<BlockGemvInputs<T>> {
                                      shared_mem_size, handle.get_stream()>>>(
       params.m, params.n, alpha, a.data(), x.data(), y.data());
 
-    /* Copy results to host */
-    raft::copy(h_y_dev.data(), y.data(), params.m * params.batch_size,
-               handle.get_stream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-
-    /* Count errors */
-    errors = 0;
-    for (int i = 0; i < params.m * params.batch_size; i++) {
-      T diff = abs(h_y_ref[i] - h_y_dev[i]);
-      if (std::isnan(diff) || diff > params.eps) errors++;
-    }
+    /* Check results */
+    match =
+      devArrMatchHost(h_y_ref.data(), y.data(), params.m * params.batch_size,
+                      raft::CompareApprox<T>(params.eps), handle.get_stream());
   }
 
   void SetUp() override { basicTest(); }
@@ -295,7 +291,7 @@ class BlockGemvTest : public ::testing::TestWithParam<BlockGemvInputs<T>> {
  protected:
   BlockGemvInputs<T> params;
 
-  int errors;
+  testing::AssertionResult match = testing::AssertionFailure();
 };
 
 const std::vector<BlockGemvInputs<float>> gemv_inputsf = {
@@ -309,10 +305,10 @@ const std::vector<BlockGemvInputs<double>> gemv_inputsd = {
   {5, 80, 100, 1e-4, 12345U}};
 
 typedef BlockGemvTest<float> BlockGemvTestF;
-TEST_P(BlockGemvTestF, Result) { ASSERT_EQ(errors, 0); }
+TEST_P(BlockGemvTestF, Result) { EXPECT_TRUE(match); }
 
 typedef BlockGemvTest<double> BlockGemvTestD;
-TEST_P(BlockGemvTestD, Result) { ASSERT_EQ(errors, 0); }
+TEST_P(BlockGemvTestD, Result) { EXPECT_TRUE(match); }
 
 INSTANTIATE_TEST_CASE_P(BlockGemvTests, BlockGemvTestF,
                         ::testing::ValuesIn(gemv_inputsf));
@@ -367,21 +363,20 @@ class BlockDotTest : public ::testing::TestWithParam<BlockDotInputs<T>> {
     std::vector<T> h_x(params.n * params.batch_size);
     std::vector<T> h_y(params.n * params.batch_size);
     std::vector<T> h_dot_ref(params.batch_size, (T)0);
-    std::vector<T> h_dot_dev(params.batch_size);
 
-    /* Generate random data */
-    std::default_random_engine generator(params.seed);
-    std::uniform_real_distribution<double> distribution(-2.0, 2.0);
-    for (int i = 0; i < params.n * params.batch_size; i++)
-      h_x[i] = distribution(generator);
-    for (int i = 0; i < params.n * params.batch_size; i++)
-      h_y[i] = distribution(generator);
+    /* Generate random data on device */
+    raft::random::Rng r(params.seed);
+    r.uniform(x.data(), params.n * params.batch_size, (T)-2, (T)2,
+              handle.get_stream());
+    r.uniform(y.data(), params.n * params.batch_size, (T)-2, (T)2,
+              handle.get_stream());
 
-    /* Copy to device */
-    raft::copy(x.data(), h_x.data(), params.n * params.batch_size,
-               handle.get_stream());
-    raft::copy(y.data(), h_y.data(), params.n * params.batch_size,
-               handle.get_stream());
+    /* Copy to host */
+    raft::update_host(h_x.data(), x.data(), params.n * params.batch_size,
+                      handle.get_stream());
+    raft::update_host(h_y.data(), y.data(), params.n * params.batch_size,
+                      handle.get_stream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     /* Compute reference results */
     for (int bid = 0; bid < params.batch_size; bid++) {
@@ -401,17 +396,10 @@ class BlockDotTest : public ::testing::TestWithParam<BlockDotInputs<T>> {
         <<<params.batch_size, BlockSize, 0, handle.get_stream()>>>(
           params.n, x.data(), y.data(), dot_dev.data());
 
-    /* Copy results to host */
-    raft::copy(h_dot_dev.data(), dot_dev.data(), params.batch_size,
-               handle.get_stream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-
-    /* Count errors */
-    errors = 0;
-    for (int i = 0; i < params.batch_size; i++) {
-      T diff = abs(h_dot_dev[i] - h_dot_ref[i]);
-      if (std::isnan(diff) || diff > params.eps) errors++;
-    }
+    /* Check results */
+    match =
+      devArrMatchHost(h_dot_ref.data(), dot_dev.data(), params.batch_size,
+                      raft::CompareApprox<T>(params.eps), handle.get_stream());
   }
 
   void SetUp() override { basicTest(); }
@@ -421,7 +409,7 @@ class BlockDotTest : public ::testing::TestWithParam<BlockDotInputs<T>> {
  protected:
   BlockDotInputs<T> params;
 
-  int errors;
+  testing::AssertionResult match = testing::AssertionFailure();
 };
 
 const std::vector<BlockDotInputs<float>> dot_inputsf = {
@@ -437,10 +425,10 @@ const std::vector<BlockDotInputs<double>> dot_inputsd = {
   {false, 200, 100, 1e-4, 12345U}};
 
 typedef BlockDotTest<float> BlockDotTestF;
-TEST_P(BlockDotTestF, Result) { ASSERT_EQ(errors, 0); }
+TEST_P(BlockDotTestF, Result) { EXPECT_TRUE(match); }
 
 typedef BlockDotTest<double> BlockDotTestD;
-TEST_P(BlockDotTestD, Result) { ASSERT_EQ(errors, 0); }
+TEST_P(BlockDotTestD, Result) { EXPECT_TRUE(match); }
 
 INSTANTIATE_TEST_CASE_P(BlockDotTests, BlockDotTestF,
                         ::testing::ValuesIn(dot_inputsf));
@@ -499,21 +487,21 @@ class BlockXaxtTest : public ::testing::TestWithParam<BlockXaxtInputs<T>> {
     std::vector<T> h_x(params.n * params.batch_size);
     std::vector<T> h_A(params.n * params.n * params.batch_size);
     std::vector<T> h_res_ref(params.batch_size, (T)0);
-    std::vector<T> h_res_dev(params.batch_size);
 
-    /* Generate random data */
-    std::default_random_engine generator(params.seed);
-    std::uniform_real_distribution<double> distribution(-2.0, 2.0);
-    for (int i = 0; i < params.n * params.batch_size; i++)
-      h_x[i] = distribution(generator);
-    for (int i = 0; i < params.n * params.n * params.batch_size; i++)
-      h_A[i] = distribution(generator);
+    /* Generate random data on device */
+    raft::random::Rng r(params.seed);
+    r.uniform(x.data(), params.n * params.batch_size, (T)-2, (T)2,
+              handle.get_stream());
+    r.uniform(A.data(), params.n * params.n * params.batch_size, (T)-2, (T)2,
+              handle.get_stream());
 
-    /* Copy to device */
-    raft::copy(x.data(), h_x.data(), params.n * params.batch_size,
-               handle.get_stream());
-    raft::copy(A.data(), h_A.data(), params.n * params.n * params.batch_size,
-               handle.get_stream());
+    /* Copy to host */
+    raft::update_host(h_x.data(), x.data(), params.n * params.batch_size,
+                      handle.get_stream());
+    raft::update_host(h_A.data(), A.data(),
+                      params.n * params.n * params.batch_size,
+                      handle.get_stream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     /* Compute reference results */
     for (int bid = 0; bid < params.batch_size; bid++) {
@@ -539,17 +527,10 @@ class BlockXaxtTest : public ::testing::TestWithParam<BlockXaxtInputs<T>> {
         <<<params.batch_size, BlockSize, shared_mem_size,
            handle.get_stream()>>>(params.n, x.data(), A.data(), res_dev.data());
 
-    /* Copy results to host */
-    raft::copy(h_res_dev.data(), res_dev.data(), params.batch_size,
-               handle.get_stream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-
-    /* Count errors */
-    errors = 0;
-    for (int i = 0; i < params.batch_size; i++) {
-      T diff = abs(h_res_dev[i] - h_res_ref[i]);
-      if (std::isnan(diff) || diff > params.eps) errors++;
-    }
+    /* Check results */
+    match =
+      devArrMatchHost(h_res_ref.data(), res_dev.data(), params.batch_size,
+                      raft::CompareApprox<T>(params.eps), handle.get_stream());
   }
 
   void SetUp() override { basicTest(); }
@@ -559,7 +540,7 @@ class BlockXaxtTest : public ::testing::TestWithParam<BlockXaxtInputs<T>> {
  protected:
   BlockXaxtInputs<T> params;
 
-  int errors;
+  testing::AssertionResult match = testing::AssertionFailure();
 };
 
 const std::vector<BlockXaxtInputs<float>> xAxt_inputsf = {
@@ -575,10 +556,10 @@ const std::vector<BlockXaxtInputs<double>> xAxt_inputsd = {
   {false, 200, 100, 1e-4, 12345U}};
 
 typedef BlockXaxtTest<float> BlockXaxtTestF;
-TEST_P(BlockXaxtTestF, Result) { ASSERT_EQ(errors, 0); }
+TEST_P(BlockXaxtTestF, Result) { EXPECT_TRUE(match); }
 
 typedef BlockXaxtTest<double> BlockXaxtTestD;
-TEST_P(BlockXaxtTestD, Result) { ASSERT_EQ(errors, 0); }
+TEST_P(BlockXaxtTestD, Result) { EXPECT_TRUE(match); }
 
 INSTANTIATE_TEST_CASE_P(BlockXaxtTests, BlockXaxtTestF,
                         ::testing::ValuesIn(xAxt_inputsf));
@@ -621,18 +602,21 @@ class BlockAxTest : public ::testing::TestWithParam<BlockAxInputs<T>> {
 
     std::vector<T> h_x(params.n * params.batch_size);
     std::vector<T> h_y_ref(params.n * params.batch_size, (T)0);
-    std::vector<T> h_y_dev(params.n * params.batch_size);
 
-    /* Generate random data */
+    /* Generate random data on device */
+    raft::random::Rng r(params.seed);
+    r.uniform(x.data(), params.n * params.batch_size, (T)-2, (T)2,
+              handle.get_stream());
+
+    /* Generate random alpha */
     std::default_random_engine generator(params.seed);
-    std::uniform_real_distribution<double> distribution(-2.0, 2.0);
-    for (int i = 0; i < params.n * params.batch_size; i++)
-      h_x[i] = distribution(generator);
+    std::uniform_real_distribution<T> distribution(-2.0, 2.0);
     T alpha = distribution(generator);
 
-    /* Copy to device */
-    raft::copy(x.data(), h_x.data(), params.n * params.batch_size,
-               handle.get_stream());
+    /* Copy to host */
+    raft::update_host(h_x.data(), x.data(), params.n * params.batch_size,
+                      handle.get_stream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     /* Compute reference results */
     for (int bid = 0; bid < params.batch_size; bid++) {
@@ -647,17 +631,10 @@ class BlockAxTest : public ::testing::TestWithParam<BlockAxInputs<T>> {
                            handle.get_stream()>>>(params.n, alpha, x.data(),
                                                   y.data());
 
-    /* Copy results to host */
-    raft::copy(h_y_dev.data(), y.data(), params.n * params.batch_size,
-               handle.get_stream());
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-
-    /* Count errors */
-    errors = 0;
-    for (int i = 0; i < params.n * params.batch_size; i++) {
-      T diff = abs(h_y_dev[i] - h_y_ref[i]);
-      if (std::isnan(diff) || diff > params.eps) errors++;
-    }
+    /* Check results */
+    match =
+      devArrMatchHost(h_y_ref.data(), y.data(), params.n * params.batch_size,
+                      raft::CompareApprox<T>(params.eps), handle.get_stream());
   }
 
   void SetUp() override { basicTest(); }
@@ -667,7 +644,7 @@ class BlockAxTest : public ::testing::TestWithParam<BlockAxInputs<T>> {
  protected:
   BlockAxInputs<T> params;
 
-  int errors;
+  testing::AssertionResult match = testing::AssertionFailure();
 };
 
 const std::vector<BlockAxInputs<float>> ax_inputsf = {
@@ -677,10 +654,10 @@ const std::vector<BlockAxInputs<double>> ax_inputsd = {
   {9, 20, 1e-4, 12345U}, {65, 50, 1e-4, 12345U}, {200, 100, 1e-4, 12345U}};
 
 typedef BlockAxTest<float> BlockAxTestF;
-TEST_P(BlockAxTestF, Result) { ASSERT_EQ(errors, 0); }
+TEST_P(BlockAxTestF, Result) { EXPECT_TRUE(match); }
 
 typedef BlockAxTest<double> BlockAxTestD;
-TEST_P(BlockAxTestD, Result) { ASSERT_EQ(errors, 0); }
+TEST_P(BlockAxTestD, Result) { EXPECT_TRUE(match); }
 
 INSTANTIATE_TEST_CASE_P(BlockAxTests, BlockAxTestF,
                         ::testing::ValuesIn(ax_inputsf));
