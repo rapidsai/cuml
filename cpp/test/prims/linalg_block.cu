@@ -37,8 +37,6 @@ namespace LinAlg {
 
 using namespace std;
 
-/// TODO: test both preloaded and non-preloaded to shared memory
-
 /* GEMM */
 
 template <typename T>
@@ -251,6 +249,7 @@ INSTANTIATE_TEST_CASE_P(BlockGemmTests, BlockGemmTestD_2_32_2_2_16_16,
 
 template <typename T>
 struct BlockGemvInputs {
+  bool preload;
   int m, n;
   int batch_size;
   T eps;
@@ -264,15 +263,25 @@ template <typename T>
 
 template <typename Policy, typename T>
 __global__ void block_gemv_test_kernel(int m, int n, T alpha, const T* a,
-                                       const T* x, T* y) {
+                                       const T* x, T* y, bool preload) {
   __shared__ MLCommon::LinAlg::GemvStorage<Policy, T> gemv_storage;
 
   extern __shared__ char dyna_shared_mem[];
   T* shared_vec = (T*)dyna_shared_mem;
 
-  _block_gemv<Policy, true>(m, n, alpha, a + m * n * blockIdx.x,
-                            x + n * blockIdx.x, y + m * blockIdx.x,
-                            gemv_storage, shared_vec);
+  if (preload) {
+    _block_gemv<Policy, true>(m, n, alpha, a + m * n * blockIdx.x,
+                              x + n * blockIdx.x, y + m * blockIdx.x,
+                              gemv_storage, shared_vec);
+  } else {
+    for (int i = threadIdx.x; i < n; i += Policy::BlockSize) {
+      shared_vec[i] = x[n * blockIdx.x + i];
+    }
+    __syncthreads();
+
+    _block_gemv<Policy, false>(m, n, alpha, a + m * n * blockIdx.x, shared_vec,
+                               y + m * blockIdx.x, gemv_storage);
+  }
 }
 
 template <typename Policy, typename T>
@@ -318,7 +327,7 @@ class BlockGemvTest : public ::testing::TestWithParam<BlockGemvInputs<T>> {
     int shared_mem_size = params.n * sizeof(T);
     block_gemv_test_kernel<Policy><<<params.batch_size, Policy::BlockSize,
                                      shared_mem_size, handle.get_stream()>>>(
-      params.m, params.n, alpha, a.data(), x.data(), y.data());
+      params.m, params.n, alpha, a.data(), x.data(), y.data(), params.preload);
 
     /* Compute reference results */
     for (int bid = 0; bid < params.batch_size; bid++) {
@@ -349,14 +358,14 @@ class BlockGemvTest : public ::testing::TestWithParam<BlockGemvInputs<T>> {
 };
 
 const std::vector<BlockGemvInputs<float>> gemv_inputsf = {
-  {42, 42, 20, 1e-4, 12345U},
-  {65, 10, 50, 1e-4, 12345U},
-  {5, 80, 100, 1e-4, 12345U}};
+  {true, 42, 42, 20, 1e-4, 12345U},
+  {true, 65, 10, 50, 1e-4, 12345U},
+  {false, 5, 80, 100, 1e-4, 12345U}};
 
 const std::vector<BlockGemvInputs<double>> gemv_inputsd = {
-  {42, 42, 20, 1e-4, 12345U},
-  {65, 10, 50, 1e-4, 12345U},
-  {5, 80, 100, 1e-4, 12345U}};
+  {true, 42, 42, 20, 1e-4, 12345U},
+  {true, 65, 10, 50, 1e-4, 12345U},
+  {false, 5, 80, 100, 1e-4, 12345U}};
 
 typedef BlockGemvTest<BlockGemvPolicy<16, 4>, float> BlockGemvTestF_16_4;
 TEST_P(BlockGemvTestF_16_4, Result) { EXPECT_TRUE(match); }
@@ -519,6 +528,7 @@ INSTANTIATE_TEST_CASE_P(BlockDotTests, BlockDotTestD,
 template <typename T>
 struct BlockXaxtInputs {
   bool broadcast;
+  bool preload;
   int n;
   int batch_size;
   T eps;
@@ -531,15 +541,26 @@ template <typename T>
 }
 
 template <int BlockSize, bool Broadcast, typename T>
-__global__ void block_xAxt_test_kernel(int n, const T* x, const T* A,
-                                       T* d_res) {
+__global__ void block_xAxt_test_kernel(int n, const T* x, const T* A, T* d_res,
+                                       bool preload) {
   extern __shared__ char dyna_shared_mem[];
   T* shared_vec = (T*)dyna_shared_mem;
   __shared__ ReductionStorage<BlockSize, T> reduction_storage;
 
-  T res_ = _block_xAxt<BlockSize, Broadcast, true>(
-    n, x + n * blockIdx.x, A + n * n * blockIdx.x, reduction_storage,
-    shared_vec);
+  T res_;
+  if (preload) {
+    res_ = _block_xAxt<BlockSize, Broadcast, true>(
+      n, x + n * blockIdx.x, A + n * n * blockIdx.x, reduction_storage,
+      shared_vec);
+  } else {
+    for (int i = threadIdx.x; i < n; i += BlockSize) {
+      shared_vec[i] = x[n * blockIdx.x + i];
+    }
+    __syncthreads();
+
+    res_ = _block_xAxt<BlockSize, Broadcast, false>(
+      n, shared_vec, A + n * n * blockIdx.x, reduction_storage);
+  }
 
   if (!Broadcast && threadIdx.x == 0)
     d_res[blockIdx.x] = res_;
@@ -587,11 +608,13 @@ class BlockXaxtTest : public ::testing::TestWithParam<BlockXaxtInputs<T>> {
     if (params.broadcast)
       block_xAxt_test_kernel<BlockSize, true>
         <<<params.batch_size, BlockSize, shared_mem_size,
-           handle.get_stream()>>>(params.n, x.data(), A.data(), res_dev.data());
+           handle.get_stream()>>>(params.n, x.data(), A.data(), res_dev.data(),
+                                  params.preload);
     else
       block_xAxt_test_kernel<BlockSize, false>
         <<<params.batch_size, BlockSize, shared_mem_size,
-           handle.get_stream()>>>(params.n, x.data(), A.data(), res_dev.data());
+           handle.get_stream()>>>(params.n, x.data(), A.data(), res_dev.data(),
+                                  params.preload);
 
     /* Compute reference results */
     for (int bid = 0; bid < params.batch_size; bid++) {
@@ -622,16 +645,18 @@ class BlockXaxtTest : public ::testing::TestWithParam<BlockXaxtInputs<T>> {
 };
 
 const std::vector<BlockXaxtInputs<float>> xAxt_inputsf = {
-  {true, 9, 20, 1e-2, 12345U},
-  {true, 65, 50, 1e-2, 12345U},
-  {true, 200, 100, 1e-2, 12345U},
-  {false, 200, 100, 1e-2, 12345U}};
+  {true, true, 9, 20, 1e-2, 12345U},
+  {true, true, 65, 50, 1e-2, 12345U},
+  {true, true, 200, 100, 1e-2, 12345U},
+  {false, true, 200, 100, 1e-2, 12345U},
+  {true, false, 200, 100, 1e-2, 12345U}};
 
 const std::vector<BlockXaxtInputs<double>> xAxt_inputsd = {
-  {true, 9, 20, 1e-4, 12345U},
-  {true, 65, 50, 1e-4, 12345U},
-  {true, 200, 100, 1e-4, 12345U},
-  {false, 200, 100, 1e-4, 12345U}};
+  {true, true, 9, 20, 1e-4, 12345U},
+  {true, true, 65, 50, 1e-4, 12345U},
+  {true, true, 200, 100, 1e-4, 12345U},
+  {false, true, 200, 100, 1e-4, 12345U},
+  {true, false, 200, 100, 1e-2, 12345U}};
 
 typedef BlockXaxtTest<float> BlockXaxtTestF;
 TEST_P(BlockXaxtTestF, Result) { EXPECT_TRUE(match); }
