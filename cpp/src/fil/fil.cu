@@ -74,6 +74,9 @@ __global__ void transform_k(float* preds, size_t n, output_t output,
     preds[i] = result;
 }
 
+extern void dispatch_on_fil_template_params(compute_smem_footprint,
+                                            predict_params&);
+
 struct forest {
   void init_n_items(int device) {
     int max_shm_std = 48 * 1024;  // 48 KiB
@@ -99,7 +102,7 @@ struct forest {
     for (bool predict_proba : {false, true}) {
       shmem_size_params& ssp_ = predict_proba ? proba_ssp_ : class_ssp_;
       ssp_.predict_proba = predict_proba;
-      shmem_size_params ssp = ssp_;
+      predict_params ssp = ssp_;
       // if n_items was not provided, try from 1 to 4. Otherwise, use as-is.
       int min_n_items = ssp.n_items == 0 ? 1 : ssp.n_items;
       int max_n_items = ssp.n_items == 0
@@ -109,7 +112,7 @@ struct forest {
         ssp.cols_in_shmem = cols_in_shmem;
         for (ssp.n_items = min_n_items; ssp.n_items <= max_n_items;
              ++ssp.n_items) {
-          ssp.compute_smem_footprint();
+          dispatch_on_fil_template_params(compute_smem_footprint(), ssp);
           if (ssp.shm_sz < max_shm) ssp_ = ssp;
         }
       }
@@ -276,7 +279,8 @@ struct forest {
                          global_bias != 0.0f;
           break;
         default:
-          ASSERT(false, "internal error: invalid leaf_algo_");
+          ASSERT(false, "internal error: predict: invalid leaf_algo %d",
+                 params.leaf_algo);
       }
     } else {
       if (params.leaf_algo == leaf_algo_t::FLOAT_UNARY_BINARY) {

@@ -197,6 +197,7 @@ enum leaf_algo_t {
   /** Leaf contains an index into a vector of class probabilities. **/
   VECTOR_LEAF = 5,
   // to be extended
+  LEAF_ALGO_INVALID  // no explicit numerical value
 };
 
 template <leaf_algo_t leaf_algo>
