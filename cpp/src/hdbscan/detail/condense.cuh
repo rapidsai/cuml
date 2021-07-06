@@ -86,8 +86,10 @@ void build_condensed_hierarchy(const raft::handle_t& handle,
                "Cannot find single-linkage solution.");
 
   rmm::device_uvector<bool> frontier(root + 1, stream);
+  rmm::device_uvector<bool> next_frontier(root + 1, stream);
 
   thrust::fill(exec_policy, frontier.begin(), frontier.end(), false);
+  thrust::fill(exec_policy, next_frontier.begin(), next_frontier.end(), false);
 
   // Array to propagate the lambda of subtrees actively being collapsed
   // through multiple bfs iterations.
@@ -124,6 +126,7 @@ void build_condensed_hierarchy(const raft::handle_t& handle,
     // TODO: Investigate whether it would be worth performing a gather/argmatch in order
     // to schedule only the number of threads needed. (it might not be worth it)
     condense_hierarchy_kernel<<<grid, tpb, 0, handle.get_stream()>>>(frontier.data(),
+                                                                     next_frontier.data(),
                                                                      ignore.data(),
                                                                      relabel.data(),
                                                                      children,
@@ -135,6 +138,9 @@ void build_condensed_hierarchy(const raft::handle_t& handle,
                                                                      out_child.data(),
                                                                      out_lambda.data(),
                                                                      out_size.data());
+
+    thrust::copy(exec_policy, next_frontier.begin(), next_frontier.end(), frontier.begin());
+    thrust::fill(exec_policy, next_frontier.begin(), next_frontier.end(), false);
 
     n_elements_to_traverse =
       thrust::reduce(exec_policy, frontier.data(), frontier.data() + root + 1, 0);

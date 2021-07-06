@@ -36,6 +36,7 @@ template <typename value_idx>
 __global__ void propagate_cluster_negation_kernel(const value_idx* indptr,
                                                   const value_idx* children,
                                                   int* frontier,
+                                                  int* next_frontier,
                                                   int* is_cluster,
                                                   int n_clusters)
 {
@@ -47,9 +48,9 @@ __global__ void propagate_cluster_negation_kernel(const value_idx* indptr,
     value_idx children_start = indptr[cluster];
     value_idx children_stop  = indptr[cluster + 1];
     for (int i = children_start; i < children_stop; i++) {
-      value_idx child   = children[i];
-      frontier[child]   = true;
-      is_cluster[child] = false;
+      value_idx child      = children[i];
+      next_frontier[child] = true;
+      is_cluster[child]    = false;
     }
   }
 }
