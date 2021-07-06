@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <cmath>
 #include <common/grid_sync.cuh>
 #include <cub/cub.cuh>
 #include <limits>
@@ -30,10 +31,6 @@ namespace DT {
 struct IntBin {
   int x;
 
-  DI static void IncrementHistogram(IntBin* hist, int nbins, int b, int label) {
-    auto offset = label * nbins + b;
-    IntBin::AtomicAdd(hist + offset, {1});
-  }
   DI static void AtomicAdd(IntBin* address, IntBin val) {
     atomicAdd(&address->x, val.x);
   }
@@ -59,13 +56,19 @@ class GiniObjectiveFunction {
 
  public:
   using BinT = IntBin;
+  GiniObjectiveFunction() = default;
   GiniObjectiveFunction(IdxT nclasses, DataT min_impurity_decrease,
-                        IdxT min_samples_leaf)
+                        IdxT min_samples_leaf, double label_min,
+                        double label_max)
     : nclasses(nclasses),
       min_impurity_decrease(min_impurity_decrease),
       min_samples_leaf(min_samples_leaf) {}
 
   DI IdxT NumClasses() const { return nclasses; }
+  DI void IncrementHistogram(IntBin* hist, int nbins, int b, int label) {
+    auto offset = label * nbins + b;
+    IntBin::AtomicAdd(hist + offset, {1});
+  }
   DI Split<DataT, IdxT> Gain(BinT* scdf_labels, DataT* sbins, IdxT col,
                              IdxT len, IdxT nbins) {
     Split<DataT, IdxT> sp;
@@ -109,7 +112,7 @@ class GiniObjectiveFunction {
     }
     return sp;
   }
-  static DI LabelT LeafPrediction(BinT* shist, int nclasses) {
+  DI LabelT LeafPrediction(BinT* shist, int nclasses) {
     int class_idx = 0;
     int count = 0;
     for (int i = 0; i < nclasses; i++) {
@@ -135,12 +138,18 @@ class EntropyObjectiveFunction {
 
  public:
   using BinT = IntBin;
+  EntropyObjectiveFunction() = default;
   EntropyObjectiveFunction(IdxT nclasses, DataT min_impurity_decrease,
-                           IdxT min_samples_leaf)
+                           IdxT min_samples_leaf, double label_min,
+                           double label_max)
     : nclasses(nclasses),
       min_impurity_decrease(min_impurity_decrease),
       min_samples_leaf(min_samples_leaf) {}
   DI IdxT NumClasses() const { return nclasses; }
+  DI void IncrementHistogram(IntBin* hist, int nbins, int b, int label) {
+    auto offset = label * nbins + b;
+    IntBin::AtomicAdd(hist + offset, {1});
+  }
   DI Split<DataT, IdxT> Gain(BinT* scdf_labels, DataT* sbins, IdxT col,
                              IdxT len, IdxT nbins) {
     Split<DataT, IdxT> sp;
@@ -192,10 +201,17 @@ class EntropyObjectiveFunction {
     }
     return sp;
   }
-  static DI LabelT LeafPrediction(BinT* shist, int nclasses) {
-    // Same as Gini
-    return GiniObjectiveFunction<DataT, LabelT, IdxT>::LeafPrediction(shist,
-                                                                      nclasses);
+  DI LabelT LeafPrediction(BinT* shist, int nclasses) {
+    int class_idx = 0;
+    int count = 0;
+    for (int i = 0; i < nclasses; i++) {
+      auto current_count = shist[i].x;
+      if (current_count > count) {
+        class_idx = i;
+        count = current_count;
+      }
+    }
+    return class_idx;
   }
 };
 
@@ -215,10 +231,6 @@ class MSEObjectiveFunction {
     double label_sum;
     int count;
 
-    DI static void IncrementHistogram(MSEBin* hist, int nbins, int b,
-                                      double label) {
-      MSEBin::AtomicAdd(hist + b, {label, 1});
-    }
     DI static void AtomicAdd(MSEBin* address, MSEBin val) {
       atomicAdd(&address->label_sum, val.label_sum);
       atomicAdd(&address->count, val.count);
@@ -234,11 +246,16 @@ class MSEObjectiveFunction {
     }
   };
   using BinT = MSEBin;
+  MSEObjectiveFunction() = default;
   HDI MSEObjectiveFunction(IdxT nclasses, DataT min_impurity_decrease,
-                           IdxT min_samples_leaf)
+                           IdxT min_samples_leaf, double label_min,
+                           double label_max)
     : min_impurity_decrease(min_impurity_decrease),
       min_samples_leaf(min_samples_leaf) {}
   DI IdxT NumClasses() const { return 1; }
+  DI void IncrementHistogram(MSEBin* hist, int nbins, int b, double label) {
+    MSEBin::AtomicAdd(hist + b, {label, 1});
+  }
   DI Split<DataT, IdxT> Gain(BinT* shist, DataT* sbins, IdxT col, IdxT len,
                              IdxT nbins) {
     Split<DataT, IdxT> sp;
@@ -268,8 +285,173 @@ class MSEObjectiveFunction {
     return sp;
   }
 
-  static DI LabelT LeafPrediction(BinT* shist, int nclasses) {
+  DI LabelT LeafPrediction(BinT* shist, int nclasses) {
     return shist[0].label_sum / shist[0].count;
+  }
+};
+
+// Each histogram bin contains a density estimate of labels
+// We use k terms of an orthogonal cosine series to estimate the label pdf
+// See https://dl.acm.org/doi/10.1145/3442337
+template <int k_>
+struct CosBin {
+  static const int k = k_;
+  double moments[k_ + 1];
+
+  // For unit tests on the CPU
+  void Add(double x, double min, double max) {
+    double scaled_x = (x - min) * M_PI / (max - min);
+    moments[0] += 1.0;
+    for (int i = 1; i < k + 1; i++) {
+      moments[i] += cos(i * scaled_x);
+    }
+  }
+
+  HDI double NumItems() const { return moments[0]; }
+
+  // Approximate cumulative distribution function of the labels
+  // This is the integral of the cosine series density estimate
+  HDI double Cdf(double y, double min, double max) const {
+    if ((max - min) == 0.0 || moments[0] == 0.0) return 0.5;
+    double y_scaled = (y - min) * M_PI / (max - min);
+    double sum = y_scaled / M_PI;
+    double norm = 2.0 / (M_PI * moments[0]);
+    for (int i = 1; i < k + 1; i++) {
+      sum += moments[i] * norm * sin(i * y_scaled) / i;
+    }
+    return sum;
+  }
+  // Integral of the CDF evaluated from min to z
+  HDI double CdfIntegral(double z, double min, double max) const {
+    double a = min;
+    double b = max;
+    double L = b - a;
+    if ((max - min) == 0.0 || moments[0] == 0.0) return 0.0;
+    double z_scaled = (z - min) * M_PI / (max - min);
+    double sum = z_scaled * z_scaled / (2.0 * M_PI);
+    double norm = 2.0 / (M_PI * moments[0]);
+    for (int i = 1; i < k + 1; i++) {
+      sum += norm * (moments[i] - moments[i] * cos(i * z_scaled)) / (i * i);
+    }
+    return sum * L / M_PI;
+  }
+
+  // Find the approximate median of the labels in this bin
+  // The median is the minimizer of MAE
+  // Find the absolute error of this set of labels, given our median
+  // The MAE can be directly obtained from the density function and median
+  // by integration by parts.
+  HDI double AbsoluteError(double min, double max) const {
+    double median = this->Median(min, max);
+    double mae_l = this->CdfIntegral(median, min, max);
+    double mae_r = mae_l - this->CdfIntegral(max, min, max);
+    return (mae_l + mae_r + max - median) * this->NumItems();
+  }
+
+  // Bisect the CDF to find the mediian y such that F(y)=0.5
+  HDI double Median(double min, double max) const {
+    const int iter = 10;
+    double dx = max - min;
+    double ymid = max;
+    double fmid = 0.0;
+    double rtb = min;
+    for (int i = 0; i < iter; i++) {
+      ymid = rtb + (dx *= 0.5);
+      fmid = this->Cdf(ymid, min, max);
+      if (fmid <= 0.5) rtb = ymid;
+      if (fmid == 0.5) break;
+    }
+    return rtb;
+  }
+
+  DI static void AtomicAdd(CosBin* address, CosBin val) {
+    for (int i = 0; i < k + 1; i++) {
+      atomicAdd(&address->moments[i], val.moments[i]);
+    }
+  }
+  HDI CosBin& operator+=(const CosBin& b) {
+    for (int i = 0; i < k + 1; i++) {
+      moments[i] += b.moments[i];
+    }
+    return *this;
+  }
+  HDI CosBin operator+(CosBin b) const {
+    CosBin<k> tmp = *this;
+    tmp += b;
+    return tmp;
+  }
+  HDI CosBin& operator-=(const CosBin& b) {
+    for (int i = 0; i < k + 1; i++) {
+      moments[i] -= b.moments[i];
+    }
+    return *this;
+  }
+  HDI CosBin operator-(CosBin b) const {
+    CosBin<k> tmp = *this;
+    tmp -= b;
+    return tmp;
+  }
+};
+
+template <typename DataT_, typename LabelT_, typename IdxT_>
+class MAEObjectiveFunction {
+ public:
+  using DataT = DataT_;
+  using LabelT = LabelT_;
+  using IdxT = IdxT_;
+  DataT min_impurity_decrease;
+  IdxT min_samples_leaf;
+  double label_min;
+  double label_max;
+
+ public:
+  using BinT = CosBin<8>;
+  MAEObjectiveFunction() = default;
+  MAEObjectiveFunction(IdxT nclasses, DataT min_impurity_decrease,
+                       IdxT min_samples_leaf, double label_min,
+                       double label_max)
+    : min_impurity_decrease(min_impurity_decrease),
+      min_samples_leaf(min_samples_leaf),
+      label_min(label_min),
+      label_max(label_max) {}
+
+  DI IdxT NumClasses() const { return 1; }
+  DI void IncrementHistogram(BinT* bins, int nbins, int b, double label) {
+    // Accumulate the coefficients of an orthoogonal cosine series
+    // Scaled/shifted to [0,pi)
+    double scaled_label = (label - label_min) * M_PI / (label_max - label_min);
+    atomicAdd(&(bins + b)->moments[0], 1.0);
+    for (int i = 1; i < BinT::k + 1; i++) {
+      atomicAdd(&(bins + b)->moments[i], cos(i * scaled_label));
+    }
+  }
+  HDI Split<DataT, IdxT> Gain(BinT* scdf_labels, DataT* sbins, IdxT col,
+                              IdxT len, IdxT nbins) {
+    Split<DataT, IdxT> sp;
+    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+      double gain = 0.0;
+      const auto& left_bin = scdf_labels[i];
+      const auto& parent_bin = scdf_labels[nbins - 1];
+      const auto right_bin = parent_bin - left_bin;
+      if (left_bin.NumItems() < min_samples_leaf ||
+          right_bin.NumItems() < min_samples_leaf) {
+        gain = -std::numeric_limits<DataT>::max();
+      } else {
+        gain = parent_bin.AbsoluteError(label_min, label_max) -
+               (left_bin.AbsoluteError(label_min, label_max) +
+                right_bin.AbsoluteError(label_min, label_max));
+        gain /= parent_bin.NumItems();
+      }
+      // if the gain is not "enough", don't bother!
+      if (gain <= min_impurity_decrease) {
+        gain = -std::numeric_limits<DataT>::max();
+      }
+      sp.update({sbins[i], col, gain, left_bin.NumItems()});
+    }
+    return sp;
+  }
+  DI LabelT LeafPrediction(BinT* shist, int nclasses) {
+    return shist[0].Median(label_min, label_max);
   }
 };
 

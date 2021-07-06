@@ -17,9 +17,12 @@
 #pragma once
 
 #include <cuml/tree/flatnode.h>
+#include <thrust/reduce.h>
 #include <common/grid_sync.cuh>
 #include <cuml/tree/decisiontree.hpp>
+#include <limits>
 #include <raft/cuda_utils.cuh>
+#include "cuml/tree/algo_helper.h"
 #include "input.cuh"
 #include "kernels.cuh"
 #include "metrics.cuh"
@@ -56,6 +59,7 @@ struct Builder {
   /** input dataset */
   InputT input;
 
+  ObjectiveT objective;
   /** max nodes that we can create */
   IdxT maxNodes;
   /** total number of histogram bins (classification only) */
@@ -160,6 +164,26 @@ struct Builder {
     input.numOutputs = nclasses;
     ASSERT(nclasses >= 1, "nclasses should be at least 1");
     input.quantiles = quantiles;
+
+    double label_min, label_max;
+    if (params.split_criterion == CRITERION::MAE) {
+      thrust::tuple<double, double> init = {
+        std::numeric_limits<double>::max(),
+        -std::numeric_limits<double>::max()};
+      auto iter = thrust::make_zip_iterator(thrust::make_tuple(labels, labels));
+      auto result =
+        thrust::reduce(thrust::device, iter, iter + totalRows, init,
+                       [=] __device__(const thrust::tuple<double, double>& a,
+                                      const thrust::tuple<double, double>& b) {
+                         return thrust::tuple<double, double>(
+                           min(thrust::get<0>(a), thrust::get<0>(b)),
+                           max(thrust::get<1>(a), thrust::get<1>(b)));
+                       });
+      label_min = thrust::get<0>(result);
+      label_max = thrust::get<1>(result);
+    }
+    objective = {input.numOutputs, params.min_impurity_decrease,
+                 params.min_samples_leaf, label_min, label_max};
     auto max_batch = params.max_batch_size;
     auto n_col_blks = n_blks_for_cols;
     nHistBins = max_batch * (params.n_bins) * n_col_blks * nclasses;
@@ -371,7 +395,8 @@ struct Builder {
       <<<batchSize, TPB_SPLIT, smemSize, s>>>(
         params.max_depth, params.min_samples_leaf, params.min_samples_split,
         params.max_leaves, params.min_impurity_decrease, input, curr_nodes,
-        next_nodes, n_nodes, splits, n_leaves, h_total_nodes, n_depth);
+        next_nodes, n_nodes, splits, n_leaves, h_total_nodes, n_depth,
+        objective);
     CUDA_CHECK(cudaGetLastError());
     ML::POP_RANGE();
     // copy the updated (due to leaf creation) and newly created child nodes
@@ -418,8 +443,6 @@ struct Builder {
     CUDA_CHECK(cudaMemsetAsync(hist, 0, sizeof(BinT) * nHistBins, s));
     ML::PUSH_RANGE(
       "computeSplitClassificationKernel @builder_base.cuh [batched-levelalgo]");
-    ObjectiveT objective(input.numOutputs, params.min_impurity_decrease,
-                         params.min_samples_leaf);
     computeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(
         hist, params.n_bins, params.max_depth, params.min_samples_split,

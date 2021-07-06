@@ -282,7 +282,7 @@ class DecisionTree {
       (std::numeric_limits<L>::is_integer) ? CRITERION::GINI : CRITERION::MSE;
     CRITERION last_criterion = (std::numeric_limits<L>::is_integer)
                                  ? CRITERION::ENTROPY
-                                 : CRITERION::MSE;
+                                 : CRITERION::MAE;
 
     validity_check(tree_params);
     if (tree_params.n_bins > n_sampled_rows) {
