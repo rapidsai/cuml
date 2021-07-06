@@ -219,7 +219,7 @@ struct ARIMAMemory {
     *params_sigma2, *Tparams_mu, *Tparams_ar, *Tparams_ma, *Tparams_sar,
     *Tparams_sma, *Tparams_sigma2, *d_params, *d_Tparams, *Z_dense, *R_dense,
     *T_dense, *RQR_dense, *RQ_dense, *P_dense, *alpha_dense, *ImT_dense,
-    *ImT_inv_dense, *v_tmp_dense, *m_tmp_dense, *K_dense, *TP_dense, *vs,
+    *ImT_inv_dense, *v_tmp_dense, *m_tmp_dense, *K_dense, *TP_dense, *pred,
     *y_diff, *loglike, *loglike_base, *loglike_pert, *x_pert, *sigma2_buffer,
     *I_m_AxA_dense, *I_m_AxA_inv_dense, *Ts_dense, *RQRs_dense, *Ps_dense;
   T **Z_batches, **R_batches, **T_batches, **RQR_batches, **RQ_batches,
@@ -299,7 +299,7 @@ struct ARIMAMemory {
     append_buffer<assign>(TP_batches, batch_size);
     append_buffer<assign>(sigma2_buffer, batch_size);
 
-    append_buffer<assign>(vs, n_obs * batch_size);
+    append_buffer<assign>(pred, n_obs * batch_size);
     append_buffer<assign>(y_diff, n_obs * batch_size);
     append_buffer<assign>(loglike, batch_size);
     append_buffer<assign>(loglike_base, batch_size);

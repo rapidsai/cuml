@@ -37,8 +37,7 @@ namespace ML {
  * @param[in]  order         ARIMA hyper-parameters
  * @param[in]  batch_size    Number of series making up the batch
  * @param[out] d_loglike     Resulting log-likelihood (per series) (device)
- * @param[out] d_vs          Residual between the prediction and the
- *                           original series.
+ * @param[out] d_pred        Predictions
  *                           shape=(nobs-d-s*D, batch_size) (device)
  * @param[in]  fc_steps      Number of steps to forecast
  * @param[in]  d_fc          Array to store the forecast
@@ -50,7 +49,7 @@ namespace ML {
 void batched_kalman_filter(
   raft::handle_t& handle, const ARIMAMemory<double>& arima_mem,
   const double* d_ys_b, int nobs, const ARIMAParams<double>& params,
-  const ARIMAOrder& order, int batch_size, double* d_loglike, double* d_vs,
+  const ARIMAOrder& order, int batch_size, double* d_loglike, double* d_pred,
   int fc_steps = 0, double* d_fc = nullptr, double level = 0,
   double* d_lower = nullptr, double* d_upper = nullptr);
 

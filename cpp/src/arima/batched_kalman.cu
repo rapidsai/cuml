@@ -89,7 +89,7 @@ DI void MM_l(const double* A, const double* B, double* out) {
  * @param[in]  intercept   Do we fit an intercept?
  * @param[in]  d_mu        Batched intercept                     (1)
  * @param[in]  batch_size  Batch size
- * @param[out] vs          Batched residuals                     (nobs)
+ * @param[out] d_pred      Predictions                           (nobs)
  * @param[out] d_loglike   Log-likelihood                        (1)
  * @param[out] d_ll_sigma2 Sigma^2 term in the log-likelihood    (1)
  * @param[in]  n_diff      d + s*D
@@ -102,7 +102,7 @@ template <int rd>
 __global__ void batched_kalman_loop_kernel(
   const double* ys, int nobs, const double* T, const double* Z,
   const double* RQR, const double* P, const double* alpha, bool intercept,
-  const double* d_mu, int batch_size, double* vs, double* d_loglike,
+  const double* d_mu, int batch_size, double* d_pred, double* d_loglike,
   double* d_ll_sigma2, int n_diff, int fc_steps = 0, double* d_fc = nullptr,
   bool conf_int = false, double* d_F_fc = nullptr) {
   constexpr int rd2 = rd * rd;
@@ -137,38 +137,41 @@ __global__ void batched_kalman_loop_kernel(
     double b_ll_s2 = 0.0;
     int n_obs_ll = 0;
     const double* b_ys = ys + bid * nobs;
-    double* b_vs = vs + bid * nobs;
+    double* b_pred = d_pred + bid * nobs;
 
     double mu = intercept ? d_mu[bid] : 0.0;
 
     for (int it = 0; it < nobs; it++) {
-      // 1. v = y - Z*alpha
-      double vs_it = b_ys[it];
-      if (n_diff == 0)
-        vs_it -= l_alpha[0];
-      else {
-        for (int i = 0; i < rd; i++) {
-          vs_it -= l_alpha[i] * l_Z[i];
-        }
-      }
-      b_vs[it] = vs_it;
-
-      // 2. F = Z*P*Z'
-      double _Fs;
-      if (n_diff == 0)
-        _Fs = l_P[0];
-      else {
-        _Fs = 0.0;
-        for (int i = 0; i < rd; i++) {
-          for (int j = 0; j < rd; j++) {
-            _Fs += l_P[j * rd + i] * l_Z[i] * l_Z[j];
+      double _Fs, vs_it;
+      {
+        // 1. v = y - Z*alpha
+        double pred = 0.0;
+        if (n_diff == 0)
+          pred += l_alpha[0];
+        else {
+          for (int i = 0; i < rd; i++) {
+            pred += l_alpha[i] * l_Z[i];
           }
         }
-      }
-      if (it >= n_diff) {
-        b_sum_logFs += log(_Fs);
-        b_ll_s2 += vs_it * vs_it / _Fs;
-        n_obs_ll++;
+        b_pred[it] = pred;
+        vs_it = b_ys[it] - pred;
+
+        // 2. F = Z*P*Z'
+        if (n_diff == 0)
+          _Fs = l_P[0];
+        else {
+          _Fs = 0.0;
+          for (int i = 0; i < rd; i++) {
+            for (int j = 0; j < rd; j++) {
+              _Fs += l_P[j * rd + i] * l_Z[i] * l_Z[j];
+            }
+          }
+        }
+        if (it >= n_diff) {
+          b_sum_logFs += log(_Fs);
+          b_ll_s2 += vs_it * vs_it / _Fs;
+          n_obs_ll++;
+        }
       }
 
       // 3. K = 1/Fs[it] * T*P*Z'
@@ -309,7 +312,7 @@ union KalmanLoopSharedMemory {
  * @param[in]  intercept   Do we fit an intercept?
  * @param[in]  d_mu        Batched intercept                     (1)
  * @param[in]  rd          State vector dimension
- * @param[out] d_vs        Batched residuals                     (nobs)
+ * @param[out] d_pred      Predictions                           (nobs)
  * @param[out] d_loglike   Log-likelihood                        (1)
  * @param[out] d_ll_sigma2 Sigma^2 term in the log-likelihood    (1)
  * @param[in]  n_diff      d + s*D
@@ -323,7 +326,7 @@ __global__ void _batched_kalman_device_loop_large_kernel(
   const double* d_ys, int batch_size, int n_obs, const double* d_T,
   const double* d_Z, const double* d_RQR, double* d_P, double* d_alpha,
   double* d_m_tmp, double* d_TP, bool intercept, const double* d_mu, int rd,
-  double* d_vs, double* d_loglike, double* d_ll_sigma2, int n_diff,
+  double* d_pred, double* d_loglike, double* d_ll_sigma2, int n_diff,
   int fc_steps, double* d_fc, bool conf_int, double* d_F_fc) {
   int rd2 = rd * rd;
 
@@ -353,32 +356,38 @@ __global__ void _batched_kalman_device_loop_large_kernel(
 
     /* Kalman loop */
     for (int it = 0; it < n_obs; it++) {
-      // 1.
-      double vt = d_ys[bid * n_obs + it];
-      if (n_diff == 0) {
-        vt -= shared_alpha[0];
-      } else {
-        vt -= MLCommon::LinAlg::_block_dot<GemmPolicy::BlockSize, true>(
-          rd, shared_Z, shared_alpha, shared_mem.reduction_storage);
-        __syncthreads();  // necessary to reuse shared memory
-      }
+      double vt, _F;
+      {
+        // 1. pred = Z*alpha
+        //    v = y - pred
+        double pred = 0;
+        if (n_diff == 0) {
+          pred += shared_alpha[0];
+        } else {
+          pred += MLCommon::LinAlg::_block_dot<GemmPolicy::BlockSize, true>(
+            rd, shared_Z, shared_alpha, shared_mem.reduction_storage);
+          __syncthreads();  // necessary to reuse shared memory
+        }
+        vt = d_ys[bid * n_obs + it] - pred;
 
-      // 2.
-      double _F;
-      if (n_diff == 0) {
-        _F = (d_P + bid * rd2)[0];
-      } else {
-        _F = MLCommon::LinAlg::_block_xAxt<GemmPolicy::BlockSize, true, false>(
-          rd, shared_Z, d_P + bid * rd2, shared_mem.reduction_storage);
-        __syncthreads();  // necessary to reuse shared memory
-      }
-      if (threadIdx.x == 0) {
-        d_vs[bid * n_obs + it] = vt;
+        // 2. F = Z*P*Z'
+        if (n_diff == 0) {
+          _F = (d_P + bid * rd2)[0];
+        } else {
+          _F =
+            MLCommon::LinAlg::_block_xAxt<GemmPolicy::BlockSize, true, false>(
+              rd, shared_Z, d_P + bid * rd2, shared_mem.reduction_storage);
+          __syncthreads();  // necessary to reuse shared memory
+        }
 
-        if (it >= n_diff) {
-          sum_logFs += log(_F);
-          ll_s2 += vt * vt / _F;
-          n_obs_ll++;
+        if (threadIdx.x == 0) {
+          d_pred[bid * n_obs + it] = pred;
+
+          if (it >= n_diff) {
+            sum_logFs += log(_F);
+            ll_s2 += vt * vt / _F;
+            n_obs_ll++;
+          }
         }
       }
 
@@ -520,7 +529,7 @@ __global__ void _batched_kalman_device_loop_large_kernel(
  * @param[in]  intercept    Do we fit an intercept?
  * @param[in]  d_mu         Batched intercept                     (1)
  * @param[in]  rd           Dimension of the state vector
- * @param[out] d_vs         Batched residuals                     (nobs)
+ * @param[out] d_pred       Predictions                           (nobs)
  * @param[out] d_loglike    Log-likelihood                        (1)
  * @param[out] d_ll_sigma2  Sigma^2 term in the log-likelihood    (1)
  * @param[in]  n_diff       d + s*D
@@ -537,7 +546,7 @@ void _batched_kalman_device_loop_large(
   const MLCommon::LinAlg::Batched::Matrix<double>& RQR,
   MLCommon::LinAlg::Batched::Matrix<double>& P,
   MLCommon::LinAlg::Batched::Matrix<double>& alpha, bool intercept,
-  const double* d_mu, int rd, double* d_vs, double* d_loglike,
+  const double* d_mu, int rd, double* d_pred, double* d_loglike,
   double* d_ll_sigma2, int n_diff, int fc_steps = 0, double* d_fc = nullptr,
   bool conf_int = false, double* d_F_fc = nullptr) {
   static_assert(GemmPolicy::BlockSize == GemvPolicy::BlockSize,
@@ -562,8 +571,8 @@ void _batched_kalman_device_loop_large(
     <<<grid_size, GemmPolicy::BlockSize, shared_mem_size, stream>>>(
       d_ys, batch_size, n_obs, T.raw_data(), Z.raw_data(), RQR.raw_data(),
       P.raw_data(), alpha.raw_data(), m_tmp.raw_data(), TP.raw_data(),
-      intercept, d_mu, rd, d_vs, d_loglike, d_ll_sigma2, n_diff, fc_steps, d_fc,
-      conf_int, d_F_fc);
+      intercept, d_mu, rd, d_pred, d_loglike, d_ll_sigma2, n_diff, fc_steps,
+      d_fc, conf_int, d_F_fc);
 }
 
 /// Wrapper around functions that execute the Kalman loop (for performance)
@@ -576,10 +585,10 @@ void batched_kalman_loop(raft::handle_t& handle,
                          MLCommon::LinAlg::Batched::Matrix<double>& P0,
                          MLCommon::LinAlg::Batched::Matrix<double>& alpha,
                          bool intercept, const double* d_mu,
-                         const ARIMAOrder& order, double* vs, double* d_loglike,
-                         double* d_ll_sigma2, int fc_steps = 0,
-                         double* d_fc = nullptr, bool conf_int = false,
-                         double* d_F_fc = nullptr) {
+                         const ARIMAOrder& order, double* d_pred,
+                         double* d_loglike, double* d_ll_sigma2,
+                         int fc_steps = 0, double* d_fc = nullptr,
+                         bool conf_int = false, double* d_F_fc = nullptr) {
   const int batch_size = T.batches();
   auto stream = T.stream();
   int rd = order.rd();
@@ -592,56 +601,56 @@ void batched_kalman_loop(raft::handle_t& handle,
         batched_kalman_loop_kernel<1>
           <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
             ys, nobs, T.raw_data(), Z.raw_data(), RQR.raw_data(), P0.raw_data(),
-            alpha.raw_data(), intercept, d_mu, batch_size, vs, d_loglike,
+            alpha.raw_data(), intercept, d_mu, batch_size, d_pred, d_loglike,
             d_ll_sigma2, n_diff, fc_steps, d_fc, conf_int, d_F_fc);
         break;
       case 2:
         batched_kalman_loop_kernel<2>
           <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
             ys, nobs, T.raw_data(), Z.raw_data(), RQR.raw_data(), P0.raw_data(),
-            alpha.raw_data(), intercept, d_mu, batch_size, vs, d_loglike,
+            alpha.raw_data(), intercept, d_mu, batch_size, d_pred, d_loglike,
             d_ll_sigma2, n_diff, fc_steps, d_fc, conf_int, d_F_fc);
         break;
       case 3:
         batched_kalman_loop_kernel<3>
           <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
             ys, nobs, T.raw_data(), Z.raw_data(), RQR.raw_data(), P0.raw_data(),
-            alpha.raw_data(), intercept, d_mu, batch_size, vs, d_loglike,
+            alpha.raw_data(), intercept, d_mu, batch_size, d_pred, d_loglike,
             d_ll_sigma2, n_diff, fc_steps, d_fc, conf_int, d_F_fc);
         break;
       case 4:
         batched_kalman_loop_kernel<4>
           <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
             ys, nobs, T.raw_data(), Z.raw_data(), RQR.raw_data(), P0.raw_data(),
-            alpha.raw_data(), intercept, d_mu, batch_size, vs, d_loglike,
+            alpha.raw_data(), intercept, d_mu, batch_size, d_pred, d_loglike,
             d_ll_sigma2, n_diff, fc_steps, d_fc, conf_int, d_F_fc);
         break;
       case 5:
         batched_kalman_loop_kernel<5>
           <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
             ys, nobs, T.raw_data(), Z.raw_data(), RQR.raw_data(), P0.raw_data(),
-            alpha.raw_data(), intercept, d_mu, batch_size, vs, d_loglike,
+            alpha.raw_data(), intercept, d_mu, batch_size, d_pred, d_loglike,
             d_ll_sigma2, n_diff, fc_steps, d_fc, conf_int, d_F_fc);
         break;
       case 6:
         batched_kalman_loop_kernel<6>
           <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
             ys, nobs, T.raw_data(), Z.raw_data(), RQR.raw_data(), P0.raw_data(),
-            alpha.raw_data(), intercept, d_mu, batch_size, vs, d_loglike,
+            alpha.raw_data(), intercept, d_mu, batch_size, d_pred, d_loglike,
             d_ll_sigma2, n_diff, fc_steps, d_fc, conf_int, d_F_fc);
         break;
       case 7:
         batched_kalman_loop_kernel<7>
           <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
             ys, nobs, T.raw_data(), Z.raw_data(), RQR.raw_data(), P0.raw_data(),
-            alpha.raw_data(), intercept, d_mu, batch_size, vs, d_loglike,
+            alpha.raw_data(), intercept, d_mu, batch_size, d_pred, d_loglike,
             d_ll_sigma2, n_diff, fc_steps, d_fc, conf_int, d_F_fc);
         break;
       case 8:
         batched_kalman_loop_kernel<8>
           <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
             ys, nobs, T.raw_data(), Z.raw_data(), RQR.raw_data(), P0.raw_data(),
-            alpha.raw_data(), intercept, d_mu, batch_size, vs, d_loglike,
+            alpha.raw_data(), intercept, d_mu, batch_size, d_pred, d_loglike,
             d_ll_sigma2, n_diff, fc_steps, d_fc, conf_int, d_F_fc);
         break;
     }
@@ -655,15 +664,17 @@ void batched_kalman_loop(raft::handle_t& handle,
           MLCommon::LinAlg::BlockGemmPolicy<1, 16, 1, 1, 16, 16>;
         using GemvPolicy = MLCommon::LinAlg::BlockGemvPolicy<16, 16>;
         _batched_kalman_device_loop_large<GemmPolicy, GemvPolicy>(
-          arima_mem, ys, nobs, T, Z, RQR, P0, alpha, intercept, d_mu, rd, vs,
-          d_loglike, d_ll_sigma2, n_diff, fc_steps, d_fc, conf_int, d_F_fc);
+          arima_mem, ys, nobs, T, Z, RQR, P0, alpha, intercept, d_mu, rd,
+          d_pred, d_loglike, d_ll_sigma2, n_diff, fc_steps, d_fc, conf_int,
+          d_F_fc);
       } else {
         using GemmPolicy =
           MLCommon::LinAlg::BlockGemmPolicy<1, 16, 1, 4, 16, 4>;
         using GemvPolicy = MLCommon::LinAlg::BlockGemvPolicy<16, 4>;
         _batched_kalman_device_loop_large<GemmPolicy, GemvPolicy>(
-          arima_mem, ys, nobs, T, Z, RQR, P0, alpha, intercept, d_mu, rd, vs,
-          d_loglike, d_ll_sigma2, n_diff, fc_steps, d_fc, conf_int, d_F_fc);
+          arima_mem, ys, nobs, T, Z, RQR, P0, alpha, intercept, d_mu, rd,
+          d_pred, d_loglike, d_ll_sigma2, n_diff, fc_steps, d_fc, conf_int,
+          d_F_fc);
       }
     } else if (rd <= 32) {
       if (batch_size <= 2 * num_sm) {
@@ -671,28 +682,30 @@ void batched_kalman_loop(raft::handle_t& handle,
           MLCommon::LinAlg::BlockGemmPolicy<1, 32, 1, 4, 32, 8>;
         using GemvPolicy = MLCommon::LinAlg::BlockGemvPolicy<32, 8>;
         _batched_kalman_device_loop_large<GemmPolicy, GemvPolicy>(
-          arima_mem, ys, nobs, T, Z, RQR, P0, alpha, intercept, d_mu, rd, vs,
-          d_loglike, d_ll_sigma2, n_diff, fc_steps, d_fc, conf_int, d_F_fc);
+          arima_mem, ys, nobs, T, Z, RQR, P0, alpha, intercept, d_mu, rd,
+          d_pred, d_loglike, d_ll_sigma2, n_diff, fc_steps, d_fc, conf_int,
+          d_F_fc);
       } else {
         using GemmPolicy =
           MLCommon::LinAlg::BlockGemmPolicy<1, 32, 1, 8, 32, 4>;
         using GemvPolicy = MLCommon::LinAlg::BlockGemvPolicy<32, 4>;
         _batched_kalman_device_loop_large<GemmPolicy, GemvPolicy>(
-          arima_mem, ys, nobs, T, Z, RQR, P0, alpha, intercept, d_mu, rd, vs,
-          d_loglike, d_ll_sigma2, n_diff, fc_steps, d_fc, conf_int, d_F_fc);
+          arima_mem, ys, nobs, T, Z, RQR, P0, alpha, intercept, d_mu, rd,
+          d_pred, d_loglike, d_ll_sigma2, n_diff, fc_steps, d_fc, conf_int,
+          d_F_fc);
       }
     } else if (rd > 64 && rd <= 128) {
       using GemmPolicy =
         MLCommon::LinAlg::BlockGemmPolicy<1, 16, 1, 16, 128, 2>;
       using GemvPolicy = MLCommon::LinAlg::BlockGemvPolicy<128, 2>;
       _batched_kalman_device_loop_large<GemmPolicy, GemvPolicy>(
-        arima_mem, ys, nobs, T, Z, RQR, P0, alpha, intercept, d_mu, rd, vs,
+        arima_mem, ys, nobs, T, Z, RQR, P0, alpha, intercept, d_mu, rd, d_pred,
         d_loglike, d_ll_sigma2, n_diff, fc_steps, d_fc, conf_int, d_F_fc);
     } else {
       using GemmPolicy = MLCommon::LinAlg::BlockGemmPolicy<1, 32, 1, 16, 64, 4>;
       using GemvPolicy = MLCommon::LinAlg::BlockGemvPolicy<64, 4>;
       _batched_kalman_device_loop_large<GemmPolicy, GemvPolicy>(
-        arima_mem, ys, nobs, T, Z, RQR, P0, alpha, intercept, d_mu, rd, vs,
+        arima_mem, ys, nobs, T, Z, RQR, P0, alpha, intercept, d_mu, rd, d_pred,
         d_loglike, d_ll_sigma2, n_diff, fc_steps, d_fc, conf_int, d_F_fc);
     }
   }
@@ -760,7 +773,7 @@ void _batched_kalman_filter(
   const double* d_ys, int nobs, const ARIMAOrder& order,
   const MLCommon::LinAlg::Batched::Matrix<double>& Zb,
   const MLCommon::LinAlg::Batched::Matrix<double>& Tb,
-  const MLCommon::LinAlg::Batched::Matrix<double>& Rb, double* d_vs,
+  const MLCommon::LinAlg::Batched::Matrix<double>& Rb, double* d_pred,
   double* d_loglike, const double* d_sigma2, bool intercept, const double* d_mu,
   int fc_steps, double* d_fc, double level, double* d_lower, double* d_upper) {
   const size_t batch_size = Zb.batches();
@@ -904,7 +917,7 @@ void _batched_kalman_filter(
   }
 
   batched_kalman_loop(handle, arima_mem, d_ys, nobs, Tb, Zb, RQR, P, alpha,
-                      intercept, d_mu, order, d_vs, d_loglike,
+                      intercept, d_mu, order, d_pred, d_loglike,
                       arima_mem.sigma2_buffer, fc_steps, d_fc, level > 0,
                       d_lower);
 
@@ -1028,7 +1041,7 @@ void init_batched_kalman_matrices(raft::handle_t& handle, const double* d_ar,
 void batched_kalman_filter(
   raft::handle_t& handle, const ARIMAMemory<double>& arima_mem,
   const double* d_ys, int nobs, const ARIMAParams<double>& params,
-  const ARIMAOrder& order, int batch_size, double* d_loglike, double* d_vs,
+  const ARIMAOrder& order, int batch_size, double* d_loglike, double* d_pred,
   int fc_steps, double* d_fc, double level, double* d_lower, double* d_upper) {
   ML::PUSH_RANGE(__func__);
 
@@ -1056,9 +1069,10 @@ void batched_kalman_filter(
   ////////////////////////////////////////////////////////////
   // Computation
 
-  _batched_kalman_filter(handle, arima_mem, d_ys, nobs, order, Zb, Tb, Rb, d_vs,
-                         d_loglike, params.sigma2, static_cast<bool>(order.k),
-                         params.mu, fc_steps, d_fc, level, d_lower, d_upper);
+  _batched_kalman_filter(handle, arima_mem, d_ys, nobs, order, Zb, Tb, Rb,
+                         d_pred, d_loglike, params.sigma2,
+                         static_cast<bool>(order.k), params.mu, fc_steps, d_fc,
+                         level, d_lower, d_upper);
 
   ML::POP_RANGE();
 }

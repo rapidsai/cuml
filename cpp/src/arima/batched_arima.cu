@@ -86,7 +86,7 @@ void predict(raft::handle_t& handle, const ARIMAMemory<double>& arima_mem,
     d_y_kf = d_y;
   }
 
-  double* d_vs = arima_mem.vs;
+  double* d_pred = arima_mem.pred;
 
   // Create temporary array for the forecasts
   int num_steps = std::max(end - n_obs, 0);
@@ -98,7 +98,7 @@ void predict(raft::handle_t& handle, const ARIMAMemory<double>& arima_mem,
   std::vector<double> loglike = std::vector<double>(batch_size);
   /// TODO: use device loglike to avoid useless copy ; part of #2233
   batched_loglike(handle, arima_mem, d_y_kf, batch_size, n_obs_kf,
-                  order_after_prep, params, loglike.data(), d_vs, false, true,
+                  order_after_prep, params, loglike.data(), d_pred, false, true,
                   MLE, 0, num_steps, d_y_fc, level, d_lower, d_upper);
 
   auto counting = thrust::make_counting_iterator(0);
@@ -108,25 +108,38 @@ void predict(raft::handle_t& handle, const ARIMAMemory<double>& arima_mem,
   // In-sample prediction
   //
 
-  int res_offset = diff ? order.d + order.s * order.D : 0;
-  int p_start = std::max(start, res_offset);
-  int p_end = std::min(n_obs, end);
-
   // The prediction loop starts by filling undefined predictions with NaN,
   // then computes the predictions from the observations and residuals
   if (start < n_obs) {
-    thrust::for_each(thrust::cuda::par.on(stream), counting,
-                     counting + batch_size, [=] __device__(int bid) {
-                       d_y_p[0] = 0.0;
-                       for (int i = 0; i < res_offset - start; i++) {
-                         d_y_p[bid * predict_ld + i] = nan("");
-                       }
-                       for (int i = p_start; i < p_end; i++) {
-                         d_y_p[bid * predict_ld + i - start] =
-                           d_y[bid * n_obs + i] -
-                           d_vs[bid * n_obs_kf + i - res_offset];
-                       }
-                     });
+    int res_offset = diff ? order.d + order.s * order.D : 0;
+    int p_start = std::max(start, res_offset);
+    int p_end = std::min(n_obs, end);
+    int dD = diff ? order.d + order.D : 0;
+    int period1 = order.d ? 1 : order.s;
+    int period2 = order.d == 2 ? 1 : order.s;
+
+    thrust::for_each(
+      thrust::cuda::par.on(stream), counting, counting + batch_size,
+      [=] __device__(int bid) {
+        d_y_p[0] = 0.0;
+        for (int i = 0; i < res_offset - start; i++) {
+          d_y_p[bid * predict_ld + i] = nan("");
+        }
+        for (int i = p_start; i < p_end; i++) {
+          if (dD == 0) {
+            d_y_p[bid * predict_ld + i - start] = d_pred[bid * n_obs + i];
+          } else if (dD == 1) {
+            d_y_p[bid * predict_ld + i - start] =
+              d_y[bid * n_obs + i - period1] +
+              d_pred[bid * n_obs_kf + i - res_offset];
+          } else {
+            d_y_p[bid * predict_ld + i - start] =
+              d_y[bid * n_obs + i - period1] + d_y[bid * n_obs + i - period2] -
+              d_y[bid * n_obs + i - period1 - period2] +
+              d_pred[bid * n_obs_kf + i - res_offset];
+          }
+        }
+      });
   }
 
   //
@@ -278,7 +291,7 @@ void batched_loglike(raft::handle_t& handle,
                      const ARIMAMemory<double>& arima_mem, const double* d_y,
                      int batch_size, int n_obs, const ARIMAOrder& order,
                      const ARIMAParams<double>& params, double* loglike,
-                     double* d_vs, bool trans, bool host_loglike,
+                     double* d_pred, bool trans, bool host_loglike,
                      LoglikeMethod method, int truncate, int fc_steps,
                      double* d_fc, double level, double* d_lower,
                      double* d_upper) {
@@ -312,7 +325,7 @@ void batched_loglike(raft::handle_t& handle,
                                d_loglike, truncate);
   } else {
     batched_kalman_filter(handle, arima_mem, d_y, n_obs, Tparams, order,
-                          batch_size, d_loglike, d_vs, fc_steps, d_fc, level,
+                          batch_size, d_loglike, d_pred, fc_steps, d_fc, level,
                           d_lower, d_upper);
   }
 
@@ -326,7 +339,7 @@ void batched_loglike(raft::handle_t& handle,
 void batched_loglike(raft::handle_t& handle,
                      const ARIMAMemory<double>& arima_mem, const double* d_y,
                      int batch_size, int n_obs, const ARIMAOrder& order,
-                     const double* d_params, double* loglike, double* d_vs,
+                     const double* d_params, double* loglike, double* d_pred,
                      bool trans, bool host_loglike, LoglikeMethod method,
                      int truncate, int fc_steps, double* d_fc, double level,
                      double* d_lower, double* d_upper) {
@@ -343,7 +356,7 @@ void batched_loglike(raft::handle_t& handle,
   params.unpack(order, batch_size, d_params, stream);
 
   batched_loglike(handle, arima_mem, d_y, batch_size, n_obs, order, params,
-                  loglike, d_vs, trans, host_loglike, method, truncate,
+                  loglike, d_pred, trans, host_loglike, method, truncate,
                   fc_steps, d_fc, level, d_lower, d_upper);
 
   ML::POP_RANGE();
@@ -365,13 +378,13 @@ void batched_loglike_grad(raft::handle_t& handle,
   double* d_x_pert = arima_mem.x_pert;
   raft::copy(d_x_pert, d_x, N * batch_size, stream);
 
-  double* d_vs = arima_mem.vs;
+  double* d_pred = arima_mem.pred;
   double* d_ll_base = arima_mem.loglike_base;
   double* d_ll_pert = arima_mem.loglike_pert;
 
   // Evaluate the log-likelihood with the given parameter vector
   batched_loglike(handle, arima_mem, d_y, batch_size, n_obs, order, d_x,
-                  d_ll_base, d_vs, trans, false, method, truncate);
+                  d_ll_base, d_pred, trans, false, method, truncate);
 
   for (int i = 0; i < N; i++) {
     // Add the perturbation to the i-th parameter
@@ -382,7 +395,7 @@ void batched_loglike_grad(raft::handle_t& handle,
 
     // Evaluate the log-likelihood with the positive perturbation
     batched_loglike(handle, arima_mem, d_y, batch_size, n_obs, order, d_x_pert,
-                    d_ll_pert, d_vs, trans, false, method, truncate);
+                    d_ll_pert, d_pred, trans, false, method, truncate);
 
     // First derivative with a first-order accuracy
     thrust::for_each(thrust::cuda::par.on(stream), counting,
@@ -410,11 +423,11 @@ void information_criterion(raft::handle_t& handle,
   auto allocator = handle.get_device_allocator();
   auto stream = handle.get_stream();
 
-  double* d_vs = arima_mem.vs;
+  double* d_pred = arima_mem.pred;
 
   /* Compute log-likelihood in d_ic */
   batched_loglike(handle, arima_mem, d_y, batch_size, n_obs, order, params,
-                  d_ic, d_vs, false, false, MLE);
+                  d_ic, d_pred, false, false, MLE);
 
   /* Compute information criterion from log-likelihood and base term */
   MLCommon::Metrics::Batched::information_criterion(
