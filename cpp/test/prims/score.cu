@@ -138,7 +138,7 @@ class AccuracyTest : public ::testing::TestWithParam<AccuracyInputs> {
       int threads = 64;
       int blocks  = raft::ceildiv(params.changed_n, threads);
       //@todo Could also generate params.changed_n unique random positions in [0, n) range, instead
-      //of changing the first ones.
+      // of changing the first ones.
       change_vals<T>
         <<<blocks, threads, 0, stream>>>(predictions, ref_predictions, params.changed_n);
       CUDA_CHECK(cudaGetLastError());
