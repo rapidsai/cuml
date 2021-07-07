@@ -41,40 +41,51 @@ __host__ __device__ __forceinline__ int forest_num_nodes(int num_trees,
 }
 
 template <>
-__host__ __device__ __forceinline__ float base_node::output<float>() const {
+__host__ __device__ __forceinline__ float base_node<true>::output<float>()
+  const {
   return val.f;
 }
 template <>
-__host__ __device__ __forceinline__ int base_node::output<int>() const {
+__host__ __device__ __forceinline__ int base_node<true>::output<int>() const {
   return val.idx;
 }
 
-struct categorical_sets {
+struct categorical_branches {
   // set count is due to tree_idx + node_within_tree_idx are both ints, hence uint32_t result
   template <typename node_t>
-  __host__ __device__ __forceinline__ branch_node(const node_t& node,
-                                                  int node_idx, void* input) {
+  __host__ __device__ __forceinline__ int get_child(const node_t& node,
+                                                    int node_idx, void* input) {
     bool cond;
     if (node.is_categorical()) {
       // category is the biggest unsigned that fits 4 bytes from float, uint32_t
       uint32_t category = *(uint32_t*)input;
       // standard boolean packing. This layout has better ILP
-      cond =
-        bits[node.set() * bytes_per_node + category / 8] & (1 << category % 8);
+      // node.set() is global across feature IDs and is an offset (as opposed
+      // to set number). If we run out of uint32_t and we have hundreds of
+      // features with similar categorical feature count, we may consider
+      // storing node ID within nodes with same feature ID and look up
+      // {.max_matching, .first_node_offset} = ...[feature_id]
+      cond = (category <= max_matching[node.fid()]) &&
+             bits[node.set() + category / 8] & (1 << category % 8);
     } else {
       float val = *(float*)input;
       cond = isnan(val) ? !node.def_left() : val >= node.thresh();
     }
     return node.left(node_idx) + cond;
   }
-  uint8_t* bits;
-  uint32_t bytes_per_node;
+  uint8_t*
+    bits;  // arrays from each node ID are concatenated first, then from all categories
+  uint32_t*
+    max_matching;  // largest matching category in the model, per feature ID
 };
 
 /** dense_tree represents a dense tree */
-struct dense_tree : tree_base {
-  __host__ __device__ dense_tree(dense_node* nodes, int node_pitch)
-    : nodes_(nodes), node_pitch_(node_pitch) {}
+struct dense_tree : categorical_branches {
+  __host__ __device__ dense_tree(categorical_branches cat_branches,
+                                 dense_node* nodes, int node_pitch)
+    : categorical_branches(cat_branches),
+      nodes_(nodes),
+      node_pitch_(node_pitch) {}
   __host__ __device__ const dense_node& operator[](int i) const {
     return nodes_[i * node_pitch_];
   }
@@ -83,18 +94,20 @@ struct dense_tree : tree_base {
 };
 
 /** dense_storage stores the forest as a collection of dense nodes */
-struct dense_storage {
+struct dense_storage : categorical_branches {
   __host__ __device__ dense_storage(dense_node* nodes, int num_trees,
                                     int tree_stride, int node_pitch,
-                                    float* vector_leaf)
-    : nodes_(nodes),
+                                    float* vector_leaf,
+                                    categorical_branches cat_branches)
+    : categorical_branches(cat_branches),
+      nodes_(nodes),
       num_trees_(num_trees),
       tree_stride_(tree_stride),
       node_pitch_(node_pitch),
       vector_leaf_(vector_leaf) {}
   __host__ __device__ int num_trees() const { return num_trees_; }
   __host__ __device__ dense_tree operator[](int i) const {
-    return dense_tree(nodes_ + i * tree_stride_, node_pitch_);
+    return dense_tree(*this, nodes_ + i * tree_stride_, node_pitch_);
   }
   dense_node* nodes_ = nullptr;
   float* vector_leaf_ = nullptr;
@@ -105,8 +118,10 @@ struct dense_storage {
 
 /** sparse_tree is a sparse tree */
 template <typename node_t>
-struct sparse_tree : tree_base {
-  __host__ __device__ sparse_tree(node_t* nodes) : nodes_(nodes) {}
+struct sparse_tree : categorical_branches {
+  __host__ __device__ sparse_tree(categorical_branches cat_branches,
+                                  node_t* nodes)
+    : categorical_branches(cat_branches), nodes_(nodes) {}
   __host__ __device__ const node_t& operator[](int i) const {
     return nodes_[i];
   }
@@ -115,20 +130,22 @@ struct sparse_tree : tree_base {
 
 /** sparse_storage stores the forest as a collection of sparse nodes */
 template <typename node_t>
-struct sparse_storage {
+struct sparse_storage : categorical_branches {
   int* trees_ = nullptr;
   node_t* nodes_ = nullptr;
   float* vector_leaf_ = nullptr;
   int num_trees_ = 0;
   __host__ __device__ sparse_storage(int* trees, node_t* nodes, int num_trees,
-                                     float* vector_leaf)
-    : trees_(trees),
+                                     float* vector_leaf,
+                                     categorical_branches cat_branches)
+    : categorical_branches(cat_branches),
+      trees_(trees),
       nodes_(nodes),
       num_trees_(num_trees),
       vector_leaf_(vector_leaf) {}
   __host__ __device__ int num_trees() const { return num_trees_; }
   __host__ __device__ sparse_tree<node_t> operator[](int i) const {
-    return sparse_tree<node_t>(&nodes_[trees_[i]]);
+    return sparse_tree<node_t>(*this, &nodes_[trees_[i]]);
   }
 };
 

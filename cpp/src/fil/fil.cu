@@ -133,7 +133,8 @@ struct forest {
   }
 
   void init_common(const raft::handle_t& h, const forest_params_t* params,
-                   const std::vector<float>& vector_leaf) {
+                   const std::vector<float>& vector_leaf,
+                   categorical_branches cat_branches) {
     depth_ = params->depth;
     num_trees_ = params->num_trees;
     algo_ = params->algo;
@@ -325,6 +326,8 @@ struct forest {
   // Optionally used
   float* vector_leaf_ = nullptr;
   size_t vector_leaf_len_ = 0;
+  categorical_branches cat_branches_ = {.bits = nullptr,
+                                        .max_matching = nullptr};
 };
 
 struct dense_forest : forest {
@@ -355,8 +358,9 @@ struct dense_forest : forest {
 
   void init(const raft::handle_t& h, const dense_node* nodes,
             const forest_params_t* params,
-            const std::vector<float>& vector_leaf) {
-    init_common(h, params, vector_leaf);
+            const std::vector<float>& vector_leaf,
+            categorical_branches cat_branches) {
+    init_common(h, params, vector_leaf, cat_branches);
     if (algo_ == algo_t::NAIVE) algo_ = algo_t::BATCH_TREE_REORG;
 
     int num_nodes = forest_num_nodes(num_trees_, depth_);
@@ -378,9 +382,9 @@ struct dense_forest : forest {
   }
 
   virtual void infer(predict_params params, cudaStream_t stream) override {
-    dense_storage forest(nodes_, num_trees_,
-                         algo_ == algo_t::NAIVE ? tree_num_nodes(depth_) : 1,
-                         algo_ == algo_t::NAIVE ? 1 : num_trees_, vector_leaf_);
+    dense_storage forest(
+      nodes_, num_trees_, algo_ == algo_t::NAIVE ? tree_num_nodes(depth_) : 1,
+      algo_ == algo_t::NAIVE ? 1 : num_trees_, vector_leaf_, cat_branches_);
     fil::infer(forest, params, stream);
   }
 
@@ -399,8 +403,9 @@ template <typename node_t>
 struct sparse_forest : forest {
   void init(const raft::handle_t& h, const int* trees, const node_t* nodes,
             const forest_params_t* params,
-            const std::vector<float>& vector_leaf) {
-    init_common(h, params, vector_leaf);
+            const std::vector<float>& vector_leaf,
+            categorical_branches cat_branches) {
+    init_common(h, params, vector_leaf, cat_branches);
     if (algo_ == algo_t::ALGO_AUTO) algo_ = algo_t::NAIVE;
     depth_ = 0;  // a placeholder value
     num_nodes_ = params->num_nodes;
@@ -419,7 +424,8 @@ struct sparse_forest : forest {
   }
 
   virtual void infer(predict_params params, cudaStream_t stream) override {
-    sparse_storage<node_t> forest(trees_, nodes_, num_trees_, vector_leaf_);
+    sparse_storage<node_t> forest(trees_, nodes_, num_trees_, vector_leaf_,
+                                  cat_branches_);
     fil::infer(forest, params, stream);
   }
 
@@ -720,7 +726,7 @@ int tree2fil_sparse(std::vector<fil_node_t>& nodes, int root,
       built_index += 2;
       nodes[root + cur] =
         fil_node_t(val_t{.f = 0}, threshold, tree.SplitIndex(node_id),
-                   default_left, false, left);
+                   default_left, false, left, false);
 
       // push child nodes into the stack
       stack.push(pair_t(tl_right, left + 1));
@@ -730,7 +736,8 @@ int tree2fil_sparse(std::vector<fil_node_t>& nodes, int root,
     }
 
     // leaf node
-    nodes[root + cur] = fil_node_t(val_t{.f = NAN}, NAN, 0, false, true, 0);
+    nodes[root + cur] =
+      fil_node_t(val_t{.f = NAN}, NAN, 0, false, true, 0, false);
     tl2fil_leaf_payload(&nodes[root + cur], root + cur, tree, node_id,
                         forest_params, vector_leaf, leaf_counter);
   }
@@ -1014,35 +1021,37 @@ void tl2fil_sparse(std::vector<int>* ptrees, std::vector<fil_node_t>* pnodes,
 
 void init_dense(const raft::handle_t& h, forest_t* pf, const dense_node* nodes,
                 const forest_params_t* params,
-                const std::vector<float>& vector_leaf) {
+                const std::vector<float>& vector_leaf,
+                const categorical_branches cat_branches) {
   check_params(params, true);
   dense_forest* f = new dense_forest;
-  f->init(h, nodes, params, vector_leaf);
+  f->init(h, nodes, params, vector_leaf, cat_branches);
   *pf = f;
 }
 
 template <typename fil_node_t>
 void init_sparse(const raft::handle_t& h, forest_t* pf, const int* trees,
                  const fil_node_t* nodes, const forest_params_t* params,
-                 const std::vector<float>& vector_leaf) {
+                 const std::vector<float>& vector_leaf,
+                 const categorical_branches cat_branches) {
   check_params(params, false);
   sparse_forest<fil_node_t>* f = new sparse_forest<fil_node_t>;
-  f->init(h, trees, nodes, params, vector_leaf);
+  f->init(h, trees, nodes, params, vector_leaf, cat_branches);
   *pf = f;
 }
 
 // explicit instantiations for init_sparse()
-template void init_sparse<sparse_node16>(const raft::handle_t& h, forest_t* pf,
-                                         const int* trees,
-                                         const sparse_node16* nodes,
-                                         const forest_params_t* params,
-                                         const std::vector<float>& vector_leaf);
+template void init_sparse<sparse_node16>(
+  const raft::handle_t& h, forest_t* pf, const int* trees,
+  const sparse_node16* nodes, const forest_params_t* params,
+  const std::vector<float>& vector_leaf,
+  const categorical_branches cat_branches);
 
-template void init_sparse<sparse_node8>(const raft::handle_t& h, forest_t* pf,
-                                        const int* trees,
-                                        const sparse_node8* nodes,
-                                        const forest_params_t* params,
-                                        const std::vector<float>& vector_leaf);
+template void init_sparse<sparse_node8>(
+  const raft::handle_t& h, forest_t* pf, const int* trees,
+  const sparse_node8* nodes, const forest_params_t* params,
+  const std::vector<float>& vector_leaf,
+  const categorical_branches cat_branches);
 
 template <typename threshold_t, typename leaf_t>
 void from_treelite(const raft::handle_t& handle, forest_t* pforest,

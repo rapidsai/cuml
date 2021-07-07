@@ -89,9 +89,9 @@ struct base_node {
       node is a leaf or inner node, and for inner nodes, additional information,
       e.g. the default direction, feature id or child index */
   int bits;
-  static const int FID_MASK = (1 << IS_CATEGORICAL_OFFSET) - 1;
   static const int IS_CATEGORICAL_OFFSET = can_be_categorical ? 29 : 30;
   static const int IS_CATEGORICAL_MASK = 1 << IS_CATEGORICAL_OFFSET;
+  static const int FID_MASK = (1 << IS_CATEGORICAL_OFFSET) - 1;
   static const int DEF_LEFT_OFFSET = 30;
   static const int DEF_LEFT_MASK = 1 << DEF_LEFT_OFFSET;
   static const int IS_LEAF_OFFSET = 31;
@@ -123,24 +123,25 @@ struct base_node {
 };
 
 /** dense_node is a single node of a dense forest */
-template <bool can_be_categorical>
-struct alignas(8) dense_node : base_node<can_be_categorical> {
+//template <bool can_be_categorical>
+struct alignas(8) dense_node : base_node<true> {
   dense_node() = default;
-  dense_node(val_t output, float thresh, int fid, bool def_left, bool is_leaf)
-    : base_node(output, thresh, fid, def_left, is_leaf) {}
+  dense_node(val_t output, float thresh, int fid, bool def_left, bool is_leaf,
+             bool is_categorical)
+    : base_node<true>(output, thresh, fid, def_left, is_leaf, is_categorical) {}
   /** index of the left child, where curr is the index of the current node */
   __host__ __device__ int left(int curr) const { return 2 * curr + 1; }
 };
 
 /** sparse_node16 is a 16-byte node in a sparse forest */
-template <bool can_be_categorical>
-struct alignas(16) sparse_node16 : base_node<can_be_categorical> {
+//template <bool can_be_categorical>
+struct alignas(16) sparse_node16 : base_node<true> {
   int left_idx;
   int dummy;  // make alignment explicit and reserve for future use
   __host__ __device__ sparse_node16() : left_idx(0), dummy(0) {}
   sparse_node16(val_t output, float thresh, int fid, bool def_left,
-                bool is_leaf, int left_index)
-    : base_node(output, thresh, fid, def_left, is_leaf),
+                bool is_leaf, bool is_categorical, int left_index)
+    : base_node<true>(output, thresh, fid, def_left, is_leaf, is_categorical),
       left_idx(left_index),
       dummy(0) {}
   __host__ __device__ int left_index() const { return left_idx; }
@@ -149,8 +150,8 @@ struct alignas(16) sparse_node16 : base_node<can_be_categorical> {
 };
 
 /** sparse_node8 is a node of reduced size (8 bytes) in a sparse forest */
-template <bool can_be_categorical>
-struct alignas(8) sparse_node8 : base_node<can_be_categorical> {
+//template <bool can_be_categorical>
+struct alignas(8) sparse_node8 : base_node<true> {
   static const int LEFT_NUM_BITS = 16;
   static const int FID_NUM_BITS = IS_CATEGORICAL_OFFSET - LEFT_NUM_BITS;
   static const int LEFT_OFFSET = FID_NUM_BITS;
@@ -162,8 +163,8 @@ struct alignas(8) sparse_node8 : base_node<can_be_categorical> {
   }
   sparse_node8() = default;
   sparse_node8(val_t output, float thresh, int fid, bool def_left, bool is_leaf,
-               bool is_categorical int left_index)
-    : base_node(output, threash, fid, def_left, is_leaf, is_categorical) {
+               bool is_categorical, int left_index)
+    : base_node<true>(output, thresh, fid, def_left, is_leaf, is_categorical) {
     ASSERT(fid & FID_MASK == fid,
            "internal error: feature ID doesn't fit into sparse_node8");
     ASSERT((left_index << LEFT_OFFSET) & LEFT_MASK == left_index,
