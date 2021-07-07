@@ -67,6 +67,9 @@ cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
         handle_t& handle, ARIMAParams[double]& params,
         const ARIMAOrder& order, int batch_size, const double* param_vec)
 
+    bool detect_missing(
+        handle_t& handle, const double* d_y, int n_elem)
+
     void batched_diff(
         handle_t& handle, double* d_y_diff, const double* d_y, int batch_size,
         int n_obs, const ARIMAOrder& order)
@@ -364,10 +367,19 @@ class ARIMA(Base):
         the CumlArrayDescriptors work
         """
 
-        # Compute the differenced series
         cdef uintptr_t d_y_ptr = self.d_y.ptr
         cdef uintptr_t d_y_diff_ptr = self._d_y_diff.ptr
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+
+        # Detect missing observations
+        self.missing = detect_missing(handle_[0], <double*> d_y_ptr,
+                                      <int> self.batch_size * self.n_obs)
+        if self.missing and self.simple_differencing:
+            logger.warn("Missing observations detected."
+                        " Forcing simple_differencing=False")
+            self.simple_differencing = False
+
+        # Compute the differenced series
         batched_diff(handle_[0], <double*> d_y_diff_ptr, <double*> d_y_ptr,
                      <int> self.batch_size, <int> self.n_obs, self.order)
 

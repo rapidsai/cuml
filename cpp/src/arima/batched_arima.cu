@@ -23,6 +23,7 @@
 #include <thrust/fill.h>
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
+#include <thrust/logical.h>
 
 #include <cuml/tsa/batched_arima.hpp>
 #include <cuml/tsa/batched_kalman.hpp>
@@ -56,6 +57,22 @@ void batched_diff(raft::handle_t& handle, double* d_y_diff, const double* d_y,
   const auto stream = handle.get_stream();
   MLCommon::TimeSeries::prepare_data(d_y_diff, d_y, batch_size, n_obs, order.d,
                                      order.D, order.s, stream);
+}
+
+template <typename T>
+struct is_missing {
+  typedef T argument_type;
+  typedef T result_type;
+
+  __thrust_exec_check_disable__ __device__ const T
+  operator()(const T& x) const {
+    return isnan(x);
+  }
+};  // end is_missing
+
+bool detect_missing(raft::handle_t& handle, const double* d_y, int n_elem) {
+  return thrust::any_of(thrust::cuda::par.on(handle.get_stream()), d_y,
+                        d_y + n_elem, is_missing<double>());
 }
 
 void predict(raft::handle_t& handle, const ARIMAMemory<double>& arima_mem,

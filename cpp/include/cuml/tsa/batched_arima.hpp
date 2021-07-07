@@ -51,6 +51,15 @@ void unpack(raft::handle_t& handle, ARIMAParams<double>& params,
             const ARIMAOrder& order, int batch_size, const double* param_vec);
 
 /**
+ * Detect missing observations in a time series
+ * 
+ * @param[in]  handle     cuML handle
+ * @param[in]  d_y        Time series
+ * @param[in]  n_elem     Total number of elements in the dataset
+ */
+bool detect_missing(raft::handle_t& handle, const double* d_y, int n_elem);
+
+/**
  * Compute the differenced series (seasonal and/or non-seasonal differences)
  * 
  * @param[in]  handle     cuML handle
@@ -60,8 +69,8 @@ void unpack(raft::handle_t& handle, ARIMAParams<double>& params,
  * @param[in]  n_obs      Number of observations
  * @param[in]  order      ARIMA order
  */
-void batched_diff(raft::handle_t& handle, double* d_y_diff, const double* d_y,
-                  int batch_size, int n_obs, const ARIMAOrder& order);
+  void batched_diff(raft::handle_t& handle, double* d_y_diff, const double* d_y,
+                    int batch_size, int n_obs, const ARIMAOrder& order);
 
 /**
  * Compute the loglikelihood of the given parameter on the given time series
