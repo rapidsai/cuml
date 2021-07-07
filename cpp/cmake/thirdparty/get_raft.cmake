@@ -44,5 +44,5 @@ set(CUML_BRANCH_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION    ${CUML_MIN_VERSION_raft}
                         FORK       rapidsai
-                        PINNED_TAG branch-${CUML_BRANCH_VERSION_raft}
+                        PINNED_TAG eabaafe758ebad505cd8d9e0cb05101ae3e8bceb
                         )
