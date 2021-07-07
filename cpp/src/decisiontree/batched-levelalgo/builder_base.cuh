@@ -29,7 +29,7 @@
 #include <common/nvtx.hpp>
 
 namespace ML {
-namespace DecisionTree {
+namespace DT {
 
 /**
  * Internal struct used to do all the heavy-lifting required for tree building
@@ -327,12 +327,16 @@ struct Builder {
     raft::update_device(curr_nodes, h_nodes.data() + node_start, batchSize, s);
 
     int total_samples_in_curr_batch = 0;
+    int n_large_nodes_in_curr_batch =
+      0;  // large nodes are nodes having training instances larger than block size, hence require global memory for histogram construction
     total_num_blocks = 0;
     for (int n = 0; n < batchSize; n++) {
       total_samples_in_curr_batch += h_nodes[node_start + n].count;
       int num_blocks = raft::ceildiv(h_nodes[node_start + n].count,
                                      SAMPLES_PER_THREAD * TPB_DEFAULT);
       num_blocks = std::max(1, num_blocks);
+
+      if (num_blocks > 1) ++n_large_nodes_in_curr_batch;
 
       bool is_leaf = leafBasedOnParams<DataT, IdxT>(
         h_nodes[node_start + n].depth, params.max_depth,
@@ -342,6 +346,8 @@ struct Builder {
 
       for (int b = 0; b < num_blocks; b++) {
         h_workload_info[total_num_blocks + b].nodeid = n;
+        h_workload_info[total_num_blocks + b].large_nodeid =
+          n_large_nodes_in_curr_batch - 1;
         h_workload_info[total_num_blocks + b].offset_blockid = b;
         h_workload_info[total_num_blocks + b].num_blocks = num_blocks;
       }
@@ -353,7 +359,8 @@ struct Builder {
     auto n_col_blks = n_blks_for_cols;
     if (total_num_blocks) {
       for (IdxT c = 0; c < input.nSampledCols; c += n_col_blks) {
-        computeSplit(c, batchSize, params.split_criterion, s);
+        computeSplit(c, batchSize, params.split_criterion,
+                     n_large_nodes_in_curr_batch, s);
         CUDA_CHECK(cudaGetLastError());
       }
     }
@@ -387,7 +394,7 @@ struct Builder {
    * @param[in] s         cuda stream
    */
   void computeSplit(IdxT col, IdxT batchSize, CRITERION splitType,
-                    cudaStream_t s) {
+                    const int n_large_nodes_in_curr_batch, cudaStream_t s) {
     ML::PUSH_RANGE(
       "Builder::computeSplit @builder_base.cuh [batched-levelalgo]");
     auto nbins = params.n_bins;
@@ -407,7 +414,8 @@ struct Builder {
     // Pick the max of two
     size_t smemSize = std::max(smemSize1, smemSize2);
     dim3 grid(total_num_blocks, colBlks, 1);
-    CUDA_CHECK(cudaMemsetAsync(hist, 0, sizeof(int) * nHistBins, s));
+    int nHistBins = n_large_nodes_in_curr_batch * nbins * colBlks * nclasses;
+    CUDA_CHECK(cudaMemsetAsync(hist, 0, sizeof(BinT) * nHistBins, s));
     ML::PUSH_RANGE(
       "computeSplitClassificationKernel @builder_base.cuh [batched-levelalgo]");
     ObjectiveT objective(input.numOutputs, params.min_impurity_decrease,
@@ -422,5 +430,5 @@ struct Builder {
   }
 };  // end Builder
 
-}  // namespace DecisionTree
+}  // namespace DT
 }  // namespace ML
