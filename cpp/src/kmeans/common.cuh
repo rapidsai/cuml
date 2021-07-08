@@ -15,10 +15,10 @@
  */
 #pragma once
 
+#include <cuml/metrics/metrics.hpp>
 #include <linalg/reduce_cols_by_key.cuh>
 #include <linalg/reduce_rows_by_key.cuh>
 #include <matrix/gather.cuh>
-#include <raft/distance/distance.cuh>
 
 #include <raft/distance/fused_l2_nn.cuh>
 #include <raft/linalg/binary_op.cuh>
@@ -256,9 +256,10 @@ void pairwise_distance(const raft::handle_t &handle,
 
   ASSERT(X.getSize(1) == centroids.getSize(1),
          "# features in dataset and centroids are different (must be same)");
-  raft::distance::pairwise_distance<DataT, IndexT>(
-    X.data(), centroids.data(), pairwiseDistance.data(), n_samples, n_clusters,
-    n_features, workspace, metric, stream);
+
+  ML::Metrics::pairwise_distance(handle, X.data(), centroids.data(),
+                                 pairwiseDistance.data(), n_samples, n_clusters,
+                                 n_features, metric);
 }
 
 // Calculates a <key, value> pair for every sample in input 'X' where key is an

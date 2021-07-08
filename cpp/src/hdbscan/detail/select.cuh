@@ -68,6 +68,9 @@ void perform_bfs(const raft::handle_t &handle, const value_idx *indptr,
   auto stream = handle.get_stream();
   auto thrust_policy = rmm::exec_policy(stream);
 
+  rmm::device_uvector<int> next_frontier(n_clusters, stream);
+  thrust::fill(thrust_policy, next_frontier.begin(), next_frontier.end(), 0);
+
   value_idx n_elements_to_traverse =
     thrust::reduce(thrust_policy, frontier, frontier + n_clusters, 0);
 
@@ -78,11 +81,16 @@ void perform_bfs(const raft::handle_t &handle, const value_idx *indptr,
   size_t grid = raft::ceildiv(n_clusters, tpb);
 
   while (n_elements_to_traverse > 0) {
-    bfs_kernel<<<grid, tpb, 0, stream>>>(indptr, children, frontier, is_cluster,
-                                         n_clusters);
+    bfs_kernel<<<grid, tpb, 0, stream>>>(
+      indptr, children, frontier, next_frontier.data(), is_cluster, n_clusters);
+
+    thrust::copy(thrust_policy, next_frontier.begin(), next_frontier.end(),
+                 frontier);
+    thrust::fill(thrust_policy, next_frontier.begin(), next_frontier.end(), 0);
 
     n_elements_to_traverse =
       thrust::reduce(thrust_policy, frontier, frontier + n_clusters, 0);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 }
 
