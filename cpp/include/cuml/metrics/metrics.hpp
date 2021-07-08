@@ -346,7 +346,8 @@ void pairwise_distance(const raft::handle_t& handle,
                        int n,
                        int k,
                        raft::distance::DistanceType metric,
-                       bool isRowMajor = true, double metric_arg = 2.0);
+                       bool isRowMajor   = true,
+                       double metric_arg = 2.0);
 
 /**
  * @brief Calculates the ij pairwise distances between two input arrays of float type
@@ -372,7 +373,8 @@ void pairwise_distance(const raft::handle_t& handle,
                        int n,
                        int k,
                        raft::distance::DistanceType metric,
-                       bool isRowMajor = true, float metric_arg = 2.0f);
+                       bool isRowMajor  = true,
+                       float metric_arg = 2.0f);
 
 void pairwiseDistance_sparse(const raft::handle_t& handle,
                              double* x,
