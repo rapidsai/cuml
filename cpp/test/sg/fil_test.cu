@@ -233,7 +233,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
           ASSERT(false, "internal error: invalid ps.leaf_algo");
       }
       nodes[i] = fil::dense_node(w, thresholds_h[i], fids_h[i], def_lefts_h[i],
-                                 is_leafs_h[i]);
+                                 is_leafs_h[i], false);
     }
 
     // clean up
@@ -433,7 +433,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     fil::val_t output{.f = 0.0f};
     for (;;) {
       const fil::dense_node& node = root[curr];
-      if (node.is_leaf()) return node.base_node::output<val_t>();
+      if (node.is_leaf()) return {};
       float val = data[node.fid()];
       bool cond = isnan(val) ? !node.def_left() : val >= node.thresh();
       curr = (curr << 1) + 1 + (cond ? 1 : 0);
@@ -483,7 +483,7 @@ class PredictDenseFilTest : public BaseFilTest {
     fil_ps.threads_per_tree = ps.threads_per_tree;
     fil_ps.n_items = ps.n_items;
 
-    fil::init_dense(handle, pforest, nodes.data(), &fil_ps, vector_leaf);
+    fil::init_dense(handle, pforest, nodes.data(), &fil_ps, vector_leaf, {});
   }
 };
 
@@ -496,8 +496,8 @@ class BasePredictSparseFilTest : public BaseFilTest {
     if (node.is_leaf()) {
       // leaf sparse node
       sparse_nodes[i_sparse] =
-        fil_node_t(node.base_node::output<val_t>(), node.thresh(), node.fid(),
-                   node.def_left(), node.is_leaf(), 0);
+        fil_node_t({}, node.thresh(), node.fid(),
+                   node.def_left(), node.is_leaf(), 0, false);
       return;
     }
     // inner sparse node
@@ -506,8 +506,8 @@ class BasePredictSparseFilTest : public BaseFilTest {
     sparse_nodes.push_back(fil_node_t());
     sparse_nodes.push_back(fil_node_t());
     sparse_nodes[i_sparse] =
-      fil_node_t(node.base_node::output<val_t>(), node.thresh(), node.fid(),
-                 node.def_left(), node.is_leaf(), left_index - i_sparse_root);
+      fil_node_t({}, node.thresh(), node.fid(),
+                 node.def_left(), node.is_leaf(), left_index - i_sparse_root, false);
     dense2sparse_node(dense_root, 2 * i_dense + 1, i_sparse_root, left_index);
     dense2sparse_node(dense_root, 2 * i_dense + 2, i_sparse_root,
                       left_index + 1);
@@ -544,7 +544,7 @@ class BasePredictSparseFilTest : public BaseFilTest {
     dense2sparse();
     fil_params.num_nodes = sparse_nodes.size();
     fil::init_sparse(handle, pforest, trees.data(), sparse_nodes.data(),
-                     &fil_params, vector_leaf);
+                     &fil_params, vector_leaf, categorical_branches());
   }
   std::vector<fil_node_t> sparse_nodes;
   std::vector<int> trees;
@@ -569,13 +569,13 @@ class TreeliteFilTest : public BaseFilTest {
         case fil::leaf_algo_t::GROVE_PER_CLASS:
           // default is fil::FLOAT_UNARY_BINARY
           builder->SetLeafNode(
-            key, tlf::Value::Create(dense_node.base_node::output<val_t>().f));
+            key, tlf::Value::Create(dense_node.template output<float>()));
           break;
         case fil::leaf_algo_t::CATEGORICAL_LEAF: {
           std::vector<tlf::Value> vec(ps.num_classes);
           for (int i = 0; i < ps.num_classes; ++i) {
             vec[i] = tlf::Value::Create(
-              i == dense_node.template output<val_t>().idx ? 1.0f : 0.0f);
+              i == dense_node.template output<int>() ? 1.0f : 0.0f);
           }
           builder->SetLeafVectorNode(key, vec);
           break;
@@ -583,7 +583,7 @@ class TreeliteFilTest : public BaseFilTest {
         case fil::leaf_algo_t::VECTOR_LEAF: {
           std::vector<tlf::Value> vec(ps.num_classes);
           for (int i = 0; i < ps.num_classes; ++i) {
-            auto idx = dense_node.template output<val_t>().idx;
+            auto idx = dense_node.template output<int>();
             vec[i] = tlf::Value::Create(vector_leaf[idx * ps.num_classes + i]);
           }
           builder->SetLeafVectorNode(key, vec);

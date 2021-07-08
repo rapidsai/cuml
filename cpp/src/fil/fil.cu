@@ -653,11 +653,42 @@ void tl2fil_leaf_payload(fil_node_t* fil_node, int fil_node_id,
   };
 }
 
+template <typename fil_node_t>
+struct conversion_state {
+  fil_node_t node;
+  int tl_left, tl_right;
+};
+
+template <typename fil_node_t, typename T, typename L>
+conversion_state<fil_node_t> tl2fil_branch_node(int fil_left_child,
+                         const tl::Tree<T, L>& tree, int tl_node_id,
+                         const forest_params_t& forest_params,
+                         const categorical_branches cat_branches) {
+  ASSERT(tree.SplitType(tl_node_id) == tl::SplitFeatureType::kNumerical,
+         "only numerical split nodes are supported");
+  int tl_left = tree.LeftChild(tl_node_id), tl_right = tree.RightChild(tl_node_id);
+  bool default_left = tree.DefaultLeft(tl_node_id);
+  float threshold = static_cast<float>(tree.Threshold(tl_node_id));
+  adjust_threshold(&threshold, &tl_left, &tl_right, &default_left,
+                   tree.ComparisonOp(tl_node_id));
+  int feature_id = tree.SplitIndex(tl_node_id);
+  fil_node_t node;
+  if constexpr(std::is_same<fil_node_t, dense_node>()) {
+    node = fil_node_t({}, threshold, feature_id, default_left,
+               false, false);
+  } else {
+    node = fil_node_t({}, threshold, feature_id, default_left,
+               false, false, fil_left_child);
+  }
+  return {node, tl_left, tl_right};
+}
+
 template <typename T, typename L>
 void node2fil_dense(std::vector<dense_node>* pnodes, int root, int cur,
                     const tl::Tree<T, L>& tree, int node_id,
                     const forest_params_t& forest_params,
-                    std::vector<float>* vector_leaf, size_t* leaf_counter) {
+                    std::vector<float>* vector_leaf, size_t* leaf_counter,
+                    categorical_branches cat_branches) {
   if (tree.IsLeaf(node_id)) {
     (*pnodes)[root + cur] =
       dense_node(val_t{.f = NAN}, NAN, 0, false, true, false);
@@ -667,37 +698,31 @@ void node2fil_dense(std::vector<dense_node>* pnodes, int root, int cur,
   }
 
   // inner node
-  ASSERT(tree.SplitType(node_id) == tl::SplitFeatureType::kNumerical,
-         "only numerical split nodes are supported");
-  int tl_left = tree.LeftChild(node_id), tl_right = tree.RightChild(node_id);
-  bool default_left = tree.DefaultLeft(node_id);
-  float threshold = static_cast<float>(tree.Threshold(node_id));
-  adjust_threshold(&threshold, &tl_left, &tl_right, &default_left,
-                   tree.ComparisonOp(node_id));
-  (*pnodes)[root + cur] =
-    dense_node(val_t{.f = 0}, threshold, tree.SplitIndex(node_id), default_left,
-               false, false);
   int left = 2 * cur + 1;
-  node2fil_dense(pnodes, root, left, tree, tl_left, forest_params, vector_leaf,
-                 leaf_counter);
-  node2fil_dense(pnodes, root, left + 1, tree, tl_right, forest_params,
-                 vector_leaf, leaf_counter);
+  conversion_state<dense_node> cs = tl2fil_branch_node<dense_node>(left, tree, node_id, forest_params, cat_branches);
+  (*pnodes)[root + cur] = cs.node;
+  node2fil_dense(pnodes, root, left, tree, cs.tl_left, forest_params, vector_leaf,
+                 leaf_counter, cat_branches);
+  node2fil_dense(pnodes, root, left + 1, tree, cs.tl_right, forest_params,
+                 vector_leaf, leaf_counter, cat_branches);
 }
 
 template <typename T, typename L>
 void tree2fil_dense(std::vector<dense_node>* pnodes, int root,
                     const tl::Tree<T, L>& tree,
                     const forest_params_t& forest_params,
-                    std::vector<float>* vector_leaf, size_t* leaf_counter) {
+                    std::vector<float>* vector_leaf, size_t* leaf_counter,
+                    categorical_branches cat_branches) {
   node2fil_dense(pnodes, root, 0, tree, tree_root(tree), forest_params,
-                 vector_leaf, leaf_counter);
+                 vector_leaf, leaf_counter, cat_branches);
 }
 
 template <typename fil_node_t, typename T, typename L>
 int tree2fil_sparse(std::vector<fil_node_t>& nodes, int root,
                     const tl::Tree<T, L>& tree,
                     const forest_params_t& forest_params,
-                    std::vector<float>* vector_leaf, size_t* leaf_counter) {
+                    std::vector<float>* vector_leaf, size_t* leaf_counter,
+                    categorical_branches cat_branches) {
   typedef std::pair<int, int> pair_t;
   std::stack<pair_t> stack;
   int built_index = root + 1;
@@ -709,31 +734,17 @@ int tree2fil_sparse(std::vector<fil_node_t>& nodes, int root,
     stack.pop();
 
     while (!tree.IsLeaf(node_id)) {
-      // inner node
-      ASSERT(tree.SplitType(node_id) == tl::SplitFeatureType::kNumerical,
-             "only numerical split nodes are supported");
-      // tl_left and tl_right are indices of the children in the treelite tree
-      // (stored  as an array of nodes)
-      int tl_left = tree.LeftChild(node_id),
-          tl_right = tree.RightChild(node_id);
-      bool default_left = tree.DefaultLeft(node_id);
-      float threshold = static_cast<float>(tree.Threshold(node_id));
-      adjust_threshold(&threshold, &tl_left, &tl_right, &default_left,
-                       tree.ComparisonOp(node_id));
-
       // reserve space for child nodes
       // left is the offset of the left child node relative to the tree root
       // in the array of all nodes of the FIL sparse forest
       int left = built_index - root;
       built_index += 2;
-      nodes[root + cur] =
-        fil_node_t(val_t{.f = 0}, threshold, tree.SplitIndex(node_id),
-                   default_left, false, left, false);
-
+      conversion_state<fil_node_t> cs = tl2fil_branch_node<fil_node_t>(left, tree, node_id, forest_params, cat_branches);
+      nodes[root + cur] = cs.node;
       // push child nodes into the stack
-      stack.push(pair_t(tl_right, left + 1));
+      stack.push(pair_t(cs.tl_right, left + 1));
       //stack.push(pair_t(tl_left, left));
-      node_id = tl_left;
+      node_id = cs.tl_left;
       cur = left;
     }
 
@@ -922,7 +933,8 @@ template <typename threshold_t, typename leaf_t>
 void tl2fil_dense(std::vector<dense_node>* pnodes, forest_params_t* params,
                   const tl::ModelImpl<threshold_t, leaf_t>& model,
                   const treelite_params_t* tl_params,
-                  std::vector<float>* vector_leaf) {
+                  std::vector<float>* vector_leaf,
+                  categorical_branches& cat_branches) {
   tl2fil_common(params, model, tl_params);
 
   // convert the nodes
@@ -936,7 +948,7 @@ void tl2fil_dense(std::vector<dense_node>* pnodes, forest_params_t* params,
   for (int i = 0; i < model.trees.size(); ++i) {
     size_t leaf_counter = max_leaves_per_tree * i;
     tree2fil_dense(pnodes, i * tree_num_nodes(params->depth), model.trees[i],
-                   *params, vector_leaf, &leaf_counter);
+                   *params, vector_leaf, &leaf_counter, cat_branches);
   }
 }
 
@@ -989,7 +1001,7 @@ void tl2fil_sparse(std::vector<int>* ptrees, std::vector<fil_node_t>* pnodes,
                    forest_params_t* params,
                    const tl::ModelImpl<threshold_t, leaf_t>& model,
                    const treelite_params_t* tl_params,
-                   std::vector<float>* vector_leaf) {
+                   std::vector<float>* vector_leaf, categorical_branches& cat_branches) {
   tl2fil_common(params, model, tl_params);
   tl2fil_sparse_check_t<fil_node_t>::check(model);
 
@@ -1015,7 +1027,7 @@ void tl2fil_sparse(std::vector<int>* ptrees, std::vector<fil_node_t>* pnodes,
     // Max number of leaves processed so far
     size_t leaf_counter = ((*ptrees)[i] + i) / 2;
     tree2fil_sparse(*pnodes, (*ptrees)[i], model.trees[i], *params, vector_leaf,
-                    &leaf_counter);
+                    &leaf_counter, cat_branches);
   }
 
   params->num_nodes = pnodes->size();
@@ -1096,12 +1108,13 @@ void from_treelite(const raft::handle_t& handle, forest_t* pforest,
   }
 
   forest_params_t params;
+  categorical_branches cat_branches;
   switch (storage_type) {
     case storage_type_t::DENSE: {
       std::vector<dense_node> nodes;
       std::vector<float> vector_leaf;
-      tl2fil_dense(&nodes, &params, model, tl_params, &vector_leaf);
-      init_dense(handle, pforest, nodes.data(), &params, vector_leaf);
+      tl2fil_dense(&nodes, &params, model, tl_params, &vector_leaf, cat_branches);
+      init_dense(handle, pforest, nodes.data(), &params, vector_leaf, cat_branches);
       // sync is necessary as nodes is used in init_dense(),
       // but destructed at the end of this function
       CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
@@ -1115,9 +1128,9 @@ void from_treelite(const raft::handle_t& handle, forest_t* pforest,
       std::vector<int> trees;
       std::vector<sparse_node16> nodes;
       std::vector<float> vector_leaf;
-      tl2fil_sparse(&trees, &nodes, &params, model, tl_params, &vector_leaf);
+      tl2fil_sparse(&trees, &nodes, &params, model, tl_params, &vector_leaf, cat_branches);
       init_sparse(handle, pforest, trees.data(), nodes.data(), &params,
-                  vector_leaf);
+                  vector_leaf, cat_branches);
       CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
       if (tl_params->pforest_shape_str) {
         *tl_params->pforest_shape_str =
@@ -1129,9 +1142,9 @@ void from_treelite(const raft::handle_t& handle, forest_t* pforest,
       std::vector<int> trees;
       std::vector<sparse_node8> nodes;
       std::vector<float> vector_leaf;
-      tl2fil_sparse(&trees, &nodes, &params, model, tl_params, &vector_leaf);
+      tl2fil_sparse(&trees, &nodes, &params, model, tl_params, &vector_leaf, cat_branches);
       init_sparse(handle, pforest, trees.data(), nodes.data(), &params,
-                  vector_leaf);
+                  vector_leaf, cat_branches);
       CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
       if (tl_params->pforest_shape_str) {
         *tl_params->pforest_shape_str =

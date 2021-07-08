@@ -89,16 +89,20 @@ struct base_node {
       node is a leaf or inner node, and for inner nodes, additional information,
       e.g. the default direction, feature id or child index */
   int bits;
-  static const int IS_CATEGORICAL_OFFSET = can_be_categorical ? 29 : 30;
-  static const int IS_CATEGORICAL_MASK = 1 << IS_CATEGORICAL_OFFSET;
-  static const int FID_MASK = (1 << IS_CATEGORICAL_OFFSET) - 1;
-  static const int DEF_LEFT_OFFSET = 30;
-  static const int DEF_LEFT_MASK = 1 << DEF_LEFT_OFFSET;
   static const int IS_LEAF_OFFSET = 31;
   static const int IS_LEAF_MASK = 1 << IS_LEAF_OFFSET;
+  static const int DEF_LEFT_OFFSET = 30;
+  static const int DEF_LEFT_MASK = 1 << DEF_LEFT_OFFSET;
+  static const int IS_CATEGORICAL_OFFSET = can_be_categorical ? DEF_LEFT_OFFSET - 1 : DEF_LEFT_OFFSET;
+  static const int IS_CATEGORICAL_MASK = 1 << IS_CATEGORICAL_OFFSET;
+  static const int FID_MASK = (1 << IS_CATEGORICAL_OFFSET) - 1;
   template <class o_t>
   __host__ __device__ o_t output() const {
-    return val;
+    typedef std::remove_cv_t<o_t> canonical;
+    if constexpr(std::is_floating_point<canonical>())
+      return val.f;
+    if constexpr(std::is_integral<canonical>())
+      return val.idx;
   }
   __host__ __device__ int set() const { return val.idx; }
   __host__ __device__ float thresh() const { return val.f; }
@@ -111,7 +115,7 @@ struct base_node {
   __host__ __device__ base_node() : val({.f = 0}), bits(0){};
   base_node(val_t output, float thresh, int fid, bool def_left, bool is_leaf,
             bool is_categorical) {
-    ASSERT(fid & FID_MASK == fid,
+    ASSERT((fid & FID_MASK) == fid,
            "internal error: feature ID doesn't fit into base_node");
     bits = (fid & FID_MASK) | (def_left ? DEF_LEFT_MASK : 0) |
            (is_leaf ? IS_LEAF_MASK : 0) |
@@ -166,9 +170,9 @@ struct alignas(8) sparse_node8 : base_node<true> {
   sparse_node8(val_t output, float thresh, int fid, bool def_left, bool is_leaf,
                bool is_categorical, int left_index)
     : base_node<true>(output, thresh, fid, def_left, is_leaf, is_categorical) {
-    ASSERT(fid & FID_MASK == fid,
+    ASSERT((fid & FID_MASK) == fid,
            "internal error: feature ID doesn't fit into sparse_node8");
-    ASSERT((left_index << LEFT_OFFSET) & LEFT_MASK == left_index,
+    ASSERT(((left_index << LEFT_OFFSET) & LEFT_MASK) == left_index,
            "internal error: left child index doesn't fit into sparse_node8");
     bits |= left_index << LEFT_OFFSET;
   }
@@ -274,6 +278,33 @@ struct forest_params_t {
 /// FIL_TPB is the number of threads per block to use with FIL kernels
 const int FIL_TPB = 256;
 
+struct categorical_branches {
+  // set count is due to tree_idx + node_within_tree_idx are both ints, hence uint32_t result
+  template <typename node_t>
+  __host__ __device__ __forceinline__ int get_child(const node_t& node,
+                                                    int node_idx, float val) {
+    bool cond;
+    if (node.is_categorical()) {
+      int category = val;
+      // standard boolean packing. This layout has better ILP
+      // node.set() is global across feature IDs and is an offset (as opposed
+      // to set number). If we run out of uint32_t and we have hundreds of
+      // features with similar categorical feature count, we may consider
+      // storing node ID within nodes with same feature ID and look up
+      // {.max_matching, .first_node_offset} = ...[feature_id]
+      cond = (category <= max_matching[node.fid()]) &&
+             bits[node.set() + category / 8] & (1 << category % 8);
+    } else {
+      cond = isnan(val) ? !node.def_left() : val >= node.thresh();
+    }
+    return node.left(node_idx) + cond;
+  }
+  // arrays from each node ID are concatenated first, then from all categories
+  uint8_t* bits;
+  // largest matching category in the model, per feature ID
+  uint32_t* max_matching;
+};
+
 /** init_dense uses params and nodes to initialize the dense forest stored in pf
  *  @param h cuML handle used by this function
  *  @param pf pointer to where to store the newly created forest
@@ -284,7 +315,8 @@ const int FIL_TPB = 256;
  */
 void init_dense(const raft::handle_t& h, forest_t* pf, const dense_node* nodes,
                 const forest_params_t* params,
-                const std::vector<float>& vector_leaf);
+                const std::vector<float>& vector_leaf,
+                const categorical_branches cat_branches);
 
 /** init_sparse uses params, trees and nodes to initialize the sparse forest
  *  with sparse nodes stored in pf
@@ -300,7 +332,8 @@ void init_dense(const raft::handle_t& h, forest_t* pf, const dense_node* nodes,
 template <typename fil_node_t>
 void init_sparse(const raft::handle_t& h, forest_t* pf, const int* trees,
                  const fil_node_t* nodes, const forest_params_t* params,
-                 const std::vector<float>& vector_leaf);
+                 const std::vector<float>& vector_leaf,
+                 const categorical_branches cat_branches);
 
 }  // namespace fil
 }  // namespace ML

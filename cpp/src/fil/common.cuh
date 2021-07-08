@@ -40,42 +40,6 @@ __host__ __device__ __forceinline__ int forest_num_nodes(int num_trees,
   return num_trees * tree_num_nodes(depth);
 }
 
-template <>
-__host__ __device__ __forceinline__ float base_node<true>::output<float>()
-  const {
-  return val.f;
-}
-template <>
-__host__ __device__ __forceinline__ int base_node<true>::output<int>() const {
-  return val.idx;
-}
-
-struct categorical_branches {
-  // set count is due to tree_idx + node_within_tree_idx are both ints, hence uint32_t result
-  template <typename node_t>
-  __host__ __device__ __forceinline__ int get_child(const node_t& node,
-                                                    int node_idx, float val) {
-    bool cond;
-    if (node.is_categorical()) {
-      int category = val;
-      // standard boolean packing. This layout has better ILP
-      // node.set() is global across feature IDs and is an offset (as opposed
-      // to set number). If we run out of uint32_t and we have hundreds of
-      // features with similar categorical feature count, we may consider
-      // storing node ID within nodes with same feature ID and look up
-      // {.max_matching, .first_node_offset} = ...[feature_id]
-      cond = (category <= max_matching[node.fid()]) &&
-             bits[node.set() + category / 8] & (1 << category % 8);
-    } else {
-      cond = isnan(val) ? !node.def_left() : val >= node.thresh();
-    }
-    return node.left(node_idx) + cond;
-  }
-  // arrays from each node ID are concatenated first, then from all categories
-  uint8_t* bits;
-  // largest matching category in the model, per feature ID
-  uint32_t* max_matching;
-};
 
 /** dense_tree represents a dense tree */
 struct dense_tree : categorical_branches {
