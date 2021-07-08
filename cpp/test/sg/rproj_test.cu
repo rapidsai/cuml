@@ -19,6 +19,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/transpose.h>
 #include <test_utils.h>
+#include <cuml/metrics/metrics.hpp>
 #include <iostream>
 #include <raft/cuda_utils.cuh>
 #include <raft/distance/distance.cuh>
@@ -149,13 +150,10 @@ class RPROJTest : public ::testing::Test {
     int D = johnson_lindenstrauss_min_dim(N, epsilon);
 
     constexpr auto distance_type = raft::distance::DistanceType::L2SqrtUnexpanded;
-    size_t workspaceSize         = 0;
 
     T* d_pdist;
     raft::allocate(d_pdist, N * N);
-
-    raft::distance::distance<distance_type, T, T, T>(
-      d_input, d_input, d_pdist, N, N, M, (void*)nullptr, workspaceSize, h.get_stream());
+    ML::Metrics::pairwise_distance(h, d_input, d_input, d_pdist, N, N, M, distance_type);
     CUDA_CHECK(cudaPeekAtLastError());
 
     T* h_pdist = new T[N * N];
@@ -164,8 +162,7 @@ class RPROJTest : public ::testing::Test {
 
     T* d_pdist1;
     raft::allocate(d_pdist1, N * N);
-    raft::distance::distance<distance_type, T, T, T>(
-      d_output1, d_output1, d_pdist1, N, N, D, (void*)nullptr, workspaceSize, h.get_stream());
+    ML::Metrics::pairwise_distance(h, d_output1, d_output1, d_pdist1, N, N, D, distance_type);
     CUDA_CHECK(cudaPeekAtLastError());
 
     T* h_pdist1 = new T[N * N];
@@ -174,8 +171,7 @@ class RPROJTest : public ::testing::Test {
 
     T* d_pdist2;
     raft::allocate(d_pdist2, N * N);
-    raft::distance::distance<distance_type, T, T, T>(
-      d_output2, d_output2, d_pdist2, N, N, D, (void*)nullptr, workspaceSize, h.get_stream());
+    ML::Metrics::pairwise_distance(h, d_output2, d_output2, d_pdist2, N, N, D, distance_type);
     CUDA_CHECK(cudaPeekAtLastError());
 
     T* h_pdist2 = new T[N * N];

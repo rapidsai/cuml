@@ -22,6 +22,7 @@
 #include <algorithm>
 #include <cub/cub.cuh>
 #include <cuml/common/device_buffer.hpp>
+#include <cuml/metrics/metrics.hpp>
 #include <iostream>
 #include <linalg/reduce_cols_by_key.cuh>
 #include <numeric>
@@ -208,6 +209,7 @@ struct MinOp {
  */
 template <typename DataT, typename LabelT>
 DataT silhouette_score(
+  const raft::handle_t& handle,
   DataT* X_in,
   int nRows,
   int nCols,
@@ -225,15 +227,8 @@ DataT silhouette_score(
   MLCommon::device_buffer<DataT> distanceMatrix(allocator, stream, nRows * nRows);
   MLCommon::device_buffer<char> workspace(allocator, stream, 1);
 
-  raft::distance::pairwise_distance(X_in,
-                                    X_in,
-                                    distanceMatrix.data(),
-                                    nRows,
-                                    nRows,
-                                    nCols,
-                                    workspace,
-                                    static_cast<raft::distance::DistanceType>(metric),
-                                    stream);
+  ML::Metrics::pairwise_distance(
+    handle, X_in, X_in, distanceMatrix.data(), nRows, nRows, nCols, metric);
 
   // deciding on the array of silhouette scores for each dataPoint
   MLCommon::device_buffer<DataT> silhouette_scoreSamples(allocator, stream, 0);
