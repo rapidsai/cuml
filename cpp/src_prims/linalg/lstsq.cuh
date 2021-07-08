@@ -45,8 +45,8 @@ void lstsq(const raft::handle_t &handle, math_t *A, int n_rows, int n_cols,
 
   ASSERT(n_rows > 1, "lstsq: number of rows cannot be less than two");
 
-  int U_len = n_rows * n_cols;
-  int V_len = n_cols * n_cols;
+  size_t U_len = n_rows * n_cols;
+  size_t V_len = n_cols * n_cols;
 
   rmm::device_uvector<math_t> S(n_cols, stream);
   rmm::device_uvector<math_t> V(V_len, stream);
