@@ -88,13 +88,9 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
                true, -10.0f, 10.0f, params.seed);
 
     if (params.metric == raft::distance::Precomputed) {
-      device_buffer<char> workspace(handle.get_device_allocator(),
-                                    handle.get_stream(), 0);
-
-      raft::distance::pairwise_distance_impl<T, IdxT,
-                                             raft::distance::L2SqrtUnexpanded>(
-        out.data(), out.data(), dist.data(), params.n_row, params.n_row,
-        params.n_col, workspace, handle.get_stream(), true);
+      ML::Metrics::pairwise_distance(
+        handle, out.data(), out.data(), dist.data(), params.n_row, params.n_row,
+        params.n_col, raft::distance::L2SqrtUnexpanded);
     }
 
     raft::allocate(labels, params.n_row);
