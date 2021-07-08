@@ -117,9 +117,6 @@ struct RandomForestMetaData {
 };
 
 template <class T, class L>
-void null_trees_ptr(RandomForestMetaData<T, L>*& forest);
-
-template <class T, class L>
 void delete_rf_metadata(RandomForestMetaData<T, L>* forest);
 
 template <class T, class L>
@@ -161,15 +158,6 @@ void predict(const raft::handle_t& user_handle,
              const RandomForestClassifierD* forest, const double* input,
              int n_rows, int n_cols, int* predictions,
              int verbosity = CUML_LEVEL_INFO);
-
-void predictGetAll(const raft::handle_t& user_handle,
-                   const RandomForestClassifierF* forest, const float* input,
-                   int n_rows, int n_cols, int* predictions,
-                   int verbosity = CUML_LEVEL_INFO);
-void predictGetAll(const raft::handle_t& user_handle,
-                   const RandomForestClassifierD* forest, const double* input,
-                   int n_rows, int n_cols, int* predictions,
-                   int verbosity = CUML_LEVEL_INFO);
 
 RF_metrics score(const raft::handle_t& user_handle,
                  const RandomForestClassifierF* forest, const int* ref_labels,

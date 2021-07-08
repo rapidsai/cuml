@@ -35,6 +35,17 @@ struct SparseTreeNode {
   uint32_t instance_count = UINT32_MAX;  // UINT32_MAX indicates n/a
 };
 
+template <typename DataT, typename LabelT, typename IdxT>
+bool operator==(const SparseTreeNode<DataT, LabelT, IdxT>& lhs,
+                const SparseTreeNode<DataT, LabelT, IdxT>& rhs) {
+  return (lhs.prediction == rhs.prediction) && (lhs.colid == rhs.colid) &&
+         (lhs.quesval == rhs.quesval) &&
+         (lhs.best_metric_val == rhs.best_metric_val) &&
+         (lhs.left_child_id == rhs.left_child_id) &&
+         (lhs.unique_id == rhs.unique_id) &&
+         (lhs.instance_count == rhs.instance_count);
+}
+
 template <typename T, typename L>
 struct Node_ID_info {
   const SparseTreeNode<T, L>* node;

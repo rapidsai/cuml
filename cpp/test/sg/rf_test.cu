@@ -14,23 +14,94 @@
  * limitations under the License.
  */
 
+#include <decisiontree/quantile/quantile.h>
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
+#include <raft/linalg/transpose.h>
 #include <test_utils.h>
+#include <thrust/device_vector.h>
+#include <thrust/host_vector.h>
+#include <cuml/datasets/make_blobs.hpp>
 #include <cuml/ensemble/randomforest.hpp>
+#include <memory>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
+#include <random/make_blobs.cuh>
+#include <random>
+#include <tuple>
+#include "cuml/tree/algo_helper.h"
 
 namespace ML {
 
-template <typename T>  // template useless for now.
-struct RfInputs {
+// Utils for changing tuple into struct
+namespace detail {
+template <typename result_type, typename... types, std::size_t... indices>
+result_type make_struct(
+  std::tuple<types...> t,
+  std::index_sequence<indices...>)  // &, &&, const && etc.
+{
+  return {std::get<indices>(t)...};
+}
+
+}  // namespace detail
+
+template <typename result_type, typename... types>
+result_type make_struct(std::tuple<types...> t)  // &, &&, const && etc.
+{
+  return detail::make_struct<result_type, types...>(
+    t,
+    std::index_sequence_for<
+      types...>{});  // if there is repeated types, then the change for using std::index_sequence_for is trivial
+}
+
+template <int I, typename RandomGenT, typename ParamT, typename T>
+void SampleWithoutReplacemment(RandomGenT& gen, std::vector<ParamT>& sample,
+                               std::vector<T> x) {
+  std::vector<T> parameter_sample(sample.size());
+  std::shuffle(x.begin(), x.end(), gen);
+  for (size_t i = 0; i < sample.size(); i++) {
+    parameter_sample[i] = x[i % x.size()];
+  }
+  std::shuffle(parameter_sample.begin(), parameter_sample.end(), gen);
+  for (size_t i = 0; i < sample.size(); i++) {
+    std::get<I>(sample[i]) = parameter_sample[i];
+  }
+}
+
+template <int I, typename RandomGenT, typename ParamT, typename T,
+          typename... Args>
+void AddParameters(RandomGenT& gen, std::vector<ParamT>& sample,
+                   std::vector<T> x) {
+  SampleWithoutReplacemment<I>(gen, sample, x);
+}
+
+template <int I, typename RandomGenT, typename ParamT, typename T,
+          typename... Args>
+void AddParameters(RandomGenT& gen, std::vector<ParamT>& sample,
+                   std::vector<T> x, Args... args) {
+  SampleWithoutReplacemment<I>(gen, sample, x);
+  AddParameters<I + 1>(gen, sample, args...);
+}
+
+template <typename ParamT, typename... Args>
+std::vector<ParamT> SampleParameters(int num_samples, size_t seed,
+                                     Args... args) {
+  std::vector<typename ParamT::types> tuple_sample(num_samples);
+  std::default_random_engine gen(seed);
+  AddParameters<0>(gen, tuple_sample, args...);
+  std::vector<ParamT> sample(num_samples);
+  for (size_t i = 0; i < num_samples; i++) {
+    sample[i] = make_struct<ParamT>(tuple_sample[i]);
+  }
+  return sample;
+}
+
+struct RfTestParams {
   int n_rows;
   int n_cols;
   int n_trees;
   float max_features;
   float max_samples;
-  int n_inference_rows;
   int max_depth;
   int max_leaves;
   bool bootstrap;
@@ -40,305 +111,300 @@ struct RfInputs {
   float min_impurity_decrease;
   int n_streams;
   CRITERION split_criterion;
+  int seed;
+  int n_labels;
+  bool double_precision;
+  // c++ has no reflection, so we enumerate the types here
+  // This must be updated if new fields are added
+  using types = std::tuple<int, int, int, float, float, int, int, bool, int,
+                           int, int, float, int, CRITERION, int, int, bool>;
 };
 
-template <typename T>
-::std::ostream& operator<<(::std::ostream& os, const RfInputs<T>& dims) {
+std::ostream& operator<<(std::ostream& os, const RfTestParams& ps) {
+  os << "n_rows = " << ps.n_rows << ", n_cols = " << ps.n_cols;
+  os << ", n_trees = " << ps.n_trees << ", max_features = " << ps.max_features;
+  os << ", max_samples = " << ps.max_samples
+     << ", max_depth = " << ps.max_depth;
+  os << ", max_leaves = " << ps.max_leaves << ", bootstrap = " << ps.bootstrap;
+  os << ", n_bins = " << ps.n_bins
+     << ", min_samples_leaf = " << ps.min_samples_leaf;
+  os << ", min_samples_split = " << ps.min_samples_split
+     << ", min_samples_split = " << ps.min_samples_split;
+  os << ", min_impurity_decrease = " << ps.min_impurity_decrease
+     << ", n_streams = " << ps.n_streams;
+  os << ", split_criterion = " << ps.split_criterion << ", seed = " << ps.seed;
+  os << ", n_labels = " << ps.n_labels
+     << ", double_precision = " << ps.double_precision;
   return os;
 }
 
+// Classification
+template <typename DataT, typename LabelT, typename RfT>
+std::enable_if_t<std::is_integral_v<LabelT>> TrainScore(
+  const raft::handle_t& handle, RfTestParams params, DataT* X,
+  DataT* X_transpose, LabelT* y, RfT* forest, RF_metrics& metrics) {
+  RF_params rf_params = set_rf_params(
+    params.max_depth, params.max_leaves, params.max_features, params.n_bins,
+    params.min_samples_leaf, params.min_samples_split,
+    params.min_impurity_decrease, params.bootstrap, params.n_trees,
+    params.max_samples, 0, params.split_criterion, params.n_streams, 128);
+  fit(handle, forest, X, params.n_rows, params.n_cols, y, params.n_labels,
+      rf_params);
+
+  thrust::device_vector<LabelT> pred(params.n_rows);
+  predict(handle, forest, X_transpose, params.n_rows, params.n_cols,
+          pred.data().get());
+  // Predict and compare against known labels
+  metrics = score(handle, forest, y, params.n_rows, pred.data().get());
+}
+
+// Regression
+template <typename DataT, typename LabelT, typename RfT>
+std::enable_if_t<!std::is_integral_v<LabelT>> TrainScore(
+  const raft::handle_t& handle, RfTestParams params, DataT* X,
+  DataT* X_transpose, LabelT* y, RfT* forest, RF_metrics& metrics) {
+  RF_params rf_params = set_rf_params(
+    params.max_depth, params.max_leaves, params.max_features, params.n_bins,
+    params.min_samples_leaf, params.min_samples_split,
+    params.min_impurity_decrease, params.bootstrap, params.n_trees,
+    params.max_samples, 0, params.split_criterion, params.n_streams, 128);
+  fit(handle, forest, X, params.n_rows, params.n_cols, y, rf_params);
+
+  thrust::device_vector<LabelT> pred(params.n_rows);
+  predict(handle, forest, X_transpose, params.n_rows, params.n_cols,
+          pred.data().get());
+  // Predict and compare against known labels
+  metrics = score(handle, forest, y, params.n_rows, pred.data().get());
+}
+
+template <typename DataT, typename LabelT>
+class RfSpecialisedTest {
+ public:
+  RfSpecialisedTest(RfTestParams params) : params(params) {
+    raft::handle_t handle(params.n_streams);
+    X.resize(params.n_rows * params.n_cols);
+    X_transpose.resize(params.n_rows * params.n_cols);
+    y.resize(params.n_rows);
+    thrust::device_vector<int> y_temp(params.n_rows);
+    // Make data
+    Datasets::make_blobs(handle, X.data().get(), y_temp.data().get(),
+                         params.n_rows, params.n_cols, params.n_labels, false,
+                         nullptr, nullptr, 5.0, false, -10.0f, 10.0f,
+                         params.seed);
+
+    if (std::is_integral<LabelT>::value) {
+      y = y_temp;
+    } else {
+      // if regression, make the labels normally distributed
+      raft::random::Rng r(4);
+      thrust::device_vector<double> normal(params.n_rows);
+      r.normal(normal.data().get(), normal.size(), 0.0, 2.0, nullptr);
+      thrust::transform(normal.begin(), normal.end(), y_temp.begin(), y.begin(),
+                        thrust::plus<LabelT>());
+    }
+    raft::linalg::transpose(handle, X.data().get(), X_transpose.data().get(),
+                            params.n_rows, params.n_cols, nullptr);
+    forest.reset(new typename ML::RandomForestMetaData<DataT, LabelT>);
+    TrainScore(handle, params, X.data().get(), X_transpose.data().get(),
+               y.data().get(), forest.get(), training_metrics);
+
+    Test();
+  }
+  // Current model should be at least as accurate as a model with depth - 1
+  void TestAccuracyImprovement() {
+    if (params.max_depth <= 1) {
+      return;
+    }
+    raft::handle_t handle(params.n_streams);
+    RfTestParams alt_params = params;
+    alt_params.max_depth--;
+    RF_metrics alt_metrics;
+    ML::RandomForestMetaData<DataT, LabelT> alt_forest;
+    TrainScore(handle, alt_params, X.data().get(), X_transpose.data().get(),
+               y.data().get(), &alt_forest, alt_metrics);
+    double eps = 1e-8;
+    if (params.split_criterion == MSE) {
+      EXPECT_LE(training_metrics.mean_squared_error,
+                alt_metrics.mean_squared_error + eps);
+    } else if (params.split_criterion == MAE) {
+      EXPECT_LE(training_metrics.mean_abs_error,
+                alt_metrics.mean_abs_error + eps);
+    } else {
+      EXPECT_GE(training_metrics.accuracy, alt_metrics.accuracy);
+    }
+  }
+  // Regularisation parameters are working correctly
+  void TestTreeSize() {
+    for (int i = 0u; i < forest->rf_params.n_trees; i++) {
+      EXPECT_LE(forest->trees[i].depth_counter, params.max_depth);
+      if (params.max_leaves > 0) {
+        EXPECT_LE(forest->trees[i].leaf_counter, params.max_leaves);
+      }
+      EXPECT_LE(forest->trees[i].leaf_counter,
+                raft::ceildiv(params.n_rows, params.min_samples_leaf));
+      EXPECT_LE(forest->trees[i].leaf_counter,
+                raft::ceildiv(params.n_rows, params.min_samples_split) * 2);
+    }
+  }
+  void TestDeterminism() {
+    // Regression models use floating point atomics, so are not bitwise reproducible
+    bool is_regression =
+      params.split_criterion == MSE || params.split_criterion == MAE;
+    if (is_regression) return;
+
+    // Repeat training
+    RF_metrics metrics;
+    raft::handle_t handle(params.n_streams);
+    ML::RandomForestMetaData<DataT, LabelT> alt_forest;
+    TrainScore(handle, params, X.data().get(), X_transpose.data().get(),
+               y.data().get(), &alt_forest, metrics);
+
+    for (int i = 0u; i < forest->rf_params.n_trees; i++) {
+      EXPECT_EQ(forest->trees[i].sparsetree, alt_forest.trees[i].sparsetree);
+    }
+  }
+  void Test() {
+    TestAccuracyImprovement();
+    // Bugs
+    //TestDeterminism();
+    //TestTreeSize();
+  }
+
+  RF_metrics training_metrics;
+  thrust::device_vector<DataT> X;
+  thrust::device_vector<DataT> X_transpose;
+  thrust::device_vector<LabelT> y;
+  RfTestParams params;
+  std::shared_ptr<RandomForestMetaData<DataT, LabelT>> forest;
+};
+
+// Dispatch tests based on any template parameters
+class RfTest : public ::testing::TestWithParam<RfTestParams> {
+ public:
+  void SetUp() override {
+    RfTestParams params = ::testing::TestWithParam<RfTestParams>::GetParam();
+    bool is_regression =
+      params.split_criterion == MSE || params.split_criterion == MAE;
+    if (params.double_precision) {
+      if (is_regression) {
+        RfSpecialisedTest<double, double> test(params);
+      } else {
+        RfSpecialisedTest<double, int> test(params);
+      }
+    } else {
+      if (is_regression) {
+        RfSpecialisedTest<float, float> test(params);
+      } else {
+        RfSpecialisedTest<float, int> test(params);
+      }
+    }
+  }
+};
+
+TEST_P(RfTest, PropertyBasedTest) {}
+
+// Parameter ranges to test
+std::vector<int> n_rows = {10, 100, 1452};
+std::vector<int> n_cols = {1, 5, 152};
+std::vector<int> n_trees = {1, 5, 17};
+std::vector<float> max_features = {0.1f, 0.5f, 1.0f};
+std::vector<float> max_samples = {0.1f, 0.5f, 1.0f};
+std::vector<int> max_depth = {1, 10, 30};
+std::vector<int> max_leaves = {-1, 100};
+std::vector<bool> bootstrap = {false, true};
+std::vector<int> n_bins = {
+  2, 57, 128};  // Bug for n_bins > 128. Uses too much shared memory.
+std::vector<int> min_samples_leaf = {1, 10, 30};
+std::vector<int> min_samples_split = {2, 10};
+std::vector<float> min_impurity_decrease = {0.0, 1.0f, 10.0f};
+std::vector<int> n_streams = {1, 2, 10};
+std::vector<CRITERION> split_criterion = {CRITERION::MSE, CRITERION::GINI,
+                                          CRITERION::ENTROPY};
+std::vector<int> seed = {0, 17};
+std::vector<int> n_labels = {2, 10, 30};
+std::vector<bool> double_precision = {false, true};
+
+int n_tests = 100;
+
+INSTANTIATE_TEST_CASE_P(RfTests, RfTest,
+                        ::testing::ValuesIn(SampleParameters<RfTestParams>(
+                          n_tests, 0, n_rows, n_cols, n_trees, max_features,
+                          max_samples, max_depth, max_leaves, bootstrap, n_bins,
+                          min_samples_leaf, min_samples_split,
+                          min_impurity_decrease, n_streams, split_criterion,
+                          seed, n_labels, double_precision)));
+
+struct QuantileTestParameters {
+  int n_rows;
+  int n_bins;
+  uint64_t seed;
+};
+
 template <typename T>
-class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
- protected:
-  void basicTest() {
-    params = ::testing::TestWithParam<RfInputs<T>>::GetParam();
+class RFQuantileTest : public ::testing::TestWithParam<QuantileTestParameters> {
+ public:
+  void SetUp() override {
+    auto params = ::testing::TestWithParam<QuantileTestParameters>::GetParam();
 
-    RF_params rf_params;
-    rf_params = set_rf_params(
-      params.max_depth, params.max_leaves, params.max_features, params.n_bins,
-      params.min_samples_leaf, params.min_samples_split,
-      params.min_impurity_decrease, params.bootstrap, params.n_trees,
-      params.max_samples, 0, params.split_criterion, params.n_streams, 128);
+    thrust::device_vector<T> data(params.n_rows);
+    thrust::device_vector<T> quantiles(params.n_bins);
+    thrust::device_vector<int> histogram(params.n_bins);
+    thrust::host_vector<int> h_histogram(params.n_bins);
 
-    //--------------------------------------------------------
-    // Random Forest
-    //--------------------------------------------------------
+    raft::random::Rng r(8);
+    r.normal(data.data().get(), data.size(), T(0.0), T(2.0), nullptr);
+    const int TPB = 128;
+    int numBlocks = raft::ceildiv(params.n_rows, TPB);
+    raft::handle_t handle;
+    DT::computeQuantiles(quantiles.data().get(), params.n_bins,
+                         data.data().get(), params.n_rows, 1,
+                         handle.get_device_allocator(), nullptr);
 
-    int data_len = params.n_rows * params.n_cols;
-    raft::allocate(data, data_len);
-    raft::allocate(labels, params.n_rows);
-    raft::allocate(predicted_labels, params.n_inference_rows);
+    auto d_quantiles = quantiles.data();
+    auto d_histogram = histogram.data().get();
+    thrust::for_each(data.begin(), data.end(), [=] __device__(T x) {
+      for (int j = 0; j < params.n_bins; j++) {
+        if (x <= d_quantiles[j]) {
+          atomicAdd(&d_histogram[j], 1);
+          break;
+        }
+      }
+    });
 
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-
-    // Populate data (assume Col major)
-    std::vector<T> data_h = {30.0, 1.0, 2.0, 0.0, 10.0, 20.0, 10.0, 40.0};
-    data_h.resize(data_len);
-    raft::update_device(data, data_h.data(), data_len, stream);
-
-    // Populate labels
-    labels_h = {0, 1, 0, 4};
-    labels_h.resize(params.n_rows);
-    preprocess_labels(params.n_rows, labels_h, labels_map);
-    raft::update_device(labels, labels_h.data(), params.n_rows, stream);
-
-    forest = new typename ML::RandomForestMetaData<T, int>;
-    null_trees_ptr(forest);
-
-    raft::handle_t handle(rf_params.n_streams);
-    handle.set_stream(stream);
-
-    fit(handle, forest, data, params.n_rows, params.n_cols, labels,
-        labels_map.size(), rf_params);
-
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    //print_rf_detailed(forest);
-    // Inference data: same as train, but row major
-    int inference_data_len = params.n_inference_rows * params.n_cols;
-    inference_data_h = {30.0, 10.0, 1.0, 20.0, 2.0, 10.0, 0.0, 40.0};
-    inference_data_h.resize(inference_data_len);
-    raft::allocate(inference_data_d, inference_data_len);
-    raft::update_device(inference_data_d, inference_data_h.data(),
-                        inference_data_len, stream);
-
-    predict(handle, forest, inference_data_d, params.n_inference_rows,
-            params.n_cols, predicted_labels);
-    // Predict and compare against known labels
-    RF_metrics tmp =
-      score(handle, forest, labels, params.n_inference_rows, predicted_labels);
-
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-    accuracy = tmp.accuracy;
+    h_histogram = histogram;
+    int max_items_per_bin = raft::ceildiv(params.n_rows, params.n_bins);
+    int min_items_per_bin = max_items_per_bin - 1;
+    int total_items = 0;
+    for (int b = 0; b < params.n_bins; b++) {
+      ASSERT_TRUE(h_histogram[b] == max_items_per_bin ||
+                  h_histogram[b] == min_items_per_bin)
+        << "No. samples in bin[" << b << "] = " << h_histogram[b]
+        << " Expected " << max_items_per_bin << " or " << min_items_per_bin
+        << std::endl;
+      total_items += h_histogram[b];
+    }
+    ASSERT_EQ(params.n_rows, total_items)
+      << "Some samples from dataset are either missed of double counted in "
+         "quantile bins"
+      << std::endl;
   }
-
-  void SetUp() override { basicTest(); }
-
-  void TearDown() override {
-    accuracy = -1.0f;  // reset accuracy
-    postprocess_labels(params.n_rows, labels_h, labels_map);
-    inference_data_h.clear();
-    labels_h.clear();
-    labels_map.clear();
-
-    CUDA_CHECK(cudaFree(labels));
-    CUDA_CHECK(cudaFree(predicted_labels));
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(inference_data_d));
-    delete forest;
-  }
-
- protected:
-  RfInputs<T> params;
-  T *data, *inference_data_d;
-  int* labels;
-  std::vector<T> inference_data_h;
-  std::vector<int> labels_h;
-  std::map<int, int>
-    labels_map;  //unique map of labels to int vals starting from 0
-
-  RandomForestMetaData<T, int>* forest;
-  float accuracy = -1.0f;  // overriden in each test SetUp and TearDown
-
-  int* predicted_labels;
 };
 
 //-------------------------------------------------------------------------------------------------------------------------------------
+const std::vector<QuantileTestParameters> inputs = {
+  {1000, 16, 6078587519764079670LLU},
+  {1130, 32, 4884670006177930266LLU},
+  {1752, 67, 9175325892580481371LLU},
+  {2307, 99, 9507819643927052255LLU},
+  {5000, 128, 9507819643927052255LLU}};
 
-template <typename T>
-class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
- protected:
-  void basicTest() {
-    params = ::testing::TestWithParam<RfInputs<T>>::GetParam();
+typedef RFQuantileTest<float> RFQuantileTestF;
+TEST_P(RFQuantileTestF, test) {}
 
-    RF_params rf_params;
-    rf_params = set_rf_params(
-      params.max_depth, params.max_leaves, params.max_features, params.n_bins,
-      params.min_samples_leaf, params.min_samples_split,
-      params.min_impurity_decrease, params.bootstrap, params.n_trees,
-      params.max_samples, 0, params.split_criterion, params.n_streams, 128);
+INSTANTIATE_TEST_CASE_P(RfTests, RFQuantileTestF, ::testing::ValuesIn(inputs));
 
-    //--------------------------------------------------------
-    // Random Forest
-    //--------------------------------------------------------
+typedef RFQuantileTest<double> RFQuantileTestD;
+TEST_P(RFQuantileTestD, test) {}
 
-    int data_len = params.n_rows * params.n_cols;
-    raft::allocate(data, data_len);
-    raft::allocate(labels, params.n_rows);
-    raft::allocate(predicted_labels, params.n_inference_rows);
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-
-    // Populate data (assume Col major)
-    std::vector<T> data_h = {0.0, 0.0, 0.0, 0.0, 10.0, 20.0, 30.0, 40.0};
-    data_h.resize(data_len);
-    raft::update_device(data, data_h.data(), data_len, stream);
-
-    // Populate labels
-    labels_h = {1.0, 2.0, 3.0, 4.0};
-    labels_h.resize(params.n_rows);
-    raft::update_device(labels, labels_h.data(), params.n_rows, stream);
-
-    forest = new typename ML::RandomForestMetaData<T, T>;
-    null_trees_ptr(forest);
-
-    raft::handle_t handle(rf_params.n_streams);
-    handle.set_stream(stream);
-
-    fit(handle, forest, data, params.n_rows, params.n_cols, labels, rf_params);
-
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-
-    // Inference data: same as train, but row major
-    int inference_data_len = params.n_inference_rows * params.n_cols;
-    inference_data_h = {0.0, 10.0, 0.0, 20.0, 0.0, 30.0, 0.0, 40.0};
-    inference_data_h.resize(inference_data_len);
-    raft::allocate(inference_data_d, inference_data_len);
-    raft::update_device(inference_data_d, inference_data_h.data(),
-                        inference_data_len, stream);
-
-    predict(handle, forest, inference_data_d, params.n_inference_rows,
-            params.n_cols, predicted_labels);
-    // Predict and compare against known labels
-    RF_metrics tmp =
-      score(handle, forest, labels, params.n_inference_rows, predicted_labels);
-
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-
-    mse = tmp.mean_squared_error;
-  }
-
-  void SetUp() override { basicTest(); }
-
-  void TearDown() override {
-    mse = -1.0f;  // reset mse
-    inference_data_h.clear();
-    labels_h.clear();
-
-    CUDA_CHECK(cudaFree(labels));
-    CUDA_CHECK(cudaFree(predicted_labels));
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(inference_data_d));
-    delete forest;
-  }
-
- protected:
-  RfInputs<T> params;
-  T *data, *inference_data_d;
-  T* labels;
-  std::vector<T> inference_data_h;
-  std::vector<T> labels_h;
-
-  RandomForestMetaData<T, T>* forest;
-  float mse = -1.0f;  // overriden in each test SetUp and TearDown
-
-  T* predicted_labels;
-};
-//-------------------------------------------------------------------------------------------------------------------------------------
-
-const std::vector<RfInputs<float>> inputsf2_clf = {
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2,
-   CRITERION::GINI},  // single tree forest, bootstrap false, depth 8, 4 bins
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2,
-   CRITERION::GINI},  // single tree forest, bootstrap false, depth of 8, 4 bins
-  {4, 2, 10, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2,
-   CRITERION::
-     GINI},  //forest with 10 trees, all trees should produce identical predictions (no bootstrapping or column subsampling)
-  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 1, 2, 0.0, 2,
-   CRITERION::
-     GINI},  //forest with 10 trees, with bootstrap and column subsampling enabled, 3 bins
-  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 1, 2, 0.0, 1,
-   CRITERION::
-     CRITERION_END},  //forest with 10 trees, with bootstrap and column subsampling enabled, 3 bins, different split algorithm
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::ENTROPY},
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::ENTROPY},
-  {4, 2, 10, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::ENTROPY},
-  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 1, 2, 0.0, 2, CRITERION::ENTROPY},
-  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 1, 2, 0.0, 2, CRITERION::ENTROPY},
-  {50, 10, 10, 0.8f, 0.8f, 10, 7, -1, true, 3, 1, 2, 0.0, 2,
-   CRITERION::ENTROPY}};
-
-const std::vector<RfInputs<double>> inputsd2_clf = {  // Same as inputsf2_clf
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::GINI},
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::GINI},
-  {4, 2, 10, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::GINI},
-  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 1, 2, 0.0, 2, CRITERION::GINI},
-  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 1, 2, 0.0, 2,
-   CRITERION::CRITERION_END},
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::ENTROPY},
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::ENTROPY},
-  {4, 2, 10, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::ENTROPY},
-  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 1, 2, 0.0, 2, CRITERION::ENTROPY},
-  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 1, 2, 0.0, 2, CRITERION::ENTROPY},
-  {50, 10, 10, 0.8f, 0.8f, 10, 7, -1, true, 3, 1, 2, 0.0, 2,
-   CRITERION::ENTROPY}};
-
-typedef RfClassifierTest<float> RfClassifierTestF;
-TEST_P(RfClassifierTestF, Fit) {
-  //print_rf_detailed(forest);  // Prints all trees in the forest. Leaf nodes use the remapped values from labels_map.
-  if (!params.bootstrap && (params.max_features == 1.0f)) {
-    ASSERT_TRUE(accuracy == 1.0f);
-  } else {
-    ASSERT_TRUE(accuracy >= 0.75f);  // Empirically derived accuracy range
-  }
-}
-
-typedef RfClassifierTest<double> RfClassifierTestD;
-TEST_P(RfClassifierTestD, Fit) {
-  if (!params.bootstrap && (params.max_features == 1.0f)) {
-    ASSERT_TRUE(accuracy == 1.0f);
-  } else {
-    ASSERT_TRUE(accuracy >= 0.75f);
-  }
-}
-
-INSTANTIATE_TEST_CASE_P(RfClassifierTests, RfClassifierTestF,
-                        ::testing::ValuesIn(inputsf2_clf));
-
-INSTANTIATE_TEST_CASE_P(RfClassifierTests, RfClassifierTestD,
-                        ::testing::ValuesIn(inputsd2_clf));
-
-typedef RfRegressorTest<float> RfRegressorTestF;
-TEST_P(RfRegressorTestF, Fit) {
-  //print_rf_detailed(forest);  // Prints all trees in the forest.
-  if (!params.bootstrap && (params.max_features == 1.0f)) {
-    ASSERT_TRUE(mse == 0.0f);
-  } else {
-    ASSERT_TRUE(mse <= 0.2f);
-  }
-}
-
-typedef RfRegressorTest<double> RfRegressorTestD;
-TEST_P(RfRegressorTestD, Fit) {
-  if (!params.bootstrap && (params.max_features == 1.0f)) {
-    ASSERT_TRUE(mse == 0.0f);
-  } else {
-    ASSERT_TRUE(mse <= 0.2f);
-  }
-}
-
-const std::vector<RfInputs<float>> inputsf2_reg = {
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::MSE},
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::MSE},
-  {4, 2, 5, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2,
-   CRITERION::
-     CRITERION_END},  // CRITERION_END uses the default criterion (GINI for classification, MSE for regression)
-  {4, 2, 5, 1.0f, 1.0f, 4, 7, -1, true, 4, 1, 2, 0.0, 2,
-   CRITERION::CRITERION_END}};
-
-const std::vector<RfInputs<double>> inputsd2_reg = {  // Same as inputsf2_reg
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::MSE},
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::MSE},
-  {4, 2, 5, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2,
-   CRITERION::CRITERION_END},
-  {4, 2, 5, 1.0f, 1.0f, 4, 7, -1, true, 4, 1, 2, 0.0, 2,
-   CRITERION::CRITERION_END}};
-
-INSTANTIATE_TEST_CASE_P(RfRegressorTests, RfRegressorTestF,
-                        ::testing::ValuesIn(inputsf2_reg));
-INSTANTIATE_TEST_CASE_P(RfRegressorTests, RfRegressorTestD,
-                        ::testing::ValuesIn(inputsd2_reg));
-
+INSTANTIATE_TEST_CASE_P(RfTests, RFQuantileTestD, ::testing::ValuesIn(inputs));
 }  // end namespace ML

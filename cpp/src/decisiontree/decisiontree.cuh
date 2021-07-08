@@ -285,11 +285,6 @@ class DecisionTree {
                                  : CRITERION::MSE;
 
     validity_check(tree_params);
-    if (tree_params.n_bins > n_sampled_rows) {
-      CUML_LOG_WARN("Calling with number of bins > number of rows!");
-      CUML_LOG_WARN("Resetting n_bins to %d.", n_sampled_rows);
-      tree_params.n_bins = n_sampled_rows;
-    }
 
     if (
       tree_params.split_criterion ==
