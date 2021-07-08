@@ -68,7 +68,6 @@ __global__ void fill_indices2(value_idx* indices, size_t m, size_t nnz)
  * @param[out] data
  */
 template <typename value_idx, typename value_t>
-<<<<<<< HEAD
 void pairwise_distances(const raft::handle_t& handle,
                         const value_t* X,
                         size_t m,
@@ -78,20 +77,7 @@ void pairwise_distances(const raft::handle_t& handle,
                         value_idx* indices,
                         value_t* data)
 {
-  auto d_alloc = handle.get_device_allocator();
-  auto stream  = handle.get_stream();
-=======
-void pairwise_distances(const raft::handle_t& handle,
-                        const value_t* X,
-                        size_t m,
-                        size_t n,
-                        raft::distance::DistanceType metric,
-                        value_idx* indptr,
-                        value_idx* indices,
-                        value_t* data)
-{
-  auto stream = handle.get_stream();
->>>>>>> branch-21.08
+  auto stream      = handle.get_stream();
   auto exec_policy = rmm::exec_policy(stream);
 
   value_idx nnz = m * m;
