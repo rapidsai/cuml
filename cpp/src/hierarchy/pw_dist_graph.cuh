@@ -21,7 +21,7 @@
 
 #include <common/allocatorAdapter.hpp>
 
-#include <cuml/metrics/metrics.hpp>
+#include <raft/distance/distance.cuh>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
@@ -77,6 +77,7 @@ void pairwise_distances(const raft::handle_t& handle,
                         value_idx* indices,
                         value_t* data)
 {
+  auto d_alloc     = handle.get_device_allocator();
   auto stream      = handle.get_stream();
   auto exec_policy = rmm::exec_policy(stream);
 
@@ -89,10 +90,16 @@ void pairwise_distances(const raft::handle_t& handle,
 
   raft::update_device(indptr + m, &nnz, 1, stream);
 
+  // TODO: Keeping raft device buffer here for now until our
+  // dense pairwise distances API is finished being refactored
+  raft::mr::device::buffer<char> workspace(d_alloc, stream, (size_t)0);
+
   // TODO: It would ultimately be nice if the MST could accept
   // dense inputs directly so we don't need to double the memory
   // usage to hand it a sparse array here.
-  ML::Metrics::pairwise_distance(handle, X, X, data, m, m, n, metric);
+  raft::distance::pairwise_distance<value_t, value_idx>(
+    X, X, data, m, m, n, workspace, metric, stream);
+
   // self-loops get max distance
   auto transform_in =
     thrust::make_zip_iterator(thrust::make_tuple(thrust::make_counting_iterator(0), data));
@@ -126,7 +133,8 @@ struct distance_graph_impl<raft::hierarchy::LinkageDistance::PAIRWISE, value_idx
            rmm::device_uvector<value_t>& data,
            int c)
   {
-    auto stream = handle.get_stream();
+    auto d_alloc = handle.get_device_allocator();
+    auto stream  = handle.get_stream();
 
     size_t nnz = m * m;
 

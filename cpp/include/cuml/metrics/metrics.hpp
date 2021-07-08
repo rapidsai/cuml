@@ -336,7 +336,6 @@ float accuracy_score_py(const raft::handle_t& handle,
  * @param metric the distance metric to use for the calculation
  * @param isRowMajor specifies whether the x and y data pointers are row (C
  *                   type array) or col (F type array) major
- * @param metric_arg the value of `p` for Minkowski (l-p) distances.
  */
 void pairwise_distance(const raft::handle_t& handle,
                        const double* x,
@@ -346,7 +345,7 @@ void pairwise_distance(const raft::handle_t& handle,
                        int n,
                        int k,
                        raft::distance::DistanceType metric,
-                       bool isRowMajor = true, double metric_arg = 2.0);
+                       bool isRowMajor = true);
 
 /**
  * @brief Calculates the ij pairwise distances between two input arrays of float type
@@ -362,7 +361,6 @@ void pairwise_distance(const raft::handle_t& handle,
  * @param metric the distance metric to use for the calculation
  * @param isRowMajor specifies whether the x and y data pointers are row (C
  *                   type array) or col (F type array) major
- * @param metric_arg the value of `p` for Minkowski (l-p) distances.
  */
 void pairwise_distance(const raft::handle_t& handle,
                        const float* x,
@@ -372,7 +370,7 @@ void pairwise_distance(const raft::handle_t& handle,
                        int n,
                        int k,
                        raft::distance::DistanceType metric,
-                       bool isRowMajor = true, float metric_arg = 2.0f);
+                       bool isRowMajor = true);
 
 void pairwiseDistance_sparse(const raft::handle_t& handle,
                              double* x,

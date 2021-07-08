@@ -32,8 +32,7 @@ double silhouette_score(const raft::handle_t& handle,
                         double* silScores,
                         raft::distance::DistanceType metric)
 {
-  return MLCommon::Metrics::silhouette_score<double, int>(handle,
-                                                          y,
+  return MLCommon::Metrics::silhouette_score<double, int>(y,
                                                           nRows,
                                                           nCols,
                                                           labels,

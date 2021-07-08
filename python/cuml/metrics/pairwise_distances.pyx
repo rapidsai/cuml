@@ -38,12 +38,10 @@ from cuml.metrics.distance_type cimport DistanceType
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
     void pairwise_distance(const handle_t &handle, const double *x,
                            const double *y, double *dist, int m, int n, int k,
-                           DistanceType metric, bool isRowMajor,
-                           double metric_arg) except +
+                           DistanceType metric, bool isRowMajor) except +
     void pairwise_distance(const handle_t &handle, const float *x,
                            const float *y, float *dist, int m, int n, int k,
-                           DistanceType metric, bool isRowMajor,
-                           float metric_arg) except +
+                           DistanceType metric, bool isRowMajor) except +
     void pairwiseDistance_sparse(const handle_t &handle, float *x, float *y,
                                  float *dist, int x_nrows, int y_nrows,
                                  int n_cols, int x_nnz, int y_nnz,
@@ -69,11 +67,7 @@ PAIRWISE_DISTANCE_METRICS = {
     "l1": DistanceType.L1,
     "l2": DistanceType.L2SqrtUnexpanded,
     "manhattan": DistanceType.L1,
-    "sqeuclidean": DistanceType.L2Expanded,
-    "canberra": DistanceType.Canberra,
-    "chebyshev": DistanceType.Linf,
-    "minkowski": DistanceType.LpUnexpanded,
-    "hellinger": DistanceType.HellingerExpanded
+    "sqeuclidean": DistanceType.L2Expanded
 }
 
 PAIRWISE_DISTANCE_SPARSE_METRICS = {
@@ -133,7 +127,7 @@ def _determine_metric(metric_str, is_sparse=False):
 
 @cuml.internals.api_return_array(get_output_type=True)
 def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
-                       convert_dtype=True, metric_arg=2, **kwds):
+                       convert_dtype=True, **kwds):
     """
     Compute the distance matrix from a vector array `X` and optional `Y`.
 
@@ -281,8 +275,7 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
                           <int> n_samples_y,
                           <int> n_features_x,
                           <DistanceType> metric_val,
-                          <bool> is_row_major,
-                          <float> metric_arg)
+                          <bool> is_row_major)
     elif (dtype_x == np.float64):
         pairwise_distance(handle_[0],
                           <double*> d_X_ptr,
@@ -292,8 +285,7 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
                           <int> n_samples_y,
                           <int> n_features_x,
                           <DistanceType> metric_val,
-                          <bool> is_row_major,
-                          <double> metric_arg)
+                          <bool> is_row_major)
     else:
         raise NotImplementedError("Unsupported dtype: {}".format(dtype_x))
 
