@@ -106,7 +106,7 @@ cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
 
     void estimate_x0(
         handle_t& handle, ARIMAParams[double]& params, const double* d_y,
-        int batch_size, int nobs, const ARIMAOrder& order)
+        int batch_size, int nobs, const ARIMAOrder& order, bool missing)
 
 
 cdef extern from "cuml/tsa/batched_kalman.hpp" namespace "ML":
@@ -370,6 +370,7 @@ class ARIMA(Base):
         cdef uintptr_t d_y_ptr = self.d_y.ptr
         cdef uintptr_t d_y_diff_ptr = self._d_y_diff.ptr
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+        cdef ARIMAOrder cpp_order_diff = self.order
 
         # Detect missing observations
         self.missing = detect_missing(handle_[0], <double*> d_y_ptr,
@@ -379,15 +380,17 @@ class ARIMA(Base):
                         " Forcing simple_differencing=False")
             self.simple_differencing = False
 
-        # Compute the differenced series
-        batched_diff(handle_[0], <double*> d_y_diff_ptr, <double*> d_y_ptr,
-                     <int> self.batch_size, <int> self.n_obs, self.order)
+        if self.simple_differencing:
+            # Compute the differenced series
+            batched_diff(handle_[0], <double*> d_y_diff_ptr, <double*> d_y_ptr,
+                        <int> self.batch_size, <int> self.n_obs, self.order)
 
-        # Create a version of the order for the differenced series
-        cdef ARIMAOrder cpp_order_diff = self.order
-        cpp_order_diff.d = 0
-        cpp_order_diff.D = 0
-        self.order_diff = cpp_order_diff
+            # Create a version of the order for the differenced series
+            cpp_order_diff.d = 0
+            cpp_order_diff.D = 0
+            self.order_diff = cpp_order_diff
+        else:
+            self.order_diff = None
 
     def __str__(self):
         cdef ARIMAOrder order = self.order
@@ -722,7 +725,8 @@ class ARIMA(Base):
 
         # Call C++ function
         estimate_x0(handle_[0], cpp_params, <double*> d_y_ptr,
-                    <int> self.batch_size, <int> self.n_obs, order)
+                    <int> self.batch_size, <int> self.n_obs, order,
+                    <bool> self.missing)
 
     @cuml.internals.api_base_return_any_skipall
     def fit(self,

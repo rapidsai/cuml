@@ -233,5 +233,46 @@ void batched_jones_transform(
     [=] __device__(DataT input) { return max(input, min_sigma2); }, stream);
 }
 
+/**
+ * @todo: more efficient kernel (shuffle instead of shared mem?)
+ */
+template <bool forward, int N_THREADS, typename T>
+__global__ void fillna_kernel(T* data, int n_obs) {
+  T* b_data = data + blockIdx.x * n_obs;
+  T last_known_value = nan("");
+  __shared__ T cache[N_THREADS];
+
+  for (int i0 = 0; i0 < n_obs; i0 += N_THREADS) {
+    int idx = forward ? i0 + threadIdx.x : n_obs - i0 - threadIdx.x;
+    bool valid_idx = idx >= 0 && idx < n_obs;
+    T value = valid_idx ? b_data[idx] : nan("");
+    cache[threadIdx.x] = value;
+    __syncthreads();
+    if (valid_idx) {
+      for (int j = 1; j <= threadIdx.x && isnan(value); j++) {
+        value = cache[threadIdx.x - j];
+      }
+      if (isnan(value)) value = last_known_value;
+      b_data[idx] = value;
+    }
+    if (threadIdx.x == N_THREADS - 1) cache[N_THREADS - 1] = value;
+    __syncthreads();
+    last_known_value = cache[N_THREADS - 1];
+    __syncthreads();
+  }
+}
+
+/**
+ * @todo docs
+ */
+template <typename T>
+void fillna(T* data, int batch_size, int n_obs, cudaStream_t stream) {
+  constexpr int N_THREADS = 64;
+  fillna_kernel<true, N_THREADS>
+    <<<batch_size, N_THREADS, 0, stream>>>(data, n_obs);
+  fillna_kernel<false, N_THREADS>
+    <<<batch_size, N_THREADS, 0, stream>>>(data, n_obs);
+}
+
 }  // namespace TimeSeries
 }  // namespace MLCommon

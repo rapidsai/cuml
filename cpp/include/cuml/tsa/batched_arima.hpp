@@ -239,9 +239,10 @@ void information_criterion(raft::handle_t& handle,
  * @param[in]  n_obs       Number of samples per time series
  *                         (all series must be identical)
  * @param[in]  order       ARIMA hyper-parameters
+ * @param[in]  missing     Are there missing observations?
  */
 void estimate_x0(raft::handle_t& handle, ARIMAParams<double>& params,
                  const double* d_y, int batch_size, int n_obs,
-                 const ARIMAOrder& order);
+                 const ARIMAOrder& order, bool missing);
 
 }  // namespace ML

@@ -689,19 +689,35 @@ void _start_params(raft::handle_t& handle, ARIMAParams<double>& params,
 
 void estimate_x0(raft::handle_t& handle, ARIMAParams<double>& params,
                  const double* d_y, int batch_size, int n_obs,
-                 const ARIMAOrder& order) {
+                 const ARIMAOrder& order, bool missing) {
   ML::PUSH_RANGE(__func__);
   const auto& handle_impl = handle;
   auto stream = handle_impl.get_stream();
   auto cublas_handle = handle_impl.get_cublas_handle();
   auto allocator = handle_impl.get_device_allocator();
 
+  // Least squares can't deal with missing values: create copy with naive
+  // replacements for missing values
+  const double* d_y_no_missing;
+  MLCommon::device_buffer<double> y_no_missing(allocator, stream, 0);
+  if (missing) {
+    y_no_missing.resize(n_obs * batch_size);
+    d_y_no_missing = y_no_missing.data();
+
+    raft::copy(y_no_missing.data(), d_y, n_obs * batch_size, stream);
+    /// TODO: use cudf's fillna once fixed? (cudf#8673)
+    MLCommon::TimeSeries::fillna(y_no_missing.data(), batch_size, n_obs, stream);
+  } else {
+    d_y_no_missing = d_y;
+  }
+
   // Difference if necessary, copy otherwise
   MLCommon::LinAlg::Batched::Matrix<double> bm_yd(
     n_obs - order.d - order.s * order.D, 1, batch_size, cublas_handle,
     allocator, stream, false);
-  MLCommon::TimeSeries::prepare_data(bm_yd.raw_data(), d_y, batch_size, n_obs,
-                                     order.d, order.D, order.s, stream);
+  MLCommon::TimeSeries::prepare_data(bm_yd.raw_data(), d_y_no_missing,
+                                     batch_size, n_obs, order.d, order.D,
+                                     order.s, stream);
 
   // Do the computation of the initial parameters
   _start_params(handle, params, bm_yd, order);
