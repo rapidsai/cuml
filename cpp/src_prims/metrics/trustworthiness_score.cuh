@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <raft/distance/distance.cuh>
+#include <cuml/metrics/metrics.hpp>
 #include <raft/spatial/knn/knn.hpp>
 #include <rmm/device_uvector.hpp>
 #include <selection/columnWiseSort.cuh>
@@ -132,12 +132,8 @@ double trustworthiness_score(const raft::handle_t &h, const math_t *X,
     int curBatchSize = min(toDo, batchSize);
 
     // Takes at most batchSize vectors at a time
-
-    size_t workspaceSize = 0;
-
-    raft::distance::distance<distance_type, math_t, math_t, math_t>(
-      &X[(n - toDo) * m], X, X_dist.data(), curBatchSize, n, m, (void *)nullptr,
-      workspaceSize, stream);
+    ML::Metrics::pairwise_distance(h, &X[(n - toDo) * m], X, X_dist.data(),
+                                   curBatchSize, n, m, distance_type);
 
     size_t colSortWorkspaceSize = 0;
     bool bAllocWorkspace = false;
