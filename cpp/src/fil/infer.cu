@@ -139,7 +139,7 @@ __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(
       auto n = tree[curr[j]];
       mask &= ~(n.is_leaf() << j);
       if ((mask & (1 << j)) != 0)
-        curr[j] = tree.get_child(n, curr[j], &input[j * cols + n.fid()]);
+        curr[j] = tree.get_child(n, curr[j], input[j * cols + n.fid()]);
     }
   } while (mask != 0);
 

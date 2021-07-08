@@ -100,6 +100,7 @@ struct base_node {
   __host__ __device__ o_t output() const {
     return val;
   }
+  __host__ __device__ int set() const { return val.idx; }
   __host__ __device__ float thresh() const { return val.f; }
   __host__ __device__ int fid() const { return bits & FID_MASK; }
   __host__ __device__ bool def_left() const { return bits & DEF_LEFT_MASK; }

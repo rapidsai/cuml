@@ -54,11 +54,10 @@ struct categorical_branches {
   // set count is due to tree_idx + node_within_tree_idx are both ints, hence uint32_t result
   template <typename node_t>
   __host__ __device__ __forceinline__ int get_child(const node_t& node,
-                                                    int node_idx, void* input) {
+                                                    int node_idx, float val) {
     bool cond;
     if (node.is_categorical()) {
-      // category is the biggest unsigned that fits 4 bytes from float, uint32_t
-      uint32_t category = *(uint32_t*)input;
+      int category = val;
       // standard boolean packing. This layout has better ILP
       // node.set() is global across feature IDs and is an offset (as opposed
       // to set number). If we run out of uint32_t and we have hundreds of
@@ -68,15 +67,14 @@ struct categorical_branches {
       cond = (category <= max_matching[node.fid()]) &&
              bits[node.set() + category / 8] & (1 << category % 8);
     } else {
-      float val = *(float*)input;
       cond = isnan(val) ? !node.def_left() : val >= node.thresh();
     }
     return node.left(node_idx) + cond;
   }
-  uint8_t*
-    bits;  // arrays from each node ID are concatenated first, then from all categories
-  uint32_t*
-    max_matching;  // largest matching category in the model, per feature ID
+  // arrays from each node ID are concatenated first, then from all categories
+  uint8_t* bits;
+  // largest matching category in the model, per feature ID
+  uint32_t* max_matching;
 };
 
 /** dense_tree represents a dense tree */

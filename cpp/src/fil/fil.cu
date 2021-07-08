@@ -659,7 +659,8 @@ void node2fil_dense(std::vector<dense_node>* pnodes, int root, int cur,
                     const forest_params_t& forest_params,
                     std::vector<float>* vector_leaf, size_t* leaf_counter) {
   if (tree.IsLeaf(node_id)) {
-    (*pnodes)[root + cur] = dense_node(val_t{.f = NAN}, NAN, 0, false, true);
+    (*pnodes)[root + cur] =
+      dense_node(val_t{.f = NAN}, NAN, 0, false, true, false);
     tl2fil_leaf_payload(&(*pnodes)[root + cur], root + cur, tree, node_id,
                         forest_params, vector_leaf, leaf_counter);
     return;
@@ -673,8 +674,9 @@ void node2fil_dense(std::vector<dense_node>* pnodes, int root, int cur,
   float threshold = static_cast<float>(tree.Threshold(node_id));
   adjust_threshold(&threshold, &tl_left, &tl_right, &default_left,
                    tree.ComparisonOp(node_id));
-  (*pnodes)[root + cur] = dense_node(
-    val_t{.f = 0}, threshold, tree.SplitIndex(node_id), default_left, false);
+  (*pnodes)[root + cur] =
+    dense_node(val_t{.f = 0}, threshold, tree.SplitIndex(node_id), default_left,
+               false, false);
   int left = 2 * cur + 1;
   node2fil_dense(pnodes, root, left, tree, tl_left, forest_params, vector_leaf,
                  leaf_counter);
