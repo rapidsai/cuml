@@ -172,7 +172,7 @@ struct alignas(8) sparse_node8 : base_node<true> {
     : base_node<true>(output, thresh, fid, def_left, is_leaf, is_categorical) {
     ASSERT((fid & FID_MASK) == fid,
            "internal error: feature ID doesn't fit into sparse_node8");
-    ASSERT((left_index << LEFT_OFFSET & LEFT_MASK) == left_index,
+    ASSERT(((left_index << LEFT_OFFSET) & LEFT_MASK) == left_index,
            "internal error: left child index doesn't fit into sparse_node8");
     bits |= left_index << LEFT_OFFSET;
   }
@@ -278,8 +278,6 @@ struct forest_params_t {
 /// FIL_TPB is the number of threads per block to use with FIL kernels
 const int FIL_TPB = 256;
 
-static const uint32_t max_precise_int_float = 16777216;
-
 struct categorical_branches {
   // set count is due to tree_idx + node_within_tree_idx are both ints, hence uint32_t result
   template <typename node_t>
@@ -304,7 +302,7 @@ struct categorical_branches {
   // arrays from each node ID are concatenated first, then from all categories
   uint8_t* bits;
   // largest matching category in the model, per feature ID
-  int* max_matching;
+  uint32_t* max_matching;
 };
 
 /** init_dense uses params and nodes to initialize the dense forest stored in pf
