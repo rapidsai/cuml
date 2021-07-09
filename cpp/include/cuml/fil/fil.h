@@ -35,7 +35,7 @@ namespace fil {
 
 /** Inference algorithm to use. */
 enum algo_t {
-  /** choose the algorithm automatically; currently chooses NAIVE for sparse forests 
+  /** choose the algorithm automatically; currently chooses NAIVE for sparse forests
       and BATCH_TREE_REORG for dense ones */
   ALGO_AUTO,
   /** naive algorithm: 1 thread block predicts 1 row; the row is cached in
@@ -108,8 +108,10 @@ struct treelite_params_t {
  * @param model treelite model used to initialize the forest
  * @param tl_params additional parameters for the forest
  */
-void from_treelite(const raft::handle_t& handle, forest_t* pforest,
-                   ModelHandle model, const treelite_params_t* tl_params);
+void from_treelite(const raft::handle_t& handle,
+                   forest_t* pforest,
+                   ModelHandle model,
+                   const treelite_params_t* tl_params);
 
 /** free deletes forest and all resources held by it; after this, forest is no longer usable
  *  @param h cuML handle used by this function
@@ -129,8 +131,12 @@ void free(const raft::handle_t& h, forest_t f);
  *  @param predict_proba for classifier models, this forces to output both class probabilities
  *      instead of binary class prediction. format matches scikit-learn API
  */
-void predict(const raft::handle_t& h, forest_t f, float* preds,
-             const float* data, size_t num_rows, bool predict_proba = false);
+void predict(const raft::handle_t& h,
+             forest_t f,
+             float* preds,
+             const float* data,
+             size_t num_rows,
+             bool predict_proba = false);
 
 }  // namespace fil
 }  // namespace ML

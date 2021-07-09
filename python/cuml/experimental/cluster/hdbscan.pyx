@@ -89,6 +89,14 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML":
                  HDBSCANParams & params,
                  hdbscan_output & output)
 
+    void _extract_clusters(const handle_t &handle, size_t n_leaves,
+                           int n_edges, int *parents, int *children,
+                           float *lambdas, int *sizes, int *labels,
+                           float *probabilities,
+                           CLUSTER_SELECTION_METHOD cluster_selection_method,
+                           bool allow_single_cluster, int max_cluster_size,
+                           float cluster_selection_epsilon)
+
 _metrics_mapping = {
     'l1': DistanceType.L1,
     'cityblock': DistanceType.L1,
@@ -536,6 +544,60 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         cluster labels.
         """
         return self.fit(X).labels_
+
+    def _extract_clusters(self, condensed_tree):
+        parents, n_edges, _, _ = \
+            input_to_cuml_array(condensed_tree.to_numpy()['parent'],
+                                order='C',
+                                convert_to_dtype=np.int32)
+
+        children, _, _, _ = \
+            input_to_cuml_array(condensed_tree.to_numpy()['child'],
+                                order='C',
+                                convert_to_dtype=np.int32)
+
+        lambdas, _, _, _ = \
+            input_to_cuml_array(condensed_tree.to_numpy()['lambda_val'],
+                                order='C',
+                                convert_to_dtype=np.float32)
+
+        sizes, _, _, _ = \
+            input_to_cuml_array(condensed_tree.to_numpy()['child_size'],
+                                order='C',
+                                convert_to_dtype=np.int32)
+
+        n_leaves = int(condensed_tree.to_numpy()['parent'].min())
+
+        self.labels_test = CumlArray.empty(n_leaves, dtype="int32")
+        self.probabilities_test = CumlArray.empty(n_leaves, dtype="float32")
+
+        cdef uintptr_t labels_ptr = self.labels_test.ptr
+        cdef uintptr_t parents_ptr = parents.ptr
+        cdef uintptr_t children_ptr = children.ptr
+        cdef uintptr_t sizes_ptr = sizes.ptr
+        cdef uintptr_t lambdas_ptr = lambdas.ptr
+        cdef uintptr_t probabilities_ptr = self.probabilities_test.ptr
+
+        if self.cluster_selection_method == 'eom':
+            cluster_selection_method = CLUSTER_SELECTION_METHOD.EOM
+        elif self.cluster_selection_method == 'leaf':
+            cluster_selection_method = CLUSTER_SELECTION_METHOD.LEAF
+
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+
+        _extract_clusters(handle_[0],
+                          <size_t> n_leaves,
+                          <int> n_edges,
+                          <int*> parents_ptr,
+                          <int*> children_ptr,
+                          <float*> lambdas_ptr,
+                          <int*> sizes_ptr,
+                          <int*> labels_ptr,
+                          <float*> probabilities_ptr,
+                          <CLUSTER_SELECTION_METHOD> cluster_selection_method,
+                          <bool> self.allow_single_cluster,
+                          <int> self.max_cluster_size,
+                          <float> self.cluster_selection_epsilon)
 
     def get_param_names(self):
         return super().get_param_names() + [

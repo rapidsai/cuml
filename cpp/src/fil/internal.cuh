@@ -28,7 +28,8 @@ namespace ML {
 namespace fil {
 
 /// modpow2 returns a % b == a % pow(2, log2_b)
-__host__ __device__ __forceinline__ int modpow2(int a, int log2_b) {
+__host__ __device__ __forceinline__ int modpow2(int a, int log2_b)
+{
   return a & ((1 << log2_b) - 1);
 }
 
@@ -54,19 +55,20 @@ enum output_t {
   /** sigmoid transformation: apply 1/(1+exp(-x)) to the sum or average of tree
       outputs; use for GBM binary classification models for probability */
   SIGMOID = 0x10,
-  /** output class label: either apply threshold to the output of the previous stage (for binary classification),
-      or select the class with the most votes to get the class label (for multi-class classification).  */
+  /** output class label: either apply threshold to the output of the previous stage (for binary
+     classification), or select the class with the most votes to get the class label (for
+     multi-class classification).  */
   CLASS = 0x100,
-  /** softmax: apply softmax to class margins when predicting probability 
+  /** softmax: apply softmax to class margins when predicting probability
       in multiclass classification. Softmax is made robust by subtracting max
       from margins before applying. */
-  SOFTMAX = 0x1000,
-  SIGMOID_CLASS = SIGMOID | CLASS,
-  AVG_CLASS = AVG | CLASS,
+  SOFTMAX           = 0x1000,
+  SIGMOID_CLASS     = SIGMOID | CLASS,
+  AVG_CLASS         = AVG | CLASS,
   AVG_SIGMOID_CLASS = AVG | SIGMOID | CLASS,
-  AVG_SOFTMAX = AVG | SOFTMAX,
+  AVG_SOFTMAX       = AVG | SOFTMAX,
   AVG_CLASS_SOFTMAX = AVG | CLASS | SOFTMAX,
-  ALL_SET = AVG | SIGMOID | CLASS | SOFTMAX
+  ALL_SET           = AVG | SIGMOID | CLASS | SOFTMAX
 };
 std::string output2str(fil::output_t output);
 
@@ -90,109 +92,123 @@ struct base_node {
       node is a leaf or inner node, and for inner nodes, additional information,
       e.g. the default direction, feature id or child index */
   int bits;
-  static const int IS_LEAF_OFFSET = 31;
-  static const int IS_LEAF_MASK = 1 << IS_LEAF_OFFSET;
+  static const int IS_LEAF_OFFSET  = 31;
+  static const int IS_LEAF_MASK    = 1 << IS_LEAF_OFFSET;
   static const int DEF_LEFT_OFFSET = 30;
-  static const int DEF_LEFT_MASK = 1 << DEF_LEFT_OFFSET;
-  static const int IS_CATEGORICAL_OFFSET = can_be_categorical ? DEF_LEFT_OFFSET - 1 : DEF_LEFT_OFFSET;
+  static const int DEF_LEFT_MASK   = 1 << DEF_LEFT_OFFSET;
+  static const int IS_CATEGORICAL_OFFSET =
+    can_be_categorical ? DEF_LEFT_OFFSET - 1 : DEF_LEFT_OFFSET;
   static const int IS_CATEGORICAL_MASK = 1 << IS_CATEGORICAL_OFFSET;
-  static const int FID_MASK = (1 << IS_CATEGORICAL_OFFSET) - 1;
+  static const int FID_MASK            = (1 << IS_CATEGORICAL_OFFSET) - 1;
   template <class o_t>
-  __host__ __device__ o_t output() const {
+  __host__ __device__ o_t output() const
+  {
     typedef std::remove_cv_t<o_t> canonical;
-    if constexpr(std::is_floating_point<canonical>())
+    if constexpr (std::is_floating_point<canonical>())
       return val.f;
-    else if constexpr(std::is_integral<canonical>())
+    else if constexpr (std::is_integral<canonical>())
       return val.idx;
     // and anything that val can be converted to
-    else return val;
+    else
+      return val;
     // no return statement at the end is not a compiler error
     // but we need one here
     return {};
-    static_assert(std::is_floating_point<canonical>() ||
-      std::is_integral<canonical>() ||
-      std::is_same<canonical, val_t>());
+    static_assert(std::is_floating_point<canonical>() || std::is_integral<canonical>() ||
+                  std::is_same<canonical, val_t>());
   }
   __host__ __device__ int set() const { return val.idx; }
   __host__ __device__ float thresh() const { return val.f; }
   __host__ __device__ int fid() const { return bits & FID_MASK; }
   __host__ __device__ bool def_left() const { return bits & DEF_LEFT_MASK; }
   __host__ __device__ bool is_leaf() const { return bits & IS_LEAF_MASK; }
-  __host__ __device__ bool is_categorical() const {
-    return bits & IS_CATEGORICAL_MASK;
-  }
-  __host__ __device__ base_node() : val({.f = 0}), bits(0){}
-  base_node(val_t output, float thresh, int fid, bool def_left, bool is_leaf,
-            bool is_categorical) {
-    ASSERT((fid & FID_MASK) == fid,
-           "internal error: feature ID doesn't fit into base_node");
-    bits = (fid & FID_MASK) | (def_left ? DEF_LEFT_MASK : 0) |
-           (is_leaf ? IS_LEAF_MASK : 0) |
+  __host__ __device__ bool is_categorical() const { return bits & IS_CATEGORICAL_MASK; }
+  __host__ __device__ base_node() : val({.f = 0}), bits(0) {}
+  base_node(val_t output, float thresh, int fid, bool def_left, bool is_leaf, bool is_categorical)
+  {
+    ASSERT((fid & FID_MASK) == fid, "internal error: feature ID doesn't fit into base_node");
+    bits = (fid & FID_MASK) | (def_left ? DEF_LEFT_MASK : 0) | (is_leaf ? IS_LEAF_MASK : 0) |
            (is_categorical && can_be_categorical ? IS_CATEGORICAL_MASK : 0);
     if (is_leaf)
       val = output;
     else
       val.f = thresh;
   }
-  __host__ __device__ void print() const {
+  __host__ __device__ void print() const
+  {
     const char* is[] = {"is NOT", "    IS"};
     printf("{.f = %9f, .idx = %11d} fid %10d, bits %x, def %s, %s leaf, %s categorical\n",
-      val.f, val.idx, fid(), bits, def_left() ? " left" : "right", is[is_leaf()],
-      is[is_categorical()]);
+           val.f,
+           val.idx,
+           fid(),
+           bits,
+           def_left() ? " left" : "right",
+           is[is_leaf()],
+           is[is_categorical()]);
   }
 };
 
 /** dense_node is a single node of a dense forest */
-//template <bool can_be_categorical>
+// template <bool can_be_categorical>
 struct alignas(8) dense_node : base_node<true> {
   dense_node() = default;
-  dense_node(val_t output, float thresh, int fid, bool def_left, bool is_leaf,
-             bool is_categorical)
-    : base_node<true>(output, thresh, fid, def_left, is_leaf, is_categorical) {}
+  dense_node(val_t output, float thresh, int fid, bool def_left, bool is_leaf, bool is_categorical)
+    : base_node<true>(output, thresh, fid, def_left, is_leaf, is_categorical)
+  {
+  }
   /** index of the left child, where curr is the index of the current node */
   __host__ __device__ int left(int curr) const { return 2 * curr + 1; }
 };
 
 /** sparse_node16 is a 16-byte node in a sparse forest */
-//template <bool can_be_categorical>
+// template <bool can_be_categorical>
 struct alignas(16) sparse_node16 : base_node<true> {
   int left_idx;
   int dummy;  // make alignment explicit and reserve for future use
   __host__ __device__ sparse_node16() : left_idx(0), dummy(0) {}
-  sparse_node16(val_t output, float thresh, int fid, bool def_left,
-                bool is_leaf, bool is_categorical, int left_index)
+  sparse_node16(val_t output,
+                float thresh,
+                int fid,
+                bool def_left,
+                bool is_leaf,
+                bool is_categorical,
+                int left_index)
     : base_node<true>(output, thresh, fid, def_left, is_leaf, is_categorical),
       left_idx(left_index),
-      dummy(0) {
+      dummy(0)
+  {
     ASSERT(!is_categorical, "who made this categorical?");
     ASSERT(is_categorical != base_node<true>::is_categorical(), "didn't save is_categorical right");
-      }
+  }
   __host__ __device__ int left_index() const { return left_idx; }
   /** index of the left child, where curr is the index of the current node */
   __host__ __device__ int left(int curr) const { return left_idx; }
 };
 
 /** sparse_node8 is a node of reduced size (8 bytes) in a sparse forest */
-//template <bool can_be_categorical>
+// template <bool can_be_categorical>
 struct alignas(8) sparse_node8 : base_node<true> {
   static const int LEFT_NUM_BITS = 16;
-  static const int FID_NUM_BITS = IS_CATEGORICAL_OFFSET - LEFT_NUM_BITS;
-  static const int LEFT_OFFSET = FID_NUM_BITS;
-  static const int FID_MASK = (1 << FID_NUM_BITS) - 1;
-  static const int LEFT_MASK = ((1 << LEFT_NUM_BITS) - 1) << LEFT_OFFSET;
+  static const int FID_NUM_BITS  = IS_CATEGORICAL_OFFSET - LEFT_NUM_BITS;
+  static const int LEFT_OFFSET   = FID_NUM_BITS;
+  static const int FID_MASK      = (1 << FID_NUM_BITS) - 1;
+  static const int LEFT_MASK     = ((1 << LEFT_NUM_BITS) - 1) << LEFT_OFFSET;
   __host__ __device__ int fid() const { return bits & FID_MASK; }
-  __host__ __device__ int left_index() const {
-    return (bits & LEFT_MASK) >> LEFT_OFFSET;
-  }
+  __host__ __device__ int left_index() const { return (bits & LEFT_MASK) >> LEFT_OFFSET; }
   sparse_node8() = default;
-  sparse_node8(val_t output, float thresh, int fid, bool def_left, bool is_leaf,
-               bool is_categorical, int left_index)
-    : base_node<true>(output, thresh, fid, def_left, is_leaf, is_categorical) {
+  sparse_node8(val_t output,
+               float thresh,
+               int fid,
+               bool def_left,
+               bool is_leaf,
+               bool is_categorical,
+               int left_index)
+    : base_node<true>(output, thresh, fid, def_left, is_leaf, is_categorical)
+  {
     bits |= left_index << LEFT_OFFSET;
     ASSERT(!is_categorical, "who made this categorical?");
     ASSERT(is_categorical != base_node<true>::is_categorical(), "didn't save is_categorical right");
-    ASSERT((fid & FID_MASK) == fid,
-           "internal error: feature ID doesn't fit into sparse_node8");
+    ASSERT((fid & FID_MASK) == fid, "internal error: feature ID doesn't fit into sparse_node8");
     ASSERT(((left_index << LEFT_OFFSET) & LEFT_MASK) == (left_index << LEFT_OFFSET),
            "internal error: left child index doesn't fit into sparse_node8");
   }
@@ -240,7 +256,8 @@ static const char* leaf_algo_t_repr[] = {"FLOAT_UNARY_BINARY",
                                          "VECTOR_LEAF"};
 
 template <leaf_algo_t leaf_algo>
-struct leaf_output_t {};
+struct leaf_output_t {
+};
 template <>
 struct leaf_output_t<leaf_algo_t::FLOAT_UNARY_BINARY> {
   typedef float T;
@@ -279,8 +296,8 @@ struct forest_params_t {
   algo_t algo;
   // output is the desired output type
   output_t output;
-  // threshold is used to for classification if leaf_algo == FLOAT_UNARY_BINARY && (output & OUTPUT_CLASS) != 0 && !predict_proba,
-  // and is ignored otherwise
+  // threshold is used to for classification if leaf_algo == FLOAT_UNARY_BINARY && (output &
+  // OUTPUT_CLASS) != 0 && !predict_proba, and is ignored otherwise
   float threshold;
   // global_bias is added to the sum of tree predictions
   // (after averaging, if it is used, but before any further transformations)
@@ -307,8 +324,8 @@ const int FIL_TPB = 256;
 struct categorical_branches {
   // set count is due to tree_idx + node_within_tree_idx are both ints, hence uint32_t result
   template <typename node_t>
-  __host__ __device__ __forceinline__ int get_child(const node_t& node,
-                                                    int node_idx, float val) {
+  __host__ __device__ __forceinline__ int get_child(const node_t& node, int node_idx, float val)
+  {
     bool cond;
     if (node.is_categorical()) {
       node.print();
@@ -340,7 +357,9 @@ struct categorical_branches {
  *  @param params pointer to parameters used to initialize the forest
  *  @param vector_leaf optional vector leaves
  */
-void init_dense(const raft::handle_t& h, forest_t* pf, const dense_node* nodes,
+void init_dense(const raft::handle_t& h,
+                forest_t* pf,
+                const dense_node* nodes,
                 const forest_params_t* params,
                 const std::vector<float>& vector_leaf,
                 const categorical_branches cat_branches);
@@ -357,8 +376,11 @@ void init_dense(const raft::handle_t& h, forest_t* pf, const dense_node* nodes,
  *  @param vector_leaf optional vector leaves
  */
 template <typename fil_node_t>
-void init_sparse(const raft::handle_t& h, forest_t* pf, const int* trees,
-                 const fil_node_t* nodes, const forest_params_t* params,
+void init_sparse(const raft::handle_t& h,
+                 forest_t* pf,
+                 const int* trees,
+                 const fil_node_t* nodes,
+                 const forest_params_t* params,
                  const std::vector<float>& vector_leaf,
                  const categorical_branches cat_branches);
 

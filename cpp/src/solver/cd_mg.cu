@@ -40,19 +40,28 @@ namespace CD {
 namespace opg {
 
 template <typename T>
-void fit_impl(raft::handle_t &handle,
-              std::vector<Matrix::Data<T> *> &input_data,
-              Matrix::PartDescriptor &input_desc,
-              std::vector<Matrix::Data<T> *> &labels, T *coef, T *intercept,
-              bool fit_intercept, bool normalize, int epochs, T alpha,
-              T l1_ratio, bool shuffle, T tol, cudaStream_t *streams,
-              int n_streams, bool verbose) {
-  const auto &comm = handle.get_comms();
+void fit_impl(raft::handle_t& handle,
+              std::vector<Matrix::Data<T>*>& input_data,
+              Matrix::PartDescriptor& input_desc,
+              std::vector<Matrix::Data<T>*>& labels,
+              T* coef,
+              T* intercept,
+              bool fit_intercept,
+              bool normalize,
+              int epochs,
+              T alpha,
+              T l1_ratio,
+              bool shuffle,
+              T tol,
+              cudaStream_t* streams,
+              int n_streams,
+              bool verbose)
+{
+  const auto& comm             = handle.get_comms();
   cublasHandle_t cublas_handle = handle.get_cublas_handle();
-  const auto allocator = handle.get_device_allocator();
+  const auto allocator         = handle.get_device_allocator();
 
-  std::vector<Matrix::RankSizePair *> partsToRanks =
-    input_desc.blocksOwnedBy(comm.get_rank());
+  std::vector<Matrix::RankSizePair*> partsToRanks = input_desc.blocksOwnedBy(comm.get_rank());
 
   size_t total_M = 0.0;
   for (int i = 0; i < partsToRanks.size(); i++) {
@@ -71,21 +80,27 @@ void fit_impl(raft::handle_t &handle,
   if (fit_intercept) {
     mu_input.resize(input_desc.N, streams[0]);
     mu_labels.resize(1, streams[0]);
-    if (normalize) {
-      norm2_input.resize(input_desc.N, streams[0]);
-    }
+    if (normalize) { norm2_input.resize(input_desc.N, streams[0]); }
 
-    GLM::opg::preProcessData(handle, input_data, input_desc, labels,
-                             mu_input.data(), mu_labels.data(),
-                             norm2_input.data(), fit_intercept, normalize,
-                             streams, n_streams, verbose);
+    GLM::opg::preProcessData(handle,
+                             input_data,
+                             input_desc,
+                             labels,
+                             mu_input.data(),
+                             mu_labels.data(),
+                             norm2_input.data(),
+                             fit_intercept,
+                             normalize,
+                             streams,
+                             n_streams,
+                             verbose);
   }
 
   std::vector<int> ri(input_desc.N);
   std::mt19937 g(rand());
 
   size_t memsize = input_desc.N * sizeof(int);
-  int *ri_h = (int *)malloc(memsize);
+  int* ri_h      = (int*)malloc(memsize);
   CUDA_CHECK(cudaHostRegister(ri_h, memsize, cudaHostRegisterDefault));
 
   if (comm.get_rank() == 0) {
@@ -99,37 +114,34 @@ void fit_impl(raft::handle_t &handle,
   comm.sync_stream(streams[0]);
 
   T l2_alpha = (1 - l1_ratio) * alpha * input_desc.M;
-  alpha = l1_ratio * alpha * input_desc.M;
+  alpha      = l1_ratio * alpha * input_desc.M;
 
   if (normalize) {
     T scalar = T(1.0) + l2_alpha;
-    raft::matrix::setValue(squared.data(), squared.data(), scalar, input_desc.N,
-                           streams[0]);
+    raft::matrix::setValue(squared.data(), squared.data(), scalar, input_desc.N, streams[0]);
   } else {
     Matrix::Data<T> squared_data{squared.data(), size_t(input_desc.N)};
-    LinAlg::opg::colNorm2NoSeq(handle, squared_data, input_data, input_desc,
-                               streams, n_streams);
-    raft::linalg::addScalar(squared.data(), squared.data(), l2_alpha,
-                            input_desc.N, streams[0]);
+    LinAlg::opg::colNorm2NoSeq(handle, squared_data, input_data, input_desc, streams, n_streams);
+    raft::linalg::addScalar(squared.data(), squared.data(), l2_alpha, input_desc.N, streams[0]);
   }
 
-  std::vector<Matrix::Data<T> *> input_data_temp;
+  std::vector<Matrix::Data<T>*> input_data_temp;
   Matrix::PartDescriptor input_desc_temp = input_desc;
-  input_desc_temp.N = size_t(1);
-  std::vector<Matrix::Data<T> *> residual_temp;
+  input_desc_temp.N                      = size_t(1);
+  std::vector<Matrix::Data<T>*> residual_temp;
   Matrix::Data<T> coef_loc_data;
 
-  T *rs = residual.data();
+  T* rs = residual.data();
   for (int i = 0; i < partsToRanks.size(); i++) {
     raft::copy(rs, labels[i]->ptr, partsToRanks[i]->size, streams[0]);
 
-    Matrix::Data<T> *rs_data = new Matrix::Data<T>();
-    rs_data->ptr = rs;
-    rs_data->totalSize = partsToRanks[i]->size;
+    Matrix::Data<T>* rs_data = new Matrix::Data<T>();
+    rs_data->ptr             = rs;
+    rs_data->totalSize       = partsToRanks[i]->size;
     residual_temp.push_back(rs_data);
 
-    Matrix::Data<T> *temp_data = new Matrix::Data<T>();
-    temp_data->totalSize = partsToRanks[i]->size;
+    Matrix::Data<T>* temp_data = new Matrix::Data<T>();
+    temp_data->totalSize       = partsToRanks[i]->size;
     input_data_temp.push_back(temp_data);
 
     rs += partsToRanks[i]->size;
@@ -148,32 +160,31 @@ void fit_impl(raft::handle_t &handle,
       comm.sync_stream(streams[0]);
     }
 
-    T coef_max = 0.0;
+    T coef_max   = 0.0;
     T d_coef_max = 0.0;
-    T coef_prev = 0.0;
+    T coef_prev  = 0.0;
 
     for (int j = 0; j < input_desc.N; j++) {
-      int ci = ri_h[j];
-      T *coef_loc = coef + ci;
-      T *squared_loc = squared.data() + ci;
-      T *input_col_loc;
-      T *pred_loc = pred.data();
-      T *residual_loc = residual.data();
+      int ci         = ri_h[j];
+      T* coef_loc    = coef + ci;
+      T* squared_loc = squared.data() + ci;
+      T* input_col_loc;
+      T* pred_loc     = pred.data();
+      T* residual_loc = residual.data();
 
       for (int k = 0; k < input_data.size(); k++) {
         input_col_loc = input_data[k]->ptr + (ci * partsToRanks[k]->size);
 
-        input_data_temp[k]->ptr = input_col_loc;
+        input_data_temp[k]->ptr       = input_col_loc;
         input_data_temp[k]->totalSize = partsToRanks[k]->size;
 
-        raft::linalg::multiplyScalar(pred_loc, input_col_loc, h_coef[ci],
-                                     partsToRanks[k]->size,
-                                     streams[k % n_streams]);
+        raft::linalg::multiplyScalar(
+          pred_loc, input_col_loc, h_coef[ci], partsToRanks[k]->size, streams[k % n_streams]);
 
-        raft::linalg::add(residual_loc, residual_loc, pred_loc,
-                          partsToRanks[k]->size, streams[k % n_streams]);
+        raft::linalg::add(
+          residual_loc, residual_loc, pred_loc, partsToRanks[k]->size, streams[k % n_streams]);
 
-        pred_loc = pred_loc + partsToRanks[k]->size;
+        pred_loc     = pred_loc + partsToRanks[k]->size;
         residual_loc = residual_loc + partsToRanks[k]->size;
       }
 
@@ -181,16 +192,14 @@ void fit_impl(raft::handle_t &handle,
         CUDA_CHECK(cudaStreamSynchronize(streams[k]));
       }
 
-      coef_loc_data.ptr = coef_loc;
+      coef_loc_data.ptr       = coef_loc;
       coef_loc_data.totalSize = size_t(1);
-      LinAlg::opg::mv_aTb(handle, coef_loc_data, input_data_temp,
-                          input_desc_temp, residual_temp, streams, n_streams);
+      LinAlg::opg::mv_aTb(
+        handle, coef_loc_data, input_data_temp, input_desc_temp, residual_temp, streams, n_streams);
 
-      if (l1_ratio > T(0.0))
-        Functions::softThres(coef_loc, coef_loc, alpha, 1, streams[0]);
+      if (l1_ratio > T(0.0)) Functions::softThres(coef_loc, coef_loc, alpha, 1, streams[0]);
 
-      raft::linalg::eltwiseDivideCheckZero(coef_loc, coef_loc, squared_loc, 1,
-                                           streams[0]);
+      raft::linalg::eltwiseDivideCheckZero(coef_loc, coef_loc, squared_loc, 1, streams[0]);
 
       coef_prev = h_coef[ci];
       raft::update_host(&(h_coef[ci]), coef_loc, 1, streams[0]);
@@ -202,20 +211,19 @@ void fit_impl(raft::handle_t &handle,
 
       if (abs(h_coef[ci]) > coef_max) coef_max = abs(h_coef[ci]);
 
-      pred_loc = pred.data();
+      pred_loc     = pred.data();
       residual_loc = residual.data();
 
       for (int k = 0; k < input_data.size(); k++) {
         input_col_loc = input_data[k]->ptr + (ci * partsToRanks[k]->size);
 
-        raft::linalg::multiplyScalar(pred_loc, input_col_loc, h_coef[ci],
-                                     partsToRanks[k]->size,
-                                     streams[k % n_streams]);
+        raft::linalg::multiplyScalar(
+          pred_loc, input_col_loc, h_coef[ci], partsToRanks[k]->size, streams[k % n_streams]);
 
-        raft::linalg::subtract(residual_loc, residual_loc, pred_loc,
-                               partsToRanks[k]->size, streams[k % n_streams]);
+        raft::linalg::subtract(
+          residual_loc, residual_loc, pred_loc, partsToRanks[k]->size, streams[k % n_streams]);
 
-        pred_loc = pred_loc + partsToRanks[k]->size;
+        pred_loc     = pred_loc + partsToRanks[k]->size;
         residual_loc = residual_loc + partsToRanks[k]->size;
       }
 
@@ -225,17 +233,11 @@ void fit_impl(raft::handle_t &handle,
     }
 
     bool flag_continue = true;
-    if (coef_max == T(0)) {
-      flag_continue = false;
-    }
+    if (coef_max == T(0)) { flag_continue = false; }
 
-    if ((d_coef_max / coef_max) < tol) {
-      flag_continue = false;
-    }
+    if ((d_coef_max / coef_max) < tol) { flag_continue = false; }
 
-    if (!flag_continue) {
-      break;
-    }
+    if (!flag_continue) { break; }
   }
 
   CUDA_CHECK(cudaHostUnregister(ri_h));
@@ -247,10 +249,20 @@ void fit_impl(raft::handle_t &handle,
   }
 
   if (fit_intercept) {
-    GLM::opg::postProcessData(handle, input_data, input_desc, labels, coef,
-                              intercept, mu_input.data(), mu_labels.data(),
-                              norm2_input.data(), fit_intercept, normalize,
-                              streams, n_streams, verbose);
+    GLM::opg::postProcessData(handle,
+                              input_data,
+                              input_desc,
+                              labels,
+                              coef,
+                              intercept,
+                              mu_input.data(),
+                              mu_labels.data(),
+                              norm2_input.data(),
+                              fit_intercept,
+                              normalize,
+                              streams,
+                              n_streams,
+                              verbose);
   } else {
     *intercept = T(0);
   }
@@ -270,12 +282,21 @@ void fit_impl(raft::handle_t &handle,
  * @input param verbose
  */
 template <typename T>
-void fit_impl(raft::handle_t &handle,
-              std::vector<Matrix::Data<T> *> &input_data,
-              Matrix::PartDescriptor &input_desc,
-              std::vector<Matrix::Data<T> *> &labels, T *coef, T *intercept,
-              bool fit_intercept, bool normalize, int epochs, T alpha,
-              T l1_ratio, bool shuffle, T tol, bool verbose) {
+void fit_impl(raft::handle_t& handle,
+              std::vector<Matrix::Data<T>*>& input_data,
+              Matrix::PartDescriptor& input_desc,
+              std::vector<Matrix::Data<T>*>& labels,
+              T* coef,
+              T* intercept,
+              bool fit_intercept,
+              bool normalize,
+              int epochs,
+              T alpha,
+              T l1_ratio,
+              bool shuffle,
+              T tol,
+              bool verbose)
+{
   int rank = handle.get_comms().get_rank();
 
   // TODO: These streams should come from raft::handle_t
@@ -288,9 +309,22 @@ void fit_impl(raft::handle_t &handle,
     CUDA_CHECK(cudaStreamCreate(&streams[i]));
   }
 
-  fit_impl(handle, input_data, input_desc, labels, coef, intercept,
-           fit_intercept, normalize, epochs, alpha, l1_ratio, shuffle, tol,
-           streams, n_streams, verbose);
+  fit_impl(handle,
+           input_data,
+           input_desc,
+           labels,
+           coef,
+           intercept,
+           fit_intercept,
+           normalize,
+           epochs,
+           alpha,
+           l1_ratio,
+           shuffle,
+           tol,
+           streams,
+           n_streams,
+           verbose);
 
   for (int i = 0; i < n_streams; i++) {
     CUDA_CHECK(cudaStreamSynchronize(streams[i]));
@@ -302,39 +336,59 @@ void fit_impl(raft::handle_t &handle,
 }
 
 template <typename T>
-void predict_impl(raft::handle_t &handle,
-                  std::vector<Matrix::Data<T> *> &input_data,
-                  Matrix::PartDescriptor &input_desc, T *coef, T intercept,
-                  std::vector<Matrix::Data<T> *> &preds, cudaStream_t *streams,
-                  int n_streams, bool verbose) {
-  std::vector<Matrix::RankSizePair *> local_blocks = input_desc.partsToRanks;
-  T alpha = T(1);
-  T beta = T(0);
+void predict_impl(raft::handle_t& handle,
+                  std::vector<Matrix::Data<T>*>& input_data,
+                  Matrix::PartDescriptor& input_desc,
+                  T* coef,
+                  T intercept,
+                  std::vector<Matrix::Data<T>*>& preds,
+                  cudaStream_t* streams,
+                  int n_streams,
+                  bool verbose)
+{
+  std::vector<Matrix::RankSizePair*> local_blocks = input_desc.partsToRanks;
+  T alpha                                         = T(1);
+  T beta                                          = T(0);
 
   for (int i = 0; i < input_data.size(); i++) {
     int si = i % n_streams;
-    raft::linalg::gemm(handle, input_data[i]->ptr, local_blocks[i]->size,
-                       input_desc.N, coef, preds[i]->ptr, local_blocks[i]->size,
-                       size_t(1), CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta,
+    raft::linalg::gemm(handle,
+                       input_data[i]->ptr,
+                       local_blocks[i]->size,
+                       input_desc.N,
+                       coef,
+                       preds[i]->ptr,
+                       local_blocks[i]->size,
+                       size_t(1),
+                       CUBLAS_OP_N,
+                       CUBLAS_OP_N,
+                       alpha,
+                       beta,
                        streams[si]);
 
-    raft::linalg::addScalar(preds[i]->ptr, preds[i]->ptr, intercept,
-                            local_blocks[i]->size, streams[si]);
+    raft::linalg::addScalar(
+      preds[i]->ptr, preds[i]->ptr, intercept, local_blocks[i]->size, streams[si]);
   }
 }
 
 template <typename T>
-void predict_impl(raft::handle_t &handle, Matrix::RankSizePair **rank_sizes,
-                  size_t n_parts, Matrix::Data<T> **input, size_t n_rows,
-                  size_t n_cols, T *coef, T intercept, Matrix::Data<T> **preds,
-                  bool verbose) {
+void predict_impl(raft::handle_t& handle,
+                  Matrix::RankSizePair** rank_sizes,
+                  size_t n_parts,
+                  Matrix::Data<T>** input,
+                  size_t n_rows,
+                  size_t n_cols,
+                  T* coef,
+                  T intercept,
+                  Matrix::Data<T>** preds,
+                  bool verbose)
+{
   int rank = handle.get_comms().get_rank();
 
-  std::vector<Matrix::RankSizePair *> ranksAndSizes(rank_sizes,
-                                                    rank_sizes + n_parts);
-  std::vector<Matrix::Data<T> *> input_data(input, input + n_parts);
+  std::vector<Matrix::RankSizePair*> ranksAndSizes(rank_sizes, rank_sizes + n_parts);
+  std::vector<Matrix::Data<T>*> input_data(input, input + n_parts);
   Matrix::PartDescriptor input_desc(n_rows, n_cols, ranksAndSizes, rank);
-  std::vector<Matrix::Data<T> *> preds_data(preds, preds + n_parts);
+  std::vector<Matrix::Data<T>*> preds_data(preds, preds + n_parts);
 
   // TODO: These streams should come from raft::handle_t
   // Tracking issue: https://github.com/rapidsai/cuml/issues/2470
@@ -344,8 +398,8 @@ void predict_impl(raft::handle_t &handle, Matrix::RankSizePair **rank_sizes,
     CUDA_CHECK(cudaStreamCreate(&streams[i]));
   }
 
-  predict_impl(handle, input_data, input_desc, coef, intercept, preds_data,
-               streams, n_streams, verbose);
+  predict_impl(
+    handle, input_data, input_desc, coef, intercept, preds_data, streams, n_streams, verbose);
 
   for (int i = 0; i < n_streams; i++) {
     CUDA_CHECK(cudaStreamSynchronize(streams[i]));
@@ -356,42 +410,94 @@ void predict_impl(raft::handle_t &handle, Matrix::RankSizePair **rank_sizes,
   }
 }
 
-void fit(raft::handle_t &handle, std::vector<Matrix::Data<float> *> &input_data,
-         Matrix::PartDescriptor &input_desc,
-         std::vector<Matrix::Data<float> *> &labels, float *coef,
-         float *intercept, bool fit_intercept, bool normalize, int epochs,
-         float alpha, float l1_ratio, bool shuffle, float tol, bool verbose) {
-  fit_impl(handle, input_data, input_desc, labels, coef, intercept,
-           fit_intercept, normalize, epochs, alpha, l1_ratio, shuffle, tol,
+void fit(raft::handle_t& handle,
+         std::vector<Matrix::Data<float>*>& input_data,
+         Matrix::PartDescriptor& input_desc,
+         std::vector<Matrix::Data<float>*>& labels,
+         float* coef,
+         float* intercept,
+         bool fit_intercept,
+         bool normalize,
+         int epochs,
+         float alpha,
+         float l1_ratio,
+         bool shuffle,
+         float tol,
+         bool verbose)
+{
+  fit_impl(handle,
+           input_data,
+           input_desc,
+           labels,
+           coef,
+           intercept,
+           fit_intercept,
+           normalize,
+           epochs,
+           alpha,
+           l1_ratio,
+           shuffle,
+           tol,
            verbose);
 }
 
-void fit(raft::handle_t &handle,
-         std::vector<Matrix::Data<double> *> &input_data,
-         Matrix::PartDescriptor &input_desc,
-         std::vector<Matrix::Data<double> *> &labels, double *coef,
-         double *intercept, bool fit_intercept, bool normalize, int epochs,
-         double alpha, double l1_ratio, bool shuffle, double tol,
-         bool verbose) {
-  fit_impl(handle, input_data, input_desc, labels, coef, intercept,
-           fit_intercept, normalize, epochs, alpha, l1_ratio, shuffle, tol,
+void fit(raft::handle_t& handle,
+         std::vector<Matrix::Data<double>*>& input_data,
+         Matrix::PartDescriptor& input_desc,
+         std::vector<Matrix::Data<double>*>& labels,
+         double* coef,
+         double* intercept,
+         bool fit_intercept,
+         bool normalize,
+         int epochs,
+         double alpha,
+         double l1_ratio,
+         bool shuffle,
+         double tol,
+         bool verbose)
+{
+  fit_impl(handle,
+           input_data,
+           input_desc,
+           labels,
+           coef,
+           intercept,
+           fit_intercept,
+           normalize,
+           epochs,
+           alpha,
+           l1_ratio,
+           shuffle,
+           tol,
            verbose);
 }
 
-void predict(raft::handle_t &handle, Matrix::RankSizePair **rank_sizes,
-             size_t n_parts, Matrix::Data<float> **input, size_t n_rows,
-             size_t n_cols, float *coef, float intercept,
-             Matrix::Data<float> **preds, bool verbose) {
-  predict_impl(handle, rank_sizes, n_parts, input, n_rows, n_cols, coef,
-               intercept, preds, verbose);
+void predict(raft::handle_t& handle,
+             Matrix::RankSizePair** rank_sizes,
+             size_t n_parts,
+             Matrix::Data<float>** input,
+             size_t n_rows,
+             size_t n_cols,
+             float* coef,
+             float intercept,
+             Matrix::Data<float>** preds,
+             bool verbose)
+{
+  predict_impl(handle, rank_sizes, n_parts, input, n_rows, n_cols, coef, intercept, preds, verbose);
 }
 
-void predict(raft::handle_t &handle, Matrix::RankSizePair **rank_sizes,
-             size_t n_parts, Matrix::Data<double> **input, size_t n_rows,
-             size_t n_cols, double *coef, double intercept,
-             Matrix::Data<double> **preds, bool verbose) {
-  predict_impl(handle, rank_sizes, n_parts, input, n_rows, n_cols, coef,
-               intercept, preds, verbose);
+void predict(raft::handle_t& handle,
+             Matrix::RankSizePair** rank_sizes,
+             size_t n_parts,
+             Matrix::Data<double>** input,
+             size_t n_rows,
+             size_t n_cols,
+             double* coef,
+             double intercept,
+             Matrix::Data<double>** preds,
+             bool verbose)
+{
+  predict_impl(handle, rank_sizes, n_parts, input, n_rows, n_cols, coef, intercept, preds, verbose);
 }
 
 }  // namespace opg

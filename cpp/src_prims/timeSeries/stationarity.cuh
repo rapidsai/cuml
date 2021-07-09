@@ -15,13 +15,13 @@
  */
 
 /**
-* @file stationarity.cuh
-* @brief Test a batched times series for stationarity
-* Reference: 'Testing the null hypothesis of stationarity against the
-* alternative of a unit root', Kwiatkowski et al. 1992.
-* See https://www.statsmodels.org/dev/_modules/statsmodels/tsa/stattools.html#kpss
-* for additional details.
-*/
+ * @file stationarity.cuh
+ * @brief Test a batched times series for stationarity
+ * Reference: 'Testing the null hypothesis of stationarity against the
+ * alternative of a unit root', Kwiatkowski et al. 1992.
+ * See https://www.statsmodels.org/dev/_modules/statsmodels/tsa/stattools.html#kpss
+ * for additional details.
+ */
 
 #pragma once
 
@@ -47,15 +47,16 @@ namespace MLCommon {
 namespace TimeSeries {
 
 /**
-* @brief Auxiliary function to decide the block dimensions
-*
-* @tparam     TPB        Threads per block
-* @tparam     IdxT       Integer type of the indices
-* @param[in]  batch_size Number of batches in the input data
-* @return                The block dimensions
-*/
+ * @brief Auxiliary function to decide the block dimensions
+ *
+ * @tparam     TPB        Threads per block
+ * @tparam     IdxT       Integer type of the indices
+ * @param[in]  batch_size Number of batches in the input data
+ * @return                The block dimensions
+ */
 template <int TPB, typename IdxT>
-static inline dim3 choose_block_dims(IdxT batch_size) {
+static inline dim3 choose_block_dims(IdxT batch_size)
+{
   uint tpb_y = batch_size > 8 ? 4 : 1;
   dim3 block(TPB / tpb_y, tpb_y);
   return block;
@@ -63,18 +64,18 @@ static inline dim3 choose_block_dims(IdxT batch_size) {
 
 /**
  * @brief Auxiliary kernel for the computation of s2 (Kwiatkowski 1992 eq.10)
- * 
+ *
  * @details The kernel computes partial sums for the term of equation 10.
  *          A reduction is performed to get the full sum.
  *          If y is a series and z the accumulator, this kernel computes:
  *          z[t] = w(k) * sum from k=1 to lags of y[t]*y[t+k]
  *          padded with zeros and where w(k)=2/ns*(1-k/(lags+1))
- * 
+ *
  * @note The accumulator has one extra element per series, which avoids some
  *       index calculations and it has the right size anyway since it is
  *       recycled for another operation.
  *       Performance note: this kernel could use shared memory
- * 
+ *
  * @tparam      DataT        Scalar type of the data (float or double)
  * @tparam      IdxT         Integer type of the indices
  * @param[out]  accumulator  Output matrix that holds the partial sums
@@ -84,20 +85,24 @@ static inline dim3 choose_block_dims(IdxT batch_size) {
  * @param[in]   n_obs        Number of rows in the data
  * @param[in]   coeff_a      Part of the calculation for w(k)=a*k+b
  * @param[in]   coeff_b      Part of the calculation for w(k)=a*k+b
-*/
+ */
 template <typename DataT, typename IdxT>
 static __global__ void s2B_accumulation_kernel(DataT* accumulator,
-                                               const DataT* data, IdxT lags,
-                                               IdxT batch_size, IdxT n_obs,
-                                               DataT coeff_a, DataT coeff_b) {
+                                               const DataT* data,
+                                               IdxT lags,
+                                               IdxT batch_size,
+                                               IdxT n_obs,
+                                               DataT coeff_a,
+                                               DataT coeff_b)
+{
   IdxT sample_idx = blockIdx.x * blockDim.x + threadIdx.x;
-  IdxT batch_idx = blockIdx.y * blockDim.y + threadIdx.y;
+  IdxT batch_idx  = blockIdx.y * blockDim.y + threadIdx.y;
 
   if (sample_idx < n_obs && batch_idx < batch_size) {
-    IdxT idx = batch_idx * n_obs + sample_idx;
+    IdxT idx         = batch_idx * n_obs + sample_idx;
     accumulator[idx] = static_cast<DataT>(0.0);
     for (IdxT k = 1; k <= lags && sample_idx < n_obs - k; k++) {
-      DataT dp = data[idx] * data[idx + k];
+      DataT dp    = data[idx] * data[idx + k];
       DataT coeff = coeff_a * static_cast<DataT>(k) + coeff_b;
       accumulator[idx] += coeff * dp;
     }
@@ -106,7 +111,7 @@ static __global__ void s2B_accumulation_kernel(DataT* accumulator,
 
 /**
  * @brief Kernel to decide whether the series are stationary or not
- * 
+ *
  * @details The kernel uses the results of the different equations to
  *          make the final decision for each series.
  *
@@ -120,14 +125,19 @@ static __global__ void s2B_accumulation_kernel(DataT* accumulator,
  * @param[in]   n_obs_f         Number of samples (floating-point number)
  * @param[in]   pval_threshold  P-value threshold above which the series is
  *                              considered stationary
-*/
+ */
 template <typename DataT, typename IdxT>
-static __global__ void kpss_stationarity_check_kernel(
-  bool* results, const DataT* s2A, const DataT* s2B, const DataT* eta,
-  IdxT batch_size, DataT n_obs_f, DataT pval_threshold) {
+static __global__ void kpss_stationarity_check_kernel(bool* results,
+                                                      const DataT* s2A,
+                                                      const DataT* s2B,
+                                                      const DataT* eta,
+                                                      IdxT batch_size,
+                                                      DataT n_obs_f,
+                                                      DataT pval_threshold)
+{
   // Table 1, Kwiatkowski 1992
   const DataT crit_vals[4] = {0.347, 0.463, 0.574, 0.739};
-  const DataT pvals[4] = {0.10, 0.05, 0.025, 0.01};
+  const DataT pvals[4]     = {0.10, 0.05, 0.025, 0.01};
 
   IdxT i = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -146,14 +156,11 @@ static __global__ void kpss_stationarity_check_kernel(
 #pragma unroll
     for (IdxT k = 0; k < 3; k++) {
       if (kpss_stat >= crit_vals[k] && kpss_stat < crit_vals[k + 1]) {
-        pvalue = pvals[k] + (pvals[k + 1] - pvals[k]) *
-                              (kpss_stat - crit_vals[k]) /
+        pvalue = pvals[k] + (pvals[k + 1] - pvals[k]) * (kpss_stat - crit_vals[k]) /
                               (crit_vals[k + 1] - crit_vals[k]);
       }
     }
-    if (kpss_stat >= crit_vals[3]) {
-      pvalue = pvals[3];
-    }
+    if (kpss_stat >= crit_vals[3]) { pvalue = pvals[3]; }
 
     // A higher pvalue means a higher chance that the data is stationary
     results[i] = (pvalue > pval_threshold);
@@ -168,14 +175,12 @@ template <typename IdxT>
 struct which_col : thrust::unary_function<IdxT, IdxT> {
   IdxT col_length;
   __host__ __device__ which_col(IdxT col_length_) : col_length(col_length_) {}
-  __host__ __device__ IdxT operator()(IdxT idx) const {
-    return idx / col_length;
-  }
+  __host__ __device__ IdxT operator()(IdxT idx) const { return idx / col_length; }
 };
 
 /**
  * @brief Applies the KPSS stationarity test to the differenced series
- * 
+ *
  * @details The following algorithm is based on Kwiatkowski 1992:
  *          - Center each series around its mean
  *          - Calculate s^2 (eq. 10) and eta (eq. 11)
@@ -190,40 +195,57 @@ struct which_col : thrust::unary_function<IdxT, IdxT> {
  * @param[in]   allocator       cuML device memory allocator
  * @param[in]   stream          CUDA stream
  * @param[in]   pval_threshold  P-value threshold above which a series is
- *                              considered stationary 
+ *                              considered stationary
  */
 template <typename DataT, typename IdxT>
-static void _kpss_test(const DataT* d_y, bool* results, IdxT batch_size,
+static void _kpss_test(const DataT* d_y,
+                       bool* results,
+                       IdxT batch_size,
                        IdxT n_obs,
                        std::shared_ptr<raft::mr::device::allocator> allocator,
-                       cudaStream_t stream, DataT pval_threshold) {
+                       cudaStream_t stream,
+                       DataT pval_threshold)
+{
   constexpr int TPB = 256;
-  dim3 block = choose_block_dims<TPB>(batch_size);
-  dim3 grid(raft::ceildiv<IdxT>(n_obs, block.x),
-            raft::ceildiv<IdxT>(batch_size, block.y));
+  dim3 block        = choose_block_dims<TPB>(batch_size);
+  dim3 grid(raft::ceildiv<IdxT>(n_obs, block.x), raft::ceildiv<IdxT>(batch_size, block.y));
 
   DataT n_obs_f = static_cast<DataT>(n_obs);
 
   // Compute mean
   device_buffer<DataT> y_means(allocator, stream, batch_size);
-  raft::stats::mean(y_means.data(), d_y, batch_size, n_obs, false, false,
-                    stream);
+  raft::stats::mean(y_means.data(), d_y, batch_size, n_obs, false, false, stream);
 
   // Center the data around its mean
   device_buffer<DataT> y_cent(allocator, stream, batch_size * n_obs);
   raft::linalg::matrixVectorOp(
-    y_cent.data(), d_y, y_means.data(), batch_size, n_obs, false, true,
-    [] __device__(DataT a, DataT b) { return a - b; }, stream);
+    y_cent.data(),
+    d_y,
+    y_means.data(),
+    batch_size,
+    n_obs,
+    false,
+    true,
+    [] __device__(DataT a, DataT b) { return a - b; },
+    stream);
 
   // This calculates the first sum in eq. 10 (first part of s^2)
   device_buffer<DataT> s2A(allocator, stream, batch_size);
-  raft::linalg::reduce(s2A.data(), y_cent.data(), batch_size, n_obs,
-                       static_cast<DataT>(0.0), false, false, stream, false,
-                       raft::L2Op<DataT>(), raft::Sum<DataT>());
+  raft::linalg::reduce(s2A.data(),
+                       y_cent.data(),
+                       batch_size,
+                       n_obs,
+                       static_cast<DataT>(0.0),
+                       false,
+                       false,
+                       stream,
+                       false,
+                       raft::L2Op<DataT>(),
+                       raft::Sum<DataT>());
 
   // From Kwiatkowski et al. referencing Schwert (1989)
   DataT lags_f = ceil(12.0 * pow(n_obs_f / 100.0, 0.25));
-  IdxT lags = static_cast<IdxT>(lags_f);
+  IdxT lags    = static_cast<IdxT>(lags_f);
 
   /* This accumulator will be used for both the calculation of s2B, and later
    * the cumulative sum or y centered */
@@ -232,40 +254,60 @@ static void _kpss_test(const DataT* d_y, bool* results, IdxT batch_size,
   // This calculates the second sum in eq. 10 (second part of s^2)
   DataT coeff_base = static_cast<DataT>(2.0) / n_obs_f;
   s2B_accumulation_kernel<<<grid, block, 0, stream>>>(
-    accumulator.data(), y_cent.data(), lags, batch_size, n_obs,
-    -coeff_base / (lags_f + static_cast<DataT>(1.0)), coeff_base);
+    accumulator.data(),
+    y_cent.data(),
+    lags,
+    batch_size,
+    n_obs,
+    -coeff_base / (lags_f + static_cast<DataT>(1.0)),
+    coeff_base);
   CUDA_CHECK(cudaPeekAtLastError());
   device_buffer<DataT> s2B(allocator, stream, batch_size);
-  raft::linalg::reduce(s2B.data(), accumulator.data(), batch_size, n_obs,
-                       static_cast<DataT>(0.0), false, false, stream, false);
+  raft::linalg::reduce(s2B.data(),
+                       accumulator.data(),
+                       batch_size,
+                       n_obs,
+                       static_cast<DataT>(0.0),
+                       false,
+                       false,
+                       stream,
+                       false);
 
   // Cumulative sum (inclusive scan with + operator)
   thrust::counting_iterator<IdxT> c_first(0);
-  thrust::transform_iterator<which_col<IdxT>, thrust::counting_iterator<IdxT>>
-    t_first(c_first, which_col<IdxT>(n_obs));
-  thrust::inclusive_scan_by_key(thrust::cuda::par.on(stream), t_first,
-                                t_first + batch_size * n_obs, y_cent.data(),
+  thrust::transform_iterator<which_col<IdxT>, thrust::counting_iterator<IdxT>> t_first(
+    c_first, which_col<IdxT>(n_obs));
+  thrust::inclusive_scan_by_key(thrust::cuda::par.on(stream),
+                                t_first,
+                                t_first + batch_size * n_obs,
+                                y_cent.data(),
                                 accumulator.data());
 
   // Eq. 11 (eta)
   device_buffer<DataT> eta(allocator, stream, batch_size);
-  raft::linalg::reduce(eta.data(), accumulator.data(), batch_size, n_obs,
-                       static_cast<DataT>(0.0), false, false, stream, false,
-                       raft::L2Op<DataT>(), raft::Sum<DataT>());
+  raft::linalg::reduce(eta.data(),
+                       accumulator.data(),
+                       batch_size,
+                       n_obs,
+                       static_cast<DataT>(0.0),
+                       false,
+                       false,
+                       stream,
+                       false,
+                       raft::L2Op<DataT>(),
+                       raft::Sum<DataT>());
 
   /* The following kernel will decide whether each series is stationary based on
    * s^2 and eta */
-  kpss_stationarity_check_kernel<<<raft::ceildiv<int>(batch_size, TPB), TPB, 0,
-                                   stream>>>(results, s2A.data(), s2B.data(),
-                                             eta.data(), batch_size, n_obs_f,
-                                             pval_threshold);
+  kpss_stationarity_check_kernel<<<raft::ceildiv<int>(batch_size, TPB), TPB, 0, stream>>>(
+    results, s2A.data(), s2B.data(), eta.data(), batch_size, n_obs_f, pval_threshold);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
 /**
  * @brief Perform the KPSS stationarity test on the data differenced according
  *        to the given order
- * 
+ *
  * @tparam      DataT           Scalar type of the data (float or double)
  * @tparam      IdxT            Integer type of the indices
  * @param[in]   d_y             Input data
@@ -281,10 +323,17 @@ static void _kpss_test(const DataT* d_y, bool* results, IdxT batch_size,
  *                              considered stationary
  */
 template <typename DataT, typename IdxT>
-void kpss_test(const DataT* d_y, bool* results, IdxT batch_size, IdxT n_obs,
-               int d, int D, int s,
+void kpss_test(const DataT* d_y,
+               bool* results,
+               IdxT batch_size,
+               IdxT n_obs,
+               int d,
+               int D,
+               int s,
                std::shared_ptr<raft::mr::device::allocator> allocator,
-               cudaStream_t stream, DataT pval_threshold = 0.05) {
+               cudaStream_t stream,
+               DataT pval_threshold = 0.05)
+{
   const DataT* d_y_diff;
 
   int n_obs_diff = n_obs - d - s * D;
@@ -300,9 +349,8 @@ void kpss_test(const DataT* d_y, bool* results, IdxT batch_size, IdxT n_obs,
   }
 
   // KPSS test
-  _kpss_test(d_y_diff, results, batch_size, n_obs_diff, allocator, stream,
-             pval_threshold);
+  _kpss_test(d_y_diff, results, batch_size, n_obs_diff, allocator, stream, pval_threshold);
 }
 
-};  //end namespace TimeSeries
-};  //end namespace MLCommon
+};  // end namespace TimeSeries
+};  // end namespace MLCommon
