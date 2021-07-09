@@ -589,9 +589,9 @@ class ARIMA(Base):
                              " the data and the prediction")
         elif end <= start:
             raise ValueError("ERROR(`predict`): end <= start")
-        elif start < order.d + order.D * order.s:
-            logger.warn("WARNING(`predict`): predictions before {} are"
-                        " undefined, will be set to NaN"
+        elif self.simple_differencing and start < order.d + order.D * order.s:
+            logger.warn("Predictions before {} are undefined when using"
+                        " simple_differencing=True, will be set to NaN"
                         .format(order.d + order.D * order.s))
 
         if level is not None:

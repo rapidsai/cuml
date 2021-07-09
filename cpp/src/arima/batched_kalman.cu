@@ -138,60 +138,70 @@ __global__ void batched_kalman_loop_kernel(
     int n_obs_ll = 0;
     const double* b_ys = ys + bid * nobs;
     double* b_pred = d_pred + bid * nobs;
-
     double mu = intercept ? d_mu[bid] : 0.0;
 
     for (int it = 0; it < nobs; it++) {
       double _Fs, vs_it;
+      bool missing;
       {
         // 1. v = y - Z*alpha
-        double pred = 0.0;
+        double pred;
         if (n_diff == 0)
-          pred += l_alpha[0];
+          pred = l_alpha[0];
         else {
+          pred = 0.0;
           for (int i = 0; i < rd; i++) {
             pred += l_alpha[i] * l_Z[i];
           }
         }
         b_pred[it] = pred;
-        vs_it = b_ys[it] - pred;
+        double yt = b_ys[it];
+        missing = isnan(yt);
 
-        // 2. F = Z*P*Z'
-        if (n_diff == 0)
-          _Fs = l_P[0];
-        else {
-          _Fs = 0.0;
-          for (int i = 0; i < rd; i++) {
-            for (int j = 0; j < rd; j++) {
-              _Fs += l_P[j * rd + i] * l_Z[i] * l_Z[j];
+        if (!missing) {
+          vs_it = yt - pred;
+
+          // 2. F = Z*P*Z'
+          if (n_diff == 0)
+            _Fs = l_P[0];
+          else {
+            _Fs = 0.0;
+            for (int i = 0; i < rd; i++) {
+              for (int j = 0; j < rd; j++) {
+                _Fs += l_P[j * rd + i] * l_Z[i] * l_Z[j];
+              }
             }
           }
-        }
-        if (it >= n_diff) {
-          b_sum_logFs += log(_Fs);
-          b_ll_s2 += vs_it * vs_it / _Fs;
-          n_obs_ll++;
+
+          if (it >= n_diff) {
+            b_sum_logFs += log(_Fs);
+            b_ll_s2 += vs_it * vs_it / _Fs;
+            n_obs_ll++;
+          }
         }
       }
 
       // 3. K = 1/Fs[it] * T*P*Z'
       // TP = T*P
       MM_l<rd>(l_T, l_P, l_TP);
-      // K = 1/Fs[it] * TP*Z'
-      double _1_Fs = 1.0 / _Fs;
-      if (n_diff == 0) {
-        for (int i = 0; i < rd; i++) {
-          l_K[i] = _1_Fs * l_TP[i];
+      if (!missing) {
+        // K = 1/Fs[it] * TP*Z'
+        double _1_Fs = 1.0 / _Fs;
+        if (n_diff == 0) {
+          for (int i = 0; i < rd; i++) {
+            l_K[i] = _1_Fs * l_TP[i];
+          }
+        } else {
+          Mv_l<rd>(_1_Fs, l_TP, l_Z, l_K);
         }
-      } else
-        Mv_l<rd>(_1_Fs, l_TP, l_Z, l_K);
+      }
 
       // 4. alpha = T*alpha + K*vs[it] + c
       // tmp = T*alpha
       Mv_l<rd>(l_T, l_alpha, l_tmp);
       // alpha = tmp + K*vs[it]
       for (int i = 0; i < rd; i++) {
-        l_alpha[i] = l_tmp[i] + l_K[i] * vs_it;
+        l_alpha[i] = l_tmp[i] + (missing ? 0.0 : l_K[i] * vs_it);
       }
       // alpha = alpha + c
       l_alpha[n_diff] += mu;
@@ -201,15 +211,17 @@ __global__ void batched_kalman_loop_kernel(
       for (int i = 0; i < rd2; i++) {
         l_tmp[i] = l_T[i];
       }
-      // L = L - K * Z
-      if (n_diff == 0) {
-        for (int i = 0; i < rd; i++) {
-          l_tmp[i] -= l_K[i];
-        }
-      } else {
-        for (int i = 0; i < rd; i++) {
-          for (int j = 0; j < rd; j++) {
-            l_tmp[j * rd + i] -= l_K[i] * l_Z[j];
+      if (!missing) {
+        // L = L - K * Z
+        if (n_diff == 0) {
+          for (int i = 0; i < rd; i++) {
+            l_tmp[i] -= l_K[i];
+          }
+        } else {
+          for (int i = 0; i < rd; i++) {
+            for (int j = 0; j < rd; j++) {
+              l_tmp[j * rd + i] -= l_K[i] * l_Z[j];
+            }
           }
         }
       }
