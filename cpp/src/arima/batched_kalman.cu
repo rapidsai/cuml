@@ -353,37 +353,62 @@ __global__ void _batched_kalman_device_loop_large_kernel(
     double sum_logFs = 0.0;
     double ll_s2 = 0.0;
     int n_obs_ll = 0;
+    int it;
+
+    /* Skip missing observations at the start */
+    {
+      double pred0;
+      if (n_diff == 0) {
+        pred0 = shared_alpha[0];
+      } else {
+        pred0 = 0.0;
+        pred0 += MLCommon::LinAlg::_block_dot<GemmPolicy::BlockSize, true>(
+          rd, shared_Z, shared_alpha, shared_mem.reduction_storage);
+        __syncthreads();  // necessary to reuse shared memory
+      }
+
+      for (it = 0; it < n_obs && isnan(d_ys[bid * n_obs + it]); it++) {
+        if (threadIdx.x == 0) d_pred[bid * n_obs + it] = pred0;
+      }
+    }
 
     /* Kalman loop */
-    for (int it = 0; it < n_obs; it++) {
+    for (; it < n_obs; it++) {
       double vt, _F;
+      bool missing;
       {
         // 1. pred = Z*alpha
         //    v = y - pred
-        double pred = 0;
+        double pred;
         if (n_diff == 0) {
-          pred += shared_alpha[0];
+          pred = shared_alpha[0];
         } else {
+          pred = 0.0;
           pred += MLCommon::LinAlg::_block_dot<GemmPolicy::BlockSize, true>(
             rd, shared_Z, shared_alpha, shared_mem.reduction_storage);
           __syncthreads();  // necessary to reuse shared memory
         }
-        vt = d_ys[bid * n_obs + it] - pred;
+        double yt = d_ys[bid * n_obs + it];
+        missing = isnan(yt);
 
-        // 2. F = Z*P*Z'
-        if (n_diff == 0) {
-          _F = (d_P + bid * rd2)[0];
-        } else {
-          _F =
-            MLCommon::LinAlg::_block_xAxt<GemmPolicy::BlockSize, true, false>(
-              rd, shared_Z, d_P + bid * rd2, shared_mem.reduction_storage);
-          __syncthreads();  // necessary to reuse shared memory
+        if (!missing) {
+          vt = yt - pred;
+
+          // 2. F = Z*P*Z'
+          if (n_diff == 0) {
+            _F = (d_P + bid * rd2)[0];
+          } else {
+            _F =
+              MLCommon::LinAlg::_block_xAxt<GemmPolicy::BlockSize, true, false>(
+                rd, shared_Z, d_P + bid * rd2, shared_mem.reduction_storage);
+            __syncthreads();  // necessary to reuse shared memory
+          }
         }
 
         if (threadIdx.x == 0) {
           d_pred[bid * n_obs + it] = pred;
 
-          if (it >= n_diff) {
+          if (it >= n_diff && !missing) {
             sum_logFs += log(_F);
             ll_s2 += vt * vt / _F;
             n_obs_ll++;
@@ -397,14 +422,16 @@ __global__ void _batched_kalman_device_loop_large_kernel(
         false, false, rd, rd, rd, 1.0, d_T + bid * rd2, d_P + bid * rd2,
         d_TP + bid * rd2, shared_mem.gemm_storage);
       __syncthreads();  // for consistency of TP
-      // K = 1/Fs[it] * TP*Z'
-      double _1_Fs = 1.0 / _F;
-      if (n_diff == 0) {
-        MLCommon::LinAlg::_block_ax(rd, _1_Fs, d_TP + bid * rd2, shared_K);
-      } else {
-        MLCommon::LinAlg::_block_gemv<GemvPolicy, false>(
-          rd, rd, _1_Fs, d_TP + bid * rd2, shared_Z, shared_K,
-          shared_mem.gemv_storage[0]);
+      if (!missing) {
+        // K = 1/Fs[it] * TP*Z'
+        double _1_Fs = 1.0 / _F;
+        if (n_diff == 0) {
+          MLCommon::LinAlg::_block_ax(rd, _1_Fs, d_TP + bid * rd2, shared_K);
+        } else {
+          MLCommon::LinAlg::_block_gemv<GemvPolicy, false>(
+            rd, rd, _1_Fs, d_TP + bid * rd2, shared_Z, shared_K,
+            shared_mem.gemv_storage[0]);
+        }
       }
 
       // 4. alpha = T*alpha + K*vs[it] + c
@@ -416,18 +443,19 @@ __global__ void _batched_kalman_device_loop_large_kernel(
       // alpha = vec1 + K*vs[it] + c
       for (int i = threadIdx.x; i < rd; i += GemmPolicy::BlockSize) {
         double c_ = (i == n_diff) ? mu_ : 0.0;
-        shared_alpha[i] = shared_vec0[i] + vt * shared_K[i] + c_;
+        shared_alpha[i] =
+          shared_vec0[i] + c_ + (missing ? 0.0 : vt * shared_K[i]);
       }
 
       // 5. L = T - K * Z
       if (n_diff == 0) {
         for (int i = threadIdx.x; i < rd2; i += GemmPolicy::BlockSize) {
-          double _KZ = (i < rd) ? shared_K[i] : 0.0;
+          double _KZ = (i < rd && !missing) ? shared_K[i] : 0.0;
           d_m_tmp[bid * rd2 + i] = d_T[bid * rd2 + i] - _KZ;
         }
       } else {
         for (int i = threadIdx.x; i < rd2; i += GemmPolicy::BlockSize) {
-          double _KZ = shared_K[i % rd] * shared_Z[i / rd];
+          double _KZ = missing ? 0.0 : shared_K[i % rd] * shared_Z[i / rd];
           d_m_tmp[bid * rd2 + i] = d_T[bid * rd2 + i] - _KZ;
         }
       }

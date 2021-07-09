@@ -234,7 +234,7 @@ void batched_jones_transform(
 }
 
 /**
- * @todo: more efficient kernel (shuffle instead of shared mem?)
+ * @todo: use scan and gather map instead!
  */
 template <bool forward, int N_THREADS, typename T>
 __global__ void fillna_kernel(T* data, int n_obs) {
