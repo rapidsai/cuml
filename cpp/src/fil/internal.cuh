@@ -160,47 +160,25 @@ struct alignas(8) dense_node : base_node<true> {
   __host__ __device__ int left(int curr) const { return 2 * curr + 1; }
 };
 
-void
-print_trace (void)
-{
-  void *array[10];
-  char **strings;
-  int size, i;
-
-  size = backtrace (array, 10);
-  strings = backtrace_symbols (array, size);
-  if (strings != NULL)
-  {
-
-    printf ("Obtained %d stack frames.\n", size);
-    for (i = 0; i < size; i++)
-      printf ("%s\n", strings[i]);
-  }
-
-  ::free (strings);
-}
-
 /** sparse_node16 is a 16-byte node in a sparse forest */
 // template <bool can_be_categorical>
 struct alignas(16) sparse_node16 : base_node<true> {
   int left_idx;
   int dummy;  // make alignment explicit and reserve for future use
   __host__ __device__ sparse_node16() : left_idx(0), dummy(0) {}
-  __noinline__
-  sparse_node16(val_t output,
-                float thresh,
-                int fid,
-                bool def_left,
-                bool is_leaf,
-                bool is_categorical,
-                int left_index)
+  __noinline__ sparse_node16(val_t output,
+                             float thresh,
+                             int fid,
+                             bool def_left,
+                             bool is_leaf,
+                             bool is_categorical,
+                             int left_index)
     : base_node<true>(output, thresh, fid, def_left, is_leaf, is_categorical),
       left_idx(left_index),
       dummy(0)
   {
-    if(is_categorical) print_trace();
     ASSERT(!is_categorical, "who made this categorical?");
-    ASSERT(is_categorical != base_node<true>::is_categorical(), "didn't save is_categorical right");
+    ASSERT(is_categorical == base_node<true>::is_categorical(), "didn't save is_categorical right");
   }
   __host__ __device__ int left_index() const { return left_idx; }
   /** index of the left child, where curr is the index of the current node */
@@ -228,9 +206,8 @@ struct alignas(8) sparse_node8 : base_node<true> {
     : base_node<true>(output, thresh, fid, def_left, is_leaf, is_categorical)
   {
     bits |= left_index << LEFT_OFFSET;
-    if(is_categorical) print_trace();
     ASSERT(!is_categorical, "who made this categorical?");
-    ASSERT(is_categorical != base_node<true>::is_categorical(), "didn't save is_categorical right");
+    ASSERT(is_categorical == base_node<true>::is_categorical(), "didn't save is_categorical right");
     ASSERT((fid & FID_MASK) == fid, "internal error: feature ID doesn't fit into sparse_node8");
     ASSERT(((left_index << LEFT_OFFSET) & LEFT_MASK) == (left_index << LEFT_OFFSET),
            "internal error: left child index doesn't fit into sparse_node8");
@@ -344,6 +321,8 @@ struct forest_params_t {
 /// FIL_TPB is the number of threads per block to use with FIL kernels
 const int FIL_TPB = 256;
 
+static const uint32_t max_precise_int_float = 16777216;
+
 struct categorical_branches {
   // set count is due to tree_idx + node_within_tree_idx are both ints, hence uint32_t result
   template <typename node_t>
@@ -369,7 +348,7 @@ struct categorical_branches {
   // arrays from each node ID are concatenated first, then from all categories
   uint8_t* bits;
   // largest matching category in the model, per feature ID
-  uint32_t* max_matching;
+  int* max_matching;
 };
 
 /** init_dense uses params and nodes to initialize the dense forest stored in pf

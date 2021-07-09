@@ -477,7 +477,7 @@ class BasePredictSparseFilTest : public BaseFilTest {
     if (node.is_leaf()) {
       // leaf sparse node
       sparse_nodes[i_sparse] =
-        fil_node_t({}, node.thresh(), node.fid(), node.def_left(), node.is_leaf(), 0, false);
+        fil_node_t({}, node.thresh(), node.fid(), node.def_left(), node.is_leaf(), false, 0);
       return;
     }
     // inner sparse node
@@ -490,8 +490,8 @@ class BasePredictSparseFilTest : public BaseFilTest {
                                         node.fid(),
                                         node.def_left(),
                                         node.is_leaf(),
-                                        left_index - i_sparse_root,
-                                        false);
+                                        false,
+                                        left_index - i_sparse_root);
     dense2sparse_node(dense_root, 2 * i_dense + 1, i_sparse_root, left_index);
     dense2sparse_node(dense_root, 2 * i_dense + 2, i_sparse_root, left_index + 1);
   }

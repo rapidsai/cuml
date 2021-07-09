@@ -589,6 +589,65 @@ int max_depth(const tl::ModelImpl<T, L>& model)
   return depth;
 }
 
+struct cat_feature {
+  int max_matching = -1, n_nodes = 0;
+  void reduce_with(cat_feature b)
+  {
+    max_matching = std::max(max_matching, b.max_matching);
+    n_nodes += b.n_nodes;
+  }
+};
+typedef std::vector<cat_feature> v_cat_feature;
+v_cat_feature reduce_with(v_cat_feature a, const v_cat_feature b)
+{
+  for (int fid = 0; fid < b.size(); ++fid) {
+    a[fid].reduce_with(b[fid]);
+  }
+  return a;
+}
+
+template <typename T, typename L>
+inline v_cat_feature cat_feature_counters(const tl::Tree<T, L>& tree, int max_fid)
+{
+  v_cat_feature res(max_fid);
+  std::stack<int> stack;
+  stack.push(tree_root(tree));
+  while (!stack.empty()) {
+    int node_id = stack.top();
+    stack.pop();
+    while (!tree.IsLeaf(node_id)) {
+      if (tree.SplitType(node_id) == tl::SplitFeatureType::kCategorical &&
+          tree.HasMatchingCategories(node_id)) {
+        std::vector<uint32_t> matching = tree.MatchingCategories(node_id);
+        uint32_t max_matching_cat      = *(matching.end() - 1);
+        ASSERT(max_matching_cat <= max_precise_int_float,
+               "FIL cannot infer on "
+               "more than %d matching categories",
+               max_precise_int_float);
+        res[tree.SplitIndex(node_id)].reduce_with({(int)max_matching_cat, 1});
+      }
+      stack.push(tree.LeftChild(node_id));
+      node_id = tree.RightChild(node_id);
+    }
+  }
+  return res;
+}
+
+template <typename T, typename L>
+v_cat_feature cat_feature_counters(const tl::ModelImpl<T, L>& model)
+{
+  v_cat_feature cat_features(model.num_feature);
+  const auto& trees = model.trees;
+#pragma omp declare reduction(rwz:v_cat_feature                         \
+                              : omp_out = reduce_with(omp_out, omp_in)) \
+  initializer(omp_priv = omp_orig)
+#pragma omp parallel for reduction(rwz : cat_features)
+  for (size_t i = 0; i < trees.size(); ++i) {
+    reduce_with(cat_features, cat_feature_counters(trees[i], model.num_feature));
+  }
+  return cat_features;
+}
+
 inline void adjust_threshold(
   float* pthreshold, int* tl_left, int* tl_right, bool* default_left, tl::Operator comparison_op)
 {
@@ -680,12 +739,12 @@ struct conversion_state {
 };
 
 template <typename fil_node_t, typename T, typename L>
-__noinline__
-conversion_state<fil_node_t> tl2fil_branch_node(int fil_left_child,
-                                                const tl::Tree<T, L>& tree,
-                                                int tl_node_id,
-                                                const forest_params_t& forest_params,
-                                                const categorical_branches cat_branches)
+__noinline__ conversion_state<fil_node_t> tl2fil_branch_node(
+  int fil_left_child,
+  const tl::Tree<T, L>& tree,
+  int tl_node_id,
+  const forest_params_t& forest_params,
+  const categorical_branches cat_branches)
 {
   ASSERT(tree.SplitType(tl_node_id) == tl::SplitFeatureType::kNumerical,
          "only numerical split nodes are supported");
@@ -753,14 +812,13 @@ void tree2fil_dense(std::vector<dense_node>* pnodes,
 }
 
 template <typename fil_node_t, typename T, typename L>
-__noinline__
-int tree2fil_sparse(std::vector<fil_node_t>& nodes,
-                    int root,
-                    const tl::Tree<T, L>& tree,
-                    const forest_params_t& forest_params,
-                    std::vector<float>* vector_leaf,
-                    size_t* leaf_counter,
-                    categorical_branches cat_branches)
+__noinline__ int tree2fil_sparse(std::vector<fil_node_t>& nodes,
+                                 int root,
+                                 const tl::Tree<T, L>& tree,
+                                 const forest_params_t& forest_params,
+                                 std::vector<float>* vector_leaf,
+                                 size_t* leaf_counter,
+                                 categorical_branches cat_branches)
 {
   typedef std::pair<int, int> pair_t;
   std::stack<pair_t> stack;
@@ -881,10 +939,10 @@ size_t tl_leaf_vector_size(const tl::ModelImpl<T, L>& model)
   return 0;
 }
 
-// tl2fil_common is the part of conversion from a treelite model
+// tl2fil_params is the part of conversion from a treelite model
 // common for dense and sparse forests
 template <typename T, typename L>
-void tl2fil_common(forest_params_t* params,
+void tl2fil_params(forest_params_t* params,
                    const tl::ModelImpl<T, L>& model,
                    const treelite_params_t* tl_params)
 {
@@ -955,6 +1013,23 @@ void tl2fil_common(forest_params_t* params,
   params->n_items          = tl_params->n_items;
 }
 
+template <typename T, typename L>
+void tl2fil_common_arrays(categorical_branches& cat_branches_device,
+                          categorical_branches& cat_branches_host,
+                          const tl::ModelImpl<T, L>& model)
+{
+  // categorical features
+  std::vector<int> max_matching_cat(model.num_feature);
+  v_cat_feature cf        = cat_feature_counters(model);
+  size_t total_mask_bytes = 0;
+  for (int fid = 0; fid < cf.size(); ++fid) {
+    total_mask_bytes += raft::ceildiv(cf[fid].max_matching, 8) * cf[fid].n_nodes;
+    max_matching_cat[fid] = cf[fid].max_matching;
+    printf("[%d]=%d ", fid, max_matching_cat[fid]);
+  }
+  printf("\n");
+}
+
 // uses treelite model with additional tl_params to initialize FIL params
 // and dense nodes (stored in *pnodes)
 template <typename threshold_t, typename leaf_t>
@@ -965,7 +1040,7 @@ void tl2fil_dense(std::vector<dense_node>* pnodes,
                   std::vector<float>* vector_leaf,
                   categorical_branches& cat_branches)
 {
-  tl2fil_common(params, model, tl_params);
+  tl2fil_params(params, model, tl_params);
 
   // convert the nodes
   int num_nodes           = forest_num_nodes(params->num_trees, params->depth);
@@ -973,6 +1048,8 @@ void tl2fil_dense(std::vector<dense_node>* pnodes,
   if (params->leaf_algo == VECTOR_LEAF) {
     vector_leaf->resize(max_leaves_per_tree * params->num_trees * params->num_classes);
   }
+  categorical_branches cat_branches_host;
+  tl2fil_common_arrays(cat_branches, cat_branches_host, model);
   pnodes->resize(num_nodes, dense_node());
   for (int i = 0; i < model.trees.size(); ++i) {
     size_t leaf_counter = max_leaves_per_tree * i;
@@ -1046,7 +1123,7 @@ void tl2fil_sparse(std::vector<int>* ptrees,
                    std::vector<float>* vector_leaf,
                    categorical_branches& cat_branches)
 {
-  tl2fil_common(params, model, tl_params);
+  tl2fil_params(params, model, tl_params);
   tl2fil_sparse_check_t<fil_node_t>::check(model);
 
   size_t num_trees = model.trees.size();
@@ -1057,12 +1134,13 @@ void tl2fil_sparse(std::vector<int>* ptrees,
     ptrees->push_back(model.trees[i].num_nodes + ptrees->back());
   }
   size_t total_nodes = ptrees->back() + model.trees.back().num_nodes;
-
   if (params->leaf_algo == VECTOR_LEAF) {
     size_t max_leaves = (total_nodes + num_trees) / 2;
     vector_leaf->resize(max_leaves * params->num_classes);
   }
 
+  categorical_branches cat_branches_host;
+  tl2fil_common_arrays(cat_branches, cat_branches_host, model);
   pnodes->resize(total_nodes);
 
   // convert the nodes
