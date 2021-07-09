@@ -68,23 +68,14 @@ enum output_t {
   AVG_CLASS_SOFTMAX = AVG | CLASS | SOFTMAX,
   ALL_SET = AVG | SIGMOID | CLASS | SOFTMAX
 };
-std::string output2str(fil::output_t output)
-{
-  if (output == fil::RAW) return "RAW";
-  std::string s = "";
-  if (output & fil::AVG) s += "| AVG";
-  if (output & fil::CLASS) s += "| CLASS";
-  if (output & fil::SIGMOID) s += "| SIGMOID";
-  if (output & fil::SOFTMAX) s += "| SOFTMAX";
-  return s;
-}
+std::string output2str(fil::output_t output);
 
 /** val_t is the payload within a FIL leaf */
 union val_t {
   /** threshold value for branch node or output value (e.g. class
       probability or regression summand) for leaf node */
   float f;
-  /** class label */
+  /** class label, leaf vector index or categorical node set offset */
   int idx;
 };
 
@@ -111,8 +102,16 @@ struct base_node {
     typedef std::remove_cv_t<o_t> canonical;
     if constexpr(std::is_floating_point<canonical>())
       return val.f;
-    if constexpr(std::is_integral<canonical>())
+    else if constexpr(std::is_integral<canonical>())
       return val.idx;
+    // and anything that val can be converted to
+    else return val;
+    // no return statement at the end is not a compiler error
+    // but we need one here
+    return {};
+    static_assert(std::is_floating_point<canonical>() ||
+      std::is_integral<canonical>() ||
+      std::is_same<canonical, val_t>());
   }
   __host__ __device__ int set() const { return val.idx; }
   __host__ __device__ float thresh() const { return val.f; }
@@ -122,7 +121,7 @@ struct base_node {
   __host__ __device__ bool is_categorical() const {
     return bits & IS_CATEGORICAL_MASK;
   }
-  __host__ __device__ base_node() : val({.f = 0}), bits(0){};
+  __host__ __device__ base_node() : val({.f = 0}), bits(0){}
   base_node(val_t output, float thresh, int fid, bool def_left, bool is_leaf,
             bool is_categorical) {
     ASSERT((fid & FID_MASK) == fid,
@@ -134,6 +133,12 @@ struct base_node {
       val = output;
     else
       val.f = thresh;
+  }
+  __host__ __device__ void print() const {
+    const char* is[] = {"is NOT", "    IS"};
+    printf("{.f = %9f, .idx = %11d} fid %10d, bits %x, def %s, %s leaf, %s categorical\n",
+      val.f, val.idx, fid(), bits, def_left() ? " left" : "right", is[is_leaf()],
+      is[is_categorical()]);
   }
 };
 
@@ -158,7 +163,10 @@ struct alignas(16) sparse_node16 : base_node<true> {
                 bool is_leaf, bool is_categorical, int left_index)
     : base_node<true>(output, thresh, fid, def_left, is_leaf, is_categorical),
       left_idx(left_index),
-      dummy(0) {}
+      dummy(0) {
+    ASSERT(!is_categorical, "who made this categorical?");
+    ASSERT(is_categorical != base_node<true>::is_categorical(), "didn't save is_categorical right");
+      }
   __host__ __device__ int left_index() const { return left_idx; }
   /** index of the left child, where curr is the index of the current node */
   __host__ __device__ int left(int curr) const { return left_idx; }
@@ -180,11 +188,13 @@ struct alignas(8) sparse_node8 : base_node<true> {
   sparse_node8(val_t output, float thresh, int fid, bool def_left, bool is_leaf,
                bool is_categorical, int left_index)
     : base_node<true>(output, thresh, fid, def_left, is_leaf, is_categorical) {
+    bits |= left_index << LEFT_OFFSET;
+    ASSERT(!is_categorical, "who made this categorical?");
+    ASSERT(is_categorical != base_node<true>::is_categorical(), "didn't save is_categorical right");
     ASSERT((fid & FID_MASK) == fid,
            "internal error: feature ID doesn't fit into sparse_node8");
-    ASSERT(((left_index << LEFT_OFFSET) & LEFT_MASK) == left_index,
+    ASSERT(((left_index << LEFT_OFFSET) & LEFT_MASK) == (left_index << LEFT_OFFSET),
            "internal error: left child index doesn't fit into sparse_node8");
-    bits |= left_index << LEFT_OFFSET;
   }
   /** index of the left child, where curr is the index of the current node */
   __host__ __device__ int left(int curr) const { return left_index(); }
@@ -301,6 +311,7 @@ struct categorical_branches {
                                                     int node_idx, float val) {
     bool cond;
     if (node.is_categorical()) {
+      node.print();
       int category = val;
       // standard boolean packing. This layout has better ILP
       // node.set() is global across feature IDs and is an offset (as opposed

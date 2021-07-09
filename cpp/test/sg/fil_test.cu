@@ -83,16 +83,6 @@ struct FilTestParams {
   size_t num_preds_outputs() { return num_rows; }
 };
 
-std::string output2str(fil::output_t output) {
-  if (output == fil::RAW) return "RAW";
-  std::string s = "";
-  if (output & fil::AVG) s += "| AVG";
-  if (output & fil::CLASS) s += "| CLASS";
-  if (output & fil::SIGMOID) s += "| SIGMOID";
-  if (output & fil::SOFTMAX) s += "| SOFTMAX";
-  return s;
-}
-
 std::ostream& operator<<(std::ostream& os, const FilTestParams& ps) {
   os << "num_rows = " << ps.num_rows << ", num_cols = " << ps.num_cols
      << ", nan_prob = " << ps.nan_prob << ", depth = " << ps.depth
@@ -101,9 +91,9 @@ std::ostream& operator<<(std::ostream& os, const FilTestParams& ps) {
      << ", threshold = " << ps.threshold
      << ", threads_per_tree = " << ps.threads_per_tree
      << ", n_items = " << ps.n_items << ", blocks_per_sm = " << ps.blocks_per_sm
-     << ", algo = " << ps.algo << ", seed = " << ps.seed
+     << ", algo = " << algo_t_repr[ps.algo] << ", seed = " << ps.seed
      << ", tolerance = " << ps.tolerance << ", op = " << tl::OpName(ps.op)
-     << ", global_bias = " << ps.global_bias << ", leaf_algo = " << ps.leaf_algo
+     << ", global_bias = " << ps.global_bias << ", leaf_algo = " << leaf_algo_t_repr[ps.leaf_algo]
      << ", num_classes = " << ps.num_classes;
   return os;
 }
@@ -433,7 +423,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     fil::val_t output{.f = 0.0f};
     for (;;) {
       const fil::dense_node& node = root[curr];
-      if (node.is_leaf()) return {};
+      if (node.is_leaf()) return node.template base_node<true>::output<val_t>();
       float val = data[node.fid()];
       bool cond = isnan(val) ? !node.def_left() : val >= node.thresh();
       curr = (curr << 1) + 1 + (cond ? 1 : 0);
@@ -576,7 +566,9 @@ class TreeliteFilTest : public BaseFilTest {
           for (int i = 0; i < ps.num_classes; ++i) {
             vec[i] = tlf::Value::Create(
               i == dense_node.template output<int>() ? 1.0f : 0.0f);
+            printf("%d ", i == dense_node.template output<int>());
           }
+          printf("\n");
           builder->SetLeafVectorNode(key, vec);
           break;
         }

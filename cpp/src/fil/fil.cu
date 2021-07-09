@@ -43,6 +43,18 @@ namespace fil {
 
 namespace tl = treelite;
 
+
+std::string output2str(fil::output_t output)
+{
+  if (output == fil::RAW) return "RAW";
+  std::string s = "";
+  if (output & fil::AVG) s += "| AVG";
+  if (output & fil::CLASS) s += "| CLASS";
+  if (output & fil::SIGMOID) s += "| SIGMOID";
+  if (output & fil::SOFTMAX) s += "| SOFTMAX";
+  return s;
+}
+
 __host__ __device__ float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
 
 /** performs additional transformations on the array of forest predictions
