@@ -647,7 +647,6 @@ class RandomForestClassifier(BaseRandomForestModel,
         nvtx_range_pop()
         return preds
 
-
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
     def predict_proba(self, X, algo='auto',

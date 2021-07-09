@@ -29,7 +29,7 @@
 #include <random/make_blobs.cuh>
 #include <random>
 #include <tuple>
-#include "cuml/tree/algo_helper.h"
+#include <cuml/tree/algo_helper.h>
 
 namespace ML {
 
@@ -71,16 +71,11 @@ void SampleWithoutReplacemment(RandomGenT& gen, std::vector<ParamT>& sample,
 template <int I, typename RandomGenT, typename ParamT, typename T,
           typename... Args>
 void AddParameters(RandomGenT& gen, std::vector<ParamT>& sample,
-                   std::vector<T> x) {
-  SampleWithoutReplacemment<I>(gen, sample, x);
-}
-
-template <int I, typename RandomGenT, typename ParamT, typename T,
-          typename... Args>
-void AddParameters(RandomGenT& gen, std::vector<ParamT>& sample,
                    std::vector<T> x, Args... args) {
   SampleWithoutReplacemment<I>(gen, sample, x);
-  AddParameters<I + 1>(gen, sample, args...);
+  if constexpr (sizeof...(args) > 0) {
+    AddParameters<I + 1>(gen, sample, args...);
+  }
 }
 
 template <typename ParamT, typename... Args>
@@ -128,8 +123,7 @@ std::ostream& operator<<(std::ostream& os, const RfTestParams& ps) {
   os << ", max_leaves = " << ps.max_leaves << ", bootstrap = " << ps.bootstrap;
   os << ", n_bins = " << ps.n_bins
      << ", min_samples_leaf = " << ps.min_samples_leaf;
-  os << ", min_samples_split = " << ps.min_samples_split
-     << ", min_samples_split = " << ps.min_samples_split;
+  os << ", min_samples_split = " << ps.min_samples_split;
   os << ", min_impurity_decrease = " << ps.min_impurity_decrease
      << ", n_streams = " << ps.n_streams;
   os << ", split_criterion = " << ps.split_criterion << ", seed = " << ps.seed;
@@ -140,35 +134,20 @@ std::ostream& operator<<(std::ostream& os, const RfTestParams& ps) {
 
 // Classification
 template <typename DataT, typename LabelT, typename RfT>
-std::enable_if_t<std::is_integral_v<LabelT>> TrainScore(
-  const raft::handle_t& handle, RfTestParams params, DataT* X,
-  DataT* X_transpose, LabelT* y, RfT* forest, RF_metrics& metrics) {
+void TrainScore(const raft::handle_t& handle, RfTestParams params, DataT* X,
+                DataT* X_transpose, LabelT* y, RfT* forest,
+                RF_metrics& metrics) {
   RF_params rf_params = set_rf_params(
     params.max_depth, params.max_leaves, params.max_features, params.n_bins,
     params.min_samples_leaf, params.min_samples_split,
     params.min_impurity_decrease, params.bootstrap, params.n_trees,
     params.max_samples, 0, params.split_criterion, params.n_streams, 128);
-  fit(handle, forest, X, params.n_rows, params.n_cols, y, params.n_labels,
-      rf_params);
-
-  thrust::device_vector<LabelT> pred(params.n_rows);
-  predict(handle, forest, X_transpose, params.n_rows, params.n_cols,
-          pred.data().get());
-  // Predict and compare against known labels
-  metrics = score(handle, forest, y, params.n_rows, pred.data().get());
-}
-
-// Regression
-template <typename DataT, typename LabelT, typename RfT>
-std::enable_if_t<!std::is_integral_v<LabelT>> TrainScore(
-  const raft::handle_t& handle, RfTestParams params, DataT* X,
-  DataT* X_transpose, LabelT* y, RfT* forest, RF_metrics& metrics) {
-  RF_params rf_params = set_rf_params(
-    params.max_depth, params.max_leaves, params.max_features, params.n_bins,
-    params.min_samples_leaf, params.min_samples_split,
-    params.min_impurity_decrease, params.bootstrap, params.n_trees,
-    params.max_samples, 0, params.split_criterion, params.n_streams, 128);
-  fit(handle, forest, X, params.n_rows, params.n_cols, y, rf_params);
+  if constexpr (std::is_integral_v<LabelT>) {
+    fit(handle, forest, X, params.n_rows, params.n_cols, y, params.n_labels,
+        rf_params);
+  } else {
+    fit(handle, forest, X, params.n_rows, params.n_cols, y, rf_params);
+  }
 
   thrust::device_vector<LabelT> pred(params.n_rows);
   predict(handle, forest, X_transpose, params.n_rows, params.n_cols,
@@ -185,16 +164,18 @@ class RfSpecialisedTest {
     X.resize(params.n_rows * params.n_cols);
     X_transpose.resize(params.n_rows * params.n_cols);
     y.resize(params.n_rows);
-    thrust::device_vector<int> y_temp(params.n_rows);
     // Make data
-    Datasets::make_blobs(handle, X.data().get(), y_temp.data().get(),
-                         params.n_rows, params.n_cols, params.n_labels, false,
-                         nullptr, nullptr, 5.0, false, -10.0f, 10.0f,
-                         params.seed);
-
-    if (std::is_integral<LabelT>::value) {
-      y = y_temp;
+    if constexpr (std::is_integral<LabelT>::value) {
+      Datasets::make_blobs(handle, X.data().get(), y.data().get(),
+                           params.n_rows, params.n_cols, params.n_labels, false,
+                           nullptr, nullptr, 5.0, false, -10.0f, 10.0f,
+                           params.seed);
     } else {
+      thrust::device_vector<int> y_temp(params.n_rows);
+      Datasets::make_blobs(handle, X.data().get(), y_temp.data().get(),
+                           params.n_rows, params.n_cols, params.n_labels, false,
+                           nullptr, nullptr, 5.0, false, -10.0f, 10.0f,
+                           params.seed);
       // if regression, make the labels normally distributed
       raft::random::Rng r(4);
       thrust::device_vector<double> normal(params.n_rows);
@@ -242,8 +223,6 @@ class RfSpecialisedTest {
       }
       EXPECT_LE(forest->trees[i].leaf_counter,
                 raft::ceildiv(params.n_rows, params.min_samples_leaf));
-      EXPECT_LE(forest->trees[i].leaf_counter,
-                raft::ceildiv(params.n_rows, params.min_samples_split) * 2);
     }
   }
   void TestDeterminism() {
@@ -324,7 +303,7 @@ std::vector<int> seed = {0, 17};
 std::vector<int> n_labels = {2, 10, 30};
 std::vector<bool> double_precision = {false, true};
 
-int n_tests = 100;
+int n_tests = 500;
 
 INSTANTIATE_TEST_CASE_P(RfTests, RfTest,
                         ::testing::ValuesIn(SampleParameters<RfTestParams>(
@@ -353,8 +332,6 @@ class RFQuantileTest : public ::testing::TestWithParam<QuantileTestParameters> {
 
     raft::random::Rng r(8);
     r.normal(data.data().get(), data.size(), T(0.0), T(2.0), nullptr);
-    const int TPB = 128;
-    int numBlocks = raft::ceildiv(params.n_rows, TPB);
     raft::handle_t handle;
     DT::computeQuantiles(quantiles.data().get(), params.n_bins,
                          data.data().get(), params.n_rows, 1,
