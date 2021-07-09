@@ -42,7 +42,8 @@ struct inputs {
 
 // Generate data with some outliers
 template <typename T>
-__global__ void generateData(T* data, int length, uint64_t seed) {
+__global__ void generateData(T* data, int length, uint64_t seed)
+{
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   raft::random::detail::Kiss99Generator gen(seed, 0, 0);
 
@@ -72,8 +73,8 @@ __global__ void generateData(T* data, int length, uint64_t seed) {
 }
 
 template <typename T>
-__global__ void computeHistogram(int* histogram, T* data, int length,
-                                 T* quantiles, int n_bins) {
+__global__ void computeHistogram(int* histogram, T* data, int length, T* quantiles, int n_bins)
+{
   int tid = threadIdx.x + blockIdx.x * blockDim.x;
   for (int i = tid; i < length; i += blockDim.x * gridDim.x) {
     T num = data[i];
@@ -90,40 +91,38 @@ __global__ void computeHistogram(int* histogram, T* data, int length,
 template <typename T>
 class RFQuantileTest : public ::testing::TestWithParam<inputs> {
  protected:
-  void SetUp() override {
+  void SetUp() override
+  {
     params = ::testing::TestWithParam<inputs>::GetParam();
 
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.reset(new raft::handle_t());
     handle->set_stream(stream);
-    auto allocator = handle->get_device_allocator();
+    auto allocator   = handle->get_device_allocator();
     auto h_allocator = handle->get_host_allocator();
 
-    data = (T*)allocator->allocate(params.n_rows * sizeof(T), stream);
-    quantiles = (T*)allocator->allocate(params.n_bins * sizeof(T), stream);
-    histogram = (int*)allocator->allocate(params.n_bins * sizeof(int), stream);
-    h_histogram =
-      (int*)h_allocator->allocate(params.n_bins * sizeof(int), stream);
+    data        = (T*)allocator->allocate(params.n_rows * sizeof(T), stream);
+    quantiles   = (T*)allocator->allocate(params.n_bins * sizeof(T), stream);
+    histogram   = (int*)allocator->allocate(params.n_bins * sizeof(int), stream);
+    h_histogram = (int*)h_allocator->allocate(params.n_bins * sizeof(int), stream);
 
     CUDA_CHECK(cudaMemset(histogram, 0, params.n_bins * sizeof(int)));
     const int TPB = 128;
     int numBlocks = raft::ceildiv(params.n_rows, TPB);
-    generateData<<<numBlocks, TPB, 0, stream>>>(data, params.n_rows,
-                                                params.seed);
-    DT::computeQuantiles(quantiles, params.n_bins, data, params.n_rows, 1,
-                         allocator, stream);
+    generateData<<<numBlocks, TPB, 0, stream>>>(data, params.n_rows, params.seed);
+    DT::computeQuantiles(quantiles, params.n_bins, data, params.n_rows, 1, allocator, stream);
 
     computeHistogram<<<numBlocks, TPB, 0, stream>>>(
       histogram, data, params.n_rows, quantiles, params.n_bins);
 
-    CUDA_CHECK(cudaMemcpyAsync(h_histogram, histogram,
-                               params.n_bins * sizeof(int),
-                               cudaMemcpyDeviceToHost, stream));
+    CUDA_CHECK(cudaMemcpyAsync(
+      h_histogram, histogram, params.n_bins * sizeof(int), cudaMemcpyDeviceToHost, stream));
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
-  void TearDown() override {
-    auto allocator = handle->get_device_allocator();
+  void TearDown() override
+  {
+    auto allocator   = handle->get_device_allocator();
     auto h_allocator = handle->get_host_allocator();
 
     allocator->deallocate(data, params.n_rows * sizeof(T), stream);
@@ -135,16 +134,15 @@ class RFQuantileTest : public ::testing::TestWithParam<inputs> {
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
-  void test_histogram() {
+  void test_histogram()
+  {
     int max_items_per_bin = raft::ceildiv(params.n_rows, params.n_bins);
     int min_items_per_bin = max_items_per_bin - 1;
-    int total_items = 0;
+    int total_items       = 0;
     for (int b = 0; b < params.n_bins; b++) {
-      ASSERT_TRUE(h_histogram[b] == max_items_per_bin ||
-                  h_histogram[b] == min_items_per_bin)
-        << "No. samples in bin[" << b << "] = " << h_histogram[b]
-        << " Expected " << max_items_per_bin << " or " << min_items_per_bin
-        << std::endl;
+      ASSERT_TRUE(h_histogram[b] == max_items_per_bin || h_histogram[b] == min_items_per_bin)
+        << "No. samples in bin[" << b << "] = " << h_histogram[b] << " Expected "
+        << max_items_per_bin << " or " << min_items_per_bin << std::endl;
       total_items += h_histogram[b];
     }
     ASSERT_EQ(params.n_rows, total_items)
@@ -173,13 +171,11 @@ const std::vector<inputs> inputs = {{1000, 16, 6078587519764079670LLU},
 typedef RFQuantileTest<float> RFQuantileTestF;
 TEST_P(RFQuantileTestF, test) { test_histogram(); }
 
-INSTANTIATE_TEST_CASE_P(RFQuantileTests, RFQuantileTestF,
-                        ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(RFQuantileTests, RFQuantileTestF, ::testing::ValuesIn(inputs));
 
 typedef RFQuantileTest<double> RFQuantileTestD;
 TEST_P(RFQuantileTestD, test) { test_histogram(); }
 
-INSTANTIATE_TEST_CASE_P(RFQuantileTests, RFQuantileTestD,
-                        ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(RFQuantileTests, RFQuantileTestD, ::testing::ValuesIn(inputs));
 
 }  // end namespace ML

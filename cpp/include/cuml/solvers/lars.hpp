@@ -54,11 +54,22 @@ namespace Lars {
  * @param eps numeric parameter for Cholesky rank one update
  */
 template <typename math_t, typename idx_t>
-void larsFit(const raft::handle_t& handle, math_t* X, idx_t n_rows,
-             idx_t n_cols, const math_t* y, math_t* beta, idx_t* active_idx,
-             math_t* alphas, idx_t* n_active, math_t* Gram = nullptr,
-             int max_iter = 500, math_t* coef_path = nullptr, int verbosity = 0,
-             idx_t ld_X = 0, idx_t ld_G = 0, math_t eps = -1);
+void larsFit(const raft::handle_t& handle,
+             math_t* X,
+             idx_t n_rows,
+             idx_t n_cols,
+             const math_t* y,
+             math_t* beta,
+             idx_t* active_idx,
+             math_t* alphas,
+             idx_t* n_active,
+             math_t* Gram      = nullptr,
+             int max_iter      = 500,
+             math_t* coef_path = nullptr,
+             int verbosity     = 0,
+             idx_t ld_X        = 0,
+             idx_t ld_G        = 0,
+             math_t eps        = -1);
 
 /**
  * @brief Predict with LARS regressor.
@@ -78,9 +89,16 @@ void larsFit(const raft::handle_t& handle, math_t* X, idx_t n_rows,
  *     allocated on entry.
  */
 template <typename math_t, typename idx_t>
-void larsPredict(const raft::handle_t& handle, const math_t* X, idx_t n_rows,
-                 idx_t n_cols, idx_t ld_X, const math_t* beta, idx_t n_active,
-                 idx_t* active_idx, math_t intercept, math_t* preds);
+void larsPredict(const raft::handle_t& handle,
+                 const math_t* X,
+                 idx_t n_rows,
+                 idx_t n_cols,
+                 idx_t ld_X,
+                 const math_t* beta,
+                 idx_t n_active,
+                 idx_t* active_idx,
+                 math_t intercept,
+                 math_t* preds);
 };  // namespace Lars
 };  // namespace Solver
 };  // end namespace ML

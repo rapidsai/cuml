@@ -92,8 +92,8 @@ struct param {
   /** initialization method */
   init_method_t init_method = init_method_t::half_and_half;
   /** list of functions to choose from */
-  std::vector<node::type> function_set{node::type::add, node::type::mul,
-                                       node::type::div, node::type::sub};
+  std::vector<node::type> function_set{
+    node::type::add, node::type::mul, node::type::div, node::type::sub};
   /** transformation function to class probabilities (classification-only) */
   transformer_t transformer = transformer_t::sigmoid;
   /** fitness metric */

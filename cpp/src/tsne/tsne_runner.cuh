@@ -32,13 +32,16 @@ namespace ML {
 template <typename tsne_input, typename value_idx, typename value_t>
 class TSNE_runner {
  public:
-  TSNE_runner(const raft::handle_t &handle_, tsne_input &input_,
-              knn_graph<value_idx, value_t> &k_graph_, TSNEParams &params_)
+  TSNE_runner(const raft::handle_t& handle_,
+              tsne_input& input_,
+              knn_graph<value_idx, value_t>& k_graph_,
+              TSNEParams& params_)
     : handle(handle_),
       input(input_),
       k_graph(k_graph_),
       params(params_),
-      COO_Matrix(handle_.get_device_allocator(), handle_.get_stream()) {
+      COO_Matrix(handle_.get_device_allocator(), handle_.get_stream())
+  {
     this->n = input.n;
     this->p = input.d;
     this->Y = input.y;
@@ -59,8 +62,8 @@ class TSNE_runner {
     // "How to Use t-SNE Effectively" https://distill.pub/2016/misread-tsne/
     if (params.perplexity > n) params.perplexity = n;
 
-    CUML_LOG_DEBUG("Data size = (%d, %d) with dim = %d perplexity = %f", n, p,
-                   params.dim, params.perplexity);
+    CUML_LOG_DEBUG(
+      "Data size = (%d, %d) with dim = %d perplexity = %f", n, p, params.dim, params.perplexity);
     if (params.perplexity < 5 or params.perplexity > 50)
       CUML_LOG_WARN(
         "Perplexity should be within ranges (5, 50). Your results might be a"
@@ -71,30 +74,28 @@ class TSNE_runner {
         " might be a bit strange...");
   }
 
-  void run() {
+  void run()
+  {
     distance_and_perplexity();
 
-    const auto NNZ = COO_Matrix.nnz;
-    auto *VAL = COO_Matrix.vals();
-    const auto *COL = COO_Matrix.cols();
-    const auto *ROW = COO_Matrix.rows();
+    const auto NNZ  = COO_Matrix.nnz;
+    auto* VAL       = COO_Matrix.vals();
+    const auto* COL = COO_Matrix.cols();
+    const auto* ROW = COO_Matrix.rows();
     //---------------------------------------------------
 
     switch (params.algorithm) {
       case TSNE_ALGORITHM::BARNES_HUT:
         TSNE::Barnes_Hut(VAL, COL, ROW, NNZ, handle, Y, n, params);
         break;
-      case TSNE_ALGORITHM::FFT:
-        TSNE::FFT_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, params);
-        break;
-      case TSNE_ALGORITHM::EXACT:
-        TSNE::Exact_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, params);
-        break;
+      case TSNE_ALGORITHM::FFT: TSNE::FFT_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, params); break;
+      case TSNE_ALGORITHM::EXACT: TSNE::Exact_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, params); break;
     }
   }
 
  private:
-  void distance_and_perplexity() {
+  void distance_and_perplexity()
+  {
     START_TIMER;
 
     //---------------------------------------------------
@@ -110,11 +111,11 @@ class TSNE_runner {
       ASSERT(!k_graph.knn_indices && !k_graph.knn_dists,
              "Either both or none of the KNN parameters should be provided");
 
-      indices = rmm::device_uvector<value_idx>(n * params.n_neighbors, stream);
+      indices   = rmm::device_uvector<value_idx>(n * params.n_neighbors, stream);
       distances = rmm::device_uvector<value_t>(n * params.n_neighbors, stream);
 
       k_graph.knn_indices = indices.data();
-      k_graph.knn_dists = distances.data();
+      k_graph.knn_dists   = distances.data();
 
       TSNE::get_distances(handle, input, k_graph, stream);
     }
@@ -122,9 +123,11 @@ class TSNE_runner {
     if (params.square_distances) {
       auto policy = rmm::exec_policy(stream);
 
-      thrust::transform(policy, k_graph.knn_dists,
+      thrust::transform(policy,
+                        k_graph.knn_dists,
                         k_graph.knn_dists + n * params.n_neighbors,
-                        k_graph.knn_dists, TSNE::FunctionalSquare());
+                        k_graph.knn_dists,
+                        TSNE::FunctionalSquare());
     }
 
     //---------------------------------------------------
@@ -143,9 +146,14 @@ class TSNE_runner {
     // Optimal perplexity
     CUML_LOG_DEBUG("Searching for optimal perplexity via bisection search.");
     rmm::device_uvector<value_t> P(n * params.n_neighbors, stream);
-    TSNE::perplexity_search(k_graph.knn_dists, P.data(), params.perplexity,
-                            params.perplexity_max_iter, params.perplexity_tol,
-                            n, params.n_neighbors, handle);
+    TSNE::perplexity_search(k_graph.knn_dists,
+                            P.data(),
+                            params.perplexity,
+                            params.perplexity_max_iter,
+                            params.perplexity_tol,
+                            n,
+                            params.n_neighbors,
+                            handle);
 
     //---------------------------------------------------
     END_TIMER(PerplexityTime);
@@ -153,20 +161,25 @@ class TSNE_runner {
     START_TIMER;
     //---------------------------------------------------
     // Convert data to COO layout
-    TSNE::symmetrize_perplexity(P.data(), k_graph.knn_indices, n,
-                                params.n_neighbors, params.early_exaggeration,
-                                &COO_Matrix, stream, handle);
+    TSNE::symmetrize_perplexity(P.data(),
+                                k_graph.knn_indices,
+                                n,
+                                params.n_neighbors,
+                                params.early_exaggeration,
+                                &COO_Matrix,
+                                stream,
+                                handle);
     END_TIMER(SymmetrizeTime);
   }
 
-  const raft::handle_t &handle;
-  tsne_input &input;
-  knn_graph<value_idx, value_t> &k_graph;
-  TSNEParams &params;
+  const raft::handle_t& handle;
+  tsne_input& input;
+  knn_graph<value_idx, value_t>& k_graph;
+  TSNEParams& params;
 
   raft::sparse::COO<value_t, value_idx> COO_Matrix;
   value_idx n, p;
-  value_t *Y;
+  value_t* Y;
 };
 
 }  // namespace ML

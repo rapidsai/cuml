@@ -41,23 +41,27 @@ struct TimeSeriesDataset {
   DataT* X;
 
   /** allocate space needed for the dataset */
-  void allocate(const raft::handle_t& handle, const TimeSeriesParams& p) {
+  void allocate(const raft::handle_t& handle, const TimeSeriesParams& p)
+  {
     auto allocator = handle.get_device_allocator();
-    auto stream = handle.get_stream();
-    X = (DataT*)allocator->allocate(p.batch_size * p.n_obs * sizeof(DataT),
-                                    stream);
+    auto stream    = handle.get_stream();
+    X              = (DataT*)allocator->allocate(p.batch_size * p.n_obs * sizeof(DataT), stream);
   }
 
   /** free-up the buffers */
-  void deallocate(const raft::handle_t& handle, const TimeSeriesParams& p) {
+  void deallocate(const raft::handle_t& handle, const TimeSeriesParams& p)
+  {
     auto allocator = handle.get_device_allocator();
-    auto stream = handle.get_stream();
+    auto stream    = handle.get_stream();
     allocator->deallocate(X, p.batch_size * p.n_obs * sizeof(DataT), stream);
   }
 
   /** generate random time series (normal distribution) */
-  void random(const raft::handle_t& handle, const TimeSeriesParams& p,
-              DataT mu = 0, DataT sigma = 1) {
+  void random(const raft::handle_t& handle,
+              const TimeSeriesParams& p,
+              DataT mu    = 0,
+              DataT sigma = 1)
+  {
     raft::random::Rng gpu_gen(p.seed, raft::random::GenPhilox);
     gpu_gen.normal(X, p.batch_size * p.n_obs, mu, sigma, handle.get_stream());
   }

@@ -26,8 +26,8 @@ namespace RandomInit {
 using namespace ML;
 
 template <typename T>
-void launcher(int n, int d, UMAPParams *params, T *embedding,
-              cudaStream_t stream) {
+void launcher(int n, int d, UMAPParams* params, T* embedding, cudaStream_t stream)
+{
   uint64_t seed = params->random_state;
 
   raft::random::Rng r(seed);
