@@ -111,6 +111,28 @@ _metrics_mapping = {
 }
 
 
+def _cuml_array_from_ptr(ptr, buf_size, shape, dtype, owner):
+    mem = cp.cuda.UnownedMemory(ptr=ptr, size=buf_size,
+                                owner=owner,
+                                device_id=-1)
+    mem_ptr = cp.cuda.memory.MemoryPointer(mem, 0)
+
+    return CumlArray(data=cp.ndarray(shape=shape,
+                                     dtype=dtype,
+                                     memptr=mem_ptr)).to_output('numpy')
+
+
+def _construct_condensed_tree_attribute(ptr,
+                                        n_condensed_tree_edges,
+                                        dtype="int32",
+                                        owner=None):
+
+    return _cuml_array_from_ptr(
+        ptr, n_condensed_tree_edges * sizeof(float),
+        (n_condensed_tree_edges,), dtype, owner
+    )
+
+
 def _build_condensed_tree_plot_host(
         parent, child, lambdas, sizes,
         cluster_selection_epsilon, allow_single_cluster):
@@ -132,7 +154,7 @@ def _build_condensed_tree_plot_host(
     return None
 
 
-def condense_hierarchy(self, dendrogram,
+def condense_hierarchy(dendrogram,
                        min_cluster_size,
                        allow_single_cluster=False,
                        cluster_selection_epsilon=0.0):
@@ -163,25 +185,26 @@ def condense_hierarchy(self, dendrogram,
     condensed_tree : hdbscan.plots.CondensedTree object
     """
 
-    cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+    handle = cuml.raft.common.handle.Handle()
+    cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
-    n_leaves = dendrogram.shape[0] / 2 - 1
+    n_leaves = dendrogram.shape[0]+1
     cdef CondensedHierarchy[int, float] *condensed_tree =\
         new CondensedHierarchy[int, float](
             handle_[0], <size_t>n_leaves)
 
     children, n_rows, _, _ = \
-        input_to_cuml_array(dendrogram[:, 0:1], order='C',
+        input_to_cuml_array(dendrogram[:, 0:2].astype('int32'), order='C',
                             check_dtype=[np.int32],
                             convert_to_dtype=(np.int32))
 
     lambdas, _, _, _ = \
-        input_to_cuml_array(dendrogram[:, 1], order='C',
+        input_to_cuml_array(dendrogram[:, 2], order='C',
                             check_dtype=[np.float32],
                             convert_to_dtype=(np.float32))
 
     sizes, _, _, _ = \
-        input_to_cuml_array(dendrogram[:, 2], order='C',
+        input_to_cuml_array(dendrogram[:, 3], order='C',
                             check_dtype=[np.int32],
                             convert_to_dtype=(np.int32))
 
@@ -197,18 +220,22 @@ def condense_hierarchy(self, dendrogram,
                               n_leaves,
                               deref(condensed_tree))
 
-    condensed_parent_ = self._construct_condensed_tree_attribute(
-        <size_t>condensed_tree.get_parents())
+    n_condensed_tree_edges = \
+        condensed_tree.get_n_edges()
 
-    condensed_child_ = self._construct_condensed_tree_attribute(
-        <size_t>condensed_tree.get_children())
+    condensed_parent_ = _construct_condensed_tree_attribute(
+        <size_t>condensed_tree.get_parents(), n_condensed_tree_edges)
+
+    condensed_child_ = _construct_condensed_tree_attribute(
+        <size_t>condensed_tree.get_children(), n_condensed_tree_edges)
 
     condensed_lambdas_ = \
-        self._construct_condensed_tree_attribute(
-            <size_t>condensed_tree.get_lambdas(), "float32")
+        _construct_condensed_tree_attribute(
+            <size_t>condensed_tree.get_lambdas(), n_condensed_tree_edges,
+            "float32")
 
-    condensed_sizes_ = self._construct_condensed_tree_attribute(
-        <size_t>condensed_tree.get_sizes())
+    condensed_sizes_ = _construct_condensed_tree_attribute(
+        <size_t>condensed_tree.get_sizes(), n_condensed_tree_edges)
 
     del condensed_tree
 
@@ -481,29 +508,6 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
     def __dealloc__(self):
         delete_hdbscan_output(self)
 
-    def _cuml_array_from_ptr(self, ptr, buf_size, shape, dtype):
-
-        mem = cp.cuda.UnownedMemory(ptr=ptr, size=buf_size,
-                                    owner=self.hdbscan_output_,
-                                    device_id=-1)
-        mem_ptr = cp.cuda.memory.MemoryPointer(mem, 0)
-
-        return CumlArray(data=cp.ndarray(shape=shape,
-                                         dtype=dtype,
-                                         memptr=mem_ptr)).to_output('numpy')
-
-    def _construct_condensed_tree_attribute(self, ptr, dtype="int32"):
-        cdef hdbscan_output *hdbscan_output_ = \
-                <hdbscan_output*><size_t>self.hdbscan_output_
-
-        n_condensed_tree_edges = \
-            hdbscan_output_.get_condensed_tree().get_n_edges()
-
-        return self._cuml_array_from_ptr(
-            ptr, n_condensed_tree_edges * sizeof(float),
-            (n_condensed_tree_edges,), dtype
-        )
-
     def _construct_output_attributes(self):
 
         cdef hdbscan_output *hdbscan_output_ = \
@@ -512,26 +516,32 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         self.n_clusters_ = hdbscan_output_.get_n_clusters()
 
         if self.n_clusters_ > 0:
-            self.cluster_persistence_ = self._cuml_array_from_ptr(
+            self.cluster_persistence_ = _cuml_array_from_ptr(
                 <size_t>hdbscan_output_.get_stabilities(),
                 hdbscan_output_.get_n_clusters() * sizeof(float),
-                (1, hdbscan_output_.get_n_clusters()), "float32")
+                (1, hdbscan_output_.get_n_clusters()), "float32", self)
         else:
             self.cluster_persistence_ = CumlArray.empty((0,), dtype="float32")
 
-        self.condensed_parent_ = self._construct_condensed_tree_attribute(
-            <size_t>hdbscan_output_.get_condensed_tree().get_parents())
+        n_condensed_tree_edges = \
+            hdbscan_output_.get_condensed_tree().get_n_edges()
 
-        self.condensed_child_ = self._construct_condensed_tree_attribute(
-            <size_t>hdbscan_output_.get_condensed_tree().get_children())
+        self.condensed_parent_ = _construct_condensed_tree_attribute(
+            <size_t>hdbscan_output_.get_condensed_tree().get_parents(),
+            n_condensed_tree_edges)
+
+        self.condensed_child_ = _construct_condensed_tree_attribute(
+            <size_t>hdbscan_output_.get_condensed_tree().get_children(),
+            n_condensed_tree_edges)
 
         self.condensed_lambdas_ = \
-            self._construct_condensed_tree_attribute(
+            _construct_condensed_tree_attribute(
                 <size_t>hdbscan_output_.get_condensed_tree().get_lambdas(),
-                "float32")
+                n_condensed_tree_edges, "float32")
 
-        self.condensed_sizes_ = self._construct_condensed_tree_attribute(
-            <size_t>hdbscan_output_.get_condensed_tree().get_sizes())
+        self.condensed_sizes_ = _construct_condensed_tree_attribute(
+            <size_t>hdbscan_output_.get_condensed_tree().get_sizes(),
+            n_condensed_tree_edges)
 
     @generate_docstring()
     def fit(self, X, y=None, convert_dtype=True) -> "HDBSCAN":
