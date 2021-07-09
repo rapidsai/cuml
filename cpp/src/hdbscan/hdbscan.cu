@@ -32,10 +32,14 @@ void hdbscan(const raft::handle_t& handle,
   HDBSCAN::_fit_hdbscan(handle, X, m, n, metric, params, out);
 }
 
-void build_condensed_hierarchy(
-  const raft::handle_t &handle, const int *children, const float *delta,
-  const int *sizes, int min_cluster_size, int n_leaves,
-  HDBSCAN::Common::CondensedHierarchy<int, float> &condensed_tree) {
+void build_condensed_hierarchy(const raft::handle_t& handle,
+                               const int* children,
+                               const float* delta,
+                               const int* sizes,
+                               int min_cluster_size,
+                               int n_leaves,
+                               HDBSCAN::Common::CondensedHierarchy<int, float>& condensed_tree)
+{
   HDBSCAN::detail::Condense::build_condensed_hierarchy(
     handle, children, delta, sizes, min_cluster_size, n_leaves, condensed_tree);
 }
