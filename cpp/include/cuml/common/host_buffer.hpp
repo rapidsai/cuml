@@ -22,15 +22,15 @@
 namespace MLCommon {
 
 /**
- * RAII object owning a contigous typed host buffer. The passed in allocator supports asynchronus allocation and
- * deallocation so this can be used for temporary memory 
+ * RAII object owning a contigous typed host buffer. The passed in allocator supports asynchronus
+ * allocation and deallocation so this can be used for temporary memory
  * @code{.cpp}
  * template<typename T>
  * void foo( const raft::handle_t& h, const T* in_d , T* out_d, ..., cudaStream_t stream )
  * {
  *     ...
  *     host_buffer<T> temp( handle->get_host_allocator(), stream, 0 )
- *     
+ *
  *     temp.resize(n, stream);
  *     cudaMemcpyAsync( temp.data(), in_d, temp.size()*sizeof(T), cudaMemcpyDeviceToHost );
  *     ...

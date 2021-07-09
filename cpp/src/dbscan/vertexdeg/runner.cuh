@@ -26,25 +26,28 @@ namespace Dbscan {
 namespace VertexDeg {
 
 template <typename Type_f, typename Index_ = int>
-void run(const raft::handle_t& handle, bool* adj, Index_* vd, const Type_f* x,
-         Type_f eps, Index_ N, Index_ D, int algo, Index_ start_vertex_id,
-         Index_ batch_size, cudaStream_t stream) {
+void run(const raft::handle_t& handle,
+         bool* adj,
+         Index_* vd,
+         const Type_f* x,
+         Type_f eps,
+         Index_ N,
+         Index_ D,
+         int algo,
+         Index_ start_vertex_id,
+         Index_ batch_size,
+         cudaStream_t stream)
+{
   Pack<Type_f, Index_> data = {vd, adj, x, eps, N, D};
   switch (algo) {
-    case 0:
-      Naive::launcher<Type_f, Index_>(data, start_vertex_id, batch_size,
-                                      stream);
-      break;
+    case 0: Naive::launcher<Type_f, Index_>(data, start_vertex_id, batch_size, stream); break;
     case 1:
-      Algo::launcher<Type_f, Index_>(handle, data, start_vertex_id, batch_size,
-                                     stream);
+      Algo::launcher<Type_f, Index_>(handle, data, start_vertex_id, batch_size, stream);
       break;
     case 2:
-      Precomputed::launcher<Type_f, Index_>(handle, data, start_vertex_id,
-                                            batch_size, stream);
+      Precomputed::launcher<Type_f, Index_>(handle, data, start_vertex_id, batch_size, stream);
       break;
-    default:
-      ASSERT(false, "Incorrect algo passed! '%d'", algo);
+    default: ASSERT(false, "Incorrect algo passed! '%d'", algo);
   }
 }
 

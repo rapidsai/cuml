@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -45,9 +45,17 @@ namespace Stats {
  * function returns!
  */
 template <typename Type>
-void cov(const raft::handle_t &handle, Type *covar, Type *data, const Type *mu,
-         int D, int N, bool sample, bool rowMajor, bool stable,
-         cudaStream_t stream) {
+void cov(const raft::handle_t& handle,
+         Type* covar,
+         Type* data,
+         const Type* mu,
+         int D,
+         int N,
+         bool sample,
+         bool rowMajor,
+         bool stable,
+         cudaStream_t stream)
+{
   if (stable) {
     cublasHandle_t cublas_h = handle.get_cublas_handle();
 
@@ -55,14 +63,26 @@ void cov(const raft::handle_t &handle, Type *covar, Type *data, const Type *mu,
     // must be along rows!
     raft::stats::meanCenter(data, data, mu, D, N, rowMajor, true, stream);
     Type alpha = Type(1) / (sample ? Type(N - 1) : Type(N));
-    Type beta = Type(0);
+    Type beta  = Type(0);
     if (rowMajor) {
-      CUBLAS_CHECK(raft::linalg::cublasgemm(cublas_h, CUBLAS_OP_N, CUBLAS_OP_T,
-                                            D, D, N, &alpha, data, D, data, D,
-                                            &beta, covar, D, stream));
+      CUBLAS_CHECK(raft::linalg::cublasgemm(cublas_h,
+                                            CUBLAS_OP_N,
+                                            CUBLAS_OP_T,
+                                            D,
+                                            D,
+                                            N,
+                                            &alpha,
+                                            data,
+                                            D,
+                                            data,
+                                            D,
+                                            &beta,
+                                            covar,
+                                            D,
+                                            stream));
     } else {
-      raft::linalg::gemm(handle, data, N, D, data, covar, D, D, CUBLAS_OP_T,
-                         CUBLAS_OP_N, alpha, beta, stream);
+      raft::linalg::gemm(
+        handle, data, N, D, data, covar, D, D, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta, stream);
     }
   } else {
     ///@todo: implement this using cutlass + customized epilogue!

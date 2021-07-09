@@ -40,16 +40,16 @@ struct MakeArimaInputs {
 template <typename T>
 class MakeArimaTest : public ::testing::TestWithParam<MakeArimaInputs> {
  protected:
-  void SetUp() override {
+  void SetUp() override
+  {
     params = ::testing::TestWithParam<MakeArimaInputs>::GetParam();
 
     // Scales of the different random components
     T scale = 1.0, noise_scale = 0.2;
-    T intercept_scale =
-      params.d + params.D == 0 ? 1.0 : (params.d + params.D == 1 ? 0.2 : 0.01);
+    T intercept_scale = params.d + params.D == 0 ? 1.0 : (params.d + params.D == 1 ? 0.2 : 0.01);
 
-    ML::ARIMAOrder order = {params.p, params.d, params.q, params.P,
-                            params.D, params.Q, params.s, params.k};
+    ML::ARIMAOrder order = {
+      params.p, params.d, params.q, params.P, params.D, params.Q, params.s, params.k};
 
     allocator.reset(new raft::mr::device::default_allocator);
     CUDA_CHECK(cudaStreamCreate(&stream));
@@ -57,18 +57,28 @@ class MakeArimaTest : public ::testing::TestWithParam<MakeArimaInputs> {
     raft::allocate(data, params.batch_size * params.n_obs);
 
     // Create the time series dataset
-    make_arima(data, params.batch_size, params.n_obs, order, allocator, stream,
-               scale, noise_scale, intercept_scale, params.seed, params.gtype);
+    make_arima(data,
+               params.batch_size,
+               params.n_obs,
+               order,
+               allocator,
+               stream,
+               scale,
+               noise_scale,
+               intercept_scale,
+               params.seed,
+               params.gtype);
   }
 
-  void TearDown() override {
+  void TearDown() override
+  {
     CUDA_CHECK(cudaFree(data));
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
   MakeArimaInputs params;
-  T *data;
+  T* data;
   std::shared_ptr<raft::mr::device::allocator> allocator;
   cudaStream_t stream;
 };
@@ -80,13 +90,11 @@ const std::vector<MakeArimaInputs> make_arima_inputs = {
 
 typedef MakeArimaTest<float> MakeArimaTestF;
 TEST_P(MakeArimaTestF, Result) { CUDA_CHECK(cudaStreamSynchronize(stream)); }
-INSTANTIATE_TEST_CASE_P(MakeArimaTests, MakeArimaTestF,
-                        ::testing::ValuesIn(make_arima_inputs));
+INSTANTIATE_TEST_CASE_P(MakeArimaTests, MakeArimaTestF, ::testing::ValuesIn(make_arima_inputs));
 
 typedef MakeArimaTest<double> MakeArimaTestD;
 TEST_P(MakeArimaTestD, Result) { CUDA_CHECK(cudaStreamSynchronize(stream)); }
-INSTANTIATE_TEST_CASE_P(MakeArimaTests, MakeArimaTestD,
-                        ::testing::ValuesIn(make_arima_inputs));
+INSTANTIATE_TEST_CASE_P(MakeArimaTests, MakeArimaTestD, ::testing::ValuesIn(make_arima_inputs));
 
 }  // end namespace Random
 }  // end namespace MLCommon

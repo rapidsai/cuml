@@ -57,18 +57,18 @@ namespace Reachability {
  * @param[in] stream stream for which to order cuda operations
  */
 template <typename value_idx, typename value_t, int tpb = 256>
-void core_distances(value_t *knn_dists, int k, int min_samples, size_t n,
-                    value_t *out, cudaStream_t stream) {
+void core_distances(
+  value_t* knn_dists, int k, int min_samples, size_t n, value_t* out, cudaStream_t stream)
+{
   int blocks = raft::ceildiv(n, (size_t)tpb);
 
   auto exec_policy = rmm::exec_policy(stream);
 
   auto indices = thrust::make_counting_iterator<value_idx>(0);
 
-  thrust::transform(exec_policy, indices, indices + n, out,
-                    [=] __device__(value_idx row) {
-                      return knn_dists[row * k + (min_samples - 1)];
-                    });
+  thrust::transform(exec_policy, indices, indices + n, out, [=] __device__(value_idx row) {
+    return knn_dists[row * k + (min_samples - 1)];
+  });
 }
 
 /**
@@ -113,12 +113,18 @@ void core_distances(value_t *knn_dists, int k, int min_samples, size_t n,
  *             neighbors.
  */
 template <typename value_idx, typename value_t>
-void mutual_reachability_graph(const raft::handle_t &handle, const value_t *X,
-                               size_t m, size_t n,
-                               raft::distance::DistanceType metric, int k,
-                               int min_samples, value_t alpha,
-                               value_idx *indptr, value_t *core_dists,
-                               raft::sparse::COO<value_t, value_idx> &out) {
+void mutual_reachability_graph(const raft::handle_t& handle,
+                               const value_t* X,
+                               size_t m,
+                               size_t n,
+                               raft::distance::DistanceType metric,
+                               int k,
+                               int min_samples,
+                               value_t alpha,
+                               value_idx* indptr,
+                               value_t* core_dists,
+                               raft::sparse::COO<value_t, value_idx>& out)
+{
   RAFT_EXPECTS(metric == raft::distance::DistanceType::L2SqrtExpanded,
                "Currently only L2 expanded distance is supported");
 
@@ -126,8 +132,8 @@ void mutual_reachability_graph(const raft::handle_t &handle, const value_t *X,
 
   auto exec_policy = rmm::exec_policy(stream);
 
-  std::vector<value_t *> inputs;
-  inputs.push_back(const_cast<value_t *>(X));
+  std::vector<value_t*> inputs;
+  inputs.push_back(const_cast<value_t*>(X));
 
   std::vector<int> sizes;
   sizes.push_back(m);
@@ -140,47 +146,62 @@ void mutual_reachability_graph(const raft::handle_t &handle, const value_t *X,
   rmm::device_uvector<value_t> dists(k * m, stream);
 
   // perform knn
-  brute_force_knn(handle, inputs, sizes, n, const_cast<value_t *>(X), m,
-                  int64_indices.data(), dists.data(), k, true, true, metric);
+  brute_force_knn(handle,
+                  inputs,
+                  sizes,
+                  n,
+                  const_cast<value_t*>(X),
+                  m,
+                  int64_indices.data(),
+                  dists.data(),
+                  k,
+                  true,
+                  true,
+                  metric);
 
   // convert from current knn's 64-bit to 32-bit.
-  thrust::transform(exec_policy, int64_indices.data(),
-                    int64_indices.data() + int64_indices.size(), inds.data(),
+  thrust::transform(exec_policy,
+                    int64_indices.data(),
+                    int64_indices.data() + int64_indices.size(),
+                    inds.data(),
                     [] __device__(int64_t in) -> value_idx { return in; });
 
   // Slice core distances (distances to kth nearest neighbor)
-  core_distances<value_idx>(dists.data(), k, min_samples, m, core_dists,
-                            stream);
+  core_distances<value_idx>(dists.data(), k, min_samples, m, core_dists, stream);
 
   /**
    * Compute L2 norm
    */
-  mutual_reachability_knn_l2(handle, inds.data(), dists.data(), X, m, n, k,
-                             core_dists, (value_t)1.0 / alpha);
+  mutual_reachability_knn_l2(
+    handle, inds.data(), dists.data(), X, m, n, k, core_dists, (value_t)1.0 / alpha);
 
   // self-loops get max distance
   auto coo_rows_counting_itr = thrust::make_counting_iterator<value_idx>(0);
-  thrust::transform(exec_policy, coo_rows_counting_itr,
-                    coo_rows_counting_itr + (m * k), coo_rows.data(),
+  thrust::transform(exec_policy,
+                    coo_rows_counting_itr,
+                    coo_rows_counting_itr + (m * k),
+                    coo_rows.data(),
                     [k] __device__(value_idx c) -> value_idx { return c / k; });
 
-  raft::sparse::linalg::symmetrize(handle, coo_rows.data(), inds.data(),
-                                   dists.data(), m, m, k * m, out);
+  raft::sparse::linalg::symmetrize(
+    handle, coo_rows.data(), inds.data(), dists.data(), m, m, k * m, out);
 
   raft::sparse::convert::sorted_coo_to_csr(
     out.rows(), out.nnz, indptr, m + 1, handle.get_device_allocator(), stream);
 
   // self-loops get max distance
-  auto transform_in = thrust::make_zip_iterator(
-    thrust::make_tuple(out.rows(), out.cols(), out.vals()));
+  auto transform_in =
+    thrust::make_zip_iterator(thrust::make_tuple(out.rows(), out.cols(), out.vals()));
 
-  thrust::transform(
-    exec_policy, transform_in, transform_in + out.nnz, out.vals(),
-    [=] __device__(const thrust::tuple<value_idx, value_idx, value_t> &tup) {
-      return thrust::get<0>(tup) == thrust::get<1>(tup)
-               ? std::numeric_limits<value_t>::max()
-               : thrust::get<2>(tup);
-    });
+  thrust::transform(exec_policy,
+                    transform_in,
+                    transform_in + out.nnz,
+                    out.vals(),
+                    [=] __device__(const thrust::tuple<value_idx, value_idx, value_t>& tup) {
+                      return thrust::get<0>(tup) == thrust::get<1>(tup)
+                               ? std::numeric_limits<value_t>::max()
+                               : thrust::get<2>(tup);
+                    });
 }
 
 };  // end namespace Reachability

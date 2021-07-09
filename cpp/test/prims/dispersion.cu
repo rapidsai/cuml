@@ -36,15 +36,16 @@ struct DispersionInputs {
 };
 
 template <typename T>
-::std::ostream &operator<<(::std::ostream &os,
-                           const DispersionInputs<T> &dims) {
+::std::ostream& operator<<(::std::ostream& os, const DispersionInputs<T>& dims)
+{
   return os;
 }
 
 template <typename T>
 class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
  protected:
-  void SetUp() override {
+  void SetUp() override
+  {
     params = ::testing::TestWithParam<DispersionInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int len = params.clusters * params.dim;
@@ -59,11 +60,11 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
     std::vector<int> h_counts(params.clusters, 0);
     raft::update_host(&(h_counts[0]), counts, params.clusters, stream);
     npoints = 0;
-    for (const auto &val : h_counts) {
+    for (const auto& val : h_counts) {
       npoints += val;
     }
-    actualVal = dispersion(data, counts, act_mean, params.clusters, npoints,
-                           params.dim, allocator, stream);
+    actualVal =
+      dispersion(data, counts, act_mean, params.clusters, npoints, params.dim, allocator, stream);
     expectedVal = T(0);
     std::vector<T> h_data(len, T(0));
     raft::update_host(&(h_data[0]), data, len, stream);
@@ -87,7 +88,8 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
-  void TearDown() override {
+  void TearDown() override
+  {
     CUDA_CHECK(cudaStreamDestroy(stream));
     CUDA_CHECK(cudaFree(data));
     CUDA_CHECK(cudaFree(counts));
@@ -98,7 +100,7 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
  protected:
   DispersionInputs<T> params;
   T *data, *exp_mean, *act_mean;
-  int *counts;
+  int* counts;
   cudaStream_t stream;
   int npoints;
   std::shared_ptr<raft::mr::device::allocator> allocator;
@@ -106,30 +108,26 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
 };
 
 const std::vector<DispersionInputs<float>> inputsf = {
-  {0.001f, 10, 1000, 1234ULL},
-  {0.001f, 100, 100, 1234ULL},
-  {0.001f, 1000, 1000, 1234ULL}};
+  {0.001f, 10, 1000, 1234ULL}, {0.001f, 100, 100, 1234ULL}, {0.001f, 1000, 1000, 1234ULL}};
 typedef DispersionTest<float> DispersionTestF;
-TEST_P(DispersionTestF, Result) {
+TEST_P(DispersionTestF, Result)
+{
   auto eq = raft::CompareApprox<float>(params.tolerance);
   ASSERT_TRUE(devArrMatch(exp_mean, act_mean, params.dim, eq));
   ASSERT_TRUE(match(expectedVal, actualVal, eq));
 }
-INSTANTIATE_TEST_CASE_P(DispersionTests, DispersionTestF,
-                        ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(DispersionTests, DispersionTestF, ::testing::ValuesIn(inputsf));
 
 const std::vector<DispersionInputs<double>> inputsd = {
-  {0.001, 10, 1000, 1234ULL},
-  {0.001, 100, 100, 1234ULL},
-  {0.001, 1000, 1000, 1234ULL}};
+  {0.001, 10, 1000, 1234ULL}, {0.001, 100, 100, 1234ULL}, {0.001, 1000, 1000, 1234ULL}};
 typedef DispersionTest<double> DispersionTestD;
-TEST_P(DispersionTestD, Result) {
+TEST_P(DispersionTestD, Result)
+{
   auto eq = raft::CompareApprox<double>(params.tolerance);
   ASSERT_TRUE(devArrMatch(exp_mean, act_mean, params.dim, eq));
   ASSERT_TRUE(match(expectedVal, actualVal, eq));
 }
-INSTANTIATE_TEST_CASE_P(DispersionTests, DispersionTestD,
-                        ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_CASE_P(DispersionTests, DispersionTestD, ::testing::ValuesIn(inputsd));
 
 }  // end namespace Metrics
 }  // end namespace MLCommon

@@ -67,13 +67,23 @@ namespace Explainer {
  * @param[in] row_major        boolean to generate either row or column major data
  *
  */
-void permutation_shap_dataset(const raft::handle_t& handle, float* dataset,
-                              const float* background, int nrows_bg, int ncols,
-                              const float* row, int* idx, bool row_major);
+void permutation_shap_dataset(const raft::handle_t& handle,
+                              float* dataset,
+                              const float* background,
+                              int nrows_bg,
+                              int ncols,
+                              const float* row,
+                              int* idx,
+                              bool row_major);
 
-void permutation_shap_dataset(const raft::handle_t& handle, double* dataset,
-                              const double* background, int nrows_bg, int ncols,
-                              const double* row, int* idx, bool row_major);
+void permutation_shap_dataset(const raft::handle_t& handle,
+                              double* dataset,
+                              const double* background,
+                              int nrows_bg,
+                              int ncols,
+                              const double* row,
+                              int* idx,
+                              bool row_major);
 
 /**
  * Generates a dataset by tiling the `background` matrix into `out`, while
@@ -99,7 +109,8 @@ void permutation_shap_dataset(const raft::handle_t& handle, double* dataset,
  *
  *
  * @param[in]  handle          cuML handle
- * @param[out] dataset         generated data [on device] [dim = (2 * ncols * nrows_bg + nrows_bg) * ncols]
+ * @param[out] dataset         generated data [on device] [dim = (2 * ncols * nrows_bg + nrows_bg) *
+ * ncols]
  * @param[in] background       background data [on device] [dim = ncols * nrows_bg]
  * @param[in] nrows_bg         number of rows in background dataset
  * @param[in] ncols            number of columns
@@ -109,13 +120,23 @@ void permutation_shap_dataset(const raft::handle_t& handle, double* dataset,
  *
  */
 
-void shap_main_effect_dataset(const raft::handle_t& handle, float* dataset,
-                              const float* background, int nrows_bg, int ncols,
-                              const float* row, int* idx, bool row_major);
+void shap_main_effect_dataset(const raft::handle_t& handle,
+                              float* dataset,
+                              const float* background,
+                              int nrows_bg,
+                              int ncols,
+                              const float* row,
+                              int* idx,
+                              bool row_major);
 
-void shap_main_effect_dataset(const raft::handle_t& handle, double* dataset,
-                              const double* background, int nrows_bg, int ncols,
-                              const double* row, int* idx, bool row_major);
+void shap_main_effect_dataset(const raft::handle_t& handle,
+                              double* dataset,
+                              const double* background,
+                              int nrows_bg,
+                              int ncols,
+                              const double* row,
+                              int* idx,
+                              bool row_major);
 
 /**
  * Function that aggregates averages of the averatge of results of the model
@@ -132,12 +153,16 @@ void shap_main_effect_dataset(const raft::handle_t& handle, double* dataset,
  * @param[in] ncols            number of columns
  * @param[in] idx              permutation indexes [dim = ncols]
  */
-void update_perm_shap_values(const raft::handle_t& handle, float* shap_values,
-                             const float* y_hat, const int ncols,
+void update_perm_shap_values(const raft::handle_t& handle,
+                             float* shap_values,
+                             const float* y_hat,
+                             const int ncols,
                              const int* idx);
 
-void update_perm_shap_values(const raft::handle_t& handle, double* shap_values,
-                             const double* y_hat, const int ncols,
+void update_perm_shap_values(const raft::handle_t& handle,
+                             double* shap_values,
+                             const double* y_hat,
+                             const int ncols,
                              const int* idx);
 
 }  // namespace Explainer

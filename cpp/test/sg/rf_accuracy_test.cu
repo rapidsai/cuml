@@ -34,7 +34,8 @@ struct RFInputs {
 template <typename T>
 class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
  protected:
-  void SetUp() override {
+  void SetUp() override
+  {
     params = ::testing::TestWithParam<RFInputs>::GetParam();
     rng.reset(new raft::random::Rng(params.seed));
     CUDA_CHECK(cudaStreamCreate(&stream));
@@ -42,18 +43,16 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
     handle->set_stream(stream);
     auto allocator = handle->get_device_allocator();
     setRFParams();
-    X_train = (T *)allocator->allocate(params.n_rows_train * sizeof(T), stream);
-    y_train =
-      (int *)allocator->allocate(params.n_rows_train * sizeof(int), stream);
-    X_test = (T *)allocator->allocate(params.n_rows_test * sizeof(T), stream);
-    y_test =
-      (int *)allocator->allocate(params.n_rows_test * sizeof(int), stream);
-    y_pred =
-      (int *)allocator->allocate(params.n_rows_test * sizeof(int), stream);
+    X_train = (T*)allocator->allocate(params.n_rows_train * sizeof(T), stream);
+    y_train = (int*)allocator->allocate(params.n_rows_train * sizeof(int), stream);
+    X_test  = (T*)allocator->allocate(params.n_rows_test * sizeof(T), stream);
+    y_test  = (int*)allocator->allocate(params.n_rows_test * sizeof(int), stream);
+    y_pred  = (int*)allocator->allocate(params.n_rows_test * sizeof(int), stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
-  void TearDown() override {
+  void TearDown() override
+  {
     CUDA_CHECK(cudaStreamSynchronize(stream));
     auto allocator = handle->get_device_allocator();
     allocator->deallocate(X_train, params.n_rows_train * sizeof(T), stream);
@@ -67,7 +66,8 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
     rng.reset();
   }
 
-  void runTest() {
+  void runTest()
+  {
     for (int i = 0; i < params.n_reps; ++i) {
       loadData(X_train, y_train, params.n_rows_train, 1);
       loadData(X_test, y_test, params.n_rows_test, 1);
@@ -78,7 +78,8 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
   }
 
  private:
-  void setRFParams() {
+  void setRFParams()
+  {
     auto sc = CRITERION::CRITERION_END;
 
     rfp = set_rf_params(0,    /*max_depth */
@@ -98,15 +99,17 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
     );
   }
 
-  void loadData(T *X, int *y, int nrows, int ncols) {
+  void loadData(T* X, int* y, int nrows, int ncols)
+  {
     rng->uniform(X, nrows * ncols, T(-1.0), T(1.0), stream);
     rng->bernoulli<float, int>(y, nrows, params.pct_zero_class, stream);
   }
 
-  float runTrainAndTest() {
-    auto *forest = new RandomForestMetaData<T, int>;
+  float runTrainAndTest()
+  {
+    auto* forest  = new RandomForestMetaData<T, int>;
     forest->trees = nullptr;
-    auto &h = *(handle.get());
+    auto& h       = *(handle.get());
     fit(h, forest, X_train, params.n_rows_train, 1, y_train, 2, rfp);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     predict(h, forest, X_test, params.n_rows_test, 1, y_pred);
@@ -125,9 +128,12 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
 };
 
 const std::vector<RFInputs> inputs = {
-  {800, 200, 12345ULL, 40, 0.5f, 0.4f},  {800, 200, 12345ULL, 40, 0.8f, 0.7f},
-  {800, 200, 67890ULL, 40, 0.5f, 0.4f},  {800, 200, 67890ULL, 40, 0.8f, 0.7f},
-  {1000, 250, 67890ULL, 40, 0.9f, 0.8f}, {1000, 250, 67890ULL, 40, 0.1f, 0.8f},
+  {800, 200, 12345ULL, 40, 0.5f, 0.4f},
+  {800, 200, 12345ULL, 40, 0.8f, 0.7f},
+  {800, 200, 67890ULL, 40, 0.5f, 0.4f},
+  {800, 200, 67890ULL, 40, 0.8f, 0.7f},
+  {1000, 250, 67890ULL, 40, 0.9f, 0.8f},
+  {1000, 250, 67890ULL, 40, 0.1f, 0.8f},
 };
 
 #define DEFINE_TEST(clz, name, testName, params) \
