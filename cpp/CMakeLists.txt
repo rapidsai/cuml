@@ -252,6 +252,13 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/metrics/kl_divergence.cu
     src/metrics/mutual_info_score.cu
     src/metrics/pairwise_distance.cu
+    src/metrics/pairwise_distance_canberra.cu
+    src/metrics/pairwise_distance_chebyshev.cu
+    src/metrics/pairwise_distance_cosine.cu
+    src/metrics/pairwise_distance_euclidean.cu
+    src/metrics/pairwise_distance_hellinger.cu
+    src/metrics/pairwise_distance_l1.cu
+    src/metrics/pairwise_distance_minkowski.cu
     src/metrics/r2_score.cu
     src/metrics/rand_index.cu
     src/metrics/silhouette_score.cu
@@ -321,12 +328,12 @@ if(BUILD_CUML_CPP_LIBRARY)
     PUBLIC
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
       $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_CUMLPRIMS_MG}>:${cumlprims_mg_INCLUDE_DIRS}>>
-      $<$<BOOL:Treelite_ADDED>:${Treelite_SOURCE_DIR}/include>
     PRIVATE
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/metrics>
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src_prims>
-      $<$<OR:$<BOOL:BUILD_CUML_STD_COMMS>,$<BOOL:BUILD_CUML_MPI_COMMS>>:${NCCL_INCLUDE_DIRS}>
-      $<$<BOOL:BUILD_CUML_MPI_COMMS>:${MPI_CXX_INCLUDE_PATH}>
+      $<$<OR:$<BOOL:${BUILD_CUML_STD_COMMS}>,$<BOOL:${BUILD_CUML_MPI_COMMS}>>:${NCCL_INCLUDE_DIRS}>
+      $<$<BOOL:${BUILD_CUML_MPI_COMMS}>:${MPI_CXX_INCLUDE_PATH}>
     INTERFACE
       $<INSTALL_INTERFACE:include>
   )
@@ -343,11 +350,11 @@ if(BUILD_CUML_CPP_LIBRARY)
       CUDA::cusolver
       CUDA::cudart
       CUDA::cusparse
-      $<$<BOOL:NVTX>:CUDA::nvToolsExt>
+      $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
       FAISS::FAISS
       $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_static,treelite::treelite>
       $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_runtime_static,treelite::treelite_runtime>
-      $<$<BOOL:OpenMP_FOUND>:OpenMP::OpenMP_CXX>
+      $<$<BOOL:${OpenMP_FOUND}>:OpenMP::OpenMP_CXX>
       $<$<OR:$<BOOL:${BUILD_CUML_STD_COMMS}>,$<BOOL:${BUILD_CUML_MPI_COMMS}>>:NCCL::NCCL>
       $<$<BOOL:${BUILD_CUML_MPI_COMMS}>:${MPI_CXX_LIBRARIES}>
       $<$<BOOL:${ENABLE_CUMLPRIMS_MG}>:cumlprims_mg::cumlprims_mg>

@@ -31,11 +31,13 @@ namespace Label {
  *  For an additional cost we can build the graph with edges
  *  E={(A[i], B[i]) | M[i]=1} and make this step faster */
 template <typename Index_, int TPB_X = 256>
-__global__ void __launch_bounds__(TPB_X)
-  propagate_label_kernel(const Index_* __restrict__ labels_a,
-                         const Index_* __restrict__ labels_b,
-                         Index_* __restrict__ R, const bool* __restrict__ mask,
-                         bool* __restrict__ m, Index_ N) {
+__global__ void __launch_bounds__(TPB_X) propagate_label_kernel(const Index_* __restrict__ labels_a,
+                                                                const Index_* __restrict__ labels_b,
+                                                                Index_* __restrict__ R,
+                                                                const bool* __restrict__ mask,
+                                                                bool* __restrict__ m,
+                                                                Index_ N)
+{
   Index_ tid = threadIdx.x + blockIdx.x * TPB_X;
   if (tid < N) {
     if (__ldg((char*)mask + tid)) {
@@ -61,18 +63,19 @@ __global__ void __launch_bounds__(TPB_X)
 }
 
 template <typename Index_, int TPB_X = 256>
-__global__ void __launch_bounds__(TPB_X)
-  reassign_label_kernel(Index_* __restrict__ labels_a,
-                        const Index_* __restrict__ labels_b,
-                        const Index_* __restrict__ R, Index_ N,
-                        Index_ MAX_LABEL) {
+__global__ void __launch_bounds__(TPB_X) reassign_label_kernel(Index_* __restrict__ labels_a,
+                                                               const Index_* __restrict__ labels_b,
+                                                               const Index_* __restrict__ R,
+                                                               Index_ N,
+                                                               Index_ MAX_LABEL)
+{
   Index_ tid = threadIdx.x + blockIdx.x * TPB_X;
   if (tid < N) {
     // Note: labels are from 1 to N
-    Index_ la = labels_a[tid];
-    Index_ lb = __ldg(labels_b + tid);
-    Index_ ra = (la == MAX_LABEL) ? MAX_LABEL : __ldg(R + (la - 1)) + 1;
-    Index_ rb = (lb == MAX_LABEL) ? MAX_LABEL : __ldg(R + (lb - 1)) + 1;
+    Index_ la     = labels_a[tid];
+    Index_ lb     = __ldg(labels_b + tid);
+    Index_ ra     = (la == MAX_LABEL) ? MAX_LABEL : __ldg(R + (la - 1)) + 1;
+    Index_ rb     = (lb == MAX_LABEL) ? MAX_LABEL : __ldg(R + (lb - 1)) + 1;
     labels_a[tid] = min(ra, rb);
   }
 }
@@ -107,8 +110,14 @@ __global__ void __launch_bounds__(TPB_X)
  * @param[in]    stream      CUDA stream
  */
 template <typename Index_ = int, int TPB_X = 256>
-void merge_labels(Index_* labels_a, const Index_* labels_b, const bool* mask,
-                  Index_* R, bool* m, Index_ N, cudaStream_t stream) {
+void merge_labels(Index_* labels_a,
+                  const Index_* labels_b,
+                  const bool* mask,
+                  Index_* R,
+                  bool* m,
+                  Index_ N,
+                  cudaStream_t stream)
+{
   dim3 blocks(raft::ceildiv(N, Index_(TPB_X)));
   dim3 threads(TPB_X);
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();

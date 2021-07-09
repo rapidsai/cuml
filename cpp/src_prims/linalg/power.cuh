@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -35,11 +35,10 @@ namespace LinAlg {
  * @{
  */
 template <typename math_t, typename IdxType = int>
-void powerScalar(math_t *out, const math_t *in, math_t scalar, IdxType len,
-                 cudaStream_t stream) {
+void powerScalar(math_t* out, const math_t* in, math_t scalar, IdxType len, cudaStream_t stream)
+{
   raft::linalg::unaryOp(
-    out, in, len,
-    [scalar] __device__(math_t in) { return raft::myPow(in, scalar); }, stream);
+    out, in, len, [scalar] __device__(math_t in) { return raft::myPow(in, scalar); }, stream);
 }
 /** @} */
 
@@ -55,11 +54,10 @@ void powerScalar(math_t *out, const math_t *in, math_t scalar, IdxType len,
  * @{
  */
 template <typename math_t, typename IdxType = int>
-void power(math_t *out, const math_t *in1, const math_t *in2, IdxType len,
-           cudaStream_t stream) {
+void power(math_t* out, const math_t* in1, const math_t* in2, IdxType len, cudaStream_t stream)
+{
   raft::linalg::binaryOp(
-    out, in1, in2, len,
-    [] __device__(math_t a, math_t b) { return raft::myPow(a, b); }, stream);
+    out, in1, in2, len, [] __device__(math_t a, math_t b) { return raft::myPow(a, b); }, stream);
 }
 /** @} */
 

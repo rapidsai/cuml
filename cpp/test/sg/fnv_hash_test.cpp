@@ -28,7 +28,8 @@ class FNVHashTest : public testing::TestWithParam<fnv_vec_t> {
  protected:
   void SetUp() override { param = GetParam(); }
 
-  void check() {
+  void check()
+  {
     unsigned long long hash_64bit =
       fowler_noll_vo_fingerprint64(param.input.begin(), param.input.end());
     ASSERT(hash_64bit == param.correct_64bit, "Wrong hash computed");
