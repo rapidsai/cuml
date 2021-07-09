@@ -265,7 +265,7 @@ def test_hdbscan_cluster_patterns(dataset, nrows,
 @pytest.mark.parametrize('nrows', [1000])
 @pytest.mark.parametrize('dataset', dataset_names)
 @pytest.mark.parametrize('min_samples', [5, 50, 400, 800])
-@pytest.mark.parametrize('cluster_selection_epsilon', [0.0])
+@pytest.mark.parametrize('cluster_selection_epsilon', [0.0, 50.0, 150.0])
 @pytest.mark.parametrize('min_cluster_size', [10, 25, 100, 350])
 @pytest.mark.parametrize('allow_single_cluster', [True, False])
 @pytest.mark.parametrize('max_cluster_size', [0])
