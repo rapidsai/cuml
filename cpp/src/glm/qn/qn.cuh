@@ -27,18 +27,30 @@
 namespace ML {
 namespace GLM {
 template <typename T, typename LossFunction>
-int qn_fit(const raft::handle_t &handle, LossFunction &loss,
-           const SimpleMat<T> &X, const SimpleVec<T> &y, SimpleDenseMat<T> &Z,
-           T l1, T l2, int max_iter, T grad_tol, T change_tol,
-           int linesearch_max_iter, int lbfgs_memory, int verbosity,
-           T *w0_data,  // initial value and result
-           T *fx, int *num_iters, cudaStream_t stream) {
+int qn_fit(const raft::handle_t& handle,
+           LossFunction& loss,
+           const SimpleMat<T>& X,
+           const SimpleVec<T>& y,
+           SimpleDenseMat<T>& Z,
+           T l1,
+           T l2,
+           int max_iter,
+           T grad_tol,
+           T change_tol,
+           int linesearch_max_iter,
+           int lbfgs_memory,
+           int verbosity,
+           T* w0_data,  // initial value and result
+           T* fx,
+           int* num_iters,
+           cudaStream_t stream)
+{
   LBFGSParam<T> opt_param;
   opt_param.epsilon = grad_tol;
   if (change_tol > 0) opt_param.past = 10;  // even number - to detect zig-zags
-  opt_param.delta = change_tol;
+  opt_param.delta          = change_tol;
   opt_param.max_iterations = max_iter;
-  opt_param.m = lbfgs_memory;
+  opt_param.m              = lbfgs_memory;
   opt_param.max_linesearch = linesearch_max_iter;
   SimpleVec<T> w0(w0_data, loss.n_param);
 
@@ -49,26 +61,38 @@ int qn_fit(const raft::handle_t &handle, LossFunction &loss,
   if (l2 == 0) {
     GLMWithData<T, LossFunction> lossWith(&loss, X, y, Z);
 
-    return qn_minimize(handle, w0, fx, num_iters, lossWith, l1, opt_param,
-                       stream, verbosity);
+    return qn_minimize(handle, w0, fx, num_iters, lossWith, l1, opt_param, stream, verbosity);
 
   } else {
     Tikhonov<T> reg(l2);
     RegularizedGLM<T, LossFunction, decltype(reg)> obj(&loss, &reg);
     GLMWithData<T, decltype(obj)> lossWith(&obj, X, y, Z);
 
-    return qn_minimize(handle, w0, fx, num_iters, lossWith, l1, opt_param,
-                       stream, verbosity);
+    return qn_minimize(handle, w0, fx, num_iters, lossWith, l1, opt_param, stream, verbosity);
   }
 }
 
 template <typename T>
-inline void qn_fit_x(const raft::handle_t &handle, SimpleMat<T> &X, T *y_data,
-                     int C, bool fit_intercept, T l1, T l2, int max_iter,
-                     T grad_tol, T change_tol, int linesearch_max_iter,
-                     int lbfgs_memory, int verbosity, T *w0_data, T *f,
-                     int *num_iters, int loss_type, cudaStream_t stream,
-                     T *sample_weight = nullptr) {
+inline void qn_fit_x(const raft::handle_t& handle,
+                     SimpleMat<T>& X,
+                     T* y_data,
+                     int C,
+                     bool fit_intercept,
+                     T l1,
+                     T l2,
+                     int max_iter,
+                     T grad_tol,
+                     T change_tol,
+                     int linesearch_max_iter,
+                     int lbfgs_memory,
+                     int verbosity,
+                     T* w0_data,
+                     T* f,
+                     int* num_iters,
+                     int loss_type,
+                     cudaStream_t stream,
+                     T* sample_weight = nullptr)
+{
   /*
    NB:
     N - number of data rows
@@ -81,8 +105,8 @@ inline void qn_fit_x(const raft::handle_t &handle, SimpleMat<T> &X, T *y_data,
 
     Dimensionality of w0 depends on loss, so we initialize it later.
    */
-  int N = X.m;
-  int D = X.n;
+  int N     = X.m;
+  int D     = X.n;
   int C_len = (loss_type == 0) ? (C - 1) : C;
   rmm::device_uvector<T> tmp(C_len * N, stream);
   SimpleDenseMat<T> Z(tmp.data(), C_len, N);
@@ -93,27 +117,66 @@ inline void qn_fit_x(const raft::handle_t &handle, SimpleMat<T> &X, T *y_data,
       ASSERT(C == 2, "qn.h: logistic loss invalid C");
       LogisticLoss<T> loss(handle, D, fit_intercept);
       if (sample_weight) loss.add_sample_weights(sample_weight, N, stream);
-      qn_fit<T, decltype(loss)>(handle, loss, X, y, Z, l1, l2, max_iter,
-                                grad_tol, change_tol, linesearch_max_iter,
-                                lbfgs_memory, verbosity, w0_data, f, num_iters,
+      qn_fit<T, decltype(loss)>(handle,
+                                loss,
+                                X,
+                                y,
+                                Z,
+                                l1,
+                                l2,
+                                max_iter,
+                                grad_tol,
+                                change_tol,
+                                linesearch_max_iter,
+                                lbfgs_memory,
+                                verbosity,
+                                w0_data,
+                                f,
+                                num_iters,
                                 stream);
     } break;
     case 1: {
       ASSERT(C == 1, "qn.h: squared loss invalid C");
       SquaredLoss<T> loss(handle, D, fit_intercept);
       if (sample_weight) loss.add_sample_weights(sample_weight, N, stream);
-      qn_fit<T, decltype(loss)>(handle, loss, X, y, Z, l1, l2, max_iter,
-                                grad_tol, change_tol, linesearch_max_iter,
-                                lbfgs_memory, verbosity, w0_data, f, num_iters,
+      qn_fit<T, decltype(loss)>(handle,
+                                loss,
+                                X,
+                                y,
+                                Z,
+                                l1,
+                                l2,
+                                max_iter,
+                                grad_tol,
+                                change_tol,
+                                linesearch_max_iter,
+                                lbfgs_memory,
+                                verbosity,
+                                w0_data,
+                                f,
+                                num_iters,
                                 stream);
     } break;
     case 2: {
       ASSERT(C > 2, "qn.h: softmax invalid C");
       Softmax<T> loss(handle, D, C, fit_intercept);
       if (sample_weight) loss.add_sample_weights(sample_weight, N, stream);
-      qn_fit<T, decltype(loss)>(handle, loss, X, y, Z, l1, l2, max_iter,
-                                grad_tol, change_tol, linesearch_max_iter,
-                                lbfgs_memory, verbosity, w0_data, f, num_iters,
+      qn_fit<T, decltype(loss)>(handle,
+                                loss,
+                                X,
+                                y,
+                                Z,
+                                l1,
+                                l2,
+                                max_iter,
+                                grad_tol,
+                                change_tol,
+                                linesearch_max_iter,
+                                lbfgs_memory,
+                                verbosity,
+                                w0_data,
+                                f,
+                                num_iters,
                                 stream);
     } break;
     default: {
@@ -123,34 +186,109 @@ inline void qn_fit_x(const raft::handle_t &handle, SimpleMat<T> &X, T *y_data,
 }
 
 template <typename T>
-void qnFit(const raft::handle_t &handle, T *X_data, bool X_col_major, T *y_data,
-           int N, int D, int C, bool fit_intercept, T l1, T l2, int max_iter,
-           T grad_tol, T change_tol, int linesearch_max_iter, int lbfgs_memory,
-           int verbosity, T *w0_data, T *f, int *num_iters, int loss_type,
-           cudaStream_t stream, T *sample_weight = nullptr) {
+void qnFit(const raft::handle_t& handle,
+           T* X_data,
+           bool X_col_major,
+           T* y_data,
+           int N,
+           int D,
+           int C,
+           bool fit_intercept,
+           T l1,
+           T l2,
+           int max_iter,
+           T grad_tol,
+           T change_tol,
+           int linesearch_max_iter,
+           int lbfgs_memory,
+           int verbosity,
+           T* w0_data,
+           T* f,
+           int* num_iters,
+           int loss_type,
+           cudaStream_t stream,
+           T* sample_weight = nullptr)
+{
   SimpleDenseMat<T> X(X_data, N, D, X_col_major ? COL_MAJOR : ROW_MAJOR);
-  qn_fit_x(handle, X, y_data, C, fit_intercept, l1, l2, max_iter, grad_tol,
-           change_tol, linesearch_max_iter, lbfgs_memory, verbosity, w0_data, f,
-           num_iters, loss_type, stream, sample_weight);
+  qn_fit_x(handle,
+           X,
+           y_data,
+           C,
+           fit_intercept,
+           l1,
+           l2,
+           max_iter,
+           grad_tol,
+           change_tol,
+           linesearch_max_iter,
+           lbfgs_memory,
+           verbosity,
+           w0_data,
+           f,
+           num_iters,
+           loss_type,
+           stream,
+           sample_weight);
 }
 
 template <typename T>
-void qnFitSparse(const raft::handle_t &handle, T *X_values, int *X_cols,
-                 int *X_row_ids, int X_nnz, T *y_data, int N, int D, int C,
-                 bool fit_intercept, T l1, T l2, int max_iter, T grad_tol,
-                 T change_tol, int linesearch_max_iter, int lbfgs_memory,
-                 int verbosity, T *w0_data, T *f, int *num_iters, int loss_type,
-                 cudaStream_t stream, T *sample_weight = nullptr) {
+void qnFitSparse(const raft::handle_t& handle,
+                 T* X_values,
+                 int* X_cols,
+                 int* X_row_ids,
+                 int X_nnz,
+                 T* y_data,
+                 int N,
+                 int D,
+                 int C,
+                 bool fit_intercept,
+                 T l1,
+                 T l2,
+                 int max_iter,
+                 T grad_tol,
+                 T change_tol,
+                 int linesearch_max_iter,
+                 int lbfgs_memory,
+                 int verbosity,
+                 T* w0_data,
+                 T* f,
+                 int* num_iters,
+                 int loss_type,
+                 cudaStream_t stream,
+                 T* sample_weight = nullptr)
+{
   SimpleSparseMat<T> X(X_values, X_cols, X_row_ids, X_nnz, N, D);
-  qn_fit_x(handle, X, y_data, C, fit_intercept, l1, l2, max_iter, grad_tol,
-           change_tol, linesearch_max_iter, lbfgs_memory, verbosity, w0_data, f,
-           num_iters, loss_type, stream, sample_weight);
+  qn_fit_x(handle,
+           X,
+           y_data,
+           C,
+           fit_intercept,
+           l1,
+           l2,
+           max_iter,
+           grad_tol,
+           change_tol,
+           linesearch_max_iter,
+           lbfgs_memory,
+           verbosity,
+           w0_data,
+           f,
+           num_iters,
+           loss_type,
+           stream,
+           sample_weight);
 }
 
 template <typename T>
-void qn_decision_function(const raft::handle_t &handle, SimpleMat<T> &X, int C,
-                          bool fit_intercept, T *params, int loss_type,
-                          T *scores, cudaStream_t stream) {
+void qn_decision_function(const raft::handle_t& handle,
+                          SimpleMat<T>& X,
+                          int C,
+                          bool fit_intercept,
+                          T* params,
+                          int loss_type,
+                          T* scores,
+                          cudaStream_t stream)
+{
   // NOTE: While gtests pass X as row-major, and python API passes X as
   // col-major, no extensive testing has been done to ensure that
   // this function works correctly for both input types
@@ -162,32 +300,54 @@ void qn_decision_function(const raft::handle_t &handle, SimpleMat<T> &X, int C,
 }
 
 template <typename T>
-void qnDecisionFunction(const raft::handle_t &handle, T *Xptr, bool X_col_major,
-                        int N, int D, int C, bool fit_intercept, T *params,
-                        int loss_type, T *scores, cudaStream_t stream) {
+void qnDecisionFunction(const raft::handle_t& handle,
+                        T* Xptr,
+                        bool X_col_major,
+                        int N,
+                        int D,
+                        int C,
+                        bool fit_intercept,
+                        T* params,
+                        int loss_type,
+                        T* scores,
+                        cudaStream_t stream)
+{
   SimpleDenseMat<T> X(Xptr, N, D, X_col_major ? COL_MAJOR : ROW_MAJOR);
-  qn_decision_function(handle, X, C, fit_intercept, params, loss_type, scores,
-                       stream);
+  qn_decision_function(handle, X, C, fit_intercept, params, loss_type, scores, stream);
 }
 
 template <typename T>
-void qnDecisionFunctionSparse(const raft::handle_t &handle, T *X_values,
-                              int *X_cols, int *X_row_ids, int X_nnz, int N,
-                              int D, int C, bool fit_intercept, T *params,
-                              int loss_type, T *scores, cudaStream_t stream) {
+void qnDecisionFunctionSparse(const raft::handle_t& handle,
+                              T* X_values,
+                              int* X_cols,
+                              int* X_row_ids,
+                              int X_nnz,
+                              int N,
+                              int D,
+                              int C,
+                              bool fit_intercept,
+                              T* params,
+                              int loss_type,
+                              T* scores,
+                              cudaStream_t stream)
+{
   SimpleSparseMat<T> X(X_values, X_cols, X_row_ids, X_nnz, N, D);
-  qn_decision_function(handle, X, C, fit_intercept, params, loss_type, scores,
-                       stream);
+  qn_decision_function(handle, X, C, fit_intercept, params, loss_type, scores, stream);
 }
 
 template <typename T>
-void qn_predict(const raft::handle_t &handle, SimpleMat<T> &X, int C,
-                bool fit_intercept, T *params, int loss_type, T *preds,
-                cudaStream_t stream) {
+void qn_predict(const raft::handle_t& handle,
+                SimpleMat<T>& X,
+                int C,
+                bool fit_intercept,
+                T* params,
+                int loss_type,
+                T* preds,
+                cudaStream_t stream)
+{
   int C_len = (loss_type == 0) ? (C - 1) : C;
   rmm::device_uvector<T> scores(C_len * X.m, stream);
-  qn_decision_function(handle, X, C, fit_intercept, params, loss_type,
-                       scores.data(), stream);
+  qn_decision_function(handle, X, C, fit_intercept, params, loss_type, scores.data(), stream);
   SimpleDenseMat<T> Z(scores.data(), C_len, X.m);
   SimpleDenseMat<T> P(preds, 1, X.m);
 
@@ -215,18 +375,37 @@ void qn_predict(const raft::handle_t &handle, SimpleMat<T> &X, int C,
 }
 
 template <typename T>
-void qnPredict(const raft::handle_t &handle, T *Xptr, bool X_col_major, int N,
-               int D, int C, bool fit_intercept, T *params, int loss_type,
-               T *preds, cudaStream_t stream) {
+void qnPredict(const raft::handle_t& handle,
+               T* Xptr,
+               bool X_col_major,
+               int N,
+               int D,
+               int C,
+               bool fit_intercept,
+               T* params,
+               int loss_type,
+               T* preds,
+               cudaStream_t stream)
+{
   SimpleDenseMat<T> X(Xptr, N, D, X_col_major ? COL_MAJOR : ROW_MAJOR);
   qn_predict(handle, X, C, fit_intercept, params, loss_type, preds, stream);
 }
 
 template <typename T>
-void qnPredictSparse(const raft::handle_t &handle, T *X_values, int *X_cols,
-                     int *X_row_ids, int X_nnz, int N, int D, int C,
-                     bool fit_intercept, T *params, int loss_type, T *preds,
-                     cudaStream_t stream) {
+void qnPredictSparse(const raft::handle_t& handle,
+                     T* X_values,
+                     int* X_cols,
+                     int* X_row_ids,
+                     int X_nnz,
+                     int N,
+                     int D,
+                     int C,
+                     bool fit_intercept,
+                     T* params,
+                     int loss_type,
+                     T* preds,
+                     cudaStream_t stream)
+{
   SimpleSparseMat<T> X(X_values, X_cols, X_row_ids, X_nnz, N, D);
   qn_predict(handle, X, C, fit_intercept, params, loss_type, preds, stream);
 }

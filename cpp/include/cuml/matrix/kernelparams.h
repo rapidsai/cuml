@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -37,5 +37,5 @@ struct KernelParams {
   double coef0;       //!< additive constant in poly and tanh kernels
 };
 
-};  //end namespace Matrix
-};  //end namespace MLCommon
+};  // end namespace Matrix
+};  // end namespace MLCommon
