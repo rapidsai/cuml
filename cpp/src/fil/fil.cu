@@ -569,6 +569,43 @@ int max_depth(const tl::ModelImpl<T, L>& model) {
   return depth;
 }
 
+template <typename T, typename L>
+inline void cat_feature_counters(const tl::Tree<T, L>& tree, int* fid_max_matching_cat, int* fid_cat_nodes) {
+  std::stack<int> stack;
+  stack.push(tree_root(tree));
+  while (!stack.empty()) {
+    int node_id = stack.top();
+    stack.pop();
+    while (!tree.IsLeaf(node_id)) {
+      if(tree.SplitType(node_id) == tl::CategoricalConditionNode) &&
+         tree.HasMatchingCategories(node_id) {
+        std::vector<uint32_t> matching = tree.MatchingCategories(node_id);
+        uint32_t max_matching_cat = *(matching.end() - 1);
+        ASSERT(max_matching_cat <= max_precise_int_float, "FIL cannot infer on "
+               "more than %d matching categories", max_precise_int_float);
+        int feature_id = tree.SplitIndex(node_id);
+        fid_max_matching_cat[feature_id] =
+          std::max(max_matching_cat, fid_max_matching_cat[feature_id]);
+        ++(fid_cat_nodes[feature_id]);
+          
+      }
+      stack.push(tree.LeftChild(node_id));
+      node_id = tree.RightChild(node_id);
+    }
+  }
+}
+
+template <typename T, typename L>
+void cat_feature_counters(const tl::ModelImpl<T, L>& model, int* fid_max_matching_cat, int* fid_cat_nodes) {
+  const auto& trees = model.trees;
+#pragma omp parallel for
+  for (size_t i = 0; i < trees.size(); ++i) {
+    const auto& tree = trees[i];
+  }
+  return depth;
+}
+
+
 inline void adjust_threshold(float* pthreshold, int* tl_left, int* tl_right,
                              bool* default_left, tl::Operator comparison_op) {
   // in treelite (take left node if val [op] threshold),
@@ -852,13 +889,15 @@ size_t tl_leaf_vector_size(const tl::ModelImpl<T, L>& model) {
 // common for dense and sparse forests
 template <typename T, typename L>
 void tl2fil_common(forest_params_t* params, const tl::ModelImpl<T, L>& model,
-                   const treelite_params_t* tl_params) {
+                   const treelite_params_t* tl_params, categorical_branches& cat_branches) {
   // fill in forest-indendent params
   params->algo = tl_params->algo;
   params->threshold = tl_params->threshold;
 
   // fill in forest-dependent params
   params->depth = max_depth(model);  // also checks for cycles
+  cat_branches.max_matching = new int[model.num_feature];
+  int* fid_cat_nodes = new int[model.num_feature];
 
   const tl::ModelParam& param = model.param;
 
@@ -1002,7 +1041,7 @@ void tl2fil_sparse(std::vector<int>* ptrees, std::vector<fil_node_t>* pnodes,
                    const tl::ModelImpl<threshold_t, leaf_t>& model,
                    const treelite_params_t* tl_params,
                    std::vector<float>* vector_leaf, categorical_branches& cat_branches) {
-  tl2fil_common(params, model, tl_params);
+  tl2fil_common(params, model, tl_params, cat_branches);
   tl2fil_sparse_check_t<fil_node_t>::check(model);
 
   size_t num_trees = model.trees.size();
