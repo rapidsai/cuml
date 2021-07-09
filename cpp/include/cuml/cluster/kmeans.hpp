@@ -144,32 +144,34 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
 /**
  * @brief Predict the closest cluster each sample in X belongs to.
  *
- * @param[in]     handle        The handle to the cuML library context that
- * manages the CUDA resources.
- * @param[in]     params        Parameters for KMeans model.
- * @param[in]     centroids     Cluster centroids. It must be noted that the
- * data must be in row-major format and stored in device accessible location.
- * @param[in]     X             New data to predict.
- * @param[in]     n_samples     Number of samples in the input X.
- * @param[in]     n_features    Number of features or the dimensions of each
- * sample in 'X' (value should be same as the dimension for each cluster centers
- * in 'centroids').
- * @param[in]     sample_weight The weights for each observation in X.
- * @param[out]    labels        Index of the cluster each sample in X belongs
- * to.
- * @param[out]    inertia       Sum of squared distances of samples to their
- * closest cluster center.
+ * @param[in]     handle            The handle to the cuML library context
+ * that manages the CUDA resources.
+ * @param[in]     params            Parameters for KMeans model.
+ * @param[in]     centroids         Cluster centroids. It must be noted that
+ * the data must be in row-major format and stored in device accessible
+ * location.
+ * @param[in]     X                 New data to predict.
+ * @param[in]     n_samples         Number of samples in the input X.
+ * @param[in]     n_features        Number of features or the dimensions of
+ * each sample in 'X' (value should be same as the dimension for each cluster
+ * centers in 'centroids').
+ * @param[in]     sample_weight     The weights for each observation in X.
+ * @param[in]     normalize_weights True if the weights should be normalized
+ * @param[out]    labels            Index of the cluster each sample in X
+ * belongs to.
+ * @param[out]    inertia           Sum of squared distances of samples to
+ * their closest cluster center.
  */
 
 void predict(const raft::handle_t &handle, const KMeansParams &params,
              const float *centroids, const float *X, int n_samples,
-             int n_features, const float *sample_weight, int *labels,
-             float &inertia);
+             int n_features, const float *sample_weight, bool normalize_weights,
+             int *labels, float &inertia);
 
 void predict(const raft::handle_t &handle, const KMeansParams &params,
              const double *centroids, const double *X, int n_samples,
-             int n_features, const double *sample_weight, int *labels,
-             double &inertia);
+             int n_features, const double *sample_weight,
+             bool normalize_weights, int *labels, double &inertia);
 
 /**
  * @brief Transform X to a cluster-distance space.

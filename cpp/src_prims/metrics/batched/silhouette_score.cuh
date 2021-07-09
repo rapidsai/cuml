@@ -16,9 +16,9 @@
 
 #pragma once
 
-#include "../silhouette_score.cuh"
-
 #include <cuml/common/device_buffer.hpp>
+#include <cuml/metrics/metrics.hpp>
+#include "../silhouette_score.cuh"
 
 #include <thrust/device_vector.h>
 #include <raft/cuda_utils.cuh>
@@ -134,15 +134,11 @@ rmm::device_uvector<value_t> get_pairwise_distance(
   const raft::handle_t &handle, value_t *left_begin, value_t *right_begin,
   value_idx &n_left_rows, value_idx &n_right_rows, value_idx &n_cols,
   raft::distance::DistanceType metric, cudaStream_t stream) {
-  auto allocator = handle.get_device_allocator();
-
-  MLCommon::device_buffer<char> workspace(allocator, stream, 1);
-
   rmm::device_uvector<value_t> distances(n_left_rows * n_right_rows, stream);
 
-  raft::distance::pairwise_distance(left_begin, right_begin, distances.data(),
-                                    n_left_rows, n_right_rows, n_cols,
-                                    workspace, metric, stream);
+  ML::Metrics::pairwise_distance(handle, left_begin, right_begin,
+                                 distances.data(), n_left_rows, n_right_rows,
+                                 n_cols, metric);
 
   return distances;
 }

@@ -20,32 +20,97 @@
 #include <raft/distance/distance.cuh>
 #include <raft/handle.hpp>
 #include <raft/sparse/distance/distance.cuh>
+#include "pairwise_distance_canberra.cuh"
+#include "pairwise_distance_chebyshev.cuh"
+#include "pairwise_distance_cosine.cuh"
+#include "pairwise_distance_euclidean.cuh"
+#include "pairwise_distance_hellinger.cuh"
+#include "pairwise_distance_l1.cuh"
+#include "pairwise_distance_minkowski.cuh"
 
 namespace ML {
 
 namespace Metrics {
 void pairwise_distance(const raft::handle_t &handle, const double *x,
                        const double *y, double *dist, int m, int n, int k,
-                       raft::distance::DistanceType metric, bool isRowMajor) {
-  //Allocate workspace
-  raft::mr::device::buffer<char> workspace(handle.get_device_allocator(),
-                                           handle.get_stream(), 1);
-
-  //Call the distance function
-  raft::distance::pairwise_distance(x, y, dist, m, n, k, workspace, metric,
-                                    handle.get_stream(), isRowMajor);
+                       raft::distance::DistanceType metric, bool isRowMajor,
+                       double metric_arg) {
+  switch (metric) {
+    case raft::distance::DistanceType::L2Expanded:
+    case raft::distance::DistanceType::L2SqrtExpanded:
+    case raft::distance::DistanceType::L2Unexpanded:
+    case raft::distance::DistanceType::L2SqrtUnexpanded:
+      pairwise_distance_euclidean(handle, x, y, dist, m, n, k, metric,
+                                  isRowMajor, metric_arg);
+      break;
+    case raft::distance::DistanceType::CosineExpanded:
+      pairwise_distance_cosine(handle, x, y, dist, m, n, k, metric, isRowMajor,
+                               metric_arg);
+      break;
+    case raft::distance::DistanceType::L1:
+      pairwise_distance_l1(handle, x, y, dist, m, n, k, metric, isRowMajor,
+                           metric_arg);
+      break;
+    case raft::distance::DistanceType::Linf:
+      pairwise_distance_chebyshev(handle, x, y, dist, m, n, k, metric,
+                                  isRowMajor, metric_arg);
+      break;
+    case raft::distance::DistanceType::HellingerExpanded:
+      pairwise_distance_hellinger(handle, x, y, dist, m, n, k, metric,
+                                  isRowMajor, metric_arg);
+      break;
+    case raft::distance::DistanceType::LpUnexpanded:
+      pairwise_distance_minkowski(handle, x, y, dist, m, n, k, metric,
+                                  isRowMajor, metric_arg);
+      break;
+    case raft::distance::DistanceType::Canberra:
+      pairwise_distance_canberra(handle, x, y, dist, m, n, k, metric,
+                                 isRowMajor, metric_arg);
+      break;
+    default:
+      THROW("Unknown or unsupported distance metric '%d'!", (int)metric);
+  };
 }
 
 void pairwise_distance(const raft::handle_t &handle, const float *x,
                        const float *y, float *dist, int m, int n, int k,
-                       raft::distance::DistanceType metric, bool isRowMajor) {
-  //Allocate workspace
-  raft::mr::device::buffer<char> workspace(handle.get_device_allocator(),
-                                           handle.get_stream(), 1);
-
-  //Call the distance function
-  raft::distance::pairwise_distance(x, y, dist, m, n, k, workspace, metric,
-                                    handle.get_stream(), isRowMajor);
+                       raft::distance::DistanceType metric, bool isRowMajor,
+                       float metric_arg) {
+  switch (metric) {
+    case raft::distance::DistanceType::L2Expanded:
+    case raft::distance::DistanceType::L2SqrtExpanded:
+    case raft::distance::DistanceType::L2Unexpanded:
+    case raft::distance::DistanceType::L2SqrtUnexpanded:
+      pairwise_distance_euclidean(handle, x, y, dist, m, n, k, metric,
+                                  isRowMajor, metric_arg);
+      break;
+    case raft::distance::DistanceType::CosineExpanded:
+      pairwise_distance_cosine(handle, x, y, dist, m, n, k, metric, isRowMajor,
+                               metric_arg);
+      break;
+    case raft::distance::DistanceType::L1:
+      pairwise_distance_l1(handle, x, y, dist, m, n, k, metric, isRowMajor,
+                           metric_arg);
+      break;
+    case raft::distance::DistanceType::Linf:
+      pairwise_distance_chebyshev(handle, x, y, dist, m, n, k, metric,
+                                  isRowMajor, metric_arg);
+      break;
+    case raft::distance::DistanceType::HellingerExpanded:
+      pairwise_distance_hellinger(handle, x, y, dist, m, n, k, metric,
+                                  isRowMajor, metric_arg);
+      break;
+    case raft::distance::DistanceType::LpUnexpanded:
+      pairwise_distance_minkowski(handle, x, y, dist, m, n, k, metric,
+                                  isRowMajor, metric_arg);
+      break;
+    case raft::distance::DistanceType::Canberra:
+      pairwise_distance_canberra(handle, x, y, dist, m, n, k, metric,
+                                 isRowMajor, metric_arg);
+      break;
+    default:
+      THROW("Unknown or unsupported distance metric '%d'!", (int)metric);
+  };
 }
 
 template <typename value_idx = int, typename value_t = float>
@@ -57,7 +122,8 @@ void pairwiseDistance_sparse(const raft::handle_t &handle, value_t *x,
                              value_idx *x_indices, value_idx *y_indices,
                              raft::distance::DistanceType metric,
                              float metric_arg) {
-  raft::sparse::distance::distances_config_t<value_idx, value_t> dist_config;
+  raft::sparse::distance::distances_config_t<value_idx, value_t> dist_config(
+    handle);
 
   dist_config.b_nrows = x_nrows;
   dist_config.b_ncols = n_cols;
@@ -72,10 +138,6 @@ void pairwiseDistance_sparse(const raft::handle_t &handle, value_t *x,
   dist_config.a_indptr = y_indptr;
   dist_config.a_indices = y_indices;
   dist_config.a_data = y;
-
-  dist_config.handle = handle.get_cusparse_handle();
-  dist_config.allocator = handle.get_device_allocator();
-  dist_config.stream = handle.get_stream();
 
   raft::sparse::distance::pairwiseDistance(dist, dist_config, metric,
                                            metric_arg);
