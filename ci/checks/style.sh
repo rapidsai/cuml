@@ -9,12 +9,12 @@ set +e
 export PATH=/conda/bin:/usr/local/cuda/bin:$PATH
 
 # Activate common conda env and install any dependencies needed
-source activate gdf
+. /opt/conda/etc/profile.d/conda.sh
+conda activate rapids
 cd $WORKSPACE
 export GIT_DESCRIBE_TAG=`git describe --tags`
 export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 conda install "ucx-py=0.21.*" "ucx-proc=*=gpu"
-conda install -c conda-forge clang=8.0.1 clang-tools=8.0.1
 
 # Run flake8 and get results/return code
 FLAKE=`flake8 --config=python/setup.cfg`

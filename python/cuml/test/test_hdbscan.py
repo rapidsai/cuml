@@ -242,6 +242,54 @@ def test_hdbscan_sklearn_datasets(dataset,
            np.sort(cuml_agg.cluster_persistence_), rtol=0.1, atol=0.1)
 
 
+@pytest.mark.parametrize('dataset', test_datasets.values())
+@pytest.mark.parametrize('cluster_selection_epsilon', [0.0, 50.0, 150.0])
+@pytest.mark.parametrize('min_samples', [150, 50, 5, 400])
+@pytest.mark.parametrize('min_cluster_size', [150, 25, 5, 250])
+@pytest.mark.parametrize('max_cluster_size', [0])
+@pytest.mark.parametrize('allow_single_cluster', [True, False])
+@pytest.mark.parametrize('cluster_selection_method', ['eom', 'leaf'])
+@pytest.mark.parametrize('connectivity', ['knn'])
+def test_hdbscan_sklearn_extract_clusters(dataset,
+                                          connectivity,
+                                          cluster_selection_epsilon,
+                                          cluster_selection_method,
+                                          min_samples,
+                                          min_cluster_size,
+                                          max_cluster_size,
+                                          allow_single_cluster):
+
+    X = dataset.data
+
+    cuml_agg = HDBSCAN(verbose=logger.level_info,
+                       allow_single_cluster=allow_single_cluster,
+                       n_neighbors=min_samples,
+                       gen_min_span_tree=True,
+                       min_samples=min_samples,
+                       max_cluster_size=max_cluster_size,
+                       min_cluster_size=min_cluster_size,
+                       cluster_selection_epsilon=cluster_selection_epsilon,
+                       cluster_selection_method=cluster_selection_method)
+
+    sk_agg = hdbscan.HDBSCAN(
+        allow_single_cluster=allow_single_cluster,
+        approx_min_span_tree=False,
+        gen_min_span_tree=True,
+        min_samples=min_samples,
+        min_cluster_size=min_cluster_size,
+        cluster_selection_epsilon=cluster_selection_epsilon,
+        cluster_selection_method=cluster_selection_method,
+        algorithm="generic")
+
+    sk_agg.fit(cp.asnumpy(X))
+
+    cuml_agg._extract_clusters(sk_agg.condensed_tree_)
+
+    assert adjusted_rand_score(cuml_agg.labels_test, sk_agg.labels_) == 1.0
+    assert np.allclose(cp.asnumpy(cuml_agg.probabilities_test),
+                       sk_agg.probabilities_)
+
+
 @pytest.mark.parametrize('nrows', [1000])
 @pytest.mark.parametrize('dataset', dataset_names)
 @pytest.mark.parametrize('min_samples', [15])
@@ -249,7 +297,6 @@ def test_hdbscan_sklearn_datasets(dataset,
 @pytest.mark.parametrize('min_cluster_size', [25])
 @pytest.mark.parametrize('allow_single_cluster', [True, False])
 @pytest.mark.parametrize('max_cluster_size', [0])
-# TODO: Need to test leaf selection method
 @pytest.mark.parametrize('cluster_selection_method', ['eom'])
 @pytest.mark.parametrize('connectivity', ['knn'])
 def test_hdbscan_cluster_patterns(dataset, nrows,
@@ -295,6 +342,55 @@ def test_hdbscan_cluster_patterns(dataset, nrows,
 
     assert np.allclose(np.sort(sk_agg.cluster_persistence_),
            np.sort(cuml_agg.cluster_persistence_), rtol=0.1, atol=0.1)
+
+
+@pytest.mark.parametrize('nrows', [1000])
+@pytest.mark.parametrize('dataset', dataset_names)
+@pytest.mark.parametrize('min_samples', [5, 50, 400, 800])
+@pytest.mark.parametrize('cluster_selection_epsilon', [0.0, 50.0, 150.0])
+@pytest.mark.parametrize('min_cluster_size', [10, 25, 100, 350])
+@pytest.mark.parametrize('allow_single_cluster', [True, False])
+@pytest.mark.parametrize('max_cluster_size', [0])
+@pytest.mark.parametrize('cluster_selection_method', ['eom', 'leaf'])
+@pytest.mark.parametrize('connectivity', ['knn'])
+def test_hdbscan_cluster_patterns_extract_clusters(dataset, nrows,
+                                                   connectivity,
+                                                   cluster_selection_epsilon,
+                                                   cluster_selection_method,
+                                                   min_cluster_size,
+                                                   allow_single_cluster,
+                                                   max_cluster_size,
+                                                   min_samples):
+
+    # This also tests duplicate data points
+    X, y = get_pattern(dataset, nrows)[0]
+
+    cuml_agg = HDBSCAN(verbose=logger.level_info,
+                       allow_single_cluster=allow_single_cluster,
+                       n_neighbors=min_samples,
+                       min_samples=min_samples,
+                       max_cluster_size=max_cluster_size,
+                       min_cluster_size=min_cluster_size,
+                       cluster_selection_epsilon=cluster_selection_epsilon,
+                       cluster_selection_method=cluster_selection_method)
+
+    sk_agg = hdbscan.HDBSCAN(
+        allow_single_cluster=allow_single_cluster,
+        approx_min_span_tree=False,
+        gen_min_span_tree=True,
+        min_samples=min_samples,
+        min_cluster_size=min_cluster_size,
+        cluster_selection_epsilon=cluster_selection_epsilon,
+        cluster_selection_method=cluster_selection_method,
+        algorithm="generic")
+
+    sk_agg.fit(cp.asnumpy(X))
+
+    cuml_agg._extract_clusters(sk_agg.condensed_tree_)
+
+    assert adjusted_rand_score(cuml_agg.labels_test, sk_agg.labels_) == 1.0
+    assert np.allclose(cp.asnumpy(cuml_agg.probabilities_test),
+                       sk_agg.probabilities_)
 
 
 def test_hdbscan_plots():

@@ -206,29 +206,25 @@ class PatternSetter {
 #endif
 
 #if (CUML_ACTIVE_LEVEL >= CUML_LEVEL_INFO)
-#define CUML_LOG_INFO(fmt, ...) \
-  ML::Logger::get().log(CUML_LEVEL_INFO, fmt, ##__VA_ARGS__)
+#define CUML_LOG_INFO(fmt, ...) ML::Logger::get().log(CUML_LEVEL_INFO, fmt, ##__VA_ARGS__)
 #else
 #define CUML_LOG_INFO(fmt, ...) void(0)
 #endif
 
 #if (CUML_ACTIVE_LEVEL >= CUML_LEVEL_WARN)
-#define CUML_LOG_WARN(fmt, ...) \
-  ML::Logger::get().log(CUML_LEVEL_WARN, fmt, ##__VA_ARGS__)
+#define CUML_LOG_WARN(fmt, ...) ML::Logger::get().log(CUML_LEVEL_WARN, fmt, ##__VA_ARGS__)
 #else
 #define CUML_LOG_WARN(fmt, ...) void(0)
 #endif
 
 #if (CUML_ACTIVE_LEVEL >= CUML_LEVEL_ERROR)
-#define CUML_LOG_ERROR(fmt, ...) \
-  ML::Logger::get().log(CUML_LEVEL_ERROR, fmt, ##__VA_ARGS__)
+#define CUML_LOG_ERROR(fmt, ...) ML::Logger::get().log(CUML_LEVEL_ERROR, fmt, ##__VA_ARGS__)
 #else
 #define CUML_LOG_ERROR(fmt, ...) void(0)
 #endif
 
 #if (CUML_ACTIVE_LEVEL >= CUML_LEVEL_CRITICAL)
-#define CUML_LOG_CRITICAL(fmt, ...) \
-  ML::Logger::get().log(CUML_LEVEL_CRITICAL, fmt, ##__VA_ARGS__)
+#define CUML_LOG_CRITICAL(fmt, ...) ML::Logger::get().log(CUML_LEVEL_CRITICAL, fmt, ##__VA_ARGS__)
 #else
 #define CUML_LOG_CRITICAL(fmt, ...) void(0)
 #endif
