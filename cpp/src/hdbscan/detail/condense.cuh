@@ -62,19 +62,22 @@ namespace Condense {
  *                            a binary tree.
  */
 template <typename value_idx, typename value_t, int tpb = 256>
-void build_condensed_hierarchy(
-  const raft::handle_t &handle, const value_idx *children, const value_t *delta,
-  const value_idx *sizes, int min_cluster_size, int n_leaves,
-  Common::CondensedHierarchy<value_idx, value_t> &condensed_tree) {
+void build_condensed_hierarchy(const raft::handle_t& handle,
+                               const value_idx* children,
+                               const value_t* delta,
+                               const value_idx* sizes,
+                               int min_cluster_size,
+                               int n_leaves,
+                               Common::CondensedHierarchy<value_idx, value_t>& condensed_tree)
+{
   cudaStream_t stream = handle.get_stream();
-  auto exec_policy = rmm::exec_policy(stream);
+  auto exec_policy    = rmm::exec_policy(stream);
 
   // Root is the last edge in the dendrogram
   int root = 2 * (n_leaves - 1);
 
-  auto d_ptr = thrust::device_pointer_cast(children);
-  value_idx n_vertices =
-    *(thrust::max_element(exec_policy, d_ptr, d_ptr + root)) + 1;
+  auto d_ptr           = thrust::device_pointer_cast(children);
+  value_idx n_vertices = *(thrust::max_element(exec_policy, d_ptr, d_ptr + root)) + 1;
 
   // Prevent potential infinite loop from labeling disconnected
   // connectivities graph.
@@ -83,8 +86,10 @@ void build_condensed_hierarchy(
                "Cannot find single-linkage solution.");
 
   rmm::device_uvector<bool> frontier(root + 1, stream);
+  rmm::device_uvector<bool> next_frontier(root + 1, stream);
 
   thrust::fill(exec_policy, frontier.begin(), frontier.end(), false);
+  thrust::fill(exec_policy, next_frontier.begin(), next_frontier.end(), false);
 
   // Array to propagate the lambda of subtrees actively being collapsed
   // through multiple bfs iterations.
@@ -120,19 +125,30 @@ void build_condensed_hierarchy(
   while (n_elements_to_traverse > 0) {
     // TODO: Investigate whether it would be worth performing a gather/argmatch in order
     // to schedule only the number of threads needed. (it might not be worth it)
-    condense_hierarchy_kernel<<<grid, tpb, 0, handle.get_stream()>>>(
-      frontier.data(), ignore.data(), relabel.data(), children, delta, sizes,
-      n_leaves, min_cluster_size, out_parent.data(), out_child.data(),
-      out_lambda.data(), out_size.data());
+    condense_hierarchy_kernel<<<grid, tpb, 0, handle.get_stream()>>>(frontier.data(),
+                                                                     next_frontier.data(),
+                                                                     ignore.data(),
+                                                                     relabel.data(),
+                                                                     children,
+                                                                     delta,
+                                                                     sizes,
+                                                                     n_leaves,
+                                                                     min_cluster_size,
+                                                                     out_parent.data(),
+                                                                     out_child.data(),
+                                                                     out_lambda.data(),
+                                                                     out_size.data());
 
-    n_elements_to_traverse = thrust::reduce(exec_policy, frontier.data(),
-                                            frontier.data() + root + 1, 0);
+    thrust::copy(exec_policy, next_frontier.begin(), next_frontier.end(), frontier.begin());
+    thrust::fill(exec_policy, next_frontier.begin(), next_frontier.end(), false);
+
+    n_elements_to_traverse =
+      thrust::reduce(exec_policy, frontier.data(), frontier.data() + root + 1, 0);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
-  condensed_tree.condense(out_parent.data(), out_child.data(),
-                          out_lambda.data(), out_size.data());
+  condensed_tree.condense(out_parent.data(), out_child.data(), out_lambda.data(), out_size.data());
 }
 
 };  // end namespace Condense

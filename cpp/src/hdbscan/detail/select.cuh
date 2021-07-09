@@ -62,11 +62,19 @@ namespace Select {
  * @param[in] bfs_kernel kernel accepting indptr, children, frontier, is_cluster, and n_clusters
  */
 template <typename value_idx, typename Bfs_Kernel, int tpb = 256>
-void perform_bfs(const raft::handle_t &handle, const value_idx *indptr,
-                 const value_idx *children, int *frontier, int *is_cluster,
-                 int n_clusters, Bfs_Kernel bfs_kernel) {
-  auto stream = handle.get_stream();
+void perform_bfs(const raft::handle_t& handle,
+                 const value_idx* indptr,
+                 const value_idx* children,
+                 int* frontier,
+                 int* is_cluster,
+                 int n_clusters,
+                 Bfs_Kernel bfs_kernel)
+{
+  auto stream        = handle.get_stream();
   auto thrust_policy = rmm::exec_policy(stream);
+
+  rmm::device_uvector<int> next_frontier(n_clusters, stream);
+  thrust::fill(thrust_policy, next_frontier.begin(), next_frontier.end(), 0);
 
   value_idx n_elements_to_traverse =
     thrust::reduce(thrust_policy, frontier, frontier + n_clusters, 0);
@@ -78,11 +86,14 @@ void perform_bfs(const raft::handle_t &handle, const value_idx *indptr,
   size_t grid = raft::ceildiv(n_clusters, tpb);
 
   while (n_elements_to_traverse > 0) {
-    bfs_kernel<<<grid, tpb, 0, stream>>>(indptr, children, frontier, is_cluster,
-                                         n_clusters);
+    bfs_kernel<<<grid, tpb, 0, stream>>>(
+      indptr, children, frontier, next_frontier.data(), is_cluster, n_clusters);
 
-    n_elements_to_traverse =
-      thrust::reduce(thrust_policy, frontier, frontier + n_clusters, 0);
+    thrust::copy(thrust_policy, next_frontier.begin(), next_frontier.end(), frontier);
+    thrust::fill(thrust_policy, next_frontier.begin(), next_frontier.end(), 0);
+
+    n_elements_to_traverse = thrust::reduce(thrust_policy, frontier, frontier + n_clusters, 0);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 }
 
@@ -97,25 +108,25 @@ void perform_bfs(const raft::handle_t &handle, const value_idx *indptr,
  * @param[out] indptr CSR indptr of parents array after sort
  */
 template <typename value_idx, typename value_t>
-void parent_csr(const raft::handle_t &handle,
-                Common::CondensedHierarchy<value_idx, value_t> &cluster_tree,
-                value_idx *indptr) {
-  auto stream = handle.get_stream();
+void parent_csr(const raft::handle_t& handle,
+                Common::CondensedHierarchy<value_idx, value_t>& cluster_tree,
+                value_idx* indptr)
+{
+  auto stream        = handle.get_stream();
   auto thrust_policy = rmm::exec_policy(stream);
 
-  auto parents = cluster_tree.get_parents();
-  auto children = cluster_tree.get_children();
-  auto sizes = cluster_tree.get_sizes();
+  auto parents            = cluster_tree.get_parents();
+  auto children           = cluster_tree.get_children();
+  auto sizes              = cluster_tree.get_sizes();
   auto cluster_tree_edges = cluster_tree.get_n_edges();
-  auto n_clusters = cluster_tree.get_n_clusters();
+  auto n_clusters         = cluster_tree.get_n_clusters();
 
   if (cluster_tree_edges > 0) {
-    raft::sparse::op::coo_sort(0, 0, cluster_tree_edges, parents, children,
-                               sizes, handle.get_device_allocator(), stream);
+    raft::sparse::op::coo_sort(
+      0, 0, cluster_tree_edges, parents, children, sizes, handle.get_device_allocator(), stream);
 
     raft::sparse::convert::sorted_coo_to_csr(
-      parents, cluster_tree_edges, indptr, n_clusters + 1,
-      handle.get_device_allocator(), stream);
+      parents, cluster_tree_edges, indptr, n_clusters + 1, handle.get_device_allocator(), stream);
   } else {
     thrust::fill(thrust_policy, indptr, indptr + n_clusters + 1, 0);
   }
@@ -138,37 +149,39 @@ void parent_csr(const raft::handle_t &handle,
  *            it will be deselected (and children selected)
  */
 template <typename value_idx, typename value_t, int tpb = 256>
-void excess_of_mass(
-  const raft::handle_t &handle,
-  Common::CondensedHierarchy<value_idx, value_t> &cluster_tree,
-  value_t *stability, int *is_cluster, int n_clusters,
-  value_idx max_cluster_size, bool allow_single_cluster) {
-  auto stream = handle.get_stream();
+void excess_of_mass(const raft::handle_t& handle,
+                    Common::CondensedHierarchy<value_idx, value_t>& cluster_tree,
+                    value_t* stability,
+                    int* is_cluster,
+                    int n_clusters,
+                    value_idx max_cluster_size,
+                    bool allow_single_cluster)
+{
+  auto stream      = handle.get_stream();
   auto exec_policy = rmm::exec_policy(stream);
 
   auto cluster_tree_edges = cluster_tree.get_n_edges();
-  auto parents = cluster_tree.get_parents();
-  auto children = cluster_tree.get_children();
-  auto lambdas = cluster_tree.get_lambdas();
-  auto sizes = cluster_tree.get_sizes();
+  auto parents            = cluster_tree.get_parents();
+  auto children           = cluster_tree.get_children();
+  auto lambdas            = cluster_tree.get_lambdas();
+  auto sizes              = cluster_tree.get_sizes();
 
   rmm::device_uvector<value_idx> cluster_sizes(n_clusters, stream);
 
-  thrust::fill(exec_policy, cluster_sizes.data(),
-               cluster_sizes.data() + cluster_sizes.size(), 0);
+  thrust::fill(exec_policy, cluster_sizes.data(), cluster_sizes.data() + cluster_sizes.size(), 0);
 
-  value_idx *cluster_sizes_ptr = cluster_sizes.data();
+  value_idx* cluster_sizes_ptr = cluster_sizes.data();
 
-  auto out =
-    thrust::make_zip_iterator(thrust::make_tuple(parents, children, sizes));
-  thrust::for_each(
-    exec_policy, out, out + cluster_tree_edges,
-    [=] __device__(const thrust::tuple<value_idx, value_idx, value_idx> &tup) {
-      // if parent is root (0), add to cluster_sizes_ptr
-      if (thrust::get<0>(tup) == 0) cluster_sizes_ptr[0] += thrust::get<2>(tup);
+  auto out = thrust::make_zip_iterator(thrust::make_tuple(parents, children, sizes));
+  thrust::for_each(exec_policy,
+                   out,
+                   out + cluster_tree_edges,
+                   [=] __device__(const thrust::tuple<value_idx, value_idx, value_idx>& tup) {
+                     // if parent is root (0), add to cluster_sizes_ptr
+                     if (thrust::get<0>(tup) == 0) cluster_sizes_ptr[0] += thrust::get<2>(tup);
 
-      cluster_sizes_ptr[thrust::get<1>(tup)] = thrust::get<2>(tup);
-    });
+                     cluster_sizes_ptr[thrust::get<1>(tup)] = thrust::get<2>(tup);
+                   });
 
   /**
    * 2. Iterate through each level from leaves back to root. Use the cluster
@@ -184,8 +197,7 @@ void excess_of_mass(
   rmm::device_uvector<value_idx> indptr(n_clusters + 1, stream);
   parent_csr(handle, cluster_tree, indptr.data());
 
-  raft::update_host(cluster_sizes_h.data(), cluster_sizes.data(),
-                    cluster_sizes.size(), stream);
+  raft::update_host(cluster_sizes_h.data(), cluster_sizes.data(), cluster_sizes.size(), stream);
 
   std::vector<value_idx> indptr_h(indptr.size(), 0);
   if (cluster_tree_edges > 0)
@@ -203,13 +215,15 @@ void excess_of_mass(
 
     if (indptr_h[node + 1] - indptr_h[node] > 0) {
       subtree_stability = thrust::transform_reduce(
-        exec_policy, children + indptr_h[node], children + indptr_h[node + 1],
-        [=] __device__(value_idx a) { return stability[a]; }, 0.0,
+        exec_policy,
+        children + indptr_h[node],
+        children + indptr_h[node + 1],
+        [=] __device__(value_idx a) { return stability[a]; },
+        0.0,
         thrust::plus<value_t>());
     }
 
-    if (subtree_stability > node_stability ||
-        cluster_sizes_h[node] > max_cluster_size) {
+    if (subtree_stability > node_stability || cluster_sizes_h[node] > max_cluster_size) {
       // Deselect / merge cluster with children
       raft::update_device(stability + node, &subtree_stability, 1, stream);
       is_cluster_h[node] = false;
@@ -229,8 +243,13 @@ void excess_of_mass(
   raft::update_device(is_cluster, is_cluster_h.data(), n_clusters, stream);
   raft::update_device(frontier.data(), frontier_h.data(), n_clusters, stream);
 
-  perform_bfs(handle, indptr.data(), children, frontier.data(), is_cluster,
-              n_clusters, propagate_cluster_negation_kernel<value_idx>);
+  perform_bfs(handle,
+              indptr.data(),
+              children,
+              frontier.data(),
+              is_cluster,
+              n_clusters,
+              propagate_cluster_negation_kernel<value_idx>);
 }
 
 /**
@@ -244,28 +263,25 @@ void excess_of_mass(
  * @param[in] n_clusters number of clusters in cluster tree
  */
 template <typename value_idx, typename value_t, int tpb = 256>
-void leaf(const raft::handle_t &handle,
-          Common::CondensedHierarchy<value_idx, value_t> &cluster_tree,
-          int *is_cluster, int n_clusters) {
-  auto stream = handle.get_stream();
+void leaf(const raft::handle_t& handle,
+          Common::CondensedHierarchy<value_idx, value_t>& cluster_tree,
+          int* is_cluster,
+          int n_clusters)
+{
+  auto stream      = handle.get_stream();
   auto exec_policy = rmm::exec_policy(stream);
 
-  auto parents = cluster_tree.get_parents();
+  auto parents  = cluster_tree.get_parents();
   auto children = cluster_tree.get_children();
-  auto n_edges = cluster_tree.get_n_edges();
+  auto n_edges  = cluster_tree.get_n_edges();
 
   rmm::device_uvector<int> is_parent(n_clusters, stream);
   thrust::fill(exec_policy, is_parent.begin(), is_parent.end(), false);
-  auto is_parent_op = [is_parent = is_parent.data()] __device__(auto &p) {
-    is_parent[p] = true;
-  };
+  auto is_parent_op = [is_parent = is_parent.data()] __device__(auto& p) { is_parent[p] = true; };
   thrust::for_each(exec_policy, parents, parents + n_edges, is_parent_op);
 
-  auto is_cluster_op = [is_parent = is_parent.data(),
-                        is_cluster = is_cluster] __device__(auto &c) {
-    if (!is_parent[c]) {
-      is_cluster[c] = true;
-    }
+  auto is_cluster_op = [is_parent = is_parent.data(), is_cluster = is_cluster] __device__(auto& c) {
+    if (!is_parent[c]) { is_cluster[c] = true; }
   };
   thrust::for_each(exec_policy, children, children + n_edges, is_cluster_op);
 }
@@ -284,49 +300,67 @@ void leaf(const raft::handle_t &handle,
  * @param[in] n_selected_clusters numnber of cluster selections in is_cluster
  */
 template <typename value_idx, typename value_t, int tpb = 256>
-void cluster_epsilon_search(
-  const raft::handle_t &handle,
-  Common::CondensedHierarchy<value_idx, value_t> &cluster_tree, int *is_cluster,
-  const int n_clusters, const value_t cluster_selection_epsilon,
-  const bool allow_single_cluster, const int n_selected_clusters) {
-  auto stream = handle.get_stream();
-  auto thrust_policy = rmm::exec_policy(stream);
-  auto parents = cluster_tree.get_parents();
-  auto children = cluster_tree.get_children();
-  auto lambdas = cluster_tree.get_lambdas();
+void cluster_epsilon_search(const raft::handle_t& handle,
+                            Common::CondensedHierarchy<value_idx, value_t>& cluster_tree,
+                            int* is_cluster,
+                            const int n_clusters,
+                            const value_t cluster_selection_epsilon,
+                            const bool allow_single_cluster,
+                            const int n_selected_clusters)
+{
+  auto stream             = handle.get_stream();
+  auto thrust_policy      = rmm::exec_policy(stream);
+  auto parents            = cluster_tree.get_parents();
+  auto children           = cluster_tree.get_children();
+  auto lambdas            = cluster_tree.get_lambdas();
   auto cluster_tree_edges = cluster_tree.get_n_edges();
 
   rmm::device_uvector<int> selected_clusters(n_selected_clusters, stream);
 
   // copying selected clusters by index
-  thrust::copy_if(thrust_policy, thrust::make_counting_iterator(value_idx(0)),
-                  thrust::make_counting_iterator(n_clusters), is_cluster,
+  thrust::copy_if(thrust_policy,
+                  thrust::make_counting_iterator(value_idx(0)),
+                  thrust::make_counting_iterator(n_clusters),
+                  is_cluster,
                   selected_clusters.data(),
                   [] __device__(auto cluster) { return cluster; });
 
   // sort lambdas and parents by children for epsilon search
   auto start = thrust::make_zip_iterator(thrust::make_tuple(parents, lambdas));
-  thrust::sort_by_key(thrust_policy, children, children + cluster_tree_edges,
-                      start);
+  thrust::sort_by_key(thrust_policy, children, children + cluster_tree_edges, start);
   rmm::device_uvector<value_t> eps(cluster_tree_edges, stream);
-  thrust::transform(thrust_policy, lambdas, lambdas + cluster_tree_edges,
-                    eps.begin(), [] __device__(auto x) { return 1 / x; });
+  thrust::transform(
+    thrust_policy, lambdas, lambdas + cluster_tree_edges, eps.begin(), [] __device__(auto x) {
+      return 1 / x;
+    });
 
   // declare frontier and search
   rmm::device_uvector<int> frontier(n_clusters, stream);
   thrust::fill(thrust_policy, frontier.begin(), frontier.end(), false);
 
   auto nblocks = raft::ceildiv(n_selected_clusters, tpb);
-  cluster_epsilon_search_kernel<<<nblocks, tpb, 0, stream>>>(
-    selected_clusters.data(), n_selected_clusters, parents, children, lambdas,
-    cluster_tree_edges, is_cluster, frontier.data(), n_clusters,
-    cluster_selection_epsilon, allow_single_cluster);
+  cluster_epsilon_search_kernel<<<nblocks, tpb, 0, stream>>>(selected_clusters.data(),
+                                                             n_selected_clusters,
+                                                             parents,
+                                                             children,
+                                                             lambdas,
+                                                             cluster_tree_edges,
+                                                             is_cluster,
+                                                             frontier.data(),
+                                                             n_clusters,
+                                                             cluster_selection_epsilon,
+                                                             allow_single_cluster);
 
   rmm::device_uvector<value_idx> indptr(n_clusters + 1, stream);
   parent_csr(handle, cluster_tree, indptr.data());
 
-  perform_bfs(handle, indptr.data(), children, frontier.data(), is_cluster,
-              n_clusters, propagate_cluster_negation_kernel<value_idx>);
+  perform_bfs(handle,
+              indptr.data(),
+              children,
+              frontier.data(),
+              is_cluster,
+              n_clusters,
+              propagate_cluster_negation_kernel<value_idx>);
 }
 
 /**
@@ -336,21 +370,24 @@ void cluster_epsilon_search(
  * @param[in] handle raft handle for resource reuse
  * @param[in] condensed_tree condensed hierarchy
  * @param[in] tree_stabilities stabilities array (size n_leaves from condensed hierarchy)
- * @param[out] is_cluster array of cluster selections / deselections (size n_clusters from condensed hierarchy)
+ * @param[out] is_cluster array of cluster selections / deselections (size n_clusters from condensed
+ * hierarchy)
  * @param[in] cluster_selection_method method to use for selecting clusters
  * @param[in] allow_single_cluster whether a single cluster can be selected in noisy conditions
  * @param[in] max_cluster_size max size cluster to select before selecting children
  * @param[in] cluster_selection_epsilon distance threshold (0.0 disables distance selection)
  */
 template <typename value_idx, typename value_t>
-void select_clusters(
-  const raft::handle_t &handle,
-  Common::CondensedHierarchy<value_idx, value_t> &condensed_tree,
-  value_t *tree_stabilities, int *is_cluster,
-  Common::CLUSTER_SELECTION_METHOD cluster_selection_method,
-  bool allow_single_cluster, int max_cluster_size,
-  float cluster_selection_epsilon) {
-  auto stream = handle.get_stream();
+void select_clusters(const raft::handle_t& handle,
+                     Common::CondensedHierarchy<value_idx, value_t>& condensed_tree,
+                     value_t* tree_stabilities,
+                     int* is_cluster,
+                     Common::CLUSTER_SELECTION_METHOD cluster_selection_method,
+                     bool allow_single_cluster,
+                     int max_cluster_size,
+                     float cluster_selection_epsilon)
+{
+  auto stream        = handle.get_stream();
   auto thrust_policy = rmm::exec_policy(handle.get_stream());
 
   auto n_clusters = condensed_tree.get_n_clusters();
@@ -358,8 +395,13 @@ void select_clusters(
   auto cluster_tree = Utils::make_cluster_tree(handle, condensed_tree);
 
   if (cluster_selection_method == Common::CLUSTER_SELECTION_METHOD::EOM) {
-    Select::excess_of_mass(handle, cluster_tree, tree_stabilities, is_cluster,
-                           n_clusters, max_cluster_size, allow_single_cluster);
+    Select::excess_of_mass(handle,
+                           cluster_tree,
+                           tree_stabilities,
+                           is_cluster,
+                           n_clusters,
+                           max_cluster_size,
+                           allow_single_cluster);
   } else {
     thrust::fill(thrust_policy, is_cluster, is_cluster + n_clusters, false);
 
@@ -368,8 +410,7 @@ void select_clusters(
     }
   }
 
-  auto n_selected_clusters =
-    thrust::reduce(thrust_policy, is_cluster, is_cluster + n_clusters);
+  auto n_selected_clusters = thrust::reduce(thrust_policy, is_cluster, is_cluster + n_clusters);
 
   // this variable is only used when cluster_selection_epsilon != 0.0
   auto epsilon_search = true;
@@ -388,9 +429,7 @@ void select_clusters(
 
   if (cluster_selection_epsilon != 0.0 && cluster_tree.get_n_edges() > 0) {
     // no epsilon search if no clusters were selected
-    if (n_selected_clusters == 0) {
-      epsilon_search = false;
-    }
+    if (n_selected_clusters == 0) { epsilon_search = false; }
 
     // this is to check when eom finds root as only cluster
     // in which case, epsilon search is cancelled
@@ -398,15 +437,17 @@ void select_clusters(
       if (n_selected_clusters == 1) {
         int is_root_only_cluster = false;
         raft::update_host(&is_root_only_cluster, is_cluster, 1, stream);
-        if (is_root_only_cluster && allow_single_cluster) {
-          epsilon_search = false;
-        }
+        if (is_root_only_cluster && allow_single_cluster) { epsilon_search = false; }
       }
     }
     if (epsilon_search) {
-      Select::cluster_epsilon_search(handle, cluster_tree, is_cluster,
-                                     n_clusters, cluster_selection_epsilon,
-                                     allow_single_cluster, n_selected_clusters);
+      Select::cluster_epsilon_search(handle,
+                                     cluster_tree,
+                                     is_cluster,
+                                     n_clusters,
+                                     cluster_selection_epsilon,
+                                     allow_single_cluster,
+                                     n_selected_clusters);
     }
   }
 }

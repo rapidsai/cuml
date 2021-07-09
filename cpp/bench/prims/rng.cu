@@ -46,50 +46,32 @@ struct Params {
 template <typename T>
 struct RngBench : public Fixture {
   RngBench(const std::string& name, const Params<T>& p)
-    : Fixture(name, std::shared_ptr<raft::mr::device::allocator>(
-                      new raft::mr::device::default_allocator)),
-      params(p) {}
+    : Fixture(
+        name,
+        std::shared_ptr<raft::mr::device::allocator>(new raft::mr::device::default_allocator)),
+      params(p)
+  {
+  }
 
  protected:
-  void allocateBuffers(const ::benchmark::State& state) override {
-    alloc(ptr, params.len);
-  }
+  void allocateBuffers(const ::benchmark::State& state) override { alloc(ptr, params.len); }
 
-  void deallocateBuffers(const ::benchmark::State& state) override {
-    dealloc(ptr, params.len);
-  }
+  void deallocateBuffers(const ::benchmark::State& state) override { dealloc(ptr, params.len); }
 
-  void runBenchmark(::benchmark::State& state) override {
+  void runBenchmark(::benchmark::State& state) override
+  {
     raft::random::Rng r(123456ULL, params.gtype);
     loopOnState(state, [this, &r]() {
       switch (params.type) {
-        case RNG_Normal:
-          r.normal(ptr, params.len, params.start, params.end, stream);
-          break;
-        case RNG_LogNormal:
-          r.lognormal(ptr, params.len, params.start, params.end, stream);
-          break;
-        case RNG_Uniform:
-          r.uniform(ptr, params.len, params.start, params.end, stream);
-          break;
-        case RNG_Gumbel:
-          r.gumbel(ptr, params.len, params.start, params.end, stream);
-          break;
-        case RNG_Logistic:
-          r.logistic(ptr, params.len, params.start, params.end, stream);
-          break;
-        case RNG_Exp:
-          r.exponential(ptr, params.len, params.start, stream);
-          break;
-        case RNG_Rayleigh:
-          r.rayleigh(ptr, params.len, params.start, stream);
-          break;
-        case RNG_Laplace:
-          r.laplace(ptr, params.len, params.start, params.end, stream);
-          break;
-        case RNG_Fill:
-          r.fill(ptr, params.len, params.start, stream);
-          break;
+        case RNG_Normal: r.normal(ptr, params.len, params.start, params.end, stream); break;
+        case RNG_LogNormal: r.lognormal(ptr, params.len, params.start, params.end, stream); break;
+        case RNG_Uniform: r.uniform(ptr, params.len, params.start, params.end, stream); break;
+        case RNG_Gumbel: r.gumbel(ptr, params.len, params.start, params.end, stream); break;
+        case RNG_Logistic: r.logistic(ptr, params.len, params.start, params.end, stream); break;
+        case RNG_Exp: r.exponential(ptr, params.len, params.start, stream); break;
+        case RNG_Rayleigh: r.rayleigh(ptr, params.len, params.start, stream); break;
+        case RNG_Laplace: r.laplace(ptr, params.len, params.start, params.end, stream); break;
+        case RNG_Fill: r.fill(ptr, params.len, params.start, stream); break;
       };
     });
   }
@@ -100,7 +82,8 @@ struct RngBench : public Fixture {
 };  // struct RngBench
 
 template <typename T>
-static std::vector<Params<T>> getInputs() {
+static std::vector<Params<T>> getInputs()
+{
   using namespace raft::random;
   return {
     {1024 * 1024, RNG_Uniform, GenPhilox, T(-1.0), T(1.0)},

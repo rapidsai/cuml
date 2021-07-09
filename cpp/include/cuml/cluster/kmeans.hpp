@@ -69,7 +69,7 @@ struct KMeansParams {
   // useful to optimize/control the memory footprint
   // Default tile is [batch_samples x n_clusters] i.e. when batch_centroids is 0
   // then don't tile the centroids
-  int batch_samples = 1 << 15;
+  int batch_samples   = 1 << 15;
   int batch_centroids = 0;  // if 0 then batch_centroids = n_clusters
 
   bool inertia_check = false;
@@ -99,15 +99,27 @@ struct KMeansParams {
  closest cluster center.
  * @param[out]    n_iter        Number of iterations run.
  */
-void fit_predict(const raft::handle_t &handle, const KMeansParams &params,
-                 const float *X, int n_samples, int n_features,
-                 const float *sample_weight, float *centroids, int *labels,
-                 float &inertia, int &n_iter);
+void fit_predict(const raft::handle_t& handle,
+                 const KMeansParams& params,
+                 const float* X,
+                 int n_samples,
+                 int n_features,
+                 const float* sample_weight,
+                 float* centroids,
+                 int* labels,
+                 float& inertia,
+                 int& n_iter);
 
-void fit_predict(const raft::handle_t &handle, const KMeansParams &params,
-                 const double *X, int n_samples, int n_features,
-                 const double *sample_weight, double *centroids, int *labels,
-                 double &inertia, int &n_iter);
+void fit_predict(const raft::handle_t& handle,
+                 const KMeansParams& params,
+                 const double* X,
+                 int n_samples,
+                 int n_features,
+                 const double* sample_weight,
+                 double* centroids,
+                 int* labels,
+                 double& inertia,
+                 int& n_iter);
 
 /**
  * @brief Compute k-means clustering.
@@ -131,15 +143,25 @@ void fit_predict(const raft::handle_t &handle, const KMeansParams &params,
  * @param[out]    n_iter        Number of iterations run.
  */
 
-void fit(const raft::handle_t &handle, const KMeansParams &params,
-         const float *X, int n_samples, int n_features,
-         const float *sample_weight, float *centroids, float &inertia,
-         int &n_iter);
+void fit(const raft::handle_t& handle,
+         const KMeansParams& params,
+         const float* X,
+         int n_samples,
+         int n_features,
+         const float* sample_weight,
+         float* centroids,
+         float& inertia,
+         int& n_iter);
 
-void fit(const raft::handle_t &handle, const KMeansParams &params,
-         const double *X, int n_samples, int n_features,
-         const double *sample_weight, double *centroids, double &inertia,
-         int &n_iter);
+void fit(const raft::handle_t& handle,
+         const KMeansParams& params,
+         const double* X,
+         int n_samples,
+         int n_features,
+         const double* sample_weight,
+         double* centroids,
+         double& inertia,
+         int& n_iter);
 
 /**
  * @brief Predict the closest cluster each sample in X belongs to.
@@ -163,15 +185,27 @@ void fit(const raft::handle_t &handle, const KMeansParams &params,
  * their closest cluster center.
  */
 
-void predict(const raft::handle_t &handle, const KMeansParams &params,
-             const float *centroids, const float *X, int n_samples,
-             int n_features, const float *sample_weight, bool normalize_weights,
-             int *labels, float &inertia);
+void predict(const raft::handle_t& handle,
+             const KMeansParams& params,
+             const float* centroids,
+             const float* X,
+             int n_samples,
+             int n_features,
+             const float* sample_weight,
+             bool normalize_weights,
+             int* labels,
+             float& inertia);
 
-void predict(const raft::handle_t &handle, const KMeansParams &params,
-             const double *centroids, const double *X, int n_samples,
-             int n_features, const double *sample_weight,
-             bool normalize_weights, int *labels, double &inertia);
+void predict(const raft::handle_t& handle,
+             const KMeansParams& params,
+             const double* centroids,
+             const double* X,
+             int n_samples,
+             int n_features,
+             const double* sample_weight,
+             bool normalize_weights,
+             int* labels,
+             double& inertia);
 
 /**
  * @brief Transform X to a cluster-distance space.
@@ -192,13 +226,23 @@ void predict(const raft::handle_t &handle, const KMeansParams &params,
  * metric from raft::distance::DistanceType can be used
  * @param[out]    X_new         X transformed in the new space..
  */
-void transform(const raft::handle_t &handle, const KMeansParams &params,
-               const float *centroids, const float *X, int n_samples,
-               int n_features, int metric, float *X_new);
+void transform(const raft::handle_t& handle,
+               const KMeansParams& params,
+               const float* centroids,
+               const float* X,
+               int n_samples,
+               int n_features,
+               int metric,
+               float* X_new);
 
-void transform(const raft::handle_t &handle, const KMeansParams &params,
-               const double *centroids, const double *X, int n_samples,
-               int n_features, int metric, double *X_new);
+void transform(const raft::handle_t& handle,
+               const KMeansParams& params,
+               const double* centroids,
+               const double* X,
+               int n_samples,
+               int n_features,
+               int metric,
+               double* X_new);
 
 };  // end namespace kmeans
 };  // end namespace ML

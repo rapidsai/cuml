@@ -29,9 +29,9 @@ struct SimpleMat {
 
   SimpleMat(int m, int n) : m(m), n(n) {}
 
-  void operator=(const SimpleMat<T> &other) = delete;
+  void operator=(const SimpleMat<T>& other) = delete;
 
-  virtual void print(std::ostream &oss) const = 0;
+  virtual void print(std::ostream& oss) const = 0;
 
   /**
    * GEMM assigning to C where `this` refers to B.
@@ -40,9 +40,13 @@ struct SimpleMat {
    * C <- alpha * A^transA * (*this)^transB + beta * C
    * ```
    */
-  virtual void gemmb(const raft::handle_t &handle, const T alpha,
-                     const SimpleDenseMat<T> &A, const bool transA,
-                     const bool transB, const T beta, SimpleDenseMat<T> &C,
+  virtual void gemmb(const raft::handle_t& handle,
+                     const T alpha,
+                     const SimpleDenseMat<T>& A,
+                     const bool transA,
+                     const bool transB,
+                     const T beta,
+                     SimpleDenseMat<T>& C,
                      cudaStream_t stream) const = 0;
 };
 
