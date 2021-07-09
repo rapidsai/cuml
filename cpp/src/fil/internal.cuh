@@ -68,6 +68,16 @@ enum output_t {
   AVG_CLASS_SOFTMAX = AVG | CLASS | SOFTMAX,
   ALL_SET = AVG | SIGMOID | CLASS | SOFTMAX
 };
+std::string output2str(fil::output_t output)
+{
+  if (output == fil::RAW) return "RAW";
+  std::string s = "";
+  if (output & fil::AVG) s += "| AVG";
+  if (output & fil::CLASS) s += "| CLASS";
+  if (output & fil::SIGMOID) s += "| SIGMOID";
+  if (output & fil::SOFTMAX) s += "| SOFTMAX";
+  return s;
+}
 
 /** val_t is the payload within a FIL leaf */
 union val_t {
@@ -212,6 +222,12 @@ enum leaf_algo_t {
   VECTOR_LEAF = 5,
   // to be extended
 };
+static const char* leaf_algo_t_repr[] = {"FLOAT_UNARY_BINARY",
+                                         "CATEGORICAL_LEAF",
+                                         "GROVE_PER_CLASS",
+                                         "GROVE_PER_CLASS_FEW_CLASSES",
+                                         "GROVE_PER_CLASS_MANY_CLASSES",
+                                         "VECTOR_LEAF"};
 
 template <leaf_algo_t leaf_algo>
 struct leaf_output_t {};
