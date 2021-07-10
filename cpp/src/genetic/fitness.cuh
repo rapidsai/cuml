@@ -296,7 +296,7 @@ void logLoss(const raft::handle_t& h, const uint64_t n_samples,
       return ((1 - y) * yp - logsig) * (N * w / WS);
     },
     stream);
-  // raft::stats::sum(out,error.data(),n_progs,n_samples,false,stream);
+
   // Take average along rows
   raft::stats::mean(out, error.data(), n_progs, n_samples, false, false,
                     stream);
