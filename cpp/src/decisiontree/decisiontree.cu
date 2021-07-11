@@ -38,26 +38,34 @@ namespace DT {
  *            i.e., GINI for classification or MSE for regression
  * @param[in] cfg_max_batch_size: batch size for experimental backend
  */
-void set_tree_params(DecisionTreeParams &params, int cfg_max_depth,
-                     int cfg_max_leaves, float cfg_max_features, int cfg_n_bins,
-                     int cfg_min_samples_leaf, int cfg_min_samples_split,
+void set_tree_params(DecisionTreeParams& params,
+                     int cfg_max_depth,
+                     int cfg_max_leaves,
+                     float cfg_max_features,
+                     int cfg_n_bins,
+                     int cfg_min_samples_leaf,
+                     int cfg_min_samples_split,
                      float cfg_min_impurity_decrease,
-                     CRITERION cfg_split_criterion, int cfg_max_batch_size) {
-  params.max_depth = cfg_max_depth;
-  params.max_leaves = cfg_max_leaves;
-  params.max_features = cfg_max_features;
-  params.n_bins = cfg_n_bins;
-  params.min_samples_leaf = cfg_min_samples_leaf;
-  params.min_samples_split = cfg_min_samples_split;
-  params.split_criterion = cfg_split_criterion;
+                     CRITERION cfg_split_criterion,
+                     int cfg_max_batch_size)
+{
+  params.max_depth             = cfg_max_depth;
+  params.max_leaves            = cfg_max_leaves;
+  params.max_features          = cfg_max_features;
+  params.n_bins                = cfg_n_bins;
+  params.min_samples_leaf      = cfg_min_samples_leaf;
+  params.min_samples_split     = cfg_min_samples_split;
+  params.split_criterion       = cfg_split_criterion;
   params.min_impurity_decrease = cfg_min_impurity_decrease;
-  params.max_batch_size = cfg_max_batch_size;
+  params.max_batch_size        = cfg_max_batch_size;
 }
 
-void validity_check(const DecisionTreeParams params) {
+void validity_check(const DecisionTreeParams params)
+{
   ASSERT((params.max_depth >= 0), "Invalid max depth %d", params.max_depth);
   ASSERT((params.max_leaves == -1) || (params.max_leaves > 0),
-         "Invalid max leaves %d", params.max_leaves);
+         "Invalid max leaves %d",
+         params.max_leaves);
   ASSERT((params.max_features > 0) && (params.max_features <= 1.0),
          "max_features value %f outside permitted (0, 1] range",
          params.max_features);
@@ -71,7 +79,8 @@ void validity_check(const DecisionTreeParams params) {
          params.min_samples_split);
 }
 
-void print(const DecisionTreeParams params) {
+void print(const DecisionTreeParams params)
+{
   CUML_LOG_DEBUG("max_depth: %d", params.max_depth);
   CUML_LOG_DEBUG("max_leaves: %d", params.max_leaves);
   CUML_LOG_DEBUG("max_features: %f", params.max_features);
@@ -84,51 +93,49 @@ void print(const DecisionTreeParams params) {
 }
 
 template <class T, class L>
-std::string get_tree_summary_text(const TreeMetaDataNode<T, L> *tree) {
+std::string get_tree_summary_text(const TreeMetaDataNode<T, L>* tree)
+{
   std::ostringstream oss;
-  oss << " Decision Tree depth --> " << tree->depth_counter
-      << " and n_leaves --> " << tree->leaf_counter << "\n"
-      << " Tree Fitting - Overall time --> "
-      << (tree->prepare_time + tree->train_time) << " milliseconds"
-      << "\n"
-      << "   - preparing for fit time: " << tree->prepare_time
+  oss << " Decision Tree depth --> " << tree->depth_counter << " and n_leaves --> "
+      << tree->leaf_counter << "\n"
+      << " Tree Fitting - Overall time --> " << (tree->prepare_time + tree->train_time)
       << " milliseconds"
+      << "\n"
+      << "   - preparing for fit time: " << tree->prepare_time << " milliseconds"
       << "\n"
       << "   - tree growing time: " << tree->train_time << " milliseconds";
   return oss.str();
 }
 
 template <class T, class L>
-std::string get_tree_text(const TreeMetaDataNode<T, L> *tree) {
+std::string get_tree_text(const TreeMetaDataNode<T, L>* tree)
+{
   std::string summary = get_tree_summary_text<T, L>(tree);
   return summary + "\n" + get_node_text<T, L>("", tree->sparsetree, 0, false);
 }
 
 template <class T, class L>
-std::string get_tree_json(const TreeMetaDataNode<T, L> *tree) {
+std::string get_tree_json(const TreeMetaDataNode<T, L>* tree)
+{
   std::ostringstream oss;
   return get_node_json("", tree->sparsetree, 0);
 }
 
 // Functions' specializations
-template std::string get_tree_summary_text<float, int>(
-  const TreeClassifierF *tree);
-template std::string get_tree_summary_text<double, int>(
-  const TreeClassifierD *tree);
-template std::string get_tree_summary_text<float, float>(
-  const TreeRegressorF *tree);
-template std::string get_tree_summary_text<double, double>(
-  const TreeRegressorD *tree);
+template std::string get_tree_summary_text<float, int>(const TreeClassifierF* tree);
+template std::string get_tree_summary_text<double, int>(const TreeClassifierD* tree);
+template std::string get_tree_summary_text<float, float>(const TreeRegressorF* tree);
+template std::string get_tree_summary_text<double, double>(const TreeRegressorD* tree);
 
-template std::string get_tree_text<float, int>(const TreeClassifierF *tree);
-template std::string get_tree_text<double, int>(const TreeClassifierD *tree);
-template std::string get_tree_text<float, float>(const TreeRegressorF *tree);
-template std::string get_tree_text<double, double>(const TreeRegressorD *tree);
+template std::string get_tree_text<float, int>(const TreeClassifierF* tree);
+template std::string get_tree_text<double, int>(const TreeClassifierD* tree);
+template std::string get_tree_text<float, float>(const TreeRegressorF* tree);
+template std::string get_tree_text<double, double>(const TreeRegressorD* tree);
 
-template std::string get_tree_json<float, int>(const TreeClassifierF *tree);
-template std::string get_tree_json<double, int>(const TreeClassifierD *tree);
-template std::string get_tree_json<float, float>(const TreeRegressorF *tree);
-template std::string get_tree_json<double, double>(const TreeRegressorD *tree);
+template std::string get_tree_json<float, int>(const TreeClassifierF* tree);
+template std::string get_tree_json<double, int>(const TreeClassifierD* tree);
+template std::string get_tree_json<float, float>(const TreeRegressorF* tree);
+template std::string get_tree_json<double, double>(const TreeRegressorD* tree);
 
 }  // End namespace DT
-}  //End namespace ML
+}  // End namespace ML

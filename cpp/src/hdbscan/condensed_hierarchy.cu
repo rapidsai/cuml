@@ -39,7 +39,8 @@ namespace Common {
 
 struct TupleComp {
   template <typename one, typename two>
-  __host__ __device__ bool operator()(const one &t1, const two &t2) {
+  __host__ __device__ bool operator()(const one& t1, const two& t2)
+  {
     // sort first by each parent,
     if (thrust::get<0>(t1) < thrust::get<0>(t2)) return true;
     if (thrust::get<0>(t1) > thrust::get<0>(t2)) return false;
@@ -54,27 +55,33 @@ struct TupleComp {
 };
 
 template <typename value_idx, typename value_t>
-CondensedHierarchy<value_idx, value_t>::CondensedHierarchy(
-  const raft::handle_t &handle_, size_t n_leaves_)
+CondensedHierarchy<value_idx, value_t>::CondensedHierarchy(const raft::handle_t& handle_,
+                                                           size_t n_leaves_)
   : handle(handle_),
     n_leaves(n_leaves_),
     parents(0, handle.get_stream()),
     children(0, handle.get_stream()),
     lambdas(0, handle.get_stream()),
-    sizes(0, handle.get_stream()) {}
+    sizes(0, handle.get_stream())
+{
+}
 
 template <typename value_idx, typename value_t>
-CondensedHierarchy<value_idx, value_t>::CondensedHierarchy(
-  const raft::handle_t &handle_, size_t n_leaves_, int n_edges_,
-  value_idx *parents_, value_idx *children_, value_t *lambdas_,
-  value_idx *sizes_)
+CondensedHierarchy<value_idx, value_t>::CondensedHierarchy(const raft::handle_t& handle_,
+                                                           size_t n_leaves_,
+                                                           int n_edges_,
+                                                           value_idx* parents_,
+                                                           value_idx* children_,
+                                                           value_t* lambdas_,
+                                                           value_idx* sizes_)
   : handle(handle_),
     n_leaves(n_leaves_),
     n_edges(n_edges_),
     parents(0, handle.get_stream()),
     children(0, handle.get_stream()),
     lambdas(0, handle.get_stream()),
-    sizes(0, handle.get_stream()) {
+    sizes(0, handle.get_stream())
+{
   parents.resize(n_edges_, handle.get_stream());
   children.resize(n_edges_, handle.get_stream());
   lambdas.resize(n_edges_, handle.get_stream());
@@ -87,30 +94,34 @@ CondensedHierarchy<value_idx, value_t>::CondensedHierarchy(
 
   auto parents_ptr = thrust::device_pointer_cast(parents.data());
 
-  auto parents_min_max =
-    thrust::minmax_element(thrust::cuda::par.on(handle.get_stream()),
-                           parents_ptr, parents_ptr + n_edges);
+  auto parents_min_max = thrust::minmax_element(
+    thrust::cuda::par.on(handle.get_stream()), parents_ptr, parents_ptr + n_edges);
   auto min_cluster = *parents_min_max.first;
   auto max_cluster = *parents_min_max.second;
 
   n_clusters = max_cluster - min_cluster + 1;
 
-  auto sort_keys = thrust::make_zip_iterator(
-    thrust::make_tuple(parents.begin(), children.begin(), sizes.begin()));
-  auto sort_values =
-    thrust::make_zip_iterator(thrust::make_tuple(lambdas.begin()));
+  auto sort_keys =
+    thrust::make_zip_iterator(thrust::make_tuple(parents.begin(), children.begin(), sizes.begin()));
+  auto sort_values = thrust::make_zip_iterator(thrust::make_tuple(lambdas.begin()));
 
-  thrust::sort_by_key(thrust::cuda::par.on(handle.get_stream()), sort_keys,
-                      sort_keys + n_edges, sort_values, TupleComp());
+  thrust::sort_by_key(thrust::cuda::par.on(handle.get_stream()),
+                      sort_keys,
+                      sort_keys + n_edges,
+                      sort_values,
+                      TupleComp());
 }
 
 template <typename value_idx, typename value_t>
 CondensedHierarchy<value_idx, value_t>::CondensedHierarchy(
-  const raft::handle_t &handle_, size_t n_leaves_, int n_edges_,
-  int n_clusters_, rmm::device_uvector<value_idx> &&parents_,
-  rmm::device_uvector<value_idx> &&children_,
-  rmm::device_uvector<value_t> &&lambdas_,
-  rmm::device_uvector<value_idx> &&sizes_)
+  const raft::handle_t& handle_,
+  size_t n_leaves_,
+  int n_edges_,
+  int n_clusters_,
+  rmm::device_uvector<value_idx>&& parents_,
+  rmm::device_uvector<value_idx>&& children_,
+  rmm::device_uvector<value_t>&& lambdas_,
+  rmm::device_uvector<value_idx>&& sizes_)
   : handle(handle_),
     n_leaves(n_leaves_),
     n_edges(n_edges_),
@@ -118,7 +129,9 @@ CondensedHierarchy<value_idx, value_t>::CondensedHierarchy(
     parents(std::move(parents_)),
     children(std::move(children_)),
     lambdas(std::move(lambdas_)),
-    sizes(std::move(sizes_)) {}
+    sizes(std::move(sizes_))
+{
+}
 
 /**
  * Populates the condensed hierarchy object with the output
@@ -129,18 +142,22 @@ CondensedHierarchy<value_idx, value_t>::CondensedHierarchy(
  * @param full_sizes
  */
 template <typename value_idx, typename value_t>
-void CondensedHierarchy<value_idx, value_t>::condense(value_idx *full_parents,
-                                                      value_idx *full_children,
-                                                      value_t *full_lambdas,
-                                                      value_idx *full_sizes,
-                                                      value_idx size) {
+void CondensedHierarchy<value_idx, value_t>::condense(value_idx* full_parents,
+                                                      value_idx* full_children,
+                                                      value_t* full_lambdas,
+                                                      value_idx* full_sizes,
+                                                      value_idx size)
+{
   auto stream = handle.get_stream();
 
   if (size == -1) size = 4 * (n_leaves - 1) + 2;
 
   n_edges = thrust::transform_reduce(
-    thrust::cuda::par.on(stream), full_sizes, full_sizes + size,
-    [=] __device__(value_idx a) { return a != -1; }, 0,
+    thrust::cuda::par.on(stream),
+    full_sizes,
+    full_sizes + size,
+    [=] __device__(value_idx a) { return a != -1; },
+    0,
     thrust::plus<value_idx>());
 
   parents.resize(n_edges, stream);
@@ -151,57 +168,61 @@ void CondensedHierarchy<value_idx, value_t>::condense(value_idx *full_parents,
   auto in = thrust::make_zip_iterator(
     thrust::make_tuple(full_parents, full_children, full_lambdas, full_sizes));
 
-  auto out = thrust::make_zip_iterator(thrust::make_tuple(
-    parents.data(), children.data(), lambdas.data(), sizes.data()));
+  auto out = thrust::make_zip_iterator(
+    thrust::make_tuple(parents.data(), children.data(), lambdas.data(), sizes.data()));
 
-  thrust::copy_if(
-    thrust::cuda::par.on(stream), in, in + size, out,
-    [=] __device__(
-      thrust::tuple<value_idx, value_idx, value_t, value_idx> tup) {
-      return thrust::get<3>(tup) != -1;
-    });
+  thrust::copy_if(thrust::cuda::par.on(stream),
+                  in,
+                  in + size,
+                  out,
+                  [=] __device__(thrust::tuple<value_idx, value_idx, value_t, value_idx> tup) {
+                    return thrust::get<3>(tup) != -1;
+                  });
 
   // TODO: Avoid the copies here by updating kernel
   rmm::device_uvector<value_idx> parent_child(n_edges * 2, stream);
   raft::copy_async(parent_child.begin(), children.begin(), n_edges, stream);
-  raft::copy_async(parent_child.begin() + n_edges, parents.begin(), n_edges,
-                   stream);
+  raft::copy_async(parent_child.begin() + n_edges, parents.begin(), n_edges, stream);
 
   // find n_clusters
   auto parents_ptr = thrust::device_pointer_cast(parents.data());
-  auto max_parent = *(thrust::max_element(thrust::cuda::par.on(stream),
-                                          parents_ptr, parents_ptr + n_edges));
+  auto max_parent =
+    *(thrust::max_element(thrust::cuda::par.on(stream), parents_ptr, parents_ptr + n_edges));
 
   // now invert labels
-  auto invert_op = [max_parent, n_leaves = n_leaves] __device__(auto &x) {
+  auto invert_op = [max_parent, n_leaves = n_leaves] __device__(auto& x) {
     return x >= n_leaves ? max_parent - x + n_leaves : x;
   };
 
-  thrust::transform(thrust::cuda::par.on(stream), parent_child.begin(),
-                    parent_child.end(), parent_child.begin(), invert_op);
+  thrust::transform(thrust::cuda::par.on(stream),
+                    parent_child.begin(),
+                    parent_child.end(),
+                    parent_child.begin(),
+                    invert_op);
 
-  raft::label::make_monotonic(parent_child.data(), parent_child.data(),
-                              parent_child.size(), stream,
-                              handle.get_device_allocator(), true);
+  raft::label::make_monotonic(parent_child.data(),
+                              parent_child.data(),
+                              parent_child.size(),
+                              stream,
+                              handle.get_device_allocator(),
+                              true);
 
   raft::copy_async(children.begin(), parent_child.begin(), n_edges, stream);
-  raft::copy_async(parents.begin(), parent_child.begin() + n_edges, n_edges,
-                   stream);
+  raft::copy_async(parents.begin(), parent_child.begin() + n_edges, n_edges, stream);
 
-  auto parents_min_max = thrust::minmax_element(
-    thrust::cuda::par.on(stream), parents_ptr, parents_ptr + n_edges);
+  auto parents_min_max =
+    thrust::minmax_element(thrust::cuda::par.on(stream), parents_ptr, parents_ptr + n_edges);
   auto min_cluster = *parents_min_max.first;
   auto max_cluster = *parents_min_max.second;
 
   n_clusters = max_cluster - min_cluster + 1;
 
-  auto sort_keys = thrust::make_zip_iterator(
-    thrust::make_tuple(parents.begin(), children.begin(), sizes.begin()));
-  auto sort_values =
-    thrust::make_zip_iterator(thrust::make_tuple(lambdas.begin()));
+  auto sort_keys =
+    thrust::make_zip_iterator(thrust::make_tuple(parents.begin(), children.begin(), sizes.begin()));
+  auto sort_values = thrust::make_zip_iterator(thrust::make_tuple(lambdas.begin()));
 
-  thrust::sort_by_key(thrust::cuda::par.on(stream), sort_keys,
-                      sort_keys + n_edges, sort_values, TupleComp());
+  thrust::sort_by_key(
+    thrust::cuda::par.on(stream), sort_keys, sort_keys + n_edges, sort_values, TupleComp());
 }
 
 };  // namespace Common

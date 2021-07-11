@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,15 +26,15 @@ struct ds_accummulate {
   typedef value_t dp_vector_t;
 
   /// Compute "ds1" float->float
-  inline __device__ static void mad(float &d, const float &a, const float &b,
-                                    const float &c) {
+  inline __device__ static void mad(float& d, const float& a, const float& b, const float& c)
+  {
     float diff = a - b;
     asm volatile("fma.rn.f32 %0, %1, %1, %2;\n" : "=f"(d) : "f"(diff), "f"(c));
   }
 
   /// Compute "ds1" double->double
-  inline __device__ static void mad(double &d, const double &a, const double &b,
-                                    const double &c) {
+  inline __device__ static void mad(double& d, const double& a, const double& b, const double& c)
+  {
     double diff = a - b;
     asm volatile("fma.rn.f64 %0, %1, %1, %2;\n" : "=d"(d) : "d"(diff), "d"(c));
   }

@@ -62,13 +62,15 @@ namespace Extract {
 template <typename value_idx>
 class TreeUnionFind {
  public:
-  TreeUnionFind(value_idx size_) : size(size_), data(size_ * 2, 0) {
+  TreeUnionFind(value_idx size_) : size(size_), data(size_ * 2, 0)
+  {
     for (int i = 0; i < size; i++) {
       data[i * 2] = i;
     }
   }
 
-  void perform_union(value_idx x, value_idx y) {
+  void perform_union(value_idx x, value_idx y)
+  {
     value_idx x_root = find(x);
     value_idx y_root = find(y);
 
@@ -82,15 +84,14 @@ class TreeUnionFind {
     }
   }
 
-  value_idx find(value_idx x) {
-    if (data[x * 2] != x) {
-      data[x * 2] = find(data[x * 2]);
-    }
+  value_idx find(value_idx x)
+  {
+    if (data[x * 2] != x) { data[x * 2] = find(data[x * 2]); }
 
     return data[x * 2];
   }
 
-  value_idx *get_data() { return data.data(); }
+  value_idx* get_data() { return data.data(); }
 
  private:
   value_idx size;
@@ -98,30 +99,33 @@ class TreeUnionFind {
 };
 
 template <typename value_idx, typename value_t>
-void do_labelling_on_host(
-  const raft::handle_t &handle,
-  Common::CondensedHierarchy<value_idx, value_t> &condensed_tree,
-  std::set<value_idx> &clusters, value_idx n_leaves, bool allow_single_cluster,
-  value_idx *labels, value_t cluster_selection_epsilon) {
+void do_labelling_on_host(const raft::handle_t& handle,
+                          Common::CondensedHierarchy<value_idx, value_t>& condensed_tree,
+                          std::set<value_idx>& clusters,
+                          value_idx n_leaves,
+                          bool allow_single_cluster,
+                          value_idx* labels,
+                          value_t cluster_selection_epsilon)
+{
   auto stream = handle.get_stream();
 
   std::vector<value_idx> children_h(condensed_tree.get_n_edges());
   std::vector<value_t> lambda_h(condensed_tree.get_n_edges());
   std::vector<value_idx> parent_h(condensed_tree.get_n_edges());
 
-  raft::update_host(children_h.data(), condensed_tree.get_children(),
-                    condensed_tree.get_n_edges(), stream);
-  raft::update_host(parent_h.data(), condensed_tree.get_parents(),
-                    condensed_tree.get_n_edges(), stream);
-  raft::update_host(lambda_h.data(), condensed_tree.get_lambdas(),
-                    condensed_tree.get_n_edges(), stream);
+  raft::update_host(
+    children_h.data(), condensed_tree.get_children(), condensed_tree.get_n_edges(), stream);
+  raft::update_host(
+    parent_h.data(), condensed_tree.get_parents(), condensed_tree.get_n_edges(), stream);
+  raft::update_host(
+    lambda_h.data(), condensed_tree.get_lambdas(), condensed_tree.get_n_edges(), stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  auto parents = thrust::device_pointer_cast(condensed_tree.get_parents());
+  auto parents       = thrust::device_pointer_cast(condensed_tree.get_parents());
   auto thrust_policy = rmm::exec_policy(stream);
-  value_idx size = *thrust::max_element(thrust_policy, parents,
-                                        parents + condensed_tree.get_n_edges());
+  value_idx size =
+    *thrust::max_element(thrust_policy, parents, parents + condensed_tree.get_n_edges());
 
   std::vector<value_idx> result(n_leaves);
   std::vector<value_t> parent_lambdas(size + 1, 0);
@@ -129,11 +133,10 @@ void do_labelling_on_host(
   auto union_find = TreeUnionFind<value_idx>(size + 1);
 
   for (int i = 0; i < condensed_tree.get_n_edges(); i++) {
-    value_idx child = children_h[i];
+    value_idx child  = children_h[i];
     value_idx parent = parent_h[i];
 
-    if (clusters.find(child) == clusters.end())
-      union_find.perform_union(parent, child);
+    if (clusters.find(child) == clusters.end()) union_find.perform_union(parent, child);
 
     parent_lambdas[parent_h[i]] = max(parent_lambdas[parent_h[i]], lambda_h[i]);
   }
@@ -149,10 +152,10 @@ void do_labelling_on_host(
     if (cluster < n_leaves)
       result[i] = -1;
     else if (cluster == n_leaves) {
-      //TODO: Implement the cluster_selection_epsilon / epsilon_search
+      // TODO: Implement the cluster_selection_epsilon / epsilon_search
       if (clusters.size() == 1 && allow_single_cluster) {
-        auto it = std::find(children_h.begin(), children_h.end(), i);
-        auto child_idx = std::distance(children_h.begin(), it);
+        auto it              = std::find(children_h.begin(), children_h.end(), i);
+        auto child_idx       = std::distance(children_h.begin(), it);
         value_t child_lambda = lambda_h[child_idx];
 
         if (cluster_selection_epsilon != 0) {
@@ -191,43 +194,48 @@ void do_labelling_on_host(
  * @param[out] label_map array mapping condensed label ids to selected label ids (size n_leaves)
  * @param[in] cluster_selection_method method to use for cluster selection
  * @param[in] allow_single_cluster allows a single cluster to be returned (rather than just noise)
- * @param[in] max_cluster_size maximium number of points that can be considered in a cluster before it is split into multiple sub-clusters.
- * @param[in] cluster_selection_epsilon a distance threshold. clusters below this value will be merged.
+ * @param[in] max_cluster_size maximium number of points that can be considered in a cluster before
+ * it is split into multiple sub-clusters.
+ * @param[in] cluster_selection_epsilon a distance threshold. clusters below this value will be
+ * merged.
  */
 template <typename value_idx, typename value_t>
-value_idx extract_clusters(
-  const raft::handle_t &handle,
-  Common::CondensedHierarchy<value_idx, value_t> &condensed_tree,
-  size_t n_leaves, value_idx *labels, value_t *tree_stabilities,
-  value_t *probabilities, value_idx *label_map,
-  Common::CLUSTER_SELECTION_METHOD cluster_selection_method,
-  bool allow_single_cluster = false, value_idx max_cluster_size = 0,
-  value_t cluster_selection_epsilon = 0.0) {
-  auto stream = handle.get_stream();
+value_idx extract_clusters(const raft::handle_t& handle,
+                           Common::CondensedHierarchy<value_idx, value_t>& condensed_tree,
+                           size_t n_leaves,
+                           value_idx* labels,
+                           value_t* tree_stabilities,
+                           value_t* probabilities,
+                           value_idx* label_map,
+                           Common::CLUSTER_SELECTION_METHOD cluster_selection_method,
+                           bool allow_single_cluster         = false,
+                           value_idx max_cluster_size        = 0,
+                           value_t cluster_selection_epsilon = 0.0)
+{
+  auto stream      = handle.get_stream();
   auto exec_policy = rmm::exec_policy(stream);
 
   Stability::compute_stabilities(handle, condensed_tree, tree_stabilities);
-  rmm::device_uvector<int> is_cluster(condensed_tree.get_n_clusters(),
-                                      handle.get_stream());
+  rmm::device_uvector<int> is_cluster(condensed_tree.get_n_clusters(), handle.get_stream());
 
-  if (max_cluster_size <= 0)
-    max_cluster_size = n_leaves;  // negates the max cluster size
+  if (max_cluster_size <= 0) max_cluster_size = n_leaves;  // negates the max cluster size
 
-  Select::select_clusters(handle, condensed_tree, tree_stabilities,
-                          is_cluster.data(), cluster_selection_method,
-                          allow_single_cluster, max_cluster_size,
+  Select::select_clusters(handle,
+                          condensed_tree,
+                          tree_stabilities,
+                          is_cluster.data(),
+                          cluster_selection_method,
+                          allow_single_cluster,
+                          max_cluster_size,
                           cluster_selection_epsilon);
 
   std::vector<int> is_cluster_h(is_cluster.size());
-  raft::update_host(is_cluster_h.data(), is_cluster.data(), is_cluster_h.size(),
-                    stream);
+  raft::update_host(is_cluster_h.data(), is_cluster.data(), is_cluster_h.size(), stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   std::set<value_idx> clusters;
   for (int i = 0; i < is_cluster_h.size(); i++) {
-    if (is_cluster_h[i] != 0) {
-      clusters.insert(i + n_leaves);
-    }
+    if (is_cluster_h[i] != 0) { clusters.insert(i + n_leaves); }
   }
 
   std::vector<value_idx> label_map_h(condensed_tree.get_n_clusters(), -1);
@@ -238,12 +246,15 @@ value_idx extract_clusters(
   }
 
   raft::copy(label_map, label_map_h.data(), label_map_h.size(), stream);
-  do_labelling_on_host<value_idx, value_t>(handle, condensed_tree, clusters,
-                                           n_leaves, allow_single_cluster,
-                                           labels, cluster_selection_epsilon);
+  do_labelling_on_host<value_idx, value_t>(handle,
+                                           condensed_tree,
+                                           clusters,
+                                           n_leaves,
+                                           allow_single_cluster,
+                                           labels,
+                                           cluster_selection_epsilon);
 
-  Membership::get_probabilities<value_idx, value_t>(handle, condensed_tree,
-                                                    labels, probabilities);
+  Membership::get_probabilities<value_idx, value_t>(handle, condensed_tree, labels, probabilities);
 
   return clusters.size();
 }
