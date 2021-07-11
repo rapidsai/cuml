@@ -75,6 +75,7 @@ def test_minmax_scaler(failure_logger, clf_dataset,  # noqa: F811
 
     scaler = cuMinMaxScaler(feature_range=feature_range, copy=True)
     t_X = scaler.fit_transform(X)
+    scaler.fit_transform(X)
     r_X = scaler.inverse_transform(t_X)
     assert type(t_X) == type(X)
     assert type(r_X) == type(t_X)
@@ -111,6 +112,7 @@ def test_standard_scaler(failure_logger, clf_dataset,  # noqa: F811
                               with_std=with_std,
                               copy=True)
     t_X = scaler.fit_transform(X)
+    scaler.fit_transform(X)
     r_X = scaler.inverse_transform(t_X)
     assert type(t_X) == type(X)
     assert type(r_X) == type(t_X)
@@ -133,6 +135,7 @@ def test_standard_scaler_sparse(failure_logger,
 
     scaler = cuStandardScaler(with_mean=False, with_std=with_std, copy=True)
     t_X = scaler.fit_transform(X)
+    scaler.fit_transform(X)
     r_X = scaler.inverse_transform(t_X)
     #  assert type(t_X) == type(X)
     #  assert type(r_X) == type(t_X)
@@ -204,6 +207,7 @@ def test_maxabs_scaler(failure_logger, clf_dataset):  # noqa: F811
 
     scaler = cuMaxAbsScaler(copy=True)
     t_X = scaler.fit_transform(X)
+    scaler.fit_transform(X)
     r_X = scaler.inverse_transform(t_X)
     assert type(t_X) == type(X)
     assert type(r_X) == type(t_X)
@@ -222,6 +226,7 @@ def test_maxabs_scaler_sparse(failure_logger,
 
     scaler = cuMaxAbsScaler(copy=True)
     t_X = scaler.fit_transform(X)
+    scaler.fit_transform(X)
     r_X = scaler.inverse_transform(t_X)
     #  assert type(t_X) == type(X)
     #  assert type(r_X) == type(t_X)
