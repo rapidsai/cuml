@@ -34,9 +34,7 @@ struct RfInputs {
   int max_depth;
   int max_leaves;
   bool bootstrap;
-  bool bootstrap_features;
   int n_bins;
-  int split_algo;
   int min_samples_leaf;
   int min_samples_split;
   float min_impurity_decrease;
@@ -47,32 +45,27 @@ struct RfInputs {
 template <typename T>
 class RfClassifierDepthTest : public ::testing::TestWithParam<int> {
  protected:
-  void basicTest() {
+  void basicTest()
+  {
     const int max_depth = ::testing::TestWithParam<int>::GetParam();
-    params = RfInputs<T>{10000,
-                         10,
-                         1,
-                         1.0f,
-                         1.0f,
-                         max_depth,
-                         -1,
-                         false,
-                         false,
-                         8,
-                         SPLIT_ALGO::GLOBAL_QUANTILE,
-                         2,
-                         2,
-                         0.0,
-                         2,
-                         CRITERION::ENTROPY};
+    params              = RfInputs<T>{
+      10000, 10, 1, 1.0f, 1.0f, max_depth, -1, false, 8, 2, 2, 0.0, 2, CRITERION::ENTROPY};
 
     RF_params rf_params;
-    rf_params = set_rf_params(
-      params.max_depth, params.max_leaves, params.max_features, params.n_bins,
-      params.split_algo, params.min_samples_leaf, params.min_samples_split,
-      params.min_impurity_decrease, params.bootstrap_features, params.bootstrap,
-      params.n_trees, params.max_samples, 0, params.split_criterion, false,
-      params.n_streams, true, 128);
+    rf_params = set_rf_params(params.max_depth,
+                              params.max_leaves,
+                              params.max_features,
+                              params.n_bins,
+                              params.min_samples_leaf,
+                              params.min_samples_split,
+                              params.min_impurity_decrease,
+                              params.bootstrap,
+                              params.n_trees,
+                              params.max_samples,
+                              0,
+                              params.split_criterion,
+                              params.n_streams,
+                              128);
 
     int data_len = params.n_rows * params.n_cols;
     raft::allocate(data, data_len);
@@ -95,9 +88,7 @@ class RfClassifierDepthTest : public ::testing::TestWithParam<int> {
     // Populate labels
     labels_h.resize(params.n_rows);
     for (int row = 0; row < params.n_rows; ++row) {
-      labels_h[row] =
-        (data_h[row + 2 * params.n_rows] * data_h[row + 3 * params.n_rows] >
-         0.5);
+      labels_h[row] = (data_h[row + 2 * params.n_rows] * data_h[row + 3 * params.n_rows] > 0.5);
     }
     preprocess_labels(params.n_rows, labels_h, labels_map);
     raft::update_device(labels, labels_h.data(), params.n_rows, stream);
@@ -108,15 +99,15 @@ class RfClassifierDepthTest : public ::testing::TestWithParam<int> {
     raft::handle_t handle(rf_params.n_streams);
     handle.set_stream(stream);
 
-    fit(handle, forest, data, params.n_rows, params.n_cols, labels,
-        labels_map.size(), rf_params);
+    fit(handle, forest, data, params.n_rows, params.n_cols, labels, labels_map.size(), rf_params);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   void SetUp() override { basicTest(); }
 
-  void TearDown() override {
+  void TearDown() override
+  {
     labels_h.clear();
     labels_map.clear();
 
@@ -139,32 +130,27 @@ class RfClassifierDepthTest : public ::testing::TestWithParam<int> {
 template <typename T>
 class RfRegressorDepthTest : public ::testing::TestWithParam<int> {
  protected:
-  void basicTest() {
+  void basicTest()
+  {
     const int max_depth = ::testing::TestWithParam<int>::GetParam();
-    params = RfInputs<T>{5000,
-                         10,
-                         1,
-                         1.0f,
-                         1.0f,
-                         max_depth,
-                         -1,
-                         false,
-                         false,
-                         8,
-                         SPLIT_ALGO::GLOBAL_QUANTILE,
-                         2,
-                         2,
-                         0.0,
-                         2,
-                         CRITERION::MSE};
+    params =
+      RfInputs<T>{5000, 10, 1, 1.0f, 1.0f, max_depth, -1, false, 8, 2, 2, 0.0, 2, CRITERION::MSE};
 
     RF_params rf_params;
-    rf_params = set_rf_params(
-      params.max_depth, params.max_leaves, params.max_features, params.n_bins,
-      params.split_algo, params.min_samples_leaf, params.min_samples_split,
-      params.min_impurity_decrease, params.bootstrap_features, params.bootstrap,
-      params.n_trees, params.max_samples, 0, params.split_criterion, false,
-      params.n_streams, true, 128);
+    rf_params = set_rf_params(params.max_depth,
+                              params.max_leaves,
+                              params.max_features,
+                              params.n_bins,
+                              params.min_samples_leaf,
+                              params.min_samples_split,
+                              params.min_impurity_decrease,
+                              params.bootstrap,
+                              params.n_trees,
+                              params.max_samples,
+                              0,
+                              params.split_criterion,
+                              params.n_streams,
+                              128);
 
     int data_len = params.n_rows * params.n_cols;
     raft::allocate(data, data_len);
@@ -187,8 +173,7 @@ class RfRegressorDepthTest : public ::testing::TestWithParam<int> {
     // Populate labels
     labels_h.resize(params.n_rows);
     for (int row = 0; row < params.n_rows; ++row) {
-      labels_h[row] =
-        (data_h[row + 2 * params.n_rows] * data_h[row + 3 * params.n_rows]);
+      labels_h[row] = (data_h[row + 2 * params.n_rows] * data_h[row + 3 * params.n_rows]);
     }
     raft::update_device(labels, labels_h.data(), params.n_rows, stream);
 
@@ -205,7 +190,8 @@ class RfRegressorDepthTest : public ::testing::TestWithParam<int> {
 
   void SetUp() override { basicTest(); }
 
-  void TearDown() override {
+  void TearDown() override
+  {
     labels_h.clear();
 
     CUDA_CHECK(cudaFree(labels));
@@ -223,7 +209,8 @@ class RfRegressorDepthTest : public ::testing::TestWithParam<int> {
 };
 
 template <typename L, typename T>
-int MaxDepthOfDecisionTree(const DecisionTree::TreeMetaDataNode<T, L>* tree) {
+int MaxDepthOfDecisionTree(const DT::TreeMetaDataNode<T, L>* tree)
+{
   const auto& node_array = tree->sparsetree;
   std::queue<std::pair<int, int>> q;  // (node ID, depth)
   // Traverse the tree breadth-first
@@ -234,7 +221,7 @@ int MaxDepthOfDecisionTree(const DecisionTree::TreeMetaDataNode<T, L>* tree) {
     int node_id, depth;
     std::tie(node_id, depth) = q.front();
     q.pop();
-    max_depth = std::max(depth, max_depth);
+    max_depth                        = std::max(depth, max_depth);
     const SparseTreeNode<T, L>& node = node_array.at(node_id);
     if (node.colid != -1) {
       q.emplace(node.left_child_id, depth + 1);
@@ -245,7 +232,8 @@ int MaxDepthOfDecisionTree(const DecisionTree::TreeMetaDataNode<T, L>* tree) {
 }
 
 typedef RfClassifierDepthTest<float> RfClassifierDepthTestF;
-TEST_P(RfClassifierDepthTestF, Fit) {
+TEST_P(RfClassifierDepthTestF, Fit)
+{
   CUML_LOG_INFO("Param max_depth = %d", params.max_depth);
   for (int i = 0; i < forest->rf_params.n_trees; i++) {
     int actual_max_depth = MaxDepthOfDecisionTree(&(forest->trees[i]));
@@ -255,7 +243,8 @@ TEST_P(RfClassifierDepthTestF, Fit) {
 }
 
 typedef RfClassifierDepthTest<double> RfClassifierDepthTestD;
-TEST_P(RfClassifierDepthTestD, Fit) {
+TEST_P(RfClassifierDepthTestD, Fit)
+{
   CUML_LOG_INFO("Param max_depth = %d", params.max_depth);
   for (int i = 0; i < forest->rf_params.n_trees; i++) {
     int actual_max_depth = MaxDepthOfDecisionTree(&(forest->trees[i]));
@@ -264,14 +253,13 @@ TEST_P(RfClassifierDepthTestD, Fit) {
   }
 }
 
-INSTANTIATE_TEST_CASE_P(RfClassifierDepthTests, RfClassifierDepthTestF,
-                        ::testing::Range(0, 19));
+INSTANTIATE_TEST_CASE_P(RfClassifierDepthTests, RfClassifierDepthTestF, ::testing::Range(0, 19));
 
-INSTANTIATE_TEST_CASE_P(RfClassifierDepthTests, RfClassifierDepthTestD,
-                        ::testing::Range(0, 19));
+INSTANTIATE_TEST_CASE_P(RfClassifierDepthTests, RfClassifierDepthTestD, ::testing::Range(0, 19));
 
 typedef RfRegressorDepthTest<float> RfRegressorDepthTestF;
-TEST_P(RfRegressorDepthTestF, Fit) {
+TEST_P(RfRegressorDepthTestF, Fit)
+{
   CUML_LOG_INFO("Param max_depth = %d", params.max_depth);
   for (int i = 0; i < forest->rf_params.n_trees; i++) {
     int actual_max_depth = MaxDepthOfDecisionTree(&(forest->trees[i]));
@@ -281,7 +269,8 @@ TEST_P(RfRegressorDepthTestF, Fit) {
 }
 
 typedef RfRegressorDepthTest<double> RfRegressorDepthTestD;
-TEST_P(RfRegressorDepthTestD, Fit) {
+TEST_P(RfRegressorDepthTestD, Fit)
+{
   CUML_LOG_INFO("Param max_depth = %d", params.max_depth);
   for (int i = 0; i < forest->rf_params.n_trees; i++) {
     int actual_max_depth = MaxDepthOfDecisionTree(&(forest->trees[i]));
@@ -290,10 +279,8 @@ TEST_P(RfRegressorDepthTestD, Fit) {
   }
 }
 
-INSTANTIATE_TEST_CASE_P(RfRegressorDepthTests, RfRegressorDepthTestF,
-                        ::testing::Range(0, 19));
+INSTANTIATE_TEST_CASE_P(RfRegressorDepthTests, RfRegressorDepthTestF, ::testing::Range(0, 19));
 
-INSTANTIATE_TEST_CASE_P(RfRegressorDepthTests, RfRegressorDepthTestD,
-                        ::testing::Range(0, 19));
+INSTANTIATE_TEST_CASE_P(RfRegressorDepthTests, RfRegressorDepthTestD, ::testing::Range(0, 19));
 
 }  // end namespace ML

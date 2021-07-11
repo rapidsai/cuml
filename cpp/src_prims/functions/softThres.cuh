@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,10 +22,13 @@ namespace MLCommon {
 namespace Functions {
 
 template <typename math_t>
-void softThres(math_t *out, const math_t *in, const math_t thres, const int len,
-               cudaStream_t stream) {
+void softThres(
+  math_t* out, const math_t* in, const math_t thres, const int len, cudaStream_t stream)
+{
   raft::linalg::unaryOp(
-    out, in, len,
+    out,
+    in,
+    len,
     [thres] __device__(math_t in) {
       if (in > math_t(0) && thres < raft::myAbs(in))
         return in - thres;

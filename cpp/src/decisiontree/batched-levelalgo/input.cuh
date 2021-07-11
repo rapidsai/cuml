@@ -17,7 +17,7 @@
 #pragma once
 
 namespace ML {
-namespace DecisionTree {
+namespace DT {
 
 template <typename DataT, typename LabelT, typename IdxT>
 struct Input {
@@ -35,11 +35,11 @@ struct Input {
   IdxT nSampledCols;
   /** indices of sampled rows */
   IdxT* rowids;
-  /** number of classes (useful only in classification) */
-  IdxT nclasses;
+  /** Number of classes or regression outputs*/
+  IdxT numOutputs;
   /** quantiles/histogram computed on the dataset (col-major) */
   const DataT* quantiles;
 };
 
-}  // namespace DecisionTree
+}  // namespace DT
 }  // namespace ML

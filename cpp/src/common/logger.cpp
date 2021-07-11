@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,13 +24,15 @@
 
 namespace ML {
 
-std::string format(const char* fmt, va_list& vl) {
+std::string format(const char* fmt, va_list& vl)
+{
   char buf[4096];
   vsnprintf(buf, sizeof(buf), fmt, vl);
   return std::string(buf);
 }
 
-std::string format(const char* fmt, ...) {
+std::string format(const char* fmt, ...)
+{
   va_list vl;
   va_start(vl, fmt);
   std::string str = format(fmt, vl);
@@ -38,14 +40,16 @@ std::string format(const char* fmt, ...) {
   return str;
 }
 
-int convert_level_to_spdlog(int level) {
+int convert_level_to_spdlog(int level)
+{
   level = std::max(CUML_LEVEL_OFF, std::min(CUML_LEVEL_TRACE, level));
   return CUML_LEVEL_TRACE - level;
 }
 
 const std::string Logger::DefaultPattern("[%L] [%H:%M:%S.%f] %v");
 
-Logger& Logger::get() {
+Logger& Logger::get()
+{
   static Logger logger;
   return logger;
 }
@@ -53,40 +57,44 @@ Logger& Logger::get() {
 Logger::Logger()
   : sink{std::make_shared<spdlog::sinks::callback_sink_mt>()},
     logger{std::make_shared<spdlog::logger>("cuml", sink)},
-    currPattern() {
+    currPattern()
+{
   setPattern(DefaultPattern);
   setLevel(CUML_LEVEL_INFO);
 }
 
-void Logger::setLevel(int level) {
+void Logger::setLevel(int level)
+{
   level = convert_level_to_spdlog(level);
   logger->set_level(static_cast<spdlog::level::level_enum>(level));
 }
 
-void Logger::setPattern(const std::string& pattern) {
+void Logger::setPattern(const std::string& pattern)
+{
   currPattern = pattern;
   logger->set_pattern(pattern);
 }
 
-void Logger::setCallback(spdlog::sinks::LogCallback callback) {
-  sink->set_callback(callback);
-}
+void Logger::setCallback(spdlog::sinks::LogCallback callback) { sink->set_callback(callback); }
 
 void Logger::setFlush(void (*flush)()) { sink->set_flush(flush); }
 
-bool Logger::shouldLogFor(int level) const {
-  level = convert_level_to_spdlog(level);
+bool Logger::shouldLogFor(int level) const
+{
+  level        = convert_level_to_spdlog(level);
   auto level_e = static_cast<spdlog::level::level_enum>(level);
   return logger->should_log(level_e);
 }
 
-int Logger::getLevel() const {
+int Logger::getLevel() const
+{
   auto level_e = logger->level();
   return CUML_LEVEL_TRACE - static_cast<int>(level_e);
 }
 
-void Logger::log(int level, const char* fmt, ...) {
-  level = convert_level_to_spdlog(level);
+void Logger::log(int level, const char* fmt, ...)
+{
+  level        = convert_level_to_spdlog(level);
   auto level_e = static_cast<spdlog::level::level_enum>(level);
   // explicit check to make sure that we only expand messages when required
   if (logger->should_log(level_e)) {
@@ -100,7 +108,8 @@ void Logger::log(int level, const char* fmt, ...) {
 
 void Logger::flush() { logger->flush(); }
 
-PatternSetter::PatternSetter(const std::string& pattern) : prevPattern() {
+PatternSetter::PatternSetter(const std::string& pattern) : prevPattern()
+{
   prevPattern = Logger::get().getPattern();
   Logger::get().setPattern(pattern);
 }

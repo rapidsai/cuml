@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,10 +20,8 @@ namespace MLCommon {
 namespace Bench {
 namespace Distance {
 
-DIST_BENCH_REGISTER(DistanceUnexpL2Sq,
-                    raft::distance::DistanceType::L2Unexpanded);
-DIST_BENCH_REGISTER(DistanceUnexpL2Sqrt,
-                    raft::distance::DistanceType::L2SqrtUnexpanded);
+DIST_BENCH_REGISTER(DistanceUnexpL2Sq, raft::distance::DistanceType::L2Unexpanded);
+DIST_BENCH_REGISTER(DistanceUnexpL2Sqrt, raft::distance::DistanceType::L2SqrtUnexpanded);
 
 }  // namespace Distance
 }  // namespace Bench

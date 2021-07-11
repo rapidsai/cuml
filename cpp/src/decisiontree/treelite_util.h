@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 #include <cstdint>
 
 namespace ML {
-namespace DecisionTree {
+namespace DT {
 
 template <typename T>
 class TreeliteType;
@@ -48,6 +48,6 @@ class TreeliteType<int> {
   static constexpr const char* value = "uint32";
 };
 
-}  //End namespace DecisionTree
+}  // End namespace DT
 
-}  //End namespace ML
+}  // End namespace ML

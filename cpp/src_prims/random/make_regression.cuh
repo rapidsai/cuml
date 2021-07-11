@@ -41,28 +41,31 @@ namespace Random {
 
 /* Internal auxiliary function to help build the singular profile */
 template <typename DataT, typename IdxT>
-static __global__ void _singular_profile_kernel(DataT* out, IdxT n,
-                                                DataT tail_strength,
-                                                IdxT rank) {
+static __global__ void _singular_profile_kernel(DataT* out, IdxT n, DataT tail_strength, IdxT rank)
+{
   IdxT tid = threadIdx.x + blockIdx.x * blockDim.x;
   if (tid < n) {
-    DataT sval = static_cast<DataT>(tid) / rank;
+    DataT sval     = static_cast<DataT>(tid) / rank;
     DataT low_rank = ((DataT)1.0 - tail_strength) * raft::myExp(-sval * sval);
-    DataT tail = tail_strength * raft::myExp((DataT)-0.1 * sval);
-    out[tid] = low_rank + tail;
+    DataT tail     = tail_strength * raft::myExp((DataT)-0.1 * sval);
+    out[tid]       = low_rank + tail;
   }
 }
 
 /* Internal auxiliary function to generate a low-rank matrix */
 template <typename DataT, typename IdxT>
-static void _make_low_rank_matrix(const raft::handle_t& handle, DataT* out,
-                                  IdxT n_rows, IdxT n_cols, IdxT effective_rank,
-                                  DataT tail_strength, raft::random::Rng& r,
-                                  cudaStream_t stream) {
-  std::shared_ptr<raft::mr::device::allocator> allocator =
-    handle.get_device_allocator();
-  cusolverDnHandle_t cusolver_handle = handle.get_cusolver_dn_handle();
-  cublasHandle_t cublas_handle = handle.get_cublas_handle();
+static void _make_low_rank_matrix(const raft::handle_t& handle,
+                                  DataT* out,
+                                  IdxT n_rows,
+                                  IdxT n_cols,
+                                  IdxT effective_rank,
+                                  DataT tail_strength,
+                                  raft::random::Rng& r,
+                                  cudaStream_t stream)
+{
+  std::shared_ptr<raft::mr::device::allocator> allocator = handle.get_device_allocator();
+  cusolverDnHandle_t cusolver_handle                     = handle.get_cusolver_dn_handle();
+  cublasHandle_t cublas_handle                           = handle.get_cublas_handle();
 
   IdxT n = std::min(n_rows, n_cols);
 
@@ -88,10 +91,8 @@ static void _make_low_rank_matrix(const raft::handle_t& handle, DataT* out,
     singular_vec.data(), n, tail_strength, effective_rank);
   CUDA_CHECK(cudaPeekAtLastError());
   singular_mat.resize(n * n, stream);
-  CUDA_CHECK(
-    cudaMemsetAsync(singular_mat.data(), 0, n * n * sizeof(DataT), stream));
-  raft::matrix::initializeDiagonalMatrix(singular_vec.data(),
-                                         singular_mat.data(), n, n, stream);
+  CUDA_CHECK(cudaMemsetAsync(singular_mat.data(), 0, n * n * sizeof(DataT), stream));
+  raft::matrix::initializeDiagonalMatrix(singular_vec.data(), singular_mat.data(), n, n, stream);
 
   // Generate the column-major matrix
   raft::mr::device::buffer<DataT> temp_q0s(allocator, stream);
@@ -99,12 +100,35 @@ static void _make_low_rank_matrix(const raft::handle_t& handle, DataT* out,
   temp_q0s.resize(n_rows * n, stream);
   temp_out.resize(n_rows * n_cols, stream);
   DataT alpha = 1.0, beta = 0.0;
-  raft::linalg::cublasgemm(cublas_handle, CUBLAS_OP_N, CUBLAS_OP_N, n_rows, n,
-                           n, &alpha, q0.data(), n_rows, singular_mat.data(), n,
-                           &beta, temp_q0s.data(), n_rows, stream);
-  raft::linalg::cublasgemm(cublas_handle, CUBLAS_OP_N, CUBLAS_OP_T, n_rows,
-                           n_cols, n, &alpha, temp_q0s.data(), n_rows,
-                           q1.data(), n_cols, &beta, temp_out.data(), n_rows,
+  raft::linalg::cublasgemm(cublas_handle,
+                           CUBLAS_OP_N,
+                           CUBLAS_OP_N,
+                           n_rows,
+                           n,
+                           n,
+                           &alpha,
+                           q0.data(),
+                           n_rows,
+                           singular_mat.data(),
+                           n,
+                           &beta,
+                           temp_q0s.data(),
+                           n_rows,
+                           stream);
+  raft::linalg::cublasgemm(cublas_handle,
+                           CUBLAS_OP_N,
+                           CUBLAS_OP_T,
+                           n_rows,
+                           n_cols,
+                           n,
+                           &alpha,
+                           temp_q0s.data(),
+                           n_rows,
+                           q1.data(),
+                           n_cols,
+                           &beta,
+                           temp_out.data(),
+                           n_rows,
                            stream);
 
   // Transpose from column-major to row-major
@@ -114,14 +138,14 @@ static void _make_low_rank_matrix(const raft::handle_t& handle, DataT* out,
 /* Internal auxiliary function to permute rows in the given matrix according
  * to a given permutation vector */
 template <typename DataT, typename IdxT>
-static __global__ void _gather2d_kernel(DataT* out, const DataT* in,
-                                        const IdxT* perms, IdxT n_rows,
-                                        IdxT n_cols) {
+static __global__ void _gather2d_kernel(
+  DataT* out, const DataT* in, const IdxT* perms, IdxT n_rows, IdxT n_cols)
+{
   IdxT tid = blockIdx.x * blockDim.x + threadIdx.x;
 
   if (tid < n_rows) {
     const DataT* row_in = in + n_cols * perms[tid];
-    DataT* row_out = out + n_cols * tid;
+    DataT* row_out      = out + n_cols * tid;
 
     for (IdxT i = 0; i < n_cols; i++) {
       row_out[i] = row_in[i];
@@ -132,10 +156,10 @@ static __global__ void _gather2d_kernel(DataT* out, const DataT* in,
 /**
  * @brief GPU-equivalent of sklearn.datasets.make_regression as documented at:
  * https://scikit-learn.org/stable/modules/generated/sklearn.datasets.make_regression.html
- * 
+ *
  * @tparam  DataT  Scalar type
  * @tparam  IdxT   Index type
- * 
+ *
  * @param[out]  out             Row-major (samples, features) matrix to store
  *                              the problem data
  * @param[out]  values          Row-major (samples, targets) matrix to store
@@ -167,19 +191,28 @@ static __global__ void _gather2d_kernel(DataT* out, const DataT* in,
  * @param[in]   type            Random generator type
  */
 template <typename DataT, typename IdxT>
-void make_regression(
-  const raft::handle_t& handle, DataT* out, DataT* values, IdxT n_rows,
-  IdxT n_cols, IdxT n_informative, cudaStream_t stream, DataT* coef = nullptr,
-  IdxT n_targets = (IdxT)1, DataT bias = (DataT)0.0,
-  IdxT effective_rank = (IdxT)-1, DataT tail_strength = (DataT)0.5,
-  DataT noise = (DataT)0.0, bool shuffle = true, uint64_t seed = 0ULL,
-  raft::random::GeneratorType type = raft::random::GenPhilox) {
+void make_regression(const raft::handle_t& handle,
+                     DataT* out,
+                     DataT* values,
+                     IdxT n_rows,
+                     IdxT n_cols,
+                     IdxT n_informative,
+                     cudaStream_t stream,
+                     DataT* coef                      = nullptr,
+                     IdxT n_targets                   = (IdxT)1,
+                     DataT bias                       = (DataT)0.0,
+                     IdxT effective_rank              = (IdxT)-1,
+                     DataT tail_strength              = (DataT)0.5,
+                     DataT noise                      = (DataT)0.0,
+                     bool shuffle                     = true,
+                     uint64_t seed                    = 0ULL,
+                     raft::random::GeneratorType type = raft::random::GenPhilox)
+{
   n_informative = std::min(n_informative, n_cols);
 
-  std::shared_ptr<raft::mr::device::allocator> allocator =
-    handle.get_device_allocator();
-  cusolverDnHandle_t cusolver_handle = handle.get_cusolver_dn_handle();
-  cublasHandle_t cublas_handle = handle.get_cublas_handle();
+  std::shared_ptr<raft::mr::device::allocator> allocator = handle.get_device_allocator();
+  cusolverDnHandle_t cusolver_handle                     = handle.get_cusolver_dn_handle();
+  cublasHandle_t cublas_handle                           = handle.get_cublas_handle();
 
   cublasSetPointerMode(cublas_handle, CUBLAS_POINTER_MODE_HOST);
   raft::random::Rng r(seed, type);
@@ -189,8 +222,7 @@ void make_regression(
     r.normal(out, n_rows * n_cols, (DataT)0.0, (DataT)1.0, stream);
   } else {
     // Randomly generate a low rank, fat tail input set
-    _make_low_rank_matrix(handle, out, n_rows, n_cols, effective_rank,
-                          tail_strength, r, stream);
+    _make_low_rank_matrix(handle, out, n_rows, n_cols, effective_rank, tail_strength, r, stream);
   }
 
   // Use the right output buffer for the values
@@ -226,21 +258,33 @@ void make_regression(
   // Generate a ground truth model with only n_informative features
   r.uniform(_coef, n_informative * n_targets, (DataT)1.0, (DataT)100.0, stream);
   if (coef && n_informative != n_cols) {
-    CUDA_CHECK(cudaMemsetAsync(
-      _coef + n_informative * n_targets, 0,
-      (n_cols - n_informative) * n_targets * sizeof(DataT), stream));
+    CUDA_CHECK(cudaMemsetAsync(_coef + n_informative * n_targets,
+                               0,
+                               (n_cols - n_informative) * n_targets * sizeof(DataT),
+                               stream));
   }
 
   // Compute the output values
   DataT alpha = (DataT)1.0, beta = (DataT)0.0;
-  CUBLAS_CHECK(raft::linalg::cublasgemm(
-    cublas_handle, CUBLAS_OP_T, CUBLAS_OP_T, n_rows, n_targets, n_informative,
-    &alpha, out, n_cols, _coef, n_targets, &beta, _values_col, n_rows, stream));
+  CUBLAS_CHECK(raft::linalg::cublasgemm(cublas_handle,
+                                        CUBLAS_OP_T,
+                                        CUBLAS_OP_T,
+                                        n_rows,
+                                        n_targets,
+                                        n_informative,
+                                        &alpha,
+                                        out,
+                                        n_cols,
+                                        _coef,
+                                        n_targets,
+                                        &beta,
+                                        _values_col,
+                                        n_rows,
+                                        stream));
 
   // Transpose the values from column-major to row-major if needed
   if (n_targets > 1) {
-    raft::linalg::transpose(handle, _values_col, _values, n_rows, n_targets,
-                            stream);
+    raft::linalg::transpose(handle, _values_col, _values, n_rows, n_targets, stream);
   }
 
   if (bias != 0.0) {
@@ -253,8 +297,7 @@ void make_regression(
     // Add white noise
     white_noise.resize(n_rows * n_targets, stream);
     r.normal(white_noise.data(), n_rows * n_targets, (DataT)0.0, noise, stream);
-    raft::linalg::add(_values, _values, white_noise.data(), n_rows * n_targets,
-                      stream);
+    raft::linalg::add(_values, _values, white_noise.data(), n_rows * n_targets, stream);
   }
 
   if (shuffle) {
@@ -268,16 +311,16 @@ void make_regression(
     constexpr IdxT Nthreads = 256;
 
     // Shuffle the samples from out to tmp_out
-    permute<DataT, IdxT, IdxT>(perms_samples.data(), tmp_out.data(), out,
-                               n_cols, n_rows, true, stream);
+    permute<DataT, IdxT, IdxT>(
+      perms_samples.data(), tmp_out.data(), out, n_cols, n_rows, true, stream);
     IdxT nblks_rows = raft::ceildiv<IdxT>(n_rows, Nthreads);
     _gather2d_kernel<<<nblks_rows, Nthreads, 0, stream>>>(
       values, _values, perms_samples.data(), n_rows, n_targets);
     CUDA_CHECK(cudaPeekAtLastError());
 
     // Shuffle the features from tmp_out to out
-    permute<DataT, IdxT, IdxT>(perms_features.data(), out, tmp_out.data(),
-                               n_rows, n_cols, false, stream);
+    permute<DataT, IdxT, IdxT>(
+      perms_features.data(), out, tmp_out.data(), n_rows, n_cols, false, stream);
 
     // Shuffle the coefficients accordingly
     if (coef != nullptr) {
