@@ -16,3 +16,4 @@
 
 from cuml.explainer.kernel_shap import KernelExplainer
 from cuml.explainer.permutation_shap import PermutationExplainer
+from cuml.explainer.sampling import kmeans_sampling
