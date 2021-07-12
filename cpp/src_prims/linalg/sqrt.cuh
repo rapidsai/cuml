@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,10 +33,10 @@ namespace LinAlg {
  * @{
  */
 template <typename math_t, typename IdxType = int>
-void sqrt(math_t *out, const math_t *in, IdxType len, cudaStream_t stream) {
+void sqrt(math_t* out, const math_t* in, IdxType len, cudaStream_t stream)
+{
   raft::linalg::unaryOp(
-    out, in, len, [] __device__(math_t in) { return raft::mySqrt(in); },
-    stream);
+    out, in, len, [] __device__(math_t in) { return raft::mySqrt(in); }, stream);
 }
 /** @} */
 
