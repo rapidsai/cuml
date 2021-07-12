@@ -37,7 +37,7 @@ class TargetEncoder:
         Default number of folds for fitting training data. To prevent
         label leakage in `fit`, we split data into `n_folds` and
         encode one fold using the target variables of the remaining folds.
-    smooth : int (default=0)
+    smooth : int or float (default=0)
         Count of samples to smooth the encoding. 0 means no smoothing.
     seed : int (default=42)
         Random seed
