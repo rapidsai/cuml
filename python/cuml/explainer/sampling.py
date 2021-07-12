@@ -12,24 +12,59 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
-"""
-The code is based on the similar utility function from SHAP:
-https://github.com/slundberg/shap/blob/9411b68e8057a6c6f3621765b89b24d82bee13d4/shap/utils/_legacy.py
-This version makes use of cuml kmeans instead of sklearn for speed.
-"""
-
-import cupy as np
+import cupy as cp
 from cuml import KMeans
 from cuml.preprocessing import SimpleImputer
 from scipy.sparse import issparse
+from numba import cuda
 
 
-def kmeans(X, k, round_values=True):
-    group_names = [str(i) for i in range(X.shape[1])]
-    if str(type(X)).endswith("'pandas.core.frame.DataFrame'>"):
+def kmeans_sampling(X, k, round_values=True, detailed=False):
+    """
+    Adapted from :
+    https://github.com/slundberg/shap/blob/9411b68e8057a6c6f3621765b89b24d82bee13d4/shap/utils/_legacy.py
+    Summarize a dataset (X) using weighted k-means.
+    
+    Parameters
+    ----------
+    X : cuDF DataFrame or cuda_array_interface compliant device array
+        Data to be summarized, shape (n_samples, n_features)
+    k : int
+        Number of means to use for approximation.
+    round_values : bool; default=True
+        For all i, round the ith dimension of each mean sample to match the nearest value
+        from X[:,i]. This ensures discrete features always get a valid value.
+    detailed: bool; default=False
+        To return details of group names and cluster labels of all data points
+
+    Returns
+    -------
+    summary : Summary of the data, shape (k, n_features)
+    group_names : Names of the features
+    labels : Cluster labels of the data points in the original dataset, shape (n_samples, 1)
+    """
+    if not hasattr(X, "__cuda_array_interface__") and not \
+            isinstance(X, cudf.DataFrame):
+        raise TypeError("X needs to be either a cuDF DataFrame, Series or \
+                    a cuda_array_interface compliant array.")
+
+    if isinstance(X, cudf.DataFrame):
         group_names = X.columns
         X = X.values
+        output_dtype = "DataFrame"
+    elif isinstance(X, cudf.Series):
+        group_names = X.name
+        X = X.values.reshape(-1, 1)
+        output_dtype = "Series"
+    else:
+        output_dtype, X = ["numba", cp.array(X)] if cuda.devicearray.is_cuda_ndarray(X) else ["cupy", X]
+        try:
+            # more than one column
+            group_names = [str(i) for i in range(X.shape[1])]
+        except IndexError as e:
+            # one column
+            X = X.reshape(-1, 1)
+            group_names = ['0']
 
     # in case there are any missing values in data impute them
     imp = SimpleImputer(missing_values=np.nan, strategy='mean')
@@ -42,46 +77,18 @@ def kmeans(X, k, round_values=True):
             for j in range(X.shape[1]):
                 xj = X[:, j].toarray().flatten() if issparse(
                     X) else X[:, j]  # sparse support courtesy of @PrimozGodec
-                ind = np.argmin(np.abs(xj - kmeans.cluster_centers_[i, j]))
+                ind = cp.argmin(cp.abs(xj - kmeans.cluster_centers_[i, j]))
                 kmeans.cluster_centers_[i, j] = X[ind, j]
-    return DenseData(
-        kmeans.cluster_centers_,
-        group_names,
-        None,
-        1.0 *
-        cp.bincount(
-            kmeans.labels_))
+    summary = kmeans.cluster_centers_
+    labels = kmeans.labels_
 
-
-class Data:
-    def __init__(self):
-        pass
-
-
-class DenseData(Data):
-    def __init__(self, data, group_names, *args):
-        self.groups = args[0] if len(args) > 0 and args[0] is not None else [
-            np.array([i]) for i in range(len(group_names))]
-
-        length = sum(len(g) for g in self.groups)
-        num_samples = data.shape[0]
-        t = False
-        if length != data.shape[1]:
-            t = True
-            num_samples = data.shape[1]
-
-        valid = (
-            not t and length == data.shape[1]) or (
-            t and length == data.shape[0])
-        assert valid, "# of names must match data matrix!"
-
-        self.weights = args[1] if len(args) > 1 else cp.ones(num_samples)
-        self.weights /= cp.sum(self.weights)
-        wl = len(self.weights)
-        valid = (not t and wl == data.shape[0]) or (t and wl == data.shape[1])
-        assert valid, "# weights must match data matrix!"
-
-        self.transposed = t
-        self.group_names = group_names
-        self.data = data
-        self.groups_size = len(self.groups)
+    if output_dtype == "DataFrame":
+        summary = cudf.DataFrame(summary)
+    elif output_dtype == "Series":
+        summary = cudf.DataFrame(summary)
+    elif output_dtype == "numba":
+        summary = cuda.as_cuda_array(summary)
+    if detailed:
+        return summary , group_names, labels
+    else:
+        return summary
