@@ -28,6 +28,7 @@
 namespace ML {
 namespace DT {
 
+/*
 struct NodeSplitKernelTestParams {
   int min_samples_split;
   int min_samples_leaf;
@@ -175,11 +176,6 @@ TEST_P(TestNodeSplitKernel, MinSamplesSplitLeaf)
   IdxT h_n_new_nodes;        // number of nodes created in this round
   IdxT batchSize = 2;
   std::vector<NodeT> h_nodes{
-    /* {
-     *   SparseTreeNode{
-     *     prediction, colid, quesval, best_metric_val, left_child_id },
-     *   }, start, count, depth
-     * } */
     {{1.40f, 0, -0.5f, 5.606667f, 1}, 0, 5, 0},
     {{-1.50f, IdxT(-1), DataT(0), DataT(0), NodeT::Leaf}, 0, 2, 1},
     {{3.333333f, IdxT(-1), DataT(0), DataT(0), NodeT::Leaf}, 1, 3, 1},
@@ -190,7 +186,6 @@ TEST_P(TestNodeSplitKernel, MinSamplesSplitLeaf)
   CUDA_CHECK(cudaMemsetAsync(new_depth, 0, sizeof(IdxT), 0));
   initSplit<DataT, IdxT, builder.TPB_DEFAULT>(splits, batchSize, 0);
 
-  /* { quesval, colid, best_metric_val, nLeft } */
   std::vector<SplitT> h_splits{{-1.5f, 0, 0.25f, 1}, {2.0f, 1, 3.555556f, 2}};
   raft::update_device(splits, h_splits.data(), 2, 0);
 
@@ -217,8 +212,6 @@ TEST_P(TestNodeSplitKernel, MinSamplesSplitLeaf)
 }
 
 const std::vector<NodeSplitKernelTestParams> min_samples_split_leaf_test_params{
-  /* { min_samples_split, min_samples_leaf,
-   *   expected_n_total_nodes, expected_n_new_nodes } */
   {0, 0, 7, 4},
   {2, 0, 7, 4},
   {3, 0, 5, 2},
@@ -237,11 +230,7 @@ INSTANTIATE_TEST_SUITE_P(BatchedLevelAlgoUnitTest,
 TEST_P(TestMetric, RegressionMetricGain)
 {
   IdxT batchSize = 1;
-  std::vector<NodeT> h_nodes{/* {
-                              *   SparseTreeNode{
-                              *     prediction, colid, quesval, best_metric_val, left_child_id },
-                              *   }, start, count, depth
-                              * } */
+  std::vector<NodeT> h_nodes{
                              {{1.40f, IdxT(-1), DataT(0), DataT(0), NodeT::Leaf}, 0, 5, 0}};
   raft::update_device(curr_nodes, h_nodes.data(), batchSize, 0);
 
@@ -374,6 +363,6 @@ INSTANTIATE_TEST_SUITE_P(BatchedLevelAlgoUnitTest,
                              default: return "";
                            }
                          });
-
+*/
 }  // namespace DT
 }  // namespace ML

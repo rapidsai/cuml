@@ -305,8 +305,7 @@ class DecisionTree {
     n_unique_labels    = unique_labels;
     this->prepare_time = this->prepare_fit_timer.getElapsedMilliseconds();
     prepare_fit_timer.reset();
-    grow_tree(handle.get_device_allocator(),
-              handle.get_host_allocator(),
+    grow_tree(handle,
               data,
               tree->treeid,
               seed,
@@ -318,7 +317,6 @@ class DecisionTree {
               n_sampled_rows,
               unique_labels,
               tree_params,
-              handle.get_stream(),
               tree->sparsetree,
               this->leaf_counter,
               this->depth_counter);

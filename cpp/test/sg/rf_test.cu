@@ -344,7 +344,7 @@ std::vector<float> max_samples  = {0.1f, 0.5f, 1.0f};
 std::vector<int> max_depth      = {1, 10, 30};
 std::vector<int> max_leaves     = {-1, 100};
 std::vector<bool> bootstrap     = {false, true};
-std::vector<int> n_bins = {2, 57, 128};  // Bug for n_bins > 128. Uses too much shared memory.
+std::vector<int> n_bins = {2, 57, 128, 256};  // Bug for n_bins > 128. Uses too much shared memory.
 std::vector<int> min_samples_leaf        = {1, 10, 30};
 std::vector<int> min_samples_split       = {2, 10};
 std::vector<float> min_impurity_decrease = {0.0, 1.0f, 10.0f};
@@ -354,7 +354,7 @@ std::vector<int> seed                    = {0, 17};
 std::vector<int> n_labels                = {2, 10, 30};
 std::vector<bool> double_precision       = {false, true};
 
-int n_tests = 500;
+int n_tests = 100;
 
 INSTANTIATE_TEST_CASE_P(RfTests,
                         RfTest,

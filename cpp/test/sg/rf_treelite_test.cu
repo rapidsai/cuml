@@ -222,9 +222,9 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle->set_stream(stream);
 
-    forest = new typename ML::RandomForestMetaData<T, L>;
-    forest_2 = new typename ML::RandomForestMetaData<T, L>;
-    forest_3 = new typename ML::RandomForestMetaData<T, L>;
+    forest          = new typename ML::RandomForestMetaData<T, L>;
+    forest_2        = new typename ML::RandomForestMetaData<T, L>;
+    forest_3        = new typename ML::RandomForestMetaData<T, L>;
     all_forest_info = {forest, forest_2, forest_3};
     data_h.resize(data_len);
     inference_data_h.resize(inference_data_len);
