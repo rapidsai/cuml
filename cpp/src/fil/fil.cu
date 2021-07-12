@@ -680,6 +680,7 @@ struct conversion_state {
 };
 
 template <typename fil_node_t, typename T, typename L>
+__noinline__
 conversion_state<fil_node_t> tl2fil_branch_node(int fil_left_child,
                                                 const tl::Tree<T, L>& tree,
                                                 int tl_node_id,
@@ -752,6 +753,7 @@ void tree2fil_dense(std::vector<dense_node>* pnodes,
 }
 
 template <typename fil_node_t, typename T, typename L>
+__noinline__
 int tree2fil_sparse(std::vector<fil_node_t>& nodes,
                     int root,
                     const tl::Tree<T, L>& tree,
@@ -787,7 +789,7 @@ int tree2fil_sparse(std::vector<fil_node_t>& nodes,
     }
 
     // leaf node
-    nodes[root + cur] = fil_node_t(val_t{.f = NAN}, NAN, 0, false, true, 0, false);
+    nodes[root + cur] = fil_node_t(val_t{.f = NAN}, NAN, 0, false, true, false, false);
     tl2fil_leaf_payload(
       &nodes[root + cur], root + cur, tree, node_id, forest_params, vector_leaf, leaf_counter);
   }
