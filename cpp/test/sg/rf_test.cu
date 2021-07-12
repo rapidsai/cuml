@@ -337,7 +337,7 @@ TEST_P(RfTest, PropertyBasedTest) {}
 
 // Parameter ranges to test
 std::vector<int> n_rows         = {10, 100, 1452};
-std::vector<int> n_cols         = {1, 5, 152};
+std::vector<int> n_cols         = {1, 5, 152, 1014};
 std::vector<int> n_trees        = {1, 5, 17};
 std::vector<float> max_features = {0.1f, 0.5f, 1.0f};
 std::vector<float> max_samples  = {0.1f, 0.5f, 1.0f};
@@ -354,7 +354,7 @@ std::vector<int> seed                    = {0, 17};
 std::vector<int> n_labels                = {2, 10, 30};
 std::vector<bool> double_precision       = {false, true};
 
-int n_tests = 500;
+int n_tests = 100;
 
 INSTANTIATE_TEST_CASE_P(RfTests,
                         RfTest,
