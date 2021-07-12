@@ -20,31 +20,26 @@ import math
 from cuml.common.memory_utils import rmm_cupy_ary
 from cuml.common.kernel_utils import cuda_kernel_factory
 
-binarize_kernel_str = r'''
-({0} *x, float threshold, int x_n) {
+def _binarize_kernel(x_dtype):
+    binarize_kernel_str = r'''({0} *x, float threshold, int x_n) {
 
-  int tid = blockDim.x * blockIdx.x + threadIdx.x;
+    int tid = blockDim.x * blockIdx.x + threadIdx.x;
 
-  if(tid >= x_n) return;
+    if(tid >= x_n) return;
 
-  {0} val = x[tid];
-  if(val > threshold)
-      val = 1;
-  else
-      val = 0;
-      
-  x[tid] = val;
-}
-'''
-
-
-def _binarize_kernel(x_dtype, thres_dtype):
+    {0} val = x[tid];
+    if(val > threshold)
+        val = 1;
+    else
+        val = 0;
+        
+    x[tid] = val;
+    }'''
     return cuda_kernel_factory(binarize_kernel_str,
-                               (x_dtype, thres_dtype),
+                               (x_dtype,),
                                "binarize_kernel")
 
 
-@rmm_cupy_ary
 def binarize(x, threshold, copy=False):
     """
     Binarizes an array by converting values
@@ -68,10 +63,10 @@ def binarize(x, threshold, copy=False):
         arr = arr.copy()
 
     binarizer = _binarize_kernel(x.dtype)
-    binarizer((math.ceil(x.shape[0] / 512),), (512, ),
+    binarizer((math.ceil(arr.size / 512),), (512, ),
               (x,
                threshold,
-               x.shape[0]))
+               arr.size))
 
     return arr
 
