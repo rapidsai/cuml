@@ -17,7 +17,7 @@ from cuml import KMeans
 from cuml.preprocessing import SimpleImputer
 from scipy.sparse import issparse
 from numba import cuda
-
+import cudf
 
 def kmeans_sampling(X, k, round_values=True, detailed=False):
     """
@@ -67,7 +67,7 @@ def kmeans_sampling(X, k, round_values=True, detailed=False):
             group_names = ['0']
 
     # in case there are any missing values in data impute them
-    imp = SimpleImputer(missing_values=np.nan, strategy='mean')
+    imp = SimpleImputer(missing_values=cp.nan, strategy='mean')
     X = imp.fit_transform(X)
 
     kmeans = KMeans(n_clusters=k, random_state=0).fit(X)
@@ -85,7 +85,7 @@ def kmeans_sampling(X, k, round_values=True, detailed=False):
     if output_dtype == "DataFrame":
         summary = cudf.DataFrame(summary)
     elif output_dtype == "Series":
-        summary = cudf.DataFrame(summary)
+        summary = cudf.Series(summary)
     elif output_dtype == "numba":
         summary = cuda.as_cuda_array(summary)
     if detailed:
