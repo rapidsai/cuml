@@ -147,7 +147,7 @@ struct forest {
   void init_common(const raft::handle_t& h,
                    const forest_params_t* params,
                    const std::vector<float>& vector_leaf,
-                   categorical_branches cat_branches)
+                   categorical_branches& cat_branches)
   {
     depth_                           = params->depth;
     num_trees_                       = params->num_trees;
@@ -162,20 +162,43 @@ struct forest {
     proba_ssp_.num_classes           = params->num_classes;
     class_ssp_                       = proba_ssp_;
 
-    int device = h.get_device();
+    int device          = h.get_device();
+    cudaStream_t stream = h.get_stream();
+    auto a              = h.get_device_allocator();
     init_n_items(device);  // n_items takes priority over blocks_per_sm
     init_fixed_block_count(device, params->blocks_per_sm);
 
     // vector leaf
     if (!vector_leaf.empty()) {
       vector_leaf_len_ = vector_leaf.size();
-      vector_leaf_ = (float*)h.get_device_allocator()->allocate(sizeof(float) * vector_leaf.size(),
-                                                                h.get_stream());
+      vector_leaf_     = (float*)a->allocate(sizeof(float) * vector_leaf.size(), stream);
       CUDA_CHECK(cudaMemcpyAsync(vector_leaf_,
                                  vector_leaf.data(),
                                  vector_leaf.size() * sizeof(float),
                                  cudaMemcpyHostToDevice,
-                                 h.get_stream()));
+                                 stream));
+    }
+
+    // categorical features
+    if (cat_branches.bits_size != 0) {
+      cat_branches_ = cat_branches;  // for sizes
+      cat_branches_.max_matching =
+        (int*)a->allocate(sizeof(int) * cat_branches.max_matching_size, stream);
+      CUDA_CHECK(cudaMemcpyAsync(cat_branches_.max_matching,
+                                 cat_branches.max_matching,
+                                 cat_branches.max_matching_size,
+                                 cudaMemcpyHostToDevice,
+                                 stream));
+
+      cat_branches_.bits = (uint8_t*)a->allocate(cat_branches.bits_size, stream);
+      CUDA_CHECK(cudaMemcpyAsync(cat_branches_.bits,
+                                 cat_branches.bits,
+                                 cat_branches.bits_size,
+                                 cudaMemcpyHostToDevice,
+                                 stream));
+      CUDA_CHECK(cudaStreamSynchronize(stream));
+      delete[] cat_branches.max_matching;
+      delete[] cat_branches.bits;
     }
   }
 
@@ -1013,21 +1036,21 @@ void tl2fil_params(forest_params_t* params,
   params->n_items          = tl_params->n_items;
 }
 
-template <typename T, typename L>
-void tl2fil_common_arrays(categorical_branches& cat_branches_device,
-                          categorical_branches& cat_branches_host,
-                          const tl::ModelImpl<T, L>& model)
+template <typename L, typename T>
+void cat_branches_init(categorical_branches& cat_branches_host, const tl::ModelImpl<T, L>& model)
 {
-  // categorical features
-  std::vector<int> max_matching_cat(model.num_feature);
-  v_cat_feature cf        = cat_feature_counters(model);
-  size_t total_mask_bytes = 0;
+  cat_branches_host.max_matching_size = model.num_feature;
+  cat_branches_host.max_matching      = new int[cat_branches_host.max_matching_size];
+
+  v_cat_feature cf = cat_feature_counters(model);
   for (int fid = 0; fid < cf.size(); ++fid) {
-    total_mask_bytes += raft::ceildiv(cf[fid].max_matching, 8) * cf[fid].n_nodes;
-    max_matching_cat[fid] = cf[fid].max_matching;
-    printf("[%d]=%d ", fid, max_matching_cat[fid]);
+    cat_branches_host.bits_size += raft::ceildiv(cf[fid].max_matching, 8) * cf[fid].n_nodes;
+    cat_branches_host.max_matching[fid] = cf[fid].max_matching;
+    printf("[%d]=%d ", fid, cat_branches_host.max_matching[fid]);
   }
   printf("\n");
+
+  cat_branches_host.bits = new uint8_t[cat_branches_host.bits_size];
 }
 
 // uses treelite model with additional tl_params to initialize FIL params
@@ -1048,8 +1071,7 @@ void tl2fil_dense(std::vector<dense_node>* pnodes,
   if (params->leaf_algo == VECTOR_LEAF) {
     vector_leaf->resize(max_leaves_per_tree * params->num_trees * params->num_classes);
   }
-  categorical_branches cat_branches_host;
-  tl2fil_common_arrays(cat_branches, cat_branches_host, model);
+  cat_branches_init(cat_branches, model);
   pnodes->resize(num_nodes, dense_node());
   for (int i = 0; i < model.trees.size(); ++i) {
     size_t leaf_counter = max_leaves_per_tree * i;
@@ -1139,8 +1161,7 @@ void tl2fil_sparse(std::vector<int>* ptrees,
     vector_leaf->resize(max_leaves * params->num_classes);
   }
 
-  categorical_branches cat_branches_host;
-  tl2fil_common_arrays(cat_branches, cat_branches_host, model);
+  cat_branches_init(cat_branches, model);
   pnodes->resize(total_nodes);
 
   // convert the nodes

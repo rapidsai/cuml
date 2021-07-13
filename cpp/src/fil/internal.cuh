@@ -346,9 +346,10 @@ struct categorical_branches {
     return node.left(node_idx) + cond;
   }
   // arrays from each node ID are concatenated first, then from all categories
-  uint8_t* bits;
+  uint8_t* bits = nullptr;
   // largest matching category in the model, per feature ID
-  int* max_matching;
+  int* max_matching = nullptr;
+  size_t bits_size = 0, max_matching_size = 0;
 };
 
 /** init_dense uses params and nodes to initialize the dense forest stored in pf
