@@ -83,7 +83,6 @@ if(BUILD_CUML_PRIMS_BENCH)
 
   target_link_libraries(${PRIMS_BENCH_TARGET}
     PUBLIC
-      ${CUML_C_TARGET}
       CUDA::cublas
       benchmark::benchmark
       raft::raft
