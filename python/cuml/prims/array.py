@@ -17,8 +17,8 @@
 import cupy as cp
 import math
 
-from cuml.common.memory_utils import rmm_cupy_ary
 from cuml.common.kernel_utils import cuda_kernel_factory
+
 
 def _binarize_kernel(x_dtype):
     binarize_kernel_str = r'''({0} *x, float threshold, int x_n) {
@@ -32,7 +32,7 @@ def _binarize_kernel(x_dtype):
         val = 1;
     else
         val = 0;
-        
+
     x[tid] = val;
     }'''
     return cuda_kernel_factory(binarize_kernel_str,
@@ -69,5 +69,3 @@ def binarize(x, threshold, copy=False):
                arr.size))
 
     return arr
-
-

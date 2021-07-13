@@ -17,8 +17,6 @@ import math
 import warnings
 import nvtx
 
-from cuml.common import logger
-
 import cupy as cp
 import cupyx
 from cuml.common import CumlArray
@@ -29,11 +27,11 @@ from cuml.common.doc_utils import generate_docstring
 from cuml.common.import_utils import has_scipy
 from cuml.prims.label import make_monotonic
 from cuml.prims.label import check_labels
+from cuml.prims.label import invert_labels
 from cuml.prims.array import binarize
 
 from cuml.common.input_utils import input_to_cuml_array, input_to_cupy_array
 from cuml.common.kernel_utils import cuda_kernel_factory
-from cuml.prims.label import check_labels, invert_labels, make_monotonic
 
 
 def count_features_coo_kernel(float_dtype, int_dtype):
@@ -63,9 +61,9 @@ def count_features_coo_kernel(float_dtype, int_dtype):
 
       if(has_weights)
         val *= weights[i];
-          
+
       if(square) val *= val;
-      
+
       {1} label = labels[row];
       atomicAdd(out + ((col * n_classes) + label), val);
     }'''
@@ -81,7 +79,7 @@ def count_classes_kernel(float_dtype, int_dtype):
       int row = blockIdx.x * blockDim.x + threadIdx.x;
       if(row >= n_rows) return;
       {1} label = labels[row];
-      
+
       atomicAdd(out + label, ({0})1);
     }'''
 
@@ -114,13 +112,12 @@ def count_features_dense_kernel(float_dtype, int_dtype):
       if(has_weights)
         val *= weights[row];
 
-
       if(val == 0.0) return;
 
       if(square) val *= val;
-      
+
       {1} label = labels[row];
-      
+
       {1} idx = rowMajor ? col : row;
 
       atomicAdd(out + ((idx * n_classes) + label), val);
@@ -143,6 +140,7 @@ def _convert_x_sparse(X):
     return cupyx.scipy.sparse.coo_matrix((data, (rows, cols)),
                                          shape=X.shape)
 
+
 class _BaseNB(Base, ClassifierMixin):
 
     classes_ = CumlArrayDescriptor()
@@ -155,7 +153,6 @@ class _BaseNB(Base, ClassifierMixin):
         super(_BaseNB, self).__init__(verbose=verbose,
                                       handle=handle,
                                       output_type=output_type)
-
 
     def _check_X(self, X):
         """To be overridden in subclasses with the actual checks."""
@@ -269,293 +266,6 @@ class _BaseNB(Base, ClassifierMixin):
         return result
 
 
-class GaussianNB(_BaseNB):
-
-    def __init__(self, *, priors=None, var_smoothing=1e-9,
-                 output_type=None, verbose=False):
-
-        super(GaussianNB, self).__init__(verbose=verbose,
-                                         output_type=output_type)
-        self.priors = priors
-        self.var_smoothing = var_smoothing
-        self.fit_called_ = False
-        self.classes_ = None
-
-    def fit(self, X, y, sample_weight=None) -> "GaussianNB":
-        return self._partial_fit(X, y, _classes=None, _refit=True,
-                                 sample_weight=sample_weight)
-
-    @nvtx.annotate(message="naive_bayes.GaussianNB._partial_fit",
-                   domain="cuml_python")
-    def _partial_fit(self, X, y, _classes=None, _refit=False,
-                     sample_weight=None, convert_dtype=True) -> "GaussianNB":
-        if has_scipy():
-            from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
-        else:
-            from cuml.common.import_utils import dummy_function_always_false \
-                as scipy_sparse_isspmatrix
-        if scipy_sparse_isspmatrix(X) or cp.sparse.isspmatrix(X):
-            X = _convert_x_sparse(X)
-            # TODO: Expanded this since sparse kernel doesn't
-            # actually require the scipy sparse container format.
-        else:
-            X = input_to_cupy_array(X, order='K',
-                                    check_dtype=[cp.float32, cp.float64,
-                                                 cp.int32]).array
-
-
-        expected_y_dtype = cp.int32 if X.dtype in [cp.float32,
-                                                   cp.int32] else cp.int64
-        y = input_to_cupy_array(y,
-                                convert_to_dtype=(expected_y_dtype
-                                                  if convert_dtype
-                                                  else False),
-                                check_dtype=expected_y_dtype).array
-
-        Y, label_classes = make_monotonic(y, copy=True)
-        if _refit:
-            self.classes_ = None
-
-        def var_sparse(X, axis=0):
-            # Compute the variance on dense and sparse matrices
-            return ((X - X.mean(axis=axis)) ** 2).mean(axis=axis)
-
-        self.epsilon_ = self.var_smoothing * var_sparse(X).max()
-
-        if not self.fit_called_:
-            self.fit_called_ = True
-
-            # Original labels are stored on the instance
-            if _classes is not None:
-                _classes, *_ = input_to_cuml_array(_classes, order='K',
-                                                   convert_to_dtype=(
-                                                       expected_y_dtype
-                                                       if convert_dtype
-                                                       else False))
-                check_labels(Y, _classes.to_output('cupy'))
-                self.classes_ = _classes
-            else:
-                self.classes_ = label_classes
-
-            logger.debug("self classes: " + str(self.classes_))
-
-            n_features = X.shape[1]
-            n_classes = len(self.classes_)
-
-            self.n_classes_ = n_classes
-            self.n_features_ = n_features
-
-            self.theta_ = cp.zeros((n_classes, n_features))
-            self.sigma_ = cp.zeros((n_classes, n_features))
-
-            self.class_count_ = cp.zeros(n_classes, dtype=X.dtype)
-
-        else:
-            self.sigma_[:, :] -= self.epsilon_
-
-        unique_y = cp.unique(y)
-        unique_y_in_classes = cp.in1d(unique_y, cp.array(self.classes_))
-
-        if not cp.all(unique_y_in_classes):
-            raise ValueError("The target label(s) %s in y do not exist "
-                             "in the initial classes %s" %
-                             (unique_y[~unique_y_in_classes], self.classes_))
-
-        self.theta_, self.sigma_ = self._update_mean_variance(X, Y)
-
-        self.sigma_[:, :] += self.epsilon_
-
-        if self.priors is None:
-            self.class_prior = self.class_count_ / self.class_count_.sum()
-
-        return self
-
-    def partial_fit(self, X, y, classes=None,
-                    sample_weight=None) -> "GaussianNB":
-        return self._partial_fit(X, y, classes, _refit=False,
-                                 sample_weight=sample_weight)
-    #
-    # def predict(self, X):
-    #     jll = self._joint_log_likelihood(X)
-    #     return self.classes_[cp.argmax(jll, axis=1)]
-
-    def _update_mean_variance(self, X, Y, sample_weight=None):
-
-        if sample_weight is None:
-            sample_weight = cp.zeros(0)
-
-        labels_dtype = self.classes_.dtype
-
-        logger.debug("CC: "+ str(self.class_count_))
-
-        mu = self.theta_
-        var = self.sigma_
-
-        early_return = self.class_count_.sum() == 0
-        n_past = self.class_count_
-        tpb = 32
-        n_rows = X.shape[0]
-        n_cols = X.shape[1]
-
-        if X.shape[0] == 0:
-            return mu, var
-
-        # Make sure Y is cp array not CumlArray
-        Y = cp.asarray(Y)
-        logger.debug(str(Y))
-
-        new_mu = cp.zeros((self.n_classes_, self.n_features_), order="F",
-                          dtype=X.dtype)
-        new_var = cp.zeros((self.n_classes_, self.n_features_), order="F",
-                          dtype=X.dtype)
-        if cp.sparse.isspmatrix(X):
-            X = X.tocoo()
-
-            count_features_coo = count_features_coo_kernel(X.dtype,
-                                                           labels_dtype)
-
-            # Run once for averages
-            count_features_coo((math.ceil(X.nnz / tpb),), (tpb,),
-                               (new_mu,
-                                X.row,
-                                X.col,
-                                X.data,
-                                X.nnz,
-                                n_rows,
-                                n_cols,
-                                Y,
-                                sample_weight,
-                                sample_weight.shape[0] > 0,
-                                self.n_classes_, False))
-
-            # Run again for variance
-            count_features_coo((math.ceil(X.nnz / tpb),), (tpb,),
-                               (new_var,
-                                X.row,
-                                X.col,
-                                X.data,
-                                X.nnz,
-                                n_rows,
-                                n_cols,
-                                Y,
-                                sample_weight,
-                                sample_weight.shape[0] > 0,
-                                self.n_classes_,
-                                True))
-
-        else:
-
-            count_features_dense = count_features_dense_kernel(X.dtype,
-                                                               labels_dtype)
-
-            # Run once for averages
-            count_features_dense((math.ceil(n_rows / tpb),
-                                  math.ceil(n_cols / tpb), 1),
-                                 (tpb, tpb, 1),
-                                 (new_mu,
-                                  X,
-                                  n_rows,
-                                  n_cols,
-                                  Y,
-                                  sample_weight,
-                                  sample_weight.shape[0] > 0,
-                                  self.n_classes_,
-                                  False,
-                                  X.flags["C_CONTIGUOUS"]))
-
-            # Run again for variance
-            count_features_dense((math.ceil(n_rows / tpb),
-                                  math.ceil(n_cols / tpb), 1),
-                                 (tpb, tpb, 1),
-                                 (new_var,
-                                  X,
-                                  n_rows,
-                                  n_cols,
-                                  Y,
-                                  sample_weight,
-                                  sample_weight.shape[0] > 0,
-                                  self.n_classes_,
-                                  True,
-                                  X.flags["C_CONTIGUOUS"]))
-
-        count_classes = count_classes_kernel(X.dtype, labels_dtype)
-        count_classes((math.ceil(n_rows / tpb),), (tpb,),
-                      (self.class_count_, n_rows, Y))
-
-        class_counts = cp.expand_dims(self.class_count_, axis=1)
-        new_mu /= class_counts
-
-        logger.debug("n_past: "+ str(n_past))
-
-        # Construct variance from sum squares
-        new_var = (new_var / class_counts) - new_mu ** 2
-
-        if early_return:
-            logger.debug("RETURNING EARLY")
-            return new_mu, new_var
-
-        # Compute (potentially weighted) mean and variance of new datapoints
-        if sample_weight is not None:
-            n_new = float(sample_weight.sum())
-        else:
-            n_new = X.shape[0]
-
-
-        n_total = n_past + n_new
-
-        total_mu = (n_new * new_mu + n_past[:,cp.newaxis] * mu)  / n_total[:, cp.newaxis]
-
-        logger.debug("total_mu: " + str(total_mu.shape))
-
-        logger.debug("N_PAST: " + str(n_past.shape))
-        logger.debug("VAR: " + str(var.shape))
-
-        old_ssd = n_past[:, cp.newaxis] * var
-        new_ssd = n_new * new_var
-
-        ssd_sum = old_ssd + new_ssd
-        combined_feature_counts = n_new * n_past / n_total
-        mean_adj = (mu - new_mu)**2
-
-        total_ssd = (ssd_sum +
-                     combined_feature_counts[:, cp.newaxis] *
-                     mean_adj)
-
-        total_var = total_ssd / n_total[:, cp.newaxis]
-
-        logger.debug("total_var: " + str(total_var.shape))
-
-        return total_mu, total_var
-
-    def _joint_log_likelihood(self, X):
-        joint_log_likelihood = []
-
-        for i in range(len(self.classes_)):
-            jointi = cp.log(self.class_prior[i])
-
-            n_ij = -0.5 * cp.sum(cp.log(2. * cp.pi * self.sigma_[i, :]))
-
-            centered = (X - self.theta_[i, :]) ** 2
-            zvals = centered / self.sigma_[i, :]
-            summed = cp.sum(zvals, axis=1)
-            logger.debug("normalized: "+ str(zvals.shape))
-            logger.debug("nij: "+ str(n_ij.shape))
-            logger.debug("summed: " + str(summed.shape))
-
-            n_ij = -(0.5 * summed) + n_ij
-            joint_log_likelihood.append(jointi + n_ij)
-
-        logger.debug(str(cp.argmax(cp.array(joint_log_likelihood), axis=0)))
-
-        return cp.array(joint_log_likelihood).T
-
-    def get_param_names(self):
-        return super().get_param_names() + \
-            [
-                "priors",
-                "var_smoothing"
-            ]
-
 class _BaseDiscreteNB(_BaseNB):
 
     def _check_X_y(self, X, y):
@@ -640,7 +350,7 @@ class _BaseDiscreteNB(_BaseNB):
             X = input_to_cupy_array(X, order='K',
                                     check_dtype=[cp.float32, cp.float64,
                                                  cp.int32]).array
-                                                 
+
         expected_y_dtype = cp.int32 if X.dtype in [cp.float32,
                                                    cp.int32] else cp.int64
         y = input_to_cupy_array(y,
@@ -701,8 +411,8 @@ class _BaseDiscreteNB(_BaseNB):
 
     def _init_counters(self, n_effective_classes, n_features, dtype):
         self.class_count_ = cp.zeros(n_effective_classes,
-                                      order="F",
-                                      dtype=dtype)
+                                     order="F",
+                                     dtype=dtype)
         self.feature_count_ = cp.zeros((n_effective_classes, n_features),
                                        order="F",
                                        dtype=dtype)
@@ -757,15 +467,15 @@ class _BaseDiscreteNB(_BaseNB):
             (math.ceil(n_rows / tpb), math.ceil(n_cols / tpb), 1),
             (tpb, tpb, 1),
             (counts,
-            X,
-            n_rows,
-            n_cols,
-            Y,
-            sample_weight,
-            sample_weight.shape[0] > 0,
-            n_classes,
-            False,
-            X.flags["C_CONTIGUOUS"]))
+             X,
+             n_rows,
+             n_cols,
+             Y,
+             sample_weight,
+             sample_weight.shape[0] > 0,
+             n_classes,
+             False,
+             X.flags["C_CONTIGUOUS"]))
 
         tpb = 256
         count_classes = count_classes_kernel(X.dtype, labels_dtype)
@@ -775,7 +485,8 @@ class _BaseDiscreteNB(_BaseNB):
         self.feature_count_ += counts
         self.class_count_ += class_c
 
-    def _count_sparse(self, x_coo_rows, x_coo_cols, x_coo_data, x_shape, Y, classes):
+    def _count_sparse(self, x_coo_rows, x_coo_cols, x_coo_data, x_shape, Y,
+                      classes):
         """
         Sum feature counts & class prior counts and add to current model.
         Parameters
@@ -830,6 +541,7 @@ class _BaseDiscreteNB(_BaseNB):
 
         self.feature_count_ = self.feature_count_ + counts
         self.class_count_ = self.class_count_ + class_c
+
 
 class MultinomialNB(_BaseDiscreteNB):
 
@@ -910,13 +622,14 @@ class MultinomialNB(_BaseDiscreteNB):
         ----------
 
         alpha : float
-            Additive (Laplace/Lidstone) smoothing parameter (0 for no smoothing).
+            Additive (Laplace/Lidstone) smoothing parameter (0 for no
+            smoothing).
         fit_prior : boolean
-            Whether to learn class prior probabilities or no. If false, a uniform
-            prior will be used.
+            Whether to learn class prior probabilities or no. If false, a
+            uniform prior will be used.
         class_prior : array-like, size (n_classes)
-            Prior probabilities of the classes. If specified, the priors are not
-            adjusted according to the data.
+            Prior probabilities of the classes. If specified, the priors are
+            not adjusted according to the data.
         output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
             Variable to control output type of the results and attributes of
             the estimator. If None, it'll inherit the output type set at the
@@ -924,10 +637,10 @@ class MultinomialNB(_BaseDiscreteNB):
             See :ref:`output-data-type-configuration` for more info.
         handle : cuml.Handle
             Specifies the cuml.handle that holds internal CUDA state for
-            computations in this model. Most importantly, this specifies the CUDA
-            stream that will be used for the model's computations, so users can
-            run different models concurrently in different streams by creating
-            handles in several streams.
+            computations in this model. Most importantly, this specifies the
+            CUDA stream that will be used for the model's computations, so
+            users can run different models concurrently in different streams
+            by creating handles in several streams.
             If it is None, a new one is created.
         verbose : int or boolean, default=False
             Sets logging level. It must be one of `cuml.common.logger.level_*`.
@@ -1063,10 +776,10 @@ class BernoulliNB(_BaseDiscreteNB):
             See :ref:`output-data-type-configuration` for more info.
         handle : cuml.Handle
             Specifies the cuml.handle that holds internal CUDA state for
-            computations in this model. Most importantly, this specifies the CUDA
-            stream that will be used for the model's computations, so users can
-            run different models concurrently in different streams by creating
-            handles in several streams.
+            computations in this model. Most importantly, this specifies the
+            CUDA stream that will be used for the model's computations, so
+            users can run different models concurrently in different streams
+            by creating handles in several streams.
             If it is None, a new one is created.
         verbose : int or boolean, default=False
             Sets logging level. It must be one of `cuml.common.logger.level_*`.
@@ -1086,7 +799,6 @@ class BernoulliNB(_BaseDiscreteNB):
         self.n_features_ = None
         self.fit_called_ = False
         self.handle = None
-
 
     def _check_X(self, X):
         X = super()._check_X(X)
@@ -1143,259 +855,6 @@ class BernoulliNB(_BaseDiscreteNB):
             [
                 "alpha",
                 "binarize",
-                "fit_prior",
-                "class_prior",
-            ]
-
-
-class CategoricalNB(_BaseDiscreteNB):
-    """
-    Naive Bayes classifier for categorical features
-    The categorical Naive Bayes classifier is suitable for classification with
-    discrete features that are categorically distributed. The categories of
-    each feature are drawn from a categorical distribution.
-
-    Attributes
-    ----------
-    category_count_ : list of arrays of shape (n_features,)
-        Holds arrays of shape (n_classes, n_categories of respective feature)
-        for each feature. Each array provides the number of samples
-        encountered for each class and category of the specific feature.
-    class_count_ : ndarray of shape (n_classes,)
-        Number of samples encountered for each class during fitting. This
-        value is weighted by the sample weight when provided.
-    class_log_prior_ : ndarray of shape (n_classes,)
-        Smoothed empirical log probability for each class.
-    classes_ : ndarray of shape (n_classes,)
-        Class labels known to the classifier
-    feature_log_prob_ : list of arrays of shape (n_features,)
-        Holds arrays of shape (n_classes, n_categories of respective feature)
-        for each feature. Each array provides the empirical log probability
-        of categories given the respective feature and class, ``P(x_i|y)``.
-    n_features_ : int
-        Number of features of each sample.
-    Examples
-    --------
-    >>> import numpy as np
-    >>> rng = np.random.RandomState(1)
-    >>> X = rng.randint(5, size=(6, 100))
-    >>> y = np.array([1, 2, 3, 4, 5, 6])
-    >>> from cuml.naive_bayes import CategoricalNB
-    >>> clf = CategoricalNB()
-    >>> clf.fit(X, y)
-    CategoricalNB()
-    >>> print(clf.predict(X[2:3]))
-    [3]
-    """
-    def __init__(self, *, alpha=1.0, fit_prior=True, class_prior=None,
-                 output_type=None, handle=None, verbose=False):
-        super(CategoricalNB, self).__init__(handle=handle,
-                                            output_type=output_type,
-                                            verbose=verbose)
-        """
-        Create new Categorical Naive Bayes instance
-
-        Parameters
-        ----------
-
-        alpha : float, default=1.0
-            Additive (Laplace/Lidstone) smoothing parameter
-            (0 for no smoothing).
-        fit_prior : bool, default=True
-            Whether to learn class prior probabilities or not.
-            If false, a uniform prior will be used.
-        class_prior : array-like of shape (n_classes,), default=None
-            Prior probabilities of the classes. If specified the priors are not
-            adjusted according to the data.
-        output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-            Variable to control output type of the results and attributes of
-            the estimator. If None, it'll inherit the output type set at the
-            module level, `cuml.global_settings.output_type`.
-            See :ref:`output-data-type-configuration` for more info.
-        handle : cuml.Handle
-            Specifies the cuml.handle that holds internal CUDA state for
-            computations in this model. Most importantly, this specifies the CUDA
-            stream that will be used for the model's computations, so users can
-            run different models concurrently in different streams by creating
-            handles in several streams.
-            If it is None, a new one is created.
-        verbose : int or boolean, default=False
-            Sets logging level. It must be one of `cuml.common.logger.level_*`.
-            See :ref:`verbosity-levels` for more info.
-        """
-        self.alpha = alpha
-        self.fit_prior = fit_prior
-
-        if class_prior is not None:
-            self.class_prior, *_ = input_to_cuml_array(class_prior)
-        else:
-            self.class_prior = None
-
-        self.fit_called_ = False
-        self.n_classes_ = 0
-        self.n_features_ = None
-
-        # Needed until Base no longer assumed cumlHandle
-        self.handle = None
-
-    def _check_X_y(self, X, y):
-        if cp.sparse.isspmatrix(X):
-            x_min = X.data.min()
-        else:
-            x_min = X.min()
-        if x_min < 0:
-            raise ValueError("Negative values in data passed to Categorical NB")
-        return X, y
-
-    def _check_X(self, X):
-        if cp.sparse.isspmatrix(X):
-            x_min = X.data.min()
-        else:
-            x_min = X.min()
-        if x_min < 0:
-            raise ValueError("Negative values in data passed to Categorical NB")
-        return X
-
-    def fit(self, X, y, sample_weight=None) -> "CategoricalNB":
-        """Fit Naive Bayes classifier according to X, y
-        Parameters
-        ----------
-        X : {array-like, sparse matrix} of shape (n_samples, n_features)
-            Training vectors, where n_samples is the number of samples and
-            n_features is the number of features. Here, each feature of X is
-            assumed to be from a different categorical distribution.
-            It is further assumed that all categories of each feature are
-            represented by the numbers 0, ..., n - 1, where n refers to the
-            total number of categories for the given feature. This can, for
-            instance, be achieved with the help of OrdinalEncoder.
-        y : array-like of shape (n_samples,)
-            Target values.
-        sample_weight : array-like of shape (n_samples), default=None
-            Weights applied to individual samples (1. for unweighted).
-        Returns
-        -------
-        self : object
-        """
-        return super().fit(X, y, sample_weight=sample_weight)
-
-    def partial_fit(self, X, y, classes=None,
-                    sample_weight=None) -> "CategoricalNB":
-        """Incremental fit on a batch of samples.
-        This method is expected to be called several times consecutively
-        on different chunks of a dataset so as to implement out-of-core
-        or online learning.
-        This is especially useful when the whole dataset is too big to fit in
-        memory at once.
-        This method has some performance overhead hence it is better to call
-        partial_fit on chunks of data that are as large as possible
-        (as long as fitting in the memory budget) to hide the overhead.
-        Parameters
-        ----------
-        X : {array-like, sparse matrix} of shape (n_samples, n_features)
-            Training vectors, where n_samples is the number of samples and
-            n_features is the number of features. Here, each feature of X is
-            assumed to be from a different categorical distribution.
-            It is further assumed that all categories of each feature are
-            represented by the numbers 0, ..., n - 1, where n refers to the
-            total number of categories for the given feature. This can, for
-            instance, be achieved with the help of OrdinalEncoder.
-        y : array-like of shape (n_samples)
-            Target values.
-        classes : array-like of shape (n_classes), default=None
-            List of all the classes that can possibly appear in the y vector.
-            Must be provided at the first call to partial_fit, can be omitted
-            in subsequent calls.
-        sample_weight : array-like of shape (n_samples), default=None
-            Weights applied to individual samples (1. for unweighted).
-        Returns
-        -------
-        self : object
-        """
-        return super().partial_fit(X, y, classes,
-                                   sample_weight=sample_weight)
-
-    def _count(self, X, Y, classes):
-        def _update_cat_count_dims(cat_count, highest_feature):
-            diff = int(highest_feature) + 1 - cat_count.shape[1]
-            if diff > 0:
-                # we append a column full of zeros for each new category
-                return cp.pad(cat_count, [(0, 0), (0, diff)], 'constant')
-            return cat_count
-
-        def _update_cat_count(X_feature, Y, cat_count, n_classes):
-            for j in range(n_classes):
-                mask = (Y == j)
-                if Y.dtype.type == cp.int64:
-                    weights = None
-                counts = cp.bincount(X_feature[mask],
-                                     weights=weights)
-                indices = cp.nonzero(counts)[0]
-                cat_count[j, indices] += counts[indices]
-
-        Y = cp.asarray(Y)
-        tpb = 256
-        n_rows = X.shape[0]
-        n_classes = classes.shape[0]
-        labels_dtype = classes.dtype
-
-        class_c = cp.zeros(n_classes, order="F", dtype=self.class_count_.dtype)
-        count_classes = count_classes_kernel(class_c.dtype, labels_dtype)
-        count_classes((math.ceil(n_rows / tpb),), (tpb,),
-                      (class_c, n_rows, Y))
-        self.class_count_ = class_c
-        for i in range(self.n_features_):
-            X_feature = X[:, i]
-            self.category_count_[i] = _update_cat_count_dims(
-                self.category_count_[i], X_feature.max())
-            _update_cat_count(X_feature, Y,
-                              self.category_count_[i],
-                              self.class_count_.shape[0])
-
-    def _init_counters(self, n_effective_classes, n_features, dtype):
-        self.class_count_ = cp.zeros(n_effective_classes,
-                                     order="F",
-                                     dtype=cp.float64)
-        self.category_count_ = [cp.zeros((n_effective_classes, 0),
-                                         order="F",
-                                         dtype=dtype)
-                                for _ in range(n_features)]
-
-    def _update_feature_log_prob(self, alpha):
-        feature_log_prob = []
-        for i in range(self.n_features_):
-            smoothed_cat_count = self.category_count_[i] + alpha
-            smoothed_class_count = smoothed_cat_count.sum(axis=1)
-            feature_log_prob.append(
-                cp.log(smoothed_cat_count) -
-                cp.log(smoothed_class_count.reshape(-1, 1)))
-        self.feature_log_prob_ = feature_log_prob
-
-    def _joint_log_likelihood(self, X):
-        if not X.shape[1] == self.n_features_:
-            raise ValueError("Expected input with %d features, got %d instead"
-                             % (self.n_features_, X.shape[1]))
-        jll = cp.zeros((X.shape[0], self.class_count_.shape[0]))
-        for i in range(self.n_features_):
-            indices = X[:, i]
-            jll += self.feature_log_prob_[i][:, indices].T
-        total_ll = jll + self.class_log_prior_
-        return total_ll
-
-
-    def _check_X_y(self, X, y):
-        X =  input_to_cupy_array(X, order='K',
-                                 convert_to_dtype=cp.int32).array
-        return X, y
-
-    def _check_X(self, X):
-        X =  input_to_cupy_array(X, order='K',
-                                 convert_to_dtype=cp.int32).array
-        return X        
-
-    def get_param_names(self):
-        return super().get_param_names() + \
-            [
-                "alpha",
                 "fit_prior",
                 "class_prior",
             ]
