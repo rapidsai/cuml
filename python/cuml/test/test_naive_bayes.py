@@ -93,12 +93,13 @@ def test_multinomial_basic_fit_predict_dense_numpy(x_dtype, y_dtype,
     Cupy Test
     """
     X, y = nlp_20news
+    n_rows = 500
 
     X = sparse_scipy_to_cp(X, cp.float32)
     y = y.astype(y_dtype)
 
-    X = X.tocsr()[0:500].todense()
-    y = y[:500]
+    X = X.tocsr()[0:n_rows].todense()
+    y = y[:n_rows]
 
     model = MultinomialNB()
     model.fit(np.ascontiguousarray(cp.asnumpy(X).astype(x_dtype)), y)
@@ -243,12 +244,13 @@ def test_multinomial_score(x_dtype, y_dtype, nlp_20news):
 @pytest.mark.parametrize("is_sparse", [True, False])
 def test_bernoulli(x_dtype, y_dtype, is_sparse, nlp_20news):
     X, y = nlp_20news
+    n_rows = 500
 
     X = sparse_scipy_to_cp(X, x_dtype).astype(x_dtype)
     y = y.astype(y_dtype)
 
-    X = X.tocsr()[0:500]
-    y = y[:500]
+    X = X.tocsr()[:n_rows]
+    y = y[:n_rows]
     if not is_sparse:
         X = X.todense()
 

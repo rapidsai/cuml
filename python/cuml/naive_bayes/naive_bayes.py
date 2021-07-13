@@ -63,7 +63,6 @@ def count_features_coo_kernel(float_dtype, int_dtype):
         val *= weights[i];
 
       if(square) val *= val;
-
       {1} label = labels[row];
       atomicAdd(out + ((col * n_classes) + label), val);
     }'''
@@ -79,7 +78,6 @@ def count_classes_kernel(float_dtype, int_dtype):
       int row = blockIdx.x * blockDim.x + threadIdx.x;
       if(row >= n_rows) return;
       {1} label = labels[row];
-
       atomicAdd(out + label, ({0})1);
     }'''
 
@@ -115,11 +113,9 @@ def count_features_dense_kernel(float_dtype, int_dtype):
       if(val == 0.0) return;
 
       if(square) val *= val;
-
       {1} label = labels[row];
 
       {1} idx = rowMajor ? col : row;
-
       atomicAdd(out + ((idx * n_classes) + label), val);
     }'''
 

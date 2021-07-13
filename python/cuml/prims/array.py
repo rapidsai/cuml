@@ -62,8 +62,9 @@ def binarize(x, threshold, copy=False):
     if copy:
         arr = arr.copy()
 
+    tpb = 512
     binarizer = _binarize_kernel(x.dtype)
-    binarizer((math.ceil(arr.size / 512),), (512, ),
+    binarizer((math.ceil(arr.size / tpb),), (tpb, ),
               (x,
                threshold,
                arr.size))
