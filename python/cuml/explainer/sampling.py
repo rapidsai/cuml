@@ -19,12 +19,13 @@ from scipy.sparse import issparse
 from numba import cuda
 import cudf
 
+
 def kmeans_sampling(X, k, round_values=True, detailed=False):
     """
     Adapted from :
     https://github.com/slundberg/shap/blob/9411b68e8057a6c6f3621765b89b24d82bee13d4/shap/utils/_legacy.py
     Summarize a dataset (X) using weighted k-means.
-    
+
     Parameters
     ----------
     X : cuDF DataFrame or cuda_array_interface compliant device array
@@ -32,8 +33,9 @@ def kmeans_sampling(X, k, round_values=True, detailed=False):
     k : int
         Number of means to use for approximation.
     round_values : bool; default=True
-        For all i, round the ith dimension of each mean sample to match the nearest value
-        from X[:,i]. This ensures discrete features always get a valid value.
+        For all i, round the ith dimension of each mean sample to match the
+        nearest value from X[:,i]. This ensures discrete features always get
+        a valid value.
     detailed: bool; default=False
         To return details of group names and cluster labels of all data points
 
@@ -41,7 +43,8 @@ def kmeans_sampling(X, k, round_values=True, detailed=False):
     -------
     summary : Summary of the data, shape (k, n_features)
     group_names : Names of the features
-    labels : Cluster labels of the data points in the original dataset, shape (n_samples, 1)
+    labels : Cluster labels of the data points in the original dataset,
+             shape (n_samples, 1)
     """
     if not hasattr(X, "__cuda_array_interface__") and not \
             isinstance(X, cudf.DataFrame):
@@ -57,11 +60,14 @@ def kmeans_sampling(X, k, round_values=True, detailed=False):
         X = X.values.reshape(-1, 1)
         output_dtype = "Series"
     else:
-        output_dtype, X = ["numba", cp.array(X)] if cuda.devicearray.is_cuda_ndarray(X) else ["cupy", X]
+        output_dtype, X = ["numba",
+                           cp.array(X)] if \
+                            cuda.devicearray.is_cuda_ndarray(X) else ["cupy",
+                                                                      X]
         try:
             # more than one column
             group_names = [str(i) for i in range(X.shape[1])]
-        except IndexError as e:
+        except IndexError:
             # one column
             X = X.reshape(-1, 1)
             group_names = ['0']
@@ -89,6 +95,6 @@ def kmeans_sampling(X, k, round_values=True, detailed=False):
     elif output_dtype == "numba":
         summary = cuda.as_cuda_array(summary)
     if detailed:
-        return summary , group_names, labels
+        return summary, group_names, labels
     else:
         return summary
