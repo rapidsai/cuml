@@ -781,7 +781,7 @@ __noinline__ conversion_state<fil_node_t> tl2fil_branch_node(
     split.idx                           = bit_pools[feature_id];
     int node_pool_bytes                 = cat_branches.max_matching[feature_id] / 8;
     std::vector<uint32_t> matching_cats = tree.MatchingCategories(tl_node_id);
-    uint32_t* category_it               = matching_cats.begin();
+    auto category_it                    = matching_cats.begin();
     // assuming categories from tree.MatchingCategories() are in ascending order
     // we have to initialize all pool bytes, so we iterate over those and keep category_it up to
     // date
@@ -796,6 +796,7 @@ __noinline__ conversion_state<fil_node_t> tl2fil_branch_node(
       }
       cat_branches.bits[split.idx + which_8cats] = _8cats;
     }
+    ASSERT(category_it == matching_cats.end(), "internal error: didn't convert all categories");
     // we've used up this pool, the next node should use the next pool
     bit_pools[feature_id] += node_pool_bytes;
   } else
