@@ -35,6 +35,7 @@ function(find_and_configure_gbench)
               "CMAKE_INSTALL_PREFIX <INSTALL_DIR>"
               "CMAKE_BUILD_TYPE Release"
               "CMAKE_INSTALL_LIBDIR lib"
+              "CMAKE_INSTALL_INCLUDEDIR include/benchmark"
             # BUILD_BYPRODUCTS  ${benchmark_BINARY_DIR}/lib/libbenchmark.a
     )
 
