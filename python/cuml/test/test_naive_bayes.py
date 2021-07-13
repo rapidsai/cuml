@@ -447,25 +447,23 @@ def test_bernoulli_partial_fit(x_dtype, y_dtype, nlp_20news):
 
 
 
-@pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
+@pytest.mark.parametrize("x_dtype", [cp.int32,
+                                     cp.float64, cp.float32])
 @pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
-@pytest.mark.parametrize("is_sparse", [True, False])
-def test_categorical(x_dtype, y_dtype, is_sparse, nlp_20news):
+def test_categorical(x_dtype, y_dtype, nlp_20news):
     X, y = nlp_20news
 
-    X = sparse_scipy_to_cp(X, x_dtype).astype(x_dtype)
+    X = sparse_scipy_to_cp(X, cp.float32)
     y = y.astype(y_dtype)
 
-    X = X.tocsr()[0:500, :5000]
+    X = X.tocsr()[0:500, :5000].todense().astype(x_dtype)
     y = y[:500]
-    if not is_sparse:
-        X = X.todense()
+
+    sk_model = skCNB()
+    sk_model.fit(X.get(), y.get())
 
     cuml_model = CategoricalNB()
-    sk_model = skCNB()
-
     cuml_model.fit(X, y)
-    sk_model.fit(X.get(), y.get())
 
     sk_score = sk_model.score(X.get(), y.get())
     cuml_score = cuml_model.score(X, y)

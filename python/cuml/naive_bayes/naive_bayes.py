@@ -651,7 +651,7 @@ class _BaseDiscreteNB(_BaseNB):
 
         Y, label_classes = make_monotonic(y, copy=True)
 
-        self._check_X_y(X, Y)
+        X, Y = self._check_X_y(X, Y)
 
         if not self.fit_called_:
             self.fit_called_ = True
@@ -1327,15 +1327,22 @@ class CategoricalNB(_BaseDiscreteNB):
                 mask = (Y == j)
                 if Y.dtype.type == cp.int64:
                     weights = None
-                else:
-                    weights = Y[mask]
-                counts = cp.bincount(X_feature[mask].astype(cp.int32),
+                counts = cp.bincount(X_feature[mask],
                                      weights=weights)
                 indices = cp.nonzero(counts)[0]
                 cat_count[j, indices] += counts[indices]
 
         Y = cp.asarray(Y)
-        self.class_count_ += Y.sum(axis=0)
+        tpb = 256
+        n_rows = X.shape[0]
+        n_classes = classes.shape[0]
+        labels_dtype = classes.dtype
+
+        class_c = cp.zeros(n_classes, order="F", dtype=self.class_count_.dtype)
+        count_classes = count_classes_kernel(class_c.dtype, labels_dtype)
+        count_classes((math.ceil(n_rows / tpb),), (tpb,),
+                      (class_c, n_rows, Y))
+        self.class_count_ = class_c
         for i in range(self.n_features_):
             X_feature = X[:, i]
             self.category_count_[i] = _update_cat_count_dims(
@@ -1347,7 +1354,7 @@ class CategoricalNB(_BaseDiscreteNB):
     def _init_counters(self, n_effective_classes, n_features, dtype):
         self.class_count_ = cp.zeros(n_effective_classes,
                                      order="F",
-                                     dtype=dtype)
+                                     dtype=cp.float64)
         self.category_count_ = [cp.zeros((n_effective_classes, 0),
                                          order="F",
                                          dtype=dtype)
@@ -1373,6 +1380,17 @@ class CategoricalNB(_BaseDiscreteNB):
             jll += self.feature_log_prob_[i][:, indices].T
         total_ll = jll + self.class_log_prior_
         return total_ll
+
+
+    def _check_X_y(self, X, y):
+        X =  input_to_cupy_array(X, order='K',
+                                 convert_to_dtype=cp.int32).array
+        return X, y
+
+    def _check_X(self, X):
+        X =  input_to_cupy_array(X, order='K',
+                                 convert_to_dtype=cp.int32).array
+        return X        
 
     def get_param_names(self):
         return super().get_param_names() + \
