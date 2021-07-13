@@ -23,13 +23,13 @@
  *
  * @{
  */
-#define CUML_LEVEL_TRACE 6
-#define CUML_LEVEL_DEBUG 5
-#define CUML_LEVEL_INFO 4
-#define CUML_LEVEL_WARN 3
-#define CUML_LEVEL_ERROR 2
+#define CUML_LEVEL_TRACE    6
+#define CUML_LEVEL_DEBUG    5
+#define CUML_LEVEL_INFO     4
+#define CUML_LEVEL_WARN     3
+#define CUML_LEVEL_ERROR    2
 #define CUML_LEVEL_CRITICAL 1
-#define CUML_LEVEL_OFF 0
+#define CUML_LEVEL_OFF      0
 /** @} */
 
 #if !defined(CUML_ACTIVE_LEVEL)

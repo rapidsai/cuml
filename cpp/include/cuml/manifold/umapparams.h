@@ -127,21 +127,21 @@ class UMAPParams {
   float b = -1.0;
 
   /**
-         * Initial learning rate for SGD
-         */
+   * Initial learning rate for SGD
+   */
   float initial_alpha = 1.0;
 
   /**
-         * Embedding initializer algorithm
-         * 0 = random layout
-         * 1 = spectral layout
-         */
+   * Embedding initializer algorithm
+   * 0 = random layout
+   * 1 = spectral layout
+   */
   int init = 1;
 
   /**
-         * The number of nearest neighbors to use to construct the target simplicial
-         * set. If set to -1, use the n_neighbors value.
-         */
+   * The number of nearest neighbors to use to construct the target simplicial
+   * set. If set to -1, use the n_neighbors value.
+   */
   int target_n_neighbors = -1;
 
   MetricType target_metric = CATEGORICAL;

@@ -21,15 +21,15 @@
 namespace MLCommon {
 
 /**
- * RAII object owning a contigous typed device buffer. The passed in allocator supports asynchronus allocation and
- * deallocation so this can be used for temporary memory 
+ * RAII object owning a contigous typed device buffer. The passed in allocator supports asynchronus
+ * allocation and deallocation so this can be used for temporary memory
  * @code{.cpp}
  * template<typename T>
  * void foo( const raft::handle_t& h, ..., cudaStream_t stream )
  * {
  *     ...
  *     device_buffer<T> temp( h.get_device_allocator(), stream, 0 )
- *     
+ *
  *     temp.resize(n, stream);
  *     kernelA<<<grid,block,0,stream>>>(...,temp.data(),...);
  *     kernelB<<<grid,block,0,stream>>>(...,temp.data(),...);

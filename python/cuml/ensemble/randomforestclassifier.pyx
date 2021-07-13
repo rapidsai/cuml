@@ -197,24 +197,13 @@ class RandomForestClassifier(BaseRandomForestModel,
         2 and 3 not valid for classification
         (default = 0)
     split_algo : int (default = 1)
-        The algorithm to determine how nodes are split in the tree.
-        Can be changed only for the old backend [deprecated].
-        0 for HIST and 1 for GLOBAL_QUANTILE. Default is GLOBAL_QUANTILE.
-        The default backend does not support HIST.
-        HIST currently uses a slower tree-building algorithm so
-        GLOBAL_QUANTILE is recommended for most cases.
-
+        Deprecated and currrently has no effect.
         .. deprecated:: 21.06
-           Parameter 'split_algo' is deprecated and will be removed in
-           subsequent release.
     bootstrap : boolean (default = True)
         Control bootstrapping.
         If True, each tree in the forest is built
         on a bootstrapped sample with replacement.
         If False, the whole dataset is used to build each tree.
-    bootstrap_features : boolean (default = False)
-        Control bootstrapping for features.
-        If features are drawn with or without replacement
     max_samples : float (default = 1.0)
         Ratio of dataset rows used while fitting each tree.
     max_depth : int (default = 16)
@@ -236,6 +225,8 @@ class RandomForestClassifier(BaseRandomForestModel,
         Number of bins used by the split algorithm.
         For large problems, particularly those with highly-skewed input data,
         increasing the number of bins may improve accuracy.
+    n_streams : int (default = 4)
+        Number of parallel streams used for forest building.
     min_samples_leaf : int or float (default = 1)
         The minimum number of samples (rows) in each leaf node.
         If int, then min_samples_leaf represents the minimum number.
@@ -251,24 +242,11 @@ class RandomForestClassifier(BaseRandomForestModel,
     min_impurity_decrease : float (default = 0.0)
         Minimum decrease in impurity requried for
         node to be spilt.
-    quantile_per_tree : boolean (default = False)
-        Whether quantile is computed for individual trees in RF.
-        Only relevant when `split_algo = GLOBAL_QUANTILE`.
-
-        .. deprecated:: 0.19
-           Parameter 'quantile_per_tree' is deprecated and will be removed in
-           subsequent release.
     use_experimental_backend : boolean (default = True)
-        If set to true and the following conditions are also met, a new
-        experimental backend for decision tree training will be used. The
-        new backend is available only if `split_algo = 1` (GLOBAL_QUANTILE)
-        and `quantile_per_tree = False` (No per tree quantile computation).
-        The new backend is now considered stable for both classification
-        and regression tasks and is significantly faster than the old backend.
-    max_batch_size: int (default = 128)
-        Maximum number of nodes that can be processed in a given batch. This is
-        used only when 'use_experimental_backend' is true. Does not currently
-        fully guarantee the exact same results.
+        Deprecated and currrently has no effect.
+        .. deprecated:: 21.08
+    max_batch_size: int (default = 4096)
+        Maximum number of nodes that can be processed in a given batch.
     random_state : int (default = None)
         Seed for the random number generator. Unseeded by default. Does not
         currently fully guarantee the exact same results. **Note: Parameter
@@ -293,7 +271,7 @@ class RandomForestClassifier(BaseRandomForestModel,
     """
 
     def __init__(self, *, split_criterion=0, handle=None, verbose=False,
-                 output_type=None, n_bins=128, use_experimental_backend=True,
+                 output_type=None,
                  **kwargs):
 
         self.RF_type = CLASSIFICATION
@@ -303,8 +281,6 @@ class RandomForestClassifier(BaseRandomForestModel,
             handle=handle,
             verbose=verbose,
             output_type=output_type,
-            n_bins=n_bins,
-            use_experimental_backend=use_experimental_backend,
             **kwargs)
 
     """
@@ -503,19 +479,15 @@ class RandomForestClassifier(BaseRandomForestModel,
                                   <int> self.max_leaves,
                                   <float> max_feature_val,
                                   <int> self.n_bins,
-                                  <int> self.split_algo,
                                   <int> self.min_samples_leaf,
                                   <int> self.min_samples_split,
                                   <float> self.min_impurity_decrease,
-                                  <bool> self.bootstrap_features,
                                   <bool> self.bootstrap,
                                   <int> self.n_estimators,
                                   <float> self.max_samples,
                                   <uint64_t> seed_val,
                                   <CRITERION> self.split_criterion,
-                                  <bool> self.quantile_per_tree,
                                   <int> self.n_streams,
-                                  <bool> self.use_experimental_backend,
                                   <int> self.max_batch_size)
 
         if self.dtype == np.float32:

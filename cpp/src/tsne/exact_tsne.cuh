@@ -36,10 +36,16 @@ namespace TSNE {
  * @param[in] params: Parameters for TSNE model.
  */
 template <typename value_idx, typename value_t>
-void Exact_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
-                const value_idx NNZ, const raft::handle_t &handle, value_t *Y,
-                const value_idx n, const TSNEParams &params) {
-  auto d_alloc = handle.get_device_allocator();
+void Exact_TSNE(value_t* VAL,
+                const value_idx* COL,
+                const value_idx* ROW,
+                const value_idx NNZ,
+                const raft::handle_t& handle,
+                value_t* Y,
+                const value_idx n,
+                const TSNEParams& params)
+{
+  auto d_alloc        = handle.get_device_allocator();
   cudaStream_t stream = handle.get_stream();
   const value_idx dim = params.dim;
 
@@ -57,8 +63,8 @@ void Exact_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
   MLCommon::device_buffer<value_t> repel(d_alloc, stream, n * dim);
 
   MLCommon::device_buffer<value_t> velocity(d_alloc, stream, n * dim);
-  CUDA_CHECK(cudaMemsetAsync(
-    velocity.data(), 0, velocity.size() * sizeof(*velocity.data()), stream));
+  CUDA_CHECK(
+    cudaMemsetAsync(velocity.data(), 0, velocity.size() * sizeof(*velocity.data()), stream));
 
   MLCommon::device_buffer<value_t> gains(d_alloc, stream, n * dim);
   thrust::device_ptr<value_t> begin = thrust::device_pointer_cast(gains.data());
@@ -70,60 +76,69 @@ void Exact_TSNE(value_t *VAL, const value_idx *COL, const value_idx *ROW,
   // Calculate degrees of freedom
   //---------------------------------------------------
   const float degrees_of_freedom = fmaxf(dim - 1, 1);
-  const float df_power = -(degrees_of_freedom + 1.0f) / 2.0f;
-  const float recp_df = 1.0f / degrees_of_freedom;
-  const float C = 2.0f * (degrees_of_freedom + 1.0f) / degrees_of_freedom;
+  const float df_power           = -(degrees_of_freedom + 1.0f) / 2.0f;
+  const float recp_df            = 1.0f / degrees_of_freedom;
+  const float C                  = 2.0f * (degrees_of_freedom + 1.0f) / degrees_of_freedom;
 
   CUML_LOG_DEBUG("Start gradient updates!");
-  float momentum = params.pre_momentum;
-  float learning_rate = params.pre_learning_rate;
-  auto exaggeration = params.early_exaggeration;
+  float momentum         = params.pre_momentum;
+  float learning_rate    = params.pre_learning_rate;
+  auto exaggeration      = params.early_exaggeration;
   bool check_convergence = false;
 
   for (int iter = 0; iter < params.max_iter; iter++) {
-    check_convergence =
-      ((iter % 10) == 0) and (iter > params.exaggeration_iter);
+    check_convergence = ((iter % 10) == 0) and (iter > params.exaggeration_iter);
 
     if (iter == params.exaggeration_iter) {
-      momentum = params.post_momentum;
+      momentum      = params.post_momentum;
       learning_rate = params.post_learning_rate;
-      exaggeration = 1.0f;
+      exaggeration  = 1.0f;
     }
 
     // Get row norm of Y
-    raft::linalg::rowNorm(norm.data(), Y, dim, n, raft::linalg::L2Norm, false,
-                          stream);
+    raft::linalg::rowNorm(norm.data(), Y, dim, n, raft::linalg::L2Norm, false, stream);
 
     // Compute attractive forces
-    TSNE::attractive_forces(VAL, COL, ROW, Y, norm.data(), attract.data(), NNZ,
-                            n, dim, df_power, recp_df, stream);
+    TSNE::attractive_forces(
+      VAL, COL, ROW, Y, norm.data(), attract.data(), NNZ, n, dim, df_power, recp_df, stream);
     // Compute repulsive forces
-    const float Z =
-      TSNE::repulsive_forces(Y, repel.data(), norm.data(), Z_sum.data(), n, dim,
-                             df_power, recp_df, stream);
+    const float Z = TSNE::repulsive_forces(
+      Y, repel.data(), norm.data(), Z_sum.data(), n, dim, df_power, recp_df, stream);
 
     // Apply / integrate forces
-    const float gradient_norm = TSNE::apply_forces(
-      Y, velocity.data(), attract.data(), repel.data(), means.data(),
-      gains.data(), Z, learning_rate, C, exaggeration, momentum, dim, n,
-      params.min_gain, gradient.data(), check_convergence, stream);
+    const float gradient_norm = TSNE::apply_forces(Y,
+                                                   velocity.data(),
+                                                   attract.data(),
+                                                   repel.data(),
+                                                   means.data(),
+                                                   gains.data(),
+                                                   Z,
+                                                   learning_rate,
+                                                   C,
+                                                   exaggeration,
+                                                   momentum,
+                                                   dim,
+                                                   n,
+                                                   params.min_gain,
+                                                   gradient.data(),
+                                                   check_convergence,
+                                                   stream);
 
     if (check_convergence) {
       if (iter % 100 == 0) {
-        CUML_LOG_DEBUG("Z at iter = %d = %f and gradient norm = %f", iter, Z,
-                       gradient_norm);
+        CUML_LOG_DEBUG("Z at iter = %d = %f and gradient norm = %f", iter, Z, gradient_norm);
       }
       if (gradient_norm < params.min_grad_norm) {
         CUML_LOG_DEBUG(
           "Gradient norm = %f <= min_grad_norm = %f. Early stopped at iter = "
           "%d",
-          gradient_norm, params.min_grad_norm, iter);
+          gradient_norm,
+          params.min_grad_norm,
+          iter);
         break;
       }
     } else {
-      if (iter % 100 == 0) {
-        CUML_LOG_DEBUG("Z at iter = %d = %f", iter, Z);
-      }
+      if (iter % 100 == 0) { CUML_LOG_DEBUG("Z at iter = %d = %f", iter, Z); }
     }
   }
 }

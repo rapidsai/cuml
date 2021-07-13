@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,26 +33,27 @@ struct BatchMakeSymmInputs {
 };
 
 template <typename T, typename IdxType = int>
-::std::ostream &operator<<(::std::ostream &os,
-                           const BatchMakeSymmInputs<T> &dims) {
+::std::ostream& operator<<(::std::ostream& os, const BatchMakeSymmInputs<T>& dims)
+{
   return os;
 }
 
 template <typename Type>
-__global__ void naiveBatchMakeSymmKernel(Type *y, const Type *x, int n) {
+__global__ void naiveBatchMakeSymmKernel(Type* y, const Type* x, int n)
+{
   int batch = blockIdx.z;
-  int row = threadIdx.y + blockDim.y * blockIdx.y;
-  int col = threadIdx.x + blockDim.x * blockIdx.x;
+  int row   = threadIdx.y + blockDim.y * blockIdx.y;
+  int col   = threadIdx.x + blockDim.x * blockIdx.x;
   if (row < n && col < n) {
-    int idx = batch * n * n + row * n + col;
+    int idx   = batch * n * n + row * n + col;
     int other = batch * n * n + col * n + row;
-    y[idx] = (x[idx] + x[other]) * Type(0.5);
+    y[idx]    = (x[idx] + x[other]) * Type(0.5);
   }
 }
 
 template <typename Type>
-void naiveBatchMakeSymm(Type *y, const Type *x, int batchSize, int n,
-                        cudaStream_t stream) {
+void naiveBatchMakeSymm(Type* y, const Type* x, int batchSize, int n, cudaStream_t stream)
+{
   dim3 blk(16, 16);
   int nblks = raft::ceildiv<int>(n, blk.x);
   dim3 grid(nblks, nblks, batchSize);
@@ -61,10 +62,10 @@ void naiveBatchMakeSymm(Type *y, const Type *x, int batchSize, int n,
 }
 
 template <typename T>
-class BatchMakeSymmTest
-  : public ::testing::TestWithParam<BatchMakeSymmInputs<T>> {
+class BatchMakeSymmTest : public ::testing::TestWithParam<BatchMakeSymmInputs<T>> {
  protected:
-  void SetUp() override {
+  void SetUp() override
+  {
     params = ::testing::TestWithParam<BatchMakeSymmInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int len = params.batchSize * params.n * params.n;
@@ -79,7 +80,8 @@ class BatchMakeSymmTest
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
-  void TearDown() override {
+  void TearDown() override
+  {
     CUDA_CHECK(cudaFree(x));
     CUDA_CHECK(cudaFree(out_ref));
     CUDA_CHECK(cudaFree(out));
@@ -99,13 +101,12 @@ const std::vector<BatchMakeSymmInputs<float>> inputsf = {
   {0.000001f, 125, 32, 1234ULL},
 };
 typedef BatchMakeSymmTest<float> BatchMakeSymmTestF;
-TEST_P(BatchMakeSymmTestF, Result) {
+TEST_P(BatchMakeSymmTestF, Result)
+{
   int len = params.batchSize * params.n * params.n;
-  ASSERT_TRUE(devArrMatch(out_ref, out, len,
-                          raft::CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(out_ref, out, len, raft::CompareApprox<float>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(BatchMakeSymmTests, BatchMakeSymmTestF,
-                        ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(BatchMakeSymmTests, BatchMakeSymmTestF, ::testing::ValuesIn(inputsf));
 
 typedef BatchMakeSymmTest<double> BatchMakeSymmTestD;
 const std::vector<BatchMakeSymmInputs<double>> inputsd = {
@@ -113,13 +114,12 @@ const std::vector<BatchMakeSymmInputs<double>> inputsd = {
   {0.0000001, 126, 32, 1234ULL},
   {0.0000001, 125, 32, 1234ULL},
 };
-TEST_P(BatchMakeSymmTestD, Result) {
+TEST_P(BatchMakeSymmTestD, Result)
+{
   int len = params.batchSize * params.n * params.n;
-  ASSERT_TRUE(devArrMatch(out_ref, out, len,
-                          raft::CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(out_ref, out, len, raft::CompareApprox<double>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(BatchMakeSymmTests, BatchMakeSymmTestD,
-                        ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_CASE_P(BatchMakeSymmTests, BatchMakeSymmTestD, ::testing::ValuesIn(inputsd));
 
 }  // end namespace Batched
 }  // end namespace LinAlg

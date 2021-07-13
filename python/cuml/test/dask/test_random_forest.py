@@ -382,14 +382,14 @@ def test_rf_get_json(client, estimator_type, max_depth, n_estimators):
     X = X.astype(np.float32)
     if estimator_type == 'classification':
         cu_rf_mg = cuRFC_mg(max_features=1.0, max_samples=1.0,
-                            n_bins=16, split_algo=0, split_criterion=0,
+                            n_bins=16, split_criterion=0,
                             min_samples_leaf=2, random_state=23707,
                             n_streams=1, n_estimators=n_estimators,
                             max_leaves=-1, max_depth=max_depth)
         y = y.astype(np.int32)
     elif estimator_type == 'regression':
         cu_rf_mg = cuRFR_mg(max_features=1.0, max_samples=1.0,
-                            n_bins=16, split_algo=0,
+                            n_bins=16,
                             min_samples_leaf=2, random_state=23707,
                             n_streams=1, n_estimators=n_estimators,
                             max_leaves=-1, max_depth=max_depth)
@@ -417,7 +417,7 @@ def test_rf_get_json(client, estimator_type, max_depth, n_estimators):
         assert 'split_threshold' in tree
         assert 'yes' in tree
         assert 'no' in tree
-        if x[tree['split_feature']] <= tree['split_threshold']:
+        if x[tree['split_feature']] <= tree['split_threshold'] + 1e-5:
             return predict_with_json_tree(tree['children'][0], x)
         return predict_with_json_tree(tree['children'][1], x)
 
@@ -470,7 +470,7 @@ def test_rf_instance_count(client, max_depth, n_estimators):
                                n_classes=2)
     X = X.astype(np.float32)
     cu_rf_mg = cuRFC_mg(max_features=1.0, max_samples=1.0,
-                        n_bins=16, split_algo=1, split_criterion=0,
+                        n_bins=16, split_criterion=0,
                         min_samples_leaf=2, random_state=23707, n_streams=1,
                         n_estimators=n_estimators, max_leaves=-1,
                         max_depth=max_depth)
