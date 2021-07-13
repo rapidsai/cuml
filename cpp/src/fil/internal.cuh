@@ -119,12 +119,13 @@ struct base_node {
   }
   __host__ __device__ int set() const { return val.idx; }
   __host__ __device__ float thresh() const { return val.f; }
+  __host__ __device__ val_t split() const { return val; }
   __host__ __device__ int fid() const { return bits & FID_MASK; }
   __host__ __device__ bool def_left() const { return bits & DEF_LEFT_MASK; }
   __host__ __device__ bool is_leaf() const { return bits & IS_LEAF_MASK; }
   __host__ __device__ bool is_categorical() const { return bits & IS_CATEGORICAL_MASK; }
   __host__ __device__ base_node() : val({.f = 0}), bits(0) {}
-  base_node(val_t output, float thresh, int fid, bool def_left, bool is_leaf, bool is_categorical)
+  base_node(val_t output, val_t split, int fid, bool def_left, bool is_leaf, bool is_categorical)
   {
     ASSERT((fid & FID_MASK) == fid, "internal error: feature ID doesn't fit into base_node");
     bits = (fid & FID_MASK) | (def_left ? DEF_LEFT_MASK : 0) | (is_leaf ? IS_LEAF_MASK : 0) |
@@ -132,7 +133,7 @@ struct base_node {
     if (is_leaf)
       val = output;
     else
-      val.f = thresh;
+      val = split;
   }
   __host__ __device__ void print() const
   {
@@ -152,8 +153,8 @@ struct base_node {
 // template <bool can_be_categorical>
 struct alignas(8) dense_node : base_node<true> {
   dense_node() = default;
-  dense_node(val_t output, float thresh, int fid, bool def_left, bool is_leaf, bool is_categorical)
-    : base_node<true>(output, thresh, fid, def_left, is_leaf, is_categorical)
+  dense_node(val_t output, val_t split, int fid, bool def_left, bool is_leaf, bool is_categorical)
+    : base_node<true>(output, split, fid, def_left, is_leaf, is_categorical)
   {
   }
   /** index of the left child, where curr is the index of the current node */
@@ -167,13 +168,13 @@ struct alignas(16) sparse_node16 : base_node<true> {
   int dummy;  // make alignment explicit and reserve for future use
   __host__ __device__ sparse_node16() : left_idx(0), dummy(0) {}
   __noinline__ sparse_node16(val_t output,
-                             float thresh,
+                             val_t split,
                              int fid,
                              bool def_left,
                              bool is_leaf,
                              bool is_categorical,
                              int left_index)
-    : base_node<true>(output, thresh, fid, def_left, is_leaf, is_categorical),
+    : base_node<true>(output, split, fid, def_left, is_leaf, is_categorical),
       left_idx(left_index),
       dummy(0)
   {
@@ -197,13 +198,13 @@ struct alignas(8) sparse_node8 : base_node<true> {
   __host__ __device__ int left_index() const { return (bits & LEFT_MASK) >> LEFT_OFFSET; }
   sparse_node8() = default;
   sparse_node8(val_t output,
-               float thresh,
+               val_t split,
                int fid,
                bool def_left,
                bool is_leaf,
                bool is_categorical,
                int left_index)
-    : base_node<true>(output, thresh, fid, def_left, is_leaf, is_categorical)
+    : base_node<true>(output, split, fid, def_left, is_leaf, is_categorical)
   {
     bits |= left_index << LEFT_OFFSET;
     ASSERT(!is_categorical, "who made this categorical?");

@@ -220,7 +220,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
         default: ASSERT(false, "internal error: invalid ps.leaf_algo");
       }
       nodes[i] =
-        fil::dense_node(w, thresholds_h[i], fids_h[i], def_lefts_h[i], is_leafs_h[i], false);
+        fil::dense_node(w, {.f = thresholds_h[i]}, fids_h[i], def_lefts_h[i], is_leafs_h[i], false);
     }
 
     // clean up
@@ -477,7 +477,7 @@ class BasePredictSparseFilTest : public BaseFilTest {
     if (node.is_leaf()) {
       // leaf sparse node
       sparse_nodes[i_sparse] =
-        fil_node_t({}, node.thresh(), node.fid(), node.def_left(), node.is_leaf(), false, 0);
+        fil_node_t(node.output<val_t>(), {}, node.fid(), node.def_left(), node.is_leaf(), false, 0);
       return;
     }
     // inner sparse node
@@ -486,7 +486,7 @@ class BasePredictSparseFilTest : public BaseFilTest {
     sparse_nodes.push_back(fil_node_t());
     sparse_nodes.push_back(fil_node_t());
     sparse_nodes[i_sparse] = fil_node_t({},
-                                        node.thresh(),
+                                        node.split(),
                                         node.fid(),
                                         node.def_left(),
                                         node.is_leaf(),
