@@ -194,16 +194,6 @@ void print(const RF_params rf_params)
 }
 
 /**
- * @brief Set the trees pointer of RandomForestMetaData to nullptr.
- * @param[in, out] forest: CPU pointer to RandomForestMetaData.
- */
-template <class T, class L>
-void null_trees_ptr(RandomForestMetaData<T, L>*& forest)
-{
-  forest->trees = nullptr;
-}
-
-/**
  * @brief Deletes RandomForestMetaData object
  * @param[in] forest: CPU pointer to RandomForestMetaData.
  */
@@ -562,50 +552,6 @@ void predict(const raft::handle_t& user_handle,
     std::make_shared<RandomForest<double, int>>(forest->rf_params, RF_type::CLASSIFICATION);
   rf_classifier->predict(user_handle, input, n_rows, n_cols, predictions, forest, verbosity);
 }
-/** @} */
-
-/**
- * @addtogroup RandomForestClassificationPredict
- * @brief Predict target feature for input data; n-ary classification for
-     single feature supported.
- * @param[in] user_handle: raft::handle_t.
- * @param[in] forest: CPU pointer to RandomForestMetaData object.
- *   The user should have previously called fit to build the random forest.
- * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
- * @param[in] n_rows: number of  data samples.
- * @param[in] n_cols: number of features (excluding target feature).
- * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
- * @param[in] verbosity: verbosity level for logging messages during execution
- * @{
- */
-void predictGetAll(const raft::handle_t& user_handle,
-                   const RandomForestClassifierF* forest,
-                   const float* input,
-                   int n_rows,
-                   int n_cols,
-                   int* predictions,
-                   int verbosity)
-{
-  ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
-  std::shared_ptr<RandomForest<float, int>> rf_classifier =
-    std::make_shared<RandomForest<float, int>>(forest->rf_params, RF_type::CLASSIFICATION);
-  rf_classifier->predictGetAll(user_handle, input, n_rows, n_cols, predictions, forest, verbosity);
-}
-
-void predictGetAll(const raft::handle_t& user_handle,
-                   const RandomForestClassifierD* forest,
-                   const double* input,
-                   int n_rows,
-                   int n_cols,
-                   int* predictions,
-                   int verbosity)
-{
-  ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
-  std::shared_ptr<RandomForest<double, int>> rf_classifier =
-    std::make_shared<RandomForest<double, int>>(forest->rf_params, RF_type::CLASSIFICATION);
-  rf_classifier->predictGetAll(user_handle, input, n_rows, n_cols, predictions, forest, verbosity);
-}
-/** @} */
 
 /**
  * @defgroup RandomForestClassificationScore Random Forest Classification - Score function
@@ -842,11 +788,6 @@ template std::string get_rf_json<float, int>(const RandomForestClassifierF* fore
 template std::string get_rf_json<double, int>(const RandomForestClassifierD* forest);
 template std::string get_rf_json<float, float>(const RandomForestRegressorF* forest);
 template std::string get_rf_json<double, double>(const RandomForestRegressorD* forest);
-
-template void null_trees_ptr<float, int>(RandomForestClassifierF*& forest);
-template void null_trees_ptr<double, int>(RandomForestClassifierD*& forest);
-template void null_trees_ptr<float, float>(RandomForestRegressorF*& forest);
-template void null_trees_ptr<double, double>(RandomForestRegressorD*& forest);
 
 template void delete_rf_metadata<float, int>(RandomForestClassifierF* forest);
 template void delete_rf_metadata<double, int>(RandomForestClassifierD* forest);

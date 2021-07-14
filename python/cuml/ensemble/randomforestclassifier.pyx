@@ -92,22 +92,6 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
                       int*,
                       bool) except +
 
-    cdef void predictGetAll(handle_t& handle,
-                            RandomForestMetaData[float, int] *,
-                            float*,
-                            int,
-                            int,
-                            int*,
-                            bool) except +
-
-    cdef void predictGetAll(handle_t& handle,
-                            RandomForestMetaData[double, int]*,
-                            double*,
-                            int,
-                            int,
-                            int*,
-                            bool) except +
-
     cdef RF_metrics score(handle_t& handle,
                           RandomForestMetaData[float, int]*,
                           int*,
@@ -661,65 +645,6 @@ class RandomForestClassifier(BaseRandomForestModel,
                                            predict_proba=False)
 
         nvtx_range_pop()
-        return preds
-
-    def _predict_get_all(self, X, convert_dtype=True) -> CumlArray:
-        """
-        Predicts the labels for X.
-
-        Parameters
-        ----------
-        X : array-like (device or host) shape = (n_samples, n_features)
-            Dense matrix (floats or doubles) of shape (n_samples, n_features).
-            Acceptable formats: cuDF DataFrame, NumPy ndarray, Numba device
-            ndarray, cuda array interface compliant array like CuPy
-
-        Returns
-        ----------
-        y : NumPy
-           Dense vector (int) of shape (n_samples, 1)
-        """
-        cdef uintptr_t X_ptr, preds_ptr
-        X_m, n_rows, n_cols, dtype = \
-            input_to_cuml_array(X, order='C',
-                                convert_to_dtype=(self.dtype if convert_dtype
-                                                  else None),
-                                check_cols=self.n_cols)
-        X_ptr = X_m.ptr
-
-        preds = CumlArray.zeros(n_rows * self.n_estimators, dtype=np.int32)
-        preds_ptr = preds.ptr
-
-        cdef handle_t* handle_ =\
-            <handle_t*><uintptr_t>self.handle.getHandle()
-        cdef RandomForestMetaData[float, int] *rf_forest = \
-            <RandomForestMetaData[float, int]*><uintptr_t> self.rf_forest
-
-        cdef RandomForestMetaData[double, int] *rf_forest64 = \
-            <RandomForestMetaData[double, int]*><uintptr_t> self.rf_forest64
-        if self.dtype == np.float32:
-            predictGetAll(handle_[0],
-                          rf_forest,
-                          <float*> X_ptr,
-                          <int> n_rows,
-                          <int> n_cols,
-                          <int*> preds_ptr,
-                          <int> self.verbose)
-
-        elif self.dtype == np.float64:
-            predictGetAll(handle_[0],
-                          rf_forest64,
-                          <double*> X_ptr,
-                          <int> n_rows,
-                          <int> n_cols,
-                          <int*> preds_ptr,
-                          <int> self.verbose)
-        else:
-            raise TypeError("supports only np.float32 and np.float64 input,"
-                            " but input of type '%s' passed."
-                            % (str(self.dtype)))
-        self.handle.sync()
-        del(X_m)
         return preds
 
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
