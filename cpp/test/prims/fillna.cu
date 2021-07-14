@@ -28,7 +28,7 @@
 
 #include <cuml/common/device_buffer.hpp>
 
-#include <timeSeries/arima_helpers.cuh>
+#include <timeSeries/fillna.cuh>
 
 namespace MLCommon {
 namespace TimeSeries {
@@ -89,7 +89,8 @@ class FillnaTest : public ::testing::TestWithParam<FillnaInputs<T>> {
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     /* Compute using tested prims */
-    fillna(y.data(), params.batch_size, params.n_obs, handle.get_stream());
+    fillna(y.data(), params.batch_size, params.n_obs,
+           handle.get_device_allocator(), handle.get_stream());
 
     /* Compute reference results */
     for (int bid = 0; bid < params.batch_size; bid++) {
@@ -124,12 +125,18 @@ class FillnaTest : public ::testing::TestWithParam<FillnaInputs<T>> {
 
 const std::vector<FillnaInputs<float>> gemm_inputsf = {
   {3, 42, {{10, 0, 0}, {0, 10, 0}, {0, 0, 10}}, 12345U},
-  {4, 100, {{70, 0, 0}, {0, 20, 0}, {0, 0, 63}, {31, 25, 33}}, 12345U},
+  {4,
+   100,
+   {{70, 0, 0}, {0, 20, 0}, {0, 0, 63}, {31, 25, 33}, {20, 15, 42}},
+   12345U},
 };
 
 const std::vector<FillnaInputs<double>> gemm_inputsd = {
   {3, 42, {{10, 0, 0}, {0, 10, 0}, {0, 0, 10}}, 12345U},
-  {4, 100, {{70, 0, 0}, {0, 20, 0}, {0, 0, 63}, {31, 25, 33}}, 12345U},
+  {4,
+   100,
+   {{70, 0, 0}, {0, 20, 0}, {0, 0, 63}, {31, 25, 33}, {20, 15, 42}},
+   12345U},
 };
 
 typedef FillnaTest<float> FillnaTestF;

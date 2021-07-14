@@ -37,6 +37,7 @@
 #include <raft/handle.hpp>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <timeSeries/arima_helpers.cuh>
+#include <timeSeries/fillna.cuh>
 
 namespace ML {
 
@@ -705,8 +706,8 @@ void estimate_x0(raft::handle_t& handle, ARIMAParams<double>& params,
     d_y_no_missing = y_no_missing.data();
 
     raft::copy(y_no_missing.data(), d_y, n_obs * batch_size, stream);
-    /// TODO: use cudf's fillna once fixed? (cudf#8673)
-    MLCommon::TimeSeries::fillna(y_no_missing.data(), batch_size, n_obs, stream);
+    MLCommon::TimeSeries::fillna(y_no_missing.data(), batch_size, n_obs,
+                                 allocator, stream);
   } else {
     d_y_no_missing = d_y;
   }
