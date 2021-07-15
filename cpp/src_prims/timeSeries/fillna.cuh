@@ -45,12 +45,13 @@ struct FillnaTempMaker {
   int batch_size;
   int n_obs;
 
-  __host__ __device__ FillnaTempMaker(const T* data_, int batch_size_,
-                                      int n_obs_)
-    : data(data_), batch_size(batch_size_), n_obs(n_obs_) {}
+  __host__ __device__ FillnaTempMaker(const T* data_, int batch_size_, int n_obs_)
+    : data(data_), batch_size(batch_size_), n_obs(n_obs_)
+  {
+  }
 
-  __host__ __device__ __forceinline__ FillnaTemp
-  operator()(const int& index) const {
+  __host__ __device__ __forceinline__ FillnaTemp operator()(const int& index) const
+  {
     if (forward)
       return {index, !isnan(data[index]), index % n_obs == 0};
     else {
@@ -61,18 +62,19 @@ struct FillnaTempMaker {
 };
 
 struct FillnaOp {
-  __host__ __device__ __forceinline__ FillnaTemp
-  operator()(const FillnaTemp& lhs, const FillnaTemp& rhs) const {
+  __host__ __device__ __forceinline__ FillnaTemp operator()(const FillnaTemp& lhs,
+                                                            const FillnaTemp& rhs) const
+  {
     return (rhs.is_first || rhs.is_valid) ? rhs : lhs;
   }
 };
 
 template <bool forward, typename T>
-__global__ void fillna_gather_kernel(T* data, int batch_size, int n_obs,
-                                     FillnaTemp* d_indices) {
+__global__ void fillna_gather_kernel(T* data, int batch_size, int n_obs, FillnaTemp* d_indices)
+{
   for (int i = threadIdx.x; i < n_obs; i += blockDim.x) {
-    int index0 = blockIdx.x * n_obs + i;
-    int index1 = forward ? index0 : batch_size * n_obs - 1 - index0;
+    int index0     = blockIdx.x * n_obs + i;
+    int index1     = forward ? index0 : batch_size * n_obs - 1 - index0;
     int from_index = d_indices[index0].index;
     if (from_index != index1) data[index1] = data[from_index];
   }
@@ -94,35 +96,35 @@ namespace TimeSeries {
  * @param[in]    stream     CUDA stream
  */
 template <typename T>
-void fillna(T* data, int batch_size, int n_obs,
+void fillna(T* data,
+            int batch_size,
+            int n_obs,
             std::shared_ptr<raft::mr::device::allocator> allocator,
-            cudaStream_t stream) {
-  MLCommon::device_buffer<FillnaTemp> indices(allocator, stream,
-                                              batch_size * n_obs);
+            cudaStream_t stream)
+{
+  MLCommon::device_buffer<FillnaTemp> indices(allocator, stream, batch_size * n_obs);
   FillnaTempMaker<true, T> transform_op_fwd(data, batch_size, n_obs);
   FillnaTempMaker<false, T> transform_op_bwd(data, batch_size, n_obs);
   cub::CountingInputIterator<int> counting(0);
   FillnaOp scan_op;
 
   // Iterators wrapping the data with metadata (valid, first of its series)
-  cub::TransformInputIterator<FillnaTemp, FillnaTempMaker<true, T>,
-                              cub::CountingInputIterator<int>>
+  cub::TransformInputIterator<FillnaTemp, FillnaTempMaker<true, T>, cub::CountingInputIterator<int>>
     itr_fwd(counting, transform_op_fwd);
-  cub::TransformInputIterator<FillnaTemp, FillnaTempMaker<false, T>,
-                              cub::CountingInputIterator<int>>
-    itr_bwd(counting, transform_op_bwd);
+  cub::
+    TransformInputIterator<FillnaTemp, FillnaTempMaker<false, T>, cub::CountingInputIterator<int>>
+      itr_bwd(counting, transform_op_bwd);
 
   // Allocate temporary storage
   size_t temp_storage_bytes = 0;
-  cub::DeviceScan::InclusiveScan(nullptr, temp_storage_bytes, itr_fwd,
-                                 indices.data(), scan_op, batch_size * n_obs);
-  MLCommon::device_buffer<char> temp_storage(allocator, stream,
-                                             temp_storage_bytes);
+  cub::DeviceScan::InclusiveScan(
+    nullptr, temp_storage_bytes, itr_fwd, indices.data(), scan_op, batch_size * n_obs);
+  MLCommon::device_buffer<char> temp_storage(allocator, stream, temp_storage_bytes);
   void* d_temp_storage = (void*)temp_storage.data();
 
   // Execute scan (forward)
-  cub::DeviceScan::InclusiveScan(d_temp_storage, temp_storage_bytes, itr_fwd,
-                                 indices.data(), scan_op, batch_size * n_obs);
+  cub::DeviceScan::InclusiveScan(
+    d_temp_storage, temp_storage_bytes, itr_fwd, indices.data(), scan_op, batch_size * n_obs);
 
   // Gather data from computed indices (forward)
   const int TPB = std::min(n_obs, 256);
@@ -131,8 +133,8 @@ void fillna(T* data, int batch_size, int n_obs,
   CUDA_CHECK(cudaPeekAtLastError());
 
   // Execute scan (backward)
-  cub::DeviceScan::InclusiveScan(d_temp_storage, temp_storage_bytes, itr_bwd,
-                                 indices.data(), scan_op, batch_size * n_obs);
+  cub::DeviceScan::InclusiveScan(
+    d_temp_storage, temp_storage_bytes, itr_bwd, indices.data(), scan_op, batch_size * n_obs);
 
   // Gather data from computed indices (backward)
   fillna_gather_kernel<false>

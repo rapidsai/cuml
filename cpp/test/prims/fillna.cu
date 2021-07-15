@@ -50,20 +50,22 @@ struct FillnaInputs {
 };
 
 template <typename T>
-::std::ostream& operator<<(::std::ostream& os, const FillnaInputs<T>& dims) {
+::std::ostream& operator<<(::std::ostream& os, const FillnaInputs<T>& dims)
+{
   return os;
 }
 
 template <typename T>
 class FillnaTest : public ::testing::TestWithParam<FillnaInputs<T>> {
  protected:
-  void basicTest() {
+  void basicTest()
+  {
     raft::handle_t handle;
 
     params = ::testing::TestWithParam<FillnaInputs<T>>::GetParam();
 
-    device_buffer<T> y(handle.get_device_allocator(), handle.get_stream(),
-                       params.n_obs * params.batch_size);
+    device_buffer<T> y(
+      handle.get_device_allocator(), handle.get_stream(), params.n_obs * params.batch_size);
 
     std::vector<T> h_y(params.n_obs * params.batch_size);
 
@@ -84,13 +86,16 @@ class FillnaTest : public ::testing::TestWithParam<FillnaInputs<T>> {
     }
 
     /* Copy to device */
-    raft::update_device(y.data(), h_y.data(), params.n_obs * params.batch_size,
-                        handle.get_stream());
+    raft::update_device(
+      y.data(), h_y.data(), params.n_obs * params.batch_size, handle.get_stream());
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     /* Compute using tested prims */
-    fillna(y.data(), params.batch_size, params.n_obs,
-           handle.get_device_allocator(), handle.get_stream());
+    fillna(y.data(),
+           params.batch_size,
+           params.n_obs,
+           handle.get_device_allocator(),
+           handle.get_stream());
 
     /* Compute reference results */
     for (int bid = 0; bid < params.batch_size; bid++) {
@@ -108,9 +113,11 @@ class FillnaTest : public ::testing::TestWithParam<FillnaInputs<T>> {
     }
 
     /* Check results */
-    match =
-      devArrMatchHost(h_y.data(), y.data(), params.n_obs * params.batch_size,
-                      raft::Compare<T>(), handle.get_stream());
+    match = devArrMatchHost(h_y.data(),
+                            y.data(),
+                            params.n_obs * params.batch_size,
+                            raft::Compare<T>(),
+                            handle.get_stream());
   }
 
   void SetUp() override { basicTest(); }
@@ -125,18 +132,12 @@ class FillnaTest : public ::testing::TestWithParam<FillnaInputs<T>> {
 
 const std::vector<FillnaInputs<float>> gemm_inputsf = {
   {3, 42, {{10, 0, 0}, {0, 10, 0}, {0, 0, 10}}, 12345U},
-  {4,
-   100,
-   {{70, 0, 0}, {0, 20, 0}, {0, 0, 63}, {31, 25, 33}, {20, 15, 42}},
-   12345U},
+  {4, 100, {{70, 0, 0}, {0, 20, 0}, {0, 0, 63}, {31, 25, 33}, {20, 15, 42}}, 12345U},
 };
 
 const std::vector<FillnaInputs<double>> gemm_inputsd = {
   {3, 42, {{10, 0, 0}, {0, 10, 0}, {0, 0, 10}}, 12345U},
-  {4,
-   100,
-   {{70, 0, 0}, {0, 20, 0}, {0, 0, 63}, {31, 25, 33}, {20, 15, 42}},
-   12345U},
+  {4, 100, {{70, 0, 0}, {0, 20, 0}, {0, 0, 63}, {31, 25, 33}, {20, 15, 42}}, 12345U},
 };
 
 typedef FillnaTest<float> FillnaTestF;
@@ -145,11 +146,9 @@ TEST_P(FillnaTestF, Result) { EXPECT_TRUE(match); }
 typedef FillnaTest<double> FillnaTestD;
 TEST_P(FillnaTestD, Result) { EXPECT_TRUE(match); }
 
-INSTANTIATE_TEST_CASE_P(FillnaTests, FillnaTestF,
-                        ::testing::ValuesIn(gemm_inputsf));
+INSTANTIATE_TEST_CASE_P(FillnaTests, FillnaTestF, ::testing::ValuesIn(gemm_inputsf));
 
-INSTANTIATE_TEST_CASE_P(FillnaTests, FillnaTestD,
-                        ::testing::ValuesIn(gemm_inputsd));
+INSTANTIATE_TEST_CASE_P(FillnaTests, FillnaTestD, ::testing::ValuesIn(gemm_inputsd));
 
 }  // namespace TimeSeries
 }  // namespace MLCommon

@@ -46,12 +46,20 @@ namespace ML {
  * @param[out] d_lower       Lower limit of the prediction interval
  * @param[out] d_upper       Upper limit of the prediction interval
  */
-void batched_kalman_filter(
-  raft::handle_t& handle, const ARIMAMemory<double>& arima_mem,
-  const double* d_ys_b, int nobs, const ARIMAParams<double>& params,
-  const ARIMAOrder& order, int batch_size, double* d_loglike, double* d_pred,
-  int fc_steps = 0, double* d_fc = nullptr, double level = 0,
-  double* d_lower = nullptr, double* d_upper = nullptr);
+void batched_kalman_filter(raft::handle_t& handle,
+                           const ARIMAMemory<double>& arima_mem,
+                           const double* d_ys_b,
+                           int nobs,
+                           const ARIMAParams<double>& params,
+                           const ARIMAOrder& order,
+                           int batch_size,
+                           double* d_loglike,
+                           double* d_pred,
+                           int fc_steps    = 0,
+                           double* d_fc    = nullptr,
+                           double level    = 0,
+                           double* d_lower = nullptr,
+                           double* d_upper = nullptr);
 
 /**
  * Convenience function for batched "jones transform" used in ARIMA to ensure
@@ -70,7 +78,9 @@ void batched_kalman_filter(
  */
 void batched_jones_transform(raft::handle_t& handle,
                              const ARIMAMemory<double>& arima_mem,
-                             const ARIMAOrder& order, int batch_size,
-                             bool isInv, const double* h_params,
+                             const ARIMAOrder& order,
+                             int batch_size,
+                             bool isInv,
+                             const double* h_params,
                              double* h_Tparams);
 }  // namespace ML

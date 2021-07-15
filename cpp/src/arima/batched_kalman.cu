@@ -37,7 +37,8 @@ namespace ML {
 
 //! Thread-local Matrix-Vector multiplication.
 template <int n>
-DI void Mv_l(const double* A, const double* v, double* out) {
+DI void Mv_l(const double* A, const double* v, double* out)
+{
   for (int i = 0; i < n; i++) {
     double sum = 0.0;
     for (int j = 0; j < n; j++) {
@@ -48,7 +49,8 @@ DI void Mv_l(const double* A, const double* v, double* out) {
 }
 
 template <int n>
-DI void Mv_l(double alpha, const double* A, const double* v, double* out) {
+DI void Mv_l(double alpha, const double* A, const double* v, double* out)
+{
   for (int i = 0; i < n; i++) {
     double sum = 0.0;
     for (int j = 0; j < n; j++) {
@@ -60,7 +62,8 @@ DI void Mv_l(double alpha, const double* A, const double* v, double* out) {
 
 //! Thread-local Matrix-Matrix multiplication.
 template <int n, bool aT = false, bool bT = false>
-DI void MM_l(const double* A, const double* B, double* out) {
+DI void MM_l(const double* A, const double* B, double* out)
+{
   for (int i = 0; i < n; i++) {
     for (int j = 0; j < n; j++) {
       double sum = 0.0;
@@ -99,12 +102,25 @@ DI void MM_l(const double* A, const double* B, double* out) {
  * @param[out] d_F_fc      Batched variance of forecast errors   (fc_steps)
  */
 template <int rd>
-__global__ void batched_kalman_loop_kernel(
-  const double* ys, int nobs, const double* T, const double* Z,
-  const double* RQR, const double* P, const double* alpha, bool intercept,
-  const double* d_mu, int batch_size, double* d_pred, double* d_loglike,
-  double* d_ll_sigma2, int n_diff, int fc_steps = 0, double* d_fc = nullptr,
-  bool conf_int = false, double* d_F_fc = nullptr) {
+__global__ void batched_kalman_loop_kernel(const double* ys,
+                                           int nobs,
+                                           const double* T,
+                                           const double* Z,
+                                           const double* RQR,
+                                           const double* P,
+                                           const double* alpha,
+                                           bool intercept,
+                                           const double* d_mu,
+                                           int batch_size,
+                                           double* d_pred,
+                                           double* d_loglike,
+                                           double* d_ll_sigma2,
+                                           int n_diff,
+                                           int fc_steps   = 0,
+                                           double* d_fc   = nullptr,
+                                           bool conf_int  = false,
+                                           double* d_F_fc = nullptr)
+{
   constexpr int rd2 = rd * rd;
   double l_RQR[rd2];
   double l_T[rd2];
@@ -120,12 +136,12 @@ __global__ void batched_kalman_loop_kernel(
   if (bid < batch_size) {
     // Load global mem into registers
     {
-      int b_rd_offset = bid * rd;
+      int b_rd_offset  = bid * rd;
       int b_rd2_offset = bid * rd2;
       for (int i = 0; i < rd2; i++) {
         l_RQR[i] = RQR[b_rd2_offset + i];
-        l_T[i] = T[b_rd2_offset + i];
-        l_P[i] = P[b_rd2_offset + i];
+        l_T[i]   = T[b_rd2_offset + i];
+        l_P[i]   = P[b_rd2_offset + i];
       }
       for (int i = 0; i < rd; i++) {
         if (n_diff > 0) l_Z[i] = Z[b_rd_offset + i];
@@ -134,11 +150,11 @@ __global__ void batched_kalman_loop_kernel(
     }
 
     double b_sum_logFs = 0.0;
-    double b_ll_s2 = 0.0;
-    int n_obs_ll = 0;
+    double b_ll_s2     = 0.0;
+    int n_obs_ll       = 0;
     const double* b_ys = ys + bid * nobs;
-    double* b_pred = d_pred + bid * nobs;
-    double mu = intercept ? d_mu[bid] : 0.0;
+    double* b_pred     = d_pred + bid * nobs;
+    double mu          = intercept ? d_mu[bid] : 0.0;
 
     for (int it = 0; it < nobs; it++) {
       double _Fs, vs_it;
@@ -155,8 +171,8 @@ __global__ void batched_kalman_loop_kernel(
           }
         }
         b_pred[it] = pred;
-        double yt = b_ys[it];
-        missing = isnan(yt);
+        double yt  = b_ys[it];
+        missing    = isnan(yt);
 
         if (!missing) {
           vs_it = yt - pred;
@@ -240,13 +256,12 @@ __global__ void batched_kalman_loop_kernel(
       double n_obs_ll_f = static_cast<double>(n_obs_ll);
       b_ll_s2 /= n_obs_ll_f;
       if (conf_int) d_ll_sigma2[bid] = b_ll_s2;
-      d_loglike[bid] =
-        -.5 * (b_sum_logFs + n_obs_ll_f * (b_ll_s2 + log(2 * M_PI)));
+      d_loglike[bid] = -.5 * (b_sum_logFs + n_obs_ll_f * (b_ll_s2 + log(2 * M_PI)));
     }
 
     // Forecast
     {
-      double* b_fc = fc_steps ? d_fc + bid * fc_steps : nullptr;
+      double* b_fc   = fc_steps ? d_fc + bid * fc_steps : nullptr;
       double* b_F_fc = conf_int ? d_F_fc + bid * fc_steps : nullptr;
       for (int it = 0; it < fc_steps; it++) {
         if (n_diff == 0)
@@ -300,8 +315,7 @@ __global__ void batched_kalman_loop_kernel(
  */
 template <typename GemmPolicy, typename GemvPolicy, typename T>
 union KalmanLoopSharedMemory {
-  MLCommon::LinAlg::ReductionStorage<GemmPolicy::BlockSize, T>
-    reduction_storage;
+  MLCommon::LinAlg::ReductionStorage<GemmPolicy::BlockSize, T> reduction_storage;
   MLCommon::LinAlg::GemmStorage<GemmPolicy, T> gemm_storage;
   MLCommon::LinAlg::GemvStorage<GemvPolicy, T> gemv_storage[2];
 };
@@ -334,37 +348,53 @@ union KalmanLoopSharedMemory {
  * @param[out] d_F_fc      Batched variance of forecast errors   (fc_steps)
  */
 template <typename GemmPolicy, typename GemvPolicy>
-__global__ void _batched_kalman_device_loop_large_kernel(
-  const double* d_ys, int batch_size, int n_obs, const double* d_T,
-  const double* d_Z, const double* d_RQR, double* d_P, double* d_alpha,
-  double* d_m_tmp, double* d_TP, bool intercept, const double* d_mu, int rd,
-  double* d_pred, double* d_loglike, double* d_ll_sigma2, int n_diff,
-  int fc_steps, double* d_fc, bool conf_int, double* d_F_fc) {
+__global__ void _batched_kalman_device_loop_large_kernel(const double* d_ys,
+                                                         int batch_size,
+                                                         int n_obs,
+                                                         const double* d_T,
+                                                         const double* d_Z,
+                                                         const double* d_RQR,
+                                                         double* d_P,
+                                                         double* d_alpha,
+                                                         double* d_m_tmp,
+                                                         double* d_TP,
+                                                         bool intercept,
+                                                         const double* d_mu,
+                                                         int rd,
+                                                         double* d_pred,
+                                                         double* d_loglike,
+                                                         double* d_ll_sigma2,
+                                                         int n_diff,
+                                                         int fc_steps,
+                                                         double* d_fc,
+                                                         bool conf_int,
+                                                         double* d_F_fc)
+{
   int rd2 = rd * rd;
 
   // Dynamic shared memory allocation
   extern __shared__ char dyna_shared_mem[];
-  double* shared_vec0 = (double*)dyna_shared_mem;
-  double* shared_Z = (double*)(dyna_shared_mem + rd * sizeof(double));
+  double* shared_vec0  = (double*)dyna_shared_mem;
+  double* shared_Z     = (double*)(dyna_shared_mem + rd * sizeof(double));
   double* shared_alpha = (double*)(dyna_shared_mem + 2 * rd * sizeof(double));
-  double* shared_K = (double*)(dyna_shared_mem + 3 * rd * sizeof(double));
+  double* shared_K     = (double*)(dyna_shared_mem + 3 * rd * sizeof(double));
 
   __shared__ KalmanLoopSharedMemory<GemmPolicy, GemvPolicy, double> shared_mem;
 
   for (int bid = blockIdx.x; bid < batch_size; bid += gridDim.x) {
     /* Load Z and alpha to shared memory */
     for (int i = threadIdx.x; i < rd; i += GemmPolicy::BlockSize) {
-      shared_Z[i] = d_Z[bid * rd + i];
+      shared_Z[i]     = d_Z[bid * rd + i];
       shared_alpha[i] = d_alpha[bid * rd + i];
     }
 
     __syncthreads();  // ensure alpha and Z are loaded before 1.
 
     /* Initialization */
-    double mu_ = intercept ? d_mu[bid] : 0.0;
+    double mu_       = intercept ? d_mu[bid] : 0.0;
     double sum_logFs = 0.0;
-    double ll_s2 = 0.0;
-    int n_obs_ll = 0;
+    double ll_s2     = 0.0;
+    int n_obs_ll     = 0;
     int it;
 
     /* Skip missing observations at the start */
@@ -401,7 +431,7 @@ __global__ void _batched_kalman_device_loop_large_kernel(
           __syncthreads();  // necessary to reuse shared memory
         }
         double yt = d_ys[bid * n_obs + it];
-        missing = isnan(yt);
+        missing   = isnan(yt);
 
         if (!missing) {
           vt = yt - pred;
@@ -410,9 +440,8 @@ __global__ void _batched_kalman_device_loop_large_kernel(
           if (n_diff == 0) {
             _F = (d_P + bid * rd2)[0];
           } else {
-            _F =
-              MLCommon::LinAlg::_block_xAxt<GemmPolicy::BlockSize, true, false>(
-                rd, shared_Z, d_P + bid * rd2, shared_mem.reduction_storage);
+            _F = MLCommon::LinAlg::_block_xAxt<GemmPolicy::BlockSize, true, false>(
+              rd, shared_Z, d_P + bid * rd2, shared_mem.reduction_storage);
             __syncthreads();  // necessary to reuse shared memory
           }
         }
@@ -430,9 +459,16 @@ __global__ void _batched_kalman_device_loop_large_kernel(
 
       // 3. K = 1/Fs[it] * T*P*Z'
       // TP = T*P (also used later)
-      MLCommon::LinAlg::_block_gemm<GemmPolicy>(
-        false, false, rd, rd, rd, 1.0, d_T + bid * rd2, d_P + bid * rd2,
-        d_TP + bid * rd2, shared_mem.gemm_storage);
+      MLCommon::LinAlg::_block_gemm<GemmPolicy>(false,
+                                                false,
+                                                rd,
+                                                rd,
+                                                rd,
+                                                1.0,
+                                                d_T + bid * rd2,
+                                                d_P + bid * rd2,
+                                                d_TP + bid * rd2,
+                                                shared_mem.gemm_storage);
       __syncthreads();  // for consistency of TP
       if (!missing) {
         // K = 1/Fs[it] * TP*Z'
@@ -441,33 +477,30 @@ __global__ void _batched_kalman_device_loop_large_kernel(
           MLCommon::LinAlg::_block_ax(rd, _1_Fs, d_TP + bid * rd2, shared_K);
         } else {
           MLCommon::LinAlg::_block_gemv<GemvPolicy, false>(
-            rd, rd, _1_Fs, d_TP + bid * rd2, shared_Z, shared_K,
-            shared_mem.gemv_storage[0]);
+            rd, rd, _1_Fs, d_TP + bid * rd2, shared_Z, shared_K, shared_mem.gemv_storage[0]);
         }
       }
 
       // 4. alpha = T*alpha + K*vs[it] + c
       // vec1 = T*alpha
       MLCommon::LinAlg::_block_gemv<GemvPolicy, false>(
-        rd, rd, 1.0, d_T + bid * rd2, shared_alpha, shared_vec0,
-        shared_mem.gemv_storage[1]);
+        rd, rd, 1.0, d_T + bid * rd2, shared_alpha, shared_vec0, shared_mem.gemv_storage[1]);
       __syncthreads();  // For consistency of K and vec1
       // alpha = vec1 + K*vs[it] + c
       for (int i = threadIdx.x; i < rd; i += GemmPolicy::BlockSize) {
-        double c_ = (i == n_diff) ? mu_ : 0.0;
-        shared_alpha[i] =
-          shared_vec0[i] + c_ + (missing ? 0.0 : vt * shared_K[i]);
+        double c_       = (i == n_diff) ? mu_ : 0.0;
+        shared_alpha[i] = shared_vec0[i] + c_ + (missing ? 0.0 : vt * shared_K[i]);
       }
 
       // 5. L = T - K * Z
       if (n_diff == 0) {
         for (int i = threadIdx.x; i < rd2; i += GemmPolicy::BlockSize) {
-          double _KZ = (i < rd && !missing) ? shared_K[i] : 0.0;
+          double _KZ             = (i < rd && !missing) ? shared_K[i] : 0.0;
           d_m_tmp[bid * rd2 + i] = d_T[bid * rd2 + i] - _KZ;
         }
       } else {
         for (int i = threadIdx.x; i < rd2; i += GemmPolicy::BlockSize) {
-          double _KZ = missing ? 0.0 : shared_K[i % rd] * shared_Z[i / rd];
+          double _KZ             = missing ? 0.0 : shared_K[i % rd] * shared_Z[i / rd];
           d_m_tmp[bid * rd2 + i] = d_T[bid * rd2 + i] - _KZ;
         }
       }
@@ -475,9 +508,16 @@ __global__ void _batched_kalman_device_loop_large_kernel(
       // 6. P = T*P*L' + R*Q*R'
       __syncthreads();  // For consistency of L
       // P = TP*L'
-      MLCommon::LinAlg::_block_gemm<GemmPolicy>(
-        false, true, rd, rd, rd, 1.0, d_TP + bid * rd2, d_m_tmp + bid * rd2,
-        d_P + bid * rd2, shared_mem.gemm_storage);
+      MLCommon::LinAlg::_block_gemm<GemmPolicy>(false,
+                                                true,
+                                                rd,
+                                                rd,
+                                                rd,
+                                                1.0,
+                                                d_TP + bid * rd2,
+                                                d_m_tmp + bid * rd2,
+                                                d_P + bid * rd2,
+                                                shared_mem.gemm_storage);
       __syncthreads();  // For consistency of P
       // P = P + R*Q*R'
       /// TODO: shared mem R instead of precomputed matrix?
@@ -504,12 +544,11 @@ __global__ void _batched_kalman_device_loop_large_kernel(
       // alpha = T*alpha + c
       // vec0 = T*alpha
       MLCommon::LinAlg::_block_gemv<GemvPolicy, false>(
-        rd, rd, 1.0, d_T + bid * rd2, shared_alpha, shared_vec0,
-        shared_mem.gemv_storage[0]);
+        rd, rd, 1.0, d_T + bid * rd2, shared_alpha, shared_vec0, shared_mem.gemv_storage[0]);
       __syncthreads();  // for consistency of v_tmp + reuse of shared mem
       // alpha = vec0 + c
       for (int i = threadIdx.x; i < rd; i += GemmPolicy::BlockSize) {
-        double c_ = (i == n_diff) ? mu_ : 0.0;
+        double c_       = (i == n_diff) ? mu_ : 0.0;
         shared_alpha[i] = shared_vec0[i] + c_;
       }
 
@@ -518,9 +557,8 @@ __global__ void _batched_kalman_device_loop_large_kernel(
         if (n_diff == 0) {
           _F = d_P[bid * rd2];
         } else {
-          _F =
-            MLCommon::LinAlg::_block_xAxt<GemmPolicy::BlockSize, false, false>(
-              rd, shared_Z, d_P + bid * rd2, shared_mem.reduction_storage);
+          _F = MLCommon::LinAlg::_block_xAxt<GemmPolicy::BlockSize, false, false>(
+            rd, shared_Z, d_P + bid * rd2, shared_mem.reduction_storage);
           __syncthreads();  // necessary to reuse shared memory
         }
 
@@ -529,14 +567,28 @@ __global__ void _batched_kalman_device_loop_large_kernel(
 
       // P = T*P*T' + R*Q*R'
       // TP = T*P
-      MLCommon::LinAlg::_block_gemm<GemmPolicy>(
-        false, false, rd, rd, rd, 1.0, d_T + bid * rd2, d_P + bid * rd2,
-        d_TP + bid * rd2, shared_mem.gemm_storage);
+      MLCommon::LinAlg::_block_gemm<GemmPolicy>(false,
+                                                false,
+                                                rd,
+                                                rd,
+                                                rd,
+                                                1.0,
+                                                d_T + bid * rd2,
+                                                d_P + bid * rd2,
+                                                d_TP + bid * rd2,
+                                                shared_mem.gemm_storage);
       __syncthreads();  // for consistency of TP
       // P = TP * T'
-      MLCommon::LinAlg::_block_gemm<GemmPolicy>(
-        false, true, rd, rd, rd, 1.0, d_TP + bid * rd2, d_T + bid * rd2,
-        d_P + bid * rd2, shared_mem.gemm_storage);
+      MLCommon::LinAlg::_block_gemm<GemmPolicy>(false,
+                                                true,
+                                                rd,
+                                                rd,
+                                                rd,
+                                                1.0,
+                                                d_TP + bid * rd2,
+                                                d_T + bid * rd2,
+                                                d_P + bid * rd2,
+                                                shared_mem.gemm_storage);
       __syncthreads();  // for consistency of P
       // P = P + R*Q*R'
       /// TODO: shared mem R instead of precomputed matrix?
@@ -579,119 +631,276 @@ __global__ void _batched_kalman_device_loop_large_kernel(
  * @param[out] d_F_fc       Batched variance of forecast errors   (fc_steps)
  */
 template <typename GemmPolicy, typename GemvPolicy>
-void _batched_kalman_device_loop_large(
-  const ARIMAMemory<double>& arima_mem, const double* d_ys, int n_obs,
-  const MLCommon::LinAlg::Batched::Matrix<double>& T,
-  const MLCommon::LinAlg::Batched::Matrix<double>& Z,
-  const MLCommon::LinAlg::Batched::Matrix<double>& RQR,
-  MLCommon::LinAlg::Batched::Matrix<double>& P,
-  MLCommon::LinAlg::Batched::Matrix<double>& alpha, bool intercept,
-  const double* d_mu, int rd, double* d_pred, double* d_loglike,
-  double* d_ll_sigma2, int n_diff, int fc_steps = 0, double* d_fc = nullptr,
-  bool conf_int = false, double* d_F_fc = nullptr) {
+void _batched_kalman_device_loop_large(const ARIMAMemory<double>& arima_mem,
+                                       const double* d_ys,
+                                       int n_obs,
+                                       const MLCommon::LinAlg::Batched::Matrix<double>& T,
+                                       const MLCommon::LinAlg::Batched::Matrix<double>& Z,
+                                       const MLCommon::LinAlg::Batched::Matrix<double>& RQR,
+                                       MLCommon::LinAlg::Batched::Matrix<double>& P,
+                                       MLCommon::LinAlg::Batched::Matrix<double>& alpha,
+                                       bool intercept,
+                                       const double* d_mu,
+                                       int rd,
+                                       double* d_pred,
+                                       double* d_loglike,
+                                       double* d_ll_sigma2,
+                                       int n_diff,
+                                       int fc_steps   = 0,
+                                       double* d_fc   = nullptr,
+                                       bool conf_int  = false,
+                                       double* d_F_fc = nullptr)
+{
   static_assert(GemmPolicy::BlockSize == GemvPolicy::BlockSize,
                 "Gemm and gemv policies: block size mismatch");
 
-  auto stream = T.stream();
-  auto allocator = T.allocator();
+  auto stream       = T.stream();
+  auto allocator    = T.allocator();
   auto cublasHandle = T.cublasHandle();
-  int batch_size = T.batches();
+  int batch_size    = T.batches();
 
   // Temporary matrices
-  MLCommon::LinAlg::Batched::Matrix<double> m_tmp(
-    rd, rd, batch_size, cublasHandle, arima_mem.m_tmp_batches,
-    arima_mem.m_tmp_dense, allocator, stream, false);
-  MLCommon::LinAlg::Batched::Matrix<double> TP(
-    rd, rd, batch_size, cublasHandle, arima_mem.TP_batches, arima_mem.TP_dense,
-    allocator, stream, false);
+  MLCommon::LinAlg::Batched::Matrix<double> m_tmp(rd,
+                                                  rd,
+                                                  batch_size,
+                                                  cublasHandle,
+                                                  arima_mem.m_tmp_batches,
+                                                  arima_mem.m_tmp_dense,
+                                                  allocator,
+                                                  stream,
+                                                  false);
+  MLCommon::LinAlg::Batched::Matrix<double> TP(rd,
+                                               rd,
+                                               batch_size,
+                                               cublasHandle,
+                                               arima_mem.TP_batches,
+                                               arima_mem.TP_dense,
+                                               allocator,
+                                               stream,
+                                               false);
 
-  int grid_size = std::min(batch_size, 65536);
+  int grid_size          = std::min(batch_size, 65536);
   size_t shared_mem_size = 4 * rd * sizeof(double);
   _batched_kalman_device_loop_large_kernel<GemmPolicy, GemvPolicy>
-    <<<grid_size, GemmPolicy::BlockSize, shared_mem_size, stream>>>(
-      d_ys, batch_size, n_obs, T.raw_data(), Z.raw_data(), RQR.raw_data(),
-      P.raw_data(), alpha.raw_data(), m_tmp.raw_data(), TP.raw_data(),
-      intercept, d_mu, rd, d_pred, d_loglike, d_ll_sigma2, n_diff, fc_steps,
-      d_fc, conf_int, d_F_fc);
+    <<<grid_size, GemmPolicy::BlockSize, shared_mem_size, stream>>>(d_ys,
+                                                                    batch_size,
+                                                                    n_obs,
+                                                                    T.raw_data(),
+                                                                    Z.raw_data(),
+                                                                    RQR.raw_data(),
+                                                                    P.raw_data(),
+                                                                    alpha.raw_data(),
+                                                                    m_tmp.raw_data(),
+                                                                    TP.raw_data(),
+                                                                    intercept,
+                                                                    d_mu,
+                                                                    rd,
+                                                                    d_pred,
+                                                                    d_loglike,
+                                                                    d_ll_sigma2,
+                                                                    n_diff,
+                                                                    fc_steps,
+                                                                    d_fc,
+                                                                    conf_int,
+                                                                    d_F_fc);
 }
 
 /// Wrapper around functions that execute the Kalman loop (for performance)
 void batched_kalman_loop(raft::handle_t& handle,
-                         const ARIMAMemory<double>& arima_mem, const double* ys,
+                         const ARIMAMemory<double>& arima_mem,
+                         const double* ys,
                          int nobs,
                          const MLCommon::LinAlg::Batched::Matrix<double>& T,
                          const MLCommon::LinAlg::Batched::Matrix<double>& Z,
                          const MLCommon::LinAlg::Batched::Matrix<double>& RQR,
                          MLCommon::LinAlg::Batched::Matrix<double>& P0,
                          MLCommon::LinAlg::Batched::Matrix<double>& alpha,
-                         bool intercept, const double* d_mu,
-                         const ARIMAOrder& order, double* d_pred,
-                         double* d_loglike, double* d_ll_sigma2,
-                         int fc_steps = 0, double* d_fc = nullptr,
-                         bool conf_int = false, double* d_F_fc = nullptr) {
+                         bool intercept,
+                         const double* d_mu,
+                         const ARIMAOrder& order,
+                         double* d_pred,
+                         double* d_loglike,
+                         double* d_ll_sigma2,
+                         int fc_steps   = 0,
+                         double* d_fc   = nullptr,
+                         bool conf_int  = false,
+                         double* d_F_fc = nullptr)
+{
   const int batch_size = T.batches();
-  auto stream = T.stream();
-  int rd = order.rd();
-  int n_diff = order.n_diff();
+  auto stream          = T.stream();
+  int rd               = order.rd();
+  int n_diff           = order.n_diff();
   dim3 numThreadsPerBlock(32, 1);
   dim3 numBlocks(raft::ceildiv<int>(batch_size, numThreadsPerBlock.x), 1);
   if (rd <= 8) {
     switch (rd) {
       case 1:
         batched_kalman_loop_kernel<1>
-          <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
-            ys, nobs, T.raw_data(), Z.raw_data(), RQR.raw_data(), P0.raw_data(),
-            alpha.raw_data(), intercept, d_mu, batch_size, d_pred, d_loglike,
-            d_ll_sigma2, n_diff, fc_steps, d_fc, conf_int, d_F_fc);
+          <<<numBlocks, numThreadsPerBlock, 0, stream>>>(ys,
+                                                         nobs,
+                                                         T.raw_data(),
+                                                         Z.raw_data(),
+                                                         RQR.raw_data(),
+                                                         P0.raw_data(),
+                                                         alpha.raw_data(),
+                                                         intercept,
+                                                         d_mu,
+                                                         batch_size,
+                                                         d_pred,
+                                                         d_loglike,
+                                                         d_ll_sigma2,
+                                                         n_diff,
+                                                         fc_steps,
+                                                         d_fc,
+                                                         conf_int,
+                                                         d_F_fc);
         break;
       case 2:
         batched_kalman_loop_kernel<2>
-          <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
-            ys, nobs, T.raw_data(), Z.raw_data(), RQR.raw_data(), P0.raw_data(),
-            alpha.raw_data(), intercept, d_mu, batch_size, d_pred, d_loglike,
-            d_ll_sigma2, n_diff, fc_steps, d_fc, conf_int, d_F_fc);
+          <<<numBlocks, numThreadsPerBlock, 0, stream>>>(ys,
+                                                         nobs,
+                                                         T.raw_data(),
+                                                         Z.raw_data(),
+                                                         RQR.raw_data(),
+                                                         P0.raw_data(),
+                                                         alpha.raw_data(),
+                                                         intercept,
+                                                         d_mu,
+                                                         batch_size,
+                                                         d_pred,
+                                                         d_loglike,
+                                                         d_ll_sigma2,
+                                                         n_diff,
+                                                         fc_steps,
+                                                         d_fc,
+                                                         conf_int,
+                                                         d_F_fc);
         break;
       case 3:
         batched_kalman_loop_kernel<3>
-          <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
-            ys, nobs, T.raw_data(), Z.raw_data(), RQR.raw_data(), P0.raw_data(),
-            alpha.raw_data(), intercept, d_mu, batch_size, d_pred, d_loglike,
-            d_ll_sigma2, n_diff, fc_steps, d_fc, conf_int, d_F_fc);
+          <<<numBlocks, numThreadsPerBlock, 0, stream>>>(ys,
+                                                         nobs,
+                                                         T.raw_data(),
+                                                         Z.raw_data(),
+                                                         RQR.raw_data(),
+                                                         P0.raw_data(),
+                                                         alpha.raw_data(),
+                                                         intercept,
+                                                         d_mu,
+                                                         batch_size,
+                                                         d_pred,
+                                                         d_loglike,
+                                                         d_ll_sigma2,
+                                                         n_diff,
+                                                         fc_steps,
+                                                         d_fc,
+                                                         conf_int,
+                                                         d_F_fc);
         break;
       case 4:
         batched_kalman_loop_kernel<4>
-          <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
-            ys, nobs, T.raw_data(), Z.raw_data(), RQR.raw_data(), P0.raw_data(),
-            alpha.raw_data(), intercept, d_mu, batch_size, d_pred, d_loglike,
-            d_ll_sigma2, n_diff, fc_steps, d_fc, conf_int, d_F_fc);
+          <<<numBlocks, numThreadsPerBlock, 0, stream>>>(ys,
+                                                         nobs,
+                                                         T.raw_data(),
+                                                         Z.raw_data(),
+                                                         RQR.raw_data(),
+                                                         P0.raw_data(),
+                                                         alpha.raw_data(),
+                                                         intercept,
+                                                         d_mu,
+                                                         batch_size,
+                                                         d_pred,
+                                                         d_loglike,
+                                                         d_ll_sigma2,
+                                                         n_diff,
+                                                         fc_steps,
+                                                         d_fc,
+                                                         conf_int,
+                                                         d_F_fc);
         break;
       case 5:
         batched_kalman_loop_kernel<5>
-          <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
-            ys, nobs, T.raw_data(), Z.raw_data(), RQR.raw_data(), P0.raw_data(),
-            alpha.raw_data(), intercept, d_mu, batch_size, d_pred, d_loglike,
-            d_ll_sigma2, n_diff, fc_steps, d_fc, conf_int, d_F_fc);
+          <<<numBlocks, numThreadsPerBlock, 0, stream>>>(ys,
+                                                         nobs,
+                                                         T.raw_data(),
+                                                         Z.raw_data(),
+                                                         RQR.raw_data(),
+                                                         P0.raw_data(),
+                                                         alpha.raw_data(),
+                                                         intercept,
+                                                         d_mu,
+                                                         batch_size,
+                                                         d_pred,
+                                                         d_loglike,
+                                                         d_ll_sigma2,
+                                                         n_diff,
+                                                         fc_steps,
+                                                         d_fc,
+                                                         conf_int,
+                                                         d_F_fc);
         break;
       case 6:
         batched_kalman_loop_kernel<6>
-          <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
-            ys, nobs, T.raw_data(), Z.raw_data(), RQR.raw_data(), P0.raw_data(),
-            alpha.raw_data(), intercept, d_mu, batch_size, d_pred, d_loglike,
-            d_ll_sigma2, n_diff, fc_steps, d_fc, conf_int, d_F_fc);
+          <<<numBlocks, numThreadsPerBlock, 0, stream>>>(ys,
+                                                         nobs,
+                                                         T.raw_data(),
+                                                         Z.raw_data(),
+                                                         RQR.raw_data(),
+                                                         P0.raw_data(),
+                                                         alpha.raw_data(),
+                                                         intercept,
+                                                         d_mu,
+                                                         batch_size,
+                                                         d_pred,
+                                                         d_loglike,
+                                                         d_ll_sigma2,
+                                                         n_diff,
+                                                         fc_steps,
+                                                         d_fc,
+                                                         conf_int,
+                                                         d_F_fc);
         break;
       case 7:
         batched_kalman_loop_kernel<7>
-          <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
-            ys, nobs, T.raw_data(), Z.raw_data(), RQR.raw_data(), P0.raw_data(),
-            alpha.raw_data(), intercept, d_mu, batch_size, d_pred, d_loglike,
-            d_ll_sigma2, n_diff, fc_steps, d_fc, conf_int, d_F_fc);
+          <<<numBlocks, numThreadsPerBlock, 0, stream>>>(ys,
+                                                         nobs,
+                                                         T.raw_data(),
+                                                         Z.raw_data(),
+                                                         RQR.raw_data(),
+                                                         P0.raw_data(),
+                                                         alpha.raw_data(),
+                                                         intercept,
+                                                         d_mu,
+                                                         batch_size,
+                                                         d_pred,
+                                                         d_loglike,
+                                                         d_ll_sigma2,
+                                                         n_diff,
+                                                         fc_steps,
+                                                         d_fc,
+                                                         conf_int,
+                                                         d_F_fc);
         break;
       case 8:
         batched_kalman_loop_kernel<8>
-          <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
-            ys, nobs, T.raw_data(), Z.raw_data(), RQR.raw_data(), P0.raw_data(),
-            alpha.raw_data(), intercept, d_mu, batch_size, d_pred, d_loglike,
-            d_ll_sigma2, n_diff, fc_steps, d_fc, conf_int, d_F_fc);
+          <<<numBlocks, numThreadsPerBlock, 0, stream>>>(ys,
+                                                         nobs,
+                                                         T.raw_data(),
+                                                         Z.raw_data(),
+                                                         RQR.raw_data(),
+                                                         P0.raw_data(),
+                                                         alpha.raw_data(),
+                                                         intercept,
+                                                         d_mu,
+                                                         batch_size,
+                                                         d_pred,
+                                                         d_loglike,
+                                                         d_ll_sigma2,
+                                                         n_diff,
+                                                         fc_steps,
+                                                         d_fc,
+                                                         conf_int,
+                                                         d_F_fc);
         break;
     }
     CUDA_CHECK(cudaPeekAtLastError());
@@ -700,53 +909,140 @@ void batched_kalman_loop(raft::handle_t& handle,
     cudaDeviceGetAttribute(&num_sm, cudaDevAttrMultiProcessorCount, 0);
     if (rd <= 16) {
       if (batch_size <= 2 * num_sm) {
-        using GemmPolicy =
-          MLCommon::LinAlg::BlockGemmPolicy<1, 16, 1, 1, 16, 16>;
+        using GemmPolicy = MLCommon::LinAlg::BlockGemmPolicy<1, 16, 1, 1, 16, 16>;
         using GemvPolicy = MLCommon::LinAlg::BlockGemvPolicy<16, 16>;
-        _batched_kalman_device_loop_large<GemmPolicy, GemvPolicy>(
-          arima_mem, ys, nobs, T, Z, RQR, P0, alpha, intercept, d_mu, rd,
-          d_pred, d_loglike, d_ll_sigma2, n_diff, fc_steps, d_fc, conf_int,
-          d_F_fc);
+        _batched_kalman_device_loop_large<GemmPolicy, GemvPolicy>(arima_mem,
+                                                                  ys,
+                                                                  nobs,
+                                                                  T,
+                                                                  Z,
+                                                                  RQR,
+                                                                  P0,
+                                                                  alpha,
+                                                                  intercept,
+                                                                  d_mu,
+                                                                  rd,
+                                                                  d_pred,
+                                                                  d_loglike,
+                                                                  d_ll_sigma2,
+                                                                  n_diff,
+                                                                  fc_steps,
+                                                                  d_fc,
+                                                                  conf_int,
+                                                                  d_F_fc);
       } else {
-        using GemmPolicy =
-          MLCommon::LinAlg::BlockGemmPolicy<1, 16, 1, 4, 16, 4>;
+        using GemmPolicy = MLCommon::LinAlg::BlockGemmPolicy<1, 16, 1, 4, 16, 4>;
         using GemvPolicy = MLCommon::LinAlg::BlockGemvPolicy<16, 4>;
-        _batched_kalman_device_loop_large<GemmPolicy, GemvPolicy>(
-          arima_mem, ys, nobs, T, Z, RQR, P0, alpha, intercept, d_mu, rd,
-          d_pred, d_loglike, d_ll_sigma2, n_diff, fc_steps, d_fc, conf_int,
-          d_F_fc);
+        _batched_kalman_device_loop_large<GemmPolicy, GemvPolicy>(arima_mem,
+                                                                  ys,
+                                                                  nobs,
+                                                                  T,
+                                                                  Z,
+                                                                  RQR,
+                                                                  P0,
+                                                                  alpha,
+                                                                  intercept,
+                                                                  d_mu,
+                                                                  rd,
+                                                                  d_pred,
+                                                                  d_loglike,
+                                                                  d_ll_sigma2,
+                                                                  n_diff,
+                                                                  fc_steps,
+                                                                  d_fc,
+                                                                  conf_int,
+                                                                  d_F_fc);
       }
     } else if (rd <= 32) {
       if (batch_size <= 2 * num_sm) {
-        using GemmPolicy =
-          MLCommon::LinAlg::BlockGemmPolicy<1, 32, 1, 4, 32, 8>;
+        using GemmPolicy = MLCommon::LinAlg::BlockGemmPolicy<1, 32, 1, 4, 32, 8>;
         using GemvPolicy = MLCommon::LinAlg::BlockGemvPolicy<32, 8>;
-        _batched_kalman_device_loop_large<GemmPolicy, GemvPolicy>(
-          arima_mem, ys, nobs, T, Z, RQR, P0, alpha, intercept, d_mu, rd,
-          d_pred, d_loglike, d_ll_sigma2, n_diff, fc_steps, d_fc, conf_int,
-          d_F_fc);
+        _batched_kalman_device_loop_large<GemmPolicy, GemvPolicy>(arima_mem,
+                                                                  ys,
+                                                                  nobs,
+                                                                  T,
+                                                                  Z,
+                                                                  RQR,
+                                                                  P0,
+                                                                  alpha,
+                                                                  intercept,
+                                                                  d_mu,
+                                                                  rd,
+                                                                  d_pred,
+                                                                  d_loglike,
+                                                                  d_ll_sigma2,
+                                                                  n_diff,
+                                                                  fc_steps,
+                                                                  d_fc,
+                                                                  conf_int,
+                                                                  d_F_fc);
       } else {
-        using GemmPolicy =
-          MLCommon::LinAlg::BlockGemmPolicy<1, 32, 1, 8, 32, 4>;
+        using GemmPolicy = MLCommon::LinAlg::BlockGemmPolicy<1, 32, 1, 8, 32, 4>;
         using GemvPolicy = MLCommon::LinAlg::BlockGemvPolicy<32, 4>;
-        _batched_kalman_device_loop_large<GemmPolicy, GemvPolicy>(
-          arima_mem, ys, nobs, T, Z, RQR, P0, alpha, intercept, d_mu, rd,
-          d_pred, d_loglike, d_ll_sigma2, n_diff, fc_steps, d_fc, conf_int,
-          d_F_fc);
+        _batched_kalman_device_loop_large<GemmPolicy, GemvPolicy>(arima_mem,
+                                                                  ys,
+                                                                  nobs,
+                                                                  T,
+                                                                  Z,
+                                                                  RQR,
+                                                                  P0,
+                                                                  alpha,
+                                                                  intercept,
+                                                                  d_mu,
+                                                                  rd,
+                                                                  d_pred,
+                                                                  d_loglike,
+                                                                  d_ll_sigma2,
+                                                                  n_diff,
+                                                                  fc_steps,
+                                                                  d_fc,
+                                                                  conf_int,
+                                                                  d_F_fc);
       }
     } else if (rd > 64 && rd <= 128) {
-      using GemmPolicy =
-        MLCommon::LinAlg::BlockGemmPolicy<1, 16, 1, 16, 128, 2>;
+      using GemmPolicy = MLCommon::LinAlg::BlockGemmPolicy<1, 16, 1, 16, 128, 2>;
       using GemvPolicy = MLCommon::LinAlg::BlockGemvPolicy<128, 2>;
-      _batched_kalman_device_loop_large<GemmPolicy, GemvPolicy>(
-        arima_mem, ys, nobs, T, Z, RQR, P0, alpha, intercept, d_mu, rd, d_pred,
-        d_loglike, d_ll_sigma2, n_diff, fc_steps, d_fc, conf_int, d_F_fc);
+      _batched_kalman_device_loop_large<GemmPolicy, GemvPolicy>(arima_mem,
+                                                                ys,
+                                                                nobs,
+                                                                T,
+                                                                Z,
+                                                                RQR,
+                                                                P0,
+                                                                alpha,
+                                                                intercept,
+                                                                d_mu,
+                                                                rd,
+                                                                d_pred,
+                                                                d_loglike,
+                                                                d_ll_sigma2,
+                                                                n_diff,
+                                                                fc_steps,
+                                                                d_fc,
+                                                                conf_int,
+                                                                d_F_fc);
     } else {
       using GemmPolicy = MLCommon::LinAlg::BlockGemmPolicy<1, 32, 1, 16, 64, 4>;
       using GemvPolicy = MLCommon::LinAlg::BlockGemvPolicy<64, 4>;
-      _batched_kalman_device_loop_large<GemmPolicy, GemvPolicy>(
-        arima_mem, ys, nobs, T, Z, RQR, P0, alpha, intercept, d_mu, rd, d_pred,
-        d_loglike, d_ll_sigma2, n_diff, fc_steps, d_fc, conf_int, d_F_fc);
+      _batched_kalman_device_loop_large<GemmPolicy, GemvPolicy>(arima_mem,
+                                                                ys,
+                                                                nobs,
+                                                                T,
+                                                                Z,
+                                                                RQR,
+                                                                P0,
+                                                                alpha,
+                                                                intercept,
+                                                                d_mu,
+                                                                rd,
+                                                                d_pred,
+                                                                d_loglike,
+                                                                d_ll_sigma2,
+                                                                n_diff,
+                                                                fc_steps,
+                                                                d_fc,
+                                                                conf_int,
+                                                                d_F_fc);
     }
   }
 }
@@ -764,42 +1060,59 @@ void batched_kalman_loop(raft::handle_t& handle,
  * @param[in]    fc_steps   Number of forecast steps
  * @param[in]    multiplier Coefficient associated with the confidence level
  */
-__global__ void confidence_intervals(const double* d_fc, const double* d_sigma2,
-                                     double* d_lower, double* d_upper,
-                                     int fc_steps, double multiplier) {
-  int idx = blockIdx.x * fc_steps + threadIdx.x;
-  double fc = d_fc[idx];
+__global__ void confidence_intervals(const double* d_fc,
+                                     const double* d_sigma2,
+                                     double* d_lower,
+                                     double* d_upper,
+                                     int fc_steps,
+                                     double multiplier)
+{
+  int idx       = blockIdx.x * fc_steps + threadIdx.x;
+  double fc     = d_fc[idx];
   double margin = multiplier * sqrt(d_lower[idx] * d_sigma2[blockIdx.x]);
-  d_lower[idx] = fc - margin;
-  d_upper[idx] = fc + margin;
+  d_lower[idx]  = fc - margin;
+  d_upper[idx]  = fc + margin;
 }
 
 void _lyapunov_wrapper(raft::handle_t& handle,
                        const ARIMAMemory<double>& arima_mem,
                        const MLCommon::LinAlg::Batched::Matrix<double>& A,
                        MLCommon::LinAlg::Batched::Matrix<double>& Q,
-                       MLCommon::LinAlg::Batched::Matrix<double>& X, int r) {
+                       MLCommon::LinAlg::Batched::Matrix<double>& X,
+                       int r)
+{
   if (r <= 5) {
-    auto stream = handle.get_stream();
+    auto stream       = handle.get_stream();
     auto cublasHandle = handle.get_cublas_handle();
-    auto allocator = handle.get_device_allocator();
-    int batch_size = A.batches();
-    int r2 = r * r;
+    auto allocator    = handle.get_device_allocator();
+    int batch_size    = A.batches();
+    int r2            = r * r;
 
     //
     // Use direct solution with Kronecker product
     //
 
-    MLCommon::LinAlg::Batched::Matrix<double> I_m_AxA(
-      r2, r2, batch_size, cublasHandle, arima_mem.I_m_AxA_batches,
-      arima_mem.I_m_AxA_dense, allocator, stream, false);
-    MLCommon::LinAlg::Batched::Matrix<double> I_m_AxA_inv(
-      r2, r2, batch_size, cublasHandle, arima_mem.I_m_AxA_inv_batches,
-      arima_mem.I_m_AxA_inv_dense, allocator, stream, false);
+    MLCommon::LinAlg::Batched::Matrix<double> I_m_AxA(r2,
+                                                      r2,
+                                                      batch_size,
+                                                      cublasHandle,
+                                                      arima_mem.I_m_AxA_batches,
+                                                      arima_mem.I_m_AxA_dense,
+                                                      allocator,
+                                                      stream,
+                                                      false);
+    MLCommon::LinAlg::Batched::Matrix<double> I_m_AxA_inv(r2,
+                                                          r2,
+                                                          batch_size,
+                                                          cublasHandle,
+                                                          arima_mem.I_m_AxA_inv_batches,
+                                                          arima_mem.I_m_AxA_inv_dense,
+                                                          allocator,
+                                                          stream,
+                                                          false);
 
     MLCommon::LinAlg::Batched::_direct_lyapunov_helper(
-      A, Q, X, I_m_AxA, I_m_AxA_inv, arima_mem.I_m_AxA_P,
-      arima_mem.I_m_AxA_info, r);
+      A, Q, X, I_m_AxA, I_m_AxA_inv, arima_mem.I_m_AxA_P, arima_mem.I_m_AxA_info, r);
   } else {
     // Note: the other Lyapunov solver is doing temporary mem allocations,
     // but when r > 5, allocation overhead shouldn't be a bottleneck
@@ -808,48 +1121,76 @@ void _lyapunov_wrapper(raft::handle_t& handle,
 }
 
 /// Internal Kalman filter implementation that assumes data exists on GPU.
-void _batched_kalman_filter(
-  raft::handle_t& handle, const ARIMAMemory<double>& arima_mem,
-  const double* d_ys, int nobs, const ARIMAOrder& order,
-  const MLCommon::LinAlg::Batched::Matrix<double>& Zb,
-  const MLCommon::LinAlg::Batched::Matrix<double>& Tb,
-  const MLCommon::LinAlg::Batched::Matrix<double>& Rb, double* d_pred,
-  double* d_loglike, const double* d_sigma2, bool intercept, const double* d_mu,
-  int fc_steps, double* d_fc, double level, double* d_lower, double* d_upper) {
+void _batched_kalman_filter(raft::handle_t& handle,
+                            const ARIMAMemory<double>& arima_mem,
+                            const double* d_ys,
+                            int nobs,
+                            const ARIMAOrder& order,
+                            const MLCommon::LinAlg::Batched::Matrix<double>& Zb,
+                            const MLCommon::LinAlg::Batched::Matrix<double>& Tb,
+                            const MLCommon::LinAlg::Batched::Matrix<double>& Rb,
+                            double* d_pred,
+                            double* d_loglike,
+                            const double* d_sigma2,
+                            bool intercept,
+                            const double* d_mu,
+                            int fc_steps,
+                            double* d_fc,
+                            double level,
+                            double* d_lower,
+                            double* d_upper)
+{
   const size_t batch_size = Zb.batches();
-  auto stream = handle.get_stream();
-  auto cublasHandle = handle.get_cublas_handle();
-  auto allocator = handle.get_device_allocator();
+  auto stream             = handle.get_stream();
+  auto cublasHandle       = handle.get_cublas_handle();
+  auto allocator          = handle.get_device_allocator();
 
   auto counting = thrust::make_counting_iterator(0);
 
   int n_diff = order.n_diff();
-  int rd = order.rd();
-  int r = order.r();
+  int rd     = order.rd();
+  int r      = order.r();
 
-  MLCommon::LinAlg::Batched::Matrix<double> RQb(
-    rd, 1, batch_size, cublasHandle, arima_mem.RQ_batches, arima_mem.RQ_dense,
-    allocator, stream, true);
-  double* d_RQ = RQb.raw_data();
+  MLCommon::LinAlg::Batched::Matrix<double> RQb(rd,
+                                                1,
+                                                batch_size,
+                                                cublasHandle,
+                                                arima_mem.RQ_batches,
+                                                arima_mem.RQ_dense,
+                                                allocator,
+                                                stream,
+                                                true);
+  double* d_RQ      = RQb.raw_data();
   const double* d_R = Rb.raw_data();
-  thrust::for_each(thrust::cuda::par.on(stream), counting,
-                   counting + batch_size, [=] __device__(int bid) {
-                     double sigma2 = d_sigma2[bid];
-                     for (int i = 0; i < rd; i++) {
-                       d_RQ[bid * rd + i] = d_R[bid * rd + i] * sigma2;
-                     }
-                   });
-  MLCommon::LinAlg::Batched::Matrix<double> RQR(
-    rd, rd, batch_size, cublasHandle, arima_mem.RQR_batches,
-    arima_mem.RQR_dense, allocator, stream, false);
-  MLCommon::LinAlg::Batched::b_gemm(false, true, rd, rd, 1, 1.0, RQb, Rb, 0.0,
-                                    RQR);
+  thrust::for_each(
+    thrust::cuda::par.on(stream), counting, counting + batch_size, [=] __device__(int bid) {
+      double sigma2 = d_sigma2[bid];
+      for (int i = 0; i < rd; i++) {
+        d_RQ[bid * rd + i] = d_R[bid * rd + i] * sigma2;
+      }
+    });
+  MLCommon::LinAlg::Batched::Matrix<double> RQR(rd,
+                                                rd,
+                                                batch_size,
+                                                cublasHandle,
+                                                arima_mem.RQR_batches,
+                                                arima_mem.RQR_dense,
+                                                allocator,
+                                                stream,
+                                                false);
+  MLCommon::LinAlg::Batched::b_gemm(false, true, rd, rd, 1, 1.0, RQb, Rb, 0.0, RQR);
 
   // Durbin Koopman "Time Series Analysis" pg 138
   ML::PUSH_RANGE("Init P");
-  MLCommon::LinAlg::Batched::Matrix<double> P(
-    rd, rd, batch_size, cublasHandle, arima_mem.P_batches, arima_mem.P_dense,
-    allocator, stream, true);
+  MLCommon::LinAlg::Batched::Matrix<double> P(rd,
+                                              rd,
+                                              batch_size,
+                                              cublasHandle,
+                                              arima_mem.P_batches,
+                                              arima_mem.P_dense,
+                                              allocator,
+                                              stream,
+                                              true);
   {
     double* d_P = P.raw_data();
 
@@ -857,24 +1198,42 @@ void _batched_kalman_filter(
       // Initialize the diffuse part with a large variance
       /// TODO: pass this as a parameter
       constexpr double kappa = 1e6;
-      thrust::for_each(thrust::cuda::par.on(stream), counting,
-                       counting + batch_size, [=] __device__(int bid) {
-                         double* b_P = d_P + rd * rd * bid;
-                         for (int i = 0; i < n_diff; i++) {
-                           b_P[(rd + 1) * i] = kappa;
-                         }
-                       });
+      thrust::for_each(
+        thrust::cuda::par.on(stream), counting, counting + batch_size, [=] __device__(int bid) {
+          double* b_P = d_P + rd * rd * bid;
+          for (int i = 0; i < n_diff; i++) {
+            b_P[(rd + 1) * i] = kappa;
+          }
+        });
 
       // Initialize the stationary part by solving a Lyapunov equation
-      MLCommon::LinAlg::Batched::Matrix<double> Ts(
-        r, r, batch_size, cublasHandle, arima_mem.Ts_batches,
-        arima_mem.Ts_dense, allocator, stream, false);
-      MLCommon::LinAlg::Batched::Matrix<double> RQRs(
-        r, r, batch_size, cublasHandle, arima_mem.RQRs_batches,
-        arima_mem.RQRs_dense, allocator, stream, false);
-      MLCommon::LinAlg::Batched::Matrix<double> Ps(
-        r, r, batch_size, cublasHandle, arima_mem.Ps_batches,
-        arima_mem.Ps_dense, allocator, stream, false);
+      MLCommon::LinAlg::Batched::Matrix<double> Ts(r,
+                                                   r,
+                                                   batch_size,
+                                                   cublasHandle,
+                                                   arima_mem.Ts_batches,
+                                                   arima_mem.Ts_dense,
+                                                   allocator,
+                                                   stream,
+                                                   false);
+      MLCommon::LinAlg::Batched::Matrix<double> RQRs(r,
+                                                     r,
+                                                     batch_size,
+                                                     cublasHandle,
+                                                     arima_mem.RQRs_batches,
+                                                     arima_mem.RQRs_dense,
+                                                     allocator,
+                                                     stream,
+                                                     false);
+      MLCommon::LinAlg::Batched::Matrix<double> Ps(r,
+                                                   r,
+                                                   batch_size,
+                                                   cublasHandle,
+                                                   arima_mem.Ps_batches,
+                                                   arima_mem.Ps_dense,
+                                                   allocator,
+                                                   stream,
+                                                   false);
 
       MLCommon::LinAlg::Batched::b_2dcopy(Tb, Ts, n_diff, n_diff, r, r);
       MLCommon::LinAlg::Batched::b_2dcopy(RQR, RQRs, n_diff, n_diff, r, r);
@@ -896,84 +1255,119 @@ void _batched_kalman_filter(
   //     | 0  |
   // T* = T[d+s*D:, d+s*D:]
   // x* = alpha_0[d+s*D:]
-  MLCommon::LinAlg::Batched::Matrix<double> alpha(
-    rd, 1, batch_size, handle.get_cublas_handle(), arima_mem.alpha_batches,
-    arima_mem.alpha_dense, handle.get_device_allocator(), stream, false);
+  MLCommon::LinAlg::Batched::Matrix<double> alpha(rd,
+                                                  1,
+                                                  batch_size,
+                                                  handle.get_cublas_handle(),
+                                                  arima_mem.alpha_batches,
+                                                  arima_mem.alpha_dense,
+                                                  handle.get_device_allocator(),
+                                                  stream,
+                                                  false);
   if (intercept) {
     // Compute I-T*
-    MLCommon::LinAlg::Batched::Matrix<double> ImT(
-      r, r, batch_size, cublasHandle, arima_mem.ImT_batches,
-      arima_mem.ImT_dense, allocator, stream, false);
+    MLCommon::LinAlg::Batched::Matrix<double> ImT(r,
+                                                  r,
+                                                  batch_size,
+                                                  cublasHandle,
+                                                  arima_mem.ImT_batches,
+                                                  arima_mem.ImT_dense,
+                                                  allocator,
+                                                  stream,
+                                                  false);
     const double* d_T = Tb.raw_data();
-    double* d_ImT = ImT.raw_data();
-    thrust::for_each(thrust::cuda::par.on(stream), counting,
-                     counting + batch_size, [=] __device__(int bid) {
-                       const double* b_T = d_T + rd * rd * bid;
-                       double* b_ImT = d_ImT + r * r * bid;
-                       for (int i = 0; i < r; i++) {
-                         for (int j = 0; j < r; j++) {
-                           b_ImT[r * j + i] =
-                             (i == j ? 1.0 : 0.0) -
-                             b_T[rd * (j + n_diff) + i + n_diff];
-                         }
-                       }
-                     });
+    double* d_ImT     = ImT.raw_data();
+    thrust::for_each(
+      thrust::cuda::par.on(stream), counting, counting + batch_size, [=] __device__(int bid) {
+        const double* b_T = d_T + rd * rd * bid;
+        double* b_ImT     = d_ImT + r * r * bid;
+        for (int i = 0; i < r; i++) {
+          for (int j = 0; j < r; j++) {
+            b_ImT[r * j + i] = (i == j ? 1.0 : 0.0) - b_T[rd * (j + n_diff) + i + n_diff];
+          }
+        }
+      });
 
     // For r=1, prevent I-T from being too close to [[0]] -> no solution
     if (r == 1) {
-      thrust::for_each(thrust::cuda::par.on(stream), counting,
-                       counting + batch_size, [=] __device__(int bid) {
-                         if (abs(d_ImT[bid]) < 1e-3)
-                           d_ImT[bid] = raft::signPrim(d_ImT[bid]) * 1e-3;
-                       });
+      thrust::for_each(
+        thrust::cuda::par.on(stream), counting, counting + batch_size, [=] __device__(int bid) {
+          if (abs(d_ImT[bid]) < 1e-3) d_ImT[bid] = raft::signPrim(d_ImT[bid]) * 1e-3;
+        });
     }
 
     // Compute (I-T*)^-1
-    MLCommon::LinAlg::Batched::Matrix<double> ImT_inv(
-      r, r, batch_size, cublasHandle, arima_mem.ImT_inv_batches,
-      arima_mem.ImT_inv_dense, allocator, stream, false);
+    MLCommon::LinAlg::Batched::Matrix<double> ImT_inv(r,
+                                                      r,
+                                                      batch_size,
+                                                      cublasHandle,
+                                                      arima_mem.ImT_inv_batches,
+                                                      arima_mem.ImT_inv_dense,
+                                                      allocator,
+                                                      stream,
+                                                      false);
     MLCommon::LinAlg::Batched::Matrix<double>::inv(
       ImT, ImT_inv, arima_mem.ImT_inv_P, arima_mem.ImT_inv_info);
 
     // Compute (I-T*)^-1 * c -> multiply 1st column by mu
     const double* d_ImT_inv = ImT_inv.raw_data();
-    double* d_alpha = alpha.raw_data();
-    thrust::for_each(thrust::cuda::par.on(stream), counting,
-                     counting + batch_size, [=] __device__(int bid) {
-                       const double* b_ImT_inv = d_ImT_inv + r * r * bid;
-                       double* b_alpha = d_alpha + rd * bid;
-                       double mu = d_mu[bid];
-                       for (int i = 0; i < n_diff; i++) {
-                         b_alpha[i] = 0;
-                       }
-                       for (int i = 0; i < r; i++) {
-                         b_alpha[i + n_diff] = b_ImT_inv[i] * mu;
-                       }
-                     });
+    double* d_alpha         = alpha.raw_data();
+    thrust::for_each(
+      thrust::cuda::par.on(stream), counting, counting + batch_size, [=] __device__(int bid) {
+        const double* b_ImT_inv = d_ImT_inv + r * r * bid;
+        double* b_alpha         = d_alpha + rd * bid;
+        double mu               = d_mu[bid];
+        for (int i = 0; i < n_diff; i++) {
+          b_alpha[i] = 0;
+        }
+        for (int i = 0; i < r; i++) {
+          b_alpha[i + n_diff] = b_ImT_inv[i] * mu;
+        }
+      });
   } else {
     // Memset alpha to 0
-    CUDA_CHECK(cudaMemsetAsync(alpha.raw_data(), 0,
-                               sizeof(double) * rd * batch_size, stream));
+    CUDA_CHECK(cudaMemsetAsync(alpha.raw_data(), 0, sizeof(double) * rd * batch_size, stream));
   }
 
-  batched_kalman_loop(handle, arima_mem, d_ys, nobs, Tb, Zb, RQR, P, alpha,
-                      intercept, d_mu, order, d_pred, d_loglike,
-                      arima_mem.sigma2_buffer, fc_steps, d_fc, level > 0,
+  batched_kalman_loop(handle,
+                      arima_mem,
+                      d_ys,
+                      nobs,
+                      Tb,
+                      Zb,
+                      RQR,
+                      P,
+                      alpha,
+                      intercept,
+                      d_mu,
+                      order,
+                      d_pred,
+                      d_loglike,
+                      arima_mem.sigma2_buffer,
+                      fc_steps,
+                      d_fc,
+                      level > 0,
                       d_lower);
 
   if (level > 0) {
     confidence_intervals<<<batch_size, fc_steps, 0, stream>>>(
-      d_fc, arima_mem.sigma2_buffer, d_lower, d_upper, fc_steps,
-      sqrt(2.0) * erfinv(level));
+      d_fc, arima_mem.sigma2_buffer, d_lower, d_upper, fc_steps, sqrt(2.0) * erfinv(level));
     CUDA_CHECK(cudaPeekAtLastError());
   }
 }
 
-void init_batched_kalman_matrices(raft::handle_t& handle, const double* d_ar,
-                                  const double* d_ma, const double* d_sar,
-                                  const double* d_sma, int nb,
-                                  const ARIMAOrder& order, int rd,
-                                  double* d_Z_b, double* d_R_b, double* d_T_b) {
+void init_batched_kalman_matrices(raft::handle_t& handle,
+                                  const double* d_ar,
+                                  const double* d_ma,
+                                  const double* d_sar,
+                                  const double* d_sma,
+                                  int nb,
+                                  const ARIMAOrder& order,
+                                  int rd,
+                                  double* d_Z_b,
+                                  double* d_R_b,
+                                  double* d_T_b)
+{
   ML::PUSH_RANGE(__func__);
 
   auto stream = handle.get_stream();
@@ -985,154 +1379,206 @@ void init_batched_kalman_matrices(raft::handle_t& handle, const double* d_ar,
   cudaMemsetAsync(d_T_b, 0.0, rd * rd * nb * sizeof(double), stream);
 
   int n_diff = order.n_diff();
-  int r = order.r();
+  int r      = order.r();
 
   auto counting = thrust::make_counting_iterator(0);
-  auto n_theta = order.n_theta();
-  auto n_phi = order.n_phi();
-  thrust::for_each(
-    thrust::cuda::par.on(stream), counting, counting + nb,
-    [=] __device__(int bid) {
-      // See TSA pg. 54 for Z, R, T matrices
+  auto n_theta  = order.n_theta();
+  auto n_phi    = order.n_phi();
+  thrust::for_each(thrust::cuda::par.on(stream), counting, counting + nb, [=] __device__(int bid) {
+    // See TSA pg. 54 for Z, R, T matrices
 
-      // Z = [ 1 | 0 . . 0 1 0 . . 0 1 | 1 0 . . 0 ]
-      //       d |         s*D         |     r
-      for (int i = 0; i < order.d; i++) d_Z_b[bid * rd + i] = 1.0;
-      for (int i = 1; i <= order.D; i++)
-        d_Z_b[bid * rd + order.d + i * order.s - 1] = 1.0;
-      d_Z_b[bid * rd + n_diff] = 1.0;
+    // Z = [ 1 | 0 . . 0 1 0 . . 0 1 | 1 0 . . 0 ]
+    //       d |         s*D         |     r
+    for (int i = 0; i < order.d; i++)
+      d_Z_b[bid * rd + i] = 1.0;
+    for (int i = 1; i <= order.D; i++)
+      d_Z_b[bid * rd + order.d + i * order.s - 1] = 1.0;
+    d_Z_b[bid * rd + n_diff] = 1.0;
 
-      //     |     0     |
-      //     |     .     |  d + s*D
-      //     |     0     |_ _
-      // R = |     1     |
-      //     |  theta_1  |  r
-      //     |     .     |
-      //     |theta_{r-1}|
-      //
-      d_R_b[bid * rd + n_diff] = 1.0;
-      for (int i = 0; i < n_theta; i++) {
-        d_R_b[bid * rd + n_diff + i + 1] =
-          MLCommon::TimeSeries::reduced_polynomial<false>(
-            bid, d_ma, order.q, d_sma, order.Q, order.s, i + 1);
-      }
+    //     |     0     |
+    //     |     .     |  d + s*D
+    //     |     0     |_ _
+    // R = |     1     |
+    //     |  theta_1  |  r
+    //     |     .     |
+    //     |theta_{r-1}|
+    //
+    d_R_b[bid * rd + n_diff] = 1.0;
+    for (int i = 0; i < n_theta; i++) {
+      d_R_b[bid * rd + n_diff + i + 1] = MLCommon::TimeSeries::reduced_polynomial<false>(
+        bid, d_ma, order.q, d_sma, order.Q, order.s, i + 1);
+    }
 
-      //     | 1 | 0 .. 0 1 | 1                |  d
-      //     |_ _|_ _ _ _ _ |_ _ _ _ _ _ _ _ _ |_ _
-      //     |   | 0 .. 0 1 | 1                |
-      //     |   | 1      0 |                  |
-      //     |   |   .    . |                  |  s*D
-      //     |   |    .   . |                  |
-      // T = |   | 0    1 0 |                  |
-      //     |_ _|_ _ _ _ _ |_ _ _ _ _ _ _ _ _ |_ _
-      //     |   |          | phi_1  1         |
-      //     |   |          |  .       1    0  |
-      //     |   |          |  .         .     |  r
-      //     |   |          |  .     0     .   |
-      //     |   |          |  .             1 |
-      //     |   |          | phi_r  0  . .  0 |
-      //
-      // (non-comprehensive example with d=1 and D=1)
-      //
-      double* batch_T = d_T_b + bid * rd * rd;
-      // 1. Differencing component
-      for (int i = 0; i < order.d; i++) {
-        for (int j = i; j < order.d; j++) {
-          batch_T[j * rd + i] = 1.0;
-        }
+    //     | 1 | 0 .. 0 1 | 1                |  d
+    //     |_ _|_ _ _ _ _ |_ _ _ _ _ _ _ _ _ |_ _
+    //     |   | 0 .. 0 1 | 1                |
+    //     |   | 1      0 |                  |
+    //     |   |   .    . |                  |  s*D
+    //     |   |    .   . |                  |
+    // T = |   | 0    1 0 |                  |
+    //     |_ _|_ _ _ _ _ |_ _ _ _ _ _ _ _ _ |_ _
+    //     |   |          | phi_1  1         |
+    //     |   |          |  .       1    0  |
+    //     |   |          |  .         .     |  r
+    //     |   |          |  .     0     .   |
+    //     |   |          |  .             1 |
+    //     |   |          | phi_r  0  . .  0 |
+    //
+    // (non-comprehensive example with d=1 and D=1)
+    //
+    double* batch_T = d_T_b + bid * rd * rd;
+    // 1. Differencing component
+    for (int i = 0; i < order.d; i++) {
+      for (int j = i; j < order.d; j++) {
+        batch_T[j * rd + i] = 1.0;
       }
-      for (int id = 0; id < order.d; id++) {
-        batch_T[n_diff * rd + id] = 1.0;
-        for (int iD = 1; iD <= order.D; iD++) {
-          batch_T[(order.d + order.s * iD - 1) * rd + id] = 1.0;
-        }
+    }
+    for (int id = 0; id < order.d; id++) {
+      batch_T[n_diff * rd + id] = 1.0;
+      for (int iD = 1; iD <= order.D; iD++) {
+        batch_T[(order.d + order.s * iD - 1) * rd + id] = 1.0;
       }
-      // 2. Seasonal differencing component
-      for (int iD = 0; iD < order.D; iD++) {
-        int offset = order.d + iD * order.s;
-        for (int i = 0; i < order.s - 1; i++) {
-          batch_T[(offset + i) * rd + offset + i + 1] = 1.0;
-        }
-        batch_T[(offset + order.s - 1) * rd + offset] = 1.0;
-        batch_T[n_diff * rd + offset] = 1.0;
+    }
+    // 2. Seasonal differencing component
+    for (int iD = 0; iD < order.D; iD++) {
+      int offset = order.d + iD * order.s;
+      for (int i = 0; i < order.s - 1; i++) {
+        batch_T[(offset + i) * rd + offset + i + 1] = 1.0;
       }
-      if (order.D == 2) {
-        batch_T[(n_diff - 1) * rd + order.d] = 1.0;
-      }
-      // 3. Auto-Regressive component
-      for (int i = 0; i < n_phi; i++) {
-        batch_T[n_diff * (rd + 1) + i] =
-          MLCommon::TimeSeries::reduced_polynomial<true>(
-            bid, d_ar, order.p, d_sar, order.P, order.s, i + 1);
-      }
-      for (int i = 0; i < r - 1; i++) {
-        batch_T[(n_diff + i + 1) * rd + n_diff + i] = 1.0;
-      }
+      batch_T[(offset + order.s - 1) * rd + offset] = 1.0;
+      batch_T[n_diff * rd + offset]                 = 1.0;
+    }
+    if (order.D == 2) { batch_T[(n_diff - 1) * rd + order.d] = 1.0; }
+    // 3. Auto-Regressive component
+    for (int i = 0; i < n_phi; i++) {
+      batch_T[n_diff * (rd + 1) + i] = MLCommon::TimeSeries::reduced_polynomial<true>(
+        bid, d_ar, order.p, d_sar, order.P, order.s, i + 1);
+    }
+    for (int i = 0; i < r - 1; i++) {
+      batch_T[(n_diff + i + 1) * rd + n_diff + i] = 1.0;
+    }
 
-      // If rd=2 and phi_2=-1, I-TxT is singular
-      if (rd == 2 && order.p == 2 && abs(batch_T[1] + 1) < 0.01) {
-        batch_T[1] = -0.99;
-      }
-    });
+    // If rd=2 and phi_2=-1, I-TxT is singular
+    if (rd == 2 && order.p == 2 && abs(batch_T[1] + 1) < 0.01) { batch_T[1] = -0.99; }
+  });
 
   ML::POP_RANGE();
 }
 
-void batched_kalman_filter(
-  raft::handle_t& handle, const ARIMAMemory<double>& arima_mem,
-  const double* d_ys, int nobs, const ARIMAParams<double>& params,
-  const ARIMAOrder& order, int batch_size, double* d_loglike, double* d_pred,
-  int fc_steps, double* d_fc, double level, double* d_lower, double* d_upper) {
+void batched_kalman_filter(raft::handle_t& handle,
+                           const ARIMAMemory<double>& arima_mem,
+                           const double* d_ys,
+                           int nobs,
+                           const ARIMAParams<double>& params,
+                           const ARIMAOrder& order,
+                           int batch_size,
+                           double* d_loglike,
+                           double* d_pred,
+                           int fc_steps,
+                           double* d_fc,
+                           double level,
+                           double* d_lower,
+                           double* d_upper)
+{
   ML::PUSH_RANGE(__func__);
 
   auto cublasHandle = handle.get_cublas_handle();
-  auto stream = handle.get_stream();
-  auto allocator = handle.get_device_allocator();
+  auto stream       = handle.get_stream();
+  auto allocator    = handle.get_device_allocator();
 
   // see (3.18) in TSA by D&K
   int rd = order.rd();
 
-  MLCommon::LinAlg::Batched::Matrix<double> Zb(
-    1, rd, batch_size, cublasHandle, arima_mem.Z_batches, arima_mem.Z_dense,
-    allocator, stream, false);
-  MLCommon::LinAlg::Batched::Matrix<double> Tb(
-    rd, rd, batch_size, cublasHandle, arima_mem.T_batches, arima_mem.T_dense,
-    allocator, stream, false);
-  MLCommon::LinAlg::Batched::Matrix<double> Rb(
-    rd, 1, batch_size, cublasHandle, arima_mem.R_batches, arima_mem.R_dense,
-    allocator, stream, false);
+  MLCommon::LinAlg::Batched::Matrix<double> Zb(1,
+                                               rd,
+                                               batch_size,
+                                               cublasHandle,
+                                               arima_mem.Z_batches,
+                                               arima_mem.Z_dense,
+                                               allocator,
+                                               stream,
+                                               false);
+  MLCommon::LinAlg::Batched::Matrix<double> Tb(rd,
+                                               rd,
+                                               batch_size,
+                                               cublasHandle,
+                                               arima_mem.T_batches,
+                                               arima_mem.T_dense,
+                                               allocator,
+                                               stream,
+                                               false);
+  MLCommon::LinAlg::Batched::Matrix<double> Rb(rd,
+                                               1,
+                                               batch_size,
+                                               cublasHandle,
+                                               arima_mem.R_batches,
+                                               arima_mem.R_dense,
+                                               allocator,
+                                               stream,
+                                               false);
 
-  init_batched_kalman_matrices(handle, params.ar, params.ma, params.sar,
-                               params.sma, batch_size, order, rd, Zb.raw_data(),
-                               Rb.raw_data(), Tb.raw_data());
+  init_batched_kalman_matrices(handle,
+                               params.ar,
+                               params.ma,
+                               params.sar,
+                               params.sma,
+                               batch_size,
+                               order,
+                               rd,
+                               Zb.raw_data(),
+                               Rb.raw_data(),
+                               Tb.raw_data());
 
   ////////////////////////////////////////////////////////////
   // Computation
 
-  _batched_kalman_filter(handle, arima_mem, d_ys, nobs, order, Zb, Tb, Rb,
-                         d_pred, d_loglike, params.sigma2,
-                         static_cast<bool>(order.k), params.mu, fc_steps, d_fc,
-                         level, d_lower, d_upper);
+  _batched_kalman_filter(handle,
+                         arima_mem,
+                         d_ys,
+                         nobs,
+                         order,
+                         Zb,
+                         Tb,
+                         Rb,
+                         d_pred,
+                         d_loglike,
+                         params.sigma2,
+                         static_cast<bool>(order.k),
+                         params.mu,
+                         fc_steps,
+                         d_fc,
+                         level,
+                         d_lower,
+                         d_upper);
 
   ML::POP_RANGE();
 }
 
 void batched_jones_transform(raft::handle_t& handle,
                              const ARIMAMemory<double>& arima_mem,
-                             const ARIMAOrder& order, int batch_size,
-                             bool isInv, const double* h_params,
-                             double* h_Tparams) {
-  int N = order.complexity();
-  auto allocator = handle.get_device_allocator();
-  auto stream = handle.get_stream();
-  double* d_params = arima_mem.d_params;
-  double* d_Tparams = arima_mem.d_Tparams;
-  ARIMAParams<double> params = {arima_mem.params_mu,  arima_mem.params_ar,
-                                arima_mem.params_ma,  arima_mem.params_sar,
-                                arima_mem.params_sma, arima_mem.params_sigma2};
-  ARIMAParams<double> Tparams = {
-    arima_mem.Tparams_mu,  arima_mem.Tparams_ar,  arima_mem.Tparams_ma,
-    arima_mem.Tparams_sar, arima_mem.Tparams_sma, arima_mem.Tparams_sigma2};
+                             const ARIMAOrder& order,
+                             int batch_size,
+                             bool isInv,
+                             const double* h_params,
+                             double* h_Tparams)
+{
+  int N                       = order.complexity();
+  auto allocator              = handle.get_device_allocator();
+  auto stream                 = handle.get_stream();
+  double* d_params            = arima_mem.d_params;
+  double* d_Tparams           = arima_mem.d_Tparams;
+  ARIMAParams<double> params  = {arima_mem.params_mu,
+                                arima_mem.params_ar,
+                                arima_mem.params_ma,
+                                arima_mem.params_sar,
+                                arima_mem.params_sma,
+                                arima_mem.params_sigma2};
+  ARIMAParams<double> Tparams = {arima_mem.Tparams_mu,
+                                 arima_mem.Tparams_ar,
+                                 arima_mem.Tparams_ma,
+                                 arima_mem.Tparams_sar,
+                                 arima_mem.Tparams_sma,
+                                 arima_mem.Tparams_sigma2};
 
   raft::update_device(d_params, h_params, N * batch_size, stream);
 
