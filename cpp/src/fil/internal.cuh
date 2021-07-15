@@ -324,10 +324,27 @@ const int FIL_TPB = 256;
 
 static const uint32_t max_precise_int_float = 16777216;
 
+struct cat_feature {
+  int max_matching = -1, n_nodes = 0;
+  void reduce_with(cat_feature b)
+  {
+    max_matching = std::max(max_matching, b.max_matching);
+    n_nodes += b.n_nodes;
+  }
+};
+typedef std::vector<cat_feature> v_cat_feature;
 struct categorical_branches {
+  // arrays from each node ID are concatenated first, then from all categories
+  uint8_t* bits = nullptr;
+  // largest matching category in the model, per feature ID
+  int* max_matching = nullptr;
+  size_t bits_size = 0, max_matching_size = 0;
+
   // set count is due to tree_idx + node_within_tree_idx are both ints, hence uint32_t result
   template <typename node_t>
-  __host__ __device__ __forceinline__ int get_child(const node_t& node, int node_idx, float val)
+  __host__ __device__ __forceinline__ int get_child(const node_t& node,
+                                                    int node_idx,
+                                                    float val) const
   {
     bool cond;
     if (node.is_categorical()) {
@@ -346,11 +363,30 @@ struct categorical_branches {
     }
     return node.left(node_idx) + cond;
   }
-  // arrays from each node ID are concatenated first, then from all categories
-  uint8_t* bits = nullptr;
-  // largest matching category in the model, per feature ID
-  int* max_matching = nullptr;
-  size_t bits_size = 0, max_matching_size = 0;
+  int sizeof_mask(int feature_id) const { return raft::ceildiv(max_matching[feature_id] + 1, 8); }
+
+  // NB! no __device__ here
+  void host_allocate(v_cat_feature cf)
+  {
+    max_matching_size = cf.size();
+    max_matching      = new int[max_matching_size];
+
+    // feature ID
+    for (int fid = 0; fid < cf.size(); ++fid) {
+      max_matching[fid] = cf[fid].max_matching;
+      bits_size += sizeof_mask(fid) * cf[fid].n_nodes;
+      ASSERT(bits_size <= INT_MAX, "cannot store this many categories given `int` offsets");
+      printf("[%d]=%d ", fid, cf[fid].max_matching);
+    }
+    bits = new uint8_t[bits_size];
+  }
+
+  // NB! no __device__ here
+  void host_deallocate()
+  {
+    delete[] bits;
+    delete[] max_matching;
+  }
 };
 
 /** init_dense uses params and nodes to initialize the dense forest stored in pf
