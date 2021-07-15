@@ -17,7 +17,7 @@
 import cudf
 import cupy as cp
 from cuml import Base
-
+from pandas import Series as pdSeries
 
 from cuml.common.exceptions import NotFittedError
 
@@ -123,9 +123,8 @@ class LabelEncoder(Base):
 
     """
 
-    def __init__(self,
+    def __init__(self, *,
                  handle_unknown='error',
-                 *,
                  handle=None,
                  verbose=False,
                  output_type=None):
@@ -170,6 +169,9 @@ class LabelEncoder(Base):
             A fitted instance of itself to allow method chaining
 
         """
+        if isinstance(y, pdSeries):
+            y = cudf.from_pandas(y)
+
         self._validate_keywords()
 
         self.dtype = y.dtype if y.dtype != cp.dtype('O') else str
@@ -205,6 +207,9 @@ class LabelEncoder(Base):
         KeyError
             if a category appears that was not seen in `fit`
         """
+        if isinstance(y, pdSeries):
+            y = cudf.from_pandas(y)
+
         self._check_is_fitted()
 
         y = y.astype('category')
@@ -225,6 +230,9 @@ class LabelEncoder(Base):
         This is functionally equivalent to (but faster than)
         `LabelEncoder().fit(y).transform(y)`
         """
+        if isinstance(y, pdSeries):
+            y = cudf.from_pandas(y)
+
         self.dtype = y.dtype if y.dtype != cp.dtype('O') else str
 
         y = y.astype('category')

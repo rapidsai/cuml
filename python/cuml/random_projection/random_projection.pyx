@@ -426,7 +426,7 @@ class GaussianRandomProjection(Base,
 
     """
 
-    def __init__(self, handle=None, n_components='auto', eps=0.1,
+    def __init__(self, *, handle=None, n_components='auto', eps=0.1,
                  random_state=None, verbose=False, output_type=None):
 
         Base.__init__(self,
@@ -568,7 +568,7 @@ class SparseRandomProjection(Base,
 
     """
 
-    def __init__(self, handle=None, n_components='auto', density='auto',
+    def __init__(self, *, handle=None, n_components='auto', density='auto',
                  eps=0.1, dense_output=True, random_state=None,
                  verbose=False, output_type=None):
 

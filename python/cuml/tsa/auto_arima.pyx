@@ -32,6 +32,7 @@ from cuml.common import logger
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
+from cuml.internals import _deprecate_pos_args
 from cuml.raft.common.handle cimport handle_t
 from cuml.raft.common.handle import Handle
 from cuml.common import input_to_cuml_array
@@ -174,17 +175,18 @@ class AutoARIMA(Base):
 
     d_y = CumlArrayDescriptor()
 
+    @_deprecate_pos_args(version="21.06")
     def __init__(self,
                  endog,
+                 *,
                  handle=None,
                  simple_differencing=True,
                  verbose=False,
                  output_type=None):
         # Initialize base class
-        super().__init__(
-            handle=handle,
-            output_type=output_type,
-            verbose=verbose)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
         self._set_base_attributes(output_type=endog)
 
         # Get device array. Float64 only for now.
@@ -369,8 +371,11 @@ class AutoARIMA(Base):
                 if p_ + q_ + P_ + Q_ + k_ == 0:
                     continue
                 s_ = s if (P_ + D_ + Q_) else 0
-                model = ARIMA(data_temp.to_output("cupy"), (p_, d_, q_),
-                              (P_, D_, Q_, s_), k_, handle=self.handle,
+                model = ARIMA(endog=data_temp.to_output("cupy"),
+                              order=(p_, d_, q_),
+                              seasonal_order=(P_, D_, Q_, s_),
+                              fit_intercept=k_,
+                              handle=self.handle,
                               simple_differencing=self.simple_differencing,
                               output_type="cupy")
                 logger.debug("Fitting {} ({})".format(model, method))
@@ -383,7 +388,7 @@ class AutoARIMA(Base):
             # Organize the results into a matrix
             n_models = len(all_orders)
             ic_matrix, *_ = input_to_cuml_array(
-                cp.concatenate([ic_arr.reshape(batch_size, 1)
+                cp.concatenate([ic_arr.to_output('cupy').reshape(batch_size, 1)
                                 for ic_arr in all_ic], 1))
 
             # Divide the batch, choosing the best model for each series

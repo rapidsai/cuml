@@ -201,7 +201,7 @@ class Ridge(Base,
     coef_ = CumlArrayDescriptor()
     intercept_ = CumlArrayDescriptor()
 
-    def __init__(self, alpha=1.0, solver='eig', fit_intercept=True,
+    def __init__(self, *, alpha=1.0, solver='eig', fit_intercept=True,
                  normalize=False, handle=None, output_type=None,
                  verbose=False):
         """
@@ -218,8 +218,9 @@ class Ridge(Base,
 
         """
         self._check_alpha(alpha)
-        super(Ridge, self).__init__(handle=handle, verbose=verbose,
-                                    output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
 
         # internal array attributes
         self.coef_ = None

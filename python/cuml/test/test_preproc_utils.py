@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,38 +16,109 @@
 import pytest
 
 from cuml.datasets import make_classification, make_blobs
-from cuml.thirdparty_adapters import to_output_type
 from numpy.testing import assert_allclose as np_assert_allclose
 
 import numpy as np
 import cupy as cp
+import cupy.sparse as gpu_sparse
+import scipy.sparse as cpu_sparse
 from cupy.sparse import csr_matrix as gpu_csr_matrix
 from cupy.sparse import csc_matrix as gpu_csc_matrix
+from cupy.sparse import coo_matrix as gpu_coo_matrix
 from scipy.sparse import csr_matrix as cpu_csr_matrix
 from scipy.sparse import csc_matrix as cpu_csc_matrix
+from scipy.sparse import coo_matrix as cpu_coo_matrix
+from cuml.common import input_to_cuml_array
 
 
-def create_rand_clf():
+def to_output_type(array, output_type, order='F'):
+    """Used to convert arrays while creating datasets
+    for testing.
+
+    Parameters
+    ----------
+    array : array
+        Input array to convert
+    output_type : string
+        Type of to convert to
+
+    Returns
+    -------
+    Converted array
+    """
+    if output_type == 'scipy_csr':
+        return cpu_sparse.csr_matrix(array.get())
+    if output_type == 'scipy_csc':
+        return cpu_sparse.csc_matrix(array.get())
+    if output_type == 'scipy_coo':
+        return cpu_sparse.coo_matrix(array.get())
+    if output_type == 'cupy_csr':
+        if array.format in ['csc', 'coo']:
+            return array.tocsr()
+        else:
+            return array
+    if output_type == 'cupy_csc':
+        if array.format in ['csr', 'coo']:
+            return array.tocsc()
+        else:
+            return array
+    if output_type == 'cupy_coo':
+        if array.format in ['csr', 'csc']:
+            return array.tocoo()
+        else:
+            return array
+
+    if cpu_sparse.issparse(array):
+        if output_type == 'numpy':
+            return array.todense()
+        elif output_type == 'cupy':
+            return cp.array(array.todense())
+        else:
+            array = array.todense()
+    elif gpu_sparse.issparse(array):
+        if output_type == 'numpy':
+            return array.get().todense()
+        elif output_type == 'cupy':
+            return array.todense()
+        else:
+            array = array.todense()
+
+    cuml_array = input_to_cuml_array(array, order=order)[0]
+    if output_type == 'series' and len(array.shape) > 1:
+        output_type = 'cudf'
+
+    output = cuml_array.to_output(output_type)
+
+    if output_type in ['dataframe', 'cudf']:
+        renaming = {i: 'c'+str(i) for i in range(output.shape[1])}
+        output = output.rename(columns=renaming)
+
+    return output
+
+
+def create_rand_clf(random_state):
     clf, _ = make_classification(n_samples=500,
                                  n_features=20,
                                  n_clusters_per_class=1,
                                  n_informative=12,
                                  n_classes=5,
-                                 order='F')
+                                 order='C',
+                                 random_state=random_state)
     return clf
 
 
-def create_rand_blobs():
+def create_rand_blobs(random_state):
     blobs, _ = make_blobs(n_samples=500,
                           n_features=20,
                           centers=20,
-                          order='F')
+                          order='C',
+                          random_state=random_state)
     return blobs
 
 
-def create_rand_integers():
+def create_rand_integers(random_state):
+    cp.random.seed(random_state)
     randint = cp.random.randint(30, size=(500, 20)).astype(cp.float64)
-    randint = cp.asfortranarray(randint)
     return randint
 
 
@@ -68,8 +139,10 @@ def sparsify_and_convert(dataset, conversion_format, sparsify_ratio=0.3):
         Type of sparse array :
         - scipy-csr: SciPy CSR sparse array
         - scipy-csc: SciPy CSC sparse array
+        - scipy-coo: SciPy COO sparse array
         - cupy-csr: CuPy CSR sparse array
         - cupy-csc: CuPy CSC sparse array
+        - cupy-coo: CuPy COO sparse array
     sparsify_ratio: float [0-1]
         Ratio of zeros in the sparse array
 
@@ -82,65 +155,107 @@ def sparsify_and_convert(dataset, conversion_format, sparsify_ratio=0.3):
                                   replace=False)
     dataset.ravel()[random_loc] = 0
 
-    if conversion_format == "scipy-csr":
+    if conversion_format.startswith("scipy"):
         dataset = cp.asnumpy(dataset)
+
+    if conversion_format == "scipy-csr":
         converted_dataset = cpu_csr_matrix(dataset)
     elif conversion_format == "scipy-csc":
-        dataset = cp.asnumpy(dataset)
         converted_dataset = cpu_csc_matrix(dataset)
+    elif conversion_format == "scipy-coo":
+        converted_dataset = cpu_coo_matrix(dataset)
     elif conversion_format == "cupy-csr":
         converted_dataset = gpu_csr_matrix(dataset)
-        dataset = cp.asnumpy(dataset)
     elif conversion_format == "cupy-csc":
         converted_dataset = gpu_csc_matrix(dataset)
+    elif conversion_format == "cupy-coo":
+        np_array = cp.asnumpy(dataset)
+        np_coo_array = cpu_coo_matrix(np_array)
+        converted_dataset = gpu_coo_matrix(np_coo_array)
+
+    if conversion_format.startswith("cupy"):
         dataset = cp.asnumpy(dataset)
+
     return cpu_csr_matrix(dataset), converted_dataset
 
 
 @pytest.fixture(scope="session",
                 params=["numpy", "dataframe", "cupy", "cudf", "numba"])
-def clf_dataset(request):
-    clf = create_rand_clf()
+def clf_dataset(request, random_seed):
+    clf = create_rand_clf(random_seed)
     return convert(clf, request.param)
 
 
 @pytest.fixture(scope="session",
                 params=["numpy", "dataframe", "cupy", "cudf", "numba"])
-def blobs_dataset(request):
-    blobs = create_rand_blobs()
+def blobs_dataset(request, random_seed):
+    blobs = create_rand_blobs(random_seed)
     return convert(blobs, request.param)
 
 
 @pytest.fixture(scope="session",
                 params=["numpy", "dataframe", "cupy", "cudf", "numba"])
-def int_dataset(request):
-    randint = create_rand_integers()
+def int_dataset(request, random_seed):
+    randint = create_rand_integers(random_seed)
+    cp.random.seed(random_seed)
     random_loc = cp.random.choice(randint.size,
                                   int(randint.size * 0.3),
                                   replace=False)
+
+    randint.ravel()[random_loc] = 0
+    zero_filled = convert(randint, request.param)
+    randint.ravel()[random_loc] = 1
+    one_filled = convert(randint, request.param)
     randint.ravel()[random_loc] = cp.nan
-    return convert(randint, request.param)
+    nan_filled = convert(randint, request.param)
+    return zero_filled, one_filled, nan_filled
 
 
 @pytest.fixture(scope="session",
                 params=["scipy-csr", "scipy-csc", "cupy-csr", "cupy-csc"])
-def sparse_clf_dataset(request):
-    clf = create_rand_clf()
+def sparse_clf_dataset(request, random_seed):
+    clf = create_rand_clf(random_seed)
+    return sparsify_and_convert(clf, request.param)
+
+
+@pytest.fixture(scope="session",
+                params=["scipy-csr", "scipy-csc", "scipy-coo",
+                        "cupy-csr", "cupy-csc", "cupy-coo"])
+def sparse_dataset_with_coo(request, random_seed):
+    clf = create_rand_clf(random_seed)
     return sparsify_and_convert(clf, request.param)
 
 
 @pytest.fixture(scope="session",
                 params=["scipy-csr", "scipy-csc", "cupy-csr", "cupy-csc"])
-def sparse_blobs_dataset(request):
-    blobs = create_rand_blobs()
+def sparse_blobs_dataset(request, random_seed):
+    blobs = create_rand_blobs(random_seed)
     return sparsify_and_convert(blobs, request.param)
 
 
 @pytest.fixture(scope="session",
                 params=["scipy-csr", "scipy-csc", "cupy-csr", "cupy-csc"])
-def sparse_int_dataset(request):
-    randint = create_rand_integers()
+def sparse_int_dataset(request, random_seed):
+    randint = create_rand_integers(random_seed)
     return sparsify_and_convert(randint, request.param)
+
+
+@pytest.fixture(scope="session",
+                params=[("scipy-csr", np.nan), ("scipy-csc", np.nan),
+                        ("cupy-csr", np.nan), ("cupy-csc", np.nan),
+                        ("scipy-csr", 1.), ("scipy-csc", 1.),
+                        ("cupy-csr", 1.), ("cupy-csc", 1.)])
+def sparse_imputer_dataset(request, random_seed):
+    datatype, val = request.param
+    randint = create_rand_integers(random_seed)
+    random_loc = cp.random.choice(randint.size,
+                                  int(randint.size * 0.3),
+                                  replace=False)
+
+    randint.ravel()[random_loc] = val
+    X_sp, X = sparsify_and_convert(randint, datatype, sparsify_ratio=0.15)
+    X_sp = X_sp.tocsc()
+    return val, X_sp, X
 
 
 def assert_allclose(actual, desired, rtol=1e-05, atol=1e-05,
@@ -149,6 +264,7 @@ def assert_allclose(actual, desired, rtol=1e-05, atol=1e-05,
         actual = to_output_type(actual, 'numpy')
     if not isinstance(desired, np.ndarray):
         desired = to_output_type(desired, 'numpy')
+
     if ratio_tol:
         assert actual.shape == desired.shape
         diff_ratio = (actual != desired).sum() / actual.size

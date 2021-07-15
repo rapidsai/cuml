@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,8 +15,7 @@
  */
 
 #include <gtest/gtest.h>
-#include <cuml/common/cuml_allocator.hpp>
-#include <cuml/cuml.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include <random>
 #include <vector>
 
@@ -50,7 +49,8 @@ struct CSRInputs {
 template <typename T>
 class CSRTest : public ::testing::TestWithParam<CSRInputs<T>> {
  protected:
-  void SetUp() override {
+  void SetUp() override
+  {
     using std::vector;
     params = ::testing::TestWithParam<CSRInputs<T>>::GetParam();
 
@@ -89,17 +89,19 @@ class CSRTest : public ::testing::TestWithParam<CSRInputs<T>> {
         k = idis(gen);
       } while (mask[k]);
       mask[k] = true;
-      int i = k % params.m;
-      int j = k / params.m;
+      int i   = k % params.m;
+      int j   = k / params.m;
       for (int bid = 0; bid < params.batch_size; bid++) {
         A[bid * params.m * params.n + j * params.m + i] = udis(gen);
       }
     }
 
     // Generate random dense matrices/vectors
-    for (int i = 0; i < Bx.size(); i++) Bx[i] = udis(gen);
+    for (int i = 0; i < Bx.size(); i++)
+      Bx[i] = udis(gen);
     res_h.resize(params.batch_size * m_r * n_r);
-    for (int i = 0; i < res_h.size(); i++) res_h[i] = udis(gen);
+    for (int i = 0; i < res_h.size(); i++)
+      res_h[i] = udis(gen);
 
     // Create handles, stream, allocator
     CUBLAS_CHECK(cublasCreate(&handle));
@@ -108,14 +110,13 @@ class CSRTest : public ::testing::TestWithParam<CSRInputs<T>> {
     auto allocator = std::make_shared<raft::mr::device::default_allocator>();
 
     // Created batched dense matrices
-    LinAlg::Batched::Matrix<T> AbM(params.m, params.n, params.batch_size,
-                                   handle, allocator, stream);
-    LinAlg::Batched::Matrix<T> BxbM(params.p, params.q, params.batch_size,
-                                    handle, allocator, stream);
+    LinAlg::Batched::Matrix<T> AbM(
+      params.m, params.n, params.batch_size, handle, allocator, stream);
+    LinAlg::Batched::Matrix<T> BxbM(
+      params.p, params.q, params.batch_size, handle, allocator, stream);
 
     // Create matrix that will hold the results
-    res_bM = new LinAlg::Batched::Matrix<T>(m_r, n_r, params.batch_size, handle,
-                                            allocator, stream);
+    res_bM = new LinAlg::Batched::Matrix<T>(m_r, n_r, params.batch_size, handle, allocator, stream);
 
     // Copy the data to the device
     raft::update_device(AbM.raw_data(), A.data(), A.size(), stream);
@@ -127,12 +128,8 @@ class CSRTest : public ::testing::TestWithParam<CSRInputs<T>> {
 
     // Compute the tested results
     switch (params.operation) {
-      case SpMV_op:
-        b_spmv(params.alpha, AbS, BxbM, params.beta, *res_bM);
-        break;
-      case SpMM_op:
-        b_spmm(params.alpha, AbS, BxbM, params.beta, *res_bM);
-        break;
+      case SpMV_op: b_spmv(params.alpha, AbS, BxbM, params.beta, *res_bM); break;
+      case SpMM_op: b_spmm(params.alpha, AbS, BxbM, params.beta, *res_bM); break;
     }
 
     // Compute the expected results
@@ -141,16 +138,24 @@ class CSRTest : public ::testing::TestWithParam<CSRInputs<T>> {
         for (int bid = 0; bid < params.batch_size; bid++) {
           LinAlg::Naive::matMul(res_h.data() + bid * m_r,
                                 A.data() + bid * params.m * params.n,
-                                Bx.data() + bid * params.p, params.m, params.n,
-                                1, params.alpha, params.beta);
+                                Bx.data() + bid * params.p,
+                                params.m,
+                                params.n,
+                                1,
+                                params.alpha,
+                                params.beta);
         }
         break;
       case SpMM_op:
         for (int bid = 0; bid < params.batch_size; bid++) {
           LinAlg::Naive::matMul(res_h.data() + bid * m_r * n_r,
                                 A.data() + bid * params.m * params.n,
-                                Bx.data() + bid * params.p * params.q, params.m,
-                                params.n, params.q, params.alpha, params.beta);
+                                Bx.data() + bid * params.p * params.q,
+                                params.m,
+                                params.n,
+                                params.q,
+                                params.alpha,
+                                params.beta);
         }
         break;
     }
@@ -158,7 +163,8 @@ class CSRTest : public ::testing::TestWithParam<CSRInputs<T>> {
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
-  void TearDown() override {
+  void TearDown() override
+  {
     delete res_bM;
     CUBLAS_CHECK(cublasDestroy(handle));
     CUDA_CHECK(cudaStreamDestroy(stream));
@@ -167,7 +173,7 @@ class CSRTest : public ::testing::TestWithParam<CSRInputs<T>> {
 
  protected:
   CSRInputs<T> params;
-  LinAlg::Batched::Matrix<T> *res_bM;
+  LinAlg::Batched::Matrix<T>* res_bM;
   std::vector<T> res_h;
   cublasHandle_t handle;
   cusolverSpHandle_t cusolverSpHandle;
@@ -175,42 +181,44 @@ class CSRTest : public ::testing::TestWithParam<CSRInputs<T>> {
 };
 
 // Test parameters (op, batch_size, m, n, nnz, p, q, tolerance)
-const std::vector<CSRInputs<double>> inputsd = {
-  {SpMV_op, 1, 90, 150, 440, 150, 1, 1.0, 0.0, 1e-6},
-  {SpMV_op, 5, 13, 12, 75, 12, 1, -1.0, 1.0, 1e-6},
-  {SpMV_op, 15, 8, 4, 6, 4, 1, 0.5, 0.5, 1e-6},
-  {SpMV_op, 33, 7, 7, 23, 7, 1, -0.5, -0.5, 1e-6},
-  {SpMM_op, 1, 20, 15, 55, 15, 30, 1.0, 0.0, 1e-6},
-  {SpMM_op, 9, 10, 9, 31, 9, 11, -1.0, 0.5, 1e-6},
-  {SpMM_op, 20, 7, 12, 11, 12, 13, 0.5, 0.5, 1e-6}};
+const std::vector<CSRInputs<double>> inputsd = {{SpMV_op, 1, 90, 150, 440, 150, 1, 1.0, 0.0, 1e-6},
+                                                {SpMV_op, 5, 13, 12, 75, 12, 1, -1.0, 1.0, 1e-6},
+                                                {SpMV_op, 15, 8, 4, 6, 4, 1, 0.5, 0.5, 1e-6},
+                                                {SpMV_op, 33, 7, 7, 23, 7, 1, -0.5, -0.5, 1e-6},
+                                                {SpMM_op, 1, 20, 15, 55, 15, 30, 1.0, 0.0, 1e-6},
+                                                {SpMM_op, 9, 10, 9, 31, 9, 11, -1.0, 0.5, 1e-6},
+                                                {SpMM_op, 20, 7, 12, 11, 12, 13, 0.5, 0.5, 1e-6}};
 
 // Test parameters (op, batch_size, m, n, nnz, p, q, tolerance)
-const std::vector<CSRInputs<float>> inputsf = {
-  {SpMV_op, 1, 90, 150, 440, 150, 1, 1.0f, 0.0f, 1e-2},
-  {SpMV_op, 5, 13, 12, 75, 12, 1, -1.0f, 1.0f, 1e-2},
-  {SpMV_op, 15, 8, 4, 6, 4, 1, 0.5f, 0.5f, 1e-2},
-  {SpMV_op, 33, 7, 7, 23, 7, 1, -0.5f, -0.5f, 1e-2},
-  {SpMM_op, 1, 20, 15, 55, 15, 30, 1.0f, 0.0f, 1e-2},
-  {SpMM_op, 9, 10, 9, 31, 9, 11, -1.0f, 0.5f, 1e-2},
-  {SpMM_op, 20, 7, 12, 11, 12, 13, 0.5f, 0.5f, 1e-2}};
+const std::vector<CSRInputs<float>> inputsf = {{SpMV_op, 1, 90, 150, 440, 150, 1, 1.0f, 0.0f, 1e-2},
+                                               {SpMV_op, 5, 13, 12, 75, 12, 1, -1.0f, 1.0f, 1e-2},
+                                               {SpMV_op, 15, 8, 4, 6, 4, 1, 0.5f, 0.5f, 1e-2},
+                                               {SpMV_op, 33, 7, 7, 23, 7, 1, -0.5f, -0.5f, 1e-2},
+                                               {SpMM_op, 1, 20, 15, 55, 15, 30, 1.0f, 0.0f, 1e-2},
+                                               {SpMM_op, 9, 10, 9, 31, 9, 11, -1.0f, 0.5f, 1e-2},
+                                               {SpMM_op, 20, 7, 12, 11, 12, 13, 0.5f, 0.5f, 1e-2}};
 
 using BatchedCSRTestD = CSRTest<double>;
 using BatchedCSRTestF = CSRTest<float>;
-TEST_P(BatchedCSRTestD, Result) {
-  ASSERT_TRUE(devArrMatchHost(res_h.data(), res_bM->raw_data(), res_h.size(),
+TEST_P(BatchedCSRTestD, Result)
+{
+  ASSERT_TRUE(devArrMatchHost(res_h.data(),
+                              res_bM->raw_data(),
+                              res_h.size(),
                               raft::CompareApprox<double>(params.tolerance),
                               stream));
 }
-TEST_P(BatchedCSRTestF, Result) {
-  ASSERT_TRUE(devArrMatchHost(res_h.data(), res_bM->raw_data(), res_h.size(),
+TEST_P(BatchedCSRTestF, Result)
+{
+  ASSERT_TRUE(devArrMatchHost(res_h.data(),
+                              res_bM->raw_data(),
+                              res_h.size(),
                               raft::CompareApprox<float>(params.tolerance),
                               stream));
 }
 
-INSTANTIATE_TEST_CASE_P(BatchedCSRTests, BatchedCSRTestD,
-                        ::testing::ValuesIn(inputsd));
-INSTANTIATE_TEST_CASE_P(BatchedCSRTests, BatchedCSRTestF,
-                        ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(BatchedCSRTests, BatchedCSRTestD, ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_CASE_P(BatchedCSRTests, BatchedCSRTestF, ::testing::ValuesIn(inputsf));
 
 }  // namespace Batched
 }  // namespace Sparse

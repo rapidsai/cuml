@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,11 +27,12 @@ from cuml.metrics.utils import sorted_unique_labels
 from cuml.prims.label import make_monotonic
 
 
-@cuml.internals.api_return_array(get_output_type=True)
+@cuml.internals.api_return_any()
 def confusion_matrix(y_true, y_pred,
                      labels=None,
                      sample_weight=None,
-                     normalize=None) -> CumlArray:
+                     normalize=None,
+                     convert_dtype=False) -> CumlArray:
     """Compute confusion matrix to evaluate the accuracy of a classification.
 
     Parameters
@@ -52,6 +53,9 @@ def confusion_matrix(y_true, y_pred,
         Normalizes confusion matrix over the true (rows), predicted (columns)
         conditions or all the population. If None, confusion matrix will not be
         normalized.
+    convert_dtype : bool, optional (default = False)
+        When set to True, the confusion matrix method will automatically
+        convert the predictions, ground truth, and labels arrays to np.int32.
 
     Returns
     -------
@@ -59,18 +63,24 @@ def confusion_matrix(y_true, y_pred,
         Confusion matrix.
     """
     y_true, n_rows, n_cols, dtype = \
-        input_to_cuml_array(y_true, check_dtype=[cp.int32, cp.int64])
+        input_to_cuml_array(y_true, check_dtype=[cp.int32, cp.int64],
+                            convert_to_dtype=(cp.int32 if convert_dtype
+                                              else None))
 
     y_pred, _, _, _ = \
-        input_to_cuml_array(y_pred, check_dtype=dtype,
-                            check_rows=n_rows, check_cols=n_cols)
+        input_to_cuml_array(y_pred, check_dtype=[cp.int32, cp.int64],
+                            check_rows=n_rows, check_cols=n_cols,
+                            convert_to_dtype=(cp.int32 if convert_dtype
+                                              else None))
 
     if labels is None:
         labels = sorted_unique_labels(y_true, y_pred)
         n_labels = len(labels)
     else:
         labels, n_labels, _, _ = \
-            input_to_cupy_array(labels, check_dtype=dtype, check_cols=1)
+            input_to_cupy_array(labels, check_dtype=[cp.int32, cp.int64],
+                                convert_to_dtype=(cp.int32 if convert_dtype
+                                                  else None), check_cols=1)
     if sample_weight is None:
         sample_weight = cp.ones(n_rows, dtype=dtype)
     else:

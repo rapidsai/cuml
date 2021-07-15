@@ -64,10 +64,6 @@ if has_scipy():
     import scipy.sparse
 
 cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
-
-    cdef cppclass knnIndex:
-        pass
-
     void brute_force_knn(
         const handle_t &handle,
         vector[float*] &inputs,
@@ -88,20 +84,21 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
         handle_t &handle,
         knnIndex* index,
         knnIndexParam* params,
-        int D,
         DistanceType metric,
         float metricArg,
-        float *search_items,
-        int n
+        float *index_array,
+        int n,
+        int D
     ) except +
 
     void approx_knn_search(
-        knnIndex* index,
-        int n,
-        const float *x,
-        int k,
+        handle_t &handle,
         float *distances,
-        int64_t* labels
+        int64_t* indices,
+        knnIndex* index,
+        int k,
+        const float *query_array,
+        int n
     ) except +
 
 cdef extern from "cuml/neighbors/knn_sparse.hpp" namespace "ML::Sparse":
@@ -293,7 +290,7 @@ class NearestNeighbors(Base,
 
     X_m = CumlArrayDescriptor()
 
-    def __init__(self,
+    def __init__(self, *,
                  n_neighbors=5,
                  verbose=False,
                  handle=None,
@@ -304,9 +301,9 @@ class NearestNeighbors(Base,
                  metric_params=None,
                  output_type=None):
 
-        super(NearestNeighbors, self).__init__(handle=handle,
-                                               verbose=verbose,
-                                               output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
 
         self.n_neighbors = n_neighbors
         self.n_indices = 0
@@ -318,7 +315,7 @@ class NearestNeighbors(Base,
         self.algo_params = algo_params
         self.knn_index = <uintptr_t> 0
 
-    @generate_docstring()
+    @generate_docstring(X='dense_sparse')
     def fit(self, X, convert_dtype=True) -> "NearestNeighbors":
         """
         Fit GPU index for performing nearest neighbor queries.
@@ -374,11 +371,11 @@ class NearestNeighbors(Base,
             approx_knn_build_index(handle_[0],
                                    <knnIndex*>knn_index,
                                    <knnIndexParam*>algo_params,
-                                   <int>n_cols,
                                    <DistanceType>metric,
                                    <float>self.p,
                                    <float*><uintptr_t>self.X_m.ptr,
-                                   <int>self.n_rows)
+                                   <int>self.n_rows,
+                                   <int>n_cols)
             self.handle.sync()
 
             destroy_algo_params(<uintptr_t>algo_params)
@@ -675,15 +672,15 @@ class NearestNeighbors(Base,
         else:
             knn_index = <knnIndex*><uintptr_t> self.knn_index
             approx_knn_search(
-                <knnIndex*>knn_index,
-                <int>N,
-                <float*><uintptr_t>X_m.ptr,
-                <int>n_neighbors,
+                handle_[0],
                 <float*>D_ptr,
-                <int64_t*>I_ptr
+                <int64_t*>I_ptr,
+                <knnIndex*>knn_index,
+                <int>n_neighbors,
+                <float*><uintptr_t>X_m.ptr,
+                <int>N
             )
 
-        self.handle.sync()
         return D_ndarr, I_ndarr
 
     def _kneighbors_sparse(self, X, n_neighbors):
@@ -831,7 +828,7 @@ class NearestNeighbors(Base,
 @cuml.internals.api_return_sparse_array()
 def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
                      handle=None, algorithm="brute", metric="euclidean", p=2,
-                     include_self=False, metric_params=None, output_type=None):
+                     include_self=False, metric_params=None):
     """
     Computes the (weighted) graph of k-Neighbors for points in X.
 
@@ -882,18 +879,6 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
 
     metric_params : dict, optional (default = None) This is currently ignored.
 
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
-
-        .. deprecated:: 0.17
-           `output_type` is deprecated in 0.17 and will be removed in 0.18.
-           Please use the module level output type control,
-           `cuml.global_settings.output_type`.
-           See :ref:`output-data-type-configuration` for more info.
-
     Returns
     -------
     A : sparse graph in CSR format, shape = (n_samples, n_samples_fit)
@@ -904,17 +889,21 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
         numpy's CSR sparse graph (host)
 
     """
+    # Set the default output type to "cupy". This will be ignored if the user
+    # has set `cuml.global_settings.output_type`. Only necessary for array
+    # generation methods that do not take an array as input
+    cuml.internals.set_api_output_type("cupy")
 
-    # Check for deprecated `output_type` and warn. Set manually if specified
-    if output_type is not None:
-        warnings.warn("Using the `output_type` argument is deprecated and "
-                      "will be removed in 0.18. Please specify the output "
-                      "type using `cuml.using_output_type()` instead",
-                      DeprecationWarning)
-
-    X = NearestNeighbors(n_neighbors, verbose, handle, algorithm, metric, p,
-                         metric_params=metric_params,
-                         output_type=output_type).fit(X)
+    X = NearestNeighbors(
+        n_neighbors=n_neighbors,
+        verbose=verbose,
+        handle=handle,
+        algorithm=algorithm,
+        metric=metric,
+        p=p,
+        metric_params=metric_params,
+        output_type=cuml.global_settings.root_cm.output_type
+    ).fit(X)
 
     if include_self == 'auto':
         include_self = mode == 'connectivity'

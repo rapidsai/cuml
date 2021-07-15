@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -127,6 +127,16 @@ test_101_111_4 = ARIMAData(
     tolerance_integration=0.02
 )
 
+# ARIMA(5,1,0)
+test_510 = ARIMAData(
+    batch_size=3,
+    n_obs=101,
+    dataset="alcohol",
+    start=80,
+    end=110,
+    tolerance_integration=0.02
+)
+
 # ARIMA(1,1,1)(2,0,0)_4 with intercept
 test_111_200_4c = ARIMAData(
     batch_size=14,
@@ -168,6 +178,7 @@ test_data = [
     ((0, 1, 1, 0, 0, 0, 0, 1), test_011c),
     ((1, 2, 1, 0, 0, 0, 0, 1), test_121c),
     ((1, 0, 1, 1, 1, 1, 4, 0), test_101_111_4),
+    ((5, 1, 0, 0, 0, 0, 0, 0), test_510),
     ((1, 1, 1, 2, 0, 0, 4, 1), test_111_200_4c),
     ((1, 1, 2, 0, 1, 2, 4, 0), test_112_012_4),
     stress_param((1, 1, 1, 1, 1, 1, 12, 0), test_111_111_12),
@@ -240,8 +251,11 @@ def test_integration(key, data, dtype):
     ref_fits = get_ref_fit(data, order, seasonal_order, intercept, dtype)
 
     # Create and fit cuML model
-    cuml_model = arima.ARIMA(y_cudf, order, seasonal_order,
-                             fit_intercept=intercept, output_type='numpy')
+    cuml_model = arima.ARIMA(y_cudf,
+                             order=order,
+                             seasonal_order=seasonal_order,
+                             fit_intercept=intercept,
+                             output_type='numpy')
     cuml_model.fit()
 
     # Predict
@@ -266,7 +280,6 @@ def _statsmodels_to_cuml(ref_fits, cuml_model, order, seasonal_order,
         in statsmodels and cuML models (it depends on the order).
 
     """
-
     nb = cuml_model.batch_size
     N = cuml_model.complexity
     x = np.zeros(nb * N, dtype=np.float64)
@@ -290,8 +303,11 @@ def _predict_common(key, data, dtype, start, end, num_steps=None, level=None,
     ref_fits = get_ref_fit(data, order, seasonal_order, intercept, dtype)
 
     # Create cuML model
-    cuml_model = arima.ARIMA(y_cudf, order, seasonal_order,
-                             fit_intercept=intercept, output_type='numpy',
+    cuml_model = arima.ARIMA(y_cudf,
+                             order=order,
+                             seasonal_order=seasonal_order,
+                             fit_intercept=intercept,
+                             output_type='numpy',
                              simple_differencing=simple_differencing)
 
     # Feed the parameters to the cuML model
@@ -383,9 +399,11 @@ def test_loglikelihood(key, data, dtype, simple_differencing):
     ref_fits = get_ref_fit(data, order, seasonal_order, intercept, dtype)
 
     # Create cuML model
-    cuml_model = arima.ARIMA(
-        y_cudf, order, seasonal_order, fit_intercept=intercept,
-        simple_differencing=simple_differencing)
+    cuml_model = arima.ARIMA(y_cudf,
+                             order=order,
+                             seasonal_order=seasonal_order,
+                             fit_intercept=intercept,
+                             simple_differencing=simple_differencing)
 
     # Feed the parameters to the cuML model
     _statsmodels_to_cuml(ref_fits, cuml_model, order, seasonal_order,
@@ -417,7 +435,9 @@ def test_gradient(key, data, dtype):
     _, y_cudf = get_dataset(data, dtype)
 
     # Create cuML model
-    cuml_model = arima.ARIMA(y_cudf, order, seasonal_order,
+    cuml_model = arima.ARIMA(y_cudf,
+                             order=order,
+                             seasonal_order=seasonal_order,
                              fit_intercept=intercept)
 
     # Get an estimate of the parameters and pack them into a vector
@@ -431,7 +451,9 @@ def test_gradient(key, data, dtype):
     scipy_grad = np.zeros(N * data.batch_size)
     for i in range(data.batch_size):
         # Create a model with only the current series
-        model_i = arima.ARIMA(y_cudf[y_cudf.columns[i]], order, seasonal_order,
+        model_i = arima.ARIMA(y_cudf[y_cudf.columns[i]],
+                              order=order,
+                              seasonal_order=seasonal_order,
                               fit_intercept=intercept)
 
         def f(x):
@@ -454,8 +476,10 @@ def test_start_params(key, data, dtype):
     y, y_cudf = get_dataset(data, dtype)
 
     # Create models
-    cuml_model = arima.ARIMA(
-        y_cudf, order, seasonal_order, fit_intercept=intercept)
+    cuml_model = arima.ARIMA(y_cudf,
+                             order=order,
+                             seasonal_order=seasonal_order,
+                             fit_intercept=intercept)
     ref_model = [sm.tsa.SARIMAX(y[col], order=order,
                                 seasonal_order=seasonal_order,
                                 trend='c' if intercept else 'n')

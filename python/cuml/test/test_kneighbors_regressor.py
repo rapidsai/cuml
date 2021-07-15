@@ -1,5 +1,5 @@
 
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -145,6 +145,6 @@ def test_predict_multioutput(input_type, output_type):
     elif output_type == "numpy":
         assert isinstance(p, np.ndarray)
     elif output_type == "cupy":
-        assert isinstance(p, cp.core.core.ndarray)
+        assert isinstance(p, cp.ndarray)
 
     assert array_equal(p.astype(np.int32), y)

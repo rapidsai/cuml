@@ -49,7 +49,7 @@ struct node {
     functions_begin,
     // different binary function types follow
     binary_begin = functions_begin,
-    add = binary_begin,
+    add          = binary_begin,
     atan2,
     div,
     fdim,
@@ -84,7 +84,7 @@ struct node {
     sqrt,
     tan,
     tanh,
-    unary_end = tanh,  // keep this to be the last unary function in the list
+    unary_end     = tanh,  // keep this to be the last unary function in the list
     functions_end = unary_end,
   };  // enum type
 

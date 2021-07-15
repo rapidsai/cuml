@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -116,7 +116,7 @@ class PCAMG(BaseDecompositionMG, PCA):
 
     def _build_params(self, n_rows, n_cols):
         cpdef paramsPCAMG *params = new paramsPCAMG()
-        params.n_components = self.n_components
+        params.n_components = self._n_components
         params.n_rows = n_rows
         params.n_cols = n_cols
         params.whiten = self.whiten

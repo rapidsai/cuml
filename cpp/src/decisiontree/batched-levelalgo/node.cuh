@@ -20,7 +20,7 @@
 #include "split.cuh"
 
 namespace ML {
-namespace DecisionTree {
+namespace DT {
 
 /**
  * @brief All info pertaining to a node in the decision tree.
@@ -49,12 +49,13 @@ struct Node {
   /**
    * @brief Initialize the underlying sparse tree node struct
    */
-  HDI void initSpNode() volatile {
-    info.prediction = LabelT(0);
-    info.colid = Leaf;
-    info.quesval = DataT(0);
+  HDI void initSpNode() volatile
+  {
+    info.prediction      = LabelT(0);
+    info.colid           = Leaf;
+    info.quesval         = DataT(0);
     info.best_metric_val = DataT(0);
-    info.left_child_id = Leaf;
+    info.left_child_id   = Leaf;
   }
 
   /**
@@ -67,12 +68,13 @@ struct Node {
    *
    * @note to be called only by one thread across all participating threadblocks
    */
-  DI void makeLeaf(IdxT* n_leaves, LabelT pred) volatile {
-    info.prediction = pred;
-    info.colid = Leaf;
-    info.quesval = DataT(0);          // don't care for leaf nodes
+  DI void makeLeaf(IdxT* n_leaves, LabelT pred) volatile
+  {
+    info.prediction      = pred;
+    info.colid           = Leaf;
+    info.quesval         = DataT(0);  // don't care for leaf nodes
     info.best_metric_val = DataT(0);  // don't care for leaf nodes
-    info.left_child_id = Leaf;
+    info.left_child_id   = Leaf;
     atomicAdd(n_leaves, 1);
     __threadfence();
   }
@@ -90,28 +92,32 @@ struct Node {
    *
    * @note to be called only by one thread across all participating threadblocks
    */
-  DI IdxT makeChildNodes(IdxT* n_nodes, IdxT total_nodes, volatile NodeT* nodes,
-                         const SplitT& split, IdxT* n_depth) volatile {
+  DI IdxT makeChildNodes(IdxT* n_nodes,
+                         IdxT total_nodes,
+                         volatile NodeT* nodes,
+                         const SplitT& split,
+                         IdxT* n_depth) volatile
+  {
     IdxT pos = atomicAdd(n_nodes, 2);
     // current
-    info.prediction = LabelT(0);  // don't care for non-leaf nodes
-    info.colid = split.colid;
-    info.quesval = split.quesval;
+    info.prediction      = LabelT(0);  // don't care for non-leaf nodes
+    info.colid           = split.colid;
+    info.quesval         = split.quesval;
     info.best_metric_val = split.best_metric_val;
-    info.left_child_id = total_nodes + pos;
+    info.left_child_id   = total_nodes + pos;
     // left
     nodes[pos].initSpNode();
-    nodes[pos].depth = depth + 1;
-    nodes[pos].start = start;
-    nodes[pos].count = split.nLeft;
+    nodes[pos].depth          = depth + 1;
+    nodes[pos].start          = start;
+    nodes[pos].count          = split.nLeft;
     nodes[pos].info.unique_id = 2 * info.unique_id + 1;
     // right
     ++pos;
     nodes[pos].initSpNode();
-    nodes[pos].depth = depth + 1;
-    nodes[pos].start = start + split.nLeft;
-    nodes[pos].count = count - split.nLeft;
-    nodes[pos].info.unique_id = 2 * info.unique_id + 1;
+    nodes[pos].depth          = depth + 1;
+    nodes[pos].start          = start + split.nLeft;
+    nodes[pos].count          = count - split.nLeft;
+    nodes[pos].info.unique_id = 2 * info.unique_id + 2;
     // update depth
     auto val = atomicMax(n_depth, depth + 1);
     __threadfence();
@@ -120,19 +126,25 @@ struct Node {
 };  // end Node
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB = 256>
-void printNodes(Node<DataT, LabelT, IdxT>* nodes, IdxT len, cudaStream_t s) {
+void printNodes(Node<DataT, LabelT, IdxT>* nodes, IdxT len, cudaStream_t s)
+{
   auto op = [] __device__(Node<DataT, LabelT, IdxT> * ptr, IdxT idx) {
     printf(
       "prediction = %d, colid = %d, quesval = %f, best_metric_val = %f, "
       "left_child_id = %d, start = %d, count = %d, depth = %d\n",
-      ptr->info.prediction, ptr->info.colid, ptr->info.quesval,
-      ptr->info.best_metric_val, ptr->info.left_child_id, ptr->start,
-      ptr->count, ptr->depth);
+      ptr->info.prediction,
+      ptr->info.colid,
+      ptr->info.quesval,
+      ptr->info.best_metric_val,
+      ptr->info.left_child_id,
+      ptr->start,
+      ptr->count,
+      ptr->depth);
   };
-  raft::linalg::writeOnlyUnaryOp<Node<DataT, LabelT, IdxT>, decltype(op), IdxT,
-                                 TPB>(nodes, len, op, s);
+  raft::linalg::writeOnlyUnaryOp<Node<DataT, LabelT, IdxT>, decltype(op), IdxT, TPB>(
+    nodes, len, op, s);
   CUDA_CHECK(cudaDeviceSynchronize());
 }
 
-}  // namespace DecisionTree
+}  // namespace DT
 }  // namespace ML

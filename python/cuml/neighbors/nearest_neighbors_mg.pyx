@@ -67,8 +67,8 @@ class NearestNeighborsMG(NearestNeighbors):
     The end-user API for multi-node multi-GPU NearestNeighbors is
     `cuml.dask.neighbors.NearestNeighbors`
     """
-    def __init__(self, batch_size=2000000, **kwargs):
-        super(NearestNeighborsMG, self).__init__(**kwargs)
+    def __init__(self, *, batch_size=2000000, **kwargs):
+        super().__init__(**kwargs)
         self.batch_size = batch_size
 
     @api_base_return_generic_skipall
@@ -201,13 +201,16 @@ class NearestNeighborsMG(NearestNeighbors):
         else:
             raise ValueError('Wrong dtype')
 
+        def to_cupy(data):
+            data, _, _, _ = input_to_cuml_array(data)
+            return data.to_output('cupy')
+
         outputs_cai = []
         for i, arr in enumerate(outputs):
-            for j in range(arr.shape[1]):
-                if isinstance(arr, cudfDataFrame):
-                    col = arr.iloc[:, j]
-                else:
-                    col = arr[:, j]
+            arr = to_cupy(arr)
+            n_features = arr.shape[1] if arr.ndim != 1 else 1
+            for j in range(n_features):
+                col = arr[:, j] if n_features != 1 else arr
                 out_ai, _, _, _ = \
                     input_to_cuml_array(col, order="F",
                                         convert_to_dtype=(dtype

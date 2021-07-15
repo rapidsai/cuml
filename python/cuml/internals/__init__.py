@@ -19,6 +19,7 @@ from cuml.internals.base_helpers import (
     _tags_class_and_instance
 )
 from cuml.internals.api_decorators import (
+    _deprecate_pos_args,
     api_base_fit_transform,
     api_base_return_any_skipall,
     api_base_return_any,
@@ -34,6 +35,7 @@ from cuml.internals.api_decorators import (
     api_return_array,
     api_return_generic,
     api_return_sparse_array,
+    CUML_WRAPPED_FLAG,
     exit_internal_api,
 )
 from cuml.internals.api_context_managers import (

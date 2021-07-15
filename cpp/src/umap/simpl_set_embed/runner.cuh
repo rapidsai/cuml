@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cuml/manifold/umapparams.h>
+#include <raft/mr/device/allocator.hpp>
 #include "algo.cuh"
 
 #include <raft/sparse/coo.cuh>
@@ -28,13 +29,17 @@ namespace SimplSetEmbed {
 using namespace ML;
 
 template <int TPB_X, typename T>
-void run(int m, int n, raft::sparse::COO<T> *coo, UMAPParams *params,
-         T *embedding, std::shared_ptr<deviceAllocator> alloc,
-         cudaStream_t stream, int algorithm = 0) {
+void run(int m,
+         int n,
+         raft::sparse::COO<T>* coo,
+         UMAPParams* params,
+         T* embedding,
+         std::shared_ptr<raft::mr::device::allocator> alloc,
+         cudaStream_t stream,
+         int algorithm = 0)
+{
   switch (algorithm) {
-    case 0:
-      SimplSetEmbed::Algo::launcher<TPB_X, T>(m, n, coo, params, embedding,
-                                              alloc, stream);
+    case 0: SimplSetEmbed::Algo::launcher<TPB_X, T>(m, n, coo, params, embedding, alloc, stream);
   }
 }
 }  // namespace SimplSetEmbed

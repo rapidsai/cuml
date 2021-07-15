@@ -149,14 +149,14 @@ class MBSGDRegressor(Base,
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDRegressor.html>`_.
     """
 
-    def __init__(self, loss='squared_loss', penalty='l2', alpha=0.0001,
+    def __init__(self, *, loss='squared_loss', penalty='l2', alpha=0.0001,
                  l1_ratio=0.15, fit_intercept=True, epochs=1000, tol=1e-3,
                  shuffle=True, learning_rate='constant', eta0=0.001,
                  power_t=0.5, batch_size=32, n_iter_no_change=5, handle=None,
                  verbose=False, output_type=None):
-        super(MBSGDRegressor, self).__init__(handle=handle,
-                                             verbose=verbose,
-                                             output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
         if loss in ['squared_loss']:
             self.loss = loss
         else:

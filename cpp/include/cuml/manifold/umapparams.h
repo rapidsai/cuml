@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -127,32 +127,35 @@ class UMAPParams {
   float b = -1.0;
 
   /**
-         * Initial learning rate for SGD
-         */
+   * Initial learning rate for SGD
+   */
   float initial_alpha = 1.0;
 
   /**
-         * Embedding initializer algorithm
-         * 0 = random layout
-         * 1 = spectral layout
-         */
+   * Embedding initializer algorithm
+   * 0 = random layout
+   * 1 = spectral layout
+   */
   int init = 1;
 
   /**
-         * The number of nearest neighbors to use to construct the target simplicial
-         * set. If set to -1, use the n_neighbors value.
-         */
+   * The number of nearest neighbors to use to construct the target simplicial
+   * set. If set to -1, use the n_neighbors value.
+   */
   int target_n_neighbors = -1;
 
   MetricType target_metric = CATEGORICAL;
 
-  float target_weights = 0.5;
+  float target_weight = 0.5;
 
   uint64_t random_state = 0;
 
-  bool multicore_implem = true;
-
-  int optim_batch_size = 0;
+  /**
+   *  Whether should we use deterministic algorithm.  This should be set to true if
+      random_state is provided, otherwise it's false.  When it's true, cuml will have
+      higher memory usage but produce stable numeric output.
+   */
+  bool deterministic = true;
 
   Internals::GraphBasedDimRedCallback* callback = nullptr;
 };

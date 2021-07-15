@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,6 +24,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/unary_op.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include "jones_transform.cuh"
 
 namespace MLCommon {
@@ -41,7 +42,8 @@ namespace TimeSeries {
  * @return             The value of the coefficient
  */
 template <bool isAr, typename DataT>
-HDI DataT _param_to_poly(const DataT* param, int lags, int idx) {
+HDI DataT _param_to_poly(const DataT* param, int lags, int idx)
+{
   if (idx > lags) {
     return 0.0;
   } else if (idx) {
@@ -66,10 +68,11 @@ HDI DataT _param_to_poly(const DataT* param, int lags, int idx) {
  * @return             The value of the coefficient
  */
 template <bool isAr, typename DataT>
-HDI DataT reduced_polynomial(int bid, const DataT* param, int lags,
-                             const DataT* sparam, int slags, int s, int idx) {
-  int idx1 = s ? idx / s : 0;
-  int idx0 = idx - s * idx1;
+HDI DataT reduced_polynomial(
+  int bid, const DataT* param, int lags, const DataT* sparam, int slags, int s, int idx)
+{
+  int idx1    = s ? idx / s : 0;
+  int idx0    = idx - s * idx1;
   DataT coef0 = _param_to_poly<isAr>(param + bid * lags, lags, idx0);
   DataT coef1 = _param_to_poly<isAr>(sparam + bid * slags, slags, idx1);
   return isAr ? -coef0 * coef1 : coef0 * coef1;
@@ -91,25 +94,30 @@ HDI DataT reduced_polynomial(int bid, const DataT* param, int lags,
  * @param[in]  stream      CUDA stream
  */
 template <typename DataT>
-void prepare_data(DataT* d_out, const DataT* d_in, int batch_size, int n_obs,
-                  int d, int D, int s, cudaStream_t stream) {
+void prepare_data(DataT* d_out,
+                  const DataT* d_in,
+                  int batch_size,
+                  int n_obs,
+                  int d,
+                  int D,
+                  int s,
+                  cudaStream_t stream)
+{
   // Only one difference (simple or seasonal)
   if (d + D == 1) {
     int period = d ? 1 : s;
-    int tpb = (n_obs - period) > 512 ? 256 : 128;  // quick heuristics
-    MLCommon::LinAlg::Batched::
-      batched_diff_kernel<<<batch_size, tpb, 0, stream>>>(d_in, d_out, n_obs,
-                                                          period);
+    int tpb    = (n_obs - period) > 512 ? 256 : 128;  // quick heuristics
+    MLCommon::LinAlg::Batched::batched_diff_kernel<<<batch_size, tpb, 0, stream>>>(
+      d_in, d_out, n_obs, period);
     CUDA_CHECK(cudaPeekAtLastError());
   }
   // Two differences (simple or seasonal or both)
   else if (d + D == 2) {
     int period1 = d ? 1 : s;
     int period2 = d == 2 ? 1 : s;
-    int tpb = (n_obs - period1 - period2) > 512 ? 256 : 128;
-    MLCommon::LinAlg::Batched::
-      batched_second_diff_kernel<<<batch_size, tpb, 0, stream>>>(
-        d_in, d_out, n_obs, period1, period2);
+    int tpb     = (n_obs - period1 - period2) > 512 ? 256 : 128;
+    MLCommon::LinAlg::Batched::batched_second_diff_kernel<<<batch_size, tpb, 0, stream>>>(
+      d_in, d_out, n_obs, period1, period2);
     CUDA_CHECK(cudaPeekAtLastError());
   }
   // If no difference and the pointers are different, copy in to out
@@ -126,8 +134,8 @@ void prepare_data(DataT* d_out, const DataT* d_in, int batch_size, int n_obs,
  *        another and the index is expressed relatively to the second array.
  */
 template <typename DataT>
-DI DataT _select_read(const DataT* src0, int size0, const DataT* src1,
-                      int idx) {
+DI DataT _select_read(const DataT* src0, int size0, const DataT* src1, int idx)
+{
   return idx < 0 ? src0[size0 + idx] : src1[idx];
 }
 
@@ -137,12 +145,18 @@ DI DataT _select_read(const DataT* src0, int size0, const DataT* src1,
  * @note  One thread per series.
  */
 template <bool double_diff, typename DataT>
-__global__ void _undiff_kernel(DataT* d_fc, const DataT* d_in, int num_steps,
-                               int batch_size, int in_ld, int n_in, int s0,
-                               int s1 = 0) {
+__global__ void _undiff_kernel(DataT* d_fc,
+                               const DataT* d_in,
+                               int num_steps,
+                               int batch_size,
+                               int in_ld,
+                               int n_in,
+                               int s0,
+                               int s1 = 0)
+{
   int bid = blockIdx.x * blockDim.x + threadIdx.x;
   if (bid < batch_size) {
-    DataT* b_fc = d_fc + bid * num_steps;
+    DataT* b_fc       = d_fc + bid * num_steps;
     const DataT* b_in = d_in + bid * in_ld;
     for (int i = 0; i < num_steps; i++) {
       if (!double_diff) {  // One simple or seasonal difference
@@ -175,21 +189,26 @@ __global__ void _undiff_kernel(DataT* d_fc, const DataT* d_in, int num_steps,
  * @param[in]    stream      CUDA stream
  */
 template <typename DataT>
-void finalize_forecast(DataT* d_fc, const DataT* d_in, int num_steps,
-                       int batch_size, int in_ld, int n_in, int d, int D, int s,
-                       cudaStream_t stream) {
+void finalize_forecast(DataT* d_fc,
+                       const DataT* d_in,
+                       int num_steps,
+                       int batch_size,
+                       int in_ld,
+                       int n_in,
+                       int d,
+                       int D,
+                       int s,
+                       cudaStream_t stream)
+{
   // Undifference
   constexpr int TPB = 64;  // One thread per series -> avoid big blocks
   if (d + D == 1) {
-    _undiff_kernel<false>
-      <<<raft::ceildiv<int>(batch_size, TPB), TPB, 0, stream>>>(
-        d_fc, d_in, num_steps, batch_size, in_ld, n_in, d ? 1 : s);
+    _undiff_kernel<false><<<raft::ceildiv<int>(batch_size, TPB), TPB, 0, stream>>>(
+      d_fc, d_in, num_steps, batch_size, in_ld, n_in, d ? 1 : s);
     CUDA_CHECK(cudaPeekAtLastError());
   } else if (d + D == 2) {
-    _undiff_kernel<true>
-      <<<raft::ceildiv<int>(batch_size, TPB), TPB, 0, stream>>>(
-        d_fc, d_in, num_steps, batch_size, in_ld, n_in, d ? 1 : s,
-        d == 2 ? 1 : s);
+    _undiff_kernel<true><<<raft::ceildiv<int>(batch_size, TPB), TPB, 0, stream>>>(
+      d_fc, d_in, num_steps, batch_size, in_ld, n_in, d ? 1 : s, d == 2 ? 1 : s);
     CUDA_CHECK(cudaPeekAtLastError());
   }
 }
@@ -208,29 +227,31 @@ void finalize_forecast(DataT* d_fc, const DataT* d_in, int num_steps,
  * @param[in]  stream     CUDA stream
  */
 template <typename DataT>
-void batched_jones_transform(const ML::ARIMAOrder& order, int batch_size,
-                             bool isInv, const ML::ARIMAParams<DataT>& params,
+void batched_jones_transform(const ML::ARIMAOrder& order,
+                             int batch_size,
+                             bool isInv,
+                             const ML::ARIMAParams<DataT>& params,
                              const ML::ARIMAParams<DataT>& Tparams,
-                             std::shared_ptr<deviceAllocator> allocator,
-                             cudaStream_t stream) {
+                             std::shared_ptr<raft::mr::device::allocator> allocator,
+                             cudaStream_t stream)
+{
   if (order.p)
-    jones_transform(params.ar, batch_size, order.p, Tparams.ar, true, isInv,
-                    allocator, stream);
+    jones_transform(params.ar, batch_size, order.p, Tparams.ar, true, isInv, allocator, stream);
   if (order.q)
-    jones_transform(params.ma, batch_size, order.q, Tparams.ma, false, isInv,
-                    allocator, stream);
+    jones_transform(params.ma, batch_size, order.q, Tparams.ma, false, isInv, allocator, stream);
   if (order.P)
-    jones_transform(params.sar, batch_size, order.P, Tparams.sar, true, isInv,
-                    allocator, stream);
+    jones_transform(params.sar, batch_size, order.P, Tparams.sar, true, isInv, allocator, stream);
   if (order.Q)
-    jones_transform(params.sma, batch_size, order.Q, Tparams.sma, false, isInv,
-                    allocator, stream);
+    jones_transform(params.sma, batch_size, order.Q, Tparams.sma, false, isInv, allocator, stream);
 
   // Constrain sigma2 to be strictly positive
   constexpr DataT min_sigma2 = 1e-6;
   raft::linalg::unaryOp<DataT>(
-    Tparams.sigma2, params.sigma2, batch_size,
-    [=] __device__(DataT input) { return max(input, min_sigma2); }, stream);
+    Tparams.sigma2,
+    params.sigma2,
+    batch_size,
+    [=] __device__(DataT input) { return max(input, min_sigma2); },
+    stream);
 }
 
 }  // namespace TimeSeries

@@ -21,6 +21,7 @@ from cuml.test.utils import get_pattern, unit_param, \
 
 from sklearn.cluster import DBSCAN as skDBSCAN
 from sklearn.datasets import make_blobs
+from sklearn.metrics import pairwise_distances
 from sklearn.preprocessing import StandardScaler
 
 
@@ -69,6 +70,44 @@ def test_dbscan(datatype, nrows, ncols,
         assert cu_labels.dtype == np.int32
     elif out_dtype == "int64" or out_dtype == np.int64:
         assert cu_labels.dtype == np.int64
+
+
+@pytest.mark.mg
+@pytest.mark.parametrize('max_mbytes_per_batch', [unit_param(1),
+                         quality_param(1e2), stress_param(None)])
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
+                         stress_param(10000)])
+@pytest.mark.parametrize('out_dtype', ["int32", "int64"])
+def test_dbscan_precomputed(datatype, nrows, max_mbytes_per_batch, out_dtype,
+                            client):
+    from cuml.dask.cluster.dbscan import DBSCAN as cuDBSCAN
+
+    # 2-dimensional dataset for easy distance matrix computation
+    X, y = make_blobs(n_samples=nrows, cluster_std=0.01,
+                      n_features=2, random_state=0)
+
+    # Precompute distances
+    X_dist = pairwise_distances(X).astype(datatype)
+
+    eps = 1
+    cuml_dbscan = cuDBSCAN(eps=eps, min_samples=2, metric='precomputed',
+                           max_mbytes_per_batch=max_mbytes_per_batch,
+                           output_type='numpy')
+
+    cu_labels = cuml_dbscan.fit_predict(X_dist, out_dtype=out_dtype)
+
+    sk_dbscan = skDBSCAN(eps=eps, min_samples=2, metric='precomputed',
+                         algorithm="brute")
+    sk_labels = sk_dbscan.fit_predict(X_dist)
+
+    # Check the core points are equal
+    assert array_equal(cuml_dbscan.core_sample_indices_,
+                       sk_dbscan.core_sample_indices_)
+
+    # Check the labels are correct
+    assert_dbscan_equal(sk_labels, cu_labels, X,
+                        cuml_dbscan.core_sample_indices_, eps)
 
 
 @pytest.mark.mg

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,14 +15,15 @@
  */
 
 #include <cuml/matrix/kernelparams.h>
+#include <common/ml_benchmark.hpp>
 #include <matrix/grammatrix.cuh>
 #include <matrix/kernelfactory.cuh>
 #include <memory>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng.cuh>
 #include <sstream>
 #include <string>
 #include <vector>
-#include "../common/ml_benchmark.hpp"
 
 namespace MLCommon {
 namespace Bench {
@@ -35,29 +36,33 @@ struct GramTestParams {
   int k;  // k parameter of the GEMM
   int n;  // n parameter of the GEMM
   KernelParams kernel_params;
+  bool is_row_major;
 };  // struct GramTestParams
 
 template <typename T>
 struct GramMatrix : public Fixture {
   GramMatrix(const std::string& name, const GramTestParams& p)
-    : Fixture(name, std::shared_ptr<deviceAllocator>(
-                      new raft::mr::device::default_allocator)),
-      params(p) {
+    : Fixture(
+        name,
+        std::shared_ptr<raft::mr::device::allocator>(new raft::mr::device::default_allocator)),
+      params(p)
+  {
     std::vector<std::string> kernel_names{"linear", "poly", "rbf", "tanh"};
     std::ostringstream oss;
-    oss << name << "/" << kernel_names[p.kernel_params.kernel] << "/" << p.m
-        << "x" << p.k << "x" << p.n;
+    oss << name << "/" << kernel_names[p.kernel_params.kernel] << "/" << p.m << "x" << p.k << "x"
+        << p.n << "/" << (p.is_row_major ? "row_major" : "col_major");
     this->SetName(oss.str().c_str());
 
     CUBLAS_CHECK(cublasCreate(&cublas_handle));
-    kernel = std::unique_ptr<GramMatrixBase<T>>(
-      KernelFactory<T>::create(p.kernel_params, cublas_handle));
+    kernel =
+      std::unique_ptr<GramMatrixBase<T>>(KernelFactory<T>::create(p.kernel_params, cublas_handle));
   }
 
   ~GramMatrix() { CUBLAS_CHECK(cublasDestroy(cublas_handle)); }
 
  protected:
-  void allocateBuffers(const ::benchmark::State& state) override {
+  void allocateBuffers(const ::benchmark::State& state) override
+  {
     alloc(A, params.m * params.k);
     alloc(B, params.k * params.n);
     alloc(C, params.m * params.n);
@@ -66,19 +71,25 @@ struct GramMatrix : public Fixture {
     r.uniform(B, params.k * params.n, T(-1.0), T(1.0), stream);
   }
 
-  void deallocateBuffers(const ::benchmark::State& state) override {
+  void deallocateBuffers(const ::benchmark::State& state) override
+  {
     dealloc(A, params.m * params.k);
     dealloc(B, params.k * params.n);
     dealloc(C, params.m * params.n);
   }
 
-  void runBenchmark(::benchmark::State& state) override {
-    if (!this->kernel) {
-      state.SkipWithError("Kernel matrix is not initialized");
-    }
+  void runBenchmark(::benchmark::State& state) override
+  {
+    if (!this->kernel) { state.SkipWithError("Kernel matrix is not initialized"); }
     loopOnState(state, [this]() {
-      (*this->kernel)(this->A, this->params.m, this->params.k, this->B,
-                      this->params.n, this->C, this->stream);
+      (*this->kernel)(this->A,
+                      this->params.m,
+                      this->params.k,
+                      this->B,
+                      this->params.n,
+                      this->C,
+                      this->params.is_row_major,
+                      this->stream);
     });
   }
 
@@ -92,25 +103,32 @@ struct GramMatrix : public Fixture {
   T* C;  // output matrix C, size [m*n]
 };
 
-static std::vector<GramTestParams> getInputs() {
+static std::vector<GramTestParams> getInputs()
+{
   std::vector<GramTestParams> param_vec;
-  std::vector<KernelParams> kernel_params{
-    KernelParams{LINEAR, 3, 1, 0}, KernelParams{POLYNOMIAL, 2, 1.3, 1},
-    KernelParams{TANH, 2, 0.5, 2.4}, KernelParams{RBF, 2, 0.5, 0}};
+  std::vector<KernelParams> kernel_params{KernelParams{LINEAR, 3, 1, 0},
+                                          KernelParams{POLYNOMIAL, 2, 1.3, 1},
+                                          KernelParams{TANH, 2, 0.5, 2.4},
+                                          KernelParams{RBF, 2, 0.5, 0}};
   struct TestSize {
     int m;
     int k;
     int n;
   };
-  std::vector<TestSize> data_size{{4096, 10, 1024},    {4096, 100, 1024},
-                                  {4096, 1000, 1024},  {4096, 10000, 1024},
-                                  {100000, 10, 1024},  {100000, 100, 1024},
+  std::vector<TestSize> data_size{{4096, 10, 1024},
+                                  {4096, 100, 1024},
+                                  {4096, 1000, 1024},
+                                  {4096, 10000, 1024},
+                                  {100000, 10, 1024},
+                                  {100000, 100, 1024},
                                   {100000, 1000, 1024}};
 
   param_vec.reserve(kernel_params.size() * data_size.size());
   for (TestSize s : data_size) {
     for (auto kernel : kernel_params) {
-      param_vec.push_back(GramTestParams{s.m, s.k, s.n, kernel});
+      for (bool row_major : {false, true}) {
+        param_vec.push_back(GramTestParams{s.m, s.k, s.n, kernel, row_major});
+      }
     }
   }
   return param_vec;

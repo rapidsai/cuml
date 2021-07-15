@@ -19,14 +19,16 @@
 #include <raft/cuda_utils.cuh>
 #include <vector>
 
+#include <raft/linalg/distance_type.h>
 #include <cuml/cluster/dbscan.hpp>
-#include <cuml/common/cuml_allocator.hpp>
-#include <cuml/cuml.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/metrics/metrics.hpp>
+#include <raft/distance/distance.cuh>
+#include <raft/mr/device/allocator.hpp>
 
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/transpose.h>
+#include <raft/handle.hpp>
 
 #include <test_utils.h>
 
@@ -55,30 +57,57 @@ struct DbscanInputs {
   int min_pts;
   size_t max_bytes_per_batch;
   unsigned long long int seed;
+  raft::distance::DistanceType metric;
 };
 
 template <typename T, typename IdxT>
-::std::ostream &operator<<(::std::ostream &os,
-                           const DbscanInputs<T, IdxT> &dims) {
+::std::ostream& operator<<(::std::ostream& os, const DbscanInputs<T, IdxT>& dims)
+{
   return os;
 }
 
 template <typename T, typename IdxT>
 class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
  protected:
-  void basicTest() {
+  void basicTest()
+  {
     raft::handle_t handle;
 
     params = ::testing::TestWithParam<DbscanInputs<T, IdxT>>::GetParam();
 
-    device_buffer<T> out(handle.get_device_allocator(), handle.get_stream(),
-                         params.n_row * params.n_col);
-    device_buffer<IdxT> l(handle.get_device_allocator(), handle.get_stream(),
-                          params.n_row);
+    device_buffer<T> out(
+      handle.get_device_allocator(), handle.get_stream(), params.n_row * params.n_col);
+    device_buffer<IdxT> l(handle.get_device_allocator(), handle.get_stream(), params.n_row);
+    device_buffer<T> dist(
+      handle.get_device_allocator(),
+      handle.get_stream(),
+      params.metric == raft::distance::Precomputed ? params.n_row * params.n_row : 0);
 
-    make_blobs(handle, out.data(), l.data(), params.n_row, params.n_col,
-               params.n_centers, true, nullptr, nullptr, params.cluster_std,
-               true, -10.0f, 10.0f, params.seed);
+    make_blobs(handle,
+               out.data(),
+               l.data(),
+               params.n_row,
+               params.n_col,
+               params.n_centers,
+               true,
+               nullptr,
+               nullptr,
+               params.cluster_std,
+               true,
+               -10.0f,
+               10.0f,
+               params.seed);
+
+    if (params.metric == raft::distance::Precomputed) {
+      ML::Metrics::pairwise_distance(handle,
+                                     out.data(),
+                                     out.data(),
+                                     dist.data(),
+                                     params.n_row,
+                                     params.n_row,
+                                     params.n_col,
+                                     raft::distance::L2SqrtUnexpanded);
+    }
 
     raft::allocate(labels, params.n_row);
     raft::allocate(labels_ref, params.n_row);
@@ -87,16 +116,23 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    Dbscan::fit(handle, out.data(), params.n_row, params.n_col, params.eps,
-                params.min_pts, labels, nullptr, params.max_bytes_per_batch);
+    Dbscan::fit(handle,
+                params.metric == raft::distance::Precomputed ? dist.data() : out.data(),
+                params.n_row,
+                params.n_col,
+                params.eps,
+                params.min_pts,
+                params.metric,
+                labels,
+                nullptr,
+                params.max_bytes_per_batch);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     score = adjusted_rand_index(handle, labels_ref, labels, params.n_row);
 
     if (score < 1.0) {
-      auto str = raft::arr2Str(labels_ref, params.n_row, "labels_ref",
-                               handle.get_stream());
+      auto str = raft::arr2Str(labels_ref, params.n_row, "labels_ref", handle.get_stream());
       CUML_LOG_DEBUG("y: %s", str.c_str());
       str = raft::arr2Str(labels, params.n_row, "labels", handle.get_stream());
       CUML_LOG_DEBUG("y_hat: %s", str.c_str());
@@ -106,7 +142,8 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
 
   void SetUp() override { basicTest(); }
 
-  void TearDown() override {
+  void TearDown() override
+  {
     CUDA_CHECK(cudaFree(labels));
     CUDA_CHECK(cudaFree(labels_ref));
   }
@@ -119,34 +156,37 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
 };
 
 const std::vector<DbscanInputs<float, int>> inputsf2 = {
-  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL},
-  {1000, 1000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL},
-  {20000, 10000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL},
-  {20000, 100, 5000, 0.01, 2, 2, (size_t)13e3, 1234ULL}};
+  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL, raft::distance::L2SqrtUnexpanded},
+  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL, raft::distance::Precomputed},
+  {1000, 1000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL, raft::distance::L2SqrtUnexpanded},
+  {20000, 10000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL, raft::distance::L2SqrtUnexpanded},
+  {20000, 100, 5000, 0.01, 2, 2, (size_t)13e3, 1234ULL, raft::distance::L2SqrtUnexpanded}};
 
 const std::vector<DbscanInputs<float, int64_t>> inputsf3 = {
-  {50000, 16, 5, 0.01, 2, 2, (size_t)9e3, 1234ULL},
-  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL},
-  {1000, 1000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL},
-  {50000, 16, 5l, 0.01, 2, 2, (size_t)9e3, 1234ULL},
-  {20000, 10000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL},
-  {20000, 100, 5000, 0.01, 2, 2, (size_t)9e3, 1234ULL}};
+  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL, raft::distance::L2SqrtUnexpanded},
+  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL, raft::distance::Precomputed},
+  {1000, 1000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL, raft::distance::L2SqrtUnexpanded},
+  {50000, 16, 5, 0.01, 2, 2, (size_t)9e3, 1234ULL, raft::distance::L2SqrtUnexpanded},
+  {20000, 10000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL, raft::distance::L2SqrtUnexpanded},
+  {20000, 100, 5000, 0.01, 2, 2, (size_t)9e3, 1234ULL, raft::distance::L2SqrtUnexpanded}};
 
 const std::vector<DbscanInputs<double, int>> inputsd2 = {
-  {50000, 16, 5, 0.01, 2, 2, (size_t)13e3, 1234ULL},
-  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL},
-  {1000, 1000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL},
-  {100, 10000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL},
-  {20000, 10000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL},
-  {20000, 100, 5000, 0.01, 2, 2, (size_t)13e3, 1234ULL}};
+  {50000, 16, 5, 0.01, 2, 2, (size_t)13e3, 1234ULL, raft::distance::L2SqrtUnexpanded},
+  {10000, 16, 5, 0.01, 2, 2, (size_t)13e3, 1234ULL, raft::distance::Precomputed},
+  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL, raft::distance::L2SqrtUnexpanded},
+  {1000, 1000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL, raft::distance::L2SqrtUnexpanded},
+  {100, 10000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL, raft::distance::L2SqrtUnexpanded},
+  {20000, 10000, 10, 0.01, 2, 2, (size_t)13e3, 1234ULL, raft::distance::L2SqrtUnexpanded},
+  {20000, 100, 5000, 0.01, 2, 2, (size_t)13e3, 1234ULL, raft::distance::L2SqrtUnexpanded}};
 
 const std::vector<DbscanInputs<double, int64_t>> inputsd3 = {
-  {50000, 16, 5, 0.01, 2, 2, (size_t)9e3, 1234ULL},
-  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL},
-  {1000, 1000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL},
-  {100, 10000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL},
-  {20000, 10000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL},
-  {20000, 100, 5000, 0.01, 2, 2, (size_t)9e3, 1234ULL}};
+  {50000, 16, 5, 0.01, 2, 2, (size_t)9e3, 1234ULL, raft::distance::L2SqrtUnexpanded},
+  {10000, 16, 5, 0.01, 2, 2, (size_t)9e3, 1234ULL, raft::distance::Precomputed},
+  {500, 16, 5, 0.01, 2, 2, (size_t)100, 1234ULL, raft::distance::L2SqrtUnexpanded},
+  {1000, 1000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL, raft::distance::L2SqrtUnexpanded},
+  {100, 10000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL, raft::distance::L2SqrtUnexpanded},
+  {20000, 10000, 10, 0.01, 2, 2, (size_t)9e3, 1234ULL, raft::distance::L2SqrtUnexpanded},
+  {20000, 100, 5000, 0.01, 2, 2, (size_t)9e3, 1234ULL, raft::distance::L2SqrtUnexpanded}};
 
 typedef DbscanTest<float, int> DbscanTestF_Int;
 TEST_P(DbscanTestF_Int, Result) { ASSERT_TRUE(score == 1.0); }
@@ -160,35 +200,32 @@ TEST_P(DbscanTestD_Int, Result) { ASSERT_TRUE(score == 1.0); }
 typedef DbscanTest<double, int64_t> DbscanTestD_Int64;
 TEST_P(DbscanTestD_Int64, Result) { ASSERT_TRUE(score == 1.0); }
 
-INSTANTIATE_TEST_CASE_P(DbscanTests, DbscanTestF_Int,
-                        ::testing::ValuesIn(inputsf2));
+INSTANTIATE_TEST_CASE_P(DbscanTests, DbscanTestF_Int, ::testing::ValuesIn(inputsf2));
 
-INSTANTIATE_TEST_CASE_P(DbscanTests, DbscanTestF_Int64,
-                        ::testing::ValuesIn(inputsf3));
+INSTANTIATE_TEST_CASE_P(DbscanTests, DbscanTestF_Int64, ::testing::ValuesIn(inputsf3));
 
-INSTANTIATE_TEST_CASE_P(DbscanTests, DbscanTestD_Int,
-                        ::testing::ValuesIn(inputsd2));
+INSTANTIATE_TEST_CASE_P(DbscanTests, DbscanTestD_Int, ::testing::ValuesIn(inputsd2));
 
-INSTANTIATE_TEST_CASE_P(DbscanTests, DbscanTestD_Int64,
-                        ::testing::ValuesIn(inputsd3));
+INSTANTIATE_TEST_CASE_P(DbscanTests, DbscanTestD_Int64, ::testing::ValuesIn(inputsd3));
 
 template <typename T>
 struct DBScan2DArrayInputs {
-  const T *points;
-  const int *out;
+  const T* points;
+  const int* out;
   size_t n_row;
   // n_out allows to compare less labels than we have inputs
   // (some output labels can be ambiguous)
   size_t n_out;
   T eps;
   int min_pts;
-  const int *core_indices;  //Expected core_indices
+  const int* core_indices;  // Expected core_indices
 };
 
 template <typename T>
 class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
  protected:
-  void basicTest() {
+  void basicTest()
+  {
     raft::handle_t handle;
 
     params = ::testing::TestWithParam<DBScan2DArrayInputs<T>>::GetParam();
@@ -202,30 +239,39 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
     raft::copy(labels_ref, params.out, params.n_out, handle.get_stream());
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    Dbscan::fit(handle, inputs, (int)params.n_row, 2, params.eps,
-                params.min_pts, labels, core_sample_indices_d);
+    Dbscan::fit(handle,
+                inputs,
+                (int)params.n_row,
+                2,
+                params.eps,
+                params.min_pts,
+                raft::distance::L2SqrtUnexpanded,
+                labels,
+                core_sample_indices_d);
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     score = adjusted_rand_index(handle, labels_ref, labels, (int)params.n_out);
 
     if (score < 1.0) {
-      auto str = raft::arr2Str(labels_ref, params.n_out, "labels_ref",
-                               handle.get_stream());
+      auto str = raft::arr2Str(labels_ref, params.n_out, "labels_ref", handle.get_stream());
       CUML_LOG_DEBUG("y: %s", str.c_str());
       str = raft::arr2Str(labels, params.n_row, "labels", handle.get_stream());
       CUML_LOG_DEBUG("y_hat: %s", str.c_str());
       CUML_LOG_DEBUG("Score = %lf", score);
     }
 
-    EXPECT_TRUE(raft::devArrMatchHost(
-      params.core_indices, core_sample_indices_d, params.n_row,
-      raft::Compare<int>(), handle.get_stream()));
+    EXPECT_TRUE(raft::devArrMatchHost(params.core_indices,
+                                      core_sample_indices_d,
+                                      params.n_row,
+                                      raft::Compare<int>(),
+                                      handle.get_stream()));
   }
 
   void SetUp() override { basicTest(); }
 
-  void TearDown() override {
+  void TearDown() override
+  {
     CUDA_CHECK(cudaFree(labels_ref));
     CUDA_CHECK(cudaFree(labels));
     CUDA_CHECK(cudaFree(inputs));
@@ -235,8 +281,8 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
  protected:
   DBScan2DArrayInputs<T> params;
   int *labels, *labels_ref;
-  int *core_sample_indices_d;
-  T *inputs;
+  int* core_sample_indices_d;
+  T* inputs;
 
   double score;
 };
@@ -249,10 +295,9 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
 // and the two points to the very right are not reachable from it
 // So there should be one cluster (the plus/star on the left)
 // and two noise points
-const std::vector<float> test2d1_f = {0,  0, 1, 0, 1, 1, 1,
-                                      -1, 2, 0, 3, 0, 4, 0};
+const std::vector<float> test2d1_f = {0, 0, 1, 0, 1, 1, 1, -1, 2, 0, 3, 0, 4, 0};
 const std::vector<double> test2d1_d(test2d1_f.begin(), test2d1_f.end());
-const std::vector<int> test2d1_l = {0, 0, 0, 0, 0, -1, -1};
+const std::vector<int> test2d1_l  = {0, 0, 0, 0, 0, -1, -1};
 const std::vector<int> test2d1c_l = {1, -1, -1, -1, -1, -1, -1};
 
 // The input looks like a long two-barred (orhodox) cross or
@@ -262,10 +307,9 @@ const std::vector<int> test2d1c_l = {1, -1, -1, -1, -1, -1, -1};
 //   .     .
 // There are 2 core-points but they are not reachable from each other
 // So there should be two clusters, both in the form of a plus/star
-const std::vector<float> test2d2_f = {0, 0, 1, 0, 1, 1, 1, -1, 2, 0,
-                                      3, 0, 4, 0, 4, 1, 4, -1, 5, 0};
+const std::vector<float> test2d2_f = {0, 0, 1, 0, 1, 1, 1, -1, 2, 0, 3, 0, 4, 0, 4, 1, 4, -1, 5, 0};
 const std::vector<double> test2d2_d(test2d2_f.begin(), test2d2_f.end());
-const std::vector<int> test2d2_l = {0, 0, 0, 0, 0, 1, 1, 1, 1, 1};
+const std::vector<int> test2d2_l  = {0, 0, 0, 0, 0, 1, 1, 1, 1, 1};
 const std::vector<int> test2d2c_l = {1, 6, -1, -1, -1, -1, -1, -1, -1, -1};
 
 // The input looks like a two-barred (orhodox) cross or
@@ -280,28 +324,75 @@ const std::vector<int> test2d2c_l = {1, 6, -1, -1, -1, -1, -1, -1, -1, -1};
 // as it will depend on the order in which we process the core-points.
 // Note that there are 9 input points, but only 8 labels for this reason
 const std::vector<float> test2d3_f = {
-  0, 0, 1, 0, 1, 1, 1, -1, 3, 0, 3, 1, 3, -1, 4, 0, 2, 0,
+  0,
+  0,
+  1,
+  0,
+  1,
+  1,
+  1,
+  -1,
+  3,
+  0,
+  3,
+  1,
+  3,
+  -1,
+  4,
+  0,
+  2,
+  0,
 };
 const std::vector<double> test2d3_d(test2d3_f.begin(), test2d3_f.end());
-const std::vector<int> test2d3_l = {0, 0, 0, 0, 1, 1, 1, 1};
+const std::vector<int> test2d3_l  = {0, 0, 0, 0, 1, 1, 1, 1};
 const std::vector<int> test2d3c_l = {1, 4, -1, -1, -1, -1, -1, -1, -1};
 
 const std::vector<DBScan2DArrayInputs<float>> inputs2d_f = {
-  {test2d1_f.data(), test2d1_l.data(), test2d1_f.size() / 2, test2d1_l.size(),
-   1.1f, 4, test2d1c_l.data()},
-  {test2d2_f.data(), test2d2_l.data(), test2d2_f.size() / 2, test2d2_l.size(),
-   1.1f, 4, test2d2c_l.data()},
-  {test2d3_f.data(), test2d3_l.data(), test2d3_f.size() / 2, test2d3_l.size(),
-   1.1f, 4, test2d3c_l.data()},
+  {test2d1_f.data(),
+   test2d1_l.data(),
+   test2d1_f.size() / 2,
+   test2d1_l.size(),
+   1.1f,
+   4,
+   test2d1c_l.data()},
+  {test2d2_f.data(),
+   test2d2_l.data(),
+   test2d2_f.size() / 2,
+   test2d2_l.size(),
+   1.1f,
+   4,
+   test2d2c_l.data()},
+  {test2d3_f.data(),
+   test2d3_l.data(),
+   test2d3_f.size() / 2,
+   test2d3_l.size(),
+   1.1f,
+   4,
+   test2d3c_l.data()},
 };
 
 const std::vector<DBScan2DArrayInputs<double>> inputs2d_d = {
-  {test2d1_d.data(), test2d1_l.data(), test2d1_d.size() / 2, test2d1_l.size(),
-   1.1, 4, test2d1c_l.data()},
-  {test2d2_d.data(), test2d2_l.data(), test2d2_d.size() / 2, test2d2_l.size(),
-   1.1, 4, test2d2c_l.data()},
-  {test2d3_d.data(), test2d3_l.data(), test2d3_d.size() / 2, test2d3_l.size(),
-   1.1, 4, test2d3c_l.data()},
+  {test2d1_d.data(),
+   test2d1_l.data(),
+   test2d1_d.size() / 2,
+   test2d1_l.size(),
+   1.1,
+   4,
+   test2d1c_l.data()},
+  {test2d2_d.data(),
+   test2d2_l.data(),
+   test2d2_d.size() / 2,
+   test2d2_l.size(),
+   1.1,
+   4,
+   test2d2c_l.data()},
+  {test2d3_d.data(),
+   test2d3_l.data(),
+   test2d3_d.size() / 2,
+   test2d3_l.size(),
+   1.1,
+   4,
+   test2d3c_l.data()},
 };
 
 typedef Dbscan2DSimple<float> Dbscan2DSimple_F;
@@ -310,10 +401,8 @@ TEST_P(Dbscan2DSimple_F, Result) { ASSERT_TRUE(score == 1.0); }
 typedef Dbscan2DSimple<double> Dbscan2DSimple_D;
 TEST_P(Dbscan2DSimple_D, Result) { ASSERT_TRUE(score == 1.0); }
 
-INSTANTIATE_TEST_CASE_P(DbscanTests, Dbscan2DSimple_F,
-                        ::testing::ValuesIn(inputs2d_f));
+INSTANTIATE_TEST_CASE_P(DbscanTests, Dbscan2DSimple_F, ::testing::ValuesIn(inputs2d_f));
 
-INSTANTIATE_TEST_CASE_P(DbscanTests, Dbscan2DSimple_D,
-                        ::testing::ValuesIn(inputs2d_d));
+INSTANTIATE_TEST_CASE_P(DbscanTests, Dbscan2DSimple_D, ::testing::ValuesIn(inputs2d_d));
 
 }  // end namespace ML

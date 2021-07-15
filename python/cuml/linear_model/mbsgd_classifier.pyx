@@ -158,14 +158,14 @@ class MBSGDClassifier(Base,
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.SGDClassifier.html>`_.
     """
 
-    def __init__(self, loss='hinge', penalty='l2', alpha=0.0001,
+    def __init__(self, *, loss='hinge', penalty='l2', alpha=0.0001,
                  l1_ratio=0.15, fit_intercept=True, epochs=1000, tol=1e-3,
                  shuffle=True, learning_rate='constant', eta0=0.001,
                  power_t=0.5, batch_size=32, n_iter_no_change=5, handle=None,
                  verbose=False, output_type=None):
-        super(MBSGDClassifier, self).__init__(handle=handle,
-                                              verbose=verbose,
-                                              output_type=output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
         self.loss = loss
         self.penalty = penalty
         self.alpha = alpha

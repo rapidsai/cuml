@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -41,7 +41,8 @@ solver_models = solver_config.get_models()
 
 cluster_config = ClassEnumerator(
     module=cuml.cluster,
-    exclude_classes=[cuml.DBSCAN]
+    exclude_classes=[cuml.DBSCAN,
+                     cuml.AgglomerativeClustering]
 )
 cluster_models = cluster_config.get_models()
 
@@ -55,6 +56,8 @@ neighbor_config = ClassEnumerator(module=cuml.neighbors)
 neighbor_models = neighbor_config.get_models()
 
 dbscan_model = {"DBSCAN": cuml.DBSCAN}
+
+agglomerative_model = {"AgglomerativeClustering": cuml.AgglomerativeClustering}
 
 umap_model = {"UMAP": cuml.UMAP}
 
@@ -95,6 +98,7 @@ all_models.update({
     **decomposition_models_xfail,
     **neighbor_models,
     **dbscan_model,
+    **agglomerative_model,
     **umap_model,
     **rf_models,
     **k_neighbors_models,
@@ -196,6 +200,16 @@ def test_rf_regression_pickle(tmpdir, datatype, nrows, ncols, n_info,
                                        stress_param([500000, 1000, 500])])
 @pytest.mark.parametrize('fit_intercept', [True, False])
 def test_regressor_pickle(tmpdir, datatype, keys, data_size, fit_intercept):
+    if data_size[0] == 500000 and datatype == np.float64 and \
+            ("LogisticRegression" in keys or "Ridge" in keys) and \
+            pytest.max_gpu_memory < 32:
+        if pytest.adapt_stress_test:
+            data_size[0] = data_size[0] * pytest.max_gpu_memory // 640
+            data_size[1] = data_size[1] * pytest.max_gpu_memory // 640
+            data_size[2] = data_size[2] * pytest.max_gpu_memory // 640
+        else:
+            pytest.skip("Insufficient GPU memory for this test."
+                        "Re-run with 'CUML_ADAPT_STRESS_TESTS=True'")
     result = {}
 
     def create_mod():
@@ -380,6 +394,14 @@ def test_unfit_clone(model_name):
 @pytest.mark.parametrize('data_info', [unit_param([500, 20, 10, 5]),
                                        stress_param([500000, 1000, 500, 50])])
 def test_neighbors_pickle(tmpdir, datatype, keys, data_info):
+    if data_info[0] == 500000 and pytest.max_gpu_memory < 32 and \
+            ("KNeighborsClassifier" in keys or "KNeighborsRegressor" in keys):
+        if pytest.adapt_stress_test:
+            data_info[0] = data_info[0] * pytest.max_gpu_memory // 32
+        else:
+            pytest.skip("Insufficient GPU memory for this test."
+                        "Re-run with 'CUML_ADAPT_STRESS_TESTS=True'")
+
     result = {}
 
     def create_mod():
@@ -410,6 +432,13 @@ def test_neighbors_pickle(tmpdir, datatype, keys, data_info):
                                                      50])])
 @pytest.mark.parametrize('keys', k_neighbors_models.keys())
 def test_k_neighbors_classifier_pickle(tmpdir, datatype, data_info, keys):
+    if data_info[0] == 500000 and "NearestNeighbors" in keys and \
+            pytest.max_gpu_memory < 32:
+        if pytest.adapt_stress_test:
+            data_info[0] = data_info[0] * pytest.max_gpu_memory // 32
+        else:
+            pytest.skip("Insufficient GPU memory for this test."
+                        "Re-run with 'CUML_ADAPT_STRESS_TESTS=True'")
     result = {}
 
     def create_mod():
@@ -472,6 +501,12 @@ def test_neighbors_pickle_nofit(tmpdir, datatype, data_info):
 @pytest.mark.parametrize('data_size', [unit_param([500, 20, 10]),
                                        stress_param([500000, 1000, 500])])
 def test_dbscan_pickle(tmpdir, datatype, keys, data_size):
+    if data_size[0] == 500000 and pytest.max_gpu_memory < 32:
+        if pytest.adapt_stress_test:
+            data_size[0] = data_size[0] * pytest.max_gpu_memory // 32
+        else:
+            pytest.skip("Insufficient GPU memory for this test."
+                        "Re-run with 'CUML_ADAPT_STRESS_TESTS=True'")
     result = {}
 
     def create_mod():
@@ -484,6 +519,27 @@ def test_dbscan_pickle(tmpdir, datatype, keys, data_size):
     def assert_model(pickled_model, X_train):
         pickle_after_predict = pickled_model.fit_predict(X_train)
         assert array_equal(result["dbscan"], pickle_after_predict)
+
+    pickle_save_load(tmpdir, create_mod, assert_model)
+
+
+@pytest.mark.parametrize('datatype', [np.float32, np.float64])
+@pytest.mark.parametrize('keys', agglomerative_model.keys())
+@pytest.mark.parametrize('data_size', [unit_param([500, 20, 10]),
+                                       stress_param([500000, 1000, 500])])
+def test_agglomerative_pickle(tmpdir, datatype, keys, data_size):
+    result = {}
+
+    def create_mod():
+        nrows, ncols, n_info = data_size
+        X_train, _, _ = make_dataset(datatype, nrows, ncols, n_info)
+        model = agglomerative_model[keys]()
+        result["agglomerative"] = model.fit_predict(X_train)
+        return model, X_train
+
+    def assert_model(pickled_model, X_train):
+        pickle_after_predict = pickled_model.fit_predict(X_train)
+        assert array_equal(result["agglomerative"], pickle_after_predict)
 
     pickle_save_load(tmpdir, create_mod, assert_model)
 
@@ -657,7 +713,8 @@ def test_small_rf(tmpdir, key, datatype, nrows, ncols, n_info):
                                                                n_info,
                                                                n_classes=2)
         model = rf_models[key](n_estimators=1, max_depth=1,
-                               max_features=1.0, random_state=10)
+                               max_features=1.0, random_state=10,
+                               n_bins=32)
         model.fit(X_train, y_train)
         result['rf_res'] = model.predict(X_test)
         return model, X_test

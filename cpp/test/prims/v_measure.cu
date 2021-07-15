@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,16 +16,16 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <algorithm>
-#include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
 #include <metrics/v_measure.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <random>
 #include "test_utils.h"
 
 namespace MLCommon {
 namespace Metrics {
 
-//parameter structure definition
+// parameter structure definition
 struct vMeasureParam {
   int nElements;
   int lowerLabelRange;
@@ -35,37 +35,35 @@ struct vMeasureParam {
   double tolerance;
 };
 
-//test fixture class
+// test fixture class
 template <typename T>
 class vMeasureTest : public ::testing::TestWithParam<vMeasureParam> {
  protected:
-  //the constructor
-  void SetUp() override {
-    //getting the parameters
+  // the constructor
+  void SetUp() override
+  {
+    // getting the parameters
     params = ::testing::TestWithParam<vMeasureParam>::GetParam();
 
-    nElements = params.nElements;
+    nElements       = params.nElements;
     lowerLabelRange = params.lowerLabelRange;
     upperLabelRange = params.upperLabelRange;
 
-    //generating random value test input
+    // generating random value test input
     std::vector<int> arr1(nElements, 0);
     std::vector<int> arr2(nElements, 0);
     std::random_device rd;
     std::default_random_engine dre(rd());
-    std::uniform_int_distribution<int> intGenerator(lowerLabelRange,
-                                                    upperLabelRange);
+    std::uniform_int_distribution<int> intGenerator(lowerLabelRange, upperLabelRange);
 
-    std::generate(arr1.begin(), arr1.end(),
-                  [&]() { return intGenerator(dre); });
+    std::generate(arr1.begin(), arr1.end(), [&]() { return intGenerator(dre); });
     if (params.sameArrays) {
       arr2 = arr1;
     } else {
-      std::generate(arr2.begin(), arr2.end(),
-                    [&]() { return intGenerator(dre); });
+      std::generate(arr2.begin(), arr2.end(), [&]() { return intGenerator(dre); });
     }
 
-    //allocating and initializing memory to the GPU
+    // allocating and initializing memory to the GPU
 
     CUDA_CHECK(cudaStreamCreate(&stream));
     raft::allocate(truthClusterArray, nElements, true);
@@ -73,64 +71,82 @@ class vMeasureTest : public ::testing::TestWithParam<vMeasureParam> {
 
     raft::update_device(truthClusterArray, &arr1[0], (int)nElements, stream);
     raft::update_device(predClusterArray, &arr2[0], (int)nElements, stream);
-    std::shared_ptr<MLCommon::deviceAllocator> allocator(
-      new raft::mr::device::default_allocator);
+    std::shared_ptr<raft::mr::device::allocator> allocator(new raft::mr::device::default_allocator);
 
-    //calculating the golden output
+    // calculating the golden output
     double truthHomogeity, truthCompleteness;
 
-    truthHomogeity = MLCommon::Metrics::homogeneity_score(
-      truthClusterArray, predClusterArray, nElements, lowerLabelRange,
-      upperLabelRange, allocator, stream);
-    truthCompleteness = MLCommon::Metrics::homogeneity_score(
-      predClusterArray, truthClusterArray, nElements, lowerLabelRange,
-      upperLabelRange, allocator, stream);
+    truthHomogeity    = MLCommon::Metrics::homogeneity_score(truthClusterArray,
+                                                          predClusterArray,
+                                                          nElements,
+                                                          lowerLabelRange,
+                                                          upperLabelRange,
+                                                          allocator,
+                                                          stream);
+    truthCompleteness = MLCommon::Metrics::homogeneity_score(predClusterArray,
+                                                             truthClusterArray,
+                                                             nElements,
+                                                             lowerLabelRange,
+                                                             upperLabelRange,
+                                                             allocator,
+                                                             stream);
 
     if (truthCompleteness + truthHomogeity == 0.0)
       truthVMeasure = 0.0;
     else
       truthVMeasure = ((1 + params.beta) * truthHomogeity * truthCompleteness /
                        (params.beta * truthHomogeity + truthCompleteness));
-    //calling the v_measure CUDA implementation
-    computedVMeasure = MLCommon::Metrics::v_measure(
-      truthClusterArray, predClusterArray, nElements, lowerLabelRange,
-      upperLabelRange, allocator, stream, params.beta);
+    // calling the v_measure CUDA implementation
+    computedVMeasure = MLCommon::Metrics::v_measure(truthClusterArray,
+                                                    predClusterArray,
+                                                    nElements,
+                                                    lowerLabelRange,
+                                                    upperLabelRange,
+                                                    allocator,
+                                                    stream,
+                                                    params.beta);
   }
 
-  //the destructor
-  void TearDown() override {
+  // the destructor
+  void TearDown() override
+  {
     CUDA_CHECK(cudaFree(truthClusterArray));
     CUDA_CHECK(cudaFree(predClusterArray));
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
-  //declaring the data values
+  // declaring the data values
   vMeasureParam params;
   T lowerLabelRange, upperLabelRange;
-  T* truthClusterArray = nullptr;
-  T* predClusterArray = nullptr;
-  int nElements = 0;
-  double truthVMeasure = 0;
+  T* truthClusterArray    = nullptr;
+  T* predClusterArray     = nullptr;
+  int nElements           = 0;
+  double truthVMeasure    = 0;
   double computedVMeasure = 0;
   cudaStream_t stream;
 };
 
-//setting test parameter values
-const std::vector<vMeasureParam> inputs = {
-  {199, 1, 10, 1.0, false, 0.000001},  {200, 15, 100, 1.0, false, 0.000001},
-  {100, 1, 20, 1.0, false, 0.000001},  {10, 1, 10, 1.0, false, 0.000001},
-  {198, 1, 100, 1.0, false, 0.000001}, {300, 3, 99, 1.0, false, 0.000001},
-  {199, 1, 10, 1.0, true, 0.000001},   {200, 15, 100, 1.0, true, 0.000001},
-  {100, 1, 20, 1.0, true, 0.000001},   {10, 1, 10, 1.0, true, 0.000001},
-  {198, 1, 100, 1.0, true, 0.000001},  {300, 3, 99, 1.0, true, 0.000001}};
+// setting test parameter values
+const std::vector<vMeasureParam> inputs = {{199, 1, 10, 1.0, false, 0.000001},
+                                           {200, 15, 100, 1.0, false, 0.000001},
+                                           {100, 1, 20, 1.0, false, 0.000001},
+                                           {10, 1, 10, 1.0, false, 0.000001},
+                                           {198, 1, 100, 1.0, false, 0.000001},
+                                           {300, 3, 99, 1.0, false, 0.000001},
+                                           {199, 1, 10, 1.0, true, 0.000001},
+                                           {200, 15, 100, 1.0, true, 0.000001},
+                                           {100, 1, 20, 1.0, true, 0.000001},
+                                           {10, 1, 10, 1.0, true, 0.000001},
+                                           {198, 1, 100, 1.0, true, 0.000001},
+                                           {300, 3, 99, 1.0, true, 0.000001}};
 
-//writing the test suite
+// writing the test suite
 typedef vMeasureTest<int> vMeasureTestClass;
-TEST_P(vMeasureTestClass, Result) {
+TEST_P(vMeasureTestClass, Result)
+{
   ASSERT_NEAR(computedVMeasure, truthVMeasure, params.tolerance);
 }
-INSTANTIATE_TEST_CASE_P(vMeasure, vMeasureTestClass,
-                        ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(vMeasure, vMeasureTestClass, ::testing::ValuesIn(inputs));
 
-}  //end namespace Metrics
-}  //end namespace MLCommon
+}  // end namespace Metrics
+}  // end namespace MLCommon

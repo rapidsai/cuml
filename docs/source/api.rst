@@ -154,6 +154,8 @@ Metrics (regression, classification, and distance)
 
   .. autofunction:: cuml.metrics.confusion_matrix
 
+  .. autofunction:: cuml.metrics.kl_divergence
+
   .. autofunction:: cuml.metrics.log_loss
 
   .. autofunction:: cuml.metrics.roc_auc_score
@@ -163,8 +165,8 @@ Metrics (regression, classification, and distance)
   .. automodule:: cuml.metrics.pairwise_distances
     :members:
 
-Metrics (clustering and trustworthiness)
-----------------------------------------
+Metrics (clustering and manifold learning)
+------------------------------------------
   .. automodule:: cuml.metrics.trustworthiness
     :members:
 
@@ -179,7 +181,7 @@ Metrics (clustering and trustworthiness)
 
   .. automodule:: cuml.metrics.cluster.silhouette_score
     :members:
-       
+
   .. automodule:: cuml.metrics.cluster.completeness_score
     :members:
 
@@ -333,6 +335,12 @@ DBSCAN
 .. autoclass:: cuml.DBSCAN
     :members:
 
+Agglomerative Clustering
+------------------------
+
+.. autoclass:: cuml.AgglomerativeClustering
+    :members:
+
 Dimensionality Reduction and Manifold Learning
 ==============================================
 
@@ -415,6 +423,22 @@ ARIMA
 
 .. autoclass:: cuml.tsa.auto_arima.AutoARIMA
     :members:
+
+Model Explainability
+====================
+
+SHAP Kernel Explainer
+---------------------
+
+.. autoclass:: cuml.explainer.KernelExplainer
+   :members:
+
+SHAP Permutation Explainer
+--------------------------
+
+.. autoclass:: cuml.explainer.PermutationExplainer
+   :members:
+
 
 Multi-Node, Multi-GPU Algorithms
 ================================
@@ -533,13 +557,10 @@ Preprocessing
       add_dummy_feature, binarize, minmax_scale, normalize,
       PolynomialFeatures, robust_scale, scale
 
+Clustering
+----------
 
-Model Explanation (SHAP)
-------------------------
-.. autoclass:: cuml.experimental.explainer.KernelExplainer
-   :members:
-
-.. autoclass:: cuml.experimental.explainer.PermutationExplainer
+.. autoclass:: cuml.experimental.cluster.HDBSCAN
    :members:
 
 Linear Models

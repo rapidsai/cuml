@@ -46,9 +46,9 @@ def predict(neigh_ind, _y, n_neighbors):
     import scipy.stats as stats
 
     neigh_ind = neigh_ind.astype(np.int32)
-    if isinstance(_y, cp.core.core.ndarray):
+    if isinstance(_y, cp.ndarray):
         _y = _y.get()
-    if isinstance(neigh_ind, cp.core.core.ndarray):
+    if isinstance(neigh_ind, cp.ndarray):
         neigh_ind = neigh_ind.get()
 
     ypred, count = stats.mode(_y[neigh_ind], axis=1)
@@ -128,7 +128,7 @@ def test_self_neighboring(datatype, metric_p, nrows):
         neigh_ind = neigh_ind.as_gpu_matrix().copy_to_host()
         neigh_dist = neigh_dist.as_gpu_matrix().copy_to_host()
     else:
-        assert isinstance(neigh_ind, cp.core.core.ndarray)
+        assert isinstance(neigh_ind, cp.ndarray)
         neigh_ind = neigh_ind.get()
         neigh_dist = neigh_dist.get()
 
@@ -187,7 +187,7 @@ def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
         assert isinstance(neigh_ind, cudf.DataFrame)
         neigh_ind = neigh_ind.as_gpu_matrix().copy_to_host()
     else:
-        assert isinstance(neigh_ind, cp.core.core.ndarray)
+        assert isinstance(neigh_ind, cp.ndarray)
 
     labels, probs = predict(neigh_ind, y, n_neighbors)
 
@@ -286,6 +286,31 @@ def test_ivfsq_pred(qtype, encodeResidual, nrows, ncols, n_neighbors, nlist):
     assert array_equal(labels, y)
 
 
+@pytest.mark.parametrize("algo", ["brute", "ivfflat", "ivfpq", "ivfsq"])
+@pytest.mark.parametrize("metric", set([
+        "l2", "euclidean", "sqeuclidean",
+        "cosine", "correlation"
+    ]))
+def test_ann_distances_metrics(algo, metric):
+    X, y = make_blobs(n_samples=500, centers=2,
+                      n_features=128, random_state=0)
+
+    cu_knn = cuKNN(algorithm=algo, metric=metric)
+    cu_knn.fit(X)
+    cu_dist, cu_ind = cu_knn.kneighbors(X, n_neighbors=10,
+                                        return_distance=True)
+    del cu_knn
+    gc.collect()
+
+    X = X.get()
+    sk_knn = skKNN(metric=metric)
+    sk_knn.fit(X)
+    sk_dist, sk_ind = sk_knn.kneighbors(X, n_neighbors=10,
+                                        return_distance=True)
+
+    return array_equal(sk_dist, cu_dist)
+
+
 def test_return_dists():
     n_samples = 50
     n_feats = 50
@@ -340,8 +365,8 @@ def test_knn_separate_index_search(input_type, nrows, n_feats, k, metric):
         D_cuml_np = D_cuml.as_gpu_matrix().copy_to_host()
         I_cuml_np = I_cuml.as_gpu_matrix().copy_to_host()
     else:
-        assert isinstance(D_cuml, cp.core.core.ndarray)
-        assert isinstance(I_cuml, cp.core.core.ndarray)
+        assert isinstance(D_cuml, cp.ndarray)
+        assert isinstance(I_cuml, cp.ndarray)
         D_cuml_np = D_cuml.get()
         I_cuml_np = I_cuml.get()
 
@@ -446,6 +471,7 @@ def test_nn_downcast_fails(input_type, nrows, n_feats):
 
 @pytest.mark.parametrize("input_type,mode,output_type,as_instance", [
     ("dataframe", "connectivity", "cupy", True),
+    ("dataframe", "connectivity", None, True),
     ("dataframe", "distance", "numpy", True),
     ("ndarray", "connectivity", "cupy", False),
     ("ndarray", "distance", "numpy", False),
@@ -472,22 +498,22 @@ def test_knn_graph(input_type, mode, output_type, as_instance,
     if input_type == "dataframe":
         X = cudf.DataFrame(X)
 
-    if as_instance:
-        sparse_cu = cuml.neighbors.kneighbors_graph(X, k, mode,
-                                                    metric=metric, p=p,
-                                                    include_self='auto',
-                                                    output_type=output_type)
-    else:
-        knn_cu = cuKNN(metric=metric, p=p, output_type=output_type)
-        knn_cu.fit(X)
-        sparse_cu = knn_cu.kneighbors_graph(X, k, mode)
+    with cuml.using_output_type(output_type):
+        if as_instance:
+            sparse_cu = cuml.neighbors.kneighbors_graph(X, k, mode,
+                                                        metric=metric, p=p,
+                                                        include_self='auto')
+        else:
+            knn_cu = cuKNN(metric=metric, p=p)
+            knn_cu.fit(X)
+            sparse_cu = knn_cu.kneighbors_graph(X, k, mode)
 
     assert np.array_equal(sparse_sk.data.shape, sparse_cu.data.shape)
     assert np.array_equal(sparse_sk.indices.shape, sparse_cu.indices.shape)
     assert np.array_equal(sparse_sk.indptr.shape, sparse_cu.indptr.shape)
     assert np.array_equal(sparse_sk.toarray().shape, sparse_cu.toarray().shape)
 
-    if output_type == 'cupy':
+    if output_type == 'cupy' or output_type is None:
         assert cupyx.scipy.sparse.isspmatrix_csr(sparse_cu)
     else:
         assert isspmatrix_csr(sparse_cu)

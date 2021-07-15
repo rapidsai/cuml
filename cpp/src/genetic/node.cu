@@ -36,7 +36,8 @@ node::node(float val) : t(node::type::constant) { u.val = val; }
 
 node::node(const node& src) : t(src.t), u(src.u) {}
 
-node& node::operator=(const node& src) {
+node& node::operator=(const node& src)
+{
   t = src.t;
   u = src.u;
   return *this;
@@ -50,7 +51,8 @@ int node::arity() const { return detail::arity(t); }
 
 #define CASE(str, val) \
   if (#val == str) return node::type::val
-node::type node::from_str(const std::string& ntype) {
+node::type node::from_str(const std::string& ntype)
+{
   CASE(ntype, variable);
   CASE(ntype, constant);
   // note: keep the case statements in alphabetical order under each category of

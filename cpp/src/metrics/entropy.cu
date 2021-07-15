@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,11 +21,14 @@
 namespace ML {
 
 namespace Metrics {
-double entropy(const raft::handle_t &handle, const int *y, const int n,
-               const int lower_class_range, const int upper_class_range) {
-  return MLCommon::Metrics::entropy(y, n, lower_class_range, upper_class_range,
-                                    handle.get_device_allocator(),
-                                    handle.get_stream());
+double entropy(const raft::handle_t& handle,
+               const int* y,
+               const int n,
+               const int lower_class_range,
+               const int upper_class_range)
+{
+  return MLCommon::Metrics::entropy(
+    y, n, lower_class_range, upper_class_range, handle.get_device_allocator(), handle.get_stream());
 }
 }  // namespace Metrics
 }  // namespace ML

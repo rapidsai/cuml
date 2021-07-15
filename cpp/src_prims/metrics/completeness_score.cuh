@@ -14,15 +14,15 @@
  * limitations under the License.
  */
 /**
-* @file completeness_score.cuh
-*
-* @brief A clustering result satisfies completeness if all the data points
-* that are members of a given class are elements of the same cluster.
-*/
+ * @file completeness_score.cuh
+ *
+ * @brief A clustering result satisfies completeness if all the data points
+ * that are members of a given class are elements of the same cluster.
+ */
 
 #pragma once
 
-#include <cuml/common/cuml_allocator.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include "entropy.cuh"
 #include "mutual_info_score.cuh"
 
@@ -30,31 +30,34 @@ namespace MLCommon {
 namespace Metrics {
 
 /**
-* @brief Function to calculate the completeness score between two clusters
-*
-* @param truthClusterArray: the array of truth classes of type T
-* @param predClusterArray: the array of predicted classes of type T
-* @param size: the size of the data points of type int
-* @param lowerLabelRange: the lower bound of the range of labels
-* @param upperLabelRange: the upper bound of the range of labels
-* @param allocator: object that takes care of temporary device memory allocation of type std::shared_ptr<MLCommon::deviceAllocator>
-* @param stream: the cudaStream object
-*/
+ * @brief Function to calculate the completeness score between two clusters
+ *
+ * @param truthClusterArray: the array of truth classes of type T
+ * @param predClusterArray: the array of predicted classes of type T
+ * @param size: the size of the data points of type int
+ * @param lowerLabelRange: the lower bound of the range of labels
+ * @param upperLabelRange: the upper bound of the range of labels
+ * @param allocator: object that takes care of temporary device memory allocation of type
+ * std::shared_ptr<raft::mr::device::allocator>
+ * @param stream: the cudaStream object
+ */
 template <typename T>
-double completeness_score(const T *truthClusterArray, const T *predClusterArray,
-                          int size, T lowerLabelRange, T upperLabelRange,
-                          std::shared_ptr<MLCommon::deviceAllocator> allocator,
-                          cudaStream_t stream) {
+double completeness_score(const T* truthClusterArray,
+                          const T* predClusterArray,
+                          int size,
+                          T lowerLabelRange,
+                          T upperLabelRange,
+                          std::shared_ptr<raft::mr::device::allocator> allocator,
+                          cudaStream_t stream)
+{
   if (size == 0) return 1.0;
 
   double computedMI, computedEntropy;
 
   computedMI = MLCommon::Metrics::mutual_info_score(
-    truthClusterArray, predClusterArray, size, lowerLabelRange, upperLabelRange,
-    allocator, stream);
-  computedEntropy =
-    MLCommon::Metrics::entropy(predClusterArray, size, lowerLabelRange,
-                               upperLabelRange, allocator, stream);
+    truthClusterArray, predClusterArray, size, lowerLabelRange, upperLabelRange, allocator, stream);
+  computedEntropy = MLCommon::Metrics::entropy(
+    predClusterArray, size, lowerLabelRange, upperLabelRange, allocator, stream);
 
   double completeness;
 
@@ -66,5 +69,5 @@ double completeness_score(const T *truthClusterArray, const T *predClusterArray,
   return completeness;
 }
 
-};  //end namespace Metrics
-};  //end namespace MLCommon
+};  // end namespace Metrics
+};  // end namespace MLCommon

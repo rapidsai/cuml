@@ -25,19 +25,19 @@ namespace genetic {
 
 /**
  * @brief Visualize an AST
- * 
+ *
  * @param prog  host object containing the AST
- * @return      String representation of the AST 
+ * @return      String representation of the AST
  */
 std::string stringify(const program &prog);
 
 /**
  * @brief Fit either a regressor, classifier or a transformer to the given dataset
- * 
+ *
  * @param handle          cuML handle
  * @param input           device pointer to the feature matrix
  * @param labels          device pointer to the label vector of length n_rows
- * @param sample_weights  device pointer to the sample weights of length n_rows 
+ * @param sample_weights  device pointer to the sample weights of length n_rows
  * @param n_rows          number of rows of the feature matrix
  * @param n_cols          number of columns of the feature matrix
  * @param params          host struct containing hyperparameters needed for training
@@ -51,7 +51,7 @@ void symFit(const raft::handle_t &handle, const float *input,
 
 /**
  * @brief Make predictions for a symbolic regressor
- * 
+ *
  * @param handle      cuML handle
  * @param input       device pointer to feature matrix
  * @param n_rows      number of rows of the feature matrix
@@ -63,8 +63,8 @@ void symRegPredict(const raft::handle_t &handle, const float *input,
 
 /**
  * @brief Probability prediction for a symbolic classifier. If a transformer(like sigmoid) is
- *        specified, then it is applied on the output before returning it. 
- * 
+ *        specified, then it is applied on the output before returning it.
+ *
  * @param handle      cuML handle
  * @param input       device pointer to feature matrix
  * @param n_rows      number of rows of the feature matrix
@@ -78,7 +78,7 @@ void symClfPredictProbs(const raft::handle_t &handle, const float *input,
 
 /**
  * @brief Return predictions for a binary classification program defining the decision boundary
- * 
+ *
  * @param handle      cuML handle
  * @param input       device pointer to feature matrix
  * @param n_rows      number of rows of the feature matrix
@@ -92,11 +92,11 @@ void symClfPredict(const raft::handle_t &handle, const float *input,
 
 /**
  * @brief Transform the values in the input feature matrix according to the supplied programs
- * 
+ *
  * @param handle      cuML handle
  * @param input       device pointer to feature matrix
  * @param params      Hyperparameters used during training
- * @param final_progs List of ASTs used for generating new features  
+ * @param final_progs List of ASTs used for generating new features
  * @param n_rows      number of rows of the feature matrix
  * @param n_cols      number of columns of the feature matrix
  * @param output      device pointer to transformed input

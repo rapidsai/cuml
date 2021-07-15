@@ -395,3 +395,23 @@ def get_number_positional_args(func, default=2):
             kwargs = 0
         return all_args - kwargs
     return default
+
+
+def get_shap_values(model,
+                    explainer,
+                    background_dataset,
+                    explained_dataset,
+                    api_type='shap_values'):
+    # function to get shap values from an explainer using SHAP style API.
+    # This function allows isolating all calls in test suite for the case of
+    # API changes.
+    explainer = explainer(
+        model=model,
+        data=background_dataset
+    )
+    if api_type == 'shap_values':
+        shap_values = explainer.shap_values(explained_dataset)
+    elif api_type == '__call__':
+        shap_values = explainer(explained_dataset)
+
+    return explainer, shap_values
