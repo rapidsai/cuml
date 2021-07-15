@@ -207,18 +207,16 @@ struct ARIMAParams {
  */
 template <typename T, int ALIGN = 256>
 struct ARIMAMemory {
-  T *params_mu, *params_ar, *params_ma, *params_sar, *params_sma,
-    *params_sigma2, *Tparams_mu, *Tparams_ar, *Tparams_ma, *Tparams_sar,
-    *Tparams_sma, *Tparams_sigma2, *d_params, *d_Tparams, *Z_dense, *R_dense,
-    *T_dense, *RQR_dense, *RQ_dense, *P_dense, *alpha_dense, *ImT_dense,
-    *ImT_inv_dense, *v_tmp_dense, *m_tmp_dense, *K_dense, *TP_dense, *pred,
-    *y_diff, *loglike, *loglike_base, *loglike_pert, *x_pert, *sigma2_buffer,
-    *I_m_AxA_dense, *I_m_AxA_inv_dense, *Ts_dense, *RQRs_dense, *Ps_dense;
-  T **Z_batches, **R_batches, **T_batches, **RQR_batches, **RQ_batches,
-    **P_batches, **alpha_batches, **ImT_batches, **ImT_inv_batches,
-    **v_tmp_batches, **m_tmp_batches, **K_batches, **TP_batches,
-    **I_m_AxA_batches, **I_m_AxA_inv_batches, **Ts_batches, **RQRs_batches,
-    **Ps_batches;
+  T *params_mu, *params_ar, *params_ma, *params_sar, *params_sma, *params_sigma2, *Tparams_mu,
+    *Tparams_ar, *Tparams_ma, *Tparams_sar, *Tparams_sma, *Tparams_sigma2, *d_params, *d_Tparams,
+    *Z_dense, *R_dense, *T_dense, *RQR_dense, *RQ_dense, *P_dense, *alpha_dense, *ImT_dense,
+    *ImT_inv_dense, *v_tmp_dense, *m_tmp_dense, *K_dense, *TP_dense, *pred, *y_diff, *loglike,
+    *loglike_base, *loglike_pert, *x_pert, *sigma2_buffer, *I_m_AxA_dense, *I_m_AxA_inv_dense,
+    *Ts_dense, *RQRs_dense, *Ps_dense;
+  T **Z_batches, **R_batches, **T_batches, **RQR_batches, **RQ_batches, **P_batches,
+    **alpha_batches, **ImT_batches, **ImT_inv_batches, **v_tmp_batches, **m_tmp_batches,
+    **K_batches, **TP_batches, **I_m_AxA_batches, **I_m_AxA_inv_batches, **Ts_batches,
+    **RQRs_batches, **Ps_batches;
   int *ImT_inv_P, *ImT_inv_info, *I_m_AxA_P, *I_m_AxA_info;
 
   size_t size;

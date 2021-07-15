@@ -70,11 +70,11 @@ struct FillnaOp {
 };
 
 template <bool forward, typename T>
-__global__ void fillna_gather_kernel(T* data, int batch_size, int n_obs, FillnaTemp* d_indices)
+__global__ void fillna_gather_kernel(T* data, int n_elem, FillnaTemp* d_indices)
 {
-  for (int i = threadIdx.x; i < n_obs; i += blockDim.x) {
-    int index0     = blockIdx.x * n_obs + i;
-    int index1     = forward ? index0 : batch_size * n_obs - 1 - index0;
+  for (int index0 = blockIdx.x * blockDim.x + threadIdx.x; index0 < n_elem;
+       index0 += gridDim.x * blockDim.x) {
+    int index1     = forward ? index0 : n_elem - 1 - index0;
     int from_index = d_indices[index0].index;
     if (from_index != index1) data[index1] = data[from_index];
   }
@@ -126,10 +126,12 @@ void fillna(T* data,
   cub::DeviceScan::InclusiveScan(
     d_temp_storage, temp_storage_bytes, itr_fwd, indices.data(), scan_op, batch_size * n_obs);
 
+  const int TPB      = 256;
+  const int n_blocks = raft::ceildiv<int>(n_obs * batch_size, TPB);
+
   // Gather data from computed indices (forward)
-  const int TPB = std::min(n_obs, 256);
   fillna_gather_kernel<true>
-    <<<batch_size, TPB, 0, stream>>>(data, batch_size, n_obs, indices.data());
+    <<<n_blocks, TPB, 0, stream>>>(data, batch_size * n_obs, indices.data());
   CUDA_CHECK(cudaPeekAtLastError());
 
   // Execute scan (backward)
@@ -138,7 +140,7 @@ void fillna(T* data,
 
   // Gather data from computed indices (backward)
   fillna_gather_kernel<false>
-    <<<batch_size, TPB, 0, stream>>>(data, batch_size, n_obs, indices.data());
+    <<<n_blocks, TPB, 0, stream>>>(data, batch_size * n_obs, indices.data());
   CUDA_CHECK(cudaPeekAtLastError());
 }
 

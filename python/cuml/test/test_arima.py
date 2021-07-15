@@ -57,14 +57,12 @@ from cuml.test.utils import stress_param
 class ARIMAData:
     """Contains a dataset name and associated metadata
     """
-    def __init__(self, batch_size, n_obs, n_test, dataset, start, end,
+    def __init__(self, batch_size, n_obs, n_test, dataset,
                  tolerance_integration):
         self.batch_size = batch_size
         self.n_obs = n_obs
         self.n_test = n_test
         self.dataset = dataset
-        self.start = start
-        self.end = end
         self.tolerance_integration = tolerance_integration
 
         self.n_train = n_obs - n_test
@@ -76,8 +74,6 @@ test_101c = ARIMAData(
     n_obs=15,
     n_test=2,
     dataset="long_term_arrivals_by_citizenship",
-    start=10,
-    end=25,
     tolerance_integration=0.01
 )
 
@@ -87,8 +83,6 @@ test_002c = ARIMAData(
     n_obs=20,
     n_test = 2,
     dataset="net_migrations_auckland_by_age",
-    start=15,
-    end=30,
     tolerance_integration=0.01
 )
 
@@ -98,8 +92,6 @@ test_010c = ARIMAData(
     n_obs=17,
     n_test=2,
     dataset="cattle",
-    start=10,
-    end=25,
     tolerance_integration=0.01
 )
 
@@ -109,8 +101,6 @@ test_110 = ARIMAData(
     n_obs=137,
     n_test=5,
     dataset="police_recorded_crime",
-    start=100,
-    end=150,
     tolerance_integration=0.01
 )
 
@@ -120,8 +110,6 @@ test_011c = ARIMAData(
     n_obs=28,
     n_test=2,
     dataset="deaths_by_region",
-    start=20,
-    end=40,
     tolerance_integration=0.05
 )
 
@@ -131,8 +119,6 @@ test_121c = ARIMAData(
     n_obs=137,
     n_test=10,
     dataset="population_estimate",
-    start=100,
-    end=150,
     tolerance_integration=0.01
 )
 
@@ -142,8 +128,6 @@ test_121c_missing = ARIMAData(
     n_obs=137,
     n_test=10,
     dataset="population_estimate_missing",
-    start=100,
-    end=150,
     tolerance_integration=0.01
 )
 
@@ -153,8 +137,6 @@ test_101_111_4 = ARIMAData(
     n_obs=101,
     n_test=10,
     dataset="alcohol",
-    start=80,
-    end=110,
     tolerance_integration=0.01
 )
 
@@ -164,8 +146,6 @@ test_510 = ARIMAData(
     n_obs=101,
     n_test=10,
     dataset="alcohol",
-    start=80,
-    end=110,
     tolerance_integration=0.02
 )
 
@@ -175,8 +155,6 @@ test_111_200_4c = ARIMAData(
     n_obs=123,
     n_test=10,
     dataset="hourly_earnings_by_industry",
-    start=115,
-    end=130,
     tolerance_integration=0.01
 )
 
@@ -186,8 +164,6 @@ test_111_200_4c_missing = ARIMAData(
     n_obs=123,
     n_test=10,
     dataset="hourly_earnings_by_industry_missing",
-    start=115,
-    end=130,
     tolerance_integration=0.01
 )
 
@@ -197,8 +173,6 @@ test_112_012_4 = ARIMAData(
     n_obs=179,
     n_test=10,
     dataset="passenger_movements",
-    start=160,
-    end=200,
     tolerance_integration=0.001
 )
 
@@ -208,8 +182,6 @@ test_111_111_12 = ARIMAData(
     n_obs=279,
     n_test=20,
     dataset="guest_nights_by_region",
-    start=260,
-    end=290,
     tolerance_integration=0.001
 )
 
@@ -219,8 +191,6 @@ test_111_111_12_missing = ARIMAData(
     n_obs=279,
     n_test=20,
     dataset="guest_nights_by_region_missing",
-    start=260,
-    end=290,
     tolerance_integration=0.001
 )
 
