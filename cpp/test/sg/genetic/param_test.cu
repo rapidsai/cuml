@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-#include <cuml/genetic/genetic.h>
+#include <cuml/genetic/common.h>
 #include <gtest/gtest.h>
 #include "../../prims/test_utils.h"
 
@@ -41,6 +41,8 @@ TEST(Genetic, ParamTest)
   ASSERT_EQ(p.function_set[2], node::type::div);
   ASSERT_EQ(p.function_set[3], node::type::sub);
   ASSERT_EQ(p.transformer, transformer_t::sigmoid);
+  ASSERT_EQ(p.arity_set[2][0], node::type::add);
+  ASSERT_EQ(p.arity_set[2].size(), 4);
   ASSERT_EQ(p.metric, metric_t::mae);
   ASSERT_EQ(p.parsimony_coefficient, 0.001f);
   ASSERT_EQ(p.p_crossover, 0.9f);
