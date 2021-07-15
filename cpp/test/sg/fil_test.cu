@@ -113,6 +113,25 @@ __global__ void nan_kernel(float* data, const bool* mask, int len, float nan)
 
 float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
 
+struct both_categorical {
+  bool* feature_categorical_d;
+  __device__ bool operator()(bool is_categorical, int fid)
+  {
+    return is_categorical && feature_categorical_d[fid];
+  }
+};
+
+// uniformily distributed in orders of magnitude: smaller models which
+// still stress large bitfields.
+// up to 10**ps.max_matching_cat_oom (only if feature is categorical, else -1)
+struct uniform_oom_for_max_matching {
+  bool* feature_categorical_d;
+  __device__ float operator()(float max_matching_oom, int fid)
+  {
+    return feature_categorical_d[fid] ? pow(100, max_matching_oom / 2) : -1.0f;
+  }
+};
+
 class BaseFilTest : public testing::TestWithParam<FilTestParams> {
  protected:
   void setup_helper()
@@ -201,20 +220,17 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
                       is_categoricals_d + num_nodes,
                       fids_d,
                       is_categoricals_d,
-                      [feature_categorical_d] __device__(bool is_categorical, int fid) {
-                        return is_categorical && feature_categorical_d[fid];
-                      });
-    // exponential distribution of max_matching up to order of magnitude
-    // ps.max_matching_cat_oom (only if feature is categorical, else -1)
+                      both_categorical{feature_categorical_d});
+    // uniformily distributed in orders of magnitude: smaller models which
+    // still stress large bitfields.
+    // up to 10**ps.max_matching_cat_oom (only if feature is categorical, else -1)
     r.uniform(max_matching_cat_d, ps.num_cols, 0.0f, ps.max_matching_cat_oom, stream);
     thrust::transform(thrust::cuda::par.on(stream),
                       max_matching_cat_d,
                       max_matching_cat_d + num_nodes,
                       fids_d,
                       max_matching_cat_d,
-                      [feature_categorical_d] __device__(float max_matching_oom, int fid) {
-                        return feature_categorical_d[fid] ? pow(10, max_matching_oom) : -1.0f;
-                      });
+                      uniform_oom_for_max_matching{feature_categorical_d});
 
     // copy data to host
     std::vector<float> thresholds_h(num_nodes);

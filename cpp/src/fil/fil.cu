@@ -774,7 +774,6 @@ __noinline__ conversion_state<fil_node_t> tl2fil_branch_node(
     ASSERT(false, "CATEGORICAL NODE");
     is_categorical  = true;
     int sizeof_mask = cat_branches.sizeof_mask(feature_id);
-    // we've used up this pool, the next node should use the next pool
     // using the odd syntax because += returns post-addition value
 #pragma omp atomic capture
     {
