@@ -24,8 +24,8 @@ namespace ML {
 
 namespace Metrics {
 
-double rand_index(const raft::handle_t &handle, const double *y,
-                  const double *y_hat, int n) {
+double rand_index(const raft::handle_t& handle, const double* y, const double* y_hat, int n)
+{
   return MLCommon::Metrics::compute_rand_index(
     y, y_hat, (uint64_t)n, handle.get_device_allocator(), handle.get_stream());
 }

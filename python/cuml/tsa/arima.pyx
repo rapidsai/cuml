@@ -332,8 +332,8 @@ class ARIMA(Base):
             raise ValueError("ERROR: Invalid order. At least one parameter"
                              " among p, q, P, Q and fit_intercept must be"
                              " non-zero")
-        if p > 4 or P > 4 or q > 4 or Q > 4:
-            raise ValueError("ERROR: Invalid order. Required: p,q,P,Q <= 4")
+        if p > 8 or P > 8 or q > 8 or Q > 8:
+            raise ValueError("ERROR: Invalid order. Required: p,q,P,Q <= 8")
         if max(p + s * P, q + s * Q) > 1024:
             raise ValueError("ERROR: Invalid order. "
                              "Required: max(p+s*P, q+s*Q) <= 1024")

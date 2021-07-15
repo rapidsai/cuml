@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,7 +18,8 @@
 
 #include <cuml/cuml_api.h>
 
-TEST(HandleTest, CreateHandleAndDestroy) {
+TEST(HandleTest, CreateHandleAndDestroy)
+{
   cumlHandle_t handle;
   cumlError_t status = cumlCreate(&handle);
   EXPECT_EQ(CUML_SUCCESS, status);
@@ -27,7 +28,8 @@ TEST(HandleTest, CreateHandleAndDestroy) {
   EXPECT_EQ(CUML_SUCCESS, status);
 }
 
-TEST(HandleTest, DoubleDestoryFails) {
+TEST(HandleTest, DoubleDestoryFails)
+{
   cumlHandle_t handle;
   cumlError_t status = cumlCreate(&handle);
   EXPECT_EQ(CUML_SUCCESS, status);
@@ -39,7 +41,8 @@ TEST(HandleTest, DoubleDestoryFails) {
   EXPECT_EQ(CUML_INVALID_HANDLE, status);
 }
 
-TEST(HandleTest, set_stream) {
+TEST(HandleTest, set_stream)
+{
   cumlHandle_t handle;
   cumlError_t status = cumlCreate(&handle);
   EXPECT_EQ(CUML_SUCCESS, status);
@@ -51,7 +54,8 @@ TEST(HandleTest, set_stream) {
   EXPECT_EQ(CUML_SUCCESS, status);
 }
 
-TEST(HandleTest, SetStreamInvalidHandle) {
+TEST(HandleTest, SetStreamInvalidHandle)
+{
   cumlHandle_t handle = 12346;
   EXPECT_EQ(CUML_INVALID_HANDLE, cumlSetStream(handle, 0));
 }

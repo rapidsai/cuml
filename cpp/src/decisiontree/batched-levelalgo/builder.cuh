@@ -27,43 +27,66 @@
 #include <common/nvtx.hpp>
 
 namespace ML {
-namespace DecisionTree {
+namespace DT {
 
-template <typename ObjectiveT, typename DataT = typename ObjectiveT::DataT,
+template <typename ObjectiveT,
+          typename DataT  = typename ObjectiveT::DataT,
           typename LabelT = typename ObjectiveT::LabelT,
-          typename IdxT = typename ObjectiveT::IdxT>
+          typename IdxT   = typename ObjectiveT::IdxT>
 void convertToSparse(const Builder<ObjectiveT>& b,
                      const Node<DataT, LabelT, IdxT>* h_nodes,
-                     std::vector<SparseTreeNode<DataT, LabelT>>& sparsetree) {
+                     std::vector<SparseTreeNode<DataT, LabelT>>& sparsetree)
+{
   auto len = sparsetree.size();
   sparsetree.resize(len + b.h_total_nodes);
   for (IdxT i = 0; i < b.h_total_nodes; ++i) {
-    const auto& hnode = h_nodes[i].info;
-    sparsetree[i + len] = hnode;
+    const auto& hnode                  = h_nodes[i].info;
+    sparsetree[i + len]                = hnode;
     sparsetree[i + len].instance_count = h_nodes[i].count;
     if (hnode.left_child_id != -1) sparsetree[i + len].left_child_id += len;
   }
 }
 
 ///@todo: support col subsampling per node
-template <typename ObjectiveT, typename DataT = typename ObjectiveT::DataT,
+template <typename ObjectiveT,
+          typename DataT  = typename ObjectiveT::DataT,
           typename LabelT = typename ObjectiveT::LabelT,
-          typename IdxT = typename ObjectiveT::IdxT>
+          typename IdxT   = typename ObjectiveT::IdxT>
 void grow_tree(std::shared_ptr<raft::mr::device::allocator> d_allocator,
                std::shared_ptr<raft::mr::host::allocator> h_allocator,
-               const DataT* data, IdxT treeid, uint64_t seed, IdxT ncols,
-               IdxT nrows, const LabelT* labels, const DataT* quantiles,
-               IdxT* rowids, int n_sampled_rows, int unique_labels,
-               const DecisionTreeParams& params, cudaStream_t stream,
+               const DataT* data,
+               IdxT treeid,
+               uint64_t seed,
+               IdxT ncols,
+               IdxT nrows,
+               const LabelT* labels,
+               const DataT* quantiles,
+               IdxT* rowids,
+               int n_sampled_rows,
+               int unique_labels,
+               const DecisionTreeParams& params,
+               cudaStream_t stream,
                std::vector<SparseTreeNode<DataT, LabelT>>& sparsetree,
-               IdxT& num_leaves, IdxT& depth) {
-  ML::PUSH_RANGE("DecisionTree::grow_tree in batched-levelalgo @builder.cuh");
+               IdxT& num_leaves,
+               IdxT& depth)
+{
+  ML::PUSH_RANGE("DT::grow_tree in batched-levelalgo @builder.cuh");
   Builder<ObjectiveT> builder;
   size_t d_wsize, h_wsize;
-  builder.workspaceSize(d_wsize, h_wsize, treeid, seed, params, data, labels,
-                        nrows, ncols, n_sampled_rows,
-                        IdxT(params.max_features * ncols), rowids,
-                        unique_labels, quantiles);
+  builder.workspaceSize(d_wsize,
+                        h_wsize,
+                        treeid,
+                        seed,
+                        params,
+                        data,
+                        labels,
+                        nrows,
+                        ncols,
+                        n_sampled_rows,
+                        IdxT(params.max_features * ncols),
+                        rowids,
+                        unique_labels,
+                        quantiles);
   MLCommon::device_buffer<char> d_buff(d_allocator, stream, d_wsize);
   MLCommon::host_buffer<char> h_buff(h_allocator, stream, h_wsize);
 
@@ -112,31 +135,80 @@ void grow_tree(std::shared_ptr<raft::mr::device::allocator> d_allocator,
 template <typename DataT, typename LabelT, typename IdxT>
 void grow_tree(std::shared_ptr<raft::mr::device::allocator> d_allocator,
                std::shared_ptr<raft::mr::host::allocator> h_allocator,
-               const DataT* data, IdxT treeid, uint64_t seed, IdxT ncols,
-               IdxT nrows, const LabelT* labels, const DataT* quantiles,
-               IdxT* rowids, int n_sampled_rows, int unique_labels,
-               const DecisionTreeParams& params, cudaStream_t stream,
+               const DataT* data,
+               IdxT treeid,
+               uint64_t seed,
+               IdxT ncols,
+               IdxT nrows,
+               const LabelT* labels,
+               const DataT* quantiles,
+               IdxT* rowids,
+               int n_sampled_rows,
+               int unique_labels,
+               const DecisionTreeParams& params,
+               cudaStream_t stream,
                std::vector<SparseTreeNode<DataT, LabelT>>& sparsetree,
-               IdxT& num_leaves, IdxT& depth) {
+               IdxT& num_leaves,
+               IdxT& depth)
+{
   // Dispatch objective
   if (params.split_criterion == CRITERION::GINI) {
-    grow_tree<GiniObjectiveFunction<DataT, LabelT, IdxT>>(
-      d_allocator, h_allocator, data, treeid, seed, ncols, nrows, labels,
-      quantiles, rowids, n_sampled_rows, unique_labels, params, stream,
-      sparsetree, num_leaves, depth);
+    grow_tree<GiniObjectiveFunction<DataT, LabelT, IdxT>>(d_allocator,
+                                                          h_allocator,
+                                                          data,
+                                                          treeid,
+                                                          seed,
+                                                          ncols,
+                                                          nrows,
+                                                          labels,
+                                                          quantiles,
+                                                          rowids,
+                                                          n_sampled_rows,
+                                                          unique_labels,
+                                                          params,
+                                                          stream,
+                                                          sparsetree,
+                                                          num_leaves,
+                                                          depth);
   } else if (params.split_criterion == CRITERION::ENTROPY) {
-    grow_tree<EntropyObjectiveFunction<DataT, LabelT, IdxT>>(
-      d_allocator, h_allocator, data, treeid, seed, ncols, nrows, labels,
-      quantiles, rowids, n_sampled_rows, unique_labels, params, stream,
-      sparsetree, num_leaves, depth);
+    grow_tree<EntropyObjectiveFunction<DataT, LabelT, IdxT>>(d_allocator,
+                                                             h_allocator,
+                                                             data,
+                                                             treeid,
+                                                             seed,
+                                                             ncols,
+                                                             nrows,
+                                                             labels,
+                                                             quantiles,
+                                                             rowids,
+                                                             n_sampled_rows,
+                                                             unique_labels,
+                                                             params,
+                                                             stream,
+                                                             sparsetree,
+                                                             num_leaves,
+                                                             depth);
   } else if (params.split_criterion == CRITERION::MSE) {
-    grow_tree<MSEObjectiveFunction<DataT, LabelT, IdxT>>(
-      d_allocator, h_allocator, data, treeid, seed, ncols, nrows, labels,
-      quantiles, rowids, n_sampled_rows, unique_labels, params, stream,
-      sparsetree, num_leaves, depth);
+    grow_tree<MSEObjectiveFunction<DataT, LabelT, IdxT>>(d_allocator,
+                                                         h_allocator,
+                                                         data,
+                                                         treeid,
+                                                         seed,
+                                                         ncols,
+                                                         nrows,
+                                                         labels,
+                                                         quantiles,
+                                                         rowids,
+                                                         n_sampled_rows,
+                                                         unique_labels,
+                                                         params,
+                                                         stream,
+                                                         sparsetree,
+                                                         num_leaves,
+                                                         depth);
   } else {
     ASSERT(false, "Unknown split criterion.");
   }
 }
-}  // namespace DecisionTree
+}  // namespace DT
 }  // namespace ML

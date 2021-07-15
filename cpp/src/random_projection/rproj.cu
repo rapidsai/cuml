@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,14 +22,20 @@ namespace ML {
 using namespace MLCommon;
 
 template void RPROJfit(const raft::handle_t& handle,
-                       rand_mat<float>* random_matrix, paramsRPROJ* params);
+                       rand_mat<float>* random_matrix,
+                       paramsRPROJ* params);
 template void RPROJfit(const raft::handle_t& handle,
-                       rand_mat<double>* random_matrix, paramsRPROJ* params);
-template void RPROJtransform(const raft::handle_t& handle, float* input,
-                             rand_mat<float>* random_matrix, float* output,
+                       rand_mat<double>* random_matrix,
+                       paramsRPROJ* params);
+template void RPROJtransform(const raft::handle_t& handle,
+                             float* input,
+                             rand_mat<float>* random_matrix,
+                             float* output,
                              paramsRPROJ* params);
-template void RPROJtransform(const raft::handle_t& handle, double* input,
-                             rand_mat<double>* random_matrix, double* output,
+template void RPROJtransform(const raft::handle_t& handle,
+                             double* input,
+                             rand_mat<double>* random_matrix,
+                             double* output,
                              paramsRPROJ* params);
 
 };  // namespace ML

@@ -16,3 +16,4 @@
 
 
 from cuml.experimental.cluster.hdbscan import HDBSCAN
+from cuml.experimental.cluster.hdbscan import condense_hierarchy

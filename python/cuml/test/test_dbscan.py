@@ -42,6 +42,13 @@ from sklearn.preprocessing import StandardScaler
                                        stress_param("int32")])
 def test_dbscan(datatype, use_handle, nrows, ncols,
                 max_mbytes_per_batch, out_dtype):
+    if nrows == 500000 and pytest.max_gpu_memory < 32:
+        if pytest.adapt_stress_test:
+            nrows = nrows * pytest.max_gpu_memory // 32
+        else:
+            pytest.skip("Insufficient GPU memory for this test. "
+                        "Re-run with 'CUML_ADAPT_STRESS_TESTS=True'")
+
     n_samples = nrows
     n_feats = ncols
     X, y = make_blobs(n_samples=n_samples, cluster_std=0.01,
@@ -117,6 +124,13 @@ def test_dbscan_precomputed(datatype, nrows, max_mbytes_per_batch, out_dtype):
 # Vary the eps to get a range of core point counts
 @pytest.mark.parametrize('eps', [0.05, 0.1, 0.5])
 def test_dbscan_sklearn_comparison(name, nrows, eps):
+    if nrows == 500000 and name == 'blobs' and pytest.max_gpu_memory < 32:
+        if pytest.adapt_stress_test:
+            nrows = nrows * pytest.max_gpu_memory // 32
+        else:
+            pytest.skip("Insufficient GPU memory for this test."
+                        "Re-run with 'CUML_ADAPT_STRESS_TESTS=True'")
+
     default_base = {'quantile': .2,
                     'eps': eps,
                     'damping': .9,

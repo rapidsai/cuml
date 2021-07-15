@@ -23,15 +23,15 @@ namespace VertexDeg {
 template <typename Type, typename Index_>
 struct Pack {
   /**
-     * vertex degree array
-     * Last position is the sum of all elements in this array (excluding it)
-     * Hence, its length is one more than the number of points
-     */
-  Index_ *vd;
+   * vertex degree array
+   * Last position is the sum of all elements in this array (excluding it)
+   * Hence, its length is one more than the number of points
+   */
+  Index_* vd;
   /** the adjacency matrix */
-  bool *adj;
+  bool* adj;
   /** input dataset */
-  const Type *x;
+  const Type* x;
   /** epsilon neighborhood thresholding param */
   Type eps;
   /** number of points in the dataset */
@@ -40,11 +40,12 @@ struct Pack {
   Index_ D;
 
   /**
-     * @brief reset the output array before calling the actual kernel
-     * @param stream cuda stream where to perform this operation
-     * @param vdlen lenght of the vertex degree array
-     */
-  void resetArray(cudaStream_t stream, Index_ vdlen) {
+   * @brief reset the output array before calling the actual kernel
+   * @param stream cuda stream where to perform this operation
+   * @param vdlen lenght of the vertex degree array
+   */
+  void resetArray(cudaStream_t stream, Index_ vdlen)
+  {
     CUDA_CHECK(cudaMemsetAsync(vd, 0, sizeof(Index_) * vdlen, stream));
   }
 };
