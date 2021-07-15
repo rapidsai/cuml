@@ -155,11 +155,7 @@ __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(tree_type tre
     for (int j = 0; j < NITEMS; ++j) {
       auto n = tree[curr[j]];
       mask &= ~(n.is_leaf() << j);
-      if ((mask & (1 << j)) != 0) {
-        float val = input[j * cols + n.fid()];
-        bool cond = isnan(val) ? !n.def_left() : val >= n.thresh();
-        curr[j]   = n.left(curr[j]) + cond;
-      }
+      if ((mask & (1 << j)) != 0) curr[j] = tree.get_child(n, curr[j], input[j * cols + n.fid()]);
     }
   } while (mask != 0);
 
