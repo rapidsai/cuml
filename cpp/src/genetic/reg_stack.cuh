@@ -79,7 +79,7 @@ struct stack {
    * @note If called when the stack is already empty, then it just returns a
    *       value of zero! To keep the device-side logic simpler, it has been
    *       designed this way. Trying to pop beyond the bottom of the stack leads
-   *       to all sorts of incorrect behavior. 
+   *       to all sorts of incorrect behavior.
    */
   HDI DataT pop()
   {

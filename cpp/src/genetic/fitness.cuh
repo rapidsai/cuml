@@ -44,9 +44,14 @@ namespace cuml {
 namespace genetic {
 
 template <typename math_t = float>
-void weightedPearson(const raft::handle_t& h, const uint64_t n_samples,
-                     const uint64_t n_progs, const math_t* Y, const math_t* X,
-                     const math_t* W, math_t* out) {
+void weightedPearson(const raft::handle_t& h,
+                     const uint64_t n_samples,
+                     const uint64_t n_progs,
+                     const math_t* Y,
+                     const math_t* X,
+                     const math_t* W,
+                     math_t* out)
+{
   // Find Pearson's correlation coefficient
 
   cudaStream_t stream = h.get_stream();
@@ -76,61 +81,98 @@ void weightedPearson(const raft::handle_t& h, const uint64_t n_samples,
 
   // Find y_mu
   raft::linalg::matrixVectorOp(
-    y_tmp.data(), Y, W, (uint64_t)1, n_samples, false, false,
-    [N, WS] __device__(math_t y, math_t w) { return N * w * y / WS; }, stream);
+    y_tmp.data(),
+    Y,
+    W,
+    (uint64_t)1,
+    n_samples,
+    false,
+    false,
+    [N, WS] __device__(math_t y, math_t w) { return N * w * y / WS; },
+    stream);
 
-  raft::stats::mean(y_mu.data(), y_tmp.data(), (uint64_t)1, n_samples, false,
-                    false, stream);
+  raft::stats::mean(y_mu.data(), y_tmp.data(), (uint64_t)1, n_samples, false, false, stream);
 
   // Find x_mu
   raft::linalg::matrixVectorOp(
-    x_tmp.data(), X, W, n_progs, n_samples, false, true,
-    [N, WS] __device__(math_t x, math_t w) { return N * w * x / WS; }, stream);
+    x_tmp.data(),
+    X,
+    W,
+    n_progs,
+    n_samples,
+    false,
+    true,
+    [N, WS] __device__(math_t x, math_t w) { return N * w * x / WS; },
+    stream);
 
-  raft::stats::mean(x_mu.data(), x_tmp.data(), n_progs, n_samples, false, false,
-                    stream);
+  raft::stats::mean(x_mu.data(), x_tmp.data(), n_progs, n_samples, false, false, stream);
 
   // Find y_diff
-  raft::stats::meanCenter(y_diff.data(), Y, y_mu.data(), (uint64_t)1, n_samples,
-                          false, true, stream);
+  raft::stats::meanCenter(
+    y_diff.data(), Y, y_mu.data(), (uint64_t)1, n_samples, false, true, stream);
 
   // Find x_diff
-  raft::stats::meanCenter(x_diff.data(), X, x_mu.data(), n_progs, n_samples,
-                          false, true, stream);
+  raft::stats::meanCenter(x_diff.data(), X, x_mu.data(), n_progs, n_samples, false, true, stream);
 
   // Find y_std
   raft::linalg::stridedReduction(
-    y_std.data(), y_diff.data(), (uint64_t)1, n_samples, (math_t)0, stream,
-    false, [W] __device__(math_t v, int i) { return v * v * W[i]; },
-    raft::Sum<math_t>(), [] __device__(math_t in) { return raft::mySqrt(in); });
+    y_std.data(),
+    y_diff.data(),
+    (uint64_t)1,
+    n_samples,
+    (math_t)0,
+    stream,
+    false,
+    [W] __device__(math_t v, int i) { return v * v * W[i]; },
+    raft::Sum<math_t>(),
+    [] __device__(math_t in) { return raft::mySqrt(in); });
   math_t HYstd = y_std.element(0, stream);
 
   // Find x_std
   raft::linalg::stridedReduction(
-    x_std.data(), x_diff.data(), n_progs, n_samples, (math_t)0, stream, false,
+    x_std.data(),
+    x_diff.data(),
+    n_progs,
+    n_samples,
+    (math_t)0,
+    stream,
+    false,
     [W] __device__(math_t v, int i) { return v * v * W[i]; },
-    raft::Sum<math_t>(), [] __device__(math_t in) { return raft::mySqrt(in); });
+    raft::Sum<math_t>(),
+    [] __device__(math_t in) { return raft::mySqrt(in); });
 
   // Cross covariance
   raft::linalg::matrixVectorOp(
-    corr.data(), x_diff.data(), y_diff.data(), W, n_progs, n_samples, false,
+    corr.data(),
+    x_diff.data(),
+    y_diff.data(),
+    W,
+    n_progs,
+    n_samples,
     false,
-    [N, HYstd] __device__(math_t xd, math_t yd, math_t w) {
-      return N * w * xd * yd / HYstd;
-    },
+    false,
+    [N, HYstd] __device__(math_t xd, math_t yd, math_t w) { return N * w * xd * yd / HYstd; },
     stream);
 
   // Find Correlation coeff
   raft::linalg::matrixVectorOp(
-    corr.data(), corr.data(), x_std.data(), n_progs, n_samples, false, true,
-    [] __device__(math_t c, math_t xd) { return c / xd; }, stream);
+    corr.data(),
+    corr.data(),
+    x_std.data(),
+    n_progs,
+    n_samples,
+    false,
+    true,
+    [] __device__(math_t c, math_t xd) { return c / xd; },
+    stream);
 
   raft::stats::mean(out, corr.data(), n_progs, n_samples, false, false, stream);
 }
 
 struct rank_functor {
   template <typename math_t>
-  __host__ __device__ math_t operator()(math_t data) {
+  __host__ __device__ math_t operator()(math_t data)
+  {
     if (data == 0)
       return 0;
     else
@@ -139,9 +181,14 @@ struct rank_functor {
 };
 
 template <typename math_t = float>
-void weightedSpearman(const raft::handle_t& h, const uint64_t n_samples,
-                      const uint64_t n_progs, const math_t* Y,
-                      const math_t* Y_pred, const math_t* W, math_t* out) {
+void weightedSpearman(const raft::handle_t& h,
+                      const uint64_t n_samples,
+                      const uint64_t n_progs,
+                      const math_t* Y,
+                      const math_t* Y_pred,
+                      const math_t* W,
+                      math_t* out)
+{
   cudaStream_t stream = h.get_stream();
 
   // Get ranks for Y
@@ -150,58 +197,72 @@ void weightedSpearman(const raft::handle_t& h, const uint64_t n_samples,
   thrust::device_vector<math_t> rank_diff(n_samples, 0);
   thrust::device_vector<math_t> Yrank(n_samples, 0);
 
-  thrust::sequence(thrust::cuda::par.on(stream), rank_idx.begin(),
-                   rank_idx.end(), 0);
-  thrust::sort_by_key(thrust::cuda::par.on(stream), Ycopy.begin(), Ycopy.end(),
-                      rank_idx.begin());
-  thrust::adjacent_difference(thrust::cuda::par.on(stream), Ycopy.begin(),
-                              Ycopy.end(), rank_diff.begin());
-  thrust::transform(thrust::cuda::par.on(stream), rank_diff.begin(),
-                    rank_diff.end(), rank_diff.begin(), rank_functor());
+  thrust::sequence(thrust::cuda::par.on(stream), rank_idx.begin(), rank_idx.end(), 0);
+  thrust::sort_by_key(thrust::cuda::par.on(stream), Ycopy.begin(), Ycopy.end(), rank_idx.begin());
+  thrust::adjacent_difference(
+    thrust::cuda::par.on(stream), Ycopy.begin(), Ycopy.end(), rank_diff.begin());
+  thrust::transform(thrust::cuda::par.on(stream),
+                    rank_diff.begin(),
+                    rank_diff.end(),
+                    rank_diff.begin(),
+                    rank_functor());
   rank_diff[0] = 1;
-  thrust::inclusive_scan(thrust::cuda::par.on(stream), rank_diff.begin(),
-                         rank_diff.end(), rank_diff.begin());
-  thrust::copy(
-    rank_diff.begin(), rank_diff.end(),
-    thrust::make_permutation_iterator(Yrank.begin(), rank_idx.begin()));
+  thrust::inclusive_scan(
+    thrust::cuda::par.on(stream), rank_diff.begin(), rank_diff.end(), rank_diff.begin());
+  thrust::copy(rank_diff.begin(),
+               rank_diff.end(),
+               thrust::make_permutation_iterator(Yrank.begin(), rank_idx.begin()));
 
   // Get ranks for Y_pred
   // TODO: Find a better way to batch this
   thrust::device_vector<math_t> Ypredcopy(Y_pred, Y_pred + n_samples * n_progs);
   thrust::device_vector<math_t> Ypredrank(n_samples * n_progs, 0);
-  thrust::device_ptr<math_t> Ypredptr =
-    thrust::device_pointer_cast<math_t>(Ypredcopy.data());
-  thrust::device_ptr<math_t> Ypredrankptr =
-    thrust::device_pointer_cast<math_t>(Ypredrank.data());
+  thrust::device_ptr<math_t> Ypredptr     = thrust::device_pointer_cast<math_t>(Ypredcopy.data());
+  thrust::device_ptr<math_t> Ypredrankptr = thrust::device_pointer_cast<math_t>(Ypredrank.data());
 
   for (int i = 0; i < n_progs; ++i) {
-    thrust::sequence(thrust::cuda::par.on(stream), rank_idx.begin(),
-                     rank_idx.end(), 0);
+    thrust::sequence(thrust::cuda::par.on(stream), rank_idx.begin(), rank_idx.end(), 0);
     thrust::sort_by_key(thrust::cuda::par.on(stream),
                         Ypredptr + (i * n_samples),
-                        Ypredptr + ((i + 1) * n_samples), rank_idx.begin());
-    thrust::adjacent_difference(
-      thrust::cuda::par.on(stream), Ypredptr + (i * n_samples),
-      Ypredptr + ((i + 1) * n_samples), rank_diff.begin());
-    thrust::transform(thrust::cuda::par.on(stream), rank_diff.begin(),
-                      rank_diff.end(), rank_diff.begin(), rank_functor());
+                        Ypredptr + ((i + 1) * n_samples),
+                        rank_idx.begin());
+    thrust::adjacent_difference(thrust::cuda::par.on(stream),
+                                Ypredptr + (i * n_samples),
+                                Ypredptr + ((i + 1) * n_samples),
+                                rank_diff.begin());
+    thrust::transform(thrust::cuda::par.on(stream),
+                      rank_diff.begin(),
+                      rank_diff.end(),
+                      rank_diff.begin(),
+                      rank_functor());
     rank_diff[0] = 1;
-    thrust::inclusive_scan(thrust::cuda::par.on(stream), rank_diff.begin(),
-                           rank_diff.end(), rank_diff.begin());
-    thrust::copy(rank_diff.begin(), rank_diff.end(),
-                 thrust::make_permutation_iterator(
-                   Ypredrankptr + (i * n_samples), rank_idx.begin()));
+    thrust::inclusive_scan(
+      thrust::cuda::par.on(stream), rank_diff.begin(), rank_diff.end(), rank_diff.begin());
+    thrust::copy(
+      rank_diff.begin(),
+      rank_diff.end(),
+      thrust::make_permutation_iterator(Ypredrankptr + (i * n_samples), rank_idx.begin()));
   }
 
   // Compute pearson's coefficient
-  weightedPearson(h, n_samples, n_progs, thrust::raw_pointer_cast(Yrank.data()),
-                  thrust::raw_pointer_cast(Ypredrank.data()), W, out);
+  weightedPearson(h,
+                  n_samples,
+                  n_progs,
+                  thrust::raw_pointer_cast(Yrank.data()),
+                  thrust::raw_pointer_cast(Ypredrank.data()),
+                  W,
+                  out);
 }
 
 template <typename math_t = float>
-void meanAbsoluteError(const raft::handle_t& h, const uint64_t n_samples,
-                       const uint64_t n_progs, const math_t* Y,
-                       const math_t* Y_pred, const math_t* W, math_t* out) {
+void meanAbsoluteError(const raft::handle_t& h,
+                       const uint64_t n_samples,
+                       const uint64_t n_progs,
+                       const math_t* Y,
+                       const math_t* Y_pred,
+                       const math_t* W,
+                       math_t* out)
+{
   cudaStream_t stream = h.get_stream();
   rmm::device_uvector<math_t> error(n_samples * n_progs, stream);
   rmm::device_scalar<math_t> dWS(stream);
@@ -213,21 +274,32 @@ void meanAbsoluteError(const raft::handle_t& h, const uint64_t n_samples,
 
   // Compute absolute differences
   raft::linalg::matrixVectorOp(
-    error.data(), Y_pred, Y, W, n_progs, n_samples, false, false,
+    error.data(),
+    Y_pred,
+    Y,
+    W,
+    n_progs,
+    n_samples,
+    false,
+    false,
     [N, WS] __device__(math_t y_p, math_t y, math_t w) {
       return N * w * raft::myAbs(y - y_p) / WS;
     },
     stream);
 
   // Average along rows
-  raft::stats::mean(out, error.data(), n_progs, n_samples, false, false,
-                    stream);
+  raft::stats::mean(out, error.data(), n_progs, n_samples, false, false, stream);
 }
 
 template <typename math_t = float>
-void meanSquareError(const raft::handle_t& h, const uint64_t n_samples,
-                     const uint64_t n_progs, const math_t* Y,
-                     const math_t* Y_pred, const math_t* W, math_t* out) {
+void meanSquareError(const raft::handle_t& h,
+                     const uint64_t n_samples,
+                     const uint64_t n_progs,
+                     const math_t* Y,
+                     const math_t* Y_pred,
+                     const math_t* W,
+                     math_t* out)
+{
   cudaStream_t stream = h.get_stream();
   rmm::device_uvector<math_t> error(n_samples * n_progs, stream);
   rmm::device_scalar<math_t> dWS(stream);
@@ -239,21 +311,32 @@ void meanSquareError(const raft::handle_t& h, const uint64_t n_samples,
 
   // Compute square differences
   raft::linalg::matrixVectorOp(
-    error.data(), Y_pred, Y, W, n_progs, n_samples, false, false,
+    error.data(),
+    Y_pred,
+    Y,
+    W,
+    n_progs,
+    n_samples,
+    false,
+    false,
     [N, WS] __device__(math_t y_p, math_t y, math_t w) {
       return N * w * (y_p - y) * (y_p - y) / WS;
     },
     stream);
 
   // Add up row values per column
-  raft::stats::mean(out, error.data(), n_progs, n_samples, false, false,
-                    stream);
+  raft::stats::mean(out, error.data(), n_progs, n_samples, false, false, stream);
 }
 
 template <typename math_t = float>
-void rootMeanSquareError(const raft::handle_t& h, const uint64_t n_samples,
-                         const uint64_t n_progs, const math_t* Y,
-                         const math_t* Y_pred, const math_t* W, math_t* out) {
+void rootMeanSquareError(const raft::handle_t& h,
+                         const uint64_t n_samples,
+                         const uint64_t n_progs,
+                         const math_t* Y,
+                         const math_t* Y_pred,
+                         const math_t* W,
+                         math_t* out)
+{
   cudaStream_t stream = h.get_stream();
 
   // Find MSE
@@ -264,9 +347,14 @@ void rootMeanSquareError(const raft::handle_t& h, const uint64_t n_samples,
 }
 
 template <typename math_t = float>
-void logLoss(const raft::handle_t& h, const uint64_t n_samples,
-             const uint64_t n_progs, const math_t* Y, const math_t* Y_pred,
-             const math_t* W, math_t* out) {
+void logLoss(const raft::handle_t& h,
+             const uint64_t n_samples,
+             const uint64_t n_progs,
+             const math_t* Y,
+             const math_t* Y_pred,
+             const math_t* W,
+             math_t* out)
+{
   cudaStream_t stream = h.get_stream();
   // Logistic error per sample
   rmm::device_uvector<math_t> error(n_samples * n_progs, stream);
@@ -281,7 +369,14 @@ void logLoss(const raft::handle_t& h, const uint64_t n_samples,
   // http://fa.bianp.net/blog/2019/evaluate_logistic/
   // in an attempt to avoid encountering nan values. Modified for weighted logistic regression.
   raft::linalg::matrixVectorOp(
-    error.data(), Y_pred, Y, W, n_progs, n_samples, false, false,
+    error.data(),
+    Y_pred,
+    Y,
+    W,
+    n_progs,
+    n_samples,
+    false,
+    false,
     [N, WS] __device__(math_t yp, math_t y, math_t w) {
       math_t logsig;
       if (yp < -33.3)
@@ -298,8 +393,7 @@ void logLoss(const raft::handle_t& h, const uint64_t n_samples,
     stream);
 
   // Take average along rows
-  raft::stats::mean(out, error.data(), n_progs, n_samples, false, false,
-                    stream);
+  raft::stats::mean(out, error.data(), n_progs, n_samples, false, false, stream);
 }
 
 }  // namespace genetic

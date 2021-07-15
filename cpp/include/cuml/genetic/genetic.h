@@ -29,7 +29,7 @@ namespace genetic {
  * @param prog  host object containing the AST
  * @return      String representation of the AST
  */
-std::string stringify(const program &prog);
+std::string stringify(const program& prog);
 
 /**
  * @brief Fit either a regressor, classifier or a transformer to the given dataset
@@ -41,13 +41,20 @@ std::string stringify(const program &prog);
  * @param n_rows          number of rows of the feature matrix
  * @param n_cols          number of columns of the feature matrix
  * @param params          host struct containing hyperparameters needed for training
- * @param final_progs     device pointer to the final generation of programs(sorted by decreasing fitness)
- * @param history         host vector containing the list of all programs in every generation (sorted by decreasing fitness)
+ * @param final_progs     device pointer to the final generation of programs(sorted by decreasing
+ * fitness)
+ * @param history         host vector containing the list of all programs in every generation
+ * (sorted by decreasing fitness)
  */
-void symFit(const raft::handle_t &handle, const float *input,
-            const float *labels, const float *sample_weights, const int n_rows,
-            const int n_cols, param &params, program_t &final_progs,
-            std::vector<std::vector<program>> &history);
+void symFit(const raft::handle_t& handle,
+            const float* input,
+            const float* labels,
+            const float* sample_weights,
+            const int n_rows,
+            const int n_cols,
+            param& params,
+            program_t& final_progs,
+            std::vector<std::vector<program>>& history);
 
 /**
  * @brief Make predictions for a symbolic regressor
@@ -58,8 +65,11 @@ void symFit(const raft::handle_t &handle, const float *input,
  * @param best_prog   device pointer to best AST fit during training
  * @param output      device pointer to output values
  */
-void symRegPredict(const raft::handle_t &handle, const float *input,
-                   const int n_rows, const program_t &best_prog, float *output);
+void symRegPredict(const raft::handle_t& handle,
+                   const float* input,
+                   const int n_rows,
+                   const program_t& best_prog,
+                   float* output);
 
 /**
  * @brief Probability prediction for a symbolic classifier. If a transformer(like sigmoid) is
@@ -72,9 +82,12 @@ void symRegPredict(const raft::handle_t &handle, const float *input,
  * @param best_prog   The best program obtained during training. Inferences are made using this
  * @param output      device pointer to output probability(in col major format)
  */
-void symClfPredictProbs(const raft::handle_t &handle, const float *input,
-                        const int n_rows, const param &params,
-                        const program_t &best_prog, float *output);
+void symClfPredictProbs(const raft::handle_t& handle,
+                        const float* input,
+                        const int n_rows,
+                        const param& params,
+                        const program_t& best_prog,
+                        float* output);
 
 /**
  * @brief Return predictions for a binary classification program defining the decision boundary
@@ -86,9 +99,12 @@ void symClfPredictProbs(const raft::handle_t &handle, const float *input,
  * @param best_prog   Best program obtained after training
  * @param output      Device pointer to output predictions
  */
-void symClfPredict(const raft::handle_t &handle, const float *input,
-                   const int n_rows, const param &params,
-                   const program_t &best_prog, float *output);
+void symClfPredict(const raft::handle_t& handle,
+                   const float* input,
+                   const int n_rows,
+                   const param& params,
+                   const program_t& best_prog,
+                   float* output);
 
 /**
  * @brief Transform the values in the input feature matrix according to the supplied programs
@@ -101,9 +117,13 @@ void symClfPredict(const raft::handle_t &handle, const float *input,
  * @param n_cols      number of columns of the feature matrix
  * @param output      device pointer to transformed input
  */
-void symTransform(const raft::handle_t &handle, const float *input,
-                  const param &params, const program_t &final_progs,
-                  const int n_rows, const int n_cols, float *output);
+void symTransform(const raft::handle_t& handle,
+                  const float* input,
+                  const param& params,
+                  const program_t& final_progs,
+                  const int n_rows,
+                  const int n_cols,
+                  float* output);
 
 }  // namespace genetic
 }  // namespace cuml

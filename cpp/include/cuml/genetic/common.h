@@ -129,8 +129,8 @@ struct param {
   init_method_t init_method = init_method_t::half_and_half;
 
   /** list of functions to choose from */
-  std::vector<node::type> function_set{node::type::add, node::type::mul,
-                                       node::type::div, node::type::sub};
+  std::vector<node::type> function_set{
+    node::type::add, node::type::mul, node::type::div, node::type::sub};
 
   /** map of functions ordered by their arity */
   std::map<int, std::vector<node::type>> arity_set{
