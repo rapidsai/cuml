@@ -383,7 +383,7 @@ class ARIMA(Base):
         if self.simple_differencing:
             # Compute the differenced series
             batched_diff(handle_[0], <double*> d_y_diff_ptr, <double*> d_y_ptr,
-                        <int> self.batch_size, <int> self.n_obs, self.order)
+                         <int> self.batch_size, <int> self.n_obs, self.order)
 
             # Create a version of the order for the differenced series
             cpp_order_diff.d = 0
@@ -868,7 +868,7 @@ class ARIMA(Base):
         # TODO: don't create pred array every time!
         n_obs_kf = (self.n_obs_diff if diff else self.n_obs)
         d_pred = CumlArray.empty((n_obs_kf, self.batch_size), dtype=np.float64,
-                               order="F")
+                                 order="F")
         cdef uintptr_t d_pred_ptr = d_pred.ptr
 
         cdef uintptr_t d_temp_mem = self._temp_mem.ptr
@@ -981,7 +981,7 @@ class ARIMA(Base):
         diff = self.simple_differencing
 
         d_pred = CumlArray.empty((n_obs_kf, self.batch_size), dtype=np.float64,
-                               order="F")
+                                 order="F")
         cdef uintptr_t d_pred_ptr = d_pred.ptr
 
         cdef uintptr_t d_temp_mem = self._temp_mem.ptr

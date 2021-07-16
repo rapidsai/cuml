@@ -30,10 +30,8 @@
 # Note that there are significant differences between our implementation and
 # the reference, and perfect parity cannot be expected for integration tests.
 
-from pandas.core.frame import DataFrame
 import pytest
 
-from collections import namedtuple
 import numpy as np
 import os
 import warnings
@@ -81,7 +79,7 @@ test_101c = ARIMAData(
 test_002c = ARIMAData(
     batch_size=7,
     n_obs=20,
-    n_test = 2,
+    n_test=2,
     dataset="net_migrations_auckland_by_age",
     tolerance_integration=0.01
 )
@@ -411,6 +409,7 @@ def test_predict_in(key, data, dtype, simple_differencing):
     _predict_common(key, data, dtype, data.n_train // 2, data.n_obs,
                     simple_differencing=simple_differencing)
 
+
 @pytest.mark.parametrize('key, data', test_data)
 @pytest.mark.parametrize('dtype', [np.float64])
 @pytest.mark.parametrize('simple_differencing', [True, False])
@@ -420,6 +419,7 @@ def test_predict_inout(key, data, dtype, simple_differencing):
     """
     _predict_common(key, data, dtype, data.n_train // 2, data.n_train,
                     simple_differencing=simple_differencing)
+
 
 @pytest.mark.parametrize('key, data', test_data)
 @pytest.mark.parametrize('dtype', [np.float64])
