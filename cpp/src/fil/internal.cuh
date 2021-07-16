@@ -138,7 +138,7 @@ struct base_node {
   __host__ __device__ void print() const
   {
     const char* is[] = {"is NOT", "    IS"};
-    printf("{.f = %9f, .idx = %11d} fid %10d, bits %x, def %s, %s leaf, %s categorical\n",
+    printf("{.f = %9f, .idx = %11d} fid %10d, bits %8x, def %s, %s leaf, %s categorical\n",
            val.f,
            val.idx,
            fid(),
@@ -347,36 +347,47 @@ struct categorical_branches {
                                                     float val) const
   {
     bool cond;
-    if (node.is_categorical()) {
-      node.print();
-      int category = val;
-      // standard boolean packing. This layout has better ILP
-      // node.set() is global across feature IDs and is an offset (as opposed
-      // to set number). If we run out of uint32_t and we have hundreds of
-      // features with similar categorical feature count, we may consider
-      // storing node ID within nodes with same feature ID and look up
-      // {.max_matching, .first_node_offset} = ...[feature_id]
-      cond = (category <= max_matching[node.fid()]) &&
-             bits[node.set() + category / 8] & (1 << category % 8);
-    } else {
-      cond = isnan(val) ? !node.def_left() : val >= node.thresh();
+    if (isnan(val))
+      cond = !node.def_left();
+    else {
+      if (node.is_categorical()) {
+        int category = val;
+        // standard boolean packing. This layout has better ILP
+        // node.set() is global across feature IDs and is an offset (as opposed
+        // to set number). If we run out of uint32_t and we have hundreds of
+        // features with similar categorical feature count, we may consider
+        // storing node ID within nodes with same feature ID and look up
+        // {.max_matching, .first_node_offset} = ...[feature_id]
+        cond = (category <= max_matching[node.fid()]) &&
+               bits[node.set() + category / 8] & (1 << category % 8);
+      } else {
+        cond = val >= node.thresh();
+      }
     }
     return node.left(node_idx) + cond;
   }
-  int sizeof_mask(int feature_id) const { return raft::ceildiv(max_matching[feature_id] + 1, 8); }
+  static int sizeof_mask_from_max_matching(int max_matching)
+  {
+    return raft::ceildiv(max_matching + 1, 8);
+  }
+  int sizeof_mask(int feature_id) const
+  {
+    return sizeof_mask_from_max_matching(max_matching[feature_id]);
+  }
 
   // NB! no __device__ here
   void host_allocate(v_cat_feature cf)
   {
     max_matching_size = cf.size();
     max_matching      = new int[max_matching_size];
-
+    bits_size         = 0;
     // feature ID
     for (int fid = 0; fid < cf.size(); ++fid) {
       max_matching[fid] = cf[fid].max_matching;
       bits_size += sizeof_mask(fid) * cf[fid].n_nodes;
-      ASSERT(bits_size <= INT_MAX, "cannot store this many categories given `int` offsets");
-      printf("[%d]=%d ", fid, cf[fid].max_matching);
+      ASSERT(bits_size <= INT_MAX,
+             "@fid %d: cannot store this many categories given `int` offsets",
+             fid);
     }
     bits = new uint8_t[bits_size];
   }
@@ -402,7 +413,7 @@ void init_dense(const raft::handle_t& h,
                 const dense_node* nodes,
                 const forest_params_t* params,
                 const std::vector<float>& vector_leaf,
-                const categorical_branches cat_branches);
+                const categorical_branches& cat_branches);
 
 /** init_sparse uses params, trees and nodes to initialize the sparse forest
  *  with sparse nodes stored in pf
@@ -422,7 +433,7 @@ void init_sparse(const raft::handle_t& h,
                  const fil_node_t* nodes,
                  const forest_params_t* params,
                  const std::vector<float>& vector_leaf,
-                 const categorical_branches cat_branches);
+                 const categorical_branches& cat_branches);
 
 }  // namespace fil
 }  // namespace ML
