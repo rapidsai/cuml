@@ -814,6 +814,10 @@ class ARIMA(Base):
         method = method.lower()
         if method not in {"css", "css-ml", "ml"}:
             raise ValueError("Unknown method: {}".format(method))
+        if self.missing and (method == "css" or method == "css-ml"):
+            logger.warn("Missing observations detected."
+                        " Forcing method=\"ml\"")
+            method = "ml"
         if method == "css" or method == "css-ml":
             x, self.niter = fit_helper(x0, "css")
         if method == "css-ml" or method == "ml":
