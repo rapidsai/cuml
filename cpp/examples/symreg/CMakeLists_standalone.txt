@@ -30,4 +30,4 @@ add_executable(symreg_example symreg_example.cpp)
 set_target_properties(symreg_example PROPERTIES LINKER_LANGUAGE "CUDA")
 
 # Link cuml and cudart
-target_link_libraries(symreg_example cuml++ cudart)
+target_link_libraries(symreg_example cuml::cuml++ CUDA::cudart)
