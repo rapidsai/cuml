@@ -17,7 +17,9 @@ import pytest
 
 
 from cuml.experimental.cluster import HDBSCAN
+from cuml.experimental.cluster import condense_hierarchy
 from sklearn.datasets import make_blobs
+
 
 from cuml.metrics import adjusted_rand_score
 from cuml.test.utils import get_pattern
@@ -50,6 +52,83 @@ def assert_cluster_counts(sk_agg, cuml_agg, digits=25):
     cu_counts = cp.sort(cu_counts).get()
 
     np.testing.assert_almost_equal(sk_counts, cu_counts, decimal=-1 * digits)
+
+
+def get_children(roots, parents, arr):
+    """
+    Simple helper function to return the children of the condensed tree
+    given an array of parents.
+    """
+    ret = []
+    for root in roots:
+        level = np.where(parents == root)
+        ret.extend(arr[level])
+
+    return np.array(ret).ravel()
+
+
+def get_bfs_level(n, roots, parents, children, arr):
+    """
+    Simple helper function to perform a bfs through n
+    levels of a condensed tree.
+    """
+    level = roots
+    for i in range(n-1):
+        level = get_children(level, parents, children)
+
+    return get_children(level, parents, arr)
+
+
+def assert_condensed_trees(sk_agg, min_cluster_size):
+    """
+    Because of differences in the renumbering and sort ordering,
+    the condensed tree arrays from cuml and scikit-learn cannot
+    be compared directly. This function performs a BFS through
+    the condensed trees, comparing the cluster sizes and lambda
+    values at each level of the trees.
+    """
+
+    slt = sk_agg.single_linkage_tree_._linkage
+
+    condensed_tree = condense_hierarchy(slt, min_cluster_size)
+
+    cu_parents = condensed_tree._raw_tree["parent"]
+    sk_parents = sk_agg.condensed_tree_._raw_tree["parent"]
+
+    cu_children = condensed_tree._raw_tree["child"]
+    sk_children = sk_agg.condensed_tree_._raw_tree["child"]
+
+    cu_lambda = condensed_tree._raw_tree["lambda_val"]
+    sk_lambda = sk_agg.condensed_tree_._raw_tree["lambda_val"]
+
+    cu_child_size = condensed_tree._raw_tree["child_size"]
+    sk_child_size = sk_agg.condensed_tree_._raw_tree["child_size"]
+
+    # Start at the root, perform bfs
+
+    l2_cu = [1000]
+    l2_sk = [1000]
+
+    lev = 1
+    while len(l2_cu) != 0 or len(l2_sk) != 0:
+        l2_cu = get_bfs_level(lev, [1000], cu_parents, cu_children, cu_lambda)
+        l2_sk = get_bfs_level(lev, [1000], sk_parents, sk_children, sk_lambda)
+
+        s2_cu = get_bfs_level(lev, [1000], cu_parents, cu_children,
+                              cu_child_size)
+        s2_sk = get_bfs_level(lev, [1000], sk_parents, sk_children,
+                              sk_child_size)
+
+        s2_cu.sort()
+        s2_sk.sort()
+        l2_cu.sort()
+        l2_sk.sort()
+
+        lev += 1
+
+        assert np.allclose(l2_cu, l2_sk, atol=1e-5, rtol=1e-6)
+        assert np.allclose(s2_cu, s2_sk, atol=1e-5, rtol=1e-6)
+    assert lev > 1
 
 
 @pytest.mark.parametrize('nrows', [500])
@@ -100,6 +179,7 @@ def test_hdbscan_blobs(nrows, ncols, nclusters,
 
     sk_agg.fit(cp.asnumpy(X))
 
+    assert_condensed_trees(sk_agg, min_cluster_size)
     assert_cluster_counts(sk_agg, cuml_agg)
 
     assert(adjusted_rand_score(cuml_agg.labels_, sk_agg.labels_) >= 0.95)
@@ -152,6 +232,7 @@ def test_hdbscan_sklearn_datasets(dataset,
 
     sk_agg.fit(cp.asnumpy(X))
 
+    assert_condensed_trees(sk_agg, min_cluster_size)
     assert_cluster_counts(sk_agg, cuml_agg)
 
     assert(len(np.unique(sk_agg.labels_)) == len(cp.unique(cuml_agg.labels_)))
@@ -253,6 +334,7 @@ def test_hdbscan_cluster_patterns(dataset, nrows,
 
     sk_agg.fit(cp.asnumpy(X))
 
+    assert_condensed_trees(sk_agg, min_cluster_size)
     assert_cluster_counts(sk_agg, cuml_agg)
 
     assert(len(np.unique(sk_agg.labels_)) == len(cp.unique(cuml_agg.labels_)))

@@ -303,12 +303,12 @@ class MinMaxScaler(TransformerMixin,
         # Checking one attribute is enough, becase they are all set together
         # in partial_fit
         if hasattr(self, 'scale_'):
-            self.scale_ = None
-            self.min_ = None
-            self.n_samples_seen_ = None
-            self.data_min_ = None
-            self.data_max_ = None
-            self.data_range_ = None
+            del self.scale_
+            del self.min_
+            del self.n_samples_seen_
+            del self.data_min_
+            del self.data_max_
+            del self.data_range_
 
     def get_param_names(self):
         return super().get_param_names() + [
@@ -628,10 +628,10 @@ class StandardScaler(TransformerMixin,
         # Checking one attribute is enough, becase they are all set together
         # in partial_fit
         if hasattr(self, 'scale_'):
-            self.scale_ = None
-            self.n_samples_seen_ = None
-            self.mean_ = None
-            self.var_ = None
+            del self.scale_
+            del self.n_samples_seen_
+            del self.mean_
+            del self.var_
 
     def get_param_names(self):
         return super().get_param_names() + [
@@ -931,9 +931,9 @@ class MaxAbsScaler(TransformerMixin,
         # Checking one attribute is enough, becase they are all set together
         # in partial_fit
         if hasattr(self, 'scale_'):
-            self.scale_ = None
-            self.n_samples_seen_ = None
-            self.max_abs_ = None
+            del self.scale_
+            del self.n_samples_seen_
+            del self.max_abs_
 
     def get_param_names(self):
         return super().get_param_names() + [
