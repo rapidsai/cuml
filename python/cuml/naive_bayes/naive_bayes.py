@@ -264,7 +264,8 @@ class _BaseNB(Base, ClassifierMixin):
 
 class _BaseDiscreteNB(_BaseNB):
 
-    def __init__(self, *, class_prior, verbose=False, handle=None, output_type=None):
+    def __init__(self, *, class_prior, verbose=False,
+                 handle=None, output_type=None):
         super(_BaseDiscreteNB, self).__init__(verbose=verbose,
                                               handle=handle,
                                               output_type=output_type)
