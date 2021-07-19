@@ -41,6 +41,7 @@ __global__ void computeQuantilesSorted(T* quantiles,
   int tid          = threadIdx.x + blockIdx.x * blockDim.x;
   double bin_width = static_cast<double>(length) / n_bins;
   int index        = int(round((tid + 1) * bin_width)) - 1;
+  index            = max(0, index);
   // Old way of computing quantiles. Kept here for comparison.
   // To be deleted eventually
   // int index = (tid + 1) * floor(bin_width) - 1;
