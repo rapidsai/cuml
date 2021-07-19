@@ -156,6 +156,7 @@ struct alignas(8) dense_node : base_node<true> {
   dense_node(val_t output, val_t split, int fid, bool def_left, bool is_leaf, bool is_categorical)
     : base_node<true>(output, split, fid, def_left, is_leaf, is_categorical)
   {
+    ASSERT(is_categorical == base_node<true>::is_categorical(), "didn't save is_categorical right");
   }
   /** index of the left child, where curr is the index of the current node */
   __host__ __device__ int left(int curr) const { return 2 * curr + 1; }
@@ -178,7 +179,6 @@ struct alignas(16) sparse_node16 : base_node<true> {
       left_idx(left_index),
       dummy(0)
   {
-    ASSERT(!is_categorical, "who made this categorical?");
     ASSERT(is_categorical == base_node<true>::is_categorical(), "didn't save is_categorical right");
   }
   __host__ __device__ int left_index() const { return left_idx; }
@@ -207,7 +207,6 @@ struct alignas(8) sparse_node8 : base_node<true> {
     : base_node<true>(output, split, fid, def_left, is_leaf, is_categorical)
   {
     bits |= left_index << LEFT_OFFSET;
-    ASSERT(!is_categorical, "who made this categorical?");
     ASSERT(is_categorical == base_node<true>::is_categorical(), "didn't save is_categorical right");
     ASSERT((fid & FID_MASK) == fid, "internal error: feature ID doesn't fit into sparse_node8");
     ASSERT(((left_index << LEFT_OFFSET) & LEFT_MASK) == (left_index << LEFT_OFFSET),
@@ -358,6 +357,10 @@ struct categorical_branches {
         // features with similar categorical feature count, we may consider
         // storing node ID within nodes with same feature ID and look up
         // {.max_matching, .first_node_offset} = ...[feature_id]
+        printf("for fid %d and val %f, checking categories at %d: {", node.fid(), val, node.set());
+        for (int byte = 0; byte < max_matching[node.fid()]; ++byte)
+          printf("%2x ", bits[node.set() + category / 8]);
+        printf("}\n");
         cond = (category <= max_matching[node.fid()]) &&
                bits[node.set() + category / 8] & (1 << category % 8);
       } else {
@@ -383,11 +386,17 @@ struct categorical_branches {
     bits_size         = 0;
     // feature ID
     for (int fid = 0; fid < cf.size(); ++fid) {
+      ASSERT(cf[fid].max_matching >= -1,
+             "@fid %d: max_matching invalid (%d)",
+             fid,
+             cf[fid].max_matching);
+      ASSERT(cf[fid].n_nodes >= 0, "@fid %d: n_nodes invalid (%d)", fid, cf[fid].n_nodes);
       max_matching[fid] = cf[fid].max_matching;
       bits_size += sizeof_mask(fid) * cf[fid].n_nodes;
       ASSERT(bits_size <= INT_MAX,
-             "@fid %d: cannot store this many categories given `int` offsets",
-             fid);
+             "@fid %d: cannot store %lu categories given `int` offsets",
+             fid,
+             bits_size);
     }
     bits = new uint8_t[bits_size];
   }
@@ -397,6 +406,22 @@ struct categorical_branches {
   {
     delete[] bits;
     delete[] max_matching;
+  }
+
+  void print_bits() const
+  {
+    printf("bits {");
+    for (int byte = 0; byte < bits_size; ++byte)
+      printf("%2x ", bits[byte]);
+    printf("}\n");
+  }
+
+  void print_max_matching() const
+  {
+    printf("max_matching {");
+    for (int fid = 0; fid < max_matching_size; ++fid)
+      printf("%d ", max_matching[fid]);
+    printf("}\n");
   }
 };
 

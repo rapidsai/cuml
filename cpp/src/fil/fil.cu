@@ -191,12 +191,14 @@ struct forest {
                                  stream));
 
       cat_branches_.bits = (uint8_t*)a->allocate(cat_branches.bits_size, stream);
+      printf("forest: copying to GPU:\n");
+      cat_branches.print_bits();
+      cat_branches.print_max_matching();
       CUDA_CHECK(cudaMemcpyAsync(cat_branches_.bits,
                                  cat_branches.bits,
                                  cat_branches.bits_size,
                                  cudaMemcpyHostToDevice,
                                  stream));
-      CUDA_CHECK(cudaStreamSynchronize(stream));
     }
   }
 
@@ -1110,7 +1112,6 @@ void tl2fil_dense(std::vector<dense_node>* pnodes,
   }
   ASSERT(bit_pool_size == cat_branches->bits_size,
          "internal error: didn't convert the right number of nodes");
-  cat_branches->host_deallocate();
 }
 
 template <typename fil_node_t>
@@ -1209,7 +1210,6 @@ void tl2fil_sparse(std::vector<int>* ptrees,
   }
   ASSERT(bit_pool_size == cat_branches->bits_size,
          "internal error: didn't convert the right number of nodes");
-  cat_branches->host_deallocate();
 
   params->num_nodes = pnodes->size();
 }
@@ -1337,6 +1337,8 @@ void from_treelite(const raft::handle_t& handle,
     }
     default: ASSERT(false, "tl_params->sparse must be one of AUTO, DENSE or SPARSE");
   }
+  // wait until stream synchronized to free memcpy source
+  cat_branches.host_deallocate();
 }
 
 void from_treelite(const raft::handle_t& handle,

@@ -46,17 +46,17 @@ using namespace fil;
 
 struct FilTestParams {
   // input data parameters
-  int num_rows   = 20'000;
-  int num_cols   = 50;
+  int num_rows   = 1;
+  int num_cols   = 1;
   float nan_prob = 0.05;
   // forest parameters
-  int depth                      = 8;
-  int num_trees                  = 50;
-  float leaf_prob                = 0.05;
-  float node_categorical_prob    = 0.1;
-  float feature_categorical_prob = 0.5;
-  float cat_match_prob           = 0.1;
-  float max_matching_cat_oom     = 1.0;
+  int depth                      = atoi(getenv("depth"));
+  int num_trees                  = atoi(getenv("num_trees"));
+  float leaf_prob                = atof(getenv("leaf_prob"));
+  float node_categorical_prob    = atof(getenv("node_categorical_prob"));
+  float feature_categorical_prob = atof(getenv("feature_categorical_prob"));
+  float cat_match_prob           = atof(getenv("cat_match_prob"));
+  float max_matching_cat_oom     = atof(getenv("max_matching_cat_oom"));
   // output parameters
   output_t output   = output_t::RAW;
   float threshold   = 0.0f;
@@ -68,7 +68,7 @@ struct FilTestParams {
   algo_t algo             = algo_t::NAIVE;
   int seed                = 42;
   float tolerance         = 2e-3f;
-  bool print_forest_shape = false;
+  bool print_forest_shape = true;
   // treelite parameters, only used for treelite tests
   tl::Operator op       = tl::Operator::kLT;
   leaf_algo_t leaf_algo = leaf_algo_t::FLOAT_UNARY_BINARY;
@@ -134,6 +134,17 @@ struct replace_some_floating_with_categorical {
     return roundf((data * 0.5 + 0.5) * max_matching_cat);
   }
 };
+
+__global__ void compress_bit_stream(uint8_t* dst, float* src, size_t size)
+{
+  size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+  if (idx >= size) return;
+  int byte = 0;
+#pragma unroll
+  for (int i = 0; i < 8; ++i)
+    byte |= (int)src[idx * 8 + i] << i;
+  dst[idx] = byte;
+}
 
 class BaseFilTest : public testing::TestWithParam<FilTestParams> {
  protected:
@@ -236,9 +247,12 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     for (int fid = 0; fid < ps.num_cols; ++fid) {
       feature_categorical[fid] = fc(gen);
       if (feature_categorical[fid]) {
-        float oom = mmc(gen);
         // even for some categorical features, we will have no matching categories
-        cf[fid].max_matching = round(pow(10, oom + 1.0f));  // oom > 0 ? round(pow(10, oom)) : -1;
+        float mm = pow(10, mmc(gen) + 1.0f);
+        ASSERT(mm < INT_MAX,
+               "internal error: max_matching_cat_oom %f is too large",
+               ps.max_matching_cat_oom);
+        cf[fid].max_matching = (int)mm;
       } else {
         cf[fid].max_matching = -1;
       }
@@ -257,9 +271,12 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     // in parallel, split the sets between nodes
     size_t bit_pool_size = 0;
     for (int node_id = 0; node_id < num_nodes; ++node_id) {
+      // mark nodes at max depth as leaves
+      if (node_id % tree_num_nodes() >= tree_num_nodes() / 2) is_leafs_h[node_id] = true;
       int fid = fids_h[node_id];
       if (!feature_categorical[fid] || is_leafs_h[node_id]) is_categoricals_h[node_id] = 0.0f;
       if (is_categoricals_h[node_id] == 1.0) {
+        // might allocate a categorical set for an unreachable branch node. That's OK.
         ++cf[fid].n_nodes;
         node_cat_set[node_id] = bit_pool_size;
         bit_pool_size += categorical_branches::sizeof_mask_from_max_matching(cf[fid].max_matching);
@@ -269,20 +286,20 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     ASSERT(bit_pool_size == cat_branches_h.bits_size, "didn't convert correct number of nodes");
     // calculate sizes and allocate arrays for category sets
     // fill category sets
+    // there is a faster trick with a 256-byte LUT, but we can implement it later if the tests
+    // become too slow
+    float* bits_precursor_d;
     uint8_t* bits_d;
     raft::allocate(bits_d, cat_branches_h.bits_size);
-    r.bernoulli(bits_d, cat_branches_h.bits_size, 1.0f - ps.cat_match_prob, stream);
+    raft::allocate(bits_precursor_d, cat_branches_h.bits_size * 8);
+    hard_clipped_bernoulli(
+      r, bits_precursor_d, cat_branches_h.bits_size * 8, 1.0f - ps.cat_match_prob, stream);
+    compress_bit_stream<<<raft::ceildiv(cat_branches_h.bits_size, 256ul), 256, 0, stream>>>(
+      bits_d, bits_precursor_d, cat_branches_h.bits_size);
     raft::update_host(cat_branches_h.bits, bits_d, cat_branches_h.bits_size, stream);
-
-    // mark leaves
-    for (size_t i = 0; i < ps.num_trees; ++i) {
-      int num_tree_nodes = tree_num_nodes();
-      size_t leaf_start  = num_tree_nodes * i + num_tree_nodes / 2;
-      size_t leaf_end    = num_tree_nodes * (i + 1);
-      for (size_t j = leaf_start; j < leaf_end; ++j) {
-        is_leafs_h[j] = true;
-      }
-    }
+    printf("generated:\n");
+    cat_branches_h.print_bits();
+    cat_branches_h.print_max_matching();
 
     // initialize nodes
     nodes.resize(num_nodes);
@@ -304,14 +321,14 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
       val_t split = is_categorical ? val_t{.idx = node_cat_set[i]} : val_t{.f = thresholds_h[i]};
       nodes[i] =
         fil::dense_node(w, split, fids_h[i], def_lefts_h[i], is_leafs_h[i], is_categorical);
-      // if(i < 1000)
-      // nodes[i].print();
+      if (i < 100) nodes[i].print();
     }
 
     // clean up
     delete[] def_lefts_h;
     delete[] is_leafs_h;
     // cat_branches_h.bits are synced here
+    CUDA_CHECK(cudaFree(bits_precursor_d));
     CUDA_CHECK(cudaFree(bits_d));
     CUDA_CHECK(cudaFree(is_categoricals_d));
     CUDA_CHECK(cudaFree(is_leafs_d));
@@ -383,6 +400,9 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
   void predict_on_cpu()
   {
+    printf("predicting:\n");
+    cat_branches_h.print_bits();
+    cat_branches_h.print_max_matching();
     // predict on host
     std::vector<float> want_preds_h(ps.num_preds_outputs());
     std::vector<float> want_proba_h(ps.num_proba_outputs());
