@@ -209,6 +209,7 @@ def input_to_cuml_array(X,
                         deepcopy=False,
                         check_dtype=False,
                         convert_to_dtype=False,
+                        safe_convert_to_dtype=True,
                         check_cols=False,
                         check_rows=False,
                         fail_on_order=False,
@@ -248,6 +249,12 @@ def input_to_cuml_array(X,
     convert_to_dtype: np.dtype (default: False)
         Set to a dtype if you want X to be converted to that dtype if it is
         not that dtype already.
+
+    safe_convert_to_dtype: bool (default: True)
+        Set to True to check whether a typecasting performed when
+        convert_to_dtype is True will cause information loss. This has a
+        performance implication that might be significant for very fast
+        methods like FIL and linear models inference.
 
     check_cols: int (default: False)
         Set to an int `i` to check that input X has `i` columns. Set to False
@@ -296,7 +303,9 @@ def input_to_cuml_array(X,
     force_contiguous = True
 
     if convert_to_dtype:
-        X = convert_dtype(X, to_dtype=convert_to_dtype)
+        X = convert_dtype(X,
+                          to_dtype=convert_to_dtype,
+                          safe_dtype=safe_convert_to_dtype)
         check_dtype = False
 
     # format conversion
@@ -538,14 +547,19 @@ def input_to_host_array(X,
 
 
 @cuml.internals.api_return_any()
-def convert_dtype(X, to_dtype=np.float32, legacy=True):
+def convert_dtype(X,
+                  to_dtype=np.float32,
+                  legacy=True,
+                  safe_dtype=True):
     """
     Convert X to be of dtype `dtype`, raising a TypeError
     if the conversion would lose information.
     """
-    would_lose_info = _typecast_will_lose_information(X, to_dtype)
-    if would_lose_info:
-        raise TypeError("Data type conversion would lose information.")
+
+    if safe_dtype:
+        would_lose_info = _typecast_will_lose_information(X, to_dtype)
+        if would_lose_info:
+            raise TypeError("Data type conversion would lose information.")
 
     if isinstance(X, np.ndarray):
         dtype = X.dtype
@@ -585,6 +599,10 @@ def _typecast_will_lose_information(X, target_dtype):
 
     if isinstance(X, (np.ndarray, cp.ndarray, pd.Series, cudf.Series)):
         if X.dtype.type == target_dtype:
+            return False
+
+        # if we are casting to a bigger data type
+        if np.dtype(X.dtype) <= np.dtype(target_dtype):
             return False
 
         return ((X < target_dtype_range.min) |

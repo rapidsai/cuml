@@ -312,6 +312,7 @@ cdef class ForestInference_impl():
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='C',
                                 convert_to_dtype=np.float32,
+                                safe_convert_to_dtype=False,
                                 check_dtype=np.float32)
         X_ptr = X_m.ptr
 
