@@ -95,21 +95,19 @@ def test_multinomial_basic_fit_predict_dense_numpy(x_dtype, y_dtype,
     X, y = nlp_20news
     n_rows = 500
 
-    X = sparse_scipy_to_cp(X, cp.float32)
-    y = y.astype(y_dtype)
-
-    X = X.tocsr()[0:n_rows].todense()
-    y = y[:n_rows]
+    X = sparse_scipy_to_cp(X, cp.float32).tocsr()[:n_rows]
+    y = y[:n_rows].astype(y_dtype)
 
     model = MultinomialNB()
-    model.fit(np.ascontiguousarray(cp.asnumpy(X).astype(x_dtype)), y)
+    model.fit(np.ascontiguousarray(cp.asnumpy(X.todense()).astype(x_dtype)), y)
 
-    y_hat = model.predict(X)
+    y_hat = model.predict(X).get()
 
-    y_hat = cp.asnumpy(y_hat)
-    y = cp.asnumpy(y)
+    modelsk = skNB()
+    modelsk.fit(X.get(), y.get())
+    y_sk = model.predict(X.get())
 
-    assert accuracy_score(y, y_hat) >= 0.81
+    assert_allclose(y_hat, y_sk)
 
 
 @pytest.mark.parametrize("x_dtype", [cp.float32, cp.float64])
@@ -288,6 +286,7 @@ def test_bernoulli_partial_fit(x_dtype, y_dtype, nlp_20news):
     X = X.tocsr()
 
     model = BernoulliNB()
+    modelsk = skBNB()
 
     classes = np.unique(y)
 
@@ -305,12 +304,11 @@ def test_bernoulli_partial_fit(x_dtype, y_dtype, nlp_20news):
             y_c = y[i*chunk_size:]
 
         model.partial_fit(x, y_c, classes=classes)
+        modelsk.partial_fit(x.get(), y_c.get(), classes=classes.get())
         if upper == -1:
             break
 
-    y_hat = model.predict(X)
+    y_hat = model.predict(X).get()
+    y_sk = modelsk.predict(X.get())
 
-    y_hat = cp.asnumpy(y_hat)
-    y = cp.asnumpy(y)
-
-    assert accuracy_score(y, y_hat) >= 0.78
+    assert_allclose(y_hat, y_sk)

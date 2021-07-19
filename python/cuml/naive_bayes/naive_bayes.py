@@ -264,6 +264,22 @@ class _BaseNB(Base, ClassifierMixin):
 
 class _BaseDiscreteNB(_BaseNB):
 
+    def __init__(self, *, class_prior, verbose=False, handle=None, output_type=None):
+        super(_BaseDiscreteNB, self).__init__(verbose=verbose,
+                                              handle=handle,
+                                              output_type=output_type)
+        if class_prior is not None:
+            self.class_prior, *_ = input_to_cuml_array(class_prior)
+        else:
+            self.class_prior = None
+
+        self.fit_called_ = False
+        self.n_classes_ = 0
+        self.n_features_ = None
+
+        # Needed until Base no longer assumed cumlHandle
+        self.handle = None
+
     def _check_X_y(self, X, y):
         return X, y
 
@@ -336,12 +352,9 @@ class _BaseDiscreteNB(_BaseNB):
             from cuml.common.import_utils import dummy_function_always_false \
                 as scipy_sparse_isspmatrix
 
-        # todo: use a sparse CumlArray style approach when ready
-        # https://github.com/rapidsai/cuml/issues/2216
+        # TODO: use SparseCumlArray
         if scipy_sparse_isspmatrix(X) or cp.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
-            # TODO: Expanded this since sparse kernel doesn't
-            # actually require the scipy sparse container format.
         else:
             X = input_to_cupy_array(X, order='K',
                                     check_dtype=[cp.float32, cp.float64,
@@ -380,6 +393,7 @@ class _BaseDiscreteNB(_BaseNB):
             check_labels(Y, self.classes_)
 
         if cp.sparse.isspmatrix(X):
+            # X is assumed to be a COO here
             self._count_sparse(X.row, X.col, X.data, X.shape, Y, self.classes_)
         else:
             self._count(X, Y, self.classes_)
@@ -553,11 +567,6 @@ class MultinomialNB(_BaseDiscreteNB):
     The multinomial distribution normally requires integer feature counts.
     However, in practice, fractional counts such as tf-idf may also work.
 
-    NOTE: While cuML only provides the multinomial version currently, the
-    other variants are planned to be included soon. Refer to the
-    corresponding Github issue for updates:
-    https://github.com/rapidsai/cuml/issues/1666
-
     Parameters
     ----------
 
@@ -639,23 +648,12 @@ class MultinomialNB(_BaseDiscreteNB):
                  output_type=None,
                  handle=None,
                  verbose=False):
-        super(MultinomialNB, self).__init__(handle=handle,
+        super(MultinomialNB, self).__init__(class_prior=class_prior,
+                                            handle=handle,
                                             output_type=output_type,
                                             verbose=verbose)
         self.alpha = alpha
         self.fit_prior = fit_prior
-
-        if class_prior is not None:
-            self.class_prior, *_ = input_to_cuml_array(class_prior)
-        else:
-            self.class_prior = None
-
-        self.fit_called_ = False
-        self.n_classes_ = 0
-        self.n_features_ = None
-
-        # Needed until Base no longer assumed cumlHandle
-        self.handle = None
 
     def _update_feature_log_prob(self, alpha):
         """
@@ -775,20 +773,13 @@ class BernoulliNB(_BaseDiscreteNB):
     def __init__(self, *, alpha=1.0, binarize=.0, fit_prior=True,
                  class_prior=None, output_type=None, handle=None,
                  verbose=False):
-        super(BernoulliNB, self).__init__(handle=handle,
+        super(BernoulliNB, self).__init__(class_prior=class_prior,
+                                          handle=handle,
                                           output_type=output_type,
                                           verbose=verbose)
         self.alpha = alpha
         self.binarize = binarize
         self.fit_prior = fit_prior
-        if class_prior is not None:
-            self.class_prior, *_ = input_to_cuml_array(class_prior)
-        else:
-            self.class_prior = None
-        self.n_classes_ = 0
-        self.n_features_ = None
-        self.fit_called_ = False
-        self.handle = None
 
     def _check_X(self, X):
         X = super()._check_X(X)
