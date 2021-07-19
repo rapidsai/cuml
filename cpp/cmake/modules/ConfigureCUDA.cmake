@@ -22,7 +22,7 @@ if(CMAKE_COMPILER_IS_GNUCXX)
     endif()
 endif()
 
-list(APPEND CUML_CUDA_FLAGS --expt-extended-lambda --expt-relaxed-constexpr)
+list(APPEND CUML_CUDA_FLAGS --expt-extended-lambda --expt-relaxed-constexpr --default-stream per-thread)
 
 # set warnings as errors
 # list(APPEND CUML_CUDA_FLAGS -Werror=cross-execution-space-call)
