@@ -370,8 +370,7 @@ class RandomForest {
                                           mean_abs_error,
                                           mean_squared_error,
                                           median_abs_error);
-      RF_metrics stats =
-        set_rf_metrics_regression(mean_abs_error, mean_squared_error, median_abs_error);
+      stats = set_rf_metrics_regression(mean_abs_error, mean_squared_error, median_abs_error);
       if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) print(stats);
     }
 
