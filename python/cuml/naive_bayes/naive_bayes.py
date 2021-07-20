@@ -115,8 +115,7 @@ def count_features_dense_kernel(float_dtype, int_dtype):
       if(square) val *= val;
       {1} label = labels[row];
 
-      {1} idx = rowMajor ? col : row;
-      atomicAdd(out + ((idx * n_classes) + label), val);
+      atomicAdd(out + ((col * n_classes) + label), val);
     }'''
 
     return cuda_kernel_factory(kernel_str, (float_dtype, int_dtype),
