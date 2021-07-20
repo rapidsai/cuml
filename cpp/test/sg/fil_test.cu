@@ -46,8 +46,8 @@ using namespace fil;
 
 struct FilTestParams {
   // input data parameters
-  int num_rows   = 1;
-  int num_cols   = 1;
+  int num_rows   = atoi(getenv("num_rows"));
+  int num_cols   = atoi(getenv("num_cols"));
   float nan_prob = 0.05;
   // forest parameters
   int depth                      = atoi(getenv("depth"));
@@ -288,17 +288,19 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     // fill category sets
     // there is a faster trick with a 256-byte LUT, but we can implement it later if the tests
     // become too slow
-    float* bits_precursor_d;
-    uint8_t* bits_d;
-    raft::allocate(bits_d, cat_branches_h.bits_size);
-    raft::allocate(bits_precursor_d, cat_branches_h.bits_size * 8);
-    hard_clipped_bernoulli(
-      r, bits_precursor_d, cat_branches_h.bits_size * 8, 1.0f - ps.cat_match_prob, stream);
-    compress_bit_stream<<<raft::ceildiv(cat_branches_h.bits_size, 256ul), 256, 0, stream>>>(
-      bits_d, bits_precursor_d, cat_branches_h.bits_size);
-    raft::update_host(cat_branches_h.bits, bits_d, cat_branches_h.bits_size, stream);
+    float* bits_precursor_d = nullptr;
+    uint8_t* bits_d = nullptr;
+    if(cat_branches_h.bits_size != 0) {
+      raft::allocate(bits_d, cat_branches_h.bits_size);
+      raft::allocate(bits_precursor_d, cat_branches_h.bits_size * 8);
+      hard_clipped_bernoulli(
+        r, bits_precursor_d, cat_branches_h.bits_size * 8, 1.0f - ps.cat_match_prob, stream);
+      compress_bit_stream<<<raft::ceildiv(cat_branches_h.bits_size, 256ul), 256, 0, stream>>>(
+        bits_d, bits_precursor_d, cat_branches_h.bits_size);
+      raft::update_host(cat_branches_h.bits, bits_d, cat_branches_h.bits_size, stream);
+    }
     printf("generated:\n");
-    cat_branches_h.print_bits();
+    //cat_branches_h.print_bits();
     cat_branches_h.print_max_matching();
 
     // initialize nodes
@@ -321,7 +323,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
       val_t split = is_categorical ? val_t{.idx = node_cat_set[i]} : val_t{.f = thresholds_h[i]};
       nodes[i] =
         fil::dense_node(w, split, fids_h[i], def_lefts_h[i], is_leafs_h[i], is_categorical);
-      if (i < 100) nodes[i].print();
+      //if (i < 100) nodes[i].print();
     }
 
     // clean up
@@ -401,7 +403,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   void predict_on_cpu()
   {
     printf("predicting:\n");
-    cat_branches_h.print_bits();
+    //cat_branches_h.print_bits();
     cat_branches_h.print_max_matching();
     // predict on host
     std::vector<float> want_preds_h(ps.num_preds_outputs());
@@ -664,11 +666,14 @@ class TreeliteFilTest : public BaseFilTest {
   /** adds nodes[node] of tree starting at index root to builder
       at index at *pkey, increments *pkey,
       and returns the treelite key of the node */
+  long long max_key = LLONG_MAX;
   int node_to_treelite(tlf::TreeBuilder* builder, int* pkey, int root, int node)
   {
     int key = (*pkey)++;
     builder->CreateNode(key);
     const fil::dense_node& dense_node = nodes[node];
+    printf("%5d key\n", key);
+    dense_node.print();
     if (dense_node.is_leaf()) {
       switch (ps.leaf_algo) {
         case fil::leaf_algo_t::FLOAT_UNARY_BINARY:
@@ -697,34 +702,56 @@ class TreeliteFilTest : public BaseFilTest {
     } else {
       int left          = root + 2 * (node - root) + 1;
       int right         = root + 2 * (node - root) + 2;
-      float threshold   = dense_node.thresh();
       bool default_left = dense_node.def_left();
-      switch (ps.op) {
-        case tl::Operator::kLT: break;
-        case tl::Operator::kLE:
-          // adjust the threshold
-          threshold = std::nextafterf(threshold, -std::numeric_limits<float>::infinity());
-          break;
-        case tl::Operator::kGT:
-          // adjust the threshold; left and right still need to be swapped
-          threshold = std::nextafterf(threshold, -std::numeric_limits<float>::infinity());
-        case tl::Operator::kGE:
-          // swap left and right
-          std::swap(left, right);
-          default_left = !default_left;
-          break;
-        default: ASSERT(false, "comparison operator must be <, >, <= or >=");
+      float threshold;
+      std::vector<uint32_t> left_categories;
+      if(dense_node.is_categorical()) {
+        uint8_t byte = 0;
+        for(int category = 0; category <= cat_branches_h.max_matching[dense_node.fid()]; ++category) {
+          if(category % 8 == 0)
+            byte = cat_branches_h.bits[dense_node.set() + category / 8];
+          if(byte & 1 << category % 8 != 0)
+            left_categories.push_back(category);
+        }
+      } else {
+        threshold   = dense_node.thresh();
+        switch (ps.op) {
+          case tl::Operator::kLT: break;
+          case tl::Operator::kLE:
+            // adjust the threshold
+            threshold = std::nextafterf(threshold, -std::numeric_limits<float>::infinity());
+            break;
+          case tl::Operator::kGT:
+            // adjust the threshold; left and right still need to be swapped
+            threshold = std::nextafterf(threshold, -std::numeric_limits<float>::infinity());
+          case tl::Operator::kGE:
+            // swap left and right
+            std::swap(left, right);
+            default_left = !default_left;
+            break;
+          default: ASSERT(false, "comparison operator must be <, >, <= or >=");
+        }
       }
       int left_key  = node_to_treelite(builder, pkey, root, left);
       int right_key = node_to_treelite(builder, pkey, root, right);
-      builder->SetNumericalTestNode(key,
-                                    dense_node.fid(),
-                                    ps.op,
-                                    tlf::Value::Create(threshold),
-                                    default_left,
-                                    left_key,
-                                    right_key);
+      if(dense_node.is_categorical()) {
+        builder->SetCategoricalTestNode(key,
+                                      dense_node.fid(),
+                                      left_categories,
+                                      default_left,
+                                      left_key,
+                                      right_key);
+      } else {
+        builder->SetNumericalTestNode(key,
+                                      dense_node.fid(),
+                                      ps.op,
+                                      tlf::Value::Create(threshold),
+                                      default_left,
+                                      left_key,
+                                      right_key);
+      }
     }
+    if(key < max_key) max_key = key;
     return key;
   }
 
@@ -761,6 +788,7 @@ class TreeliteFilTest : public BaseFilTest {
     model_builder->SetModelParam("global_bias", global_bias_str);
     ::free(global_bias_str);
 
+    max_key = LLONG_MIN;
     // build the trees
     for (int i_tree = 0; i_tree < ps.num_trees; ++i_tree) {
       tlf::TreeBuilder* tree_builder =
@@ -772,6 +800,7 @@ class TreeliteFilTest : public BaseFilTest {
       // InsertTree() consumes tree_builder
       TL_CPP_CHECK(model_builder->InsertTree(tree_builder));
     }
+    printf("max key %d\n", max_key);
 
     // commit the model
     std::unique_ptr<tl::Model> model = model_builder->CommitModel();

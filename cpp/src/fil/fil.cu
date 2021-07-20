@@ -180,23 +180,25 @@ struct forest {
     }
 
     // categorical features
-    if (cat_branches.bits_size != 0) {
+    if (cat_branches.max_matching_size != 0) {
       cat_branches_ = cat_branches;  // for sizes
       cat_branches_.max_matching =
         (int*)a->allocate(sizeof(int) * cat_branches.max_matching_size, stream);
       CUDA_CHECK(cudaMemcpyAsync(cat_branches_.max_matching,
                                  cat_branches.max_matching,
-                                 cat_branches.max_matching_size,
+                                 cat_branches.max_matching_size * sizeof(int),
                                  cudaMemcpyHostToDevice,
                                  stream));
+    }
 
+    if (cat_branches.bits_size != 0) {
       cat_branches_.bits = (uint8_t*)a->allocate(cat_branches.bits_size, stream);
       printf("forest: copying to GPU:\n");
-      cat_branches.print_bits();
+      //cat_branches.print_bits();
       cat_branches.print_max_matching();
       CUDA_CHECK(cudaMemcpyAsync(cat_branches_.bits,
                                  cat_branches.bits,
-                                 cat_branches.bits_size,
+                                 cat_branches.bits_size * sizeof(uint8_t),
                                  cudaMemcpyHostToDevice,
                                  stream));
     }
@@ -346,10 +348,13 @@ struct forest {
 
   virtual void free(const raft::handle_t& h)
   {
-    if (vector_leaf_len_ > 0) {
-      h.get_device_allocator()->deallocate(
-        vector_leaf_, sizeof(float) * vector_leaf_len_, h.get_stream());
-    }
+    auto deallocate = [&](void* ptr, size_t size) {
+     if(size > 0)
+       h.get_device_allocator()->deallocate(ptr, size, h.get_stream());
+    };
+    deallocate(cat_branches_.bits, cat_branches_.bits_size);
+    deallocate(cat_branches_.max_matching, cat_branches_.max_matching_size);
+    deallocate(vector_leaf_, sizeof(float) * vector_leaf_len_);
   }
 
   virtual ~forest() {}
@@ -612,11 +617,20 @@ int max_depth(const tl::ModelImpl<T, L>& model)
   return depth;
 }
 
-v_cat_feature reduce_with(v_cat_feature a, const v_cat_feature b)
+v_cat_feature reduce(v_cat_feature a, const v_cat_feature b)
 {
+  printf("\na\n");
+  for(int fid = 0; fid < a.size(); ++fid)
+    printf("reduction fid %3d max_matching %8d sizeof_mask %3d\n", fid, a[fid].max_matching, categorical_branches::sizeof_mask_from_max_matching(a[fid].max_matching));
+  printf("\nb\n");
+  for(int fid = 0; fid < a.size(); ++fid)
+    printf("reduction fid %3d max_matching %8d sizeof_mask %3d\n", fid, b[fid].max_matching, categorical_branches::sizeof_mask_from_max_matching(b[fid].max_matching));
   for (int fid = 0; fid < b.size(); ++fid) {
     a[fid].reduce_with(b[fid]);
   }
+  printf("\nres\n");
+  for(int fid = 0; fid < a.size(); ++fid)
+    printf("reduction fid %3d max_matching %8d sizeof_mask %3d\n", fid, a[fid].max_matching, categorical_branches::sizeof_mask_from_max_matching(a[fid].max_matching));
   return a;
 }
 
@@ -639,6 +653,7 @@ inline v_cat_feature cat_feature_counters(const tl::Tree<T, L>& tree, int max_fi
                "more than %d matching categories",
                max_precise_int_float);
         res[tree.SplitIndex(node_id)].reduce_with({(int)max_matching_cat, 1});
+        printf("tree fid %3d max_matching %8d %8d\n", tree.SplitIndex(node_id), max_matching_cat, res[tree.SplitIndex(node_id)].max_matching);
       }
       stack.push(tree.LeftChild(node_id));
       node_id = tree.RightChild(node_id);
@@ -653,12 +668,14 @@ v_cat_feature cat_feature_counters(const tl::ModelImpl<T, L>& model)
   v_cat_feature cat_features(model.num_feature);
   const auto& trees = model.trees;
 #pragma omp declare reduction(rwz:v_cat_feature                         \
-                              : omp_out = reduce_with(omp_out, omp_in)) \
+                              : omp_out = reduce(omp_out, omp_in)) \
   initializer(omp_priv = omp_orig)
 #pragma omp parallel for reduction(rwz : cat_features)
   for (size_t i = 0; i < trees.size(); ++i) {
-    reduce_with(cat_features, cat_feature_counters(trees[i], model.num_feature));
+    cat_features = reduce(cat_features, cat_feature_counters(trees[i], model.num_feature));
   }
+  for(int fid = 0; fid < cat_features.size(); ++fid)
+    printf("forest fid %3d max_matching %8d sizeof_mask %3d\n", fid, cat_features[fid].max_matching, categorical_branches::sizeof_mask_from_max_matching(cat_features[fid].max_matching));
   return cat_features;
 }
 
@@ -752,6 +769,8 @@ struct conversion_state {
   int tl_left, tl_right;
 };
 
+#define print_vec(var) printf("\n" #var " {\n"); for(auto el : var) printf("%d ", el); printf("\n} " #var "\n");
+
 template <typename fil_node_t, typename T, typename L>
 __noinline__ conversion_state<fil_node_t> tl2fil_branch_node(int fil_left_child,
                                                              const tl::Tree<T, L>& tree,
@@ -770,7 +789,6 @@ __noinline__ conversion_state<fil_node_t> tl2fil_branch_node(int fil_left_child,
     split.f        = static_cast<float>(tree.Threshold(tl_node_id));
     adjust_threshold(&split.f, &tl_left, &tl_right, &default_left, tree.ComparisonOp(tl_node_id));
   } else if (tree.SplitType(tl_node_id) == tl::SplitFeatureType::kCategorical) {
-    ASSERT(false, "CATEGORICAL NODE");
     is_categorical     = true;
     size_t sizeof_mask = cat_branches->sizeof_mask(feature_id);
     // using the odd syntax because += returns post-addition value
@@ -779,7 +797,13 @@ __noinline__ conversion_state<fil_node_t> tl2fil_branch_node(int fil_left_child,
       split.idx = *bit_pool_size;
       *bit_pool_size += sizeof_mask;
     }
+    printf("fid %d idx %d sizeof_mask %lu max_matching %d\n", feature_id, split.idx, sizeof_mask, cat_branches->max_matching[feature_id]);
     std::vector<uint32_t> matching_cats = tree.MatchingCategories(tl_node_id);
+    print_vec(matching_cats)
+    uint8_t* mask_start = cat_branches->bits + split.idx;
+    std::vector<uint8_t> mask(sizeof_mask);
+    memcpy(mask.data(), mask_start, sizeof_mask);
+    print_vec(mask)
     auto category_it                    = matching_cats.begin();
     // assuming categories from tree.MatchingCategories() are in ascending order
     // we have to initialize all pool bytes, so we iterate over those and keep category_it up to
