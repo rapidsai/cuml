@@ -182,8 +182,9 @@ void class_probs(const raft::handle_t& handle,
                  std::vector<int>& n_unique,
                  const std::shared_ptr<raft::mr::device::allocator> allocator)
 {
+  const auto& stream_pool = handle.get_stream_pool();
   for (int i = 0; i < y.size(); i++) {
-    auto stream = handle.get_stream_from_stream_pool();
+    auto stream = stream_pool.get_pool_size() > 0 ? stream_pool.get_stream() : handle.get_stream();
 
     int n_unique_labels = n_unique[i];
     int cur_size        = n_query_rows * n_unique_labels;
@@ -263,11 +264,13 @@ void knn_classify(const raft::handle_t& handle,
   std::vector<float*> probs;
   std::vector<device_buffer<float>*> tmp_probs;
 
+  const auto& stream_pool = handle.get_stream_pool();
+
   // allocate temporary memory
   for (int i = 0; i < n_unique.size(); i++) {
     int size = n_unique[i];
 
-    auto stream = handle.get_stream_from_stream_pool();
+    auto stream = stream_pool.get_pool_size() > 0 ? stream_pool.get_stream() : handle.get_stream();
 
     device_buffer<float>* probs_buff =
       new device_buffer<float>(allocator, stream, n_query_rows * size);
@@ -289,7 +292,7 @@ void knn_classify(const raft::handle_t& handle,
   dim3 blk(TPB_X, 1, 1);
 
   for (int i = 0; i < y.size(); i++) {
-    auto stream = handle.get_stream_from_stream_pool();
+    auto stream = stream_pool.get_pool_size() > 0 ? stream_pool.get_stream() : handle.get_stream();
 
     int n_unique_labels = n_unique[i];
 
@@ -340,11 +343,12 @@ void knn_regress(const raft::handle_t& handle,
                  size_t n_query_rows,
                  int k)
 {
+  const auto& stream_pool = handle.get_stream_pool();
   /**
    * Vote average regression value
    */
   for (int i = 0; i < y.size(); i++) {
-    auto stream = handle.get_stream_from_stream_pool();
+    auto stream = stream_pool.get_pool_size() > 0 ? stream_pool.get_stream() : handle.get_stream();
 
     regress_avg_kernel<ValType, precomp_lbls>
       <<<raft::ceildiv(n_query_rows, (size_t)TPB_X), TPB_X, 0, stream>>>(

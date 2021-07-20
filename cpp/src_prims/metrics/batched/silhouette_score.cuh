@@ -217,6 +217,7 @@ value_t silhouette_score(
   detail::fill_b_kernel<<<grid_size, block_size, 0, stream>>>(
     b_ptr, y, n_rows, n_labels, cluster_counts.data());
 
+  const auto& stream_pool = handle.get_stream_pool();
   handle.wait_stream_pool_on_stream();
 
   auto n_iters = 0;
@@ -225,7 +226,8 @@ value_t silhouette_score(
     for (value_idx j = 0; j < n_rows; j += chunk) {
       ++n_iters;
 
-      auto chunk_stream = handle.get_stream_from_stream_pool();
+      auto chunk_stream =
+        stream_pool.get_pool_size() > 0 ? stream_pool.get_stream() : handle.get_stream();
 
       auto* left_begin  = X + (i * n_cols);
       auto* right_begin = X + (j * n_cols);

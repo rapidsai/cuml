@@ -119,7 +119,7 @@ class BaseRandomForestModel(Base):
             handle=handle,
             verbose=verbose,
             output_type=output_type,
-            handle_kwargs={"n_streams" : n_streams})
+            handle_kwargs={"n_streams": n_streams})
 
         if max_depth < 0:
             raise ValueError("Must specify max_depth >0 ")
