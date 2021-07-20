@@ -432,8 +432,7 @@ class RFQuantileTest : public ::testing::TestWithParam<QuantileTestParameters> {
       total_items += h_histogram[b];
     }
     ASSERT_EQ(params.n_rows, total_items)
-      << "Some samples from dataset are either missed of double counted in "
-         "quantile bins"
+      << "Some samples from dataset are either missed of double counted in quantile bins"
       << std::endl;
   }
 };

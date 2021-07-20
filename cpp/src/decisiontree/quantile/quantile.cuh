@@ -42,9 +42,6 @@ __global__ void computeQuantilesSorted(T* quantiles,
   double bin_width = static_cast<double>(length) / n_bins;
   int index        = int(round((tid + 1) * bin_width)) - 1;
   index            = min(max(0, index), length - 1);
-  // Old way of computing quantiles. Kept here for comparison.
-  // To be deleted eventually
-  // int index = (tid + 1) * floor(bin_width) - 1;
   if (tid < n_bins) { quantiles[tid] = sorted_data[index]; }
 
   return;
