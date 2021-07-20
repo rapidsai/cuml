@@ -66,8 +66,8 @@ class RFBatchedClsTest : public ::testing::TestWithParam<RfInputs> {
                               128);
 
     CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.reset(new raft::handle_t(rf_params.n_streams));
-    handle->set_stream(stream);
+    handle.reset(new raft::handle_t(
+      stream, rmm::cuda_stream_pool{static_cast<std::size_t>(rf_params.n_streams)}));
     auto allocator = handle->get_device_allocator();
 
     int data_len     = params.n_rows * params.n_cols;

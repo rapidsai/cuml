@@ -63,8 +63,6 @@ class PCAOpgTest : public testing::TestWithParam<PCAOpgParams> {
     totalRanks = comm.get_size();
     raft::random::Rng r(params.seed + myRank);
 
-    CUBLAS_CHECK(cublasSetStream(cublasHandle, stream));
-
     if (myRank == 0) {
       std::cout << "Testing PCA of " << params.M << " x " << params.N << " matrix" << std::endl;
     }
@@ -81,7 +79,7 @@ class PCAOpgTest : public testing::TestWithParam<PCAOpgParams> {
     std::vector<Matrix::Data<T>*> inParts;
     Matrix::opg::allocate(handle, inParts, desc, myRank, stream);
     Matrix::opg::randomize(handle, r, inParts, desc, myRank, stream, T(10.0), T(20.0));
-    handle.wait_on_user_stream();
+    handle.sync_stream();
 
     prmsPCA.n_rows       = params.M;
     prmsPCA.n_cols       = params.N;

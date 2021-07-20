@@ -44,9 +44,8 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
   void SetUp()
   {
     inparams = ::testing::TestWithParam<DtTestParams>::GetParam();
-    handle.reset(new raft::handle_t);
     CUDA_CHECK(cudaStreamCreate(&stream));
-    handle->set_stream(stream);
+    handle.reset(new raft::handle_t{stream});
     set_tree_params(params,
                     inparams.max_depth,
                     1 << inparams.max_depth,

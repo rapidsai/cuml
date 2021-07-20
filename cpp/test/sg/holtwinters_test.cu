@@ -57,7 +57,7 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs<T>> {
     epsilon                   = params.epsilon;
     mae_tolerance             = params.mae_tolerance;
 
-    CUDA_CHECK(cudaStreamCreate(&stream));
+    auto stream = handle.get_stream();
 
     ML::HoltWinters::buffer_size(
       n,
@@ -78,9 +78,6 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs<T>> {
 
     raft::allocate(data, batch_size * n);
     raft::update_device(data, dataset_h, batch_size * n, stream);
-
-    raft::handle_t handle;
-    handle.set_stream(stream);
 
     ML::HoltWinters::fit(handle,
                          n,
@@ -119,11 +116,10 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs<T>> {
     CUDA_CHECK(cudaFree(season_ptr));
     CUDA_CHECK(cudaFree(SSE_error_ptr));
     CUDA_CHECK(cudaFree(forecast_ptr));
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  public:
-  cudaStream_t stream;
+  raft::handle_t handle;
   HoltWintersInputs<T> params;
   T *dataset_h, *test;
   T* data;
@@ -250,6 +246,7 @@ T calculate_MAE(T* test, T* forecast, int batch_size, int h)
 typedef HoltWintersTest<float> HoltWintersTestF;
 TEST_P(HoltWintersTestF, Fit)
 {
+  auto stream = handle.get_stream();
   std::vector<float> forecast_h(batch_size * h);
   raft::update_host(forecast_h.data(), forecast_ptr, batch_size * h, stream);
   raft::print_host_vector("forecast", forecast_h.data(), batch_size * h, std::cout);
@@ -261,6 +258,7 @@ TEST_P(HoltWintersTestF, Fit)
 typedef HoltWintersTest<double> HoltWintersTestD;
 TEST_P(HoltWintersTestD, Fit)
 {
+  auto stream = handle.get_stream();
   std::vector<double> forecast_h(batch_size * h);
   raft::update_host(forecast_h.data(), forecast_ptr, batch_size * h, stream);
   raft::print_host_vector("forecast", forecast_h.data(), batch_size * h, std::cout);

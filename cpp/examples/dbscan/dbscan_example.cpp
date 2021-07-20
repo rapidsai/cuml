@@ -137,7 +137,9 @@ int main(int argc, char* argv[])
     }
   }
 
-  raft::handle_t handle;
+  cudaStream_t stream;
+  CUDA_RT_CALL(cudaStreamCreate(&stream));
+  raft::handle_t handle{stream};
 
   std::shared_ptr<raft::mr::device::allocator> allocator(new raft::mr::device::default_allocator());
 
@@ -179,10 +181,6 @@ int main(int argc, char* argv[])
       return 1;
     }
   }
-
-  cudaStream_t stream;
-  CUDA_RT_CALL(cudaStreamCreate(&stream));
-  handle.set_stream(stream);
 
   std::vector<int> h_labels(nRows);
   int* d_labels      = nullptr;

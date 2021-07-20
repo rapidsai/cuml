@@ -41,10 +41,9 @@ class Fixture : public MLCommon::Bench::Fixture {
 
   void SetUp(const ::benchmark::State& state) override
   {
-    handle.reset(new raft::handle_t(NumStreams));
+    handle.reset(new raft::handle_t(stream, rmm::cuda_stream_pool{NumStreams}));
     d_alloc = handle->get_device_allocator();
     MLCommon::Bench::Fixture::SetUp(state);
-    handle->set_stream(stream);
   }
 
   void TearDown(const ::benchmark::State& state) override

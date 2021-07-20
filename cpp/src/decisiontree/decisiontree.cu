@@ -16,7 +16,6 @@
 
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/tree/decisiontree.hpp>
-#include <raft/handle.hpp>
 
 #include <cuml/tree/flatnode.h>
 #include "decisiontree.cuh"

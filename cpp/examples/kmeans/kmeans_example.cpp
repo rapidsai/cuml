@@ -128,16 +128,14 @@ int main(int argc, char* argv[])
     std::cout << "Run KMeans with k=" << params.n_clusters << ", max_iterations=" << params.max_iter
               << std::endl;
 
-    raft::handle_t handle;
+    cudaStream_t stream;
+    CUDA_RT_CALL(cudaStreamCreate(&stream));
+    raft::handle_t handle{stream};
 
     std::shared_ptr<raft::mr::device::allocator> allocator(
       new raft::mr::device::default_allocator());
 
     handle.set_device_allocator(allocator);
-
-    cudaStream_t stream;
-    CUDA_RT_CALL(cudaStreamCreate(&stream));
-    handle.set_stream(stream);
 
     // srcdata size n_samples * n_features
     double* d_srcdata = nullptr;

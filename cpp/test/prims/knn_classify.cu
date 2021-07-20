@@ -95,7 +95,8 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
     std::vector<int> n_unique;
     n_unique.push_back(n_classes);
 
-    knn_classify(pred_labels,
+    knn_classify(handle,
+                 pred_labels,
                  knn_indices,
                  y,
                  params.rows,
@@ -103,8 +104,7 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
                  params.k,
                  uniq_labels,
                  n_unique,
-                 alloc,
-                 stream);
+                 alloc);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }

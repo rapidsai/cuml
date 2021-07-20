@@ -52,7 +52,8 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
  protected:
   void basicTest()
   {
-    params = ::testing::TestWithParam<PcaInputs<T>>::GetParam();
+    auto stream = handle.get_stream();
+    params      = ::testing::TestWithParam<PcaInputs<T>>::GetParam();
     raft::random::Rng r(params.seed, raft::random::GenTaps);
     int len = params.len;
 
@@ -115,7 +116,8 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
 
   void advancedTest()
   {
-    params = ::testing::TestWithParam<PcaInputs<T>>::GetParam();
+    auto stream = handle.get_stream();
+    params      = ::testing::TestWithParam<PcaInputs<T>>::GetParam();
     raft::random::Rng r(params.seed, raft::random::GenTaps);
     int len = params.len2;
 
@@ -160,8 +162,6 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
 
   void SetUp() override
   {
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.set_stream(stream);
     basicTest();
     advancedTest();
   }
@@ -189,7 +189,6 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
     CUDA_CHECK(cudaFree(singular_vals2));
     CUDA_CHECK(cudaFree(mean2));
     CUDA_CHECK(cudaFree(noise_vars2));
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
@@ -200,7 +199,6 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
   T *data2, *data2_trans, *data2_back, *components2, *explained_vars2, *explained_var_ratio2,
     *singular_vals2, *mean2, *noise_vars2;
   raft::handle_t handle;
-  cudaStream_t stream;
 };
 
 const std::vector<PcaInputs<float>> inputsf2 = {

@@ -123,8 +123,6 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   {
     // setup
     ps = testing::TestWithParam<FilTestParams>::GetParam();
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.set_stream(stream);
 
     generate_forest();
     generate_data();
@@ -145,6 +143,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
   void generate_forest()
   {
+    auto stream = handle.get_stream();
+
     size_t num_nodes = forest_num_nodes();
 
     // helper data
@@ -245,6 +245,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
   void generate_data()
   {
+    auto stream = handle.get_stream();
+
     // allocate arrays
     size_t num_data = ps.num_rows * ps.num_cols;
     raft::allocate(data_d, num_data);
@@ -299,6 +301,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
   void predict_on_cpu()
   {
+    auto stream = handle.get_stream();
+
     // predict on host
     std::vector<float> want_preds_h(ps.num_preds_outputs());
     std::vector<float> want_proba_h(ps.num_proba_outputs());
@@ -384,6 +388,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
   void predict_on_gpu()
   {
+    auto stream = handle.get_stream();
+
     fil::forest_t forest = nullptr;
     init_forest(&forest);
 
@@ -400,6 +406,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
   void compare()
   {
+    auto stream = handle.get_stream();
+
     ASSERT_TRUE(raft::devArrMatch(want_proba_d,
                                   proba_d,
                                   ps.num_proba_outputs(),
@@ -447,7 +455,6 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   std::vector<float> vector_leaf;
 
   // parameters
-  cudaStream_t stream;
   raft::handle_t handle;
   FilTestParams ps;
 };
@@ -558,6 +565,8 @@ class TreeliteFilTest : public BaseFilTest {
       and returns the treelite key of the node */
   int node_to_treelite(tlf::TreeBuilder* builder, int* pkey, int root, int node)
   {
+    auto stream = handle.get_stream();
+
     int key = (*pkey)++;
     builder->CreateNode(key);
     const fil::dense_node& dense_node = nodes[node];
@@ -622,6 +631,8 @@ class TreeliteFilTest : public BaseFilTest {
 
   void init_forest_impl(fil::forest_t* pforest, fil::storage_type_t storage_type)
   {
+    auto stream = handle.get_stream();
+
     bool random_forest_flag = (ps.output & fil::output_t::AVG) != 0;
     int treelite_num_classes =
       ps.leaf_algo == fil::leaf_algo_t::FLOAT_UNARY_BINARY ? 1 : ps.num_classes;

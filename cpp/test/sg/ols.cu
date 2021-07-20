@@ -41,9 +41,10 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
  protected:
   void basicTest()
   {
-    params   = ::testing::TestWithParam<OlsInputs<T>>::GetParam();
-    int len  = params.n_row * params.n_col;
-    int len2 = params.n_row_2 * params.n_col;
+    auto stream = handle.get_stream();
+    params      = ::testing::TestWithParam<OlsInputs<T>>::GetParam();
+    int len     = params.n_row * params.n_col;
+    int len2    = params.n_row_2 * params.n_col;
 
     raft::allocate(data, len);
     raft::allocate(labels, params.n_row);
@@ -152,8 +153,9 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
 
   void basicTest2()
   {
-    params  = ::testing::TestWithParam<OlsInputs<T>>::GetParam();
-    int len = params.n_row * params.n_col;
+    auto stream = handle.get_stream();
+    params      = ::testing::TestWithParam<OlsInputs<T>>::GetParam();
+    int len     = params.n_row * params.n_col;
 
     raft::allocate(data_sc, len);
     raft::allocate(labels_sc, len);
@@ -180,8 +182,6 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
 
   void SetUp() override
   {
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.set_stream(stream);
     basicTest();
     basicTest2();
   }
@@ -208,7 +208,6 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
     CUDA_CHECK(cudaFree(labels_sc));
     CUDA_CHECK(cudaFree(coef_sc));
     CUDA_CHECK(cudaFree(coef_sc_ref));
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
@@ -219,7 +218,6 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
   T *data_sc, *labels_sc, *coef_sc, *coef_sc_ref;
   T intercept, intercept2, intercept3;
   raft::handle_t handle;
-  cudaStream_t stream;
 };
 
 const std::vector<OlsInputs<float>> inputsf2 = {

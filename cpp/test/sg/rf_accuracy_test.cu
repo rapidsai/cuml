@@ -38,10 +38,9 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
   {
     params = ::testing::TestWithParam<RFInputs>::GetParam();
     rng.reset(new raft::random::Rng(params.seed));
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.reset(new raft::handle_t(1));
-    handle->set_stream(stream);
+    handle.reset(new raft::handle_t());
     auto allocator = handle->get_device_allocator();
+    auto stream    = handle->get_stream();
     setRFParams();
     X_train = (T*)allocator->allocate(params.n_rows_train * sizeof(T), stream);
     y_train = (int*)allocator->allocate(params.n_rows_train * sizeof(int), stream);
@@ -53,6 +52,7 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
 
   void TearDown() override
   {
+    auto stream = handle->get_stream();
     CUDA_CHECK(cudaStreamSynchronize(stream));
     auto allocator = handle->get_device_allocator();
     allocator->deallocate(X_train, params.n_rows_train * sizeof(T), stream);
@@ -61,13 +61,13 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
     allocator->deallocate(y_test, params.n_rows_test * sizeof(int), stream);
     allocator->deallocate(y_pred, params.n_rows_test * sizeof(int), stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUDA_CHECK(cudaStreamDestroy(stream));
     handle.reset();
     rng.reset();
   }
 
   void runTest()
   {
+    auto stream = handle->get_stream();
     for (int i = 0; i < params.n_reps; ++i) {
       loadData(X_train, y_train, params.n_rows_train, 1);
       loadData(X_test, y_test, params.n_rows_test, 1);
@@ -101,12 +101,14 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
 
   void loadData(T* X, int* y, int nrows, int ncols)
   {
+    auto stream = handle->get_stream();
     rng->uniform(X, nrows * ncols, T(-1.0), T(1.0), stream);
     rng->bernoulli<float, int>(y, nrows, params.pct_zero_class, stream);
   }
 
   float runTrainAndTest()
   {
+    auto stream   = handle->get_stream();
     auto* forest  = new RandomForestMetaData<T, int>;
     forest->trees = nullptr;
     auto& h       = *(handle.get());
@@ -121,7 +123,6 @@ class RFClassifierAccuracyTest : public ::testing::TestWithParam<RFInputs> {
   RFInputs params;
   RF_params rfp;
   std::shared_ptr<raft::handle_t> handle;
-  cudaStream_t stream;
   T *X_train, *X_test;
   int *y_train, *y_test, *y_pred;
   std::shared_ptr<raft::random::Rng> rng;

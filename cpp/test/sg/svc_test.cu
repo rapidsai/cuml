@@ -65,8 +65,7 @@ class WorkingSetTest : public ::testing::Test {
  protected:
   void SetUp() override
   {
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.set_stream(stream);
+    auto stream = handle.get_stream();
     raft::allocate(f_dev, 10);
     raft::allocate(y_dev, 10);
     raft::allocate(C_dev, 10);
@@ -79,14 +78,12 @@ class WorkingSetTest : public ::testing::Test {
 
   void TearDown() override
   {
-    CUDA_CHECK(cudaStreamDestroy(stream));
     CUDA_CHECK(cudaFree(f_dev));
     CUDA_CHECK(cudaFree(y_dev));
     CUDA_CHECK(cudaFree(C_dev));
     CUDA_CHECK(cudaFree(alpha_dev));
   }
   raft::handle_t handle;
-  cudaStream_t stream;
   WorkingSet<math_t>* ws;
 
   math_t f_host[10] = {1, 3, 10, 4, 2, 8, 6, 5, 9, 7};
@@ -115,14 +112,14 @@ TYPED_TEST(WorkingSetTest, Init)
   EXPECT_EQ(this->ws->GetSize(), 10);
   delete this->ws;
 
-  this->ws = new WorkingSet<TypeParam>(this->handle, this->stream, 100000);
+  this->ws = new WorkingSet<TypeParam>(this->handle, this->handle.get_stream(), 100000);
   EXPECT_EQ(this->ws->GetSize(), 1024);
   delete this->ws;
 }
 
 TYPED_TEST(WorkingSetTest, Select)
 {
-  this->ws = new WorkingSet<TypeParam>(this->handle, this->stream, 10, 4);
+  this->ws = new WorkingSet<TypeParam>(this->handle, this->handle.get_stream(), 10, 4);
   EXPECT_EQ(this->ws->GetSize(), 4);
   this->ws->SimpleSelect(this->f_dev, this->alpha_dev, this->y_dev, this->C_dev);
   ASSERT_TRUE(devArrMatchHost(
@@ -147,8 +144,7 @@ class KernelCacheTest : public ::testing::Test {
  protected:
   void SetUp() override
   {
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.set_stream(stream);
+    auto stream   = handle.get_stream();
     cublas_handle = handle.get_cublas_handle();
     raft::allocate(x_dev, n_rows * n_cols);
     raft::update_device(x_dev, x_host, n_rows * n_cols, stream);
@@ -159,7 +155,6 @@ class KernelCacheTest : public ::testing::Test {
 
   void TearDown() override
   {
-    CUDA_CHECK(cudaStreamDestroy(stream));
     CUDA_CHECK(cudaFree(x_dev));
     CUDA_CHECK(cudaFree(ws_idx_dev));
   }
@@ -199,6 +194,7 @@ class KernelCacheTest : public ::testing::Test {
 
   void check(const math_t* tile_dev, int n_ws, int n_rows, const int* ws_idx, const int* kColIdx)
   {
+    auto stream = handle.get_stream();
     host_buffer<int> ws_idx_h(handle.get_host_allocator(), stream, n_ws);
     raft::update_host(ws_idx_h.data(), ws_idx, n_ws, stream);
     host_buffer<int> kidx_h(handle.get_host_allocator(), stream, n_ws);
@@ -218,7 +214,6 @@ class KernelCacheTest : public ::testing::Test {
 
   raft::handle_t handle;
   cublasHandle_t cublas_handle;
-  cudaStream_t stream;
 
   int n_rows = 4;
   int n_cols = 2;
@@ -283,7 +278,7 @@ TYPED_TEST_P(KernelCacheTest, SvrEvalTest)
 
   this->n_ws        = 6;
   int ws_idx_svr[6] = {0, 5, 1, 4, 3, 7};
-  raft::update_device(this->ws_idx_dev, ws_idx_svr, 6, this->stream);
+  raft::update_device(this->ws_idx_dev, ws_idx_svr, 6, this->handle.get_stream());
 
   Matrix::GramMatrixBase<TypeParam>* kernel =
     Matrix::KernelFactory<TypeParam>::create(param, this->handle.get_cublas_handle());
@@ -310,16 +305,9 @@ INSTANTIATE_TYPED_TEST_CASE_P(My, KernelCacheTest, FloatTypes);
 template <typename math_t>
 class GetResultsTest : public ::testing::Test {
  protected:
-  void SetUp() override
-  {
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.set_stream(stream);
-  }
-
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
-
   void TestResults()
   {
+    auto stream    = handle.get_stream();
     auto allocator = handle.get_device_allocator();
     device_buffer<math_t> x_dev(allocator, stream, n_rows * n_cols);
     raft::update_device(x_dev.data(), x_host, n_rows * n_cols, stream);
@@ -377,7 +365,6 @@ class GetResultsTest : public ::testing::Test {
   math_t b;
 
   raft::handle_t handle;
-  cudaStream_t stream;
 };
 
 TYPED_TEST_CASE(GetResultsTest, FloatTypes);
@@ -403,7 +390,7 @@ class SmoUpdateTest : public ::testing::Test {
  protected:
   void SetUp() override
   {
-    stream                       = handle.get_stream();
+    auto stream                  = handle.get_stream();
     cublasHandle_t cublas_handle = handle.get_cublas_handle();
     raft::allocate(f_dev, n_rows, true);
     raft::allocate(kernel_dev, n_rows * n_ws);
@@ -427,7 +414,6 @@ class SmoUpdateTest : public ::testing::Test {
     CUDA_CHECK(cudaFree(f_dev));
   }
   raft::handle_t handle;
-  cudaStream_t stream;
   int n_rows = 6;
   int n_ws   = 2;
   float* kernel_dev;
@@ -445,8 +431,7 @@ class SmoBlockSolverTest : public ::testing::Test {
  protected:
   void SetUp() override
   {
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.set_stream(stream);
+    auto stream   = handle.get_stream();
     cublas_handle = handle.get_cublas_handle();
     raft::allocate(ws_idx_dev, n_ws);
     raft::allocate(y_dev, n_rows);
@@ -467,6 +452,7 @@ class SmoBlockSolverTest : public ::testing::Test {
  public:  // because of the device lambda
   void testBlockSolve()
   {
+    auto stream = handle.get_stream();
     SmoBlockSolve<math_t, 1024><<<1, n_ws, 0, stream>>>(y_dev,
                                                         n_rows,
                                                         alpha_dev,
@@ -502,7 +488,6 @@ class SmoBlockSolverTest : public ::testing::Test {
  protected:
   void TearDown() override
   {
-    CUDA_CHECK(cudaStreamDestroy(stream));
     CUDA_CHECK(cudaFree(y_dev));
     CUDA_CHECK(cudaFree(C_dev));
     CUDA_CHECK(cudaFree(f_dev));
@@ -514,7 +499,6 @@ class SmoBlockSolverTest : public ::testing::Test {
   }
 
   raft::handle_t handle;
-  cudaStream_t stream;
   cublasHandle_t cublas_handle;
 
   int n_rows = 4;
@@ -676,8 +660,7 @@ class SmoSolverTest : public ::testing::Test {
  protected:
   void SetUp() override
   {
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.set_stream(stream);
+    auto stream = handle.get_stream();
     raft::allocate(x_dev, n_rows * n_cols);
     raft::allocate(ws_idx_dev, n_ws);
     raft::allocate(y_dev, n_rows);
@@ -715,7 +698,6 @@ class SmoSolverTest : public ::testing::Test {
   void TearDown() override
   {
     delete kernel;
-    CUDA_CHECK(cudaStreamDestroy(stream));
     CUDA_CHECK(cudaFree(x_dev));
     CUDA_CHECK(cudaFree(y_dev));
     CUDA_CHECK(cudaFree(C_dev));
@@ -733,6 +715,7 @@ class SmoSolverTest : public ::testing::Test {
  public:
   void blockSolveTest()
   {
+    auto stream = handle.get_stream();
     SmoBlockSolve<math_t, 1024><<<1, n_ws, 0, stream>>>(y_dev,
                                                         n_rows,
                                                         alpha_dev,
@@ -790,8 +773,9 @@ class SmoSolverTest : public ::testing::Test {
 
   void svrBlockSolveTest()
   {
-    int n_ws   = 4;
-    int n_rows = 2;
+    auto stream = handle.get_stream();
+    int n_ws    = 4;
+    int n_rows  = 2;
     // int n_cols = 1;
     // math_t x[2] = {1, 2};
     // yr = {2, 3}
@@ -833,7 +817,6 @@ class SmoSolverTest : public ::testing::Test {
 
  protected:
   raft::handle_t handle;
-  cudaStream_t stream;
   Matrix::GramMatrixBase<math_t>* kernel;
   int n_rows       = 6;
   const int n_cols = 2;
@@ -926,7 +909,7 @@ TYPED_TEST(SmoSolverTest, SmoSolveTest)
               &model.b,
               p.max_iter,
               p.max_inner_iter);
-    checkResults(model, exp, this->stream);
+    checkResults(model, exp, this->handle.get_stream());
     svmFreeBuffers(this->handle, model);
   }
 }
@@ -1025,8 +1008,9 @@ TYPED_TEST(SmoSolverTest, SvcTest)
     }
     SVC<TypeParam> svc(this->handle, p.C, p.tol, p.kernel_params);
     svc.fit(p.x_dev, p.n_rows, p.n_cols, p.y_dev, sample_weights);
-    checkResults(svc.model, toSmoOutput(exp), this->stream);
-    device_buffer<TypeParam> y_pred(this->handle.get_device_allocator(), this->stream, p.n_rows);
+    checkResults(svc.model, toSmoOutput(exp), this->handle.get_stream());
+    device_buffer<TypeParam> y_pred(
+      this->handle.get_device_allocator(), this->handle.get_stream(), p.n_rows);
     if (p.predict) {
       svc.predict(p.x_dev, p.n_rows, p.n_cols, y_pred.data());
       EXPECT_TRUE(raft::devArrMatch(
@@ -1135,16 +1119,19 @@ TYPED_TEST(SmoSolverTest, BlobPredict)
     auto p = d.first;
     SCOPED_TRACE(p);
     // explicit centers for the blobs
-    device_buffer<float> centers(allocator, this->stream, 2 * p.n_cols);
+    device_buffer<float> centers(allocator, this->handle.get_stream(), 2 * p.n_cols);
     thrust::device_ptr<float> thrust_ptr(centers.data());
-    thrust::fill(thrust::cuda::par.on(this->stream), thrust_ptr, thrust_ptr + p.n_cols, -5.0f);
     thrust::fill(
-      thrust::cuda::par.on(this->stream), thrust_ptr + p.n_cols, thrust_ptr + 2 * p.n_cols, +5.0f);
+      thrust::cuda::par.on(this->handle.get_stream()), thrust_ptr, thrust_ptr + p.n_cols, -5.0f);
+    thrust::fill(thrust::cuda::par.on(this->handle.get_stream()),
+                 thrust_ptr + p.n_cols,
+                 thrust_ptr + 2 * p.n_cols,
+                 +5.0f);
 
-    device_buffer<TypeParam> x(allocator, this->stream, p.n_rows * p.n_cols);
-    device_buffer<TypeParam> y(allocator, this->stream, p.n_rows);
-    device_buffer<TypeParam> x_pred(allocator, this->stream, n_pred * p.n_cols);
-    device_buffer<TypeParam> y_pred(allocator, this->stream, n_pred);
+    device_buffer<TypeParam> x(allocator, this->handle.get_stream(), p.n_rows * p.n_cols);
+    device_buffer<TypeParam> y(allocator, this->handle.get_stream(), p.n_rows);
+    device_buffer<TypeParam> x_pred(allocator, this->handle.get_stream(), n_pred * p.n_cols);
+    device_buffer<TypeParam> y_pred(allocator, this->handle.get_stream(), n_pred);
 
     make_blobs(this->handle, x.data(), y.data(), p.n_rows, p.n_cols, 2, centers.data());
     SVC<TypeParam> svc(this->handle, p.C, p.tol, p.kernel_params, 0, -1, 50, CUML_LEVEL_INFO);
@@ -1152,18 +1139,22 @@ TYPED_TEST(SmoSolverTest, BlobPredict)
 
     // Create a different dataset for prediction
     make_blobs(this->handle, x_pred.data(), y_pred.data(), n_pred, p.n_cols, 2, centers.data());
-    device_buffer<TypeParam> y_pred2(this->handle.get_device_allocator(), this->stream, n_pred);
+    device_buffer<TypeParam> y_pred2(
+      this->handle.get_device_allocator(), this->handle.get_stream(), n_pred);
     svc.predict(x_pred.data(), n_pred, p.n_cols, y_pred2.data());
 
     // Count the number of correct predictions
-    device_buffer<int> is_correct(this->handle.get_device_allocator(), this->stream, n_pred);
+    device_buffer<int> is_correct(
+      this->handle.get_device_allocator(), this->handle.get_stream(), n_pred);
     thrust::device_ptr<TypeParam> ptr1(y_pred.data());
     thrust::device_ptr<TypeParam> ptr2(y_pred2.data());
     thrust::device_ptr<int> ptr3(is_correct.data());
     auto first = thrust::make_zip_iterator(thrust::make_tuple(ptr1, ptr2));
     auto last  = thrust::make_zip_iterator(thrust::make_tuple(ptr1 + n_pred, ptr2 + n_pred));
-    thrust::transform(thrust::cuda::par.on(this->stream), first, last, ptr3, is_same_functor());
-    int n_correct = thrust::reduce(thrust::cuda::par.on(this->stream), ptr3, ptr3 + n_pred);
+    thrust::transform(
+      thrust::cuda::par.on(this->handle.get_stream()), first, last, ptr3, is_same_functor());
+    int n_correct =
+      thrust::reduce(thrust::cuda::par.on(this->handle.get_stream()), ptr3, ptr3 + n_pred);
 
     TypeParam accuracy     = 100 * n_correct / n_pred;
     TypeParam accuracy_exp = d.second;
@@ -1192,8 +1183,8 @@ TYPED_TEST(SmoSolverTest, MemoryLeak)
     auto p = d.first;
     SCOPED_TRACE(p);
 
-    device_buffer<TypeParam> x(allocator, this->stream, p.n_rows * p.n_cols);
-    device_buffer<TypeParam> y(allocator, this->stream, p.n_rows);
+    device_buffer<TypeParam> x(allocator, this->handle.get_stream(), p.n_rows * p.n_cols);
+    device_buffer<TypeParam> y(allocator, this->handle.get_stream(), p.n_rows);
     make_blobs(this->handle, x.data(), y.data(), p.n_rows, p.n_cols, 2);
 
     SVC<TypeParam> svc(this->handle, p.C, p.tol, p.kernel_params);
@@ -1203,8 +1194,9 @@ TYPED_TEST(SmoSolverTest, MemoryLeak)
       EXPECT_THROW(svc.fit(x.data(), p.n_rows, p.n_cols, y.data()), raft::exception);
     } else {
       svc.fit(x.data(), p.n_rows, p.n_cols, y.data());
-      device_buffer<TypeParam> y_pred(this->handle.get_device_allocator(), this->stream, p.n_rows);
-      CUDA_CHECK(cudaStreamSynchronize(this->stream));
+      device_buffer<TypeParam> y_pred(
+        this->handle.get_device_allocator(), this->handle.get_stream(), p.n_rows);
+      CUDA_CHECK(cudaStreamSynchronize(this->handle.get_stream()));
       CUDA_CHECK(cudaMemGetInfo(&free2, &total));
       float delta = (free1 - free2);
       // Just to make sure that we measure any mem consumption at all:
@@ -1213,7 +1205,7 @@ TYPED_TEST(SmoSolverTest, MemoryLeak)
       // it (one could additionally control the exec time by the max_iter arg to
       // SVC).
       EXPECT_GT(delta, p.n_rows * p.n_cols * 4);
-      CUDA_CHECK(cudaStreamSynchronize(this->stream));
+      CUDA_CHECK(cudaStreamSynchronize(this->handle.get_stream()));
       svc.predict(x.data(), p.n_rows, p.n_cols, y_pred.data());
     }
   }
@@ -1243,15 +1235,18 @@ TYPED_TEST(SmoSolverTest, DISABLED_MillionRows)
     auto p = d.first;
     SCOPED_TRACE(p);
     // explicit centers for the blobs
-    device_buffer<float> centers(allocator, this->stream, 2 * p.n_cols);
+    device_buffer<float> centers(allocator, this->handle.get_stream(), 2 * p.n_cols);
     thrust::device_ptr<float> thrust_ptr(centers.data());
-    thrust::fill(thrust::cuda::par.on(this->stream), thrust_ptr, thrust_ptr + p.n_cols, -5.0f);
     thrust::fill(
-      thrust::cuda::par.on(this->stream), thrust_ptr + p.n_cols, thrust_ptr + 2 * p.n_cols, +5.0f);
+      thrust::cuda::par.on(this->handle.get_stream()), thrust_ptr, thrust_ptr + p.n_cols, -5.0f);
+    thrust::fill(thrust::cuda::par.on(this->handle.get_stream()),
+                 thrust_ptr + p.n_cols,
+                 thrust_ptr + 2 * p.n_cols,
+                 +5.0f);
 
-    device_buffer<TypeParam> x(allocator, this->stream, p.n_rows * p.n_cols);
-    device_buffer<TypeParam> y(allocator, this->stream, p.n_rows);
-    device_buffer<TypeParam> y_pred(allocator, this->stream, p.n_rows);
+    device_buffer<TypeParam> x(allocator, this->handle.get_stream(), p.n_rows * p.n_cols);
+    device_buffer<TypeParam> y(allocator, this->handle.get_stream(), p.n_rows);
+    device_buffer<TypeParam> y_pred(allocator, this->handle.get_stream(), p.n_rows);
     make_blobs(this->handle, x.data(), y.data(), p.n_rows, p.n_cols, 2, centers.data());
     const int max_iter = 2;
     SVC<TypeParam> svc(
@@ -1286,9 +1281,8 @@ class SvrTest : public ::testing::Test {
  protected:
   void SetUp() override
   {
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.set_stream(stream);
-    allocator = handle.get_device_allocator();
+    auto stream = handle.get_stream();
+    allocator   = handle.get_device_allocator();
     raft::allocate(x_dev, n_rows * n_cols);
     raft::allocate(y_dev, n_rows);
     raft::allocate(C_dev, 2 * n_rows);
@@ -1311,7 +1305,6 @@ class SvrTest : public ::testing::Test {
 
   void TearDown() override
   {
-    CUDA_CHECK(cudaStreamDestroy(stream));
     CUDA_CHECK(cudaFree(x_dev));
     CUDA_CHECK(cudaFree(y_dev));
     CUDA_CHECK(cudaFree(C_dev));
@@ -1336,6 +1329,8 @@ class SvrTest : public ::testing::Test {
 
   void TestSvrWorkingSet()
   {
+    auto stream = handle.get_stream();
+
     init_C((math_t)1.0, C_dev, 2 * n_rows, stream);
     WorkingSet<math_t>* ws;
     ws = new WorkingSet<math_t>(handle, stream, n_rows, 20, EPSILON_SVR);
@@ -1361,6 +1356,7 @@ class SvrTest : public ::testing::Test {
 
   void TestSvrResults()
   {
+    auto stream = handle.get_stream();
     raft::update_device(yc, yc_exp, n_train, stream);
     init_C((math_t)0.001, C_dev, n_rows * 2, stream);
     Results<math_t> res(handle, x_dev, yc, n_rows, n_cols, C_dev, EPSILON_SVR);
@@ -1391,6 +1387,7 @@ class SvrTest : public ::testing::Test {
 
   void TestSvrFitPredict()
   {
+    auto stream = handle.get_stream();
     std::vector<std::pair<SvrInput<math_t>, smoOutput2<math_t>>> data{
       {SvrInput<math_t>{
          svmParameter{1, 0, 1, 10, 1e-3, CUML_LEVEL_INFO, 0.1, EPSILON_SVR},
@@ -1495,7 +1492,6 @@ class SvrTest : public ::testing::Test {
 
  protected:
   raft::handle_t handle;
-  cudaStream_t stream;
   std::shared_ptr<raft::mr::device::allocator> allocator;
   int n_rows       = 7;
   int n_train      = 2 * n_rows;

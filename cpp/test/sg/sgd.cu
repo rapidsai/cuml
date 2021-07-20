@@ -41,8 +41,9 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
  protected:
   void linearRegressionTest()
   {
-    params  = ::testing::TestWithParam<SgdInputs<T>>::GetParam();
-    int len = params.n_row * params.n_col;
+    auto stream = handle.get_stream();
+    params      = ::testing::TestWithParam<SgdInputs<T>>::GetParam();
+    int len     = params.n_row * params.n_col;
 
     raft::allocate(data, len);
     raft::allocate(labels, params.n_row);
@@ -126,8 +127,9 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
 
   void logisticRegressionTest()
   {
-    params  = ::testing::TestWithParam<SgdInputs<T>>::GetParam();
-    int len = params.n_row2 * params.n_col2;
+    auto stream = handle.get_stream();
+    params      = ::testing::TestWithParam<SgdInputs<T>>::GetParam();
+    int len     = params.n_row2 * params.n_col2;
 
     T* coef_class;
     raft::allocate(data_logreg, len);
@@ -200,8 +202,9 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
 
   void svmTest()
   {
-    params  = ::testing::TestWithParam<SgdInputs<T>>::GetParam();
-    int len = params.n_row2 * params.n_col2;
+    auto stream = handle.get_stream();
+    params      = ::testing::TestWithParam<SgdInputs<T>>::GetParam();
+    int len     = params.n_row2 * params.n_col2;
 
     T* coef_class;
     raft::allocate(data_svmreg, len);
@@ -274,8 +277,6 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
 
   void SetUp() override
   {
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.set_stream(stream);
     linearRegressionTest();
     logisticRegressionTest();
     svmTest();
@@ -299,7 +300,6 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
     CUDA_CHECK(cudaFree(pred_svm_ref));
     CUDA_CHECK(cudaFree(pred_log));
     CUDA_CHECK(cudaFree(pred_log_ref));
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
@@ -310,7 +310,6 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
   T *data_svmreg, *data_svmreg_test, *labels_svmreg;
   T *pred_svm, *pred_svm_ref, *pred_log, *pred_log_ref;
   T intercept, intercept2;
-  cudaStream_t stream;
   raft::handle_t handle;
 };
 

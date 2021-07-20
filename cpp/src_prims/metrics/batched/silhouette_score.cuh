@@ -217,7 +217,7 @@ value_t silhouette_score(
   detail::fill_b_kernel<<<grid_size, block_size, 0, stream>>>(
     b_ptr, y, n_rows, n_labels, cluster_counts.data());
 
-  handle.wait_on_user_stream();
+  handle.wait_stream_pool_on_stream();
 
   auto n_iters = 0;
 
@@ -225,10 +225,7 @@ value_t silhouette_score(
     for (value_idx j = 0; j < n_rows; j += chunk) {
       ++n_iters;
 
-      auto chunk_stream = raft::select_stream(stream,
-                                              handle.get_internal_streams().data(),
-                                              handle.get_num_internal_streams(),
-                                              i + chunk * j);
+      auto chunk_stream = handle.get_stream_from_stream_pool();
 
       auto* left_begin  = X + (i * n_cols);
       auto* right_begin = X + (j * n_cols);
@@ -254,7 +251,7 @@ value_t silhouette_score(
     }
   }
 
-  handle.wait_on_internal_streams();
+  handle.sync_stream_pool();
 
   // calculating row-wise minimum in b
   // this prim only supports int indices for now

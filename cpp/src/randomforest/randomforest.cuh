@@ -168,17 +168,17 @@ class RandomForest {
       n_sampled_rows = n_rows;
     }
     int n_streams = this->rf_params.n_streams;
-    ASSERT(n_streams <= handle.get_num_internal_streams(),
-           "rf_params.n_streams (=%d) should be <= raft::handle_t.n_streams (=%d)",
+    ASSERT(n_streams <= handle.get_stream_pool().get_pool_size(),
+           "rf_params.n_streams (=%d) should be <= raft::handle_t.n_streams (=%zu)",
            n_streams,
-           handle.get_num_internal_streams());
+           handle.get_stream_pool().get_pool_size());
 
     // Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.
     // selected_rows: randomly generated IDs for bootstrapped samples (w/ replacement); a device
     // ptr.
     MLCommon::device_buffer<unsigned int>* selected_rows[n_streams];
     for (int i = 0; i < n_streams; i++) {
-      auto s = handle.get_internal_stream(i);
+      auto s = handle.get_stream_from_stream_pool(i);
       selected_rows[i] =
         new MLCommon::device_buffer<unsigned int>(handle.get_device_allocator(), s, n_sampled_rows);
     }
@@ -208,7 +208,7 @@ class RandomForest {
                                  n_sampled_rows,
                                  rowids,
                                  raft::getMultiProcessorCount(),
-                                 handle.get_internal_stream(stream_id),
+                                 handle.get_stream_from_stream_pool(stream_id),
                                  handle.get_device_allocator());
 
       /* Build individual tree in the forest.
@@ -236,7 +236,7 @@ class RandomForest {
     }
     // Cleanup
     for (int i = 0; i < n_streams; i++) {
-      auto s = handle.get_internal_stream(i);
+      auto s = handle.get_stream_from_stream_pool(i);
       CUDA_CHECK(cudaStreamSynchronize(s));
       selected_rows[i]->release(s);
       delete selected_rows[i];

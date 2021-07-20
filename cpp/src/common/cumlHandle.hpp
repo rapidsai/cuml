@@ -35,7 +35,7 @@ class HandleMap {
    * @return std::pair with handle and error code. If error code is not CUML_SUCCESS
    *                   the handle is INVALID_HANDLE.
    */
-  std::pair<cumlHandle_t, cumlError_t> createAndInsertHandle();
+  std::pair<cumlHandle_t, cumlError_t> createAndInsertHandle(cudaStream_t stream);
 
   /**
    * @brief Lookup pointer to handle object for handle ID in map.

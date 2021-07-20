@@ -118,7 +118,8 @@ class BaseRandomForestModel(Base):
         super(BaseRandomForestModel, self).__init__(
             handle=handle,
             verbose=verbose,
-            output_type=output_type)
+            output_type=output_type,
+            handle_kwargs={"n_streams" : n_streams})
 
         if max_depth < 0:
             raise ValueError("Must specify max_depth >0 ")
@@ -147,7 +148,7 @@ class BaseRandomForestModel(Base):
         self.dtype = dtype
         self.accuracy_metric = accuracy_metric
         self.max_batch_size = max_batch_size
-        self.n_streams = handle.getNumInternalStreams()
+        self.n_streams = n_streams
         self.random_state = random_state
         self.rf_forest = 0
         self.rf_forest64 = 0

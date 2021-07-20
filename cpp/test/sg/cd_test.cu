@@ -38,6 +38,8 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
  protected:
   void lasso()
   {
+    auto stream = handle.get_stream();
+
     params  = ::testing::TestWithParam<CdInputs<T>>::GetParam();
     int len = params.n_row * params.n_col;
 
@@ -158,12 +160,7 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
           stream);
   }
 
-  void SetUp() override
-  {
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.set_stream(stream);
-    lasso();
-  }
+  void SetUp() override { lasso(); }
 
   void TearDown() override
   {
@@ -177,7 +174,6 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
     CUDA_CHECK(cudaFree(coef3_ref));
     CUDA_CHECK(cudaFree(coef4));
     CUDA_CHECK(cudaFree(coef4_ref));
-    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
@@ -187,7 +183,6 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
   T *coef3, *coef3_ref;
   T *coef4, *coef4_ref;
   T intercept, intercept2;
-  cudaStream_t stream;
   raft::handle_t handle;
 };
 

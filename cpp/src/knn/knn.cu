@@ -108,7 +108,7 @@ void knn_classify(raft::handle_t& handle,
   }
 
   MLCommon::Selection::knn_classify(
-    out, knn_indices, y, n_index_rows, n_query_rows, k, uniq_labels, n_unique, d_alloc, stream);
+    handle, out, knn_indices, y, n_index_rows, n_query_rows, k, uniq_labels, n_unique, d_alloc);
 }
 
 void knn_regress(raft::handle_t& handle,
@@ -119,8 +119,7 @@ void knn_regress(raft::handle_t& handle,
                  size_t n_query_rows,
                  int k)
 {
-  MLCommon::Selection::knn_regress(
-    out, knn_indices, y, n_index_rows, n_query_rows, k, handle.get_stream());
+  MLCommon::Selection::knn_regress(handle, out, knn_indices, y, n_index_rows, n_query_rows, k);
 }
 
 void knn_class_proba(raft::handle_t& handle,
@@ -143,7 +142,7 @@ void knn_class_proba(raft::handle_t& handle,
   }
 
   MLCommon::Selection::class_probs(
-    out, knn_indices, y, n_index_rows, n_query_rows, k, uniq_labels, n_unique, d_alloc, stream);
+    handle, out, knn_indices, y, n_index_rows, n_query_rows, k, uniq_labels, n_unique, d_alloc);
 }
 
 };  // END NAMESPACE ML

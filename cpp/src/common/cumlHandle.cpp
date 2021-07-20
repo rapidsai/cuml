@@ -28,12 +28,12 @@ namespace ML {
 
 HandleMap handleMap;
 
-std::pair<cumlHandle_t, cumlError_t> HandleMap::createAndInsertHandle()
+std::pair<cumlHandle_t, cumlError_t> HandleMap::createAndInsertHandle(cudaStream_t stream)
 {
   cumlError_t status = CUML_SUCCESS;
   cumlHandle_t chosen_handle;
   try {
-    auto handle_ptr = new raft::handle_t();
+    auto handle_ptr = new raft::handle_t(stream);
     bool inserted;
     {
       std::lock_guard<std::mutex> guard(_mapMutex);

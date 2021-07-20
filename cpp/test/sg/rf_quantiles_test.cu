@@ -96,8 +96,7 @@ class RFQuantileTest : public ::testing::TestWithParam<inputs> {
     params = ::testing::TestWithParam<inputs>::GetParam();
 
     CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.reset(new raft::handle_t());
-    handle->set_stream(stream);
+    handle.reset(new raft::handle_t(stream));
     auto allocator   = handle->get_device_allocator();
     auto h_allocator = handle->get_host_allocator();
 

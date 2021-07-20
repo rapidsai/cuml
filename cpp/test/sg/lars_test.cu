@@ -42,18 +42,16 @@ class LarsTest : public ::testing::Test {
       ws(allocator, handle.get_stream(), n_cols),
       A(allocator, handle.get_stream(), 1)
   {
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.set_stream(stream);
+    auto stream = handle.get_stream();
     raft::update_device(cor.data(), cor_host, n_cols, stream);
     raft::update_device(X.data(), X_host, n_cols * n_rows, stream);
     raft::update_device(G.data(), G_host, n_cols * n_cols, stream);
     raft::update_device(sign.data(), sign_host, n_cols, stream);
   }
 
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
-
   void testSelectMostCorrelated()
   {
+    auto stream = handle.get_stream();
     math_t cj;
     int idx;
     MLCommon::device_buffer<math_t> workspace(allocator, stream, n_cols);
@@ -65,6 +63,8 @@ class LarsTest : public ::testing::Test {
 
   void testMoveToActive()
   {
+    auto stream = handle.get_stream();
+
     ML::Solver::Lars::moveToActive(handle.get_cublas_handle(),
                                    &n_active,
                                    3,
@@ -105,6 +105,7 @@ class LarsTest : public ::testing::Test {
 
   void calcUExp(math_t* G, int n_cols, math_t* U_dev_exp)
   {
+    auto stream    = handle.get_stream();
     auto allocator = handle.get_device_allocator();
     MLCommon::device_buffer<int> devInfo(allocator, stream, 1);
     MLCommon::device_buffer<math_t> workspace(allocator, stream);
@@ -129,6 +130,7 @@ class LarsTest : public ::testing::Test {
   // Initialize a mix of G and U matrices to test updateCholesky
   void initGU(math_t* GU, math_t* G, math_t* U, int n_active, bool copy_G)
   {
+    auto stream    = handle.get_stream();
     const int ld_U = n_cols;
     // First we copy over all elements, because the factorization only replaces
     // the upper triangular part. This way it will be easier to compare to the
@@ -145,6 +147,7 @@ class LarsTest : public ::testing::Test {
 
   void testUpdateCholesky()
   {
+    auto stream    = handle.get_stream();
     const int ld_X = n_rows;
     const int ld_G = n_cols;
     const int ld_U = ld_G;
@@ -214,6 +217,7 @@ class LarsTest : public ::testing::Test {
 
   void testCalcW0()
   {
+    auto stream    = handle.get_stream();
     n_active       = 4;
     const int ld_U = n_cols;
     auto allocator = handle.get_device_allocator();
@@ -229,7 +233,8 @@ class LarsTest : public ::testing::Test {
 
   void testCalcA()
   {
-    n_active = 4;
+    auto stream = handle.get_stream();
+    n_active    = 4;
     MLCommon::device_buffer<math_t> ws(handle.get_device_allocator(), stream, n_active);
     raft::update_device(ws.data(), ws0_exp, n_active, stream);
 
@@ -240,6 +245,7 @@ class LarsTest : public ::testing::Test {
 
   void testEquiangular()
   {
+    auto stream    = handle.get_stream();
     n_active       = 4;
     auto allocator = handle.get_device_allocator();
     MLCommon::device_buffer<math_t> workspace(allocator, stream);
@@ -299,6 +305,7 @@ class LarsTest : public ::testing::Test {
 
   void testCalcMaxStep()
   {
+    auto stream        = handle.get_stream();
     n_active           = 2;
     math_t A_host      = 3.6534305290498055;
     math_t ws_host[2]  = {0.25662594, -0.01708941};
@@ -390,7 +397,6 @@ class LarsTest : public ::testing::Test {
   }
 
   raft::handle_t handle;
-  cudaStream_t stream;
   std::shared_ptr<raft::mr::device::allocator> allocator;
 
   const int n_rows = 4;
@@ -459,14 +465,11 @@ class LarsTestFitPredict : public ::testing::Test {
       alphas(allocator, handle.get_stream(), n_cols + 1),
       active_idx(allocator, handle.get_stream(), n_cols)
   {
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    handle.set_stream(stream);
+    auto stream = handle.get_stream();
     raft::update_device(X.data(), X_host, n_cols * n_rows, stream);
     raft::update_device(y.data(), y_host, n_rows, stream);
     raft::update_device(G.data(), G_host, n_cols * n_cols, stream);
   }
-
-  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
   void testFitGram()
   {
@@ -530,6 +533,7 @@ class LarsTestFitPredict : public ::testing::Test {
 
   void testPredictV1()
   {
+    auto stream  = handle.get_stream();
     int ld_X     = n_rows;
     int n_active = n_cols;
     raft::update_device(beta.data(), beta_exp, n_active, stream);
@@ -552,6 +556,7 @@ class LarsTestFitPredict : public ::testing::Test {
 
   void testPredictV2()
   {
+    auto stream  = handle.get_stream();
     int ld_X     = n_rows;
     int n_active = n_cols;
 
@@ -578,6 +583,7 @@ class LarsTestFitPredict : public ::testing::Test {
 
   void testFitLarge()
   {
+    auto stream   = handle.get_stream();
     int n_rows    = 65536;
     int n_cols    = 10;
     int max_iter  = n_cols;
@@ -613,7 +619,6 @@ class LarsTestFitPredict : public ::testing::Test {
   }
 
   raft::handle_t handle;
-  cudaStream_t stream;
   std::shared_ptr<raft::mr::device::allocator> allocator;
 
   const int n_rows = 10;

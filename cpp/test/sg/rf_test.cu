@@ -97,8 +97,8 @@ class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
     forest = new typename ML::RandomForestMetaData<T, int>;
     null_trees_ptr(forest);
 
-    raft::handle_t handle(rf_params.n_streams);
-    handle.set_stream(stream);
+    raft::handle_t handle(stream,
+                          rmm::cuda_stream_pool{static_cast<std::size_t>(rf_params.n_streams)});
 
     fit(handle, forest, data, params.n_rows, params.n_cols, labels, labels_map.size(), rf_params);
 
@@ -201,8 +201,8 @@ class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
     forest = new typename ML::RandomForestMetaData<T, T>;
     null_trees_ptr(forest);
 
-    raft::handle_t handle(rf_params.n_streams);
-    handle.set_stream(stream);
+    raft::handle_t handle(stream,
+                          rmm::cuda_stream_pool{static_cast<std::size_t>(rf_params.n_streams)});
 
     fit(handle, forest, data, params.n_rows, params.n_cols, labels, rf_params);
 
