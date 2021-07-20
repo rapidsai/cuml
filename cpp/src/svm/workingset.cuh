@@ -427,7 +427,8 @@ class WorkingSet {
                                available_sorted.data(),
                                idx_tmp.data(),
                                d_num_selected,
-                               n_train);
+                               n_train,
+                               stream);
     int n_selected;
     raft::update_host(&n_selected, d_num_selected, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -475,7 +476,8 @@ class WorkingSet {
                           ws_idx_selected.data(),
                           d_num_selected,
                           n_ws,
-                          op);
+                          op,
+                          stream);
     int n_selected;
     raft::update_host(&n_selected, d_num_selected, 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
