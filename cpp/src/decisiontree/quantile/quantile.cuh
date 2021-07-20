@@ -15,6 +15,8 @@
  */
 
 #pragma once
+#include <thrust/execution_policy.h>
+#include <thrust/fill.h>
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/mr/device/allocator.hpp>
@@ -39,9 +41,7 @@ __global__ void computeQuantilesSorted(T* quantiles,
   int tid          = threadIdx.x + blockIdx.x * blockDim.x;
   double bin_width = static_cast<double>(length) / n_bins;
   int index        = int(round((tid + 1) * bin_width)) - 1;
-  // Old way of computing quantiles. Kept here for comparison.
-  // To be deleted eventually
-  // int index = (tid + 1) * floor(bin_width) - 1;
+  index            = min(max(0, index), length - 1);
   if (tid < n_bins) { quantiles[tid] = sorted_data[index]; }
 
   return;
@@ -56,6 +56,8 @@ void computeQuantiles(T* quantiles,
                       const std::shared_ptr<raft::mr::device::allocator> device_allocator,
                       cudaStream_t stream)
 {
+  thrust::fill(
+    thrust::cuda::par(*device_allocator).on(stream), quantiles, quantiles + n_bins * n_cols, 0.0);
   // Determine temporary device storage requirements
   std::unique_ptr<device_buffer<char>> d_temp_storage = nullptr;
   size_t temp_storage_bytes                           = 0;
@@ -83,7 +85,7 @@ void computeQuantiles(T* quantiles,
 
     CUDA_CHECK(cub::DeviceRadixSort::SortKeys((void*)d_temp_storage->data(),
                                               temp_storage_bytes,
-                                              &data[col_offset],
+                                              data + col_offset,
                                               single_column_sorted->data(),
                                               n_rows,
                                               0,
@@ -93,7 +95,7 @@ void computeQuantiles(T* quantiles,
     int blocks = raft::ceildiv(n_bins, 128);
 
     computeQuantilesSorted<<<blocks, 128, 0, stream>>>(
-      &quantiles[quantile_offset], n_bins, single_column_sorted->data(), n_rows);
+      quantiles + quantile_offset, n_bins, single_column_sorted->data(), n_rows);
 
     CUDA_CHECK(cudaGetLastError());
   }
