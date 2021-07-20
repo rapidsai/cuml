@@ -303,7 +303,7 @@ void build_treelite_forest(ModelHandle* model_handle,
   }
 
   model->task_param =
-    tl::TaskParameter{tl::TaskParameter::OutputType::kFloat, false, num_class, num_class};
+    tl::TaskParam{tl::TaskParam::OutputType::kFloat, false, num_class, num_class};
   model->num_feature         = num_features;
   model->average_tree_output = true;
   model->SetTreeLimit(forest->rf_params.n_trees);
