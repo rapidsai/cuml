@@ -357,10 +357,10 @@ struct categorical_branches {
         // features with similar categorical feature count, we may consider
         // storing node ID within nodes with same feature ID and look up
         // {.max_matching, .first_node_offset} = ...[feature_id]
-        //printf("for fid %d and val %f, checking categories at %d: {", node.fid(), val, node.set());
-        //for (int byte = 0; byte < max_matching[node.fid()]; ++byte)
+        // printf("for fid %d and val %f, checking categories at %d: {", node.fid(), val,
+        // node.set()); for (int byte = 0; byte < max_matching[node.fid()]; ++byte)
         //  printf("%2x ", bits[node.set() + category / 8]);
-        //printf("}\n");
+        // printf("}\n");
         cond = (category <= max_matching[node.fid()]) &&
                bits[node.set() + category / 8] & (1 << category % 8);
       } else {
