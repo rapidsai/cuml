@@ -354,6 +354,8 @@ struct Builder {
 
     // get the current set of nodes to be worked upon
     raft::update_device(curr_nodes, h_nodes.data() + node_start, batchSize, s);
+    CUDA_CHECK(
+      cudaMemsetAsync(next_nodes, 0, sizeof(Node<DataT, LabelT, IdxT>) * 2 * batchSize, s));
 
     auto [total_blocks, large_blocks] = this->updateWorkloadInfo(h_nodes, s);
 

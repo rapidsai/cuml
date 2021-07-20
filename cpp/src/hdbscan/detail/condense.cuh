@@ -81,9 +81,11 @@ void build_condensed_hierarchy(const raft::handle_t& handle,
 
   // Prevent potential infinite loop from labeling disconnected
   // connectivities graph.
-  RAFT_EXPECTS(n_vertices == (n_leaves - 1) * 2,
+  RAFT_EXPECTS(n_vertices == root,
                "Multiple components found in MST or MST is invalid. "
-               "Cannot find single-linkage solution.");
+               "Cannot find single-linkage solution. Found %d vertices "
+               "total.",
+               n_vertices);
 
   rmm::device_uvector<bool> frontier(root + 1, stream);
   rmm::device_uvector<bool> next_frontier(root + 1, stream);

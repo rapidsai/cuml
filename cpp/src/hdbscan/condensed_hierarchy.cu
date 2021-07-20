@@ -77,16 +77,11 @@ CondensedHierarchy<value_idx, value_t>::CondensedHierarchy(const raft::handle_t&
   : handle(handle_),
     n_leaves(n_leaves_),
     n_edges(n_edges_),
-    parents(0, handle.get_stream()),
-    children(0, handle.get_stream()),
-    lambdas(0, handle.get_stream()),
-    sizes(0, handle.get_stream())
+    parents(n_edges_, handle.get_stream()),
+    children(n_edges_, handle.get_stream()),
+    lambdas(n_edges_, handle.get_stream()),
+    sizes(n_edges_, handle.get_stream())
 {
-  parents.resize(n_edges_, handle.get_stream());
-  children.resize(n_edges_, handle.get_stream());
-  lambdas.resize(n_edges_, handle.get_stream());
-  sizes.resize(n_edges_, handle.get_stream());
-
   raft::copy(parents.begin(), parents_, n_edges_, handle.get_stream());
   raft::copy(children.begin(), children_, n_edges_, handle.get_stream());
   raft::copy(lambdas.begin(), lambdas_, n_edges_, handle.get_stream());
