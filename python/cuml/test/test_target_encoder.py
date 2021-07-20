@@ -184,3 +184,23 @@ def test_targetencoder_cupy():
     assert array_equal(test_encoded, answer)
     print(type(test_encoded))
     assert isinstance(test_encoded, cp.ndarray)
+
+
+def test_targetencoder_smooth():
+    train = cudf.DataFrame({'category': ['a', 'b', 'b', 'a'],
+                            'label': [1, 0, 1, 1]})
+    answers = np.array([[1., 1., 0., 1.],
+                        [0.875, 0.875, 0.375, 0.875],
+                        [0.8333, 0.8333, 0.5, 0.8333],
+                        [0.75, 0.75, 0.75, 0.75]])
+    smooths = [0, 1, 2, 10000]
+    for smooth, answer in zip(smooths, answers):
+        encoder = TargetEncoder(smooth=smooth)
+        train_encoded = encoder.fit_transform(train.category, train.label)
+        assert array_equal(train_encoded, answer)
+
+        encoder = TargetEncoder(smooth=smooth)
+        encoder.fit(train.category, train.label)
+        train_encoded = encoder.transform(train.category)
+
+        assert array_equal(train_encoded, answer)
