@@ -47,13 +47,18 @@
  * @param[in] maximum: The maximum value in the output vector you want.
  * @param[in] size: The size of the output vector.
  * @param[in] stream: The GPU stream.
- * @param[in] seed: If seed == -1, then the output is pure randomness. If >= 0, then you can reproduce TSNE.
+ * @param[in] seed: If seed == -1, then the output is pure randomness. If >= 0, then you can
+ * reproduce TSNE.
  */
 
 template <typename value_t = float>
-void random_vector(value_t *vector, const value_t minimum,
-                   const value_t maximum, const int size, cudaStream_t stream,
-                   long long seed = -1) {
+void random_vector(value_t* vector,
+                   const value_t minimum,
+                   const value_t maximum,
+                   const int size,
+                   cudaStream_t stream,
+                   long long seed = -1)
+{
   if (seed <= 0) {
     // Get random seed based on time of day
     struct timeval tp;
@@ -66,10 +71,9 @@ void random_vector(value_t *vector, const value_t minimum,
 
 long start, end;
 struct timeval timecheck;
-double SymmetrizeTime = 0, DistancesTime = 0, NormalizeTime = 0,
-       PerplexityTime = 0, BoundingBoxKernel_time = 0, ClearKernel1_time = 0,
-       TreeBuildingKernel_time = 0, ClearKernel2_time = 0,
-       SummarizationKernel_time = 0, SortKernel_time = 0, RepulsionTime = 0,
+double SymmetrizeTime = 0, DistancesTime = 0, NormalizeTime = 0, PerplexityTime = 0,
+       BoundingBoxKernel_time = 0, ClearKernel1_time = 0, TreeBuildingKernel_time = 0,
+       ClearKernel2_time = 0, SummarizationKernel_time = 0, SortKernel_time = 0, RepulsionTime = 0,
        Reduction_time = 0, attractive_time = 0, IntegrationKernel_time = 0;
 
 // To silence warnings
@@ -87,49 +91,64 @@ double SymmetrizeTime = 0, DistancesTime = 0, NormalizeTime = 0,
     add_onto += (end - start);                                            \
   }
 
-#define PRINT_TIMES                                                           \
-  if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {                     \
-    double total =                                                            \
-      (SymmetrizeTime + DistancesTime + NormalizeTime + PerplexityTime +      \
-       BoundingBoxKernel_time + ClearKernel1_time + TreeBuildingKernel_time + \
-       ClearKernel2_time + SummarizationKernel_time + SortKernel_time +       \
-       RepulsionTime + Reduction_time + attractive_time +                     \
-       IntegrationKernel_time) /                                              \
-      100.0;                                                                  \
-    CUML_LOG_DEBUG(                                                           \
-      "SymmetrizeTime = %.lf (%.lf)\n"                                        \
-      "DistancesTime = %.lf (%.lf)\n"                                         \
-      "NormalizeTime = %.lf (%.lf)\n"                                         \
-      "PerplexityTime = %.lf (%.lf)\n"                                        \
-      "BoundingBoxKernel_time = %.lf (%.lf)\n"                                \
-      "ClearKernel1_time  = %.lf (%.lf)\n"                                    \
-      "TreeBuildingKernel_time  = %.lf (%.lf)\n"                              \
-      "ClearKernel2_time  = %.lf (%.lf)\n"                                    \
-      "SummarizationKernel_time  = %.lf (%.lf)\n"                             \
-      "SortKernel_time  = %.lf (%.lf)\n"                                      \
-      "RepulsionTime  = %.lf (%.lf)\n"                                        \
-      "Reduction_time  = %.lf (%.lf)\n"                                       \
-      "attractive_time  = %.lf (%.lf)\n"                                      \
-      "IntegrationKernel_time = %.lf (%.lf)\n"                                \
-      "TOTAL TIME = %.lf",                                                    \
-      SymmetrizeTime, SymmetrizeTime / total, DistancesTime,                  \
-      DistancesTime / total, NormalizeTime, NormalizeTime / total,            \
-      PerplexityTime, PerplexityTime / total, BoundingBoxKernel_time,         \
-      BoundingBoxKernel_time / total, ClearKernel1_time,                      \
-      ClearKernel1_time / total, TreeBuildingKernel_time,                     \
-      TreeBuildingKernel_time / total, ClearKernel2_time,                     \
-      ClearKernel2_time / total, SummarizationKernel_time,                    \
-      SummarizationKernel_time / total, SortKernel_time,                      \
-      SortKernel_time / total, RepulsionTime, RepulsionTime / total,          \
-      Reduction_time, Reduction_time / total, attractive_time,                \
-      attractive_time / total, IntegrationKernel_time,                        \
-      IntegrationKernel_time / total, total * 100.0);                         \
+#define PRINT_TIMES                                                                              \
+  if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {                                        \
+    double total = (SymmetrizeTime + DistancesTime + NormalizeTime + PerplexityTime +            \
+                    BoundingBoxKernel_time + ClearKernel1_time + TreeBuildingKernel_time +       \
+                    ClearKernel2_time + SummarizationKernel_time + SortKernel_time +             \
+                    RepulsionTime + Reduction_time + attractive_time + IntegrationKernel_time) / \
+                   100.0;                                                                        \
+    CUML_LOG_DEBUG(                                                                              \
+      "SymmetrizeTime = %.lf (%.lf)\n"                                                           \
+      "DistancesTime = %.lf (%.lf)\n"                                                            \
+      "NormalizeTime = %.lf (%.lf)\n"                                                            \
+      "PerplexityTime = %.lf (%.lf)\n"                                                           \
+      "BoundingBoxKernel_time = %.lf (%.lf)\n"                                                   \
+      "ClearKernel1_time  = %.lf (%.lf)\n"                                                       \
+      "TreeBuildingKernel_time  = %.lf (%.lf)\n"                                                 \
+      "ClearKernel2_time  = %.lf (%.lf)\n"                                                       \
+      "SummarizationKernel_time  = %.lf (%.lf)\n"                                                \
+      "SortKernel_time  = %.lf (%.lf)\n"                                                         \
+      "RepulsionTime  = %.lf (%.lf)\n"                                                           \
+      "Reduction_time  = %.lf (%.lf)\n"                                                          \
+      "attractive_time  = %.lf (%.lf)\n"                                                         \
+      "IntegrationKernel_time = %.lf (%.lf)\n"                                                   \
+      "TOTAL TIME = %.lf",                                                                       \
+      SymmetrizeTime,                                                                            \
+      SymmetrizeTime / total,                                                                    \
+      DistancesTime,                                                                             \
+      DistancesTime / total,                                                                     \
+      NormalizeTime,                                                                             \
+      NormalizeTime / total,                                                                     \
+      PerplexityTime,                                                                            \
+      PerplexityTime / total,                                                                    \
+      BoundingBoxKernel_time,                                                                    \
+      BoundingBoxKernel_time / total,                                                            \
+      ClearKernel1_time,                                                                         \
+      ClearKernel1_time / total,                                                                 \
+      TreeBuildingKernel_time,                                                                   \
+      TreeBuildingKernel_time / total,                                                           \
+      ClearKernel2_time,                                                                         \
+      ClearKernel2_time / total,                                                                 \
+      SummarizationKernel_time,                                                                  \
+      SummarizationKernel_time / total,                                                          \
+      SortKernel_time,                                                                           \
+      SortKernel_time / total,                                                                   \
+      RepulsionTime,                                                                             \
+      RepulsionTime / total,                                                                     \
+      Reduction_time,                                                                            \
+      Reduction_time / total,                                                                    \
+      attractive_time,                                                                           \
+      attractive_time / total,                                                                   \
+      IntegrationKernel_time,                                                                    \
+      IntegrationKernel_time / total,                                                            \
+      total * 100.0);                                                                            \
   }
 
 template <typename value_t, typename value_idx, int TPB = 256>
-__global__ void min_max_kernel(const value_t *Y, const value_idx n,
-                               value_t *min, value_t *max,
-                               bool find_min = true) {
+__global__ void min_max_kernel(
+  const value_t* Y, const value_idx n, value_t* min, value_t* max, bool find_min = true)
+{
   auto tid = threadIdx.x + blockDim.x * blockIdx.x;
 
   typedef cub::BlockReduce<value_t, TPB> BlockReduce;
@@ -146,9 +165,7 @@ __global__ void min_max_kernel(const value_t *Y, const value_idx n,
   }
 
   value_t block_min, block_max;
-  if (find_min) {
-    block_min = BlockReduce(temp_storage_min).Reduce(thread_min, cub::Min());
-  }
+  if (find_min) { block_min = BlockReduce(temp_storage_min).Reduce(thread_min, cub::Min()); }
 
   block_max = BlockReduce(temp_storage_max).Reduce(thread_max, cub::Max());
 

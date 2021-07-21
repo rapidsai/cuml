@@ -17,7 +17,9 @@ import pytest
 
 
 from cuml.experimental.cluster import HDBSCAN
+from cuml.experimental.cluster import condense_hierarchy
 from sklearn.datasets import make_blobs
+
 
 from cuml.metrics import adjusted_rand_score
 from cuml.test.utils import get_pattern
@@ -50,6 +52,83 @@ def assert_cluster_counts(sk_agg, cuml_agg, digits=25):
     cu_counts = cp.sort(cu_counts).get()
 
     np.testing.assert_almost_equal(sk_counts, cu_counts, decimal=-1 * digits)
+
+
+def get_children(roots, parents, arr):
+    """
+    Simple helper function to return the children of the condensed tree
+    given an array of parents.
+    """
+    ret = []
+    for root in roots:
+        level = np.where(parents == root)
+        ret.extend(arr[level])
+
+    return np.array(ret).ravel()
+
+
+def get_bfs_level(n, roots, parents, children, arr):
+    """
+    Simple helper function to perform a bfs through n
+    levels of a condensed tree.
+    """
+    level = roots
+    for i in range(n-1):
+        level = get_children(level, parents, children)
+
+    return get_children(level, parents, arr)
+
+
+def assert_condensed_trees(sk_agg, min_cluster_size):
+    """
+    Because of differences in the renumbering and sort ordering,
+    the condensed tree arrays from cuml and scikit-learn cannot
+    be compared directly. This function performs a BFS through
+    the condensed trees, comparing the cluster sizes and lambda
+    values at each level of the trees.
+    """
+
+    slt = sk_agg.single_linkage_tree_._linkage
+
+    condensed_tree = condense_hierarchy(slt, min_cluster_size)
+
+    cu_parents = condensed_tree._raw_tree["parent"]
+    sk_parents = sk_agg.condensed_tree_._raw_tree["parent"]
+
+    cu_children = condensed_tree._raw_tree["child"]
+    sk_children = sk_agg.condensed_tree_._raw_tree["child"]
+
+    cu_lambda = condensed_tree._raw_tree["lambda_val"]
+    sk_lambda = sk_agg.condensed_tree_._raw_tree["lambda_val"]
+
+    cu_child_size = condensed_tree._raw_tree["child_size"]
+    sk_child_size = sk_agg.condensed_tree_._raw_tree["child_size"]
+
+    # Start at the root, perform bfs
+
+    l2_cu = [1000]
+    l2_sk = [1000]
+
+    lev = 1
+    while len(l2_cu) != 0 or len(l2_sk) != 0:
+        l2_cu = get_bfs_level(lev, [1000], cu_parents, cu_children, cu_lambda)
+        l2_sk = get_bfs_level(lev, [1000], sk_parents, sk_children, sk_lambda)
+
+        s2_cu = get_bfs_level(lev, [1000], cu_parents, cu_children,
+                              cu_child_size)
+        s2_sk = get_bfs_level(lev, [1000], sk_parents, sk_children,
+                              sk_child_size)
+
+        s2_cu.sort()
+        s2_sk.sort()
+        l2_cu.sort()
+        l2_sk.sort()
+
+        lev += 1
+
+        assert np.allclose(l2_cu, l2_sk, atol=1e-5, rtol=1e-6)
+        assert np.allclose(s2_cu, s2_sk, atol=1e-5, rtol=1e-6)
+    assert lev > 1
 
 
 @pytest.mark.parametrize('nrows', [500])
@@ -100,10 +179,14 @@ def test_hdbscan_blobs(nrows, ncols, nclusters,
 
     sk_agg.fit(cp.asnumpy(X))
 
+    assert_condensed_trees(sk_agg, min_cluster_size)
     assert_cluster_counts(sk_agg, cuml_agg)
 
     assert(adjusted_rand_score(cuml_agg.labels_, sk_agg.labels_) >= 0.95)
     assert(len(np.unique(sk_agg.labels_)) == len(cp.unique(cuml_agg.labels_)))
+
+    assert np.allclose(np.sort(sk_agg.cluster_persistence_),
+           np.sort(cuml_agg.cluster_persistence_), rtol=0.01, atol=0.01)
 
 
 @pytest.mark.parametrize('dataset', test_datasets.values())
@@ -149,10 +232,62 @@ def test_hdbscan_sklearn_datasets(dataset,
 
     sk_agg.fit(cp.asnumpy(X))
 
+    assert_condensed_trees(sk_agg, min_cluster_size)
     assert_cluster_counts(sk_agg, cuml_agg)
 
     assert(len(np.unique(sk_agg.labels_)) == len(cp.unique(cuml_agg.labels_)))
     assert(adjusted_rand_score(cuml_agg.labels_, sk_agg.labels_) > 0.85)
+
+    assert np.allclose(np.sort(sk_agg.cluster_persistence_),
+           np.sort(cuml_agg.cluster_persistence_), rtol=0.1, atol=0.1)
+
+
+@pytest.mark.parametrize('dataset', test_datasets.values())
+@pytest.mark.parametrize('cluster_selection_epsilon', [0.0, 50.0, 150.0])
+@pytest.mark.parametrize('min_samples', [150, 50, 5, 400])
+@pytest.mark.parametrize('min_cluster_size', [150, 25, 5, 250])
+@pytest.mark.parametrize('max_cluster_size', [0])
+@pytest.mark.parametrize('allow_single_cluster', [True, False])
+@pytest.mark.parametrize('cluster_selection_method', ['eom', 'leaf'])
+@pytest.mark.parametrize('connectivity', ['knn'])
+def test_hdbscan_sklearn_extract_clusters(dataset,
+                                          connectivity,
+                                          cluster_selection_epsilon,
+                                          cluster_selection_method,
+                                          min_samples,
+                                          min_cluster_size,
+                                          max_cluster_size,
+                                          allow_single_cluster):
+
+    X = dataset.data
+
+    cuml_agg = HDBSCAN(verbose=logger.level_info,
+                       allow_single_cluster=allow_single_cluster,
+                       n_neighbors=min_samples,
+                       gen_min_span_tree=True,
+                       min_samples=min_samples,
+                       max_cluster_size=max_cluster_size,
+                       min_cluster_size=min_cluster_size,
+                       cluster_selection_epsilon=cluster_selection_epsilon,
+                       cluster_selection_method=cluster_selection_method)
+
+    sk_agg = hdbscan.HDBSCAN(
+        allow_single_cluster=allow_single_cluster,
+        approx_min_span_tree=False,
+        gen_min_span_tree=True,
+        min_samples=min_samples,
+        min_cluster_size=min_cluster_size,
+        cluster_selection_epsilon=cluster_selection_epsilon,
+        cluster_selection_method=cluster_selection_method,
+        algorithm="generic")
+
+    sk_agg.fit(cp.asnumpy(X))
+
+    cuml_agg._extract_clusters(sk_agg.condensed_tree_)
+
+    assert adjusted_rand_score(cuml_agg.labels_test, sk_agg.labels_) == 1.0
+    assert np.allclose(cp.asnumpy(cuml_agg.probabilities_test),
+                       sk_agg.probabilities_)
 
 
 @pytest.mark.parametrize('nrows', [1000])
@@ -162,7 +297,6 @@ def test_hdbscan_sklearn_datasets(dataset,
 @pytest.mark.parametrize('min_cluster_size', [25])
 @pytest.mark.parametrize('allow_single_cluster', [True, False])
 @pytest.mark.parametrize('max_cluster_size', [0])
-# TODO: Need to test leaf selection method
 @pytest.mark.parametrize('cluster_selection_method', ['eom'])
 @pytest.mark.parametrize('connectivity', ['knn'])
 def test_hdbscan_cluster_patterns(dataset, nrows,
@@ -200,7 +334,82 @@ def test_hdbscan_cluster_patterns(dataset, nrows,
 
     sk_agg.fit(cp.asnumpy(X))
 
+    assert_condensed_trees(sk_agg, min_cluster_size)
     assert_cluster_counts(sk_agg, cuml_agg)
 
     assert(len(np.unique(sk_agg.labels_)) == len(cp.unique(cuml_agg.labels_)))
     assert(adjusted_rand_score(cuml_agg.labels_, sk_agg.labels_) > 0.95)
+
+    assert np.allclose(np.sort(sk_agg.cluster_persistence_),
+           np.sort(cuml_agg.cluster_persistence_), rtol=0.1, atol=0.1)
+
+
+@pytest.mark.parametrize('nrows', [1000])
+@pytest.mark.parametrize('dataset', dataset_names)
+@pytest.mark.parametrize('min_samples', [5, 50, 400, 800])
+@pytest.mark.parametrize('cluster_selection_epsilon', [0.0, 50.0, 150.0])
+@pytest.mark.parametrize('min_cluster_size', [10, 25, 100, 350])
+@pytest.mark.parametrize('allow_single_cluster', [True, False])
+@pytest.mark.parametrize('max_cluster_size', [0])
+@pytest.mark.parametrize('cluster_selection_method', ['eom', 'leaf'])
+@pytest.mark.parametrize('connectivity', ['knn'])
+def test_hdbscan_cluster_patterns_extract_clusters(dataset, nrows,
+                                                   connectivity,
+                                                   cluster_selection_epsilon,
+                                                   cluster_selection_method,
+                                                   min_cluster_size,
+                                                   allow_single_cluster,
+                                                   max_cluster_size,
+                                                   min_samples):
+
+    # This also tests duplicate data points
+    X, y = get_pattern(dataset, nrows)[0]
+
+    cuml_agg = HDBSCAN(verbose=logger.level_info,
+                       allow_single_cluster=allow_single_cluster,
+                       n_neighbors=min_samples,
+                       min_samples=min_samples,
+                       max_cluster_size=max_cluster_size,
+                       min_cluster_size=min_cluster_size,
+                       cluster_selection_epsilon=cluster_selection_epsilon,
+                       cluster_selection_method=cluster_selection_method)
+
+    sk_agg = hdbscan.HDBSCAN(
+        allow_single_cluster=allow_single_cluster,
+        approx_min_span_tree=False,
+        gen_min_span_tree=True,
+        min_samples=min_samples,
+        min_cluster_size=min_cluster_size,
+        cluster_selection_epsilon=cluster_selection_epsilon,
+        cluster_selection_method=cluster_selection_method,
+        algorithm="generic")
+
+    sk_agg.fit(cp.asnumpy(X))
+
+    cuml_agg._extract_clusters(sk_agg.condensed_tree_)
+
+    assert adjusted_rand_score(cuml_agg.labels_test, sk_agg.labels_) == 1.0
+    assert np.allclose(cp.asnumpy(cuml_agg.probabilities_test),
+                       sk_agg.probabilities_)
+
+
+def test_hdbscan_plots():
+
+    X, y = make_blobs(int(100),
+                      100,
+                      10,
+                      cluster_std=0.7,
+                      shuffle=False,
+                      random_state=42)
+
+    cuml_agg = HDBSCAN(gen_min_span_tree=True)
+    cuml_agg.fit(X)
+
+    assert cuml_agg.condensed_tree_ is not None
+    assert cuml_agg.minimum_spanning_tree_ is not None
+    assert cuml_agg.single_linkage_tree_ is not None
+
+    cuml_agg = HDBSCAN(gen_min_span_tree=False)
+    cuml_agg.fit(X)
+
+    assert cuml_agg.minimum_spanning_tree_ is None

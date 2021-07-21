@@ -31,73 +31,80 @@
 namespace ML {
 namespace fil {
 
-__host__ __device__ __forceinline__ int tree_num_nodes(int depth) {
-  return (1 << (depth + 1)) - 1;
-}
+__host__ __device__ __forceinline__ int tree_num_nodes(int depth) { return (1 << (depth + 1)) - 1; }
 
-__host__ __device__ __forceinline__ int forest_num_nodes(int num_trees,
-                                                         int depth) {
+__host__ __device__ __forceinline__ int forest_num_nodes(int num_trees, int depth)
+{
   return num_trees * tree_num_nodes(depth);
 }
 
 template <>
-__host__ __device__ __forceinline__ float base_node::output<float>() const {
+__host__ __device__ __forceinline__ float base_node::output<float>() const
+{
   return val.f;
 }
 template <>
-__host__ __device__ __forceinline__ int base_node::output<int>() const {
+__host__ __device__ __forceinline__ int base_node::output<int>() const
+{
   return val.idx;
 }
 
 /** dense_tree represents a dense tree */
 struct dense_tree {
   __host__ __device__ dense_tree(dense_node* nodes, int node_pitch)
-    : nodes_(nodes), node_pitch_(node_pitch) {}
-  __host__ __device__ const dense_node& operator[](int i) const {
-    return nodes_[i * node_pitch_];
+    : nodes_(nodes), node_pitch_(node_pitch)
+  {
   }
+  __host__ __device__ const dense_node& operator[](int i) const { return nodes_[i * node_pitch_]; }
   dense_node* nodes_ = nullptr;
-  int node_pitch_ = 0;
+  int node_pitch_    = 0;
 };
 
 /** dense_storage stores the forest as a collection of dense nodes */
 struct dense_storage {
-  __host__ __device__ dense_storage(dense_node* nodes, int num_trees,
-                                    int tree_stride, int node_pitch)
+  __host__ __device__ dense_storage(
+    dense_node* nodes, int num_trees, int tree_stride, int node_pitch, float* vector_leaf)
     : nodes_(nodes),
       num_trees_(num_trees),
       tree_stride_(tree_stride),
-      node_pitch_(node_pitch) {}
+      node_pitch_(node_pitch),
+      vector_leaf_(vector_leaf)
+  {
+  }
   __host__ __device__ int num_trees() const { return num_trees_; }
-  __host__ __device__ dense_tree operator[](int i) const {
+  __host__ __device__ dense_tree operator[](int i) const
+  {
     return dense_tree(nodes_ + i * tree_stride_, node_pitch_);
   }
-  dense_node* nodes_ = nullptr;
-  int num_trees_ = 0;
-  int tree_stride_ = 0;
-  int node_pitch_ = 0;
+  dense_node* nodes_  = nullptr;
+  float* vector_leaf_ = nullptr;
+  int num_trees_      = 0;
+  int tree_stride_    = 0;
+  int node_pitch_     = 0;
 };
 
 /** sparse_tree is a sparse tree */
 template <typename node_t>
 struct sparse_tree {
   __host__ __device__ sparse_tree(node_t* nodes) : nodes_(nodes) {}
-  __host__ __device__ const node_t& operator[](int i) const {
-    return nodes_[i];
-  }
+  __host__ __device__ const node_t& operator[](int i) const { return nodes_[i]; }
   node_t* nodes_ = nullptr;
 };
 
 /** sparse_storage stores the forest as a collection of sparse nodes */
 template <typename node_t>
 struct sparse_storage {
-  int* trees_ = nullptr;
-  node_t* nodes_ = nullptr;
-  int num_trees_ = 0;
-  __host__ __device__ sparse_storage(int* trees, node_t* nodes, int num_trees)
-    : trees_(trees), nodes_(nodes), num_trees_(num_trees) {}
+  int* trees_         = nullptr;
+  node_t* nodes_      = nullptr;
+  float* vector_leaf_ = nullptr;
+  int num_trees_      = 0;
+  __host__ __device__ sparse_storage(int* trees, node_t* nodes, int num_trees, float* vector_leaf)
+    : trees_(trees), nodes_(nodes), num_trees_(num_trees), vector_leaf_(vector_leaf)
+  {
+  }
   __host__ __device__ int num_trees() const { return num_trees_; }
-  __host__ __device__ sparse_tree<node_t> operator[](int i) const {
+  __host__ __device__ sparse_tree<node_t> operator[](int i) const
+  {
     return sparse_tree<node_t>(&nodes_[trees_[i]]);
   }
 };
@@ -121,13 +128,22 @@ struct shmem_size_params {
   /// are the input columns are prefetched into shared
   /// memory before inferring the row in question
   bool cols_in_shmem = true;
-  /// n_items is the most items per thread that fit into shared memory
+  /// log2_threads_per_tree determines how many threads work on a single tree
+  /// at once inside a block (sharing trees means splitting input rows)
+  int log2_threads_per_tree = 0;
+  /// n_items is how many input samples (items) any thread processes. If 0 is given,
+  /// choose the reasonable most (<=4) that fit into shared memory. See init_n_items()
   int n_items = 0;
   /// shm_sz is the associated shared memory footprint
   int shm_sz = INT_MAX;
 
-  __host__ __device__ size_t cols_shmem_size() {
-    return cols_in_shmem ? sizeof(float) * num_cols * n_items : 0;
+  __host__ __device__ int sdata_stride()
+  {
+    return num_cols | 1;  // pad to odd
+  }
+  __host__ __device__ int cols_shmem_size()
+  {
+    return cols_in_shmem ? sizeof(float) * sdata_stride() * n_items << log2_threads_per_tree : 0;
   }
   void compute_smem_footprint();
   template <int NITEMS>
@@ -148,7 +164,7 @@ struct predict_params : shmem_size_params {
   float* preds;
   const float* data;
   // number of data rows (instances) to predict on
-  size_t num_rows;
+  int64_t num_rows;
 
   // to signal infer kernel to apply softmax and also average prior to that
   // for GROVE_PER_CLASS for predict_proba

@@ -45,30 +45,35 @@ struct KNNParams {
 
 class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
  public:
-  void generate_partition(
-    Matrix::floatData_t *part, size_t n_rows, int n_cols, int n_clusters,
-    int part_num, std::shared_ptr<raft::mr::device::allocator> allocator,
-    cudaStream_t stream) {
+  void generate_partition(Matrix::floatData_t* part,
+                          size_t n_rows,
+                          int n_cols,
+                          int n_clusters,
+                          int part_num,
+                          std::shared_ptr<raft::mr::device::allocator> allocator,
+                          cudaStream_t stream)
+  {
     device_buffer<int> labels(allocator, stream, n_rows);
 
-    Random::make_blobs<float, int>(part->ptr, labels.data(), (int)n_rows,
-                                   (int)n_cols, 5, allocator, stream);
+    Random::make_blobs<float, int>(
+      part->ptr, labels.data(), (int)n_rows, (int)n_cols, 5, allocator, stream);
   }
 
-  bool runTest(const KNNParams &params) {
+  bool runTest(const KNNParams& params)
+  {
     raft::comms::initialize_mpi_comms(&handle, MPI_COMM_WORLD);
-    const auto &comm = handle.get_comms();
+    const auto& comm     = handle.get_comms();
     const auto allocator = handle.get_device_allocator();
 
     cudaStream_t stream = handle.get_stream();
 
     int my_rank = comm.get_rank();
-    int size = comm.get_size();
+    int size    = comm.get_size();
 
     int index_parts_per_rank = raft::ceildiv(params.n_index_parts, size);
     int query_parts_per_rank = raft::ceildiv(params.n_query_parts, size);
-    std::vector<Matrix::RankSizePair *> idxPartsToRanks;
-    std::vector<Matrix::RankSizePair *> queryPartsToRanks;
+    std::vector<Matrix::RankSizePair*> idxPartsToRanks;
+    std::vector<Matrix::RankSizePair*> queryPartsToRanks;
     for (int cur_rank = 0; cur_rank < size; cur_rank++) {
       int ippr = index_parts_per_rank;
       int qppr = query_parts_per_rank;
@@ -77,20 +82,17 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
         qppr = params.n_query_parts - (cur_rank * query_parts_per_rank);
       }
 
-      std::cout << "Generating " << ippr << " partitions for rank " << cur_rank
-                << std::endl;
+      std::cout << "Generating " << ippr << " partitions for rank " << cur_rank << std::endl;
 
       std::cout << "min_rows: " << params.min_rows << std::endl;
 
       for (int part_n = 0; part_n < ippr; part_n++) {
-        Matrix::RankSizePair *rsp =
-          new Matrix::RankSizePair(cur_rank, params.min_rows);
+        Matrix::RankSizePair* rsp = new Matrix::RankSizePair(cur_rank, params.min_rows);
         idxPartsToRanks.push_back(rsp);
       }
 
       for (int part_n = 0; part_n < qppr; part_n++) {
-        Matrix::RankSizePair *rsp =
-          new Matrix::RankSizePair(cur_rank, params.min_rows);
+        Matrix::RankSizePair* rsp = new Matrix::RankSizePair(cur_rank, params.min_rows);
         queryPartsToRanks.push_back(rsp);
       }
     }
@@ -98,120 +100,112 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
     std::cout << idxPartsToRanks.size() << std::endl;
 
     if (my_rank == size - 1) {
-      index_parts_per_rank =
-        params.n_index_parts - ((size - 1) * index_parts_per_rank);
-      query_parts_per_rank =
-        params.n_query_parts - ((size - 1) * query_parts_per_rank);
+      index_parts_per_rank = params.n_index_parts - ((size - 1) * index_parts_per_rank);
+      query_parts_per_rank = params.n_query_parts - ((size - 1) * query_parts_per_rank);
     }
 
-    std::cout << "Generating " << index_parts_per_rank
-              << " partitions for rank " << my_rank << std::endl;
+    std::cout << "Generating " << index_parts_per_rank << " partitions for rank " << my_rank
+              << std::endl;
 
-    std::vector<Matrix::floatData_t *> query_parts;
-    std::vector<Matrix::floatData_t *> out_d_parts;
-    std::vector<Matrix::Data<int64_t> *> out_i_parts;
+    std::vector<Matrix::floatData_t*> query_parts;
+    std::vector<Matrix::floatData_t*> out_d_parts;
+    std::vector<Matrix::Data<int64_t>*> out_i_parts;
     for (int i = 0; i < query_parts_per_rank; i++) {
-      float *q = (float *)allocator.get()->allocate(
-        params.min_rows * params.n_cols * sizeof(float *), stream);
+      float* q =
+        (float*)allocator.get()->allocate(params.min_rows * params.n_cols * sizeof(float*), stream);
 
-      float *o = (float *)allocator.get()->allocate(
-        params.min_rows * params.k * sizeof(float *), stream);
+      float* o =
+        (float*)allocator.get()->allocate(params.min_rows * params.k * sizeof(float*), stream);
 
-      int64_t *ind = (int64_t *)allocator.get()->allocate(
-        params.min_rows * params.k * sizeof(int64_t), stream);
+      int64_t* ind =
+        (int64_t*)allocator.get()->allocate(params.min_rows * params.k * sizeof(int64_t), stream);
 
-      Matrix::Data<float> *query_d =
-        new Matrix::Data<float>(q, params.min_rows * params.n_cols);
+      Matrix::Data<float>* query_d = new Matrix::Data<float>(q, params.min_rows * params.n_cols);
 
-      Matrix::floatData_t *out_d =
-        new Matrix::floatData_t(o, params.min_rows * params.k);
+      Matrix::floatData_t* out_d = new Matrix::floatData_t(o, params.min_rows * params.k);
 
-      Matrix::Data<int64_t> *out_i =
-        new Matrix::Data<int64_t>(ind, params.min_rows * params.k);
+      Matrix::Data<int64_t>* out_i = new Matrix::Data<int64_t>(ind, params.min_rows * params.k);
 
       query_parts.push_back(query_d);
       out_d_parts.push_back(out_d);
       out_i_parts.push_back(out_i);
 
-      generate_partition(query_d, params.min_rows, params.n_cols, 5, i,
-                         allocator, stream);
+      generate_partition(query_d, params.min_rows, params.n_cols, 5, i, allocator, stream);
     }
 
-    std::vector<Matrix::floatData_t *> index_parts;
+    std::vector<Matrix::floatData_t*> index_parts;
 
     for (int i = 0; i < index_parts_per_rank; i++) {
-      float *ind = (float *)allocator.get()->allocate(
-        params.min_rows * params.n_cols * sizeof(float), stream);
+      float* ind =
+        (float*)allocator.get()->allocate(params.min_rows * params.n_cols * sizeof(float), stream);
 
-      Matrix::Data<float> *i_d =
-        new Matrix::Data<float>(ind, params.min_rows * params.n_cols);
+      Matrix::Data<float>* i_d = new Matrix::Data<float>(ind, params.min_rows * params.n_cols);
 
       index_parts.push_back(i_d);
 
-      generate_partition(i_d, params.min_rows, params.n_cols, 5, i, allocator,
-                         stream);
+      generate_partition(i_d, params.min_rows, params.n_cols, 5, i, allocator, stream);
     }
 
-    Matrix::PartDescriptor idx_desc(params.min_rows * params.n_index_parts,
-                                    params.n_cols, idxPartsToRanks,
-                                    comm.get_rank());
+    Matrix::PartDescriptor idx_desc(
+      params.min_rows * params.n_index_parts, params.n_cols, idxPartsToRanks, comm.get_rank());
 
-    Matrix::PartDescriptor query_desc(params.min_rows * params.n_query_parts,
-                                      params.n_cols, queryPartsToRanks,
-                                      comm.get_rank());
+    Matrix::PartDescriptor query_desc(
+      params.min_rows * params.n_query_parts, params.n_cols, queryPartsToRanks, comm.get_rank());
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     /**
-         * Execute brute_force_knn()
-         */
-    brute_force_knn(handle, out_i_parts, out_d_parts, index_parts, idx_desc,
-                    query_parts, query_desc, params.k, params.batch_size, true);
+     * Execute brute_force_knn()
+     */
+    brute_force_knn(handle,
+                    out_i_parts,
+                    out_d_parts,
+                    index_parts,
+                    idx_desc,
+                    query_parts,
+                    query_desc,
+                    params.k,
+                    params.batch_size,
+                    true);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    std::cout << raft::arr2Str(out_i_parts[0]->ptr, 10, "final_out_I", stream)
-              << std::endl;
-    std::cout << raft::arr2Str(out_d_parts[0]->ptr, 10, "final_out_D", stream)
-              << std::endl;
+    std::cout << raft::arr2Str(out_i_parts[0]->ptr, 10, "final_out_I", stream) << std::endl;
+    std::cout << raft::arr2Str(out_d_parts[0]->ptr, 10, "final_out_D", stream) << std::endl;
 
     /**
-         * Verify expected results
-         */
+     * Verify expected results
+     */
 
-    for (Matrix::floatData_t *fd : query_parts) {
-      allocator.get()->deallocate(fd->ptr, fd->totalSize * sizeof(float),
-                                  stream);
+    for (Matrix::floatData_t* fd : query_parts) {
+      allocator.get()->deallocate(fd->ptr, fd->totalSize * sizeof(float), stream);
       delete fd;
     }
 
-    for (Matrix::floatData_t *fd : index_parts) {
-      allocator.get()->deallocate(fd->ptr, fd->totalSize * sizeof(float),
-                                  stream);
+    for (Matrix::floatData_t* fd : index_parts) {
+      allocator.get()->deallocate(fd->ptr, fd->totalSize * sizeof(float), stream);
       delete fd;
     }
 
-    for (Matrix::Data<int64_t> *fd : out_i_parts) {
-      allocator.get()->deallocate(fd->ptr, fd->totalSize * sizeof(int64_t),
-                                  stream);
+    for (Matrix::Data<int64_t>* fd : out_i_parts) {
+      allocator.get()->deallocate(fd->ptr, fd->totalSize * sizeof(int64_t), stream);
       delete fd;
     }
 
-    for (Matrix::floatData_t *fd : out_d_parts) {
-      allocator.get()->deallocate(fd->ptr, fd->totalSize * sizeof(float),
-                                  stream);
+    for (Matrix::floatData_t* fd : out_d_parts) {
+      allocator.get()->deallocate(fd->ptr, fd->totalSize * sizeof(float), stream);
       delete fd;
     }
 
-    for (Matrix::RankSizePair *rsp : queryPartsToRanks) {
+    for (Matrix::RankSizePair* rsp : queryPartsToRanks) {
       delete rsp;
     }
 
-    for (Matrix::RankSizePair *rsp : idxPartsToRanks) {
+    for (Matrix::RankSizePair* rsp : idxPartsToRanks) {
       delete rsp;
     }
 
-    int actual = 1;
+    int actual   = 1;
     int expected = 1;
     return raft::CompareApprox<int>(1)(actual, expected);
   }
@@ -220,17 +214,21 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
   raft::handle_t handle;
 };
 
-const std::vector<KNNParams> inputs = {
-  {5, 50, 3, 5, 5, 12},   {10, 50, 3, 5, 5, 50},   {5, 50, 3, 5, 5, 50},
-  {5, 500, 5, 5, 5, 50},  {10, 500, 50, 5, 5, 50}, {15, 500, 5, 5, 5, 50},
-  {5, 500, 10, 5, 5, 50}, {10, 500, 10, 5, 5, 50}, {15, 500, 10, 5, 5, 50}};
+const std::vector<KNNParams> inputs = {{5, 50, 3, 5, 5, 12},
+                                       {10, 50, 3, 5, 5, 50},
+                                       {5, 50, 3, 5, 5, 50},
+                                       {5, 500, 5, 5, 5, 50},
+                                       {10, 500, 50, 5, 5, 50},
+                                       {15, 500, 5, 5, 5, 50},
+                                       {5, 500, 10, 5, 5, 50},
+                                       {10, 500, 10, 5, 5, 50},
+                                       {15, 500, 10, 5, 5, 50}};
 
 typedef BruteForceKNNTest KNNTest;
 
 TEST_P(KNNTest, Result) { ASSERT_TRUE(runTest(GetParam())); }
 
-INSTANTIATE_TEST_CASE_P(BruteForceKNNTest, KNNTest,
-                        ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(BruteForceKNNTest, KNNTest, ::testing::ValuesIn(inputs));
 
 }  // namespace opg
 }  // namespace KNN

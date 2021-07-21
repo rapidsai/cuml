@@ -30,7 +30,8 @@ struct Params {
 };
 
 template <typename D>
-struct RFClassifierModel {};
+struct RFClassifierModel {
+};
 
 template <>
 struct RFClassifierModel<float> {
@@ -46,19 +47,28 @@ template <typename D>
 class RFClassifier : public BlobsFixture<D> {
  public:
   RFClassifier(const std::string& name, const Params& p)
-    : BlobsFixture<D>(name, p.data, p.blobs), rfParams(p.rf) {}
+    : BlobsFixture<D>(name, p.data, p.blobs), rfParams(p.rf)
+  {
+  }
 
  protected:
-  void runBenchmark(::benchmark::State& state) override {
+  void runBenchmark(::benchmark::State& state) override
+  {
     using MLCommon::Bench::CudaEventTimer;
     if (this->params.rowMajor) {
       state.SkipWithError("RFClassifier only supports col-major inputs");
     }
     this->loopOnState(state, [this]() {
-      auto* mPtr = &model.model;
+      auto* mPtr  = &model.model;
       mPtr->trees = nullptr;
-      fit(*this->handle, mPtr, this->data.X, this->params.nrows,
-          this->params.ncols, this->data.y, this->params.nclasses, rfParams);
+      fit(*this->handle,
+          mPtr,
+          this->data.X,
+          this->params.nrows,
+          this->params.ncols,
+          this->data.y,
+          this->params.nclasses,
+          rfParams);
       CUDA_CHECK(cudaStreamSynchronize(this->stream));
     });
   }
@@ -69,50 +79,45 @@ class RFClassifier : public BlobsFixture<D> {
 };
 
 template <typename D>
-std::vector<Params> getInputs() {
+std::vector<Params> getInputs()
+{
   struct Triplets {
     int nrows, ncols, nclasses;
   };
   std::vector<Params> out;
   Params p;
   p.data.rowMajor = false;
-  p.blobs = {10.0,         // cluster_std
+  p.blobs         = {10.0,         // cluster_std
              false,        // shuffle
              -10.0,        // center_box_min
              10.0,         // center_box_max
-             2152953ULL};  //seed
+             2152953ULL};  // seed
 
   p.rf = set_rf_params(10,                  /*max_depth */
                        (1 << 20),           /* max_leaves */
                        0.3,                 /* max_features */
                        32,                  /* n_bins */
-                       1,                   /* split_algo */
                        3,                   /* min_samples_leaf */
                        3,                   /* min_samples_split */
                        0.0f,                /* min_impurity_decrease */
-                       true,                /* bootstrap_features */
                        true,                /* bootstrap */
                        500,                 /* n_trees */
                        1.f,                 /* max_samples */
                        1234ULL,             /* seed */
                        ML::CRITERION::GINI, /* split_criterion */
-                       false,               /* quantile_per_tree */
                        8,                   /* n_streams */
-                       false,               /* use_experimental_backend */
                        128                  /* max_batch_size */
   );
 
   std::vector<Triplets> rowcols = {
-    {160000, 64, 2},
-    {640000, 64, 8},
-    {1184000, 968, 2},  // Mimicking Bosch dataset
+    {160000, 64, 2}, {640000, 64, 8}, {1184000, 968, 2},  // Mimicking Bosch dataset
   };
   for (auto& rc : rowcols) {
     // Let's run Bosch only for float type
     if (!std::is_same<D, float>::value && rc.ncols == 968) continue;
-    p.data.nrows = rc.nrows;
-    p.data.ncols = rc.ncols;
-    p.data.nclasses = rc.nclasses;
+    p.data.nrows                  = rc.nrows;
+    p.data.ncols                  = rc.ncols;
+    p.data.nclasses               = rc.nclasses;
     p.rf.tree_params.max_features = 1.f / std::sqrt(float(rc.ncols));
     for (auto max_depth : std::vector<int>({7, 9})) {
       p.rf.tree_params.max_depth = max_depth;

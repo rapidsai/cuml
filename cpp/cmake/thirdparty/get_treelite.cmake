@@ -14,7 +14,7 @@
 # limitations under the License.
 #=============================================================================
 
-function(find_and_configure_nccl)
+function(find_and_configure_treelite)
 
     if(TARGET treelite::treelite)
         return()
@@ -35,14 +35,28 @@ function(find_and_configure_nccl)
     )
 
     set(Treelite_ADDED ${Treelite_ADDED} PARENT_SCOPE)
-    set(Treelite_SOURCE_DIR ${Treelite_SOURCE_DIR} PARENT_SCOPE)
 
-    if(Treelite_ADDED AND NOT TARGET treelite::treelite_static)
-        add_library(treelite::treelite_static ALIAS treelite_static)
-        add_library(treelite::treelite_runtime_static ALIAS treelite_runtime_static)
+    if(Treelite_ADDED)
+        target_include_directories(treelite
+            PUBLIC $<BUILD_INTERFACE:${Treelite_SOURCE_DIR}/include>
+                   $<BUILD_INTERFACE:${Treelite_BINARY_DIR}/include>)
+        target_include_directories(treelite_static
+            PUBLIC $<BUILD_INTERFACE:${Treelite_SOURCE_DIR}/include>
+                   $<BUILD_INTERFACE:${Treelite_BINARY_DIR}/include>)
+        target_include_directories(treelite_runtime
+            PUBLIC $<BUILD_INTERFACE:${Treelite_SOURCE_DIR}/include>
+                   $<BUILD_INTERFACE:${Treelite_BINARY_DIR}/include>)
+        target_include_directories(treelite_runtime_static
+            PUBLIC $<BUILD_INTERFACE:${Treelite_SOURCE_DIR}/include>
+                   $<BUILD_INTERFACE:${Treelite_BINARY_DIR}/include>)
+
+        if(NOT TARGET treelite::treelite_static)
+            add_library(treelite::treelite_static ALIAS treelite_static)
+            add_library(treelite::treelite_runtime_static ALIAS treelite_runtime_static)
+        endif()
     endif()
 
 endfunction()
 
-find_and_configure_nccl(VERSION     1.1.0
-                        PINNED_TAG  342be01cde4fd99f81e529c1a0c85c496b2a3226)
+find_and_configure_treelite(VERSION     2.0.0
+                        PINNED_TAG  b117da58d7d9a5cc54aa3711e5ad9a8407734c6e)

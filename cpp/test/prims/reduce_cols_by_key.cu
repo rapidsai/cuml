@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,9 +24,14 @@ namespace MLCommon {
 namespace LinAlg {
 
 template <typename T>
-void naiveReduceColsByKey(const T *in, const uint32_t *keys, T *out_ref,
-                          uint32_t nrows, uint32_t ncols, uint32_t nkeys,
-                          cudaStream_t stream) {
+void naiveReduceColsByKey(const T* in,
+                          const uint32_t* keys,
+                          T* out_ref,
+                          uint32_t nrows,
+                          uint32_t ncols,
+                          uint32_t nkeys,
+                          cudaStream_t stream)
+{
   std::vector<uint32_t> h_keys(ncols, 0u);
   raft::copy(&(h_keys[0]), keys, ncols, stream);
   std::vector<T> h_in(nrows * ncols);
@@ -52,15 +57,16 @@ struct ReduceColsInputs {
 };
 
 template <typename T>
-::std::ostream &operator<<(::std::ostream &os,
-                           const ReduceColsInputs<T> &dims) {
+::std::ostream& operator<<(::std::ostream& os, const ReduceColsInputs<T>& dims)
+{
   return os;
 }
 
 template <typename T>
 class ReduceColsTest : public ::testing::TestWithParam<ReduceColsInputs<T>> {
  protected:
-  void SetUp() override {
+  void SetUp() override
+  {
     params = ::testing::TestWithParam<ReduceColsInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     CUDA_CHECK(cudaStreamCreate(&stream));
@@ -78,7 +84,8 @@ class ReduceColsTest : public ::testing::TestWithParam<ReduceColsInputs<T>> {
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
-  void TearDown() override {
+  void TearDown() override
+  {
     CUDA_CHECK(cudaFree(in));
     CUDA_CHECK(cudaFree(out_ref));
     CUDA_CHECK(cudaFree(out));
@@ -90,28 +97,28 @@ class ReduceColsTest : public ::testing::TestWithParam<ReduceColsInputs<T>> {
   cudaStream_t stream;
   ReduceColsInputs<T> params;
   T *in, *out_ref, *out;
-  uint32_t *keys;
+  uint32_t* keys;
 };
 
-const std::vector<ReduceColsInputs<float>> inputsf = {
-  {0.0001f, 128, 32, 6, 1234ULL}, {0.0005f, 121, 63, 10, 1234ULL}};
+const std::vector<ReduceColsInputs<float>> inputsf = {{0.0001f, 128, 32, 6, 1234ULL},
+                                                      {0.0005f, 121, 63, 10, 1234ULL}};
 typedef ReduceColsTest<float> ReduceColsTestF;
-TEST_P(ReduceColsTestF, Result) {
-  ASSERT_TRUE(raft::devArrMatch(out_ref, out, params.rows * params.nkeys,
-                                raft::CompareApprox<float>(params.tolerance)));
+TEST_P(ReduceColsTestF, Result)
+{
+  ASSERT_TRUE(raft::devArrMatch(
+    out_ref, out, params.rows * params.nkeys, raft::CompareApprox<float>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(ReduceColsTests, ReduceColsTestF,
-                        ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(ReduceColsTests, ReduceColsTestF, ::testing::ValuesIn(inputsf));
 
-const std::vector<ReduceColsInputs<double>> inputsd2 = {
-  {0.0000001, 128, 32, 6, 1234ULL}, {0.0000001, 121, 63, 10, 1234ULL}};
+const std::vector<ReduceColsInputs<double>> inputsd2 = {{0.0000001, 128, 32, 6, 1234ULL},
+                                                        {0.0000001, 121, 63, 10, 1234ULL}};
 typedef ReduceColsTest<double> ReduceColsTestD;
-TEST_P(ReduceColsTestD, Result) {
-  ASSERT_TRUE(raft::devArrMatch(out_ref, out, params.rows * params.nkeys,
-                                raft::CompareApprox<double>(params.tolerance)));
+TEST_P(ReduceColsTestD, Result)
+{
+  ASSERT_TRUE(raft::devArrMatch(
+    out_ref, out, params.rows * params.nkeys, raft::CompareApprox<double>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(ReduceColsTests, ReduceColsTestD,
-                        ::testing::ValuesIn(inputsd2));
+INSTANTIATE_TEST_CASE_P(ReduceColsTests, ReduceColsTestD, ::testing::ValuesIn(inputsd2));
 
 }  // end namespace LinAlg
 }  // end namespace MLCommon
