@@ -186,8 +186,7 @@ void mutual_reachability_graph(const raft::handle_t& handle,
   raft::sparse::linalg::symmetrize(
     handle, coo_rows.data(), inds.data(), dists.data(), m, m, k * m, out);
 
-  raft::sparse::convert::sorted_coo_to_csr(
-    out.rows(), out.nnz, indptr, m + 1, handle.get_device_allocator(), stream);
+  raft::sparse::convert::sorted_coo_to_csr(out.rows(), out.nnz, indptr, m + 1, stream);
 
   // self-loops get max distance
   auto transform_in =

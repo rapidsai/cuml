@@ -16,8 +16,6 @@
 
 #pragma once
 
-#include <cuml/common/device_buffer.hpp>
-
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/cusolver_wrappers.h>
 #include <raft/linalg/transpose.h>
@@ -73,7 +71,6 @@ void rsvdFixedRank(const raft::handle_t& handle,
                    int max_sweeps,
                    cudaStream_t stream)
 {
-  auto allocator               = handle.get_device_allocator();
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
   cublasHandle_t cublasH       = handle.get_cublas_handle();
 
@@ -90,23 +87,23 @@ void rsvdFixedRank(const raft::handle_t& handle,
   const math_t alpha = 1.0, beta = 0.0;
 
   // Build temporary U, S, V matrices
-  raft::mr::device::buffer<math_t> S_vec_tmp(allocator, stream, l);
+  rmm::device_uvector<math_t> S_vec_tmp(l, stream);
   CUDA_CHECK(cudaMemsetAsync(S_vec_tmp.data(), 0, sizeof(math_t) * l, stream));
 
   // build random matrix
-  device_buffer<math_t> RN(allocator, stream, n * l);
+  rmm::device_uvector<math_t> RN(n * l, stream);
   raft::random::Rng rng(484);
   rng.normal(RN.data(), n * l, math_t(0.0), alpha, stream);
 
   // multiply to get matrix of random samples Y
-  raft::mr::device::buffer<math_t> Y(allocator, stream, m * l);
+  rmm::device_uvector<math_t> Y(m * l, stream);
   raft::linalg::gemm(
     handle, M, m, n, RN.data(), Y.data(), m, l, CUBLAS_OP_N, CUBLAS_OP_N, alpha, beta, stream);
 
   // now build up (M M^T)^q R
-  raft::mr::device::buffer<math_t> Z(allocator, stream, n * l);
-  raft::mr::device::buffer<math_t> Yorth(allocator, stream, m * l);
-  raft::mr::device::buffer<math_t> Zorth(allocator, stream, n * l);
+  rmm::device_uvector<math_t> Z(n * l, stream);
+  rmm::device_uvector<math_t> Yorth(m * l, stream);
+  rmm::device_uvector<math_t> Zorth(n * l, stream);
   CUDA_CHECK(cudaMemsetAsync(Z.data(), 0, sizeof(math_t) * n * l, stream));
   CUDA_CHECK(cudaMemsetAsync(Yorth.data(), 0, sizeof(math_t) * m * l, stream));
   CUDA_CHECK(cudaMemsetAsync(Zorth.data(), 0, sizeof(math_t) * n * l, stream));
@@ -155,30 +152,30 @@ void rsvdFixedRank(const raft::handle_t& handle,
   }
 
   // orthogonalize on exit from loop to get Q
-  raft::mr::device::buffer<math_t> Q(allocator, stream, m * l);
+  rmm::device_uvector<math_t> Q(m * l, stream);
   CUDA_CHECK(cudaMemsetAsync(Q.data(), 0, sizeof(math_t) * m * l, stream));
   raft::linalg::qrGetQ(handle, Y.data(), Q.data(), m, l, stream);
 
   // either QR of B^T method, or eigendecompose BB^T method
   if (!use_bbt) {
     // form Bt = Mt*Q : nxm * mxl = nxl
-    raft::mr::device::buffer<math_t> Bt(allocator, stream, n * l);
+    rmm::device_uvector<math_t> Bt(n * l, stream);
     CUDA_CHECK(cudaMemsetAsync(Bt.data(), 0, sizeof(math_t) * n * l, stream));
     raft::linalg::gemm(
       handle, M, m, n, Q.data(), Bt.data(), n, l, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta, stream);
 
     // compute QR factorization of Bt
     // M is mxn ; Q is mxn ; R is min(m,n) x min(m,n) */
-    raft::mr::device::buffer<math_t> Qhat(allocator, stream, n * l);
+    rmm::device_uvector<math_t> Qhat(n * l, stream);
     CUDA_CHECK(cudaMemsetAsync(Qhat.data(), 0, sizeof(math_t) * n * l, stream));
-    raft::mr::device::buffer<math_t> Rhat(allocator, stream, l * l);
+    rmm::device_uvector<math_t> Rhat(l * l, stream);
     CUDA_CHECK(cudaMemsetAsync(Rhat.data(), 0, sizeof(math_t) * l * l, stream));
     raft::linalg::qrGetQR(handle, Bt.data(), Qhat.data(), Rhat.data(), n, l, stream);
 
     // compute SVD of Rhat (lxl)
-    raft::mr::device::buffer<math_t> Uhat(allocator, stream, l * l);
+    rmm::device_uvector<math_t> Uhat(l * l, stream);
     CUDA_CHECK(cudaMemsetAsync(Uhat.data(), 0, sizeof(math_t) * l * l, stream));
-    raft::mr::device::buffer<math_t> Vhat(allocator, stream, l * l);
+    rmm::device_uvector<math_t> Vhat(l * l, stream);
     CUDA_CHECK(cudaMemsetAsync(Vhat.data(), 0, sizeof(math_t) * l * l, stream));
     if (use_jacobi)
       raft::linalg::svdJacobi(handle,
@@ -251,11 +248,11 @@ void rsvdFixedRank(const raft::handle_t& handle,
   } else {
     // build the matrix B B^T = Q^T M M^T Q column by column
     // Bt = M^T Q ; nxm * mxk = nxk
-    raft::mr::device::buffer<math_t> B(allocator, stream, n * l);
+    rmm::device_uvector<math_t> B(n * l, stream);
     raft::linalg::gemm(
       handle, Q.data(), m, l, M, B.data(), l, n, CUBLAS_OP_T, CUBLAS_OP_N, alpha, beta, stream);
 
-    raft::mr::device::buffer<math_t> BBt(allocator, stream, l * l);
+    rmm::device_uvector<math_t> BBt(l * l, stream);
     raft::linalg::gemm(handle,
                        B.data(),
                        l,
@@ -271,9 +268,9 @@ void rsvdFixedRank(const raft::handle_t& handle,
                        stream);
 
     // compute eigendecomposition of BBt
-    raft::mr::device::buffer<math_t> Uhat(allocator, stream, l * l);
+    rmm::device_uvector<math_t> Uhat(l * l, stream);
     CUDA_CHECK(cudaMemsetAsync(Uhat.data(), 0, sizeof(math_t) * l * l, stream));
-    raft::mr::device::buffer<math_t> Uhat_dup(allocator, stream, l * l);
+    rmm::device_uvector<math_t> Uhat_dup(l * l, stream);
     CUDA_CHECK(cudaMemsetAsync(Uhat_dup.data(), 0, sizeof(math_t) * l * l, stream));
     raft::matrix::copyUpperTriangular(BBt.data(), Uhat_dup.data(), l, l, stream);
     if (use_jacobi)
@@ -314,9 +311,9 @@ void rsvdFixedRank(const raft::handle_t& handle,
     // Merge step 14 & 15 by calculating V = B^T Uhat[:,(p+1):l] *
     // Sigma^{-1}[(p+1):l, (p+1):l] nxl * lxk * kxk = nxk
     if (gen_right_vec) {
-      raft::mr::device::buffer<math_t> Sinv(allocator, stream, k * k);
+      rmm::device_uvector<math_t> Sinv(k * k, stream);
       CUDA_CHECK(cudaMemsetAsync(Sinv.data(), 0, sizeof(math_t) * k * k, stream));
-      raft::mr::device::buffer<math_t> UhatSinv(allocator, stream, l * k);
+      rmm::device_uvector<math_t> UhatSinv(l * k, stream);
       CUDA_CHECK(cudaMemsetAsync(UhatSinv.data(), 0, sizeof(math_t) * l * k, stream));
       raft::matrix::reciprocal(S_vec_tmp.data(), l, stream);
       raft::matrix::initializeDiagonalMatrix(S_vec_tmp.data() + p, Sinv.data(), k, k, stream);

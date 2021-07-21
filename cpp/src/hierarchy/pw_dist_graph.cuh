@@ -19,8 +19,6 @@
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 
-#include <common/allocatorAdapter.hpp>
-
 #include <cuml/metrics/metrics.hpp>
 
 #include <rmm/device_uvector.hpp>

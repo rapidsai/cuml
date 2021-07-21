@@ -21,21 +21,21 @@
 #include <raft/linalg/transpose.h>
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
-#include <common/allocatorAdapter.hpp>
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/decomposition/params.hpp>
 #include <linalg/rsvd.cuh>
-#include <raft/cuda_utils.cuh>
+#include <raft/handle.hpp>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/eig.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/stddev.cuh>
 #include <raft/stats/sum.cuh>
+#include <rmm/device_scalar.hpp>
+#include <rmm/device_uvector.hpp>
+#include <rmm/exec_policy.hpp>
 
 namespace ML {
 
@@ -53,7 +53,6 @@ void calCompExpVarsSvd(const raft::handle_t& handle,
 {
   auto cusolver_handle = handle.get_cusolver_dn_handle();
   auto cublas_handle   = handle.get_cublas_handle();
-  auto allocator       = handle.get_device_allocator();
 
   int diff     = prms.n_cols - prms.n_components;
   math_t ratio = math_t(diff) / math_t(prms.n_cols);
@@ -69,7 +68,7 @@ void calCompExpVarsSvd(const raft::handle_t& handle,
   ASSERT(total_random_vecs < prms.n_cols,
          "RSVD should be used where the number of columns are at least 50");
 
-  device_buffer<math_t> components_temp(allocator, stream, prms.n_cols * prms.n_components);
+  rmm::device_uvector<math_t> components_temp(prms.n_cols * prms.n_components, stream);
   math_t* left_eigvec = nullptr;
   LinAlg::rsvdFixedRank(handle,
                         in,
@@ -103,7 +102,6 @@ void calEig(const raft::handle_t& handle,
             cudaStream_t stream)
 {
   auto cusolver_handle = handle.get_cusolver_dn_handle();
-  auto allocator       = handle.get_device_allocator();
 
   if (prms.algorithm == enum_solver::COV_EIG_JACOBI) {
     raft::linalg::eigJacobi(handle,
@@ -133,25 +131,17 @@ void calEig(const raft::handle_t& handle,
  * @param n_cols: number of columns of input matrix
  * @param components: components matrix.
  * @param n_cols_comp: number of columns of components matrix
- * @param allocator device custom allocator object
  * @param stream cuda stream
  * @{
  */
 template <typename math_t>
-void signFlip(math_t* input,
-              int n_rows,
-              int n_cols,
-              math_t* components,
-              int n_cols_comp,
-              std::shared_ptr<raft::mr::device::allocator> allocator,
-              cudaStream_t stream)
+void signFlip(
+  math_t* input, int n_rows, int n_cols, math_t* components, int n_cols_comp, cudaStream_t stream)
 {
   auto counting = thrust::make_counting_iterator(0);
   auto m        = n_rows;
 
-  ML::thrustAllocatorAdapter alloc(allocator, stream);
-  auto execution_policy = thrust::cuda::par(alloc).on(stream);
-  thrust::for_each(execution_policy, counting, counting + n_cols, [=] __device__(int idx) {
+  thrust::for_each(rmm::exec_policy(stream), counting, counting + n_cols, [=] __device__(int idx) {
     int d_i = idx * m;
     int end = d_i + m;
 
@@ -199,7 +189,6 @@ void tsvdFit(const raft::handle_t& handle,
              cudaStream_t stream)
 {
   auto cublas_handle = handle.get_cublas_handle();
-  auto allocator     = handle.get_device_allocator();
 
   ASSERT(prms.n_cols > 1, "Parameter n_cols: number of columns cannot be less than two");
   ASSERT(prms.n_rows > 1, "Parameter n_rows: number of rows cannot be less than two");
@@ -210,7 +199,7 @@ void tsvdFit(const raft::handle_t& handle,
   if (prms.n_components > prms.n_cols) n_components = prms.n_cols;
 
   int len = prms.n_cols * prms.n_cols;
-  device_buffer<math_t> input_cross_mult(allocator, stream, len);
+  rmm::device_uvector<math_t> input_cross_mult(len, stream);
 
   math_t alpha = math_t(1);
   math_t beta  = math_t(0);
@@ -228,8 +217,8 @@ void tsvdFit(const raft::handle_t& handle,
                      beta,
                      stream);
 
-  device_buffer<math_t> components_all(allocator, stream, len);
-  device_buffer<math_t> explained_var_all(allocator, stream, prms.n_cols);
+  rmm::device_uvector<math_t> components_all(len, stream);
+  rmm::device_uvector<math_t> explained_var_all(prms.n_cols, stream);
 
   calEig(
     handle, input_cross_mult.data(), components_all.data(), explained_var_all.data(), prms, stream);
@@ -268,14 +257,12 @@ void tsvdFitTransform(const raft::handle_t& handle,
                       const paramsTSVD& prms,
                       cudaStream_t stream)
 {
-  auto allocator = handle.get_device_allocator();
-
   tsvdFit(handle, input, components, singular_vals, prms, stream);
   tsvdTransform(handle, input, components, trans_input, prms, stream);
 
-  signFlip(trans_input, prms.n_rows, prms.n_components, components, prms.n_cols, allocator, stream);
+  signFlip(trans_input, prms.n_rows, prms.n_components, components, prms.n_cols, stream);
 
-  device_buffer<math_t> mu_trans(allocator, stream, prms.n_components);
+  rmm::device_uvector<math_t> mu_trans(prms.n_components, stream);
   raft::stats::mean(
     mu_trans.data(), trans_input, prms.n_components, prms.n_rows, true, false, stream);
   raft::stats::vars(explained_var,
@@ -287,13 +274,13 @@ void tsvdFitTransform(const raft::handle_t& handle,
                     false,
                     stream);
 
-  device_buffer<math_t> mu(allocator, stream, prms.n_cols);
-  device_buffer<math_t> vars(allocator, stream, prms.n_cols);
+  rmm::device_uvector<math_t> mu(prms.n_cols, stream);
+  rmm::device_uvector<math_t> vars(prms.n_cols, stream);
 
   raft::stats::mean(mu.data(), input, prms.n_cols, prms.n_rows, true, false, stream);
   raft::stats::vars(vars.data(), input, mu.data(), prms.n_cols, prms.n_rows, true, false, stream);
 
-  device_buffer<math_t> total_vars(allocator, stream, 1);
+  rmm::device_scalar<math_t> total_vars(stream);
   raft::stats::sum(total_vars.data(), vars.data(), 1, prms.n_cols, false, stream);
 
   math_t total_vars_h;

@@ -19,7 +19,6 @@
 #include <algorithm>
 #include <iostream>
 #include <metrics/rand_index.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <random>
 #include "test_utils.h"
 
@@ -79,11 +78,10 @@ class randIndexTest : public ::testing::TestWithParam<randIndexParam> {
 
     raft::update_device(firstClusterArray, &arr1[0], (int)size, stream);
     raft::update_device(secondClusterArray, &arr2[0], (int)size, stream);
-    std::shared_ptr<raft::mr::device::allocator> allocator(new raft::mr::device::default_allocator);
 
     // calling the rand_index CUDA implementation
-    computedRandIndex = MLCommon::Metrics::compute_rand_index(
-      firstClusterArray, secondClusterArray, size, allocator, stream);
+    computedRandIndex =
+      MLCommon::Metrics::compute_rand_index(firstClusterArray, secondClusterArray, size, stream);
   }
 
   // the destructor

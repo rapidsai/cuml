@@ -14,18 +14,17 @@
  * limitations under the License.
  */
 
-#include <cuml/common/logger.hpp>
-#include <cuml/neighbors/knn.hpp>
-
-#include <ml_mg_utils.cuh>
-
-#include <label/classlabels.cuh>
-#include <raft/spatial/knn/ann.hpp>
-#include <raft/spatial/knn/knn.hpp>
-#include <selection/knn.cuh>
-
 #include <cuda_runtime.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/spatial/knn/ann.hpp>
+#include <raft/spatial/knn/knn.hpp>
+#include <rmm/device_uvector.hpp>
+
+#include <cuml/common/logger.hpp>
+#include <cuml/neighbors/knn.hpp>
+#include <label/classlabels.cuh>
+#include <ml_mg_utils.cuh>
+#include <selection/knn.cuh>
 
 #include <sstream>
 #include <vector>
@@ -96,19 +95,22 @@ void knn_classify(raft::handle_t& handle,
                   size_t n_query_rows,
                   int k)
 {
-  auto d_alloc        = handle.get_device_allocator();
   cudaStream_t stream = handle.get_stream();
 
+  std::vector<rmm::device_uvector<int>> uniq_labels_v;
   std::vector<int*> uniq_labels(y.size());
   std::vector<int> n_unique(y.size());
 
   for (int i = 0; i < y.size(); i++) {
-    MLCommon::Label::getUniqueLabels(
-      y[i], n_index_rows, &(uniq_labels[i]), &(n_unique[i]), stream, d_alloc);
+    uniq_labels_v.emplace_back(n_index_rows, stream);
+    n_unique[i] =
+      MLCommon::Label::getUniqueLabels(y[i], n_index_rows, uniq_labels_v[i].data(), stream);
+    uniq_labels_v.back().resize(n_unique[i], stream);
+    uniq_labels[i] = uniq_labels_v[i].data();
   }
 
   MLCommon::Selection::knn_classify(
-    out, knn_indices, y, n_index_rows, n_query_rows, k, uniq_labels, n_unique, d_alloc, stream);
+    out, knn_indices, y, n_index_rows, n_query_rows, k, uniq_labels, n_unique, stream);
 }
 
 void knn_regress(raft::handle_t& handle,
@@ -131,19 +133,21 @@ void knn_class_proba(raft::handle_t& handle,
                      size_t n_query_rows,
                      int k)
 {
-  auto d_alloc        = handle.get_device_allocator();
   cudaStream_t stream = handle.get_stream();
 
+  std::vector<rmm::device_uvector<int>> uniq_labels_v;
   std::vector<int*> uniq_labels(y.size());
   std::vector<int> n_unique(y.size());
 
   for (int i = 0; i < y.size(); i++) {
-    MLCommon::Label::getUniqueLabels(
-      y[i], n_index_rows, &(uniq_labels[i]), &(n_unique[i]), stream, d_alloc);
+    uniq_labels_v.emplace_back(n_index_rows, stream);
+    MLCommon::Label::getUniqueLabels(y[i], n_index_rows, uniq_labels_v[i].data(), stream);
+    uniq_labels_v.back().resize(n_unique[i], stream);
+    uniq_labels[i] = uniq_labels_v[i].data();
   }
 
   MLCommon::Selection::class_probs(
-    out, knn_indices, y, n_index_rows, n_query_rows, k, uniq_labels, n_unique, d_alloc, stream);
+    out, knn_indices, y, n_index_rows, n_query_rows, k, uniq_labels, n_unique, stream);
 }
 
 };  // END NAMESPACE ML

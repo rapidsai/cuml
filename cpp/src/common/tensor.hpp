@@ -17,8 +17,9 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/host/allocator.hpp>
+#include <rmm/device_uvector.hpp>
+#include <rmm/mr/device/per_device_resource.hpp>
+#include <rmm/mr/host/host_memory_resource.hpp>
 #include <vector>
 
 namespace ML {
@@ -33,9 +34,10 @@ class Tensor {
   {
     if (_state == AllocState::Owner) {
       if (memory_type(_data) == cudaMemoryTypeDevice) {
+        auto _dAllocator = rmm::mr::get_current_device_resource();
         _dAllocator->deallocate(_data, this->getSizeInBytes(), _stream);
       } else if (memory_type(_data) == cudaMemoryTypeHost) {
-        _hAllocator->deallocate(_data, this->getSizeInBytes(), _stream);
+        _data = new DataT[this->getSizeInBytes()];
       }
     }
   }
@@ -61,10 +63,8 @@ class Tensor {
 
   // allocate the data using the allocator and release when the object goes out of scope
   // allocating tensor is the owner of the data
-  __host__ Tensor(const std::vector<IndexT>& sizes,
-                  std::shared_ptr<raft::mr::device::allocator> allocator,
-                  cudaStream_t stream)
-    : _stream(stream), _dAllocator(allocator), _state(AllocState::Owner)
+  __host__ Tensor(const std::vector<IndexT>& sizes, cudaStream_t stream)
+    : _stream(stream), _state(AllocState::Owner)
   {
     static_assert(Dim > 0, "must have > 0 dimensions");
 
@@ -79,7 +79,12 @@ class Tensor {
       _stride[j] = _stride[j + 1] * _size[j + 1];
     }
 
-    _data = static_cast<DataT*>(_dAllocator->allocate(this->getSizeInBytes(), _stream));
+    if (memory_type(_data) == cudaMemoryTypeDevice) {
+      auto _dAllocator = rmm::mr::get_current_device_resource();
+      _data = static_cast<DataT*>(_dAllocator->allocate(this->getSizeInBytes(), _stream));
+    } else {
+      delete _data;
+    }
 
     CUDA_CHECK(cudaStreamSynchronize(_stream));
 
@@ -167,9 +172,6 @@ class Tensor {
   };
 
  protected:
-  std::shared_ptr<raft::mr::device::allocator> _dAllocator;
-  std::shared_ptr<raft::mr::host::allocator> _hAllocator;
-
   /// Raw pointer to where the tensor data begins
   DataPtrT _data;
 

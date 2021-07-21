@@ -18,7 +18,6 @@
 #include <algorithm>
 #include <iostream>
 #include <metrics/kl_divergence.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <random>
 #include "test_utils.h"
 
@@ -61,7 +60,6 @@ class klDivergenceTest : public ::testing::TestWithParam<klDivergenceParam> {
 
     raft::update_device(d_modelPDF, &h_modelPDF[0], (int)nElements, stream);
     raft::update_device(d_candidatePDF, &h_candidatePDF[0], (int)nElements, stream);
-    std::shared_ptr<raft::mr::device::allocator> allocator(new raft::mr::device::default_allocator);
 
     // generating the golden output
     for (int i = 0; i < nElements; ++i) {
@@ -74,7 +72,7 @@ class klDivergenceTest : public ::testing::TestWithParam<klDivergenceParam> {
 
     // calling the kl_divergence CUDA implementation
     computedklDivergence =
-      MLCommon::Metrics::kl_divergence(d_modelPDF, d_candidatePDF, nElements, allocator, stream);
+      MLCommon::Metrics::kl_divergence(d_modelPDF, d_candidatePDF, nElements, stream);
   }
 
   // the destructor

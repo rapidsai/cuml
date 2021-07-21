@@ -30,7 +30,6 @@
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/counting_iterator.h>
-#include <cuml/common/device_buffer.hpp>
 #include <label/classlabels.cuh>
 #include <matrix/kernelfactory.cuh>
 #include <raft/linalg/unary_op.cuh>
@@ -61,18 +60,16 @@ void svcFit(const raft::handle_t& handle,
   const raft::handle_t& handle_impl = handle;
 
   cudaStream_t stream = handle_impl.get_stream();
-  MLCommon::Label::getUniqueLabels(labels,
-                                   n_rows,
-                                   &(model.unique_labels),
-                                   &(model.n_classes),
-                                   stream,
-                                   handle_impl.get_device_allocator());
+  model.unique_labels.resize(n_rows, stream);
+  model.n_classes =
+    MLCommon::Label::getUniqueLabels(labels, n_rows, model.unique_labels.data(), stream);
+  model.unique_labels.resize(model.n_classes, stream);
 
   ASSERT(model.n_classes == 2, "Only binary classification is implemented at the moment");
 
-  MLCommon::device_buffer<math_t> y(handle_impl.get_device_allocator(), stream, n_rows);
+  rmm::device_uvector<math_t> y(n_rows, stream);
   MLCommon::Label::getOvrLabels(
-    labels, n_rows, model.unique_labels, model.n_classes, y.data(), 1, stream);
+    labels, n_rows, model.unique_labels.data(), model.n_classes, y.data(), 1, stream);
 
   MLCommon::Matrix::GramMatrixBase<math_t>* kernel =
     MLCommon::Matrix::KernelFactory<math_t>::create(kernel_params, handle_impl.get_cublas_handle());
@@ -82,10 +79,10 @@ void svcFit(const raft::handle_t& handle,
             n_cols,
             y.data(),
             sample_weight,
-            &(model.dual_coefs),
+            model.dual_coefs,
             &(model.n_support),
-            &(model.x_support),
-            &(model.support_idx),
+            model.x_support,
+            model.support_idx,
             &(model.b),
             param.max_iter);
   model.n_cols = n_cols;
@@ -119,11 +116,10 @@ void svcPredict(const raft::handle_t& handle,
   const raft::handle_t& handle_impl = handle;
   cudaStream_t stream               = handle_impl.get_stream();
 
-  MLCommon::device_buffer<math_t> K(
-    handle_impl.get_device_allocator(), stream, n_batch * model.n_support);
-  MLCommon::device_buffer<math_t> y(handle_impl.get_device_allocator(), stream, n_rows);
-  MLCommon::device_buffer<math_t> x_rbf(handle_impl.get_device_allocator(), stream);
-  MLCommon::device_buffer<int> idx(handle_impl.get_device_allocator(), stream);
+  rmm::device_uvector<math_t> K(n_batch * model.n_support, stream);
+  rmm::device_uvector<math_t> y(n_rows, stream);
+  rmm::device_uvector<math_t> x_rbf(0, stream);
+  rmm::device_uvector<int> idx(0, stream);
 
   cublasHandle_t cublas_handle = handle_impl.get_cublas_handle();
 
@@ -160,7 +156,7 @@ void svcPredict(const raft::handle_t& handle,
     kernel->evaluate(x_ptr,
                      n_batch,
                      n_cols,
-                     model.x_support,
+                     model.x_support.data(),
                      model.n_support,
                      K.data(),
                      false,
@@ -177,15 +173,15 @@ void svcPredict(const raft::handle_t& handle,
                                           &one,
                                           K.data(),
                                           n_batch,
-                                          model.dual_coefs,
+                                          model.dual_coefs.data(),
                                           1,
                                           &null,
                                           y.data() + i,
                                           1,
                                           stream));
   }
-  math_t* labels = model.unique_labels;
-  math_t b       = model.b;
+  const math_t* labels = model.unique_labels.data();
+  math_t b             = model.b;
   if (predict_class) {
     // Look up the label based on the value of the decision function:
     // f(x) = sign(y(x) + b)
@@ -207,17 +203,10 @@ void svcPredict(const raft::handle_t& handle,
 template <typename math_t>
 void svmFreeBuffers(const raft::handle_t& handle, svmModel<math_t>& m)
 {
-  auto allocator      = handle.get_device_allocator();
-  cudaStream_t stream = handle.get_stream();
-  if (m.dual_coefs) allocator->deallocate(m.dual_coefs, m.n_support * sizeof(math_t), stream);
-  if (m.support_idx) allocator->deallocate(m.support_idx, m.n_support * sizeof(int), stream);
-  if (m.x_support)
-    allocator->deallocate(m.x_support, m.n_support * m.n_cols * sizeof(math_t), stream);
-  if (m.unique_labels) allocator->deallocate(m.unique_labels, m.n_classes * sizeof(math_t), stream);
-  m.dual_coefs    = nullptr;
-  m.support_idx   = nullptr;
-  m.x_support     = nullptr;
-  m.unique_labels = nullptr;
+  if (m.dual_coefs.size() > 0) m.dual_coefs.release();
+  if (m.support_idx.size() > 0) m.support_idx.release();
+  if (m.x_support.size() > 0) m.x_support.release();
+  if (m.unique_labels.size() > 0) m.unique_labels.release();
 }
 
 };  // end namespace SVM

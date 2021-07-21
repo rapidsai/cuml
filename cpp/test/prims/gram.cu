@@ -17,8 +17,6 @@
 #include <cuml/matrix/kernelparams.h>
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <cuml/common/device_buffer.hpp>
-#include <cuml/common/host_buffer.hpp>
 #include <iostream>
 #include <matrix/grammatrix.cuh>
 #include <matrix/kernelfactory.cuh>
@@ -118,9 +116,9 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
   // Calculate the Gram matrix on the host.
   void naiveKernel()
   {
-    host_buffer<math_t> x1_host(handle.get_host_allocator(), stream, x1.size());
+    std::vector<math_t> x1_host(x1.size());
     raft::update_host(x1_host.data(), x1.data(), x1.size(), stream);
-    host_buffer<math_t> x2_host(handle.get_host_allocator(), stream, x2.size());
+    std::vector<math_t> x2_host(x2.size());
     raft::update_host(x2_host.data(), x2.data(), x2.size(), stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 

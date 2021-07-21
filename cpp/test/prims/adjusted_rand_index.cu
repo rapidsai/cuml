@@ -20,7 +20,6 @@
 #include <iostream>
 #include <metrics/adjusted_rand_index.cuh>
 #include <metrics/contingencyMatrix.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <random>
 #include "test_utils.h"
 
@@ -48,7 +47,6 @@ class adjustedRandIndexTest : public ::testing::TestWithParam<adjustedRandIndexP
     raft::allocate(firstClusterArray, nElements, true);
     raft::allocate(secondClusterArray, nElements, true);
     CUDA_CHECK(cudaStreamCreate(&stream));
-    std::shared_ptr<raft::mr::device::allocator> allocator(new raft::mr::device::default_allocator);
     if (!params.testZeroArray) {
       SetUpDifferentArrays();
     } else {
@@ -56,7 +54,7 @@ class adjustedRandIndexTest : public ::testing::TestWithParam<adjustedRandIndexP
     }
     // allocating and initializing memory to the GPU
     computed_adjusted_rand_index = compute_adjusted_rand_index<T, MathT>(
-      firstClusterArray, secondClusterArray, nElements, allocator, stream);
+      firstClusterArray, secondClusterArray, nElements, stream);
   }
 
   void TearDown() override

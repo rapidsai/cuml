@@ -18,7 +18,6 @@
 #include <algorithm>
 #include <iostream>
 #include <metrics/completeness_score.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <random>
 #include "test_utils.h"
 
@@ -70,20 +69,14 @@ class completenessTest : public ::testing::TestWithParam<completenessParam> {
 
     raft::update_device(truthClusterArray, &arr1[0], (int)nElements, stream);
     raft::update_device(predClusterArray, &arr2[0], (int)nElements, stream);
-    std::shared_ptr<raft::mr::device::allocator> allocator(new raft::mr::device::default_allocator);
 
     // calculating the golden output
     double truthMI, truthEntropy;
 
-    truthMI      = MLCommon::Metrics::mutual_info_score(truthClusterArray,
-                                                   predClusterArray,
-                                                   nElements,
-                                                   lowerLabelRange,
-                                                   upperLabelRange,
-                                                   allocator,
-                                                   stream);
+    truthMI = MLCommon::Metrics::mutual_info_score(
+      truthClusterArray, predClusterArray, nElements, lowerLabelRange, upperLabelRange, stream);
     truthEntropy = MLCommon::Metrics::entropy(
-      predClusterArray, nElements, lowerLabelRange, upperLabelRange, allocator, stream);
+      predClusterArray, nElements, lowerLabelRange, upperLabelRange, stream);
 
     if (truthEntropy) {
       truthCompleteness = truthMI / truthEntropy;
@@ -93,13 +86,8 @@ class completenessTest : public ::testing::TestWithParam<completenessParam> {
     if (nElements == 0) truthCompleteness = 1.0;
 
     // calling the completeness CUDA implementation
-    computedCompleteness = MLCommon::Metrics::completeness_score(truthClusterArray,
-                                                                 predClusterArray,
-                                                                 nElements,
-                                                                 lowerLabelRange,
-                                                                 upperLabelRange,
-                                                                 allocator,
-                                                                 stream);
+    computedCompleteness = MLCommon::Metrics::completeness_score(
+      truthClusterArray, predClusterArray, nElements, lowerLabelRange, upperLabelRange, stream);
   }
 
   // the destructor

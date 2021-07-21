@@ -16,7 +16,6 @@
 
 #pragma once
 
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/metrics/metrics.hpp>
 #include "../silhouette_score.cuh"
 
@@ -120,15 +119,13 @@ rmm::device_uvector<value_idx> get_cluster_counts(const raft::handle_t& handle,
                                                   value_idx& n_rows,
                                                   label_idx& n_labels)
 {
-  auto stream    = handle.get_stream();
-  auto allocator = handle.get_device_allocator();
+  auto stream = handle.get_stream();
 
   rmm::device_uvector<value_idx> cluster_counts(n_labels, stream);
 
-  MLCommon::device_buffer<char> workspace(allocator, stream, 1);
+  rmm::device_uvector<char> workspace(1, stream);
 
-  MLCommon::Metrics::countLabels(
-    y, cluster_counts.data(), n_rows, n_labels, workspace, allocator, stream);
+  MLCommon::Metrics::countLabels(y, cluster_counts.data(), n_rows, n_labels, workspace, stream);
 
   return cluster_counts;
 }

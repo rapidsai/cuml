@@ -16,7 +16,6 @@
 #include <raft/cudart_utils.h>
 #include <algorithm>
 #include <iostream>
-#include <raft/mr/device/allocator.hpp>
 #include <random>
 #include <timeSeries/jones_transform.cuh>
 #include "test_utils.h"
@@ -99,17 +98,10 @@ template
 
     raft::update_device(d_params, &arr1[0], (size_t)nElements, stream);
     raft::update_device(d_golden_ar_trans, newParams, (size_t)nElements, stream);
-    std::shared_ptr<raft::mr::device::allocator> allocator(new raft::mr::device::default_allocator);
 
     // calling the ar_trans_param CUDA implementation
-    MLCommon::TimeSeries::jones_transform(d_params,
-                                          params.batchSize,
-                                          params.pValue,
-                                          d_computed_ar_trans,
-                                          true,
-                                          false,
-                                          allocator,
-                                          stream);
+    MLCommon::TimeSeries::jones_transform(
+      d_params, params.batchSize, params.pValue, d_computed_ar_trans, true, false, stream);
 
     //>>>>>>>>>>>>>>>>> MA transform golden output generation<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
@@ -153,14 +145,8 @@ template
     raft::update_device(d_golden_ma_trans, newParams, (size_t)nElements, stream);
 
     // calling the ma_param_transform CUDA implementation
-    MLCommon::TimeSeries::jones_transform(d_params,
-                                          params.batchSize,
-                                          params.pValue,
-                                          d_computed_ma_trans,
-                                          false,
-                                          false,
-                                          allocator,
-                                          stream);
+    MLCommon::TimeSeries::jones_transform(
+      d_params, params.batchSize, params.pValue, d_computed_ma_trans, false, false, stream);
 
     //>>>>>>>>>>>>>>>>> AR inverse transform <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
@@ -174,7 +160,6 @@ template
                                           d_computed_ar_invtrans,
                                           true,
                                           true,
-                                          allocator,
                                           stream);
 
     //>>>>>>>>>>>>>>>>> MA inverse transform <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
@@ -188,7 +173,6 @@ template
                                           d_computed_ma_invtrans,
                                           false,
                                           true,
-                                          allocator,
                                           stream);
   }
 

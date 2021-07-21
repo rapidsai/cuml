@@ -19,7 +19,7 @@
 #include <cuml/tsa/holtwinters_params.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/transpose.h>
-#include <cuml/common/device_buffer.hpp>
+#include <rmm/device_uvector.hpp>
 #include "internal/hw_decompose.cuh"
 #include "internal/hw_eval.cuh"
 #include "internal/hw_forecast.cuh"
@@ -292,7 +292,6 @@ void HoltWintersFitHelper(const raft::handle_t& handle,
   const raft::handle_t& handle_impl = handle;
   raft::stream_syncer _(handle_impl);
   cudaStream_t stream = handle_impl.get_stream();
-  auto dev_allocator  = handle_impl.get_device_allocator();
 
   bool optim_alpha = true, optim_beta = true, optim_gamma = true;
   // initial values for alpha, beta and gamma
@@ -316,24 +315,26 @@ void HoltWintersFitHelper(const raft::handle_t& handle,
                         &leveltrend_coef_offset,  // = (n-wlen-1)*batch_size (last row)
                         &season_coef_offset);     // = (n-wlen-frequency)*batch_size(last freq rows)
 
-  Dtype *trend_seed_d = nullptr, *start_season_d = nullptr;
-  Dtype *beta_d = nullptr, *gamma_d = nullptr;
-
-  MLCommon::device_buffer<Dtype> dataset_d(dev_allocator, stream, batch_size * n);
-  MLCommon::device_buffer<Dtype> alpha_d(dev_allocator, stream, batch_size);
+  rmm::device_uvector<Dtype> dataset_d(batch_size * n, stream);
+  rmm::device_uvector<Dtype> alpha_d(batch_size, stream);
   raft::update_device(alpha_d.data(), alpha_h.data(), batch_size, stream);
-  MLCommon::device_buffer<Dtype> level_seed_d(dev_allocator, stream, leveltrend_seed_len);
+  rmm::device_uvector<Dtype> level_seed_d(leveltrend_seed_len, stream);
+
+  rmm::device_uvector<Dtype> beta_d(0, stream);
+  rmm::device_uvector<Dtype> gamma_d(0, stream);
+  rmm::device_uvector<Dtype> trend_seed_d(0, stream);
+  rmm::device_uvector<Dtype> start_season_d(0, stream);
 
   if (optim_beta) {
-    beta_d = (Dtype*)dev_allocator->allocate(sizeof(Dtype) * batch_size, stream);
-    raft::update_device(beta_d, beta_h.data(), batch_size, stream);
-    trend_seed_d = (Dtype*)dev_allocator->allocate(sizeof(Dtype) * leveltrend_seed_len, stream);
+    beta_d.resize(batch_size, stream);
+    raft::update_device(beta_d.data(), beta_h.data(), batch_size, stream);
+    trend_seed_d.resize(leveltrend_seed_len, stream);
   }
 
   if (optim_gamma) {
-    gamma_d = (Dtype*)dev_allocator->allocate(sizeof(Dtype) * batch_size, stream);
-    raft::update_device(gamma_d, gamma_h.data(), batch_size, stream);
-    start_season_d = (Dtype*)dev_allocator->allocate(sizeof(Dtype) * season_seed_len, stream);
+    gamma_d.resize(batch_size, stream);
+    raft::update_device(gamma_d.data(), gamma_h.data(), batch_size, stream);
+    start_season_d.resize(season_seed_len, stream);
   }
 
   // Step 1: transpose the dataset (ML expects col major dataset)
@@ -375,12 +376,6 @@ void HoltWintersFitHelper(const raft::handle_t& handle,
                    (OptimCriterion*)nullptr,
                    (OptimParams<Dtype>*)nullptr,
                    seasonal);
-
-  // Free the allocated memory on GPU
-  dev_allocator->deallocate(trend_seed_d, sizeof(Dtype) * leveltrend_seed_len, stream);
-  dev_allocator->deallocate(start_season_d, sizeof(Dtype) * components_len, stream);
-  dev_allocator->deallocate(beta_d, sizeof(Dtype) * batch_size, stream);
-  dev_allocator->deallocate(gamma_d, sizeof(Dtype) * batch_size, stream);
 }
 
 template <typename Dtype>
@@ -398,7 +393,6 @@ void HoltWintersForecastHelper(const raft::handle_t& handle,
   const raft::handle_t& handle_impl = handle;
   raft::stream_syncer _(handle_impl);
   cudaStream_t stream = handle_impl.get_stream();
-  auto dev_allocator  = handle_impl.get_device_allocator();
 
   bool optim_beta = true, optim_gamma = true;
 

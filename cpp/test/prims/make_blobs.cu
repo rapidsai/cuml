@@ -18,7 +18,6 @@
 #include <raft/cudart_utils.h>
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <random/make_blobs.cuh>
 #include "test_utils.h"
 
@@ -82,9 +81,8 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
     // Tests are configured with their expected test-values sigma. For example,
     // 4 x sigma indicates the test shouldn't fail 99.9% of the time.
     num_sigma = 50;
-    allocator.reset(new raft::mr::device::default_allocator);
-    params  = ::testing::TestWithParam<MakeBlobsInputs<T>>::GetParam();
-    int len = params.rows * params.cols;
+    params    = ::testing::TestWithParam<MakeBlobsInputs<T>>::GetParam();
+    int len   = params.rows * params.cols;
     CUDA_CHECK(cudaStreamCreate(&stream));
     raft::random::Rng r(params.seed, params.gtype);
     raft::allocate(data, len);
@@ -100,7 +98,6 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
                params.rows,
                params.cols,
                params.n_clusters,
-               allocator,
                stream,
                params.row_major,
                mu_vec,
@@ -142,7 +139,6 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
   MakeBlobsInputs<T> params;
   int *labels, *lens;
   T *data, *stats, *mu_vec, *mean_var;
-  std::shared_ptr<raft::mr::device::allocator> allocator;
   int num_sigma;
 };
 

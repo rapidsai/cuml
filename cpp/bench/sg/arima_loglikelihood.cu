@@ -22,6 +22,7 @@
 #include <cuml/tsa/batched_arima.hpp>
 #include <raft/handle.hpp>
 #include <raft/random/rng.cuh>
+#include <rmm/device_uvector.hpp>
 
 #include <raft/cudart_utils.h>
 #include "benchmark.cuh"
@@ -88,46 +89,30 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
   {
     Fixture::allocateBuffers(state);
 
-    auto& handle   = *this->handle;
-    auto stream    = handle.get_stream();
-    auto allocator = handle.get_device_allocator();
+    auto& handle = *this->handle;
+    auto stream  = handle.get_stream();
 
     // Buffer for the model parameters
-    param = (DataT*)allocator->allocate(
-      order.complexity() * this->params.batch_size * sizeof(DataT), stream);
+    param.resize(order.complexity() * this->params.batch_size, stream);
 
     // Buffers for the log-likelihood and residuals
-    loglike  = (DataT*)allocator->allocate(this->params.batch_size * sizeof(DataT), stream);
-    residual = (DataT*)allocator->allocate(
-      this->params.batch_size * this->params.n_obs * sizeof(DataT), stream);
+    loglike.resize(this->params.batch_size, stream);
+    residual.resize(this->params.batch_size * this->params.n_obs, stream);
 
     // Temporary memory
     size_t temp_buf_size =
       ARIMAMemory<double>::compute_size(order, this->params.batch_size, this->params.n_obs);
-    temp_mem = (char*)allocator->allocate(temp_buf_size, stream);
+    temp_mem.resize(temp_buf_size, stream);
   }
 
-  void deallocateBuffers(const ::benchmark::State& state)
-  {
-    Fixture::deallocateBuffers(state);
-
-    auto& handle   = *this->handle;
-    auto stream    = handle.get_stream();
-    auto allocator = handle.get_device_allocator();
-
-    allocator->deallocate(
-      param, order.complexity() * this->params.batch_size * sizeof(DataT), stream);
-    allocator->deallocate(loglike, this->params.batch_size * sizeof(DataT), stream);
-    allocator->deallocate(
-      residual, this->params.batch_size * this->params.n_obs * sizeof(DataT), stream);
-  }
+  void deallocateBuffers(const ::benchmark::State& state) { Fixture::deallocateBuffers(state); }
 
  protected:
   ARIMAOrder order;
-  DataT* param;
-  DataT* loglike;
-  DataT* residual;
-  char* temp_mem;
+  rmm::device_uvector<DataT> param;
+  rmm::device_uvector<DataT> loglike;
+  rmm::device_uvector<DataT> residual;
+  rmm::device_uvector<char> temp_mem;
 };
 
 std::vector<ArimaParams> getInputs()

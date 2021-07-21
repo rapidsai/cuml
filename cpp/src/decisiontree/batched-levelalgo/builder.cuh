@@ -16,15 +16,10 @@
 
 #pragma once
 
-#include <cuml/common/device_buffer.hpp>
-#include <cuml/common/host_buffer.hpp>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/host/allocator.hpp>
-
+#include <common/nvtx.hpp>
+#include <rmm/device_uvector.hpp>
 #include "builder_base.cuh"
 #include "metrics.cuh"
-
-#include <common/nvtx.hpp>
 
 namespace ML {
 namespace DT {
@@ -52,9 +47,7 @@ template <typename ObjectiveT,
           typename DataT  = typename ObjectiveT::DataT,
           typename LabelT = typename ObjectiveT::LabelT,
           typename IdxT   = typename ObjectiveT::IdxT>
-void grow_tree(std::shared_ptr<raft::mr::device::allocator> d_allocator,
-               std::shared_ptr<raft::mr::host::allocator> h_allocator,
-               const DataT* data,
+void grow_tree(const DataT* data,
                IdxT treeid,
                uint64_t seed,
                IdxT ncols,
@@ -87,16 +80,14 @@ void grow_tree(std::shared_ptr<raft::mr::device::allocator> d_allocator,
                         rowids,
                         unique_labels,
                         quantiles);
-  MLCommon::device_buffer<char> d_buff(d_allocator, stream, d_wsize);
-  MLCommon::host_buffer<char> h_buff(h_allocator, stream, h_wsize);
+  rmm::device_uvector<char> d_buff(d_wsize, stream);
+  std::vector<char> h_buff(h_wsize);
 
   std::vector<Node<DataT, LabelT, IdxT>> h_nodes;
   h_nodes.reserve(builder.maxNodes);
   builder.assignWorkspace(d_buff.data(), h_buff.data());
   builder.train(h_nodes, num_leaves, depth, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
-  d_buff.release(stream);
-  h_buff.release(stream);
   convertToSparse<ObjectiveT>(builder, h_nodes.data(), sparsetree);
   ML::POP_RANGE();
 }
@@ -109,8 +100,6 @@ void grow_tree(std::shared_ptr<raft::mr::device::allocator> d_allocator,
  * @tparam LabelT label type
  * @tparam IdxT   index type
  *
- * @param[in]  d_allocator    device allocator
- * @param[in]  h_allocator    host allocator
  * @param[in]  data           input dataset [on device] [col-major]
  *                            [dim = nrows x ncols]
  * @param[in]  ncols          number of features in the dataset
@@ -133,9 +122,7 @@ void grow_tree(std::shared_ptr<raft::mr::device::allocator> d_allocator,
  * @{
  */
 template <typename DataT, typename LabelT, typename IdxT>
-void grow_tree(std::shared_ptr<raft::mr::device::allocator> d_allocator,
-               std::shared_ptr<raft::mr::host::allocator> h_allocator,
-               const DataT* data,
+void grow_tree(const DataT* data,
                IdxT treeid,
                uint64_t seed,
                IdxT ncols,
@@ -153,9 +140,7 @@ void grow_tree(std::shared_ptr<raft::mr::device::allocator> d_allocator,
 {
   // Dispatch objective
   if (params.split_criterion == CRITERION::GINI) {
-    grow_tree<GiniObjectiveFunction<DataT, LabelT, IdxT>>(d_allocator,
-                                                          h_allocator,
-                                                          data,
+    grow_tree<GiniObjectiveFunction<DataT, LabelT, IdxT>>(data,
                                                           treeid,
                                                           seed,
                                                           ncols,
@@ -171,9 +156,7 @@ void grow_tree(std::shared_ptr<raft::mr::device::allocator> d_allocator,
                                                           num_leaves,
                                                           depth);
   } else if (params.split_criterion == CRITERION::ENTROPY) {
-    grow_tree<EntropyObjectiveFunction<DataT, LabelT, IdxT>>(d_allocator,
-                                                             h_allocator,
-                                                             data,
+    grow_tree<EntropyObjectiveFunction<DataT, LabelT, IdxT>>(data,
                                                              treeid,
                                                              seed,
                                                              ncols,
@@ -189,9 +172,7 @@ void grow_tree(std::shared_ptr<raft::mr::device::allocator> d_allocator,
                                                              num_leaves,
                                                              depth);
   } else if (params.split_criterion == CRITERION::MSE) {
-    grow_tree<MSEObjectiveFunction<DataT, LabelT, IdxT>>(d_allocator,
-                                                         h_allocator,
-                                                         data,
+    grow_tree<MSEObjectiveFunction<DataT, LabelT, IdxT>>(data,
                                                          treeid,
                                                          seed,
                                                          ncols,

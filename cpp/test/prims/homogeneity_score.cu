@@ -18,7 +18,6 @@
 #include <algorithm>
 #include <iostream>
 #include <metrics/homogeneity_score.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <random>
 #include "test_utils.h"
 
@@ -70,20 +69,14 @@ class homogeneityTest : public ::testing::TestWithParam<homogeneityParam> {
 
     raft::update_device(truthClusterArray, &arr1[0], (int)nElements, stream);
     raft::update_device(predClusterArray, &arr2[0], (int)nElements, stream);
-    std::shared_ptr<raft::mr::device::allocator> allocator(new raft::mr::device::default_allocator);
 
     // calculating the golden output
     double truthMI, truthEntropy;
 
-    truthMI      = MLCommon::Metrics::mutual_info_score(truthClusterArray,
-                                                   predClusterArray,
-                                                   nElements,
-                                                   lowerLabelRange,
-                                                   upperLabelRange,
-                                                   allocator,
-                                                   stream);
+    truthMI = MLCommon::Metrics::mutual_info_score(
+      truthClusterArray, predClusterArray, nElements, lowerLabelRange, upperLabelRange, stream);
     truthEntropy = MLCommon::Metrics::entropy(
-      truthClusterArray, nElements, lowerLabelRange, upperLabelRange, allocator, stream);
+      truthClusterArray, nElements, lowerLabelRange, upperLabelRange, stream);
 
     if (truthEntropy) {
       truthHomogeneity = truthMI / truthEntropy;
@@ -93,13 +86,8 @@ class homogeneityTest : public ::testing::TestWithParam<homogeneityParam> {
     if (nElements == 0) truthHomogeneity = 1.0;
 
     // calling the homogeneity CUDA implementation
-    computedHomogeneity = MLCommon::Metrics::homogeneity_score(truthClusterArray,
-                                                               predClusterArray,
-                                                               nElements,
-                                                               lowerLabelRange,
-                                                               upperLabelRange,
-                                                               allocator,
-                                                               stream);
+    computedHomogeneity = MLCommon::Metrics::homogeneity_score(
+      truthClusterArray, predClusterArray, nElements, lowerLabelRange, upperLabelRange, stream);
   }
 
   // the destructor

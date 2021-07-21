@@ -17,14 +17,12 @@
 #pragma once
 #include <decisiontree/treelite_util.h>
 #include <raft/cudart_utils.h>
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/ensemble/randomforest.hpp>
 #include <decisiontree/decisiontree.cuh>
 #include <decisiontree/quantile/quantile.cuh>
 #include <map>
 #include <metrics/scores.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng.cuh>
 #include <random/permute.cuh>
 
@@ -61,15 +59,13 @@ class RandomForest {
    * @param[in, out] selected_rows: already allocated array w/ row IDs
    * @param[in] num_sms: No of SM in current GPU
    * @param[in] stream: Current cuda stream
-   * @param[in] device_allocator: Current device allocator from cuml handle
    */
   void prepare_fit_per_tree(int tree_id,
                             int n_rows,
                             int n_sampled_rows,
                             unsigned int* selected_rows,
                             const int num_sms,
-                            const cudaStream_t stream,
-                            const std::shared_ptr<raft::mr::device::allocator> device_allocator)
+                            const cudaStream_t stream)
   {
     ML::PUSH_RANGE("bootstrapping row IDs @randomforest.cuh");
     int rs = tree_id;
@@ -176,15 +172,13 @@ class RandomForest {
     // Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.
     // selected_rows: randomly generated IDs for bootstrapped samples (w/ replacement); a device
     // ptr.
-    MLCommon::device_buffer<unsigned int>* selected_rows[n_streams];
+    rmm::device_uvector<unsigned int>* selected_rows[n_streams];
     for (int i = 0; i < n_streams; i++) {
-      auto s = handle.get_internal_stream(i);
-      selected_rows[i] =
-        new MLCommon::device_buffer<unsigned int>(handle.get_device_allocator(), s, n_sampled_rows);
+      auto s           = handle.get_internal_stream(i);
+      selected_rows[i] = new rmm::device_uvector<unsigned int>(n_sampled_rows, s);
     }
     auto quantile_size = this->rf_params.tree_params.n_bins * n_cols;
-    MLCommon::device_buffer<T> global_quantiles(
-      handle.get_device_allocator(), handle.get_stream(), quantile_size);
+    rmm::device_uvector<T> global_quantiles(quantile_size, handle.get_stream());
 
     // Preprocess once only per forest
     // Using batched backend
@@ -194,7 +188,6 @@ class RandomForest {
                          input,
                          n_rows,
                          n_cols,
-                         handle.get_device_allocator(),
                          handle.get_stream());
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
@@ -208,8 +201,7 @@ class RandomForest {
                                  n_sampled_rows,
                                  rowids,
                                  raft::getMultiProcessorCount(),
-                                 handle.get_internal_stream(stream_id),
-                                 handle.get_device_allocator());
+                                 handle.get_internal_stream(stream_id));
 
       /* Build individual tree in the forest.
         - input is a pointer to orig data that have n_cols features and n_rows rows.
@@ -238,7 +230,7 @@ class RandomForest {
     for (int i = 0; i < n_streams; i++) {
       auto s = handle.get_internal_stream(i);
       CUDA_CHECK(cudaStreamSynchronize(s));
-      selected_rows[i]->release(s);
+      selected_rows[i]->release();
       delete selected_rows[i];
     }
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
@@ -407,12 +399,10 @@ class RandomForest {
   {
     ML::Logger::get().setLevel(verbosity);
     cudaStream_t stream = user_handle.get_stream();
-    auto d_alloc        = user_handle.get_device_allocator();
     RF_metrics stats;
     if (rf_type == RF_type::CLASSIFICATION) {  // task classifiation: get classification metrics
-      float accuracy =
-        MLCommon::Score::accuracy_score(predictions, ref_labels, n_rows, d_alloc, stream);
-      stats = set_rf_metrics_classification(accuracy);
+      float accuracy = MLCommon::Score::accuracy_score(predictions, ref_labels, n_rows, stream);
+      stats          = set_rf_metrics_classification(accuracy);
       if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) print(stats);
 
       /* TODO: Potentially augment RF_metrics w/ more metrics (e.g., precision, F1, etc.).
@@ -423,7 +413,6 @@ class RandomForest {
       MLCommon::Score::regression_metrics(predictions,
                                           ref_labels,
                                           n_rows,
-                                          d_alloc,
                                           stream,
                                           mean_abs_error,
                                           mean_squared_error,

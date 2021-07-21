@@ -20,7 +20,6 @@
 #include <stdlib.h>
 #include <metrics/dispersion.cuh>
 #include <raft/cuda_utils.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng.cuh>
 #include <vector>
 #include "test_utils.h"
@@ -50,7 +49,6 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
     raft::random::Rng r(params.seed);
     int len = params.clusters * params.dim;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocator.reset(new raft::mr::device::default_allocator);
     raft::allocate(data, len);
     raft::allocate(counts, params.clusters);
     raft::allocate(exp_mean, params.dim);
@@ -63,8 +61,7 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
     for (const auto& val : h_counts) {
       npoints += val;
     }
-    actualVal =
-      dispersion(data, counts, act_mean, params.clusters, npoints, params.dim, allocator, stream);
+    actualVal   = dispersion(data, counts, act_mean, params.clusters, npoints, params.dim, stream);
     expectedVal = T(0);
     std::vector<T> h_data(len, T(0));
     raft::update_host(&(h_data[0]), data, len, stream);
@@ -103,7 +100,6 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
   int* counts;
   cudaStream_t stream;
   int npoints;
-  std::shared_ptr<raft::mr::device::allocator> allocator;
   T expectedVal, actualVal;
 };
 

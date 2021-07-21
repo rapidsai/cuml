@@ -182,8 +182,7 @@ void parent_csr(const raft::handle_t& handle,
   thrust::transform(
     thrust_policy, sorted_parents, sorted_parents + n_edges, sorted_parents, index_op);
 
-  raft::sparse::convert::sorted_coo_to_csr(
-    sorted_parents, n_edges, indptr, n_clusters + 1, handle.get_device_allocator(), stream);
+  raft::sparse::convert::sorted_coo_to_csr(sorted_parents, n_edges, indptr, n_clusters + 1, stream);
 }
 
 };  // namespace Utils

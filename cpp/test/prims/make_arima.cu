@@ -20,7 +20,6 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <random/make_arima.cuh>
 #include "test_utils.h"
 
@@ -51,7 +50,6 @@ class MakeArimaTest : public ::testing::TestWithParam<MakeArimaInputs> {
     ML::ARIMAOrder order = {
       params.p, params.d, params.q, params.P, params.D, params.Q, params.s, params.k};
 
-    allocator.reset(new raft::mr::device::default_allocator);
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     raft::allocate(data, params.batch_size * params.n_obs);
@@ -61,7 +59,6 @@ class MakeArimaTest : public ::testing::TestWithParam<MakeArimaInputs> {
                params.batch_size,
                params.n_obs,
                order,
-               allocator,
                stream,
                scale,
                noise_scale,
@@ -79,7 +76,6 @@ class MakeArimaTest : public ::testing::TestWithParam<MakeArimaInputs> {
  protected:
   MakeArimaInputs params;
   T* data;
-  std::shared_ptr<raft::mr::device::allocator> allocator;
   cudaStream_t stream;
 };
 

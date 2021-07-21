@@ -25,11 +25,11 @@
 #include <math.h>
 #include <raft/cudart_utils.h>
 #include <cub/cub.cuh>
-#include <cuml/common/device_buffer.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/reduce.cuh>
-#include <raft/mr/device/allocator.hpp>
+#include <rmm/device_scalar.hpp>
+#include <rmm/device_uvector.hpp>
 #include <stats/histogram.cuh>
 #include "contingencyMatrix.cuh"
 
@@ -70,26 +70,20 @@ struct Binner {
  * @param[in]  size      the size of the input array
  * @param[out] minLabel  the lower bound of the range of labels
  * @param[out] maxLabel  the upper bound of the range of labels
- * @param[in]  allocator device memory allocator
  * @param[in]  stream    cuda stream
  *
  * @return the number of unique elements in the array
  */
 template <typename T>
-int countUnique(const T* arr,
-                int size,
-                T& minLabel,
-                T& maxLabel,
-                std::shared_ptr<raft::mr::device::allocator> allocator,
-                cudaStream_t stream)
+int countUnique(const T* arr, int size, T& minLabel, T& maxLabel, cudaStream_t stream)
 {
   auto ptr         = thrust::device_pointer_cast(arr);
   auto minmax      = thrust::minmax_element(thrust::cuda::par.on(stream), ptr, ptr + size);
   minLabel         = *minmax.first;
   maxLabel         = *minmax.second;
   auto totalLabels = int(maxLabel - minLabel + 1);
-  device_buffer<int> labelCounts(allocator, stream, totalLabels);
-  device_buffer<int> nUniq(allocator, stream, 1);
+  rmm::device_uvector<int> labelCounts(totalLabels, stream);
+  rmm::device_uvector<int> nUniq(1, stream);
   Stats::histogram<T, int>(
     Stats::HistTypeAuto,
     labelCounts.data(),
@@ -119,20 +113,18 @@ int countUnique(const T* arr,
  * @param firstClusterArray: the array of classes
  * @param secondClusterArray: the array of classes
  * @param size: the size of the data points of type int
- * @param allocator: object that takes care of temporary device memory allocation
  * @param stream: the cudaStream object
  */
 template <typename T, typename MathT = int>
 double compute_adjusted_rand_index(const T* firstClusterArray,
                                    const T* secondClusterArray,
                                    int size,
-                                   std::shared_ptr<raft::mr::device::allocator> allocator,
                                    cudaStream_t stream)
 {
   ASSERT(size >= 2, "Rand Index for size less than 2 not defined!");
   T minFirst, maxFirst, minSecond, maxSecond;
-  auto nUniqFirst  = countUnique(firstClusterArray, size, minFirst, maxFirst, allocator, stream);
-  auto nUniqSecond = countUnique(secondClusterArray, size, minSecond, maxSecond, allocator, stream);
+  auto nUniqFirst      = countUnique(firstClusterArray, size, minFirst, maxFirst, stream);
+  auto nUniqSecond     = countUnique(secondClusterArray, size, minSecond, maxSecond, stream);
   auto lowerLabelRange = std::min(minFirst, minSecond);
   auto upperLabelRange = std::max(maxFirst, maxSecond);
   auto nClasses        = upperLabelRange - lowerLabelRange + 1;
@@ -141,12 +133,12 @@ double compute_adjusted_rand_index(const T* firstClusterArray,
     if (nUniqFirst == 1 || nUniqFirst == size) return 1.0;
   }
   auto nUniqClasses = MathT(nClasses);
-  device_buffer<MathT> dContingencyMatrix(allocator, stream, nUniqClasses * nUniqClasses);
+  rmm::device_uvector<MathT> dContingencyMatrix(nUniqClasses * nUniqClasses, stream);
   CUDA_CHECK(cudaMemsetAsync(
     dContingencyMatrix.data(), 0, nUniqClasses * nUniqClasses * sizeof(MathT), stream));
   auto workspaceSz = getContingencyMatrixWorkspaceSize<T, MathT>(
     size, firstClusterArray, stream, lowerLabelRange, upperLabelRange);
-  device_buffer<char> workspaceBuff(allocator, stream, workspaceSz);
+  rmm::device_uvector<char> workspaceBuff(workspaceSz, stream);
   contingencyMatrix<T, MathT>(firstClusterArray,
                               secondClusterArray,
                               size,
@@ -156,11 +148,11 @@ double compute_adjusted_rand_index(const T* firstClusterArray,
                               workspaceSz,
                               lowerLabelRange,
                               upperLabelRange);
-  device_buffer<MathT> a(allocator, stream, nUniqClasses);
-  device_buffer<MathT> b(allocator, stream, nUniqClasses);
-  device_buffer<MathT> d_aCTwoSum(allocator, stream, 1);
-  device_buffer<MathT> d_bCTwoSum(allocator, stream, 1);
-  device_buffer<MathT> d_nChooseTwoSum(allocator, stream, 1);
+  rmm::device_uvector<MathT> a(nUniqClasses, stream);
+  rmm::device_uvector<MathT> b(nUniqClasses, stream);
+  rmm::device_scalar<MathT> d_aCTwoSum(stream);
+  rmm::device_scalar<MathT> d_bCTwoSum(stream);
+  rmm::device_scalar<MathT> d_nChooseTwoSum(stream);
   MathT h_aCTwoSum, h_bCTwoSum, h_nChooseTwoSum;
   CUDA_CHECK(cudaMemsetAsync(a.data(), 0, nUniqClasses * sizeof(MathT), stream));
   CUDA_CHECK(cudaMemsetAsync(b.data(), 0, nUniqClasses * sizeof(MathT), stream));

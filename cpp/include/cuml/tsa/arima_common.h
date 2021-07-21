@@ -24,6 +24,7 @@
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
+#include <rmm/device_uvector.hpp>
 
 namespace ML {
 
@@ -57,12 +58,12 @@ struct ARIMAOrder {
  */
 template <typename DataT>
 struct ARIMAParams {
-  DataT* mu     = nullptr;
-  DataT* ar     = nullptr;
-  DataT* ma     = nullptr;
-  DataT* sar    = nullptr;
-  DataT* sma    = nullptr;
-  DataT* sigma2 = nullptr;
+  rmm::device_uvector<DataT> mu;
+  rmm::device_uvector<DataT> ar;
+  rmm::device_uvector<DataT> ma;
+  rmm::device_uvector<DataT> sar;
+  rmm::device_uvector<DataT> sma;
+  rmm::device_uvector<DataT> sigma2;
 
   /**
    * Allocate all the parameter device arrays
@@ -70,23 +71,18 @@ struct ARIMAParams {
    * @tparam      AllocatorT Type of allocator used
    * @param[in]   order      ARIMA order
    * @param[in]   batch_size Batch size
-   * @param[in]   alloc      Allocator
    * @param[in]   stream     CUDA stream
    * @param[in]   tr         Whether these are the transformed parameters
    */
   template <typename AllocatorT>
-  void allocate(const ARIMAOrder& order,
-                int batch_size,
-                AllocatorT& alloc,
-                cudaStream_t stream,
-                bool tr = false)
+  void allocate(const ARIMAOrder& order, int batch_size, cudaStream_t stream, bool tr = false)
   {
-    if (order.k && !tr) mu = (DataT*)alloc->allocate(batch_size * sizeof(DataT), stream);
-    if (order.p) ar = (DataT*)alloc->allocate(order.p * batch_size * sizeof(DataT), stream);
-    if (order.q) ma = (DataT*)alloc->allocate(order.q * batch_size * sizeof(DataT), stream);
-    if (order.P) sar = (DataT*)alloc->allocate(order.P * batch_size * sizeof(DataT), stream);
-    if (order.Q) sma = (DataT*)alloc->allocate(order.Q * batch_size * sizeof(DataT), stream);
-    sigma2 = (DataT*)alloc->allocate(batch_size * sizeof(DataT), stream);
+    if (order.k && !tr) mu.resize(batch_size, stream);
+    if (order.p) ar.resize(order.p * batch_size, stream);
+    if (order.q) ma.resize(order.q * batch_size, stream);
+    if (order.P) sar.resize(order.P * batch_size, stream);
+    if (order.Q) sma.resize(order.Q * batch_size, stream);
+    sigma2.resize(batch_size, stream);
   }
 
   /**
@@ -95,23 +91,18 @@ struct ARIMAParams {
    * @tparam      AllocatorT Type of allocator used
    * @param[in]   order      ARIMA order
    * @param[in]   batch_size Batch size
-   * @param[in]   alloc      Allocator
    * @param[in]   stream     CUDA stream
    * @param[in]   tr         Whether these are the transformed parameters
    */
   template <typename AllocatorT>
-  void deallocate(const ARIMAOrder& order,
-                  int batch_size,
-                  AllocatorT& alloc,
-                  cudaStream_t stream,
-                  bool tr = false)
+  void deallocate(const ARIMAOrder& order, int batch_size, cudaStream_t stream, bool tr = false)
   {
-    if (order.k && !tr) alloc->deallocate(mu, batch_size * sizeof(DataT), stream);
-    if (order.p) alloc->deallocate(ar, order.p * batch_size * sizeof(DataT), stream);
-    if (order.q) alloc->deallocate(ma, order.q * batch_size * sizeof(DataT), stream);
-    if (order.P) alloc->deallocate(sar, order.P * batch_size * sizeof(DataT), stream);
-    if (order.Q) alloc->deallocate(sma, order.Q * batch_size * sizeof(DataT), stream);
-    alloc->deallocate(sigma2, batch_size * sizeof(DataT), stream);
+    if (order.k && !tr) mu.release();
+    if (order.p) ar.release();
+    if (order.q) ma.release();
+    if (order.P) sar.release();
+    if (order.Q) sma.release();
+    sigma2.release();
   }
 
   /**

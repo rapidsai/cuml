@@ -223,7 +223,6 @@ void finalize_forecast(DataT* d_fc,
  * @param[in]  isInv      Do the inverse transform?
  * @param[in]  params     ARIMA parameters (device)
  * @param[in]  Tparams    Transformed ARIMA parameters (device)
- * @param[in]  allocator  Device memory allocator
  * @param[in]  stream     CUDA stream
  */
 template <typename DataT>
@@ -232,17 +231,16 @@ void batched_jones_transform(const ML::ARIMAOrder& order,
                              bool isInv,
                              const ML::ARIMAParams<DataT>& params,
                              const ML::ARIMAParams<DataT>& Tparams,
-                             std::shared_ptr<raft::mr::device::allocator> allocator,
                              cudaStream_t stream)
 {
   if (order.p)
-    jones_transform(params.ar, batch_size, order.p, Tparams.ar, true, isInv, allocator, stream);
+    jones_transform(params.ar.data(), batch_size, order.p, Tparams.ar, true, isInv, stream);
   if (order.q)
-    jones_transform(params.ma, batch_size, order.q, Tparams.ma, false, isInv, allocator, stream);
+    jones_transform(params.ma.data(), batch_size, order.q, Tparams.ma, false, isInv, stream);
   if (order.P)
-    jones_transform(params.sar, batch_size, order.P, Tparams.sar, true, isInv, allocator, stream);
+    jones_transform(params.sar.data(), batch_size, order.P, Tparams.sar, true, isInv, stream);
   if (order.Q)
-    jones_transform(params.sma, batch_size, order.Q, Tparams.sma, false, isInv, allocator, stream);
+    jones_transform(params.sma.data(), batch_size, order.Q, Tparams.sma, false, isInv, stream);
 
   // Constrain sigma2 to be strictly positive
   constexpr DataT min_sigma2 = 1e-6;

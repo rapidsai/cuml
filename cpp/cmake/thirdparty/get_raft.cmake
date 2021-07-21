@@ -43,6 +43,6 @@ set(CUML_BRANCH_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
 # To use a different RAFT locally, set the CMake variable
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION    ${CUML_MIN_VERSION_raft}
-                        FORK       rapidsai
-                        PINNED_TAG branch-${CUML_BRANCH_VERSION_raft}
+                        FORK       viclafargue
+                        PINNED_TAG e571293dcb126da17ce58a72bdec8f8075a3322c
                         )

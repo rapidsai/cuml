@@ -18,7 +18,6 @@
 #include <algorithm>
 #include <iostream>
 #include <metrics/v_measure.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <random>
 #include "test_utils.h"
 
@@ -71,25 +70,14 @@ class vMeasureTest : public ::testing::TestWithParam<vMeasureParam> {
 
     raft::update_device(truthClusterArray, &arr1[0], (int)nElements, stream);
     raft::update_device(predClusterArray, &arr2[0], (int)nElements, stream);
-    std::shared_ptr<raft::mr::device::allocator> allocator(new raft::mr::device::default_allocator);
 
     // calculating the golden output
     double truthHomogeity, truthCompleteness;
 
-    truthHomogeity    = MLCommon::Metrics::homogeneity_score(truthClusterArray,
-                                                          predClusterArray,
-                                                          nElements,
-                                                          lowerLabelRange,
-                                                          upperLabelRange,
-                                                          allocator,
-                                                          stream);
-    truthCompleteness = MLCommon::Metrics::homogeneity_score(predClusterArray,
-                                                             truthClusterArray,
-                                                             nElements,
-                                                             lowerLabelRange,
-                                                             upperLabelRange,
-                                                             allocator,
-                                                             stream);
+    truthHomogeity = MLCommon::Metrics::homogeneity_score(
+      truthClusterArray, predClusterArray, nElements, lowerLabelRange, upperLabelRange, stream);
+    truthCompleteness = MLCommon::Metrics::homogeneity_score(
+      predClusterArray, truthClusterArray, nElements, lowerLabelRange, upperLabelRange, stream);
 
     if (truthCompleteness + truthHomogeity == 0.0)
       truthVMeasure = 0.0;
@@ -102,7 +90,6 @@ class vMeasureTest : public ::testing::TestWithParam<vMeasureParam> {
                                                     nElements,
                                                     lowerLabelRange,
                                                     upperLabelRange,
-                                                    allocator,
                                                     stream,
                                                     params.beta);
   }

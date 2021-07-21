@@ -16,9 +16,8 @@
 
 #pragma once
 
-#include <cuml/common/device_buffer.hpp>
 #include <raft/handle.hpp>
-#include <raft/mr/device/allocator.hpp>
+#include <rmm/device_uvector.hpp>
 
 namespace ML {
 
@@ -49,11 +48,11 @@ enum random_matrix_type { unset, dense, sparse };
 
 template <typename math_t>
 struct rand_mat {
-  rand_mat(std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream)
-    : dense_data(allocator, stream),
-      indices(allocator, stream),
-      indptr(allocator, stream),
-      sparse_data(allocator, stream),
+  rand_mat(cudaStream_t stream)
+    : dense_data(0, stream),
+      indices(0, stream),
+      indptr(0, stream),
+      sparse_data(0, stream),
       stream(stream),
       type(unset)
   {
@@ -62,12 +61,12 @@ struct rand_mat {
   ~rand_mat() { this->reset(); }
 
   // For dense matrices
-  MLCommon::device_buffer<math_t> dense_data;
+  rmm::device_uvector<math_t> dense_data;
 
   // For sparse CSC matrices
-  MLCommon::device_buffer<int> indices;
-  MLCommon::device_buffer<int> indptr;
-  MLCommon::device_buffer<math_t> sparse_data;
+  rmm::device_uvector<int> indices;
+  rmm::device_uvector<int> indptr;
+  rmm::device_uvector<math_t> sparse_data;
 
   cudaStream_t stream;
 

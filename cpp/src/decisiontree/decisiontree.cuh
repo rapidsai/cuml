@@ -30,8 +30,6 @@
 #include <locale>
 #include <map>
 #include <numeric>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/host/allocator.hpp>
 #include <random>
 #include <type_traits>
 #include <vector>
@@ -310,9 +308,7 @@ class DecisionTree {
     n_unique_labels    = unique_labels;
     this->prepare_time = this->prepare_fit_timer.getElapsedMilliseconds();
     prepare_fit_timer.reset();
-    grow_tree(handle.get_device_allocator(),
-              handle.get_host_allocator(),
-              data,
+    grow_tree(data,
               tree->treeid,
               seed,
               ncols,

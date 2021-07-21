@@ -21,7 +21,6 @@
 #include <iostream>
 #include <metrics/batched/silhouette_score.cuh>
 #include <metrics/silhouette_score.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <random>
 #include "test_utils.h"
 
@@ -66,7 +65,7 @@ class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam
 
     // finding the distance matrix
 
-    device_buffer<double> d_distanceMatrix(allocator, stream, nRows * nRows);
+    device_buffer<double> d_distanceMatrix(nRows * nRows, stream);
     double* h_distanceMatrix = (double*)malloc(nRows * nRows * sizeof(double*));
 
     ML::Metrics::pairwise_distance(
@@ -158,21 +157,11 @@ class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam
     chunk     = params.chunk;
     nElements = nRows * nCols;
 
-    allocator = std::make_shared<raft::mr::device::default_allocator>();
-
     host_silhouette_score();
 
     // calling the silhouette_score CUDA implementation
-    computedSilhouetteScore = MLCommon::Metrics::silhouette_score(handle,
-                                                                  d_X,
-                                                                  nRows,
-                                                                  nCols,
-                                                                  d_labels,
-                                                                  nLabels,
-                                                                  sampleSilScore,
-                                                                  allocator,
-                                                                  stream,
-                                                                  params.metric);
+    computedSilhouetteScore = MLCommon::Metrics::silhouette_score(
+      handle, d_X, nRows, nCols, d_labels, nLabels, sampleSilScore, stream, params.metric);
 
     batchedSilhouetteScore = Batched::silhouette_score(
       handle, d_X, nRows, nCols, d_labels, nLabels, sampleSilScore, chunk, params.metric);
@@ -201,7 +190,6 @@ class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam
   cudaStream_t stream;
   raft::handle_t handle;
   int chunk;
-  std::shared_ptr<raft::mr::device::allocator> allocator;
 };
 
 // setting test parameter values

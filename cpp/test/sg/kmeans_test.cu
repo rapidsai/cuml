@@ -23,7 +23,6 @@
 
 #include <thrust/fill.h>
 #include <cuml/cluster/kmeans.hpp>
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/metrics/metrics.hpp>
@@ -60,9 +59,10 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
     params.seed                = 1;
     params.oversampling_factor = 0;
 
-    device_buffer<T> X(handle.get_device_allocator(), handle.get_stream(), n_samples * n_features);
+    rmm::device_uvector<T> X(
+      handle.get_device_allocator(), handle.get_stream(), n_samples * n_features);
 
-    device_buffer<int> labels(handle.get_device_allocator(), handle.get_stream(), n_samples);
+    rmm::device_uvector<int> labels(handle.get_device_allocator(), handle.get_stream(), n_samples);
 
     make_blobs(handle,
                X.data(),

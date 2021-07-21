@@ -152,7 +152,6 @@ void batched_ls(const raft::handle_t& handle,
   cudaStream_t stream           = handle.get_stream();
   cublasHandle_t cublas_h       = handle.get_cublas_handle();
   cusolverDnHandle_t cusolver_h = handle.get_cusolver_dn_handle();
-  auto dev_allocator            = handle.get_device_allocator();
 
   const Dtype one  = (Dtype)1.;
   const Dtype zero = (Dtype)0.;
@@ -163,11 +162,11 @@ void batched_ls(const raft::handle_t& handle,
   // Allocate memory
   std::vector<Dtype> A_h(2 * trend_len);
 
-  MLCommon::device_buffer<Dtype> A_d(dev_allocator, stream, 2 * trend_len);
-  MLCommon::device_buffer<Dtype> tau_d(dev_allocator, stream, 2);
-  MLCommon::device_buffer<Dtype> Rinv_d(dev_allocator, stream, 4);
-  MLCommon::device_buffer<Dtype> R1Qt_d(dev_allocator, stream, 2 * trend_len);
-  MLCommon::device_buffer<int> dev_info_d(dev_allocator, stream, 1);
+  rmm::device_uvector<Dtype> A_d(2 * trend_len, stream);
+  rmm::device_uvector<Dtype> tau_d(2, stream);
+  rmm::device_uvector<Dtype> Rinv_d(4, stream);
+  rmm::device_uvector<Dtype> R1Qt_d(2 * trend_len, stream);
+  rmm::device_uvector<int> dev_info_d(1, stream);
 
   // Prepare A
   for (int i = 0; i < trend_len; ++i) {
@@ -183,7 +182,7 @@ void batched_ls(const raft::handle_t& handle,
     cusolver_h, trend_len, 2, 2, A_d.data(), 2, tau_d.data(), &orgqr_buffer));
 
   lwork_size = geqrf_buffer > orgqr_buffer ? geqrf_buffer : orgqr_buffer;
-  MLCommon::device_buffer<Dtype> lwork_d(dev_allocator, stream, lwork_size);
+  rmm::device_uvector<Dtype> lwork_d(lwork_size, stream);
 
   // QR decomposition of A
   CUSOLVER_CHECK(raft::linalg::cusolverDngeqrf<Dtype>(cusolver_h,
@@ -248,7 +247,6 @@ void stl_decomposition_gpu(const raft::handle_t& handle,
 {
   cudaStream_t stream     = handle.get_stream();
   cublasHandle_t cublas_h = handle.get_cublas_handle();
-  auto dev_allocator      = handle.get_device_allocator();
 
   const int end         = start_periods * frequency;
   const int filter_size = (frequency / 2) * 2 + 1;
@@ -261,14 +259,14 @@ void stl_decomposition_gpu(const raft::handle_t& handle,
     filter_h.back() /= 2;
   }
 
-  MLCommon::device_buffer<Dtype> filter_d(dev_allocator, stream, filter_size);
+  rmm::device_uvector<Dtype> filter_d(filter_size, stream);
   raft::update_device(filter_d.data(), filter_h.data(), filter_size, stream);
 
   // Set Trend
-  MLCommon::device_buffer<Dtype> trend_d(dev_allocator, stream, batch_size * trend_len);
+  rmm::device_uvector<Dtype> trend_d(batch_size * trend_len, stream);
   conv1d<Dtype>(handle, ts, batch_size, filter_d.data(), filter_size, trend_d.data(), trend_len);
 
-  MLCommon::device_buffer<Dtype> season_d(dev_allocator, stream, batch_size * trend_len);
+  rmm::device_uvector<Dtype> season_d(batch_size * trend_len, stream);
 
   const int ts_offset = (filter_size / 2) * batch_size;
   if (seasonal == ML::SeasonalType::ADDITIVE) {
@@ -289,7 +287,7 @@ void stl_decomposition_gpu(const raft::handle_t& handle,
                                                  trend_len,
                                                  stream));
   } else {
-    MLCommon::device_buffer<Dtype> aligned_ts(dev_allocator, stream, batch_size * trend_len);
+    rmm::device_uvector<Dtype> aligned_ts(batch_size * trend_len, stream);
     raft::copy(aligned_ts.data(), ts + ts_offset, batch_size * trend_len, stream);
     raft::linalg::eltwiseDivide<Dtype>(
       season_d.data(), aligned_ts.data(), trend_d.data(), trend_len * batch_size, stream);

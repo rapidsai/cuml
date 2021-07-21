@@ -42,7 +42,6 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
   {
     raft::handle_t handle;
     cudaStream_t stream = handle.get_stream();
-    auto alloc          = handle.get_device_allocator();
 
     params = ::testing::TestWithParam<KNNClassifyInputs>::GetParam();
 
@@ -60,16 +59,14 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
                                              params.rows,
                                              params.cols,
                                              params.n_labels,
-                                             alloc,
                                              stream,
                                              true,
                                              nullptr,
                                              nullptr,
                                              params.cluster_std);
 
-    int n_classes;
-    MLCommon::Label::getUniqueLabels(
-      train_labels, params.rows, &unique_labels, &n_classes, stream, alloc);
+    int n_classes =
+      MLCommon::Label::getUniqueLabels(train_labels, params.rows, unique_labels, stream);
 
     std::vector<float*> ptrs(1);
     std::vector<int> sizes(1);
@@ -103,7 +100,6 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
                  params.k,
                  uniq_labels,
                  n_unique,
-                 alloc,
                  stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));

@@ -150,7 +150,6 @@ void perplexity_search(const value_t* restrict distances,
                        const raft::handle_t& handle)
 {
   const float desired_entropy = logf(perplexity);
-  auto d_alloc                = handle.get_device_allocator();
   cudaStream_t stream         = handle.get_stream();
 
   if (dim == 2)

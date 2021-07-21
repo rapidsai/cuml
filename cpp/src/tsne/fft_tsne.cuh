@@ -161,7 +161,6 @@ void FFT_TSNE(value_t* VAL,
               const value_idx n,
               const TSNEParams& params)
 {
-  auto d_alloc       = handle.get_device_allocator();
   auto stream        = handle.get_stream();
   auto thrust_policy = rmm::exec_policy(stream);
 
@@ -201,7 +200,7 @@ void FFT_TSNE(value_t* VAL,
   value_idx n_fft_coeffs              = 2 * n_interpolation_points * n_boxes_per_dim;
   value_idx n_interpolation_points_1d = n_interpolation_points * n_boxes_per_dim;
 
-#define DB(type, name, size) raft::mr::device::buffer<type> name(d_alloc, stream, size)
+#define DB(type, name, size) rmm::device_uvector<type> name(size, stream)
 
   DB(value_t, repulsive_forces_device, n * 2);
   MLCommon::LinAlg::zero(repulsive_forces_device.data(), repulsive_forces_device.size(), stream);

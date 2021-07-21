@@ -55,7 +55,6 @@ void generate_partitions(float* data,
                          int n_cols,
                          int n_clusters,
                          int my_rank,
-                         std::shared_ptr<raft::mr::device::allocator> allocator,
                          cudaStream_t stream);
 
 template <typename T>
@@ -65,7 +64,6 @@ class KNNTestHelper {
   {
     raft::comms::initialize_mpi_comms(&handle, MPI_COMM_WORLD);
     const auto& comm = handle.get_comms();
-    this->allocator  = handle.get_device_allocator();
 
     this->stream = handle.get_stream();
 

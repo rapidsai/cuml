@@ -17,8 +17,8 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
-#include <cuml/common/host_buffer.hpp>
 #include <raft/cuda_utils.cuh>
+#include <vector>
 #include "../common.cuh"
 #include "pack.h"
 
@@ -35,14 +35,14 @@ void launcher(const raft::handle_t& handle,
 {
   Index_ k = 0;
   Index_ N = data.N;
-  MLCommon::host_buffer<Index_> host_vd(handle.get_host_allocator(), stream, batch_size + 1);
-  MLCommon::host_buffer<bool> host_adj(handle.get_host_allocator(), stream, batch_size * N);
-  MLCommon::host_buffer<Index_> host_ex_scan(handle.get_host_allocator(), stream, batch_size);
-  raft::update_host(host_adj.data(), data.adj, batch_size * N, stream);
+  std::vector<Index_> host_vd(batch_size + 1);
+  std::vector<bool> host_adj(batch_size * N);
+  std::vector<Index_> host_ex_scan(batch_size);
+  raft::update_host(reinterpret_cast<bool*>(host_adj.data()), data.adj, batch_size * N, stream);
   raft::update_host(host_vd.data(), data.vd, batch_size + 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   size_t adjgraph_size = size_t(host_vd[batch_size]);
-  MLCommon::host_buffer<Index_> host_adj_graph(handle.get_host_allocator(), stream, adjgraph_size);
+  std::vector<Index_> host_adj_graph(adjgraph_size);
   for (Index_ i = 0; i < batch_size; i++) {
     for (Index_ j = 0; j < N; j++) {
       /// TODO: change layout or remove; cf #3414

@@ -40,7 +40,7 @@ class TSNE_runner {
       input(input_),
       k_graph(k_graph_),
       params(params_),
-      COO_Matrix(handle_.get_device_allocator(), handle_.get_stream())
+      COO_Matrix(handle_.get_stream())
   {
     this->n = input.n;
     this->p = input.d;

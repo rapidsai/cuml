@@ -38,22 +38,12 @@ struct TimeSeriesParams {
 template <typename DataT>
 struct TimeSeriesDataset {
   /** input data */
-  DataT* X;
+  rmm::device_uvector<float> X;
 
   /** allocate space needed for the dataset */
   void allocate(const raft::handle_t& handle, const TimeSeriesParams& p)
   {
-    auto allocator = handle.get_device_allocator();
-    auto stream    = handle.get_stream();
-    X              = (DataT*)allocator->allocate(p.batch_size * p.n_obs * sizeof(DataT), stream);
-  }
-
-  /** free-up the buffers */
-  void deallocate(const raft::handle_t& handle, const TimeSeriesParams& p)
-  {
-    auto allocator = handle.get_device_allocator();
-    auto stream    = handle.get_stream();
-    allocator->deallocate(X, p.batch_size * p.n_obs * sizeof(DataT), stream);
+    X.resize(p.batch_size * p.n_obs, handle.get_stream());
   }
 
   /** generate random time series (normal distribution) */

@@ -82,7 +82,6 @@ class KNNRegressionTest : public ::testing::TestWithParam<KNNRegressionInputs> {
   {
     raft::handle_t handle;
     cudaStream_t stream = handle.get_stream();
-    auto alloc          = handle.get_device_allocator();
 
     cublasHandle_t cublas_handle;
     CUBLAS_CHECK(cublasCreate(&cublas_handle));

@@ -18,11 +18,9 @@
 
 #include <raft/cudart_utils.h>
 #include <cub/cub.cuh>
-#include <cuml/common/device_buffer.hpp>
 #include <memory>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/eltwise.cuh>
-#include <raft/mr/device/allocator.hpp>
 
 namespace MLCommon {
 namespace Metrics {
@@ -90,7 +88,6 @@ __global__ void dispersionKernel(DataT* result,
  * @param nClusters number of clusters
  * @param nPoints number of points in the dataset
  * @param dim dataset dimensionality
- * @param allocator device allocator
  * @param stream cuda stream
  * @return the cluster dispersion value
  */
@@ -101,15 +98,14 @@ DataT dispersion(const DataT* centroids,
                  IdxT nClusters,
                  IdxT nPoints,
                  IdxT dim,
-                 std::shared_ptr<raft::mr::device::allocator> allocator,
                  cudaStream_t stream)
 {
   static const int RowsPerThread = 4;
   static const int ColsPerBlk    = 32;
   static const int RowsPerBlk    = (TPB / ColsPerBlk) * RowsPerThread;
   dim3 grid(raft::ceildiv(nPoints, (IdxT)RowsPerBlk), raft::ceildiv(dim, (IdxT)ColsPerBlk));
-  device_buffer<DataT> mean(allocator, stream);
-  device_buffer<DataT> result(allocator, stream, 1);
+  rmm::device_uvector<DataT> mean(stream);
+  rmm::device_uvector<DataT> result(1, stream);
   DataT* mu = globalCentroid;
   if (globalCentroid == nullptr) {
     mean.resize(dim, stream);

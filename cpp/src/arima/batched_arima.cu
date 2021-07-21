@@ -29,12 +29,12 @@
 
 #include <raft/cudart_utils.h>
 #include <common/nvtx.hpp>
-#include <cuml/common/device_buffer.hpp>
 #include <linalg/batched/matrix.cuh>
 #include <metrics/batched/information_criterion.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
 #include <raft/linalg/matrix_vector_op.cuh>
+#include <rmm/device_uvector.hpp>
 #include <timeSeries/arima_helpers.cuh>
 
 namespace ML {
@@ -87,7 +87,6 @@ void predict(raft::handle_t& handle,
              double* d_upper)
 {
   ML::PUSH_RANGE(__func__);
-  auto allocator    = handle.get_device_allocator();
   const auto stream = handle.get_stream();
 
   bool diff = order.need_diff() && pre_diff && level == 0;
@@ -113,7 +112,7 @@ void predict(raft::handle_t& handle,
 
   // Create temporary array for the forecasts
   int num_steps = std::max(end - n_obs, 0);
-  MLCommon::device_buffer<double> fc_buffer(allocator, stream, num_steps * batch_size);
+  rmm::device_uvector<double> fc_buffer(num_steps * batch_size, stream);
   double* d_y_fc = fc_buffer.data();
 
   // Compute the residual and forecast
@@ -357,8 +356,7 @@ void batched_loglike(raft::handle_t& handle,
 {
   ML::PUSH_RANGE(__func__);
 
-  auto allocator = handle.get_device_allocator();
-  auto stream    = handle.get_stream();
+  auto stream = handle.get_stream();
 
   ARIMAParams<double> Tparams = {arima_mem.Tparams_mu,
                                  arima_mem.Tparams_ar,
@@ -374,7 +372,7 @@ void batched_loglike(raft::handle_t& handle,
 
   if (trans) {
     MLCommon::TimeSeries::batched_jones_transform(
-      order, batch_size, false, params, Tparams, allocator, stream);
+      order, batch_size, false, params, Tparams, stream);
 
     Tparams.mu = params.mu;
   } else {
@@ -430,8 +428,7 @@ void batched_loglike(raft::handle_t& handle,
   ML::PUSH_RANGE(__func__);
 
   // unpack parameters
-  auto allocator = handle.get_device_allocator();
-  auto stream    = handle.get_stream();
+  auto stream = handle.get_stream();
 
   ARIMAParams<double> params = {arima_mem.params_mu,
                                 arima_mem.params_ar,
@@ -478,10 +475,9 @@ void batched_loglike_grad(raft::handle_t& handle,
                           int truncate)
 {
   ML::PUSH_RANGE(__func__);
-  auto allocator = handle.get_device_allocator();
-  auto stream    = handle.get_stream();
-  auto counting  = thrust::make_counting_iterator(0);
-  int N          = order.complexity();
+  auto stream   = handle.get_stream();
+  auto counting = thrust::make_counting_iterator(0);
+  int N         = order.complexity();
 
   // Initialize the perturbed x vector
   double* d_x_pert = arima_mem.x_pert;
@@ -555,8 +551,7 @@ void information_criterion(raft::handle_t& handle,
                            int ic_type)
 {
   ML::PUSH_RANGE(__func__);
-  auto allocator = handle.get_device_allocator();
-  auto stream    = handle.get_stream();
+  auto stream = handle.get_stream();
 
   double* d_vs = arima_mem.vs;
 
@@ -636,7 +631,6 @@ void _arma_least_squares(raft::handle_t& handle,
   const auto& handle_impl = handle;
   auto stream             = handle_impl.get_stream();
   auto cublas_handle      = handle_impl.get_cublas_handle();
-  auto allocator          = handle_impl.get_device_allocator();
   auto counting           = thrust::make_counting_iterator(0);
 
   int batch_size = bm_y.batches();
@@ -662,7 +656,7 @@ void _arma_least_squares(raft::handle_t& handle,
    * side by side. The left side will be used to estimate AR, the right
    * side to estimate MA */
   MLCommon::LinAlg::Batched::Matrix<double> bm_ls_ar_res(
-    n_obs - r, p + q + k, batch_size, cublas_handle, allocator, stream, false);
+    n_obs - r, p + q + k, batch_size, cublas_handle, stream, false);
   int ar_offset  = r - ps;
   int res_offset = r - p_ar - qs;
 
@@ -717,7 +711,7 @@ void _arma_least_squares(raft::handle_t& handle,
 
   // The residuals will be computed only if sigma2 is requested
   MLCommon::LinAlg::Batched::Matrix<double> bm_final_residual(
-    n_obs - r, 1, batch_size, cublas_handle, allocator, stream, false);
+    n_obs - r, 1, batch_size, cublas_handle, stream, false);
   if (estimate_sigma2) {
     raft::copy(
       bm_final_residual.raw_data(), bm_arma_fit.raw_data(), (n_obs - r) * batch_size, stream);
@@ -842,11 +836,10 @@ void estimate_x0(raft::handle_t& handle,
   const auto& handle_impl = handle;
   auto stream             = handle_impl.get_stream();
   auto cublas_handle      = handle_impl.get_cublas_handle();
-  auto allocator          = handle_impl.get_device_allocator();
 
   // Difference if necessary, copy otherwise
   MLCommon::LinAlg::Batched::Matrix<double> bm_yd(
-    n_obs - order.d - order.s * order.D, 1, batch_size, cublas_handle, allocator, stream, false);
+    n_obs - order.d - order.s * order.D, 1, batch_size, cublas_handle, stream, false);
   MLCommon::TimeSeries::prepare_data(
     bm_yd.raw_data(), d_y, batch_size, n_obs, order.d, order.D, order.s, stream);
 

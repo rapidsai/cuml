@@ -18,7 +18,6 @@
 #include <raft/cudart_utils.h>
 #include <iostream>
 #include <metrics/scores.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng.cuh>
 #include <vector>
 #include "test_utils.h"
@@ -124,8 +123,6 @@ class AccuracyTest : public ::testing::TestWithParam<AccuracyInputs> {
 
     raft::random::Rng r(params.seed);
     CUDA_CHECK(cudaStreamCreate(&stream));
-    std::shared_ptr<raft::mr::device::allocator> d_allocator(
-      new raft::mr::device::default_allocator);
 
     raft::allocate(predictions, params.n);
     raft::allocate(ref_predictions, params.n);
@@ -145,8 +142,8 @@ class AccuracyTest : public ::testing::TestWithParam<AccuracyInputs> {
       CUDA_CHECK(cudaStreamSynchronize(stream));
     }
 
-    computed_accuracy = MLCommon::Score::accuracy_score<T>(
-      predictions, ref_predictions, params.n, d_allocator, stream);
+    computed_accuracy =
+      MLCommon::Score::accuracy_score<T>(predictions, ref_predictions, params.n, stream);
     ref_accuracy = (params.n - params.changed_n) * 1.0f / params.n;
     // std::cout << "computed_accuracy is " << computed_accuracy << " ref_accuracy is " <<
     // ref_accuracy << std::endl;
@@ -264,8 +261,6 @@ class RegressionMetricsTest : public ::testing::TestWithParam<RegressionInputs<T
     ref_regression_metrics.assign(3, -1.0);
 
     CUDA_CHECK(cudaStreamCreate(&stream));
-    std::shared_ptr<raft::mr::device::allocator> d_allocator(
-      new raft::mr::device::default_allocator);
 
     raft::allocate(d_predictions, params.n);
     raft::allocate(d_ref_predictions, params.n);
@@ -294,7 +289,6 @@ class RegressionMetricsTest : public ::testing::TestWithParam<RegressionInputs<T
     MLCommon::Score::regression_metrics(d_predictions,
                                         d_ref_predictions,
                                         params.n,
-                                        d_allocator,
                                         stream,
                                         computed_regression_metrics[0],
                                         computed_regression_metrics[1],

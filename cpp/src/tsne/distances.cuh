@@ -198,7 +198,7 @@ void symmetrize_perplexity(float* P,
 
   // Symmetrize to form P + P.T
   raft::sparse::linalg::from_knn_symmetrize_matrix<value_idx, value_t>(
-    indices, P, n, k, COO_Matrix, stream, handle.get_device_allocator());
+    indices, P, n, k, COO_Matrix, stream);
 }
 
 }  // namespace TSNE

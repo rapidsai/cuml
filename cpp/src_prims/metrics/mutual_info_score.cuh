@@ -27,10 +27,9 @@
 #include <math.h>
 #include <raft/cudart_utils.h>
 #include <cub/cub.cuh>
-#include <cuml/common/device_buffer.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/reduce.cuh>
-#include <raft/mr/device/allocator.hpp>
+#include <rmm/device_uvector.hpp>
 #include "contingencyMatrix.cuh"
 
 namespace MLCommon {
@@ -93,8 +92,6 @@ __global__ void mutual_info_kernel(const int* dContingencyMatrix,
  * @param size: the size of the data points of type int
  * @param lowerLabelRange: the lower bound of the range of labels
  * @param upperLabelRange: the upper bound of the range of labels
- * @param allocator: object that takes care of temporary device memory allocation of type
- * std::shared_ptr<raft::mr::device::allocator>
  * @param stream: the cudaStream object
  */
 template <typename T>
@@ -103,21 +100,19 @@ double mutual_info_score(const T* firstClusterArray,
                          int size,
                          T lowerLabelRange,
                          T upperLabelRange,
-                         std::shared_ptr<raft::mr::device::allocator> allocator,
                          cudaStream_t stream)
 {
   int numUniqueClasses = upperLabelRange - lowerLabelRange + 1;
 
   // declaring, allocating and initializing memory for the contingency marix
-  MLCommon::device_buffer<int> dContingencyMatrix(
-    allocator, stream, numUniqueClasses * numUniqueClasses);
+  rmm::device_uvector<int> dContingencyMatrix(numUniqueClasses * numUniqueClasses, stream);
   CUDA_CHECK(cudaMemsetAsync(
     dContingencyMatrix.data(), 0, numUniqueClasses * numUniqueClasses * sizeof(int), stream));
 
   // workspace allocation
   size_t workspaceSz = MLCommon::Metrics::getContingencyMatrixWorkspaceSize(
     size, firstClusterArray, stream, lowerLabelRange, upperLabelRange);
-  device_buffer<char> pWorkspace(allocator, stream, workspaceSz);
+  rmm::device_uvector<char> pWorkspace(workspaceSz, stream);
 
   // calculating the contingency matrix
   MLCommon::Metrics::contingencyMatrix(firstClusterArray,
@@ -132,9 +127,9 @@ double mutual_info_score(const T* firstClusterArray,
 
   // creating device buffers for all the parameters involved in ARI calculation
   // device variables
-  MLCommon::device_buffer<int> a(allocator, stream, numUniqueClasses);
-  MLCommon::device_buffer<int> b(allocator, stream, numUniqueClasses);
-  MLCommon::device_buffer<double> d_MI(allocator, stream, 1);
+  rmm::device_uvector<int> a(numUniqueClasses, stream);
+  rmm::device_uvector<int> b(numUniqueClasses, stream);
+  rmm::device_uvector<double> d_MI(1, stream);
 
   // host variables
   double h_MI;

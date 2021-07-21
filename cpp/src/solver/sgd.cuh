@@ -19,7 +19,6 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/gemv.h>
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/solvers/params.hpp>
 #include <functions/hinge.cuh>
 #include <functions/linearReg.cuh>
@@ -35,6 +34,7 @@
 #include <raft/matrix/matrix.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/mean_center.cuh>
+#include <rmm/device_uvector.hpp>
 #include "learning_rate.h"
 #include "shuffle.h"
 
@@ -119,10 +119,9 @@ void sgdFit(const raft::handle_t& handle,
 
   cublasHandle_t cublas_handle = handle.get_cublas_handle();
 
-  auto allocator = handle.get_device_allocator();
-  device_buffer<math_t> mu_input(allocator, stream, 0);
-  device_buffer<math_t> mu_labels(allocator, stream, 0);
-  device_buffer<math_t> norm2_input(allocator, stream, 0);
+  rmm::device_uvector<math_t> mu_input(0, stream);
+  rmm::device_uvector<math_t> mu_labels(0, stream);
+  rmm::device_uvector<math_t> norm2_input(0, stream);
 
   if (fit_intercept) {
     mu_input.resize(n_cols, stream);
@@ -142,11 +141,11 @@ void sgdFit(const raft::handle_t& handle,
                         stream);
   }
 
-  device_buffer<math_t> grads(allocator, stream, n_cols);
-  device_buffer<int> indices(allocator, stream, batch_size);
-  device_buffer<math_t> input_batch(allocator, stream, batch_size * n_cols);
-  device_buffer<math_t> labels_batch(allocator, stream, batch_size);
-  device_buffer<math_t> loss_value(allocator, stream, 1);
+  rmm::device_uvector<math_t> grads(n_cols, stream);
+  rmm::device_uvector<int> indices(batch_size, stream);
+  rmm::device_uvector<math_t> input_batch(batch_size * n_cols, stream);
+  rmm::device_uvector<math_t> labels_batch(batch_size, stream);
+  rmm::device_uvector<math_t> loss_value(1, stream);
 
   math_t prev_loss_value = math_t(0);
   math_t curr_loss_value = math_t(0);

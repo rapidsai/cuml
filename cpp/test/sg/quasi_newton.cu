@@ -24,7 +24,6 @@
 #include <glm/qn/glm_softmax.cuh>
 #include <glm/qn/qn.cuh>
 #include <raft/handle.hpp>
-#include <raft/mr/device/allocator.hpp>
 #include <vector>
 
 namespace ML {
@@ -45,18 +44,15 @@ struct QuasiNewtonTest : ::testing::Test {
   std::shared_ptr<SimpleMatOwning<double>> Xdev;
   std::shared_ptr<SimpleVecOwning<double>> ydev;
 
-  std::shared_ptr<raft::mr::device::allocator> allocator;
   QuasiNewtonTest() : handle(cuml_handle) {}
   void SetUp()
   {
     stream = cuml_handle.get_stream();
-    Xdev.reset(new SimpleMatOwning<double>(handle.get_device_allocator(), N, D, stream, ROW_MAJOR));
+    Xdev.reset(new SimpleMatOwning<double>(N, D, stream, ROW_MAJOR));
     raft::update_device(Xdev->data, &X[0][0], Xdev->len, stream);
 
-    ydev.reset(new SimpleVecOwning<double>(handle.get_device_allocator(), N, stream));
+    ydev.reset(new SimpleVecOwning<double>(N, stream));
     CUDA_CHECK(cudaStreamSynchronize(stream));
-
-    allocator = handle.get_device_allocator();
   }
   void TearDown() {}
 };
@@ -94,7 +90,7 @@ template <typename T, class Comp>
       w_ref_cm[idx++] = host_weights[c * D + d];
     }
 
-  SimpleVecOwning<T> w_ref(handle.get_device_allocator(), dims.n_param, stream);
+  SimpleVecOwning<T> w_ref(dims.n_param, stream);
   raft::update_device(w_ref.data, &w_ref_cm[0], C * D, stream);
   if (fit_intercept) { raft::update_device(&w_ref.data[C * D], host_bias, C, stream); }
   CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -235,8 +231,8 @@ TEST_F(QuasiNewtonTest, binary_logistic_vs_sklearn)
   LogisticLoss<double> loss_b(handle, D, true);
   LogisticLoss<double> loss_no_b(handle, D, false);
 
-  SimpleVecOwning<double> w0(allocator, D + 1, stream);
-  SimpleMatOwning<double> z(allocator, 1, N, stream);
+  SimpleVecOwning<double> w0(D + 1, stream);
+  SimpleMatOwning<double> z(1, N, stream);
 
   double l1, l2, fx;
 
@@ -316,8 +312,8 @@ TEST_F(QuasiNewtonTest, multiclass_logistic_vs_sklearn)
 
   double alpha = 0.016 * N;
 
-  SimpleMatOwning<double> z(allocator, C, N, stream);
-  SimpleVecOwning<double> w0(allocator, C * (D + 1), stream);
+  SimpleMatOwning<double> z(C, N, stream);
+  SimpleVecOwning<double> w0(C * (D + 1), stream);
 
   Softmax<double> loss_b(handle, D, C, true);
   Softmax<double> loss_no_b(handle, D, C, false);
@@ -387,8 +383,8 @@ TEST_F(QuasiNewtonTest, linear_regression_vs_sklearn)
   double fx, l1, l2;
   double alpha = 0.01 * N;
 
-  SimpleVecOwning<double> w0(allocator, D + 1, stream);
-  SimpleMatOwning<double> z(allocator, 1, N, stream);
+  SimpleVecOwning<double> w0(D + 1, stream);
+  SimpleMatOwning<double> z(1, N, stream);
   SquaredLoss<double> loss_b(handle, D, true);
   SquaredLoss<double> loss_no_b(handle, D, false);
 
@@ -454,8 +450,8 @@ TEST_F(QuasiNewtonTest, predict)
   std::vector<double> w_host(D);
   w_host[0] = 1;
   std::vector<double> preds_host(N);
-  SimpleVecOwning<double> w(allocator, D, stream);
-  SimpleVecOwning<double> preds(allocator, N, stream);
+  SimpleVecOwning<double> w(D, stream);
+  SimpleVecOwning<double> preds(N, stream);
 
   raft::update_device(w.data, &w_host[0], w.len, stream);
 
@@ -485,8 +481,8 @@ TEST_F(QuasiNewtonTest, predict_softmax)
   w_host[D * C - 1] = 1;
 
   std::vector<double> preds_host(N);
-  SimpleVecOwning<double> w(allocator, w_host.size(), stream);
-  SimpleVecOwning<double> preds(allocator, N, stream);
+  SimpleVecOwning<double> w(w_host.size(), stream);
+  SimpleVecOwning<double> preds(N, stream);
 
   raft::update_device(w.data, &w_host[0], w.len, stream);
 
@@ -541,15 +537,15 @@ TEST_F(QuasiNewtonTest, dense_vs_sparse_logistic)
   Softmax<double> loss_b(handle, D, C, true);
   Softmax<double> loss_no_b(handle, D, C, false);
 
-  SimpleMatOwning<double> z_dense(allocator, C, N, stream);
-  SimpleMatOwning<double> z_sparse(allocator, C, N, stream);
-  SimpleVecOwning<double> w0_dense(allocator, C * (D + 1), stream);
-  SimpleVecOwning<double> w0_sparse(allocator, C * (D + 1), stream);
+  SimpleMatOwning<double> z_dense(C, N, stream);
+  SimpleMatOwning<double> z_sparse(C, N, stream);
+  SimpleVecOwning<double> w0_dense(C * (D + 1), stream);
+  SimpleVecOwning<double> w0_sparse(C * (D + 1), stream);
 
   std::vector<double> preds_dense_host(N);
   std::vector<double> preds_sparse_host(N);
-  SimpleVecOwning<double> preds_dense(allocator, N, stream);
-  SimpleVecOwning<double> preds_sparse(allocator, N, stream);
+  SimpleVecOwning<double> preds_dense(N, stream);
+  SimpleVecOwning<double> preds_sparse(N, stream);
 
   auto test_run = [&](double l1, double l2, Softmax<double> loss) {
     double f_dense, f_sparse;

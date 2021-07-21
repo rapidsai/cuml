@@ -24,7 +24,6 @@
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/metrics/metrics.hpp>
 #include <raft/distance/distance.cuh>
-#include <raft/mr/device/allocator.hpp>
 
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/transpose.h>
@@ -32,7 +31,6 @@
 
 #include <test_utils.h>
 
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 
 namespace ML {
@@ -75,13 +73,10 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
 
     params = ::testing::TestWithParam<DbscanInputs<T, IdxT>>::GetParam();
 
-    device_buffer<T> out(
-      handle.get_device_allocator(), handle.get_stream(), params.n_row * params.n_col);
-    device_buffer<IdxT> l(handle.get_device_allocator(), handle.get_stream(), params.n_row);
-    device_buffer<T> dist(
-      handle.get_device_allocator(),
-      handle.get_stream(),
-      params.metric == raft::distance::Precomputed ? params.n_row * params.n_row : 0);
+    rmm::device_uvector<T> out(params.n_row * params.n_col, stream);
+    rmm::device_uvector<T> l(params.n_row, stream);
+    rmm::device_uvector<T> dist(
+      params.metric == raft::distance::Precomputed ? params.n_row * params.n_row : 0, stream);
 
     make_blobs(handle,
                out.data(),

@@ -24,10 +24,6 @@
 #include <raft/stats/mean.cuh>
 #include <raft/stats/mean_center.cuh>
 
-#include <cuml/common/device_buffer.hpp>
-
-#include <raft/mr/device/allocator.hpp>
-
 namespace MLCommon {
 namespace Selection {
 
@@ -58,19 +54,12 @@ class CosineMetricProcessor : public MetricProcessor<math_t> {
   size_t n_rows_;
   size_t n_cols_;
   cudaStream_t stream_;
-  std::shared_ptr<raft::mr::device::allocator> device_allocator_;
-  device_buffer<math_t> colsums_;
+  rmm::device_uvector<math_t> colsums_;
 
  public:
-  CosineMetricProcessor(size_t n_rows,
-                        size_t n_cols,
-                        int k,
-                        bool row_major,
-                        cudaStream_t stream,
-                        std::shared_ptr<raft::mr::device::allocator> allocator)
-    : device_allocator_(allocator),
-      stream_(stream),
-      colsums_(allocator, stream, n_rows),
+  CosineMetricProcessor(size_t n_rows, size_t n_cols, int k, bool row_major, cudaStream_t stream)
+    : stream_(stream),
+      colsums_(n_rows, stream),
       n_cols_(n_cols),
       n_rows_(n_rows),
       row_major_(row_major),
@@ -129,14 +118,9 @@ class CorrelationMetricProcessor : public CosineMetricProcessor<math_t> {
   using cosine = CosineMetricProcessor<math_t>;
 
  public:
-  CorrelationMetricProcessor(size_t n_rows,
-                             size_t n_cols,
-                             int k,
-                             bool row_major,
-                             cudaStream_t stream,
-                             std::shared_ptr<raft::mr::device::allocator> allocator)
-    : CosineMetricProcessor<math_t>(n_rows, n_cols, k, row_major, stream, allocator),
-      means_(allocator, stream, n_rows)
+  CorrelationMetricProcessor(
+    size_t n_rows, size_t n_cols, int k, bool row_major, cudaStream_t stream)
+    : CosineMetricProcessor<math_t>(n_rows, n_cols, k, row_major, stream), means_(n_rows, stream)
   {
   }
 
@@ -190,7 +174,7 @@ class CorrelationMetricProcessor : public CosineMetricProcessor<math_t> {
 
   ~CorrelationMetricProcessor() = default;
 
-  device_buffer<math_t> means_;
+  rmm::device_uvector<math_t> means_;
 };
 
 template <typename math_t>
@@ -212,18 +196,17 @@ inline std::unique_ptr<MetricProcessor<math_t>> create_processor(
   int D,
   int k,
   bool rowMajorQuery,
-  cudaStream_t userStream,
-  std::shared_ptr<raft::mr::device::allocator> allocator)
+  cudaStream_t userStream)
 {
   MetricProcessor<math_t>* mp = nullptr;
 
   switch (metric) {
     case raft::distance::DistanceType::CosineExpanded:
-      mp = new CosineMetricProcessor<math_t>(n, D, k, rowMajorQuery, userStream, allocator);
+      mp = new CosineMetricProcessor<math_t>(n, D, k, rowMajorQuery, userStream);
       break;
 
     case raft::distance::DistanceType::CorrelationExpanded:
-      mp = new CorrelationMetricProcessor<math_t>(n, D, k, rowMajorQuery, userStream, allocator);
+      mp = new CorrelationMetricProcessor<math_t>(n, D, k, rowMajorQuery, userStream);
       break;
     default: mp = new DefaultMetricProcessor<math_t>();
   }

@@ -27,7 +27,6 @@
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <rmm/device_uvector.hpp>
 #include "base.hpp"
 
@@ -380,10 +379,7 @@ struct SimpleVecOwning : SimpleVec<T> {
 
   SimpleVecOwning() = delete;
 
-  SimpleVecOwning(std::shared_ptr<raft::mr::device::allocator> allocator,
-                  int n,
-                  cudaStream_t stream)
-    : Super(), buf(n, stream)
+  SimpleVecOwning(int n, cudaStream_t stream) : Super(), buf(n, stream)
   {
     Super::reset(buf.data(), n);
   }
@@ -402,11 +398,7 @@ struct SimpleMatOwning : SimpleDenseMat<T> {
 
   SimpleMatOwning() = delete;
 
-  SimpleMatOwning(std::shared_ptr<raft::mr::device::allocator> allocator,
-                  int m,
-                  int n,
-                  cudaStream_t stream,
-                  STORAGE_ORDER order = COL_MAJOR)
+  SimpleMatOwning(int m, int n, cudaStream_t stream, STORAGE_ORDER order = COL_MAJOR)
     : Super(order), buf(m * n, stream)
   {
     Super::reset(buf.data(), m, n);

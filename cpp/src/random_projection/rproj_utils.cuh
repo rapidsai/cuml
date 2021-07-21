@@ -21,6 +21,8 @@
 #include <sys/time.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/random/rng.cuh>
+#include <rmm/device_scalar.hpp>
+#include <rmm/device_uvector.hpp>
 
 const int TPB_X = 256;
 
@@ -59,34 +61,29 @@ __global__ void sum_bools(bool* in_bools, int n, int* out_val)
 
 inline size_t binomial(const raft::handle_t& h, size_t n, double p, int random_state)
 {
-  auto alloc = h.get_device_allocator();
-
   struct timeval tp;
   gettimeofday(&tp, NULL);
   long long seed = tp.tv_sec * 1000 + tp.tv_usec;
 
   auto rng = raft::random::Rng(random_state + seed);
 
-  bool* rand_array = (bool*)alloc->allocate(n * sizeof(bool), h.get_stream());
-  int* successes   = (int*)alloc->allocate(sizeof(int), h.get_stream());
+  rmm::device_uvector<bool> rand_array(n, h.get_stream());
+  rmm::device_scalar<int> successes(h.get_stream());
 
-  rng.bernoulli(rand_array, n, p, h.get_stream());
+  rng.bernoulli(rand_array.data(), n, p, h.get_stream());
 
-  cudaMemsetAsync(successes, 0, sizeof(int), h.get_stream());
+  cudaMemsetAsync(successes.data(), 0, sizeof(int), h.get_stream());
 
   dim3 grid_n(raft::ceildiv(n, (size_t)TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
-  sum_bools<<<grid_n, blk, 0, h.get_stream()>>>(rand_array, n, successes);
+  sum_bools<<<grid_n, blk, 0, h.get_stream()>>>(rand_array.data(), n, successes.data());
   CUDA_CHECK(cudaPeekAtLastError());
 
   int ret = 0;
-  raft::update_host(&ret, successes, 1, h.get_stream());
+  raft::update_host(&ret, successes.data(), 1, h.get_stream());
   cudaStreamSynchronize(h.get_stream());
   CUDA_CHECK(cudaPeekAtLastError());
-
-  alloc->deallocate(rand_array, n * sizeof(bool), h.get_stream());
-  alloc->deallocate(successes, sizeof(int), h.get_stream());
 
   return n - ret;
 }

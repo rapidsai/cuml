@@ -15,7 +15,6 @@
  */
 
 #include <raft/cudart_utils.h>
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/decomposition/sign_flip_mg.hpp>
 #include <cuml/decomposition/tsvd.hpp>
 #include <cuml/decomposition/tsvd_mg.hpp>
@@ -27,7 +26,6 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/matrix/math.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/stats/mean_center.cuh>
 #include "tsvd.cuh"
 
@@ -50,20 +48,19 @@ void fit_impl(raft::handle_t& handle,
 {
   const auto& comm             = handle.get_comms();
   cublasHandle_t cublas_handle = handle.get_cublas_handle();
-  const auto allocator         = handle.get_device_allocator();
 
   // This variable should be updated to use `size_t`
   // Reference issue https://github.com/rapidsai/cuml/issues/2459
   int len = prms.n_cols * prms.n_cols;
 
-  device_buffer<T> cov_data(allocator, streams[0], len);
+  rmm::device_uvector<T> cov_data(len, streams[0]);
   size_t cov_data_size = cov_data.size();
   Matrix::Data<T> cov{cov_data.data(), cov_data_size};
 
   LinAlg::opg::mm_aTa(handle, cov, input_data, input_desc, streams, n_streams);
 
-  device_buffer<T> components_all(allocator, streams[0], len);
-  device_buffer<T> explained_var_all(allocator, streams[0], prms.n_cols);
+  rmm::device_uvector<T> components_all(len, streams[0]);
+  rmm::device_uvector<T> explained_var_all(prms.n_cols, streams[0]);
 
   ML::calEig(handle, cov.ptr, components_all.data(), explained_var_all.data(), prms, streams[0]);
 
@@ -136,7 +133,6 @@ void transform_impl(raft::handle_t& handle,
   int rank = handle.get_comms().get_rank();
 
   cublasHandle_t cublas_h = handle.get_cublas_handle();
-  const auto allocator    = handle.get_device_allocator();
 
   std::vector<Matrix::RankSizePair*> local_blocks = input_desc.blocksOwnedBy(rank);
 
@@ -224,7 +220,6 @@ void inverse_transform_impl(raft::handle_t& handle,
                             bool verbose)
 {
   cublasHandle_t cublas_h                         = handle.get_cublas_handle();
-  const auto allocator                            = handle.get_device_allocator();
   std::vector<Matrix::RankSizePair*> local_blocks = trans_input_desc.partsToRanks;
 
   for (int i = 0; i < local_blocks.size(); i++) {
@@ -346,7 +341,7 @@ void fit_transform_impl(raft::handle_t& handle,
   PCA::opg::sign_flip(
     handle, trans_data, input_desc, components, prms.n_components, streams, n_streams);
 
-  device_buffer<T> mu_trans(handle.get_device_allocator(), streams[0], prms.n_components);
+  rmm::device_uvector<T> mu_trans(prms.n_components, streams[0]);
   Matrix::Data<T> mu_trans_data{mu_trans.data(), size_t(prms.n_components)};
 
   Stats::opg::mean(handle, mu_trans_data, trans_data, trans_desc, streams, n_streams);
@@ -356,17 +351,17 @@ void fit_transform_impl(raft::handle_t& handle,
   Stats::opg::var(
     handle, explained_var_data, trans_data, trans_desc, mu_trans_data.ptr, streams, n_streams);
 
-  device_buffer<T> mu(handle.get_device_allocator(), streams[0], prms.n_rows);
+  rmm::device_uvector<T> mu(prms.n_rows, streams[0]);
   Matrix::Data<T> mu_data{mu.data(), size_t(prms.n_rows)};
 
   Stats::opg::mean(handle, mu_data, input_data, input_desc, streams, n_streams);
 
-  device_buffer<T> var_input(handle.get_device_allocator(), streams[0], prms.n_rows);
+  rmm::device_uvector<T> var_input(prms.n_rows, streams[0]);
   Matrix::Data<T> var_input_data{var_input.data(), size_t(prms.n_rows)};
 
   Stats::opg::var(handle, var_input_data, input_data, input_desc, mu_data.ptr, streams, n_streams);
 
-  device_buffer<T> total_vars(handle.get_device_allocator(), streams[0], 1);
+  rmm::device_uvector<T> total_vars(1, streams[0]);
   raft::stats::sum(total_vars.data(), var_input_data.ptr, 1, prms.n_cols, false, streams[0]);
 
   T total_vars_h;

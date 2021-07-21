@@ -17,7 +17,6 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <functions/logisticReg.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng.cuh>
 #include "test_utils.h"
 
@@ -47,8 +46,6 @@ class LogRegLossTest : public ::testing::TestWithParam<LogRegLossInputs<T>> {
     raft::handle_t handle;
 
     cudaStream_t stream = handle.get_stream();
-
-    allocator.reset(new raft::mr::device::default_allocator);
 
     raft::allocate(in, len);
     raft::allocate(out, 1);
@@ -247,7 +244,6 @@ class LogRegLossTest : public ::testing::TestWithParam<LogRegLossInputs<T>> {
   T *out_ref, *out_lasso_ref, *out_ridge_ref, *out_elasticnet_ref;
   T *out_grad, *out_lasso_grad, *out_ridge_grad, *out_elasticnet_grad;
   T *out_grad_ref, *out_lasso_grad_ref, *out_ridge_grad_ref, *out_elasticnet_grad_ref;
-  std::shared_ptr<raft::mr::device::allocator> allocator;
 };
 
 const std::vector<LogRegLossInputs<float>> inputsf = {{0.01f, 3, 2, 6}};

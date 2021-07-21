@@ -19,7 +19,6 @@
 #include <cache/cache.cuh>
 #include <iostream>
 #include <raft/cuda_utils.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -30,8 +29,6 @@ class CacheTest : public ::testing::Test {
   void SetUp() override
   {
     CUDA_CHECK(cudaStreamCreate(&stream));
-    allocator =
-      std::shared_ptr<raft::mr::device::allocator>(new raft::mr::device::default_allocator());
     raft::allocate(x_dev, n_rows * n_cols);
     raft::update_device(x_dev, x_host, n_rows * n_cols, stream);
     raft::allocate(tile_dev, n_rows * n_cols);
@@ -78,7 +75,6 @@ class CacheTest : public ::testing::Test {
 
   int* argfirst_dev;
 
-  std::shared_ptr<raft::mr::device::allocator> allocator;
   cudaStream_t stream;
 
   bool* is_cached;
@@ -157,7 +153,7 @@ TEST_F(CacheTest, TestRankEntries)
 TEST_F(CacheTest, TestSimple)
 {
   float cache_size = 5 * sizeof(float) * n_cols / (1024 * 1024.0);
-  Cache<float, 2> cache(allocator, stream, n_cols, cache_size);
+  Cache<float, 2> cache(stream, n_cols, cache_size);
 
   ASSERT_EQ(cache.GetSize(), 4);
 
@@ -174,7 +170,7 @@ TEST_F(CacheTest, TestSimple)
 TEST_F(CacheTest, TestAssignCacheIdx)
 {
   float cache_size = 5 * sizeof(float) * n_cols / (1024 * 1024.0);
-  Cache<float, 2> cache(allocator, stream, n_cols, cache_size);
+  Cache<float, 2> cache(stream, n_cols, cache_size);
 
   ASSERT_EQ(cache.GetSize(), 4);
 
@@ -211,7 +207,7 @@ TEST_F(CacheTest, TestAssignCacheIdx)
 TEST_F(CacheTest, TestEvict)
 {
   float cache_size = 8 * sizeof(float) * n_cols / (1024 * 1024.0);
-  Cache<float, 4> cache(allocator, stream, n_cols, cache_size);
+  Cache<float, 4> cache(stream, n_cols, cache_size);
 
   ASSERT_EQ(cache.GetSize(), 8);
 
@@ -243,7 +239,7 @@ TEST_F(CacheTest, TestEvict)
 TEST_F(CacheTest, TestStoreCollect)
 {
   float cache_size = 8 * sizeof(float) * n_cols / (1024 * 1024.0);
-  Cache<float, 4> cache(allocator, stream, n_cols, cache_size);
+  Cache<float, 4> cache(stream, n_cols, cache_size);
 
   ASSERT_EQ(cache.GetSize(), 8);
 

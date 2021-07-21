@@ -112,8 +112,7 @@ void parent_csr(const raft::handle_t& handle,
                 Common::CondensedHierarchy<value_idx, value_t>& cluster_tree,
                 value_idx* indptr)
 {
-  auto stream        = handle.get_stream();
-  auto thrust_policy = rmm::exec_policy(stream);
+  auto stream = handle.get_stream();
 
   auto parents            = cluster_tree.get_parents();
   auto children           = cluster_tree.get_children();
@@ -122,13 +121,12 @@ void parent_csr(const raft::handle_t& handle,
   auto n_clusters         = cluster_tree.get_n_clusters();
 
   if (cluster_tree_edges > 0) {
-    raft::sparse::op::coo_sort(
-      0, 0, cluster_tree_edges, parents, children, sizes, handle.get_device_allocator(), stream);
+    raft::sparse::op::coo_sort(0, 0, cluster_tree_edges, parents, children, sizes, stream);
 
     raft::sparse::convert::sorted_coo_to_csr(
-      parents, cluster_tree_edges, indptr, n_clusters + 1, handle.get_device_allocator(), stream);
+      parents, cluster_tree_edges, indptr, n_clusters + 1, stream);
   } else {
-    thrust::fill(thrust_policy, indptr, indptr + n_clusters + 1, 0);
+    thrust::fill(handle.get_thrust_policy(), indptr, indptr + n_clusters + 1, 0);
   }
 }
 

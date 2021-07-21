@@ -18,7 +18,6 @@
 
 #include <cuml/svm/svm_parameter.h>
 #include <linalg/init.h>
-#include <raft/cudart_utils.h>
 #include <cache/cache.cuh>
 #include <cache/cache_util.cuh>
 #include <cub/cub.cuh>
@@ -26,6 +25,8 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/matrix/matrix.cuh>
+#include <rmm/device_scalar.hpp>
+#include <rmm/device_uvector.hpp>
 
 namespace ML {
 namespace SVM {
@@ -100,7 +101,7 @@ class KernelCache {
               MLCommon::Matrix::GramMatrixBase<math_t>* kernel,
               float cache_size = 200,
               SvmType svmType  = C_SVC)
-    : cache(handle.get_device_allocator(), handle.get_stream(), n_rows, cache_size),
+    : cache(handle.get_stream(), n_rows, cache_size),
       kernel(kernel),
       x(x),
       n_rows(n_rows),
@@ -108,13 +109,13 @@ class KernelCache {
       n_ws(n_ws),
       svmType(svmType),
       cublas_handle(handle.get_cublas_handle()),
-      d_num_selected_out(handle.get_device_allocator(), handle.get_stream(), 1),
-      d_temp_storage(handle.get_device_allocator(), handle.get_stream()),
-      x_ws(handle.get_device_allocator(), handle.get_stream()),
-      tile(handle.get_device_allocator(), handle.get_stream()),
-      unique_idx(handle.get_device_allocator(), handle.get_stream(), n_ws),
-      k_col_idx(handle.get_device_allocator(), handle.get_stream(), n_ws),
-      ws_cache_idx(handle.get_device_allocator(), handle.get_stream(), n_ws)
+      d_num_selected_out(handle.get_stream()),
+      d_temp_storage(0, handle.get_stream()),
+      x_ws(0, handle.get_stream()),
+      tile(0, handle.get_stream()),
+      unique_idx(n_ws, handle.get_stream()),
+      k_col_idx(n_ws, handle.get_stream()),
+      ws_cache_idx(n_ws, handle.get_stream())
   {
     ASSERT(kernel != nullptr, "Kernel pointer required for KernelCache!");
     stream = handle.get_stream();
@@ -303,11 +304,11 @@ class KernelCache {
   const int* ws_idx;  //!< pointer to the working set indices
 
   /// feature vectors in the current working set
-  MLCommon::device_buffer<math_t> x_ws;
+  rmm::device_uvector<math_t> x_ws;
   /// cache position of a workspace vectors
-  MLCommon::device_buffer<int> ws_cache_idx;
+  rmm::device_uvector<int> ws_cache_idx;
 
-  MLCommon::device_buffer<math_t> tile;  //!< Kernel matrix  tile
+  rmm::device_uvector<math_t> tile;  //!< Kernel matrix  tile
 
   int n_rows;    //!< number of rows in x
   int n_cols;    //!< number of columns in x
@@ -326,13 +327,13 @@ class KernelCache {
 
   cudaStream_t stream;
   SvmType svmType;
-  MLCommon::device_buffer<int> unique_idx;  //!< Training vector indices
+  rmm::device_uvector<int> unique_idx;  //!< Training vector indices
   /// Column index map for the kernel tile
-  MLCommon::device_buffer<int> k_col_idx;
+  rmm::device_uvector<int> k_col_idx;
 
   // Helper arrays for cub
-  MLCommon::device_buffer<int> d_num_selected_out;
-  MLCommon::device_buffer<char> d_temp_storage;
+  rmm::device_scalar<int> d_num_selected_out;
+  rmm::device_uvector<char> d_temp_storage;
   size_t d_temp_storage_size = 0;
 
   /** Remove duplicate indices from the working set.

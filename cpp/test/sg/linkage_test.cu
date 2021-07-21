@@ -28,7 +28,6 @@
 #include <raft/linalg/transpose.h>
 #include <raft/sparse/coo.cuh>
 
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 
 #include <test_utils.h>
@@ -70,7 +69,7 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
 
     params = ::testing::TestWithParam<LinkageInputs<T, IdxT>>::GetParam();
 
-    device_buffer<T> data(
+    rmm::device_uvector<T> data(
       handle.get_device_allocator(), handle.get_stream(), params.n_row * params.n_col);
 
     //    // Allocate result labels and expected labels on device
@@ -85,7 +84,7 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
     raft::hierarchy::linkage_output<IdxT, T> out_arrs;
     out_arrs.labels = labels;
 
-    device_buffer<IdxT> out_children(
+    rmm::device_uvector<IdxT> out_children(
       handle.get_device_allocator(), handle.get_stream(), (params.n_row - 1) * 2);
     out_arrs.children = out_children.data();
 

@@ -20,8 +20,6 @@
 #include <iterator>
 
 #include <gtest/gtest.h>
-#include <cuml/common/host_buffer.hpp>
-#include <raft/mr/host/allocator.hpp>
 
 namespace MLCommon {
 
@@ -31,7 +29,7 @@ TEST(HostBufferTest, ctor)
   cudaStream_t stream = 0;
 
   const int size = 4;
-  host_buffer<int> buffer(allocator, stream, size);
+  std::vector<int> buffer(size);
   ASSERT_EQ(size, buffer.size());
 }
 
@@ -41,7 +39,7 @@ TEST(HostBufferTest, clear)
   cudaStream_t stream = 0;
 
   const int size = 8;
-  host_buffer<int> buffer(allocator, stream, size);
+  std::vector<int> buffer(size);
   ASSERT_EQ(size, buffer.size());
   buffer.clear();
   ASSERT_EQ(0, buffer.size());
@@ -53,7 +51,7 @@ TEST(HostBufferTest, itiface)
   cudaStream_t stream = 0;
 
   const int size = 8;
-  host_buffer<int> buffer(allocator, stream, size);
+  std::vector<int> buffer(size);
   ASSERT_EQ(std::distance(buffer.begin(), buffer.end()), buffer.size());
 }
 
@@ -66,7 +64,7 @@ TEST(HostBufferTest, reserve)
   constexpr int capacity = 16;
   static_assert(capacity > size, "capacity must be larger than size for test to work");
 
-  host_buffer<int> buffer(allocator, stream, 0);
+  std::vector<int> buffer(0);
   buffer.reserve(capacity, stream);
   ASSERT_NE(nullptr, buffer.data());
 
@@ -85,7 +83,7 @@ TEST(HostBufferTest, resize)
   const int random_variable = std::rand();
 
   const int size = 1;
-  host_buffer<int> buffer(allocator, stream, size);
+  std::vector<int> buffer(size);
   buffer[0] = random_variable;
 
   const int* const data_ptr = buffer.data();
@@ -101,11 +99,11 @@ TEST(HostBufferTest, release)
   cudaStream_t stream = 0;
 
   const int size = 8;
-  host_buffer<int> buffer(allocator, stream, size);
+  std::vector<int> buffer(size);
   ASSERT_EQ(size, buffer.size());
   ASSERT_NE(nullptr, buffer.data());
 
-  buffer.release(stream);
+  buffer.release();
   ASSERT_EQ(0, buffer.size());
   ASSERT_EQ(nullptr, buffer.data());
 }

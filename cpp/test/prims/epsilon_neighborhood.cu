@@ -17,7 +17,6 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <distance/epsilon_neighborhood.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <random/make_blobs.cuh>
 #include "test_utils.h"
 
@@ -48,13 +47,11 @@ class EpsNeighTest : public ::testing::TestWithParam<EpsInputs<T, IdxT>> {
     batchSize = param.n_row / param.n_batches;
     raft::allocate(adj, param.n_row * batchSize);
     raft::allocate(vd, batchSize + 1, true);
-    allocator.reset(new raft::mr::device::default_allocator);
     Random::make_blobs<T, IdxT>(data,
                                 labels,
                                 param.n_row,
                                 param.n_col,
                                 param.n_centers,
-                                allocator,
                                 stream,
                                 true,
                                 nullptr,
@@ -79,7 +76,6 @@ class EpsNeighTest : public ::testing::TestWithParam<EpsInputs<T, IdxT>> {
   bool* adj;
   IdxT *labels, *vd;
   IdxT batchSize;
-  std::shared_ptr<raft::mr::device::allocator> allocator;
 };  // class EpsNeighTest
 
 const std::vector<EpsInputs<float, int>> inputsfi = {
