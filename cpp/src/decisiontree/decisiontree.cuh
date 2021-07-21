@@ -30,6 +30,7 @@
 #include <locale>
 #include <map>
 #include <numeric>
+#include <raft/handle.hpp>
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/host/allocator.hpp>
 #include <random>
@@ -289,11 +290,6 @@ class DecisionTree {
       (std::numeric_limits<L>::is_integer) ? CRITERION::ENTROPY : CRITERION::MSE;
 
     validity_check(tree_params);
-    if (tree_params.n_bins > n_sampled_rows) {
-      CUML_LOG_WARN("Calling with number of bins > number of rows!");
-      CUML_LOG_WARN("Resetting n_bins to %d.", n_sampled_rows);
-      tree_params.n_bins = n_sampled_rows;
-    }
 
     if (tree_params.split_criterion ==
         CRITERION::CRITERION_END) {  // Set default to GINI (classification) or MSE (regression)

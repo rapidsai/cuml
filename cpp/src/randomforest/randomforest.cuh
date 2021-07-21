@@ -330,64 +330,6 @@ class RandomForest {
   }
 
   /**
-   * @brief Predict target features for input data for each estimator seperately without ensembling
-   * @param[in] user_handle: raft::handle_t.
-   * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
-   * @param[in] n_rows: number of  data samples.
-   * @param[in] n_cols: number of features (excluding target feature).
-   * @param[in, out] predictions: n_rows predicted labels. GPU pointer, user allocated.
-   * @param[in] verbosity: verbosity level for logging messages during execution
-   */
-  void predictGetAll(const raft::handle_t& user_handle,
-                     const T* input,
-                     int n_rows,
-                     int n_cols,
-                     L* predictions,
-                     const RandomForestMetaData<T, L>* forest,
-                     int verbosity)
-  {
-    // ASSERT(rf_type == RF_type::CLASSIFICATION, "This method does not supported for regression
-    // task ");
-    ML::Logger::get().setLevel(verbosity);
-    int num_trees = this->rf_params.n_trees;
-    std::vector<L> h_predictions(n_rows * num_trees);
-
-    std::vector<T> h_input(n_rows * n_cols);
-    cudaStream_t stream = user_handle.get_stream();
-    raft::update_host(h_input.data(), input, n_rows * n_cols, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-
-    int row_size = n_cols;
-    int pred_id  = 0;
-
-    for (int row_id = 0; row_id < n_rows; row_id++) {
-      if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
-        std::stringstream ss;
-        ss << "Predict for sample: ";
-        for (int i = 0; i < n_cols; i++)
-          ss << h_input[row_id * row_size + i] << ", ";
-        CUML_LOG_DEBUG(ss.str().c_str());
-      }
-
-      for (int i = 0; i < num_trees; i++) {
-        L prediction;
-        trees[i].predict(user_handle,
-                         &forest->trees[i],
-                         &h_input[row_id * row_size],
-                         1,
-                         n_cols,
-                         &prediction,
-                         verbosity);
-        h_predictions[pred_id] = prediction;
-        pred_id++;
-      }
-    }
-
-    raft::update_device(predictions, h_predictions.data(), n_rows * num_trees, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-  }
-
-  /**
    * @brief Predict target feature for input data and score against ref_labels.
    * @param[in] user_handle: raft::handle_t.
    * @param[in] input: test data (n_rows samples, n_cols features) in row major format. GPU pointer.
@@ -428,8 +370,7 @@ class RandomForest {
                                           mean_abs_error,
                                           mean_squared_error,
                                           median_abs_error);
-      RF_metrics stats =
-        set_rf_metrics_regression(mean_abs_error, mean_squared_error, median_abs_error);
+      stats = set_rf_metrics_regression(mean_abs_error, mean_squared_error, median_abs_error);
       if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) print(stats);
     }
 
