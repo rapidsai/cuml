@@ -15,6 +15,7 @@
  */
 
 #pragma once
+
 #include <common/Timer.h>
 #include <cuml/tree/algo_helper.h>
 #include <cuml/tree/flatnode.h>
@@ -24,20 +25,22 @@
 #include <algorithm>
 #include <climits>
 #include <common/iota.cuh>
+#include <common/nvtx.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/tree/decisiontree.hpp>
 #include <iomanip>
 #include <locale>
 #include <map>
 #include <numeric>
+#include <raft/handle.hpp>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/host/allocator.hpp>
 #include <random>
 #include <type_traits>
 #include <vector>
 #include "batched-levelalgo/builder.cuh"
 #include "quantile/quantile.h"
 #include "treelite_util.h"
-
-#include <common/nvtx.hpp>
 
 /** check for treelite runtime API errors and assert accordingly */
 #define TREELITE_CHECK(call)                                                                     \
@@ -287,11 +290,6 @@ class DecisionTree {
       (std::numeric_limits<L>::is_integer) ? CRITERION::ENTROPY : CRITERION::MSE;
 
     validity_check(tree_params);
-    if (tree_params.n_bins > n_sampled_rows) {
-      CUML_LOG_WARN("Calling with number of bins > number of rows!");
-      CUML_LOG_WARN("Resetting n_bins to %d.", n_sampled_rows);
-      tree_params.n_bins = n_sampled_rows;
-    }
 
     if (tree_params.split_criterion ==
         CRITERION::CRITERION_END) {  // Set default to GINI (classification) or MSE (regression)

@@ -58,7 +58,13 @@ struct FixConnectivitiesRedOp {
         colors[rit] != colors[other.key]) {
       value_t core_dist_rit   = core_dists[rit];
       value_t core_dist_other = max(core_dist_rit, max(core_dists[other.key], other.value));
-      value_t core_dist_out   = max(core_dist_rit, max(core_dists[out->key], out->value));
+
+      value_t core_dist_out;
+      if (out->key > -1) {
+        core_dist_out = max(core_dist_rit, max(core_dists[out->key], out->value));
+      } else {
+        core_dist_out = out->value;
+      }
 
       bool smaller = core_dist_other < core_dist_out;
       out->key     = smaller ? other.key : out->key;

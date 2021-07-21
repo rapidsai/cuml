@@ -89,14 +89,13 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
 
     CompilerHandle compiler;
     // "ast_navive" is the default compiler treelite used in their Python code.
-    TREELITE_CHECK(TreeliteCompilerCreate("ast_native", &compiler));
+    TREELITE_CHECK(TreeliteCompilerCreateV2("ast_native", "{}", &compiler));
 
-    int verbose = 0;
     // Generate C code in the directory specified below.
     // The parallel comilplation is disabled. To enable it, one needs to specify parallel_comp of
     // CompilerHandle. Treelite will create a directory if it doesn't exist.
     TREELITE_CHECK(
-      TreeliteCompilerGenerateCode(compiler, treelite_indiv_handles[0], verbose, dir_name.c_str()));
+      TreeliteCompilerGenerateCodeV2(compiler, treelite_indiv_handles[0], dir_name.c_str()));
     TREELITE_CHECK(TreeliteCompilerFree(compiler));
 
     // Options copied from
@@ -135,6 +134,7 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
     // avoid seg faults. Altough later we only use first params.n_inference_rows elements.
     size_t treelite_predicted_labels_size;
 
+    int verbose = 0;
     TREELITE_CHECK(TreelitePredictorPredictBatch(predictor,
                                                  dmat,
                                                  verbose,
@@ -222,12 +222,9 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle->set_stream(stream);
 
-    forest = new typename ML::RandomForestMetaData<T, L>;
-    null_trees_ptr(forest);
-    forest_2 = new typename ML::RandomForestMetaData<T, L>;
-    null_trees_ptr(forest_2);
-    forest_3 = new typename ML::RandomForestMetaData<T, L>;
-    null_trees_ptr(forest_3);
+    forest          = new typename ML::RandomForestMetaData<T, L>;
+    forest_2        = new typename ML::RandomForestMetaData<T, L>;
+    forest_3        = new typename ML::RandomForestMetaData<T, L>;
     all_forest_info = {forest, forest_2, forest_3};
     data_h.resize(data_len);
     inference_data_h.resize(inference_data_len);
