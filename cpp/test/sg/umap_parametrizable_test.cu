@@ -53,7 +53,7 @@ __global__ void has_nan_kernel(T* data, size_t len, bool* answer)
 {
   static_assert(std::is_floating_point<T>());
   std::size_t tid = threadIdx.x + blockIdx.x * blockDim.x;
-  if ((tid < len) && (data[tid] != data[tid])) { *answer = true; }
+  if ((tid < len) && isnan(data[tid])) { *answer = true; }
 }
 
 template <typename T>
