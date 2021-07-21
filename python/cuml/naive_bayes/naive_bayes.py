@@ -263,7 +263,7 @@ class _BaseNB(Base, ClassifierMixin):
 
 class _BaseDiscreteNB(_BaseNB):
 
-    def __init__(self, *, class_prior, verbose=False,
+    def __init__(self, *, class_prior=None, verbose=False,
                  handle=None, output_type=None):
         super(_BaseDiscreteNB, self).__init__(verbose=verbose,
                                               handle=handle,
@@ -552,6 +552,11 @@ class _BaseDiscreteNB(_BaseNB):
         self.feature_count_ = self.feature_count_ + counts
         self.class_count_ = self.class_count_ + class_c
 
+    def get_param_names(self):
+        return super().get_param_names() + \
+            [
+                "class_prior"
+            ]
 
 class MultinomialNB(_BaseDiscreteNB):
 
@@ -688,7 +693,6 @@ class MultinomialNB(_BaseDiscreteNB):
             [
                 "alpha",
                 "fit_prior",
-                "class_prior",
             ]
 
 
@@ -837,5 +841,4 @@ class BernoulliNB(_BaseDiscreteNB):
                 "alpha",
                 "binarize",
                 "fit_prior",
-                "class_prior",
             ]
