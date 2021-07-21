@@ -158,7 +158,6 @@ struct Split {
         atomicCAS(mutex, 1, 0);
       }
     }
-    __syncthreads();
   }
 };  // struct Split
 
