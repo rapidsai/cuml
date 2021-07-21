@@ -18,6 +18,7 @@
 
 #include <label/merge_labels.cuh>
 
+#include <raft/handle.hpp>
 namespace ML {
 namespace Dbscan {
 namespace MergeLabels {

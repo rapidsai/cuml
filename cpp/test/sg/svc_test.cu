@@ -1224,41 +1224,44 @@ TYPED_TEST(SmoSolverTest, MemoryLeak)
 
 TYPED_TEST(SmoSolverTest, DISABLED_MillionRows)
 {
-  // Stress test the kernel matrix calculation by calculating a kernel tile
-  // with more the 2.8B elemnts. This would fail with int32 adressing. The test
-  // is currently disabled because the memory usage might be prohibitive on CI
-  // The test will be enabled once https://github.com/rapidsai/cuml/pull/2449
-  // is merged, that PR would reduce the kernel tile memory size.
-  std::vector<std::pair<blobInput, TypeParam>> data{
-    {blobInput{1, 0.001, KernelParams{RBF, 3, 1, 0}, 2800000, 4}, 98},
-    {blobInput{1, 0.001, KernelParams{LINEAR, 3, 1, 0}, 2800000, 4}, 98},
-    {blobInput{1, 0.001, KernelParams{POLYNOMIAL, 3, 1, 0}, 2800000, 4}, 98},
-    {blobInput{1, 0.001, KernelParams{TANH, 3, 1, 0}, 2800000, 4}, 98}};
-  auto allocator = this->handle.get_device_allocator();
-
   if (sizeof(TypeParam) == 8) {
     GTEST_SKIP();  // Skip the test for double imput
-  }
-  for (auto d : data) {
-    auto p = d.first;
-    SCOPED_TRACE(p);
-    // explicit centers for the blobs
-    device_buffer<float> centers(allocator, this->stream, 2 * p.n_cols);
-    thrust::device_ptr<float> thrust_ptr(centers.data());
-    thrust::fill(thrust::cuda::par.on(this->stream), thrust_ptr, thrust_ptr + p.n_cols, -5.0f);
-    thrust::fill(
-      thrust::cuda::par.on(this->stream), thrust_ptr + p.n_cols, thrust_ptr + 2 * p.n_cols, +5.0f);
+  } else {
+    // Stress test the kernel matrix calculation by calculating a kernel tile
+    // with more the 2.8B elemnts. This would fail with int32 adressing. The test
+    // is currently disabled because the memory usage might be prohibitive on CI
+    // The test will be enabled once https://github.com/rapidsai/cuml/pull/2449
+    // is merged, that PR would reduce the kernel tile memory size.
+    std::vector<std::pair<blobInput, TypeParam>> data{
+      {blobInput{1, 0.001, KernelParams{RBF, 3, 1, 0}, 2800000, 4}, 98},
+      {blobInput{1, 0.001, KernelParams{LINEAR, 3, 1, 0}, 2800000, 4}, 98},
+      {blobInput{1, 0.001, KernelParams{POLYNOMIAL, 3, 1, 0}, 2800000, 4}, 98},
+      {blobInput{1, 0.001, KernelParams{TANH, 3, 1, 0}, 2800000, 4}, 98}};
+    auto allocator = this->handle.get_device_allocator();
 
-    device_buffer<TypeParam> x(allocator, this->stream, p.n_rows * p.n_cols);
-    device_buffer<TypeParam> y(allocator, this->stream, p.n_rows);
-    device_buffer<TypeParam> y_pred(allocator, this->stream, p.n_rows);
-    make_blobs(this->handle, x.data(), y.data(), p.n_rows, p.n_cols, 2, centers.data());
-    const int max_iter = 2;
-    SVC<TypeParam> svc(
-      this->handle, p.C, p.tol, p.kernel_params, 0, max_iter, 50, CUML_LEVEL_DEBUG);
-    svc.fit(x.data(), p.n_rows, p.n_cols, y.data());
-    // predict on the same dataset
-    svc.predict(x.data(), p.n_rows, p.n_cols, y_pred.data());
+    for (auto d : data) {
+      auto p = d.first;
+      SCOPED_TRACE(p);
+      // explicit centers for the blobs
+      device_buffer<float> centers(allocator, this->stream, 2 * p.n_cols);
+      thrust::device_ptr<float> thrust_ptr(centers.data());
+      thrust::fill(thrust::cuda::par.on(this->stream), thrust_ptr, thrust_ptr + p.n_cols, -5.0f);
+      thrust::fill(thrust::cuda::par.on(this->stream),
+                   thrust_ptr + p.n_cols,
+                   thrust_ptr + 2 * p.n_cols,
+                   +5.0f);
+
+      device_buffer<TypeParam> x(allocator, this->stream, p.n_rows * p.n_cols);
+      device_buffer<TypeParam> y(allocator, this->stream, p.n_rows);
+      device_buffer<TypeParam> y_pred(allocator, this->stream, p.n_rows);
+      make_blobs(this->handle, x.data(), y.data(), p.n_rows, p.n_cols, 2, centers.data());
+      const int max_iter = 2;
+      SVC<TypeParam> svc(
+        this->handle, p.C, p.tol, p.kernel_params, 0, max_iter, 50, CUML_LEVEL_DEBUG);
+      svc.fit(x.data(), p.n_rows, p.n_cols, y.data());
+      // predict on the same dataset
+      svc.predict(x.data(), p.n_rows, p.n_cols, y_pred.data());
+    }
   }
 }
 

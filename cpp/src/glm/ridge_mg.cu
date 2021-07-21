@@ -14,18 +14,21 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
 #include <cuml/linear_model/preprocess_mg.hpp>
 #include <cuml/linear_model/ridge_mg.hpp>
+
 #include <opg/linalg/mv_aTb.hpp>
 #include <opg/linalg/svd.hpp>
 #include <opg/stats/mean.hpp>
+
+#include <raft/cudart_utils.h>
 #include <raft/comms/comms.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
+
 #include <rmm/device_uvector.hpp>
 
 using namespace MLCommon;
@@ -48,10 +51,6 @@ void ridgeSolve(const raft::handle_t& handle,
                 int n_streams,
                 bool verbose)
 {
-  auto cublasH     = handle.get_cublas_handle();
-  auto cusolverH   = handle.get_cusolver_dn_handle();
-  const auto& comm = handle.get_comms();
-
   // Implements this: w = V * inv(S^2 + λ*I) * S * U^T * b
   T* S_nnz;
   T alp   = T(1);
@@ -102,9 +101,7 @@ void ridgeEig(raft::handle_t& handle,
               int n_streams,
               bool verbose)
 {
-  const auto& comm                         = handle.get_comms();
-  const cublasHandle_t cublas_handle       = handle.get_cublas_handle();
-  const cusolverDnHandle_t cusolver_handle = handle.get_cusolver_dn_handle();
+  const auto& comm = handle.get_comms();
 
   int rank = comm.get_rank();
 
@@ -116,7 +113,7 @@ void ridgeEig(raft::handle_t& handle,
   std::vector<Matrix::RankSizePair*> partsToRanks = ADesc.blocksOwnedBy(rank);
   size_t total_size                               = 0;
 
-  for (int i = 0; i < partsToRanks.size(); i++) {
+  for (std::size_t i = 0; i < partsToRanks.size(); i++) {
     total_size += partsToRanks[i]->size;
   }
   total_size = total_size * ADesc.N;
@@ -124,7 +121,7 @@ void ridgeEig(raft::handle_t& handle,
   rmm::device_uvector<T> U_parts(total_size, streams[0]);
   T* curr_ptr = U_parts.data();
 
-  for (int i = 0; i < partsToRanks.size(); i++) {
+  for (std::size_t i = 0; i < partsToRanks.size(); i++) {
     Matrix::Data<T> d;
     d.totalSize = partsToRanks[i]->size;
     d.ptr       = curr_ptr;
@@ -132,7 +129,7 @@ void ridgeEig(raft::handle_t& handle,
     U_temp.push_back(d);
   }
 
-  for (int i = 0; i < A.size(); i++) {
+  for (std::size_t i = 0; i < A.size(); i++) {
     U.push_back(&(U_temp[i]));
   }
 
@@ -291,7 +288,7 @@ void predict_impl(raft::handle_t& handle,
   T alpha                                         = T(1);
   T beta                                          = T(0);
 
-  for (int i = 0; i < input_data.size(); i++) {
+  for (std::size_t i = 0; i < input_data.size(); i++) {
     int si = i % n_streams;
     raft::linalg::gemm(handle,
                        input_data[i]->ptr,

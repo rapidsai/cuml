@@ -14,14 +14,18 @@
  * limitations under the License.
  */
 
-#include <algorithm>
-#include <cmath>
+#include "common.cuh"
+
+#include <fil/internal.cuh>
+
+#include <cuml/fil/multi_sum.cuh>
 
 #include <raft/cudart_utils.h>
+
 #include <thrust/functional.h>
-#include <cuml/fil/multi_sum.cuh>
-#include <fil/internal.cuh>
-#include "common.cuh"
+
+#include <algorithm>
+#include <cmath>
 
 namespace ML {
 namespace fil {

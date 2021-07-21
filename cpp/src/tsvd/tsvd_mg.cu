@@ -14,22 +14,25 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
+#include "tsvd.cuh"
+
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/decomposition/sign_flip_mg.hpp>
 #include <cuml/decomposition/tsvd.hpp>
 #include <cuml/decomposition/tsvd_mg.hpp>
+
 #include <opg/linalg/mm_aTa.hpp>
 #include <opg/stats/mean.hpp>
 #include <opg/stats/mean_center.hpp>
 #include <opg/stats/stddev.hpp>
+
+#include <raft/cudart_utils.h>
 #include <raft/comms/comms.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/mr/device/allocator.hpp>
 #include <raft/stats/mean_center.cuh>
-#include "tsvd.cuh"
 
 using namespace MLCommon;
 
@@ -135,12 +138,11 @@ void transform_impl(raft::handle_t& handle,
 {
   int rank = handle.get_comms().get_rank();
 
-  cublasHandle_t cublas_h = handle.get_cublas_handle();
-  const auto allocator    = handle.get_device_allocator();
+  const auto allocator = handle.get_device_allocator();
 
   std::vector<Matrix::RankSizePair*> local_blocks = input_desc.blocksOwnedBy(rank);
 
-  for (int i = 0; i < input.size(); i++) {
+  for (std::size_t i = 0; i < input.size(); i++) {
     int si = i % n_streams;
 
     T alpha = T(1);
@@ -223,11 +225,10 @@ void inverse_transform_impl(raft::handle_t& handle,
                             int n_streams,
                             bool verbose)
 {
-  cublasHandle_t cublas_h                         = handle.get_cublas_handle();
   const auto allocator                            = handle.get_device_allocator();
   std::vector<Matrix::RankSizePair*> local_blocks = trans_input_desc.partsToRanks;
 
-  for (int i = 0; i < local_blocks.size(); i++) {
+  for (std::size_t i = 0; i < local_blocks.size(); i++) {
     int si  = i % n_streams;
     T alpha = T(1);
     T beta  = T(0);

@@ -16,13 +16,6 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
-#include <common/nvtx.hpp>
-#include <cuml/common/device_buffer.hpp>
-#include <label/classlabels.cuh>
-#include <raft/cuda_utils.cuh>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/sparse/csr.cuh>
 #include "adjgraph/runner.cuh"
 #include "corepoints/compute.cuh"
 #include "corepoints/exchange.cuh"
@@ -30,7 +23,17 @@
 #include "mergelabels/tree_reduction.cuh"
 #include "vertexdeg/runner.cuh"
 
+#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
+
+#include <common/nvtx.hpp>
+
+#include <label/classlabels.cuh>
+
+#include <raft/cudart_utils.h>
+#include <raft/cuda_utils.cuh>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/sparse/csr.cuh>
 
 namespace ML {
 namespace Dbscan {
@@ -302,13 +305,12 @@ size_t run(const raft::handle_t& handle,
 
       // Perform stream reduction on the core points. The core_pts acts as the stencil and we use
       // thrust::counting_iterator to return the index
-      auto core_point_count =
-        thrust::copy_if(thrust_exec_policy,
-                        index_iterator,
-                        index_iterator + N,
-                        dev_core_pts,
-                        dev_core_indices,
-                        [=] __device__(const bool is_core_point) { return is_core_point; });
+      thrust::copy_if(thrust_exec_policy,
+                      index_iterator,
+                      index_iterator + N,
+                      dev_core_pts,
+                      dev_core_indices,
+                      [=] __device__(const bool is_core_point) { return is_core_point; });
 
       ML::POP_RANGE();
     }

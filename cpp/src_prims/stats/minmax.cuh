@@ -17,8 +17,9 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
-#include <limits>
 #include <raft/cuda_utils.cuh>
+
+#include <limits>
 
 namespace MLCommon {
 namespace Stats {
@@ -39,26 +40,36 @@ struct encode_traits<double> {
 
 HDI int encode(float val)
 {
-  int i = *(int*)&val;
+  int i{};
+  static_assert(sizeof(i) == sizeof(val));
+  memcpy(&i, &val, sizeof(i));  // int i = *(int*)&val;
   return i >= 0 ? i : (1 << 31) | ~i;
 }
 
 HDI long long encode(double val)
 {
-  long long i = *(long long*)&val;
+  std::int64_t i{};
+  static_assert(sizeof(i) == sizeof(val));
+  memcpy(&i, &val, sizeof(i));  // long long i = *(long long*)&val;
   return i >= 0 ? i : (1ULL << 63) | ~i;
 }
 
 HDI float decode(int val)
 {
   if (val < 0) val = (1 << 31) | ~val;
-  return *(float*)&val;
+  float f{};
+  static_assert(sizeof(f) == sizeof(val));
+  memcpy(&f, &val, sizeof(f));
+  return f;
 }
 
 HDI double decode(long long val)
 {
   if (val < 0) val = (1ULL << 63) | ~val;
-  return *(double*)&val;
+  double d{};
+  static_assert(sizeof(d) == sizeof(val));
+  memcpy(&d, &val, sizeof(d));
+  return d;
 }
 
 template <typename T, typename E>

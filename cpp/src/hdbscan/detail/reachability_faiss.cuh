@@ -39,6 +39,9 @@
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/MatrixMult.cuh>
 
+#include <raft/cuda_utils.cuh>
+#include <raft/handle.hpp>
+
 #include <rmm/device_uvector.hpp>
 
 namespace ML {
@@ -306,31 +309,31 @@ void mutual_reachability_knn_l2(const raft::handle_t& handle,
   bool interrupt = false;
 
   // Tile over the input queries
-  for (int i = 0; i < m; i += tileRows) {
+  for (std::size_t i = 0; i < m; i += tileRows) {
     if (interrupt || faiss::InterruptCallback::is_interrupted()) {
       interrupt = true;
       break;
     }
 
-    int curQuerySize = std::min((size_t)tileRows, m - i);
+    int curQuerySize = std::min(static_cast<std::size_t>(tileRows), m - i);
 
     auto outDistanceView = out_dists_tensor.narrow(0, i, curQuerySize);
     auto outIndexView    = out_inds_tensor.narrow(0, i, curQuerySize);
 
-    auto queryView     = x_tensor.narrow(0, i, curQuerySize);
-    auto queryNormNiew = norms_tensor.narrow(0, i, curQuerySize);
+    auto queryView = x_tensor.narrow(0, i, curQuerySize);
+    norms_tensor.narrow(0, i, curQuerySize);
 
     auto outDistanceBufRowView = outDistanceBufs[curStream]->narrow(0, 0, curQuerySize);
     auto outIndexBufRowView    = outIndexBufs[curStream]->narrow(0, 0, curQuerySize);
 
     // Tile over the centroids
-    for (int j = 0; j < m; j += tileCols) {
+    for (std::size_t j = 0; j < m; j += tileCols) {
       if (faiss::InterruptCallback::is_interrupted()) {
         interrupt = true;
         break;
       }
 
-      int curCentroidSize = std::min((size_t)tileCols, m - j);
+      int curCentroidSize = std::min(static_cast<std::size_t>(tileCols), m - j);
       int curColTile      = j / tileCols;
 
       auto centroidsView = sliceCentroids(x_tensor, true, j, curCentroidSize);
@@ -352,7 +355,7 @@ void mutual_reachability_knn_l2(const raft::handle_t& handle,
                     gpu_res->getBlasHandleCurrentDevice(),
                     streams[curStream]);
 
-      if (tileCols == m) {
+      if (static_cast<std::size_t>(tileCols) == m) {
         // Write into the final output
         runL2SelectMin<value_t>(distanceBufView,
                                 norms_tensor,
@@ -364,7 +367,7 @@ void mutual_reachability_knn_l2(const raft::handle_t& handle,
                                 alpha,
                                 streams[curStream]);
       } else {
-        auto centroidNormsView = norms_tensor.narrow(0, j, curCentroidSize);
+        norms_tensor.narrow(0, j, curCentroidSize);
 
         // Write into our intermediate output
         runL2SelectMin<value_t>(distanceBufView,
@@ -381,7 +384,7 @@ void mutual_reachability_knn_l2(const raft::handle_t& handle,
 
     // As we're finished with processing a full set of centroids, perform
     // the final k-selection
-    if (tileCols != m) {
+    if (static_cast<std::size_t>(tileCols) != m) {
       // The indices are tile-relative; for each tile of k, we need to add
       // tileCols to the index
       faiss::gpu::runIncrementIndex(outIndexBufRowView, k, tileCols, streams[curStream]);

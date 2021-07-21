@@ -16,16 +16,18 @@
 
 #pragma once
 
-#include <random>
-#include <unordered_set>
-#include <vector>
+#include "rproj_utils.cuh"
 
 #include <cuml/random_projection/rproj_c.h>
+
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
-#include "rproj_utils.cuh"
+
+#include <random>
+#include <unordered_set>
+#include <vector>
 
 namespace ML {
 
@@ -85,7 +87,7 @@ void sparse_random_matrix(const raft::handle_t& h,
     size_t indices_idx = 0;
     size_t indptr_idx  = 0;
 
-    for (size_t i = 0; i < params.n_components; i++) {
+    for (int i = 0; i < params.n_components; i++) {
       int n_nonzero = binomial(h, params.n_features, params.density, params.random_state);
       sample_without_replacement(params.n_features, n_nonzero, indices, indices_idx);
       indptr[indptr_idx] = offset;

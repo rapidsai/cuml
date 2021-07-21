@@ -19,7 +19,12 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/ensemble/treelite_defs.hpp>
 #include <cuml/tree/decisiontree.hpp>
+
 #include <map>
+
+namespace raft {
+class handle_t;  // forward decl
+}
 
 namespace ML {
 

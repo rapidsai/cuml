@@ -24,7 +24,6 @@
 #include <raft/spatial/knn/knn.hpp>
 #include <selection/knn.cuh>
 
-#include <cuda_runtime.h>
 #include <raft/cuda_utils.cuh>
 
 #include <sstream>
@@ -102,7 +101,7 @@ void knn_classify(raft::handle_t& handle,
   std::vector<int*> uniq_labels(y.size());
   std::vector<int> n_unique(y.size());
 
-  for (int i = 0; i < y.size(); i++) {
+  for (std::size_t i = 0; i < y.size(); i++) {
     MLCommon::Label::getUniqueLabels(
       y[i], n_index_rows, &(uniq_labels[i]), &(n_unique[i]), stream, d_alloc);
   }
@@ -137,7 +136,7 @@ void knn_class_proba(raft::handle_t& handle,
   std::vector<int*> uniq_labels(y.size());
   std::vector<int> n_unique(y.size());
 
-  for (int i = 0; i < y.size(); i++) {
+  for (std::size_t i = 0; i < y.size(); i++) {
     MLCommon::Label::getUniqueLabels(
       y[i], n_index_rows, &(uniq_labels[i]), &(n_unique[i]), stream, d_alloc);
   }

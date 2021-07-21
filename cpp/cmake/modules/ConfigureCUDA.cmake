@@ -25,8 +25,8 @@ endif()
 list(APPEND CUML_CUDA_FLAGS --expt-extended-lambda --expt-relaxed-constexpr)
 
 # set warnings as errors
-# list(APPEND CUML_CUDA_FLAGS -Werror=cross-execution-space-call)
-# list(APPEND CUML_CUDA_FLAGS -Xcompiler=-Wall,-Werror,-Wno-error=deprecated-declarations)
+list(APPEND CUML_CUDA_FLAGS -Werror=cross-execution-space-call, -Wno-error=unknown-pragmas)
+list(APPEND CUML_CUDA_FLAGS -Xcompiler=-Wall,-Werror,-Wno-error=deprecated-declarations)
 
 if(DISABLE_DEPRECATION_WARNING)
     list(APPEND CUML_CXX_FLAGS -Wno-deprecated-declarations)

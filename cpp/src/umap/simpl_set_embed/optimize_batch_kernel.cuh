@@ -16,9 +16,11 @@
 
 #pragma once
 
-#include <cuml/manifold/umapparams.h>
-#include <raft/cudart_utils.h>
 #include <common/fast_int_div.cuh>
+
+#include <cuml/manifold/umapparams.h>
+
+#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/random/rng.cuh>
 
@@ -368,9 +370,9 @@ void call_optimize_batch_kernel(T const* head_embedding,
                                 cudaStream_t& stream,
                                 T rounding)
 {
-  size_t requiredSize = TPB_X * params->n_components;
+  std::size_t requiredSize = TPB_X * params->n_components;
   requiredSize *= sizeof(T);
-  bool use_shared_mem = requiredSize < raft::getSharedMemPerBlock();
+  bool use_shared_mem = requiredSize < static_cast<std::size_t>(raft::getSharedMemPerBlock());
   T nsr_inv           = T(1.0) / params->negative_sample_rate;
   if (params->n_components == 2) {
     // multicore implementation with registers

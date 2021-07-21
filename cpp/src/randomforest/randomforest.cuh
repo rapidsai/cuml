@@ -15,24 +15,32 @@
  */
 
 #pragma once
-#include <decisiontree/treelite_util.h>
-#include <raft/cudart_utils.h>
-#include <cuml/common/device_buffer.hpp>
-#include <cuml/common/logger.hpp>
-#include <cuml/ensemble/randomforest.hpp>
-#include <decisiontree/decisiontree.cuh>
-#include <decisiontree/quantile/quantile.cuh>
-#include <map>
-#include <metrics/scores.cuh>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/random/rng.cuh>
-#include <random/permute.cuh>
 
 #include <common/nvtx.hpp>
 
-#ifndef _OPENMP
-#define omp_get_thread_num() 0
+#include <decisiontree/treelite_util.h>
+#include <decisiontree/decisiontree.cuh>
+#include <decisiontree/quantile/quantile.cuh>
+
+#include <cuml/common/device_buffer.hpp>
+#include <cuml/common/logger.hpp>
+#include <cuml/ensemble/randomforest.hpp>
+
+#include <metrics/scores.cuh>
+#include <random/permute.cuh>
+
+#include <raft/cudart_utils.h>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/random/rng.cuh>
+
+#ifdef _OPENMP
+#include <omp.h>
+#else
+#define omp_get_thread_num()  0
+#define omp_get_max_threads() 1
 #endif
+
+#include <map>
 
 namespace ML {
 

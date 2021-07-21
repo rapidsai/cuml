@@ -13,22 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifdef _OPENMP
-#include <omp.h>
-#else
-#define omp_get_max_threads() 1
-#endif
 
-#include <cuml/ensemble/randomforest.hpp>
+#include "randomforest.cuh"
 
 #include <cuml/tree/flatnode.h>
+#include <cuml/common/logger.hpp>
+#include <cuml/ensemble/randomforest.hpp>
+
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
 
-#include <cuml/common/logger.hpp>
 #include <raft/error.hpp>
-
-#include "randomforest.cuh"
 
 #include <cstdio>
 #include <cstring>
@@ -379,7 +374,7 @@ void compare_concat_forest_to_subforests(ModelHandle concat_tree_handle,
 {
   size_t concat_forest;
   size_t total_num_trees = 0;
-  for (int forest_idx = 0; forest_idx < treelite_handles.size(); forest_idx++) {
+  for (std::size_t forest_idx = 0; forest_idx < treelite_handles.size(); forest_idx++) {
     size_t num_trees_each_forest;
     TREELITE_CHECK(TreeliteQueryNumTree(treelite_handles[forest_idx], &num_trees_each_forest));
     total_num_trees = total_num_trees + num_trees_each_forest;
@@ -393,7 +388,7 @@ void compare_concat_forest_to_subforests(ModelHandle concat_tree_handle,
 
   int concat_mod_tree_num = 0;
   tl::Model& concat_model = *(tl::Model*)(concat_tree_handle);
-  for (int forest_idx = 0; forest_idx < treelite_handles.size(); forest_idx++) {
+  for (std::size_t forest_idx = 0; forest_idx < treelite_handles.size(); forest_idx++) {
     tl::Model& model = *(tl::Model*)(treelite_handles[forest_idx]);
 
     ASSERT(concat_model.GetThresholdType() == model.GetThresholdType(),
@@ -416,7 +411,7 @@ void compare_concat_forest_to_subforests(ModelHandle concat_tree_handle,
       // model_inner is of the concrete type tl::ModelImpl<T, L>
       using model_type         = std::remove_reference_t<decltype(model_inner)>;
       auto& concat_model_inner = dynamic_cast<model_type&>(concat_model);
-      for (int indiv_trees = 0; indiv_trees < model_inner.trees.size(); indiv_trees++) {
+      for (std::size_t indiv_trees = 0; indiv_trees < model_inner.trees.size(); indiv_trees++) {
         compare_trees(concat_model_inner.trees[concat_mod_tree_num + indiv_trees],
                       model_inner.trees[indiv_trees]);
       }
@@ -442,7 +437,7 @@ ModelHandle concatenate_trees(std::vector<ModelHandle> treelite_handles)
     auto* concat_model = dynamic_cast<model_type*>(
       tl::Model::Create(first_model_inner.GetThresholdType(), first_model_inner.GetLeafOutputType())
         .release());
-    for (int forest_idx = 0; forest_idx < treelite_handles.size(); forest_idx++) {
+    for (std::size_t forest_idx = 0; forest_idx < treelite_handles.size(); forest_idx++) {
       tl::Model& model  = *(tl::Model*)treelite_handles[forest_idx];
       auto& model_inner = dynamic_cast<model_type&>(model);
       for (const auto& tree : model_inner.trees) {

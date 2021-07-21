@@ -15,9 +15,11 @@
  */
 
 #pragma once
-#include <raft/cudart_utils.h>
+
 #include "hw_eval.cuh"
 #include "hw_utils.cuh"
+
+#include <raft/cudart_utils.h>
 
 template <typename Dtype>
 __device__ Dtype golden_step(Dtype a, Dtype b, Dtype c)
@@ -871,7 +873,7 @@ void holtwinters_optim_gpu(const raft::handle_t& handle,
   int threads_per_block = 128;
 
   // How much sm needed for shared kernel
-  size_t sm_needed  = sizeof(Dtype) * threads_per_block * frequency;
+  int sm_needed     = sizeof(Dtype) * threads_per_block * frequency;
   bool is_additive  = seasonal == ML::SeasonalType::ADDITIVE;
   bool single_param = (optim_alpha + optim_beta + optim_gamma > 1) ? false : true;
 

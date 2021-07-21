@@ -16,8 +16,10 @@
 
 #include <cuml/linear_model/ols_mg.hpp>
 #include <cuml/linear_model/preprocess_mg.hpp>
+
 #include <opg/linalg/lstsq.hpp>
 #include <opg/stats/mean.hpp>
+
 #include <raft/comms/comms.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/add.cuh>
@@ -26,6 +28,7 @@
 #include <raft/matrix/matrix.cuh>
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/host/allocator.hpp>
+
 #include <rmm/device_uvector.hpp>
 
 using namespace MLCommon;
@@ -48,10 +51,6 @@ void fit_impl(raft::handle_t& handle,
               int n_streams,
               bool verbose)
 {
-  const auto& comm                   = handle.get_comms();
-  cublasHandle_t cublas_handle       = handle.get_cublas_handle();
-  cusolverDnHandle_t cusolver_handle = handle.get_cusolver_dn_handle();
-
   rmm::device_uvector<T> mu_input(0, streams[0]);
   rmm::device_uvector<T> norm2_input(0, streams[0]);
   rmm::device_uvector<T> mu_labels(0, streams[0]);
@@ -175,7 +174,7 @@ void predict_impl(raft::handle_t& handle,
   T alpha                                         = T(1);
   T beta                                          = T(0);
 
-  for (int i = 0; i < input_data.size(); i++) {
+  for (std::size_t i = 0; i < input_data.size(); i++) {
     int si = i % n_streams;
     raft::linalg::gemm(handle,
                        input_data[i]->ptr,

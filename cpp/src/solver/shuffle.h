@@ -16,12 +16,8 @@
 
 #pragma once
 
-#include <stdio.h>
-#include <stdlib.h>
 #include <algorithm>
-#include <iostream>
 #include <random>
-#include <sstream>
 
 namespace ML {
 namespace Solver {
@@ -30,7 +26,7 @@ template <typename math_t>
 void initShuffle(std::vector<math_t>& rand_indices, std::mt19937& g, math_t random_state = 0)
 {
   g.seed((int)random_state);
-  for (int i = 0; i < rand_indices.size(); ++i)
+  for (std::size_t i = 0; i < rand_indices.size(); ++i)
     rand_indices[i] = i;
 }
 

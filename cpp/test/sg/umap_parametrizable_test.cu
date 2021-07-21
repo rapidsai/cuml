@@ -14,27 +14,31 @@
  * limitations under the License.
  */
 
-#include <cuml/metrics/metrics.hpp>
+#include <test_utils.h>
 
-#include <gtest/gtest.h>
-#include <iostream>
-#include <vector>
+#include <type_traits>
+#include <umap/runner.cuh>
 
 #include <cuml/manifold/umapparams.h>
-#include <datasets/digits.h>
-#include <raft/cudart_utils.h>
-#include <test_utils.h>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/manifold/umap.hpp>
+#include <cuml/metrics/metrics.hpp>
 #include <cuml/neighbors/knn.hpp>
+
+#include <datasets/digits.h>
 #include <linalg/reduce_rows_by_key.cuh>
+#include <selection/knn.cuh>
+
+#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/distance/distance.cuh>
 #include <raft/handle.hpp>
 #include <raft/mr/device/allocator.hpp>
-#include <selection/knn.cuh>
-#include <umap/runner.cuh>
+
+#include <gtest/gtest.h>
+#include <iostream>
+#include <vector>
 
 using namespace ML;
 using namespace ML::Metrics;
@@ -47,10 +51,9 @@ using namespace MLCommon::Datasets::Digits;
 template <typename T>
 __global__ void has_nan_kernel(T* data, size_t len, bool* answer)
 {
-  int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  if (tid >= len) return;
-  bool val = data[tid];
-  if (val != val) { *answer = true; }
+  static_assert(std::is_floating_point<T>());
+  std::size_t tid = threadIdx.x + blockIdx.x * blockDim.x;
+  if ((tid < len) && (data[tid] != data[tid])) { *answer = true; }
 }
 
 template <typename T>
@@ -158,7 +161,8 @@ class UMAPParametrizableTest : public ::testing::Test {
     }
 
     float* model_embedding = nullptr;
-    device_buffer<float>* model_embedding_b;
+    device_buffer<float>* model_embedding_b{};
+
     if (test_params.fit_transform) {
       model_embedding = embedding_ptr;
     } else {

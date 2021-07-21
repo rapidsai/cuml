@@ -15,8 +15,12 @@
  */
 
 #pragma once
-#include <raft/cudart_utils.h>
+
+#include "cuml/common/device_buffer.hpp"
 #include "hw_utils.cuh"
+
+#include <raft/cudart_utils.h>
+#include <raft/handle.hpp>
 
 template <typename Dtype>
 __device__ Dtype holtwinters_eval_device(int tid,
@@ -252,7 +256,7 @@ void holtwinters_eval_gpu(const raft::handle_t& handle,
   int threads_per_block = GET_THREADS_PER_BLOCK(batch_size);
 
   // How much sm needed for shared kernel
-  size_t sm_needed = sizeof(Dtype) * threads_per_block * frequency;
+  int sm_needed    = sizeof(Dtype) * threads_per_block * frequency;
   bool is_additive = seasonal == ML::SeasonalType::ADDITIVE;
 
   if (sm_needed > raft::getSharedMemPerBlock()) {

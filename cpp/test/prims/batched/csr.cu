@@ -14,17 +14,19 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/mr/device/allocator.hpp>
-#include <random>
-#include <vector>
-
 #include <linalg_naive.h>
-#include <raft/cudart_utils.h>
 #include <test_utils.h>
+
 #include <linalg/batched/matrix.cuh>
 #include <sparse/batched/csr.cuh>
-#include "../test_utils.h"
+
+#include <raft/cudart_utils.h>
+#include <raft/mr/device/allocator.hpp>
+
+#include <gtest/gtest.h>
+
+#include <random>
+#include <vector>
 
 namespace MLCommon {
 namespace Sparse {
@@ -55,7 +57,9 @@ class CSRTest : public ::testing::TestWithParam<CSRInputs<T>> {
     params = ::testing::TestWithParam<CSRInputs<T>>::GetParam();
 
     // Check if the dimensions are valid and compute the output dimensions
-    int m_r, n_r;
+    int m_r{};
+    int n_r{};
+
     switch (params.operation) {
       case SpMV_op:
         ASSERT_TRUE(params.n == params.p);
@@ -97,10 +101,10 @@ class CSRTest : public ::testing::TestWithParam<CSRInputs<T>> {
     }
 
     // Generate random dense matrices/vectors
-    for (int i = 0; i < Bx.size(); i++)
+    for (std::size_t i = 0; i < Bx.size(); i++)
       Bx[i] = udis(gen);
     res_h.resize(params.batch_size * m_r * n_r);
-    for (int i = 0; i < res_h.size(); i++)
+    for (std::size_t i = 0; i < res_h.size(); i++)
       res_h[i] = udis(gen);
 
     // Create handles, stream, allocator
