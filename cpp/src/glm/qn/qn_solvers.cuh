@@ -69,7 +69,7 @@ inline size_t owlqn_workspace_size(const LBFGSParam<T>& param, const int n)
 }
 
 template <typename T>
-inline bool update_and_check(const std::string solver,
+inline bool update_and_check(const char* solver,
                              const LBFGSParam<T>& param,
                              int iter,
                              LINE_SEARCH_RETCODE lsret,
@@ -90,8 +90,9 @@ inline bool update_and_check(const std::string solver,
   // Linesearch may fail to converge, but still come closer to the solution;
   // if that is not the case, let `check_convergence` ("insufficient change")
   // below terminate the loop.
-  bool isLsInDoubt = lsret == LS_INVALID_STEP_MIN || lsret == LS_MAX_ITERS_REACHED;
-  bool isLsSuccess = lsret == LS_SUCCESS || isLsValid && fx <= fxp + param.ftol && isLsInDoubt;
+  bool isLsNonCritical = lsret == LS_INVALID_STEP_MIN || lsret == LS_MAX_ITERS_REACHED;
+  bool isLsInDoubt     = isLsValid && fx <= fxp + param.ftol && isLsNonCritical;
+  bool isLsSuccess     = lsret == LS_SUCCESS || isLsInDoubt;
 
   // if the target is at least finite, we can check the convergence
   if (isLsValid)
@@ -108,6 +109,14 @@ inline bool update_and_check(const std::string solver,
   } else if (converged) {
     CUML_LOG_DEBUG("%s converged", solver);
     outcode = OPT_SUCCESS;
+    stop    = true;
+  } else if (isLsInDoubt && fx + param.ftol >= fxp) {
+    CUML_LOG_WARN(
+      "%s stopped, because the line search failed to advance (step delta = %f); "
+      "perhaps, the convergence criteria are too strict?..",
+      solver,
+      fx - fxp);
+    outcode = OPT_LS_FAILED;
     stop    = true;
   }
 
