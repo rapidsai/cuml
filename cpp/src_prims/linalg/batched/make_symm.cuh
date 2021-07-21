@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,29 +22,27 @@ namespace MLCommon {
 namespace LinAlg {
 namespace Batched {
 
-static constexpr int TileDim = 32;
+static constexpr int TileDim   = 32;
 static constexpr int BlockRows = 8;
 
 // Ref: https://devblogs.nvidia.com/efficient-matrix-transpose-cuda-cc/
 ///@todo: special-case for blockIdx.x == blockIdx.y to reduce gmem traffic
 template <typename DataT, typename IdxT, typename EpilogueOp>
-__global__ void symmKernel(DataT* out, const DataT* in, IdxT batchSize, IdxT n,
-                           EpilogueOp op) {
+__global__ void symmKernel(DataT* out, const DataT* in, IdxT batchSize, IdxT n, EpilogueOp op)
+{
   __shared__ DataT smem[TileDim][TileDim + 1];  // +1 to avoid bank conflicts
   IdxT batchOffset = blockIdx.z * n * n;
-  IdxT myRowStart = blockIdx.y * TileDim + threadIdx.y;
-  IdxT myColStart = blockIdx.x * TileDim + threadIdx.x;
-  IdxT myIdx = batchOffset + myRowStart * n + myColStart;
+  IdxT myRowStart  = blockIdx.y * TileDim + threadIdx.y;
+  IdxT myColStart  = blockIdx.x * TileDim + threadIdx.x;
+  IdxT myIdx       = batchOffset + myRowStart * n + myColStart;
   // load the transpose part
   IdxT otherRowStart = blockIdx.x * TileDim + threadIdx.y;
   IdxT otherColStart = blockIdx.y * TileDim + threadIdx.x;
-  IdxT otherIdx = batchOffset + otherRowStart * n + otherColStart;
+  IdxT otherIdx      = batchOffset + otherRowStart * n + otherColStart;
   if (otherColStart < n) {
 #pragma unroll
     for (int i = 0; i < TileDim; i += BlockRows) {
-      if (otherRowStart + i < n) {
-        smem[threadIdx.y + i][threadIdx.x] = in[otherIdx + i * n];
-      }
+      if (otherRowStart + i < n) { smem[threadIdx.y + i][threadIdx.x] = in[otherIdx + i * n]; }
     }
   }
   __syncthreads();
@@ -53,7 +51,7 @@ __global__ void symmKernel(DataT* out, const DataT* in, IdxT batchSize, IdxT n,
     for (int i = 0; i < TileDim; i += BlockRows) {
       auto offset = myIdx + i * n;
       if (myRowStart + i < n) {
-        auto sum = smem[threadIdx.x][threadIdx.y + i] + in[offset];
+        auto sum    = smem[threadIdx.x][threadIdx.y + i] + in[offset];
         out[offset] = op(sum * DataT(0.5), offset);
       }
     }
@@ -73,15 +71,18 @@ __global__ void symmKernel(DataT* out, const DataT* in, IdxT batchSize, IdxT n,
  * @param stream cuda stream
  * @param op custom epilogue functor
  */
-template <typename DataT, typename IdxT,
-          typename EpilogueOp = raft::Nop<DataT, IdxT>>
-void make_symm(DataT* out, const DataT* in, IdxT batchSize, IdxT n,
-               cudaStream_t stream, EpilogueOp op = raft::Nop<DataT, IdxT>()) {
+template <typename DataT, typename IdxT, typename EpilogueOp = raft::Nop<DataT, IdxT>>
+void make_symm(DataT* out,
+               const DataT* in,
+               IdxT batchSize,
+               IdxT n,
+               cudaStream_t stream,
+               EpilogueOp op = raft::Nop<DataT, IdxT>())
+{
   dim3 blk(TileDim, BlockRows);
   auto nblks = raft::ceildiv<int>(n, TileDim);
   dim3 grid(nblks, nblks, batchSize);
-  symmKernel<DataT, IdxT, EpilogueOp>
-    <<<grid, blk, 0, stream>>>(out, in, batchSize, n, op);
+  symmKernel<DataT, IdxT, EpilogueOp><<<grid, blk, 0, stream>>>(out, in, batchSize, n, op);
   CUDA_CHECK(cudaGetLastError());
 }
 

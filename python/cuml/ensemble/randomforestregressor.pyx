@@ -117,6 +117,11 @@ class RandomForestRegressor(BaseRandomForestModel,
       histogram-based algorithm to determine splits, rather than an exact
       count. You can tune the size of the histograms with the n_bins parameter.
 
+    .. note:: You can export cuML Random Forest models and run predictions
+      with them on machines without an NVIDIA GPUs. See
+      https://docs.rapids.ai/api/cuml/nightly/pickling_cuml_models.html
+      for more details.
+
     **Known Limitations**: This is an early release of the cuML
     Random Forest code. It contains a few known limitations:
 
@@ -138,8 +143,8 @@ class RandomForestRegressor(BaseRandomForestModel,
         from cuml.test.utils import get_handle
         X = np.asarray([[0,10],[0,20],[0,30],[0,40]], dtype=np.float32)
         y = np.asarray([0.0,1.0,2.0,3.0], dtype=np.float32)
-        cuml_model = curfc(max_features=1.0, n_bins=8,
-                            split_algo=0, min_samples_leaf=1,
+        cuml_model = curfc(max_features=1.0, n_bins=128,
+                            min_samples_leaf=1,
                             min_samples_split=2,
                             n_estimators=40, accuracy_metric='r2')
         cuml_model.fit(X,y)
@@ -158,27 +163,30 @@ class RandomForestRegressor(BaseRandomForestModel,
         Number of trees in the forest. (Default changed to 100 in cuML 0.11)
     split_algo : int (default = 1)
         The algorithm to determine how nodes are split in the tree.
-        0 for HIST and 1 for GLOBAL_QUANTILE. HIST currently uses a slower
-        tree-building algorithm so GLOBAL_QUANTILE is recommended for most
-        cases.
+        Can be changed only for the old backend [deprecated].
+        0 for HIST and 1 for GLOBAL_QUANTILE. Default is GLOBAL_QUANTILE.
+        The default backend does not support HIST.
+        HIST currently uses a slower tree-building algorithm so
+        GLOBAL_QUANTILE is recommended for most cases.
+
+        .. deprecated:: 21.06
+           Parameter 'split_algo' is deprecated and will be removed in
+           subsequent release.
     split_criterion : int (default = 2)
         The criterion used to split nodes.
         0 for GINI, 1 for ENTROPY,
-        2 for MSE, or 3 for MAE
+        2 for MSE
         0 and 1 not valid for regression
     bootstrap : boolean (default = True)
         Control bootstrapping.
         If True, each tree in the forest is built
         on a bootstrapped sample with replacement.
         If False, the whole dataset is used to build each tree.
-    bootstrap_features : boolean (default = False)
-        Control bootstrapping for features.
-        If features are drawn with or without replacement
     max_samples : float (default = 1.0)
         Ratio of dataset rows used while fitting each tree.
     max_depth : int (default = 16)
         Maximum tree depth. Unlimited (i.e, until leaves are pure),
-        if -1. Unlimited depth is not supported with split_algo=1.
+        if -1.
         *Note that this default differs from scikit-learn's
         random forest, which defaults to unlimited depth.*
     max_leaves : int (default = -1)
@@ -192,10 +200,12 @@ class RandomForestRegressor(BaseRandomForestModel,
         If 'auto' then max_features=1.0.
         If 'sqrt' then max_features=1/sqrt(n_features).
         If 'log2' then max_features=log2(n_features)/n_features.
-    n_bins : int (default = 8)
+    n_bins : int (default = 128)
         Number of bins used by the split algorithm.
         For large problems, particularly those with highly-skewed input data,
         increasing the number of bins may improve accuracy.
+    n_streams : int (default = 4 )
+        Number of parallel streams used for forest building
     min_samples_leaf : int or float (default = 1)
         The minimum number of samples (rows) in each leaf node.
         If int, then min_samples_leaf represents the minimum number.
@@ -218,29 +228,15 @@ class RandomForestRegressor(BaseRandomForestModel,
         for median of abs error : 'median_ae'
         for mean of abs error : 'mean_ae'
         for mean square error' : 'mse'
-    quantile_per_tree : boolean (default = False)
-        Whether quantile is computed for individual trees in RF.
-        Only relevant when `split_algo = GLOBAL_QUANTILE`.
-
-        .. deprecated:: 0.19
-           Parameter 'quantile_per_tree' is deprecated and will be removed in
-           subsequent release.
-    use_experimental_backend : boolean (default = False)
-        If set to true and the following conditions are also met, a new
-        experimental backend for decision tree training will be used. The
-        new backend is available only if `split_algo = 1` (GLOBAL_QUANTILE)
-        and `quantile_per_tree = False` (No per tree quantile computation).
-        The new backend is considered stable for classification tasks but
-        not yet for regression tasks. The RAPIDS team is continuing
-        optimization and evaluation of the new backend for regression tasks.
-    max_batch_size: int (default = 128)
-        Maximum number of nodes that can be processed in a given batch. This is
-        used only when 'use_experimental_backend' is true.
+    use_experimental_backend : boolean (default = True)
+        Deprecated and currrently has no effect.
+        .. deprecated:: 21.08
+    max_batch_size: int (default = 4096)
+        Maximum number of nodes that can be processed in a given batch.
     random_state : int (default = None)
         Seed for the random number generator. Unseeded by default. Does not
         currently fully guarantee the exact same results. **Note: Parameter
         `seed` is removed since release 0.19.**
-
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -453,19 +449,15 @@ class RandomForestRegressor(BaseRandomForestModel,
                                   <int> self.max_leaves,
                                   <float> max_feature_val,
                                   <int> self.n_bins,
-                                  <int> self.split_algo,
                                   <int> self.min_samples_leaf,
                                   <int> self.min_samples_split,
                                   <float> self.min_impurity_decrease,
-                                  <bool> self.bootstrap_features,
                                   <bool> self.bootstrap,
                                   <int> self.n_estimators,
                                   <float> self.max_samples,
                                   <uint64_t> seed_val,
                                   <CRITERION> self.split_criterion,
-                                  <bool> self.quantile_per_tree,
                                   <int> self.n_streams,
-                                  <bool> self.use_experimental_backend,
                                   <int> self.max_batch_size)
 
         if self.dtype == np.float32:

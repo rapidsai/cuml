@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -47,20 +47,19 @@ std::mutex ColorGenState::mapMutex;
 
 // all h, s, v are in range [0, 1]
 // Ref: http://en.wikipedia.org/wiki/HSL_and_HSV#Converting_to_RGB
-uint32_t hsv2rgb(float h, float s, float v) {
+uint32_t hsv2rgb(float h, float s, float v)
+{
   uint32_t out = 0xff000000u;
-  if (s <= 0.0f) {
-    return out;
-  }
+  if (s <= 0.0f) { return out; }
   // convert hue from [0, 1] range to [0, 360]
   float h_deg = h * 360.f;
   if (0.f > h_deg || h_deg >= 360.f) h_deg = 0.f;
   h_deg /= 60.f;
   int h_range = (int)h_deg;
   float h_mod = h_deg - h_range;
-  float x = v * (1.f - s);
-  float y = v * (1.f - (s * h_mod));
-  float z = v * (1.f - (s * (1.f - h_mod)));
+  float x     = v * (1.f - s);
+  float y     = v * (1.f - (s * h_mod));
+  float z     = v * (1.f - (s * (1.f - h_mod)));
   float r, g, b;
   switch (h_range) {
     case 0:
@@ -114,21 +113,18 @@ uint32_t hsv2rgb(float h, float s, float v) {
  * associate the currently generated color with it
  * @return returns 32b RGB integer with alpha channel set of 0xff
  */
-uint32_t generateNextColor(const std::string &tag) {
+uint32_t generateNextColor(const std::string& tag)
+{
   std::lock_guard<std::mutex> guard(ColorGenState::mapMutex);
   if (!tag.empty()) {
     auto itr = ColorGenState::allColors.find(tag);
-    if (itr != ColorGenState::allColors.end()) {
-      return itr->second;
-    }
+    if (itr != ColorGenState::allColors.end()) { return itr->second; }
   }
   float h = rand() * 1.f / RAND_MAX;
   h += ColorGenState::InvPhi;
   if (h >= 1.f) h -= 1.f;
   auto rgb = hsv2rgb(h, ColorGenState::S, ColorGenState::V);
-  if (!tag.empty()) {
-    ColorGenState::allColors[tag] = rgb;
-  }
+  if (!tag.empty()) { ColorGenState::allColors[tag] = rgb; }
   return rgb;
 }
 
@@ -136,22 +132,41 @@ uint32_t generateNextColor(const std::string &tag) {
 
 #include <nvToolsExt.h>
 
-void PUSH_RANGE(const char *name) {
-  nvtxEventAttributes_t eventAttrib = {0};
-  eventAttrib.version = NVTX_VERSION;
-  eventAttrib.size = NVTX_EVENT_ATTRIB_STRUCT_SIZE;
-  eventAttrib.colorType = NVTX_COLOR_ARGB;
-  eventAttrib.color = generateNextColor(name);
-  eventAttrib.messageType = NVTX_MESSAGE_TYPE_ASCII;
-  eventAttrib.message.ascii = name;
-  nvtxRangePushEx(&eventAttrib);
+nvtxDomainHandle_t domain = nvtxDomainCreateA("cuml_cpp");
+
+void PUSH_RANGE(const char* name, cudaStream_t stream)
+{
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  PUSH_RANGE(name);
 }
 
-void POP_RANGE() { nvtxRangePop(); }
+void POP_RANGE(cudaStream_t stream)
+{
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+  POP_RANGE();
+}
+
+void PUSH_RANGE(const char* name)
+{
+  nvtxEventAttributes_t eventAttrib = {0};
+  eventAttrib.version               = NVTX_VERSION;
+  eventAttrib.size                  = NVTX_EVENT_ATTRIB_STRUCT_SIZE;
+  eventAttrib.colorType             = NVTX_COLOR_ARGB;
+  eventAttrib.color                 = generateNextColor(name);
+  eventAttrib.messageType           = NVTX_MESSAGE_TYPE_ASCII;
+  eventAttrib.message.ascii         = name;
+  nvtxDomainRangePushEx(domain, &eventAttrib);
+}
+
+void POP_RANGE() { nvtxDomainRangePop(domain); }
 
 #else  // NVTX_ENABLED
 
-void PUSH_RANGE(const char *name) {}
+void PUSH_RANGE(const char* name, cudaStream_t stream) {}
+
+void POP_RANGE(cudaStream_t stream) {}
+
+void PUSH_RANGE(const char* name) {}
 
 void POP_RANGE() {}
 

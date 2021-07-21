@@ -37,7 +37,8 @@ namespace {
  * \param [in] stream cuda stream
  */
 template <typename T>
-void range(T *out, int start, int end, cudaStream_t stream) {
+void range(T* out, int start, int end, cudaStream_t stream)
+{
   thrust::counting_iterator<int> first(start);
   thrust::counting_iterator<int> last = first + (end - start);
   thrust::device_ptr<T> ptr(out);
@@ -54,7 +55,8 @@ void range(T *out, int start, int end, cudaStream_t stream) {
  * \param [in] stream cuda stream
  */
 template <typename T, int TPB = 256>
-void range(T *out, int n, cudaStream_t stream) {
+void range(T* out, int n, cudaStream_t stream)
+{
   range(out, 0, n, stream);
 }
 
@@ -66,9 +68,9 @@ void range(T *out, int n, cudaStream_t stream) {
  * \param [in] stream cuda stream
  */
 template <typename T>
-void zero(T *out, int n, cudaStream_t stream) {
-  CUDA_CHECK(
-    cudaMemsetAsync(static_cast<void *>(out), 0, n * sizeof(T), stream));
+void zero(T* out, int n, cudaStream_t stream)
+{
+  CUDA_CHECK(cudaMemsetAsync(static_cast<void*>(out), 0, n * sizeof(T), stream));
 }
 
 }  // unnamed namespace

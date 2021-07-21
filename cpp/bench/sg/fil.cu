@@ -52,45 +52,46 @@ class FIL : public RegressionFixture<float> {
         Hence, this method represents real datasets well enough for both
         classification and regression.
       */
-  : RegressionFixture<float>(name, p.data, p.blobs),
-    model(p.model),
-    p_rest(p) {}
+  : RegressionFixture<float>(name, p.data, p.blobs), model(p.model), p_rest(p)
+  {
+  }
 
-  static void regression_to_classification(float* y, int nrows, int nclasses,
-                                           cudaStream_t stream) {
+  static void regression_to_classification(float* y, int nrows, int nclasses, cudaStream_t stream)
+  {
     raft::linalg::unaryOp(
-      y, y, nrows,
-      [=] __device__(float a) {
-        return float(lroundf(fabsf(a) * 1000. * nclasses) % nclasses);
-      },
+      y,
+      y,
+      nrows,
+      [=] __device__(float a) { return float(lroundf(fabsf(a) * 1000. * nclasses) % nclasses); },
       stream);
   }
 
  protected:
-  void runBenchmark(::benchmark::State& state) override {
-    if (!params.rowMajor) {
-      state.SkipWithError("FIL only supports row-major inputs");
-    }
+  void runBenchmark(::benchmark::State& state) override
+  {
+    if (!params.rowMajor) { state.SkipWithError("FIL only supports row-major inputs"); }
     if (params.nclasses > 1) {
       // convert regression ranges into [0..nclasses-1]
-      regression_to_classification(data.y, params.nrows, params.nclasses,
-                                   stream);
+      regression_to_classification(data.y, params.nrows, params.nclasses, stream);
     }
     // create model
     ML::RandomForestRegressorF rf_model;
-    auto* mPtr = &rf_model;
-    mPtr->trees = nullptr;
+    auto* mPtr         = &rf_model;
+    mPtr->trees        = nullptr;
     size_t train_nrows = std::min(params.nrows, 1000);
     fit(*handle, mPtr, data.X, train_nrows, params.ncols, data.y, p_rest.rf);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    ML::build_treelite_forest(&model, &rf_model, params.ncols,
-                              params.nclasses > 1 ? 2 : 1);
+    ML::build_treelite_forest(&model, &rf_model, params.ncols, params.nclasses > 1 ? 2 : 1);
     ML::fil::treelite_params_t tl_params = {
-      .algo = p_rest.algo,
-      .output_class = params.nclasses > 1,  // cuML RF forest
-      .threshold = 1.f / params.nclasses,   //Fixture::DatasetParams
-      .storage_type = p_rest.storage};
+      .algo              = p_rest.algo,
+      .output_class      = params.nclasses > 1,    // cuML RF forest
+      .threshold         = 1.f / params.nclasses,  // Fixture::DatasetParams
+      .storage_type      = p_rest.storage,
+      .blocks_per_sm     = 8,
+      .threads_per_tree  = 1,
+      .n_items           = 0,
+      .pforest_shape_str = nullptr};
     ML::fil::from_treelite(*handle, &forest, model, &tl_params);
 
     // only time prediction
@@ -98,17 +99,16 @@ class FIL : public RegressionFixture<float> {
       // Dataset<D, L> allocates y assuming one output value per input row,
       // so not supporting predict_proba yet
       for (int i = 0; i < p_rest.predict_repetitions; i++) {
-        ML::fil::predict(*this->handle, this->forest, this->data.y,
-                         this->data.X, this->params.nrows, false);
+        ML::fil::predict(
+          *this->handle, this->forest, this->data.y, this->data.X, this->params.nrows, false);
       }
     });
   }
 
-  void allocateBuffers(const ::benchmark::State& state) override {
-    Base::allocateBuffers(state);
-  }
+  void allocateBuffers(const ::benchmark::State& state) override { Base::allocateBuffers(state); }
 
-  void deallocateBuffers(const ::benchmark::State& state) override {
+  void deallocateBuffers(const ::benchmark::State& state) override
+  {
     ML::fil::free(*handle, forest);
     Base::deallocateBuffers(state);
   }
@@ -129,36 +129,32 @@ struct FilBenchParams {
   ML::fil::algo_t algo;
 };
 
-std::vector<Params> getInputs() {
+std::vector<Params> getInputs()
+{
   std::vector<Params> out;
   Params p;
   p.data.rowMajor = true;
-  p.blobs = {
-    .n_informative = -1,   // Just a placeholder value, anyway changed below
-    .effective_rank = -1,  // Just a placeholder value, anyway changed below
-    .bias = 0.f,
-    .tail_strength = 0.1,
-    .noise = 0.01,
-    .shuffle = false,
-    .seed = 12345ULL};
+  p.blobs         = {.n_informative  = -1,  // Just a placeholder value, anyway changed below
+             .effective_rank = -1,  // Just a placeholder value, anyway changed below
+             .bias           = 0.f,
+             .tail_strength  = 0.1,
+             .noise          = 0.01,
+             .shuffle        = false,
+             .seed           = 12345ULL};
 
   p.rf = set_rf_params(10,                 /*max_depth */
                        (1 << 20),          /* max_leaves */
                        1.f,                /* max_features */
                        32,                 /* n_bins */
-                       1,                  /* split_algo */
                        3,                  /* min_samples_leaf */
                        3,                  /* min_samples_split */
                        0.0f,               /* min_impurity_decrease */
-                       true,               /* bootstrap_features */
                        true,               /* bootstrap */
                        1,                  /* n_trees */
                        1.f,                /* max_samples */
                        1234ULL,            /* seed */
                        ML::CRITERION::MSE, /* split_criterion */
-                       false,              /* quantile_per_tree */
                        8,                  /* n_streams */
-                       false,              /* use_experimental_backend */
                        128                 /* max_batch_size */
   );
 
@@ -166,19 +162,18 @@ std::vector<Params> getInputs() {
   using ML::fil::storage_type_t;
   std::vector<FilBenchParams> var_params = {
     {(int)1e6, 20, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG},
-    {(int)1e6, 20, 2, 5, 1000, storage_type_t::DENSE,
-     algo_t::BATCH_TREE_REORG}};
+    {(int)1e6, 20, 2, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG}};
   for (auto& i : var_params) {
-    p.data.nrows = i.nrows;
-    p.data.ncols = i.ncols;
-    p.blobs.n_informative = i.ncols / 3;
-    p.blobs.effective_rank = i.ncols / 3;
-    p.data.nclasses = i.nclasses;
+    p.data.nrows               = i.nrows;
+    p.data.ncols               = i.ncols;
+    p.blobs.n_informative      = i.ncols / 3;
+    p.blobs.effective_rank     = i.ncols / 3;
+    p.data.nclasses            = i.nclasses;
     p.rf.tree_params.max_depth = i.max_depth;
-    p.rf.n_trees = i.ntrees;
-    p.storage = i.storage;
-    p.algo = i.algo;
-    p.predict_repetitions = 10;
+    p.rf.n_trees               = i.ntrees;
+    p.storage                  = i.storage;
+    p.algo                     = i.algo;
+    p.predict_repetitions      = 10;
     out.push_back(p);
   }
   return out;

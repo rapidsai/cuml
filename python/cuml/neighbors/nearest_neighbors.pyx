@@ -64,10 +64,6 @@ if has_scipy():
     import scipy.sparse
 
 cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
-
-    cdef cppclass knnIndex:
-        pass
-
     void brute_force_knn(
         const handle_t &handle,
         vector[float*] &inputs,
@@ -832,7 +828,7 @@ class NearestNeighbors(Base,
 @cuml.internals.api_return_sparse_array()
 def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
                      handle=None, algorithm="brute", metric="euclidean", p=2,
-                     include_self=False, metric_params=None, output_type=None):
+                     include_self=False, metric_params=None):
     """
     Computes the (weighted) graph of k-Neighbors for points in X.
 
@@ -883,18 +879,6 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
 
     metric_params : dict, optional (default = None) This is currently ignored.
 
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-        Variable to control output type of the results and attributes of
-        the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
-        See :ref:`output-data-type-configuration` for more info.
-
-        .. deprecated:: 0.17
-           `output_type` is deprecated in 0.17 and will be removed in 0.18.
-           Please use the module level output type control,
-           `cuml.global_settings.output_type`.
-           See :ref:`output-data-type-configuration` for more info.
-
     Returns
     -------
     A : sparse graph in CSR format, shape = (n_samples, n_samples_fit)
@@ -905,13 +889,10 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
         numpy's CSR sparse graph (host)
 
     """
-
-    # Check for deprecated `output_type` and warn. Set manually if specified
-    if output_type is not None:
-        warnings.warn("Using the `output_type` argument is deprecated and "
-                      "will be removed in 0.18. Please specify the output "
-                      "type using `cuml.using_output_type()` instead",
-                      DeprecationWarning)
+    # Set the default output type to "cupy". This will be ignored if the user
+    # has set `cuml.global_settings.output_type`. Only necessary for array
+    # generation methods that do not take an array as input
+    cuml.internals.set_api_output_type("cupy")
 
     X = NearestNeighbors(
         n_neighbors=n_neighbors,
@@ -921,7 +902,7 @@ def kneighbors_graph(X=None, n_neighbors=5, mode='connectivity', verbose=False,
         metric=metric,
         p=p,
         metric_params=metric_params,
-        output_type=output_type,
+        output_type=cuml.global_settings.root_cm.output_type
     ).fit(X)
 
     if include_self == 'auto':

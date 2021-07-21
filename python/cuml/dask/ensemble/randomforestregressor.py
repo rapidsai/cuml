@@ -14,8 +14,6 @@
 # limitations under the License.
 #
 
-import warnings
-
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.ensemble import RandomForestRegressor as cuRFR
 from cuml.dask.ensemble.base import \
@@ -83,9 +81,6 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         If set, each tree in the forest is built
         on a bootstrapped sample with replacement.
         If False, the whole dataset is used to build each tree.
-    bootstrap_features : boolean (default = False)
-        Control bootstrapping for features.
-        If features are drawn with or without replacement
     max_samples : float (default = 1.0)
         Ratio of dataset rows used while fitting each tree.
     max_depth : int (default = -1)
@@ -141,13 +136,6 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         If None, all available Dask workers will be used.
     random_state : int (default = None)
         Seed for the random number generator. Unseeded by default.
-    seed : int (default = None)
-        Base seed for the random number generator. Unseeded by default. Does
-        not currently fully guarantee the exact same results.
-
-        .. deprecated:: 0.15
-           Parameter `seed` is deprecated and will be removed in 0.17. Please
-           use `random_state` instead
 
     ignore_empty_partitions: Boolean (default = False)
         Specify behavior when a worker does not hold any data
@@ -167,27 +155,12 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         verbose=False,
         n_estimators=10,
         random_state=None,
-        seed=None,
         ignore_empty_partitions=False,
         **kwargs
     ):
         super().__init__(client=client,
                          verbose=verbose,
                          **kwargs)
-
-        if seed is not None:
-            if random_state is None:
-                warnings.warn("Parameter 'seed' is deprecated and will be"
-                              " removed in 0.17. Please use 'random_state'"
-                              " instead. Setting 'random_state' as the"
-                              " curent 'seed' value",
-                              DeprecationWarning)
-                random_state = seed
-            else:
-                warnings.warn("Both 'seed' and 'random_state' parameters were"
-                              " set. Using 'random_state' since 'seed' is"
-                              " deprecated and will be removed in 0.17.",
-                              DeprecationWarning)
 
         self._create_model(
             model_func=RandomForestRegressor._construct_rf,

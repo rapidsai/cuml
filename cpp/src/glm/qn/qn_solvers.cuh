@@ -54,37 +54,41 @@ namespace GLM {
 constexpr size_t qn_align = 256;
 
 template <typename T>
-inline size_t lbfgs_workspace_size(const LBFGSParam<T> &param, const int n) {
+inline size_t lbfgs_workspace_size(const LBFGSParam<T>& param, const int n)
+{
   size_t mat_size = raft::alignTo<size_t>(sizeof(T) * param.m * n, qn_align);
   size_t vec_size = raft::alignTo<size_t>(sizeof(T) * n, qn_align);
   return 2 * mat_size + 4 * vec_size + qn_align;
 }
 
 template <typename T>
-inline size_t owlqn_workspace_size(const LBFGSParam<T> &param, const int n) {
+inline size_t owlqn_workspace_size(const LBFGSParam<T>& param, const int n)
+{
   size_t vec_size = raft::alignTo<size_t>(sizeof(T) * n, qn_align);
   return lbfgs_workspace_size(param, n) + vec_size;
 }
 
 template <typename T, typename Function>
-inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
-                             Function &f,      // function to minimize
-                             SimpleVec<T> &x,  // initial point, holds result
-                             T &fx,            // output function value
-                             int *k,           // output iterations
-                             SimpleVec<T> &workspace,  // scratch space
-                             cudaStream_t stream, int verbosity = 0) {
-  int n = x.len;
+inline OPT_RETCODE min_lbfgs(const LBFGSParam<T>& param,
+                             Function& f,              // function to minimize
+                             SimpleVec<T>& x,          // initial point, holds result
+                             T& fx,                    // output function value
+                             int* k,                   // output iterations
+                             SimpleVec<T>& workspace,  // scratch space
+                             cudaStream_t stream,
+                             int verbosity = 0)
+{
+  int n                    = x.len;
   const int workspace_size = lbfgs_workspace_size(param, n);
   ASSERT(workspace.len >= workspace_size, "LBFGS: workspace insufficient");
 
   // SETUP WORKSPACE
   size_t mat_size = raft::alignTo<size_t>(sizeof(T) * param.m * n, qn_align);
   size_t vec_size = raft::alignTo<size_t>(sizeof(T) * n, qn_align);
-  T *p_ws = workspace.data;
-  SimpleMat<T> S(p_ws, n, param.m);
+  T* p_ws         = workspace.data;
+  SimpleDenseMat<T> S(p_ws, n, param.m);
   p_ws += mat_size;
-  SimpleMat<T> Y(p_ws, n, param.m);
+  SimpleDenseMat<T> Y(p_ws, n, param.m);
   p_ws += mat_size;
   SimpleVec<T> xp(p_ws, n);
   p_ws += vec_size;
@@ -94,7 +98,7 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
   p_ws += vec_size;
   SimpleVec<T> drt(p_ws, n);
   p_ws += vec_size;
-  T *dev_scalar = p_ws;
+  T* dev_scalar = p_ws;
 
   SimpleVec<T> svec, yvec;  // mask vectors
 
@@ -122,10 +126,10 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
 
   // Initial step
   T step = T(1.0) / nrm2(drt, dev_scalar, stream);
-  T fxp = fx;
+  T fxp  = fx;
 
-  *k = 1;
-  int end = 0;
+  *k        = 1;
+  int end   = 0;
   int n_vec = 0;  // number of vector updates made in lbfgs_search_dir
   for (; *k <= param.max_iterations; (*k)++) {
     // Save the curent x and gradient
@@ -158,8 +162,7 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
       return OPT_NUMERIC_ERROR;
     }
 
-    if (check_convergence(param, *k, fx, x, grad, fx_hist, dev_scalar,
-                          stream)) {
+    if (check_convergence(param, *k, fx, x, grad, fx_hist, dev_scalar, stream)) {
       CUML_LOG_DEBUG("L-BFGS converged");
       return OPT_SUCCESS;
     }
@@ -172,8 +175,8 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
     svec.axpy(-1.0, xp, x, stream);
     yvec.axpy(-1.0, gradp, grad, stream);
     // drt <- -H * g
-    end = lbfgs_search_dir(param, &n_vec, end, S, Y, grad, svec, yvec, drt, ys,
-                           alpha, dev_scalar, stream);
+    end = lbfgs_search_dir(
+      param, &n_vec, end, S, Y, grad, svec, yvec, drt, ys, alpha, dev_scalar, stream);
 
     // step = 1.0 as initial guess
     step = T(1.0);
@@ -183,10 +186,13 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T> &param,
 }
 
 template <typename T>
-inline void update_pseudo(const SimpleVec<T> &x, const SimpleVec<T> &grad,
-                          const op_pseudo_grad<T> &pseudo_grad,
-                          const int pg_limit, SimpleVec<T> &pseudo,
-                          cudaStream_t stream) {
+inline void update_pseudo(const SimpleVec<T>& x,
+                          const SimpleVec<T>& grad,
+                          const op_pseudo_grad<T>& pseudo_grad,
+                          const int pg_limit,
+                          SimpleVec<T>& pseudo,
+                          cudaStream_t stream)
+{
   if (grad.len > pg_limit) {
     pseudo.copy_async(grad, stream);
     SimpleVec<T> mask(pseudo.data, pg_limit);
@@ -197,24 +203,29 @@ inline void update_pseudo(const SimpleVec<T> &x, const SimpleVec<T> &grad,
 }
 
 template <typename T, typename Function>
-inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
-                             const T l1_penalty, const int pg_limit,
-                             SimpleVec<T> &x, T &fx, int *k,
-                             SimpleVec<T> &workspace,  // scratch space
-                             cudaStream_t stream, const int verbosity = 0) {
-  int n = x.len;
+inline OPT_RETCODE min_owlqn(const LBFGSParam<T>& param,
+                             Function& f,
+                             const T l1_penalty,
+                             const int pg_limit,
+                             SimpleVec<T>& x,
+                             T& fx,
+                             int* k,
+                             SimpleVec<T>& workspace,  // scratch space
+                             cudaStream_t stream,
+                             const int verbosity = 0)
+{
+  int n                    = x.len;
   const int workspace_size = owlqn_workspace_size(param, n);
   ASSERT(workspace.len >= workspace_size, "LBFGS: workspace insufficient");
-  ASSERT(pg_limit <= n && pg_limit > 0,
-         "OWL-QN: Invalid pseudo grad limit parameter");
+  ASSERT(pg_limit <= n && pg_limit > 0, "OWL-QN: Invalid pseudo grad limit parameter");
 
   // SETUP WORKSPACE
   size_t mat_size = raft::alignTo<size_t>(sizeof(T) * param.m * n, qn_align);
   size_t vec_size = raft::alignTo<size_t>(sizeof(T) * n, qn_align);
-  T *p_ws = workspace.data;
-  SimpleMat<T> S(p_ws, n, param.m);
+  T* p_ws         = workspace.data;
+  SimpleDenseMat<T> S(p_ws, n, param.m);
   p_ws += mat_size;
-  SimpleMat<T> Y(p_ws, n, param.m);
+  SimpleDenseMat<T> Y(p_ws, n, param.m);
   p_ws += mat_size;
   SimpleVec<T> xp(p_ws, n);
   p_ws += vec_size;
@@ -226,7 +237,7 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
   p_ws += vec_size;
   SimpleVec<T> pseudo(p_ws, n);
   p_ws += vec_size;
-  T *dev_scalar = p_ws;
+  T* dev_scalar = p_ws;
 
   ML::Logger::get().setLevel(verbosity);
 
@@ -238,9 +249,8 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
 
   op_project<T> project_neg(T(-1.0));
 
-  auto f_wrap = [&f, &l1_penalty, &pg_limit](SimpleVec<T> &x,
-                                             SimpleVec<T> &grad, T *dev_scalar,
-                                             cudaStream_t stream) {
+  auto f_wrap = [&f, &l1_penalty, &pg_limit](
+                  SimpleVec<T>& x, SimpleVec<T>& grad, T* dev_scalar, cudaStream_t stream) {
     T tmp = f(x, grad, dev_scalar, stream);
     SimpleVec<T> mask(x.data, pg_limit);
     return tmp + l1_penalty * nrm1(mask, dev_scalar, stream);
@@ -274,9 +284,9 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
 
   // Initial step
   T step = T(1.0) / std::max(T(1), nrm2(drt, dev_scalar, stream));
-  T fxp = fx;
+  T fxp  = fx;
 
-  int end = 0;
+  int end   = 0;
   int n_vec = 0;  // number of vector updates made in lbfgs_search_dir
   for ((*k) = 1; (*k) <= param.max_iterations; (*k)++) {
     // Save the curent x and gradient
@@ -285,9 +295,8 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
     fxp = fx;
 
     // Projected line search to update x, fx and gradient
-    LINE_SEARCH_RETCODE lsret =
-      ls_backtrack_projected(param, f_wrap, fx, x, grad, pseudo, step, drt, xp,
-                             l1_penalty, dev_scalar, stream);
+    LINE_SEARCH_RETCODE lsret = ls_backtrack_projected(
+      param, f_wrap, fx, x, grad, pseudo, step, drt, xp, l1_penalty, dev_scalar, stream);
 
     bool isLsValid = !isnan(fx) && !isinf(fx);
     // Linesearch may fail to converge, but still come closer to the solution;
@@ -313,8 +322,7 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
     //  pseudo.assign_binary(x, grad, pseudo_grad);
     update_pseudo(x, grad, pseudo_grad, pg_limit, pseudo, stream);
 
-    if (check_convergence(param, *k, fx, x, pseudo, fx_hist, dev_scalar,
-                          stream)) {
+    if (check_convergence(param, *k, fx, x, pseudo, fx_hist, dev_scalar, stream)) {
       CUML_LOG_DEBUG("OWL-QN converged");
       return OPT_SUCCESS;
     }
@@ -326,8 +334,8 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
     svec.axpy(-1.0, xp, x, stream);
     yvec.axpy(-1.0, gradp, grad, stream);
     // drt <- -H * -> pseudo grad <-
-    end = lbfgs_search_dir(param, &n_vec, end, S, Y, pseudo, svec, yvec, drt,
-                           ys, alpha, dev_scalar, stream);
+    end = lbfgs_search_dir(
+      param, &n_vec, end, S, Y, pseudo, svec, yvec, drt, ys, alpha, dev_scalar, stream);
 
     // Project drt onto orthant of -pseudog
     drt.assign_binary(drt, pseudo, project_neg, stream);
@@ -342,10 +350,16 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T> &param, Function &f,
  * Chooses the right algorithm, depending on presence of l1 term
  */
 template <typename T, typename LossFunction>
-inline int qn_minimize(const raft::handle_t &handle, SimpleVec<T> &x, T *fx,
-                       int *num_iters, LossFunction &loss, const T l1,
-                       const LBFGSParam<T> &opt_param, cudaStream_t stream,
-                       const int verbosity = 0) {
+inline int qn_minimize(const raft::handle_t& handle,
+                       SimpleVec<T>& x,
+                       T* fx,
+                       int* num_iters,
+                       LossFunction& loss,
+                       const T l1,
+                       const LBFGSParam<T>& opt_param,
+                       cudaStream_t stream,
+                       const int verbosity = 0)
+{
   // TODO should the worksapce allocation happen outside?
   OPT_RETCODE ret;
   if (l1 == 0.0) {
@@ -358,7 +372,8 @@ inline int qn_minimize(const raft::handle_t &handle, SimpleVec<T> &x, T *fx,
                     *fx,        // output function value
                     num_iters,  // output iterations
                     workspace,  // scratch space
-                    stream, verbosity);
+                    stream,
+                    verbosity);
 
     CUML_LOG_DEBUG("L-BFGS Done");
   } else {
@@ -374,12 +389,14 @@ inline int qn_minimize(const raft::handle_t &handle, SimpleVec<T> &x, T *fx,
 
     ret = min_owlqn(opt_param,
                     loss,  // function to minimize
-                    l1, loss.D * loss.C,
+                    l1,
+                    loss.D * loss.C,
                     x,          // initial point, holds result
                     *fx,        // output function value
                     num_iters,  // output iterations
                     workspace,  // scratch space
-                    stream, verbosity);
+                    stream,
+                    verbosity);
 
     CUML_LOG_DEBUG("OWL-QN Done");
   }
