@@ -261,6 +261,389 @@ class _BaseNB(Base, ClassifierMixin):
         return result
 
 
+class GaussianNB(_BaseNB):
+    """
+    Gaussian Naive Bayes (GaussianNB)
+    Can perform online updates to model parameters via :meth:`partial_fit`.
+    For details on algorithm used to update feature means and variance online,
+    see Stanford CS tech report STAN-CS-79-773 by Chan, Golub, and LeVeque:
+
+        http://i.stanford.edu/pub/cstr/reports/cs/tr/79/773/CS-TR-79-773.pdf
+
+    Parameters
+    ----------
+    priors : array-like of shape (n_classes,)
+        Prior probabilities of the classes. If specified the priors are not
+        adjusted according to the data.
+    var_smoothing : float, default=1e-9
+        Portion of the largest variance of all features that is added to
+        variances for calculation stability.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_settings.output_type`.
+        See :ref:`output-data-type-configuration` for more info.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the
+        CUDA stream that will be used for the model's computations, so
+        users can run different models concurrently in different streams
+        by creating handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+
+    Examples
+    --------
+    >>> import cupy as cp
+    >>> X = cp.array([[-1, -1], [-2, -1], [-3, -2], [1, 1], [2, 1], [3, 2]],
+    >>>              cp.float32)
+    >>> Y = cp.array([1, 1, 1, 2, 2, 2], cp.float32)
+    >>> from cuml.naive_bayes import GaussianNB
+    >>> clf = GaussianNB()
+    >>> clf.fit(X, Y)
+    GaussianNB()
+    >>> print(clf.predict(cp.array([[-0.8, -1]], cp.float32)))
+    [1]
+    >>> clf_pf = GaussianNB()
+    >>> clf_pf.partial_fit(X, Y, cp.unique(Y))
+    GaussianNB()
+    >>> print(clf_pf.predict(cp.array([[-0.8, -1]], cp.float32)))
+    [1]
+    """
+
+    def __init__(self, *, priors=None, var_smoothing=1e-9,
+                 output_type=None, handle=None, verbose=False):
+
+        super(GaussianNB, self).__init__(handle=handle,
+                                         verbose=verbose,
+                                         output_type=output_type)
+        self.priors = priors
+        self.var_smoothing = var_smoothing
+        self.fit_called_ = False
+        self.classes_ = None
+
+    def fit(self, X, y, sample_weight=None) -> "GaussianNB":
+        """
+        Fit Gaussian Naive Bayes classifier according to X, y
+
+        Parameters
+        ----------
+
+        X : {array-like, cupy sparse matrix} of shape (n_samples, n_features)
+            Training vectors, where n_samples is the number of samples and
+            n_features is the number of features.
+        y : array-like shape (n_samples) Target values.
+        sample_weight : array-like of shape (n_samples)
+            Weights applied to individial samples (1. for unweighted).
+            Currently sample weight is ignored.
+        """
+        return self._partial_fit(X, y, _classes=cp.unique(y), _refit=True,
+                                 sample_weight=sample_weight)
+
+    @nvtx.annotate(message="naive_bayes.GaussianNB._partial_fit",
+                   domain="cuml_python")
+    def _partial_fit(self, X, y, _classes=None, _refit=False,
+                     sample_weight=None, convert_dtype=True) -> "GaussianNB":
+        if has_scipy():
+            from scipy.sparse import isspmatrix as scipy_sparse_isspmatrix
+        else:
+            from cuml.common.import_utils import dummy_function_always_false \
+                as scipy_sparse_isspmatrix
+
+        if getattr(self, 'classes_') is None and _classes is None:
+            raise ValueError("classes must be passed on the first call "
+                             "to partial_fit.")
+
+        if scipy_sparse_isspmatrix(X) or cp.sparse.isspmatrix(X):
+            X = _convert_x_sparse(X)
+        else:
+            X = input_to_cupy_array(X, order='K',
+                                    check_dtype=[cp.float32, cp.float64,
+                                                 cp.int32]).array
+
+        expected_y_dtype = cp.int32 if X.dtype in [cp.float32,
+                                                   cp.int32] else cp.int64
+        y = input_to_cupy_array(y,
+                                convert_to_dtype=(expected_y_dtype
+                                                  if convert_dtype
+                                                  else False),
+                                check_dtype=expected_y_dtype).array
+
+        if _classes is not None:
+            _classes, *_ = input_to_cuml_array(_classes, order='K',
+                                               convert_to_dtype=(
+                                                   expected_y_dtype
+                                                   if convert_dtype
+                                                   else False))
+
+        Y, label_classes = make_monotonic(y, classes=_classes,
+                                          copy=True)
+        if _refit:
+            self.classes_ = None
+
+        def var_sparse(X, axis=0):
+            # Compute the variance on dense and sparse matrices
+            return ((X - X.mean(axis=axis)) ** 2).mean(axis=axis)
+
+        self.epsilon_ = self.var_smoothing * var_sparse(X).max()
+
+        if not self.fit_called_:
+            self.fit_called_ = True
+
+            # Original labels are stored on the instance
+            if _classes is not None:
+                check_labels(Y, _classes.to_output('cupy'))
+                self.classes_ = _classes
+            else:
+                self.classes_ = label_classes
+
+            n_features = X.shape[1]
+            n_classes = len(self.classes_)
+
+            self.n_classes_ = n_classes
+            self.n_features_ = n_features
+
+            self.theta_ = cp.zeros((n_classes, n_features))
+            self.sigma_ = cp.zeros((n_classes, n_features))
+
+            self.class_count_ = cp.zeros(n_classes, dtype=X.dtype)
+
+            if self.priors is not None:
+                if len(self.priors) != n_classes:
+                    raise ValueError("Number of priors must match number of"
+                                     " classes.")
+                if not cp.isclose(self.priors.sum(), 1):
+                    raise ValueError('The sum of the priors should be 1.')
+                if (self.priors < 0).any():
+                    raise ValueError('Priors must be non-negative.')
+                self.class_prior, *_ = input_to_cupy_array(
+                    self.priors,
+                    check_dtype=[cp.float32, cp.float64])
+
+        else:
+            self.sigma_[:, :] -= self.epsilon_
+
+        unique_y = cp.unique(y)
+        unique_y_in_classes = cp.in1d(unique_y, cp.array(self.classes_))
+
+        if not cp.all(unique_y_in_classes):
+            raise ValueError("The target label(s) %s in y do not exist "
+                             "in the initial classes %s" %
+                             (unique_y[~unique_y_in_classes], self.classes_))
+
+        self.theta_, self.sigma_ = self._update_mean_variance(X, Y)
+
+        self.sigma_[:, :] += self.epsilon_
+
+        if self.priors is None:
+            self.class_prior = self.class_count_ / self.class_count_.sum()
+
+        return self
+
+    def partial_fit(self, X, y, classes=None,
+                    sample_weight=None) -> "GaussianNB":
+        """
+        Incremental fit on a batch of samples.
+
+        This method is expected to be called several times consecutively on
+        different chunks of a dataset so as to implement out-of-core or online
+        learning.
+
+        This is especially useful when the whole dataset is too big to fit in
+        memory at once.
+
+        This method has some performance overhead hence it is better to call
+        partial_fit on chunks of data that are as large as possible (as long
+        as fitting in the memory budget) to hide the overhead.
+
+        Parameters
+        ----------
+
+        X : {array-like, cupy sparse matrix} of shape (n_samples, n_features)
+            Training vectors, where n_samples is the number of samples and
+            n_features is the number of features
+
+        y : array-like of shape (n_samples) Target values.
+        classes : array-like of shape (n_classes)
+                  List of all the classes that can possibly appear in the y
+                  vector. Must be provided at the first call to partial_fit,
+                  can be omitted in subsequent calls.
+
+        sample_weight : array-like of shape (n_samples)
+                        Weights applied to individual samples (1. for
+                        unweighted). Currently sample weight is ignored.
+
+        Returns
+        -------
+
+        self : object
+        """
+        return self._partial_fit(X, y, classes, _refit=False,
+                                 sample_weight=sample_weight)
+
+    def _update_mean_variance(self, X, Y, sample_weight=None):
+
+        if sample_weight is None:
+            sample_weight = cp.zeros(0)
+
+        labels_dtype = self.classes_.dtype
+
+        mu = self.theta_
+        var = self.sigma_
+
+        early_return = self.class_count_.sum() == 0
+        n_past = cp.expand_dims(self.class_count_, axis=1).copy()
+        tpb = 32
+        n_rows = X.shape[0]
+        n_cols = X.shape[1]
+
+        if X.shape[0] == 0:
+            return mu, var
+
+        # Make sure Y iclass_count_s cp array not CumlArray
+        Y = cp.asarray(Y)
+
+        new_mu = cp.zeros((self.n_classes_, self.n_features_), order="F",
+                          dtype=X.dtype)
+        new_var = cp.zeros((self.n_classes_, self.n_features_), order="F",
+                           dtype=X.dtype)
+        class_counts = cp.zeros(self.n_classes_, order="F", dtype=X.dtype)
+        if cp.sparse.isspmatrix(X):
+            X = X.tocoo()
+
+            count_features_coo = count_features_coo_kernel(X.dtype,
+                                                           labels_dtype)
+
+            # Run once for averages
+            count_features_coo((math.ceil(X.nnz / tpb),), (tpb,),
+                               (new_mu,
+                                X.row,
+                                X.col,
+                                X.data,
+                                X.nnz,
+                                n_rows,
+                                n_cols,
+                                Y,
+                                sample_weight,
+                                sample_weight.shape[0] > 0,
+                                self.n_classes_, False))
+
+            # Run again for variance
+            count_features_coo((math.ceil(X.nnz / tpb),), (tpb,),
+                               (new_var,
+                                X.row,
+                                X.col,
+                                X.data,
+                                X.nnz,
+                                n_rows,
+                                n_cols,
+                                Y,
+                                sample_weight,
+                                sample_weight.shape[0] > 0,
+                                self.n_classes_,
+                                True))
+        else:
+
+            count_features_dense = count_features_dense_kernel(X.dtype,
+                                                               labels_dtype)
+
+            # Run once for averages
+            count_features_dense((math.ceil(n_rows / tpb),
+                                  math.ceil(n_cols / tpb), 1),
+                                 (tpb, tpb, 1),
+                                 (new_mu,
+                                  X,
+                                  n_rows,
+                                  n_cols,
+                                  Y,
+                                  sample_weight,
+                                  sample_weight.shape[0] > 0,
+                                  self.n_classes_,
+                                  False,
+                                  X.flags["C_CONTIGUOUS"]))
+
+            # Run again for variance
+            count_features_dense((math.ceil(n_rows / tpb),
+                                  math.ceil(n_cols / tpb), 1),
+                                 (tpb, tpb, 1),
+                                 (new_var,
+                                  X,
+                                  n_rows,
+                                  n_cols,
+                                  Y,
+                                  sample_weight,
+                                  sample_weight.shape[0] > 0,
+                                  self.n_classes_,
+                                  True,
+                                  X.flags["C_CONTIGUOUS"]))
+
+        count_classes = count_classes_kernel(X.dtype, labels_dtype)
+        count_classes((math.ceil(n_rows / tpb),), (tpb,),
+                      (class_counts, n_rows, Y))
+
+        self.class_count_ += class_counts
+        # Avoid any division by zero
+        class_counts = cp.expand_dims(class_counts, axis=1)
+        class_counts += cp.finfo(X.dtype).eps
+
+        new_mu /= class_counts
+
+        # Construct variance from sum squares
+        new_var = (new_var / class_counts) - new_mu ** 2
+
+        if early_return:
+            return new_mu, new_var
+
+        # Compute (potentially weighted) mean and variance of new datapoints
+        if sample_weight.shape[0] > 0:
+            n_new = float(sample_weight.sum())
+        else:
+            n_new = class_counts
+
+        n_total = n_past + n_new
+        total_mu = (new_mu * n_new + mu * n_past) / n_total
+
+        old_ssd = var * n_past
+        new_ssd = n_new * new_var
+
+        ssd_sum = old_ssd + new_ssd
+        combined_feature_counts = n_new * n_past / n_total
+        mean_adj = (mu - new_mu)**2
+
+        total_ssd = (ssd_sum +
+                     combined_feature_counts *
+                     mean_adj)
+
+        total_var = total_ssd / n_total
+        return total_mu, total_var
+
+    def _joint_log_likelihood(self, X):
+        joint_log_likelihood = []
+
+        for i in range(len(self.classes_)):
+            jointi = cp.log(self.class_prior[i])
+
+            n_ij = -0.5 * cp.sum(cp.log(2. * cp.pi * self.sigma_[i, :]))
+
+            centered = (X - self.theta_[i, :]) ** 2
+            zvals = centered / self.sigma_[i, :]
+            summed = cp.sum(zvals, axis=1)
+
+            n_ij = -(0.5 * summed) + n_ij
+            joint_log_likelihood.append(jointi + n_ij)
+
+        return cp.array(joint_log_likelihood).T
+
+    def get_param_names(self):
+        return super().get_param_names() + \
+            [
+                "priors",
+                "var_smoothing"
+            ]
+
+
 class _BaseDiscreteNB(_BaseNB):
 
     def __init__(self, *, class_prior=None, verbose=False,
