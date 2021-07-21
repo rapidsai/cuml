@@ -68,6 +68,59 @@ inline size_t owlqn_workspace_size(const LBFGSParam<T>& param, const int n)
   return lbfgs_workspace_size(param, n) + vec_size;
 }
 
+template <typename T>
+inline bool update_and_check(const std::string solver,
+                             const LBFGSParam<T>& param,
+                             int iter,
+                             LINE_SEARCH_RETCODE lsret,
+                             T& fx,
+                             T& fxp,
+                             ML::SimpleVec<T>& x,
+                             ML::SimpleVec<T>& xp,
+                             ML::SimpleVec<T>& grad,
+                             ML::SimpleVec<T>& gradp,
+                             std::vector<T>& fx_hist,
+                             T* dev_scalar,
+                             OPT_RETCODE& outcode,
+                             cudaStream_t stream)
+{
+  bool stop      = false;
+  bool converged = false;
+  bool isLsValid = !isnan(fx) && !isinf(fx);
+  // Linesearch may fail to converge, but still come closer to the solution;
+  // if that is not the case, let `check_convergence` ("insufficient change")
+  // below terminate the loop.
+  bool isLsInDoubt = lsret == LS_INVALID_STEP_MIN || lsret == LS_MAX_ITERS_REACHED;
+  bool isLsSuccess = lsret == LS_SUCCESS || isLsValid && fx <= fxp + param.ftol && isLsInDoubt;
+
+  // if the target is at least finite, we can check the convergence
+  if (isLsValid)
+    converged = check_convergence(param, iter, fx, x, grad, fx_hist, dev_scalar, stream);
+
+  if (!isLsSuccess && !converged) {
+    CUML_LOG_WARN("%s line search failed (code %d)", solver, lsret);
+    outcode = OPT_LS_FAILED;
+    stop    = true;
+  } else if (!isLsValid) {
+    CUML_LOG_ERROR("%s error fx=%f at iteration %d", solver, fx, iter);
+    outcode = OPT_NUMERIC_ERROR;
+    stop    = true;
+  } else if (converged) {
+    CUML_LOG_DEBUG("%s converged", solver);
+    outcode = OPT_SUCCESS;
+    stop    = true;
+  }
+
+  // if lineseach wasn't successful, undo the update.
+  if (!isLsSuccess || !isLsValid) {
+    fx = fxp;
+    x.copy_async(xp, stream);
+    grad.copy_async(gradp, stream);
+  }
+
+  return stop;
+}
+
 template <typename T, typename Function>
 inline OPT_RETCODE min_lbfgs(const LBFGSParam<T>& param,
                              Function& f,              // function to minimize
@@ -131,6 +184,8 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T>& param,
   *k        = 1;
   int end   = 0;
   int n_vec = 0;  // number of vector updates made in lbfgs_search_dir
+  OPT_RETCODE retcode;
+  LINE_SEARCH_RETCODE lsret;
   for (; *k <= param.max_iterations; (*k)++) {
     // Save the curent x and gradient
     xp.copy_async(x, stream);
@@ -138,34 +193,23 @@ inline OPT_RETCODE min_lbfgs(const LBFGSParam<T>& param,
     fxp = fx;
 
     // Line search to update x, fx and gradient
-    LINE_SEARCH_RETCODE lsret =
-      ls_backtrack(param, f, fx, x, grad, step, drt, xp, dev_scalar, stream);
+    lsret = ls_backtrack(param, f, fx, x, grad, step, drt, xp, dev_scalar, stream);
 
-    bool isLsValid = !isnan(fx) && !isinf(fx);
-    // Linesearch may fail to converge, but still come closer to the solution;
-    // if that is not the case, let `check_convergence` ("insufficient change")
-    // below terminate the loop.
-    bool isLsInDoubt =
-      lsret == LS_INVALID_STEP_MIN || lsret == LS_MAX_ITERS_REACHED;
-    bool isLsSuccess =
-      lsret == LS_SUCCESS || isLsValid && fx <= fxp && isLsInDoubt;
-
-    if (!isLsSuccess || !isLsValid) {
-      fx = fxp;
-      x.copy_async(xp, stream);
-      grad.copy_async(gradp, stream);
-      if (!isLsSuccess) {
-        CUML_LOG_ERROR("L-BFGS line search failed (code %d)", lsret);
-        return OPT_LS_FAILED;
-      }
-      CUML_LOG_ERROR("L-BFGS error fx=%f at iteration %d", fx, *k);
-      return OPT_NUMERIC_ERROR;
-    }
-
-    if (check_convergence(param, *k, fx, x, grad, fx_hist, dev_scalar, stream)) {
-      CUML_LOG_DEBUG("L-BFGS converged");
-      return OPT_SUCCESS;
-    }
+    if (update_and_check("L-BFGS",
+                         param,
+                         *k,
+                         lsret,
+                         fx,
+                         fxp,
+                         x,
+                         xp,
+                         grad,
+                         gradp,
+                         fx_hist,
+                         dev_scalar,
+                         retcode,
+                         stream))
+      return retcode;
 
     // Update s and y
     // s_{k+1} = x_{k+1} - x_k
@@ -288,6 +332,8 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T>& param,
 
   int end   = 0;
   int n_vec = 0;  // number of vector updates made in lbfgs_search_dir
+  OPT_RETCODE retcode;
+  LINE_SEARCH_RETCODE lsret;
   for ((*k) = 1; (*k) <= param.max_iterations; (*k)++) {
     // Save the curent x and gradient
     xp.copy_async(x, stream);
@@ -295,37 +341,28 @@ inline OPT_RETCODE min_owlqn(const LBFGSParam<T>& param,
     fxp = fx;
 
     // Projected line search to update x, fx and gradient
-    LINE_SEARCH_RETCODE lsret = ls_backtrack_projected(
+    lsret = ls_backtrack_projected(
       param, f_wrap, fx, x, grad, pseudo, step, drt, xp, l1_penalty, dev_scalar, stream);
 
-    bool isLsValid = !isnan(fx) && !isinf(fx);
-    // Linesearch may fail to converge, but still come closer to the solution;
-    // if that is not the case, let `check_convergence` ("insufficient change")
-    // below terminate the loop.
-    bool isLsInDoubt =
-      lsret == LS_INVALID_STEP_MIN || lsret == LS_MAX_ITERS_REACHED;
-    bool isLsSuccess =
-      lsret == LS_SUCCESS || isLsValid && fx <= fxp && isLsInDoubt;
+    if (update_and_check("QWL-QN",
+                         param,
+                         *k,
+                         lsret,
+                         fx,
+                         fxp,
+                         x,
+                         xp,
+                         grad,
+                         gradp,
+                         fx_hist,
+                         dev_scalar,
+                         retcode,
+                         stream))
+      return retcode;
 
-    if (!isLsSuccess || !isLsValid) {
-      fx = fxp;
-      x.copy_async(xp, stream);
-      grad.copy_async(gradp, stream);
-      if (!isLsSuccess) {
-        CUML_LOG_ERROR("QWL-QN line search failed (code %d)", lsret);
-        return OPT_LS_FAILED;
-      }
-      CUML_LOG_ERROR("OWL-QN error fx=%f at iteration %d", fx, *k);
-      return OPT_NUMERIC_ERROR;
-    }
     // recompute pseudo
     //  pseudo.assign_binary(x, grad, pseudo_grad);
     update_pseudo(x, grad, pseudo_grad, pg_limit, pseudo, stream);
-
-    if (check_convergence(param, *k, fx, x, pseudo, fx_hist, dev_scalar, stream)) {
-      CUML_LOG_DEBUG("OWL-QN converged");
-      return OPT_SUCCESS;
-    }
 
     // Update s and y - We should only do this if there is no skipping condition
 
