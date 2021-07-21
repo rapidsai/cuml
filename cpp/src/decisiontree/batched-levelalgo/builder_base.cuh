@@ -333,6 +333,8 @@ struct Builder {
 
     // get the current set of nodes to be worked upon
     raft::update_device(curr_nodes, h_nodes.data() + node_start, batchSize, s);
+    CUDA_CHECK(
+      cudaMemsetAsync(next_nodes, 0, sizeof(Node<DataT, LabelT, IdxT>) * 2 * batchSize, s));
 
     int total_samples_in_curr_batch = 0;
     int n_large_nodes_in_curr_batch =
