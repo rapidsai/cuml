@@ -1,7 +1,11 @@
 #!/bin/bash
 
+
+echo "Calling git describe!"
 GIT_DESCRIBE_TAG=`git describe --tags`
 MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
+
+echo "DONE!"
 
 DOCKER_IMAGE="gpuci/rapidsai:${MINOR_VERSION}-cuda10.1-devel-ubuntu16.04-py3.7"
 REPO_PATH=${PWD}
@@ -71,7 +75,7 @@ BASE_CONTAINER_BUILD_DIR=${REPO_PATH}/build_$(echo $(basename "${DOCKER_IMAGE}")
 CPP_CONTAINER_BUILD_DIR=${BASE_CONTAINER_BUILD_DIR}/cpp
 PYTHON_CONTAINER_BUILD_DIR=${BASE_CONTAINER_BUILD_DIR}/python
 
-
+echo "GOT HERE!"
 BUILD_SCRIPT="#!/bin/bash
 set -e
 WORKSPACE=${REPO_PATH_IN_CONTAINER}
@@ -100,6 +104,7 @@ mkdir -p "${PYTHON_CONTAINER_BUILD_DIR}"
 mkdir -p "${REPO_PATH}/${CPP_BUILD_DIR}"
 mkdir -p "${REPO_PATH}/${PYTHON_BUILD_DIR}"
 
+echo "GOT HERE!"
 echo "${BUILD_SCRIPT}" > "${CPP_CONTAINER_BUILD_DIR}/build.sh"
 chmod ugo+x "${CPP_CONTAINER_BUILD_DIR}/build.sh"
 PASSWD_FILE="/etc/passwd"
@@ -117,6 +122,8 @@ if [ "$USER_FOUND" == 0 ]; then
   echo "$(whoami):x:$(id -g):" >> "$GROUP_FILE"
 fi
 
+
+echo "About to pull!"
 # Run the generated build script in a container
 docker pull "${DOCKER_IMAGE}"
 
@@ -127,6 +134,7 @@ then
     GPU_OPTS="--runtime=nvidia -e NVIDIA_VISIBLE_DEVICES='${NVIDIA_VISIBLE_DEVICES}'"
 fi
 
+echo "About to call run!"
 docker run --rm -it ${GPU_OPTS} \
        --user "$(id -u)":"$(id -g)" \
        -v "${REPO_PATH}:${REPO_PATH_IN_CONTAINER}" \

@@ -25,8 +25,8 @@ function(find_and_configure_raft)
       BUILD_EXPORT_SET    cuml-exports
       INSTALL_EXPORT_SET  cuml-exports
         CPM_ARGS
-            GIT_REPOSITORY https://github.com/${PKG_FORK}/raft.git
-            GIT_TAG        ${PKG_PINNED_TAG}
+            GIT_REPOSITORY https://github.com/cjnolet/raft.git
+            GIT_TAG        poc-020-random_ball_cover
             SOURCE_SUBDIR  cpp
             OPTIONS
               "BUILD_TESTS OFF"
