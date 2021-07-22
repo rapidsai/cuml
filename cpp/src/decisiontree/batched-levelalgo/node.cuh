@@ -56,6 +56,8 @@ struct Node {
     info.quesval         = DataT(0);
     info.best_metric_val = DataT(0);
     info.left_child_id   = Leaf;
+    info.unique_id       = UINT32_MAX;
+    info.instance_count  = UINT32_MAX;
   }
 
   /**
