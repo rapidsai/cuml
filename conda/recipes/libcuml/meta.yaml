@@ -49,7 +49,7 @@ requirements:
     - faiss-proc=*=cuda
     - gtest=1.10.0
     - gmock
-    - libfaiss 1.7.0 *cuda
+    - libfaiss 1.7.0 *_cuda
   run:
     - libcumlprims {{ minor_version }}
     - cudf {{ minor_version }}
@@ -59,7 +59,7 @@ requirements:
     - {{ pin_compatible('cudatoolkit', max_pin='x.x') }}
     - treelite=2.0.0
     - faiss-proc=*=cuda
-    - libfaiss 1.7.0 *cuda
+    - libfaiss 1.7.0 *_cuda
 
 about:
   home: http://rapids.ai/
