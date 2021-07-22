@@ -119,8 +119,7 @@ inline bool update_and_check(const char* solver,
     // If a non-critical error has happened during the line search, check if the target
     // is improved at least a bit. Otherwise, stop to avoid spinning till the iteration limit.
     CUML_LOG_WARN(
-      "%s stopped, because the line search failed to advance (step delta = %f); "
-      "perhaps, the convergence criteria are too strict?..",
+      "%s stopped, because the line search failed to advance (step delta = %f)",
       solver,
       fx - fxp);
     outcode = OPT_LS_FAILED;
