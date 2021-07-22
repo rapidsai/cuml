@@ -91,8 +91,13 @@ inline bool update_and_check(const char* solver,
   // if that is not the case, let `check_convergence` ("insufficient change")
   // below terminate the loop.
   bool isLsNonCritical = lsret == LS_INVALID_STEP_MIN || lsret == LS_MAX_ITERS_REACHED;
-  bool isLsInDoubt     = isLsValid && fx <= fxp + param.ftol && isLsNonCritical;
-  bool isLsSuccess     = lsret == LS_SUCCESS || isLsInDoubt;
+  // If the error is not critical, check that the target function does not grow.
+  // This shouldn't really happen, but weird things can happen if the convergence
+  // thresholds are too small.
+  bool isLsInDoubt = isLsValid && fx <= fxp + param.ftol && isLsNonCritical;
+  bool isLsSuccess = lsret == LS_SUCCESS || isLsInDoubt;
+
+  CUML_LOG_TRACE("%s iteration %d, fx=%f", solver, iter, fx);
 
   // if the target is at least finite, we can check the convergence
   if (isLsValid)
@@ -111,6 +116,8 @@ inline bool update_and_check(const char* solver,
     outcode = OPT_SUCCESS;
     stop    = true;
   } else if (isLsInDoubt && fx + param.ftol >= fxp) {
+    // If a non-critical error has happened during the line search, check if the target
+    // is improved at least a bit. Otherwise, stop to avoid spinning till the iteration limit.
     CUML_LOG_WARN(
       "%s stopped, because the line search failed to advance (step delta = %f); "
       "perhaps, the convergence criteria are too strict?..",
