@@ -50,21 +50,6 @@ void truncCompExpVars(const raft::handle_t& handle,
   device_buffer<math_t> explained_var_all(allocator, stream, prms.n_cols);
   device_buffer<math_t> explained_var_ratio_all(allocator, stream, prms.n_cols);
 
-<<<<<<< HEAD
-  printf("About to call calEig\n");
-  calEig<math_t, enum_solver>(
-    handle, in, components_all.data(), explained_var_all.data(), prms, stream);
-
-  printf("Called calEig\n");
-  raft::matrix::truncZeroOrigin(
-    components_all.data(), prms.n_cols, components, prms.n_components, prms.n_cols, stream);
-  raft::matrix::ratio(
-    handle, explained_var_all.data(), explained_var_ratio_all.data(), prms.n_cols, stream);
-  raft::matrix::truncZeroOrigin(
-    explained_var_all.data(), prms.n_cols, explained_var, prms.n_components, 1, stream);
-  raft::matrix::truncZeroOrigin(
-    explained_var_ratio_all.data(), prms.n_cols, explained_var_ratio, prms.n_components, 1, stream);
-=======
   calEig<math_t, enum_solver>(
     handle, in, components_all.data(), explained_var_all.data(), prms, stream);
   raft::matrix::truncZeroOrigin(
@@ -75,7 +60,6 @@ void truncCompExpVars(const raft::handle_t& handle,
     explained_var_all.data(), prms.n_cols, explained_var, prms.n_components, 1, stream);
   raft::matrix::truncZeroOrigin(
     explained_var_ratio_all.data(), prms.n_cols, explained_var_ratio, prms.n_components, 1, stream);
->>>>>>> branch-21.08
 }
 
 /**
