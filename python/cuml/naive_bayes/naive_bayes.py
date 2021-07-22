@@ -608,42 +608,42 @@ class MultinomialNB(_BaseDiscreteNB):
 
     .. code-block:: python
 
-    import cupy as cp
+        import cupy as cp
 
-    from sklearn.datasets import fetch_20newsgroups
-    from sklearn.feature_extraction.text import CountVectorizer
+        from sklearn.datasets import fetch_20newsgroups
+        from sklearn.feature_extraction.text import CountVectorizer
 
-    from cuml.naive_bayes import MultinomialNB
+        from cuml.naive_bayes import MultinomialNB
 
-    # Load corpus
+        # Load corpus
 
-    twenty_train = fetch_20newsgroups(subset='train',
-                              shuffle=True, random_state=42)
+        twenty_train = fetch_20newsgroups(subset='train',
+                                shuffle=True, random_state=42)
 
-    # Turn documents into term frequency vectors
+        # Turn documents into term frequency vectors
 
-    count_vect = CountVectorizer()
-    features = count_vect.fit_transform(twenty_train.data)
+        count_vect = CountVectorizer()
+        features = count_vect.fit_transform(twenty_train.data)
 
-    # Put feature vectors and labels on the GPU
+        # Put feature vectors and labels on the GPU
 
-    X = cp.sparse.csr_matrix(features.tocsr(), dtype=cp.float32)
-    y = cp.asarray(twenty_train.target, dtype=cp.int32)
+        X = cp.sparse.csr_matrix(features.tocsr(), dtype=cp.float32)
+        y = cp.asarray(twenty_train.target, dtype=cp.int32)
 
-    # Train model
+        # Train model
 
-    model = MultinomialNB()
-    model.fit(X, y)
+        model = MultinomialNB()
+        model.fit(X, y)
 
-    # Compute accuracy on training set
+        # Compute accuracy on training set
 
-    model.score(X, y)
+        model.score(X, y)
 
     Output:
 
     .. code-block:: python
 
-    0.9244298934936523
+        0.9244298934936523
 
     """
     def __init__(self, *,
@@ -751,6 +751,7 @@ class BernoulliNB(_BaseDiscreteNB):
         Empirical log probability of features given a class, P(x_i|y).
     n_features_ : int
         Number of features of each sample.
+
     Examples
     --------
     >>> import cupy as cp
@@ -763,6 +764,7 @@ class BernoulliNB(_BaseDiscreteNB):
     BernoulliNB()
     >>> print(clf.predict(X[2:3]))
     [3]
+
     References
     ----------
     C.D. Manning, P. Raghavan and H. Schuetze (2008). Introduction to
