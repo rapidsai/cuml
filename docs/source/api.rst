@@ -264,6 +264,9 @@ Mutinomial Naive Bayes
 .. autoclass:: cuml.MultinomialNB
     :members:
 
+.. autoclass:: cuml.naive_bayes.GaussianNB
+    :members:
+
 Stochastic Gradient Descent
 ---------------------------
 
