@@ -153,7 +153,8 @@ class ARIMA(Base):
     See https://en.wikipedia.org/wiki/Autoregressive_integrated_moving_average
 
     This class can fit an ARIMA(p,d,q) or ARIMA(p,d,q)(P,D,Q)_s model to a
-    batch of time series of the same length with no missing values.
+    batch of time series of the same length (or various lengths, using missing
+    values at the start for padding).
     The implementation is designed to give the best performance when using
     large batches of time series.
 
@@ -163,6 +164,7 @@ class ARIMA(Base):
         The time series data, assumed to have each time series in columns.
         Acceptable formats: cuDF DataFrame, cuDF Series, NumPy ndarray,
         Numba device ndarray, cuda array interface compliant array like CuPy.
+        Missing values are accepted, represented by NaN.
     order : Tuple[int, int, int]
         The ARIMA order (p, d, q) of the model
     seasonal_order: Tuple[int, int, int, int]

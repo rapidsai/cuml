@@ -130,12 +130,12 @@ class FillnaTest : public ::testing::TestWithParam<FillnaInputs<T>> {
   testing::AssertionResult match = testing::AssertionFailure();
 };
 
-const std::vector<FillnaInputs<float>> gemm_inputsf = {
+const std::vector<FillnaInputs<float>> inputsf = {
   {3, 42, {{10, 0, 0}, {0, 10, 0}, {0, 0, 10}}, 12345U},
   {4, 100, {{70, 0, 0}, {0, 20, 0}, {0, 0, 63}, {31, 25, 33}, {20, 15, 42}}, 12345U},
 };
 
-const std::vector<FillnaInputs<double>> gemm_inputsd = {
+const std::vector<FillnaInputs<double>> inputsd = {
   {3, 42, {{10, 0, 0}, {0, 10, 0}, {0, 0, 10}}, 12345U},
   {4, 100, {{70, 0, 0}, {0, 20, 0}, {0, 0, 63}, {31, 25, 33}, {20, 15, 42}}, 12345U},
 };
@@ -146,9 +146,9 @@ TEST_P(FillnaTestF, Result) { EXPECT_TRUE(match); }
 typedef FillnaTest<double> FillnaTestD;
 TEST_P(FillnaTestD, Result) { EXPECT_TRUE(match); }
 
-INSTANTIATE_TEST_CASE_P(FillnaTests, FillnaTestF, ::testing::ValuesIn(gemm_inputsf));
+INSTANTIATE_TEST_CASE_P(FillnaTests, FillnaTestF, ::testing::ValuesIn(inputsf));
 
-INSTANTIATE_TEST_CASE_P(FillnaTests, FillnaTestD, ::testing::ValuesIn(gemm_inputsd));
+INSTANTIATE_TEST_CASE_P(FillnaTests, FillnaTestD, ::testing::ValuesIn(inputsd));
 
 }  // namespace TimeSeries
 }  // namespace MLCommon

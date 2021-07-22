@@ -24,7 +24,7 @@
 # implementation to compare strict parity of specific components.
 #
 # The integration tests compare that, when fitting and forecasting separately,
-# out implementation performs better or approximately as good as the reference
+# our implementation performs better or approximately as good as the reference
 # (it mostly serves to test that we don't have any regression)
 #
 # Note that there are significant differences between our implementation and

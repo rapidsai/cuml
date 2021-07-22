@@ -33,8 +33,12 @@
 namespace {
 
 struct FillnaTemp {
+  /** After the scan, this index refers to the position of the last valid value */
   int index;
+  /** This indicates whether a value is valid, i.e != NaN */
   bool is_valid;
+  /** This indicates that this position is the first of a series and values from the previous series
+   * in the batch cannot be used to fill missing observations */
   bool is_first;
 };
 
@@ -70,7 +74,7 @@ struct FillnaOp {
 };
 
 template <bool forward, typename T>
-__global__ void fillna_gather_kernel(T* data, int n_elem, FillnaTemp* d_indices)
+__global__ void fillna_broadcast_kernel(T* data, int n_elem, FillnaTemp* d_indices)
 {
   for (int index0 = blockIdx.x * blockDim.x + threadIdx.x; index0 < n_elem;
        index0 += gridDim.x * blockDim.x) {
@@ -118,19 +122,24 @@ void fillna(T* data,
   // Allocate temporary storage
   size_t temp_storage_bytes = 0;
   cub::DeviceScan::InclusiveScan(
-    nullptr, temp_storage_bytes, itr_fwd, indices.data(), scan_op, batch_size * n_obs);
+    nullptr, temp_storage_bytes, itr_fwd, indices.data(), scan_op, batch_size * n_obs, stream);
   MLCommon::device_buffer<char> temp_storage(allocator, stream, temp_storage_bytes);
   void* d_temp_storage = (void*)temp_storage.data();
 
   // Execute scan (forward)
-  cub::DeviceScan::InclusiveScan(
-    d_temp_storage, temp_storage_bytes, itr_fwd, indices.data(), scan_op, batch_size * n_obs);
+  cub::DeviceScan::InclusiveScan(d_temp_storage,
+                                 temp_storage_bytes,
+                                 itr_fwd,
+                                 indices.data(),
+                                 scan_op,
+                                 batch_size * n_obs,
+                                 stream);
 
   const int TPB      = 256;
   const int n_blocks = raft::ceildiv<int>(n_obs * batch_size, TPB);
 
-  // Gather data from computed indices (forward)
-  fillna_gather_kernel<true>
+  // Broadcast last valid values to missing values (forward)
+  fillna_broadcast_kernel<true>
     <<<n_blocks, TPB, 0, stream>>>(data, batch_size * n_obs, indices.data());
   CUDA_CHECK(cudaPeekAtLastError());
 
@@ -138,10 +147,10 @@ void fillna(T* data,
   cub::DeviceScan::InclusiveScan(
     d_temp_storage, temp_storage_bytes, itr_bwd, indices.data(), scan_op, batch_size * n_obs);
 
-  // Gather data from computed indices (backward)
-  fillna_gather_kernel<false>
+  // Broadcast last valid values to missing values (backward)
+  fillna_broadcast_kernel<false>
     <<<n_blocks, TPB, 0, stream>>>(data, batch_size * n_obs, indices.data());
-  CUDA_CHECK(cudaPeekAtLastError());
+  CUDA_CHECK(cudaGetLastError());
 }
 
 }  // namespace TimeSeries
