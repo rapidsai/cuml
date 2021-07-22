@@ -42,8 +42,9 @@ void truncCompExpVars(const raft::handle_t& handle,
                       math_t* explained_var,
                       math_t* explained_var_ratio,
                       const paramsTSVDTemplate<enum_solver> prms,
-                      cudaStream_t stream) {
-  size_t len        = prms.n_cols * prms.n_cols;
+                      cudaStream_t stream)
+{
+  size_t len     = prms.n_cols * prms.n_cols;
   auto allocator = handle.get_device_allocator();
   device_buffer<math_t> components_all(allocator, stream, len);
   device_buffer<math_t> explained_var_all(allocator, stream, prms.n_cols);
@@ -51,19 +52,18 @@ void truncCompExpVars(const raft::handle_t& handle,
 
 <<<<<<< HEAD
   printf("About to call calEig\n");
-  calEig<math_t, enum_solver>(handle, in, components_all.data(),
-                              explained_var_all.data(), prms, stream);
+  calEig<math_t, enum_solver>(
+    handle, in, components_all.data(), explained_var_all.data(), prms, stream);
 
   printf("Called calEig\n");
-  raft::matrix::truncZeroOrigin(components_all.data(), prms.n_cols, components,
-                                prms.n_components, prms.n_cols, stream);
-  raft::matrix::ratio(handle, explained_var_all.data(),
-                      explained_var_ratio_all.data(), prms.n_cols, stream);
-  raft::matrix::truncZeroOrigin(explained_var_all.data(), prms.n_cols,
-                                explained_var, prms.n_components, 1, stream);
-  raft::matrix::truncZeroOrigin(explained_var_ratio_all.data(), prms.n_cols,
-                                explained_var_ratio, prms.n_components, 1,
-                                stream);
+  raft::matrix::truncZeroOrigin(
+    components_all.data(), prms.n_cols, components, prms.n_components, prms.n_cols, stream);
+  raft::matrix::ratio(
+    handle, explained_var_all.data(), explained_var_ratio_all.data(), prms.n_cols, stream);
+  raft::matrix::truncZeroOrigin(
+    explained_var_all.data(), prms.n_cols, explained_var, prms.n_components, 1, stream);
+  raft::matrix::truncZeroOrigin(
+    explained_var_ratio_all.data(), prms.n_cols, explained_var_ratio, prms.n_components, 1, stream);
 =======
   calEig<math_t, enum_solver>(
     handle, in, components_all.data(), explained_var_all.data(), prms, stream);
