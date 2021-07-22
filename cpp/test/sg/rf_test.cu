@@ -80,7 +80,7 @@ std::vector<ParamT> SampleParameters(int num_samples, size_t seed, Args... args)
   std::default_random_engine gen(seed);
   AddParameters<0>(gen, tuple_sample, args...);
   std::vector<ParamT> sample(num_samples);
-  for (size_t i = 0; i < num_samples; i++) {
+  for (int i = 0; i < num_samples; i++) {
     sample[i] = make_struct<ParamT>(tuple_sample[i]);
   }
   return sample;

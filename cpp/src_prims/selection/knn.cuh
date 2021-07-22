@@ -45,6 +45,7 @@
 #include <thrust/device_vector.h>
 #include <thrust/iterator/transform_iterator.h>
 
+#include <cstddef>
 #include <iostream>
 #include <set>
 
@@ -67,7 +68,7 @@ __global__ void class_probs_kernel(OutType* out,
                                    const int64_t* knn_indices,
                                    const int* labels,
                                    int n_uniq_labels,
-                                   int n_samples,
+                                   std::size_t n_samples,
                                    int n_neighbors)
 {
   int row = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -89,7 +90,7 @@ __global__ void class_vote_kernel(OutType* out,
                                   const float* class_proba,
                                   int* unique_labels,
                                   int n_uniq_labels,
-                                  int n_samples,
+                                  std::size_t n_samples,
                                   int n_outputs,
                                   int output_offset,
                                   bool use_shared_mem)
@@ -126,7 +127,7 @@ template <typename LabelType, bool precomp_lbls = false>
 __global__ void regress_avg_kernel(LabelType* out,
                                    const int64_t* knn_indices,
                                    const LabelType* labels,
-                                   int n_samples,
+                                   std::size_t n_samples,
                                    int n_neighbors,
                                    int n_outputs,
                                    int output_offset)
@@ -173,8 +174,8 @@ template <int TPB_X = 32, bool precomp_lbls = false>
 void class_probs(std::vector<float*>& out,
                  const int64_t* knn_indices,
                  std::vector<int*>& y,
-                 int n_index_rows,
-                 int n_query_rows,
+                 std::size_t n_index_rows,
+                 std::size_t n_query_rows,
                  int k,
                  std::vector<int*>& uniq_labels,
                  std::vector<int>& n_unique,
@@ -191,7 +192,7 @@ void class_probs(std::vector<float*>& out,
 
     CUDA_CHECK(cudaMemsetAsync(out[i], 0, cur_size * sizeof(float), stream));
 
-    dim3 grid(raft::ceildiv(n_query_rows, TPB_X), 1, 1);
+    dim3 grid(raft::ceildiv(n_query_rows, static_cast<std::size_t>(TPB_X)), 1, 1);
     dim3 blk(TPB_X, 1, 1);
 
     /**
@@ -253,8 +254,8 @@ template <int TPB_X = 32, bool precomp_lbls = false>
 void knn_classify(int* out,
                   const int64_t* knn_indices,
                   std::vector<int*>& y,
-                  int n_index_rows,
-                  int n_query_rows,
+                  std::size_t n_index_rows,
+                  std::size_t n_query_rows,
                   int k,
                   std::vector<int*>& uniq_labels,
                   std::vector<int>& n_unique,
@@ -298,7 +299,7 @@ void knn_classify(int* out,
                                 int_streams,
                                 n_int_streams);
 
-  dim3 grid(raft::ceildiv(n_query_rows, TPB_X), 1, 1);
+  dim3 grid(raft::ceildiv(n_query_rows, static_cast<std::size_t>(TPB_X)), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
   for (std::size_t i = 0; i < y.size(); i++) {
@@ -362,7 +363,7 @@ void knn_regress(ValType* out,
     cudaStream_t stream = raft::select_stream(user_stream, int_streams, n_int_streams, i);
 
     regress_avg_kernel<ValType, precomp_lbls>
-      <<<raft::ceildiv(n_query_rows, (size_t)TPB_X), TPB_X, 0, stream>>>(
+      <<<raft::ceildiv(n_query_rows, static_cast<std::size_t>(TPB_X)), TPB_X, 0, stream>>>(
         out, knn_indices, y[i], n_query_rows, k, y.size(), i);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
