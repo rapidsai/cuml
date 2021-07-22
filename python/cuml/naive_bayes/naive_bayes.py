@@ -558,6 +558,7 @@ class _BaseDiscreteNB(_BaseNB):
                 "class_prior"
             ]
 
+
 class MultinomialNB(_BaseDiscreteNB):
 
     # TODO: Make this extend cuml.Base:
