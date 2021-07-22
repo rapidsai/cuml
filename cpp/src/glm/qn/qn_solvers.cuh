@@ -104,11 +104,13 @@ inline bool update_and_check(const char* solver,
     converged = check_convergence(param, iter, fx, x, grad, fx_hist, dev_scalar, stream);
 
   if (!isLsSuccess && !converged) {
-    CUML_LOG_WARN("%s line search failed (code %d)", solver, lsret);
+    CUML_LOG_WARN(
+      "%s line search failed (code %d); stopping at the last valid step", solver, lsret);
     outcode = OPT_LS_FAILED;
     stop    = true;
   } else if (!isLsValid) {
-    CUML_LOG_ERROR("%s error fx=%f at iteration %d", solver, fx, iter);
+    CUML_LOG_ERROR(
+      "%s error fx=%f at iteration %d; stopping at the last valid step", solver, fx, iter);
     outcode = OPT_NUMERIC_ERROR;
     stop    = true;
   } else if (converged) {
@@ -119,9 +121,7 @@ inline bool update_and_check(const char* solver,
     // If a non-critical error has happened during the line search, check if the target
     // is improved at least a bit. Otherwise, stop to avoid spinning till the iteration limit.
     CUML_LOG_WARN(
-      "%s stopped, because the line search failed to advance (step delta = %f)",
-      solver,
-      fx - fxp);
+      "%s stopped, because the line search failed to advance (step delta = %f)", solver, fx - fxp);
     outcode = OPT_LS_FAILED;
     stop    = true;
   }
