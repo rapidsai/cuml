@@ -44,7 +44,7 @@ void truncCompExpVars(const raft::handle_t& handle,
                       const paramsTSVDTemplate<enum_solver> prms,
                       cudaStream_t stream)
 {
-  int len        = prms.n_cols * prms.n_cols;
+  size_t len     = prms.n_cols * prms.n_cols;
   auto allocator = handle.get_device_allocator();
   device_buffer<math_t> components_all(allocator, stream, len);
   device_buffer<math_t> explained_var_all(allocator, stream, prms.n_cols);
@@ -103,7 +103,7 @@ void pcaFit(const raft::handle_t& handle,
 
   raft::stats::mean(mu, input, prms.n_cols, prms.n_rows, true, false, stream);
 
-  int len = prms.n_cols * prms.n_cols;
+  size_t len = prms.n_cols * prms.n_cols;
   device_buffer<math_t> cov(handle.get_device_allocator(), stream, len);
 
   Stats::cov(handle, cov.data(), input, mu, prms.n_cols, prms.n_rows, true, false, true, stream);
