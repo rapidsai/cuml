@@ -89,9 +89,7 @@ struct Split {
         if (other.quesval > quesval) { update_result = true; }
       }
     }
-    if (update_result) {
-      *this = other;
-    }
+    if (update_result) { *this = other; }
     return update_result;
   }
 
@@ -143,16 +141,17 @@ struct Split {
         while (atomicCAS(mutex, 0, 1))
           ;
         SplitT split_reg;
-        split_reg.quesval = split->quesval;
-        split_reg.colid = split->colid;
+        split_reg.quesval         = split->quesval;
+        split_reg.colid           = split->colid;
         split_reg.best_metric_val = split->best_metric_val;
-        split_reg.nLeft = split->nLeft;
-        bool update_result = split_reg.update({this->quesval, this->colid, this->best_metric_val, this->nLeft});
+        split_reg.nLeft           = split->nLeft;
+        bool update_result =
+          split_reg.update({this->quesval, this->colid, this->best_metric_val, this->nLeft});
         if (update_result) {
-          split->quesval = split_reg.quesval;
-          split->colid = split_reg.colid;
+          split->quesval         = split_reg.quesval;
+          split->colid           = split_reg.colid;
           split->best_metric_val = split_reg.best_metric_val;
-          split->nLeft = split_reg.nLeft;
+          split->nLeft           = split_reg.nLeft;
         }
         __threadfence();
         atomicExch(mutex, 0);

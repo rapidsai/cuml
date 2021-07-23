@@ -335,13 +335,13 @@ __global__ void computeSplitKernel(BinT* hist,
   IdxT offset_blockid = workload_info_cta.offset_blockid;
   IdxT num_blocks     = workload_info_cta.num_blocks;
 
-  auto end           = range_start + range_len;
-  auto shist_len     = nbins * objective.NumClasses();
-  auto* shist        = alignPointer<BinT>(smem);
-  auto* sbins        = alignPointer<DataT>(shist + shist_len);
-  auto* sDone        = alignPointer<int>(sbins + nbins);
-  IdxT stride        = blockDim.x * num_blocks;
-  IdxT tid           = threadIdx.x + offset_blockid * blockDim.x;
+  auto end       = range_start + range_len;
+  auto shist_len = nbins * objective.NumClasses();
+  auto* shist    = alignPointer<BinT>(smem);
+  auto* sbins    = alignPointer<DataT>(shist + shist_len);
+  auto* sDone    = alignPointer<int>(sbins + nbins);
+  IdxT stride    = blockDim.x * num_blocks;
+  IdxT tid       = threadIdx.x + offset_blockid * blockDim.x;
 
   // obtaining the feature to test split on
   IdxT col;
@@ -369,7 +369,7 @@ __global__ void computeSplitKernel(BinT* hist,
     auto d     = input.data[row + coloffset];
     auto label = input.labels[row];
     IdxT start = 0;
-    IdxT end = nbins - 1;
+    IdxT end   = nbins - 1;
     IdxT mid;
     while (start < end) {
       mid = (start + end) / 2;
@@ -412,8 +412,7 @@ __global__ void computeSplitKernel(BinT* hist,
   for (IdxT c = 0; c < objective.NumClasses(); ++c) {
     auto offset = nbins * c;
     // converting pdf to cdf
-    BinT total_sum =
-      pdf_to_cdf<BinT, IdxT, TPB>(shist + offset, nbins);
+    BinT total_sum = pdf_to_cdf<BinT, IdxT, TPB>(shist + offset, nbins);
   }
 
   // create a split instance to test current feature split
@@ -429,7 +428,6 @@ __global__ void computeSplitKernel(BinT* hist,
   // then atomically update across features to get best split per node
   // (in split[nid])
   sp.evalBestSplit(smem, splits + nid, mutex + nid);
-
 }
 
 }  // namespace DT
