@@ -24,6 +24,7 @@
 #include <treelite/c_api.h>
 #include <treelite/frontend.h>
 #include <treelite/tree.h>
+#include <treelite/gtil.h>
 #include <cmath>
 #include <cstdio>
 #include <limits>
@@ -48,7 +49,7 @@ struct FilTestParams {
   // input data parameters
   int num_rows   = atoi(getenv("num_rows"));
   int num_cols   = atoi(getenv("num_cols"));
-  float nan_prob = 0.05;
+  float nan_prob = atof(getenv("nan_prob"));
   // forest parameters
   int depth                      = atoi(getenv("depth"));
   int num_trees                  = atoi(getenv("num_trees"));
@@ -407,7 +408,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     cat_branches_h.print_max_matching();
     // predict on host
     std::vector<float> want_preds_h(ps.num_preds_outputs());
-    std::vector<float> want_proba_h(ps.num_proba_outputs());
+    want_proba_h.resize(ps.num_proba_outputs());
     int num_nodes = tree_num_nodes();
     auto infer    = [&](int root, int row) {
       return infer_one_tree(&nodes[root * num_nodes], &data_h[row * ps.num_cols], cat_branches_h);
@@ -420,6 +421,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
           for (int j = 0; j < ps.num_trees; ++j) {
             pred += infer(j, i).f;
           }
+          printf("cpu pred sum %f\n", pred);
           transform(pred, want_proba_h[i * 2 + 1], want_preds_h[i]);
           complement(&(want_proba_h[i * 2]));
         }
@@ -550,6 +552,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   // input data
   float* data_d = nullptr;
   std::vector<float> data_h;
+  std::vector<float> want_proba_h;
 
   // forest data
   std::vector<fil::dense_node> nodes;
@@ -663,6 +666,26 @@ typedef BasePredictSparseFilTest<fil::sparse_node8> PredictSparse8FilTest;
 
 class TreeliteFilTest : public BaseFilTest {
  protected:
+  std::unique_ptr<tl::Model> model;
+
+  void SetUp() override {
+    setup_helper();
+    using namespace treelite::gtil;
+    
+    printf("num_proba_o %lu ==? tl::size %lu\n", ps.num_proba_outputs(), GetPredictOutputSize(&*model, ps.num_rows));
+    float* tl_preds_h = new float[ps.num_preds_outputs()];
+    float* tl_proba_h = new float[ps.num_proba_outputs()];
+    Predict(&*model, data_h.data(), ps.num_rows, tl_preds_h, false);
+    if(atoi(getenv("tl_w_cpu"))) ASSERT_TRUE(raft::devArrMatchHost(
+      tl_preds_h, want_preds_d, ps.num_preds_outputs(), raft::CompareApprox<float>(ps.tolerance)));
+    if(atoi(getenv("tl_w_gpu"))) ASSERT_TRUE(raft::devArrMatchHost(
+      tl_preds_h,      preds_d, ps.num_preds_outputs(), raft::CompareApprox<float>(ps.tolerance)));
+    CUDA_CHECK(cudaDeviceSynchronize());
+
+    delete[] tl_preds_h;
+    delete[] tl_proba_h;
+  }
+
   /** adds nodes[node] of tree starting at index root to builder
       at index at *pkey, increments *pkey,
       and returns the treelite key of the node */
@@ -672,7 +695,9 @@ class TreeliteFilTest : public BaseFilTest {
     builder->CreateNode(key);
     const fil::dense_node& dense_node = nodes[node];
     dense_node.print();
+    std::vector<uint32_t> left_categories;
     if (dense_node.is_leaf()) {
+      printf("leaf key %d\n", key);
       switch (ps.leaf_algo) {
         case fil::leaf_algo_t::FLOAT_UNARY_BINARY:
         case fil::leaf_algo_t::GROVE_PER_CLASS:
@@ -702,7 +727,6 @@ class TreeliteFilTest : public BaseFilTest {
       int right         = root + 2 * (node - root) + 2;
       bool default_left = dense_node.def_left();
       float threshold;
-      std::vector<uint32_t> left_categories;
       if (dense_node.is_categorical()) {
         uint8_t byte = 0;
         for (int category = 0; category <= cat_branches_h.max_matching[dense_node.fid()];
@@ -712,29 +736,22 @@ class TreeliteFilTest : public BaseFilTest {
         }
       } else {
         threshold = dense_node.thresh();
-        switch (ps.op) {
-          case tl::Operator::kLT: break;
-          case tl::Operator::kLE:
-            // adjust the threshold
-            threshold = std::nextafterf(threshold, -std::numeric_limits<float>::infinity());
-            break;
-          case tl::Operator::kGT:
-            // adjust the threshold; left and right still need to be swapped
-            threshold = std::nextafterf(threshold, -std::numeric_limits<float>::infinity());
-          case tl::Operator::kGE:
-            // swap left and right
-            std::swap(left, right);
-            default_left = !default_left;
-            break;
-          default: ASSERT(false, "comparison operator must be <, >, <= or >=");
-        }
       }
       int left_key  = node_to_treelite(builder, pkey, root, left);
       int right_key = node_to_treelite(builder, pkey, root, right);
-      if (dense_node.is_categorical()) {
+      if (atoi(getenv("ever_categorical")) && !left_categories.empty() && dense_node.is_categorical()) {
+        printf("c branch key %d left_key %d right_key %d\n", key, left_key, right_key);
+        std::swap(left_key, right_key);
+        default_left = !default_left;
         builder->SetCategoricalTestNode(
           key, dense_node.fid(), left_categories, default_left, left_key, right_key);
       } else {
+        if(dense_node.is_categorical()) {
+          // treelite cannot handle empty category lists, so this threshold will always compare false
+          threshold = NAN;
+        }
+        adjust_threshold(&threshold, &left_key, &right_key, &default_left, ps.op, FIL_TO_TREELITE);
+        printf("n branch key %d left_key %d right_key %d\n", key, left_key, right_key);
         builder->SetNumericalTestNode(key,
                                       dense_node.fid(),
                                       ps.op,
@@ -780,7 +797,6 @@ class TreeliteFilTest : public BaseFilTest {
     model_builder->SetModelParam("global_bias", global_bias_str);
     ::free(global_bias_str);
 
-    max_key = LLONG_MIN;
     // build the trees
     for (int i_tree = 0; i_tree < ps.num_trees; ++i_tree) {
       tlf::TreeBuilder* tree_builder =
@@ -788,14 +804,17 @@ class TreeliteFilTest : public BaseFilTest {
       int key_counter = 0;
       int root        = i_tree * tree_num_nodes();
       int root_key    = node_to_treelite(tree_builder, &key_counter, root, root);
+      printf("2treelite\n");
       tree_builder->SetRootNode(root_key);
+      printf("set root node\n");
       // InsertTree() consumes tree_builder
       TL_CPP_CHECK(model_builder->InsertTree(tree_builder));
+      printf("inserted tree\n");
     }
-    printf("max key %d\n", max_key);
 
     // commit the model
-    std::unique_ptr<tl::Model> model = model_builder->CommitModel();
+    model = model_builder->CommitModel();
+    printf("committed model\n");
 
     // init FIL forest with the model
     char* forest_shape_str = nullptr;

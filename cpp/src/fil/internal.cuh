@@ -18,6 +18,8 @@
 
 #pragma once
 #include <cuml/fil/fil.h>
+#include <treelite/c_api.h>
+#include <treelite/tree.h>
 #include <vector>
 
 namespace raft {
@@ -32,6 +34,14 @@ __host__ __device__ __forceinline__ int modpow2(int a, int log2_b)
 {
   return a & ((1 << log2_b) - 1);
 }
+
+enum adjust_threshold_direction_t { FIL_TO_TREELITE = -1, TREELITE_TO_FIL = 1 };
+void adjust_threshold(float* pthreshold,
+                      int* tl_left,
+                      int* tl_right,
+                      bool* default_left,
+                      treelite::Operator comparison_op,
+                      adjust_threshold_direction_t dir);
 
 /**
  * output_t are flags that define the output produced by the FIL predictor; a
@@ -346,9 +356,12 @@ struct categorical_branches {
                                                     float val) const
   {
     bool cond;
-    if (isnan(val))
+    const char* lr[] = {"left", "right"};
+    node.print();
+    if (isnan(val)) {
       cond = !node.def_left();
-    else {
+      printf("idx %d val is nan, taking %s\n", node_idx, lr[cond]);
+    } else {
       if (node.is_categorical()) {
         int category = val;
         // standard boolean packing. This layout has better ILP
@@ -357,14 +370,15 @@ struct categorical_branches {
         // features with similar categorical feature count, we may consider
         // storing node ID within nodes with same feature ID and look up
         // {.max_matching, .first_node_offset} = ...[feature_id]
-        // printf("for fid %d and val %f, checking categories at %d: {", node.fid(), val,
-        // node.set()); for (int byte = 0; byte < max_matching[node.fid()]; ++byte)
-        //  printf("%2x ", bits[node.set() + category / 8]);
-        // printf("}\n");
+         printf("for fid %d and val %f, checking categories at %d: {", node.fid(), val,
+         node.set()); for (int byte = 0; byte < max_matching[node.fid()]; ++byte)
+          printf("%02x ", bits[node.set() + category / 8]);
+         printf("}\n");
         cond = (category <= max_matching[node.fid()]) &&
                bits[node.set() + category / 8] & (1 << category % 8);
       } else {
         cond = val >= node.thresh();
+        printf("idx %d %f >= %f taking %s\n", node_idx, val, node.thresh(), lr[cond]);
       }
     }
     return node.left(node_idx) + cond;

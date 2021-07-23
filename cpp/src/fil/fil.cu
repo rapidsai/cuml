@@ -74,6 +74,7 @@ __global__ void transform_k(float* preds,
   if (complement_proba && i % 2 != 0) return;
 
   float result = preds[i];
+  printf("xform_k preds[%lu]=%f\n", i, result);
   if ((output & output_t::AVG) != 0) result *= inv_num_trees;
   result += global_bias;
   if ((output & output_t::SIGMOID) != 0) result = sigmoid(result);
@@ -671,23 +672,33 @@ v_cat_feature cat_feature_counters(const tl::ModelImpl<T, L>& model)
   return cat_features;
 }
 
-inline void adjust_threshold(
-  float* pthreshold, int* tl_left, int* tl_right, bool* default_left, tl::Operator comparison_op)
+void adjust_threshold(float* pthreshold,
+                      int* tl_left,
+                      int* tl_right,
+                      bool* default_left,
+                      tl::Operator comparison_op,
+                      adjust_threshold_direction_t dir)
 {
   // in treelite (take left node if val [op] threshold),
   // the meaning of the condition is reversed compared to FIL;
   // thus, "<" in treelite corresonds to comparison ">=" used by FIL
   // https://github.com/dmlc/treelite/blob/master/include/treelite/tree.h#L243
+  if(isnan(*pthreshold)) {
+    std::swap(*tl_left, *tl_right);
+    *default_left = !*default_left;
+    return;
+  }
   switch (comparison_op) {
     case tl::Operator::kLT: break;
     case tl::Operator::kLE:
       // x <= y is equivalent to x < y', where y' is the next representable float
-      *pthreshold = std::nextafterf(*pthreshold, std::numeric_limits<float>::infinity());
+      // adjust_threshold_direction_t::TREELITE_TO_FIL == 1, FIL_TO_TREELITE == -1
+      *pthreshold = std::nextafterf(*pthreshold, dir * std::numeric_limits<float>::infinity());
       break;
     case tl::Operator::kGT:
       // x > y is equivalent to x >= y', where y' is the next representable float
       // left and right still need to be swapped
-      *pthreshold = std::nextafterf(*pthreshold, std::numeric_limits<float>::infinity());
+      *pthreshold = std::nextafterf(*pthreshold, dir * std::numeric_limits<float>::infinity());
     case tl::Operator::kGE:
       // swap left and right
       std::swap(*tl_left, *tl_right);
@@ -753,6 +764,7 @@ void tl2fil_leaf_payload(fil_node_t* fil_node,
       break;
     default: ASSERT(false, "internal error: invalid leaf_algo");
   };
+  fil_node->print();
 }
 
 template <typename fil_node_t>
@@ -783,9 +795,12 @@ __noinline__ conversion_state<fil_node_t> tl2fil_branch_node(int fil_left_child,
   if (tree.SplitType(tl_node_id) == tl::SplitFeatureType::kNumerical) {
     is_categorical = false;
     split.f        = static_cast<float>(tree.Threshold(tl_node_id));
-    adjust_threshold(&split.f, &tl_left, &tl_right, &default_left, tree.ComparisonOp(tl_node_id));
+    adjust_threshold(
+      &split.f, &tl_left, &tl_right, &default_left, tree.ComparisonOp(tl_node_id), TREELITE_TO_FIL);
   } else if (tree.SplitType(tl_node_id) == tl::SplitFeatureType::kCategorical) {
     is_categorical     = true;
+    // for FIL, the list of categories is always for the right child
+    if (tree.CategoriesListRightChild(tl_node_id) == false) std::swap(tl_left, tl_right);
     size_t sizeof_mask = cat_branches->sizeof_mask(feature_id);
     // using the odd syntax because += returns post-addition value
 #pragma omp atomic capture
@@ -827,6 +842,7 @@ __noinline__ conversion_state<fil_node_t> tl2fil_branch_node(int fil_left_child,
   } else {
     node = fil_node_t({}, split, feature_id, default_left, false, is_categorical, fil_left_child);
   }
+  node.print();
   return {node, tl_left, tl_right};
 }
 
@@ -844,6 +860,7 @@ void node2fil_dense(std::vector<dense_node>* pnodes,
 {
   if (tree.IsLeaf(node_id)) {
     (*pnodes)[root + cur] = dense_node({}, {}, 0, false, true, false);
+    printf("fnid %3d is a   leaf,               ", cur);
     tl2fil_leaf_payload(
       &(*pnodes)[root + cur], root + cur, tree, node_id, forest_params, vector_leaf, leaf_counter);
     return;
@@ -851,6 +868,7 @@ void node2fil_dense(std::vector<dense_node>* pnodes,
 
   // inner node
   int left = 2 * cur + 1;
+  printf("fnid %3d is a branch, left index %3d", cur, left);
   conversion_state<dense_node> cs =
     tl2fil_branch_node<dense_node>(left, tree, node_id, forest_params, cat_branches, bit_pool_size);
   (*pnodes)[root + cur] = cs.node;
@@ -1121,7 +1139,7 @@ void tl2fil_dense(std::vector<dense_node>* pnodes,
   }
   cat_branches->host_allocate(cat_feature_counters(model));
   pnodes->resize(num_nodes, dense_node());
-  size_t bit_pool_size;
+  size_t bit_pool_size = 0;
   for (int i = 0; i < model.trees.size(); ++i) {
     size_t leaf_counter = max_leaves_per_tree * i;
     tree2fil_dense(pnodes,
@@ -1133,6 +1151,7 @@ void tl2fil_dense(std::vector<dense_node>* pnodes,
                    cat_branches,
                    &bit_pool_size);
   }
+  printf("bit_pool_size %lu cat_branches->bits_size %lu\n", bit_pool_size, cat_branches->bits_size);
   ASSERT(bit_pool_size == cat_branches->bits_size,
          "internal error: didn't convert the right number of nodes");
 }
