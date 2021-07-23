@@ -270,13 +270,13 @@ DI IdxT select(IdxT k, IdxT treeid, uint32_t nodeid, uint64_t seed, IdxT N)
 
 /**
  * @brief For every block, converts the smem pdf-histogram to
- *        cdf-histogram using inclusive block-sum-scan and returns
+ *        cdf-histogram inplace using inclusive block-sum-scan and returns
  *        the total_sum
  * @return The total sum aggregated over the sumscan,
  *         as well as the modified cdf-histogram pointer
  */
 template <typename BinT, typename IdxT, int TPB>
-DI BinT pdf_to_cdf(BinT* pdf_shist, BinT* cdf_shist, IdxT nbins)
+DI BinT pdf_to_cdf(BinT* shist, IdxT nbins)
 {
   // Blockscan instance preparation
   typedef cub::BlockScan<BinT, TPB> BlockScan;
@@ -289,12 +289,12 @@ DI BinT pdf_to_cdf(BinT* pdf_shist, BinT* cdf_shist, IdxT nbins)
     BinT result;
     BinT block_aggregate;
     // getting the scanning element from pdf shist only
-    BinT element = tix < nbins ? pdf_shist[tix] : BinT();
+    BinT element = tix < nbins ? shist[tix] : BinT();
     // inclusive sum scan
     BlockScan(temp_storage).InclusiveSum(element, result, block_aggregate);
     __syncthreads();
-    // store the result in cdf shist
-    if (tix < nbins) { cdf_shist[tix] = result + total_aggregate; }
+    // store the result in in the same shist
+    if (tix < nbins) { shist[tix] = result + total_aggregate; }
     total_aggregate += block_aggregate;
   }
   // return the total sum
@@ -336,11 +336,9 @@ __global__ void computeSplitKernel(BinT* hist,
   IdxT num_blocks     = workload_info_cta.num_blocks;
 
   auto end           = range_start + range_len;
-  auto pdf_shist_len = nbins * objective.NumClasses();
-  auto cdf_shist_len = nbins * objective.NumClasses();
-  auto* pdf_shist    = alignPointer<BinT>(smem);
-  auto* cdf_shist    = alignPointer<BinT>(pdf_shist + pdf_shist_len);
-  auto* sbins        = alignPointer<DataT>(cdf_shist + cdf_shist_len);
+  auto shist_len     = nbins * objective.NumClasses();
+  auto* shist        = alignPointer<BinT>(smem);
+  auto* sbins        = alignPointer<DataT>(shist + shist_len);
   auto* sDone        = alignPointer<int>(sbins + nbins);
   IdxT stride        = blockDim.x * num_blocks;
   IdxT tid           = threadIdx.x + offset_blockid * blockDim.x;
@@ -355,10 +353,8 @@ __global__ void computeSplitKernel(BinT* hist,
   }
 
   // populating shared memory with initial values
-  for (IdxT i = threadIdx.x; i < pdf_shist_len; i += blockDim.x)
-    pdf_shist[i] = BinT();
-  for (IdxT j = threadIdx.x; j < cdf_shist_len; j += blockDim.x)
-    cdf_shist[j] = BinT();
+  for (IdxT i = threadIdx.x; i < shist_len; i += blockDim.x)
+    shist[i] = BinT();
   for (IdxT b = threadIdx.x; b < nbins; b += blockDim.x)
     sbins[b] = input.quantiles[col * nbins + b];
 
@@ -383,16 +379,16 @@ __global__ void computeSplitKernel(BinT* hist,
         end = mid;
       }
     }
-    BinT::IncrementHistogram(pdf_shist, nbins, start, label);
+    BinT::IncrementHistogram(shist, nbins, start, label);
   }
 
   // synchronizeing above changes across block
   __syncthreads();
   if (num_blocks > 1) {
     // update the corresponding global location
-    auto histOffset = ((large_nid * gridDim.y) + blockIdx.y) * pdf_shist_len;
-    for (IdxT i = threadIdx.x; i < pdf_shist_len; i += blockDim.x) {
-      BinT::AtomicAdd(hist + histOffset + i, pdf_shist[i]);
+    auto histOffset = ((large_nid * gridDim.y) + blockIdx.y) * shist_len;
+    for (IdxT i = threadIdx.x; i < shist_len; i += blockDim.x) {
+      BinT::AtomicAdd(hist + histOffset + i, shist[i]);
     }
 
     __threadfence();  // for commit guarantee
@@ -406,31 +402,18 @@ __global__ void computeSplitKernel(BinT* hist,
     if (!last) return;
 
     // store the complete global histogram in shared memory of last block
-    for (IdxT i = threadIdx.x; i < pdf_shist_len; i += blockDim.x)
-      pdf_shist[i] = hist[histOffset + i];
+    for (IdxT i = threadIdx.x; i < shist_len; i += blockDim.x)
+      shist[i] = hist[histOffset + i];
 
     __syncthreads();
   }
 
-  /**
-   * Scanning code:
-   * span: block-wide
-   * Function: convert the PDF calculated in the previous steps to CDF
-   * This CDF is done over 2 passes
-   * * one from left to right to sum-scan counts of left splits
-   *   for each split-point.
-   * * second from right to left to sum-scan the right splits
-   *   for each split-point
-   */
+  // PDF to CDF inplace in shared memory pointed by shist
   for (IdxT c = 0; c < objective.NumClasses(); ++c) {
-    /** left to right scan operation for scanning
-     *  lesser-than-or-equal-to-bin counts **/
-    // offsets to pdf and cdf shist pointers
-    auto offset_pdf = nbins * c;
-    auto offset_cdf = nbins * c;
+    auto offset = nbins * c;
     // converting pdf to cdf
     BinT total_sum =
-      pdf_to_cdf<BinT, IdxT, TPB>(pdf_shist + offset_pdf, cdf_shist + offset_cdf, nbins);
+      pdf_to_cdf<BinT, IdxT, TPB>(shist + offset, nbins);
   }
 
   // create a split instance to test current feature split
@@ -438,7 +421,7 @@ __global__ void computeSplitKernel(BinT* hist,
 
   // calculate the best candidate bins (one for each block-thread) in current feature and
   // corresponding information gain for splitting
-  Split<DataT, IdxT> sp = objective.Gain(cdf_shist, sbins, col, range_len, nbins);
+  Split<DataT, IdxT> sp = objective.Gain(shist, sbins, col, range_len, nbins);
 
   __syncthreads();
 
@@ -446,6 +429,7 @@ __global__ void computeSplitKernel(BinT* hist,
   // then atomically update across features to get best split per node
   // (in split[nid])
   sp.evalBestSplit(smem, splits + nid, mutex + nid);
+
 }
 
 }  // namespace DT

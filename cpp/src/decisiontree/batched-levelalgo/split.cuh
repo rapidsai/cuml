@@ -155,7 +155,7 @@ struct Split {
           split->nLeft = split_reg.nLeft;
         }
         __threadfence();
-        atomicCAS(mutex, 1, 0);
+        atomicExch(mutex, 0);
       }
     }
   }
