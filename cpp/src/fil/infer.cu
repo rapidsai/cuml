@@ -918,15 +918,24 @@ void infer(storage_type forest, predict_params params, cudaStream_t stream)
   }
 }
 
-template void infer<dense_storage>(dense_storage forest,
-                                   predict_params params,
-                                   cudaStream_t stream);
-template void infer<sparse_storage16>(sparse_storage16 forest,
-                                      predict_params params,
-                                      cudaStream_t stream);
-template void infer<sparse_storage8>(sparse_storage8 forest,
+template void infer<dense_storage_c>(dense_storage forest,
                                      predict_params params,
                                      cudaStream_t stream);
+template void infer<dense_storage_n>(dense_storage forest,
+                                     predict_params params,
+                                     cudaStream_t stream);
+template void infer<sparse_storage16c>(sparse_storage16c forest,
+                                       predict_params params,
+                                       cudaStream_t stream);
+template void infer<sparse_storage16n>(sparse_storage16n forest,
+                                       predict_params params,
+                                       cudaStream_t stream);
+template void infer<sparse_storage8c>(sparse_storage8c forest,
+                                      predict_params params,
+                                      cudaStream_t stream);
+template void infer<sparse_storage8n>(sparse_storage8n forest,
+                                      predict_params params,
+                                      cudaStream_t stream);
 
 }  // namespace fil
 }  // namespace ML

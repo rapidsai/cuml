@@ -989,9 +989,14 @@ std::vector<FilTestParams> predict_dense_inputs = {
                   leaf_algo   = VECTOR_LEAF,
                   num_classes = 4000),
   FIL_TEST_PARAMS(node_categorical_prob = 0.5, feature_categorical_prob = 0.5),
-  FIL_TEST_PARAMS(node_categorical_prob = 1.0, feature_categorical_prob = 1.0, cat_match_prob = 1.0),
-  FIL_TEST_PARAMS(node_categorical_prob = 1.0, feature_categorical_prob = 1.0, cat_match_prob = 0.0),
-  FIL_TEST_PARAMS(depth = 3, node_categorical_prob = 0.5, feature_categorical_prob = 0.5, max_matching_cat_oom = 5),
+  FIL_TEST_PARAMS(
+    node_categorical_prob = 1.0, feature_categorical_prob = 1.0, cat_match_prob = 1.0),
+  FIL_TEST_PARAMS(
+    node_categorical_prob = 1.0, feature_categorical_prob = 1.0, cat_match_prob = 0.0),
+  FIL_TEST_PARAMS(depth                    = 3,
+                  node_categorical_prob    = 0.5,
+                  feature_categorical_prob = 0.5,
+                  max_matching_cat_oom     = 5),
 };
 
 TEST_P(PredictDenseFilTest, Predict) { compare(); }
