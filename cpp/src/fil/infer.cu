@@ -798,7 +798,6 @@ __global__ void infer_k(storage_type forest, predict_params params)
           cols_in_shmem ? sdata + thread_row0 * sdata_stride : block_input + thread_row0 * num_cols,
           cols_in_shmem ? sdata_stride : num_cols,
           cols_in_shmem ? NITEMS : thread_num_rows);
-        if constexpr (leaf_algo == FLOAT_UNARY_BINARY) printf("leaf {.f= %f}\n", prediction[0]);
       }
       // All threads must enter accumulate
       // Dummy threads can be marked as having 0 rows

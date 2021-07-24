@@ -83,16 +83,55 @@ class FIL : public RegressionFixture<float> {
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     ML::build_treelite_forest(&model, &rf_model, params.ncols, params.nclasses > 1 ? 2 : 1);
-    ML::fil::treelite_params_t tl_params = {
-      .algo              = p_rest.algo,
-      .output_class      = params.nclasses > 1,    // cuML RF forest
-      .threshold         = 1.f / params.nclasses,  // Fixture::DatasetParams
-      .storage_type      = p_rest.storage,
-      .blocks_per_sm     = 8,
-      .threads_per_tree  = 1,
-      .n_items           = 0,
-      .pforest_shape_str = nullptr};
-    ML::fil::from_treelite(*handle, &forest, model, &tl_params);
+    for (int threads_per_tree : {64, 128, 256}) {
+      for (int blocks_per_sm : {8}) {
+        for (int i : {1, 2}) {
+          char *ostr = nullptr;
+          bool once = threads_per_tree == 64 && i == 1;
+          ML::fil::treelite_params_t tl_params = {
+            .algo = p_rest.algo,
+            .output_class = params.nclasses > 1,  // cuML RF forest
+            .threshold = 1.f / params.nclasses,   //Fixture::DatasetParams
+            .storage_type = p_rest.storage,
+            .blocks_per_sm = blocks_per_sm,
+            .threads_per_tree = threads_per_tree,
+            .n_items = 1,
+            .pforest_shape_str = once ? &ostr : nullptr};
+          ML::fil::from_treelite(*handle, &forest, model, &tl_params);
+          if(once) {
+            std::cout << ostr << std::endl;
+            ::free(ostr);
+          }
+
+          cudaEvent_t start;
+          cudaEvent_t stop;
+          CUDA_CHECK(cudaEventCreate(&start));
+          CUDA_CHECK(cudaEventCreate(&stop));
+          for (int i = 1; i < 10 * p_rest.predict_repetitions; ++i) {
+            ML::fil::predict(*this->handle, this->forest, this->data.y,
+                             this->data.X, this->params.nrows, false);
+          }
+          CUDA_CHECK(cudaEventRecord(start, 0));
+          for (int i = 0; i < p_rest.predict_repetitions; i++) {
+            ML::fil::predict(*this->handle, this->forest, this->data.y,
+                             this->data.X, this->params.nrows, false);
+          }
+          CUDA_CHECK_NO_THROW(cudaEventRecord(stop, 0));
+          CUDA_CHECK_NO_THROW(cudaEventSynchronize(stop));
+          float milliseconds = 0.0f;
+          CUDA_CHECK_NO_THROW(cudaEventElapsedTime(&milliseconds, start, stop));
+          printf(
+            "max_depth %d n_trees %d blocks_per_sm %d threads_per_tree %d %7s "
+            "%.2f ms\n",
+            p_rest.rf.tree_params.max_depth, p_rest.rf.n_trees, blocks_per_sm,
+            threads_per_tree,
+            tl_params.storage_type == ML::fil::SPARSE ? "SPARSE16" : "sparse8",
+            milliseconds / p_rest.predict_repetitions);
+          CUDA_CHECK_NO_THROW(cudaEventDestroy(start));
+          CUDA_CHECK_NO_THROW(cudaEventDestroy(stop));
+        }
+      }
+    }
 
     // only time prediction
     this->loopOnState(state, [this]() {
@@ -142,8 +181,8 @@ std::vector<Params> getInputs()
              .shuffle        = false,
              .seed           = 12345ULL};
 
-  p.rf = set_rf_params(10,                 /*max_depth */
-                       (1 << 20),          /* max_leaves */
+  p.rf = set_rf_params(4,                 /*max_depth */
+                       1024,          /* max_leaves */
                        1.f,                /* max_features */
                        32,                 /* n_bins */
                        3,                  /* min_samples_leaf */
@@ -161,8 +200,7 @@ std::vector<Params> getInputs()
   using ML::fil::algo_t;
   using ML::fil::storage_type_t;
   std::vector<FilBenchParams> var_params = {
-    {(int)1e6, 20, 1, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG},
-    {(int)1e6, 20, 2, 5, 1000, storage_type_t::DENSE, algo_t::BATCH_TREE_REORG}};
+    {(int)1e6, 20, 1, 4, 1000, storage_type_t::DENSE, algo_t::TREE_REORG}};
   for (auto& i : var_params) {
     p.data.nrows               = i.nrows;
     p.data.ncols               = i.ncols;
