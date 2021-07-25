@@ -21,6 +21,7 @@
 #include <common/grid_sync.cuh>
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
+#include "cuml/ensemble/randomforest.hpp"
 #include "input.cuh"
 #include "metrics.cuh"
 #include "node.cuh"
@@ -57,19 +58,14 @@ struct WorkloadInfo {
  *
  * @return true if the current node is to be declared as a leaf, else false
  */
-template <typename DataT, typename IdxT>
+template < typename IdxT>
 HDI bool leafBasedOnParams(IdxT myDepth,
                            IdxT max_depth,
                            IdxT min_samples_split,
-                           IdxT max_leaves,
-                           const IdxT* n_leaves,
                            IdxT nSamples)
 {
   if (myDepth >= max_depth) return true;
   if (nSamples < min_samples_split) return true;
-  if (max_leaves != -1) {
-    if (*n_leaves >= max_leaves) return true;
-  }
   return false;
 }
 
@@ -84,10 +80,6 @@ template <typename DataT, typename LabelT, typename IdxT, int TPB>
 DI void partitionSamples(const Input<DataT, LabelT, IdxT>& input,
                          const Split<DataT, IdxT>* splits,
                          volatile Node<DataT, LabelT, IdxT>* curr_nodes,
-                         volatile Node<DataT, LabelT, IdxT>* next_nodes,
-                         IdxT* n_nodes,
-                         IdxT* n_depth,
-                         IdxT total_nodes,
                          char* smem)
 {
   typedef cub::BlockScan<int, TPB> BlockScanT;
@@ -134,9 +126,6 @@ DI void partitionSamples(const Input<DataT, LabelT, IdxT>& input,
       rowids[rcomp[tid]] = a;
     }
   }
-  if (tid == 0) {
-    curr_nodes[nid].makeChildNodes(n_nodes, total_nodes, next_nodes, splits[nid], n_depth);
-  }
 }
 
 template <typename IdxT, typename LabelT, typename DataT, typename ObjectiveT, int TPB>
@@ -144,8 +133,8 @@ DI void computePrediction(IdxT range_start,
                           IdxT range_len,
                           const Input<DataT, LabelT, IdxT>& input,
                           volatile Node<DataT, LabelT, IdxT>* nodes,
-                          IdxT* n_leaves,
-                          void* smem)
+                          void* smem,
+                          LabelT* prediction)
 {
   using BinT  = typename ObjectiveT::BinT;
   auto* shist = reinterpret_cast<BinT*>(smem);
@@ -160,8 +149,7 @@ DI void computePrediction(IdxT range_start,
   }
   __syncthreads();
   if (tid == 0) {
-    auto pred = ObjectiveT::LeafPrediction(shist, input.numOutputs);
-    nodes[0].makeLeaf(n_leaves, pred);
+    *prediction = ObjectiveT::LeafPrediction(shist, input.numOutputs);
   }
 }
 
@@ -173,28 +161,24 @@ __global__ void nodeSplitKernel(IdxT max_depth,
                                 DataT min_impurity_decrease,
                                 Input<DataT, LabelT, IdxT> input,
                                 volatile Node<DataT, LabelT, IdxT>* curr_nodes,
-                                volatile Node<DataT, LabelT, IdxT>* next_nodes,
-                                IdxT* n_nodes,
                                 const Split<DataT, IdxT>* splits,
-                                IdxT* n_leaves,
-                                IdxT total_nodes,
-                                IdxT* n_depth)
+                                LabelT* predictions)
 {
   extern __shared__ char smem[];
   IdxT nid            = blockIdx.x;
   volatile auto* node = curr_nodes + nid;
   auto range_start = node->start, n_samples = node->count;
-  auto isLeaf = leafBasedOnParams<DataT, IdxT>(
-    node->depth, max_depth, min_samples_split, max_leaves, n_leaves, n_samples);
+  auto isLeaf = leafBasedOnParams< IdxT>(
+    node->depth, max_depth, min_samples_split, n_samples);
   auto split = splits[nid];
   if (isLeaf || split.best_metric_val <= min_impurity_decrease || split.nLeft < min_samples_leaf ||
       (n_samples - split.nLeft) < min_samples_leaf) {
     computePrediction<IdxT, LabelT, DataT, ObjectiveT, TPB>(
-      range_start, n_samples, input, node, n_leaves, smem);
+      range_start, n_samples, input, node, smem, predictions + nid);
     return;
   }
   partitionSamples<DataT, LabelT, IdxT, TPB>(
-    input, splits, curr_nodes, next_nodes, n_nodes, n_depth, total_nodes, (char*)smem);
+    input, splits, curr_nodes,    (char*)smem);
 }
 
 /* Returns 'input' rounded up to a correctly-aligned pointer of type OutT* */
@@ -412,8 +396,7 @@ __global__ void computeSplitKernel(BinT* hist,
     // offsets to pdf and cdf shist pointers
     auto offset_pdf = nbins * c;
     // converting pdf to cdf
-    BinT total_sum =
-      pdf_to_cdf<BinT, IdxT, TPB>(pdf_shist + offset_pdf, nbins);
+    BinT total_sum = pdf_to_cdf<BinT, IdxT, TPB>(pdf_shist + offset_pdf, nbins);
   }
 
   // create a split instance to test current feature split

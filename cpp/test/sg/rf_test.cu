@@ -269,12 +269,21 @@ class RfSpecialisedTest {
   {
     for (int i = 0u; i < forest->rf_params.n_trees; i++) {
       EXPECT_LE(forest->trees[i].depth_counter, params.max_depth);
-      if (params.max_leaves > 0) { EXPECT_LE(forest->trees[i].leaf_counter, params.max_leaves); }
+      // if (params.max_leaves > 0) { EXPECT_LE(forest->trees[i].leaf_counter, params.max_leaves); }
       EXPECT_LE(forest->trees[i].leaf_counter,
                 raft::ceildiv(params.n_rows, params.min_samples_leaf));
     }
   }
+  void TestMinImpurity()
+  {
+    for (int i = 0u; i < forest->rf_params.n_trees; i++) {
+      for (auto n : forest->trees[i].sparsetree) {
+        if (!n.IsLeaf()) { EXPECT_GE(n.best_metric_val, params.min_impurity_decrease); }
+      }
+    }
+  }
   void TestDeterminism()
+
   {
     // Regression models use floating point atomics, so are not bitwise reproducible
     bool is_regression = params.split_criterion == MSE || params.split_criterion == MAE;
@@ -299,9 +308,9 @@ class RfSpecialisedTest {
   void Test()
   {
     TestAccuracyImprovement();
-    // Bugs
-    // TestDeterminism();
-    // TestTreeSize();
+    TestDeterminism();
+    TestMinImpurity();
+    TestTreeSize();
   }
 
   RF_metrics training_metrics;
@@ -346,8 +355,8 @@ std::vector<float> max_samples  = {0.1f, 0.5f, 1.0f};
 std::vector<int> max_depth      = {1, 10, 30};
 std::vector<int> max_leaves = {-1};  // Bug for max_leaves, non-determinism as threads compete to
                                      // place their nodes inside this limit
-std::vector<bool> bootstrap = {false, true};
-std::vector<int> n_bins = {2, 57, 128, 256};  // Bug for n_bins > 128. Uses too much shared memory.
+std::vector<bool> bootstrap              = {false, true};
+std::vector<int> n_bins                  = {2, 57, 128, 256};
 std::vector<int> min_samples_leaf        = {1, 10, 30};
 std::vector<int> min_samples_split       = {2, 10};
 std::vector<float> min_impurity_decrease = {0.0, 1.0f, 10.0f};

@@ -30,13 +30,13 @@ template <typename ObjectiveT,
           typename DataT  = typename ObjectiveT::DataT,
           typename LabelT = typename ObjectiveT::LabelT,
           typename IdxT   = typename ObjectiveT::IdxT>
-void convertToSparse(const Builder<ObjectiveT>& b,
-                     const Node<DataT, LabelT, IdxT>* h_nodes,
+void convertToSparse(
+                     const std::vector<Node<DataT, LabelT, IdxT>> h_nodes,
                      std::vector<SparseTreeNode<DataT, LabelT>>& sparsetree)
 {
   auto len = sparsetree.size();
-  sparsetree.resize(len + b.h_total_nodes);
-  for (IdxT i = 0; i < b.h_total_nodes; ++i) {
+  sparsetree.resize(len + h_nodes.size());
+  for (IdxT i = 0; i < h_nodes.size(); ++i) {
     const auto& hnode                  = h_nodes[i].info;
     sparsetree[i + len]                = hnode;
     sparsetree[i + len].instance_count = h_nodes[i].count;
@@ -79,11 +79,9 @@ void grow_tree(const raft::handle_t& handle,
                         rowids,
                         unique_labels,
                         quantiles);
-  std::vector<Node<DataT, LabelT, IdxT>> h_nodes;
-  h_nodes.reserve(builder.maxNodes());
-  builder.train(h_nodes, num_leaves, depth, handle.get_stream());
+  auto h_nodes=builder.train(num_leaves, depth, handle.get_stream());
   CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-  convertToSparse<ObjectiveT>(builder, h_nodes.data(), sparsetree);
+  convertToSparse<ObjectiveT>(h_nodes, sparsetree);
   ML::POP_RANGE();
 }
 
