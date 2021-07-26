@@ -117,17 +117,17 @@ class Results {
   {
     CombineCoefs(alpha, val_tmp.data());
     GetDualCoefs(val_tmp.data(), dual_coefs, n_support);
+    *b = CalcB(alpha, f, *n_support);
     if (*n_support > 0) {
       *idx       = GetSupportVectorIndices(val_tmp.data(), *n_support);
       *x_support = CollectSupportVectors(*idx, *n_support);
-      *b         = CalcB(alpha, f);
-      // Make sure that all pending GPU calculations finished before we return
-      CUDA_CHECK(cudaStreamSynchronize(stream));
     } else {
       *dual_coefs = nullptr;
       *idx        = nullptr;
       *x_support  = nullptr;
     }
+    // Make sure that all pending GPU calculations finished before we return
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   /**
@@ -192,6 +192,7 @@ class Results {
     *n_support     = SelectByCoef(val_tmp, n_rows, val_tmp, select_op, val_selected.data());
     *dual_coefs    = (math_t*)allocator->allocate(*n_support * sizeof(math_t), stream);
     raft::copy(*dual_coefs, val_selected.data(), *n_support, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   /**
@@ -218,15 +219,22 @@ class Results {
    * @param [in] f optimality indicator vector, size [n_rows]
    * @return the value of b
    */
-  math_t CalcB(const math_t* alpha, const math_t* f)
+  math_t CalcB(const math_t* alpha, const math_t* f, int n_support)
   {
+    if (n_support == 0) {
+      math_t f_sum;
+      cub::DeviceReduce::Sum(
+        cub_storage.data(), cub_bytes, f, d_val_reduced.data(), n_train, stream);
+      raft::update_host(&f_sum, d_val_reduced.data(), 1, stream);
+      return -f_sum / n_train;
+    }
     // We know that for an unbound support vector i, the decision function
     // (before taking the sign) has value F(x_i) = y_i, where
     // F(x_i) = \sum_j y_j \alpha_j K(x_j, x_i) + b, and j runs through all
     // support vectors. The constant b can be expressed from these formulas.
     // Note that F and f denote different quantities. The lower case f is the
     // optimality indicator vector defined as
-    // f_i = y_i - \sum_j y_j \alpha_j K(x_j, x_i).
+    // f_i = - y_i + \sum_j y_j \alpha_j K(x_j, x_i).
     // For unbound support vectors f_i = -b.
 
     // Select f for unbound support vectors (0 < alpha < C)
