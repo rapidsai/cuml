@@ -270,8 +270,6 @@ def get_ref_fit(data, order, seasonal_order, intercept, dtype):
 ###############################################################################
 
 def mase(y_train, y_test, y_fc, s):
-    # TODO: fix for missing observations
-
     y_train_np = input_to_host_array(y_train).array
     y_test_np = input_to_host_array(y_test).array
     y_fc_np = input_to_host_array(y_fc).array

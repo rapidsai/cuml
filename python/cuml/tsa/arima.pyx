@@ -360,6 +360,12 @@ class ARIMA(Base):
             cpp_order, <int> self.batch_size, <int> self.n_obs)
         self._temp_mem = CumlArray.empty(temp_mem_size, np.byte)
 
+        # Allocate temporary predictions array for reuse
+        # Note: allocating max possible size but the actual size depends on
+        # whether simple differencing is used
+        self._d_pred = CumlArray.empty(
+            self.n_obs * self.batch_size, dtype=np.float64, order="F")
+
         self._initial_calc()
 
     @cuml.internals.api_base_return_any_skipall
@@ -871,11 +877,8 @@ class ARIMA(Base):
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        # TODO: don't create pred array every time!
         n_obs_kf = (self.n_obs_diff if diff else self.n_obs)
-        d_pred = CumlArray.empty((n_obs_kf, self.batch_size), dtype=np.float64,
-                                 order="F")
-        cdef uintptr_t d_pred_ptr = d_pred.ptr
+        cdef uintptr_t d_pred_ptr = self._d_pred.ptr
 
         cdef uintptr_t d_temp_mem = self._temp_mem.ptr
         arima_mem_ptr = new ARIMAMemory[double](
@@ -986,9 +989,7 @@ class ARIMA(Base):
         cdef LoglikeMethod ll_method = MLE
         diff = self.simple_differencing
 
-        d_pred = CumlArray.empty((n_obs_kf, self.batch_size), dtype=np.float64,
-                                 order="F")
-        cdef uintptr_t d_pred_ptr = d_pred.ptr
+        cdef uintptr_t d_pred_ptr = self._d_pred.ptr
 
         cdef uintptr_t d_temp_mem = self._temp_mem.ptr
         arima_mem_ptr = new ARIMAMemory[double](
