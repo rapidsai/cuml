@@ -12,17 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import cupy as cp
-from cuml import KMeans
-from cuml.preprocessing import SimpleImputer
-from scipy.sparse import issparse
-from numba import cuda
 import cudf
-import pandas as pd
+import cupy as cp
 import numpy as np
-from cuml.common.input_utils import get_supported_input_type
+import pandas as pd
+from numba import cuda
+from scipy.sparse import issparse
+
+import cuml
+from cuml import KMeans
+from cuml.common.input_utils import (determine_array_type,
+                                     get_supported_input_type)
+from cuml.preprocessing import SimpleImputer
 
 
+@cuml.internals.api_return_generic()
 def kmeans_sampling(X, k, round_values=True, detailed=False, random_state=0):
     """
     Adapted from :
@@ -53,6 +57,8 @@ def kmeans_sampling(X, k, round_values=True, detailed=False, random_state=0):
              shape (n_samples, 1)
     """
     output_dtype = get_supported_input_type(X)
+    _output_dtype_str = determine_array_type(X)
+    cuml.internals.set_api_output_type(_output_dtype_str)
 
     if output_dtype is None:
         raise TypeError(f"Type of input {type(X)} is not supported. Supported \
@@ -86,10 +92,12 @@ def kmeans_sampling(X, k, round_values=True, detailed=False, random_state=0):
             group_names = ['0']
 
     # in case there are any missing values in data impute them
-    imp = SimpleImputer(missing_values=cp.nan, strategy='mean')
+    imp = SimpleImputer(missing_values=cp.nan, strategy='mean',
+                        output_type=_output_dtype_str)
     X = imp.fit_transform(X)
 
-    kmeans = KMeans(n_clusters=k, random_state=random_state).fit(X)
+    kmeans = KMeans(n_clusters=k, random_state=random_state,
+                    output_type=_output_dtype_str).fit(X)
 
     if round_values:
         for i in range(k):
@@ -100,19 +108,6 @@ def kmeans_sampling(X, k, round_values=True, detailed=False, random_state=0):
                 kmeans.cluster_centers_[i, j] = X[ind, j]
     summary = kmeans.cluster_centers_
     labels = kmeans.labels_
-
-    if output_dtype == cudf.DataFrame:
-        summary = cudf.DataFrame(summary)
-    elif output_dtype == pd.DataFrame:
-        summary = pd.DataFrame(summary)
-    elif output_dtype == cudf.Series:
-        summary = cudf.Series(summary)
-    elif output_dtype == pd.Series:
-        summary = pd.Series(cp.asnumpy(summary[:, 0]))
-    elif output_dtype == cuda.devicearray.DeviceNDArrayBase:
-        summary = cuda.as_cuda_array(summary)
-    elif output_dtype == np.ndarray:
-        summary = cp.asnumpy(summary)
 
     if detailed:
         return summary, group_names, labels
