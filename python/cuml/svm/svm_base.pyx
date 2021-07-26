@@ -507,7 +507,8 @@ class SVMBase(Base,
                 dtype=np.int32,
                 order='F')
 
-             # Setting all dims to zero due to Issue https://github.com/rapidsai/cuml/issues/4095
+            # Setting all dims to zero due to issue
+            # https://github.com/rapidsai/cuml/issues/4095
             self.support_vectors_ = CumlArray.empty(
                 shape=(0, 0),
                 dtype=self.dtype,

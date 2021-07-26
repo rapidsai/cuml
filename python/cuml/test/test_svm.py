@@ -696,8 +696,8 @@ def test_svm_no_support_vectors():
     assert array_equal(pred, y, 0)
 
     assert model.n_support_ == 0
-    assert model.intercept_ == 1
-    assert array_equal(model.coef_, cp.zeros((1, n_cols)), 0)
+    assert abs(model.intercept_ - 1) <= 1e-6
+    assert array_equal(model.coef_, cp.zeros((1, n_cols)))
     assert model.dual_coef_.shape == (1, 0)
     assert model.support_.shape == (0,)
     assert model.support_vectors_.shape[0] == 0
