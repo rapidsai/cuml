@@ -18,9 +18,12 @@ from cuml.preprocessing import SimpleImputer
 from scipy.sparse import issparse
 from numba import cuda
 import cudf
+import pandas as pd
+import numpy as np
+from cuml.common.input_utils import get_supported_input_type
 
 
-def kmeans_sampling(X, k, round_values=True, detailed=False):
+def kmeans_sampling(X, k, round_values=True, detailed=False, random_state=0):
     """
     Adapted from :
     https://github.com/slundberg/shap/blob/9411b68e8057a6c6f3621765b89b24d82bee13d4/shap/utils/_legacy.py
@@ -38,6 +41,8 @@ def kmeans_sampling(X, k, round_values=True, detailed=False):
         a valid value.
     detailed: bool; default=False
         To return details of group names and cluster labels of all data points
+    random_state: int; default=0
+        Sets the random state.
 
     Returns
     -------
@@ -46,24 +51,31 @@ def kmeans_sampling(X, k, round_values=True, detailed=False):
     labels : Cluster labels of the data points in the original dataset,
              shape (n_samples, 1)
     """
-    if not hasattr(X, "__cuda_array_interface__") and not \
-            isinstance(X, cudf.DataFrame):
-        raise TypeError("X needs to be either a cuDF DataFrame, Series or \
-                    a cuda_array_interface compliant array.")
+    output_dtype = get_supported_input_type(X)
 
-    if isinstance(X, cudf.DataFrame):
+    if output_dtype is None:
+        raise TypeError(f"Type of input {type(X)} is not supported. Supported \
+                        dtypes: cuDF DataFrame, cuDF Series, cupy, numba,\
+                        numpy, pandas DataFrame, pandas Series")
+
+    if output_dtype == cudf.DataFrame:
         group_names = X.columns
         X = X.values
-        output_dtype = "DataFrame"
-    elif isinstance(X, cudf.Series):
+    elif output_dtype == cudf.Series:
         group_names = X.name
         X = X.values.reshape(-1, 1)
-        output_dtype = "Series"
+    elif output_dtype == pd.DataFrame:
+        group_names = X.columns
+        X = cp.array(X.values)
+    elif output_dtype == pd.Series:
+        group_names = X.name
+        X = cp.array(X.values.reshape(-1, 1))
     else:
-        output_dtype, X = ["numba",
-                           cp.array(X)] if \
-                            cuda.devicearray.is_cuda_ndarray(X) else ["cupy",
-                                                                      X]
+        # it's either numpy, cupy or numba
+        if output_dtype == cuda.devicearray.DeviceNDArrayBase:
+            X = cp.array(X)
+        elif output_dtype == np.ndarray:
+            X = cp.array(X)
         try:
             # more than one column
             group_names = [str(i) for i in range(X.shape[1])]
@@ -76,7 +88,7 @@ def kmeans_sampling(X, k, round_values=True, detailed=False):
     imp = SimpleImputer(missing_values=cp.nan, strategy='mean')
     X = imp.fit_transform(X)
 
-    kmeans = KMeans(n_clusters=k, random_state=0).fit(X)
+    kmeans = KMeans(n_clusters=k, random_state=random_state).fit(X)
 
     if round_values:
         for i in range(k):
@@ -88,12 +100,19 @@ def kmeans_sampling(X, k, round_values=True, detailed=False):
     summary = kmeans.cluster_centers_
     labels = kmeans.labels_
 
-    if output_dtype == "DataFrame":
+    if output_dtype == cudf.DataFrame:
         summary = cudf.DataFrame(summary)
-    elif output_dtype == "Series":
+    elif output_dtype == pd.DataFrame:
+        summary = pd.DataFrame(summary)
+    elif output_dtype == cudf.Series:
         summary = cudf.Series(summary)
-    elif output_dtype == "numba":
+    elif output_dtype == pd.Series:
+        summary = pd.Series(cp.asnumpy(summary[:, 0]))
+    elif output_dtype == cuda.devicearray.DeviceNDArrayBase:
         summary = cuda.as_cuda_array(summary)
+    elif output_dtype == np.ndarray:
+        summary = cp.asnumpy(summary)
+
     if detailed:
         return summary, group_names, labels
     else:

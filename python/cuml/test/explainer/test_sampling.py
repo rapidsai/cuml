@@ -17,12 +17,16 @@ import cudf
 import cupy as cp
 from numba import cuda
 import pytest
+import pandas as pd
+import numpy as np
 
 
-@pytest.mark.parametrize('input_type', ['df',
-                                        'series',
-                                        'cupy',
-                                        'numba'])
+@pytest.mark.parametrize('input_type', ["cudf-df",
+                                        "cudf-series",
+                                        "pandas-df",
+                                        "pandas-series",
+                                        "cupy",
+                                        "numpy"])
 def test_kmeans_input(input_type):
     X = cp.array([[0, 10],
                   [1, 24],
@@ -31,31 +35,51 @@ def test_kmeans_input(input_type):
                   [0.2, 23],
                   [1, 24],
                   [1, 23]])
-    if input_type == 'df':
+    if input_type == 'cudf-df':
         X = cudf.DataFrame(X)
-    elif input_type == 'series':
+    elif input_type == 'cudf-series':
         X = cudf.Series(X[:, 1])
     elif input_type == 'numba':
         X = cuda.as_cuda_array(X)
+    elif input_type == "pandas-df":
+        X = pd.DataFrame(cp.asnumpy(X))
+    elif input_type == "pandas-series":
+        X = pd.Series(cp.asnumpy(X[:, 1]))
+    elif input_type == "numpy":
+        X = cp.asnumpy(X)
 
     summary = kmeans_sampling(X, k=2, detailed=True)
 
-    if input_type == 'df':
-        cp.testing.assert_array_equal(summary[0].values.tolist(),
+    if input_type == 'cudf-df':
+        cp.testing.assert_array_equal(summary[0].values,
                                       [[1., 23.],
                                        [0., 52.]])
         assert isinstance(summary[0], cudf.DataFrame)
-    elif input_type == 'series':
+    elif input_type == 'pandas-df':
+        cp.testing.assert_array_equal(summary[0].values,
+                                      [[1., 23.],
+                                       [0., 52.]])
+        assert isinstance(summary[0], pd.DataFrame)
+    elif input_type == 'cudf-series':
         cp.testing.assert_array_equal(summary[0].values.tolist(),
                                       [23., 52.])
         assert isinstance(summary[0], cudf.core.series.Series)
+    elif input_type == 'pandas-series':
+        cp.testing.assert_array_equal(summary[0].values.tolist(),
+                                      [23., 52.])
+        assert isinstance(summary[0], pd.core.series.Series)
     elif input_type == 'numba':
         cp.testing.assert_array_equal(cp.array(summary[0]).tolist(),
                                       [[1., 23.],
                                        [0., 52.]])
         assert isinstance(summary[0], cuda.devicearray.DeviceNDArray)
-    else:
+    elif input_type == 'cupy':
         cp.testing.assert_array_equal(summary[0].tolist(),
                                       [[1., 23.],
                                        [0., 52.]])
         assert isinstance(summary[0], cp.ndarray)
+    else:
+        cp.testing.assert_array_equal(summary[0].tolist(),
+                                      [[1., 23.],
+                                       [0., 52.]])
+        assert isinstance(summary[0], np.ndarray)
