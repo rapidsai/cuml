@@ -31,7 +31,7 @@ def kmeans_sampling(X, k, round_values=True, detailed=False, random_state=0):
 
     Parameters
     ----------
-    X : cuDF DataFrame or cuda_array_interface compliant device array
+    X : cuDF or Pandas DataFrame/Series, numpy arrays or cuda_array_interface compliant device array
         Data to be summarized, shape (n_samples, n_features)
     k : int
         Number of means to use for approximation.
