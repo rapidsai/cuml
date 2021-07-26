@@ -446,14 +446,11 @@ class GaussianNB(_BaseNB):
                     sample_weight=None) -> "GaussianNB":
         """
         Incremental fit on a batch of samples.
-
         This method is expected to be called several times consecutively on
         different chunks of a dataset so as to implement out-of-core or online
         learning.
-
         This is especially useful when the whole dataset is too big to fit in
         memory at once.
-
         This method has some performance overhead hence it is better to call
         partial_fit on chunks of data that are as large as possible (as long
         as fitting in the memory budget) to hide the overhead.
@@ -464,20 +461,17 @@ class GaussianNB(_BaseNB):
         X : {array-like, cupy sparse matrix} of shape (n_samples, n_features)
             Training vectors, where n_samples is the number of samples and
             n_features is the number of features
-
         y : array-like of shape (n_samples) Target values.
         classes : array-like of shape (n_classes)
                   List of all the classes that can possibly appear in the y
                   vector. Must be provided at the first call to partial_fit,
                   can be omitted in subsequent calls.
-
         sample_weight : array-like of shape (n_samples)
                         Weights applied to individual samples (1. for
                         unweighted). Currently sample weight is ignored.
 
         Returns
         -------
-
         self : object
         """
         return self._partial_fit(X, y, classes, _refit=False,
@@ -992,42 +986,42 @@ class MultinomialNB(_BaseDiscreteNB):
 
     .. code-block:: python
 
-    import cupy as cp
+        import cupy as cp
 
-    from sklearn.datasets import fetch_20newsgroups
-    from sklearn.feature_extraction.text import CountVectorizer
+        from sklearn.datasets import fetch_20newsgroups
+        from sklearn.feature_extraction.text import CountVectorizer
 
-    from cuml.naive_bayes import MultinomialNB
+        from cuml.naive_bayes import MultinomialNB
 
-    # Load corpus
+        # Load corpus
 
-    twenty_train = fetch_20newsgroups(subset='train',
-                              shuffle=True, random_state=42)
+        twenty_train = fetch_20newsgroups(subset='train',
+                                shuffle=True, random_state=42)
 
-    # Turn documents into term frequency vectors
+        # Turn documents into term frequency vectors
 
-    count_vect = CountVectorizer()
-    features = count_vect.fit_transform(twenty_train.data)
+        count_vect = CountVectorizer()
+        features = count_vect.fit_transform(twenty_train.data)
 
-    # Put feature vectors and labels on the GPU
+        # Put feature vectors and labels on the GPU
 
-    X = cp.sparse.csr_matrix(features.tocsr(), dtype=cp.float32)
-    y = cp.asarray(twenty_train.target, dtype=cp.int32)
+        X = cp.sparse.csr_matrix(features.tocsr(), dtype=cp.float32)
+        y = cp.asarray(twenty_train.target, dtype=cp.int32)
 
-    # Train model
+        # Train model
 
-    model = MultinomialNB()
-    model.fit(X, y)
+        model = MultinomialNB()
+        model.fit(X, y)
 
-    # Compute accuracy on training set
+        # Compute accuracy on training set
 
-    model.score(X, y)
+        model.score(X, y)
 
     Output:
 
     .. code-block:: python
 
-    0.9244298934936523
+        0.9244298934936523
 
     """
     def __init__(self, *,
@@ -1135,6 +1129,7 @@ class BernoulliNB(_BaseDiscreteNB):
         Empirical log probability of features given a class, P(x_i|y).
     n_features_ : int
         Number of features of each sample.
+
     Examples
     --------
     >>> import cupy as cp
@@ -1147,6 +1142,7 @@ class BernoulliNB(_BaseDiscreteNB):
     BernoulliNB()
     >>> print(clf.predict(X[2:3]))
     [3]
+
     References
     ----------
     C.D. Manning, P. Raghavan and H. Schuetze (2008). Introduction to

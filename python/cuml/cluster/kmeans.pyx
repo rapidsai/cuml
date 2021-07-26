@@ -625,8 +625,8 @@ class KMeans(Base,
         Compute clustering and transform X to cluster-distance space.
 
         """
-        return self.fit(X).transform(X, convert_dtype=convert_dtype,
-                                     sample_weight=sample_weight)
+        self.fit(X, sample_weight=sample_weight)
+        return self.transform(X, convert_dtype=convert_dtype)
 
     def get_param_names(self):
         return super().get_param_names() + \

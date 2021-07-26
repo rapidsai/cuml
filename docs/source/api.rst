@@ -258,10 +258,13 @@ Multiclass Classification
 .. autoclass:: cuml.multiclass.OneVsRestClassifier
     :members:
 
-Mutinomial Naive Bayes
+Naive Bayes
 ----------------------
 
-.. autoclass:: cuml.MultinomialNB
+.. autoclass:: cuml.naive_bayes.MultinomialNB
+    :members:
+
+.. autoclass:: cuml.naive_bayes.BernoulliNB
     :members:
 
 .. autoclass:: cuml.naive_bayes.GaussianNB
