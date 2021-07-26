@@ -86,7 +86,8 @@ SVC<math_t>::SVC(raft::handle_t& handle,
                  int verbosity)
   : handle(handle),
     param(svmParameter{C, cache_size, max_iter, nochange_steps, tol, verbosity}),
-    kernel_params(kernel_params)
+    kernel_params(kernel_params),
+    model(handle)
 {
   model.n_support = 0;
 }

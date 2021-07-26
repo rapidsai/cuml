@@ -219,9 +219,9 @@ class CSR {
       m_stream(other.m_stream),
       m_shape(other.m_shape),
       m_nnz(other.m_nnz),
-      m_values(other.m_stream, other.m_nnz * other.m_batch_size),
-      m_col_index(other.m_stream, other.m_nnz),
-      m_row_index(other.m_stream, other.m_shape.first + 1),
+      m_values(other.m_nnz * other.m_batch_size, other.m_stream),
+      m_col_index(other.m_nnz, other.m_stream),
+      m_row_index(other.m_shape.first + 1, other.m_stream),
       d_values(m_values.data()),
       d_row_index(m_row_index.data()),
       d_col_index(m_col_index.data())

@@ -42,11 +42,17 @@ class adjustedRandIndexTest : public ::testing::TestWithParam<adjustedRandIndexP
  protected:
   void SetUp() override
   {
+    CUDA_CHECK(cudaStreamCreate(&stream));
     params    = ::testing::TestWithParam<adjustedRandIndexParam>::GetParam();
     nElements = params.nElements;
-    raft::allocate(firstClusterArray, nElements, true);
-    raft::allocate(secondClusterArray, nElements, true);
-    CUDA_CHECK(cudaStreamCreate(&stream));
+
+    rmm::device_uvector<T> firstClusterArray(nElements, stream);
+    rmm::device_uvector<T> secondClusterArray(nElements, stream);
+    CUDA_CHECK(
+      cudaMemsetAsync(firstClusterArray.data(), 0, firstClusterArray.size() * sizeof(T), stream));
+    CUDA_CHECK(
+      cudaMemsetAsync(secondClusterArray.data(), 0, secondClusterArray.size() * sizeof(T), stream));
+
     if (!params.testZeroArray) {
       SetUpDifferentArrays();
     } else {
@@ -54,15 +60,10 @@ class adjustedRandIndexTest : public ::testing::TestWithParam<adjustedRandIndexP
     }
     // allocating and initializing memory to the GPU
     computed_adjusted_rand_index = compute_adjusted_rand_index<T, MathT>(
-      firstClusterArray, secondClusterArray, nElements, stream);
+      firstClusterArray.data(), secondClusterArray.data(), nElements, stream);
   }
 
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(firstClusterArray));
-    CUDA_CHECK(cudaFree(secondClusterArray));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
+  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
   void SetUpDifferentArrays()
   {

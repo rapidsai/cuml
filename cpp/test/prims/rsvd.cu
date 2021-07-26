@@ -20,6 +20,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
 #include <raft/random/rng.cuh>
+#include <rmm/device_uvector.hpp>
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -60,46 +61,50 @@ class RsvdTest : public ::testing::TestWithParam<RsvdInputs<T>> {
     int max_sweeps = 100;
 
     T mu = 0.0, sigma = 1.0;
-    raft::allocate(A, m * n);
+    A = std::make_unique<rmm::device_uvector<T>>(m * n, stream);
     if (params.tolerance > 1) {  // Sanity check
       ASSERT(m == 3, "This test only supports mxn=3x2!");
       ASSERT(m * n == 6, "This test only supports mxn=3x2!");
       T data_h[] = {1.0, 4.0, 2.0, 2.0, 5.0, 1.0};
-      raft::update_device(A, data_h, m * n, stream);
+      raft::update_device(A->data(), data_h, m * n, stream);
 
       T left_eig_vectors_ref_h[]  = {-0.308219, -0.906133, -0.289695};
       T right_eig_vectors_ref_h[] = {-0.638636, -0.769509};
       T sing_vals_ref_h[]         = {7.065283};
 
-      raft::allocate(left_eig_vectors_ref, m * 1);
-      raft::allocate(right_eig_vectors_ref, n * 1);
-      raft::allocate(sing_vals_ref, 1);
+      left_eig_vectors_ref  = std::make_unique<rmm::device_uvector<T>>(m, stream);
+      right_eig_vectors_ref = std::make_unique<rmm::device_uvector<T>>(n, stream);
+      sing_vals_ref         = std::make_unique<rmm::device_uvector<T>>(1, stream);
 
-      raft::update_device(left_eig_vectors_ref, left_eig_vectors_ref_h, m * 1, stream);
-      raft::update_device(right_eig_vectors_ref, right_eig_vectors_ref_h, n * 1, stream);
-      raft::update_device(sing_vals_ref, sing_vals_ref_h, 1, stream);
+      raft::update_device(left_eig_vectors_ref->data(), left_eig_vectors_ref_h, m * 1, stream);
+      raft::update_device(right_eig_vectors_ref->data(), right_eig_vectors_ref_h, n * 1, stream);
+      raft::update_device(sing_vals_ref->data(), sing_vals_ref_h, 1, stream);
 
     } else {  // Other normal tests
-      r.normal(A, m * n, mu, sigma, stream);
+      r.normal(A->data(), m * n, mu, sigma, stream);
     }
-    A_backup_cpu =
-      (T*)malloc(sizeof(T) * m * n);  // Backup A matrix as svdJacobi will destroy the content of A
-    raft::update_host(A_backup_cpu, A, m * n, stream);
+    std::vector<T> A_backup_cpu(m *
+                                n);  // Backup A matrix as svdJacobi will destroy the content of A
+    raft::update_host(A_backup_cpu.data(), A->data(), m * n, stream);
+
+    U = std::make_unique<rmm::device_uvector<T>>(m * params.k, stream);
+    S = std::make_unique<rmm::device_uvector<T>>(params.k, stream);
+    V = std::make_unique<rmm::device_uvector<T>>(n * params.k, stream);
+    CUDA_CHECK(cudaMemsetAsync(U->data(), 0, m * params.k * sizeof(T), stream));
+    CUDA_CHECK(cudaMemsetAsync(S->data(), 0, params.k * sizeof(T), stream));
+    CUDA_CHECK(cudaMemsetAsync(V->data(), 0, n * params.k * sizeof(T), stream));
 
     // RSVD tests
     if (params.k == 0) {  // Test with PC and upsampling ratio
       params.k = max((int)(min(m, n) * params.PC_perc), 1);
       params.p = max((int)(min(m, n) * params.UpS_perc), 1);
-      raft::allocate(U, m * params.k, true);
-      raft::allocate(S, params.k, true);
-      raft::allocate(V, n * params.k, true);
       rsvdPerc(handle,
-               A,
+               A->data(),
                m,
                n,
-               S,
-               U,
-               V,
+               S->data(),
+               U->data(),
+               V->data(),
                params.PC_perc,
                params.UpS_perc,
                params.use_bbt,
@@ -110,16 +115,13 @@ class RsvdTest : public ::testing::TestWithParam<RsvdInputs<T>> {
                max_sweeps,
                stream);
     } else {  // Test with directly given fixed rank
-      raft::allocate(U, m * params.k, true);
-      raft::allocate(S, params.k, true);
-      raft::allocate(V, n * params.k, true);
       rsvdFixedRank(handle,
-                    A,
+                    A->data(),
                     m,
                     n,
-                    S,
-                    U,
-                    V,
+                    S->data(),
+                    U->data(),
+                    V->data(),
                     params.k,
                     params.p,
                     params.use_bbt,
@@ -130,26 +132,13 @@ class RsvdTest : public ::testing::TestWithParam<RsvdInputs<T>> {
                     max_sweeps,
                     stream);
     }
-    raft::update_device(A, A_backup_cpu, m * n, stream);
-
-    free(A_backup_cpu);
-  }
-
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(A));
-    CUDA_CHECK(cudaFree(U));
-    CUDA_CHECK(cudaFree(S));
-    CUDA_CHECK(cudaFree(V));
-    if (left_eig_vectors_ref) CUDA_CHECK(cudaFree(left_eig_vectors_ref));
-    if (right_eig_vectors_ref) CUDA_CHECK(cudaFree(right_eig_vectors_ref));
-    if (sing_vals_ref) CUDA_CHECK(cudaFree(sing_vals_ref));
+    raft::update_device(A->data(), A_backup_cpu.data(), m * n, stream);
   }
 
  protected:
   RsvdInputs<T> params;
-  T *A, *A_backup_cpu, *U = nullptr, *S = nullptr, *V = nullptr, *left_eig_vectors_ref = nullptr,
-                       *right_eig_vectors_ref = nullptr, *sing_vals_ref = nullptr;
+  std::unique_ptr<rmm::device_uvector<T>> A, U, S, V, left_eig_vectors_ref, right_eig_vectors_ref,
+    sing_vals_ref;
 
   cudaStream_t stream;
 };
@@ -213,22 +202,22 @@ const std::vector<RsvdInputs<double>> sanity_inputs_dx = {
 typedef RsvdTest<float> RsvdSanityCheckValF;
 TEST_P(RsvdSanityCheckValF, Result)
 {
-  ASSERT_TRUE(
-    devArrMatch(sing_vals_ref, S, params.k, raft::CompareApproxAbs<float>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    sing_vals_ref->data(), S->data(), params.k, raft::CompareApproxAbs<float>(params.tolerance)));
 }
 
 typedef RsvdTest<double> RsvdSanityCheckValD;
 TEST_P(RsvdSanityCheckValD, Result)
 {
-  ASSERT_TRUE(
-    devArrMatch(sing_vals_ref, S, params.k, raft::CompareApproxAbs<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    sing_vals_ref->data(), S->data(), params.k, raft::CompareApproxAbs<double>(params.tolerance)));
 }
 
 typedef RsvdTest<float> RsvdSanityCheckLeftVecF;
 TEST_P(RsvdSanityCheckLeftVecF, Result)
 {
-  ASSERT_TRUE(devArrMatch(left_eig_vectors_ref,
-                          U,
+  ASSERT_TRUE(devArrMatch(left_eig_vectors_ref->data(),
+                          U->data(),
                           params.n_row * params.k,
                           raft::CompareApproxAbs<float>(params.tolerance)));
 }
@@ -236,8 +225,8 @@ TEST_P(RsvdSanityCheckLeftVecF, Result)
 typedef RsvdTest<double> RsvdSanityCheckLeftVecD;
 TEST_P(RsvdSanityCheckLeftVecD, Result)
 {
-  ASSERT_TRUE(devArrMatch(left_eig_vectors_ref,
-                          U,
+  ASSERT_TRUE(devArrMatch(left_eig_vectors_ref->data(),
+                          U->data(),
                           params.n_row * params.k,
                           raft::CompareApproxAbs<double>(params.tolerance)));
 }
@@ -245,8 +234,8 @@ TEST_P(RsvdSanityCheckLeftVecD, Result)
 typedef RsvdTest<float> RsvdSanityCheckRightVecF;
 TEST_P(RsvdSanityCheckRightVecF, Result)
 {
-  ASSERT_TRUE(devArrMatch(right_eig_vectors_ref,
-                          V,
+  ASSERT_TRUE(devArrMatch(right_eig_vectors_ref->data(),
+                          V->data(),
                           params.n_col * params.k,
                           raft::CompareApproxAbs<float>(params.tolerance)));
 }
@@ -254,8 +243,8 @@ TEST_P(RsvdSanityCheckRightVecF, Result)
 typedef RsvdTest<double> RsvdSanityCheckRightVecD;
 TEST_P(RsvdSanityCheckRightVecD, Result)
 {
-  ASSERT_TRUE(devArrMatch(right_eig_vectors_ref,
-                          V,
+  ASSERT_TRUE(devArrMatch(right_eig_vectors_ref->data(),
+                          V->data(),
                           params.n_col * params.k,
                           raft::CompareApproxAbs<double>(params.tolerance)));
 }
@@ -266,10 +255,10 @@ TEST_P(RsvdTestSquareMatrixNormF, Result)
   raft::handle_t handle;
 
   ASSERT_TRUE(raft::linalg::evaluateSVDByL2Norm(handle,
-                                                A,
-                                                U,
-                                                S,
-                                                V,
+                                                A->data(),
+                                                U->data(),
+                                                S->data(),
+                                                V->data(),
                                                 params.n_row,
                                                 params.n_col,
                                                 params.k,
@@ -283,10 +272,10 @@ TEST_P(RsvdTestSquareMatrixNormD, Result)
   raft::handle_t handle;
 
   ASSERT_TRUE(raft::linalg::evaluateSVDByL2Norm(handle,
-                                                A,
-                                                U,
-                                                S,
-                                                V,
+                                                A->data(),
+                                                U->data(),
+                                                S->data(),
+                                                V->data(),
                                                 params.n_row,
                                                 params.n_col,
                                                 params.k,

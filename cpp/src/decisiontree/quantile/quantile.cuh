@@ -20,6 +20,7 @@
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
 #include <rmm/device_uvector.hpp>
+#include <rmm/exec_policy.hpp>
 #include "quantile.h"
 
 #include <common/nvtx.hpp>
@@ -46,8 +47,7 @@ template <typename T>
 void computeQuantiles(
   T* quantiles, int n_bins, const T* data, int n_rows, int n_cols, cudaStream_t stream)
 {
-  thrust::fill(
-    thrust::cuda::par(*device_allocator).on(stream), quantiles, quantiles + n_bins * n_cols, 0.0);
+  thrust::fill(rmm::exec_policy(stream), quantiles, quantiles + n_bins * n_cols, 0.0);
   // Determine temporary device storage requirements
   std::unique_ptr<rmm::device_uvector<char>> d_temp_storage = nullptr;
   size_t temp_storage_bytes                                 = 0;

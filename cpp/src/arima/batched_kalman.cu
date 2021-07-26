@@ -28,7 +28,6 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
 #include <raft/linalg/binary_op.cuh>
-#include <rmm/device_uvector.hpp>
 
 #include <common/nvtx.hpp>
 #include <linalg/batched/matrix.cuh>

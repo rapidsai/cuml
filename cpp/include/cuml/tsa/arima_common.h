@@ -119,7 +119,8 @@ struct ARIMAParams {
     int N         = order.complexity();
     auto counting = thrust::make_counting_iterator(0);
     // The device lambda can't capture structure members...
-    const DataT *_mu = mu, *_ar = ar, *_ma = ma, *_sar = sar, *_sma = sma, *_sigma2 = sigma2;
+    const DataT *_mu = mu.data(), *_ar = ar.data(), *_ma = ma.data(), *_sar = sar.data(),
+                *_sma = sma.data(), *_sigma2 = sigma2.data();
     thrust::for_each(
       thrust::cuda::par.on(stream), counting, counting + batch_size, [=] __device__(int bid) {
         DataT* param = param_vec + bid * N;
@@ -161,7 +162,8 @@ struct ARIMAParams {
     int N         = order.complexity();
     auto counting = thrust::make_counting_iterator(0);
     // The device lambda can't capture structure members...
-    DataT *_mu = mu, *_ar = ar, *_ma = ma, *_sar = sar, *_sma = sma, *_sigma2 = sigma2;
+    DataT *_mu = mu.data(), *_ar = ar.data(), *_ma = ma.data(), *_sar = sar.data(),
+          *_sma = sma.data(), *_sigma2 = sigma2.data();
     thrust::for_each(
       thrust::cuda::par.on(stream), counting, counting + batch_size, [=] __device__(int bid) {
         const DataT* param = param_vec + bid * N;

@@ -77,6 +77,8 @@ __global__ void transform_k(float* preds,
 }
 
 struct forest {
+  forest(const raft::handle_t& h) : vector_leaf_(0, h.get_stream()) {}
+
   void init_n_items(int device)
   {
     int max_shm_std = 48 * 1024;  // 48 KiB
@@ -397,6 +399,8 @@ struct dense_forest : forest {
 
 template <typename node_t>
 struct sparse_forest : forest {
+  sparse_forest(const raft::handle_t& h) : trees_(0, h.get_stream()), nodes_(0, h.get_stream()) {}
+
   void init(const raft::handle_t& h,
             const int* trees,
             const node_t* nodes,
@@ -1016,7 +1020,7 @@ void init_dense(const raft::handle_t& h,
                 const std::vector<float>& vector_leaf)
 {
   check_params(params, true);
-  dense_forest* f = new dense_forest();
+  dense_forest* f = new dense_forest(h);
   f->init(h, nodes, params, vector_leaf);
   *pf = f;
 }
@@ -1030,7 +1034,7 @@ void init_sparse(const raft::handle_t& h,
                  const std::vector<float>& vector_leaf)
 {
   check_params(params, false);
-  sparse_forest<fil_node_t>* f = new sparse_forest<fil_node_t>();
+  sparse_forest<fil_node_t>* f = new sparse_forest<fil_node_t>(h);
   f->init(h, trees, nodes, params, vector_leaf);
   *pf = f;
 }

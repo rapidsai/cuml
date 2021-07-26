@@ -15,6 +15,7 @@
  */
 #pragma once
 
+#include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace ML {
@@ -26,6 +27,14 @@ namespace SVM {
  */
 template <typename math_t>
 struct svmModel {
+  svmModel(const raft::handle_t& h)
+    : dual_coefs(0, h.get_stream()),
+      x_support(0, h.get_stream()),
+      support_idx(0, h.get_stream()),
+      unique_labels(0, h.get_stream())
+  {
+  }
+
   int n_support;  //!< Number of support vectors
   int n_cols;     //!< Number of features
   math_t b;       //!< Constant used in the decision function

@@ -400,8 +400,8 @@ class Matrix {
   {
     int n = m_shape.first;
 
-    rmm::device_uvector<int> P(n * m_batch_size, stream);
-    rmm::device_uvector<int> info(m_batch_size, stream);
+    rmm::device_uvector<int> P(n * m_batch_size, m_stream);
+    rmm::device_uvector<int> info(m_batch_size, m_stream);
 
     // A copy of A is necessary as the cublas operations write in A
     Matrix<T> Acopy(*this);

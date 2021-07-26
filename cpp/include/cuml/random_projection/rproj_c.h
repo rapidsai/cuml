@@ -74,10 +74,10 @@ struct rand_mat {
 
   void reset()
   {
-    this->dense_data.release(this->stream);
-    this->indices.release(this->stream);
-    this->indptr.release(this->stream);
-    this->sparse_data.release(this->stream);
+    this->dense_data.release();
+    this->indices.release();
+    this->indptr.release();
+    this->sparse_data.release();
     this->type = unset;
   };
 };

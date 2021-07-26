@@ -29,8 +29,6 @@
 
 namespace ML {
 
-using namespace MLCommon;
-
 /**
  * @brief generates a gaussian random matrix
  * @param[in] h: cuML handle
@@ -74,8 +72,8 @@ void sparse_random_matrix(const raft::handle_t& h,
     size_t indices_alloc =
       (params.n_features * params.n_components * max_total_density) * sizeof(int);
     size_t indptr_alloc = (params.n_components + 1) * sizeof(int);
-    std::vector<int> indices(indices_alloc, stream);
-    std::vector<int> indptr(indptr_alloc, stream);
+    std::vector<int> indices(indices_alloc);
+    std::vector<int> indptr(indptr_alloc);
 
     size_t offset      = 0;
     size_t indices_idx = 0;

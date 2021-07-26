@@ -26,6 +26,7 @@
 #include <raft/linalg/subtract.cuh>
 #include <raft/spatial/knn/knn.hpp>
 #include <raft/stats/mean.cuh>
+#include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 #include <selection/columnWiseSort.cuh>
 
@@ -52,35 +53,28 @@ namespace Score {
 template <typename math_t>
 math_t r2_score(math_t* y, math_t* y_hat, int n, cudaStream_t stream)
 {
-  math_t* y_bar;
-  raft::allocate(y_bar, 1);
+  rmm::device_scalar<math_t> y_bar(stream);
 
-  raft::stats::mean(y_bar, y, 1, n, false, false, stream);
+  raft::stats::mean(y_bar.data(), y, 1, n, false, false, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  math_t* sse_arr;
-  raft::allocate(sse_arr, n);
+  rmm::device_uvector<math_t> sse_arr(n, stream);
 
-  raft::linalg::eltwiseSub(sse_arr, y, y_hat, n, stream);
-  MLCommon::LinAlg::powerScalar(sse_arr, sse_arr, math_t(2.0), n, stream);
+  raft::linalg::eltwiseSub(sse_arr.data(), y, y_hat, n, stream);
+  MLCommon::LinAlg::powerScalar(sse_arr.data(), sse_arr.data(), math_t(2.0), n, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  math_t* ssto_arr;
-  raft::allocate(ssto_arr, n);
+  rmm::device_uvector<math_t> ssto_arr(n, stream);
 
-  raft::linalg::subtractDevScalar(ssto_arr, y, y_bar, n, stream);
-  MLCommon::LinAlg::powerScalar(ssto_arr, ssto_arr, math_t(2.0), n, stream);
+  raft::linalg::subtractDevScalar(ssto_arr.data(), y, y_bar.data(), n, stream);
+  MLCommon::LinAlg::powerScalar(ssto_arr.data(), ssto_arr.data(), math_t(2.0), n, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
-  thrust::device_ptr<math_t> d_sse  = thrust::device_pointer_cast(sse_arr);
-  thrust::device_ptr<math_t> d_ssto = thrust::device_pointer_cast(ssto_arr);
+  thrust::device_ptr<math_t> d_sse  = thrust::device_pointer_cast(sse_arr.data());
+  thrust::device_ptr<math_t> d_ssto = thrust::device_pointer_cast(ssto_arr.data());
 
   math_t sse  = thrust::reduce(thrust::cuda::par.on(stream), d_sse, d_sse + n);
   math_t ssto = thrust::reduce(thrust::cuda::par.on(stream), d_ssto, d_ssto + n);
-
-  CUDA_CHECK(cudaFree(y_bar));
-  CUDA_CHECK(cudaFree(sse_arr));
-  CUDA_CHECK(cudaFree(ssto_arr));
 
   return 1.0 - sse / ssto;
 }

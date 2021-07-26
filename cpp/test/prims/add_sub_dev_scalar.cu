@@ -20,6 +20,8 @@
 #include <raft/linalg/subtract.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/random/rng.cuh>
+#include <rmm/device_scalar.hpp>
+#include <rmm/device_uvector.hpp>
 #include "test_utils.h"
 
 namespace raft {
@@ -60,32 +62,26 @@ class DevScalarTest : public ::testing::TestWithParam<DevScalarInputs<T, IdxType
 
     auto len = params.len;
 
-    raft::allocate(in, len);
-    raft::allocate(out_ref, len);
-    raft::allocate(out, len);
-    raft::allocate(scalar, (size_t)1);
-    raft::update_device(scalar, &params.scalar, 1, stream);
-    r.uniform(in, len, T(-1.0), T(1.0), stream);
-    unaryOpLaunch(out_ref, in, params.scalar, len, params.add, stream);
+    in      = std::make_unique<rmm::device_uvector<T>>(len, stream);
+    out_ref = std::make_unique<rmm::device_uvector<T>>(len, stream);
+    out     = std::make_unique<rmm::device_uvector<T>>(len, stream);
+    scalar  = std::make_unique<rmm::device_scalar<T>>(stream);
+
+    raft::update_device(scalar->data(), &params.scalar, 1, stream);
+    r.uniform(in->data(), len, T(-1.0), T(1.0), stream);
+    unaryOpLaunch(out_ref->data(), in->data(), params.scalar, len, params.add, stream);
     if (params.add) {
-      addDevScalar(out, in, scalar, len, stream);
+      addDevScalar(out->data(), in->data(), scalar->data(), len, stream);
     } else {
-      subtractDevScalar(out, in, scalar, len, stream);
+      subtractDevScalar(out->data(), in->data(), scalar->data(), len, stream);
     }
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(in));
-    CUDA_CHECK(cudaFree(out_ref));
-    CUDA_CHECK(cudaFree(out));
-    CUDA_CHECK(cudaFree(scalar));
-  }
-
  protected:
   DevScalarInputs<T, IdxType> params;
-  T *in, *out_ref, *out, *scalar;
+  std::unique_ptr<rmm::device_uvector<T>> in, out_ref, out;
+  std::unique_ptr<rmm::device_scalar<T>> scalar;
 };
 
 const std::vector<DevScalarInputs<float, int>> inputsf_i32 = {
@@ -93,7 +89,8 @@ const std::vector<DevScalarInputs<float, int>> inputsf_i32 = {
 typedef DevScalarTest<float, int> DevScalarTestF_i32;
 TEST_P(DevScalarTestF_i32, Result)
 {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len, raft::CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    out_ref->data(), out->data(), params.len, raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(DevScalarTests, DevScalarTestF_i32, ::testing::ValuesIn(inputsf_i32));
 
@@ -102,7 +99,8 @@ const std::vector<DevScalarInputs<float, size_t>> inputsf_i64 = {
 typedef DevScalarTest<float, size_t> DevScalarTestF_i64;
 TEST_P(DevScalarTestF_i64, Result)
 {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len, raft::CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    out_ref->data(), out->data(), params.len, raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(DevScalarTests, DevScalarTestF_i64, ::testing::ValuesIn(inputsf_i64));
 
@@ -111,7 +109,8 @@ const std::vector<DevScalarInputs<double, int>> inputsd_i32 = {
 typedef DevScalarTest<double, int> DevScalarTestD_i32;
 TEST_P(DevScalarTestD_i32, Result)
 {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len, raft::CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    out_ref->data(), out->data(), params.len, raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(DevScalarTests, DevScalarTestD_i32, ::testing::ValuesIn(inputsd_i32));
 
@@ -120,7 +119,8 @@ const std::vector<DevScalarInputs<double, size_t>> inputsd_i64 = {
 typedef DevScalarTest<double, size_t> DevScalarTestD_i64;
 TEST_P(DevScalarTestD_i64, Result)
 {
-  ASSERT_TRUE(devArrMatch(out_ref, out, params.len, raft::CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    out_ref->data(), out->data(), params.len, raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(DevScalarTests, DevScalarTestD_i64, ::testing::ValuesIn(inputsd_i64));
 
