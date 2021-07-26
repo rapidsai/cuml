@@ -36,8 +36,6 @@ class params {
 
 class paramsSolver : public params {
  public:
-  int n_rows;
-  int n_cols;
   //math_t tol = 0.0;
   float tol = 0.0;
   int n_iterations = 15;
