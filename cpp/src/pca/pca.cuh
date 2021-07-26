@@ -210,8 +210,9 @@ void pcaInverseTransform(const raft::handle_t& handle,
   ASSERT(prms.n_components > 0,
          "Parameter n_components: number of components cannot be less than one");
 
-  rmm::device_uvector<math_t> components_copy{prms.n_rows * prms.n_components, stream};
-  raft::copy(components_copy.data(), components, prms.n_rows * prms.n_components, stream);
+  std::size_t components_len = static_cast<std::size_t>(prms.n_cols * prms.n_components);
+  rmm::device_uvector<math_t> components_copy{components_len, stream};
+  raft::copy(components_copy.data(), components, prms.n_cols * prms.n_components, stream);
 
   if (prms.whiten) {
     math_t sqrt_n_samples = sqrt(prms.n_rows - 1);
@@ -219,10 +220,10 @@ void pcaInverseTransform(const raft::handle_t& handle,
     raft::linalg::scalarMultiply(components_copy.data(),
                                  components_copy.data(),
                                  scalar,
-                                 prms.n_rows * prms.n_components,
+                                 prms.n_cols * prms.n_components,
                                  stream);
     raft::matrix::matrixVectorBinaryMultSkipZero(
-      components_copy.data(), singular_vals, prms.n_rows, prms.n_components, true, true, stream);
+      components_copy.data(), singular_vals, prms.n_cols, prms.n_components, true, true, stream);
   }
 
   tsvdInverseTransform(handle, trans_input, components_copy.data(), input, prms, stream);
@@ -269,18 +270,19 @@ void pcaTransform(const raft::handle_t& handle,
   ASSERT(prms.n_components > 0,
          "Parameter n_components: number of components cannot be less than one");
 
-  rmm::device_uvector<math_t> components_copy{prms.n_rows * prms.n_components, stream};
-  raft::copy(components_copy.data(), components, prms.n_rows * prms.n_components, stream);
+  std::size_t components_len = static_cast<std::size_t>(prms.n_cols * prms.n_components);
+  rmm::device_uvector<math_t> components_copy{components_len, stream};
+  raft::copy(components_copy.data(), components, prms.n_cols * prms.n_components, stream);
 
   if (prms.whiten) {
     math_t scalar = math_t(sqrt(prms.n_rows - 1));
     raft::linalg::scalarMultiply(components_copy.data(),
                                  components_copy.data(),
                                  scalar,
-                                 prms.n_rows * prms.n_components,
+                                 prms.n_cols * prms.n_components,
                                  stream);
     raft::matrix::matrixVectorBinaryDivSkipZero(
-      components_copy.data(), singular_vals, prms.n_rows, prms.n_components, true, true, stream);
+      components_copy.data(), singular_vals, prms.n_cols, prms.n_components, true, true, stream);
   }
 
   raft::stats::meanCenter(input, input, mu, prms.n_cols, prms.n_rows, false, true, stream);
