@@ -46,29 +46,22 @@ class LogTest : public ::testing::TestWithParam<LogInputs<T>> {
 
     int len = params.len;
 
-    raft::allocate(data, len);
+    rmm::device_uvector<T> data(len, stream);
     T data_h[params.len] = {2.1, 4.5, 0.34, 10.0};
-    raft::update_device(data, data_h, len, stream);
+    raft::update_device(data.data(), data_h, len, stream);
 
-    raft::allocate(result, len);
-    raft::allocate(result_ref, len);
+    result                     = std::make_unique<rmm::device_uvector<T>>(len, stream);
+    result_ref                 = std::make_unique<rmm::device_uvector<T>>(len, stream);
     T result_ref_h[params.len] = {0.74193734, 1.5040774, -1.07880966, 2.30258509};
-    raft::update_device(result_ref, result_ref_h, len, stream);
+    raft::update_device(result_ref->data(), result_ref_h, len, stream);
 
-    f_log(result, data, T(1), len, stream);
+    f_log(result->data(), data.data(), T(1), len, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
-  }
-
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(result));
-    CUDA_CHECK(cudaFree(result_ref));
   }
 
  protected:
   LogInputs<T> params;
-  T *data, *result, *result_ref;
+  std::unique_ptr<rmm::device_uvector<T>> result, result_ref;
 };
 
 const std::vector<LogInputs<float>> inputsf2 = {{0.001f, 4}};
@@ -78,15 +71,19 @@ const std::vector<LogInputs<double>> inputsd2 = {{0.001, 4}};
 typedef LogTest<float> LogTestValF;
 TEST_P(LogTestValF, Result)
 {
-  ASSERT_TRUE(
-    devArrMatch(result_ref, result, params.len, raft::CompareApproxAbs<float>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(result_ref->data(),
+                          result->data(),
+                          params.len,
+                          raft::CompareApproxAbs<float>(params.tolerance)));
 }
 
 typedef LogTest<double> LogTestValD;
 TEST_P(LogTestValD, Result)
 {
-  ASSERT_TRUE(
-    devArrMatch(result_ref, result, params.len, raft::CompareApproxAbs<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(result_ref->data(),
+                          result->data(),
+                          params.len,
+                          raft::CompareApproxAbs<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(LogTests, LogTestValF, ::testing::ValuesIn(inputsf2));

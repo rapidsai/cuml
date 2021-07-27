@@ -128,8 +128,10 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
   {
     cudaStream_t stream = handle.get_stream();
 
-    raft::allocate(actual_labels, params.n_query_row * params.n_neighbors * params.n_parts, true);
-    raft::allocate(expected_labels, params.n_query_row * params.n_neighbors * params.n_parts, true);
+    raft::allocate(
+      actual_labels, params.n_query_row * params.n_neighbors * params.n_parts, stream, true);
+    raft::allocate(
+      expected_labels, params.n_query_row * params.n_neighbors * params.n_parts, stream, true);
 
     create_data();
 
@@ -164,8 +166,8 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
   {
     cudaStream_t stream = handle.get_stream();
 
-    raft::allocate(actual_labels, params.n_query_row, true);
-    raft::allocate(expected_labels, params.n_query_row, true);
+    raft::allocate(actual_labels, params.n_query_row, stream, true);
+    raft::allocate(expected_labels, params.n_query_row, stream, true);
 
     create_data();
 
@@ -200,8 +202,8 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
   {
     cudaStream_t stream = handle.get_stream();
 
-    raft::allocate(actual_labels, params.n_query_row, true);
-    raft::allocate(expected_labels, params.n_query_row, true);
+    raft::allocate(actual_labels, params.n_query_row, stream, true);
+    raft::allocate(expected_labels, params.n_query_row, stream, true);
 
     create_data();
 
@@ -254,14 +256,16 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
 
     params = ::testing::TestWithParam<KNNInputs>::GetParam();
 
-    raft::allocate(index_data, params.n_rows * params.n_cols * params.n_parts, true);
-    raft::allocate(index_labels, params.n_rows * params.n_parts, true);
+    raft::allocate(index_data, params.n_rows * params.n_cols * params.n_parts, stream, true);
+    raft::allocate(index_labels, params.n_rows * params.n_parts, stream, true);
 
-    raft::allocate(search_data, params.n_query_row * params.n_cols, true);
-    raft::allocate(search_labels, params.n_query_row, true);
+    raft::allocate(search_data, params.n_query_row * params.n_cols, stream, true);
+    raft::allocate(search_labels, params.n_query_row, stream, true);
 
-    raft::allocate(output_indices, params.n_query_row * params.n_neighbors * params.n_parts, true);
-    raft::allocate(output_dists, params.n_query_row * params.n_neighbors * params.n_parts, true);
+    raft::allocate(
+      output_indices, params.n_query_row * params.n_neighbors * params.n_parts, stream, true);
+    raft::allocate(
+      output_dists, params.n_query_row * params.n_neighbors * params.n_parts, stream, true);
   }
 
   void TearDown() override

@@ -83,12 +83,7 @@ template <typename math_t>
 class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
  protected:
   GramMatrixTest()
-    : params(GetParam()),
-      stream(0),
-      x1(0, stream),
-      x2(0, stream),
-      gram(0, stream),
-      gram_host(handle.get_host_allocator(), stream)
+    : params(GetParam()), stream(0), x1(0, stream), x2(0, stream), gram(0, stream), gram_host(0)
   {
     CUDA_CHECK(cudaStreamCreate(&stream));
 
@@ -177,12 +172,10 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
   cudaStream_t stream;
   GramMatrixInputs params;
 
-  std::shared_ptr<raft::mr::host::allocator> host_allocator;
-
   rmm::device_uvector<math_t> x1;
   rmm::device_uvector<math_t> x2;
   rmm::device_uvector<math_t> gram;
-  raft::mr::host::buffer<math_t> gram_host;
+  std::vector<math_t> gram_host;
 };
 
 typedef GramMatrixTest<float> GramMatrixTestFloat;

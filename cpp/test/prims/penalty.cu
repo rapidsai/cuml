@@ -40,19 +40,19 @@ class PenaltyTest : public ::testing::TestWithParam<PenaltyInputs<T>> {
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    raft::allocate(in, len);
-    raft::allocate(out_lasso, 1);
-    raft::allocate(out_ridge, 1);
-    raft::allocate(out_elasticnet, 1);
-    raft::allocate(out_lasso_grad, len);
-    raft::allocate(out_ridge_grad, len);
-    raft::allocate(out_elasticnet_grad, len);
-    raft::allocate(out_lasso_ref, 1);
-    raft::allocate(out_ridge_ref, 1);
-    raft::allocate(out_elasticnet_ref, 1);
-    raft::allocate(out_lasso_grad_ref, len);
-    raft::allocate(out_ridge_grad_ref, len);
-    raft::allocate(out_elasticnet_grad_ref, len);
+    raft::allocate(in, len, stream);
+    raft::allocate(out_lasso, 1, stream);
+    raft::allocate(out_ridge, 1, stream);
+    raft::allocate(out_elasticnet, 1, stream);
+    raft::allocate(out_lasso_grad, len, stream);
+    raft::allocate(out_ridge_grad, len, stream);
+    raft::allocate(out_elasticnet_grad, len, stream);
+    raft::allocate(out_lasso_ref, 1, stream);
+    raft::allocate(out_ridge_ref, 1, stream);
+    raft::allocate(out_elasticnet_ref, 1, stream);
+    raft::allocate(out_lasso_grad_ref, len, stream);
+    raft::allocate(out_ridge_grad_ref, len, stream);
+    raft::allocate(out_elasticnet_grad_ref, len, stream);
 
     T h_in[len] = {0.1, 0.35, -0.9, -1.4};
     raft::update_device(in, h_in, len, stream);

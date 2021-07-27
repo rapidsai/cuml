@@ -210,11 +210,11 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
     data_len           = params.n_rows * params.n_cols;
     inference_data_len = params.n_inference_rows * params.n_cols;
 
-    raft::allocate(data_d, data_len);
-    raft::allocate(inference_data_d, inference_data_len);
+    raft::allocate(data_d, data_len, stream);
+    raft::allocate(inference_data_d, inference_data_len, stream);
 
-    raft::allocate(labels_d, params.n_rows);
-    raft::allocate(predicted_labels_d, params.n_inference_rows);
+    raft::allocate(labels_d, params.n_rows, stream);
+    raft::allocate(predicted_labels_d, params.n_inference_rows, stream);
 
     treelite_predicted_labels.resize(params.n_inference_rows);
     ref_predicted_labels.resize(params.n_inference_rows);
@@ -311,9 +311,9 @@ class RfConcatTestClf : public RfTreeliteTestCommon<T, L> {
     float *weight, *temp_label_d, *temp_data_d;
     std::vector<float> temp_label_h;
 
-    raft::allocate(weight, this->params.n_cols);
-    raft::allocate(temp_label_d, this->params.n_rows);
-    raft::allocate(temp_data_d, this->data_len);
+    raft::allocate(weight, this->params.n_cols, stream);
+    raft::allocate(temp_label_d, this->params.n_rows, stream);
+    raft::allocate(temp_data_d, this->data_len, stream);
 
     raft::random::Rng r(1234ULL);
 
@@ -410,8 +410,8 @@ class RfConcatTestReg : public RfTreeliteTestCommon<T, L> {
     this->task_category = 1;
 
     float *weight, *temp_data_d;
-    raft::allocate(weight, this->params.n_cols);
-    raft::allocate(temp_data_d, this->data_len);
+    raft::allocate(weight, this->params.n_cols, stream);
+    raft::allocate(temp_data_d, this->data_len, stream);
 
     raft::random::Rng r(1234ULL);
 

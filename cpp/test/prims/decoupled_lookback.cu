@@ -36,10 +36,9 @@ void dlbTest(int len, int* out)
   constexpr int TPB    = 256;
   int nblks            = len;
   size_t workspaceSize = DecoupledLookBack<int>::computeWorkspaceSize(nblks);
-  char* workspace;
-  raft::allocate(workspace, workspaceSize);
-  CUDA_CHECK(cudaMemset(workspace, 0, workspaceSize));
-  dlbTestKernel<TPB><<<nblks, TPB>>>(workspace, len, out);
+  rmm::device_uvector<char> workspace(workspaceSize, stream);
+  CUDA_CHECK(cudaMemset(workspace.data(), 0, workspace.size()));
+  dlbTestKernel<TPB><<<nblks, TPB>>>(workspace.data(), len, out);
   CUDA_CHECK(cudaPeekAtLastError());
   CUDA_CHECK(cudaFree(workspace));
 }
@@ -56,15 +55,13 @@ class DlbTest : public ::testing::TestWithParam<DlbInputs> {
   {
     params  = ::testing::TestWithParam<DlbInputs>::GetParam();
     int len = params.len;
-    raft::allocate(out, len);
-    dlbTest(len, out);
+    out     = std::make_unique<rmm::device_uvector<int>>(len, stream);
+    dlbTest(len, out->data());
   }
-
-  void TearDown() override { CUDA_CHECK(cudaFree(out)); }
 
  protected:
   DlbInputs params;
-  int* out;
+  std::unique_ptr<rmm::device_uvector<int>> out;
 };
 
 template <typename T, typename L>
@@ -88,7 +85,10 @@ template <typename T, typename L>
 }
 
 const std::vector<DlbInputs> inputs = {{4}, {16}, {64}, {256}, {2048}};
-TEST_P(DlbTest, Result) { ASSERT_TRUE(devArrMatchCustom(out, params.len, raft::Compare<int>())); }
+TEST_P(DlbTest, Result)
+{
+  ASSERT_TRUE(devArrMatchCustom(out->data(), params.len, raft::Compare<int>()));
+}
 INSTANTIATE_TEST_CASE_P(DlbTests, DlbTest, ::testing::ValuesIn(inputs));
 
 }  // end namespace MLCommon

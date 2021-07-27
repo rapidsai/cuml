@@ -28,6 +28,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
 #include <raft/linalg/binary_op.cuh>
+#include <rmm/device_uvector.hpp>
 
 #include <common/nvtx.hpp>
 #include <linalg/batched/matrix.cuh>
@@ -1469,25 +1470,25 @@ void batched_jones_transform(raft::handle_t& handle,
   auto stream                 = handle.get_stream();
   double* d_params            = arima_mem.d_params;
   double* d_Tparams           = arima_mem.d_Tparams;
-  ARIMAParams<double> params  = {arima_mem.params_mu.data(),
-                                arima_mem.params_ar.data(),
-                                arima_mem.params_ma.data(),
-                                arima_mem.params_sar.data(),
-                                arima_mem.params_sma.data(),
-                                arima_mem.params_sigma2.data()};
-  ARIMAParams<double> Tparams = {arima_mem.Tparams_mu.data(),
-                                 arima_mem.Tparams_ar.data(),
-                                 arima_mem.Tparams_ma.data(),
-                                 arima_mem.Tparams_sar.data(),
-                                 arima_mem.Tparams_sma.data(),
-                                 arima_mem.Tparams_sigma2.data()};
+  ARIMAParams<double> params  = {arima_mem.params_mu,
+                                arima_mem.params_ar,
+                                arima_mem.params_ma,
+                                arima_mem.params_sar,
+                                arima_mem.params_sma,
+                                arima_mem.params_sigma2};
+  ARIMAParams<double> Tparams = {arima_mem.Tparams_mu,
+                                 arima_mem.Tparams_ar,
+                                 arima_mem.Tparams_ma,
+                                 arima_mem.Tparams_sar,
+                                 arima_mem.Tparams_sma,
+                                 arima_mem.Tparams_sigma2};
 
   raft::update_device(d_params, h_params, N * batch_size, stream);
 
   params.unpack(order, batch_size, d_params, stream);
 
   MLCommon::TimeSeries::batched_jones_transform(order, batch_size, isInv, params, Tparams, stream);
-  Tparams.mu = params.mu.data();
+  Tparams.mu = params.mu;
 
   Tparams.pack(order, batch_size, d_Tparams, stream);
 

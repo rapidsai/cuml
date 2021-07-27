@@ -60,11 +60,11 @@ cumlError_t cumlSpSvcFit(cumlHandle_t handle,
   kernel_param.gamma  = gamma;
   kernel_param.coef0  = coef0;
 
-  ML::SVM::svmModel<float> model;
-
   cumlError_t status;
   raft::handle_t* handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
+  ML::SVM::svmModel<float> model(*handle_ptr);
+
   if (status == CUML_SUCCESS) {
     try {
       ML::SVM::svcFit(*handle_ptr, input, n_rows, n_cols, labels, param, kernel_param, model);
@@ -126,11 +126,10 @@ cumlError_t cumlDpSvcFit(cumlHandle_t handle,
   kernel_param.gamma  = gamma;
   kernel_param.coef0  = coef0;
 
-  ML::SVM::svmModel<double> model;
-
   cumlError_t status;
   raft::handle_t* handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
+  ML::SVM::svmModel<double> model(*handle_ptr);
   if (status == CUML_SUCCESS) {
     try {
       ML::SVM::svcFit(*handle_ptr, input, n_rows, n_cols, labels, param, kernel_param, model);
@@ -179,7 +178,11 @@ cumlError_t cumlSpSvcPredict(cumlHandle_t handle,
   kernel_param.gamma  = gamma;
   kernel_param.coef0  = coef0;
 
-  ML::SVM::svmModel<float> model;
+  cumlError_t status;
+  raft::handle_t* handle_ptr;
+  std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
+
+  ML::SVM::svmModel<float> model(*handle_ptr);
   model.n_support     = n_support;
   model.b             = b;
   model.dual_coefs    = dual_coefs;
@@ -188,9 +191,6 @@ cumlError_t cumlSpSvcPredict(cumlHandle_t handle,
   model.n_classes     = n_classes;
   model.unique_labels = unique_labels;
 
-  cumlError_t status;
-  raft::handle_t* handle_ptr;
-  std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
   if (status == CUML_SUCCESS) {
     try {
       ML::SVM::svcPredict(
@@ -233,7 +233,11 @@ cumlError_t cumlDpSvcPredict(cumlHandle_t handle,
   kernel_param.gamma  = gamma;
   kernel_param.coef0  = coef0;
 
-  ML::SVM::svmModel<double> model;
+  cumlError_t status;
+  raft::handle_t* handle_ptr;
+  std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
+
+  ML::SVM::svmModel<double> model(*handle_ptr);
   model.n_support     = n_support;
   model.b             = b;
   model.dual_coefs    = dual_coefs;
@@ -242,9 +246,6 @@ cumlError_t cumlDpSvcPredict(cumlHandle_t handle,
   model.n_classes     = n_classes;
   model.unique_labels = unique_labels;
 
-  cumlError_t status;
-  raft::handle_t* handle_ptr;
-  std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
   if (status == CUML_SUCCESS) {
     try {
       ML::SVM::svcPredict(

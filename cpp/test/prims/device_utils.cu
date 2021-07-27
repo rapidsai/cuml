@@ -68,19 +68,15 @@ class BatchedBlockReduceTest : public ::testing::TestWithParam<BatchedBlockReduc
   {
     params = ::testing::TestWithParam<BatchedBlockReduceInputs>::GetParam();
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(out, NThreads, true);
-    raft::allocate(refOut, NThreads, true);
+    out    = std::make_unique<rmm::device_uvector<int>>(NThreads, stream);
+    refOut = std::make_unique<rmm::device_uvector<int>>(NThreads, stream);
+    CUDA_CHECK(cudaMemset(out->data(), 0, out->size() * sizeof(int)));
+    CUDA_CHECK(cudaMemset(refOut->data(), 0, refOut->size() * sizeof(int)));
     computeRef();
-    batchedBlockReduceTest<NThreads>(out, params, stream);
+    batchedBlockReduceTest<NThreads>(out->data(), params, stream);
   }
 
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-    CUDA_CHECK(cudaFree(out));
-    CUDA_CHECK(cudaFree(refOut));
-  }
+  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
   void computeRef()
   {
@@ -99,7 +95,7 @@ class BatchedBlockReduceTest : public ::testing::TestWithParam<BatchedBlockReduc
 
  protected:
   BatchedBlockReduceInputs params;
-  int *out, *refOut;
+  std::unique_ptr<rmm::device_uvector<int>> out, refOut;
   cudaStream_t stream;
 };
 
@@ -115,7 +111,10 @@ const std::vector<BatchedBlockReduceInputs> inputs = {
   {512},
 };
 
-TEST_P(BBTest8, Result) { ASSERT_TRUE(devArrMatch(refOut, out, 8, raft::Compare<int>())); }
+TEST_P(BBTest8, Result)
+{
+  ASSERT_TRUE(devArrMatch(refOut->data(), out->data(), 8, raft::Compare<int>()));
+}
 INSTANTIATE_TEST_CASE_P(BatchedBlockReduceTests, BBTest8, ::testing::ValuesIn(inputs));
 
 }  // end namespace MLCommon

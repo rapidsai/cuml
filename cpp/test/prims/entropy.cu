@@ -74,27 +74,20 @@ class entropyTest : public ::testing::TestWithParam<entropyParam> {
 
     // allocating and initializing memory to the GPU
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(clusterArray, nElements, true);
-    raft::update_device(clusterArray, &arr1[0], (int)nElements, stream);
+    rmm::device_uvector<T> clusterArray(nElements);
+    CUDA_CHECK(cudaMemsetAsync(clusterArray.data(), 0, clusterArray.size() * sizeof(T), stream));
+    raft::update_device(clusterArray.data(), &arr1[0], (int)nElements, stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
     // calling the entropy CUDA implementation
-    computedEntropy =
-      MLCommon::Metrics::entropy(clusterArray, nElements, lowerLabelRange, upperLabelRange, stream);
-  }
-
-  // the destructor
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(clusterArray));
-
+    computedEntropy = MLCommon::Metrics::entropy(
+      clusterArray.data(), nElements, lowerLabelRange, upperLabelRange, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   // declaring the data values
   entropyParam params;
   T lowerLabelRange, upperLabelRange;
-  T* clusterArray = nullptr;
 
   int nElements          = 0;
   double truthEntropy    = 0;

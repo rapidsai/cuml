@@ -18,6 +18,7 @@
 #include <raft/cudart_utils.h>
 #include <algorithm>
 #include <numeric>
+#include <rmm/device_uvector.hpp>
 #include <selection/columnWiseSort.cuh>
 #include "test_utils.h"
 
@@ -59,12 +60,12 @@ class ColumnSort : public ::testing::TestWithParam<columnSort<T>> {
     int len = params.n_row * params.n_col;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(keyIn, len);
-    raft::allocate(valueOut, len);
-    raft::allocate(goldenValOut, len);
+    keyIn        = std::make_unique<rmm::device_uvector<T>>(len, stream);
+    valueOut     = std::make_unique<rmm::device_uvector<int>>(len, stream);
+    goldenValOut = std::make_unique<rmm::device_uvector<int>>(len, stream);
     if (params.testKeys) {
-      raft::allocate(keySorted, len);
-      raft::allocate(keySortGolden, len);
+      keySorted     = std::make_unique<rmm::device_uvector<T>>(len, stream);
+      keySortGolden = std::make_unique<rmm::device_uvector<T>>(len, stream);
     }
 
     std::vector<T> vals(len);
@@ -87,57 +88,43 @@ class ColumnSort : public ::testing::TestWithParam<columnSort<T>> {
       }
     }
 
-    raft::update_device(keyIn, &vals[0], len, stream);
-    raft::update_device(goldenValOut, &cValGolden[0], len, stream);
+    raft::update_device(keyIn->data(), &vals[0], len, stream);
+    raft::update_device(goldenValOut->data(), &cValGolden[0], len, stream);
 
-    if (params.testKeys) raft::update_device(keySortGolden, &cKeyGolden[0], len, stream);
+    if (params.testKeys) raft::update_device(keySortGolden->data(), &cKeyGolden[0], len, stream);
 
     bool needWorkspace   = false;
     size_t workspaceSize = 0;
     // Remove this branch once the implementation of descending sort is fixed.
-    sortColumnsPerRow(keyIn,
-                      valueOut,
+    sortColumnsPerRow(keyIn->data(),
+                      valueOut->data(),
                       params.n_row,
                       params.n_col,
                       needWorkspace,
                       NULL,
                       workspaceSize,
                       stream,
-                      keySorted);
+                      keySorted->data());
     if (needWorkspace) {
-      raft::allocate(workspacePtr, workspaceSize);
-      sortColumnsPerRow(keyIn,
-                        valueOut,
+      workspacePtr = std::make_unique<rmm::device_uvector<char>>(workspaceSize, stream);
+      sortColumnsPerRow(keyIn->data(),
+                        valueOut->data(),
                         params.n_row,
                         params.n_col,
                         needWorkspace,
                         workspacePtr,
                         workspaceSize,
                         stream,
-                        keySorted);
+                        keySorted->data());
     }
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(keyIn));
-    CUDA_CHECK(cudaFree(valueOut));
-    CUDA_CHECK(cudaFree(goldenValOut));
-    if (params.testKeys) {
-      CUDA_CHECK(cudaFree(keySorted));
-      CUDA_CHECK(cudaFree(keySortGolden));
-    }
-    if (!workspacePtr) CUDA_CHECK(cudaFree(workspacePtr));
-  }
-
  protected:
   columnSort<T> params;
-  T* keyIn;
-  T* keySorted     = NULL;
-  T* keySortGolden = NULL;
-  int *valueOut, *goldenValOut;  // valueOut are indexes
-  char* workspacePtr = NULL;
+  std::unique_ptr<rmm::device_uvector<T>> keyIn, keySorted, keySortGolden;
+  std::unique_ptr<rmm::device_uvector<int>> valueOut, goldenValOut;  // valueOut are indexes
+  std::unique_ptr<rmm::device_uvector<char>> workspacePtr;
 };
 
 const std::vector<columnSort<float>> inputsf1 = {{0.000001f, 503, 2000, false},
@@ -150,13 +137,13 @@ TEST_P(ColumnSortF, Result)
 {
   // Remove this condition once the implementation of of descending sort is
   // fixed.
-  ASSERT_TRUE(devArrMatch(valueOut,
-                          goldenValOut,
+  ASSERT_TRUE(devArrMatch(valueOut->data(),
+                          goldenValOut->data(),
                           params.n_row * params.n_col,
                           raft::CompareApprox<float>(params.tolerance)));
   if (params.testKeys) {
-    ASSERT_TRUE(devArrMatch(keySorted,
-                            keySortGolden,
+    ASSERT_TRUE(devArrMatch(keySorted->data(),
+                            keySortGolden->data(),
                             params.n_row * params.n_col,
                             raft::CompareApprox<float>(params.tolerance)));
   }

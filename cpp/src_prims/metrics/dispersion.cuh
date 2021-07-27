@@ -21,6 +21,7 @@
 #include <memory>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/eltwise.cuh>
+#include <rmm/device_uvector.hpp>
 
 namespace MLCommon {
 namespace Metrics {

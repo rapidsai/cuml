@@ -92,9 +92,9 @@ template
 
     // allocating and initializing device memory
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(d_golden_ar_trans, nElements, true);
-    raft::allocate(d_computed_ar_trans, nElements, true);
-    raft::allocate(d_params, nElements, true);
+    raft::allocate(d_golden_ar_trans, nElements, stream, true);
+    raft::allocate(d_computed_ar_trans, nElements, stream, true);
+    raft::allocate(d_params, nElements, stream, true);
 
     raft::update_device(d_params, &arr1[0], (size_t)nElements, stream);
     raft::update_device(d_golden_ar_trans, newParams, (size_t)nElements, stream);
@@ -139,8 +139,8 @@ template
     }
 
     // allocating and initializing device memory
-    raft::allocate(d_golden_ma_trans, nElements, true);
-    raft::allocate(d_computed_ma_trans, nElements, true);
+    raft::allocate(d_golden_ma_trans, nElements, stream, true);
+    raft::allocate(d_computed_ma_trans, nElements, stream, true);
 
     raft::update_device(d_golden_ma_trans, newParams, (size_t)nElements, stream);
 
@@ -151,7 +151,7 @@ template
     //>>>>>>>>>>>>>>>>> AR inverse transform <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     // allocating and initializing device memory
-    raft::allocate(d_computed_ar_invtrans, nElements, true);
+    raft::allocate(d_computed_ar_invtrans, nElements, stream, true);
 
     // calling the ar_param_inverse_transform CUDA implementation
     MLCommon::TimeSeries::jones_transform(d_computed_ar_trans,
@@ -164,7 +164,7 @@ template
 
     //>>>>>>>>>>>>>>>>> MA inverse transform <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-    raft::allocate(d_computed_ma_invtrans, nElements, true);
+    raft::allocate(d_computed_ma_invtrans, nElements, stream, true);
 
     // calling the ma_param_inverse_transform CUDA implementation
     MLCommon::TimeSeries::jones_transform(d_computed_ma_trans,

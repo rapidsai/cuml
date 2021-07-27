@@ -44,26 +44,27 @@ TEST_F(MakeMonotonicTest, Result)
 
   float *data, *actual, *expected;
 
-  raft::allocate(data, m, true);
-  raft::allocate(actual, m, true);
-  raft::allocate(expected, m, true);
+  rmm::device_uvector<float> data(m, stream);
+  rmm::device_uvector<float> actual(m, stream);
+  rmm::device_uvector<float> expected(m, stream);
+  CUDA_CHECK(cudaMemset(data.data(), 0, data.data() * sizeof(float)));
+  CUDA_CHECK(cudaMemset(actual.data(), 0, actual.data() * sizeof(float)));
+  CUDA_CHECK(cudaMemset(expected.data(), 0, expected.data() * sizeof(float)));
 
   float* data_h = new float[m]{1.0, 2.0, 2.0, 2.0, 2.0, 3.0, 8.0, 7.0, 8.0, 8.0, 25.0, 80.0};
 
   float* expected_h = new float[m]{1.0, 2.0, 2.0, 2.0, 2.0, 3.0, 5.0, 4.0, 5.0, 5.0, 6.0, 7.0};
 
   raft::update_device(data, data_h, m, stream);
-  raft::update_device(expected, expected_h, m, stream);
+  raft::update_device(expected.data(), expected_h, m, stream);
 
   make_monotonic(actual, data, m, stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
-  ASSERT_TRUE(devArrMatch(actual, expected, m, raft::Compare<bool>(), stream));
+  ASSERT_TRUE(devArrMatch(actual.data(), expected.data(), m, raft::Compare<bool>(), stream));
 
   CUDA_CHECK(cudaStreamDestroy(stream));
-  CUDA_CHECK(cudaFree(data));
-  CUDA_CHECK(cudaFree(actual));
 
   delete data_h;
   delete expected_h;

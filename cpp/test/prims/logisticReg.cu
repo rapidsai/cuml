@@ -47,26 +47,26 @@ class LogRegLossTest : public ::testing::TestWithParam<LogRegLossInputs<T>> {
 
     cudaStream_t stream = handle.get_stream();
 
-    raft::allocate(in, len);
-    raft::allocate(out, 1);
-    raft::allocate(out_lasso, 1);
-    raft::allocate(out_ridge, 1);
-    raft::allocate(out_elasticnet, 1);
-    raft::allocate(out_grad, n_cols);
-    raft::allocate(out_lasso_grad, n_cols);
-    raft::allocate(out_ridge_grad, n_cols);
-    raft::allocate(out_elasticnet_grad, n_cols);
-    raft::allocate(out_ref, 1);
-    raft::allocate(out_lasso_ref, 1);
-    raft::allocate(out_ridge_ref, 1);
-    raft::allocate(out_elasticnet_ref, 1);
-    raft::allocate(out_grad_ref, n_cols);
-    raft::allocate(out_lasso_grad_ref, n_cols);
-    raft::allocate(out_ridge_grad_ref, n_cols);
-    raft::allocate(out_elasticnet_grad_ref, n_cols);
+    raft::allocate(in, len, stream);
+    raft::allocate(out, 1, stream);
+    raft::allocate(out_lasso, 1, stream);
+    raft::allocate(out_ridge, 1, stream);
+    raft::allocate(out_elasticnet, 1, stream);
+    raft::allocate(out_grad, n_cols, stream);
+    raft::allocate(out_lasso_grad, n_cols, stream);
+    raft::allocate(out_ridge_grad, n_cols, stream);
+    raft::allocate(out_elasticnet_grad, n_cols, stream);
+    raft::allocate(out_ref, 1, stream);
+    raft::allocate(out_lasso_ref, 1, stream);
+    raft::allocate(out_ridge_ref, 1, stream);
+    raft::allocate(out_elasticnet_ref, 1, stream);
+    raft::allocate(out_grad_ref, n_cols, stream);
+    raft::allocate(out_lasso_grad_ref, n_cols, stream);
+    raft::allocate(out_ridge_grad_ref, n_cols, stream);
+    raft::allocate(out_elasticnet_grad_ref, n_cols, stream);
 
-    raft::allocate(labels, params.n_rows);
-    raft::allocate(coef, params.n_cols);
+    raft::allocate(labels, params.n_rows, stream);
+    raft::allocate(coef, params.n_cols, stream);
 
     T h_in[len] = {0.1, 0.35, -0.9, -1.4, 2.0, 3.1};
     raft::update_device(in, h_in, len, stream);

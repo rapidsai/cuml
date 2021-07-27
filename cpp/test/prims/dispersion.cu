@@ -15,12 +15,12 @@
  */
 
 #include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <metrics/dispersion.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/random/rng.cuh>
+#include <rmm/device_uvector.hpp>
 #include <vector>
 #include "test_utils.h"
 
@@ -50,7 +50,7 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
     int len = params.clusters * params.dim;
     CUDA_CHECK(cudaStreamCreate(&stream));
     rmm::device_uvector<T> data(len, stream);
-    rmm::device_uvector<T> counts(params.clusters, stream);
+    rmm::device_uvector<int> counts(params.clusters, stream);
     exp_mean = std::make_unique<rmm::device_uvector<T>>(params.dim, stream);
     act_mean = std::make_unique<rmm::device_uvector<T>>(params.dim, stream);
     r.uniform(data.data(), len, (T)-1.0, (T)1.0, stream);

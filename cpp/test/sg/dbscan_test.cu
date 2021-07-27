@@ -104,8 +104,8 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
                                      raft::distance::L2SqrtUnexpanded);
     }
 
-    raft::allocate(labels, params.n_row);
-    raft::allocate(labels_ref, params.n_row);
+    raft::allocate(labels, params.n_row, stream);
+    raft::allocate(labels_ref, params.n_row, stream);
 
     raft::copy(labels_ref, l.data(), params.n_row, handle.get_stream());
 
@@ -225,10 +225,10 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
 
     params = ::testing::TestWithParam<DBScan2DArrayInputs<T>>::GetParam();
 
-    raft::allocate(inputs, params.n_row * 2);
-    raft::allocate(labels, params.n_row);
-    raft::allocate(labels_ref, params.n_out);
-    raft::allocate(core_sample_indices_d, params.n_row);
+    raft::allocate(inputs, params.n_row * 2, stream);
+    raft::allocate(labels, params.n_row, stream);
+    raft::allocate(labels_ref, params.n_out, stream);
+    raft::allocate(core_sample_indices_d, params.n_row, stream);
 
     raft::copy(inputs, params.points, params.n_row * 2, handle.get_stream());
     raft::copy(labels_ref, params.out, params.n_out, handle.get_stream());

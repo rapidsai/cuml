@@ -52,12 +52,12 @@ class MakeKSHAPDatasetTest : public ::testing::TestWithParam<MakeKSHAPDatasetInp
     params  = ::testing::TestWithParam<MakeKSHAPDatasetInputs>::GetParam();
     nrows_X = params.nrows_exact + params.nrows_sampled;
 
-    raft::allocate(background, params.nrows_background * params.ncols);
-    raft::allocate(observation, params.ncols);
-    raft::allocate(nsamples, params.nrows_sampled / 2);
+    raft::allocate(background, params.nrows_background * params.ncols, stream);
+    raft::allocate(observation, params.ncols, stream);
+    raft::allocate(nsamples, params.nrows_sampled / 2, stream);
 
-    raft::allocate(X, nrows_X * params.ncols);
-    raft::allocate(dataset, nrows_X * params.nrows_background * params.ncols);
+    raft::allocate(X, nrows_X * params.ncols, stream);
+    raft::allocate(dataset, nrows_X * params.nrows_background * params.ncols, stream);
 
     thrust::device_ptr<T> b_ptr   = thrust::device_pointer_cast(background);
     thrust::device_ptr<T> o_ptr   = thrust::device_pointer_cast(observation);

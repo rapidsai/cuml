@@ -96,16 +96,16 @@ class ReduceRowTest : public ::testing::TestWithParam<ReduceRowsInputs<T>> {
     int nobs       = params.nobs;
     uint32_t cols  = params.cols;
     uint32_t nkeys = params.nkeys;
-    raft::allocate(in, nobs * cols);
-    raft::allocate(keys, nobs);
-    raft::allocate(scratch_buf, nobs);
-    raft::allocate(out_ref, nkeys * cols);
-    raft::allocate(out, nkeys * cols);
+    raft::allocate(in, nobs * cols, stream);
+    raft::allocate(keys, nobs, stream);
+    raft::allocate(scratch_buf, nobs, stream);
+    raft::allocate(out_ref, nkeys * cols, stream);
+    raft::allocate(out, nkeys * cols, stream);
     r.uniform(in, nobs * cols, T(0.0), T(2.0 / nobs), stream);
     r_int.uniformInt(keys, nobs, (uint32_t)0, nkeys, stream);
 
     if (params.weighted) {
-      raft::allocate(weight, nobs);
+      raft::allocate(weight, nobs, stream);
       raft::random::Rng r(params.seed, raft::random::GeneratorType::GenPhilox);
       r.uniform(weight, nobs, T(1), params.max_weight, stream);
     } else {

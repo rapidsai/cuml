@@ -38,7 +38,7 @@ class RPROJTest : public ::testing::Test {
     cudaStream_t stream          = h.get_stream();
     cublasHandle_t cublas_handle = h.get_cublas_handle();
     T* result;
-    raft::allocate(result, n_rows * n_cols);
+    raft::allocate(result, n_rows * n_cols, stream);
     raft::linalg::transpose(h, in, result, n_rows, n_cols, stream);
     CUDA_CHECK(cudaPeekAtLastError());
     CUDA_CHECK(cudaFree(in));
@@ -55,7 +55,7 @@ class RPROJTest : public ::testing::Test {
     for (auto& i : h_input) {
       i = dist(rng);
     }
-    raft::allocate(d_input, h_input.size());
+    raft::allocate(d_input, h_input.size(), stream);
     raft::update_device(d_input, h_input.data(), h_input.size(), NULL);
     // d_input = transpose(d_input, N, M);
     // From row major to column major (this operation is only useful for non-random datasets)
@@ -79,7 +79,7 @@ class RPROJTest : public ::testing::Test {
     auto alloc          = h.get_device_allocator();
     random_matrix1      = new rand_mat<T>(alloc, stream);
     RPROJfit(h, random_matrix1, params1);
-    raft::allocate(d_output1, N * params1->n_components);
+    raft::allocate(d_output1, N * params1->n_components, stream);
     RPROJtransform(h, d_input, random_matrix1, d_output1, params1);
     d_output1 = transpose(d_output1, N, params1->n_components);  // From column major to row major
   }
@@ -103,7 +103,7 @@ class RPROJTest : public ::testing::Test {
     random_matrix2      = new rand_mat<T>(alloc, stream);
     RPROJfit(h, random_matrix2, params2);
 
-    raft::allocate(d_output2, N * params2->n_components);
+    raft::allocate(d_output2, N * params2->n_components, stream);
 
     RPROJtransform(h, d_input, random_matrix2, d_output2, params2);
 
@@ -152,7 +152,7 @@ class RPROJTest : public ::testing::Test {
     constexpr auto distance_type = raft::distance::DistanceType::L2SqrtUnexpanded;
 
     T* d_pdist;
-    raft::allocate(d_pdist, N * N);
+    raft::allocate(d_pdist, N * N, stream);
     ML::Metrics::pairwise_distance(h, d_input, d_input, d_pdist, N, N, M, distance_type);
     CUDA_CHECK(cudaPeekAtLastError());
 
@@ -161,7 +161,7 @@ class RPROJTest : public ::testing::Test {
     CUDA_CHECK(cudaFree(d_pdist));
 
     T* d_pdist1;
-    raft::allocate(d_pdist1, N * N);
+    raft::allocate(d_pdist1, N * N, stream);
     ML::Metrics::pairwise_distance(h, d_output1, d_output1, d_pdist1, N, N, D, distance_type);
     CUDA_CHECK(cudaPeekAtLastError());
 
@@ -170,7 +170,7 @@ class RPROJTest : public ::testing::Test {
     CUDA_CHECK(cudaFree(d_pdist1));
 
     T* d_pdist2;
-    raft::allocate(d_pdist2, N * N);
+    raft::allocate(d_pdist2, N * N, stream);
     ML::Metrics::pairwise_distance(h, d_output2, d_output2, d_pdist2, N, N, D, distance_type);
     CUDA_CHECK(cudaPeekAtLastError());
 

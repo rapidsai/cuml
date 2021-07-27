@@ -85,12 +85,12 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
     int len   = params.rows * params.cols;
     CUDA_CHECK(cudaStreamCreate(&stream));
     raft::random::Rng r(params.seed, params.gtype);
-    raft::allocate(data, len);
-    raft::allocate(labels, params.rows);
-    raft::allocate(stats, 2 * params.n_clusters * params.cols, true);
-    raft::allocate(mean_var, 2 * params.n_clusters * params.cols, true);
-    raft::allocate(mu_vec, params.cols * params.n_clusters);
-    raft::allocate(lens, params.n_clusters, true);
+    raft::allocate(data, len, stream);
+    raft::allocate(labels, params.rows, stream);
+    raft::allocate(stats, 2 * params.n_clusters * params.cols, stream, true);
+    raft::allocate(mean_var, 2 * params.n_clusters * params.cols, stream, true);
+    raft::allocate(mu_vec, params.cols * params.n_clusters, stream);
+    raft::allocate(lens, params.n_clusters, stream, true);
     r.uniform(mu_vec, params.cols * params.n_clusters, T(-10.0), T(10.0), stream);
     T* sigma_vec = nullptr;
     make_blobs(data,

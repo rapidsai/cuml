@@ -52,7 +52,7 @@ class MakeArimaTest : public ::testing::TestWithParam<MakeArimaInputs> {
 
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    raft::allocate(data, params.batch_size * params.n_obs);
+    out = std::make_unique<rmm::device_uvector<T>>(params.batch_size * params.n_obs, stream);
 
     // Create the time series dataset
     make_arima(data,
@@ -75,7 +75,7 @@ class MakeArimaTest : public ::testing::TestWithParam<MakeArimaInputs> {
 
  protected:
   MakeArimaInputs params;
-  T* data;
+  std::unique_ptr<rmm::device_uvector<T>> data;
   cudaStream_t stream;
 };
 

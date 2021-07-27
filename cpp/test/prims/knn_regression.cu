@@ -91,13 +91,13 @@ class KNNRegressionTest : public ::testing::TestWithParam<KNNRegressionInputs> {
 
     params = ::testing::TestWithParam<KNNRegressionInputs>::GetParam();
 
-    raft::allocate(train_samples, params.rows * params.cols);
-    raft::allocate(train_labels, params.rows);
+    raft::allocate(train_samples, params.rows * params.cols, stream);
+    raft::allocate(train_labels, params.rows, stream);
 
-    raft::allocate(pred_labels, params.rows);
+    raft::allocate(pred_labels, params.rows, stream);
 
-    raft::allocate(knn_indices, params.rows * params.k);
-    raft::allocate(knn_dists, params.rows * params.k);
+    raft::allocate(knn_indices, params.rows * params.k, stream);
+    raft::allocate(knn_dists, params.rows * params.k, stream);
 
     generate_data(train_samples, train_labels, params.rows, params.cols, stream);
 

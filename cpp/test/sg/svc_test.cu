@@ -65,10 +65,10 @@ class WorkingSetTest : public ::testing::Test {
   {
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.set_stream(stream);
-    raft::allocate(f_dev, 10);
-    raft::allocate(y_dev, 10);
-    raft::allocate(C_dev, 10);
-    raft::allocate(alpha_dev, 10);
+    raft::allocate(f_dev, 10, stream);
+    raft::allocate(y_dev, 10, stream);
+    raft::allocate(C_dev, 10, stream);
+    raft::allocate(alpha_dev, 10, stream);
     init_C(C, C_dev, 10, stream);
     raft::update_device(f_dev, f_host, 10, stream);
     raft::update_device(y_dev, y_host, 10, stream);
@@ -148,10 +148,10 @@ class KernelCacheTest : public ::testing::Test {
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.set_stream(stream);
     cublas_handle = handle.get_cublas_handle();
-    raft::allocate(x_dev, n_rows * n_cols);
+    raft::allocate(x_dev, n_rows * n_cols, stream);
     raft::update_device(x_dev, x_host, n_rows * n_cols, stream);
 
-    raft::allocate(ws_idx_dev, 2 * n_ws);
+    raft::allocate(ws_idx_dev, 2 * n_ws, stream);
     raft::update_device(ws_idx_dev, ws_idx_host, n_ws, stream);
   }
 
@@ -402,10 +402,10 @@ class SmoUpdateTest : public ::testing::Test {
   {
     stream                       = handle.get_stream();
     cublasHandle_t cublas_handle = handle.get_cublas_handle();
-    raft::allocate(f_dev, n_rows, true);
-    raft::allocate(kernel_dev, n_rows * n_ws);
+    raft::allocate(f_dev, n_rows, stream, true);
+    raft::allocate(kernel_dev, n_rows * n_ws, stream);
     raft::update_device(kernel_dev, kernel_host, n_ws * n_rows, stream);
-    raft::allocate(delta_alpha_dev, n_ws);
+    raft::allocate(delta_alpha_dev, n_ws, stream);
     raft::update_device(delta_alpha_dev, delta_alpha_host, n_ws, stream);
   }
   void RunTest()
@@ -445,14 +445,14 @@ class SmoBlockSolverTest : public ::testing::Test {
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.set_stream(stream);
     cublas_handle = handle.get_cublas_handle();
-    raft::allocate(ws_idx_dev, n_ws);
-    raft::allocate(y_dev, n_rows);
-    raft::allocate(C_dev, n_rows);
-    raft::allocate(f_dev, n_rows);
-    raft::allocate(alpha_dev, n_rows, true);
-    raft::allocate(delta_alpha_dev, n_ws, true);
-    raft::allocate(kernel_dev, n_ws * n_rows);
-    raft::allocate(return_buff_dev, 2);
+    raft::allocate(ws_idx_dev, n_ws, stream);
+    raft::allocate(y_dev, n_rows, stream);
+    raft::allocate(C_dev, n_rows, stream);
+    raft::allocate(f_dev, n_rows, stream);
+    raft::allocate(alpha_dev, n_rows, stream, true);
+    raft::allocate(delta_alpha_dev, n_ws, stream, true);
+    raft::allocate(kernel_dev, n_ws * n_rows, stream);
+    raft::allocate(return_buff_dev, 2, stream);
 
     init_C(C, C_dev, n_rows, stream);
     raft::update_device(ws_idx_dev, ws_idx_host, n_ws, stream);
@@ -482,7 +482,7 @@ class SmoBlockSolverTest : public ::testing::Test {
     devArrMatchHost(return_buff_exp, return_buff_dev, 2, raft::CompareApprox<math_t>(1e-6));
 
     math_t* delta_alpha_calc;
-    raft::allocate(delta_alpha_calc, n_rows);
+    raft::allocate(delta_alpha_calc, n_rows, stream);
     raft::linalg::binaryOp(
       delta_alpha_calc,
       y_dev,
@@ -675,17 +675,17 @@ class SmoSolverTest : public ::testing::Test {
   {
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.set_stream(stream);
-    raft::allocate(x_dev, n_rows * n_cols);
-    raft::allocate(ws_idx_dev, n_ws);
-    raft::allocate(y_dev, n_rows);
-    raft::allocate(C_dev, n_rows);
-    raft::allocate(y_pred, n_rows);
-    raft::allocate(f_dev, n_rows);
-    raft::allocate(alpha_dev, n_rows, true);
-    raft::allocate(delta_alpha_dev, n_ws, true);
-    raft::allocate(kernel_dev, n_ws * n_rows);
-    raft::allocate(return_buff_dev, 2);
-    raft::allocate(sample_weights_dev, n_rows);
+    raft::allocate(x_dev, n_rows * n_cols, stream);
+    raft::allocate(ws_idx_dev, n_ws, stream);
+    raft::allocate(y_dev, n_rows, stream);
+    raft::allocate(C_dev, n_rows, stream);
+    raft::allocate(y_pred, n_rows, stream);
+    raft::allocate(f_dev, n_rows, stream);
+    raft::allocate(alpha_dev, n_rows, stream, true);
+    raft::allocate(delta_alpha_dev, n_ws, stream, true);
+    raft::allocate(kernel_dev, n_ws * n_rows, stream);
+    raft::allocate(return_buff_dev, 2, stream);
+    raft::allocate(sample_weights_dev, n_rows, stream);
     LinAlg::range(sample_weights_dev, 1, n_rows + 1, stream);
     cublas_handle = handle.get_cublas_handle();
 
@@ -751,7 +751,7 @@ class SmoSolverTest : public ::testing::Test {
 
     // check results won't work, because it expects that GetResults was called
     math_t* delta_alpha_calc;
-    raft::allocate(delta_alpha_calc, n_rows);
+    raft::allocate(delta_alpha_calc, n_rows, stream);
     raft::linalg::binaryOp(
       delta_alpha_calc,
       y_dev,
@@ -1280,14 +1280,14 @@ class SvrTest : public ::testing::Test {
   {
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.set_stream(stream);
-    raft::allocate(x_dev, n_rows * n_cols);
-    raft::allocate(y_dev, n_rows);
-    raft::allocate(C_dev, 2 * n_rows);
-    raft::allocate(y_pred, n_rows);
+    raft::allocate(x_dev, n_rows * n_cols, stream);
+    raft::allocate(y_dev, n_rows, stream);
+    raft::allocate(C_dev, 2 * n_rows, stream);
+    raft::allocate(y_pred, n_rows, stream);
 
-    raft::allocate(yc, n_train);
-    raft::allocate(f, n_train);
-    raft::allocate(alpha, n_train);
+    raft::allocate(yc, n_train, stream);
+    raft::allocate(f, n_train, stream);
+    raft::allocate(alpha, n_train, stream);
 
     raft::update_device(x_dev, x_host, n_rows * n_cols, stream);
     raft::update_device(y_dev, y_host, n_rows, stream);

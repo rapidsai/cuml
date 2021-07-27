@@ -328,6 +328,8 @@ struct forest {
 };
 
 struct dense_forest : forest {
+  dense_forest(const raft::handle_t& h) : forest(h), nodes_(0, h.get_stream()) {}
+
   void transform_trees(const dense_node* nodes)
   {
     /* Populate node information:
@@ -391,7 +393,11 @@ struct dense_forest : forest {
     fil::infer(forest, params, stream);
   }
 
-  virtual void free(const raft::handle_t& h) override { forest::free(h); }
+  virtual void free(const raft::handle_t& h) override
+  {
+    nodes_.release();
+    forest::free(h);
+  }
 
   rmm::device_uvector<dense_node> nodes_;
   thrust::host_vector<dense_node> h_nodes_;
@@ -399,7 +405,10 @@ struct dense_forest : forest {
 
 template <typename node_t>
 struct sparse_forest : forest {
-  sparse_forest(const raft::handle_t& h) : trees_(0, h.get_stream()), nodes_(0, h.get_stream()) {}
+  sparse_forest(const raft::handle_t& h)
+    : forest(h), trees_(0, h.get_stream()), nodes_(0, h.get_stream())
+  {
+  }
 
   void init(const raft::handle_t& h,
             const int* trees,
@@ -425,11 +434,16 @@ struct sparse_forest : forest {
 
   virtual void infer(predict_params params, cudaStream_t stream) override
   {
-    sparse_storage<node_t> forest(trees_.data(), nodes_.data(), num_trees_, vector_leaf_);
+    sparse_storage<node_t> forest(trees_.data(), nodes_.data(), num_trees_, vector_leaf_.data());
     fil::infer(forest, params, stream);
   }
 
-  void free(const raft::handle_t& h) override { forest::free(h); }
+  void free(const raft::handle_t& h) override
+  {
+    forest::free(h);
+    trees_.release();
+    nodes_.release();
+  }
 
   int num_nodes_ = 0;
   rmm::device_uvector<int> trees_;

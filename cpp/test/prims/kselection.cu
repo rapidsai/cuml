@@ -142,9 +142,9 @@ class WarpTopKTest : public ::testing::TestWithParam<WarpTopKInputs<T>> {
     raft::random::Rng r(params.seed);
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(arr, params.rows * params.cols);
-    raft::allocate(outk, params.rows * params.k);
-    raft::allocate(outv, params.rows * params.k);
+    arr  = std::unique_ptr<rmm::device_uvector<T>>(params.rows * params.cols, stream);
+    outk = std::unique_ptr<rmm::device_uvector<int>>(params.rows * params.k, stream);
+    outv = std::unique_ptr<rmm::device_uvector<T>>(params.rows * params.k, stream);
     r.uniform(arr, params.rows * params.cols, T(-1.0), T(1.0), stream);
 
     static const bool Sort    = false;
@@ -153,17 +153,10 @@ class WarpTopKTest : public ::testing::TestWithParam<WarpTopKInputs<T>> {
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(outv));
-    CUDA_CHECK(cudaFree(outk));
-    CUDA_CHECK(cudaFree(arr));
-  }
-
  protected:
   WarpTopKInputs<T> params;
-  T *arr, *outv;
-  int* outk;
+  std::unique_ptr<rmm::device_uvector<T>> arr, outv;
+  std::unique_ptr<rmm::device_uvector<int>> outk;
 };
 
 // Parameters

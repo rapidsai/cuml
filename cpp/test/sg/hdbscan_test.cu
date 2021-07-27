@@ -62,10 +62,10 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
     rmm::device_uvector<T> data(params.n_row * params.n_col, handle.get_stream());
 
     // Allocate result labels and expected labels on device
-    raft::allocate(labels_ref, params.n_row);
+    rmm::device_uvector<IdxT> labels_ref(params.n_row, handle.get_stream());
 
     raft::copy(data.data(), params.data.data(), data.size(), handle.get_stream());
-    raft::copy(labels_ref, params.expected_labels.data(), params.n_row, handle.get_stream());
+    raft::copy(labels_ref.data(), params.expected_labels.data(), params.n_row, handle.get_stream());
 
     rmm::device_uvector<IdxT> out_children(params.n_row * 2, handle.get_stream());
     rmm::device_uvector<T> out_deltas(params.n_row, handle.get_stream());
@@ -109,7 +109,7 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     score = MLCommon::Metrics::compute_adjusted_rand_index(out.get_labels(),
-                                                           labels_ref,
+                                                           labels_ref.data(),
                                                            params.n_row,
                                                            handle.get_device_allocator(),
                                                            handle.get_stream());
@@ -117,11 +117,8 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
 
   void SetUp() override { basicTest(); }
 
-  void TearDown() override { CUDA_CHECK(cudaFree(labels_ref)); }
-
  protected:
   HDBSCANInputs<T, IdxT> params;
-  IdxT* labels_ref;
   int k;
 
   double score;

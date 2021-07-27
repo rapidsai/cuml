@@ -54,21 +54,21 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
     raft::random::Rng r(params.seed, raft::random::GenTaps);
     int len = params.len;
 
-    raft::allocate(data, len);
+    raft::allocate(data, len, stream);
 
     std::vector<T> data_h = {1.0, 2.0, 4.0, 2.0, 4.0, 5.0, 5.0, 4.0, 2.0, 1.0, 6.0, 4.0};
     data_h.resize(len);
     raft::update_device(data, data_h.data(), len, stream);
 
     int len_comp = params.n_col * params.n_col;
-    raft::allocate(components, len_comp);
-    raft::allocate(singular_vals, params.n_col);
+    raft::allocate(components, len_comp, stream);
+    raft::allocate(singular_vals, params.n_col, stream);
 
     std::vector<T> components_ref_h = {
       -0.3951, 0.1532, 0.9058, -0.7111, -0.6752, -0.1959, -0.5816, 0.7215, -0.3757};
     components_ref_h.resize(len_comp);
 
-    raft::allocate(components_ref, len_comp);
+    raft::allocate(components_ref, len_comp, stream);
     raft::update_device(components_ref, components_ref_h.data(), len_comp, stream);
 
     paramsTSVD prms;
@@ -100,15 +100,15 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
     else
       prms.n_components = params.n_col2 - 15;
 
-    raft::allocate(data2, len);
+    raft::allocate(data2, len, stream);
     r.uniform(data2, len, T(-1.0), T(1.0), stream);
-    raft::allocate(data2_trans, prms.n_rows * prms.n_components);
+    raft::allocate(data2_trans, prms.n_rows * prms.n_components, stream);
 
     int len_comp = params.n_col2 * prms.n_components;
-    raft::allocate(components2, len_comp);
-    raft::allocate(explained_vars2, prms.n_components);
-    raft::allocate(explained_var_ratio2, prms.n_components);
-    raft::allocate(singular_vals2, prms.n_components);
+    raft::allocate(components2, len_comp, stream);
+    raft::allocate(explained_vars2, prms.n_components, stream);
+    raft::allocate(explained_var_ratio2, prms.n_components, stream);
+    raft::allocate(singular_vals2, prms.n_components, stream);
 
     tsvdFitTransform(handle,
                      data2,
@@ -120,7 +120,7 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
                      prms,
                      stream);
 
-    raft::allocate(data2_back, len);
+    raft::allocate(data2_back, len, stream);
     tsvdInverseTransform(handle, data2_trans, components2, data2_back, prms, stream);
   }
 
