@@ -1448,7 +1448,16 @@ class SvrTest : public ::testing::Test {
          {1, 1, 1, 10, 2, 10, 1}  // sample weights
        },
        smoOutput2<math_t>{
-         6, {}, -15.5, {3.9}, {1.0, 2.0, 3.0, 4.0, 6.0, 7.0}, {0, 1, 2, 3, 5, 6}, {}}}};
+         6, {}, -15.5, {3.9}, {1.0, 2.0, 3.0, 4.0, 6.0, 7.0}, {0, 1, 2, 3, 5, 6}, {}}},
+      {SvrInput<math_t>{
+         svmParameter{1, 0, 100, 10, 1e-6, CUML_LEVEL_INFO, 0.1, EPSILON_SVR},
+         KernelParams{LINEAR, 3, 1, 0},
+         7,                      // n_rows
+         1,                      // n_cols
+         {1, 2, 3, 4, 5, 6, 7},  // x
+         {2, 2, 2, 2, 2, 2, 2}   // y
+       },
+       smoOutput2<math_t>{0, {}, 2, {}, {}, {}, {}}}};
     for (auto d : data) {
       auto p   = d.first;
       auto exp = d.second;
