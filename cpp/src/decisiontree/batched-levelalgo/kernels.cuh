@@ -19,6 +19,7 @@
 #include <cuml/tree/algo_helper.h>
 #include <thrust/binary_search.h>
 #include <common/grid_sync.cuh>
+#include <cstdio>
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
 #include "cuml/ensemble/randomforest.hpp"
@@ -58,11 +59,8 @@ struct WorkloadInfo {
  *
  * @return true if the current node is to be declared as a leaf, else false
  */
-template < typename IdxT>
-HDI bool leafBasedOnParams(IdxT myDepth,
-                           IdxT max_depth,
-                           IdxT min_samples_split,
-                           IdxT nSamples)
+template <typename IdxT>
+HDI bool leafBasedOnParams(IdxT myDepth, IdxT max_depth, IdxT min_samples_split, IdxT nSamples)
 {
   if (myDepth >= max_depth) return true;
   if (nSamples < min_samples_split) return true;
@@ -128,31 +126,6 @@ DI void partitionSamples(const Input<DataT, LabelT, IdxT>& input,
   }
 }
 
-template <typename IdxT, typename LabelT, typename DataT, typename ObjectiveT, int TPB>
-DI void computePrediction(IdxT range_start,
-                          IdxT range_len,
-                          const Input<DataT, LabelT, IdxT>& input,
-                          volatile Node<DataT, LabelT, IdxT>* nodes,
-                          void* smem,
-                          LabelT* prediction)
-{
-  using BinT  = typename ObjectiveT::BinT;
-  auto* shist = reinterpret_cast<BinT*>(smem);
-  auto tid    = threadIdx.x;
-  for (int i = tid; i < input.numOutputs; i += blockDim.x)
-    shist[i] = BinT();
-  __syncthreads();
-  auto len = range_start + range_len;
-  for (auto i = range_start + tid; i < len; i += blockDim.x) {
-    auto label = input.labels[input.rowids[i]];
-    BinT::IncrementHistogram(shist, 1, 0, label);
-  }
-  __syncthreads();
-  if (tid == 0) {
-    *prediction = ObjectiveT::LeafPrediction(shist, input.numOutputs);
-  }
-}
-
 template <typename DataT, typename LabelT, typename IdxT, typename ObjectiveT, int TPB>
 __global__ void nodeSplitKernel(IdxT max_depth,
                                 IdxT min_samples_leaf,
@@ -161,24 +134,43 @@ __global__ void nodeSplitKernel(IdxT max_depth,
                                 DataT min_impurity_decrease,
                                 Input<DataT, LabelT, IdxT> input,
                                 volatile Node<DataT, LabelT, IdxT>* curr_nodes,
-                                const Split<DataT, IdxT>* splits,
-                                LabelT* predictions)
+                                const Split<DataT, IdxT>* splits
+                                )
 {
   extern __shared__ char smem[];
   IdxT nid            = blockIdx.x;
   volatile auto* node = curr_nodes + nid;
   auto range_start = node->start, n_samples = node->count;
-  auto isLeaf = leafBasedOnParams< IdxT>(
-    node->depth, max_depth, min_samples_split, n_samples);
-  auto split = splits[nid];
+  auto isLeaf = leafBasedOnParams<IdxT>(node->depth, max_depth, min_samples_split, n_samples);
+  auto split  = splits[nid];
   if (isLeaf || split.best_metric_val <= min_impurity_decrease || split.nLeft < min_samples_leaf ||
       (n_samples - split.nLeft) < min_samples_leaf) {
-    computePrediction<IdxT, LabelT, DataT, ObjectiveT, TPB>(
-      range_start, n_samples, input, node, smem, predictions + nid);
     return;
   }
-  partitionSamples<DataT, LabelT, IdxT, TPB>(
-    input, splits, curr_nodes,    (char*)smem);
+  partitionSamples<DataT, LabelT, IdxT, TPB>(input, splits, curr_nodes, (char*)smem);
+}
+
+template <typename DataT, typename LabelT, typename IdxT, typename ObjectiveT>
+__global__ void leafKernel(ObjectiveT objective,
+                           Input<DataT, LabelT, IdxT> input,
+                           Node<DataT, LabelT, IdxT>* tree)
+{
+  using BinT = typename ObjectiveT::BinT;
+  extern __shared__ char shared_memory[];
+  auto histogram = reinterpret_cast<BinT*>(shared_memory);
+  auto& node      = tree[blockIdx.x];
+  if (!node.IsLeaf()) return;
+  auto tid = threadIdx.x;
+  for (int i = tid; i < input.numOutputs; i += blockDim.x) {
+    histogram[i] = BinT();
+  }
+  __syncthreads();
+  for (auto i = node.start + tid; i < node.start + node.count; i += blockDim.x) {
+    auto label = input.labels[input.rowids[i]];
+    BinT::IncrementHistogram(histogram, 1, 0, label);
+  }
+  __syncthreads();
+  if (tid == 0) { node.makeLeaf(ObjectiveT::LeafPrediction(histogram, input.numOutputs)); }
 }
 
 /* Returns 'input' rounded up to a correctly-aligned pointer of type OutT* */

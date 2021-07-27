@@ -78,7 +78,7 @@ struct Node {
     Node n;
     n.info.prediction=pred;
   }
-  void makeLeaf(LabelT pred)
+  HDI void makeLeaf(LabelT pred)
   {
     info.prediction      = pred;
     info.colid           = Leaf;
@@ -87,6 +87,7 @@ struct Node {
     info.left_child_id   = Leaf;
   }
 
+  HDI bool IsLeaf() { return info.left_child_id == -1; }
 };  // end Node
 
 template <typename DataT, typename LabelT, typename IdxT, int TPB = 256>
