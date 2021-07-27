@@ -24,6 +24,20 @@
 namespace MLCommon {
 namespace Stats {
 
+namespace detail {
+
+// TODO: replace with `std::bitcast` once we adopt C++20 or libcu++ adds it
+template <class To, class From>
+constexpr To bit_cast(const From& from) noexcept
+{
+  To to{};
+  static_assert(sizeof(To) == sizeof(From));
+  memcpy(&to, &from, sizeof(To));
+  return to;
+}
+
+}  // namespace detail
+
 template <typename T>
 struct encode_traits {
 };
@@ -40,36 +54,26 @@ struct encode_traits<double> {
 
 HDI int encode(float val)
 {
-  int i{};
-  static_assert(sizeof(i) == sizeof(val));
-  memcpy(&i, &val, sizeof(i));  // int i = *(int*)&val;
+  int i = detail::bit_cast<int>(val);
   return i >= 0 ? i : (1 << 31) | ~i;
 }
 
 HDI long long encode(double val)
 {
-  std::int64_t i{};
-  static_assert(sizeof(i) == sizeof(val));
-  memcpy(&i, &val, sizeof(i));  // long long i = *(long long*)&val;
+  std::int64_t i = detail::bit_cast<std::int64_t>(val);
   return i >= 0 ? i : (1ULL << 63) | ~i;
 }
 
 HDI float decode(int val)
 {
   if (val < 0) val = (1 << 31) | ~val;
-  float f{};
-  static_assert(sizeof(f) == sizeof(val));
-  memcpy(&f, &val, sizeof(f));
-  return f;
+  return detail::bit_cast<float>(val);
 }
 
 HDI double decode(long long val)
 {
   if (val < 0) val = (1ULL << 63) | ~val;
-  double d{};
-  static_assert(sizeof(d) == sizeof(val));
-  memcpy(&d, &val, sizeof(d));
-  return d;
+  return detail::bit_cast<double>(val);
 }
 
 template <typename T, typename E>
