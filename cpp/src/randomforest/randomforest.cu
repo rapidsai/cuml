@@ -25,6 +25,7 @@
 
 #include <raft/error.hpp>
 
+#include <cstddef>
 #include <cstdio>
 #include <cstring>
 #include <fstream>

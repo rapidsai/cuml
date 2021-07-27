@@ -37,6 +37,8 @@
 #include <raft/matrix/matrix.cuh>
 #include <raft/mr/device/allocator.hpp>
 
+#include <cstddef>
+
 using namespace MLCommon;
 
 namespace ML {

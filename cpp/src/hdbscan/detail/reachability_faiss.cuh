@@ -44,6 +44,8 @@
 
 #include <rmm/device_uvector.hpp>
 
+#include <cstddef>
+
 namespace ML {
 namespace HDBSCAN {
 namespace detail {

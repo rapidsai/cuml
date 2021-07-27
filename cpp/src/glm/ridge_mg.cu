@@ -31,6 +31,8 @@
 
 #include <rmm/device_uvector.hpp>
 
+#include <cstddef>
+
 using namespace MLCommon;
 
 namespace ML {

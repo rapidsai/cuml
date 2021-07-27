@@ -27,6 +27,8 @@
 
 #include <gtest/gtest.h>
 
+#include <cstddef>
+
 template <typename T>
 __device__ void serial_multi_sum(const T* in, T* out, int n_groups, int n_values)
 {

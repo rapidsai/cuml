@@ -17,15 +17,21 @@
 #pragma once
 
 #include <cuml/svm/svm_parameter.h>
+
 #include <linalg/init.h>
-#include <raft/cudart_utils.h>
 #include <cache/cache.cuh>
 #include <cache/cache_util.cuh>
-#include <cub/cub.cuh>
 #include <matrix/grammatrix.cuh>
+
+#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/matrix/matrix.cuh>
+
+#include <cub/cub.cuh>
+
+#include <algorithm>
+#include <cstddef>
 
 namespace ML {
 namespace SVM {

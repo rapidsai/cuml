@@ -25,6 +25,7 @@
 
 #include <gtest/gtest.h>
 
+#include <cstddef>
 #include <random>
 #include <vector>
 

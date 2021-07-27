@@ -25,6 +25,7 @@
 #include <raft/sparse/cusparse_wrappers.h>
 #include <raft/cuda_utils.cuh>
 
+#include <cstddef>
 #include <random>
 #include <unordered_set>
 #include <vector>
@@ -77,15 +78,15 @@ void sparse_random_matrix(const raft::handle_t& h,
     auto alloc = h.get_host_allocator();
 
     double max_total_density = params.density * 1.2;
-    size_t indices_alloc =
+    std::size_t indices_alloc =
       (params.n_features * params.n_components * max_total_density) * sizeof(int);
-    size_t indptr_alloc = (params.n_components + 1) * sizeof(int);
-    int* indices        = (int*)alloc->allocate(indices_alloc, stream);
-    int* indptr         = (int*)alloc->allocate(indptr_alloc, stream);
+    std::size_t indptr_alloc = (params.n_components + 1) * sizeof(int);
+    int* indices             = (int*)alloc->allocate(indices_alloc, stream);
+    int* indptr              = (int*)alloc->allocate(indptr_alloc, stream);
 
-    size_t offset      = 0;
-    size_t indices_idx = 0;
-    size_t indptr_idx  = 0;
+    std::size_t offset      = 0;
+    std::size_t indices_idx = 0;
+    std::size_t indptr_idx  = 0;
 
     for (int i = 0; i < params.n_components; i++) {
       int n_nonzero = binomial(h, params.n_features, params.density, params.random_state);
@@ -97,7 +98,7 @@ void sparse_random_matrix(const raft::handle_t& h,
 
     indptr[indptr_idx] = offset;
 
-    size_t len = offset;
+    auto len = offset;
     random_matrix->indices.resize(len, stream);
     raft::update_device(random_matrix->indices.data(), indices, len, stream);
     alloc->deallocate(indices, indices_alloc, stream);
@@ -163,18 +164,18 @@ void RPROJtransform(const raft::handle_t& handle,
     const math_t alfa = 1;
     const math_t beta = 0;
 
-    int& m = params->n_samples;
-    int& n = params->n_components;
-    int& k = params->n_features;
+    auto& m = params->n_samples;
+    auto& n = params->n_components;
+    auto& k = params->n_features;
 
-    int& lda = m;
-    int& ldb = k;
-    int& ldc = m;
+    auto& lda = m;
+    auto& ldb = k;
+    auto& ldc = m;
 
     CUBLAS_CHECK(raft::linalg::cublasgemm(cublas_handle,
                                           CUBLAS_OP_N,
                                           CUBLAS_OP_N,
-                                          m,
+                                          params->n_samples,
                                           n,
                                           k,
                                           &alfa,
@@ -193,13 +194,13 @@ void RPROJtransform(const raft::handle_t& handle,
     const math_t alfa = 1;
     const math_t beta = 0;
 
-    int& m     = params->n_samples;
-    int& n     = params->n_components;
-    int& k     = params->n_features;
-    size_t nnz = random_matrix->sparse_data.size();
+    auto& m         = params->n_samples;
+    auto& n         = params->n_components;
+    auto& k         = params->n_features;
+    std::size_t nnz = random_matrix->sparse_data.size();
 
-    int& lda = m;
-    int& ldc = m;
+    auto& lda = m;
+    auto& ldc = m;
 
     CUSPARSE_CHECK(raft::sparse::cusparsegemmi(cusparse_handle,
                                                m,

@@ -25,6 +25,7 @@
 #include <cuml/common/logger.hpp>
 
 #include <algorithm>
+#include <cstddef>
 
 namespace ML {
 namespace Dbscan {

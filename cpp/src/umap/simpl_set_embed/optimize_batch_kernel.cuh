@@ -24,6 +24,8 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/random/rng.cuh>
 
+#include <cstddef>
+
 namespace UMAPAlgo {
 namespace SimplSetEmbed {
 namespace Algo {

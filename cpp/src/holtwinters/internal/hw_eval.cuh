@@ -16,11 +16,11 @@
 
 #pragma once
 
-#include "cuml/common/device_buffer.hpp"
 #include "hw_utils.cuh"
 
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
+#include <raft/mr/device/buffer.hpp>
 
 template <typename Dtype>
 __device__ Dtype holtwinters_eval_device(int tid,
@@ -260,7 +260,7 @@ void holtwinters_eval_gpu(const raft::handle_t& handle,
   bool is_additive = seasonal == ML::SeasonalType::ADDITIVE;
 
   if (sm_needed > raft::getSharedMemPerBlock()) {
-    MLCommon::device_buffer<Dtype> pseason(dev_allocator, stream, batch_size * frequency);
+    raft::mr::device::buffer<Dtype> pseason(dev_allocator, stream, batch_size * frequency);
     holtwinters_eval_gpu_global_kernel<Dtype>
       <<<total_blocks, threads_per_block, 0, stream>>>(ts,
                                                        n,

@@ -28,6 +28,8 @@
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 
+#include <cstddef>
+
 using namespace MLCommon;
 
 namespace ML {

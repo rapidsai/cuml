@@ -20,6 +20,7 @@
 #include "hw_utils.cuh"
 
 #include <raft/cudart_utils.h>
+#include <raft/mr/device/buffer.hpp>
 
 template <typename Dtype>
 __device__ Dtype golden_step(Dtype a, Dtype b, Dtype c)
@@ -878,7 +879,7 @@ void holtwinters_optim_gpu(const raft::handle_t& handle,
   bool single_param = (optim_alpha + optim_beta + optim_gamma > 1) ? false : true;
 
   if (sm_needed > raft::getSharedMemPerBlock()) {  // Global memory //
-    MLCommon::device_buffer<Dtype> pseason(dev_allocator, stream, batch_size * frequency);
+    raft::mr::device::buffer<Dtype> pseason(dev_allocator, stream, batch_size * frequency);
     holtwinters_optim_gpu_global_kernel<Dtype>
       <<<total_blocks, threads_per_block, 0, stream>>>(ts,
                                                        n,

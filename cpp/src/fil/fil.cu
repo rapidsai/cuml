@@ -16,27 +16,33 @@
 
 /** @file fil.cu implements forest inference */
 
-#include <omp.h>
+#include "common.cuh"
+
+#include <cuml/fil/fil.h>
+#include <cuml/fil/fnv_hash.h>
+#include <cuml/common/logger.hpp>
+
+#include <raft/cudart_utils.h>
+#include <raft/handle.hpp>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/host/allocator.hpp>
+
+#include <treelite/c_api.h>
+#include <treelite/tree.h>
+
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
-#include <treelite/c_api.h>
-#include <treelite/tree.h>
+
+#include <omp.h>
+
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <iomanip>
 #include <limits>
 #include <stack>
 #include <utility>
-
-#include <cuml/fil/fil.h>
-#include <cuml/fil/fnv_hash.h>
-#include <raft/cudart_utils.h>
-#include <cuml/common/logger.hpp>
-#include <raft/handle.hpp>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/host/allocator.hpp>
-#include "common.cuh"
 
 namespace ML {
 namespace fil {

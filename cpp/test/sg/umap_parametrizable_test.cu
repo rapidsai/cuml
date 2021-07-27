@@ -16,7 +16,6 @@
 
 #include <test_utils.h>
 
-#include <type_traits>
 #include <umap/runner.cuh>
 
 #include <cuml/manifold/umapparams.h>
@@ -37,7 +36,10 @@
 #include <raft/mr/device/allocator.hpp>
 
 #include <gtest/gtest.h>
+
+#include <cstddef>
 #include <iostream>
+#include <type_traits>
 #include <vector>
 
 using namespace ML;

@@ -42,6 +42,7 @@
 #include <cub/cub.cuh>
 
 #include <algorithm>
+#include <cstddef>
 
 namespace ML {
 namespace HDBSCAN {

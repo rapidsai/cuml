@@ -17,6 +17,7 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
+
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/counting_iterator.h>

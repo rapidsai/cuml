@@ -26,6 +26,7 @@
 
 #include <raft/cuda_utils.cuh>
 
+#include <cstddef>
 #include <sstream>
 #include <vector>
 

@@ -35,6 +35,8 @@
 #include <raft/mr/device/allocator.hpp>
 #include <raft/stats/mean_center.cuh>
 
+#include <cstddef>
+
 using namespace MLCommon;
 
 namespace ML {
