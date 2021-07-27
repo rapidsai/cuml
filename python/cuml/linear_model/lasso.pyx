@@ -183,13 +183,10 @@ class Lasso(Base,
 
     def set_params(self, **params):
         super().set_params(**params)
-        self._check_alpha(self.alpha)
-        shuffle = self.selection == 'random'
-        self.solver_model = CD(fit_intercept=self.fit_intercept,
-                               normalize=self.normalize, alpha=self.alpha,
-                               l1_ratio=1.0, shuffle=shuffle,
-                               max_iter=self.max_iter, handle=self.handle,
-                               output_type=self.output_type)
+        if 'selection' in params:
+            params.pop('selection')
+            params['shuffle'] = self.selection == 'random'
+        self.solver_model.set_params(**params)
         return self
 
     @generate_docstring()
