@@ -143,7 +143,6 @@ void predict(raft::handle_t& handle,
                   order_after_prep,
                   params,
                   loglike.data(),
-                  d_pred,
                   false,
                   true,
                   MLE,
@@ -371,7 +370,6 @@ void batched_loglike(raft::handle_t& handle,
                      const ARIMAOrder& order,
                      const ARIMAParams<double>& params,
                      double* loglike,
-                     double* d_pred,
                      bool trans,
                      bool host_loglike,
                      LoglikeMethod method,
@@ -386,6 +384,8 @@ void batched_loglike(raft::handle_t& handle,
 
   auto allocator = handle.get_device_allocator();
   auto stream    = handle.get_stream();
+
+  double* d_pred = arima_mem.pred;
 
   ARIMAParams<double> Tparams = {arima_mem.Tparams_mu,
                                  arima_mem.Tparams_ar,
@@ -443,7 +443,6 @@ void batched_loglike(raft::handle_t& handle,
                      const ARIMAOrder& order,
                      const double* d_params,
                      double* loglike,
-                     double* d_pred,
                      bool trans,
                      bool host_loglike,
                      LoglikeMethod method,
@@ -477,7 +476,6 @@ void batched_loglike(raft::handle_t& handle,
                   order,
                   params,
                   loglike,
-                  d_pred,
                   trans,
                   host_loglike,
                   method,
@@ -514,7 +512,6 @@ void batched_loglike_grad(raft::handle_t& handle,
   double* d_x_pert = arima_mem.x_pert;
   raft::copy(d_x_pert, d_x, N * batch_size, stream);
 
-  double* d_pred    = arima_mem.pred;
   double* d_ll_base = arima_mem.loglike_base;
   double* d_ll_pert = arima_mem.loglike_pert;
 
@@ -527,7 +524,6 @@ void batched_loglike_grad(raft::handle_t& handle,
                   order,
                   d_x,
                   d_ll_base,
-                  d_pred,
                   trans,
                   false,
                   method,
@@ -549,7 +545,6 @@ void batched_loglike_grad(raft::handle_t& handle,
                     order,
                     d_x_pert,
                     d_ll_pert,
-                    d_pred,
                     trans,
                     false,
                     method,
@@ -585,11 +580,9 @@ void information_criterion(raft::handle_t& handle,
   auto allocator = handle.get_device_allocator();
   auto stream    = handle.get_stream();
 
-  double* d_pred = arima_mem.pred;
-
   /* Compute log-likelihood in d_ic */
   batched_loglike(
-    handle, arima_mem, d_y, batch_size, n_obs, order, params, d_ic, d_pred, false, false, MLE);
+    handle, arima_mem, d_y, batch_size, n_obs, order, params, d_ic, false, false, MLE);
 
   /* Compute information criterion from log-likelihood and base term */
   MLCommon::Metrics::Batched::information_criterion(

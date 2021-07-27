@@ -77,14 +77,14 @@ cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
     void batched_loglike(
         handle_t& handle, const ARIMAMemory[double]& arima_mem,
         const double* y, int batch_size, int nobs, const ARIMAOrder& order,
-        const double* params, double* loglike, double* d_pred, bool trans,
-        bool host_loglike, LoglikeMethod method, int truncate)
+        const double* params, double* loglike, bool trans, bool host_loglike,
+        LoglikeMethod method, int truncate)
 
     void batched_loglike(
         handle_t& handle, const ARIMAMemory[double]& arima_mem,
         const double* y, int batch_size, int n_obs, const ARIMAOrder& order,
-        const ARIMAParams[double]& params, double* loglike, double* d_pred,
-        bool trans, bool host_loglike, LoglikeMethod method, int truncate)
+        const ARIMAParams[double]& params, double* loglike, bool trans,
+        bool host_loglike, LoglikeMethod method, int truncate)
 
     void batched_loglike_grad(
         handle_t& handle, const ARIMAMemory[double]& arima_mem,
@@ -359,12 +359,6 @@ class ARIMA(Base):
         temp_mem_size = ARIMAMemory[double].compute_size(
             cpp_order, <int> self.batch_size, <int> self.n_obs)
         self._temp_mem = CumlArray.empty(temp_mem_size, np.byte)
-
-        # Allocate temporary predictions array for reuse
-        # Note: allocating max possible size but the actual size depends on
-        # whether simple differencing is used
-        self._d_pred = CumlArray.empty(
-            self.n_obs * self.batch_size, dtype=np.float64, order="F")
 
         self._initial_calc()
 
@@ -878,7 +872,6 @@ class ARIMA(Base):
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         n_obs_kf = (self.n_obs_diff if diff else self.n_obs)
-        cdef uintptr_t d_pred_ptr = self._d_pred.ptr
 
         cdef uintptr_t d_temp_mem = self._temp_mem.ptr
         arima_mem_ptr = new ARIMAMemory[double](
@@ -888,8 +881,7 @@ class ARIMA(Base):
         batched_loglike(handle_[0], arima_mem_ptr[0], <double*> d_y_kf_ptr,
                         <int> self.batch_size, <int> n_obs_kf, order_kf,
                         <double*> d_x_ptr, <double*> vec_loglike.data(),
-                        <double*> d_pred_ptr, <bool> trans, <bool> True,
-                        ll_method, <int> truncate)
+                        <bool> trans, <bool> True, ll_method, <int> truncate)
 
         del arima_mem_ptr
 
@@ -989,8 +981,6 @@ class ARIMA(Base):
         cdef LoglikeMethod ll_method = MLE
         diff = self.simple_differencing
 
-        cdef uintptr_t d_pred_ptr = self._d_pred.ptr
-
         cdef uintptr_t d_temp_mem = self._temp_mem.ptr
         arima_mem_ptr = new ARIMAMemory[double](
             order, <int> self.batch_size, <int> self.n_obs,
@@ -999,8 +989,7 @@ class ARIMA(Base):
         batched_loglike(handle_[0], arima_mem_ptr[0], <double*> d_y_kf_ptr,
                         <int> self.batch_size, <int> n_obs_kf, order_kf,
                         cpp_params, <double*> vec_loglike.data(),
-                        <double*> d_pred_ptr, <bool> False, <bool> True,
-                        ll_method, <int> 0)
+                        <bool> False, <bool> True, ll_method, <int> 0)
 
         del arima_mem_ptr
 

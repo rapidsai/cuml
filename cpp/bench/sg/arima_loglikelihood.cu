@@ -78,7 +78,6 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
                       order,
                       param,
                       loglike,
-                      residual,
                       true,
                       false);
     });
@@ -96,13 +95,11 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
     param = (DataT*)allocator->allocate(
       order.complexity() * this->params.batch_size * sizeof(DataT), stream);
 
-    // Buffers for the log-likelihood and residuals
-    loglike  = (DataT*)allocator->allocate(this->params.batch_size * sizeof(DataT), stream);
-    residual = (DataT*)allocator->allocate(
-      this->params.batch_size * this->params.n_obs * sizeof(DataT), stream);
+    // Buffer for the log-likelihood
+    loglike = (DataT*)allocator->allocate(this->params.batch_size * sizeof(DataT), stream);
 
     // Temporary memory
-    size_t temp_buf_size =
+    temp_buf_size =
       ARIMAMemory<double>::compute_size(order, this->params.batch_size, this->params.n_obs);
     temp_mem = (char*)allocator->allocate(temp_buf_size, stream);
   }
@@ -118,15 +115,14 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
     allocator->deallocate(
       param, order.complexity() * this->params.batch_size * sizeof(DataT), stream);
     allocator->deallocate(loglike, this->params.batch_size * sizeof(DataT), stream);
-    allocator->deallocate(
-      residual, this->params.batch_size * this->params.n_obs * sizeof(DataT), stream);
+    allocator->deallocate(temp_mem, temp_buf_size, stream);
   }
 
  protected:
   ARIMAOrder order;
   DataT* param;
   DataT* loglike;
-  DataT* residual;
+  size_t temp_buf_size;
   char* temp_mem;
 };
 
