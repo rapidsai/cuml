@@ -138,7 +138,7 @@ __device__ __forceinline__ vec<NITEMS, output_type> tree_leaf_output(tree_type t
   return out;
 }
 
-template <int NITEMS, typename output_type, typename tree_type>
+template <int NITEMS, typename output_type, bool can_be_categorical, typename tree_type>
 __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(tree_type tree,
                                                                    const float* input,
                                                                    int cols,
@@ -155,7 +155,9 @@ __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(tree_type tre
     for (int j = 0; j < NITEMS; ++j) {
       auto n = tree[curr[j]];
       mask &= ~(n.is_leaf() << j);
-      if ((mask & (1 << j)) != 0) curr[j] = tree.get_child(n, curr[j], input[j * cols + n.fid()]);
+      if ((mask & (1 << j)) != 0) {
+        curr[j] = tree.get_child<can_be_categorical>(n, curr[j], input[j * cols + n.fid()]);
+      }
     }
   } while (mask != 0);
 
@@ -177,8 +179,7 @@ __device__ __forceinline__ vec<1, output_type> infer_one_tree(tree_type tree,
   for (;;) {
     auto n = tree[curr];
     if (n.is_leaf()) break;
-    float val = input[n.fid()];
-    bool cond = isnan(val) ? !n.def_left() : val >= n.thresh();
+    bool cond = tree.get_child<true>(n, curr, input[n.fid()]);
     curr      = n.left(curr) + cond;
   }
   vec<1, output_type> out;
@@ -740,7 +741,11 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
   }
 };
 
-template <int NITEMS, leaf_algo_t leaf_algo, bool cols_in_shmem, class storage_type>
+template <int NITEMS,
+          leaf_algo_t leaf_algo,
+          bool cols_in_shmem,
+          bool can_be_categorical,
+          class storage_type>
 __global__ void infer_k(storage_type forest, predict_params params)
 {
   extern __shared__ char smem[];
@@ -793,7 +798,7 @@ __global__ void infer_k(storage_type forest, predict_params params)
       typedef typename leaf_output_t<leaf_algo>::T pred_t;
       vec<NITEMS, pred_t> prediction;
       if (tree < forest.num_trees() && thread_num_rows != 0) {
-        prediction = infer_one_tree<NITEMS, pred_t>(
+        prediction = infer_one_tree<NITEMS, pred_t, can_be_categorical>(
           forest[tree],
           cols_in_shmem ? sdata + thread_row0 * sdata_stride : block_input + thread_row0 * num_cols,
           cols_in_shmem ? sdata_stride : num_cols,
@@ -850,7 +855,7 @@ void shmem_size_params::compute_smem_footprint()
   }
 }
 
-template <leaf_algo_t leaf_algo, bool cols_in_shmem, typename storage_type>
+template <leaf_algo_t leaf_algo, bool cols_in_shmem, bool can_be_categorical, typename storage_type>
 void infer_k_nitems_launcher(storage_type forest,
                              predict_params params,
                              cudaStream_t stream,
@@ -858,19 +863,19 @@ void infer_k_nitems_launcher(storage_type forest,
 {
   switch (params.n_items) {
     case 1:
-      infer_k<1, leaf_algo, cols_in_shmem>
+      infer_k<1, leaf_algo, cols_in_shmem, can_be_categorical>
         <<<params.num_blocks, block_dim_x, params.shm_sz, stream>>>(forest, params);
       break;
     case 2:
-      infer_k<2, leaf_algo, cols_in_shmem>
+      infer_k<2, leaf_algo, cols_in_shmem, can_be_categorical>
         <<<params.num_blocks, block_dim_x, params.shm_sz, stream>>>(forest, params);
       break;
     case 3:
-      infer_k<3, leaf_algo, cols_in_shmem>
+      infer_k<3, leaf_algo, cols_in_shmem, can_be_categorical>
         <<<params.num_blocks, block_dim_x, params.shm_sz, stream>>>(forest, params);
       break;
     case 4:
-      infer_k<4, leaf_algo, cols_in_shmem>
+      infer_k<4, leaf_algo, cols_in_shmem, can_be_categorical>
         <<<params.num_blocks, block_dim_x, params.shm_sz, stream>>>(forest, params);
       break;
     default: ASSERT(false, "internal error: nitems > 4");
@@ -878,18 +883,31 @@ void infer_k_nitems_launcher(storage_type forest,
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
+template <leaf_algo_t leaf_algo, bool cols_in_shmem, typename storage_type>
+void infer_k_categorical_launcher(storage_type forest,
+                                  predict_params params,
+                                  cudaStream_t stream,
+                                  int blockdim_x)
+{
+  if (params.can_be_categorical) {
+    infer_k_nitems_launcher<leaf_algo, cols_in_shmem, true>(forest, params, stream, blockdim_x);
+  } else {
+    infer_k_nitems_launcher<leaf_algo, cols_in_shmem, false>(forest, params, stream, blockdim_x);
+  }
+}
+
 template <leaf_algo_t leaf_algo, typename storage_type>
-void infer_k_launcher(storage_type forest,
-                      predict_params params,
-                      cudaStream_t stream,
-                      int blockdim_x)
+void infer_k_cols_launcher(storage_type forest,
+                           predict_params params,
+                           cudaStream_t stream,
+                           int blockdim_x)
 {
   params.num_blocks = params.num_blocks != 0 ? params.num_blocks
                                              : raft::ceildiv(int(params.num_rows), params.n_items);
   if (params.cols_in_shmem) {
-    infer_k_nitems_launcher<leaf_algo, true>(forest, params, stream, blockdim_x);
+    infer_k_categorical_launcher<leaf_algo, true>(forest, params, stream, blockdim_x);
   } else {
-    infer_k_nitems_launcher<leaf_algo, false>(forest, params, stream, blockdim_x);
+    infer_k_categorical_launcher<leaf_algo, false>(forest, params, stream, blockdim_x);
   }
 }
 
@@ -898,44 +916,35 @@ void infer(storage_type forest, predict_params params, cudaStream_t stream)
 {
   switch (params.leaf_algo) {
     case FLOAT_UNARY_BINARY:
-      infer_k_launcher<FLOAT_UNARY_BINARY>(forest, params, stream, FIL_TPB);
+      infer_k_cols_launcher<FLOAT_UNARY_BINARY>(forest, params, stream, FIL_TPB);
       break;
     case GROVE_PER_CLASS:
       if (params.num_classes > FIL_TPB) {
         params.leaf_algo = GROVE_PER_CLASS_MANY_CLASSES;
-        infer_k_launcher<GROVE_PER_CLASS_MANY_CLASSES>(forest, params, stream, FIL_TPB);
+        infer_k_cols_launcher<GROVE_PER_CLASS_MANY_CLASSES>(forest, params, stream, FIL_TPB);
       } else {
         params.leaf_algo = GROVE_PER_CLASS_FEW_CLASSES;
-        infer_k_launcher<GROVE_PER_CLASS_FEW_CLASSES>(
+        infer_k_cols_launcher<GROVE_PER_CLASS_FEW_CLASSES>(
           forest, params, stream, FIL_TPB - FIL_TPB % params.num_classes);
       }
       break;
     case CATEGORICAL_LEAF:
-      infer_k_launcher<CATEGORICAL_LEAF>(forest, params, stream, FIL_TPB);
+      infer_k_cols_launcher<CATEGORICAL_LEAF>(forest, params, stream, FIL_TPB);
       break;
-    case VECTOR_LEAF: infer_k_launcher<VECTOR_LEAF>(forest, params, stream, FIL_TPB); break;
+    case VECTOR_LEAF: infer_k_cols_launcher<VECTOR_LEAF>(forest, params, stream, FIL_TPB); break;
     default: ASSERT(false, "internal error: invalid leaf_algo");
   }
 }
 
-template void infer<dense_storage_c>(dense_storage forest,
-                                     predict_params params,
-                                     cudaStream_t stream);
-template void infer<dense_storage_n>(dense_storage forest,
-                                     predict_params params,
-                                     cudaStream_t stream);
-template void infer<sparse_storage16c>(sparse_storage16c forest,
-                                       predict_params params,
-                                       cudaStream_t stream);
-template void infer<sparse_storage16n>(sparse_storage16n forest,
-                                       predict_params params,
-                                       cudaStream_t stream);
-template void infer<sparse_storage8c>(sparse_storage8c forest,
+template void infer<dense_storage>(dense_storage forest,
+                                   predict_params params,
+                                   cudaStream_t stream);
+template void infer<sparse_storage16>(sparse_storage16 forest,
                                       predict_params params,
                                       cudaStream_t stream);
-template void infer<sparse_storage8n>(sparse_storage8n forest,
-                                      predict_params params,
-                                      cudaStream_t stream);
+template void infer<sparse_storage8>(sparse_storage8 forest,
+                                     predict_params params,
+                                     cudaStream_t stream);
 
 }  // namespace fil
 }  // namespace ML

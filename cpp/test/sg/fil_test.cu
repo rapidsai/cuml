@@ -111,7 +111,11 @@ std::ostream& operator<<(std::ostream& os, const FilTestParams& ps)
      << ", blocks_per_sm = " << ps.blocks_per_sm << ", algo = " << ps.algo << ", seed = " << ps.seed
      << ", tolerance = " << ps.tolerance << ", op = " << tl::OpName(ps.op)
      << ", global_bias = " << ps.global_bias << ", leaf_algo = " << ps.leaf_algo
-     << ", num_classes = " << ps.num_classes;
+     << ", num_classes = " << ps.num_classes
+     << ", node_categorical_prob = " << ps.node_categorical_prob
+     << ", feature_categorical_prob = " << ps.feature_categorical_prob
+     << ", cat_match_prob = " << ps.cat_match_prob
+     << ", max_matching_cat_oom = " << ps.max_matching_cat_oom;
   return os;
 }
 
@@ -540,7 +544,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
       const fil::dense_node& node = root[curr];
       if (node.is_leaf()) return node.template output<val_t>();
       float val = data[node.fid()];
-      curr      = cat_branches.get_child(node, curr, val);
+      curr      = cat_branches.get_child<true>(node, curr, val);
     }
     return output;
   }

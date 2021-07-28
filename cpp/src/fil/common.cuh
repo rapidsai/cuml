@@ -39,26 +39,23 @@ __host__ __device__ __forceinline__ int forest_num_nodes(int num_trees, int dept
 }
 
 /** dense_tree represents a dense tree */
-template <bool can_be_categorical>
+
 struct dense_tree : categorical_branches {
   __host__ __device__ dense_tree(categorical_branches cat_branches,
-                                 dense_node<can_be_categorical>* nodes,
+                                 dense_node* nodes,
                                  int node_pitch)
     : categorical_branches(cat_branches), nodes_(nodes), node_pitch_(node_pitch)
   {
   }
-  __host__ __device__ const dense_node<can_be_categorical>& operator[](int i) const
-  {
-    return nodes_[i * node_pitch_];
-  }
-  dense_node<can_be_categorical>* nodes_ = nullptr;
-  int node_pitch_                        = 0;
+  __host__ __device__ const dense_node& operator[](int i) const { return nodes_[i * node_pitch_]; }
+  dense_node* nodes_ = nullptr;
+  int node_pitch_    = 0;
 };
 
 /** dense_storage stores the forest as a collection of dense nodes */
-template <bool can_be_categorical>
+
 struct dense_storage : categorical_branches {
-  __host__ __device__ dense_storage(dense_node<can_be_categorical>* nodes,
+  __host__ __device__ dense_storage(dense_node* nodes,
                                     int num_trees,
                                     int tree_stride,
                                     int node_pitch,
@@ -73,15 +70,15 @@ struct dense_storage : categorical_branches {
   {
   }
   __host__ __device__ int num_trees() const { return num_trees_; }
-  __host__ __device__ dense_tree<can_be_categorical> operator[](int i) const
+  __host__ __device__ dense_tree operator[](int i) const
   {
-    return dense_tree<can_be_categorical>(*this, nodes_ + i * tree_stride_, node_pitch_);
+    return dense_tree(*this, nodes_ + i * tree_stride_, node_pitch_);
   }
-  dense_node<can_be_categorical>* nodes_ = nullptr;
-  float* vector_leaf_                    = nullptr;
-  int num_trees_                         = 0;
-  int tree_stride_                       = 0;
-  int node_pitch_                        = 0;
+  dense_node* nodes_  = nullptr;
+  float* vector_leaf_ = nullptr;
+  int num_trees_      = 0;
+  int tree_stride_    = 0;
+  int node_pitch_     = 0;
 };
 
 /** sparse_tree is a sparse tree */
@@ -118,12 +115,8 @@ struct sparse_storage : categorical_branches {
   }
 };
 
-typedef dense_storage<true> dense_storage_c;
-typedef dense_storage<false> dense_storage_n;
-typedef sparse_storage<sparse_node16<true>> sparse_storage16c;
-typedef sparse_storage<sparse_node16<false>> sparse_storage16n;
-typedef sparse_storage<sparse_node8<true>> sparse_storage8c;
-typedef sparse_storage<sparse_node8<false>> sparse_storage8n;
+typedef sparse_storage<sparse_node16> sparse_storage16;
+typedef sparse_storage<sparse_node8> sparse_storage8;
 
 /// all model parameters mostly required to compute shared memory footprint,
 /// also the footprint itself
@@ -182,7 +175,10 @@ struct predict_params : shmem_size_params {
   // to signal infer kernel to apply softmax and also average prior to that
   // for GROVE_PER_CLASS for predict_proba
   output_t transform;
+  // number of blocks to launch
   int num_blocks;
+  // can a node be categorical in this forest?
+  bool can_be_categorical;
 };
 
 // infer() calls the inference kernel with the parameters on the stream
