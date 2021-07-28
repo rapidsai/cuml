@@ -17,6 +17,7 @@
 #include <test_utils.h>
 
 #include <decisiontree/quantile/quantile.h>
+#include <decisiontree/batched-levelalgo/kernels.cuh>
 
 #include <cuml/tree/algo_helper.h>
 #include <cuml/datasets/make_blobs.hpp>
@@ -396,6 +397,43 @@ struct QuantileTestParameters {
 };
 
 template <typename T>
+class RFQuantileBinsLowerBoundTest : public ::testing::TestWithParam<QuantileTestParameters> {
+ public:
+  void SetUp() override
+  {
+    auto params = ::testing::TestWithParam<QuantileTestParameters>::GetParam();
+
+    thrust::device_vector<T> data(params.n_rows);
+    thrust::host_vector<T> h_data(params.n_rows);
+    thrust::device_vector<T> quantiles(params.n_bins);
+    thrust::host_vector<T> h_quantiles(params.n_bins);
+    raft::random::Rng r(8);
+    r.normal(data.data().get(), data.size(), T(0.0), T(2.0), nullptr);
+    raft::handle_t handle;
+    DT::computeQuantiles(quantiles.data().get(),
+                         params.n_bins,
+                         data.data().get(),
+                         params.n_rows,
+                         1,
+                         handle.get_device_allocator(),
+                         nullptr);
+    h_quantiles = quantiles;
+    h_data      = data;
+    for (int i = 0; i < h_data.size(); ++i) {
+      auto d = h_data[i];
+      // golden lower bound from thrust
+      auto golden_lb = thrust::lower_bound(
+                         thrust::seq, h_quantiles.data(), h_quantiles.data() + params.n_bins, d) -
+                       h_quantiles.data();
+      // lower bound from custom lower_bound impl
+      auto lb = DT::lower_bound(h_quantiles.data(), params.n_bins, d);
+      ASSERT_EQ(golden_lb, lb)
+        << "custom lower_bound method is inconsistent with thrust::lower_bound" << std::endl;
+    }
+  }
+};
+
+template <typename T>
 class RFQuantileTest : public ::testing::TestWithParam<QuantileTestParameters> {
  public:
   void SetUp() override
@@ -452,13 +490,24 @@ const std::vector<QuantileTestParameters> inputs = {{1000, 16, 60785875197640796
                                                     {2307, 99, 9507819643927052255LLU},
                                                     {5000, 128, 9507819643927052255LLU}};
 
+// float type quantile test
 typedef RFQuantileTest<float> RFQuantileTestF;
 TEST_P(RFQuantileTestF, test) {}
-
 INSTANTIATE_TEST_CASE_P(RfTests, RFQuantileTestF, ::testing::ValuesIn(inputs));
 
+// double type quantile test
 typedef RFQuantileTest<double> RFQuantileTestD;
 TEST_P(RFQuantileTestD, test) {}
-
 INSTANTIATE_TEST_CASE_P(RfTests, RFQuantileTestD, ::testing::ValuesIn(inputs));
+
+// float type quantile bins lower bounds test
+typedef RFQuantileBinsLowerBoundTest<float> RFQuantileBinsLowerBoundTestF;
+TEST_P(RFQuantileBinsLowerBoundTestF, test) {}
+INSTANTIATE_TEST_CASE_P(RfTests, RFQuantileBinsLowerBoundTestF, ::testing::ValuesIn(inputs));
+
+// double type quantile bins lower bounds lest
+typedef RFQuantileBinsLowerBoundTest<double> RFQuantileBinsLowerBoundTestD;
+TEST_P(RFQuantileBinsLowerBoundTestD, test) {}
+INSTANTIATE_TEST_CASE_P(RfTests, RFQuantileBinsLowerBoundTestD, ::testing::ValuesIn(inputs));
+
 }  // end namespace ML

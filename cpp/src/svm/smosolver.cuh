@@ -371,7 +371,7 @@ class SmoSolver {
     raft::linalg::unaryOp(
       f, yr, n_rows, [epsilon] __device__(math_t y) { return epsilon - y; }, stream);
 
-    // f_i = epsilon - y_i, for i \in [n_rows..2*n_rows-1]
+    // f_i = -epsilon - y_i, for i \in [n_rows..2*n_rows-1]
     raft::linalg::unaryOp(
       f + n_rows, yr, n_rows, [epsilon] __device__(math_t y) { return -epsilon - y; }, stream);
   }
