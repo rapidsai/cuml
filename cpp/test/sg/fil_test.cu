@@ -68,7 +68,7 @@ struct FilTestParams {
   algo_t algo             = algo_t::NAIVE;
   int seed                = 42;
   float tolerance         = 2e-3f;
-  bool print_forest_shape = false;
+  bool print_forest_shape = true;
   // treelite parameters, only used for treelite tests
   tl::Operator op       = tl::Operator::kLT;
   leaf_algo_t leaf_algo = leaf_algo_t::FLOAT_UNARY_BINARY;
@@ -297,7 +297,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
         bit_pool_size += categorical_branches::sizeof_mask_from_max_matching(cf[fid].max_matching);
       }
     }
-    cat_branches_h.host_allocate(cf);
+    if (ps.node_categorical_prob > 0 && ps.feature_categorical_prob > 0)
+      cat_branches_h.host_allocate(cf);
     ASSERT(bit_pool_size == cat_branches_h.bits_size, "didn't convert correct number of nodes");
     // calculate sizes and allocate arrays for category sets
     // fill category sets
@@ -544,7 +545,10 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
       const fil::dense_node& node = root[curr];
       if (node.is_leaf()) return node.template output<val_t>();
       float val = data[node.fid()];
-      curr      = cat_branches.get_child<true>(node, curr, val);
+      if (cat_branches.branch_can_be_categorical())
+        curr = cat_branches.get_child<true>(node, curr, val);
+      else
+        curr = cat_branches.get_child<false>(node, curr, val);
     }
     return output;
   }

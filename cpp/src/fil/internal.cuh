@@ -316,8 +316,13 @@ struct categorical_branches {
   int* max_matching = nullptr;
   size_t bits_size = 0, max_matching_size = 0;
 
+  __host__ __device__ __forceinline__ bool branch_can_be_categorical() const
+  {
+    return max_matching != nullptr;
+  }
+
   // set count is due to tree_idx + node_within_tree_idx are both ints, hence uint32_t result
-  template <bool can_be_categorical, typename node_t>
+  template <bool branch_can_be_categorical, typename node_t>
   __host__ __device__ __forceinline__ int get_child(const node_t& node,
                                                     int node_idx,
                                                     float val) const
@@ -326,7 +331,7 @@ struct categorical_branches {
     if (isnan(val)) {
       cond = !node.def_left();
     } else {
-      if (can_be_categorical && node.is_categorical()) {
+      if (branch_can_be_categorical && node.is_categorical()) {
         int category = val;
         // standard boolean packing. This layout has better ILP
         // node.set() is global across feature IDs and is an offset (as opposed

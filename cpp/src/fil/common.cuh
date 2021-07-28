@@ -177,8 +177,6 @@ struct predict_params : shmem_size_params {
   output_t transform;
   // number of blocks to launch
   int num_blocks;
-  // can a node be categorical in this forest?
-  bool can_be_categorical;
 };
 
 // infer() calls the inference kernel with the parameters on the stream
