@@ -334,6 +334,16 @@ class Ridge(Base,
 
         return self
 
+    def set_params(self, **params):
+        super().set_params(**params)
+        if 'solver' in params:
+            if params['solver'] in ['svd', 'eig', 'cd']:
+                self.algo = self._get_algorithm_int(params['solver'])
+            else:
+                msg = "solver {!r} is not supported"
+                raise TypeError(msg.format(params['solver']))
+        return self
+
     def get_param_names(self):
         return super().get_param_names() + \
             ['solver', 'fit_intercept', 'normalize', 'alpha']
