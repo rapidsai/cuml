@@ -279,7 +279,10 @@ cdef class ForestInference_impl():
         return storage_type_dict[storage_type_str]
 
     def predict(self, X,
-                output_dtype=None, predict_proba=False, preds=None):
+                output_dtype=None,
+                predict_proba=False,
+                preds=None,
+                safe_dtype_conversion=False):
         """
         Returns the results of forest inference on the examples in X
 
@@ -312,7 +315,7 @@ cdef class ForestInference_impl():
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, order='C',
                                 convert_to_dtype=np.float32,
-                                safe_convert_to_dtype=False,
+                                safe_dtype_conversion=safe_dtype_conversion,
                                 check_dtype=np.float32)
         X_ptr = X_m.ptr
 
@@ -547,7 +550,8 @@ class ForestInference(Base,
         self._impl = ForestInference_impl(self.handle)
 
     @common_predict_params_docstring
-    def predict(self, X, preds=None) -> CumlArray:
+    def predict(self, X, preds=None,
+                safe_dtype_conversion=False) -> CumlArray:
         """
         Predicts the labels for X with the loaded forest model.
         By default, the result is the raw floating point output
@@ -562,15 +566,23 @@ class ForestInference(Base,
         preds : gpuarray or cudf.Series, shape = (n_samples,)
            Optional 'out' location to store inference results
 
+        safe_dtype_conversion : bool (default = False)
+            FIL converts data to np.float32 when needed. Set this parameter to
+            True to enable checking for information loss during that
+            conversion, but it can have significant performance penalty.
+            Parameter will be dropped in a future version.
+
         Returns
         ----------
         GPU array of length n_samples with inference results
         (or 'preds' filled with inference results if preds was specified)
         """
-        return self._impl.predict(X, predict_proba=False, preds=None)
+        return self._impl.predict(X, predict_proba=False, preds=None,
+                                  safe_dtype_conversion=safe_dtype_conversion)
 
     @common_predict_params_docstring
-    def predict_proba(self, X, preds=None) -> CumlArray:
+    def predict_proba(self, X, preds=None,
+                      safe_dtype_conversion=False) -> CumlArray:
         """
         Predicts the class probabilities for X with the loaded forest model.
         The result is the raw floating point output
@@ -582,13 +594,21 @@ class ForestInference(Base,
         preds: gpuarray or cudf.Series, shape = (n_samples,2)
            Binary probability output
            Optional 'out' location to store inference results
+        safe_typecast
+
+        safe_dtype_conversion : bool (default = False)
+            FIL converts data to np.float32 when needed. Set this parameter to
+            True to enable checking for information loss during that
+            conversion, but it can have significant performance penalty.
+            Parameter will be dropped in a future version.
 
         Returns
         ----------
         GPU array of shape (n_samples,2) with inference results
         (or 'preds' filled with inference results if preds was specified)
         """
-        return self._impl.predict(X, predict_proba=True, preds=None)
+        return self._impl.predict(X, predict_proba=True, preds=None,
+                                  safe_dtype_conversion=safe_dtype_conversion)
 
     @common_load_params_docstring
     def load_from_treelite_model(self, model, output_class=False,

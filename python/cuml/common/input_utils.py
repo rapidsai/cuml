@@ -209,7 +209,7 @@ def input_to_cuml_array(X,
                         deepcopy=False,
                         check_dtype=False,
                         convert_to_dtype=False,
-                        safe_convert_to_dtype=True,
+                        safe_dtype_conversion=True,
                         check_cols=False,
                         check_rows=False,
                         fail_on_order=False,
@@ -305,7 +305,7 @@ def input_to_cuml_array(X,
     if convert_to_dtype:
         X = convert_dtype(X,
                           to_dtype=convert_to_dtype,
-                          safe_dtype=safe_convert_to_dtype)
+                          safe_dtype=safe_dtype_conversion)
         check_dtype = False
 
     # format conversion
