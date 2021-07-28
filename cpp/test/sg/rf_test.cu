@@ -419,7 +419,7 @@ class RFQuantileBinsLowerBoundTest : public ::testing::TestWithParam<QuantileTes
                          nullptr);
     h_quantiles = quantiles;
     h_data      = data;
-    for (int i = 0; i < h_data.size(); ++i) {
+    for (std::size_t i = 0; i < h_data.size(); ++i) {
       auto d = h_data[i];
       // golden lower bound from thrust
       auto golden_lb = thrust::lower_bound(
