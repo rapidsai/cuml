@@ -16,7 +16,6 @@
 
 #include <cuml/tree/algo_helper.h>
 #include <decisiontree/quantile/quantile.h>
-#include <decisiontree/batched-levelalgo/kernels.cuh>
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/transpose.h>
@@ -25,6 +24,7 @@
 #include <thrust/host_vector.h>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/ensemble/randomforest.hpp>
+#include <decisiontree/batched-levelalgo/kernels.cuh>
 #include <memory>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
@@ -410,16 +410,17 @@ class RFQuantileBinsLowerBoundTest : public ::testing::TestWithParam<QuantileTes
                          handle.get_device_allocator(),
                          nullptr);
     h_quantiles = quantiles;
-    h_data = data;
+    h_data      = data;
     for (int i = 0; i < h_data.size(); ++i) {
       auto d = h_data[i];
       // golden lower bound from thrust
-      auto golden_lb = thrust::lower_bound(thrust::seq, h_quantiles.data(), h_quantiles.data() + params.n_bins, d) - h_quantiles.data();
+      auto golden_lb = thrust::lower_bound(
+                         thrust::seq, h_quantiles.data(), h_quantiles.data() + params.n_bins, d) -
+                       h_quantiles.data();
       // lower bound from custom lower_bound impl
       auto lb = DT::lower_bound(h_quantiles.data(), params.n_bins, d);
       ASSERT_EQ(golden_lb, lb)
-        << "custom lower_bound method is inconsistent with thrust::lower_bound"
-        << std::endl;
+        << "custom lower_bound method is inconsistent with thrust::lower_bound" << std::endl;
     }
   }
 };

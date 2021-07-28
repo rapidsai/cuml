@@ -302,9 +302,9 @@ DI BinT pdf_to_cdf(BinT* shist, IdxT nbins)
   return total_aggregate;
 }
 
-template <typename DataT,
-          typename IdxT>
-HDI IdxT lower_bound(DataT* sbins, IdxT nbins, DataT d) {
+template <typename DataT, typename IdxT>
+HDI IdxT lower_bound(DataT* sbins, IdxT nbins, DataT d)
+{
   IdxT start = 0;
   IdxT end   = nbins - 1;
   IdxT mid;
