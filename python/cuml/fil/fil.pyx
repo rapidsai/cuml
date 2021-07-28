@@ -569,7 +569,7 @@ class ForestInference(Base,
         safe_dtype_conversion : bool (default = False)
             FIL converts data to np.float32 when needed. Set this parameter to
             True to enable checking for information loss during that
-            conversion, but it can have significant performance penalty.
+            conversion, but note that this check can have a significant performance penalty.
             Parameter will be dropped in a future version.
 
         Returns
