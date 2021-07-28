@@ -591,10 +591,9 @@ class ForestInference(Base,
         Parameters
         ----------
     {}
-        preds: gpuarray or cudf.Series, shape = (n_samples,2)
+        preds : gpuarray or cudf.Series, shape = (n_samples,2)
            Binary probability output
            Optional 'out' location to store inference results
-        safe_typecast
 
         safe_dtype_conversion : bool (default = False)
             FIL converts data to np.float32 when needed. Set this parameter to
