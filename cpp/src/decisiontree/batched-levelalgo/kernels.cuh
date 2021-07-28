@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cuml/tree/algo_helper.h>
+#include <thrust/binary_search.h>
 #include <common/grid_sync.cuh>
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
@@ -302,6 +303,23 @@ DI BinT pdf_to_cdf(BinT* shist, IdxT nbins)
 }
 
 template <typename DataT,
+          typename IdxT>
+HDI IdxT lower_bound(DataT* sbins, IdxT nbins, DataT d) {
+  IdxT start = 0;
+  IdxT end   = nbins - 1;
+  IdxT mid;
+  while (start < end) {
+    mid = (start + end) / 2;
+    if (sbins[mid] < d) {
+      start = mid + 1;
+    } else {
+      end = mid;
+    }
+  }
+  return start;
+}
+
+template <typename DataT,
           typename LabelT,
           typename IdxT,
           int TPB,
@@ -368,17 +386,8 @@ __global__ void computeSplitKernel(BinT* hist,
     auto row   = input.rowids[i];
     auto d     = input.data[row + coloffset];
     auto label = input.labels[row];
-    IdxT start = 0;
-    IdxT end   = nbins - 1;
-    IdxT mid;
-    while (start < end) {
-      mid = (start + end) / 2;
-      if (sbins[mid] < d) {
-        start = mid + 1;
-      } else {
-        end = mid;
-      }
-    }
+
+    IdxT start = lower_bound(sbins, nbins, d);
     BinT::IncrementHistogram(shist, nbins, start, label);
   }
 
