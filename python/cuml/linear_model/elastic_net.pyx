@@ -200,7 +200,8 @@ class ElasticNet(Base,
         self.solver_model = CD(fit_intercept=self.fit_intercept,
                                normalize=self.normalize, alpha=self.alpha,
                                l1_ratio=self.l1_ratio, shuffle=shuffle,
-                               max_iter=self.max_iter, handle=self.handle)
+                               max_iter=self.max_iter, handle=self.handle,
+                               tol=self.tol)
 
     def _check_alpha(self, alpha):
         if alpha <= 0.0:

@@ -189,3 +189,25 @@ def test_lasso_predict_convert_dtype(train_dtype, test_dtype):
     clf = cuLasso()
     clf.fit(X_train, y_train)
     clf.predict(X_test.astype(test_dtype))
+
+
+@pytest.mark.parametrize('algo', [cuElasticNet, cuLasso])
+def test_set_params(algo):
+    x = np.linspace(0, 1, 50)
+    y = 2 * x
+
+    model = algo(alpha=0.01)
+    model.fit(x, y)
+    coef_before = model.coef_
+
+    model = algo(selection="random", alpha=0.1)
+    model.fit(x, y)
+    coef_after = model.coef_
+
+    model = algo(alpha=0.01)
+    model.set_params(**{'selection': "random", 'alpha': 0.1})
+    model.fit(x, y)
+    coef_test = model.coef_
+
+    assert coef_before != coef_after
+    assert coef_after == coef_test
