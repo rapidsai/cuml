@@ -119,7 +119,9 @@ struct Builder {
    *
    * @param[out] d_wsize    (in B) of the device workspace to be allocated
    * @param[out] h_wsize    (in B) of the host workspace to be allocated
-   * @param[in]  p the      input params
+   * @param[in]  treeid     tree id
+   * @param[in]  seed       seed used for randomization
+   * @param[in]  p          input params for Decision Tree
    * @param[in]  data       input dataset [on device] [col-major]
    *                        [dim = totalRows x totalCols]
    * @param[in]  labels     output label for each row in the dataset
@@ -129,7 +131,6 @@ struct Builder {
    * @param[in] sampledRows number of rows sampled in the dataset
    * @param[in] sampledCols number of cols sampled in the dataset
    * @param[in] rowids      sampled row ids [on device] [len = sampledRows]
-   * @param[in] colids      sampled col ids [on device] [len = sampledCols]
    * @param[in] nclasses    number of output classes (only for classification)
    * @param[in] quantiles   histogram/quantile bins of the input dataset, for
    *                        each of its column. Pass a nullptr if this needs to
@@ -407,10 +408,11 @@ struct Builder {
   /**
    * @brief Compute best split for the currently given set of columns
    *
-   * @param[in] col       start column id
-   * @param[in] batchSize number of nodes to be processed in this call
-   * @param[in] splitType split criterion
-   * @param[in] s         cuda stream
+   * @param[in] col                         start column id
+   * @param[in] batchSize                   number of nodes to be processed in this call
+   * @param[in] splitType                   split criterion
+   * @param[in] n_large_nodes_in_curr_batch number of nodes having samples > TPB in current batch
+   * @param[in] s                           cuda stream
    */
   void computeSplit(IdxT col,
                     IdxT batchSize,
@@ -423,12 +425,11 @@ struct Builder {
     auto nclasses = input.numOutputs;
     auto colBlks  = std::min(n_blks_for_cols, input.nSampledCols - col);
 
-    size_t smemSize1 = nbins * nclasses * sizeof(BinT) +  // pdf_shist size
-                       nbins * nclasses * sizeof(BinT) +  // cdf_shist size
+    size_t smemSize1 = nbins * nclasses * sizeof(BinT) +  // shist size
                        nbins * sizeof(DataT) +            // sbins size
                        sizeof(int);                       // sDone size
     // Extra room for alignment (see alignPointer in
-    // computeSplitClassificationKernel)
+    // computeSplitKernel)
     smemSize1 += sizeof(DataT) + 3 * sizeof(int);
     // Calculate the shared memory needed for evalBestSplit
     size_t smemSize2 = raft::ceildiv(TPB_DEFAULT, raft::WarpSize) * sizeof(SplitT);
@@ -437,7 +438,7 @@ struct Builder {
     dim3 grid(total_num_blocks, colBlks, 1);
     int nHistBins = n_large_nodes_in_curr_batch * nbins * colBlks * nclasses;
     CUDA_CHECK(cudaMemsetAsync(hist, 0, sizeof(BinT) * nHistBins, s));
-    ML::PUSH_RANGE("computeSplitClassificationKernel @builder_base.cuh [batched-levelalgo]");
+    ML::PUSH_RANGE("computeSplitKernel @builder_base.cuh [batched-levelalgo]");
     ObjectiveT objective(input.numOutputs, params.min_impurity_decrease, params.min_samples_leaf);
     computeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, s>>>(hist,
@@ -455,7 +456,7 @@ struct Builder {
                                            treeid,
                                            workload_info,
                                            seed);
-    ML::POP_RANGE();  // computeSplitClassificationKernel
+    ML::POP_RANGE();  // computeSplitKernel
     ML::POP_RANGE();  // Builder::computeSplit
   }
 };  // end Builder
