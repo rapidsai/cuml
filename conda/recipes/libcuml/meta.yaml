@@ -35,8 +35,6 @@ build:
 requirements:
   build:
     - cmake>=3.20.1
-    - clang=8.0.1        # [x86_64]
-    - clang-tools=8.0.1  # [x86_64]
   host:
     - nccl>=2.9.9
     - cudf {{ minor_version }}
