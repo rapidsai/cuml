@@ -30,8 +30,7 @@ template <typename ObjectiveT,
           typename DataT  = typename ObjectiveT::DataT,
           typename LabelT = typename ObjectiveT::LabelT,
           typename IdxT   = typename ObjectiveT::IdxT>
-void convertToSparse(
-                     const std::vector<Node<DataT, LabelT, IdxT>> h_nodes,
+void convertToSparse(const std::vector<Node<DataT, LabelT, IdxT>> h_nodes,
                      std::vector<SparseTreeNode<DataT, LabelT>>& sparsetree)
 {
   auto len = sparsetree.size();
@@ -66,20 +65,20 @@ void grow_tree(const raft::handle_t& handle,
                IdxT& depth)
 {
   ML::PUSH_RANGE("DT::grow_tree in batched-levelalgo @builder.cuh");
+
   Builder<ObjectiveT> builder(handle,
-                        treeid,
-                        seed,
-                        params,
-                        data,
-                        labels,
-                        nrows,
-                        ncols,
-                        n_sampled_rows,
-                        IdxT(params.max_features * ncols),
-                        rowids,
-                        unique_labels,
-                        quantiles);
-  auto h_nodes=builder.train(num_leaves, depth, handle.get_stream());
+                              treeid,
+                              seed,
+                              params,
+                              data,
+                              labels,
+                              nrows,
+                              ncols,
+                              n_sampled_rows,
+                              rowids,
+                              unique_labels,
+                              quantiles);
+  auto h_nodes = builder.train(num_leaves, depth, handle.get_stream());
   CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
   convertToSparse<ObjectiveT>(h_nodes, sparsetree);
   ML::POP_RANGE();

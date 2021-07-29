@@ -65,19 +65,14 @@ struct Node {
   static Node CreateSplit(IdxT colid, IdxT query_value, IdxT best_metric_val, IdxT left_child_id)
   {
     Node n;
-        n.info.prediction      = LabelT(0);  // don't care for non-leaf nodes
-        n.info.colid           = colid;
-        n.info.quesval         = query_value;
-        n.info.best_metric_val = best_metric_val;
-        n.info.left_child_id   = left_child_id;
+    n.info.prediction      = LabelT(0);  // don't care for non-leaf nodes
+    n.info.colid           = colid;
+    n.info.quesval         = query_value;
+    n.info.best_metric_val = best_metric_val;
+    n.info.left_child_id   = left_child_id;
     return n;
   }
 
-  static Node CreateLeaf(LabelT pred){
-
-    Node n;
-    n.info.prediction=pred;
-  }
   HDI void makeLeaf(LabelT pred)
   {
     info.prediction      = pred;

@@ -30,6 +30,7 @@
 #include "split.cuh"
 
 #include <common/nvtx.hpp>
+#include <deque>
 #include <utility>
 
 namespace ML {
@@ -37,73 +38,86 @@ namespace DT {
 
 template <typename NodeT>
 class NodeQueue {
-  std::vector<NodeT> queue_;
+  const DecisionTreeParams params;
+  std::vector<NodeT> tree_;
+  std::deque<NodeWorkItem> work_items_;
   int tree_depth_ = 0;
-  int num_leaves_ = 0;
-  size_t active_range_begin_;
+  int num_leaves_ = 1;
 
  public:
-  NodeQueue(size_t max_nodes, size_t sampled_rows)
+  NodeQueue(DecisionTreeParams params, size_t max_nodes, size_t sampled_rows) : params(params)
   {
-    queue_.reserve(max_nodes);
-    queue_.emplace_back(0, sampled_rows, 0);
-    active_range_begin_ = 0;
+    tree_.reserve(max_nodes);
+    tree_.emplace_back(0, sampled_rows, 0);
+    if (!IsLeaf(tree_.back())) { work_items_.emplace_back(NodeWorkItem{0, 0, sampled_rows, 0}); }
   }
 
   int TreeDepth() { return tree_depth_; }
   int NumLeaves() { return num_leaves_; }
-  std::vector<NodeT> GetTree() { return queue_; }
+  std::vector<NodeT> GetTree() { return tree_; }
 
-  bool HasWork() { return active_range_begin_ < queue_.size(); }
+  bool HasWork() { return work_items_.size() > 0; }
 
-  // Returns pointer and length containing active set of nodes
-  auto Pop(size_t max_batch_size)
+  auto Pop()
   {
-    ASSERT(active_range_begin_ <= queue_.size(), "Node queue error.");
-    auto num_popped     = std::min(max_batch_size, queue_.size() - active_range_begin_);
-    auto result         = std::make_pair(queue_.data() + active_range_begin_, num_popped);
-    active_range_begin_ = active_range_begin_ + num_popped;
+    std::vector<NodeWorkItem> result;
+    result.reserve(std::min(size_t(params.max_batch_size), work_items_.size()));
+    while (work_items_.size() > 0 && result.size() < params.max_batch_size) {
+      result.emplace_back(work_items_.front());
+      work_items_.pop_front();
+    }
     return result;
   }
 
+  bool IsLeaf(const NodeT& n)
+  {
+    if (n.depth >= params.max_depth) return true;
+    if (n.count < params.min_samples_split) return true;
+    if (params.max_leaves != -1 && num_leaves_ >= params.max_leaves) return true;
+    return false;
+  }
+
   template <typename SplitT>
-  void Push(DecisionTreeParams params,
-            SplitT* h_splits,
-            size_t num_splits
-            )
+  void Push(const std::vector<NodeWorkItem>& work_items, SplitT* h_splits)
   {
     // Update node queue based on splits
-    ASSERT(num_splits <= active_range_begin_, "Node queue error.");
-    for (int i = 0; i < num_splits; i++) {
-      auto split = h_splits[i];
-      // Splits refers to the previous active range of nodes
-      size_t node_idx = active_range_begin_ - num_splits + i;
-      const auto node = queue_[active_range_begin_ - num_splits + i];
-      auto isLeaf =
-        leafBasedOnParams<int>(node.depth, params.max_depth, params.min_samples_split, node.count);
-      if (isLeaf || split.best_metric_val <= params.min_impurity_decrease ||
-          split.nLeft < params.min_samples_leaf ||
-          (node.count - split.nLeft) < params.min_samples_leaf) {
-        // Set leaf
-        queue_[node_idx].makeLeaf(0);
-        num_leaves_++;
-      } else {
-        // Make children
-
-        // parent
-        queue_[node_idx] =
-          NodeT::CreateSplit(split.colid, split.quesval, split.best_metric_val, queue_.size());
-        // left
-        queue_.emplace_back(
-          NodeT::CreateChild(node.depth + 1, node.start, split.nLeft, 2 * node.info.unique_id + 1));
-        // right
-        queue_.emplace_back(NodeT::CreateChild(node.depth + 1,
-                                               node.start + split.nLeft,
-                                               node.count - split.nLeft,
-                                               2 * node.info.unique_id + 2));
-        // update depth
-        tree_depth_ = max(tree_depth_, node.depth + 1);
+    for (int i = 0; i < work_items.size(); i++) {
+      auto split      = h_splits[i];
+      auto item       = work_items[i];
+      const auto node = tree_[item.idx];
+      if (SplitNotValid(split, params.min_impurity_decrease, params.min_samples_leaf, node.count)) {
+        continue;
       }
+
+      if (params.max_leaves != -1 && num_leaves_ >= params.max_leaves) break;
+
+      // parent
+      tree_[item.idx] =
+        NodeT::CreateSplit(split.colid, split.quesval, split.best_metric_val, tree_.size());
+      num_leaves_++;
+      // left
+      tree_.emplace_back(
+        NodeT::CreateChild(node.depth + 1, node.start, split.nLeft, 2 * node.info.unique_id + 1));
+
+      // Do not add a work item if this child is definitely a leaf
+      if (!IsLeaf(tree_.back())) {
+        work_items_.emplace_back(
+          NodeWorkItem{tree_.size() - 1, node.start, split.nLeft, node.depth + 1});
+      }
+
+      // right
+      tree_.emplace_back(NodeT::CreateChild(node.depth + 1,
+                                            node.start + split.nLeft,
+                                            node.count - split.nLeft,
+                                            2 * node.info.unique_id + 2));
+      // Do not add a work item if this child is definitely a leaf
+      if (!IsLeaf(tree_.back())) {
+        work_items_.emplace_back(NodeWorkItem{
+          tree_.size() - 1, node.start + split.nLeft, node.count - split.nLeft, node.depth + 1});
+      }
+
+      // update depth
+      tree_depth_ = max(tree_depth_, node.depth + 1);
     }
   }
 };
@@ -147,7 +161,7 @@ struct Builder {
   /** best splits for the current batch of nodes */
   SplitT* splits;
   /** current batch of nodes */
-  NodeT* curr_nodes;
+  NodeWorkItem* d_work_items;
 
   WorkloadInfo<IdxT>* workload_info;
   WorkloadInfo<IdxT>* h_workload_info;
@@ -172,7 +186,6 @@ struct Builder {
           IdxT totalRows,
           IdxT totalCols,
           IdxT sampledRows,
-          IdxT sampledCols,
           IdxT* rowids,
           IdxT nclasses,
           const DataT* quantiles)
@@ -180,8 +193,15 @@ struct Builder {
       treeid(treeid),
       seed(seed),
       params(p),
-      input{
-        data, labels, totalRows, totalCols, sampledRows, sampledCols, rowids, nclasses, quantiles},
+      input{data,
+            labels,
+            totalRows,
+            totalCols,
+            sampledRows,
+            max(1, IdxT(params.max_features * totalCols)),
+            rowids,
+            nclasses,
+            quantiles},
       d_buff(handle.get_device_allocator(), handle.get_stream(), 0),
       h_buff(handle.get_host_allocator(), handle.get_stream(), 0)
   {
@@ -228,8 +248,7 @@ struct Builder {
     d_wsize += calculateAlignedBytes(sizeof(int) * max_batch * n_blks_for_cols);  // done_count
     d_wsize += calculateAlignedBytes(sizeof(int) * max_batch);                    // mutex
     d_wsize += calculateAlignedBytes(sizeof(SplitT) * max_batch);                 // splits
-    d_wsize += calculateAlignedBytes(sizeof(NodeT) * max_batch);                  // curr_nodes
-    d_wsize += calculateAlignedBytes(sizeof(NodeT) * 2 * max_batch);              // next_nodes
+    d_wsize += calculateAlignedBytes(sizeof(NodeWorkItem) * max_batch);           // d_work_Items
     d_wsize +=                                                                    // workload_info
       calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks);
 
@@ -266,8 +285,8 @@ struct Builder {
     d_wspace += calculateAlignedBytes(sizeof(int) * max_batch);
     splits = reinterpret_cast<SplitT*>(d_wspace);
     d_wspace += calculateAlignedBytes(sizeof(SplitT) * max_batch);
-    curr_nodes = reinterpret_cast<NodeT*>(d_wspace);
-    d_wspace += calculateAlignedBytes(sizeof(NodeT) * max_batch);
+    d_work_items = reinterpret_cast<NodeWorkItem*>(d_wspace);
+    d_wspace += calculateAlignedBytes(sizeof(NodeWorkItem) * max_batch);
     workload_info = reinterpret_cast<WorkloadInfo<IdxT>*>(d_wspace);
     d_wspace += calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks);
 
@@ -286,12 +305,11 @@ struct Builder {
   std::vector<Node<DataT, LabelT, IdxT>> train(IdxT& num_leaves, IdxT& depth, cudaStream_t s)
   {
     ML::PUSH_RANGE("Builder::train @builder_base.cuh [batched-levelalgo]");
-    NodeQueue<NodeT> queue(this->maxNodes(), input.nSampledRows);
+    NodeQueue<NodeT> queue(params, this->maxNodes(), input.nSampledRows);
     while (queue.HasWork()) {
-      auto [new_nodes_host_ptr, new_nodes_count] = queue.Pop(params.max_batch_size);
-      auto [splits_host_ptr, splits_count] =
-        doSplit(new_nodes_host_ptr, new_nodes_count, s);
-      queue.Push(params, splits_host_ptr, splits_count);
+      auto work_items                      = queue.Pop();
+      auto [splits_host_ptr, splits_count] = doSplit(work_items);
+      queue.Push(work_items, splits_host_ptr);
     }
     depth      = queue.TreeDepth();
     num_leaves = queue.NumLeaves();
@@ -302,57 +320,45 @@ struct Builder {
   }
 
  private:
-  auto updateWorkloadInfo(const Node<DataT, LabelT, IdxT>* h_nodes,
-                          size_t batchSize,
-                          cudaStream_t s)
+  auto updateWorkloadInfo(const std::vector<NodeWorkItem>& work_items)
   {
     int n_large_nodes_in_curr_batch =
       0;  // large nodes are nodes having training instances larger than block size, hence require
           // global memory for histogram construction
     int total_num_blocks = 0;
-    for (int n = 0; n < batchSize; n++) {
-      int num_blocks = raft::ceildiv(h_nodes[n].count, TPB_DEFAULT);
+    for (int i = 0; i < work_items.size(); i++) {
+      auto item      = work_items[i];
+      int num_blocks = raft::ceildiv(item.row_count, size_t(TPB_DEFAULT));
       num_blocks     = std::max(1, num_blocks);
 
       if (num_blocks > 1) ++n_large_nodes_in_curr_batch;
 
-      bool is_leaf = leafBasedOnParams<IdxT>(
-        h_nodes[n].depth, params.max_depth, params.min_samples_split, h_nodes[n].count);
-      if (is_leaf) num_blocks = 0;
-
       for (int b = 0; b < num_blocks; b++) {
-        h_workload_info[total_num_blocks + b] = {n, n_large_nodes_in_curr_batch - 1, b, num_blocks};
+        h_workload_info[total_num_blocks + b] = {i, n_large_nodes_in_curr_batch - 1, b, num_blocks};
       }
       total_num_blocks += num_blocks;
     }
-    raft::update_device(workload_info, h_workload_info, total_num_blocks, s);
+    raft::update_device(workload_info, h_workload_info, total_num_blocks, handle.get_stream());
     return std::make_pair(total_num_blocks, n_large_nodes_in_curr_batch);
   }
-  /**
-   * @brief Computes best split across all nodes in the current batch and splits
-   *        the nodes accordingly
-   *
-   * @param[out] h_nodes list of nodes (must be allocated using cudaMallocHost!)
-   * @param[in]  s cuda stream
-   * @return the number of newly created nodes
-   */
-  auto doSplit(const Node<DataT, LabelT, IdxT>* h_nodes, size_t batchSize, cudaStream_t s)
+
+  auto doSplit(const std::vector<NodeWorkItem>& work_items)
   {
     ML::PUSH_RANGE("Builder::doSplit @bulder_base.cuh [batched-levelalgo]");
     // auto batchSize = node_end - node_start;
     // start fresh on the number of *new* nodes created in this batch
-    CUDA_CHECK(cudaMemsetAsync(n_nodes, 0, sizeof(IdxT), s));
-    initSplit<DataT, IdxT, TPB_DEFAULT>(splits, batchSize, s);
+    CUDA_CHECK(cudaMemsetAsync(n_nodes, 0, sizeof(IdxT), handle.get_stream()));
+    initSplit<DataT, IdxT, TPB_DEFAULT>(splits, work_items.size(), handle.get_stream());
 
     // get the current set of nodes to be worked upon
-    raft::update_device(curr_nodes, h_nodes, batchSize, s);
+    raft::update_device(d_work_items, work_items.data(), work_items.size(), handle.get_stream());
 
-    auto [total_blocks, large_blocks] = this->updateWorkloadInfo(h_nodes, batchSize, s);
+    auto [total_blocks, large_blocks] = this->updateWorkloadInfo(work_items);
 
     // iterate through a batch of columns (to reduce the memory pressure) and
     // compute the best split at the end
     for (IdxT c = 0; c < input.nSampledCols; c += n_blks_for_cols) {
-      computeSplit(c, batchSize, params.split_criterion, total_blocks, large_blocks, s);
+      computeSplit(c, work_items.size(), total_blocks, large_blocks);
       CUDA_CHECK(cudaGetLastError());
     }
 
@@ -360,21 +366,21 @@ struct Builder {
     auto smemSize = 2 * sizeof(IdxT) * TPB_DEFAULT;
     ML::PUSH_RANGE("nodeSplitKernel @builder_base.cuh [batched-levelalgo]");
     nodeSplitKernel<DataT, LabelT, IdxT, ObjectiveT, TPB_DEFAULT>
-      <<<batchSize, TPB_DEFAULT, smemSize, s>>>(params.max_depth,
-                                                params.min_samples_leaf,
-                                                params.min_samples_split,
-                                                params.max_leaves,
-                                                params.min_impurity_decrease,
-                                                input,
-                                                curr_nodes,
-                                                splits
-                                                );
+      <<<work_items.size(), TPB_DEFAULT, smemSize, handle.get_stream()>>>(
+        params.max_depth,
+        params.min_samples_leaf,
+        params.min_samples_split,
+        params.max_leaves,
+        params.min_impurity_decrease,
+        input,
+        d_work_items,
+        splits);
     CUDA_CHECK(cudaGetLastError());
     ML::POP_RANGE();
-    raft::update_host(h_splits, splits, batchSize, s);
-    CUDA_CHECK(cudaStreamSynchronize(s));
+    raft::update_host(h_splits, splits, work_items.size(), handle.get_stream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
     ML::POP_RANGE();
-    return std::make_tuple(h_splits, batchSize);
+    return std::make_tuple(h_splits, work_items.size());
   }
 
   auto computeSplitSmemSize()
@@ -394,20 +400,7 @@ struct Builder {
     return smemSize;
   }
 
-  /**
-   * @brief Compute best split for the currently given set of columns
-   *
-   * @param[in] col       start column id
-   * @param[in] batchSize number of nodes to be processed in this call
-   * @param[in] splitType split criterion
-   * @param[in] s         cuda stream
-   */
-  void computeSplit(IdxT col,
-                    IdxT batchSize,
-                    CRITERION splitType,
-                    size_t total_blocks,
-                    size_t large_blocks,
-                    cudaStream_t s)
+  void computeSplit(IdxT col, IdxT batchSize, size_t total_blocks, size_t large_blocks)
   {
     if (total_blocks == 0) return;
     ML::PUSH_RANGE("Builder::computeSplit @builder_base.cuh [batched-levelalgo]");
@@ -418,25 +411,25 @@ struct Builder {
     auto smemSize = computeSplitSmemSize();
     dim3 grid(total_blocks, colBlks, 1);
     int nHistBins = large_blocks * nbins * colBlks * nclasses;
-    CUDA_CHECK(cudaMemsetAsync(hist, 0, sizeof(BinT) * nHistBins, s));
+    CUDA_CHECK(cudaMemsetAsync(hist, 0, sizeof(BinT) * nHistBins, handle.get_stream()));
     ML::PUSH_RANGE("computeSplitClassificationKernel @builder_base.cuh [batched-levelalgo]");
     ObjectiveT objective(input.numOutputs, params.min_impurity_decrease, params.min_samples_leaf);
     computeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
-      <<<grid, TPB_DEFAULT, smemSize, s>>>(hist,
-                                           params.n_bins,
-                                           params.max_depth,
-                                           params.min_samples_split,
-                                           params.max_leaves,
-                                           input,
-                                           curr_nodes,
-                                           col,
-                                           done_count,
-                                           mutex,
-                                           splits,
-                                           objective,
-                                           treeid,
-                                           workload_info,
-                                           seed);
+      <<<grid, TPB_DEFAULT, smemSize, handle.get_stream()>>>(hist,
+                                                             params.n_bins,
+                                                             params.max_depth,
+                                                             params.min_samples_split,
+                                                             params.max_leaves,
+                                                             input,
+                                                             d_work_items,
+                                                             col,
+                                                             done_count,
+                                                             mutex,
+                                                             splits,
+                                                             objective,
+                                                             treeid,
+                                                             workload_info,
+                                                             seed);
     ML::POP_RANGE();  // computeSplitClassificationKernel
     ML::POP_RANGE();  // Builder::computeSplit
   }

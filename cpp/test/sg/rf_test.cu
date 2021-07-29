@@ -268,8 +268,24 @@ class RfSpecialisedTest {
   void TestTreeSize()
   {
     for (int i = 0u; i < forest->rf_params.n_trees; i++) {
+      // Check we have actually built something, otherwise these tests can all pass when the tree
+      // algorithm produces only stumps
+      size_t effective_rows = params.n_rows * params.max_samples;
+      if (params.max_depth > 0 && params.min_impurity_decrease == 0 &&
+          params.min_samples_split < effective_rows &&
+          (params.min_samples_leaf * 2) < effective_rows) {
+        EXPECT_GT(forest->trees[i].leaf_counter, 1);
+      }
+
+      // Check number of leaves is accurate
+      int num_leaves = 0;
+      for (auto n : forest->trees[i].sparsetree) {
+        num_leaves += n.IsLeaf();
+      }
+      EXPECT_EQ(num_leaves, forest->trees[i].leaf_counter);
+      if (params.max_leaves > 0) { EXPECT_LE(forest->trees[i].leaf_counter, params.max_leaves); }
+
       EXPECT_LE(forest->trees[i].depth_counter, params.max_depth);
-      // if (params.max_leaves > 0) { EXPECT_LE(forest->trees[i].leaf_counter, params.max_leaves); }
       EXPECT_LE(forest->trees[i].leaf_counter,
                 raft::ceildiv(params.n_rows, params.min_samples_leaf));
     }
@@ -347,14 +363,13 @@ class RfTest : public ::testing::TestWithParam<RfTestParams> {
 TEST_P(RfTest, PropertyBasedTest) {}
 
 // Parameter ranges to test
-std::vector<int> n_rows         = {10, 100, 1452};
-std::vector<int> n_cols         = {1, 5, 152, 1014};
-std::vector<int> n_trees        = {1, 5, 17};
-std::vector<float> max_features = {0.1f, 0.5f, 1.0f};
-std::vector<float> max_samples  = {0.1f, 0.5f, 1.0f};
-std::vector<int> max_depth      = {1, 10, 30};
-std::vector<int> max_leaves = {-1};  // Bug for max_leaves, non-determinism as threads compete to
-                                     // place their nodes inside this limit
+std::vector<int> n_rows                  = {10, 100, 1452};
+std::vector<int> n_cols                  = {1, 5, 152, 1014};
+std::vector<int> n_trees                 = {1, 5, 17};
+std::vector<float> max_features          = {0.1f, 0.5f, 1.0f};
+std::vector<float> max_samples           = {0.1f, 0.5f, 1.0f};
+std::vector<int> max_depth               = {1, 10, 30};
+std::vector<int> max_leaves              = {-1, 2};
 std::vector<bool> bootstrap              = {false, true};
 std::vector<int> n_bins                  = {2, 57, 128, 256};
 std::vector<int> min_samples_leaf        = {1, 10, 30};
