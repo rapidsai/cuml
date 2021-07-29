@@ -185,9 +185,8 @@ __global__ void nodeSplitKernel(IdxT max_depth,
   volatile auto* node = curr_nodes + nid;
   auto range_start = node->start, n_samples = node->count;
   __shared__ bool isLeaf;
-  if (threadIdx.x == 0)
-  {
-     isLeaf = leafBasedOnParams<DataT, IdxT>(
+  if (threadIdx.x == 0) {
+    isLeaf = leafBasedOnParams<DataT, IdxT>(
       node->depth, max_depth, min_samples_split, max_leaves, n_leaves, n_samples);
   }
   __syncthreads();
