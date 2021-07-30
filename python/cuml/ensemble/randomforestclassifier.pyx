@@ -115,38 +115,13 @@ class RandomForestClassifier(BaseRandomForestModel,
 
     .. note:: Note that the underlying algorithm for tree node splits differs
       from that used in scikit-learn. By default, the cuML Random Forest uses a
-      histogram-based algorithm to determine splits, rather than an exact
-      count. You can tune the size of the histograms with the n_bins parameter.
+      quantile-based algorithm to determine splits, rather than an exact
+      count. You can tune the size of the quantiles with the `n_bins` parameter.
 
     .. note:: You can export cuML Random Forest models and run predictions
       with them on machines without an NVIDIA GPUs. See
       https://docs.rapids.ai/api/cuml/nightly/pickling_cuml_models.html
       for more details.
-
-    **Known Limitations**: This is an early release of the cuML
-    Random Forest code. It contains a few known limitations:
-
-      * GPU-based inference is only supported if the model was trained
-        with 32-bit (float32) datatypes. CPU-based inference may be used
-        in this case as a slower fallback.
-      * Very deep / very wide models may exhaust available GPU memory.
-        Future versions of cuML will provide an alternative algorithm to
-        reduce memory consumption.
-      * While training the model for multi class classification problems,
-        using deep trees or `max_features=1.0` provides better performance.
-      * Prediction of classes is currently different from how scikit-learn
-        predicts:
-          * scikit-learn predicts random forest classifiers by obtaining class
-            probabilities from each component tree, then averaging these class
-            probabilities over all the ensemble members, and finally resolving
-            to the label with highest probability as prediction.
-          * cuml random forest classifier prediction differs in that, each
-            component tree generates labels instead of class probabilities;
-            with the most frequent label over all the trees (the statistical
-            mode) resolved as prediction.
-        The above differences might cause marginal variations in accuracy in
-        tradeoff to better performance.
-        See: https://github.com/rapidsai/cuml/issues/3764
 
     Examples
     --------
@@ -177,34 +152,32 @@ class RandomForestClassifier(BaseRandomForestModel,
     n_estimators : int (default = 100)
         Number of trees in the forest. (Default changed to 100 in cuML 0.11)
     split_criterion : The criterion used to split nodes.
-        0 for GINI, 1 for ENTROPY
+        0 for Gini impurity,
+        1 for Entropy (Information Gain).
         2 and 3 not valid for classification
         (default = 0)
-    split_algo : int (default = 1)
-        Deprecated and currrently has no effect.
-        .. deprecated:: 21.06
     bootstrap : boolean (default = True)
         Control bootstrapping.
-        If True, each tree in the forest is built
+        If `True`, eachtree in the forest is built
         on a bootstrapped sample with replacement.
-        If False, the whole dataset is used to build each tree.
+        If `False`, the whole dataset is used to build each tree.
     max_samples : float (default = 1.0)
         Ratio of dataset rows used while fitting each tree.
     max_depth : int (default = 16)
         Maximum tree depth. Unlimited (i.e, until leaves are pure),
-        if -1. Unlimited depth is not supported.
+        If `-1`. Unlimited depth is not supported.
         *Note that this default differs from scikit-learn's
         random forest, which defaults to unlimited depth.*
     max_leaves : int (default = -1)
         Maximum leaf nodes per tree. Soft constraint. Unlimited,
-        if -1.
+        If `-1`.
     max_features : int, float, or string (default = 'auto')
-        Ratio of number of features (columns) to consider per node split.
-        If int then max_features/n_features.
-        If float then max_features is used as a fraction.
-        If 'auto' then max_features=1/sqrt(n_features).
-        If 'sqrt' then max_features=1/sqrt(n_features).
-        If 'log2' then max_features=log2(n_features)/n_features.
+        Ratio of number of features (columns) to consider per node split.\n
+        If type `int` then `max_features` is the absolute count of features to be used\n
+        If type `float` then `max_features` is used as a fraction.\n
+        If `'auto'` then `max_features=1/sqrt(n_features)`.\n
+        If `'sqrt'` then `max_features=1/sqrt(n_features)`.\n
+        If `'log2'` then `max_features=log2(n_features)/n_features`.
     n_bins : int (default = 128)
         Number of bins used by the split algorithm.
         For large problems, particularly those with highly-skewed input data,
@@ -212,30 +185,25 @@ class RandomForestClassifier(BaseRandomForestModel,
     n_streams : int (default = 4)
         Number of parallel streams used for forest building.
     min_samples_leaf : int or float (default = 1)
-        The minimum number of samples (rows) in each leaf node.
-        If int, then min_samples_leaf represents the minimum number.
+        The minimum number of samples (rows) in each leaf node.\n
+        If type `int`, then `min_samples_leaf` represents the minimum number.\n
         If float, then min_samples_leaf represents a fraction and
-        ceil(min_samples_leaf * n_rows) is the minimum number of samples
+        `ceil(min_samples_leaf * n_rows)` is the minimum number of samples
         for each leaf node.
     min_samples_split : int or float (default = 2)
-        The minimum number of samples required to split an internal node.
-        If int, then min_samples_split represents the minimum number.
-        If float, then min_samples_split represents a fraction and
-        ceil(min_samples_split * n_rows) is the minimum number of samples
+        The minimum number of samples required to split an internal node.\n
+        If type `int`, then min_samples_split represents the minimum number.\n
+        If type `float`, then `min_samples_split` represents a fraction and
+        `ceil(min_samples_split * n_rows)` is the minimum number of samples
         for each split.
     min_impurity_decrease : float (default = 0.0)
         Minimum decrease in impurity requried for
         node to be spilt.
-    use_experimental_backend : boolean (default = True)
-        Deprecated and currrently has no effect.
-        .. deprecated:: 21.08
-    max_batch_size: int (default = 4096)
+    max_batch_size : int (default = 4096)
         Maximum number of nodes that can be processed in a given batch.
     random_state : int (default = None)
         Seed for the random number generator. Unseeded by default. Does not
-        currently fully guarantee the exact same results. **Note: Parameter
-        `seed` is removed since release 0.19.**
-
+        currently fully guarantee the exact same results.
     handle : cuml.Handle
         Specifies the cuml.handle that holds internal CUDA state for
         computations in this model. Most importantly, this specifies the CUDA
@@ -252,6 +220,33 @@ class RandomForestClassifier(BaseRandomForestModel,
         module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
+    Notes
+    -----
+    **Known Limitations**\n
+    This is an early release of the cuML
+    Random Forest code. It contains a few known limitations:
+
+      * GPU-based inference is only supported if the model was trained
+        with 32-bit (float32) datatypes. CPU-based inference may be used
+        in this case as a slower fallback.
+      * While training the model for multi class classification problems,
+        using deep trees or `max_features=1.0` provides better performance.
+      * Prediction of classes is currently different from how scikit-learn
+        predicts:
+          * scikit-learn predicts random forest classifiers by obtaining class
+            probabilities from each component tree, then averaging these class
+            probabilities over all the ensemble members, and finally resolving
+            to the label with highest probability as prediction.
+          * cuml random forest classifier prediction differs in that, each
+            component tree generates labels instead of class probabilities;
+            with the most frequent label over all the trees (the statistical
+            mode) resolved as prediction.
+        The above differences might cause marginal variations in accuracy in
+        tradeoff to better performance.
+        See: https://github.com/rapidsai/cuml/issues/3764
+
+    For additional docs, see `scikitlearn's RandomForestClassifier
+    <https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html>`_.
     """
 
     def __init__(self, *, split_criterion=0, handle=None, verbose=False,

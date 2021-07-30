@@ -41,14 +41,14 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 class BaseRandomForestModel(Base):
     _param_names = ['n_estimators', 'max_depth', 'handle',
                     'max_features', 'n_bins',
-                    'split_algo', 'split_criterion', 'min_samples_leaf',
+                    'split_criterion', 'min_samples_leaf',
                     'min_samples_split',
                     'min_impurity_decrease',
                     'bootstrap',
                     'verbose', 'max_samples',
                     'max_leaves',
-                    'accuracy_metric', 'use_experimental_backend',
-                    'max_batch_size', 'n_streams', 'dtype',
+                    'accuracy_metric', 'max_batch_size',
+                    'n_streams', 'dtype',
                     'output_type', 'min_weight_fraction_leaf', 'n_jobs',
                     'max_leaf_nodes', 'min_impurity_split', 'oob_score',
                     'random_state', 'warm_start', 'class_weight',
@@ -100,18 +100,10 @@ class BaseRandomForestModel(Base):
         if ((random_state is not None) and (n_streams != 1)):
             warnings.warn("For reproducible results in Random Forest"
                           " Classifier or for almost reproducible results"
-                          " in Random Forest Regressor, n_streams==1 is "
+                          " in Random Forest Regressor, n_streams=1 is "
                           "recommended. If n_streams is > 1, results may vary "
                           "due to stream/thread timing differences, even when "
                           "random_state is set")
-        if 'use_experimental_backend' in kwargs.keys():
-            warnings.warn("The 'use_experimental_backend' parameter is "
-                          "deprecated and has no effect. "
-                          "It will be removed in 21.10 release.")
-        if 'split_algo' in kwargs.keys():
-            warnings.warn("The 'split_algo' parameter is "
-                          "deprecated and has no effect. "
-                          "It will be removed in 21.10 release.")
         if handle is None:
             handle = Handle(n_streams)
 

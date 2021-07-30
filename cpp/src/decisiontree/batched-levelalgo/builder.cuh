@@ -83,7 +83,7 @@ void grow_tree(std::shared_ptr<raft::mr::device::allocator> d_allocator,
                         nrows,
                         ncols,
                         n_sampled_rows,
-                        IdxT(params.max_features * ncols),
+                        IdxT(std::round(params.max_features * ncols)),
                         rowids,
                         unique_labels,
                         quantiles);
@@ -120,8 +120,6 @@ void grow_tree(std::shared_ptr<raft::mr::device::allocator> d_allocator,
  *                            [on device] [col-major]
  *                            [dim = params.n_bins x ncols]
  * @param[in]  rowids         sampled rows [on device] [len = n_sampled_rows]
- * @param[in]  colids         sampled cols [on device]
- *                            [len = params.max_features * ncols]
  * @param[in]  n_sampled_rows number of sub-sampled rows
  * @param[in]  unique_labels  number of classes (meaningful only for
  *                            classification)

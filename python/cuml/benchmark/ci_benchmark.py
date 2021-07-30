@@ -173,7 +173,6 @@ def make_bench_configs(long_config):
                 bench_dims=default_dims,
                 cuml_param_override_list=[
                     {"n_bins": [8, 32]},
-                    {"split_algo": [0, 1]},
                     {"max_features": ['sqrt', 1.0]},
                 ],
             )

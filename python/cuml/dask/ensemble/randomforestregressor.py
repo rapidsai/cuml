@@ -68,25 +68,22 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
-    split_algo : int (default = 1)
-        0 for HIST, 1 for GLOBAL_QUANTILE
-        The type of algorithm to be used to create the trees.
     split_criterion : int (default = 2)
         The criterion used to split nodes.
-        0 for GINI, 1 for ENTROPY,
-        2 for MSE, 3 for MAE and 4 for CRITERION_END.
+        0 for Gini impurity, 1 for Entropy (Information Gain),
+        2 for MSE (Mean Squared Error), and 3 for CRITERION_END.
         0 and 1 not valid for regression
     bootstrap : boolean (default = True)
         Control bootstrapping.
         If set, each tree in the forest is built
         on a bootstrapped sample with replacement.
-        If False, the whole dataset is used to build each tree.
+        If `False`, the whole dataset is used to build each tree.
     max_samples : float (default = 1.0)
         Ratio of dataset rows used while fitting each tree.
     max_depth : int (default = -1)
-        Maximum tree depth. Unlimited (i.e, until leaves are pure), if -1.
+        Maximum tree depth. Unlimited (i.e, until leaves are pure), If `-1`.
     max_leaves : int (default = -1)
-        Maximum leaf nodes per tree. Soft constraint. Unlimited, if -1.
+        Maximum leaf nodes per tree. Soft constraint. Unlimited, If `-1`.
     max_features : int or float or string or None (default = 'auto')
         Ratio of number of features (columns) to consider
         per node split.
@@ -100,15 +97,15 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         Number of bins used by the split algorithm.
     min_samples_leaf : int or float (default = 1)
         The minimum number of samples (rows) in each leaf node.
-        If int, then min_samples_leaf represents the minimum number.
-        If float, then min_samples_leaf represents a fraction and
-        ceil(min_samples_leaf * n_rows) is the minimum number of samples
+        If type `int`, then `min_samples_leaf` represents the minimum number.
+        If `float`, then `min_samples_leaf` represents a fraction and
+        `ceil(min_samples_leaf * n_rows)` is the minimum number of samples
         for each leaf node.
     min_samples_split : int or float (default = 2)
         The minimum number of samples required to split an internal node.
-        If int, then min_samples_split represents the minimum number.
-        If float, then min_samples_split represents a fraction and
-        ceil(min_samples_split * n_rows) is the minimum number of samples
+        If type `int`, then `min_samples_split` represents the minimum number.
+        If type `float`, then `min_samples_split` represents a fraction and
+        `ceil(min_samples_split * n_rows)` is the minimum number of samples
         for each split.
     accuracy_metric : string (default = 'r2')
         Decides the metric used to evaluate the performance of the model.
@@ -118,17 +115,6 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         for median of abs error : 'median_ae'
         for mean of abs error : 'mean_ae'
         for mean square error' : 'mse'
-    quantile_per_tree : boolean (default = False)
-        Whether quantile is computed for individual RF trees.
-        Only relevant for GLOBAL_QUANTILE split_algo.
-    use_experimental_backend : boolean (default = False)
-        If set to true and the following conditions are also met, a new
-        experimental backend for decision tree training will be used. The
-        new backend is available only if `split_algo = 1` (GLOBAL_QUANTILE)
-        and `quantile_per_tree = False` (No per tree quantile computation).
-        The new backend is considered stable for classification tasks but
-        not yet for regression tasks. The RAPIDS team is continuing
-        optimization and evaluation of the new backend for regression tasks.
     n_streams : int (default = 4 )
         Number of parallel streams used for forest building
     workers : optional, list of strings
