@@ -62,7 +62,7 @@ struct Node {
     return n;
   }
 
-  static Node CreateSplit(IdxT colid, IdxT query_value, IdxT best_metric_val, IdxT left_child_id)
+  static Node CreateSplit(IdxT colid, DataT query_value, DataT best_metric_val, IdxT left_child_id)
   {
     Node n;
     n.info.prediction      = LabelT(0);  // don't care for non-leaf nodes

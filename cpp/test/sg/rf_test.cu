@@ -24,6 +24,7 @@
 #include <thrust/host_vector.h>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/ensemble/randomforest.hpp>
+#include <iostream>
 #include <memory>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
@@ -272,8 +273,7 @@ class RfSpecialisedTest {
       // algorithm produces only stumps
       size_t effective_rows = params.n_rows * params.max_samples;
       if (params.max_depth > 0 && params.min_impurity_decrease == 0 &&
-          params.min_samples_split < effective_rows &&
-          (params.min_samples_leaf * 2) < effective_rows) {
+          effective_rows >=100) {
         EXPECT_GT(forest->trees[i].leaf_counter, 1);
       }
 
@@ -294,7 +294,7 @@ class RfSpecialisedTest {
   {
     for (int i = 0u; i < forest->rf_params.n_trees; i++) {
       for (auto n : forest->trees[i].sparsetree) {
-        if (!n.IsLeaf()) { EXPECT_GE(n.best_metric_val, params.min_impurity_decrease); }
+        if (!n.IsLeaf()) { EXPECT_GT(n.best_metric_val, params.min_impurity_decrease); }
       }
     }
   }
@@ -369,12 +369,12 @@ std::vector<int> n_trees                 = {1, 5, 17};
 std::vector<float> max_features          = {0.1f, 0.5f, 1.0f};
 std::vector<float> max_samples           = {0.1f, 0.5f, 1.0f};
 std::vector<int> max_depth               = {1, 10, 30};
-std::vector<int> max_leaves              = {-1, 2};
+std::vector<int> max_leaves              = {-1, 50};
 std::vector<bool> bootstrap              = {false, true};
 std::vector<int> n_bins                  = {2, 57, 128, 256};
 std::vector<int> min_samples_leaf        = {1, 10, 30};
 std::vector<int> min_samples_split       = {2, 10};
-std::vector<float> min_impurity_decrease = {0.0, 1.0f, 10.0f};
+std::vector<float> min_impurity_decrease = {0.0f, 1.0f, 10.0f};
 std::vector<int> n_streams               = {1, 2, 10};
 std::vector<CRITERION> split_criterion   = {CRITERION::MSE, CRITERION::GINI, CRITERION::ENTROPY};
 std::vector<int> seed                    = {0, 17};
