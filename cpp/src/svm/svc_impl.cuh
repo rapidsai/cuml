@@ -122,6 +122,9 @@ void svcPredict(const raft::handle_t& handle,
   MLCommon::device_buffer<math_t> K(
     handle_impl.get_device_allocator(), stream, n_batch * model.n_support);
   MLCommon::device_buffer<math_t> y(handle_impl.get_device_allocator(), stream, n_rows);
+  if (model.n_support == 0) {
+    CUDA_CHECK(cudaMemsetAsync(y.data(), 0, n_rows * sizeof(math_t), stream));
+  }
   MLCommon::device_buffer<math_t> x_rbf(handle_impl.get_device_allocator(), stream);
   MLCommon::device_buffer<int> idx(handle_impl.get_device_allocator(), stream);
 
@@ -137,7 +140,7 @@ void svcPredict(const raft::handle_t& handle,
   // We process the input data batchwise:
   //  - calculate the kernel values K[x_batch, x_support]
   //  - calculate y(x_batch) = K[x_batch, x_support] * dual_coeffs
-  for (int i = 0; i < n_rows; i += n_batch) {
+  for (int i = 0; i < n_rows && model.n_support > 0; i += n_batch) {
     if (i + n_batch >= n_rows) { n_batch = n_rows - i; }
     math_t* x_ptr = nullptr;
     int ld1       = 0;

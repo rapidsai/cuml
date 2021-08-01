@@ -235,7 +235,7 @@ DI IdxT select(IdxT k, IdxT treeid, uint32_t nodeid, uint64_t seed, IdxT N)
 
 /**
  * @brief For every block, converts the smem pdf-histogram to
- *        cdf-histogram using inclusive block-sum-scan and returns
+ *        cdf-histogram inplace using inclusive block-sum-scan and returns
  *        the total_sum
  * @return The total sum aggregated over the sumscan,
  *         as well as the modified cdf-histogram pointer
@@ -261,6 +261,23 @@ DI BinT pdf_to_cdf(BinT* pdf_shist, IdxT nbins)
   }
   // return the total sum
   return total_aggregate;
+}
+
+template <typename DataT, typename IdxT>
+HDI IdxT lower_bound(DataT* sbins, IdxT nbins, DataT d)
+{
+  IdxT start = 0;
+  IdxT end   = nbins - 1;
+  IdxT mid;
+  while (start < end) {
+    mid = (start + end) / 2;
+    if (sbins[mid] < d) {
+      start = mid + 1;
+    } else {
+      end = mid;
+    }
+  }
+  return start;
 }
 
 template <typename DataT,
@@ -330,11 +347,12 @@ __global__ void computeSplitKernel(BinT* hist,
     auto row   = input.rowids[i];
     auto d     = input.data[row + coloffset];
     auto label = input.labels[row];
-    IdxT bin   = thrust::lower_bound(thrust::seq, sbins, sbins + nbins, d) - sbins;
-    BinT::IncrementHistogram(pdf_shist, nbins, bin, label);
+
+    IdxT start = lower_bound(sbins, nbins, d);
+    BinT::IncrementHistogram(pdf_shist, nbins, start, label);
   }
 
-  // synchronizeing above changes across block
+  // synchronizing above changes across block
   __syncthreads();
   if (num_blocks > 1) {
     // update the corresponding global location
@@ -347,8 +365,7 @@ __global__ void computeSplitKernel(BinT* hist,
     __syncthreads();
 
     // last threadblock will go ahead and compute the best split
-    bool last = true;
-    last      = MLCommon::signalDone(
+    bool last      = MLCommon::signalDone(
       done_count + nid * gridDim.y + blockIdx.y, num_blocks, offset_blockid == 0, sDone);
     // if not the last threadblock, exit
     if (!last) return;
@@ -360,16 +377,7 @@ __global__ void computeSplitKernel(BinT* hist,
     __syncthreads();
   }
 
-  /**
-   * Scanning code:
-   * span: block-wide
-   * Function: convert the PDF calculated in the previous steps to CDF
-   * This CDF is done over 2 passes
-   * * one from left to right to sum-scan counts of left splits
-   *   for each split-point.
-   * * second from right to left to sum-scan the right splits
-   *   for each split-point
-   */
+  // PDF to CDF inplace in shared memory pointed by shist
   for (IdxT c = 0; c < objective.NumClasses(); ++c) {
     /** left to right scan operation for scanning
      *  lesser-than-or-equal-to-bin counts **/

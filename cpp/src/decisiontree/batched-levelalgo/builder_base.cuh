@@ -102,7 +102,7 @@ class NodeQueue {
       // Do not add a work item if this child is definitely a leaf
       if (!IsLeaf(tree_.back())) {
         work_items_.emplace_back(
-          NodeWorkItem{tree_.size() - 1, node.start, split.nLeft, node.depth + 1});
+          NodeWorkItem{tree_.size() - 1, size_t(node.start), size_t(split.nLeft), node.depth + 1});
       }
 
       // right
@@ -113,7 +113,7 @@ class NodeQueue {
       // Do not add a work item if this child is definitely a leaf
       if (!IsLeaf(tree_.back())) {
         work_items_.emplace_back(NodeWorkItem{
-          tree_.size() - 1, node.start + split.nLeft, node.count - split.nLeft, node.depth + 1});
+          tree_.size() - 1, size_t(node.start + split.nLeft), size_t(node.count - split.nLeft), node.depth + 1});
       }
 
       // update depth
@@ -389,7 +389,7 @@ struct Builder {
                        params.n_bins * sizeof(DataT) +                    // sbins size
                        sizeof(int);                                       // sDone size
     // Extra room for alignment (see alignPointer in
-    // computeSplitClassificationKernel)
+    // computeSplitKernel)
     smemSize1 += sizeof(DataT) + 3 * sizeof(int);
     // Calculate the shared memory needed for evalBestSplit
     size_t smemSize2 = raft::ceildiv(TPB_DEFAULT, raft::WarpSize) * sizeof(SplitT);
