@@ -20,9 +20,9 @@
 #include <common/grid_sync.cuh>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/common/host_buffer.hpp>
+#include <cuml/common/logger.hpp>
 #include <cuml/tree/decisiontree.hpp>
 #include <raft/cuda_utils.cuh>
-#include "cuml/common/logger.hpp"
 #include "input.cuh"
 #include "kernels.cuh"
 #include "metrics.cuh"

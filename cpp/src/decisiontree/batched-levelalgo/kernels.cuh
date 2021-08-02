@@ -22,7 +22,6 @@
 #include <cstdio>
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
-#include "cuml/ensemble/randomforest.hpp"
 #include "input.cuh"
 #include "metrics.cuh"
 #include "node.cuh"
