@@ -235,9 +235,9 @@ class RandomForestRegressor(BaseRandomForestModel,
     This is an early release of the cuML
     Random Forest code. It contains a few known limitations:
 
-      * GPU-based inference is only supported if the model was trained
-        with 32-bit (float32) datatypes. CPU-based inference may be used
-        in this case as a slower fallback.
+      * GPU-based inference is only supported with 32-bit (float32) datatypes.
+        Alternatives are to use CPU-based inference for 64-bit (float64) datatypes,
+        or let the default automatic datatype conversion occur during GPU inference.
 
     For additional docs, see `scikitlearn's RandomForestRegressor
     <https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestRegressor.html>`_.
