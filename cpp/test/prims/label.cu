@@ -20,6 +20,7 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
+#include <rmm/device_uvector.hpp>
 #include "test_utils.h"
 
 #include <iostream>
@@ -42,23 +43,21 @@ TEST_F(MakeMonotonicTest, Result)
 
   int m = 12;
 
-  float *data, *actual, *expected;
-
   rmm::device_uvector<float> data(m, stream);
   rmm::device_uvector<float> actual(m, stream);
   rmm::device_uvector<float> expected(m, stream);
-  CUDA_CHECK(cudaMemset(data.data(), 0, data.data() * sizeof(float)));
-  CUDA_CHECK(cudaMemset(actual.data(), 0, actual.data() * sizeof(float)));
-  CUDA_CHECK(cudaMemset(expected.data(), 0, expected.data() * sizeof(float)));
+  CUDA_CHECK(cudaMemset(data.data(), 0, data.size() * sizeof(float)));
+  CUDA_CHECK(cudaMemset(actual.data(), 0, actual.size() * sizeof(float)));
+  CUDA_CHECK(cudaMemset(expected.data(), 0, expected.size() * sizeof(float)));
 
   float* data_h = new float[m]{1.0, 2.0, 2.0, 2.0, 2.0, 3.0, 8.0, 7.0, 8.0, 8.0, 25.0, 80.0};
 
   float* expected_h = new float[m]{1.0, 2.0, 2.0, 2.0, 2.0, 3.0, 5.0, 4.0, 5.0, 5.0, 6.0, 7.0};
 
-  raft::update_device(data, data_h, m, stream);
+  raft::update_device(data.data(), data_h, m, stream);
   raft::update_device(expected.data(), expected_h, m, stream);
 
-  make_monotonic(actual, data, m, stream);
+  make_monotonic(actual.data(), data.data(), m, stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -81,8 +80,7 @@ TEST(LabelTest, ClassLabels)
   float y_h[] = {2, -1, 1, 2, 1, 1};
   raft::update_device(y_d.data(), y_h, n_rows, stream);
 
-  rmm::device_uvector<float> y_unique_d;
-  y_unique_d.resize(n_rows, stream);
+  rmm::device_uvector<float> y_unique_d(n_rows, stream);
   int n_classes = getUniqueLabels(y_d.data(), n_rows, y_unique_d.data(), stream);
   y_unique_d.resize(n_classes, stream);
 

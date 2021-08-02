@@ -17,6 +17,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <common/fast_int_div.cuh>
+#include <rmm/device_uvector.hpp>
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -66,11 +67,14 @@ __global__ void fastIntDivTestKernel(
 
 TEST(FastIntDiv, GpuTest)
 {
+  cudaStream_t stream;
+  CUDA_CHECK(cudaStreamCreate(&stream));
+
   static const int len = 100000;
   static const int TPB = 128;
-  rmm::device_uvector<int> computed(len * 2);
-  rmm::device_uvector<int> correct(len * 2);
-  rmm::device_uvector<int> in(len);
+  rmm::device_uvector<int> computed(len * 2, stream);
+  rmm::device_uvector<int> correct(len * 2, stream);
+  rmm::device_uvector<int> in(len, stream);
   for (int i = 0; i < 100; ++i) {
     // get a positive divisor
     int divisor;

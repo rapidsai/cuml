@@ -105,7 +105,7 @@ DataT dispersion(const DataT* centroids,
   static const int ColsPerBlk    = 32;
   static const int RowsPerBlk    = (TPB / ColsPerBlk) * RowsPerThread;
   dim3 grid(raft::ceildiv(nPoints, (IdxT)RowsPerBlk), raft::ceildiv(dim, (IdxT)ColsPerBlk));
-  rmm::device_uvector<DataT> mean(stream);
+  rmm::device_uvector<DataT> mean(0, stream);
   rmm::device_uvector<DataT> result(1, stream);
   DataT* mu = globalCentroid;
   if (globalCentroid == nullptr) {

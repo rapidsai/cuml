@@ -73,30 +73,28 @@ class randIndexTest : public ::testing::TestWithParam<randIndexParam> {
 
     // allocating and initializing memory to the GPU
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(firstClusterArray, size, true);
-    raft::allocate(secondClusterArray, size, true);
 
-    raft::update_device(firstClusterArray, &arr1[0], (int)size, stream);
-    raft::update_device(secondClusterArray, &arr2[0], (int)size, stream);
+    rmm::device_uvector<T> firstClusterArray(size, stream);
+    rmm::device_uvector<T> secondClusterArray(size, stream);
+    CUDA_CHECK(
+      cudaMemsetAsync(firstClusterArray.data(), 0, firstClusterArray.size() * sizeof(T), stream));
+    CUDA_CHECK(
+      cudaMemsetAsync(secondClusterArray.data(), 0, secondClusterArray.size() * sizeof(T), stream));
+
+    raft::update_device(firstClusterArray.data(), &arr1[0], (int)size, stream);
+    raft::update_device(secondClusterArray.data(), &arr2[0], (int)size, stream);
 
     // calling the rand_index CUDA implementation
-    computedRandIndex =
-      MLCommon::Metrics::compute_rand_index(firstClusterArray, secondClusterArray, size, stream);
+    computedRandIndex = MLCommon::Metrics::compute_rand_index(
+      firstClusterArray.data(), secondClusterArray.data(), size, stream);
   }
 
   // the destructor
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(firstClusterArray));
-    CUDA_CHECK(cudaFree(secondClusterArray));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
+  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
   // declaring the data values
   randIndexParam params;
   int lowerLabelRange = 0, upperLabelRange = 2;
-  T* firstClusterArray     = nullptr;
-  T* secondClusterArray    = nullptr;
   uint64_t size            = 0;
   double truthRandIndex    = 0;
   double computedRandIndex = 0;

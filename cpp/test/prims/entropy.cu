@@ -18,8 +18,8 @@
 #include <algorithm>
 #include <iostream>
 #include <metrics/entropy.cuh>
-#include <raft/cuda_utils.cuh>
 #include <random>
+#include <rmm/device_uvector.hpp>
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -74,7 +74,7 @@ class entropyTest : public ::testing::TestWithParam<entropyParam> {
 
     // allocating and initializing memory to the GPU
     CUDA_CHECK(cudaStreamCreate(&stream));
-    rmm::device_uvector<T> clusterArray(nElements);
+    rmm::device_uvector<T> clusterArray(nElements, stream);
     CUDA_CHECK(cudaMemsetAsync(clusterArray.data(), 0, clusterArray.size() * sizeof(T), stream));
     raft::update_device(clusterArray.data(), &arr1[0], (int)nElements, stream);
 

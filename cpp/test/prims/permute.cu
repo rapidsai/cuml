@@ -53,35 +53,30 @@ class PermTest : public ::testing::TestWithParam<PermInputs<T>> {
     int len = N * D;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    if (params.needPerms)
-      raft::allocate(outPerms, N);
-    else
-      outPerms = nullptr;
-    if (params.needShuffle) {
-      raft::allocate(in, len);
-      raft::allocate(out, len);
-      r.uniform(in, len, T(-1.0), T(1.0), stream);
-    } else {
-      in = out = nullptr;
+    if (params.needPerms) {
+      outPerms     = std::make_unique<rmm::device_uvector<int>>(N, stream);
+      outPerms_ptr = outPerms->data();
     }
-    permute(outPerms, out, in, D, N, params.rowMajor, stream);
+    if (params.needShuffle) {
+      in      = std::make_unique<rmm::device_uvector<T>>(len, stream);
+      out     = std::make_unique<rmm::device_uvector<T>>(len, stream);
+      in_ptr  = in->data();
+      out_ptr = out->data();
+      r.uniform(in_ptr, len, T(-1.0), T(1.0), stream);
+    }
+    permute(outPerms_ptr, out_ptr, in_ptr, D, N, params.rowMajor, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
-  void TearDown() override
-  {
-    if (params.needPerms) CUDA_CHECK(cudaFree(outPerms));
-    if (params.needShuffle) {
-      CUDA_CHECK(cudaFree(in));
-      CUDA_CHECK(cudaFree(out));
-    }
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
+  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
  protected:
   PermInputs<T> params;
-  T *in, *out;
-  int* outPerms;
+  std::unique_ptr<rmm::device_uvector<T>> in, out;
+  T* in_ptr  = nullptr;
+  T* out_ptr = nullptr;
+  std::unique_ptr<rmm::device_uvector<int>> outPerms;
+  int* outPerms_ptr = nullptr;
   cudaStream_t stream;
 };
 
@@ -177,11 +172,11 @@ typedef PermTest<float> PermTestF;
 TEST_P(PermTestF, Result)
 {
   if (params.needPerms) {
-    ASSERT_TRUE(devArrMatchRange(outPerms, params.N, 0, raft::Compare<int>()));
+    ASSERT_TRUE(devArrMatchRange(outPerms_ptr, params.N, 0, raft::Compare<int>()));
   }
   if (params.needShuffle) {
     ASSERT_TRUE(devArrMatchShuffle(
-      outPerms, out, in, params.D, params.N, params.rowMajor, raft::Compare<float>()));
+      outPerms_ptr, out_ptr, in_ptr, params.D, params.N, params.rowMajor, raft::Compare<float>()));
   }
 }
 INSTANTIATE_TEST_CASE_P(PermTests, PermTestF, ::testing::ValuesIn(inputsf));
@@ -227,11 +222,11 @@ typedef PermTest<double> PermTestD;
 TEST_P(PermTestD, Result)
 {
   if (params.needPerms) {
-    ASSERT_TRUE(devArrMatchRange(outPerms, params.N, 0, raft::Compare<int>()));
+    ASSERT_TRUE(devArrMatchRange(outPerms_ptr, params.N, 0, raft::Compare<int>()));
   }
   if (params.needShuffle) {
     ASSERT_TRUE(devArrMatchShuffle(
-      outPerms, out, in, params.D, params.N, params.rowMajor, raft::Compare<double>()));
+      outPerms_ptr, out_ptr, in_ptr, params.D, params.N, params.rowMajor, raft::Compare<double>()));
   }
 }
 INSTANTIATE_TEST_CASE_P(PermTests, PermTestD, ::testing::ValuesIn(inputsd));

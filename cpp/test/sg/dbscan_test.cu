@@ -35,7 +35,6 @@
 
 namespace ML {
 
-using namespace MLCommon;
 using namespace Datasets;
 using namespace Metrics;
 using namespace std;
@@ -70,11 +69,12 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
   void basicTest()
   {
     raft::handle_t handle;
+    auto stream = handle.get_stream();
 
     params = ::testing::TestWithParam<DbscanInputs<T, IdxT>>::GetParam();
 
     rmm::device_uvector<T> out(params.n_row * params.n_col, stream);
-    rmm::device_uvector<T> l(params.n_row, stream);
+    rmm::device_uvector<IdxT> l(params.n_row, stream);
     rmm::device_uvector<T> dist(
       params.metric == raft::distance::Precomputed ? params.n_row * params.n_row : 0, stream);
 
@@ -222,6 +222,7 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
   void basicTest()
   {
     raft::handle_t handle;
+    auto stream = handle.get_stream();
 
     params = ::testing::TestWithParam<DBScan2DArrayInputs<T>>::GetParam();
 

@@ -105,30 +105,32 @@ class mutualInfoTest : public ::testing::TestWithParam<mutualInfoParam> {
 
     // allocating and initializing memory to the GPU
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(firstClusterArray, nElements, true);
-    raft::allocate(secondClusterArray, nElements, true);
 
-    raft::update_device(firstClusterArray, &arr1[0], (int)nElements, stream);
-    raft::update_device(secondClusterArray, &arr2[0], (int)nElements, stream);
+    rmm::device_uvector<T> firstClusterArray(nElements, stream);
+    rmm::device_uvector<T> secondClusterArray(nElements, stream);
+    CUDA_CHECK(
+      cudaMemsetAsync(firstClusterArray.data(), 0, firstClusterArray.size() * sizeof(T), stream));
+    CUDA_CHECK(
+      cudaMemsetAsync(secondClusterArray.data(), 0, secondClusterArray.size() * sizeof(T), stream));
+
+    raft::update_device(firstClusterArray.data(), &arr1[0], (int)nElements, stream);
+    raft::update_device(secondClusterArray.data(), &arr2[0], (int)nElements, stream);
 
     // calling the mutualInfo CUDA implementation
-    computedmutualInfo = MLCommon::Metrics::mutual_info_score(
-      firstClusterArray, secondClusterArray, nElements, lowerLabelRange, upperLabelRange, stream);
+    computedmutualInfo = MLCommon::Metrics::mutual_info_score(firstClusterArray.data(),
+                                                              secondClusterArray.data(),
+                                                              nElements,
+                                                              lowerLabelRange,
+                                                              upperLabelRange,
+                                                              stream);
   }
 
   // the destructor
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(firstClusterArray));
-    CUDA_CHECK(cudaFree(secondClusterArray));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
+  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
   // declaring the data values
   mutualInfoParam params;
   T lowerLabelRange, upperLabelRange;
-  T* firstClusterArray      = nullptr;
-  T* secondClusterArray     = nullptr;
   int nElements             = 0;
   double truthmutualInfo    = 0;
   double computedmutualInfo = 0;

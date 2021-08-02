@@ -46,8 +46,8 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
 
     raft::allocate(data, len, stream);
     raft::allocate(labels, params.n_row, stream);
-    raft::allocate(coef, params.n_col, true, stream);
-    raft::allocate(coef2, params.n_col, true, stream);
+    raft::allocate(coef, params.n_col, stream, true);
+    raft::allocate(coef2, params.n_col, stream, true);
     raft::allocate(coef_ref, params.n_col, stream);
     raft::allocate(coef2_ref, params.n_col, stream);
 
@@ -133,7 +133,7 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
     raft::allocate(data_logreg, len, stream);
     raft::allocate(data_logreg_test, len, stream);
     raft::allocate(labels_logreg, params.n_row2, stream);
-    raft::allocate(coef_class, params.n_col2, true, stream);
+    raft::allocate(coef_class, params.n_col2, stream, true);
     raft::allocate(pred_log, params.n_row2, stream);
     raft::allocate(pred_log_ref, params.n_row2, stream);
 
@@ -207,7 +207,7 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
     raft::allocate(data_svmreg, len, stream);
     raft::allocate(data_svmreg_test, len, stream);
     raft::allocate(labels_svmreg, params.n_row2, stream);
-    raft::allocate(coef_class, params.n_col2, true, stream);
+    raft::allocate(coef_class, params.n_col2, stream, true);
     raft::allocate(pred_svm, params.n_row2, stream);
     raft::allocate(pred_svm_ref, params.n_row2, stream);
 

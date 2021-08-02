@@ -41,11 +41,7 @@ struct GramTestParams {
 
 template <typename T>
 struct GramMatrix : public Fixture {
-  GramMatrix(const std::string& name, const GramTestParams& p)
-    : Fixture(
-        name,
-        std::shared_ptr<raft::mr::device::allocator>(new raft::mr::device::default_allocator)),
-      params(p)
+  GramMatrix(const std::string& name, const GramTestParams& p) : Fixture(name), params(p)
   {
     std::vector<std::string> kernel_names{"linear", "poly", "rbf", "tanh"};
     std::ostringstream oss;

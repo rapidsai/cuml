@@ -62,14 +62,14 @@ void svcFit(const raft::handle_t& handle,
   cudaStream_t stream = handle_impl.get_stream();
   model.unique_labels.resize(n_rows, stream);
   model.n_classes =
-    MLCommon::Label::getUniqueLabels(labels, n_rows, model.unique_labels.data(), stream);
+    MLCommon::Label::getUniqueLabels(labels, n_rows, model.get_unique_labels(), stream);
   model.unique_labels.resize(model.n_classes, stream);
 
   ASSERT(model.n_classes == 2, "Only binary classification is implemented at the moment");
 
   rmm::device_uvector<math_t> y(n_rows, stream);
   MLCommon::Label::getOvrLabels(
-    labels, n_rows, model.unique_labels.data(), model.n_classes, y.data(), 1, stream);
+    labels, n_rows, model.get_unique_labels(), model.n_classes, y.data(), 1, stream);
 
   MLCommon::Matrix::GramMatrixBase<math_t>* kernel =
     MLCommon::Matrix::KernelFactory<math_t>::create(kernel_params, handle_impl.get_cublas_handle());
@@ -156,7 +156,7 @@ void svcPredict(const raft::handle_t& handle,
     kernel->evaluate(x_ptr,
                      n_batch,
                      n_cols,
-                     model.x_support.data(),
+                     model.get_x_support(),
                      model.n_support,
                      K.data(),
                      false,
@@ -173,14 +173,14 @@ void svcPredict(const raft::handle_t& handle,
                                           &one,
                                           K.data(),
                                           n_batch,
-                                          model.dual_coefs.data(),
+                                          model.get_dual_coefs(),
                                           1,
                                           &null,
                                           y.data() + i,
                                           1,
                                           stream));
   }
-  const math_t* labels = model.unique_labels.data();
+  const math_t* labels = model.get_unique_labels();
   math_t b             = model.b;
   if (predict_class) {
     // Look up the label based on the value of the decision function:

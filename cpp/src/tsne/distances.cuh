@@ -45,7 +45,6 @@ auto DEFAULT_DISTANCE_METRIC = raft::distance::DistanceType::L2SqrtExpanded;
  * @param[out] indices: The output indices from KNN.
  * @param[out] distances: The output sorted distances from KNN.
  * @param[in] n_neighbors: The number of nearest neighbors you want.
- * @param[in] d_alloc: device allocator
  * @param[in] stream: The GPU stream.
  */
 template <typename tsne_input, typename value_idx, typename value_t>

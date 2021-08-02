@@ -62,28 +62,21 @@ class SqrtTest : public ::testing::TestWithParam<SqrtInputs<T>> {
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     int len = params.len;
-    raft::allocate(in1, len);
-    raft::allocate(out_ref, len);
-    raft::allocate(out, len);
-    r.uniform(in1, len, T(1.0), T(2.0), stream);
+    in1     = std::make_unique<rmm::device_uvector<T>>(len, stream);
+    out_ref = std::make_unique<rmm::device_uvector<T>>(len, stream);
+    out     = std::make_unique<rmm::device_uvector<T>>(len, stream);
+    r.uniform(in1->data(), len, T(1.0), T(2.0), stream);
 
-    naiveSqrtElem(out_ref, in1, len);
+    naiveSqrtElem(out_ref->data(), in1->data(), len);
 
-    sqrt(out, in1, len, stream);
-    sqrt(in1, in1, len, stream);
+    sqrt(out->data(), in1->data(), len, stream);
+    sqrt(in1->data(), in1->data(), len, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
-  }
-
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(in1));
-    CUDA_CHECK(cudaFree(out_ref));
-    CUDA_CHECK(cudaFree(out));
   }
 
  protected:
   SqrtInputs<T> params;
-  T *in1, *out_ref, *out;
+  std::unique_ptr<rmm::device_uvector<T>> in1, out_ref, out;
   int device_count = 0;
 };
 
@@ -94,21 +87,21 @@ const std::vector<SqrtInputs<double>> inputsd2 = {{0.00000001, 1024 * 1024, 1234
 typedef SqrtTest<float> SqrtTestF;
 TEST_P(SqrtTestF, Result)
 {
-  ASSERT_TRUE(
-    raft::devArrMatch(out_ref, out, params.len, raft::CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(
+    out_ref->data(), out->data(), params.len, raft::CompareApprox<float>(params.tolerance)));
 
-  ASSERT_TRUE(
-    raft::devArrMatch(out_ref, in1, params.len, raft::CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(
+    out_ref->data(), in1->data(), params.len, raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef SqrtTest<double> SqrtTestD;
 TEST_P(SqrtTestD, Result)
 {
-  ASSERT_TRUE(
-    raft::devArrMatch(out_ref, out, params.len, raft::CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(
+    out_ref->data(), out->data(), params.len, raft::CompareApprox<double>(params.tolerance)));
 
-  ASSERT_TRUE(
-    raft::devArrMatch(out_ref, in1, params.len, raft::CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(
+    out_ref->data(), in1->data(), params.len, raft::CompareApprox<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(SqrtTests, SqrtTestF, ::testing::ValuesIn(inputsf2));

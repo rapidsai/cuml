@@ -60,10 +60,10 @@ class SVC : public BlobsFixture<D, D> {
     }
     this->loopOnState(state, [this]() {
       ML::SVM::svcFit(*this->handle,
-                      this->data.X,
+                      this->data.X.data(),
                       this->params.nrows,
                       this->params.ncols,
-                      this->data.y,
+                      this->data.y.data(),
                       this->svm_param,
                       this->kernel,
                       this->model);
@@ -81,6 +81,9 @@ class SVC : public BlobsFixture<D, D> {
 template <typename D>
 std::vector<SvcParams<D>> getInputs()
 {
+  cudaStream_t stream;
+  CUDA_CHECK(cudaStreamCreate(&stream));
+
   struct Triplets {
     int nrows, ncols, nclasses;
   };
@@ -97,7 +100,7 @@ std::vector<SvcParams<D>> getInputs()
 
   // svmParameter{C, cache_size, max_iter, nochange_steps, tol, verbosity})
   p.svm_param = ML::SVM::svmParameter{1, 200, 100, 100, 1e-3, CUML_LEVEL_INFO, 0, ML::SVM::C_SVC};
-  p.model     = ML::SVM::svmModel<D>{0, 0, 0, nullptr, nullptr, nullptr, 0, nullptr};
+  p.model     = ML::SVM::svmModel<D>{0, 0, 0, 0, stream};
 
   std::vector<Triplets> rowcols = {{50000, 2, 2}, {2048, 100000, 2}, {50000, 1000, 2}};
 

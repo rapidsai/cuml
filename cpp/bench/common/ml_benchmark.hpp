@@ -88,11 +88,7 @@ struct CudaEventTimer {
 /** Main fixture to be inherited and used by all other c++ benchmarks in cuml */
 class Fixture : public ::benchmark::Fixture {
  public:
-  Fixture(const std::string& name, std::shared_ptr<raft::mr::device::allocator> _alloc)
-    : ::benchmark::Fixture(), d_alloc(_alloc)
-  {
-    SetName(name.c_str());
-  }
+  Fixture(const std::string& name) : ::benchmark::Fixture() { SetName(name.c_str()); }
   Fixture() = delete;
 
   void SetUp(const ::benchmark::State& state) override
@@ -163,18 +159,19 @@ class Fixture : public ::benchmark::Fixture {
   template <typename T>
   void alloc(T*& ptr, size_t len, bool init = false)
   {
-    auto nBytes = len * sizeof(T);
-    ptr         = (T*)d_alloc->allocate(nBytes, stream);
+    auto nBytes  = len * sizeof(T);
+    auto d_alloc = rmm::mr::get_current_device_resource();
+    ptr          = (T*)d_alloc->allocate(nBytes, stream);
     if (init) { CUDA_CHECK(cudaMemsetAsync(ptr, 0, nBytes, stream)); }
   }
 
   template <typename T>
   void dealloc(T* ptr, size_t len)
   {
+    auto d_alloc = rmm::mr::get_current_device_resource();
     d_alloc->deallocate(ptr, len * sizeof(T), stream);
   }
 
-  std::shared_ptr<raft::mr::device::allocator> d_alloc;
   cudaStream_t stream;
   int l2CacheSize;
   char* scratchBuffer;

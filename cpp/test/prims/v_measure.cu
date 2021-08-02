@@ -65,19 +65,31 @@ class vMeasureTest : public ::testing::TestWithParam<vMeasureParam> {
     // allocating and initializing memory to the GPU
 
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(truthClusterArray, nElements, true);
-    raft::allocate(predClusterArray, nElements, true);
+    rmm::device_uvector<T> truthClusterArray(nElements, stream);
+    rmm::device_uvector<T> predClusterArray(nElements, stream);
+    CUDA_CHECK(
+      cudaMemsetAsync(truthClusterArray.data(), 0, truthClusterArray.size() * sizeof(T), stream));
+    CUDA_CHECK(
+      cudaMemsetAsync(predClusterArray.data(), 0, predClusterArray.size() * sizeof(T), stream));
 
-    raft::update_device(truthClusterArray, &arr1[0], (int)nElements, stream);
-    raft::update_device(predClusterArray, &arr2[0], (int)nElements, stream);
+    raft::update_device(truthClusterArray.data(), &arr1[0], (int)nElements, stream);
+    raft::update_device(predClusterArray.data(), &arr2[0], (int)nElements, stream);
 
     // calculating the golden output
     double truthHomogeity, truthCompleteness;
 
-    truthHomogeity = MLCommon::Metrics::homogeneity_score(
-      truthClusterArray, predClusterArray, nElements, lowerLabelRange, upperLabelRange, stream);
-    truthCompleteness = MLCommon::Metrics::homogeneity_score(
-      predClusterArray, truthClusterArray, nElements, lowerLabelRange, upperLabelRange, stream);
+    truthHomogeity    = MLCommon::Metrics::homogeneity_score(truthClusterArray.data(),
+                                                          predClusterArray.data(),
+                                                          nElements,
+                                                          lowerLabelRange,
+                                                          upperLabelRange,
+                                                          stream);
+    truthCompleteness = MLCommon::Metrics::homogeneity_score(predClusterArray.data(),
+                                                             truthClusterArray.data(),
+                                                             nElements,
+                                                             lowerLabelRange,
+                                                             upperLabelRange,
+                                                             stream);
 
     if (truthCompleteness + truthHomogeity == 0.0)
       truthVMeasure = 0.0;
@@ -85,8 +97,8 @@ class vMeasureTest : public ::testing::TestWithParam<vMeasureParam> {
       truthVMeasure = ((1 + params.beta) * truthHomogeity * truthCompleteness /
                        (params.beta * truthHomogeity + truthCompleteness));
     // calling the v_measure CUDA implementation
-    computedVMeasure = MLCommon::Metrics::v_measure(truthClusterArray,
-                                                    predClusterArray,
+    computedVMeasure = MLCommon::Metrics::v_measure(truthClusterArray.data(),
+                                                    predClusterArray.data(),
                                                     nElements,
                                                     lowerLabelRange,
                                                     upperLabelRange,
@@ -95,18 +107,11 @@ class vMeasureTest : public ::testing::TestWithParam<vMeasureParam> {
   }
 
   // the destructor
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(truthClusterArray));
-    CUDA_CHECK(cudaFree(predClusterArray));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
+  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
   // declaring the data values
   vMeasureParam params;
   T lowerLabelRange, upperLabelRange;
-  T* truthClusterArray    = nullptr;
-  T* predClusterArray     = nullptr;
   int nElements           = 0;
   double truthVMeasure    = 0;
   double computedVMeasure = 0;

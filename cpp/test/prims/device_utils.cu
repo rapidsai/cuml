@@ -17,6 +17,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <common/device_utils.cuh>
+#include <rmm/device_uvector.hpp>
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -88,7 +89,7 @@ class BatchedBlockReduceTest : public ::testing::TestWithParam<BatchedBlockReduc
         ref[i] += j * NThreads + i;
       }
     }
-    raft::update_device(refOut, ref, NThreads, stream);
+    raft::update_device(refOut->data(), ref, NThreads, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     delete[] ref;
   }

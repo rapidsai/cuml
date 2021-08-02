@@ -234,7 +234,6 @@ class KNNTestHelper {
   Matrix::PartDescriptor* query_desc;
   std::vector<std::vector<T*>> y;
 
-  std::shared_ptr<raft::mr::device::allocator> allocator;
   cudaStream_t stream;
 
  private:

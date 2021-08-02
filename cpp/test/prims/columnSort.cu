@@ -112,7 +112,7 @@ class ColumnSort : public ::testing::TestWithParam<columnSort<T>> {
                         params.n_row,
                         params.n_col,
                         needWorkspace,
-                        workspacePtr,
+                        workspacePtr->data(),
                         workspaceSize,
                         stream,
                         keySorted->data());

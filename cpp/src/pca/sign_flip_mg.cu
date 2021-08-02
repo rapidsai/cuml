@@ -19,8 +19,10 @@
 #include <cuml/decomposition/sign_flip_mg.hpp>
 #include <raft/comms/comms.hpp>
 #include <raft/cuda_utils.cuh>
+#include <raft/handle.hpp>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
+#include <rmm/exec_policy.hpp>
 
 using namespace MLCommon;
 
@@ -37,7 +39,7 @@ void findMaxAbsOfColumns(
   auto m        = n_rows;
   auto n        = n_cols;
 
-  auto execution_policy = handle.get_thrust_policy();
+  auto execution_policy = rmm::exec_policy(stream);
 
   if (row_major) {
     thrust::for_each(execution_policy, counting, counting + n_rows, [=] __device__(int idx) {
@@ -83,17 +85,16 @@ void flip(T* input, int n_rows, int n_cols, T* max_vals, cudaStream_t stream)
   auto counting = thrust::make_counting_iterator(0);
   auto m        = n_rows;
 
-  thrust::for_each(
-    handle.get_thrust_policy(), counting, counting + n_cols, [=] __device__(int idx) {
-      int d_i = idx * m;
-      int end = d_i + m;
+  thrust::for_each(rmm::exec_policy(stream), counting, counting + n_cols, [=] __device__(int idx) {
+    int d_i = idx * m;
+    int end = d_i + m;
 
-      if (max_vals[idx] < 0.0) {
-        for (int i = d_i; i < end; i++) {
-          input[i] = -input[i];
-        }
+    if (max_vals[idx] < 0.0) {
+      for (int i = d_i; i < end; i++) {
+        input[i] = -input[i];
       }
-    });
+    }
+  });
 }
 
 /**

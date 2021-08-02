@@ -60,10 +60,10 @@ class SVR : public RegressionFixture<D> {
     }
     this->loopOnState(state, [this]() {
       ML::SVM::svrFit(*this->handle,
-                      this->data.X,
+                      this->data.X.data(),
                       this->params.nrows,
                       this->params.ncols,
-                      this->data.y,
+                      this->data.y.data(),
                       this->svm_param,
                       this->kernel,
                       this->model);
@@ -81,6 +81,9 @@ class SVR : public RegressionFixture<D> {
 template <typename D>
 std::vector<SvrParams<D>> getInputs()
 {
+  cudaStream_t stream;
+  CUDA_CHECK(cudaStreamCreate(&stream));
+
   struct Triplets {
     int nrows, ncols, n_informative;
   };
@@ -100,7 +103,7 @@ std::vector<SvrParams<D>> getInputs()
   //              epsilon, svmType})
   p.svm_param =
     ML::SVM::svmParameter{1, 200, 200, 100, 1e-3, CUML_LEVEL_INFO, 0.1, ML::SVM::EPSILON_SVR};
-  p.model = ML::SVM::svmModel<D>{0, 0, 0, nullptr, nullptr, nullptr, 0, nullptr};
+  p.model = ML::SVM::svmModel<D>{0, 0, 0, 0, stream};
 
   std::vector<Triplets> rowcols = {{50000, 2, 2}, {1024, 10000, 10}, {3000, 200, 200}};
 

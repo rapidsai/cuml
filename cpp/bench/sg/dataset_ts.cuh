@@ -37,8 +37,10 @@ struct TimeSeriesParams {
  */
 template <typename DataT>
 struct TimeSeriesDataset {
+  TimeSeriesDataset() : X(0, rmm::cuda_stream_default) {}
+
   /** input data */
-  rmm::device_uvector<float> X;
+  rmm::device_uvector<DataT> X;
 
   /** allocate space needed for the dataset */
   void allocate(const raft::handle_t& handle, const TimeSeriesParams& p)
@@ -53,7 +55,7 @@ struct TimeSeriesDataset {
               DataT sigma = 1)
   {
     raft::random::Rng gpu_gen(p.seed, raft::random::GenPhilox);
-    gpu_gen.normal(X, p.batch_size * p.n_obs, mu, sigma, handle.get_stream());
+    gpu_gen.normal(X.data(), p.batch_size * p.n_obs, mu, sigma, handle.get_stream());
   }
 };
 

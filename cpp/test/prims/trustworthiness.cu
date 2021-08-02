@@ -313,12 +313,12 @@ class TrustworthinessScoreTest : public ::testing::Test {
     rmm::device_uvector<float> d_X(X.size(), stream);
     rmm::device_uvector<float> d_X_embedded(X_embedded.size(), stream);
 
-    raft::update_device(d_X, X.data(), X.size(), stream);
-    raft::update_device(d_X_embedded, X_embedded.data(), X_embedded.size(), stream);
+    raft::update_device(d_X.data(), X.data(), X.size(), stream);
+    raft::update_device(d_X_embedded.data(), X_embedded.data(), X_embedded.size(), stream);
 
     // euclidean test
     score = trustworthiness_score<float, raft::distance::DistanceType::L2SqrtUnexpanded>(
-      handle, d_X, d_X_embedded, 50, 30, 8, 5);
+      handle, d_X.data(), d_X_embedded.data(), 50, 30, 8, 5);
   }
 
   void SetUp() override { basicTest(); }

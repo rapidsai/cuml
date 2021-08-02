@@ -15,7 +15,6 @@
  */
 
 #include <common/ml_benchmark.hpp>
-#include <raft/mr/device/allocator.hpp>
 #include <random/make_blobs.cuh>
 
 namespace MLCommon {
@@ -29,36 +28,23 @@ struct Params {
 
 template <typename T>
 struct MakeBlobs : public Fixture {
-  MakeBlobs(const std::string& name, const Params& p)
-    : Fixture(
-        name,
-        std::shared_ptr<raft::mr::device::allocator>(new raft::mr::device::default_allocator)),
-      params(p)
-  {
-  }
+  MakeBlobs(const std::string& name, const Params& p) : Fixture(name), params(p) {}
 
  protected:
   void allocateBuffers(const ::benchmark::State& state) override
   {
-    alloc(data, params.rows * params.cols);
-    alloc(labels, params.rows);
-  }
-
-  void deallocateBuffers(const ::benchmark::State& state) override
-  {
-    dealloc(data, params.rows * params.cols);
-    dealloc(labels, params.rows);
+    data   = std::make_unique<rmm::device_uvector<T>>(params.rows * params.cols, stream);
+    labels = std::make_unique<rmm::device_uvector<int>>(params.rows, stream);
   }
 
   void runBenchmark(::benchmark::State& state) override
   {
     loopOnState(state, [this]() {
-      MLCommon::Random::make_blobs(data,
-                                   labels,
+      MLCommon::Random::make_blobs(data->data(),
+                                   labels->data(),
                                    params.rows,
                                    params.cols,
                                    params.clusters,
-                                   this->d_alloc,
                                    this->stream,
                                    params.row_major);
     });
@@ -66,8 +52,8 @@ struct MakeBlobs : public Fixture {
 
  private:
   Params params;
-  T* data;
-  int* labels;
+  std::unique_ptr<rmm::device_uvector<T>> data;
+  std::unique_ptr<rmm::device_uvector<int>> labels;
 };  // struct MakeBlobs
 
 static std::vector<Params> getInputs()

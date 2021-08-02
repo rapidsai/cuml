@@ -40,7 +40,12 @@ template <typename DataT>
 class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
  public:
   ArimaLoglikelihood(const std::string& name, const ArimaParams& p)
-    : TsFixtureRandom<DataT>(name, p.data), order(p.order)
+    : TsFixtureRandom<DataT>(name, p.data),
+      order(p.order),
+      param(0, rmm::cuda_stream_default),
+      loglike(0, rmm::cuda_stream_default),
+      residual(0, rmm::cuda_stream_default),
+      temp_mem(0, rmm::cuda_stream_default)
   {
   }
 
@@ -56,9 +61,9 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
     // Generate random parameters
     int N = order.complexity();
     raft::random::Rng gpu_gen(this->params.seed, raft::random::GenPhilox);
-    gpu_gen.uniform(param, N * this->params.batch_size, -1.0, 1.0, stream);
+    gpu_gen.uniform(param.data(), N * this->params.batch_size, -1.0, 1.0, stream);
     // Set sigma2 parameters to 1.0
-    DataT* x = param;  // copy the object attribute for thrust
+    DataT* x = param.data();  // copy the object attribute for thrust
     thrust::for_each(thrust::cuda::par.on(stream),
                      counting,
                      counting + this->params.batch_size,
@@ -68,18 +73,19 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
 
     // Benchmark loop
     this->loopOnState(state, [this]() {
-      ARIMAMemory<double> arima_mem(order, this->params.batch_size, this->params.n_obs, temp_mem);
+      ARIMAMemory<double> arima_mem(
+        order, this->params.batch_size, this->params.n_obs, temp_mem.data());
 
       // Evaluate log-likelihood
       batched_loglike(*this->handle,
                       arima_mem,
-                      this->data.X,
+                      this->data.X.data(),
                       this->params.batch_size,
                       this->params.n_obs,
                       order,
-                      param,
-                      loglike,
-                      residual,
+                      param.data(),
+                      loglike.data(),
+                      residual.data(),
                       true,
                       false);
     });

@@ -99,7 +99,7 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs> {
     d_out_act = std::make_unique<rmm::device_uvector<MatrixT>>(map_length * ncols, stream);
 
     // launch gather on the host and copy the results to device
-    naiveGather(h_in.data(), ncols, nrows, h_map, map_length, h_out);
+    naiveGather(h_in.data(), ncols, nrows, h_map.data(), map_length, h_out.data());
     raft::update_device(d_out_exp->data(), h_out.data(), map_length * ncols, stream);
 
     // launch device version of the kernel

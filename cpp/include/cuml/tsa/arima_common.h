@@ -58,31 +58,59 @@ struct ARIMAOrder {
  */
 template <typename DataT>
 struct ARIMAParams {
-  rmm::device_uvector<DataT> mu;
-  rmm::device_uvector<DataT> ar;
-  rmm::device_uvector<DataT> ma;
-  rmm::device_uvector<DataT> sar;
-  rmm::device_uvector<DataT> sma;
-  rmm::device_uvector<DataT> sigma2;
+  DataT *mu, *ar, *ma, *sar, *sma, *sigma2;
+
+  ARIMAParams() : mu(nullptr), ar(nullptr), ma(nullptr), sar(nullptr), sma(nullptr), sigma2(nullptr)
+  {
+  }
+
+  ARIMAParams(DataT* mu_, DataT* ar_, DataT* ma_, DataT* sar_, DataT* sma_, DataT* sigma2_)
+    : mu(mu_), ar(ar_), ma(ma_), sar(sar_), sma(sma_), sigma2(sigma2_)
+  {
+  }
+
+  ARIMAParams(const ARIMAParams& obj)
+  {
+    mu     = obj.mu;
+    ar     = obj.ar;
+    ma     = obj.ma;
+    sar    = obj.sar;
+    sma    = obj.sma;
+    sigma2 = obj.sigma2;
+  }
 
   /**
    * Allocate all the parameter device arrays
    *
-   * @tparam      AllocatorT Type of allocator used
    * @param[in]   order      ARIMA order
    * @param[in]   batch_size Batch size
    * @param[in]   stream     CUDA stream
    * @param[in]   tr         Whether these are the transformed parameters
    */
-  template <typename AllocatorT>
   void allocate(const ARIMAOrder& order, int batch_size, cudaStream_t stream, bool tr = false)
   {
-    if (order.k && !tr) mu.resize(batch_size, stream);
-    if (order.p) ar.resize(order.p * batch_size, stream);
-    if (order.q) ma.resize(order.q * batch_size, stream);
-    if (order.P) sar.resize(order.P * batch_size, stream);
-    if (order.Q) sma.resize(order.Q * batch_size, stream);
-    sigma2.resize(batch_size, stream);
+    if (order.k && !tr) {
+      d_mu = std::make_unique<rmm::device_uvector<DataT>>(batch_size, stream);
+      mu   = d_mu->data();
+    }
+    if (order.p) {
+      d_ar = std::make_unique<rmm::device_uvector<DataT>>(order.p * batch_size, stream);
+      ar   = d_ar->data();
+    }
+    if (order.q) {
+      d_ma = std::make_unique<rmm::device_uvector<DataT>>(order.q * batch_size, stream);
+      ma   = d_ma->data();
+    }
+    if (order.P) {
+      d_sar = std::make_unique<rmm::device_uvector<DataT>>(order.P * batch_size, stream);
+      sar   = d_sar->data();
+    }
+    if (order.Q) {
+      d_sma = std::make_unique<rmm::device_uvector<DataT>>(order.Q * batch_size, stream);
+      sma   = d_sma->data();
+    }
+    d_sigma2 = std::make_unique<rmm::device_uvector<DataT>>(batch_size, stream);
+    sigma2   = d_sigma2->data();
   }
 
   /**
@@ -97,12 +125,12 @@ struct ARIMAParams {
   template <typename AllocatorT>
   void deallocate(const ARIMAOrder& order, int batch_size, cudaStream_t stream, bool tr = false)
   {
-    if (order.k && !tr) mu.release();
-    if (order.p) ar.release();
-    if (order.q) ma.release();
-    if (order.P) sar.release();
-    if (order.Q) sma.release();
-    sigma2.release();
+    if (order.k && !tr) d_mu->release();
+    if (order.p) d_ar->release();
+    if (order.q) d_ma->release();
+    if (order.P) d_sar->release();
+    if (order.Q) d_sma->release();
+    d_sigma2->release();
   }
 
   /**
@@ -119,8 +147,7 @@ struct ARIMAParams {
     int N         = order.complexity();
     auto counting = thrust::make_counting_iterator(0);
     // The device lambda can't capture structure members...
-    const DataT *_mu = mu.data(), *_ar = ar.data(), *_ma = ma.data(), *_sar = sar.data(),
-                *_sma = sma.data(), *_sigma2 = sigma2.data();
+    const DataT *_mu = mu, *_ar = ar, *_ma = ma, *_sar = sar, *_sma = sma, *_sigma2 = sigma2;
     thrust::for_each(
       thrust::cuda::par.on(stream), counting, counting + batch_size, [=] __device__(int bid) {
         DataT* param = param_vec + bid * N;
@@ -162,8 +189,7 @@ struct ARIMAParams {
     int N         = order.complexity();
     auto counting = thrust::make_counting_iterator(0);
     // The device lambda can't capture structure members...
-    DataT *_mu = mu.data(), *_ar = ar.data(), *_ma = ma.data(), *_sar = sar.data(),
-          *_sma = sma.data(), *_sigma2 = sigma2.data();
+    DataT *_mu = mu, *_ar = ar, *_ma = ma, *_sar = sar, *_sma = sma, *_sigma2 = sigma2;
     thrust::for_each(
       thrust::cuda::par.on(stream), counting, counting + batch_size, [=] __device__(int bid) {
         const DataT* param = param_vec + bid * N;
@@ -190,6 +216,14 @@ struct ARIMAParams {
         _sigma2[bid] = *param;
       });
   }
+
+ private:
+  std::unique_ptr<rmm::device_uvector<DataT>> d_mu;
+  std::unique_ptr<rmm::device_uvector<DataT>> d_ar;
+  std::unique_ptr<rmm::device_uvector<DataT>> d_ma;
+  std::unique_ptr<rmm::device_uvector<DataT>> d_sar;
+  std::unique_ptr<rmm::device_uvector<DataT>> d_sma;
+  std::unique_ptr<rmm::device_uvector<DataT>> d_sigma2;
 };
 
 /**

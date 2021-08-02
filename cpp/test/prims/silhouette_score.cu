@@ -22,6 +22,7 @@
 #include <metrics/batched/silhouette_score.cuh>
 #include <metrics/silhouette_score.cuh>
 #include <random>
+#include <rmm/device_uvector.hpp>
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -56,20 +57,28 @@ class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam
 
     // allocating and initializing memory to the GPU
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(d_X, nElements, true);
-    raft::allocate(d_labels, nElements, true);
-    raft::allocate(sampleSilScore, nElements);
+    d_X      = std::make_unique<rmm::device_uvector<DataT>>(nElements, stream);
+    d_labels = std::make_unique<rmm::device_uvector<LabelT>>(nElements, stream);
+    CUDA_CHECK(cudaMemsetAsync(d_X->data(), 0, d_X->size() * sizeof(DataT), stream));
+    CUDA_CHECK(cudaMemsetAsync(d_labels->data(), 0, d_labels->size() * sizeof(LabelT), stream));
+    sampleSilScore = std::make_unique<rmm::device_uvector<DataT>>(nElements, stream);
 
-    raft::update_device(d_X, &h_X[0], (int)nElements, stream);
-    raft::update_device(d_labels, &h_labels[0], (int)nElements, stream);
+    raft::update_device(d_X->data(), &h_X[0], (int)nElements, stream);
+    raft::update_device(d_labels->data(), &h_labels[0], (int)nElements, stream);
 
     // finding the distance matrix
 
-    device_buffer<double> d_distanceMatrix(nRows * nRows, stream);
+    rmm::device_uvector<double> d_distanceMatrix(nRows * nRows, stream);
     double* h_distanceMatrix = (double*)malloc(nRows * nRows * sizeof(double*));
 
-    ML::Metrics::pairwise_distance(
-      handle, d_X, d_X, d_distanceMatrix.data(), nRows, nRows, nCols, params.metric);
+    ML::Metrics::pairwise_distance(handle,
+                                   d_X->data(),
+                                   d_X->data(),
+                                   d_distanceMatrix.data(),
+                                   nRows,
+                                   nRows,
+                                   nCols,
+                                   params.metric);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -160,27 +169,36 @@ class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam
     host_silhouette_score();
 
     // calling the silhouette_score CUDA implementation
-    computedSilhouetteScore = MLCommon::Metrics::silhouette_score(
-      handle, d_X, nRows, nCols, d_labels, nLabels, sampleSilScore, stream, params.metric);
+    computedSilhouetteScore = MLCommon::Metrics::silhouette_score(handle,
+                                                                  d_X->data(),
+                                                                  nRows,
+                                                                  nCols,
+                                                                  d_labels->data(),
+                                                                  nLabels,
+                                                                  sampleSilScore->data(),
+                                                                  stream,
+                                                                  params.metric);
 
-    batchedSilhouetteScore = Batched::silhouette_score(
-      handle, d_X, nRows, nCols, d_labels, nLabels, sampleSilScore, chunk, params.metric);
+    batchedSilhouetteScore = Batched::silhouette_score(handle,
+                                                       d_X->data(),
+                                                       nRows,
+                                                       nCols,
+                                                       d_labels->data(),
+                                                       nLabels,
+                                                       sampleSilScore->data(),
+                                                       chunk,
+                                                       params.metric);
   }
 
   // the destructor
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(d_X));
-    CUDA_CHECK(cudaFree(d_labels));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
+  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
   // declaring the data values
   silhouetteScoreParam params;
   int nLabels;
-  DataT* d_X            = nullptr;
-  DataT* sampleSilScore = nullptr;
-  LabelT* d_labels      = nullptr;
+  std::unique_ptr<rmm::device_uvector<DataT>> d_X;
+  std::unique_ptr<rmm::device_uvector<DataT>> sampleSilScore;
+  std::unique_ptr<rmm::device_uvector<LabelT>> d_labels;
   int nRows;
   int nCols;
   int nElements;

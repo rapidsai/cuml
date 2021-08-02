@@ -20,6 +20,7 @@
 #include <iostream>
 #include <metrics/contingencyMatrix.cuh>
 #include <random>
+#include <rmm/device_uvector.hpp>
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -70,8 +71,8 @@ class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixP
     }
 
     CUDA_CHECK(cudaStreamCreate(&stream));
-    dY =  = std::make_unique<rmm::device_uvector<T>>(nElements, stream);
-    dYHat = = std::make_unique<rmm::device_uvector<T>>(nElements, stream);
+    dY    = std::make_unique<rmm::device_uvector<T>>(numElements, stream);
+    dYHat = std::make_unique<rmm::device_uvector<T>>(numElements, stream);
 
     raft::update_device(dYHat->data(), &y_hat[0], numElements, stream);
     raft::update_device(dY->data(), &y[0], numElements, stream);
@@ -86,9 +87,9 @@ class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixP
 
     numUniqueClasses = maxLabel - minLabel + 1;
 
-    dComputedOutput = =
+    dComputedOutput =
       std::make_unique<rmm::device_uvector<int>>(numUniqueClasses * numUniqueClasses, stream);
-    dGoldenOutput = =
+    dGoldenOutput =
       std::make_unique<rmm::device_uvector<int>>(numUniqueClasses * numUniqueClasses, stream);
 
     // generate golden output on CPU
@@ -102,10 +103,10 @@ class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixP
     }
 
     raft::update_device(
-      dGoldenOutput->data(), hGoldenOutput->data(), numUniqueClasses * numUniqueClasses, stream);
+      dGoldenOutput->data(), hGoldenOutput.data(), numUniqueClasses * numUniqueClasses, stream);
 
     workspaceSz = MLCommon::Metrics::getContingencyMatrixWorkspaceSize(
-      numElements, dY, stream, minLabel, maxLabel);
+      numElements, dY->data(), stream, minLabel, maxLabel);
     pWorkspace = std::make_unique<rmm::device_uvector<char>>(workspaceSz, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }

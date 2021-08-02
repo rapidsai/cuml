@@ -142,14 +142,15 @@ class WarpTopKTest : public ::testing::TestWithParam<WarpTopKInputs<T>> {
     raft::random::Rng r(params.seed);
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    arr  = std::unique_ptr<rmm::device_uvector<T>>(params.rows * params.cols, stream);
-    outk = std::unique_ptr<rmm::device_uvector<int>>(params.rows * params.k, stream);
-    outv = std::unique_ptr<rmm::device_uvector<T>>(params.rows * params.k, stream);
-    r.uniform(arr, params.rows * params.cols, T(-1.0), T(1.0), stream);
+    arr  = std::make_unique<rmm::device_uvector<T>>(params.rows * params.cols, stream);
+    outk = std::make_unique<rmm::device_uvector<int>>(params.rows * params.k, stream);
+    outv = std::make_unique<rmm::device_uvector<T>>(params.rows * params.k, stream);
+    r.uniform(arr->data(), params.rows * params.cols, T(-1.0), T(1.0), stream);
 
     static const bool Sort    = false;
     static const bool Greater = true;
-    warpTopK<T, int, Greater, Sort>(outv, outk, arr, params.k, params.rows, params.cols, stream);
+    warpTopK<T, int, Greater, Sort>(
+      outv->data(), outk->data(), arr->data(), params.k, params.rows, params.cols, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
@@ -179,20 +180,35 @@ typedef WarpTopKTest<float> TestD2_2;
 TEST_P(TestD2_0, Result)
 {
   const static bool Greater = true;
-  ASSERT_TRUE((checkResult<float, int, Greater>(
-    arr, outv, outk, params.rows, params.cols, params.k, params.tolerance)));
+  ASSERT_TRUE((checkResult<float, int, Greater>(arr->data(),
+                                                outv->data(),
+                                                outk->data(),
+                                                params.rows,
+                                                params.cols,
+                                                params.k,
+                                                params.tolerance)));
 }
 TEST_P(TestD2_1, Result)
 {
   const static bool Greater = true;
-  ASSERT_TRUE((checkResult<float, int, Greater>(
-    arr, outv, outk, params.rows, params.cols, params.k, params.tolerance)));
+  ASSERT_TRUE((checkResult<float, int, Greater>(arr->data(),
+                                                outv->data(),
+                                                outk->data(),
+                                                params.rows,
+                                                params.cols,
+                                                params.k,
+                                                params.tolerance)));
 }
 TEST_P(TestD2_2, Result)
 {
   const static bool Greater = true;
-  ASSERT_TRUE((checkResult<float, int, Greater>(
-    arr, outv, outk, params.rows, params.cols, params.k, params.tolerance)));
+  ASSERT_TRUE((checkResult<float, int, Greater>(arr->data(),
+                                                outv->data(),
+                                                outk->data(),
+                                                params.rows,
+                                                params.cols,
+                                                params.k,
+                                                params.tolerance)));
 }
 
 // Instantiate

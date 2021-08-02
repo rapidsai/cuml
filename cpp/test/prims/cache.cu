@@ -153,7 +153,7 @@ TEST_F(CacheTest, TestSimple)
   int cache_set[10] = {0, 1, 0, 1, 0, 1, 0, 1, 0, 1};
   EXPECT_TRUE(devArrMatchHost(cache_set, cache_idx_dev->data(), n, raft::Compare<int>()));
   int n_cached = 1;
-  cache.GetCacheIdxPartitioned(keys_de->data(), n, cache_idx_dev->data(), &n_cached, stream);
+  cache.GetCacheIdxPartitioned(keys_dev->data(), n, cache_idx_dev->data(), &n_cached, stream);
   EXPECT_EQ(n_cached, 0);
 }
 

@@ -56,8 +56,8 @@ class klDivergenceTest : public ::testing::TestWithParam<klDivergenceParam> {
     // allocating and initializing memory to the GPU
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    rmm::device_uvector<DataT> d_modelPDF(nElements);
-    rmm::device_uvector<DataT> d_candidatePDF(nElements);
+    rmm::device_uvector<DataT> d_modelPDF(nElements, stream);
+    rmm::device_uvector<DataT> d_candidatePDF(nElements, stream);
     CUDA_CHECK(cudaMemset(d_modelPDF.data(), 0, d_modelPDF.size() * sizeof(DataT)));
     CUDA_CHECK(cudaMemset(d_candidatePDF.data(), 0, d_candidatePDF.size() * sizeof(DataT)));
 

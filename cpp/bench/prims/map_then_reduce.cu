@@ -33,13 +33,7 @@ struct Identity {
 
 template <typename T>
 struct MapThenReduce : public Fixture {
-  MapThenReduce(const std::string& name, const Params& p)
-    : Fixture(
-        name,
-        std::shared_ptr<raft::mr::device::allocator>(new raft::mr::device::default_allocator)),
-      params(p)
-  {
-  }
+  MapThenReduce(const std::string& name, const Params& p) : Fixture(name), params(p) {}
 
  protected:
   void allocateBuffers(const ::benchmark::State& state) override

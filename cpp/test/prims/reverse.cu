@@ -17,7 +17,9 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <matrix/reverse.cuh>
+#include <memory>
 #include <raft/random/rng.cuh>
+#include <rmm/device_uvector.hpp>
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -40,25 +42,32 @@ class ReverseTest : public ::testing::TestWithParam<ReverseInputs<T>> {
     params = ::testing::TestWithParam<ReverseInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int len = params.nrows * params.ncols;
-    raft::allocate(in, len);
-    raft::allocate(out, len);
-    r.uniform(in, len, T(-1.0), T(1.0), stream);
+    in      = std::make_unique<rmm::device_uvector<T>>(len, stream);
+    out     = std::make_unique<rmm::device_uvector<T>>(len, stream);
+    r.uniform(in->data(), len, T(-1.0), T(1.0), stream);
     // applying reverse twice should yield the same output!
     // this will in turn also verify the inplace mode of reverse method
-    reverse(out, in, params.nrows, params.ncols, params.rowMajor, params.alongRows, stream);
-    reverse(out, out, params.nrows, params.ncols, params.rowMajor, params.alongRows, stream);
+    reverse(out->data(),
+            in->data(),
+            params.nrows,
+            params.ncols,
+            params.rowMajor,
+            params.alongRows,
+            stream);
+    reverse(out->data(),
+            out->data(),
+            params.nrows,
+            params.ncols,
+            params.rowMajor,
+            params.alongRows,
+            stream);
   }
 
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(in));
-    CUDA_CHECK(cudaFree(out));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
+  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
  protected:
   ReverseInputs<T> params;
-  T *in, *out;
+  std::unique_ptr<rmm::device_uvector<T>> in, out;
   cudaStream_t stream;
 };
 
@@ -74,8 +83,11 @@ const std::vector<ReverseInputs<float>> inputsf = {{0.000001f, 32, 32, false, fa
 typedef ReverseTest<float> ReverseTestF;
 TEST_P(ReverseTestF, Result)
 {
-  ASSERT_TRUE(
-    devArrMatch(in, out, params.nrows, params.ncols, raft::CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(in->data(),
+                          out->data(),
+                          params.nrows,
+                          params.ncols,
+                          raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ReverseTests, ReverseTestF, ::testing::ValuesIn(inputsf));
 
@@ -91,8 +103,11 @@ const std::vector<ReverseInputs<double>> inputsd = {{0.000001, 32, 32, false, fa
                                                     {0.000001, 41, 41, true, true, 1234ULL}};
 TEST_P(ReverseTestD, Result)
 {
-  ASSERT_TRUE(devArrMatch(
-    in, out, params.nrows, params.ncols, raft::CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(in->data(),
+                          out->data(),
+                          params.nrows,
+                          params.ncols,
+                          raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(ReverseTests, ReverseTestD, ::testing::ValuesIn(inputsd));
 

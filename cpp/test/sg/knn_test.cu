@@ -20,6 +20,7 @@
 #include <iostream>
 #include <raft/cuda_utils.cuh>
 #include <raft/random/rng.cuh>
+#include <rmm/device_uvector.hpp>
 #include <vector>
 
 #include <cuml/datasets/make_blobs.hpp>
@@ -27,7 +28,6 @@
 
 namespace ML {
 
-using namespace MLCommon;
 using namespace raft::random;
 using namespace std;
 
@@ -219,10 +219,8 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
                     true,
                     true);
 
-    rmm::device_uvector<float> index_labels_float(
-      handle.get_device_allocator(), stream, params.n_rows * params.n_parts);
-    rmm::device_uvector<float> query_labels_float(
-      handle.get_device_allocator(), stream, params.n_query_row);
+    rmm::device_uvector<float> index_labels_float(params.n_rows * params.n_parts, stream);
+    rmm::device_uvector<float> query_labels_float(params.n_query_row, stream);
     to_float<<<raft::ceildiv((int)index_labels_float.size(), 32), 32, 0, stream>>>(
       index_labels_float.data(), index_labels, index_labels_float.size());
     to_float<<<raft::ceildiv(params.n_query_row, 32), 32, 0, stream>>>(
@@ -230,8 +228,7 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
     CUDA_CHECK(cudaStreamSynchronize(stream));
     CUDA_CHECK(cudaPeekAtLastError());
 
-    rmm::device_uvector<float> actual_labels_float(
-      handle.get_device_allocator(), stream, params.n_query_row);
+    rmm::device_uvector<float> actual_labels_float(params.n_query_row, stream);
 
     vector<float*> full_labels(1);
     full_labels[0] = index_labels_float.data();
@@ -285,8 +282,7 @@ class KNNTest : public ::testing::TestWithParam<KNNInputs> {
   {
     cudaStream_t stream = handle.get_stream();
 
-    rmm::device_uvector<T> rand_centers(
-      handle.get_device_allocator(), stream, params.n_centers * params.n_cols);
+    rmm::device_uvector<T> rand_centers(params.n_centers * params.n_cols, stream);
     Rng r(0, GeneratorType::GenPhilox);
     r.uniform(rand_centers.data(), params.n_centers * params.n_cols, -10.0f, 10.0f, stream);
 

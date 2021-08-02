@@ -34,7 +34,6 @@
 
 namespace ML {
 
-using namespace MLCommon;
 using namespace Datasets;
 using namespace std;
 
@@ -85,8 +84,7 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
     raft::hierarchy::linkage_output<IdxT, T> out_arrs;
     out_arrs.labels = labels->data();
 
-    rmm::device_uvector<IdxT> out_children(
-      handle.get_device_allocator(), handle.get_stream(), (params.n_row - 1) * 2);
+    rmm::device_uvector<IdxT> out_children((params.n_row - 1) * 2, handle.get_stream());
     out_arrs.children = out_children.data();
 
     if (params.use_knn) {

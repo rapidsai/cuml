@@ -32,13 +32,7 @@ struct FLNParams {
 
 template <typename T>
 struct FusedL2NN : public Fixture {
-  FusedL2NN(const std::string& name, const FLNParams& p)
-    : Fixture(
-        name,
-        std::shared_ptr<raft::mr::device::allocator>(new raft::mr::device::default_allocator)),
-      params(p)
-  {
-  }
+  FusedL2NN(const std::string& name, const FLNParams& p) : Fixture(name), params(p) {}
 
  protected:
   void allocateBuffers(const ::benchmark::State& state) override

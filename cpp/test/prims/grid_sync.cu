@@ -17,7 +17,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <common/grid_sync.cuh>
-#include <raft/cuda_utils.cuh>
+#include <rmm/device_uvector.hpp>
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -52,10 +52,10 @@ struct GridSyncInputs {
   SyncType type;
 };
 
-void gridSyncTest(int* out, int* out1, const GridSyncInputs& params)
+void gridSyncTest(int* out, int* out1, const GridSyncInputs& params, cudaStream_t stream)
 {
   size_t workspaceSize = GridSync::computeWorkspaceSize(params.gridDim, params.type, true);
-  rmm::device_uvector<char> workspace(workspaceSize);
+  rmm::device_uvector<char> workspace(workspaceSize, stream);
   CUDA_CHECK(cudaMemset(workspace.data(), 0, workspace.size()));
   gridSyncTestKernel<<<params.gridDim, params.blockDim>>>(workspace.data(), out, params.type);
   CUDA_CHECK(cudaPeekAtLastError());
@@ -74,9 +74,13 @@ class GridSyncTest : public ::testing::TestWithParam<GridSyncInputs> {
   {
     params     = ::testing::TestWithParam<GridSyncInputs>::GetParam();
     size_t len = computeOutLen();
-    out        = std::make_unique<rmm::device_uvector<int>>(len, stream);
-    out1       = std::make_unique<rmm::device_uvector<int>>(len, stream);
-    gridSyncTest(out->data(), out1->data(), params);
+
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
+
+    out  = std::make_unique<rmm::device_uvector<int>>(len, stream);
+    out1 = std::make_unique<rmm::device_uvector<int>>(len, stream);
+    gridSyncTest(out->data(), out1->data(), params, stream);
   }
 
   size_t computeOutLen() const

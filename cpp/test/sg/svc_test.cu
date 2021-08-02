@@ -318,6 +318,10 @@ class GetResultsTest : public ::testing::Test {
 
   void TestResults()
   {
+    dual_coefs = std::make_unique<rmm::device_uvector<math_t>>(0, stream);
+    x_support  = std::make_unique<rmm::device_uvector<math_t>>(0, stream);
+    idx        = std::make_unique<rmm::device_uvector<int>>(0, stream);
+
     rmm::device_uvector<math_t> x_dev(n_rows * n_cols, stream);
     raft::update_device(x_dev.data(), x_host, n_rows * n_cols, stream);
     rmm::device_uvector<math_t> f_dev(n_rows, stream);
@@ -329,33 +333,27 @@ class GetResultsTest : public ::testing::Test {
     rmm::device_uvector<math_t> C_dev(n_rows, stream);
     init_C(C, C_dev.data(), n_rows, stream);
     Results<math_t> res(handle, x_dev.data(), y_dev.data(), n_rows, n_cols, C_dev.data(), C_SVC);
-    res.Get(alpha_dev.data(), f_dev.data(), &dual_coefs, &n_coefs, &idx, &x_support, &b);
+    res.Get(alpha_dev.data(), f_dev.data(), *dual_coefs, &n_coefs, *idx, *x_support, &b);
 
     ASSERT_EQ(n_coefs, 7);
 
     math_t dual_coefs_exp[] = {-0.1, -0.2, -1.5, 0.2, 0.4, 1.5, 1.5};
-    EXPECT_TRUE(
-      devArrMatchHost(dual_coefs_exp, dual_coefs, n_coefs, raft::CompareApprox<math_t>(1e-6f)));
+    EXPECT_TRUE(devArrMatchHost(
+      dual_coefs_exp, dual_coefs->data(), n_coefs, raft::CompareApprox<math_t>(1e-6f)));
 
     int idx_exp[] = {2, 3, 4, 6, 7, 8, 9};
-    EXPECT_TRUE(devArrMatchHost(idx_exp, idx, n_coefs, raft::Compare<int>()));
+    EXPECT_TRUE(devArrMatchHost(idx_exp, idx->data(), n_coefs, raft::Compare<int>()));
 
     math_t x_support_exp[] = {3, 4, 5, 7, 8, 9, 10, 13, 14, 15, 17, 18, 19, 20};
     EXPECT_TRUE(devArrMatchHost(
-      x_support_exp, x_support, n_coefs * n_cols, raft::CompareApprox<math_t>(1e-6f)));
+      x_support_exp, x_support->data(), n_coefs * n_cols, raft::CompareApprox<math_t>(1e-6f)));
 
     EXPECT_FLOAT_EQ(b, -6.25f);
-
-    if (n_coefs > 0) {
-      allocator->deallocate(dual_coefs, n_coefs * sizeof(math_t), stream);
-      allocator->deallocate(idx, n_coefs * sizeof(int), stream);
-      allocator->deallocate(x_support, n_coefs * n_cols * sizeof(math_t), stream);
-    }
 
     // Modify the test by setting all SVs bound, then b is calculated differently
     math_t alpha_host2[10] = {0, 0, 1.5, 1.5, 1.5, 0, 1.5, 1.5, 1.5, 1.5};
     raft::update_device(alpha_dev.data(), alpha_host2, n_rows, stream);
-    res.Get(alpha_dev.data(), f_dev.data(), &dual_coefs, &n_coefs, &idx, &x_support, &b);
+    res.Get(alpha_dev.data(), f_dev.data(), *dual_coefs, &n_coefs, *idx, *x_support, &b);
     EXPECT_FLOAT_EQ(b, -5.5f);
   }
   int n_rows            = 10;
@@ -367,10 +365,9 @@ class GetResultsTest : public ::testing::Test {
   //                      l  l  l/u  l/u    u  u  l/u  l/u  l    l
   math_t C = 1.5;
 
-  math_t* dual_coefs;
+  std::unique_ptr<rmm::device_uvector<math_t>> dual_coefs, x_support;
+  std::unique_ptr<rmm::device_uvector<int>> idx;
   int n_coefs;
-  int* idx;
-  math_t* x_support;
   math_t b;
 
   raft::handle_t handle;
@@ -597,7 +594,7 @@ struct svmTol {
 };
 
 template <typename math_t>
-void checkResults(svmModel<math_t> model,
+void checkResults(svmModel<math_t>& model,
                   smoOutput<math_t> expected,
                   cudaStream_t stream,
                   svmTol<math_t> tol = svmTol<math_t>{0.001, 0.99999, -1})
@@ -616,10 +613,10 @@ void checkResults(svmModel<math_t> model,
   EXPECT_LE(abs(model.n_support - expected.n_support), tol.n_sv);
   if (dcoef_exp) {
     EXPECT_TRUE(devArrMatchHost(
-      dcoef_exp, model.dual_coefs, model.n_support, raft::CompareApprox<math_t>(1e-3f)));
+      dcoef_exp, model.get_dual_coefs(), model.n_support, raft::CompareApprox<math_t>(1e-3f)));
   }
   math_t* dual_coefs_host = new math_t[model.n_support];
-  raft::update_host(dual_coefs_host, model.dual_coefs, model.n_support, stream);
+  raft::update_host(dual_coefs_host, model.get_dual_coefs(), model.n_support, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   math_t ay = 0;
   for (int i = 0; i < model.n_support; i++) {
@@ -630,17 +627,18 @@ void checkResults(svmModel<math_t> model,
 
   if (x_support_exp) {
     EXPECT_TRUE(devArrMatchHost(x_support_exp,
-                                model.x_support,
+                                model.get_x_support(),
                                 model.n_support * model.n_cols,
                                 raft::CompareApprox<math_t>(1e-6f)));
   }
 
   if (idx_exp) {
-    EXPECT_TRUE(devArrMatchHost(idx_exp, model.support_idx, model.n_support, raft::Compare<int>()));
+    EXPECT_TRUE(
+      devArrMatchHost(idx_exp, model.get_support_idx(), model.n_support, raft::Compare<int>()));
   }
 
   math_t* x_support_host = new math_t[model.n_support * model.n_cols];
-  raft::update_host(x_support_host, model.x_support, model.n_support * model.n_cols, stream);
+  raft::update_host(x_support_host, model.get_x_support(), model.n_support * model.n_cols, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   if (w_exp) {
@@ -910,16 +908,16 @@ TYPED_TEST(SmoSolverTest, SmoSolveTest)
     GramMatrixBase<TypeParam>* kernel =
       KernelFactory<TypeParam>::create(p.kernel_params, this->handle.get_cublas_handle());
     SmoSolver<TypeParam> smo(this->handle, param, kernel);
-    svmModel<TypeParam> model{0, this->n_cols, 0, nullptr, nullptr, nullptr, 0, nullptr};
+    svmModel<TypeParam> model{0, this->n_cols, 0, 0, this->handle.get_stream()};
     smo.Solve(this->x_dev,
               this->n_rows,
               this->n_cols,
               this->y_dev,
               nullptr,
-              &model.dual_coefs,
+              model.dual_coefs,
               &model.n_support,
-              &model.x_support,
-              &model.support_idx,
+              model.x_support,
+              model.support_idx,
               &model.b,
               p.max_iter,
               p.max_inner_iter);
@@ -1292,12 +1290,12 @@ class SvrTest : public ::testing::Test {
     raft::update_device(x_dev, x_host, n_rows * n_cols, stream);
     raft::update_device(y_dev, y_host, n_rows, stream);
 
-    model.n_support     = 0;
-    model.dual_coefs    = nullptr;
-    model.x_support     = nullptr;
-    model.support_idx   = nullptr;
-    model.n_classes     = 0;
-    model.unique_labels = nullptr;
+    model.n_support = 0;
+    model.dual_coefs.resize(0, stream);
+    model.x_support.resize(0, stream);
+    model.support_idx.resize(0, stream);
+    model.n_classes = 0;
+    model.unique_labels.resize(0, stream);
   }
 
   void TearDown() override
@@ -1359,25 +1357,20 @@ class SvrTest : public ::testing::Test {
     raft::update_device(alpha, alpha_host, n_train, stream);
     raft::update_device(f, f_exp, n_train, stream);
 
-    res.Get(alpha,
-            f,
-            &model.dual_coefs,
-            &model.n_support,
-            &model.support_idx,
-            &model.x_support,
-            &model.b);
+    res.Get(
+      alpha, f, model.dual_coefs, &model.n_support, model.support_idx, model.x_support, &model.b);
     ASSERT_EQ(model.n_support, 5);
     math_t dc_exp[] = {0.1, 0.3, -0.4, 0.9, -0.9};
     EXPECT_TRUE(devArrMatchHost(
-      dc_exp, model.dual_coefs, model.n_support, raft::CompareApprox<math_t>(1.0e-6)));
+      dc_exp, model.get_dual_coefs(), model.n_support, raft::CompareApprox<math_t>(1.0e-6)));
 
     math_t x_exp[] = {1, 2, 3, 5, 6};
     EXPECT_TRUE(devArrMatchHost(
-      x_exp, model.x_support, model.n_support * n_cols, raft::CompareApprox<math_t>(1.0e-6)));
+      x_exp, model.get_x_support(), model.n_support * n_cols, raft::CompareApprox<math_t>(1.0e-6)));
 
     int idx_exp[] = {0, 1, 2, 4, 5};
     EXPECT_TRUE(devArrMatchHost(
-      idx_exp, model.support_idx, model.n_support, raft::CompareApprox<math_t>(1.0e-6)));
+      idx_exp, model.get_support_idx(), model.n_support, raft::CompareApprox<math_t>(1.0e-6)));
   }
 
   void TestSvrFitPredict()

@@ -74,6 +74,7 @@ struct RegressionParams {
  */
 template <typename D, typename L, typename IdxT = int>
 struct Dataset {
+  Dataset() : X(0, rmm::cuda_stream_default), y(0, rmm::cuda_stream_default) {}
   /** input data */
   rmm::device_uvector<D> X;
   /** labels or output associated with each row of input data */
@@ -113,14 +114,14 @@ struct Dataset {
     IdxT* tmpY;
     rmm::device_uvector<IdxT> tmpY_vec(0, stream);
     if (std::is_same<L, IdxT>::value) {
-      tmpY = y.data();
+      tmpY = (IdxT*)y.data();
     } else {
       tmpY_vec.resize(p.nrows, stream);
       tmpY = tmpY_vec.data();
     }
 
     ML::Datasets::make_blobs(handle,
-                             X,
+                             X.data(),
                              tmpY,
                              p.nrows,
                              p.ncols,
@@ -135,7 +136,7 @@ struct Dataset {
                              b.seed);
     if (!std::is_same<L, IdxT>::value) {
       raft::linalg::unaryOp(
-        y, tmpY, p.nrows, [] __device__(IdxT z) { return (L)z; }, stream);
+        y.data(), tmpY, p.nrows, [] __device__(IdxT z) { return (L)z; }, stream);
     }
   }
 
@@ -151,7 +152,7 @@ struct Dataset {
     auto cublas_handle      = handle_impl.get_cublas_handle();
     auto cusolver_handle    = handle_impl.get_cusolver_dn_handle();
 
-    D* tmpX = X;
+    D* tmpX = X.data();
     rmm::device_uvector<D> tmpX_vec(0, stream);
     if (!p.rowMajor) {
       tmpX_vec.resize(p.nrows * p.ncols, stream);
@@ -159,7 +160,7 @@ struct Dataset {
     }
     MLCommon::Random::make_regression(handle,
                                       tmpX,
-                                      y,
+                                      y.data(),
                                       p.nrows,
                                       p.ncols,
                                       r.n_informative,
@@ -172,7 +173,7 @@ struct Dataset {
                                       D(r.noise),
                                       r.shuffle,
                                       r.seed);
-    if (!p.rowMajor) { raft::linalg::transpose(handle, tmpX, X, p.nrows, p.ncols, stream); }
+    if (!p.rowMajor) { raft::linalg::transpose(handle, tmpX, X.data(), p.nrows, p.ncols, stream); }
   }
 
   /**

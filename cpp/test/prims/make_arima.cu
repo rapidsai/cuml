@@ -52,10 +52,10 @@ class MakeArimaTest : public ::testing::TestWithParam<MakeArimaInputs> {
 
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    out = std::make_unique<rmm::device_uvector<T>>(params.batch_size * params.n_obs, stream);
+    data = std::make_unique<rmm::device_uvector<T>>(params.batch_size * params.n_obs, stream);
 
     // Create the time series dataset
-    make_arima(data,
+    make_arima(data->data(),
                params.batch_size,
                params.n_obs,
                order,
@@ -67,11 +67,7 @@ class MakeArimaTest : public ::testing::TestWithParam<MakeArimaInputs> {
                params.gtype);
   }
 
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
+  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
  protected:
   MakeArimaInputs params;

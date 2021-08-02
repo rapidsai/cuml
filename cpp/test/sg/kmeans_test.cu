@@ -19,6 +19,7 @@
 #include <test_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
+#include <rmm/device_uvector.hpp>
 #include <vector>
 
 #include <thrust/fill.h>
@@ -30,7 +31,6 @@
 
 namespace ML {
 
-using namespace MLCommon;
 using namespace Datasets;
 using namespace Metrics;
 
@@ -92,7 +92,7 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
       d_sample_weight = nullptr;
     }
 
-    raft::copy(d_labels_ref, labels.data(), n_samples, handle.get_stream());
+    raft::copy(d_labels_ref->data(), labels.data(), n_samples, handle.get_stream());
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 

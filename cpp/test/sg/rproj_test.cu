@@ -28,8 +28,6 @@
 
 namespace ML {
 
-using namespace MLCommon;
-
 template <typename T, int N, int M>
 class RPROJTest : public ::testing::Test {
  protected:
@@ -55,7 +53,7 @@ class RPROJTest : public ::testing::Test {
     for (auto& i : h_input) {
       i = dist(rng);
     }
-    raft::allocate(d_input, h_input.size(), stream);
+    raft::allocate(d_input, h_input.size(), h.get_stream());
     raft::update_device(d_input, h_input.data(), h_input.size(), NULL);
     // d_input = transpose(d_input, N, M);
     // From row major to column major (this operation is only useful for non-random datasets)
@@ -76,8 +74,7 @@ class RPROJTest : public ::testing::Test {
     };
 
     cudaStream_t stream = h.get_stream();
-    auto alloc          = h.get_device_allocator();
-    random_matrix1      = new rand_mat<T>(alloc, stream);
+    random_matrix1      = new rand_mat<T>(stream);
     RPROJfit(h, random_matrix1, params1);
     raft::allocate(d_output1, N * params1->n_components, stream);
     RPROJtransform(h, d_input, random_matrix1, d_output1, params1);
@@ -99,8 +96,7 @@ class RPROJTest : public ::testing::Test {
     };
 
     cudaStream_t stream = h.get_stream();
-    auto alloc          = h.get_device_allocator();
-    random_matrix2      = new rand_mat<T>(alloc, stream);
+    random_matrix2      = new rand_mat<T>(stream);
     RPROJfit(h, random_matrix2, params2);
 
     raft::allocate(d_output2, N * params2->n_components, stream);
@@ -150,6 +146,8 @@ class RPROJTest : public ::testing::Test {
     int D = johnson_lindenstrauss_min_dim(N, epsilon);
 
     constexpr auto distance_type = raft::distance::DistanceType::L2SqrtUnexpanded;
+
+    cudaStream_t stream = h.get_stream();
 
     T* d_pdist;
     raft::allocate(d_pdist, N * N, stream);

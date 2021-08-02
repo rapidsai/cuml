@@ -17,7 +17,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <decoupled_lookback.cuh>
-#include <raft/cuda_utils.cuh>
+#include <rmm/device_uvector.hpp>
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -31,7 +31,7 @@ __global__ void dlbTestKernel(void* workspace, int len, int* out)
   if (threadIdx.x == blockDim.x - 1) out[blockIdx.x] = prefix;
 }
 
-void dlbTest(int len, int* out)
+void dlbTest(int len, int* out, cudaStream_t stream)
 {
   constexpr int TPB    = 256;
   int nblks            = len;
@@ -40,7 +40,6 @@ void dlbTest(int len, int* out)
   CUDA_CHECK(cudaMemset(workspace.data(), 0, workspace.size()));
   dlbTestKernel<TPB><<<nblks, TPB>>>(workspace.data(), len, out);
   CUDA_CHECK(cudaPeekAtLastError());
-  CUDA_CHECK(cudaFree(workspace));
 }
 
 struct DlbInputs {
@@ -53,10 +52,13 @@ class DlbTest : public ::testing::TestWithParam<DlbInputs> {
  protected:
   void SetUp() override
   {
+    cudaStream_t stream;
+    CUDA_CHECK(cudaStreamCreate(&stream));
+
     params  = ::testing::TestWithParam<DlbInputs>::GetParam();
     int len = params.len;
     out     = std::make_unique<rmm::device_uvector<int>>(len, stream);
-    dlbTest(len, out->data());
+    dlbTest(len, out->data(), stream);
   }
 
  protected:

@@ -75,7 +75,7 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
     raft::allocate(explained_var_ratio, params.n_col, stream);
     raft::allocate(singular_vals, params.n_col, stream);
     raft::allocate(mean, params.n_col, stream);
-    raft::allocate(noise_vars, 1);
+    raft::allocate(noise_vars, 1, stream);
 
     std::vector<T> components_ref_h = {0.8163, 0.5776, -0.5776, 0.8163};
     components_ref_h.resize(len_comp);
