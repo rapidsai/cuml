@@ -365,7 +365,7 @@ __global__ void computeSplitKernel(BinT* hist,
     __syncthreads();
 
     // last threadblock will go ahead and compute the best split
-    bool last      = MLCommon::signalDone(
+    bool last = MLCommon::signalDone(
       done_count + nid * gridDim.y + blockIdx.y, num_blocks, offset_blockid == 0, sDone);
     // if not the last threadblock, exit
     if (!last) return;

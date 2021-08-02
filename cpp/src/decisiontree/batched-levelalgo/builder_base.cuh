@@ -112,8 +112,10 @@ class NodeQueue {
                                             2 * node.info.unique_id + 2));
       // Do not add a work item if this child is definitely a leaf
       if (!IsLeaf(tree_.back())) {
-        work_items_.emplace_back(NodeWorkItem{
-          tree_.size() - 1, size_t(node.start + split.nLeft), size_t(node.count - split.nLeft), node.depth + 1});
+        work_items_.emplace_back(NodeWorkItem{tree_.size() - 1,
+                                              size_t(node.start + split.nLeft),
+                                              size_t(node.count - split.nLeft),
+                                              node.depth + 1});
       }
 
       // update depth

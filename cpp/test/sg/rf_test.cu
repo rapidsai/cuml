@@ -242,6 +242,8 @@ class RfSpecialisedTest {
   void TestAccuracyImprovement()
   {
     if (params.max_depth <= 1) { return; }
+    // avereraging between models can introduce variance
+    if (params.n_trees > 1) { return; }
     // accuracy is not guaranteed to improve with bootstrapping
     if (params.bootstrap) { return; }
     raft::handle_t handle(params.n_streams);
@@ -272,8 +274,7 @@ class RfSpecialisedTest {
       // Check we have actually built something, otherwise these tests can all pass when the tree
       // algorithm produces only stumps
       size_t effective_rows = params.n_rows * params.max_samples;
-      if (params.max_depth > 0 && params.min_impurity_decrease == 0 &&
-          effective_rows >=100) {
+      if (params.max_depth > 0 && params.min_impurity_decrease == 0 && effective_rows >= 100) {
         EXPECT_GT(forest->trees[i].leaf_counter, 1);
       }
 
@@ -369,7 +370,7 @@ std::vector<int> n_trees                 = {1, 5, 17};
 std::vector<float> max_features          = {0.1f, 0.5f, 1.0f};
 std::vector<float> max_samples           = {0.1f, 0.5f, 1.0f};
 std::vector<int> max_depth               = {1, 10, 30};
-std::vector<int> max_leaves              = {-1,16, 50};
+std::vector<int> max_leaves              = {-1, 16, 50};
 std::vector<bool> bootstrap              = {false, true};
 std::vector<int> n_bins                  = {2, 57, 128, 256};
 std::vector<int> min_samples_leaf        = {1, 10, 30};
@@ -404,7 +405,6 @@ INSTANTIATE_TEST_CASE_P(RfTests,
                                                                            seed,
                                                                            n_labels,
                                                                            double_precision)));
-
 struct QuantileTestParameters {
   int n_rows;
   int n_bins;
