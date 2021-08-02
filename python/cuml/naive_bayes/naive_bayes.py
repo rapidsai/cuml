@@ -460,7 +460,9 @@ class GaussianNB(_BaseNB):
 
         X : {array-like, cupy sparse matrix} of shape (n_samples, n_features)
             Training vectors, where n_samples is the number of samples and
-            n_features is the number of features
+            n_features is the number of features. A sparse matrix in COO
+            format is preferred, other formats will go through a conversion
+            to COO.
         y : array-like of shape (n_samples) Target values.
         classes : array-like of shape (n_classes)
                   List of all the classes that can possibly appear in the y
