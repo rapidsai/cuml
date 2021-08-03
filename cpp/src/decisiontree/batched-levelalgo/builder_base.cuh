@@ -92,8 +92,12 @@ class NodeQueue {
       if (params.max_leaves != -1 && num_leaves_ >= params.max_leaves) break;
 
       // parent
-      tree_[item.idx] =
-        NodeT::CreateSplit(split.colid, split.quesval, split.best_metric_val, tree_.size());
+      tree_[item.idx] = NodeT::CreateSplit(split.colid,
+                                           split.quesval,
+                                           split.best_metric_val,
+                                           tree_.size(),
+                                           node.count,
+                                           node.info.unique_id);
       num_leaves_++;
       // left
       tree_.emplace_back(

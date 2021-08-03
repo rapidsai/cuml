@@ -50,19 +50,26 @@ struct Node {
   Node(IdxT row_start, IdxT row_count, IdxT depth)
     : start(row_start), count(row_count), depth(depth)
   {
+    info.instance_count = row_count;
   }
 
   static Node CreateChild(IdxT depth, IdxT start_sample_range, IdxT sample_count, IdxT unique_id)
   {
     Node n;
-    n.depth          = depth;
-    n.start          = start_sample_range;
-    n.count          = sample_count;
-    n.info.unique_id = unique_id;
+    n.depth               = depth;
+    n.start               = start_sample_range;
+    n.count               = sample_count;
+    n.info.unique_id      = unique_id;
+    n.info.instance_count = sample_count;
     return n;
   }
 
-  static Node CreateSplit(IdxT colid, DataT query_value, DataT best_metric_val, IdxT left_child_id)
+  static Node CreateSplit(IdxT colid,
+                          DataT query_value,
+                          DataT best_metric_val,
+                          IdxT left_child_id,
+                          IdxT sample_count,
+                          IdxT unique_id)
   {
     Node n;
     n.info.prediction      = LabelT(0);  // don't care for non-leaf nodes
@@ -70,6 +77,7 @@ struct Node {
     n.info.quesval         = query_value;
     n.info.best_metric_val = best_metric_val;
     n.info.left_child_id   = left_child_id;
+    n.info.instance_count  = sample_count;
     return n;
   }
 

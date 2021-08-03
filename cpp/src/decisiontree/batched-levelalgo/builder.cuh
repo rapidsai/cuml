@@ -36,9 +36,8 @@ void convertToSparse(const std::vector<Node<DataT, LabelT, IdxT>> h_nodes,
   auto len = sparsetree.size();
   sparsetree.resize(len + h_nodes.size());
   for (IdxT i = 0; i < h_nodes.size(); ++i) {
-    const auto& hnode                  = h_nodes[i].info;
-    sparsetree[i + len]                = hnode;
-    sparsetree[i + len].instance_count = h_nodes[i].count;
+    const auto& hnode   = h_nodes[i].info;
+    sparsetree[i + len] = hnode;
     if (hnode.left_child_id != -1) sparsetree[i + len].left_child_id += len;
   }
 }
