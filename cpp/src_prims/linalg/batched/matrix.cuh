@@ -669,11 +669,11 @@ template <typename T>
 void b_gels(const Matrix<T>& A, Matrix<T>& C)
 {
   ASSERT(A.batches() == C.batches(), "A and C must have the same number of batches");
-  int m = A.shape().first;
+  auto m = A.shape().first;
   ASSERT(C.shape().first == m, "Dimension mismatch: A rows, C rows");
-  int n = A.shape().second;
+  auto n = A.shape().second;
   ASSERT(m > n, "Only overdetermined systems (m > n) are supported");
-  int nrhs = C.shape().second;
+  auto nrhs = C.shape().second;
 
   Matrix<T> Acopy(A);
 
@@ -704,8 +704,8 @@ template <typename T, typename F>
 Matrix<T> b_op_A(const Matrix<T>& A, F unary_op)
 {
   auto batch_size = A.batches();
-  int m           = A.shape().first;
-  int n           = A.shape().second;
+  auto m          = A.shape().first;
+  auto n          = A.shape().second;
 
   Matrix<T> C(m, n, batch_size, A.cublasHandle(), A.allocator(), A.stream());
 
@@ -732,8 +732,8 @@ Matrix<T> b_aA_op_B(const Matrix<T>& A, const Matrix<T>& B, F binary_op)
   ASSERT(A.batches() == B.batches(), "A & B must have same number of batches");
 
   auto batch_size = A.batches();
-  int m           = A.shape().first;
-  int n           = A.shape().second;
+  auto m          = A.shape().first;
+  auto n          = A.shape().second;
 
   Matrix<T> C(m, n, batch_size, A.cublasHandle(), A.allocator(), A.stream());
 
@@ -822,15 +822,15 @@ Matrix<T> b_solve(const Matrix<T>& A, const Matrix<T>& b)
 template <typename T>
 void b_kron(const Matrix<T>& A, const Matrix<T>& B, Matrix<T>& AkB, T alpha = (T)1)
 {
-  int m = A.shape().first;
-  int n = A.shape().second;
+  auto m = A.shape().first;
+  auto n = A.shape().second;
 
-  int p = B.shape().first;
-  int q = B.shape().second;
+  auto p = B.shape().first;
+  auto q = B.shape().second;
 
   // Resulting shape
-  int k_m = m * p;
-  int k_n = n * q;
+  auto k_m = m * p;
+  auto k_n = n * q;
   ASSERT(AkB.shape().first == k_m, "Kronecker product output dimensions mismatch");
   ASSERT(AkB.shape().second == k_n, "Kronecker product output dimensions mismatch");
 
@@ -852,15 +852,15 @@ void b_kron(const Matrix<T>& A, const Matrix<T>& B, Matrix<T>& AkB, T alpha = (T
 template <typename T>
 Matrix<T> b_kron(const Matrix<T>& A, const Matrix<T>& B)
 {
-  int m = A.shape().first;
-  int n = A.shape().second;
+  auto m = A.shape().first;
+  int n  = A.shape().second;
 
-  int p = B.shape().first;
-  int q = B.shape().second;
+  auto p = B.shape().first;
+  auto q = B.shape().second;
 
   // Resulting shape
-  int k_m = m * p;
-  int k_n = n * q;
+  auto k_m = m * p;
+  auto k_n = n * q;
 
   Matrix<T> AkB(k_m, k_n, A.batches(), A.cublasHandle(), A.allocator(), A.stream());
 
