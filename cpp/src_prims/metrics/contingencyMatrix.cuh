@@ -218,12 +218,12 @@ size_t getContingencyMatrixWorkspaceSize(int nSamples,
   auto outDimN                          = OutT(maxLabel - minLabel + 1);
   ContingencyMatrixImplType implVersion = getImplVersion<OutT>(outDimN);
   if (implVersion == SORT_AND_GATOMICS) {
-    void* pWorkspaceCub    = nullptr;
+    void* pWorkspaceCub{};
     size_t tmpStorageBytes = 0;
-    // bunch of no-op pointers to get workspace size
-    T *pTmpKey, *pTmpValue, *pTmpKeyOut, *pTmpValueOut;
+    // no-op pointers to get workspace size
+    T* pTmpUnused{};
     CUDA_CHECK(cub::DeviceRadixSort::SortPairs(
-      pWorkspaceCub, tmpStorageBytes, pTmpKey, pTmpValue, pTmpKeyOut, pTmpValueOut, nSamples));
+      pWorkspaceCub, tmpStorageBytes, pTmpUnused, pTmpUnused, pTmpUnused, pTmpUnused, nSamples));
     auto tmpStagingMemorySize = raft::alignTo<size_t>(nSamples * sizeof(T), 256);
     tmpStagingMemorySize *= 2;
     workspaceSize = tmpStagingMemorySize + tmpStorageBytes;
