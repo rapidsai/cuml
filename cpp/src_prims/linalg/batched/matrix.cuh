@@ -16,6 +16,23 @@
 
 #pragma once
 
+#include <cuml/common/device_buffer.hpp>
+#include <cuml/common/utils.hpp>
+
+#include <common/fast_int_div.cuh>
+
+#include <raft/cudart_utils.h>
+#include <raft/linalg/cublas_wrappers.h>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/unary_op.cuh>
+#include <raft/mr/device/allocator.hpp>
+
+#include <thrust/execution_policy.h>
+#include <thrust/for_each.h>
+#include <thrust/iterator/counting_iterator.h>
+
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <stdexcept>
@@ -23,21 +40,6 @@
 #include <type_traits>
 #include <unordered_map>
 #include <vector>
-
-#include <thrust/execution_policy.h>
-#include <thrust/for_each.h>
-#include <thrust/iterator/counting_iterator.h>
-
-#include <raft/cudart_utils.h>
-#include <common/fast_int_div.cuh>
-#include <cuml/common/device_buffer.hpp>
-#include <cuml/common/utils.hpp>
-#include <raft/cuda_utils.cuh>
-#include <raft/mr/device/allocator.hpp>
-
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/binary_op.cuh>
-#include <raft/linalg/unary_op.cuh>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -57,6 +59,7 @@ __global__ void identity_matrix_kernel(T* I, int m)
 {
   T* I_b     = I + blockIdx.x * m * m;
   int stride = (m + 1);
+
   for (int idx = threadIdx.x; idx < m; idx += blockDim.x) {
     I_b[idx * stride] = 1;
   }
@@ -155,6 +158,8 @@ class Matrix {
   }
 
  public:
+  using shape_type = std::pair<std::size_t, std::size_t>;
+
   /**
    * @brief Constructor that allocates memory using the memory pool.
    *
@@ -166,9 +171,9 @@ class Matrix {
    * @param[in]  stream       CUDA stream
    * @param[in]  setZero      Should matrix be zeroed on allocation?
    */
-  Matrix(int m,
-         int n,
-         int batch_size,
+  Matrix(std::size_t m,
+         std::size_t n,
+         std::size_t batch_size,
          cublasHandle_t cublasHandle,
          std::shared_ptr<raft::mr::device::allocator> allocator,
          cudaStream_t stream,
@@ -202,9 +207,9 @@ class Matrix {
    * @param[in]  stream       CUDA stream
    * @param[in]  setZero      Should matrix be zeroed on allocation?
    */
-  Matrix(int m,
-         int n,
-         int batch_size,
+  Matrix(std::size_t m,
+         std::size_t n,
+         std::size_t batch_size,
          cublasHandle_t cublasHandle,
          T** d_batches,
          T* d_dense,
@@ -280,7 +285,7 @@ class Matrix {
   cudaStream_t stream() const { return m_stream; }
 
   //! Return shape
-  const std::pair<int, int>& shape() const { return m_shape; }
+  const shape_type& shape() const { return m_shape; }
 
   //! Return array of pointers to the offsets in the data buffer
   const T** data() const { return d_batches; }
@@ -305,19 +310,17 @@ class Matrix {
    * @param[in]  m  Number of desired rows
    * @param[in]  n  Number of desired columns
    */
-  void reshape(int m, int n)
+  void reshape(std::size_t m, std::size_t n)
   {
-    const int r = m_shape.first * m_shape.second;
+    const auto r = m_shape.first * m_shape.second;
     ASSERT(r == m * n, "ERROR: Size mismatch - Cannot reshape matrix into desired shape");
-    m_shape = std::pair<int, int>(m, n);
+    m_shape = shape_type(m, n);
   }
 
   //! Stack the matrix by columns creating a long vector
   Matrix<T> vec() const
   {
-    int m = m_shape.first;
-    int n = m_shape.second;
-    int r = m * n;
+    const auto r = m_shape.first * m_shape.second;
     Matrix<T> toVec(r, 1, m_batch_size, m_cublasHandle, m_allocator, m_stream, false);
     raft::copy(toVec[0], raw_data(), m_batch_size * r, m_stream);
     return toVec;
@@ -332,7 +335,7 @@ class Matrix {
    */
   Matrix<T> mat(int m, int n) const
   {
-    const int r = m_shape.first * m_shape.second;
+    const auto r = m_shape.first * m_shape.second;
     ASSERT(r == m * n, "ERROR: Size mismatch - Cannot reshape array into desired size");
     Matrix<T> toMat(m, n, m_batch_size, m_cublasHandle, m_allocator, m_stream, false);
     raft::copy(toMat[0], raw_data(), m_batch_size * r, m_stream);
@@ -343,7 +346,7 @@ class Matrix {
   //! Visualize the first matrix.
   void print(std::string name) const
   {
-    size_t len = m_shape.first * m_shape.second * m_batch_size;
+    std::size_t len = m_shape.first * m_shape.second * m_batch_size;
     std::vector<T> A(len);
     raft::update_host(A.data(), raw_data(), len, m_stream);
     std::cout << name << "=\n";
@@ -440,8 +443,8 @@ class Matrix {
    */
   Matrix<T> transpose() const
   {
-    int m = m_shape.first;
-    int n = m_shape.second;
+    auto m = m_shape.first;
+    auto n = m_shape.second;
 
     Matrix<T> At(n, m, m_batch_size, m_cublasHandle, m_allocator, m_stream);
 
@@ -476,22 +479,23 @@ class Matrix {
    *
    * @return A batched identity matrix
    */
-  static Matrix<T> Identity(int m,
-                            int batch_size,
+  static Matrix<T> Identity(std::size_t m,
+                            std::size_t batch_size,
                             cublasHandle_t cublasHandle,
                             std::shared_ptr<raft::mr::device::allocator> allocator,
                             cudaStream_t stream)
   {
     Matrix<T> I(m, m, batch_size, cublasHandle, allocator, stream, true);
 
-    identity_matrix_kernel<T><<<batch_size, std::min(256, m), 0, stream>>>(I.raw_data(), m);
+    identity_matrix_kernel<T>
+      <<<batch_size, std::min(std::size_t{256}, m), 0, stream>>>(I.raw_data(), m);
     CUDA_CHECK(cudaPeekAtLastError());
     return I;
   }
 
  protected:
   //! Shape (rows, cols) of matrices. We assume all matrices in batch have same shape.
-  std::pair<int, int> m_shape;
+  shape_type m_shape;
 
   //! Pointers to each matrix in the contiguous data buffer (strided offsets)
   device_buffer<T*> m_batches;
@@ -502,7 +506,7 @@ class Matrix {
   T* d_dense;  // When pre-allocated
 
   //! Number of matrices in batch
-  int m_batch_size;
+  std::size_t m_batch_size;
 
   std::shared_ptr<raft::mr::device::allocator> m_allocator;
   cublasHandle_t m_cublasHandle;
