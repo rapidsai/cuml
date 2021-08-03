@@ -41,7 +41,7 @@ void pairwise_distance_minkowski(const raft::handle_t& handle,
     case raft::distance::DistanceType::LpUnexpanded:
       raft::distance::
         pairwise_distance_impl<double, int, raft::distance::DistanceType::LpUnexpanded>(
-          x, y, dist, m, n, k, workspace.data(), handle.get_stream(), isRowMajor, metric_arg);
+          x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor, metric_arg);
       break;
     default: THROW("Unknown or unsupported distance metric '%d'!", (int)metric);
   }
@@ -65,7 +65,7 @@ void pairwise_distance_minkowski(const raft::handle_t& handle,
     case raft::distance::DistanceType::LpUnexpanded:
       raft::distance::
         pairwise_distance_impl<float, int, raft::distance::DistanceType::LpUnexpanded>(
-          x, y, dist, m, n, k, workspace.data(), handle.get_stream(), isRowMajor, metric_arg);
+          x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor, metric_arg);
       break;
     default: THROW("Unknown or unsupported distance metric '%d'!", (int)metric);
   }

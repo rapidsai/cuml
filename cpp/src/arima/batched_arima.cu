@@ -377,7 +377,12 @@ void batched_loglike(raft::handle_t& handle,
     Tparams.mu = params.mu;
   } else {
     // non-transformed case: just use original parameters
-    Tparams = params;
+    Tparams.mu     = params.mu;
+    Tparams.ar     = params.ar;
+    Tparams.ma     = params.ma;
+    Tparams.sar    = params.sar;
+    Tparams.sma    = params.sma;
+    Tparams.sigma2 = params.sigma2;
   }
 
   if (method == CSS) {

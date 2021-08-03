@@ -291,7 +291,7 @@ TEST_P(TestMetric, RegressionMetricGain)
 
   raft::update_host(h_splits.data(), splits->data(), 1, stream);
   CUDA_CHECK(cudaGetLastError());
-  CUDA_CHECK(cudaStreamSynchronize(stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   // the split uses feature 0
   // rows 0, 4 go to the left side of the threshold

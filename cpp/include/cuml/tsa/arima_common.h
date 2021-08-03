@@ -69,16 +69,6 @@ struct ARIMAParams {
   {
   }
 
-  ARIMAParams(const ARIMAParams& obj)
-  {
-    mu     = obj.mu;
-    ar     = obj.ar;
-    ma     = obj.ma;
-    sar    = obj.sar;
-    sma    = obj.sma;
-    sigma2 = obj.sigma2;
-  }
-
   /**
    * Allocate all the parameter device arrays
    *
