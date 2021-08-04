@@ -584,10 +584,10 @@ void b_gemm(bool aT,
   {
     ASSERT(A.batches() == B.batches(), "A and B must have the same number of batches");
     ASSERT(A.batches() == C.batches(), "A and C must have the same number of batches");
-    int Arows = !aT ? A.shape().first : A.shape().second;
-    int Acols = !aT ? A.shape().second : A.shape().first;
-    int Brows = !bT ? B.shape().first : B.shape().second;
-    int Bcols = !bT ? B.shape().second : B.shape().first;
+    auto Arows = !aT ? A.shape().first : A.shape().second;
+    auto Acols = !aT ? A.shape().second : A.shape().first;
+    auto Brows = !bT ? B.shape().first : B.shape().second;
+    auto Bcols = !bT ? B.shape().second : B.shape().first;
     ASSERT(m <= Arows, "m should be <= number of rows of A");
     ASSERT(k <= Acols, "k should be <= number of columns of A");
     ASSERT(k <= Brows, "k should be <= number of rows of B");
@@ -835,7 +835,7 @@ void b_kron(const Matrix<T>& A, const Matrix<T>& B, Matrix<T>& AkB, T alpha = (T
   ASSERT(AkB.shape().second == k_n, "Kronecker product output dimensions mismatch");
 
   // Run kronecker
-  dim3 threads(std::min(p, 32), std::min(q, 32));
+  dim3 threads(std::min(p, std::size_t{32}), std::min(q, std::size_t{32}));
   kronecker_product_kernel<T><<<A.batches(), threads, 0, A.stream()>>>(
     A.raw_data(), m, n, B.raw_data(), p, q, AkB.raw_data(), k_m, k_n, alpha);
   CUDA_CHECK(cudaPeekAtLastError());
@@ -853,7 +853,7 @@ template <typename T>
 Matrix<T> b_kron(const Matrix<T>& A, const Matrix<T>& B)
 {
   auto m = A.shape().first;
-  int n  = A.shape().second;
+  auto n = A.shape().second;
 
   auto p = B.shape().first;
   auto q = B.shape().second;
@@ -1044,12 +1044,12 @@ static __global__ void batched_2dcopy_kernel(const T* in,
 template <typename T>
 void b_2dcopy(const Matrix<T>& in,
               Matrix<T>& out,
-              int in_starting_row,
-              int in_starting_col,
-              int copy_rows,
-              int copy_cols,
-              int out_starting_row = 0,
-              int out_starting_col = 0)
+              std::size_t in_starting_row,
+              std::size_t in_starting_col,
+              std::size_t copy_rows,
+              std::size_t copy_cols,
+              std::size_t out_starting_row = 0,
+              std::size_t out_starting_col = 0)
 {
   ASSERT(in_starting_row + copy_rows <= in.shape().first,
          "[2D copy] Dimension mismatch: rows for input matrix");
@@ -1061,7 +1061,7 @@ void b_2dcopy(const Matrix<T>& in,
          "[2D copy] Dimension mismatch: columns for output matrix");
 
   // Execute the kernel
-  const int TPB = copy_rows * copy_cols > 512 ? 256 : 128;  // quick heuristics
+  const int TPB = copy_rows * copy_cols > std::size_t{512} ? 256 : 128;  // quick heuristics
   batched_2dcopy_kernel<<<in.batches(), TPB, 0, in.stream()>>>(in.raw_data(),
                                                                out.raw_data(),
                                                                in_starting_row,
