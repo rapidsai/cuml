@@ -30,10 +30,20 @@ struct SparseTreeNode {
   IdxT colid = IdxT(-1);
   DataT quesval;
   DataT best_metric_val;
-  IdxT left_child_id = IdxT(-1);
-  uint32_t unique_id = UINT32_MAX;
+  IdxT left_child_id      = IdxT(-1);
+  uint32_t unique_id      = UINT32_MAX;
   uint32_t instance_count = UINT32_MAX;  // UINT32_MAX indicates n/a
 };
+
+template <typename DataT, typename LabelT, typename IdxT>
+bool operator==(const SparseTreeNode<DataT, LabelT, IdxT>& lhs,
+                const SparseTreeNode<DataT, LabelT, IdxT>& rhs)
+{
+  return (lhs.prediction == rhs.prediction) && (lhs.colid == rhs.colid) &&
+         (lhs.quesval == rhs.quesval) && (lhs.best_metric_val == rhs.best_metric_val) &&
+         (lhs.left_child_id == rhs.left_child_id) && (lhs.unique_id == rhs.unique_id) &&
+         (lhs.instance_count == rhs.instance_count);
+}
 
 template <typename T, typename L>
 struct Node_ID_info {
@@ -42,5 +52,7 @@ struct Node_ID_info {
 
   Node_ID_info() : node(nullptr), unique_node_id(-1) {}
   Node_ID_info(const SparseTreeNode<T, L>& cfg_node, int cfg_unique_node_id)
-    : node(&cfg_node), unique_node_id(cfg_unique_node_id) {}
+    : node(&cfg_node), unique_node_id(cfg_unique_node_id)
+  {
+  }
 };

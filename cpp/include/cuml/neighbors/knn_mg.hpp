@@ -47,13 +47,18 @@ using namespace MLCommon;
  * @param[in] batch_size the max number of rows to broadcast at a time
  * @param[in] verbose print extra logging info
  */
-void knn(raft::handle_t &handle, std::vector<Matrix::Data<int64_t> *> *out_I,
-         std::vector<Matrix::floatData_t *> *out_D,
-         std::vector<Matrix::floatData_t *> &idx_data,
-         Matrix::PartDescriptor &idx_desc,
-         std::vector<Matrix::floatData_t *> &query_data,
-         Matrix::PartDescriptor &query_desc, bool rowMajorIndex,
-         bool rowMajorQuery, int k, size_t batch_size, bool verbose);
+void knn(raft::handle_t& handle,
+         std::vector<Matrix::Data<int64_t>*>* out_I,
+         std::vector<Matrix::floatData_t*>* out_D,
+         std::vector<Matrix::floatData_t*>& idx_data,
+         Matrix::PartDescriptor& idx_desc,
+         std::vector<Matrix::floatData_t*>& query_data,
+         Matrix::PartDescriptor& query_desc,
+         bool rowMajorIndex,
+         bool rowMajorQuery,
+         int k,
+         size_t batch_size,
+         bool verbose);
 
 /**
  * Performs a multi-node multi-GPU KNN classify.
@@ -72,24 +77,29 @@ void knn(raft::handle_t &handle, std::vector<Matrix::Data<int64_t> *> *out_I,
  *          to the i'th output. size should match the number of local input partitions.
  * @param[in] uniq_labels vector of the sorted unique labels for each array in y
  * @param[in] n_unique vector of sizes for each array in uniq_labels
- * @param[in] rowMajorIndex boolean indicating whether the index is row major. 
- * @param[in] rowMajorQuery boolean indicating whether the query is row major. 
+ * @param[in] rowMajorIndex boolean indicating whether the index is row major.
+ * @param[in] rowMajorQuery boolean indicating whether the query is row major.
  * @param[in] probas_only return probas instead of performing complete knn_classify
  * @param[in] k the number of neighbors to query
  * @param[in] batch_size the max number of rows to broadcast at a time
  * @param[in] verbose print extra logging info
  */
-void knn_classify(raft::handle_t &handle, std::vector<Matrix::Data<int> *> *out,
-                  std::vector<std::vector<float *>> *probas,
-                  std::vector<Matrix::floatData_t *> &idx_data,
-                  Matrix::PartDescriptor &idx_desc,
-                  std::vector<Matrix::floatData_t *> &query_data,
-                  Matrix::PartDescriptor &query_desc,
-                  std::vector<std::vector<int *>> &y,
-                  std::vector<int *> &uniq_labels, std::vector<int> &n_unique,
-                  bool rowMajorIndex = false, bool rowMajorQuery = false,
-                  bool probas_only = false, int k = 10,
-                  size_t batch_size = 1 << 15, bool verbose = false);
+void knn_classify(raft::handle_t& handle,
+                  std::vector<Matrix::Data<int>*>* out,
+                  std::vector<std::vector<float*>>* probas,
+                  std::vector<Matrix::floatData_t*>& idx_data,
+                  Matrix::PartDescriptor& idx_desc,
+                  std::vector<Matrix::floatData_t*>& query_data,
+                  Matrix::PartDescriptor& query_desc,
+                  std::vector<std::vector<int*>>& y,
+                  std::vector<int*>& uniq_labels,
+                  std::vector<int>& n_unique,
+                  bool rowMajorIndex = false,
+                  bool rowMajorQuery = false,
+                  bool probas_only   = false,
+                  int k              = 10,
+                  size_t batch_size  = 1 << 15,
+                  bool verbose       = false);
 
 /**
  * Performs a multi-node multi-GPU KNN regress.
@@ -112,14 +122,18 @@ void knn_classify(raft::handle_t &handle, std::vector<Matrix::Data<int> *> *out,
  * @param[in] batch_size the max number of rows to broadcast at a time
  * @param[in] verbose print extra logging info
  */
-void knn_regress(raft::handle_t &handle,
-                 std::vector<Matrix::Data<float> *> *out,
-                 std::vector<Matrix::floatData_t *> &idx_data,
-                 Matrix::PartDescriptor &idx_desc,
-                 std::vector<Matrix::floatData_t *> &query_data,
-                 Matrix::PartDescriptor &query_desc,
-                 std::vector<std::vector<float *>> &y, bool rowMajorIndex,
-                 bool rowMajorQuery, int k, int n_outputs, size_t batch_size,
+void knn_regress(raft::handle_t& handle,
+                 std::vector<Matrix::Data<float>*>* out,
+                 std::vector<Matrix::floatData_t*>& idx_data,
+                 Matrix::PartDescriptor& idx_desc,
+                 std::vector<Matrix::floatData_t*>& query_data,
+                 Matrix::PartDescriptor& query_desc,
+                 std::vector<std::vector<float*>>& y,
+                 bool rowMajorIndex,
+                 bool rowMajorQuery,
+                 int k,
+                 int n_outputs,
+                 size_t batch_size,
                  bool verbose);
 
 };  // END namespace opg

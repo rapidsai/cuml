@@ -57,11 +57,11 @@ struct ARIMAOrder {
  */
 template <typename DataT>
 struct ARIMAParams {
-  DataT* mu = nullptr;
-  DataT* ar = nullptr;
-  DataT* ma = nullptr;
-  DataT* sar = nullptr;
-  DataT* sma = nullptr;
+  DataT* mu     = nullptr;
+  DataT* ar     = nullptr;
+  DataT* ma     = nullptr;
+  DataT* sar    = nullptr;
+  DataT* sma    = nullptr;
   DataT* sigma2 = nullptr;
 
   /**
@@ -75,22 +75,17 @@ struct ARIMAParams {
    * @param[in]   tr         Whether these are the transformed parameters
    */
   template <typename AllocatorT>
-  void allocate(const ARIMAOrder& order, int batch_size, AllocatorT& alloc,
-                cudaStream_t stream, bool tr = false) {
-    if (order.k && !tr)
-      mu = (DataT*)alloc->allocate(batch_size * sizeof(DataT), stream);
-    if (order.p)
-      ar =
-        (DataT*)alloc->allocate(order.p * batch_size * sizeof(DataT), stream);
-    if (order.q)
-      ma =
-        (DataT*)alloc->allocate(order.q * batch_size * sizeof(DataT), stream);
-    if (order.P)
-      sar =
-        (DataT*)alloc->allocate(order.P * batch_size * sizeof(DataT), stream);
-    if (order.Q)
-      sma =
-        (DataT*)alloc->allocate(order.Q * batch_size * sizeof(DataT), stream);
+  void allocate(const ARIMAOrder& order,
+                int batch_size,
+                AllocatorT& alloc,
+                cudaStream_t stream,
+                bool tr = false)
+  {
+    if (order.k && !tr) mu = (DataT*)alloc->allocate(batch_size * sizeof(DataT), stream);
+    if (order.p) ar = (DataT*)alloc->allocate(order.p * batch_size * sizeof(DataT), stream);
+    if (order.q) ma = (DataT*)alloc->allocate(order.q * batch_size * sizeof(DataT), stream);
+    if (order.P) sar = (DataT*)alloc->allocate(order.P * batch_size * sizeof(DataT), stream);
+    if (order.Q) sma = (DataT*)alloc->allocate(order.Q * batch_size * sizeof(DataT), stream);
     sigma2 = (DataT*)alloc->allocate(batch_size * sizeof(DataT), stream);
   }
 
@@ -105,18 +100,17 @@ struct ARIMAParams {
    * @param[in]   tr         Whether these are the transformed parameters
    */
   template <typename AllocatorT>
-  void deallocate(const ARIMAOrder& order, int batch_size, AllocatorT& alloc,
-                  cudaStream_t stream, bool tr = false) {
-    if (order.k && !tr)
-      alloc->deallocate(mu, batch_size * sizeof(DataT), stream);
-    if (order.p)
-      alloc->deallocate(ar, order.p * batch_size * sizeof(DataT), stream);
-    if (order.q)
-      alloc->deallocate(ma, order.q * batch_size * sizeof(DataT), stream);
-    if (order.P)
-      alloc->deallocate(sar, order.P * batch_size * sizeof(DataT), stream);
-    if (order.Q)
-      alloc->deallocate(sma, order.Q * batch_size * sizeof(DataT), stream);
+  void deallocate(const ARIMAOrder& order,
+                  int batch_size,
+                  AllocatorT& alloc,
+                  cudaStream_t stream,
+                  bool tr = false)
+  {
+    if (order.k && !tr) alloc->deallocate(mu, batch_size * sizeof(DataT), stream);
+    if (order.p) alloc->deallocate(ar, order.p * batch_size * sizeof(DataT), stream);
+    if (order.q) alloc->deallocate(ma, order.q * batch_size * sizeof(DataT), stream);
+    if (order.P) alloc->deallocate(sar, order.P * batch_size * sizeof(DataT), stream);
+    if (order.Q) alloc->deallocate(sma, order.Q * batch_size * sizeof(DataT), stream);
     alloc->deallocate(sigma2, batch_size * sizeof(DataT), stream);
   }
 
@@ -129,81 +123,79 @@ struct ARIMAParams {
    *                         [mu, ar, ma, sar, sma, sigma2] (device)
    * @param[in]  stream      CUDA stream
    */
-  void pack(const ARIMAOrder& order, int batch_size, DataT* param_vec,
-            cudaStream_t stream) const {
-    int N = order.complexity();
+  void pack(const ARIMAOrder& order, int batch_size, DataT* param_vec, cudaStream_t stream) const
+  {
+    int N         = order.complexity();
     auto counting = thrust::make_counting_iterator(0);
     // The device lambda can't capture structure members...
-    const DataT *_mu = mu, *_ar = ar, *_ma = ma, *_sar = sar, *_sma = sma,
-                *_sigma2 = sigma2;
-    thrust::for_each(thrust::cuda::par.on(stream), counting,
-                     counting + batch_size, [=] __device__(int bid) {
-                       DataT* param = param_vec + bid * N;
-                       if (order.k) {
-                         *param = _mu[bid];
-                         param++;
-                       }
-                       for (int ip = 0; ip < order.p; ip++) {
-                         param[ip] = _ar[order.p * bid + ip];
-                       }
-                       param += order.p;
-                       for (int iq = 0; iq < order.q; iq++) {
-                         param[iq] = _ma[order.q * bid + iq];
-                       }
-                       param += order.q;
-                       for (int iP = 0; iP < order.P; iP++) {
-                         param[iP] = _sar[order.P * bid + iP];
-                       }
-                       param += order.P;
-                       for (int iQ = 0; iQ < order.Q; iQ++) {
-                         param[iQ] = _sma[order.Q * bid + iQ];
-                       }
-                       param += order.Q;
-                       *param = _sigma2[bid];
-                     });
+    const DataT *_mu = mu, *_ar = ar, *_ma = ma, *_sar = sar, *_sma = sma, *_sigma2 = sigma2;
+    thrust::for_each(
+      thrust::cuda::par.on(stream), counting, counting + batch_size, [=] __device__(int bid) {
+        DataT* param = param_vec + bid * N;
+        if (order.k) {
+          *param = _mu[bid];
+          param++;
+        }
+        for (int ip = 0; ip < order.p; ip++) {
+          param[ip] = _ar[order.p * bid + ip];
+        }
+        param += order.p;
+        for (int iq = 0; iq < order.q; iq++) {
+          param[iq] = _ma[order.q * bid + iq];
+        }
+        param += order.q;
+        for (int iP = 0; iP < order.P; iP++) {
+          param[iP] = _sar[order.P * bid + iP];
+        }
+        param += order.P;
+        for (int iQ = 0; iQ < order.Q; iQ++) {
+          param[iQ] = _sma[order.Q * bid + iQ];
+        }
+        param += order.Q;
+        *param = _sigma2[bid];
+      });
   }
 
   /**
    * Unpack a parameter vector into separate arrays of parameters.
-   * 
+   *
    * @param[in]  order      ARIMA order
    * @param[in]  batch_size Batch size
    * @param[in]  param_vec  Linear array of all parameters grouped by batch
    *                        [mu, ar, ma, sar, sma, sigma2] (device)
    * @param[in]  stream     CUDA stream
    */
-  void unpack(const ARIMAOrder& order, int batch_size, const DataT* param_vec,
-              cudaStream_t stream) {
-    int N = order.complexity();
+  void unpack(const ARIMAOrder& order, int batch_size, const DataT* param_vec, cudaStream_t stream)
+  {
+    int N         = order.complexity();
     auto counting = thrust::make_counting_iterator(0);
     // The device lambda can't capture structure members...
-    DataT *_mu = mu, *_ar = ar, *_ma = ma, *_sar = sar, *_sma = sma,
-          *_sigma2 = sigma2;
-    thrust::for_each(thrust::cuda::par.on(stream), counting,
-                     counting + batch_size, [=] __device__(int bid) {
-                       const DataT* param = param_vec + bid * N;
-                       if (order.k) {
-                         _mu[bid] = *param;
-                         param++;
-                       }
-                       for (int ip = 0; ip < order.p; ip++) {
-                         _ar[order.p * bid + ip] = param[ip];
-                       }
-                       param += order.p;
-                       for (int iq = 0; iq < order.q; iq++) {
-                         _ma[order.q * bid + iq] = param[iq];
-                       }
-                       param += order.q;
-                       for (int iP = 0; iP < order.P; iP++) {
-                         _sar[order.P * bid + iP] = param[iP];
-                       }
-                       param += order.P;
-                       for (int iQ = 0; iQ < order.Q; iQ++) {
-                         _sma[order.Q * bid + iQ] = param[iQ];
-                       }
-                       param += order.Q;
-                       _sigma2[bid] = *param;
-                     });
+    DataT *_mu = mu, *_ar = ar, *_ma = ma, *_sar = sar, *_sma = sma, *_sigma2 = sigma2;
+    thrust::for_each(
+      thrust::cuda::par.on(stream), counting, counting + batch_size, [=] __device__(int bid) {
+        const DataT* param = param_vec + bid * N;
+        if (order.k) {
+          _mu[bid] = *param;
+          param++;
+        }
+        for (int ip = 0; ip < order.p; ip++) {
+          _ar[order.p * bid + ip] = param[ip];
+        }
+        param += order.p;
+        for (int iq = 0; iq < order.q; iq++) {
+          _ma[order.q * bid + iq] = param[iq];
+        }
+        param += order.q;
+        for (int iP = 0; iP < order.P; iP++) {
+          _sar[order.P * bid + iP] = param[iP];
+        }
+        param += order.P;
+        for (int iQ = 0; iQ < order.Q; iQ++) {
+          _sma[order.Q * bid + iQ] = param[iQ];
+        }
+        param += order.Q;
+        _sigma2[bid] = *param;
+      });
   }
 };
 
@@ -215,21 +207,17 @@ struct ARIMAParams {
  */
 template <typename T, int ALIGN = 256>
 struct ARIMAMemory {
-  T *params_mu, *params_ar, *params_ma, *params_sar, *params_sma,
-    *params_sigma2, *Tparams_mu, *Tparams_ar, *Tparams_ma, *Tparams_sar,
-    *Tparams_sma, *Tparams_sigma2, *d_params, *d_Tparams, *Z_dense, *R_dense,
-    *T_dense, *RQR_dense, *RQ_dense, *P_dense, *alpha_dense, *ImT_dense,
-    *ImT_inv_dense, *T_values, *v_tmp_dense, *m_tmp_dense, *K_dense, *TP_dense,
-    *vs, *y_diff, *loglike, *loglike_base, *loglike_pert, *x_pert, *F_buffer,
-    *sumLogF_buffer, *sigma2_buffer, *I_m_AxA_dense, *I_m_AxA_inv_dense,
-    *Ts_dense, *RQRs_dense, *Ps_dense;
-  T **Z_batches, **R_batches, **T_batches, **RQR_batches, **RQ_batches,
-    **P_batches, **alpha_batches, **ImT_batches, **ImT_inv_batches,
-    **v_tmp_batches, **m_tmp_batches, **K_batches, **TP_batches,
-    **I_m_AxA_batches, **I_m_AxA_inv_batches, **Ts_batches, **RQRs_batches,
-    **Ps_batches;
-  int *T_col_index, *T_row_index, *ImT_inv_P, *ImT_inv_info, *I_m_AxA_P,
-    *I_m_AxA_info;
+  T *params_mu, *params_ar, *params_ma, *params_sar, *params_sma, *params_sigma2, *Tparams_mu,
+    *Tparams_ar, *Tparams_ma, *Tparams_sar, *Tparams_sma, *Tparams_sigma2, *d_params, *d_Tparams,
+    *Z_dense, *R_dense, *T_dense, *RQR_dense, *RQ_dense, *P_dense, *alpha_dense, *ImT_dense,
+    *ImT_inv_dense, *v_tmp_dense, *m_tmp_dense, *K_dense, *TP_dense, *vs, *y_diff, *loglike,
+    *loglike_base, *loglike_pert, *x_pert, *F_buffer, *sumLogF_buffer, *sigma2_buffer,
+    *I_m_AxA_dense, *I_m_AxA_inv_dense, *Ts_dense, *RQRs_dense, *Ps_dense;
+  T **Z_batches, **R_batches, **T_batches, **RQR_batches, **RQ_batches, **P_batches,
+    **alpha_batches, **ImT_batches, **ImT_inv_batches, **v_tmp_batches, **m_tmp_batches,
+    **K_batches, **TP_batches, **I_m_AxA_batches, **I_m_AxA_inv_batches, **Ts_batches,
+    **RQRs_batches, **Ps_batches;
+  int *ImT_inv_P, *ImT_inv_info, *I_m_AxA_P, *I_m_AxA_info;
 
   size_t size;
 
@@ -237,22 +225,24 @@ struct ARIMAMemory {
   char* buf;
 
   template <bool assign, typename ValType>
-  inline void append_buffer(ValType*& ptr, size_t n_elem) {
-    if (assign) {
-      ptr = reinterpret_cast<ValType*>(buf + size);
-    }
+  inline void append_buffer(ValType*& ptr, size_t n_elem)
+  {
+    if (assign) { ptr = reinterpret_cast<ValType*>(buf + size); }
     size += ((n_elem * sizeof(ValType) + ALIGN - 1) / ALIGN) * ALIGN;
   }
 
   template <bool assign>
-  inline void buf_offsets(const ARIMAOrder& order, int batch_size, int n_obs,
-                          char* in_buf = nullptr) {
-    buf = in_buf;
+  inline void buf_offsets(const ARIMAOrder& order,
+                          int batch_size,
+                          int n_obs,
+                          char* in_buf = nullptr)
+  {
+    buf  = in_buf;
     size = 0;
 
-    int r = order.r();
-    int rd = order.rd();
-    int N = order.complexity();
+    int r      = order.r();
+    int rd     = order.rd();
+    int N      = order.complexity();
     int n_diff = order.n_diff();
 
     append_buffer<assign>(params_mu, order.k * batch_size);
@@ -291,9 +281,6 @@ struct ARIMAMemory {
     append_buffer<assign>(ImT_inv_batches, batch_size);
     append_buffer<assign>(ImT_inv_P, r * batch_size);
     append_buffer<assign>(ImT_inv_info, batch_size);
-    append_buffer<assign>(T_values, rd * rd * batch_size);
-    append_buffer<assign>(T_col_index, rd * rd);
-    append_buffer<assign>(T_row_index, rd + 1);
     append_buffer<assign>(v_tmp_dense, rd * batch_size);
     append_buffer<assign>(v_tmp_batches, batch_size);
     append_buffer<assign>(m_tmp_dense, rd * rd * batch_size);
@@ -335,7 +322,8 @@ struct ARIMAMemory {
   }
 
   /** Protected constructor to estimate max size */
-  ARIMAMemory(const ARIMAOrder& order, int batch_size, int n_obs) {
+  ARIMAMemory(const ARIMAOrder& order, int batch_size, int n_obs)
+  {
     buf_offsets<false>(order, batch_size, n_obs);
   }
 
@@ -347,8 +335,8 @@ struct ARIMAMemory {
    * @param[in] in_buf     Pointer to the temporary memory buffer.
    *                       Ownership is retained by the caller
    */
-  ARIMAMemory(const ARIMAOrder& order, int batch_size, int n_obs,
-              char* in_buf) {
+  ARIMAMemory(const ARIMAOrder& order, int batch_size, int n_obs, char* in_buf)
+  {
     buf_offsets<true>(order, batch_size, n_obs, in_buf);
   }
 
@@ -358,8 +346,8 @@ struct ARIMAMemory {
    * @param[in] n_obs      Length of the series
    * @return Buffer size in bytes
    */
-  static size_t compute_size(const ARIMAOrder& order, int batch_size,
-                             int n_obs) {
+  static size_t compute_size(const ARIMAOrder& order, int batch_size, int n_obs)
+  {
     ARIMAMemory temp(order, batch_size, n_obs);
     return temp.size;
   }
