@@ -273,7 +273,7 @@ class Matrix {
   }
 
   //! Return batches
-  int batches() const { return m_batch_size; }
+  std::size_t batches() const { return m_batch_size; }
 
   //! Return cublas handle
   cublasHandle_t cublasHandle() const { return m_cublasHandle; }

@@ -373,10 +373,10 @@ class CSR {
   }
 
   //! Return batch size
-  size_t batches() const { return m_batch_size; }
+  std::size_t batches() const { return m_batch_size; }
 
   //! Return number of non-zero elements
-  size_t nnz() const { return m_nnz; }
+  std::size_t nnz() const { return m_nnz; }
 
   //! Return cublas handle
   cublasHandle_t cublasHandle() const { return m_cublasHandle; }
