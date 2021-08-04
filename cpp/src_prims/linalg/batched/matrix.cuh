@@ -571,9 +571,9 @@ __global__ void kronecker_product_kernel(
 template <typename T>
 void b_gemm(bool aT,
             bool bT,
-            int m,
-            int n,
-            int k,
+            std::size_t m,
+            std::size_t n,
+            std::size_t k,
             T alpha,
             const Matrix<T>& A,
             const Matrix<T>& B,
