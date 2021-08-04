@@ -14,6 +14,7 @@
 #
 
 import pytest
+import cupy as cp
 import numpy as np
 from numba import cuda
 
@@ -681,3 +682,24 @@ def test_svm_predict_convert_dtype(train_dtype, test_dtype, classifier):
         clf = cu_svm.SVR()
     clf.fit(X_train, y_train)
     clf.predict(X_test.astype(test_dtype))
+
+
+def test_svm_no_support_vectors():
+    n_rows = 10
+    n_cols = 3
+    X = cp.random.uniform(size=(n_rows, n_cols), dtype=cp.float64)
+    y = cp.ones((n_rows, 1))
+    model = cuml.svm.SVR(kernel="linear", C=10)
+    model.fit(X, y)
+    pred = model.predict(X)
+
+    assert array_equal(pred, y, 0)
+
+    assert model.n_support_ == 0
+    assert abs(model.intercept_ - 1) <= 1e-6
+    assert array_equal(model.coef_, cp.zeros((1, n_cols)))
+    assert model.dual_coef_.shape == (1, 0)
+    assert model.support_.shape == (0,)
+    assert model.support_vectors_.shape[0] == 0
+    # Check disabled due to https://github.com/rapidsai/cuml/issues/4095
+    # assert model.support_vectors_.shape[1] == n_cols

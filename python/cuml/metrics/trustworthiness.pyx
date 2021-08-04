@@ -33,7 +33,7 @@ cdef extern from "raft/linalg/distance_type.h" namespace "raft::distance":
     ctypedef int DistanceType
     ctypedef DistanceType euclidean "(raft::distance::DistanceType)5"
 
-cdef extern from "metrics/trustworthiness_c.h" namespace "ML::Metrics":
+cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
 
     cdef double trustworthiness_score[T, DistanceType](const handle_t& h,
                                                        T* X,

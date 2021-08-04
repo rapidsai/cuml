@@ -23,14 +23,15 @@ namespace cuml {
 namespace genetic {
 namespace detail {
 
-HDI float p_reproduce(const param& p) {
-  auto sum = p.p_crossover + p.p_subtree_mutation + p.p_hoist_mutation +
-             p.p_point_mutation;
+HDI float p_reproduce(const param& p)
+{
+  auto sum = p.p_crossover + p.p_subtree_mutation + p.p_hoist_mutation + p.p_point_mutation;
   auto ret = 1.f - sum;
   return fmaxf(0.f, fminf(ret, 1.f));
 }
 
-HDI int max_programs(const param& p) {
+HDI int max_programs(const param& p)
+{
   // in the worst case every generation's top program ends up reproducing,
   // thereby adding another program into the population
   return p.population_size + p.generations;

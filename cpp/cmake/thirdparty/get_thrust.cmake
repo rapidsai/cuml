@@ -26,4 +26,4 @@ function(find_and_configure_thrust VERSION)
 
 endfunction()
 
-find_and_configure_thrust(1.10.0)
+find_and_configure_thrust(1.12.0)

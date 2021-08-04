@@ -17,6 +17,8 @@
 /** @file internal.cuh cuML-internal interface to Forest Inference Library. */
 
 #pragma once
+#include <cuml/fil/fil.h>
+#include <vector>
 
 namespace raft {
 class handle_t;
@@ -24,6 +26,12 @@ class handle_t;
 
 namespace ML {
 namespace fil {
+
+/// modpow2 returns a % b == a % pow(2, log2_b)
+__host__ __device__ __forceinline__ int modpow2(int a, int log2_b)
+{
+  return a & ((1 << log2_b) - 1);
+}
 
 /**
  * output_t are flags that define the output produced by the FIL predictor; a
@@ -47,19 +55,20 @@ enum output_t {
   /** sigmoid transformation: apply 1/(1+exp(-x)) to the sum or average of tree
       outputs; use for GBM binary classification models for probability */
   SIGMOID = 0x10,
-  /** output class label: either apply threshold to the output of the previous stage (for binary classification),
-      or select the class with the most votes to get the class label (for multi-class classification).  */
+  /** output class label: either apply threshold to the output of the previous stage (for binary
+     classification), or select the class with the most votes to get the class label (for
+     multi-class classification).  */
   CLASS = 0x100,
-  /** softmax: apply softmax to class margins when predicting probability 
+  /** softmax: apply softmax to class margins when predicting probability
       in multiclass classification. Softmax is made robust by subtracting max
       from margins before applying. */
-  SOFTMAX = 0x1000,
-  SIGMOID_CLASS = SIGMOID | CLASS,
-  AVG_CLASS = AVG | CLASS,
+  SOFTMAX           = 0x1000,
+  SIGMOID_CLASS     = SIGMOID | CLASS,
+  AVG_CLASS         = AVG | CLASS,
   AVG_SIGMOID_CLASS = AVG | SIGMOID | CLASS,
-  AVG_SOFTMAX = AVG | SOFTMAX,
+  AVG_SOFTMAX       = AVG | SOFTMAX,
   AVG_CLASS_SOFTMAX = AVG | CLASS | SOFTMAX,
-  ALL_SET = AVG | SIGMOID | CLASS | SOFTMAX
+  ALL_SET           = AVG | SIGMOID | CLASS | SOFTMAX
 };
 
 /** val_t is the payload within a FIL leaf */
@@ -81,11 +90,12 @@ struct base_node {
       node is a leaf or inner node, and for inner nodes, additional information,
       e.g. the default direction, feature id or child index */
   int bits;
-  static const int FID_MASK = (1 << 30) - 1;
+  static const int FID_MASK      = (1 << 30) - 1;
   static const int DEF_LEFT_MASK = 1 << 30;
-  static const int IS_LEAF_MASK = 1 << 31;
+  static const int IS_LEAF_MASK  = 1 << 31;
   template <class o_t>
-  __host__ __device__ o_t output() const {
+  __host__ __device__ o_t output() const
+  {
     return val;
   }
   __host__ __device__ float thresh() const { return val.f; }
@@ -93,9 +103,9 @@ struct base_node {
   __host__ __device__ bool def_left() const { return bits & DEF_LEFT_MASK; }
   __host__ __device__ bool is_leaf() const { return bits & IS_LEAF_MASK; }
   __host__ __device__ base_node() : val({.f = 0}), bits(0){};
-  base_node(val_t output, float thresh, int fid, bool def_left, bool is_leaf) {
-    bits = (fid & FID_MASK) | (def_left ? DEF_LEFT_MASK : 0) |
-           (is_leaf ? IS_LEAF_MASK : 0);
+  base_node(val_t output, float thresh, int fid, bool def_left, bool is_leaf)
+  {
+    bits = (fid & FID_MASK) | (def_left ? DEF_LEFT_MASK : 0) | (is_leaf ? IS_LEAF_MASK : 0);
     if (is_leaf)
       val = output;
     else
@@ -107,7 +117,9 @@ struct base_node {
 struct alignas(8) dense_node : base_node {
   dense_node() = default;
   dense_node(val_t output, float thresh, int fid, bool def_left, bool is_leaf)
-    : base_node(output, thresh, fid, def_left, is_leaf) {}
+    : base_node(output, thresh, fid, def_left, is_leaf)
+  {
+  }
   /** index of the left child, where curr is the index of the current node */
   __host__ __device__ int left(int curr) const { return 2 * curr + 1; }
 };
@@ -117,11 +129,10 @@ struct alignas(16) sparse_node16 : base_node {
   int left_idx;
   int dummy;  // make alignment explicit and reserve for future use
   __host__ __device__ sparse_node16() : left_idx(0), dummy(0) {}
-  sparse_node16(val_t output, float thresh, int fid, bool def_left,
-                bool is_leaf, int left_index)
-    : base_node(output, thresh, fid, def_left, is_leaf),
-      left_idx(left_index),
-      dummy(0) {}
+  sparse_node16(val_t output, float thresh, int fid, bool def_left, bool is_leaf, int left_index)
+    : base_node(output, thresh, fid, def_left, is_leaf), left_idx(left_index), dummy(0)
+  {
+  }
   __host__ __device__ int left_index() const { return left_idx; }
   /** index of the left child, where curr is the index of the current node */
   __host__ __device__ int left(int curr) const { return left_idx; }
@@ -129,30 +140,27 @@ struct alignas(16) sparse_node16 : base_node {
 
 /** sparse_node8 is a node of reduced size (8 bytes) in a sparse forest */
 struct alignas(8) sparse_node8 : base_node {
-  static const int FID_NUM_BITS = 14;
-  static const int FID_MASK = (1 << FID_NUM_BITS) - 1;
-  static const int LEFT_OFFSET = FID_NUM_BITS;
-  static const int LEFT_NUM_BITS = 16;
-  static const int LEFT_MASK = ((1 << LEFT_NUM_BITS) - 1) << LEFT_OFFSET;
+  static const int FID_NUM_BITS    = 14;
+  static const int FID_MASK        = (1 << FID_NUM_BITS) - 1;
+  static const int LEFT_OFFSET     = FID_NUM_BITS;
+  static const int LEFT_NUM_BITS   = 16;
+  static const int LEFT_MASK       = ((1 << LEFT_NUM_BITS) - 1) << LEFT_OFFSET;
   static const int DEF_LEFT_OFFSET = LEFT_OFFSET + LEFT_NUM_BITS;
-  static const int DEF_LEFT_MASK = 1 << DEF_LEFT_OFFSET;
-  static const int IS_LEAF_OFFSET = 31;
-  static const int IS_LEAF_MASK = 1 << IS_LEAF_OFFSET;
+  static const int DEF_LEFT_MASK   = 1 << DEF_LEFT_OFFSET;
+  static const int IS_LEAF_OFFSET  = 31;
+  static const int IS_LEAF_MASK    = 1 << IS_LEAF_OFFSET;
   __host__ __device__ int fid() const { return bits & FID_MASK; }
   __host__ __device__ bool def_left() const { return bits & DEF_LEFT_MASK; }
   __host__ __device__ bool is_leaf() const { return bits & IS_LEAF_MASK; }
-  __host__ __device__ int left_index() const {
-    return (bits & LEFT_MASK) >> LEFT_OFFSET;
-  }
+  __host__ __device__ int left_index() const { return (bits & LEFT_MASK) >> LEFT_OFFSET; }
   sparse_node8() = default;
-  sparse_node8(val_t output, float thresh, int fid, bool def_left, bool is_leaf,
-               int left_index) {
+  sparse_node8(val_t output, float thresh, int fid, bool def_left, bool is_leaf, int left_index)
+  {
     if (is_leaf)
       val = output;
     else
       val.f = thresh;
-    bits = fid | left_index << LEFT_OFFSET |
-           (def_left ? 1 : 0) << DEF_LEFT_OFFSET |
+    bits = fid | left_index << LEFT_OFFSET | (def_left ? 1 : 0) << DEF_LEFT_OFFSET |
            (is_leaf ? 1 : 0) << IS_LEAF_OFFSET;
   }
   /** index of the left child, where curr is the index of the current node */
@@ -187,11 +195,14 @@ enum leaf_algo_t {
       This is a more specific version of GROVE_PER_CLASS.
       _MANY_CLASSES means more classes than threads. **/
   GROVE_PER_CLASS_MANY_CLASSES = 4,
+  /** Leaf contains an index into a vector of class probabilities. **/
+  VECTOR_LEAF = 5,
   // to be extended
 };
 
 template <leaf_algo_t leaf_algo>
-struct leaf_output_t {};
+struct leaf_output_t {
+};
 template <>
 struct leaf_output_t<leaf_algo_t::FLOAT_UNARY_BINARY> {
   typedef float T;
@@ -207,6 +218,10 @@ struct leaf_output_t<leaf_algo_t::GROVE_PER_CLASS_FEW_CLASSES> {
 template <>
 struct leaf_output_t<leaf_algo_t::GROVE_PER_CLASS_MANY_CLASSES> {
   typedef float T;
+};
+template <>
+struct leaf_output_t<leaf_algo_t::VECTOR_LEAF> {
+  typedef int T;
 };
 
 /** forest_params_t are the trees to initialize the predictor */
@@ -226,8 +241,8 @@ struct forest_params_t {
   algo_t algo;
   // output is the desired output type
   output_t output;
-  // threshold is used to for classification if leaf_algo == FLOAT_UNARY_BINARY && (output & OUTPUT_CLASS) != 0 && !predict_proba,
-  // and is ignored otherwise
+  // threshold is used to for classification if leaf_algo == FLOAT_UNARY_BINARY && (output &
+  // OUTPUT_CLASS) != 0 && !predict_proba, and is ignored otherwise
   float threshold;
   // global_bias is added to the sum of tree predictions
   // (after averaging, if it is used, but before any further transformations)
@@ -240,6 +255,12 @@ struct forest_params_t {
   // suggested values (if nonzero) are from 2 to 7
   // if zero, launches ceildiv(num_rows, NITEMS) blocks
   int blocks_per_sm;
+  // threads_per_tree determines how many threads work on a single tree
+  // at once inside a block (sharing trees means splitting input rows)
+  int threads_per_tree;
+  // n_items is how many input samples (items) any thread processes. If 0 is given,
+  // choose most (up to 4) that fit into shared memory.
+  int n_items;
 };
 
 /// FIL_TPB is the number of threads per block to use with FIL kernels
@@ -251,9 +272,13 @@ const int FIL_TPB = 256;
  *  @param nodes nodes for the forest, of length
       (2**(params->depth + 1) - 1) * params->ntrees
  *  @param params pointer to parameters used to initialize the forest
+ *  @param vector_leaf optional vector leaves
  */
-void init_dense(const raft::handle_t& h, forest_t* pf, const dense_node* nodes,
-                const forest_params_t* params);
+void init_dense(const raft::handle_t& h,
+                forest_t* pf,
+                const dense_node* nodes,
+                const forest_params_t* params,
+                const std::vector<float>& vector_leaf);
 
 /** init_sparse uses params, trees and nodes to initialize the sparse forest
  *  with sparse nodes stored in pf
@@ -264,10 +289,15 @@ void init_dense(const raft::handle_t& h, forest_t* pf, const dense_node* nodes,
  *  @param trees indices of tree roots in the nodes arrray, of length params->ntrees
  *  @param nodes nodes for the forest, of length params->num_nodes
  *  @param params pointer to parameters used to initialize the forest
+ *  @param vector_leaf optional vector leaves
  */
 template <typename fil_node_t>
-void init_sparse(const raft::handle_t& h, forest_t* pf, const int* trees,
-                 const fil_node_t* nodes, const forest_params_t* params);
+void init_sparse(const raft::handle_t& h,
+                 forest_t* pf,
+                 const int* trees,
+                 const fil_node_t* nodes,
+                 const forest_params_t* params,
+                 const std::vector<float>& vector_leaf);
 
 }  // namespace fil
 }  // namespace ML

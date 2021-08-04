@@ -32,7 +32,8 @@ namespace opg {
  */
 class MPIEnvironment : public ::testing::Environment {
  public:
-  void SetUp() {
+  void SetUp()
+  {
     MPI_Init(NULL, NULL);
 
     int rank, size;
@@ -42,9 +43,8 @@ class MPIEnvironment : public ::testing::Environment {
     int nGpus;
     CUDA_CHECK(cudaGetDeviceCount(&nGpus));
 
-    ASSERT(nGpus >= size,
-           "Number of GPUs are lesser than MPI ranks! ngpus=%d, nranks=%d",
-           nGpus, size);
+    ASSERT(
+      nGpus >= size, "Number of GPUs are lesser than MPI ranks! ngpus=%d, nranks=%d", nGpus, size);
 
     CUDA_CHECK(cudaSetDevice(rank));
   }

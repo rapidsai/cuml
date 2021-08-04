@@ -16,6 +16,9 @@
 
 #pragma once
 
+#include <cstddef>
+#include <cstdint>
+
 namespace raft {
 class handle_t;
 }
@@ -24,30 +27,57 @@ namespace ML {
 class UMAPParams;
 namespace UMAP {
 
-void transform(const raft::handle_t &handle, float *X, int n, int d,
-               int64_t *knn_indices, float *knn_dists, float *orig_X,
-               int orig_n, float *embedding, int embedding_n,
-               UMAPParams *params, float *transformed);
+void transform(const raft::handle_t& handle,
+               float* X,
+               int n,
+               int d,
+               int64_t* knn_indices,
+               float* knn_dists,
+               float* orig_X,
+               int orig_n,
+               float* embedding,
+               int embedding_n,
+               UMAPParams* params,
+               float* transformed);
 
-void transform_sparse(const raft::handle_t &handle, int *indptr, int *indices,
-                      float *data, size_t nnz, int n, int d, int *orig_x_indptr,
-                      int *orig_x_indices, float *orig_x_data, size_t orig_nnz,
-                      int orig_n, float *embedding, int embedding_n,
-                      UMAPParams *params, float *transformed);
+void transform_sparse(const raft::handle_t& handle,
+                      int* indptr,
+                      int* indices,
+                      float* data,
+                      size_t nnz,
+                      int n,
+                      int d,
+                      int* orig_x_indptr,
+                      int* orig_x_indices,
+                      float* orig_x_data,
+                      size_t orig_nnz,
+                      int orig_n,
+                      float* embedding,
+                      int embedding_n,
+                      UMAPParams* params,
+                      float* transformed);
 
-void find_ab(const raft::handle_t &handle, UMAPParams *params);
+void find_ab(const raft::handle_t& handle, UMAPParams* params);
 
-void fit(const raft::handle_t &handle,
-         float *X,  // input matrix
-         float *y,  // labels
-         int n, int d, int64_t *knn_indices, float *knn_dists,
-         UMAPParams *params, float *embeddings);
+void fit(const raft::handle_t& handle,
+         float* X,  // input matrix
+         float* y,  // labels
+         int n,
+         int d,
+         int64_t* knn_indices,
+         float* knn_dists,
+         UMAPParams* params,
+         float* embeddings);
 
-void fit_sparse(const raft::handle_t &handle,
-                int *indptr,  // input matrix
-                int *indices, float *data, size_t nnz, float *y,
+void fit_sparse(const raft::handle_t& handle,
+                int* indptr,  // input matrix
+                int* indices,
+                float* data,
+                size_t nnz,
+                float* y,
                 int n,  // rows
                 int d,  // cols
-                UMAPParams *params, float *embeddings);
+                UMAPParams* params,
+                float* embeddings);
 }  // namespace UMAP
 }  // namespace ML

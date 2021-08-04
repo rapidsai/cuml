@@ -58,12 +58,12 @@ Current cmake offers the following configuration options:
 After running CMake in a `build` directory, if the `BUILD_*` options were not turned `OFF`, the following targets can be built:
 
 ```bash
-$ make -j # Build libcuml++ and all tests
-$ make -j sg_benchmark # Build c++ cuml single gpu benchmark
-$ make -j cuml++ # Build libcuml++
-$ make -j ml # Build ml_test algorithm tests binary
-$ make -j ml_mg # Build ml_mg_test multi GPU algorithms tests binary
-$ make -j prims # Build prims_test ML primitive unit tests binary
+$ cmake --build . -j                        # Build libcuml++ and all tests
+$ cmake --build . -j --target  sg_benchmark # Build c++ cuml single gpu benchmark
+$ cmake --build . -j --target  cuml++       # Build libcuml++
+$ cmake --build . -j --target  ml           # Build ml_test algorithm tests binary
+$ cmake --build . -j --target  ml_mg        # Build ml_mg_test multi GPU algorithms tests binary
+$ cmake --build . -j --target  prims        # Build prims_test ML primitive unit tests binary
 ```
 
 ### Third Party Modules

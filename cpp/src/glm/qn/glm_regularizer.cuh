@@ -30,13 +30,16 @@ template <typename T>
 struct Tikhonov {
   T l2_penalty;
   Tikhonov(T l2) : l2_penalty(l2) {}
-  Tikhonov(const Tikhonov<T> &other) : l2_penalty(other.l2_penalty) {}
+  Tikhonov(const Tikhonov<T>& other) : l2_penalty(other.l2_penalty) {}
 
   HDI T operator()(const T w) const { return 0.5 * l2_penalty * w * w; }
 
-  inline void reg_grad(T *reg_val, SimpleDenseMat<T> &G,
-                       const SimpleDenseMat<T> &W, const bool has_bias,
-                       cudaStream_t stream) const {
+  inline void reg_grad(T* reg_val,
+                       SimpleDenseMat<T>& G,
+                       const SimpleDenseMat<T>& W,
+                       const bool has_bias,
+                       cudaStream_t stream) const
+  {
     // NOTE: scikit generally does not penalize biases
     SimpleDenseMat<T> Gweights;
     SimpleDenseMat<T> Wweights;
@@ -44,23 +47,29 @@ struct Tikhonov {
     col_slice(W, Wweights, 0, G.n - has_bias);
     Gweights.ax(l2_penalty, Wweights, stream);
 
-    raft::linalg::mapThenSumReduce(reg_val, Wweights.len, *this, stream,
-                                   Wweights.data);
+    raft::linalg::mapThenSumReduce(reg_val, Wweights.len, *this, stream, Wweights.data);
   }
 };
 
 template <typename T, class Loss, class Reg>
 struct RegularizedGLM : GLMDims {
-  Reg *reg;
-  Loss *loss;
+  Reg* reg;
+  Loss* loss;
 
-  RegularizedGLM(Loss *loss, Reg *reg)
-    : reg(reg), loss(loss), GLMDims(loss->C, loss->D, loss->fit_intercept) {}
+  RegularizedGLM(Loss* loss, Reg* reg)
+    : reg(reg), loss(loss), GLMDims(loss->C, loss->D, loss->fit_intercept)
+  {
+  }
 
-  inline void loss_grad(T *loss_val, SimpleDenseMat<T> &G,
-                        const SimpleDenseMat<T> &W, const SimpleMat<T> &Xb,
-                        const SimpleVec<T> &yb, SimpleDenseMat<T> &Zb,
-                        cudaStream_t stream, bool initGradZero = true) {
+  inline void loss_grad(T* loss_val,
+                        SimpleDenseMat<T>& G,
+                        const SimpleDenseMat<T>& W,
+                        const SimpleMat<T>& Xb,
+                        const SimpleVec<T>& yb,
+                        SimpleDenseMat<T>& Zb,
+                        cudaStream_t stream,
+                        bool initGradZero = true)
+  {
     T reg_host, loss_host;
     SimpleVec<T> lossVal(loss_val, 1);
 

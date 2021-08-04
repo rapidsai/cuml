@@ -21,7 +21,8 @@
 namespace cuml {
 namespace genetic {
 
-TEST(Genetic, ParamTest) {
+TEST(Genetic, ParamTest)
+{
   param p;
   ASSERT_EQ(p.population_size, 1000);
   ASSERT_EQ(p.hall_of_fame, 100);
@@ -52,11 +53,11 @@ TEST(Genetic, ParamTest) {
   ASSERT_EQ(p.random_state, 0ull);
 }
 
-TEST(Genetic, p_reproduce) {
+TEST(Genetic, p_reproduce)
+{
   param p;
   auto ret = p.p_reproduce();
-  ASSERT_TRUE(
-    raft::match(p.p_reproduce(), 0.07f, raft::CompareApprox<float>(0.0001f)));
+  ASSERT_TRUE(raft::match(p.p_reproduce(), 0.07f, raft::CompareApprox<float>(0.0001f)));
 }
 
 }  // namespace genetic

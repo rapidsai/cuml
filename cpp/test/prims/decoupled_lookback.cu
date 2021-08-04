@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,18 +23,20 @@
 namespace MLCommon {
 
 template <int TPB>
-__global__ void dlbTestKernel(void *workspace, int len, int *out) {
+__global__ void dlbTestKernel(void* workspace, int len, int* out)
+{
   DecoupledLookBack<int> dlb(workspace);
-  int count = threadIdx.x == blockDim.x - 1 ? 1 : 0;
+  int count   = threadIdx.x == blockDim.x - 1 ? 1 : 0;
   auto prefix = dlb(count);
   if (threadIdx.x == blockDim.x - 1) out[blockIdx.x] = prefix;
 }
 
-void dlbTest(int len, int *out) {
-  constexpr int TPB = 256;
-  int nblks = len;
+void dlbTest(int len, int* out)
+{
+  constexpr int TPB    = 256;
+  int nblks            = len;
   size_t workspaceSize = DecoupledLookBack<int>::computeWorkspaceSize(nblks);
-  char *workspace;
+  char* workspace;
   raft::allocate(workspace, workspaceSize);
   CUDA_CHECK(cudaMemset(workspace, 0, workspaceSize));
   dlbTestKernel<TPB><<<nblks, TPB>>>(workspace, len, out);
@@ -46,14 +48,13 @@ struct DlbInputs {
   int len;
 };
 
-::std::ostream &operator<<(::std::ostream &os, const DlbInputs &dims) {
-  return os;
-}
+::std::ostream& operator<<(::std::ostream& os, const DlbInputs& dims) { return os; }
 
 class DlbTest : public ::testing::TestWithParam<DlbInputs> {
  protected:
-  void SetUp() override {
-    params = ::testing::TestWithParam<DlbInputs>::GetParam();
+  void SetUp() override
+  {
+    params  = ::testing::TestWithParam<DlbInputs>::GetParam();
     int len = params.len;
     raft::allocate(out, len);
     dlbTest(len, out);
@@ -63,18 +64,20 @@ class DlbTest : public ::testing::TestWithParam<DlbInputs> {
 
  protected:
   DlbInputs params;
-  int *out;
+  int* out;
 };
 
 template <typename T, typename L>
-::testing::AssertionResult devArrMatchCustom(const T *actual, size_t size,
+::testing::AssertionResult devArrMatchCustom(const T* actual,
+                                             size_t size,
                                              L eq_compare,
-                                             cudaStream_t stream = 0) {
+                                             cudaStream_t stream = 0)
+{
   std::vector<T> act_h(size);
   raft::update_host<T>(&(act_h[0]), actual, size, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   for (size_t i(0); i < size; ++i) {
-    auto act = act_h[i];
+    auto act      = act_h[i];
     auto expected = (T)i;
     if (!eq_compare(expected, act)) {
       return ::testing::AssertionFailure()
@@ -85,9 +88,7 @@ template <typename T, typename L>
 }
 
 const std::vector<DlbInputs> inputs = {{4}, {16}, {64}, {256}, {2048}};
-TEST_P(DlbTest, Result) {
-  ASSERT_TRUE(devArrMatchCustom(out, params.len, raft::Compare<int>()));
-}
+TEST_P(DlbTest, Result) { ASSERT_TRUE(devArrMatchCustom(out, params.len, raft::Compare<int>())); }
 INSTANTIATE_TEST_CASE_P(DlbTests, DlbTest, ::testing::ValuesIn(inputs));
 
 }  // end namespace MLCommon
