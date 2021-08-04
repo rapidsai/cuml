@@ -68,10 +68,8 @@ void sparse_random_matrix(const raft::handle_t& h,
     math_t scale = 1.0 / sqrt(math_t(params.n_components));
     rng.scaled_bernoulli(random_matrix->dense_data.data(), len, math_t(0.5), scale, stream);
   } else {
-    double max_total_density = params.density * 1.2;
-    size_t indices_alloc =
-      (params.n_features * params.n_components * max_total_density) * sizeof(int);
-    size_t indptr_alloc = (params.n_components + 1) * sizeof(int);
+    size_t indices_alloc = params.n_features * params.n_components;
+    size_t indptr_alloc  = (params.n_components + 1);
     std::vector<int> indices(indices_alloc);
     std::vector<int> indptr(indptr_alloc);
 

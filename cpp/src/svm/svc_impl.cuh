@@ -118,6 +118,9 @@ void svcPredict(const raft::handle_t& handle,
 
   rmm::device_uvector<math_t> K(n_batch * model.n_support, stream);
   rmm::device_uvector<math_t> y(n_rows, stream);
+  if (model.n_support == 0) {
+    CUDA_CHECK(cudaMemsetAsync(y.data(), 0, n_rows * sizeof(math_t), stream));
+  }
   rmm::device_uvector<math_t> x_rbf(0, stream);
   rmm::device_uvector<int> idx(0, stream);
 
@@ -133,7 +136,7 @@ void svcPredict(const raft::handle_t& handle,
   // We process the input data batchwise:
   //  - calculate the kernel values K[x_batch, x_support]
   //  - calculate y(x_batch) = K[x_batch, x_support] * dual_coeffs
-  for (int i = 0; i < n_rows; i += n_batch) {
+  for (int i = 0; i < n_rows && model.n_support > 0; i += n_batch) {
     if (i + n_batch >= n_rows) { n_batch = n_rows - i; }
     math_t* x_ptr = nullptr;
     int ld1       = 0;

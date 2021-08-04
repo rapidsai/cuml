@@ -44,5 +44,5 @@ set(CUML_BRANCH_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION    ${CUML_MIN_VERSION_raft}
                         FORK       viclafargue
-                        PINNED_TAG 7725a809ab87fe929c9a8e3b4221d8ab675104d3
+                        PINNED_TAG afd1a1bfdc08b013b562cd6bda45dfa3bfeab945
                         )

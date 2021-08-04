@@ -33,7 +33,7 @@ struct SvrParams {
   RegressionParams regression;
   MLCommon::Matrix::KernelParams kernel;
   ML::SVM::svmParameter svm_param;
-  ML::SVM::svmModel<D> model;
+  ML::SVM::svmModel<D>* model;
 };
 
 template <typename D>
@@ -66,24 +66,21 @@ class SVR : public RegressionFixture<D> {
                       this->data.y.data(),
                       this->svm_param,
                       this->kernel,
-                      this->model);
+                      *(this->model));
       CUDA_CHECK(cudaStreamSynchronize(this->stream));
-      ML::SVM::svmFreeBuffers(*this->handle, this->model);
+      ML::SVM::svmFreeBuffers(*this->handle, *(this->model));
     });
   }
 
  private:
   MLCommon::Matrix::KernelParams kernel;
   ML::SVM::svmParameter svm_param;
-  ML::SVM::svmModel<D> model;
+  ML::SVM::svmModel<D>* model;
 };
 
 template <typename D>
 std::vector<SvrParams<D>> getInputs()
 {
-  cudaStream_t stream;
-  CUDA_CHECK(cudaStreamCreate(&stream));
-
   struct Triplets {
     int nrows, ncols, n_informative;
   };
@@ -103,7 +100,7 @@ std::vector<SvrParams<D>> getInputs()
   //              epsilon, svmType})
   p.svm_param =
     ML::SVM::svmParameter{1, 200, 200, 100, 1e-3, CUML_LEVEL_INFO, 0.1, ML::SVM::EPSILON_SVR};
-  p.model = ML::SVM::svmModel<D>{0, 0, 0, 0, stream};
+  p.model = new ML::SVM::svmModel<D>{0, 0, 0, 0};
 
   std::vector<Triplets> rowcols = {{50000, 2, 2}, {1024, 10000, 10}, {3000, 200, 200}};
 

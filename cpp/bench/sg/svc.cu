@@ -33,7 +33,7 @@ struct SvcParams {
   BlobsParams blobs;
   MLCommon::Matrix::KernelParams kernel;
   ML::SVM::svmParameter svm_param;
-  ML::SVM::svmModel<D> model;
+  ML::SVM::svmModel<D>* model;
 };
 
 template <typename D>
@@ -66,24 +66,21 @@ class SVC : public BlobsFixture<D, D> {
                       this->data.y.data(),
                       this->svm_param,
                       this->kernel,
-                      this->model);
+                      *(this->model));
       CUDA_CHECK(cudaStreamSynchronize(this->stream));
-      ML::SVM::svmFreeBuffers(*this->handle, this->model);
+      ML::SVM::svmFreeBuffers(*this->handle, *(this->model));
     });
   }
 
  private:
   MLCommon::Matrix::KernelParams kernel;
   ML::SVM::svmParameter svm_param;
-  ML::SVM::svmModel<D> model;
+  ML::SVM::svmModel<D>* model;
 };
 
 template <typename D>
 std::vector<SvcParams<D>> getInputs()
 {
-  cudaStream_t stream;
-  CUDA_CHECK(cudaStreamCreate(&stream));
-
   struct Triplets {
     int nrows, ncols, nclasses;
   };
@@ -100,7 +97,7 @@ std::vector<SvcParams<D>> getInputs()
 
   // svmParameter{C, cache_size, max_iter, nochange_steps, tol, verbosity})
   p.svm_param = ML::SVM::svmParameter{1, 200, 100, 100, 1e-3, CUML_LEVEL_INFO, 0, ML::SVM::C_SVC};
-  p.model     = ML::SVM::svmModel<D>{0, 0, 0, 0, stream};
+  p.model     = new ML::SVM::svmModel<D>{0, 0, 0, 0};
 
   std::vector<Triplets> rowcols = {{50000, 2, 2}, {2048, 100000, 2}, {50000, 1000, 2}};
 

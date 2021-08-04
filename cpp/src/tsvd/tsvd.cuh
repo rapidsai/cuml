@@ -198,7 +198,7 @@ void tsvdFit(const raft::handle_t& handle,
   int n_components = prms.n_components;
   if (prms.n_components > prms.n_cols) n_components = prms.n_cols;
 
-  int len = prms.n_cols * prms.n_cols;
+  size_t len = prms.n_cols * prms.n_cols;
   rmm::device_uvector<math_t> input_cross_mult(len, stream);
 
   math_t alpha = math_t(1);

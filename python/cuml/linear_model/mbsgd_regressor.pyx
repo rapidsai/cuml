@@ -201,6 +201,11 @@ class MBSGDRegressor(Base,
                                           convert_dtype=convert_dtype)
         return preds
 
+    def set_params(self, **params):
+        super().set_params(**params)
+        self.solver_model.set_params(**params)
+        return self
+
     def get_param_names(self):
         return super().get_param_names() + [
             "loss",

@@ -184,7 +184,7 @@ void class_probs(std::vector<float*>& out,
     cudaStream_t stream = raft::select_stream(user_stream, int_streams, n_int_streams, i);
 
     int n_unique_labels = n_unique[i];
-    int cur_size        = n_query_rows * n_unique_labels;
+    size_t cur_size     = n_query_rows * n_unique_labels;
 
     CUDA_CHECK(cudaMemsetAsync(out[i], 0, cur_size * sizeof(float), stream));
 

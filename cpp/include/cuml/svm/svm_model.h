@@ -16,6 +16,7 @@
 #pragma once
 
 #include <raft/handle.hpp>
+#include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace ML {
@@ -27,20 +28,27 @@ namespace SVM {
  */
 template <typename math_t>
 struct svmModel {
-  svmModel(int n_support_, int n_cols_, math_t b_, int n_classes_, cudaStream_t stream)
+  svmModel(int n_support_,
+           int n_cols_,
+           math_t b_,
+           int n_classes_,
+           rmm::cuda_stream_view stream = rmm::cuda_stream_default)
     : n_support(n_support_),
       n_cols(n_cols_),
       b(b_),
       n_classes(n_classes_),
-      dual_coefs(0, stream),
-      x_support(0, stream),
-      support_idx(0, stream),
-      unique_labels(0, stream)
+      dual_coefs(0, stream.value()),
+      x_support(0, stream.value()),
+      support_idx(0, stream.value()),
+      unique_labels(0, stream.value())
   {
   }
 
-  svmModel(cudaStream_t stream = rmm::cuda_stream_default)
-    : dual_coefs(0, stream), x_support(0, stream), support_idx(0, stream), unique_labels(0, stream)
+  svmModel(rmm::cuda_stream_view stream = rmm::cuda_stream_default)
+    : dual_coefs(0, stream.value()),
+      x_support(0, stream.value()),
+      support_idx(0, stream.value()),
+      unique_labels(0, stream.value())
   {
   }
 

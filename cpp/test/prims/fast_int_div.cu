@@ -87,7 +87,7 @@ TEST(FastIntDiv, GpuTest)
     for (int i = 0; i < len; ++i) {
       h_in[i] = rand();
     }
-    raft::update_device(in.data(), h_in.data(), len, 0);
+    raft::update_device(in.data(), h_in.data(), len, stream);
     int nblks = raft::ceildiv(len, TPB);
     fastIntDivTestKernel<<<nblks, TPB, 0, 0>>>(
       computed.data(), correct.data(), in.data(), fid, divisor, len);

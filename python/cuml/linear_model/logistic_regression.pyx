@@ -240,37 +240,12 @@ class LogisticRegression(Base,
                 raise ValueError(msg.format(l1_ratio))
             self.l1_ratio = l1_ratio
 
-        if self.penalty == "none":
-            l1_strength = 0.0
-            l2_strength = 0.0
-
-        elif self.penalty == "l1":
-            l1_strength = 1.0 / self.C
-            l2_strength = 0.0
-
-        elif self.penalty == "l2":
-            l1_strength = 0.0
-            l2_strength = 1.0 / self.C
-
-        else:
-            strength = 1.0 / self.C
-            l1_strength = self.l1_ratio * strength
-            l2_strength = (1.0 - self.l1_ratio) * strength
+        l1_strength, l2_strength = self._get_qn_params()
 
         loss = "sigmoid"
 
         if class_weight is not None:
-            if class_weight == 'balanced':
-                self.class_weight_ = 'balanced'
-            else:
-                classes = list(class_weight.keys())
-                weights = list(class_weight.values())
-                max_class = sorted(classes)[-1]
-                class_weight = cp.ones(max_class + 1)
-                class_weight[classes] = weights
-                self.class_weight_, _, _, _ = input_to_cuml_array(class_weight)
-                self.expl_spec_weights_, _, _, _ = \
-                    input_to_cuml_array(np.array(classes))
+            self._build_class_weights(class_weight)
         else:
             self.class_weight_ = None
 
@@ -471,6 +446,60 @@ class LogisticRegression(Base,
             proba = cp.log(proba)
 
         return proba
+
+    def _get_qn_params(self):
+        if self.penalty == "none":
+            l1_strength = 0.0
+            l2_strength = 0.0
+
+        elif self.penalty == "l1":
+            l1_strength = 1.0 / self.C
+            l2_strength = 0.0
+
+        elif self.penalty == "l2":
+            l1_strength = 0.0
+            l2_strength = 1.0 / self.C
+
+        else:
+            strength = 1.0 / self.C
+            l1_strength = self.l1_ratio * strength
+            l2_strength = (1.0 - self.l1_ratio) * strength
+        return l1_strength, l2_strength
+
+    def _build_class_weights(self, class_weight):
+        if class_weight == 'balanced':
+            self.class_weight_ = 'balanced'
+        else:
+            classes = list(class_weight.keys())
+            weights = list(class_weight.values())
+            max_class = sorted(classes)[-1]
+            class_weight = cp.ones(max_class + 1)
+            class_weight[classes] = weights
+            self.class_weight_, _, _, _ = input_to_cuml_array(class_weight)
+            self.expl_spec_weights_, _, _, _ = \
+                input_to_cuml_array(np.array(classes))
+
+    def set_params(self, **params):
+        super().set_params(**params)
+        rebuild_params = False
+        # Remove class-specific parameters
+        for param_name in ['penalty', 'l1_ratio', 'C']:
+            if param_name in params:
+                params.pop(param_name)
+                rebuild_params = True
+        if rebuild_params:
+            # re-build QN solver parameters
+            l1_strength, l2_strength = self._get_qn_params()
+            params.update({'l1_strength': l1_strength,
+                           'l2_strength': l2_strength})
+        if 'class_weight' in params:
+            # re-build class weight
+            class_weight = params.pop('class_weight')
+            self._build_class_weights(class_weight)
+
+        # Update solver
+        self.solver_model.set_params(**params)
+        return self
 
     def get_param_names(self):
         return super().get_param_names() + [

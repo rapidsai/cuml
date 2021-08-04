@@ -398,7 +398,7 @@ class ARIMA(Base):
         cdef ARIMAOrder order = self.order
         cdef ARIMAOrder order_kf = \
             self.order_diff if self.simple_differencing else self.order
-        cdef ARIMAParams[double] cpp_params = ARIMAParamsWrapper(self).params
+        arima_wrapper = ARIMAParamsWrapper(self)
 
         ic = CumlArray.empty(self.batch_size, self.dtype)
         cdef uintptr_t d_ic_ptr = ic.ptr
@@ -422,7 +422,7 @@ class ARIMA(Base):
 
         information_criterion(handle_[0], arima_mem_ptr[0],
                               <double*> d_y_kf_ptr, <int> self.batch_size,
-                              <int> n_obs_kf, order_kf, cpp_params,
+                              <int> n_obs_kf, order_kf, arima_wrapper.params,
                               <double*> d_ic_ptr, <int> ic_type_id)
 
         del arima_mem_ptr
@@ -565,7 +565,7 @@ class ARIMA(Base):
             y_pred = model.predict()
         """
         cdef ARIMAOrder order = self.order
-        cdef ARIMAParams[double] cpp_params = ARIMAParamsWrapper(self).params
+        arima_wrapper = ARIMAParamsWrapper(self)
 
         if start < 0:
             raise ValueError("ERROR(`predict`): start < 0")
@@ -617,7 +617,7 @@ class ARIMA(Base):
 
         cpp_predict(handle_[0], arima_mem_ptr[0], <double*>d_y_ptr,
                     <int> self.batch_size, <int> self.n_obs, <int> start,
-                    <int> end, order, cpp_params, <double*>d_y_p_ptr,
+                    <int> end, order, arima_wrapper.params, <double*>d_y_p_ptr,
                     <bool> self.simple_differencing,
                     <double> (0 if level is None else level),
                     <double*> d_lower_ptr, <double*> d_upper_ptr)
@@ -703,13 +703,13 @@ class ARIMA(Base):
         self._create_arrays()
 
         cdef ARIMAOrder order = self.order
-        cdef ARIMAParams[double] cpp_params = ARIMAParamsWrapper(self).params
+        arima_wrapper = ARIMAParamsWrapper(self)
 
         cdef uintptr_t d_y_ptr = self.d_y.ptr
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         # Call C++ function
-        estimate_x0(handle_[0], cpp_params, <double*> d_y_ptr,
+        estimate_x0(handle_[0], arima_wrapper.params, <double*> d_y_ptr,
                     <int> self.batch_size, <int> self.n_obs, order)
 
     @cuml.internals.api_base_return_any_skipall
@@ -953,7 +953,7 @@ class ARIMA(Base):
         cdef ARIMAOrder order = self.order
         cdef ARIMAOrder order_kf = \
             self.order_diff if self.simple_differencing else self.order
-        cdef ARIMAParams[double] cpp_params = ARIMAParamsWrapper(self).params
+        arima_wrapper = ARIMAParamsWrapper(self)
 
         cdef uintptr_t d_y_kf_ptr = \
             self._d_y_diff.ptr if self.simple_differencing else self.d_y.ptr
@@ -975,7 +975,7 @@ class ARIMA(Base):
 
         batched_loglike(handle_[0], arima_mem_ptr[0], <double*> d_y_kf_ptr,
                         <int> self.batch_size, <int> n_obs_kf, order_kf,
-                        cpp_params, <double*> vec_loglike.data(),
+                        arima_wrapper.params, <double*> vec_loglike.data(),
                         <double*> d_vs_ptr, <bool> False, <bool> True,
                         ll_method, <int> 0)
 
@@ -999,14 +999,14 @@ class ARIMA(Base):
         self._create_arrays()
 
         cdef ARIMAOrder order = self.order
-        cdef ARIMAParams[double] cpp_params = ARIMAParamsWrapper(self).params
+        arima_wrapper = ARIMAParamsWrapper(self)
 
         d_x_array, *_ = \
             input_to_cuml_array(x, check_dtype=np.float64, order='C')
         cdef uintptr_t d_x_ptr = d_x_array.ptr
 
-        cpp_unpack(handle_[0], cpp_params, order, <int> self.batch_size,
-                   <double*>d_x_ptr)
+        cpp_unpack(handle_[0], arima_wrapper.params, order,
+                   <int>self.batch_size, <double*>d_x_ptr)
 
     @nvtx.annotate(message="tsa.arima.ARIMA.pack", domain="cuml_python")
     def pack(self) -> np.ndarray:
@@ -1021,14 +1021,14 @@ class ARIMA(Base):
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         cdef ARIMAOrder order = self.order
-        cdef ARIMAParams[double] cpp_params = ARIMAParamsWrapper(self).params
+        arima_wrapper = ARIMAParamsWrapper(self)
 
         d_x_array = CumlArray.empty(self.complexity * self.batch_size,
                                     np.float64)
         cdef uintptr_t d_x_ptr = d_x_array.ptr
 
-        cpp_pack(handle_[0], cpp_params, order, <int> self.batch_size,
-                 <double*>d_x_ptr)
+        cpp_pack(handle_[0], arima_wrapper.params, order,
+                 <int>self.batch_size, <double*>d_x_ptr)
 
         return d_x_array.to_output("numpy")
 

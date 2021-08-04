@@ -83,7 +83,7 @@ template <typename TypeV, typename TypeK, bool Greater>
   for (int rIndex = 0; rIndex < rows; rIndex++) {
     // input data
     TypeV* h_arr = new TypeV[N];
-    raft::update_host(h_arr, d_arr + rIndex * N, N, 0);
+    raft::update_host(h_arr, d_arr + rIndex * N, N, rmm::cuda_stream_default);
     KVPair<TypeV, TypeK>* topk = new KVPair<TypeV, TypeK>[N];
     for (int j = 0; j < N; j++) {
       topk[j].val = h_arr[j];
@@ -91,9 +91,9 @@ template <typename TypeV, typename TypeK, bool Greater>
     }
     // result reference
     TypeV* h_outv = new TypeV[k];
-    raft::update_host(h_outv, d_outv + rIndex * k, k, 0);
+    raft::update_host(h_outv, d_outv + rIndex * k, k, rmm::cuda_stream_default);
     TypeK* h_outk = new TypeK[k];
-    raft::update_host(h_outk, d_outk + rIndex * k, k, 0);
+    raft::update_host(h_outk, d_outk + rIndex * k, k, rmm::cuda_stream_default);
     // calculate the result
     partSortKVPair<TypeV, TypeK, Greater>(topk, N, k);
 

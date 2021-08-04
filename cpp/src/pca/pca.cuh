@@ -27,6 +27,7 @@
 #include <raft/matrix/matrix.cuh>
 #include <raft/stats/mean.cuh>
 #include <raft/stats/mean_center.cuh>
+#include <rmm/device_uvector.hpp>
 #include <stats/cov.cuh>
 #include <tsvd/tsvd.cuh>
 
@@ -43,7 +44,7 @@ void truncCompExpVars(const raft::handle_t& handle,
                       const paramsTSVDTemplate<enum_solver> prms,
                       cudaStream_t stream)
 {
-  int len = prms.n_cols * prms.n_cols;
+  size_t len = prms.n_cols * prms.n_cols;
   rmm::device_uvector<math_t> components_all(len, stream);
   rmm::device_uvector<math_t> explained_var_all(prms.n_cols, stream);
   rmm::device_uvector<math_t> explained_var_ratio_all(prms.n_cols, stream);
@@ -101,7 +102,7 @@ void pcaFit(const raft::handle_t& handle,
 
   raft::stats::mean(mu, input, prms.n_cols, prms.n_rows, true, false, stream);
 
-  int len = prms.n_cols * prms.n_cols;
+  size_t len = prms.n_cols * prms.n_cols;
   rmm::device_uvector<math_t> cov(len, stream);
 
   Stats::cov(handle, cov.data(), input, mu, prms.n_cols, prms.n_rows, true, false, true, stream);
@@ -201,26 +202,24 @@ void pcaInverseTransform(const raft::handle_t& handle,
   ASSERT(prms.n_components > 0,
          "Parameter n_components: number of components cannot be less than one");
 
+  std::size_t components_len = static_cast<std::size_t>(prms.n_cols * prms.n_components);
+  rmm::device_uvector<math_t> components_copy{components_len, stream};
+  raft::copy(components_copy.data(), components, prms.n_cols * prms.n_components, stream);
+
   if (prms.whiten) {
     math_t sqrt_n_samples = sqrt(prms.n_rows - 1);
     math_t scalar         = prms.n_rows - 1 > 0 ? math_t(1 / sqrt_n_samples) : 0;
-    raft::linalg::scalarMultiply(
-      components, components, scalar, prms.n_rows * prms.n_components, stream);
+    raft::linalg::scalarMultiply(components_copy.data(),
+                                 components_copy.data(),
+                                 scalar,
+                                 prms.n_cols * prms.n_components,
+                                 stream);
     raft::matrix::matrixVectorBinaryMultSkipZero(
-      components, singular_vals, prms.n_rows, prms.n_components, true, true, stream);
+      components_copy.data(), singular_vals, prms.n_cols, prms.n_components, true, true, stream);
   }
 
-  tsvdInverseTransform(handle, trans_input, components, input, prms, stream);
+  tsvdInverseTransform(handle, trans_input, components_copy.data(), input, prms, stream);
   raft::stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true, stream);
-
-  if (prms.whiten) {
-    raft::matrix::matrixVectorBinaryDivSkipZero(
-      components, singular_vals, prms.n_rows, prms.n_components, true, true, stream);
-    math_t sqrt_n_samples = sqrt(prms.n_rows - 1);
-    math_t scalar         = prms.n_rows - 1 > 0 ? math_t(1 / sqrt_n_samples) : 0;
-    raft::linalg::scalarMultiply(
-      components, components, scalar, prms.n_rows * prms.n_components, stream);
-  }
 }
 
 // TODO: implement pcaScore function
@@ -263,26 +262,24 @@ void pcaTransform(const raft::handle_t& handle,
   ASSERT(prms.n_components > 0,
          "Parameter n_components: number of components cannot be less than one");
 
+  std::size_t components_len = static_cast<std::size_t>(prms.n_cols * prms.n_components);
+  rmm::device_uvector<math_t> components_copy{components_len, stream};
+  raft::copy(components_copy.data(), components, prms.n_cols * prms.n_components, stream);
+
   if (prms.whiten) {
     math_t scalar = math_t(sqrt(prms.n_rows - 1));
-    raft::linalg::scalarMultiply(
-      components, components, scalar, prms.n_rows * prms.n_components, stream);
+    raft::linalg::scalarMultiply(components_copy.data(),
+                                 components_copy.data(),
+                                 scalar,
+                                 prms.n_cols * prms.n_components,
+                                 stream);
     raft::matrix::matrixVectorBinaryDivSkipZero(
-      components, singular_vals, prms.n_rows, prms.n_components, true, true, stream);
+      components_copy.data(), singular_vals, prms.n_cols, prms.n_components, true, true, stream);
   }
 
   raft::stats::meanCenter(input, input, mu, prms.n_cols, prms.n_rows, false, true, stream);
-  tsvdTransform(handle, input, components, trans_input, prms, stream);
+  tsvdTransform(handle, input, components_copy.data(), trans_input, prms, stream);
   raft::stats::meanAdd(input, input, mu, prms.n_cols, prms.n_rows, false, true, stream);
-
-  if (prms.whiten) {
-    raft::matrix::matrixVectorBinaryMultSkipZero(
-      components, singular_vals, prms.n_rows, prms.n_components, true, true, stream);
-    math_t sqrt_n_samples = sqrt(prms.n_rows - 1);
-    math_t scalar         = prms.n_rows - 1 > 0 ? math_t(1 / sqrt_n_samples) : 0;
-    raft::linalg::scalarMultiply(
-      components, components, scalar, prms.n_rows * prms.n_components, stream);
-  }
 }
 
 };  // end namespace ML

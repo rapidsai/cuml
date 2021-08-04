@@ -346,7 +346,7 @@ std::ostream& operator<<(std::ostream& os, const SimpleDenseMat<T>& mat)
 {
   os << "ord=" << (mat.ord == COL_MAJOR ? "CM" : "RM") << "\n";
   std::vector<T> out(mat.len);
-  raft::update_host(&out[0], mat.data, mat.len, 0);
+  raft::update_host(&out[0], mat.data, mat.len, rmm::cuda_stream_default);
   CUDA_CHECK(cudaStreamSynchronize(0));
   if (mat.ord == COL_MAJOR) {
     for (int r = 0; r < mat.m; r++) {
