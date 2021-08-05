@@ -16,26 +16,36 @@
 
 #pragma once
 
-#include <cuml/svm/svm_parameter.h>
-#include <limits.h>
-#include <linalg/init.h>
-#include <raft/cudart_utils.h>
-#include <thrust/device_ptr.h>
-#include <thrust/iterator/permutation_iterator.h>
-#include <cub/cub.cuh>
-#include <cuml/common/device_buffer.hpp>
-#include <raft/cuda_utils.cuh>
-#include <raft/linalg/add.cuh>
-#include <raft/linalg/unary_op.cuh>
 #include "smo_sets.cuh"
 #include "ws_util.cuh"
+
+#include <cuml/svm/svm_parameter.h>
+#include <cuml/common/device_buffer.hpp>
+#include <cuml/common/logger.hpp>
+
+#include <linalg/init.h>
+
+#include <raft/cudart_utils.h>
+#include <raft/cuda_utils.cuh>
+#include <raft/handle.hpp>
+#include <raft/linalg/add.cuh>
+#include <raft/linalg/unary_op.cuh>
+
+#include <thrust/device_ptr.h>
+#include <thrust/iterator/permutation_iterator.h>
+
+#include <cub/cub.cuh>
+
+#include <algorithm>
+#include <cstddef>
+#include <limits>
 
 namespace ML {
 namespace SVM {
 
 namespace {
-// Unnamed namespace to avoid multiple definition error
-__device__ bool dummy_select_op(int idx) { return true; }
+//  placeholder function passed to configuration call to Cub::DeviceSelect
+__device__ bool always_true(int idx) { return true; }
 }  // end unnamed namespace
 
 /**
@@ -104,7 +114,7 @@ class WorkingSet {
   void SetSize(int n_train, int n_ws = 0)
   {
     if (n_ws == 0 || n_ws > n_train) { n_ws = n_train; }
-    n_ws       = min(1024, n_ws);
+    n_ws       = std::min(1024, n_ws);
     this->n_ws = n_ws;
     CUML_LOG_DEBUG("Creating working set with %d elements", n_ws);
     AllocateBuffers();
@@ -328,8 +338,8 @@ class WorkingSet {
   MLCommon::device_buffer<int> ws_priority;
   MLCommon::device_buffer<int> ws_priority_sorted;
 
-  int* d_num_selected = nullptr;
-  size_t cub_bytes    = 0;
+  int* d_num_selected   = nullptr;
+  std::size_t cub_bytes = 0;
   MLCommon::device_buffer<char> cub_storage;
 
   void AllocateBuffers()
@@ -352,7 +362,7 @@ class WorkingSet {
       d_num_selected = (int*)handle.get_device_allocator()->allocate(1 * sizeof(int), stream);
 
       // Determine temporary device storage requirements for cub
-      size_t cub_bytes2 = 0;
+      std::size_t cub_bytes2 = 0;
       cub::DeviceRadixSort::SortPairs(NULL,
                                       cub_bytes,
                                       f_sorted.data(),
@@ -363,15 +373,9 @@ class WorkingSet {
                                       0,
                                       8 * sizeof(math_t),
                                       stream);
-      cub::DeviceSelect::If(NULL,
-                            cub_bytes2,
-                            f_idx.data(),
-                            f_idx.data(),
-                            d_num_selected,
-                            n_train,
-                            dummy_select_op,
-                            stream);
-      cub_bytes = max(cub_bytes, cub_bytes2);
+      cub::DeviceSelect::If(
+        NULL, cub_bytes2, f_idx.data(), f_idx.data(), d_num_selected, n_train, always_true, stream);
+      cub_bytes = std::max(cub_bytes, cub_bytes2);
       cub_storage.resize(cub_bytes, stream);
       Initialize();
     }
