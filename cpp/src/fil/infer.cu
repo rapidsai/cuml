@@ -279,11 +279,11 @@ struct tree_aggregator_t {
   }
 
   __device__ __noinline__ void finalize(float* block_out,
-                                           int block_num_rows,
-                                           int output_stride,
-                                           output_t transform,
-                                           int num_trees,
-                                           int log2_threads_per_tree);
+                                        int block_num_rows,
+                                        int output_stride,
+                                        output_t transform,
+                                        int num_trees,
+                                        int log2_threads_per_tree);
 };
 
 template <int NITEMS,
@@ -470,11 +470,11 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> {
   }
 
   __device__ __noinline__ void finalize(float* out,
-                                           int num_rows,
-                                           int num_outputs,
-                                           output_t transform,
-                                           int num_trees,
-                                           int log2_threads_per_tree);
+                                        int num_rows,
+                                        int num_outputs,
+                                        output_t transform,
+                                        int num_trees,
+                                        int log2_threads_per_tree);
 };
 
 template <int NITEMS>
@@ -551,11 +551,11 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
   }
 
   __device__ __noinline__ void finalize(float* out,
-                                           int num_rows,
-                                           int num_outputs,
-                                           output_t transform,
-                                           int num_trees,
-                                           int log2_threads_per_tree);
+                                        int num_rows,
+                                        int num_outputs,
+                                        output_t transform,
+                                        int num_trees,
+                                        int log2_threads_per_tree);
 };
 
 template <int NITEMS>
@@ -659,11 +659,11 @@ struct tree_aggregator_t<NITEMS, VECTOR_LEAF> {
     }
   }
   __device__ __noinline__ void finalize(float* out,
-                                           int num_rows,
-                                           int num_outputs,
-                                           output_t transform,
-                                           int num_trees,
-                                           int log2_threads_per_tree);
+                                        int num_rows,
+                                        int num_outputs,
+                                        output_t transform,
+                                        int num_trees,
+                                        int log2_threads_per_tree);
 };
 
 template <int NITEMS>
@@ -765,11 +765,11 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
     }
   }
   __device__ __noinline__ void finalize(float* out,
-                                           int num_rows,
-                                           int num_outputs,
-                                           output_t transform,
-                                           int num_trees,
-                                           int log2_threads_per_tree);
+                                        int num_rows,
+                                        int num_outputs,
+                                        output_t transform,
+                                        int num_trees,
+                                        int log2_threads_per_tree);
 };
 template <int NITEMS>
 __device__ __noinline__ void tree_aggregator_t<NITEMS, CATEGORICAL_LEAF>::finalize(
