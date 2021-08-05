@@ -50,13 +50,18 @@ struct FilTestParams {
   int num_cols   = 50;
   float nan_prob = 0.05;
   // forest parameters
-  int depth                      = 8;
-  int num_trees                  = 50;
-  float leaf_prob                = 0.05;
-  float node_categorical_prob    = 0.0;
+  int depth       = 8;
+  int num_trees   = 50;
+  float leaf_prob = 0.05;
+  // below, categorical nodes means categorical branch nodes
+  // probability that a node is categorical (given that its feature is categorical)
+  float node_categorical_prob = 0.0;
+  // probability that a feature is categorical (given that the node is also categorical)
   float feature_categorical_prob = 0.0;
-  float cat_match_prob           = 0.5;
-  float max_matching_cat_oom     = 1.0;
+  // during model creation, how often categories < max_matching are marked as matching?
+  float cat_match_prob = 0.5;
+  // Order Of Magnitude for maximum matching category for categorical nodes
+  float max_matching_cat_oom = 1.0;
   // output parameters
   output_t output   = output_t::RAW;
   float threshold   = 0.0f;
@@ -152,7 +157,7 @@ struct replace_some_floating_with_categorical {
 
 __global__ void compress_bit_stream(uint8_t* dst, float* src, size_t size)
 {
-  size_t idx = blockIdx.x * blockDim.x + threadIdx.x;
+  size_t idx = size_t(blockIdx.x) * blockDim.x + threadIdx.x;
   if (idx >= size) return;
   int byte = 0;
 #pragma unroll
@@ -189,7 +194,6 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     CUDA_CHECK(cudaFree(data_d));
     CUDA_CHECK(cudaFree(want_proba_d));
     CUDA_CHECK(cudaFree(proba_d));
-    cat_branches_h.host_deallocate();
   }
 
   void generate_forest()
@@ -255,7 +259,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     // uniformily distributed in orders of magnitude: smaller models which
     // still stress large bitfields.
     // up to 10**ps.max_matching_cat_oom (only if feature is categorical, else -1)
-    v_cat_feature cf(ps.num_cols);
+    std::vector<cat_feature_counters> cf(ps.num_cols);
     std::mt19937 gen(ps.seed);
     std::uniform_real_distribution mmc(-1.0f, ps.max_matching_cat_oom);
     std::bernoulli_distribution fc(ps.feature_categorical_prob);
@@ -294,26 +298,26 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
         // might allocate a categorical set for an unreachable branch node. That's OK.
         ++cf[fid].n_nodes;
         node_cat_set[node_id] = bit_pool_size;
-        bit_pool_size += categorical_branches::sizeof_mask_from_max_matching(cf[fid].max_matching);
+        bit_pool_size += categorical_sets::sizeof_mask_from_max_matching(cf[fid].max_matching);
       }
     }
     if (ps.node_categorical_prob > 0 && ps.feature_categorical_prob > 0)
-      cat_branches_h.host_allocate(cf);
-    ASSERT(bit_pool_size == cat_branches_h.bits_size, "didn't convert correct number of nodes");
+      cat_sets_h = cat_sets_owner(cf);
+    ASSERT(bit_pool_size == cat_sets_h.bits.size(), "didn't convert correct number of nodes");
     // calculate sizes and allocate arrays for category sets
     // fill category sets
     // there is a faster trick with a 256-byte LUT, but we can implement it later if the tests
     // become too slow
     float* bits_precursor_d = nullptr;
     uint8_t* bits_d         = nullptr;
-    if (cat_branches_h.bits_size != 0) {
-      raft::allocate(bits_d, cat_branches_h.bits_size);
-      raft::allocate(bits_precursor_d, cat_branches_h.bits_size * 8);
+    if (cat_sets_h.bits.size() != 0) {
+      raft::allocate(bits_d, cat_sets_h.bits.size());
+      raft::allocate(bits_precursor_d, cat_sets_h.bits.size() * 8);
       hard_clipped_bernoulli(
-        r, bits_precursor_d, cat_branches_h.bits_size * 8, 1.0f - ps.cat_match_prob, stream);
-      compress_bit_stream<<<raft::ceildiv(cat_branches_h.bits_size, 256ul), 256, 0, stream>>>(
-        bits_d, bits_precursor_d, cat_branches_h.bits_size);
-      raft::update_host(cat_branches_h.bits, bits_d, cat_branches_h.bits_size, stream);
+        r, bits_precursor_d, cat_sets_h.bits.size() * 8, 1.0f - ps.cat_match_prob, stream);
+      compress_bit_stream<<<raft::ceildiv(cat_sets_h.bits.size(), 256ul), 256, 0, stream>>>(
+        bits_d, bits_precursor_d, cat_sets_h.bits.size());
+      raft::update_host(cat_sets_h.bits.data(), bits_d, cat_sets_h.bits.size(), stream);
     }
 
     // initialize nodes
@@ -345,7 +349,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     // clean up
     delete[] def_lefts_h;
     delete[] is_leafs_h;
-    // cat_branches_h.bits are synced here
+    // cat_sets_h.bits are synced here
     CUDA_CHECK(cudaFree(bits_precursor_d));
     CUDA_CHECK(cudaFree(bits_d));
     CUDA_CHECK(cudaFree(is_categoricals_d));
@@ -422,16 +426,14 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     std::vector<float> want_preds_h(ps.num_preds_outputs());
     want_proba_h.resize(ps.num_proba_outputs());
     int num_nodes = tree_num_nodes();
-    auto infer    = [&](int root, int row) {
-      return infer_one_tree(&nodes[root * num_nodes], &data_h[row * ps.num_cols], cat_branches_h);
-    };
     std::vector<float> class_scores(ps.num_classes);
+    tree_base base{(categorical_sets)cat_sets_h};
     switch (ps.leaf_algo) {
       case fil::leaf_algo_t::FLOAT_UNARY_BINARY:
         for (int i = 0; i < ps.num_rows; ++i) {
           float pred = 0.0f;
           for (int j = 0; j < ps.num_trees; ++j) {
-            pred += infer(j, i).f;
+            pred += infer_one_tree(&nodes[j * num_nodes], &data_h[i * ps.num_cols], base).f;
           }
           transform(pred, want_proba_h[i * 2 + 1], want_preds_h[i]);
           complement(&(want_proba_h[i * 2]));
@@ -441,7 +443,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
         for (int row = 0; row < ps.num_rows; ++row) {
           std::fill(class_scores.begin(), class_scores.end(), 0.0f);
           for (int tree = 0; tree < ps.num_trees; ++tree) {
-            class_scores[tree % ps.num_classes] += infer(tree, row).f;
+            class_scores[tree % ps.num_classes] +=
+              infer_one_tree(&nodes[tree * num_nodes], &data_h[row * ps.num_cols], base).f;
           }
           want_preds_h[row] =
             std::max_element(class_scores.begin(), class_scores.end()) - class_scores.begin();
@@ -458,7 +461,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
         for (int r = 0; r < ps.num_rows; ++r) {
           std::fill(class_votes.begin(), class_votes.end(), 0);
           for (int j = 0; j < ps.num_trees; ++j) {
-            int class_label = infer(j, r).idx;
+            int class_label =
+              infer_one_tree(&nodes[j * num_nodes], &data_h[r * ps.num_cols], base).idx;
             ++class_votes[class_label];
           }
           for (int c = 0; c < ps.num_classes; ++c) {
@@ -474,8 +478,9 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
         for (int r = 0; r < ps.num_rows; ++r) {
           std::vector<float> class_probabilities(ps.num_classes);
           for (int j = 0; j < ps.num_trees; ++j) {
-            int vector_index = infer(j, r).idx;
-            float sum        = 0.0;
+            int vector_index =
+              infer_one_tree(&nodes[j * num_nodes], &data_h[r * ps.num_cols], base).idx;
+            float sum = 0.0;
             for (int k = 0; k < ps.num_classes; k++) {
               class_probabilities[k] += vector_leaf[vector_index * ps.num_classes + k];
               sum += vector_leaf[vector_index * ps.num_classes + k];
@@ -535,9 +540,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
       want_preds_d, preds_d, ps.num_rows, raft::CompareApprox<float>(tolerance), stream));
   }
 
-  fil::val_t infer_one_tree(fil::dense_node* root,
-                            float* data,
-                            const categorical_branches& cat_branches)
+  fil::val_t infer_one_tree(fil::dense_node* root, float* data, const tree_base& tree)
   {
     int curr = 0;
     fil::val_t output{.f = 0.0f};
@@ -545,10 +548,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
       const fil::dense_node& node = root[curr];
       if (node.is_leaf()) return node.template output<val_t>();
       float val = data[node.fid()];
-      if (cat_branches.branch_can_be_categorical())
-        curr = cat_branches.get_child<true>(node, curr, val);
-      else
-        curr = cat_branches.get_child<false>(node, curr, val);
+      curr      = tree.get_child<true>(node, curr, val);
     }
     return output;
   }
@@ -571,7 +571,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   // forest data
   std::vector<fil::dense_node> nodes;
   std::vector<float> vector_leaf;
-  categorical_branches cat_branches_h;
+  cat_sets_owner cat_sets_h;
   int* fids_d;
   float* max_matching_cat_d;
 
@@ -600,7 +600,7 @@ class PredictDenseFilTest : public BaseFilTest {
     fil_ps.threads_per_tree = ps.threads_per_tree;
     fil_ps.n_items          = ps.n_items;
 
-    fil::init_dense(handle, pforest, nodes.data(), &fil_ps, vector_leaf, cat_branches_h);
+    fil::init_dense(handle, pforest, nodes.data(), &fil_ps, vector_leaf, cat_sets_h);
   }
 };
 
@@ -669,7 +669,7 @@ class BasePredictSparseFilTest : public BaseFilTest {
     dense2sparse();
     fil_params.num_nodes = sparse_nodes.size();
     fil::init_sparse(
-      handle, pforest, trees.data(), sparse_nodes.data(), &fil_params, vector_leaf, cat_branches_h);
+      handle, pforest, trees.data(), sparse_nodes.data(), &fil_params, vector_leaf, cat_sets_h);
   }
   std::vector<fil_node_t> sparse_nodes;
   std::vector<int> trees;

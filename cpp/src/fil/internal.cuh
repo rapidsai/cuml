@@ -99,22 +99,7 @@ struct base_node {
   static const int IS_CATEGORICAL_MASK   = 1 << IS_CATEGORICAL_OFFSET;
   static const int FID_MASK              = (1 << IS_CATEGORICAL_OFFSET) - 1;
   template <class o_t>
-  __host__ __device__ o_t output() const
-  {
-    typedef std::remove_cv_t<o_t> canonical;
-    if constexpr (std::is_floating_point<canonical>())
-      return val.f;
-    else if constexpr (std::is_integral<canonical>())
-      return val.idx;
-    // and anything that val can be converted to
-    else
-      return val;
-    // no return statement at the end is not a compiler error
-    // but we need one here
-    return {};
-    static_assert(std::is_floating_point<canonical>() || std::is_integral<canonical>() ||
-                  std::is_same<canonical, val_t>());
-  }
+  __host__ __device__ o_t output() const;
   __host__ __device__ int set() const { return val.idx; }
   __host__ __device__ float thresh() const { return val.f; }
   __host__ __device__ val_t split() const { return val; }
@@ -134,6 +119,22 @@ struct base_node {
       val = split;
   }
 };
+
+template <>
+__host__ __device__ __forceinline__ float base_node::output<float>() const
+{
+  return val.f;
+}
+template <>
+__host__ __device__ __forceinline__ int base_node::output<int>() const
+{
+  return val.idx;
+}
+template <>
+__host__ __device__ __forceinline__ val_t base_node::output<val_t>() const
+{
+  return val;
+}
 
 /** dense_node is a single node of a dense forest */
 
@@ -298,22 +299,27 @@ struct forest_params_t {
 /// FIL_TPB is the number of threads per block to use with FIL kernels
 const int FIL_TPB = 256;
 
-static const uint32_t max_precise_int_float = 1 << 24;  // 16'777'216
+const uint32_t max_precise_int_float = 1 << 24;  // 16'777'216
 
-struct cat_feature {
+__host__ __device__ __forceinline__ bool fetch_bit(const uint8_t* array, int bit)
+{
+  const int bits_per_byte = 8;
+  return array[bit / bits_per_byte] & (1 << bit % bits_per_byte);
+}
+
+struct cat_feature_counters {
   int max_matching = -1, n_nodes = 0;
-  void reduce_with(cat_feature b)
+  void reduce_with(cat_feature_counters b)
   {
     max_matching = std::max(max_matching, b.max_matching);
     n_nodes += b.n_nodes;
   }
 };
-typedef std::vector<cat_feature> v_cat_feature;
-struct categorical_branches {
+struct categorical_sets {
   // arrays from each node ID are concatenated first, then from all categories
-  uint8_t* bits = nullptr;
+  const uint8_t* bits = nullptr;
   // largest matching category in the model, per feature ID
-  int* max_matching = nullptr;
+  const int* max_matching = nullptr;
   size_t bits_size = 0, max_matching_size = 0;
 
   __host__ __device__ __forceinline__ bool branch_can_be_categorical() const
@@ -323,29 +329,15 @@ struct categorical_branches {
 
   // set count is due to tree_idx + node_within_tree_idx are both ints, hence uint32_t result
   template <bool branch_can_be_categorical, typename node_t>
-  __host__ __device__ __forceinline__ int get_child(const node_t& node,
-                                                    int node_idx,
-                                                    float val) const
+  __host__ __device__ __forceinline__ int category_matches(node_t node, int category) const
   {
-    bool cond;
-    if (isnan(val)) {
-      cond = !node.def_left();
-    } else {
-      if (branch_can_be_categorical && node.is_categorical()) {
-        int category = val;
-        // standard boolean packing. This layout has better ILP
-        // node.set() is global across feature IDs and is an offset (as opposed
-        // to set number). If we run out of uint32_t and we have hundreds of
-        // features with similar categorical feature count, we may consider
-        // storing node ID within nodes with same feature ID and look up
-        // {.max_matching, .first_node_offset} = ...[feature_id]
-        cond = (category <= max_matching[node.fid()]) &&
-               bits[node.set() + category / 8] & (1 << category % 8);
-      } else {
-        cond = val >= node.thresh();
-      }
-    }
-    return node.left(node_idx) + cond;
+    // standard boolean packing. This layout has better ILP
+    // node.set() is global across feature IDs and is an offset (as opposed
+    // to set number). If we run out of uint32_t and we have hundreds of
+    // features with similar categorical feature count, we may consider
+    // storing node ID within nodes with same feature ID and look up
+    // {.max_matching, .first_node_offset} = ...[feature_id]
+    return category <= max_matching[node.fid()] && fetch_bit(bits + node.set(), category);
   }
   static int sizeof_mask_from_max_matching(int max_matching)
   {
@@ -355,13 +347,46 @@ struct categorical_branches {
   {
     return sizeof_mask_from_max_matching(max_matching[feature_id]);
   }
+};
 
-  // NB! no __device__ here
-  void host_allocate(v_cat_feature cf)
+struct tree_base : categorical_sets {
+  template <bool branch_can_be_categorical, typename node_t>
+  __host__ __device__ __forceinline__ int get_child(const node_t& node,
+                                                    int node_idx,
+                                                    float val) const
   {
-    max_matching_size = cf.size();
-    max_matching      = new int[max_matching_size];
-    bits_size         = 0;
+    bool cond;
+    if (isnan(val)) {
+      cond = !node.def_left();
+    } else {
+      if (branch_can_be_categorical && node.is_categorical())
+        cond = category_matches<branch_can_be_categorical>(node, (int)val);
+      else
+        cond = val >= node.thresh();
+    }
+    return node.left(node_idx) + cond;
+  }
+};
+
+// in internal.cuh, as opposed to fil_test.cu, because importing from treelite will require it
+struct cat_sets_owner {
+  std::vector<uint8_t> bits;
+  std::vector<int> max_matching;
+
+  operator categorical_sets() const
+  {
+    return {
+      .bits              = bits.data(),
+      .max_matching      = max_matching.data(),
+      .bits_size         = bits.size(),
+      .max_matching_size = max_matching.size(),
+    };
+  }
+  cat_sets_owner() {}
+  cat_sets_owner(std::vector<cat_feature_counters> cf)
+  {
+    max_matching.resize(cf.size());
+    size_t bits_size = 0;
     // feature ID
     for (int fid = 0; fid < cf.size(); ++fid) {
       ASSERT(cf[fid].max_matching >= -1,
@@ -369,21 +394,17 @@ struct categorical_branches {
              fid,
              cf[fid].max_matching);
       ASSERT(cf[fid].n_nodes >= 0, "@fid %d: n_nodes invalid (%d)", fid, cf[fid].n_nodes);
+
       max_matching[fid] = cf[fid].max_matching;
-      bits_size += sizeof_mask(fid) * cf[fid].n_nodes;
+      bits_size +=
+        categorical_sets::sizeof_mask_from_max_matching(max_matching[fid]) * cf[fid].n_nodes;
+
       ASSERT(bits_size <= INT_MAX,
              "@fid %d: cannot store %lu categories given `int` offsets",
              fid,
              bits_size);
     }
-    bits = new uint8_t[bits_size];
-  }
-
-  // NB! no __device__ here
-  void host_deallocate()
-  {
-    delete[] bits;
-    delete[] max_matching;
+    bits.resize(bits_size);
   }
 };
 
@@ -400,7 +421,7 @@ void init_dense(const raft::handle_t& h,
                 const dense_node* nodes,
                 const forest_params_t* params,
                 const std::vector<float>& vector_leaf,
-                const categorical_branches& cat_branches);
+                const categorical_sets& cat_sets);
 
 /** init_sparse uses params, trees and nodes to initialize the sparse forest
  *  with sparse nodes stored in pf
@@ -420,7 +441,7 @@ void init_sparse(const raft::handle_t& h,
                  const fil_node_t* nodes,
                  const forest_params_t* params,
                  const std::vector<float>& vector_leaf,
-                 const categorical_branches& cat_branches);
+                 const categorical_sets& cat_sets);
 
 }  // namespace fil
 }  // namespace ML
