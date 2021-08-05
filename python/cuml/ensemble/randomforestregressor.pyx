@@ -152,35 +152,35 @@ class RandomForestRegressor(BaseRandomForestModel,
     n_estimators : int (default = 100)
         Number of trees in the forest. (Default changed to 100 in cuML 0.11)
     split_criterion : int (default = 2)
-        The criterion used to split nodes.
-        0 for Gini impurity,
-        1 for Entropy (Information Gain),
-        2 for MSE (Mean Squared Error).
+        The criterion used to split nodes.\n
+            * 0 for Gini impurity,
+            * 1 for Entropy (Information Gain),
+            * 2 for MSE (Mean Squared Error).
         0 and 1 not valid for regression
     bootstrap : boolean (default = True)
-        Control bootstrapping.
-        If `True`, eachtree in the forest is built
-        on a bootstrapped sample with replacement.
-        If `False`, the whole dataset is used to build each tree.
+        Control bootstrapping.\n
+            * If ``True``, eachtree in the forest is built
+              on a bootstrapped sample with replacement.
+            * If ``False``, the whole dataset is used to build each tree.
     max_samples : float (default = 1.0)
         Ratio of dataset rows used while fitting each tree.
     max_depth : int (default = 16)
         Maximum tree depth. Unlimited (i.e, until leaves are pure),
-        If `-1`.
-        *Note that this default differs from scikit-learn's
-        random forest, which defaults to unlimited depth.*
+        If ``-1``.\n
+        .. note:: This default differs from scikit-learn's
+          random forest, which defaults to unlimited depth.
     max_leaves : int (default = -1)
         Maximum leaf nodes per tree. Soft constraint. Unlimited,
-        If `-1`.
+        If ``-1``.
     max_features : int, float, or string (default = 'auto')
         Ratio of number of features (columns) to consider
         per node split.\n
-        If type `int` then `max_features` is the absolute count of features to
-        be used.\n
-        If type `float` then `max_features` is used as a fraction.\n
-        If `'auto'` then `max_features=1.0`.\n
-        If `'sqrt'` then `max_features=1/sqrt(n_features)`.\n
-        If `'log2'` then `max_features=log2(n_features)/n_features`.
+         * If type ``int`` then ``max_features`` is the absolute count of
+           features to be used.
+         * If type ``float`` then ``max_features`` is used as a fraction.
+         * If ``'auto'`` then ``max_features=1.0``.
+         * If ``'sqrt'`` then ``max_features=1/sqrt(n_features)``.
+         * If ``'log2'`` then ``max_features=log2(n_features)/n_features``.
     n_bins : int (default = 128)
         Number of bins used by the split algorithm.
         For large problems, particularly those with highly-skewed input data,
@@ -189,26 +189,29 @@ class RandomForestRegressor(BaseRandomForestModel,
         Number of parallel streams used for forest building
     min_samples_leaf : int or float (default = 1)
         The minimum number of samples (rows) in each leaf node.\n
-        If type `int`, then `min_samples_leaf` represents the minimum number.\n
-        If float, then min_samples_leaf represents a fraction and
-        `ceil(min_samples_leaf * n_rows)` is the minimum number of samples
-        for each leaf node.
+         * If type ``int``, then ``min_samples_leaf`` represents the minimum
+           number.\n
+         * If ``float``, then ``min_samples_leaf`` represents a fraction and
+           ``ceil(min_samples_leaf * n_rows)`` is the minimum number of
+           samples for each leaf node.
     min_samples_split : int or float (default = 2)
-        The minimum number of samples required to split an internal node.\n
-        If type `int`, then min_samples_split represents the minimum number.\n
-        If type `float`, then `min_samples_split` represents a fraction and
-        `ceil(min_samples_split * n_rows)` is the minimum number of samples
-        for each split.
+        The minimum number of samples required to split an internal
+        node.\n
+         * If type ``int``, then min_samples_split represents the minimum
+           number.
+         * If type ``float``, then ``min_samples_split`` represents a fraction
+           and ``ceil(min_samples_split * n_rows)`` is the minimum number of
+           samples for each split.
     min_impurity_decrease : float (default = 0.0)
         The minimum decrease in impurity required for node to be split
     accuracy_metric : string (default = 'r2')
         Decides the metric used to evaluate the performance of the model.
         In the 0.16 release, the default scoring metric was changed
-        from mean squared error to r-squared.
-        for r-squared : 'r2'
-        for median of abs error : 'median_ae'
-        for mean of abs error : 'mean_ae'
-        for mean square error' : 'mse'
+        from mean squared error to r-squared.\n
+         * for r-squared : ``'r2'``
+         * for median of abs error : ``'median_ae'``
+         * for mean of abs error : ``'mean_ae'``
+         * for mean square error' : ``'mse'``
     max_batch_size : int (default = 4096)
         Maximum number of nodes that can be processed in a given batch.
     random_state : int (default = None)
@@ -222,12 +225,12 @@ class RandomForestRegressor(BaseRandomForestModel,
         handles in several streams.
         If it is None, a new one is created.
     verbose : int or boolean, default=False
-        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        Sets logging level. It must be one of ``cuml.common.logger.level_*``.
         See :ref:`verbosity-levels` for more info.
-    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+    output_type : ``{'input', 'cudf', 'cupy', 'numpy', 'numba'}`` (default=None)
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
-        module level, `cuml.global_settings.output_type`.
+        module level, ``cuml.global_settings.output_type``.
         See :ref:`output-data-type-configuration` for more info.
 
     Notes
