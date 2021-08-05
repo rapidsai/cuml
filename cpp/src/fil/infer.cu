@@ -278,7 +278,7 @@ struct tree_aggregator_t {
     acc += single_tree_prediction;
   }
 
-  __device__ __forceinline__ void finalize(float* block_out,
+  __device__ __noinline__ void finalize(float* block_out,
                                            int block_num_rows,
                                            int output_stride,
                                            output_t transform,
@@ -288,7 +288,7 @@ struct tree_aggregator_t {
 
 template <int NITEMS,
           leaf_algo_t leaf_algo>  // = FLOAT_UNARY_BINARY
-__device__ __forceinline__ void tree_aggregator_t<NITEMS, leaf_algo>::finalize(
+__device__ __noinline__ void tree_aggregator_t<NITEMS, leaf_algo>::finalize(
   float* block_out,
   int block_num_rows,
   int output_stride,
@@ -469,7 +469,7 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> {
     acc += single_tree_prediction;
   }
 
-  __device__ __forceinline__ void finalize(float* out,
+  __device__ __noinline__ void finalize(float* out,
                                            int num_rows,
                                            int num_outputs,
                                            output_t transform,
@@ -478,7 +478,7 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> {
 };
 
 template <int NITEMS>
-__device__ __forceinline__ void tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES>::finalize(
+__device__ __noinline__ void tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES>::finalize(
   float* out,
   int num_rows,
   int num_outputs,
@@ -550,7 +550,7 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
     __syncthreads();
   }
 
-  __device__ __forceinline__ void finalize(float* out,
+  __device__ __noinline__ void finalize(float* out,
                                            int num_rows,
                                            int num_outputs,
                                            output_t transform,
@@ -559,7 +559,7 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
 };
 
 template <int NITEMS>
-__device__ __forceinline__ void tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES>::finalize(
+__device__ __noinline__ void tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES>::finalize(
   float* out,
   int num_rows,
   int num_outputs,
@@ -658,7 +658,7 @@ struct tree_aggregator_t<NITEMS, VECTOR_LEAF> {
       }
     }
   }
-  __device__ __forceinline__ void finalize(float* out,
+  __device__ __noinline__ void finalize(float* out,
                                            int num_rows,
                                            int num_outputs,
                                            output_t transform,
@@ -667,7 +667,7 @@ struct tree_aggregator_t<NITEMS, VECTOR_LEAF> {
 };
 
 template <int NITEMS>
-__device__ __forceinline__ void tree_aggregator_t<NITEMS, VECTOR_LEAF>::finalize(
+__device__ __noinline__ void tree_aggregator_t<NITEMS, VECTOR_LEAF>::finalize(
   float* out,
   int num_rows,
   int num_outputs,
@@ -764,7 +764,7 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
       out[row] = best_class;
     }
   }
-  __device__ __forceinline__ void finalize(float* out,
+  __device__ __noinline__ void finalize(float* out,
                                            int num_rows,
                                            int num_outputs,
                                            output_t transform,
@@ -772,7 +772,7 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
                                            int log2_threads_per_tree);
 };
 template <int NITEMS>
-__device__ __forceinline__ void tree_aggregator_t<NITEMS, CATEGORICAL_LEAF>::finalize(
+__device__ __noinline__ void tree_aggregator_t<NITEMS, CATEGORICAL_LEAF>::finalize(
   float* out,
   int num_rows,
   int num_outputs,
