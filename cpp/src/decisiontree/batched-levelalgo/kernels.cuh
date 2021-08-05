@@ -184,8 +184,13 @@ __global__ void nodeSplitKernel(IdxT max_depth,
   IdxT nid            = blockIdx.x;
   volatile auto* node = curr_nodes + nid;
   auto range_start = node->start, n_samples = node->count;
-  auto isLeaf = leafBasedOnParams<DataT, IdxT>(
-    node->depth, max_depth, min_samples_split, max_leaves, n_leaves, n_samples);
+  __shared__ bool isLeaf;
+  if (threadIdx.x == 0) {
+    isLeaf = leafBasedOnParams<DataT, IdxT>(
+      node->depth, max_depth, min_samples_split, max_leaves, n_leaves, n_samples);
+  }
+  __syncthreads();
+
   auto split = splits[nid];
   if (isLeaf || split.best_metric_val <= min_impurity_decrease || split.nLeft < min_samples_leaf ||
       (n_samples - split.nLeft) < min_samples_leaf) {
