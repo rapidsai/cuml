@@ -73,7 +73,7 @@ struct FilTestParams {
   algo_t algo             = algo_t::NAIVE;
   int seed                = 42;
   float tolerance         = 2e-3f;
-  bool print_forest_shape = true;
+  bool print_forest_shape = false;
   // treelite parameters, only used for treelite tests
   tl::Operator op       = tl::Operator::kLT;
   leaf_algo_t leaf_algo = leaf_algo_t::FLOAT_UNARY_BINARY;

@@ -324,6 +324,13 @@ struct categorical_sets {
 
   __host__ __device__ __forceinline__ bool branch_can_be_categorical() const
   {
+    // If this is constructed from cat_sets_owner, will return true
+    // default-initialized will return false
+    // Defining edge case: there are categorical nodes, but all have max_matching == -1
+    // (all categorical nodes are empty). node.thresh() would have returned 0.0f
+    // and the branch condition wouldn't have always been false (i.e branched left).
+    // Alternatively, we could have converted all empty categorical nodes to
+    // NAN-threshold numerical nodes.
     return max_matching != nullptr;
   }
 
