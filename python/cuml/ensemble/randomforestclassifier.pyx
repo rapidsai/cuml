@@ -116,7 +116,8 @@ class RandomForestClassifier(BaseRandomForestModel,
     .. note:: Note that the underlying algorithm for tree node splits differs
       from that used in scikit-learn. By default, the cuML Random Forest uses a
       quantile-based algorithm to determine splits, rather than an exact
-      count. You can tune the size of the quantiles with the `n_bins` parameter.
+      count. You can tune the size of the quantiles with the `n_bins`
+      parameter.
 
     .. note:: You can export cuML Random Forest models and run predictions
       with them on machines without an NVIDIA GPUs. See
@@ -173,7 +174,8 @@ class RandomForestClassifier(BaseRandomForestModel,
         If `-1`.
     max_features : int, float, or string (default = 'auto')
         Ratio of number of features (columns) to consider per node split.\n
-        If type `int` then `max_features` is the absolute count of features to be used\n
+        If type `int` then `max_features` is the absolute count of features to
+        be used\n
         If type `float` then `max_features` is used as a fraction.\n
         If `'auto'` then `max_features=1/sqrt(n_features)`.\n
         If `'sqrt'` then `max_features=1/sqrt(n_features)`.\n
@@ -227,8 +229,9 @@ class RandomForestClassifier(BaseRandomForestModel,
     Random Forest code. It contains a few known limitations:
 
       * GPU-based inference is only supported with 32-bit (float32) datatypes.
-        Alternatives are to use CPU-based inference for 64-bit (float64) datatypes,
-        or let the default automatic datatype conversion occur during GPU inference.
+        Alternatives are to use CPU-based inference for 64-bit (float64)
+        datatypes, or let the default automatic datatype conversion occur
+        during GPU inference.
       * While training the model for multi class classification problems,
         using deep trees or `max_features=1.0` provides better performance.
       * Prediction of classes is currently different from how scikit-learn
