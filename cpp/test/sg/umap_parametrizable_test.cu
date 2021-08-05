@@ -133,10 +133,10 @@ class UMAPParametrizableTest : public ::testing::Test {
     int& n_samples      = test_params.n_samples;
     int& n_features     = test_params.n_features;
 
-    device_buffer<int64_t>* knn_indices_b;
-    device_buffer<float>* knn_dists_b;
-    int64_t* knn_indices = nullptr;
-    float* knn_dists     = nullptr;
+    device_buffer<int64_t>* knn_indices_b{};
+    device_buffer<float>* knn_dists_b{};
+    int64_t* knn_indices{};
+    float* knn_dists{};
     if (test_params.knn_params) {
       knn_indices_b =
         new device_buffer<int64_t>(alloc, stream, n_samples * umap_params.n_neighbors);
