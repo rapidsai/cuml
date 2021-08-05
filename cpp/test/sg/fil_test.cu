@@ -139,7 +139,7 @@ void hard_clipped_bernoulli(
   rng.uniform(d, n_vals, 0.0f, 1.0f, stream);
   thrust::transform(
     thrust::cuda::par.on(stream), d, d + n_vals, d, [=] __device__(float uniform_0_1) {
-      float truly_0_1 = fmin(fmax(uniform_0_1, 0.0), 1.0);
+      float truly_0_1 = fmin(fmax(uniform_0_1, 0.0f), 1.0f);
       return truly_0_1 > prob_of_zero;
     });
 }
@@ -150,8 +150,8 @@ struct replace_some_floating_with_categorical {
   __device__ float operator()(float data, int data_idx)
   {
     int max_matching_cat = max_matching_cat_d[data_idx % num_cols];
-    if (max_matching_cat == -1.0) return data;
-    return roundf((data * 0.5 + 0.5) * max_matching_cat);
+    if (max_matching_cat == -1.0f) return data;
+    return roundf((data * 0.5f + 0.5f) * max_matching_cat);
   }
 };
 
