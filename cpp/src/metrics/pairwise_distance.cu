@@ -22,12 +22,16 @@
 #include <raft/sparse/distance/distance.cuh>
 #include "pairwise_distance_canberra.cuh"
 #include "pairwise_distance_chebyshev.cuh"
+#include "pairwise_distance_correlation.cuh"
 #include "pairwise_distance_cosine.cuh"
 #include "pairwise_distance_euclidean.cuh"
 #include "pairwise_distance_hamming.cuh"
 #include "pairwise_distance_hellinger.cuh"
+#include "pairwise_distance_jensen_shannon.cuh"
+#include "pairwise_distance_kl_divergence.cuh"
 #include "pairwise_distance_l1.cuh"
 #include "pairwise_distance_minkowski.cuh"
+#include "pairwise_distance_russell_rao.cuh"
 
 namespace ML {
 
@@ -68,6 +72,21 @@ void pairwise_distance(const raft::handle_t& handle,
     case raft::distance::DistanceType::Canberra:
       pairwise_distance_canberra(handle, x, y, dist, m, n, k, metric, isRowMajor, metric_arg);
       break;
+    case raft::distance::DistanceType::CorrelationExpanded:
+      pairwise_distance_correlation(handle, x, y, dist, m, n, k, metric, isRowMajor, metric_arg);
+      break;
+    case raft::distance::DistanceType::HammingUnexpanded:
+      pairwise_distance_hamming(handle, x, y, dist, m, n, k, metric, isRowMajor, metric_arg);
+      break;
+    case raft::distance::DistanceType::JensenShannon:
+      pairwise_distance_jensen_shannon(handle, x, y, dist, m, n, k, metric, isRowMajor, metric_arg);
+      break;
+    case raft::distance::DistanceType::KLDivergence:
+      pairwise_distance_kl_divergence(handle, x, y, dist, m, n, k, metric, isRowMajor, metric_arg);
+      break;
+    case raft::distance::DistanceType::RusselRaoExpanded:
+      pairwise_distance_russell_rao(handle, x, y, dist, m, n, k, metric, isRowMajor, metric_arg);
+      break;
     default: THROW("Unknown or unsupported distance metric '%d'!", (int)metric);
   };
 }
@@ -107,6 +126,21 @@ void pairwise_distance(const raft::handle_t& handle,
       break;
     case raft::distance::DistanceType::Canberra:
       pairwise_distance_canberra(handle, x, y, dist, m, n, k, metric, isRowMajor, metric_arg);
+      break;
+    case raft::distance::DistanceType::CorrelationExpanded:
+      pairwise_distance_correlation(handle, x, y, dist, m, n, k, metric, isRowMajor, metric_arg);
+      break;
+    case raft::distance::DistanceType::HammingUnexpanded:
+      pairwise_distance_hamming(handle, x, y, dist, m, n, k, metric, isRowMajor, metric_arg);
+      break;
+    case raft::distance::DistanceType::JensenShannon:
+      pairwise_distance_jensen_shannon(handle, x, y, dist, m, n, k, metric, isRowMajor, metric_arg);
+      break;
+    case raft::distance::DistanceType::KLDivergence:
+      pairwise_distance_kl_divergence(handle, x, y, dist, m, n, k, metric, isRowMajor, metric_arg);
+      break;
+    case raft::distance::DistanceType::RusselRaoExpanded:
+      pairwise_distance_russell_rao(handle, x, y, dist, m, n, k, metric, isRowMajor, metric_arg);
       break;
     default: THROW("Unknown or unsupported distance metric '%d'!", (int)metric);
   };
