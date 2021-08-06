@@ -23,6 +23,15 @@
 #include <fil/internal.cuh>
 #include "common.cuh"
 
+#ifndef FIL_FAST_COMPILE
+// reduces what goes into hundreds of `infer_k` instantiations to speed up compilation.
+// for now, used sparingly. When we determine if current use has a perf impact,
+// we can roll it out to all functions, and use an appropriate name.
+#define INLINE_UNLESS_DEBUG __forceinline__
+#else
+#define INLINE_UNLESS_DEBUG __noinline__
+#endif
+
 namespace ML {
 namespace fil {
 
@@ -278,17 +287,17 @@ struct tree_aggregator_t {
     acc += single_tree_prediction;
   }
 
-  __device__ __noinline__ void finalize(float* block_out,
-                                        int block_num_rows,
-                                        int output_stride,
-                                        output_t transform,
-                                        int num_trees,
-                                        int log2_threads_per_tree);
+  __device__ INLINE_UNLESS_DEBUG void finalize(float* block_out,
+                                               int block_num_rows,
+                                               int output_stride,
+                                               output_t transform,
+                                               int num_trees,
+                                               int log2_threads_per_tree);
 };
 
 template <int NITEMS,
           leaf_algo_t leaf_algo>  // = FLOAT_UNARY_BINARY
-__device__ __noinline__ void tree_aggregator_t<NITEMS, leaf_algo>::finalize(
+__device__ INLINE_UNLESS_DEBUG void tree_aggregator_t<NITEMS, leaf_algo>::finalize(
   float* block_out,
   int block_num_rows,
   int output_stride,
@@ -469,22 +478,22 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> {
     acc += single_tree_prediction;
   }
 
-  __device__ __noinline__ void finalize(float* out,
-                                        int num_rows,
-                                        int num_outputs,
-                                        output_t transform,
-                                        int num_trees,
-                                        int log2_threads_per_tree);
+  __device__ INLINE_UNLESS_DEBUG void finalize(float* out,
+                                               int num_rows,
+                                               int num_outputs,
+                                               output_t transform,
+                                               int num_trees,
+                                               int log2_threads_per_tree);
 };
 
 template <int NITEMS>
-__device__ __noinline__ void tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES>::finalize(
-  float* out,
-  int num_rows,
-  int num_outputs,
-  output_t transform,
-  int num_trees,
-  int log2_threads_per_tree)
+__device__ INLINE_UNLESS_DEBUG void
+tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES>::finalize(float* out,
+                                                                 int num_rows,
+                                                                 int num_outputs,
+                                                                 output_t transform,
+                                                                 int num_trees,
+                                                                 int log2_threads_per_tree)
 {
   __syncthreads();  // free up input row in case it was in shared memory
   // load margin into shared memory
@@ -550,22 +559,22 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
     __syncthreads();
   }
 
-  __device__ __noinline__ void finalize(float* out,
-                                        int num_rows,
-                                        int num_outputs,
-                                        output_t transform,
-                                        int num_trees,
-                                        int log2_threads_per_tree);
+  __device__ INLINE_UNLESS_DEBUG void finalize(float* out,
+                                               int num_rows,
+                                               int num_outputs,
+                                               output_t transform,
+                                               int num_trees,
+                                               int log2_threads_per_tree);
 };
 
 template <int NITEMS>
-__device__ __noinline__ void tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES>::finalize(
-  float* out,
-  int num_rows,
-  int num_outputs,
-  output_t transform,
-  int num_trees,
-  int log2_threads_per_tree)
+__device__ INLINE_UNLESS_DEBUG void
+tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES>::finalize(float* out,
+                                                                  int num_rows,
+                                                                  int num_outputs,
+                                                                  output_t transform,
+                                                                  int num_trees,
+                                                                  int log2_threads_per_tree)
 {
   class_margins_to_global_memory(per_class_margin,
                                  per_class_margin + num_classes,
@@ -658,16 +667,16 @@ struct tree_aggregator_t<NITEMS, VECTOR_LEAF> {
       }
     }
   }
-  __device__ __noinline__ void finalize(float* out,
-                                        int num_rows,
-                                        int num_outputs,
-                                        output_t transform,
-                                        int num_trees,
-                                        int log2_threads_per_tree);
+  __device__ INLINE_UNLESS_DEBUG void finalize(float* out,
+                                               int num_rows,
+                                               int num_outputs,
+                                               output_t transform,
+                                               int num_trees,
+                                               int log2_threads_per_tree);
 };
 
 template <int NITEMS>
-__device__ __noinline__ void tree_aggregator_t<NITEMS, VECTOR_LEAF>::finalize(
+__device__ INLINE_UNLESS_DEBUG void tree_aggregator_t<NITEMS, VECTOR_LEAF>::finalize(
   float* out,
   int num_rows,
   int num_outputs,
@@ -764,15 +773,15 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
       out[row] = best_class;
     }
   }
-  __device__ __noinline__ void finalize(float* out,
-                                        int num_rows,
-                                        int num_outputs,
-                                        output_t transform,
-                                        int num_trees,
-                                        int log2_threads_per_tree);
+  __device__ INLINE_UNLESS_DEBUG void finalize(float* out,
+                                               int num_rows,
+                                               int num_outputs,
+                                               output_t transform,
+                                               int num_trees,
+                                               int log2_threads_per_tree);
 };
 template <int NITEMS>
-__device__ __noinline__ void tree_aggregator_t<NITEMS, CATEGORICAL_LEAF>::finalize(
+__device__ INLINE_UNLESS_DEBUG void tree_aggregator_t<NITEMS, CATEGORICAL_LEAF>::finalize(
   float* out,
   int num_rows,
   int num_outputs,
@@ -788,11 +797,11 @@ __device__ __noinline__ void tree_aggregator_t<NITEMS, CATEGORICAL_LEAF>::finali
   }
 }
 
-__device__ __noinline__ void load_data(float* sdata,
-                                       const float* block_input,
-                                       predict_params params,
-                                       int rows_per_block,
-                                       int block_num_rows)
+__device__ INLINE_UNLESS_DEBUG void load_data(float* sdata,
+                                              const float* block_input,
+                                              predict_params params,
+                                              int rows_per_block,
+                                              int block_num_rows)
 {
   int num_cols     = params.num_cols;
   int sdata_stride = params.sdata_stride();
