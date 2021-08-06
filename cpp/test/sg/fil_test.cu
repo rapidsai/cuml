@@ -145,12 +145,12 @@ void hard_clipped_bernoulli(
 }
 
 struct replace_some_floating_with_categorical {
-  float* max_matching_cat_d;
+  int* max_matching_cat_d;
   int num_cols;
   __device__ float operator()(float data, int data_idx)
   {
     int max_matching_cat = max_matching_cat_d[data_idx % num_cols];
-    if (max_matching_cat == -1.0f) return data;
+    if (max_matching_cat == -1) return data;
     return roundf((data * 0.5f + 0.5f) * max_matching_cat);
   }
 };
@@ -277,7 +277,6 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
         cf[fid].max_matching = -1;
       }
     }
-
     raft::update_host(weights_h.data(), (int*)weights_d, num_nodes, stream);
     raft::update_host(thresholds_h.data(), thresholds_d, num_nodes, stream);
     raft::update_host(fids_h.data(), fids_d, num_nodes, stream);
@@ -285,7 +284,6 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     raft::update_host(is_leafs_h, is_leafs_d, num_nodes, stream);
     raft::update_host(is_categoricals_h.data(), is_categoricals_d, num_nodes, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
-
     // categorical features
     // count nodes for each feature id
     // in parallel, split the sets between nodes
@@ -302,9 +300,9 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
         bit_pool_size += categorical_sets::sizeof_mask_from_max_matching(cf[fid].max_matching);
       }
     }
-    if (ps.node_categorical_prob > 0 && ps.feature_categorical_prob > 0)
-      cat_sets_h = cat_sets_owner(cf);
+    cat_sets_h = cat_sets_owner(cf);
     ASSERT(bit_pool_size == cat_sets_h.bits.size(), "didn't convert correct number of nodes");
+    raft::update_device(max_matching_cat_d, cat_sets_h.max_matching.data(), ps.num_cols, stream);
     // calculate sizes and allocate arrays for category sets
     // fill category sets
     // there is a faster trick with a 256-byte LUT, but we can implement it later if the tests
@@ -350,7 +348,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     // clean up
     delete[] def_lefts_h;
     delete[] is_leafs_h;
-    // cat_sets_h.bits are synced here
+    // cat_sets_h.bits and max_matching_cat_d are synced here
     CUDA_CHECK(cudaFree(bits_precursor_d));
     CUDA_CHECK(cudaFree(bits_d));
     CUDA_CHECK(cudaFree(is_categoricals_d));
@@ -377,7 +375,6 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
                       thrust::counting_iterator(0),
                       data_d,
                       replace_some_floating_with_categorical{max_matching_cat_d, ps.num_cols});
-
     r.bernoulli(mask_d, num_data, ps.nan_prob, stream);
     int tpb = 256;
     nan_kernel<<<raft::ceildiv(int(num_data), tpb), tpb, 0, stream>>>(
@@ -574,7 +571,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   std::vector<float> vector_leaf;
   cat_sets_owner cat_sets_h;
   int* fids_d;
-  float* max_matching_cat_d;
+  int* max_matching_cat_d;
 
   // parameters
   cudaStream_t stream;

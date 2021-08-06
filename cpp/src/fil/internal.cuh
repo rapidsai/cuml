@@ -81,10 +81,9 @@ union val_t {
 };
 
 /** base_node contains common implementation details for dense and sparse nodes */
-
 struct base_node {
-  /** val is either the threshold (for inner nodes, always float)
-      or the tree prediction (for leaf nodes) */
+  /** val, for branch nodes, is a threshold or category list offset. For leaf
+      nodes, it is the tree prediction (see see leaf_output_t<leaf_algo_t>::T) */
   val_t val;
   /** bits encode various information about the node, with the exact nature of
       this information depending on the node type; it includes e.g. whether the
@@ -137,7 +136,6 @@ __host__ __device__ __forceinline__ val_t base_node::output<val_t>() const
 }
 
 /** dense_node is a single node of a dense forest */
-
 struct alignas(8) dense_node : base_node {
   dense_node() = default;
   dense_node(val_t output, val_t split, int fid, bool def_left, bool is_leaf, bool is_categorical)
@@ -149,7 +147,6 @@ struct alignas(8) dense_node : base_node {
 };
 
 /** sparse_node16 is a 16-byte node in a sparse forest */
-
 struct alignas(16) sparse_node16 : base_node {
   int left_idx;
   int dummy;  // make alignment explicit and reserve for future use
@@ -172,7 +169,6 @@ struct alignas(16) sparse_node16 : base_node {
 };
 
 /** sparse_node8 is a node of reduced size (8 bytes) in a sparse forest */
-
 struct alignas(8) sparse_node8 : base_node {
   static const int LEFT_NUM_BITS = 16;
   static const int FID_NUM_BITS  = IS_CATEGORICAL_OFFSET - LEFT_NUM_BITS;
