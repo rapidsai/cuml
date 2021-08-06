@@ -30,7 +30,7 @@ include(rapids-find)
 
 rapids_cuda_init_architectures(CUML)
 
-project(CUML VERSION 21.08.00 LANGUAGES CXX CUDA)
+project(CUML VERSION 21.08.01 LANGUAGES CXX CUDA)
 
 # Write the version header
 include(cmake/modules/Version.cmake)
