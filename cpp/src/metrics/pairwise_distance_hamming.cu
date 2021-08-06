@@ -23,15 +23,15 @@ namespace ML {
 
 namespace Metrics {
 void pairwise_distance_hamming(const raft::handle_t& handle,
-                                const double* x,
-                                const double* y,
-                                double* dist,
-                                int m,
-                                int n,
-                                int k,
-                                raft::distance::DistanceType metric,
-                                bool isRowMajor,
-                                double metric_arg)
+                               const double* x,
+                               const double* y,
+                               double* dist,
+                               int m,
+                               int n,
+                               int k,
+                               raft::distance::DistanceType metric,
+                               bool isRowMajor,
+                               double metric_arg)
 {
   // Allocate workspace
   raft::mr::device::buffer<char> workspace(handle.get_device_allocator(), handle.get_stream(), 0);
@@ -39,23 +39,24 @@ void pairwise_distance_hamming(const raft::handle_t& handle,
   // Call the distance function
   switch (metric) {
     case raft::distance::DistanceType::HammingUnexpanded:
-      raft::distance::pairwise_distance_impl<double, int, raft::distance::DistanceType::HammingUnexpanded>(
-        x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
+      raft::distance::
+        pairwise_distance_impl<double, int, raft::distance::DistanceType::HammingUnexpanded>(
+          x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
       break;
     default: THROW("Unknown or unsupported distance metric '%d'!", (int)metric);
   }
 }
 
 void pairwise_distance_hamming(const raft::handle_t& handle,
-                                const float* x,
-                                const float* y,
-                                float* dist,
-                                int m,
-                                int n,
-                                int k,
-                                raft::distance::DistanceType metric,
-                                bool isRowMajor,
-                                float metric_arg)
+                               const float* x,
+                               const float* y,
+                               float* dist,
+                               int m,
+                               int n,
+                               int k,
+                               raft::distance::DistanceType metric,
+                               bool isRowMajor,
+                               float metric_arg)
 {
   // Allocate workspace
   raft::mr::device::buffer<char> workspace(handle.get_device_allocator(), handle.get_stream(), 0);
@@ -63,8 +64,9 @@ void pairwise_distance_hamming(const raft::handle_t& handle,
   // Call the distance function
   switch (metric) {
     case raft::distance::DistanceType::HammingUnexpanded:
-      raft::distance::pairwise_distance_impl<float, int, raft::distance::DistanceType::HammingUnexpanded>(
-        x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
+      raft::distance::
+        pairwise_distance_impl<float, int, raft::distance::DistanceType::HammingUnexpanded>(
+          x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
       break;
     default: THROW("Unknown or unsupported distance metric '%d'!", (int)metric);
   }

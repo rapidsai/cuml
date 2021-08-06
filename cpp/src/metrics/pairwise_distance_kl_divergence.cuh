@@ -24,26 +24,26 @@ namespace ML {
 
 namespace Metrics {
 void pairwise_distance_kl_divergence(const raft::handle_t& handle,
-                                const double* x,
-                                const double* y,
-                                double* dist,
-                                int m,
-                                int n,
-                                int k,
-                                raft::distance::DistanceType metric,
-                                bool isRowMajor,
-                                double metric_arg);
+                                     const double* x,
+                                     const double* y,
+                                     double* dist,
+                                     int m,
+                                     int n,
+                                     int k,
+                                     raft::distance::DistanceType metric,
+                                     bool isRowMajor,
+                                     double metric_arg);
 
 void pairwise_distance_kl_divergence(const raft::handle_t& handle,
-                                const float* x,
-                                const float* y,
-                                float* dist,
-                                int m,
-                                int n,
-                                int k,
-                                raft::distance::DistanceType metric,
-                                bool isRowMajor,
-                                float metric_arg);
+                                     const float* x,
+                                     const float* y,
+                                     float* dist,
+                                     int m,
+                                     int n,
+                                     int k,
+                                     raft::distance::DistanceType metric,
+                                     bool isRowMajor,
+                                     float metric_arg);
 
 }  // namespace Metrics
 }  // namespace ML
