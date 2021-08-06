@@ -17,12 +17,12 @@
 
 #include <raft/distance/distance.cuh>
 #include <raft/handle.hpp>
-#include "pairwise_distance_canberra.cuh"
+#include "pairwise_distance_kl_divergence.cuh"
 
 namespace ML {
 
 namespace Metrics {
-void pairwise_distance_canberra(const raft::handle_t& handle,
+void pairwise_distance_kl_divergence(const raft::handle_t& handle,
                                 const double* x,
                                 const double* y,
                                 double* dist,
@@ -38,15 +38,15 @@ void pairwise_distance_canberra(const raft::handle_t& handle,
 
   // Call the distance function
   switch (metric) {
-    case raft::distance::DistanceType::Canberra:
-      raft::distance::pairwise_distance_impl<double, int, raft::distance::DistanceType::Canberra>(
+    case raft::distance::DistanceType::KLDivergence:
+      raft::distance::pairwise_distance_impl<double, int, raft::distance::DistanceType::KLDivergence>(
         x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
       break;
     default: THROW("Unknown or unsupported distance metric '%d'!", (int)metric);
   }
 }
 
-void pairwise_distance_canberra(const raft::handle_t& handle,
+void pairwise_distance_kl_divergence(const raft::handle_t& handle,
                                 const float* x,
                                 const float* y,
                                 float* dist,
@@ -62,8 +62,8 @@ void pairwise_distance_canberra(const raft::handle_t& handle,
 
   // Call the distance function
   switch (metric) {
-    case raft::distance::DistanceType::Canberra:
-      raft::distance::pairwise_distance_impl<float, int, raft::distance::DistanceType::Canberra>(
+    case raft::distance::DistanceType::KLDivergence:
+      raft::distance::pairwise_distance_impl<float, int, raft::distance::DistanceType::KLDivergence>(
         x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
       break;
     default: THROW("Unknown or unsupported distance metric '%d'!", (int)metric);

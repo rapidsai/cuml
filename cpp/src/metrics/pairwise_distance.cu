@@ -24,6 +24,7 @@
 #include "pairwise_distance_chebyshev.cuh"
 #include "pairwise_distance_cosine.cuh"
 #include "pairwise_distance_euclidean.cuh"
+#include "pairwise_distance_hamming.cuh"
 #include "pairwise_distance_hellinger.cuh"
 #include "pairwise_distance_l1.cuh"
 #include "pairwise_distance_minkowski.cuh"

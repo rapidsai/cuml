@@ -15,14 +15,15 @@
  * limitations under the License.
  */
 
+#pragma once
+
 #include <raft/distance/distance.cuh>
 #include <raft/handle.hpp>
-#include "pairwise_distance_canberra.cuh"
 
 namespace ML {
 
 namespace Metrics {
-void pairwise_distance_canberra(const raft::handle_t& handle,
+void pairwise_distance_kl_divergence(const raft::handle_t& handle,
                                 const double* x,
                                 const double* y,
                                 double* dist,
@@ -31,22 +32,9 @@ void pairwise_distance_canberra(const raft::handle_t& handle,
                                 int k,
                                 raft::distance::DistanceType metric,
                                 bool isRowMajor,
-                                double metric_arg)
-{
-  // Allocate workspace
-  raft::mr::device::buffer<char> workspace(handle.get_device_allocator(), handle.get_stream(), 1);
+                                double metric_arg);
 
-  // Call the distance function
-  switch (metric) {
-    case raft::distance::DistanceType::Canberra:
-      raft::distance::pairwise_distance_impl<double, int, raft::distance::DistanceType::Canberra>(
-        x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
-      break;
-    default: THROW("Unknown or unsupported distance metric '%d'!", (int)metric);
-  }
-}
-
-void pairwise_distance_canberra(const raft::handle_t& handle,
+void pairwise_distance_kl_divergence(const raft::handle_t& handle,
                                 const float* x,
                                 const float* y,
                                 float* dist,
@@ -55,20 +43,7 @@ void pairwise_distance_canberra(const raft::handle_t& handle,
                                 int k,
                                 raft::distance::DistanceType metric,
                                 bool isRowMajor,
-                                float metric_arg)
-{
-  // Allocate workspace
-  raft::mr::device::buffer<char> workspace(handle.get_device_allocator(), handle.get_stream(), 1);
-
-  // Call the distance function
-  switch (metric) {
-    case raft::distance::DistanceType::Canberra:
-      raft::distance::pairwise_distance_impl<float, int, raft::distance::DistanceType::Canberra>(
-        x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
-      break;
-    default: THROW("Unknown or unsupported distance metric '%d'!", (int)metric);
-  }
-}
+                                float metric_arg);
 
 }  // namespace Metrics
 }  // namespace ML
