@@ -23,11 +23,6 @@
 #include <fil/internal.cuh>
 #include "common.cuh"
 
-<<<<<<< HEAD
-=======
-#define __forceinline__ __noinline__
-
->>>>>>> a57aba9fe (inline declarations can still be __noinline__; removed stray print)
 namespace ML {
 namespace fil {
 
