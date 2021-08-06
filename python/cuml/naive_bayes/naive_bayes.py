@@ -358,7 +358,7 @@ class _BaseDiscreteNB(_BaseNB):
         else:
             X = input_to_cupy_array(X, order='K',
                                     check_dtype=[cp.float32, cp.float64,
-                                                 cp.int32]).array
+                                                 cp.int32, cp.int64]).array
 
         expected_y_dtype = cp.int32 if X.dtype in [cp.float32,
                                                    cp.int32] else cp.int64
@@ -844,4 +844,228 @@ class BernoulliNB(_BaseDiscreteNB):
                 "alpha",
                 "binarize",
                 "fit_prior",
+            ]
+
+class CategoricalNB(_BaseDiscreteNB):
+    """
+    Naive Bayes classifier for categorical features
+    The categorical Naive Bayes classifier is suitable for classification with
+    discrete features that are categorically distributed. The categories of
+    each feature are drawn from a categorical distribution.
+    Attributes
+    ----------
+    category_count_ : list of arrays of shape (n_features,)
+        Holds arrays of shape (n_classes, n_categories of respective feature)
+        for each feature. Each array provides the number of samples
+        encountered for each class and category of the specific feature.
+    class_count_ : ndarray of shape (n_classes,)
+        Number of samples encountered for each class during fitting. This
+        value is weighted by the sample weight when provided.
+    class_log_prior_ : ndarray of shape (n_classes,)
+        Smoothed empirical log probability for each class.
+    classes_ : ndarray of shape (n_classes,)
+        Class labels known to the classifier
+    feature_log_prob_ : list of arrays of shape (n_features,)
+        Holds arrays of shape (n_classes, n_categories of respective feature)
+        for each feature. Each array provides the empirical log probability
+        of categories given the respective feature and class, ``P(x_i|y)``.
+    n_features_ : int
+        Number of features of each sample.
+    Examples
+    --------
+    >>> import numpy as np
+    >>> rng = np.random.RandomState(1)
+    >>> X = rng.randint(5, size=(6, 100))
+    >>> y = np.array([1, 2, 3, 4, 5, 6])
+    >>> from cuml.naive_bayes import CategoricalNB
+    >>> clf = CategoricalNB()
+    >>> clf.fit(X, y)
+    CategoricalNB()
+    >>> print(clf.predict(X[2:3]))
+    [3]
+    """
+    def __init__(self, *, alpha=1.0, fit_prior=True, class_prior=None,
+                 output_type=None, handle=None, verbose=False):
+        """
+        Create new Categorical Naive Bayes instance
+        Parameters
+        ----------
+        alpha : float, default=1.0
+            Additive (Laplace/Lidstone) smoothing parameter
+            (0 for no smoothing).
+        fit_prior : bool, default=True
+            Whether to learn class prior probabilities or not.
+            If false, a uniform prior will be used.
+        class_prior : array-like of shape (n_classes,), default=None
+            Prior probabilities of the classes. If specified the priors are not
+            adjusted according to the data.
+        output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+            Variable to control output type of the results and attributes of
+            the estimator. If None, it'll inherit the output type set at the
+            module level, `cuml.global_settings.output_type`.
+            See :ref:`output-data-type-configuration` for more info.
+        handle : cuml.Handle
+            Specifies the cuml.handle that holds internal CUDA state for
+            computations in this model. Most importantly, this specifies the CUDA
+            stream that will be used for the model's computations, so users can
+            run different models concurrently in different streams by creating
+            handles in several streams.
+            If it is None, a new one is created.
+        verbose : int or boolean, default=False
+            Sets logging level. It must be one of `cuml.common.logger.level_*`.
+            See :ref:`verbosity-levels` for more info.
+        """
+        super(CategoricalNB, self).__init__(class_prior=class_prior,
+                                            handle=handle,
+                                            output_type=output_type,
+                                            verbose=verbose)
+        self.alpha = alpha
+        self.fit_prior = fit_prior
+
+    def _check_X_y(self, X, y):
+        if X.dtype not in [cp.int32, cp.int64]:
+            raise ValueError("Expected int32 or int64 input dtype")
+        x_min = X.min()
+        if x_min < 0:
+            raise ValueError("Negative values in data passed to Categorical NB")
+        return X, y
+
+    def _check_X(self, X):
+        if X.dtype not in [cp.int32, cp.int64]:
+            raise ValueError("Expected int32 or int64 input dtype")
+        x_min = X.min()
+        if x_min < 0:
+            raise ValueError("Negative values in data passed to Categorical NB")
+        return X
+
+    def fit(self, X, y, sample_weight=None) -> "CategoricalNB":
+        """Fit Naive Bayes classifier according to X, y
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Training vectors, where n_samples is the number of samples and
+            n_features is the number of features. Here, each feature of X is
+            assumed to be from a different categorical distribution.
+            It is further assumed that all categories of each feature are
+            represented by the numbers 0, ..., n - 1, where n refers to the
+            total number of categories for the given feature. This can, for
+            instance, be achieved with the help of OrdinalEncoder.
+        y : array-like of shape (n_samples,)
+            Target values.
+        sample_weight : array-like of shape (n_samples), default=None
+            Weights applied to individual samples (1. for unweighted).
+        Returns
+        -------
+        self : object
+        """
+        return super().fit(X, y, sample_weight=sample_weight)
+
+    def partial_fit(self, X, y, classes=None,
+                    sample_weight=None) -> "CategoricalNB":
+        """Incremental fit on a batch of samples.
+        This method is expected to be called several times consecutively
+        on different chunks of a dataset so as to implement out-of-core
+        or online learning.
+        This is especially useful when the whole dataset is too big to fit in
+        memory at once.
+        This method has some performance overhead hence it is better to call
+        partial_fit on chunks of data that are as large as possible
+        (as long as fitting in the memory budget) to hide the overhead.
+        Parameters
+        ----------
+        X : array-like of shape (n_samples, n_features)
+            Training vectors, where n_samples is the number of samples and
+            n_features is the number of features. Here, each feature of X is
+            assumed to be from a different categorical distribution.
+            It is further assumed that all categories of each feature are
+            represented by the numbers 0, ..., n - 1, where n refers to the
+            total number of categories for the given feature. This can, for
+            instance, be achieved with the help of OrdinalEncoder.
+        y : array-like of shape (n_samples)
+            Target values.
+        classes : array-like of shape (n_classes), default=None
+            List of all the classes that can possibly appear in the y vector.
+            Must be provided at the first call to partial_fit, can be omitted
+            in subsequent calls.
+        sample_weight : array-like of shape (n_samples), default=None
+            Weights applied to individual samples (1. for unweighted).
+            Currently sample weight is ignored.
+        Returns
+        -------
+        self : object
+        """
+        return super().partial_fit(X, y, classes,
+                                   sample_weight=sample_weight)
+
+    def _count(self, X, Y, classes):
+        def _update_cat_count_dims(cat_count, highest_feature):
+            diff = int(highest_feature) + 1 - cat_count.shape[1]
+            if diff > 0:
+                # we append a column full of zeros for each new category
+                return cp.pad(cat_count, [(0, 0), (0, diff)], 'constant')
+            return cat_count
+
+        def _update_cat_count(X_feature, Y, cat_count, n_classes):
+            for j in range(n_classes):
+                mask = (Y == j)
+                weights = None
+                counts = cp.bincount(X_feature[mask],
+                                     weights=weights)
+                indices = cp.nonzero(counts)[0]
+                cat_count[j, indices] += counts[indices]
+
+        Y = cp.asarray(Y)
+        tpb = 256
+        n_rows = X.shape[0]
+        n_classes = classes.shape[0]
+        labels_dtype = classes.dtype
+
+        class_c = cp.zeros(n_classes, order="F", dtype=self.class_count_.dtype)
+        count_classes = count_classes_kernel(class_c.dtype, labels_dtype)
+        count_classes((math.ceil(n_rows / tpb),), (tpb,),
+                      (class_c, n_rows, Y))
+        self.class_count_ = class_c
+        for i in range(self.n_features_):
+            X_feature = X[:, i]
+            self.category_count_[i] = _update_cat_count_dims(
+                self.category_count_[i], X_feature.max())
+            _update_cat_count(X_feature, Y,
+                              self.category_count_[i],
+                              self.class_count_.shape[0])
+
+    def _init_counters(self, n_effective_classes, n_features, dtype):
+        self.class_count_ = cp.zeros(n_effective_classes,
+                                     order="F",
+                                     dtype=cp.float64)
+        self.category_count_ = [cp.zeros((n_effective_classes, 0),
+                                         order="F",
+                                         dtype=dtype)
+                                for _ in range(n_features)]
+
+    def _update_feature_log_prob(self, alpha):
+        feature_log_prob = []
+        for i in range(self.n_features_):
+            smoothed_cat_count = self.category_count_[i] + alpha
+            smoothed_class_count = smoothed_cat_count.sum(axis=1)
+            feature_log_prob.append(
+                cp.log(smoothed_cat_count) -
+                cp.log(smoothed_class_count.reshape(-1, 1)))
+        self.feature_log_prob_ = feature_log_prob
+
+    def _joint_log_likelihood(self, X):
+        if not X.shape[1] == self.n_features_:
+            raise ValueError("Expected input with %d features, got %d instead"
+                             % (self.n_features_, X.shape[1]))
+        jll = cp.zeros((X.shape[0], self.class_count_.shape[0]))
+        for i in range(self.n_features_):
+            indices = X[:, i]
+            jll += self.feature_log_prob_[i][:, indices].T
+        total_ll = jll + self.class_log_prior_
+        return total_ll
+
+    def get_param_names(self):
+        return super().get_param_names() + \
+            [
+                "alpha",
+                "class_prior",
             ]

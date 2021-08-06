@@ -21,11 +21,14 @@ import pytest
 from sklearn.metrics import accuracy_score
 from cuml.naive_bayes import MultinomialNB
 from cuml.naive_bayes import BernoulliNB
+from cuml.naive_bayes import CategoricalNB
 from cuml.common.input_utils import sparse_scipy_to_cp
+from cuml.datasets import make_classification
 
 from numpy.testing import assert_allclose, assert_array_equal
 from sklearn.naive_bayes import MultinomialNB as skNB
 from sklearn.naive_bayes import BernoulliNB as skBNB
+from sklearn.naive_bayes import CategoricalNB as skCNB
 
 import math
 
@@ -287,6 +290,108 @@ def test_bernoulli_partial_fit(x_dtype, y_dtype, nlp_20news):
 
     model = BernoulliNB()
     modelsk = skBNB()
+
+    classes = np.unique(y)
+
+    for i in range(math.ceil(X.shape[0] / chunk_size)):
+
+        upper = i*chunk_size+chunk_size
+        if upper > X.shape[0]:
+            upper = -1
+
+        if upper > 0:
+            x = X[i*chunk_size:upper]
+            y_c = y[i*chunk_size:upper]
+        else:
+            x = X[i*chunk_size:]
+            y_c = y[i*chunk_size:]
+
+        model.partial_fit(x, y_c, classes=classes)
+        modelsk.partial_fit(x.get(), y_c.get(), classes=classes.get())
+        if upper == -1:
+            break
+
+    y_hat = model.predict(X).get()
+    y_sk = modelsk.predict(X.get())
+
+    assert_allclose(y_hat, y_sk)
+
+@pytest.mark.parametrize("x_dtype", [cp.int32])#, cp.int64])
+@pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
+def test_categorical(x_dtype, y_dtype, nlp_20news):
+    X, y = nlp_20news
+    n_rows = 500
+    n_cols = 5000
+
+    X = sparse_scipy_to_cp(X, dtype=cp.float32)
+    y = y.astype(y_dtype)
+
+    X = X.tocsr()[:n_rows, :n_cols].todense().astype(x_dtype)
+    y = y[:n_rows]
+
+    cuml_model = CategoricalNB()
+    sk_model = skCNB()
+
+    cuml_model.fit(X, y)
+    sk_model.fit(X.get(), y.get())
+
+    sk_score = sk_model.score(X.get(), y.get())
+    cuml_score = cuml_model.score(X, y)
+    cuml_proba = cuml_model.predict_log_proba(X).get()
+    sk_proba = sk_model.predict_log_proba(X.get())
+
+    THRES = 1e-3
+
+    assert_array_equal(sk_model.class_count_, cuml_model.class_count_.get())
+    assert_allclose(sk_model.class_log_prior_, cuml_model.class_log_prior_.get(), 1e-6)
+    assert_allclose(cuml_proba, sk_proba, atol=1e-2, rtol=1e-2)
+    assert sk_score - THRES <= cuml_score <= sk_score + THRES
+
+
+@pytest.mark.parametrize("x_dtype", [cp.int32])#, cp.int64])
+@pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
+def test_categorical2(x_dtype, y_dtype):
+    n_rows = 50
+    n_cols = 5
+    X, y = make_classification(n_rows, n_cols, random_state=5)
+
+    X = X.astype(x_dtype)
+    y = y.astype(y_dtype)
+    X -= X.min(0)
+
+    cuml_model = CategoricalNB()
+    sk_model = skCNB()
+
+    sk_model.fit(X.get(), y.get())
+    cuml_model.fit(X, y)
+
+    sk_score = sk_model.score(X.get(), y.get())
+    cuml_score = cuml_model.score(X, y)
+    cuml_proba = cuml_model.predict_log_proba(X).get()
+    sk_proba = sk_model.predict_log_proba(X.get())
+
+    THRES = 1e-3
+
+    assert_array_equal(sk_model.class_count_, cuml_model.class_count_.get())
+    assert_allclose(sk_model.class_log_prior_, cuml_model.class_log_prior_.get(), 1e-6)
+    assert_allclose(cuml_proba, sk_proba, atol=1e-2, rtol=1e-2)
+    assert sk_score - THRES <= cuml_score <= sk_score + THRES
+
+
+@pytest.mark.parametrize("x_dtype", [cp.int32, cp.int64])
+@pytest.mark.parametrize("y_dtype", [cp.int32,
+                                     cp.float32, cp.float64])
+def test_categorical_partial_fit(x_dtype, y_dtype, nlp_20news):
+    n_rows = 500
+    chunk_size = 10
+
+    X, y = nlp_20news
+
+    X = sparse_scipy_to_cp(X, 'float32').todense()[:n_rows].astype(x_dtype)
+    y = y.astype(y_dtype)[:n_rows]
+
+    model = CategoricalNB()
+    modelsk = skCNB()
 
     classes = np.unique(y)
 
