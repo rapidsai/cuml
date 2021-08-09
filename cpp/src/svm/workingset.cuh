@@ -45,7 +45,7 @@ namespace SVM {
 
 namespace {
 //  placeholder function passed to configuration call to Cub::DeviceSelect
-__device__ bool always_true(int idx) { return true; }
+__device__ bool always_true(int) { return true; }
 }  // end unnamed namespace
 
 /**
