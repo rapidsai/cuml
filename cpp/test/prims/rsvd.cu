@@ -51,7 +51,7 @@ class RsvdTest : public ::testing::TestWithParam<RsvdInputs<T>> {
   void SetUp() override
   {
     raft::handle_t handle;
-    stream = handle.get_stream();
+    cudaStream_t stream = handle.get_stream();
 
     params = ::testing::TestWithParam<RsvdInputs<T>>::GetParam();
     // rSVD seems to be very sensitive to the random number sequence as well!
@@ -87,17 +87,20 @@ class RsvdTest : public ::testing::TestWithParam<RsvdInputs<T>> {
                                 n);  // Backup A matrix as svdJacobi will destroy the content of A
     raft::update_host(A_backup_cpu.data(), A->data(), m * n, stream);
 
+    if (params.k == 0) {
+      params.k = max((int)(min(m, n) * params.PC_perc), 1);
+      params.p = max((int)(min(m, n) * params.UpS_perc), 1);
+    }
+
     U = std::make_unique<rmm::device_uvector<T>>(m * params.k, stream);
     S = std::make_unique<rmm::device_uvector<T>>(params.k, stream);
     V = std::make_unique<rmm::device_uvector<T>>(n * params.k, stream);
-    CUDA_CHECK(cudaMemsetAsync(U->data(), 0, m * params.k * sizeof(T), stream));
-    CUDA_CHECK(cudaMemsetAsync(S->data(), 0, params.k * sizeof(T), stream));
-    CUDA_CHECK(cudaMemsetAsync(V->data(), 0, n * params.k * sizeof(T), stream));
+    CUDA_CHECK(cudaMemsetAsync(U->data(), 0, U->size() * sizeof(T), stream));
+    CUDA_CHECK(cudaMemsetAsync(S->data(), 0, S->size() * sizeof(T), stream));
+    CUDA_CHECK(cudaMemsetAsync(V->data(), 0, V->size() * sizeof(T), stream));
 
     // RSVD tests
     if (params.k == 0) {  // Test with PC and upsampling ratio
-      params.k = max((int)(min(m, n) * params.PC_perc), 1);
-      params.p = max((int)(min(m, n) * params.UpS_perc), 1);
       rsvdPerc(handle,
                A->data(),
                m,
@@ -139,8 +142,6 @@ class RsvdTest : public ::testing::TestWithParam<RsvdInputs<T>> {
   RsvdInputs<T> params;
   std::unique_ptr<rmm::device_uvector<T>> A, U, S, V, left_eig_vectors_ref, right_eig_vectors_ref,
     sing_vals_ref;
-
-  cudaStream_t stream;
 };
 
 const std::vector<RsvdInputs<float>> inputs_fx = {

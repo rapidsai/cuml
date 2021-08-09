@@ -46,12 +46,12 @@ class adjustedRandIndexTest : public ::testing::TestWithParam<adjustedRandIndexP
     params    = ::testing::TestWithParam<adjustedRandIndexParam>::GetParam();
     nElements = params.nElements;
 
-    rmm::device_uvector<T> firstClusterArray(nElements, stream);
-    rmm::device_uvector<T> secondClusterArray(nElements, stream);
+    firstClusterArray  = std::make_unique<rmm::device_uvector<T>>(nElements, stream);
+    secondClusterArray = std::make_unique<rmm::device_uvector<T>>(nElements, stream);
     CUDA_CHECK(
-      cudaMemsetAsync(firstClusterArray.data(), 0, firstClusterArray.size() * sizeof(T), stream));
-    CUDA_CHECK(
-      cudaMemsetAsync(secondClusterArray.data(), 0, secondClusterArray.size() * sizeof(T), stream));
+      cudaMemsetAsync(firstClusterArray->data(), 0, firstClusterArray->size() * sizeof(T), stream));
+    CUDA_CHECK(cudaMemsetAsync(
+      secondClusterArray->data(), 0, secondClusterArray->size() * sizeof(T), stream));
 
     if (!params.testZeroArray) {
       SetUpDifferentArrays();
@@ -60,7 +60,7 @@ class adjustedRandIndexTest : public ::testing::TestWithParam<adjustedRandIndexP
     }
     // allocating and initializing memory to the GPU
     computed_adjusted_rand_index = compute_adjusted_rand_index<T, MathT>(
-      firstClusterArray.data(), secondClusterArray.data(), nElements, stream);
+      firstClusterArray->data(), secondClusterArray->data(), nElements, stream);
   }
 
   void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
@@ -122,8 +122,8 @@ class adjustedRandIndexTest : public ::testing::TestWithParam<adjustedRandIndexP
       truth_adjusted_rand_index = (index - expectedIndex) / (maxIndex - expectedIndex);
     else
       truth_adjusted_rand_index = 0;
-    raft::update_device(firstClusterArray, &arr1[0], nElements, stream);
-    raft::update_device(secondClusterArray, &arr2[0], nElements, stream);
+    raft::update_device(firstClusterArray->data(), &arr1[0], nElements, stream);
+    raft::update_device(secondClusterArray->data(), &arr2[0], nElements, stream);
   }
 
   void SetupZeroArray()
@@ -135,8 +135,8 @@ class adjustedRandIndexTest : public ::testing::TestWithParam<adjustedRandIndexP
 
   adjustedRandIndexParam params;
   T lowerLabelRange, upperLabelRange;
-  T* firstClusterArray                = nullptr;
-  T* secondClusterArray               = nullptr;
+  std::unique_ptr<rmm::device_uvector<T>> firstClusterArray;
+  std::unique_ptr<rmm::device_uvector<T>> secondClusterArray;
   int nElements                       = 0;
   double truth_adjusted_rand_index    = 0;
   double computed_adjusted_rand_index = 0;

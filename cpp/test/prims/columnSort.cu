@@ -60,12 +60,14 @@ class ColumnSort : public ::testing::TestWithParam<columnSort<T>> {
     int len = params.n_row * params.n_col;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    keyIn        = std::make_unique<rmm::device_uvector<T>>(len, stream);
-    valueOut     = std::make_unique<rmm::device_uvector<int>>(len, stream);
-    goldenValOut = std::make_unique<rmm::device_uvector<int>>(len, stream);
+    keyIn         = std::make_unique<rmm::device_uvector<T>>(len, stream);
+    valueOut      = std::make_unique<rmm::device_uvector<int>>(len, stream);
+    goldenValOut  = std::make_unique<rmm::device_uvector<int>>(len, stream);
+    keySorted     = std::make_unique<rmm::device_uvector<T>>(0, stream);
+    keySortGolden = std::make_unique<rmm::device_uvector<T>>(0, stream);
     if (params.testKeys) {
-      keySorted     = std::make_unique<rmm::device_uvector<T>>(len, stream);
-      keySortGolden = std::make_unique<rmm::device_uvector<T>>(len, stream);
+      keySorted->resize(len, stream);
+      keySortGolden->resize(len, stream);
     }
 
     std::vector<T> vals(len);

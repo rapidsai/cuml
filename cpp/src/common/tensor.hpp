@@ -37,7 +37,7 @@ class Tensor {
         auto _dAllocator = rmm::mr::get_current_device_resource();
         _dAllocator->deallocate(_data, this->getSizeInBytes(), _stream);
       } else if (memory_type(_data) == cudaMemoryTypeHost) {
-        _data = new DataT[this->getSizeInBytes()];
+        delete _data;
       }
     }
   }
@@ -79,12 +79,8 @@ class Tensor {
       _stride[j] = _stride[j + 1] * _size[j + 1];
     }
 
-    if (memory_type(_data) == cudaMemoryTypeDevice) {
-      auto _dAllocator = rmm::mr::get_current_device_resource();
-      _data = static_cast<DataT*>(_dAllocator->allocate(this->getSizeInBytes(), _stream));
-    } else {
-      delete _data;
-    }
+    auto _dAllocator = rmm::mr::get_current_device_resource();
+    _data            = static_cast<DataT*>(_dAllocator->allocate(this->getSizeInBytes(), _stream));
 
     CUDA_CHECK(cudaStreamSynchronize(_stream));
 

@@ -96,14 +96,15 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
     size = get_offset(params.n2 - 1, params.n_cols - 1, params.ld2, params.is_row_major) + 1;
     x2.resize(size, stream);
     size = get_offset(params.n1 - 1, params.n2 - 1, params.ld_out, params.is_row_major) + 1;
+
     gram.resize(size, stream);
+    CUDA_CHECK(cudaMemsetAsync(gram.data(), 0, gram.size() * sizeof(math_t), stream));
     gram_host.resize(gram.size());
+    std::fill(gram_host.begin(), gram_host.end(), 0);
 
     raft::random::Rng r(42137ULL);
     r.uniform(x1.data(), x1.size(), math_t(0), math_t(1), stream);
     r.uniform(x2.data(), x2.size(), math_t(0), math_t(1), stream);
-    CUDA_CHECK(cudaMemsetAsync(gram.data(), 0, gram.size() * sizeof(math_t), stream));
-    CUDA_CHECK(cudaMemsetAsync(gram_host.data(), 0, gram_host.size() * sizeof(math_t), stream));
   }
 
   ~GramMatrixTest() override { CUDA_CHECK_NO_THROW(cudaStreamDestroy(stream)); }

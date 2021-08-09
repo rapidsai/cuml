@@ -82,19 +82,17 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
     d_labels_ref = std::make_unique<rmm::device_uvector<int>>(n_samples, stream);
     d_centroids  = std::make_unique<rmm::device_uvector<T>>(params.n_clusters * n_features, stream);
 
+    T* d_sample_weight_ptr = nullptr;
     if (testparams.weighted) {
-      d_sample_weight = std::make_unique<rmm::device_uvector<T>>(n_samples, stream);
-      thrust::fill(thrust::cuda::par.on(handle.get_stream()),
-                   d_sample_weight->data(),
-                   d_sample_weight->data() + n_samples,
-                   1);
-    } else {
-      d_sample_weight = nullptr;
+      d_sample_weight     = std::make_unique<rmm::device_uvector<T>>(n_samples, stream);
+      d_sample_weight_ptr = d_sample_weight->data();
+      thrust::fill(
+        thrust::cuda::par.on(stream), d_sample_weight_ptr, d_sample_weight_ptr + n_samples, 1);
     }
 
-    raft::copy(d_labels_ref->data(), labels.data(), n_samples, handle.get_stream());
+    raft::copy(d_labels_ref->data(), labels.data(), n_samples, stream);
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
 
     T inertia  = 0;
     int n_iter = 0;
@@ -104,23 +102,22 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
                         X.data(),
                         n_samples,
                         n_features,
-                        d_sample_weight->data(),
+                        d_sample_weight_ptr,
                         d_centroids->data(),
                         d_labels->data(),
                         inertia,
                         n_iter);
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
 
     score = adjusted_rand_index(handle, d_labels_ref->data(), d_labels->data(), n_samples);
 
     if (score < 1.0) {
       std::stringstream ss;
-      ss << "Expected: "
-         << raft::arr2Str(d_labels_ref->data(), 25, "d_labels_ref", handle.get_stream());
+      ss << "Expected: " << raft::arr2Str(d_labels_ref->data(), 25, "d_labels_ref", stream);
       CUML_LOG_DEBUG(ss.str().c_str());
       ss.str(std::string());
-      ss << "Actual: " << raft::arr2Str(d_labels->data(), 25, "d_labels", handle.get_stream());
+      ss << "Actual: " << raft::arr2Str(d_labels->data(), 25, "d_labels", stream);
       CUML_LOG_DEBUG(ss.str().c_str());
       CUML_LOG_DEBUG("Score = %lf", score);
     }
