@@ -26,7 +26,7 @@ list(APPEND CUML_CUDA_FLAGS --expt-extended-lambda --expt-relaxed-constexpr)
 
 # set warnings as errors
 if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 11.2.0)
-    list(APPEND RAFT_CUDA_FLAGS -Werror=all-warnings)
+    list(APPEND CUML_CUDA_FLAGS -Werror=all-warnings)
 endif()
 list(APPEND CUML_CUDA_FLAGS -Xcompiler=-Wall,-Werror,-Wno-error=deprecated-declarations)
 
