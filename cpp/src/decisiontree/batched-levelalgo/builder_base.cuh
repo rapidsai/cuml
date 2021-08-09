@@ -49,7 +49,9 @@ class NodeQueue {
   {
     tree_.reserve(max_nodes);
     tree_.emplace_back(0, sampled_rows, 0);
-    if (!IsLeaf(tree_.back())) { work_items_.emplace_back(NodeWorkItem{0, 0, sampled_rows, 0}); }
+    if (this->IsExpandable(tree_.back())) {
+      work_items_.emplace_back(NodeWorkItem{0, 0, sampled_rows, 0});
+    }
   }
 
   int TreeDepth() { return tree_depth_; }
@@ -69,12 +71,13 @@ class NodeQueue {
     return result;
   }
 
-  bool IsLeaf(const NodeT& n)
+  // This node is allowed to be expanded further (if its split gain is high enough)
+  bool IsExpandable(const NodeT& n)
   {
-    if (n.depth >= params.max_depth) return true;
-    if (n.count < params.min_samples_split) return true;
-    if (params.max_leaves != -1 && num_leaves_ >= params.max_leaves) return true;
-    return false;
+    if (n.depth >= params.max_depth) return false;
+    if (n.count < params.min_samples_split) return false;
+    if (params.max_leaves != -1 && num_leaves_ >= params.max_leaves) return false;
+    return true;
   }
 
   template <typename SplitT>
@@ -92,30 +95,23 @@ class NodeQueue {
       if (params.max_leaves != -1 && num_leaves_ >= params.max_leaves) break;
 
       // parent
-      tree_[item.idx] = NodeT::CreateSplit(split.colid,
-                                           split.quesval,
-                                           split.best_metric_val,
-                                           tree_.size(),
-                                           node.count,
-                                           node.info.unique_id);
+      tree_[item.idx] = NodeT::CreateSplit(
+        split.colid, split.quesval, split.best_metric_val, tree_.size(), node.count);
       num_leaves_++;
       // left
-      tree_.emplace_back(
-        NodeT::CreateChild(node.depth + 1, node.start, split.nLeft, 2 * node.info.unique_id + 1));
+      tree_.emplace_back(NodeT::CreateChild(node.depth + 1, node.start, split.nLeft));
 
       // Do not add a work item if this child is definitely a leaf
-      if (!IsLeaf(tree_.back())) {
+      if (this->IsExpandable(tree_.back())) {
         work_items_.emplace_back(
           NodeWorkItem{tree_.size() - 1, size_t(node.start), size_t(split.nLeft), node.depth + 1});
       }
 
       // right
-      tree_.emplace_back(NodeT::CreateChild(node.depth + 1,
-                                            node.start + split.nLeft,
-                                            node.count - split.nLeft,
-                                            2 * node.info.unique_id + 2));
+      tree_.emplace_back(
+        NodeT::CreateChild(node.depth + 1, node.start + split.nLeft, node.count - split.nLeft));
       // Do not add a work item if this child is definitely a leaf
-      if (!IsLeaf(tree_.back())) {
+      if (this->IsExpandable(tree_.back())) {
         work_items_.emplace_back(NodeWorkItem{tree_.size() - 1,
                                               size_t(node.start + split.nLeft),
                                               size_t(node.count - split.nLeft),
@@ -436,7 +432,7 @@ struct Builder {
                                                              treeid,
                                                              workload_info,
                                                              seed);
-    ML::POP_RANGE();  // computeSplitClassificationKernel
+    ML::POP_RANGE();  // computeSplitKernel
     ML::POP_RANGE();  // Builder::computeSplit
   }
 
