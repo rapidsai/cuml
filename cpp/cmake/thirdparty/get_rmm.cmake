@@ -14,7 +14,7 @@
 # limitations under the License.
 #=============================================================================
 
-function(find_and_configure_rmm)
+function(find_and_configure_rmm VERSION)
 
     if(TARGET rmm::rmm)
         return()
@@ -26,17 +26,13 @@ function(find_and_configure_rmm)
         set(MAJOR_AND_MINOR "${VERSION}")
     endif()
 
-    set(oneValueArgs VERSION FORK PINNED_TAG)
-    cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
-                          "${multiValueArgs}" ${ARGN} )
-
-    rapids_cpm_find(rmm ${PKG_VERSION}
+    rapids_cpm_find(rmm ${VERSION}
         GLOBAL_TARGETS      rmm::rmm
         BUILD_EXPORT_SET    cuml-exports
         INSTALL_EXPORT_SET  cuml-exports
         CPM_ARGS
-            GIT_REPOSITORY  https://github.com/${PKG_FORK}/rmm.git
-            GIT_TAG         ${PKG_PINNED_TAG}
+            GIT_REPOSITORY  https://github.com/rapidsai/rmm.git
+            GIT_TAG         branch-${MAJOR_AND_MINOR}
             GIT_SHALLOW     TRUE
             OPTIONS         "BUILD_TESTS OFF"
                             "BUILD_BENCHMARKS OFF"
@@ -48,7 +44,4 @@ endfunction()
 
 set(CUML_MIN_VERSION_rmm "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}.00")
 
-find_and_configure_rmm(VERSION    ${CUML_MIN_VERSION_rmm}
-                       FORK       viclafargue
-                       PINNED_TAG 84a1328bfb894ca23b8b5efce358473c358d47bf
-                      )
+find_and_configure_rmm(${CUML_MIN_VERSION_rmm})
