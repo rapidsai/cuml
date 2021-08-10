@@ -19,6 +19,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/host/allocator.hpp>
+
 #include <vector>
 
 namespace ML {
@@ -171,7 +172,7 @@ class Tensor {
   std::shared_ptr<raft::mr::host::allocator> _hAllocator;
 
   /// Raw pointer to where the tensor data begins
-  DataPtrT _data;
+  DataPtrT _data{};
 
   /// Array of strides (in sizeof(T) terms) per each dimension
   IndexT _stride[Dim];
@@ -179,9 +180,9 @@ class Tensor {
   /// Size per each dimension
   IndexT _size[Dim];
 
-  AllocState _state;
+  AllocState _state{};
 
-  cudaStream_t _stream;
+  cudaStream_t _stream{};
 };
 
 };  // end namespace ML

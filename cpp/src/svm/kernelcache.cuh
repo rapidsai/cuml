@@ -17,15 +17,21 @@
 #pragma once
 
 #include <cuml/svm/svm_parameter.h>
+
 #include <linalg/init.h>
-#include <raft/cudart_utils.h>
 #include <cache/cache.cuh>
 #include <cache/cache_util.cuh>
-#include <cub/cub.cuh>
 #include <matrix/grammatrix.cuh>
+
+#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/matrix/matrix.cuh>
+
+#include <cub/cub.cuh>
+
+#include <algorithm>
+#include <cstddef>
 
 namespace ML {
 namespace SVM {
@@ -132,12 +138,13 @@ class KernelCache {
     MLCommon::LinAlg::range(k_col_idx.data(), n_ws, stream);
 
     // Init cub buffers
-    size_t bytes1, bytes2;
+    std::size_t bytes1{};
+    std::size_t bytes2{};
     cub::DeviceRadixSort::SortKeys(
       NULL, bytes1, unique_idx.data(), unique_idx.data(), n_ws, 0, sizeof(int) * 8, stream);
     cub::DeviceSelect::Unique(
       NULL, bytes2, unique_idx.data(), unique_idx.data(), d_num_selected_out.data(), n_ws, stream);
-    d_temp_storage_size = max(bytes1, bytes2);
+    d_temp_storage_size = std::max(bytes1, bytes2);
     d_temp_storage.resize(d_temp_storage_size, stream);
   }
 

@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-#include <cuml/cuml_api.h>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/host/allocator.hpp>
-
-#include <raft/cudart_utils.h>
-#include <cuml/common/utils.hpp>
-#include <functional>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/host/allocator.hpp>
 #include "cumlHandle.hpp"
 
+#include <cuml/cuml_api.h>
+#include <cuml/common/utils.hpp>
+
+#include <raft/cudart_utils.h>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/host/allocator.hpp>
+
+#include <cstddef>
+#include <functional>
 namespace ML {
 namespace detail {
 
