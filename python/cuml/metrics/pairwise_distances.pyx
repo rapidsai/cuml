@@ -73,7 +73,12 @@ PAIRWISE_DISTANCE_METRICS = {
     "canberra": DistanceType.Canberra,
     "chebyshev": DistanceType.Linf,
     "minkowski": DistanceType.LpUnexpanded,
-    "hellinger": DistanceType.HellingerExpanded
+    "hellinger": DistanceType.HellingerExpanded,
+    "correlation": DistanceType.CorrelationExpanded,
+    "jensenshannon": DistanceType.JensenShannon,
+    "hamming": DistanceType.HammingUnexpanded,
+    "kldivergence": DistanceType.KLDivergence,
+    "russellrao": DistanceType.RusselRaoExpanded
 }
 
 PAIRWISE_DISTANCE_SPARSE_METRICS = {
@@ -217,6 +222,11 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
     handle = Handle() if handle is None else handle
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
+    if metric in ['russellrao'] and not np.all(X.data == 1.):
+        warnings.warn("X was converted to boolean for metric {}"
+                      .format(metric))
+        X = np.where(X != 0., 1.0, 0.0)
+
     # Get the input arrays, preserve order and type where possible
     X_m, n_samples_x, n_features_x, dtype_x = \
         input_to_cuml_array(X, order="K", check_dtype=[np.float32, np.float64])
@@ -235,12 +245,16 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
         if (n_samples_x == 1 or n_features_x == 1):
             input_order = "K"
 
+        if metric in ['russellrao'] and not np.all(Y.data == 1.):
+            warnings.warn("Y was converted to boolean for metric {}"
+                          .format(metric))
+            Y = np.where(Y != 0., 1.0, 0.0)
+
         Y_m, n_samples_y, n_features_y, dtype_y = \
             input_to_cuml_array(Y, order=input_order,
                                 convert_to_dtype=(dtype_x if convert_dtype
                                                   else None),
                                 check_dtype=[dtype_x])
-
         # Get the order from Y if necessary (It's possible to set order="F" in
         # input_to_cuml_array and have Y_m.order=="C")
         if (input_order == "K"):
