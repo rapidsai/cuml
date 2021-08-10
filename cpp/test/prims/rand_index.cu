@@ -14,13 +14,18 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
+#include "test_utils.h"
+
+#include <metrics/rand_index.cuh>
+
 #include <raft/cudart_utils.h>
+
+#include <gtest/gtest.h>
+
 #include <algorithm>
 #include <iostream>
 #include <metrics/rand_index.cuh>
 #include <random>
-#include "test_utils.h"
 
 namespace MLCommon {
 namespace Metrics {
@@ -58,9 +63,11 @@ class randIndexTest : public ::testing::TestWithParam<randIndexParam> {
     std::generate(arr2.begin(), arr2.end(), [&]() { return intGenerator(dre); });
 
     // generating the golden output
-    int64_t a_truth = 0, b_truth = 0, iter = 0, jiter;
-    for (; iter < size; ++iter) {
-      for (jiter = 0; jiter < iter; ++jiter) {
+    int64_t a_truth = 0;
+    int64_t b_truth = 0;
+
+    for (uint64_t iter = 0; iter < size; ++iter) {
+      for (uint64_t jiter = 0; jiter < iter; ++jiter) {
         if (arr1[iter] == arr1[jiter] && arr2[iter] == arr2[jiter]) {
           ++a_truth;
         } else if (arr1[iter] != arr1[jiter] && arr2[iter] != arr2[jiter]) {

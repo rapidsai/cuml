@@ -15,6 +15,19 @@
  */
 #pragma once
 
+#include <cuml/cluster/kmeans_mg.hpp>
+#include <cuml/common/logger.hpp>
+#include <cuml/metrics/metrics.hpp>
+
+#include <ml_cuda_utils.h>
+
+#include <common/tensor.hpp>
+
+#include <linalg/reduce_cols_by_key.cuh>
+#include <linalg/reduce_rows_by_key.cuh>
+#include <matrix/gather.cuh>
+#include <random/permute.cuh>
+
 #include <raft/cudart_utils.h>
 #include <raft/comms/comms.hpp>
 #include <raft/distance/fused_l2_nn.cuh>
@@ -34,7 +47,6 @@
 #include <thrust/fill.h>
 #include <thrust/for_each.h>
 #include <thrust/scan.h>
-#include <numeric>
 
 #include <ml_cuda_utils.h>
 
@@ -47,6 +59,8 @@
 #include <matrix/gather.cuh>
 
 #include <fstream>
+#include <numeric>
+#include <random>
 
 namespace ML {
 

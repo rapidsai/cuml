@@ -26,6 +26,7 @@
 #include <ml_mg_utils.cuh>
 #include <selection/knn.cuh>
 
+#include <cstddef>
 #include <sstream>
 #include <vector>
 
@@ -101,7 +102,7 @@ void knn_classify(raft::handle_t& handle,
   std::vector<int*> uniq_labels(y.size());
   std::vector<int> n_unique(y.size());
 
-  for (int i = 0; i < y.size(); i++) {
+  for (std::size_t i = 0; i < y.size(); i++) {
     uniq_labels_v.emplace_back(n_index_rows, stream);
     n_unique[i] =
       MLCommon::Label::getUniqueLabels(y[i], n_index_rows, uniq_labels_v[i].data(), stream);
@@ -139,7 +140,7 @@ void knn_class_proba(raft::handle_t& handle,
   std::vector<int*> uniq_labels(y.size());
   std::vector<int> n_unique(y.size());
 
-  for (int i = 0; i < y.size(); i++) {
+  for (std::size_t i = 0; i < y.size(); i++) {
     uniq_labels_v.emplace_back(n_index_rows, stream);
     n_unique[i] =
       MLCommon::Label::getUniqueLabels(y[i], n_index_rows, uniq_labels_v[i].data(), stream);

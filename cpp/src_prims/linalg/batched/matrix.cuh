@@ -16,6 +16,22 @@
 
 #pragma once
 
+#include <cuml/common/utils.hpp>
+
+#include <common/fast_int_div.cuh>
+
+#include <raft/cudart_utils.h>
+#include <raft/linalg/cublas_wrappers.h>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/unary_op.cuh>
+#include <rmm/device_uvector.hpp>
+
+#include <thrust/execution_policy.h>
+#include <thrust/for_each.h>
+#include <thrust/iterator/counting_iterator.h>
+
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <stdexcept>
@@ -27,13 +43,6 @@
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
-
-#include <raft/cudart_utils.h>
-#include <raft/linalg/cublas_wrappers.h>
-#include <cuml/common/utils.hpp>
-#include <raft/linalg/binary_op.cuh>
-#include <raft/linalg/unary_op.cuh>
-#include <rmm/device_uvector.hpp>
 
 #include <common/fast_int_div.cuh>
 
@@ -55,6 +64,7 @@ __global__ void identity_matrix_kernel(T* I, int m)
 {
   T* I_b     = I + blockIdx.x * m * m;
   int stride = (m + 1);
+
   for (int idx = threadIdx.x; idx < m; idx += blockDim.x) {
     I_b[idx * stride] = 1;
   }
@@ -153,6 +163,8 @@ class Matrix {
   }
 
  public:
+  using shape_type = std::pair<std::size_t, std::size_t>;
+
   /**
    * @brief Constructor that allocates memory using the memory pool.
    *
@@ -163,9 +175,9 @@ class Matrix {
    * @param[in]  stream       CUDA stream
    * @param[in]  setZero      Should matrix be zeroed on allocation?
    */
-  Matrix(int m,
-         int n,
-         int batch_size,
+  Matrix(std::size_t m,
+         std::size_t n,
+         std::size_t batch_size,
          cublasHandle_t cublasHandle,
          cudaStream_t stream,
          bool setZero = true)
@@ -194,9 +206,9 @@ class Matrix {
    * @param[in]  stream       CUDA stream
    * @param[in]  setZero      Should matrix be zeroed on allocation?
    */
-  Matrix(int m,
-         int n,
-         int batch_size,
+  Matrix(std::size_t m,
+         std::size_t n,
+         std::size_t batch_size,
          cublasHandle_t cublasHandle,
          T** d_batches,
          T* d_dense,
@@ -255,7 +267,7 @@ class Matrix {
   }
 
   //! Return batches
-  int batches() const { return m_batch_size; }
+  std::size_t batches() const { return m_batch_size; }
 
   //! Return cublas handle
   cublasHandle_t cublasHandle() const { return m_cublasHandle; }
@@ -264,7 +276,7 @@ class Matrix {
   cudaStream_t stream() const { return m_stream; }
 
   //! Return shape
-  const std::pair<int, int>& shape() const { return m_shape; }
+  const shape_type& shape() const { return m_shape; }
 
   //! Return array of pointers to the offsets in the data buffer
   const T** data() const { return d_batches; }
@@ -289,19 +301,17 @@ class Matrix {
    * @param[in]  m  Number of desired rows
    * @param[in]  n  Number of desired columns
    */
-  void reshape(int m, int n)
+  void reshape(std::size_t m, std::size_t n)
   {
-    const int r = m_shape.first * m_shape.second;
+    const auto r = m_shape.first * m_shape.second;
     ASSERT(r == m * n, "ERROR: Size mismatch - Cannot reshape matrix into desired shape");
-    m_shape = std::pair<int, int>(m, n);
+    m_shape = shape_type(m, n);
   }
 
   //! Stack the matrix by columns creating a long vector
   Matrix<T> vec() const
   {
-    int m = m_shape.first;
-    int n = m_shape.second;
-    int r = m * n;
+    const auto r = m_shape.first * m_shape.second;
     Matrix<T> toVec(r, 1, m_batch_size, m_cublasHandle, m_stream, false);
     raft::copy(toVec[0], raw_data(), m_batch_size * r, m_stream);
     return toVec;
@@ -316,7 +326,7 @@ class Matrix {
    */
   Matrix<T> mat(int m, int n) const
   {
-    const int r = m_shape.first * m_shape.second;
+    const auto r = m_shape.first * m_shape.second;
     ASSERT(r == m * n, "ERROR: Size mismatch - Cannot reshape array into desired size");
     Matrix<T> toMat(m, n, m_batch_size, m_cublasHandle, m_stream, false);
     raft::copy(toMat[0], raw_data(), m_batch_size * r, m_stream);
@@ -327,7 +337,7 @@ class Matrix {
   //! Visualize the first matrix.
   void print(std::string name) const
   {
-    size_t len = m_shape.first * m_shape.second * m_batch_size;
+    std::size_t len = m_shape.first * m_shape.second * m_batch_size;
     std::vector<T> A(len);
     raft::update_host(A.data(), raw_data(), len, m_stream);
     std::cout << name << "=\n";
@@ -420,8 +430,8 @@ class Matrix {
    */
   Matrix<T> transpose() const
   {
-    int m = m_shape.first;
-    int n = m_shape.second;
+    auto m = m_shape.first;
+    auto n = m_shape.second;
 
     Matrix<T> At(n, m, m_batch_size, m_cublasHandle, m_stream);
 
@@ -455,18 +465,22 @@ class Matrix {
    *
    * @return A batched identity matrix
    */
-  static Matrix<T> Identity(int m, int batch_size, cublasHandle_t cublasHandle, cudaStream_t stream)
+  static Matrix<T> Identity(std::size_t m,
+                            std::size_t batch_size,
+                            cublasHandle_t cublasHandle,
+                            cudaStream_t stream)
   {
     Matrix<T> I(m, m, batch_size, cublasHandle, stream, true);
 
-    identity_matrix_kernel<T><<<batch_size, std::min(256, m), 0, stream>>>(I.raw_data(), m);
+    identity_matrix_kernel<T>
+      <<<batch_size, std::min(std::size_t{256}, m), 0, stream>>>(I.raw_data(), m);
     CUDA_CHECK(cudaPeekAtLastError());
     return I;
   }
 
  protected:
   //! Shape (rows, cols) of matrices. We assume all matrices in batch have same shape.
-  std::pair<int, int> m_shape;
+  shape_type m_shape;
 
   //! Pointers to each matrix in the contiguous data buffer (strided offsets)
   rmm::device_uvector<T*> m_batches;
@@ -477,7 +491,7 @@ class Matrix {
   T* d_dense;  // When pre-allocated
 
   //! Number of matrices in batch
-  int m_batch_size;
+  std::size_t m_batch_size;
 
   cublasHandle_t m_cublasHandle;
   cudaStream_t m_stream;
@@ -541,9 +555,9 @@ __global__ void kronecker_product_kernel(
 template <typename T>
 void b_gemm(bool aT,
             bool bT,
-            int m,
-            int n,
-            int k,
+            std::size_t m,
+            std::size_t n,
+            std::size_t k,
             T alpha,
             const Matrix<T>& A,
             const Matrix<T>& B,
@@ -554,10 +568,10 @@ void b_gemm(bool aT,
   {
     ASSERT(A.batches() == B.batches(), "A and B must have the same number of batches");
     ASSERT(A.batches() == C.batches(), "A and C must have the same number of batches");
-    int Arows = !aT ? A.shape().first : A.shape().second;
-    int Acols = !aT ? A.shape().second : A.shape().first;
-    int Brows = !bT ? B.shape().first : B.shape().second;
-    int Bcols = !bT ? B.shape().second : B.shape().first;
+    auto Arows = !aT ? A.shape().first : A.shape().second;
+    auto Acols = !aT ? A.shape().second : A.shape().first;
+    auto Brows = !bT ? B.shape().first : B.shape().second;
+    auto Bcols = !bT ? B.shape().second : B.shape().first;
     ASSERT(m <= Arows, "m should be <= number of rows of A");
     ASSERT(k <= Acols, "k should be <= number of columns of A");
     ASSERT(k <= Brows, "k should be <= number of rows of B");
@@ -639,11 +653,11 @@ template <typename T>
 void b_gels(const Matrix<T>& A, Matrix<T>& C)
 {
   ASSERT(A.batches() == C.batches(), "A and C must have the same number of batches");
-  int m = A.shape().first;
+  auto m = A.shape().first;
   ASSERT(C.shape().first == m, "Dimension mismatch: A rows, C rows");
-  int n = A.shape().second;
+  auto n = A.shape().second;
   ASSERT(m > n, "Only overdetermined systems (m > n) are supported");
-  int nrhs = C.shape().second;
+  auto nrhs = C.shape().second;
 
   Matrix<T> Acopy(A);
 
@@ -674,8 +688,8 @@ template <typename T, typename F>
 Matrix<T> b_op_A(const Matrix<T>& A, F unary_op)
 {
   auto batch_size = A.batches();
-  int m           = A.shape().first;
-  int n           = A.shape().second;
+  auto m          = A.shape().first;
+  auto n          = A.shape().second;
 
   Matrix<T> C(m, n, batch_size, A.cublasHandle(), A.stream());
 
@@ -702,8 +716,8 @@ Matrix<T> b_aA_op_B(const Matrix<T>& A, const Matrix<T>& B, F binary_op)
   ASSERT(A.batches() == B.batches(), "A & B must have same number of batches");
 
   auto batch_size = A.batches();
-  int m           = A.shape().first;
-  int n           = A.shape().second;
+  auto m          = A.shape().first;
+  auto n          = A.shape().second;
 
   Matrix<T> C(m, n, batch_size, A.cublasHandle(), A.stream());
 
@@ -792,20 +806,20 @@ Matrix<T> b_solve(const Matrix<T>& A, const Matrix<T>& b)
 template <typename T>
 void b_kron(const Matrix<T>& A, const Matrix<T>& B, Matrix<T>& AkB, T alpha = (T)1)
 {
-  int m = A.shape().first;
-  int n = A.shape().second;
+  auto m = A.shape().first;
+  auto n = A.shape().second;
 
-  int p = B.shape().first;
-  int q = B.shape().second;
+  auto p = B.shape().first;
+  auto q = B.shape().second;
 
   // Resulting shape
-  int k_m = m * p;
-  int k_n = n * q;
+  auto k_m = m * p;
+  auto k_n = n * q;
   ASSERT(AkB.shape().first == k_m, "Kronecker product output dimensions mismatch");
   ASSERT(AkB.shape().second == k_n, "Kronecker product output dimensions mismatch");
 
   // Run kronecker
-  dim3 threads(std::min(p, 32), std::min(q, 32));
+  dim3 threads(std::min(p, std::size_t{32}), std::min(q, std::size_t{32}));
   kronecker_product_kernel<T><<<A.batches(), threads, 0, A.stream()>>>(
     A.raw_data(), m, n, B.raw_data(), p, q, AkB.raw_data(), k_m, k_n, alpha);
   CUDA_CHECK(cudaPeekAtLastError());
@@ -822,15 +836,15 @@ void b_kron(const Matrix<T>& A, const Matrix<T>& B, Matrix<T>& AkB, T alpha = (T
 template <typename T>
 Matrix<T> b_kron(const Matrix<T>& A, const Matrix<T>& B)
 {
-  int m = A.shape().first;
-  int n = A.shape().second;
+  auto m = A.shape().first;
+  auto n = A.shape().second;
 
-  int p = B.shape().first;
-  int q = B.shape().second;
+  auto p = B.shape().first;
+  auto q = B.shape().second;
 
   // Resulting shape
-  int k_m = m * p;
-  int k_n = n * q;
+  auto k_m = m * p;
+  auto k_n = n * q;
 
   Matrix<T> AkB(k_m, k_n, A.batches(), A.cublasHandle(), A.stream());
 
@@ -1013,12 +1027,12 @@ static __global__ void batched_2dcopy_kernel(const T* in,
 template <typename T>
 void b_2dcopy(const Matrix<T>& in,
               Matrix<T>& out,
-              int in_starting_row,
-              int in_starting_col,
-              int copy_rows,
-              int copy_cols,
-              int out_starting_row = 0,
-              int out_starting_col = 0)
+              std::size_t in_starting_row,
+              std::size_t in_starting_col,
+              std::size_t copy_rows,
+              std::size_t copy_cols,
+              std::size_t out_starting_row = 0,
+              std::size_t out_starting_col = 0)
 {
   ASSERT(in_starting_row + copy_rows <= in.shape().first,
          "[2D copy] Dimension mismatch: rows for input matrix");
@@ -1030,7 +1044,7 @@ void b_2dcopy(const Matrix<T>& in,
          "[2D copy] Dimension mismatch: columns for output matrix");
 
   // Execute the kernel
-  const int TPB = copy_rows * copy_cols > 512 ? 256 : 128;  // quick heuristics
+  const int TPB = copy_rows * copy_cols > std::size_t{512} ? 256 : 128;  // quick heuristics
   batched_2dcopy_kernel<<<in.batches(), TPB, 0, in.stream()>>>(in.raw_data(),
                                                                out.raw_data(),
                                                                in_starting_row,

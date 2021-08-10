@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include <cuml/explainer/kernel_shap.hpp>
+
+#include <test_utils.h>
 
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
+#include <raft/mr/device/allocator.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
@@ -28,6 +30,7 @@
 
 namespace MLCommon {
 }
+#include <gtest/gtest.h>
 
 namespace ML {
 

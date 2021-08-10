@@ -29,6 +29,17 @@
 
 #include <cuml/common/logger.hpp>
 
+#include <common/nvtx.hpp>
+
+#include <label/classlabels.cuh>
+
+#include <raft/cudart_utils.h>
+#include <raft/cuda_utils.cuh>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/sparse/csr.cuh>
+
+#include <cstddef>
+
 namespace ML {
 namespace Dbscan {
 
@@ -92,25 +103,25 @@ void final_relabel(Index_* db_cluster, Index_ N, cudaStream_t stream)
  * @return In case the workspace pointer is null, this returns the size needed.
  */
 template <typename Type_f, typename Index_ = int, bool opg = false>
-size_t run(const raft::handle_t& handle,
-           const Type_f* x,
-           Index_ N,
-           Index_ D,
-           Index_ start_row,
-           Index_ n_owned_rows,
-           Type_f eps,
-           Index_ min_pts,
-           Index_* labels,
-           Index_* core_indices,
-           int algo_vd,
-           int algo_adj,
-           int algo_ccl,
-           void* workspace,
-           size_t batch_size,
-           cudaStream_t stream)
+std::size_t run(const raft::handle_t& handle,
+                const Type_f* x,
+                Index_ N,
+                Index_ D,
+                Index_ start_row,
+                Index_ n_owned_rows,
+                Type_f eps,
+                Index_ min_pts,
+                Index_* labels,
+                Index_* core_indices,
+                int algo_vd,
+                int algo_adj,
+                int algo_ccl,
+                void* workspace,
+                std::size_t batch_size,
+                cudaStream_t stream)
 {
-  const size_t align = 256;
-  Index_ n_batches   = raft::ceildiv((size_t)n_owned_rows, batch_size);
+  const std::size_t align = 256;
+  Index_ n_batches        = raft::ceildiv((std::size_t)n_owned_rows, batch_size);
 
   int my_rank;
   if (opg) {
@@ -130,16 +141,16 @@ size_t run(const raft::handle_t& handle,
    * elements in their neighborhood, so any IdxType can be safely used, so long as N doesn't
    * overflow.
    */
-  size_t adj_size      = raft::alignTo<size_t>(sizeof(bool) * N * batch_size, align);
-  size_t core_pts_size = raft::alignTo<size_t>(sizeof(bool) * N, align);
-  size_t m_size        = raft::alignTo<size_t>(sizeof(bool), align);
-  size_t vd_size       = raft::alignTo<size_t>(sizeof(Index_) * (batch_size + 1), align);
-  size_t ex_scan_size  = raft::alignTo<size_t>(sizeof(Index_) * batch_size, align);
-  size_t labels_size   = raft::alignTo<size_t>(sizeof(Index_) * N, align);
+  std::size_t adj_size      = raft::alignTo<std::size_t>(sizeof(bool) * N * batch_size, align);
+  std::size_t core_pts_size = raft::alignTo<std::size_t>(sizeof(bool) * N, align);
+  std::size_t m_size        = raft::alignTo<std::size_t>(sizeof(bool), align);
+  std::size_t vd_size       = raft::alignTo<std::size_t>(sizeof(Index_) * (batch_size + 1), align);
+  std::size_t ex_scan_size  = raft::alignTo<std::size_t>(sizeof(Index_) * batch_size, align);
+  std::size_t labels_size   = raft::alignTo<std::size_t>(sizeof(Index_) * N, align);
 
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
 
-  ASSERT(N * batch_size < MAX_LABEL,
+  ASSERT(N * batch_size < static_cast<std::size_t>(MAX_LABEL),
          "An overflow occurred with the current choice of precision "
          "and the number of samples. (Max allowed batch size is %ld, but was %ld). "
          "Consider using double precision for the output labels.",
@@ -269,7 +280,7 @@ size_t run(const raft::handle_t& handle,
   if (my_rank == 0) {
     ML::PUSH_RANGE("Trace::Dbscan::FinalRelabel");
     if (algo_ccl == 2) final_relabel(labels, N, stream);
-    size_t nblks = raft::ceildiv<size_t>(N, TPB);
+    std::size_t nblks = raft::ceildiv<std::size_t>(N, TPB);
     relabelForSkl<Index_><<<nblks, TPB, 0, stream>>>(labels, N, MAX_LABEL);
     CUDA_CHECK(cudaPeekAtLastError());
     ML::POP_RANGE();
@@ -292,20 +303,19 @@ size_t run(const raft::handle_t& handle,
 
       // Perform stream reduction on the core points. The core_pts acts as the stencil and we use
       // thrust::counting_iterator to return the index
-      auto core_point_count =
-        thrust::copy_if(thrust_exec_policy,
-                        index_iterator,
-                        index_iterator + N,
-                        dev_core_pts,
-                        dev_core_indices,
-                        [=] __device__(const bool is_core_point) { return is_core_point; });
+      thrust::copy_if(thrust_exec_policy,
+                      index_iterator,
+                      index_iterator + N,
+                      dev_core_pts,
+                      dev_core_indices,
+                      [=] __device__(const bool is_core_point) { return is_core_point; });
 
       ML::POP_RANGE();
     }
   }
 
   CUML_LOG_DEBUG("Done.");
-  return (size_t)0;
+  return (std::size_t)0;
 }
 }  // namespace Dbscan
 }  // namespace ML

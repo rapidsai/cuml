@@ -14,12 +14,17 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
+#include "shuffle.h"
+
 #include <cuml/linear_model/preprocess_mg.hpp>
 #include <cuml/solvers/cd_mg.hpp>
+
 #include <functions/softThres.cuh>
+
 #include <opg/linalg/mv_aTb.hpp>
 #include <opg/linalg/norm.hpp>
+
+#include <raft/cudart_utils.h>
 #include <raft/comms/comms.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/add.cuh>
@@ -30,6 +35,8 @@
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
 #include "shuffle.h"
+
+#include <cstddef>
 
 using namespace MLCommon;
 
@@ -55,13 +62,12 @@ void fit_impl(raft::handle_t& handle,
               int n_streams,
               bool verbose)
 {
-  const auto& comm             = handle.get_comms();
-  cublasHandle_t cublas_handle = handle.get_cublas_handle();
+  const auto& comm = handle.get_comms();
 
   std::vector<Matrix::RankSizePair*> partsToRanks = input_desc.blocksOwnedBy(comm.get_rank());
 
   size_t total_M = 0.0;
-  for (int i = 0; i < partsToRanks.size(); i++) {
+  for (std::size_t i = 0; i < partsToRanks.size(); i++) {
     total_M += partsToRanks[i]->size;
   }
 
@@ -102,7 +108,7 @@ void fit_impl(raft::handle_t& handle,
 
   if (comm.get_rank() == 0) {
     ML::Solver::initShuffle(ri, g);
-    for (int i = 0; i < input_desc.N; i++) {
+    for (std::size_t i = 0; i < input_desc.N; i++) {
       ri_h[i] = ri[i];
     }
   }
@@ -129,7 +135,7 @@ void fit_impl(raft::handle_t& handle,
   Matrix::Data<T> coef_loc_data;
 
   T* rs = residual.data();
-  for (int i = 0; i < partsToRanks.size(); i++) {
+  for (std::size_t i = 0; i < partsToRanks.size(); i++) {
     raft::copy(rs, labels[i]->ptr, partsToRanks[i]->size, streams[0]);
 
     Matrix::Data<T>* rs_data = new Matrix::Data<T>();
@@ -148,7 +154,7 @@ void fit_impl(raft::handle_t& handle,
     if (i > 0 && shuffle) {
       if (comm.get_rank() == 0) {
         Solver::shuffle(ri, g);
-        for (int k = 0; k < input_desc.N; k++) {
+        for (std::size_t k = 0; k < input_desc.N; k++) {
           ri_h[k] = ri[k];
         }
       }
@@ -161,7 +167,7 @@ void fit_impl(raft::handle_t& handle,
     T d_coef_max = 0.0;
     T coef_prev  = 0.0;
 
-    for (int j = 0; j < input_desc.N; j++) {
+    for (std::size_t j = 0; j < input_desc.N; j++) {
       int ci         = ri_h[j];
       T* coef_loc    = coef + ci;
       T* squared_loc = squared.data() + ci;
@@ -169,7 +175,7 @@ void fit_impl(raft::handle_t& handle,
       T* pred_loc     = pred.data();
       T* residual_loc = residual.data();
 
-      for (int k = 0; k < input_data.size(); k++) {
+      for (std::size_t k = 0; k < input_data.size(); k++) {
         input_col_loc = input_data[k]->ptr + (ci * partsToRanks[k]->size);
 
         input_data_temp[k]->ptr       = input_col_loc;
@@ -211,7 +217,7 @@ void fit_impl(raft::handle_t& handle,
       pred_loc     = pred.data();
       residual_loc = residual.data();
 
-      for (int k = 0; k < input_data.size(); k++) {
+      for (std::size_t k = 0; k < input_data.size(); k++) {
         input_col_loc = input_data[k]->ptr + (ci * partsToRanks[k]->size);
 
         raft::linalg::multiplyScalar(
@@ -240,7 +246,7 @@ void fit_impl(raft::handle_t& handle,
   CUDA_CHECK(cudaHostUnregister(ri_h));
   free(ri_h);
 
-  for (int i = 0; i < partsToRanks.size(); i++) {
+  for (std::size_t i = 0; i < partsToRanks.size(); i++) {
     delete residual_temp[i];
     delete input_data_temp[i];
   }
@@ -347,7 +353,7 @@ void predict_impl(raft::handle_t& handle,
   T alpha                                         = T(1);
   T beta                                          = T(0);
 
-  for (int i = 0; i < input_data.size(); i++) {
+  for (std::size_t i = 0; i < input_data.size(); i++) {
     int si = i % n_streams;
     raft::linalg::gemm(handle,
                        input_data[i]->ptr,

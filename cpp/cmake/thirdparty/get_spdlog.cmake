@@ -14,7 +14,7 @@
 # limitations under the License.
 #=============================================================================
 
-function(find_and_configure_nccl)
+function(find_and_configure_spdlog)
 
     if(TARGET spdlog::spdlog)
         return()
@@ -33,5 +33,5 @@ function(find_and_configure_nccl)
 
 endfunction()
 
-find_and_configure_nccl(VERSION     1.7.0
-                        PINNED_TAG  1.7.0)
+find_and_configure_spdlog(VERSION     1.7.0
+                          PINNED_TAG  1.7.0)

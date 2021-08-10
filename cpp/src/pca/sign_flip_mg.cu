@@ -17,12 +17,20 @@
 #include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 #include <cuml/decomposition/sign_flip_mg.hpp>
+
+#include <common/allocatorAdapter.hpp>
+
 #include <raft/comms/comms.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <rmm/exec_policy.hpp>
+
+#include <thrust/device_vector.h>
+#include <thrust/execution_policy.h>
+
+#include <cstddef>
 
 using namespace MLCommon;
 
@@ -126,7 +134,7 @@ void sign_flip_imp(raft::handle_t& handle,
   rmm::device_uvector<T> max_vals(
     std::max(size_t(comm.get_size()), local_blocks.size()) * n_components, streams[0]);
 
-  for (int i = 0; i < input.size(); i++) {
+  for (std::size_t i = 0; i < input.size(); i++) {
     T* mv_loc = max_vals.data() + (i * n_components);
     findMaxAbsOfColumns(
       input[i]->ptr, local_blocks[i]->size, n_components, mv_loc, streams[i % n_stream]);
@@ -145,7 +153,7 @@ void sign_flip_imp(raft::handle_t& handle,
   findMaxAbsOfColumns(
     max_vals.data(), n_components, comm.get_size(), max_vals.data(), streams[0], true);
 
-  for (int i = 0; i < local_blocks.size(); i++) {
+  for (std::size_t i = 0; i < local_blocks.size(); i++) {
     flip(
       input[i]->ptr, local_blocks[i]->size, n_components, max_vals.data(), streams[i % n_stream]);
   }

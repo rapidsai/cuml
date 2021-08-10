@@ -24,6 +24,8 @@
 #include <raft/stats/mean.cuh>
 #include <raft/stats/mean_center.cuh>
 
+#include <rmm/device_uvector.hpp>
+
 namespace MLCommon {
 namespace Selection {
 

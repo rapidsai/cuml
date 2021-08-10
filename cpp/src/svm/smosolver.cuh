@@ -16,7 +16,23 @@
 
 #pragma once
 
-#include <math.h>
+#include "kernelcache.cuh"
+#include "results.cuh"
+#include "smo_sets.cuh"
+#include "smoblocksolve.cuh"
+#include "workingset.cuh"
+#include "ws_util.cuh"
+
+#include <cuml/matrix/kernelparams.h>
+#include <cuml/common/logger.hpp>
+
+#include <matrix/grammatrix.cuh>
+#include <matrix/kernelfactory.cuh>
+
+#include <raft/linalg/cublas_wrappers.h>
+#include <raft/linalg/gemv.h>
+#include <raft/linalg/unary_op.cuh>
+
 #include <raft/cudart_utils.h>
 #include <thrust/device_ptr.h>
 #include <thrust/fill.h>
@@ -76,7 +92,6 @@ class SmoSolver {
             svmParameter param,
             MLCommon::Matrix::GramMatrixBase<math_t>* kernel)
     : handle(handle),
-      n_rows(n_rows),
       C(param.C),
       tol(param.tol),
       kernel(kernel),

@@ -14,21 +14,26 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
-#include <raft/linalg/transpose.h>
+#include "pca.cuh"
+
 #include <cuml/decomposition/pca.hpp>
 #include <cuml/decomposition/pca_mg.hpp>
 #include <cuml/decomposition/sign_flip_mg.hpp>
+
 #include <opg/linalg/qr_based_svd.hpp>
 #include <opg/matrix/matrix_utils.hpp>
 #include <opg/stats/cov.hpp>
 #include <opg/stats/mean.hpp>
 #include <opg/stats/mean_center.hpp>
+
+#include <raft/cudart_utils.h>
+#include <raft/linalg/transpose.h>
 #include <raft/comms/comms.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/stats/mean_center.cuh>
-#include "pca.cuh"
+
+#include <cstddef>
 
 using namespace MLCommon;
 
@@ -51,8 +56,7 @@ void fit_impl(raft::handle_t& handle,
               int n_streams,
               bool verbose)
 {
-  const auto& comm             = handle.get_comms();
-  cublasHandle_t cublas_handle = handle.get_cublas_handle();
+  const auto& comm = handle.get_comms();
 
   Matrix::Data<T> mu_data{mu, size_t(prms.n_cols)};
 
@@ -218,7 +222,6 @@ void transform_impl(raft::handle_t& handle,
                     int n_streams,
                     bool verbose)
 {
-  cublasHandle_t cublas_h                         = handle.get_cublas_handle();
   std::vector<Matrix::RankSizePair*> local_blocks = input_desc.partsToRanks;
 
   if (prms.whiten) {
@@ -229,7 +232,7 @@ void transform_impl(raft::handle_t& handle,
       components, singular_vals, prms.n_cols, prms.n_components, true, true, streams[0]);
   }
 
-  for (int i = 0; i < input.size(); i++) {
+  for (std::size_t i = 0; i < input.size(); i++) {
     int si = i % n_streams;
 
     raft::stats::meanCenter(input[i]->ptr,
@@ -356,7 +359,6 @@ void inverse_transform_impl(raft::handle_t& handle,
                             int n_streams,
                             bool verbose)
 {
-  cublasHandle_t cublas_h                         = handle.get_cublas_handle();
   std::vector<Matrix::RankSizePair*> local_blocks = trans_input_desc.partsToRanks;
 
   if (prms.whiten) {
@@ -367,7 +369,7 @@ void inverse_transform_impl(raft::handle_t& handle,
       components, singular_vals, prms.n_rows, prms.n_components, true, true, streams[0]);
   }
 
-  for (int i = 0; i < local_blocks.size(); i++) {
+  for (std::size_t i = 0; i < local_blocks.size(); i++) {
     int si  = i % n_streams;
     T alpha = T(1);
     T beta  = T(0);

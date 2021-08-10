@@ -700,10 +700,10 @@ void larsInit(const raft::handle_t& handle,
     *ld_U                   = raft::alignTo<idx_t>(*max_iter, align_bytes);
     try {
       U_buffer.resize((*ld_U) * (*max_iter), stream);
-    } catch (std::bad_alloc) {
+    } catch (std::bad_alloc const&) {
       THROW(
         "Not enough GPU memory! The memory usage depends quadraticaly on the "
-        "n_nonzero_coefs parameter, try to decrease it!");
+        "n_nonzero_coefs parameter, try to decrease it.");
     }
     *U = U_buffer.data();
   } else {

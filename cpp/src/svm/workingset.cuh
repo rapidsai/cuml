@@ -16,14 +16,19 @@
 
 #pragma once
 
+#include "smo_sets.cuh"
+#include "ws_util.cuh"
+
 #include <cuml/svm/svm_parameter.h>
-#include <limits.h>
+#include <cuml/common/logger.hpp>
+
 #include <linalg/init.h>
-#include <raft/cudart_utils.h>
+
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/permutation_iterator.h>
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/handle.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <rmm/device_scalar.hpp>
@@ -31,12 +36,21 @@
 #include "smo_sets.cuh"
 #include "ws_util.cuh"
 
+#include <thrust/device_ptr.h>
+#include <thrust/iterator/permutation_iterator.h>
+
+#include <cub/cub.cuh>
+
+#include <algorithm>
+#include <cstddef>
+#include <limits>
+
 namespace ML {
 namespace SVM {
 
 namespace {
-// Unnamed namespace to avoid multiple definition error
-__device__ bool dummy_select_op(int idx) { return true; }
+//  placeholder function passed to configuration call to Cub::DeviceSelect
+__device__ bool always_true(int) { return true; }
 }  // end unnamed namespace
 
 /**
@@ -103,7 +117,7 @@ class WorkingSet {
   void SetSize(int n_train, int n_ws = 0)
   {
     if (n_ws == 0 || n_ws > n_train) { n_ws = n_train; }
-    n_ws       = min(1024, n_ws);
+    n_ws       = std::min(1024, n_ws);
     this->n_ws = n_ws;
     CUML_LOG_DEBUG("Creating working set with %d elements", n_ws);
     AllocateBuffers();
@@ -328,7 +342,7 @@ class WorkingSet {
   rmm::device_uvector<int> ws_priority_sorted;
 
   rmm::device_scalar<int> d_num_selected;
-  size_t cub_bytes = 0;
+  std::size_t cub_bytes = 0;
   rmm::device_uvector<char> cub_storage;
 
   void AllocateBuffers()
@@ -349,7 +363,7 @@ class WorkingSet {
       ws_priority_sorted.resize(n_ws, stream);
 
       // Determine temporary device storage requirements for cub
-      size_t cub_bytes2 = 0;
+      std::size_t cub_bytes2 = 0;
       cub::DeviceRadixSort::SortPairs(NULL,
                                       cub_bytes,
                                       f_sorted.data(),
@@ -366,9 +380,9 @@ class WorkingSet {
                             f_idx.data(),
                             d_num_selected.data(),
                             n_train,
-                            dummy_select_op,
+                            always_true,
                             stream);
-      cub_bytes = max(cub_bytes, cub_bytes2);
+      cub_bytes = std::max(cub_bytes, cub_bytes2);
       cub_storage.resize(cub_bytes, stream);
       Initialize();
     }

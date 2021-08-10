@@ -14,16 +14,23 @@
  * limitations under the License.
  */
 
+#include <linalg_naive.h>
+#include <test_utils.h>
+
+#include <linalg/batched/matrix.cuh>
+
+#include <raft/cudart_utils.h>
+#include <raft/linalg/add.cuh>
+#include <raft/mr/device/allocator.hpp>
+
 #include <gtest/gtest.h>
+
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <random>
 #include <vector>
 
-#include <raft/cudart_utils.h>
-#include <test_utils.h>
-#include <linalg/batched/matrix.cuh>
-#include <raft/linalg/add.cuh>
 #include "../linalg_naive.h"
 #include "../test_utils.h"
 
@@ -79,7 +86,9 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
     int r      = params.operation == AZT_op ? params.n : params.m;
 
     // Check if the dimensions are valid and compute the output dimensions
-    int m_r, n_r;
+    int m_r{};
+    int n_r{};
+
     switch (params.operation) {
       case AB_op:
         ASSERT_TRUE(params.n == params.p);
@@ -147,11 +156,11 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_real_distribution<T> udis(-1.0, 3.0);
-    for (int i = 0; i < A.size(); i++)
+    for (std::size_t i = 0; i < A.size(); i++)
       A[i] = udis(gen);
-    for (int i = 0; i < B.size(); i++)
+    for (std::size_t i = 0; i < B.size(); i++)
       B[i] = udis(gen);
-    for (int i = 0; i < Z.size(); i++)
+    for (std::size_t i = 0; i < Z.size(); i++)
       Z[i] = udis(gen);
 
     // Create handles, stream

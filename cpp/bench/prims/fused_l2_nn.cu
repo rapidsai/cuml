@@ -19,7 +19,6 @@
 #include <limits>
 #include <raft/distance/fused_l2_nn.cuh>
 #include <raft/linalg/norm.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng.cuh>
 
 namespace MLCommon {

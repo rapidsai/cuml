@@ -16,7 +16,6 @@
 
 #include <common/ml_benchmark.hpp>
 #include <raft/linalg/map_then_reduce.cuh>
-#include <raft/mr/device/allocator.hpp>
 
 namespace MLCommon {
 namespace Bench {

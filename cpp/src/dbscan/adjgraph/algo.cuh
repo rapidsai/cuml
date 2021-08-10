@@ -18,10 +18,11 @@
 
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
-#include <raft/cuda_utils.cuh>
+
 #include "../common.cuh"
 #include "pack.h"
 
+#include <raft/cuda_utils.cuh>
 #include <raft/sparse/convert/csr.cuh>
 
 using namespace thrust;
@@ -30,8 +31,6 @@ namespace ML {
 namespace Dbscan {
 namespace AdjGraph {
 namespace Algo {
-
-using namespace MLCommon;
 
 static const int TPB_X = 256;
 

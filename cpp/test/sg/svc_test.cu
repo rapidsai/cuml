@@ -1215,40 +1215,43 @@ TYPED_TEST(SmoSolverTest, MemoryLeak)
 
 TYPED_TEST(SmoSolverTest, DISABLED_MillionRows)
 {
-  // Stress test the kernel matrix calculation by calculating a kernel tile
-  // with more the 2.8B elemnts. This would fail with int32 adressing. The test
-  // is currently disabled because the memory usage might be prohibitive on CI
-  // The test will be enabled once https://github.com/rapidsai/cuml/pull/2449
-  // is merged, that PR would reduce the kernel tile memory size.
-  std::vector<std::pair<blobInput, TypeParam>> data{
-    {blobInput{1, 0.001, KernelParams{RBF, 3, 1, 0}, 2800000, 4}, 98},
-    {blobInput{1, 0.001, KernelParams{LINEAR, 3, 1, 0}, 2800000, 4}, 98},
-    {blobInput{1, 0.001, KernelParams{POLYNOMIAL, 3, 1, 0}, 2800000, 4}, 98},
-    {blobInput{1, 0.001, KernelParams{TANH, 3, 1, 0}, 2800000, 4}, 98}};
-
   if (sizeof(TypeParam) == 8) {
     GTEST_SKIP();  // Skip the test for double imput
-  }
-  for (auto d : data) {
-    auto p = d.first;
-    SCOPED_TRACE(p);
-    // explicit centers for the blobs
-    rmm::device_uvector<float> centers(2 * p.n_cols, this->stream);
-    thrust::device_ptr<float> thrust_ptr(centers.data());
-    thrust::fill(thrust::cuda::par.on(this->stream), thrust_ptr, thrust_ptr + p.n_cols, -5.0f);
-    thrust::fill(
-      thrust::cuda::par.on(this->stream), thrust_ptr + p.n_cols, thrust_ptr + 2 * p.n_cols, +5.0f);
+  } else {
+    // Stress test the kernel matrix calculation by calculating a kernel tile
+    // with more the 2.8B elemnts. This would fail with int32 adressing. The test
+    // is currently disabled because the memory usage might be prohibitive on CI
+    // The test will be enabled once https://github.com/rapidsai/cuml/pull/2449
+    // is merged, that PR would reduce the kernel tile memory size.
+    std::vector<std::pair<blobInput, TypeParam>> data{
+      {blobInput{1, 0.001, KernelParams{RBF, 3, 1, 0}, 2800000, 4}, 98},
+      {blobInput{1, 0.001, KernelParams{LINEAR, 3, 1, 0}, 2800000, 4}, 98},
+      {blobInput{1, 0.001, KernelParams{POLYNOMIAL, 3, 1, 0}, 2800000, 4}, 98},
+      {blobInput{1, 0.001, KernelParams{TANH, 3, 1, 0}, 2800000, 4}, 98}};
 
-    rmm::device_uvector<TypeParam> x(p.n_rows * p.n_cols, this->stream);
-    rmm::device_uvector<TypeParam> y(p.n_rows, this->stream);
-    rmm::device_uvector<TypeParam> y_pred(p.n_rows, this->stream);
-    make_blobs(this->handle, x.data(), y.data(), p.n_rows, p.n_cols, 2, centers.data());
-    const int max_iter = 2;
-    SVC<TypeParam> svc(
-      this->handle, p.C, p.tol, p.kernel_params, 0, max_iter, 50, CUML_LEVEL_DEBUG);
-    svc.fit(x.data(), p.n_rows, p.n_cols, y.data());
-    // predict on the same dataset
-    svc.predict(x.data(), p.n_rows, p.n_cols, y_pred.data());
+    for (auto d : data) {
+      auto p = d.first;
+      SCOPED_TRACE(p);
+      // explicit centers for the blobs
+      rmm::device_uvector<float> centers(2 * p.n_cols, this->stream);
+      thrust::device_ptr<float> thrust_ptr(centers.data());
+      thrust::fill(thrust::cuda::par.on(this->stream), thrust_ptr, thrust_ptr + p.n_cols, -5.0f);
+      thrust::fill(thrust::cuda::par.on(this->stream),
+                   thrust_ptr + p.n_cols,
+                   thrust_ptr + 2 * p.n_cols,
+                   +5.0f);
+
+      rmm::device_uvector<TypeParam> x(p.n_rows * p.n_cols, this->stream);
+      rmm::device_uvector<TypeParam> y(p.n_rows, this->stream);
+      rmm::device_uvector<TypeParam> y_pred(p.n_rows, this->stream);
+      make_blobs(this->handle, x.data(), y.data(), p.n_rows, p.n_cols, 2, centers.data());
+      const int max_iter = 2;
+      SVC<TypeParam> svc(
+        this->handle, p.C, p.tol, p.kernel_params, 0, max_iter, 50, CUML_LEVEL_DEBUG);
+      svc.fit(x.data(), p.n_rows, p.n_cols, y.data());
+      // predict on the same dataset
+      svc.predict(x.data(), p.n_rows, p.n_cols, y_pred.data());
+    }
   }
 }
 

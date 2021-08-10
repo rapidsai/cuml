@@ -14,11 +14,9 @@
  * limitations under the License.
  */
 
-#include <cuml/metrics/metrics.hpp>
+#include <test_utils.h>
 
-#include <gtest/gtest.h>
-#include <iostream>
-#include <vector>
+#include <umap/runner.cuh>
 
 #include <cuml/manifold/umapparams.h>
 #include <datasets/digits.h>
@@ -26,13 +24,27 @@
 #include <test_utils.h>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/manifold/umap.hpp>
+#include <cuml/metrics/metrics.hpp>
 #include <cuml/neighbors/knn.hpp>
+
+#include <datasets/digits.h>
 #include <linalg/reduce_rows_by_key.cuh>
+#include <selection/knn.cuh>
+
+#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/distance/distance.cuh>
 #include <raft/handle.hpp>
+#include <raft/mr/device/allocator.hpp>
 #include <selection/knn.cuh>
 #include <umap/runner.cuh>
+
+#include <gtest/gtest.h>
+
+#include <cstddef>
+#include <iostream>
+#include <type_traits>
+#include <vector>
 
 using namespace ML;
 using namespace ML::Metrics;
@@ -45,10 +57,9 @@ using namespace MLCommon::Datasets::Digits;
 template <typename T>
 __global__ void has_nan_kernel(T* data, size_t len, bool* answer)
 {
-  int tid = threadIdx.x + blockIdx.x * blockDim.x;
-  if (tid >= len) return;
-  bool val = data[tid];
-  if (val != val) { *answer = true; }
+  static_assert(std::is_floating_point<T>());
+  std::size_t tid = threadIdx.x + blockIdx.x * blockDim.x;
+  if ((tid < len) && isnan(data[tid])) { *answer = true; }
 }
 
 template <typename T>
@@ -118,10 +129,10 @@ class UMAPParametrizableTest : public ::testing::Test {
     int& n_samples      = test_params.n_samples;
     int& n_features     = test_params.n_features;
 
-    rmm::device_uvector<int64_t>* knn_indices_b;
-    rmm::device_uvector<float>* knn_dists_b;
-    int64_t* knn_indices = nullptr;
-    float* knn_dists     = nullptr;
+    rmm::device_uvector<int64_t>* knn_indices_b{};
+    rmm::device_uvector<float>* knn_dists_b{};
+    int64_t* knn_indices{};
+    float* knn_dists{};
     if (test_params.knn_params) {
       knn_indices_b = new rmm::device_uvector<int64_t>(n_samples * umap_params.n_neighbors, stream);
       knn_dists_b   = new rmm::device_uvector<float>(n_samples * umap_params.n_neighbors, stream);
@@ -147,7 +158,7 @@ class UMAPParametrizableTest : public ::testing::Test {
     }
 
     float* model_embedding = nullptr;
-    rmm::device_uvector<float>* model_embedding_b;
+    rmm::device_uvector<float>* model_embedding_b{};
     if (test_params.fit_transform) {
       model_embedding = embedding_ptr;
     } else {

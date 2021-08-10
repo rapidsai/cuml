@@ -20,6 +20,7 @@
 #include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
 #include <rmm/mr/host/host_memory_resource.hpp>
+
 #include <vector>
 
 namespace ML {
@@ -169,7 +170,7 @@ class Tensor {
 
  protected:
   /// Raw pointer to where the tensor data begins
-  DataPtrT _data;
+  DataPtrT _data{};
 
   /// Array of strides (in sizeof(T) terms) per each dimension
   IndexT _stride[Dim];
@@ -177,9 +178,9 @@ class Tensor {
   /// Size per each dimension
   IndexT _size[Dim];
 
-  AllocState _state;
+  AllocState _state{};
 
-  cudaStream_t _stream;
+  cudaStream_t _stream{};
 };
 
 };  // end namespace ML

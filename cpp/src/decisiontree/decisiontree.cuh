@@ -17,11 +17,27 @@
 #pragma once
 
 #include <common/Timer.h>
+#include "batched-levelalgo/builder.cuh"
+#include "quantile/quantile.h"
+#include "treelite_util.h"
+
 #include <cuml/tree/algo_helper.h>
 #include <cuml/tree/flatnode.h>
+#include <cuml/common/logger.hpp>
+#include <cuml/tree/decisiontree.hpp>
+
+#include <common/Timer.h>
+#include <common/iota.cuh>
+#include <common/nvtx.hpp>
+
 #include <raft/cudart_utils.h>
+#include <raft/handle.hpp>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/host/allocator.hpp>
+
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
+
 #include <algorithm>
 #include <climits>
 #include <common/iota.cuh>
@@ -32,9 +48,6 @@
 #include <locale>
 #include <map>
 #include <numeric>
-#include <raft/handle.hpp>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/host/allocator.hpp>
 #include <random>
 #include <type_traits>
 #include <vector>
