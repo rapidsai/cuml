@@ -23,7 +23,7 @@
 #include <fil/internal.cuh>
 #include "common.cuh"
 
-#define NOINLINE_FAST_COMPILE __noinline__
+#define INLINE_CONFIG __forceinline__
 
 namespace ML {
 namespace fil {
@@ -280,7 +280,7 @@ struct tree_aggregator_t {
     acc += single_tree_prediction;
   }
 
-  __device__ NOINLINE_FAST_COMPILE void finalize(float* block_out,
+  __device__ INLINE_CONFIG void finalize(float* block_out,
                                                  int block_num_rows,
                                                  int output_stride,
                                                  output_t transform,
@@ -462,7 +462,7 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> {
     acc += single_tree_prediction;
   }
 
-  __device__ NOINLINE_FAST_COMPILE void finalize(float* out,
+  __device__ INLINE_CONFIG void finalize(float* out,
                                                  int num_rows,
                                                  int num_outputs,
                                                  output_t transform,
@@ -534,7 +534,7 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
     __syncthreads();
   }
 
-  __device__ NOINLINE_FAST_COMPILE void finalize(float* out,
+  __device__ INLINE_CONFIG void finalize(float* out,
                                                  int num_rows,
                                                  int num_outputs,
                                                  output_t transform,
@@ -633,7 +633,7 @@ struct tree_aggregator_t<NITEMS, VECTOR_LEAF> {
       }
     }
   }
-  __device__ NOINLINE_FAST_COMPILE void finalize(float* out,
+  __device__ INLINE_CONFIG void finalize(float* out,
                                                  int num_rows,
                                                  int num_outputs,
                                                  output_t transform,
@@ -730,7 +730,7 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
       out[row] = best_class;
     }
   }
-  __device__ NOINLINE_FAST_COMPILE void finalize(float* out,
+  __device__ INLINE_CONFIG void finalize(float* out,
                                                  int num_rows,
                                                  int num_outputs,
                                                  output_t transform,
@@ -746,7 +746,7 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
   }
 };
 
-__device__ NOINLINE_FAST_COMPILE void load_data(float* sdata,
+__device__ INLINE_CONFIG void load_data(float* sdata,
                                                 const float* block_input,
                                                 predict_params params,
                                                 int rows_per_block,
