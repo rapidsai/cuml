@@ -16,13 +16,18 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
-#include <cub/cub.cuh>
+#include "cache_util.cuh"
+
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
+
+#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/mr/device/allocator.hpp>
-#include "cache_util.cuh"
+
+#include <cub/cub.cuh>
+
+#include <cstddef>
 
 namespace MLCommon {
 namespace Cache {
@@ -390,7 +395,7 @@ class Cache {
 
   void ResizeTmpBuffers(int n, cudaStream_t stream)
   {
-    if (ws_tmp.size() < n) {
+    if (ws_tmp.size() < static_cast<std::size_t>(n)) {
       ws_tmp.resize(n, stream);
       is_cached.resize(n, stream);
       idx_tmp.resize(n, stream);

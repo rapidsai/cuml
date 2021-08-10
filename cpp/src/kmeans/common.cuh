@@ -15,41 +15,40 @@
  */
 #pragma once
 
+#include <cuml/cluster/kmeans_mg.hpp>
+#include <cuml/common/device_buffer.hpp>
+#include <cuml/common/host_buffer.hpp>
+#include <cuml/common/logger.hpp>
 #include <cuml/metrics/metrics.hpp>
+
+#include <ml_cuda_utils.h>
+
+#include <common/allocatorAdapter.hpp>
+#include <common/tensor.hpp>
+
 #include <linalg/reduce_cols_by_key.cuh>
 #include <linalg/reduce_rows_by_key.cuh>
 #include <matrix/gather.cuh>
+#include <random/permute.cuh>
 
+#include <raft/cudart_utils.h>
+#include <raft/comms/comms.hpp>
 #include <raft/distance/fused_l2_nn.cuh>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/mean_squared_error.cuh>
 #include <raft/linalg/reduce.cuh>
 #include <raft/random/rng.cuh>
-#include <random/permute.cuh>
-#include <random>
 
 #include <thrust/equal.h>
 #include <thrust/execution_policy.h>
 #include <thrust/fill.h>
 #include <thrust/for_each.h>
 #include <thrust/scan.h>
-#include <numeric>
 
-#include <ml_cuda_utils.h>
-
-#include <common/allocatorAdapter.hpp>
-#include <common/tensor.hpp>
-#include <cuml/common/device_buffer.hpp>
-#include <cuml/common/host_buffer.hpp>
-#include <raft/comms/comms.hpp>
-
-#include <cuml/common/logger.hpp>
-
-#include <cuml/cluster/kmeans_mg.hpp>
-
-#include <raft/cudart_utils.h>
 #include <fstream>
+#include <numeric>
+#include <random>
 
 namespace ML {
 
@@ -732,7 +731,6 @@ void kmeansPlusPlus(const raft::handle_t& handle,
   std::uniform_int_distribution<> dis(0, n_samples - 1);
 
   ML::thrustAllocatorAdapter alloc(handle.get_device_allocator(), stream);
-  auto thrust_exec_policy = thrust::cuda::par(alloc).on(stream);
 
   // <<< Step-1 >>>: C <-- sample a point uniformly at random from X
   auto initialCentroid  = X.template view<2>({1, n_features}, {dis(gen), 0});
