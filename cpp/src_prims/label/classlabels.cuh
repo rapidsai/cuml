@@ -39,30 +39,34 @@ using namespace MLCommon;
  * \tparam math_t numeric type of the arrays with class labels
  * \param [in] y device array of labels, size [n]
  * \param [in] n number of labels
- * \param [out] y_unique device array of unique labels, unallocated on entry,
+ * \param [out] unique device array of unique labels, unallocated on entry,
  *   on exit it has size [n_unique]
  * \param [in] stream cuda stream
  */
 template <typename math_t>
-int getUniqueLabels(math_t* y, size_t n, math_t* y_unique, cudaStream_t stream)
+int getUniqueLabels(math_t* y, size_t n, math_t* unique, cudaStream_t stream)
 {
-  rmm::device_uvector<math_t> y2(n, stream);
   rmm::device_scalar<int> d_num_selected(stream);
+  rmm::device_uvector<math_t> workspace(n, stream);
   size_t bytes  = 0;
   size_t bytes2 = 0;
 
   // Query how much temporary storage we will need for cub operations
   // and allocate it
-  cub::DeviceRadixSort::SortKeys(NULL, bytes, y, y2.data(), n);
-  cub::DeviceSelect::Unique(NULL, bytes2, y2.data(), y_unique, d_num_selected.data(), n);
+  cub::DeviceRadixSort::SortKeys(NULL, bytes, y, workspace.data(), n);
+  cub::DeviceSelect::Unique(
+    NULL, bytes2, workspace.data(), workspace.data(), d_num_selected.data(), n);
   bytes = max(bytes, bytes2);
   rmm::device_uvector<char> cub_storage(bytes, stream);
 
   // Select Unique classes
-  cub::DeviceRadixSort::SortKeys(cub_storage.data(), bytes, y, y2.data(), n);
+  cub::DeviceRadixSort::SortKeys(cub_storage.data(), bytes, y, workspace.data(), n);
   cub::DeviceSelect::Unique(
-    cub_storage.data(), bytes, y2.data(), y_unique, d_num_selected.data(), n);
+    cub_storage.data(), bytes, workspace.data(), workspace.data(), d_num_selected.data(), n);
+
   int n_unique = d_num_selected.value(stream);
+  raft::copy(unique, workspace.data(), n_unique, stream);
+
   return n_unique;
 }
 
@@ -143,18 +147,17 @@ template <typename Type, typename Lambda>
 int make_monotonic(Type* out, Type* in, size_t N, cudaStream_t stream, Lambda filter_op)
 {
   static const size_t TPB_X = 256;
-
   dim3 blocks(raft::ceildiv(N, TPB_X));
   dim3 threads(TPB_X);
 
-  rmm::device_uvector<Type> map_ids(N, stream);
-  int num_clusters = getUniqueLabels(in, N, map_ids.data(), stream);
-  map_ids.resize(num_clusters, stream);
+  rmm::device_uvector<Type> unique(N, stream);
+  int n_unique = getUniqueLabels(in, N, unique.data(), stream);
+  unique.resize(n_unique, stream);
 
   map_label_kernel<Type, TPB_X>
-    <<<blocks, threads, 0, stream>>>(map_ids.data(), num_clusters, in, out, N, filter_op);
+    <<<blocks, threads, 0, stream>>>(unique.data(), n_unique, in, out, N, filter_op);
 
-  return num_clusters;
+  return n_unique;
 }
 
 /**
