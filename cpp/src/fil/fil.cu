@@ -780,18 +780,19 @@ struct conversion_state {
   int tl_left, tl_right;
 };
 
-#define print_vec(var)      \
-  printf("\n" #var " {\n"); \
-  for (auto el : var)       \
-    printf("%d ", el);      \
-  printf("\n} " #var "\n");
+#define print_vec(var)           \
+  std::cout << "\n" #var " {\n"; \
+  for (auto el : var)            \
+    std::cout << el << " ";      \
+  std::cout << "\n} " #var "\n";
 
+// modifies cat_sets
 template <typename fil_node_t, typename T, typename L>
 __noinline__ conversion_state<fil_node_t> tl2fil_branch_node(int fil_left_child,
                                                              const tl::Tree<T, L>& tree,
                                                              int tl_node_id,
                                                              const forest_params_t& forest_params,
-                                                             cat_sets_owner* cat_sets,
+                                                             categorical_sets cat_sets,
                                                              size_t* bit_pool_size)
 {
   int tl_left = tree.LeftChild(tl_node_id), tl_right = tree.RightChild(tl_node_id);
@@ -808,7 +809,7 @@ __noinline__ conversion_state<fil_node_t> tl2fil_branch_node(int fil_left_child,
     is_categorical = true;
     // for FIL, the list of categories is always for the right child
     if (tree.CategoriesListRightChild(tl_node_id) == false) std::swap(tl_left, tl_right);
-    size_t sizeof_mask = (categorical_sets*)cat_sets->sizeof_mask(feature_id);
+    size_t sizeof_mask = cat_sets.sizeof_mask(feature_id);
     // using the odd syntax because += returns post-addition value
 #pragma omp atomic capture
     {
@@ -819,7 +820,7 @@ __noinline__ conversion_state<fil_node_t> tl2fil_branch_node(int fil_left_child,
            feature_id,
            split.idx,
            sizeof_mask,
-           cat_sets->max_matching[feature_id]);
+           cat_sets.max_matching[feature_id]);
     std::vector<uint32_t> matching_cats       = tree.MatchingCategories(tl_node_id);
     print_vec(matching_cats) auto category_it = matching_cats.begin();
     // assuming categories from tree.MatchingCategories() are in ascending order
@@ -834,9 +835,9 @@ __noinline__ conversion_state<fil_node_t> tl2fil_branch_node(int fil_left_child,
           ++category_it;
         }
       }
-      cat_sets->bits[split.idx + which_8cats] = _8cats;
+      (uint8_t&)(cat_sets.bits[split.idx + which_8cats]) = _8cats;
     }
-    uint8_t* mask_start = cat_sets->bits.data() + split.idx;
+    const uint8_t* mask_start = cat_sets.bits + split.idx;
     std::vector<uint8_t> mask(sizeof_mask);
     memcpy(mask.data(), mask_start, sizeof_mask);
     print_vec(mask)
@@ -877,7 +878,7 @@ void node2fil_dense(std::vector<dense_node>* pnodes,
   int left = 2 * cur + 1;
   printf("fnid %3d is a branch, left index %3d", cur, left);
   conversion_state<dense_node> cs =
-    tl2fil_branch_node<dense_node>(left, tree, node_id, forest_params, cat_sets, bit_pool_size);
+    tl2fil_branch_node<dense_node>(left, tree, node_id, forest_params, *cat_sets, bit_pool_size);
   (*pnodes)[root + cur] = cs.node;
   node2fil_dense(pnodes,
                  root,
@@ -949,11 +950,8 @@ __noinline__ int tree2fil_sparse(std::vector<fil_node_t>& nodes,
       // in the array of all nodes of the FIL sparse forest
       int left = built_index - root;
       built_index += 2;
-      nodes[root + cur] = fil_node_t(
-        {}, val_t{.f = threshold}, tree.SplitIndex(node_id), default_left, false, false, left);
-
       conversion_state<fil_node_t> cs =
-        tl2fil_branch_node<fil_node_t>(left, tree, node_id, forest_params, cat_sets, bit_pool_size);
+        tl2fil_branch_node<fil_node_t>(left, tree, node_id, forest_params, *cat_sets, bit_pool_size);
       nodes[root + cur] = cs.node;
       // push child nodes into the stack
       stack.push(pair_t(cs.tl_right, left + 1));

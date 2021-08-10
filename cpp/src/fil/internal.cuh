@@ -335,6 +335,7 @@ struct cat_feature_counters {
   }
 };
 struct categorical_sets {
+  // arrays are const to use fast GPU read instructions by default
   // arrays from each node ID are concatenated first, then from all categories
   const uint8_t* bits = nullptr;
   // largest matching category in the model, per feature ID
