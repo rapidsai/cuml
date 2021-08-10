@@ -130,6 +130,20 @@ struct base_node {
     else
       val = split;
   }
+  __host__ __device__ void print() const
+  {
+    const char* is[] = {"is NOT", "    IS"};
+    const char* lr[] = {"left", "right"};
+    printf("{.f = %9f, .idx = %11d} fid %10d, bits %8x, def %s, %s leaf, %s categorical\n",
+           val.f,
+           val.idx,
+           fid(),
+           set(),
+           lr[def_left()],
+           is[is_leaf()],
+           is[is_categorical()]
+           );
+  }
 };
 
 template <>
