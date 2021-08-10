@@ -18,6 +18,8 @@
 
 #pragma once
 #include <cuml/fil/fil.h>
+#include <treelite/c_api.h>
+#include <treelite/tree.h>
 #include <vector>
 
 namespace raft {
@@ -32,6 +34,14 @@ __host__ __device__ __forceinline__ int modpow2(int a, int log2_b)
 {
   return a & ((1 << log2_b) - 1);
 }
+
+enum adjust_threshold_direction_t { FIL_TO_TREELITE = -1, TREELITE_TO_FIL = 1 };
+void adjust_threshold(float* pthreshold,
+                      int* tl_left,
+                      int* tl_right,
+                      bool* default_left,
+                      treelite::Operator comparison_op,
+                      adjust_threshold_direction_t dir);
 
 /**
  * output_t are flags that define the output produced by the FIL predictor; a
@@ -70,12 +80,13 @@ enum output_t {
   AVG_CLASS_SOFTMAX = AVG | CLASS | SOFTMAX,
   ALL_SET           = AVG | SIGMOID | CLASS | SOFTMAX
 };
+std::string output2str(fil::output_t output);
 
 /** val_t is the payload within a FIL leaf */
 union val_t {
   /** threshold value for branch node or output value (e.g. class
       probability or regression summand) for leaf node */
-  float f = NAN;
+  float f;
   /** class label, leaf vector index or categorical node set offset */
   int idx;
 };
@@ -114,6 +125,8 @@ struct base_node {
            (is_categorical ? IS_CATEGORICAL_MASK : 0);
     if (is_leaf)
       val = output;
+    else if (is_leaf)
+      val = output;
     else
       val = split;
   }
@@ -136,17 +149,20 @@ __host__ __device__ __forceinline__ val_t base_node::output<val_t>() const
 }
 
 /** dense_node is a single node of a dense forest */
+// template <bool can_be_categorical>
 struct alignas(8) dense_node : base_node {
   dense_node() = default;
   dense_node(val_t output, val_t split, int fid, bool def_left, bool is_leaf, bool is_categorical)
     : base_node(output, split, fid, def_left, is_leaf, is_categorical)
   {
+    ASSERT(is_categorical == base_node::is_categorical(), "didn't save is_categorical right");
   }
   /** index of the left child, where curr is the index of the current node */
   __host__ __device__ int left(int curr) const { return 2 * curr + 1; }
 };
 
 /** sparse_node16 is a 16-byte node in a sparse forest */
+// template <bool can_be_categorical>
 struct alignas(16) sparse_node16 : base_node {
   int left_idx;
   int dummy;  // make alignment explicit and reserve for future use
@@ -162,6 +178,7 @@ struct alignas(16) sparse_node16 : base_node {
       left_idx(left_index),
       dummy(0)
   {
+    ASSERT(is_categorical == base_node::is_categorical(), "didn't save is_categorical right");
   }
   __host__ __device__ int left_index() const { return left_idx; }
   /** index of the left child, where curr is the index of the current node */
@@ -228,6 +245,12 @@ enum leaf_algo_t {
   VECTOR_LEAF = 5,
   // to be extended
 };
+static const char* leaf_algo_t_repr[] = {"FLOAT_UNARY_BINARY",
+                                         "CATEGORICAL_LEAF",
+                                         "GROVE_PER_CLASS",
+                                         "GROVE_PER_CLASS_FEW_CLASSES",
+                                         "GROVE_PER_CLASS_MANY_CLASSES",
+                                         "VECTOR_LEAF"};
 
 template <leaf_algo_t leaf_algo>
 struct leaf_output_t {
@@ -340,6 +363,11 @@ struct categorical_sets {
     // features with similar categorical feature count, we may consider
     // storing node ID within nodes with same feature ID and look up
     // {.max_matching, .first_node_offset} = ...[feature_id]
+    printf(
+      "for fid %d and category %d, checking categories at %d: {", node.fid(), category, node.set());
+    for (int byte = 0; byte < max_matching[node.fid()]; ++byte)
+      printf("%02x ", bits[node.set() + category / 8]);
+    printf("}\n");
     return category <= max_matching[node.fid()] && fetch_bit(bits + node.set(), category);
   }
   static int sizeof_mask_from_max_matching(int max_matching)
@@ -358,14 +386,17 @@ struct tree_base : categorical_sets {
                                                     int node_idx,
                                                     float val) const
   {
+    const char* lr[] = {"left", "right"};
     bool cond;
     if (isnan(val)) {
       cond = !node.def_left();
+      printf("idx %d val is nan, taking %s\n", node_idx, lr[cond]);
     } else {
       if (branch_can_be_categorical && node.is_categorical())
         cond = category_matches<branch_can_be_categorical>(node, (int)val);
       else
         cond = val >= node.thresh();
+      printf("idx %d %f >= %f taking %s\n", node_idx, val, node.thresh(), lr[cond]);
     }
     return node.left(node_idx) + cond;
   }
@@ -408,6 +439,22 @@ struct cat_sets_owner {
              bits_size);
     }
     bits.resize(bits_size);
+  }
+
+  void print_bits() const
+  {
+    printf("bits {");
+    for (int byte = 0; byte < bits.size(); ++byte)
+      printf("%2x ", bits[byte]);
+    printf("}\n");
+  }
+
+  void print_max_matching() const
+  {
+    printf("max_matching {");
+    for (int fid = 0; fid < max_matching.size(); ++fid)
+      printf("%d ", max_matching[fid]);
+    printf("}\n");
   }
 };
 
