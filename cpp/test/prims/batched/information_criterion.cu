@@ -14,16 +14,18 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <cmath>
-#include <raft/mr/device/allocator.hpp>
-#include <random>
-#include <vector>
+#include <test_utils.h>
+
+#include <metrics/batched/information_criterion.cuh>
 
 #include <raft/cudart_utils.h>
-#include <test_utils.h>
-#include <metrics/batched/information_criterion.cuh>
-#include "../test_utils.h"
+#include <raft/mr/device/allocator.hpp>
+
+#include <gtest/gtest.h>
+
+#include <cmath>
+#include <random>
+#include <vector>
 
 namespace MLCommon {
 namespace Metrics {
@@ -33,7 +35,7 @@ template <typename T>
 void naive_ic(
   T* h_ic, const T* h_loglike, IC_Type ic_type, int n_params, int batch_size, int n_samples)
 {
-  T ic_base;
+  T ic_base{};
   T N = static_cast<T>(n_params);
   T M = static_cast<T>(n_samples);
   switch (ic_type) {

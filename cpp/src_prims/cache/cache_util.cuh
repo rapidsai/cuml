@@ -16,9 +16,11 @@
 
 #pragma once
 
-#include <cub/cub.cuh>
-#include <raft/cuda_utils.cuh>
 #include <selection/kselection.cuh>
+
+#include <raft/cuda_utils.cuh>
+
+#include <cub/cub.cuh>
 
 namespace MLCommon {
 namespace Cache {
