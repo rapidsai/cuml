@@ -79,6 +79,12 @@ cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
         int n_classes
         math_t *unique_labels_ptr
 
+        math_t* get_dual_coefs()
+        math_t* get_x_support()
+        int* get_support_idx()
+        math_t* get_unique_labels()
+
+
 cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
 
     cdef void svcFit[math_t](const handle_t &handle, math_t *input,
@@ -436,19 +442,19 @@ class SVMBase(Base,
 
             if model_f.n_support > 0:
                 self.dual_coef_ = CumlArray(
-                    data=<uintptr_t>model_f.dual_coefs_ptr,
+                    data=<uintptr_t>model_f.get_dual_coefs(),
                     shape=(1, self.n_support_),
                     dtype=self.dtype,
                     order='F')
 
                 self.support_ = CumlArray(
-                    data=<uintptr_t>model_f.support_idx_ptr,
+                    data=<uintptr_t>model_f.get_support_idx(),
                     shape=(self.n_support_,),
                     dtype=np.int32,
                     order='F')
 
                 self.support_vectors_ = CumlArray(
-                    data=<uintptr_t>model_f.x_support_ptr,
+                    data=<uintptr_t>model_f.get_x_support(),
                     shape=(self.n_support_, self.n_cols),
                     dtype=self.dtype,
                     order='F')
@@ -456,7 +462,7 @@ class SVMBase(Base,
             self.n_classes_ = model_f.n_classes
             if self.n_classes_ > 0:
                 self._unique_labels_ = CumlArray(
-                    data=<uintptr_t>model_f.unique_labels_ptr,
+                    data=<uintptr_t>model_f.get_unique_labels(),
                     shape=(self.n_classes_,),
                     dtype=self.dtype,
                     order='F')
@@ -469,19 +475,19 @@ class SVMBase(Base,
 
             if model_d.n_support > 0:
                 self.dual_coef_ = CumlArray(
-                    data=<uintptr_t>model_d.dual_coefs_ptr,
+                    data=<uintptr_t>model_d.get_dual_coefs(),
                     shape=(1, self.n_support_),
                     dtype=self.dtype,
                     order='F')
 
                 self.support_ = CumlArray(
-                    data=<uintptr_t>model_d.support_idx_ptr,
+                    data=<uintptr_t>model_d.get_support_idx(),
                     shape=(self.n_support_,),
                     dtype=np.int32,
                     order='F')
 
                 self.support_vectors_ = CumlArray(
-                    data=<uintptr_t>model_d.x_support_ptr,
+                    data=<uintptr_t>model_d.get_x_support(),
                     shape=(self.n_support_, self.n_cols),
                     dtype=self.dtype,
                     order='F')
@@ -489,7 +495,7 @@ class SVMBase(Base,
             self.n_classes_ = model_d.n_classes
             if self.n_classes_ > 0:
                 self._unique_labels_ = CumlArray(
-                    data=<uintptr_t>model_d.unique_labels_ptr,
+                    data=<uintptr_t>model_d.get_unique_labels(),
                     shape=(self.n_classes_,),
                     dtype=self.dtype,
                     order='F')
