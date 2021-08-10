@@ -522,8 +522,7 @@ def test_umap_knn_parameters(n_neighbors):
     test_trustworthiness(embedding6)
     test_trustworthiness(embedding7)
 
-    test_equality(embedding1, embedding2)
-    test_equality(embedding1, embedding2)
+    test_equality(embedding2, embedding3)
     test_equality(embedding3, embedding4)
     test_equality(embedding5, embedding6)
     test_equality(embedding6, embedding7)
