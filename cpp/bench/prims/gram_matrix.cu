@@ -58,7 +58,7 @@ struct GramMatrix : public Fixture {
       std::unique_ptr<GramMatrixBase<T>>(KernelFactory<T>::create(p.kernel_params, cublas_handle));
   }
 
-  ~GramMatrix() { CUBLAS_CHECK(cublasDestroy(cublas_handle)); }
+  ~GramMatrix() { CUBLAS_CHECK_NO_THROW(cublasDestroy(cublas_handle)); }
 
  protected:
   void allocateBuffers(const ::benchmark::State& state) override
