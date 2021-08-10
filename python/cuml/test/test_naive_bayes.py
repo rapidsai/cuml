@@ -465,7 +465,7 @@ def test_gaussian_parameters(priors, var_smoothing, nlp_20news):
     assert_array_equal(y_hat, y_hat_sk)
 
 
-@pytest.mark.parametrize("x_dtype", [cp.int32])#, cp.int64])
+@pytest.mark.parametrize("x_dtype", [cp.int32, cp.float32, cp.float64])
 @pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
 def test_categorical(x_dtype, y_dtype, nlp_20news):
     X, y = nlp_20news
@@ -481,9 +481,8 @@ def test_categorical(x_dtype, y_dtype, nlp_20news):
     cuml_model = CategoricalNB()
     sk_model = skCNB()
 
-    cuml_model.fit(X, y)
     sk_model.fit(X.get(), y.get())
-
+    cuml_model.fit(X, y)
     sk_score = sk_model.score(X.get(), y.get())
     cuml_score = cuml_model.score(X, y)
     cuml_proba = cuml_model.predict_log_proba(X).get()
@@ -497,46 +496,17 @@ def test_categorical(x_dtype, y_dtype, nlp_20news):
     assert sk_score - THRES <= cuml_score <= sk_score + THRES
 
 
-@pytest.mark.parametrize("x_dtype", [cp.int32])#, cp.int64])
-@pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
-def test_categorical2(x_dtype, y_dtype):
-    n_rows = 50
-    n_cols = 5
-    X, y = make_classification(n_rows, n_cols, random_state=5)
-
-    X = X.astype(x_dtype)
-    y = y.astype(y_dtype)
-    X -= X.min(0)
-
-    cuml_model = CategoricalNB()
-    sk_model = skCNB()
-
-    sk_model.fit(X.get(), y.get())
-    cuml_model.fit(X, y)
-
-    sk_score = sk_model.score(X.get(), y.get())
-    cuml_score = cuml_model.score(X, y)
-    cuml_proba = cuml_model.predict_log_proba(X).get()
-    sk_proba = sk_model.predict_log_proba(X.get())
-
-    THRES = 1e-3
-
-    assert_array_equal(sk_model.class_count_, cuml_model.class_count_.get())
-    assert_allclose(sk_model.class_log_prior_, cuml_model.class_log_prior_.get(), 1e-6)
-    assert_allclose(cuml_proba, sk_proba, atol=1e-2, rtol=1e-2)
-    assert sk_score - THRES <= cuml_score <= sk_score + THRES
-
-
-@pytest.mark.parametrize("x_dtype", [cp.int32, cp.int64])
+@pytest.mark.parametrize("x_dtype", [cp.int32])
 @pytest.mark.parametrize("y_dtype", [cp.int32,
                                      cp.float32, cp.float64])
 def test_categorical_partial_fit(x_dtype, y_dtype, nlp_20news):
     n_rows = 500
-    chunk_size = 10
+    n_cols = 5000
+    chunk_size = 100
 
     X, y = nlp_20news
 
-    X = sparse_scipy_to_cp(X, 'float32').todense()[:n_rows].astype(x_dtype)
+    X = sparse_scipy_to_cp(X, 'float32').todense()[:n_rows, :n_cols].astype(x_dtype)
     y = y.astype(y_dtype)[:n_rows]
 
     model = CategoricalNB()
@@ -555,12 +525,13 @@ def test_categorical_partial_fit(x_dtype, y_dtype, nlp_20news):
         else:
             x = X[i*chunk_size:]
             y_c = y[i*chunk_size:]
-        model.partial_fit(x, y_c, classes=classes)
         modelsk.partial_fit(x.get(), y_c.get(), classes=classes.get())
+        model.partial_fit(x, y_c, classes=classes)
         if upper == -1:
             break
 
     y_hat = model.predict(X).get()
     y_sk = modelsk.predict(X.get())
 
+    assert_allclose(model.class_count_.get(), modelsk.class_count_)
     assert_allclose(y_hat, y_sk)

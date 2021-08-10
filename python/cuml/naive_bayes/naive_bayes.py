@@ -84,6 +84,21 @@ def count_classes_kernel(float_dtype, int_dtype):
     return cuda_kernel_factory(kernel_str, (float_dtype, int_dtype),
                                "count_classes")
 
+def count_features_categorical_kernel(float_dtype, int_dtype):
+    kernel_str = r'''
+    ({0} *out, int n_rows, int n_classes,
+    {0} *features, {1} *labels) {
+
+      int row = blockIdx.x * blockDim.x + threadIdx.x;
+      if(row >= n_rows) return;
+
+      {0} val = features[row];
+      {1} label = labels[row];
+      atomicAdd(out + ((val * n_classes) + label), ({0})1);
+    }'''
+
+    return cuda_kernel_factory(kernel_str, (float_dtype, int_dtype),
+                               "count_classes")
 
 def count_features_dense_kernel(float_dtype, int_dtype):
 
@@ -737,7 +752,7 @@ class _BaseDiscreteNB(_BaseNB):
         else:
             X = input_to_cupy_array(X, order='K',
                                     check_dtype=[cp.float32, cp.float64,
-                                                 cp.int32, cp.int64]).array
+                                                 cp.int32]).array
 
         expected_y_dtype = cp.int32 if X.dtype in [cp.float32,
                                                    cp.int32] else cp.int64
@@ -746,19 +761,19 @@ class _BaseDiscreteNB(_BaseNB):
                                                   if convert_dtype
                                                   else False),
                                 check_dtype=expected_y_dtype).array
-
-        Y, label_classes = make_monotonic(y, copy=True)
+        if _classes is not None:
+            _classes, *_ = input_to_cuml_array(_classes, order='K',
+                                                convert_to_dtype=(
+                                                    expected_y_dtype
+                                                    if convert_dtype
+                                                    else False))
+        Y, label_classes = make_monotonic(y, classes=_classes, copy=True)
 
         X, Y = self._check_X_y(X, Y)
 
         if not self.fit_called_:
             self.fit_called_ = True
             if _classes is not None:
-                _classes, *_ = input_to_cuml_array(_classes, order='K',
-                                                   convert_to_dtype=(
-                                                       expected_y_dtype
-                                                       if convert_dtype
-                                                       else False))
                 check_labels(Y, _classes.to_output('cupy'))
                 self.classes_ = _classes
             else:
@@ -1225,6 +1240,7 @@ class BernoulliNB(_BaseDiscreteNB):
                 "fit_prior",
             ]
 
+
 class CategoricalNB(_BaseDiscreteNB):
     """
     Naive Bayes classifier for categorical features
@@ -1302,16 +1318,22 @@ class CategoricalNB(_BaseDiscreteNB):
         self.fit_prior = fit_prior
 
     def _check_X_y(self, X, y):
-        if X.dtype not in [cp.int32, cp.int64]:
-            raise ValueError("Expected int32 or int64 input dtype")
+        if X.dtype not in [cp.int32]:
+            warnings.warn("X dtype is not int32. X will be "
+                          "converted, which will increase memory consumption")
+            X = input_to_cupy_array(X, order='K',
+                                    convert_to_dtype=cp.int32).array
         x_min = X.min()
         if x_min < 0:
             raise ValueError("Negative values in data passed to Categorical NB")
         return X, y
 
     def _check_X(self, X):
-        if X.dtype not in [cp.int32, cp.int64]:
-            raise ValueError("Expected int32 or int64 input dtype")
+        if X.dtype not in [cp.int32]:
+            warnings.warn("X dtype is not int32. X will be "
+                          "converted, which will increase memory consumption")
+            X = input_to_cupy_array(X, order='K',
+                                    convert_to_dtype=cp.int32).array
         x_min = X.min()
         if x_min < 0:
             raise ValueError("Negative values in data passed to Categorical NB")
@@ -1384,15 +1406,6 @@ class CategoricalNB(_BaseDiscreteNB):
                 return cp.pad(cat_count, [(0, 0), (0, diff)], 'constant')
             return cat_count
 
-        def _update_cat_count(X_feature, Y, cat_count, n_classes):
-            for j in range(n_classes):
-                mask = (Y == j)
-                weights = None
-                counts = cp.bincount(X_feature[mask],
-                                     weights=weights)
-                indices = cp.nonzero(counts)[0]
-                cat_count[j, indices] += counts[indices]
-
         Y = cp.asarray(Y)
         tpb = 256
         n_rows = X.shape[0]
@@ -1403,14 +1416,22 @@ class CategoricalNB(_BaseDiscreteNB):
         count_classes = count_classes_kernel(class_c.dtype, labels_dtype)
         count_classes((math.ceil(n_rows / tpb),), (tpb,),
                       (class_c, n_rows, Y))
-        self.class_count_ = class_c
+        self.class_count_ += class_c
+
         for i in range(self.n_features_):
-            X_feature = X[:, i]
+            X_feature = cp.array(X[:, i])
             self.category_count_[i] = _update_cat_count_dims(
                 self.category_count_[i], X_feature.max())
-            _update_cat_count(X_feature, Y,
-                              self.category_count_[i],
-                              self.class_count_.shape[0])
+            highest_feature = self.category_count_[i].shape[1]
+            counts = cp.zeros((n_classes, highest_feature),
+                              order="F", dtype=X_feature.dtype)
+            count_features = count_features_categorical_kernel(X_feature.dtype,
+                                                               Y.dtype)
+            count_features((math.ceil(n_rows / tpb),), (tpb,),
+                          (counts, n_rows,
+                           n_classes,
+                           X_feature, Y))
+            self.category_count_[i] += counts
 
     def _init_counters(self, n_effective_classes, n_features, dtype):
         self.class_count_ = cp.zeros(n_effective_classes,
