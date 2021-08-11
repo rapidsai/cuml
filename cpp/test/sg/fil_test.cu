@@ -167,7 +167,7 @@ __global__ void floats_to_bit_stream_k(uint8_t* dst, float* src, size_t size)
   size_t idx = size_t(blockIdx.x) * blockDim.x + threadIdx.x;
   if (idx >= size) return;
   int byte = 0;
-  CUDA_PRAGMA_UNROLL
+  _Pragma("unroll")
   for (int i = 0; i < 8; ++i)
     byte |= (int)src[idx * 8 + i] << i;
   dst[idx] = byte;

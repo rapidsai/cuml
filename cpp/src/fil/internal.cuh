@@ -18,6 +18,8 @@
 
 #pragma once
 #include <cuml/fil/fil.h>
+#include <raft/cuda_utils.cuh>
+#include <raft/error.hpp>
 #include <vector>
 
 namespace raft {
@@ -111,7 +113,7 @@ struct base_node {
   __host__ __device__ base_node() : val{}, bits(0) {}
   base_node(val_t output, val_t split, int fid, bool def_left, bool is_leaf, bool is_categorical)
   {
-    ASSERT((fid & FID_MASK) == fid, "internal error: feature ID doesn't fit into base_node");
+    RAFT_EXPECTS((fid & FID_MASK) == fid, "internal error: feature ID doesn't fit into base_node");
     bits = (fid & FID_MASK) | (def_left ? DEF_LEFT_MASK : 0) | (is_leaf ? IS_LEAF_MASK : 0) |
            (is_categorical ? IS_CATEGORICAL_MASK : 0);
     if (is_leaf)
@@ -190,8 +192,8 @@ struct alignas(8) sparse_node8 : base_node {
     : base_node(output, split, fid, def_left, is_leaf, is_categorical)
   {
     bits |= left_index << LEFT_OFFSET;
-    ASSERT((fid & FID_MASK) == fid, "internal error: feature ID doesn't fit into sparse_node8");
-    ASSERT(((left_index << LEFT_OFFSET) & LEFT_MASK) == (left_index << LEFT_OFFSET),
+    RAFT_EXPECTS((fid & FID_MASK) == fid, "internal error: feature ID doesn't fit into sparse_node8");
+    RAFT_EXPECTS(((left_index << LEFT_OFFSET) & LEFT_MASK) == (left_index << LEFT_OFFSET),
            "internal error: left child index doesn't fit into sparse_node8");
   }
   /** index of the left child, where curr is the index of the current node */
@@ -392,17 +394,17 @@ struct cat_sets_owner {
     size_t bits_size = 0;
     // feature ID
     for (int fid = 0; fid < cf.size(); ++fid) {
-      ASSERT(cf[fid].max_matching >= -1,
+      RAFT_EXPECTS(cf[fid].max_matching >= -1,
              "@fid %d: max_matching invalid (%d)",
              fid,
              cf[fid].max_matching);
-      ASSERT(cf[fid].n_nodes >= 0, "@fid %d: n_nodes invalid (%d)", fid, cf[fid].n_nodes);
+      RAFT_EXPECTS(cf[fid].n_nodes >= 0, "@fid %d: n_nodes invalid (%d)", fid, cf[fid].n_nodes);
 
       max_matching[fid] = cf[fid].max_matching;
       bits_size +=
         categorical_sets::sizeof_mask_from_max_matching(max_matching[fid]) * cf[fid].n_nodes;
 
-      ASSERT(bits_size <= INT_MAX,
+      RAFT_EXPECTS(bits_size <= INT_MAX,
              "@fid %d: cannot store %lu categories given `int` offsets",
              fid,
              bits_size);
