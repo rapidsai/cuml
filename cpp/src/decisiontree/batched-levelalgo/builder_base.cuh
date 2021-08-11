@@ -439,17 +439,22 @@ struct Builder {
   // Set the leaf value predictions in batch
   void SetLeafPredictions(std::vector<NodeT>* tree)
   {
+    // do this in batch to reduce peak memory usage in extreme cases
+    std::size_t max_batch_size = min(std::size_t(100000), tree->size());
     MLCommon::device_buffer<NodeT> d_tree(
-      handle.get_device_allocator(), handle.get_stream(), tree->size());
-    raft::update_device(d_tree.data(), tree->data(), tree->size(), handle.get_stream());
-    size_t smemSize = sizeof(BinT) * input.numOutputs;
-    int num_blocks  = tree->size();
+      handle.get_device_allocator(), handle.get_stream(), max_batch_size);
     ObjectiveT objective(input.numOutputs, params.min_impurity_decrease, params.min_samples_leaf);
-    leafKernel<<<num_blocks, TPB_DEFAULT, smemSize, handle.get_stream()>>>(
-      objective, input, d_tree.data());
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-    raft::update_host(tree->data(), d_tree.data(), tree->size(), handle.get_stream());
-    // Make sure d2h copy is complete before d_tree gets freed
+    for (std::size_t batch_begin = 0; batch_begin < tree->size(); batch_begin += max_batch_size) {
+      std::size_t batch_end  = min(batch_begin + max_batch_size, tree->size());
+      std::size_t batch_size = batch_end - batch_begin;
+      raft::update_device(
+        d_tree.data(), tree->data() + batch_begin, batch_size, handle.get_stream());
+      size_t smemSize = sizeof(BinT) * input.numOutputs;
+      int num_blocks  = batch_size;
+      leafKernel<<<num_blocks, TPB_DEFAULT, smemSize, handle.get_stream()>>>(
+        objective, input, d_tree.data());
+      raft::update_host(tree->data() + batch_begin, d_tree.data(), batch_size, handle.get_stream());
+    }
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
   }
 };  // end Builder
