@@ -40,6 +40,7 @@ template <typename NodeT>
 class NodeQueue {
   const DecisionTreeParams params;
   std::vector<NodeT> tree_;
+  std::vector<InstanceRange> node_instances_;
   std::deque<NodeWorkItem> work_items_;
   int tree_depth_ = 0;
   int num_leaves_ = 1;
@@ -49,8 +50,10 @@ class NodeQueue {
   {
     tree_.reserve(max_nodes);
     tree_.emplace_back(0, sampled_rows, 0);
-    if (this->IsExpandable(tree_.back())) {
-      work_items_.emplace_back(NodeWorkItem{0, 0, sampled_rows, 0});
+    node_instances_.reserve(max_nodes);
+    node_instances_.emplace_back(InstanceRange{0, sampled_rows});
+    if (this->IsExpandable(tree_.back(),0)) {
+      work_items_.emplace_back(NodeWorkItem{0,0, node_instances_.back()});
     }
   }
 
@@ -72,9 +75,9 @@ class NodeQueue {
   }
 
   // This node is allowed to be expanded further (if its split gain is high enough)
-  bool IsExpandable(const NodeT& n)
+  bool IsExpandable(const NodeT& n, int depth)
   {
-    if (n.depth >= params.max_depth) return false;
+    if (depth >= params.max_depth) return false;
     if (n.count < params.min_samples_split) return false;
     if (params.max_leaves != -1 && num_leaves_ >= params.max_leaves) return false;
     return true;
@@ -95,31 +98,35 @@ class NodeQueue {
       if (params.max_leaves != -1 && num_leaves_ >= params.max_leaves) break;
 
       // parent
-      tree_[item.idx] = NodeT::CreateSplit(
+      auto parent_range = node_instances_.at(item.idx);
+      tree_[item.idx]   = NodeT::CreateSplit(
         split.colid, split.quesval, split.best_metric_val, tree_.size(), node.count);
       num_leaves_++;
       // left
-      tree_.emplace_back(NodeT::CreateChild(node.depth + 1, node.start, split.nLeft));
+      tree_.emplace_back(NodeT::CreateChild(item.depth + 1, node.start, split.nLeft));
+      node_instances_.emplace_back(InstanceRange{parent_range.begin, split.nLeft});
 
       // Do not add a work item if this child is definitely a leaf
-      if (this->IsExpandable(tree_.back())) {
+      if (this->IsExpandable(tree_.back(),item.depth+1)) {
         work_items_.emplace_back(
-          NodeWorkItem{tree_.size() - 1, size_t(node.start), size_t(split.nLeft), node.depth + 1});
+          NodeWorkItem{tree_.size() - 1, item.depth+1,node_instances_.back()});
       }
 
       // right
       tree_.emplace_back(
-        NodeT::CreateChild(node.depth + 1, node.start + split.nLeft, node.count - split.nLeft));
+        NodeT::CreateChild(item.depth + 1,  parent_range.begin + split.nLeft, parent_range.count - split.nLeft));
+      node_instances_.emplace_back(
+        InstanceRange{parent_range.begin+ split.nLeft,  parent_range.count - split.nLeft});
+
       // Do not add a work item if this child is definitely a leaf
-      if (this->IsExpandable(tree_.back())) {
-        work_items_.emplace_back(NodeWorkItem{tree_.size() - 1,
-                                              size_t(node.start + split.nLeft),
-                                              size_t(node.count - split.nLeft),
-                                              node.depth + 1});
+      if (this->IsExpandable(tree_.back(),item.depth+1)) {
+        work_items_.emplace_back(NodeWorkItem{
+          tree_.size() - 1,item.depth+1,
+          node_instances_.back()});
       }
 
       // update depth
-      tree_depth_ = max(tree_depth_, node.depth + 1);
+      tree_depth_ = max(tree_depth_, item.depth + 1);
     }
   }
 };
@@ -215,11 +222,6 @@ struct Builder {
     d_buff.resize(device_workspace_size, handle.get_stream());
     h_buff.resize(host_workspace_size, handle.get_stream());
     assignWorkspace(d_buff.data(), h_buff.data());
-  }
-  ~Builder()
-  {
-    d_buff.release(handle.get_stream());
-    h_buff.release(handle.get_stream());
   }
 
   size_t calculateAlignedBytes(const size_t actualSize) const
@@ -330,7 +332,7 @@ struct Builder {
     int total_num_blocks = 0;
     for (int i = 0; i < work_items.size(); i++) {
       auto item      = work_items[i];
-      int num_blocks = raft::ceildiv(item.row_count, size_t(TPB_DEFAULT));
+      int num_blocks = raft::ceildiv(item.instances.count, size_t(TPB_DEFAULT));
       num_blocks     = std::max(1, num_blocks);
 
       if (num_blocks > 1) ++n_large_nodes_in_curr_batch;

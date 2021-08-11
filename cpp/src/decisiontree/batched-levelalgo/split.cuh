@@ -44,7 +44,7 @@ struct Split {
   /** best info gain on this node */
   DataT best_metric_val;
   /** number of samples in the left child */
-  IdxT nLeft;
+  std::size_t nLeft;
 
   DI Split(DataT quesval, IdxT colid, DataT best_metric_val, IdxT nLeft)
     : quesval(quesval), colid(colid), best_metric_val(best_metric_val), nLeft(nLeft)

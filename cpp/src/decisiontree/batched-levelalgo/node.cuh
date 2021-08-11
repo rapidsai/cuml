@@ -43,11 +43,9 @@ struct Node {
   IdxT start;
   /** number of sampled rows belonging to this node */
   IdxT count;
-  /** depth of this node */
-  IdxT depth;
 
   Node(IdxT row_start, IdxT row_count, IdxT depth)
-    : start(row_start), count(row_count), depth(depth)
+    : start(row_start), count(row_count) 
   {
     info.instance_count = row_count;
   }
@@ -81,27 +79,6 @@ struct Node {
 
   HDI bool IsLeaf() { return info.left_child_id == -1; }
 };  // end Node
-
-template <typename DataT, typename LabelT, typename IdxT, int TPB = 256>
-void printNodes(Node<DataT, LabelT, IdxT>* nodes, IdxT len, cudaStream_t s)
-{
-  auto op = [] __device__(Node<DataT, LabelT, IdxT> * ptr, IdxT idx) {
-    printf(
-      "prediction = %d, colid = %d, quesval = %f, best_metric_val = %f, "
-      "left_child_id = %d, start = %d, count = %d, depth = %d\n",
-      ptr->info.prediction,
-      ptr->info.colid,
-      ptr->info.quesval,
-      ptr->info.best_metric_val,
-      ptr->info.left_child_id,
-      ptr->start,
-      ptr->count,
-      ptr->depth);
-  };
-  raft::linalg::writeOnlyUnaryOp<Node<DataT, LabelT, IdxT>, decltype(op), IdxT, TPB>(
-    nodes, len, op, s);
-  CUDA_CHECK(cudaDeviceSynchronize());
-}
 
 }  // namespace DT
 }  // namespace ML

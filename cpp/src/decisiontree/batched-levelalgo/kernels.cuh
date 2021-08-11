@@ -30,11 +30,17 @@
 namespace ML {
 namespace DT {
 
+// The range of instances belonging to a particular node
+// This structure refers to a range in the device array input.rowids
+struct InstanceRange {
+  std::size_t begin;
+  std::size_t count;
+};
+
 struct NodeWorkItem {
   size_t idx;        // Index of the work item in the tree
-  size_t row_start;  // Start of the range of training instances belonging to this node
-  size_t row_count;  // Number of training instances belonging to this node
   int depth;
+  InstanceRange instances;
 };
 
 /**
@@ -81,8 +87,8 @@ DI void partitionSamples(const Input<DataT, LabelT, IdxT>& input,
   size_t smemSize  = sizeof(IdxT) * TPB;
   auto* lcomp      = reinterpret_cast<IdxT*>(smem);
   auto* rcomp      = reinterpret_cast<IdxT*>(smem + smemSize);
-  auto range_start = work_item.row_start;
-  auto range_len   = work_item.row_count;
+  auto range_start = work_item.instances.begin;
+  auto range_len   = work_item.instances.count;
   auto* col        = input.data + split.colid * input.M;
   auto loffset = range_start, part = loffset + split.nLeft, roffset = part;
   auto end  = range_start + range_len;
@@ -131,7 +137,7 @@ __global__ void nodeSplitKernel(IdxT max_depth,
   extern __shared__ char smem[];
   const auto work_item = work_items[blockIdx.x];
   const auto split     = splits[blockIdx.x];
-  if (SplitNotValid(split, min_impurity_decrease, min_samples_leaf, work_item.row_count)) {
+  if (SplitNotValid(split, min_impurity_decrease, min_samples_leaf, work_item.instances.count)) {
     return;
   }
   partitionSamples<DataT, LabelT, IdxT, TPB>(input, split, work_item, (char*)smem);
@@ -307,8 +313,8 @@ __global__ void computeSplitKernel(BinT* hist,
   IdxT nid                             = workload_info_cta.nodeid;
   IdxT large_nid                       = workload_info_cta.large_nodeid;
   const auto work_item                 = work_items[nid];
-  auto range_start                     = work_item.row_start;
-  auto range_len                       = work_item.row_count;
+  auto range_start                     = work_item.instances.begin;
+  auto range_len                       = work_item.instances.count;
 
   IdxT offset_blockid = workload_info_cta.offset_blockid;
   IdxT num_blocks     = workload_info_cta.num_blocks;
