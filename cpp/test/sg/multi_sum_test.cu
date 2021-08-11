@@ -14,14 +14,20 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <test_utils.h>
-#include <thrust/device_vector.h>
-#include <thrust/host_vector.h>
+
 #include <cuml/fil/multi_sum.cuh>
+
+#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/random/rng.cuh>
+
+#include <thrust/device_vector.h>
+#include <thrust/host_vector.h>
+
+#include <gtest/gtest.h>
+
+#include <cstddef>
 
 template <typename T>
 __device__ void serial_multi_sum(const T* in, T* out, int n_groups, int n_values)
@@ -108,9 +114,9 @@ class MultiSumTest : public testing::TestWithParam<int> {
     CUDA_CHECK(cudaPeekAtLastError());
     error = error_d;
     CUDA_CHECK(cudaDeviceSynchronize());
-    for (int i = 0; i < params_h.size(); ++i) {
+    for (std::size_t i = 0; i < params_h.size(); ++i) {
       ASSERT(error[i] == 0,
-             "test # %d: block_dim_x %d multi_sum<%d>(on %d sets sized"
+             "test # %lu: block_dim_x %d multi_sum<%d>(on %d sets sized"
              " %d) gave wrong result",
              i,
              block_dim_x,

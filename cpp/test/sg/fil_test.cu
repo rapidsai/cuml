@@ -14,27 +14,33 @@
  * limitations under the License.
  */
 
+#include "../../src/fil/internal.cuh"
+
+#include <test_utils.h>
+
 #include <cuml/fil/fil.h>
-#include <gtest/gtest.h>
+
 #include <raft/cudart_utils.h>
 #include <test_utils.h>
 #include <thrust/execution_policy.h>
 #include <thrust/functional.h>
 #include <thrust/transform.h>
+#include <raft/cuda_utils.cuh>
+#include <raft/random/rng.cuh>
+
 #include <treelite/c_api.h>
 #include <treelite/frontend.h>
 #include <treelite/tree.h>
+
+#include <gtest/gtest.h>
+
 #include <cmath>
 #include <cstdio>
 #include <limits>
 #include <memory>
 #include <numeric>
 #include <ostream>
-#include <raft/cuda_utils.cuh>
-#include <raft/random/rng.cuh>
 #include <utility>
-
-#include "../../src/fil/internal.cuh"
 
 #define TL_CPP_CHECK(call) ASSERT(int(call) >= 0, "treelite call error")
 
@@ -161,7 +167,7 @@ __global__ void floats_to_bit_stream_k(uint8_t* dst, float* src, size_t size)
   size_t idx = size_t(blockIdx.x) * blockDim.x + threadIdx.x;
   if (idx >= size) return;
   int byte = 0;
-#pragma unroll
+  CUDA_PRAGMA_UNROLL
   for (int i = 0; i < 8; ++i)
     byte |= (int)src[idx * 8 + i] << i;
   dst[idx] = byte;
@@ -494,6 +500,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
             class_probabilities.begin();
         }
         break;
+      case fil::leaf_algo_t::GROVE_PER_CLASS_FEW_CLASSES:
+      case fil::leaf_algo_t::GROVE_PER_CLASS_MANY_CLASSES: break;
     }
 
     // copy to GPU
@@ -710,6 +718,8 @@ class TreeliteFilTest : public BaseFilTest {
           builder->SetLeafVectorNode(key, vec);
           break;
         }
+        case fil::leaf_algo_t::GROVE_PER_CLASS_FEW_CLASSES:
+        case fil::leaf_algo_t::GROVE_PER_CLASS_MANY_CLASSES: break;
       }
     } else {
       int left          = root + 2 * (node - root) + 1;

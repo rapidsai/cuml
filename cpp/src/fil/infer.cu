@@ -14,14 +14,26 @@
  * limitations under the License.
  */
 
+#include "common.cuh"
+
+#include <fil/internal.cuh>
+
+#include <cuml/fil/multi_sum.cuh>
+
+#include <raft/cudart_utils.h>
+
+#include <thrust/functional.h>
+
 #include <algorithm>
 #include <cmath>
 
-#include <raft/cudart_utils.h>
-#include <thrust/functional.h>
-#include <cuml/fil/multi_sum.cuh>
-#include <fil/internal.cuh>
-#include "common.cuh"
+#ifndef CUDA_PRAGMA_UNROLL
+#ifdef __CUDA_ARCH__
+#define CUDA_PRAGMA_UNROLL _Pragma("unroll")
+#else
+#define CUDA_PRAGMA_UNROLL
+#endif  // __CUDA_ARCH__
+#endif  // CUDA_PRAGMA_UNROLL
 
 namespace ML {
 namespace fil {
@@ -39,7 +51,7 @@ struct Vectorized {
                                                                           vec<NITEMS, T> b) const
   {
     vec<NITEMS, T> c;
-#pragma unroll
+    CUDA_PRAGMA_UNROLL
     for (int i = 0; i < NITEMS; i++)
       c[i] = op(a[i], b[i]);
     return c;
@@ -57,7 +69,7 @@ struct vec {
   T data[N];
   explicit __host__ __device__ vec(T t)
   {
-#pragma unroll
+    CUDA_PRAGMA_UNROLL
     for (int i = 0; i < N; ++i)
       data[i] = t;
   }
@@ -96,7 +108,7 @@ template <int NITEMS>
 __device__ __forceinline__ vec<NITEMS, best_margin_label> to_vec(int c, vec<NITEMS, float> margin)
 {
   vec<NITEMS, best_margin_label> ret;
-#pragma unroll
+  CUDA_PRAGMA_UNROLL
   for (int i = 0; i < NITEMS; ++i)
     ret[i] = best_margin_label(c, margin[i]);
   return ret;
@@ -108,7 +120,7 @@ struct ArgMax {
     vec<NITEMS, best_margin_label> a, vec<NITEMS, best_margin_label> b) const
   {
     vec<NITEMS, best_margin_label> c;
-#pragma unroll
+    CUDA_PRAGMA_UNROLL
     for (int i = 0; i < NITEMS; i++)
       c[i] = cub::ArgMax()(a[i], b[i]);
     return c;
@@ -125,7 +137,7 @@ __device__ __forceinline__ vec<NITEMS, output_type> tree_leaf_output(tree_type t
                                                                      int (&leaves)[NITEMS])
 {
   vec<NITEMS, output_type> out(0);
-#pragma unroll
+  CUDA_PRAGMA_UNROLL
   for (int j = 0; j < NITEMS; ++j) {
     if (FULL_NITEMS || j < n_rows) {
       /** dependent names are not considered templates by default, unless it's a
@@ -151,7 +163,7 @@ __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(tree_type tre
   for (int j = 0; j < NITEMS; ++j)
     curr[j] = 0;
   do {
-#pragma unroll
+    CUDA_PRAGMA_UNROLL
     for (int j = 0; j < NITEMS; ++j) {
       auto n = tree[curr[j]];
       mask &= ~(n.is_leaf() << j);
@@ -303,7 +315,7 @@ struct tree_aggregator_t {
     }
 
     if (threadIdx.x * NITEMS >= block_num_rows) return;
-#pragma unroll
+    CUDA_PRAGMA_UNROLL
     for (int row = 0; row < NITEMS; ++row) {
       int out_preds_i = threadIdx.x * NITEMS + row;
       if (out_preds_i < block_num_rows) block_out[out_preds_i * output_stride] = acc[row];
@@ -349,7 +361,7 @@ __device__ __forceinline__ void write_best_class(
   best = block_reduce(best, vectorized(cub::ArgMax()), tmp_storage);
   // write it out to global memory
   if (threadIdx.x > 0) return;
-#pragma unroll
+  CUDA_PRAGMA_UNROLL
   for (int row = 0; row < best.NITEMS; ++row)
     if (row < num_rows) out[row] = best[row].key;
 }
@@ -390,8 +402,8 @@ __device__ __forceinline__ void normalize_softmax_and_write(Iterator begin,
       *it /= trees_per_class;
   }
   if ((transform & output_t::SOFTMAX) != 0) block_softmax(begin, end, tmp_storage);
-// write result to global memory
-#pragma unroll
+  // write result to global memory
+  CUDA_PRAGMA_UNROLL
   for (int row = 0; row < begin->NITEMS; ++row) {
     for (int c = threadIdx.x; c < end - begin; c += blockDim.x)
       if (row < num_rows) out[row * (end - begin) + c] = begin[c][row];
@@ -680,9 +692,9 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
     : num_classes(params.num_classes), votes((int*)accumulate_workspace)
   {
     for (int c = threadIdx.x; c < num_classes; c += FIL_TPB * NITEMS)
-#pragma unroll
-      for (int item = 0; item < NITEMS; ++item)
-        votes[c * NITEMS + item] = 0;
+      CUDA_PRAGMA_UNROLL
+    for (int item = 0; item < NITEMS; ++item)
+      votes[c * NITEMS + item] = 0;
     // __syncthreads() is called in infer_k
   }
   __device__ __forceinline__ void accumulate(vec<NITEMS, int> single_tree_prediction,
@@ -690,7 +702,7 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
                                              int thread_num_rows)
   {
     if (thread_num_rows == 0) return;
-#pragma unroll
+    CUDA_PRAGMA_UNROLL
     for (int item = 0; item < NITEMS; ++item) {
       raft::myAtomicAdd(votes + single_tree_prediction[item] * NITEMS + item, 1);
     }
@@ -701,7 +713,7 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
   {
     __syncthreads();
     for (int c = threadIdx.x; c < num_classes; c += blockDim.x) {
-#pragma unroll
+      CUDA_PRAGMA_UNROLL
       for (int row = 0; row < num_rows; ++row)
         out[row * num_classes + c] = votes[c * NITEMS + row];
     }
@@ -763,7 +775,7 @@ __global__ void infer_k(storage_type forest, predict_params params)
       // cache the row for all threads to reuse
       // 2021: latest SMs still do not have >256KiB of shared memory/block required to
       // exceed the uint16_t
-#pragma unroll
+      CUDA_PRAGMA_UNROLL
       for (uint16_t input_idx = threadIdx.x; input_idx < block_num_rows * num_cols;
            input_idx += blockDim.x) {
         // for even num_cols, we need to pad sdata_stride to reduce bank conflicts
@@ -773,7 +785,7 @@ __global__ void infer_k(storage_type forest, predict_params params)
           sdata_stride == num_cols ? input_idx : input_idx + input_idx / (uint16_t)num_cols;
         sdata[sdata_idx] = block_input[input_idx];
       }
-#pragma unroll
+      CUDA_PRAGMA_UNROLL
       for (int idx = block_num_rows * sdata_stride; idx < rows_per_block * sdata_stride;
            idx += blockDim.x)
         sdata[idx] = 0.0f;

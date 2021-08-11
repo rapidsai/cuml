@@ -17,11 +17,26 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
-#include <limits>
 #include <raft/cuda_utils.cuh>
+
+#include <limits>
 
 namespace MLCommon {
 namespace Stats {
+
+namespace detail {
+
+// TODO: replace with `std::bitcast` once we adopt C++20 or libcu++ adds it
+template <class To, class From>
+constexpr To bit_cast(const From& from) noexcept
+{
+  To to{};
+  static_assert(sizeof(To) == sizeof(From));
+  memcpy(&to, &from, sizeof(To));
+  return to;
+}
+
+}  // namespace detail
 
 template <typename T>
 struct encode_traits {
@@ -39,26 +54,26 @@ struct encode_traits<double> {
 
 HDI int encode(float val)
 {
-  int i = *(int*)&val;
+  int i = detail::bit_cast<int>(val);
   return i >= 0 ? i : (1 << 31) | ~i;
 }
 
 HDI long long encode(double val)
 {
-  long long i = *(long long*)&val;
+  std::int64_t i = detail::bit_cast<std::int64_t>(val);
   return i >= 0 ? i : (1ULL << 63) | ~i;
 }
 
 HDI float decode(int val)
 {
   if (val < 0) val = (1 << 31) | ~val;
-  return *(float*)&val;
+  return detail::bit_cast<float>(val);
 }
 
 HDI double decode(long long val)
 {
   if (val < 0) val = (1ULL << 63) | ~val;
-  return *(double*)&val;
+  return detail::bit_cast<double>(val);
 }
 
 template <typename T, typename E>
