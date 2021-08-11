@@ -48,13 +48,14 @@ __host__ __device__ float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
 template <typename T>
 T* allocate(const raft::handle_t& h, size_t num_elem)
 {
+  if (num_elem == 0) return nullptr;
   return (T*)(h.get_device_allocator()->allocate(num_elem * sizeof(T), h.get_stream()));
 };
 
 template <typename T>
 void deallocate(const raft::handle_t& h, const T* ptr, size_t num_elem)
 {
-  if (num_elem > 0)
+  if (num_elem != 0 && ptr != nullptr)
     h.get_device_allocator()->deallocate((void*)ptr, num_elem * sizeof(T), h.get_stream());
 };
 
@@ -170,9 +171,9 @@ struct forest {
     init_fixed_block_count(device, params->blocks_per_sm);
 
     // vector leaf
+    vector_leaf_len_ = vector_leaf.size();
+    vector_leaf_     = allocate<float>(h, vector_leaf.size());
     if (!vector_leaf.empty()) {
-      vector_leaf_len_ = vector_leaf.size();
-      vector_leaf_     = allocate<float>(h, vector_leaf.size());
       CUDA_CHECK(cudaMemcpyAsync(vector_leaf_,
                                  vector_leaf.data(),
                                  vector_leaf.size() * sizeof(float),
@@ -181,9 +182,9 @@ struct forest {
     }
 
     // categorical features
-    if (cat_sets.max_matching_size != 0) {
-      cat_sets_              = cat_sets;  // for sizes
-      cat_sets_.max_matching = allocate<int>(h, cat_sets.max_matching_size);
+    cat_sets_              = cat_sets;  // for sizes
+    cat_sets_.max_matching = allocate<int>(h, cat_sets.max_matching_size);
+    if (cat_sets.max_matching != nullptr) {
       CUDA_CHECK(cudaMemcpyAsync((int*)cat_sets_.max_matching,
                                  cat_sets.max_matching,
                                  cat_sets.max_matching_size * sizeof(int),
@@ -191,8 +192,8 @@ struct forest {
                                  stream));
     }
 
-    if (cat_sets.bits_size != 0) {
-      cat_sets_.bits = allocate<uint8_t>(h, cat_sets.bits_size);
+    cat_sets_.bits = allocate<uint8_t>(h, cat_sets.bits_size);
+    if (cat_sets.bits != nullptr) {
       CUDA_CHECK(cudaMemcpyAsync((uint8_t*)cat_sets_.bits,
                                  cat_sets.bits,
                                  cat_sets.bits_size * sizeof(uint8_t),

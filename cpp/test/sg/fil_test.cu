@@ -56,7 +56,8 @@ struct FilTestParams {
   // below, categorical nodes means categorical branch nodes
   // probability that a node is categorical (given that its feature is categorical)
   float node_categorical_prob = 0.0;
-  // probability that a feature is categorical (given that the node is also categorical)
+  // probability that a feature is categorical (pertains to data generation, can
+  // still be interpreted as numerical by a node)
   float feature_categorical_prob = 0.0;
   // during model creation, how often categories < max_matching are marked as matching?
   float cat_match_prob = 0.5;
@@ -155,7 +156,7 @@ struct replace_some_floating_with_categorical {
   }
 };
 
-__global__ void compress_bit_stream(uint8_t* dst, float* src, size_t size)
+__global__ void floats_to_bit_stream_k(uint8_t* dst, float* src, size_t size)
 {
   size_t idx = size_t(blockIdx.x) * blockDim.x + threadIdx.x;
   if (idx >= size) return;
@@ -313,7 +314,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
       raft::allocate(bits_precursor_d, cat_sets_h.bits.size() * 8);
       hard_clipped_bernoulli(
         r, bits_precursor_d, cat_sets_h.bits.size() * 8, 1.0f - ps.cat_match_prob, stream);
-      compress_bit_stream<<<raft::ceildiv(cat_sets_h.bits.size(), 256ul), 256, 0, stream>>>(
+      floats_to_bit_stream_k<<<raft::ceildiv(cat_sets_h.bits.size(), 256ul), 256, 0, stream>>>(
         bits_d, bits_precursor_d, cat_sets_h.bits.size());
       raft::update_host(cat_sets_h.bits.data(), bits_d, cat_sets_h.bits.size(), stream);
     }

@@ -138,7 +138,7 @@ __device__ __forceinline__ vec<NITEMS, output_type> tree_leaf_output(tree_type t
   return out;
 }
 
-template <int NITEMS, typename output_type, bool branch_can_be_categorical, typename tree_type>
+template <int NITEMS, typename output_type, bool CATS_SUPPORTED, typename tree_type>
 __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(tree_type tree,
                                                                    const float* input,
                                                                    int cols,
@@ -156,7 +156,7 @@ __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(tree_type tre
       auto n = tree[curr[j]];
       mask &= ~(n.is_leaf() << j);
       if ((mask & (1 << j)) != 0) {
-        curr[j] = tree.get_child<branch_can_be_categorical>(n, curr[j], input[j * cols + n.fid()]);
+        curr[j] = tree.get_child<CATS_SUPPORTED>(n, curr[j], input[j * cols + n.fid()]);
       }
     }
   } while (mask != 0);
@@ -744,7 +744,7 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
 template <int NITEMS,
           leaf_algo_t leaf_algo,
           bool cols_in_shmem,
-          bool branch_can_be_categorical,
+          bool CATS_SUPPORTED,
           class storage_type>
 __global__ void infer_k(storage_type forest, predict_params params)
 {
@@ -798,7 +798,7 @@ __global__ void infer_k(storage_type forest, predict_params params)
       typedef typename leaf_output_t<leaf_algo>::T pred_t;
       vec<NITEMS, pred_t> prediction;
       if (tree < forest.num_trees() && thread_num_rows != 0) {
-        prediction = infer_one_tree<NITEMS, pred_t, branch_can_be_categorical>(
+        prediction = infer_one_tree<NITEMS, pred_t, CATS_SUPPORTED>(
           forest[tree],
           cols_in_shmem ? sdata + thread_row0 * sdata_stride : block_input + thread_row0 * num_cols,
           cols_in_shmem ? sdata_stride : num_cols,
@@ -855,10 +855,7 @@ void shmem_size_params::compute_smem_footprint()
   }
 }
 
-template <leaf_algo_t leaf_algo,
-          bool cols_in_shmem,
-          bool branch_can_be_categorical,
-          typename storage_type>
+template <leaf_algo_t leaf_algo, bool COLS_IN_SHMEM, bool CATS_SUPPORTED, typename storage_type>
 void infer_k_nitems_launcher(storage_type forest,
                              predict_params params,
                              cudaStream_t stream,
@@ -866,19 +863,19 @@ void infer_k_nitems_launcher(storage_type forest,
 {
   switch (params.n_items) {
     case 1:
-      infer_k<1, leaf_algo, cols_in_shmem, branch_can_be_categorical>
+      infer_k<1, leaf_algo, COLS_IN_SHMEM, CATS_SUPPORTED>
         <<<params.num_blocks, block_dim_x, params.shm_sz, stream>>>(forest, params);
       break;
     case 2:
-      infer_k<2, leaf_algo, cols_in_shmem, branch_can_be_categorical>
+      infer_k<2, leaf_algo, COLS_IN_SHMEM, CATS_SUPPORTED>
         <<<params.num_blocks, block_dim_x, params.shm_sz, stream>>>(forest, params);
       break;
     case 3:
-      infer_k<3, leaf_algo, cols_in_shmem, branch_can_be_categorical>
+      infer_k<3, leaf_algo, COLS_IN_SHMEM, CATS_SUPPORTED>
         <<<params.num_blocks, block_dim_x, params.shm_sz, stream>>>(forest, params);
       break;
     case 4:
-      infer_k<4, leaf_algo, cols_in_shmem, branch_can_be_categorical>
+      infer_k<4, leaf_algo, COLS_IN_SHMEM, CATS_SUPPORTED>
         <<<params.num_blocks, block_dim_x, params.shm_sz, stream>>>(forest, params);
       break;
     default: ASSERT(false, "internal error: nitems > 4");
@@ -886,16 +883,16 @@ void infer_k_nitems_launcher(storage_type forest,
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
-template <leaf_algo_t leaf_algo, bool cols_in_shmem, typename storage_type>
+template <leaf_algo_t leaf_algo, bool COLS_IN_SHMEM, typename storage_type>
 void infer_k_categorical_launcher(storage_type forest,
                                   predict_params params,
                                   cudaStream_t stream,
                                   int blockdim_x)
 {
-  if (forest.branch_can_be_categorical()) {
-    infer_k_nitems_launcher<leaf_algo, cols_in_shmem, true>(forest, params, stream, blockdim_x);
+  if (forest.cats_supported()) {
+    infer_k_nitems_launcher<leaf_algo, COLS_IN_SHMEM, true>(forest, params, stream, blockdim_x);
   } else {
-    infer_k_nitems_launcher<leaf_algo, cols_in_shmem, false>(forest, params, stream, blockdim_x);
+    infer_k_nitems_launcher<leaf_algo, COLS_IN_SHMEM, false>(forest, params, stream, blockdim_x);
   }
 }
 
