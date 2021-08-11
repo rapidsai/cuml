@@ -80,6 +80,7 @@ from sklearn.metrics import pairwise_distances as sklearn_pairwise_distances
 from scipy.spatial import distance as scipy_pairwise_distances
 from scipy.special import rel_entr as scipy_kl_divergence
 
+
 @pytest.fixture(scope='module')
 def random_state():
     random_state = random.randint(0, 1e6)
@@ -865,7 +866,8 @@ def test_log_loss_at_limits():
 
 def naive_kl_divergence_dist(X, Y):
     return 0.5 * np.array([[np.sum(np.where(yj != 0,
-                scipy_kl_divergence(xi, yj), 0.0)) for yj in Y] for xi in X])
+                          scipy_kl_divergence(xi, yj), 0.0)) for yj in Y]
+                          for xi in X])
 
 
 def ref_dense_pairwise_dist(X, Y=None, metric=None, convert_dtype=False):
@@ -946,11 +948,11 @@ def test_pairwise_distances(metric: str, matrix_size, is_col_major):
 
     # Test sending an int type with convert_dtype=True
     if metric != 'kldivergence':
-      Y = prep_dense_array(rng.randint(10, size=Y.shape),
-                           metric=metric, col_major=is_col_major)
-      S = pairwise_distances(X, Y, metric=metric, convert_dtype=True)
-      S2 = ref_dense_pairwise_dist(X, Y, metric=metric, convert_dtype=True)
-      cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+        Y = prep_dense_array(rng.randint(10, size=Y.shape),
+                             metric=metric, col_major=is_col_major)
+        S = pairwise_distances(X, Y, metric=metric, convert_dtype=True)
+        S2 = ref_dense_pairwise_dist(X, Y, metric=metric, convert_dtype=True)
+        cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
     # Test that uppercase on the metric name throws an error.
     with pytest.raises(ValueError):
