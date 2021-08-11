@@ -14,21 +14,29 @@
  * limitations under the License.
  */
 
-#include <cuml/tree/algo_helper.h>
-#include <decisiontree/quantile/quantile.h>
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <raft/linalg/transpose.h>
 #include <test_utils.h>
-#include <thrust/device_vector.h>
-#include <thrust/host_vector.h>
+
+#include <decisiontree/quantile/quantile.h>
+#include <decisiontree/batched-levelalgo/kernels.cuh>
+
+#include <cuml/tree/algo_helper.h>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/ensemble/randomforest.hpp>
-#include <decisiontree/batched-levelalgo/kernels.cuh>
-#include <memory>
+
+#include <random/make_blobs.cuh>
+
+#include <raft/cudart_utils.h>
+#include <raft/linalg/transpose.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
-#include <random/make_blobs.cuh>
+
+#include <thrust/device_vector.h>
+#include <thrust/host_vector.h>
+
+#include <gtest/gtest.h>
+
+#include <cstddef>
+#include <memory>
 #include <random>
 #include <tuple>
 
@@ -81,7 +89,7 @@ std::vector<ParamT> SampleParameters(int num_samples, size_t seed, Args... args)
   std::default_random_engine gen(seed);
   AddParameters<0>(gen, tuple_sample, args...);
   std::vector<ParamT> sample(num_samples);
-  for (size_t i = 0; i < num_samples; i++) {
+  for (int i = 0; i < num_samples; i++) {
     sample[i] = make_struct<ParamT>(tuple_sample[i]);
   }
   return sample;
@@ -434,7 +442,7 @@ class RFQuantileBinsLowerBoundTest : public ::testing::TestWithParam<QuantileTes
                          nullptr);
     h_quantiles = quantiles;
     h_data      = data;
-    for (int i = 0; i < h_data.size(); ++i) {
+    for (std::size_t i = 0; i < h_data.size(); ++i) {
       auto d = h_data[i];
       // golden lower bound from thrust
       auto golden_lb = thrust::lower_bound(
