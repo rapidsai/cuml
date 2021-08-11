@@ -74,7 +74,7 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
     split_criterion : int (default = 2)
         The criterion used to split nodes.
         0 for GINI, 1 for ENTROPY,
-        2 for MSE, 3 for MAE and 4 for CRITERION_END.
+        2 for MSE, 3 for MAE and 4 for POISSON
         0 and 1 not valid for regression
     bootstrap : boolean (default = True)
         Control bootstrapping.

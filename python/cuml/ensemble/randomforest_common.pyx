@@ -55,7 +55,7 @@ class BaseRandomForestModel(Base):
                     'criterion']
 
     criterion_dict = {'0': GINI, '1': ENTROPY, '2': MSE,
-                      '3': MAE, '4': CRITERION_END}
+                      '3': MAE, '4': POISSON, '5': CRITERION_END}
 
     classes_ = CumlArrayDescriptor()
 

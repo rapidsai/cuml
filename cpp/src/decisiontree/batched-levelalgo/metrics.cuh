@@ -27,21 +27,46 @@
 namespace ML {
 namespace DT {
 
-struct IntBin {
+struct CountBin {
   int x;
 
-  DI static void IncrementHistogram(IntBin* hist, int nbins, int b, int label)
+  DI static void IncrementHistogram(CountBin* hist, int nbins, int b, int label)
   {
     auto offset = label * nbins + b;
-    IntBin::AtomicAdd(hist + offset, {1});
+    CountBin::AtomicAdd(hist + offset, {1});
   }
-  DI static void AtomicAdd(IntBin* address, IntBin val) { atomicAdd(&address->x, val.x); }
-  DI IntBin& operator+=(const IntBin& b)
+  DI static void AtomicAdd(CountBin* address, CountBin val) { atomicAdd(&address->x, val.x); }
+  DI CountBin& operator+=(const CountBin& b)
   {
     x += b.x;
     return *this;
   }
-  DI IntBin operator+(IntBin b) const
+  DI CountBin operator+(CountBin b) const
+  {
+    b += *this;
+    return b;
+  }
+};
+struct AggregateBin {
+  double label_sum;
+  int count;
+
+  DI static void IncrementHistogram(AggregateBin* hist, int nbins, int b, double label)
+  {
+    AggregateBin::AtomicAdd(hist + b, {label, 1});
+  }
+  DI static void AtomicAdd(AggregateBin* address, AggregateBin val)
+  {
+    atomicAdd(&address->label_sum, val.label_sum);
+    atomicAdd(&address->count, val.count);
+  }
+  DI AggregateBin& operator+=(const AggregateBin& b)
+  {
+    label_sum += b.label_sum;
+    count += b.count;
+    return *this;
+  }
+  DI AggregateBin operator+(AggregateBin b) const
   {
     b += *this;
     return b;
@@ -59,7 +84,7 @@ class GiniObjectiveFunction {
   IdxT min_samples_leaf;
 
  public:
-  using BinT = IntBin;
+  using BinT = CountBin;
   GiniObjectiveFunction(IdxT nclasses, DataT min_impurity_decrease, IdxT min_samples_leaf)
     : nclasses(nclasses),
       min_impurity_decrease(min_impurity_decrease),
@@ -135,7 +160,7 @@ class EntropyObjectiveFunction {
   IdxT min_samples_leaf;
 
  public:
-  using BinT = IntBin;
+  using BinT = CountBin;
   EntropyObjectiveFunction(IdxT nclasses, DataT min_impurity_decrease, IdxT min_samples_leaf)
     : nclasses(nclasses),
       min_impurity_decrease(min_impurity_decrease),
@@ -198,6 +223,80 @@ class EntropyObjectiveFunction {
 };
 
 template <typename DataT_, typename LabelT_, typename IdxT_>
+class PoissonObjectiveFunction {
+ public:
+  using DataT  = DataT_;
+  using LabelT = LabelT_;
+  using IdxT   = IdxT_;
+
+ private:
+  DataT min_impurity_decrease;
+  IdxT min_samples_leaf;
+
+ public:
+  using BinT = AggregateBin;
+
+  HDI PoissonObjectiveFunction(IdxT nclasses, DataT min_impurity_decrease, IdxT min_samples_leaf)
+    : min_impurity_decrease(min_impurity_decrease), min_samples_leaf(min_samples_leaf)
+  {
+  }
+  DI IdxT NumClasses() const { return 1; }
+
+  /**
+   * @brief compute the poisson impurity reduction (or purity gain)
+   *
+   * @note This method is used to speed up the search for the best split.
+           It is a proxy quantity such that the split that maximizes this value
+           also maximizes the impurity improvement. It neglects all constant terms
+           of the impurity decrease for a given split.
+
+           Refer scikit learn's docs for original half poisson deviance impurity criterion:
+           https://scikit-learn.org/stable/modules/tree.html#regression-criteria
+
+          Poisson proxy used here is:
+            - 1/n * sum(y_i * log(y_pred)) = -mean(y_i) * log(mean(y_i))
+    */
+  DI Split<DataT, IdxT> Gain(BinT* shist, DataT* sbins, IdxT col, IdxT len, IdxT nbins)
+  {
+    Split<DataT, IdxT> sp;
+    auto invlen = DataT(1.0) / len;
+    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+      auto nLeft  = shist[i].count;
+      auto nRight = len - nLeft;
+      DataT gain;
+      // if there aren't enough samples in this split, don't bother!
+      if (nLeft < min_samples_leaf || nRight < min_samples_leaf) {
+        gain = -std::numeric_limits<DataT>::max();
+      } else {
+        auto label_mean         = shist[nbins - 1].label_sum / len;
+        auto left_label_mean   = -(shist[i].label_sum) / nLeft;
+        auto right_label_mean  = -(shist[nbins - 1].label_sum - shist[i].label_sum) / nRight;
+        // poisson loss does not allow non-positive predictions
+        if(label_mean <= std::numeric_limits<DataT>::epsilon() || left_label_mean <= std::numeric_limits<DataT>::epsilon() || right_label_mean <= std::numeric_limits<DataT>::epsilon()) {
+          // used to prevent errors due to floating point roundings
+          gain = -std::numeric_limits<DataT>::max();
+        }
+        else {
+          // below objective functions are 'proxy' for the actual half
+          DataT parent_obj = -label_mean * raft::myLog(label_mean);
+          DataT left_obj   = -left_label_mean * raft::myLog(left_label_mean);
+          DataT right_obj  = -right_label_mean * raft::myLog(right_label_mean);
+          gain             = parent_obj - (left_obj + right_obj);
+        }
+      }
+      // if the gain is not "enough", don't bother!
+      if (gain <= min_impurity_decrease) { gain = -std::numeric_limits<DataT>::max(); }
+      sp.update({sbins[i], col, gain, nLeft});
+    }
+    return sp;
+  }
+
+  static DI LabelT LeafPrediction(BinT* shist, int nclasses)
+  {
+    return shist[0].label_sum / shist[0].count;
+  }
+};
+template <typename DataT_, typename LabelT_, typename IdxT_>
 class MSEObjectiveFunction {
  public:
   using DataT  = DataT_;
@@ -209,32 +308,7 @@ class MSEObjectiveFunction {
   IdxT min_samples_leaf;
 
  public:
-  struct MSEBin {
-    double label_sum;
-    int count;
-
-    DI static void IncrementHistogram(MSEBin* hist, int nbins, int b, double label)
-    {
-      MSEBin::AtomicAdd(hist + b, {label, 1});
-    }
-    DI static void AtomicAdd(MSEBin* address, MSEBin val)
-    {
-      atomicAdd(&address->label_sum, val.label_sum);
-      atomicAdd(&address->count, val.count);
-    }
-    DI MSEBin& operator+=(const MSEBin& b)
-    {
-      label_sum += b.label_sum;
-      count += b.count;
-      return *this;
-    }
-    DI MSEBin operator+(MSEBin b) const
-    {
-      b += *this;
-      return b;
-    }
-  };
-  using BinT = MSEBin;
+  using BinT = AggregateBin;
   HDI MSEObjectiveFunction(IdxT nclasses, DataT min_impurity_decrease, IdxT min_samples_leaf)
     : min_impurity_decrease(min_impurity_decrease), min_samples_leaf(min_samples_leaf)
   {

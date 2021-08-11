@@ -288,11 +288,11 @@ class DecisionTree {
   {
     this->tree_params = tree_parameters;
     this->prepare_fit_timer.reset();
-    const char* CRITERION_NAME[] = {"GINI", "ENTROPY", "MSE", "MAE", "END"};
+    const char* CRITERION_NAME[] = {"GINI", "ENTROPY", "MSE", "MAE", "POISSON", "END"};
     CRITERION default_criterion =
       (std::numeric_limits<L>::is_integer) ? CRITERION::GINI : CRITERION::MSE;
     CRITERION last_criterion =
-      (std::numeric_limits<L>::is_integer) ? CRITERION::ENTROPY : CRITERION::MSE;
+      (std::numeric_limits<L>::is_integer) ? CRITERION::ENTROPY : CRITERION::POISSON;
 
     validity_check(tree_params);
 
