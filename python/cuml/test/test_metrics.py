@@ -863,7 +863,12 @@ def test_log_loss_at_limits():
         log_loss(y_true, y_pred)
 
 
-def ref_dense_pairwise_dist(X, Y=None, metric=None):
+def naive_kl_divergence_dist(X, Y):
+    return 0.5 * np.array([[np.sum(np.where(yj != 0,
+                scipy_kl_divergence(xi, yj), 0.0)) for yj in Y] for xi in X])
+
+
+def ref_dense_pairwise_dist(X, Y=None, metric=None, convert_dtype=False):
     # Select sklearn except for Hellinger that
     # sklearn doesn't support
     if Y is None:
@@ -873,9 +878,7 @@ def ref_dense_pairwise_dist(X, Y=None, metric=None):
     elif metric == "jensenshannon":
         return scipy_pairwise_distances.cdist(X, Y, 'jensenshannon')
     elif metric == "kldivergence":
-        return 0.5 * np.array([[np.sum(np.where(yj != 0, xi * np.log(xi / yj), 0)) for yj in Y] for xi in X])
-        #return  np.array([[scipy_kl_divergence(xi, yj) for yj in Y] for xi in X])
-        #[[f(i, j) for j in b] for i in a]
+        return naive_kl_divergence_dist(X, Y)
     else:
         return sklearn_pairwise_distances(X, Y, metric)
 
@@ -915,7 +918,7 @@ def test_pairwise_distances(metric: str, matrix_size, is_col_major):
     # Compare single and double inputs to eachother
     S = pairwise_distances(X, metric=metric)
     S2 = pairwise_distances(X, Y, metric=metric)
-    #cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
     # Compare to sklearn, with Y dim != X dim
     Y = prep_dense_array(rng.random_sample((2, matrix_size[1])),
@@ -942,11 +945,12 @@ def test_pairwise_distances(metric: str, matrix_size, is_col_major):
     cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
     # Test sending an int type with convert_dtype=True
-    Y = prep_dense_array(rng.randint(10, size=Y.shape),
-                         metric=metric, col_major=is_col_major)
-    S = pairwise_distances(X, Y, metric=metric, convert_dtype=True)
-    S2 = ref_dense_pairwise_dist(X, Y, metric=metric)
-    cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
+    if metric != 'kldivergence':
+      Y = prep_dense_array(rng.randint(10, size=Y.shape),
+                           metric=metric, col_major=is_col_major)
+      S = pairwise_distances(X, Y, metric=metric, convert_dtype=True)
+      S2 = ref_dense_pairwise_dist(X, Y, metric=metric, convert_dtype=True)
+      cp.testing.assert_array_almost_equal(S, S2, decimal=compare_precision)
 
     # Test that uppercase on the metric name throws an error.
     with pytest.raises(ValueError):
