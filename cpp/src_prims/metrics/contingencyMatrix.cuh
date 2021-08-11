@@ -16,12 +16,15 @@
 
 #pragma once
 
-#include <math.h>
 #include <raft/cudart_utils.h>
+#include <raft/cuda_utils.cuh>
+
 #include <thrust/device_ptr.h>
 #include <thrust/reduce.h>
+
 #include <cub/cub.cuh>
-#include <raft/cuda_utils.cuh>
+
+#include <math.h>
 
 namespace MLCommon {
 namespace Metrics {
@@ -41,7 +44,7 @@ __global__ void devConstructContingencyMatrix(const T* groundTruth,
                                               int outIdxOffset,
                                               int outMatWidth)
 {
-  auto elementId = threadIdx.x + blockDim.x * blockIdx.x;
+  int elementId = threadIdx.x + blockDim.x * blockIdx.x;
   if (elementId < nSamples) {
     T gt           = groundTruth[elementId];
     T pd           = predicted[elementId];
@@ -77,11 +80,11 @@ __global__ void devConstructContingencyMatrixSmem(const T* groundTruth,
 {
   extern __shared__ char smem[];
   auto* sMemMatrix = reinterpret_cast<OutT*>(smem);
-  for (auto smemIdx = threadIdx.x; smemIdx < outMatWidth * outMatWidth; smemIdx += blockDim.x) {
+  for (int smemIdx = threadIdx.x; smemIdx < outMatWidth * outMatWidth; smemIdx += blockDim.x) {
     sMemMatrix[smemIdx] = 0;
   }
   __syncthreads();
-  auto elementId = threadIdx.x + blockDim.x * blockIdx.x;
+  int elementId = threadIdx.x + blockDim.x * blockIdx.x;
   if (elementId < nSamples) {
     T gt           = groundTruth[elementId];
     T pd           = predicted[elementId];
@@ -89,7 +92,7 @@ __global__ void devConstructContingencyMatrixSmem(const T* groundTruth,
     raft::myAtomicAdd(sMemMatrix + outputIdx, OutT(1));
   }
   __syncthreads();
-  for (auto smemIdx = threadIdx.x; smemIdx < outMatWidth * outMatWidth; smemIdx += blockDim.x) {
+  for (int smemIdx = threadIdx.x; smemIdx < outMatWidth * outMatWidth; smemIdx += blockDim.x) {
     raft::myAtomicAdd(outMat + smemIdx, sMemMatrix[smemIdx]);
   }
 }
@@ -158,9 +161,9 @@ ContingencyMatrixImplType getImplVersion(OutT outDimN)
   ContingencyMatrixImplType implVersion = IMPL_NONE;
   // keeping 8 block per SM to get good utilization
   // can go higher but reduced L1 size degrades perf
-  int upperLimitSmemAtomics =
+  OutT upperLimitSmemAtomics =
     std::floor(std::sqrt(maxSmemPerBlock / (sizeof(OutT) * (maxBlocksResidentPerSM / 2))));
-  int upperLimitL2Atomics = std::floor(std::sqrt(l2CacheSize / sizeof(OutT)));
+  OutT upperLimitL2Atomics = std::floor(std::sqrt(l2CacheSize / sizeof(OutT)));
   if (outDimN <= upperLimitSmemAtomics)
     implVersion = SMEM_ATOMICS;
   else if (outDimN <= upperLimitL2Atomics)
@@ -215,12 +218,12 @@ size_t getContingencyMatrixWorkspaceSize(int nSamples,
   auto outDimN                          = OutT(maxLabel - minLabel + 1);
   ContingencyMatrixImplType implVersion = getImplVersion<OutT>(outDimN);
   if (implVersion == SORT_AND_GATOMICS) {
-    void* pWorkspaceCub    = nullptr;
+    void* pWorkspaceCub{};
     size_t tmpStorageBytes = 0;
-    // bunch of no-op pointers to get workspace size
-    T *pTmpKey, *pTmpValue, *pTmpKeyOut, *pTmpValueOut;
+    // no-op pointers to get workspace size
+    T* pTmpUnused{};
     CUDA_CHECK(cub::DeviceRadixSort::SortPairs(
-      pWorkspaceCub, tmpStorageBytes, pTmpKey, pTmpValue, pTmpKeyOut, pTmpValueOut, nSamples));
+      pWorkspaceCub, tmpStorageBytes, pTmpUnused, pTmpUnused, pTmpUnused, pTmpUnused, nSamples));
     auto tmpStagingMemorySize = raft::alignTo<size_t>(nSamples * sizeof(T), 256);
     tmpStagingMemorySize *= 2;
     workspaceSize = tmpStagingMemorySize + tmpStorageBytes;
@@ -300,6 +303,7 @@ void contingencyMatrix(const T* groundTruth,
                                       workspaceSize,
                                       stream);
       break;
+    case IMPL_NONE: break;
   }
 }
 
