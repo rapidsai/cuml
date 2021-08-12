@@ -64,7 +64,7 @@ class NodeQueue {
   {
     std::vector<NodeWorkItem> result;
     result.reserve(std::min(size_t(params.max_batch_size), work_items_.size()));
-    while (work_items_.size() > 0 && result.size() < params.max_batch_size) {
+    while (work_items_.size() > 0 && result.size() < std::size_t(params.max_batch_size)) {
       result.emplace_back(work_items_.front());
       work_items_.pop_front();
     }
@@ -84,7 +84,7 @@ class NodeQueue {
   void Push(const std::vector<NodeWorkItem>& work_items, SplitT* h_splits)
   {
     // Update node queue based on splits
-    for (int i = 0; i < work_items.size(); i++) {
+    for (std::size_t i = 0; i < work_items.size(); i++) {
       auto split      = h_splits[i];
       auto item       = work_items[i];
       const auto node = tree_[item.idx];
@@ -328,7 +328,7 @@ struct Builder {
       0;  // large nodes are nodes having training instances larger than block size, hence require
           // global memory for histogram construction
     int total_num_blocks = 0;
-    for (int i = 0; i < work_items.size(); i++) {
+    for (std::size_t i = 0; i < work_items.size(); i++) {
       auto item      = work_items[i];
       int num_blocks = raft::ceildiv(item.row_count, size_t(TPB_DEFAULT));
       num_blocks     = std::max(1, num_blocks);
@@ -336,7 +336,8 @@ struct Builder {
       if (num_blocks > 1) ++n_large_nodes_in_curr_batch;
 
       for (int b = 0; b < num_blocks; b++) {
-        h_workload_info[total_num_blocks + b] = {i, n_large_nodes_in_curr_batch - 1, b, num_blocks};
+        h_workload_info[total_num_blocks + b] = {
+          int(i), n_large_nodes_in_curr_batch - 1, b, num_blocks};
       }
       total_num_blocks += num_blocks;
     }

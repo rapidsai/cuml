@@ -55,7 +55,7 @@ template <typename SplitT, typename DataT, typename IdxT>
 HDI bool SplitNotValid(const SplitT& split,
                        DataT min_impurity_decrease,
                        IdxT min_samples_leaf,
-                       size_t num_rows)
+                       IdxT num_rows)
 {
   return split.best_metric_val <= min_impurity_decrease || split.nLeft < min_samples_leaf ||
          (num_rows - split.nLeft) < min_samples_leaf;
@@ -131,7 +131,7 @@ __global__ void nodeSplitKernel(IdxT max_depth,
   extern __shared__ char smem[];
   const auto work_item = work_items[blockIdx.x];
   const auto split     = splits[blockIdx.x];
-  if (SplitNotValid(split, min_impurity_decrease, min_samples_leaf, work_item.row_count)) {
+  if (SplitNotValid(split, min_impurity_decrease, min_samples_leaf, IdxT(work_item.row_count))) {
     return;
   }
   partitionSamples<DataT, LabelT, IdxT, TPB>(input, split, work_item, (char*)smem);
