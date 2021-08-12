@@ -52,14 +52,14 @@ namespace tl = treelite;
 __host__ __device__ float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
 
 template <typename T>
-T* allocate(const raft::handle_t& h, size_t num_elem)
+T* allocate(const raft::handle_t& h, std::size_t num_elem)
 {
   if (num_elem == 0) return nullptr;
   return (T*)(h.get_device_allocator()->allocate(num_elem * sizeof(T), h.get_stream()));
 };
 
 template <typename T>
-void deallocate(const raft::handle_t& h, const T* ptr, size_t num_elem)
+void deallocate(const raft::handle_t& h, const T* ptr, std::size_t num_elem)
 {
   if (num_elem != 0 && ptr != nullptr)
     h.get_device_allocator()->deallocate((void*)ptr, num_elem * sizeof(T), h.get_stream());

@@ -315,7 +315,7 @@ struct categorical_sets {
   const uint8_t* bits = nullptr;
   // largest matching category in the model, per feature ID
   const int* max_matching = nullptr;
-  size_t bits_size = 0, max_matching_size = 0;
+  std::size_t bits_size = 0, max_matching_size = 0;
 
   __host__ __device__ __forceinline__ bool cats_supported() const
   {
@@ -391,21 +391,21 @@ struct cat_sets_owner {
   cat_sets_owner(const std::vector<cat_feature_counters>& cf)
   {
     max_matching.resize(cf.size());
-    size_t bits_size = 0;
+    std::size_t bits_size = 0;
     // feature ID
-    for (int fid = 0; fid < cf.size(); ++fid) {
+    for (std::size_t fid = 0; fid < cf.size(); ++fid) {
       RAFT_EXPECTS(cf[fid].max_matching >= -1,
-             "@fid %d: max_matching invalid (%d)",
+             "@fid %lu: max_matching invalid (%d)",
              fid,
              cf[fid].max_matching);
-      RAFT_EXPECTS(cf[fid].n_nodes >= 0, "@fid %d: n_nodes invalid (%d)", fid, cf[fid].n_nodes);
+      RAFT_EXPECTS(cf[fid].n_nodes >= 0, "@fid %lu: n_nodes invalid (%d)", fid, cf[fid].n_nodes);
 
       max_matching[fid] = cf[fid].max_matching;
       bits_size +=
         categorical_sets::sizeof_mask_from_max_matching(max_matching[fid]) * cf[fid].n_nodes;
 
       RAFT_EXPECTS(bits_size <= INT_MAX,
-             "@fid %d: cannot store %lu categories given `int` offsets",
+             "@fid %lu: cannot store %lu categories given `int` offsets",
              fid,
              bits_size);
     }

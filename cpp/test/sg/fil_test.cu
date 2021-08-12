@@ -141,7 +141,7 @@ __global__ void nan_kernel(float* data, const bool* mask, int len, float nan)
 float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
 
 void hard_clipped_bernoulli(
-  raft::random::Rng rng, float* d, size_t n_vals, float prob_of_zero, cudaStream_t stream)
+  raft::random::Rng rng, float* d, std::size_t n_vals, float prob_of_zero, cudaStream_t stream)
 {
   rng.uniform(d, n_vals, 0.0f, 1.0f, stream);
   thrust::transform(
@@ -162,9 +162,9 @@ struct replace_some_floating_with_categorical {
   }
 };
 
-__global__ void floats_to_bit_stream_k(uint8_t* dst, float* src, size_t size)
+__global__ void floats_to_bit_stream_k(uint8_t* dst, float* src, std::size_t size)
 {
-  size_t idx = size_t(blockIdx.x) * blockDim.x + threadIdx.x;
+  std::size_t idx = std::size_t(blockIdx.x) * blockDim.x + threadIdx.x;
   if (idx >= size) return;
   int byte = 0;
   _Pragma("unroll")
@@ -293,10 +293,10 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     // categorical features
     // count nodes for each feature id
     // in parallel, split the sets between nodes
-    size_t bit_pool_size = 0;
-    for (int node_id = 0; node_id < num_nodes; ++node_id) {
+    std::size_t bit_pool_size = 0;
+    for (std::size_t node_id = 0; node_id < num_nodes; ++node_id) {
       // mark nodes at max depth as leaves
-      if (node_id % tree_num_nodes() >= tree_num_nodes() / 2) is_leafs_h[node_id] = true;
+      if ((int)(node_id % tree_num_nodes()) >= tree_num_nodes() / 2) is_leafs_h[node_id] = true;
       int fid = fids_h[node_id];
       if (!feature_categorical[fid] || is_leafs_h[node_id]) is_categoricals_h[node_id] = 0.0f;
       if (is_categoricals_h[node_id] == 1.0) {
