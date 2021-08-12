@@ -469,8 +469,8 @@ def test_gaussian_parameters(priors, var_smoothing, nlp_20news):
 @pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
 def test_categorical(x_dtype, y_dtype, nlp_20news):
     X, y = nlp_20news
-    n_rows = 500
-    n_cols = 5000
+    n_rows = 2000
+    n_cols = 500
 
     X = sparse_scipy_to_cp(X, dtype=cp.float32)
     y = y.astype(y_dtype)
@@ -500,9 +500,9 @@ def test_categorical(x_dtype, y_dtype, nlp_20news):
 @pytest.mark.parametrize("y_dtype", [cp.int32,
                                      cp.float32, cp.float64])
 def test_categorical_partial_fit(x_dtype, y_dtype, nlp_20news):
-    n_rows = 500
-    n_cols = 5000
-    chunk_size = 100
+    n_rows = 5000
+    n_cols = 500
+    chunk_size = 1000
 
     X, y = nlp_20news
 
@@ -535,3 +535,41 @@ def test_categorical_partial_fit(x_dtype, y_dtype, nlp_20news):
 
     assert_allclose(model.class_count_.get(), modelsk.class_count_)
     assert_allclose(y_hat, y_sk)
+
+
+@pytest.mark.parametrize("class_prior", [None, 'balanced', 'unbalanced'])
+@pytest.mark.parametrize("alpha", [0.1, 0.5, 1.5])
+@pytest.mark.parametrize("fit_prior", [False, True])
+def test_categorical_parameters(class_prior, alpha, fit_prior, nlp_20news):
+    x_dtype = cp.float32
+    y_dtype = cp.int32
+    nrows = 2000
+    ncols = 500
+
+    X, y = nlp_20news
+
+    X = sparse_scipy_to_cp(X[:nrows, ncols], x_dtype).todense()
+    y = y.astype(y_dtype)[:nrows]
+
+    if class_prior == 'balanced':
+        class_prior = np.array([1/20] * 20)
+    elif class_prior == 'unbalanced':
+        class_prior = np.linspace(0.01, 0.09, 20)
+
+    model = CategoricalNB(class_prior=class_prior,
+                          alpha=alpha,
+                          fit_prior=fit_prior)
+    model_sk = skCNB(class_prior=class_prior,
+                     alpha=alpha,
+                     fit_prior=fit_prior)
+    model.fit(X, y)
+    y_hat = model.predict(X).get()
+    y_log_prob = model.predict_log_proba(X).get()
+
+    X = X.get()
+    model_sk.fit(X, y.get())
+    y_hat_sk = model_sk.predict(X)
+    y_log_prob_sk = model_sk.predict_log_proba(X)
+
+    assert_allclose(y_log_prob, y_log_prob_sk, rtol=1e-4)
+    assert_array_equal(y_hat, y_hat_sk)

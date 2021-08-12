@@ -1355,6 +1355,7 @@ class CategoricalNB(_BaseDiscreteNB):
             Target values.
         sample_weight : array-like of shape (n_samples), default=None
             Weights applied to individual samples (1. for unweighted).
+            Currently sample weight is ignored.
         Returns
         -------
         self : object
