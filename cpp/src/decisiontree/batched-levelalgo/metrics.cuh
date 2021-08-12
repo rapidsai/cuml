@@ -269,11 +269,12 @@ class PoissonObjectiveFunction {
         gain = -std::numeric_limits<DataT>::max();
       } else {
         auto label_mean         = shist[nbins - 1].label_sum / len;
-        auto left_label_mean   = -(shist[i].label_sum) / nLeft;
-        auto right_label_mean  = -(shist[nbins - 1].label_sum - shist[i].label_sum) / nRight;
+        auto left_label_mean   = (shist[i].label_sum) / nLeft;
+        auto right_label_mean  = (shist[nbins - 1].label_sum - shist[i].label_sum) / nRight;
         // poisson loss does not allow non-positive predictions
-        if(label_mean <= std::numeric_limits<DataT>::epsilon() || left_label_mean <= std::numeric_limits<DataT>::epsilon() || right_label_mean <= std::numeric_limits<DataT>::epsilon()) {
-          // used to prevent errors due to floating point roundings
+        // used to prevent errors due to floating point roundings
+        constexpr DataT EPS = 10 * std::numeric_limits<DataT>::epsilon();
+        if(label_mean < EPS || left_label_mean < EPS || right_label_mean < EPS) {
           gain = -std::numeric_limits<DataT>::max();
         }
         else {
