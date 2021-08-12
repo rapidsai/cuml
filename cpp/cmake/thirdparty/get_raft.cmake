@@ -26,7 +26,7 @@ function(find_and_configure_raft)
       INSTALL_EXPORT_SET  cuml-exports
         CPM_ARGS
             GIT_REPOSITORY https://github.com/mdoijade/raft.git
-            GIT_TAG         additionalDistPrims
+            GIT_TAG        additionalDistPrims
             SOURCE_SUBDIR  cpp
             OPTIONS
               "BUILD_TESTS OFF"
