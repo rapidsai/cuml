@@ -84,6 +84,7 @@ def count_classes_kernel(float_dtype, int_dtype):
     return cuda_kernel_factory(kernel_str, (float_dtype, int_dtype),
                                "count_classes")
 
+
 def count_features_categorical_kernel(float_dtype, int_dtype):
     kernel_str = r'''
     ({0} *out, int n_rows, int n_classes,
@@ -99,6 +100,7 @@ def count_features_categorical_kernel(float_dtype, int_dtype):
 
     return cuda_kernel_factory(kernel_str, (float_dtype, int_dtype),
                                "count_classes")
+
 
 def count_features_dense_kernel(float_dtype, int_dtype):
 
@@ -763,10 +765,10 @@ class _BaseDiscreteNB(_BaseNB):
                                 check_dtype=expected_y_dtype).array
         if _classes is not None:
             _classes, *_ = input_to_cuml_array(_classes, order='K',
-                                                convert_to_dtype=(
-                                                    expected_y_dtype
-                                                    if convert_dtype
-                                                    else False))
+                                               convert_to_dtype=(
+                                                   expected_y_dtype
+                                                   if convert_dtype
+                                                   else False))
         Y, label_classes = make_monotonic(y, classes=_classes, copy=True)
 
         X, Y = self._check_X_y(X, Y)
@@ -1301,10 +1303,10 @@ class CategoricalNB(_BaseDiscreteNB):
             See :ref:`output-data-type-configuration` for more info.
         handle : cuml.Handle
             Specifies the cuml.handle that holds internal CUDA state for
-            computations in this model. Most importantly, this specifies the CUDA
-            stream that will be used for the model's computations, so users can
-            run different models concurrently in different streams by creating
-            handles in several streams.
+            computations in this model. Most importantly, this specifies the
+            CUDA stream that will be used for the model's computations, so
+            users can run different models concurrently in different streams
+            by creating handles in several streams.
             If it is None, a new one is created.
         verbose : int or boolean, default=False
             Sets logging level. It must be one of `cuml.common.logger.level_*`.
@@ -1325,7 +1327,7 @@ class CategoricalNB(_BaseDiscreteNB):
                                     convert_to_dtype=cp.int32).array
         x_min = X.min()
         if x_min < 0:
-            raise ValueError("Negative values in data passed to Categorical NB")
+            raise ValueError("Negative values in data passed to CategoricalNB")
         return X, y
 
     def _check_X(self, X):
@@ -1336,7 +1338,7 @@ class CategoricalNB(_BaseDiscreteNB):
                                     convert_to_dtype=cp.int32).array
         x_min = X.min()
         if x_min < 0:
-            raise ValueError("Negative values in data passed to Categorical NB")
+            raise ValueError("Negative values in data passed to CategoricalNB")
         return X
 
     def fit(self, X, y, sample_weight=None) -> "CategoricalNB":
@@ -1429,9 +1431,7 @@ class CategoricalNB(_BaseDiscreteNB):
             count_features = count_features_categorical_kernel(X_feature.dtype,
                                                                Y.dtype)
             count_features((math.ceil(n_rows / tpb),), (tpb,),
-                          (counts, n_rows,
-                           n_classes,
-                           X_feature, Y))
+                           (counts, n_rows, n_classes, X_feature, Y))
             self.category_count_[i] += counts
 
     def _init_counters(self, n_effective_classes, n_features, dtype):

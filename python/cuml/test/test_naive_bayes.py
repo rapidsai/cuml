@@ -24,7 +24,6 @@ from cuml.naive_bayes import BernoulliNB
 from cuml.naive_bayes import CategoricalNB
 from cuml.naive_bayes import GaussianNB
 from cuml.common.input_utils import sparse_scipy_to_cp
-from cuml.datasets import make_classification
 
 from numpy.testing import assert_allclose, assert_array_equal
 from numpy.testing import assert_array_almost_equal, assert_raises
@@ -319,6 +318,7 @@ def test_bernoulli_partial_fit(x_dtype, y_dtype, nlp_20news):
 
     assert_allclose(y_hat, y_sk)
 
+
 def test_gaussian_basic():
     # Data is just 6 separable points in the plane
     X = cp.array([[-2, -1, -1], [-1, -1, -1], [-1, -2, -1],
@@ -491,7 +491,8 @@ def test_categorical(x_dtype, y_dtype, nlp_20news):
     THRES = 1e-3
 
     assert_array_equal(sk_model.class_count_, cuml_model.class_count_.get())
-    assert_allclose(sk_model.class_log_prior_, cuml_model.class_log_prior_.get(), 1e-6)
+    assert_allclose(sk_model.class_log_prior_,
+                    cuml_model.class_log_prior_.get(), 1e-6)
     assert_allclose(cuml_proba, sk_proba, atol=1e-2, rtol=1e-2)
     assert sk_score - THRES <= cuml_score <= sk_score + THRES
 
@@ -506,7 +507,8 @@ def test_categorical_partial_fit(x_dtype, y_dtype, nlp_20news):
 
     X, y = nlp_20news
 
-    X = sparse_scipy_to_cp(X, 'float32').todense()[:n_rows, :n_cols].astype(x_dtype)
+    X = sparse_scipy_to_cp(X, 'float32').todense()
+    X = X[:n_rows, :n_cols].astype(x_dtype)
     y = y.astype(y_dtype)[:n_rows]
 
     model = CategoricalNB()
