@@ -14,23 +14,29 @@
  * limitations under the License.
  */
 
+#include <test_utils.h>
+
 #include <decisiontree/treelite_util.h>
-#include <gtest/gtest.h>
+#include <decisiontree/decisiontree.cuh>
+
+#include <cuml/ensemble/randomforest.hpp>
+
 #include <raft/cudart_utils.h>
 #include <raft/linalg/gemv.h>
 #include <raft/linalg/transpose.h>
-#include <sys/stat.h>
-#include <test_utils.h>
+#include <raft/cuda_utils.cuh>
+#include <raft/random/rng.cuh>
+
 #include <treelite/c_api.h>
 #include <treelite/c_api_runtime.h>
+
+#include <gtest/gtest.h>
+
+#include <sys/stat.h>
 #include <cstdlib>
-#include <cuml/ensemble/randomforest.hpp>
-#include <decisiontree/decisiontree.cuh>
 #include <fstream>
 #include <iostream>
 #include <limits>
-#include <raft/cuda_utils.cuh>
-#include <raft/random/rng.cuh>
 #include <string>
 
 namespace ML {
@@ -159,7 +165,7 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
             params.n_inference_rows,
             params.n_cols,
             predicted_labels_d);
-    RF_metrics tmp = score(*handle, forest, labels_d, params.n_inference_rows, predicted_labels_d);
+    score(*handle, forest, labels_d, params.n_inference_rows, predicted_labels_d);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 

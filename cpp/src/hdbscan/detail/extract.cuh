@@ -16,25 +16,22 @@
 
 #pragma once
 
-#include <label/classlabels.cuh>
-
-#include <cub/cub.cuh>
-
-#include <raft/cudart_utils.h>
-
 #include "membership.cuh"
 #include "select.cuh"
 #include "stabilities.cuh"
 #include "utils.h"
 
-#include <raft/sparse/op/sort.h>
-#include <raft/sparse/convert/csr.cuh>
+#include <label/classlabels.cuh>
 
 #include <cuml/cluster/hdbscan.hpp>
 
+#include <raft/cudart_utils.h>
+#include <raft/sparse/op/sort.h>
 #include <raft/label/classlabels.cuh>
+#include <raft/sparse/convert/csr.cuh>
 
-#include <algorithm>
+#include <rmm/device_uvector.hpp>
+#include <rmm/exec_policy.hpp>
 
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
@@ -42,8 +39,10 @@
 #include <thrust/sort.h>
 #include <thrust/transform.h>
 
-#include <rmm/device_uvector.hpp>
-#include <rmm/exec_policy.hpp>
+#include <cub/cub.cuh>
+
+#include <algorithm>
+#include <cstddef>
 
 namespace ML {
 namespace HDBSCAN {
@@ -234,7 +233,7 @@ value_idx extract_clusters(const raft::handle_t& handle,
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   std::set<value_idx> clusters;
-  for (int i = 0; i < is_cluster_h.size(); i++) {
+  for (std::size_t i = 0; i < is_cluster_h.size(); i++) {
     if (is_cluster_h[i] != 0) { clusters.insert(i + n_leaves); }
   }
 

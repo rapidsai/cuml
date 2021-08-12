@@ -25,10 +25,9 @@
  *  - BIC: https://en.wikipedia.org/wiki/Bayesian_information_criterion
  */
 
-#include <cuda_runtime.h>
-#include <cmath>
-
 #include <raft/linalg/unary_op.cuh>
+
+#include <cmath>
 
 namespace MLCommon {
 namespace Metrics {
@@ -62,7 +61,7 @@ void information_criterion(ScalarT* d_ic,
                            IdxT n_samples,
                            cudaStream_t stream)
 {
-  ScalarT ic_base;
+  ScalarT ic_base{};
   ScalarT N = static_cast<ScalarT>(n_params);
   ScalarT T = static_cast<ScalarT>(n_samples);
   switch (ic_type) {

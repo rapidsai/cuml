@@ -16,14 +16,16 @@
 
 #pragma once
 
-#include <thrust/device_ptr.h>
-#include <thrust/scan.h>
-#include <common/allocatorAdapter.hpp>
-#include <raft/cuda_utils.cuh>
 #include "../common.cuh"
 #include "pack.h"
 
+#include <common/allocatorAdapter.hpp>
+
+#include <raft/cuda_utils.cuh>
 #include <raft/sparse/convert/csr.cuh>
+
+#include <thrust/device_ptr.h>
+#include <thrust/scan.h>
 
 using namespace thrust;
 
@@ -31,8 +33,6 @@ namespace ML {
 namespace Dbscan {
 namespace AdjGraph {
 namespace Algo {
-
-using namespace MLCommon;
 
 static const int TPB_X = 256;
 
