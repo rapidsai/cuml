@@ -833,7 +833,7 @@ __noinline__ conversion_state<fil_node_t> tl2fil_branch_node(int fil_left_child,
       split.idx = *bit_pool_size;
       *bit_pool_size += sizeof_mask;
     }
-    printf("fid %d idx %d sizeof_mask %lu max_matching %d\n",
+    printf("fid %d idx %d sizeof_mask %d max_matching %d\n",
            feature_id,
            split.idx,
            sizeof_mask,
@@ -845,9 +845,8 @@ __noinline__ conversion_state<fil_node_t> tl2fil_branch_node(int fil_left_child,
     // date
     for (int which_8cats = 0; which_8cats < sizeof_mask; ++which_8cats) {
       uint8_t _8cats = 0;
-      _Pragma("unroll")
       for (int bit = 0; bit < 8; ++bit) {
-        if (category_it < matching_cats.end() && *category_it == which_8cats * 8 + bit) {
+        if (category_it < matching_cats.end() && *category_it == (uint32_t)(which_8cats * 8 + bit)) {
           _8cats |= 1 << bit;
           ++category_it;
         }

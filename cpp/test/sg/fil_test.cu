@@ -189,7 +189,6 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     CUDA_CHECK(cudaFree(data_d));
     CUDA_CHECK(cudaFree(want_proba_d));
     CUDA_CHECK(cudaFree(proba_d));
-    cat_branches_h.host_deallocate();
   }
 
   void generate_forest()
@@ -314,8 +313,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
       raft::update_host(cat_sets_h.bits.data(), bits_d, cat_sets_h.bits.size(), stream);
     }
     printf("generated:\n");
-    // cat_branches_h.print_bits();
-    cat_branches_h.print_max_matching();
+    // cat_sets_h.print_bits();
+    cat_sets_h.print_max_matching();
 
     // initialize nodes
     nodes.resize(num_nodes);
@@ -419,17 +418,14 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   void predict_on_cpu()
   {
     printf("predicting:\n");
-    // cat_branches_h.print_bits();
-    cat_branches_h.print_max_matching();
+    // cat_sets_h.print_bits();
+    cat_sets_h.print_max_matching();
     // predict on host
     std::vector<float> want_preds_h(ps.num_preds_outputs());
     want_proba_h.resize(ps.num_proba_outputs());
     int num_nodes = tree_num_nodes();
-    auto infer    = [&](int root, int row) {
-      return infer_one_tree(&nodes[root * num_nodes], &data_h[row * ps.num_cols], cat_branches_h);
-    };
     std::vector<float> class_scores(ps.num_classes);
-    tree_base base{(categorical_sets)cat_sets_h};
+    tree_base base{cat_sets_h.accessor()};
     switch (ps.leaf_algo) {
       case fil::leaf_algo_t::FLOAT_UNARY_BINARY:
         for (int i = 0; i < ps.num_rows; ++i) {
@@ -757,9 +753,9 @@ class TreeliteFilTest : public BaseFilTest {
       float threshold;
       if (dense_node.is_categorical()) {
         uint8_t byte = 0;
-        for (int category = 0; category <= cat_branches_h.max_matching[dense_node.fid()];
+        for (int category = 0; category <= cat_sets_h.max_matching[dense_node.fid()];
              ++category) {
-          if (category % 8 == 0) byte = cat_branches_h.bits[dense_node.set() + category / 8];
+          if (category % 8 == 0) byte = cat_sets_h.bits[dense_node.set() + category / 8];
           if (byte & 1 << category % 8 != 0) left_categories.push_back(category);
         }
       } else {
