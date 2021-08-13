@@ -155,7 +155,7 @@ struct alignas(16) sparse_node16 : base_node {
   int left_idx;
   int dummy;  // make alignment explicit and reserve for future use
   __host__ __device__ sparse_node16() : left_idx(0), dummy(0) {}
-  __noinline__ sparse_node16(val_t output,
+  sparse_node16(val_t output,
                              val_t split,
                              int fid,
                              bool def_left,
