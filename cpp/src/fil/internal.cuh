@@ -20,6 +20,8 @@
 #include <cuml/fil/fil.h>
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
+#include <raft/cuda_utils.cuh>
+#include <raft/error.hpp>
 #include <vector>
 
 namespace raft {
@@ -28,6 +30,8 @@ class handle_t;
 
 namespace ML {
 namespace fil {
+
+const int BITS_PER_BYTE = 8;
 
 /// modpow2 returns a % b == a % pow(2, log2_b)
 __host__ __device__ __forceinline__ int modpow2(int a, int log2_b)
@@ -103,7 +107,7 @@ struct base_node {
   int bits;
   static const int IS_LEAF_OFFSET        = 31;
   static const int IS_LEAF_MASK          = 1 << IS_LEAF_OFFSET;
-  static const int DEF_LEFT_OFFSET       = 30;
+  static const int DEF_LEFT_OFFSET       = IS_LEAF_OFFSET - 1;
   static const int DEF_LEFT_MASK         = 1 << DEF_LEFT_OFFSET;
   static const int IS_CATEGORICAL_OFFSET = DEF_LEFT_OFFSET - 1;
   static const int IS_CATEGORICAL_MASK   = 1 << IS_CATEGORICAL_OFFSET;
@@ -117,10 +121,10 @@ struct base_node {
   __host__ __device__ bool def_left() const { return bits & DEF_LEFT_MASK; }
   __host__ __device__ bool is_leaf() const { return bits & IS_LEAF_MASK; }
   __host__ __device__ bool is_categorical() const { return bits & IS_CATEGORICAL_MASK; }
-  __host__ __device__ base_node() : val({.f = 0}), bits(0) {}
+  __host__ __device__ base_node() : val{}, bits(0) {}
   base_node(val_t output, val_t split, int fid, bool def_left, bool is_leaf, bool is_categorical)
   {
-    ASSERT((fid & FID_MASK) == fid, "internal error: feature ID doesn't fit into base_node");
+    RAFT_EXPECTS((fid & FID_MASK) == fid, "internal error: feature ID doesn't fit into base_node");
     bits = (fid & FID_MASK) | (def_left ? DEF_LEFT_MASK : 0) | (is_leaf ? IS_LEAF_MASK : 0) |
            (is_categorical ? IS_CATEGORICAL_MASK : 0);
     if (is_leaf)
@@ -141,8 +145,7 @@ struct base_node {
            set(),
            lr[def_left()],
            is[is_leaf()],
-           is[is_categorical()]
-           );
+           is[is_categorical()]);
   }
 };
 
@@ -181,13 +184,13 @@ struct alignas(16) sparse_node16 : base_node {
   int left_idx;
   int dummy;  // make alignment explicit and reserve for future use
   __host__ __device__ sparse_node16() : left_idx(0), dummy(0) {}
-  __noinline__ sparse_node16(val_t output,
-                             val_t split,
-                             int fid,
-                             bool def_left,
-                             bool is_leaf,
-                             bool is_categorical,
-                             int left_index)
+  sparse_node16(val_t output,
+                val_t split,
+                int fid,
+                bool def_left,
+                bool is_leaf,
+                bool is_categorical,
+                int left_index)
     : base_node(output, split, fid, def_left, is_leaf, is_categorical),
       left_idx(left_index),
       dummy(0)
@@ -219,9 +222,10 @@ struct alignas(8) sparse_node8 : base_node {
     : base_node(output, split, fid, def_left, is_leaf, is_categorical)
   {
     bits |= left_index << LEFT_OFFSET;
-    ASSERT((fid & FID_MASK) == fid, "internal error: feature ID doesn't fit into sparse_node8");
-    ASSERT(((left_index << LEFT_OFFSET) & LEFT_MASK) == (left_index << LEFT_OFFSET),
-           "internal error: left child index doesn't fit into sparse_node8");
+    RAFT_EXPECTS((fid & FID_MASK) == fid,
+                 "internal error: feature ID doesn't fit into sparse_node8");
+    RAFT_EXPECTS(((left_index << LEFT_OFFSET) & LEFT_MASK) == (left_index << LEFT_OFFSET),
+                 "internal error: left child index doesn't fit into sparse_node8");
   }
   /** index of the left child, where curr is the index of the current node */
   __host__ __device__ int left(int curr) const { return left_index(); }
@@ -334,29 +338,24 @@ const int FIL_TPB = 256;
 
 const uint32_t max_precise_int_float = 1 << 24;  // 16'777'216
 
-__host__ __device__ __forceinline__ bool fetch_bit(const uint8_t* array, int bit)
+__host__ __device__ __forceinline__ int fetch_bit(const uint8_t* array, int bit)
 {
-  const int bits_per_byte = 8;
-  return array[bit / bits_per_byte] & (1 << bit % bits_per_byte);
+  return array[bit / BITS_PER_BYTE] >> (bit % BITS_PER_BYTE) & 1;
 }
 
 struct cat_feature_counters {
   int max_matching = -1, n_nodes = 0;
-  void reduce_with(cat_feature_counters b)
-  {
-    max_matching = std::max(max_matching, b.max_matching);
-    n_nodes += b.n_nodes;
-  }
 };
+
 struct categorical_sets {
   // arrays are const to use fast GPU read instructions by default
   // arrays from each node ID are concatenated first, then from all categories
   const uint8_t* bits = nullptr;
   // largest matching category in the model, per feature ID
   const int* max_matching = nullptr;
-  size_t bits_size = 0, max_matching_size = 0;
+  std::size_t bits_size = 0, max_matching_size = 0;
 
-  __host__ __device__ __forceinline__ bool branch_can_be_categorical() const
+  __host__ __device__ __forceinline__ bool cats_supported() const
   {
     // If this is constructed from cat_sets_owner, will return true
     // default-initialized will return false
@@ -369,7 +368,7 @@ struct categorical_sets {
   }
 
   // set count is due to tree_idx + node_within_tree_idx are both ints, hence uint32_t result
-  template <bool branch_can_be_categorical, typename node_t>
+  template <typename node_t>
   __host__ __device__ __forceinline__ int category_matches(node_t node, int category) const
   {
     // standard boolean packing. This layout has better ILP
@@ -387,7 +386,7 @@ struct categorical_sets {
   }
   static int sizeof_mask_from_max_matching(int max_matching)
   {
-    return raft::ceildiv(max_matching + 1, 8);
+    return raft::ceildiv(max_matching + 1, BITS_PER_BYTE);
   }
   int sizeof_mask(int feature_id) const
   {
@@ -395,8 +394,10 @@ struct categorical_sets {
   }
 };
 
-struct tree_base : categorical_sets {
-  template <bool branch_can_be_categorical, typename node_t>
+struct tree_base {
+  categorical_sets sets;
+
+  template <bool CATS_SUPPORTED, typename node_t>
   __host__ __device__ __forceinline__ int get_child(const node_t& node,
                                                     int node_idx,
                                                     float val) const
@@ -406,11 +407,10 @@ struct tree_base : categorical_sets {
     if (isnan(val)) {
       cond = !node.def_left();
       printf("idx %d val is nan, taking %s\n", node_idx, lr[cond]);
+    } else if (CATS_SUPPORTED && node.is_categorical()) {
+      cond = sets.category_matches(node, (int)val);
     } else {
-      if (branch_can_be_categorical && node.is_categorical())
-        cond = category_matches<branch_can_be_categorical>(node, (int)val);
-      else
-        cond = val >= node.thresh();
+      cond = val >= node.thresh();
       printf("idx %d %f >= %f taking %s\n", node_idx, val, node.thresh(), lr[cond]);
     }
     return node.left(node_idx) + cond;
@@ -419,7 +419,9 @@ struct tree_base : categorical_sets {
 
 // in internal.cuh, as opposed to fil_test.cu, because importing from treelite will require it
 struct cat_sets_owner {
+  // arrays from each node ID are concatenated first, then from all categories
   std::vector<uint8_t> bits;
+  // largest matching category in the model, per feature ID
   std::vector<int> max_matching;
 
   operator categorical_sets() const
@@ -432,26 +434,26 @@ struct cat_sets_owner {
     };
   }
   cat_sets_owner() {}
-  cat_sets_owner(std::vector<cat_feature_counters> cf)
+  cat_sets_owner(const std::vector<cat_feature_counters>& cf)
   {
     max_matching.resize(cf.size());
-    size_t bits_size = 0;
+    std::size_t bits_size = 0;
     // feature ID
-    for (int fid = 0; fid < cf.size(); ++fid) {
-      ASSERT(cf[fid].max_matching >= -1,
-             "@fid %d: max_matching invalid (%d)",
-             fid,
-             cf[fid].max_matching);
-      ASSERT(cf[fid].n_nodes >= 0, "@fid %d: n_nodes invalid (%d)", fid, cf[fid].n_nodes);
+    for (std::size_t fid = 0; fid < cf.size(); ++fid) {
+      RAFT_EXPECTS(cf[fid].max_matching >= -1,
+                   "@fid %lu: max_matching invalid (%d)",
+                   fid,
+                   cf[fid].max_matching);
+      RAFT_EXPECTS(cf[fid].n_nodes >= 0, "@fid %lu: n_nodes invalid (%d)", fid, cf[fid].n_nodes);
 
       max_matching[fid] = cf[fid].max_matching;
       bits_size +=
         categorical_sets::sizeof_mask_from_max_matching(max_matching[fid]) * cf[fid].n_nodes;
 
-      ASSERT(bits_size <= INT_MAX,
-             "@fid %d: cannot store %lu categories given `int` offsets",
-             fid,
-             bits_size);
+      RAFT_EXPECTS(bits_size <= INT_MAX,
+                   "@fid %lu: cannot store %lu categories given `int` offsets",
+                   fid,
+                   bits_size);
     }
     bits.resize(bits_size);
   }

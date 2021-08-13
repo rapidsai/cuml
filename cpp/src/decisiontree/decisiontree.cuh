@@ -15,32 +15,37 @@
  */
 
 #pragma once
-#include <common/Timer.h>
-#include <cuml/tree/algo_helper.h>
-#include <cuml/tree/flatnode.h>
-#include <raft/cudart_utils.h>
-#include <treelite/c_api.h>
-#include <treelite/tree.h>
-#include <algorithm>
-#include <climits>
-#include <common/iota.cuh>
-#include <cuml/common/logger.hpp>
-#include <cuml/tree/decisiontree.hpp>
-#include <iomanip>
-#include <locale>
-#include <map>
-#include <numeric>
-#include <raft/handle.hpp>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/host/allocator.hpp>
-#include <random>
-#include <type_traits>
-#include <vector>
+
 #include "batched-levelalgo/builder.cuh"
 #include "quantile/quantile.h"
 #include "treelite_util.h"
 
+#include <cuml/tree/algo_helper.h>
+#include <cuml/tree/flatnode.h>
+#include <cuml/common/logger.hpp>
+#include <cuml/tree/decisiontree.hpp>
+
+#include <common/Timer.h>
+#include <common/iota.cuh>
 #include <common/nvtx.hpp>
+
+#include <raft/cudart_utils.h>
+#include <raft/handle.hpp>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/host/allocator.hpp>
+
+#include <treelite/c_api.h>
+#include <treelite/tree.h>
+
+#include <algorithm>
+#include <climits>
+#include <iomanip>
+#include <locale>
+#include <map>
+#include <numeric>
+#include <random>
+#include <type_traits>
+#include <vector>
 
 /** check for treelite runtime API errors and assert accordingly */
 #define TREELITE_CHECK(call)                                                                     \
@@ -65,21 +70,6 @@ inline bool is_dev_ptr(const void* p)
     err = cudaGetLastError();
     return false;
   }
-}
-
-template <class T, class L>
-void print(const SparseTreeNode<T, L>& node, std::ostream& os)
-{
-  if (node.colid == -1) {
-    os << "(leaf, "
-       << "prediction: " << node.prediction << ", best_metric_val: " << node.best_metric_val
-       << ", UID: " << node.unique_id << ")";
-  } else {
-    os << "("
-       << "colid: " << node.colid << ", quesval: " << node.quesval
-       << ", best_metric_val: " << node.best_metric_val << ", UID: " << node.unique_id << ")";
-  }
-  return;
 }
 
 template <class T, class L>
@@ -161,7 +151,14 @@ std::string get_node_json(const std::string& prefix,
 template <typename T, typename L>
 std::ostream& operator<<(std::ostream& os, const SparseTreeNode<T, L>& node)
 {
-  DT::print(node, os);
+  if (node.colid == -1) {
+    os << "(leaf, "
+       << "prediction: " << node.prediction << ", best_metric_val: " << node.best_metric_val << ")";
+  } else {
+    os << "("
+       << "colid: " << node.colid << ", quesval: " << node.quesval
+       << ", best_metric_val: " << node.best_metric_val << ")";
+  }
   return os;
 }
 
@@ -306,8 +303,7 @@ class DecisionTree {
     n_unique_labels    = unique_labels;
     this->prepare_time = this->prepare_fit_timer.getElapsedMilliseconds();
     prepare_fit_timer.reset();
-    grow_tree(handle.get_device_allocator(),
-              handle.get_host_allocator(),
+    grow_tree(handle,
               data,
               tree->treeid,
               seed,
@@ -319,7 +315,6 @@ class DecisionTree {
               n_sampled_rows,
               unique_labels,
               tree_params,
-              handle.get_stream(),
               tree->sparsetree,
               this->leaf_counter,
               this->depth_counter);

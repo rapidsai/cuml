@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include <raft/cuda_utils.cuh>
+
 #include <faiss/gpu/utils/Limits.cuh>
 #include <faiss/gpu/utils/Select.cuh>
 

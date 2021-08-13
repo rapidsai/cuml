@@ -14,21 +14,29 @@
  * limitations under the License.
  */
 
-#include <cuml/tree/algo_helper.h>
-#include <decisiontree/quantile/quantile.h>
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
-#include <raft/linalg/transpose.h>
 #include <test_utils.h>
-#include <thrust/device_vector.h>
-#include <thrust/host_vector.h>
+
+#include <decisiontree/quantile/quantile.h>
+#include <decisiontree/batched-levelalgo/kernels.cuh>
+
+#include <cuml/tree/algo_helper.h>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/ensemble/randomforest.hpp>
-#include <decisiontree/batched-levelalgo/kernels.cuh>
-#include <memory>
+
+#include <random/make_blobs.cuh>
+
+#include <raft/cudart_utils.h>
+#include <raft/linalg/transpose.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
-#include <random/make_blobs.cuh>
+
+#include <thrust/device_vector.h>
+#include <thrust/host_vector.h>
+
+#include <gtest/gtest.h>
+
+#include <cstddef>
+#include <memory>
 #include <random>
 #include <tuple>
 
@@ -81,7 +89,7 @@ std::vector<ParamT> SampleParameters(int num_samples, size_t seed, Args... args)
   std::default_random_engine gen(seed);
   AddParameters<0>(gen, tuple_sample, args...);
   std::vector<ParamT> sample(num_samples);
-  for (size_t i = 0; i < num_samples; i++) {
+  for (int i = 0; i < num_samples; i++) {
     sample[i] = make_struct<ParamT>(tuple_sample[i]);
   }
   return sample;
@@ -242,6 +250,8 @@ class RfSpecialisedTest {
   void TestAccuracyImprovement()
   {
     if (params.max_depth <= 1) { return; }
+    // avereraging between models can introduce variance
+    if (params.n_trees > 1) { return; }
     // accuracy is not guaranteed to improve with bootstrapping
     if (params.bootstrap) { return; }
     raft::handle_t handle(params.n_streams);
@@ -269,13 +279,36 @@ class RfSpecialisedTest {
   void TestTreeSize()
   {
     for (int i = 0u; i < forest->rf_params.n_trees; i++) {
-      EXPECT_LE(forest->trees[i].depth_counter, params.max_depth);
+      // Check we have actually built something, otherwise these tests can all pass when the tree
+      // algorithm produces only stumps
+      size_t effective_rows = params.n_rows * params.max_samples;
+      if (params.max_depth > 0 && params.min_impurity_decrease == 0 && effective_rows >= 100) {
+        EXPECT_GT(forest->trees[i].leaf_counter, 1);
+      }
+
+      // Check number of leaves is accurate
+      int num_leaves = 0;
+      for (auto n : forest->trees[i].sparsetree) {
+        num_leaves += n.IsLeaf();
+      }
+      EXPECT_EQ(num_leaves, forest->trees[i].leaf_counter);
       if (params.max_leaves > 0) { EXPECT_LE(forest->trees[i].leaf_counter, params.max_leaves); }
+
+      EXPECT_LE(forest->trees[i].depth_counter, params.max_depth);
       EXPECT_LE(forest->trees[i].leaf_counter,
                 raft::ceildiv(params.n_rows, params.min_samples_leaf));
     }
   }
+  void TestMinImpurity()
+  {
+    for (int i = 0u; i < forest->rf_params.n_trees; i++) {
+      for (auto n : forest->trees[i].sparsetree) {
+        if (!n.IsLeaf()) { EXPECT_GT(n.best_metric_val, params.min_impurity_decrease); }
+      }
+    }
+  }
   void TestDeterminism()
+
   {
     // Regression models use floating point atomics, so are not bitwise reproducible
     bool is_regression = params.split_criterion == MSE || params.split_criterion == MAE;
@@ -300,9 +333,9 @@ class RfSpecialisedTest {
   void Test()
   {
     TestAccuracyImprovement();
-    // Bugs
-    // TestDeterminism();
-    // TestTreeSize();
+    TestDeterminism();
+    TestMinImpurity();
+    TestTreeSize();
   }
 
   RF_metrics training_metrics;
@@ -339,19 +372,18 @@ class RfTest : public ::testing::TestWithParam<RfTestParams> {
 TEST_P(RfTest, PropertyBasedTest) {}
 
 // Parameter ranges to test
-std::vector<int> n_rows         = {10, 100, 1452};
-std::vector<int> n_cols         = {1, 5, 152, 1014};
-std::vector<int> n_trees        = {1, 5, 17};
-std::vector<float> max_features = {0.1f, 0.5f, 1.0f};
-std::vector<float> max_samples  = {0.1f, 0.5f, 1.0f};
-std::vector<int> max_depth      = {1, 10, 30};
-std::vector<int> max_leaves = {-1};  // Bug for max_leaves, non-determinism as threads compete to
-                                     // place their nodes inside this limit
-std::vector<bool> bootstrap = {false, true};
-std::vector<int> n_bins     = {2, 57, 128};  // Bug for n_bins > 128. Uses too much shared memory.
+std::vector<int> n_rows                  = {10, 100, 1452};
+std::vector<int> n_cols                  = {1, 5, 152, 1014};
+std::vector<int> n_trees                 = {1, 5, 17};
+std::vector<float> max_features          = {0.1f, 0.5f, 1.0f};
+std::vector<float> max_samples           = {0.1f, 0.5f, 1.0f};
+std::vector<int> max_depth               = {1, 10, 30};
+std::vector<int> max_leaves              = {-1, 16, 50};
+std::vector<bool> bootstrap              = {false, true};
+std::vector<int> n_bins                  = {2, 57, 128, 256};
 std::vector<int> min_samples_leaf        = {1, 10, 30};
 std::vector<int> min_samples_split       = {2, 10};
-std::vector<float> min_impurity_decrease = {0.0, 1.0f, 10.0f};
+std::vector<float> min_impurity_decrease = {0.0f, 1.0f, 10.0f};
 std::vector<int> n_streams               = {1, 2, 10};
 std::vector<CRITERION> split_criterion   = {CRITERION::MSE, CRITERION::GINI, CRITERION::ENTROPY};
 std::vector<int> seed                    = {0, 17};
@@ -381,7 +413,6 @@ INSTANTIATE_TEST_CASE_P(RfTests,
                                                                            seed,
                                                                            n_labels,
                                                                            double_precision)));
-
 struct QuantileTestParameters {
   int n_rows;
   int n_bins;
@@ -411,7 +442,7 @@ class RFQuantileBinsLowerBoundTest : public ::testing::TestWithParam<QuantileTes
                          nullptr);
     h_quantiles = quantiles;
     h_data      = data;
-    for (int i = 0; i < h_data.size(); ++i) {
+    for (std::size_t i = 0; i < h_data.size(); ++i) {
       auto d = h_data[i];
       // golden lower bound from thrust
       auto golden_lb = thrust::lower_bound(

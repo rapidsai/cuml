@@ -14,28 +14,34 @@
  * limitations under the License.
  */
 
+#include "../../src/fil/internal.cuh"
+
+#include <test_utils.h>
+
 #include <cuml/fil/fil.h>
-#include <gtest/gtest.h>
+
 #include <raft/cudart_utils.h>
 #include <test_utils.h>
 #include <thrust/execution_policy.h>
 #include <thrust/functional.h>
 #include <thrust/transform.h>
+#include <raft/cuda_utils.cuh>
+#include <raft/random/rng.cuh>
+
 #include <treelite/c_api.h>
 #include <treelite/frontend.h>
 #include <treelite/gtil.h>
 #include <treelite/tree.h>
+
+#include <gtest/gtest.h>
+
 #include <cmath>
 #include <cstdio>
 #include <limits>
 #include <memory>
 #include <numeric>
 #include <ostream>
-#include <raft/cuda_utils.cuh>
-#include <raft/random/rng.cuh>
 #include <utility>
-
-#include "../../src/fil/internal.cuh"
 
 #define TL_CPP_CHECK(call) ASSERT(int(call) >= 0, "treelite call error")
 
@@ -57,7 +63,8 @@ struct FilTestParams {
   // below, categorical nodes means categorical branch nodes
   // probability that a node is categorical (given that its feature is categorical)
   float node_categorical_prob = atof(getenv("node_categorical_prob"));
-  // probability that a feature is categorical (given that the node is also categorical)
+  // probability that a feature is categorical (pertains to data generation, can
+  // still be interpreted as numerical by a node)
   float feature_categorical_prob = atof(getenv("feature_categorical_prob"));
   // during model creation, how often categories < max_matching are marked as matching?
   float cat_match_prob = atof(getenv("cat_match_prob"));
@@ -124,7 +131,7 @@ __global__ void nan_kernel(float* data, const bool* mask, int len, float nan)
 float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
 
 void hard_clipped_bernoulli(
-  raft::random::Rng rng, float* d, size_t n_vals, float prob_of_zero, cudaStream_t stream)
+  raft::random::Rng rng, float* d, std::size_t n_vals, float prob_of_zero, cudaStream_t stream)
 {
   rng.uniform(d, n_vals, 0.0f, 1.0f, stream);
   thrust::transform(
@@ -145,14 +152,12 @@ struct replace_some_floating_with_categorical {
   }
 };
 
-__global__ void compress_bit_stream(uint8_t* dst, float* src, size_t size)
+__global__ void floats_to_bit_stream_k(uint8_t* dst, float* src, std::size_t size)
 {
-  size_t idx = size_t(blockIdx.x) * blockDim.x + threadIdx.x;
+  std::size_t idx = std::size_t(blockIdx.x) * blockDim.x + threadIdx.x;
   if (idx >= size) return;
   int byte = 0;
-#pragma unroll
-  for (int i = 0; i < 8; ++i)
-    byte |= (int)src[idx * 8 + i] << i;
+  _Pragma("unroll") for (int i = 0; i < 8; ++i) byte |= (int)src[idx * 8 + i] << i;
   dst[idx] = byte;
 }
 
@@ -277,10 +282,10 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     // categorical features
     // count nodes for each feature id
     // in parallel, split the sets between nodes
-    size_t bit_pool_size = 0;
-    for (int node_id = 0; node_id < num_nodes; ++node_id) {
+    std::size_t bit_pool_size = 0;
+    for (std::size_t node_id = 0; node_id < num_nodes; ++node_id) {
       // mark nodes at max depth as leaves
-      if (node_id % tree_num_nodes() >= tree_num_nodes() / 2) is_leafs_h[node_id] = true;
+      if ((int)(node_id % tree_num_nodes()) >= tree_num_nodes() / 2) is_leafs_h[node_id] = true;
       int fid = fids_h[node_id];
       if (!feature_categorical[fid] || is_leafs_h[node_id]) is_categoricals_h[node_id] = 0.0f;
       if (is_categoricals_h[node_id] == 1.0) {
@@ -304,7 +309,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
       raft::allocate(bits_precursor_d, cat_sets_h.bits.size() * 8);
       hard_clipped_bernoulli(
         r, bits_precursor_d, cat_sets_h.bits.size() * 8, 1.0f - ps.cat_match_prob, stream);
-      compress_bit_stream<<<raft::ceildiv(cat_sets_h.bits.size(), 256ul), 256, 0, stream>>>(
+      floats_to_bit_stream_k<<<raft::ceildiv(cat_sets_h.bits.size(), 256ul), 256, 0, stream>>>(
         bits_d, bits_precursor_d, cat_sets_h.bits.size());
       raft::update_host(cat_sets_h.bits.data(), bits_d, cat_sets_h.bits.size(), stream);
     }
@@ -494,6 +499,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
             class_probabilities.begin();
         }
         break;
+      case fil::leaf_algo_t::GROVE_PER_CLASS_FEW_CLASSES:
+      case fil::leaf_algo_t::GROVE_PER_CLASS_MANY_CLASSES: break;
     }
 
     // copy to GPU
@@ -740,6 +747,8 @@ class TreeliteFilTest : public BaseFilTest {
           builder->SetLeafVectorNode(key, vec);
           break;
         }
+        case fil::leaf_algo_t::GROVE_PER_CLASS_FEW_CLASSES:
+        case fil::leaf_algo_t::GROVE_PER_CLASS_MANY_CLASSES: break;
       }
     } else {
       int left          = root + 2 * (node - root) + 1;

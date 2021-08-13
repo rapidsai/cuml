@@ -26,13 +26,13 @@
  */
 template <typename DataT, typename LabelT, typename IdxT = int>
 struct SparseTreeNode {
-  LabelT prediction;
-  IdxT colid = IdxT(-1);
-  DataT quesval;
-  DataT best_metric_val;
+  LabelT prediction       = LabelT(0);
+  IdxT colid              = IdxT(-1);
+  DataT quesval           = DataT(0);
+  DataT best_metric_val   = DataT(0);
   IdxT left_child_id      = IdxT(-1);
-  uint32_t unique_id      = UINT32_MAX;
   uint32_t instance_count = UINT32_MAX;  // UINT32_MAX indicates n/a
+  bool IsLeaf() { return left_child_id == -1; }
 };
 
 template <typename DataT, typename LabelT, typename IdxT>
@@ -41,8 +41,7 @@ bool operator==(const SparseTreeNode<DataT, LabelT, IdxT>& lhs,
 {
   return (lhs.prediction == rhs.prediction) && (lhs.colid == rhs.colid) &&
          (lhs.quesval == rhs.quesval) && (lhs.best_metric_val == rhs.best_metric_val) &&
-         (lhs.left_child_id == rhs.left_child_id) && (lhs.unique_id == rhs.unique_id) &&
-         (lhs.instance_count == rhs.instance_count);
+         (lhs.left_child_id == rhs.left_child_id) && (lhs.instance_count == rhs.instance_count);
 }
 
 template <typename T, typename L>

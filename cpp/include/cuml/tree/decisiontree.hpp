@@ -15,13 +15,12 @@
  */
 
 #pragma once
-#include <vector>
+
 #include "algo_helper.h"
 #include "flatnode.h"
 
-namespace raft {
-class handle_t;
-}
+#include <string>
+#include <vector>
 
 namespace ML {
 

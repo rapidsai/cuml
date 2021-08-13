@@ -38,6 +38,12 @@ __host__ __device__ __forceinline__ int forest_num_nodes(int num_trees, int dept
   return num_trees * tree_num_nodes(depth);
 }
 
+struct storage_base {
+  categorical_sets sets_;
+  float* vector_leaf_;
+  bool cats_supported() const { return sets_.cats_supported(); }
+};
+
 /** dense_tree represents a dense tree */
 
 struct dense_tree : tree_base {
@@ -51,32 +57,29 @@ struct dense_tree : tree_base {
 };
 
 /** dense_storage stores the forest as a collection of dense nodes */
-
-struct dense_storage : categorical_sets {
-  __host__ __device__ dense_storage(dense_node* nodes,
+struct dense_storage : storage_base {
+  __host__ __device__ dense_storage(categorical_sets cat_sets,
+                                    float* vector_leaf,
+                                    dense_node* nodes,
                                     int num_trees,
                                     int tree_stride,
-                                    int node_pitch,
-                                    float* vector_leaf,
-                                    categorical_sets cat_sets)
-    : categorical_sets(cat_sets),
+                                    int node_pitch)
+    : storage_base{cat_sets, vector_leaf},
       nodes_(nodes),
       num_trees_(num_trees),
       tree_stride_(tree_stride),
-      node_pitch_(node_pitch),
-      vector_leaf_(vector_leaf)
+      node_pitch_(node_pitch)
   {
   }
   __host__ __device__ int num_trees() const { return num_trees_; }
   __host__ __device__ dense_tree operator[](int i) const
   {
-    return dense_tree(*this, nodes_ + i * tree_stride_, node_pitch_);
+    return dense_tree(sets_, nodes_ + i * tree_stride_, node_pitch_);
   }
-  dense_node* nodes_  = nullptr;
-  float* vector_leaf_ = nullptr;
-  int num_trees_      = 0;
-  int tree_stride_    = 0;
-  int node_pitch_     = 0;
+  dense_node* nodes_ = nullptr;
+  int num_trees_     = 0;
+  int tree_stride_   = 0;
+  int node_pitch_    = 0;
 };
 
 /** sparse_tree is a sparse tree */
@@ -92,24 +95,19 @@ struct sparse_tree : tree_base {
 
 /** sparse_storage stores the forest as a collection of sparse nodes */
 template <typename node_t>
-struct sparse_storage : categorical_sets {
-  int* trees_         = nullptr;
-  node_t* nodes_      = nullptr;
-  float* vector_leaf_ = nullptr;
-  int num_trees_      = 0;
+struct sparse_storage : storage_base {
+  int* trees_    = nullptr;
+  node_t* nodes_ = nullptr;
+  int num_trees_ = 0;
   __host__ __device__ sparse_storage(
-    int* trees, node_t* nodes, int num_trees, float* vector_leaf, categorical_sets cat_sets)
-    : categorical_sets(cat_sets),
-      trees_(trees),
-      nodes_(nodes),
-      num_trees_(num_trees),
-      vector_leaf_(vector_leaf)
+    categorical_sets cat_sets, float* vector_leaf, int* trees, node_t* nodes, int num_trees)
+    : storage_base{cat_sets, vector_leaf}, trees_(trees), nodes_(nodes), num_trees_(num_trees)
   {
   }
   __host__ __device__ int num_trees() const { return num_trees_; }
   __host__ __device__ sparse_tree<node_t> operator[](int i) const
   {
-    return sparse_tree<node_t>(*this, &nodes_[trees_[i]]);
+    return sparse_tree<node_t>(sets_, &nodes_[trees_[i]]);
   }
 };
 

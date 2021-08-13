@@ -103,8 +103,6 @@ class GiniObjectiveFunction {
           gain -= val * val;
         }
       }
-      // if the gain is not "enough", don't bother!
-      if (gain <= min_impurity_decrease) { gain = -std::numeric_limits<DataT>::max(); }
       sp.update({sbins[i], col, gain, nLeft});
     }
     return sp;
@@ -184,8 +182,6 @@ class EntropyObjectiveFunction {
           }
         }
       }
-      // if the gain is not "enough", don't bother!
-      if (gain <= min_impurity_decrease) { gain = -std::numeric_limits<DataT>::max(); }
       sp.update({sbins[i], col, gain, nLeft});
     }
     return sp;
@@ -260,8 +256,6 @@ class MSEObjectiveFunction {
         gain                  = parent_obj - (left_obj + right_obj);
         gain *= invlen;
       }
-      // if the gain is not "enough", don't bother!
-      if (gain <= min_impurity_decrease) { gain = -std::numeric_limits<DataT>::max(); }
       sp.update({sbins[i], col, gain, nLeft});
     }
     return sp;

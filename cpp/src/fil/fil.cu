@@ -16,27 +16,33 @@
 
 /** @file fil.cu implements forest inference */
 
-#include <omp.h>
+#include "common.cuh"
+
+#include <cuml/fil/fil.h>
+#include <cuml/fil/fnv_hash.h>
+#include <cuml/common/logger.hpp>
+
+#include <raft/cudart_utils.h>
+#include <raft/handle.hpp>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/host/allocator.hpp>
+
+#include <treelite/c_api.h>
+#include <treelite/tree.h>
+
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
-#include <treelite/c_api.h>
-#include <treelite/tree.h>
+
+#include <omp.h>
+
 #include <algorithm>
 #include <cmath>
+#include <cstddef>
 #include <iomanip>
 #include <limits>
 #include <stack>
 #include <utility>
-
-#include <cuml/fil/fil.h>
-#include <cuml/fil/fnv_hash.h>
-#include <raft/cudart_utils.h>
-#include <cuml/common/logger.hpp>
-#include <raft/handle.hpp>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/host/allocator.hpp>
-#include "common.cuh"
 
 namespace ML {
 namespace fil {
@@ -57,15 +63,16 @@ std::string output2str(fil::output_t output)
 __host__ __device__ float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
 
 template <typename T>
-T* allocate(const raft::handle_t& h, size_t num_elem)
+T* allocate(const raft::handle_t& h, std::size_t num_elem)
 {
+  if (num_elem == 0) return nullptr;
   return (T*)(h.get_device_allocator()->allocate(num_elem * sizeof(T), h.get_stream()));
 };
 
 template <typename T>
-void deallocate(const raft::handle_t& h, const T* ptr, size_t num_elem)
+void deallocate(const raft::handle_t& h, const T* ptr, std::size_t num_elem)
 {
-  if (num_elem > 0)
+  if (num_elem != 0 && ptr != nullptr)
     h.get_device_allocator()->deallocate((void*)ptr, num_elem * sizeof(T), h.get_stream());
 };
 
@@ -182,9 +189,9 @@ struct forest {
     init_fixed_block_count(device, params->blocks_per_sm);
 
     // vector leaf
+    vector_leaf_len_ = vector_leaf.size();
+    vector_leaf_     = allocate<float>(h, vector_leaf.size());
     if (!vector_leaf.empty()) {
-      vector_leaf_len_ = vector_leaf.size();
-      vector_leaf_     = allocate<float>(h, vector_leaf.size());
       CUDA_CHECK(cudaMemcpyAsync(vector_leaf_,
                                  vector_leaf.data(),
                                  vector_leaf.size() * sizeof(float),
@@ -193,9 +200,9 @@ struct forest {
     }
 
     // categorical features
-    if (cat_sets.max_matching_size != 0) {
-      cat_sets_              = cat_sets;  // for sizes
-      cat_sets_.max_matching = allocate<int>(h, cat_sets.max_matching_size);
+    cat_sets_              = cat_sets;  // for sizes
+    cat_sets_.max_matching = allocate<int>(h, cat_sets.max_matching_size);
+    if (cat_sets.max_matching != nullptr) {
       CUDA_CHECK(cudaMemcpyAsync((int*)cat_sets_.max_matching,
                                  cat_sets.max_matching,
                                  cat_sets.max_matching_size * sizeof(int),
@@ -203,8 +210,8 @@ struct forest {
                                  stream));
     }
 
-    if (cat_sets.bits_size != 0) {
-      cat_sets_.bits = allocate<uint8_t>(h, cat_sets.bits_size);
+    cat_sets_.bits = allocate<uint8_t>(h, cat_sets.bits_size);
+    if (cat_sets.bits != nullptr) {
       CUDA_CHECK(cudaMemcpyAsync((uint8_t*)cat_sets_.bits,
                                  cat_sets.bits,
                                  cat_sets.bits_size * sizeof(uint8_t),
@@ -312,7 +319,7 @@ struct forest {
           // for GROVE_PER_CLASS, averaging happens in infer_k
           ot                 = output_t(ot & ~output_t::AVG);
           params.num_outputs = params.num_classes;
-          do_transform = ot != output_t::RAW && ot != output_t::SOFTMAX || global_bias != 0.0f;
+          do_transform = (ot != output_t::RAW && ot != output_t::SOFTMAX) || global_bias != 0.0f;
           break;
         case leaf_algo_t::CATEGORICAL_LEAF:
           params.num_outputs = params.num_classes;
@@ -322,7 +329,7 @@ struct forest {
           // for VECTOR_LEAF, averaging happens in infer_k
           ot                 = output_t(ot & ~output_t::AVG);
           params.num_outputs = params.num_classes;
-          do_transform = ot != output_t::RAW && ot != output_t::SOFTMAX || global_bias != 0.0f;
+          do_transform = (ot != output_t::RAW && ot != output_t::SOFTMAX) || global_bias != 0.0f;
           break;
         default: ASSERT(false, "internal error: invalid leaf_algo_");
       }
@@ -436,12 +443,12 @@ struct dense_forest : forest {
 
   virtual void infer(predict_params params, cudaStream_t stream) override
   {
-    dense_storage forest(nodes_,
+    dense_storage forest(cat_sets_,
+                         vector_leaf_,
+                         nodes_,
                          num_trees_,
                          algo_ == algo_t::NAIVE ? tree_num_nodes(depth_) : 1,
-                         algo_ == algo_t::NAIVE ? 1 : num_trees_,
-                         vector_leaf_,
-                         cat_sets_);
+                         algo_ == algo_t::NAIVE ? 1 : num_trees_);
     fil::infer(forest, params, stream);
   }
 
@@ -484,7 +491,7 @@ struct sparse_forest : forest {
 
   virtual void infer(predict_params params, cudaStream_t stream) override
   {
-    sparse_storage<node_t> forest(trees_, nodes_, num_trees_, vector_leaf_, cat_sets_);
+    sparse_storage<node_t> forest(cat_sets_, vector_leaf_, trees_, nodes_, num_trees_);
     fil::infer(forest, params, stream);
   }
 
@@ -749,12 +756,12 @@ void tl2fil_leaf_payload(fil_node_t* fil_node,
   auto vec = tl_tree.LeafVector(tl_node_id);
   switch (forest_params.leaf_algo) {
     case leaf_algo_t::CATEGORICAL_LEAF:
-      ASSERT(vec.size() == forest_params.num_classes,
+      ASSERT(vec.size() == static_cast<std::size_t>(forest_params.num_classes),
              "inconsistent number of classes in treelite leaves");
       fil_node->val.idx = find_class_label_from_one_hot(&vec[0], vec.size());
       break;
     case leaf_algo_t::VECTOR_LEAF: {
-      ASSERT(vec.size() == forest_params.num_classes,
+      ASSERT(vec.size() == static_cast<std::size_t>(forest_params.num_classes),
              "inconsistent number of classes in treelite leaves");
       fil_node->val.idx = *leaf_counter;
       for (int k = 0; k < forest_params.num_classes; k++) {
@@ -950,8 +957,8 @@ __noinline__ int tree2fil_sparse(std::vector<fil_node_t>& nodes,
       // in the array of all nodes of the FIL sparse forest
       int left = built_index - root;
       built_index += 2;
-      conversion_state<fil_node_t> cs =
-        tl2fil_branch_node<fil_node_t>(left, tree, node_id, forest_params, *cat_sets, bit_pool_size);
+      conversion_state<fil_node_t> cs = tl2fil_branch_node<fil_node_t>(
+        left, tree, node_id, forest_params, *cat_sets, bit_pool_size);
       nodes[root + cur] = cs.node;
       // push child nodes into the stack
       stack.push(pair_t(cs.tl_right, left + 1));
@@ -986,14 +993,14 @@ inline void tree_depth_hist(const tl::Tree<T, L>& tree, std::vector<level_entry>
     stack.pop();
 
     while (!tree.IsLeaf(node_id)) {
-      if (depth >= hist.size()) hist.resize(depth + 1, {0, 0});
+      if (static_cast<std::size_t>(depth) >= hist.size()) hist.resize(depth + 1, {0, 0});
       hist[depth].n_branch_nodes++;
       stack.push({tree.LeftChild(node_id), depth + 1});
       node_id = tree.RightChild(node_id);
       depth++;
     }
 
-    if (depth >= hist.size()) hist.resize(depth + 1, {0, 0});
+    if (static_cast<std::size_t>(depth) >= hist.size()) hist.resize(depth + 1, {0, 0});
     hist[depth].n_leaves++;
   }
 }
@@ -1011,7 +1018,7 @@ std::stringstream depth_hist_and_max(const tl::ModelImpl<T, L>& model)
   ios default_state(nullptr);
   default_state.copyfmt(forest_shape);
   forest_shape << "Depth histogram:" << endl << "depth branches leaves   nodes" << endl;
-  for (int level = 0; level < hist.size(); ++level) {
+  for (std::size_t level = 0; level < hist.size(); ++level) {
     level_entry e = hist[level];
     forest_shape << setw(5) << level << setw(9) << e.n_branch_nodes << setw(7) << e.n_leaves
                  << setw(8) << e.n_branch_nodes + e.n_leaves << endl;
@@ -1148,7 +1155,7 @@ void tl2fil_dense(std::vector<dense_node>* pnodes,
   *cat_sets = cat_sets_owner(cat_features_counters(model));
   pnodes->resize(num_nodes, dense_node());
   size_t bit_pool_size = 0;
-  for (int i = 0; i < model.trees.size(); ++i) {
+  for (std::size_t i = 0; i < model.trees.size(); ++i) {
     size_t leaf_counter = max_leaves_per_tree * i;
     tree2fil_dense(pnodes,
                    i * tree_num_nodes(params->depth),
@@ -1201,10 +1208,10 @@ struct tl2fil_sparse_check_t<sparse_node8> {
 
     // check the number of tree nodes
     const std::vector<tl::Tree<threshold_t, leaf_t>>& trees = model.trees;
-    for (int i = 0; i < trees.size(); ++i) {
+    for (std::size_t i = 0; i < trees.size(); ++i) {
       int num_nodes = trees[i].num_nodes;
       ASSERT(num_nodes <= MAX_TREE_NODES,
-             "tree %d has %d nodes, "
+             "tree %lu has %d nodes, "
              "but only %d supported for 8-byte sparse nodes",
              i,
              num_nodes,
