@@ -601,7 +601,7 @@ class PredictDenseFilTest : public BaseFilTest {
     fil_ps.threads_per_tree = ps.threads_per_tree;
     fil_ps.n_items          = ps.n_items;
 
-    fil::init_dense(handle, pforest, nodes.data(), &fil_ps, vector_leaf, cat_sets_h);
+    fil::init_dense(handle, pforest, nodes.data(), &fil_ps, vector_leaf, cat_sets_h.accessor());
   }
 };
 
@@ -669,8 +669,13 @@ class BasePredictSparseFilTest : public BaseFilTest {
 
     dense2sparse();
     fil_params.num_nodes = sparse_nodes.size();
-    fil::init_sparse(
-      handle, pforest, trees.data(), sparse_nodes.data(), &fil_params, vector_leaf, cat_sets_h);
+    fil::init_sparse(handle,
+                     pforest,
+                     trees.data(),
+                     sparse_nodes.data(),
+                     &fil_params,
+                     vector_leaf,
+                     cat_sets_h.accessor());
   }
   std::vector<fil_node_t> sparse_nodes;
   std::vector<int> trees;

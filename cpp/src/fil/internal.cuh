@@ -424,7 +424,7 @@ struct cat_sets_owner {
   // largest matching category in the model, per feature ID
   std::vector<int> max_matching;
 
-  operator categorical_sets() const
+  categorical_sets accessor() const
   {
     return {
       .bits              = bits.data(),
