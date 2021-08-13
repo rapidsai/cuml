@@ -629,11 +629,20 @@ int max_depth(const tl::ModelImpl<T, L>& model)
   return depth;
 }
 
+
+cat_feature_counters reduce(cat_feature_counters a, cat_feature_counters b)
+{
+  return {
+    .max_matching = std::max(a.max_matching, b.max_matching),
+    .n_nodes = a.n_nodes + b.n_nodes
+  };
+}
+
 std::vector<cat_feature_counters> reduce(std::vector<cat_feature_counters> a,
                                          const std::vector<cat_feature_counters> b)
 {
-  for (int fid = 0; fid < b.size(); ++fid) {
-    a[fid].reduce_with(b[fid]);
+  for (std::size_t fid = 0; fid < b.size(); ++fid) {
+    a[fid] = reduce(a[fid], b[fid]);
   }
   return a;
 }
@@ -657,7 +666,8 @@ inline std::vector<cat_feature_counters> cat_features_counters(const tl::Tree<T,
                "FIL cannot infer on "
                "more than %d matching categories",
                max_precise_int_float);
-        res[tree.SplitIndex(node_id)].reduce_with({(int)max_matching_cat, 1});
+        cat_feature_counters& counters = res[tree.SplitIndex(node_id)];
+        counters = reduce(counters, {(int)max_matching_cat, 1});
       }
       stack.push(tree.LeftChild(node_id));
       node_id = tree.RightChild(node_id);
@@ -678,8 +688,8 @@ std::vector<cat_feature_counters> cat_features_counters(const tl::ModelImpl<T, L
   for (size_t i = 0; i < trees.size(); ++i) {
     cat_features = reduce(cat_features, cat_features_counters(trees[i], model.num_feature));
   }
-  for (int fid = 0; fid < cat_features.size(); ++fid)
-    printf("forest fid %3d max_matching %8d sizeof_mask %3d\n",
+  for (std::size_t fid = 0; fid < cat_features.size(); ++fid)
+    printf("forest fid %3lu max_matching %8d sizeof_mask %3d\n",
            fid,
            cat_features[fid].max_matching,
            categorical_sets::sizeof_mask_from_max_matching(cat_features[fid].max_matching));
@@ -816,7 +826,7 @@ __noinline__ conversion_state<fil_node_t> tl2fil_branch_node(int fil_left_child,
     is_categorical = true;
     // for FIL, the list of categories is always for the right child
     if (tree.CategoriesListRightChild(tl_node_id) == false) std::swap(tl_left, tl_right);
-    size_t sizeof_mask = cat_sets.sizeof_mask(feature_id);
+    int sizeof_mask = cat_sets.sizeof_mask(feature_id);
     // using the odd syntax because += returns post-addition value
 #pragma omp atomic capture
     {
@@ -835,7 +845,7 @@ __noinline__ conversion_state<fil_node_t> tl2fil_branch_node(int fil_left_child,
     // date
     for (int which_8cats = 0; which_8cats < sizeof_mask; ++which_8cats) {
       uint8_t _8cats = 0;
-#pragma unroll
+      _Pragma("unroll")
       for (int bit = 0; bit < 8; ++bit) {
         if (category_it < matching_cats.end() && *category_it == which_8cats * 8 + bit) {
           _8cats |= 1 << bit;
@@ -1253,7 +1263,7 @@ void tl2fil_sparse(std::vector<int>* ptrees,
   size_t bit_pool_size;
   // convert the nodes
 #pragma omp parallel for shared(bit_pool_size)
-  for (int i = 0; i < num_trees; ++i) {
+  for (std::size_t i = 0; i < num_trees; ++i) {
     // Max number of leaves processed so far
     size_t leaf_counter = ((*ptrees)[i] + i) / 2;
     tree2fil_sparse(*pnodes,

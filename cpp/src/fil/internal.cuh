@@ -461,7 +461,7 @@ struct cat_sets_owner {
   void print_bits() const
   {
     printf("bits {");
-    for (int byte = 0; byte < bits.size(); ++byte)
+    for (std::size_t byte = 0; byte < bits.size(); ++byte)
       printf("%2x ", bits[byte]);
     printf("}\n");
   }
@@ -469,7 +469,7 @@ struct cat_sets_owner {
   void print_max_matching() const
   {
     printf("max_matching {");
-    for (int fid = 0; fid < max_matching.size(); ++fid)
+    for (std::size_t fid = 0; fid < max_matching.size(); ++fid)
       printf("%d ", max_matching[fid]);
     printf("}\n");
   }
