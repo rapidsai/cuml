@@ -192,9 +192,10 @@ struct alignas(8) sparse_node8 : base_node {
     : base_node(output, split, fid, def_left, is_leaf, is_categorical)
   {
     bits |= left_index << LEFT_OFFSET;
-    RAFT_EXPECTS((fid & FID_MASK) == fid, "internal error: feature ID doesn't fit into sparse_node8");
+    RAFT_EXPECTS((fid & FID_MASK) == fid,
+                 "internal error: feature ID doesn't fit into sparse_node8");
     RAFT_EXPECTS(((left_index << LEFT_OFFSET) & LEFT_MASK) == (left_index << LEFT_OFFSET),
-           "internal error: left child index doesn't fit into sparse_node8");
+                 "internal error: left child index doesn't fit into sparse_node8");
   }
   /** index of the left child, where curr is the index of the current node */
   __host__ __device__ int left(int curr) const { return left_index(); }
@@ -395,9 +396,9 @@ struct cat_sets_owner {
     // feature ID
     for (std::size_t fid = 0; fid < cf.size(); ++fid) {
       RAFT_EXPECTS(cf[fid].max_matching >= -1,
-             "@fid %lu: max_matching invalid (%d)",
-             fid,
-             cf[fid].max_matching);
+                   "@fid %lu: max_matching invalid (%d)",
+                   fid,
+                   cf[fid].max_matching);
       RAFT_EXPECTS(cf[fid].n_nodes >= 0, "@fid %lu: n_nodes invalid (%d)", fid, cf[fid].n_nodes);
 
       max_matching[fid] = cf[fid].max_matching;
@@ -405,9 +406,9 @@ struct cat_sets_owner {
         categorical_sets::sizeof_mask_from_max_matching(max_matching[fid]) * cf[fid].n_nodes;
 
       RAFT_EXPECTS(bits_size <= INT_MAX,
-             "@fid %lu: cannot store %lu categories given `int` offsets",
-             fid,
-             bits_size);
+                   "@fid %lu: cannot store %lu categories given `int` offsets",
+                   fid,
+                   bits_size);
     }
     bits.resize(bits_size);
   }

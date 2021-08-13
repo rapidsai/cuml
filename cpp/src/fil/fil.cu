@@ -431,12 +431,12 @@ struct dense_forest : forest {
 
   virtual void infer(predict_params params, cudaStream_t stream) override
   {
-    dense_storage forest(nodes_,
+    dense_storage forest(cat_sets_,
+                         vector_leaf_,
+                         nodes_,
                          num_trees_,
                          algo_ == algo_t::NAIVE ? tree_num_nodes(depth_) : 1,
-                         algo_ == algo_t::NAIVE ? 1 : num_trees_,
-                         vector_leaf_,
-                         cat_sets_);
+                         algo_ == algo_t::NAIVE ? 1 : num_trees_);
     fil::infer(forest, params, stream);
   }
 
@@ -479,7 +479,7 @@ struct sparse_forest : forest {
 
   virtual void infer(predict_params params, cudaStream_t stream) override
   {
-    sparse_storage<node_t> forest(trees_, nodes_, num_trees_, vector_leaf_, cat_sets_);
+    sparse_storage<node_t> forest(cat_sets_, vector_leaf_, trees_, nodes_, num_trees_);
     fil::infer(forest, params, stream);
   }
 

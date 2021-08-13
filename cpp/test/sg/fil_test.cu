@@ -167,9 +167,7 @@ __global__ void floats_to_bit_stream_k(uint8_t* dst, float* src, std::size_t siz
   std::size_t idx = std::size_t(blockIdx.x) * blockDim.x + threadIdx.x;
   if (idx >= size) return;
   int byte = 0;
-  _Pragma("unroll")
-  for (int i = 0; i < 8; ++i)
-    byte |= (int)src[idx * 8 + i] << i;
+  _Pragma("unroll") for (int i = 0; i < 8; ++i) byte |= (int)src[idx * 8 + i] << i;
   dst[idx] = byte;
 }
 

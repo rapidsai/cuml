@@ -40,7 +40,7 @@ __host__ __device__ __forceinline__ int forest_num_nodes(int num_trees, int dept
 
 struct storage_base {
   categorical_sets sets_;
-  float* vector_leaf_ = nullptr;
+  float* vector_leaf_;
   bool cats_supported() const { return sets_.cats_supported(); }
 };
 
@@ -58,12 +58,12 @@ struct dense_tree : tree_base {
 
 /** dense_storage stores the forest as a collection of dense nodes */
 struct dense_storage : storage_base {
-  __host__ __device__ dense_storage(dense_node* nodes,
+  __host__ __device__ dense_storage(categorical_sets cat_sets,
+                                    float* vector_leaf,
+                                    dense_node* nodes,
                                     int num_trees,
                                     int tree_stride,
-                                    int node_pitch,
-                                    float* vector_leaf,
-                                    categorical_sets cat_sets)
+                                    int node_pitch)
     : storage_base{cat_sets, vector_leaf},
       nodes_(nodes),
       num_trees_(num_trees),
@@ -96,12 +96,11 @@ struct sparse_tree : tree_base {
 /** sparse_storage stores the forest as a collection of sparse nodes */
 template <typename node_t>
 struct sparse_storage : storage_base {
-  int* trees_         = nullptr;
-  node_t* nodes_      = nullptr;
-  float* vector_leaf_ = nullptr;
-  int num_trees_      = 0;
+  int* trees_    = nullptr;
+  node_t* nodes_ = nullptr;
+  int num_trees_ = 0;
   __host__ __device__ sparse_storage(
-    int* trees, node_t* nodes, int num_trees, float* vector_leaf, categorical_sets cat_sets)
+    categorical_sets cat_sets, float* vector_leaf, int* trees, node_t* nodes, int num_trees)
     : storage_base{cat_sets, vector_leaf}, trees_(trees), nodes_(nodes), num_trees_(num_trees)
   {
   }
