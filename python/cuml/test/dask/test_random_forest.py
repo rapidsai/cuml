@@ -627,7 +627,7 @@ def test_rf_broadcast(model_type, fit_broadcast, transform_broadcast, client):
         cuml_mod_predict = cuml_mod_predict.compute()
         cuml_mod_predict = cp.asnumpy(cuml_mod_predict)
         acc_score = accuracy_score(cuml_mod_predict, y_test, normalize=True)
-        assert acc_score >= 0.72
+        assert acc_score >= 0.70
 
     else:
         cuml_mod = cuRFR_mg(n_estimators=10, max_depth=8, n_bins=16,
