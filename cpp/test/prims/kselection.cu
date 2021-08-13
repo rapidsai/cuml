@@ -45,12 +45,10 @@ __global__ void sortTestKernel(TypeK* key)
 template <typename TypeV, typename TypeK, int N, int TPB, bool Greater>
 void sortTest(TypeK* key)
 {
-  TypeK* dkey;
-  CUDA_CHECK(cudaMalloc((void**)&dkey, sizeof(TypeK) * TPB * N));
-  sortTestKernel<TypeV, TypeK, N, TPB, Greater><<<1, TPB>>>(dkey);
+  rmm::device_uvector<TypeK> dkey(TPB * N);
+  sortTestKernel<TypeV, TypeK, N, TPB, Greater><<<1, TPB>>>(dkey.data());
   CUDA_CHECK(cudaPeekAtLastError());
-  raft::update_host<TypeK>(key, dkey, TPB * N, 0);
-  CUDA_CHECK(cudaFree(dkey));
+  raft::update_host<TypeK>(key, dkey.data(), TPB * N, 0);
 }
 
 /************************************************************************/

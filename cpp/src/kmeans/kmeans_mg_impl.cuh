@@ -48,8 +48,7 @@ void initRandom(const raft::handle_t& handle,
 
   // allocate centroids buffer
   centroidsRawData.resize(n_clusters * n_features, stream);
-  auto centroids =
-    std::move(Tensor<DataT, 2, IndexT>(centroidsRawData.data(), {n_clusters, n_features}));
+  Tensor<DataT, 2, IndexT> centroids(centroidsRawData.data(), {n_clusters, n_features});
 
   std::vector<int> nCentroidsSampledByRank(n_ranks, 0);
   std::vector<size_t> nCentroidsElementsToReceiveFromRank(n_ranks, 0);
@@ -176,8 +175,8 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
   centroidsBuf.resize(initialCentroid.numElements(), stream);
   raft::copy(centroidsBuf.begin(), initialCentroid.data(), initialCentroid.numElements(), stream);
 
-  auto potentialCentroids = std::move(Tensor<DataT, 2, IndexT>(
-    centroidsBuf.data(), {initialCentroid.getSize(0), initialCentroid.getSize(1)}));
+  Tensor<DataT, 2, IndexT> potentialCentroids(
+    centroidsBuf.data(), {initialCentroid.getSize(0), initialCentroid.getSize(1)});
   // <<< End of Step-1 >>>
 
   rmm::device_uvector<DataT> L2NormBuf_OR_DistBuf(0, stream);
@@ -279,15 +278,16 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
     kmeans::detail::SamplingOp<DataT> select_op(
       psi, params.oversampling_factor, n_clusters, uniformRands.data(), isSampleCentroid.data());
 
-    auto inRankCp = kmeans::detail::sampleCentroids(
-      handle, X, minClusterDistance, isSampleCentroid, select_op, workspace, stream);
+    std::unique_ptr<Tensor<DataT, 2, IndexT>> inRankCp;
+    kmeans::detail::sampleCentroids(
+      handle, X, minClusterDistance, isSampleCentroid, select_op, workspace, inRankCp, stream);
     /// <<<< End of Step-4 >>>>
 
     /// <<<< Step-5 >>> : C = C U C'
     // append the data in Cp from all ranks to the buffer holding the
     // potentialCentroids
     std::fill(nPtsSampledByRank.begin(), nPtsSampledByRank.end(), 0);
-    nPtsSampledByRank[my_rank] = inRankCp.getSize(0);
+    nPtsSampledByRank[my_rank] = inRankCp->getSize(0);
     comm.allgather(&nPtsSampledByRank[my_rank], nPtsSampledByRank.data(), 1, stream);
 
     ASSERT(comm.sync_stream(stream) == raft::comms::status_t::SUCCESS,
@@ -309,15 +309,14 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
     thrust::exclusive_scan(thrust::host, sizes.begin(), sizes.end(), displs.begin());
 
     centroidsBuf.resize(centroidsBuf.size() + nPtsSampled * n_features, stream);
-    comm.allgatherv<DataT>(inRankCp.data(),
+    comm.allgatherv<DataT>(inRankCp->data(),
                            centroidsBuf.end() - nPtsSampled * n_features,
                            sizes.data(),
                            displs.data(),
                            stream);
 
     int tot_centroids = potentialCentroids.getSize(0) + nPtsSampled;
-    potentialCentroids =
-      std::move(Tensor<DataT, 2, IndexT>(centroidsBuf.data(), {tot_centroids, n_features}));
+    Tensor<DataT, 2, IndexT> potentialCentroids(centroidsBuf.data(), {tot_centroids, n_features});
     /// <<<< End of Step-5 >>>
   }  /// <<<< Step-6 >>>
 
@@ -494,8 +493,7 @@ void fit(const raft::handle_t& handle,
         "cluster centers\n",
         n_iter);
 
-    auto centroids =
-      std::move(Tensor<DataT, 2, IndexT>(centroidsRawData.data(), {n_clusters, n_features}));
+    Tensor<DataT, 2, IndexT> centroids(centroidsRawData.data(), {n_clusters, n_features});
 
     // computes minClusterAndDistance[0:n_samples) where
     // minClusterAndDistance[i] is a <key, value> pair where

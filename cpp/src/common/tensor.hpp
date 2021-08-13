@@ -34,12 +34,7 @@ class Tensor {
   __host__ ~Tensor()
   {
     if (_state == AllocState::Owner) {
-      if (memory_type(_data) == cudaMemoryTypeDevice) {
-        auto _dAllocator = rmm::mr::get_current_device_resource();
-        _dAllocator->deallocate(_data, this->getSizeInBytes(), _stream);
-      } else if (memory_type(_data) == cudaMemoryTypeHost) {
-        delete _data;
-      }
+      if (memory_type(_data) == cudaMemoryTypeHost) { delete _data; }
     }
   }
 
@@ -80,8 +75,8 @@ class Tensor {
       _stride[j] = _stride[j + 1] * _size[j + 1];
     }
 
-    auto _dAllocator = rmm::mr::get_current_device_resource();
-    _data            = static_cast<DataT*>(_dAllocator->allocate(this->getSizeInBytes(), _stream));
+    _storage = std::make_unique<rmm::device_uvector<DataT>>(this->getSizeInBytes(), _stream);
+    _data    = _storage->data();
 
     CUDA_CHECK(cudaStreamSynchronize(_stream));
 
@@ -181,6 +176,8 @@ class Tensor {
   AllocState _state{};
 
   cudaStream_t _stream{};
+
+  std::unique_ptr<rmm::device_uvector<DataT>> _storage;
 };
 
 };  // end namespace ML

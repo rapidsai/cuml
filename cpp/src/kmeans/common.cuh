@@ -192,13 +192,14 @@ void countLabels(const raft::handle_t& handle,
 }
 
 template <typename DataT, typename IndexT>
-Tensor<DataT, 2, IndexT> sampleCentroids(const raft::handle_t& handle,
-                                         Tensor<DataT, 2, IndexT>& X,
-                                         Tensor<DataT, 1, IndexT>& minClusterDistance,
-                                         Tensor<int, 1, IndexT>& isSampleCentroid,
-                                         typename kmeans::detail::SamplingOp<DataT>& select_op,
-                                         rmm::device_uvector<char>& workspace,
-                                         cudaStream_t stream)
+void sampleCentroids(const raft::handle_t& handle,
+                     Tensor<DataT, 2, IndexT>& X,
+                     Tensor<DataT, 1, IndexT>& minClusterDistance,
+                     Tensor<int, 1, IndexT>& isSampleCentroid,
+                     typename kmeans::detail::SamplingOp<DataT>& select_op,
+                     rmm::device_uvector<char>& workspace,
+                     std::unique_ptr<Tensor<DataT, 2, IndexT>>& out,
+                     cudaStream_t stream)
 {
   int n_local_samples = X.getSize(0);
   int n_features      = X.getSize(1);
@@ -241,7 +242,8 @@ Tensor<DataT, 2, IndexT> sampleCentroids(const raft::handle_t& handle,
                        rawPtr_isSampleCentroid[val.key] = 1;
                      });
 
-  Tensor<DataT, 2, IndexT> inRankCp({nPtsSampledInRank, n_features}, stream);
+  out = std::make_unique<Tensor<DataT, 2, IndexT>>(
+    std::vector<IndexT>{nPtsSampledInRank, n_features}, stream);
 
   MLCommon::Matrix::gather(
     X.data(),
@@ -249,13 +251,11 @@ Tensor<DataT, 2, IndexT> sampleCentroids(const raft::handle_t& handle,
     X.getSize(0),
     sampledMinClusterDistance.data(),
     nPtsSampledInRank,
-    inRankCp.data(),
+    out->data(),
     [=] __device__(cub::KeyValuePair<ptrdiff_t, DataT> val) {  // MapTransformOp
       return val.key;
     },
     stream);
-
-  return inRankCp;
 }
 
 template <typename DataT, typename IndexT, typename ReductionOpT>
@@ -743,8 +743,8 @@ void kmeansPlusPlus(const raft::handle_t& handle,
     centroidsRawData.begin(), initialCentroid.data(), initialCentroid.numElements(), stream);
 
   //  C = initial set of centroids
-  auto centroids = std::move(Tensor<DataT, 2, IndexT>(
-    centroidsRawData.data(), {initialCentroid.getSize(0), initialCentroid.getSize(1)}));
+  Tensor<DataT, 2, IndexT> centroids(centroidsRawData.data(),
+                                     {initialCentroid.getSize(0), initialCentroid.getSize(1)});
   // <<< End of Step-1 >>>
 
   // Calculate cluster distance, d^2(x, C), for all the points x in X to the nearest centroid
@@ -782,7 +782,7 @@ void kmeansPlusPlus(const raft::handle_t& handle,
 
     // Calculate pairwise distance between X and the centroid candidates
     // Output - pwd [n_trails x n_samples]
-    auto pwd = std::move(Tensor<DataT, 2, IndexT>(distBuffer.data(), {n_trials, n_samples}));
+    Tensor<DataT, 2, IndexT> pwd(distBuffer.data(), {n_trials, n_samples});
     kmeans::detail::pairwise_distance(
       handle, centroidCandidates, X, pwd, workspace, metric, stream);
 
@@ -790,7 +790,7 @@ void kmeansPlusPlus(const raft::handle_t& handle,
     // Note pwd and minDistBuf points to same buffer which currently holds pairwise distance values.
     // Outputs minDistanceBuf[m_trails x n_samples] where minDistance[i, :] contains updated
     // minClusterDistance that includes candidate-i
-    auto minDistBuf = std::move(Tensor<DataT, 2, IndexT>(distBuffer.data(), {n_trials, n_samples}));
+    Tensor<DataT, 2, IndexT> minDistBuf(distBuffer.data(), {n_trials, n_samples});
     raft::linalg::matrixVectorOp(
       minDistBuf.data(),
       pwd.data(),
