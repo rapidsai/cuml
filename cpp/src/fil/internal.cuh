@@ -31,6 +31,29 @@ class handle_t;
 namespace ML {
 namespace fil {
 
+template <typename T>
+__host__ __device__ void print_rl(const T* v, std::size_t size, const char* name, int inc)
+{
+  return;
+  auto print_until = [=](T last, size_t last_idx, size_t i) {
+    if (last_idx != i - 1)
+      printf("[%lu..%lu]->%u..%u ", last_idx, i - 1, last, v[i - 1]);
+    else
+      printf("[%lu]->%u ", last_idx, last);
+  };
+  printf("%s {", name);
+  T last               = v[0];
+  std::size_t last_idx = 0;
+  for (std::size_t i = 1; i < size; ++i)
+    if (v[i] != last + (i - last_idx) * inc) {
+      print_until(last, last_idx, i);
+      last     = v[i];
+      last_idx = i;
+    }
+  print_until(last, last_idx, size);
+  printf("}\n");
+}
+
 const int BITS_PER_BYTE = 8;
 
 /// modpow2 returns a % b == a % pow(2, log2_b)
@@ -136,8 +159,9 @@ struct base_node {
   }
   __host__ __device__ void print() const
   {
+    return;
     const char* is[] = {"is NOT", "    IS"};
-    const char* lr[] = {"left", "right"};
+    const char* lr[] = {" left", "right"};
     printf("{.f = %9f, .idx = %11d} fid %10d, bits %8x, def %s, %s leaf, %s categorical\n",
            val.f,
            val.idx,
@@ -377,11 +401,9 @@ struct categorical_sets {
     // features with similar categorical feature count, we may consider
     // storing node ID within nodes with same feature ID and look up
     // {.max_matching, .first_node_offset} = ...[feature_id]
-    printf(
-      "for fid %d and category %d, checking categories at %d: {", node.fid(), category, node.set());
-    for (int byte = 0; byte < max_matching[node.fid()]; ++byte)
-      printf("%02x ", bits[node.set() + category / 8]);
-    printf("}\n");
+    // printf(
+    //  "for fid %d and category %d, checking categories at %d:", node.fid(), category, node.set());
+    print_rl(bits + node.set(), max_matching[node.fid()] + 1, "bits", 0);
     return category <= max_matching[node.fid()] && fetch_bit(bits + node.set(), category);
   }
   static int sizeof_mask_from_max_matching(int max_matching)
@@ -402,16 +424,17 @@ struct tree_base {
                                                     int node_idx,
                                                     float val) const
   {
-    const char* lr[] = {"left", "right"};
+    const char* lr[] = {" left", "right"};
     bool cond;
     if (isnan(val)) {
       cond = !node.def_left();
-      printf("idx %d val is nan, taking %s\n", node_idx, lr[cond]);
+      // printf("idx %d val is nan, taking %s\n", node_idx, lr[cond]);
     } else if (CATS_SUPPORTED && node.is_categorical()) {
       cond = sets.category_matches(node, (int)val);
+      // printf("idx %d taking %s\n", node_idx, lr[cond]);
     } else {
       cond = val >= node.thresh();
-      printf("idx %d %f >= %f taking %s\n", node_idx, val, node.thresh(), lr[cond]);
+      // printf("idx %d %f >= %f taking %s\n", node_idx, val, node.thresh(), lr[cond]);
     }
     return node.left(node_idx) + cond;
   }
@@ -460,14 +483,22 @@ struct cat_sets_owner {
 
   void print_bits() const
   {
+    return;
     printf("bits {");
+    int last             = -1;
+    std::size_t last_idx = ULONG_MAX;
     for (std::size_t byte = 0; byte < bits.size(); ++byte)
-      printf("%2x ", bits[byte]);
+      if (bits[byte] != last) {
+        if (last != -1) printf("[%lu..%lu]->%2x ", last_idx, byte - 1lu, last);
+        last     = bits[byte];
+        last_idx = byte;
+      }
     printf("}\n");
   }
 
   void print_max_matching() const
   {
+    return;
     printf("max_matching {");
     for (std::size_t fid = 0; fid < max_matching.size(); ++fid)
       printf("%d ", max_matching[fid]);

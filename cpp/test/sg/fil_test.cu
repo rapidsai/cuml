@@ -547,6 +547,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     fil::val_t output{.f = 0.0f};
     for (;;) {
       const fil::dense_node& node = root[curr];
+      // if (node.is_leaf()) printf("leaf idx %d\n", curr);
       if (node.is_leaf()) return node.template output<val_t>();
       float val = data[node.fid()];
       curr      = tree.get_child<true>(node, curr, val);
@@ -724,7 +725,7 @@ class TreeliteFilTest : public BaseFilTest {
     dense_node.print();
     std::vector<uint32_t> left_categories;
     if (dense_node.is_leaf()) {
-      printf("leaf key %d\n", key);
+      // printf("leaf key %d\n", key);
       switch (ps.leaf_algo) {
         case fil::leaf_algo_t::FLOAT_UNARY_BINARY:
         case fil::leaf_algo_t::GROVE_PER_CLASS:
@@ -757,12 +758,15 @@ class TreeliteFilTest : public BaseFilTest {
       bool default_left = dense_node.def_left();
       float threshold;
       if (dense_node.is_categorical()) {
+        auto cs = cat_sets_h.accessor();
+        // printf("node tl ID %d fil ID %d\n", key, node);
+        print_rl(cs.bits + dense_node.set(), cs.sizeof_mask(dense_node.fid()), "cs.bits", 0);
         uint8_t byte = 0;
-        for (int category = 0; category <= cat_sets_h.max_matching[dense_node.fid()];
-             ++category) {
+        for (int category = 0; category <= cat_sets_h.max_matching[dense_node.fid()]; ++category) {
           if (category % 8 == 0) byte = cat_sets_h.bits[dense_node.set() + category / 8];
-          if (byte & 1 << category % 8 != 0) left_categories.push_back(category);
+          if ((byte & 1 << category % 8) != 0) left_categories.push_back(category);
         }
+        print_rl(left_categories.data(), left_categories.size(), "left_categories", 1);
       } else {
         threshold = dense_node.thresh();
       }
@@ -770,7 +774,7 @@ class TreeliteFilTest : public BaseFilTest {
       int right_key = node_to_treelite(builder, pkey, root, right);
       if (atoi(getenv("ever_categorical")) && !left_categories.empty() &&
           dense_node.is_categorical()) {
-        printf("c branch key %d left_key %d right_key %d\n", key, left_key, right_key);
+        // printf("c branch key %d left_key %d right_key %d\n", key, left_key, right_key);
         std::swap(left_key, right_key);
         default_left = !default_left;
         builder->SetCategoricalTestNode(
@@ -782,7 +786,7 @@ class TreeliteFilTest : public BaseFilTest {
           threshold = NAN;
         }
         adjust_threshold(&threshold, &left_key, &right_key, &default_left, ps.op, FIL_TO_TREELITE);
-        printf("n branch key %d left_key %d right_key %d\n", key, left_key, right_key);
+        // printf("n branch key %d left_key %d right_key %d\n", key, left_key, right_key);
         builder->SetNumericalTestNode(key,
                                       dense_node.fid(),
                                       ps.op,
