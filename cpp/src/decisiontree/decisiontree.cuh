@@ -239,13 +239,10 @@ struct DataInfo {
 template <class T, class L>
 class DecisionTree {
  protected:
-  DataInfo dinfo;
   int depth_counter   = 0;
   int leaf_counter    = 0;
   int n_unique_labels = -1;  // number of unique labels in dataset
-  double prepare_time = 0;
   double train_time   = 0;
-  MLCommon::TimerCPU prepare_fit_timer;
   DecisionTreeParams tree_params;
 
  public:
@@ -279,7 +276,6 @@ class DecisionTree {
            T* d_global_quantiles)
   {
     this->tree_params = tree_parameters;
-    this->prepare_fit_timer.reset();
     const char* CRITERION_NAME[] = {"GINI", "ENTROPY", "MSE", "MAE", "END"};
     CRITERION default_criterion =
       (std::numeric_limits<L>::is_integer) ? CRITERION::GINI : CRITERION::MSE;
@@ -297,12 +293,7 @@ class DecisionTree {
            "Unsupported criterion %s\n",
            CRITERION_NAME[tree_params.split_criterion]);
 
-    dinfo.NLocalrows   = nrows;
-    dinfo.NGlobalrows  = nrows;
-    dinfo.Ncols        = ncols;
     n_unique_labels    = unique_labels;
-    this->prepare_time = this->prepare_fit_timer.getElapsedMilliseconds();
-    prepare_fit_timer.reset();
     grow_tree(handle,
               data,
               tree->treeid,
@@ -318,7 +309,6 @@ class DecisionTree {
               tree->sparsetree,
               this->leaf_counter,
               this->depth_counter);
-    this->train_time = this->prepare_fit_timer.getElapsedMilliseconds();
     this->set_metadata(tree);
   }
 
@@ -329,9 +319,7 @@ class DecisionTree {
   {
     PatternSetter _("%v");
     CUML_LOG_DEBUG(" Decision Tree depth --> %d and n_leaves --> %d", depth_counter, leaf_counter);
-    CUML_LOG_DEBUG(" Tree Fitting - Overall time --> %lf milliseconds", prepare_time + train_time);
-    CUML_LOG_DEBUG("   - preparing for fit time: %lf milliseconds", prepare_time);
-    CUML_LOG_DEBUG("   - tree growing time: %lf milliseconds", train_time);
+    CUML_LOG_DEBUG(" Tree Fitting - Overall time --> %lf milliseconds", train_time);
   }
 
   /**
@@ -399,7 +387,6 @@ class DecisionTree {
     tree->depth_counter = depth_counter;
     tree->leaf_counter  = leaf_counter;
     tree->train_time    = train_time;
-    tree->prepare_time  = prepare_time;
   }
 
 };  // End DecisionTree Class

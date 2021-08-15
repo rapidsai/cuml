@@ -26,7 +26,6 @@
 #include "input.cuh"
 #include "kernels.cuh"
 #include "metrics.cuh"
-#include "node.cuh"
 #include "split.cuh"
 
 #include <common/nvtx.hpp>
@@ -49,7 +48,8 @@ class NodeQueue {
   NodeQueue(DecisionTreeParams params, size_t max_nodes, size_t sampled_rows) : params(params)
   {
     tree_.reserve(max_nodes);
-    tree_.emplace_back(0, sampled_rows, 0);
+    tree_.emplace_back();
+    tree_.back().instance_count=sampled_rows;
     node_instances_.reserve(max_nodes);
     node_instances_.emplace_back(InstanceRange{0, sampled_rows});
     if (this->IsExpandable(tree_.back(), 0)) {
@@ -60,6 +60,7 @@ class NodeQueue {
   int TreeDepth() { return tree_depth_; }
   int NumLeaves() { return num_leaves_; }
   std::vector<NodeT> GetTree() { return tree_; }
+  const std::vector<InstanceRange>& GetInstanceRanges() { return node_instances_; }
 
   bool HasWork() { return work_items_.size() > 0; }
 
@@ -78,7 +79,7 @@ class NodeQueue {
   bool IsExpandable(const NodeT& n, int depth)
   {
     if (depth >= params.max_depth) return false;
-    if (n.count < params.min_samples_split) return false;
+    if (int (n.instance_count) < params.min_samples_split) return false;
     if (params.max_leaves != -1 && num_leaves_ >= params.max_leaves) return false;
     return true;
   }
@@ -90,20 +91,19 @@ class NodeQueue {
     for (std::size_t i = 0; i < work_items.size(); i++) {
       auto split      = h_splits[i];
       auto item       = work_items[i];
-      const auto node = tree_[item.idx];
-      if (SplitNotValid(split, params.min_impurity_decrease, params.min_samples_leaf, node.count)) {
+      auto parent_range = node_instances_.at(item.idx);
+      if (SplitNotValid(split, params.min_impurity_decrease, params.min_samples_leaf, parent_range.count)) {
         continue;
       }
 
       if (params.max_leaves != -1 && num_leaves_ >= params.max_leaves) break;
 
       // parent
-      auto parent_range = node_instances_.at(item.idx);
-      tree_[item.idx]   = NodeT::CreateSplit(
-        split.colid, split.quesval, split.best_metric_val, tree_.size(), node.count);
+      tree_[item.idx] =
+        NodeT{0, split.colid, split.quesval, split.best_metric_val, int (tree_.size()),  uint32_t(parent_range.count)};
       num_leaves_++;
       // left
-      tree_.emplace_back(NodeT::CreateChild(item.depth + 1, node.start, split.nLeft));
+      tree_.emplace_back();
       node_instances_.emplace_back(InstanceRange{parent_range.begin, size_t(split.nLeft)});
 
       // Do not add a work item if this child is definitely a leaf
@@ -113,8 +113,7 @@ class NodeQueue {
       }
 
       // right
-      tree_.emplace_back(NodeT::CreateChild(
-        item.depth + 1, parent_range.begin + split.nLeft, parent_range.count - split.nLeft));
+      tree_.emplace_back();
       node_instances_.emplace_back(
         InstanceRange{parent_range.begin + split.nLeft, parent_range.count - split.nLeft});
 
@@ -142,7 +141,7 @@ struct Builder {
   typedef typename ObjectiveT::LabelT LabelT;
   typedef typename ObjectiveT::IdxT IdxT;
   typedef typename ObjectiveT::BinT BinT;
-  typedef Node<DataT, LabelT, IdxT> NodeT;
+  typedef SparseTreeNode<DataT, LabelT, IdxT> NodeT;
   typedef Split<DataT, IdxT> SplitT;
   typedef Input<DataT, LabelT, IdxT> InputT;
 
@@ -305,7 +304,7 @@ struct Builder {
     ML::POP_RANGE();
   }
 
-  std::vector<Node<DataT, LabelT, IdxT>> train(IdxT& num_leaves, IdxT& depth, cudaStream_t s)
+  std::vector<NodeT> train(IdxT& num_leaves, IdxT& depth, cudaStream_t s)
   {
     ML::PUSH_RANGE("Builder::train @builder_base.cuh [batched-levelalgo]");
     NodeQueue<NodeT> queue(params, this->maxNodes(), input.nSampledRows);
@@ -317,7 +316,7 @@ struct Builder {
     depth      = queue.TreeDepth();
     num_leaves = queue.NumLeaves();
     auto tree  = queue.GetTree();
-    this->SetLeafPredictions(&tree);
+    this->SetLeafPredictions(&tree,queue.GetInstanceRanges());
     ML::POP_RANGE();
     return tree;
   }
@@ -331,7 +330,7 @@ struct Builder {
     int total_num_blocks = 0;
     for (std::size_t i = 0; i < work_items.size(); i++) {
       auto item      = work_items[i];
-      int num_blocks = raft::ceildiv(item.row_count, size_t(TPB_DEFAULT));
+      int num_blocks = raft::ceildiv(item.instances.count, size_t(TPB_DEFAULT));
       num_blocks     = std::max(1, num_blocks);
 
       if (num_blocks > 1) ++n_large_nodes_in_curr_batch;
@@ -438,11 +437,14 @@ struct Builder {
   }
 
   // Set the leaf value predictions in batch
-  void SetLeafPredictions(std::vector<NodeT>* tree)
+  void SetLeafPredictions(std::vector<NodeT>* tree,
+                          const std::vector<InstanceRange>& instance_ranges)
   {
     // do this in batch to reduce peak memory usage in extreme cases
     std::size_t max_batch_size = min(std::size_t(100000), tree->size());
     MLCommon::device_buffer<NodeT> d_tree(
+      handle.get_device_allocator(), handle.get_stream(), max_batch_size);
+    MLCommon::device_buffer<InstanceRange> d_instance_ranges(
       handle.get_device_allocator(), handle.get_stream(), max_batch_size);
     ObjectiveT objective(input.numOutputs, params.min_impurity_decrease, params.min_samples_leaf);
     for (std::size_t batch_begin = 0; batch_begin < tree->size(); batch_begin += max_batch_size) {
@@ -450,10 +452,14 @@ struct Builder {
       std::size_t batch_size = batch_end - batch_begin;
       raft::update_device(
         d_tree.data(), tree->data() + batch_begin, batch_size, handle.get_stream());
+      raft::update_device(d_instance_ranges.data(),
+                          instance_ranges.data() + batch_begin,
+                          batch_size,
+                          handle.get_stream());
       size_t smemSize = sizeof(BinT) * input.numOutputs;
       int num_blocks  = batch_size;
       leafKernel<<<num_blocks, TPB_DEFAULT, smemSize, handle.get_stream()>>>(
-        objective, input, d_tree.data());
+        objective, input, d_tree.data(), d_instance_ranges.data());
       raft::update_host(tree->data() + batch_begin, d_tree.data(), batch_size, handle.get_stream());
     }
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));

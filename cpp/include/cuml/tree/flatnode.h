@@ -15,7 +15,7 @@
  */
 
 #pragma once
-
+#include <raft/cuda_utils.cuh>
 /**
  * A node in Decision Tree.
  * This however uses an index instead of pointer to left child. Right child
@@ -32,7 +32,7 @@ struct SparseTreeNode {
   DataT best_metric_val   = DataT(0);
   IdxT left_child_id      = IdxT(-1);
   uint32_t instance_count = UINT32_MAX;  // UINT32_MAX indicates n/a
-  bool IsLeaf() { return left_child_id == -1; }
+ HDI bool IsLeaf() { return left_child_id == -1; }
 };
 
 template <typename DataT, typename LabelT, typename IdxT>

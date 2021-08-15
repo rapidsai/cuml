@@ -24,7 +24,6 @@
 #include <raft/cuda_utils.cuh>
 #include "input.cuh"
 #include "metrics.cuh"
-#include "node.cuh"
 #include "split.cuh"
 
 namespace ML {
@@ -38,7 +37,7 @@ struct InstanceRange {
 };
 
 struct NodeWorkItem {
-  size_t idx;        // Index of the work item in the tree
+  size_t idx;  // Index of the work item in the tree
   int depth;
   InstanceRange instances;
 };
@@ -61,10 +60,10 @@ template <typename SplitT, typename DataT, typename IdxT>
 HDI bool SplitNotValid(const SplitT& split,
                        DataT min_impurity_decrease,
                        IdxT min_samples_leaf,
-                       IdxT num_rows)
+                       std::size_t num_rows)
 {
   return split.best_metric_val <= min_impurity_decrease || split.nLeft < min_samples_leaf ||
-         (num_rows - split.nLeft) < min_samples_leaf;
+         (IdxT(num_rows) - split.nLeft) < min_samples_leaf;
 }
 
 /**
@@ -137,33 +136,36 @@ __global__ void nodeSplitKernel(IdxT max_depth,
   extern __shared__ char smem[];
   const auto work_item = work_items[blockIdx.x];
   const auto split     = splits[blockIdx.x];
-  if (SplitNotValid(split, min_impurity_decrease, min_samples_leaf, work_item.instances.count)) {
+  if (SplitNotValid(
+        split, min_impurity_decrease, min_samples_leaf, IdxT(work_item.instances.count))) {
     return;
   }
   partitionSamples<DataT, LabelT, IdxT, TPB>(input, split, work_item, (char*)smem);
 }
 
-template <typename DataT, typename LabelT, typename IdxT, typename ObjectiveT>
+template <typename InputT, typename NodeT, typename ObjectiveT>
 __global__ void leafKernel(ObjectiveT objective,
-                           Input<DataT, LabelT, IdxT> input,
-                           Node<DataT, LabelT, IdxT>* tree)
+                           InputT input,
+                           NodeT* tree,
+                           const InstanceRange* instance_ranges)
 {
   using BinT = typename ObjectiveT::BinT;
   extern __shared__ char shared_memory[];
   auto histogram = reinterpret_cast<BinT*>(shared_memory);
   auto& node     = tree[blockIdx.x];
+  auto range     = instance_ranges[blockIdx.x];
   if (!node.IsLeaf()) return;
   auto tid = threadIdx.x;
   for (int i = tid; i < input.numOutputs; i += blockDim.x) {
     histogram[i] = BinT();
   }
   __syncthreads();
-  for (auto i = node.start + tid; i < node.start + node.count; i += blockDim.x) {
+  for (auto i = range.begin + tid; i < range.begin + range.count; i += blockDim.x) {
     auto label = input.labels[input.rowids[i]];
     BinT::IncrementHistogram(histogram, 1, 0, label);
   }
   __syncthreads();
-  if (tid == 0) { node.makeLeaf(ObjectiveT::LeafPrediction(histogram, input.numOutputs)); }
+  if (tid == 0) { node.prediction=ObjectiveT::LeafPrediction(histogram, input.numOutputs); }
 }
 
 /* Returns 'input' rounded up to a correctly-aligned pointer of type OutT* */

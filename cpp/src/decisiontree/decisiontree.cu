@@ -98,12 +98,9 @@ std::string get_tree_summary_text(const TreeMetaDataNode<T, L>* tree)
   std::ostringstream oss;
   oss << " Decision Tree depth --> " << tree->depth_counter << " and n_leaves --> "
       << tree->leaf_counter << "\n"
-      << " Tree Fitting - Overall time --> " << (tree->prepare_time + tree->train_time)
+      << " Tree Fitting - Overall time --> " << tree->train_time
       << " milliseconds"
-      << "\n"
-      << "   - preparing for fit time: " << tree->prepare_time << " milliseconds"
-      << "\n"
-      << "   - tree growing time: " << tree->train_time << " milliseconds";
+      << "\n";
   return oss.str();
 }
 
