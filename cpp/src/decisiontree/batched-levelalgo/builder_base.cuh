@@ -52,8 +52,8 @@ class NodeQueue {
     tree_.emplace_back(0, sampled_rows, 0);
     node_instances_.reserve(max_nodes);
     node_instances_.emplace_back(InstanceRange{0, sampled_rows});
-    if (this->IsExpandable(tree_.back(),0)) {
-      work_items_.emplace_back(NodeWorkItem{0,0, node_instances_.back()});
+    if (this->IsExpandable(tree_.back(), 0)) {
+      work_items_.emplace_back(NodeWorkItem{0, 0, node_instances_.back()});
     }
   }
 
@@ -87,7 +87,7 @@ class NodeQueue {
   void Push(const std::vector<NodeWorkItem>& work_items, SplitT* h_splits)
   {
     // Update node queue based on splits
-    for (int i = 0; i < work_items.size(); i++) {
+    for ( i = 0; i < work_items.size(); i++) {
       auto split      = h_splits[i];
       auto item       = work_items[i];
       const auto node = tree_[item.idx];
@@ -104,25 +104,24 @@ class NodeQueue {
       num_leaves_++;
       // left
       tree_.emplace_back(NodeT::CreateChild(item.depth + 1, node.start, split.nLeft));
-      node_instances_.emplace_back(InstanceRange{parent_range.begin, split.nLeft});
+      node_instances_.emplace_back(InstanceRange{parent_range.begin, size_t(split.nLeft)});
 
       // Do not add a work item if this child is definitely a leaf
-      if (this->IsExpandable(tree_.back(),item.depth+1)) {
+      if (this->IsExpandable(tree_.back(), item.depth + 1)) {
         work_items_.emplace_back(
-          NodeWorkItem{tree_.size() - 1, item.depth+1,node_instances_.back()});
+          NodeWorkItem{tree_.size() - 1, item.depth + 1, node_instances_.back()});
       }
 
       // right
-      tree_.emplace_back(
-        NodeT::CreateChild(item.depth + 1,  parent_range.begin + split.nLeft, parent_range.count - split.nLeft));
+      tree_.emplace_back(NodeT::CreateChild(
+        item.depth + 1, parent_range.begin + split.nLeft, parent_range.count - split.nLeft));
       node_instances_.emplace_back(
-        InstanceRange{parent_range.begin+ split.nLeft,  parent_range.count - split.nLeft});
+        InstanceRange{parent_range.begin + split.nLeft, parent_range.count - split.nLeft});
 
       // Do not add a work item if this child is definitely a leaf
-      if (this->IsExpandable(tree_.back(),item.depth+1)) {
-        work_items_.emplace_back(NodeWorkItem{
-          tree_.size() - 1,item.depth+1,
-          node_instances_.back()});
+      if (this->IsExpandable(tree_.back(), item.depth + 1)) {
+        work_items_.emplace_back(
+          NodeWorkItem{tree_.size() - 1, item.depth + 1, node_instances_.back()});
       }
 
       // update depth
@@ -349,7 +348,6 @@ struct Builder {
   auto doSplit(const std::vector<NodeWorkItem>& work_items)
   {
     ML::PUSH_RANGE("Builder::doSplit @bulder_base.cuh [batched-levelalgo]");
-    // auto batchSize = node_end - node_start;
     // start fresh on the number of *new* nodes created in this batch
     CUDA_CHECK(cudaMemsetAsync(n_nodes, 0, sizeof(IdxT), handle.get_stream()));
     initSplit<DataT, IdxT, TPB_DEFAULT>(splits, work_items.size(), handle.get_stream());

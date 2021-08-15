@@ -61,7 +61,7 @@ template <typename SplitT, typename DataT, typename IdxT>
 HDI bool SplitNotValid(const SplitT& split,
                        DataT min_impurity_decrease,
                        IdxT min_samples_leaf,
-                       size_t num_rows)
+                       int num_rows)
 {
   return split.best_metric_val <= min_impurity_decrease || split.nLeft < min_samples_leaf ||
          (num_rows - split.nLeft) < min_samples_leaf;
