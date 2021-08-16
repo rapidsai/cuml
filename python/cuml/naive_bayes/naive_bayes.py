@@ -1249,6 +1249,34 @@ class CategoricalNB(_BaseDiscreteNB):
     The categorical Naive Bayes classifier is suitable for classification with
     discrete features that are categorically distributed. The categories of
     each feature are drawn from a categorical distribution.
+
+    Parameters
+    ----------
+    alpha : float, default=1.0
+        Additive (Laplace/Lidstone) smoothing parameter
+        (0 for no smoothing).
+    fit_prior : bool, default=True
+        Whether to learn class prior probabilities or not.
+        If false, a uniform prior will be used.
+    class_prior : array-like of shape (n_classes,), default=None
+        Prior probabilities of the classes. If specified the priors are not
+        adjusted according to the data.
+    output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_settings.output_type`.
+        See :ref:`output-data-type-configuration` for more info.
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the
+        CUDA stream that will be used for the model's computations, so
+        users can run different models concurrently in different streams
+        by creating handles in several streams.
+        If it is None, a new one is created.
+    verbose : int or boolean, default=False
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+
     Attributes
     ----------
     category_count_ : list of arrays of shape (n_features,)
@@ -1268,6 +1296,7 @@ class CategoricalNB(_BaseDiscreteNB):
         of categories given the respective feature and class, ``P(x_i|y)``.
     n_features_ : int
         Number of features of each sample.
+
     Examples
     --------
     >>> import numpy as np
@@ -1283,35 +1312,6 @@ class CategoricalNB(_BaseDiscreteNB):
     """
     def __init__(self, *, alpha=1.0, fit_prior=True, class_prior=None,
                  output_type=None, handle=None, verbose=False):
-        """
-        Create new Categorical Naive Bayes instance
-        Parameters
-        ----------
-        alpha : float, default=1.0
-            Additive (Laplace/Lidstone) smoothing parameter
-            (0 for no smoothing).
-        fit_prior : bool, default=True
-            Whether to learn class prior probabilities or not.
-            If false, a uniform prior will be used.
-        class_prior : array-like of shape (n_classes,), default=None
-            Prior probabilities of the classes. If specified the priors are not
-            adjusted according to the data.
-        output_type : {'input', 'cudf', 'cupy', 'numpy', 'numba'}, default=None
-            Variable to control output type of the results and attributes of
-            the estimator. If None, it'll inherit the output type set at the
-            module level, `cuml.global_settings.output_type`.
-            See :ref:`output-data-type-configuration` for more info.
-        handle : cuml.Handle
-            Specifies the cuml.handle that holds internal CUDA state for
-            computations in this model. Most importantly, this specifies the
-            CUDA stream that will be used for the model's computations, so
-            users can run different models concurrently in different streams
-            by creating handles in several streams.
-            If it is None, a new one is created.
-        verbose : int or boolean, default=False
-            Sets logging level. It must be one of `cuml.common.logger.level_*`.
-            See :ref:`verbosity-levels` for more info.
-        """
         super(CategoricalNB, self).__init__(class_prior=class_prior,
                                             handle=handle,
                                             output_type=output_type,
