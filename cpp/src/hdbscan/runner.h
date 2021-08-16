@@ -194,7 +194,7 @@ void _fit_hdbscan(const raft::handle_t& handle,
                   Common::hdbscan_output<value_idx, value_t>& out)
 {
   auto stream      = handle.get_stream();
-  auto exec_policy = rmm::exec_policy(stream);
+  auto exec_policy = handle.get_thrust_policy();
 
   int min_cluster_size = params.min_cluster_size;
 

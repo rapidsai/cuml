@@ -922,7 +922,6 @@ TYPED_TEST(SmoSolverTest, SmoSolveTest)
               p.max_iter,
               p.max_inner_iter);
     checkResults(model, exp, this->stream);
-    svmFreeBuffers(this->handle, model);
   }
 }
 
@@ -1311,7 +1310,6 @@ class SvrTest : public ::testing::Test {
     CUDA_CHECK(cudaFree(yc));
     CUDA_CHECK(cudaFree(f));
     CUDA_CHECK(cudaFree(alpha));
-    svmFreeBuffers(handle, model);
   }
 
  public:

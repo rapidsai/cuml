@@ -121,7 +121,7 @@ class TSNE_runner {
     }
 
     if (params.square_distances) {
-      auto policy = rmm::exec_policy(stream);
+      auto policy = handle.get_thrust_policy();
 
       thrust::transform(policy,
                         k_graph.knn_dists,

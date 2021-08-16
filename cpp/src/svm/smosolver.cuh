@@ -203,7 +203,6 @@ class SmoSolver {
       diff_prev);
     Results<math_t> res(handle, x, y, n_rows, n_cols, C_vec.data(), svmType);
     res.Get(alpha.data(), f.data(), dual_coefs, n_support, idx, x_support, b);
-    ReleaseBuffers();
   }
 
   /**
@@ -502,14 +501,6 @@ class SmoSolver {
     f.resize(n_train, stream);
     delta_alpha.resize(n_ws, stream);
     if (svmType == EPSILON_SVR) y_label.resize(n_train, stream);
-  }
-
-  void ReleaseBuffers()
-  {
-    alpha.release();
-    delta_alpha.release();
-    f.release();
-    y_label.release();
   }
 };
 

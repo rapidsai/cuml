@@ -99,9 +99,6 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
         KernelParams &kernel_params, const svmModel[math_t] &model,
         math_t *preds, math_t buffer_size, bool predict_class) except +
 
-    cdef void svmFreeBuffers[math_t](const handle_t &handle,
-                                     svmModel[math_t] &m) except +
-
 
 class SVMBase(Base,
               FMajorInputTagMixin):
@@ -263,13 +260,9 @@ class SVMBase(Base,
         if self._model is not None:
             if self.dtype == np.float32:
                 model_f = <svmModel[float]*><uintptr_t> self._model
-                if self._freeSvmBuffers:
-                    svmFreeBuffers(handle_[0], model_f[0])
                 del model_f
             elif self.dtype == np.float64:
                 model_d = <svmModel[double]*><uintptr_t> self._model
-                if self._freeSvmBuffers:
-                    svmFreeBuffers(handle_[0], model_d[0])
                 del model_d
             else:
                 raise TypeError("Unknown type for SVC class")

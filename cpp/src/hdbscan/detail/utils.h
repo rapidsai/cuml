@@ -99,7 +99,7 @@ Common::CondensedHierarchy<value_idx, value_t> make_cluster_tree(
   const raft::handle_t& handle, Common::CondensedHierarchy<value_idx, value_t>& condensed_tree)
 {
   auto stream        = handle.get_stream();
-  auto thrust_policy = rmm::exec_policy(stream);
+  auto thrust_policy = handle.get_thrust_policy();
   auto parents       = condensed_tree.get_parents();
   auto children      = condensed_tree.get_children();
   auto lambdas       = condensed_tree.get_lambdas();
@@ -169,7 +169,7 @@ void parent_csr(const raft::handle_t& handle,
                 value_idx* indptr)
 {
   auto stream        = handle.get_stream();
-  auto thrust_policy = rmm::exec_policy(stream);
+  auto thrust_policy = handle.get_thrust_policy();
 
   auto children   = condensed_tree.get_children();
   auto sizes      = condensed_tree.get_sizes();

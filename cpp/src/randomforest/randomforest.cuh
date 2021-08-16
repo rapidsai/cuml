@@ -183,10 +183,10 @@ class RandomForest {
     // Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.
     // selected_rows: randomly generated IDs for bootstrapped samples (w/ replacement); a device
     // ptr.
-    rmm::device_uvector<unsigned int>* selected_rows[n_streams];
+    std::vector<rmm::device_uvector<unsigned int>> selected_rows;
     for (int i = 0; i < n_streams; i++) {
-      auto s           = handle.get_internal_stream(i);
-      selected_rows[i] = new rmm::device_uvector<unsigned int>(n_sampled_rows, s);
+      auto s = handle.get_internal_stream(i);
+      selected_rows.emplace_back(n_sampled_rows, s);
     }
     auto quantile_size = this->rf_params.tree_params.n_bins * n_cols;
     rmm::device_uvector<T> global_quantiles(quantile_size, handle.get_stream());
@@ -205,7 +205,7 @@ class RandomForest {
 #pragma omp parallel for num_threads(n_streams)
     for (int i = 0; i < this->rf_params.n_trees; i++) {
       int stream_id        = omp_get_thread_num();
-      unsigned int* rowids = selected_rows[stream_id]->data();
+      unsigned int* rowids = selected_rows[stream_id].data();
 
       this->prepare_fit_per_tree(i,
                                  n_rows,
@@ -236,13 +236,6 @@ class RandomForest {
                    this->rf_params.tree_params,
                    this->rf_params.seed,
                    global_quantiles.data());
-    }
-    // Cleanup
-    for (int i = 0; i < n_streams; i++) {
-      auto s = handle.get_internal_stream(i);
-      CUDA_CHECK(cudaStreamSynchronize(s));
-      selected_rows[i]->release();
-      delete selected_rows[i];
     }
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
     ML::POP_RANGE();

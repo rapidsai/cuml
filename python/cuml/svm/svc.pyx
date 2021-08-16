@@ -104,9 +104,6 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
         KernelParams &kernel_params, const svmModel[math_t] &model,
         math_t *preds, math_t buffer_size, bool predict_class) except +
 
-    cdef void svmFreeBuffers[math_t](const handle_t &handle,
-                                     svmModel[math_t] &m) except +
-
 
 class SVC(SVMBase,
           ClassifierMixin):

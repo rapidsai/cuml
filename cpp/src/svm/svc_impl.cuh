@@ -203,14 +203,5 @@ void svcPredict(const raft::handle_t& handle,
   delete kernel;
 }
 
-template <typename math_t>
-void svmFreeBuffers(const raft::handle_t& handle, svmModel<math_t>& m)
-{
-  if (m.dual_coefs.size() > 0) m.dual_coefs.release();
-  if (m.support_idx.size() > 0) m.support_idx.release();
-  if (m.x_support.size() > 0) m.x_support.release();
-  if (m.unique_labels.size() > 0) m.unique_labels.release();
-}
-
 };  // end namespace SVM
 };  // end namespace ML

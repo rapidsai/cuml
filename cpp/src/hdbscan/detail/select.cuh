@@ -71,7 +71,7 @@ void perform_bfs(const raft::handle_t& handle,
                  Bfs_Kernel bfs_kernel)
 {
   auto stream        = handle.get_stream();
-  auto thrust_policy = rmm::exec_policy(stream);
+  auto thrust_policy = handle.get_thrust_policy();
 
   rmm::device_uvector<int> next_frontier(n_clusters, stream);
   thrust::fill(thrust_policy, next_frontier.begin(), next_frontier.end(), 0);
@@ -156,7 +156,7 @@ void excess_of_mass(const raft::handle_t& handle,
                     bool allow_single_cluster)
 {
   auto stream      = handle.get_stream();
-  auto exec_policy = rmm::exec_policy(stream);
+  auto exec_policy = handle.get_thrust_policy();
 
   auto cluster_tree_edges = cluster_tree.get_n_edges();
   auto parents            = cluster_tree.get_parents();
@@ -267,7 +267,7 @@ void leaf(const raft::handle_t& handle,
           int n_clusters)
 {
   auto stream      = handle.get_stream();
-  auto exec_policy = rmm::exec_policy(stream);
+  auto exec_policy = handle.get_thrust_policy();
 
   auto parents  = cluster_tree.get_parents();
   auto children = cluster_tree.get_children();
@@ -307,7 +307,7 @@ void cluster_epsilon_search(const raft::handle_t& handle,
                             const int n_selected_clusters)
 {
   auto stream             = handle.get_stream();
-  auto thrust_policy      = rmm::exec_policy(stream);
+  auto thrust_policy      = handle.get_thrust_policy();
   auto parents            = cluster_tree.get_parents();
   auto children           = cluster_tree.get_children();
   auto lambdas            = cluster_tree.get_lambdas();
@@ -386,7 +386,7 @@ void select_clusters(const raft::handle_t& handle,
                      float cluster_selection_epsilon)
 {
   auto stream        = handle.get_stream();
-  auto thrust_policy = rmm::exec_policy(handle.get_stream());
+  auto thrust_policy = handle.get_thrust_policy();
 
   auto n_clusters = condensed_tree.get_n_clusters();
 

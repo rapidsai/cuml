@@ -162,7 +162,7 @@ void FFT_TSNE(value_t* VAL,
               const TSNEParams& params)
 {
   auto stream        = handle.get_stream();
-  auto thrust_policy = rmm::exec_policy(stream);
+  auto thrust_policy = handle.get_thrust_policy();
 
   // Get device properites
   //---------------------------------------------------

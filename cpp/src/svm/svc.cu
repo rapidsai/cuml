@@ -71,10 +71,6 @@ template void svcPredict<double>(const raft::handle_t& handle,
                                  double buffer_size,
                                  bool predict_class);
 
-template void svmFreeBuffers(const raft::handle_t& handle, svmModel<float>& m);
-
-template void svmFreeBuffers(const raft::handle_t& handle, svmModel<double>& m);
-
 template <typename math_t>
 SVC<math_t>::SVC(raft::handle_t& handle,
                  math_t C,
@@ -93,17 +89,10 @@ SVC<math_t>::SVC(raft::handle_t& handle,
 }
 
 template <typename math_t>
-SVC<math_t>::~SVC()
-{
-  svmFreeBuffers(handle, model);
-}
-
-template <typename math_t>
 void SVC<math_t>::fit(
   math_t* input, int n_rows, int n_cols, math_t* labels, const math_t* sample_weight)
 {
   model.n_cols = n_cols;
-  if (model.dual_coefs.size() > 0) svmFreeBuffers(handle, model);
   svcFit(handle, input, n_rows, n_cols, labels, param, kernel_params, model, sample_weight);
 }
 

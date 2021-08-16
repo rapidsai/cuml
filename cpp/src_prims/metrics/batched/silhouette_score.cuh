@@ -188,7 +188,7 @@ value_t silhouette_score(
   rmm::device_uvector<value_idx> cluster_counts = get_cluster_counts(handle, y, n_rows, n_labels);
 
   auto stream = handle.get_stream();
-  auto policy = rmm::exec_policy(stream);
+  auto policy = handle.get_thrust_policy();
 
   auto b_size = n_rows * n_labels;
 
