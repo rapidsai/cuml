@@ -310,7 +310,7 @@ class UMAPParametrizableTest : public ::testing::Test {
     get_embedding(handle, X_d.data(), (float*)y_d.data(), e2, test_params, umap_params);
 
 #if CUDART_VERSION >= 11020
-    bool equal = are_equal(e1, e2, n_samples * umap_params.n_components, stream);
+    auto equal = are_equal(e1, e2, n_samples * umap_params.n_components, stream);
 
     if (!equal) {
       raft::print_device_vector("e1", e1, 25, std::cout);

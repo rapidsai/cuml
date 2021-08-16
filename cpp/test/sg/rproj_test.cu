@@ -74,10 +74,10 @@ class RPROJTest : public ::testing::Test {
     };
 
     cudaStream_t stream = h.get_stream();
-    random_matrix1      = new rand_mat<T>(stream);
-    RPROJfit(h, random_matrix1, params1);
+    random_matrix1      = std::make_unique<rand_mat<T>>(stream);
+    RPROJfit(h, random_matrix1.get(), params1);
     raft::allocate(d_output1, N * params1->n_components, stream);
-    RPROJtransform(h, d_input, random_matrix1, d_output1, params1);
+    RPROJtransform(h, d_input, random_matrix1.get(), d_output1, params1);
     d_output1 = transpose(d_output1, N, params1->n_components);  // From column major to row major
   }
 
@@ -96,12 +96,12 @@ class RPROJTest : public ::testing::Test {
     };
 
     cudaStream_t stream = h.get_stream();
-    random_matrix2      = new rand_mat<T>(stream);
-    RPROJfit(h, random_matrix2, params2);
+    random_matrix2      = std::make_unique<rand_mat<T>>(stream);
+    RPROJfit(h, random_matrix2.get(), params2);
 
     raft::allocate(d_output2, N * params2->n_components, stream);
 
-    RPROJtransform(h, d_input, random_matrix2, d_output2, params2);
+    RPROJtransform(h, d_input, random_matrix2.get(), d_output2, params2);
 
     d_output2 = transpose(d_output2, N, params2->n_components);  // From column major to row major
   }
@@ -120,9 +120,7 @@ class RPROJTest : public ::testing::Test {
     CUDA_CHECK(cudaFree(d_output1));
     CUDA_CHECK(cudaFree(d_output2));
     delete params1;
-    delete random_matrix1;
     delete params2;
-    delete random_matrix2;
   }
 
   void random_matrix_check()
@@ -203,11 +201,11 @@ class RPROJTest : public ::testing::Test {
   std::vector<T> h_input;
   T* d_input;
 
-  rand_mat<T>* random_matrix1;
+  std::unique_ptr<rand_mat<T>> random_matrix1;
   T* d_output1;
 
   paramsRPROJ* params2;
-  rand_mat<T>* random_matrix2;
+  std::unique_ptr<rand_mat<T>> random_matrix2;
   T* d_output2;
 };
 

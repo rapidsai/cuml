@@ -28,20 +28,23 @@ struct Params {
 
 template <typename T>
 struct MakeBlobs : public Fixture {
-  MakeBlobs(const std::string& name, const Params& p) : Fixture(name), params(p) {}
+  MakeBlobs(const std::string& name, const Params& p)
+    : Fixture(name), params(p), data(0, stream), labels(0, stream)
+  {
+  }
 
  protected:
   void allocateBuffers(const ::benchmark::State& state) override
   {
-    data   = std::make_unique<rmm::device_uvector<T>>(params.rows * params.cols, stream);
-    labels = std::make_unique<rmm::device_uvector<int>>(params.rows, stream);
+    data.resize(params.rows * params.cols, stream);
+    labels.resize(params.rows, stream);
   }
 
   void runBenchmark(::benchmark::State& state) override
   {
     loopOnState(state, [this]() {
-      MLCommon::Random::make_blobs(data->data(),
-                                   labels->data(),
+      MLCommon::Random::make_blobs(data.data(),
+                                   labels.data(),
                                    params.rows,
                                    params.cols,
                                    params.clusters,
@@ -52,8 +55,8 @@ struct MakeBlobs : public Fixture {
 
  private:
   Params params;
-  std::unique_ptr<rmm::device_uvector<T>> data;
-  std::unique_ptr<rmm::device_uvector<int>> labels;
+  rmm::device_uvector<T> data;
+  rmm::device_uvector<int> labels;
 };  // struct MakeBlobs
 
 static std::vector<Params> getInputs()

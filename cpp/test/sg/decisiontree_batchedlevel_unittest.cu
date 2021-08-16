@@ -72,8 +72,8 @@ class BatchedLevelAlgoUnitTestFixture {
     h_labels = {-1.0f, 2.0f, 2.0f, 6.0f, -2.0f};
     // X0 + 2 * X1
 
-    raft_handle         = std::make_unique<raft::handle_t>();
-    cudaStream_t stream = raft_handle->get_stream();
+    raft_handle = std::make_unique<raft::handle_t>();
+    auto stream = raft_handle->get_stream();
 
     data        = std::make_unique<rmm::device_uvector<DataT>>(n_row * n_col, stream);
     d_quantiles = std::make_unique<rmm::device_uvector<DataT>>(n_bins * n_col, stream);
@@ -113,7 +113,7 @@ class BatchedLevelAlgoUnitTestFixture {
 
   void TearDown()
   {
-    cudaStream_t stream = raft_handle->get_stream();
+    auto stream = raft_handle->get_stream();
     raft::deallocate_all(stream);
   }
 
@@ -169,7 +169,7 @@ TEST_P(TestNodeSplitKernel, MinSamplesSplitLeaf)
     {{3.333333f, IdxT(-1), DataT(0), DataT(0), NodeT::Leaf}, 1, 3, 1},
   };
 
-  cudaStream_t stream = raft_handle->get_stream();
+  auto stream = raft_handle->get_stream();
 
   raft::update_device(curr_nodes->data(), h_nodes.data() + 1, batchSize, stream);
   CUDA_CHECK(cudaMemsetAsync(n_new_nodes->data(), 0, sizeof(IdxT), stream));
@@ -231,7 +231,7 @@ TEST_P(TestMetric, RegressionMetricGain)
                               * } */
                              {{1.40f, IdxT(-1), DataT(0), DataT(0), NodeT::Leaf}, 0, 5, 0}};
 
-  cudaStream_t stream = raft_handle->get_stream();
+  auto stream = raft_handle->get_stream();
 
   raft::update_device(curr_nodes->data(), h_nodes.data(), batchSize, stream);
 

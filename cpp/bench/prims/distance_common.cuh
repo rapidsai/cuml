@@ -29,32 +29,35 @@ struct Params {
 
 template <typename T, raft::distance::DistanceType DType>
 struct Distance : public Fixture {
-  Distance(const std::string& name, const Params& p) : Fixture(name), params(p) {}
+  Distance(const std::string& name, const Params& p)
+    : Fixture(name), params(p), x(0, stream), y(0, stream), out(0, stream), workspace(0, stream)
+  {
+  }
 
  protected:
   void allocateBuffers(const ::benchmark::State& state) override
   {
-    x   = std::make_unique<rmm::device_uvector<T>>(params.m * params.k, stream);
-    y   = std::make_unique<rmm::device_uvector<T>>(params.n * params.k, stream);
-    out = std::make_unique<rmm::device_uvector<T>>(params.m * params.n, stream);
-    CUDA_CHECK(cudaMemsetAsync(x->data(), 0, x->size() * sizeof(T), stream));
-    CUDA_CHECK(cudaMemsetAsync(y->data(), 0, y->size() * sizeof(T), stream));
-    CUDA_CHECK(cudaMemsetAsync(out->data(), 0, out->size() * sizeof(T), stream));
+    x.resize(params.m * params.k, stream);
+    y.resize(params.n * params.k, stream);
+    out.resize(params.m * params.n, stream);
+    CUDA_CHECK(cudaMemsetAsync(x.data(), 0, x.size() * sizeof(T), stream));
+    CUDA_CHECK(cudaMemsetAsync(y.data(), 0, y.size() * sizeof(T), stream));
+    CUDA_CHECK(cudaMemsetAsync(out.data(), 0, out.size() * sizeof(T), stream));
     worksize = raft::distance::getWorkspaceSize<DType, T, T, T>(
-      x->data(), y->data(), params.m, params.n, params.k);
-    workspace = std::make_unique<rmm::device_uvector<char>>(worksize, stream);
+      x.data(), y.data(), params.m, params.n, params.k);
+    workspace.resize(worksize, stream);
   }
 
   void runBenchmark(::benchmark::State& state) override
   {
     loopOnState(state, [this]() {
-      raft::distance::distance<DType, T, T, T>(x->data(),
-                                               y->data(),
-                                               out->data(),
+      raft::distance::distance<DType, T, T, T>(x.data(),
+                                               y.data(),
+                                               out.data(),
                                                params.m,
                                                params.n,
                                                params.k,
-                                               (void*)workspace->data(),
+                                               (void*)workspace.data(),
                                                worksize,
                                                stream,
                                                params.isRowMajor);
@@ -63,8 +66,8 @@ struct Distance : public Fixture {
 
  private:
   Params params;
-  std::unique_ptr<rmm::device_uvector<T>> x, y, out;
-  std::unique_ptr<rmm::device_uvector<char>> workspace;
+  rmm::device_uvector<T> x, y, out;
+  rmm::device_uvector<char> workspace;
   size_t worksize;
 };  // struct Distance
 

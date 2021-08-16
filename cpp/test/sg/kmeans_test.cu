@@ -127,8 +127,10 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
 
  protected:
   KmeansInputs<T> testparams;
-  std::unique_ptr<rmm::device_uvector<int>> d_labels, d_labels_ref;
-  std::unique_ptr<rmm::device_uvector<T>> d_centroids, d_sample_weight;
+  std::unique_ptr<rmm::device_uvector<int>> d_labels;
+  std::unique_ptr<rmm::device_uvector<int>> d_labels_ref;
+  std::unique_ptr<rmm::device_uvector<T>> d_centroids;
+  std::unique_ptr<rmm::device_uvector<T>> d_sample_weight;
   double score;
   ML::kmeans::KMeansParams params;
 };

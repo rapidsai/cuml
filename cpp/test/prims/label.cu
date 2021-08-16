@@ -81,7 +81,7 @@ TEST(LabelTest, ClassLabels)
   raft::update_device(y_d.data(), y_h, n_rows, stream);
 
   rmm::device_uvector<float> y_unique_d(n_rows, stream);
-  int n_classes = getUniqueLabels(y_d.data(), n_rows, y_unique_d.data(), stream);
+  auto n_classes = getUniqueLabels(y_d.data(), n_rows, y_unique_d.data(), stream);
   y_unique_d.resize(n_classes, stream);
 
   ASSERT_EQ(n_classes, 3);

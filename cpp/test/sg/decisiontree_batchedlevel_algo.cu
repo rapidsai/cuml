@@ -61,8 +61,8 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
     labels = std::make_unique<rmm::device_uvector<L>>(inparams.M, stream);
     tmp    = rmm::device_uvector<T>(inparams.M * inparams.N, stream);
     prepareDataset(tmp.data());
-    auto alpha = T(1.0), beta = T(0.0);
-    auto cublas = handle->get_cublas_handle();
+    auto alpha = T(1.0) auto beta = T(0.0);
+    auto cublas                   = handle->get_cublas_handle();
     CUBLAS_CHECK(raft::linalg::cublasgeam(cublas,
                                           CUBLAS_OP_T,
                                           CUBLAS_OP_N,
@@ -101,7 +101,7 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
   virtual void prepareDataset(T* tmp) = 0;
 };  // class DtBaseTest
 
-const std::vector<DtTestParams> allC = {
+constexpr std::vector<DtTestParams> allC = {
   {1024, 4, 2, 8, 16, 0.00001f, CRITERION::GINI, 12345ULL},
   {1024, 4, 2, 8, 16, 0.00001f, CRITERION::GINI, 12345ULL},
   {1024, 4, 2, 8, 16, 0.00001f, CRITERION::ENTROPY, 12345ULL},
@@ -154,7 +154,7 @@ TEST_P(DtClsTestF, Test)
 }
 INSTANTIATE_TEST_CASE_P(BatchedLevelAlgo, DtClsTestF, ::testing::ValuesIn(allC));
 
-const std::vector<DtTestParams> allR = {
+constexpr std::vector<DtTestParams> allR = {
   {2048, 4, 2, 8, 16, 0.00001f, CRITERION::MSE, 12345ULL},
   {2048, 4, 2, 8, 16, 0.00001f, CRITERION::MSE, 12345ULL},
 };

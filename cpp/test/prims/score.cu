@@ -47,7 +47,7 @@ TEST(ScoreTestHighScore, Result)
   raft::update_device(d_y_hat.data(), y_hat, 5, stream);
   raft::update_device(d_y.data(), y, 5, stream);
 
-  float result = MLCommon::Score::r2_score(d_y.data(), d_y_hat.data(), 5, stream);
+  auto result = MLCommon::Score::r2_score(d_y.data(), d_y_hat.data(), 5, stream);
   ASSERT_TRUE(result == 0.98f);
   CUDA_CHECK(cudaStreamDestroy(stream));
 }
@@ -67,7 +67,7 @@ TEST(ScoreTestLowScore, Result)
   raft::update_device(d_y_hat.data(), y_hat, 5, stream);
   raft::update_device(d_y.data(), y, 5, stream);
 
-  float result = MLCommon::Score::r2_score(d_y.data(), d_y_hat.data(), 5, stream);
+  auto result = MLCommon::Score::r2_score(d_y.data(), d_y_hat.data(), 5, stream);
 
   std::cout << "Result: " << result - -3.4012f << std::endl;
   ASSERT_TRUE(result - -3.4012f < 0.00001);
