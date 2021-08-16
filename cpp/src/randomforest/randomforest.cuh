@@ -46,17 +46,6 @@ namespace ML {
 
 template <class T, class L>
 class RandomForest {
- private:
-  DT::DecisionTree<T, L>* trees = nullptr;  // pointer to trees of RF
-
-  /**
-   * @brief Return a const pointer to decision trees.
-   * @tparam T: data type for input data (float or double).
-   * @tparam L: data type for label data (int for classification task; float or double for
-   * regression task)
-   */
-  const DT::DecisionTree<T, L>* get_trees_ptr() const { return trees; }
-
  protected:
   RF_params rf_params;  // structure containing RF hyperparameters
   int rf_type;          // 0 for classification 1 for regression
@@ -122,14 +111,8 @@ class RandomForest {
   RandomForest(RF_params cfg_rf_params, int cfg_rf_type = RF_type::CLASSIFICATION)
     : rf_params(cfg_rf_params), rf_type(cfg_rf_type)
   {
-    trees = new DT::DecisionTree<T, L>[this->rf_params.n_trees];
     validity_check(rf_params);
   };
-
-  /**
-   * @brief Destructor for RandomForest Object
-   */
-  ~RandomForest() { delete[] trees; }
 
   /**
    * @brief Return number of trees in the forest.
@@ -227,9 +210,8 @@ class RandomForest {
           Expectation: Each tree node will contain (a) # n_sampled_rows and
           (b) a pointer to a list of row numbers w.r.t original data.
       */
-      DT::TreeMetaDataNode<T, L>* tree_ptr = &(forest->trees[i]);
-      tree_ptr->treeid                     = i;
-      trees[i].fit(handle,
+      
+      forest->trees[i] = DT::DecisionTree::fit(handle,
                    input,
                    n_cols,
                    n_rows,
@@ -237,10 +219,9 @@ class RandomForest {
                    rowids,
                    n_sampled_rows,
                    n_unique_labels,
-                   tree_ptr,
                    this->rf_params.tree_params,
                    this->rf_params.seed,
-                   global_quantiles.data());
+                   global_quantiles.data(),i);
     }
     // Cleanup
     for (int i = 0; i < n_streams; i++) {
@@ -299,7 +280,7 @@ class RandomForest {
 
         for (int i = 0; i < this->rf_params.n_trees; i++) {
           L prediction;
-          trees[i].predict(user_handle,
+          DT::DecisionTree::predict(user_handle,
                            &forest->trees[i],
                            &h_input[row_id * row_size],
                            1,
@@ -319,7 +300,7 @@ class RandomForest {
         L sum_predictions = 0;
         for (int i = 0; i < this->rf_params.n_trees; i++) {
           L prediction;
-          trees[i].predict(user_handle,
+          DT::DecisionTree::predict(user_handle,
                            &forest->trees[i],
                            &h_input[row_id * row_size],
                            1,
