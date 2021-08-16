@@ -1469,4 +1469,5 @@ class CategoricalNB(_BaseDiscreteNB):
             [
                 "alpha",
                 "class_prior",
+                "fit_prior"
             ]
