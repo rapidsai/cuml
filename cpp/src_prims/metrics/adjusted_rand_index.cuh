@@ -83,7 +83,7 @@ int countUnique(const T* arr, int size, T& minLabel, T& maxLabel, cudaStream_t s
   maxLabel         = *minmax.second;
   auto totalLabels = int(maxLabel - minLabel + 1);
   rmm::device_uvector<int> labelCounts(totalLabels, stream);
-  rmm::device_uvector<int> nUniq(1, stream);
+  rmm::device_scalar<int> nUniq(stream);
   Stats::histogram<T, int>(
     Stats::HistTypeAuto,
     labelCounts.data(),
@@ -99,9 +99,7 @@ int countUnique(const T* arr, int size, T& minLabel, T& maxLabel, cudaStream_t s
     [] __device__(const T& val) { return val != 0; },
     stream,
     labelCounts.data());
-  int numUniques;
-  raft::update_host(&numUniques, nUniq.data(), 1, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  int numUniques = nUniq.value(stream);
   return numUniques;
 }
 

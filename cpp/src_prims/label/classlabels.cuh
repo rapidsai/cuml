@@ -21,6 +21,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
+#include <raft/label/classlabels.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
@@ -39,8 +40,7 @@ using namespace MLCommon;
  * \tparam math_t numeric type of the arrays with class labels
  * \param [in] y device array of labels, size [n]
  * \param [in] n number of labels
- * \param [out] unique device array of unique labels, unallocated on entry,
- *   on exit it has size [n_unique]
+ * \param [out] unique device array of unique labels, needs to be pre-allocated
  * \param [in] stream cuda stream
  */
 template <typename math_t>
@@ -150,8 +150,8 @@ int make_monotonic(Type* out, Type* in, size_t N, cudaStream_t stream, Lambda fi
   dim3 blocks(raft::ceildiv(N, TPB_X));
   dim3 threads(TPB_X);
 
-  rmm::device_uvector<Type> unique(N, stream);
-  int n_unique = getUniqueLabels(in, N, unique.data(), stream);
+  rmm::device_uvector<Type> unique(0, stream);
+  int n_unique = raft::label::getUniquelabels(unique, in, N, stream);
   unique.resize(n_unique, stream);
 
   map_label_kernel<Type, TPB_X>

@@ -15,6 +15,7 @@
  */
 
 #include <raft/handle.hpp>
+#include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <decisiontree/quantile/quantile.h>
@@ -245,7 +246,7 @@ TEST_P(TestMetric, RegressionMetricGain)
   rmm::device_uvector<int> done_count(max_batch * n_col_blks, stream);
   rmm::device_uvector<ObjectiveT::BinT> hist(2 * nPredCounts, stream);
 
-  rmm::device_uvector<WorkloadInfo<IdxT>> workload_info(1, stream);
+  rmm::device_scalar<WorkloadInfo<IdxT>> workload_info(stream);
   WorkloadInfo<IdxT> h_workload_info;
 
   // Just one threadBlock would be used

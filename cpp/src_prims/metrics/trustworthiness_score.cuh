@@ -16,6 +16,7 @@
 
 #include <cuml/metrics/metrics.hpp>
 #include <raft/spatial/knn/knn.hpp>
+#include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 #include <selection/columnWiseSort.cuh>
 
@@ -149,8 +150,7 @@ double trustworthiness_score(const raft::handle_t& h,
   rmm::device_uvector<int> lookup_table(PAIRWISE_ALLOC, stream);
 
   double t = 0.0;
-  rmm::device_uvector<double> t_dbuf(1, stream);
-  double* d_t = t_dbuf.data();
+  rmm::device_scalar<double> t_dbuf(stream);
 
   int toDo = n;
   while (toDo > 0) {
@@ -190,12 +190,12 @@ double trustworthiness_score(const raft::handle_t& h,
     build_lookup_table<<<n_blocks, N_THREADS, 0, stream>>>(
       lookup_table.data(), X_ind.data(), n, work);
 
-    CUDA_CHECK(cudaMemsetAsync(d_t, 0, sizeof(double), stream));
+    CUDA_CHECK(cudaMemsetAsync(t_dbuf.data(), 0, sizeof(double), stream));
 
     work     = curBatchSize * (n_neighbors + 1);
     n_blocks = raft::ceildiv(work, N_THREADS);
     compute_rank<<<n_blocks, N_THREADS, 0, stream>>>(
-      d_t,
+      t_dbuf.data(),
       lookup_table.data(),
       &emb_ind.data()[(n - toDo) * (n_neighbors + 1)],
       n,
@@ -203,9 +203,7 @@ double trustworthiness_score(const raft::handle_t& h,
       work);
     CUDA_CHECK(cudaPeekAtLastError());
 
-    double t_tmp = 0.;
-    raft::update_host(&t_tmp, d_t, 1, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    double t_tmp = t_dbuf.value(stream);
     t += t_tmp;
 
     toDo -= curBatchSize;

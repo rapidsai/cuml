@@ -16,13 +16,13 @@
 
 #include <cuda_runtime.h>
 #include <raft/cuda_utils.cuh>
+#include <raft/label/classlabels.cuh>
 #include <raft/spatial/knn/ann.hpp>
 #include <raft/spatial/knn/knn.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <cuml/common/logger.hpp>
 #include <cuml/neighbors/knn.hpp>
-#include <label/classlabels.cuh>
 #include <ml_mg_utils.cuh>
 #include <selection/knn.cuh>
 
@@ -103,10 +103,8 @@ void knn_classify(raft::handle_t& handle,
   std::vector<int> n_unique(y.size());
 
   for (std::size_t i = 0; i < y.size(); i++) {
-    uniq_labels_v.emplace_back(n_index_rows, stream);
-    n_unique[i] =
-      MLCommon::Label::getUniqueLabels(y[i], n_index_rows, uniq_labels_v[i].data(), stream);
-    uniq_labels_v.back().resize(n_unique[i], stream);
+    uniq_labels_v.emplace_back(0, stream);
+    n_unique[i]    = raft::label::getUniquelabels(uniq_labels_v.back(), y[i], n_index_rows, stream);
     uniq_labels[i] = uniq_labels_v[i].data();
   }
 
@@ -141,10 +139,8 @@ void knn_class_proba(raft::handle_t& handle,
   std::vector<int> n_unique(y.size());
 
   for (std::size_t i = 0; i < y.size(); i++) {
-    uniq_labels_v.emplace_back(n_index_rows, stream);
-    n_unique[i] =
-      MLCommon::Label::getUniqueLabels(y[i], n_index_rows, uniq_labels_v[i].data(), stream);
-    uniq_labels_v.back().resize(n_unique[i], stream);
+    uniq_labels_v.emplace_back(0, stream);
+    n_unique[i]    = raft::label::getUniquelabels(uniq_labels_v.back(), y[i], n_index_rows, stream);
     uniq_labels[i] = uniq_labels_v[i].data();
   }
 

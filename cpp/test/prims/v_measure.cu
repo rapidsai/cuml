@@ -67,11 +67,6 @@ class vMeasureTest : public ::testing::TestWithParam<vMeasureParam> {
     CUDA_CHECK(cudaStreamCreate(&stream));
     rmm::device_uvector<T> truthClusterArray(nElements, stream);
     rmm::device_uvector<T> predClusterArray(nElements, stream);
-    CUDA_CHECK(
-      cudaMemsetAsync(truthClusterArray.data(), 0, truthClusterArray.size() * sizeof(T), stream));
-    CUDA_CHECK(
-      cudaMemsetAsync(predClusterArray.data(), 0, predClusterArray.size() * sizeof(T), stream));
-
     raft::update_device(truthClusterArray.data(), &arr1[0], (int)nElements, stream);
     raft::update_device(predClusterArray.data(), &arr2[0], (int)nElements, stream);
 

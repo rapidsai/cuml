@@ -30,8 +30,8 @@
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/counting_iterator.h>
-#include <label/classlabels.cuh>
 #include <matrix/kernelfactory.cuh>
+#include <raft/label/classlabels.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/matrix.cuh>
 #include "kernelcache.cuh"
@@ -60,10 +60,7 @@ void svcFit(const raft::handle_t& handle,
   const raft::handle_t& handle_impl = handle;
 
   cudaStream_t stream = handle_impl.get_stream();
-  model.unique_labels.resize(n_rows, stream);
-  model.n_classes =
-    MLCommon::Label::getUniqueLabels(labels, n_rows, model.get_unique_labels(), stream);
-  model.unique_labels.resize(model.n_classes, stream);
+  model.n_classes     = raft::label::getUniquelabels(model.unique_labels, labels, n_rows, stream);
 
   ASSERT(model.n_classes == 2, "Only binary classification is implemented at the moment");
 

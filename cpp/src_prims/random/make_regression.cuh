@@ -68,35 +68,27 @@ static void _make_low_rank_matrix(const raft::handle_t& handle,
   IdxT n = std::min(n_rows, n_cols);
 
   // Generate random (ortho normal) vectors with QR decomposition
-  rmm::device_uvector<DataT> rd_mat_0(0, stream);
-  rmm::device_uvector<DataT> rd_mat_1(0, stream);
-  rd_mat_0.resize(n_rows * n, stream);
-  rd_mat_1.resize(n_cols * n, stream);
+  rmm::device_uvector<DataT> rd_mat_0(n_rows * n, stream);
+  rmm::device_uvector<DataT> rd_mat_1(n_cols * n, stream);
   r.normal(rd_mat_0.data(), n_rows * n, (DataT)0.0, (DataT)1.0, stream);
   r.normal(rd_mat_1.data(), n_cols * n, (DataT)0.0, (DataT)1.0, stream);
-  rmm::device_uvector<DataT> q0(0, stream);
-  rmm::device_uvector<DataT> q1(0, stream);
-  q0.resize(n_rows * n, stream);
-  q1.resize(n_cols * n, stream);
+  rmm::device_uvector<DataT> q0(n_rows * n, stream);
+  rmm::device_uvector<DataT> q1(n_cols * n, stream);
   raft::linalg::qrGetQ(handle, rd_mat_0.data(), q0.data(), n_rows, n, stream);
   raft::linalg::qrGetQ(handle, rd_mat_1.data(), q1.data(), n_cols, n, stream);
 
   // Build the singular profile by assembling signal and noise components
-  rmm::device_uvector<DataT> singular_vec(0, stream);
-  rmm::device_uvector<DataT> singular_mat(0, stream);
-  singular_vec.resize(n, stream);
+  rmm::device_uvector<DataT> singular_vec(n, stream);
   _singular_profile_kernel<<<raft::ceildiv<IdxT>(n, 256), 256, 0, stream>>>(
     singular_vec.data(), n, tail_strength, effective_rank);
   CUDA_CHECK(cudaPeekAtLastError());
-  singular_mat.resize(n * n, stream);
+  rmm::device_uvector<DataT> singular_mat(n * n, stream);
   CUDA_CHECK(cudaMemsetAsync(singular_mat.data(), 0, n * n * sizeof(DataT), stream));
   raft::matrix::initializeDiagonalMatrix(singular_vec.data(), singular_mat.data(), n, n, stream);
 
   // Generate the column-major matrix
-  rmm::device_uvector<DataT> temp_q0s(0, stream);
-  rmm::device_uvector<DataT> temp_out(0, stream);
-  temp_q0s.resize(n_rows * n, stream);
-  temp_out.resize(n_rows * n_cols, stream);
+  rmm::device_uvector<DataT> temp_q0s(n_rows * n, stream);
+  rmm::device_uvector<DataT> temp_out(n_rows * n_cols, stream);
   DataT alpha = 1.0, beta = 0.0;
   raft::linalg::cublasgemm(cublas_handle,
                            CUBLAS_OP_N,
@@ -297,12 +289,9 @@ void make_regression(const raft::handle_t& handle,
   }
 
   if (shuffle) {
-    rmm::device_uvector<DataT> tmp_out(0, stream);
-    rmm::device_uvector<IdxT> perms_samples(0, stream);
-    rmm::device_uvector<IdxT> perms_features(0, stream);
-    tmp_out.resize(n_rows * n_cols, stream);
-    perms_samples.resize(n_rows, stream);
-    perms_features.resize(n_cols, stream);
+    rmm::device_uvector<DataT> tmp_out(n_rows * n_cols, stream);
+    rmm::device_uvector<IdxT> perms_samples(n_rows, stream);
+    rmm::device_uvector<IdxT> perms_features(n_cols, stream);
 
     constexpr IdxT Nthreads = 256;
 

@@ -14,10 +14,6 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <random>
-#include <vector>
-
 #include <linalg_naive.h>
 #include <test_utils.h>
 

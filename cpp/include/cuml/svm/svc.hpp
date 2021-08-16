@@ -148,8 +148,6 @@ class SVC {
       int nochange_steps = 1000,
       int verbosity      = CUML_LEVEL_INFO);
 
-  ~SVC();
-
   /**
    * @brief Fit a support vector classifier to the training data.
    *

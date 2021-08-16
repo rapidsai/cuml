@@ -40,12 +40,6 @@
 #include <unordered_map>
 #include <vector>
 
-#include <thrust/execution_policy.h>
-#include <thrust/for_each.h>
-#include <thrust/iterator/counting_iterator.h>
-
-#include <common/fast_int_div.cuh>
-
 namespace MLCommon {
 namespace LinAlg {
 namespace Batched {

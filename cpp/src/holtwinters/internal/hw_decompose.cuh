@@ -16,6 +16,8 @@
 
 #pragma once
 #include <raft/cudart_utils.h>
+#include <rmm/device_scalar.hpp>
+#include <rmm/device_uvector.hpp>
 #include "hw_utils.cuh"
 
 // optimize, maybe im2col ?
@@ -166,7 +168,7 @@ void batched_ls(const raft::handle_t& handle,
   rmm::device_uvector<Dtype> tau_d(2, stream);
   rmm::device_uvector<Dtype> Rinv_d(4, stream);
   rmm::device_uvector<Dtype> R1Qt_d(2 * trend_len, stream);
-  rmm::device_uvector<int> dev_info_d(1, stream);
+  rmm::device_scalar<int> dev_info_d(stream);
 
   // Prepare A
   for (int i = 0; i < trend_len; ++i) {

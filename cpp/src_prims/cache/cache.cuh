@@ -27,8 +27,6 @@
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include <cub/cub.cuh>
-
 #include <cstddef>
 
 namespace MLCommon {

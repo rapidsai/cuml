@@ -29,6 +29,7 @@
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/reduce.cuh>
+#include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 #include "contingencyMatrix.cuh"
 
@@ -129,7 +130,7 @@ double mutual_info_score(const T* firstClusterArray,
   // device variables
   rmm::device_uvector<int> a(numUniqueClasses, stream);
   rmm::device_uvector<int> b(numUniqueClasses, stream);
-  rmm::device_uvector<double> d_MI(1, stream);
+  rmm::device_scalar<double> d_MI(stream);
 
   // host variables
   double h_MI;
@@ -164,7 +165,7 @@ double mutual_info_score(const T* firstClusterArray,
     dContingencyMatrix.data(), a.data(), b.data(), numUniqueClasses, size, d_MI.data());
 
   // updating in the host memory
-  raft::update_host(&h_MI, d_MI.data(), 1, stream);
+  h_MI = d_MI.value(stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 

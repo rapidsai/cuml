@@ -36,6 +36,7 @@
 #include <raft/linalg/cholesky_r1_update.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/unary_op.cuh>
+#include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace ML {
@@ -895,9 +896,9 @@ void larsFit(const raft::handle_t& handle,
   rmm::device_uvector<math_t> cor(n_cols, stream);
 
   // Temporary arrays used by the solver
-  rmm::device_uvector<math_t> A(1, stream);
+  rmm::device_scalar<math_t> A(stream);
   rmm::device_uvector<math_t> a_vec(n_cols, stream);
-  rmm::device_uvector<math_t> gamma(1, stream);
+  rmm::device_scalar<math_t> gamma(stream);
   rmm::device_uvector<math_t> u_eq(n_rows, stream);
   rmm::device_uvector<math_t> ws(max_iter, stream);
   rmm::device_uvector<math_t> workspace(n_cols, stream);

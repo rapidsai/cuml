@@ -213,8 +213,7 @@ void make_arima(DataT* out,
   }
 
   // Generate noise/residuals
-  rmm::device_uvector<DataT> residuals(0, stream);
-  residuals.resize(batch_size * (n_obs - d_sD), stream);
+  rmm::device_uvector<DataT> residuals(batch_size * (n_obs - d_sD), stream);
   gpu_gen.normal(residuals.data(), batch_size * (n_obs - d_sD), (DataT)0.0, noise_scale, stream);
 
   // Call the main kernel to generate the differenced series

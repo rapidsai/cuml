@@ -30,7 +30,8 @@
 #include <raft/linalg/eltwise.cuh>
 #include <raft/mr/device/buffer.hpp>
 #include <raft/stats/sum.cuh>
-#include <rmm/device_vector.hpp>
+#include <rmm/device_scalar.hpp>
+#include <rmm/device_uvector.hpp>
 #include "fft_kernels.cuh"
 #include "utils.cuh"
 
@@ -118,22 +119,21 @@ std::pair<value_t, value_t> min_max(const value_t* Y, const value_idx n, cudaStr
 {
   value_t min_h, max_h;
 
-  rmm::device_uvector<value_t> min_d(1, stream);
-  rmm::device_uvector<value_t> max_d(1, stream);
+  rmm::device_scalar<value_t> min_d(stream);
+  rmm::device_scalar<value_t> max_d(stream);
 
-  min_d.set_element(0, std::numeric_limits<value_t>::max(), stream);
-  max_d.set_element(0, std::numeric_limits<value_t>::lowest(), stream);
-
-  raft::update_host(&min_h, min_d.data(), 1, stream);
-  raft::update_host(&max_h, max_d.data(), 1, stream);
+  value_t val = std::numeric_limits<value_t>::max();
+  min_d.set_value_async(val, stream);
+  val = std::numeric_limits<value_t>::lowest();
+  max_d.set_value_async(val, stream);
 
   auto nthreads = 256;
   auto nblocks  = raft::ceildiv(n, (value_idx)nthreads);
 
   min_max_kernel<<<nblocks, nthreads, 0, stream>>>(Y, n, min_d.data(), max_d.data(), true);
 
-  raft::update_host(&min_h, min_d.data(), 1, stream);
-  raft::update_host(&max_h, max_d.data(), 1, stream);
+  min_h = min_d.value(stream);
+  max_h = max_d.value(stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 

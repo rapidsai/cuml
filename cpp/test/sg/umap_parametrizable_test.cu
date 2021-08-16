@@ -68,11 +68,10 @@ bool has_nan(T* data, size_t len, cudaStream_t stream)
   dim3 blk(256);
   dim3 grid(raft::ceildiv(len, (size_t)blk.x));
   bool h_answer = false;
-  rmm::device_uvector<bool> d_answer(1, stream);
+  rmm::device_scalar<bool> d_answer(stream);
   raft::update_device(d_answer.data(), &h_answer, 1, stream);
   has_nan_kernel<<<grid, blk, 0, stream>>>(data, len, d_answer.data());
-  raft::update_host(&h_answer, d_answer.data(), 1, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  h_answer = d_answer.value(stream);
   return h_answer;
 }
 
@@ -90,13 +89,11 @@ template <typename T>
 bool are_equal(T* embedding1, T* embedding2, size_t len, cudaStream_t stream)
 {
   double h_answer = 0.;
-  rmm::device_uvector<double> d_answer(1, stream);
+  rmm::device_scalar<double> d_answer(stream);
   raft::update_device(d_answer.data(), &h_answer, 1, stream);
-
   are_equal_kernel<<<raft::ceildiv(len, (size_t)32), 32, 0, stream>>>(
     embedding1, embedding2, len, d_answer.data());
-  raft::update_host(&h_answer, d_answer.data(), 1, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  h_answer = d_answer.value(stream);
 
   double tolerance = 1.0;
   if (h_answer > tolerance) {

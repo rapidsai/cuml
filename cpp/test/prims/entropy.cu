@@ -75,7 +75,6 @@ class entropyTest : public ::testing::TestWithParam<entropyParam> {
     // allocating and initializing memory to the GPU
     CUDA_CHECK(cudaStreamCreate(&stream));
     rmm::device_uvector<T> clusterArray(nElements, stream);
-    CUDA_CHECK(cudaMemsetAsync(clusterArray.data(), 0, clusterArray.size() * sizeof(T), stream));
     raft::update_device(clusterArray.data(), &arr1[0], (int)nElements, stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));

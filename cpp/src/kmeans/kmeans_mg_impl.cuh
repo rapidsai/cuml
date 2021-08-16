@@ -193,7 +193,7 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
   Tensor<DataT, 1, IndexT> uniformRands({n_samples}, stream);
 
   // <<< Step-2 >>>: psi <- phi_X (C)
-  rmm::device_uvector<DataT> clusterCost(1, stream);
+  rmm::device_scalar<DataT> clusterCost(stream);
 
   kmeans::detail::minClusterDistance(handle,
                                      params,
@@ -217,11 +217,10 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
 
   // compute total cluster cost by accumulating the partial cost from all the
   // ranks
-  comm.allreduce(
-    clusterCost.data(), clusterCost.data(), clusterCost.size(), raft::comms::op_t::SUM, stream);
+  comm.allreduce(clusterCost.data(), clusterCost.data(), 1, raft::comms::op_t::SUM, stream);
 
   DataT psi = 0;
-  raft::copy(&psi, clusterCost.data(), clusterCost.size(), stream);
+  psi       = clusterCost.value(stream);
 
   // <<< End of Step-2 >>>
 
@@ -265,9 +264,8 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
       clusterCost.data(),
       [] __device__(const DataT& a, const DataT& b) { return a + b; },
       stream);
-    comm.allreduce(
-      clusterCost.data(), clusterCost.data(), clusterCost.size(), raft::comms::op_t::SUM, stream);
-    raft::copy(&psi, clusterCost.data(), clusterCost.size(), stream);
+    comm.allreduce(clusterCost.data(), clusterCost.data(), 1, raft::comms::op_t::SUM, stream);
+    psi = clusterCost.value(stream);
     ASSERT(comm.sync_stream(stream) == raft::comms::status_t::SUCCESS,
            "An error occurred in the distributed operation. This can result "
            "from a failed rank");

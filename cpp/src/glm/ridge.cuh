@@ -174,9 +174,9 @@ void ridgeFit(const raft::handle_t& handle,
   rmm::device_uvector<math_t> mu_labels(0, stream);
 
   if (fit_intercept) {
-    mu_input  = rmm::device_uvector<math_t>(n_cols, stream);
-    mu_labels = rmm::device_uvector<math_t>(1, stream);
-    if (normalize) { norm2_input = rmm::device_uvector<math_t>(n_cols, stream); }
+    mu_input.resize(n_cols, stream);
+    mu_labels.resize(1, stream);
+    if (normalize) { norm2_input.resize(n_cols, stream); }
     preProcessData(handle,
                    input,
                    n_rows,

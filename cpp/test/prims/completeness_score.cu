@@ -67,11 +67,6 @@ class completenessTest : public ::testing::TestWithParam<completenessParam> {
 
     rmm::device_uvector<T> truthClusterArray(nElements, stream);
     rmm::device_uvector<T> predClusterArray(nElements, stream);
-    CUDA_CHECK(
-      cudaMemsetAsync(truthClusterArray.data(), 0, truthClusterArray.size() * sizeof(T), stream));
-    CUDA_CHECK(
-      cudaMemsetAsync(predClusterArray.data(), 0, predClusterArray.size() * sizeof(T), stream));
-
     raft::update_device(truthClusterArray.data(), arr1.data(), (int)nElements, stream);
     raft::update_device(predClusterArray.data(), arr2.data(), (int)nElements, stream);
 

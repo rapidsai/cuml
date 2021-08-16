@@ -31,9 +31,6 @@
 #include <random>
 #include <vector>
 
-#include "../linalg_naive.h"
-#include "../test_utils.h"
-
 namespace MLCommon {
 namespace LinAlg {
 namespace Batched {

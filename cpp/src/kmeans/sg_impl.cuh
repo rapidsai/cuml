@@ -392,7 +392,7 @@ void initScalableKMeansPlusPlus(const raft::handle_t& handle,
 
   Tensor<DataT, 1, IndexT> minClusterDistance({n_samples}, stream);
   Tensor<DataT, 1, IndexT> uniformRands({n_samples}, stream);
-  rmm::device_uvector<DataT> clusterCost(1, stream);
+  rmm::device_scalar<DataT> clusterCost(stream);
 
   // <<< Step-2 >>>: psi <- phi_X (C)
   kmeans::detail::minClusterDistance(handle,
@@ -416,7 +416,7 @@ void initScalableKMeansPlusPlus(const raft::handle_t& handle,
     stream);
 
   DataT psi = 0;
-  raft::copy(&psi, clusterCost.data(), clusterCost.size(), stream);
+  psi       = clusterCost.value(stream);
 
   // <<< End of Step-2 >>>
 
@@ -451,8 +451,7 @@ void initScalableKMeansPlusPlus(const raft::handle_t& handle,
       [] __device__(const DataT& a, const DataT& b) { return a + b; },
       stream);
 
-    raft::copy(&psi, clusterCost.data(), clusterCost.size(), stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    psi = clusterCost.value(stream);
 
     // <<<< Step-4 >>> : Sample each point x in X independently and identify new
     // potentialCentroids

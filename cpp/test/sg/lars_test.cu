@@ -104,7 +104,7 @@ class LarsTest : public ::testing::Test {
 
   void calcUExp(math_t* G, int n_cols, math_t* U_dev_exp)
   {
-    rmm::device_uvector<int> devInfo(1, stream);
+    rmm::device_scalar<int> devInfo(stream);
     rmm::device_uvector<math_t> workspace(0, stream);
     int n_work;
     const int ld_U = n_cols;
@@ -303,7 +303,7 @@ class LarsTest : public ::testing::Test {
     const int ld_G     = n_cols;
     rmm::device_uvector<math_t> u(n_rows, stream);
     rmm::device_uvector<math_t> ws(n_active, stream);
-    rmm::device_uvector<math_t> gamma(1, stream);
+    rmm::device_scalar<math_t> gamma(stream);
     rmm::device_uvector<math_t> U(n_cols * n_cols, stream);
     rmm::device_uvector<math_t> a_vec(n_cols - n_active, stream);
     raft::update_device(A.data(), &A_host, 1, stream);

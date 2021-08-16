@@ -145,7 +145,7 @@ void sgdFit(const raft::handle_t& handle,
   rmm::device_uvector<int> indices(batch_size, stream);
   rmm::device_uvector<math_t> input_batch(batch_size * n_cols, stream);
   rmm::device_uvector<math_t> labels_batch(batch_size, stream);
-  rmm::device_uvector<math_t> loss_value(1, stream);
+  rmm::device_scalar<math_t> loss_value(stream);
 
   math_t prev_loss_value = math_t(0);
   math_t curr_loss_value = math_t(0);

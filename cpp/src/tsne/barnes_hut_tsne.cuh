@@ -99,9 +99,9 @@ void Barnes_Hut(value_t* VAL,
   rmm::device_uvector<value_t> rep_forces((nnodes + 1) * 2, stream);
   rmm::device_uvector<value_t> attr_forces(n * 2, stream);  // n*2 double for reduction sum
 
-  rmm::device_uvector<value_t> Z_norm(1, stream);
+  rmm::device_scalar<value_t> Z_norm(stream);
 
-  rmm::device_uvector<value_t> radiusd_squared(1, stream);
+  rmm::device_scalar<value_t> radiusd_squared(stream);
 
   // Apply
   rmm::device_uvector<value_t> gains_bh(n * 2, stream);
