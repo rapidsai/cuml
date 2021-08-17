@@ -94,9 +94,6 @@ struct RF_params {
   DT::DecisionTreeParams tree_params;
 };
 
-void validity_check(const RF_params rf_params);
-void print(const RF_params rf_params);
-
 /* Update labels so they are unique from 0 to n_unique_vals.
    Create an old_label to new_label map per random forest.
 */

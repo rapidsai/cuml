@@ -234,7 +234,7 @@ tl::Tree<T, T> build_treelite_tree(const DT::TreeMetaDataNode<T, L>& rf_tree,
 class DecisionTree {
  public:
   template <class DataT, class LabelT>
-  static DT::TreeMetaDataNode<DataT, LabelT> fit(
+  static std::shared_ptr<DT::TreeMetaDataNode<DataT, LabelT>> fit(
     const raft::handle_t& handle,
     const DataT* data,
     const int ncols,
@@ -360,6 +360,15 @@ class DecisionTree {
 
 };  // End DecisionTree Class
 
+// Class specializations
+template tl::Tree<float, float> build_treelite_tree<float, int>(
+  const DT::TreeMetaDataNode<float, int>& rf_tree, unsigned int num_class);
+template tl::Tree<double, double> build_treelite_tree<double, int>(
+  const DT::TreeMetaDataNode<double, int>& rf_tree, unsigned int num_class);
+template tl::Tree<float, float> build_treelite_tree<float, float>(
+  const DT::TreeMetaDataNode<float, float>& rf_tree, unsigned int num_class);
+template tl::Tree<double, double> build_treelite_tree<double, double>(
+  const DT::TreeMetaDataNode<double, double>& rf_tree, unsigned int num_class);
 }  // End namespace DT
 
 }  // End namespace ML

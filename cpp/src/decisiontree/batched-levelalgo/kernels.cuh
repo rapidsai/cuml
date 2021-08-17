@@ -22,6 +22,7 @@
 #include <cstdio>
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
+#include "cuml/tree/flatnode.h"
 #include "input.cuh"
 #include "metrics.cuh"
 #include "split.cuh"
@@ -143,6 +144,12 @@ __global__ void nodeSplitKernel(IdxT max_depth,
   partitionSamples<DataT, LabelT, IdxT, TPB>(input, split, work_item, (char*)smem);
 }
 
+template <typename NodeT>
+DI bool isLeaf(const NodeT& n)
+{
+  return n.left_child_id == -1;
+}
+
 template <typename InputT, typename NodeT, typename ObjectiveT>
 __global__ void leafKernel(ObjectiveT objective,
                            InputT input,
@@ -154,7 +161,7 @@ __global__ void leafKernel(ObjectiveT objective,
   auto histogram = reinterpret_cast<BinT*>(shared_memory);
   auto& node     = tree[blockIdx.x];
   auto range     = instance_ranges[blockIdx.x];
-  if (!node.IsLeaf()) return;
+  if (!isLeaf(node)) return;
   auto tid = threadIdx.x;
   for (int i = tid; i < input.numOutputs; i += blockDim.x) {
     histogram[i] = BinT();
@@ -165,7 +172,7 @@ __global__ void leafKernel(ObjectiveT objective,
     BinT::IncrementHistogram(histogram, 1, 0, label);
   }
   __syncthreads();
-  if (tid == 0) { node.prediction=ObjectiveT::LeafPrediction(histogram, input.numOutputs); }
+  if (tid == 0) { node.prediction = ObjectiveT::LeafPrediction(histogram, input.numOutputs); }
 }
 
 /* Returns 'input' rounded up to a correctly-aligned pointer of type OutT* */

@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <memory>
 #include <raft/handle.hpp>
 
 #include "metrics.cuh"
@@ -44,26 +45,27 @@ template <typename DataT, typename LabelT>
 class NodeQueue {
   using NodeT = SparseTreeNode<DataT, LabelT>;
   const DecisionTreeParams params;
-  DT::TreeMetaDataNode<DataT, LabelT> tree;
+  std::shared_ptr<DT::TreeMetaDataNode<DataT, LabelT>> tree;
   std::vector<InstanceRange> node_instances_;
   std::deque<NodeWorkItem> work_items_;
 
  public:
-  NodeQueue(DecisionTreeParams params, size_t max_nodes, size_t sampled_rows) : params(params)
+  NodeQueue(DecisionTreeParams params, size_t max_nodes, size_t sampled_rows)
+    : params(params), tree(std::make_shared<DT::TreeMetaDataNode<DataT, LabelT>>())
   {
-    tree.sparsetree.reserve(max_nodes);
-    tree.sparsetree.emplace_back();
-    tree.sparsetree.back().instance_count = sampled_rows;
-    tree.leaf_counter                     = 1;
-    tree.depth_counter                    = 0;
+    tree->sparsetree.reserve(max_nodes);
+    tree->sparsetree.emplace_back();
+    tree->sparsetree.back().instance_count = sampled_rows;
+    tree->leaf_counter                     = 1;
+    tree->depth_counter                    = 0;
     node_instances_.reserve(max_nodes);
     node_instances_.emplace_back(InstanceRange{0, sampled_rows});
-    if (this->IsExpandable(tree.sparsetree.back(), 0)) {
+    if (this->IsExpandable(tree->sparsetree.back(), 0)) {
       work_items_.emplace_back(NodeWorkItem{0, 0, node_instances_.back()});
     }
   }
 
-  DT::TreeMetaDataNode<DataT, LabelT> GetTree() { return tree; }
+  std::shared_ptr<DT::TreeMetaDataNode<DataT, LabelT>> GetTree() { return tree; }
   const std::vector<InstanceRange>& GetInstanceRanges() { return node_instances_; }
 
   bool HasWork() { return work_items_.size() > 0; }
@@ -84,7 +86,7 @@ class NodeQueue {
   {
     if (depth >= params.max_depth) return false;
     if (int(n.instance_count) < params.min_samples_split) return false;
-    if (params.max_leaves != -1 && tree.leaf_counter >= params.max_leaves) return false;
+    if (params.max_leaves != -1 && tree->leaf_counter >= params.max_leaves) return false;
     return true;
   }
 
@@ -101,40 +103,40 @@ class NodeQueue {
         continue;
       }
 
-      if (params.max_leaves != -1 && tree.leaf_counter >= params.max_leaves) break;
+      if (params.max_leaves != -1 && tree->leaf_counter >= params.max_leaves) break;
 
       // parent
-      tree.sparsetree.at(item.idx) = NodeT{0,
-                                           split.colid,
-                                           split.quesval,
-                                           split.best_metric_val,
-                                           int(tree.sparsetree.size()),
-                                           uint32_t(parent_range.count)};
-      tree.leaf_counter++;
+      tree->sparsetree.at(item.idx) = NodeT{0,
+                                            split.colid,
+                                            split.quesval,
+                                            split.best_metric_val,
+                                            int(tree->sparsetree.size()),
+                                            uint32_t(parent_range.count)};
+      tree->leaf_counter++;
       // left
-      tree.sparsetree.emplace_back(NodeT{0, -1, 0, 0, -1, uint32_t(split.nLeft)});
+      tree->sparsetree.emplace_back(NodeT{0, -1, 0, 0, -1, uint32_t(split.nLeft)});
       node_instances_.emplace_back(InstanceRange{parent_range.begin, size_t(split.nLeft)});
 
       // Do not add a work item if this child is definitely a leaf
-      if (this->IsExpandable(tree.sparsetree.back(), item.depth + 1)) {
+      if (this->IsExpandable(tree->sparsetree.back(), item.depth + 1)) {
         work_items_.emplace_back(
-          NodeWorkItem{tree.sparsetree.size() - 1, item.depth + 1, node_instances_.back()});
+          NodeWorkItem{tree->sparsetree.size() - 1, item.depth + 1, node_instances_.back()});
       }
 
       // right
-      tree.sparsetree.emplace_back(
+      tree->sparsetree.emplace_back(
         NodeT{0, -1, 0, 0, -1, uint32_t(parent_range.count - split.nLeft)});
       node_instances_.emplace_back(
         InstanceRange{parent_range.begin + split.nLeft, parent_range.count - split.nLeft});
 
       // Do not add a work item if this child is definitely a leaf
-      if (this->IsExpandable(tree.sparsetree.back(), item.depth + 1)) {
+      if (this->IsExpandable(tree->sparsetree.back(), item.depth + 1)) {
         work_items_.emplace_back(
-          NodeWorkItem{tree.sparsetree.size() - 1, item.depth + 1, node_instances_.back()});
+          NodeWorkItem{tree->sparsetree.size() - 1, item.depth + 1, node_instances_.back()});
       }
 
       // update depth
-      tree.depth_counter = max(tree.depth_counter, item.depth + 1);
+      tree->depth_counter = max(tree->depth_counter, item.depth + 1);
     }
   }
 };
@@ -313,7 +315,7 @@ struct Builder {
     ML::POP_RANGE();
   }
 
-  DT::TreeMetaDataNode<DataT, LabelT> train()
+  std::shared_ptr<DT::TreeMetaDataNode<DataT, LabelT>> train()
   {
     ML::PUSH_RANGE("Builder::train @builder_base.cuh [batched-levelalgo]");
     NodeQueue<DataT, LabelT> queue(params, this->maxNodes(), input.nSampledRows);
@@ -323,7 +325,7 @@ struct Builder {
       queue.Push(work_items, splits_host_ptr);
     }
     auto tree = queue.GetTree();
-    this->SetLeafPredictions(&tree.sparsetree, queue.GetInstanceRanges());
+    this->SetLeafPredictions(&tree->sparsetree, queue.GetInstanceRanges());
     ML::POP_RANGE();
     return tree;
   }

@@ -183,18 +183,18 @@ class RandomForest {
           (b) a pointer to a list of row numbers w.r.t original data.
       */
 
-      forest->trees[i] = DT::DecisionTree::fit(handle,
-                                               input,
-                                               n_cols,
-                                               n_rows,
-                                               labels,
-                                               rowids,
-                                               n_sampled_rows,
-                                               n_unique_labels,
-                                               this->rf_params.tree_params,
-                                               this->rf_params.seed,
-                                               global_quantiles,
-                                               i);
+      forest->trees[i] = *DT::DecisionTree::fit(handle,
+                                                input,
+                                                n_cols,
+                                                n_rows,
+                                                labels,
+                                                rowids,
+                                                n_sampled_rows,
+                                                n_unique_labels,
+                                                this->rf_params.tree_params,
+                                                this->rf_params.seed,
+                                                global_quantiles,
+                                                i);
     }
     // Cleanup
     for (int i = 0; i < n_streams; i++) {
