@@ -50,20 +50,22 @@ struct DlbInputs {
 
 class DlbTest : public ::testing::TestWithParam<DlbInputs> {
  protected:
+  DlbTest() : out(0, stream) {}
+
   void SetUp() override
   {
-    cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     params  = ::testing::TestWithParam<DlbInputs>::GetParam();
     int len = params.len;
-    out     = std::make_unique<rmm::device_uvector<int>>(len, stream);
-    dlbTest(len, out->data(), stream);
+    out.resize(len, stream);
+    dlbTest(len, out.data(), stream);
   }
 
  protected:
+  cudaStream_t stream;
   DlbInputs params;
-  std::unique_ptr<rmm::device_uvector<int>> out;
+  rmm::device_uvector<int> out;
 };
 
 template <typename T, typename L>
@@ -89,7 +91,7 @@ template <typename T, typename L>
 const std::vector<DlbInputs> inputs = {{4}, {16}, {64}, {256}, {2048}};
 TEST_P(DlbTest, Result)
 {
-  ASSERT_TRUE(devArrMatchCustom(out->data(), params.len, raft::Compare<int>()));
+  ASSERT_TRUE(devArrMatchCustom(out.data(), params.len, raft::Compare<int>()));
 }
 INSTANTIATE_TEST_CASE_P(DlbTests, DlbTest, ::testing::ValuesIn(inputs));
 

@@ -232,7 +232,7 @@ class KNNTestHelper {
   Matrix::PartDescriptor* idx_desc;
   std::vector<Matrix::floatData_t*> query_parts;
   Matrix::PartDescriptor* query_desc;
-  std::vector<std::vector<T*>> y;
+  std::vector < std::vector<T*> y;
 
   cudaStream_t stream;
 

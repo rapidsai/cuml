@@ -69,6 +69,8 @@ struct GatherInputs {
 template <typename MatrixT, typename MapT>
 class GatherTest : public ::testing::TestWithParam<GatherInputs> {
  protected:
+  GatherTest() : d_in(0, stream), d_out_exp(0, stream), d_out_act(0, stream), d_map(0, stream) {}
+
   void SetUp() override
   {
     params = ::testing::TestWithParam<GatherInputs>::GetParam();
@@ -82,28 +84,28 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs> {
     uint32_t len        = nrows * ncols;
 
     // input matrix setup
-    d_in = std::make_unique<rmm::device_uvector<MatrixT>>(nrows * ncols, stream);
+    d_in.resize(nrows * ncols, stream);
     h_in.resize(nrows * ncols);
-    r.uniform(d_in->data(), len, MatrixT(-1.0), MatrixT(1.0), stream);
-    raft::update_host(h_in.data(), d_in->data(), len, stream);
+    r.uniform(d_in.data(), len, MatrixT(-1.0), MatrixT(1.0), stream);
+    raft::update_host(h_in.data(), d_in.data(), len, stream);
 
     // map setup
-    d_map = std::make_unique<rmm::device_uvector<MapT>>(map_length, stream);
+    d_map.resize(map_length, stream);
     h_map.resize(map_length);
-    r_int.uniformInt(d_map->data(), map_length, (MapT)0, nrows, stream);
-    raft::update_host(h_map.data(), d_map->data(), map_length, stream);
+    r_int.uniformInt(d_map.data(), map_length, (MapT)0, nrows, stream);
+    raft::update_host(h_map.data(), d_map.data(), map_length, stream);
 
     // expected and actual output matrix setup
     h_out.resize(map_length * ncols);
-    d_out_exp = std::make_unique<rmm::device_uvector<MatrixT>>(map_length * ncols, stream);
-    d_out_act = std::make_unique<rmm::device_uvector<MatrixT>>(map_length * ncols, stream);
+    d_out_exp.resize(map_length * ncols, stream);
+    d_out_act.resize(map_length * ncols, stream);
 
     // launch gather on the host and copy the results to device
     naiveGather(h_in.data(), ncols, nrows, h_map.data(), map_length, h_out.data());
-    raft::update_device(d_out_exp->data(), h_out.data(), map_length * ncols, stream);
+    raft::update_device(d_out_exp.data(), h_out.data(), map_length * ncols, stream);
 
     // launch device version of the kernel
-    gatherLaunch(d_in->data(), ncols, nrows, d_map->data(), map_length, d_out_act->data(), stream);
+    gatherLaunch(d_in.data(), ncols, nrows, d_map.data(), map_length, d_out_act.data(), stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
@@ -114,8 +116,8 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs> {
   GatherInputs params;
   std::vector<MatrixT> h_in, h_out;
   std::vector<MapT> h_map;
-  std::unique_ptr<rmm::device_uvector<MatrixT>> d_in, d_out_exp, d_out_act;
-  std::unique_ptr<rmm::device_uvector<MapT>> d_map;
+  rmm::device_uvector<MatrixT> d_in, d_out_exp, d_out_act;
+  rmm::device_uvector<MapT> d_map;
 };
 
 const std::vector<GatherInputs> inputs = {{1024, 32, 128, 1234ULL},
@@ -134,19 +136,15 @@ const std::vector<GatherInputs> inputs = {{1024, 32, 128, 1234ULL},
 typedef GatherTest<float, uint32_t> GatherTestF;
 TEST_P(GatherTestF, Result)
 {
-  ASSERT_TRUE(devArrMatch(d_out_exp->data(),
-                          d_out_act->data(),
-                          params.map_length * params.ncols,
-                          raft::Compare<float>()));
+  ASSERT_TRUE(devArrMatch(
+    d_out_exp.data(), d_out_act.data(), params.map_length * params.ncols, raft::Compare<float>()));
 }
 
 typedef GatherTest<double, uint32_t> GatherTestD;
 TEST_P(GatherTestD, Result)
 {
-  ASSERT_TRUE(devArrMatch(d_out_exp->data(),
-                          d_out_act->data(),
-                          params.map_length * params.ncols,
-                          raft::Compare<double>()));
+  ASSERT_TRUE(devArrMatch(
+    d_out_exp.data(), d_out_act.data(), params.map_length * params.ncols, raft::Compare<double>()));
 }
 
 INSTANTIATE_TEST_CASE_P(GatherTests, GatherTestF, ::testing::ValuesIn(inputs));

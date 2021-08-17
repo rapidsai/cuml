@@ -47,7 +47,7 @@ cumlError_t cumlSpSvcFit(cumlHandle_t handle,
                          int* n_classes,
                          float** unique_labels)
 {
-  ML::SVM::svmParameter param;
+  ML::SVM::SvmParameter param;
   param.C              = C;
   param.cache_size     = cache_size;
   param.max_iter       = max_iter;
@@ -64,7 +64,7 @@ cumlError_t cumlSpSvcFit(cumlHandle_t handle,
   cumlError_t status;
   raft::handle_t* handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
-  ML::SVM::svmModel<float> model{0, 0, 0, 0, handle_ptr->get_stream()};
+  ML::SVM::SvmModel<float> model{0, 0, 0, 0, handle_ptr->get_stream()};
 
   if (status == CUML_SUCCESS) {
     try {
@@ -113,7 +113,7 @@ cumlError_t cumlDpSvcFit(cumlHandle_t handle,
                          int* n_classes,
                          double** unique_labels)
 {
-  ML::SVM::svmParameter param;
+  ML::SVM::SvmParameter param;
   param.C              = C;
   param.cache_size     = cache_size;
   param.max_iter       = max_iter;
@@ -130,7 +130,7 @@ cumlError_t cumlDpSvcFit(cumlHandle_t handle,
   cumlError_t status;
   raft::handle_t* handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
-  ML::SVM::svmModel<double> model{0, 0, 0, 0, handle_ptr->get_stream()};
+  ML::SVM::SvmModel<double> model{0, 0, 0, 0, handle_ptr->get_stream()};
   if (status == CUML_SUCCESS) {
     try {
       ML::SVM::svcFit(*handle_ptr, input, n_rows, n_cols, labels, param, kernel_param, model);
@@ -183,7 +183,7 @@ cumlError_t cumlSpSvcPredict(cumlHandle_t handle,
   raft::handle_t* handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
 
-  ML::SVM::svmModel<float> model{0, 0, 0, 0, handle_ptr->get_stream()};
+  ML::SVM::SvmModel<float> model{0, 0, 0, 0, handle_ptr->get_stream()};
   model.n_support         = n_support;
   model.b                 = b;
   model.dual_coefs_ptr    = dual_coefs;
@@ -238,7 +238,7 @@ cumlError_t cumlDpSvcPredict(cumlHandle_t handle,
   raft::handle_t* handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
 
-  ML::SVM::svmModel<double> model{0, 0, 0, 0, handle_ptr->get_stream()};
+  ML::SVM::SvmModel<double> model{0, 0, 0, 0, handle_ptr->get_stream()};
   model.n_support         = n_support;
   model.b                 = b;
   model.dual_coefs_ptr    = dual_coefs;

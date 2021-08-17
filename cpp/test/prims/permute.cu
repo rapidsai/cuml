@@ -41,6 +41,8 @@ template <typename T>
 template <typename T>
 class PermTest : public ::testing::TestWithParam<PermInputs<T>> {
  protected:
+  PermTest() : in(0, stream), out(0, stream), outPerms(0, stream) {}
+
   void SetUp() override
   {
     CUDA_CHECK(cudaStreamCreate(&stream));
@@ -54,14 +56,14 @@ class PermTest : public ::testing::TestWithParam<PermInputs<T>> {
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     if (params.needPerms) {
-      outPerms     = std::make_unique<rmm::device_uvector<int>>(N, stream);
-      outPerms_ptr = outPerms->data();
+      outPerms.resize(N, stream);
+      outPerms_ptr = outPerms.data();
     }
     if (params.needShuffle) {
-      in      = std::make_unique<rmm::device_uvector<T>>(len, stream);
-      out     = std::make_unique<rmm::device_uvector<T>>(len, stream);
-      in_ptr  = in->data();
-      out_ptr = out->data();
+      in.resize(len, stream);
+      out.resize(len, stream);
+      in_ptr  = in.data();
+      out_ptr = out.data();
       r.uniform(in_ptr, len, T(-1.0), T(1.0), stream);
     }
     permute(outPerms_ptr, out_ptr, in_ptr, D, N, params.rowMajor, stream);
@@ -72,10 +74,10 @@ class PermTest : public ::testing::TestWithParam<PermInputs<T>> {
 
  protected:
   PermInputs<T> params;
-  std::unique_ptr<rmm::device_uvector<T>> in, out;
+  rmm::device_uvector<T> in, out;
   T* in_ptr  = nullptr;
   T* out_ptr = nullptr;
-  std::unique_ptr<rmm::device_uvector<int>> outPerms;
+  rmm::device_uvector<int> outPerms;
   int* outPerms_ptr = nullptr;
   cudaStream_t stream;
 };

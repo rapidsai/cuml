@@ -42,6 +42,8 @@ struct silhouetteScoreParam {
 template <typename LabelT, typename DataT>
 class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam> {
  protected:
+  silhouetteScoreTest() : d_X(0, stream), sampleSilScore(0, stream), d_labels(0, stream) {}
+
   void host_silhouette_score()
   {
     // generating random value test input
@@ -57,28 +59,22 @@ class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam
 
     // allocating and initializing memory to the GPU
     CUDA_CHECK(cudaStreamCreate(&stream));
-    d_X      = std::make_unique<rmm::device_uvector<DataT>>(nElements, stream);
-    d_labels = std::make_unique<rmm::device_uvector<LabelT>>(nElements, stream);
-    CUDA_CHECK(cudaMemsetAsync(d_X->data(), 0, d_X->size() * sizeof(DataT), stream));
-    CUDA_CHECK(cudaMemsetAsync(d_labels->data(), 0, d_labels->size() * sizeof(LabelT), stream));
-    sampleSilScore = std::make_unique<rmm::device_uvector<DataT>>(nElements, stream);
+    d_X.resize(nElements, stream);
+    d_labels.resize(nElements, stream);
+    CUDA_CHECK(cudaMemsetAsync(d_X.data(), 0, d_X.size() * sizeof(DataT), stream));
+    CUDA_CHECK(cudaMemsetAsync(d_labels.data(), 0, d_labels.size() * sizeof(LabelT), stream));
+    sampleSilScore.resize(nElements, stream);
 
-    raft::update_device(d_X->data(), &h_X[0], (int)nElements, stream);
-    raft::update_device(d_labels->data(), &h_labels[0], (int)nElements, stream);
+    raft::update_device(d_X.data(), &h_X[0], (int)nElements, stream);
+    raft::update_device(d_labels.data(), &h_labels[0], (int)nElements, stream);
 
     // finding the distance matrix
 
     rmm::device_uvector<double> d_distanceMatrix(nRows * nRows, stream);
     double* h_distanceMatrix = (double*)malloc(nRows * nRows * sizeof(double*));
 
-    ML::Metrics::pairwise_distance(handle,
-                                   d_X->data(),
-                                   d_X->data(),
-                                   d_distanceMatrix.data(),
-                                   nRows,
-                                   nRows,
-                                   nCols,
-                                   params.metric);
+    ML::Metrics::pairwise_distance(
+      handle, d_X.data(), d_X.data(), d_distanceMatrix.data(), nRows, nRows, nCols, params.metric);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -170,22 +166,22 @@ class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam
 
     // calling the silhouette_score CUDA implementation
     computedSilhouetteScore = MLCommon::Metrics::silhouette_score(handle,
-                                                                  d_X->data(),
+                                                                  d_X.data(),
                                                                   nRows,
                                                                   nCols,
-                                                                  d_labels->data(),
+                                                                  d_labels.data(),
                                                                   nLabels,
-                                                                  sampleSilScore->data(),
+                                                                  sampleSilScore.data(),
                                                                   stream,
                                                                   params.metric);
 
     batchedSilhouetteScore = Batched::silhouette_score(handle,
-                                                       d_X->data(),
+                                                       d_X.data(),
                                                        nRows,
                                                        nCols,
-                                                       d_labels->data(),
+                                                       d_labels.data(),
                                                        nLabels,
-                                                       sampleSilScore->data(),
+                                                       sampleSilScore.data(),
                                                        chunk,
                                                        params.metric);
   }
@@ -196,9 +192,9 @@ class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam
   // declaring the data values
   silhouetteScoreParam params;
   int nLabels;
-  std::unique_ptr<rmm::device_uvector<DataT>> d_X;
-  std::unique_ptr<rmm::device_uvector<DataT>> sampleSilScore;
-  std::unique_ptr<rmm::device_uvector<LabelT>> d_labels;
+  rmm::device_uvector<DataT> d_X;
+  rmm::device_uvector<DataT> sampleSilScore;
+  rmm::device_uvector<LabelT> d_labels;
   int nRows;
   int nCols;
   int nElements;

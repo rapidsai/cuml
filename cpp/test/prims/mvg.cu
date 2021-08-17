@@ -81,6 +81,16 @@ template <typename T>
 template <typename T>
 class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
  protected:
+  MVGTest()
+    : workspace_d(0, stream),
+      P_d(0, stream),
+      x_d(0, stream),
+      X_d(0, stream),
+      Rand_cov(0, stream),
+      Rand_mean(0, stream)
+  {
+  }
+
   void SetUp() override
   {
     // getting params
@@ -96,19 +106,19 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     // preparing to store stuff
-    P         = std::make_unique<std::vector<T>>(dim * dim);
-    x         = std::make_unique<std::vector<T>>(dim);
-    X         = std::make_unique<std::vector<T>>(dim * nPoints);
-    P_d       = std::make_unique<rmm::device_uvector<T>>(dim * dim, stream);
-    X_d       = std::make_unique<rmm::device_uvector<T>>(nPoints * dim, stream);
-    x_d       = std::make_unique<rmm::device_uvector<T>>(dim, stream);
-    Rand_cov  = std::make_unique<rmm::device_uvector<T>>(dim * dim, stream);
-    Rand_mean = std::make_unique<rmm::device_uvector<T>>(dim, stream);
+    P.resize(dim * dim);
+    x.resize(dim);
+    X.resize(dim * nPoints);
+    P_d.resize(dim * dim, stream);
+    X_d.resize(nPoints * dim, stream);
+    x_d.resize(dim, stream);
+    Rand_cov.resize(dim * dim, stream);
+    Rand_mean.resize(dim, stream);
 
     // generating random mean and cov.
     srand(params.seed);
     for (int j = 0; j < dim; j++)
-      x->data()[j] = rand() % 100 + 5.0f;
+      x.data()[j] = rand() % 100 + 5.0f;
 
     // for random Cov. martix
     std::default_random_engine generator(params.seed);
@@ -119,41 +129,41 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
       for (int i = 0; i < j + 1; i++) {
         T k = distribution(generator);
         if (corr == UNCORRELATED) k = 0.0;
-        P->data()[IDX2C(i, j, dim)] = k;
-        P->data()[IDX2C(j, i, dim)] = k;
-        if (i == j) P->data()[IDX2C(i, j, dim)] += dim;
+        P.data()[IDX2C(i, j, dim)] = k;
+        P.data()[IDX2C(j, i, dim)] = k;
+        if (i == j) P.data()[IDX2C(i, j, dim)] += dim;
       }
     }
 
     // porting inputs to gpu
-    raft::update_device(P_d->data(), P->data(), dim * dim, stream);
-    raft::update_device(x_d->data(), x->data(), dim, stream);
+    raft::update_device(P_d.data(), P.data(), dim * dim, stream);
+    raft::update_device(x_d.data(), x.data(), dim, stream);
 
     // initilizing the mvg
     mvg      = new MultiVarGaussian<T>(dim, method);
     size_t o = mvg->init(cublasH, cusolverH, stream);
 
     // give the workspace area to mvg
-    workspace_d = std::make_unique<rmm::device_uvector<T>>(o, stream);
-    mvg->set_workspace(workspace_d->data());
+    workspace_d.resize(o, stream);
+    mvg->set_workspace(workspace_d.data());
 
     // get gaussians in X_d | P_d is destroyed.
-    mvg->give_gaussian(nPoints, P_d->data(), X_d->data(), x_d->data());
+    mvg->give_gaussian(nPoints, P_d.data(), X_d.data(), x_d.data());
 
     // saving the mean of the randoms in Rand_mean
     //@todo can be swapped with a API that calculates mean
-    CUDA_CHECK(cudaMemset(Rand_mean->data(), 0, dim * sizeof(T)));
+    CUDA_CHECK(cudaMemset(Rand_mean.data(), 0, dim * sizeof(T)));
     dim3 block = (64);
     dim3 grid  = (raft::ceildiv(nPoints * dim, (int)block.x));
-    En_KF_accumulate<<<grid, block>>>(nPoints, dim, X_d->data(), Rand_mean->data());
+    En_KF_accumulate<<<grid, block>>>(nPoints, dim, X_d.data(), Rand_mean.data());
     CUDA_CHECK(cudaPeekAtLastError());
     grid = (raft::ceildiv(dim, (int)block.x));
-    En_KF_normalize<<<grid, block>>>(nPoints, dim, Rand_mean->data());
+    En_KF_normalize<<<grid, block>>>(nPoints, dim, Rand_mean.data());
     CUDA_CHECK(cudaPeekAtLastError());
 
     // storing the error wrt random point mean in X_d
     grid = (raft::ceildiv(dim * nPoints, (int)block.x));
-    En_KF_dif<<<grid, block>>>(nPoints, dim, X_d->data(), Rand_mean->data(), X_d->data());
+    En_KF_dif<<<grid, block>>>(nPoints, dim, X_d.data(), Rand_mean.data(), X_d.data());
     CUDA_CHECK(cudaPeekAtLastError());
 
     // finding the cov matrix, placing in Rand_cov
@@ -167,17 +177,17 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
                                           dim,
                                           nPoints,
                                           &alfa,
-                                          X_d->data(),
+                                          X_d.data(),
                                           dim,
-                                          X_d->data(),
+                                          X_d.data(),
                                           dim,
                                           &beta,
-                                          Rand_cov->data(),
+                                          Rand_cov.data(),
                                           dim,
                                           stream));
 
     // restoring cov provided into P_d
-    raft::update_device(P_d->data(), P->data(), dim * dim, stream);
+    raft::update_device(P_d.data(), P.data(), dim * dim, stream);
   }
 
   void TearDown() override
@@ -193,8 +203,8 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
 
  protected:
   MVGInputs<T> params;
-  std::unique_ptr<std::vector<T>> P, x, X;
-  std::unique_ptr<rmm::device_uvector<T>> workspace_d, P_d, x_d, X_d, Rand_cov, Rand_mean;
+  std::vector<T> P, x, X;
+  rmm::device_uvector<T> workspace_d, P_d, x_d, X_d, Rand_cov, Rand_mean;
   int dim, nPoints;
   typename MultiVarGaussian<T>::Decomposer method;
   Correlation corr;
@@ -247,25 +257,25 @@ typedef MVGTest<double> MVGTestD;
 TEST_P(MVGTestF, MeanIsCorrectF)
 {
   EXPECT_TRUE(
-    raft::devArrMatch(x_d->data(), Rand_mean->data(), dim, raft::CompareApprox<float>(tolerance)))
+    raft::devArrMatch(x_d.data(), Rand_mean.data(), dim, raft::CompareApprox<float>(tolerance)))
     << " in MeanIsCorrect";
 }
 TEST_P(MVGTestF, CovIsCorrectF)
 {
-  EXPECT_TRUE(raft::devArrMatch(
-    P_d->data(), Rand_cov->data(), dim, dim, raft::CompareApprox<float>(tolerance)))
+  EXPECT_TRUE(
+    raft::devArrMatch(P_d.data(), Rand_cov.data(), dim, dim, raft::CompareApprox<float>(tolerance)))
     << " in CovIsCorrect";
 }
 TEST_P(MVGTestD, MeanIsCorrectD)
 {
   EXPECT_TRUE(
-    raft::devArrMatch(x_d->data(), Rand_mean->data(), dim, raft::CompareApprox<double>(tolerance)))
+    raft::devArrMatch(x_d.data(), Rand_mean.data(), dim, raft::CompareApprox<double>(tolerance)))
     << " in MeanIsCorrect";
 }
 TEST_P(MVGTestD, CovIsCorrectD)
 {
   EXPECT_TRUE(raft::devArrMatch(
-    P_d->data(), Rand_cov->data(), dim, dim, raft::CompareApprox<double>(tolerance)))
+    P_d.data(), Rand_cov.data(), dim, dim, raft::CompareApprox<double>(tolerance)))
     << " in CovIsCorrect";
 }
 

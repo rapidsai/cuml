@@ -71,34 +71,36 @@ template <typename T>
 template <typename T>
 class PowerTest : public ::testing::TestWithParam<PowerInputs<T>> {
  protected:
+  PowerTest() : in1(0, stream), in2(0, stream), out_ref(0, stream), out(0, stream) {}
+
   void SetUp() override
   {
     params = ::testing::TestWithParam<PowerInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int len = params.len;
-    cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    in1     = std::make_unique<rmm::device_uvector<T>>(len, stream);
-    in2     = std::make_unique<rmm::device_uvector<T>>(len, stream);
-    out_ref = std::make_unique<rmm::device_uvector<T>>(len, stream);
-    out     = std::make_unique<rmm::device_uvector<T>>(len, stream);
-    r.uniform(in1->data(), len, T(1.0), T(2.0), stream);
-    r.uniform(in2->data(), len, T(1.0), T(2.0), stream);
+    in1.resize(len, stream);
+    in2.resize(len, stream);
+    out_ref.resize(len, stream);
+    out.resize(len, stream);
+    r.uniform(in1.data(), len, T(1.0), T(2.0), stream);
+    r.uniform(in2.data(), len, T(1.0), T(2.0), stream);
 
-    naivePowerElem(out_ref->data(), in1->data(), in2->data(), len, stream);
-    naivePowerScalar(out_ref->data(), out_ref->data(), T(2), len, stream);
+    naivePowerElem(out_ref.data(), in1.data(), in2.data(), len, stream);
+    naivePowerScalar(out_ref.data(), out_ref.data(), T(2), len, stream);
 
-    power(out->data(), in1->data(), in2->data(), len, stream);
-    powerScalar(out->data(), out->data(), T(2), len, stream);
-    power(in1->data(), in1->data(), in2->data(), len, stream);
-    powerScalar(in1->data(), in1->data(), T(2), len, stream);
+    power(out.data(), in1.data(), in2.data(), len, stream);
+    powerScalar(out.data(), out.data(), T(2), len, stream);
+    power(in1.data(), in1.data(), in2.data(), len, stream);
+    powerScalar(in1.data(), in1.data(), T(2), len, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
+  cudaStream_t stream;
   PowerInputs<T> params;
-  std::unique_ptr<rmm::device_uvector<T>> in1, in2, out_ref, out;
+  rmm::device_uvector<T> in1, in2, out_ref, out;
   int device_count = 0;
 };
 
@@ -110,20 +112,20 @@ typedef PowerTest<float> PowerTestF;
 TEST_P(PowerTestF, Result)
 {
   ASSERT_TRUE(raft::devArrMatch(
-    out_ref->data(), out->data(), params.len, raft::CompareApprox<float>(params.tolerance)));
+    out_ref.data(), out.data(), params.len, raft::CompareApprox<float>(params.tolerance)));
 
   ASSERT_TRUE(raft::devArrMatch(
-    out_ref->data(), in1->data(), params.len, raft::CompareApprox<float>(params.tolerance)));
+    out_ref.data(), in1.data(), params.len, raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef PowerTest<double> PowerTestD;
 TEST_P(PowerTestD, Result)
 {
   ASSERT_TRUE(raft::devArrMatch(
-    out_ref->data(), out->data(), params.len, raft::CompareApprox<double>(params.tolerance)));
+    out_ref.data(), out.data(), params.len, raft::CompareApprox<double>(params.tolerance)));
 
   ASSERT_TRUE(raft::devArrMatch(
-    out_ref->data(), in1->data(), params.len, raft::CompareApprox<double>(params.tolerance)));
+    out_ref.data(), in1.data(), params.len, raft::CompareApprox<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(PowerTests, PowerTestF, ::testing::ValuesIn(inputsf2));

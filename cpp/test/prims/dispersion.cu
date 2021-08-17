@@ -43,6 +43,8 @@ template <typename T>
 template <typename T>
 class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
  protected:
+  DispersionTest() : exp_mean(0, stream), act_mean(0, stream) {}
+
   void SetUp() override
   {
     params = ::testing::TestWithParam<DispersionInputs<T>>::GetParam();
@@ -51,8 +53,8 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
     CUDA_CHECK(cudaStreamCreate(&stream));
     rmm::device_uvector<T> data(len, stream);
     rmm::device_uvector<int> counts(params.clusters, stream);
-    exp_mean = std::make_unique<rmm::device_uvector<T>>(params.dim, stream);
-    act_mean = std::make_unique<rmm::device_uvector<T>>(params.dim, stream);
+    exp_mean.resize(params.dim, stream);
+    act_mean.resize(params.dim, stream);
     r.uniform(data.data(), len, (T)-1.0, (T)1.0, stream);
     r.uniformInt(counts.data(), params.clusters, 1, 100, stream);
     std::vector<int> h_counts(params.clusters, 0);
@@ -62,7 +64,7 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
       npoints += val;
     }
     actualVal = dispersion(
-      data.data(), counts.data(), act_mean->data(), params.clusters, npoints, params.dim, stream);
+      data.data(), counts.data(), act_mean.data(), params.clusters, npoints, params.dim, stream);
     expectedVal = T(0);
     std::vector<T> h_data(len, T(0));
     raft::update_host(&(h_data[0]), data.data(), len, stream);
@@ -75,7 +77,7 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
     for (int i = 0; i < params.dim; ++i) {
       mean[i] /= T(npoints);
     }
-    raft::update_device(exp_mean->data(), &(mean[0]), params.dim, stream);
+    raft::update_device(exp_mean.data(), &(mean[0]), params.dim, stream);
     for (int i = 0; i < params.clusters; ++i) {
       for (int j = 0; j < params.dim; ++j) {
         auto diff = h_data[i * params.dim + j] - mean[j];
@@ -90,7 +92,7 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
 
  protected:
   DispersionInputs<T> params;
-  std::unique_ptr<rmm::device_uvector<T>> exp_mean, act_mean;
+  rmm::device_uvector<T> exp_mean, act_mean;
   cudaStream_t stream;
   int npoints;
   T expectedVal, actualVal;
@@ -102,7 +104,7 @@ typedef DispersionTest<float> DispersionTestF;
 TEST_P(DispersionTestF, Result)
 {
   auto eq = raft::CompareApprox<float>(params.tolerance);
-  ASSERT_TRUE(devArrMatch(exp_mean->data(), act_mean->data(), params.dim, eq));
+  ASSERT_TRUE(devArrMatch(exp_mean.data(), act_mean.data(), params.dim, eq));
   ASSERT_TRUE(match(expectedVal, actualVal, eq));
 }
 INSTANTIATE_TEST_CASE_P(DispersionTests, DispersionTestF, ::testing::ValuesIn(inputsf));
@@ -113,7 +115,7 @@ typedef DispersionTest<double> DispersionTestD;
 TEST_P(DispersionTestD, Result)
 {
   auto eq = raft::CompareApprox<double>(params.tolerance);
-  ASSERT_TRUE(devArrMatch(exp_mean->data(), act_mean->data(), params.dim, eq));
+  ASSERT_TRUE(devArrMatch(exp_mean.data(), act_mean.data(), params.dim, eq));
   ASSERT_TRUE(match(expectedVal, actualVal, eq));
 }
 INSTANTIATE_TEST_CASE_P(DispersionTests, DispersionTestD, ::testing::ValuesIn(inputsd));

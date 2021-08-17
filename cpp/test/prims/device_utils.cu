@@ -65,16 +65,18 @@ void batchedBlockReduceTest(int* out, const BatchedBlockReduceInputs& param, cud
 template <int NThreads>
 class BatchedBlockReduceTest : public ::testing::TestWithParam<BatchedBlockReduceInputs> {
  protected:
+  BatchedBlockReduceTest() : out(0, stream), refOut(0, stream) {}
+
   void SetUp() override
   {
     params = ::testing::TestWithParam<BatchedBlockReduceInputs>::GetParam();
     CUDA_CHECK(cudaStreamCreate(&stream));
-    out    = std::make_unique<rmm::device_uvector<int>>(NThreads, stream);
-    refOut = std::make_unique<rmm::device_uvector<int>>(NThreads, stream);
-    CUDA_CHECK(cudaMemset(out->data(), 0, out->size() * sizeof(int)));
-    CUDA_CHECK(cudaMemset(refOut->data(), 0, refOut->size() * sizeof(int)));
+    out.resize(NThreads, stream);
+    refOut.resize(NThreads, stream);
+    CUDA_CHECK(cudaMemset(out.data(), 0, out.size() * sizeof(int)));
+    CUDA_CHECK(cudaMemset(refOut.data(), 0, refOut.size() * sizeof(int)));
     computeRef();
-    batchedBlockReduceTest<NThreads>(out->data(), params, stream);
+    batchedBlockReduceTest<NThreads>(out.data(), params, stream);
   }
 
   void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
@@ -89,14 +91,14 @@ class BatchedBlockReduceTest : public ::testing::TestWithParam<BatchedBlockReduc
         ref[i] += j * NThreads + i;
       }
     }
-    raft::update_device(refOut->data(), ref, NThreads, stream);
+    raft::update_device(refOut.data(), ref, NThreads, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     delete[] ref;
   }
 
  protected:
   BatchedBlockReduceInputs params;
-  std::unique_ptr<rmm::device_uvector<int>> out, refOut;
+  rmm::device_uvector<int> out, refOut;
   cudaStream_t stream;
 };
 
@@ -114,7 +116,7 @@ const std::vector<BatchedBlockReduceInputs> inputs = {
 
 TEST_P(BBTest8, Result)
 {
-  ASSERT_TRUE(devArrMatch(refOut->data(), out->data(), 8, raft::Compare<int>()));
+  ASSERT_TRUE(devArrMatch(refOut.data(), out.data(), 8, raft::Compare<int>()));
 }
 INSTANTIATE_TEST_CASE_P(BatchedBlockReduceTests, BBTest8, ::testing::ValuesIn(inputs));
 

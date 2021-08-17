@@ -65,29 +65,31 @@ void naiveBatchMakeSymm(Type* y, const Type* x, int batchSize, int n, cudaStream
 template <typename T>
 class BatchMakeSymmTest : public ::testing::TestWithParam<BatchMakeSymmInputs<T>> {
  protected:
+  BatchMakeSymmTest() : x(0, stream), out_ref(0, stream), out(0, stream) {}
+
   void SetUp() override
   {
     params = ::testing::TestWithParam<BatchMakeSymmInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int len = params.batchSize * params.n * params.n;
-    cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    x       = std::make_unique<rmm::device_uvector<T>>(len, stream);
-    out_ref = std::make_unique<rmm::device_uvector<T>>(len, stream);
-    out     = std::make_unique<rmm::device_uvector<T>>(len, stream);
+    x.resize(len, stream);
+    out_ref.resize(len, stream);
+    out.resize(len, stream);
 
-    r.uniform(x->data(), len, T(-1.0), T(1.0), stream);
-    naiveBatchMakeSymm(out_ref->data(), x->data(), params.batchSize, params.n, stream);
-    make_symm<T, int>(out->data(), x->data(), params.batchSize, params.n, stream);
+    r.uniform(x.data(), len, T(-1.0), T(1.0), stream);
+    naiveBatchMakeSymm(out_ref.data(), x.data(), params.batchSize, params.n, stream);
+    make_symm<T, int>(out.data(), x.data(), params.batchSize, params.n, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
+  cudaStream_t stream;
   BatchMakeSymmInputs<T> params;
-  std::unique_ptr<rmm::device_uvector<T>> x;
-  std::unique_ptr<rmm::device_uvector<T>> out_ref;
-  std::unique_ptr<rmm::device_uvector<T>> out;
+  rmm::device_uvector<T> x;
+  rmm::device_uvector<T> out_ref;
+  rmm::device_uvector<T> out;
 };
 
 const std::vector<BatchMakeSymmInputs<float>> inputsf = {
@@ -100,7 +102,7 @@ TEST_P(BatchMakeSymmTestF, Result)
 {
   int len = params.batchSize * params.n * params.n;
   ASSERT_TRUE(
-    devArrMatch(out_ref->data(), out->data(), len, raft::CompareApprox<float>(params.tolerance)));
+    devArrMatch(out_ref.data(), out.data(), len, raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(BatchMakeSymmTests, BatchMakeSymmTestF, ::testing::ValuesIn(inputsf));
 
@@ -114,7 +116,7 @@ TEST_P(BatchMakeSymmTestD, Result)
 {
   int len = params.batchSize * params.n * params.n;
   ASSERT_TRUE(
-    devArrMatch(out_ref->data(), out->data(), len, raft::CompareApprox<double>(params.tolerance)));
+    devArrMatch(out_ref.data(), out.data(), len, raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(BatchMakeSymmTests, BatchMakeSymmTestD, ::testing::ValuesIn(inputsd));
 

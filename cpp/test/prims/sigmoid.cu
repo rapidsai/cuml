@@ -39,30 +39,32 @@ template <typename T>
 template <typename T>
 class SigmoidTest : public ::testing::TestWithParam<SigmoidInputs<T>> {
  protected:
+  SigmoidTest() : data(0, stream), result(0, stream), result_ref(0, stream) {}
+
   void SetUp() override
   {
     params = ::testing::TestWithParam<SigmoidInputs<T>>::GetParam();
 
     int len = params.len;
-    cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    data                 = std::make_unique<rmm::device_uvector<T>>(len, stream);
+    data.resize(len, stream);
     T data_h[params.len] = {2.1, -4.5, -0.34, 10.0};
-    raft::update_device(data->data(), data_h, len, stream);
+    raft::update_device(data.data(), data_h, len, stream);
 
-    result                     = std::make_unique<rmm::device_uvector<T>>(len, stream);
-    result_ref                 = std::make_unique<rmm::device_uvector<T>>(len, stream);
+    result.resize(len, stream);
+    result_ref.resize(len, stream);
     T result_ref_h[params.len] = {0.89090318, 0.01098694, 0.41580948, 0.9999546};
-    raft::update_device(result_ref->data(), result_ref_h, len, stream);
+    raft::update_device(result_ref.data(), result_ref_h, len, stream);
 
-    sigmoid(result->data(), data->data(), len, stream);
+    sigmoid(result.data(), data.data(), len, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
+  cudaStream_t stream;
   SigmoidInputs<T> params;
-  std::unique_ptr<rmm::device_uvector<T>> data, result, result_ref;
+  rmm::device_uvector<T> data, result, result_ref;
 };
 
 const std::vector<SigmoidInputs<float>> inputsf2 = {{0.001f, 4}};
@@ -72,17 +74,15 @@ const std::vector<SigmoidInputs<double>> inputsd2 = {{0.001, 4}};
 typedef SigmoidTest<float> SigmoidTestValF;
 TEST_P(SigmoidTestValF, Result)
 {
-  ASSERT_TRUE(raft::devArrMatch(result_ref->data(),
-                                result->data(),
-                                params.len,
-                                raft::CompareApproxAbs<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(
+    result_ref.data(), result.data(), params.len, raft::CompareApproxAbs<float>(params.tolerance)));
 }
 
 typedef SigmoidTest<double> SigmoidTestValD;
 TEST_P(SigmoidTestValD, Result)
 {
-  ASSERT_TRUE(raft::devArrMatch(result_ref->data(),
-                                result->data(),
+  ASSERT_TRUE(raft::devArrMatch(result_ref.data(),
+                                result.data(),
                                 params.len,
                                 raft::CompareApproxAbs<double>(params.tolerance)));
 }

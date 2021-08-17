@@ -38,10 +38,11 @@ template <typename T>
 template <typename T>
 class LogTest : public ::testing::TestWithParam<LogInputs<T>> {
  protected:
+  LogTest() : result(0, stream), result_ref(0, stream) {}
+
   void SetUp() override
   {
     params = ::testing::TestWithParam<LogInputs<T>>::GetParam();
-    cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     int len = params.len;
@@ -50,18 +51,19 @@ class LogTest : public ::testing::TestWithParam<LogInputs<T>> {
     T data_h[params.len] = {2.1, 4.5, 0.34, 10.0};
     raft::update_device(data.data(), data_h, len, stream);
 
-    result                     = std::make_unique<rmm::device_uvector<T>>(len, stream);
-    result_ref                 = std::make_unique<rmm::device_uvector<T>>(len, stream);
+    result.resize(len, stream);
+    result_ref.resize(len, stream);
     T result_ref_h[params.len] = {0.74193734, 1.5040774, -1.07880966, 2.30258509};
-    raft::update_device(result_ref->data(), result_ref_h, len, stream);
+    raft::update_device(result_ref.data(), result_ref_h, len, stream);
 
-    f_log(result->data(), data.data(), T(1), len, stream);
+    f_log(result.data(), data.data(), T(1), len, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
+  cudaStream_t stream;
   LogInputs<T> params;
-  std::unique_ptr<rmm::device_uvector<T>> result, result_ref;
+  rmm::device_uvector<T> result, result_ref;
 };
 
 const std::vector<LogInputs<float>> inputsf2 = {{0.001f, 4}};
@@ -71,17 +73,15 @@ const std::vector<LogInputs<double>> inputsd2 = {{0.001, 4}};
 typedef LogTest<float> LogTestValF;
 TEST_P(LogTestValF, Result)
 {
-  ASSERT_TRUE(devArrMatch(result_ref->data(),
-                          result->data(),
-                          params.len,
-                          raft::CompareApproxAbs<float>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    result_ref.data(), result.data(), params.len, raft::CompareApproxAbs<float>(params.tolerance)));
 }
 
 typedef LogTest<double> LogTestValD;
 TEST_P(LogTestValD, Result)
 {
-  ASSERT_TRUE(devArrMatch(result_ref->data(),
-                          result->data(),
+  ASSERT_TRUE(devArrMatch(result_ref.data(),
+                          result.data(),
                           params.len,
                           raft::CompareApproxAbs<double>(params.tolerance)));
 }

@@ -27,8 +27,8 @@ namespace SVM {
  * All pointers are device pointers.
  */
 template <typename math_t>
-struct svmModel {
-  svmModel(int n_support_,
+struct SvmModel {
+  SvmModel(int n_support_,
            int n_cols_,
            math_t b_,
            int n_classes_,
@@ -44,7 +44,7 @@ struct svmModel {
   {
   }
 
-  svmModel(rmm::cuda_stream_view stream = rmm::cuda_stream_default)
+  SvmModel(rmm::cuda_stream_view stream = rmm::cuda_stream_default)
     : dual_coefs(0, stream.value()),
       x_support(0, stream.value()),
       support_idx(0, stream.value()),
@@ -52,7 +52,7 @@ struct svmModel {
   {
   }
 
-  svmModel(const svmModel& m)
+  SvmModel(const SvmModel& m)
     : n_support(m.n_support),
       n_cols(m.n_cols),
       b(m.b),

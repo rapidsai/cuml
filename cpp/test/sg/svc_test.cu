@@ -308,6 +308,8 @@ INSTANTIATE_TYPED_TEST_CASE_P(My, KernelCacheTest, FloatTypes);
 template <typename math_t>
 class GetResultsTest : public ::testing::Test {
  protected:
+  GetResultsTest() : dual_coefs(0, stream), x_support(0, stream), idx(0, stream) {}
+
   void SetUp() override
   {
     CUDA_CHECK(cudaStreamCreate(&stream));
@@ -318,10 +320,6 @@ class GetResultsTest : public ::testing::Test {
 
   void TestResults()
   {
-    dual_coefs = std::make_unique<rmm::device_uvector<math_t>>(0, stream);
-    x_support  = std::make_unique<rmm::device_uvector<math_t>>(0, stream);
-    idx        = std::make_unique<rmm::device_uvector<int>>(0, stream);
-
     rmm::device_uvector<math_t> x_dev(n_rows * n_cols, stream);
     raft::update_device(x_dev.data(), x_host, n_rows * n_cols, stream);
     rmm::device_uvector<math_t> f_dev(n_rows, stream);
@@ -333,27 +331,27 @@ class GetResultsTest : public ::testing::Test {
     rmm::device_uvector<math_t> C_dev(n_rows, stream);
     init_C(C, C_dev.data(), n_rows, stream);
     Results<math_t> res(handle, x_dev.data(), y_dev.data(), n_rows, n_cols, C_dev.data(), C_SVC);
-    res.Get(alpha_dev.data(), f_dev.data(), *dual_coefs, &n_coefs, *idx, *x_support, &b);
+    res.Get(alpha_dev.data(), f_dev.data(), dual_coefs, &n_coefs, idx, x_support, &b);
 
     ASSERT_EQ(n_coefs, 7);
 
     math_t dual_coefs_exp[] = {-0.1, -0.2, -1.5, 0.2, 0.4, 1.5, 1.5};
     EXPECT_TRUE(devArrMatchHost(
-      dual_coefs_exp, dual_coefs->data(), n_coefs, raft::CompareApprox<math_t>(1e-6f)));
+      dual_coefs_exp, dual_coefs.data(), n_coefs, raft::CompareApprox<math_t>(1e-6f)));
 
     int idx_exp[] = {2, 3, 4, 6, 7, 8, 9};
-    EXPECT_TRUE(devArrMatchHost(idx_exp, idx->data(), n_coefs, raft::Compare<int>()));
+    EXPECT_TRUE(devArrMatchHost(idx_exp, idx.data(), n_coefs, raft::Compare<int>()));
 
     math_t x_support_exp[] = {3, 4, 5, 7, 8, 9, 10, 13, 14, 15, 17, 18, 19, 20};
     EXPECT_TRUE(devArrMatchHost(
-      x_support_exp, x_support->data(), n_coefs * n_cols, raft::CompareApprox<math_t>(1e-6f)));
+      x_support_exp, x_support.data(), n_coefs * n_cols, raft::CompareApprox<math_t>(1e-6f)));
 
     EXPECT_FLOAT_EQ(b, -6.25f);
 
     // Modify the test by setting all SVs bound, then b is calculated differently
     math_t alpha_host2[10] = {0, 0, 1.5, 1.5, 1.5, 0, 1.5, 1.5, 1.5, 1.5};
     raft::update_device(alpha_dev.data(), alpha_host2, n_rows, stream);
-    res.Get(alpha_dev.data(), f_dev.data(), *dual_coefs, &n_coefs, *idx, *x_support, &b);
+    res.Get(alpha_dev.data(), f_dev.data(), dual_coefs, &n_coefs, idx, x_support, &b);
     EXPECT_FLOAT_EQ(b, -5.5f);
   }
   int n_rows            = 10;
@@ -365,8 +363,8 @@ class GetResultsTest : public ::testing::Test {
   //                      l  l  l/u  l/u    u  u  l/u  l/u  l    l
   math_t C = 1.5;
 
-  std::unique_ptr<rmm::device_uvector<math_t>> dual_coefs, x_support;
-  std::unique_ptr<rmm::device_uvector<int>> idx;
+  rmm::device_uvector<math_t> dual_coefs, x_support;
+  rmm::device_uvector<int> idx;
   int n_coefs;
   math_t b;
 
@@ -378,9 +376,9 @@ TYPED_TEST_CASE(GetResultsTest, FloatTypes);
 
 TYPED_TEST(GetResultsTest, Results) { this->TestResults(); }
 
-svmParameter getDefaultSvmParameter()
+SvmParameter getDefaultSvmParameter()
 {
-  svmParameter param;
+  SvmParameter param;
   param.C              = 1;
   param.tol            = 0.001;
   param.cache_size     = 200;
@@ -407,7 +405,7 @@ class SmoUpdateTest : public ::testing::Test {
   }
   void RunTest()
   {
-    svmParameter param = getDefaultSvmParameter();
+    SvmParameter param = getDefaultSvmParameter();
     SmoSolver<float> smo(handle, param, nullptr);
     smo.UpdateF(f_dev, n_rows, delta_alpha_dev, n_ws, kernel_dev);
 
@@ -594,7 +592,7 @@ struct svmTol {
 };
 
 template <typename math_t>
-void checkResults(svmModel<math_t>& model,
+void checkResults(SvmModel<math_t>& model,
                   smoOutput<math_t> expected,
                   cudaStream_t stream,
                   svmTol<math_t> tol = svmTol<math_t>{0.001, 0.99999, -1})
@@ -901,14 +899,14 @@ TYPED_TEST(SmoSolverTest, SmoSolveTest)
     auto p   = d.first;
     auto exp = d.second;
     SCOPED_TRACE(p);
-    svmParameter param = getDefaultSvmParameter();
+    SvmParameter param = getDefaultSvmParameter();
     param.C            = p.C;
     param.tol          = p.tol;
     // param.max_iter = p.max_iter;
     GramMatrixBase<TypeParam>* kernel =
       KernelFactory<TypeParam>::create(p.kernel_params, this->handle.get_cublas_handle());
     SmoSolver<TypeParam> smo(this->handle, param, kernel);
-    svmModel<TypeParam> model{0, this->n_cols, 0, 0, this->handle.get_stream()};
+    SvmModel<TypeParam> model{0, this->n_cols, 0, 0, this->handle.get_stream()};
     smo.Solve(this->x_dev,
               this->n_rows,
               this->n_cols,
@@ -1256,7 +1254,7 @@ TYPED_TEST(SmoSolverTest, DISABLED_MillionRows)
 
 template <typename math_t>
 struct SvrInput {
-  svmParameter param;
+  SvmParameter param;
   KernelParams kernel;
   int n_rows;
   int n_cols;
@@ -1293,11 +1291,7 @@ class SvrTest : public ::testing::Test {
     raft::update_device(y_dev, y_host, n_rows, stream);
 
     model.n_support = 0;
-    model.dual_coefs.resize(0, stream);
-    model.x_support.resize(0, stream);
-    model.support_idx.resize(0, stream);
     model.n_classes = 0;
-    model.unique_labels.resize(0, stream);
   }
 
   void TearDown() override
@@ -1315,7 +1309,7 @@ class SvrTest : public ::testing::Test {
  public:
   void TestSvrInit()
   {
-    svmParameter param = getDefaultSvmParameter();
+    SvmParameter param = getDefaultSvmParameter();
     param.svmType      = EPSILON_SVR;
     SmoSolver<math_t> smo(handle, param, nullptr);
     smo.SvrInit(y_dev, n_rows, yc, f);
@@ -1378,7 +1372,7 @@ class SvrTest : public ::testing::Test {
   {
     std::vector<std::pair<SvrInput<math_t>, smoOutput2<math_t>>> data{
       {SvrInput<math_t>{
-         svmParameter{1, 0, 1, 10, 1e-3, CUML_LEVEL_INFO, 0.1, EPSILON_SVR},
+         SvmParameter{1, 0, 1, 10, 1e-3, CUML_LEVEL_INFO, 0.1, EPSILON_SVR},
          KernelParams{LINEAR, 3, 1, 0},
          2,       // n_rows
          1,       // n_cols
@@ -1388,7 +1382,7 @@ class SvrTest : public ::testing::Test {
        smoOutput2<math_t>{2, {-0.8, 0.8}, 2.1, {0.8}, {0, 1}, {0, 1}, {2.1, 2.9}}},
 
       {SvrInput<math_t>{
-         svmParameter{1, 10, 1, 1, 1e-3, CUML_LEVEL_INFO, 0.1, EPSILON_SVR},
+         SvmParameter{1, 10, 1, 1, 1e-3, CUML_LEVEL_INFO, 0.1, EPSILON_SVR},
          KernelParams{LINEAR, 3, 1, 0},
          2,       // n_rows
          1,       // n_cols
@@ -1398,7 +1392,7 @@ class SvrTest : public ::testing::Test {
        smoOutput2<math_t>{2, {-0.8, 0.8}, 1.3, {0.8}, {1, 2}, {0, 1}, {2.1, 2.9}}},
 
       {SvrInput<math_t>{
-         svmParameter{1, 0, 1, 1, 1e-3, CUML_LEVEL_INFO, 0.1, EPSILON_SVR},
+         SvmParameter{1, 0, 1, 1, 1e-3, CUML_LEVEL_INFO, 0.1, EPSILON_SVR},
          KernelParams{LINEAR, 3, 1, 0},
          2,             // n_rows
          2,             // n_cols
@@ -1408,7 +1402,7 @@ class SvrTest : public ::testing::Test {
        smoOutput2<math_t>{2, {-0.8, 0.8}, 1.3, {0.8, 0.0}, {1, 2, 5, 5}, {0, 1}, {2.1, 2.9}}},
 
       {SvrInput<math_t>{
-         svmParameter{1, 0, 100, 10, 1e-6, CUML_LEVEL_INFO, 0.1, EPSILON_SVR},
+         SvmParameter{1, 0, 100, 10, 1e-6, CUML_LEVEL_INFO, 0.1, EPSILON_SVR},
          KernelParams{LINEAR, 3, 1, 0},
          7,                      // n_rows
          1,                      // n_cols
@@ -1424,7 +1418,7 @@ class SvrTest : public ::testing::Test {
                           {0.7, 1.8, 2.9, 4, 5.1, 6.2, 7.3}}},
       // Almost same as above, but with sample weights
       {SvrInput<math_t>{
-         svmParameter{1, 0, 100, 10, 1e-3, CUML_LEVEL_INFO, 0.1, EPSILON_SVR},
+         SvmParameter{1, 0, 100, 10, 1e-3, CUML_LEVEL_INFO, 0.1, EPSILON_SVR},
          KernelParams{LINEAR, 3, 1, 0},
          7,                       // n_rows
          1,                       // n_cols
@@ -1435,7 +1429,7 @@ class SvrTest : public ::testing::Test {
        smoOutput2<math_t>{
          6, {}, -15.5, {3.9}, {1.0, 2.0, 3.0, 4.0, 6.0, 7.0}, {0, 1, 2, 3, 5, 6}, {}}},
       {SvrInput<math_t>{
-         svmParameter{1, 0, 100, 10, 1e-6, CUML_LEVEL_INFO, 0.1, EPSILON_SVR},
+         SvmParameter{1, 0, 100, 10, 1e-6, CUML_LEVEL_INFO, 0.1, EPSILON_SVR},
          KernelParams{LINEAR, 3, 1, 0},
          7,                      // n_rows
          1,                      // n_cols
@@ -1494,7 +1488,7 @@ class SvrTest : public ::testing::Test {
   int n_train      = 2 * n_rows;
   const int n_cols = 1;
 
-  svmModel<math_t> model;
+  SvmModel<math_t> model;
   math_t* x_dev;
   math_t* y_dev;
   math_t* C_dev;

@@ -60,7 +60,7 @@ void naiveDistanceAdj(bool* dist,
 {
   static const dim3 TPB(16, 32, 1);
   dim3 nblks(raft::ceildiv(m, (int)TPB.x), raft::ceildiv(n, (int)TPB.y), 1);
-  naiveDistanceAdjKernel<DataType><<<nblks, TPB>>>(dist, x, y, m, n, k, eps, isRowMajor);
+  naiveDistanceAdjKernel<DataType> < <<nblks, TPB>>(dist, x, y, m, n, k, eps, isRowMajor);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -81,9 +81,11 @@ template <typename DataType>
 template <typename DataType>
 class DistanceAdjTest : public ::testing::TestWithParam<DistanceAdjInputs<DataType>> {
  public:
+  DistanceAdjTest() : x(0, stream), y(0, stream), dist_ref(0, stream), dist(0, stream) {}
+
   void SetUp() override
   {
-    params = ::testing::TestWithParam<DistanceAdjInputs<DataType>>::GetParam();
+    params = ::testing::TestWithParam < DistanceAdjInputs<DataType>::GetParam();
     raft::random::Rng r(params.seed);
     int m           = params.m;
     int n           = params.n;
@@ -91,16 +93,16 @@ class DistanceAdjTest : public ::testing::TestWithParam<DistanceAdjInputs<DataTy
     bool isRowMajor = params.isRowMajor;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    x        = std::unique_ptr<rmm::device_scalar<DataType>>(m * k, stream);
-    y        = std::unique_ptr<rmm::device_scalar<DataType>>(n * k, stream);
-    dist_ref = std::unique_ptr<rmm::device_scalar<bool>>(m * n, stream);
-    dist     = std::unique_ptr<rmm::device_scalar<bool>>(m * n, stream);
-    r.uniform(x->data(), m * k, DataType(-1.0), DataType(1.0), stream);
-    r.uniform(y->data(), n * k, DataType(-1.0), DataType(1.0), stream);
+    x        = rmm::device_scalar<DataType>(m * k, stream);
+    y        = rmm::device_scalar<DataType>(n * k, stream);
+    dist_ref = rmm::device_scalar<bool>(m * n, stream);
+    dist     = rmm::device_scalar<bool>(m * n, stream);
+    r.uniform(x.data(), m * k, DataType(-1.0), DataType(1.0), stream);
+    r.uniform(y.data(), n * k, DataType(-1.0), DataType(1.0), stream);
 
     DataType threshold = params.eps;
 
-    naiveDistanceAdj(dist_ref->data(), x->data(), y->data(), m, n, k, threshold, isRowMajor);
+    naiveDistanceAdj(dist_ref.data(), x.data(), y.data(), m, n, k, threshold, isRowMajor);
     size_t worksize =
       getWorkspaceSize<raft::distance::DistanceType::L2Expanded, DataType, DataType, bool>(
         x, y, m, n, k);
@@ -110,9 +112,9 @@ class DistanceAdjTest : public ::testing::TestWithParam<DistanceAdjInputs<DataTy
     auto fin_op = [threshold] __device__(DataType d_val, int g_d_idx) {
       return d_val <= threshold;
     };
-    distance<raft::distance::DistanceType::L2Expanded, DataType, DataType, bool>(x->data(),
-                                                                                 y->data(),
-                                                                                 dist->data(),
+    distance<raft::distance::DistanceType::L2Expanded, DataType, DataType, bool>(x.data(),
+                                                                                 y.data(),
+                                                                                 dist.data(),
                                                                                  m,
                                                                                  n,
                                                                                  k,
@@ -126,8 +128,8 @@ class DistanceAdjTest : public ::testing::TestWithParam<DistanceAdjInputs<DataTy
 
  protected:
   DistanceAdjInputs<DataType> params;
-  std::unique_ptr<rmm::device_scalar<DataType>> x, y;
-  std::unique_ptr<rmm::device_scalar<bool>> dist_ref, dist;
+  rmm::device_scalar<DataType> x, y;
+  rmm::device_scalar<bool> dist_ref, dist;
 };
 
 const std::vector<DistanceAdjInputs<float>> inputsf = {
@@ -145,7 +147,7 @@ TEST_P(DistanceAdjTestF, Result)
 {
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(devArrMatch(dist_ref->data(), dist->data(), m, n, raft::Compare<bool>()));
+  ASSERT_TRUE(devArrMatch(dist_ref.data(), dist.data(), m, n, raft::Compare<bool>()));
 }
 INSTANTIATE_TEST_CASE_P(DistanceAdjTests, DistanceAdjTestF, ::testing::ValuesIn(inputsf));
 
@@ -164,7 +166,7 @@ TEST_P(DistanceAdjTestD, Result)
 {
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(devArrMatch(dist_ref->data(), dist->data(), m, n, raft::Compare<bool>()));
+  ASSERT_TRUE(devArrMatch(dist_ref.data(), dist.data(), m, n, raft::Compare<bool>()));
 }
 INSTANTIATE_TEST_CASE_P(DistanceAdjTests, DistanceAdjTestD, ::testing::ValuesIn(inputsd));
 

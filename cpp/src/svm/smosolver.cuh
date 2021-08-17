@@ -89,7 +89,7 @@ template <typename math_t>
 class SmoSolver {
  public:
   SmoSolver(const raft::handle_t& handle,
-            svmParameter param,
+            SvmParameter param,
             MLCommon::Matrix::GramMatrixBase<math_t>* kernel)
     : handle(handle),
       C(param.C),

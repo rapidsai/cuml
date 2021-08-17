@@ -70,17 +70,18 @@ void gridSyncTest(int* out, int* out1, const GridSyncInputs& params, cudaStream_
 
 class GridSyncTest : public ::testing::TestWithParam<GridSyncInputs> {
  protected:
+  GridSyncTest() : out(0, stream), out1(0, stream) {}
+
   void SetUp() override
   {
     params     = ::testing::TestWithParam<GridSyncInputs>::GetParam();
     size_t len = computeOutLen();
 
-    cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    out  = std::make_unique<rmm::device_uvector<int>>(len, stream);
-    out1 = std::make_unique<rmm::device_uvector<int>>(len, stream);
-    gridSyncTest(out->data(), out1->data(), params, stream);
+    out.resize(len, stream);
+    out1.resize(len, stream);
+    gridSyncTest(out.data(), out1.data(), params, stream);
   }
 
   size_t computeOutLen() const
@@ -95,8 +96,9 @@ class GridSyncTest : public ::testing::TestWithParam<GridSyncInputs> {
   }
 
  protected:
+  cudaStream_t stream;
   GridSyncInputs params;
-  std::unique_ptr<rmm::device_uvector<int>> out, out1;
+  rmm::device_uvector<int> out, out1;
 };
 
 const std::vector<GridSyncInputs> inputs = {
@@ -121,9 +123,9 @@ TEST_P(GridSyncTest, Result)
                                          : params.gridDim.x * params.gridDim.y * params.gridDim.z;
   int nthreads = params.blockDim.x * params.blockDim.y * params.blockDim.z;
   int expected = (nblks * nthreads) + 1;
-  ASSERT_TRUE(raft::devArrMatch(expected, out->data(), len, raft::Compare<int>()));
+  ASSERT_TRUE(raft::devArrMatch(expected, out.data(), len, raft::Compare<int>()));
   if (params.checkWorkspaceReuse) {
-    ASSERT_TRUE(raft::devArrMatch(expected, out1->data(), len, raft::Compare<int>()));
+    ASSERT_TRUE(raft::devArrMatch(expected, out1.data(), len, raft::Compare<int>()));
   }
 }
 INSTANTIATE_TEST_CASE_P(GridSyncTests, GridSyncTest, ::testing::ValuesIn(inputs));

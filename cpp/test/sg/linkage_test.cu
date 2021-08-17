@@ -62,27 +62,28 @@ template <typename T, typename IdxT>
 template <typename T, typename IdxT>
 class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
  protected:
+  LinkageTest() : labels(0, stream), labels_ref(0, stream) {}
+
   void basicTest()
   {
     raft::handle_t handle;
+    stream = handle.get_stream();
 
     params = ::testing::TestWithParam<LinkageInputs<T, IdxT>>::GetParam();
 
-    auto stream = handle.get_stream();
     rmm::device_uvector<T> data(params.n_row * params.n_col, stream);
 
     //    // Allocate result labels and expected labels on device
-    labels     = std::make_unique<rmm::device_uvector<IdxT>>(params.n_row, stream);
-    labels_ref = std::make_unique<rmm::device_uvector<IdxT>>(params.n_row, stream);
+    labels.resize(params.n_row, stream);
+    labels_ref.resize(params.n_row, stream);
     //
     raft::copy(data.data(), params.data.data(), data.size(), handle.get_stream());
-    raft::copy(
-      labels_ref->data(), params.expected_labels.data(), params.n_row, handle.get_stream());
+    raft::copy(labels_ref.data(), params.expected_labels.data(), params.n_row, handle.get_stream());
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     raft::hierarchy::linkage_output<IdxT, T> out_arrs;
-    out_arrs.labels = labels->data();
+    out_arrs.labels = labels.data();
 
     rmm::device_uvector<IdxT> out_children((params.n_row - 1) * 2, handle.get_stream());
     out_arrs.children = out_children.data();
@@ -112,8 +113,9 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
   void SetUp() override { basicTest(); }
 
  protected:
+  cudaStream_t stream;
   LinkageInputs<T, IdxT> params;
-  std::unique_ptr<rmm::device_uvector<IdxT>> labels, labels_ref;
+  rmm::device_uvector<IdxT> labels, labels_ref;
 
   double score;
 };
@@ -341,7 +343,7 @@ typedef LinkageTest<float, int> LinkageTestF_Int;
 TEST_P(LinkageTestF_Int, Result)
 {
   EXPECT_TRUE(
-    raft::devArrMatch(labels->data(), labels_ref->data(), params.n_row, raft::Compare<int>()));
+    raft::devArrMatch(labels.data(), labels_ref.data(), params.n_row, raft::Compare<int>()));
 }
 
 INSTANTIATE_TEST_CASE_P(LinkageTest, LinkageTestF_Int, ::testing::ValuesIn(linkage_inputsf2));

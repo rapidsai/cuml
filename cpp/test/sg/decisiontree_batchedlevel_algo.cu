@@ -41,6 +41,8 @@ struct DtTestParams {
 template <typename T, typename L, typename I = int>
 class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
  protected:
+  DtBaseTest() : data(0, stream), quantiles(0, stream), labels(0, stream), rowids(0, stream) {}
+
   void SetUp()
   {
     inparams = ::testing::TestWithParam<DtTestParams>::GetParam();
@@ -57,9 +59,9 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
                     inparams.min_gain,
                     inparams.splitType,
                     128);
-    data   = std::make_unique<rmm::device_uvector<T>>(inparams.M * inparams.N, stream);
-    labels = std::make_unique<rmm::device_uvector<L>>(inparams.M, stream);
-    tmp    = rmm::device_uvector<T>(inparams.M * inparams.N, stream);
+    data.resize(inparams.M * inparams.N, stream);
+    labels.resize(inparams.M, stream);
+    tmp.resize(inparams.M * inparams.N, stream);
     prepareDataset(tmp.data());
     auto alpha = T(1.0) auto beta = T(0.0);
     auto cublas                   = handle->get_cublas_handle();
@@ -74,29 +76,29 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
                                           &beta,
                                           tmp.data(),
                                           inparams.M,
-                                          data->data(),
+                                          data.data(),
                                           inparams.M,
                                           stream));
     CUDA_CHECK(cudaStreamSynchronize(stream));
-    rowids = std::make_unique<rmm::device_uvector<I>>(inparams.M, stream);
-    MLCommon::iota(rowids->data(), 0, 1, inparams.M, stream);
-    quantiles = std::make_unique<rmm::device_uvector<T>>(inparams.nbins * inparams.N, stream);
+    rowids.resize(inparams.M, stream);
+    MLCommon::iota(rowids.data(), 0, 1, inparams.M, stream);
+    quantiles.resize(inparams.nbins * inparams.N, stream);
 
     // computing the quantiles
     computeQuantiles(
-      quantiles, inparams.nbins, data->data(), inparams.M, inparams.N, allocator, stream);
+      quantiles, inparams.nbins, data.data(), inparams.M, inparams.N, allocator, stream);
   }
 
   void TearDown() { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
   cudaStream_t stream;
   std::shared_ptr<raft::handle_t> handle;
-  std::unique_ptr<rmm::device_uvector<T>> data, quantiles;
-  std::unique_ptr<rmm::device_uvector<L>> labels;
-  std::unique_ptr<rmm::device_uvector<I>> rowids;
+  rmm::device_uvector<T> data, quantiles;
+  rmm::device_uvector<L> labels;
+  rmm::device_uvector<I> rowids;
   DecisionTreeParams params;
   DtTestParams inparams;
-  std::vector<SparseTreeNode<T, L>> sparsetree;
+  std::vector < SparseTreeNode<T, L> sparsetree;
 
   virtual void prepareDataset(T* tmp) = 0;
 };  // class DtBaseTest
@@ -114,7 +116,7 @@ class DtClassifierTest : public DtBaseTest<T, int> {
   {
     auto inparams = this->inparams;
     MLCommon::Random::make_blobs<T>(tmp,
-                                    labels->data(),
+                                    labels.data(),
                                     inparams.M,
                                     inparams.N,
                                     inparams.nclasses,
@@ -134,14 +136,14 @@ typedef DtClassifierTest<float> DtClsTestF;
 TEST_P(DtClsTestF, Test)
 {
   int num_leaves, depth;
-  grow_tree<float, int, int>(data->data(),
+  grow_tree<float, int, int>(data.data(),
                              1,
                              0,
                              inparams.N,
                              inparams.M,
-                             labels->data(),
+                             labels.data(),
                              quantiles,
-                             rowids->data(),
+                             rowids.data(),
                              inparams.M,
                              inparams.nclasses,
                              params,
@@ -159,7 +161,7 @@ constexpr std::vector<DtTestParams> allR = {
   {2048, 4, 2, 8, 16, 0.00001f, CRITERION::MSE, 12345ULL},
 };
 template <typename T>
-class DtRegressorTest : public DtBaseTest<T, T> {
+  class DtRegressorTest : public DtBaseTest<T, T> > {
  protected:
   void prepareDataset(T* tmp) override
   {
@@ -168,7 +170,7 @@ class DtRegressorTest : public DtBaseTest<T, T> {
     auto inparams = this->inparams;
     MLCommon::Random::make_regression<T>(*handle,
                                          tmp,
-                                         labels->data(),
+                                         labels.data(),
                                          inparams.M,
                                          inparams.N,
                                          inparams.N,
@@ -188,14 +190,14 @@ typedef DtRegressorTest<float> DtRegTestF;
 TEST_P(DtRegTestF, Test)
 {
   int num_leaves, depth;
-  grow_tree(data->data(),
+  grow_tree(data.data(),
             1,
             0,
             inparams.N,
             inparams.M,
-            labels->data(),
+            labels.data(),
             quantiles,
-            rowids->data(),
+            rowids.data(),
             inparams.M,
             1,
             params,

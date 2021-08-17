@@ -41,7 +41,8 @@ struct GramTestParams {
 
 template <typename T>
 struct GramMatrix : public Fixture {
-  GramMatrix(const std::string& name, const GramTestParams& p) : Fixture(name), params(p)
+  GramMatrix(const std::string& name, const GramTestParams& p)
+    : Fixture(name), params(p), A(0, stream), B(0, stream), C(0, stream)
   {
     std::vector<std::string> kernel_names{"linear", "poly", "rbf", "tanh"};
     std::ostringstream oss;
@@ -59,31 +60,24 @@ struct GramMatrix : public Fixture {
  protected:
   void allocateBuffers(const ::benchmark::State& state) override
   {
-    alloc(A, params.m * params.k);
-    alloc(B, params.k * params.n);
-    alloc(C, params.m * params.n);
+    A.resize(params.m * params.k, stream);
+    B.resize(params.k * params.n, stream);
+    C.resize(params.m * params.n, stream);
     raft::random::Rng r(123456ULL);
-    r.uniform(A, params.m * params.k, T(-1.0), T(1.0), stream);
-    r.uniform(B, params.k * params.n, T(-1.0), T(1.0), stream);
-  }
-
-  void deallocateBuffers(const ::benchmark::State& state) override
-  {
-    dealloc(A, params.m * params.k);
-    dealloc(B, params.k * params.n);
-    dealloc(C, params.m * params.n);
+    r.uniform(A.data(), params.m * params.k, T(-1.0), T(1.0), stream);
+    r.uniform(B.data(), params.k * params.n, T(-1.0), T(1.0), stream);
   }
 
   void runBenchmark(::benchmark::State& state) override
   {
     if (!this->kernel) { state.SkipWithError("Kernel matrix is not initialized"); }
     loopOnState(state, [this]() {
-      (*this->kernel)(this->A,
+      (*this->kernel)(A.data(),
                       this->params.m,
                       this->params.k,
-                      this->B,
+                      B.data(),
                       this->params.n,
-                      this->C,
+                      C.data(),
                       this->params.is_row_major,
                       this->stream);
     });
@@ -94,9 +88,9 @@ struct GramMatrix : public Fixture {
   std::unique_ptr<GramMatrixBase<T>> kernel;
   GramTestParams params;
 
-  T* A;  // input matrix A, size [m * k]
-  T* B;  // input matrix B, size [n * k]
-  T* C;  // output matrix C, size [m*n]
+  rmm::device_uvector<T> A;  // input matrix A, size [m * k]
+  rmm::device_uvector<T> B;  // input matrix B, size [n * k]
+  rmm::device_uvector<T> C;  // output matrix C, size [m*n]
 };
 
 static std::vector<GramTestParams> getInputs()

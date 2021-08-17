@@ -116,16 +116,16 @@ void naiveDistance(DataType* dist,
 
   switch (type) {
     case raft::distance::DistanceType::L1:
-      naiveL1DistanceKernel<DataType><<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
+      naiveL1DistanceKernel<DataType> < <<nblks, TPB>>(dist, x, y, m, n, k, isRowMajor);
       break;
     case raft::distance::DistanceType::L2SqrtUnexpanded:
     case raft::distance::DistanceType::L2Unexpanded:
     case raft::distance::DistanceType::L2SqrtExpanded:
     case raft::distance::DistanceType::L2Expanded:
-      naiveDistanceKernel<DataType><<<nblks, TPB>>>(dist, x, y, m, n, k, type, isRowMajor);
+      naiveDistanceKernel<DataType> < <<nblks, TPB>>(dist, x, y, m, n, k, type, isRowMajor);
       break;
     case raft::distance::DistanceType::CosineExpanded:
-      naiveCosineDistanceKernel<DataType><<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
+      naiveCosineDistanceKernel<DataType> < <<nblks, TPB>>(dist, x, y, m, n, k, isRowMajor);
       break;
     default: FAIL() << "should be here\n";
   }
@@ -172,9 +172,14 @@ void distanceLauncher(DataType* x,
 template <raft::distance::DistanceType distanceType, typename DataType>
 class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
  public:
+  DistanceTest()
+    : x(0, stream), y(0, stream), dist_ref(0, stream), dist(0, stream), dist2(0, stream)
+  {
+  }
+
   void SetUp() override
   {
-    params = ::testing::TestWithParam<DistanceInputs<DataType>>::GetParam();
+    params = ::testing::TestWithParam < DistanceInputs<DataType>::GetParam();
     raft::random::Rng r(params.seed);
     int m           = params.m;
     int n           = params.n;
@@ -182,22 +187,22 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
     bool isRowMajor = params.isRowMajor;
     cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    x        = std::make_unique<rmm::device_uvector<DataType>>(m * k, stream);
-    y        = std::make_unique<rmm::device_uvector<DataType>>(n * k, stream);
-    dist_ref = std::make_unique<rmm::device_uvector<DataType>>(m * n, stream);
-    dist     = std::make_unique<rmm::device_uvector<DataType>>(m * n, stream);
-    dist2    = std::make_unique<rmm::device_uvector<DataType>>(m * n, stream);
-    r.uniform(x->data(), m * k, DataType(-1.0), DataType(1.0), stream);
-    r.uniform(y->data(), n * k, DataType(-1.0), DataType(1.0), stream);
-    naiveDistance(dist_ref->data(), x->data(), y->data(), m, n, k, distanceType, isRowMajor);
+    x.resize(m * k, stream);
+    y.resize(n * k, stream);
+    dist_ref.resize(m * n, stream);
+    dist.resize(m * n, stream);
+    dist2.resize(m * n, stream);
+    r.uniform(x.data(), m * k, DataType(-1.0), DataType(1.0), stream);
+    r.uniform(y.data(), n * k, DataType(-1.0), DataType(1.0), stream);
+    naiveDistance(dist_ref.data(), x.data(), y.data(), m, n, k, distanceType, isRowMajor);
     size_t worksize = getWorkspaceSize<distanceType, DataType, DataType, DataType>(x, y, m, n, k);
     rmm::device_uvector<char> workspace(worksize);
 
     DataType threshold = -10000.f;
-    distanceLauncher<distanceType, DataType>(x->data(),
-                                             y->data(),
-                                             dist->data(),
-                                             dist2->data(),
+    distanceLauncher<distanceType, DataType>(x.data(),
+                                             y.data(),
+                                             dist.data(),
+                                             dist2.data(),
                                              m,
                                              n,
                                              k,
@@ -212,7 +217,7 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
 
  protected:
   DistanceInputs<DataType> params;
-  std::unique_ptr<rmm::device_uvector<DataType>>*x, *y, *dist_ref, *dist, *dist2;
+  rmm::device_uvector<DataType> x, y, dist_ref, dist, dist2;
 };
 
 }  // end namespace Distance

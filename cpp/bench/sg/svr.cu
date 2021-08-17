@@ -32,8 +32,8 @@ struct SvrParams {
   DatasetParams data;
   RegressionParams regression;
   MLCommon::Matrix::KernelParams kernel;
-  ML::SVM::svmParameter svm_param;
-  ML::SVM::svmModel<D>* model;
+  ML::SVM::SvmParameter svm_param;
+  ML::SVM::SvmModel<D>* model;
 };
 
 template <typename D>
@@ -73,8 +73,8 @@ class SVR : public RegressionFixture<D> {
 
  private:
   MLCommon::Matrix::KernelParams kernel;
-  ML::SVM::svmParameter svm_param;
-  ML::SVM::svmModel<D>* model;
+  ML::SVM::SvmParameter svm_param;
+  ML::SVM::SvmModel<D>* model;
 };
 
 template <typename D>
@@ -95,11 +95,11 @@ std::vector<SvrParams<D>> getInputs()
   p.regression.tail_strength  = 0.5;  // unused when effective_rank = -1
   p.regression.noise          = 1;
 
-  // svmParameter{C, cache_size, max_iter, nochange_steps, tol, verbosity,
+  // SvmParameter{C, cache_size, max_iter, nochange_steps, tol, verbosity,
   //              epsilon, svmType})
   p.svm_param =
-    ML::SVM::svmParameter{1, 200, 200, 100, 1e-3, CUML_LEVEL_INFO, 0.1, ML::SVM::EPSILON_SVR};
-  p.model = new ML::SVM::svmModel<D>{0, 0, 0, 0};
+    ML::SVM::SvmParameter{1, 200, 200, 100, 1e-3, CUML_LEVEL_INFO, 0.1, ML::SVM::EPSILON_SVR};
+  p.model = new ML::SVM::SvmModel<D>{0, 0, 0, 0};
 
   std::vector<Triplets> rowcols = {{50000, 2, 2}, {1024, 10000, 10}, {3000, 200, 200}};
 

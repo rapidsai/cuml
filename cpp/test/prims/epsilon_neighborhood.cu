@@ -40,18 +40,20 @@ template <typename T, typename IdxT>
 template <typename T, typename IdxT>
 class EpsNeighTest : public ::testing::TestWithParam<EpsInputs<T, IdxT>> {
  protected:
+  EpsNeighTest() : data(0, stream), adj(0, stream), labels(0, stream), vd(0, stream) {}
+
   void SetUp() override
   {
     param = ::testing::TestWithParam<EpsInputs<T, IdxT>>::GetParam();
     CUDA_CHECK(cudaStreamCreate(&stream));
-    data      = std::make_unique<rmm::device_uvector<T>>(param.n_row * param.n_col, stream);
-    labels    = std::make_unique<rmm::device_uvector<IdxT>>(param.n_row, stream);
+    data.resize(param.n_row * param.n_col, stream);
+    labels.resize(param.n_row, stream);
     batchSize = param.n_row / param.n_batches;
-    adj       = std::make_unique<rmm::device_uvector<bool>>(param.n_row * batchSize, stream);
-    vd        = std::make_unique<rmm::device_uvector<IdxT>>(batchSize + 1, stream);
-    CUDA_CHECK(cudaMemsetAsync(vd->data(), 0, vd->size() * sizeof(IdxT), stream));
-    Random::make_blobs<T, IdxT>(data->data(),
-                                labels->data(),
+    adj.resize(param.n_row * batchSize, stream);
+    vd.resize(batchSize + 1, stream);
+    CUDA_CHECK(cudaMemsetAsync(vd.data(), 0, vd.size() * sizeof(IdxT), stream));
+    Random::make_blobs<T, IdxT>(data.data(),
+                                labels.data(),
                                 param.n_row,
                                 param.n_col,
                                 param.n_centers,
@@ -67,9 +69,9 @@ class EpsNeighTest : public ::testing::TestWithParam<EpsInputs<T, IdxT>> {
 
   EpsInputs<T, IdxT> param;
   cudaStream_t stream;
-  std::unique_ptr<rmm::device_uvector<T>> data;
-  std::unique_ptr<rmm::device_uvector<bool>> adj;
-  std::unique_ptr<rmm::device_uvector<IdxT>> labels, vd;
+  rmm::device_uvector<T> data;
+  rmm::device_uvector<bool> adj;
+  rmm::device_uvector<IdxT> labels, vd;
   IdxT batchSize;
 };  // class EpsNeighTest
 
@@ -89,19 +91,19 @@ typedef EpsNeighTest<float, int> EpsNeighTestFI;
 TEST_P(EpsNeighTestFI, Result)
 {
   for (int i = 0; i < param.n_batches; ++i) {
-    CUDA_CHECK(cudaMemsetAsync(adj->data(), 0, sizeof(bool) * param.n_row * batchSize, stream));
-    CUDA_CHECK(cudaMemsetAsync(vd->data(), 0, sizeof(int) * (batchSize + 1), stream));
-    epsUnexpL2SqNeighborhood<float, int>(adj->data(),
-                                         vd->data(),
-                                         data->data(),
-                                         data->data() + (i * batchSize * param.n_col),
+    CUDA_CHECK(cudaMemsetAsync(adj.data(), 0, sizeof(bool) * param.n_row * batchSize, stream));
+    CUDA_CHECK(cudaMemsetAsync(vd.data(), 0, sizeof(int) * (batchSize + 1), stream));
+    epsUnexpL2SqNeighborhood<float, int>(adj.data(),
+                                         vd.data(),
+                                         data.data(),
+                                         data.data() + (i * batchSize * param.n_col),
                                          param.n_row,
                                          batchSize,
                                          param.n_col,
                                          param.eps * param.eps,
                                          stream);
     ASSERT_TRUE(raft::devArrMatch(
-      param.n_row / param.n_centers, vd->data(), batchSize, raft::Compare<int>(), stream));
+      param.n_row / param.n_centers, vd.data(), batchSize, raft::Compare<int>(), stream));
   }
 }
 INSTANTIATE_TEST_CASE_P(EpsNeighTests, EpsNeighTestFI, ::testing::ValuesIn(inputsfi));

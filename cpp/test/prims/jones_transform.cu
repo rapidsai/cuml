@@ -52,7 +52,7 @@ template
 
     std::generate(arr1.begin(), arr1.end(), [&]() { return realGenerator(dre); });
 
-    //>>>>>>>>>>>>>>>>> AR transform golden output generation<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+    //>>>>>>>>> AR transform golden output generation<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     double* newParams = (double*)malloc(nElements * sizeof(double*));
     double* tmp       = (double*)malloc(params.pValue * sizeof(double*));
@@ -103,7 +103,7 @@ template
     MLCommon::TimeSeries::jones_transform(
       d_params, params.batchSize, params.pValue, d_computed_ar_trans, true, false, stream);
 
-    //>>>>>>>>>>>>>>>>> MA transform golden output generation<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+    //>>>>>>>>> MA transform golden output generation<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     // for every model in the batch
     for (int i = 0; i < params.batchSize; ++i) {
@@ -148,7 +148,7 @@ template
     MLCommon::TimeSeries::jones_transform(
       d_params, params.batchSize, params.pValue, d_computed_ma_trans, false, false, stream);
 
-    //>>>>>>>>>>>>>>>>> AR inverse transform <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+    //>>>>>>>>> AR inverse transform <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     // allocating and initializing device memory
     raft::allocate(d_computed_ar_invtrans, nElements, stream, true);
@@ -162,7 +162,7 @@ template
                                           true,
                                           stream);
 
-    //>>>>>>>>>>>>>>>>> MA inverse transform <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+    //>>>>>>>>> MA inverse transform <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     raft::allocate(d_computed_ma_invtrans, nElements, stream, true);
 

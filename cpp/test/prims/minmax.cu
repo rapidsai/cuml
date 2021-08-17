@@ -90,6 +90,8 @@ __global__ void nanKernel(T* data, const bool* mask, int len, T nan)
 template <typename T>
 class MinMaxTest : public ::testing::TestWithParam<MinMaxInputs<T>> {
  protected:
+  MinMaxTest() : minmax_act(0, stream), minmax_ref(0, stream) {}
+
   void SetUp() override
   {
     params = ::testing::TestWithParam<MinMaxInputs<T>>::GetParam();
@@ -99,8 +101,8 @@ class MinMaxTest : public ::testing::TestWithParam<MinMaxInputs<T>> {
 
     rmm::device_uvector<T> data(len, stream);
     rmm::device_uvector<bool> mask(len, stream);
-    minmax_act = std::make_unique<rmm::device_uvector<T>>(2 * params.cols, stream);
-    minmax_ref = std::make_unique<rmm::device_uvector<T>>(2 * params.cols, stream);
+    minmax_act.resize(2 * params.cols, stream);
+    minmax_ref.resize(2 * params.cols, stream);
 
     r.normal(data.data(), len, (T)0.0, (T)1.0, stream);
     T nan_prob = 0.01;
@@ -112,8 +114,8 @@ class MinMaxTest : public ::testing::TestWithParam<MinMaxInputs<T>> {
     naiveMinMax(data.data(),
                 params.rows,
                 params.cols,
-                minmax_ref->data(),
-                minmax_ref->data() + params.cols,
+                minmax_ref.data(),
+                minmax_ref.data() + params.cols,
                 stream);
     minmax<T, 512>(data.data(),
                    nullptr,
@@ -121,15 +123,15 @@ class MinMaxTest : public ::testing::TestWithParam<MinMaxInputs<T>> {
                    params.rows,
                    params.cols,
                    params.rows,
-                   minmax_act->data(),
-                   minmax_act->data() + params.cols,
+                   minmax_act.data(),
+                   minmax_act.data() + params.cols,
                    nullptr,
                    stream);
   }
 
  protected:
   MinMaxInputs<T> params;
-  std::unique_ptr<rmm::device_uvector<T>> minmax_act, minmax_ref;
+  rmm::device_uvector<T> minmax_act, minmax_ref;
   cudaStream_t stream;
 };
 
@@ -176,8 +178,8 @@ const std::vector<MinMaxInputs<double>> inputsd = {{0.0000001, 1024, 32, 1234ULL
 typedef MinMaxTest<float> MinMaxTestF;
 TEST_P(MinMaxTestF, Result)
 {
-  ASSERT_TRUE(raft::devArrMatch(minmax_ref->data(),
-                                minmax_act->data(),
+  ASSERT_TRUE(raft::devArrMatch(minmax_ref.data(),
+                                minmax_act.data(),
                                 2 * params.cols,
                                 raft::CompareApprox<float>(params.tolerance)));
 }
@@ -185,8 +187,8 @@ TEST_P(MinMaxTestF, Result)
 typedef MinMaxTest<double> MinMaxTestD;
 TEST_P(MinMaxTestD, Result)
 {
-  ASSERT_TRUE(raft::devArrMatch(minmax_ref->data(),
-                                minmax_act->data(),
+  ASSERT_TRUE(raft::devArrMatch(minmax_ref.data(),
+                                minmax_act.data(),
                                 2 * params.cols,
                                 raft::CompareApprox<double>(params.tolerance)));
 }

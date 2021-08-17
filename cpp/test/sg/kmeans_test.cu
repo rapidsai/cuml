@@ -46,6 +46,14 @@ struct KmeansInputs {
 template <typename T>
 class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
  protected:
+  KmeansTest()
+    : d_labels(0, stream),
+      d_labels_ref(0, stream),
+      d_centroids(0, stream),
+      d_sample_weight(0, stream)
+  {
+  }
+
   void basicTest()
   {
     raft::handle_t handle;
@@ -78,19 +86,19 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
                10.0f,
                1234ULL);
 
-    d_labels     = std::make_unique<rmm::device_uvector<int>>(n_samples, stream);
-    d_labels_ref = std::make_unique<rmm::device_uvector<int>>(n_samples, stream);
-    d_centroids  = std::make_unique<rmm::device_uvector<T>>(params.n_clusters * n_features, stream);
+    d_labels.resize(n_samples, stream);
+    d_labels_ref.resize(n_samples, stream);
+    d_centroids.resize(params.n_clusters * n_features, stream);
 
     T* d_sample_weight_ptr = nullptr;
     if (testparams.weighted) {
-      d_sample_weight     = std::make_unique<rmm::device_uvector<T>>(n_samples, stream);
-      d_sample_weight_ptr = d_sample_weight->data();
+      d_sample_weight.resize(n_samples, stream);
+      d_sample_weight_ptr = d_sample_weight.data();
       thrust::fill(
         thrust::cuda::par.on(stream), d_sample_weight_ptr, d_sample_weight_ptr + n_samples, 1);
     }
 
-    raft::copy(d_labels_ref->data(), labels.data(), n_samples, stream);
+    raft::copy(d_labels_ref.data(), labels.data(), n_samples, stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -103,21 +111,21 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
                         n_samples,
                         n_features,
                         d_sample_weight_ptr,
-                        d_centroids->data(),
-                        d_labels->data(),
+                        d_centroids.data(),
+                        d_labels.data(),
                         inertia,
                         n_iter);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    score = adjusted_rand_index(handle, d_labels_ref->data(), d_labels->data(), n_samples);
+    score = adjusted_rand_index(handle, d_labels_ref.data(), d_labels.data(), n_samples);
 
     if (score < 1.0) {
       std::stringstream ss;
-      ss << "Expected: " << raft::arr2Str(d_labels_ref->data(), 25, "d_labels_ref", stream);
+      ss << "Expected: " << raft::arr2Str(d_labels_ref.data(), 25, "d_labels_ref", stream);
       CUML_LOG_DEBUG(ss.str().c_str());
       ss.str(std::string());
-      ss << "Actual: " << raft::arr2Str(d_labels->data(), 25, "d_labels", stream);
+      ss << "Actual: " << raft::arr2Str(d_labels.data(), 25, "d_labels", stream);
       CUML_LOG_DEBUG(ss.str().c_str());
       CUML_LOG_DEBUG("Score = %lf", score);
     }
@@ -126,11 +134,12 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
   void SetUp() override { basicTest(); }
 
  protected:
+  cudaStream_t stream;
   KmeansInputs<T> testparams;
-  std::unique_ptr<rmm::device_uvector<int>> d_labels;
-  std::unique_ptr<rmm::device_uvector<int>> d_labels_ref;
-  std::unique_ptr<rmm::device_uvector<T>> d_centroids;
-  std::unique_ptr<rmm::device_uvector<T>> d_sample_weight;
+  rmm::device_uvector<int> d_labels;
+  rmm::device_uvector<int> d_labels_ref;
+  rmm::device_uvector<T> d_centroids;
+  rmm::device_uvector<T> d_sample_weight;
   double score;
   ML::kmeans::KMeansParams params;
 };

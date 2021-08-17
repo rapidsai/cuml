@@ -55,9 +55,9 @@ void svcFit(const raft::handle_t& handle,
             int n_rows,
             int n_cols,
             math_t* labels,
-            const svmParameter& param,
+            const SvmParameter& param,
             MLCommon::Matrix::KernelParams& kernel_params,
-            svmModel<math_t>& model,
+            SvmModel<math_t>& model,
             const math_t* sample_weight = nullptr);
 
 /**
@@ -95,7 +95,7 @@ void svcPredict(const raft::handle_t& handle,
                 int n_rows,
                 int n_cols,
                 MLCommon::Matrix::KernelParams& kernel_params,
-                const svmModel<math_t>& model,
+                const SvmModel<math_t>& model,
                 math_t* preds,
                 math_t buffer_size,
                 bool predict_class = true);
@@ -125,8 +125,8 @@ class SVC {
   // Public members for easier access during testing from Python.
 
   MLCommon::Matrix::KernelParams kernel_params;
-  svmParameter param;
-  svmModel<math_t> model;
+  SvmParameter param;
+  SvmModel<math_t> model;
   /**
    * @brief Constructs a support vector classifier
    * @param handle cuML handle

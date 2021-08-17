@@ -39,6 +39,8 @@ struct MakeArimaInputs {
 template <typename T>
 class MakeArimaTest : public ::testing::TestWithParam<MakeArimaInputs> {
  protected:
+  MakeArimaTest() : data(0, stream) {}
+
   void SetUp() override
   {
     params = ::testing::TestWithParam<MakeArimaInputs>::GetParam();
@@ -52,10 +54,10 @@ class MakeArimaTest : public ::testing::TestWithParam<MakeArimaInputs> {
 
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    data = std::make_unique<rmm::device_uvector<T>>(params.batch_size * params.n_obs, stream);
+    data.resize(params.batch_size * params.n_obs, stream);
 
     // Create the time series dataset
-    make_arima(data->data(),
+    make_arima(data.data(),
                params.batch_size,
                params.n_obs,
                order,
@@ -71,7 +73,7 @@ class MakeArimaTest : public ::testing::TestWithParam<MakeArimaInputs> {
 
  protected:
   MakeArimaInputs params;
-  std::unique_ptr<rmm::device_uvector<T>> data;
+  rmm::device_uvector<T> data;
   cudaStream_t stream;
 };
 

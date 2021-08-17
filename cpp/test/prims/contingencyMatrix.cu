@@ -38,6 +38,15 @@ struct ContingencyMatrixParam {
 template <typename T>
 class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixParam> {
  protected:
+  ContingencyMatrixTest()
+    : pWorkspace(0, stream),
+      dY(0, stream),
+      dYHat(0, stream),
+      dComputedOutput(0, stream),
+      dGoldenOutput(0, stream)
+  {
+  }
+
   void SetUp() override
   {
     params = ::testing::TestWithParam<ContingencyMatrixParam>::GetParam();
@@ -71,15 +80,15 @@ class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixP
     }
 
     CUDA_CHECK(cudaStreamCreate(&stream));
-    dY    = std::make_unique<rmm::device_uvector<T>>(numElements, stream);
-    dYHat = std::make_unique<rmm::device_uvector<T>>(numElements, stream);
+    dY.resize(numElements, stream);
+    dYHat.resize(numElements, stream);
 
-    raft::update_device(dYHat->data(), &y_hat[0], numElements, stream);
-    raft::update_device(dY->data(), &y[0], numElements, stream);
+    raft::update_device(dYHat.data(), &y_hat[0], numElements, stream);
+    raft::update_device(dY.data(), &y[0], numElements, stream);
 
     if (params.calcCardinality) {
       MLCommon::Metrics::getInputClassCardinality(
-        dY->data(), numElements, stream, minLabel, maxLabel);
+        dY.data(), numElements, stream, minLabel, maxLabel);
     } else {
       minLabel = lowerLabelRange;
       maxLabel = upperLabelRange;
@@ -87,10 +96,8 @@ class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixP
 
     numUniqueClasses = maxLabel - minLabel + 1;
 
-    dComputedOutput =
-      std::make_unique<rmm::device_uvector<int>>(numUniqueClasses * numUniqueClasses, stream);
-    dGoldenOutput =
-      std::make_unique<rmm::device_uvector<int>>(numUniqueClasses * numUniqueClasses, stream);
+    dComputedOutput.resize(numUniqueClasses * numUniqueClasses, stream);
+    dGoldenOutput.resize(numUniqueClasses * numUniqueClasses, stream);
 
     // generate golden output on CPU
     size_t sizeOfMat = numUniqueClasses * numUniqueClasses * sizeof(int);
@@ -103,11 +110,11 @@ class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixP
     }
 
     raft::update_device(
-      dGoldenOutput->data(), hGoldenOutput.data(), numUniqueClasses * numUniqueClasses, stream);
+      dGoldenOutput.data(), hGoldenOutput.data(), numUniqueClasses * numUniqueClasses, stream);
 
     workspaceSz = MLCommon::Metrics::getContingencyMatrixWorkspaceSize(
-      numElements, dY->data(), stream, minLabel, maxLabel);
-    pWorkspace = std::make_unique<rmm::device_uvector<char>>(workspaceSz, stream);
+      numElements, dY.data(), stream, minLabel, maxLabel);
+    pWorkspace.resize(workspaceSz, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
@@ -116,17 +123,17 @@ class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixP
   void RunTest()
   {
     int numElements = params.nElements;
-    MLCommon::Metrics::contingencyMatrix(dY->data(),
-                                         dYHat->data(),
+    MLCommon::Metrics::contingencyMatrix(dY.data(),
+                                         dYHat.data(),
                                          numElements,
-                                         dComputedOutput->data(),
+                                         dComputedOutput.data(),
                                          stream,
-                                         (void*)pWorkspace->data(),
+                                         (void*)pWorkspace.data(),
                                          workspaceSz,
                                          minLabel,
                                          maxLabel);
-    ASSERT_TRUE(raft::devArrMatch(dComputedOutput->data(),
-                                  dGoldenOutput->data(),
+    ASSERT_TRUE(raft::devArrMatch(dComputedOutput.data(),
+                                  dGoldenOutput.data(),
                                   numUniqueClasses * numUniqueClasses,
                                   raft::Compare<T>()));
   }
@@ -136,9 +143,9 @@ class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixP
   T minLabel, maxLabel;
   cudaStream_t stream;
   size_t workspaceSz;
-  std::unique_ptr<rmm::device_uvector<char>> pWorkspace;
-  std::unique_ptr<rmm::device_uvector<T>> dY, dYHat;
-  std::unique_ptr<rmm::device_uvector<int>> dComputedOutput, dGoldenOutput;
+  rmm::device_uvector<char> pWorkspace;
+  rmm::device_uvector<T> dY, dYHat;
+  rmm::device_uvector<int> dComputedOutput, dGoldenOutput;
 };
 
 const std::vector<ContingencyMatrixParam> inputs = {

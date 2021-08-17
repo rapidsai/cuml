@@ -57,6 +57,19 @@ class BatchedLevelAlgoUnitTestFixture {
   static constexpr int TPB_DEFAULT = 256;
   static constexpr int TPB_SPLIT   = 128;
 
+  BatchedLevelAlgoUnitTestFixture()
+    : data(0, stream),
+      d_quantiles(0, stream),
+      labels(0, stream),
+      n_new_nodes(0, stream),
+      n_new_leaves(0, stream),
+      new_depth(0, stream),
+      row_ids(0, stream),
+      curr_nodes(0, stream),
+      new_nodes(0, stream)
+  {
+  }
+
   void SetUp()
   {
     params.max_depth             = 2;
@@ -74,42 +87,42 @@ class BatchedLevelAlgoUnitTestFixture {
     // X0 + 2 * X1
 
     raft_handle = std::make_unique<raft::handle_t>();
-    auto stream = raft_handle->get_stream();
+    stream      = raft_handle->get_stream();
 
-    data        = std::make_unique<rmm::device_uvector<DataT>>(n_row * n_col, stream);
-    d_quantiles = std::make_unique<rmm::device_uvector<DataT>>(n_bins * n_col, stream);
-    labels      = std::make_unique<rmm::device_uvector<LabelT>>(n_row, stream);
-    row_ids     = std::make_unique<rmm::device_uvector<IdxT>>(n_row, stream);
+    data.resize(n_row * n_col, stream);
+    d_quantiles.resize(n_bins * n_col, stream);
+    labels.resize(n_row, stream);
+    row_ids.resize(n_row, stream);
 
     // Nodes that exist prior to the invocation of nodeSplitKernel()
-    curr_nodes = std::make_unique<rmm::device_uvector<NodeT>>(max_batch, stream);
+    curr_nodes.resize(max_batch, stream);
     // Nodes that are created new by the invocation of nodeSplitKernel()
-    new_nodes = std::make_unique<rmm::device_uvector<NodeT>>(2 * max_batch, stream);
+    new_nodes.resize(2 * max_batch, stream);
     // Number of nodes and leaves that are created new by the invocation of
     // nodeSplitKernel()
-    n_new_nodes  = std::make_unique<rmm::device_uvector<IdxT>>(1, stream);
-    n_new_leaves = std::make_unique<rmm::device_uvector<IdxT>>(1, stream);
+    n_new_nodes.resize(1, stream);
+    n_new_leaves.resize(1, stream);
     // New depth reached by the invocation of nodeSplitKernel()
-    new_depth = std::make_unique<rmm::device_uvector<IdxT>>(1, stream);
+    new_depth.resize(1, stream);
 
     raft::allocate(splits, max_batch, stream);
 
-    raft::update_device(data->data(), h_data.data(), n_row * n_col, stream);
-    raft::update_device(labels->data(), h_labels.data(), n_row, stream);
-    computeQuantiles(d_quantiles->data(), n_bins, data->data(), n_row, n_col, nullptr);
-    MLCommon::iota(row_ids->data(), 0, 1, n_row, 0);
+    raft::update_device(data.data(), h_data.data(), n_row * n_col, stream);
+    raft::update_device(labels.data(), h_labels.data(), n_row, stream);
+    computeQuantiles(d_quantiles.data(), n_bins, data.data(), n_row, n_col, nullptr);
+    MLCommon::iota(row_ids.data(), 0, 1, n_row, 0);
 
     CUDA_CHECK(cudaStreamSynchronize(0));
 
-    input.data         = data->data();
-    input.labels       = labels->data();
+    input.data         = data.data();
+    input.labels       = labels.data();
     input.M            = n_row;
     input.N            = n_col;
     input.nSampledRows = n_row;
     input.nSampledCols = n_col;
-    input.rowids       = row_ids->data();
+    input.rowids       = row_ids.data();
     input.numOutputs   = 1;
-    input.quantiles    = d_quantiles->data();
+    input.quantiles    = d_quantiles.data();
   }
 
   void TearDown()
@@ -121,14 +134,15 @@ class BatchedLevelAlgoUnitTestFixture {
   DecisionTreeParams params;
 
   std::unique_ptr<raft::handle_t> raft_handle;
+  cudaStream_t stream;
   InputT input;
 
   std::vector<DataT> h_data;
   std::vector<LabelT> h_labels;
 
-  std::unique_ptr<rmm::device_uvector<DataT>> data, d_quantiles, labels;
-  std::unique_ptr<rmm::device_uvector<IdxT>> n_new_nodes, n_new_leaves, new_depth, row_ids;
-  std::unique_ptr<rmm::device_uvector<NodeT>> curr_nodes, new_nodes;
+  rmm::device_uvector<DataT> data, d_quantiles, labels;
+  rmm::device_uvector<IdxT> n_new_nodes, n_new_leaves, new_depth, row_ids;
+  rmm::device_uvector<NodeT> curr_nodes, new_nodes;
   SplitT* splits;
 };
 
@@ -172,10 +186,10 @@ TEST_P(TestNodeSplitKernel, MinSamplesSplitLeaf)
 
   auto stream = raft_handle->get_stream();
 
-  raft::update_device(curr_nodes->data(), h_nodes.data() + 1, batchSize, stream);
-  CUDA_CHECK(cudaMemsetAsync(n_new_nodes->data(), 0, sizeof(IdxT), stream));
-  CUDA_CHECK(cudaMemsetAsync(n_new_leaves->data(), 0, sizeof(IdxT), stream));
-  CUDA_CHECK(cudaMemsetAsync(new_depth->data(), 0, sizeof(IdxT), stream));
+  raft::update_device(curr_nodes.data(), h_nodes.data() + 1, batchSize, stream);
+  CUDA_CHECK(cudaMemsetAsync(n_new_nodes.data(), 0, sizeof(IdxT), stream));
+  CUDA_CHECK(cudaMemsetAsync(n_new_leaves.data(), 0, sizeof(IdxT), stream));
+  CUDA_CHECK(cudaMemsetAsync(new_depth.data(), 0, sizeof(IdxT), stream));
   initSplit<DataT, IdxT, builder.TPB_DEFAULT>(splits, batchSize, stream);
 
   /* { quesval, colid, best_metric_val, nLeft } */
@@ -189,15 +203,15 @@ TEST_P(TestNodeSplitKernel, MinSamplesSplitLeaf)
                                                     params.max_leaves,
                                                     params.min_impurity_decrease,
                                                     input,
-                                                    curr_nodes->data(),
-                                                    new_nodes->data(),
-                                                    n_new_nodes->data(),
+                                                    curr_nodes.data(),
+                                                    new_nodes.data(),
+                                                    n_new_nodes.data(),
                                                     splits,
-                                                    n_new_leaves->data(),
+                                                    n_new_leaves.data(),
                                                     h_n_total_nodes,
-                                                    new_depth->data());
+                                                    new_depth.data());
   CUDA_CHECK(cudaGetLastError());
-  raft::update_host(&h_n_new_nodes, n_new_nodes->data(), 1, stream);
+  raft::update_host(&h_n_new_nodes, n_new_nodes.data(), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(0));
   h_n_total_nodes += h_n_new_nodes;
   EXPECT_EQ(h_n_total_nodes, test_params.expected_n_total_nodes);
@@ -234,7 +248,7 @@ TEST_P(TestMetric, RegressionMetricGain)
 
   auto stream = raft_handle->get_stream();
 
-  raft::update_device(curr_nodes->data(), h_nodes.data(), batchSize, stream);
+  raft::update_device(curr_nodes.data(), h_nodes.data(), batchSize, stream);
 
   auto n_col_blks = 1;  // evaluate only one column (feature)
 
@@ -258,7 +272,7 @@ TEST_P(TestMetric, RegressionMetricGain)
   CUDA_CHECK(cudaMemsetAsync(mutex.data(), 0, sizeof(int) * max_batch, stream));
   CUDA_CHECK(cudaMemsetAsync(done_count.data(), 0, sizeof(int) * max_batch * n_col_blks, stream));
   CUDA_CHECK(cudaMemsetAsync(hist.data(), 0, 2 * sizeof(DataT) * nPredCounts, stream));
-  CUDA_CHECK(cudaMemsetAsync(n_new_leaves->data(), 0, sizeof(IdxT), stream));
+  CUDA_CHECK(cudaMemsetAsync(n_new_leaves.data(), 0, sizeof(IdxT), stream));
   initSplit<DataT, IdxT, TPB_DEFAULT>(splits, batchSize, stream);
 
   std::vector<SplitT> h_splits(1);
@@ -285,7 +299,7 @@ TEST_P(TestMetric, RegressionMetricGain)
                                      params.min_samples_split,
                                      params.max_leaves,
                                      input,
-                                     curr_nodes->data(),
+                                     curr_nodes.data(),
                                      0,
                                      done_count.data(),
                                      mutex.data(),

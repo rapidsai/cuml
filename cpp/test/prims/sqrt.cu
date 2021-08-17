@@ -55,28 +55,30 @@ template <typename T>
 template <typename T>
 class SqrtTest : public ::testing::TestWithParam<SqrtInputs<T>> {
  protected:
+  SqrtTest() : in1(0, stream), out_ref(0, stream), out(0, stream) {}
+
   void SetUp() override
   {
     params = ::testing::TestWithParam<SqrtInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
-    cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     int len = params.len;
-    in1     = std::make_unique<rmm::device_uvector<T>>(len, stream);
-    out_ref = std::make_unique<rmm::device_uvector<T>>(len, stream);
-    out     = std::make_unique<rmm::device_uvector<T>>(len, stream);
-    r.uniform(in1->data(), len, T(1.0), T(2.0), stream);
+    in1.resize(len, stream);
+    out_ref.resize(len, stream);
+    out.resize(len, stream);
+    r.uniform(in1.data(), len, T(1.0), T(2.0), stream);
 
-    naiveSqrtElem(out_ref->data(), in1->data(), len);
+    naiveSqrtElem(out_ref.data(), in1.data(), len);
 
-    sqrt(out->data(), in1->data(), len, stream);
-    sqrt(in1->data(), in1->data(), len, stream);
+    sqrt(out.data(), in1.data(), len, stream);
+    sqrt(in1.data(), in1.data(), len, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
+  cudaStream_t stream;
   SqrtInputs<T> params;
-  std::unique_ptr<rmm::device_uvector<T>> in1, out_ref, out;
+  rmm::device_uvector<T> in1, out_ref, out;
   int device_count = 0;
 };
 
@@ -88,20 +90,20 @@ typedef SqrtTest<float> SqrtTestF;
 TEST_P(SqrtTestF, Result)
 {
   ASSERT_TRUE(raft::devArrMatch(
-    out_ref->data(), out->data(), params.len, raft::CompareApprox<float>(params.tolerance)));
+    out_ref.data(), out.data(), params.len, raft::CompareApprox<float>(params.tolerance)));
 
   ASSERT_TRUE(raft::devArrMatch(
-    out_ref->data(), in1->data(), params.len, raft::CompareApprox<float>(params.tolerance)));
+    out_ref.data(), in1.data(), params.len, raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef SqrtTest<double> SqrtTestD;
 TEST_P(SqrtTestD, Result)
 {
   ASSERT_TRUE(raft::devArrMatch(
-    out_ref->data(), out->data(), params.len, raft::CompareApprox<double>(params.tolerance)));
+    out_ref.data(), out.data(), params.len, raft::CompareApprox<double>(params.tolerance)));
 
   ASSERT_TRUE(raft::devArrMatch(
-    out_ref->data(), in1->data(), params.len, raft::CompareApprox<double>(params.tolerance)));
+    out_ref.data(), in1.data(), params.len, raft::CompareApprox<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(SqrtTests, SqrtTestF, ::testing::ValuesIn(inputsf2));

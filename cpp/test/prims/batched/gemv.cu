@@ -63,6 +63,8 @@ void naiveBatchGemv(
 template <typename T>
 class BatchGemvTest : public ::testing::TestWithParam<BatchGemvInputs<T>> {
  protected:
+  BatchGemvTest() : out_ref(0, stream), out(0, stream) {}
+
   void SetUp() override
   {
     params = ::testing::TestWithParam<BatchGemvInputs<T>>::GetParam();
@@ -74,15 +76,15 @@ class BatchGemvTest : public ::testing::TestWithParam<BatchGemvInputs<T>> {
 
     rmm::device_uvector<T> A(len, stream);
     rmm::device_uvector<T> x(veclenx, stream);
-    out_ref = std::make_unique<rmm::device_uvector<T>>(vecleny, stream);
-    out     = std::make_unique<rmm::device_uvector<T>>(vecleny, stream);
+    out_ref.resize(vecleny, stream);
+    out.resize(vecleny, stream);
 
     r.uniform(A.data(), len, T(-1.0), T(1.0), stream);
     r.uniform(x.data(), veclenx, T(-1.0), T(1.0), stream);
-    CUDA_CHECK(cudaMemsetAsync(out_ref->data(), 0, sizeof(T) * vecleny, stream));
+    CUDA_CHECK(cudaMemsetAsync(out_ref.data(), 0, sizeof(T) * vecleny, stream));
     naiveBatchGemv(
-      out_ref->data(), A.data(), x.data(), params.m, params.n, params.batchSize, stream);
-    gemv<T, int>(out->data(),
+      out_ref.data(), A.data(), x.data(), params.m, params.n, params.batchSize, stream);
+    gemv<T, int>(out.data(),
                  A.data(),
                  x.data(),
                  nullptr,
@@ -99,8 +101,8 @@ class BatchGemvTest : public ::testing::TestWithParam<BatchGemvInputs<T>> {
  protected:
   cudaStream_t stream;
   BatchGemvInputs<T> params;
-  std::unique_ptr<rmm::device_uvector<T>> out_ref;
-  std::unique_ptr<rmm::device_uvector<T>> out;
+  rmm::device_uvector<T> out_ref;
+  rmm::device_uvector<T> out;
 };
 
 const std::vector<BatchGemvInputs<float>> inputsf = {
@@ -118,8 +120,8 @@ typedef BatchGemvTest<float> BatchGemvTestF;
 TEST_P(BatchGemvTestF, Result)
 {
   int vecleny = params.batchSize * params.m;
-  ASSERT_TRUE(devArrMatch(
-    out_ref->data(), out->data(), vecleny, raft::CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(
+    devArrMatch(out_ref.data(), out.data(), vecleny, raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(BatchGemvTests, BatchGemvTestF, ::testing::ValuesIn(inputsf));
 
@@ -139,7 +141,7 @@ TEST_P(BatchGemvTestD, Result)
 {
   int vecleny = params.batchSize * params.m;
   ASSERT_TRUE(devArrMatch(
-    out_ref->data(), out->data(), vecleny, raft::CompareApprox<double>(params.tolerance)));
+    out_ref.data(), out.data(), vecleny, raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(BatchGemvTests, BatchGemvTestD, ::testing::ValuesIn(inputsd));
 
