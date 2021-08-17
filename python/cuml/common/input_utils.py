@@ -321,7 +321,8 @@ def input_to_cuml_array(X,
         # pandas doesn't support custom order in to_numpy
         X = cp.asarray(X.to_numpy(copy=False), order=order)
 
-    if isinstance(X, dask_cudf.core.DataFrame):
+    if isinstance(X, dask_cudf.core.DataFrame) or \
+        isinstance(X, dask_cudf.core.Series):
         X = X.compute()
 
     if isinstance(X, cudf.DataFrame):
