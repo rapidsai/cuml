@@ -163,33 +163,6 @@ void postprocess_labels(int n_rows,
 }
 
 /**
- * @brief Check validity of all random forest hyper-parameters.
- * @param[in] rf_params: random forest hyper-parameters
- */
-void validity_check(const RF_params rf_params)
-{
-  ASSERT((rf_params.n_trees > 0), "Invalid n_trees %d", rf_params.n_trees);
-  ASSERT((rf_params.max_samples > 0) && (rf_params.max_samples <= 1.0),
-         "max_samples value %f outside permitted (0, 1] range",
-         rf_params.max_samples);
-  DT::validity_check(rf_params.tree_params);
-}
-
-/**
- * @brief Print all random forest hyper-parameters.
- * @param[in] rf_params: random forest hyper-parameters
- */
-void print(const RF_params rf_params)
-{
-  ML::PatternSetter _("%v");
-  CUML_LOG_DEBUG("n_trees: %d", rf_params.n_trees);
-  CUML_LOG_DEBUG("bootstrap: %d", rf_params.bootstrap);
-  CUML_LOG_DEBUG("max_samples: %f", rf_params.max_samples);
-  CUML_LOG_DEBUG("n_streams: %d", rf_params.n_streams);
-  DT::print(rf_params.tree_params);
-}
-
-/**
  * @brief Deletes RandomForestMetaData object
  * @param[in] forest: CPU pointer to RandomForestMetaData.
  */
@@ -293,16 +266,12 @@ void build_treelite_forest(ModelHandle* model_handle,
   model->average_tree_output = true;
   model->SetTreeLimit(forest->rf_params.n_trees);
 
-  std::vector<Node_ID_info<T, L>> working_queue_1;
-  std::vector<Node_ID_info<T, L>> working_queue_2;
-
-#pragma omp parallel for private(working_queue_1, working_queue_2)
+#pragma omp parallel for
   for (int i = 0; i < forest->rf_params.n_trees; i++) {
     DT::TreeMetaDataNode<T, L>& rf_tree = forest->trees[i];
 
     if (rf_tree.sparsetree.size() != 0) {
-      model->trees[i] =
-        DT::build_treelite_tree<T, L>(rf_tree, num_class, working_queue_1, working_queue_2);
+      model->trees[i] = DT::build_treelite_tree<T, L>(rf_tree, num_class);
     }
   }
 
@@ -587,6 +556,18 @@ RF_metrics score(const raft::handle_t& user_handle,
   return classification_score;
 }
 
+/**
+ * @brief Check validity of all random forest hyper-parameters.
+ * @param[in] rf_params: random forest hyper-parameters
+ */
+void validity_check(const RF_params rf_params)
+{
+  ASSERT((rf_params.n_trees > 0), "Invalid n_trees %d", rf_params.n_trees);
+  ASSERT((rf_params.max_samples > 0) && (rf_params.max_samples <= 1.0),
+         "max_samples value %f outside permitted (0, 1] range",
+         rf_params.max_samples);
+}
+
 RF_params set_rf_params(int max_depth,
                         int max_leaves,
                         float max_features,
@@ -621,6 +602,7 @@ RF_params set_rf_params(int max_depth,
   rf_params.n_streams   = min(cfg_n_streams, omp_get_max_threads());
   if (n_trees < rf_params.n_streams) rf_params.n_streams = n_trees;
   rf_params.tree_params = tree_params;
+  validity_check(rf_params);
   return rf_params;
 }
 

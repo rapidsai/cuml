@@ -17,7 +17,7 @@
 #pragma once
 
 #include "batched-levelalgo/builder.cuh"
-#include "quantile/quantile.h"
+#include "batched-levelalgo/quantile.cuh"
 #include "treelite_util.h"
 
 #include <cuml/tree/algo_helper.h>
@@ -30,6 +30,7 @@
 #include <common/nvtx.hpp>
 
 #include <raft/cudart_utils.h>
+#include <memory>
 #include <raft/handle.hpp>
 #include <raft/mr/device/allocator.hpp>
 #include <raft/mr/host/allocator.hpp>
@@ -164,10 +165,14 @@ std::ostream& operator<<(std::ostream& os, const SparseTreeNode<T, L>& node)
 
 template <class T, class L>
 tl::Tree<T, T> build_treelite_tree(const DT::TreeMetaDataNode<T, L>& rf_tree,
-                                   unsigned int num_class,
-                                   std::vector<Node_ID_info<T, L>>& cur_level_queue,
-                                   std::vector<Node_ID_info<T, L>>& next_level_queue)
+                                   unsigned int num_class)
 {
+  // First index refers to the cuml node id
+  // Seccond refers to the tl node id
+  using kv = std::pair<std::size_t, std::size_t>;
+  std::vector<kv> cur_level_queue;
+  std::vector<kv> next_level_queue;
+
   tl::Tree<T, T> tl_tree;
   tl_tree.Init();
 
@@ -179,7 +184,7 @@ tl::Tree<T, T> build_treelite_tree(const DT::TreeMetaDataNode<T, L>& rf_tree,
   size_t next_end   = 0;
 
   cur_level_queue.resize(std::max<size_t>(cur_level_queue.size(), 1));
-  cur_level_queue[0] = Node_ID_info<T, L>(rf_tree.sparsetree[0], 0);
+  cur_level_queue[0] = {0, 0};
   ++cur_end;
 
   while (cur_front != cur_end) {
@@ -187,36 +192,32 @@ tl::Tree<T, T> build_treelite_tree(const DT::TreeMetaDataNode<T, L>& rf_tree,
     next_level_queue.resize(std::max(2 * cur_level_size, next_level_queue.size()));
 
     for (size_t i = 0; i < cur_level_size; ++i) {
-      Node_ID_info<T, L> q_node = cur_level_queue[cur_front];
+      const SparseTreeNode<T, L>& q_node = rf_tree.sparsetree[cur_level_queue[cur_front].first];
+      auto tl_node_id                    = cur_level_queue[cur_front].second;
       ++cur_front;
 
-      bool is_leaf_node = q_node.node->colid == -1;
-      int node_id       = q_node.unique_node_id;
-
-      if (!is_leaf_node) {
-        tl_tree.AddChilds(node_id);
+      if (!q_node.IsLeaf()) {
+        tl_tree.AddChilds(tl_node_id);
 
         // Push left child to next_level queue.
-        next_level_queue[next_end] = Node_ID_info<T, L>(
-          rf_tree.sparsetree[q_node.node->left_child_id], tl_tree.LeftChild(node_id));
+        next_level_queue[next_end] = {q_node.left_child_id, tl_tree.LeftChild(tl_node_id)};
         ++next_end;
 
         // Push right child to next_level queue.
-        next_level_queue[next_end] = Node_ID_info<T, L>(
-          rf_tree.sparsetree[q_node.node->left_child_id + 1], tl_tree.RightChild(node_id));
+        next_level_queue[next_end] = {q_node.left_child_id + 1, tl_tree.RightChild(tl_node_id)};
         ++next_end;
 
         // Set node from current level as numerical node. Children IDs known.
         tl_tree.SetNumericalSplit(
-          node_id, q_node.node->colid, q_node.node->quesval, true, tl::Operator::kLE);
+          tl_node_id, q_node.colid, q_node.quesval, true, tl::Operator::kLE);
 
       } else {
         if (num_class == 1) {
-          tl_tree.SetLeaf(node_id, static_cast<T>(q_node.node->prediction));
+          tl_tree.SetLeaf(tl_node_id, static_cast<T>(q_node.prediction));
         } else {
           std::vector<T> leaf_vector(num_class, 0);
-          leaf_vector[q_node.node->prediction] = 1;
-          tl_tree.SetLeafVector(node_id, leaf_vector);
+          leaf_vector[q_node.prediction] = 1;
+          tl_tree.SetLeafVector(tl_node_id, leaf_vector);
         }
       }
     }
@@ -232,21 +233,21 @@ tl::Tree<T, T> build_treelite_tree(const DT::TreeMetaDataNode<T, L>& rf_tree,
 
 class DecisionTree {
  public:
-template <class DataT, class LabelT>
-   static DT::TreeMetaDataNode<DataT, LabelT> fit(const raft::handle_t& handle,
-                                          const DataT* data,
-                                          const int ncols,
-                                          const int nrows,
-                                          const LabelT* labels,
-                                          unsigned int* rowids,
-                                          const int n_sampled_rows,
-                                          int unique_labels,
-                                          DecisionTreeParams params,
-                                          uint64_t seed,
-                                          DataT* d_global_quantiles, int treeid)
+  template <class DataT, class LabelT>
+  static DT::TreeMetaDataNode<DataT, LabelT> fit(
+    const raft::handle_t& handle,
+    const DataT* data,
+    const int ncols,
+    const int nrows,
+    const LabelT* labels,
+    unsigned int* rowids,
+    const int n_sampled_rows,
+    int unique_labels,
+    DecisionTreeParams params,
+    uint64_t seed,
+    std::shared_ptr<MLCommon::device_buffer<DataT>> quantiles,
+    int treeid)
   {
-    validity_check(params);
-
     if (params.split_criterion ==
         CRITERION::CRITERION_END) {  // Set default to GINI (classification) or MSE (regression)
       CRITERION default_criterion =
@@ -267,7 +268,7 @@ template <class DataT, class LabelT>
                                                                  n_sampled_rows,
                                                                  (int*)rowids,
                                                                  unique_labels,
-                                                                 d_global_quantiles)
+                                                                 quantiles)
         .train();
     } else if (params.split_criterion == CRITERION::ENTROPY) {
       return Builder<EntropyObjectiveFunction<DataT, LabelT, IdxT>>(handle,
@@ -281,7 +282,7 @@ template <class DataT, class LabelT>
                                                                     n_sampled_rows,
                                                                     (int*)rowids,
                                                                     unique_labels,
-                                                                   d_global_quantiles)
+                                                                    quantiles)
         .train();
     } else if (params.split_criterion == CRITERION::MSE) {
       return Builder<MSEObjectiveFunction<DataT, LabelT, IdxT>>(handle,
@@ -293,23 +294,23 @@ template <class DataT, class LabelT>
                                                                 nrows,
                                                                 ncols,
                                                                 n_sampled_rows,
-                                                               (int*) rowids,
+                                                                (int*)rowids,
                                                                 unique_labels,
-                                                                d_global_quantiles)
+                                                                quantiles)
         .train();
     } else {
       ASSERT(false, "Unknown split criterion.");
     }
   }
 
-template <class DataT, class LabelT>
+  template <class DataT, class LabelT>
   static void predict(const raft::handle_t& handle,
-               const DT::TreeMetaDataNode<DataT, LabelT>* tree,
-               const DataT* rows,
-               const int n_rows,
-               const int n_cols,
-               LabelT* predictions,
-               int verbosity) 
+                      const DT::TreeMetaDataNode<DataT, LabelT>* tree,
+                      const DataT* rows,
+                      const int n_rows,
+                      const int n_cols,
+                      LabelT* predictions,
+                      int verbosity)
   {
     if (verbosity >= 0) { ML::Logger::get().setLevel(verbosity); }
     ASSERT(!is_dev_ptr(rows) && !is_dev_ptr(predictions),
@@ -325,22 +326,22 @@ template <class DataT, class LabelT>
     predict_all(tree, rows, n_rows, n_cols, predictions);
   }
 
-template <class DataT, class LabelT>
+  template <class DataT, class LabelT>
   static void predict_all(const DT::TreeMetaDataNode<DataT, LabelT>* tree,
-                   const DataT* rows,
-                   const int n_rows,
-                   const int n_cols,
-                   LabelT* preds) 
+                          const DataT* rows,
+                          const int n_rows,
+                          const int n_cols,
+                          LabelT* preds)
   {
     for (int row_id = 0; row_id < n_rows; row_id++) {
       preds[row_id] = predict_one(&rows[row_id * n_cols], tree->sparsetree, 0);
     }
   }
 
-template <class DataT, class LabelT>
+  template <class DataT, class LabelT>
   static LabelT predict_one(const DataT* row,
-                     const std::vector<SparseTreeNode<DataT, LabelT>> sparsetree,
-                     int idx) 
+                            const std::vector<SparseTreeNode<DataT, LabelT>> sparsetree,
+                            int idx)
   {
     int colid     = sparsetree[idx].colid;
     DataT quesval = sparsetree[idx].quesval;
@@ -358,27 +359,6 @@ template <class DataT, class LabelT>
   }
 
 };  // End DecisionTree Class
-
-template tl::Tree<float, float> build_treelite_tree<float, int>(
-  const DT::TreeMetaDataNode<float, int>& rf_tree,
-  unsigned int num_class,
-  std::vector<Node_ID_info<float, int>>& working_queue_1,
-  std::vector<Node_ID_info<float, int>>& working_queue_2);
-template tl::Tree<double, double> build_treelite_tree<double, int>(
-  const DT::TreeMetaDataNode<double, int>& rf_tree,
-  unsigned int num_class,
-  std::vector<Node_ID_info<double, int>>& working_queue_1,
-  std::vector<Node_ID_info<double, int>>& working_queue_2);
-template tl::Tree<float, float> build_treelite_tree<float, float>(
-  const DT::TreeMetaDataNode<float, float>& rf_tree,
-  unsigned int num_class,
-  std::vector<Node_ID_info<float, float>>& working_queue_1,
-  std::vector<Node_ID_info<float, float>>& working_queue_2);
-template tl::Tree<double, double> build_treelite_tree<double, double>(
-  const DT::TreeMetaDataNode<double, double>& rf_tree,
-  unsigned int num_class,
-  std::vector<Node_ID_info<double, double>>& working_queue_1,
-  std::vector<Node_ID_info<double, double>>& working_queue_2);
 
 }  // End namespace DT
 

@@ -20,9 +20,9 @@
 
 #include "metrics.cuh"
 
-#include <common/nvtx.hpp>
 #include <cuml/tree/flatnode.h>
 #include <common/grid_sync.cuh>
+#include <common/nvtx.hpp>
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/common/host_buffer.hpp>
 #include <cuml/common/logger.hpp>
@@ -42,7 +42,7 @@ namespace DT {
 
 template <typename DataT, typename LabelT>
 class NodeQueue {
-  using NodeT=SparseTreeNode<DataT, LabelT>;
+  using NodeT = SparseTreeNode<DataT, LabelT>;
   const DecisionTreeParams params;
   DT::TreeMetaDataNode<DataT, LabelT> tree;
   std::vector<InstanceRange> node_instances_;
@@ -53,9 +53,9 @@ class NodeQueue {
   {
     tree.sparsetree.reserve(max_nodes);
     tree.sparsetree.emplace_back();
-    tree.sparsetree.back().instance_count=sampled_rows;
-    tree.leaf_counter=1 ;
-    tree.depth_counter=0;
+    tree.sparsetree.back().instance_count = sampled_rows;
+    tree.leaf_counter                     = 1;
+    tree.depth_counter                    = 0;
     node_instances_.reserve(max_nodes);
     node_instances_.emplace_back(InstanceRange{0, sampled_rows});
     if (this->IsExpandable(tree.sparsetree.back(), 0)) {
@@ -63,7 +63,7 @@ class NodeQueue {
     }
   }
 
-   DT::TreeMetaDataNode<DataT, LabelT> GetTree() { return tree; }
+  DT::TreeMetaDataNode<DataT, LabelT> GetTree() { return tree; }
   const std::vector<InstanceRange>& GetInstanceRanges() { return node_instances_; }
 
   bool HasWork() { return work_items_.size() > 0; }
@@ -83,7 +83,7 @@ class NodeQueue {
   bool IsExpandable(const NodeT& n, int depth)
   {
     if (depth >= params.max_depth) return false;
-    if (int (n.instance_count) < params.min_samples_split) return false;
+    if (int(n.instance_count) < params.min_samples_split) return false;
     if (params.max_leaves != -1 && tree.leaf_counter >= params.max_leaves) return false;
     return true;
   }
@@ -93,21 +93,26 @@ class NodeQueue {
   {
     // Update node queue based on splits
     for (std::size_t i = 0; i < work_items.size(); i++) {
-      auto split      = h_splits[i];
-      auto item       = work_items[i];
+      auto split        = h_splits[i];
+      auto item         = work_items[i];
       auto parent_range = node_instances_.at(item.idx);
-      if (SplitNotValid(split, params.min_impurity_decrease, params.min_samples_leaf, parent_range.count)) {
+      if (SplitNotValid(
+            split, params.min_impurity_decrease, params.min_samples_leaf, parent_range.count)) {
         continue;
       }
 
       if (params.max_leaves != -1 && tree.leaf_counter >= params.max_leaves) break;
 
       // parent
-      tree.sparsetree.at(item.idx) =
-        NodeT{0, split.colid, split.quesval, split.best_metric_val, int (tree.sparsetree.size()),  uint32_t(parent_range.count)};
+      tree.sparsetree.at(item.idx) = NodeT{0,
+                                           split.colid,
+                                           split.quesval,
+                                           split.best_metric_val,
+                                           int(tree.sparsetree.size()),
+                                           uint32_t(parent_range.count)};
       tree.leaf_counter++;
       // left
-      tree.sparsetree.emplace_back();
+      tree.sparsetree.emplace_back(NodeT{0, -1, 0, 0, -1, uint32_t(split.nLeft)});
       node_instances_.emplace_back(InstanceRange{parent_range.begin, size_t(split.nLeft)});
 
       // Do not add a work item if this child is definitely a leaf
@@ -117,7 +122,8 @@ class NodeQueue {
       }
 
       // right
-      tree.sparsetree.emplace_back();
+      tree.sparsetree.emplace_back(
+        NodeT{0, -1, 0, 0, -1, uint32_t(parent_range.count - split.nLeft)});
       node_instances_.emplace_back(
         InstanceRange{parent_range.begin + split.nLeft, parent_range.count - split.nLeft});
 
@@ -135,9 +141,6 @@ class NodeQueue {
 
 /**
  * Internal struct used to do all the heavy-lifting required for tree building
- *
- * @note This struct does NOT own any of the underlying device/host pointers.
- *       They all must explicitly be allocated by the caller and passed to it.
  */
 template <typename ObjectiveT>
 struct Builder {
@@ -173,6 +176,7 @@ struct Builder {
   SplitT* splits;
   /** current batch of nodes */
   NodeWorkItem* d_work_items;
+  std::shared_ptr<const MLCommon::device_buffer<DataT>> quantiles;
 
   WorkloadInfo<IdxT>* workload_info;
   WorkloadInfo<IdxT>* h_workload_info;
@@ -199,11 +203,12 @@ struct Builder {
           IdxT sampledRows,
           IdxT* rowids,
           IdxT nclasses,
-          const DataT* quantiles)
+          std::shared_ptr<const MLCommon::device_buffer<DataT>> quantiles)
     : handle(handle),
       treeid(treeid),
       seed(seed),
       params(p),
+      quantiles(quantiles),
       input{data,
             labels,
             totalRows,
@@ -212,7 +217,7 @@ struct Builder {
             max(1, IdxT(params.max_features * totalCols)),
             rowids,
             nclasses,
-            quantiles},
+            quantiles->data()},
       d_buff(handle.get_device_allocator(), handle.get_stream(), 0),
       h_buff(handle.get_host_allocator(), handle.get_stream(), 0)
   {
@@ -311,14 +316,14 @@ struct Builder {
   DT::TreeMetaDataNode<DataT, LabelT> train()
   {
     ML::PUSH_RANGE("Builder::train @builder_base.cuh [batched-levelalgo]");
-    NodeQueue<DataT,LabelT> queue(params, this->maxNodes(), input.nSampledRows);
+    NodeQueue<DataT, LabelT> queue(params, this->maxNodes(), input.nSampledRows);
     while (queue.HasWork()) {
       auto work_items                      = queue.Pop();
       auto [splits_host_ptr, splits_count] = doSplit(work_items);
       queue.Push(work_items, splits_host_ptr);
     }
-    auto tree  = queue.GetTree();
-    this->SetLeafPredictions(&tree.sparsetree,queue.GetInstanceRanges());
+    auto tree = queue.GetTree();
+    this->SetLeafPredictions(&tree.sparsetree, queue.GetInstanceRanges());
     ML::POP_RANGE();
     return tree;
   }

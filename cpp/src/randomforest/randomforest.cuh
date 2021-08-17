@@ -19,8 +19,8 @@
 #include <common/nvtx.hpp>
 
 #include <decisiontree/treelite_util.h>
+#include <decisiontree/batched-levelalgo/quantile.cuh>
 #include <decisiontree/decisiontree.cuh>
-#include <decisiontree/quantile/quantile.cuh>
 
 #include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
@@ -50,36 +50,25 @@ class RandomForest {
   RF_params rf_params;  // structure containing RF hyperparameters
   int rf_type;          // 0 for classification 1 for regression
 
-  /**
-   * @brief Sample row IDs for tree fitting and bootstrap if requested.
-   * @param[in] tree_id: unique tree ID
-   * @param[in] n_rows: total number of data samples.
-   * @param[in] n_sampled_rows: number of rows used for training
-   * @param[in, out] selected_rows: already allocated array w/ row IDs
-   * @param[in] num_sms: No of SM in current GPU
-   * @param[in] stream: Current cuda stream
-   * @param[in] device_allocator: Current device allocator from cuml handle
-   */
-  void prepare_fit_per_tree(int tree_id,
-                            int n_rows,
-                            int n_sampled_rows,
-                            unsigned int* selected_rows,
-                            const int num_sms,
-                            const cudaStream_t stream,
-                            const std::shared_ptr<raft::mr::device::allocator> device_allocator)
+  void get_row_sample(int tree_id,
+                      int n_rows,
+                      MLCommon::device_buffer<unsigned int>* selected_rows,
+                      const cudaStream_t stream,
+                      const std::shared_ptr<raft::mr::device::allocator> device_allocator)
   {
     ML::PUSH_RANGE("bootstrapping row IDs @randomforest.cuh");
-    int rs = tree_id;
-    if (rf_params.seed != 0) rs = rf_params.seed + tree_id;
+    // TODO(Rory): this is not a good way to set the seed
+    // Incrementing seed changes only one tree in the whole ensemble
+    int rs = rf_params.seed + tree_id;
 
     raft::random::Rng rng(rs * 1000 | 0xFF00AA, raft::random::GeneratorType::GenKiss99);
     if (rf_params.bootstrap) {
       // Use bootstrapped sample set
-      rng.uniformInt<unsigned>(selected_rows, n_sampled_rows, 0, n_rows, stream);
+      rng.uniformInt<unsigned>(selected_rows->data(), selected_rows->size(), 0, n_rows, stream);
 
     } else {
       // Use all the samples from the dataset
-      thrust::sequence(thrust::cuda::par.on(stream), selected_rows, selected_rows + n_sampled_rows);
+      thrust::sequence(thrust::cuda::par.on(stream), selected_rows->begin(), selected_rows->end());
     }
     ML::POP_RANGE();
   }
@@ -109,15 +98,7 @@ class RandomForest {
    * @param[in] cfg_rf_type: Task type: 0 for classification, 1 for regression
    */
   RandomForest(RF_params cfg_rf_params, int cfg_rf_type = RF_type::CLASSIFICATION)
-    : rf_params(cfg_rf_params), rf_type(cfg_rf_type)
-  {
-    validity_check(rf_params);
-  };
-
-  /**
-   * @brief Return number of trees in the forest.
-   */
-  int get_ntrees() { return rf_params.n_trees; }
+    : rf_params(cfg_rf_params), rf_type(cfg_rf_type){};
 
   /**
    * @brief Build (i.e., fit, train) random forest for input data.
@@ -167,40 +148,31 @@ class RandomForest {
     // Select n_sampled_rows (with replacement) numbers from [0, n_rows) per tree.
     // selected_rows: randomly generated IDs for bootstrapped samples (w/ replacement); a device
     // ptr.
-    MLCommon::device_buffer<unsigned int>* selected_rows[n_streams];
+    // Use a deque instead of vector because it can be used on objects with a deleted copy
+    // constructor
+    std::deque<MLCommon::device_buffer<unsigned int>> selected_rows;
     for (int i = 0; i < n_streams; i++) {
-      auto s = handle.get_internal_stream(i);
-      selected_rows[i] =
-        new MLCommon::device_buffer<unsigned int>(handle.get_device_allocator(), s, n_sampled_rows);
+      selected_rows.emplace_back(
+        handle.get_device_allocator(), handle.get_internal_stream(i), n_sampled_rows);
     }
-    auto quantile_size = this->rf_params.tree_params.n_bins * n_cols;
-    MLCommon::device_buffer<T> global_quantiles(
-      handle.get_device_allocator(), handle.get_stream(), quantile_size);
 
     // Preprocess once only per forest
     // Using batched backend
     // allocate space for d_global_quantiles
-    DT::computeQuantiles(global_quantiles.data(),
-                         this->rf_params.tree_params.n_bins,
-                         input,
-                         n_rows,
-                         n_cols,
-                         handle.get_device_allocator(),
-                         handle.get_stream());
+    auto global_quantiles =
+      DT::computeQuantiles(this->rf_params.tree_params.n_bins, input, n_rows, n_cols, handle);
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
 #pragma omp parallel for num_threads(n_streams)
     for (int i = 0; i < this->rf_params.n_trees; i++) {
       int stream_id        = omp_get_thread_num();
-      unsigned int* rowids = selected_rows[stream_id]->data();
+      unsigned int* rowids = selected_rows[stream_id].data();
 
-      this->prepare_fit_per_tree(i,
-                                 n_rows,
-                                 n_sampled_rows,
-                                 rowids,
-                                 raft::getMultiProcessorCount(),
-                                 handle.get_internal_stream(stream_id),
-                                 handle.get_device_allocator());
+      this->get_row_sample(i,
+                           n_rows,
+                           &selected_rows[stream_id],
+                           handle.get_internal_stream(stream_id),
+                           handle.get_device_allocator());
 
       /* Build individual tree in the forest.
         - input is a pointer to orig data that have n_cols features and n_rows rows.
@@ -210,25 +182,24 @@ class RandomForest {
           Expectation: Each tree node will contain (a) # n_sampled_rows and
           (b) a pointer to a list of row numbers w.r.t original data.
       */
-      
+
       forest->trees[i] = DT::DecisionTree::fit(handle,
-                   input,
-                   n_cols,
-                   n_rows,
-                   labels,
-                   rowids,
-                   n_sampled_rows,
-                   n_unique_labels,
-                   this->rf_params.tree_params,
-                   this->rf_params.seed,
-                   global_quantiles.data(),i);
+                                               input,
+                                               n_cols,
+                                               n_rows,
+                                               labels,
+                                               rowids,
+                                               n_sampled_rows,
+                                               n_unique_labels,
+                                               this->rf_params.tree_params,
+                                               this->rf_params.seed,
+                                               global_quantiles,
+                                               i);
     }
     // Cleanup
     for (int i = 0; i < n_streams; i++) {
       auto s = handle.get_internal_stream(i);
       CUDA_CHECK(cudaStreamSynchronize(s));
-      selected_rows[i]->release(s);
-      delete selected_rows[i];
     }
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
     ML::POP_RANGE();
@@ -281,12 +252,12 @@ class RandomForest {
         for (int i = 0; i < this->rf_params.n_trees; i++) {
           L prediction;
           DT::DecisionTree::predict(user_handle,
-                           &forest->trees[i],
-                           &h_input[row_id * row_size],
-                           1,
-                           n_cols,
-                           &prediction,
-                           verbosity);
+                                    &forest->trees[i],
+                                    &h_input[row_id * row_size],
+                                    1,
+                                    n_cols,
+                                    &prediction,
+                                    verbosity);
           ret = prediction_to_cnt.insert(std::pair<int, int>(prediction, 1));
           if (!(ret.second)) { ret.first->second += 1; }
           if (max_cnt_so_far < ret.first->second) {
@@ -301,12 +272,12 @@ class RandomForest {
         for (int i = 0; i < this->rf_params.n_trees; i++) {
           L prediction;
           DT::DecisionTree::predict(user_handle,
-                           &forest->trees[i],
-                           &h_input[row_id * row_size],
-                           1,
-                           n_cols,
-                           &prediction,
-                           verbosity);
+                                    &forest->trees[i],
+                                    &h_input[row_id * row_size],
+                                    1,
+                                    n_cols,
+                                    &prediction,
+                                    verbosity);
           sum_predictions += prediction;
         }
         // Random forest's prediction is the arithmetic mean of all its decision tree predictions.

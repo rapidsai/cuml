@@ -16,8 +16,8 @@
 
 #include <test_utils.h>
 
-#include <decisiontree/quantile/quantile.h>
 #include <decisiontree/batched-levelalgo/kernels.cuh>
+#include <decisiontree/batched-levelalgo/quantile.cuh>
 
 #include <cuml/tree/algo_helper.h>
 #include <cuml/datasets/make_blobs.hpp>
@@ -330,12 +330,27 @@ class RfSpecialisedTest {
       EXPECT_EQ(forest->trees[i].sparsetree, alt_forest.trees[i].sparsetree);
     }
   }
+  // Instance counts in children sums up to parent.
+  void TestInstanceCounts()
+  {
+    for (int i = 0u; i < forest->rf_params.n_trees; i++) {
+      const auto& tree = forest->trees[i].sparsetree;
+      for (auto n : tree) {
+        if (!n.IsLeaf()) {
+          auto sum =
+            tree[n.left_child_id].instance_count + tree[n.left_child_id + 1].instance_count;
+          EXPECT_EQ(sum, n.instance_count);
+        }
+      }
+    }
+  }
   void Test()
   {
     TestAccuracyImprovement();
     TestDeterminism();
     TestMinImpurity();
     TestTreeSize();
+    TestInstanceCounts();
   }
 
   RF_metrics training_metrics;
@@ -428,20 +443,15 @@ class RFQuantileBinsLowerBoundTest : public ::testing::TestWithParam<QuantileTes
 
     thrust::device_vector<T> data(params.n_rows);
     thrust::host_vector<T> h_data(params.n_rows);
-    thrust::device_vector<T> quantiles(params.n_bins);
     thrust::host_vector<T> h_quantiles(params.n_bins);
     raft::random::Rng r(8);
     r.normal(data.data().get(), data.size(), T(0.0), T(2.0), nullptr);
     raft::handle_t handle;
-    DT::computeQuantiles(quantiles.data().get(),
-                         params.n_bins,
-                         data.data().get(),
-                         params.n_rows,
-                         1,
-                         handle.get_device_allocator(),
-                         nullptr);
-    h_quantiles = quantiles;
-    h_data      = data;
+    auto quantiles =
+      DT::computeQuantiles(params.n_bins, data.data().get(), params.n_rows, 1, handle);
+    raft::update_host(
+      h_quantiles.data(), quantiles->data(), quantiles->size(), handle.get_stream());
+    h_data = data;
     for (std::size_t i = 0; i < h_data.size(); ++i) {
       auto d = h_data[i];
       // golden lower bound from thrust
@@ -464,22 +474,16 @@ class RFQuantileTest : public ::testing::TestWithParam<QuantileTestParameters> {
     auto params = ::testing::TestWithParam<QuantileTestParameters>::GetParam();
 
     thrust::device_vector<T> data(params.n_rows);
-    thrust::device_vector<T> quantiles(params.n_bins);
     thrust::device_vector<int> histogram(params.n_bins);
     thrust::host_vector<int> h_histogram(params.n_bins);
 
     raft::random::Rng r(8);
     r.normal(data.data().get(), data.size(), T(0.0), T(2.0), nullptr);
     raft::handle_t handle;
-    DT::computeQuantiles(quantiles.data().get(),
-                         params.n_bins,
-                         data.data().get(),
-                         params.n_rows,
-                         1,
-                         handle.get_device_allocator(),
-                         nullptr);
+    auto quantiles =
+      DT::computeQuantiles(params.n_bins, data.data().get(), params.n_rows, 1, handle);
 
-    auto d_quantiles = quantiles.data();
+    auto d_quantiles = quantiles->data();
     auto d_histogram = histogram.data().get();
     thrust::for_each(data.begin(), data.end(), [=] __device__(T x) {
       for (int j = 0; j < params.n_bins; j++) {
