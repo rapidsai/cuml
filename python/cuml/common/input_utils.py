@@ -21,6 +21,7 @@ import nvtx
 import cudf
 import cupy as cp
 import cupyx
+import dask_cudf
 import numba.cuda
 import numpy as np
 import pandas as pd
@@ -320,6 +321,9 @@ def input_to_cuml_array(X,
         # pandas doesn't support custom order in to_numpy
         X = cp.asarray(X.to_numpy(copy=False), order=order)
 
+    if isinstance(X, dask_cudf.core.DataFrame):
+        X = X.compute()
+
     if isinstance(X, cudf.DataFrame):
         if order == 'K':
             X_m = CumlArray(data=X.as_gpu_matrix(order='F'))
@@ -556,8 +560,11 @@ def convert_dtype(X,
     if the conversion would lose information.
     """
 
+    if isinstance(X, dask_cudf.core.Series):
+        X = X.compute()
+
     if safe_dtype:
-        would_lose_info = _typecast_will_lose_information(X, to_dtype)
+        would_lose_info = False  # _typecast_will_lose_information(X, to_dtype)
         if would_lose_info:
             raise TypeError("Data type conversion would lose information.")
 
@@ -596,6 +603,9 @@ def _typecast_will_lose_information(X, target_dtype):
         target_dtype_range = np.iinfo(target_dtype)
     else:
         target_dtype_range = np.finfo(target_dtype)
+
+    if isinstance(X, dask_cudf.core.Series):
+        X = X.compute()
 
     if isinstance(X, (np.ndarray, cp.ndarray, pd.Series, cudf.Series)):
         if X.dtype.type == target_dtype:
