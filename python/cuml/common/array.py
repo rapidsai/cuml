@@ -22,7 +22,7 @@ import nvtx
 from rmm import DeviceBuffer
 from cudf import DataFrame
 from cudf import Series
-from cudf.core import Buffer
+from cudf.core.buffer import Buffer
 from cuml.common.memory_utils import with_cupy_rmm
 from cuml.common.memory_utils import _get_size_from_shape
 from cuml.common.memory_utils import _order_to_strides
