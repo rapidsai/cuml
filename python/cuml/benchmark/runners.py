@@ -22,7 +22,7 @@ import pandas as pd
 import warnings
 
 from cuml.benchmark import datagen
-from cudf.core import Series
+from cudf import Series
 
 
 class BenchmarkTimer:
