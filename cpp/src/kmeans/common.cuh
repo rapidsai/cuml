@@ -192,14 +192,13 @@ void countLabels(const raft::handle_t& handle,
 }
 
 template <typename DataT, typename IndexT>
-void sampleCentroids(const raft::handle_t& handle,
-                     Tensor<DataT, 2, IndexT>& X,
-                     Tensor<DataT, 1, IndexT>& minClusterDistance,
-                     Tensor<int, 1, IndexT>& isSampleCentroid,
-                     typename kmeans::detail::SamplingOp<DataT>& select_op,
-                     rmm::device_uvector<char>& workspace,
-                     std::unique_ptr<Tensor<DataT, 2, IndexT>>& out,
-                     cudaStream_t stream)
+Tensor<DataT, 2, IndexT> sampleCentroids(const raft::handle_t& handle,
+                                         Tensor<DataT, 2, IndexT>& X,
+                                         Tensor<DataT, 1, IndexT>& minClusterDistance,
+                                         Tensor<int, 1, IndexT>& isSampleCentroid,
+                                         typename kmeans::detail::SamplingOp<DataT>& select_op,
+                                         rmm::device_uvector<char>& workspace,
+                                         cudaStream_t stream)
 {
   int n_local_samples = X.getSize(0);
   int n_features      = X.getSize(1);
@@ -242,8 +241,7 @@ void sampleCentroids(const raft::handle_t& handle,
                        rawPtr_isSampleCentroid[val.key] = 1;
                      });
 
-  out = std::make_unique<Tensor<DataT, 2, IndexT>>(
-    std::vector<IndexT>{nPtsSampledInRank, n_features}, stream);
+  Tensor<DataT, 2, IndexT> inRankCp({nPtsSampledInRank, n_features}, stream);
 
   MLCommon::Matrix::gather(
     X.data(),
@@ -251,11 +249,13 @@ void sampleCentroids(const raft::handle_t& handle,
     X.getSize(0),
     sampledMinClusterDistance.data(),
     nPtsSampledInRank,
-    out->data(),
+    inRankCp.data(),
     [=] __device__(cub::KeyValuePair<ptrdiff_t, DataT> val) {  // MapTransformOp
       return val.key;
     },
     stream);
+
+  return inRankCp;
 }
 
 template <typename DataT, typename IndexT, typename ReductionOpT>

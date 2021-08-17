@@ -39,7 +39,8 @@ void initRandom(const raft::handle_t& handle,
   auto n_clusters     = params.n_clusters;
   // allocate centroids buffer
   centroidsRawData.resize(n_clusters * n_features, stream);
-  Tensor<DataT, 2, IndexT> centroids(centroidsRawData.data(), {n_clusters, n_features});
+  auto centroids =
+    std::move(Tensor<DataT, 2, IndexT>(centroidsRawData.data(), {n_clusters, n_features}));
 
   kmeans::detail::shuffleAndGather(handle, X, centroids, n_clusters, params.seed, stream);
 }
@@ -101,7 +102,8 @@ void fit(const raft::handle_t& handle,
         "cluster centers",
         n_iter);
 
-    Tensor<DataT, 2, IndexT> centroids(centroidsRawData.data(), {n_clusters, n_features});
+    auto centroids =
+      std::move(Tensor<DataT, 2, IndexT>(centroidsRawData.data(), {n_clusters, n_features}));
 
     // computes minClusterAndDistance[0:n_samples) where
     // minClusterAndDistance[i] is a <key, value> pair where
@@ -250,7 +252,8 @@ void fit(const raft::handle_t& handle,
     }
   }
 
-  Tensor<DataT, 2, IndexT> centroids(centroidsRawData.data(), {n_clusters, n_features});
+  auto centroids =
+    std::move(Tensor<DataT, 2, IndexT>(centroidsRawData.data(), {n_clusters, n_features}));
 
   kmeans::detail::minClusterAndDistance(handle,
                                         params,
@@ -374,8 +377,8 @@ void initScalableKMeansPlusPlus(const raft::handle_t& handle,
   centroidsBuf.resize(initialCentroid.numElements(), stream);
   raft::copy(centroidsBuf.begin(), initialCentroid.data(), initialCentroid.numElements(), stream);
 
-  Tensor<DataT, 2, IndexT> potentialCentroids(
-    centroidsBuf.data(), {initialCentroid.getSize(0), initialCentroid.getSize(1)});
+  auto potentialCentroids = std::move(Tensor<DataT, 2, IndexT>(
+    centroidsBuf.data(), {initialCentroid.getSize(0), initialCentroid.getSize(1)}));
   // <<< End of Step-1 >>>
 
   // temporary buffer to store L2 norm of centroids or distance matrix,
@@ -460,18 +463,18 @@ void initScalableKMeansPlusPlus(const raft::handle_t& handle,
     kmeans::detail::SamplingOp<DataT> select_op(
       psi, params.oversampling_factor, n_clusters, uniformRands.data(), isSampleCentroid.data());
 
-    std::unique_ptr<Tensor<DataT, 2, IndexT>> Cp;
-    kmeans::detail::sampleCentroids(
-      handle, X, minClusterDistance, isSampleCentroid, select_op, workspace, Cp, stream);
+    auto Cp = kmeans::detail::sampleCentroids(
+      handle, X, minClusterDistance, isSampleCentroid, select_op, workspace, stream);
     /// <<<< End of Step-4 >>>>
 
     /// <<<< Step-5 >>> : C = C U C'
     // append the data in Cp to the buffer holding the potentialCentroids
-    centroidsBuf.resize(centroidsBuf.size() + Cp->numElements(), stream);
-    raft::copy(centroidsBuf.end() - Cp->numElements(), Cp->data(), Cp->numElements(), stream);
+    centroidsBuf.resize(centroidsBuf.size() + Cp.numElements(), stream);
+    raft::copy(centroidsBuf.end() - Cp.numElements(), Cp.data(), Cp.numElements(), stream);
 
-    int tot_centroids = potentialCentroids.getSize(0) + Cp->getSize(0);
-    Tensor<DataT, 2, IndexT> potentialCentroids(centroidsBuf.data(), {tot_centroids, n_features});
+    int tot_centroids = potentialCentroids.getSize(0) + Cp.getSize(0);
+    potentialCentroids =
+      std::move(Tensor<DataT, 2, IndexT>(centroidsBuf.data(), {tot_centroids, n_features}));
     /// <<<< End of Step-5 >>>
   }  /// <<<< Step-6 >>>
 

@@ -17,9 +17,7 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
-#include <rmm/device_uvector.hpp>
 #include <rmm/mr/device/per_device_resource.hpp>
-#include <rmm/mr/host/host_memory_resource.hpp>
 
 #include <vector>
 
@@ -35,6 +33,12 @@ class Tensor {
   {
     if (_state == AllocState::Owner) {
       if (memory_type(_data) == cudaMemoryTypeHost) { delete _data; }
+
+      if (memory_type(_data) == cudaMemoryTypeDevice) {
+        rmm_alloc->deallocate(_data, this->getSizeInBytes(), _stream);
+      } else if (memory_type(_data) == cudaMemoryTypeHost) {
+        delete _data;
+      }
     }
   }
 
@@ -75,10 +79,8 @@ class Tensor {
       _stride[j] = _stride[j + 1] * _size[j + 1];
     }
 
-    _storage = std::make_unique<rmm::device_uvector<DataT>>(this->getSizeInBytes(), _stream);
-    _data    = _storage->data();
-
-    CUDA_CHECK(cudaStreamSynchronize(_stream));
+    rmm_alloc = rmm::mr::get_current_device_resource();
+    _data     = (DataT*)rmm_alloc->allocate(this->getSizeInBytes(), _stream);
 
     ASSERT(this->data() || (this->getSizeInBytes() == 0), "device allocation failed");
   }
@@ -177,7 +179,7 @@ class Tensor {
 
   cudaStream_t _stream{};
 
-  std::unique_ptr<rmm::device_uvector<DataT>> _storage;
+  rmm::mr::device_memory_resource* rmm_alloc;
 };
 
 };  // end namespace ML
