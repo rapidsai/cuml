@@ -46,27 +46,10 @@ using namespace MLCommon;
 template <typename math_t>
 int getUniqueLabels(math_t* y, size_t n, math_t* unique, cudaStream_t stream)
 {
-  rmm::device_scalar<int> d_num_selected(stream);
-  rmm::device_uvector<math_t> workspace(n, stream);
-  size_t bytes  = 0;
-  size_t bytes2 = 0;
-
-  // Query how much temporary storage we will need for cub operations
-  // and allocate it
-  cub::DeviceRadixSort::SortKeys(NULL, bytes, y, workspace.data(), n);
-  cub::DeviceSelect::Unique(
-    NULL, bytes2, workspace.data(), workspace.data(), d_num_selected.data(), n);
-  bytes = max(bytes, bytes2);
-  rmm::device_uvector<char> cub_storage(bytes, stream);
-
-  // Select Unique classes
-  cub::DeviceRadixSort::SortKeys(cub_storage.data(), bytes, y, workspace.data(), n);
-  cub::DeviceSelect::Unique(
-    cub_storage.data(), bytes, workspace.data(), workspace.data(), d_num_selected.data(), n);
-
-  int n_unique = d_num_selected.value(stream);
-  raft::copy(unique, workspace.data(), n_unique, stream);
-
+  rmm::device_uvector<math_t> unique_v(0, stream);
+  int n_unique = raft::label::getUniquelabels(unique_v, y, n, stream);
+  raft::copy(unique, unique_v.data(), n_unique, stream);
+  CUDA_CHECK(cudaStreamSynchronize(stream));
   return n_unique;
 }
 
