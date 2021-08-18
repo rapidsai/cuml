@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
+#include <common/ml_benchmark.hpp>
 #include <raft/linalg/reduce.cuh>
 #include <raft/mr/device/allocator.hpp>
-#include "../common/ml_benchmark.hpp"
 
 namespace MLCommon {
 namespace Bench {
@@ -30,25 +30,31 @@ struct Params {
 template <typename T>
 struct Reduce : public Fixture {
   Reduce(const std::string& name, const Params& p)
-    : Fixture(name, std::shared_ptr<raft::mr::device::allocator>(
-                      new raft::mr::device::default_allocator)),
-      params(p) {}
+    : Fixture(
+        name,
+        std::shared_ptr<raft::mr::device::allocator>(new raft::mr::device::default_allocator)),
+      params(p)
+  {
+  }
 
  protected:
-  void allocateBuffers(const ::benchmark::State& state) override {
+  void allocateBuffers(const ::benchmark::State& state) override
+  {
     alloc(data, params.rows * params.cols, true);
     alloc(dots, params.rows, true);
   }
 
-  void deallocateBuffers(const ::benchmark::State& state) override {
+  void deallocateBuffers(const ::benchmark::State& state) override
+  {
     dealloc(data, params.rows * params.cols);
     dealloc(dots, params.rows);
   }
 
-  void runBenchmark(::benchmark::State& state) override {
+  void runBenchmark(::benchmark::State& state) override
+  {
     loopOnState(state, [this]() {
-      raft::linalg::reduce(dots, data, params.cols, params.rows, T(0.f), true,
-                           params.alongRows, stream);
+      raft::linalg::reduce(
+        dots, data, params.cols, params.rows, T(0.f), true, params.alongRows, stream);
     });
   }
 
@@ -57,15 +63,22 @@ struct Reduce : public Fixture {
   T *data, *dots;
 };  // struct Reduce
 
-static std::vector<Params> getInputs() {
+static std::vector<Params> getInputs()
+{
   return {
-    {8 * 1024, 1024, false},     {1024, 8 * 1024, false},
-    {8 * 1024, 8 * 1024, false}, {32 * 1024, 1024, false},
-    {1024, 32 * 1024, false},    {32 * 1024, 32 * 1024, false},
+    {8 * 1024, 1024, false},
+    {1024, 8 * 1024, false},
+    {8 * 1024, 8 * 1024, false},
+    {32 * 1024, 1024, false},
+    {1024, 32 * 1024, false},
+    {32 * 1024, 32 * 1024, false},
 
-    {8 * 1024, 1024, true},      {1024, 8 * 1024, true},
-    {8 * 1024, 8 * 1024, true},  {32 * 1024, 1024, true},
-    {1024, 32 * 1024, true},     {32 * 1024, 32 * 1024, true},
+    {8 * 1024, 1024, true},
+    {1024, 8 * 1024, true},
+    {8 * 1024, 8 * 1024, true},
+    {32 * 1024, 1024, true},
+    {1024, 32 * 1024, true},
+    {32 * 1024, 32 * 1024, true},
   };
 }
 

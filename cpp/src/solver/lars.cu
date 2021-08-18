@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,29 +22,60 @@ namespace Solver {
 namespace Lars {
 
 // Explicit instantiation
-template void larsFit<float, int>(const raft::handle_t& handle, float* X,
-                                  int n_rows, int n_cols, const float* y,
-                                  float* beta, int* active_idx, float* alphas,
-                                  int* n_active, float* Gram, int max_iter,
-                                  float* coef_path, int verbosity, int ld_X,
-                                  int ld_G, float eps);
+template void larsFit<float, int>(const raft::handle_t& handle,
+                                  float* X,
+                                  int n_rows,
+                                  int n_cols,
+                                  const float* y,
+                                  float* beta,
+                                  int* active_idx,
+                                  float* alphas,
+                                  int* n_active,
+                                  float* Gram,
+                                  int max_iter,
+                                  float* coef_path,
+                                  int verbosity,
+                                  int ld_X,
+                                  int ld_G,
+                                  float eps);
 
-template void larsFit<double, int>(const raft::handle_t& handle, double* X,
-                                   int n_rows, int n_cols, const double* y,
-                                   double* beta, int* active_idx,
-                                   double* alphas, int* n_active, double* Gram,
-                                   int max_iter, double* coef_path,
-                                   int verbosity, int ld_X, int ld_G,
+template void larsFit<double, int>(const raft::handle_t& handle,
+                                   double* X,
+                                   int n_rows,
+                                   int n_cols,
+                                   const double* y,
+                                   double* beta,
+                                   int* active_idx,
+                                   double* alphas,
+                                   int* n_active,
+                                   double* Gram,
+                                   int max_iter,
+                                   double* coef_path,
+                                   int verbosity,
+                                   int ld_X,
+                                   int ld_G,
                                    double eps);
 
-template void larsPredict(const raft::handle_t& handle, const float* X,
-                          int n_rows, int n_cols, int ld_X, const float* beta,
-                          int n_active, int* active_idx, float intercept,
+template void larsPredict(const raft::handle_t& handle,
+                          const float* X,
+                          int n_rows,
+                          int n_cols,
+                          int ld_X,
+                          const float* beta,
+                          int n_active,
+                          int* active_idx,
+                          float intercept,
                           float* preds);
 
-template void larsPredict(const raft::handle_t& handle, const double* X,
-                          int n_rows, int n_cols, int ld_X, const double* beta,
-                          int n_active, int* active_idx, double intercept,
+template void larsPredict(const raft::handle_t& handle,
+                          const double* X,
+                          int n_rows,
+                          int n_cols,
+                          int ld_X,
+                          const double* beta,
+                          int n_active,
+                          int* active_idx,
+                          double intercept,
                           double* preds);
 };  // namespace Lars
 };  // namespace Solver

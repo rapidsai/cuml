@@ -25,9 +25,9 @@ namespace ML {
  * @param name range name
  * @param stream stream to synchronize
  */
-void PUSH_RANGE(const char *name, cudaStream_t stream);
+void PUSH_RANGE(const char* name, cudaStream_t stream);
 
-/** 
+/**
  * @brief Synchronize CUDA stream and pop the latest nvtx range
  * @param stream stream to synchronize
  */
@@ -37,7 +37,7 @@ void POP_RANGE(cudaStream_t stream);
  * @brief Push a named nvtx range
  * @param name range name
  */
-void PUSH_RANGE(const char *name);
+void PUSH_RANGE(const char* name);
 
 /** Pop the latest range */
 void POP_RANGE();

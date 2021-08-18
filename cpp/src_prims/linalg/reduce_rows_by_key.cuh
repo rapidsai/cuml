@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,13 @@
 
 #pragma once
 
-#define MAX_BLOCKS 65535u
-
-#include <stdlib.h>
-#include <cub/cub.cuh>
-#include <limits>
 #include <raft/cuda_utils.cuh>
 
+#include <cub/cub.cuh>
+
+#include <limits>
+
+#define MAX_BLOCKS 65535u
 namespace MLCommon {
 namespace LinAlg {
 
@@ -32,15 +32,16 @@ namespace LinAlg {
 //
 
 template <typename IteratorT1, typename IteratorT2>
-void __global__ convert_array_kernel(IteratorT1 dst, IteratorT2 src, int n) {
-  for (int idx = blockDim.x * blockIdx.x + threadIdx.x; idx < n;
-       idx += gridDim.x * blockDim.x) {
+void __global__ convert_array_kernel(IteratorT1 dst, IteratorT2 src, int n)
+{
+  for (int idx = blockDim.x * blockIdx.x + threadIdx.x; idx < n; idx += gridDim.x * blockDim.x) {
     dst[idx] = src[idx];
   }
 }
 
 template <typename IteratorT1, typename IteratorT2>
-void convert_array(IteratorT1 dst, IteratorT2 src, int n, cudaStream_t st) {
+void convert_array(IteratorT1 dst, IteratorT2 src, int n, cudaStream_t st)
+{
   dim3 grid, block;
   block.x = 256;
 
@@ -59,8 +60,8 @@ struct quad {
 //
 template <typename T>
 struct quadSum {
-  __host__ __device__ __forceinline__ quad<T> operator()(
-    const quad<T> &a, const quad<T> &b) const {
+  __host__ __device__ __forceinline__ quad<T> operator()(const quad<T>& a, const quad<T>& b) const
+  {
     // wasting a double4..
     quad<T> c;
     c.x = a.x + b.x;
@@ -82,21 +83,25 @@ struct quadSum {
 // Reduce by keys - for keys <= 4
 //
 
-#define SUM_ROWS_SMALL_K_DIMX 256
+#define SUM_ROWS_SMALL_K_DIMX         256
 #define SUM_ROWS_BY_KEY_SMALL_K_MAX_K 4
 template <typename DataIteratorT, typename WeightT>
 __launch_bounds__(SUM_ROWS_SMALL_K_DIMX, 4) __global__
-  void sum_rows_by_key_small_nkeys_kernel(const DataIteratorT d_A, int lda,
-                                          const char *d_keys,
-                                          const WeightT *d_weights, int nrows,
-                                          int ncols, int nkeys,
-                                          DataIteratorT d_sums) {
+  void sum_rows_by_key_small_nkeys_kernel(const DataIteratorT d_A,
+                                          int lda,
+                                          const char* d_keys,
+                                          const WeightT* d_weights,
+                                          int nrows,
+                                          int ncols,
+                                          int nkeys,
+                                          DataIteratorT d_sums)
+{
   typedef typename std::iterator_traits<DataIteratorT>::value_type DataType;
   typedef cub::BlockReduce<quad<DataType>, SUM_ROWS_SMALL_K_DIMX> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
 
-  for (int idim = blockIdx.y; idim < ncols; idim += gridDim.y) {
-    if (idim != blockIdx.y) __syncthreads();  // we're reusing temp_storage
+  for (int idim = static_cast<int>(blockIdx.y); idim < ncols; idim += gridDim.y) {
+    if (idim != static_cast<int>(blockIdx.y)) __syncthreads();  // we're reusing temp_storage
 
     // threadIdx.x stores partial sum for current dim and key=threadIdx.x in this reg
     quad<DataType> thread_sums;
@@ -107,14 +112,11 @@ __launch_bounds__(SUM_ROWS_SMALL_K_DIMX, 4) __global__
 
     // May use vectorized load - not necessary for doubles
     for (int block_offset_irow = blockIdx.x * blockDim.x;
-         block_offset_irow <
-         nrows;  // we will syncthreads() inside the loop, no CTA divergence
+         block_offset_irow < nrows;  // we will syncthreads() inside the loop, no CTA divergence
          block_offset_irow += blockDim.x * gridDim.x) {
-      int irow = block_offset_irow + threadIdx.x;
+      int irow     = block_offset_irow + threadIdx.x;
       DataType val = (irow < nrows) ? d_A[irow * lda + idim] : 0.0;
-      if (d_weights && irow < nrows) {
-        val = val * d_weights[irow];
-      }
+      if (d_weights && irow < nrows) { val = val * d_weights[irow]; }
       // we are not reusing the keys - after profiling
       // d_keys is mainly loaded from L2, and this kernel is DRAM BW bounded
       // (experimentation gave a 10% speed up - not worth the many code lines added)
@@ -132,31 +134,32 @@ __launch_bounds__(SUM_ROWS_SMALL_K_DIMX, 4) __global__
     // Strided access
 
     // Reducing by key
-    thread_sums =
-      BlockReduce(temp_storage).Reduce(thread_sums, quadSum<DataType>());
+    thread_sums = BlockReduce(temp_storage).Reduce(thread_sums, quadSum<DataType>());
 
     if (threadIdx.x < 32) {
       // We only need 4
       thread_sums = cub::ShuffleIndex<32>(thread_sums, 0, 0xffffffff);
-      if (threadIdx.x < nkeys) {
-        if (threadIdx.x == 0)
-          raft::myAtomicAdd(&d_sums[threadIdx.x * ncols + idim], thread_sums.x);
-        if (threadIdx.x == 1)
-          raft::myAtomicAdd(&d_sums[threadIdx.x * ncols + idim], thread_sums.y);
-        if (threadIdx.x == 2)
-          raft::myAtomicAdd(&d_sums[threadIdx.x * ncols + idim], thread_sums.z);
-        if (threadIdx.x == 3)
-          raft::myAtomicAdd(&d_sums[threadIdx.x * ncols + idim], thread_sums.w);
+      if (static_cast<int>(threadIdx.x) < nkeys) {
+        if (threadIdx.x == 0) raft::myAtomicAdd(&d_sums[threadIdx.x * ncols + idim], thread_sums.x);
+        if (threadIdx.x == 1) raft::myAtomicAdd(&d_sums[threadIdx.x * ncols + idim], thread_sums.y);
+        if (threadIdx.x == 2) raft::myAtomicAdd(&d_sums[threadIdx.x * ncols + idim], thread_sums.z);
+        if (threadIdx.x == 3) raft::myAtomicAdd(&d_sums[threadIdx.x * ncols + idim], thread_sums.w);
       }
     }
   }
 }
 
 template <typename DataIteratorT, typename WeightT>
-void sum_rows_by_key_small_nkeys(const DataIteratorT d_A, int lda,
-                                 const char *d_keys, const WeightT *d_weights,
-                                 int nrows, int ncols, int nkeys,
-                                 DataIteratorT d_sums, cudaStream_t st) {
+void sum_rows_by_key_small_nkeys(const DataIteratorT d_A,
+                                 int lda,
+                                 const char* d_keys,
+                                 const WeightT* d_weights,
+                                 int nrows,
+                                 int ncols,
+                                 int nkeys,
+                                 DataIteratorT d_sums,
+                                 cudaStream_t st)
+{
   dim3 grid, block;
   block.x = SUM_ROWS_SMALL_K_DIMX;
   block.y = 1;  // Necessary
@@ -177,10 +180,16 @@ void sum_rows_by_key_small_nkeys(const DataIteratorT d_A, int lda,
 
 #define SUM_ROWS_BY_KEY_LARGE_K_MAX_K 1024
 template <typename DataIteratorT, typename KeysIteratorT, typename WeightT>
-__global__ void sum_rows_by_key_large_nkeys_kernel_colmajor(
-  const DataIteratorT d_A, int lda, const KeysIteratorT d_keys,
-  const WeightT *d_weights, int nrows, int ncols, int key_offset, int nkeys,
-  DataIteratorT d_sums) {
+__global__ void sum_rows_by_key_large_nkeys_kernel_colmajor(const DataIteratorT d_A,
+                                                            int lda,
+                                                            const KeysIteratorT d_keys,
+                                                            const WeightT* d_weights,
+                                                            int nrows,
+                                                            int ncols,
+                                                            int key_offset,
+                                                            int nkeys,
+                                                            DataIteratorT d_sums)
+{
   typedef typename std::iterator_traits<KeysIteratorT>::value_type KeyType;
   typedef typename std::iterator_traits<DataIteratorT>::value_type DataType;
   __shared__ DataType local_sums[SUM_ROWS_BY_KEY_LARGE_K_MAX_K];
@@ -207,8 +216,7 @@ __global__ void sum_rows_by_key_large_nkeys_kernel_colmajor(
 
     __syncthreads();  // local_sums
 
-    for (int local_key = threadIdx.x; local_key < nkeys;
-         local_key += blockDim.x) {
+    for (int local_key = threadIdx.x; local_key < nkeys; local_key += blockDim.x) {
       DataType local_sum = local_sums[local_key];
 
       if (local_sum != 0.0) {
@@ -221,11 +229,16 @@ __global__ void sum_rows_by_key_large_nkeys_kernel_colmajor(
 }
 
 template <typename DataIteratorT, typename KeysIteratorT>
-void sum_rows_by_key_large_nkeys_colmajor(const DataIteratorT d_A, int lda,
-                                          KeysIteratorT d_keys, int nrows,
-                                          int ncols, int key_offset, int nkeys,
+void sum_rows_by_key_large_nkeys_colmajor(const DataIteratorT d_A,
+                                          int lda,
+                                          KeysIteratorT d_keys,
+                                          int nrows,
+                                          int ncols,
+                                          int key_offset,
+                                          int nkeys,
                                           DataIteratorT d_sums,
-                                          cudaStream_t st) {
+                                          cudaStream_t st)
+{
   dim3 grid, block;
   block.x = SUM_ROWS_SMALL_K_DIMX;
   block.y = 1;  // Necessary
@@ -241,10 +254,16 @@ void sum_rows_by_key_large_nkeys_colmajor(const DataIteratorT d_A, int lda,
 #define RRBK_SHMEM_SZ 32
 //#define RRBK_SHMEM
 template <typename DataIteratorT, typename KeysIteratorT, typename WeightT>
-__global__ void sum_rows_by_key_large_nkeys_kernel_rowmajor(
-  const DataIteratorT d_A, int lda, const WeightT *d_weights,
-  KeysIteratorT d_keys, int nrows, int ncols, int key_offset, int nkeys,
-  DataIteratorT d_sums) {
+__global__ void sum_rows_by_key_large_nkeys_kernel_rowmajor(const DataIteratorT d_A,
+                                                            int lda,
+                                                            const WeightT* d_weights,
+                                                            KeysIteratorT d_keys,
+                                                            int nrows,
+                                                            int ncols,
+                                                            int key_offset,
+                                                            int nkeys,
+                                                            DataIteratorT d_sums)
+{
   typedef typename std::iterator_traits<KeysIteratorT>::value_type KeyType;
   typedef typename std::iterator_traits<DataIteratorT>::value_type DataType;
 
@@ -252,16 +271,16 @@ __global__ void sum_rows_by_key_large_nkeys_kernel_rowmajor(
   __shared__ KeyType sh_keys[RRBK_SHMEM_SZ];
 #endif
   int rows_per_partition = nrows / gridDim.z + 1;
-  int start_row = blockIdx.z * rows_per_partition;
-  int end_row = start_row + rows_per_partition;
-  end_row = end_row > nrows ? nrows : end_row;
+  int start_row          = blockIdx.z * rows_per_partition;
+  int end_row            = start_row + rows_per_partition;
+  end_row                = end_row > nrows ? nrows : end_row;
 
   KeyType local_key = blockIdx.y;
   if (local_key >= nkeys) return;
   int this_col = threadIdx.x + blockIdx.x * blockDim.x;
   if (this_col >= ncols) return;
 
-  DataType sum = 0.0;
+  DataType sum       = 0.0;
   KeyType global_key = key_offset + local_key;
 #ifdef RRBK_SHMEM
   int sh_key_inx = 0;
@@ -273,45 +292,46 @@ __global__ void sum_rows_by_key_large_nkeys_kernel_rowmajor(
         sh_keys[x] = d_keys[r + x];
       __syncthreads();
     }
-    if (sh_keys[sh_key_inx] != global_key)
-      continue;  //No divergence since global_key is the
+    if (sh_keys[sh_key_inx] != global_key) continue;  // No divergence since global_key is the
     // same for the whole block
     sh_key_inx++;
 #else
     if (d_keys[r] != global_key)
-      continue;  //No divergence since global_key is the
+      continue;  // No divergence since global_key is the
                  // same for the whole block
 #endif
-    //if ((end_row-start_row) / (r-start_row) != global_key) continue;
+    // if ((end_row-start_row) / (r-start_row) != global_key) continue;
     DataType val = __ldcg(&d_A[r * lda + this_col]);
-    if (d_weights) {
-      val = val * d_weights[r];
-    }
+    if (d_weights) { val = val * d_weights[r]; }
     sum += val;
   }
 
-  if (sum != 0.0)
-    raft::myAtomicAdd(&d_sums[global_key * ncols + this_col], sum);
+  if (sum != 0.0) raft::myAtomicAdd(&d_sums[global_key * ncols + this_col], sum);
 }
 
 template <typename DataIteratorT, typename KeysIteratorT, typename WeightT>
-void sum_rows_by_key_large_nkeys_rowmajor(const DataIteratorT d_A, int lda,
+void sum_rows_by_key_large_nkeys_rowmajor(const DataIteratorT d_A,
+                                          int lda,
                                           const KeysIteratorT d_keys,
-                                          const WeightT *d_weights, int nrows,
-                                          int ncols, int key_offset, int nkeys,
+                                          const WeightT* d_weights,
+                                          int nrows,
+                                          int ncols,
+                                          int key_offset,
+                                          int nkeys,
                                           DataIteratorT d_sums,
-                                          cudaStream_t st) {
+                                          cudaStream_t st)
+{
   // x-dim refers to the column in the input data
   // y-dim refers to the key
   // z-dim refers to a partitioning of the rows among the threadblocks
   dim3 grid, block;
-  block.x = 256;  //Adjust me!
-  block.y = 1;    //Don't adjust me!
-  grid.x = raft::ceildiv(ncols, (int)block.x);
-  grid.y = nkeys;
-  grid.z = std::max(40960000 / nkeys / ncols, (int)1);  //Adjust me!
-  grid.z = std::min(grid.z, (unsigned int)nrows);
-  grid.z = std::min(grid.z, MAX_BLOCKS);
+  block.x = 256;  // Adjust me!
+  block.y = 1;    // Don't adjust me!
+  grid.x  = raft::ceildiv(ncols, (int)block.x);
+  grid.y  = nkeys;
+  grid.z  = std::max(40960000 / nkeys / ncols, (int)1);  // Adjust me!
+  grid.z  = std::min(grid.z, (unsigned int)nrows);
+  grid.z  = std::min(grid.z, MAX_BLOCKS);
 
   sum_rows_by_key_large_nkeys_kernel_rowmajor<<<grid, block, 0, st>>>(
     d_A, lda, d_weights, d_keys, nrows, ncols, key_offset, nkeys, d_sums);
@@ -337,10 +357,17 @@ void sum_rows_by_key_large_nkeys_rowmajor(const DataIteratorT d_A, int lda,
  * @param[in]  stream      CUDA stream
  */
 template <typename DataIteratorT, typename KeysIteratorT, typename WeightT>
-void reduce_rows_by_key(const DataIteratorT d_A, int lda,
-                        const KeysIteratorT d_keys, const WeightT *d_weights,
-                        char *d_keys_char, int nrows, int ncols, int nkeys,
-                        DataIteratorT d_sums, cudaStream_t stream) {
+void reduce_rows_by_key(const DataIteratorT d_A,
+                        int lda,
+                        const KeysIteratorT d_keys,
+                        const WeightT* d_weights,
+                        char* d_keys_char,
+                        int nrows,
+                        int ncols,
+                        int nkeys,
+                        DataIteratorT d_sums,
+                        cudaStream_t stream)
+{
   typedef typename std::iterator_traits<KeysIteratorT>::value_type KeyType;
   typedef typename std::iterator_traits<DataIteratorT>::value_type DataType;
 
@@ -352,23 +379,24 @@ void reduce_rows_by_key(const DataIteratorT d_A, int lda,
     // with doubles we have ~20% speed up - with floats we can hope something around 2x
     // Converting d_keys to char
     convert_array(d_keys_char, d_keys, nrows, stream);
-    sum_rows_by_key_small_nkeys(d_A, lda, d_keys_char, d_weights, nrows, ncols,
-                                nkeys, d_sums, stream);
+    sum_rows_by_key_small_nkeys(
+      d_A, lda, d_keys_char, d_weights, nrows, ncols, nkeys, d_sums, stream);
   } else {
-    for (KeyType key_offset = 0; key_offset < nkeys;
+    for (KeyType key_offset = 0; key_offset < static_cast<KeyType>(nkeys);
          key_offset += SUM_ROWS_BY_KEY_LARGE_K_MAX_K) {
       KeyType this_call_nkeys = std::min(SUM_ROWS_BY_KEY_LARGE_K_MAX_K, nkeys);
-      sum_rows_by_key_large_nkeys_rowmajor(d_A, lda, d_keys, d_weights, nrows,
-                                           ncols, key_offset, this_call_nkeys,
-                                           d_sums, stream);
+      sum_rows_by_key_large_nkeys_rowmajor(
+        d_A, lda, d_keys, d_weights, nrows, ncols, key_offset, this_call_nkeys, d_sums, stream);
     }
   }
 }
 
 /**
  * @brief Computes the reduction of matrix rows for each given key
- * @tparam DataIteratorT Random-access iterator type, for reading input matrix (may be a simple pointer type)
- * @tparam KeysIteratorT Random-access iterator type, for reading input keys (may be a simple pointer type)
+ * @tparam DataIteratorT Random-access iterator type, for reading input matrix (may be a simple
+ * pointer type)
+ * @tparam KeysIteratorT Random-access iterator type, for reading input keys (may be a simple
+ * pointer type)
  * @param[in]  d_A         Input data array (lda x nrows)
  * @param[in]  lda         Real row size for input data, d_A
  * @param[in]  d_keys      Keys for each row (1 x nrows)
@@ -380,13 +408,27 @@ void reduce_rows_by_key(const DataIteratorT d_A, int lda,
  * @param[in]  stream      CUDA stream
  */
 template <typename DataIteratorT, typename KeysIteratorT>
-void reduce_rows_by_key(const DataIteratorT d_A, int lda,
-                        const KeysIteratorT d_keys, char *d_keys_char,
-                        int nrows, int ncols, int nkeys, DataIteratorT d_sums,
-                        cudaStream_t stream) {
+void reduce_rows_by_key(const DataIteratorT d_A,
+                        int lda,
+                        const KeysIteratorT d_keys,
+                        char* d_keys_char,
+                        int nrows,
+                        int ncols,
+                        int nkeys,
+                        DataIteratorT d_sums,
+                        cudaStream_t stream)
+{
   typedef typename std::iterator_traits<DataIteratorT>::value_type DataType;
-  reduce_rows_by_key(d_A, lda, d_keys, static_cast<DataType *>(nullptr),
-                     d_keys_char, nrows, ncols, nkeys, d_sums, stream);
+  reduce_rows_by_key(d_A,
+                     lda,
+                     d_keys,
+                     static_cast<DataType*>(nullptr),
+                     d_keys_char,
+                     nrows,
+                     ncols,
+                     nkeys,
+                     d_sums,
+                     stream);
 }
 
 };  // end namespace LinAlg

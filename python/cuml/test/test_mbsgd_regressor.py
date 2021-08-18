@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,6 +37,13 @@ from sklearn.model_selection import train_test_split
         '500000-1000-500-f32', '500000-1000-500-f64'])
 def make_dataset(request):
     nrows, ncols, n_info, datatype = request.param
+    if nrows == 500000 and datatype == np.float64 and \
+            pytest.max_gpu_memory < 32:
+        if pytest.adapt_stress_test:
+            nrows = nrows * pytest.max_gpu_memory // 32
+        else:
+            pytest.skip("Insufficient GPU memory for this test."
+                        "Re-run with 'CUML_ADAPT_STRESS_TESTS=True'")
     X, y = make_regression(n_samples=nrows, n_informative=n_info,
                            n_features=ncols, random_state=0)
     X = cp.array(X).astype(datatype)
@@ -120,3 +127,24 @@ def test_mbsgd_regressor_default(make_dataset):
                      convert_dtype=datatype)
 
     assert cu_r2 > 0.9
+
+
+def test_mbsgd_regressor_set_params():
+    x = np.linspace(0, 1, 50)
+    y = x * 2
+
+    model = cumlMBSGRegressor()
+    model.fit(x, y)
+    coef_before = model.coef_
+
+    model = cumlMBSGRegressor(eta0=0.1, fit_intercept=False)
+    model.fit(x, y)
+    coef_after = model.coef_
+
+    model = cumlMBSGRegressor()
+    model.set_params(**{'eta0': 0.1, 'fit_intercept': False})
+    model.fit(x, y)
+    coef_test = model.coef_
+
+    assert coef_before != coef_after
+    assert coef_after == coef_test

@@ -92,7 +92,7 @@ def test_exact_classification_datasets(exact_shap_classification_dataset):
 @pytest.mark.parametrize("n_background", [10, 50])
 @pytest.mark.parametrize("model", [cuml.LinearRegression,
                                    cuml.SVR])
-@pytest.mark.parametrize("npermutations", [5, 50])
+@pytest.mark.parametrize("npermutations", [20])
 def test_different_parameters(dtype, n_features, n_background, model,
                               npermutations):
     cp.random.seed(42)
