@@ -198,8 +198,8 @@ template
   DataT* d_computed_ar_invtrans = nullptr;
   DataT* d_computed_ma_invtrans = nullptr;
   DataT* d_params               = nullptr;
-  cudaStream_t stream;
-  int nElements = -1;
+  cudaStream_t stream           = 0;
+  int nElements                 = -1;
 };
 
 // setting test parameter values

@@ -385,7 +385,7 @@ class LarsTest : public ::testing::Test {
   }
 
   raft::handle_t handle;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
 
   const int n_rows = 4;
   const int n_cols = 4;
@@ -606,7 +606,7 @@ class LarsTestFitPredict : public ::testing::Test {
   }
 
   raft::handle_t handle;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
 
   const int n_rows = 10;
   const int n_cols = 5;

@@ -38,7 +38,7 @@ class LabelTest : public ::testing::Test {
 typedef LabelTest MakeMonotonicTest;
 TEST_F(MakeMonotonicTest, Result)
 {
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   CUDA_CHECK(cudaStreamCreate(&stream));
 
   int m = 12;
@@ -71,7 +71,7 @@ TEST_F(MakeMonotonicTest, Result)
 
 TEST(LabelTest, ClassLabels)
 {
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   CUDA_CHECK(cudaStreamCreate(&stream));
 
   int n_rows = 6;

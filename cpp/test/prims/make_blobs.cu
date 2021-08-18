@@ -135,7 +135,7 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
   }
 
  protected:
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   MakeBlobsInputs<T> params;
   int *labels, *lens;
   T *data, *stats, *mu_vec, *mean_var;

@@ -310,7 +310,7 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
   T *data_svmreg, *data_svmreg_test, *labels_svmreg;
   T *pred_svm, *pred_svm_ref, *pred_log, *pred_log_ref;
   T intercept, intercept2;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   raft::handle_t handle;
 };
 

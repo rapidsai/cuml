@@ -79,7 +79,7 @@ class DevScalarTest : public ::testing::TestWithParam<DevScalarInputs<T, IdxType
   }
 
  protected:
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   DevScalarInputs<T, IdxType> params;
   rmm::device_uvector<T> in, out_ref, out;
   rmm::device_scalar<T> scalar;

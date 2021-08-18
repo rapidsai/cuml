@@ -99,7 +99,7 @@ class CovTest : public ::testing::TestWithParam<CovInputs<T>> {
   CovInputs<T> params;
   rmm::device_uvector<T> data, mean_act, cov_act, cov_cm, cov_cm_ref;
   cublasHandle_t handle;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
 };
 
 ///@todo: add stable=false after it has been implemented

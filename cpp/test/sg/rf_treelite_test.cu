@@ -286,7 +286,7 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
   int data_len;
   int inference_data_len;
 
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   std::shared_ptr<raft::handle_t> handle;
   std::vector<float> treelite_predicted_labels;
   std::vector<float> ref_predicted_labels;
@@ -316,7 +316,7 @@ class RfConcatTestClf : public RfTreeliteTestCommon<T, L> {
 
     std::vector<float> temp_label_h;
 
-    cudaStream_t stream;
+    cudaStream_t stream = 0;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     rmm::device_uvector<float> weight(this->params.n_cols, stream);
@@ -414,7 +414,7 @@ class RfConcatTestReg : public RfTreeliteTestCommon<T, L> {
     // #class for multi-class classification
     this->task_category = 1;
 
-    cudaStream_t stream;
+    cudaStream_t stream = 0;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     rmm::device_uvector<float> weight(this->params.n_cols, stream);

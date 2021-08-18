@@ -84,7 +84,7 @@ class klDivergenceTest : public ::testing::TestWithParam<klDivergenceParam> {
   int nElements              = 0;
   DataT truthklDivergence    = 0;
   DataT computedklDivergence = 0;
-  cudaStream_t stream;
+  cudaStream_t stream        = 0;
 };
 
 // setting test parameter values

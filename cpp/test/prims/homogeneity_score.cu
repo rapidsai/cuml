@@ -105,7 +105,7 @@ class homogeneityTest : public ::testing::TestWithParam<homogeneityParam> {
   int nElements              = 0;
   double truthHomogeneity    = 0;
   double computedHomogeneity = 0;
-  cudaStream_t stream;
+  cudaStream_t stream        = 0;
 };
 
 // setting test parameter values

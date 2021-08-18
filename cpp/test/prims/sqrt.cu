@@ -76,7 +76,7 @@ class SqrtTest : public ::testing::TestWithParam<SqrtInputs<T>> {
   }
 
  protected:
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   SqrtInputs<T> params;
   rmm::device_uvector<T> in1, out_ref, out;
   int device_count = 0;

@@ -201,7 +201,7 @@ class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam
   double truthSilhouetteScore    = 0;
   double computedSilhouetteScore = 0;
   double batchedSilhouetteScore  = 0;
-  cudaStream_t stream;
+  cudaStream_t stream            = 0;
   raft::handle_t handle;
   int chunk;
 };

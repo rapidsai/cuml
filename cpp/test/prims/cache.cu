@@ -75,7 +75,7 @@ class CacheTest : public ::testing::Test {
 
   rmm::device_uvector<int> argfirst_dev;
 
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
 
   rmm::device_uvector<bool> is_cached;
 };

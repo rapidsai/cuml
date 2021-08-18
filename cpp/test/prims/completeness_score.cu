@@ -107,7 +107,7 @@ class completenessTest : public ::testing::TestWithParam<completenessParam> {
   int nElements               = 0;
   double truthCompleteness    = 0;
   double computedCompleteness = 0;
-  cudaStream_t stream;
+  cudaStream_t stream         = 0;
 };
 
 // setting test parameter values

@@ -120,7 +120,7 @@ class Eltwise2dTest : public ::testing::TestWithParam<Eltwise2dInputs<T>> {
   }
 
  protected:
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   Eltwise2dInputs<T> params;
   rmm::device_uvector<T> out_ref, out;
 };

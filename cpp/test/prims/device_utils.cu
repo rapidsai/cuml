@@ -99,7 +99,7 @@ class BatchedBlockReduceTest : public ::testing::TestWithParam<BatchedBlockReduc
  protected:
   BatchedBlockReduceInputs params;
   rmm::device_uvector<int> out, refOut;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
 };
 
 typedef BatchedBlockReduceTest<8> BBTest8;

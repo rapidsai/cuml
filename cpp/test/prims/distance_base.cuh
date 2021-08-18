@@ -181,11 +181,11 @@ class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
   {
     params = ::testing::TestWithParam < DistanceInputs<DataType>::GetParam();
     raft::random::Rng r(params.seed);
-    int m           = params.m;
-    int n           = params.n;
-    int k           = params.k;
-    bool isRowMajor = params.isRowMajor;
-    cudaStream_t stream;
+    int m               = params.m;
+    int n               = params.n;
+    int k               = params.k;
+    bool isRowMajor     = params.isRowMajor;
+    cudaStream_t stream = 0;
     CUDA_CHECK(cudaStreamCreate(&stream));
     x.resize(m * k, stream);
     y.resize(n * k, stream);

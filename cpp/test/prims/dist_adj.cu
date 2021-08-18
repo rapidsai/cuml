@@ -87,11 +87,11 @@ class DistanceAdjTest : public ::testing::TestWithParam<DistanceAdjInputs<DataTy
   {
     params = ::testing::TestWithParam < DistanceAdjInputs<DataType>::GetParam();
     raft::random::Rng r(params.seed);
-    int m           = params.m;
-    int n           = params.n;
-    int k           = params.k;
-    bool isRowMajor = params.isRowMajor;
-    cudaStream_t stream;
+    int m               = params.m;
+    int n               = params.n;
+    int k               = params.k;
+    bool isRowMajor     = params.isRowMajor;
+    cudaStream_t stream = 0;
     CUDA_CHECK(cudaStreamCreate(&stream));
     x        = rmm::device_scalar<DataType>(m * k, stream);
     y        = rmm::device_scalar<DataType>(n * k, stream);

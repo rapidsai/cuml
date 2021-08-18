@@ -170,7 +170,7 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
   }
 
   raft::handle_t handle;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   GramMatrixInputs params;
 
   rmm::device_uvector<math_t> x1;

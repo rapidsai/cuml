@@ -154,7 +154,7 @@ class WarpTopKTest : public ::testing::TestWithParam<WarpTopKInputs<T>> {
   }
 
  protected:
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   WarpTopKInputs<T> params;
   rmm::device_uvector<T> arr, outv;
   rmm::device_uvector<int> outk;

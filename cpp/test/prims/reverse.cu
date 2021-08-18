@@ -65,7 +65,7 @@ class ReverseTest : public ::testing::TestWithParam<ReverseInputs<T>> {
  protected:
   ReverseInputs<T> params;
   rmm::device_uvector<T> in, out;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
 };
 
 const std::vector<ReverseInputs<float>> inputsf = {{0.000001f, 32, 32, false, false, 1234ULL},

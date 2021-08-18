@@ -93,7 +93,7 @@ class DispersionTest : public ::testing::TestWithParam<DispersionInputs<T>> {
  protected:
   DispersionInputs<T> params;
   rmm::device_uvector<T> exp_mean, act_mean;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   int npoints;
   T expectedVal, actualVal;
 };

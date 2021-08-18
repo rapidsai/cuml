@@ -63,7 +63,7 @@ class DlbTest : public ::testing::TestWithParam<DlbInputs> {
   }
 
  protected:
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   DlbInputs params;
   rmm::device_uvector<int> out;
 };

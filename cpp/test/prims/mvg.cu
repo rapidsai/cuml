@@ -212,7 +212,7 @@ class MVGTest : public ::testing::TestWithParam<MVGInputs<T>> {
   T tolerance;
   cublasHandle_t cublasH;
   cusolverDnHandle_t cusolverH;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
 };  // end of MVGTest class
 
 ///@todo find out the reason that Un-correlated covs are giving problems (in qr)

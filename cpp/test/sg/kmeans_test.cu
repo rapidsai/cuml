@@ -134,7 +134,7 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
   void SetUp() override { basicTest(); }
 
  protected:
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   KmeansInputs<T> testparams;
   rmm::device_uvector<int> d_labels;
   rmm::device_uvector<int> d_labels_ref;

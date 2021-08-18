@@ -187,7 +187,7 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
   T *coef3, *coef3_ref;
   T *coef4, *coef4_ref;
   T intercept, intercept2;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   raft::handle_t handle;
 };
 

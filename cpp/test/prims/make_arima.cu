@@ -74,7 +74,7 @@ class MakeArimaTest : public ::testing::TestWithParam<MakeArimaInputs> {
  protected:
   MakeArimaInputs params;
   rmm::device_uvector<T> data;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
 };
 
 const std::vector<MakeArimaInputs> make_arima_inputs = {

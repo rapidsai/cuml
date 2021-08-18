@@ -130,7 +130,7 @@ class ColumnSort : public ::testing::TestWithParam<columnSort<T>> {
   }
 
  protected:
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   columnSort<T> params;
   rmm::device_uvector<T> keyIn, keySorted, keySortGolden;
   rmm::device_uvector<int> valueOut, goldenValOut;  // valueOut are indexes

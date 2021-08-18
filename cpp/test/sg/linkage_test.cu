@@ -113,7 +113,7 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
   void SetUp() override { basicTest(); }
 
  protected:
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   LinkageInputs<T, IdxT> params;
   rmm::device_uvector<IdxT> labels, labels_ref;
 

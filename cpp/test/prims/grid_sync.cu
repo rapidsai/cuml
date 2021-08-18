@@ -96,7 +96,7 @@ class GridSyncTest : public ::testing::TestWithParam<GridSyncInputs> {
   }
 
  protected:
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   GridSyncInputs params;
   rmm::device_uvector<int> out, out1;
 };

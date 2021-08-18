@@ -88,7 +88,7 @@ class HistTest : public ::testing::TestWithParam<HistInputs> {
   void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
  protected:
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   HistInputs params;
   rmm::device_uvector<int> in, bins, ref_bins;
 };

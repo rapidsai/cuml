@@ -91,7 +91,7 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
 
   void TearDown() { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   std::shared_ptr<raft::handle_t> handle;
   rmm::device_uvector<T> data, quantiles;
   rmm::device_uvector<L> labels;

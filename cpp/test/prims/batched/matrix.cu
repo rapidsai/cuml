@@ -384,7 +384,7 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
   Matrix<T>* res_bM;
   std::vector<T> res_h;
   cublasHandle_t handle;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
 };
 
 // Test parameters (op, batch_size, m, n, p, q, s, t, tolerance)

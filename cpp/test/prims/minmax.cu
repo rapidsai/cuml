@@ -132,7 +132,7 @@ class MinMaxTest : public ::testing::TestWithParam<MinMaxInputs<T>> {
  protected:
   MinMaxInputs<T> params;
   rmm::device_uvector<T> minmax_act, minmax_ref;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
 };
 
 const std::vector<MinMaxInputs<float>> inputsf = {{0.00001f, 1024, 32, 1234ULL},

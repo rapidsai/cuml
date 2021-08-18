@@ -67,7 +67,7 @@ __global__ void fastIntDivTestKernel(
 
 TEST(FastIntDiv, GpuTest)
 {
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   CUDA_CHECK(cudaStreamCreate(&stream));
 
   static const int len = 100000;

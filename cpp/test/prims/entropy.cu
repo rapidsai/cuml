@@ -91,7 +91,7 @@ class entropyTest : public ::testing::TestWithParam<entropyParam> {
   int nElements          = 0;
   double truthEntropy    = 0;
   double computedEntropy = 0;
-  cudaStream_t stream;
+  cudaStream_t stream    = 0;
 };
 
 // setting test parameter values

@@ -142,7 +142,7 @@ class adjustedRandIndexTest : public ::testing::TestWithParam<adjustedRandIndexP
   int nElements                       = 0;
   double truth_adjusted_rand_index    = 0;
   double computed_adjusted_rand_index = 0;
-  cudaStream_t stream;
+  cudaStream_t stream                 = 0;
 };
 
 const std::vector<adjustedRandIndexParam> inputs = {

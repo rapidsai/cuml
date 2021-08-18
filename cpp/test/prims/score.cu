@@ -38,7 +38,7 @@ TEST(ScoreTestHighScore, Result)
   float y[5]     = {0.1, 0.2, 0.3, 0.4, 0.5};
   float y_hat[5] = {0.12, 0.22, 0.32, 0.42, 0.52};
 
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   CUDA_CHECK(cudaStreamCreate(&stream));
 
   rmm::device_uvector<float> d_y(5, stream);
@@ -58,7 +58,7 @@ TEST(ScoreTestLowScore, Result)
   float y[5]     = {0.1, 0.2, 0.3, 0.4, 0.5};
   float y_hat[5] = {0.012, 0.022, 0.032, 0.042, 0.052};
 
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   CUDA_CHECK(cudaStreamCreate(&stream));
 
   rmm::device_uvector<float> d_y(5, stream);
@@ -157,7 +157,7 @@ class AccuracyTest : public ::testing::TestWithParam<AccuracyInputs> {
   AccuracyInputs params;
   T *predictions, *ref_predictions;
   float computed_accuracy, ref_accuracy;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
 };
 
 const std::vector<AccuracyInputs> inputs = {
@@ -306,7 +306,7 @@ class RegressionMetricsTest : public ::testing::TestWithParam<RegressionInputs<T
   T *d_predictions, *d_ref_predictions;
   std::vector<double> computed_regression_metrics;
   std::vector<double> ref_regression_metrics;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
 };
 
 const std::vector<RegressionInputs<float>> regression_inputs_float = {

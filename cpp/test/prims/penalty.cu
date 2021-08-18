@@ -37,7 +37,7 @@ class PenaltyTest : public ::testing::TestWithParam<PenaltyInputs<T>> {
     params  = ::testing::TestWithParam<PenaltyInputs<T>>::GetParam();
     int len = params.len;
 
-    cudaStream_t stream;
+    cudaStream_t stream = 0;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
     raft::allocate(in, len, stream);

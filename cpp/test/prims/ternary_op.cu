@@ -44,8 +44,8 @@ class ternaryOpTest : public ::testing::TestWithParam<BinaryOpInputs<T>> {
     params = ::testing::TestWithParam<BinaryOpInputs<T>>::GetParam();
     raft::random::Rng rng(params.seed);
 
-    int len = params.len;
-    cudaStream_t stream;
+    int len             = params.len;
+    cudaStream_t stream = 0;
     CUDA_CHECK(cudaStreamCreate(&stream));
     raft::allocate(in1, len, stream);
     raft::allocate(in2, len, stream);

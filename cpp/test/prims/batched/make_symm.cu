@@ -85,7 +85,7 @@ class BatchMakeSymmTest : public ::testing::TestWithParam<BatchMakeSymmInputs<T>
   }
 
  protected:
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   BatchMakeSymmInputs<T> params;
   rmm::device_uvector<T> x;
   rmm::device_uvector<T> out_ref;

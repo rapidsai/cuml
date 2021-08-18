@@ -219,7 +219,7 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
   T *data_sc, *labels_sc, *coef_sc, *coef_sc_ref;
   T intercept, intercept2, intercept3;
   raft::handle_t handle;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
 };
 
 const std::vector<OlsInputs<float>> inputsf2 = {

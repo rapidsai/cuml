@@ -110,7 +110,7 @@ class vMeasureTest : public ::testing::TestWithParam<vMeasureParam> {
   int nElements           = 0;
   double truthVMeasure    = 0;
   double computedVMeasure = 0;
-  cudaStream_t stream;
+  cudaStream_t stream     = 0;
 };
 
 // setting test parameter values

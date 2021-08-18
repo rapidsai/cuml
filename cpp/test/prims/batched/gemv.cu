@@ -99,7 +99,7 @@ class BatchGemvTest : public ::testing::TestWithParam<BatchGemvInputs<T>> {
   void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
  protected:
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   BatchGemvInputs<T> params;
   rmm::device_uvector<T> out_ref;
   rmm::device_uvector<T> out;

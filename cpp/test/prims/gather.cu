@@ -112,7 +112,7 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs> {
   void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
  protected:
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   GatherInputs params;
   std::vector<MatrixT> h_in, h_out;
   std::vector<MapT> h_map;

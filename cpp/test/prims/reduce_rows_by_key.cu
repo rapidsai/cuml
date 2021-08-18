@@ -132,7 +132,7 @@ class ReduceRowTest : public ::testing::TestWithParam<ReduceRowsInputs<T>> {
   }
 
  protected:
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   ReduceRowsInputs<T> params;
   T *in, *out_ref, *out;
   T* weight;

@@ -89,7 +89,7 @@ class ReduceColsTest : public ::testing::TestWithParam<ReduceColsInputs<T>> {
   void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
  protected:
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   ReduceColsInputs<T> params;
   rmm::device_uvector<T> in, out_ref, out;
   rmm::device_uvector<uint32_t> keys;

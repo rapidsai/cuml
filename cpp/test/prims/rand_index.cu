@@ -105,7 +105,7 @@ class randIndexTest : public ::testing::TestWithParam<randIndexParam> {
   uint64_t size            = 0;
   double truthRandIndex    = 0;
   double computedRandIndex = 0;
-  cudaStream_t stream;
+  cudaStream_t stream      = 0;
 };
 
 // setting test parameter values

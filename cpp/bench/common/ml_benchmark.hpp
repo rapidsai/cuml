@@ -80,7 +80,7 @@ struct CudaEventTimer {
 
  private:
   ::benchmark::State* state;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   cudaEvent_t start;
   cudaEvent_t stop;
 };  // end struct CudaEventTimer
@@ -172,7 +172,7 @@ class Fixture : public ::benchmark::Fixture {
     d_alloc->deallocate(ptr, len * sizeof(T), stream);
   }
 
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   int l2CacheSize;
   char* scratchBuffer;
 };  // class Fixture

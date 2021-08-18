@@ -454,7 +454,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   std::vector<float> vector_leaf;
 
   // parameters
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   raft::handle_t handle;
   FilTestParams ps;
 };

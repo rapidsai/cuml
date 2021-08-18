@@ -135,7 +135,7 @@ class PCAOpgTest : public testing::TestWithParam<PCAOpgParams> {
  protected:
   PCAOpgParams params;
   raft::handle_t handle;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   int myRank;
   int totalRanks;
   ML::paramsPCAMG prmsPCA;

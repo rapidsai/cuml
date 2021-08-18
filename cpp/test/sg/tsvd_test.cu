@@ -154,7 +154,7 @@ class TsvdTest : public ::testing::TestWithParam<TsvdInputs<T>> {
   T *data2, *data2_trans, *data2_back, *components2, *explained_vars2, *explained_var_ratio2,
     *singular_vals2;
   raft::handle_t handle;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
 };
 
 const std::vector<TsvdInputs<float>> inputsf2 = {

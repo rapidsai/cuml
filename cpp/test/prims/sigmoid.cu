@@ -62,7 +62,7 @@ class SigmoidTest : public ::testing::TestWithParam<SigmoidInputs<T>> {
   }
 
  protected:
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   SigmoidInputs<T> params;
   rmm::device_uvector<T> data, result, result_ref;
 };

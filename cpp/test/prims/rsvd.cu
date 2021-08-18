@@ -150,7 +150,7 @@ class RsvdTest : public ::testing::TestWithParam<RsvdInputs<T>> {
   }
 
  protected:
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   RsvdInputs<T> params;
   rmm::device_uvector<T> A, U, S, V, left_eig_vectors_ref, right_eig_vectors_ref, sing_vals_ref;
 };

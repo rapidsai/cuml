@@ -119,7 +119,7 @@ class MakeRegressionTest : public ::testing::TestWithParam<MakeRegressionInputs<
   MakeRegressionInputs<T> params;
   T *data, *values_ret, *values_prod, *values_cm, *coef;
   int zero_count;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
 };
 
 typedef MakeRegressionTest<float> MakeRegressionTestF;

@@ -179,7 +179,7 @@ class CSRTest : public ::testing::TestWithParam<CSRInputs<T>> {
   std::vector<T> res_h;
   cublasHandle_t handle;
   cusolverSpHandle_t cusolverSpHandle;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
 };
 
 // Test parameters (op, batch_size, m, n, nnz, p, q, tolerance)

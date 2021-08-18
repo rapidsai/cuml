@@ -141,7 +141,7 @@ class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixP
   ContingencyMatrixParam params;
   int numUniqueClasses = -1;
   T minLabel, maxLabel;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   size_t workspaceSz;
   rmm::device_uvector<char> pWorkspace;
   rmm::device_uvector<T> dY, dYHat;

@@ -40,7 +40,7 @@ struct QuasiNewtonTest : ::testing::Test {
   const static double X[N][D];
   raft::handle_t cuml_handle;
   const raft::handle_t& handle;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   std::shared_ptr<SimpleMatOwning<double>> Xdev;
   std::shared_ptr<SimpleVecOwning<double>> ydev;
 

@@ -134,7 +134,7 @@ class mutualInfoTest : public ::testing::TestWithParam<mutualInfoParam> {
   int nElements             = 0;
   double truthmutualInfo    = 0;
   double computedmutualInfo = 0;
-  cudaStream_t stream;
+  cudaStream_t stream       = 0;
 };
 
 // setting test parameter values

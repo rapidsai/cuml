@@ -84,7 +84,7 @@ class WorkingSetTest : public ::testing::Test {
     CUDA_CHECK(cudaFree(alpha_dev));
   }
   raft::handle_t handle;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   WorkingSet<math_t>* ws;
 
   math_t f_host[10] = {1, 3, 10, 4, 2, 8, 6, 5, 9, 7};
@@ -216,7 +216,7 @@ class KernelCacheTest : public ::testing::Test {
 
   raft::handle_t handle;
   cublasHandle_t cublas_handle;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
 
   int n_rows = 4;
   int n_cols = 2;
@@ -368,7 +368,7 @@ class GetResultsTest : public ::testing::Test {
   math_t b;
 
   raft::handle_t handle;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
 };
 
 TYPED_TEST_CASE(GetResultsTest, FloatTypes);
@@ -418,9 +418,9 @@ class SmoUpdateTest : public ::testing::Test {
     CUDA_CHECK(cudaFree(f_dev));
   }
   raft::handle_t handle;
-  cudaStream_t stream;
-  int n_rows = 6;
-  int n_ws   = 2;
+  cudaStream_t stream = 0;
+  int n_rows          = 6;
+  int n_ws            = 2;
   float* kernel_dev;
   float* f_dev;
   float* delta_alpha_dev;
@@ -505,7 +505,7 @@ class SmoBlockSolverTest : public ::testing::Test {
   }
 
   raft::handle_t handle;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   cublasHandle_t cublas_handle;
 
   int n_rows = 4;
@@ -824,7 +824,7 @@ class SmoSolverTest : public ::testing::Test {
 
  protected:
   raft::handle_t handle;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   Matrix::GramMatrixBase<math_t>* kernel;
   int n_rows       = 6;
   const int n_cols = 2;
@@ -1492,10 +1492,10 @@ class SvrTest : public ::testing::Test {
 
  protected:
   raft::handle_t handle;
-  cudaStream_t stream;
-  int n_rows       = 7;
-  int n_train      = 2 * n_rows;
-  const int n_cols = 1;
+  cudaStream_t stream = 0;
+  int n_rows          = 7;
+  int n_train         = 2 * n_rows;
+  const int n_cols    = 1;
 
   SvmModel<math_t> model;
   math_t* x_dev;

@@ -200,7 +200,7 @@ class PcaTest : public ::testing::TestWithParam<PcaInputs<T>> {
   T *data2, *data2_trans, *data2_back, *components2, *explained_vars2, *explained_var_ratio2,
     *singular_vals2, *mean2, *noise_vars2;
   raft::handle_t handle;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
 };
 
 const std::vector<PcaInputs<float>> inputsf2 = {

@@ -50,10 +50,10 @@ class PermTest : public ::testing::TestWithParam<PermInputs<T>> {
     // forcefully set needPerms, since we need it for unit-testing!
     if (params.needShuffle) { params.needPerms = true; }
     raft::random::Rng r(params.seed);
-    int N   = params.N;
-    int D   = params.D;
-    int len = N * D;
-    cudaStream_t stream;
+    int N               = params.N;
+    int D               = params.D;
+    int len             = N * D;
+    cudaStream_t stream = 0;
     CUDA_CHECK(cudaStreamCreate(&stream));
     if (params.needPerms) {
       outPerms.resize(N, stream);
@@ -78,8 +78,8 @@ class PermTest : public ::testing::TestWithParam<PermInputs<T>> {
   T* in_ptr  = nullptr;
   T* out_ptr = nullptr;
   rmm::device_uvector<int> outPerms;
-  int* outPerms_ptr = nullptr;
-  cudaStream_t stream;
+  int* outPerms_ptr   = nullptr;
+  cudaStream_t stream = 0;
 };
 
 template <typename T, typename L>

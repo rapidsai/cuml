@@ -134,7 +134,7 @@ class BatchedLevelAlgoUnitTestFixture {
   DecisionTreeParams params;
 
   std::unique_ptr<raft::handle_t> raft_handle;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   InputT input;
 
   std::vector<DataT> h_data;

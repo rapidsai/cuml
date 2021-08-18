@@ -229,7 +229,7 @@ class RidgeTest : public ::testing::TestWithParam<RidgeInputs<T>> {
   T *data_sc, *labels_sc, *coef_sc, *coef_sc_ref;
   T intercept, intercept2, intercept3;
   raft::handle_t handle;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
 };
 
 const std::vector<RidgeInputs<float>> inputsf2 = {{0.001f, 3, 2, 2, 0, 0.5f},

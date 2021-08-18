@@ -123,7 +123,7 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs<T>> {
   }
 
  public:
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   HoltWintersInputs<T> params;
   T *dataset_h, *test;
   T* data;

@@ -202,7 +202,7 @@ class MakeKSHAPDatasetTest : public ::testing::TestWithParam<MakeKSHAPDatasetInp
   bool test_scatter_exact;
   bool test_scatter_sampled;
   raft::handle_t handle;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
 };
 
 const std::vector<MakeKSHAPDatasetInputs> inputsf = {{10, 10, 12, 2, 3, 1234ULL},
