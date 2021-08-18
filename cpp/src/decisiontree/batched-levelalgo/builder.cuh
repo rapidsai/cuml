@@ -17,7 +17,9 @@
 #pragma once
 
 #include <common/nvtx.hpp>
+#include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
+
 #include "builder_base.cuh"
 #include "metrics.cuh"
 
@@ -28,16 +30,14 @@ template <typename ObjectiveT,
           typename DataT  = typename ObjectiveT::DataT,
           typename LabelT = typename ObjectiveT::LabelT,
           typename IdxT   = typename ObjectiveT::IdxT>
-void convertToSparse(const Builder<ObjectiveT>& b,
-                     const Node<DataT, LabelT, IdxT>* h_nodes,
+void convertToSparse(const std::vector<Node<DataT, LabelT, IdxT>> h_nodes,
                      std::vector<SparseTreeNode<DataT, LabelT>>& sparsetree)
 {
   auto len = sparsetree.size();
-  sparsetree.resize(len + b.h_total_nodes);
-  for (IdxT i = 0; i < b.h_total_nodes; ++i) {
-    const auto& hnode                  = h_nodes[i].info;
-    sparsetree[i + len]                = hnode;
-    sparsetree[i + len].instance_count = h_nodes[i].count;
+  sparsetree.resize(len + h_nodes.size());
+  for (std::size_t i = 0; i < h_nodes.size(); ++i) {
+    const auto& hnode   = h_nodes[i].info;
+    sparsetree[i + len] = hnode;
     if (hnode.left_child_id != -1) sparsetree[i + len].left_child_id += len;
   }
 }
@@ -47,7 +47,8 @@ template <typename ObjectiveT,
           typename DataT  = typename ObjectiveT::DataT,
           typename LabelT = typename ObjectiveT::LabelT,
           typename IdxT   = typename ObjectiveT::IdxT>
-void grow_tree(const DataT* data,
+void grow_tree(const raft::handle_t& handle,
+               const DataT* data,
                IdxT treeid,
                uint64_t seed,
                IdxT ncols,
@@ -58,37 +59,27 @@ void grow_tree(const DataT* data,
                int n_sampled_rows,
                int unique_labels,
                const DecisionTreeParams& params,
-               cudaStream_t stream,
                std::vector<SparseTreeNode<DataT, LabelT>>& sparsetree,
                IdxT& num_leaves,
                IdxT& depth)
 {
   ML::PUSH_RANGE("DT::grow_tree in batched-levelalgo @builder.cuh");
-  Builder<ObjectiveT> builder;
-  size_t d_wsize, h_wsize;
-  builder.workspaceSize(d_wsize,
-                        h_wsize,
-                        treeid,
-                        seed,
-                        params,
-                        data,
-                        labels,
-                        nrows,
-                        ncols,
-                        n_sampled_rows,
-                        IdxT(params.max_features * ncols),
-                        rowids,
-                        unique_labels,
-                        quantiles);
-  rmm::device_uvector<char> d_buff(d_wsize, stream);
-  std::vector<char> h_buff(h_wsize);
 
-  std::vector<Node<DataT, LabelT, IdxT>> h_nodes;
-  h_nodes.reserve(builder.maxNodes);
-  builder.assignWorkspace(d_buff.data(), h_buff.data());
-  builder.train(h_nodes, num_leaves, depth, stream);
-  CUDA_CHECK(cudaStreamSynchronize(stream));
-  convertToSparse<ObjectiveT>(builder, h_nodes.data(), sparsetree);
+  Builder<ObjectiveT> builder(handle,
+                              treeid,
+                              seed,
+                              params,
+                              data,
+                              labels,
+                              nrows,
+                              ncols,
+                              n_sampled_rows,
+                              rowids,
+                              unique_labels,
+                              quantiles);
+  auto h_nodes = builder.train(num_leaves, depth, handle.get_stream());
+  CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+  convertToSparse<ObjectiveT>(h_nodes, sparsetree);
   ML::POP_RANGE();
 }
 
@@ -100,6 +91,7 @@ void grow_tree(const DataT* data,
  * @tparam LabelT label type
  * @tparam IdxT   index type
  *
+ * @param[in]  handle         raft handle
  * @param[in]  data           input dataset [on device] [col-major]
  *                            [dim = nrows x ncols]
  * @param[in]  ncols          number of features in the dataset
@@ -122,7 +114,8 @@ void grow_tree(const DataT* data,
  * @{
  */
 template <typename DataT, typename LabelT, typename IdxT>
-void grow_tree(const DataT* data,
+void grow_tree(const raft::handle_t& handle,
+               const DataT* data,
                IdxT treeid,
                uint64_t seed,
                IdxT ncols,
@@ -133,14 +126,14 @@ void grow_tree(const DataT* data,
                int n_sampled_rows,
                int unique_labels,
                const DecisionTreeParams& params,
-               cudaStream_t stream,
                std::vector<SparseTreeNode<DataT, LabelT>>& sparsetree,
                IdxT& num_leaves,
                IdxT& depth)
 {
   // Dispatch objective
   if (params.split_criterion == CRITERION::GINI) {
-    grow_tree<GiniObjectiveFunction<DataT, LabelT, IdxT>>(data,
+    grow_tree<GiniObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+                                                          data,
                                                           treeid,
                                                           seed,
                                                           ncols,
@@ -151,12 +144,12 @@ void grow_tree(const DataT* data,
                                                           n_sampled_rows,
                                                           unique_labels,
                                                           params,
-                                                          stream,
                                                           sparsetree,
                                                           num_leaves,
                                                           depth);
   } else if (params.split_criterion == CRITERION::ENTROPY) {
-    grow_tree<EntropyObjectiveFunction<DataT, LabelT, IdxT>>(data,
+    grow_tree<EntropyObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+                                                             data,
                                                              treeid,
                                                              seed,
                                                              ncols,
@@ -167,12 +160,12 @@ void grow_tree(const DataT* data,
                                                              n_sampled_rows,
                                                              unique_labels,
                                                              params,
-                                                             stream,
                                                              sparsetree,
                                                              num_leaves,
                                                              depth);
   } else if (params.split_criterion == CRITERION::MSE) {
-    grow_tree<MSEObjectiveFunction<DataT, LabelT, IdxT>>(data,
+    grow_tree<MSEObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+                                                         data,
                                                          treeid,
                                                          seed,
                                                          ncols,
@@ -183,7 +176,6 @@ void grow_tree(const DataT* data,
                                                          n_sampled_rows,
                                                          unique_labels,
                                                          params,
-                                                         stream,
                                                          sparsetree,
                                                          num_leaves,
                                                          depth);
