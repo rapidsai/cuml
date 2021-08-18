@@ -694,15 +694,17 @@ class TreeliteFilTest : public BaseFilTest {
     setup_helper();
     using namespace treelite::gtil;
 
-    std::size_t tl_size = ps.num_classes > 2 ? ps.num_proba_outputs() : ps.num_preds_outputs();
-    float* cpu = ps.num_classes > 2 ? want_proba_d : want_preds_d;
-    float* gpu = ps.num_classes > 2 ? proba_d : preds_d;
+    bool cond = ps.num_classes > 2;
+    std::size_t tl_size = cond ? ps.num_proba_outputs() : ps.num_preds_outputs();
+    float* cpu = cond ? want_proba_d : want_preds_d;
+    float* gpu = cond ? proba_d : preds_d;
     printf("tl_size %lu ==? tl::size %lu\n",
            tl_size,
            GetPredictOutputSize(&*model, ps.num_rows));
 
     std::vector<float> tl_preds_h(tl_size);
-    Predict(&*model, data_h.data(), ps.num_rows, tl_preds_h.data(), false);
+    if (atoi(getenv("tl_w_cpu")) || atoi(getenv("tl_w_gpu")))
+      Predict(&*model, data_h.data(), ps.num_rows, tl_preds_h.data(), false);
     if (atoi(getenv("tl_w_cpu")))
       ASSERT_TRUE(raft::devArrMatchHost(tl_preds_h.data(),
                                         cpu,
