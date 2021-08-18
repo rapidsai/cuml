@@ -171,7 +171,6 @@ def test_base_children_get_param_names(child_class: str):
 
         # Now ensure the base parameters are included in get_param_names
         for name, param in sig.parameters.items():
-
             if (param.kind == inspect.Parameter.VAR_KEYWORD
                     or param.kind == inspect.Parameter.VAR_POSITIONAL):
                 continue

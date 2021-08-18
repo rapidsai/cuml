@@ -17,6 +17,8 @@
 
 import numbers
 import numpy as np
+import cupy as cp
+import cupy.sparse as sp
 from inspect import isclass
 
 from ....common.exceptions import NotFittedError
@@ -229,3 +231,39 @@ def check_is_fitted(estimator, attributes=None, *, msg=None, all_or_any=all):
 
     if not attrs:
         raise NotFittedError(msg % {'name': type(estimator).__name__})
+
+
+def _allclose_dense_sparse(x, y, rtol=1e-7, atol=1e-9):
+    """Check allclose for sparse and dense data.
+
+    Both x and y need to be either sparse or dense, they
+    can't be mixed.
+
+    Parameters
+    ----------
+    x : array-like or sparse matrix
+        First array to compare.
+
+    y : array-like or sparse matrix
+        Second array to compare.
+
+    rtol : float, optional
+        relative tolerance; see numpy.allclose
+
+    atol : float, optional
+        absolute tolerance; see numpy.allclose. Note that the default here is
+        more tolerant than the default for numpy.testing.assert_allclose, where
+        atol=0.
+    """
+    if sp.issparse(x) and sp.issparse(y):
+        x = x.tocsr()
+        y = y.tocsr()
+        x.sum_duplicates()
+        y.sum_duplicates()
+        return (cp.array_equal(x.indices, y.indices) and
+                cp.array_equal(x.indptr, y.indptr) and
+                cp.allclose(x.data, y.data, rtol=rtol, atol=atol))
+    elif not sp.issparse(x) and not sp.issparse(y):
+        return cp.allclose(x, y, rtol=rtol, atol=atol)
+    raise ValueError("Can only compare two sparse matrices, not a sparse "
+                     "matrix and an array")

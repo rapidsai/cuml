@@ -14,19 +14,23 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
+#include "test_utils.h"
+
+#include <metrics/rand_index.cuh>
+
 #include <raft/cudart_utils.h>
+#include <raft/mr/device/allocator.hpp>
+
+#include <gtest/gtest.h>
+
 #include <algorithm>
 #include <iostream>
-#include <metrics/rand_index.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <random>
-#include "test_utils.h"
 
 namespace MLCommon {
 namespace Metrics {
 
-//parameter structure definition
+// parameter structure definition
 struct randIndexParam {
   uint64_t nElements;
   int lowerLabelRange;
@@ -34,36 +38,36 @@ struct randIndexParam {
   double tolerance;
 };
 
-//test fixture class
+// test fixture class
 template <typename T>
 class randIndexTest : public ::testing::TestWithParam<randIndexParam> {
  protected:
-  //the constructor
-  void SetUp() override {
-    //getting the parameters
+  // the constructor
+  void SetUp() override
+  {
+    // getting the parameters
     params = ::testing::TestWithParam<randIndexParam>::GetParam();
 
-    size = params.nElements;
+    size            = params.nElements;
     lowerLabelRange = params.lowerLabelRange;
     upperLabelRange = params.upperLabelRange;
 
-    //generating random value test input
+    // generating random value test input
     std::vector<int> arr1(size, 0);
     std::vector<int> arr2(size, 0);
     std::random_device rd;
     std::default_random_engine dre(rd());
-    std::uniform_int_distribution<int> intGenerator(lowerLabelRange,
-                                                    upperLabelRange);
+    std::uniform_int_distribution<int> intGenerator(lowerLabelRange, upperLabelRange);
 
-    std::generate(arr1.begin(), arr1.end(),
-                  [&]() { return intGenerator(dre); });
-    std::generate(arr2.begin(), arr2.end(),
-                  [&]() { return intGenerator(dre); });
+    std::generate(arr1.begin(), arr1.end(), [&]() { return intGenerator(dre); });
+    std::generate(arr2.begin(), arr2.end(), [&]() { return intGenerator(dre); });
 
-    //generating the golden output
-    int64_t a_truth = 0, b_truth = 0, iter = 0, jiter;
-    for (; iter < size; ++iter) {
-      for (jiter = 0; jiter < iter; ++jiter) {
+    // generating the golden output
+    int64_t a_truth = 0;
+    int64_t b_truth = 0;
+
+    for (uint64_t iter = 0; iter < size; ++iter) {
+      for (uint64_t jiter = 0; jiter < iter; ++jiter) {
         if (arr1[iter] == arr1[jiter] && arr2[iter] == arr2[jiter]) {
           ++a_truth;
         } else if (arr1[iter] != arr1[jiter] && arr2[iter] != arr2[jiter]) {
@@ -72,55 +76,57 @@ class randIndexTest : public ::testing::TestWithParam<randIndexParam> {
       }
     }
     uint64_t nChooseTwo = (size * (size - 1)) / 2;
-    truthRandIndex =
-      (double)(((double)(a_truth + b_truth)) / (double)nChooseTwo);
+    truthRandIndex      = (double)(((double)(a_truth + b_truth)) / (double)nChooseTwo);
 
-    //allocating and initializing memory to the GPU
+    // allocating and initializing memory to the GPU
     CUDA_CHECK(cudaStreamCreate(&stream));
     raft::allocate(firstClusterArray, size, true);
     raft::allocate(secondClusterArray, size, true);
 
     raft::update_device(firstClusterArray, &arr1[0], (int)size, stream);
     raft::update_device(secondClusterArray, &arr2[0], (int)size, stream);
-    std::shared_ptr<raft::mr::device::allocator> allocator(
-      new raft::mr::device::default_allocator);
+    std::shared_ptr<raft::mr::device::allocator> allocator(new raft::mr::device::default_allocator);
 
-    //calling the rand_index CUDA implementation
+    // calling the rand_index CUDA implementation
     computedRandIndex = MLCommon::Metrics::compute_rand_index(
       firstClusterArray, secondClusterArray, size, allocator, stream);
   }
 
-  //the destructor
-  void TearDown() override {
+  // the destructor
+  void TearDown() override
+  {
     CUDA_CHECK(cudaFree(firstClusterArray));
     CUDA_CHECK(cudaFree(secondClusterArray));
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
-  //declaring the data values
+  // declaring the data values
   randIndexParam params;
   int lowerLabelRange = 0, upperLabelRange = 2;
-  T* firstClusterArray = nullptr;
-  T* secondClusterArray = nullptr;
-  uint64_t size = 0;
-  double truthRandIndex = 0;
+  T* firstClusterArray     = nullptr;
+  T* secondClusterArray    = nullptr;
+  uint64_t size            = 0;
+  double truthRandIndex    = 0;
   double computedRandIndex = 0;
   cudaStream_t stream;
 };
 
-//setting test parameter values
-const std::vector<randIndexParam> inputs = {
-  {199, 1, 10, 0.000001},    {200, 1, 100, 0.000001}, {10, 1, 1200, 0.000001},
-  {100, 1, 10000, 0.000001}, {198, 1, 100, 0.000001}, {300, 3, 99, 0.000001},
-  {2, 0, 0, 0.00001}};
+// setting test parameter values
+const std::vector<randIndexParam> inputs = {{199, 1, 10, 0.000001},
+                                            {200, 1, 100, 0.000001},
+                                            {10, 1, 1200, 0.000001},
+                                            {100, 1, 10000, 0.000001},
+                                            {198, 1, 100, 0.000001},
+                                            {300, 3, 99, 0.000001},
+                                            {2, 0, 0, 0.00001}};
 
-//writing the test suite
+// writing the test suite
 typedef randIndexTest<int> randIndexTestClass;
-TEST_P(randIndexTestClass, Result) {
+TEST_P(randIndexTestClass, Result)
+{
   ASSERT_NEAR(computedRandIndex, truthRandIndex, params.tolerance);
 }
-INSTANTIATE_TEST_CASE_P(randIndex, randIndexTestClass,
-                        ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(randIndex, randIndexTestClass, ::testing::ValuesIn(inputs));
 
-}  //end namespace Metrics
-}  //end namespace MLCommon
+}  // end namespace Metrics
+}  // end namespace MLCommon

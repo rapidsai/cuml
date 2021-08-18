@@ -83,7 +83,7 @@ class MulticlassClassifier(Base, ClassifierMixin):
         Number of classes.
 
     """
-    @_deprecate_pos_args(version="0.20")
+    @_deprecate_pos_args(version="21.06")
     def __init__(self,
                  estimator,
                  *,
@@ -208,7 +208,7 @@ class OneVsRestClassifier(MulticlassClassifier):
         module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
     """
-    @_deprecate_pos_args(version="0.20")
+    @_deprecate_pos_args(version="21.06")
     def __init__(self,
                  estimator,
                  *args,
@@ -274,7 +274,7 @@ class OneVsOneClassifier(MulticlassClassifier):
         module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
     """
-    @_deprecate_pos_args(version="0.20")
+    @_deprecate_pos_args(version="21.06")
     def __init__(self,
                  estimator,
                  *args,
