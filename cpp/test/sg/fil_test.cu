@@ -433,7 +433,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
           for (int j = 0; j < ps.num_trees; ++j) {
             pred += infer_one_tree(&nodes[j * num_nodes], &data_h[i * ps.num_cols], base).f;
           }
-          printf("cpu pred sum %f\n", pred);
+          //printf("cpu pred sum %f\n", pred);
           transform(pred, want_proba_h[i * 2 + 1], want_preds_h[i]);
           complement(&(want_proba_h[i * 2]));
         }
@@ -694,24 +694,24 @@ class TreeliteFilTest : public BaseFilTest {
     setup_helper();
     using namespace treelite::gtil;
 
-    printf("num_proba_o %lu ==? tl::size %lu\n",
-           ps.num_proba_outputs(),
+    std::size_t tl_size = ps.num_classes > 2 ? ps.num_proba_outputs() : ps.num_preds_outputs();
+    float* cpu = ps.num_classes > 2 ? want_proba_d : want_preds_d;
+    float* gpu = ps.num_classes > 2 ? proba_d : preds_d;
+    printf("tl_size %lu ==? tl::size %lu\n",
+           tl_size,
            GetPredictOutputSize(&*model, ps.num_rows));
-    float* tl_preds_h = new float[ps.num_preds_outputs()];
-    float* tl_proba_h = new float[ps.num_proba_outputs()];
-    Predict(&*model, data_h.data(), ps.num_rows, tl_preds_h, false);
+
+    std::vector<float> tl_preds_h(tl_size);
+    Predict(&*model, data_h.data(), ps.num_rows, tl_preds_h.data(), false);
     if (atoi(getenv("tl_w_cpu")))
-      ASSERT_TRUE(raft::devArrMatchHost(tl_preds_h,
-                                        want_preds_d,
-                                        ps.num_preds_outputs(),
+      ASSERT_TRUE(raft::devArrMatchHost(tl_preds_h.data(),
+                                        cpu,
+                                        tl_size,
                                         raft::CompareApprox<float>(ps.tolerance)));
     if (atoi(getenv("tl_w_gpu")))
       ASSERT_TRUE(raft::devArrMatchHost(
-        tl_preds_h, preds_d, ps.num_preds_outputs(), raft::CompareApprox<float>(ps.tolerance)));
+        tl_preds_h.data(), gpu, tl_size, raft::CompareApprox<float>(ps.tolerance)));
     CUDA_CHECK(cudaDeviceSynchronize());
-
-    delete[] tl_preds_h;
-    delete[] tl_proba_h;
   }
 
   /** adds nodes[node] of tree starting at index root to builder
@@ -839,12 +839,12 @@ class TreeliteFilTest : public BaseFilTest {
       int key_counter = 0;
       int root        = i_tree * tree_num_nodes();
       int root_key    = node_to_treelite(tree_builder, &key_counter, root, root);
-      printf("2treelite\n");
+      //printf("2treelite\n");
       tree_builder->SetRootNode(root_key);
-      printf("set root node\n");
+      //printf("set root node\n");
       // InsertTree() consumes tree_builder
       TL_CPP_CHECK(model_builder->InsertTree(tree_builder));
-      printf("inserted tree\n");
+      //printf("inserted tree\n");
     }
 
     // commit the model

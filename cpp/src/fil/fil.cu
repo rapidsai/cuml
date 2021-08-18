@@ -827,6 +827,7 @@ __noinline__ conversion_state<fil_node_t> tl2fil_branch_node(int fil_left_child,
       split.idx = *bit_pool_size;
       *bit_pool_size += sizeof_mask;
     }
+    ASSERT(split.idx >= 0, "split.idx < 0");
     /*
     printf("\ntl_id %d fid %d idx %d sizeof_mask %d max_matching %d\n",
            tl_node_id,
