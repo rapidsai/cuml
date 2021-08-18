@@ -31,6 +31,7 @@
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <rmm/device_uvector.hpp>
+#include <rmm/mr/device/per_device_resource.hpp>
 #include "ws_util.cuh"
 
 namespace ML {
@@ -64,7 +65,8 @@ class Results {
           int n_cols,
           const math_t* C,
           SvmType svmType)
-    : stream(handle.get_stream()),
+    : rmm_alloc(rmm::mr::get_current_device_resource()),
+      stream(handle.get_stream()),
       handle(handle),
       n_rows(n_rows),
       n_cols(n_cols),
@@ -107,18 +109,22 @@ class Results {
    */
   void Get(const math_t* alpha,
            const math_t* f,
-           rmm::device_uvector<math_t>& dual_coefs,
+           math_t** dual_coefs,
            int* n_support,
-           rmm::device_uvector<int>& idx,
-           rmm::device_uvector<math_t>& x_support,
+           int** idx,
+           math_t** x_support,
            math_t* b)
   {
     CombineCoefs(alpha, val_tmp.data());
     GetDualCoefs(val_tmp.data(), dual_coefs, n_support);
     *b = CalcB(alpha, f, *n_support);
     if (*n_support > 0) {
-      GetSupportVectorIndices(idx, val_tmp.data(), *n_support);
-      CollectSupportVectors(x_support, idx, *n_support);
+      *idx       = GetSupportVectorIndices(val_tmp.data(), *n_support);
+      *x_support = CollectSupportVectors(*idx, *n_support);
+    } else {
+      *dual_coefs = nullptr;
+      *idx        = nullptr;
+      *x_support  = nullptr;
     }
     // Make sure that all pending GPU calculations finished before we return
     CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -132,14 +138,13 @@ class Results {
    * @return pointer to a newly allocated device buffer that stores the support
    *   vectors, size [n_suppor*n_cols]
    */
-  void CollectSupportVectors(rmm::device_uvector<math_t>& x_support,
-                             const rmm::device_uvector<int>& idx,
-                             int n_support)
+  math_t* CollectSupportVectors(const int* idx, int n_support)
   {
-    x_support.resize(n_support * n_cols, stream);
+    math_t* x_support = (math_t*)rmm_alloc->allocate(n_support * n_cols * sizeof(math_t), stream);
     // Collect support vectors into a contiguous block
-    raft::matrix::copyRows(x, n_rows, n_cols, x_support.data(), idx.data(), n_support, stream);
+    raft::matrix::copyRows(x, n_rows, n_cols, x_support, idx, n_support, stream);
     CUDA_CHECK(cudaPeekAtLastError());
+    return x_support;
   }
 
   /**
@@ -178,13 +183,14 @@ class Results {
    *   unallocated on entry, on exit size [n_support]
    * @param [out] n_support number of support vectors
    */
-  void GetDualCoefs(const math_t* val_tmp, rmm::device_uvector<math_t>& dual_coefs, int* n_support)
+  void GetDualCoefs(const math_t* val_tmp, math_t** dual_coefs, int* n_support)
   {
     // Return only the non-zero coefficients
     auto select_op = [] __device__(math_t a) { return 0 != a; };
     *n_support     = SelectByCoef(val_tmp, n_rows, val_tmp, select_op, val_selected.data());
-    dual_coefs.resize(*n_support, stream);
-    raft::copy(dual_coefs.data(), val_selected.data(), *n_support, stream);
+    *dual_coefs    = (math_t*)rmm_alloc->allocate(*n_support * sizeof(math_t), stream);
+    raft::copy(*dual_coefs, val_selected.data(), *n_support, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
   /**
@@ -195,12 +201,13 @@ class Results {
    * @param [in] n_support number of support vectors
    * @return indices of the support vectors, size [n_support]
    */
-  void GetSupportVectorIndices(rmm::device_uvector<int>& idx, const math_t* coef, int n_support)
+  int* GetSupportVectorIndices(const math_t* coef, int n_support)
   {
     auto select_op = [] __device__(math_t a) -> bool { return 0 != a; };
     SelectByCoef(coef, n_rows, f_idx.data(), select_op, idx_selected.data());
-    idx.resize(n_support, stream);
-    raft::copy(idx.data(), idx_selected.data(), n_support, stream);
+    int* idx = (int*)rmm_alloc->allocate(n_support * sizeof(int), stream);
+    raft::copy(idx, idx_selected.data(), n_support, stream);
+    return idx;
   }
 
   /**
@@ -264,10 +271,13 @@ class Results {
     raft::linalg::binaryOp(flag.data(), alpha, C, n, select, stream);
     cub::DeviceSelect::Flagged(
       cub_storage.data(), cub_bytes, val, flag.data(), out, d_num_selected.data(), n, stream);
-    int n_selected = d_num_selected.value(stream);
+    int n_selected;
+    raft::update_host(&n_selected, d_num_selected.data(), 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     return n_selected;
   }
+
+  rmm::mr::device_memory_resource* rmm_alloc;
 
  private:
   const raft::handle_t& handle;
@@ -339,7 +349,8 @@ class Results {
     CUDA_CHECK(cudaPeekAtLastError());
     cub::DeviceSelect::Flagged(
       cub_storage.data(), cub_bytes, val, flag.data(), out, d_num_selected.data(), n, stream);
-    int n_selected = d_num_selected.value(stream);
+    int n_selected;
+    raft::update_host(&n_selected, d_num_selected.data(), 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     return n_selected;
   }
@@ -365,7 +376,8 @@ class Results {
                                d_num_selected.data(),
                                n_train,
                                stream);
-    int n_selected = d_num_selected.value(stream);
+    int n_selected;
+    raft::update_host(&n_selected, d_num_selected.data(), 1, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     math_t res = 0;
     ASSERT(n_selected > 0,

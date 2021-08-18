@@ -101,6 +101,15 @@ void svcPredict(const raft::handle_t& handle,
                 bool predict_class = true);
 
 /**
+ * Deallocate device buffers in the SvmModel struct.
+ *
+ * @param [in] handle cuML handle
+ * @param [inout] m SVM model parameters
+ */
+template <typename math_t>
+void svmFreeBuffers(const raft::handle_t& handle, SvmModel<math_t>& m);
+
+/**
  * @brief C-Support Vector Classification
  *
  * This is a Scikit-Learn like wrapper around the stateless C++ functions.
@@ -147,6 +156,8 @@ class SVC {
       int max_iter       = -1,
       int nochange_steps = 1000,
       int verbosity      = CUML_LEVEL_INFO);
+
+  ~SVC();
 
   /**
    * @brief Fit a support vector classifier to the training data.

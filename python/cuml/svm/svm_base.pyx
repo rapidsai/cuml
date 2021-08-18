@@ -73,17 +73,11 @@ cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
         int n_support
         int n_cols
         math_t b
-        math_t *dual_coefs_ptr
-        math_t *x_support_ptr
-        int *support_idx_ptr
+        math_t *dual_coefs
+        math_t *x_support
+        int *support_idx
         int n_classes
-        math_t *unique_labels_ptr
-
-        math_t* get_dual_coefs()
-        math_t* get_x_support()
-        int* get_support_idx()
-        math_t* get_unique_labels()
-
+        math_t *unique_labels
 
 cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
 
@@ -98,6 +92,9 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
         const handle_t &handle, math_t *input, int n_rows, int n_cols,
         KernelParams &kernel_params, const SvmModel[math_t] &model,
         math_t *preds, math_t buffer_size, bool predict_class) except +
+
+    cdef void svmFreeBuffers[math_t](const handle_t &handle,
+                                     SvmModel[math_t] &m) except +
 
 
 class SVMBase(Base,
@@ -260,9 +257,13 @@ class SVMBase(Base,
         if self._model is not None:
             if self.dtype == np.float32:
                 model_f = <SvmModel[float]*><uintptr_t> self._model
+                if self._freeSvmBuffers:
+                    svmFreeBuffers(handle_[0], model_f[0])
                 del model_f
             elif self.dtype == np.float64:
                 model_d = <SvmModel[double]*><uintptr_t> self._model
+                if self._freeSvmBuffers:
+                    svmFreeBuffers(handle_[0], model_d[0])
                 del model_d
             else:
                 raise TypeError("Unknown type for SVC class")
@@ -386,36 +387,36 @@ class SVMBase(Base,
             model_f.n_support = self.n_support_
             model_f.n_cols = self.n_cols
             model_f.b = self._intercept_.item()
-            model_f.dual_coefs_ptr = \
+            model_f.dual_coefs = \
                 <float*><size_t>self.dual_coef_.ptr
-            model_f.x_support_ptr = \
+            model_f.x_support = \
                 <float*><uintptr_t>self.support_vectors_.ptr
-            model_f.support_idx_ptr = \
+            model_f.support_idx = \
                 <int*><uintptr_t>self.support_.ptr
             model_f.n_classes = self.n_classes_
             if self.n_classes_ > 0:
-                model_f.unique_labels_ptr = \
+                model_f.unique_labels = \
                     <float*><uintptr_t>self._unique_labels_.ptr
             else:
-                model_f.unique_labels_ptr = NULL
+                model_f.unique_labels = NULL
             return <uintptr_t>model_f
         else:
             model_d = new SvmModel[double]()
             model_d.n_support = self.n_support_
             model_d.n_cols = self.n_cols
             model_d.b = self._intercept_.item()
-            model_d.dual_coefs_ptr = \
+            model_d.dual_coefs = \
                 <double*><size_t>self.dual_coef_.ptr
-            model_d.x_support_ptr = \
+            model_d.x_support = \
                 <double*><uintptr_t>self.support_vectors_.ptr
-            model_d.support_idx_ptr = \
+            model_d.support_idx = \
                 <int*><uintptr_t>self.support_.ptr
             model_d.n_classes = self.n_classes_
             if self.n_classes_ > 0:
-                model_d.unique_labels_ptr = \
+                model_d.unique_labels = \
                     <double*><uintptr_t>self._unique_labels_.ptr
             else:
-                model_d.unique_labels_ptr = NULL
+                model_d.unique_labels = NULL
             return <uintptr_t>model_d
 
     def _unpack_model(self):
@@ -435,19 +436,19 @@ class SVMBase(Base,
 
             if model_f.n_support > 0:
                 self.dual_coef_ = CumlArray(
-                    data=<uintptr_t>model_f.get_dual_coefs(),
+                    data=<uintptr_t>model_f.dual_coefs,
                     shape=(1, self.n_support_),
                     dtype=self.dtype,
                     order='F')
 
                 self.support_ = CumlArray(
-                    data=<uintptr_t>model_f.get_support_idx(),
+                    data=<uintptr_t>model_f.support_idx,
                     shape=(self.n_support_,),
                     dtype=np.int32,
                     order='F')
 
                 self.support_vectors_ = CumlArray(
-                    data=<uintptr_t>model_f.get_x_support(),
+                    data=<uintptr_t>model_f.x_support,
                     shape=(self.n_support_, self.n_cols),
                     dtype=self.dtype,
                     order='F')
@@ -455,7 +456,7 @@ class SVMBase(Base,
             self.n_classes_ = model_f.n_classes
             if self.n_classes_ > 0:
                 self._unique_labels_ = CumlArray(
-                    data=<uintptr_t>model_f.get_unique_labels(),
+                    data=<uintptr_t>model_f.unique_labels,
                     shape=(self.n_classes_,),
                     dtype=self.dtype,
                     order='F')
@@ -468,19 +469,19 @@ class SVMBase(Base,
 
             if model_d.n_support > 0:
                 self.dual_coef_ = CumlArray(
-                    data=<uintptr_t>model_d.get_dual_coefs(),
+                    data=<uintptr_t>model_d.dual_coefs,
                     shape=(1, self.n_support_),
                     dtype=self.dtype,
                     order='F')
 
                 self.support_ = CumlArray(
-                    data=<uintptr_t>model_d.get_support_idx(),
+                    data=<uintptr_t>model_d.support_idx,
                     shape=(self.n_support_,),
                     dtype=np.int32,
                     order='F')
 
                 self.support_vectors_ = CumlArray(
-                    data=<uintptr_t>model_d.get_x_support(),
+                    data=<uintptr_t>model_d.x_support,
                     shape=(self.n_support_, self.n_cols),
                     dtype=self.dtype,
                     order='F')
@@ -488,7 +489,7 @@ class SVMBase(Base,
             self.n_classes_ = model_d.n_classes
             if self.n_classes_ > 0:
                 self._unique_labels_ = CumlArray(
-                    data=<uintptr_t>model_d.get_unique_labels(),
+                    data=<uintptr_t>model_d.unique_labels,
                     shape=(self.n_classes_,),
                     dtype=self.dtype,
                     order='F')

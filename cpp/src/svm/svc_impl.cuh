@@ -34,6 +34,8 @@
 #include <raft/label/classlabels.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/matrix.cuh>
+#include <rmm/device_uvector.hpp>
+#include <rmm/mr/device/per_device_resource.hpp>
 #include "kernelcache.cuh"
 #include "smosolver.cuh"
 
@@ -60,13 +62,20 @@ void svcFit(const raft::handle_t& handle,
   const raft::handle_t& handle_impl = handle;
 
   cudaStream_t stream = handle_impl.get_stream();
-  model.n_classes     = raft::label::getUniquelabels(model.unique_labels, labels, n_rows, stream);
+  {
+    rmm::device_uvector<math_t> unique_labels(0, stream);
+    model.n_classes = raft::label::getUniquelabels(unique_labels, labels, n_rows, stream);
+    rmm::mr::device_memory_resource* rmm_alloc = rmm::mr::get_current_device_resource();
+    model.unique_labels = (math_t*)rmm_alloc->allocate(model.n_classes * sizeof(math_t), stream);
+    raft::copy(model.unique_labels, unique_labels.data(), model.n_classes, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+  }
 
   ASSERT(model.n_classes == 2, "Only binary classification is implemented at the moment");
 
   rmm::device_uvector<math_t> y(n_rows, stream);
   MLCommon::Label::getOvrLabels(
-    labels, n_rows, model.get_unique_labels(), model.n_classes, y.data(), 1, stream);
+    labels, n_rows, model.unique_labels, model.n_classes, y.data(), 1, stream);
 
   MLCommon::Matrix::GramMatrixBase<math_t>* kernel =
     MLCommon::Matrix::KernelFactory<math_t>::create(kernel_params, handle_impl.get_cublas_handle());
@@ -76,10 +85,10 @@ void svcFit(const raft::handle_t& handle,
             n_cols,
             y.data(),
             sample_weight,
-            model.dual_coefs,
+            &(model.dual_coefs),
             &(model.n_support),
-            model.x_support,
-            model.support_idx,
+            &(model.x_support),
+            &(model.support_idx),
             &(model.b),
             param.max_iter);
   model.n_cols = n_cols;
@@ -156,7 +165,7 @@ void svcPredict(const raft::handle_t& handle,
     kernel->evaluate(x_ptr,
                      n_batch,
                      n_cols,
-                     model.get_x_support(),
+                     model.x_support,
                      model.n_support,
                      K.data(),
                      false,
@@ -173,15 +182,15 @@ void svcPredict(const raft::handle_t& handle,
                                           &one,
                                           K.data(),
                                           n_batch,
-                                          model.get_dual_coefs(),
+                                          model.dual_coefs,
                                           1,
                                           &null,
                                           y.data() + i,
                                           1,
                                           stream));
   }
-  const math_t* labels = model.get_unique_labels();
-  math_t b             = model.b;
+  math_t* labels = model.unique_labels;
+  math_t b       = model.b;
   if (predict_class) {
     // Look up the label based on the value of the decision function:
     // f(x) = sign(y(x) + b)
@@ -198,6 +207,22 @@ void svcPredict(const raft::handle_t& handle,
   }
   CUDA_CHECK(cudaStreamSynchronize(stream));
   delete kernel;
+}
+
+template <typename math_t>
+void svmFreeBuffers(const raft::handle_t& handle, SvmModel<math_t>& m)
+{
+  cudaStream_t stream                        = handle.get_stream();
+  rmm::mr::device_memory_resource* rmm_alloc = rmm::mr::get_current_device_resource();
+  if (m.dual_coefs) rmm_alloc->deallocate(m.dual_coefs, m.n_support * sizeof(math_t), stream);
+  if (m.support_idx) rmm_alloc->deallocate(m.support_idx, m.n_support * sizeof(int), stream);
+  if (m.x_support)
+    rmm_alloc->deallocate(m.x_support, m.n_support * m.n_cols * sizeof(math_t), stream);
+  if (m.unique_labels) rmm_alloc->deallocate(m.unique_labels, m.n_classes * sizeof(math_t), stream);
+  m.dual_coefs    = nullptr;
+  m.support_idx   = nullptr;
+  m.x_support     = nullptr;
+  m.unique_labels = nullptr;
 }
 
 };  // end namespace SVM

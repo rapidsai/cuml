@@ -19,7 +19,6 @@
 #include <cuml/matrix/kernelparams.h>
 #include <common/cumlHandle.hpp>
 #include <cuml/svm/svc.hpp>
-#include <rmm/device_uvector.hpp>
 #include <tuple>
 
 extern "C" {
@@ -61,21 +60,21 @@ cumlError_t cumlSpSvcFit(cumlHandle_t handle,
   kernel_param.gamma  = gamma;
   kernel_param.coef0  = coef0;
 
+  ML::SVM::SvmModel<float> model;
+
   cumlError_t status;
   raft::handle_t* handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
-  ML::SVM::SvmModel<float> model{0, 0, 0, 0, handle_ptr->get_stream()};
-
   if (status == CUML_SUCCESS) {
     try {
       ML::SVM::svcFit(*handle_ptr, input, n_rows, n_cols, labels, param, kernel_param, model);
       *n_support     = model.n_support;
       *b             = model.b;
-      *dual_coefs    = model.get_dual_coefs();
-      *x_support     = model.get_x_support();
-      *support_idx   = model.get_support_idx();
+      *dual_coefs    = model.dual_coefs;
+      *x_support     = model.x_support;
+      *support_idx   = model.support_idx;
       *n_classes     = model.n_classes;
-      *unique_labels = model.get_unique_labels();
+      *unique_labels = model.unique_labels;
     }
     // TODO: Implement this
     // catch (const MLCommon::Exception& e)
@@ -127,20 +126,21 @@ cumlError_t cumlDpSvcFit(cumlHandle_t handle,
   kernel_param.gamma  = gamma;
   kernel_param.coef0  = coef0;
 
+  ML::SVM::SvmModel<double> model;
+
   cumlError_t status;
   raft::handle_t* handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
-  ML::SVM::SvmModel<double> model{0, 0, 0, 0, handle_ptr->get_stream()};
   if (status == CUML_SUCCESS) {
     try {
       ML::SVM::svcFit(*handle_ptr, input, n_rows, n_cols, labels, param, kernel_param, model);
       *n_support     = model.n_support;
       *b             = model.b;
-      *dual_coefs    = model.get_dual_coefs();
-      *x_support     = model.get_x_support();
-      *support_idx   = model.get_support_idx();
+      *dual_coefs    = model.dual_coefs;
+      *x_support     = model.x_support;
+      *support_idx   = model.support_idx;
       *n_classes     = model.n_classes;
-      *unique_labels = model.get_unique_labels();
+      *unique_labels = model.unique_labels;
     }
     // TODO: Implement this
     // catch (const MLCommon::Exception& e)
@@ -179,19 +179,18 @@ cumlError_t cumlSpSvcPredict(cumlHandle_t handle,
   kernel_param.gamma  = gamma;
   kernel_param.coef0  = coef0;
 
+  ML::SVM::SvmModel<float> model;
+  model.n_support     = n_support;
+  model.b             = b;
+  model.dual_coefs    = dual_coefs;
+  model.x_support     = x_support;
+  model.support_idx   = nullptr;
+  model.n_classes     = n_classes;
+  model.unique_labels = unique_labels;
+
   cumlError_t status;
   raft::handle_t* handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
-
-  ML::SVM::SvmModel<float> model{0, 0, 0, 0, handle_ptr->get_stream()};
-  model.n_support         = n_support;
-  model.b                 = b;
-  model.dual_coefs_ptr    = dual_coefs;
-  model.x_support_ptr     = x_support;
-  model.support_idx_ptr   = nullptr;
-  model.n_classes         = n_classes;
-  model.unique_labels_ptr = unique_labels;
-
   if (status == CUML_SUCCESS) {
     try {
       ML::SVM::svcPredict(
@@ -234,19 +233,18 @@ cumlError_t cumlDpSvcPredict(cumlHandle_t handle,
   kernel_param.gamma  = gamma;
   kernel_param.coef0  = coef0;
 
+  ML::SVM::SvmModel<double> model;
+  model.n_support     = n_support;
+  model.b             = b;
+  model.dual_coefs    = dual_coefs;
+  model.x_support     = x_support;
+  model.support_idx   = nullptr;
+  model.n_classes     = n_classes;
+  model.unique_labels = unique_labels;
+
   cumlError_t status;
   raft::handle_t* handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
-
-  ML::SVM::SvmModel<double> model{0, 0, 0, 0, handle_ptr->get_stream()};
-  model.n_support         = n_support;
-  model.b                 = b;
-  model.dual_coefs_ptr    = dual_coefs;
-  model.x_support_ptr     = x_support;
-  model.support_idx_ptr   = nullptr;
-  model.n_classes         = n_classes;
-  model.unique_labels_ptr = unique_labels;
-
   if (status == CUML_SUCCESS) {
     try {
       ML::SVM::svcPredict(

@@ -16,13 +16,6 @@
 
 #pragma once
 
-#include "kernelcache.cuh"
-#include "results.cuh"
-#include "smo_sets.cuh"
-#include "smoblocksolve.cuh"
-#include "workingset.cuh"
-#include "ws_util.cuh"
-
 #include <cuml/matrix/kernelparams.h>
 #include <cuml/common/logger.hpp>
 
@@ -136,10 +129,10 @@ class SmoSolver {
              int n_cols,
              math_t* y,
              const math_t* sample_weight,
-             rmm::device_uvector<math_t>& dual_coefs,
+             math_t** dual_coefs,
              int* n_support,
-             rmm::device_uvector<math_t>& x_support,
-             rmm::device_uvector<int>& idx,
+             math_t** x_support,
+             int** idx,
              math_t* b,
              int max_outer_iter = -1,
              int max_inner_iter = 10000)
@@ -203,6 +196,7 @@ class SmoSolver {
       diff_prev);
     Results<math_t> res(handle, x, y, n_rows, n_cols, C_vec.data(), svmType);
     res.Get(alpha.data(), f.data(), dual_coefs, n_support, idx, x_support, b);
+    ReleaseBuffers();
   }
 
   /**
@@ -501,6 +495,14 @@ class SmoSolver {
     f.resize(n_train, stream);
     delta_alpha.resize(n_ws, stream);
     if (svmType == EPSILON_SVR) y_label.resize(n_train, stream);
+  }
+
+  void ReleaseBuffers()
+  {
+    alpha.release();
+    delta_alpha.release();
+    f.release();
+    y_label.release();
   }
 };
 
