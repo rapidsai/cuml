@@ -11,7 +11,8 @@ export PATH=/conda/bin:/usr/local/cuda/bin:$PATH
 # Activate common conda env and install any dependencies needed
 . /opt/conda/etc/profile.d/conda.sh
 conda activate rapids
-cd $WORKSPACE
+cd "$WORKSPACE"
+
 export GIT_DESCRIBE_TAG=`git describe --tags`
 export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`
 conda install "ucx-py=0.21.*" "ucx-proc=*=gpu"
