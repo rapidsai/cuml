@@ -20,7 +20,7 @@ from cuml.common.exceptions import NotFittedError
 from cuml import Base
 from cuml.preprocessing import LabelEncoder
 from cudf import DataFrame, Series
-from cudf.core import GenericIndex
+from cudf import GenericIndex
 import cuml.common.logger as logger
 
 import warnings
