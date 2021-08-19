@@ -153,7 +153,7 @@ __device__ __forceinline__ vec<NITEMS, output_type> tree_leaf_output(tree_type t
   return out;
 }
 
-template <int NITEMS, typename output_type, bool CATS_SUPPORTED, typename tree_type>
+template <int NITEMS, bool CATS_SUPPORTED, typename output_type, typename tree_type>
 __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(tree_type tree,
                                                                    const float* input,
                                                                    int cols,

@@ -315,7 +315,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     uint8_t* bits_d         = nullptr;
     if (cat_sets_h.bits.size() != 0) {
       raft::allocate(bits_d, cat_sets_h.bits.size());
-      raft::allocate(bits_precursor_d, cat_sets_h.bits.size() * 8);
+      raft::allocate(bits_precursor_d, cat_sets_h.bits.size() * BITS_PER_BYTE);
       hard_clipped_bernoulli(
         r, bits_precursor_d, cat_sets_h.bits.size() * 8, 1.0f - ps.cat_match_prob, stream);
       floats_to_bit_stream_k<<<raft::ceildiv(cat_sets_h.bits.size(), 256ul), 256, 0, stream>>>(
@@ -339,7 +339,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
         default: ASSERT(false, "internal error: invalid ps.leaf_algo");
       }
       // make sure nodes are categorical only when their feature ID is categorical
-      bool is_categorical = (is_categoricals_h[i] == 1.0);
+      bool is_categorical = is_categoricals_h[i] == 1.0f;
       val_t split;
       if (is_categorical)
         split.idx = node_cat_set[i];
