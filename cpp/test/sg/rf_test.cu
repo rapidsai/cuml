@@ -402,7 +402,7 @@ std::vector<float> min_impurity_decrease = {0.0f, 1.0f, 10.0f};
 std::vector<int> n_streams               = {1, 2, 10};
 std::vector<CRITERION> split_criterion   = {CRITERION::MSE, CRITERION::GINI, CRITERION::ENTROPY};
 std::vector<int> seed                    = {0, 17};
-std::vector<int> n_labels                = {2, 10, 30};
+std::vector<int> n_labels                = {2, 10, 20};
 std::vector<bool> double_precision       = {false, true};
 
 int n_tests = 100;

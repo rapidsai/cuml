@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <limits>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/unary_op.cuh>
 
@@ -26,38 +27,31 @@ namespace DT {
  * @brief All info pertaining to splitting a node
  *
  * @tparam DataT input data type
- * @tparam IdxT  indexing type
+ * @tparam std::size_t  indexing type
  */
-template <typename DataT, typename IdxT>
+template <typename DataT>
 struct Split {
-  typedef Split<DataT, IdxT> SplitT;
+  typedef Split<DataT> SplitT;
 
   /** start with this as the initial gain */
   static constexpr DataT Min = -std::numeric_limits<DataT>::max();
   /** special value to represent invalid column id */
-  static constexpr IdxT Invalid = static_cast<IdxT>(-1);
+  static constexpr std::size_t Invalid = std::numeric_limits<std::size_t>::max();
 
   /** threshold to compare in this node */
-  DataT quesval;
+  DataT quesval = Min;
   /** feature index */
-  IdxT colid;
+  std::size_t colid = 0;
   /** best info gain on this node */
-  DataT best_metric_val;
+  DataT best_metric_val = Min;
   /** number of samples in the left child */
-  int nLeft;
+  std::size_t nLeft = 0;
 
-  DI Split(DataT quesval, IdxT colid, DataT best_metric_val, IdxT nLeft)
+  DI Split(DataT quesval, std::size_t colid, DataT best_metric_val, std::size_t nLeft)
     : quesval(quesval), colid(colid), best_metric_val(best_metric_val), nLeft(nLeft)
   {
   }
-
-  DI Split()
-  {
-    quesval = best_metric_val = Min;
-    colid                     = Invalid;
-    nLeft                     = 0;
-  }
-
+  Split() = default;
   /**
    * @brief Assignment operator overload
    *
@@ -137,7 +131,7 @@ struct Split {
       warpReduce();
       // only the first thread will go ahead and update the best split info
       // for current node
-      if (threadIdx.x == 0 && this->colid != -1) {
+      if (threadIdx.x == 0 && this->best_metric_val != Min) {
         while (atomicCAS(mutex, 0, 1))
           ;
         SplitT split_reg;
@@ -167,25 +161,11 @@ struct Split {
  * @param[in]  len    length of this array
  * @param[in]  s      cuda stream where to schedule work
  */
-template <typename DataT, typename IdxT, int TPB = 256>
-void initSplit(Split<DataT, IdxT>* splits, IdxT len, cudaStream_t s)
+template <typename DataT, int TPB = 256>
+void initSplit(Split<DataT>* splits, std::size_t len, cudaStream_t s)
 {
-  auto op = [] __device__(Split<DataT, IdxT> * ptr, IdxT idx) { *ptr = Split<DataT, IdxT>(); };
-  raft::linalg::writeOnlyUnaryOp<Split<DataT, IdxT>, decltype(op), IdxT, TPB>(splits, len, op, s);
-}
-
-template <typename DataT, typename IdxT, int TPB = 256>
-void printSplits(Split<DataT, IdxT>* splits, IdxT len, cudaStream_t s)
-{
-  auto op = [] __device__(Split<DataT, IdxT> * ptr, IdxT idx) {
-    printf("quesval = %e, colid = %d, best_metric_val = %e, nLeft = %d\n",
-           ptr->quesval,
-           ptr->colid,
-           ptr->best_metric_val,
-           ptr->nLeft);
-  };
-  raft::linalg::writeOnlyUnaryOp<Split<DataT, IdxT>, decltype(op), IdxT, TPB>(splits, len, op, s);
-  CUDA_CHECK(cudaDeviceSynchronize());
+  auto op = [] __device__(Split<DataT> * ptr, std::size_t idx) { *ptr = Split<DataT>(); };
+  raft::linalg::writeOnlyUnaryOp<Split<DataT>, decltype(op), std::size_t, TPB>(splits, len, op, s);
 }
 
 }  // namespace DT
