@@ -211,6 +211,8 @@ class cuml_build_ext(cython_build_ext, object):
 
     def build_extensions(self):
         try:
+            # Don't compile debug symbols
+            self.compiler.compiler_so.remove("-g")
             # Silence the '-Wstrict-prototypes' warning
             self.compiler.compiler_so.remove("-Wstrict-prototypes")
         except Exception:
