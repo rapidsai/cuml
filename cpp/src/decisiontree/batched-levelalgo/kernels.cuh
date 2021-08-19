@@ -48,9 +48,9 @@ struct NodeWorkItem {
  * computeSplit kernels of classification and regression
  */
 struct WorkloadInfo {
-  std::size_t nodeid;        // Node in the batch on which the threadblock needs to work
-  std::size_t large_nodeid;  // counts only large nodes (nodes that require more than one block
-                             // along x-dim for histogram calculation)
+  std::size_t nodeid;          // Node in the batch on which the threadblock needs to work
+  std::size_t large_nodeid;    // counts only large nodes (nodes that require more than one block
+                               // along x-dim for histogram calculation)
   std::size_t offset_blockid;  // Offset threadblock id among all the blocks that are
                                // working on this node
   std::size_t num_blocks;      // Total number of blocks that are working on the node
