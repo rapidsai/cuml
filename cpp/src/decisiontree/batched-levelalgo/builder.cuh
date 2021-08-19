@@ -309,7 +309,7 @@ struct Builder {
 
   std::shared_ptr<DT::TreeMetaDataNode<DataT, LabelT>> train()
   {
-    ML::PUSH_RANGE("Builder::train @builder_base.cuh [batched-levelalgo]");
+    ML::PUSH_RANGE("Builder::train @builder.cuh [batched-levelalgo]");
     NodeQueue<DataT, LabelT> queue(params, this->maxNodes(), input.nSampledRows);
     while (queue.HasWork()) {
       auto work_items                      = queue.Pop();
