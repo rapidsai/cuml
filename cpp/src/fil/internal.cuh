@@ -304,7 +304,7 @@ const uint32_t max_precise_int_float = 1 << 24;  // 16'777'216
 
 __host__ __device__ __forceinline__ int fetch_bit(const uint8_t* array, int bit)
 {
-  return array[bit / BITS_PER_BYTE] >> (bit % BITS_PER_BYTE) & 1;
+  return (array[bit / BITS_PER_BYTE] >> (bit % BITS_PER_BYTE)) & 1;
 }
 
 struct cat_feature_counters {
@@ -396,17 +396,17 @@ struct cat_sets_owner {
     // feature ID
     for (std::size_t fid = 0; fid < cf.size(); ++fid) {
       RAFT_EXPECTS(cf[fid].max_matching >= -1,
-                   "@fid %lu: max_matching invalid (%d)",
+                   "@fid %zu: max_matching invalid (%d)",
                    fid,
                    cf[fid].max_matching);
-      RAFT_EXPECTS(cf[fid].n_nodes >= 0, "@fid %lu: n_nodes invalid (%d)", fid, cf[fid].n_nodes);
+      RAFT_EXPECTS(cf[fid].n_nodes >= 0, "@fid %zu: n_nodes invalid (%d)", fid, cf[fid].n_nodes);
 
       max_matching[fid] = cf[fid].max_matching;
       bits_size +=
         categorical_sets::sizeof_mask_from_max_matching(max_matching[fid]) * cf[fid].n_nodes;
 
       RAFT_EXPECTS(bits_size <= INT_MAX,
-                   "@fid %lu: cannot store %lu categories given `int` offsets",
+                   "@fid %zu: cannot store %lu categories given `int` offsets",
                    fid,
                    bits_size);
     }
