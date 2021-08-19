@@ -258,6 +258,7 @@ class PoissonObjectiveFunction {
     */
   DI Split<DataT, IdxT> Gain(BinT* shist, DataT* sbins, IdxT col, IdxT len, IdxT nbins)
   {
+    constexpr DataT EPS = 10 * std::numeric_limits<DataT>::epsilon();
     Split<DataT, IdxT> sp;
     auto invlen = DataT(1.0) / len;
     for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
@@ -268,21 +269,18 @@ class PoissonObjectiveFunction {
       if (nLeft < min_samples_leaf || nRight < min_samples_leaf) {
         gain = -std::numeric_limits<DataT>::max();
       } else {
-        auto label_mean         = shist[nbins - 1].label_sum / len;
-        auto left_label_mean   = (shist[i].label_sum) / nLeft;
-        auto right_label_mean  = (shist[nbins - 1].label_sum - shist[i].label_sum) / nRight;
-        // poisson loss does not allow non-positive predictions
-        // used to prevent errors due to floating point roundings
-        constexpr DataT EPS = 10 * std::numeric_limits<DataT>::epsilon();
-        if(label_mean < EPS || left_label_mean < EPS || right_label_mean < EPS) {
+        auto label_sum       = shist[nbins - 1].label_sum;
+        auto left_label_sum  = (shist[i].label_sum);
+        auto right_label_sum = (shist[nbins - 1].label_sum - shist[i].label_sum);
+
+        if (label_sum < EPS || left_label_sum < EPS || right_label_sum < EPS) {
           gain = -std::numeric_limits<DataT>::max();
-        }
-        else {
-          // below objective functions are 'proxy' for the actual half
-          DataT parent_obj = -label_mean * raft::myLog(label_mean);
-          DataT left_obj   = -left_label_mean * raft::myLog(left_label_mean);
-          DataT right_obj  = -right_label_mean * raft::myLog(right_label_mean);
+        } else {
+          DataT parent_obj = -label_sum * raft::myLog(label_sum / len);
+          DataT left_obj   = -left_label_sum * raft::myLog(left_label_sum / nLeft);
+          DataT right_obj  = -right_label_sum * raft::myLog(right_label_sum / nRight);
           gain             = parent_obj - (left_obj + right_obj);
+          gain             = gain / len;
         }
       }
       // if the gain is not "enough", don't bother!

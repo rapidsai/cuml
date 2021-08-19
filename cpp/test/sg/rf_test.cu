@@ -327,7 +327,8 @@ class RfTest : public ::testing::TestWithParam<RfTestParams> {
   void SetUp() override
   {
     RfTestParams params = ::testing::TestWithParam<RfTestParams>::GetParam();
-    bool is_regression  = params.split_criterion == MSE || params.split_criterion == MAE || params.split_criterion == POISSON;
+    bool is_regression  = params.split_criterion == MSE || params.split_criterion == MAE ||
+                         params.split_criterion == POISSON;
     if (params.double_precision) {
       if (is_regression) {
         RfSpecialisedTest<double, double> test(params);
@@ -361,10 +362,11 @@ std::vector<int> min_samples_leaf        = {1, 10, 30};
 std::vector<int> min_samples_split       = {2, 10};
 std::vector<float> min_impurity_decrease = {0.0, 1.0f, 10.0f};
 std::vector<int> n_streams               = {1, 2, 10};
-std::vector<CRITERION> split_criterion   = {CRITERION::POISSON, CRITERION::MSE, CRITERION::GINI, CRITERION::ENTROPY};
-std::vector<int> seed                    = {0, 17};
-std::vector<int> n_labels                = {2, 10, 30};
-std::vector<bool> double_precision       = {false, true};
+std::vector<CRITERION> split_criterion   = {
+  CRITERION::POISSON, CRITERION::MSE, CRITERION::GINI, CRITERION::ENTROPY};
+std::vector<int> seed              = {0, 17};
+std::vector<int> n_labels          = {2, 10, 30};
+std::vector<bool> double_precision = {false, true};
 
 int n_tests = 100;
 
