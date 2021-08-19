@@ -22,6 +22,7 @@
 
 #include <raft/cudart_utils.h>
 #include <test_utils.h>
+#include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 #include <thrust/functional.h>
 #include <thrust/transform.h>
@@ -59,7 +60,7 @@ struct FilTestParams {
   int depth       = 8;
   int num_trees   = 50;
   float leaf_prob = 0.05;
-  // below, categorical nodes means categorical branch nodes
+  // below, categorical nodes means categorical inner nodes
   // probability that a node is categorical (given that its feature is categorical)
   float node_categorical_prob = 0.0;
   // probability that a feature is categorical (pertains to data generation, can
@@ -145,8 +146,11 @@ void hard_clipped_bernoulli(
 {
   rng.uniform(d, n_vals, 0.0f, 1.0f, stream);
   thrust::transform(
-    thrust::cuda::par.on(stream), d, d + n_vals, d, [=] __device__(float uniform_0_1) {
-      float truly_0_1 = fmin(fmax(uniform_0_1, 0.0f), 1.0f);
+    thrust::cuda::par.on(stream), d, d + n_vals, d, [=] __device__(float uniform_0_1) -> float {
+      // if prob_of_zero == 0.0f, we should never generate a zero
+      if (prob_of_zero == 0.0f) return 1.0f;
+      float truly_0_1 = fmax(fmin(uniform_0_1, 1.0f), 0.0f);
+      // if prob_of_zero == 1.0f, we should never generate a one, hence ">"
       return truly_0_1 > prob_of_zero;
     });
 }
@@ -167,7 +171,8 @@ __global__ void floats_to_bit_stream_k(uint8_t* dst, float* src, std::size_t siz
   std::size_t idx = std::size_t(blockIdx.x) * blockDim.x + threadIdx.x;
   if (idx >= size) return;
   int byte = 0;
-  _Pragma("unroll") for (int i = 0; i < 8; ++i) byte |= (int)src[idx * 8 + i] << i;
+  _Pragma("unroll") for (int i = 0; i < BITS_PER_BYTE; ++i) byte |=
+    (int)src[idx * BITS_PER_BYTE + i] << i;
   dst[idx] = byte;
 }
 
@@ -180,12 +185,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.set_stream(stream);
 
-    raft::allocate(fids_d, forest_num_nodes());
-    raft::allocate(max_matching_cat_d, ps.num_cols);
     generate_forest();
     generate_data();
-    CUDA_CHECK(cudaFree(fids_d));
-    CUDA_CHECK(cudaFree(max_matching_cat_d));
     predict_on_cpu();
     predict_on_gpu();
   }
@@ -222,6 +223,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     raft::allocate(def_lefts_d, num_nodes);
     raft::allocate(is_leafs_d, num_nodes);
     raft::allocate(is_categoricals_d, num_nodes);
+    fids_d.resize(num_nodes);
+    max_matching_cat_d.resize(ps.num_cols);
 
     // generate on-GPU random data
     raft::random::Rng r(ps.seed);
@@ -246,7 +249,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
       r.uniform((float*)weights_d, num_nodes, -1.0f, 1.0f, stream);
     }
     r.uniform(thresholds_d, num_nodes, -1.0f, 1.0f, stream);
-    r.uniformInt(fids_d, num_nodes, 0, ps.num_cols, stream);
+    r.uniformInt(fids_d.data().get(), num_nodes, 0, ps.num_cols, stream);
     r.bernoulli(def_lefts_d, num_nodes, 0.5f, stream);
     r.bernoulli(is_leafs_d, num_nodes, 1.0f - ps.leaf_prob, stream);
     hard_clipped_bernoulli(
@@ -272,7 +275,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
       feature_categorical[fid] = fc(gen);
       if (feature_categorical[fid]) {
         // even for some categorical features, we will have no matching categories
-        float mm = pow(10, mmc(gen) + 1.0f);
+        float mm = pow(10, mmc(gen));
         ASSERT(mm < INT_MAX,
                "internal error: max_matching_cat_oom %f is too large",
                ps.max_matching_cat_oom);
@@ -283,22 +286,30 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     }
     raft::update_host(weights_h.data(), (int*)weights_d, num_nodes, stream);
     raft::update_host(thresholds_h.data(), thresholds_d, num_nodes, stream);
-    raft::update_host(fids_h.data(), fids_d, num_nodes, stream);
+    raft::update_host(fids_h.data(), fids_d.data().get(), num_nodes, stream);
     raft::update_host(def_lefts_h, def_lefts_d, num_nodes, stream);
     raft::update_host(is_leafs_h, is_leafs_d, num_nodes, stream);
     raft::update_host(is_categoricals_h.data(), is_categoricals_d, num_nodes, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
-    // categorical features
-    // count nodes for each feature id
-    // in parallel, split the sets between nodes
+
+    // mark leaves
+    for (int i = 0; i < ps.num_trees; ++i) {
+      int num_tree_nodes = tree_num_nodes();
+      size_t leaf_start  = num_tree_nodes * i + num_tree_nodes / 2;
+      size_t leaf_end    = num_tree_nodes * (i + 1);
+      for (size_t j = leaf_start; j < leaf_end; ++j)
+        is_leafs_h[j] = true;
+    }
+
+    // count nodes for each feature id, while splitting the sets between nodes
     std::size_t bit_pool_size = 0;
     for (std::size_t node_id = 0; node_id < num_nodes; ++node_id) {
-      // mark nodes at max depth as leaves
-      if ((int)(node_id % tree_num_nodes()) >= tree_num_nodes() / 2) is_leafs_h[node_id] = true;
       int fid = fids_h[node_id];
+
       if (!feature_categorical[fid] || is_leafs_h[node_id]) is_categoricals_h[node_id] = 0.0f;
+
       if (is_categoricals_h[node_id] == 1.0) {
-        // might allocate a categorical set for an unreachable branch node. That's OK.
+        // might allocate a categorical set for an unreachable inner node. That's OK.
         ++cf[fid].n_nodes;
         node_cat_set[node_id] = bit_pool_size;
         bit_pool_size += categorical_sets::sizeof_mask_from_max_matching(cf[fid].max_matching);
@@ -306,7 +317,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     }
     cat_sets_h = cat_sets_owner(cf);
     ASSERT(bit_pool_size == cat_sets_h.bits.size(), "didn't convert correct number of nodes");
-    raft::update_device(max_matching_cat_d, cat_sets_h.max_matching.data(), ps.num_cols, stream);
+    raft::update_device(
+      max_matching_cat_d.data().get(), cat_sets_h.max_matching.data(), ps.num_cols, stream);
     // calculate sizes and allocate arrays for category sets
     // fill category sets
     // there is a faster trick with a 256-byte LUT, but we can implement it later if the tests
@@ -316,10 +328,15 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     if (cat_sets_h.bits.size() != 0) {
       raft::allocate(bits_d, cat_sets_h.bits.size());
       raft::allocate(bits_precursor_d, cat_sets_h.bits.size() * BITS_PER_BYTE);
-      hard_clipped_bernoulli(
-        r, bits_precursor_d, cat_sets_h.bits.size() * 8, 1.0f - ps.cat_match_prob, stream);
-      floats_to_bit_stream_k<<<raft::ceildiv(cat_sets_h.bits.size(), 256ul), 256, 0, stream>>>(
-        bits_d, bits_precursor_d, cat_sets_h.bits.size());
+      hard_clipped_bernoulli(r,
+                             bits_precursor_d,
+                             cat_sets_h.bits.size() * BITS_PER_BYTE,
+                             1.0f - ps.cat_match_prob,
+                             stream);
+      floats_to_bit_stream_k<<<raft::ceildiv(cat_sets_h.bits.size(), (std::size_t)FIL_TPB),
+                               FIL_TPB,
+                               0,
+                               stream>>>(bits_d, bits_precursor_d, cat_sets_h.bits.size());
       raft::update_host(cat_sets_h.bits.data(), bits_d, cat_sets_h.bits.size(), stream);
     }
 
@@ -352,7 +369,6 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     // clean up
     delete[] def_lefts_h;
     delete[] is_leafs_h;
-    // cat_sets_h.bits and max_matching_cat_d are synced here
     CUDA_CHECK(cudaFree(bits_precursor_d));
     CUDA_CHECK(cudaFree(bits_d));
     CUDA_CHECK(cudaFree(is_categoricals_d));
@@ -360,6 +376,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     CUDA_CHECK(cudaFree(def_lefts_d));
     CUDA_CHECK(cudaFree(thresholds_d));
     CUDA_CHECK(cudaFree(weights_d));
+    // cat_sets_h.bits and max_matching_cat_d are now visible to host
   }
 
   void generate_data()
@@ -373,12 +390,13 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     // generate random data
     raft::random::Rng r(ps.seed);
     r.uniform(data_d, num_data, -1.0f, 1.0f, stream);
-    thrust::transform(thrust::cuda::par.on(stream),
-                      data_d,
-                      data_d + num_data,
-                      thrust::counting_iterator(0),
-                      data_d,
-                      replace_some_floating_with_categorical{max_matching_cat_d, ps.num_cols});
+    thrust::transform(
+      thrust::cuda::par.on(stream),
+      data_d,
+      data_d + num_data,
+      thrust::counting_iterator(0),
+      data_d,
+      replace_some_floating_with_categorical{max_matching_cat_d.data().get(), ps.num_cols});
     r.bernoulli(mask_d, num_data, ps.nan_prob, stream);
     int tpb = 256;
     nan_kernel<<<raft::ceildiv(int(num_data), tpb), tpb, 0, stream>>>(
@@ -552,7 +570,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
       const fil::dense_node& node = root[curr];
       if (node.is_leaf()) return node.template output<val_t>();
       float val = data[node.fid()];
-      curr      = tree.get_child<true>(node, curr, val);
+      curr      = tree.child_index<true>(node, curr, val);
     }
     return output;
   }
@@ -576,8 +594,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   std::vector<fil::dense_node> nodes;
   std::vector<float> vector_leaf;
   cat_sets_owner cat_sets_h;
-  int* fids_d;
-  int* max_matching_cat_d;
+  thrust::device_vector<int> fids_d, max_matching_cat_d;
 
   // parameters
   cudaStream_t stream;
@@ -1085,6 +1102,15 @@ std::vector<FilTestParams> predict_sparse_inputs = {
                   num_trees   = 530,
                   leaf_algo   = VECTOR_LEAF,
                   num_classes = 1111),
+  FIL_TEST_PARAMS(node_categorical_prob = 0.5, feature_categorical_prob = 0.5),
+  FIL_TEST_PARAMS(
+    node_categorical_prob = 1.0, feature_categorical_prob = 1.0, cat_match_prob = 1.0),
+  FIL_TEST_PARAMS(
+    node_categorical_prob = 1.0, feature_categorical_prob = 1.0, cat_match_prob = 0.0),
+  FIL_TEST_PARAMS(depth                    = 3,
+                  node_categorical_prob    = 0.5,
+                  feature_categorical_prob = 0.5,
+                  max_matching_cat_oom     = 5),
 };
 
 TEST_P(PredictSparse16FilTest, Predict) { compare(); }

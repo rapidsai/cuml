@@ -36,7 +36,7 @@
 #endif  // __CUDA_ARCH__
 #endif  // CUDA_PRAGMA_UNROLL
 
-#define INLINE_CONFIG __forceinline__
+#define INLINE_CONFIG __noinline__
 
 namespace ML {
 namespace fil {
@@ -171,7 +171,7 @@ __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(tree_type tre
       auto n = tree[curr[j]];
       mask &= ~(n.is_leaf() << j);
       if ((mask & (1 << j)) != 0) {
-        curr[j] = tree.get_child<CATS_SUPPORTED>(n, curr[j], input[j * cols + n.fid()]);
+        curr[j] = tree.child_index<CATS_SUPPORTED>(n, curr[j], input[j * cols + n.fid()]);
       }
     }
   } while (mask != 0);
@@ -194,7 +194,7 @@ __device__ __forceinline__ vec<1, output_type> infer_one_tree(tree_type tree,
   for (;;) {
     auto n = tree[curr];
     if (n.is_leaf()) break;
-    bool cond = tree.get_child<true>(n, curr, input[n.fid()]);
+    bool cond = tree.child_index<true>(n, curr, input[n.fid()]);
     curr      = n.left(curr) + cond;
   }
   vec<1, output_type> out;
@@ -823,7 +823,7 @@ __global__ void infer_k(storage_type forest, predict_params params)
       typedef typename leaf_output_t<leaf_algo>::T pred_t;
       vec<NITEMS, pred_t> prediction;
       if (tree < forest.num_trees() && thread_num_rows != 0) {
-        prediction = infer_one_tree<NITEMS, pred_t, CATS_SUPPORTED>(
+        prediction = infer_one_tree<NITEMS, CATS_SUPPORTED, pred_t>(
           forest[tree],
           cols_in_shmem ? sdata + thread_row0 * sdata_stride : block_input + thread_row0 * num_cols,
           cols_in_shmem ? sdata_stride : num_cols,

@@ -77,7 +77,7 @@ enum output_t {
 
 /** val_t is the payload within a FIL leaf */
 union val_t {
-  /** threshold value for branch node or output value (e.g. class
+  /** threshold value for parent node or output value (e.g. class
       probability or regression summand) for leaf node */
   float f = NAN;
   /** class label, leaf vector index or categorical node set offset */
@@ -86,7 +86,7 @@ union val_t {
 
 /** base_node contains common implementation details for dense and sparse nodes */
 struct base_node {
-  /** val, for branch nodes, is a threshold or category list offset. For leaf
+  /** val, for parent nodes, is a threshold or category list offset. For leaf
       nodes, it is the tree prediction (see see leaf_output_t<leaf_algo_t>::T) */
   val_t val;
   /** bits encode various information about the node, with the exact nature of
@@ -191,11 +191,11 @@ struct alignas(8) sparse_node8 : base_node {
                int left_index)
     : base_node(output, split, fid, def_left, is_leaf, is_categorical)
   {
-    bits |= left_index << LEFT_OFFSET;
     RAFT_EXPECTS((fid & FID_MASK) == fid,
                  "internal error: feature ID doesn't fit into sparse_node8");
     RAFT_EXPECTS(((left_index << LEFT_OFFSET) & LEFT_MASK) == (left_index << LEFT_OFFSET),
                  "internal error: left child index doesn't fit into sparse_node8");
+    bits |= left_index << LEFT_OFFSET;
   }
   /** index of the left child, where curr is the index of the current node */
   __host__ __device__ int left(int curr) const { return left_index(); }
@@ -300,7 +300,7 @@ struct forest_params_t {
 /// FIL_TPB is the number of threads per block to use with FIL kernels
 const int FIL_TPB = 256;
 
-const uint32_t max_precise_int_float = 1 << 24;  // 16'777'216
+const uint32_t MAX_PRECISE_INT_FLOAT = 1 << 24;  // 16'777'216
 
 __host__ __device__ __forceinline__ int fetch_bit(const uint8_t* array, int bit)
 {
@@ -356,9 +356,9 @@ struct tree_base {
   categorical_sets sets;
 
   template <bool CATS_SUPPORTED, typename node_t>
-  __host__ __device__ __forceinline__ int get_child(const node_t& node,
-                                                    int node_idx,
-                                                    float val) const
+  __host__ __device__ __forceinline__ int child_index(const node_t& node,
+                                                      int node_idx,
+                                                      float val) const
   {
     bool cond;
     if (isnan(val)) {
