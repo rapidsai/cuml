@@ -41,7 +41,7 @@ __host__ __device__ __forceinline__ int forest_num_nodes(int num_trees, int dept
 struct storage_base {
   categorical_sets sets_;
   float* vector_leaf_;
-  bool cats_supported() const { return sets_.cats_supported(); }
+  bool cats_present() const { return sets_.cats_present(); }
 };
 
 /** dense_tree represents a dense tree */

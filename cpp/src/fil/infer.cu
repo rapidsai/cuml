@@ -914,7 +914,7 @@ void infer_k_categorical_launcher(storage_type forest,
                                   cudaStream_t stream,
                                   int blockdim_x)
 {
-  if (forest.cats_supported()) {
+  if (forest.cats_present()) {
     infer_k_nitems_launcher<leaf_algo, COLS_IN_SHMEM, true>(forest, params, stream, blockdim_x);
   } else {
     infer_k_nitems_launcher<leaf_algo, COLS_IN_SHMEM, false>(forest, params, stream, blockdim_x);

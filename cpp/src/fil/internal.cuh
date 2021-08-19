@@ -318,7 +318,7 @@ struct categorical_sets {
   const int* max_matching = nullptr;
   std::size_t bits_size = 0, max_matching_size = 0;
 
-  __host__ __device__ __forceinline__ bool cats_supported() const
+  __host__ __device__ __forceinline__ bool cats_present() const
   {
     // If this is constructed from cat_sets_owner, will return true
     // default-initialized will return false
@@ -424,10 +424,10 @@ struct cat_sets_owner {
  */
 void init_dense(const raft::handle_t& h,
                 forest_t* pf,
-                const dense_node* nodes,
-                const forest_params_t* params,
+                const categorical_sets& cat_sets,
                 const std::vector<float>& vector_leaf,
-                const categorical_sets& cat_sets);
+                const dense_node* nodes,
+                const forest_params_t* params);
 
 /** init_sparse uses params, trees and nodes to initialize the sparse forest
  *  with sparse nodes stored in pf
@@ -443,11 +443,11 @@ void init_dense(const raft::handle_t& h,
 template <typename fil_node_t>
 void init_sparse(const raft::handle_t& h,
                  forest_t* pf,
+                 const categorical_sets& cat_sets,
+                 const std::vector<float>& vector_leaf,
                  const int* trees,
                  const fil_node_t* nodes,
-                 const forest_params_t* params,
-                 const std::vector<float>& vector_leaf,
-                 const categorical_sets& cat_sets);
+                 const forest_params_t* params);
 
 }  // namespace fil
 }  // namespace ML
