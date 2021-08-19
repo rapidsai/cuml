@@ -18,10 +18,15 @@
 
 #include <cstddef>
 #include <cstdint>
+#include <memory>
 
 namespace raft {
 class handle_t;
-}
+namespace sparse {
+template <typename T, typename Index_Type>
+class COO;
+};
+}  // namespace raft
 
 namespace ML {
 class UMAPParams;
@@ -68,6 +73,23 @@ void fit(const raft::handle_t& handle,
          float* knn_dists,
          UMAPParams* params,
          float* embeddings);
+
+void refine(const raft::handle_t& handle,
+            float* X,  // input matrix
+            float* y,  // labels
+            int n,
+            int d,
+            raft::sparse::COO<float, int>* cgraph_coo,
+            UMAPParams* params,
+            float* embeddings);
+
+void get_graph(const raft::handle_t& handle,
+               float* X,  // input matrix
+               float* y,  // labels
+               int n,
+               int d,
+               raft::sparse::COO<float, int>* cgraph_coo,
+               UMAPParams* params);
 
 void fit_sparse(const raft::handle_t& handle,
                 int* indptr,  // input matrix
