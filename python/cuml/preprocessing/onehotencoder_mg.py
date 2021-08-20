@@ -17,7 +17,7 @@
 from cuml.preprocessing.encoders import OneHotEncoder
 import dask
 import cupy as cp
-from cudf.core import DataFrame
+from cudf import DataFrame
 from cuml.dask.common.dask_arr_utils import to_dask_cudf
 
 
