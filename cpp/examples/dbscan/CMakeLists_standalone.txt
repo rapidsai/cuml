@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ else()
     message(FATAL_ERROR "CUML_INCLUDE_DIR not specified.")
 endif(IS_DIRECTORY ${CUML_INCLUDE_DIR})
 if(IS_DIRECTORY ${CUML_LIBRARY_DIR})
-    # CUML_LIBRARY_DIR point to the director where libcuml++.so lives
+    # CUML_LIBRARY_DIR point to the directory where libcuml++.so lives
     link_directories(${CUML_LIBRARY_DIR})
 else()
     message(FATAL_ERROR "CUML_LIBRARY_DIR not specified.")
