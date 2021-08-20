@@ -33,8 +33,29 @@ else()
     message(FATAL_ERROR "CUML_LIBRARY_DIR not specified.")
 endif(IS_DIRECTORY ${CUML_LIBRARY_DIR})
 
+include(FetchContent)
+
+FetchContent_Declare(
+    raft
+    GIT_REPOSITORY https://github.com/rapidsai/raft.git
+    GIT_TAG branch-21.10
+    GIT_SHALLOW ON
+  )
+FetchContent_Declare(
+    thrust
+    GIT_REPOSITORY https://github.com/thrust/thrust.git
+    GIT_TAG 1.12.0
+    GIT_SHALLOW ON
+  )
+FetchContent_MakeAvailable(thrust raft)
+find_package(rmm 21.10.00)
+include_directories(${raft_SOURCE_DIR}/cpp/include)
 add_executable(dbscan_example dbscan_example.cpp)
 # Need to set linker language to CUDA to link the CUDA Runtime
 set_target_properties(dbscan_example PROPERTIES LINKER_LANGUAGE "CUDA")
 # Link cuml
-target_link_libraries(dbscan_example cuml++)
+target_link_libraries(dbscan_example
+    cuml++
+    rmm::rmm
+    CUDA::cublas
+    CUDA::cusolver)

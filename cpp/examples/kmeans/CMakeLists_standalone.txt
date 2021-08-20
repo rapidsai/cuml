@@ -26,6 +26,12 @@ if(IS_DIRECTORY ${CUML_INCLUDE_DIR})
 else()
     message(FATAL_ERROR "CUML_INCLUDE_DIR not specified.")
 endif(IS_DIRECTORY ${CUML_INCLUDE_DIR})
+if(IS_DIRECTORY ${CUML_LIBRARY_DIR})
+    # CUML_LIBRARY_DIR point to the directory where libcuml++.so lives
+    link_directories(${CUML_LIBRARY_DIR})
+else()
+    message(FATAL_ERROR "CUML_LIBRARY_DIR not specified.")
+endif(IS_DIRECTORY ${CUML_LIBRARY_DIR})
 
 include(FetchContent)
 
@@ -44,13 +50,6 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(thrust raft)
 find_package(rmm 21.10.00)
 include_directories(${raft_SOURCE_DIR}/cpp/include)
-
-if(IS_DIRECTORY ${CUML_LIBRARY_DIR})
-    # CUML_LIBRARY_DIR point to the directory where libcuml++.so lives
-    link_directories(${CUML_LIBRARY_DIR})
-else()
-    message(FATAL_ERROR "CUML_LIBRARY_DIR not specified.")
-endif(IS_DIRECTORY ${CUML_LIBRARY_DIR})
 
 add_executable(kmeans_example kmeans_example.cpp)
 # Need to set linker language to CUDA to link the CUDA Runtime
