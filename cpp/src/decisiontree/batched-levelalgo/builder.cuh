@@ -317,7 +317,7 @@ struct Builder {
       queue.Push(work_items, splits_host_ptr);
     }
     auto tree = queue.GetTree();
-    this->SetLeafPredictions(&tree->sparsetree, queue.GetInstanceRanges());
+    this->SetLeafPredictions(tree, queue.GetInstanceRanges());
     tree->train_time = timer.getElapsedMilliseconds();
     ML::POP_RANGE();
     return tree;
@@ -440,21 +440,21 @@ struct Builder {
   }
 
   // Set the leaf value predictions in batch
-  void SetLeafPredictions(std::vector<NodeT>* tree,
+  void SetLeafPredictions(std::shared_ptr<DT::TreeMetaDataNode<DataT, LabelT>> tree,
                           const std::vector<InstanceRange>& instance_ranges)
   {
     // do this in batch to reduce peak memory usage in extreme cases
-    std::size_t max_batch_size = min(std::size_t(100000), tree->size());
-    MLCommon::device_buffer<NodeT> d_tree(
+    std::size_t max_batch_size = min(std::size_t(100000), tree->sparsetree.size());
+    MLCommon::device_buffer<NodeT> d_nodes(
       handle.get_device_allocator(), handle.get_stream(), max_batch_size);
     MLCommon::device_buffer<InstanceRange> d_instance_ranges(
       handle.get_device_allocator(), handle.get_stream(), max_batch_size);
     ObjectiveT objective(input.numOutputs, params.min_impurity_decrease, params.min_samples_leaf);
-    for (std::size_t batch_begin = 0; batch_begin < tree->size(); batch_begin += max_batch_size) {
-      std::size_t batch_end  = min(batch_begin + max_batch_size, tree->size());
+    for (std::size_t batch_begin = 0; batch_begin < tree->sparsetree.size(); batch_begin += max_batch_size) {
+      std::size_t batch_end  = min(batch_begin + max_batch_size, tree->sparsetree.size());
       std::size_t batch_size = batch_end - batch_begin;
       raft::update_device(
-        d_tree.data(), tree->data() + batch_begin, batch_size, handle.get_stream());
+        d_nodes.data(), tree->sparsetree.data() + batch_begin, batch_size, handle.get_stream());
       raft::update_device(d_instance_ranges.data(),
                           instance_ranges.data() + batch_begin,
                           batch_size,
@@ -462,8 +462,8 @@ struct Builder {
       size_t smemSize = sizeof(BinT) * input.numOutputs;
       int num_blocks  = batch_size;
       leafKernel<<<num_blocks, TPB_DEFAULT, smemSize, handle.get_stream()>>>(
-        objective, input, d_tree.data(), d_instance_ranges.data());
-      raft::update_host(tree->data() + batch_begin, d_tree.data(), batch_size, handle.get_stream());
+        objective, input, d_nodes.data(), d_instance_ranges.data());
+      raft::update_host(tree->sparsetree.data() + batch_begin, d_nodes.data(), batch_size, handle.get_stream());
     }
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
   }
