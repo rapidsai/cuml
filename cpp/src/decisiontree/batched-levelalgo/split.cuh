@@ -27,7 +27,6 @@ namespace DT {
  * @brief All info pertaining to splitting a node
  *
  * @tparam DataT input data type
- * @tparam std::size_t  indexing type
  */
 template <typename DataT>
 struct Split {
@@ -35,8 +34,6 @@ struct Split {
 
   /** start with this as the initial gain */
   static constexpr DataT Min = -std::numeric_limits<DataT>::max();
-  /** special value to represent invalid column id */
-  static constexpr std::size_t Invalid = std::numeric_limits<std::size_t>::max();
 
   /** threshold to compare in this node */
   DataT quesval = Min;

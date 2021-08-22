@@ -94,10 +94,10 @@ std::string get_node_text(const std::string& prefix,
   if (!node.IsLeaf()) {
     // enter the next tree level - left and right branch
     oss << "\n"
-        << get_node_text(prefix + (isLeft ? "│   " : "    "), sparsetree, node.left_child_id, true)
+        << get_node_text(prefix + (isLeft ? "│   " : "    "), sparsetree, node.LeftChildId(), true)
         << "\n"
         << get_node_text(
-             prefix + (isLeft ? "│   " : "    "), sparsetree, node.left_child_id + 1, false);
+             prefix + (isLeft ? "│   " : "    "), sparsetree, node.RightChildId(), false);
   }
   return oss.str();
 }
@@ -126,24 +126,20 @@ std::string get_node_json(const std::string& prefix,
 
   std::ostringstream oss;
   if (!node.IsLeaf()) {
-    oss << prefix << "{\"nodeid\": " << idx << ", \"split_feature\": " << node.colid
-        << ", \"split_threshold\": " << to_string_high_precision(node.quesval)
-        << ", \"gain\": " << to_string_high_precision(node.best_metric_val);
-    if (node.instance_count != UINT32_MAX) {
-      oss << ", \"instance_count\": " << node.instance_count;
-    }
-    oss << ", \"yes\": " << node.left_child_id << ", \"no\": " << (node.left_child_id + 1)
+    oss << prefix << "{\"nodeid\": " << idx << ", \"split_feature\": " << node.ColumnId()
+        << ", \"split_threshold\": " << to_string_high_precision(node.QueryValue())
+        << ", \"gain\": " << to_string_high_precision(node.BestMetric());
+    oss << ", \"instance_count\": " << node.InstanceCount();
+    oss << ", \"yes\": " << node.LeftChildId() << ", \"no\": " << (node.RightChildId())
         << ", \"children\": [\n";
     // enter the next tree level - left and right branch
-    oss << get_node_json(prefix + "  ", sparsetree, node.left_child_id) << ",\n"
-        << get_node_json(prefix + "  ", sparsetree, node.left_child_id + 1) << "\n"
+    oss << get_node_json(prefix + "  ", sparsetree, node.LeftChildId()) << ",\n"
+        << get_node_json(prefix + "  ", sparsetree, node.RightChildId()) << "\n"
         << prefix << "]}";
   } else {
     oss << prefix << "{\"nodeid\": " << idx
-        << ", \"leaf_value\": " << to_string_high_precision(node.prediction);
-    if (node.instance_count != UINT32_MAX) {
-      oss << ", \"instance_count\": " << node.instance_count;
-    }
+        << ", \"leaf_value\": " << to_string_high_precision(node.Prediction());
+    oss << ", \"instance_count\": " << node.InstanceCount();
     oss << "}";
   }
   return oss.str();
@@ -154,11 +150,11 @@ std::ostream& operator<<(std::ostream& os, const SparseTreeNode<T, L>& node)
 {
   if (node.IsLeaf()) {
     os << "(leaf, "
-       << "prediction: " << node.prediction << ", best_metric_val: " << node.best_metric_val << ")";
+       << "prediction: " << node.Prediction() << ", best_metric_val: " << node.BestMetric() << ")";
   } else {
     os << "("
-       << "colid: " << node.colid << ", quesval: " << node.quesval
-       << ", best_metric_val: " << node.best_metric_val << ")";
+       << "colid: " << node.ColumnId() << ", quesval: " << node.QueryValue()
+       << ", best_metric_val: " << node.BestMetric() << ")";
   }
   return os;
 }
@@ -200,23 +196,23 @@ tl::Tree<T, T> build_treelite_tree(const DT::TreeMetaDataNode<T, L>& rf_tree,
         tl_tree.AddChilds(tl_node_id);
 
         // Push left child to next_level queue.
-        next_level_queue[next_end] = {q_node.left_child_id, tl_tree.LeftChild(tl_node_id)};
+        next_level_queue[next_end] = {q_node.LeftChildId(), tl_tree.LeftChild(tl_node_id)};
         ++next_end;
 
         // Push right child to next_level queue.
-        next_level_queue[next_end] = {q_node.left_child_id + 1, tl_tree.RightChild(tl_node_id)};
+        next_level_queue[next_end] = {q_node.RightChildId(), tl_tree.RightChild(tl_node_id)};
         ++next_end;
 
         // Set node from current level as numerical node. Children IDs known.
         tl_tree.SetNumericalSplit(
-          tl_node_id, q_node.colid, q_node.quesval, true, tl::Operator::kLE);
+          tl_node_id, q_node.ColumnId(), q_node.QueryValue(), true, tl::Operator::kLE);
 
       } else {
         if (num_class == 1) {
-          tl_tree.SetLeaf(tl_node_id, static_cast<T>(q_node.prediction));
+          tl_tree.SetLeaf(tl_node_id, static_cast<T>(q_node.Prediction()));
         } else {
           std::vector<T> leaf_vector(num_class, 0);
-          leaf_vector[q_node.prediction] = 1;
+          leaf_vector[q_node.Prediction()] = 1;
           tl_tree.SetLeafVector(tl_node_id, leaf_vector);
         }
       }
@@ -335,15 +331,18 @@ class DecisionTree {
 
   template <class DataT, class LabelT>
   static LabelT predict_one(const DataT* row,
-                            const std::vector<SparseTreeNode<DataT, LabelT>> sparsetree,
+                            const std::vector<SparseTreeNode<DataT, LabelT>>& sparsetree,
                             int idx)
   {
-    auto colid     = sparsetree[idx].colid;
-    DataT quesval  = sparsetree[idx].quesval;
-    auto leftchild = sparsetree[idx].left_child_id;
+    ASSERT(idx >= 0, "Prediction index out of bounds.");
+    ASSERT(idx < sparsetree.size(), "Prediction index out of bounds.");
+
+    auto colid     = sparsetree[idx].ColumnId();
+    DataT quesval  = sparsetree[idx].QueryValue();
+    auto leftchild = sparsetree[idx].LeftChildId();
     if (sparsetree[idx].IsLeaf()) {
-      CUML_LOG_DEBUG("Leaf node. Predicting %f", (float)sparsetree[idx].prediction);
-      return sparsetree[idx].prediction;
+      CUML_LOG_DEBUG("Leaf node. Predicting %f", (float)sparsetree[idx].Prediction());
+      return sparsetree[idx].Prediction();
     } else if (row[colid] <= quesval) {
       CUML_LOG_DEBUG(
         "Classifying Left @ node w/ column %d and value %f", int(colid), (float)quesval);

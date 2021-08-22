@@ -258,7 +258,9 @@ class RandomForest {
                                     verbosity);
           ret = prediction_to_cnt.insert(std::pair<int, int>(prediction, 1));
           if (!(ret.second)) { ret.first->second += 1; }
-          if (max_cnt_so_far < ret.first->second) {
+          // Break ties with smaller label
+          if (max_cnt_so_far < ret.first->second ||
+              (max_cnt_so_far == ret.first->second && ret.first->first < majority_prediction)) {
             max_cnt_so_far      = ret.first->second;
             majority_prediction = ret.first->first;
           }

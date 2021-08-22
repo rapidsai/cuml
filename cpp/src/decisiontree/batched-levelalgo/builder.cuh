@@ -21,6 +21,7 @@
 
 #include "metrics.cuh"
 
+#include <common/Timer.h>
 #include <cuml/tree/flatnode.h>
 #include <common/grid_sync.cuh>
 #include <common/nvtx.hpp>
@@ -54,10 +55,9 @@ class NodeQueue {
     : params(params), tree(std::make_shared<DT::TreeMetaDataNode<DataT, LabelT>>())
   {
     tree->sparsetree.reserve(max_nodes);
-    tree->sparsetree.emplace_back();
-    tree->sparsetree.back().instance_count = sampled_rows;
-    tree->leaf_counter                     = 1;
-    tree->depth_counter                    = 0;
+    tree->sparsetree.emplace_back(NodeT::CreateLeafNode(0, sampled_rows));
+    tree->leaf_counter  = 1;
+    tree->depth_counter = 0;
     node_instances_.reserve(max_nodes);
     node_instances_.emplace_back(InstanceRange{0, sampled_rows});
     if (this->IsExpandable(tree->sparsetree.back(), 0)) {
@@ -85,7 +85,7 @@ class NodeQueue {
   bool IsExpandable(const NodeT& n, int depth)
   {
     if (depth >= params.max_depth) return false;
-    if (int(n.instance_count) < params.min_samples_split) return false;
+    if (int(n.InstanceCount()) < params.min_samples_split) return false;
     if (params.max_leaves != -1 && tree->leaf_counter >= params.max_leaves) return false;
     return true;
   }
@@ -106,15 +106,14 @@ class NodeQueue {
       if (params.max_leaves != -1 && tree->leaf_counter >= params.max_leaves) break;
 
       // parent
-      tree->sparsetree.at(item.idx) = NodeT{0,
-                                            split.colid,
-                                            split.quesval,
-                                            split.best_metric_val,
-                                            int64_t(tree->sparsetree.size()),
-                                            parent_range.count};
+      tree->sparsetree.at(item.idx) = NodeT::CreateSplitNode(split.colid,
+                                                             split.quesval,
+                                                             split.best_metric_val,
+                                                             int64_t(tree->sparsetree.size()),
+                                                             parent_range.count);
       tree->leaf_counter++;
       // left
-      tree->sparsetree.emplace_back(NodeT{0, 0, 0, 0, -1, split.nLeft});
+      tree->sparsetree.emplace_back(NodeT::CreateLeafNode(0, split.nLeft));
       node_instances_.emplace_back(InstanceRange{parent_range.begin, split.nLeft});
 
       // Do not add a work item if this child is definitely a leaf
@@ -124,7 +123,7 @@ class NodeQueue {
       }
 
       // right
-      tree->sparsetree.emplace_back(NodeT{0, 0, 0, 0, -1, parent_range.count - split.nLeft});
+      tree->sparsetree.emplace_back(NodeT::CreateLeafNode(0, parent_range.count - split.nLeft));
       node_instances_.emplace_back(
         InstanceRange{parent_range.begin + split.nLeft, parent_range.count - split.nLeft});
 
@@ -310,6 +309,7 @@ struct Builder {
   std::shared_ptr<DT::TreeMetaDataNode<DataT, LabelT>> train()
   {
     ML::PUSH_RANGE("Builder::train @builder.cuh [batched-levelalgo]");
+    MLCommon::TimerCPU timer;
     NodeQueue<DataT, LabelT> queue(params, this->maxNodes(), input.nSampledRows);
     while (queue.HasWork()) {
       auto work_items                      = queue.Pop();
@@ -318,6 +318,7 @@ struct Builder {
     }
     auto tree = queue.GetTree();
     this->SetLeafPredictions(&tree->sparsetree, queue.GetInstanceRanges());
+    tree->train_time = timer.getElapsedMilliseconds();
     ML::POP_RANGE();
     return tree;
   }
