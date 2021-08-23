@@ -82,7 +82,7 @@ class MakeBlobsTest : public ::testing::TestWithParam<MakeBlobsInputs<T>> {
     // 4 x sigma indicates the test shouldn't fail 99.9% of the time.
     num_sigma = 50;
     params    = ::testing::TestWithParam<MakeBlobsInputs<T>>::GetParam();
-    int len   = params.rows * params.cols;
+    auto len  = params.rows * params.cols;
     CUDA_CHECK(cudaStreamCreate(&stream));
     raft::random::Rng r(params.seed, params.gtype);
     raft::allocate(data, len, stream);

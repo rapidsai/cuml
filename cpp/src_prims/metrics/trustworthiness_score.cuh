@@ -203,8 +203,7 @@ double trustworthiness_score(const raft::handle_t& h,
       work);
     CUDA_CHECK(cudaPeekAtLastError());
 
-    double t_tmp = t_dbuf.value(stream);
-    t += t_tmp;
+    t += t_dbuf.value(stream);
 
     toDo -= curBatchSize;
   }

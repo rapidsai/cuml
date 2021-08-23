@@ -131,7 +131,8 @@ class MinMaxTest : public ::testing::TestWithParam<MinMaxInputs<T>> {
 
  protected:
   MinMaxInputs<T> params;
-  rmm::device_uvector<T> minmax_act, minmax_ref;
+  rmm::device_uvector<T> minmax_act;
+  rmm::device_uvector<T> minmax_ref;
   cudaStream_t stream = 0;
 };
 

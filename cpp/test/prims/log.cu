@@ -63,7 +63,8 @@ class LogTest : public ::testing::TestWithParam<LogInputs<T>> {
  protected:
   cudaStream_t stream = 0;
   LogInputs<T> params;
-  rmm::device_uvector<T> result, result_ref;
+  rmm::device_uvector<T> result;
+  rmm::device_uvector<T> result_ref;
 };
 
 const std::vector<LogInputs<float>> inputsf2 = {{0.001f, 4}};

@@ -66,7 +66,7 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
                                              params.cluster_std);
 
     rmm::device_uvector<int> unique_labels(0, stream);
-    int n_classes = raft::label::getUniquelabels(unique_labels, train_labels, params.rows, stream);
+    auto n_classes = raft::label::getUniquelabels(unique_labels, train_labels, params.rows, stream);
 
     std::vector<float*> ptrs(1);
     std::vector<int> sizes(1);

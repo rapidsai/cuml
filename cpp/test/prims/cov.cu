@@ -60,8 +60,8 @@ class CovTest : public ::testing::TestWithParam<CovInputs<T>> {
     params.tolerance *= 2;
     raft::random::Rng r(params.seed);
     int rows = params.rows, cols = params.cols;
-    int len = rows * cols;
-    T var   = params.var;
+    auto len = rows * cols;
+    T var    = params.var;
     data.resize(len, stream);
     mean_act.resize(cols, stream);
     cov_act.resize(cols * cols, stream);

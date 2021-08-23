@@ -285,7 +285,7 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
     /// <<<< Step-5 >>> : C = C U C'
     // append the data in Cp from all ranks to the buffer holding the
     // potentialCentroids
-    //CUDA_CHECK(cudaMemsetAsync(nPtsSampledByRank, 0, n_rank * sizeof(int), stream));
+    // CUDA_CHECK(cudaMemsetAsync(nPtsSampledByRank, 0, n_rank * sizeof(int), stream));
     std::fill(nPtsSampledByRank, nPtsSampledByRank + n_rank, 0);
     nPtsSampledByRank[my_rank] = inRankCp.getSize(0);
     comm.allgather(&(nPtsSampledByRank[my_rank]), nPtsSampledByRank, 1, stream);
@@ -298,11 +298,10 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
 
     // gather centroids from all ranks
     std::vector<size_t> sizes(n_rank);
-    thrust::transform(thrust::host,
-                      nPtsSampledByRank,
-                      nPtsSampledByRank + n_rank,
-                      sizes.begin(),
-                      [&](int val) { return val * n_features; });
+    thrust::transform(
+      thrust::host, nPtsSampledByRank, nPtsSampledByRank + n_rank, sizes.begin(), [&](int val) {
+        return val * n_features;
+      });
 
     CUDA_CHECK_NO_THROW(cudaFreeHost(nPtsSampledByRank));
 

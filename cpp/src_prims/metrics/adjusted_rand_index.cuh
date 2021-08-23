@@ -99,7 +99,7 @@ int countUnique(const T* arr, int size, T& minLabel, T& maxLabel, cudaStream_t s
     [] __device__(const T& val) { return val != 0; },
     stream,
     labelCounts.data());
-  int numUniques = nUniq.value(stream);
+  auto numUniques = nUniq.value(stream);
   return numUniques;
 }
 
