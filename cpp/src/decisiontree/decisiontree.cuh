@@ -138,7 +138,7 @@ std::string get_node_json(const std::string& prefix,
         << prefix << "]}";
   } else {
     oss << prefix << "{\"nodeid\": " << idx
-        << ", \"leaf_value\": " << to_string_high_precision(node.Prediction());
+        << ", \"leaf_value\": ";
     oss << ", \"instance_count\": " << node.InstanceCount();
     oss << "}";
   }
@@ -188,7 +188,8 @@ tl::Tree<T, T> build_treelite_tree(const DT::TreeMetaDataNode<T, L>& rf_tree,
     next_level_queue.resize(std::max(2 * cur_level_size, next_level_queue.size()));
 
     for (size_t i = 0; i < cur_level_size; ++i) {
-      const SparseTreeNode<T, L>& q_node = rf_tree.sparsetree[cur_level_queue[cur_front].first];
+      auto cuml_node_id                  = cur_level_queue[cur_front].first;
+      const SparseTreeNode<T, L>& q_node = rf_tree.sparsetree[cuml_node_id];
       auto tl_node_id                    = cur_level_queue[cur_front].second;
       ++cur_front;
 
@@ -208,11 +209,11 @@ tl::Tree<T, T> build_treelite_tree(const DT::TreeMetaDataNode<T, L>& rf_tree,
           tl_node_id, q_node.ColumnId(), q_node.QueryValue(), true, tl::Operator::kLE);
 
       } else {
+        auto leaf_begin = rf_tree.vector_leaf.begin() + cuml_node_id * num_class;
         if (num_class == 1) {
-          tl_tree.SetLeaf(tl_node_id, static_cast<T>(q_node.Prediction()));
+          tl_tree.SetLeaf(tl_node_id, *leaf_begin);
         } else {
-          std::vector<T> leaf_vector(num_class, 0);
-          leaf_vector[q_node.Prediction()] = 1;
+          std::vector<T> leaf_vector(leaf_begin, leaf_begin + num_class);
           tl_tree.SetLeafVector(tl_node_id, leaf_vector);
         }
       }
@@ -296,11 +297,12 @@ class DecisionTree {
 
   template <class DataT, class LabelT>
   static void predict(const raft::handle_t& handle,
-                      const DT::TreeMetaDataNode<DataT, LabelT>* tree,
+                      const DT::TreeMetaDataNode<DataT, LabelT>& tree,
                       const DataT* rows,
-                      const int n_rows,
-                      const int n_cols,
-                      LabelT* predictions,
+                      std::size_t n_rows,
+                      std::size_t n_cols,
+                      DataT* predictions,
+                      int num_outputs,
                       int verbosity)
   {
     if (verbosity >= 0) { ML::Logger::get().setLevel(verbosity); }
@@ -308,49 +310,50 @@ class DecisionTree {
            "DT Error: Current impl. expects both input and predictions to be CPU "
            "pointers.\n");
 
-    ASSERT(tree && (tree->sparsetree.size() != 0),
+    ASSERT(tree.sparsetree.size() != 0,
            "Cannot predict w/ empty tree, tree size %zu",
-           tree->sparsetree.size());
+           tree.sparsetree.size());
     ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
     ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
 
-    predict_all(tree, rows, n_rows, n_cols, predictions);
+    predict_all(tree, rows, n_rows, n_cols, predictions, num_outputs);
   }
 
   template <class DataT, class LabelT>
-  static void predict_all(const DT::TreeMetaDataNode<DataT, LabelT>* tree,
+  static void predict_all(const DT::TreeMetaDataNode<DataT, LabelT>& tree,
                           const DataT* rows,
-                          const int n_rows,
-                          const int n_cols,
-                          LabelT* preds)
+                          std::size_t n_rows,
+                          std::size_t n_cols,
+                          DataT* preds,
+                          int num_outputs)
   {
-    for (int row_id = 0; row_id < n_rows; row_id++) {
-      preds[row_id] = predict_one(&rows[row_id * n_cols], tree->sparsetree, 0);
+    for (std::size_t row_id = 0; row_id < n_rows; row_id++) {
+      predict_one(&rows[row_id * n_cols], tree, preds + row_id * num_outputs, num_outputs, 0);
     }
   }
 
   template <class DataT, class LabelT>
-  static LabelT predict_one(const DataT* row,
-                            const std::vector<SparseTreeNode<DataT, LabelT>>& sparsetree,
-                            int idx)
+  static void predict_one(const DataT* row,
+                          const DT::TreeMetaDataNode<DataT, LabelT>& tree,
+                          DataT* preds_out,
+                          int num_outputs,
+                          int idx)
   {
     ASSERT(idx >= 0, "Prediction index out of bounds.");
-    ASSERT(idx < sparsetree.size(), "Prediction index out of bounds.");
+    ASSERT(idx < tree.sparsetree.size(), "Prediction index out of bounds.");
 
-    auto colid     = sparsetree[idx].ColumnId();
-    DataT quesval  = sparsetree[idx].QueryValue();
-    auto leftchild = sparsetree[idx].LeftChildId();
-    if (sparsetree[idx].IsLeaf()) {
-      CUML_LOG_DEBUG("Leaf node. Predicting %f", (float)sparsetree[idx].Prediction());
-      return sparsetree[idx].Prediction();
+    const auto& n  = tree.sparsetree[idx];
+    auto colid     = n.ColumnId();
+    DataT quesval  = n.QueryValue();
+    auto leftchild = n.LeftChildId();
+    if (n.IsLeaf()) {
+      for (int i = 0; i < num_outputs; i++) {
+        preds_out[i] += tree.vector_leaf[idx * num_outputs + i];
+      }
     } else if (row[colid] <= quesval) {
-      CUML_LOG_DEBUG(
-        "Classifying Left @ node w/ column %d and value %f", int(colid), (float)quesval);
-      return predict_one(row, sparsetree, leftchild);
+      predict_one(row, tree, preds_out, num_outputs, n.LeftChildId());
     } else {
-      CUML_LOG_DEBUG(
-        "Classifying Right @ node w/ column %d and value %f", int(colid), (float)quesval);
-      return predict_one(row, sparsetree, leftchild + 1);
+      predict_one(row, tree, preds_out, num_outputs, n.RightChildId());
     }
   }
 

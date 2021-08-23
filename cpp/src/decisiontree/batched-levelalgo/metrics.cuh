@@ -112,18 +112,15 @@ class GiniObjectiveFunction {
     }
     return sp;
   }
-  static DI LabelT LeafPrediction(BinT* shist, int nclasses)
-  {
-    int class_idx = 0;
-    int count     = 0;
+  static DI void SetLeafVector(BinT* shist, int nclasses, DataT *out){
+    // Output probability
+    int total     = 0;
     for (int i = 0; i < nclasses; i++) {
-      auto current_count = shist[i].x;
-      if (current_count > count) {
-        class_idx = i;
-        count     = current_count;
-      }
+      total += shist[i].x;
     }
-    return class_idx;
+    for (int i = 0; i < nclasses; i++) {
+      out[i] = DataT(shist[i].x)/total;
+    }
   }
 };
 
@@ -193,10 +190,15 @@ class EntropyObjectiveFunction {
     }
     return sp;
   }
-  static DI LabelT LeafPrediction(BinT* shist, int nclasses)
-  {
-    // Same as Gini
-    return GiniObjectiveFunction<DataT, LabelT>::LeafPrediction(shist, nclasses);
+  static DI void SetLeafVector(BinT* shist, int nclasses, DataT *out){
+    // Output probability
+    int total     = 0;
+    for (int i = 0; i < nclasses; i++) {
+      total += shist[i].x;
+    }
+    for (int i = 0; i < nclasses; i++) {
+      out[i] = DataT(shist[i].x)/total;
+    }
   }
 };
 
@@ -272,9 +274,10 @@ class MSEObjectiveFunction {
     return sp;
   }
 
-  static DI LabelT LeafPrediction(BinT* shist, int nclasses)
-  {
-    return shist[0].label_sum / shist[0].count;
+  static DI void SetLeafVector(BinT* shist, int nclasses, DataT *out){
+    for (int i = 0; i < nclasses; i++) {
+      out[i] = shist[i].label_sum / shist[i].count;
+    }
   }
 };
 

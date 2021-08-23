@@ -142,17 +142,19 @@ __global__ void nodeSplitKernel(std::size_t max_depth,
   partitionSamples<DataT, LabelT, TPB>(input, split, work_item, (char*)smem);
 }
 
-template <typename InputT, typename NodeT, typename ObjectiveT>
+template <typename InputT, typename NodeT, typename ObjectiveT, typename DataT>
 __global__ void leafKernel(ObjectiveT objective,
                            InputT input,
                            NodeT* tree,
-                           const InstanceRange* instance_ranges)
+                           const InstanceRange* instance_ranges,
+                           DataT* leaves)
 {
   using BinT = typename ObjectiveT::BinT;
   extern __shared__ char shared_memory[];
   auto histogram = reinterpret_cast<BinT*>(shared_memory);
-  auto& node     = tree[blockIdx.x];
-  auto range     = instance_ranges[blockIdx.x];
+  auto node_id   = blockIdx.x;
+  auto& node     = tree[node_id];
+  auto range     = instance_ranges[node_id];
   if (!node.IsLeaf()) return;
   auto tid = threadIdx.x;
   for (int i = tid; i < input.numOutputs; i += blockDim.x) {
@@ -165,8 +167,7 @@ __global__ void leafKernel(ObjectiveT objective,
   }
   __syncthreads();
   if (tid == 0) {
-    node =
-      NodeT::CreateLeafNode(ObjectiveT::LeafPrediction(histogram, input.numOutputs), range.count);
+    ObjectiveT::SetLeafVector(histogram, input.numOutputs, leaves + input.numOutputs * node_id);
   }
 }
 

@@ -17,7 +17,7 @@
 #pragma once
 
 // We want to define some functions as usable on device
-// But need to guard against thiis file being compiled by a host compiler
+// But need to guard against this file being compiled by a host compiler
 #ifdef __CUDACC__
 #define FLATNODE_HD __host__ __device__
 #else
@@ -32,7 +32,6 @@
 template <typename DataT, typename LabelT>
 struct SparseTreeNode {
  private:
-  LabelT prediction          = LabelT(0);
   std::size_t colid          = 0;
   DataT quesval              = DataT(0);
   DataT best_metric_val      = DataT(0);
@@ -44,7 +43,7 @@ struct SparseTreeNode {
                              DataT best_metric_val,
                              int64_t left_child_id,
                              std::size_t instance_count)
-    : prediction(prediction),
+    : 
       colid(colid),
       quesval(quesval),
       best_metric_val(best_metric_val),
@@ -54,7 +53,6 @@ struct SparseTreeNode {
   }
 
  public:
-  FLATNODE_HD LabelT Prediction() const { return prediction; }
   FLATNODE_HD std::size_t ColumnId() const { return colid; }
   FLATNODE_HD DataT QueryValue() const { return quesval; }
   FLATNODE_HD DataT BestMetric() const { return best_metric_val; }
@@ -69,16 +67,16 @@ struct SparseTreeNode {
                                                     std::size_t instance_count)
   {
     return SparseTreeNode<DataT, LabelT>{
-      LabelT(0), colid, quesval, best_metric_val, left_child_id, instance_count};
+       colid, quesval, best_metric_val, left_child_id, instance_count};
   }
-  FLATNODE_HD static SparseTreeNode CreateLeafNode(LabelT prediction, std::size_t instance_count)
+  FLATNODE_HD static SparseTreeNode CreateLeafNode(std::size_t instance_count)
   {
-    return SparseTreeNode<DataT, LabelT>{prediction, 0, 0, 0, -1, instance_count};
+    return SparseTreeNode<DataT, LabelT>{ 0, 0, 0, -1, instance_count};
   }
   FLATNODE_HD bool IsLeaf() const { return left_child_id == -1; }
   bool operator==(const SparseTreeNode& other) const
   {
-    return (this->prediction == other.prediction) && (this->colid == other.colid) &&
+    return (this->colid == other.colid) &&
            (this->quesval == other.quesval) && (this->best_metric_val == other.best_metric_val) &&
            (this->left_child_id == other.left_child_id) &&
            (this->instance_count == other.instance_count);

@@ -31,6 +31,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 namespace ML {
@@ -243,25 +244,21 @@ template <class T, class L>
 void build_treelite_forest(ModelHandle* model_handle,
                            const RandomForestMetaData<T, L>* forest,
                            int num_features,
-                           int task_category)
+                           int num_outputs)
 {
   auto parent_model          = tl::Model::Create<T, T>();
   tl::ModelImpl<T, T>* model = dynamic_cast<tl::ModelImpl<T, T>*>(parent_model.get());
   ASSERT(model != nullptr, "Invalid downcast to tl::ModelImpl");
 
-  unsigned int num_class;
-  if (task_category > 2) {
-    // Multi-class classification
-    num_class        = task_category;
-    model->task_type = tl::TaskType::kMultiClfProbDistLeaf;
-    std::strcpy(model->param.pred_transform, "max_index");
+  model->task_type = tl::TaskType::kMultiClfProbDistLeaf;
+  if (num_outputs > 1) {
+    std::strncpy(model->param.pred_transform, "max_index", sizeof(model->param.pred_transform));
   } else {
-    // Binary classification or regression
-    num_class        = 1;
     model->task_type = tl::TaskType::kBinaryClfRegr;
   }
 
-  model->task_param = tl::TaskParam{tl::TaskParam::OutputType::kFloat, false, num_class, num_class};
+  model->task_param = tl::TaskParam{
+    tl::TaskParam::OutputType::kFloat, false, (unsigned int)num_outputs, (unsigned int)num_outputs};
   model->num_feature         = num_features;
   model->average_tree_output = true;
   model->SetTreeLimit(forest->rf_params.n_trees);
@@ -271,7 +268,7 @@ void build_treelite_forest(ModelHandle* model_handle,
     DT::TreeMetaDataNode<T, L>& rf_tree = forest->trees[i];
 
     if (rf_tree.sparsetree.size() != 0) {
-      model->trees[i] = DT::build_treelite_tree<T, L>(rf_tree, num_class);
+      model->trees[i] = DT::build_treelite_tree<T, L>(rf_tree, num_outputs);
     }
   }
 
