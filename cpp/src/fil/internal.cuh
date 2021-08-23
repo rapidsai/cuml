@@ -111,7 +111,7 @@ std::string output2str(fil::output_t output);
 
 /** val_t is the payload within a FIL leaf */
 union val_t {
-  /** threshold value for branch node or output value (e.g. class
+  /** threshold value for parent node or output value (e.g. class
       probability or regression summand) for leaf node */
   float f;
   /** class label, leaf vector index or categorical node set offset */
@@ -120,7 +120,7 @@ union val_t {
 
 /** base_node contains common implementation details for dense and sparse nodes */
 struct base_node {
-  /** val, for branch nodes, is a threshold or category list offset. For leaf
+  /** val, for parent nodes, is a threshold or category list offset. For leaf
       nodes, it is the tree prediction (see see leaf_output_t<leaf_algo_t>::T) */
   val_t val;
   /** bits encode various information about the node, with the exact nature of
@@ -245,11 +245,11 @@ struct alignas(8) sparse_node8 : base_node {
                int left_index)
     : base_node(output, split, fid, def_left, is_leaf, is_categorical)
   {
-    bits |= left_index << LEFT_OFFSET;
     RAFT_EXPECTS((fid & FID_MASK) == fid,
                  "internal error: feature ID doesn't fit into sparse_node8");
     RAFT_EXPECTS(((left_index << LEFT_OFFSET) & LEFT_MASK) == (left_index << LEFT_OFFSET),
                  "internal error: left child index doesn't fit into sparse_node8");
+    bits |= left_index << LEFT_OFFSET;
   }
   /** index of the left child, where curr is the index of the current node */
   __host__ __device__ int left(int curr) const { return left_index(); }
@@ -360,11 +360,11 @@ struct forest_params_t {
 /// FIL_TPB is the number of threads per block to use with FIL kernels
 const int FIL_TPB = 256;
 
-const uint32_t max_precise_int_float = 1 << 24;  // 16'777'216
+const uint32_t MAX_PRECISE_INT_FLOAT = 1 << 24;  // 16'777'216
 
 __host__ __device__ __forceinline__ int fetch_bit(const uint8_t* array, int bit)
 {
-  return array[bit / BITS_PER_BYTE] >> (bit % BITS_PER_BYTE) & 1;
+  return (array[bit / BITS_PER_BYTE] >> (bit % BITS_PER_BYTE)) & 1;
 }
 
 struct cat_feature_counters {
@@ -379,7 +379,7 @@ struct categorical_sets {
   const int* max_matching = nullptr;
   std::size_t bits_size = 0, max_matching_size = 0;
 
-  __host__ __device__ __forceinline__ bool cats_supported() const
+  __host__ __device__ __forceinline__ bool cats_present() const
   {
     // If this is constructed from cat_sets_owner, will return true
     // default-initialized will return false
@@ -420,9 +420,9 @@ struct tree_base {
   categorical_sets sets;
 
   template <bool CATS_SUPPORTED, typename node_t>
-  __host__ __device__ __forceinline__ int get_child(const node_t& node,
-                                                    int node_idx,
-                                                    float val) const
+  __host__ __device__ __forceinline__ int child_index(const node_t& node,
+                                                      int node_idx,
+                                                      float val) const
   {
     const char* lr[] = {" left", "right"};
     bool cond;
@@ -464,17 +464,17 @@ struct cat_sets_owner {
     // feature ID
     for (std::size_t fid = 0; fid < cf.size(); ++fid) {
       RAFT_EXPECTS(cf[fid].max_matching >= -1,
-                   "@fid %lu: max_matching invalid (%d)",
+                   "@fid %zu: max_matching invalid (%d)",
                    fid,
                    cf[fid].max_matching);
-      RAFT_EXPECTS(cf[fid].n_nodes >= 0, "@fid %lu: n_nodes invalid (%d)", fid, cf[fid].n_nodes);
+      RAFT_EXPECTS(cf[fid].n_nodes >= 0, "@fid %zu: n_nodes invalid (%d)", fid, cf[fid].n_nodes);
 
       max_matching[fid] = cf[fid].max_matching;
       bits_size +=
         categorical_sets::sizeof_mask_from_max_matching(max_matching[fid]) * cf[fid].n_nodes;
 
       RAFT_EXPECTS(bits_size <= INT_MAX,
-                   "@fid %lu: cannot store %lu categories given `int` offsets",
+                   "@fid %zu: cannot store %lu categories given `int` offsets",
                    fid,
                    bits_size);
     }
@@ -516,10 +516,10 @@ struct cat_sets_owner {
  */
 void init_dense(const raft::handle_t& h,
                 forest_t* pf,
-                const dense_node* nodes,
-                const forest_params_t* params,
+                const categorical_sets& cat_sets,
                 const std::vector<float>& vector_leaf,
-                const categorical_sets& cat_sets);
+                const dense_node* nodes,
+                const forest_params_t* params);
 
 /** init_sparse uses params, trees and nodes to initialize the sparse forest
  *  with sparse nodes stored in pf
@@ -535,11 +535,11 @@ void init_dense(const raft::handle_t& h,
 template <typename fil_node_t>
 void init_sparse(const raft::handle_t& h,
                  forest_t* pf,
+                 const categorical_sets& cat_sets,
+                 const std::vector<float>& vector_leaf,
                  const int* trees,
                  const fil_node_t* nodes,
-                 const forest_params_t* params,
-                 const std::vector<float>& vector_leaf,
-                 const categorical_sets& cat_sets);
+                 const forest_params_t* params);
 
 }  // namespace fil
 }  // namespace ML
