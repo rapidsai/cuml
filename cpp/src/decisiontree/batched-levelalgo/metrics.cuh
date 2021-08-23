@@ -27,7 +27,7 @@ namespace ML {
 namespace DT {
 
 struct IntBin {
-  std::size_t x;
+  uint32_t x;
 
   DI static void IncrementHistogram(IntBin* hist, int nbins, int b, int label)
   {
@@ -36,8 +36,7 @@ struct IntBin {
   }
   DI static void AtomicAdd(IntBin* address, IntBin val)
   {
-    static_assert(sizeof(decltype(x)) == sizeof(unsigned long long int), "Unexpected count type");
-    atomicAdd((unsigned long long int*)&address->x, val.x);
+    atomicAdd(&address->x, val.x);
   }
   DI IntBin& operator+=(const IntBin& b)
   {
@@ -213,7 +212,7 @@ class MSEObjectiveFunction {
  public:
   struct MSEBin {
     double label_sum;
-    std::size_t count;
+    uint32_t count;
 
     DI static void IncrementHistogram(MSEBin* hist, int nbins, int b, double label)
     {
@@ -222,9 +221,7 @@ class MSEObjectiveFunction {
     DI static void AtomicAdd(MSEBin* address, MSEBin val)
     {
       atomicAdd(&address->label_sum, val.label_sum);
-      static_assert(sizeof(decltype(count)) == sizeof(unsigned long long int),
-                    "Unexpected count type");
-      atomicAdd((unsigned long long int*)&address->count, val.count);
+      atomicAdd(&address->count, val.count);
     }
     DI MSEBin& operator+=(const MSEBin& b)
     {
