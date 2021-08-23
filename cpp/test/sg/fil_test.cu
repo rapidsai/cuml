@@ -171,8 +171,9 @@ __global__ void floats_to_bit_stream_k(uint8_t* dst, float* src, std::size_t siz
   std::size_t idx = std::size_t(blockIdx.x) * blockDim.x + threadIdx.x;
   if (idx >= size) return;
   int byte = 0;
-  _Pragma("unroll") for (int i = 0; i < BITS_PER_BYTE; ++i) byte |=
-    (int)src[idx * BITS_PER_BYTE + i] << i;
+#pragma unroll
+  for (int i = 0; i < BITS_PER_BYTE; ++i)
+    byte |= (int)src[idx * BITS_PER_BYTE + i] << i;
   dst[idx] = byte;
 }
 
@@ -275,7 +276,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
       feature_categorical[fid] = fc(gen);
       if (feature_categorical[fid]) {
         // even for some categorical features, we will have no matching categories
-        float mm = pow(10, mmc(gen));
+        float mm = pow(10, mmc(gen)) - 1.0f;
         ASSERT(mm < INT_MAX,
                "internal error: max_matching_cat_oom %f is too large",
                ps.max_matching_cat_oom);
