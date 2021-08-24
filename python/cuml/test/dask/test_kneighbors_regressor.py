@@ -1,5 +1,5 @@
 
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,13 +23,16 @@ from cuml.neighbors import KNeighborsRegressor as lKNNReg
 from cuml.dask.neighbors import KNeighborsRegressor as dKNNReg
 
 from sklearn.datasets import make_multilabel_classification
+from sklearn.datasets import make_regression
 from sklearn.model_selection import train_test_split
+from sklearn.metrics import r2_score
 
 import dask.array as da
+import dask.dataframe as dd
 from cuml.dask.common.dask_arr_utils import to_dask_cudf
 from cudf.core.dataframe import DataFrame
 import numpy as np
-from sklearn.metrics import r2_score
+import cudf
 
 
 def generate_dask_array(np_array, n_parts):
@@ -126,3 +129,22 @@ def test_predict_and_score(dataset, datatype, parameters, client):
     distributed_score = d_model.score(X_test, y_test)
     distributed_score = round(float(distributed_score), 3)
     assert distributed_score == pytest.approx(handmade_local_score, abs=1e-2)
+
+
+@pytest.mark.parametrize('input_type', ['array', 'dataframe'])
+def test_predict_1D_labels(input_type, client):
+    # Testing that nothing crashes with 1D labels
+
+    X, y = make_regression(n_samples=10000)
+    if input_type == 'array':
+        dX = da.from_array(X)
+        dy = da.from_array(y)
+    elif input_type == 'dataframe':
+        X = cudf.DataFrame(X)
+        y = cudf.Series(y)
+        dX = dd.from_pandas(X, npartitions=1)
+        dy = dd.from_pandas(y, npartitions=1)
+
+    clf = dKNNReg()
+    clf.fit(dX, dy)
+    clf.predict(dX)

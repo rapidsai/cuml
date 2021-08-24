@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2019, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,28 +16,25 @@
 
 #pragma once
 
-#include <limits>
+#include <raft/cudart_utils.h>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/host/allocator.hpp>
 
 #include <thrust/system/cuda/execution_policy.h>
 
-#include <cuml/cuml.hpp>
-
-#include <raft/cudart_utils.h>
-#include <cuml/common/cuml_allocator.hpp>
+#include <cstddef>
+#include <limits>
 
 namespace ML {
-
-using MLCommon::deviceAllocator;
-using MLCommon::hostAllocator;
 
 template <typename T>
 class stdAllocatorAdapter {
  public:
-  using size_type = std::size_t;
-  using value_type = T;
-  using pointer = value_type*;
-  using const_pointer = const value_type*;
-  using reference = value_type&;
+  using size_type       = std::size_t;
+  using value_type      = T;
+  using pointer         = value_type*;
+  using const_pointer   = const value_type*;
+  using reference       = value_type&;
   using const_reference = const value_type&;
   using difference_type = std::ptrdiff_t;
 
@@ -52,43 +49,41 @@ class stdAllocatorAdapter {
 
   template <typename U>
   stdAllocatorAdapter(stdAllocatorAdapter<U> const& other)
-    : _allocator(other._allocator), _stream(other._stream) {}
+    : _allocator(other._allocator), _stream(other._stream)
+  {
+  }
 
   stdAllocatorAdapter& operator=(const stdAllocatorAdapter& other) = default;
 
-  stdAllocatorAdapter(std::shared_ptr<hostAllocator> allocator,
-                      cudaStream_t stream)
-    : _allocator(allocator), _stream(stream) {}
+  stdAllocatorAdapter(std::shared_ptr<raft::mr::host::allocator> allocator, cudaStream_t stream)
+    : _allocator(allocator), _stream(stream)
+  {
+  }
 
   ~stdAllocatorAdapter() {}
 
   inline pointer address(reference ref) const { return &ref; }
   inline const_pointer address(const_reference ref) const { return &ref; }
 
-  pointer allocate(size_type size,
-                   typename std::allocator<void>::const_pointer = 0) {
+  pointer allocate(size_type size, typename std::allocator<void>::const_pointer = 0)
+  {
     return static_cast<pointer>(_allocator->allocate(size, _stream));
   }
-  void deallocate(pointer ptr, size_type size) {
-    _allocator->deallocate(ptr, size, _stream);
-  }
+  void deallocate(pointer ptr, size_type size) { _allocator->deallocate(ptr, size, _stream); }
 
-  inline size_type max_size() const {
+  inline size_type max_size() const
+  {
     return std::numeric_limits<size_type>::max() / sizeof(value_type);
   }
 
-  void construct(pointer ptr, const value_type& t) const {
-    new (ptr) value_type(t);
-  }
+  void construct(pointer ptr, const value_type& t) const { new (ptr) value_type(t); }
   void destroy(pointer ptr) const { ptr->~value_type(); }
 
   bool operator==(const stdAllocatorAdapter&) const { return true; }
-  bool operator!=(const stdAllocatorAdapter& other) const {
-    return !operator==(other);
-  }
+  bool operator!=(const stdAllocatorAdapter& other) const { return !operator==(other); }
 
  private:
-  std::shared_ptr<hostAllocator> _allocator;
+  std::shared_ptr<raft::mr::host::allocator> _allocator;
   cudaStream_t _stream = 0;
 };
 
@@ -108,22 +103,23 @@ class thrustAllocatorAdapter {
 
   thrustAllocatorAdapter() = delete;
 
-  thrustAllocatorAdapter(std::shared_ptr<deviceAllocator> allocator,
+  thrustAllocatorAdapter(std::shared_ptr<raft::mr::device::allocator> allocator,
                          cudaStream_t stream)
-    : _allocator(allocator), _stream(stream) {}
+    : _allocator(allocator), _stream(stream)
+  {
+  }
 
   ~thrustAllocatorAdapter() {}
 
-  char* allocate(const size_t size) {
+  char* allocate(const size_t size)
+  {
     return static_cast<char*>(_allocator->allocate(size, _stream));
   }
 
-  void deallocate(char* ptr, const size_t size) {
-    _allocator->deallocate(ptr, size, _stream);
-  }
+  void deallocate(char* ptr, const size_t size) { _allocator->deallocate(ptr, size, _stream); }
 
  private:
-  std::shared_ptr<deviceAllocator> _allocator;
+  std::shared_ptr<raft::mr::device::allocator> _allocator;
   cudaStream_t _stream = 0;
 };
 
@@ -141,11 +137,11 @@ thrustAllocatorAdapter _decltypeHelper{0, 0};
  * @returns A Thrust execution policy that will use allocator for temporary memory
  * allocation.
  */
-inline auto thrust_exec_policy(std::shared_ptr<deviceAllocator> allocator,
+inline auto thrust_exec_policy(std::shared_ptr<raft::mr::device::allocator> allocator,
                                cudaStream_t stream)
-  -> std::unique_ptr<
-    decltype(thrust::cuda::par(_decltypeHelper)),
-    std::function<void(decltype(thrust::cuda::par(_decltypeHelper))*)>> {
+  -> std::unique_ptr<decltype(thrust::cuda::par(_decltypeHelper)),
+                     std::function<void(decltype(thrust::cuda::par(_decltypeHelper))*)>>
+{
   thrustAllocatorAdapter* alloc{nullptr};
 
   alloc = new thrustAllocatorAdapter(allocator, stream);

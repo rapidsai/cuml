@@ -56,10 +56,10 @@ class LogisticRegression(Base,
     algorithms. Even though it is presented as a single option, this solver
     resolves to two different algorithms underneath:
 
-    - Orthant-Wise Limited Memory Quasi-Newton (OWL-QN) if there is l1
-      regularization
+      - Orthant-Wise Limited Memory Quasi-Newton (OWL-QN) if there is l1
+        regularization
 
-    - Limited Memory BFGS (L-BFGS) otherwise.
+      - Limited Memory BFGS (L-BFGS) otherwise.
 
 
     Note that, just like in Scikit-learn, the bias will not be regularized.
@@ -119,12 +119,17 @@ class LogisticRegression(Base,
         If 'elasticnet' is selected, OWL-QN will be used if l1_ratio > 0,
         otherwise L-BFGS will be used.
     tol: float (default = 1e-4)
-       The training process will stop if current_loss > previous_loss - tol
+        Tolerance for stopping criteria.
+        The exact stopping conditions depend on the chosen solver.
+        Check the solver's documentation for more details:
+
+          * :class:`Quasi-Newton (L-BFGS/OWL-QN)<cuml.QN>`
+
     C: float (default = 1.0)
-       Inverse of regularization strength; must be a positive float.
+        Inverse of regularization strength; must be a positive float.
     fit_intercept: boolean (default = True)
-       If True, the model tries to correct for the global mean of y.
-       If False, the model expects that you have centered the data.
+        If True, the model tries to correct for the global mean of y.
+        If False, the model expects that you have centered the data.
     class_weight: None
         Custom class weighs are currently not supported.
     class_weight: dict or 'balanced', default=None
@@ -181,7 +186,7 @@ class LogisticRegression(Base,
     coefficients and predictions of the model, similar to
     using different solvers in Scikit-learn.
 
-    For additional information, see Scikit-learn's LogistRegression
+    For additional information, see `Scikit-learn's LogisticRegression
     <https://scikit-learn.org/stable/modules/generated/sklearn.linear_model.LogisticRegression.html>`_.
     """
 
@@ -235,37 +240,12 @@ class LogisticRegression(Base,
                 raise ValueError(msg.format(l1_ratio))
             self.l1_ratio = l1_ratio
 
-        if self.penalty == "none":
-            l1_strength = 0.0
-            l2_strength = 0.0
-
-        elif self.penalty == "l1":
-            l1_strength = 1.0 / self.C
-            l2_strength = 0.0
-
-        elif self.penalty == "l2":
-            l1_strength = 0.0
-            l2_strength = 1.0 / self.C
-
-        else:
-            strength = 1.0 / self.C
-            l1_strength = self.l1_ratio * strength
-            l2_strength = (1.0 - self.l1_ratio) * strength
+        l1_strength, l2_strength = self._get_qn_params()
 
         loss = "sigmoid"
 
         if class_weight is not None:
-            if class_weight == 'balanced':
-                self.class_weight_ = 'balanced'
-            else:
-                classes = list(class_weight.keys())
-                weights = list(class_weight.values())
-                max_class = sorted(classes)[-1]
-                class_weight = cp.ones(max_class + 1)
-                class_weight[classes] = weights
-                self.class_weight_, _, _, _ = input_to_cuml_array(class_weight)
-                self.expl_spec_weights_, _, _, _ = \
-                    input_to_cuml_array(np.array(classes))
+            self._build_class_weights(class_weight)
         else:
             self.class_weight_ = None
 
@@ -288,7 +268,7 @@ class LogisticRegression(Base,
         else:
             self.verb_prefix = ""
 
-    @generate_docstring()
+    @generate_docstring(X='dense_sparse')
     @cuml.internals.api_base_return_any(set_output_dtype=True)
     def fit(self, X, y, sample_weight=None,
             convert_dtype=True) -> "LogisticRegression":
@@ -382,7 +362,8 @@ class LogisticRegression(Base,
 
         return self
 
-    @generate_docstring(return_values={'name': 'score',
+    @generate_docstring(X='dense_sparse',
+                        return_values={'name': 'score',
                                        'type': 'dense',
                                        'description': 'Confidence score',
                                        'shape': '(n_samples, n_classes)'})
@@ -396,7 +377,8 @@ class LogisticRegression(Base,
             convert_dtype=convert_dtype
         )
 
-    @generate_docstring(return_values={'name': 'preds',
+    @generate_docstring(X='dense_sparse',
+                        return_values={'name': 'preds',
                                        'type': 'dense',
                                        'description': 'Predicted values',
                                        'shape': '(n_samples, 1)'})
@@ -408,7 +390,8 @@ class LogisticRegression(Base,
         """
         return self.solver_model.predict(X, convert_dtype=convert_dtype)
 
-    @generate_docstring(return_values={'name': 'preds',
+    @generate_docstring(X='dense_sparse',
+                        return_values={'name': 'preds',
                                        'type': 'dense',
                                        'description': 'Predicted class \
                                                        probabilities',
@@ -424,7 +407,8 @@ class LogisticRegression(Base,
             log_proba=False
         )
 
-    @generate_docstring(return_values={'name': 'preds',
+    @generate_docstring(X='dense_sparse',
+                        return_values={'name': 'preds',
                                        'type': 'dense',
                                        'description': 'Logaright of predicted \
                                                        class probabilities',
@@ -444,20 +428,8 @@ class LogisticRegression(Base,
                             X,
                             convert_dtype=False,
                             log_proba=False) -> CumlArray:
-        # TODO:
-        # We currently need to grab the dtype and ncols attributes via the
-        # qn solver due to https://github.com/rapidsai/cuml/issues/2404
-        X_m, _, _, self.dtype = input_to_cuml_array(
-            X,
-            check_dtype=self.solver_model.dtype,
-            convert_to_dtype=(
-                self.solver_model.dtype if convert_dtype else None
-            ),
-            check_cols=self.solver_model.n_cols,
-        )
-
         scores = cp.asarray(
-            self.decision_function(X_m, convert_dtype=convert_dtype), order="F"
+            self.decision_function(X, convert_dtype=convert_dtype), order="F"
         ).T
         if self._num_classes == 2:
             proba = cp.zeros((scores.shape[0], 2))
@@ -474,6 +446,60 @@ class LogisticRegression(Base,
             proba = cp.log(proba)
 
         return proba
+
+    def _get_qn_params(self):
+        if self.penalty == "none":
+            l1_strength = 0.0
+            l2_strength = 0.0
+
+        elif self.penalty == "l1":
+            l1_strength = 1.0 / self.C
+            l2_strength = 0.0
+
+        elif self.penalty == "l2":
+            l1_strength = 0.0
+            l2_strength = 1.0 / self.C
+
+        else:
+            strength = 1.0 / self.C
+            l1_strength = self.l1_ratio * strength
+            l2_strength = (1.0 - self.l1_ratio) * strength
+        return l1_strength, l2_strength
+
+    def _build_class_weights(self, class_weight):
+        if class_weight == 'balanced':
+            self.class_weight_ = 'balanced'
+        else:
+            classes = list(class_weight.keys())
+            weights = list(class_weight.values())
+            max_class = sorted(classes)[-1]
+            class_weight = cp.ones(max_class + 1)
+            class_weight[classes] = weights
+            self.class_weight_, _, _, _ = input_to_cuml_array(class_weight)
+            self.expl_spec_weights_, _, _, _ = \
+                input_to_cuml_array(np.array(classes))
+
+    def set_params(self, **params):
+        super().set_params(**params)
+        rebuild_params = False
+        # Remove class-specific parameters
+        for param_name in ['penalty', 'l1_ratio', 'C']:
+            if param_name in params:
+                params.pop(param_name)
+                rebuild_params = True
+        if rebuild_params:
+            # re-build QN solver parameters
+            l1_strength, l2_strength = self._get_qn_params()
+            params.update({'l1_strength': l1_strength,
+                           'l2_strength': l2_strength})
+        if 'class_weight' in params:
+            # re-build class weight
+            class_weight = params.pop('class_weight')
+            self._build_class_weights(class_weight)
+
+        # Update solver
+        self.solver_model.set_params(**params)
+        return self
 
     def get_param_names(self):
         return super().get_param_names() + [

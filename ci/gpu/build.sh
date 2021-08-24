@@ -46,24 +46,24 @@ gpuci_logger "Activate conda env"
 conda activate rapids
 
 gpuci_logger "Install dependencies"
-gpuci_conda_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
+gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
       "cudatoolkit=${CUDA_REL}" \
       "cudf=${MINOR_VERSION}" \
       "rmm=${MINOR_VERSION}" \
       "libcumlprims=${MINOR_VERSION}" \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
-      "ucx-py=${MINOR_VERSION}" \
+      "ucx-py=0.21.*" \
       "ucx-proc=*=gpu" \
-      "xgboost=1.3.3dev.rapidsai${MINOR_VERSION}" \
+      "xgboost=1.4.2dev.rapidsai${MINOR_VERSION}" \
       "rapids-build-env=${MINOR_VERSION}.*" \
       "rapids-notebook-env=${MINOR_VERSION}.*" \
       "rapids-doc-env=${MINOR_VERSION}.*" \
       "shap>=0.37,<=0.39"
 
 # https://docs.rapids.ai/maintainers/depmgmt/
-# gpuci_conda_retry remove --force rapids-build-env rapids-notebook-env
-# gpuci_conda_retry install -y "your-pkg=1.0.0"
+# gpuci_mamba_retry remove --force rapids-build-env rapids-notebook-env
+# gpuci_mamba_retry install -y "your-pkg=1.0.0"
 
 gpuci_logger "Install contextvars if needed"
 py_ver=$(python -c "import sys; print('.'.join(map(str, sys.version_info[:2])))")
@@ -129,6 +129,12 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
 
     export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_CACHED
     export LD_LIBRARY_PATH_CACHED=""
+
+    gpuci_logger "Install the main version of dask and distributed"
+    set -x
+    pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
+    pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
+    set +x
 
     gpuci_logger "Python pytest for cuml"
     cd $WORKSPACE/python

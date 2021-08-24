@@ -123,6 +123,17 @@ def has_sklearn():
         return False
 
 
+def has_hdbscan_plots(raise_if_unavailable=True):
+    try:
+        from hdbscan.plots import SingleLinkageTree  # NOQA
+        return True
+    except ImportError:
+        if(raise_if_unavailable):
+            raise ImportError("hdbscan must be installed to use plots.")
+        else:
+            return False
+
+
 def has_shap(min_version="0.37"):
     try:
         import shap  # noqa

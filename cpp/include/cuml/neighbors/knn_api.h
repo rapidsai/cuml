@@ -49,10 +49,20 @@ extern "C" {
  * @param[in] expanded should lp-based distances be returned in their expanded
  * 					 form (e.g., without raising to the 1/p power).
  */
-cumlError_t knn_search(const cumlHandle_t handle, float **input, int *size,
-                       int n_params, int D, float *search_items, int n,
-                       int64_t *res_I, float *res_D, int k, bool rowMajorIndex,
-                       bool rowMajorQuery, int metric_type, float metric_arg,
+cumlError_t knn_search(const cumlHandle_t handle,
+                       float** input,
+                       int* size,
+                       int n_params,
+                       int D,
+                       float* search_items,
+                       int n,
+                       int64_t* res_I,
+                       float* res_D,
+                       int k,
+                       bool rowMajorIndex,
+                       bool rowMajorQuery,
+                       int metric_type,
+                       float metric_arg,
                        bool expanded);
 
 #ifdef __cplusplus

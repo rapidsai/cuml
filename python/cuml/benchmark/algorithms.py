@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -30,10 +30,10 @@ from cuml.common.import_utils import has_umap
 import numpy as np
 import tempfile
 
-from cuml.experimental.preprocessing import StandardScaler, MinMaxScaler, \
-                                            MaxAbsScaler, Normalizer, \
-                                            SimpleImputer, RobustScaler, \
-                                            PolynomialFeatures
+from cuml.preprocessing import StandardScaler, MinMaxScaler, \
+                               MaxAbsScaler, Normalizer, \
+                               SimpleImputer, RobustScaler, \
+                               PolynomialFeatures
 
 from cuml.benchmark.bench_helper_funcs import (
     fit,

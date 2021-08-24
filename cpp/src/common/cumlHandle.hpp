@@ -17,13 +17,12 @@
 #pragma once
 
 #include <cuml/cuml_api.h>
-#include <cuml/common/cuml_allocator.hpp>
+
 #include <raft/handle.hpp>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/host/allocator.hpp>
 
 namespace ML {
-
-using MLCommon::deviceAllocator;
-using MLCommon::hostAllocator;
 
 /**
  * Map from integral cumlHandle_t identifiers to cumlHandle pointer protected
@@ -32,40 +31,37 @@ using MLCommon::hostAllocator;
 class HandleMap {
  public:
   /**
-     * @brief Creates new handle object with associated handle ID and insert into map.
-     *
-     * @return std::pair with handle and error code. If error code is not CUML_SUCCESS
-     *                   the handle is INVALID_HANDLE.
-     */
+   * @brief Creates new handle object with associated handle ID and insert into map.
+   *
+   * @return std::pair with handle and error code. If error code is not CUML_SUCCESS
+   *                   the handle is INVALID_HANDLE.
+   */
   std::pair<cumlHandle_t, cumlError_t> createAndInsertHandle();
 
   /**
-     * @brief Lookup pointer to handle object for handle ID in map.
-     *
-     * @return std::pair with handle and error code. If error code is not CUML_SUCCESS
-     *                   the handle is INVALID_HANDLE. Error code CUML_INAVLID_HANDLE
-     *                   is returned if the provided `handle` is invald.
-     */
-  std::pair<raft::handle_t*, cumlError_t> lookupHandlePointer(
-    cumlHandle_t handle) const;
+   * @brief Lookup pointer to handle object for handle ID in map.
+   *
+   * @return std::pair with handle and error code. If error code is not CUML_SUCCESS
+   *                   the handle is INVALID_HANDLE. Error code CUML_INAVLID_HANDLE
+   *                   is returned if the provided `handle` is invald.
+   */
+  std::pair<raft::handle_t*, cumlError_t> lookupHandlePointer(cumlHandle_t handle) const;
 
   /**
-     * @brief Remove handle from map and destroy associated handle object.
-     *
-     * @return cumlError_t CUML_SUCCESS or CUML_INVALID_HANDLE.
-     *                   Error code CUML_INAVLID_HANDLE is returned if the provided
-     *                   `handle` is invald.
-     */
+   * @brief Remove handle from map and destroy associated handle object.
+   *
+   * @return cumlError_t CUML_SUCCESS or CUML_INVALID_HANDLE.
+   *                   Error code CUML_INAVLID_HANDLE is returned if the provided
+   *                   `handle` is invald.
+   */
   cumlError_t removeAndDestroyHandle(cumlHandle_t handle);
 
-  static const cumlHandle_t INVALID_HANDLE =
-    -1;  //!< sentinel value for invalid ID
+  static const cumlHandle_t INVALID_HANDLE = -1;  //!< sentinel value for invalid ID
 
  private:
-  std::unordered_map<cumlHandle_t, raft::handle_t*>
-    _handleMap;                  //!< map from ID to pointer
-  mutable std::mutex _mapMutex;  //!< mutex protecting the map
-  cumlHandle_t _nextHandle;      //!< value of next handle ID
+  std::unordered_map<cumlHandle_t, raft::handle_t*> _handleMap;  //!< map from ID to pointer
+  mutable std::mutex _mapMutex;                                  //!< mutex protecting the map
+  cumlHandle_t _nextHandle;                                      //!< value of next handle ID
 };
 
 /// Static handle map instance (see cumlHandle.cpp)

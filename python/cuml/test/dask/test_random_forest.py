@@ -169,7 +169,7 @@ def test_rf_regression_dask_fil(partitions_per_worker,
 
     acc_score = r2_score(cuml_mod_predict, y_test)
 
-    assert acc_score >= 0.67
+    assert acc_score >= 0.59
 
 
 @pytest.mark.parametrize('partitions_per_worker', [5])
@@ -292,8 +292,8 @@ def test_rf_classification_dask_fil_predict_proba(partitions_per_worker,
     sk_mse = mean_squared_error(y_proba, sk_preds_proba)
 
     # The threshold is required as the test would intermitently
-    # fail with a max difference of 0.022 between the two mse values
-    assert fil_mse <= sk_mse + 0.022
+    # fail with a max difference of 0.029 between the two mse values
+    assert fil_mse <= sk_mse + 0.029
 
 
 @pytest.mark.parametrize('model_type', ['classification', 'regression'])
@@ -382,17 +382,17 @@ def test_rf_get_json(client, estimator_type, max_depth, n_estimators):
     X = X.astype(np.float32)
     if estimator_type == 'classification':
         cu_rf_mg = cuRFC_mg(max_features=1.0, max_samples=1.0,
-                            n_bins=16, split_algo=0, split_criterion=0,
-                            min_samples_leaf=2, seed=23707, n_streams=1,
-                            n_estimators=n_estimators, max_leaves=-1,
-                            max_depth=max_depth)
+                            n_bins=16, split_criterion=0,
+                            min_samples_leaf=2, random_state=23707,
+                            n_streams=1, n_estimators=n_estimators,
+                            max_leaves=-1, max_depth=max_depth)
         y = y.astype(np.int32)
     elif estimator_type == 'regression':
         cu_rf_mg = cuRFR_mg(max_features=1.0, max_samples=1.0,
-                            n_bins=16, split_algo=0,
-                            min_samples_leaf=2, seed=23707, n_streams=1,
-                            n_estimators=n_estimators, max_leaves=-1,
-                            max_depth=max_depth)
+                            n_bins=16,
+                            min_samples_leaf=2, random_state=23707,
+                            n_streams=1, n_estimators=n_estimators,
+                            max_leaves=-1, max_depth=max_depth)
         y = y.astype(np.float32)
     else:
         assert False
@@ -417,7 +417,7 @@ def test_rf_get_json(client, estimator_type, max_depth, n_estimators):
         assert 'split_threshold' in tree
         assert 'yes' in tree
         assert 'no' in tree
-        if x[tree['split_feature']] <= tree['split_threshold']:
+        if x[tree['split_feature']] <= tree['split_threshold'] + 1e-5:
             return predict_with_json_tree(tree['children'][0], x)
         return predict_with_json_tree(tree['children'][1], x)
 
@@ -462,15 +462,18 @@ def test_rf_instance_count(client, max_depth, n_estimators):
         err_msg = "n_estimators cannot be lower than number of dask workers"
         pytest.xfail(err_msg)
 
-    X, y = make_classification(n_samples=350, n_features=20,
-                               n_clusters_per_class=1, n_informative=10,
-                               random_state=123, n_classes=2)
+    n_samples_per_worker = 350
+
+    X, y = make_classification(n_samples=n_samples_per_worker * n_workers,
+                               n_features=20, n_clusters_per_class=1,
+                               n_informative=10, random_state=123,
+                               n_classes=2)
     X = X.astype(np.float32)
     cu_rf_mg = cuRFC_mg(max_features=1.0, max_samples=1.0,
-                        n_bins=16, split_algo=1, split_criterion=0,
-                        min_samples_leaf=2, seed=23707, n_streams=1,
+                        n_bins=16, split_criterion=0,
+                        min_samples_leaf=2, random_state=23707, n_streams=1,
                         n_estimators=n_estimators, max_leaves=-1,
-                        max_depth=max_depth, use_experimental_backend=True)
+                        max_depth=max_depth)
     y = y.astype(np.int32)
 
     X_dask, y_dask = _prep_training_data(client, X, y, partitions_per_worker=2)
@@ -494,7 +497,7 @@ def test_rf_instance_count(client, max_depth, n_estimators):
     for tree in json_obj:
         check_instance_count_for_non_leaf(tree)
         # The root's count should be equal to the number of rows in the data
-        assert tree['instance_count'] == X.shape[0]
+        assert tree['instance_count'] == n_samples_per_worker
 
 
 @pytest.mark.parametrize('estimator_type', ['regression', 'classification'])
@@ -558,16 +561,14 @@ def test_rf_get_text(client, n_estimators, detailed_text):
     X, y = _prep_training_data(client, X, y, partitions_per_worker=2)
 
     if n_estimators >= n_workers:
-        cu_rf_mg = cuRFC_mg(n_estimators=n_estimators,
+        cu_rf_mg = cuRFC_mg(n_estimators=n_estimators, n_bins=16,
                             ignore_empty_partitions=True)
     else:
         with pytest.raises(ValueError):
-            cu_rf_mg = cuRFC_mg(n_estimators=n_estimators,
+            cu_rf_mg = cuRFC_mg(n_estimators=n_estimators, n_bins=16,
                                 ignore_empty_partitions=True)
         return
 
-    cu_rf_mg = cuRFC_mg(n_estimators=n_estimators,
-                        ignore_empty_partitions=True)
     cu_rf_mg.fit(X, y)
 
     if detailed_text:
@@ -626,7 +627,7 @@ def test_rf_broadcast(model_type, fit_broadcast, transform_broadcast, client):
         cuml_mod_predict = cuml_mod_predict.compute()
         cuml_mod_predict = cp.asnumpy(cuml_mod_predict)
         acc_score = accuracy_score(cuml_mod_predict, y_test, normalize=True)
-        assert acc_score >= 0.72
+        assert acc_score >= 0.70
 
     else:
         cuml_mod = cuRFR_mg(n_estimators=10, max_depth=8, n_bins=16,

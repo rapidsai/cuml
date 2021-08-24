@@ -15,6 +15,7 @@
 #
 import cupyx as cpx
 import numpy as np
+import nvtx
 from cuml.common.import_utils import has_scipy
 from cuml.common.memory_utils import class_with_cupy_rmm
 from cuml.common.logger import debug
@@ -69,6 +70,8 @@ class SparseCumlArray():
         Number of nonzeros in underlying arrays
     """
 
+    @nvtx.annotate(message="common.SparseCumlArray.__init__", category="utils",
+                   domain="cuml_python")
     def __init__(self, data=None,
                  convert_to_dtype=False,
                  convert_index=np.int32,
@@ -105,21 +108,20 @@ class SparseCumlArray():
         # In CUDA11, Cusparse provides 64-bit function calls
         # but these are not yet used in RAFT/Cuml
         self.indptr, _, _, _ = cuml.common.input_to_cuml_array(
-            data.indptr, check_dtype=convert_index,
-            convert_to_dtype=convert_index)
+            data.indptr, convert_to_dtype=convert_index)
 
         self.indices, _, _, _ = cuml.common.input_to_cuml_array(
-            data.indices, check_dtype=convert_index,
-            convert_to_dtype=convert_index)
+            data.indices, convert_to_dtype=convert_index)
 
         self.data, _, _, _ = cuml.common.input_to_cuml_array(
-            data.data, check_dtype=data.dtype,
-            convert_to_dtype=convert_to_dtype)
+            data.data, convert_to_dtype=convert_to_dtype)
 
         self.shape = data.shape
         self.dtype = self.data.dtype
         self.nnz = data.nnz
 
+    @nvtx.annotate(message="common.SparseCumlArray.to_output",
+                   category="utils", domain="cuml_python")
     def to_output(self, output_type='cupy',
                   output_format=None,
                   output_dtype=None):

@@ -18,6 +18,7 @@
 
 import numpy as np
 import sys
+import nvtx
 
 import ctypes
 from libc.stdint cimport uintptr_t
@@ -29,7 +30,6 @@ import cuml.internals
 from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import Base
-from cuml.common.cuda import nvtx_range_wrap
 from cuml.raft.common.handle cimport handle_t
 from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
 import cuml.common.logger as logger
@@ -48,6 +48,13 @@ cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
         DataT* sma
         DataT* sigma2
 
+    cdef cppclass ARIMAMemory[DataT]:
+        ARIMAMemory(const ARIMAOrder& order, int batch_size, int n_obs,
+                    char* in_buf)
+
+        @staticmethod
+        size_t compute_size(const ARIMAOrder& order, int batch_size, int n_obs)
+
 
 cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
     ctypedef enum LoglikeMethod: CSS, MLE
@@ -65,32 +72,34 @@ cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
         int n_obs, const ARIMAOrder& order)
 
     void batched_loglike(
-        handle_t& handle, const double* y, int batch_size, int nobs,
-        const ARIMAOrder& order, const double* params, double* loglike,
-        double* d_vs, bool trans, bool host_loglike, LoglikeMethod method,
-        int truncate)
+        handle_t& handle, const ARIMAMemory[double]& arima_mem,
+        const double* y, int batch_size, int nobs, const ARIMAOrder& order,
+        const double* params, double* loglike, double* d_vs, bool trans,
+        bool host_loglike, LoglikeMethod method, int truncate)
 
     void batched_loglike(
-        handle_t& handle, const double* y, int batch_size, int n_obs,
-        const ARIMAOrder& order, const ARIMAParams[double]& params,
-        double* loglike, double* d_vs, bool trans, bool host_loglike,
-        LoglikeMethod method, int truncate)
+        handle_t& handle, const ARIMAMemory[double]& arima_mem,
+        const double* y, int batch_size, int n_obs, const ARIMAOrder& order,
+        const ARIMAParams[double]& params, double* loglike, double* d_vs,
+        bool trans, bool host_loglike, LoglikeMethod method, int truncate)
 
     void batched_loglike_grad(
-        handle_t& handle, const double* d_y, int batch_size, int nobs,
-        const ARIMAOrder& order, const double* d_x, double* d_grad, double h,
-        bool trans, LoglikeMethod method, int truncate)
+        handle_t& handle, const ARIMAMemory[double]& arima_mem,
+        const double* d_y, int batch_size, int nobs, const ARIMAOrder& order,
+        const double* d_x, double* d_grad, double h, bool trans,
+        LoglikeMethod method, int truncate)
 
     void cpp_predict "predict" (
-        handle_t& handle, const double* d_y, int batch_size, int nobs,
-        int start, int end, const ARIMAOrder& order,
-        const ARIMAParams[double]& params, double* d_y_p, bool pre_diff,
-        double level, double* d_lower, double* d_upper)
+        handle_t& handle, const ARIMAMemory[double]& arima_mem,
+        const double* d_y, int batch_size, int nobs, int start, int end,
+        const ARIMAOrder& order, const ARIMAParams[double]& params,
+        double* d_y_p, bool pre_diff, double level, double* d_lower,
+        double* d_upper)
 
     void information_criterion(
-        handle_t& handle, const double* d_y, int batch_size, int nobs,
-        const ARIMAOrder& order, const ARIMAParams[double]& params,
-        double* ic, int ic_type)
+        handle_t& handle, const ARIMAMemory[double]& arima_mem,
+        const double* d_y, int batch_size, int nobs, const ARIMAOrder& order,
+        const ARIMAParams[double]& params, double* ic, int ic_type)
 
     void estimate_x0(
         handle_t& handle, ARIMAParams[double]& params, const double* d_y,
@@ -100,8 +109,9 @@ cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
 cdef extern from "cuml/tsa/batched_kalman.hpp" namespace "ML":
 
     void batched_jones_transform(
-        handle_t& handle, const ARIMAOrder& order, int batchSize,
-        bool isInv, const double* h_params, double* h_Tparams)
+        handle_t& handle, ARIMAMemory[double]& arima_mem,
+        const ARIMAOrder& order, int batchSize, bool isInv,
+        const double* h_params, double* h_Tparams)
 
 
 cdef class ARIMAParamsWrapper:
@@ -266,6 +276,7 @@ class ARIMA(Base):
     d_y = CumlArrayDescriptor()
     # TODO: (MDD) Should this be public? Its not listed in the attributes doc
     _d_y_diff = CumlArrayDescriptor()
+    _temp_mem = CumlArrayDescriptor()
 
     mu_ = CumlArrayDescriptor()
     ar_ = CumlArrayDescriptor()
@@ -274,7 +285,7 @@ class ARIMA(Base):
     sma_ = CumlArrayDescriptor()
     sigma2_ = CumlArrayDescriptor()
 
-    @_deprecate_pos_args(version="0.20")
+    @_deprecate_pos_args(version="21.06")
     def __init__(self,
                  endog,
                  *,
@@ -318,8 +329,8 @@ class ARIMA(Base):
             raise ValueError("ERROR: Invalid order. At least one parameter"
                              " among p, q, P, Q and fit_intercept must be"
                              " non-zero")
-        if p > 4 or P > 4 or q > 4 or Q > 4:
-            raise ValueError("ERROR: Invalid order. Required: p,q,P,Q <= 4")
+        if p > 8 or P > 8 or q > 8 or Q > 8:
+            raise ValueError("ERROR: Invalid order. Required: p,q,P,Q <= 8")
         if max(p + s * P, q + s * Q) > 1024:
             raise ValueError("ERROR: Invalid order. "
                              "Required: max(p+s*P, q+s*Q) <= 1024")
@@ -338,6 +349,11 @@ class ARIMA(Base):
             (self.n_obs - d - s * D, self.batch_size), self.dtype)
 
         self.n_obs_diff = self.n_obs - d - D * s
+
+        # Allocate temporary storage
+        temp_mem_size = ARIMAMemory[double].compute_size(
+            cpp_order, <int> self.batch_size, <int> self.n_obs)
+        self._temp_mem = CumlArray.empty(temp_mem_size, np.byte)
 
         self._initial_calc()
 
@@ -372,13 +388,14 @@ class ARIMA(Base):
             return "ARIMA({},{},{}) ({}) - {} series".format(
                 order.p, order.d, order.q, intercept_str, self.batch_size)
 
-    @nvtx_range_wrap
+    @nvtx.annotate(message="tsa.arima.ARIMA._ic", domain="cuml_python")
     @cuml.internals.api_base_return_any_skipall
     def _ic(self, ic_type: str):
         """Wrapper around C++ information_criterion
         """
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
+        cdef ARIMAOrder order = self.order
         cdef ARIMAOrder order_kf = \
             self.order_diff if self.simple_differencing else self.order
         cdef ARIMAParams[double] cpp_params = ARIMAParamsWrapper(self).params
@@ -398,10 +415,17 @@ class ARIMA(Base):
         except KeyError as e:
             raise NotImplementedError("IC type '{}' unknown".format(ic_type))
 
-        information_criterion(handle_[0], <double*> d_y_kf_ptr,
-                              <int> self.batch_size, <int> n_obs_kf,
-                              order_kf, cpp_params, <double*> d_ic_ptr,
-                              <int> ic_type_id)
+        cdef uintptr_t d_temp_mem = self._temp_mem.ptr
+        arima_mem_ptr = new ARIMAMemory[double](
+            order, <int> self.batch_size, <int> self.n_obs,
+            <char*> d_temp_mem)
+
+        information_criterion(handle_[0], arima_mem_ptr[0],
+                              <double*> d_y_kf_ptr, <int> self.batch_size,
+                              <int> n_obs_kf, order_kf, cpp_params,
+                              <double*> d_ic_ptr, <int> ic_type_id)
+
+        del arima_mem_ptr
 
         return ic
 
@@ -499,7 +523,6 @@ class ARIMA(Base):
         raise NotImplementedError("ARIMA is unable to be cloned via "
                                   "`get_params` and `set_params`.")
 
-    @nvtx_range_wrap
     @cuml.internals.api_base_return_autoarray(input_arg=None)
     def predict(
         self,
@@ -587,12 +610,19 @@ class ARIMA(Base):
 
         cdef uintptr_t d_y_ptr = self.d_y.ptr
 
-        cpp_predict(handle_[0], <double*>d_y_ptr, <int> self.batch_size,
-                    <int> self.n_obs, <int> start, <int> end, order,
-                    cpp_params, <double*>d_y_p_ptr,
+        cdef uintptr_t d_temp_mem = self._temp_mem.ptr
+        arima_mem_ptr = new ARIMAMemory[double](
+            order, <int> self.batch_size, <int> self.n_obs,
+            <char*> d_temp_mem)
+
+        cpp_predict(handle_[0], arima_mem_ptr[0], <double*>d_y_ptr,
+                    <int> self.batch_size, <int> self.n_obs, <int> start,
+                    <int> end, order, cpp_params, <double*>d_y_p_ptr,
                     <bool> self.simple_differencing,
                     <double> (0 if level is None else level),
                     <double*> d_lower_ptr, <double*> d_upper_ptr)
+
+        del arima_mem_ptr
 
         if level is None:
             return d_y_p
@@ -601,7 +631,7 @@ class ARIMA(Base):
                     d_lower,
                     d_upper)
 
-    @nvtx_range_wrap
+    @nvtx.annotate(message="tsa.arima.ARIMA.forecast", domain="cuml_python")
     @cuml.internals.api_base_return_generic_skipall
     def forecast(
         self,
@@ -664,7 +694,8 @@ class ARIMA(Base):
         if not hasattr(self, "sigma2_"):
             self.sigma2_ = CumlArray.empty(self.batch_size, np.float64)
 
-    @nvtx_range_wrap
+    @nvtx.annotate(message="tsa.arima.ARIMA._estimate_x0",
+                   domain="cuml_python")
     @cuml.internals.api_base_return_any_skipall
     def _estimate_x0(self):
         """Internal method. Estimate initial parameters of the model.
@@ -681,7 +712,6 @@ class ARIMA(Base):
         estimate_x0(handle_[0], cpp_params, <double*> d_y_ptr,
                     <int> self.batch_size, <int> self.n_obs, order)
 
-    @nvtx_range_wrap
     @cuml.internals.api_base_return_any_skipall
     def fit(self,
             start_params: Optional[Mapping[str, object]] = None,
@@ -777,7 +807,7 @@ class ARIMA(Base):
         self.unpack(self._batched_transform(x))
         return self
 
-    @nvtx_range_wrap
+    @nvtx.annotate(message="tsa.arima.ARIMA._loglike", domain="cuml_python")
     @cuml.internals.api_base_return_any_skipall
     def _loglike(self, x, trans=True, method="ml", truncate=0):
         """Compute the batched log-likelihood for the given parameters.
@@ -807,6 +837,7 @@ class ARIMA(Base):
         cdef LoglikeMethod ll_method = CSS if method == "css" else MLE
         diff = ll_method != MLE or self.simple_differencing
 
+        cdef ARIMAOrder order = self.order
         cdef ARIMAOrder order_kf = self.order_diff if diff else self.order
 
         d_x_array, *_ = \
@@ -818,20 +849,29 @@ class ARIMA(Base):
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
+        # TODO: don't create vs array every time!
         n_obs_kf = (self.n_obs_diff if diff else self.n_obs)
         d_vs = CumlArray.empty((n_obs_kf, self.batch_size), dtype=np.float64,
                                order="F")
         cdef uintptr_t d_vs_ptr = d_vs.ptr
 
-        batched_loglike(handle_[0], <double*> d_y_kf_ptr,
+        cdef uintptr_t d_temp_mem = self._temp_mem.ptr
+        arima_mem_ptr = new ARIMAMemory[double](
+            order, <int> self.batch_size, <int> self.n_obs,
+            <char*> d_temp_mem)
+
+        batched_loglike(handle_[0], arima_mem_ptr[0], <double*> d_y_kf_ptr,
                         <int> self.batch_size, <int> n_obs_kf, order_kf,
                         <double*> d_x_ptr, <double*> vec_loglike.data(),
                         <double*> d_vs_ptr, <bool> trans, <bool> True,
                         ll_method, <int> truncate)
 
+        del arima_mem_ptr
+
         return np.array(vec_loglike, dtype=np.float64)
 
-    @nvtx_range_wrap
+    @nvtx.annotate(message="tsa.arima.ARIMA._loglike_grad",
+                   domain="cuml_python")
     @cuml.internals.api_base_return_any_skipall
     def _loglike_grad(self, x, h=1e-8, trans=True, method="ml", truncate=0):
         """Compute the gradient (via finite differencing) of the batched
@@ -869,6 +909,7 @@ class ARIMA(Base):
         grad = CumlArray.empty(N * self.batch_size, np.float64)
         cdef uintptr_t d_grad = <uintptr_t> grad.ptr
 
+        cdef ARIMAOrder order = self.order
         cdef ARIMAOrder order_kf = self.order_diff if diff else self.order
 
         d_x_array, *_ = \
@@ -880,12 +921,19 @@ class ARIMA(Base):
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        batched_loglike_grad(handle_[0], <double*> d_y_kf_ptr,
-                             <int> self.batch_size,
+        cdef uintptr_t d_temp_mem = self._temp_mem.ptr
+        arima_mem_ptr = new ARIMAMemory[double](
+            order, <int> self.batch_size, <int> self.n_obs,
+            <char*> d_temp_mem)
+
+        batched_loglike_grad(handle_[0], arima_mem_ptr[0],
+                             <double*> d_y_kf_ptr, <int> self.batch_size,
                              <int> (self.n_obs_diff if diff else self.n_obs),
                              order_kf, <double*> d_x_ptr, <double*> d_grad,
                              <double> h, <bool> trans, ll_method,
                              <int> truncate)
+
+        del arima_mem_ptr
 
         return grad.to_output("numpy")
 
@@ -902,6 +950,7 @@ class ARIMA(Base):
         cdef vector[double] vec_loglike
         vec_loglike.resize(self.batch_size)
 
+        cdef ARIMAOrder order = self.order
         cdef ARIMAOrder order_kf = \
             self.order_diff if self.simple_differencing else self.order
         cdef ARIMAParams[double] cpp_params = ARIMAParamsWrapper(self).params
@@ -919,15 +968,22 @@ class ARIMA(Base):
                                order="F")
         cdef uintptr_t d_vs_ptr = d_vs.ptr
 
-        batched_loglike(handle_[0], <double*> d_y_kf_ptr,
+        cdef uintptr_t d_temp_mem = self._temp_mem.ptr
+        arima_mem_ptr = new ARIMAMemory[double](
+            order, <int> self.batch_size, <int> self.n_obs,
+            <char*> d_temp_mem)
+
+        batched_loglike(handle_[0], arima_mem_ptr[0], <double*> d_y_kf_ptr,
                         <int> self.batch_size, <int> n_obs_kf, order_kf,
                         cpp_params, <double*> vec_loglike.data(),
                         <double*> d_vs_ptr, <bool> False, <bool> True,
                         ll_method, <int> 0)
 
+        del arima_mem_ptr
+
         return np.array(vec_loglike, dtype=np.float64)
 
-    @nvtx_range_wrap
+    @nvtx.annotate(message="tsa.arima.ARIMA.unpack", domain="cuml_python")
     def unpack(self, x: Union[list, np.ndarray]):
         """Unpack linearized parameter vector `x` into the separate
         parameter arrays of the model
@@ -952,7 +1008,7 @@ class ARIMA(Base):
         cpp_unpack(handle_[0], cpp_params, order, <int> self.batch_size,
                    <double*>d_x_ptr)
 
-    @nvtx_range_wrap
+    @nvtx.annotate(message="tsa.arima.ARIMA.pack", domain="cuml_python")
     def pack(self) -> np.ndarray:
         """Pack parameters of the model into a linearized vector `x`
 
@@ -976,7 +1032,8 @@ class ARIMA(Base):
 
         return d_x_array.to_output("numpy")
 
-    @nvtx_range_wrap
+    @nvtx.annotate(message="tsa.arima.ARIMA._batched_transform",
+                   domain="cuml_python")
     @cuml.internals.api_base_return_any_skipall
     def _batched_transform(self, x, isInv=False):
         """Applies Jones transform or inverse transform to a parameter vector
@@ -999,9 +1056,17 @@ class ARIMA(Base):
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         Tx = np.zeros(self.batch_size * N)
 
+        cdef uintptr_t d_temp_mem = self._temp_mem.ptr
+        arima_mem_ptr = new ARIMAMemory[double](
+            order, <int> self.batch_size, <int> self.n_obs,
+            <char*> d_temp_mem)
+
         cdef uintptr_t x_ptr = x.ctypes.data
         cdef uintptr_t Tx_ptr = Tx.ctypes.data
-        batched_jones_transform(handle_[0], order, <int> self.batch_size,
-                                <bool> isInv, <double*>x_ptr, <double*>Tx_ptr)
+        batched_jones_transform(
+            handle_[0], arima_mem_ptr[0], order, <int> self.batch_size,
+            <bool> isInv, <double*>x_ptr, <double*>Tx_ptr)
+
+        del arima_mem_ptr
 
         return (Tx)

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,10 +28,10 @@ template <typename T>
 struct SquaredLoss : GLMBase<T, SquaredLoss<T>> {
   typedef GLMBase<T, SquaredLoss<T>> Super;
 
-  SquaredLoss(const raft::handle_t &handle, int D, bool has_bias)
-    : Super(handle, D, 1, has_bias) {}
+  SquaredLoss(const raft::handle_t& handle, int D, bool has_bias) : Super(handle, D, 1, has_bias) {}
 
-  inline __device__ T lz(const T y, const T z) const {
+  inline __device__ T lz(const T y, const T z) const
+  {
     T diff = y - z;
     return diff * diff * 0.5;
   }

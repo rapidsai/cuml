@@ -211,7 +211,7 @@ class SimpleImputer(_BaseImputer, BaseEstimator,
     Examples
     --------
     >>> import cupy as cp
-    >>> from cuml.experimental.preprocessing import SimpleImputer
+    >>> from cuml.preprocessing import SimpleImputer
     >>> imp_mean = SimpleImputer(missing_values=cp.nan, strategy='mean')
     >>> imp_mean.fit(cp.asarray([[7, 2, 3], [4, cp.nan, 6], [10, 5, 9]]))
     SimpleImputer()
@@ -230,7 +230,7 @@ class SimpleImputer(_BaseImputer, BaseEstimator,
 
     statistics_ = CumlArrayDescriptor()
 
-    @_deprecate_pos_args(version="0.20")
+    @_deprecate_pos_args(version="21.06")
     def __init__(self, *, missing_values=np.nan, strategy="mean",
                  fill_value=None, copy=True, add_indicator=False):
         super().__init__(
@@ -534,7 +534,7 @@ class MissingIndicator(TransformerMixin,
     """
     features_ = CumlArrayDescriptor()
 
-    @_deprecate_pos_args(version="0.20")
+    @_deprecate_pos_args(version="21.06")
     def __init__(self, *, missing_values=np.nan, features="missing-only",
                  sparse="auto", error_on_new=True):
         self.missing_values = missing_values

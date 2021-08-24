@@ -14,8 +14,6 @@
 # limitations under the License.
 #
 
-import warnings
-
 import numpy as np
 import cupy as cp
 
@@ -91,9 +89,6 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         If set, each tree in the forest is built
         on a bootstrapped sample with replacement.
         If False, the whole dataset is used to build each tree.
-    bootstrap_features : boolean (default = False)
-        Control bootstrapping for features.
-        If features are drawn with or without replacement
     max_samples : float (default = 1.0)
         Ratio of dataset rows used while fitting each tree.
     max_depth : int (default = -1)
@@ -120,6 +115,14 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
     quantile_per_tree : boolean (default = False)
         Whether quantile is computed for individual RF trees.
         Only relevant for GLOBAL_QUANTILE split_algo.
+    use_experimental_backend : boolean (default = True)
+        If set to true and the following conditions are also met, a new
+        experimental backend for decision tree training will be used. The
+        new backend is available only if `split_algo = 1` (GLOBAL_QUANTILE)
+        and `quantile_per_tree = False` (No per tree quantile computation).
+        The new backend is considered stable for classification tasks but
+        not yet for regression tasks. The RAPIDS team is continuing
+        optimization and evaluation of the new backend for regression tasks.
     n_streams : int (default = 4 )
         Number of parallel streams used for forest building
     workers : optional, list of strings
@@ -127,13 +130,6 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         If None, all available Dask workers will be used.
     random_state : int (default = None)
         Seed for the random number generator. Unseeded by default.
-    seed : int (default = None)
-        Base seed for the random number generator. Unseeded by default. Does
-        not currently fully guarantee the exact same results.
-
-        .. deprecated:: 0.15
-           Parameter `seed` is deprecated and will be removed in 0.17. Please
-           use `random_state` instead
 
     ignore_empty_partitions: Boolean (default = False)
         Specify behavior when a worker does not hold any data
@@ -157,7 +153,6 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         verbose=False,
         n_estimators=10,
         random_state=None,
-        seed=None,
         ignore_empty_partitions=False,
         **kwargs
     ):
@@ -165,20 +160,6 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         super().__init__(client=client,
                          verbose=verbose,
                          **kwargs)
-        if seed is not None:
-            if random_state is None:
-                warnings.warn("Parameter 'seed' is deprecated and will be"
-                              " removed in 0.17. Please use 'random_state'"
-                              " instead. Setting 'random_state' as the"
-                              " curent 'seed' value",
-                              DeprecationWarning)
-                random_state = seed
-            else:
-                warnings.warn("Both 'seed' and 'random_state' parameters were"
-                              " set. Using 'random_state' since 'seed' is"
-                              " deprecated and will be removed in 0.17.",
-                              DeprecationWarning)
-
         self._create_model(
             model_func=RandomForestClassifier._construct_rf,
             client=client,
@@ -199,10 +180,6 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
             random_state=random_state,
             **kwargs
         )
-
-    @staticmethod
-    def _predict_model_on_cpu(model, X, convert_dtype):
-        return model._predict_get_all(X, convert_dtype)
 
     def get_summary_text(self):
         """

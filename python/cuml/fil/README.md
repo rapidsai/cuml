@@ -32,8 +32,8 @@ Additionally, FIL can be called directly from C or C++ code. See [the API docs h
 
 # Features
 
-* Input model source: XGBoost (binary format), cuML RandomForest, scikit-learn RandomForest, LightGBM
-* Model types: Regression, Binary Classification, Multi-class Classification (for cuML Random Forests, but not GBDTs or scikit-learn Random Forests)
+* Input model source: XGBoost (binary format), cuML RandomForest, scikit-learn RandomForest and similar classes, LightGBM
+* Model types: Regression, Binary Classification, Multi-class Classification
 * Tree storage types: Dense or sparse tree storage (see Sparse Forests with FIL blog below)
 * Input formats: Dense, row-major, FP32 arrays on GPU or CPU (e.g. NumPy, cuPy, or other data formats supported by cuML). Trees are expected to be trained for float32 inputs. There may be rounding differences if trees were trained for float64 inputs.
 * High performance batch inference
@@ -41,9 +41,9 @@ Additionally, FIL can be called directly from C or C++ code. See [the API docs h
 
 Upcoming features:
 
-* Support for multi-class GBDTs is planned for RAPIDS 0.16
-* Support for smaller node storage (8-byte) to reduce memory usage for
-  small trees is experimental
+* Support for multi-class random forests from scikit-learn
+* Support for 8-byte sparse nodes to reduce memory usage for small trees is experimental
+* Categorical features for LightGBM models
 
 # Benchmarks and performance notes
 
@@ -74,5 +74,6 @@ GPU, using FIL 0.9.)
 * [RAPIDS Forest Inference Library: Prediction at 100 million rows per second](https://medium.com/rapids-ai/rapids-forest-inference-library-prediction-at-100-million-rows-per-second-19558890bc35)
 * [Sparse Forests with FIL](https://medium.com/rapids-ai/sparse-forests-with-fil-ffbb42b0c7e3
 )
-* [GBM Inferencing on GPU (earlier research work)](https://on-demand.gputechconf.com/gtc/2018/presentation/s8873-gbm-inferencing-on-gpu-v2.pdf)
+* [GBM Inferencing on GPU, 2018 talk (earlier research work)](https://on-demand.gputechconf.com/gtc/2018/presentation/s8873-gbm-inferencing-on-gpu-v2.pdf)
 * [Sample Notebook](https://github.com/rapidsai/cuml/blob/branch-0.16/notebooks/forest_inference_demo.ipynb)
+* [GTC 2021 talk](https://www.nvidia.com/en-us/on-demand/session/gtcspring21-s31296/)

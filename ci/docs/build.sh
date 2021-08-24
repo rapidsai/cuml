@@ -10,12 +10,11 @@ if [ -z "$PROJECT_WORKSPACE" ]; then
     exit 1
 fi
 
-export DOCS_WORKSPACE=$WORKSPACE/docs
+export DOCS_WORKSPACE="$WORKSPACE/docs"
 export PATH=/conda/bin:/usr/local/cuda/bin:$PATH
-export HOME=$WORKSPACE
+export HOME="$WORKSPACE"
 export PROJECT_WORKSPACE=/rapids/cuml
 export LIBCUDF_KERNEL_CACHE_PATH="$HOME/.jitify-cache"
-export NIGHTLY_VERSION=$(echo $BRANCH_VERSION | awk -F. '{print $2}')
 export PROJECTS=(cuml libcuml)
 
 gpuci_logger "Check environment"
@@ -46,24 +45,23 @@ conda list --show-channel-urls
 
 # Build Doxygen docs
 gpuci_logger "Build Doxygen docs"
-$PROJECT_WORKSPACE/build.sh cppdocs -v
+"$PROJECT_WORKSPACE/build.sh" cppdocs -v
 
 # Build Python docs
 gpuci_logger "Build Sphinx docs"
-cd $PROJECT_WORKSPACE/docs
+cd "$PROJECT_WORKSPACE/docs"
 make html
 
 #Commit to Website
-cd $DOCS_WORKSPACE
+cd "$DOCS_WORKSPACE"
 
 for PROJECT in ${PROJECTS[@]}; do
     if [ ! -d "api/$PROJECT/$BRANCH_VERSION" ]; then
-        mkdir -p api/$PROJECT/$BRANCH_VERSION
+        mkdir -p "api/$PROJECT/$BRANCH_VERSION"
     fi
-    rm -rf $DOCS_WORKSPACE/api/$PROJECT/$BRANCH_VERSION/*
+    rm -rf "$DOCS_WORKSPACE/api/$PROJECT/$BRANCH_VERSION/"*
 done
 
 
-mv $PROJECT_WORKSPACE/cpp/build/html/* $DOCS_WORKSPACE/api/libcuml/$BRANCH_VERSION
-mv $PROJECT_WORKSPACE/docs/build/html/* $DOCS_WORKSPACE/api/cuml/$BRANCH_VERSION
-
+mv "$PROJECT_WORKSPACE/cpp/build/html/"* "$DOCS_WORKSPACE/api/libcuml/$BRANCH_VERSION"
+mv "$PROJECT_WORKSPACE/docs/build/html/"* "$DOCS_WORKSPACE/api/cuml/$BRANCH_VERSION"

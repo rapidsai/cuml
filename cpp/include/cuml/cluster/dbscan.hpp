@@ -17,8 +17,11 @@
 #pragma once
 
 #include <raft/linalg/distance_type.h>
-#include <cuml/common/logger.hpp>
-#include <cuml/cuml.hpp>
+#include <cuml/common/log_levels.hpp>
+
+namespace raft {
+class handle_t;
+}
 
 namespace ML {
 namespace Dbscan {
@@ -35,9 +38,9 @@ namespace Dbscan {
  * @param[in] min_pts minimum number of points to determine a cluster
  * @param[in] metric metric type (or precomputed)
  * @param[out] labels (size n_rows) output labels array
- * @param[out] core_sample_indices (size n_rows) output array containing the 
+ * @param[out] core_sample_indices (size n_rows) output array containing the
  *             indices of each core point. If the number of core points is less
- *             than n_rows, the right will be padded with -1. Setting this to 
+ *             than n_rows, the right will be padded with -1. Setting this to
  *             NULL will prevent calculating the core sample indices
  * @param[in] max_bytes_per_batch the maximum number of megabytes to be used for
  *            each batch of the pairwise distance calculation. This enables the
@@ -47,27 +50,55 @@ namespace Dbscan {
  * @{
  */
 
-void fit(const raft::handle_t &handle, float *input, int n_rows, int n_cols,
-         float eps, int min_pts, raft::distance::DistanceType metric,
-         int *labels, int *core_sample_indices = nullptr,
-         size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO,
-         bool opg = false);
-void fit(const raft::handle_t &handle, double *input, int n_rows, int n_cols,
-         double eps, int min_pts, raft::distance::DistanceType metric,
-         int *labels, int *core_sample_indices = nullptr,
-         size_t max_bytes_per_batch = 0, int verbosity = CUML_LEVEL_INFO,
-         bool opg = false);
+void fit(const raft::handle_t& handle,
+         float* input,
+         int n_rows,
+         int n_cols,
+         float eps,
+         int min_pts,
+         raft::distance::DistanceType metric,
+         int* labels,
+         int* core_sample_indices   = nullptr,
+         size_t max_bytes_per_batch = 0,
+         int verbosity              = CUML_LEVEL_INFO,
+         bool opg                   = false);
+void fit(const raft::handle_t& handle,
+         double* input,
+         int n_rows,
+         int n_cols,
+         double eps,
+         int min_pts,
+         raft::distance::DistanceType metric,
+         int* labels,
+         int* core_sample_indices   = nullptr,
+         size_t max_bytes_per_batch = 0,
+         int verbosity              = CUML_LEVEL_INFO,
+         bool opg                   = false);
 
-void fit(const raft::handle_t &handle, float *input, int64_t n_rows,
-         int64_t n_cols, float eps, int min_pts,
-         raft::distance::DistanceType metric, int64_t *labels,
-         int64_t *core_sample_indices = nullptr, size_t max_bytes_per_batch = 0,
-         int verbosity = CUML_LEVEL_INFO, bool opg = false);
-void fit(const raft::handle_t &handle, double *input, int64_t n_rows,
-         int64_t n_cols, double eps, int min_pts,
-         raft::distance::DistanceType metric, int64_t *labels,
-         int64_t *core_sample_indices = nullptr, size_t max_bytes_per_batch = 0,
-         int verbosity = CUML_LEVEL_INFO, bool opg = false);
+void fit(const raft::handle_t& handle,
+         float* input,
+         int64_t n_rows,
+         int64_t n_cols,
+         float eps,
+         int min_pts,
+         raft::distance::DistanceType metric,
+         int64_t* labels,
+         int64_t* core_sample_indices = nullptr,
+         size_t max_bytes_per_batch   = 0,
+         int verbosity                = CUML_LEVEL_INFO,
+         bool opg                     = false);
+void fit(const raft::handle_t& handle,
+         double* input,
+         int64_t n_rows,
+         int64_t n_cols,
+         double eps,
+         int min_pts,
+         raft::distance::DistanceType metric,
+         int64_t* labels,
+         int64_t* core_sample_indices = nullptr,
+         size_t max_bytes_per_batch   = 0,
+         int verbosity                = CUML_LEVEL_INFO,
+         bool opg                     = false);
 
 /** @} */
 

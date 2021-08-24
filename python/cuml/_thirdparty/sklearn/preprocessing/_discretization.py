@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 # Original authors from Sckit-Learn:
 #         Henry Lin <hlin117@gmail.com>
 #         Tom Dupré la Tour
@@ -137,7 +135,7 @@ class KBinsDiscretizer(TransformerMixin,
     bin_edges_ = CumlArrayDescriptor()
     n_bins_ = CumlArrayDescriptor()
 
-    @_deprecate_pos_args(version="0.20")
+    @_deprecate_pos_args(version="21.06")
     def __init__(self, n_bins=5, *, encode='onehot', strategy='quantile'):
         self.n_bins = n_bins
         self.encode = encode

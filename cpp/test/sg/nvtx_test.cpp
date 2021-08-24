@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,25 +22,25 @@
 
 namespace ML {
 
-uint32_t generateNextColor(const std::string &tag);
+uint32_t generateNextColor(const std::string& tag);
 
 class nvtxNextColorTest : public ::testing::Test {
  protected:
-  void SetUp() override {
+  void SetUp() override
+  {
     const std::string temp1 = "foo";
     const std::string temp2 = "bar";
 
-    if (ML::generateNextColor(temp1) != ML::generateNextColor(temp2))
-      diff_string_diff_color = true;
-    if (ML::generateNextColor(temp1) == ML::generateNextColor(temp1))
-      same_string_same_color = true;
+    if (ML::generateNextColor(temp1) != ML::generateNextColor(temp2)) diff_string_diff_color = true;
+    if (ML::generateNextColor(temp1) == ML::generateNextColor(temp1)) same_string_same_color = true;
   }
   void TearDown() {}
   bool diff_string_diff_color = false;
   bool same_string_same_color = false;
 };
 
-TEST_F(nvtxNextColorTest, nvtxGenerateNextColorTest) {
+TEST_F(nvtxNextColorTest, nvtxGenerateNextColorTest)
+{
   EXPECT_TRUE(diff_string_diff_color);
   EXPECT_TRUE(same_string_same_color);
 }
