@@ -419,7 +419,7 @@ endif()
 
 # ###################################################################################################
 # # - install targets -------------------------------------------------------------------------------
-
+rapids_cmake_install_lib_dir( lib_dir )
 include(CPack)
 
 set(CUML_TARGETS ${CUML_CPP_TARGET})
@@ -432,7 +432,7 @@ endif()
 install(TARGETS
           ${CUML_TARGETS}
         DESTINATION
-          lib
+          ${lib_dir}
         EXPORT
           cuml-exports)
 
