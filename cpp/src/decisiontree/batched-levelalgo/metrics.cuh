@@ -34,10 +34,7 @@ struct IntBin {
     auto offset = label * nbins + b;
     IntBin::AtomicAdd(hist + offset, {1});
   }
-  DI static void AtomicAdd(IntBin* address, IntBin val)
-  {
-    atomicAdd(&address->x, val.x);
-  }
+  DI static void AtomicAdd(IntBin* address, IntBin val) { atomicAdd(&address->x, val.x); }
   DI IntBin& operator+=(const IntBin& b)
   {
     x += b.x;

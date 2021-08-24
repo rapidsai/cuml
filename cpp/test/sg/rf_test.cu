@@ -298,26 +298,26 @@ class RfSpecialisedTest {
       // algorithm produces only stumps
       size_t effective_rows = params.n_rows * params.max_samples;
       if (params.max_depth > 0 && params.min_impurity_decrease == 0 && effective_rows >= 100) {
-        EXPECT_GT(forest->trees[i].leaf_counter, 1);
+        EXPECT_GT(forest->trees[i]->leaf_counter, 1);
       }
 
       // Check number of leaves is accurate
       int num_leaves = 0;
-      for (auto n : forest->trees[i].sparsetree) {
+      for (auto n : forest->trees[i]->sparsetree) {
         num_leaves += n.IsLeaf();
       }
-      EXPECT_EQ(num_leaves, forest->trees[i].leaf_counter);
-      if (params.max_leaves > 0) { EXPECT_LE(forest->trees[i].leaf_counter, params.max_leaves); }
+      EXPECT_EQ(num_leaves, forest->trees[i]->leaf_counter);
+      if (params.max_leaves > 0) { EXPECT_LE(forest->trees[i]->leaf_counter, params.max_leaves); }
 
-      EXPECT_LE(forest->trees[i].depth_counter, params.max_depth);
-      EXPECT_LE(forest->trees[i].leaf_counter,
+      EXPECT_LE(forest->trees[i]->depth_counter, params.max_depth);
+      EXPECT_LE(forest->trees[i]->leaf_counter,
                 raft::ceildiv(params.n_rows, params.min_samples_leaf));
     }
   }
   void TestMinImpurity()
   {
     for (int i = 0u; i < forest->rf_params.n_trees; i++) {
-      for (auto n : forest->trees[i].sparsetree) {
+      for (auto n : forest->trees[i]->sparsetree) {
         if (!n.IsLeaf()) { EXPECT_GT(n.BestMetric(), params.min_impurity_decrease); }
       }
     }
@@ -335,14 +335,14 @@ class RfSpecialisedTest {
       TrainScore(handle, params, X.data().get(), X_transpose.data().get(), y.data().get());
 
     for (int i = 0u; i < forest->rf_params.n_trees; i++) {
-      EXPECT_EQ(forest->trees[i].sparsetree, alt_forest->trees[i].sparsetree);
+      EXPECT_EQ(forest->trees[i]->sparsetree, alt_forest->trees[i]->sparsetree);
     }
   }
   // Instance counts in children sums up to parent.
   void TestInstanceCounts()
   {
     for (int i = 0u; i < forest->rf_params.n_trees; i++) {
-      const auto& tree = forest->trees[i].sparsetree;
+      const auto& tree = forest->trees[i]->sparsetree;
       for (auto n : tree) {
         if (!n.IsLeaf()) {
           auto sum = tree[n.LeftChildId()].InstanceCount() + tree[n.RightChildId()].InstanceCount();
