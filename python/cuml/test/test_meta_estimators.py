@@ -27,7 +27,7 @@ from cuml.datasets import make_regression, make_classification
 from cuml.model_selection import train_test_split
 from sklearn.datasets import load_iris
 
-from cuml.experimental.preprocessing import StandardScaler
+from cuml.preprocessing import StandardScaler
 from cuml.svm import SVC
 
 

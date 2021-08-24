@@ -24,6 +24,7 @@
 #include <matrix/kernelfactory.cuh>
 #include <memory>
 #include <raft/cuda_utils.cuh>
+#include <raft/mr/host/allocator.hpp>
 #include <raft/random/rng.cuh>
 #include <rmm/device_uvector.hpp>
 #include "test_utils.h"
@@ -32,7 +33,8 @@ namespace MLCommon {
 namespace Matrix {
 
 // Get the offset of element [i,k].
-HDI int get_offset(int i, int k, int ld, bool is_row_major) {
+HDI int get_offset(int i, int k, int ld, bool is_row_major)
+{
   return is_row_major ? i * ld + k : i + k * ld;
 }
 
@@ -49,12 +51,12 @@ struct GramMatrixInputs {
   // The reference output is calculated by a custom kernel.
 };
 
-std::ostream& operator<<(std::ostream& os, const GramMatrixInputs& p) {
+std::ostream& operator<<(std::ostream& os, const GramMatrixInputs& p)
+{
   std::vector<std::string> kernel_names{"linear", "poly", "rbf", "tanh"};
   os << "/" << p.n1 << "x" << p.n2 << "x" << p.n_cols << "/"
-     << (p.is_row_major ? "RowMajor/" : "ColMajor/")
-     << kernel_names[p.kernel.kernel] << "/ld_" << p.ld1 << "x" << p.ld2 << "x"
-     << p.ld_out;
+     << (p.is_row_major ? "RowMajor/" : "ColMajor/") << kernel_names[p.kernel.kernel] << "/ld_"
+     << p.ld1 << "x" << p.ld2 << "x" << p.ld_out;
   return os;
 }
 
@@ -88,46 +90,34 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
       x1(0, stream),
       x2(0, stream),
       gram(0, stream),
-      gram_host(handle.get_host_allocator(), stream) {
+      gram_host(handle.get_host_allocator(), stream)
+  {
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    if (params.ld1 == 0) {
-      params.ld1 = params.is_row_major ? params.n_cols : params.n1;
-    }
-    if (params.ld2 == 0) {
-      params.ld2 = params.is_row_major ? params.n_cols : params.n2;
-    }
-    if (params.ld_out == 0) {
-      params.ld_out = params.is_row_major ? params.n2 : params.n1;
-    }
+    if (params.ld1 == 0) { params.ld1 = params.is_row_major ? params.n_cols : params.n1; }
+    if (params.ld2 == 0) { params.ld2 = params.is_row_major ? params.n_cols : params.n2; }
+    if (params.ld_out == 0) { params.ld_out = params.is_row_major ? params.n2 : params.n1; }
     // Derive the size of the ouptut from the offset of the last element.
-    size_t size = get_offset(params.n1 - 1, params.n_cols - 1, params.ld1,
-                             params.is_row_major) +
-                  1;
+    size_t size = get_offset(params.n1 - 1, params.n_cols - 1, params.ld1, params.is_row_major) + 1;
     x1.resize(size, stream);
-    size = get_offset(params.n2 - 1, params.n_cols - 1, params.ld2,
-                      params.is_row_major) +
-           1;
+    size = get_offset(params.n2 - 1, params.n_cols - 1, params.ld2, params.is_row_major) + 1;
     x2.resize(size, stream);
-    size = get_offset(params.n1 - 1, params.n2 - 1, params.ld_out,
-                      params.is_row_major) +
-           1;
+    size = get_offset(params.n1 - 1, params.n2 - 1, params.ld_out, params.is_row_major) + 1;
     gram.resize(size, stream);
     gram_host.resize(gram.size());
 
     raft::random::Rng r(42137ULL);
     r.uniform(x1.data(), x1.size(), math_t(0), math_t(1), stream);
     r.uniform(x2.data(), x2.size(), math_t(0), math_t(1), stream);
-    CUDA_CHECK(
-      cudaMemsetAsync(gram.data(), 0, gram.size() * sizeof(math_t), stream));
-    CUDA_CHECK(cudaMemsetAsync(gram_host.data(), 0,
-                               gram_host.size() * sizeof(math_t), stream));
+    CUDA_CHECK(cudaMemsetAsync(gram.data(), 0, gram.size() * sizeof(math_t), stream));
+    CUDA_CHECK(cudaMemsetAsync(gram_host.data(), 0, gram_host.size() * sizeof(math_t), stream));
   }
 
   ~GramMatrixTest() override { CUDA_CHECK_NO_THROW(cudaStreamDestroy(stream)); }
 
   // Calculate the Gram matrix on the host.
-  void naiveKernel() {
+  void naiveKernel()
+  {
     host_buffer<math_t> x1_host(handle.get_host_allocator(), stream, x1.size());
     raft::update_host(x1_host.data(), x1.data(), x1.size(), stream);
     host_buffer<math_t> x2_host(handle.get_host_allocator(), stream, x2.size());
@@ -139,56 +129,57 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
         float d = 0;
         for (int k = 0; k < params.n_cols; k++) {
           if (params.kernel.kernel == KernelType::RBF) {
-            math_t diff =
-              x1_host[get_offset(i, k, params.ld1, params.is_row_major)] -
-              x2_host[get_offset(j, k, params.ld2, params.is_row_major)];
+            math_t diff = x1_host[get_offset(i, k, params.ld1, params.is_row_major)] -
+                          x2_host[get_offset(j, k, params.ld2, params.is_row_major)];
             d += diff * diff;
           } else {
             d += x1_host[get_offset(i, k, params.ld1, params.is_row_major)] *
                  x2_host[get_offset(j, k, params.ld2, params.is_row_major)];
           }
         }
-        int idx = get_offset(i, j, params.ld_out, params.is_row_major);
+        int idx  = get_offset(i, j, params.ld_out, params.is_row_major);
         math_t v = 0;
         switch (params.kernel.kernel) {
-          case (KernelType::LINEAR):
-            gram_host[idx] = d;
-            break;
+          case (KernelType::LINEAR): gram_host[idx] = d; break;
           case (KernelType::POLYNOMIAL):
-            v = params.kernel.gamma * d + params.kernel.coef0;
+            v              = params.kernel.gamma * d + params.kernel.coef0;
             gram_host[idx] = std::pow(v, params.kernel.degree);
             break;
           case (KernelType::TANH):
-            gram_host[idx] =
-              std::tanh(params.kernel.gamma * d + params.kernel.coef0);
+            gram_host[idx] = std::tanh(params.kernel.gamma * d + params.kernel.coef0);
             break;
-          case (KernelType::RBF):
-            gram_host[idx] = exp(-params.kernel.gamma * d);
-            break;
+          case (KernelType::RBF): gram_host[idx] = exp(-params.kernel.gamma * d); break;
         }
       }
     }
   }
 
-  void runTest() {
-    std::unique_ptr<GramMatrixBase<math_t>> kernel =
-      std::unique_ptr<GramMatrixBase<math_t>>(KernelFactory<math_t>::create(
-        params.kernel, handle.get_cublas_handle()));
+  void runTest()
+  {
+    std::unique_ptr<GramMatrixBase<math_t>> kernel = std::unique_ptr<GramMatrixBase<math_t>>(
+      KernelFactory<math_t>::create(params.kernel, handle.get_cublas_handle()));
 
-    kernel->evaluate(x1.data(), params.n1, params.n_cols, x2.data(), params.n2,
-                     gram.data(), params.is_row_major, stream, params.ld1,
-                     params.ld2, params.ld_out);
+    kernel->evaluate(x1.data(),
+                     params.n1,
+                     params.n_cols,
+                     x2.data(),
+                     params.n2,
+                     gram.data(),
+                     params.is_row_major,
+                     stream,
+                     params.ld1,
+                     params.ld2,
+                     params.ld_out);
     naiveKernel();
-    ASSERT_TRUE(raft::devArrMatchHost(gram_host.data(), gram.data(),
-                                      gram.size(),
-                                      raft::CompareApprox<math_t>(1e-6f)));
+    ASSERT_TRUE(raft::devArrMatchHost(
+      gram_host.data(), gram.data(), gram.size(), raft::CompareApprox<math_t>(1e-6f)));
   }
 
   raft::handle_t handle;
   cudaStream_t stream;
   GramMatrixInputs params;
 
-  std::shared_ptr<hostAllocator> host_allocator;
+  std::shared_ptr<raft::mr::host::allocator> host_allocator;
 
   rmm::device_uvector<math_t> x1;
   rmm::device_uvector<math_t> x2;
@@ -201,7 +192,6 @@ typedef GramMatrixTest<double> GramMatrixTestDouble;
 
 TEST_P(GramMatrixTestFloat, Gram) { runTest(); }
 
-INSTANTIATE_TEST_SUITE_P(GramMatrixTests, GramMatrixTestFloat,
-                         ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_SUITE_P(GramMatrixTests, GramMatrixTestFloat, ::testing::ValuesIn(inputs));
 };  // end namespace Matrix
 };  // end namespace MLCommon

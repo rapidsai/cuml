@@ -18,7 +18,6 @@
 #include <raft/sparse/hierarchy/common.h>
 #include <cuml/cluster/linkage.hpp>
 #include <cuml/common/logger.hpp>
-#include <cuml/cuml.hpp>
 #include <utility>
 #include "benchmark.cuh"
 
@@ -34,32 +33,39 @@ struct Params {
 template <typename D>
 class Linkage : public BlobsFixture<D> {
  public:
-  Linkage(const std::string& name, const Params& p)
-    : BlobsFixture<D>(name, p.data, p.blobs) {}
+  Linkage(const std::string& name, const Params& p) : BlobsFixture<D>(name, p.data, p.blobs) {}
 
  protected:
-  void runBenchmark(::benchmark::State& state) override {
+  void runBenchmark(::benchmark::State& state) override
+  {
     using MLCommon::Bench::CudaEventTimer;
     if (!this->params.rowMajor) {
       state.SkipWithError("Single-Linkage only supports row-major inputs");
     }
 
     this->loopOnState(state, [this]() {
-      out_arrs.labels = labels;
+      out_arrs.labels   = labels;
       out_arrs.children = out_children;
 
-      ML::single_linkage_neighbors(
-        *this->handle, this->data.X, this->params.nrows, this->params.ncols,
-        &out_arrs, raft::distance::DistanceType::L2Unexpanded, 15, 50);
+      ML::single_linkage_neighbors(*this->handle,
+                                   this->data.X,
+                                   this->params.nrows,
+                                   this->params.ncols,
+                                   &out_arrs,
+                                   raft::distance::DistanceType::L2Unexpanded,
+                                   15,
+                                   50);
     });
   }
 
-  void allocateTempBuffers(const ::benchmark::State& state) override {
+  void allocateTempBuffers(const ::benchmark::State& state) override
+  {
     this->alloc(labels, this->params.nrows);
     this->alloc(out_children, (this->params.nrows - 1) * 2);
   }
 
-  void deallocateTempBuffers(const ::benchmark::State& state) override {
+  void deallocateTempBuffers(const ::benchmark::State& state) override
+  {
     this->dealloc(labels, this->params.nrows);
     this->dealloc(out_children, (this->params.nrows - 1) * 2);
   }
@@ -70,17 +76,22 @@ class Linkage : public BlobsFixture<D> {
   raft::hierarchy::linkage_output<int, D> out_arrs;
 };
 
-std::vector<Params> getInputs() {
+std::vector<Params> getInputs()
+{
   std::vector<Params> out;
   Params p;
-  p.data.rowMajor = true;
-  p.blobs.cluster_std = 5.0;
-  p.blobs.shuffle = false;
-  p.blobs.center_box_min = -10.0;
-  p.blobs.center_box_max = 10.0;
-  p.blobs.seed = 12345ULL;
+  p.data.rowMajor                          = true;
+  p.blobs.cluster_std                      = 5.0;
+  p.blobs.shuffle                          = false;
+  p.blobs.center_box_min                   = -10.0;
+  p.blobs.center_box_max                   = 10.0;
+  p.blobs.seed                             = 12345ULL;
   std::vector<std::pair<int, int>> rowcols = {
-    {35000, 128}, {16384, 128}, {12288, 128}, {8192, 128}, {4096, 128},
+    {35000, 128},
+    {16384, 128},
+    {12288, 128},
+    {8192, 128},
+    {4096, 128},
   };
   for (auto& rc : rowcols) {
     p.data.nrows = rc.first;

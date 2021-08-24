@@ -1,5 +1,5 @@
 
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -23,12 +23,15 @@ from cuml.neighbors import KNeighborsClassifier as lKNNClf
 from cuml.dask.neighbors import KNeighborsClassifier as dKNNClf
 
 from sklearn.datasets import make_multilabel_classification
+from sklearn.datasets import make_classification
 from sklearn.model_selection import train_test_split
 
 import dask.array as da
+import dask.dataframe as dd
 from cuml.dask.common.dask_arr_utils import to_dask_cudf
-from cudf.core.dataframe import DataFrame
+from cudf import DataFrame
 import numpy as np
+import cudf
 
 
 def generate_dask_array(np_array, n_parts):
@@ -167,3 +170,22 @@ def test_predict_proba(dataset, datatype, parameters, client):
                             d_probas))
 
     check_probabilities(l_probas, d_probas)
+
+
+@pytest.mark.parametrize('input_type', ['array', 'dataframe'])
+def test_predict_1D_labels(input_type, client):
+    # Testing that nothing crashes with 1D labels
+
+    X, y = make_classification(n_samples=10000)
+    if input_type == 'array':
+        dX = da.from_array(X)
+        dy = da.from_array(y)
+    elif input_type == 'dataframe':
+        X = cudf.DataFrame(X)
+        y = cudf.Series(y)
+        dX = dd.from_pandas(X, npartitions=1)
+        dy = dd.from_pandas(y, npartitions=1)
+
+    clf = dKNNClf()
+    clf.fit(dX, dy)
+    clf.predict(dX)

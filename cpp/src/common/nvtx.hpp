@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,13 +16,28 @@
 
 #pragma once
 
+#include <raft/cudart_utils.h>
+
 namespace ML {
+
+/**
+ * @brief Synchronize CUDA stream and push a named nvtx range
+ * @param name range name
+ * @param stream stream to synchronize
+ */
+void PUSH_RANGE(const char* name, cudaStream_t stream);
+
+/**
+ * @brief Synchronize CUDA stream and pop the latest nvtx range
+ * @param stream stream to synchronize
+ */
+void POP_RANGE(cudaStream_t stream);
 
 /**
  * @brief Push a named nvtx range
  * @param name range name
  */
-void PUSH_RANGE(const char *name);
+void PUSH_RANGE(const char* name);
 
 /** Pop the latest range */
 void POP_RANGE();

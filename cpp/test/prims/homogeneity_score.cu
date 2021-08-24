@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -16,16 +16,16 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <algorithm>
-#include <cuml/common/cuml_allocator.hpp>
 #include <iostream>
 #include <metrics/homogeneity_score.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <random>
 #include "test_utils.h"
 
 namespace MLCommon {
 namespace Metrics {
 
-//parameter structure definition
+// parameter structure definition
 struct homogeneityParam {
   int nElements;
   int lowerLabelRange;
@@ -34,37 +34,35 @@ struct homogeneityParam {
   double tolerance;
 };
 
-//test fixture class
+// test fixture class
 template <typename T>
 class homogeneityTest : public ::testing::TestWithParam<homogeneityParam> {
  protected:
-  //the constructor
-  void SetUp() override {
-    //getting the parameters
+  // the constructor
+  void SetUp() override
+  {
+    // getting the parameters
     params = ::testing::TestWithParam<homogeneityParam>::GetParam();
 
-    nElements = params.nElements;
+    nElements       = params.nElements;
     lowerLabelRange = params.lowerLabelRange;
     upperLabelRange = params.upperLabelRange;
 
-    //generating random value test input
+    // generating random value test input
     std::vector<int> arr1(nElements, 0);
     std::vector<int> arr2(nElements, 0);
     std::random_device rd;
     std::default_random_engine dre(rd());
-    std::uniform_int_distribution<int> intGenerator(lowerLabelRange,
-                                                    upperLabelRange);
+    std::uniform_int_distribution<int> intGenerator(lowerLabelRange, upperLabelRange);
 
-    std::generate(arr1.begin(), arr1.end(),
-                  [&]() { return intGenerator(dre); });
+    std::generate(arr1.begin(), arr1.end(), [&]() { return intGenerator(dre); });
     if (params.sameArrays) {
       arr2 = arr1;
     } else {
-      std::generate(arr2.begin(), arr2.end(),
-                    [&]() { return intGenerator(dre); });
+      std::generate(arr2.begin(), arr2.end(), [&]() { return intGenerator(dre); });
     }
 
-    //allocating and initializing memory to the GPU
+    // allocating and initializing memory to the GPU
 
     CUDA_CHECK(cudaStreamCreate(&stream));
     raft::allocate(truthClusterArray, nElements, true);
@@ -72,18 +70,20 @@ class homogeneityTest : public ::testing::TestWithParam<homogeneityParam> {
 
     raft::update_device(truthClusterArray, &arr1[0], (int)nElements, stream);
     raft::update_device(predClusterArray, &arr2[0], (int)nElements, stream);
-    std::shared_ptr<MLCommon::deviceAllocator> allocator(
-      new raft::mr::device::default_allocator);
+    std::shared_ptr<raft::mr::device::allocator> allocator(new raft::mr::device::default_allocator);
 
-    //calculating the golden output
+    // calculating the golden output
     double truthMI, truthEntropy;
 
-    truthMI = MLCommon::Metrics::mutual_info_score(
-      truthClusterArray, predClusterArray, nElements, lowerLabelRange,
-      upperLabelRange, allocator, stream);
-    truthEntropy =
-      MLCommon::Metrics::entropy(truthClusterArray, nElements, lowerLabelRange,
-                                 upperLabelRange, allocator, stream);
+    truthMI      = MLCommon::Metrics::mutual_info_score(truthClusterArray,
+                                                   predClusterArray,
+                                                   nElements,
+                                                   lowerLabelRange,
+                                                   upperLabelRange,
+                                                   allocator,
+                                                   stream);
+    truthEntropy = MLCommon::Metrics::entropy(
+      truthClusterArray, nElements, lowerLabelRange, upperLabelRange, allocator, stream);
 
     if (truthEntropy) {
       truthHomogeneity = truthMI / truthEntropy;
@@ -92,46 +92,56 @@ class homogeneityTest : public ::testing::TestWithParam<homogeneityParam> {
 
     if (nElements == 0) truthHomogeneity = 1.0;
 
-    //calling the homogeneity CUDA implementation
-    computedHomogeneity = MLCommon::Metrics::homogeneity_score(
-      truthClusterArray, predClusterArray, nElements, lowerLabelRange,
-      upperLabelRange, allocator, stream);
+    // calling the homogeneity CUDA implementation
+    computedHomogeneity = MLCommon::Metrics::homogeneity_score(truthClusterArray,
+                                                               predClusterArray,
+                                                               nElements,
+                                                               lowerLabelRange,
+                                                               upperLabelRange,
+                                                               allocator,
+                                                               stream);
   }
 
-  //the destructor
-  void TearDown() override {
+  // the destructor
+  void TearDown() override
+  {
     CUDA_CHECK(cudaFree(truthClusterArray));
     CUDA_CHECK(cudaFree(predClusterArray));
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
-  //declaring the data values
+  // declaring the data values
   homogeneityParam params;
   T lowerLabelRange, upperLabelRange;
-  T* truthClusterArray = nullptr;
-  T* predClusterArray = nullptr;
-  int nElements = 0;
-  double truthHomogeneity = 0;
+  T* truthClusterArray       = nullptr;
+  T* predClusterArray        = nullptr;
+  int nElements              = 0;
+  double truthHomogeneity    = 0;
   double computedHomogeneity = 0;
   cudaStream_t stream;
 };
 
-//setting test parameter values
-const std::vector<homogeneityParam> inputs = {
-  {199, 1, 10, false, 0.000001},  {200, 15, 100, false, 0.000001},
-  {100, 1, 20, false, 0.000001},  {10, 1, 10, false, 0.000001},
-  {198, 1, 100, false, 0.000001}, {300, 3, 99, false, 0.000001},
-  {199, 1, 10, true, 0.000001},   {200, 15, 100, true, 0.000001},
-  {100, 1, 20, true, 0.000001},   {10, 1, 10, true, 0.000001},
-  {198, 1, 100, true, 0.000001},  {300, 3, 99, true, 0.000001}};
+// setting test parameter values
+const std::vector<homogeneityParam> inputs = {{199, 1, 10, false, 0.000001},
+                                              {200, 15, 100, false, 0.000001},
+                                              {100, 1, 20, false, 0.000001},
+                                              {10, 1, 10, false, 0.000001},
+                                              {198, 1, 100, false, 0.000001},
+                                              {300, 3, 99, false, 0.000001},
+                                              {199, 1, 10, true, 0.000001},
+                                              {200, 15, 100, true, 0.000001},
+                                              {100, 1, 20, true, 0.000001},
+                                              {10, 1, 10, true, 0.000001},
+                                              {198, 1, 100, true, 0.000001},
+                                              {300, 3, 99, true, 0.000001}};
 
-//writing the test suite
+// writing the test suite
 typedef homogeneityTest<int> homogeneityTestClass;
-TEST_P(homogeneityTestClass, Result) {
+TEST_P(homogeneityTestClass, Result)
+{
   ASSERT_NEAR(computedHomogeneity, truthHomogeneity, params.tolerance);
 }
-INSTANTIATE_TEST_CASE_P(homogeneity, homogeneityTestClass,
-                        ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(homogeneity, homogeneityTestClass, ::testing::ValuesIn(inputs));
 
-}  //end namespace Metrics
-}  //end namespace MLCommon
+}  // end namespace Metrics
+}  // end namespace MLCommon

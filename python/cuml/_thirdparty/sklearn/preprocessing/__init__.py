@@ -22,9 +22,14 @@ from ._imputation import SimpleImputer
 from ._imputation import MissingIndicator
 from ._discretization import KBinsDiscretizer
 
+from ._function_transformer import FunctionTransformer
+
+from ._column_transformer import ColumnTransformer, \
+    make_column_transformer, make_column_selector
+
+
 __all__ = [
     'Binarizer',
-    'FunctionTransformer',
     'KBinsDiscretizer',
     'KernelCenterer',
     'LabelBinarizer',
@@ -41,6 +46,8 @@ __all__ = [
     'StandardScaler',
     'SimpleImputer',
     'MissingIndicator',
+    'ColumnTransformer',
+    'FunctionTransformer',
     'add_dummy_feature',
     'PolynomialFeatures',
     'binarize',
@@ -52,4 +59,6 @@ __all__ = [
     'label_binarize',
     'quantile_transform',
     'power_transform',
+    'make_column_selector',
+    'make_column_transformer'
 ]

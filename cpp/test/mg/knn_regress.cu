@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, NVIDIA CORPORATION.
+ * Copyright (c) 2020-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <raft/mr/device/allocator.hpp>
 #include "knn_test_helper.cuh"
 
 namespace ML {
@@ -21,34 +22,62 @@ namespace KNN {
 namespace opg {
 
 template <>
-void generate_partitions(float *data, float *outputs, size_t n_rows, int n_cols,
-                         int n_clusters, int my_rank,
-                         std::shared_ptr<deviceAllocator> allocator,
-                         cudaStream_t stream) {
-  Random::make_blobs<float, int>(data, (int *)outputs, (int)n_rows, (int)n_cols,
-                                 n_clusters, allocator, stream, true, nullptr,
-                                 nullptr, 1.0, -10.0, 10.0, my_rank);
-  MLCommon::LinAlg::convert_array(outputs, (int *)outputs, n_rows, stream);
+void generate_partitions(float* data,
+                         float* outputs,
+                         size_t n_rows,
+                         int n_cols,
+                         int n_clusters,
+                         int my_rank,
+                         std::shared_ptr<raft::mr::device::allocator> allocator,
+                         cudaStream_t stream)
+{
+  Random::make_blobs<float, int>(data,
+                                 (int*)outputs,
+                                 (int)n_rows,
+                                 (int)n_cols,
+                                 n_clusters,
+                                 allocator,
+                                 stream,
+                                 true,
+                                 nullptr,
+                                 nullptr,
+                                 1.0,
+                                 -10.0,
+                                 10.0,
+                                 my_rank);
+  MLCommon::LinAlg::convert_array(outputs, (int*)outputs, n_rows, stream);
 }
 
 class KNNRegressTest : public ::testing::TestWithParam<KNNParams> {
  public:
-  bool runTest(const KNNParams &params) {
+  bool runTest(const KNNParams& params)
+  {
     KNNTestHelper<float> knn_th;
     knn_th.generate_data(params);
 
     /**
      * Execute knn_regress()
      */
-    knn_regress(knn_th.handle, &(knn_th.out_parts), &(knn_th.out_i_parts),
-                &(knn_th.out_d_parts), knn_th.index_parts, *(knn_th.idx_desc),
-                knn_th.query_parts, *(knn_th.query_desc), knn_th.y, false,
-                false, params.k, params.n_outputs, params.batch_size, true);
+    knn_regress(knn_th.handle,
+                &(knn_th.out_parts),
+                &(knn_th.out_i_parts),
+                &(knn_th.out_d_parts),
+                knn_th.index_parts,
+                *(knn_th.idx_desc),
+                knn_th.query_parts,
+                *(knn_th.query_desc),
+                knn_th.y,
+                false,
+                false,
+                params.k,
+                params.n_outputs,
+                params.batch_size,
+                true);
 
     knn_th.display_results();
     knn_th.release_ressources(params);
 
-    int actual = 1;
+    int actual   = 1;
     int expected = 1;
     return raft::CompareApprox<int>(1)(actual, expected);
   }
