@@ -41,7 +41,6 @@ if(BUILD_CUML_TESTS)
   add_executable(${CUML_CPP_TEST_TARGET}
     sg/cd_test.cu
     sg/dbscan_test.cu
-    sg/decisiontree_batchedlevel_unittest.cu
     sg/fil_test.cu
     sg/fnv_hash_test.cpp
     sg/genetic/node_test.cpp

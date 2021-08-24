@@ -73,21 +73,6 @@ inline bool is_dev_ptr(const void* p)
 }
 
 template <class T, class L>
-void print(const SparseTreeNode<T, L>& node, std::ostream& os)
-{
-  if (node.colid == -1) {
-    os << "(leaf, "
-       << "prediction: " << node.prediction << ", best_metric_val: " << node.best_metric_val
-       << ", UID: " << node.unique_id << ")";
-  } else {
-    os << "("
-       << "colid: " << node.colid << ", quesval: " << node.quesval
-       << ", best_metric_val: " << node.best_metric_val << ", UID: " << node.unique_id << ")";
-  }
-  return;
-}
-
-template <class T, class L>
 std::string get_node_text(const std::string& prefix,
                           const std::vector<SparseTreeNode<T, L>>& sparsetree,
                           int idx,
@@ -166,7 +151,14 @@ std::string get_node_json(const std::string& prefix,
 template <typename T, typename L>
 std::ostream& operator<<(std::ostream& os, const SparseTreeNode<T, L>& node)
 {
-  DT::print(node, os);
+  if (node.colid == -1) {
+    os << "(leaf, "
+       << "prediction: " << node.prediction << ", best_metric_val: " << node.best_metric_val << ")";
+  } else {
+    os << "("
+       << "colid: " << node.colid << ", quesval: " << node.quesval
+       << ", best_metric_val: " << node.best_metric_val << ")";
+  }
   return os;
 }
 
@@ -311,8 +303,7 @@ class DecisionTree {
     n_unique_labels    = unique_labels;
     this->prepare_time = this->prepare_fit_timer.getElapsedMilliseconds();
     prepare_fit_timer.reset();
-    grow_tree(handle.get_device_allocator(),
-              handle.get_host_allocator(),
+    grow_tree(handle,
               data,
               tree->treeid,
               seed,
@@ -324,7 +315,6 @@ class DecisionTree {
               n_sampled_rows,
               unique_labels,
               tree_params,
-              handle.get_stream(),
               tree->sparsetree,
               this->leaf_counter,
               this->depth_counter);
