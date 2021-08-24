@@ -20,10 +20,6 @@ function(find_and_configure_nccl)
         return()
     endif()
 
-    set(oneValueArgs VERSION PINNED_TAG)
-    cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
-                          "${multiValueArgs}" ${ARGN} )
-
     rapids_find_generate_module(NCCL
         HEADER_NAMES  nccl.h
         LIBRARY_NAMES nccl
@@ -35,7 +31,7 @@ function(find_and_configure_nccl)
 
 endfunction()
 
-find_and_configure_nccl(VERSION     2.8)
+find_and_configure_nccl()
 
 
 
