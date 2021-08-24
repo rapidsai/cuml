@@ -114,12 +114,12 @@ endif()
 ##############################################################################
 # - compiler options ---------------------------------------------------------
 
-if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
+if (NOT DISABLE_OPENMP)
   find_package(OpenMP)
   if(OpenMP_FOUND)
     message(STATUS "CUML: OpenMP found in ${OPENMP_INCLUDE_DIRS}")
-  endif(OpenMP_FOUND)
-endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
+  endif()
+endif()
 
 # * find CUDAToolkit package
 # * determine GPU architectures
@@ -137,7 +137,7 @@ include(cmake/modules/ConfigureCUDA.cmake)
 # Enabling libcuml enables building libcuml++
 if(BUILD_CUML_C_LIBRARY)
   set(BUILD_CUML_CPP_LIBRARY ON)
-endif(BUILD_CUML_C_LIBRARY)
+endif()
 
 # Disabling libcuml++ disables building algorithm tests and examples
 if(NOT BUILD_CUML_CPP_LIBRARY)
@@ -145,7 +145,7 @@ if(NOT BUILD_CUML_CPP_LIBRARY)
   set(BUILD_CUML_TESTS OFF)
   set(BUILD_CUML_MG_TESTS OFF)
   set(BUILD_CUML_EXAMPLES OFF)
-endif(NOT BUILD_CUML_CPP_LIBRARY)
+endif()
 
 # SingleGPU build disables cumlprims_mg and comms components
 if(SINGLEGPU)
@@ -156,18 +156,18 @@ if(SINGLEGPU)
   set(BUILD_CUML_MPI_COMMS OFF)
   set(ENABLE_CUMLPRIMS_MG OFF)
   set(WITH_UCX OFF)
-endif(SINGLEGPU)
+endif()
 
 if(BUILD_CUML_MG_TESTS AND NOT SINGLEGPU)
   message(STATUS "Detected BUILD_CUML_MG_TESTS set to ON. Enabling BUILD_CUML_MPI_COMMS")
   set(BUILD_CUML_MPI_COMMS ON)
-endif(BUILD_CUML_MG_TESTS AND NOT SINGLEGPU)
+endif()
 
 if(USE_CCACHE)
   set(CMAKE_C_COMPILER_LAUNCHER ccache)
   set(CMAKE_CXX_COMPILER_LAUNCHER ccache)
   set(CMAKE_CUDA_COMPILER_LAUNCHER ccache)
-endif(USE_CCACHE)
+endif()
 
 ##############################################################################
 # - Requirements -------------------------------------------------------------
@@ -291,7 +291,7 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/solver/cd_mg.cu
         src/tsvd/tsvd_mg.cu
     )
-  endif(NOT SINGLEGPU)
+  endif()
 
   add_library(cuml::${CUML_CPP_TARGET} ALIAS ${CUML_CPP_TARGET})
 
@@ -363,7 +363,7 @@ if(BUILD_CUML_CPP_LIBRARY)
   # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
   target_link_options(${CUML_CPP_TARGET} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
 
-endif(BUILD_CUML_CPP_LIBRARY)
+endif()
 
 #############################################################################
 # - build libcuml C shared library -------------------------------------------
@@ -415,7 +415,7 @@ endif()
 
 if(BUILD_CUML_EXAMPLES)
   add_subdirectory(examples)
-endif(BUILD_CUML_EXAMPLES)
+endif()
 
 # ###################################################################################################
 # # - install targets -------------------------------------------------------------------------------
