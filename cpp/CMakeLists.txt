@@ -29,8 +29,7 @@ rapids_cuda_init_architectures(CUML)
 project(CUML VERSION 21.10.00 LANGUAGES CXX CUDA)
 
 # Write the version header
-include(cmake/modules/Version.cmake)
-write_version()
+rapids_cmake_write_version_file(include/cuml/version_config.hpp)
 
 ##############################################################################
 # - build type ---------------------------------------------------------------
