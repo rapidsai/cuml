@@ -15,5 +15,4 @@
 #=============================================================================
 
 add_executable(dbscan_example dbscan_example.cpp)
-target_include_directories(dbscan_example PRIVATE ${CUML_INCLUDE_DIRECTORIES})
 target_link_libraries(dbscan_example cuml++)
