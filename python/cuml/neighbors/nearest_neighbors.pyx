@@ -300,7 +300,8 @@ class NearestNeighbors(Base,
                  p=2,
                  algo_params=None,
                  metric_params=None,
-                 output_type=None):
+                 output_type=None,
+                 n_jobs=None):
 
         super().__init__(handle=handle,
                          verbose=verbose,
@@ -315,6 +316,10 @@ class NearestNeighbors(Base,
         self.algorithm = algorithm
         self.algo_params = algo_params
         self.knn_index = <uintptr_t> 0
+
+        if n_jobs is not None:
+            warnings.warn("\nWarning: 'n_jobs' parameter is unsupported and only available for compatibility")
+
 
     @generate_docstring(X='dense_sparse')
     def fit(self, X, convert_dtype=True) -> "NearestNeighbors":
@@ -389,7 +394,7 @@ class NearestNeighbors(Base,
     def get_param_names(self):
         return super().get_param_names() + \
             ["n_neighbors", "algorithm", "metric",
-                "p", "metric_params", "algo_params"]
+                "p", "metric_params", "algo_params", "n_jobs"]
 
     @staticmethod
     def _build_metric_type(metric):
