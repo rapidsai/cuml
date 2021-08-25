@@ -41,7 +41,7 @@ requirements:
     - cudatoolkit {{ cuda_version }}.*
     - ucx-py 0.21
     - ucx-proc=*=gpu
-    - libcumlprims {{ minor_version }}
+    - rapidsai-nightly/label/testing::libcumlprims {{ minor_version }}
     - lapack
     - treelite=2.0.0
     - faiss-proc=*=cuda
@@ -49,7 +49,7 @@ requirements:
     - gmock
     - libfaiss 1.7.0 *_cuda
   run:
-    - libcumlprims {{ minor_version }}
+    - rapidsai-nightly/label/testing::libcumlprims {{ minor_version }}
     - cudf {{ minor_version }}
     - nccl>=2.9.9
     - ucx-py 0.21
