@@ -40,6 +40,7 @@ if(BUILD_CUML_TESTS)
   # (please keep the filenames in alphabetical order)
   add_executable(${CUML_CPP_TEST_TARGET}
     sg/cd_test.cu
+    sg/child_index_test.cpp
     sg/dbscan_test.cu
     sg/fil_test.cu
     sg/fnv_hash_test.cpp
