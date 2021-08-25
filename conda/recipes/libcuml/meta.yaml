@@ -41,7 +41,7 @@ requirements:
     - cudatoolkit {{ cuda_version }}.*
     - ucx-py 0.21
     - ucx-proc=*=gpu
-    - libcumlprims==21.10.00a210824
+    - libcumlprims {{ minor_version }}
     - lapack
     - treelite=2.0.0
     - faiss-proc=*=cuda
@@ -49,7 +49,7 @@ requirements:
     - gmock
     - libfaiss 1.7.0 *_cuda
   run:
-    - libcumlprims==21.10.00a210824
+    - libcumlprims {{ minor_version }}
     - cudf {{ minor_version }}
     - nccl>=2.9.9
     - ucx-py 0.21
@@ -64,3 +64,4 @@ about:
   license: Apache-2.0
   # license_file: LICENSE
   summary: libcuml library
+
