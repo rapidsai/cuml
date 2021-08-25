@@ -50,7 +50,6 @@ gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
       "cudatoolkit=${CUDA_REL}" \
       "cudf=${MINOR_VERSION}" \
       "rmm=${MINOR_VERSION}" \
-      "libcumlprims=${MINOR_VERSION}" \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
       "ucx-py=0.21.*" \
@@ -62,8 +61,8 @@ gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
       "shap>=0.37,<=0.39"
 
 # https://docs.rapids.ai/maintainers/depmgmt/
-# gpuci_mamba_retry remove --force rapids-build-env rapids-notebook-env
-# gpuci_mamba_retry install -y "your-pkg=1.0.0"
+gpuci_mamba_retry remove --force rapids-build-env rapids-notebook-env
+gpuci_mamba_retry install -y -c rapidsai-nightly/label/testing libcumlprims=21.10
 
 gpuci_logger "Install contextvars if needed"
 py_ver=$(python -c "import sys; print('.'.join(map(str, sys.version_info[:2])))")
