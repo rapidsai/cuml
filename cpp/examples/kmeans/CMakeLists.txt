@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,5 +15,4 @@
 #=============================================================================
 
 add_executable(kmeans_example kmeans_example.cpp)
-target_include_directories(kmeans_example PRIVATE ${CUML_INCLUDE_DIRECTORIES})
 target_link_libraries(kmeans_example cuml++)

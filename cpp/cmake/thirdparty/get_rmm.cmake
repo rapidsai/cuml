@@ -14,34 +14,13 @@
 # limitations under the License.
 #=============================================================================
 
-function(find_and_configure_rmm VERSION)
+function(find_and_configure_rmm)
 
-    if(TARGET rmm::rmm)
-        return()
-    endif()
-
-    if(${VERSION} MATCHES [=[([0-9]+)\.([0-9]+)\.([0-9]+)]=])
-        set(MAJOR_AND_MINOR "${CMAKE_MATCH_1}.${CMAKE_MATCH_2}")
-    else()
-        set(MAJOR_AND_MINOR "${VERSION}")
-    endif()
-
-    rapids_cpm_find(rmm ${VERSION}
-        GLOBAL_TARGETS      rmm::rmm
+    include(${rapids-cmake-dir}/cpm/rmm.cmake)
+    rapids_cpm_rmm(
         BUILD_EXPORT_SET    cuml-exports
         INSTALL_EXPORT_SET  cuml-exports
-        CPM_ARGS
-            GIT_REPOSITORY  https://github.com/rapidsai/rmm.git
-            GIT_TAG         branch-${MAJOR_AND_MINOR}
-            GIT_SHALLOW     TRUE
-            OPTIONS         "BUILD_TESTS OFF"
-                            "BUILD_BENCHMARKS OFF"
-                            "CUDA_STATIC_RUNTIME ${CUDA_STATIC_RUNTIME}"
-                            "DISABLE_DEPRECATION_WARNING ${DISABLE_DEPRECATION_WARNING}"
     )
 
 endfunction()
-
-set(CUML_MIN_VERSION_rmm "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}.00")
-
-find_and_configure_rmm(${CUML_MIN_VERSION_rmm})
+find_and_configure_rmm()
