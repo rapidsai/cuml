@@ -31,7 +31,7 @@ requirements:
     - treelite=2.0.0
     - cudf {{ minor_version }}
     - libcuml={{ version }}
-    - rapidsai-nightly/label/testing::libcumlprims {{ minor_version }}
+    - libcumlprims==21.10.00a210824
     - cudatoolkit {{ cuda_version }}.*
     - ucx-py 0.21
     - ucx-proc=*=gpu
@@ -40,7 +40,7 @@ requirements:
     - cudf {{ minor_version }}
     - dask-cudf {{ minor_version }}
     - libcuml={{ version }}
-    - rapidsai-nightly/label/testing::libcumlprims {{ minor_version }}
+    - libcumlprims==21.10.00a210824
     - cupy>=7.8.0,<10.0.0a0
     - treelite=2.0.0
     - nccl>=2.9.9
