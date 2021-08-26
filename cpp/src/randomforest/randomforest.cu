@@ -497,7 +497,7 @@ void predict(const raft::handle_t& user_handle,
              int* predictions,
              int verbosity)
 {
-  ASSERT(forest->trees.empty(), "Cannot fit an existing forest.");
+  ASSERT(!forest->trees.empty(), "Cannot predict! No trees in the forest.");
   std::shared_ptr<RandomForest<float, int>> rf_classifier =
     std::make_shared<RandomForest<float, int>>(forest->rf_params, RF_type::CLASSIFICATION);
   rf_classifier->predict(user_handle, input, n_rows, n_cols, predictions, forest, verbosity);
@@ -511,7 +511,7 @@ void predict(const raft::handle_t& user_handle,
              int* predictions,
              int verbosity)
 {
-  ASSERT(forest->trees.empty(), "Cannot fit an existing forest.");
+  ASSERT(!forest->trees.empty(), "Cannot predict! No trees in the forest.");
   std::shared_ptr<RandomForest<double, int>> rf_classifier =
     std::make_shared<RandomForest<double, int>>(forest->rf_params, RF_type::CLASSIFICATION);
   rf_classifier->predict(user_handle, input, n_rows, n_cols, predictions, forest, verbosity);

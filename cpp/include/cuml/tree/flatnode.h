@@ -17,7 +17,7 @@
 #pragma once
 
 // We want to define some functions as usable on device
-// But need to guard against thiis file being compiled by a host compiler
+// But need to guard against this file being compiled by a host compiler
 #ifdef __CUDACC__
 #define FLATNODE_HD __host__ __device__
 #else

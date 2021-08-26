@@ -15,6 +15,8 @@
  */
 
 #pragma once
+#include <thrust/execution_policy.h>
+#include <thrust/fill.h>
 #include <cub/cub.cuh>
 #include <cuml/common/device_buffer.hpp>
 #include <memory>
@@ -49,6 +51,10 @@ std::shared_ptr<MLCommon::device_buffer<T>> computeQuantiles(
 {
   auto quantiles = std::make_shared<MLCommon::device_buffer<T>>(
     handle.get_device_allocator(), handle.get_stream(), n_bins * n_cols);
+  thrust::fill(thrust::cuda::par(*handle.get_device_allocator()).on(handle.get_stream()),
+               quantiles->begin(),
+               quantiles->begin() + n_bins * n_cols,
+               0.0);
   // Determine temporary device storage requirements
   size_t temp_storage_bytes = 0;
 

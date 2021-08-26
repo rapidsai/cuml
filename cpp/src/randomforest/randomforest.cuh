@@ -57,11 +57,10 @@ class RandomForest {
                       const std::shared_ptr<raft::mr::device::allocator> device_allocator)
   {
     ML::PUSH_RANGE("bootstrapping row IDs @randomforest.cuh");
-    // TODO(Rory): this is not a good way to set the seed
-    // Incrementing seed changes only one tree in the whole ensemble
-    int rs = rf_params.seed + tree_id;
 
-    raft::random::Rng rng(rs * 1000 | 0xFF00AA, raft::random::GeneratorType::GenKiss99);
+    // Hash these together so they are uncorrelated
+    int rs = DT::fnv1a32(rf_params.seed, tree_id);
+    raft::random::Rng rng(rs, raft::random::GeneratorType::GenKiss99);
     if (rf_params.bootstrap) {
       // Use bootstrapped sample set
       rng.uniformInt<std::size_t>(selected_rows->data(), selected_rows->size(), 0, n_rows, stream);
@@ -156,9 +155,6 @@ class RandomForest {
         handle.get_device_allocator(), handle.get_internal_stream(i), n_sampled_rows);
     }
 
-    // Preprocess once only per forest
-    // Using batched backend
-    // allocate space for d_global_quantiles
     auto global_quantiles =
       DT::computeQuantiles(this->rf_params.tree_params.n_bins, input, n_rows, n_cols, handle);
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));

@@ -182,7 +182,7 @@ __device__ OutT* alignPointer(InT input)
 const uint32_t fnv1a32_prime = uint32_t(16777619);
 const uint32_t fnv1a32_basis = uint32_t(2166136261);
 
-DI uint32_t fnv1a32(uint32_t hash, uint32_t txt)
+HDI uint32_t fnv1a32(uint32_t hash, uint32_t txt)
 {
   hash ^= (txt >> 0) & 0xFF;
   hash *= fnv1a32_prime;
@@ -249,8 +249,8 @@ DI std::size_t select(
  * @return The total sum aggregated over the sumscan,
  *         as well as the modified cdf-histogram pointer
  */
-template <typename BinT, std::size_t TPB>
-DI BinT pdf_to_cdf(BinT* shared_histogram, std::size_t nbins)
+template <typename BinT, int TPB>
+DI BinT pdf_to_cdf(BinT* shared_histogram, const int nbins)
 {
   // Blockscan instance preparation
   typedef cub::BlockScan<BinT, TPB> BlockScan;
@@ -259,7 +259,7 @@ DI BinT pdf_to_cdf(BinT* shared_histogram, std::size_t nbins)
   // variable to accumulate aggregate of sumscans of previous iterations
   BinT total_aggregate = BinT();
 
-  for (std::size_t tix = threadIdx.x; tix < raft::ceildiv(nbins, TPB) * TPB; tix += blockDim.x) {
+  for (int tix = threadIdx.x; tix < raft::ceildiv(nbins, TPB) * TPB; tix += TPB) {
     BinT result;
     BinT block_aggregate;
     BinT element = tix < nbins ? shared_histogram[tix] : BinT();
@@ -273,11 +273,11 @@ DI BinT pdf_to_cdf(BinT* shared_histogram, std::size_t nbins)
 }
 
 template <typename DataT>
-HDI std::size_t lower_bound(DataT* sbins, std::size_t nbins, DataT d)
+HDI int lower_bound(DataT* sbins, int nbins, DataT d)
 {
-  std::size_t start = 0;
-  std::size_t end   = nbins - 1;
-  std::size_t mid;
+  int start = 0;
+  int end   = nbins - 1;
+  int mid;
   while (start < end) {
     mid = (start + end) / 2;
     if (sbins[mid] < d) {
@@ -291,7 +291,7 @@ HDI std::size_t lower_bound(DataT* sbins, std::size_t nbins, DataT d)
 
 template <typename DataT, typename LabelT, int TPB, typename ObjectiveT, typename BinT>
 __global__ void computeSplitKernel(BinT* hist,
-                                   std::size_t nbins,
+                                   int nbins,
                                    std::size_t max_depth,
                                    std::size_t min_samples_split,
                                    std::size_t max_leaves,
@@ -318,13 +318,13 @@ __global__ void computeSplitKernel(BinT* hist,
   std::size_t offset_blockid = workload_info_cta.offset_blockid;
   std::size_t num_blocks     = workload_info_cta.num_blocks;
 
-  auto end                  = range_start + range_len;
-  auto shared_histogram_len = nbins * objective.NumClasses();
-  auto* shared_histogram    = alignPointer<BinT>(smem);
-  auto* sbins               = alignPointer<DataT>(shared_histogram + shared_histogram_len);
-  auto* sDone               = alignPointer<int>(sbins + nbins);
-  std::size_t stride        = blockDim.x * num_blocks;
-  std::size_t tid           = threadIdx.x + offset_blockid * blockDim.x;
+  auto end                 = range_start + range_len;
+  int shared_histogram_len = nbins * objective.NumClasses();
+  auto* shared_histogram   = alignPointer<BinT>(smem);
+  auto* sbins              = alignPointer<DataT>(shared_histogram + shared_histogram_len);
+  auto* sDone              = alignPointer<int>(sbins + nbins);
+  std::size_t stride       = blockDim.x * num_blocks;
+  std::size_t tid          = threadIdx.x + offset_blockid * blockDim.x;
 
   // obtaining the feature to test split on
   std::size_t col;
@@ -336,9 +336,9 @@ __global__ void computeSplitKernel(BinT* hist,
   }
 
   // populating shared memory with initial values
-  for (std::size_t i = threadIdx.x; i < shared_histogram_len; i += blockDim.x)
+  for (int i = threadIdx.x; i < shared_histogram_len; i += TPB)
     shared_histogram[i] = BinT();
-  for (std::size_t b = threadIdx.x; b < nbins; b += blockDim.x)
+  for (int b = threadIdx.x; b < nbins; b += TPB)
     sbins[b] = input.quantiles[col * nbins + b];
 
   // synchronizing above changes across block
@@ -382,7 +382,7 @@ __global__ void computeSplitKernel(BinT* hist,
   }
 
   // PDF to CDF inplace in shared memory pointed by shist
-  for (std::size_t c = 0; c < objective.NumClasses(); ++c) {
+  for (int c = 0; c < objective.NumClasses(); ++c) {
     /** left to right scan operation for scanning
      *  lesser-than-or-equal-to-bin counts **/
     // offsets to pdf and cdf shist pointers
