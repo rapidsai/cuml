@@ -389,6 +389,10 @@ struct cat_sets_owner {
     };
   }
   cat_sets_owner() {}
+  cat_sets_owner(std::vector<uint8_t> bits_, std::vector<int> max_matching_)
+    : bits(bits_), max_matching(max_matching_)
+  {
+  }
   cat_sets_owner(const std::vector<cat_feature_counters>& cf)
   {
     max_matching.resize(cf.size());
