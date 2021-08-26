@@ -49,6 +49,34 @@ namespace fil {
 
 namespace tl = treelite;
 
+std::ostream& operator<<(std::ostream& os, const cat_sets_owner& cso)
+{
+  os << "bits " << cso.bits << " max_matching " << cso.max_matching;
+  return os;
+}
+
+cat_sets_owner::cat_sets_owner(const std::vector<cat_feature_counters>& cf)
+{
+  max_matching.resize(cf.size());
+  std::size_t bits_size = 0;
+  // feature ID
+  for (std::size_t fid = 0; fid < cf.size(); ++fid) {
+    RAFT_EXPECTS(
+      cf[fid].max_matching >= -1, "@fid %zu: max_matching invalid (%d)", fid, cf[fid].max_matching);
+    RAFT_EXPECTS(cf[fid].n_nodes >= 0, "@fid %zu: n_nodes invalid (%d)", fid, cf[fid].n_nodes);
+
+    max_matching[fid] = cf[fid].max_matching;
+    bits_size +=
+      categorical_sets::sizeof_mask_from_max_matching(max_matching[fid]) * cf[fid].n_nodes;
+
+    RAFT_EXPECTS(bits_size <= INT_MAX,
+                 "@fid %zu: cannot store %lu categories given `int` offsets",
+                 fid,
+                 bits_size);
+  }
+  bits.resize(bits_size);
+}
+
 __host__ __device__ float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
 
 template <typename T>

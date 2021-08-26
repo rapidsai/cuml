@@ -69,6 +69,13 @@ struct pin {
   }
 };
 
+std::ostream& operator<<(std::ostream& os, const pin& node)
+{
+  os << "def_left " << node.def_left << " is_categorical " << node.is_categorical << " fid "
+     << node.fid << " set " << node.set << " thresh " << node.thresh << " left " << node.left;
+  return os;
+}
+
 #define PIN(...)                        \
   []() {                                \
     struct NonDefaultPin : public pin { \
@@ -103,6 +110,14 @@ struct ChildIdxTestParams {
   float input         = 0.0f;
   int correct         = INT_MAX;
 };
+
+std::ostream& operator<<(std::ostream& os, const ChildIdxTestParams& ps)
+{
+  os << "node = { " << ps.node << " } "
+     << "parent_node_idx = " << ps.parent_node_idx << "cat_sets_owner = { " ps.cso << " } "
+     << "input = " << ps.input << "correct = " << ps.correct;
+  return os;
+}
 
 /** mechanism to use named aggregate initialization before C++20, and also use
     the struct defaults. Using it directly only works if all defaulted
