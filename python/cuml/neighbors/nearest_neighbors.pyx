@@ -316,10 +316,7 @@ class NearestNeighbors(Base,
         self.algorithm = algorithm
         self.algo_params = algo_params
         self.knn_index = <uintptr_t> 0
-
-        if n_jobs is not None:
-            warnings.warn("\nWarning: 'n_jobs' parameter is unsupported and only available for compatibility")
-
+        self.n_jobs = n_jobs
 
     @generate_docstring(X='dense_sparse')
     def fit(self, X, convert_dtype=True) -> "NearestNeighbors":
@@ -327,6 +324,9 @@ class NearestNeighbors(Base,
         Fit GPU index for performing nearest neighbor queries.
 
         """
+        if self.n_jobs is not None:
+            warnings.warn("\nWarning: 'n_jobs' parameter is unsupported and only available for compatibility")
+
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
