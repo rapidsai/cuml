@@ -16,16 +16,12 @@
 
 function(find_and_configure_treelite)
 
-    if(TARGET treelite::treelite)
-        return()
-    endif()
-
     set(oneValueArgs VERSION PINNED_TAG)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
                           "${multiValueArgs}" ${ARGN} )
 
     rapids_cpm_find(Treelite ${PKG_VERSION}
-        GLOBAL_TARGETS  treelite
+        GLOBAL_TARGETS  treelite::treelite treelite
         CPM_ARGS
             GIT_REPOSITORY  https://github.com/dmlc/treelite.git
             GIT_TAG         ${PKG_PINNED_TAG}
