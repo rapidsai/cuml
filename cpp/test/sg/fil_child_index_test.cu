@@ -33,55 +33,48 @@ namespace ML {
 
 using namespace fil;
 
-// proto inner node
-struct pin {
+struct proto_inner_node {
   bool def_left = false, is_categorical = false;
   int fid      = 0;  // feature id
   int set      = 0;
   float thresh = 0.0f;
   int left     = 1;  // left child idx
-  operator sparse_node16()
-  {
+  val_t split() {
     val_t split;
     if (is_categorical)
       split.idx = set;
     else
       split.f = thresh;
-    return sparse_node16({}, split, fid, def_left, false, is_categorical, left);
+    return split;
+  }
+  operator sparse_node16()
+  {
+    return sparse_node16({}, split(), fid, def_left, false, is_categorical, left);
   }
   operator sparse_node8()
   {
-    val_t split;
-    if (is_categorical)
-      split.idx = set;
-    else
-      split.f = thresh;
-    return sparse_node8({}, split, fid, def_left, false, is_categorical, left);
+    return sparse_node8({}, split(), fid, def_left, false, is_categorical, left);
   }
   operator dense_node()
   {
-    val_t split;
-    if (is_categorical)
-      split.idx = set;
-    else
-      split.f = thresh;
-    return dense_node({}, split, fid, def_left, false, is_categorical);
+    return dense_node({}, split(), fid, def_left, false, is_categorical);
   }
 };
 
-std::ostream& operator<<(std::ostream& os, const pin& node)
+std::ostream& operator<<(std::ostream& os, const proto_inner_node& node)
 {
   os << "def_left " << node.def_left << " is_categorical " << node.is_categorical << " fid "
      << node.fid << " set " << node.set << " thresh " << node.thresh << " left " << node.left;
   return os;
 }
 
-#define PIN(...)                        \
+// proto inner node
+#define NODE(...)                        \
   []() {                                \
-    struct NonDefaultPin : public pin { \
-      NonDefaultPin() { __VA_ARGS__; }  \
+    struct NonDefaultProtoInnerNode : public proto_inner_node { \
+      NonDefaultProtoInnerNode() { __VA_ARGS__; }  \
     };                                  \
-    return pin(NonDefaultPin());        \
+    return proto_inner_node(NonDefaultProtoInnerNode());        \
   }()
 
 // proto category sets for one node
@@ -104,7 +97,7 @@ struct PCS {
 };
 
 struct ChildIdxTestParams {
-  pin node            = {};
+  proto_inner_node node            = {};
   int parent_node_idx = 0;
   cat_sets_owner cso  = {};
   float input         = 0.0f;
@@ -163,23 +156,23 @@ typedef ChildIdxTest<fil::dense_node> ChildIdxTestDense;
 const float INF = std::numeric_limits<float>::infinity();
 
 std::vector<ChildIdxTestParams> dense_params = {
-  CHILD_IDX_TEST_PARAMS(PIN(thresh = 0.0f), input = -INF, correct = 1),
-  CHILD_IDX_TEST_PARAMS(PIN(thresh = 0.0f), input = 0.0f, correct = 2),
-  CHILD_IDX_TEST_PARAMS(PIN(thresh = 0.0f), input = +INF, correct = 2),
-  CHILD_IDX_TEST_PARAMS(PIN(thresh = 0.0f), input = NAN, correct = 1),
-  CHILD_IDX_TEST_PARAMS(PIN(thresh = NAN), input = NAN, correct = 1),
-  CHILD_IDX_TEST_PARAMS(PIN(thresh = NAN), input = 0.0f, correct = 1),
-  CHILD_IDX_TEST_PARAMS(PIN(thresh = 0.0f), input = -INF, parent_node_idx = 1, correct = 3),
-  CHILD_IDX_TEST_PARAMS(PIN(thresh = 0.0f), input = 0.0f, parent_node_idx = 1, correct = 4),
-  CHILD_IDX_TEST_PARAMS(PIN(thresh = 0.0f), input = -INF, parent_node_idx = 2, correct = 5),
-  CHILD_IDX_TEST_PARAMS(PIN(thresh = 0.0f), input = 0.0f, parent_node_idx = 2, correct = 6),
-  CHILD_IDX_TEST_PARAMS(PIN(thresh = 0.0f), input = -INF, parent_node_idx = 3, correct = 7),
-  CHILD_IDX_TEST_PARAMS(PIN(thresh = 0.0f), input = 0.0f, parent_node_idx = 3, correct = 8),
-  CHILD_IDX_TEST_PARAMS(PIN(thresh = 0.0f), input = -INF, parent_node_idx = 4, correct = 9),
-  CHILD_IDX_TEST_PARAMS(PIN(thresh = 0.0f), input = 0.0f, parent_node_idx = 4, correct = 10),
+  CHILD_IDX_TEST_PARAMS(NODE(thresh = 0.0f), input = -INF, correct = 1),
+  CHILD_IDX_TEST_PARAMS(NODE(thresh = 0.0f), input = 0.0f, correct = 2),
+  CHILD_IDX_TEST_PARAMS(NODE(thresh = 0.0f), input = +INF, correct = 2),
+  CHILD_IDX_TEST_PARAMS(NODE(thresh = 0.0f), input = NAN, correct = 1),
+  CHILD_IDX_TEST_PARAMS(NODE(thresh = NAN), input = NAN, correct = 1),
+  CHILD_IDX_TEST_PARAMS(NODE(thresh = NAN), input = 0.0f, correct = 1),
+  CHILD_IDX_TEST_PARAMS(NODE(thresh = 0.0f), input = -INF, parent_node_idx = 1, correct = 3),
+  CHILD_IDX_TEST_PARAMS(NODE(thresh = 0.0f), input = 0.0f, parent_node_idx = 1, correct = 4),
+  CHILD_IDX_TEST_PARAMS(NODE(thresh = 0.0f), input = -INF, parent_node_idx = 2, correct = 5),
+  CHILD_IDX_TEST_PARAMS(NODE(thresh = 0.0f), input = 0.0f, parent_node_idx = 2, correct = 6),
+  CHILD_IDX_TEST_PARAMS(NODE(thresh = 0.0f), input = -INF, parent_node_idx = 3, correct = 7),
+  CHILD_IDX_TEST_PARAMS(NODE(thresh = 0.0f), input = 0.0f, parent_node_idx = 3, correct = 8),
+  CHILD_IDX_TEST_PARAMS(NODE(thresh = 0.0f), input = -INF, parent_node_idx = 4, correct = 9),
+  CHILD_IDX_TEST_PARAMS(NODE(thresh = 0.0f), input = 0.0f, parent_node_idx = 4, correct = 10),
   CHILD_IDX_TEST_PARAMS(
-    PIN(is_categorical = true), input = 0, cso.bits = {}, cso.max_matching = {-1}, correct = 1),
-  CHILD_IDX_TEST_PARAMS(PIN(is_categorical = true),
+    NODE(is_categorical = true), input = 0, cso.bits = {}, cso.max_matching = {-1}, correct = 1),
+  CHILD_IDX_TEST_PARAMS(NODE(is_categorical = true),
                         input            = 0,
                         cso.bits         = {0b0000'0000},
                         cso.max_matching = {0},

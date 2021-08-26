@@ -37,6 +37,7 @@
 #include <omp.h>
 
 #include <algorithm>
+#include <bitset>
 #include <cmath>
 #include <cstddef>
 #include <iomanip>
@@ -51,7 +52,13 @@ namespace tl = treelite;
 
 std::ostream& operator<<(std::ostream& os, const cat_sets_owner& cso)
 {
-  os << "bits " << cso.bits << " max_matching " << cso.max_matching;
+  os << "\nbits { " << ;
+  for(uint8_t b : cso.bits)
+    os << std::bitset<8>(b) << " ";
+  os << " }\nmax_matching {";
+  for(int mm : cso.max_matching)
+    os << mm << " ";
+  os << " }";
   return os;
 }
 
