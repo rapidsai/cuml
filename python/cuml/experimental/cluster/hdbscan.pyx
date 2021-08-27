@@ -436,9 +436,9 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                  connectivity='knn',
                  output_type=None):
 
-        super().__init__(handle,
-                         verbose,
-                         output_type)
+        super().__init__(handle=handle,
+                         veerbose=verbose,
+                         output_type=output_type)
 
         if min_samples is None:
             min_samples = min_cluster_size
