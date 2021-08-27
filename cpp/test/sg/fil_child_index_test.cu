@@ -39,7 +39,8 @@ struct proto_inner_node {
   int set      = 0;
   float thresh = 0.0f;
   int left     = 1;  // left child idx
-  val_t split() {
+  val_t split()
+  {
     val_t split;
     if (is_categorical)
       split.idx = set;
@@ -55,10 +56,7 @@ struct proto_inner_node {
   {
     return sparse_node8({}, split(), fid, def_left, false, is_categorical, left);
   }
-  operator dense_node()
-  {
-    return dense_node({}, split(), fid, def_left, false, is_categorical);
-  }
+  operator dense_node() { return dense_node({}, split(), fid, def_left, false, is_categorical); }
 };
 
 std::ostream& operator<<(std::ostream& os, const proto_inner_node& node)
@@ -69,11 +67,11 @@ std::ostream& operator<<(std::ostream& os, const proto_inner_node& node)
 }
 
 // proto inner node
-#define NODE(...)                        \
-  []() {                                \
+#define NODE(...)                                               \
+  []() {                                                        \
     struct NonDefaultProtoInnerNode : public proto_inner_node { \
-      NonDefaultProtoInnerNode() { __VA_ARGS__; }  \
-    };                                  \
+      NonDefaultProtoInnerNode() { __VA_ARGS__; }               \
+    };                                                          \
     return proto_inner_node(NonDefaultProtoInnerNode());        \
   }()
 
@@ -97,18 +95,19 @@ struct PCS {
 };
 
 struct ChildIdxTestParams {
-  proto_inner_node node            = {};
+  proto_inner_node node;
   int parent_node_idx = 0;
-  cat_sets_owner cso  = {};
-  float input         = 0.0f;
-  int correct         = INT_MAX;
+  cat_sets_owner cso;
+  float input = 0.0f;
+  int correct = INT_MAX;
 };
 
 std::ostream& operator<<(std::ostream& os, const ChildIdxTestParams& ps)
 {
-  os << "node = { " << ps.node << " } "
-     << "parent_node_idx = " << ps.parent_node_idx << "cat_sets_owner = { " ps.cso << " } "
-     << "input = " << ps.input << "correct = " << ps.correct;
+  os << "node = {\n"
+     << ps.node << "\n} "
+     << "parent_node_idx = " << ps.parent_node_idx << " cat_sets_owner = {\n"
+     << ps.cso << "\n} input = " << ps.input << " correct = " << ps.correct;
   return os;
 }
 
@@ -127,9 +126,9 @@ std::ostream& operator<<(std::ostream& os, const ChildIdxTestParams& ps)
 template <typename fil_node_t>
 class ChildIdxTest : public testing::TestWithParam<ChildIdxTestParams> {
  protected:
-  void SetUp() override { param = GetParam(); }
   void check()
   {
+    ChildIdxTestParams param = GetParam();
     tree_base tree{param.cso.accessor()};
     // nan -> !def_left, categorical -> if matches, numerical -> input >= threshold
     int test_idx =
@@ -139,8 +138,6 @@ class ChildIdxTest : public testing::TestWithParam<ChildIdxTestParams> {
            test_idx,
            param.correct);
   }
-
-  ChildIdxTestParams param;
 };
 
 typedef ChildIdxTest<fil::dense_node> ChildIdxTestDense;
@@ -156,27 +153,61 @@ typedef ChildIdxTest<fil::dense_node> ChildIdxTestDense;
 const float INF = std::numeric_limits<float>::infinity();
 
 std::vector<ChildIdxTestParams> dense_params = {
-  CHILD_IDX_TEST_PARAMS(NODE(thresh = 0.0f), input = -INF, correct = 1),
-  CHILD_IDX_TEST_PARAMS(NODE(thresh = 0.0f), input = 0.0f, correct = 2),
-  CHILD_IDX_TEST_PARAMS(NODE(thresh = 0.0f), input = +INF, correct = 2),
-  CHILD_IDX_TEST_PARAMS(NODE(thresh = 0.0f), input = NAN, correct = 1),
-  CHILD_IDX_TEST_PARAMS(NODE(thresh = NAN), input = NAN, correct = 1),
-  CHILD_IDX_TEST_PARAMS(NODE(thresh = NAN), input = 0.0f, correct = 1),
-  CHILD_IDX_TEST_PARAMS(NODE(thresh = 0.0f), input = -INF, parent_node_idx = 1, correct = 3),
-  CHILD_IDX_TEST_PARAMS(NODE(thresh = 0.0f), input = 0.0f, parent_node_idx = 1, correct = 4),
-  CHILD_IDX_TEST_PARAMS(NODE(thresh = 0.0f), input = -INF, parent_node_idx = 2, correct = 5),
-  CHILD_IDX_TEST_PARAMS(NODE(thresh = 0.0f), input = 0.0f, parent_node_idx = 2, correct = 6),
-  CHILD_IDX_TEST_PARAMS(NODE(thresh = 0.0f), input = -INF, parent_node_idx = 3, correct = 7),
-  CHILD_IDX_TEST_PARAMS(NODE(thresh = 0.0f), input = 0.0f, parent_node_idx = 3, correct = 8),
-  CHILD_IDX_TEST_PARAMS(NODE(thresh = 0.0f), input = -INF, parent_node_idx = 4, correct = 9),
-  CHILD_IDX_TEST_PARAMS(NODE(thresh = 0.0f), input = 0.0f, parent_node_idx = 4, correct = 10),
+  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, input = -INF, correct = 1),   // val !>= thresh
+  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, input = 0.0f, correct = 2),   // val >= thresh
+  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, input = +INF, correct = 2),   // val >= thresh
+  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, input = NAN, correct = 2),    // !def_left
+  CHILD_IDX_TEST_PARAMS(node.def_left = true, input = NAN, correct = 1),  // !def_left
+  CHILD_IDX_TEST_PARAMS(node.thresh = NAN, input = NAN, correct = 2),     // !def_left
   CHILD_IDX_TEST_PARAMS(
-    NODE(is_categorical = true), input = 0, cso.bits = {}, cso.max_matching = {-1}, correct = 1),
-  CHILD_IDX_TEST_PARAMS(NODE(is_categorical = true),
-                        input            = 0,
-                        cso.bits         = {0b0000'0000},
-                        cso.max_matching = {0},
-                        correct          = 2),
+    node.thresh = NAN, node.def_left = true, input = NAN, correct = 1),  // !def_left
+  CHILD_IDX_TEST_PARAMS(node.thresh = NAN, input = 0.0f, correct = 1),   // val !>= thresh
+  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, input = -INF, parent_node_idx = 1, correct = 3),
+  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, input = 0.0f, parent_node_idx = 1, correct = 4),
+  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, input = -INF, parent_node_idx = 2, correct = 5),
+  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, input = 0.0f, parent_node_idx = 2, correct = 6),
+  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, input = -INF, parent_node_idx = 3, correct = 7),
+  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, input = 0.0f, parent_node_idx = 3, correct = 8),
+  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, input = -INF, parent_node_idx = 4, correct = 9),
+  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, input = 0.0f, parent_node_idx = 4, correct = 10),
+  CHILD_IDX_TEST_PARAMS(
+    node.thresh = 0.0f, input = NAN, parent_node_idx = 4, correct = 10),  // !def_left
+  CHILD_IDX_TEST_PARAMS(
+    node.def_left = true, input = NAN, parent_node_idx = 4, correct = 9),  // !def_left
+  // cannot match ( > max_matching)
+  CHILD_IDX_TEST_PARAMS(
+    node.is_categorical = true, input = 0, cso.bits = {}, cso.max_matching = {-1}, correct = 1),
+  // doesn't match (bits[category] == 0, category == 0)
+  CHILD_IDX_TEST_PARAMS(node.is_categorical = true,
+                        input               = 0,
+                        cso.bits            = {0b0000'0000},
+                        cso.max_matching    = {0},
+                        correct             = 1),
+  // matches
+  CHILD_IDX_TEST_PARAMS(node.is_categorical = true,
+                        input               = 0,
+                        cso.bits            = {0b0000'0001},
+                        cso.max_matching    = {0},
+                        correct             = 2),
+  // matches
+  CHILD_IDX_TEST_PARAMS(node.is_categorical = true,
+                        input               = 2,
+                        cso.bits            = {0b0000'0101},
+                        cso.max_matching    = {2, -1},
+                        correct             = 2),
+  // doesn't match (bits[category] == 0, category > 0)
+  CHILD_IDX_TEST_PARAMS(node.is_categorical = true,
+                        input               = 1,
+                        cso.bits            = {0b0000'0101},
+                        cso.max_matching    = {2},
+                        correct             = 1),
+  // canot match (max_matching[fid=1] == -1)
+  CHILD_IDX_TEST_PARAMS(node.is_categorical = true,
+                        input               = 2,
+                        node.fid            = 1,
+                        cso.bits            = {0b0000'0101},
+                        cso.max_matching    = {2, -1},
+                        correct             = 1),
 };
 
 TEST_P(ChildIdxTestDense, Predict) { check(); }

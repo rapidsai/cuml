@@ -361,6 +361,7 @@ struct tree_base {
                                                       float val) const
   {
     bool cond;
+
     if (isnan(val)) {
       cond = !node.def_left();
     } else if (CATS_SUPPORTED && node.is_categorical()) {

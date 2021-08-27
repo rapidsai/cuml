@@ -52,11 +52,11 @@ namespace tl = treelite;
 
 std::ostream& operator<<(std::ostream& os, const cat_sets_owner& cso)
 {
-  os << "\nbits { " << ;
-  for(uint8_t b : cso.bits)
+  os << "\nbits { ";
+  for (uint8_t b : cso.bits)
     os << std::bitset<8>(b) << " ";
   os << " }\nmax_matching {";
-  for(int mm : cso.max_matching)
+  for (int mm : cso.max_matching)
     os << mm << " ";
   os << " }";
   return os;
