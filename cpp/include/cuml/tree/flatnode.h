@@ -33,12 +33,12 @@
 template <typename DataT, typename LabelT, typename IdxT = int>
 struct SparseTreeNode {
  private:
-  LabelT prediction          = LabelT(0);
-  IdxT colid          = 0;
-  DataT quesval              = DataT(0);
-  DataT best_metric_val      = DataT(0);
-  IdxT left_child_id      = -1;
-  IdxT instance_count = 0;
+  LabelT prediction     = LabelT(0);
+  IdxT colid            = 0;
+  DataT quesval         = DataT(0);
+  DataT best_metric_val = DataT(0);
+  IdxT left_child_id    = -1;
+  IdxT instance_count   = 0;
   FLATNODE_HD SparseTreeNode(LabelT prediction,
                              IdxT colid,
                              DataT quesval,
@@ -63,11 +63,8 @@ struct SparseTreeNode {
   FLATNODE_HD int64_t RightChildId() const { return left_child_id + 1; }
   FLATNODE_HD IdxT InstanceCount() const { return instance_count; }
 
-  FLATNODE_HD static SparseTreeNode CreateSplitNode(IdxT colid,
-                                                    DataT quesval,
-                                                    DataT best_metric_val,
-                                                    int64_t left_child_id,
-                                                    IdxT instance_count)
+  FLATNODE_HD static SparseTreeNode CreateSplitNode(
+    IdxT colid, DataT quesval, DataT best_metric_val, int64_t left_child_id, IdxT instance_count)
   {
     return SparseTreeNode<DataT, LabelT>{
       LabelT(0), colid, quesval, best_metric_val, left_child_id, instance_count};
