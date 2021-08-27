@@ -426,6 +426,7 @@ struct tree_base {
   {
     const char* lr[] = {" left", "right"};
     bool cond;
+
     if (isnan(val)) {
       cond = !node.def_left();
       // printf("idx %d val is nan, taking %s\n", node_idx, lr[cond]);
@@ -457,54 +458,14 @@ struct cat_sets_owner {
     };
   }
   cat_sets_owner() {}
-  cat_sets_owner(const std::vector<cat_feature_counters>& cf)
+  cat_sets_owner(std::vector<uint8_t> bits_, std::vector<int> max_matching_)
+    : bits(bits_), max_matching(max_matching_)
   {
-    max_matching.resize(cf.size());
-    std::size_t bits_size = 0;
-    // feature ID
-    for (std::size_t fid = 0; fid < cf.size(); ++fid) {
-      RAFT_EXPECTS(cf[fid].max_matching >= -1,
-                   "@fid %zu: max_matching invalid (%d)",
-                   fid,
-                   cf[fid].max_matching);
-      RAFT_EXPECTS(cf[fid].n_nodes >= 0, "@fid %zu: n_nodes invalid (%d)", fid, cf[fid].n_nodes);
-
-      max_matching[fid] = cf[fid].max_matching;
-      bits_size +=
-        categorical_sets::sizeof_mask_from_max_matching(max_matching[fid]) * cf[fid].n_nodes;
-
-      RAFT_EXPECTS(bits_size <= INT_MAX,
-                   "@fid %zu: cannot store %lu categories given `int` offsets",
-                   fid,
-                   bits_size);
-    }
-    bits.resize(bits_size);
   }
-
-  void print_bits() const
-  {
-    return;
-    printf("bits {");
-    int last             = -1;
-    std::size_t last_idx = ULONG_MAX;
-    for (std::size_t byte = 0; byte < bits.size(); ++byte)
-      if (bits[byte] != last) {
-        if (last != -1) printf("[%lu..%lu]->%2x ", last_idx, byte - 1lu, last);
-        last     = bits[byte];
-        last_idx = byte;
-      }
-    printf("}\n");
-  }
-
-  void print_max_matching() const
-  {
-    return;
-    printf("max_matching {");
-    for (std::size_t fid = 0; fid < max_matching.size(); ++fid)
-      printf("%d ", max_matching[fid]);
-    printf("}\n");
-  }
+  cat_sets_owner(const std::vector<cat_feature_counters>& cf);
 };
+
+std::ostream& operator<<(std::ostream& os, const cat_sets_owner& cso);
 
 /** init_dense uses params and nodes to initialize the dense forest stored in pf
  *  @param h cuML handle used by this function

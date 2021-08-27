@@ -58,17 +58,10 @@ struct FilTestParams {
   int num_cols   = atoi(getenv("num_cols"));
   float nan_prob = atof(getenv("nan_prob"));
   // forest parameters
-<<<<<<< HEAD
-  int depth       = atoi(getenv("depth"));
-  int num_trees   = atoi(getenv("num_trees"));
-  float leaf_prob = atof(getenv("leaf_prob"));
-  // below, categorical nodes means categorical branch nodes
-=======
   int depth       = 8;
   int num_trees   = 50;
   float leaf_prob = 0.05;
   // below, categorical nodes means categorical inner nodes
->>>>>>> 1803761ead8067cd31109cceaba767f16bf575c4
   // probability that a node is categorical (given that its feature is categorical)
   float node_categorical_prob = atof(getenv("node_categorical_prob"));
   // probability that a feature is categorical (pertains to data generation, can
@@ -77,7 +70,7 @@ struct FilTestParams {
   // during model creation, how often categories < max_matching are marked as matching?
   float cat_match_prob = atof(getenv("cat_match_prob"));
   // Order Of Magnitude for maximum matching category for categorical nodes
-  float max_matching_cat_oom = atof(getenv("max_matching_cat_oom"));
+  float max_matching_cat_magnitude = 1.0;
   // output parameters
   output_t output   = output_t::RAW;
   float threshold   = 0.0f;
@@ -125,7 +118,7 @@ std::ostream& operator<<(std::ostream& os, const FilTestParams& ps)
      << ", node_categorical_prob = " << ps.node_categorical_prob
      << ", feature_categorical_prob = " << ps.feature_categorical_prob
      << ", cat_match_prob = " << ps.cat_match_prob
-     << ", max_matching_cat_oom = " << ps.max_matching_cat_oom;
+     << ", max_matching_cat_magnitude = " << ps.max_matching_cat_magnitude;
   return os;
 }
 
@@ -168,9 +161,9 @@ __global__ void floats_to_bit_stream_k(uint8_t* dst, float* src, std::size_t siz
   std::size_t idx = std::size_t(blockIdx.x) * blockDim.x + threadIdx.x;
   if (idx >= size) return;
   int byte = 0;
-  #pragma unroll
-  for (int i = 0; i < BITS_PER_BYTE; ++i) byte |=
-    (int)src[idx * BITS_PER_BYTE + i] << i;
+#pragma unroll
+  for (int i = 0; i < BITS_PER_BYTE; ++i)
+    byte |= (int)src[idx * BITS_PER_BYTE + i] << i;
   dst[idx] = byte;
 }
 
@@ -264,10 +257,10 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
     // uniformily distributed in orders of magnitude: smaller models which
     // still stress large bitfields.
-    // up to 10**ps.max_matching_cat_oom (only if feature is categorical, else -1)
+    // up to 10**ps.max_matching_cat_magnitude (only if feature is categorical, else -1)
     std::vector<cat_feature_counters> cf(ps.num_cols);
     std::mt19937 gen(ps.seed);
-    std::uniform_real_distribution mmc(-1.0f, ps.max_matching_cat_oom);
+    std::uniform_real_distribution mmc(-1.0f, ps.max_matching_cat_magnitude);
     std::bernoulli_distribution fc(ps.feature_categorical_prob);
     for (int fid = 0; fid < ps.num_cols; ++fid) {
       feature_categorical[fid] = fc(gen);
@@ -275,8 +268,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
         // even for some categorical features, we will have no matching categories
         float mm = pow(10, mmc(gen)) - 1.0f;
         ASSERT(mm < INT_MAX,
-               "internal error: max_matching_cat_oom %f is too large",
-               ps.max_matching_cat_oom);
+               "internal error: max_matching_cat_magnitude %f is too large",
+               ps.max_matching_cat_magnitude);
         cf[fid].max_matching = (int)mm;
       } else {
         cf[fid].max_matching = -1;
@@ -1084,10 +1077,10 @@ std::vector<FilTestParams> predict_dense_inputs = {
     node_categorical_prob = 1.0, feature_categorical_prob = 1.0, cat_match_prob = 1.0),
   FIL_TEST_PARAMS(
     node_categorical_prob = 1.0, feature_categorical_prob = 1.0, cat_match_prob = 0.0),
-  FIL_TEST_PARAMS(depth                    = 3,
-                  node_categorical_prob    = 0.5,
-                  feature_categorical_prob = 0.5,
-                  max_matching_cat_oom     = 5),
+  FIL_TEST_PARAMS(depth                      = 3,
+                  node_categorical_prob      = 0.5,
+                  feature_categorical_prob   = 0.5,
+                  max_matching_cat_magnitude = 5),
 };
 
 TEST_P(PredictDenseFilTest, Predict) { compare(); }
@@ -1162,10 +1155,10 @@ std::vector<FilTestParams> predict_sparse_inputs = {
     node_categorical_prob = 1.0, feature_categorical_prob = 1.0, cat_match_prob = 1.0),
   FIL_TEST_PARAMS(
     node_categorical_prob = 1.0, feature_categorical_prob = 1.0, cat_match_prob = 0.0),
-  FIL_TEST_PARAMS(depth                    = 3,
-                  node_categorical_prob    = 0.5,
-                  feature_categorical_prob = 0.5,
-                  max_matching_cat_oom     = 5),
+  FIL_TEST_PARAMS(depth                      = 3,
+                  node_categorical_prob      = 0.5,
+                  feature_categorical_prob   = 0.5,
+                  max_matching_cat_magnitude = 5),
 };
 
 TEST_P(PredictSparse16FilTest, Predict) { compare(); }
