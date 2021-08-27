@@ -437,7 +437,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                  output_type=None):
 
         super().__init__(handle=handle,
-                         veerbose=verbose,
+                         verbose=verbose,
                          output_type=output_type)
 
         if min_samples is None:
