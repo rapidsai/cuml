@@ -57,7 +57,8 @@ __global__ void l2SelectMinK(faiss::gpu::Tensor<value_t, 2, true> inner_products
                              faiss::gpu::Tensor<value_t, 1, true> core_dists,
                              faiss::gpu::Tensor<value_t, 2, true> out_dists,
                              faiss::gpu::Tensor<int, 2, true> out_inds,
-                             int batch_offset,
+                             int batch_offset_i,
+                             int batch_offset_j,
                              int k,
                              value_t initK,
                              value_t alpha)
@@ -85,19 +86,19 @@ __global__ void l2SelectMinK(faiss::gpu::Tensor<value_t, 2, true> inner_products
 
   for (; i < limit; i += blockDim.x) {
     value_t v = sqrt(faiss::gpu::Math<value_t>::add(
-      sq_norms[row + batch_offset],
-      faiss::gpu::Math<value_t>::add(sq_norms[i], inner_products[row][i])));
+      sq_norms[row + batch_offset_i],
+      faiss::gpu::Math<value_t>::add(sq_norms[i + batch_offset_j], inner_products[row][i])));
 
-    v = max(core_dists[i], max(core_dists[row + batch_offset], alpha * v));
+    v = max(core_dists[i + batch_offset_j], max(core_dists[row + batch_offset_i], alpha * v));
     heap.add(v, i);
   }
 
   if (i < inner_products.getSize(1)) {
     value_t v = sqrt(faiss::gpu::Math<value_t>::add(
-      sq_norms[row + batch_offset],
-      faiss::gpu::Math<value_t>::add(sq_norms[i], inner_products[row][i])));
+      sq_norms[row + batch_offset_i],
+      faiss::gpu::Math<value_t>::add(sq_norms[i + batch_offset_j], inner_products[row][i])));
 
-    v = max(core_dists[i], max(core_dists[row + batch_offset], alpha * v));
+    v = max(core_dists[i + batch_offset_j], max(core_dists[row + batch_offset_i], alpha * v));
     heap.addThreadQ(v, i);
   }
 
@@ -127,7 +128,8 @@ void runL2SelectMin(faiss::gpu::Tensor<value_t, 2, true>& productDistances,
                     faiss::gpu::Tensor<value_t, 1, true>& coreDistances,
                     faiss::gpu::Tensor<value_t, 2, true>& outDistances,
                     faiss::gpu::Tensor<int, 2, true>& outIndices,
-                    int batch_offset,
+                    int batch_offset_i,
+                    int batch_offset_j,
                     int k,
                     value_t alpha,
                     cudaStream_t stream)
@@ -149,7 +151,8 @@ void runL2SelectMin(faiss::gpu::Tensor<value_t, 2, true>& productDistances,
                                    coreDistances,                         \
                                    outDistances,                          \
                                    outIndices,                            \
-                                   batch_offset,                          \
+                                   batch_offset_i,                        \
+                                   batch_offset_j,                        \
                                    k,                                     \
                                    faiss::gpu::Limits<value_t>::getMax(), \
                                    alpha);                                \
@@ -323,7 +326,6 @@ void mutual_reachability_knn_l2(const raft::handle_t& handle,
     auto outIndexView    = out_inds_tensor.narrow(0, i, curQuerySize);
 
     auto queryView = x_tensor.narrow(0, i, curQuerySize);
-    norms_tensor.narrow(0, i, curQuerySize);
 
     auto outDistanceBufRowView = outDistanceBufs[curStream]->narrow(0, 0, curQuerySize);
     auto outIndexBufRowView    = outIndexBufs[curStream]->narrow(0, 0, curQuerySize);
@@ -365,12 +367,11 @@ void mutual_reachability_knn_l2(const raft::handle_t& handle,
                                 outDistanceView,
                                 outIndexView,
                                 i,
+                                j,
                                 k,
                                 alpha,
                                 streams[curStream]);
       } else {
-        norms_tensor.narrow(0, j, curCentroidSize);
-
         // Write into our intermediate output
         runL2SelectMin<value_t>(distanceBufView,
                                 norms_tensor,
@@ -378,6 +379,7 @@ void mutual_reachability_knn_l2(const raft::handle_t& handle,
                                 outDistanceBufColView,
                                 outIndexBufColView,
                                 i,
+                                j,
                                 k,
                                 alpha,
                                 streams[curStream]);
