@@ -35,10 +35,10 @@ using namespace fil;
 
 struct proto_inner_node {
   bool def_left = false, is_categorical = false;
-  int fid      = 0;  // feature id
-  int set      = 0;
-  float thresh = 0.0f;
-  int left     = 1;  // left child idx
+  int fid      = 0;     // feature id
+  int set      = 0;     // which bit set represents the matching category list
+  float thresh = 0.0f;  // threshold
+  int left     = 1;     // left child idx
   val_t split()
   {
     val_t split;
@@ -160,53 +160,52 @@ std::vector<ChildIdxTestParams> dense_params = {
   CHILD_IDX_TEST_PARAMS(node.def_left = true, input = NAN, correct = 1),  // !def_left
   CHILD_IDX_TEST_PARAMS(node.thresh = NAN, input = NAN, correct = 2),     // !def_left
   CHILD_IDX_TEST_PARAMS(
-    node.thresh = NAN, node.def_left = true, input = NAN, correct = 1),  // !def_left
+    node.def_left = true, node.thresh = NAN, input = NAN, correct = 1),  // !def_left
   CHILD_IDX_TEST_PARAMS(node.thresh = NAN, input = 0.0f, correct = 1),   // val !>= thresh
-  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, input = -INF, parent_node_idx = 1, correct = 3),
-  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, input = 0.0f, parent_node_idx = 1, correct = 4),
-  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, input = -INF, parent_node_idx = 2, correct = 5),
-  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, input = 0.0f, parent_node_idx = 2, correct = 6),
-  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, input = -INF, parent_node_idx = 3, correct = 7),
-  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, input = 0.0f, parent_node_idx = 3, correct = 8),
-  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, input = -INF, parent_node_idx = 4, correct = 9),
-  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, input = 0.0f, parent_node_idx = 4, correct = 10),
-  CHILD_IDX_TEST_PARAMS(
-    node.thresh = 0.0f, input = NAN, parent_node_idx = 4, correct = 10),  // !def_left
+  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, parent_node_idx = 1, input = -INF, correct = 3),
+  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, parent_node_idx = 1, input = 0.0f, correct = 4),
+  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, parent_node_idx = 2, input = -INF, correct = 5),
+  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, parent_node_idx = 2, input = 0.0f, correct = 6),
+  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, parent_node_idx = 3, input = -INF, correct = 7),
+  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, parent_node_idx = 3, input = 0.0f, correct = 8),
+  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, parent_node_idx = 4, input = -INF, correct = 9),
+  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, parent_node_idx = 4, input = 0.0f, correct = 10),
+  CHILD_IDX_TEST_PARAMS(parent_node_idx = 4, input = NAN, correct = 10),  // !def_left
   CHILD_IDX_TEST_PARAMS(
     node.def_left = true, input = NAN, parent_node_idx = 4, correct = 9),  // !def_left
   // cannot match ( > max_matching)
   CHILD_IDX_TEST_PARAMS(
-    node.is_categorical = true, input = 0, cso.bits = {}, cso.max_matching = {-1}, correct = 1),
+    node.is_categorical = true, cso.bits = {}, cso.max_matching = {-1}, input = 0, correct = 1),
   // doesn't match (bits[category] == 0, category == 0)
   CHILD_IDX_TEST_PARAMS(node.is_categorical = true,
-                        input               = 0,
                         cso.bits            = {0b0000'0000},
                         cso.max_matching    = {0},
+                        input               = 0,
                         correct             = 1),
   // matches
   CHILD_IDX_TEST_PARAMS(node.is_categorical = true,
-                        input               = 0,
                         cso.bits            = {0b0000'0001},
                         cso.max_matching    = {0},
+                        input               = 0,
                         correct             = 2),
   // matches
   CHILD_IDX_TEST_PARAMS(node.is_categorical = true,
-                        input               = 2,
                         cso.bits            = {0b0000'0101},
                         cso.max_matching    = {2, -1},
+                        input               = 2,
                         correct             = 2),
   // doesn't match (bits[category] == 0, category > 0)
   CHILD_IDX_TEST_PARAMS(node.is_categorical = true,
-                        input               = 1,
                         cso.bits            = {0b0000'0101},
                         cso.max_matching    = {2},
+                        input               = 1,
                         correct             = 1),
   // canot match (max_matching[fid=1] == -1)
   CHILD_IDX_TEST_PARAMS(node.is_categorical = true,
-                        input               = 2,
                         node.fid            = 1,
                         cso.bits            = {0b0000'0101},
                         cso.max_matching    = {2, -1},
+                        input               = 2,
                         correct             = 1),
 };
 
