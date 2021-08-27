@@ -735,7 +735,6 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
             "p",
             "allow_single_cluster",
             "connectivity",
-            "n_neighbors",
             "alpha",
             "gen_min_span_tree",
         ]
