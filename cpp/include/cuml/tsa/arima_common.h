@@ -70,7 +70,6 @@ struct ARIMAParams {
    * @tparam      AllocatorT Type of allocator used
    * @param[in]   order      ARIMA order
    * @param[in]   batch_size Batch size
-   * @param[in]   alloc      Allocator
    * @param[in]   stream     CUDA stream
    * @param[in]   tr         Whether these are the transformed parameters
    */
@@ -91,7 +90,6 @@ struct ARIMAParams {
    * @tparam      AllocatorT Type of allocator used
    * @param[in]   order      ARIMA order
    * @param[in]   batch_size Batch size
-   * @param[in]   alloc      Allocator
    * @param[in]   stream     CUDA stream
    * @param[in]   tr         Whether these are the transformed parameters
    */
