@@ -236,7 +236,7 @@ class DecisionTree {
     const int ncols,
     const int nrows,
     const LabelT* labels,
-    MLCommon::device_buffer<std::size_t>* sampled_rows,
+    MLCommon::device_buffer<int>* rowids,
     int unique_labels,
     DecisionTreeParams params,
     uint64_t seed,
@@ -249,45 +249,46 @@ class DecisionTree {
         (std::numeric_limits<LabelT>::is_integer) ? CRITERION::GINI : CRITERION::MSE;
       params.split_criterion = default_criterion;
     }
+    using IdxT = int;
     // Dispatch objective
     if (params.split_criterion == CRITERION::GINI) {
-      return Builder<GiniObjectiveFunction<DataT, LabelT>>(handle,
-                                                           treeid,
-                                                           seed,
-                                                           params,
-                                                           data,
-                                                           labels,
-                                                           nrows,
-                                                           ncols,
-                                                           sampled_rows,
-                                                           unique_labels,
-                                                           quantiles)
+      return Builder<GiniObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+                                                                 treeid,
+                                                                 seed,
+                                                                 params,
+                                                                 data,
+                                                                 labels,
+                                                                 nrows,
+                                                                 ncols,
+                                                                 rowids,
+                                                                 unique_labels,
+                                                                 quantiles)
         .train();
     } else if (params.split_criterion == CRITERION::ENTROPY) {
-      return Builder<EntropyObjectiveFunction<DataT, LabelT>>(handle,
-                                                              treeid,
-                                                              seed,
-                                                              params,
-                                                              data,
-                                                              labels,
-                                                              nrows,
-                                                              ncols,
-                                                              sampled_rows,
-                                                              unique_labels,
-                                                              quantiles)
+      return Builder<EntropyObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+                                                                    treeid,
+                                                                    seed,
+                                                                    params,
+                                                                    data,
+                                                                    labels,
+                                                                    nrows,
+                                                                    ncols,
+                                                                    rowids,
+                                                                    unique_labels,
+                                                                    quantiles)
         .train();
     } else if (params.split_criterion == CRITERION::MSE) {
-      return Builder<MSEObjectiveFunction<DataT, LabelT>>(handle,
-                                                          treeid,
-                                                          seed,
-                                                          params,
-                                                          data,
-                                                          labels,
-                                                          nrows,
-                                                          ncols,
-                                                          sampled_rows,
-                                                          unique_labels,
-                                                          quantiles)
+      return Builder<MSEObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+                                                                treeid,
+                                                                seed,
+                                                                params,
+                                                                data,
+                                                                labels,
+                                                                nrows,
+                                                                ncols,
+                                                                rowids,
+                                                                unique_labels,
+                                                                quantiles)
         .train();
     } else {
       ASSERT(false, "Unknown split criterion.");
@@ -344,12 +345,10 @@ class DecisionTree {
       CUML_LOG_DEBUG("Leaf node. Predicting %f", (float)sparsetree[idx].Prediction());
       return sparsetree[idx].Prediction();
     } else if (row[colid] <= quesval) {
-      CUML_LOG_DEBUG(
-        "Classifying Left @ node w/ column %d and value %f", int(colid), (float)quesval);
+      CUML_LOG_DEBUG("Classifying Left @ node w/ column %d and value %f", colid, (float)quesval);
       return predict_one(row, sparsetree, leftchild);
     } else {
-      CUML_LOG_DEBUG(
-        "Classifying Right @ node w/ column %d and value %f", int(colid), (float)quesval);
+      CUML_LOG_DEBUG("Classifying Right @ node w/ column %d and value %f", colid, (float)quesval);
       return predict_one(row, sparsetree, leftchild + 1);
     }
   }

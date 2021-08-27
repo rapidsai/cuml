@@ -19,24 +19,24 @@
 namespace ML {
 namespace DT {
 
-template <typename DataT, typename LabelT>
+template <typename DataT, typename LabelT, typename IdxT>
 struct Input {
   /** input dataset (assumed to be col-major) */
   const DataT* data;
   /** input labels */
   const LabelT* labels;
   /** total rows in dataset */
-  std::size_t M;
+  IdxT M;
   /** total cols in dataset */
-  std::size_t N;
+  IdxT N;
   /** total sampled rows in dataset */
-  std::size_t nSampledRows;
+  IdxT nSampledRows;
   /** total sampled cols in dataset */
-  std::size_t nSampledCols;
+  IdxT nSampledCols;
   /** indices of sampled rows */
-  std::size_t* rowids;
+  IdxT* rowids;
   /** Number of classes or regression outputs*/
-  std::size_t numOutputs;
+  IdxT numOutputs;
   /** quantiles/histogram computed on the dataset (col-major) */
   const DataT* quantiles;
 };

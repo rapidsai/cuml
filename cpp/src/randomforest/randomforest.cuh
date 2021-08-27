@@ -52,7 +52,7 @@ class RandomForest {
 
   void get_row_sample(int tree_id,
                       int n_rows,
-                      MLCommon::device_buffer<std::size_t>* selected_rows,
+                      MLCommon::device_buffer<int>* selected_rows,
                       const cudaStream_t stream,
                       const std::shared_ptr<raft::mr::device::allocator> device_allocator)
   {
@@ -63,7 +63,7 @@ class RandomForest {
     raft::random::Rng rng(rs, raft::random::GeneratorType::GenKiss99);
     if (rf_params.bootstrap) {
       // Use bootstrapped sample set
-      rng.uniformInt<std::size_t>(selected_rows->data(), selected_rows->size(), 0, n_rows, stream);
+      rng.uniformInt<int>(selected_rows->data(), selected_rows->size(), 0, n_rows, stream);
 
     } else {
       // Use all the samples from the dataset
@@ -149,7 +149,7 @@ class RandomForest {
     // ptr.
     // Use a deque instead of vector because it can be used on objects with a deleted copy
     // constructor
-    std::deque<MLCommon::device_buffer<std::size_t>> selected_rows;
+    std::deque<MLCommon::device_buffer<int>> selected_rows;
     for (int i = 0; i < n_streams; i++) {
       selected_rows.emplace_back(
         handle.get_device_allocator(), handle.get_internal_stream(i), n_sampled_rows);
@@ -161,7 +161,7 @@ class RandomForest {
 
 #pragma omp parallel for num_threads(n_streams)
     for (int i = 0; i < this->rf_params.n_trees; i++) {
-      int stream_id = omp_get_thread_num();
+      int stream_id        = omp_get_thread_num();
 
       this->get_row_sample(i,
                            n_rows,

@@ -28,22 +28,23 @@
  * A node in Decision Tree.
  * @tparam T data type
  * @tparam L label type
+ * @tparam IdxT type used for indexing operations
  */
-template <typename DataT, typename LabelT>
+template <typename DataT, typename LabelT, typename IdxT = int>
 struct SparseTreeNode {
  private:
   LabelT prediction          = LabelT(0);
-  std::size_t colid          = 0;
+  IdxT colid          = 0;
   DataT quesval              = DataT(0);
   DataT best_metric_val      = DataT(0);
-  int64_t left_child_id      = -1;
-  std::size_t instance_count = 0;
+  IdxT left_child_id      = -1;
+  IdxT instance_count = 0;
   FLATNODE_HD SparseTreeNode(LabelT prediction,
-                             std::size_t colid,
+                             IdxT colid,
                              DataT quesval,
                              DataT best_metric_val,
                              int64_t left_child_id,
-                             std::size_t instance_count)
+                             IdxT instance_count)
     : prediction(prediction),
       colid(colid),
       quesval(quesval),
@@ -55,23 +56,23 @@ struct SparseTreeNode {
 
  public:
   FLATNODE_HD LabelT Prediction() const { return prediction; }
-  FLATNODE_HD std::size_t ColumnId() const { return colid; }
+  FLATNODE_HD IdxT ColumnId() const { return colid; }
   FLATNODE_HD DataT QueryValue() const { return quesval; }
   FLATNODE_HD DataT BestMetric() const { return best_metric_val; }
   FLATNODE_HD int64_t LeftChildId() const { return left_child_id; }
   FLATNODE_HD int64_t RightChildId() const { return left_child_id + 1; }
-  FLATNODE_HD std::size_t InstanceCount() const { return instance_count; }
+  FLATNODE_HD IdxT InstanceCount() const { return instance_count; }
 
-  FLATNODE_HD static SparseTreeNode CreateSplitNode(std::size_t colid,
+  FLATNODE_HD static SparseTreeNode CreateSplitNode(IdxT colid,
                                                     DataT quesval,
                                                     DataT best_metric_val,
                                                     int64_t left_child_id,
-                                                    std::size_t instance_count)
+                                                    IdxT instance_count)
   {
     return SparseTreeNode<DataT, LabelT>{
       LabelT(0), colid, quesval, best_metric_val, left_child_id, instance_count};
   }
-  FLATNODE_HD static SparseTreeNode CreateLeafNode(LabelT prediction, std::size_t instance_count)
+  FLATNODE_HD static SparseTreeNode CreateLeafNode(LabelT prediction, IdxT instance_count)
   {
     return SparseTreeNode<DataT, LabelT>{prediction, 0, 0, 0, -1, instance_count};
   }
