@@ -70,7 +70,7 @@ void compute_stabilities(const raft::handle_t& handle,
   auto n_leaves   = condensed_tree.get_n_leaves();
 
   auto stream      = handle.get_stream();
-  auto exec_policy = rmm::exec_policy(stream);
+  auto exec_policy = handle.get_thrust_policy();
 
   rmm::device_uvector<value_idx> sorted_parents(n_edges, stream);
   raft::copy_async(sorted_parents.data(), parents, n_edges, stream);
@@ -152,7 +152,7 @@ void get_stability_scores(const raft::handle_t& handle,
                           value_idx* label_map)
 {
   auto stream      = handle.get_stream();
-  auto exec_policy = rmm::exec_policy(stream);
+  auto exec_policy = handle.get_thrust_policy();
 
   /**
    * 1. Populate cluster sizes

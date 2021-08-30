@@ -31,7 +31,6 @@ from cuml.common.mixins import FMajorInputTagMixin
 
 cdef extern from * nogil:
     ctypedef void* _Stream "cudaStream_t"
-    ctypedef void* _DevAlloc "std::shared_ptr<raft::mr::device::allocator>"
 
 cdef extern from "cuml/random_projection/rproj_c.h" namespace "ML":
 
@@ -48,7 +47,7 @@ cdef extern from "cuml/random_projection/rproj_c.h" namespace "ML":
 
     # Structure describing random matrix
     cdef cppclass rand_mat[T]:
-        rand_mat(_DevAlloc, _Stream stream) except +     # random matrix structure constructor (set all to nullptr) # noqa E501
+        rand_mat(_Stream stream) except +     # random matrix structure constructor (set all to nullptr) # noqa E501
         T *dense_data           # dense random matrix data
         int *indices            # sparse CSC random matrix indices
         int *indptr             # sparse CSC random matrix indptr
@@ -163,10 +162,9 @@ cdef class BaseRandomProjection():
                  random_state=None):
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        cdef _DevAlloc alloc = <_DevAlloc>handle_.get_device_allocator()
         cdef _Stream stream = handle_.get_stream()
-        self.rand_matS = new rand_mat[float](alloc, stream)
-        self.rand_matD = new rand_mat[double](alloc, stream)
+        self.rand_matS = new rand_mat[float](stream)
+        self.rand_matD = new rand_mat[double](stream)
 
         self.params.n_components = n_components if n_components != 'auto'\
             else -1

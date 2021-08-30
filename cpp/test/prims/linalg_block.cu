@@ -22,12 +22,10 @@
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng.cuh>
 
 #include "test_utils.h"
 
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 
 #include <linalg/block.cuh>
@@ -82,12 +80,9 @@ class BlockGemmTest : public ::testing::TestWithParam<BlockGemmInputs<T>> {
 
     params = ::testing::TestWithParam<BlockGemmInputs<T>>::GetParam();
 
-    device_buffer<T> a(
-      handle.get_device_allocator(), handle.get_stream(), params.m * params.k * params.batch_size);
-    device_buffer<T> b(
-      handle.get_device_allocator(), handle.get_stream(), params.k * params.n * params.batch_size);
-    device_buffer<T> c(
-      handle.get_device_allocator(), handle.get_stream(), params.m * params.n * params.batch_size);
+    rmm::device_uvector<T> a(params.m * params.k * params.batch_size, handle.get_stream());
+    rmm::device_uvector<T> b(params.k * params.n * params.batch_size, handle.get_stream());
+    rmm::device_uvector<T> c(params.m * params.n * params.batch_size, handle.get_stream());
 
     std::vector<T> h_a(params.m * params.k * params.batch_size);
     std::vector<T> h_b(params.k * params.n * params.batch_size);
@@ -311,12 +306,9 @@ class BlockGemvTest : public ::testing::TestWithParam<BlockGemvInputs<T>> {
 
     params = ::testing::TestWithParam<BlockGemvInputs<T>>::GetParam();
 
-    device_buffer<T> a(
-      handle.get_device_allocator(), handle.get_stream(), params.m * params.n * params.batch_size);
-    device_buffer<T> x(
-      handle.get_device_allocator(), handle.get_stream(), params.n * params.batch_size);
-    device_buffer<T> y(
-      handle.get_device_allocator(), handle.get_stream(), params.m * params.batch_size);
+    rmm::device_uvector<T> a(params.m * params.n * params.batch_size, handle.get_stream());
+    rmm::device_uvector<T> x(params.n * params.batch_size, handle.get_stream());
+    rmm::device_uvector<T> y(params.m * params.batch_size, handle.get_stream());
 
     std::vector<T> h_a(params.m * params.n * params.batch_size);
     std::vector<T> h_x(params.n * params.batch_size);
@@ -451,11 +443,9 @@ class BlockDotTest : public ::testing::TestWithParam<BlockDotInputs<T>> {
 
     params = ::testing::TestWithParam<BlockDotInputs<T>>::GetParam();
 
-    device_buffer<T> x(
-      handle.get_device_allocator(), handle.get_stream(), params.n * params.batch_size);
-    device_buffer<T> y(
-      handle.get_device_allocator(), handle.get_stream(), params.n * params.batch_size);
-    device_buffer<T> dot_dev(handle.get_device_allocator(), handle.get_stream(), params.batch_size);
+    rmm::device_uvector<T> x(params.n * params.batch_size, handle.get_stream());
+    rmm::device_uvector<T> y(params.n * params.batch_size, handle.get_stream());
+    rmm::device_uvector<T> dot_dev(params.batch_size, handle.get_stream());
 
     std::vector<T> h_x(params.n * params.batch_size);
     std::vector<T> h_y(params.n * params.batch_size);
@@ -581,11 +571,9 @@ class BlockXaxtTest : public ::testing::TestWithParam<BlockXaxtInputs<T>> {
 
     params = ::testing::TestWithParam<BlockXaxtInputs<T>>::GetParam();
 
-    device_buffer<T> x(
-      handle.get_device_allocator(), handle.get_stream(), params.n * params.batch_size);
-    device_buffer<T> A(
-      handle.get_device_allocator(), handle.get_stream(), params.n * params.n * params.batch_size);
-    device_buffer<T> res_dev(handle.get_device_allocator(), handle.get_stream(), params.batch_size);
+    rmm::device_uvector<T> x(params.n * params.batch_size, handle.get_stream());
+    rmm::device_uvector<T> A(params.n * params.n * params.batch_size, handle.get_stream());
+    rmm::device_uvector<T> res_dev(params.batch_size, handle.get_stream());
 
     std::vector<T> h_x(params.n * params.batch_size);
     std::vector<T> h_A(params.n * params.n * params.batch_size);
@@ -696,10 +684,8 @@ class BlockAxTest : public ::testing::TestWithParam<BlockAxInputs<T>> {
 
     params = ::testing::TestWithParam<BlockAxInputs<T>>::GetParam();
 
-    device_buffer<T> x(
-      handle.get_device_allocator(), handle.get_stream(), params.n * params.batch_size);
-    device_buffer<T> y(
-      handle.get_device_allocator(), handle.get_stream(), params.n * params.batch_size);
+    rmm::device_uvector<T> x(params.n * params.batch_size, handle.get_stream());
+    rmm::device_uvector<T> y(params.n * params.batch_size, handle.get_stream());
 
     std::vector<T> h_x(params.n * params.batch_size);
     std::vector<T> h_y_ref(params.n * params.batch_size, (T)0);
