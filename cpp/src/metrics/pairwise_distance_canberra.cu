@@ -18,6 +18,7 @@
 //#include <cuml/metrics/metrics.hpp>
 #include <raft/distance/distance.cuh>
 #include <raft/handle.hpp>
+#include <rmm/device_uvector.hpp>
 
 namespace ML {
 
@@ -34,7 +35,7 @@ void pairwise_distance_canberra(const raft::handle_t& handle,
                                 double metric_arg)
 {
   // Allocate workspace
-  raft::mr::device::buffer<char> workspace(handle.get_device_allocator(), handle.get_stream(), 1);
+  rmm::device_uvector<char> workspace(1, handle.get_stream());
 
   // Call the distance function
   /*  raft::distance::pairwise_distance(x, y, dist, m, n, k, workspace, metric,
@@ -62,7 +63,7 @@ void pairwise_distance_canberra(const raft::handle_t& handle,
                                 float metric_arg)
 {
   // Allocate workspace
-  raft::mr::device::buffer<char> workspace(handle.get_device_allocator(), handle.get_stream(), 1);
+  rmm::device_uvector<char> workspace(1, handle.get_stream());
 
   // Call the distance function
   /*  raft::distance::pairwise_distance(x, y, dist, m, n, k, workspace, metric,

@@ -19,8 +19,6 @@
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 
-#include <common/allocatorAdapter.hpp>
-
 #include <cuml/metrics/metrics.hpp>
 
 #include <rmm/device_uvector.hpp>
@@ -78,7 +76,7 @@ void pairwise_distances(const raft::handle_t& handle,
                         value_t* data)
 {
   auto stream      = handle.get_stream();
-  auto exec_policy = rmm::exec_policy(stream);
+  auto exec_policy = handle.get_thrust_policy();
 
   value_idx nnz = m * m;
 

@@ -19,11 +19,11 @@
 #include <test_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
+#include <rmm/device_uvector.hpp>
 #include <vector>
 
 #include <thrust/fill.h>
 #include <cuml/cluster/kmeans.hpp>
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/metrics/metrics.hpp>
@@ -31,7 +31,6 @@
 
 namespace ML {
 
-using namespace MLCommon;
 using namespace Datasets;
 using namespace Metrics;
 
@@ -47,6 +46,14 @@ struct KmeansInputs {
 template <typename T>
 class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
  protected:
+  KmeansTest()
+    : d_labels(0, stream),
+      d_labels_ref(0, stream),
+      d_centroids(0, stream),
+      d_sample_weight(0, stream)
+  {
+  }
+
   void basicTest()
   {
     raft::handle_t handle;
@@ -60,9 +67,9 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
     params.seed                = 1;
     params.oversampling_factor = 0;
 
-    device_buffer<T> X(handle.get_device_allocator(), handle.get_stream(), n_samples * n_features);
-
-    device_buffer<int> labels(handle.get_device_allocator(), handle.get_stream(), n_samples);
+    auto stream = handle.get_stream();
+    rmm::device_uvector<T> X(n_samples * n_features, stream);
+    rmm::device_uvector<int> labels(n_samples, stream);
 
     make_blobs(handle,
                X.data(),
@@ -79,21 +86,21 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
                10.0f,
                1234ULL);
 
-    raft::allocate(d_labels, n_samples);
-    raft::allocate(d_labels_ref, n_samples);
-    raft::allocate(d_centroids, params.n_clusters * n_features);
+    d_labels.resize(n_samples, stream);
+    d_labels_ref.resize(n_samples, stream);
+    d_centroids.resize(params.n_clusters * n_features, stream);
 
+    T* d_sample_weight_ptr = nullptr;
     if (testparams.weighted) {
-      raft::allocate(d_sample_weight, n_samples);
+      d_sample_weight.resize(n_samples, stream);
+      d_sample_weight_ptr = d_sample_weight.data();
       thrust::fill(
-        thrust::cuda::par.on(handle.get_stream()), d_sample_weight, d_sample_weight + n_samples, 1);
-    } else {
-      d_sample_weight = nullptr;
+        thrust::cuda::par.on(stream), d_sample_weight_ptr, d_sample_weight_ptr + n_samples, 1);
     }
 
-    raft::copy(d_labels_ref, labels.data(), n_samples, handle.get_stream());
+    raft::copy(d_labels_ref.data(), labels.data(), n_samples, stream);
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
 
     T inertia  = 0;
     int n_iter = 0;
@@ -103,22 +110,22 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
                         X.data(),
                         n_samples,
                         n_features,
-                        d_sample_weight,
-                        d_centroids,
-                        d_labels,
+                        d_sample_weight_ptr,
+                        d_centroids.data(),
+                        d_labels.data(),
                         inertia,
                         n_iter);
 
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+    CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    score = adjusted_rand_index(handle, d_labels_ref, d_labels, n_samples);
+    score = adjusted_rand_index(handle, d_labels_ref.data(), d_labels.data(), n_samples);
 
     if (score < 1.0) {
       std::stringstream ss;
-      ss << "Expected: " << raft::arr2Str(d_labels_ref, 25, "d_labels_ref", handle.get_stream());
+      ss << "Expected: " << raft::arr2Str(d_labels_ref.data(), 25, "d_labels_ref", stream);
       CUML_LOG_DEBUG(ss.str().c_str());
       ss.str(std::string());
-      ss << "Actual: " << raft::arr2Str(d_labels, 25, "d_labels", handle.get_stream());
+      ss << "Actual: " << raft::arr2Str(d_labels.data(), 25, "d_labels", stream);
       CUML_LOG_DEBUG(ss.str().c_str());
       CUML_LOG_DEBUG("Score = %lf", score);
     }
@@ -126,18 +133,13 @@ class KmeansTest : public ::testing::TestWithParam<KmeansInputs<T>> {
 
   void SetUp() override { basicTest(); }
 
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(d_labels));
-    CUDA_CHECK(cudaFree(d_centroids));
-    CUDA_CHECK(cudaFree(d_labels_ref));
-    CUDA_CHECK(cudaFree(d_sample_weight));
-  }
-
  protected:
+  cudaStream_t stream = 0;
   KmeansInputs<T> testparams;
-  int *d_labels, *d_labels_ref;
-  T *d_centroids, *d_sample_weight;
+  rmm::device_uvector<int> d_labels;
+  rmm::device_uvector<int> d_labels_ref;
+  rmm::device_uvector<T> d_centroids;
+  rmm::device_uvector<T> d_sample_weight;
   double score;
   ML::kmeans::KMeansParams params;
 };

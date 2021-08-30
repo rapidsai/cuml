@@ -55,9 +55,8 @@
 #include <math.h>
 #include <raft/cudart_utils.h>
 #include <cub/cub.cuh>
-#include <cuml/common/device_buffer.hpp>
 #include <raft/cuda_utils.cuh>
-#include <raft/mr/device/allocator.hpp>
+#include <rmm/device_uvector.hpp>
 
 namespace MLCommon {
 namespace Metrics {
@@ -121,22 +120,19 @@ __global__ void computeTheNumerator(
  * @param firstClusterArray: the array of classes of type T
  * @param secondClusterArray: the array of classes of type T
  * @param size: the size of the data points of type uint64_t
- * @param allocator: object that takes care of temporary device memory allocation of type
- * std::shared_ptr<raft::mr::device::allocator>
  * @param stream: the cudaStream object
  */
 template <typename T>
 double compute_rand_index(T* firstClusterArray,
                           T* secondClusterArray,
                           uint64_t size,
-                          std::shared_ptr<raft::mr::device::allocator> allocator,
                           cudaStream_t stream)
 {
   // rand index for size less than 2 is not defined
   ASSERT(size >= 2, "Rand Index for size less than 2 not defined!");
 
   // allocating and initializing memory for a and b in the GPU
-  MLCommon::device_buffer<uint64_t> arr_buf(allocator, stream, 2);
+  rmm::device_uvector<uint64_t> arr_buf(2, stream);
   CUDA_CHECK(cudaMemsetAsync(arr_buf.data(), 0, 2 * sizeof(uint64_t), stream));
 
   // kernel configuration

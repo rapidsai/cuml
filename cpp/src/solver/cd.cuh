@@ -18,7 +18,6 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/solvers/params.hpp>
 #include <functions/linearReg.cuh>
 #include <functions/penalty.cuh>
@@ -103,13 +102,12 @@ void cdFit(const raft::handle_t& handle,
 
   cublasHandle_t cublas_handle = handle.get_cublas_handle();
 
-  auto allocator = handle.get_device_allocator();
-  device_buffer<math_t> pred(allocator, stream, n_rows);
-  device_buffer<math_t> residual(allocator, stream, n_rows);
-  device_buffer<math_t> squared(allocator, stream, n_cols);
-  device_buffer<math_t> mu_input(allocator, stream, 0);
-  device_buffer<math_t> mu_labels(allocator, stream, 0);
-  device_buffer<math_t> norm2_input(allocator, stream, 0);
+  rmm::device_uvector<math_t> pred(n_rows, stream);
+  rmm::device_uvector<math_t> residual(n_rows, stream);
+  rmm::device_uvector<math_t> squared(n_cols, stream);
+  rmm::device_uvector<math_t> mu_input(0, stream);
+  rmm::device_uvector<math_t> mu_labels(0, stream);
+  rmm::device_uvector<math_t> norm2_input(0, stream);
 
   std::vector<math_t> h_coef(n_cols, math_t(0));
 

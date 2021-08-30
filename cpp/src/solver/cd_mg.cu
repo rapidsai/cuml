@@ -16,7 +16,6 @@
 
 #include "shuffle.h"
 
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/linear_model/preprocess_mg.hpp>
 #include <cuml/solvers/cd_mg.hpp>
 
@@ -35,7 +34,7 @@
 #include <raft/linalg/subtract.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
-#include <raft/mr/device/allocator.hpp>
+#include "shuffle.h"
 
 #include <cstddef>
 
@@ -63,8 +62,7 @@ void fit_impl(raft::handle_t& handle,
               int n_streams,
               bool verbose)
 {
-  const auto& comm     = handle.get_comms();
-  const auto allocator = handle.get_device_allocator();
+  const auto& comm = handle.get_comms();
 
   std::vector<Matrix::RankSizePair*> partsToRanks = input_desc.blocksOwnedBy(comm.get_rank());
 
@@ -73,12 +71,12 @@ void fit_impl(raft::handle_t& handle,
     total_M += partsToRanks[i]->size;
   }
 
-  device_buffer<T> pred(allocator, streams[0], total_M);
-  device_buffer<T> residual(allocator, streams[0], total_M);
-  device_buffer<T> squared(allocator, streams[0], input_desc.N);
-  device_buffer<T> mu_input(allocator, streams[0]);
-  device_buffer<T> norm2_input(allocator, streams[0]);
-  device_buffer<T> mu_labels(allocator, streams[0]);
+  rmm::device_uvector<T> pred(total_M, streams[0]);
+  rmm::device_uvector<T> residual(total_M, streams[0]);
+  rmm::device_uvector<T> squared(input_desc.N, streams[0]);
+  rmm::device_uvector<T> mu_input(0, streams[0]);
+  rmm::device_uvector<T> norm2_input(0, streams[0]);
+  rmm::device_uvector<T> mu_labels(0, streams[0]);
 
   std::vector<T> h_coef(input_desc.N, T(0));
 

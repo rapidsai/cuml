@@ -18,7 +18,6 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <test_utils.h>
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/decomposition/pca_mg.hpp>
 #include <opg/linalg/gemm.hpp>
@@ -56,7 +55,6 @@ class PCAOpgTest : public testing::TestWithParam<PCAOpgParams> {
 
     const raft::comms::comms_t& comm = handle.get_comms();
     stream                           = handle.get_stream();
-    const auto allocator             = handle.get_device_allocator();
     cublasHandle_t cublasHandle      = handle.get_cublas_handle();
 
     myRank     = comm.get_rank();
@@ -91,17 +89,17 @@ class PCAOpgTest : public testing::TestWithParam<PCAOpgParams> {
     prmsPCA.tol          = 0.01;
     prmsPCA.algorithm    = params.algorithm;
 
-    device_buffer<T> components(allocator, stream, prmsPCA.n_components * prmsPCA.n_cols);
+    rmm::device_uvector<T> components(prmsPCA.n_components * prmsPCA.n_cols, stream);
 
-    device_buffer<T> explained_var(allocator, stream, prmsPCA.n_components);
+    rmm::device_uvector<T> explained_var(prmsPCA.n_components, stream);
 
-    device_buffer<T> explained_var_ratio(allocator, stream, prmsPCA.n_components);
+    rmm::device_uvector<T> explained_var_ratio(prmsPCA.n_components, stream);
 
-    device_buffer<T> singular_vals(allocator, stream, prmsPCA.n_components);
+    rmm::device_uvector<T> singular_vals(prmsPCA.n_components, stream);
 
-    device_buffer<T> mu(allocator, stream, prmsPCA.n_cols);
+    rmm::device_uvector<T> mu(prmsPCA.n_cols, stream);
 
-    device_buffer<T> noise_vars(allocator, stream, prmsPCA.n_components);
+    rmm::device_uvector<T> noise_vars(prmsPCA.n_components, stream);
 
     ML::PCA::opg::fit(handle,
                       inParts,
@@ -137,7 +135,7 @@ class PCAOpgTest : public testing::TestWithParam<PCAOpgParams> {
  protected:
   PCAOpgParams params;
   raft::handle_t handle;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   int myRank;
   int totalRanks;
   ML::paramsPCAMG prmsPCA;

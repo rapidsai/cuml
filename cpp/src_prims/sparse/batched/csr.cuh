@@ -26,15 +26,13 @@
 
 #pragma once
 
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/utils.hpp>
-
-#include <linalg/batched/matrix.cuh>
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cusolver_wrappers.h>
+#include <linalg/batched/matrix.cuh>
 #include <raft/matrix/matrix.cuh>
-#include <raft/mr/device/allocator.hpp>
+#include <rmm/device_uvector.hpp>
 
 #include <thrust/execution_policy.h>
 #include <thrust/for_each.h>
@@ -150,7 +148,6 @@ class CSR {
    * @param[in] batch_size       Number of matrices in the batch
    * @param[in] cublasHandle     cuBLAS handle
    * @param[in] cusolverSpHandle cuSOLVER sparse handle
-   * @param[in] allocator        Device memory allocator
    * @param[in] stream           CUDA stream
    */
   CSR(std::size_t m,
@@ -159,18 +156,16 @@ class CSR {
       std::size_t batch_size,
       cublasHandle_t cublasHandle,
       cusolverSpHandle_t cusolverSpHandle,
-      std::shared_ptr<raft::mr::device::allocator> allocator,
       cudaStream_t stream)
     : m_batch_size(batch_size),
-      m_allocator(allocator),
       m_cublasHandle(cublasHandle),
       m_cusolverSpHandle(cusolverSpHandle),
       m_stream(stream),
       m_shape(m, n),
       m_nnz(nnz),
-      m_values(allocator, stream, nnz * batch_size),
-      m_col_index(allocator, stream, nnz),
-      m_row_index(allocator, stream, m + 1),
+      m_values(nnz * batch_size, stream),
+      m_col_index(nnz, stream),
+      m_row_index(m + 1, stream),
       d_values(m_values.data()),
       d_row_index(m_row_index.data()),
       d_col_index(m_col_index.data())
@@ -189,7 +184,6 @@ class CSR {
    * @param[in] d_values         Pre-allocated values array
    * @param[in] d_col_index      Pre-allocated column index array
    * @param[in] d_row_index      Pre-allocated row index array
-   * @param[in] allocator        Device memory allocator
    * @param[in] stream           CUDA stream
    */
   CSR(std::size_t m,
@@ -201,18 +195,16 @@ class CSR {
       T* d_values,
       int* d_col_index,
       int* d_row_index,
-      std::shared_ptr<raft::mr::device::allocator> allocator,
       cudaStream_t stream)
     : m_batch_size(batch_size),
-      m_allocator(allocator),
       m_cublasHandle(cublasHandle),
       m_cusolverSpHandle(cusolverSpHandle),
       m_stream(stream),
       m_shape(m, n),
       m_nnz(nnz),
-      m_values(allocator, stream, nnz * batch_size),
-      m_col_index(allocator, stream, nnz),
-      m_row_index(allocator, stream, m + 1),
+      m_values(nnz * batch_size, stream),
+      m_col_index(nnz, stream),
+      m_row_index(m + 1, stream),
       d_values(d_values),
       d_col_index(d_col_index),
       d_row_index(d_row_index)
@@ -225,15 +217,14 @@ class CSR {
   //! Copy constructor
   CSR(const CSR<T>& other)
     : m_batch_size(other.m_batch_size),
-      m_allocator(other.m_allocator),
       m_cublasHandle(other.m_cublasHandle),
       m_cusolverSpHandle(other.m_cusolverSpHandle),
       m_stream(other.m_stream),
       m_shape(other.m_shape),
       m_nnz(other.m_nnz),
-      m_values(other.m_allocator, other.m_stream, other.m_nnz * other.m_batch_size),
-      m_col_index(other.m_allocator, other.m_stream, other.m_nnz),
-      m_row_index(other.m_allocator, other.m_stream, other.m_shape.first + 1),
+      m_values(other.m_nnz * other.m_batch_size, other.m_stream),
+      m_col_index(other.m_nnz, other.m_stream),
+      m_row_index(other.m_shape.first + 1, other.m_stream),
       d_values(m_values.data()),
       d_row_index(m_row_index.data()),
       d_col_index(m_col_index.data())
@@ -312,7 +303,6 @@ class CSR {
                                                 dense.batches(),
                                                 dense.cublasHandle(),
                                                 cusolverSpHandle,
-                                                dense.allocator(),
                                                 dense.stream())
                                        : CSR<T>(shape.first,
                                                 shape.second,
@@ -323,7 +313,6 @@ class CSR {
                                                 d_values,
                                                 d_col_index,
                                                 d_row_index,
-                                                dense.allocator(),
                                                 dense.stream());
 
     // Copy the host index arrays to the device
@@ -354,7 +343,7 @@ class CSR {
   LinAlg::Batched::Matrix<T> to_dense()
   {
     LinAlg::Batched::Matrix<T> dense(
-      m_shape.first, m_shape.second, m_batch_size, m_cublasHandle, m_allocator, m_stream, true);
+      m_shape.first, m_shape.second, m_batch_size, m_cublasHandle, m_stream, true);
 
     // Copy the data from the sparse to the dense representation
     constexpr int TPB = 256;
@@ -384,9 +373,6 @@ class CSR {
   //! Return cusolver sparse handle
   cusolverSpHandle_t cusolverSpHandle() const { return m_cusolverSpHandle; }
 
-  //! Return allocator
-  std::shared_ptr<raft::mr::device::allocator> allocator() const { return m_allocator; }
-
   //! Return stream
   cudaStream_t stream() const { return m_stream; }
 
@@ -413,21 +399,20 @@ class CSR {
   std::size_t m_nnz;
 
   //! Array(pointer) to the values in all the batched matrices.
-  device_buffer<T> m_values;
+  rmm::device_uvector<T> m_values;
   T* d_values;
 
   //! Array(pointer) to the column index of the CSR.
-  device_buffer<int> m_col_index;
+  rmm::device_uvector<int> m_col_index;
   int* d_col_index;
 
   //! Array(pointer) to the row index of the CSR.
-  device_buffer<int> m_row_index;
+  rmm::device_uvector<int> m_row_index;
   int* d_row_index;
 
   //! Number of matrices in batch
   std::size_t m_batch_size;
 
-  std::shared_ptr<raft::mr::device::allocator> m_allocator;
   cublasHandle_t m_cublasHandle;
   cusolverSpHandle_t m_cusolverSpHandle;
   cudaStream_t m_stream;

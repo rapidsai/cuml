@@ -17,7 +17,6 @@
 #pragma once
 
 #include <cuml/manifold/common.hpp>
-#include <raft/mr/device/allocator.hpp>
 #include "algo.cuh"
 
 namespace UMAPAlgo {
@@ -41,7 +40,6 @@ using namespace ML;
  * @param[out] knn_graph : output knn_indices and knn_dists (size n*k)
  * @param[in] n_neighbors: Number of closest neighbors, k, to query
  * @param[in] params: Instance of UMAPParam settings
- * @param[in] d_alloc: device allocator
  * @param[in] stream: cuda stream to use
  * @param[in] algo: Algorithm to use. Currently only brute force is supported
  */
@@ -52,7 +50,6 @@ void run(const raft::handle_t& handle,
          knn_graph<value_idx, value_t>& out,
          int n_neighbors,
          const UMAPParams* params,
-         std::shared_ptr<raft::mr::device::allocator> d_alloc,
          cudaStream_t stream,
          int algo = 0)
 {
@@ -62,7 +59,7 @@ void run(const raft::handle_t& handle,
      */
     case 0:
       Algo::launcher<value_idx, value_t, umap_inputs>(
-        handle, inputsA, inputsB, out, n_neighbors, params, d_alloc, stream);
+        handle, inputsA, inputsB, out, n_neighbors, params, stream);
       break;
   }
 }

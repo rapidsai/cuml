@@ -48,7 +48,7 @@ class Linkage : public BlobsFixture<D> {
       out_arrs.children = out_children;
 
       ML::single_linkage_neighbors(*this->handle,
-                                   this->data.X,
+                                   this->data.X.data(),
                                    this->params.nrows,
                                    this->params.ncols,
                                    &out_arrs,
