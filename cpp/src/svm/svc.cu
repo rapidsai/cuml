@@ -36,9 +36,9 @@ template void svcFit<float>(const raft::handle_t& handle,
                             int n_rows,
                             int n_cols,
                             float* labels,
-                            const svmParameter& param,
+                            const SvmParameter& param,
                             MLCommon::Matrix::KernelParams& kernel_params,
-                            svmModel<float>& model,
+                            SvmModel<float>& model,
                             const float* sample_weight);
 
 template void svcFit<double>(const raft::handle_t& handle,
@@ -46,9 +46,9 @@ template void svcFit<double>(const raft::handle_t& handle,
                              int n_rows,
                              int n_cols,
                              double* labels,
-                             const svmParameter& param,
+                             const SvmParameter& param,
                              MLCommon::Matrix::KernelParams& kernel_params,
-                             svmModel<double>& model,
+                             SvmModel<double>& model,
                              const double* sample_weight);
 
 template void svcPredict<float>(const raft::handle_t& handle,
@@ -56,7 +56,7 @@ template void svcPredict<float>(const raft::handle_t& handle,
                                 int n_rows,
                                 int n_cols,
                                 MLCommon::Matrix::KernelParams& kernel_params,
-                                const svmModel<float>& model,
+                                const SvmModel<float>& model,
                                 float* preds,
                                 float buffer_size,
                                 bool predict_class);
@@ -66,14 +66,14 @@ template void svcPredict<double>(const raft::handle_t& handle,
                                  int n_rows,
                                  int n_cols,
                                  MLCommon::Matrix::KernelParams& kernel_params,
-                                 const svmModel<double>& model,
+                                 const SvmModel<double>& model,
                                  double* preds,
                                  double buffer_size,
                                  bool predict_class);
 
-template void svmFreeBuffers(const raft::handle_t& handle, svmModel<float>& m);
+template void svmFreeBuffers(const raft::handle_t& handle, SvmModel<float>& m);
 
-template void svmFreeBuffers(const raft::handle_t& handle, svmModel<double>& m);
+template void svmFreeBuffers(const raft::handle_t& handle, SvmModel<double>& m);
 
 template <typename math_t>
 SVC<math_t>::SVC(raft::handle_t& handle,
@@ -85,7 +85,7 @@ SVC<math_t>::SVC(raft::handle_t& handle,
                  int nochange_steps,
                  int verbosity)
   : handle(handle),
-    param(svmParameter{C, cache_size, max_iter, nochange_steps, tol, verbosity}),
+    param(SvmParameter{C, cache_size, max_iter, nochange_steps, tol, verbosity}),
     kernel_params(kernel_params)
 {
   model.n_support     = 0;

@@ -25,7 +25,6 @@
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/mr/device/allocator.hpp>
 
 namespace MLCommon {
 
@@ -193,8 +192,6 @@ __global__ void jones_transform_kernel(
  * params are of type MA
  * @param isInv: set to true if the transformation is an inverse type transformation, false if
  * regular transform
- * @param allocator: object that takes care of temporary device memory allocation of type
- * std::shared_ptr<raft::mr::device::allocator>
  * @param stream: the cudaStream object
  */
 template <typename DataT, typename IdxT = int>
@@ -204,7 +201,6 @@ void jones_transform(const DataT* params,
                      DataT* newParams,
                      bool isAr,
                      bool isInv,
-                     std::shared_ptr<raft::mr::device::allocator> allocator,
                      cudaStream_t stream)
 {
   ASSERT(batchSize >= 1 && parameter >= 1, "not defined!");

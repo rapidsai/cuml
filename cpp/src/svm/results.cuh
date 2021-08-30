@@ -25,13 +25,13 @@
 #include <linalg/init.h>
 #include <raft/cudart_utils.h>
 #include <cub/device/device_select.cuh>
-#include <cuml/common/device_buffer.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/matrix.cuh>
-#include <raft/mr/device/allocator.hpp>
+#include <rmm/device_uvector.hpp>
+#include <rmm/mr/device/per_device_resource.hpp>
 #include "ws_util.cuh"
 
 namespace ML {
@@ -65,7 +65,7 @@ class Results {
           int n_cols,
           const math_t* C,
           SvmType svmType)
-    : allocator(handle.get_device_allocator()),
+    : rmm_alloc(rmm::mr::get_current_device_resource()),
       stream(handle.get_stream()),
       handle(handle),
       n_rows(n_rows),
@@ -75,14 +75,14 @@ class Results {
       C(C),
       svmType(svmType),
       n_train(svmType == EPSILON_SVR ? n_rows * 2 : n_rows),
-      cub_storage(handle.get_device_allocator(), stream),
-      d_num_selected(handle.get_device_allocator(), stream, 1),
-      d_val_reduced(handle.get_device_allocator(), stream, 1),
-      f_idx(handle.get_device_allocator(), stream, n_train),
-      idx_selected(handle.get_device_allocator(), stream, n_train),
-      val_selected(handle.get_device_allocator(), stream, n_train),
-      val_tmp(handle.get_device_allocator(), stream, n_train),
-      flag(handle.get_device_allocator(), stream, n_train)
+      cub_storage(0, stream),
+      d_num_selected(stream),
+      d_val_reduced(stream),
+      f_idx(n_train, stream),
+      idx_selected(n_train, stream),
+      val_selected(n_train, stream),
+      val_tmp(n_train, stream),
+      flag(n_train, stream)
   {
     InitCubBuffers();
     MLCommon::LinAlg::range(f_idx.data(), n_train, stream);
@@ -140,7 +140,7 @@ class Results {
    */
   math_t* CollectSupportVectors(const int* idx, int n_support)
   {
-    math_t* x_support = (math_t*)allocator->allocate(n_support * n_cols * sizeof(math_t), stream);
+    math_t* x_support = (math_t*)rmm_alloc->allocate(n_support * n_cols * sizeof(math_t), stream);
     // Collect support vectors into a contiguous block
     raft::matrix::copyRows(x, n_rows, n_cols, x_support, idx, n_support, stream);
     CUDA_CHECK(cudaPeekAtLastError());
@@ -165,7 +165,6 @@ class Results {
    */
   void CombineCoefs(const math_t* alpha, math_t* coef)
   {
-    MLCommon::device_buffer<math_t> math_tmp(allocator, stream, n_train);
     // Calculate dual coefficients = alpha * y
     raft::linalg::binaryOp(
       coef, alpha, y, n_train, [] __device__(math_t a, math_t y) { return a * y; }, stream);
@@ -186,11 +185,10 @@ class Results {
    */
   void GetDualCoefs(const math_t* val_tmp, math_t** dual_coefs, int* n_support)
   {
-    auto allocator = handle.get_device_allocator();
     // Return only the non-zero coefficients
     auto select_op = [] __device__(math_t a) { return 0 != a; };
     *n_support     = SelectByCoef(val_tmp, n_rows, val_tmp, select_op, val_selected.data());
-    *dual_coefs    = (math_t*)allocator->allocate(*n_support * sizeof(math_t), stream);
+    *dual_coefs    = (math_t*)rmm_alloc->allocate(*n_support * sizeof(math_t), stream);
     raft::copy(*dual_coefs, val_selected.data(), *n_support, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
@@ -207,7 +205,7 @@ class Results {
   {
     auto select_op = [] __device__(math_t a) -> bool { return 0 != a; };
     SelectByCoef(coef, n_rows, f_idx.data(), select_op, idx_selected.data());
-    int* idx = (int*)allocator->allocate(n_support * sizeof(int), stream);
+    int* idx = (int*)rmm_alloc->allocate(n_support * sizeof(int), stream);
     raft::copy(idx, idx_selected.data(), n_support, stream);
     return idx;
   }
@@ -279,7 +277,7 @@ class Results {
     return n_selected;
   }
 
-  std::shared_ptr<raft::mr::device::allocator> allocator;
+  rmm::mr::device_memory_resource* rmm_alloc;
 
  private:
   const raft::handle_t& handle;
@@ -295,17 +293,17 @@ class Results {
 
   const int TPB = 256;  // threads per block
   // Temporary variables used by cub in GetResults
-  MLCommon::device_buffer<int> d_num_selected;
-  MLCommon::device_buffer<math_t> d_val_reduced;
-  MLCommon::device_buffer<char> cub_storage;
+  rmm::device_scalar<int> d_num_selected;
+  rmm::device_scalar<math_t> d_val_reduced;
+  rmm::device_uvector<char> cub_storage;
   size_t cub_bytes = 0;
 
   // Helper arrays for collecting the results
-  MLCommon::device_buffer<int> f_idx;
-  MLCommon::device_buffer<int> idx_selected;
-  MLCommon::device_buffer<math_t> val_selected;
-  MLCommon::device_buffer<math_t> val_tmp;
-  MLCommon::device_buffer<bool> flag;
+  rmm::device_uvector<int> f_idx;
+  rmm::device_uvector<int> idx_selected;
+  rmm::device_uvector<math_t> val_selected;
+  rmm::device_uvector<math_t> val_tmp;
+  rmm::device_uvector<bool> flag;
 
   /* Allocate cub temporary buffers for GetResults
    */

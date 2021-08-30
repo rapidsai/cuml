@@ -96,38 +96,33 @@ void WrapperEltwise2d(int rows,
 template <typename T>
 class Eltwise2dTest : public ::testing::TestWithParam<Eltwise2dInputs<T>> {
  protected:
+  Eltwise2dTest() : out_ref(0, stream), out(0, stream) {}
+
   void SetUp() override
   {
     params = ::testing::TestWithParam<Eltwise2dInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
-    cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
     auto w   = params.w;
     auto h   = params.h;
     auto len = w * h;
-    raft::allocate(in1, h);
-    raft::allocate(in2, w);
-    raft::allocate(out_ref, len);
-    raft::allocate(out, len);
-    r.uniform(in1, h, T(-1.0), T(1.0), stream);
-    r.uniform(in2, w, T(-1.0), T(1.0), stream);
+    rmm::device_uvector<T> in1(h, stream);
+    rmm::device_uvector<T> in2(w, stream);
+    out_ref.resize(len, stream);
+    out.resize(len, stream);
+    r.uniform(in1.data(), h, T(-1.0), T(1.0), stream);
+    r.uniform(in2.data(), w, T(-1.0), T(1.0), stream);
 
-    naiveEltwise2DAdd(h, w, in1, in2, out_ref, out_ref, (T)1, (T)1, stream);
-    WrapperEltwise2d<T>(h, w, in1, in2, out, out, (T)1, (T)1);
+    naiveEltwise2DAdd(
+      h, w, in1.data(), in2.data(), out_ref.data(), out_ref.data(), (T)1, (T)1, stream);
+    WrapperEltwise2d<T>(h, w, in1.data(), in2.data(), out.data(), out.data(), (T)1, (T)1);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(in1));
-    CUDA_CHECK(cudaFree(in2));
-    CUDA_CHECK(cudaFree(out_ref));
-    CUDA_CHECK(cudaFree(out));
-  }
-
  protected:
+  cudaStream_t stream = 0;
   Eltwise2dInputs<T> params;
-  T *in1, *in2, *out_ref, *out;
+  rmm::device_uvector<T> out_ref, out;
 };
 
 const std::vector<Eltwise2dInputs<float>> inputsf2 = {{0.000001f, 1024, 1024, 1234ULL}};
@@ -138,14 +133,16 @@ typedef Eltwise2dTest<float> Eltwise2dTestF;
 TEST_P(Eltwise2dTestF, Result)
 {
   ASSERT_TRUE(raft::devArrMatch(
-    out_ref, out, params.w * params.h, raft::CompareApprox<float>(params.tolerance)));
+    out_ref.data(), out.data(), params.w * params.h, raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef Eltwise2dTest<double> Eltwise2dTestD;
 TEST_P(Eltwise2dTestD, Result)
 {
-  ASSERT_TRUE(raft::devArrMatch(
-    out_ref, out, params.w * params.h, raft::CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(out_ref.data(),
+                                out.data(),
+                                params.w * params.h,
+                                raft::CompareApprox<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(Eltwise2dTests, Eltwise2dTestF, ::testing::ValuesIn(inputsf2));
