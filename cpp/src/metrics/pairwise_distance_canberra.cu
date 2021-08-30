@@ -29,7 +29,6 @@ void pairwise_distance_canberra(const raft::handle_t& handle,
                                 int m,
                                 int n,
                                 int k,
-                                raft::distance::DistanceType metric,
                                 bool isRowMajor,
                                 double metric_arg)
 {
@@ -37,13 +36,8 @@ void pairwise_distance_canberra(const raft::handle_t& handle,
   raft::mr::device::buffer<char> workspace(handle.get_device_allocator(), handle.get_stream(), 1);
 
   // Call the distance function
-  switch (metric) {
-    case raft::distance::DistanceType::Canberra:
-      raft::distance::pairwise_distance_impl<double, int, raft::distance::DistanceType::Canberra>(
-        x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
-      break;
-    default: THROW("Unknown or unsupported distance metric '%d'!", (int)metric);
-  }
+  raft::distance::pairwise_distance_impl<double, int, raft::distance::DistanceType::Canberra>(
+    x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
 }
 
 void pairwise_distance_canberra(const raft::handle_t& handle,
@@ -53,7 +47,6 @@ void pairwise_distance_canberra(const raft::handle_t& handle,
                                 int m,
                                 int n,
                                 int k,
-                                raft::distance::DistanceType metric,
                                 bool isRowMajor,
                                 float metric_arg)
 {
@@ -61,13 +54,8 @@ void pairwise_distance_canberra(const raft::handle_t& handle,
   raft::mr::device::buffer<char> workspace(handle.get_device_allocator(), handle.get_stream(), 1);
 
   // Call the distance function
-  switch (metric) {
-    case raft::distance::DistanceType::Canberra:
-      raft::distance::pairwise_distance_impl<float, int, raft::distance::DistanceType::Canberra>(
-        x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
-      break;
-    default: THROW("Unknown or unsupported distance metric '%d'!", (int)metric);
-  }
+  raft::distance::pairwise_distance_impl<float, int, raft::distance::DistanceType::Canberra>(
+    x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
 }
 
 }  // namespace Metrics
