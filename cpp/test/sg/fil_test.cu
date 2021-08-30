@@ -163,12 +163,12 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     bool* is_leafs_h    = nullptr;
 
     // allocate GPU data
-    raft::allocate(weights_d, num_nodes);
+    raft::allocate(weights_d, num_nodes, stream);
     // sizeof(float) == sizeof(int)
-    raft::allocate(thresholds_d, num_nodes);
-    raft::allocate(fids_d, num_nodes);
-    raft::allocate(def_lefts_d, num_nodes);
-    raft::allocate(is_leafs_d, num_nodes);
+    raft::allocate(thresholds_d, num_nodes, stream);
+    raft::allocate(fids_d, num_nodes, stream);
+    raft::allocate(def_lefts_d, num_nodes, stream);
+    raft::allocate(is_leafs_d, num_nodes, stream);
 
     // generate on-GPU random data
     raft::random::Rng r(ps.seed);
@@ -252,9 +252,9 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   {
     // allocate arrays
     size_t num_data = ps.num_rows * ps.num_cols;
-    raft::allocate(data_d, num_data);
+    raft::allocate(data_d, num_data, stream);
     bool* mask_d = nullptr;
-    raft::allocate(mask_d, num_data);
+    raft::allocate(mask_d, num_data, stream);
 
     // generate random data
     raft::random::Rng r(ps.seed);
@@ -380,8 +380,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     }
 
     // copy to GPU
-    raft::allocate(want_preds_d, ps.num_preds_outputs());
-    raft::allocate(want_proba_d, ps.num_proba_outputs());
+    raft::allocate(want_preds_d, ps.num_preds_outputs(), stream);
+    raft::allocate(want_proba_d, ps.num_proba_outputs(), stream);
     raft::update_device(want_preds_d, want_preds_h.data(), ps.num_preds_outputs(), stream);
     raft::update_device(want_proba_d, want_proba_h.data(), ps.num_proba_outputs(), stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -395,8 +395,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     init_forest(&forest);
 
     // predict
-    raft::allocate(preds_d, ps.num_preds_outputs());
-    raft::allocate(proba_d, ps.num_proba_outputs());
+    raft::allocate(preds_d, ps.num_preds_outputs(), stream);
+    raft::allocate(proba_d, ps.num_proba_outputs(), stream);
     fil::predict(handle, forest, preds_d, data_d, ps.num_rows);
     fil::predict(handle, forest, proba_d, data_d, ps.num_rows, true);
     CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -454,7 +454,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   std::vector<float> vector_leaf;
 
   // parameters
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   raft::handle_t handle;
   FilTestParams ps;
 };

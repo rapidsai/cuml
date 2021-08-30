@@ -45,21 +45,21 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
     int len  = params.n_row * params.n_col;
     int len2 = params.n_row_2 * params.n_col;
 
-    raft::allocate(data, len);
-    raft::allocate(labels, params.n_row);
-    raft::allocate(coef, params.n_col);
-    raft::allocate(coef2, params.n_col);
-    raft::allocate(coef3, params.n_col);
-    raft::allocate(coef_ref, params.n_col);
-    raft::allocate(coef2_ref, params.n_col);
-    raft::allocate(coef3_ref, params.n_col);
-    raft::allocate(pred_data, len2);
-    raft::allocate(pred, params.n_row_2);
-    raft::allocate(pred_ref, params.n_row_2);
-    raft::allocate(pred2, params.n_row_2);
-    raft::allocate(pred2_ref, params.n_row_2);
-    raft::allocate(pred3, params.n_row_2);
-    raft::allocate(pred3_ref, params.n_row_2);
+    raft::allocate(data, len, stream);
+    raft::allocate(labels, params.n_row, stream);
+    raft::allocate(coef, params.n_col, stream);
+    raft::allocate(coef2, params.n_col, stream);
+    raft::allocate(coef3, params.n_col, stream);
+    raft::allocate(coef_ref, params.n_col, stream);
+    raft::allocate(coef2_ref, params.n_col, stream);
+    raft::allocate(coef3_ref, params.n_col, stream);
+    raft::allocate(pred_data, len2, stream);
+    raft::allocate(pred, params.n_row_2, stream);
+    raft::allocate(pred_ref, params.n_row_2, stream);
+    raft::allocate(pred2, params.n_row_2, stream);
+    raft::allocate(pred2_ref, params.n_row_2, stream);
+    raft::allocate(pred3, params.n_row_2, stream);
+    raft::allocate(pred3_ref, params.n_row_2, stream);
 
     std::vector<T> data_h = {1.0, 1.0, 2.0, 2.0, 1.0, 2.0, 2.0, 3.0};
     data_h.resize(len);
@@ -155,10 +155,10 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
     params  = ::testing::TestWithParam<OlsInputs<T>>::GetParam();
     int len = params.n_row * params.n_col;
 
-    raft::allocate(data_sc, len);
-    raft::allocate(labels_sc, len);
-    raft::allocate(coef_sc, 1);
-    raft::allocate(coef_sc_ref, 1);
+    raft::allocate(data_sc, len, stream);
+    raft::allocate(labels_sc, len, stream);
+    raft::allocate(coef_sc, 1, stream);
+    raft::allocate(coef_sc_ref, 1, stream);
 
     std::vector<T> data_h = {1.0, 1.0, 2.0, 2.0, 1.0, 2.0, 2.0, 3.0};
     data_h.resize(len);
@@ -219,7 +219,7 @@ class OlsTest : public ::testing::TestWithParam<OlsInputs<T>> {
   T *data_sc, *labels_sc, *coef_sc, *coef_sc_ref;
   T intercept, intercept2, intercept3;
   raft::handle_t handle;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
 };
 
 const std::vector<OlsInputs<float>> inputsf2 = {

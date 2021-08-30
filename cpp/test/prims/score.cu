@@ -18,7 +18,6 @@
 #include <raft/cudart_utils.h>
 #include <iostream>
 #include <metrics/scores.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng.cuh>
 #include <vector>
 #include "test_utils.h"
@@ -39,18 +38,16 @@ TEST(ScoreTestHighScore, Result)
   float y[5]     = {0.1, 0.2, 0.3, 0.4, 0.5};
   float y_hat[5] = {0.12, 0.22, 0.32, 0.42, 0.52};
 
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   CUDA_CHECK(cudaStreamCreate(&stream));
-  float* d_y;
-  raft::allocate(d_y, 5);
 
-  float* d_y_hat;
-  raft::allocate(d_y_hat, 5);
+  rmm::device_uvector<float> d_y(5, stream);
+  rmm::device_uvector<float> d_y_hat(5, stream);
 
-  raft::update_device(d_y_hat, y_hat, 5, stream);
-  raft::update_device(d_y, y, 5, stream);
+  raft::update_device(d_y_hat.data(), y_hat, 5, stream);
+  raft::update_device(d_y.data(), y, 5, stream);
 
-  float result = MLCommon::Score::r2_score(d_y, d_y_hat, 5, stream);
+  auto result = MLCommon::Score::r2_score(d_y.data(), d_y_hat.data(), 5, stream);
   ASSERT_TRUE(result == 0.98f);
   CUDA_CHECK(cudaStreamDestroy(stream));
 }
@@ -61,18 +58,16 @@ TEST(ScoreTestLowScore, Result)
   float y[5]     = {0.1, 0.2, 0.3, 0.4, 0.5};
   float y_hat[5] = {0.012, 0.022, 0.032, 0.042, 0.052};
 
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   CUDA_CHECK(cudaStreamCreate(&stream));
-  float* d_y;
-  raft::allocate(d_y, 5);
 
-  float* d_y_hat;
-  raft::allocate(d_y_hat, 5);
+  rmm::device_uvector<float> d_y(5, stream);
+  rmm::device_uvector<float> d_y_hat(5, stream);
 
-  raft::update_device(d_y_hat, y_hat, 5, stream);
-  raft::update_device(d_y, y, 5, stream);
+  raft::update_device(d_y_hat.data(), y_hat, 5, stream);
+  raft::update_device(d_y.data(), y, 5, stream);
 
-  float result = MLCommon::Score::r2_score(d_y, d_y_hat, 5, stream);
+  auto result = MLCommon::Score::r2_score(d_y.data(), d_y_hat.data(), 5, stream);
 
   std::cout << "Result: " << result - -3.4012f << std::endl;
   ASSERT_TRUE(result - -3.4012f < 0.00001);
@@ -124,11 +119,9 @@ class AccuracyTest : public ::testing::TestWithParam<AccuracyInputs> {
 
     raft::random::Rng r(params.seed);
     CUDA_CHECK(cudaStreamCreate(&stream));
-    std::shared_ptr<raft::mr::device::allocator> d_allocator(
-      new raft::mr::device::default_allocator);
 
-    raft::allocate(predictions, params.n);
-    raft::allocate(ref_predictions, params.n);
+    raft::allocate(predictions, params.n, stream);
+    raft::allocate(ref_predictions, params.n, stream);
     r.normal(ref_predictions, params.n, (T)0.0, (T)1.0, stream);
     raft::copy_async(predictions, ref_predictions, params.n, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -145,8 +138,8 @@ class AccuracyTest : public ::testing::TestWithParam<AccuracyInputs> {
       CUDA_CHECK(cudaStreamSynchronize(stream));
     }
 
-    computed_accuracy = MLCommon::Score::accuracy_score<T>(
-      predictions, ref_predictions, params.n, d_allocator, stream);
+    computed_accuracy =
+      MLCommon::Score::accuracy_score<T>(predictions, ref_predictions, params.n, stream);
     ref_accuracy = (params.n - params.changed_n) * 1.0f / params.n;
     // std::cout << "computed_accuracy is " << computed_accuracy << " ref_accuracy is " <<
     // ref_accuracy << std::endl;
@@ -164,7 +157,7 @@ class AccuracyTest : public ::testing::TestWithParam<AccuracyInputs> {
   AccuracyInputs params;
   T *predictions, *ref_predictions;
   float computed_accuracy, ref_accuracy;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
 };
 
 const std::vector<AccuracyInputs> inputs = {
@@ -264,11 +257,9 @@ class RegressionMetricsTest : public ::testing::TestWithParam<RegressionInputs<T
     ref_regression_metrics.assign(3, -1.0);
 
     CUDA_CHECK(cudaStreamCreate(&stream));
-    std::shared_ptr<raft::mr::device::allocator> d_allocator(
-      new raft::mr::device::default_allocator);
 
-    raft::allocate(d_predictions, params.n);
-    raft::allocate(d_ref_predictions, params.n);
+    raft::allocate(d_predictions, params.n, stream);
+    raft::allocate(d_ref_predictions, params.n, stream);
 
     if (params.hardcoded_preds) {
       raft::update_device(d_predictions, params.predictions.data(), params.n, stream);
@@ -294,7 +285,6 @@ class RegressionMetricsTest : public ::testing::TestWithParam<RegressionInputs<T
     MLCommon::Score::regression_metrics(d_predictions,
                                         d_ref_predictions,
                                         params.n,
-                                        d_allocator,
                                         stream,
                                         computed_regression_metrics[0],
                                         computed_regression_metrics[1],
@@ -316,7 +306,7 @@ class RegressionMetricsTest : public ::testing::TestWithParam<RegressionInputs<T
   T *d_predictions, *d_ref_predictions;
   std::vector<double> computed_regression_metrics;
   std::vector<double> ref_regression_metrics;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
 };
 
 const std::vector<RegressionInputs<float>> regression_inputs_float = {

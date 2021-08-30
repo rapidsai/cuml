@@ -117,7 +117,7 @@ class BatchedICTest : public ::testing::TestWithParam<BatchedICInputs<T>> {
   BatchedICInputs<T> params;
   T* res_d;
   std::vector<T> res_h;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
 };
 
 // Test parameters (op, n_batches, m, n, p, q, tolerance)

@@ -32,8 +32,8 @@ struct SvcParams {
   DatasetParams data;
   BlobsParams blobs;
   MLCommon::Matrix::KernelParams kernel;
-  ML::SVM::svmParameter svm_param;
-  ML::SVM::svmModel<D> model;
+  ML::SVM::SvmParameter svm_param;
+  ML::SVM::SvmModel<D> model;
 };
 
 template <typename D>
@@ -60,10 +60,10 @@ class SVC : public BlobsFixture<D, D> {
     }
     this->loopOnState(state, [this]() {
       ML::SVM::svcFit(*this->handle,
-                      this->data.X,
+                      this->data.X.data(),
                       this->params.nrows,
                       this->params.ncols,
-                      this->data.y,
+                      this->data.y.data(),
                       this->svm_param,
                       this->kernel,
                       this->model);
@@ -74,8 +74,8 @@ class SVC : public BlobsFixture<D, D> {
 
  private:
   MLCommon::Matrix::KernelParams kernel;
-  ML::SVM::svmParameter svm_param;
-  ML::SVM::svmModel<D> model;
+  ML::SVM::SvmParameter svm_param;
+  ML::SVM::SvmModel<D> model;
 };
 
 template <typename D>
@@ -95,9 +95,9 @@ std::vector<SvcParams<D>> getInputs()
   p.blobs.center_box_max = 2.0;
   p.blobs.seed           = 12345ULL;
 
-  // svmParameter{C, cache_size, max_iter, nochange_steps, tol, verbosity})
-  p.svm_param = ML::SVM::svmParameter{1, 200, 100, 100, 1e-3, CUML_LEVEL_INFO, 0, ML::SVM::C_SVC};
-  p.model     = ML::SVM::svmModel<D>{0, 0, 0, nullptr, nullptr, nullptr, 0, nullptr};
+  // SvmParameter{C, cache_size, max_iter, nochange_steps, tol, verbosity})
+  p.svm_param = ML::SVM::SvmParameter{1, 200, 100, 100, 1e-3, CUML_LEVEL_INFO, 0, ML::SVM::C_SVC};
+  p.model     = ML::SVM::SvmModel<D>{0, 0, 0, nullptr, nullptr, nullptr, 0, nullptr};
 
   std::vector<Triplets> rowcols = {{50000, 2, 2}, {2048, 100000, 2}, {50000, 1000, 2}};
 

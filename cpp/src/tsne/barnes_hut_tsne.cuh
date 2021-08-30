@@ -16,7 +16,6 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include "barnes_hut_kernels.cuh"
 #include "utils.cuh"
@@ -46,7 +45,6 @@ void Barnes_Hut(value_t* VAL,
                 const value_idx n,
                 const TSNEParams& params)
 {
-  auto d_alloc        = handle.get_device_allocator();
   cudaStream_t stream = handle.get_stream();
 
   // Get device properites
@@ -61,11 +59,11 @@ void Barnes_Hut(value_t* VAL,
   CUML_LOG_DEBUG("N_nodes = %d blocks = %d", nnodes, blocks);
 
   // Allocate more space
-  // MLCommon::device_buffer<unsigned> errl(d_alloc, stream, 1);
-  MLCommon::device_buffer<unsigned> limiter(d_alloc, stream, 1);
-  MLCommon::device_buffer<value_idx> maxdepthd(d_alloc, stream, 1);
-  MLCommon::device_buffer<value_idx> bottomd(d_alloc, stream, 1);
-  MLCommon::device_buffer<value_t> radiusd(d_alloc, stream, 1);
+  // rmm::device_uvector<unsigned> errl(1, stream);
+  rmm::device_scalar<unsigned> limiter(stream);
+  rmm::device_scalar<value_idx> maxdepthd(stream);
+  rmm::device_scalar<value_idx> bottomd(stream);
+  rmm::device_scalar<value_t> radiusd(stream);
 
   BH::InitializationKernel<<<1, 1, 0, stream>>>(/*errl.data(),*/
                                                 limiter.data(),
@@ -79,43 +77,42 @@ void Barnes_Hut(value_t* VAL,
   const value_idx NNODES      = nnodes;
 
   // Actual allocations
-  MLCommon::device_buffer<value_idx> startl(d_alloc, stream, nnodes + 1);
-  MLCommon::device_buffer<value_idx> childl(d_alloc, stream, (nnodes + 1) * 4);
-  MLCommon::device_buffer<value_t> massl(d_alloc, stream, nnodes + 1);
+  rmm::device_uvector<value_idx> startl(nnodes + 1, stream);
+  rmm::device_uvector<value_idx> childl((nnodes + 1) * 4, stream);
+  rmm::device_uvector<value_t> massl(nnodes + 1, stream);
 
   thrust::device_ptr<value_t> begin_massl = thrust::device_pointer_cast(massl.data());
   thrust::fill(thrust::cuda::par.on(stream), begin_massl, begin_massl + (nnodes + 1), 1.0f);
 
-  MLCommon::device_buffer<value_t> maxxl(d_alloc, stream, blocks * FACTOR1);
-  MLCommon::device_buffer<value_t> maxyl(d_alloc, stream, blocks * FACTOR1);
-  MLCommon::device_buffer<value_t> minxl(d_alloc, stream, blocks * FACTOR1);
-  MLCommon::device_buffer<value_t> minyl(d_alloc, stream, blocks * FACTOR1);
+  rmm::device_uvector<value_t> maxxl(blocks * FACTOR1, stream);
+  rmm::device_uvector<value_t> maxyl(blocks * FACTOR1, stream);
+  rmm::device_uvector<value_t> minxl(blocks * FACTOR1, stream);
+  rmm::device_uvector<value_t> minyl(blocks * FACTOR1, stream);
 
   // SummarizationKernel
-  MLCommon::device_buffer<value_idx> countl(d_alloc, stream, nnodes + 1);
+  rmm::device_uvector<value_idx> countl(nnodes + 1, stream);
 
   // SortKernel
-  MLCommon::device_buffer<value_idx> sortl(d_alloc, stream, nnodes + 1);
+  rmm::device_uvector<value_idx> sortl(nnodes + 1, stream);
 
   // RepulsionKernel
-  MLCommon::device_buffer<value_t> rep_forces(d_alloc, stream, (nnodes + 1) * 2);
-  MLCommon::device_buffer<value_t> attr_forces(
-    d_alloc, stream, n * 2);  // n*2 double for reduction sum
+  rmm::device_uvector<value_t> rep_forces((nnodes + 1) * 2, stream);
+  rmm::device_uvector<value_t> attr_forces(n * 2, stream);  // n*2 double for reduction sum
 
-  MLCommon::device_buffer<value_t> Z_norm(d_alloc, stream, 1);
+  rmm::device_scalar<value_t> Z_norm(stream);
 
-  MLCommon::device_buffer<value_t> radiusd_squared(d_alloc, stream, 1);
+  rmm::device_scalar<value_t> radiusd_squared(stream);
 
   // Apply
-  MLCommon::device_buffer<value_t> gains_bh(d_alloc, stream, n * 2);
+  rmm::device_uvector<value_t> gains_bh(n * 2, stream);
 
   thrust::device_ptr<value_t> begin_gains_bh = thrust::device_pointer_cast(gains_bh.data());
-  thrust::fill(thrust::cuda::par.on(stream), begin_gains_bh, begin_gains_bh + (n * 2), 1.0f);
+  thrust::fill(handle.get_thrust_policy(), begin_gains_bh, begin_gains_bh + (n * 2), 1.0f);
 
-  MLCommon::device_buffer<value_t> old_forces(d_alloc, stream, n * 2);
+  rmm::device_uvector<value_t> old_forces(n * 2, stream);
   CUDA_CHECK(cudaMemsetAsync(old_forces.data(), 0, sizeof(value_t) * n * 2, stream));
 
-  MLCommon::device_buffer<value_t> YY(d_alloc, stream, (nnodes + 1) * 2);
+  rmm::device_uvector<value_t> YY((nnodes + 1) * 2, stream);
   if (params.initialize_embeddings) {
     random_vector(YY.data(), -0.0001f, 0.0001f, (nnodes + 1) * 2, stream, params.random_state);
   } else {
