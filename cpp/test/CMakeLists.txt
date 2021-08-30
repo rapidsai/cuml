@@ -41,7 +41,6 @@ if(BUILD_CUML_TESTS)
   add_executable(${CUML_CPP_TEST_TARGET}
     sg/cd_test.cu
     sg/dbscan_test.cu
-    sg/decisiontree_batchedlevel_unittest.cu
     sg/fil_test.cu
     sg/fnv_hash_test.cpp
     sg/genetic/node_test.cpp
@@ -132,7 +131,7 @@ if(BUILD_CUML_MG_TESTS)
 
   else(MPI_CXX_FOUND)
    message("OpenMPI not found. Skipping test '${CUML_MG_TEST_TARGET}'")
-  endif(MPI_CXX_FOUND)
+  endif()
 endif()
 
 ##############################################################################
@@ -238,4 +237,4 @@ if(BUILD_CUML_C_LIBRARY)
 
   target_link_libraries(${CUML_C_TEST_TARGET} PUBLIC ${CUML_C_TARGET})
 
-endif(BUILD_CUML_C_LIBRARY)
+endif()

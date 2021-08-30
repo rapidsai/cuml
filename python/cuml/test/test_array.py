@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -215,6 +215,8 @@ def test_array_init_bad(input_type, dtype, shape, order):
     when creating CumlArray
     """
     if input_type == 'series':
+        if dtype == np.float16:
+            pytest.skip("Skipping due to cuDF issue #9065")
         inp = create_input(input_type, dtype, shape, 'C')
     else:
         inp = create_input(input_type, dtype, shape, order)
@@ -606,7 +608,7 @@ def create_input(input_type, dtype, shape, order):
         return cuda.as_cuda_array(rand_ary)
 
     elif input_type == 'series':
-        return cudf.Series(cuda.as_cuda_array(rand_ary))
+        return cudf.Series(rand_ary)
 
     else:
         return rand_ary
