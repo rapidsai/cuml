@@ -87,7 +87,6 @@ void ridgeSVD(const raft::handle_t& handle,
 {
   auto cublasH   = handle.get_cublas_handle();
   auto cusolverH = handle.get_cusolver_dn_handle();
-  auto allocator = handle.get_device_allocator();
 
   ASSERT(n_cols > 0, "ridgeSVD: number of columns cannot be less than one");
   ASSERT(n_rows > 1, "ridgeSVD: number of rows cannot be less than two");
@@ -117,7 +116,6 @@ void ridgeEig(const raft::handle_t& handle,
 {
   auto cublasH   = handle.get_cublas_handle();
   auto cusolverH = handle.get_cusolver_dn_handle();
-  auto allocator = handle.get_device_allocator();
 
   ASSERT(n_cols > 1, "ridgeEig: number of columns cannot be less than two");
   ASSERT(n_rows > 1, "ridgeEig: number of rows cannot be less than two");
@@ -167,7 +165,6 @@ void ridgeFit(const raft::handle_t& handle,
 {
   auto cublas_handle   = handle.get_cublas_handle();
   auto cusolver_handle = handle.get_cusolver_dn_handle();
-  auto allocator       = handle.get_device_allocator();
 
   ASSERT(n_cols > 0, "ridgeFit: number of columns cannot be less than one");
   ASSERT(n_rows > 1, "ridgeFit: number of rows cannot be less than two");
@@ -177,9 +174,9 @@ void ridgeFit(const raft::handle_t& handle,
   rmm::device_uvector<math_t> mu_labels(0, stream);
 
   if (fit_intercept) {
-    mu_input  = rmm::device_uvector<math_t>(n_cols, stream);
-    mu_labels = rmm::device_uvector<math_t>(1, stream);
-    if (normalize) { norm2_input = rmm::device_uvector<math_t>(n_cols, stream); }
+    mu_input.resize(n_cols, stream);
+    mu_labels.resize(1, stream);
+    if (normalize) { norm2_input.resize(n_cols, stream); }
     preProcessData(handle,
                    input,
                    n_rows,

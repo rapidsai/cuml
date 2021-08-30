@@ -21,9 +21,7 @@
 #include "../prims/test_utils.h"
 #include "test_opg_utils.h"
 
-#include <cuml/common/device_buffer.hpp>
 #include <raft/comms/mpi_comms.hpp>
-#include <raft/mr/device/allocator.hpp>
 
 #include <raft/cuda_utils.cuh>
 
@@ -50,20 +48,18 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
                           int n_cols,
                           int n_clusters,
                           int part_num,
-                          std::shared_ptr<raft::mr::device::allocator> allocator,
                           cudaStream_t stream)
   {
-    device_buffer<int> labels(allocator, stream, n_rows);
+    rmm::device_uvector<int> labels(n_rows, stream);
 
-    Random::make_blobs<float, int>(
-      part->ptr, labels.data(), (int)n_rows, (int)n_cols, 5, allocator, stream);
+    Random::make_blobs<float, int>(part->ptr, labels.data(), (int)n_rows, (int)n_cols, 5, stream);
   }
 
   bool runTest(const KNNParams& params)
   {
     raft::comms::initialize_mpi_comms(&handle, MPI_COMM_WORLD);
     const auto& comm     = handle.get_comms();
-    const auto allocator = handle.get_device_allocator();
+    const auto allocator = rmm::mr::get_current_device_resource();
 
     cudaStream_t stream = handle.get_stream();
 
@@ -130,7 +126,7 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
       out_d_parts.push_back(out_d);
       out_i_parts.push_back(out_i);
 
-      generate_partition(query_d, params.min_rows, params.n_cols, 5, i, allocator, stream);
+      generate_partition(query_d, params.min_rows, params.n_cols, 5, i, stream);
     }
 
     std::vector<Matrix::floatData_t*> index_parts;
@@ -143,7 +139,7 @@ class BruteForceKNNTest : public ::testing::TestWithParam<KNNParams> {
 
       index_parts.push_back(i_d);
 
-      generate_partition(i_d, params.min_rows, params.n_cols, 5, i, allocator, stream);
+      generate_partition(i_d, params.min_rows, params.n_cols, 5, i, stream);
     }
 
     Matrix::PartDescriptor idx_desc(

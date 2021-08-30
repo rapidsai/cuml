@@ -122,7 +122,7 @@ void do_labelling_on_host(const raft::handle_t& handle,
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   auto parents       = thrust::device_pointer_cast(condensed_tree.get_parents());
-  auto thrust_policy = rmm::exec_policy(stream);
+  auto thrust_policy = handle.get_thrust_policy();
   value_idx size =
     *thrust::max_element(thrust_policy, parents, parents + condensed_tree.get_n_edges());
 
@@ -212,7 +212,7 @@ value_idx extract_clusters(const raft::handle_t& handle,
                            value_t cluster_selection_epsilon = 0.0)
 {
   auto stream      = handle.get_stream();
-  auto exec_policy = rmm::exec_policy(stream);
+  auto exec_policy = handle.get_thrust_policy();
 
   Stability::compute_stabilities(handle, condensed_tree, tree_stabilities);
   rmm::device_uvector<int> is_cluster(condensed_tree.get_n_clusters(), handle.get_stream());

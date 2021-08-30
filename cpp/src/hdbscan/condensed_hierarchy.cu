@@ -195,12 +195,8 @@ void CondensedHierarchy<value_idx, value_t>::condense(value_idx* full_parents,
                     parent_child.begin(),
                     invert_op);
 
-  raft::label::make_monotonic(parent_child.data(),
-                              parent_child.data(),
-                              parent_child.size(),
-                              stream,
-                              handle.get_device_allocator(),
-                              true);
+  raft::label::make_monotonic(
+    parent_child.data(), parent_child.data(), parent_child.size(), stream, true);
 
   raft::copy_async(children.begin(), parent_child.begin(), n_edges, stream);
   raft::copy_async(parents.begin(), parent_child.begin() + n_edges, n_edges, stream);

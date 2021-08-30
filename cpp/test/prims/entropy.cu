@@ -18,9 +18,8 @@
 #include <algorithm>
 #include <iostream>
 #include <metrics/entropy.cuh>
-#include <raft/cuda_utils.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <random>
+#include <rmm/device_uvector.hpp>
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -75,34 +74,24 @@ class entropyTest : public ::testing::TestWithParam<entropyParam> {
 
     // allocating and initializing memory to the GPU
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(clusterArray, nElements, true);
-    raft::update_device(clusterArray, &arr1[0], (int)nElements, stream);
-
-    std::shared_ptr<raft::mr::device::allocator> allocator(new raft::mr::device::default_allocator);
+    rmm::device_uvector<T> clusterArray(nElements, stream);
+    raft::update_device(clusterArray.data(), &arr1[0], (int)nElements, stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
     // calling the entropy CUDA implementation
     computedEntropy = MLCommon::Metrics::entropy(
-      clusterArray, nElements, lowerLabelRange, upperLabelRange, allocator, stream);
-  }
-
-  // the destructor
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(clusterArray));
-
+      clusterArray.data(), nElements, lowerLabelRange, upperLabelRange, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   // declaring the data values
   entropyParam params;
   T lowerLabelRange, upperLabelRange;
-  T* clusterArray = nullptr;
 
   int nElements          = 0;
   double truthEntropy    = 0;
   double computedEntropy = 0;
-  cudaStream_t stream;
+  cudaStream_t stream    = 0;
 };
 
 // setting test parameter values

@@ -18,7 +18,6 @@
 #include <algorithm>
 #include <iostream>
 #include <metrics/homogeneity_score.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <random>
 #include "test_utils.h"
 
@@ -65,25 +64,23 @@ class homogeneityTest : public ::testing::TestWithParam<homogeneityParam> {
     // allocating and initializing memory to the GPU
 
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(truthClusterArray, nElements, true);
-    raft::allocate(predClusterArray, nElements, true);
 
-    raft::update_device(truthClusterArray, &arr1[0], (int)nElements, stream);
-    raft::update_device(predClusterArray, &arr2[0], (int)nElements, stream);
-    std::shared_ptr<raft::mr::device::allocator> allocator(new raft::mr::device::default_allocator);
+    rmm::device_uvector<T> truthClusterArray(nElements, stream);
+    rmm::device_uvector<T> predClusterArray(nElements, stream);
+    raft::update_device(truthClusterArray.data(), &arr1[0], (int)nElements, stream);
+    raft::update_device(predClusterArray.data(), &arr2[0], (int)nElements, stream);
 
     // calculating the golden output
     double truthMI, truthEntropy;
 
-    truthMI      = MLCommon::Metrics::mutual_info_score(truthClusterArray,
-                                                   predClusterArray,
+    truthMI      = MLCommon::Metrics::mutual_info_score(truthClusterArray.data(),
+                                                   predClusterArray.data(),
                                                    nElements,
                                                    lowerLabelRange,
                                                    upperLabelRange,
-                                                   allocator,
                                                    stream);
     truthEntropy = MLCommon::Metrics::entropy(
-      truthClusterArray, nElements, lowerLabelRange, upperLabelRange, allocator, stream);
+      truthClusterArray.data(), nElements, lowerLabelRange, upperLabelRange, stream);
 
     if (truthEntropy) {
       truthHomogeneity = truthMI / truthEntropy;
@@ -93,32 +90,22 @@ class homogeneityTest : public ::testing::TestWithParam<homogeneityParam> {
     if (nElements == 0) truthHomogeneity = 1.0;
 
     // calling the homogeneity CUDA implementation
-    computedHomogeneity = MLCommon::Metrics::homogeneity_score(truthClusterArray,
-                                                               predClusterArray,
+    computedHomogeneity = MLCommon::Metrics::homogeneity_score(truthClusterArray.data(),
+                                                               predClusterArray.data(),
                                                                nElements,
                                                                lowerLabelRange,
                                                                upperLabelRange,
-                                                               allocator,
                                                                stream);
-  }
-
-  // the destructor
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(truthClusterArray));
-    CUDA_CHECK(cudaFree(predClusterArray));
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   // declaring the data values
   homogeneityParam params;
   T lowerLabelRange, upperLabelRange;
-  T* truthClusterArray       = nullptr;
-  T* predClusterArray        = nullptr;
   int nElements              = 0;
   double truthHomogeneity    = 0;
   double computedHomogeneity = 0;
-  cudaStream_t stream;
+  cudaStream_t stream        = 0;
 };
 
 // setting test parameter values
