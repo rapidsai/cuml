@@ -17,9 +17,8 @@
 
 #include <raft/distance/distance.cuh>
 #include <raft/handle.hpp>
-#include "pairwise_distance_canberra.cuh"
 #include <rmm/device_uvector.hpp>
-
+#include "pairwise_distance_canberra.cuh"
 
 namespace ML {
 
