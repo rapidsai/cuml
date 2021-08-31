@@ -208,13 +208,13 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
     // helper data
     /// weights, used as float* or int*
-    int* weights_d           = nullptr;
-    float* thresholds_d      = nullptr;
-    bool* def_lefts_d        = nullptr;
-    bool* is_leafs_d         = nullptr;
-    bool* def_lefts_h        = nullptr;
-    bool* is_leafs_h         = nullptr;
-    float* is_categoricals_d = nullptr;
+    int* weights_d      = nullptr;
+    float* thresholds_d = nullptr;
+    bool* def_lefts_d   = nullptr;
+    bool* is_leafs_d    = nullptr;
+    bool* def_lefts_h   = nullptr;
+    bool* is_leafs_h    = nullptr;
+    rmm::device_uvector<float> is_categoricals_d(num_nodes, stream);
 
     // allocate GPU data
     raft::allocate(weights_d, num_nodes, stream);
@@ -222,7 +222,6 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     raft::allocate(thresholds_d, num_nodes, stream);
     raft::allocate(def_lefts_d, num_nodes, stream);
     raft::allocate(is_leafs_d, num_nodes, stream);
-    raft::allocate(is_categoricals_d, num_nodes, stream);
     fids_d.resize(num_nodes, stream);
     max_matching_cat_d.resize(ps.num_cols, stream);
 
@@ -253,7 +252,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     r.bernoulli(def_lefts_d, num_nodes, 0.5f, stream);
     r.bernoulli(is_leafs_d, num_nodes, 1.0f - ps.leaf_prob, stream);
     hard_clipped_bernoulli(
-      r, is_categoricals_d, num_nodes, 1.0f - ps.node_categorical_prob, stream);
+      r, is_categoricals_d.data(), num_nodes, 1.0f - ps.node_categorical_prob, stream);
 
     // copy data to host
     std::vector<float> thresholds_h(num_nodes), is_categoricals_h(num_nodes);
@@ -289,7 +288,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     raft::update_host(fids_h.data(), fids_d.data(), num_nodes, stream);
     raft::update_host(def_lefts_h, def_lefts_d, num_nodes, stream);
     raft::update_host(is_leafs_h, is_leafs_d, num_nodes, stream);
-    raft::update_host(is_categoricals_h.data(), is_categoricals_d, num_nodes, stream);
+    raft::update_host(is_categoricals_h.data(), is_categoricals_d.data(), num_nodes, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     // mark leaves
@@ -323,20 +322,21 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     // fill category sets
     // there is a faster trick with a 256-byte LUT, but we can implement it later if the tests
     // become too slow
-    float* bits_precursor_d = nullptr;
-    uint8_t* bits_d         = nullptr;
+    rmm::device_uvector<float> bits_precursor_d;
+    rmm::device_uvector<uint8_t> bits_d;
     if (cat_sets_h.bits.size() != 0) {
-      raft::allocate(bits_d, cat_sets_h.bits.size());
-      raft::allocate(bits_precursor_d, cat_sets_h.bits.size() * BITS_PER_BYTE);
+      bits_d.resize(cat_sets_h.bits.size(), stream);
+      bits_precursor_d.resize(cat_sets_h.bits.size() * BITS_PER_BYTE, stream);
       hard_clipped_bernoulli(r,
-                             bits_precursor_d,
+                             bits_precursor_d.data(),
                              cat_sets_h.bits.size() * BITS_PER_BYTE,
                              1.0f - ps.cat_match_prob,
                              stream);
       floats_to_bit_stream_k<<<raft::ceildiv(cat_sets_h.bits.size(), (std::size_t)FIL_TPB),
                                FIL_TPB,
                                0,
-                               stream>>>(bits_d, bits_precursor_d, cat_sets_h.bits.size());
+                               stream>>>(
+        bits_d.data(), bits_precursor_d.data(), cat_sets_h.bits.size());
       raft::update_host(cat_sets_h.bits.data(), bits_d, cat_sets_h.bits.size(), stream);
     }
 
@@ -369,9 +369,6 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     // clean up
     delete[] def_lefts_h;
     delete[] is_leafs_h;
-    CUDA_CHECK(cudaFree(bits_precursor_d));
-    CUDA_CHECK(cudaFree(bits_d));
-    CUDA_CHECK(cudaFree(is_categoricals_d));
     CUDA_CHECK(cudaFree(is_leafs_d));
     CUDA_CHECK(cudaFree(def_lefts_d));
     CUDA_CHECK(cudaFree(thresholds_d));
