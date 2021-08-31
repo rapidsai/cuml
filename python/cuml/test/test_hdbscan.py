@@ -16,8 +16,8 @@
 import pytest
 
 
-from cuml.experimental.cluster import HDBSCAN
-from cuml.experimental.cluster import condense_hierarchy
+from cuml.cluster import HDBSCAN
+from cuml.cluster import condense_hierarchy
 from sklearn.datasets import make_blobs
 
 from cuml.metrics import adjusted_rand_score
