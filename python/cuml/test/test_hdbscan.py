@@ -394,13 +394,14 @@ def test_hdbscan_core_dists_bug_4054():
     matches the reference impl
     """
 
-    X, y = datasets.make_moons(n_samples=10000, noise=0.12)
+    X, y = datasets.make_moons(n_samples=10000, noise=0.12, random_state=0)
 
     cu_labels_ = HDBSCAN(min_samples=25, min_cluster_size=25).fit_predict(X)
     sk_labels_ = hdbscan.HDBSCAN(min_samples=25,
-                                 min_cluster_size=25).fit_predict(X)
+                                 min_cluster_size=25,
+                                 approx_min_span_tree=False).fit_predict(X)
 
-    assert adjusted_rand_score(cu_labels_, sk_labels_) == 1.0
+    assert adjusted_rand_score(cu_labels_, sk_labels_) > 0.99
 
 
 def test_hdbscan_plots():
