@@ -17,6 +17,7 @@
 
 #include <raft/distance/distance.cuh>
 #include <raft/handle.hpp>
+#include <rmm/device_uvector.hpp>
 #include "pairwise_distance_chebyshev.cuh"
 namespace ML {
 
@@ -32,7 +33,7 @@ void pairwise_distance_chebyshev(const raft::handle_t& handle,
                                  double metric_arg)
 {
   // Allocate workspace
-  raft::mr::device::buffer<char> workspace(handle.get_device_allocator(), handle.get_stream(), 1);
+  rmm::device_uvector<char> workspace(1, handle.get_stream());
   // Call the distance function
   raft::distance::pairwise_distance_impl<double, int, raft::distance::DistanceType::Linf>(
     x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
@@ -49,7 +50,7 @@ void pairwise_distance_chebyshev(const raft::handle_t& handle,
                                  float metric_arg)
 {
   // Allocate workspace
-  raft::mr::device::buffer<char> workspace(handle.get_device_allocator(), handle.get_stream(), 1);
+  rmm::device_uvector<char> workspace(1, handle.get_stream());
   // Call the distance function
   raft::distance::pairwise_distance_impl<float, int, raft::distance::DistanceType::Linf>(
     x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);

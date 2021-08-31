@@ -65,7 +65,6 @@ void olsFit(const raft::handle_t& handle,
 {
   auto cublas_handle   = handle.get_cublas_handle();
   auto cusolver_handle = handle.get_cusolver_dn_handle();
-  auto allocator       = handle.get_device_allocator();
 
   ASSERT(n_cols > 0, "olsFit: number of columns cannot be less than one");
   ASSERT(n_rows > 1, "olsFit: number of rows cannot be less than two");
@@ -95,8 +94,7 @@ void olsFit(const raft::handle_t& handle,
   if (algo == 0 || algo == 1) {
     LinAlg::lstsq(handle, input, n_rows, n_cols, labels, coef, algo, stream);
   } else if (algo == 2) {
-    LinAlg::lstsqQR(
-      input, n_rows, n_cols, labels, coef, cusolver_handle, cublas_handle, allocator, stream);
+    LinAlg::lstsqQR(input, n_rows, n_cols, labels, coef, cusolver_handle, cublas_handle, stream);
   } else if (algo == 3) {
     ASSERT(false, "olsFit: no algorithm with this id has been implemented");
   } else {

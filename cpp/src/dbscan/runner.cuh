@@ -16,6 +16,10 @@
 
 #pragma once
 
+#include <raft/cudart_utils.h>
+#include <common/nvtx.hpp>
+#include <label/classlabels.cuh>
+#include <raft/sparse/csr.cuh>
 #include "adjgraph/runner.cuh"
 #include "corepoints/compute.cuh"
 #include "corepoints/exchange.cuh"
@@ -23,17 +27,11 @@
 #include "mergelabels/tree_reduction.cuh"
 #include "vertexdeg/runner.cuh"
 
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 
 #include <common/nvtx.hpp>
 
 #include <label/classlabels.cuh>
-
-#include <raft/cudart_utils.h>
-#include <raft/cuda_utils.cuh>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/sparse/csr.cuh>
 
 #include <cstddef>
 
@@ -67,19 +65,13 @@ __global__ void relabelForSkl(Index_* labels, Index_ N, Index_ MAX_LABEL)
  * an array of labels drawn from a monotonically increasing set.
  */
 template <typename Index_ = int>
-void final_relabel(Index_* db_cluster,
-                   Index_ N,
-                   cudaStream_t stream,
-                   std::shared_ptr<raft::mr::device::allocator> allocator)
+void final_relabel(Index_* db_cluster, Index_ N, cudaStream_t stream)
 {
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
   MLCommon::Label::make_monotonic(
-    db_cluster,
-    db_cluster,
-    N,
-    stream,
-    [MAX_LABEL] __device__(Index_ val) { return val == MAX_LABEL; },
-    allocator);
+    db_cluster, db_cluster, N, stream, [MAX_LABEL] __device__(Index_ val) {
+      return val == MAX_LABEL;
+    });
 }
 
 /**
@@ -211,7 +203,7 @@ std::size_t run(const raft::handle_t& handle,
 
   // Compute the labelling for the owned part of the graph
   raft::sparse::WeakCCState state(m);
-  MLCommon::device_buffer<Index_> adj_graph(handle.get_device_allocator(), stream);
+  rmm::device_uvector<Index_> adj_graph(0, stream);
 
   for (int i = 0; i < n_batches; i++) {
     Index_ start_vertex_id = start_row + i * batch_size;
@@ -282,7 +274,7 @@ std::size_t run(const raft::handle_t& handle,
   // Final relabel
   if (my_rank == 0) {
     ML::PUSH_RANGE("Trace::Dbscan::FinalRelabel");
-    if (algo_ccl == 2) final_relabel(labels, N, stream, handle.get_device_allocator());
+    if (algo_ccl == 2) final_relabel(labels, N, stream);
     std::size_t nblks = raft::ceildiv<std::size_t>(N, TPB);
     relabelForSkl<Index_><<<nblks, TPB, 0, stream>>>(labels, N, MAX_LABEL);
     CUDA_CHECK(cudaPeekAtLastError());
@@ -293,8 +285,7 @@ std::size_t run(const raft::handle_t& handle,
       ML::PUSH_RANGE("Trace::Dbscan::CoreSampleIndices");
 
       // Create the execution policy
-      ML::thrustAllocatorAdapter alloc(handle.get_device_allocator(), stream);
-      auto thrust_exec_policy = thrust::cuda::par(alloc).on(stream);
+      auto thrust_exec_policy = handle.get_thrust_policy();
 
       // Get wrappers for the device ptrs
       thrust::device_ptr<bool> dev_core_pts       = thrust::device_pointer_cast(core_pts);

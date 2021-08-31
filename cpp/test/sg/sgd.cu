@@ -44,12 +44,12 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
     params  = ::testing::TestWithParam<SgdInputs<T>>::GetParam();
     int len = params.n_row * params.n_col;
 
-    raft::allocate(data, len);
-    raft::allocate(labels, params.n_row);
-    raft::allocate(coef, params.n_col, true);
-    raft::allocate(coef2, params.n_col, true);
-    raft::allocate(coef_ref, params.n_col);
-    raft::allocate(coef2_ref, params.n_col);
+    raft::allocate(data, len, stream);
+    raft::allocate(labels, params.n_row, stream);
+    raft::allocate(coef, params.n_col, stream, true);
+    raft::allocate(coef2, params.n_col, stream, true);
+    raft::allocate(coef_ref, params.n_col, stream);
+    raft::allocate(coef2_ref, params.n_col, stream);
 
     T data_h[len] = {1.0, 1.0, 2.0, 2.0, 1.0, 2.0, 2.0, 3.0};
     raft::update_device(data, data_h, len, stream);
@@ -130,12 +130,12 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
     int len = params.n_row2 * params.n_col2;
 
     T* coef_class;
-    raft::allocate(data_logreg, len);
-    raft::allocate(data_logreg_test, len);
-    raft::allocate(labels_logreg, params.n_row2);
-    raft::allocate(coef_class, params.n_col2, true);
-    raft::allocate(pred_log, params.n_row2);
-    raft::allocate(pred_log_ref, params.n_row2);
+    raft::allocate(data_logreg, len, stream);
+    raft::allocate(data_logreg_test, len, stream);
+    raft::allocate(labels_logreg, params.n_row2, stream);
+    raft::allocate(coef_class, params.n_col2, stream, true);
+    raft::allocate(pred_log, params.n_row2, stream);
+    raft::allocate(pred_log_ref, params.n_row2, stream);
 
     T data_h[len] = {0.1, -2.1, 5.4, 5.4, -1.5, -2.15, 2.65, 2.65, 3.25, -0.15, -7.35, -7.35};
     raft::update_device(data_logreg, data_h, len, stream);
@@ -204,12 +204,12 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
     int len = params.n_row2 * params.n_col2;
 
     T* coef_class;
-    raft::allocate(data_svmreg, len);
-    raft::allocate(data_svmreg_test, len);
-    raft::allocate(labels_svmreg, params.n_row2);
-    raft::allocate(coef_class, params.n_col2, true);
-    raft::allocate(pred_svm, params.n_row2);
-    raft::allocate(pred_svm_ref, params.n_row2);
+    raft::allocate(data_svmreg, len, stream);
+    raft::allocate(data_svmreg_test, len, stream);
+    raft::allocate(labels_svmreg, params.n_row2, stream);
+    raft::allocate(coef_class, params.n_col2, stream, true);
+    raft::allocate(pred_svm, params.n_row2, stream);
+    raft::allocate(pred_svm_ref, params.n_row2, stream);
 
     T data_h[len] = {0.1, -2.1, 5.4, 5.4, -1.5, -2.15, 2.65, 2.65, 3.25, -0.15, -7.35, -7.35};
     raft::update_device(data_svmreg, data_h, len, stream);
@@ -310,7 +310,7 @@ class SgdTest : public ::testing::TestWithParam<SgdInputs<T>> {
   T *data_svmreg, *data_svmreg_test, *labels_svmreg;
   T *pred_svm, *pred_svm_ref, *pred_log, *pred_log_ref;
   T intercept, intercept2;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   raft::handle_t handle;
 };
 

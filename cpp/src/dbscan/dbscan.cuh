@@ -21,7 +21,6 @@
 #include <common/nvtx.hpp>
 
 #include <cuml/cluster/dbscan.hpp>
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 
 #include <algorithm>
@@ -182,7 +181,7 @@ void dbscanFitImpl(const raft::handle_t& handle,
 
   CUML_LOG_DEBUG("Workspace size: %lf MB", (double)workspaceSize * 1e-6);
 
-  MLCommon::device_buffer<char> workspace(handle.get_device_allocator(), stream, workspaceSize);
+  rmm::device_uvector<char> workspace(workspaceSize, stream);
   Dbscan::run<T, Index_, opg>(handle,
                               input,
                               n_rows,

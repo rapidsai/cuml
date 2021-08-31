@@ -18,7 +18,6 @@
 #include <algorithm>
 #include <iostream>
 #include <metrics/kl_divergence.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <random>
 #include "test_utils.h"
 
@@ -56,12 +55,14 @@ class klDivergenceTest : public ::testing::TestWithParam<klDivergenceParam> {
 
     // allocating and initializing memory to the GPU
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(d_modelPDF, nElements, true);
-    raft::allocate(d_candidatePDF, nElements, true);
 
-    raft::update_device(d_modelPDF, &h_modelPDF[0], (int)nElements, stream);
-    raft::update_device(d_candidatePDF, &h_candidatePDF[0], (int)nElements, stream);
-    std::shared_ptr<raft::mr::device::allocator> allocator(new raft::mr::device::default_allocator);
+    rmm::device_uvector<DataT> d_modelPDF(nElements, stream);
+    rmm::device_uvector<DataT> d_candidatePDF(nElements, stream);
+    CUDA_CHECK(cudaMemset(d_modelPDF.data(), 0, d_modelPDF.size() * sizeof(DataT)));
+    CUDA_CHECK(cudaMemset(d_candidatePDF.data(), 0, d_candidatePDF.size() * sizeof(DataT)));
+
+    raft::update_device(d_modelPDF.data(), &h_modelPDF[0], (int)nElements, stream);
+    raft::update_device(d_candidatePDF.data(), &h_candidatePDF[0], (int)nElements, stream);
 
     // generating the golden output
     for (int i = 0; i < nElements; ++i) {
@@ -74,25 +75,16 @@ class klDivergenceTest : public ::testing::TestWithParam<klDivergenceParam> {
 
     // calling the kl_divergence CUDA implementation
     computedklDivergence =
-      MLCommon::Metrics::kl_divergence(d_modelPDF, d_candidatePDF, nElements, allocator, stream);
-  }
-
-  // the destructor
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(d_modelPDF));
-    CUDA_CHECK(cudaFree(d_candidatePDF));
+      MLCommon::Metrics::kl_divergence(d_modelPDF.data(), d_candidatePDF.data(), nElements, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
   // declaring the data values
   klDivergenceParam params;
-  DataT* d_modelPDF          = nullptr;
-  DataT* d_candidatePDF      = nullptr;
   int nElements              = 0;
   DataT truthklDivergence    = 0;
   DataT computedklDivergence = 0;
-  cudaStream_t stream;
+  cudaStream_t stream        = 0;
 };
 
 // setting test parameter values

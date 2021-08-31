@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/tree/decisiontree.hpp>
 #include <raft/handle.hpp>
 

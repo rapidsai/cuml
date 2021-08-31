@@ -19,18 +19,14 @@
 #include <thrust/fill.h>
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/device/buffer.hpp>
+#include <rmm/device_uvector.hpp>
+#include <rmm/exec_policy.hpp>
 #include "quantile.h"
 
 #include <common/nvtx.hpp>
 
 namespace ML {
 namespace DT {
-
-using device_allocator = raft::mr::device::allocator;
-template <typename T>
-using device_buffer = raft::mr::device::buffer<T>;
 
 template <typename T>
 __global__ void computeQuantilesSorted(T* quantiles,
@@ -48,22 +44,16 @@ __global__ void computeQuantilesSorted(T* quantiles,
 }
 
 template <typename T>
-void computeQuantiles(T* quantiles,
-                      int n_bins,
-                      const T* data,
-                      int n_rows,
-                      int n_cols,
-                      const std::shared_ptr<raft::mr::device::allocator> device_allocator,
-                      cudaStream_t stream)
+void computeQuantiles(
+  T* quantiles, int n_bins, const T* data, int n_rows, int n_cols, cudaStream_t stream)
 {
-  thrust::fill(
-    thrust::cuda::par(*device_allocator).on(stream), quantiles, quantiles + n_bins * n_cols, 0.0);
+  thrust::fill(rmm::exec_policy(stream), quantiles, quantiles + n_bins * n_cols, 0.0);
   // Determine temporary device storage requirements
-  std::unique_ptr<device_buffer<char>> d_temp_storage = nullptr;
-  size_t temp_storage_bytes                           = 0;
+  std::unique_ptr<rmm::device_uvector<char>> d_temp_storage = nullptr;
+  size_t temp_storage_bytes                                 = 0;
 
-  std::unique_ptr<device_buffer<T>> single_column_sorted = nullptr;
-  single_column_sorted = std::make_unique<device_buffer<T>>(device_allocator, stream, n_rows);
+  std::unique_ptr<rmm::device_uvector<T>> single_column_sorted = nullptr;
+  single_column_sorted = std::make_unique<rmm::device_uvector<T>>(n_rows, stream);
 
   CUDA_CHECK(cub::DeviceRadixSort::SortKeys(nullptr,
                                             temp_storage_bytes,
@@ -75,8 +65,7 @@ void computeQuantiles(T* quantiles,
                                             stream));
 
   // Allocate temporary storage for sorting
-  d_temp_storage =
-    std::make_unique<device_buffer<char>>(device_allocator, stream, temp_storage_bytes);
+  d_temp_storage = std::make_unique<rmm::device_uvector<char>>(temp_storage_bytes, stream);
 
   // Compute quantiles column by column
   for (int col = 0; col < n_cols; col++) {

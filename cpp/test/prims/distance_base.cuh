@@ -116,16 +116,16 @@ void naiveDistance(DataType* dist,
 
   switch (type) {
     case raft::distance::DistanceType::L1:
-      naiveL1DistanceKernel<DataType><<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
+      naiveL1DistanceKernel<DataType> < <<nblks, TPB>>(dist, x, y, m, n, k, isRowMajor);
       break;
     case raft::distance::DistanceType::L2SqrtUnexpanded:
     case raft::distance::DistanceType::L2Unexpanded:
     case raft::distance::DistanceType::L2SqrtExpanded:
     case raft::distance::DistanceType::L2Expanded:
-      naiveDistanceKernel<DataType><<<nblks, TPB>>>(dist, x, y, m, n, k, type, isRowMajor);
+      naiveDistanceKernel<DataType> < <<nblks, TPB>>(dist, x, y, m, n, k, type, isRowMajor);
       break;
     case raft::distance::DistanceType::CosineExpanded:
-      naiveCosineDistanceKernel<DataType><<<nblks, TPB>>>(dist, x, y, m, n, k, isRowMajor);
+      naiveCosineDistanceKernel<DataType> < <<nblks, TPB>>(dist, x, y, m, n, k, isRowMajor);
       break;
     default: FAIL() << "should be here\n";
   }
@@ -172,47 +172,52 @@ void distanceLauncher(DataType* x,
 template <raft::distance::DistanceType distanceType, typename DataType>
 class DistanceTest : public ::testing::TestWithParam<DistanceInputs<DataType>> {
  public:
-  void SetUp() override
+  DistanceTest()
+    : x(0, stream), y(0, stream), dist_ref(0, stream), dist(0, stream), dist2(0, stream)
   {
-    params = ::testing::TestWithParam<DistanceInputs<DataType>>::GetParam();
-    raft::random::Rng r(params.seed);
-    int m           = params.m;
-    int n           = params.n;
-    int k           = params.k;
-    bool isRowMajor = params.isRowMajor;
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(x, m * k);
-    raft::allocate(y, n * k);
-    raft::allocate(dist_ref, m * n);
-    raft::allocate(dist, m * n);
-    raft::allocate(dist2, m * n);
-    r.uniform(x, m * k, DataType(-1.0), DataType(1.0), stream);
-    r.uniform(y, n * k, DataType(-1.0), DataType(1.0), stream);
-    naiveDistance(dist_ref, x, y, m, n, k, distanceType, isRowMajor);
-    char* workspace = nullptr;
-    size_t worksize = getWorkspaceSize<distanceType, DataType, DataType, DataType>(x, y, m, n, k);
-    if (worksize != 0) { raft::allocate(workspace, worksize); }
-
-    DataType threshold = -10000.f;
-    distanceLauncher<distanceType, DataType>(
-      x, y, dist, dist2, m, n, k, params, threshold, workspace, worksize, stream, isRowMajor);
-    CUDA_CHECK(cudaStreamDestroy(stream));
-    CUDA_CHECK(cudaFree(workspace));
   }
 
-  void TearDown() override
+  void SetUp() override
   {
-    CUDA_CHECK(cudaFree(x));
-    CUDA_CHECK(cudaFree(y));
-    CUDA_CHECK(cudaFree(dist_ref));
-    CUDA_CHECK(cudaFree(dist));
-    CUDA_CHECK(cudaFree(dist2));
+    params = ::testing::TestWithParam < DistanceInputs<DataType>::GetParam();
+    raft::random::Rng r(params.seed);
+    int m               = params.m;
+    int n               = params.n;
+    int k               = params.k;
+    bool isRowMajor     = params.isRowMajor;
+    cudaStream_t stream = 0;
+    CUDA_CHECK(cudaStreamCreate(&stream));
+    x.resize(m * k, stream);
+    y.resize(n * k, stream);
+    dist_ref.resize(m * n, stream);
+    dist.resize(m * n, stream);
+    dist2.resize(m * n, stream);
+    r.uniform(x.data(), m * k, DataType(-1.0), DataType(1.0), stream);
+    r.uniform(y.data(), n * k, DataType(-1.0), DataType(1.0), stream);
+    naiveDistance(dist_ref.data(), x.data(), y.data(), m, n, k, distanceType, isRowMajor);
+    size_t worksize = getWorkspaceSize<distanceType, DataType, DataType, DataType>(x, y, m, n, k);
+    rmm::device_uvector<char> workspace(worksize);
+
+    DataType threshold = -10000.f;
+    distanceLauncher<distanceType, DataType>(x.data(),
+                                             y.data(),
+                                             dist.data(),
+                                             dist2.data(),
+                                             m,
+                                             n,
+                                             k,
+                                             params,
+                                             threshold,
+                                             workspace.data(),
+                                             worksize,
+                                             stream,
+                                             isRowMajor);
+    CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
  protected:
   DistanceInputs<DataType> params;
-  DataType *x, *y, *dist_ref, *dist, *dist2;
+  rmm::device_uvector<DataType> x, y, dist_ref, dist, dist2;
 };
 
 }  // end namespace Distance

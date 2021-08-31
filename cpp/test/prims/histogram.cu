@@ -61,39 +61,36 @@ struct HistInputs {
 
 class HistTest : public ::testing::TestWithParam<HistInputs> {
  protected:
+  HistTest() : in(0, stream), bins(0, stream), ref_bins(0, stream) {}
+
   void SetUp() override
   {
     params = ::testing::TestWithParam<HistInputs>::GetParam();
     raft::random::Rng r(params.seed);
     CUDA_CHECK(cudaStreamCreate(&stream));
     int len = params.nrows * params.ncols;
-    raft::allocate(in, len);
+    in.resize(len, stream);
     if (params.isNormal) {
-      r.normalInt(in, len, params.start, params.end, stream);
+      r.normalInt(in.data(), len, params.start, params.end, stream);
     } else {
-      r.uniformInt(in, len, params.start, params.end, stream);
+      r.uniformInt(in.data(), len, params.start, params.end, stream);
     }
-    raft::allocate(bins, params.nbins * params.ncols);
-    raft::allocate(ref_bins, params.nbins * params.ncols);
-    CUDA_CHECK(cudaMemsetAsync(ref_bins, 0, sizeof(int) * params.nbins * params.ncols, stream));
-    naiveHist(ref_bins, params.nbins, in, params.nrows, params.ncols, stream);
-    histogram<int>(params.type, bins, params.nbins, in, params.nrows, params.ncols, stream);
+    bins.resize(params.nbins * params.ncols, stream);
+    ref_bins.resize(params.nbins * params.ncols, stream);
+    CUDA_CHECK(
+      cudaMemsetAsync(ref_bins.data(), 0, sizeof(int) * params.nbins * params.ncols, stream));
+    naiveHist(ref_bins.data(), params.nbins, in.data(), params.nrows, params.ncols, stream);
+    histogram<int>(
+      params.type, bins.data(), params.nbins, in.data(), params.nrows, params.ncols, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
 
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(in));
-    CUDA_CHECK(cudaFree(bins));
-    CUDA_CHECK(cudaFree(ref_bins));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
+  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
  protected:
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   HistInputs params;
-  int* in;
-  int *bins, *ref_bins;
+  rmm::device_uvector<int> in, bins, ref_bins;
 };
 
 static const int oneK                = 1024;
@@ -255,7 +252,8 @@ const std::vector<HistInputs> inputs = {
 };
 TEST_P(HistTest, Result)
 {
-  ASSERT_TRUE(raft::devArrMatch(ref_bins, bins, params.nbins * params.ncols, raft::Compare<int>()));
+  ASSERT_TRUE(raft::devArrMatch(
+    ref_bins.data(), bins.data(), params.nbins * params.ncols, raft::Compare<int>()));
 }
 INSTANTIATE_TEST_CASE_P(HistTests, HistTest, ::testing::ValuesIn(inputs));
 

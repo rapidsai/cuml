@@ -17,7 +17,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <decoupled_lookback.cuh>
-#include <raft/cuda_utils.cuh>
+#include <rmm/device_uvector.hpp>
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -31,17 +31,15 @@ __global__ void dlbTestKernel(void* workspace, int len, int* out)
   if (threadIdx.x == blockDim.x - 1) out[blockIdx.x] = prefix;
 }
 
-void dlbTest(int len, int* out)
+void dlbTest(int len, int* out, cudaStream_t stream)
 {
   constexpr int TPB    = 256;
   int nblks            = len;
   size_t workspaceSize = DecoupledLookBack<int>::computeWorkspaceSize(nblks);
-  char* workspace;
-  raft::allocate(workspace, workspaceSize);
-  CUDA_CHECK(cudaMemset(workspace, 0, workspaceSize));
-  dlbTestKernel<TPB><<<nblks, TPB>>>(workspace, len, out);
+  rmm::device_uvector<char> workspace(workspaceSize, stream);
+  CUDA_CHECK(cudaMemset(workspace.data(), 0, workspace.size()));
+  dlbTestKernel<TPB><<<nblks, TPB>>>(workspace.data(), len, out);
   CUDA_CHECK(cudaPeekAtLastError());
-  CUDA_CHECK(cudaFree(workspace));
 }
 
 struct DlbInputs {
@@ -52,19 +50,22 @@ struct DlbInputs {
 
 class DlbTest : public ::testing::TestWithParam<DlbInputs> {
  protected:
+  DlbTest() : out(0, stream) {}
+
   void SetUp() override
   {
+    CUDA_CHECK(cudaStreamCreate(&stream));
+
     params  = ::testing::TestWithParam<DlbInputs>::GetParam();
     int len = params.len;
-    raft::allocate(out, len);
-    dlbTest(len, out);
+    out.resize(len, stream);
+    dlbTest(len, out.data(), stream);
   }
 
-  void TearDown() override { CUDA_CHECK(cudaFree(out)); }
-
  protected:
+  cudaStream_t stream = 0;
   DlbInputs params;
-  int* out;
+  rmm::device_uvector<int> out;
 };
 
 template <typename T, typename L>
@@ -88,7 +89,10 @@ template <typename T, typename L>
 }
 
 const std::vector<DlbInputs> inputs = {{4}, {16}, {64}, {256}, {2048}};
-TEST_P(DlbTest, Result) { ASSERT_TRUE(devArrMatchCustom(out, params.len, raft::Compare<int>())); }
+TEST_P(DlbTest, Result)
+{
+  ASSERT_TRUE(devArrMatchCustom(out.data(), params.len, raft::Compare<int>()));
+}
 INSTANTIATE_TEST_CASE_P(DlbTests, DlbTest, ::testing::ValuesIn(inputs));
 
 }  // end namespace MLCommon

@@ -123,8 +123,7 @@ void build_linkage(const raft::handle_t& handle,
                    Common::HDBSCANParams& params,
                    Common::robust_single_linkage_output<value_idx, value_t>& out)
 {
-  auto d_alloc = handle.get_device_allocator();
-  auto stream  = handle.get_stream();
+  auto stream = handle.get_stream();
 
   int k = params.k + 1;
 
@@ -132,7 +131,7 @@ void build_linkage(const raft::handle_t& handle,
    * Mutual reachability graph
    */
   rmm::device_uvector<value_idx> mutual_reachability_indptr(m + 1, stream);
-  raft::sparse::COO<value_t, value_idx> mutual_reachability_coo(d_alloc, stream, k * m * 2);
+  raft::sparse::COO<value_t, value_idx> mutual_reachability_coo(stream, k * m * 2);
   rmm::device_uvector<value_t> core_dists(m, stream);
 
   detail::Reachability::mutual_reachability_graph(handle,
@@ -194,9 +193,8 @@ void _fit_hdbscan(const raft::handle_t& handle,
                   Common::HDBSCANParams& params,
                   Common::hdbscan_output<value_idx, value_t>& out)
 {
-  auto d_alloc     = handle.get_device_allocator();
   auto stream      = handle.get_stream();
-  auto exec_policy = rmm::exec_policy(stream);
+  auto exec_policy = handle.get_thrust_policy();
 
   int min_cluster_size = params.min_cluster_size;
 
