@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 import numpy as np
 import pytest
 import umap
+import copy
 
 import cupyx
 import scipy.sparse
@@ -230,7 +231,7 @@ def test_umap_fit_transform_trust(name, target_metric):
         data = wine.data
         labels = wine.target
     else:
-        data, labels = make_blobs(n_samples=5000, n_features=10,
+        data, labels = make_blobs(n_samples=500, n_features=10,
                                   centers=10, random_state=42)
 
     model = umap.UMAP(n_neighbors=10, min_dist=0.01,
@@ -335,8 +336,15 @@ def test_umap_fit_transform_against_fit_and_transform():
     assert joblib.hash(ft_embedding) != joblib.hash(fit_embedding_diff_input)
 
 
-@pytest.mark.parametrize('n_components', [21, 25, 50])
-@pytest.mark.parametrize('random_state', [None, 8, np.random.RandomState(42)])
+@pytest.mark.parametrize('n_components,random_state',
+                         [unit_param(2, None),
+                          unit_param(2, 8),
+                          unit_param(2, np.random.RandomState(42)),
+                          unit_param(21, None),
+                          unit_param(21, np.random.RandomState(42)),
+                          unit_param(25, 8),
+                          unit_param(50, None),
+                          stress_param(50, 8)])
 def test_umap_fit_transform_reproducibility(n_components, random_state):
 
     n_samples = 8000
@@ -354,15 +362,10 @@ def test_umap_fit_transform_reproducibility(n_components, random_state):
                          random_state=random_state)
         return reducer.fit_transform(data, convert_dtype=True)
 
-    if isinstance(random_state, np.random.RandomState):
-        state = random_state.get_state()
-
-    cuml_embedding1 = get_embedding(n_components, random_state)
-
-    if isinstance(random_state, np.random.RandomState):
-        random_state.set_state(state)
-
-    cuml_embedding2 = get_embedding(n_components, random_state)
+    state = copy.copy(random_state)
+    cuml_embedding1 = get_embedding(n_components, state)
+    state = copy.copy(random_state)
+    cuml_embedding2 = get_embedding(n_components, state)
 
     assert not np.isnan(cuml_embedding1).any()
     assert not np.isnan(cuml_embedding2).any()
@@ -370,15 +373,21 @@ def test_umap_fit_transform_reproducibility(n_components, random_state):
     # Reproducibility threshold raised until intermittent failure is fixed
     # Ref: https://github.com/rapidsai/cuml/issues/1903
     mean_diff = np.mean(np.abs(cuml_embedding1 - cuml_embedding2))
-    print("mean diff: %s" % mean_diff)
     if random_state is not None:
-        assert mean_diff < 1.0
+        assert mean_diff == 0.0
     else:
         assert mean_diff > 0.5
 
 
-@pytest.mark.parametrize('n_components', [21, 25, 50])
-@pytest.mark.parametrize('random_state', [None, 8, np.random.RandomState(42)])
+@pytest.mark.parametrize('n_components,random_state',
+                         [unit_param(2, None),
+                          unit_param(2, 8),
+                          unit_param(2, np.random.RandomState(42)),
+                          unit_param(21, None),
+                          unit_param(25, 8),
+                          unit_param(25, np.random.RandomState(42)),
+                          unit_param(50, None),
+                          stress_param(50, 8)])
 def test_umap_transform_reproducibility(n_components, random_state):
 
     n_samples = 5000
@@ -402,15 +411,10 @@ def test_umap_transform_reproducibility(n_components, random_state):
         reducer.fit(fit_data, convert_dtype=True)
         return reducer.transform(transform_data, convert_dtype=True)
 
-    if isinstance(random_state, np.random.RandomState):
-        state = random_state.get_state()
-
-    cuml_embedding1 = get_embedding(n_components, random_state)
-
-    if isinstance(random_state, np.random.RandomState):
-        random_state.set_state(state)
-
-    cuml_embedding2 = get_embedding(n_components, random_state)
+    state = copy.copy(random_state)
+    cuml_embedding1 = get_embedding(n_components, state)
+    state = copy.copy(random_state)
+    cuml_embedding2 = get_embedding(n_components, state)
 
     assert not np.isnan(cuml_embedding1).any()
     assert not np.isnan(cuml_embedding2).any()
@@ -418,9 +422,8 @@ def test_umap_transform_reproducibility(n_components, random_state):
     # Reproducibility threshold raised until intermittent failure is fixed
     # Ref: https://github.com/rapidsai/cuml/issues/1903
     mean_diff = np.mean(np.abs(cuml_embedding1 - cuml_embedding2))
-    print("mean diff: %s" % mean_diff)
     if random_state is not None:
-        assert mean_diff < 1.0
+        assert mean_diff == 0.0
     else:
         assert mean_diff > 0.5
 
@@ -428,7 +431,8 @@ def test_umap_transform_reproducibility(n_components, random_state):
 def test_umap_fit_transform_trustworthiness_with_consistency_enabled():
     iris = datasets.load_iris()
     data = iris.data
-    algo = cuUMAP(n_neighbors=10, min_dist=0.01, random_state=42)
+    algo = cuUMAP(n_neighbors=10, min_dist=0.01, init="random",
+                  random_state=42)
     embedding = algo.fit_transform(data, convert_dtype=True)
     trust = trustworthiness(iris.data, embedding, 10)
     assert trust >= 0.97
@@ -441,7 +445,8 @@ def test_umap_transform_trustworthiness_with_consistency_enabled():
         [True, False], data.shape[0], replace=True, p=[0.5, 0.5])
     fit_data = data[selection]
     transform_data = data[~selection]
-    model = cuUMAP(n_neighbors=10, min_dist=0.01, random_state=42)
+    model = cuUMAP(n_neighbors=10, min_dist=0.01, init="random",
+                   random_state=42)
     model.fit(fit_data, convert_dtype=True)
     embedding = model.transform(transform_data, convert_dtype=True)
     trust = trustworthiness(transform_data, embedding, 10)
@@ -475,19 +480,21 @@ def test_umap_knn_parameters(n_neighbors):
 
     def fit_transform_embed(knn_graph=None):
         model = cuUMAP(random_state=42,
+                       init='random',
                        n_neighbors=n_neighbors)
         return model.fit_transform(data, knn_graph=knn_graph,
                                    convert_dtype=True)
 
     def transform_embed(knn_graph=None):
         model = cuUMAP(random_state=42,
+                       init='random',
                        n_neighbors=n_neighbors)
         model.fit(data, knn_graph=knn_graph, convert_dtype=True)
         return model.transform(data, knn_graph=knn_graph,
                                convert_dtype=True)
 
     def test_trustworthiness(embedding):
-        trust = trustworthiness(data, embedding, 10)
+        trust = trustworthiness(data, embedding, n_neighbors)
         assert trust >= 0.92
 
     def test_equality(e1, e2):
@@ -515,7 +522,6 @@ def test_umap_knn_parameters(n_neighbors):
     test_trustworthiness(embedding6)
     test_trustworthiness(embedding7)
 
-    # test_equality(embedding1, embedding2)
     test_equality(embedding2, embedding3)
     test_equality(embedding3, embedding4)
     test_equality(embedding5, embedding6)

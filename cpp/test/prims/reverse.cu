@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2018-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,7 +17,9 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <matrix/reverse.cuh>
+#include <memory>
 #include <raft/random/rng.cuh>
+#include <rmm/device_uvector.hpp>
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -34,69 +36,77 @@ struct ReverseInputs {
 template <typename T>
 class ReverseTest : public ::testing::TestWithParam<ReverseInputs<T>> {
  protected:
-  void SetUp() override {
+  ReverseTest() : in(0, stream), out(0, stream) {}
+
+  void SetUp() override
+  {
     CUDA_CHECK(cudaStreamCreate(&stream));
     params = ::testing::TestWithParam<ReverseInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int len = params.nrows * params.ncols;
-    raft::allocate(in, len);
-    raft::allocate(out, len);
-    r.uniform(in, len, T(-1.0), T(1.0), stream);
+    in.resize(len, stream);
+    out.resize(len, stream);
+    r.uniform(in.data(), len, T(-1.0), T(1.0), stream);
     // applying reverse twice should yield the same output!
     // this will in turn also verify the inplace mode of reverse method
-    reverse(out, in, params.nrows, params.ncols, params.rowMajor,
-            params.alongRows, stream);
-    reverse(out, out, params.nrows, params.ncols, params.rowMajor,
-            params.alongRows, stream);
+    reverse(
+      out.data(), in.data(), params.nrows, params.ncols, params.rowMajor, params.alongRows, stream);
+    reverse(out.data(),
+            out.data(),
+            params.nrows,
+            params.ncols,
+            params.rowMajor,
+            params.alongRows,
+            stream);
   }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(in));
-    CUDA_CHECK(cudaFree(out));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
+  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
  protected:
   ReverseInputs<T> params;
-  T *in, *out;
-  cudaStream_t stream;
+  rmm::device_uvector<T> in, out;
+  cudaStream_t stream = 0;
 };
 
-const std::vector<ReverseInputs<float>> inputsf = {
-  {0.000001f, 32, 32, false, false, 1234ULL},
-  {0.000001f, 32, 32, false, true, 1234ULL},
-  {0.000001f, 32, 32, true, false, 1234ULL},
-  {0.000001f, 32, 32, true, true, 1234ULL},
+const std::vector<ReverseInputs<float>> inputsf = {{0.000001f, 32, 32, false, false, 1234ULL},
+                                                   {0.000001f, 32, 32, false, true, 1234ULL},
+                                                   {0.000001f, 32, 32, true, false, 1234ULL},
+                                                   {0.000001f, 32, 32, true, true, 1234ULL},
 
-  {0.000001f, 41, 41, false, false, 1234ULL},
-  {0.000001f, 41, 41, false, true, 1234ULL},
-  {0.000001f, 41, 41, true, false, 1234ULL},
-  {0.000001f, 41, 41, true, true, 1234ULL}};
+                                                   {0.000001f, 41, 41, false, false, 1234ULL},
+                                                   {0.000001f, 41, 41, false, true, 1234ULL},
+                                                   {0.000001f, 41, 41, true, false, 1234ULL},
+                                                   {0.000001f, 41, 41, true, true, 1234ULL}};
 typedef ReverseTest<float> ReverseTestF;
-TEST_P(ReverseTestF, Result) {
-  ASSERT_TRUE(devArrMatch(in, out, params.nrows, params.ncols,
+TEST_P(ReverseTestF, Result)
+{
+  ASSERT_TRUE(devArrMatch(in.data(),
+                          out.data(),
+                          params.nrows,
+                          params.ncols,
                           raft::CompareApprox<float>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(ReverseTests, ReverseTestF,
-                        ::testing::ValuesIn(inputsf));
+INSTANTIATE_TEST_CASE_P(ReverseTests, ReverseTestF, ::testing::ValuesIn(inputsf));
 
 typedef ReverseTest<double> ReverseTestD;
-const std::vector<ReverseInputs<double>> inputsd = {
-  {0.000001, 32, 32, false, false, 1234ULL},
-  {0.000001, 32, 32, false, true, 1234ULL},
-  {0.000001, 32, 32, true, false, 1234ULL},
-  {0.000001, 32, 32, true, true, 1234ULL},
+const std::vector<ReverseInputs<double>> inputsd = {{0.000001, 32, 32, false, false, 1234ULL},
+                                                    {0.000001, 32, 32, false, true, 1234ULL},
+                                                    {0.000001, 32, 32, true, false, 1234ULL},
+                                                    {0.000001, 32, 32, true, true, 1234ULL},
 
-  {0.000001, 41, 41, false, false, 1234ULL},
-  {0.000001, 41, 41, false, true, 1234ULL},
-  {0.000001, 41, 41, true, false, 1234ULL},
-  {0.000001, 41, 41, true, true, 1234ULL}};
-TEST_P(ReverseTestD, Result) {
-  ASSERT_TRUE(devArrMatch(in, out, params.nrows, params.ncols,
+                                                    {0.000001, 41, 41, false, false, 1234ULL},
+                                                    {0.000001, 41, 41, false, true, 1234ULL},
+                                                    {0.000001, 41, 41, true, false, 1234ULL},
+                                                    {0.000001, 41, 41, true, true, 1234ULL}};
+TEST_P(ReverseTestD, Result)
+{
+  ASSERT_TRUE(devArrMatch(in.data(),
+                          out.data(),
+                          params.nrows,
+                          params.ncols,
                           raft::CompareApprox<double>(params.tolerance)));
 }
-INSTANTIATE_TEST_CASE_P(ReverseTests, ReverseTestD,
-                        ::testing::ValuesIn(inputsd));
+INSTANTIATE_TEST_CASE_P(ReverseTests, ReverseTestD, ::testing::ValuesIn(inputsd));
 
 }  // end namespace Matrix
 }  // end namespace MLCommon

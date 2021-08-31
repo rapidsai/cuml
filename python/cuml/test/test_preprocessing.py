@@ -26,6 +26,8 @@ from cuml.preprocessing import \
     RobustScaler as cuRobustScaler, \
     KBinsDiscretizer as cuKBinsDiscretizer, \
     MissingIndicator as cuMissingIndicator
+from cuml.experimental.preprocessing import \
+    FunctionTransformer as cuFunctionTransformer
 from cuml.preprocessing import scale as cu_scale, \
                     minmax_scale as cu_minmax_scale, \
                     maxabs_scale as cu_maxabs_scale, \
@@ -39,7 +41,9 @@ from sklearn.preprocessing import StandardScaler as skStandardScaler, \
                                   Normalizer as skNormalizer, \
                                   Binarizer as skBinarizer, \
                                   PolynomialFeatures as skPolynomialFeatures, \
-                                  RobustScaler as skRobustScaler
+                                  RobustScaler as skRobustScaler, \
+                                  KBinsDiscretizer as skKBinsDiscretizer, \
+                                  FunctionTransformer as skFunctionTransformer
 from sklearn.preprocessing import scale as sk_scale, \
                                   minmax_scale as sk_minmax_scale, \
                                   maxabs_scale as sk_maxabs_scale, \
@@ -49,7 +53,6 @@ from sklearn.preprocessing import scale as sk_scale, \
                                   robust_scale as sk_robust_scale
 from sklearn.impute import SimpleImputer as skSimpleImputer, \
                            MissingIndicator as skMissingIndicator
-from sklearn.preprocessing import KBinsDiscretizer as skKBinsDiscretizer
 
 from cuml.test.test_preproc_utils import \
     clf_dataset, int_dataset, blobs_dataset, \
@@ -72,6 +75,7 @@ def test_minmax_scaler(failure_logger, clf_dataset,  # noqa: F811
 
     scaler = cuMinMaxScaler(feature_range=feature_range, copy=True)
     t_X = scaler.fit_transform(X)
+    scaler.fit_transform(X)
     r_X = scaler.inverse_transform(t_X)
     assert type(t_X) == type(X)
     assert type(r_X) == type(t_X)
@@ -108,6 +112,7 @@ def test_standard_scaler(failure_logger, clf_dataset,  # noqa: F811
                               with_std=with_std,
                               copy=True)
     t_X = scaler.fit_transform(X)
+    scaler.fit_transform(X)
     r_X = scaler.inverse_transform(t_X)
     assert type(t_X) == type(X)
     assert type(r_X) == type(t_X)
@@ -130,6 +135,7 @@ def test_standard_scaler_sparse(failure_logger,
 
     scaler = cuStandardScaler(with_mean=False, with_std=with_std, copy=True)
     t_X = scaler.fit_transform(X)
+    scaler.fit_transform(X)
     r_X = scaler.inverse_transform(t_X)
     #  assert type(t_X) == type(X)
     #  assert type(r_X) == type(t_X)
@@ -201,6 +207,7 @@ def test_maxabs_scaler(failure_logger, clf_dataset):  # noqa: F811
 
     scaler = cuMaxAbsScaler(copy=True)
     t_X = scaler.fit_transform(X)
+    scaler.fit_transform(X)
     r_X = scaler.inverse_transform(t_X)
     assert type(t_X) == type(X)
     assert type(r_X) == type(t_X)
@@ -219,6 +226,7 @@ def test_maxabs_scaler_sparse(failure_logger,
 
     scaler = cuMaxAbsScaler(copy=True)
     t_X = scaler.fit_transform(X)
+    scaler.fit_transform(X)
     r_X = scaler.inverse_transform(t_X)
     #  assert type(t_X) == type(X)
     #  assert type(r_X) == type(t_X)
@@ -646,7 +654,11 @@ def test_robust_scale_sparse(failure_logger, sparse_clf_dataset,  # noqa: F811
         reason='Intermittent mismatch with sklearn'
         ' (https://github.com/rapidsai/cuml/issues/3481)'
     )),
-    'quantile',
+    pytest.param('quantile', marks=pytest.mark.xfail(
+        strict=False,
+        reason='Intermittent mismatch with sklearn'
+        ' (https://github.com/rapidsai/cuml/issues/2933)'
+    )),
     'kmeans'
 ])
 def test_kbinsdiscretizer(failure_logger, blobs_dataset, n_bins,  # noqa: F811
@@ -730,6 +742,44 @@ def test_missing_indicator_sparse(failure_logger,
 
     assert_allclose(ft_X, sk_ft_X)
     assert_allclose(t_X, sk_t_X)
+
+
+def test_function_transformer(clf_dataset):  # noqa: F811
+    X_np, X = clf_dataset
+
+    transformer = cuFunctionTransformer(func=cp.exp, inverse_func=cp.log)
+    t_X = transformer.fit_transform(X)
+    r_X = transformer.inverse_transform(t_X)
+    assert type(t_X) == type(X)
+    assert type(r_X) == type(t_X)
+
+    transformer = skFunctionTransformer(func=np.exp, inverse_func=np.log)
+    sk_t_X = transformer.fit_transform(X_np)
+    sk_r_X = transformer.inverse_transform(sk_t_X)
+
+    assert_allclose(t_X, sk_t_X)
+    assert_allclose(r_X, sk_r_X)
+
+
+def test_function_transformer_sparse(sparse_clf_dataset):  # noqa: F811
+    X_np, X = sparse_clf_dataset
+
+    transformer = cuFunctionTransformer(func=lambda x: x * 2,
+                                        inverse_func=lambda x: x / 2,
+                                        accept_sparse=True)
+    t_X = transformer.fit_transform(X)
+    r_X = transformer.inverse_transform(t_X)
+    assert cp.sparse.issparse(t_X) or scipy.sparse.issparse(t_X)
+    assert cp.sparse.issparse(r_X) or scipy.sparse.issparse(r_X)
+
+    transformer = skFunctionTransformer(func=lambda x: x * 2,
+                                        inverse_func=lambda x: x / 2,
+                                        accept_sparse=True)
+    sk_t_X = transformer.fit_transform(X_np)
+    sk_r_X = transformer.inverse_transform(sk_t_X)
+
+    assert_allclose(t_X, sk_t_X)
+    assert_allclose(r_X, sk_r_X)
 
 
 def test__repr__():

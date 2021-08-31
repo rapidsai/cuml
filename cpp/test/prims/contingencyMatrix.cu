@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@
 #include <iostream>
 #include <metrics/contingencyMatrix.cuh>
 #include <random>
+#include <rmm/device_uvector.hpp>
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -35,13 +36,22 @@ struct ContingencyMatrixParam {
 };
 
 template <typename T>
-class ContingencyMatrixTest
-  : public ::testing::TestWithParam<ContingencyMatrixParam> {
+class ContingencyMatrixTest : public ::testing::TestWithParam<ContingencyMatrixParam> {
  protected:
-  void SetUp() override {
+  ContingencyMatrixTest()
+    : pWorkspace(0, stream),
+      dY(0, stream),
+      dYHat(0, stream),
+      dComputedOutput(0, stream),
+      dGoldenOutput(0, stream)
+  {
+  }
+
+  void SetUp() override
+  {
     params = ::testing::TestWithParam<ContingencyMatrixParam>::GetParam();
 
-    int numElements = params.nElements;
+    int numElements     = params.nElements;
     int lowerLabelRange = params.minClass;
     int upperLabelRange = params.maxClass;
 
@@ -49,12 +59,10 @@ class ContingencyMatrixTest
     std::vector<int> y_hat(numElements, 0);
     std::random_device rd;
     std::default_random_engine dre(rd());
-    std::uniform_int_distribution<int> intGenerator(lowerLabelRange,
-                                                    upperLabelRange);
+    std::uniform_int_distribution<int> intGenerator(lowerLabelRange, upperLabelRange);
 
     std::generate(y.begin(), y.end(), [&]() { return intGenerator(dre); });
-    std::generate(y_hat.begin(), y_hat.end(),
-                  [&]() { return intGenerator(dre); });
+    std::generate(y_hat.begin(), y_hat.end(), [&]() { return intGenerator(dre); });
 
     if (params.skipLabels) {
       // remove two label value from input arrays
@@ -72,15 +80,15 @@ class ContingencyMatrixTest
     }
 
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(dY, numElements);
-    raft::allocate(dYHat, numElements);
+    dY.resize(numElements, stream);
+    dYHat.resize(numElements, stream);
 
-    raft::update_device(dYHat, &y_hat[0], numElements, stream);
-    raft::update_device(dY, &y[0], numElements, stream);
+    raft::update_device(dYHat.data(), &y_hat[0], numElements, stream);
+    raft::update_device(dY.data(), &y[0], numElements, stream);
 
     if (params.calcCardinality) {
-      MLCommon::Metrics::getInputClassCardinality(dY, numElements, stream,
-                                                  minLabel, maxLabel);
+      MLCommon::Metrics::getInputClassCardinality(
+        dY.data(), numElements, stream, minLabel, maxLabel);
     } else {
       minLabel = lowerLabelRange;
       maxLabel = upperLabelRange;
@@ -88,60 +96,56 @@ class ContingencyMatrixTest
 
     numUniqueClasses = maxLabel - minLabel + 1;
 
-    raft::allocate(dComputedOutput, numUniqueClasses * numUniqueClasses);
-    raft::allocate(dGoldenOutput, numUniqueClasses * numUniqueClasses);
+    dComputedOutput.resize(numUniqueClasses * numUniqueClasses, stream);
+    dGoldenOutput.resize(numUniqueClasses * numUniqueClasses, stream);
 
     // generate golden output on CPU
     size_t sizeOfMat = numUniqueClasses * numUniqueClasses * sizeof(int);
-    hGoldenOutput = (int *)malloc(sizeOfMat);
-    memset(hGoldenOutput, 0, sizeOfMat);
+    std::vector<int> hGoldenOutput(sizeOfMat, 0);
 
     for (int i = 0; i < numElements; i++) {
-      auto row = y[i] - minLabel;
+      auto row    = y[i] - minLabel;
       auto column = y_hat[i] - minLabel;
       hGoldenOutput[row * numUniqueClasses + column] += 1;
     }
 
-    raft::update_device(dGoldenOutput, hGoldenOutput,
-                        numUniqueClasses * numUniqueClasses, stream);
+    raft::update_device(
+      dGoldenOutput.data(), hGoldenOutput.data(), numUniqueClasses * numUniqueClasses, stream);
 
     workspaceSz = MLCommon::Metrics::getContingencyMatrixWorkspaceSize(
-      numElements, dY, stream, minLabel, maxLabel);
-    if (workspaceSz != 0) raft::allocate(pWorkspace, workspaceSz);
-  }
-
-  void TearDown() override {
+      numElements, dY.data(), stream, minLabel, maxLabel);
+    pWorkspace.resize(workspaceSz, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
-    free(hGoldenOutput);
-    CUDA_CHECK(cudaStreamDestroy(stream));
-    CUDA_CHECK(cudaFree(dY));
-    CUDA_CHECK(cudaFree(dYHat));
-    CUDA_CHECK(cudaFree(dComputedOutput));
-    CUDA_CHECK(cudaFree(dGoldenOutput));
-    if (pWorkspace) CUDA_CHECK(cudaFree(pWorkspace));
   }
 
-  void RunTest() {
+  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
+
+  void RunTest()
+  {
     int numElements = params.nElements;
-    MLCommon::Metrics::contingencyMatrix(
-      dY, dYHat, numElements, dComputedOutput, stream, (void *)pWorkspace,
-      workspaceSz, minLabel, maxLabel);
-    ASSERT_TRUE(raft::devArrMatch(dComputedOutput, dGoldenOutput,
+    MLCommon::Metrics::contingencyMatrix(dY.data(),
+                                         dYHat.data(),
+                                         numElements,
+                                         dComputedOutput.data(),
+                                         stream,
+                                         (void*)pWorkspace.data(),
+                                         workspaceSz,
+                                         minLabel,
+                                         maxLabel);
+    ASSERT_TRUE(raft::devArrMatch(dComputedOutput.data(),
+                                  dGoldenOutput.data(),
                                   numUniqueClasses * numUniqueClasses,
                                   raft::Compare<T>()));
   }
 
   ContingencyMatrixParam params;
   int numUniqueClasses = -1;
-  T *dY = nullptr;
-  T *dYHat = nullptr;
   T minLabel, maxLabel;
-  int *dComputedOutput = nullptr;
-  int *dGoldenOutput = nullptr;
-  int *hGoldenOutput = nullptr;
-  char *pWorkspace = nullptr;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   size_t workspaceSz;
+  rmm::device_uvector<char> pWorkspace;
+  rmm::device_uvector<T> dY, dYHat;
+  rmm::device_uvector<int> dComputedOutput, dGoldenOutput;
 };
 
 const std::vector<ContingencyMatrixParam> inputs = {
@@ -161,7 +165,6 @@ const std::vector<ContingencyMatrixParam> inputs = {
 
 typedef ContingencyMatrixTest<int> ContingencyMatrixTestS;
 TEST_P(ContingencyMatrixTestS, Result) { RunTest(); }
-INSTANTIATE_TEST_CASE_P(ContingencyMatrix, ContingencyMatrixTestS,
-                        ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(ContingencyMatrix, ContingencyMatrixTestS, ::testing::ValuesIn(inputs));
 }  // namespace Metrics
 }  // namespace MLCommon

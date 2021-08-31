@@ -145,11 +145,9 @@ def test_get_handle_from_cuml_model_func(model):
     mod = create_dummy_model(model)
 
     handle = get_handle_from_cuml_model_func(mod.get_param_names,
-                                             create_new=False)
+                                             create_new=True)
 
-    # Naive Bayes does not use a handle currently
-    if model != cuml.naive_bayes.naive_bayes.MultinomialNB:
-        assert isinstance(handle, cuml.raft.common.handle.Handle)
+    assert isinstance(handle, cuml.raft.common.handle.Handle)
 
 
 @pytest.mark.parametrize("create_new", [True, False])

@@ -44,7 +44,9 @@ import rmm
 from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdint cimport int64_t
+from libc.stdlib cimport free
 from libcpp.memory cimport shared_ptr
+from cython.operator cimport dereference as deref
 
 cimport cuml.common.cuda
 
@@ -54,6 +56,31 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         EXACT = 0,
         BARNES_HUT = 1,
         FFT = 2
+
+    cdef cppclass TSNEParams:
+        int dim,
+        int n_neighbors,
+        float theta,
+        float epssq,
+        float perplexity,
+        int perplexity_max_iter,
+        float perplexity_tol,
+        float early_exaggeration,
+        float late_exaggeration,
+        int exaggeration_iter,
+        float min_gain,
+        float pre_learning_rate,
+        float post_learning_rate,
+        int max_iter,
+        float min_grad_norm,
+        float pre_momentum,
+        float post_momentum,
+        long long random_state,
+        int verbosity,
+        bool initialize_embeddings,
+        bool square_distances,
+        TSNE_ALGORITHM algorithm
+
 
 cdef extern from "cuml/manifold/tsne.h" namespace "ML":
 
@@ -65,28 +92,7 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         int p,
         int64_t* knn_indices,
         float* knn_dists,
-        const int dim,
-        int n_neighbors,
-        const float theta,
-        const float epssq,
-        float perplexity,
-        const int perplexity_max_iter,
-        const float perplexity_tol,
-        const float early_exaggeration,
-        const float late_exaggeration,
-        const int exaggeration_iter,
-        const float min_gain,
-        const float pre_learning_rate,
-        const float post_learning_rate,
-        const int max_iter,
-        const float min_grad_norm,
-        const float pre_momentum,
-        const float post_momentum,
-        const long long random_state,
-        int verbosity,
-        const bool initialize_embeddings,
-        const bool square_distances,
-        TSNE_ALGORITHM algorithm) except +
+        TSNEParams &params) except +
 
     cdef void TSNE_fit_sparse(
         const handle_t &handle,
@@ -99,28 +105,7 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         int p,
         int* knn_indices,
         float* knn_dists,
-        const int dim,
-        int n_neighbors,
-        const float theta,
-        const float epssq,
-        float perplexity,
-        const int perplexity_max_iter,
-        const float perplexity_tol,
-        const float early_exaggeration,
-        const float late_exaggeration,
-        const int exaggeration_iter,
-        const float min_gain,
-        const float pre_learning_rate,
-        const float post_learning_rate,
-        const int max_iter,
-        const float min_grad_norm,
-        const float pre_momentum,
-        const float post_momentum,
-        const long long random_state,
-        int verbosity,
-        const bool initialize_embeddings,
-        const bool square_distances,
-        TSNE_ALGORITHM algorithm) except +
+        TSNEParams &params) except +
 
 
 class TSNE(Base,
@@ -490,10 +475,6 @@ class TSNE(Base,
                              .format(self.n_neighbors, self.pre_learning_rate,
                                      self.early_exaggeration))
 
-        cdef long long seed = -1
-        if self.random_state is not None:
-            seed = self.random_state
-
         if self.method == 'barnes_hut':
             algo = TSNE_ALGORITHM.BARNES_HUT
         elif self.method == 'fft':
@@ -509,6 +490,9 @@ class TSNE(Base,
             raise ValueError("Allowed methods are 'exact', 'barnes_hut' and "
                              "'fft'.")
 
+        cdef TSNEParams* params = <TSNEParams*> <size_t> \
+            self._build_tsne_params(algo)
+
         if self.sparse_fit:
             TSNE_fit_sparse(handle_[0],
                             <int*><uintptr_t> self.X_m.indptr.ptr,
@@ -520,28 +504,7 @@ class TSNE(Base,
                             <int> p,
                             <int*> knn_indices_raw,
                             <float*> knn_dists_raw,
-                            <int> self.n_components,
-                            <int> self.n_neighbors,
-                            <float> self.angle,
-                            <float> self.epssq,
-                            <float> self.perplexity,
-                            <int> self.perplexity_max_iter,
-                            <float> self.perplexity_tol,
-                            <float> self.early_exaggeration,
-                            <float> self.late_exaggeration,
-                            <int> self.exaggeration_iter,
-                            <float> self.min_gain,
-                            <float> self.pre_learning_rate,
-                            <float> self.post_learning_rate,
-                            <int> self.n_iter,
-                            <float> self.min_grad_norm,
-                            <float> self.pre_momentum,
-                            <float> self.post_momentum,
-                            <long long> seed,
-                            <int> self.verbose,
-                            <bool> True,
-                            <bool> self.square_distances,
-                            algo)
+                            <TSNEParams&> deref(params))
         else:
             TSNE_fit(handle_[0],
                      <float*><uintptr_t> self.X_m.ptr,
@@ -550,30 +513,10 @@ class TSNE(Base,
                      <int> p,
                      <int64_t*> knn_indices_raw,
                      <float*> knn_dists_raw,
-                     <int> self.n_components,
-                     <int> self.n_neighbors,
-                     <float> self.angle,
-                     <float> self.epssq,
-                     <float> self.perplexity,
-                     <int> self.perplexity_max_iter,
-                     <float> self.perplexity_tol,
-                     <float> self.early_exaggeration,
-                     <float> self.late_exaggeration,
-                     <int> self.exaggeration_iter,
-                     <float> self.min_gain,
-                     <float> self.pre_learning_rate,
-                     <float> self.post_learning_rate,
-                     <int> self.n_iter,
-                     <float> self.min_grad_norm,
-                     <float> self.pre_momentum,
-                     <float> self.post_momentum,
-                     <long long> seed,
-                     <int> self.verbose,
-                     <bool> True,
-                     <bool> self.square_distances,
-                     algo)
+                     <TSNEParams&> deref(params))
 
         self.handle.sync()
+        free(params)
 
         return self
 
@@ -600,6 +543,36 @@ class TSNE(Base,
         functionality to work
         """
         return self.embedding_
+
+    def _build_tsne_params(self, algo):
+        cdef long long seed = -1
+        if self.random_state is not None:
+            seed = self.random_state
+
+        cdef TSNEParams* params = new TSNEParams()
+        params.dim = <int> self.n_components
+        params.n_neighbors = <int> self.n_neighbors
+        params.theta = <float> self.angle
+        params.epssq = <float> self.epssq
+        params.perplexity = <float> self.perplexity
+        params.perplexity_max_iter = <int> self.perplexity_max_iter
+        params.perplexity_tol = <float> self.perplexity_tol
+        params.early_exaggeration = <float> self.early_exaggeration
+        params.late_exaggeration = <float> self.late_exaggeration
+        params.exaggeration_iter = <int> self.exaggeration_iter
+        params.min_gain = <float> self.min_gain
+        params.pre_learning_rate = <float> self.pre_learning_rate
+        params.post_learning_rate = <float> self.post_learning_rate
+        params.max_iter = <int> self.n_iter
+        params.min_grad_norm = <float> self.min_grad_norm
+        params.pre_momentum = <float> self.pre_momentum
+        params.post_momentum = <float> self.post_momentum
+        params.random_state = <long long> seed
+        params.verbosity = <int> self.verbose
+        params.initialize_embeddings = <bool> True
+        params.square_distances = <bool> self.square_distances
+        params.algorithm = algo
+        return <size_t> params
 
     def __del__(self):
 

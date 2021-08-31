@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
+#include <common/ml_benchmark.hpp>
 #include <raft/linalg/add.cuh>
-#include <raft/mr/device/allocator.hpp>
-#include "../common/ml_benchmark.hpp"
 
 namespace MLCommon {
 namespace Bench {
@@ -28,26 +27,24 @@ struct AddParams {
 
 template <typename T>
 struct AddBench : public Fixture {
-  AddBench(const std::string& name, const AddParams& p)
-    : Fixture(name, std::shared_ptr<raft::mr::device::allocator>(
-                      new raft::mr::device::default_allocator)),
-      params(p) {}
+  AddBench(const std::string& name, const AddParams& p) : Fixture(name), params(p) {}
 
  protected:
-  void allocateBuffers(const ::benchmark::State& state) override {
+  void allocateBuffers(const ::benchmark::State& state) override
+  {
     alloc(ptr0, params.len, true);
     alloc(ptr1, params.len, true);
   }
 
-  void deallocateBuffers(const ::benchmark::State& state) override {
+  void deallocateBuffers(const ::benchmark::State& state) override
+  {
     dealloc(ptr0, params.len);
     dealloc(ptr1, params.len);
   }
 
-  void runBenchmark(::benchmark::State& state) override {
-    loopOnState(state, [this]() {
-      raft::linalg::add(ptr0, ptr0, ptr1, params.len, stream);
-    });
+  void runBenchmark(::benchmark::State& state) override
+  {
+    loopOnState(state, [this]() { raft::linalg::add(ptr0, ptr0, ptr1, params.len, stream); });
   }
 
  private:
@@ -55,7 +52,8 @@ struct AddBench : public Fixture {
   T *ptr0, *ptr1;
 };  // struct AddBench
 
-static std::vector<AddParams> getInputs() {
+static std::vector<AddParams> getInputs()
+{
   return {
     {256 * 1024 * 1024},
     {256 * 1024 * 1024 + 2},

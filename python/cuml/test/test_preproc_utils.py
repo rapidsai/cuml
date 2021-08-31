@@ -87,7 +87,13 @@ def to_output_type(array, output_type, order='F'):
     if output_type == 'series' and len(array.shape) > 1:
         output_type = 'cudf'
 
-    return cuml_array.to_output(output_type)
+    output = cuml_array.to_output(output_type)
+
+    if output_type in ['dataframe', 'cudf']:
+        renaming = {i: 'c'+str(i) for i in range(output.shape[1])}
+        output = output.rename(columns=renaming)
+
+    return output
 
 
 def create_rand_clf(random_state):
@@ -96,7 +102,7 @@ def create_rand_clf(random_state):
                                  n_clusters_per_class=1,
                                  n_informative=12,
                                  n_classes=5,
-                                 order='F',
+                                 order='C',
                                  random_state=random_state)
     return clf
 
@@ -105,7 +111,7 @@ def create_rand_blobs(random_state):
     blobs, _ = make_blobs(n_samples=500,
                           n_features=20,
                           centers=20,
-                          order='F',
+                          order='C',
                           random_state=random_state)
     return blobs
 

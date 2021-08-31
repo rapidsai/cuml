@@ -160,12 +160,6 @@ def test_self_neighboring(datatype, metric_p, nrows):
                           ("ivfsq", "numpy")])
 def test_neighborhood_predictions(nrows, ncols, n_neighbors, n_clusters,
                                   datatype, algo):
-    if algo == "ivfpq":
-        pytest.xfail("Warning: IVFPQ might be unstable in this "
-                     "version of cuML. This is due to a known issue "
-                     "in the FAISS release that this cuML version "
-                     "is linked to. (see FAISS issue #1421)")
-
     if not has_scipy():
         pytest.skip('Skipping test_neighborhood_predictions because ' +
                     'Scipy is missing')
@@ -222,19 +216,13 @@ def test_ivfflat_pred(nrows, ncols, n_neighbors, nlist):
 
 @pytest.mark.parametrize("nlist", [8])
 @pytest.mark.parametrize("M", [16, 32])
-@pytest.mark.parametrize("n_bits", [2, 4])
+@pytest.mark.parametrize("n_bits", [4, 6])
 @pytest.mark.parametrize("usePrecomputedTables", [False, True])
 @pytest.mark.parametrize("nrows", [4000])
 @pytest.mark.parametrize("ncols", [128, 512])
 @pytest.mark.parametrize("n_neighbors", [8])
 def test_ivfpq_pred(nrows, ncols, n_neighbors,
                     nlist, M, n_bits, usePrecomputedTables):
-
-    pytest.xfail("Warning: IVFPQ might be unstable in this "
-                 "version of cuML. This is due to a known issue "
-                 "in the FAISS release that this cuML version "
-                 "is linked to. (see FAISS issue #1421)")
-
     algo_params = {
         'nlist': nlist,
         'nprobe': int(nlist * 0.2),
@@ -471,6 +459,7 @@ def test_nn_downcast_fails(input_type, nrows, n_feats):
 
 @pytest.mark.parametrize("input_type,mode,output_type,as_instance", [
     ("dataframe", "connectivity", "cupy", True),
+    ("dataframe", "connectivity", None, True),
     ("dataframe", "distance", "numpy", True),
     ("ndarray", "connectivity", "cupy", False),
     ("ndarray", "distance", "numpy", False),
@@ -497,22 +486,22 @@ def test_knn_graph(input_type, mode, output_type, as_instance,
     if input_type == "dataframe":
         X = cudf.DataFrame(X)
 
-    if as_instance:
-        sparse_cu = cuml.neighbors.kneighbors_graph(X, k, mode,
-                                                    metric=metric, p=p,
-                                                    include_self='auto',
-                                                    output_type=output_type)
-    else:
-        knn_cu = cuKNN(metric=metric, p=p, output_type=output_type)
-        knn_cu.fit(X)
-        sparse_cu = knn_cu.kneighbors_graph(X, k, mode)
+    with cuml.using_output_type(output_type):
+        if as_instance:
+            sparse_cu = cuml.neighbors.kneighbors_graph(X, k, mode,
+                                                        metric=metric, p=p,
+                                                        include_self='auto')
+        else:
+            knn_cu = cuKNN(metric=metric, p=p)
+            knn_cu.fit(X)
+            sparse_cu = knn_cu.kneighbors_graph(X, k, mode)
 
     assert np.array_equal(sparse_sk.data.shape, sparse_cu.data.shape)
     assert np.array_equal(sparse_sk.indices.shape, sparse_cu.indices.shape)
     assert np.array_equal(sparse_sk.indptr.shape, sparse_cu.indptr.shape)
     assert np.array_equal(sparse_sk.toarray().shape, sparse_cu.toarray().shape)
 
-    if output_type == 'cupy':
+    if output_type == 'cupy' or output_type is None:
         assert cupyx.scipy.sparse.isspmatrix_csr(sparse_cu)
     else:
         assert isspmatrix_csr(sparse_cu)

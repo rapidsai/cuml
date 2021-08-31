@@ -17,17 +17,18 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <algorithm>
+#include <cuml/metrics/metrics.hpp>
 #include <iostream>
 #include <metrics/batched/silhouette_score.cuh>
 #include <metrics/silhouette_score.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <random>
+#include <rmm/device_uvector.hpp>
 #include "test_utils.h"
 
 namespace MLCommon {
 namespace Metrics {
 
-//parameter structure definition
+// parameter structure definition
 struct silhouetteScoreParam {
   int nRows;
   int nCols;
@@ -37,13 +38,15 @@ struct silhouetteScoreParam {
   double tolerance;
 };
 
-//test fixture class
+// test fixture class
 template <typename LabelT, typename DataT>
-class silhouetteScoreTest
-  : public ::testing::TestWithParam<silhouetteScoreParam> {
+class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam> {
  protected:
-  void host_silhouette_score() {
-    //generating random value test input
+  silhouetteScoreTest() : d_X(0, stream), sampleSilScore(0, stream), d_labels(0, stream) {}
+
+  void host_silhouette_score()
+  {
+    // generating random value test input
     std::vector<double> h_X(nElements, 0.0);
     std::vector<int> h_labels(nRows, 0);
     std::random_device rd;
@@ -52,55 +55,50 @@ class silhouetteScoreTest
     std::uniform_real_distribution<double> realGenerator(0, 100);
 
     std::generate(h_X.begin(), h_X.end(), [&]() { return realGenerator(dre); });
-    std::generate(h_labels.begin(), h_labels.end(),
-                  [&]() { return intGenerator(dre); });
+    std::generate(h_labels.begin(), h_labels.end(), [&]() { return intGenerator(dre); });
 
-    //allocating and initializing memory to the GPU
+    // allocating and initializing memory to the GPU
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(d_X, nElements, true);
-    raft::allocate(d_labels, nElements, true);
-    raft::allocate(sampleSilScore, nElements);
+    d_X.resize(nElements, stream);
+    d_labels.resize(nElements, stream);
+    CUDA_CHECK(cudaMemsetAsync(d_X.data(), 0, d_X.size() * sizeof(DataT), stream));
+    CUDA_CHECK(cudaMemsetAsync(d_labels.data(), 0, d_labels.size() * sizeof(LabelT), stream));
+    sampleSilScore.resize(nElements, stream);
 
-    raft::update_device(d_X, &h_X[0], (int)nElements, stream);
-    raft::update_device(d_labels, &h_labels[0], (int)nElements, stream);
+    raft::update_device(d_X.data(), &h_X[0], (int)nElements, stream);
+    raft::update_device(d_labels.data(), &h_labels[0], (int)nElements, stream);
 
-    //finding the distance matrix
+    // finding the distance matrix
 
-    device_buffer<double> d_distanceMatrix(allocator, stream, nRows * nRows);
-    device_buffer<char> workspace(allocator, stream, 1);
-    double *h_distanceMatrix =
-      (double *)malloc(nRows * nRows * sizeof(double *));
+    rmm::device_uvector<double> d_distanceMatrix(nRows * nRows, stream);
+    double* h_distanceMatrix = (double*)malloc(nRows * nRows * sizeof(double*));
 
-    raft::distance::pairwise_distance(d_X, d_X, d_distanceMatrix.data(), nRows,
-                                      nRows, nCols, workspace, params.metric,
-                                      stream);
+    ML::Metrics::pairwise_distance(
+      handle, d_X.data(), d_X.data(), d_distanceMatrix.data(), nRows, nRows, nCols, params.metric);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
-    raft::update_host(h_distanceMatrix, d_distanceMatrix.data(), nRows * nRows,
-                      stream);
+    raft::update_host(h_distanceMatrix, d_distanceMatrix.data(), nRows * nRows, stream);
 
-    //finding the bincount array
+    // finding the bincount array
 
-    double *binCountArray = (double *)malloc(nLabels * sizeof(double *));
+    double* binCountArray = (double*)malloc(nLabels * sizeof(double*));
     memset(binCountArray, 0, nLabels * sizeof(double));
 
     for (int i = 0; i < nRows; ++i) {
       binCountArray[h_labels[i]] += 1;
     }
 
-    //finding the average intra cluster distance for every element
+    // finding the average intra cluster distance for every element
 
-    double *a = (double *)malloc(nRows * sizeof(double *));
+    double* a = (double*)malloc(nRows * sizeof(double*));
 
     for (int i = 0; i < nRows; ++i) {
-      int myLabel = h_labels[i];
+      int myLabel               = h_labels[i];
       double sumOfIntraClusterD = 0;
 
       for (int j = 0; j < nRows; ++j) {
-        if (h_labels[j] == myLabel) {
-          sumOfIntraClusterD += h_distanceMatrix[i * nRows + j];
-        }
+        if (h_labels[j] == myLabel) { sumOfIntraClusterD += h_distanceMatrix[i * nRows + j]; }
       }
 
       if (binCountArray[myLabel] <= 1)
@@ -109,12 +107,12 @@ class silhouetteScoreTest
         a[i] = sumOfIntraClusterD / (binCountArray[myLabel] - 1);
     }
 
-    //finding the average inter cluster distance for every element
+    // finding the average inter cluster distance for every element
 
-    double *b = (double *)malloc(nRows * sizeof(double *));
+    double* b = (double*)malloc(nRows * sizeof(double*));
 
     for (int i = 0; i < nRows; ++i) {
-      int myLabel = h_labels[i];
+      int myLabel          = h_labels[i];
       double minAvgInterCD = ULLONG_MAX;
 
       for (int j = 0; j < nLabels; ++j) {
@@ -123,9 +121,7 @@ class silhouetteScoreTest
         double avgInterCD = 0;
 
         for (int k = 0; k < nRows; ++k) {
-          if (h_labels[k] == curClLabel) {
-            avgInterCD += h_distanceMatrix[i * nRows + k];
-          }
+          if (h_labels[k] == curClLabel) { avgInterCD += h_distanceMatrix[i * nRows + k]; }
         }
 
         if (binCountArray[curClLabel])
@@ -138,9 +134,9 @@ class silhouetteScoreTest
       b[i] = minAvgInterCD;
     }
 
-    //finding the silhouette score for every element
+    // finding the silhouette score for every element
 
-    double *truthSampleSilScore = (double *)malloc(nRows * sizeof(double *));
+    double* truthSampleSilScore = (double*)malloc(nRows * sizeof(double*));
     for (int i = 0; i < nRows; ++i) {
       if (a[i] == -1)
         truthSampleSilScore[i] = 0;
@@ -154,57 +150,63 @@ class silhouetteScoreTest
     truthSilhouetteScore /= nRows;
   }
 
-  //the constructor
-  void SetUp() override {
-    //getting the parameters
+  // the constructor
+  void SetUp() override
+  {
+    // getting the parameters
     params = ::testing::TestWithParam<silhouetteScoreParam>::GetParam();
 
-    nRows = params.nRows;
-    nCols = params.nCols;
-    nLabels = params.nLabels;
-    chunk = params.chunk;
+    nRows     = params.nRows;
+    nCols     = params.nCols;
+    nLabels   = params.nLabels;
+    chunk     = params.chunk;
     nElements = nRows * nCols;
-
-    allocator = std::make_shared<raft::mr::device::default_allocator>();
 
     host_silhouette_score();
 
-    //calling the silhouette_score CUDA implementation
-    computedSilhouetteScore = MLCommon::Metrics::silhouette_score(
-      d_X, nRows, nCols, d_labels, nLabels, sampleSilScore, allocator, stream,
-      params.metric);
+    // calling the silhouette_score CUDA implementation
+    computedSilhouetteScore = MLCommon::Metrics::silhouette_score(handle,
+                                                                  d_X.data(),
+                                                                  nRows,
+                                                                  nCols,
+                                                                  d_labels.data(),
+                                                                  nLabels,
+                                                                  sampleSilScore.data(),
+                                                                  stream,
+                                                                  params.metric);
 
-    batchedSilhouetteScore =
-      Batched::silhouette_score(handle, d_X, nRows, nCols, d_labels, nLabels,
-                                sampleSilScore, chunk, params.metric);
+    batchedSilhouetteScore = Batched::silhouette_score(handle,
+                                                       d_X.data(),
+                                                       nRows,
+                                                       nCols,
+                                                       d_labels.data(),
+                                                       nLabels,
+                                                       sampleSilScore.data(),
+                                                       chunk,
+                                                       params.metric);
   }
 
-  //the destructor
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(d_X));
-    CUDA_CHECK(cudaFree(d_labels));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
+  // the destructor
+  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
-  //declaring the data values
+  // declaring the data values
   silhouetteScoreParam params;
   int nLabels;
-  DataT *d_X = nullptr;
-  DataT *sampleSilScore = nullptr;
-  LabelT *d_labels = nullptr;
+  rmm::device_uvector<DataT> d_X;
+  rmm::device_uvector<DataT> sampleSilScore;
+  rmm::device_uvector<LabelT> d_labels;
   int nRows;
   int nCols;
   int nElements;
-  double truthSilhouetteScore = 0;
+  double truthSilhouetteScore    = 0;
   double computedSilhouetteScore = 0;
-  double batchedSilhouetteScore = 0;
-  cudaStream_t stream;
+  double batchedSilhouetteScore  = 0;
+  cudaStream_t stream            = 0;
   raft::handle_t handle;
   int chunk;
-  std::shared_ptr<raft::mr::device::allocator> allocator;
 };
 
-//setting test parameter values
+// setting test parameter values
 const std::vector<silhouetteScoreParam> inputs = {
   {4, 2, 3, raft::distance::DistanceType::L2Expanded, 4, 0.00001},
   {4, 2, 2, raft::distance::DistanceType::L2SqrtUnexpanded, 2, 0.00001},
@@ -214,14 +216,14 @@ const std::vector<silhouetteScoreParam> inputs = {
   {12, 7, 3, raft::distance::DistanceType::CosineExpanded, 8, 0.00001},
   {7, 5, 5, raft::distance::DistanceType::L1, 2, 0.00001}};
 
-//writing the test suite
+// writing the test suite
 typedef silhouetteScoreTest<int, double> silhouetteScoreTestClass;
-TEST_P(silhouetteScoreTestClass, Result) {
+TEST_P(silhouetteScoreTestClass, Result)
+{
   ASSERT_NEAR(computedSilhouetteScore, truthSilhouetteScore, params.tolerance);
   ASSERT_NEAR(batchedSilhouetteScore, truthSilhouetteScore, params.tolerance);
 }
-INSTANTIATE_TEST_CASE_P(silhouetteScore, silhouetteScoreTestClass,
-                        ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(silhouetteScore, silhouetteScoreTestClass, ::testing::ValuesIn(inputs));
 
-}  //end namespace Metrics
-}  //end namespace MLCommon
+}  // end namespace Metrics
+}  // end namespace MLCommon

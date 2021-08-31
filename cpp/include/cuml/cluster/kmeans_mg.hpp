@@ -37,6 +37,7 @@ namespace opg {
  * @param[in]     n_samples     Number of samples in the input X.
  * @param[in]     n_features    Number of features or the dimensions of each
  * sample.
+ * @param[in]     sample_weight The weights for each observation in X.
  * @param[inout]  centroids     When init is InitMethod::Array, use
  centroids as the initial cluster centers
  *                              [out] Otherwise, generated centroids from the
@@ -46,13 +47,25 @@ namespace opg {
  * @param[out]    n_iter        Number of iterations run.
  */
 
-void fit(const raft::handle_t &handle, const KMeansParams &params,
-         const float *X, int n_samples, int n_features, float *centroids,
-         float &inertia, int &n_iter);
+void fit(const raft::handle_t& handle,
+         const KMeansParams& params,
+         const float* X,
+         int n_samples,
+         int n_features,
+         const float* sample_weight,
+         float* centroids,
+         float& inertia,
+         int& n_iter);
 
-void fit(const raft::handle_t &handle, const KMeansParams &params,
-         const double *X, int n_samples, int n_features, double *centroids,
-         double &inertia, int &n_iter);
+void fit(const raft::handle_t& handle,
+         const KMeansParams& params,
+         const double* X,
+         int n_samples,
+         int n_features,
+         const double* sample_weight,
+         double* centroids,
+         double& inertia,
+         int& n_iter);
 
 };  // end namespace opg
 };  // end namespace kmeans

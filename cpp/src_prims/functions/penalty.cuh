@@ -23,6 +23,7 @@
 #include <raft/linalg/norm.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
+#include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 #include "sign.cuh"
 
@@ -37,38 +38,42 @@ enum penalty {
 };
 
 template <typename math_t>
-void lasso(math_t *out, const math_t *coef, const int len, const math_t alpha,
-           cudaStream_t stream) {
-  raft::linalg::rowNorm(out, coef, len, 1, raft::linalg::NormType::L1Norm, true,
-                        stream);
+void lasso(math_t* out, const math_t* coef, const int len, const math_t alpha, cudaStream_t stream)
+{
+  raft::linalg::rowNorm(out, coef, len, 1, raft::linalg::NormType::L1Norm, true, stream);
   raft::linalg::scalarMultiply(out, out, alpha, 1, stream);
 }
 
 template <typename math_t>
-void lassoGrad(math_t *grad, const math_t *coef, const int len,
-               const math_t alpha, cudaStream_t stream) {
+void lassoGrad(
+  math_t* grad, const math_t* coef, const int len, const math_t alpha, cudaStream_t stream)
+{
   sign(grad, coef, alpha, len, stream);
 }
 
 template <typename math_t>
-void ridge(math_t *out, const math_t *coef, const int len, const math_t alpha,
-           cudaStream_t stream) {
-  raft::linalg::rowNorm(out, coef, len, 1, raft::linalg::NormType::L2Norm, true,
-                        stream);
+void ridge(math_t* out, const math_t* coef, const int len, const math_t alpha, cudaStream_t stream)
+{
+  raft::linalg::rowNorm(out, coef, len, 1, raft::linalg::NormType::L2Norm, true, stream);
   raft::linalg::scalarMultiply(out, out, alpha, 1, stream);
 }
 
 template <typename math_t>
-void ridgeGrad(math_t *grad, const math_t *coef, const int len,
-               const math_t alpha, cudaStream_t stream) {
+void ridgeGrad(
+  math_t* grad, const math_t* coef, const int len, const math_t alpha, cudaStream_t stream)
+{
   raft::linalg::scalarMultiply(grad, coef, math_t(2) * alpha, len, stream);
 }
 
 template <typename math_t>
-void elasticnet(math_t *out, const math_t *coef, const int len,
-                const math_t alpha, const math_t l1_ratio,
-                cudaStream_t stream) {
-  rmm::device_uvector<math_t> out_lasso(1, stream);
+void elasticnet(math_t* out,
+                const math_t* coef,
+                const int len,
+                const math_t alpha,
+                const math_t l1_ratio,
+                cudaStream_t stream)
+{
+  rmm::device_scalar<math_t> out_lasso(stream);
 
   ridge(out, coef, len, alpha * (math_t(1) - l1_ratio), stream);
   lasso(out_lasso.data(), coef, len, alpha * l1_ratio, stream);
@@ -77,9 +82,13 @@ void elasticnet(math_t *out, const math_t *coef, const int len,
 }
 
 template <typename math_t>
-void elasticnetGrad(math_t *grad, const math_t *coef, const int len,
-                    const math_t alpha, const math_t l1_ratio,
-                    cudaStream_t stream) {
+void elasticnetGrad(math_t* grad,
+                    const math_t* coef,
+                    const int len,
+                    const math_t alpha,
+                    const math_t l1_ratio,
+                    cudaStream_t stream)
+{
   rmm::device_uvector<math_t> grad_lasso(len, stream);
 
   ridgeGrad(grad, coef, len, alpha * (math_t(1) - l1_ratio), stream);

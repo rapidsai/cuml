@@ -17,11 +17,10 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
-#include <cuml/common/device_buffer.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng.cuh>
+#include <rmm/device_uvector.hpp>
 #include <vector>
 #include "permute.cuh"
 
@@ -32,30 +31,38 @@ namespace {
 
 // generate the labels first and shuffle them instead of shuffling the dataset
 template <typename IdxT>
-void generate_labels(IdxT* labels, IdxT n_rows, IdxT n_clusters, bool shuffle,
-                     raft::random::Rng& r, cudaStream_t stream) {
+void generate_labels(IdxT* labels,
+                     IdxT n_rows,
+                     IdxT n_clusters,
+                     bool shuffle,
+                     raft::random::Rng& r,
+                     cudaStream_t stream)
+{
   IdxT a, b;
   r.affine_transform_params(n_clusters, a, b);
   auto op = [=] __device__(IdxT * ptr, IdxT idx) {
-    if (shuffle) {
-      idx = IdxT((a * int64_t(idx)) + b);
-    }
+    if (shuffle) { idx = IdxT((a * int64_t(idx)) + b); }
     idx %= n_clusters;
     // in the unlikely case of n_clusters > n_rows, make sure that the writes
     // do not go out-of-bounds
-    if (idx < n_rows) {
-      *ptr = idx;
-    }
+    if (idx < n_rows) { *ptr = idx; }
   };
-  raft::linalg::writeOnlyUnaryOp<IdxT, decltype(op), IdxT>(labels, n_rows, op,
-                                                           stream);
+  raft::linalg::writeOnlyUnaryOp<IdxT, decltype(op), IdxT>(labels, n_rows, op, stream);
 }
 
 template <typename DataT, typename IdxT>
-DI void get_mu_sigma(DataT& mu, DataT& sigma, IdxT idx, const IdxT* labels,
-                     bool row_major, const DataT* centers,
-                     const DataT* cluster_std, DataT cluster_std_scalar,
-                     IdxT n_rows, IdxT n_cols, IdxT n_clusters) {
+DI void get_mu_sigma(DataT& mu,
+                     DataT& sigma,
+                     IdxT idx,
+                     const IdxT* labels,
+                     bool row_major,
+                     const DataT* centers,
+                     const DataT* cluster_std,
+                     DataT cluster_std_scalar,
+                     IdxT n_rows,
+                     IdxT n_cols,
+                     IdxT n_clusters)
+{
   IdxT cid, fid;
   if (row_major) {
     cid = idx / n_cols;
@@ -71,9 +78,7 @@ DI void get_mu_sigma(DataT& mu, DataT& sigma, IdxT idx, const IdxT* labels,
     center_id = 0;
   }
 
-  if (fid >= n_cols) {
-    fid = 0;
-  }
+  if (fid >= n_cols) { fid = 0; }
 
   if (row_major) {
     center_id = center_id * n_cols + fid;
@@ -81,25 +86,49 @@ DI void get_mu_sigma(DataT& mu, DataT& sigma, IdxT idx, const IdxT* labels,
     center_id += fid * n_clusters;
   }
   sigma = cluster_std == nullptr ? cluster_std_scalar : cluster_std[cid];
-  mu = centers[center_id];
+  mu    = centers[center_id];
 }
 
 template <typename DataT, typename IdxT>
-void generate_data(DataT* out, const IdxT* labels, IdxT n_rows, IdxT n_cols,
-                   IdxT n_clusters, cudaStream_t stream, bool row_major,
-                   const DataT* centers, const DataT* cluster_std,
-                   const DataT cluster_std_scalar, raft::random::Rng& rng) {
+void generate_data(DataT* out,
+                   const IdxT* labels,
+                   IdxT n_rows,
+                   IdxT n_cols,
+                   IdxT n_clusters,
+                   cudaStream_t stream,
+                   bool row_major,
+                   const DataT* centers,
+                   const DataT* cluster_std,
+                   const DataT cluster_std_scalar,
+                   raft::random::Rng& rng)
+{
   auto op = [=] __device__(DataT & val1, DataT & val2, IdxT idx1, IdxT idx2) {
     DataT mu1, sigma1, mu2, sigma2;
-    get_mu_sigma(mu1, sigma1, idx1, labels, row_major, centers, cluster_std,
-                 cluster_std_scalar, n_rows, n_cols, n_clusters);
-    get_mu_sigma(mu2, sigma2, idx2, labels, row_major, centers, cluster_std,
-                 cluster_std_scalar, n_rows, n_cols, n_clusters);
-    raft::random::box_muller_transform<DataT>(val1, val2, sigma1, mu1, sigma2,
-                                              mu2);
+    get_mu_sigma(mu1,
+                 sigma1,
+                 idx1,
+                 labels,
+                 row_major,
+                 centers,
+                 cluster_std,
+                 cluster_std_scalar,
+                 n_rows,
+                 n_cols,
+                 n_clusters);
+    get_mu_sigma(mu2,
+                 sigma2,
+                 idx2,
+                 labels,
+                 row_major,
+                 centers,
+                 cluster_std,
+                 cluster_std_scalar,
+                 n_rows,
+                 n_cols,
+                 n_clusters);
+    raft::random::box_muller_transform<DataT>(val1, val2, sigma1, mu1, sigma2, mu2);
   };
-  rng.custom_distribution2<DataT, DataT, IdxT>(out, n_rows * n_cols, op,
-                                               stream);
+  rng.custom_distribution2<DataT, DataT, IdxT>(out, n_rows * n_cols, op, stream);
 }
 
 }  // namespace
@@ -117,7 +146,6 @@ void generate_data(DataT* out, const IdxT* labels, IdxT n_rows, IdxT n_cols,
  * @param[in]  n_rows             number of rows in the generated data
  * @param[in]  n_cols             number of columns in the generated data
  * @param[in]  n_clusters         number of clusters (or classes) to generate
- * @param[in]  allocator          device allocator for temporary allocations
  * @param[in]  stream             cuda stream to schedule the work on
  * @param[in]  row_major          whether input `centers` and output `out`
  *                                buffers are to be stored in row or column
@@ -140,31 +168,45 @@ void generate_data(DataT* out, const IdxT* labels, IdxT n_rows, IdxT n_cols,
  * @param[in]  type               RNG type
  */
 template <typename DataT, typename IdxT>
-void make_blobs(DataT* out, IdxT* labels, IdxT n_rows, IdxT n_cols,
+void make_blobs(DataT* out,
+                IdxT* labels,
+                IdxT n_rows,
+                IdxT n_cols,
                 IdxT n_clusters,
-                std::shared_ptr<raft::mr::device::allocator> allocator,
-                cudaStream_t stream, bool row_major = true,
-                const DataT* centers = nullptr,
-                const DataT* cluster_std = nullptr,
-                const DataT cluster_std_scalar = (DataT)1.0,
-                bool shuffle = true, DataT center_box_min = (DataT)-10.0,
-                DataT center_box_max = (DataT)10.0, uint64_t seed = 0ULL,
-                raft::random::GeneratorType type = raft::random::GenPhilox) {
+                cudaStream_t stream,
+                bool row_major                   = true,
+                const DataT* centers             = nullptr,
+                const DataT* cluster_std         = nullptr,
+                const DataT cluster_std_scalar   = (DataT)1.0,
+                bool shuffle                     = true,
+                DataT center_box_min             = (DataT)-10.0,
+                DataT center_box_max             = (DataT)10.0,
+                uint64_t seed                    = 0ULL,
+                raft::random::GeneratorType type = raft::random::GenPhilox)
+{
   raft::random::Rng r(seed, type);
   // use the right centers buffer for data generation
-  device_buffer<DataT> rand_centers(allocator, stream);
+  rmm::device_uvector<DataT> rand_centers(0, stream);
   const DataT* _centers;
   if (centers == nullptr) {
     rand_centers.resize(n_clusters * n_cols, stream);
-    r.uniform(rand_centers.data(), n_clusters * n_cols, center_box_min,
-              center_box_max, stream);
+    r.uniform(rand_centers.data(), n_clusters * n_cols, center_box_min, center_box_max, stream);
     _centers = rand_centers.data();
   } else {
     _centers = centers;
   }
   generate_labels(labels, n_rows, n_clusters, shuffle, r, stream);
-  generate_data(out, labels, n_rows, n_cols, n_clusters, stream, row_major,
-                _centers, cluster_std, cluster_std_scalar, r);
+  generate_data(out,
+                labels,
+                n_rows,
+                n_cols,
+                n_clusters,
+                stream,
+                row_major,
+                _centers,
+                cluster_std,
+                cluster_std_scalar,
+                r);
 }
 
 }  // end namespace Random

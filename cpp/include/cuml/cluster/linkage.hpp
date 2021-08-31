@@ -18,6 +18,7 @@
 
 #include <raft/linalg/distance_type.h>
 #include <raft/sparse/hierarchy/common.h>
+#include <raft/handle.hpp>
 
 namespace raft {
 class handle_t;
@@ -40,9 +41,11 @@ namespace ML {
  * @param[out] out container object for output arrays
  * @param[out] n_clusters number of clusters to cut from resulting dendrogram
  */
-void single_linkage_pairwise(const raft::handle_t &handle, const float *X,
-                             size_t m, size_t n,
-                             raft::hierarchy::linkage_output<int, float> *out,
+void single_linkage_pairwise(const raft::handle_t& handle,
+                             const float* X,
+                             size_t m,
+                             size_t n,
+                             raft::hierarchy::linkage_output<int, float>* out,
                              raft::distance::DistanceType metric,
                              int n_clusters = 5);
 
@@ -65,16 +68,22 @@ void single_linkage_pairwise(const raft::handle_t &handle, const float *X,
  * value, like 15, and still maintain good performance.
  * @param[out] n_clusters number of clusters to cut from resulting dendrogram
  */
-void single_linkage_neighbors(const raft::handle_t &handle, const float *X,
-                              size_t m, size_t n,
-                              raft::hierarchy::linkage_output<int, float> *out,
-                              raft::distance::DistanceType metric =
-                                raft::distance::DistanceType::L2Unexpanded,
-                              int c = 15, int n_clusters = 5);
+void single_linkage_neighbors(
+  const raft::handle_t& handle,
+  const float* X,
+  size_t m,
+  size_t n,
+  raft::hierarchy::linkage_output<int, float>* out,
+  raft::distance::DistanceType metric = raft::distance::DistanceType::L2Unexpanded,
+  int c                               = 15,
+  int n_clusters                      = 5);
 
-void single_linkage_pairwise(
-  const raft::handle_t &handle, const float *X, size_t m, size_t n,
-  raft::hierarchy::linkage_output<int64_t, float> *out,
-  raft::distance::DistanceType metric, int n_clusters = 5);
+void single_linkage_pairwise(const raft::handle_t& handle,
+                             const float* X,
+                             size_t m,
+                             size_t n,
+                             raft::hierarchy::linkage_output<int64_t, float>* out,
+                             raft::distance::DistanceType metric,
+                             int n_clusters = 5);
 
 };  // namespace ML

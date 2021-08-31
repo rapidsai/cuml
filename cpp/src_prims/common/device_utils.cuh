@@ -23,14 +23,13 @@ namespace MLCommon {
 
 // TODO move to raft https://github.com/rapidsai/raft/issues/90
 /** helper method to get the compute capability version numbers */
-inline std::pair<int, int> getDeviceCapability() {
+inline std::pair<int, int> getDeviceCapability()
+{
   int devId;
   CUDA_CHECK(cudaGetDevice(&devId));
   int major, minor;
-  CUDA_CHECK(
-    cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, devId));
-  CUDA_CHECK(
-    cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, devId));
+  CUDA_CHECK(cudaDeviceGetAttribute(&major, cudaDevAttrComputeCapabilityMajor, devId));
+  CUDA_CHECK(cudaDeviceGetAttribute(&minor, cudaDevAttrComputeCapabilityMinor, devId));
   return std::make_pair(major, minor);
 }
 
@@ -52,7 +51,8 @@ inline std::pair<int, int> getDeviceCapability() {
  * @todo Expand this to support arbitrary reduction ops
  */
 template <typename T, int NThreads>
-DI T batchedWarpReduce(T val) {
+DI T batchedWarpReduce(T val)
+{
 #pragma unroll
   for (int i = NThreads; i < raft::WarpSize; i <<= 1) {
     val += raft::shfl(val, raft::laneId() + i);
@@ -80,28 +80,26 @@ DI T batchedWarpReduce(T val) {
  * @todo Expand this to support arbitrary reduction ops
  */
 template <typename T, int NThreads>
-DI T batchedBlockReduce(T val, char *smem) {
-  auto *sTemp = reinterpret_cast<T *>(smem);
+DI T batchedBlockReduce(T val, char* smem)
+{
+  auto* sTemp                  = reinterpret_cast<T*>(smem);
   constexpr int nGroupsPerWarp = raft::WarpSize / NThreads;
   static_assert(raft::isPo2(nGroupsPerWarp), "nGroupsPerWarp must be a PO2!");
   const int nGroups = (blockDim.x + NThreads - 1) / NThreads;
-  const int lid = raft::laneId();
-  const int lgid = lid % NThreads;
-  const int gid = threadIdx.x / NThreads;
-  const auto wrIdx = (gid / nGroupsPerWarp) * NThreads + lgid;
-  const auto rdIdx = gid * NThreads + lgid;
+  const int lid     = raft::laneId();
+  const int lgid    = lid % NThreads;
+  const int gid     = threadIdx.x / NThreads;
+  const auto wrIdx  = (gid / nGroupsPerWarp) * NThreads + lgid;
+  const auto rdIdx  = gid * NThreads + lgid;
   for (int i = nGroups; i > 0;) {
-    auto iAligned =
-      ((i + nGroupsPerWarp - 1) / nGroupsPerWarp) * nGroupsPerWarp;
+    auto iAligned = ((i + nGroupsPerWarp - 1) / nGroupsPerWarp) * nGroupsPerWarp;
     if (gid < iAligned) {
       val = batchedWarpReduce<T, NThreads>(val);
       if (lid < NThreads) sTemp[wrIdx] = val;
     }
     __syncthreads();
     i /= nGroupsPerWarp;
-    if (i > 0) {
-      val = gid < i ? sTemp[rdIdx] : T(0);
-    }
+    if (i > 0) { val = gid < i ? sTemp[rdIdx] : T(0); }
     __syncthreads();
   }
   return val;
