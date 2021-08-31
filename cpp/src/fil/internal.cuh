@@ -23,6 +23,8 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/error.hpp>
 #include <vector>
+#include <bitset>
+#include <iostream>
 
 namespace raft {
 class handle_t;
@@ -107,7 +109,6 @@ enum output_t {
   AVG_CLASS_SOFTMAX = AVG | CLASS | SOFTMAX,
   ALL_SET           = AVG | SIGMOID | CLASS | SOFTMAX
 };
-std::string output2str(fil::output_t output);
 
 /** val_t is the payload within a FIL leaf */
 union val_t {
@@ -414,6 +415,21 @@ struct categorical_sets {
   {
     return sizeof_mask_from_max_matching(max_matching[feature_id]);
   }
+  void print_bits() const
+  {
+    printf("bits {");
+    for (size_t byte = 0; byte < bits_size; ++byte)
+      std::cout << std::bitset<8>(bits[byte]) << " ";
+    printf("}\n");
+  }
+
+  void print_max_matching() const
+  {
+    printf("max_matching {");
+    for (size_t fid = 0; fid < max_matching_size; ++fid)
+      printf("%d ", max_matching[fid]);
+    printf("}\n");
+  }
 };
 
 struct tree_base {
@@ -503,4 +519,6 @@ void init_sparse(const raft::handle_t& h,
                  const forest_params_t* params);
 
 }  // namespace fil
+
+std::string output2str(fil::output_t output);
 }  // namespace ML

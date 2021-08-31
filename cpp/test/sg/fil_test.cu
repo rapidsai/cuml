@@ -54,21 +54,21 @@ using namespace fil;
 
 struct FilTestParams {
   // input data parameters
-  int num_rows   = atoi(getenv("num_rows"));
-  int num_cols   = atoi(getenv("num_cols"));
-  float nan_prob = atof(getenv("nan_prob"));
+  int num_rows   = 20'000;
+  int num_cols   = 50;
+  float nan_prob = 0.05;
   // forest parameters
   int depth       = 8;
   int num_trees   = 50;
   float leaf_prob = 0.05;
   // below, categorical nodes means categorical inner nodes
   // probability that a node is categorical (given that its feature is categorical)
-  float node_categorical_prob = atof(getenv("node_categorical_prob"));
+  float node_categorical_prob = 0.0f;
   // probability that a feature is categorical (pertains to data generation, can
   // still be interpreted as numerical by a node)
-  float feature_categorical_prob = atof(getenv("feature_categorical_prob"));
+  float feature_categorical_prob = 0.0f;
   // during model creation, how often categories < max_matching are marked as matching?
-  float cat_match_prob = atof(getenv("cat_match_prob"));
+  float cat_match_prob = 0.5f;
   // Order Of Magnitude for maximum matching category for categorical nodes
   float max_matching_cat_magnitude = 1.0;
   // output parameters
@@ -82,7 +82,7 @@ struct FilTestParams {
   algo_t algo             = algo_t::NAIVE;
   int seed                = 42;
   float tolerance         = 2e-3f;
-  bool print_forest_shape = true;
+  bool print_forest_shape = false;
   // treelite parameters, only used for treelite tests
   tl::Operator op       = tl::Operator::kLT;
   leaf_algo_t leaf_algo = leaf_algo_t::FLOAT_UNARY_BINARY;
@@ -103,6 +103,17 @@ struct FilTestParams {
   size_t num_proba_outputs() { return num_rows * std::max(num_classes, 2); }
   size_t num_preds_outputs() { return num_rows; }
 };
+
+std::string output2str(fil::output_t output)
+{
+  if (output == fil::RAW) return "RAW";
+  std::string s = "";
+  if (output & fil::AVG) s += "| AVG";
+  if (output & fil::CLASS) s += "| CLASS";
+  if (output & fil::SIGMOID) s += "| SIGMOID";
+  if (output & fil::SOFTMAX) s += "| SOFTMAX";
+  return s;
+}
 
 std::ostream& operator<<(std::ostream& os, const FilTestParams& ps)
 {
@@ -331,8 +342,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
       raft::update_host(cat_sets_h.bits.data(), bits_d, cat_sets_h.bits.size(), stream);
     }
     printf("generated:\n");
-    // cat_sets_h.print_bits();
-    cat_sets_h.print_max_matching();
+    // cat_sets_h.accessor().print_bits();
+    //cat_sets_h.accessor().print_max_matching();
 
     // initialize nodes
     nodes.resize(num_nodes);
@@ -438,7 +449,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   {
     printf("predicting:\n");
     // cat_sets_h.print_bits();
-    cat_sets_h.print_max_matching();
+    //cat_sets_h.accessor().print_max_matching();
     // predict on host
     std::vector<float> want_preds_h(ps.num_preds_outputs());
     want_proba_h.resize(ps.num_proba_outputs());

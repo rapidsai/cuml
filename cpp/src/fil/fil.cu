@@ -683,10 +683,10 @@ inline std::vector<cat_feature_counters> cat_features_counters(const tl::Tree<T,
           tree.HasMatchingCategories(node_id)) {
         std::vector<uint32_t> matching_cats = tree.MatchingCategories(node_id);
         uint32_t max_matching_cat           = *(matching_cats.end() - 1);
-        ASSERT(max_matching_cat <= max_precise_int_float,
+        ASSERT(max_matching_cat <= MAX_PRECISE_INT_FLOAT,
                "FIL cannot infer on "
                "more than %d matching categories",
-               max_precise_int_float);
+               MAX_PRECISE_INT_FLOAT);
         cat_feature_counters& counters = res[tree.SplitIndex(node_id)];
         counters                       = reduce(counters, {(int)max_matching_cat, 1});
       }
@@ -822,7 +822,7 @@ struct conversion_state {
 
 // modifies cat_sets
 template <typename fil_node_t, typename T, typename L>
-__noinline__ conversion_state<fil_node_t> tl2fil_branch_node(int fil_left_child,
+conversion_state<fil_node_t> tl2fil_branch_node(int fil_left_child,
                                                              const tl::Tree<T, L>& tree,
                                                              int tl_node_id,
                                                              const forest_params_t& forest_params,
@@ -1172,8 +1172,8 @@ void tl2fil_dense(std::vector<dense_node>* pnodes,
                   forest_params_t* params,
                   const tl::ModelImpl<threshold_t, leaf_t>& model,
                   const treelite_params_t* tl_params,
-                  std::vector<float>* vector_leaf,
-                  cat_sets_owner* cat_sets)
+                  cat_sets_owner* cat_sets,
+                  std::vector<float>* vector_leaf)
 {
   tl2fil_params(params, model, tl_params);
 
@@ -1259,8 +1259,8 @@ void tl2fil_sparse(std::vector<int>* ptrees,
                    forest_params_t* params,
                    const tl::ModelImpl<threshold_t, leaf_t>& model,
                    const treelite_params_t* tl_params,
-                   std::vector<float>* vector_leaf,
-                   cat_sets_owner* cat_sets)
+                   cat_sets_owner* cat_sets,
+                   std::vector<float>* vector_leaf)
 {
   tl2fil_params(params, model, tl_params);
   tl2fil_sparse_check_t<fil_node_t>::check(model);
@@ -1389,9 +1389,7 @@ void from_treelite(const raft::handle_t& handle,
     case storage_type_t::DENSE: {
       std::vector<dense_node> nodes;
       std::vector<float> vector_leaf;
-      tl2fil_dense(&nodes, &params, model, tl_params, &vector_leaf, &cat_sets);
-      init_dense(handle, pforest, nodes.data(), &params, vector_leaf, cat_sets);
-      tl2fil_dense(&nodes, &params, model, tl_params, &vector_leaf);
+      tl2fil_dense(&nodes, &params, model, tl_params, &cat_sets, &vector_leaf);
       init_dense(handle, pforest, cat_sets.accessor(), vector_leaf, nodes.data(), &params);
       // sync is necessary as nodes is used in init_dense(),
       // but destructed at the end of this function
@@ -1405,7 +1403,7 @@ void from_treelite(const raft::handle_t& handle,
       std::vector<int> trees;
       std::vector<sparse_node16> nodes;
       std::vector<float> vector_leaf;
-      tl2fil_sparse(&trees, &nodes, &params, model, tl_params, &vector_leaf);
+      tl2fil_sparse(&trees, &nodes, &params, model, tl_params, &cat_sets, &vector_leaf);
       init_sparse(handle, pforest, cat_sets.accessor(), vector_leaf, trees.data(), nodes.data(), &params);
       CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
       if (tl_params->pforest_shape_str) {
@@ -1417,7 +1415,7 @@ void from_treelite(const raft::handle_t& handle,
       std::vector<int> trees;
       std::vector<sparse_node8> nodes;
       std::vector<float> vector_leaf;
-      tl2fil_sparse(&trees, &nodes, &params, model, tl_params, &vector_leaf);
+      tl2fil_sparse(&trees, &nodes, &params, model, tl_params, &cat_sets, &vector_leaf);
       init_sparse(handle, pforest, cat_sets.accessor(), vector_leaf, trees.data(), nodes.data(), &params);
       CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
       if (tl_params->pforest_shape_str) {
