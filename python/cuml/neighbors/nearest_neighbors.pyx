@@ -281,6 +281,8 @@ class NearestNeighbors(Base,
     the FAISS release that this cuML version is linked to.
     (see cuML issue #4020)
 
+    Warning: Nearest Neighbor can accept any number of named parameters (**kwargs) 
+
     For an additional example see `the NearestNeighbors notebook
     <https://github.com/rapidsai/cuml/blob/branch-0.15/notebooks/nearest_neighbors_demo.ipynb>`_.
 
@@ -316,7 +318,6 @@ class NearestNeighbors(Base,
         self.algorithm = algorithm
         self.algo_params = algo_params
         self.knn_index = <uintptr_t> 0
-        self.n_jobs = n_jobs
 
     @generate_docstring(X='dense_sparse')
     def fit(self, X, convert_dtype=True) -> "NearestNeighbors":
@@ -324,7 +325,6 @@ class NearestNeighbors(Base,
         Fit GPU index for performing nearest neighbor queries.
 
         """
-
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
 
