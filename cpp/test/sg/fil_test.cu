@@ -322,8 +322,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     // fill category sets
     // there is a faster trick with a 256-byte LUT, but we can implement it later if the tests
     // become too slow
-    rmm::device_uvector<float> bits_precursor_d(cat_sets_h.bits.size(), stream);
-    rmm::device_uvector<uint8_t> bits_d(cat_sets_h.bits.size() * BITS_PER_BYTE, stream);
+    rmm::device_uvector<float> bits_precursor_d(cat_sets_h.bits.size() * BITS_PER_BYTE, stream);
+    rmm::device_uvector<uint8_t> bits_d(cat_sets_h.bits.size(), stream);
     if (cat_sets_h.bits.size() != 0) {
       hard_clipped_bernoulli(r,
                              bits_precursor_d.data(),
