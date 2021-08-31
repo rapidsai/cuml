@@ -164,8 +164,7 @@ void grow_tree(const raft::handle_t& handle,
                                                              num_leaves,
                                                              depth);
   } else if (params.split_criterion == CRITERION::POISSON) {
-    grow_tree<PoissonObjectiveFunction<DataT, LabelT, IdxT>>(d_allocator,
-                                                             h_allocator,
+    grow_tree<PoissonObjectiveFunction<DataT, LabelT, IdxT>>(handle,
                                                              data,
                                                              treeid,
                                                              seed,
@@ -177,7 +176,6 @@ void grow_tree(const raft::handle_t& handle,
                                                              n_sampled_rows,
                                                              unique_labels,
                                                              params,
-                                                             stream,
                                                              sparsetree,
                                                              num_leaves,
                                                              depth);
