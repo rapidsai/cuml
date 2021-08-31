@@ -28,6 +28,7 @@ import numpy as np
 from cuml.common import logger
 
 import hdbscan
+from hdbscan.plots import CondensedTree
 
 from sklearn import datasets
 
@@ -402,6 +403,28 @@ def test_hdbscan_core_dists_bug_4054():
                                  approx_min_span_tree=False).fit_predict(X)
 
     assert adjusted_rand_score(cu_labels_, sk_labels_) > 0.99
+
+
+def test_hdbscan_empty_cluster_tree():
+
+    raw_tree = np.recarray(shape=(5,),
+                           formats=[np.intp, np.intp, float, np.intp],
+                           names=('parent', 'child', 'lambda_val',
+                                  'child_size'))
+
+    raw_tree['parent'] = np.asarray([5, 5, 5, 5, 5])
+    raw_tree['child'] = [0, 1, 2, 3, 4]
+    raw_tree['lambda_val'] = [1.0, 1.0, 1.0, 1.0, 1.0]
+    raw_tree['child_size'] = [1, 1, 1, 1, 1]
+
+    condensed_tree = CondensedTree(raw_tree, 0.0, True)
+
+    cuml_agg = HDBSCAN(allow_single_cluster=True,
+                       cluster_selection_method="eom")
+    cuml_agg._extract_clusters(condensed_tree)
+
+    # We just care that all points are assigned to the root cluster
+    assert np.sum(cuml_agg.labels_test.to_output("numpy")) == 0
 
 
 def test_hdbscan_plots():
