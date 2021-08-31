@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <icecream.hpp>
 
 #include <test_utils.h>
 
@@ -336,7 +335,7 @@ class RfSpecialisedTest {
   {
     TestAccuracyImprovement();
     TestDeterminism();
-    TestTreeSize();
+    TestMinImpurity();
     TestTreeSize();
   }
 
@@ -533,7 +532,6 @@ INSTANTIATE_TEST_CASE_P(RfTests, RFQuantileBinsLowerBoundTestD, ::testing::Value
 namespace DT {
 
 struct ObjectiveTestParameters {
-  CRITERION criterion;
   uint64_t seed;
   int n_bins;
   int n_classes;
@@ -689,16 +687,16 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
 };
 
 const std::vector<ObjectiveTestParameters> poisson_objective_test_parameters = {
-  {CRITERION::POISSON, 9507819643927052255LLU, 64, 1, 0.0001, 0},
-  {CRITERION::POISSON, 9507819643927052256LLU, 128, 1, 0.0001, 1},
-  {CRITERION::POISSON, 9507819643927052257LLU, 256, 1, 0.0001, 1},
-  {CRITERION::POISSON, 9507819643927052258LLU, 512, 1, 0.0001, 5},
+  {9507819643927052255LLU, 64, 1, 0.0001, 0},
+  {9507819643927052256LLU, 128, 1, 0.0001, 1},
+  {9507819643927052257LLU, 256, 1, 0.0001, 1},
+  {9507819643927052258LLU, 512, 1, 0.0001, 5},
 };
 const std::vector<ObjectiveTestParameters> gini_objective_test_parameters = {
-  {CRITERION::GINI, 9507819643927052255LLU, 64, 2, 0.0001, 0},
-  {CRITERION::GINI, 9507819643927052256LLU, 128, 10, 0.0001, 1},
-  {CRITERION::GINI, 9507819643927052257LLU, 256, 100, 0.0001, 1},
-  {CRITERION::GINI, 9507819643927052258LLU, 512, 100, 0.0001, 5},
+  {9507819643927052255LLU, 64, 2, 0.0001, 0},
+  {9507819643927052256LLU, 128, 10, 0.0001, 1},
+  {9507819643927052257LLU, 256, 100, 0.0001, 1},
+  {9507819643927052258LLU, 512, 100, 0.0001, 5},
 };
 
 // poisson objective test
