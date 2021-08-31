@@ -129,8 +129,7 @@ void build_linkage(const raft::handle_t& handle,
    * Mutual reachability graph
    */
   rmm::device_uvector<value_idx> mutual_reachability_indptr(m + 1, stream);
-  raft::sparse::COO<value_t, value_idx> mutual_reachability_coo(
-    stream, params.min_samples * m * 2);
+  raft::sparse::COO<value_t, value_idx> mutual_reachability_coo(stream, params.min_samples * m * 2);
   rmm::device_uvector<value_t> core_dists(m, stream);
 
   detail::Reachability::mutual_reachability_graph(handle,
