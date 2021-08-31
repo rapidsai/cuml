@@ -32,16 +32,8 @@ double silhouette_score(const raft::handle_t& handle,
                         double* silScores,
                         raft::distance::DistanceType metric)
 {
-  return MLCommon::Metrics::silhouette_score<double, int>(handle,
-                                                          y,
-                                                          nRows,
-                                                          nCols,
-                                                          labels,
-                                                          nLabels,
-                                                          silScores,
-                                                          handle.get_device_allocator(),
-                                                          handle.get_stream(),
-                                                          metric);
+  return MLCommon::Metrics::silhouette_score<double, int>(
+    handle, y, nRows, nCols, labels, nLabels, silScores, handle.get_stream(), metric);
 }
 
 namespace Batched {

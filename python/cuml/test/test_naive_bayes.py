@@ -376,6 +376,7 @@ def test_gaussian_fit_predict(x_dtype, y_dtype, is_sparse,
     assert accuracy_score(y, y_hat) >= 0.99
 
 
+@pytest.mark.xfail(reason="This test requires an update (see #4180)")
 def test_gaussian_partial_fit(nlp_20news):
     chunk_size = 200
     n_rows = 1000

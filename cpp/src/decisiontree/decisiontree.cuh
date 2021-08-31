@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <common/Timer.h>
 #include "batched-levelalgo/builder.cuh"
 #include "batched-levelalgo/quantile.cuh"
 #include "treelite_util.h"
@@ -25,21 +26,19 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/tree/decisiontree.hpp>
 
-#include <common/Timer.h>
-#include <common/iota.cuh>
-#include <common/nvtx.hpp>
-
 #include <raft/cudart_utils.h>
 #include <memory>
 #include <raft/handle.hpp>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/host/allocator.hpp>
 
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
 
 #include <algorithm>
 #include <climits>
+#include <common/iota.cuh>
+#include <common/nvtx.hpp>
+#include <cuml/common/logger.hpp>
+#include <cuml/tree/decisiontree.hpp>
 #include <iomanip>
 #include <locale>
 #include <map>
@@ -47,6 +46,7 @@
 #include <random>
 #include <type_traits>
 #include <vector>
+#include "treelite_util.h"
 
 /** check for treelite runtime API errors and assert accordingly */
 #define TREELITE_CHECK(call)                                                                     \
@@ -236,11 +236,11 @@ class DecisionTree {
     const int ncols,
     const int nrows,
     const LabelT* labels,
-    MLCommon::device_buffer<int>* rowids,
+    rmm::device_uvector<int>* rowids,
     int unique_labels,
     DecisionTreeParams params,
     uint64_t seed,
-    std::shared_ptr<MLCommon::device_buffer<DataT>> quantiles,
+    std::shared_ptr<rmm::device_uvector<DataT>> quantiles,
     int treeid)
   {
     if (params.split_criterion ==

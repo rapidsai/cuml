@@ -62,10 +62,10 @@ class RFClassifier : public BlobsFixture<D> {
       auto* mPtr = &model.model;
       fit(*this->handle,
           mPtr,
-          this->data.X,
+          this->data.X.data(),
           this->params.nrows,
           this->params.ncols,
-          this->data.y,
+          this->data.y.data(),
           this->params.nclasses,
           rfParams);
       CUDA_CHECK(cudaStreamSynchronize(this->stream));

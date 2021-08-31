@@ -507,7 +507,7 @@ class RFQuantileTest : public ::testing::TestWithParam<QuantileTestParameters> {
     raft::random::Rng r(8);
     r.normal(data.data().get(), data.size(), T(0.0), T(2.0), nullptr);
     raft::handle_t handle;
-    auto quantiles =
+    std::shared_ptr<rmm::device_uvector<T>> quantiles =
       DT::computeQuantiles(params.n_bins, data.data().get(), params.n_rows, 1, handle);
 
     auto d_quantiles = quantiles->data();

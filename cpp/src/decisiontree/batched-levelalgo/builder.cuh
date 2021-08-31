@@ -18,6 +18,7 @@
 
 #include <memory>
 #include <raft/handle.hpp>
+#include <rmm/device_uvector.hpp>
 
 #include "metrics.cuh"
 
@@ -176,7 +177,7 @@ struct Builder {
   SplitT* splits;
   /** current batch of nodes */
   NodeWorkItem* d_work_items;
-  std::shared_ptr<const MLCommon::device_buffer<DataT>> quantiles;
+  std::shared_ptr<const rmm::device_uvector<DataT>> quantiles;
 
   WorkloadInfo<IdxT>* workload_info;
   WorkloadInfo<IdxT>* h_workload_info;
@@ -189,8 +190,8 @@ struct Builder {
   /** Memory alignment value */
   const size_t alignValue = 512;
 
-  MLCommon::device_buffer<char> d_buff;
-  MLCommon::host_buffer<char> h_buff;
+  rmm::device_uvector<char> d_buff;
+  std::vector<char> h_buff;
 
   Builder(const raft::handle_t& handle,
           IdxT treeid,
@@ -200,9 +201,9 @@ struct Builder {
           const LabelT* labels,
           IdxT totalRows,
           IdxT totalCols,
-          MLCommon::device_buffer<IdxT>* rowids,
+          rmm::device_uvector<IdxT>* rowids,
           IdxT nclasses,
-          std::shared_ptr<const MLCommon::device_buffer<DataT>> quantiles)
+          std::shared_ptr<const rmm::device_uvector<DataT>> quantiles)
     : handle(handle),
       treeid(treeid),
       seed(seed),
@@ -217,8 +218,7 @@ struct Builder {
             rowids->data(),
             nclasses,
             quantiles->data()},
-      d_buff(handle.get_device_allocator(), handle.get_stream(), 0),
-      h_buff(handle.get_host_allocator(), handle.get_stream(), 0)
+      d_buff(0, handle.get_stream())
   {
     max_blocks = 1 + params.max_batch_size + input.nSampledRows / TPB_DEFAULT;
     ASSERT(quantiles != nullptr, "Currently quantiles need to be computed before this call!");
@@ -226,7 +226,7 @@ struct Builder {
 
     auto [device_workspace_size, host_workspace_size] = workspaceSize();
     d_buff.resize(device_workspace_size, handle.get_stream());
-    h_buff.resize(host_workspace_size, handle.get_stream());
+    h_buff.resize(host_workspace_size);
     assignWorkspace(d_buff.data(), h_buff.data());
   }
 
@@ -450,10 +450,8 @@ struct Builder {
   {
     // do this in batch to reduce peak memory usage in extreme cases
     std::size_t max_batch_size = min(std::size_t(100000), tree->size());
-    MLCommon::device_buffer<NodeT> d_tree(
-      handle.get_device_allocator(), handle.get_stream(), max_batch_size);
-    MLCommon::device_buffer<InstanceRange> d_instance_ranges(
-      handle.get_device_allocator(), handle.get_stream(), max_batch_size);
+    rmm::device_uvector<NodeT> d_tree(max_batch_size, handle.get_stream());
+    rmm::device_uvector<InstanceRange> d_instance_ranges(max_batch_size, handle.get_stream());
     ObjectiveT objective(input.numOutputs, params.min_impurity_decrease, params.min_samples_leaf);
     for (std::size_t batch_begin = 0; batch_begin < tree->size(); batch_begin += max_batch_size) {
       std::size_t batch_end  = min(batch_begin + max_batch_size, tree->size());

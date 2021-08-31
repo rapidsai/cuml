@@ -22,11 +22,11 @@
 #include <decisiontree/batched-levelalgo/quantile.cuh>
 #include <decisiontree/decisiontree.cuh>
 
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/ensemble/randomforest.hpp>
 
 #include <metrics/scores.cuh>
+#include <raft/random/rng.cuh>
 #include <random/permute.cuh>
 
 #include <raft/cudart_utils.h>
@@ -52,9 +52,8 @@ class RandomForest {
 
   void get_row_sample(int tree_id,
                       int n_rows,
-                      MLCommon::device_buffer<int>* selected_rows,
-                      const cudaStream_t stream,
-                      const std::shared_ptr<raft::mr::device::allocator> device_allocator)
+                      rmm::device_uvector<int>* selected_rows,
+                      const cudaStream_t stream)
   {
     ML::PUSH_RANGE("bootstrapping row IDs @randomforest.cuh");
 
@@ -151,10 +150,9 @@ class RandomForest {
     // ptr.
     // Use a deque instead of vector because it can be used on objects with a deleted copy
     // constructor
-    std::deque<MLCommon::device_buffer<int>> selected_rows;
+    std::deque<rmm::device_uvector<int>> selected_rows;
     for (int i = 0; i < n_streams; i++) {
-      selected_rows.emplace_back(
-        handle.get_device_allocator(), handle.get_internal_stream(i), n_sampled_rows);
+      selected_rows.emplace_back(n_sampled_rows, handle.get_internal_stream(i));
     }
 
     auto global_quantiles =
@@ -165,11 +163,8 @@ class RandomForest {
     for (int i = 0; i < this->rf_params.n_trees; i++) {
       int stream_id = omp_get_thread_num();
 
-      this->get_row_sample(i,
-                           n_rows,
-                           &selected_rows[stream_id],
-                           handle.get_internal_stream(stream_id),
-                           handle.get_device_allocator());
+      this->get_row_sample(
+        i, n_rows, &selected_rows[stream_id], handle.get_internal_stream(stream_id));
 
       /* Build individual tree in the forest.
         - input is a pointer to orig data that have n_cols features and n_rows rows.
@@ -307,12 +302,10 @@ class RandomForest {
   {
     ML::Logger::get().setLevel(verbosity);
     cudaStream_t stream = user_handle.get_stream();
-    auto d_alloc        = user_handle.get_device_allocator();
     RF_metrics stats;
     if (rf_type == RF_type::CLASSIFICATION) {  // task classifiation: get classification metrics
-      float accuracy =
-        MLCommon::Score::accuracy_score(predictions, ref_labels, n_rows, d_alloc, stream);
-      stats = set_rf_metrics_classification(accuracy);
+      float accuracy = MLCommon::Score::accuracy_score(predictions, ref_labels, n_rows, stream);
+      stats          = set_rf_metrics_classification(accuracy);
       if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) print(stats);
 
       /* TODO: Potentially augment RF_metrics w/ more metrics (e.g., precision, F1, etc.).
@@ -323,7 +316,6 @@ class RandomForest {
       MLCommon::Score::regression_metrics(predictions,
                                           ref_labels,
                                           n_rows,
-                                          d_alloc,
                                           stream,
                                           mean_abs_error,
                                           mean_squared_error,

@@ -15,20 +15,18 @@
  */
 
 #pragma once
-#include <thrust/execution_policy.h>
 #include <thrust/fill.h>
 #include <cub/cub.cuh>
-#include <cuml/common/device_buffer.hpp>
 #include <memory>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
+#include <rmm/device_uvector.hpp>
+#include <rmm/exec_policy.hpp>
+
+#include <common/nvtx.hpp>
 
 namespace ML {
 namespace DT {
-
-using device_allocator = raft::mr::device::allocator;
-template <typename T>
-using device_buffer = raft::mr::device::buffer<T>;
 
 template <typename T>
 __global__ void computeQuantilesSorted(T* quantiles,
@@ -46,20 +44,18 @@ __global__ void computeQuantilesSorted(T* quantiles,
 }
 
 template <typename T>
-std::shared_ptr<MLCommon::device_buffer<T>> computeQuantiles(
+std::shared_ptr<rmm::device_uvector<T>> computeQuantiles(
   int n_bins, const T* data, int n_rows, int n_cols, const raft::handle_t& handle)
 {
-  auto quantiles = std::make_shared<MLCommon::device_buffer<T>>(
-    handle.get_device_allocator(), handle.get_stream(), n_bins * n_cols);
-  thrust::fill(thrust::cuda::par(*handle.get_device_allocator()).on(handle.get_stream()),
+  auto quantiles = std::make_shared<rmm::device_uvector<T>>(n_bins * n_cols, handle.get_stream());
+  thrust::fill(rmm::exec_policy(handle.get_stream()),
                quantiles->begin(),
                quantiles->begin() + n_bins * n_cols,
                0.0);
   // Determine temporary device storage requirements
   size_t temp_storage_bytes = 0;
 
-  MLCommon::device_buffer<T> single_column_sorted(
-    handle.get_device_allocator(), handle.get_stream(), n_rows);
+  rmm::device_uvector<T> single_column_sorted(n_rows, handle.get_stream());
 
   CUDA_CHECK(cub::DeviceRadixSort::SortKeys(nullptr,
                                             temp_storage_bytes,
@@ -71,8 +67,7 @@ std::shared_ptr<MLCommon::device_buffer<T>> computeQuantiles(
                                             handle.get_stream()));
 
   // Allocate temporary storage for sorting
-  MLCommon::device_buffer<char> d_temp_storage(
-    handle.get_device_allocator(), handle.get_stream(), temp_storage_bytes);
+  rmm::device_uvector<char> d_temp_storage(temp_storage_bytes, handle.get_stream());
 
   // Compute quantiles column by column
   for (int col = 0; col < n_cols; col++) {

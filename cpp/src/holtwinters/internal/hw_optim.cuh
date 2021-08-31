@@ -866,7 +866,6 @@ void holtwinters_optim_gpu(const raft::handle_t& handle,
                            const ML::OptimParams<Dtype> optim_params)
 {
   cudaStream_t stream = handle.get_stream();
-  auto dev_allocator  = handle.get_device_allocator();
 
   // int total_blocks = GET_NUM_BLOCKS(batch_size);
   // int threads_per_block = GET_THREADS_PER_BLOCK(batch_size);
@@ -879,7 +878,7 @@ void holtwinters_optim_gpu(const raft::handle_t& handle,
   bool single_param = (optim_alpha + optim_beta + optim_gamma > 1) ? false : true;
 
   if (sm_needed > raft::getSharedMemPerBlock()) {  // Global memory //
-    raft::mr::device::buffer<Dtype> pseason(dev_allocator, stream, batch_size * frequency);
+    rmm::device_uvector<Dtype> pseason(batch_size * frequency, stream);
     holtwinters_optim_gpu_global_kernel<Dtype>
       <<<total_blocks, threads_per_block, 0, stream>>>(ts,
                                                        n,

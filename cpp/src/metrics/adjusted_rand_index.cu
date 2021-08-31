@@ -27,7 +27,7 @@ double adjusted_rand_index(const raft::handle_t& handle,
                            const int64_t n)
 {
   return MLCommon::Metrics::compute_adjusted_rand_index<int64_t, unsigned long long>(
-    y, y_hat, n, handle.get_device_allocator(), handle.get_stream());
+    y, y_hat, n, handle.get_stream());
 }
 
 double adjusted_rand_index(const raft::handle_t& handle,
@@ -36,7 +36,7 @@ double adjusted_rand_index(const raft::handle_t& handle,
                            const int n)
 {
   return MLCommon::Metrics::compute_adjusted_rand_index<int, unsigned long long>(
-    y, y_hat, n, handle.get_device_allocator(), handle.get_stream());
+    y, y_hat, n, handle.get_stream());
 }
 }  // namespace Metrics
 }  // namespace ML
