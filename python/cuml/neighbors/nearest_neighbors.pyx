@@ -301,7 +301,7 @@ class NearestNeighbors(Base,
                  algo_params=None,
                  metric_params=None,
                  output_type=None,
-                 n_jobs=None):
+                 **kwargs):
 
         super().__init__(handle=handle,
                          verbose=verbose,
@@ -324,8 +324,6 @@ class NearestNeighbors(Base,
         Fit GPU index for performing nearest neighbor queries.
 
         """
-        if self.n_jobs is not None:
-            warnings.warn("\nWarning: 'n_jobs' parameter is unsupported and only available for compatibility")
 
         if len(X.shape) != 2:
             raise ValueError("data should be two dimensional")
@@ -394,7 +392,7 @@ class NearestNeighbors(Base,
     def get_param_names(self):
         return super().get_param_names() + \
             ["n_neighbors", "algorithm", "metric",
-                "p", "metric_params", "algo_params", "n_jobs"]
+                "p", "metric_params", "algo_params"]
 
     @staticmethod
     def _build_metric_type(metric):
