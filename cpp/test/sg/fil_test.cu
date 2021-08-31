@@ -343,7 +343,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     }
     printf("generated:\n");
     // cat_sets_h.accessor().print_bits();
-    //cat_sets_h.accessor().print_max_matching();
+    // cat_sets_h.accessor().print_max_matching();
 
     // initialize nodes
     nodes.resize(num_nodes);
@@ -449,7 +449,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   {
     printf("predicting:\n");
     // cat_sets_h.print_bits();
-    //cat_sets_h.accessor().print_max_matching();
+    // cat_sets_h.accessor().print_max_matching();
     // predict on host
     std::vector<float> want_preds_h(ps.num_preds_outputs());
     want_proba_h.resize(ps.num_proba_outputs());
@@ -463,7 +463,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
           for (int j = 0; j < ps.num_trees; ++j) {
             pred += infer_one_tree(&nodes[j * num_nodes], &data_h[i * ps.num_cols], base).f;
           }
-          //printf("cpu pred sum %f\n", pred);
+          // printf("cpu pred sum %f\n", pred);
           transform(pred, want_proba_h[i * 2 + 1], want_preds_h[i]);
           complement(&(want_proba_h[i * 2]));
         }
@@ -723,22 +723,18 @@ class TreeliteFilTest : public BaseFilTest {
     setup_helper();
     using namespace treelite::gtil;
 
-    bool cond = ps.num_classes > 2;
+    bool cond           = ps.num_classes > 2;
     std::size_t tl_size = cond ? ps.num_proba_outputs() : ps.num_preds_outputs();
-    float* cpu = cond ? want_proba_d : want_preds_d;
-    float* gpu = cond ? proba_d : preds_d;
-    printf("tl_size %lu ==? tl::size %lu\n",
-           tl_size,
-           GetPredictOutputSize(&*model, ps.num_rows));
+    float* cpu          = cond ? want_proba_d : want_preds_d;
+    float* gpu          = cond ? proba_d : preds_d;
+    printf("tl_size %lu ==? tl::size %lu\n", tl_size, GetPredictOutputSize(&*model, ps.num_rows));
 
     std::vector<float> tl_preds_h(tl_size);
     if (atoi(getenv("tl_w_cpu")) || atoi(getenv("tl_w_gpu")))
       Predict(&*model, data_h.data(), ps.num_rows, tl_preds_h.data(), false);
     if (atoi(getenv("tl_w_cpu")))
-      ASSERT_TRUE(raft::devArrMatchHost(tl_preds_h.data(),
-                                        cpu,
-                                        tl_size,
-                                        raft::CompareApprox<float>(ps.tolerance)));
+      ASSERT_TRUE(raft::devArrMatchHost(
+        tl_preds_h.data(), cpu, tl_size, raft::CompareApprox<float>(ps.tolerance)));
     if (atoi(getenv("tl_w_gpu")))
       ASSERT_TRUE(raft::devArrMatchHost(
         tl_preds_h.data(), gpu, tl_size, raft::CompareApprox<float>(ps.tolerance)));
@@ -870,12 +866,12 @@ class TreeliteFilTest : public BaseFilTest {
       int key_counter = 0;
       int root        = i_tree * tree_num_nodes();
       int root_key    = node_to_treelite(tree_builder, &key_counter, root, root);
-      //printf("2treelite\n");
+      // printf("2treelite\n");
       tree_builder->SetRootNode(root_key);
-      //printf("set root node\n");
+      // printf("set root node\n");
       // InsertTree() consumes tree_builder
       TL_CPP_CHECK(model_builder->InsertTree(tree_builder));
-      //printf("inserted tree\n");
+      // printf("inserted tree\n");
     }
 
     // commit the model

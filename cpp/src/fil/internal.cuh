@@ -20,11 +20,11 @@
 #include <cuml/fil/fil.h>
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
+#include <bitset>
+#include <iostream>
 #include <raft/cuda_utils.cuh>
 #include <raft/error.hpp>
 #include <vector>
-#include <bitset>
-#include <iostream>
 
 namespace raft {
 class handle_t;

@@ -387,7 +387,8 @@ struct forest {
     }
   }
 
-  virtual void free(const raft::handle_t& h) {
+  virtual void free(const raft::handle_t& h)
+  {
     deallocate(h, cat_sets_.bits, cat_sets_.bits_size);
     deallocate(h, cat_sets_.max_matching, cat_sets_.max_matching_size);
     vector_leaf_.release();
@@ -518,7 +519,8 @@ struct sparse_forest : forest {
 
   virtual void infer(predict_params params, cudaStream_t stream) override
   {
-    sparse_storage<node_t> forest(cat_sets_, vector_leaf_.data(), trees_.data(), nodes_.data(), num_trees_);
+    sparse_storage<node_t> forest(
+      cat_sets_, vector_leaf_.data(), trees_.data(), nodes_.data(), num_trees_);
     fil::infer(forest, params, stream);
   }
 
@@ -826,11 +828,11 @@ struct conversion_state {
 // modifies cat_sets
 template <typename fil_node_t, typename T, typename L>
 conversion_state<fil_node_t> tl2fil_branch_node(int fil_left_child,
-                                                             const tl::Tree<T, L>& tree,
-                                                             int tl_node_id,
-                                                             const forest_params_t& forest_params,
-                                                             categorical_sets cat_sets,
-                                                             size_t* bit_pool_size)
+                                                const tl::Tree<T, L>& tree,
+                                                int tl_node_id,
+                                                const forest_params_t& forest_params,
+                                                categorical_sets cat_sets,
+                                                size_t* bit_pool_size)
 {
   int tl_left = tree.LeftChild(tl_node_id), tl_right = tree.RightChild(tl_node_id);
   val_t split{};
@@ -1407,7 +1409,8 @@ void from_treelite(const raft::handle_t& handle,
       std::vector<sparse_node16> nodes;
       std::vector<float> vector_leaf;
       tl2fil_sparse(&trees, &nodes, &params, model, tl_params, &cat_sets, &vector_leaf);
-      init_sparse(handle, pforest, cat_sets.accessor(), vector_leaf, trees.data(), nodes.data(), &params);
+      init_sparse(
+        handle, pforest, cat_sets.accessor(), vector_leaf, trees.data(), nodes.data(), &params);
       CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
       if (tl_params->pforest_shape_str) {
         *tl_params->pforest_shape_str = sprintf_shape(model, storage_type, nodes, trees);
@@ -1419,7 +1422,8 @@ void from_treelite(const raft::handle_t& handle,
       std::vector<sparse_node8> nodes;
       std::vector<float> vector_leaf;
       tl2fil_sparse(&trees, &nodes, &params, model, tl_params, &cat_sets, &vector_leaf);
-      init_sparse(handle, pforest, cat_sets.accessor(), vector_leaf, trees.data(), nodes.data(), &params);
+      init_sparse(
+        handle, pforest, cat_sets.accessor(), vector_leaf, trees.data(), nodes.data(), &params);
       CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
       if (tl_params->pforest_shape_str) {
         *tl_params->pforest_shape_str = sprintf_shape(model, storage_type, nodes, trees);
