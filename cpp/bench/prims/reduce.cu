@@ -16,7 +16,6 @@
 
 #include <common/ml_benchmark.hpp>
 #include <raft/linalg/reduce.cuh>
-#include <raft/mr/device/allocator.hpp>
 
 namespace MLCommon {
 namespace Bench {
@@ -29,13 +28,7 @@ struct Params {
 
 template <typename T>
 struct Reduce : public Fixture {
-  Reduce(const std::string& name, const Params& p)
-    : Fixture(
-        name,
-        std::shared_ptr<raft::mr::device::allocator>(new raft::mr::device::default_allocator)),
-      params(p)
-  {
-  }
+  Reduce(const std::string& name, const Params& p) : Fixture(name), params(p) {}
 
  protected:
   void allocateBuffers(const ::benchmark::State& state) override

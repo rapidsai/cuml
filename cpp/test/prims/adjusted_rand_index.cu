@@ -20,7 +20,6 @@
 #include <iostream>
 #include <metrics/adjusted_rand_index.cuh>
 #include <metrics/contingencyMatrix.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <random>
 #include "test_utils.h"
 
@@ -41,14 +40,21 @@ struct adjustedRandIndexParam {
 template <typename T, typename MathT = int>
 class adjustedRandIndexTest : public ::testing::TestWithParam<adjustedRandIndexParam> {
  protected:
+  adjustedRandIndexTest() : firstClusterArray(0, stream), secondClusterArray(0, stream) {}
+
   void SetUp() override
   {
+    CUDA_CHECK(cudaStreamCreate(&stream));
     params    = ::testing::TestWithParam<adjustedRandIndexParam>::GetParam();
     nElements = params.nElements;
-    raft::allocate(firstClusterArray, nElements, true);
-    raft::allocate(secondClusterArray, nElements, true);
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    std::shared_ptr<raft::mr::device::allocator> allocator(new raft::mr::device::default_allocator);
+
+    firstClusterArray.resize(nElements, stream);
+    secondClusterArray.resize(nElements, stream);
+    CUDA_CHECK(
+      cudaMemsetAsync(firstClusterArray.data(), 0, firstClusterArray.size() * sizeof(T), stream));
+    CUDA_CHECK(
+      cudaMemsetAsync(secondClusterArray.data(), 0, secondClusterArray.size() * sizeof(T), stream));
+
     if (!params.testZeroArray) {
       SetUpDifferentArrays();
     } else {
@@ -56,15 +62,10 @@ class adjustedRandIndexTest : public ::testing::TestWithParam<adjustedRandIndexP
     }
     // allocating and initializing memory to the GPU
     computed_adjusted_rand_index = compute_adjusted_rand_index<T, MathT>(
-      firstClusterArray, secondClusterArray, nElements, allocator, stream);
+      firstClusterArray.data(), secondClusterArray.data(), nElements, stream);
   }
 
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(firstClusterArray));
-    CUDA_CHECK(cudaFree(secondClusterArray));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
+  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
   void SetUpDifferentArrays()
   {
@@ -123,8 +124,8 @@ class adjustedRandIndexTest : public ::testing::TestWithParam<adjustedRandIndexP
       truth_adjusted_rand_index = (index - expectedIndex) / (maxIndex - expectedIndex);
     else
       truth_adjusted_rand_index = 0;
-    raft::update_device(firstClusterArray, &arr1[0], nElements, stream);
-    raft::update_device(secondClusterArray, &arr2[0], nElements, stream);
+    raft::update_device(firstClusterArray.data(), &arr1[0], nElements, stream);
+    raft::update_device(secondClusterArray.data(), &arr2[0], nElements, stream);
   }
 
   void SetupZeroArray()
@@ -136,12 +137,12 @@ class adjustedRandIndexTest : public ::testing::TestWithParam<adjustedRandIndexP
 
   adjustedRandIndexParam params;
   T lowerLabelRange, upperLabelRange;
-  T* firstClusterArray                = nullptr;
-  T* secondClusterArray               = nullptr;
+  rmm::device_uvector<T> firstClusterArray;
+  rmm::device_uvector<T> secondClusterArray;
   int nElements                       = 0;
   double truth_adjusted_rand_index    = 0;
   double computed_adjusted_rand_index = 0;
-  cudaStream_t stream;
+  cudaStream_t stream                 = 0;
 };
 
 const std::vector<adjustedRandIndexParam> inputs = {

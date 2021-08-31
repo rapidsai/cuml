@@ -17,7 +17,6 @@
 #pragma once
 
 #include <cuml/manifold/umapparams.h>
-#include <cuml/common/device_buffer.hpp>
 
 #include <raft/sparse/coo.cuh>
 
@@ -52,8 +51,7 @@ void launcher(const raft::handle_t& handle,
 
   ASSERT(n > params->n_components, "Spectral layout requires n_samples > n_components");
 
-  MLCommon::device_buffer<T> tmp_storage(
-    handle.get_device_allocator(), stream, n * params->n_components);
+  rmm::device_uvector<T> tmp_storage(n * params->n_components, stream);
 
   uint64_t seed = params->random_state;
 

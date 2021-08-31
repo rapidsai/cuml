@@ -127,9 +127,8 @@ void mutual_reachability_graph(const raft::handle_t& handle,
   RAFT_EXPECTS(metric == raft::distance::DistanceType::L2SqrtExpanded,
                "Currently only L2 expanded distance is supported");
 
-  auto stream = handle.get_stream();
-
-  auto exec_policy = rmm::exec_policy(stream);
+  auto stream      = handle.get_stream();
+  auto exec_policy = handle.get_thrust_policy();
 
   std::vector<value_t*> inputs;
   inputs.push_back(const_cast<value_t*>(X));
@@ -185,8 +184,7 @@ void mutual_reachability_graph(const raft::handle_t& handle,
   raft::sparse::linalg::symmetrize(
     handle, coo_rows.data(), inds.data(), dists.data(), m, m, min_samples * m, out);
 
-  raft::sparse::convert::sorted_coo_to_csr(
-    out.rows(), out.nnz, indptr, m + 1, handle.get_device_allocator(), stream);
+  raft::sparse::convert::sorted_coo_to_csr(out.rows(), out.nnz, indptr, m + 1, stream);
 
   // self-loops get max distance
   auto transform_in =

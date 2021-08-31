@@ -49,7 +49,7 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
     enum SvmType:
         C_SVC, NU_SVC, EPSILON_SVR, NU_SVR
 
-    cdef struct svmParameter:
+    cdef struct SvmParameter:
         # parameters for trainig
         double C
         double cache_size
@@ -61,7 +61,7 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
         SvmType svmType
 
 cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
-    cdef cppclass svmModel[math_t]:
+    cdef cppclass SvmModel[math_t]:
         # parameters of a fitted model
         int n_support
         int n_cols
@@ -76,26 +76,26 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
 
     cdef void svcFit[math_t](const handle_t &handle, math_t *input,
                              int n_rows, int n_cols, math_t *labels,
-                             const svmParameter &param,
+                             const SvmParameter &param,
                              KernelParams &kernel_params,
-                             svmModel[math_t] &model,
+                             SvmModel[math_t] &model,
                              const math_t *sample_weight) except+
 
     cdef void svcPredict[math_t](
         const handle_t &handle, math_t *input, int n_rows, int n_cols,
-        KernelParams &kernel_params, const svmModel[math_t] &model,
+        KernelParams &kernel_params, const SvmModel[math_t] &model,
         math_t *preds, math_t buffer_size, bool predict_class) except +
 
     cdef void svmFreeBuffers[math_t](const handle_t &handle,
-                                     svmModel[math_t] &m) except +
+                                     SvmModel[math_t] &m) except +
 
 cdef extern from "cuml/svm/svr.hpp" namespace "ML::SVM":
 
     cdef void svrFit[math_t](const handle_t &handle, math_t *X,
                              int n_rows, int n_cols, math_t *y,
-                             const svmParameter &param,
+                             const SvmParameter &param,
                              KernelParams &kernel_params,
-                             svmModel[math_t] &model,
+                             SvmModel[math_t] &model,
                              const math_t *sample_weight) except+
 
 
@@ -277,19 +277,19 @@ class SVR(SVMBase, RegressorMixin):
         self.coef_ = None
 
         cdef KernelParams _kernel_params = self._get_kernel_params(X_m)
-        cdef svmParameter param = self._get_svm_params()
-        cdef svmModel[float] *model_f
-        cdef svmModel[double] *model_d
+        cdef SvmParameter param = self._get_svm_params()
+        cdef SvmModel[float] *model_f
+        cdef SvmModel[double] *model_d
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
         if self.dtype == np.float32:
-            model_f = new svmModel[float]()
+            model_f = new SvmModel[float]()
             svrFit(handle_[0], <float*>X_ptr, <int>self.n_rows,
                    <int>self.n_cols, <float*>y_ptr, param, _kernel_params,
                    model_f[0], <float*>sample_weight_ptr)
             self._model = <uintptr_t>model_f
         elif self.dtype == np.float64:
-            model_d = new svmModel[double]()
+            model_d = new SvmModel[double]()
             svrFit(handle_[0], <double*>X_ptr, <int>self.n_rows,
                    <int>self.n_cols, <double*>y_ptr, param, _kernel_params,
                    model_d[0], <double*>sample_weight_ptr)

@@ -17,7 +17,6 @@
 #pragma once
 
 #include <cuml/manifold/umapparams.h>
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 
 #include <rmm/device_uvector.hpp>
@@ -36,9 +35,9 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng_impl.cuh>
 #include <raft/sparse/coo.cuh>
+#include <rmm/device_uvector.hpp>
 
 #include <string>
 #include "optimize_batch_kernel.cuh"
@@ -212,7 +211,6 @@ void optimize_layout(T* head_embedding,
                      float gamma,
                      UMAPParams* params,
                      int n_epochs,
-                     std::shared_ptr<raft::mr::device::allocator> d_alloc,
                      cudaStream_t stream)
 {
   // Are we doing a fit or a transform?
@@ -220,7 +218,7 @@ void optimize_layout(T* head_embedding,
   T alpha         = params->initial_alpha;
 
   auto stream_view = rmm::cuda_stream_view(stream);
-  MLCommon::device_buffer<T> epoch_of_next_negative_sample(d_alloc, stream, nnz);
+  rmm::device_uvector<T> epoch_of_next_negative_sample(nnz, stream);
   T nsr_inv = T(1.0) / params->negative_sample_rate;
   raft::linalg::unaryOp<T>(
     epoch_of_next_negative_sample.data(),
@@ -229,7 +227,7 @@ void optimize_layout(T* head_embedding,
     [=] __device__(T input) { return input * nsr_inv; },
     stream);
 
-  MLCommon::device_buffer<T> epoch_of_next_sample(d_alloc, stream, nnz);
+  rmm::device_uvector<T> epoch_of_next_sample(nnz, stream);
   raft::copy(epoch_of_next_sample.data(), epochs_per_sample, nnz, stream);
 
   // Buffers used to store the gradient updates to avoid conflicts
@@ -302,13 +300,8 @@ void optimize_layout(T* head_embedding,
  * and their 1-skeletons.
  */
 template <int TPB_X, typename T>
-void launcher(int m,
-              int n,
-              raft::sparse::COO<T>* in,
-              UMAPParams* params,
-              T* embedding,
-              std::shared_ptr<raft::mr::device::allocator> d_alloc,
-              cudaStream_t stream)
+void launcher(
+  int m, int n, raft::sparse::COO<T>* in, UMAPParams* params, T* embedding, cudaStream_t stream)
 {
   int nnz = in->nnz;
 
@@ -342,10 +335,10 @@ void launcher(int m,
     },
     stream);
 
-  raft::sparse::COO<T> out(d_alloc, stream);
-  raft::sparse::op::coo_remove_zeros<TPB_X, T>(in, &out, d_alloc, stream);
+  raft::sparse::COO<T> out(stream);
+  raft::sparse::op::coo_remove_zeros<TPB_X, T>(in, &out, stream);
 
-  MLCommon::device_buffer<T> epochs_per_sample(d_alloc, stream, out.nnz);
+  rmm::device_uvector<T> epochs_per_sample(out.nnz, stream);
   CUDA_CHECK(cudaMemsetAsync(epochs_per_sample.data(), 0, out.nnz * sizeof(T), stream));
 
   make_epochs_per_sample(out.vals(), out.nnz, n_epochs, epochs_per_sample.data(), stream);
@@ -367,7 +360,6 @@ void launcher(int m,
                             params->repulsion_strength,
                             params,
                             n_epochs,
-                            d_alloc,
                             stream);
 
   CUDA_CHECK(cudaPeekAtLastError());

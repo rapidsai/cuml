@@ -24,7 +24,6 @@
 #include <vector>
 
 #include <raft/handle.hpp>
-#include <raft/mr/device/allocator.hpp>
 
 #include <cuml/cluster/dbscan.hpp>
 
@@ -138,10 +137,6 @@ int main(int argc, char* argv[])
   }
 
   raft::handle_t handle;
-
-  std::shared_ptr<raft::mr::device::allocator> allocator(new raft::mr::device::default_allocator());
-
-  handle.set_device_allocator(allocator);
 
   std::vector<float> h_inputData;
 

@@ -21,7 +21,6 @@
 
 #include <label/classlabels.cuh>
 
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/neighbors/knn.hpp>
 
 #include <raft/cudart_utils.h>
@@ -164,7 +163,6 @@ __global__ void regress_avg_kernel(LabelType* out,
  * @param[in] k number of neighbors in knn_indices
  * @param[in] uniq_labels vector of the sorted unique labels for each array in y
  * @param[in] n_unique vector of sizes for each array in uniq_labels
- * @param[in] allocator device allocator to use for temporary workspace
  * @param[in] user_stream main stream to use for queuing isolated CUDA events
  * @param[in] int_streams internal streams to use for parallelizing independent CUDA events.
  * @param[in] n_int_streams number of elements in int_streams array. If this is less than 1,
@@ -179,7 +177,6 @@ void class_probs(std::vector<float*>& out,
                  int k,
                  std::vector<int*>& uniq_labels,
                  std::vector<int>& n_unique,
-                 const std::shared_ptr<raft::mr::device::allocator> allocator,
                  cudaStream_t user_stream,
                  cudaStream_t* int_streams = nullptr,
                  int n_int_streams         = 0)
@@ -199,19 +196,18 @@ void class_probs(std::vector<float*>& out,
      * Build array of class probability arrays from
      * knn_indices and labels
      */
-    device_buffer<int> y_normalized(allocator, stream, n_index_rows + n_unique_labels);
+    rmm::device_uvector<int> y_normalized(n_index_rows + n_unique_labels, stream);
 
     /*
      * Appending the array of unique labels to the original labels array
      * to prevent make_monotonic function from producing misleading results
      * due to the absence of some of the unique labels in the labels array
      */
-    device_buffer<int> y_tmp(allocator, stream, n_index_rows + n_unique_labels);
+    rmm::device_uvector<int> y_tmp(n_index_rows + n_unique_labels, stream);
     raft::update_device(y_tmp.data(), y[i], n_index_rows, stream);
     raft::update_device(y_tmp.data() + n_index_rows, uniq_labels[i], n_unique_labels, stream);
 
-    MLCommon::Label::make_monotonic(
-      y_normalized.data(), y_tmp.data(), y_tmp.size(), stream, allocator);
+    MLCommon::Label::make_monotonic(y_normalized.data(), y_tmp.data(), y_tmp.size(), stream);
     raft::linalg::unaryOp<int>(
       y_normalized.data(),
       y_normalized.data(),
@@ -244,7 +240,6 @@ void class_probs(std::vector<float*>& out,
  * @param[in] k number of neighbors in knn_indices
  * @param[in] uniq_labels vector of the sorted unique labels for each array in y
  * @param[in] n_unique vector of sizes for each array in uniq_labels
- * @param[in] allocator device allocator to use for temporary workspace
  * @param[in] user_stream main stream to use for queuing isolated CUDA events
  * @param[in] int_streams internal streams to use for parallelizing independent CUDA events.
  * @param[in] n_int_streams number of elements in int_streams array. If this is less than 1,
@@ -259,13 +254,12 @@ void knn_classify(int* out,
                   int k,
                   std::vector<int*>& uniq_labels,
                   std::vector<int>& n_unique,
-                  const std::shared_ptr<raft::mr::device::allocator>& allocator,
                   cudaStream_t user_stream,
                   cudaStream_t* int_streams = nullptr,
                   int n_int_streams         = 0)
 {
   std::vector<float*> probs;
-  std::vector<device_buffer<float>*> tmp_probs;
+  std::vector<rmm::device_uvector<float>> tmp_probs;
 
   // allocate temporary memory
   for (std::size_t i = 0; i < n_unique.size(); i++) {
@@ -273,11 +267,8 @@ void knn_classify(int* out,
 
     cudaStream_t stream = raft::select_stream(user_stream, int_streams, n_int_streams, i);
 
-    device_buffer<float>* probs_buff =
-      new device_buffer<float>(allocator, stream, n_query_rows * size);
-
-    tmp_probs.push_back(probs_buff);
-    probs.push_back(probs_buff->data());
+    tmp_probs.emplace_back(n_query_rows * size, stream);
+    probs.push_back(tmp_probs.back().data());
   }
 
   /**
@@ -294,7 +285,6 @@ void knn_classify(int* out,
                                 k,
                                 uniq_labels,
                                 n_unique,
-                                allocator,
                                 user_stream,
                                 int_streams,
                                 n_int_streams);
@@ -317,8 +307,6 @@ void knn_classify(int* out,
     class_vote_kernel<<<grid, blk, use_shared_mem ? smem : 0, stream>>>(
       out, probs[i], uniq_labels[i], n_unique_labels, n_query_rows, y.size(), i, use_shared_mem);
     CUDA_CHECK(cudaPeekAtLastError());
-
-    delete tmp_probs[i];
   }
 }
 

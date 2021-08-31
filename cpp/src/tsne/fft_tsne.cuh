@@ -30,7 +30,8 @@
 #include <raft/linalg/eltwise.cuh>
 #include <raft/mr/device/buffer.hpp>
 #include <raft/stats/sum.cuh>
-#include <rmm/device_vector.hpp>
+#include <rmm/device_scalar.hpp>
+#include <rmm/device_uvector.hpp>
 #include "fft_kernels.cuh"
 #include "utils.cuh"
 
@@ -118,22 +119,21 @@ std::pair<value_t, value_t> min_max(const value_t* Y, const value_idx n, cudaStr
 {
   value_t min_h, max_h;
 
-  rmm::device_uvector<value_t> min_d(1, stream);
-  rmm::device_uvector<value_t> max_d(1, stream);
+  rmm::device_scalar<value_t> min_d(stream);
+  rmm::device_scalar<value_t> max_d(stream);
 
-  min_d.set_element(0, std::numeric_limits<value_t>::max(), stream);
-  max_d.set_element(0, std::numeric_limits<value_t>::lowest(), stream);
-
-  raft::update_host(&min_h, min_d.data(), 1, stream);
-  raft::update_host(&max_h, max_d.data(), 1, stream);
+  value_t val = std::numeric_limits<value_t>::max();
+  min_d.set_value_async(val, stream);
+  val = std::numeric_limits<value_t>::lowest();
+  max_d.set_value_async(val, stream);
 
   auto nthreads = 256;
   auto nblocks  = raft::ceildiv(n, (value_idx)nthreads);
 
   min_max_kernel<<<nblocks, nthreads, 0, stream>>>(Y, n, min_d.data(), max_d.data(), true);
 
-  raft::update_host(&min_h, min_d.data(), 1, stream);
-  raft::update_host(&max_h, max_d.data(), 1, stream);
+  min_h = min_d.value(stream);
+  max_h = max_d.value(stream);
 
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -161,9 +161,8 @@ void FFT_TSNE(value_t* VAL,
               const value_idx n,
               const TSNEParams& params)
 {
-  auto d_alloc       = handle.get_device_allocator();
   auto stream        = handle.get_stream();
-  auto thrust_policy = rmm::exec_policy(stream);
+  auto thrust_policy = handle.get_thrust_policy();
 
   // Get device properites
   //---------------------------------------------------
@@ -201,7 +200,7 @@ void FFT_TSNE(value_t* VAL,
   value_idx n_fft_coeffs              = 2 * n_interpolation_points * n_boxes_per_dim;
   value_idx n_interpolation_points_1d = n_interpolation_points * n_boxes_per_dim;
 
-#define DB(type, name, size) raft::mr::device::buffer<type> name(d_alloc, stream, size)
+#define DB(type, name, size) rmm::device_uvector<type> name(size, stream)
 
   DB(value_t, repulsive_forces_device, n * 2);
   MLCommon::LinAlg::zero(repulsive_forces_device.data(), repulsive_forces_device.size(), stream);
