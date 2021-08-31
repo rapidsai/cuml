@@ -26,7 +26,8 @@ from collections.abc import Sequence
 from cuml.common.memory_utils import with_cupy_rmm
 
 from collections import OrderedDict
-from cudf.core import DataFrame, Series
+from cudf import DataFrame
+from cudf import Series
 from dask.dataframe import DataFrame as daskDataFrame
 from dask.dataframe import Series as daskSeries
 from dask_cudf.core import DataFrame as dcDataFrame

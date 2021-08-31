@@ -219,14 +219,14 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     float* is_categoricals_d = nullptr;
 
     // allocate GPU data
-    raft::allocate(weights_d, num_nodes);
+    raft::allocate(weights_d, num_nodes, stream);
     // sizeof(float) == sizeof(int)
-    raft::allocate(thresholds_d, num_nodes);
-    raft::allocate(def_lefts_d, num_nodes);
-    raft::allocate(is_leafs_d, num_nodes);
-    raft::allocate(is_categoricals_d, num_nodes);
-    fids_d.resize(num_nodes);
-    max_matching_cat_d.resize(ps.num_cols);
+    raft::allocate(thresholds_d, num_nodes, stream);
+    raft::allocate(def_lefts_d, num_nodes, stream);
+    raft::allocate(is_leafs_d, num_nodes, stream);
+    raft::allocate(is_categoricals_d, num_nodes, stream);
+    fids_d.resize(num_nodes, stream);
+    max_matching_cat_d.resize(ps.num_cols, stream);
 
     // generate on-GPU random data
     raft::random::Rng r(ps.seed);
@@ -251,7 +251,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
       r.uniform((float*)weights_d, num_nodes, -1.0f, 1.0f, stream);
     }
     r.uniform(thresholds_d, num_nodes, -1.0f, 1.0f, stream);
-    r.uniformInt(fids_d.data().get(), num_nodes, 0, ps.num_cols, stream);
+    r.uniformInt(fids_d.data(), num_nodes, 0, ps.num_cols, stream);
     r.bernoulli(def_lefts_d, num_nodes, 0.5f, stream);
     r.bernoulli(is_leafs_d, num_nodes, 1.0f - ps.leaf_prob, stream);
     hard_clipped_bernoulli(
@@ -288,7 +288,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     }
     raft::update_host(weights_h.data(), (int*)weights_d, num_nodes, stream);
     raft::update_host(thresholds_h.data(), thresholds_d, num_nodes, stream);
-    raft::update_host(fids_h.data(), fids_d.data().get(), num_nodes, stream);
+    raft::update_host(fids_h.data(), fids_d.data(), num_nodes, stream);
     raft::update_host(def_lefts_h, def_lefts_d, num_nodes, stream);
     raft::update_host(is_leafs_h, is_leafs_d, num_nodes, stream);
     raft::update_host(is_categoricals_h.data(), is_categoricals_d, num_nodes, stream);
@@ -320,7 +320,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     cat_sets_h = cat_sets_owner(cf);
     ASSERT(bit_pool_size == cat_sets_h.bits.size(), "didn't convert correct number of nodes");
     raft::update_device(
-      max_matching_cat_d.data().get(), cat_sets_h.max_matching.data(), ps.num_cols, stream);
+      max_matching_cat_d.data(), cat_sets_h.max_matching.data(), ps.num_cols, stream);
     // calculate sizes and allocate arrays for category sets
     // fill category sets
     // there is a faster trick with a 256-byte LUT, but we can implement it later if the tests
@@ -388,9 +388,9 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   {
     // allocate arrays
     size_t num_data = ps.num_rows * ps.num_cols;
-    raft::allocate(data_d, num_data);
+    raft::allocate(data_d, num_data, stream);
     bool* mask_d = nullptr;
-    raft::allocate(mask_d, num_data);
+    raft::allocate(mask_d, num_data, stream);
 
     // generate random data
     raft::random::Rng r(ps.seed);
@@ -401,7 +401,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
       data_d + num_data,
       thrust::counting_iterator(0),
       data_d,
-      replace_some_floating_with_categorical{max_matching_cat_d.data().get(), ps.num_cols});
+      replace_some_floating_with_categorical{max_matching_cat_d.data(), ps.num_cols});
     r.bernoulli(mask_d, num_data, ps.nan_prob, stream);
     int tpb = 256;
     nan_kernel<<<raft::ceildiv(int(num_data), tpb), tpb, 0, stream>>>(
@@ -530,8 +530,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     }
 
     // copy to GPU
-    raft::allocate(want_preds_d, ps.num_preds_outputs());
-    raft::allocate(want_proba_d, ps.num_proba_outputs());
+    raft::allocate(want_preds_d, ps.num_preds_outputs(), stream);
+    raft::allocate(want_proba_d, ps.num_proba_outputs(), stream);
     raft::update_device(want_preds_d, want_preds_h.data(), ps.num_preds_outputs(), stream);
     raft::update_device(want_proba_d, want_proba_h.data(), ps.num_proba_outputs(), stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -545,8 +545,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     init_forest(&forest);
 
     // predict
-    raft::allocate(preds_d, ps.num_preds_outputs());
-    raft::allocate(proba_d, ps.num_proba_outputs());
+    raft::allocate(preds_d, ps.num_preds_outputs(), stream);
+    raft::allocate(proba_d, ps.num_proba_outputs(), stream);
     fil::predict(handle, forest, preds_d, data_d, ps.num_rows);
     fil::predict(handle, forest, proba_d, data_d, ps.num_rows, true);
     CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -604,10 +604,10 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   std::vector<fil::dense_node> nodes;
   std::vector<float> vector_leaf;
   cat_sets_owner cat_sets_h;
-  thrust::device_vector<int> fids_d, max_matching_cat_d;
+  rmm::device_uvector<int> fids_d, max_matching_cat_d;
 
   // parameters
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   raft::handle_t handle;
   FilTestParams ps;
 };

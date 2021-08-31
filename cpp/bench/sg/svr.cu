@@ -32,8 +32,8 @@ struct SvrParams {
   DatasetParams data;
   RegressionParams regression;
   MLCommon::Matrix::KernelParams kernel;
-  ML::SVM::svmParameter svm_param;
-  ML::SVM::svmModel<D> model;
+  ML::SVM::SvmParameter svm_param;
+  ML::SVM::SvmModel<D>* model;
 };
 
 template <typename D>
@@ -60,22 +60,22 @@ class SVR : public RegressionFixture<D> {
     }
     this->loopOnState(state, [this]() {
       ML::SVM::svrFit(*this->handle,
-                      this->data.X,
+                      this->data.X.data(),
                       this->params.nrows,
                       this->params.ncols,
-                      this->data.y,
+                      this->data.y.data(),
                       this->svm_param,
                       this->kernel,
-                      this->model);
+                      *(this->model));
       CUDA_CHECK(cudaStreamSynchronize(this->stream));
-      ML::SVM::svmFreeBuffers(*this->handle, this->model);
+      ML::SVM::svmFreeBuffers(*this->handle, *(this->model));
     });
   }
 
  private:
   MLCommon::Matrix::KernelParams kernel;
-  ML::SVM::svmParameter svm_param;
-  ML::SVM::svmModel<D> model;
+  ML::SVM::SvmParameter svm_param;
+  ML::SVM::SvmModel<D>* model;
 };
 
 template <typename D>
@@ -96,11 +96,11 @@ std::vector<SvrParams<D>> getInputs()
   p.regression.tail_strength  = 0.5;  // unused when effective_rank = -1
   p.regression.noise          = 1;
 
-  // svmParameter{C, cache_size, max_iter, nochange_steps, tol, verbosity,
+  // SvmParameter{C, cache_size, max_iter, nochange_steps, tol, verbosity,
   //              epsilon, svmType})
   p.svm_param =
-    ML::SVM::svmParameter{1, 200, 200, 100, 1e-3, CUML_LEVEL_INFO, 0.1, ML::SVM::EPSILON_SVR};
-  p.model = ML::SVM::svmModel<D>{0, 0, 0, nullptr, nullptr, nullptr, 0, nullptr};
+    ML::SVM::SvmParameter{1, 200, 200, 100, 1e-3, CUML_LEVEL_INFO, 0.1, ML::SVM::EPSILON_SVR};
+  p.model = new ML::SVM::SvmModel<D>{0, 0, 0, 0};
 
   std::vector<Triplets> rowcols = {{50000, 2, 2}, {1024, 10000, 10}, {3000, 200, 200}};
 

@@ -27,7 +27,6 @@
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <rmm/device_uvector.hpp>
 #include "base.hpp"
 
@@ -347,7 +346,7 @@ std::ostream& operator<<(std::ostream& os, const SimpleDenseMat<T>& mat)
 {
   os << "ord=" << (mat.ord == COL_MAJOR ? "CM" : "RM") << "\n";
   std::vector<T> out(mat.len);
-  raft::update_host(&out[0], mat.data, mat.len, 0);
+  raft::update_host(&out[0], mat.data, mat.len, rmm::cuda_stream_default);
   CUDA_CHECK(cudaStreamSynchronize(0));
   if (mat.ord == COL_MAJOR) {
     for (int r = 0; r < mat.m; r++) {
@@ -380,10 +379,7 @@ struct SimpleVecOwning : SimpleVec<T> {
 
   SimpleVecOwning() = delete;
 
-  SimpleVecOwning(std::shared_ptr<raft::mr::device::allocator> allocator,
-                  int n,
-                  cudaStream_t stream)
-    : Super(), buf(n, stream)
+  SimpleVecOwning(int n, cudaStream_t stream) : Super(), buf(n, stream)
   {
     Super::reset(buf.data(), n);
   }
@@ -402,11 +398,7 @@ struct SimpleMatOwning : SimpleDenseMat<T> {
 
   SimpleMatOwning() = delete;
 
-  SimpleMatOwning(std::shared_ptr<raft::mr::device::allocator> allocator,
-                  int m,
-                  int n,
-                  cudaStream_t stream,
-                  STORAGE_ORDER order = COL_MAJOR)
+  SimpleMatOwning(int m, int n, cudaStream_t stream, STORAGE_ORDER order = COL_MAJOR)
     : Super(order), buf(m * n, stream)
   {
     Super::reset(buf.data(), m, n);

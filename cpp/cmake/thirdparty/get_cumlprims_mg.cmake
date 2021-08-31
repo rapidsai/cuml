@@ -20,10 +20,6 @@ function(find_and_configure_cumlprims_mg)
         return()
     endif()
 
-    set(oneValueArgs VERSION)
-    cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
-                          "${multiValueArgs}" ${ARGN} )
-
     rapids_find_generate_module(cumlprims_mg
         HEADER_NAMES          cumlprims.hpp
         LIBRARY_NAMES         cumlprims
@@ -34,6 +30,4 @@ function(find_and_configure_cumlprims_mg)
 
 endfunction()
 
-set(CUML_MIN_VERSION_cumlprims_mg "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}.00")
-
-find_and_configure_cumlprims_mg(VERSION     CUML_MIN_VERSION_cumlprims_mg)
+find_and_configure_cumlprims_mg()

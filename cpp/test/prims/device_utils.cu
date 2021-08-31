@@ -17,6 +17,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <common/device_utils.cuh>
+#include <rmm/device_uvector.hpp>
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -64,23 +65,21 @@ void batchedBlockReduceTest(int* out, const BatchedBlockReduceInputs& param, cud
 template <int NThreads>
 class BatchedBlockReduceTest : public ::testing::TestWithParam<BatchedBlockReduceInputs> {
  protected:
+  BatchedBlockReduceTest() : out(0, stream), refOut(0, stream) {}
+
   void SetUp() override
   {
     params = ::testing::TestWithParam<BatchedBlockReduceInputs>::GetParam();
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(out, NThreads, true);
-    raft::allocate(refOut, NThreads, true);
+    out.resize(NThreads, stream);
+    refOut.resize(NThreads, stream);
+    CUDA_CHECK(cudaMemset(out.data(), 0, out.size() * sizeof(int)));
+    CUDA_CHECK(cudaMemset(refOut.data(), 0, refOut.size() * sizeof(int)));
     computeRef();
-    batchedBlockReduceTest<NThreads>(out, params, stream);
+    batchedBlockReduceTest<NThreads>(out.data(), params, stream);
   }
 
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-    CUDA_CHECK(cudaFree(out));
-    CUDA_CHECK(cudaFree(refOut));
-  }
+  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
   void computeRef()
   {
@@ -92,15 +91,15 @@ class BatchedBlockReduceTest : public ::testing::TestWithParam<BatchedBlockReduc
         ref[i] += j * NThreads + i;
       }
     }
-    raft::update_device(refOut, ref, NThreads, stream);
+    raft::update_device(refOut.data(), ref, NThreads, stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     delete[] ref;
   }
 
  protected:
   BatchedBlockReduceInputs params;
-  int *out, *refOut;
-  cudaStream_t stream;
+  rmm::device_uvector<int> out, refOut;
+  cudaStream_t stream = 0;
 };
 
 typedef BatchedBlockReduceTest<8> BBTest8;
@@ -115,7 +114,10 @@ const std::vector<BatchedBlockReduceInputs> inputs = {
   {512},
 };
 
-TEST_P(BBTest8, Result) { ASSERT_TRUE(devArrMatch(refOut, out, 8, raft::Compare<int>())); }
+TEST_P(BBTest8, Result)
+{
+  ASSERT_TRUE(devArrMatch(refOut.data(), out.data(), 8, raft::Compare<int>()));
+}
 INSTANTIATE_TEST_CASE_P(BatchedBlockReduceTests, BBTest8, ::testing::ValuesIn(inputs));
 
 }  // end namespace MLCommon

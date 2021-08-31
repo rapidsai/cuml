@@ -23,7 +23,7 @@ namespace SVM {
  * All pointers are device pointers.
  */
 template <typename math_t>
-struct svmModel {
+struct SvmModel {
   int n_support;  //!< Number of support vectors
   int n_cols;     //!< Number of features
   math_t b;       //!< Constant used in the decision function

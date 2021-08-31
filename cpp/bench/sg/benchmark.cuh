@@ -32,17 +32,12 @@ namespace Bench {
 /** Main fixture to be inherited and used by all algos in cuML benchmark */
 class Fixture : public MLCommon::Bench::Fixture {
  public:
-  Fixture(const std::string& name)
-    : MLCommon::Bench::Fixture(
-        name, std::shared_ptr<raft::mr::device::allocator>(new raft::mr::device::default_allocator))
-  {
-  }
+  Fixture(const std::string& name) : MLCommon::Bench::Fixture(name) {}
   Fixture() = delete;
 
   void SetUp(const ::benchmark::State& state) override
   {
     handle.reset(new raft::handle_t(NumStreams));
-    d_alloc = handle->get_device_allocator();
     MLCommon::Bench::Fixture::SetUp(state);
     handle->set_stream(stream);
   }
@@ -174,11 +169,6 @@ class TsFixtureRandom : public Fixture {
   {
     data.allocate(*handle, params);
     data.random(*handle, params);
-  }
-
-  void deallocateData(const ::benchmark::State& state) override
-  {
-    data.deallocate(*handle, params);
   }
 
   TimeSeriesParams params;
