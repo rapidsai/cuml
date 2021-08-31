@@ -19,7 +19,6 @@
 #include <cuml/manifold/umapparams.h>
 #include <cuml/common/logger.hpp>
 #include <cuml/neighbors/knn.hpp>
-#include <raft/mr/device/allocator.hpp>
 #include "optimize.cuh"
 
 #include <raft/cudart_utils.h>
@@ -70,13 +69,12 @@ __global__ void fast_intersection_kernel(
 template <typename T, int TPB_X>
 void reset_local_connectivity(raft::sparse::COO<T>* in_coo,
                               raft::sparse::COO<T>* out_coo,
-                              std::shared_ptr<raft::mr::device::allocator> d_alloc,
                               cudaStream_t stream  // size = nnz*2
 )
 {
-  MLCommon::device_buffer<int> row_ind(d_alloc, stream, in_coo->n_rows);
+  rmm::device_uvector<int> row_ind(in_coo->n_rows, stream);
 
-  raft::sparse::convert::sorted_coo_to_csr(in_coo, row_ind.data(), d_alloc, stream);
+  raft::sparse::convert::sorted_coo_to_csr(in_coo, row_ind.data(), stream);
 
   // Perform l_inf normalization
   raft::sparse::linalg::csr_row_normalize_max<TPB_X, T>(
@@ -90,7 +88,6 @@ void reset_local_connectivity(raft::sparse::COO<T>* in_coo,
       T prod_matrix = result * transpose;
       return result + transpose - prod_matrix;
     },
-    d_alloc,
     stream);
 
   CUDA_CHECK(cudaPeekAtLastError());
@@ -186,10 +183,9 @@ void general_simplicial_set_intersection(int* row1_ind,
                                          raft::sparse::COO<T>* in2,
                                          raft::sparse::COO<T>* result,
                                          float weight,
-                                         std::shared_ptr<raft::mr::device::allocator> d_alloc,
                                          cudaStream_t stream)
 {
-  MLCommon::device_buffer<int> result_ind(d_alloc, stream, in1->n_rows);
+  rmm::device_uvector<int> result_ind(in1->n_rows, stream);
   CUDA_CHECK(cudaMemsetAsync(result_ind.data(), 0, in1->n_rows * sizeof(int), stream));
 
   int result_nnz = raft::sparse::linalg::csr_add_calc_inds<float, 32>(row1_ind,
@@ -202,7 +198,6 @@ void general_simplicial_set_intersection(int* row1_ind,
                                                                       in2->nnz,
                                                                       in1->n_rows,
                                                                       result_ind.data(),
-                                                                      d_alloc,
                                                                       stream);
 
   result->allocate(result_nnz, in1->n_rows, in1->n_cols, true, stream);
@@ -266,7 +261,6 @@ void perform_categorical_intersection(T* y,
                                       raft::sparse::COO<T>* rgraph_coo,
                                       raft::sparse::COO<T>* final_coo,
                                       UMAPParams* params,
-                                      std::shared_ptr<raft::mr::device::allocator> d_alloc,
                                       cudaStream_t stream)
 {
   float far_dist = 1.0e12;  // target weight
@@ -274,10 +268,10 @@ void perform_categorical_intersection(T* y,
 
   categorical_simplicial_set_intersection<T, TPB_X>(rgraph_coo, y, stream, far_dist);
 
-  raft::sparse::COO<T> comp_coo(d_alloc, stream);
-  raft::sparse::op::coo_remove_zeros<TPB_X, T>(rgraph_coo, &comp_coo, d_alloc, stream);
+  raft::sparse::COO<T> comp_coo(stream);
+  raft::sparse::op::coo_remove_zeros<TPB_X, T>(rgraph_coo, &comp_coo, stream);
 
-  reset_local_connectivity<T, TPB_X>(&comp_coo, final_coo, d_alloc, stream);
+  reset_local_connectivity<T, TPB_X>(&comp_coo, final_coo, stream);
 
   CUDA_CHECK(cudaPeekAtLastError());
 }
@@ -290,14 +284,12 @@ void perform_general_intersection(const raft::handle_t& handle,
                                   UMAPParams* params,
                                   cudaStream_t stream)
 {
-  auto d_alloc = handle.get_device_allocator();
-
   /**
    * Calculate kNN for Y
    */
   int knn_dims = rgraph_coo->n_rows * params->target_n_neighbors;
-  MLCommon::device_buffer<value_idx> y_knn_indices(d_alloc, stream, knn_dims);
-  MLCommon::device_buffer<value_t> y_knn_dists(d_alloc, stream, knn_dims);
+  rmm::device_uvector<value_idx> y_knn_indices(knn_dims, stream);
+  rmm::device_uvector<value_t> y_knn_dists(knn_dims, stream);
 
   knn_graph<value_idx, value_t> knn_graph(rgraph_coo->n_rows, params->target_n_neighbors);
   knn_graph.knn_indices = y_knn_indices.data();
@@ -305,7 +297,7 @@ void perform_general_intersection(const raft::handle_t& handle,
 
   manifold_dense_inputs_t<value_t> y_inputs(y, nullptr, rgraph_coo->n_rows, 1);
   kNNGraph::run<value_idx, value_t, manifold_dense_inputs_t<value_t>>(
-    handle, y_inputs, y_inputs, knn_graph, params->target_n_neighbors, params, d_alloc, stream);
+    handle, y_inputs, y_inputs, knn_graph, params->target_n_neighbors, params, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
@@ -322,7 +314,7 @@ void perform_general_intersection(const raft::handle_t& handle,
   /**
    * Compute fuzzy simplicial set
    */
-  raft::sparse::COO<value_t> ygraph_coo(d_alloc, stream);
+  raft::sparse::COO<value_t> ygraph_coo(stream);
 
   FuzzySimplSet::run<TPB_X, value_idx, value_t>(rgraph_coo->n_rows,
                                                 y_knn_indices.data(),
@@ -330,7 +322,6 @@ void perform_general_intersection(const raft::handle_t& handle,
                                                 params->target_n_neighbors,
                                                 &ygraph_coo,
                                                 params,
-                                                d_alloc,
                                                 stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
@@ -344,35 +335,34 @@ void perform_general_intersection(const raft::handle_t& handle,
   /**
    * Compute general simplicial set intersection.
    */
-  MLCommon::device_buffer<int> xrow_ind(d_alloc, stream, rgraph_coo->n_rows);
-  MLCommon::device_buffer<int> yrow_ind(d_alloc, stream, ygraph_coo.n_rows);
+  rmm::device_uvector<int> xrow_ind(rgraph_coo->n_rows, stream);
+  rmm::device_uvector<int> yrow_ind(ygraph_coo.n_rows, stream);
 
   CUDA_CHECK(cudaMemsetAsync(xrow_ind.data(), 0, rgraph_coo->n_rows * sizeof(int), stream));
   CUDA_CHECK(cudaMemsetAsync(yrow_ind.data(), 0, ygraph_coo.n_rows * sizeof(int), stream));
 
-  raft::sparse::COO<value_t> cygraph_coo(d_alloc, stream);
-  raft::sparse::op::coo_remove_zeros<TPB_X, value_t>(&ygraph_coo, &cygraph_coo, d_alloc, stream);
+  raft::sparse::COO<value_t> cygraph_coo(stream);
+  raft::sparse::op::coo_remove_zeros<TPB_X, value_t>(&ygraph_coo, &cygraph_coo, stream);
 
-  raft::sparse::convert::sorted_coo_to_csr(&cygraph_coo, yrow_ind.data(), d_alloc, stream);
-  raft::sparse::convert::sorted_coo_to_csr(rgraph_coo, xrow_ind.data(), d_alloc, stream);
+  raft::sparse::convert::sorted_coo_to_csr(&cygraph_coo, yrow_ind.data(), stream);
+  raft::sparse::convert::sorted_coo_to_csr(rgraph_coo, xrow_ind.data(), stream);
 
-  raft::sparse::COO<value_t> result_coo(d_alloc, stream);
+  raft::sparse::COO<value_t> result_coo(stream);
   general_simplicial_set_intersection<value_t, TPB_X>(xrow_ind.data(),
                                                       rgraph_coo,
                                                       yrow_ind.data(),
                                                       &cygraph_coo,
                                                       &result_coo,
                                                       params->target_weight,
-                                                      d_alloc,
                                                       stream);
 
   /**
    * Remove zeros
    */
-  raft::sparse::COO<value_t> out(d_alloc, stream);
-  raft::sparse::op::coo_remove_zeros<TPB_X, value_t>(&result_coo, &out, d_alloc, stream);
+  raft::sparse::COO<value_t> out(stream);
+  raft::sparse::op::coo_remove_zeros<TPB_X, value_t>(&result_coo, &out, stream);
 
-  reset_local_connectivity<value_t, TPB_X>(&out, final_coo, d_alloc, stream);
+  reset_local_connectivity<value_t, TPB_X>(&out, final_coo, stream);
 
   CUDA_CHECK(cudaPeekAtLastError());
 }

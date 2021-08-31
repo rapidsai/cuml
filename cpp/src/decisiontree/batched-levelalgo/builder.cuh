@@ -16,12 +16,12 @@
 
 #pragma once
 
+#include <common/nvtx.hpp>
 #include <raft/handle.hpp>
+#include <rmm/device_uvector.hpp>
 
 #include "builder_base.cuh"
 #include "metrics.cuh"
-
-#include <common/nvtx.hpp>
 
 namespace ML {
 namespace DT {

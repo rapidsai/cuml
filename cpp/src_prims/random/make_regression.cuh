@@ -21,19 +21,18 @@
 #pragma once
 
 #include <algorithm>
-#include <raft/mr/device/allocator.hpp>
 
 #include <linalg/init.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/transpose.h>
-#include <cuml/common/device_buffer.hpp>
 #include <raft/handle.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/qr.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <raft/mr/device/buffer.hpp>
 #include <raft/random/rng.cuh>
+#include <rmm/device_uvector.hpp>
 #include "permute.cuh"
 
 namespace MLCommon {
@@ -63,42 +62,33 @@ static void _make_low_rank_matrix(const raft::handle_t& handle,
                                   raft::random::Rng& r,
                                   cudaStream_t stream)
 {
-  std::shared_ptr<raft::mr::device::allocator> allocator = handle.get_device_allocator();
-  cusolverDnHandle_t cusolver_handle                     = handle.get_cusolver_dn_handle();
-  cublasHandle_t cublas_handle                           = handle.get_cublas_handle();
+  cusolverDnHandle_t cusolver_handle = handle.get_cusolver_dn_handle();
+  cublasHandle_t cublas_handle       = handle.get_cublas_handle();
 
   IdxT n = std::min(n_rows, n_cols);
 
   // Generate random (ortho normal) vectors with QR decomposition
-  raft::mr::device::buffer<DataT> rd_mat_0(allocator, stream);
-  raft::mr::device::buffer<DataT> rd_mat_1(allocator, stream);
-  rd_mat_0.resize(n_rows * n, stream);
-  rd_mat_1.resize(n_cols * n, stream);
+  rmm::device_uvector<DataT> rd_mat_0(n_rows * n, stream);
+  rmm::device_uvector<DataT> rd_mat_1(n_cols * n, stream);
   r.normal(rd_mat_0.data(), n_rows * n, (DataT)0.0, (DataT)1.0, stream);
   r.normal(rd_mat_1.data(), n_cols * n, (DataT)0.0, (DataT)1.0, stream);
-  raft::mr::device::buffer<DataT> q0(allocator, stream);
-  raft::mr::device::buffer<DataT> q1(allocator, stream);
-  q0.resize(n_rows * n, stream);
-  q1.resize(n_cols * n, stream);
+  rmm::device_uvector<DataT> q0(n_rows * n, stream);
+  rmm::device_uvector<DataT> q1(n_cols * n, stream);
   raft::linalg::qrGetQ(handle, rd_mat_0.data(), q0.data(), n_rows, n, stream);
   raft::linalg::qrGetQ(handle, rd_mat_1.data(), q1.data(), n_cols, n, stream);
 
   // Build the singular profile by assembling signal and noise components
-  raft::mr::device::buffer<DataT> singular_vec(allocator, stream);
-  raft::mr::device::buffer<DataT> singular_mat(allocator, stream);
-  singular_vec.resize(n, stream);
+  rmm::device_uvector<DataT> singular_vec(n, stream);
   _singular_profile_kernel<<<raft::ceildiv<IdxT>(n, 256), 256, 0, stream>>>(
     singular_vec.data(), n, tail_strength, effective_rank);
   CUDA_CHECK(cudaPeekAtLastError());
-  singular_mat.resize(n * n, stream);
+  rmm::device_uvector<DataT> singular_mat(n * n, stream);
   CUDA_CHECK(cudaMemsetAsync(singular_mat.data(), 0, n * n * sizeof(DataT), stream));
   raft::matrix::initializeDiagonalMatrix(singular_vec.data(), singular_mat.data(), n, n, stream);
 
   // Generate the column-major matrix
-  raft::mr::device::buffer<DataT> temp_q0s(allocator, stream);
-  raft::mr::device::buffer<DataT> temp_out(allocator, stream);
-  temp_q0s.resize(n_rows * n, stream);
-  temp_out.resize(n_rows * n_cols, stream);
+  rmm::device_uvector<DataT> temp_q0s(n_rows * n, stream);
+  rmm::device_uvector<DataT> temp_out(n_rows * n_cols, stream);
   DataT alpha = 1.0, beta = 0.0;
   raft::linalg::cublasgemm(cublas_handle,
                            CUBLAS_OP_N,
@@ -170,7 +160,6 @@ static __global__ void _gather2d_kernel(
  *                              coefficients)
  * @param[in]   cublas_handle   cuBLAS handle
  * @param[in]   cusolver_handle cuSOLVER handle
- * @param[in]   allocator       Device memory allocator
  * @param[in]   stream          CUDA stream
  * @param[out]  coef            Row-major (features, targets) matrix to store
  *                              the coefficients used to generate the values
@@ -210,9 +199,8 @@ void make_regression(const raft::handle_t& handle,
 {
   n_informative = std::min(n_informative, n_cols);
 
-  std::shared_ptr<raft::mr::device::allocator> allocator = handle.get_device_allocator();
-  cusolverDnHandle_t cusolver_handle                     = handle.get_cusolver_dn_handle();
-  cublasHandle_t cublas_handle                           = handle.get_cublas_handle();
+  cusolverDnHandle_t cusolver_handle = handle.get_cusolver_dn_handle();
+  cublasHandle_t cublas_handle       = handle.get_cublas_handle();
 
   cublasSetPointerMode(cublas_handle, CUBLAS_POINTER_MODE_HOST);
   raft::random::Rng r(seed, type);
@@ -226,7 +214,7 @@ void make_regression(const raft::handle_t& handle,
   }
 
   // Use the right output buffer for the values
-  raft::mr::device::buffer<DataT> tmp_values(allocator, stream);
+  rmm::device_uvector<DataT> tmp_values(0, stream);
   DataT* _values;
   if (shuffle) {
     tmp_values.resize(n_rows * n_targets, stream);
@@ -236,7 +224,7 @@ void make_regression(const raft::handle_t& handle,
   }
   // Create a column-major matrix of output values only if it has more
   // than 1 column
-  raft::mr::device::buffer<DataT> values_col(allocator, stream);
+  rmm::device_uvector<DataT> values_col(0, stream);
   DataT* _values_col;
   if (n_targets > 1) {
     values_col.resize(n_rows * n_targets, stream);
@@ -246,7 +234,7 @@ void make_regression(const raft::handle_t& handle,
   }
 
   // Use the right buffer for the coefficients
-  raft::mr::device::buffer<DataT> tmp_coef(allocator, stream);
+  rmm::device_uvector<DataT> tmp_coef(0, stream);
   DataT* _coef;
   if (coef != nullptr && !shuffle) {
     _coef = coef;
@@ -292,7 +280,7 @@ void make_regression(const raft::handle_t& handle,
     raft::linalg::addScalar(_values, _values, bias, n_rows * n_targets, stream);
   }
 
-  device_buffer<DataT> white_noise(allocator, stream);
+  rmm::device_uvector<DataT> white_noise(0, stream);
   if (noise != 0.0) {
     // Add white noise
     white_noise.resize(n_rows * n_targets, stream);
@@ -301,12 +289,9 @@ void make_regression(const raft::handle_t& handle,
   }
 
   if (shuffle) {
-    raft::mr::device::buffer<DataT> tmp_out(allocator, stream);
-    raft::mr::device::buffer<IdxT> perms_samples(allocator, stream);
-    raft::mr::device::buffer<IdxT> perms_features(allocator, stream);
-    tmp_out.resize(n_rows * n_cols, stream);
-    perms_samples.resize(n_rows, stream);
-    perms_features.resize(n_cols, stream);
+    rmm::device_uvector<DataT> tmp_out(n_rows * n_cols, stream);
+    rmm::device_uvector<IdxT> perms_samples(n_rows, stream);
+    rmm::device_uvector<IdxT> perms_features(n_cols, stream);
 
     constexpr IdxT Nthreads = 256;
 

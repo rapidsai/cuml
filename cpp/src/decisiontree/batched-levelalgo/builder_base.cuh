@@ -18,8 +18,6 @@
 
 #include <cuml/tree/flatnode.h>
 #include <common/grid_sync.cuh>
-#include <cuml/common/device_buffer.hpp>
-#include <cuml/common/host_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/tree/decisiontree.hpp>
 #include <raft/cuda_utils.cuh>
@@ -176,8 +174,8 @@ struct Builder {
   /** Memory alignment value */
   const size_t alignValue = 512;
 
-  MLCommon::device_buffer<char> d_buff;
-  MLCommon::host_buffer<char> h_buff;
+  rmm::device_uvector<char> d_buff;
+  std::vector<char> h_buff;
 
   Builder(const raft::handle_t& handle,
           IdxT treeid,
@@ -204,8 +202,8 @@ struct Builder {
             rowids,
             nclasses,
             quantiles},
-      d_buff(handle.get_device_allocator(), handle.get_stream(), 0),
-      h_buff(handle.get_host_allocator(), handle.get_stream(), 0)
+      d_buff(0, handle.get_stream()),
+      h_buff(0)
   {
     max_blocks = 1 + params.max_batch_size + input.nSampledRows / TPB_DEFAULT;
     ASSERT(quantiles != nullptr, "Currently quantiles need to be computed before this call!");
@@ -213,13 +211,8 @@ struct Builder {
 
     auto [device_workspace_size, host_workspace_size] = workspaceSize();
     d_buff.resize(device_workspace_size, handle.get_stream());
-    h_buff.resize(host_workspace_size, handle.get_stream());
+    h_buff.resize(host_workspace_size);
     assignWorkspace(d_buff.data(), h_buff.data());
-  }
-  ~Builder()
-  {
-    d_buff.release(handle.get_stream());
-    h_buff.release(handle.get_stream());
   }
 
   size_t calculateAlignedBytes(const size_t actualSize) const
@@ -442,8 +435,7 @@ struct Builder {
   {
     // do this in batch to reduce peak memory usage in extreme cases
     std::size_t max_batch_size = min(std::size_t(100000), tree->size());
-    MLCommon::device_buffer<NodeT> d_tree(
-      handle.get_device_allocator(), handle.get_stream(), max_batch_size);
+    rmm::device_uvector<NodeT> d_tree(max_batch_size, handle.get_stream());
     ObjectiveT objective(input.numOutputs, params.min_impurity_decrease, params.min_samples_leaf);
     for (std::size_t batch_begin = 0; batch_begin < tree->size(); batch_begin += max_batch_size) {
       std::size_t batch_end  = min(batch_begin + max_batch_size, tree->size());

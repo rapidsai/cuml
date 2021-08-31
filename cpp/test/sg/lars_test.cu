@@ -20,8 +20,8 @@
 #include <test_utils.h>
 #include <iomanip>
 #include <raft/handle.hpp>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng.cuh>
+#include <rmm/device_uvector.hpp>
 #include <solver/lars_impl.cuh>
 #include <sstream>
 #include <vector>
@@ -34,13 +34,12 @@ template <typename math_t>
 class LarsTest : public ::testing::Test {
  protected:
   LarsTest()
-    : allocator(handle.get_device_allocator()),
-      cor(allocator, handle.get_stream(), n_cols),
-      X(allocator, handle.get_stream(), n_cols * n_rows),
-      G(allocator, handle.get_stream(), n_cols * n_cols),
-      sign(allocator, handle.get_stream(), n_cols),
-      ws(allocator, handle.get_stream(), n_cols),
-      A(allocator, handle.get_stream(), 1)
+    : cor(n_cols, handle.get_stream()),
+      X(n_cols * n_rows, handle.get_stream()),
+      G(n_cols * n_cols, handle.get_stream()),
+      sign(n_cols, handle.get_stream()),
+      ws(n_cols, handle.get_stream()),
+      A(1, handle.get_stream())
   {
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.set_stream(stream);
@@ -56,7 +55,7 @@ class LarsTest : public ::testing::Test {
   {
     math_t cj;
     int idx;
-    MLCommon::device_buffer<math_t> workspace(allocator, stream, n_cols);
+    rmm::device_uvector<math_t> workspace(n_cols, stream);
     ML::Solver::Lars::selectMostCorrelated(
       n_active, n_cols, cor.data(), &cj, workspace, &idx, n_rows, indices, 1, stream);
     EXPECT_EQ(idx, 3);
@@ -105,9 +104,8 @@ class LarsTest : public ::testing::Test {
 
   void calcUExp(math_t* G, int n_cols, math_t* U_dev_exp)
   {
-    auto allocator = handle.get_device_allocator();
-    MLCommon::device_buffer<int> devInfo(allocator, stream, 1);
-    MLCommon::device_buffer<math_t> workspace(allocator, stream);
+    rmm::device_scalar<int> devInfo(stream);
+    rmm::device_uvector<math_t> workspace(0, stream);
     int n_work;
     const int ld_U = n_cols;
     CUSOLVER_CHECK(raft::linalg::cusolverDnpotrf_bufferSize(
@@ -148,12 +146,11 @@ class LarsTest : public ::testing::Test {
     const int ld_X = n_rows;
     const int ld_G = n_cols;
     const int ld_U = ld_G;
-    auto allocator = handle.get_device_allocator();
-    MLCommon::device_buffer<math_t> workspace(allocator, stream);
-    MLCommon::device_buffer<math_t> U_dev_exp(allocator, stream, n_cols * n_cols);
+    rmm::device_uvector<math_t> workspace(0, stream);
+    rmm::device_uvector<math_t> U_dev_exp(n_cols * n_cols, stream);
     calcUExp(G.data(), n_cols, U_dev_exp.data());
 
-    MLCommon::device_buffer<math_t> U(allocator, stream, n_cols * n_cols);
+    rmm::device_uvector<math_t> U(n_cols * n_cols, stream);
     n_active   = 4;
     math_t eps = -1;
 
@@ -216,9 +213,8 @@ class LarsTest : public ::testing::Test {
   {
     n_active       = 4;
     const int ld_U = n_cols;
-    auto allocator = handle.get_device_allocator();
-    MLCommon::device_buffer<math_t> ws(allocator, stream, n_active);
-    MLCommon::device_buffer<math_t> U(allocator, stream, n_cols * ld_U);
+    rmm::device_uvector<math_t> ws(n_active, stream);
+    rmm::device_uvector<math_t> U(n_cols * ld_U, stream);
     calcUExp(G.data(), n_cols, U.data());
 
     ML::Solver::Lars::calcW0(
@@ -230,7 +226,7 @@ class LarsTest : public ::testing::Test {
   void testCalcA()
   {
     n_active = 4;
-    MLCommon::device_buffer<math_t> ws(handle.get_device_allocator(), stream, n_active);
+    rmm::device_uvector<math_t> ws(n_active, stream);
     raft::update_device(ws.data(), ws0_exp, n_active, stream);
 
     ML::Solver::Lars::calcA(handle, A.data(), n_active, sign.data(), ws.data(), stream);
@@ -240,11 +236,10 @@ class LarsTest : public ::testing::Test {
 
   void testEquiangular()
   {
-    n_active       = 4;
-    auto allocator = handle.get_device_allocator();
-    MLCommon::device_buffer<math_t> workspace(allocator, stream);
-    MLCommon::device_buffer<math_t> u_eq(allocator, stream, n_rows);
-    MLCommon::device_buffer<math_t> U(allocator, stream, n_cols * n_cols);
+    n_active = 4;
+    rmm::device_uvector<math_t> workspace(0, stream);
+    rmm::device_uvector<math_t> u_eq(n_rows, stream);
+    rmm::device_uvector<math_t> U(n_cols * n_cols, stream);
     calcUExp(G.data(), n_cols, U.data());
     initGU(G.data(), G.data(), U.data(), n_active, true);
     const int ld_X = n_rows;
@@ -306,11 +301,11 @@ class LarsTest : public ::testing::Test {
     math_t cor_host[4] = {137, 42, 4.7, 13.2};
     const int ld_X     = n_rows;
     const int ld_G     = n_cols;
-    MLCommon::device_buffer<math_t> u(handle.get_device_allocator(), stream, n_rows);
-    MLCommon::device_buffer<math_t> ws(handle.get_device_allocator(), stream, n_active);
-    MLCommon::device_buffer<math_t> gamma(handle.get_device_allocator(), stream, 1);
-    MLCommon::device_buffer<math_t> U(handle.get_device_allocator(), stream, n_cols * n_cols);
-    MLCommon::device_buffer<math_t> a_vec(handle.get_device_allocator(), stream, n_cols - n_active);
+    rmm::device_uvector<math_t> u(n_rows, stream);
+    rmm::device_uvector<math_t> ws(n_active, stream);
+    rmm::device_scalar<math_t> gamma(stream);
+    rmm::device_uvector<math_t> U(n_cols * n_cols, stream);
+    rmm::device_uvector<math_t> a_vec(n_cols - n_active, stream);
     raft::update_device(A.data(), &A_host, 1, stream);
     raft::update_device(ws.data(), ws_host, n_active, stream);
     raft::update_device(u.data(), u_host, n_rows, stream);
@@ -390,8 +385,7 @@ class LarsTest : public ::testing::Test {
   }
 
   raft::handle_t handle;
-  cudaStream_t stream;
-  std::shared_ptr<raft::mr::device::allocator> allocator;
+  cudaStream_t stream = 0;
 
   const int n_rows = 4;
   const int n_cols = 4;
@@ -426,12 +420,12 @@ class LarsTest : public ::testing::Test {
   math_t ws_exp[4]    = {4.61350452, -0.43197167, 0.08324113, 0.14630913};
   math_t u_eq_exp[4]  = {0.97548288, -0.21258388, 0.02538227, 0.05096055};
 
-  MLCommon::device_buffer<math_t> cor;
-  MLCommon::device_buffer<math_t> X;
-  MLCommon::device_buffer<math_t> G;
-  MLCommon::device_buffer<math_t> sign;
-  MLCommon::device_buffer<math_t> ws;
-  MLCommon::device_buffer<math_t> A;
+  rmm::device_uvector<math_t> cor;
+  rmm::device_uvector<math_t> X;
+  rmm::device_uvector<math_t> G;
+  rmm::device_uvector<math_t> sign;
+  rmm::device_uvector<math_t> ws;
+  rmm::device_uvector<math_t> A;
 };
 
 typedef ::testing::Types<float, double> FloatTypes;
@@ -450,14 +444,13 @@ template <typename math_t>
 class LarsTestFitPredict : public ::testing::Test {
  protected:
   LarsTestFitPredict()
-    : allocator(handle.get_device_allocator()),
-      X(allocator, handle.get_stream(), n_cols * n_rows),
-      y(allocator, handle.get_stream(), n_rows),
-      G(allocator, handle.get_stream(), n_cols * n_cols),
-      beta(allocator, handle.get_stream(), n_cols),
-      coef_path(allocator, handle.get_stream(), (n_cols + 1) * n_cols),
-      alphas(allocator, handle.get_stream(), n_cols + 1),
-      active_idx(allocator, handle.get_stream(), n_cols)
+    : X(n_cols * n_rows, handle.get_stream()),
+      y(n_rows, handle.get_stream()),
+      G(n_cols * n_cols, handle.get_stream()),
+      beta(n_cols, handle.get_stream()),
+      coef_path((n_cols + 1) * n_cols, handle.get_stream()),
+      alphas(n_cols + 1, handle.get_stream()),
+      active_idx(n_cols, handle.get_stream())
   {
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.set_stream(stream);
@@ -583,8 +576,8 @@ class LarsTestFitPredict : public ::testing::Test {
     int max_iter  = n_cols;
     int verbosity = 0;
     int n_active;
-    MLCommon::device_buffer<math_t> X(allocator, stream, n_rows * n_cols);
-    MLCommon::device_buffer<math_t> y(allocator, stream, n_rows);
+    rmm::device_uvector<math_t> X(n_rows * n_cols, stream);
+    rmm::device_uvector<math_t> y(n_rows, stream);
     beta.resize(max_iter, stream);
     active_idx.resize(max_iter, stream);
     alphas.resize(max_iter + 1, stream);
@@ -613,8 +606,7 @@ class LarsTestFitPredict : public ::testing::Test {
   }
 
   raft::handle_t handle;
-  cudaStream_t stream;
-  std::shared_ptr<raft::mr::device::allocator> allocator;
+  cudaStream_t stream = 0;
 
   const int n_rows = 10;
   const int n_cols = 5;
@@ -665,13 +657,13 @@ class LarsTestFitPredict : public ::testing::Test {
                          140.28189898};
   int indices_exp[5]   = {2, 1, 3, 4, 0};
 
-  MLCommon::device_buffer<math_t> X;
-  MLCommon::device_buffer<math_t> G;
-  MLCommon::device_buffer<math_t> y;
-  MLCommon::device_buffer<math_t> beta;
-  MLCommon::device_buffer<math_t> alphas;
-  MLCommon::device_buffer<math_t> coef_path;
-  MLCommon::device_buffer<int> active_idx;
+  rmm::device_uvector<math_t> X;
+  rmm::device_uvector<math_t> G;
+  rmm::device_uvector<math_t> y;
+  rmm::device_uvector<math_t> beta;
+  rmm::device_uvector<math_t> alphas;
+  rmm::device_uvector<math_t> coef_path;
+  rmm::device_uvector<int> active_idx;
 };
 
 TYPED_TEST_CASE(LarsTestFitPredict, FloatTypes);

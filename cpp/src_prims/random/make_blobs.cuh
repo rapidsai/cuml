@@ -17,11 +17,10 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
-#include <cuml/common/device_buffer.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng.cuh>
+#include <rmm/device_uvector.hpp>
 #include <vector>
 #include "permute.cuh"
 
@@ -147,7 +146,6 @@ void generate_data(DataT* out,
  * @param[in]  n_rows             number of rows in the generated data
  * @param[in]  n_cols             number of columns in the generated data
  * @param[in]  n_clusters         number of clusters (or classes) to generate
- * @param[in]  allocator          device allocator for temporary allocations
  * @param[in]  stream             cuda stream to schedule the work on
  * @param[in]  row_major          whether input `centers` and output `out`
  *                                buffers are to be stored in row or column
@@ -175,7 +173,6 @@ void make_blobs(DataT* out,
                 IdxT n_rows,
                 IdxT n_cols,
                 IdxT n_clusters,
-                std::shared_ptr<raft::mr::device::allocator> allocator,
                 cudaStream_t stream,
                 bool row_major                   = true,
                 const DataT* centers             = nullptr,
@@ -189,7 +186,7 @@ void make_blobs(DataT* out,
 {
   raft::random::Rng r(seed, type);
   // use the right centers buffer for data generation
-  device_buffer<DataT> rand_centers(allocator, stream);
+  rmm::device_uvector<DataT> rand_centers(0, stream);
   const DataT* _centers;
   if (centers == nullptr) {
     rand_centers.resize(n_clusters * n_cols, stream);

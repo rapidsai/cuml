@@ -1,5 +1,5 @@
 #=============================================================================
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,5 +15,4 @@
 #=============================================================================
 
 add_executable(dbscan_example dbscan_example.cpp)
-target_include_directories(dbscan_example PRIVATE ${CUML_INCLUDE_DIRECTORIES})
 target_link_libraries(dbscan_example cuml++)

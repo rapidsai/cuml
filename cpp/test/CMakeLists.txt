@@ -131,7 +131,7 @@ if(BUILD_CUML_MG_TESTS)
 
   else(MPI_CXX_FOUND)
    message("OpenMPI not found. Skipping test '${CUML_MG_TEST_TARGET}'")
-  endif(MPI_CXX_FOUND)
+  endif()
 endif()
 
 ##############################################################################
@@ -165,7 +165,6 @@ if(BUILD_PRIMS_TESTS)
     prims/hinge.cu
     prims/histogram.cu
     prims/homogeneity_score.cu
-    prims/host_buffer.cu
     prims/jones_transform.cu
     prims/kl_divergence.cu
     prims/knn_classify.cu
@@ -237,4 +236,4 @@ if(BUILD_CUML_C_LIBRARY)
 
   target_link_libraries(${CUML_C_TEST_TARGET} PUBLIC ${CUML_C_TARGET})
 
-endif(BUILD_CUML_C_LIBRARY)
+endif()
