@@ -22,7 +22,6 @@
 
 #include <raft/cudart_utils.h>
 #include <test_utils.h>
-#include <thrust/device_vector.h>
 #include <thrust/execution_policy.h>
 #include <thrust/functional.h>
 #include <thrust/transform.h>

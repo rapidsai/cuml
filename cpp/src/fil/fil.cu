@@ -24,7 +24,6 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include <rmm/device_uvector.hpp>
 
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
@@ -85,20 +84,6 @@ cat_sets_owner::cat_sets_owner(const std::vector<cat_feature_counters>& cf)
 
 __host__ __device__ float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
 
-template <typename T>
-T* allocate(const raft::handle_t& h, std::size_t num_elem)
-{
-  if (num_elem == 0) return nullptr;
-  return (T*)(h.get_device_allocator()->allocate(num_elem * sizeof(T), h.get_stream()));
-};
-
-template <typename T>
-void deallocate(const raft::handle_t& h, const T* ptr, std::size_t num_elem)
-{
-  if (num_elem != 0 && ptr != nullptr)
-    h.get_device_allocator()->deallocate((void*)ptr, num_elem * sizeof(T), h.get_stream());
-};
-
 /** performs additional transformations on the array of forest predictions
     (preds) of size n; the transformations are defined by output, and include
     averaging (multiplying by inv_num_trees), adding global_bias (always done),
@@ -132,7 +117,7 @@ __global__ void transform_k(float* preds,
 }
 
 struct forest {
-  forest(const raft::handle_t& h) : vector_leaf_(0, h.get_stream()) {}
+  forest(const raft::handle_t& h) : vector_leaf_(0, h.get_stream()), cat_sets_(h.get_stream()) {}
 
   void init_n_items(int device)
   {
@@ -224,24 +209,7 @@ struct forest {
     }
 
     // categorical features
-    cat_sets_              = cat_sets;  // for sizes
-    cat_sets_.max_matching = allocate<int>(h, cat_sets.max_matching_size);
-    if (cat_sets.max_matching != nullptr) {
-      CUDA_CHECK(cudaMemcpyAsync((int*)cat_sets_.max_matching,
-                                 cat_sets.max_matching,
-                                 cat_sets.max_matching_size * sizeof(int),
-                                 cudaMemcpyHostToDevice,
-                                 stream));
-    }
-
-    cat_sets_.bits = allocate<uint8_t>(h, cat_sets.bits_size);
-    if (cat_sets.bits != nullptr) {
-      CUDA_CHECK(cudaMemcpyAsync((uint8_t*)cat_sets_.bits,
-                                 cat_sets.bits,
-                                 cat_sets.bits_size * sizeof(uint8_t),
-                                 cudaMemcpyHostToDevice,
-                                 stream));
-    }
+    cat_sets_ = cat_sets_device_owner(cat_sets, stream);
   }
 
   virtual void infer(predict_params params, cudaStream_t stream) = 0;
@@ -388,8 +356,7 @@ struct forest {
 
   virtual void free(const raft::handle_t& h)
   {
-    deallocate(h, cat_sets_.bits, cat_sets_.bits_size);
-    deallocate(h, cat_sets_.max_matching, cat_sets_.max_matching_size);
+    cat_sets_.release();
     vector_leaf_.release();
   }
 
@@ -405,7 +372,7 @@ struct forest {
   int fixed_block_count_ = 0;
   // Optionally used
   rmm::device_uvector<float> vector_leaf_;
-  categorical_sets cat_sets_;
+  cat_sets_device_owner cat_sets_;
 };
 
 struct dense_forest : forest {
@@ -467,9 +434,9 @@ struct dense_forest : forest {
 
   virtual void infer(predict_params params, cudaStream_t stream) override
   {
-    dense_storage forest(cat_sets_,
+    dense_storage forest(cat_sets_.accessor(),
                          vector_leaf_.data(),
-                         nodes_,
+                         nodes_.data(),
                          num_trees_,
                          algo_ == algo_t::NAIVE ? tree_num_nodes(depth_) : 1,
                          algo_ == algo_t::NAIVE ? 1 : num_trees_);
@@ -519,7 +486,7 @@ struct sparse_forest : forest {
   virtual void infer(predict_params params, cudaStream_t stream) override
   {
     sparse_storage<node_t> forest(
-      cat_sets_, vector_leaf_.data(), trees_.data(), nodes_.data(), num_trees_);
+      cat_sets_.accessor(), vector_leaf_.data(), trees_.data(), nodes_.data(), num_trees_);
     fil::infer(forest, params, stream);
   }
 

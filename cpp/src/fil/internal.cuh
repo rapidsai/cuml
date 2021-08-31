@@ -20,6 +20,7 @@
 #include <cuml/fil/fil.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/error.hpp>
+#include <rmm/device_uvector.hpp>
 #include <vector>
 
 namespace raft {
@@ -353,7 +354,7 @@ struct categorical_sets {
 };
 
 struct tree_base {
-  categorical_sets sets;
+  categorical_sets cat_sets;
 
   template <bool CATS_SUPPORTED, typename node_t>
   __host__ __device__ __forceinline__ int child_index(const node_t& node,
@@ -365,7 +366,7 @@ struct tree_base {
     if (isnan(val)) {
       cond = !node.def_left();
     } else if (CATS_SUPPORTED && node.is_categorical()) {
-      cond = sets.category_matches(node, (int)val);
+      cond = cat_sets.category_matches(node, (int)val);
     } else {
       cond = val >= node.thresh();
     }
@@ -398,6 +399,44 @@ struct cat_sets_owner {
 };
 
 std::ostream& operator<<(std::ostream& os, const cat_sets_owner& cso);
+
+struct cat_sets_device_owner {
+  // arrays from each node ID are concatenated first, then from all categories
+  rmm::device_uvector<uint8_t> bits;
+  // largest matching category in the model, per feature ID
+  rmm::device_uvector<int> max_matching;
+
+  categorical_sets accessor() const
+  {
+    return {
+      .bits              = bits.data(),
+      .max_matching      = max_matching.data(),
+      .bits_size         = bits.size(),
+      .max_matching_size = max_matching.size(),
+    };
+  }
+  cat_sets_device_owner(cudaStream_t stream) : bits(0, stream), max_matching(0, stream) {}
+  cat_sets_device_owner(categorical_sets cat_sets, cudaStream_t stream)
+    : bits(cat_sets.bits_size, stream), max_matching(cat_sets.max_matching_size, stream)
+  {
+    if (cat_sets.max_matching != nullptr) {
+      CUDA_CHECK(cudaMemcpyAsync(max_matching.data(),
+                                 cat_sets.max_matching,
+                                 max_matching.size() * sizeof(int),
+                                 cudaMemcpyDefault,
+                                 stream));
+    }
+    if (cat_sets.bits != nullptr) {
+      CUDA_CHECK(cudaMemcpyAsync(
+        bits.data(), cat_sets.bits, bits.size() * sizeof(uint8_t), cudaMemcpyDefault, stream));
+    }
+  }
+  void release()
+  {
+    bits.release();
+    max_matching.release();
+  }
+};
 
 /** init_dense uses params and nodes to initialize the dense forest stored in pf
  *  @param h cuML handle used by this function
