@@ -281,7 +281,9 @@ class NearestNeighbors(Base,
     the FAISS release that this cuML version is linked to.
     (see cuML issue #4020)
 
-    Warning: 'n_jobs' is accepted but with no effect in behavior for compatibility reasons 
+    Warning: For compatibility with libraries that rely on scikit-learn, 
+    kwargs allows for passing of arguments that are not explicit in the 
+    class constructor, such as 'n_jobs', but they have no effect on behavior.  
 
     For an additional example see `the NearestNeighbors notebook
     <https://github.com/rapidsai/cuml/blob/branch-0.15/notebooks/nearest_neighbors_demo.ipynb>`_.
