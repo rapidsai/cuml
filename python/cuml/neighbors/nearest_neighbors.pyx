@@ -281,7 +281,7 @@ class NearestNeighbors(Base,
     the FAISS release that this cuML version is linked to.
     (see cuML issue #4020)
 
-    Warning: Nearest Neighbor can accept any number of named parameters (**kwargs) 
+    Warning: 'n_jobs' is accepted but with no effect in behavior for compatibility reasons 
 
     For an additional example see `the NearestNeighbors notebook
     <https://github.com/rapidsai/cuml/blob/branch-0.15/notebooks/nearest_neighbors_demo.ipynb>`_.
