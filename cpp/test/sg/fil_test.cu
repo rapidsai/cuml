@@ -589,7 +589,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   std::vector<fil::dense_node> nodes;
   std::vector<float> vector_leaf;
   cat_sets_owner cat_sets_h;
-  rmm::device_uvector<int> fids_d = rmm::device_uvector<int>(0, cudaStream_t());
+  rmm::device_uvector<int> fids_d             = rmm::device_uvector<int>(0, cudaStream_t());
   rmm::device_uvector<int> max_matching_cat_d = rmm::device_uvector<int>(0, cudaStream_t());
 
   // parameters
