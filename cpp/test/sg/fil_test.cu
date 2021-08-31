@@ -322,11 +322,9 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     // fill category sets
     // there is a faster trick with a 256-byte LUT, but we can implement it later if the tests
     // become too slow
-    rmm::device_uvector<float> bits_precursor_d;
-    rmm::device_uvector<uint8_t> bits_d;
+    rmm::device_uvector<float> bits_precursor_d(cat_sets_h.bits.size(), stream);
+    rmm::device_uvector<uint8_t> bits_d(cat_sets_h.bits.size() * BITS_PER_BYTE, stream);
     if (cat_sets_h.bits.size() != 0) {
-      bits_d.resize(cat_sets_h.bits.size(), stream);
-      bits_precursor_d.resize(cat_sets_h.bits.size() * BITS_PER_BYTE, stream);
       hard_clipped_bernoulli(r,
                              bits_precursor_d.data(),
                              cat_sets_h.bits.size() * BITS_PER_BYTE,
@@ -337,7 +335,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
                                0,
                                stream>>>(
         bits_d.data(), bits_precursor_d.data(), cat_sets_h.bits.size());
-      raft::update_host(cat_sets_h.bits.data(), bits_d, cat_sets_h.bits.size(), stream);
+      raft::update_host(cat_sets_h.bits.data(), bits_d.data(), cat_sets_h.bits.size(), stream);
     }
 
     // initialize nodes
@@ -591,7 +589,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   std::vector<fil::dense_node> nodes;
   std::vector<float> vector_leaf;
   cat_sets_owner cat_sets_h;
-  rmm::device_uvector<int> fids_d, max_matching_cat_d;
+  rmm::device_uvector<int> fids_d = rmm::device_uvector<int>(0, cudaStream_t());
+  rmm::device_uvector<int> max_matching_cat_d = rmm::device_uvector<int>(0, cudaStream_t());
 
   // parameters
   cudaStream_t stream = 0;
