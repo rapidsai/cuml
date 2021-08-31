@@ -17,6 +17,7 @@
 
 #include <raft/distance/distance.cuh>
 #include <raft/handle.hpp>
+#include <rmm/device_uvector.hpp>
 #include "pairwise_distance_jensen_shannon.cuh"
 
 namespace ML {
@@ -33,7 +34,7 @@ void pairwise_distance_jensen_shannon(const raft::handle_t& handle,
                                       double metric_arg)
 {
   // Allocate workspace
-  raft::mr::device::buffer<char> workspace(handle.get_device_allocator(), handle.get_stream(), 0);
+  rmm::device_uvector<char> workspace(1, handle.get_stream());
 
   // Call the distance function
   raft::distance::pairwise_distance_impl<double, int, raft::distance::DistanceType::JensenShannon>(
@@ -51,7 +52,7 @@ void pairwise_distance_jensen_shannon(const raft::handle_t& handle,
                                       float metric_arg)
 {
   // Allocate workspace
-  raft::mr::device::buffer<char> workspace(handle.get_device_allocator(), handle.get_stream(), 0);
+  rmm::device_uvector<char> workspace(1, handle.get_stream());
 
   // Call the distance function
   raft::distance::pairwise_distance_impl<float, int, raft::distance::DistanceType::JensenShannon>(
