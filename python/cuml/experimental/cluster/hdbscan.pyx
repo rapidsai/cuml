@@ -447,7 +447,7 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
             raise ValueError("'connectivity' can only be one of "
                              "{'knn', 'pairwise'}")
 
-        if min_samples > 1023 or min_samples < 2:
+        if 2 < min_samples and min_samples > 1023:
             raise ValueError("'min_samples' must be a positive number "
                              "between 2 and 1023")
 

@@ -50,7 +50,6 @@ namespace Reachability {
  * @tparam value_t data type for distance
  * @tparam tpb block size for kernel
  * @param[in] knn_dists knn distance array (size n * k)
- * @param[in] k neighborhood size
  * @param[in] min_samples this neighbor will be selected for core distances
  * @param[in] n number of samples
  * @param[out] out output array (size n)
