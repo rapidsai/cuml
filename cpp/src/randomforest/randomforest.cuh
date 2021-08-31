@@ -59,7 +59,9 @@ class RandomForest {
     ML::PUSH_RANGE("bootstrapping row IDs @randomforest.cuh");
 
     // Hash these together so they are uncorrelated
-    int rs = DT::fnv1a32(rf_params.seed, tree_id);
+    int rs = DT::fnv1a32_basis;
+    rs = DT::fnv1a32(rs, rf_params.seed);
+    rs = DT::fnv1a32(rs, tree_id);
     raft::random::Rng rng(rs, raft::random::GeneratorType::GenKiss99);
     if (rf_params.bootstrap) {
       // Use bootstrapped sample set
