@@ -237,7 +237,7 @@ def test_hdbscan_sklearn_datasets(dataset,
     assert(adjusted_rand_score(cuml_agg.labels_, sk_agg.labels_) > 0.85)
 
     assert np.allclose(np.sort(sk_agg.cluster_persistence_),
-           np.sort(cuml_agg.cluster_persistence_), rtol=1e-3, atol=1e-3)
+           np.sort(cuml_agg.cluster_persistence_), rtol=0.1, atol=0.1)
 
 
 @pytest.mark.parametrize('dataset', test_datasets.values())
