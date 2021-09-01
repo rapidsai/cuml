@@ -32,7 +32,8 @@ namespace genetic {
  */
 template <typename DataT, int MaxSize>
 struct stack {
-  explicit HDI stack() : elements_(0) {
+  explicit HDI stack() : elements_(0)
+  {
 #pragma unroll
     for (int i = 0; i < MaxSize; ++i) {
       regs_[i] = DataT(0);
@@ -58,7 +59,8 @@ struct stack {
    *       to push more than `MaxSize` elements leads to all sorts of incorrect
    *       behavior.
    */
-  HDI void push(DataT val) {
+  HDI void push(DataT val)
+  {
 #pragma unroll
     for (int i = 0; i < MaxSize; ++i) {
       if (elements_ == i) {
@@ -79,7 +81,8 @@ struct stack {
    *       designed this way. Trying to pop beyond the bottom of the stack leads
    *       to all sorts of incorrect behavior.
    */
-  HDI DataT pop() {
+  HDI DataT pop()
+  {
 #pragma unroll
     for (int i = 0; i < MaxSize; ++i) {
       if (elements_ - 1 == i) {

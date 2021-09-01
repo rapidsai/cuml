@@ -200,7 +200,8 @@ class ElasticNet(Base,
         self.solver_model = CD(fit_intercept=self.fit_intercept,
                                normalize=self.normalize, alpha=self.alpha,
                                l1_ratio=self.l1_ratio, shuffle=shuffle,
-                               max_iter=self.max_iter, handle=self.handle)
+                               max_iter=self.max_iter, handle=self.handle,
+                               tol=self.tol)
 
     def _check_alpha(self, alpha):
         if alpha <= 0.0:
@@ -220,6 +221,14 @@ class ElasticNet(Base,
         """
         self.solver_model.fit(X, y, convert_dtype=convert_dtype)
 
+        return self
+
+    def set_params(self, **params):
+        super().set_params(**params)
+        if 'selection' in params:
+            params.pop('selection')
+            params['shuffle'] = self.selection == 'random'
+        self.solver_model.set_params(**params)
         return self
 
     def get_param_names(self):

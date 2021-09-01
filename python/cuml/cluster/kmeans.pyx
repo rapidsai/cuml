@@ -68,6 +68,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                       int n_samples,
                       int n_features,
                       const float *sample_weight,
+                      bool normalize_weights,
                       int *labels,
                       float &inertia) except +
 
@@ -78,6 +79,7 @@ cdef extern from "cuml/cluster/kmeans.hpp" namespace "ML::kmeans":
                       int n_samples,
                       int n_features,
                       const double *sample_weight,
+                      bool normalize_weights,
                       int *labels,
                       double &inertia) except +
 
@@ -421,8 +423,9 @@ class KMeans(Base,
         return self.fit(X, sample_weight=sample_weight).labels_
 
     def _predict_labels_inertia(self, X, convert_dtype=False,
-                                sample_weight=None) -> typing.Tuple[CumlArray,
-                                                                    float]:
+                                sample_weight=None,
+                                normalize_weights=True
+                                ) -> typing.Tuple[CumlArray, float]:
         """
         Predict the closest cluster each sample in X belongs to.
 
@@ -489,6 +492,7 @@ class KMeans(Base,
                 <size_t> n_rows,
                 <size_t> self.n_cols,
                 <float *>sample_weight_ptr,
+                <bool> normalize_weights,
                 <int*> labels_ptr,
                 inertiaf)
             self.handle.sync()
@@ -502,6 +506,7 @@ class KMeans(Base,
                 <size_t> n_rows,
                 <size_t> self.n_cols,
                 <double *>sample_weight_ptr,
+                <bool> normalize_weights,
                 <int*> labels_ptr,
                 inertiad)
             self.handle.sync()
@@ -520,15 +525,18 @@ class KMeans(Base,
                                        'type': 'dense',
                                        'description': 'Cluster indexes',
                                        'shape': '(n_samples, 1)'})
-    def predict(self, X, convert_dtype=False, sample_weight=None) -> CumlArray:
+    def predict(self, X, convert_dtype=False, sample_weight=None,
+                normalize_weights=True) -> CumlArray:
         """
         Predict the closest cluster each sample in X belongs to.
 
         """
 
-        labels, _ = self._predict_labels_inertia(X,
-                                                 convert_dtype=convert_dtype,
-                                                 sample_weight=sample_weight)
+        labels, _ = self._predict_labels_inertia(
+            X,
+            convert_dtype=convert_dtype,
+            sample_weight=sample_weight,
+            normalize_weights=normalize_weights)
         return labels
 
     @generate_docstring(return_values={'name': 'X_new',
@@ -611,12 +619,14 @@ class KMeans(Base,
                                        'type': 'dense',
                                        'description': 'Transformed data',
                                        'shape': '(n_samples, n_clusters)'})
-    def fit_transform(self, X, convert_dtype=False) -> CumlArray:
+    def fit_transform(self, X, convert_dtype=False,
+                      sample_weight=None) -> CumlArray:
         """
         Compute clustering and transform X to cluster-distance space.
 
         """
-        return self.fit(X).transform(X, convert_dtype=convert_dtype)
+        self.fit(X, sample_weight=sample_weight)
+        return self.transform(X, convert_dtype=convert_dtype)
 
     def get_param_names(self):
         return super().get_param_names() + \

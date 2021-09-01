@@ -40,7 +40,10 @@ function(find_and_configure_faiss)
 
     if(FAISS_ADDED)
       target_include_directories(faiss INTERFACE $<BUILD_INTERFACE:${FAISS_SOURCE_DIR}>)
-      add_library(FAISS::FAISS ALIAS faiss)
+    endif()
+
+    if(TARGET faiss AND NOT TARGET FAISS::FAISS)
+        add_library(FAISS::FAISS ALIAS faiss)
     endif()
 
 endfunction()

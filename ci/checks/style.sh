@@ -9,7 +9,8 @@ set +e
 export PATH=/conda/bin:/usr/local/cuda/bin:$PATH
 
 # Activate common conda env and install any dependencies needed
-source activate gdf
+. /opt/conda/etc/profile.d/conda.sh
+conda activate rapids
 cd $WORKSPACE
 export GIT_DESCRIBE_TAG=`git describe --tags`
 export MINOR_VERSION=`echo $GIT_DESCRIBE_TAG | grep -o -E '([0-9]+\.[0-9]+)'`

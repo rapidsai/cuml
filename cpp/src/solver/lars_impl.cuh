@@ -70,28 +70,32 @@ enum class LarsFitStatus { kOk, kCollinear, kError, kStop };
  * @return fit status
  */
 template <typename math_t, typename idx_t = int>
-LarsFitStatus selectMostCorrelated(idx_t n_active, idx_t n, math_t* correlation,
+LarsFitStatus selectMostCorrelated(idx_t n_active,
+                                   idx_t n,
+                                   math_t* correlation,
                                    math_t* cj,
                                    MLCommon::device_buffer<math_t>& workspace,
-                                   idx_t* max_idx, idx_t n_rows, idx_t* indices,
-                                   idx_t n_iter, cudaStream_t stream) {
+                                   idx_t* max_idx,
+                                   idx_t n_rows,
+                                   idx_t* indices,
+                                   idx_t n_iter,
+                                   cudaStream_t stream)
+{
   const idx_t align_bytes = 16 * sizeof(math_t);
   // We might need to start a few elements earlier to ensure that the unary
   // op has aligned access for vectorized load.
   int start = raft::alignDown<idx_t>(n_active, align_bytes) / sizeof(math_t);
   raft::linalg::unaryOp(
-    workspace.data(), correlation + start, n,
-    [] __device__(math_t a) { return abs(a); }, stream);
+    workspace.data(), correlation + start, n, [] __device__(math_t a) { return abs(a); }, stream);
   thrust::device_ptr<math_t> ptr(workspace.data() + n_active - start);
-  auto max_ptr =
-    thrust::max_element(thrust::cuda::par.on(stream), ptr, ptr + n - n_active);
+  auto max_ptr = thrust::max_element(thrust::cuda::par.on(stream), ptr, ptr + n - n_active);
   raft::update_host(cj, max_ptr.get(), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 
   *max_idx = n_active + (max_ptr - ptr);  // the index of the maximum element
 
-  CUML_LOG_DEBUG("Iteration %d, selected feature %d with correlation %f",
-                 n_iter, indices[*max_idx], *cj);
+  CUML_LOG_DEBUG(
+    "Iteration %d, selected feature %d with correlation %f", n_iter, indices[*max_idx], *cj);
 
   if (!std::isfinite(*cj)) {
     CUML_LOG_ERROR("Correlation is not finite, aborting.");
@@ -132,24 +136,32 @@ LarsFitStatus selectMostCorrelated(idx_t n_active, idx_t n, math_t* correlation,
  * @param stream CUDA stream
  */
 template <typename math_t, typename idx_t = int>
-void swapFeatures(cublasHandle_t handle, idx_t j, idx_t k, math_t* X,
-                  idx_t n_rows, idx_t n_cols, idx_t ld_X, math_t* cor,
-                  idx_t* indices, math_t* G, idx_t ld_G, cudaStream_t stream) {
+void swapFeatures(cublasHandle_t handle,
+                  idx_t j,
+                  idx_t k,
+                  math_t* X,
+                  idx_t n_rows,
+                  idx_t n_cols,
+                  idx_t ld_X,
+                  math_t* cor,
+                  idx_t* indices,
+                  math_t* G,
+                  idx_t ld_G,
+                  cudaStream_t stream)
+{
   std::swap(indices[j], indices[k]);
   if (G) {
-    CUBLAS_CHECK(raft::linalg::cublasSwap(handle, n_cols, G + ld_G * j, 1,
-                                          G + ld_G * k, 1, stream));
-    CUBLAS_CHECK(raft::linalg::cublasSwap(handle, n_cols, G + j, ld_G, G + k,
-                                          ld_G, stream));
+    CUBLAS_CHECK(
+      raft::linalg::cublasSwap(handle, n_cols, G + ld_G * j, 1, G + ld_G * k, 1, stream));
+    CUBLAS_CHECK(raft::linalg::cublasSwap(handle, n_cols, G + j, ld_G, G + k, ld_G, stream));
   } else {
     // Only swap X if G is nullptr. Only in that case will we use the feature
     // columns, otherwise all the necessary information is already there in G.
-    CUBLAS_CHECK(raft::linalg::cublasSwap(handle, n_rows, X + ld_X * j, 1,
-                                          X + ld_X * k, 1, stream));
+    CUBLAS_CHECK(
+      raft::linalg::cublasSwap(handle, n_rows, X + ld_X * j, 1, X + ld_X * k, 1, stream));
   }
   // swap (c[j], c[k])
-  CUBLAS_CHECK(
-    raft::linalg::cublasSwap(handle, 1, cor + j, 1, cor + k, 1, stream));
+  CUBLAS_CHECK(raft::linalg::cublasSwap(handle, 1, cor + j, 1, cor + k, 1, stream));
 }
 
 /**
@@ -186,17 +198,28 @@ void swapFeatures(cublasHandle_t handle, idx_t j, idx_t k, math_t* X,
  * @param stream CUDA stream
  */
 template <typename math_t, typename idx_t = int>
-void moveToActive(cublasHandle_t handle, idx_t* n_active, idx_t j, math_t* X,
-                  idx_t n_rows, idx_t n_cols, idx_t ld_X, math_t* cor,
-                  idx_t* indices, math_t* G, idx_t ld_G, math_t* sign,
-                  cudaStream_t stream) {
+void moveToActive(cublasHandle_t handle,
+                  idx_t* n_active,
+                  idx_t j,
+                  math_t* X,
+                  idx_t n_rows,
+                  idx_t n_cols,
+                  idx_t ld_X,
+                  math_t* cor,
+                  idx_t* indices,
+                  math_t* G,
+                  idx_t ld_G,
+                  math_t* sign,
+                  cudaStream_t stream)
+{
   idx_t idx_free = *n_active;
-  swapFeatures(handle, idx_free, j, X, n_rows, n_cols, ld_X, cor, indices, G,
-               ld_G, stream);
+  swapFeatures(handle, idx_free, j, X, n_rows, n_cols, ld_X, cor, indices, G, ld_G, stream);
 
   // sign[n_active] = sign(c[n_active])
   raft::linalg::unaryOp(
-    sign + idx_free, cor + idx_free, 1,
+    sign + idx_free,
+    cor + idx_free,
+    1,
     [] __device__(math_t c) -> math_t {
       // return the sign of c
       return (math_t(0) < c) - (c < math_t(0));
@@ -237,38 +260,56 @@ void moveToActive(cublasHandle_t handle, idx_t* n_active, idx_t j, math_t* X,
  * @param stream CUDA stream
  */
 template <typename math_t, typename idx_t = int>
-void updateCholesky(const raft::handle_t& handle, idx_t n_active,
-                    const math_t* X, idx_t n_rows, idx_t n_cols, idx_t ld_X,
-                    math_t* U, idx_t ld_U, const math_t* G0, idx_t ld_G,
-                    MLCommon::device_buffer<math_t>& workspace, math_t eps,
-                    cudaStream_t stream) {
+void updateCholesky(const raft::handle_t& handle,
+                    idx_t n_active,
+                    const math_t* X,
+                    idx_t n_rows,
+                    idx_t n_cols,
+                    idx_t ld_X,
+                    math_t* U,
+                    idx_t ld_U,
+                    const math_t* G0,
+                    idx_t ld_G,
+                    MLCommon::device_buffer<math_t>& workspace,
+                    math_t eps,
+                    cudaStream_t stream)
+{
   const cublasFillMode_t fillmode = CUBLAS_FILL_MODE_UPPER;
   if (G0 == nullptr) {
     // Calculate the new column of G0. It is stored in U.
-    math_t* G_row = U + (n_active - 1) * ld_U;
+    math_t* G_row       = U + (n_active - 1) * ld_U;
     const math_t* X_row = X + (n_active - 1) * ld_X;
-    math_t one = 1;
-    math_t zero = 0;
-    CUBLAS_CHECK(raft::linalg::cublasgemv(
-      handle.get_cublas_handle(), CUBLAS_OP_T, n_rows, n_cols, &one, X, n_rows,
-      X_row, 1, &zero, G_row, 1, stream));
+    math_t one          = 1;
+    math_t zero         = 0;
+    CUBLAS_CHECK(raft::linalg::cublasgemv(handle.get_cublas_handle(),
+                                          CUBLAS_OP_T,
+                                          n_rows,
+                                          n_cols,
+                                          &one,
+                                          X,
+                                          n_rows,
+                                          X_row,
+                                          1,
+                                          &zero,
+                                          G_row,
+                                          1,
+                                          stream));
   } else if (G0 != U) {
     // Copy the new column of G0 into U, because the factorization works in
     // place.
-    raft::copy(U + (n_active - 1) * ld_U, G0 + (n_active - 1) * ld_G, n_active,
-               stream);
+    raft::copy(U + (n_active - 1) * ld_U, G0 + (n_active - 1) * ld_G, n_active, stream);
   }  // Otherwise the new data is already in place in U.
 
   // Update the Cholesky decomposition
   int n_work = workspace.size();
   if (n_work == 0) {
     // Query workspace size and allocate it
-    raft::linalg::choleskyRank1Update(handle, U, n_active, ld_U, nullptr,
-                                      &n_work, fillmode, stream);
+    raft::linalg::choleskyRank1Update(
+      handle, U, n_active, ld_U, nullptr, &n_work, fillmode, stream);
     workspace.resize(n_work, stream);
   }
-  raft::linalg::choleskyRank1Update(handle, U, n_active, ld_U, workspace.data(),
-                                    &n_work, fillmode, stream, eps);
+  raft::linalg::choleskyRank1Update(
+    handle, U, n_active, ld_U, workspace.data(), &n_work, fillmode, stream, eps);
 }
 
 /**
@@ -288,22 +329,48 @@ void updateCholesky(const raft::handle_t& handle, idx_t n_active,
  * @param stream CUDA stream
  */
 template <typename math_t, typename idx_t = int>
-void calcW0(const raft::handle_t& handle, idx_t n_active, idx_t n_cols,
-            const math_t* sign, const math_t* U, idx_t ld_U, math_t* ws,
-            cudaStream_t stream) {
+void calcW0(const raft::handle_t& handle,
+            idx_t n_active,
+            idx_t n_cols,
+            const math_t* sign,
+            const math_t* U,
+            idx_t ld_U,
+            math_t* ws,
+            cudaStream_t stream)
+{
   const cublasFillMode_t fillmode = CUBLAS_FILL_MODE_UPPER;
 
   // First we calculate x by solving equation U.T x = sign_A.
   raft::copy(ws, sign, n_active, stream);
   math_t alpha = 1;
-  CUBLAS_CHECK(raft::linalg::cublastrsm(
-    handle.get_cublas_handle(), CUBLAS_SIDE_LEFT, fillmode, CUBLAS_OP_T,
-    CUBLAS_DIAG_NON_UNIT, n_active, 1, &alpha, U, ld_U, ws, ld_U, stream));
+  CUBLAS_CHECK(raft::linalg::cublastrsm(handle.get_cublas_handle(),
+                                        CUBLAS_SIDE_LEFT,
+                                        fillmode,
+                                        CUBLAS_OP_T,
+                                        CUBLAS_DIAG_NON_UNIT,
+                                        n_active,
+                                        1,
+                                        &alpha,
+                                        U,
+                                        ld_U,
+                                        ws,
+                                        ld_U,
+                                        stream));
 
   // ws stores x, the solution of U.T x = sign_A. Now we solve U * ws = x
-  CUBLAS_CHECK(raft::linalg::cublastrsm(
-    handle.get_cublas_handle(), CUBLAS_SIDE_LEFT, fillmode, CUBLAS_OP_N,
-    CUBLAS_DIAG_NON_UNIT, n_active, 1, &alpha, U, ld_U, ws, ld_U, stream));
+  CUBLAS_CHECK(raft::linalg::cublastrsm(handle.get_cublas_handle(),
+                                        CUBLAS_SIDE_LEFT,
+                                        fillmode,
+                                        CUBLAS_OP_N,
+                                        CUBLAS_DIAG_NON_UNIT,
+                                        n_active,
+                                        1,
+                                        &alpha,
+                                        U,
+                                        ld_U,
+                                        ws,
+                                        ld_U,
+                                        stream));
   // Now ws = G0^(-1) sign_A = S GA^{-1} 1_A.
 }
 
@@ -320,8 +387,13 @@ void calcW0(const raft::handle_t& handle, idx_t n_active, idx_t n_cols,
  * @param stream CUDA stream
  */
 template <typename math_t, typename idx_t = int>
-void calcA(const raft::handle_t& handle, math_t* A, idx_t n_active,
-           const math_t* sign, const math_t* ws, cudaStream_t stream) {
+void calcA(const raft::handle_t& handle,
+           math_t* A,
+           idx_t n_active,
+           const math_t* sign,
+           const math_t* ws,
+           cudaStream_t stream)
+{
   // Calculate sum (w) = sum(ws * sign)
   auto multiply = [] __device__(math_t w, math_t s) { return w * s; };
   raft::linalg::mapThenSumReduce(A, n_active, multiply, stream, ws, sign);
@@ -388,17 +460,28 @@ void calcA(const raft::handle_t& handle, math_t* A, idx_t n_active,
  * @return fit status
  */
 template <typename math_t, typename idx_t = int>
-LarsFitStatus calcEquiangularVec(const raft::handle_t& handle, idx_t n_active,
-                                 math_t* X, idx_t n_rows, idx_t n_cols,
-                                 idx_t ld_X, math_t* sign, math_t* U,
-                                 idx_t ld_U, math_t* G0, idx_t ld_G,
+LarsFitStatus calcEquiangularVec(const raft::handle_t& handle,
+                                 idx_t n_active,
+                                 math_t* X,
+                                 idx_t n_rows,
+                                 idx_t n_cols,
+                                 idx_t ld_X,
+                                 math_t* sign,
+                                 math_t* U,
+                                 idx_t ld_U,
+                                 math_t* G0,
+                                 idx_t ld_G,
                                  MLCommon::device_buffer<math_t>& workspace,
-                                 math_t* ws, math_t* A, math_t* u_eq,
-                                 math_t eps, cudaStream_t stream) {
+                                 math_t* ws,
+                                 math_t* A,
+                                 math_t* u_eq,
+                                 math_t eps,
+                                 cudaStream_t stream)
+{
   // Since we added a new vector to the active set, we update the Cholesky
   // decomposition (U)
-  updateCholesky(handle, n_active, X, n_rows, n_cols, ld_X, U, ld_U, G0, ld_G,
-                 workspace, eps, stream);
+  updateCholesky(
+    handle, n_active, X, n_rows, n_cols, ld_X, U, ld_U, G0, ld_G, workspace, eps, stream);
 
   // Calculate ws = S GA^{-1} 1_A using U
   calcW0(handle, n_active, n_cols, sign, U, ld_U, ws, stream);
@@ -413,8 +496,7 @@ LarsFitStatus calcEquiangularVec(const raft::handle_t& handle, idx_t n_active,
   math_t ws_host;
   raft::update_host(&ws_host, ws, 1, stream);
   math_t diag_host;  // U[n_active-1, n_active-1]
-  raft::update_host(&diag_host, U + ld_U * (n_active - 1) + n_active - 1, 1,
-                    stream);
+  raft::update_host(&diag_host, U + ld_U * (n_active - 1) + n_active - 1, 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   if (diag_host < 1e-7) {
     CUML_LOG_WARN(
@@ -430,11 +512,21 @@ LarsFitStatus calcEquiangularVec(const raft::handle_t& handle, idx_t n_active,
 
   if (G0 == nullptr) {
     // Calculate u_eq only in the case if the Gram matrix is not stored.
-    math_t one = 1;
+    math_t one  = 1;
     math_t zero = 0;
-    CUBLAS_CHECK(raft::linalg::cublasgemv(
-      handle.get_cublas_handle(), CUBLAS_OP_N, n_rows, n_active, &one, X, ld_X,
-      ws, 1, &zero, u_eq, 1, stream));
+    CUBLAS_CHECK(raft::linalg::cublasgemv(handle.get_cublas_handle(),
+                                          CUBLAS_OP_N,
+                                          n_rows,
+                                          n_active,
+                                          &one,
+                                          X,
+                                          ld_X,
+                                          ws,
+                                          1,
+                                          &zero,
+                                          u_eq,
+                                          1,
+                                          stream));
   }
   return LarsFitStatus::kOk;
 }
@@ -451,7 +543,7 @@ LarsFitStatus calcEquiangularVec(const raft::handle_t& handle, idx_t n_active,
  * one of correlations from the inactive set becomes equal with the
  * correlation from the active set.
  *
-  * References:
+ * References:
  *  [1] B. Efron, T. Hastie, I. Johnstone, R Tibshirani, Least Angle Regression
  *  The Annals of Statistics (2004) Vol 32, No 2, 407-499
  *  http://statweb.stanford.edu/~tibs/ftp/lars.pdf
@@ -479,11 +571,24 @@ LarsFitStatus calcEquiangularVec(const raft::handle_t& handle, idx_t n_active,
  * @param stream CUDA stream
  */
 template <typename math_t, typename idx_t = int>
-void calcMaxStep(const raft::handle_t& handle, idx_t max_iter, idx_t n_rows,
-                 idx_t n_cols, idx_t n_active, math_t cj, const math_t* A,
-                 math_t* cor, const math_t* G, idx_t ld_G, const math_t* X,
-                 idx_t ld_X, const math_t* u, const math_t* ws, math_t* gamma,
-                 math_t* a_vec, cudaStream_t stream) {
+void calcMaxStep(const raft::handle_t& handle,
+                 idx_t max_iter,
+                 idx_t n_rows,
+                 idx_t n_cols,
+                 idx_t n_active,
+                 math_t cj,
+                 const math_t* A,
+                 math_t* cor,
+                 const math_t* G,
+                 idx_t ld_G,
+                 const math_t* X,
+                 idx_t ld_X,
+                 const math_t* u,
+                 const math_t* ws,
+                 math_t* gamma,
+                 math_t* a_vec,
+                 cudaStream_t stream)
+{
   // In the active set each element has the same correlation, whose absolute
   // value is given by Cmax.
   math_t Cmax = std::abs(cj);
@@ -495,19 +600,39 @@ void calcMaxStep(const raft::handle_t& handle, idx_t max_iter, idx_t n_rows,
     const int n_inactive = n_cols - n_active;
     if (G == nullptr) {
       // Calculate a = X.T[:,n_active:] * u                              (2.11)
-      math_t one = 1;
+      math_t one  = 1;
       math_t zero = 0;
-      CUBLAS_CHECK(raft::linalg::cublasgemv(
-        handle.get_cublas_handle(), CUBLAS_OP_T, n_rows, n_inactive, &one,
-        X + n_active * ld_X, ld_X, u, 1, &zero, a_vec, 1, stream));
+      CUBLAS_CHECK(raft::linalg::cublasgemv(handle.get_cublas_handle(),
+                                            CUBLAS_OP_T,
+                                            n_rows,
+                                            n_inactive,
+                                            &one,
+                                            X + n_active * ld_X,
+                                            ld_X,
+                                            u,
+                                            1,
+                                            &zero,
+                                            a_vec,
+                                            1,
+                                            stream));
     } else {
       // Calculate a = X.T[:,n_A:] * u = X.T[:, n_A:] * X[:,:n_A] * ws
       //             = G[n_A:,:n_A] * ws                                 (2.11)
-      math_t one = 1;
+      math_t one  = 1;
       math_t zero = 0;
-      CUBLAS_CHECK(raft::linalg::cublasgemv(
-        handle.get_cublas_handle(), CUBLAS_OP_N, n_inactive, n_active, &one,
-        G + n_active, ld_G, ws, 1, &zero, a_vec, 1, stream));
+      CUBLAS_CHECK(raft::linalg::cublasgemv(handle.get_cublas_handle(),
+                                            CUBLAS_OP_N,
+                                            n_inactive,
+                                            n_active,
+                                            &one,
+                                            G + n_active,
+                                            ld_G,
+                                            ws,
+                                            1,
+                                            &zero,
+                                            a_vec,
+                                            1,
+                                            stream));
     }
     const math_t tiny = std::numeric_limits<math_t>::min();
     const math_t huge = std::numeric_limits<math_t>::max();
@@ -522,8 +647,8 @@ void calcMaxStep(const raft::handle_t& handle, idx_t max_iter, idx_t n_rows,
       if (tmp2 > 0 && tmp2 < val) val = tmp2;
       return val;
     };
-    raft::linalg::mapThenReduce(gamma, n_inactive, huge, map, cub::Min(),
-                                stream, cor + n_active, a_vec);
+    raft::linalg::mapThenReduce(
+      gamma, n_inactive, huge, map, cub::Min(), stream, cor + n_active, a_vec);
   }
 }
 
@@ -555,43 +680,62 @@ void calcMaxStep(const raft::handle_t& handle, idx_t max_iter, idx_t n_rows,
  * @param stream CUDA stream
  */
 template <typename math_t, typename idx_t>
-void larsInit(const raft::handle_t& handle, const math_t* X, idx_t n_rows,
-              idx_t n_cols, idx_t ld_X, const math_t* y, math_t* Gram,
-              idx_t ld_G, MLCommon::device_buffer<math_t>& U_buffer, math_t** U,
-              idx_t* ld_U, MLCommon::host_buffer<idx_t>& indices,
-              MLCommon::device_buffer<math_t>& cor, int* max_iter,
-              math_t* coef_path, cudaStream_t stream) {
-  if (n_cols < *max_iter) {
-    *max_iter = n_cols;
-  }
+void larsInit(const raft::handle_t& handle,
+              const math_t* X,
+              idx_t n_rows,
+              idx_t n_cols,
+              idx_t ld_X,
+              const math_t* y,
+              math_t* Gram,
+              idx_t ld_G,
+              MLCommon::device_buffer<math_t>& U_buffer,
+              math_t** U,
+              idx_t* ld_U,
+              MLCommon::host_buffer<idx_t>& indices,
+              MLCommon::device_buffer<math_t>& cor,
+              int* max_iter,
+              math_t* coef_path,
+              cudaStream_t stream)
+{
+  if (n_cols < *max_iter) { *max_iter = n_cols; }
   if (Gram == nullptr) {
     const idx_t align_bytes = 256;
-    *ld_U = raft::alignTo<idx_t>(*max_iter, align_bytes);
+    *ld_U                   = raft::alignTo<idx_t>(*max_iter, align_bytes);
     try {
       U_buffer.resize((*ld_U) * (*max_iter), stream);
-    } catch (std::bad_alloc) {
+    } catch (std::bad_alloc const&) {
       THROW(
         "Not enough GPU memory! The memory usage depends quadraticaly on the "
-        "n_nonzero_coefs parameter, try to decrease it!");
+        "n_nonzero_coefs parameter, try to decrease it.");
     }
     *U = U_buffer.data();
   } else {
     // Set U as G. During the solution in larsFit, the Cholesky factorization
     // U will overwrite G.
-    *U = Gram;
+    *U    = Gram;
     *ld_U = ld_G;
   }
   std::iota(indices.data(), indices.data() + n_cols, 0);
 
-  math_t one = 1;
+  math_t one  = 1;
   math_t zero = 0;
   // Set initial correlation to X.T * y
-  CUBLAS_CHECK(raft::linalg::cublasgemv(handle.get_cublas_handle(), CUBLAS_OP_T,
-                                        n_rows, n_cols, &one, X, ld_X, y, 1,
-                                        &zero, cor.data(), 1, stream));
+  CUBLAS_CHECK(raft::linalg::cublasgemv(handle.get_cublas_handle(),
+                                        CUBLAS_OP_T,
+                                        n_rows,
+                                        n_cols,
+                                        &one,
+                                        X,
+                                        ld_X,
+                                        y,
+                                        1,
+                                        &zero,
+                                        cor.data(),
+                                        1,
+                                        stream));
   if (coef_path) {
-    CUDA_CHECK(cudaMemsetAsync(
-      coef_path, 0, sizeof(math_t) * (*max_iter + 1) * (*max_iter), stream));
+    CUDA_CHECK(
+      cudaMemsetAsync(coef_path, 0, sizeof(math_t) * (*max_iter + 1) * (*max_iter), stream));
   }
 }
 
@@ -617,26 +761,39 @@ void larsInit(const raft::handle_t& handle, const math_t* X, idx_t n_rows,
  * @param stream CUDA stream
  */
 template <typename math_t, typename idx_t>
-void updateCoef(const raft::handle_t& handle, idx_t max_iter, idx_t n_cols,
-                idx_t n_active, math_t* gamma, const math_t* ws, math_t* cor,
-                math_t* a_vec, math_t* beta, math_t* coef_path,
-                cudaStream_t stream) {
+void updateCoef(const raft::handle_t& handle,
+                idx_t max_iter,
+                idx_t n_cols,
+                idx_t n_active,
+                math_t* gamma,
+                const math_t* ws,
+                math_t* cor,
+                math_t* a_vec,
+                math_t* beta,
+                math_t* coef_path,
+                cudaStream_t stream)
+{
   // It is sufficient to update correlations only for the inactive set.
   // cor[n_active:] -= gamma * a_vec
   int n_inactive = n_cols - n_active;
   if (n_inactive > 0) {
     raft::linalg::binaryOp(
-      cor + n_active, cor + n_active, a_vec, n_inactive,
+      cor + n_active,
+      cor + n_active,
+      a_vec,
+      n_inactive,
       [gamma] __device__(math_t c, math_t a) { return c - *gamma * a; },
       stream);
   }
   // beta[:n_active] += gamma * ws
   raft::linalg::binaryOp(
-    beta, beta, ws, n_active,
-    [gamma] __device__(math_t b, math_t w) { return b + *gamma * w; }, stream);
-  if (coef_path) {
-    raft::copy(coef_path + n_active * max_iter, beta, n_active, stream);
-  }
+    beta,
+    beta,
+    ws,
+    n_active,
+    [gamma] __device__(math_t b, math_t w) { return b + *gamma * w; },
+    stream);
+  if (coef_path) { raft::copy(coef_path + n_active * max_iter, beta, n_active, stream); }
 }
 
 /**
@@ -698,15 +855,25 @@ void updateCoef(const raft::handle_t& handle, idx_t max_iter, idx_t n_cols,
  * @param eps numeric parameter for Cholesky rank one update
  */
 template <typename math_t, typename idx_t>
-void larsFit(const raft::handle_t& handle, math_t* X, idx_t n_rows,
-             idx_t n_cols, const math_t* y, math_t* beta, idx_t* active_idx,
-             math_t* alphas, idx_t* n_active, math_t* Gram, int max_iter,
-             math_t* coef_path, int verbosity, idx_t ld_X, idx_t ld_G,
-             math_t eps) {
-  ASSERT(n_cols > 0,
-         "Parameter n_cols: number of columns cannot be less than one");
-  ASSERT(n_rows > 0,
-         "Parameter n_rows: number of rows cannot be less than one");
+void larsFit(const raft::handle_t& handle,
+             math_t* X,
+             idx_t n_rows,
+             idx_t n_cols,
+             const math_t* y,
+             math_t* beta,
+             idx_t* active_idx,
+             math_t* alphas,
+             idx_t* n_active,
+             math_t* Gram,
+             int max_iter,
+             math_t* coef_path,
+             int verbosity,
+             idx_t ld_X,
+             idx_t ld_G,
+             math_t eps)
+{
+  ASSERT(n_cols > 0, "Parameter n_cols: number of columns cannot be less than one");
+  ASSERT(n_rows > 0, "Parameter n_rows: number of rows cannot be less than one");
   ML::Logger::get().setLevel(verbosity);
 
   // Set default ld parameters if needed.
@@ -714,17 +881,16 @@ void larsFit(const raft::handle_t& handle, math_t* X, idx_t n_rows,
   if (Gram && ld_G == 0) ld_G = n_cols;
 
   cudaStream_t stream = handle.get_stream();
-  auto allocator = handle.get_device_allocator();
+  auto allocator      = handle.get_device_allocator();
 
   // We will use either U_buffer.data() to store the Cholesky factorization, or
   // store it in place at Gram. Pointer U will point to the actual storage.
   MLCommon::device_buffer<math_t> U_buffer(allocator, stream);
   idx_t ld_U = 0;
-  math_t* U = nullptr;
+  math_t* U  = nullptr;
 
   // Indices of elements in the active set.
-  MLCommon::host_buffer<idx_t> indices(handle.get_host_allocator(), stream,
-                                       n_cols);
+  MLCommon::host_buffer<idx_t> indices(handle.get_host_allocator(), stream, n_cols);
   // Sign of the correlation at the time when the element was added to the
   // active set.
   MLCommon::device_buffer<math_t> sign(allocator, stream, n_cols);
@@ -740,8 +906,22 @@ void larsFit(const raft::handle_t& handle, math_t* X, idx_t n_rows,
   MLCommon::device_buffer<math_t> ws(allocator, stream, max_iter);
   MLCommon::device_buffer<math_t> workspace(allocator, stream, n_cols);
 
-  larsInit(handle, X, n_rows, n_cols, ld_X, y, Gram, ld_G, U_buffer, &U, &ld_U,
-           indices, cor, &max_iter, coef_path, stream);
+  larsInit(handle,
+           X,
+           n_rows,
+           n_cols,
+           ld_X,
+           y,
+           Gram,
+           ld_G,
+           U_buffer,
+           &U,
+           &ld_U,
+           indices,
+           cor,
+           &max_iter,
+           coef_path,
+           stream);
 
   // If we detect collinear features, then we will move them to the end of the
   // correlation array and mark them as invalid (simply by decreasing
@@ -754,58 +934,114 @@ void larsFit(const raft::handle_t& handle, math_t* X, idx_t n_rows,
   for (int i = 0; i < max_iter; i++) {
     math_t cj;
     idx_t j;
-    LarsFitStatus status =
-      selectMostCorrelated(*n_active, n_valid_cols, cor.data(), &cj, workspace,
-                           &j, n_rows, indices.data(), i, stream);
-    if (status != LarsFitStatus::kOk) {
-      break;
-    }
+    LarsFitStatus status = selectMostCorrelated(
+      *n_active, n_valid_cols, cor.data(), &cj, workspace, &j, n_rows, indices.data(), i, stream);
+    if (status != LarsFitStatus::kOk) { break; }
 
-    moveToActive(handle.get_cublas_handle(), n_active, j, X, n_rows,
-                 n_valid_cols, ld_X, cor.data(), indices.data(), Gram, ld_G,
-                 sign.data(), stream);
+    moveToActive(handle.get_cublas_handle(),
+                 n_active,
+                 j,
+                 X,
+                 n_rows,
+                 n_valid_cols,
+                 ld_X,
+                 cor.data(),
+                 indices.data(),
+                 Gram,
+                 ld_G,
+                 sign.data(),
+                 stream);
 
-    status = calcEquiangularVec(
-      handle, *n_active, X, n_rows, n_valid_cols, ld_X, sign.data(), U, ld_U,
-      Gram, ld_G, workspace, ws.data(), A.data(), u_eq.data(), eps, stream);
+    status = calcEquiangularVec(handle,
+                                *n_active,
+                                X,
+                                n_rows,
+                                n_valid_cols,
+                                ld_X,
+                                sign.data(),
+                                U,
+                                ld_U,
+                                Gram,
+                                ld_G,
+                                workspace,
+                                ws.data(),
+                                A.data(),
+                                u_eq.data(),
+                                eps,
+                                stream);
 
     if (status == LarsFitStatus::kError) {
-      if (*n_active > 1) {
-        CUML_LOG_WARN("Returning with last valid model.");
-      }
+      if (*n_active > 1) { CUML_LOG_WARN("Returning with last valid model."); }
       *n_active -= 1;
       break;
     } else if (status == LarsFitStatus::kCollinear) {
       // We move the current feature to the invalid set
-      swapFeatures(handle.get_cublas_handle(), n_valid_cols - 1, *n_active - 1,
-                   X, n_rows, n_cols, ld_X, cor.data(), indices.data(), Gram,
-                   ld_G, stream);
+      swapFeatures(handle.get_cublas_handle(),
+                   n_valid_cols - 1,
+                   *n_active - 1,
+                   X,
+                   n_rows,
+                   n_cols,
+                   ld_X,
+                   cor.data(),
+                   indices.data(),
+                   Gram,
+                   ld_G,
+                   stream);
       *n_active -= 1;
       n_valid_cols--;
       continue;
     }
 
-    calcMaxStep(handle, max_iter, n_rows, n_valid_cols, *n_active, cj, A.data(),
-                cor.data(), Gram, ld_G, X, ld_X, u_eq.data(), ws.data(),
-                gamma.data(), a_vec.data(), stream);
+    calcMaxStep(handle,
+                max_iter,
+                n_rows,
+                n_valid_cols,
+                *n_active,
+                cj,
+                A.data(),
+                cor.data(),
+                Gram,
+                ld_G,
+                X,
+                ld_X,
+                u_eq.data(),
+                ws.data(),
+                gamma.data(),
+                a_vec.data(),
+                stream);
 
-    updateCoef(handle, max_iter, n_valid_cols, *n_active, gamma.data(),
-               ws.data(), cor.data(), a_vec.data(), beta, coef_path, stream);
+    updateCoef(handle,
+               max_iter,
+               n_valid_cols,
+               *n_active,
+               gamma.data(),
+               ws.data(),
+               cor.data(),
+               a_vec.data(),
+               beta,
+               coef_path,
+               stream);
   }
 
   if (*n_active > 0) {
     // Apply sklearn definition of alphas = cor / n_rows
     raft::linalg::unaryOp(
-      alphas, cor.data(), *n_active,
-      [n_rows] __device__(math_t c) { return abs(c) / n_rows; }, stream);
+      alphas,
+      cor.data(),
+      *n_active,
+      [n_rows] __device__(math_t c) { return abs(c) / n_rows; },
+      stream);
 
     // Calculate the final correlation. We use the correlation from the last
     // iteration and apply the changed during the last LARS iteration:
     // alpha[n_active] = cor[n_active-1] - gamma * A
     math_t* gamma_ptr = gamma.data();
-    math_t* A_ptr = A.data();
+    math_t* A_ptr     = A.data();
     raft::linalg::unaryOp(
-      alphas + *n_active, cor.data() + *n_active - 1, 1,
+      alphas + *n_active,
+      cor.data() + *n_active - 1,
+      1,
       [gamma_ptr, A_ptr, n_rows] __device__(math_t c) {
         return abs(c - (*gamma_ptr) * (*A_ptr)) / n_rows;
       },
@@ -835,11 +1071,19 @@ void larsFit(const raft::handle_t& handle, math_t* X, idx_t n_rows,
  *     allocated on entry.
  */
 template <typename math_t, typename idx_t>
-void larsPredict(const raft::handle_t& handle, const math_t* X, idx_t n_rows,
-                 idx_t n_cols, idx_t ld_X, const math_t* beta, idx_t n_active,
-                 idx_t* active_idx, math_t intercept, math_t* preds) {
+void larsPredict(const raft::handle_t& handle,
+                 const math_t* X,
+                 idx_t n_rows,
+                 idx_t n_cols,
+                 idx_t ld_X,
+                 const math_t* beta,
+                 idx_t n_active,
+                 idx_t* active_idx,
+                 math_t intercept,
+                 math_t* preds)
+{
   cudaStream_t stream = handle.get_stream();
-  auto allocator = handle.get_device_allocator();
+  auto allocator      = handle.get_device_allocator();
   MLCommon::device_buffer<math_t> beta_sorted(allocator, stream);
   MLCommon::device_buffer<math_t> X_active_cols(allocator, stream);
   auto execution_policy = ML::thrust_exec_policy(allocator, stream);
@@ -854,27 +1098,34 @@ void larsPredict(const raft::handle_t& handle, const math_t* X, idx_t n_rows,
     raft::copy(idx_sorted.data(), active_idx, n_active, stream);
     thrust::device_ptr<math_t> beta_ptr(beta_sorted.data());
     thrust::device_ptr<idx_t> idx_ptr(idx_sorted.data());
-    thrust::sort_by_key(execution_policy->on(stream), idx_ptr,
-                        idx_ptr + n_active, beta_ptr);
+    thrust::sort_by_key(execution_policy->on(stream), idx_ptr, idx_ptr + n_active, beta_ptr);
     beta = beta_sorted.data();
   } else {
     // We collect active columns of X to contiguous space
     X_active_cols.resize(n_active * ld_X, stream);
     const int TPB = 64;
-    MLCommon::Cache::
-      get_vecs<<<raft::ceildiv(n_active * ld_X, TPB), TPB, 0, stream>>>(
-        X, ld_X, active_idx, n_active, X_active_cols.data());
+    MLCommon::Cache::get_vecs<<<raft::ceildiv(n_active * ld_X, TPB), TPB, 0, stream>>>(
+      X, ld_X, active_idx, n_active, X_active_cols.data());
     CUDA_CHECK(cudaGetLastError());
     X = X_active_cols.data();
   }
   // Initialize preds = intercept
   thrust::device_ptr<math_t> pred_ptr(preds);
-  thrust::fill(execution_policy->on(stream), pred_ptr, pred_ptr + n_rows,
-               intercept);
+  thrust::fill(execution_policy->on(stream), pred_ptr, pred_ptr + n_rows, intercept);
   math_t one = 1;
-  CUBLAS_CHECK(raft::linalg::cublasgemv(handle.get_cublas_handle(), CUBLAS_OP_N,
-                                        n_rows, n_active, &one, X, ld_X, beta,
-                                        1, &one, preds, 1, stream));
+  CUBLAS_CHECK(raft::linalg::cublasgemv(handle.get_cublas_handle(),
+                                        CUBLAS_OP_N,
+                                        n_rows,
+                                        n_active,
+                                        &one,
+                                        X,
+                                        ld_X,
+                                        beta,
+                                        1,
+                                        &one,
+                                        preds,
+                                        1,
+                                        stream));
 }
 };  // namespace Lars
 };  // namespace Solver

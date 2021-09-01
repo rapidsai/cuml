@@ -30,7 +30,8 @@ struct RegParams {
 };
 
 template <typename D>
-struct RFRegressorModel {};
+struct RFRegressorModel {
+};
 
 template <>
 struct RFRegressorModel<float> {
@@ -46,19 +47,27 @@ template <typename D>
 class RFRegressor : public RegressionFixture<D> {
  public:
   RFRegressor(const std::string& name, const RegParams& p)
-    : RegressionFixture<D>(name, p.data, p.regression), rfParams(p.rf) {}
+    : RegressionFixture<D>(name, p.data, p.regression), rfParams(p.rf)
+  {
+  }
 
  protected:
-  void runBenchmark(::benchmark::State& state) override {
+  void runBenchmark(::benchmark::State& state) override
+  {
     using MLCommon::Bench::CudaEventTimer;
     if (this->params.rowMajor) {
       state.SkipWithError("RFRegressor only supports col-major inputs");
     }
     this->loopOnState(state, [this]() {
-      auto* mPtr = &model.model;
+      auto* mPtr  = &model.model;
       mPtr->trees = nullptr;
-      fit(*this->handle, mPtr, this->data.X, this->params.nrows,
-          this->params.ncols, this->data.y, rfParams);
+      fit(*this->handle,
+          mPtr,
+          this->data.X,
+          this->params.nrows,
+          this->params.ncols,
+          this->data.y,
+          rfParams);
       CUDA_CHECK(cudaStreamSynchronize(this->stream));
     });
   }
@@ -69,22 +78,22 @@ class RFRegressor : public RegressionFixture<D> {
 };
 
 template <typename D>
-std::vector<RegParams> getInputs() {
+std::vector<RegParams> getInputs()
+{
   struct DimInfo {
     int nrows, ncols, n_informative;
   };
   struct std::vector<RegParams> out;
   RegParams p;
   p.data.rowMajor = false;
-  p.regression = {
-    .shuffle = true,       // Better to shuffle when n_informative < ncols
-    .effective_rank = -1,  // dataset generation will be faster
-    .bias = 4.5,
-    .tail_strength = 0.5,  // unused when effective_rank = -1
-    .noise = 1.0,
-    .seed = 12345ULL};
+  p.regression    = {.shuffle        = true,  // Better to shuffle when n_informative < ncols
+                  .effective_rank = -1,    // dataset generation will be faster
+                  .bias           = 4.5,
+                  .tail_strength  = 0.5,  // unused when effective_rank = -1
+                  .noise          = 1.0,
+                  .seed           = 12345ULL};
 
-  p.rf = set_rf_params(10,                 /*max_depth */
+  p.rf                          = set_rf_params(10,                 /*max_depth */
                        (1 << 20),          /* max_leaves */
                        0.3,                /* max_features */
                        32,                 /* n_bins */
@@ -103,9 +112,9 @@ std::vector<RegParams> getInputs() {
   for (auto& di : dim_info) {
     // Let's run Bosch only for float type
     if (!std::is_same<D, float>::value && di.ncols == 968) continue;
-    p.data.nrows = di.nrows;
-    p.data.ncols = di.ncols;
-    p.regression.n_informative = di.n_informative;
+    p.data.nrows                  = di.nrows;
+    p.data.ncols                  = di.ncols;
+    p.regression.n_informative    = di.n_informative;
     p.rf.tree_params.max_features = 1.f;
     for (auto max_depth : std::vector<int>({7, 11, 15})) {
       p.rf.tree_params.max_depth = max_depth;
@@ -115,10 +124,8 @@ std::vector<RegParams> getInputs() {
   return out;
 }
 
-ML_BENCH_REGISTER(RegParams, RFRegressor<float>, "regression",
-                  getInputs<float>());
-ML_BENCH_REGISTER(RegParams, RFRegressor<double>, "regression",
-                  getInputs<double>());
+ML_BENCH_REGISTER(RegParams, RFRegressor<float>, "regression", getInputs<float>());
+ML_BENCH_REGISTER(RegParams, RFRegressor<double>, "regression", getInputs<double>());
 
 }  // namespace rf
 }  // namespace Bench

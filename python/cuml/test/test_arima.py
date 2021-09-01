@@ -127,6 +127,16 @@ test_101_111_4 = ARIMAData(
     tolerance_integration=0.02
 )
 
+# ARIMA(5,1,0)
+test_510 = ARIMAData(
+    batch_size=3,
+    n_obs=101,
+    dataset="alcohol",
+    start=80,
+    end=110,
+    tolerance_integration=0.02
+)
+
 # ARIMA(1,1,1)(2,0,0)_4 with intercept
 test_111_200_4c = ARIMAData(
     batch_size=14,
@@ -168,6 +178,7 @@ test_data = [
     ((0, 1, 1, 0, 0, 0, 0, 1), test_011c),
     ((1, 2, 1, 0, 0, 0, 0, 1), test_121c),
     ((1, 0, 1, 1, 1, 1, 4, 0), test_101_111_4),
+    ((5, 1, 0, 0, 0, 0, 0, 0), test_510),
     ((1, 1, 1, 2, 0, 0, 4, 1), test_111_200_4c),
     ((1, 1, 2, 0, 1, 2, 4, 0), test_112_012_4),
     stress_param((1, 1, 1, 1, 1, 1, 12, 0), test_111_111_12),

@@ -25,9 +25,9 @@
 
 namespace MLCommon {
 
-TEST(HostBufferTest, ctor) {
-  std::shared_ptr<raft::mr::host::allocator> allocator(
-    new raft::mr::host::default_allocator);
+TEST(HostBufferTest, ctor)
+{
+  std::shared_ptr<raft::mr::host::allocator> allocator(new raft::mr::host::default_allocator);
   cudaStream_t stream = 0;
 
   const int size = 4;
@@ -35,9 +35,9 @@ TEST(HostBufferTest, ctor) {
   ASSERT_EQ(size, buffer.size());
 }
 
-TEST(HostBufferTest, clear) {
-  std::shared_ptr<raft::mr::host::allocator> allocator(
-    new raft::mr::host::default_allocator);
+TEST(HostBufferTest, clear)
+{
+  std::shared_ptr<raft::mr::host::allocator> allocator(new raft::mr::host::default_allocator);
   cudaStream_t stream = 0;
 
   const int size = 8;
@@ -47,9 +47,9 @@ TEST(HostBufferTest, clear) {
   ASSERT_EQ(0, buffer.size());
 }
 
-TEST(HostBufferTest, itiface) {
-  std::shared_ptr<raft::mr::host::allocator> allocator(
-    new raft::mr::host::default_allocator);
+TEST(HostBufferTest, itiface)
+{
+  std::shared_ptr<raft::mr::host::allocator> allocator(new raft::mr::host::default_allocator);
   cudaStream_t stream = 0;
 
   const int size = 8;
@@ -57,15 +57,14 @@ TEST(HostBufferTest, itiface) {
   ASSERT_EQ(std::distance(buffer.begin(), buffer.end()), buffer.size());
 }
 
-TEST(HostBufferTest, reserve) {
-  std::shared_ptr<raft::mr::host::allocator> allocator(
-    new raft::mr::host::default_allocator);
+TEST(HostBufferTest, reserve)
+{
+  std::shared_ptr<raft::mr::host::allocator> allocator(new raft::mr::host::default_allocator);
   cudaStream_t stream = 0;
 
-  constexpr int size = 8;
+  constexpr int size     = 8;
   constexpr int capacity = 16;
-  static_assert(capacity > size,
-                "capacity must be larger than size for test to work");
+  static_assert(capacity > size, "capacity must be larger than size for test to work");
 
   host_buffer<int> buffer(allocator, stream, 0);
   buffer.reserve(capacity, stream);
@@ -77,9 +76,9 @@ TEST(HostBufferTest, reserve) {
   ASSERT_EQ(data_ptr, buffer.data());
 }
 
-TEST(HostBufferTest, resize) {
-  std::shared_ptr<raft::mr::host::allocator> allocator(
-    new raft::mr::host::default_allocator);
+TEST(HostBufferTest, resize)
+{
+  std::shared_ptr<raft::mr::host::allocator> allocator(new raft::mr::host::default_allocator);
   cudaStream_t stream = 0;
 
   std::srand(std::time(nullptr));
@@ -96,9 +95,9 @@ TEST(HostBufferTest, resize) {
   ASSERT_NE(data_ptr, buffer.data());
 }
 
-TEST(HostBufferTest, release) {
-  std::shared_ptr<raft::mr::host::allocator> allocator(
-    new raft::mr::host::default_allocator);
+TEST(HostBufferTest, release)
+{
+  std::shared_ptr<raft::mr::host::allocator> allocator(new raft::mr::host::default_allocator);
   cudaStream_t stream = 0;
 
   const int size = 8;
