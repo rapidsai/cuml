@@ -284,7 +284,7 @@ def test_hdbscan_sklearn_extract_clusters(dataset,
 
     assert adjusted_rand_score(cuml_agg.labels_test, sk_agg.labels_) == 1.0
     assert np.allclose(cp.asnumpy(cuml_agg.probabilities_test),
-                       sk_agg.probabilities_, atol=1e-3, rtol=1e-3)
+                       sk_agg.probabilities_)
 
 
 @pytest.mark.parametrize('nrows', [1000])
@@ -337,7 +337,7 @@ def test_hdbscan_cluster_patterns(dataset, nrows,
     assert(adjusted_rand_score(cuml_agg.labels_, sk_agg.labels_) > 0.95)
 
     assert np.allclose(np.sort(sk_agg.cluster_persistence_),
-           np.sort(cuml_agg.cluster_persistence_), rtol=1e-3, atol=1e-3)
+           np.sort(cuml_agg.cluster_persistence_), rtol=0.1, atol=0.1)
 
 
 @pytest.mark.parametrize('nrows', [1000])
@@ -385,7 +385,7 @@ def test_hdbscan_cluster_patterns_extract_clusters(dataset, nrows,
 
     assert adjusted_rand_score(cuml_agg.labels_test, sk_agg.labels_) == 1.0
     assert np.allclose(cp.asnumpy(cuml_agg.probabilities_test),
-                       sk_agg.probabilities_, rtol=1e-3, atol=1e-3)
+                       sk_agg.probabilities_)
 
 
 def test_hdbscan_core_dists_bug_4054():
