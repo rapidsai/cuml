@@ -66,7 +66,7 @@ class UmapBase : public BlobsFixture<float, int> {
   {
     alloc(yFloat, this->params.nrows);
     alloc(embeddings, this->params.nrows * uParams.n_components);
-    cast<float, int>(yFloat, this->data.y, this->params.nrows, this->stream);
+    cast<float, int>(yFloat, this->data.y.data(), this->params.nrows, this->stream);
   }
 
   void deallocateTempBuffers(const ::benchmark::State& state) override
@@ -116,7 +116,7 @@ class UmapSupervised : public UmapBase {
   void coreBenchmarkMethod()
   {
     UMAP::fit(*this->handle,
-              this->data.X,
+              this->data.X.data(),
               yFloat,
               this->params.nrows,
               this->params.ncols,
@@ -136,7 +136,7 @@ class UmapUnsupervised : public UmapBase {
   void coreBenchmarkMethod()
   {
     UMAP::fit(*this->handle,
-              this->data.X,
+              this->data.X.data(),
               nullptr,
               this->params.nrows,
               this->params.ncols,
@@ -156,12 +156,12 @@ class UmapTransform : public UmapBase {
   void coreBenchmarkMethod()
   {
     UMAP::transform(*this->handle,
-                    this->data.X,
+                    this->data.X.data(),
                     this->params.nrows,
                     this->params.ncols,
                     nullptr,
                     nullptr,
-                    this->data.X,
+                    this->data.X.data(),
                     this->params.nrows,
                     embeddings,
                     this->params.nrows,
@@ -174,7 +174,7 @@ class UmapTransform : public UmapBase {
     auto& handle = *this->handle;
     alloc(transformed, this->params.nrows * uParams.n_components);
     UMAP::fit(handle,
-              this->data.X,
+              this->data.X.data(),
               yFloat,
               this->params.nrows,
               this->params.ncols,

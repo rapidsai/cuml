@@ -50,7 +50,6 @@ namespace Reachability {
  * @tparam value_t data type for distance
  * @tparam tpb block size for kernel
  * @param[in] knn_dists knn distance array (size n * k)
- * @param[in] k neighborhood size
  * @param[in] min_samples this neighbor will be selected for core distances
  * @param[in] n number of samples
  * @param[out] out output array (size n)
@@ -58,7 +57,7 @@ namespace Reachability {
  */
 template <typename value_idx, typename value_t, int tpb = 256>
 void core_distances(
-  value_t* knn_dists, int k, int min_samples, size_t n, value_t* out, cudaStream_t stream)
+  value_t* knn_dists, int min_samples, size_t n, value_t* out, cudaStream_t stream)
 {
   int blocks = raft::ceildiv(n, (size_t)tpb);
 
@@ -67,7 +66,7 @@ void core_distances(
   auto indices = thrust::make_counting_iterator<value_idx>(0);
 
   thrust::transform(exec_policy, indices, indices + n, out, [=] __device__(value_idx row) {
-    return knn_dists[row * k + (min_samples - 1)];
+    return knn_dists[row * min_samples + (min_samples - 1)];
   });
 }
 
@@ -118,7 +117,6 @@ void mutual_reachability_graph(const raft::handle_t& handle,
                                size_t m,
                                size_t n,
                                raft::distance::DistanceType metric,
-                               int k,
                                int min_samples,
                                value_t alpha,
                                value_idx* indptr,
@@ -128,9 +126,8 @@ void mutual_reachability_graph(const raft::handle_t& handle,
   RAFT_EXPECTS(metric == raft::distance::DistanceType::L2SqrtExpanded,
                "Currently only L2 expanded distance is supported");
 
-  auto stream = handle.get_stream();
-
-  auto exec_policy = rmm::exec_policy(stream);
+  auto stream      = handle.get_stream();
+  auto exec_policy = handle.get_thrust_policy();
 
   std::vector<value_t*> inputs;
   inputs.push_back(const_cast<value_t*>(X));
@@ -140,10 +137,10 @@ void mutual_reachability_graph(const raft::handle_t& handle,
 
   // This is temporary. Once faiss is updated, we should be able to
   // pass value_idx through to knn.
-  rmm::device_uvector<value_idx> coo_rows(k * m, stream);
-  rmm::device_uvector<int64_t> int64_indices(k * m, stream);
-  rmm::device_uvector<value_idx> inds(k * m, stream);
-  rmm::device_uvector<value_t> dists(k * m, stream);
+  rmm::device_uvector<value_idx> coo_rows(min_samples * m, stream);
+  rmm::device_uvector<int64_t> int64_indices(min_samples * m, stream);
+  rmm::device_uvector<value_idx> inds(min_samples * m, stream);
+  rmm::device_uvector<value_t> dists(min_samples * m, stream);
 
   // perform knn
   brute_force_knn(handle,
@@ -154,7 +151,7 @@ void mutual_reachability_graph(const raft::handle_t& handle,
                   m,
                   int64_indices.data(),
                   dists.data(),
-                  k,
+                  min_samples,
                   true,
                   true,
                   metric);
@@ -167,27 +164,26 @@ void mutual_reachability_graph(const raft::handle_t& handle,
                     [] __device__(int64_t in) -> value_idx { return in; });
 
   // Slice core distances (distances to kth nearest neighbor)
-  core_distances<value_idx>(dists.data(), k, min_samples, m, core_dists, stream);
+  core_distances<value_idx>(dists.data(), min_samples, m, core_dists, stream);
 
   /**
    * Compute L2 norm
    */
   mutual_reachability_knn_l2(
-    handle, inds.data(), dists.data(), X, m, n, k, core_dists, (value_t)1.0 / alpha);
+    handle, inds.data(), dists.data(), X, m, n, min_samples, core_dists, (value_t)1.0 / alpha);
 
   // self-loops get max distance
   auto coo_rows_counting_itr = thrust::make_counting_iterator<value_idx>(0);
   thrust::transform(exec_policy,
                     coo_rows_counting_itr,
-                    coo_rows_counting_itr + (m * k),
+                    coo_rows_counting_itr + (m * min_samples),
                     coo_rows.data(),
-                    [k] __device__(value_idx c) -> value_idx { return c / k; });
+                    [min_samples] __device__(value_idx c) -> value_idx { return c / min_samples; });
 
   raft::sparse::linalg::symmetrize(
-    handle, coo_rows.data(), inds.data(), dists.data(), m, m, k * m, out);
+    handle, coo_rows.data(), inds.data(), dists.data(), m, m, min_samples * m, out);
 
-  raft::sparse::convert::sorted_coo_to_csr(
-    out.rows(), out.nnz, indptr, m + 1, handle.get_device_allocator(), stream);
+  raft::sparse::convert::sorted_coo_to_csr(out.rows(), out.nnz, indptr, m + 1, stream);
 
   // self-loops get max distance
   auto transform_in =

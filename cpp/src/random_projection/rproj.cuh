@@ -32,8 +32,6 @@
 
 namespace ML {
 
-using namespace MLCommon;
-
 /**
  * @brief generates a gaussian random matrix
  * @param[in] h: cuML handle
@@ -46,7 +44,6 @@ void gaussian_random_matrix(const raft::handle_t& h,
                             paramsRPROJ& params)
 {
   cudaStream_t stream = h.get_stream();
-  auto d_alloc        = h.get_device_allocator();
   int len             = params.n_components * params.n_features;
   random_matrix->dense_data.resize(len, stream);
   auto rng     = raft::random::Rng(params.random_state);
@@ -66,7 +63,6 @@ void sparse_random_matrix(const raft::handle_t& h,
                           paramsRPROJ& params)
 {
   cudaStream_t stream = h.get_stream();
-  auto d_alloc        = h.get_device_allocator();
 
   if (params.density == 1.0f) {
     int len = params.n_components * params.n_features;
@@ -75,12 +71,10 @@ void sparse_random_matrix(const raft::handle_t& h,
     math_t scale = 1.0 / sqrt(math_t(params.n_components));
     rng.scaled_bernoulli(random_matrix->dense_data.data(), len, math_t(0.5), scale, stream);
   } else {
-    auto alloc = h.get_host_allocator();
-
-    std::size_t indices_alloc = params.n_features * params.n_components * sizeof(int);
-    std::size_t indptr_alloc  = (params.n_components + 1) * sizeof(int);
-    int* indices              = (int*)alloc->allocate(indices_alloc, stream);
-    int* indptr               = (int*)alloc->allocate(indptr_alloc, stream);
+    std::size_t indices_alloc = params.n_features * params.n_components;
+    std::size_t indptr_alloc  = (params.n_components + 1);
+    std::vector<int> indices(indices_alloc);
+    std::vector<int> indptr(indptr_alloc);
 
     std::size_t offset      = 0;
     std::size_t indices_idx = 0;
@@ -88,7 +82,7 @@ void sparse_random_matrix(const raft::handle_t& h,
 
     for (int i = 0; i < params.n_components; i++) {
       int n_nonzero = binomial(h, params.n_features, params.density, params.random_state);
-      sample_without_replacement(params.n_features, n_nonzero, indices, indices_idx);
+      sample_without_replacement(params.n_features, n_nonzero, indices.data(), indices_idx);
       indptr[indptr_idx] = offset;
       indptr_idx++;
       offset += n_nonzero;
@@ -98,13 +92,11 @@ void sparse_random_matrix(const raft::handle_t& h,
 
     auto len = offset;
     random_matrix->indices.resize(len, stream);
-    raft::update_device(random_matrix->indices.data(), indices, len, stream);
-    alloc->deallocate(indices, indices_alloc, stream);
+    raft::update_device(random_matrix->indices.data(), indices.data(), len, stream);
 
     len = indptr_idx + 1;
     random_matrix->indptr.resize(len, stream);
-    raft::update_device(random_matrix->indptr.data(), indptr, len, stream);
-    alloc->deallocate(indptr, indptr_alloc, stream);
+    raft::update_device(random_matrix->indptr.data(), indptr.data(), len, stream);
 
     len = offset;
     random_matrix->sparse_data.resize(len, stream);

@@ -19,7 +19,6 @@
 #include <limits>
 #include <raft/distance/fused_l2_nn.cuh>
 #include <raft/linalg/norm.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng.cuh>
 
 namespace MLCommon {
@@ -32,13 +31,7 @@ struct FLNParams {
 
 template <typename T>
 struct FusedL2NN : public Fixture {
-  FusedL2NN(const std::string& name, const FLNParams& p)
-    : Fixture(
-        name,
-        std::shared_ptr<raft::mr::device::allocator>(new raft::mr::device::default_allocator)),
-      params(p)
-  {
-  }
+  FusedL2NN(const std::string& name, const FLNParams& p) : Fixture(name), params(p) {}
 
  protected:
   void allocateBuffers(const ::benchmark::State& state) override

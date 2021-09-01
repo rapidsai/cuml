@@ -23,6 +23,7 @@
 #include <raft/linalg/norm.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
+#include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 #include "sign.cuh"
 
@@ -72,7 +73,7 @@ void elasticnet(math_t* out,
                 const math_t l1_ratio,
                 cudaStream_t stream)
 {
-  rmm::device_uvector<math_t> out_lasso(1, stream);
+  rmm::device_scalar<math_t> out_lasso(stream);
 
   ridge(out, coef, len, alpha * (math_t(1) - l1_ratio), stream);
   lasso(out_lasso.data(), coef, len, alpha * l1_ratio, stream);

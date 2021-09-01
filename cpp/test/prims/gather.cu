@@ -19,6 +19,7 @@
 #include <matrix/gather.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/random/rng.cuh>
+#include <rmm/device_uvector.hpp>
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -68,6 +69,8 @@ struct GatherInputs {
 template <typename MatrixT, typename MapT>
 class GatherTest : public ::testing::TestWithParam<GatherInputs> {
  protected:
+  GatherTest() : d_in(0, stream), d_out_exp(0, stream), d_out_act(0, stream), d_map(0, stream) {}
+
   void SetUp() override
   {
     params = ::testing::TestWithParam<GatherInputs>::GetParam();
@@ -81,49 +84,40 @@ class GatherTest : public ::testing::TestWithParam<GatherInputs> {
     uint32_t len        = nrows * ncols;
 
     // input matrix setup
-    raft::allocate(d_in, nrows * ncols);
-    h_in = (MatrixT*)malloc(sizeof(MatrixT) * nrows * ncols);
-    r.uniform(d_in, len, MatrixT(-1.0), MatrixT(1.0), stream);
-    raft::update_host(h_in, d_in, len, stream);
+    d_in.resize(nrows * ncols, stream);
+    h_in.resize(nrows * ncols);
+    r.uniform(d_in.data(), len, MatrixT(-1.0), MatrixT(1.0), stream);
+    raft::update_host(h_in.data(), d_in.data(), len, stream);
 
     // map setup
-    raft::allocate(d_map, map_length);
-    h_map = (MapT*)malloc(sizeof(MapT) * map_length);
-    r_int.uniformInt(d_map, map_length, (MapT)0, nrows, stream);
-    raft::update_host(h_map, d_map, map_length, stream);
+    d_map.resize(map_length, stream);
+    h_map.resize(map_length);
+    r_int.uniformInt(d_map.data(), map_length, (MapT)0, nrows, stream);
+    raft::update_host(h_map.data(), d_map.data(), map_length, stream);
 
     // expected and actual output matrix setup
-    h_out = (MatrixT*)malloc(sizeof(MatrixT) * map_length * ncols);
-    raft::allocate(d_out_exp, map_length * ncols);
-    raft::allocate(d_out_act, map_length * ncols);
+    h_out.resize(map_length * ncols);
+    d_out_exp.resize(map_length * ncols, stream);
+    d_out_act.resize(map_length * ncols, stream);
 
     // launch gather on the host and copy the results to device
-    naiveGather(h_in, ncols, nrows, h_map, map_length, h_out);
-    raft::update_device(d_out_exp, h_out, map_length * ncols, stream);
+    naiveGather(h_in.data(), ncols, nrows, h_map.data(), map_length, h_out.data());
+    raft::update_device(d_out_exp.data(), h_out.data(), map_length * ncols, stream);
 
     // launch device version of the kernel
-    gatherLaunch(d_in, ncols, nrows, d_map, map_length, d_out_act, stream);
+    gatherLaunch(d_in.data(), ncols, nrows, d_map.data(), map_length, d_out_act.data(), stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
   }
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(d_in));
-    CUDA_CHECK(cudaFree(d_map));
-    CUDA_CHECK(cudaFree(d_out_act));
-    CUDA_CHECK(cudaFree(d_out_exp));
-
-    free(h_in);
-    free(h_map);
-    free(h_out);
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
+  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
  protected:
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   GatherInputs params;
-  MatrixT *d_in, *h_in, *d_out_exp, *d_out_act, *h_out;
-  MapT *d_map, *h_map;
+  std::vector<MatrixT> h_in, h_out;
+  std::vector<MapT> h_map;
+  rmm::device_uvector<MatrixT> d_in, d_out_exp, d_out_act;
+  rmm::device_uvector<MapT> d_map;
 };
 
 const std::vector<GatherInputs> inputs = {{1024, 32, 128, 1234ULL},
@@ -142,15 +136,15 @@ const std::vector<GatherInputs> inputs = {{1024, 32, 128, 1234ULL},
 typedef GatherTest<float, uint32_t> GatherTestF;
 TEST_P(GatherTestF, Result)
 {
-  ASSERT_TRUE(
-    devArrMatch(d_out_exp, d_out_act, params.map_length * params.ncols, raft::Compare<float>()));
+  ASSERT_TRUE(devArrMatch(
+    d_out_exp.data(), d_out_act.data(), params.map_length * params.ncols, raft::Compare<float>()));
 }
 
 typedef GatherTest<double, uint32_t> GatherTestD;
 TEST_P(GatherTestD, Result)
 {
-  ASSERT_TRUE(
-    devArrMatch(d_out_exp, d_out_act, params.map_length * params.ncols, raft::Compare<double>()));
+  ASSERT_TRUE(devArrMatch(
+    d_out_exp.data(), d_out_act.data(), params.map_length * params.ncols, raft::Compare<double>()));
 }
 
 INSTANTIATE_TEST_CASE_P(GatherTests, GatherTestF, ::testing::ValuesIn(inputs));

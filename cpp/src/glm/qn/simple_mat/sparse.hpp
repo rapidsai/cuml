@@ -186,9 +186,9 @@ std::ostream& operator<<(std::ostream& os, const SimpleSparseMat<T>& mat)
   std::vector<T> values(mat.nnz);
   std::vector<int> cols(mat.nnz);
   std::vector<int> row_ids(mat.m + 1);
-  raft::update_host(&values[0], mat.values, mat.nnz, 0);
-  raft::update_host(&cols[0], mat.cols, mat.nnz, 0);
-  raft::update_host(&row_ids[0], mat.row_ids, mat.m + 1, 0);
+  raft::update_host(&values[0], mat.values, mat.nnz, rmm::cuda_stream_default);
+  raft::update_host(&cols[0], mat.cols, mat.nnz, rmm::cuda_stream_default);
+  raft::update_host(&row_ids[0], mat.row_ids, mat.m + 1, rmm::cuda_stream_default);
   CUDA_CHECK(cudaStreamSynchronize(0));
 
   int i, row_end = 0;

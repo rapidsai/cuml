@@ -45,7 +45,6 @@ auto DEFAULT_DISTANCE_METRIC = raft::distance::DistanceType::L2SqrtExpanded;
  * @param[out] indices: The output indices from KNN.
  * @param[out] distances: The output sorted distances from KNN.
  * @param[in] n_neighbors: The number of nearest neighbors you want.
- * @param[in] d_alloc: device allocator
  * @param[in] stream: The GPU stream.
  */
 template <typename tsne_input, typename value_idx, typename value_t>
@@ -198,7 +197,7 @@ void symmetrize_perplexity(float* P,
 
   // Symmetrize to form P + P.T
   raft::sparse::linalg::from_knn_symmetrize_matrix<value_idx, value_t>(
-    indices, P, n, k, COO_Matrix, stream, handle.get_device_allocator());
+    indices, P, n, k, COO_Matrix, stream);
 }
 
 }  // namespace TSNE

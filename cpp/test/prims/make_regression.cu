@@ -52,11 +52,11 @@ class MakeRegressionTest : public ::testing::TestWithParam<MakeRegressionInputs<
     raft::handle_t handle;
     stream = handle.get_stream();
 
-    raft::allocate(data, params.n_samples * params.n_features);
-    raft::allocate(values_ret, params.n_samples * params.n_targets);
-    raft::allocate(values_prod, params.n_samples * params.n_targets);
-    raft::allocate(values_cm, params.n_samples * params.n_targets);
-    raft::allocate(coef, params.n_features * params.n_targets);
+    raft::allocate(data, params.n_samples * params.n_features, stream);
+    raft::allocate(values_ret, params.n_samples * params.n_targets, stream);
+    raft::allocate(values_prod, params.n_samples * params.n_targets, stream);
+    raft::allocate(values_cm, params.n_samples * params.n_targets, stream);
+    raft::allocate(coef, params.n_features * params.n_targets, stream);
 
     // Create the regression problem
     make_regression(handle,
@@ -119,7 +119,7 @@ class MakeRegressionTest : public ::testing::TestWithParam<MakeRegressionInputs<
   MakeRegressionInputs<T> params;
   T *data, *values_ret, *values_prod, *values_cm, *coef;
   int zero_count;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
 };
 
 typedef MakeRegressionTest<float> MakeRegressionTestF;

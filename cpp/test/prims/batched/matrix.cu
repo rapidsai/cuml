@@ -160,15 +160,14 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
     for (std::size_t i = 0; i < Z.size(); i++)
       Z[i] = udis(gen);
 
-    // Create handles, stream, allocator
+    // Create handles, stream
     CUBLAS_CHECK(cublasCreate(&handle));
     CUDA_CHECK(cudaStreamCreate(&stream));
-    auto allocator = std::make_shared<raft::mr::device::default_allocator>();
 
     // Created batched matrices
-    Matrix<T> AbM(params.m, params.n, params.batch_size, handle, allocator, stream);
-    Matrix<T> BbM(params.p, params.q, params.batch_size, handle, allocator, stream);
-    Matrix<T> ZbM(Z_col ? r : 1, Z_col ? 1 : r, params.batch_size, handle, allocator, stream);
+    Matrix<T> AbM(params.m, params.n, params.batch_size, handle, stream);
+    Matrix<T> BbM(params.p, params.q, params.batch_size, handle, stream);
+    Matrix<T> ZbM(Z_col ? r : 1, Z_col ? 1 : r, params.batch_size, handle, stream);
 
     // Copy the data to the device
     if (use_A) raft::update_device(AbM.raw_data(), A.data(), A.size(), stream);
@@ -176,7 +175,7 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
     if (use_Z) raft::update_device(ZbM.raw_data(), Z.data(), Z.size(), stream);
 
     // Create fake batched matrices to be overwritten by results
-    res_bM = new Matrix<T>(1, 1, 1, handle, allocator, stream);
+    res_bM = new Matrix<T>(1, 1, 1, handle, stream);
 
     // Compute the tested results
     switch (params.operation) {
@@ -197,8 +196,8 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
         constexpr T zero_tolerance = std::is_same<T, double>::value ? 1e-7 : 1e-3f;
 
         int n = params.m;
-        Matrix<T> HbM(n, n, params.batch_size, handle, allocator, stream);
-        Matrix<T> UbM(n, n, params.batch_size, handle, allocator, stream);
+        Matrix<T> HbM(n, n, params.batch_size, handle, stream);
+        Matrix<T> UbM(n, n, params.batch_size, handle, stream);
         b_hessenberg(AbM, UbM, HbM);
 
         // Check that H is in Hessenberg form
@@ -234,8 +233,8 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
         constexpr T zero_tolerance = std::is_same<T, double>::value ? 1e-7 : 1e-3f;
 
         int n = params.m;
-        Matrix<T> SbM(n, n, params.batch_size, handle, allocator, stream);
-        Matrix<T> UbM(n, n, params.batch_size, handle, allocator, stream);
+        Matrix<T> SbM(n, n, params.batch_size, handle, stream);
+        Matrix<T> UbM(n, n, params.batch_size, handle, stream);
         b_schur(AbM, UbM, SbM);
 
         // Check that S is in Schur form
@@ -385,7 +384,7 @@ class MatrixTest : public ::testing::TestWithParam<MatrixInputs<T>> {
   Matrix<T>* res_bM;
   std::vector<T> res_h;
   cublasHandle_t handle;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
 };
 
 // Test parameters (op, batch_size, m, n, p, q, s, t, tolerance)

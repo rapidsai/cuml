@@ -17,7 +17,6 @@
  * @file v_measure.cuh
  */
 
-#include <raft/mr/device/allocator.hpp>
 #include "homogeneity_score.cuh"
 
 namespace MLCommon {
@@ -32,8 +31,6 @@ namespace Metrics {
  * @param size: the size of the data points of type int
  * @param lowerLabelRange: the lower bound of the range of labels
  * @param upperLabelRange: the upper bound of the range of labels
- * @param allocator: object that takes care of temporary device memory allocation of type
- * std::shared_ptr<raft::mr::device::allocator>
  * @param stream: the cudaStream object
  * @param beta: v_measure parameter
  */
@@ -43,16 +40,15 @@ double v_measure(const T* truthClusterArray,
                  int size,
                  T lowerLabelRange,
                  T upperLabelRange,
-                 std::shared_ptr<raft::mr::device::allocator> allocator,
                  cudaStream_t stream,
                  double beta = 1.0)
 {
   double computedHomogeity, computedCompleteness, computedVMeasure;
 
   computedHomogeity = MLCommon::Metrics::homogeneity_score(
-    truthClusterArray, predClusterArray, size, lowerLabelRange, upperLabelRange, allocator, stream);
+    truthClusterArray, predClusterArray, size, lowerLabelRange, upperLabelRange, stream);
   computedCompleteness = MLCommon::Metrics::homogeneity_score(
-    predClusterArray, truthClusterArray, size, lowerLabelRange, upperLabelRange, allocator, stream);
+    predClusterArray, truthClusterArray, size, lowerLabelRange, upperLabelRange, stream);
 
   if (computedCompleteness + computedHomogeity == 0.0)
     computedVMeasure = 0.0;
