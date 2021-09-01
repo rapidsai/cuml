@@ -31,13 +31,7 @@ struct Params {
 
 template <typename T>
 struct Permute : public Fixture {
-  Permute(const std::string& name, const Params& p)
-    : Fixture(
-        name,
-        std::shared_ptr<raft::mr::device::allocator>(new raft::mr::device::default_allocator)),
-      params(p)
-  {
-  }
+  Permute(const std::string& name, const Params& p) : Fixture(name), params(p) {}
 
  protected:
   void allocateBuffers(const ::benchmark::State& state) override

@@ -436,9 +436,9 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                  connectivity='knn',
                  output_type=None):
 
-        super().__init__(handle,
-                         verbose,
-                         output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
 
         if min_samples is None:
             min_samples = min_cluster_size
@@ -447,7 +447,11 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
             raise ValueError("'connectivity' can only be one of "
                              "{'knn', 'pairwise'}")
 
+<<<<<<< HEAD:python/cuml/experimental/cluster/hdbscan.pyx
         if min_samples > 1023 or min_samples < 2:
+=======
+        if 2 < min_samples and min_samples > 1023:
+>>>>>>> 7706130b503721563820c7f481015669d75ee333:python/cuml/cluster/hdbscan.pyx
             raise ValueError("'min_samples' must be a positive number "
                              "between 2 and 1023")
 
@@ -735,7 +739,6 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
             "p",
             "allow_single_cluster",
             "connectivity",
-            "n_neighbors",
             "alpha",
             "gen_min_span_tree",
         ]

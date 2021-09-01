@@ -19,7 +19,6 @@
 #include <iostream>
 #include <metrics/trustworthiness_score.cuh>
 #include <raft/distance/distance.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <vector>
 #include "test_utils.h"
 
@@ -310,20 +309,16 @@ class TrustworthinessScoreTest : public ::testing::Test {
     raft::handle_t handle;
 
     cudaStream_t stream = handle.get_stream();
-    auto allocator      = handle.get_device_allocator();
 
-    float* d_X          = (float*)allocator->allocate(X.size() * sizeof(float), stream);
-    float* d_X_embedded = (float*)allocator->allocate(X_embedded.size() * sizeof(float), stream);
+    rmm::device_uvector<float> d_X(X.size(), stream);
+    rmm::device_uvector<float> d_X_embedded(X_embedded.size(), stream);
 
-    raft::update_device(d_X, X.data(), X.size(), stream);
-    raft::update_device(d_X_embedded, X_embedded.data(), X_embedded.size(), stream);
+    raft::update_device(d_X.data(), X.data(), X.size(), stream);
+    raft::update_device(d_X_embedded.data(), X_embedded.data(), X_embedded.size(), stream);
 
     // euclidean test
     score = trustworthiness_score<float, raft::distance::DistanceType::L2SqrtUnexpanded>(
-      handle, d_X, d_X_embedded, 50, 30, 8, 5);
-
-    allocator->deallocate(d_X, X.size() * sizeof(float), stream);
-    allocator->deallocate(d_X_embedded, X_embedded.size() * sizeof(float), stream);
+      handle, d_X.data(), d_X_embedded.data(), 50, 30, 8, 5);
   }
 
   void SetUp() override { basicTest(); }
@@ -332,7 +327,6 @@ class TrustworthinessScoreTest : public ::testing::Test {
 
  protected:
   double score;
-  std::shared_ptr<raft::mr::device::allocator> allocator;
 };
 
 typedef TrustworthinessScoreTest TrustworthinessScoreTestF;

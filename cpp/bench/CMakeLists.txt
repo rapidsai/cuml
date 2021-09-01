@@ -53,7 +53,7 @@ if(BUILD_CUML_BENCH)
     PRIVATE
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src_prims>
   )
-endif(BUILD_CUML_BENCH)
+endif()
 
 ##############################################################################
 # - build prims bench executable ----------------------------------------------
@@ -96,4 +96,4 @@ if(BUILD_CUML_PRIMS_BENCH)
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src_prims>
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   )
-endif(BUILD_CUML_PRIMS_BENCH)
+endif()

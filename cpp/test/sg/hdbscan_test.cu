@@ -62,10 +62,10 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
     rmm::device_uvector<T> data(params.n_row * params.n_col, handle.get_stream());
 
     // Allocate result labels and expected labels on device
-    raft::allocate(labels_ref, params.n_row);
+    rmm::device_uvector<IdxT> labels_ref(params.n_row, handle.get_stream());
 
     raft::copy(data.data(), params.data.data(), data.size(), handle.get_stream());
-    raft::copy(labels_ref, params.expected_labels.data(), params.n_row, handle.get_stream());
+    raft::copy(labels_ref.data(), params.expected_labels.data(), params.n_row, handle.get_stream());
 
     rmm::device_uvector<IdxT> out_children(params.n_row * 2, handle.get_stream());
     rmm::device_uvector<T> out_deltas(params.n_row, handle.get_stream());
@@ -107,16 +107,11 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    score = MLCommon::Metrics::compute_adjusted_rand_index(out.get_labels(),
-                                                           labels_ref,
-                                                           params.n_row,
-                                                           handle.get_device_allocator(),
-                                                           handle.get_stream());
+    score = MLCommon::Metrics::compute_adjusted_rand_index(
+      out.get_labels(), labels_ref.data(), params.n_row, handle.get_stream());
   }
 
   void SetUp() override { basicTest(); }
-
-  void TearDown() override { CUDA_CHECK(cudaFree(labels_ref)); }
 
  protected:
   HDBSCANInputs<T, IdxT> params;
@@ -210,7 +205,7 @@ class ClusterCondensingTest : public ::testing::TestWithParam<ClusterCondensingI
     //    if (params.expected.size() == params.n_row) {
     //      score = MLCommon::Metrics::compute_adjusted_rand_index(
     //        labels.data(), expected_device.data(), params.n_row,
-    //        handle.get_device_allocator(), handle.get_stream());
+    //        handle.get_stream());
     //    } else {
     //      score = 1.0;
     //    }
@@ -309,11 +304,8 @@ class ClusterSelectionTest : public ::testing::TestWithParam<ClusterSelectionInp
 
     rmm::device_uvector<IdxT> labels_ref(params.n_row, handle.get_stream());
     raft::update_device(labels_ref.data(), params.labels.data(), params.n_row, handle.get_stream());
-    score = MLCommon::Metrics::compute_adjusted_rand_index(labels.data(),
-                                                           labels_ref.data(),
-                                                           params.n_row,
-                                                           handle.get_device_allocator(),
-                                                           handle.get_stream());
+    score = MLCommon::Metrics::compute_adjusted_rand_index(
+      labels.data(), labels_ref.data(), params.n_row, handle.get_stream());
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
   }
 

@@ -16,7 +16,6 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include "exact_kernels.cuh"
 #include "utils.cuh"
@@ -45,7 +44,6 @@ void Exact_TSNE(value_t* VAL,
                 const value_idx n,
                 const TSNEParams& params)
 {
-  auto d_alloc        = handle.get_device_allocator();
   cudaStream_t stream = handle.get_stream();
   const value_idx dim = params.dim;
 
@@ -55,22 +53,22 @@ void Exact_TSNE(value_t* VAL,
   // Allocate space
   //---------------------------------------------------
   CUML_LOG_DEBUG("Now allocating memory for TSNE.");
-  MLCommon::device_buffer<value_t> norm(d_alloc, stream, n);
-  MLCommon::device_buffer<value_t> Z_sum(d_alloc, stream, 2 * n);
-  MLCommon::device_buffer<value_t> means(d_alloc, stream, dim);
+  rmm::device_uvector<value_t> norm(n, stream);
+  rmm::device_uvector<value_t> Z_sum(2 * n, stream);
+  rmm::device_uvector<value_t> means(dim, stream);
 
-  MLCommon::device_buffer<value_t> attract(d_alloc, stream, n * dim);
-  MLCommon::device_buffer<value_t> repel(d_alloc, stream, n * dim);
+  rmm::device_uvector<value_t> attract(n * dim, stream);
+  rmm::device_uvector<value_t> repel(n * dim, stream);
 
-  MLCommon::device_buffer<value_t> velocity(d_alloc, stream, n * dim);
+  rmm::device_uvector<value_t> velocity(n * dim, stream);
   CUDA_CHECK(
     cudaMemsetAsync(velocity.data(), 0, velocity.size() * sizeof(*velocity.data()), stream));
 
-  MLCommon::device_buffer<value_t> gains(d_alloc, stream, n * dim);
+  rmm::device_uvector<value_t> gains(n * dim, stream);
   thrust::device_ptr<value_t> begin = thrust::device_pointer_cast(gains.data());
   thrust::fill(thrust::cuda::par.on(stream), begin, begin + n * dim, 1.0f);
 
-  MLCommon::device_buffer<value_t> gradient(d_alloc, stream, n * dim);
+  rmm::device_uvector<value_t> gradient(n * dim, stream);
   //---------------------------------------------------
 
   // Calculate degrees of freedom

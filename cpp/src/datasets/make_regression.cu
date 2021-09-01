@@ -40,7 +40,6 @@ void make_regression_helper(const raft::handle_t& handle,
   cudaStream_t stream                = handle_impl.get_stream();
   cublasHandle_t cublas_handle       = handle_impl.get_cublas_handle();
   cusolverDnHandle_t cusolver_handle = handle_impl.get_cusolver_dn_handle();
-  auto allocator                     = handle_impl.get_device_allocator();
 
   MLCommon::Random::make_regression(handle,
                                     out,

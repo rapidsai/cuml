@@ -46,9 +46,9 @@ void svrFit(const raft::handle_t& handle,
             int n_rows,
             int n_cols,
             math_t* y,
-            const svmParameter& param,
+            const SvmParameter& param,
             MLCommon::Matrix::KernelParams& kernel_params,
-            svmModel<math_t>& model,
+            SvmModel<math_t>& model,
             const math_t* sample_weight)
 {
   ASSERT(n_cols > 0, "Parameter n_cols: number of columns cannot be less than one");

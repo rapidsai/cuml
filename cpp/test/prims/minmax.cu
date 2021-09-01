@@ -90,49 +90,50 @@ __global__ void nanKernel(T* data, const bool* mask, int len, T nan)
 template <typename T>
 class MinMaxTest : public ::testing::TestWithParam<MinMaxInputs<T>> {
  protected:
+  MinMaxTest() : minmax_act(0, stream), minmax_ref(0, stream) {}
+
   void SetUp() override
   {
     params = ::testing::TestWithParam<MinMaxInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
     int len = params.rows * params.cols;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(data, len);
-    raft::allocate(mask, len);
-    raft::allocate(minmax_act, 2 * params.cols);
-    raft::allocate(minmax_ref, 2 * params.cols);
-    r.normal(data, len, (T)0.0, (T)1.0, stream);
+
+    rmm::device_uvector<T> data(len, stream);
+    rmm::device_uvector<bool> mask(len, stream);
+    minmax_act.resize(2 * params.cols, stream);
+    minmax_ref.resize(2 * params.cols, stream);
+
+    r.normal(data.data(), len, (T)0.0, (T)1.0, stream);
     T nan_prob = 0.01;
-    r.bernoulli(mask, len, nan_prob, stream);
+    r.bernoulli(mask.data(), len, nan_prob, stream);
     const int TPB = 256;
     nanKernel<<<raft::ceildiv(len, TPB), TPB, 0, stream>>>(
-      data, mask, len, std::numeric_limits<T>::quiet_NaN());
+      data.data(), mask.data(), len, std::numeric_limits<T>::quiet_NaN());
     CUDA_CHECK(cudaPeekAtLastError());
-    naiveMinMax(data, params.rows, params.cols, minmax_ref, minmax_ref + params.cols, stream);
-    minmax<T, 512>(data,
+    naiveMinMax(data.data(),
+                params.rows,
+                params.cols,
+                minmax_ref.data(),
+                minmax_ref.data() + params.cols,
+                stream);
+    minmax<T, 512>(data.data(),
                    nullptr,
                    nullptr,
                    params.rows,
                    params.cols,
                    params.rows,
-                   minmax_act,
-                   minmax_act + params.cols,
+                   minmax_act.data(),
+                   minmax_act.data() + params.cols,
                    nullptr,
                    stream);
   }
 
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(mask));
-    CUDA_CHECK(cudaFree(minmax_act));
-    CUDA_CHECK(cudaFree(minmax_ref));
-  }
-
  protected:
   MinMaxInputs<T> params;
-  T *data, *minmax_act, *minmax_ref;
-  bool* mask;
-  cudaStream_t stream;
+  rmm::device_uvector<T> minmax_act;
+  rmm::device_uvector<T> minmax_ref;
+  cudaStream_t stream = 0;
 };
 
 const std::vector<MinMaxInputs<float>> inputsf = {{0.00001f, 1024, 32, 1234ULL},
@@ -178,15 +179,19 @@ const std::vector<MinMaxInputs<double>> inputsd = {{0.0000001, 1024, 32, 1234ULL
 typedef MinMaxTest<float> MinMaxTestF;
 TEST_P(MinMaxTestF, Result)
 {
-  ASSERT_TRUE(raft::devArrMatch(
-    minmax_ref, minmax_act, 2 * params.cols, raft::CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(minmax_ref.data(),
+                                minmax_act.data(),
+                                2 * params.cols,
+                                raft::CompareApprox<float>(params.tolerance)));
 }
 
 typedef MinMaxTest<double> MinMaxTestD;
 TEST_P(MinMaxTestD, Result)
 {
-  ASSERT_TRUE(raft::devArrMatch(
-    minmax_ref, minmax_act, 2 * params.cols, raft::CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(raft::devArrMatch(minmax_ref.data(),
+                                minmax_act.data(),
+                                2 * params.cols,
+                                raft::CompareApprox<double>(params.tolerance)));
 }
 
 INSTANTIATE_TEST_CASE_P(MinMaxTests, MinMaxTestF, ::testing::ValuesIn(inputsf));

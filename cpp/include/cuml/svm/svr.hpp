@@ -23,8 +23,8 @@ namespace ML {
 namespace SVM {
 
 template <typename math_t>
-struct svmModel;
-struct svmParameter;
+struct SvmModel;
+struct SvmParameter;
 
 // Forward declarations of the stateless API
 /**
@@ -52,9 +52,9 @@ void svrFit(const raft::handle_t& handle,
             int n_rows,
             int n_cols,
             math_t* y,
-            const svmParameter& param,
+            const SvmParameter& param,
             MLCommon::Matrix::KernelParams& kernel_params,
-            svmModel<math_t>& model,
+            SvmModel<math_t>& model,
             const math_t* sample_weight = nullptr);
 
 // For prediction we use svcPredict

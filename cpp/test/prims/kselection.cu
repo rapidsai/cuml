@@ -45,12 +45,10 @@ __global__ void sortTestKernel(TypeK* key)
 template <typename TypeV, typename TypeK, int N, int TPB, bool Greater>
 void sortTest(TypeK* key)
 {
-  TypeK* dkey;
-  CUDA_CHECK(cudaMalloc((void**)&dkey, sizeof(TypeK) * TPB * N));
-  sortTestKernel<TypeV, TypeK, N, TPB, Greater><<<1, TPB>>>(dkey);
+  rmm::device_uvector<TypeK> dkey(TPB * N);
+  sortTestKernel<TypeV, TypeK, N, TPB, Greater><<<1, TPB>>>(dkey.data());
   CUDA_CHECK(cudaPeekAtLastError());
-  raft::update_host<TypeK>(key, dkey, TPB * N, 0);
-  CUDA_CHECK(cudaFree(dkey));
+  raft::update_host<TypeK>(key, dkey.data(), TPB * N, 0);
 }
 
 /************************************************************************/
@@ -83,7 +81,7 @@ template <typename TypeV, typename TypeK, bool Greater>
   for (int rIndex = 0; rIndex < rows; rIndex++) {
     // input data
     TypeV* h_arr = new TypeV[N];
-    raft::update_host(h_arr, d_arr + rIndex * N, N, 0);
+    raft::update_host(h_arr, d_arr + rIndex * N, N, rmm::cuda_stream_default);
     KVPair<TypeV, TypeK>* topk = new KVPair<TypeV, TypeK>[N];
     for (int j = 0; j < N; j++) {
       topk[j].val = h_arr[j];
@@ -91,9 +89,9 @@ template <typename TypeV, typename TypeK, bool Greater>
     }
     // result reference
     TypeV* h_outv = new TypeV[k];
-    raft::update_host(h_outv, d_outv + rIndex * k, k, 0);
+    raft::update_host(h_outv, d_outv + rIndex * k, k, rmm::cuda_stream_default);
     TypeK* h_outk = new TypeK[k];
-    raft::update_host(h_outk, d_outk + rIndex * k, k, 0);
+    raft::update_host(h_outk, d_outk + rIndex * k, k, rmm::cuda_stream_default);
     // calculate the result
     partSortKVPair<TypeV, TypeK, Greater>(topk, N, k);
 
@@ -136,34 +134,31 @@ template <typename T>
 template <typename T>
 class WarpTopKTest : public ::testing::TestWithParam<WarpTopKInputs<T>> {
  protected:
+  WarpTopKTest() : arr(0, stream), outv(0, stream), outk(0, stream) {}
+
   void SetUp() override
   {
     params = ::testing::TestWithParam<WarpTopKInputs<T>>::GetParam();
     raft::random::Rng r(params.seed);
-    cudaStream_t stream;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(arr, params.rows * params.cols);
-    raft::allocate(outk, params.rows * params.k);
-    raft::allocate(outv, params.rows * params.k);
-    r.uniform(arr, params.rows * params.cols, T(-1.0), T(1.0), stream);
+    arr.resize(params.rows * params.cols, stream);
+    outk.resize(params.rows * params.k, stream);
+    outv.resize(params.rows * params.k, stream);
+    r.uniform(arr.data(), params.rows * params.cols, T(-1.0), T(1.0), stream);
 
     static const bool Sort    = false;
     static const bool Greater = true;
-    warpTopK<T, int, Greater, Sort>(outv, outk, arr, params.k, params.rows, params.cols, stream);
+    warpTopK<T, int, Greater, Sort>(
+      outv.data(), outk.data(), arr.data(), params.k, params.rows, params.cols, stream);
     CUDA_CHECK(cudaStreamDestroy(stream));
   }
 
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(outv));
-    CUDA_CHECK(cudaFree(outk));
-    CUDA_CHECK(cudaFree(arr));
-  }
-
  protected:
+  cudaStream_t stream = 0;
   WarpTopKInputs<T> params;
-  T *arr, *outv;
-  int* outk;
+  rmm::device_uvector<T> arr;
+  rmm::device_uvector<T> outv;
+  rmm::device_uvector<int> outk;
 };
 
 // Parameters
@@ -187,19 +182,19 @@ TEST_P(TestD2_0, Result)
 {
   const static bool Greater = true;
   ASSERT_TRUE((checkResult<float, int, Greater>(
-    arr, outv, outk, params.rows, params.cols, params.k, params.tolerance)));
+    arr.data(), outv.data(), outk.data(), params.rows, params.cols, params.k, params.tolerance)));
 }
 TEST_P(TestD2_1, Result)
 {
   const static bool Greater = true;
   ASSERT_TRUE((checkResult<float, int, Greater>(
-    arr, outv, outk, params.rows, params.cols, params.k, params.tolerance)));
+    arr.data(), outv.data(), outk.data(), params.rows, params.cols, params.k, params.tolerance)));
 }
 TEST_P(TestD2_2, Result)
 {
   const static bool Greater = true;
   ASSERT_TRUE((checkResult<float, int, Greater>(
-    arr, outv, outk, params.rows, params.cols, params.k, params.tolerance)));
+    arr.data(), outv.data(), outk.data(), params.rows, params.cols, params.k, params.tolerance)));
 }
 
 // Instantiate

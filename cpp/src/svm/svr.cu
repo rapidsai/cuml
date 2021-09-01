@@ -34,9 +34,9 @@ template void svrFit<float>(const raft::handle_t& handle,
                             int n_rows,
                             int n_cols,
                             float* y,
-                            const svmParameter& param,
+                            const SvmParameter& param,
                             MLCommon::Matrix::KernelParams& kernel_params,
-                            svmModel<float>& model,
+                            SvmModel<float>& model,
                             const float* sample_weight);
 
 template void svrFit<double>(const raft::handle_t& handle,
@@ -44,9 +44,9 @@ template void svrFit<double>(const raft::handle_t& handle,
                              int n_rows,
                              int n_cols,
                              double* y,
-                             const svmParameter& param,
+                             const SvmParameter& param,
                              MLCommon::Matrix::KernelParams& kernel_params,
-                             svmModel<double>& model,
+                             SvmModel<double>& model,
                              const double* sample_weight);
 
 };  // namespace SVM

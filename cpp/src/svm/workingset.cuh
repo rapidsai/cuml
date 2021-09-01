@@ -20,16 +20,21 @@
 #include "ws_util.cuh"
 
 #include <cuml/svm/svm_parameter.h>
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 
 #include <linalg/init.h>
 
-#include <raft/cudart_utils.h>
+#include <thrust/device_ptr.h>
+#include <thrust/iterator/permutation_iterator.h>
+#include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/unary_op.cuh>
+#include <rmm/device_scalar.hpp>
+#include <rmm/device_uvector.hpp>
+#include "smo_sets.cuh"
+#include "ws_util.cuh"
 
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/permutation_iterator.h>
@@ -82,28 +87,26 @@ class WorkingSet {
       stream(stream),
       svmType(svmType),
       n_rows(n_rows),
-      available(handle.get_device_allocator(), stream),
-      available_sorted(handle.get_device_allocator(), stream),
-      cub_storage(handle.get_device_allocator(), stream),
-      f_idx(handle.get_device_allocator(), stream),
-      f_idx_sorted(handle.get_device_allocator(), stream),
-      f_sorted(handle.get_device_allocator(), stream),
-      idx_tmp(handle.get_device_allocator(), stream),
-      idx(handle.get_device_allocator(), stream),
-      ws_idx_sorted(handle.get_device_allocator(), stream),
-      ws_idx_selected(handle.get_device_allocator(), stream),
-      ws_idx_save(handle.get_device_allocator(), stream),
-      ws_priority(handle.get_device_allocator(), stream),
-      ws_priority_sorted(handle.get_device_allocator(), stream)
+      available(0, stream),
+      available_sorted(0, stream),
+      cub_storage(0, stream),
+      f_idx(0, stream),
+      f_idx_sorted(0, stream),
+      f_sorted(0, stream),
+      idx_tmp(0, stream),
+      idx(0, stream),
+      ws_idx_sorted(0, stream),
+      ws_idx_selected(0, stream),
+      ws_idx_save(0, stream),
+      ws_priority(0, stream),
+      ws_priority_sorted(0, stream),
+      d_num_selected(stream)
   {
     n_train = (svmType == EPSILON_SVR) ? n_rows * 2 : n_rows;
     SetSize(n_train, n_ws);
   }
 
-  ~WorkingSet()
-  {
-    handle.get_device_allocator()->deallocate(d_num_selected, 1 * sizeof(int), stream);
-  }
+  ~WorkingSet() {}
 
   /**
    * @brief Set the size of the working set and allocate buffers accordingly.
@@ -320,27 +323,27 @@ class WorkingSet {
   int TPB = 256;  //!< Threads per block for workspace selection kernels
 
   // Buffers for the domain size [n_train]
-  MLCommon::device_buffer<int> f_idx;  //!< Arrays used for sorting for sorting
-  MLCommon::device_buffer<int> f_idx_sorted;
+  rmm::device_uvector<int> f_idx;  //!< Arrays used for sorting for sorting
+  rmm::device_uvector<int> f_idx_sorted;
   //! Temporary buffer for index manipulation
-  MLCommon::device_buffer<int> idx_tmp;
-  MLCommon::device_buffer<math_t> f_sorted;
+  rmm::device_uvector<int> idx_tmp;
+  rmm::device_uvector<math_t> f_sorted;
   //! Flag vectors available for selection
-  MLCommon::device_buffer<bool> available;
-  MLCommon::device_buffer<bool> available_sorted;
+  rmm::device_uvector<bool> available;
+  rmm::device_uvector<bool> available_sorted;
 
   // working set buffers size [n_ws]
-  MLCommon::device_buffer<int> idx;  //!< Indices of the worknig set
-  MLCommon::device_buffer<int> ws_idx_sorted;
-  MLCommon::device_buffer<int> ws_idx_selected;
-  MLCommon::device_buffer<int> ws_idx_save;
+  rmm::device_uvector<int> idx;  //!< Indices of the worknig set
+  rmm::device_uvector<int> ws_idx_sorted;
+  rmm::device_uvector<int> ws_idx_selected;
+  rmm::device_uvector<int> ws_idx_save;
 
-  MLCommon::device_buffer<int> ws_priority;
-  MLCommon::device_buffer<int> ws_priority_sorted;
+  rmm::device_uvector<int> ws_priority;
+  rmm::device_uvector<int> ws_priority_sorted;
 
-  int* d_num_selected   = nullptr;
+  rmm::device_scalar<int> d_num_selected;
   std::size_t cub_bytes = 0;
-  MLCommon::device_buffer<char> cub_storage;
+  rmm::device_uvector<char> cub_storage;
 
   void AllocateBuffers()
   {
@@ -359,8 +362,6 @@ class WorkingSet {
       ws_priority.resize(n_ws, stream);
       ws_priority_sorted.resize(n_ws, stream);
 
-      d_num_selected = (int*)handle.get_device_allocator()->allocate(1 * sizeof(int), stream);
-
       // Determine temporary device storage requirements for cub
       std::size_t cub_bytes2 = 0;
       cub::DeviceRadixSort::SortPairs(NULL,
@@ -373,8 +374,14 @@ class WorkingSet {
                                       0,
                                       8 * sizeof(math_t),
                                       stream);
-      cub::DeviceSelect::If(
-        NULL, cub_bytes2, f_idx.data(), f_idx.data(), d_num_selected, n_train, always_true, stream);
+      cub::DeviceSelect::If(NULL,
+                            cub_bytes2,
+                            f_idx.data(),
+                            f_idx.data(),
+                            d_num_selected.data(),
+                            n_train,
+                            always_true,
+                            stream);
       cub_bytes = std::max(cub_bytes, cub_bytes2);
       cub_storage.resize(cub_bytes, stream);
       Initialize();
@@ -430,10 +437,9 @@ class WorkingSet {
                                f_idx_sorted.data(),
                                available_sorted.data(),
                                idx_tmp.data(),
-                               d_num_selected,
+                               d_num_selected.data(),
                                n_train);
-    int n_selected;
-    raft::update_host(&n_selected, d_num_selected, 1, stream);
+    int n_selected = d_num_selected.value(stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     // Copy to output
@@ -477,11 +483,10 @@ class WorkingSet {
                           cub_bytes,
                           ws_idx_sorted.data(),
                           ws_idx_selected.data(),
-                          d_num_selected,
+                          d_num_selected.data(),
                           n_ws,
                           op);
-    int n_selected;
-    raft::update_host(&n_selected, d_num_selected, 1, stream);
+    int n_selected = d_num_selected.value(stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
     int n_copy = n_selected < n_needed ? n_selected : n_needed;
     raft::copy(idx.data() + n_already_selected, ws_idx_selected.data(), n_copy, stream);
