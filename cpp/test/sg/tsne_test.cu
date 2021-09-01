@@ -25,7 +25,6 @@
 #include <raft/cudart_utils.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include <iostream>
 #include <raft/mr/device/allocator.hpp>
@@ -57,17 +56,15 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
     raft::handle_t handle;
 
     // Allocate memory
-    device_buffer<float> X_d(handle.get_device_allocator(), handle.get_stream(), n * p);
+    rmm::device_uvector<float> X_d(n * p, handle.get_stream());
     raft::update_device(X_d.data(), dataset.data(), n * p, handle.get_stream());
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    device_buffer<float> Y_d(handle.get_device_allocator(), handle.get_stream(), n * 2);
+    rmm::device_uvector<float> Y_d(n * 2, handle.get_stream());
 
-    MLCommon::device_buffer<int64_t> knn_indices(
-      handle.get_device_allocator(), handle.get_stream(), n * 90);
+    rmm::device_uvector<int64_t> knn_indices(n * 90, handle.get_stream());
 
-    MLCommon::device_buffer<float> knn_dists(
-      handle.get_device_allocator(), handle.get_stream(), n * 90);
+    rmm::device_uvector<float> knn_dists(n * 90, handle.get_stream());
 
     manifold_dense_inputs_t<float> input(X_d.data(), Y_d.data(), n, p);
     knn_graph<int64_t, float> k_graph(n, 90, knn_indices.data(), knn_dists.data());

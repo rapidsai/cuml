@@ -29,7 +29,7 @@ from sklearn.model_selection import train_test_split
 import dask.array as da
 import dask.dataframe as dd
 from cuml.dask.common.dask_arr_utils import to_dask_cudf
-from cudf.core.dataframe import DataFrame
+from cudf import DataFrame
 import numpy as np
 import cudf
 

@@ -108,20 +108,17 @@ class CSRTest : public ::testing::TestWithParam<CSRInputs<T>> {
     for (std::size_t i = 0; i < res_h.size(); i++)
       res_h[i] = udis(gen);
 
-    // Create handles, stream, allocator
+    // Create handles, stream
     CUBLAS_CHECK(cublasCreate(&handle));
     CUDA_CHECK(cudaStreamCreate(&stream));
     CUSOLVER_CHECK(cusolverSpCreate(&cusolverSpHandle));
-    auto allocator = std::make_shared<raft::mr::device::default_allocator>();
 
     // Created batched dense matrices
-    LinAlg::Batched::Matrix<T> AbM(
-      params.m, params.n, params.batch_size, handle, allocator, stream);
-    LinAlg::Batched::Matrix<T> BxbM(
-      params.p, params.q, params.batch_size, handle, allocator, stream);
+    LinAlg::Batched::Matrix<T> AbM(params.m, params.n, params.batch_size, handle, stream);
+    LinAlg::Batched::Matrix<T> BxbM(params.p, params.q, params.batch_size, handle, stream);
 
     // Create matrix that will hold the results
-    res_bM = new LinAlg::Batched::Matrix<T>(m_r, n_r, params.batch_size, handle, allocator, stream);
+    res_bM = new LinAlg::Batched::Matrix<T>(m_r, n_r, params.batch_size, handle, stream);
 
     // Copy the data to the device
     raft::update_device(AbM.raw_data(), A.data(), A.size(), stream);
@@ -182,7 +179,7 @@ class CSRTest : public ::testing::TestWithParam<CSRInputs<T>> {
   std::vector<T> res_h;
   cublasHandle_t handle;
   cusolverSpHandle_t cusolverSpHandle;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
 };
 
 // Test parameters (op, batch_size, m, n, nnz, p, q, tolerance)

@@ -24,7 +24,6 @@
 #include <cuda_runtime.h>
 
 #include <raft/handle.hpp>
-#include <raft/mr/device/allocator.hpp>
 
 #include <cuml/cluster/kmeans.hpp>
 
@@ -129,11 +128,6 @@ int main(int argc, char* argv[])
               << std::endl;
 
     raft::handle_t handle;
-
-    std::shared_ptr<raft::mr::device::allocator> allocator(
-      new raft::mr::device::default_allocator());
-
-    handle.set_device_allocator(allocator);
 
     cudaStream_t stream;
     CUDA_RT_CALL(cudaStreamCreate(&stream));

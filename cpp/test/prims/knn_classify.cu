@@ -17,10 +17,11 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <iostream>
-#include <label/classlabels.cuh>
 #include <raft/cuda_utils.cuh>
+#include <raft/label/classlabels.cuh>
 #include <raft/spatial/knn/knn.hpp>
 #include <random/make_blobs.cuh>
+#include <rmm/device_uvector.hpp>
 #include <selection/knn.cuh>
 #include <vector>
 #include "test_utils.h"
@@ -42,34 +43,30 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
   {
     raft::handle_t handle;
     cudaStream_t stream = handle.get_stream();
-    auto alloc          = handle.get_device_allocator();
 
     params = ::testing::TestWithParam<KNNClassifyInputs>::GetParam();
 
-    raft::allocate(train_samples, params.rows * params.cols);
-    raft::allocate(train_labels, params.rows);
+    raft::allocate(train_samples, params.rows * params.cols, stream);
+    raft::allocate(train_labels, params.rows, stream);
 
-    raft::allocate(pred_labels, params.rows);
-    raft::allocate(unique_labels, params.n_labels, true);
+    raft::allocate(pred_labels, params.rows, stream);
 
-    raft::allocate(knn_indices, params.rows * params.k);
-    raft::allocate(knn_dists, params.rows * params.k);
+    raft::allocate(knn_indices, params.rows * params.k, stream);
+    raft::allocate(knn_dists, params.rows * params.k, stream);
 
     MLCommon::Random::make_blobs<float, int>(train_samples,
                                              train_labels,
                                              params.rows,
                                              params.cols,
                                              params.n_labels,
-                                             alloc,
                                              stream,
                                              true,
                                              nullptr,
                                              nullptr,
                                              params.cluster_std);
 
-    int n_classes;
-    MLCommon::Label::getUniqueLabels(
-      train_labels, params.rows, &unique_labels, &n_classes, stream, alloc);
+    rmm::device_uvector<int> unique_labels(0, stream);
+    auto n_classes = raft::label::getUniquelabels(unique_labels, train_labels, params.rows, stream);
 
     std::vector<float*> ptrs(1);
     std::vector<int> sizes(1);
@@ -90,7 +87,7 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
     y.push_back(train_labels);
 
     std::vector<int*> uniq_labels;
-    uniq_labels.push_back(unique_labels);
+    uniq_labels.push_back(unique_labels.data());
 
     std::vector<int> n_unique;
     n_unique.push_back(n_classes);
@@ -103,7 +100,6 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
                  params.k,
                  uniq_labels,
                  n_unique,
-                 alloc,
                  stream);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -120,8 +116,6 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
 
     CUDA_CHECK(cudaFree(knn_indices));
     CUDA_CHECK(cudaFree(knn_dists));
-
-    CUDA_CHECK(cudaFree(unique_labels));
   }
 
  protected:
@@ -134,8 +128,6 @@ class KNNClassifyTest : public ::testing::TestWithParam<KNNClassifyInputs> {
 
   int64_t* knn_indices;
   float* knn_dists;
-
-  int* unique_labels;
 };
 
 typedef KNNClassifyTest KNNClassifyTestF;

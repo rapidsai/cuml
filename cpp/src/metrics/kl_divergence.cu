@@ -24,14 +24,12 @@ namespace Metrics {
 
 double kl_divergence(const raft::handle_t& handle, const double* y, const double* y_hat, int n)
 {
-  return MLCommon::Metrics::kl_divergence(
-    y, y_hat, n, handle.get_device_allocator(), handle.get_stream());
+  return MLCommon::Metrics::kl_divergence(y, y_hat, n, handle.get_stream());
 }
 
 float kl_divergence(const raft::handle_t& handle, const float* y, const float* y_hat, int n)
 {
-  return MLCommon::Metrics::kl_divergence(
-    y, y_hat, n, handle.get_device_allocator(), handle.get_stream());
+  return MLCommon::Metrics::kl_divergence(y, y_hat, n, handle.get_stream());
 }
 }  // namespace Metrics
 }  // namespace ML

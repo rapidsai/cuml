@@ -42,7 +42,8 @@ solver_models = solver_config.get_models()
 cluster_config = ClassEnumerator(
     module=cuml.cluster,
     exclude_classes=[cuml.DBSCAN,
-                     cuml.AgglomerativeClustering]
+                     cuml.AgglomerativeClustering,
+                     cuml.HDBSCAN]
 )
 cluster_models = cluster_config.get_models()
 
@@ -58,6 +59,8 @@ neighbor_models = neighbor_config.get_models()
 dbscan_model = {"DBSCAN": cuml.DBSCAN}
 
 agglomerative_model = {"AgglomerativeClustering": cuml.AgglomerativeClustering}
+
+hdbscan_model = {"HDBSCAN": cuml.HDBSCAN}
 
 umap_model = {"UMAP": cuml.UMAP}
 
@@ -98,6 +101,7 @@ all_models.update({
     **decomposition_models_xfail,
     **neighbor_models,
     **dbscan_model,
+    **hdbscan_model,
     **agglomerative_model,
     **umap_model,
     **rf_models,

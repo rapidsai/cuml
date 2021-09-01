@@ -16,10 +16,9 @@
 import pytest
 
 
-from cuml.experimental.cluster import HDBSCAN
-from cuml.experimental.cluster import condense_hierarchy
+from cuml.cluster import HDBSCAN
+from cuml.cluster import condense_hierarchy
 from sklearn.datasets import make_blobs
-
 
 from cuml.metrics import adjusted_rand_score
 from cuml.test.utils import get_pattern
@@ -29,6 +28,7 @@ import numpy as np
 from cuml.common import logger
 
 import hdbscan
+from hdbscan.plots import CondensedTree
 
 from sklearn import datasets
 
@@ -386,6 +386,45 @@ def test_hdbscan_cluster_patterns_extract_clusters(dataset, nrows,
     assert adjusted_rand_score(cuml_agg.labels_test, sk_agg.labels_) == 1.0
     assert np.allclose(cp.asnumpy(cuml_agg.probabilities_test),
                        sk_agg.probabilities_, rtol=1e-3, atol=1e-3)
+
+
+def test_hdbscan_core_dists_bug_4054():
+    """
+    This test explicitly verifies that the MRE from
+    https://github.com/rapidsai/cuml/issues/4054
+    matches the reference impl
+    """
+
+    X, y = datasets.make_moons(n_samples=10000, noise=0.12, random_state=0)
+
+    cu_labels_ = HDBSCAN(min_samples=25, min_cluster_size=25).fit_predict(X)
+    sk_labels_ = hdbscan.HDBSCAN(min_samples=25,
+                                 min_cluster_size=25,
+                                 approx_min_span_tree=False).fit_predict(X)
+
+    assert adjusted_rand_score(cu_labels_, sk_labels_) > 0.99
+
+
+def test_hdbscan_empty_cluster_tree():
+
+    raw_tree = np.recarray(shape=(5,),
+                           formats=[np.intp, np.intp, float, np.intp],
+                           names=('parent', 'child', 'lambda_val',
+                                  'child_size'))
+
+    raw_tree['parent'] = np.asarray([5, 5, 5, 5, 5])
+    raw_tree['child'] = [0, 1, 2, 3, 4]
+    raw_tree['lambda_val'] = [1.0, 1.0, 1.0, 1.0, 1.0]
+    raw_tree['child_size'] = [1, 1, 1, 1, 1]
+
+    condensed_tree = CondensedTree(raw_tree, 0.0, True)
+
+    cuml_agg = HDBSCAN(allow_single_cluster=True,
+                       cluster_selection_method="eom")
+    cuml_agg._extract_clusters(condensed_tree)
+
+    # We just care that all points are assigned to the root cluster
+    assert np.sum(cuml_agg.labels_test.to_output("numpy")) == 0
 
 
 def test_hdbscan_plots():

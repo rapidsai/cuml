@@ -14,16 +14,15 @@
 # limitations under the License.
 #=============================================================================
 
-function(find_and_configure_thrust VERSION)
+function(find_and_configure_thrust)
+  include(${rapids-cmake-dir}/cpm/thrust.cmake)
 
-    rapids_cpm_find(Thrust ${VERSION}
-        CPM_ARGS
-            GIT_REPOSITORY https://github.com/thrust/thrust.git
-            GIT_TAG        ${VERSION}
-    )
-
-    thrust_create_target(cuml::Thrust FROM_OPTIONS)
+  rapids_cpm_thrust(
+    NAMESPACE cuml
+    BUILD_EXPORT_SET cuml-exports
+    INSTALL_EXPORT_SET cuml-exports
+  )
 
 endfunction()
 
-find_and_configure_thrust(1.12.0)
+find_and_configure_thrust()
