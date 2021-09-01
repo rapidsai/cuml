@@ -18,8 +18,8 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/label/classlabels.cuh>
 #include <raft/spatial/knn/ann.hpp>
-#include <raft/spatial/knn/knn.hpp>
 #include <raft/spatial/knn/ball_cover.hpp>
+#include <raft/spatial/knn/knn.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <cuml/common/logger.hpp>
@@ -33,30 +33,47 @@
 
 namespace ML {
 
-void brute_force_knn(const raft::handle_t &handle, std::vector<float *> &input,
-                     std::vector<int> &sizes, int D, float *search_items, int n,
-                     int64_t *res_I, float *res_D, int k, bool rowMajorIndex,
-                     bool rowMajorQuery, raft::distance::DistanceType metric,
-                     float metric_arg) {
-  ASSERT(input.size() == sizes.size(),
-         "input and sizes vectors must be the same size");
+void brute_force_knn(const raft::handle_t& handle,
+                     std::vector<float*>& input,
+                     std::vector<int>& sizes,
+                     int D,
+                     float* search_items,
+                     int n,
+                     int64_t* res_I,
+                     float* res_D,
+                     int k,
+                     bool rowMajorIndex,
+                     bool rowMajorQuery,
+                     raft::distance::DistanceType metric,
+                     float metric_arg)
+{
+  ASSERT(input.size() == sizes.size(), "input and sizes vectors must be the same size");
 
   if (D == 2 && (metric == raft::distance::DistanceType::Haversine ||
                  metric == raft::distance::DistanceType::L2Expanded ||
                  metric == raft::distance::DistanceType::L2Unexpanded ||
                  metric == raft::distance::DistanceType::L2SqrtExpanded ||
                  metric == raft::distance::DistanceType::L2SqrtUnexpanded) {
-
     raft::spatial::knn::BallCoverIndex<value_idx, value_t> index(
       handle, input[0], sizs[0], D, metric);
 
     raft::spatial::knn::rbc_build_index(handle, index, k);
-    raft::spatial::knn::rbc_knn_query(handle, index, k, search_items,
-                                      n, res_I, res_D);
+    raft::spatial::knn::rbc_knn_query(handle, index, k, search_items, n, res_I, res_D);
   } else {
-    raft::spatial::knn::brute_force_knn(
-      handle, input, sizes, D, search_items, n, res_I, res_D, k, rowMajorIndex,
-      rowMajorQuery, nullptr, metric, metric_arg);
+    raft::spatial::knn::brute_force_knn(handle,
+                                        input,
+                                        sizes,
+                                        D,
+                                        search_items,
+                                        n,
+                                        res_I,
+                                        res_D,
+                                        k,
+                                        rowMajorIndex,
+                                        rowMajorQuery,
+                                        nullptr,
+                                        metric,
+                                        metric_arg);
   }
 }
 
