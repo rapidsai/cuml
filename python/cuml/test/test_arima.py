@@ -120,8 +120,8 @@ test_121c = ARIMAData(
     tolerance_integration=0.01
 )
 
-# ARIMA(1,2,1) with intercept (missing observations)
-test_121c_missing = ARIMAData(
+# ARIMA(1,1,1) with intercept (missing observations)
+test_111c_missing = ARIMAData(
     batch_size=2,
     n_obs=137,
     n_test=10,
@@ -202,7 +202,7 @@ test_data = [
     ((1, 1, 0, 0, 0, 0, 0, 0), test_110),
     ((0, 1, 1, 0, 0, 0, 0, 1), test_011c),
     ((1, 2, 1, 0, 0, 0, 0, 1), test_121c),
-    ((1, 2, 1, 0, 0, 0, 0, 1), test_121c_missing),
+    ((1, 1, 1, 0, 0, 0, 0, 1), test_111c_missing),
     ((1, 0, 1, 1, 1, 1, 4, 0), test_101_111_4),
     ((5, 1, 0, 0, 0, 0, 0, 0), test_510),
     ((1, 1, 1, 2, 0, 0, 4, 1), test_111_200_4c),
