@@ -537,6 +537,7 @@ struct ObjectiveTestParameters {
   int n_classes;
   double min_impurity_decrease;
   int min_samples_leaf;
+  double tolerance;
 };
 
 template <typename ObjectiveT>
@@ -549,119 +550,137 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
   ObjectiveTestParameters params;
 
  public:
-  auto _rand(int const end = 1000) { return rand() % end; }
+  auto RandUnder(int const end = 10000) { return rand() % end; }
 
-  auto _gen_hist_bins()
+  auto GenHist()
   {
-    std::vector<BinT> hist_bins(params.n_bins * params.n_classes);
+    std::vector<BinT> cdf_hist, pdf_hist;
+
     for (auto c = 0; c < params.n_classes; ++c) {
       for (auto b = 0; b < params.n_bins; ++b) {
-        // initializing hist_bins
-        BinT tmp = BinT();
-        if constexpr (std::is_same<BinT, CountBin>::value)  // classification type
-        {
-          tmp += BinT(_rand());
-          hist_bins[c * params.n_bins + b] += tmp;  // random pdf bin
-          hist_bins[c * params.n_bins + b] +=
-            (b > 0 ? hist_bins[c * params.n_bins + b - 1] : BinT());  // pdf to cdf
-        } else                                                        // regression type
-        {
-          tmp += BinT(static_cast<LabelT>(_rand()), _rand());
-          hist_bins[c * params.n_bins + b] += tmp;  // random pdf bin
-          hist_bins[c * params.n_bins + b] +=
-            (b > 0 ? hist_bins[c * params.n_bins + b - 1] : BinT());  // pdf to cdf
-        }
+        if constexpr (std::is_same<BinT, CountBin>::value)
+          pdf_hist.emplace_back(RandUnder());
+        else
+          pdf_hist.emplace_back(static_cast<LabelT>(RandUnder()), RandUnder());
+
+        auto cumulative = b > 0 ? cdf_hist.back() : BinT();
+
+        cdf_hist.emplace_back(pdf_hist.empty() ? BinT() : pdf_hist.back());
+
+        cdf_hist.back() += cumulative;
       }
     }
-    return hist_bins;
+
+    return std::make_pair(cdf_hist, pdf_hist);
   }
 
-  auto _poisson_ground_truth_gain(std::vector<BinT> const& hist_bins, std::size_t split_bin_index)
+  auto PoissonHalfDeviance(
+    std::vector<BinT> const& hist)  //  1/n * sum(y_true * log(y_true/y_pred) + y_pred - y_true)
   {
-    // compute the gain to be
-    DataT label_sum       = hist_bins.back().label_sum;
-    IdxT len              = hist_bins.back().count;
-    IdxT nLeft            = hist_bins[split_bin_index].count;
-    DataT left_label_sum  = hist_bins[split_bin_index].label_sum;
-    DataT right_label_sum = label_sum - left_label_sum;
-    IdxT nRight           = len - nLeft;
-    DataT parent_obj      = -label_sum * raft::myLog(label_sum / len);
-    DataT left_obj        = -left_label_sum * raft::myLog(left_label_sum / nLeft);
-    DataT right_obj       = -right_label_sum * raft::myLog(right_label_sum / nRight);
-    auto gain             = parent_obj - (left_obj + right_obj);
-    gain                  = gain / len;
+    BinT aggregate{BinT()};
+    aggregate = std::accumulate(hist.begin(), hist.end(), aggregate);
+    assert(aggregate.count > 0);
+    auto const y_mean = aggregate.label_sum / aggregate.count;
+    auto poisson_half_deviance{DataT(0.0)};
+
+    std::for_each(hist.begin(), hist.end(), [&](BinT const& h) {
+      auto log_y = raft::myLog(h.label_sum ? h.label_sum : DataT(1.0));  // we don't want nans
+      poisson_half_deviance += h.label_sum * (log_y - raft::myLog(y_mean)) + y_mean - h.label_sum;
+    });
+
+    poisson_half_deviance /= aggregate.count;
+    return std::make_tuple(
+      poisson_half_deviance, aggregate.label_sum, static_cast<DataT>(aggregate.count));
+  }
+
+  auto PoissonGroundTruthGain(std::vector<BinT> const& pdf_hist, std::size_t split_bin_index)
+  {
+    std::vector<BinT> left_pdf_hist{pdf_hist.begin(), pdf_hist.begin() + split_bin_index + 1};
+    std::vector<BinT> right_pdf_hist{pdf_hist.begin() + split_bin_index + 1, pdf_hist.end()};
+
+    auto [parent_phd, label_sum, n]            = PoissonHalfDeviance(pdf_hist);
+    auto [left_phd, label_sum_left, n_left]    = PoissonHalfDeviance(left_pdf_hist);
+    auto [right_phd, label_sum_right, n_right] = PoissonHalfDeviance(right_pdf_hist);
+
+    auto gain = parent_phd - ((n_left / n) * left_phd +
+                              (n_right / n) * right_phd);  // gain in long form without proxy
 
     // edge cases
-    if (gain <= params.min_impurity_decrease || nLeft < params.min_samples_leaf ||
-        nRight < params.min_samples_leaf || label_sum < EPS || right_label_sum < EPS ||
-        left_label_sum < EPS)
+    if (gain <= params.min_impurity_decrease or n_left < params.min_samples_leaf or
+        n_right < params.min_samples_leaf or label_sum < ObjectiveT::eps_ or
+        label_sum_right < ObjectiveT::eps_ or label_sum_left < ObjectiveT::eps_)
       return -std::numeric_limits<DataT>::max();
     else
       return gain;
   }
 
-  auto _gini_ground_truth_gain(std::vector<BinT> const& hist_bins,
-                               std::size_t const split_bin_index)
+  auto GiniImpurity(std::vector<BinT> const& hist)
+  {  // sum((n_c/n_total)(1-(n_c/n_total)))
+    auto gini{double(0)};
+    auto n_bins      = hist.size() / params.n_classes;
+    auto n_instances = std::accumulate(hist.begin(), hist.end(), BinT()).x;  // total instances
+    for (auto c = 0; c < params.n_classes; ++c) {
+      auto begin_iter    = hist.begin() + c * n_bins;
+      auto end_iter      = hist.begin() + (c + 1) * n_bins;
+      double class_proba = std::accumulate(begin_iter, end_iter, BinT()).x;  // instances of class c
+      class_proba /= n_instances;               // probability of class c
+      gini += class_proba * (1 - class_proba);  // adding gain
+    }
+    return std::make_pair(gini, double(n_instances));
+  }
+
+  auto GiniGroundTruthGain(std::vector<BinT> const& pdf_hist, std::size_t const split_bin_index)
   {
-    auto len            = _get_nLeft(hist_bins, params.n_bins - 1);
-    auto nLeft          = _get_nLeft(hist_bins, split_bin_index);
-    auto nRight         = len - nLeft;
-    constexpr DataT One = DataT(1.0);
-    auto invlen         = One / len;
-    auto invLeft        = One / nLeft;
-    auto invRight       = One / nRight;
-    auto gain           = DataT(0.0);
+    std::vector<BinT> left_pdf_hist, right_pdf_hist;
 
-    for (IdxT c = 0; c < params.n_classes; ++c) {
-      IdxT val_i  = 0;
-      auto lval_i = hist_bins[params.n_bins * c + split_bin_index].x;
-      auto lval   = DataT(lval_i);
-      gain += lval * invLeft * lval * invlen;
+    for (auto c = 0; c < params.n_classes; ++c) {  // decompose the pdf_hist
+      auto start = pdf_hist.begin() + c * params.n_bins;
+      auto split = pdf_hist.begin() + c * params.n_bins + split_bin_index + 1;
+      auto end   = pdf_hist.begin() + (c + 1) * params.n_bins;
 
-      val_i += lval_i;
-      auto total_sum = hist_bins[params.n_bins * c + params.n_bins - 1].x;
-      auto rval_i    = total_sum - lval_i;
-      auto rval      = DataT(rval_i);
-      gain += rval * invRight * rval * invlen;
-
-      val_i += rval_i;
-      auto val = DataT(val_i) * invlen;
-      gain -= val * val;
+      left_pdf_hist.insert(left_pdf_hist.end(), start, split);
+      right_pdf_hist.insert(right_pdf_hist.end(), split, end);
     }
 
+    auto [parent_gini, n]      = GiniImpurity(pdf_hist);
+    auto [left_gini, left_n]   = GiniImpurity(left_pdf_hist);
+    auto [right_gini, right_n] = GiniImpurity(right_pdf_hist);
+
+    auto gain = parent_gini - ((left_n / n) * left_gini + (right_n / n) * right_gini);
+
     // edge cases
-    if (gain <= params.min_impurity_decrease || nLeft < params.min_samples_leaf ||
-        nRight < params.min_samples_leaf) {
+    if (gain <= params.min_impurity_decrease || left_n < params.min_samples_leaf ||
+        right_n < params.min_samples_leaf) {
       return -std::numeric_limits<DataT>::max();
     } else {
       return gain;
     }
   }
 
-  auto _get_ground_truth_gain(std::vector<BinT> const& hist_bins, std::size_t const split_bin_index)
+  auto GroundTruthGain(std::vector<BinT> const& pdf_hist, std::size_t const split_bin_index)
   {
     if constexpr (std::is_same<ObjectiveT,
                                PoissonObjectiveFunction<DataT, LabelT, IdxT>>::value)  // poisson
     {
-      return _poisson_ground_truth_gain(hist_bins, split_bin_index);
+      return PoissonGroundTruthGain(pdf_hist, split_bin_index);
     } else if constexpr (std::is_same<ObjectiveT,
                                       GiniObjectiveFunction<DataT, LabelT, IdxT>>::value)  // gini
     {
-      return _gini_ground_truth_gain(hist_bins, split_bin_index);
+      return GiniGroundTruthGain(pdf_hist, split_bin_index);
     }
-    return (double)0.0;
+    return double(0.0);
   }
 
-  auto _get_nLeft(std::vector<BinT> const& hist_bins, IdxT idx)
+  auto NumLeftOfBin(std::vector<BinT> const& cdf_hist, IdxT idx)
   {
     auto count{IdxT(0)};
     for (auto c = 0; c < params.n_classes; ++c) {
       if constexpr (std::is_same<BinT, CountBin>::value)  // countbin
       {
-        count += hist_bins[params.n_bins * c + idx].x;
+        count += cdf_hist[params.n_bins * c + idx].x;
       } else  // aggregatebin
       {
-        count += hist_bins[params.n_bins * c + idx].count;
+        count += cdf_hist[params.n_bins * c + idx].count;
       }
     }
     return count;
@@ -673,30 +692,32 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     params = ::testing::TestWithParam<ObjectiveTestParameters>::GetParam();
     ObjectiveT objective(params.n_classes, params.min_impurity_decrease, params.min_samples_leaf);
 
-    auto hist_bins         = _gen_hist_bins();
-    auto split_bin_index   = _rand(params.n_bins);
-    auto ground_truth_gain = _get_ground_truth_gain(hist_bins, split_bin_index);
-    auto hypothesis_gain   = objective.gain(&hist_bins[0],
-                                          split_bin_index,
-                                          params.n_bins,
-                                          _get_nLeft(hist_bins, params.n_bins - 1),
-                                          _get_nLeft(hist_bins, split_bin_index));
+    auto [cdf_hist, pdf_hist] = GenHist();
 
-    ASSERT_EQ(ground_truth_gain, hypothesis_gain);
+    auto split_bin_index   = RandUnder(params.n_bins);
+    auto ground_truth_gain = GroundTruthGain(pdf_hist, split_bin_index);
+
+    auto hypothesis_gain = objective.GainPerSplit(&cdf_hist[0],
+                                                  split_bin_index,
+                                                  params.n_bins,
+                                                  NumLeftOfBin(cdf_hist, params.n_bins - 1),
+                                                  NumLeftOfBin(cdf_hist, split_bin_index));
+
+    ASSERT_NEAR(ground_truth_gain, hypothesis_gain, params.tolerance);
   }
 };
 
 const std::vector<ObjectiveTestParameters> poisson_objective_test_parameters = {
-  {9507819643927052255LLU, 64, 1, 0.0001, 0},
-  {9507819643927052256LLU, 128, 1, 0.0001, 1},
-  {9507819643927052257LLU, 256, 1, 0.0001, 1},
-  {9507819643927052258LLU, 512, 1, 0.0001, 5},
+  {9507819643927052255LLU, 64, 1, 0.0001, 0, 0.000001},
+  {9507819643927052259LLU, 128, 1, 0.0001, 1, 0.000001},
+  {9507819643927052251LLU, 256, 1, 0.0001, 1, 0.000001},
+  {9507819643927052258LLU, 512, 1, 0.0001, 5, 0.000001},
 };
 const std::vector<ObjectiveTestParameters> gini_objective_test_parameters = {
-  {9507819643927052255LLU, 64, 2, 0.0001, 0},
-  {9507819643927052256LLU, 128, 10, 0.0001, 1},
-  {9507819643927052257LLU, 256, 100, 0.0001, 1},
-  {9507819643927052258LLU, 512, 100, 0.0001, 5},
+  {9507819643927052255LLU, 64, 2, 0.0001, 0, 0.000001},
+  {9507819643927052256LLU, 128, 10, 0.0001, 1, 0.000001},
+  {9507819643927052257LLU, 256, 100, 0.0001, 1, 0.000001},
+  {9507819643927052258LLU, 512, 100, 0.0001, 5, 0.000001},
 };
 
 // poisson objective test
@@ -707,7 +728,7 @@ INSTANTIATE_TEST_CASE_P(RfTests,
                         ::testing::ValuesIn(poisson_objective_test_parameters));
 
 // gini objective test
-typedef ObjectiveTest<GiniObjectiveFunction<double, double, int>> GiniObjectiveTestD;
+typedef ObjectiveTest<GiniObjectiveFunction<double, int, int>> GiniObjectiveTestD;
 TEST_P(GiniObjectiveTestD, giniObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         GiniObjectiveTestD,

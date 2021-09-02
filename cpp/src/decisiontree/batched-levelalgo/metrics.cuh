@@ -27,12 +27,11 @@
 namespace ML {
 namespace DT {
 
-#define EPS 10 * std::numeric_limits<DataT>::epsilon()
-
 struct CountBin {
   int x;
-  HDI CountBin() : x(0) {}
+  CountBin(CountBin const&) = default;
   HDI CountBin(int x_) : x(x_) {}
+  HDI CountBin() : x(0){};
 
   DI static void IncrementHistogram(CountBin* hist, int nbins, int b, int label)
   {
@@ -56,7 +55,8 @@ struct AggregateBin {
   double label_sum;
   int count;
 
-  HDI AggregateBin() : label_sum(0.0), count(0) {}
+  AggregateBin(AggregateBin const&) = default;
+  HDI AggregateBin() : label_sum(0.0), count(0){};
   HDI AggregateBin(double label_sum, int count) : label_sum(label_sum), count(count) {}
 
   DI static void IncrementHistogram(AggregateBin* hist, int nbins, int b, double label)
@@ -102,14 +102,14 @@ class GiniObjectiveFunction {
 
   DI IdxT NumClasses() const { return nclasses; }
 
-  HDI DataT gain(BinT* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft)
+  HDI DataT GainPerSplit(BinT* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft)
   {
     auto nRight         = len - nLeft;
     constexpr DataT One = DataT(1.0);
     auto invlen         = One / len;
     auto invLeft        = One / nLeft;
     auto invRight       = One / nRight;
-    auto gain_          = DataT(0.0);
+    auto gain           = DataT(0.0);
 
     // if there aren't enough samples in this split, don't bother!
     if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
@@ -119,25 +119,25 @@ class GiniObjectiveFunction {
       int val_i   = 0;
       auto lval_i = hist[nbins * j + i].x;
       auto lval   = DataT(lval_i);
-      gain_ += lval * invLeft * lval * invlen;
+      gain += lval * invLeft * lval * invlen;
 
       val_i += lval_i;
       auto total_sum = hist[nbins * j + nbins - 1].x;
       auto rval_i    = total_sum - lval_i;
       auto rval      = DataT(rval_i);
-      gain_ += rval * invRight * rval * invlen;
+      gain += rval * invRight * rval * invlen;
 
       val_i += rval_i;
       auto val = DataT(val_i) * invlen;
-      gain_ -= val * val;
+      gain -= val * val;
     }
 
     // if the gain is not "enough", don't bother!
-    if (gain_ <= min_impurity_decrease)
+    if (gain <= min_impurity_decrease)
       return -std::numeric_limits<DataT>::max();
 
     else
-      return gain_;
+      return gain;
   }
 
   DI Split<DataT, IdxT> Gain(BinT* shist, DataT* sbins, IdxT col, IdxT len, IdxT nbins)
@@ -148,7 +148,7 @@ class GiniObjectiveFunction {
       for (IdxT j = 0; j < nclasses; ++j) {
         nLeft += shist[nbins * j + i].x;
       }
-      sp.update({sbins[i], col, gain(shist, i, nbins, len, nLeft), nLeft});
+      sp.update({sbins[i], col, GainPerSplit(shist, i, nbins, len, nLeft), nLeft});
     }
     return sp;
   }
@@ -188,10 +188,10 @@ class EntropyObjectiveFunction {
   }
   DI IdxT NumClasses() const { return nclasses; }
 
-  HDI DataT gain(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft)
+  HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft)
   {
     auto nRight{len - nLeft};
-    auto gain_{DataT(0.0)};
+    auto gain{DataT(0.0)};
     // if there aren't enough samples in this split, don't bother!
     if (nLeft < min_samples_leaf || nRight < min_samples_leaf) {
       return -std::numeric_limits<DataT>::max();
@@ -204,7 +204,7 @@ class EntropyObjectiveFunction {
         auto lval_i = hist[nbins * c + i].x;
         if (lval_i != 0) {
           auto lval = DataT(lval_i);
-          gain_ += raft::myLog(lval * invLeft) / raft::myLog(DataT(2)) * lval * invLen;
+          gain += raft::myLog(lval * invLeft) / raft::myLog(DataT(2)) * lval * invLen;
         }
 
         val_i += lval_i;
@@ -212,20 +212,20 @@ class EntropyObjectiveFunction {
         auto rval_i    = total_sum - lval_i;
         if (rval_i != 0) {
           auto rval = DataT(rval_i);
-          gain_ += raft::myLog(rval * invRight) / raft::myLog(DataT(2)) * rval * invLen;
+          gain += raft::myLog(rval * invRight) / raft::myLog(DataT(2)) * rval * invLen;
         }
 
         val_i += rval_i;
         if (val_i != 0) {
           auto val = DataT(val_i) * invLen;
-          gain_ -= val * raft::myLog(val) / raft::myLog(DataT(2));
+          gain -= val * raft::myLog(val) / raft::myLog(DataT(2));
         }
       }
 
       // if the gain is not "enough", don't bother!
-      if (gain_ <= min_impurity_decrease) return -std::numeric_limits<DataT>::max();
+      if (gain <= min_impurity_decrease) return -std::numeric_limits<DataT>::max();
 
-      return gain_;
+      return gain;
     }
   }
 
@@ -237,7 +237,7 @@ class EntropyObjectiveFunction {
       for (IdxT j = 0; j < nclasses; ++j) {
         nLeft += scdf_labels[nbins * j + i].x;
       }
-      sp.update({sbins[i], col, gain(scdf_labels, i, nbins, len, nLeft), nLeft});
+      sp.update({sbins[i], col, GainPerSplit(scdf_labels, i, nbins, len, nLeft), nLeft});
     }
     return sp;
   }
@@ -261,7 +261,8 @@ class PoissonObjectiveFunction {
   IdxT min_samples_leaf;
 
  public:
-  using BinT = AggregateBin;
+  using BinT                 = AggregateBin;
+  static constexpr auto eps_ = 10 * std::numeric_limits<DataT>::epsilon();
 
   HDI PoissonObjectiveFunction(IdxT nclasses, DataT min_impurity_decrease, IdxT min_samples_leaf)
     : min_impurity_decrease(min_impurity_decrease), min_samples_leaf(min_samples_leaf)
@@ -280,7 +281,7 @@ class PoissonObjectiveFunction {
    *       The Gain is the difference in the proxy impurities of the parent and the
    *       weighted sum of impurities of its children.
    */
-  HDI DataT gain(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft)
+  HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft)
   {
     // get the lens'
     auto nRight = len - nLeft;
@@ -294,22 +295,22 @@ class PoissonObjectiveFunction {
     auto right_label_sum = (hist[nbins - 1].label_sum - hist[i].label_sum);
 
     // label sum cannot be non-positive
-    if (label_sum < EPS || left_label_sum < EPS || right_label_sum < EPS)
+    if (label_sum < eps_ || left_label_sum < eps_ || right_label_sum < eps_)
       return -std::numeric_limits<DataT>::max();
 
     // compute the gain to be
     DataT parent_obj = -label_sum * raft::myLog(label_sum / len);
     DataT left_obj   = -left_label_sum * raft::myLog(left_label_sum / nLeft);
     DataT right_obj  = -right_label_sum * raft::myLog(right_label_sum / nRight);
-    auto gain_       = parent_obj - (left_obj + right_obj);
-    gain_            = gain_ / len;
+    auto gain        = parent_obj - (left_obj + right_obj);
+    gain             = gain / len;
 
     // if the gain is not "enough", don't bother!
-    if (gain_ <= min_impurity_decrease)
+    if (gain <= min_impurity_decrease)
       return -std::numeric_limits<DataT>::max();
 
     else
-      return gain_;
+      return gain;
   }
 
   DI Split<DataT, IdxT> Gain(BinT const* shist, DataT const* sbins, IdxT col, IdxT len, IdxT nbins)
@@ -317,7 +318,7 @@ class PoissonObjectiveFunction {
     Split<DataT, IdxT> sp;
     for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
       auto nLeft = shist[i].count;
-      sp.update({sbins[i], col, gain(shist, i, nbins, len, nLeft), nLeft});
+      sp.update({sbins[i], col, GainPerSplit(shist, i, nbins, len, nLeft), nLeft});
     }
     return sp;
   }
@@ -346,9 +347,9 @@ class MSEObjectiveFunction {
   }
   DI IdxT NumClasses() const { return 1; }
 
-  HDI DataT gain(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft)
+  HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft)
   {
-    auto gain_{DataT(0)};
+    auto gain{DataT(0)};
     auto nRight{len - nLeft};
     auto invLen{DataT(1.0) / len};
     // if there aren't enough samples in this split, don't bother!
@@ -360,13 +361,13 @@ class MSEObjectiveFunction {
       auto left_obj        = -(hist[i].label_sum * hist[i].label_sum) / nLeft;
       auto right_label_sum = hist[i].label_sum - label_sum;
       auto right_obj       = -(right_label_sum * right_label_sum) / nRight;
-      gain_                = parent_obj - (left_obj + right_obj);
-      gain_ *= invLen;
+      gain                 = parent_obj - (left_obj + right_obj);
+      gain *= invLen;
 
       // if the gain is not "enough", don't bother!
-      if (gain_ <= min_impurity_decrease) return -std::numeric_limits<DataT>::max();
+      if (gain <= min_impurity_decrease) return -std::numeric_limits<DataT>::max();
 
-      return gain_;
+      return gain;
     }
   }
 
@@ -375,7 +376,7 @@ class MSEObjectiveFunction {
     Split<DataT, IdxT> sp;
     for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
       auto nLeft = shist[i].count;
-      sp.update({sbins[i], col, gain(shist, i, nbins, len, nLeft), nLeft});
+      sp.update({sbins[i], col, GainPerSplit(shist, i, nbins, len, nLeft), nLeft});
     }
     return sp;
   }
