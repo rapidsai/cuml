@@ -68,7 +68,7 @@ struct FilTestParams {
   // during model creation, how often categories < max_matching are marked as matching?
   float cat_match_prob = 0.5;
   // Order Of Magnitude for maximum matching category for categorical nodes
-  float max_matching_cat_magnitude = 1.0;
+  float max_magnitude_of_matching_cat = 1.0;
   // output parameters
   output_t output   = output_t::RAW;
   float threshold   = 0.0f;
@@ -127,7 +127,7 @@ std::ostream& operator<<(std::ostream& os, const FilTestParams& ps)
      << ", node_categorical_prob = " << ps.node_categorical_prob
      << ", feature_categorical_prob = " << ps.feature_categorical_prob
      << ", cat_match_prob = " << ps.cat_match_prob
-     << ", max_matching_cat_magnitude = " << ps.max_matching_cat_magnitude;
+     << ", max_magnitude_of_matching_cat = " << ps.max_magnitude_of_matching_cat;
   return os;
 }
 
@@ -150,7 +150,7 @@ void hard_clipped_bernoulli(
       if (prob_of_zero == 0.0f) return 1.0f;
       float truly_0_1 = fmax(fmin(uniform_0_1, 1.0f), 0.0f);
       // if prob_of_zero == 1.0f, we should never generate a one, hence ">"
-      return truly_0_1 > prob_of_zero;
+      return truly_0_1 > prob_of_zero ? 1.0f : 0.0f;
     });
 }
 
@@ -265,10 +265,10 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
     // uniformily distributed in orders of magnitude: smaller models which
     // still stress large bitfields.
-    // up to 10**ps.max_matching_cat_magnitude (only if feature is categorical, else -1)
+    // up to 10**ps.max_magnitude_of_matching_cat (only if feature is categorical, else -1)
     std::vector<cat_feature_counters> cf(ps.num_cols);
     std::mt19937 gen(ps.seed);
-    std::uniform_real_distribution mmc(-1.0f, ps.max_matching_cat_magnitude);
+    std::uniform_real_distribution mmc(-1.0f, ps.max_magnitude_of_matching_cat);
     std::bernoulli_distribution fc(ps.feature_categorical_prob);
     for (int fid = 0; fid < ps.num_cols; ++fid) {
       feature_categorical[fid] = fc(gen);
@@ -276,8 +276,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
         // even for some categorical features, we will have no matching categories
         float mm = pow(10, mmc(gen)) - 1.0f;
         ASSERT(mm < INT_MAX,
-               "internal error: max_matching_cat_magnitude %f is too large",
-               ps.max_matching_cat_magnitude);
+               "internal error: max_magnitude_of_matching_cat %f is too large",
+               ps.max_magnitude_of_matching_cat);
         cf[fid].max_matching = (int)mm;
       } else {
         cf[fid].max_matching = -1;
@@ -296,8 +296,9 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
       int num_tree_nodes = tree_num_nodes();
       size_t leaf_start  = num_tree_nodes * i + num_tree_nodes / 2;
       size_t leaf_end    = num_tree_nodes * (i + 1);
-      for (size_t j = leaf_start; j < leaf_end; ++j)
+      for (size_t j = leaf_start; j < leaf_end; ++j) {
         is_leafs_h[j] = true;
+      }
     }
 
     // count nodes for each feature id, while splitting the sets between nodes
@@ -1026,10 +1027,10 @@ std::vector<FilTestParams> predict_dense_inputs = {
     node_categorical_prob = 1.0, feature_categorical_prob = 1.0, cat_match_prob = 1.0),
   FIL_TEST_PARAMS(
     node_categorical_prob = 1.0, feature_categorical_prob = 1.0, cat_match_prob = 0.0),
-  FIL_TEST_PARAMS(depth                      = 3,
-                  node_categorical_prob      = 0.5,
-                  feature_categorical_prob   = 0.5,
-                  max_matching_cat_magnitude = 5),
+  FIL_TEST_PARAMS(depth                         = 3,
+                  node_categorical_prob         = 0.5,
+                  feature_categorical_prob      = 0.5,
+                  max_magnitude_of_matching_cat = 5),
 };
 
 TEST_P(PredictDenseFilTest, Predict) { compare(); }
@@ -1104,10 +1105,10 @@ std::vector<FilTestParams> predict_sparse_inputs = {
     node_categorical_prob = 1.0, feature_categorical_prob = 1.0, cat_match_prob = 1.0),
   FIL_TEST_PARAMS(
     node_categorical_prob = 1.0, feature_categorical_prob = 1.0, cat_match_prob = 0.0),
-  FIL_TEST_PARAMS(depth                      = 3,
-                  node_categorical_prob      = 0.5,
-                  feature_categorical_prob   = 0.5,
-                  max_matching_cat_magnitude = 5),
+  FIL_TEST_PARAMS(depth                         = 3,
+                  node_categorical_prob         = 0.5,
+                  feature_categorical_prob      = 0.5,
+                  max_magnitude_of_matching_cat = 5),
 };
 
 TEST_P(PredictSparse16FilTest, Predict) { compare(); }

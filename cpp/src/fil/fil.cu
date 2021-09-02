@@ -75,7 +75,7 @@ cat_sets_owner::cat_sets_owner(const std::vector<cat_feature_counters>& cf)
       categorical_sets::sizeof_mask_from_max_matching(max_matching[fid]) * cf[fid].n_nodes;
 
     RAFT_EXPECTS(bits_size <= INT_MAX,
-                 "@fid %zu: cannot store %lu categories given `int` offsets",
+                 "@fid %zu: cannot store %zu categories given `int` offsets",
                  fid,
                  bits_size);
   }
@@ -1030,7 +1030,7 @@ struct tl2fil_sparse_check_t<sparse_node8> {
     for (std::size_t i = 0; i < trees.size(); ++i) {
       int num_nodes = trees[i].num_nodes;
       ASSERT(num_nodes <= MAX_TREE_NODES,
-             "tree %lu has %d nodes, "
+             "tree %zu has %d nodes, "
              "but only %d supported for 8-byte sparse nodes",
              i,
              num_nodes,
