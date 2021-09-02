@@ -433,6 +433,8 @@ struct categorical_sets {
   }
 };
 
+// lets any tree determine a child index for a node in a generic fasion
+// used in fil_test.cu fot its child_index() in CPU predicting
 struct tree_base {
   categorical_sets cat_sets;
 

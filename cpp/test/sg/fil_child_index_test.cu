@@ -76,15 +76,16 @@ std::ostream& operator<<(std::ostream& os, const proto_inner_node& node)
   }()
 
 // proto category sets for one node
-struct PCS {
+struct ProtoCategorySets {
   // each bit set for each feature id is in a separate vector
   // read each uint8_t from right to left, and the vector(s) - from left to right
   std::vector<std::vector<uint8_t>> bits;
   std::vector<int> max_matching;
   operator cat_sets_owner()
   {
-    ASSERT(bits.size() == max_matching.size(),
-           "internal error: PCS::bits.size() != PCS::max_matching.size()");
+    ASSERT(
+      bits.size() == max_matching.size(),
+      "internal error: ProtoCategorySets::bits.size() != ProtoCategorySets::max_matching.size()");
     std::vector<uint8_t> flat;
     for (std::vector<uint8_t> v : bits) {
       for (uint8_t b : v)
@@ -94,7 +95,7 @@ struct PCS {
   }
 };
 
-struct ChildIdxTestParams {
+struct ChildIndexTestParams {
   proto_inner_node node;
   int parent_node_idx = 0;
   cat_sets_owner cso;
@@ -102,7 +103,7 @@ struct ChildIdxTestParams {
   int correct = INT_MAX;
 };
 
-std::ostream& operator<<(std::ostream& os, const ChildIdxTestParams& ps)
+std::ostream& operator<<(std::ostream& os, const ChildIndexTestParams& ps)
 {
   os << "node = {\n"
      << ps.node << "\n} "
@@ -115,21 +116,26 @@ std::ostream& operator<<(std::ostream& os, const ChildIdxTestParams& ps)
     the struct defaults. Using it directly only works if all defaulted
     members come after ones explicitly mentioned.
 **/
-#define CHILD_IDX_TEST_PARAMS(...)                                    \
-  []() {                                                              \
-    struct NonDefaultChildIdxTestParams : public ChildIdxTestParams { \
-      NonDefaultChildIdxTestParams() { __VA_ARGS__; }                 \
-    };                                                                \
-    return ChildIdxTestParams(NonDefaultChildIdxTestParams());        \
+#define CHILD_INDEX_TEST_PARAMS(...)                                      \
+  []() {                                                                  \
+    struct NonDefaultChildIndexTestParams : public ChildIndexTestParams { \
+      NonDefaultChildIndexTestParams() { __VA_ARGS__; }                   \
+    };                                                                    \
+    return ChildIndexTestParams(NonDefaultChildIndexTestParams());        \
   }()
 
 template <typename fil_node_t>
-class ChildIdxTest : public testing::TestWithParam<ChildIdxTestParams> {
+class ChildIndexTest : public testing::TestWithParam<ChildIndexTestParams> {
  protected:
   void check()
   {
-    ChildIdxTestParams param = GetParam();
+    ChildIndexTestParams param = GetParam();
     tree_base tree{param.cso.accessor()};
+    if (!std::is_same<fil_node_t, fil::dense_node>::value) {
+      // test that the logic uses node.left instead of parent_node_idx
+      param.node.left       = param.parent_node_idx * 2 + 1;
+      param.parent_node_idx = INT_MIN;
+    }
     // nan -> !def_left, categorical -> if matches, numerical -> input >= threshold
     int test_idx =
       tree.child_index<true>((fil_node_t)param.node, param.parent_node_idx, param.input);
@@ -140,7 +146,9 @@ class ChildIdxTest : public testing::TestWithParam<ChildIdxTestParams> {
   }
 };
 
-typedef ChildIdxTest<fil::dense_node> ChildIdxTestDense;
+typedef ChildIndexTest<fil::dense_node> ChildIndexTestDense;
+typedef ChildIndexTest<fil::sparse_node16> ChildIndexTestSparse16;
+typedef ChildIndexTest<fil::sparse_node8> ChildIndexTestSparse8;
 
 /* for dense nodes, left (false) == parent * 2 + 1, right (true) == parent * 2 + 2
    E.g. see tree below:
@@ -152,64 +160,90 @@ typedef ChildIdxTest<fil::dense_node> ChildIdxTestDense;
  */
 const float INF = std::numeric_limits<float>::infinity();
 
-std::vector<ChildIdxTestParams> dense_params = {
-  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, input = -INF, correct = 1),   // val !>= thresh
-  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, input = 0.0f, correct = 2),   // val >= thresh
-  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, input = +INF, correct = 2),   // val >= thresh
-  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, input = NAN, correct = 2),    // !def_left
-  CHILD_IDX_TEST_PARAMS(node.def_left = true, input = NAN, correct = 1),  // !def_left
-  CHILD_IDX_TEST_PARAMS(node.thresh = NAN, input = NAN, correct = 2),     // !def_left
-  CHILD_IDX_TEST_PARAMS(
-    node.def_left = true, node.thresh = NAN, input = NAN, correct = 1),  // !def_left
-  CHILD_IDX_TEST_PARAMS(node.thresh = NAN, input = 0.0f, correct = 1),   // val !>= thresh
-  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, parent_node_idx = 1, input = -INF, correct = 3),
-  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, parent_node_idx = 1, input = 0.0f, correct = 4),
-  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, parent_node_idx = 2, input = -INF, correct = 5),
-  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, parent_node_idx = 2, input = 0.0f, correct = 6),
-  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, parent_node_idx = 3, input = -INF, correct = 7),
-  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, parent_node_idx = 3, input = 0.0f, correct = 8),
-  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, parent_node_idx = 4, input = -INF, correct = 9),
-  CHILD_IDX_TEST_PARAMS(node.thresh = 0.0f, parent_node_idx = 4, input = 0.0f, correct = 10),
-  CHILD_IDX_TEST_PARAMS(parent_node_idx = 4, input = NAN, correct = 10),  // !def_left
-  CHILD_IDX_TEST_PARAMS(
-    node.def_left = true, input = NAN, parent_node_idx = 4, correct = 9),  // !def_left
+std::vector<ChildIndexTestParams> params = {
+  CHILD_INDEX_TEST_PARAMS(node = NODE(thresh = 0.0f), input = -INF, correct = 1),  // val !>= thresh
+  CHILD_INDEX_TEST_PARAMS(node = NODE(thresh = 0.0f), input = 0.0f, correct = 2),  // val >= thresh
+  CHILD_INDEX_TEST_PARAMS(node = NODE(thresh = 0.0f), input = +INF, correct = 2),  // val >= thresh
+  CHILD_INDEX_TEST_PARAMS(
+    node = NODE(thresh = 1.0f), input = -3.141592f, correct = 1),  // val !>= thresh
+  CHILD_INDEX_TEST_PARAMS(                                         // val >= thresh (e**pi > pi**e)
+    node    = NODE(thresh = 22.459158f),
+    input   = 23.140693f,
+    correct = 2),
+  CHILD_INDEX_TEST_PARAMS(  // val >= thresh for both negative
+    node    = NODE(thresh = -0.37f),
+    input   = -0.36f,
+    correct = 2),                                                                   // val >= thresh
+  CHILD_INDEX_TEST_PARAMS(node = NODE(thresh = -INF), input = 0.36f, correct = 2),  // val >= thresh
+  CHILD_INDEX_TEST_PARAMS(node = NODE(thresh = 0.0f), input = NAN, correct = 2),    // !def_left
+  CHILD_INDEX_TEST_PARAMS(node = NODE(def_left = true), input = NAN, correct = 1),  // !def_left
+  CHILD_INDEX_TEST_PARAMS(node = NODE(thresh = NAN), input = NAN, correct = 2),     // !def_left
+  CHILD_INDEX_TEST_PARAMS(
+    node = NODE(def_left = true, thresh = NAN), input = NAN, correct = 1),        // !def_left
+  CHILD_INDEX_TEST_PARAMS(node = NODE(thresh = NAN), input = 0.0f, correct = 1),  // val !>= thresh
+  CHILD_INDEX_TEST_PARAMS(
+    node = NODE(thresh = 0.0f), parent_node_idx = 1, input = -INF, correct = 3),
+  CHILD_INDEX_TEST_PARAMS(
+    node = NODE(thresh = 0.0f), parent_node_idx = 1, input = 0.0f, correct = 4),
+  CHILD_INDEX_TEST_PARAMS(
+    node = NODE(thresh = 0.0f), parent_node_idx = 2, input = -INF, correct = 5),
+  CHILD_INDEX_TEST_PARAMS(
+    node = NODE(thresh = 0.0f), parent_node_idx = 2, input = 0.0f, correct = 6),
+  CHILD_INDEX_TEST_PARAMS(
+    node = NODE(thresh = 0.0f), parent_node_idx = 3, input = -INF, correct = 7),
+  CHILD_INDEX_TEST_PARAMS(
+    node = NODE(thresh = 0.0f), parent_node_idx = 3, input = 0.0f, correct = 8),
+  CHILD_INDEX_TEST_PARAMS(
+    node = NODE(thresh = 0.0f), parent_node_idx = 4, input = -INF, correct = 9),
+  CHILD_INDEX_TEST_PARAMS(
+    node = NODE(thresh = 0.0f), parent_node_idx = 4, input = 0.0f, correct = 10),
+  CHILD_INDEX_TEST_PARAMS(parent_node_idx = 4, input = NAN, correct = 10),  // !def_left
+  CHILD_INDEX_TEST_PARAMS(
+    node = NODE(def_left = true), input = NAN, parent_node_idx = 4, correct = 9),  // !def_left
   // cannot match ( > max_matching)
-  CHILD_IDX_TEST_PARAMS(
-    node.is_categorical = true, cso.bits = {}, cso.max_matching = {-1}, input = 0, correct = 1),
-  // doesn't match (bits[category] == 0, category == 0)
-  CHILD_IDX_TEST_PARAMS(node.is_categorical = true,
-                        cso.bits            = {0b0000'0000},
-                        cso.max_matching    = {0},
-                        input               = 0,
-                        correct             = 1),
+  CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
+                          cso.bits         = {},
+                          cso.max_matching = {-1},
+                          input            = 0,
+                          correct          = 1),
+  // does not match (bits[category] == 0, category == 0)
+  CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
+                          cso.bits         = {0b0000'0000},
+                          cso.max_matching = {0},
+                          input            = 0,
+                          correct          = 1),
   // matches
-  CHILD_IDX_TEST_PARAMS(node.is_categorical = true,
-                        cso.bits            = {0b0000'0001},
-                        cso.max_matching    = {0},
-                        input               = 0,
-                        correct             = 2),
+  CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
+                          cso.bits         = {0b0000'0001},
+                          cso.max_matching = {0},
+                          input            = 0,
+                          correct          = 2),
   // matches
-  CHILD_IDX_TEST_PARAMS(node.is_categorical = true,
-                        cso.bits            = {0b0000'0101},
-                        cso.max_matching    = {2, -1},
-                        input               = 2,
-                        correct             = 2),
-  // doesn't match (bits[category] == 0, category > 0)
-  CHILD_IDX_TEST_PARAMS(node.is_categorical = true,
-                        cso.bits            = {0b0000'0101},
-                        cso.max_matching    = {2},
-                        input               = 1,
-                        correct             = 1),
-  // canot match (max_matching[fid=1] == -1)
-  CHILD_IDX_TEST_PARAMS(node.is_categorical = true,
-                        node.fid            = 1,
-                        cso.bits            = {0b0000'0101},
-                        cso.max_matching    = {2, -1},
-                        input               = 2,
-                        correct             = 1),
+  CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
+                          cso.bits         = {0b0000'0101},
+                          cso.max_matching = {2, -1},
+                          input            = 2,
+                          correct          = 2),
+  // does not match (bits[category] == 0, category > 0)
+  CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
+                          cso.bits         = {0b0000'0101},
+                          cso.max_matching = {2},
+                          input            = 1,
+                          correct          = 1),
+  // cannot match (max_matching[fid=1] == -1)
+  CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
+                          node.fid         = 1,
+                          cso.bits         = {0b0000'0101},
+                          cso.max_matching = {2, -1},
+                          input            = 2,
+                          correct          = 1),
 };
 
-TEST_P(ChildIdxTestDense, Predict) { check(); }
+TEST_P(ChildIndexTestDense, Predict) { check(); }
+TEST_P(ChildIndexTestSparse16, Predict) { check(); }
+TEST_P(ChildIndexTestSparse8, Predict) { check(); }
 
-INSTANTIATE_TEST_CASE_P(FilTests, ChildIdxTestDense, testing::ValuesIn(dense_params));
+INSTANTIATE_TEST_CASE_P(FilTests, ChildIndexTestDense, testing::ValuesIn(params));
+INSTANTIATE_TEST_CASE_P(FilTests, ChildIndexTestSparse16, testing::ValuesIn(params));
+INSTANTIATE_TEST_CASE_P(FilTests, ChildIndexTestSparse8, testing::ValuesIn(params));
 }  // namespace ML

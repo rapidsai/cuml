@@ -449,6 +449,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     want_proba_h.resize(ps.num_proba_outputs());
     int num_nodes = tree_num_nodes();
     std::vector<float> class_scores(ps.num_classes);
+    // we use tree_base::child_index() on CPU
     tree_base base{cat_sets_h.accessor()};
     switch (ps.leaf_algo) {
       case fil::leaf_algo_t::FLOAT_UNARY_BINARY:
