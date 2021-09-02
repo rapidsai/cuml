@@ -335,9 +335,6 @@ class DecisionTree {
                             const std::vector<SparseTreeNode<DataT, LabelT>>& sparsetree,
                             int idx)
   {
-    ASSERT(idx >= 0, "Prediction index out of bounds.");
-    ASSERT(idx < sparsetree.size(), "Prediction index out of bounds.");
-
     auto colid     = sparsetree[idx].ColumnId();
     DataT quesval  = sparsetree[idx].QueryValue();
     auto leftchild = sparsetree[idx].LeftChildId();

@@ -26,8 +26,6 @@
 #include <cuml/tree/flatnode.h>
 #include <common/grid_sync.cuh>
 #include <common/nvtx.hpp>
-#include <cuml/common/device_buffer.hpp>
-#include <cuml/common/host_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/tree/decisiontree.hpp>
 #include <raft/cuda_utils.cuh>
