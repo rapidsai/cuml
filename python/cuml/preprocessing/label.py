@@ -125,7 +125,7 @@ class LabelBinarizer(Base):
 
         decoded = lb.inverse_transform(encoded)
 
-        print(str(decoded)
+        print(str(decoded))
 
 
     Output:

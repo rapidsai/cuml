@@ -136,10 +136,10 @@ class TruncatedSVD(Base,
         tsvd_float.fit(gdf_float)
 
         print(f'components: {tsvd_float.components_}')
-        print(f'explained variance: {tsvd_float._explained_variance_}')
-        exp_var = tsvd_float._explained_variance_ratio_
+        print(f'explained variance: {tsvd_float.explained_variance_}')
+        exp_var = tsvd_float.explained_variance_ratio_
         print(f'explained variance ratio: {exp_var}')
-        print(f'singular values: {tsvd_float._singular_values_}')
+        print(f'singular values: {tsvd_float.singular_values_}')
 
         trans_gdf_float = tsvd_float.transform(gdf_float)
         print(f'Transformed matrix: {trans_gdf_float}')

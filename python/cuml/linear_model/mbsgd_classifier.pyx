@@ -56,7 +56,7 @@ class MBSGDClassifier(Base,
         pred_data = cudf.DataFrame()
         pred_data['col1'] = np.asarray([3, 2], dtype=np.float32)
         pred_data['col2'] = np.asarray([5, 5], dtype=np.float32)
-        cu_mbsgd_classifier = cumlMBSGClassifier(learning_rate='constant',
+        cu_mbsgd_classifier = cumlMBSGDClassifier(learning_rate='constant',
                                                  eta0=0.05, epochs=2000,
                                                  fit_intercept=True,
                                                  batch_size=1, tol=0.0,

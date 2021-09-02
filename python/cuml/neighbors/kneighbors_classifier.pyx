@@ -125,9 +125,8 @@ class KNeighborsClassifier(NearestNeighbors,
 
       knn = KNeighborsClassifier(n_neighbors=10)
 
-      X_train, X_test, y_train, y_test =
-        train_test_split(X, y, train_size=0.80)
-
+      X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.80)
+        
       knn.fit(X_train, y_train)
 
       knn.predict(X_test)
@@ -137,8 +136,7 @@ class KNeighborsClassifier(NearestNeighbors,
 
     .. code-block:: python
 
-      array([3, 1, 1, 0, 2, 0, 0, 0, 0, 0, 0, 0, 1, 2, 3, 1, 0, 0, 0, 2, 3, 3,
-             0, 3, 0, 0, 0, 0, 3, 2, 0, 0, 0], dtype=int32)
+      array([3, 2, 2, 3, 3, 3, 2, 2, 0, 1, 1, 4, 2, 0, 0, 4, 1, 3, 4, 0])
 
     Notes
     ------
