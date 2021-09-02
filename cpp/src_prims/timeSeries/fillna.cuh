@@ -21,12 +21,12 @@
 
 #include <cuml/tsa/arima_common.h>
 #include <raft/cudart_utils.h>
-#include <cuml/common/device_buffer.hpp>
 #include <linalg/batched/matrix.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/mr/device/allocator.hpp>
+#include <rmm/device_uvector.hpp>
 #include "jones_transform.cuh"
 
 // Auxiliary functions in anonymous namespace
@@ -96,17 +96,12 @@ namespace TimeSeries {
  * @param[inout] data       Data which will be processed in-place
  * @param[in]    batch_size Number of series in the batch
  * @param[in]    n_obs      Number of observations per series
- * @param[in]    allocator  Device memory allocator
  * @param[in]    stream     CUDA stream
  */
 template <typename T>
-void fillna(T* data,
-            int batch_size,
-            int n_obs,
-            std::shared_ptr<raft::mr::device::allocator> allocator,
-            cudaStream_t stream)
+void fillna(T* data, int batch_size, int n_obs, cudaStream_t stream)
 {
-  MLCommon::device_buffer<FillnaTemp> indices(allocator, stream, batch_size * n_obs);
+  rmm::device_uvector<FillnaTemp> indices(batch_size * n_obs, stream);
   FillnaTempMaker<true, T> transform_op_fwd(data, batch_size, n_obs);
   FillnaTempMaker<false, T> transform_op_bwd(data, batch_size, n_obs);
   cub::CountingInputIterator<int> counting(0);
@@ -123,7 +118,7 @@ void fillna(T* data,
   size_t temp_storage_bytes = 0;
   cub::DeviceScan::InclusiveScan(
     nullptr, temp_storage_bytes, itr_fwd, indices.data(), scan_op, batch_size * n_obs, stream);
-  MLCommon::device_buffer<char> temp_storage(allocator, stream, temp_storage_bytes);
+  rmm::device_uvector<char> temp_storage(temp_storage_bytes, stream);
   void* d_temp_storage = (void*)temp_storage.data();
 
   // Execute scan (forward)

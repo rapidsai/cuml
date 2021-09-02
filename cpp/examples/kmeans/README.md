@@ -7,7 +7,7 @@ There are two `CMakeLists.txt` in this folder:
 ## Build
 `kmeans_example` is build as part of cuML. If it should be build as a standalone executable use `CMakeLists_standalone.txt` and configure with:
 ```bash
-$ cmake .. -DCUML_LIBRARY_DIR=/path/to/directory/with/libcuml.so -DCUML_INCLUDE_DIR=/path/to/directory/with/kmeans/kmeans_c.h
+$ cmake .. -Dcuml_ROOT=/path/to/cuml
 ```
 then build with `make`
 ```bash

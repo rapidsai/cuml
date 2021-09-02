@@ -14,14 +14,18 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
+#include "test_utils.h"
+
+#include <metrics/rand_index.cuh>
+
 #include <raft/cudart_utils.h>
+
+#include <gtest/gtest.h>
+
 #include <algorithm>
 #include <iostream>
 #include <metrics/rand_index.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <random>
-#include "test_utils.h"
 
 namespace MLCommon {
 namespace Metrics {
@@ -59,9 +63,11 @@ class randIndexTest : public ::testing::TestWithParam<randIndexParam> {
     std::generate(arr2.begin(), arr2.end(), [&]() { return intGenerator(dre); });
 
     // generating the golden output
-    int64_t a_truth = 0, b_truth = 0, iter = 0, jiter;
-    for (; iter < size; ++iter) {
-      for (jiter = 0; jiter < iter; ++jiter) {
+    int64_t a_truth = 0;
+    int64_t b_truth = 0;
+
+    for (uint64_t iter = 0; iter < size; ++iter) {
+      for (uint64_t jiter = 0; jiter < iter; ++jiter) {
         if (arr1[iter] == arr1[jiter] && arr2[iter] == arr2[jiter]) {
           ++a_truth;
         } else if (arr1[iter] != arr1[jiter] && arr2[iter] != arr2[jiter]) {
@@ -74,35 +80,32 @@ class randIndexTest : public ::testing::TestWithParam<randIndexParam> {
 
     // allocating and initializing memory to the GPU
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(firstClusterArray, size, true);
-    raft::allocate(secondClusterArray, size, true);
 
-    raft::update_device(firstClusterArray, &arr1[0], (int)size, stream);
-    raft::update_device(secondClusterArray, &arr2[0], (int)size, stream);
-    std::shared_ptr<raft::mr::device::allocator> allocator(new raft::mr::device::default_allocator);
+    rmm::device_uvector<T> firstClusterArray(size, stream);
+    rmm::device_uvector<T> secondClusterArray(size, stream);
+    CUDA_CHECK(
+      cudaMemsetAsync(firstClusterArray.data(), 0, firstClusterArray.size() * sizeof(T), stream));
+    CUDA_CHECK(
+      cudaMemsetAsync(secondClusterArray.data(), 0, secondClusterArray.size() * sizeof(T), stream));
+
+    raft::update_device(firstClusterArray.data(), &arr1[0], (int)size, stream);
+    raft::update_device(secondClusterArray.data(), &arr2[0], (int)size, stream);
 
     // calling the rand_index CUDA implementation
     computedRandIndex = MLCommon::Metrics::compute_rand_index(
-      firstClusterArray, secondClusterArray, size, allocator, stream);
+      firstClusterArray.data(), secondClusterArray.data(), size, stream);
   }
 
   // the destructor
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(firstClusterArray));
-    CUDA_CHECK(cudaFree(secondClusterArray));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
+  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
   // declaring the data values
   randIndexParam params;
   int lowerLabelRange = 0, upperLabelRange = 2;
-  T* firstClusterArray     = nullptr;
-  T* secondClusterArray    = nullptr;
   uint64_t size            = 0;
   double truthRandIndex    = 0;
   double computedRandIndex = 0;
-  cudaStream_t stream;
+  cudaStream_t stream      = 0;
 };
 
 // setting test parameter values

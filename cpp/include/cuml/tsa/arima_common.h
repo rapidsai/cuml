@@ -70,23 +70,18 @@ struct ARIMAParams {
    * @tparam      AllocatorT Type of allocator used
    * @param[in]   order      ARIMA order
    * @param[in]   batch_size Batch size
-   * @param[in]   alloc      Allocator
    * @param[in]   stream     CUDA stream
    * @param[in]   tr         Whether these are the transformed parameters
    */
-  template <typename AllocatorT>
-  void allocate(const ARIMAOrder& order,
-                int batch_size,
-                AllocatorT& alloc,
-                cudaStream_t stream,
-                bool tr = false)
+  void allocate(const ARIMAOrder& order, int batch_size, cudaStream_t stream, bool tr = false)
   {
-    if (order.k && !tr) mu = (DataT*)alloc->allocate(batch_size * sizeof(DataT), stream);
-    if (order.p) ar = (DataT*)alloc->allocate(order.p * batch_size * sizeof(DataT), stream);
-    if (order.q) ma = (DataT*)alloc->allocate(order.q * batch_size * sizeof(DataT), stream);
-    if (order.P) sar = (DataT*)alloc->allocate(order.P * batch_size * sizeof(DataT), stream);
-    if (order.Q) sma = (DataT*)alloc->allocate(order.Q * batch_size * sizeof(DataT), stream);
-    sigma2 = (DataT*)alloc->allocate(batch_size * sizeof(DataT), stream);
+    rmm::mr::device_memory_resource* rmm_alloc = rmm::mr::get_current_device_resource();
+    if (order.k && !tr) mu = (DataT*)rmm_alloc->allocate(batch_size * sizeof(DataT), stream);
+    if (order.p) ar = (DataT*)rmm_alloc->allocate(order.p * batch_size * sizeof(DataT), stream);
+    if (order.q) ma = (DataT*)rmm_alloc->allocate(order.q * batch_size * sizeof(DataT), stream);
+    if (order.P) sar = (DataT*)rmm_alloc->allocate(order.P * batch_size * sizeof(DataT), stream);
+    if (order.Q) sma = (DataT*)rmm_alloc->allocate(order.Q * batch_size * sizeof(DataT), stream);
+    sigma2 = (DataT*)rmm_alloc->allocate(batch_size * sizeof(DataT), stream);
   }
 
   /**
@@ -95,23 +90,18 @@ struct ARIMAParams {
    * @tparam      AllocatorT Type of allocator used
    * @param[in]   order      ARIMA order
    * @param[in]   batch_size Batch size
-   * @param[in]   alloc      Allocator
    * @param[in]   stream     CUDA stream
    * @param[in]   tr         Whether these are the transformed parameters
    */
-  template <typename AllocatorT>
-  void deallocate(const ARIMAOrder& order,
-                  int batch_size,
-                  AllocatorT& alloc,
-                  cudaStream_t stream,
-                  bool tr = false)
+  void deallocate(const ARIMAOrder& order, int batch_size, cudaStream_t stream, bool tr = false)
   {
-    if (order.k && !tr) alloc->deallocate(mu, batch_size * sizeof(DataT), stream);
-    if (order.p) alloc->deallocate(ar, order.p * batch_size * sizeof(DataT), stream);
-    if (order.q) alloc->deallocate(ma, order.q * batch_size * sizeof(DataT), stream);
-    if (order.P) alloc->deallocate(sar, order.P * batch_size * sizeof(DataT), stream);
-    if (order.Q) alloc->deallocate(sma, order.Q * batch_size * sizeof(DataT), stream);
-    alloc->deallocate(sigma2, batch_size * sizeof(DataT), stream);
+    rmm::mr::device_memory_resource* rmm_alloc = rmm::mr::get_current_device_resource();
+    if (order.k && !tr) rmm_alloc->deallocate(mu, batch_size * sizeof(DataT), stream);
+    if (order.p) rmm_alloc->deallocate(ar, order.p * batch_size * sizeof(DataT), stream);
+    if (order.q) rmm_alloc->deallocate(ma, order.q * batch_size * sizeof(DataT), stream);
+    if (order.P) rmm_alloc->deallocate(sar, order.P * batch_size * sizeof(DataT), stream);
+    if (order.Q) rmm_alloc->deallocate(sma, order.Q * batch_size * sizeof(DataT), stream);
+    rmm_alloc->deallocate(sigma2, batch_size * sizeof(DataT), stream);
   }
 
   /**

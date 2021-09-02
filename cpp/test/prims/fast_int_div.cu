@@ -17,6 +17,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <common/fast_int_div.cuh>
+#include <rmm/device_uvector.hpp>
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -66,12 +67,14 @@ __global__ void fastIntDivTestKernel(
 
 TEST(FastIntDiv, GpuTest)
 {
+  cudaStream_t stream = 0;
+  CUDA_CHECK(cudaStreamCreate(&stream));
+
   static const int len = 100000;
   static const int TPB = 128;
-  int *computed, *correct, *in;
-  raft::allocate(computed, len * 2);
-  raft::allocate(correct, len * 2);
-  raft::allocate(in, len);
+  rmm::device_uvector<int> computed(len * 2, stream);
+  rmm::device_uvector<int> correct(len * 2, stream);
+  rmm::device_uvector<int> in(len, stream);
   for (int i = 0; i < 100; ++i) {
     // get a positive divisor
     int divisor;
@@ -80,15 +83,16 @@ TEST(FastIntDiv, GpuTest)
     } while (divisor <= 0);
     FastIntDiv fid(divisor);
     // run it against a few random numbers and compare the outputs
-    int* h_in = new int[len];
+    std::vector<int> h_in(len);
     for (int i = 0; i < len; ++i) {
       h_in[i] = rand();
     }
-    raft::update_device(in, h_in, len, 0);
+    raft::update_device(in.data(), h_in.data(), len, stream);
     int nblks = raft::ceildiv(len, TPB);
-    fastIntDivTestKernel<<<nblks, TPB, 0, 0>>>(computed, correct, in, fid, divisor, len);
+    fastIntDivTestKernel<<<nblks, TPB, 0, 0>>>(
+      computed.data(), correct.data(), in.data(), fid, divisor, len);
     CUDA_CHECK(cudaStreamSynchronize(0));
-    ASSERT_TRUE(devArrMatch(correct, computed, len * 2, raft::Compare<int>()))
+    ASSERT_TRUE(devArrMatch(correct.data(), computed.data(), len * 2, raft::Compare<int>()))
       << " divisor=" << divisor;
   }
 }

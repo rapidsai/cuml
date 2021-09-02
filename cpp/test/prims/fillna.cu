@@ -23,10 +23,9 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
 #include <raft/mr/device/allocator.hpp>
+#include <rmm/device_uvector.hpp>
 
 #include "test_utils.h"
-
-#include <cuml/common/device_buffer.hpp>
 
 #include <timeSeries/fillna.cuh>
 
@@ -64,8 +63,7 @@ class FillnaTest : public ::testing::TestWithParam<FillnaInputs<T>> {
 
     params = ::testing::TestWithParam<FillnaInputs<T>>::GetParam();
 
-    device_buffer<T> y(
-      handle.get_device_allocator(), handle.get_stream(), params.n_obs * params.batch_size);
+    rmm::device_uvector<T> y(params.n_obs * params.batch_size, handle.get_stream());
 
     std::vector<T> h_y(params.n_obs * params.batch_size);
 
@@ -91,11 +89,7 @@ class FillnaTest : public ::testing::TestWithParam<FillnaInputs<T>> {
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     /* Compute using tested prims */
-    fillna(y.data(),
-           params.batch_size,
-           params.n_obs,
-           handle.get_device_allocator(),
-           handle.get_stream());
+    fillna(y.data(), params.batch_size, params.n_obs, handle.get_stream());
 
     /* Compute reference results */
     for (int bid = 0; bid < params.batch_size; bid++) {

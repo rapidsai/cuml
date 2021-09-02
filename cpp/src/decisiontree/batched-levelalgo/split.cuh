@@ -65,7 +65,7 @@ struct Split {
    *
    * @return the reference to the copied object (typically useful for chaining)
    */
-  DI volatile SplitT& operator=(const SplitT& other) volatile
+  DI SplitT& operator=(const SplitT& other)
   {
     quesval         = other.quesval;
     colid           = other.colid;
@@ -77,17 +77,20 @@ struct Split {
   /**
    * @brief updates the current split if the input gain is better
    */
-  DI void update(const SplitT& other) volatile
+  DI bool update(const SplitT& other)
   {
+    bool update_result = false;
     if (other.best_metric_val > best_metric_val) {
-      *this = other;
+      update_result = true;
     } else if (other.best_metric_val == best_metric_val) {
       if (other.colid > colid) {
-        *this = other;
+        update_result = true;
       } else if (other.colid == colid) {
-        if (other.quesval > quesval) { *this = other; }
+        if (other.quesval > quesval) { update_result = true; }
       }
     }
+    if (update_result) { *this = other; }
+    return update_result;
   }
 
   /**
@@ -137,12 +140,23 @@ struct Split {
       if (threadIdx.x == 0 && this->colid != -1) {
         while (atomicCAS(mutex, 0, 1))
           ;
-        split->update(*this);
+        SplitT split_reg;
+        split_reg.quesval         = split->quesval;
+        split_reg.colid           = split->colid;
+        split_reg.best_metric_val = split->best_metric_val;
+        split_reg.nLeft           = split->nLeft;
+        bool update_result =
+          split_reg.update({this->quesval, this->colid, this->best_metric_val, this->nLeft});
+        if (update_result) {
+          split->quesval         = split_reg.quesval;
+          split->colid           = split_reg.colid;
+          split->best_metric_val = split_reg.best_metric_val;
+          split->nLeft           = split_reg.nLeft;
+        }
         __threadfence();
-        atomicCAS(mutex, 1, 0);
+        atomicExch(mutex, 0);
       }
     }
-    __syncthreads();
   }
 };  // struct Split
 

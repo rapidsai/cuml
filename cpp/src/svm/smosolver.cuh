@@ -16,7 +16,16 @@
 
 #pragma once
 
-#include <math.h>
+#include <cuml/matrix/kernelparams.h>
+#include <cuml/common/logger.hpp>
+
+#include <matrix/grammatrix.cuh>
+#include <matrix/kernelfactory.cuh>
+
+#include <raft/linalg/cublas_wrappers.h>
+#include <raft/linalg/gemv.h>
+#include <raft/linalg/unary_op.cuh>
+
 #include <raft/cudart_utils.h>
 #include <thrust/device_ptr.h>
 #include <thrust/fill.h>
@@ -39,7 +48,6 @@
 #include "workingset.cuh"
 #include "ws_util.cuh"
 
-#include <cuml/common/device_buffer.hpp>
 #include "results.cuh"
 
 namespace ML {
@@ -74,10 +82,9 @@ template <typename math_t>
 class SmoSolver {
  public:
   SmoSolver(const raft::handle_t& handle,
-            svmParameter param,
+            SvmParameter param,
             MLCommon::Matrix::GramMatrixBase<math_t>* kernel)
     : handle(handle),
-      n_rows(n_rows),
       C(param.C),
       tol(param.tol),
       kernel(kernel),
@@ -86,12 +93,12 @@ class SmoSolver {
       epsilon(param.epsilon),
       svmType(param.svmType),
       stream(handle.get_stream()),
-      return_buff(handle.get_device_allocator(), stream, 2),
-      alpha(handle.get_device_allocator(), stream),
-      C_vec(handle.get_device_allocator(), stream),
-      delta_alpha(handle.get_device_allocator(), stream),
-      f(handle.get_device_allocator(), stream),
-      y_label(handle.get_device_allocator(), stream)
+      return_buff(2, stream),
+      alpha(0, stream),
+      C_vec(0, stream),
+      delta_alpha(0, stream),
+      f(0, stream),
+      y_label(0, stream)
   {
     ML::Logger::get().setLevel(param.verbosity);
   }
@@ -386,19 +393,19 @@ class SmoSolver {
   int n_train = 0;  //!< number of training vectors (including duplicates for SVR)
 
   // Buffers for the domain [n_train]
-  MLCommon::device_buffer<math_t> alpha;    //!< dual coordinates
-  MLCommon::device_buffer<math_t> f;        //!< optimality indicator vector
-  MLCommon::device_buffer<math_t> y_label;  //!< extra label for regression
+  rmm::device_uvector<math_t> alpha;    //!< dual coordinates
+  rmm::device_uvector<math_t> f;        //!< optimality indicator vector
+  rmm::device_uvector<math_t> y_label;  //!< extra label for regression
 
-  MLCommon::device_buffer<math_t> C_vec;  //!< penalty parameter vector
+  rmm::device_uvector<math_t> C_vec;  //!< penalty parameter vector
 
   // Buffers for the working set [n_ws]
   //! change in alpha parameter during a blocksolve step
-  MLCommon::device_buffer<math_t> delta_alpha;
+  rmm::device_uvector<math_t> delta_alpha;
 
   // Buffers to return some parameters from the kernel (iteration number, and
   // convergence information)
-  MLCommon::device_buffer<math_t> return_buff;
+  rmm::device_uvector<math_t> return_buff;
   math_t host_return_buff[2];
 
   math_t C;
@@ -492,10 +499,10 @@ class SmoSolver {
 
   void ReleaseBuffers()
   {
-    alpha.release(stream);
-    delta_alpha.release(stream);
-    f.release(stream);
-    y_label.release(stream);
+    alpha.release();
+    delta_alpha.release();
+    f.release();
+    y_label.release();
   }
 };
 

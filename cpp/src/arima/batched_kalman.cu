@@ -25,12 +25,14 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
-#include <common/nvtx.hpp>
-#include <linalg/batched/matrix.cuh>
-#include <linalg/block.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
 #include <raft/linalg/binary_op.cuh>
+#include <rmm/device_uvector.hpp>
+
+#include <common/nvtx.hpp>
+#include <linalg/batched/matrix.cuh>
+#include <linalg/block.cuh>
 #include <timeSeries/arima_helpers.cuh>
 
 namespace ML {
@@ -655,7 +657,6 @@ void _batched_kalman_device_loop_large(const ARIMAMemory<double>& arima_mem,
                 "Gemm and gemv policies: block size mismatch");
 
   auto stream       = T.stream();
-  auto allocator    = T.allocator();
   auto cublasHandle = T.cublasHandle();
   int batch_size    = T.batches();
 
@@ -666,18 +667,10 @@ void _batched_kalman_device_loop_large(const ARIMAMemory<double>& arima_mem,
                                                   cublasHandle,
                                                   arima_mem.m_tmp_batches,
                                                   arima_mem.m_tmp_dense,
-                                                  allocator,
                                                   stream,
                                                   false);
-  MLCommon::LinAlg::Batched::Matrix<double> TP(rd,
-                                               rd,
-                                               batch_size,
-                                               cublasHandle,
-                                               arima_mem.TP_batches,
-                                               arima_mem.TP_dense,
-                                               allocator,
-                                               stream,
-                                               false);
+  MLCommon::LinAlg::Batched::Matrix<double> TP(
+    rd, rd, batch_size, cublasHandle, arima_mem.TP_batches, arima_mem.TP_dense, stream, false);
 
   int grid_size          = std::min(batch_size, 65536);
   size_t shared_mem_size = 4 * rd * sizeof(double);
@@ -1084,7 +1077,6 @@ void _lyapunov_wrapper(raft::handle_t& handle,
   if (r <= 5) {
     auto stream       = handle.get_stream();
     auto cublasHandle = handle.get_cublas_handle();
-    auto allocator    = handle.get_device_allocator();
     int batch_size    = A.batches();
     int r2            = r * r;
 
@@ -1098,7 +1090,6 @@ void _lyapunov_wrapper(raft::handle_t& handle,
                                                       cublasHandle,
                                                       arima_mem.I_m_AxA_batches,
                                                       arima_mem.I_m_AxA_dense,
-                                                      allocator,
                                                       stream,
                                                       false);
     MLCommon::LinAlg::Batched::Matrix<double> I_m_AxA_inv(r2,
@@ -1107,7 +1098,6 @@ void _lyapunov_wrapper(raft::handle_t& handle,
                                                           cublasHandle,
                                                           arima_mem.I_m_AxA_inv_batches,
                                                           arima_mem.I_m_AxA_inv_dense,
-                                                          allocator,
                                                           stream,
                                                           false);
 
@@ -1143,7 +1133,6 @@ void _batched_kalman_filter(raft::handle_t& handle,
   const size_t batch_size = Zb.batches();
   auto stream             = handle.get_stream();
   auto cublasHandle       = handle.get_cublas_handle();
-  auto allocator          = handle.get_device_allocator();
 
   auto counting = thrust::make_counting_iterator(0);
 
@@ -1151,15 +1140,8 @@ void _batched_kalman_filter(raft::handle_t& handle,
   int rd     = order.rd();
   int r      = order.r();
 
-  MLCommon::LinAlg::Batched::Matrix<double> RQb(rd,
-                                                1,
-                                                batch_size,
-                                                cublasHandle,
-                                                arima_mem.RQ_batches,
-                                                arima_mem.RQ_dense,
-                                                allocator,
-                                                stream,
-                                                true);
+  MLCommon::LinAlg::Batched::Matrix<double> RQb(
+    rd, 1, batch_size, cublasHandle, arima_mem.RQ_batches, arima_mem.RQ_dense, stream, true);
   double* d_RQ      = RQb.raw_data();
   const double* d_R = Rb.raw_data();
   thrust::for_each(
@@ -1169,28 +1151,14 @@ void _batched_kalman_filter(raft::handle_t& handle,
         d_RQ[bid * rd + i] = d_R[bid * rd + i] * sigma2;
       }
     });
-  MLCommon::LinAlg::Batched::Matrix<double> RQR(rd,
-                                                rd,
-                                                batch_size,
-                                                cublasHandle,
-                                                arima_mem.RQR_batches,
-                                                arima_mem.RQR_dense,
-                                                allocator,
-                                                stream,
-                                                false);
+  MLCommon::LinAlg::Batched::Matrix<double> RQR(
+    rd, rd, batch_size, cublasHandle, arima_mem.RQR_batches, arima_mem.RQR_dense, stream, false);
   MLCommon::LinAlg::Batched::b_gemm(false, true, rd, rd, 1, 1.0, RQb, Rb, 0.0, RQR);
 
   // Durbin Koopman "Time Series Analysis" pg 138
   ML::PUSH_RANGE("Init P");
-  MLCommon::LinAlg::Batched::Matrix<double> P(rd,
-                                              rd,
-                                              batch_size,
-                                              cublasHandle,
-                                              arima_mem.P_batches,
-                                              arima_mem.P_dense,
-                                              allocator,
-                                              stream,
-                                              true);
+  MLCommon::LinAlg::Batched::Matrix<double> P(
+    rd, rd, batch_size, cublasHandle, arima_mem.P_batches, arima_mem.P_dense, stream, true);
   {
     double* d_P = P.raw_data();
 
@@ -1207,33 +1175,18 @@ void _batched_kalman_filter(raft::handle_t& handle,
         });
 
       // Initialize the stationary part by solving a Lyapunov equation
-      MLCommon::LinAlg::Batched::Matrix<double> Ts(r,
-                                                   r,
-                                                   batch_size,
-                                                   cublasHandle,
-                                                   arima_mem.Ts_batches,
-                                                   arima_mem.Ts_dense,
-                                                   allocator,
-                                                   stream,
-                                                   false);
+      MLCommon::LinAlg::Batched::Matrix<double> Ts(
+        r, r, batch_size, cublasHandle, arima_mem.Ts_batches, arima_mem.Ts_dense, stream, false);
       MLCommon::LinAlg::Batched::Matrix<double> RQRs(r,
                                                      r,
                                                      batch_size,
                                                      cublasHandle,
                                                      arima_mem.RQRs_batches,
                                                      arima_mem.RQRs_dense,
-                                                     allocator,
                                                      stream,
                                                      false);
-      MLCommon::LinAlg::Batched::Matrix<double> Ps(r,
-                                                   r,
-                                                   batch_size,
-                                                   cublasHandle,
-                                                   arima_mem.Ps_batches,
-                                                   arima_mem.Ps_dense,
-                                                   allocator,
-                                                   stream,
-                                                   false);
+      MLCommon::LinAlg::Batched::Matrix<double> Ps(
+        r, r, batch_size, cublasHandle, arima_mem.Ps_batches, arima_mem.Ps_dense, stream, false);
 
       MLCommon::LinAlg::Batched::b_2dcopy(Tb, Ts, n_diff, n_diff, r, r);
       MLCommon::LinAlg::Batched::b_2dcopy(RQR, RQRs, n_diff, n_diff, r, r);
@@ -1261,20 +1214,12 @@ void _batched_kalman_filter(raft::handle_t& handle,
                                                   handle.get_cublas_handle(),
                                                   arima_mem.alpha_batches,
                                                   arima_mem.alpha_dense,
-                                                  handle.get_device_allocator(),
                                                   stream,
                                                   false);
   if (intercept) {
     // Compute I-T*
-    MLCommon::LinAlg::Batched::Matrix<double> ImT(r,
-                                                  r,
-                                                  batch_size,
-                                                  cublasHandle,
-                                                  arima_mem.ImT_batches,
-                                                  arima_mem.ImT_dense,
-                                                  allocator,
-                                                  stream,
-                                                  false);
+    MLCommon::LinAlg::Batched::Matrix<double> ImT(
+      r, r, batch_size, cublasHandle, arima_mem.ImT_batches, arima_mem.ImT_dense, stream, false);
     const double* d_T = Tb.raw_data();
     double* d_ImT     = ImT.raw_data();
     thrust::for_each(
@@ -1303,7 +1248,6 @@ void _batched_kalman_filter(raft::handle_t& handle,
                                                       cublasHandle,
                                                       arima_mem.ImT_inv_batches,
                                                       arima_mem.ImT_inv_dense,
-                                                      allocator,
                                                       stream,
                                                       false);
     MLCommon::LinAlg::Batched::Matrix<double>::inv(
@@ -1484,38 +1428,16 @@ void batched_kalman_filter(raft::handle_t& handle,
 
   auto cublasHandle = handle.get_cublas_handle();
   auto stream       = handle.get_stream();
-  auto allocator    = handle.get_device_allocator();
 
   // see (3.18) in TSA by D&K
   int rd = order.rd();
 
-  MLCommon::LinAlg::Batched::Matrix<double> Zb(1,
-                                               rd,
-                                               batch_size,
-                                               cublasHandle,
-                                               arima_mem.Z_batches,
-                                               arima_mem.Z_dense,
-                                               allocator,
-                                               stream,
-                                               false);
-  MLCommon::LinAlg::Batched::Matrix<double> Tb(rd,
-                                               rd,
-                                               batch_size,
-                                               cublasHandle,
-                                               arima_mem.T_batches,
-                                               arima_mem.T_dense,
-                                               allocator,
-                                               stream,
-                                               false);
-  MLCommon::LinAlg::Batched::Matrix<double> Rb(rd,
-                                               1,
-                                               batch_size,
-                                               cublasHandle,
-                                               arima_mem.R_batches,
-                                               arima_mem.R_dense,
-                                               allocator,
-                                               stream,
-                                               false);
+  MLCommon::LinAlg::Batched::Matrix<double> Zb(
+    1, rd, batch_size, cublasHandle, arima_mem.Z_batches, arima_mem.Z_dense, stream, false);
+  MLCommon::LinAlg::Batched::Matrix<double> Tb(
+    rd, rd, batch_size, cublasHandle, arima_mem.T_batches, arima_mem.T_dense, stream, false);
+  MLCommon::LinAlg::Batched::Matrix<double> Rb(
+    rd, 1, batch_size, cublasHandle, arima_mem.R_batches, arima_mem.R_dense, stream, false);
 
   init_batched_kalman_matrices(handle,
                                params.ar,
@@ -1563,7 +1485,6 @@ void batched_jones_transform(raft::handle_t& handle,
                              double* h_Tparams)
 {
   int N                       = order.complexity();
-  auto allocator              = handle.get_device_allocator();
   auto stream                 = handle.get_stream();
   double* d_params            = arima_mem.d_params;
   double* d_Tparams           = arima_mem.d_Tparams;
@@ -1584,8 +1505,7 @@ void batched_jones_transform(raft::handle_t& handle,
 
   params.unpack(order, batch_size, d_params, stream);
 
-  MLCommon::TimeSeries::batched_jones_transform(
-    order, batch_size, isInv, params, Tparams, allocator, stream);
+  MLCommon::TimeSeries::batched_jones_transform(order, batch_size, isInv, params, Tparams, stream);
   Tparams.mu = params.mu;
 
   Tparams.pack(order, batch_size, d_Tparams, stream);

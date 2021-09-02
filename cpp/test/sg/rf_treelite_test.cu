@@ -14,23 +14,29 @@
  * limitations under the License.
  */
 
+#include <test_utils.h>
+
 #include <decisiontree/treelite_util.h>
-#include <gtest/gtest.h>
+#include <decisiontree/decisiontree.cuh>
+
+#include <cuml/ensemble/randomforest.hpp>
+
 #include <raft/cudart_utils.h>
 #include <raft/linalg/gemv.h>
 #include <raft/linalg/transpose.h>
-#include <sys/stat.h>
-#include <test_utils.h>
+#include <raft/cuda_utils.cuh>
+#include <raft/random/rng.cuh>
+
 #include <treelite/c_api.h>
 #include <treelite/c_api_runtime.h>
+
+#include <gtest/gtest.h>
+
+#include <sys/stat.h>
 #include <cstdlib>
-#include <cuml/ensemble/randomforest.hpp>
-#include <decisiontree/decisiontree.cuh>
 #include <fstream>
 #include <iostream>
 #include <limits>
-#include <raft/cuda_utils.cuh>
-#include <raft/random/rng.cuh>
 #include <string>
 
 namespace ML {
@@ -159,7 +165,7 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
             params.n_inference_rows,
             params.n_cols,
             predicted_labels_d);
-    RF_metrics tmp = score(*handle, forest, labels_d, params.n_inference_rows, predicted_labels_d);
+    score(*handle, forest, labels_d, params.n_inference_rows, predicted_labels_d);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -210,11 +216,11 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
     data_len           = params.n_rows * params.n_cols;
     inference_data_len = params.n_inference_rows * params.n_cols;
 
-    raft::allocate(data_d, data_len);
-    raft::allocate(inference_data_d, inference_data_len);
+    raft::allocate(data_d, data_len, stream);
+    raft::allocate(inference_data_d, inference_data_len, stream);
 
-    raft::allocate(labels_d, params.n_rows);
-    raft::allocate(predicted_labels_d, params.n_inference_rows);
+    raft::allocate(labels_d, params.n_rows, stream);
+    raft::allocate(predicted_labels_d, params.n_inference_rows, stream);
 
     treelite_predicted_labels.resize(params.n_inference_rows);
     ref_predicted_labels.resize(params.n_inference_rows);
@@ -280,7 +286,7 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
   int data_len;
   int inference_data_len;
 
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   std::shared_ptr<raft::handle_t> handle;
   std::vector<float> treelite_predicted_labels;
   std::vector<float> ref_predicted_labels;
@@ -308,40 +314,42 @@ class RfConcatTestClf : public RfTreeliteTestCommon<T, L> {
     // #class for multi-class classification
     this->task_category = 2;
 
-    float *weight, *temp_label_d, *temp_data_d;
     std::vector<float> temp_label_h;
 
-    raft::allocate(weight, this->params.n_cols);
-    raft::allocate(temp_label_d, this->params.n_rows);
-    raft::allocate(temp_data_d, this->data_len);
+    cudaStream_t stream = 0;
+    CUDA_CHECK(cudaStreamCreate(&stream));
+
+    rmm::device_uvector<float> weight(this->params.n_cols, stream);
+    rmm::device_uvector<float> temp_label_d(this->params.n_rows, stream);
+    rmm::device_uvector<float> temp_data_d(this->data_len, stream);
 
     raft::random::Rng r(1234ULL);
 
     // Generate weight for each feature.
-    r.uniform(weight, this->params.n_cols, T(0.0), T(1.0), this->stream);
+    r.uniform(weight.data(), this->params.n_cols, T(0.0), T(1.0), this->stream);
     // Generate noise.
-    r.uniform(temp_label_d, this->params.n_rows, T(0.0), T(10.0), this->stream);
+    r.uniform(temp_label_d.data(), this->params.n_rows, T(0.0), T(10.0), this->stream);
 
     raft::linalg::transpose<float>(*(this->handle),
                                    this->data_d,
-                                   temp_data_d,
+                                   temp_data_d.data(),
                                    this->params.n_rows,
                                    this->params.n_cols,
                                    this->stream);
 
     raft::linalg::gemv<float>(*(this->handle),
-                              temp_data_d,
+                              temp_data_d.data(),
                               this->params.n_cols,
                               this->params.n_rows,
-                              weight,
-                              temp_label_d,
+                              weight.data(),
+                              temp_label_d.data(),
                               true,
                               1.f,
                               1.f,
                               this->stream);
 
     temp_label_h.resize(this->params.n_rows);
-    raft::update_host(temp_label_h.data(), temp_label_d, this->params.n_rows, this->stream);
+    raft::update_host(temp_label_h.data(), temp_label_d.data(), this->params.n_rows, this->stream);
 
     CUDA_CHECK(cudaStreamSynchronize(this->stream));
 
@@ -388,9 +396,6 @@ class RfConcatTestClf : public RfTreeliteTestCommon<T, L> {
 
     labels_map.clear();
     temp_label_h.clear();
-    CUDA_CHECK(cudaFree(weight));
-    CUDA_CHECK(cudaFree(temp_label_d));
-    CUDA_CHECK(cudaFree(temp_data_d));
   }
 
  protected:
@@ -409,29 +414,31 @@ class RfConcatTestReg : public RfTreeliteTestCommon<T, L> {
     // #class for multi-class classification
     this->task_category = 1;
 
-    float *weight, *temp_data_d;
-    raft::allocate(weight, this->params.n_cols);
-    raft::allocate(temp_data_d, this->data_len);
+    cudaStream_t stream = 0;
+    CUDA_CHECK(cudaStreamCreate(&stream));
+
+    rmm::device_uvector<float> weight(this->params.n_cols, stream);
+    rmm::device_uvector<float> temp_data_d(this->data_len, stream);
 
     raft::random::Rng r(1234ULL);
 
     // Generate weight for each feature.
-    r.uniform(weight, this->params.n_cols, T(0.0), T(1.0), this->stream);
+    r.uniform(weight.data(), this->params.n_cols, T(0.0), T(1.0), this->stream);
     // Generate noise.
     r.uniform(this->labels_d, this->params.n_rows, T(0.0), T(10.0), this->stream);
 
     raft::linalg::transpose<float>(*(this->handle),
                                    this->data_d,
-                                   temp_data_d,
+                                   temp_data_d.data(),
                                    this->params.n_rows,
                                    this->params.n_cols,
                                    this->stream);
 
     raft::linalg::gemv<float>(*(this->handle),
-                              temp_data_d,
+                              temp_data_d.data(),
                               this->params.n_cols,
                               this->params.n_rows,
-                              weight,
+                              weight.data(),
                               this->labels_d,
                               true,
                               1.f,
@@ -462,9 +469,6 @@ class RfConcatTestReg : public RfTreeliteTestCommon<T, L> {
 
     this->ConcatenateTreeliteModels();
     this->getResultAndCheck();
-
-    CUDA_CHECK(cudaFree(weight));
-    CUDA_CHECK(cudaFree(temp_data_d));
   }
 };
 
