@@ -87,6 +87,11 @@ inline __device__ void transform(DataT* tmp, DataT* myNewParams, bool isAr)
       }
     }
   }
+
+  // Clamp values to avoid numerical issues when very close to 1
+  for (int i = 0; i < VALUE; ++i) {
+    myNewParams[i] = max(-0.9999, min(myNewParams[i], 0.9999));
+  }
 }
 
 /**
