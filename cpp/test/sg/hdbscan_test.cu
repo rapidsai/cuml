@@ -94,7 +94,6 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
                                                  mst_weights.data());
 
     HDBSCAN::Common::HDBSCANParams hdbscan_params;
-    hdbscan_params.k                = params.k;
     hdbscan_params.min_cluster_size = params.min_cluster_size;
     hdbscan_params.min_samples      = params.min_pts;
 
@@ -116,6 +115,7 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
 
  protected:
   HDBSCANInputs<T, IdxT> params;
+  IdxT* labels_ref;
   int k;
 
   double score;
@@ -218,7 +218,6 @@ class ClusterCondensingTest : public ::testing::TestWithParam<ClusterCondensingI
 
  protected:
   ClusterCondensingInputs<T, IdxT> params;
-  int k;
 
   double score;
 };
