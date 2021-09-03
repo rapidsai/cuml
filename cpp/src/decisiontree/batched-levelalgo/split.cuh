@@ -26,7 +26,6 @@ namespace DT {
  * @brief All info pertaining to splitting a node
  *
  * @tparam DataT input data type
- * @tparam IdxT  indexing type
  */
 template <typename DataT, typename IdxT>
 struct Split {
@@ -34,8 +33,6 @@ struct Split {
 
   /** start with this as the initial gain */
   static constexpr DataT Min = -std::numeric_limits<DataT>::max();
-  /** special value to represent invalid column id */
-  static constexpr IdxT Invalid = static_cast<IdxT>(-1);
 
   /** threshold to compare in this node */
   DataT quesval;
@@ -44,7 +41,7 @@ struct Split {
   /** best info gain on this node */
   DataT best_metric_val;
   /** number of samples in the left child */
-  IdxT nLeft;
+  int nLeft;
 
   DI Split(DataT quesval, IdxT colid, DataT best_metric_val, IdxT nLeft)
     : quesval(quesval), colid(colid), best_metric_val(best_metric_val), nLeft(nLeft)
@@ -54,7 +51,7 @@ struct Split {
   DI Split()
   {
     quesval = best_metric_val = Min;
-    colid                     = Invalid;
+    colid                     = -1;
     nLeft                     = 0;
   }
 
