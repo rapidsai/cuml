@@ -33,6 +33,10 @@ VALID_METRICS = {
         "inner_product", "sqeuclidean",
         "haversine"
     ]),
+    "rbc": set([
+        "euclidean", "haversine",
+        "l2", "sqeuclidean"
+    ]),
     "ivfflat": set([
         "l2", "euclidean", "sqeuclidean",
         "inner_product", "cosine", "correlation"
@@ -45,7 +49,7 @@ VALID_METRICS = {
         "l2", "euclidean", "sqeuclidean",
         "inner_product", "cosine", "correlation"
     ])
-    }
+}
 
 VALID_METRICS_SPARSE = {
     "brute": set(["euclidean", "l2", "inner_product",

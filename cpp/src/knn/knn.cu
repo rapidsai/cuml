@@ -49,32 +49,39 @@ void brute_force_knn(const raft::handle_t& handle,
 {
   ASSERT(input.size() == sizes.size(), "input and sizes vectors must be the same size");
 
-  if (D == 2 && (metric == raft::distance::DistanceType::Haversine ||
-                 metric == raft::distance::DistanceType::L2Expanded ||
-                 metric == raft::distance::DistanceType::L2Unexpanded ||
-                 metric == raft::distance::DistanceType::L2SqrtExpanded ||
-                 metric == raft::distance::DistanceType::L2SqrtUnexpanded) {
-    raft::spatial::knn::BallCoverIndex<value_idx, value_t> index(
-      handle, input[0], sizs[0], D, metric);
+  raft::spatial::knn::brute_force_knn(handle,
+                                      input,
+                                      sizes,
+                                      D,
+                                      search_items,
+                                      n,
+                                      res_I,
+                                      res_D,
+                                      k,
+                                      rowMajorIndex,
+                                      rowMajorQuery,
+                                      nullptr,
+                                      metric,
+                                      metric_arg);
+}
 
-    raft::spatial::knn::rbc_build_index(handle, index, k);
-    raft::spatial::knn::rbc_knn_query(handle, index, k, search_items, n, res_I, res_D);
-  } else {
-    raft::spatial::knn::brute_force_knn(handle,
-                                        input,
-                                        sizes,
-                                        D,
-                                        search_items,
-                                        n,
-                                        res_I,
-                                        res_D,
-                                        k,
-                                        rowMajorIndex,
-                                        rowMajorQuery,
-                                        nullptr,
-                                        metric,
-                                        metric_arg);
-  }
+void rbc_build_index(const raft::handle_t& handle,
+                     raft::spatial::knn::BallCoverIndex<int64_t, float, int>& index,
+                     int k)
+{
+  raft::spatial::knn::rbc_build_index(handle, index, k);
+}
+
+void rbc_knn_query(const raft::handle_t& handle,
+                   raft::spatial::knn::BallCoverIndex<int64_t, float, int>& index,
+                   int k,
+                   const float* search_items,
+                   int n_search_items,
+                   int64_t* out_inds,
+                   float* out_dists)
+{
+  raft::spatial::knn::rbc_knn_query(
+    handle, index, k, search_items, n_search_items, out_inds, out_dists);
 }
 
 void approx_knn_build_index(raft::handle_t& handle,
