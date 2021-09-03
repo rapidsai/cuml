@@ -59,8 +59,7 @@ class RFClassifier : public BlobsFixture<D> {
       state.SkipWithError("RFClassifier only supports col-major inputs");
     }
     this->loopOnState(state, [this]() {
-      auto* mPtr  = &model.model;
-      mPtr->trees = nullptr;
+      auto* mPtr = &model.model;
       fit(*this->handle,
           mPtr,
           this->data.X.data(),
