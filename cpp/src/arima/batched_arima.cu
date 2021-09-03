@@ -90,6 +90,8 @@ bool detect_missing(raft::handle_t& handle, const double* d_y, int n_elem)
 void predict(raft::handle_t& handle,
              const ARIMAMemory<double>& arima_mem,
              const double* d_y,
+             const double* d_exog,
+             const double* d_exog_fut,
              int batch_size,
              int n_obs,
              int start,
@@ -110,18 +112,29 @@ void predict(raft::handle_t& handle,
   // Prepare data
   int n_obs_kf;
   const double* d_y_kf;
+  const double* d_exog_kf;
   ARIMAOrder order_after_prep = order;
   if (diff) {
     n_obs_kf = n_obs - order.n_diff();
     MLCommon::TimeSeries::prepare_data(
       arima_mem.y_diff, d_y, batch_size, n_obs, order.d, order.D, order.s, stream);
+    MLCommon::TimeSeries::prepare_data(arima_mem.exog_diff,
+                                       d_exog,
+                                       order.n_exog * batch_size,
+                                       n_obs,
+                                       order.d,
+                                       order.D,
+                                       order.s,
+                                       stream);
     order_after_prep.d = 0;
     order_after_prep.D = 0;
 
-    d_y_kf = arima_mem.y_diff;
+    d_y_kf    = arima_mem.y_diff;
+    d_exog_kf = arima_mem.exog_diff;
   } else {
-    n_obs_kf = n_obs;
-    d_y_kf   = d_y;
+    n_obs_kf  = n_obs;
+    d_y_kf    = d_y;
+    d_exog_kf = d_exog;
   }
 
   double* d_pred = arima_mem.pred;
@@ -137,6 +150,7 @@ void predict(raft::handle_t& handle,
   batched_loglike(handle,
                   arima_mem,
                   d_y_kf,
+                  d_exog_kf,
                   batch_size,
                   n_obs_kf,
                   order_after_prep,
@@ -364,6 +378,7 @@ void conditional_sum_of_squares(raft::handle_t& handle,
 void batched_loglike(raft::handle_t& handle,
                      const ARIMAMemory<double>& arima_mem,
                      const double* d_y,
+                     const double* d_exog,
                      int batch_size,
                      int n_obs,
                      const ARIMAOrder& order,
@@ -385,7 +400,8 @@ void batched_loglike(raft::handle_t& handle,
 
   double* d_pred = arima_mem.pred;
 
-  ARIMAParams<double> Tparams = {arima_mem.Tparams_mu,
+  ARIMAParams<double> Tparams = {params.mu,
+                                 params.beta,
                                  arima_mem.Tparams_ar,
                                  arima_mem.Tparams_ma,
                                  arima_mem.Tparams_sar,
@@ -400,11 +416,8 @@ void batched_loglike(raft::handle_t& handle,
   if (trans) {
     MLCommon::TimeSeries::batched_jones_transform(
       order, batch_size, false, params, Tparams, stream);
-
-    Tparams.mu = params.mu;
   } else {
     // non-transformed case: just use original parameters
-    Tparams.mu     = params.mu;
     Tparams.ar     = params.ar;
     Tparams.ma     = params.ma;
     Tparams.sar    = params.sar;
@@ -441,6 +454,7 @@ void batched_loglike(raft::handle_t& handle,
 void batched_loglike(raft::handle_t& handle,
                      const ARIMAMemory<double>& arima_mem,
                      const double* d_y,
+                     const double* d_exog,
                      int batch_size,
                      int n_obs,
                      const ARIMAOrder& order,
@@ -462,6 +476,7 @@ void batched_loglike(raft::handle_t& handle,
   auto stream = handle.get_stream();
 
   ARIMAParams<double> params = {arima_mem.params_mu,
+                                arima_mem.params_beta,
                                 arima_mem.params_ar,
                                 arima_mem.params_ma,
                                 arima_mem.params_sar,
@@ -473,6 +488,7 @@ void batched_loglike(raft::handle_t& handle,
   batched_loglike(handle,
                   arima_mem,
                   d_y,
+                  d_exog,
                   batch_size,
                   n_obs,
                   order,
@@ -494,6 +510,7 @@ void batched_loglike(raft::handle_t& handle,
 void batched_loglike_grad(raft::handle_t& handle,
                           const ARIMAMemory<double>& arima_mem,
                           const double* d_y,
+                          const double* d_exog,
                           int batch_size,
                           int n_obs,
                           const ARIMAOrder& order,
@@ -520,6 +537,7 @@ void batched_loglike_grad(raft::handle_t& handle,
   batched_loglike(handle,
                   arima_mem,
                   d_y,
+                  d_exog,
                   batch_size,
                   n_obs,
                   order,
@@ -541,6 +559,7 @@ void batched_loglike_grad(raft::handle_t& handle,
     batched_loglike(handle,
                     arima_mem,
                     d_y,
+                    d_exog,
                     batch_size,
                     n_obs,
                     order,
@@ -570,6 +589,7 @@ void batched_loglike_grad(raft::handle_t& handle,
 void information_criterion(raft::handle_t& handle,
                            const ARIMAMemory<double>& arima_mem,
                            const double* d_y,
+                           const double* d_exog,
                            int batch_size,
                            int n_obs,
                            const ARIMAOrder& order,
@@ -582,7 +602,7 @@ void information_criterion(raft::handle_t& handle,
 
   /* Compute log-likelihood in d_ic */
   batched_loglike(
-    handle, arima_mem, d_y, batch_size, n_obs, order, params, d_ic, false, false, MLE);
+    handle, arima_mem, d_y, d_exog, batch_size, n_obs, order, params, d_ic, false, false, MLE);
 
   /* Compute information criterion from log-likelihood and base term */
   MLCommon::Metrics::Batched::information_criterion(
@@ -853,6 +873,7 @@ void _start_params(raft::handle_t& handle,
 void estimate_x0(raft::handle_t& handle,
                  ARIMAParams<double>& params,
                  const double* d_y,
+                 const double* d_exog,
                  int batch_size,
                  int n_obs,
                  const ARIMAOrder& order,

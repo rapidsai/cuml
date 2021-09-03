@@ -16,11 +16,12 @@
 
 cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
     ctypedef struct ARIMAOrder:
-        int p  # Basic order
+        int p       # Basic order
         int d
         int q
-        int P  # Seasonal order
+        int P       # Seasonal order
         int D
         int Q
-        int s  # Seasonal period
-        int k  # Fit intercept?
+        int s       # Seasonal period
+        int k       # Fit intercept?
+        int n_exog  # Number of exogenous regressors

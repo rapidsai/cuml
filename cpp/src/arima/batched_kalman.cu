@@ -1489,12 +1489,14 @@ void batched_jones_transform(raft::handle_t& handle,
   double* d_params            = arima_mem.d_params;
   double* d_Tparams           = arima_mem.d_Tparams;
   ARIMAParams<double> params  = {arima_mem.params_mu,
+                                arima_mem.params_beta,
                                 arima_mem.params_ar,
                                 arima_mem.params_ma,
                                 arima_mem.params_sar,
                                 arima_mem.params_sma,
                                 arima_mem.params_sigma2};
-  ARIMAParams<double> Tparams = {arima_mem.Tparams_mu,
+  ARIMAParams<double> Tparams = {params.mu,
+                                 params.beta,
                                  arima_mem.Tparams_ar,
                                  arima_mem.Tparams_ma,
                                  arima_mem.Tparams_sar,
@@ -1506,7 +1508,6 @@ void batched_jones_transform(raft::handle_t& handle,
   params.unpack(order, batch_size, d_params, stream);
 
   MLCommon::TimeSeries::batched_jones_transform(order, batch_size, isInv, params, Tparams, stream);
-  Tparams.mu = params.mu;
 
   Tparams.pack(order, batch_size, d_Tparams, stream);
 

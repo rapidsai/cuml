@@ -90,6 +90,8 @@ void batched_diff(raft::handle_t& handle,
  * @param[in]  arima_mem    Pre-allocated temporary memory
  * @param[in]  d_y          Series to fit: shape = (n_obs, batch_size) and
  *                          expects column major data layout. (device)
+ * @param[in]  d_exog       Exogenous variables: shape = (n_obs, n_exog * batch_size) and
+ *                          expects column major data layout. (device)
  * @param[in]  batch_size   Number of time series
  * @param[in]  n_obs        Number of observations in a time series
  * @param[in]  order        ARIMA hyper-parameters
@@ -111,6 +113,7 @@ void batched_diff(raft::handle_t& handle,
 void batched_loglike(raft::handle_t& handle,
                      const ARIMAMemory<double>& arima_mem,
                      const double* d_y,
+                     const double* d_exog,
                      int batch_size,
                      int n_obs,
                      const ARIMAOrder& order,
@@ -137,6 +140,8 @@ void batched_loglike(raft::handle_t& handle,
  * @param[in]  arima_mem    Pre-allocated temporary memory
  * @param[in]  d_y          Series to fit: shape = (n_obs, batch_size) and
  *                          expects column major data layout. (device)
+ * @param[in]  d_exog       Exogenous variables: shape = (n_obs, n_exog * batch_size) and
+ *                          expects column major data layout. (device)
  * @param[in]  batch_size   Number of time series
  * @param[in]  n_obs        Number of observations in a time series
  * @param[in]  order        ARIMA hyper-parameters
@@ -157,6 +162,7 @@ void batched_loglike(raft::handle_t& handle,
 void batched_loglike(raft::handle_t& handle,
                      const ARIMAMemory<double>& arima_mem,
                      const double* d_y,
+                     const double* d_exog,
                      int batch_size,
                      int n_obs,
                      const ARIMAOrder& order,
@@ -179,6 +185,8 @@ void batched_loglike(raft::handle_t& handle,
  * @param[in]  arima_mem    Pre-allocated temporary memory
  * @param[in]  d_y          Series to fit: shape = (n_obs, batch_size) and
  *                          expects column major data layout. (device)
+ * @param[in]  d_exog       Exogenous variables: shape = (n_obs, n_exog * batch_size) and
+ *                          expects column major data layout. (device)
  * @param[in]  batch_size   Number of time series
  * @param[in]  n_obs        Number of observations in a time series
  * @param[in]  order        ARIMA hyper-parameters
@@ -193,6 +201,7 @@ void batched_loglike(raft::handle_t& handle,
 void batched_loglike_grad(raft::handle_t& handle,
                           const ARIMAMemory<double>& arima_mem,
                           const double* d_y,
+                          const double* d_exog,
                           int batch_size,
                           int n_obs,
                           const ARIMAOrder& order,
@@ -211,6 +220,10 @@ void batched_loglike_grad(raft::handle_t& handle,
  * @param[in]  arima_mem   Pre-allocated temporary memory
  * @param[in]  d_y         Batched Time series to predict.
  *                         Shape: (num_samples, batch size) (device)
+ * @param[in]  d_exog      Exogenous variables.
+ *                         Shape = (n_obs, n_exog * batch_size) (device)
+ * @param[in]  d_exog_fut  Future values of exogenous variables
+ *                         Shape: (end - n_obs, batch_size) (device)
  * @param[in]  batch_size  Total number of batched time series
  * @param[in]  n_obs       Number of samples per time series
  *                         (all series must be identical)
@@ -228,6 +241,8 @@ void batched_loglike_grad(raft::handle_t& handle,
 void predict(raft::handle_t& handle,
              const ARIMAMemory<double>& arima_mem,
              const double* d_y,
+             const double* d_exog,
+             const double* d_exog_fut,
              int batch_size,
              int n_obs,
              int start,
@@ -247,6 +262,8 @@ void predict(raft::handle_t& handle,
  * @param[in]  arima_mem   Pre-allocated temporary memory
  * @param[in]  d_y         Series to fit: shape = (n_obs, batch_size) and
  *                         expects column major data layout. (device)
+ * @param[in]  d_exog      Exogenous variables.
+ *                         Shape = (n_obs, n_exog * batch_size) (device)
  * @param[in]  batch_size  Total number of batched time series
  * @param[in]  n_obs       Number of samples per time series
  *                         (all series must be identical)
@@ -260,6 +277,7 @@ void predict(raft::handle_t& handle,
 void information_criterion(raft::handle_t& handle,
                            const ARIMAMemory<double>& arima_mem,
                            const double* d_y,
+                           const double* d_exog,
                            int batch_size,
                            int n_obs,
                            const ARIMAOrder& order,
@@ -283,6 +301,7 @@ void information_criterion(raft::handle_t& handle,
 void estimate_x0(raft::handle_t& handle,
                  ARIMAParams<double>& params,
                  const double* d_y,
+                 const double* d_exog,
                  int batch_size,
                  int n_obs,
                  const ARIMAOrder& order,
