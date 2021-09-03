@@ -1253,7 +1253,7 @@ void tl2fil_sparse(std::vector<int>* ptrees,
   *cat_sets = cat_sets_owner(cat_features_counters(model));
   pnodes->resize(total_nodes);
 
-  size_t bit_pool_size;
+  size_t bit_pool_size = 0;
   // convert the nodes
 #pragma omp parallel for shared(bit_pool_size)
   for (std::size_t i = 0; i < num_trees; ++i) {
