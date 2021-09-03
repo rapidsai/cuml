@@ -16,7 +16,6 @@
 import numpy as np
 import pytest
 import os
-from random import seed, sample
 
 from cuml import ForestInference
 from cuml.test.utils import array_equal, unit_param, \
@@ -35,12 +34,33 @@ from sklearn.model_selection import train_test_split
 if has_xgboost():
     import xgboost as xgb
 
-def to_categorical(col, rough_n_categories):
+import time
+class Timer:
+    def __init__(self, name):
+        self.name = name
+
+    def __enter__(self):
+        self.start = time.monotonic()
+        return self
+
+    def __exit__(self, *args):
+        print(self.name, "took", (time.monotonic() - self.start) * 1000, "ms")
+
+def to_categorical(m, cols, rough_n_categories):
     import pandas as pd
-    col2 = col - col.min() # col range [0, ?]
-    col2 /= col2.max() # col range [0, 1]
-    col2 = np.round(col2 * rough_n_categories).astype(int) # round into rough_n_categories bins
-    return pd.Series(pd.Categorical(col2, categories=np.unique(col2)))
+    m2 = m[:, cols]
+    m2 -= m2.min() # m range [0, ?]
+    m2 = m2 / m2.max() * rough_n_categories # m range [0, 1]
+    m[:, cols] = m2
+    all_series = []
+    for icol in range(m.shape[1]):
+        if icol in cols:
+          col = m[:, icol]
+          all_series.append(pd.Series(pd.Categorical(
+              col.astype(int), categories=np.unique(col)), name=str(icol)))
+        else:
+          all_series.append(pd.Series(col, name=str(icol)))
+    return pd.concat(all_series, axis=1, keys=[s.name for s in all_series])
 
 def simulate_data(m, n, k=2, n_categorical=0, random_state=None, classification=True,
                   bias=0.0):
@@ -57,7 +77,6 @@ def simulate_data(m, n, k=2, n_categorical=0, random_state=None, classification=
         features, labels = make_regression(n_samples=m,
                                            n_features=n,
                                            n_informative=n_informative,
-                                           n_redundant=n - n_informative,
                                            n_targets=1,
                                            bias=bias,
                                            random_state=random_state)
@@ -68,15 +87,7 @@ def simulate_data(m, n, k=2, n_categorical=0, random_state=None, classification=
         #seed(random_state)
         #cat_cols = sample(range(n), n_categorical)
         cat_cols = range(n_categorical)
-        features_num = pd.DataFrame(features[:, n_categorical:])
-        features_cat = []
-        print(cat_cols)
-        for col in cat_cols:
-            features_cat.append(
-                to_categorical(features[:, col], 10))
-            #features[:, col] = to_categorical(features[:, col], 10)
-        features_cat = pd.concat(features_cat, axis=1)
-        return pd.concat([features_num, features_cat], axis=1), labels
+        return to_categorical(features, cat_cols, 1000), labels
     return features, labels
         
 
@@ -562,7 +573,6 @@ def test_lightgbm(tmp_path, num_classes):
         np.testing.assert_allclose(lgm.predict_proba(X), fm.predict_proba(X),
                                    atol=proba_atol[num_classes > 2])
 
-
 @pytest.mark.parametrize('num_classes', [2, 3])
 @pytest.mark.skipif(has_lightgbm() is False, reason="need to install lightgbm")
 def test_lightgbm_categorical(tmp_path, num_classes):
@@ -571,12 +581,13 @@ def test_lightgbm_categorical(tmp_path, num_classes):
     # n_informative=n_features // 5, so if n_categorical > n_features * 0.8, they will be used
     n = 10 if num_classes == 2 else 10
     n_categorical = n
-    X, y = simulate_data(m=5000,
-                         n=n,
-                         k=num_classes,
-                         n_categorical=n_categorical,
-                         random_state=hash(time()) % 2**32,
-                         classification=True)
+    with Timer("simulate") as t:
+        X, y = simulate_data(m=5000,
+                             n=n,
+                             k=num_classes,
+                             n_categorical=n_categorical,
+                             random_state=hash(time()) % 2**32,
+                             classification=True)
     Xnp = X.to_numpy()
     num_round = 5
     model_path = str(os.path.join(tmp_path, 'lgb.model'))
@@ -586,12 +597,14 @@ def test_lightgbm_categorical(tmp_path, num_classes):
                  'metric': 'binary_logloss',
                  'num_class': 1}
         train_data = lgb.Dataset(X, label=y).construct()
-        bst = lgb.train(param, train_data, num_round)
+        with Timer("train") as t:
+            bst = lgb.train(param, train_data, num_round)
         bst.save_model(model_path)
-        fm = ForestInference.load(model_path,
-                                  algo='TREE_REORG',
-                                  output_class=True,
-                                  model_type="lightgbm")
+        with Timer("load") as t:
+          fm = ForestInference.load(model_path,
+                                    algo='TREE_REORG',
+                                    output_class=True,
+                                    model_type="lightgbm")
         # binary classification
         gbm_proba = bst.predict(Xnp)
         fil_proba = fm.predict_proba(Xnp)[:, 1]
@@ -605,15 +618,21 @@ def test_lightgbm_categorical(tmp_path, num_classes):
         lgm = lgb.LGBMClassifier(objective='multiclass',
                                  boosting_type='gbdt',
                                  n_estimators=num_round)
-        lgm.fit(X, y)
+        with Timer("fit") as t:
+          lgm.fit(X, y)
         lgm.booster_.save_model(model_path)
-        fm = ForestInference.load(model_path,
-                                  algo='TREE_REORG',
-                                  output_class=True,
-                                  model_type="lightgbm")
-        lgm_preds = lgm.predict(Xnp)
-        assert array_equal(lgm.booster_.predict(Xnp).argmax(axis=1), lgm_preds)
-        assert array_equal(lgm_preds, fm.predict(Xnp))
+        with Timer("load") as t:
+          fm = ForestInference.load(model_path,
+                                    algo='TREE_REORG',
+                                    output_class=True,
+                                    model_type="lightgbm")
+        with Timer("lgm.predict") as t:
+          lgm_preds = lgm.predict(Xnp)
+        with Timer("lgm.predict") as t:
+          assert array_equal(lgm.booster_.predict(Xnp).argmax(axis=1), lgm_preds)
+        with Timer("fil predict") as t:
+          assert array_equal(lgm_preds, fm.predict(Xnp))
         # lightgbm uses float64 thresholds, while FIL uses float32
-        np.testing.assert_allclose(lgm.predict_proba(Xnp), fm.predict_proba(X),
-                                   atol=proba_atol[num_classes > 2])
+        with Timer("lgm.predict") as t:
+            np.testing.assert_allclose(lgm.predict_proba(Xnp), fm.predict_proba(X),
+                                       atol=proba_atol[num_classes > 2])
