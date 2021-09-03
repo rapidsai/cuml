@@ -65,7 +65,9 @@ cat_sets_owner::cat_sets_owner(const std::vector<cat_feature_counters>& cf)
   max_matching.resize(cf.size());
   std::size_t bits_size = 0;
   // feature ID
+  printf("n_nodes {");
   for (std::size_t fid = 0; fid < cf.size(); ++fid) {
+    printf("%d ", cf[fid].n_nodes);
     RAFT_EXPECTS(
       cf[fid].max_matching >= -1, "@fid %zu: max_matching invalid (%d)", fid, cf[fid].max_matching);
     RAFT_EXPECTS(cf[fid].n_nodes >= 0, "@fid %zu: n_nodes invalid (%d)", fid, cf[fid].n_nodes);
@@ -79,6 +81,7 @@ cat_sets_owner::cat_sets_owner(const std::vector<cat_feature_counters>& cf)
                  fid,
                  bits_size);
   }
+  printf("}\n");
   bits.resize(bits_size);
 }
 
@@ -1399,6 +1402,7 @@ void from_treelite(const raft::handle_t& handle,
     }
     default: ASSERT(false, "tl_params->sparse must be one of AUTO, DENSE or SPARSE");
   }
+  cat_sets.accessor().print_max_matching();
 }
 
 void from_treelite(const raft::handle_t& handle,
