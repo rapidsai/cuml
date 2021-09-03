@@ -12,11 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import cudf
 import cupy as cp
-import numpy as np
-import pandas as pd
-from numba import cuda
 from scipy.sparse import issparse
 
 import cuml
