@@ -736,13 +736,17 @@ class HashingVectorizer(_VectorizerMixin):
     .. code-block:: python
 
         from cuml.feature_extraction.text import HashingVectorizer
-        corpus = [
+        import cudf 
+
+        corpus = cudf.Series({
             'This is the first document.',
             'This document is the second document.',
             'And this is the third one.',
             'Is this the first document?',
-        ]
+        })
         vectorizer = HashingVectorizer(n_features=2**4)
+        print(vectorizer.dtype)
+        print(vectorizer)
         X = vectorizer.fit_transform(corpus)
         print(X.shape)
 
