@@ -350,6 +350,14 @@ Agglomerative Clustering
 .. autoclass:: cuml.AgglomerativeClustering
     :members:
 
+
+HDBSCAN
+-------
+
+.. autoclass:: cuml.cluster.HDBSCAN
+   :members:
+
+
 Dimensionality Reduction and Manifold Learning
 ==============================================
 
@@ -565,12 +573,6 @@ Preprocessing
       Normalizer, RobustScaler, SimpleImputer, StandardScaler,
       add_dummy_feature, binarize, minmax_scale, normalize,
       PolynomialFeatures, robust_scale, scale
-
-Clustering
-----------
-
-.. autoclass:: cuml.experimental.cluster.HDBSCAN
-   :members:
 
 Linear Models
 -------------

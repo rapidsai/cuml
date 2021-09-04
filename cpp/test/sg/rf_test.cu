@@ -16,9 +16,10 @@
 
 #include <test_utils.h>
 
-#include <decisiontree/quantile/quantile.h>
 #include <decisiontree/batched-levelalgo/kernels.cuh>
+#include <decisiontree/batched-levelalgo/quantile.cuh>
 
+#include <cuml/fil/fil.h>
 #include <cuml/tree/algo_helper.h>
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/ensemble/randomforest.hpp>
@@ -32,6 +33,7 @@
 
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
+#include <thrust/logical.h>
 
 #include <gtest/gtest.h>
 
@@ -39,6 +41,7 @@
 #include <memory>
 #include <random>
 #include <tuple>
+#include <type_traits>
 
 namespace ML {
 
@@ -149,15 +152,34 @@ std::ostream& operator<<(std::ostream& os, const RfTestParams& ps)
   return os;
 }
 
-// Classification
-template <typename DataT, typename LabelT, typename RfT>
-void TrainScore(const raft::handle_t& handle,
+template <typename DataT, typename LabelT>
+auto FilPredict(const raft::handle_t& handle,
                 RfTestParams params,
-                DataT* X,
                 DataT* X_transpose,
-                LabelT* y,
-                RfT* forest,
-                RF_metrics& metrics)
+                RandomForestMetaData<DataT, LabelT>* forest)
+{
+  auto pred = std::make_shared<thrust::device_vector<float>>(params.n_rows);
+  ModelHandle model;
+  std::size_t num_outputs = 1;
+  if constexpr (std::is_integral_v<LabelT>) { num_outputs = params.n_labels; }
+  build_treelite_forest(&model, forest, params.n_cols, num_outputs);
+  fil::treelite_params_t tl_params{fil::algo_t::ALGO_AUTO,
+                                   num_outputs > 1,
+                                   1.f / num_outputs,
+                                   fil::storage_type_t::AUTO,
+                                   8,
+                                   1,
+                                   0,
+                                   nullptr};
+  fil::forest_t fil_forest;
+  fil::from_treelite(handle, &fil_forest, model, &tl_params);
+  fil::predict(handle, fil_forest, pred->data().get(), X_transpose, params.n_rows, false);
+  return pred;
+}
+
+template <typename DataT, typename LabelT>
+auto TrainScore(
+  const raft::handle_t& handle, RfTestParams params, DataT* X, DataT* X_transpose, LabelT* y)
 {
   RF_params rf_params = set_rf_params(params.max_depth,
                                       params.max_leaves,
@@ -173,16 +195,21 @@ void TrainScore(const raft::handle_t& handle,
                                       params.split_criterion,
                                       params.n_streams,
                                       128);
+
+  auto forest     = std::make_shared<RandomForestMetaData<DataT, LabelT>>();
+  auto forest_ptr = forest.get();
   if constexpr (std::is_integral_v<LabelT>) {
-    fit(handle, forest, X, params.n_rows, params.n_cols, y, params.n_labels, rf_params);
+    fit(handle, forest_ptr, X, params.n_rows, params.n_cols, y, params.n_labels, rf_params);
   } else {
-    fit(handle, forest, X, params.n_rows, params.n_cols, y, rf_params);
+    fit(handle, forest_ptr, X, params.n_rows, params.n_cols, y, rf_params);
   }
 
-  thrust::device_vector<LabelT> pred(params.n_rows);
-  predict(handle, forest, X_transpose, params.n_rows, params.n_cols, pred.data().get());
+  auto pred = std::make_shared<thrust::device_vector<LabelT>>(params.n_rows);
+  predict(handle, forest_ptr, X_transpose, params.n_rows, params.n_cols, pred->data().get());
+
   // Predict and compare against known labels
-  metrics = score(handle, forest, y, params.n_rows, pred.data().get());
+  RF_metrics metrics = score(handle, forest_ptr, y, params.n_rows, pred->data().get());
+  return std::make_tuple(forest, pred, metrics);
 }
 
 template <typename DataT, typename LabelT>
@@ -236,13 +263,8 @@ class RfSpecialisedTest {
     raft::linalg::transpose(
       handle, X.data().get(), X_transpose.data().get(), params.n_rows, params.n_cols, nullptr);
     forest.reset(new typename ML::RandomForestMetaData<DataT, LabelT>);
-    TrainScore(handle,
-               params,
-               X.data().get(),
-               X_transpose.data().get(),
-               y.data().get(),
-               forest.get(),
-               training_metrics);
+    std::tie(forest, predictions, training_metrics) =
+      TrainScore(handle, params, X.data().get(), X_transpose.data().get(), y.data().get());
 
     Test();
   }
@@ -257,15 +279,8 @@ class RfSpecialisedTest {
     raft::handle_t handle(params.n_streams);
     RfTestParams alt_params = params;
     alt_params.max_depth--;
-    RF_metrics alt_metrics;
-    ML::RandomForestMetaData<DataT, LabelT> alt_forest;
-    TrainScore(handle,
-               alt_params,
-               X.data().get(),
-               X_transpose.data().get(),
-               y.data().get(),
-               &alt_forest,
-               alt_metrics);
+    auto [alt_forest, alt_predictions, alt_metrics] =
+      TrainScore(handle, alt_params, X.data().get(), X_transpose.data().get(), y.data().get());
     double eps = 1e-8;
     if (params.split_criterion == MSE) {
       EXPECT_LE(training_metrics.mean_squared_error, alt_metrics.mean_squared_error + eps);
@@ -283,27 +298,27 @@ class RfSpecialisedTest {
       // algorithm produces only stumps
       size_t effective_rows = params.n_rows * params.max_samples;
       if (params.max_depth > 0 && params.min_impurity_decrease == 0 && effective_rows >= 100) {
-        EXPECT_GT(forest->trees[i].leaf_counter, 1);
+        EXPECT_GT(forest->trees[i]->leaf_counter, 1);
       }
 
       // Check number of leaves is accurate
       int num_leaves = 0;
-      for (auto n : forest->trees[i].sparsetree) {
+      for (auto n : forest->trees[i]->sparsetree) {
         num_leaves += n.IsLeaf();
       }
-      EXPECT_EQ(num_leaves, forest->trees[i].leaf_counter);
-      if (params.max_leaves > 0) { EXPECT_LE(forest->trees[i].leaf_counter, params.max_leaves); }
+      EXPECT_EQ(num_leaves, forest->trees[i]->leaf_counter);
+      if (params.max_leaves > 0) { EXPECT_LE(forest->trees[i]->leaf_counter, params.max_leaves); }
 
-      EXPECT_LE(forest->trees[i].depth_counter, params.max_depth);
-      EXPECT_LE(forest->trees[i].leaf_counter,
+      EXPECT_LE(forest->trees[i]->depth_counter, params.max_depth);
+      EXPECT_LE(forest->trees[i]->leaf_counter,
                 raft::ceildiv(params.n_rows, params.min_samples_leaf));
     }
   }
   void TestMinImpurity()
   {
     for (int i = 0u; i < forest->rf_params.n_trees; i++) {
-      for (auto n : forest->trees[i].sparsetree) {
-        if (!n.IsLeaf()) { EXPECT_GT(n.best_metric_val, params.min_impurity_decrease); }
+      for (auto n : forest->trees[i]->sparsetree) {
+        if (!n.IsLeaf()) { EXPECT_GT(n.BestMetric(), params.min_impurity_decrease); }
       }
     }
   }
@@ -315,19 +330,42 @@ class RfSpecialisedTest {
     if (is_regression) return;
 
     // Repeat training
-    RF_metrics metrics;
     raft::handle_t handle(params.n_streams);
-    ML::RandomForestMetaData<DataT, LabelT> alt_forest;
-    TrainScore(handle,
-               params,
-               X.data().get(),
-               X_transpose.data().get(),
-               y.data().get(),
-               &alt_forest,
-               metrics);
+    auto [alt_forest, alt_predictions, alt_metrics] =
+      TrainScore(handle, params, X.data().get(), X_transpose.data().get(), y.data().get());
 
     for (int i = 0u; i < forest->rf_params.n_trees; i++) {
-      EXPECT_EQ(forest->trees[i].sparsetree, alt_forest.trees[i].sparsetree);
+      EXPECT_EQ(forest->trees[i]->sparsetree, alt_forest->trees[i]->sparsetree);
+    }
+  }
+  // Instance counts in children sums up to parent.
+  void TestInstanceCounts()
+  {
+    for (int i = 0u; i < forest->rf_params.n_trees; i++) {
+      const auto& tree = forest->trees[i]->sparsetree;
+      for (auto n : tree) {
+        if (!n.IsLeaf()) {
+          auto sum = tree[n.LeftChildId()].InstanceCount() + tree[n.RightChildId()].InstanceCount();
+          EXPECT_EQ(sum, n.InstanceCount());
+        }
+      }
+    }
+  }
+  // Compare fil against native rf predictions
+  // Only for single precision models
+  void TestFilPredict()
+  {
+    if constexpr (std::is_same_v<DataT, double>) {
+      return;
+    } else {
+      raft::handle_t handle(params.n_streams);
+      auto fil_pred = FilPredict(handle, params, X_transpose.data().get(), forest.get());
+      thrust::host_vector<float> h_fil_pred(*fil_pred);
+      thrust::host_vector<float> h_pred(*predictions);
+      float tol = 1e-2;
+      for (std::size_t i = 0; i < h_fil_pred.size(); i++) {
+        EXPECT_LE(abs(h_fil_pred[i] - h_pred[i]), tol);
+      }
     }
   }
   void Test()
@@ -336,6 +374,8 @@ class RfSpecialisedTest {
     TestDeterminism();
     TestMinImpurity();
     TestTreeSize();
+    TestInstanceCounts();
+    TestFilPredict();
   }
 
   RF_metrics training_metrics;
@@ -344,6 +384,7 @@ class RfSpecialisedTest {
   thrust::device_vector<LabelT> y;
   RfTestParams params;
   std::shared_ptr<RandomForestMetaData<DataT, LabelT>> forest;
+  std::shared_ptr<thrust::device_vector<LabelT>> predictions;
 };
 
 // Dispatch tests based on any template parameters
@@ -413,6 +454,7 @@ INSTANTIATE_TEST_CASE_P(RfTests,
                                                                            seed,
                                                                            n_labels,
                                                                            double_precision)));
+
 struct QuantileTestParameters {
   int n_rows;
   int n_bins;
@@ -428,15 +470,15 @@ class RFQuantileBinsLowerBoundTest : public ::testing::TestWithParam<QuantileTes
 
     thrust::device_vector<T> data(params.n_rows);
     thrust::host_vector<T> h_data(params.n_rows);
-    thrust::device_vector<T> quantiles(params.n_bins);
     thrust::host_vector<T> h_quantiles(params.n_bins);
     raft::random::Rng r(8);
     r.normal(data.data().get(), data.size(), T(0.0), T(2.0), nullptr);
     raft::handle_t handle;
-    DT::computeQuantiles(
-      quantiles.data().get(), params.n_bins, data.data().get(), params.n_rows, 1, nullptr);
-    h_quantiles = quantiles;
-    h_data      = data;
+    auto quantiles =
+      DT::computeQuantiles(params.n_bins, data.data().get(), params.n_rows, 1, handle);
+    raft::update_host(
+      h_quantiles.data(), quantiles->data(), quantiles->size(), handle.get_stream());
+    h_data = data;
     for (std::size_t i = 0; i < h_data.size(); ++i) {
       auto d = h_data[i];
       // golden lower bound from thrust
@@ -459,17 +501,16 @@ class RFQuantileTest : public ::testing::TestWithParam<QuantileTestParameters> {
     auto params = ::testing::TestWithParam<QuantileTestParameters>::GetParam();
 
     thrust::device_vector<T> data(params.n_rows);
-    thrust::device_vector<T> quantiles(params.n_bins);
     thrust::device_vector<int> histogram(params.n_bins);
     thrust::host_vector<int> h_histogram(params.n_bins);
 
     raft::random::Rng r(8);
     r.normal(data.data().get(), data.size(), T(0.0), T(2.0), nullptr);
     raft::handle_t handle;
-    DT::computeQuantiles(
-      quantiles.data().get(), params.n_bins, data.data().get(), params.n_rows, 1, nullptr);
+    std::shared_ptr<rmm::device_uvector<T>> quantiles =
+      DT::computeQuantiles(params.n_bins, data.data().get(), params.n_rows, 1, handle);
 
-    auto d_quantiles = quantiles.data();
+    auto d_quantiles = quantiles->data();
     auto d_histogram = histogram.data().get();
     thrust::for_each(data.begin(), data.end(), [=] __device__(T x) {
       for (int j = 0; j < params.n_bins; j++) {
