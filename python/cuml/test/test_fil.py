@@ -37,9 +37,10 @@ if has_xgboost():
     import xgboost as xgb
 
 
-def simulate_data(m, n, k=2, n_categorical=0, random_state=None, classification=True,
-                  bias=0.0):
-    n_informative = n if n_categorical else n // 5
+def simulate_data(m, n, k=2, n_informative='auto', random_state=None,
+                  classification=True, bias=0.0):
+    if n_informative == 'auto':
+        n_informative = n // 5
     if classification:
         features, labels = make_classification(n_samples=m,
                                                n_features=n,
@@ -54,9 +55,8 @@ def simulate_data(m, n, k=2, n_categorical=0, random_state=None, classification=
                                            n_targets=1,
                                            bias=bias,
                                            random_state=random_state)
-    return np.c_[features].astype(np.float32),
-      labels = np.c_[labels].astype(np.float32).flatten()
-        
+    return np.c_[features].astype(np.float32), \
+        np.c_[labels].astype(np.float32).flatten()
 
 
 # absolute tolerance for FIL predict_proba
@@ -520,23 +520,27 @@ def to_categorical(features, n_categorical):
 def test_lightgbm(tmp_path, num_classes, n_categorical):
     import lightgbm as lgb
 
-    n_features, n_rows = None, None
     if n_categorical > 0:
       n_features = 10
       n_rows = 1000
+      n_informative = n_features
     else:
       n_features = 10 if num_classes == 2 else 50
       n_rows = 500
+      n_informative = 'auto'
 
     X, y = simulate_data(n_rows,
                          n_features,
                          num_classes,
+                         n_informative=n_informative,
                          random_state=43210,
                          classification=True)
     if n_categorical > 0:
-        X = to_categorical(X, n_categorical)
-    Xnp = X.to_numpy()
-    train_data = lgb.Dataset(X, label=y)
+        X_fit = to_categorical(X, n_categorical)
+    else:
+        X_fit = X
+
+    train_data = lgb.Dataset(X_fit, label=y)
     num_round = 5
     model_path = str(os.path.join(tmp_path, 'lgb.model'))
 
@@ -551,10 +555,10 @@ def test_lightgbm(tmp_path, num_classes, n_categorical):
                                   output_class=True,
                                   model_type="lightgbm")
         # binary classification
-        gbm_proba = bst.predict(Xnp)
-        fil_proba = fm.predict_proba(Xnp)[:, 1]
+        gbm_proba = bst.predict(X)
+        fil_proba = fm.predict_proba(X)[:, 1]
         gbm_preds = (gbm_proba > 0.5)
-        fil_preds = fm.predict(Xnp)
+        fil_preds = fm.predict(X)
         assert array_equal(gbm_preds, fil_preds)
         np.testing.assert_allclose(gbm_proba, fil_proba,
                                    atol=proba_atol[num_classes > 2])
@@ -563,15 +567,15 @@ def test_lightgbm(tmp_path, num_classes, n_categorical):
         lgm = lgb.LGBMClassifier(objective='multiclass',
                                  boosting_type='gbdt',
                                  n_estimators=num_round)
-        lgm.fit(X, y)
+        lgm.fit(X_fit, y)
         lgm.booster_.save_model(model_path)
         fm = ForestInference.load(model_path,
                                   algo='TREE_REORG',
                                   output_class=True,
                                   model_type="lightgbm")
-        lgm_preds = lgm.predict(Xnp)
-        assert array_equal(lgm.booster_.predict(Xnp).argmax(axis=1), lgm_preds)
-        assert array_equal(lgm_preds, fm.predict(Xnp))
+        lgm_preds = lgm.predict(X)
+        assert array_equal(lgm.booster_.predict(X).argmax(axis=1), lgm_preds)
+        assert array_equal(lgm_preds, fm.predict(X))
         # lightgbm uses float64 thresholds, while FIL uses float32
-        np.testing.assert_allclose(lgm.predict_proba(Xnp), fm.predict_proba(Xnp),
+        np.testing.assert_allclose(lgm.predict_proba(X), fm.predict_proba(X),
                                    atol=proba_atol[num_classes > 2])
