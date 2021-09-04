@@ -463,8 +463,10 @@ struct tree_base {
 struct cat_sets_owner {
   // arrays from each node ID are concatenated first, then from all categories
   std::vector<uint8_t> bits;
-  // largest matching category in the model, per feature ID
+  // largest matching category in the model, per feature ID. uses int because GPU code can only fit int
   std::vector<int> max_matching;
+  // how many categorical nodes use a given feature id. Used for model shape string.
+  std::vector<std::size_t> n_nodes;
 
   categorical_sets accessor() const
   {

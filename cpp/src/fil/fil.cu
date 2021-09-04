@@ -63,27 +63,24 @@ std::ostream& operator<<(std::ostream& os, const cat_sets_owner& cso)
 cat_sets_owner::cat_sets_owner(const std::vector<cat_feature_counters>& cf)
 {
   max_matching.resize(cf.size());
+  n_nodes.resize(cf.size());
   std::size_t bits_size = 0;
   // feature ID
-  printf("n_nodes {");
-  int total_nodes = 0;
   for (std::size_t fid = 0; fid < cf.size(); ++fid) {
-    printf("%d ", cf[fid].n_nodes);
-    total_nodes += cf[fid].n_nodes;
     RAFT_EXPECTS(
       cf[fid].max_matching >= -1, "@fid %zu: max_matching invalid (%d)", fid, cf[fid].max_matching);
     RAFT_EXPECTS(cf[fid].n_nodes >= 0, "@fid %zu: n_nodes invalid (%d)", fid, cf[fid].n_nodes);
 
+    n_nodes[fid] = cf[fid].n_nodes;
     max_matching[fid] = cf[fid].max_matching;
     bits_size +=
-      categorical_sets::sizeof_mask_from_max_matching(max_matching[fid]) * cf[fid].n_nodes;
+      categorical_sets::sizeof_mask_from_max_matching(max_matching[fid]) * n_nodes[fid];
 
     RAFT_EXPECTS(bits_size <= INT_MAX,
                  "@fid %zu: cannot store %zu categories given `int` offsets",
                  fid,
                  bits_size);
   }
-  printf("} total categorical %d\n", total_nodes);
   bits.resize(bits_size);
 }
 
@@ -1372,7 +1369,7 @@ void from_treelite(const raft::handle_t& handle,
       // but destructed at the end of this function
       CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
       if (tl_params->pforest_shape_str) {
-        *tl_params->pforest_shape_str = sprintf_shape(model, storage_type, nodes, {});
+        *tl_params->pforest_shape_str = sprintf_shape(model, storage_type, nodes, {}, cat_sets);
       }
       break;
     }
@@ -1385,7 +1382,7 @@ void from_treelite(const raft::handle_t& handle,
         handle, pforest, cat_sets.accessor(), vector_leaf, trees.data(), nodes.data(), &params);
       CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
       if (tl_params->pforest_shape_str) {
-        *tl_params->pforest_shape_str = sprintf_shape(model, storage_type, nodes, trees);
+        *tl_params->pforest_shape_str = sprintf_shape(model, storage_type, nodes, trees, cat_sets);
       }
       break;
     }
@@ -1398,7 +1395,7 @@ void from_treelite(const raft::handle_t& handle,
         handle, pforest, cat_sets.accessor(), vector_leaf, trees.data(), nodes.data(), &params);
       CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
       if (tl_params->pforest_shape_str) {
-        *tl_params->pforest_shape_str = sprintf_shape(model, storage_type, nodes, trees);
+        *tl_params->pforest_shape_str = sprintf_shape(model, storage_type, nodes, trees, cat_sets);
       }
       break;
     }
@@ -1424,13 +1421,28 @@ template <typename threshold_t, typename leaf_t, typename node_t>
 char* sprintf_shape(const tl::ModelImpl<threshold_t, leaf_t>& model,
                     storage_type_t storage,
                     const std::vector<node_t>& nodes,
-                    const std::vector<int>& trees)
+                    const std::vector<int>& trees,
+                    const cat_sets_owner cat_sets)
 {
   std::stringstream forest_shape = depth_hist_and_max(model);
   float size_mb =
-    (trees.size() * sizeof(trees.front()) + nodes.size() * sizeof(nodes.front())) / 1e6;
+    (trees.size() * sizeof(trees.front()) + nodes.size() * sizeof(nodes.front()) + cat_sets.bits.size()) / 1e6;
   forest_shape << storage_type_repr[storage] << " model size " << std::setprecision(2) << size_mb
                << " MB" << std::endl;
+  if (cat_sets.bits.size() > 0) {
+    forest_shape << "categorical nodes for each feature id: {";
+    std::size_t total_cat_nodes = 0;
+    for(std::size_t n : cat_sets.n_nodes) {
+      forest_shape << n << " ";
+      total_cat_nodes += n;
+    }
+    forest_shape << "}" << std::endl <<
+      "total categorical nodes: " << total_cat_nodes << std::endl;
+    forest_shape << "maximum matching category for each feature id: {";
+    for (std::size_t mm : cat_sets.max_matching)
+      forest_shape << mm << " ";
+    forest_shape << "}" << std::endl;
+  }
   // stream may be discontiguous
   std::string forest_shape_str = forest_shape.str();
   // now copy to a non-owning allocation
