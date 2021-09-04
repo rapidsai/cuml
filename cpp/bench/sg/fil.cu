@@ -77,7 +77,6 @@ class FIL : public RegressionFixture<float> {
     // create model
     ML::RandomForestRegressorF rf_model;
     auto* mPtr         = &rf_model;
-    mPtr->trees        = nullptr;
     size_t train_nrows = std::min(params.nrows, 1000);
     fit(*handle, mPtr, data.X.data(), train_nrows, params.ncols, data.y.data(), p_rest.rf);
     CUDA_CHECK(cudaStreamSynchronize(stream));
