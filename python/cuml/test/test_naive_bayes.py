@@ -282,13 +282,14 @@ def test_bernoulli(x_dtype, y_dtype, is_sparse, nlp_20news):
                                      cp.float32, cp.float64])
 def test_bernoulli_partial_fit(x_dtype, y_dtype, nlp_20news):
     chunk_size = 500
+    n_rows = 1500
 
     X, y = nlp_20news
 
     X = sparse_scipy_to_cp(X, x_dtype).astype(x_dtype)
-    y = y.astype(y_dtype)
+    y = y.astype(y_dtype)[:n_rows]
 
-    X = X.tocsr()
+    X = X.tocsr()[:n_rows]
 
     model = BernoulliNB()
     modelsk = skBNB()
@@ -380,8 +381,8 @@ def test_gaussian_fit_predict(x_dtype, y_dtype, is_sparse,
 
 @pytest.mark.xfail(reason="This test requires an update (see #4180)")
 def test_gaussian_partial_fit(nlp_20news):
-    chunk_size = 200
-    n_rows = 1000
+    chunk_size = 250
+    n_rows = 1500
     x_dtype, y_dtype = cp.float32, cp.int32
 
     X, y = nlp_20news
@@ -390,7 +391,6 @@ def test_gaussian_partial_fit(nlp_20news):
     y = y.astype(y_dtype)[:n_rows]
 
     model = GaussianNB()
-    modelsk = skGNB()
 
     classes = np.unique(y)
 
@@ -409,23 +409,17 @@ def test_gaussian_partial_fit(nlp_20news):
             x = X[i*chunk_size:]
             y_c = y[i*chunk_size:]
 
-        modelsk.partial_fit(x.get().toarray(),
-                            y_c.get(),
-                            classes=classes.get())
         model.partial_fit(x, y_c, classes=classes)
 
         total_fit += (upper - (i*chunk_size))
-
         if upper == -1:
             break
 
     y_hat = model.predict(X)
-    y_sk = modelsk.predict(X.get().toarray())
 
     y_hat = cp.asnumpy(y_hat)
     y = cp.asnumpy(y)
-    assert_array_equal(y_hat, y_sk)
-    assert accuracy_score(y, y_hat) >= 0.924
+    assert accuracy_score(y, y_hat) >= 0.99
 
     # Test whether label mismatch between target y and classes raises an Error
     assert_raises(ValueError,

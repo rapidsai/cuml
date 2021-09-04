@@ -85,23 +85,6 @@ def count_classes_kernel(float_dtype, int_dtype):
                                "count_classes")
 
 
-def count_features_categorical_kernel(float_dtype, int_dtype):
-    kernel_str = r'''
-    ({0} *out, int n_rows, int n_classes,
-    {0} *features, {1} *labels) {
-
-      int row = blockIdx.x * blockDim.x + threadIdx.x;
-      if(row >= n_rows) return;
-
-      {0} val = features[row];
-      {1} label = labels[row];
-      atomicAdd(out + ((val * n_classes) + label), ({0})1);
-    }'''
-
-    return cuda_kernel_factory(kernel_str, (float_dtype, int_dtype),
-                               "count_classes")
-
-
 def count_features_dense_kernel(float_dtype, int_dtype):
 
     kernel_str = r'''
@@ -114,7 +97,8 @@ def count_features_dense_kernel(float_dtype, int_dtype):
      bool has_weights,
      int n_classes,
      bool square,
-     bool rowMajor) {
+     bool rowMajor,
+     bool categorical) {
 
       int row = blockIdx.x * blockDim.x + threadIdx.x;
       int col = blockIdx.y * blockDim.y + threadIdx.y;
@@ -123,16 +107,22 @@ def count_features_dense_kernel(float_dtype, int_dtype):
 
       {0} val = !rowMajor ?
             in[col * n_rows + row] : in[row * n_cols + col];
+      {1} label = labels[row];
+      unsigned out_idx = ((col * n_classes) + label);
 
+      if (categorical)
+      {
+        out_idx = (val * n_classes * n_cols) + (label * n_cols) + col;
+        val = 1;
+      }
       if(has_weights)
         val *= weights[row];
 
       if(val == 0.0) return;
 
       if(square) val *= val;
-      {1} label = labels[row];
 
-      atomicAdd(out + ((col * n_classes) + label), val);
+      atomicAdd(out + out_idx, val);
     }'''
 
     return cuda_kernel_factory(kernel_str, (float_dtype, int_dtype),
@@ -515,7 +505,7 @@ class GaussianNB(_BaseNB):
         if X.shape[0] == 0:
             return mu, var
 
-        # Make sure Y iclass_count_s cp array not CumlArray
+        # Make sure Y is cp array not CumlArray
         Y = cp.asarray(Y)
 
         new_mu = cp.zeros((self.n_classes_, self.n_features_), order="F",
@@ -575,7 +565,8 @@ class GaussianNB(_BaseNB):
                                   sample_weight.shape[0] > 0,
                                   self.n_classes_,
                                   False,
-                                  X.flags["C_CONTIGUOUS"]))
+                                  X.flags["C_CONTIGUOUS"],
+                                  False))
 
             # Run again for variance
             count_features_dense((math.ceil(n_rows / tpb),
@@ -590,7 +581,8 @@ class GaussianNB(_BaseNB):
                                   sample_weight.shape[0] > 0,
                                   self.n_classes_,
                                   True,
-                                  X.flags["C_CONTIGUOUS"]))
+                                  X.flags["C_CONTIGUOUS"],
+                                  False))
 
         count_classes = count_classes_kernel(X.dtype, labels_dtype)
         count_classes((math.ceil(n_rows / tpb),), (tpb,),
@@ -881,7 +873,8 @@ class _BaseDiscreteNB(_BaseNB):
              sample_weight.shape[0] > 0,
              n_classes,
              False,
-             X.flags["C_CONTIGUOUS"]))
+             X.flags["C_CONTIGUOUS"],
+             False))
 
         tpb = 256
         count_classes = count_classes_kernel(X.dtype, labels_dtype)
@@ -1153,7 +1146,7 @@ class BernoulliNB(_BaseDiscreteNB):
     --------
     >>> import cupy as cp
     >>> rng = cp.random.RandomState(1)
-    >>> X = rng.randint(5, size=(6, 100))
+    >>> X = rng.randint(5, size=(6, 100), dtype=cp.int32)
     >>> Y = cp.array([1, 2, 3, 4, 4, 5])
     >>> from cuml.naive_bayes import BernoulliNB
     >>> clf = BernoulliNB()
@@ -1402,18 +1395,41 @@ class CategoricalNB(_BaseDiscreteNB):
                                    sample_weight=sample_weight)
 
     def _count(self, X, Y, classes):
-        def _update_cat_count_dims(cat_count, highest_feature):
-            diff = int(highest_feature) + 1 - cat_count.shape[1]
-            if diff > 0:
-                # we append a column full of zeros for each new category
-                return cp.pad(cat_count, [(0, 0), (0, diff)], 'constant')
-            return cat_count
-
         Y = cp.asarray(Y)
-        tpb = 256
+        tpb = 32
         n_rows = X.shape[0]
+        n_cols = X.shape[1]
         n_classes = classes.shape[0]
         labels_dtype = classes.dtype
+
+        sample_weight = cp.zeros(0, dtype=X.dtype)
+        highest_feature = int(X.max()) + 1
+        feature_diff = highest_feature - self.category_count_.shape[2]
+        # In case of a partial fit, pad the array to have the highest feature
+        if feature_diff > 0:
+            self.category_count_ = cp.pad(self.category_count_,
+                                          [(0, 0), (0, 0), (0, feature_diff)],
+                                          'constant')
+        highest_feature = self.category_count_.shape[2]
+        counts = cp.zeros((self.n_features_, n_classes, highest_feature),
+                          order="F", dtype=X.dtype)
+
+        count_features = count_features_dense_kernel(X.dtype,
+                                                     Y.dtype)
+        count_features((math.ceil(n_rows / tpb), math.ceil(n_cols / tpb), 1),
+                       (tpb, tpb, 1),
+                       (counts,
+                        X,
+                        n_rows,
+                        n_cols,
+                        Y,
+                        sample_weight,
+                        sample_weight.shape[0] > 0,
+                        self.n_classes_,
+                        False,
+                        X.flags["C_CONTIGUOUS"],
+                        True))
+        self.category_count_ += counts
 
         class_c = cp.zeros(n_classes, order="F", dtype=self.class_count_.dtype)
         count_classes = count_classes_kernel(class_c.dtype, labels_dtype)
@@ -1421,48 +1437,36 @@ class CategoricalNB(_BaseDiscreteNB):
                       (class_c, n_rows, Y))
         self.class_count_ += class_c
 
-        for i in range(self.n_features_):
-            X_feature = cp.array(X[:, i])
-            self.category_count_[i] = _update_cat_count_dims(
-                self.category_count_[i], X_feature.max())
-            highest_feature = self.category_count_[i].shape[1]
-            counts = cp.zeros((n_classes, highest_feature),
-                              order="F", dtype=X_feature.dtype)
-            count_features = count_features_categorical_kernel(X_feature.dtype,
-                                                               Y.dtype)
-            count_features((math.ceil(n_rows / tpb),), (tpb,),
-                           (counts, n_rows, n_classes, X_feature, Y))
-            self.category_count_[i] += counts
-
     def _init_counters(self, n_effective_classes, n_features, dtype):
         self.class_count_ = cp.zeros(n_effective_classes,
                                      order="F",
                                      dtype=cp.float64)
-        self.category_count_ = [cp.zeros((n_effective_classes, 0),
-                                         order="F",
-                                         dtype=dtype)
-                                for _ in range(n_features)]
+        self.category_count_ = cp.zeros((n_features, n_effective_classes, 0),
+                                        order="F",
+                                        dtype=dtype)
 
     def _update_feature_log_prob(self, alpha):
-        feature_log_prob = []
-        for i in range(self.n_features_):
-            smoothed_cat_count = self.category_count_[i] + alpha
-            smoothed_class_count = smoothed_cat_count.sum(axis=1)
-            feature_log_prob.append(
-                cp.log(smoothed_cat_count) -
-                cp.log(smoothed_class_count.reshape(-1, 1)))
-        self.feature_log_prob_ = feature_log_prob
+        highest_feature = cp.zeros(self.n_features_, dtype=cp.float64)
+        indices = cp.nonzero(self.category_count_)
+        cupyx.scatter_max(highest_feature, indices[0], indices[2])
+        highest_feature = (highest_feature + 1) * alpha
+        smoothed_class_count = self.category_count_.sum(axis=2) + \
+            highest_feature[:, cp.newaxis]
+        smoothed_cat_count = self.category_count_ + alpha
+        self.feature_log_prob_ = cp.log(smoothed_cat_count) - \
+            cp.log(smoothed_class_count[:, :, cp.newaxis])
 
     def _joint_log_likelihood(self, X):
         if not X.shape[1] == self.n_features_:
             raise ValueError("Expected input with %d features, got %d instead"
                              % (self.n_features_, X.shape[1]))
-        jll = cp.zeros((X.shape[0], self.class_count_.shape[0]))
-        for i in range(self.n_features_):
-            indices = X[:, i]
-            jll += self.feature_log_prob_[i][:, indices].T
-        total_ll = jll + self.class_log_prior_
-        return total_ll
+        n_rows = X.shape[0]
+        col_indices = cp.indices(X.shape)[1].flatten()
+        jll = self.feature_log_prob_[col_indices, :, X.ravel()]
+
+        jll = jll.reshape((n_rows, self.n_features_, self.n_classes_)).sum(1)
+        jll += self.class_log_prior_
+        return jll
 
     def get_param_names(self):
         return super().get_param_names() + \
