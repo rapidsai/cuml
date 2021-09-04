@@ -832,7 +832,6 @@ conversion_state<fil_node_t> tl2fil_branch_node(int fil_left_child,
       }
       (uint8_t&)(cat_sets.bits[split.idx + which_8cats]) = _8cats;
     }
-    const uint8_t* mask_start = cat_sets.bits + split.idx;
     ASSERT(category_it == matching_cats.end(), "internal error: didn't convert all categories");
   } else
     ASSERT(false, "only numerical and categorical split nodes are supported");

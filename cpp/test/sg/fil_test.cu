@@ -747,7 +747,6 @@ class TreeliteFilTest : public BaseFilTest {
       bool default_left = dense_node.def_left();
       float threshold;
       if (dense_node.is_categorical()) {
-        auto cs      = cat_sets_h.accessor();
         uint8_t byte = 0;
         for (int category = 0; category <= cat_sets_h.max_matching[dense_node.fid()]; ++category) {
           if (category % 8 == 0) byte = cat_sets_h.bits[dense_node.set() + category / 8];
@@ -758,8 +757,7 @@ class TreeliteFilTest : public BaseFilTest {
       }
       int left_key  = node_to_treelite(builder, pkey, root, left);
       int right_key = node_to_treelite(builder, pkey, root, right);
-      if (atoi(getenv("ever_categorical")) && !left_categories.empty() &&
-          dense_node.is_categorical()) {
+      if (!left_categories.empty() && dense_node.is_categorical()) {
         std::swap(left_key, right_key);
         default_left = !default_left;
         builder->SetCategoricalTestNode(
