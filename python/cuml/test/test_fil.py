@@ -16,6 +16,8 @@
 import numpy as np
 import pytest
 import os
+import pandas as pd
+from random import sample, seed
 
 from cuml import ForestInference
 from cuml.test.utils import array_equal, unit_param, \
@@ -46,48 +48,54 @@ class Timer:
     def __exit__(self, *args):
         print(self.name, "took", (time.monotonic() - self.start) * 1000, "ms")
 
-def to_categorical(m, cols, rough_n_categories):
-    import pandas as pd
-    m2 = m[:, cols]
-    m2 -= m2.min() # m range [0, ?]
-    m2 = m2 / m2.max() * rough_n_categories # m range [0, 1]
-    m[:, cols] = m2
-    all_series = []
-    for icol in range(m.shape[1]):
-        if icol in cols:
-          col = m[:, icol]
-          all_series.append(pd.Series(pd.Categorical(
-              col.astype(int), categories=np.unique(col)), name=str(icol)))
-        else:
-          all_series.append(pd.Series(col, name=str(icol)))
-    return pd.concat(all_series, axis=1, keys=[s.name for s in all_series])
+def to_categorical(features, n_categorical):
+        # the main bottleneck (>80%) of to_categorical() is the pandas operations
+        n_features = features.shape[1]
+        print("n_features == {}, n_categorical == {}".format(n_features, n_categorical))
+        with Timer("misc") as t:
+            cat_cols = range(n_categorical)
+            df_cols = {i: pd.Series(features[:, i]) for i in range(n_categorical, n_features)}
+        print(cat_cols)
+        with Timer("math") as t:
+            col = features[:, :n_categorical]
+            col2 = col - col.min(axis=1, keepdims=True) # col range [0, ?]
+            col2 /= col2.max(axis=1, keepdims=True) # col range [0, 1]
+            col2 = np.round(col2 * 100).astype(int) # round into rough_n_categories bins
+        with Timer("to_categorical") as t:
+            for icol in range(col2.shape[1]):
+                col = col2[:, icol]
+                df_cols[icol] = pd.Series(pd.Categorical(col, categories=np.unique(col)))
+        with Timer("concat") as t:
+            seed(hash(time.time()) % 2**32)
+            new_idx = sample(range(n_features), k=n_features)
+            df_cols = {i : df_cols[new_idx[i]] for i in range(n_features)}
+            df = pd.DataFrame(df_cols)
+            cat_cols = list(df.select_dtypes(include=['category']).columns)
+            print("cat_cols = ", cat_cols)
+        return df
+
 
 def simulate_data(m, n, k=2, n_categorical=0, random_state=None, classification=True,
                   bias=0.0):
-    import pandas as pd
     n_informative = n if n_categorical else n // 5
-    if classification:
-        features, labels = make_classification(n_samples=m,
+    with Timer("make_") as t:
+        if classification:
+            features, labels = make_classification(n_samples=m,
+                                                   n_features=n,
+                                                   n_informative=n_informative,
+                                                   n_redundant=n - n_informative,
+                                                   n_classes=k,
+                                                   random_state=random_state)
+        else:
+            features, labels = make_regression(n_samples=m,
                                                n_features=n,
                                                n_informative=n_informative,
-                                               n_redundant=n - n_informative,
-                                               n_classes=k,
+                                               n_targets=1,
+                                               bias=bias,
                                                random_state=random_state)
-    else:
-        features, labels = make_regression(n_samples=m,
-                                           n_features=n,
-                                           n_informative=n_informative,
-                                           n_targets=1,
-                                           bias=bias,
-                                           random_state=random_state)
-    features = np.c_[features].astype(np.float32)
-    labels = np.c_[labels].astype(np.float32).flatten()
-    if n_categorical > 0:
-        print("n_features == {}, n_categorical == {}".format(n, n_categorical))
-        #seed(random_state)
-        #cat_cols = sample(range(n), n_categorical)
-        cat_cols = range(n_categorical)
-        return to_categorical(features, cat_cols, 1000), labels
+    with Timer("astype") as t:
+        features = np.c_[features].astype(np.float32)
+        labels = np.c_[labels].astype(np.float32).flatten()
     return features, labels
         
 
@@ -573,21 +581,23 @@ def test_lightgbm(tmp_path, num_classes):
         np.testing.assert_allclose(lgm.predict_proba(X), fm.predict_proba(X),
                                    atol=proba_atol[num_classes > 2])
 
-@pytest.mark.parametrize('num_classes', [2, 3])
+@pytest.mark.parametrize('num_classes', [2, 5])
 @pytest.mark.skipif(has_lightgbm() is False, reason="need to install lightgbm")
 def test_lightgbm_categorical(tmp_path, num_classes):
     import lightgbm as lgb
     from time import time
     # n_informative=n_features // 5, so if n_categorical > n_features * 0.8, they will be used
     n = 10 if num_classes == 2 else 10
-    n_categorical = n
+    n_categorical = n // 2
     with Timer("simulate") as t:
-        X, y = simulate_data(m=5000,
+        X, y = simulate_data(m=1000,
                              n=n,
                              k=num_classes,
                              n_categorical=n_categorical,
-                             random_state=hash(time()) % 2**32,
+                             random_state=43210,
                              classification=True)
+        if n_categorical > 0:
+            X = to_categorical(X, n_categorical)
     Xnp = X.to_numpy()
     num_round = 5
     model_path = str(os.path.join(tmp_path, 'lgb.model'))
@@ -604,11 +614,13 @@ def test_lightgbm_categorical(tmp_path, num_classes):
           fm = ForestInference.load(model_path,
                                     algo='TREE_REORG',
                                     output_class=True,
-                                    model_type="lightgbm")
+                                    model_type="lightgbm",
+                                    compute_shape_str=True)
+          print(fm.shape_str)
         # binary classification
         gbm_proba = bst.predict(Xnp)
         fil_proba = fm.predict_proba(Xnp)[:, 1]
-        gbm_preds = (gbm_proba > 0.5)
+        gbm_preds = gbm_proba > 0.5
         fil_preds = fm.predict(Xnp)
         assert array_equal(gbm_preds, fil_preds)
         np.testing.assert_allclose(gbm_proba, fil_proba,
@@ -625,7 +637,9 @@ def test_lightgbm_categorical(tmp_path, num_classes):
           fm = ForestInference.load(model_path,
                                     algo='TREE_REORG',
                                     output_class=True,
-                                    model_type="lightgbm")
+                                    model_type="lightgbm",
+                                    compute_shape_str=True)
+          print(fm.shape_str)
         with Timer("lgm.predict") as t:
           lgm_preds = lgm.predict(Xnp)
         with Timer("lgm.predict") as t:

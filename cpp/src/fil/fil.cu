@@ -66,8 +66,10 @@ cat_sets_owner::cat_sets_owner(const std::vector<cat_feature_counters>& cf)
   std::size_t bits_size = 0;
   // feature ID
   printf("n_nodes {");
+  int total_nodes = 0;
   for (std::size_t fid = 0; fid < cf.size(); ++fid) {
     printf("%d ", cf[fid].n_nodes);
+    total_nodes += cf[fid].n_nodes;
     RAFT_EXPECTS(
       cf[fid].max_matching >= -1, "@fid %zu: max_matching invalid (%d)", fid, cf[fid].max_matching);
     RAFT_EXPECTS(cf[fid].n_nodes >= 0, "@fid %zu: n_nodes invalid (%d)", fid, cf[fid].n_nodes);
@@ -81,7 +83,7 @@ cat_sets_owner::cat_sets_owner(const std::vector<cat_feature_counters>& cf)
                  fid,
                  bits_size);
   }
-  printf("}\n");
+  printf("} total categorical %d\n", total_nodes);
   bits.resize(bits_size);
 }
 
