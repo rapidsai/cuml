@@ -492,26 +492,28 @@ def test_output_args(small_classifier_and_preds):
 
 
 def to_categorical(features, n_categorical):
-        # the main bottleneck (>80%) of to_categorical() is the pandas operations
-        n_features = features.shape[1]
-        df_cols = {}
-        # all categorical columns
-        col = features[:, :n_categorical]
-        col2 = col - col.min(axis=1, keepdims=True) # col range [0, ?]
-        col2 /= col2.max(axis=1, keepdims=True) # col range [0, 1]
-        col2 = np.round(col2 * 100).astype(int) # round into rough_n_categories bins
-        for icol in range(n_categorical):
-            col = col2[:, icol]
-            df_cols[icol] = pd.Series(pd.Categorical(col, categories=np.unique(col)))
-        # all numerical columns
-        for icol in range(n_categorical, n_features):
-            df_cols[icol] = pd.Series(features[:, icol])
-        # shuffle the columns around
-        seed(42)
-        new_idx = sample(range(n_features), k=n_features)
-        df_cols = {i : df_cols[new_idx[i]] for i in range(n_features)}
+    # the main bottleneck (>80%) of to_categorical() is the pandas operations
+    n_features = features.shape[1]
+    df_cols = {}
+    # all categorical columns
+    col = features[:, :n_categorical]
+    col2 = col - col.min(axis=1, keepdims=True)  # col range [0, ?]
+    col2 /= col2.max(axis=1, keepdims=True)  # col range [0, 1]
+    # round into rough_n_categories bins
+    col2 = np.round(col2 * 100).astype(int)
+    for icol in range(n_categorical):
+        col = col2[:, icol]
+        df_cols[icol] = pd.Series(pd.Categorical(col,
+                                                 categories=np.unique(col)))
+    # all numerical columns
+    for icol in range(n_categorical, n_features):
+        df_cols[icol] = pd.Series(features[:, icol])
+    # shuffle the columns around
+    seed(42)
+    new_idx = sample(range(n_features), k=n_features)
+    df_cols = {i: df_cols[new_idx[i]] for i in range(n_features)}
 
-        return pd.DataFrame(df_cols)
+    return pd.DataFrame(df_cols)
 
 
 @pytest.mark.parametrize('num_classes', [2, 5])
@@ -521,13 +523,13 @@ def test_lightgbm(tmp_path, num_classes, n_categorical):
     import lightgbm as lgb
 
     if n_categorical > 0:
-      n_features = 10
-      n_rows = 1000
-      n_informative = n_features
+        n_features = 10
+        n_rows = 1000
+        n_informative = n_features
     else:
-      n_features = 10 if num_classes == 2 else 50
-      n_rows = 500
-      n_informative = 'auto'
+        n_features = 10 if num_classes == 2 else 50
+        n_rows = 500
+        n_informative = 'auto'
 
     X, y = simulate_data(n_rows,
                          n_features,
