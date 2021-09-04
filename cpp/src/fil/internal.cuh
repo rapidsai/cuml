@@ -252,12 +252,6 @@ enum leaf_algo_t {
   VECTOR_LEAF = 5,
   // to be extended
 };
-static const char* leaf_algo_t_repr[] = {"FLOAT_UNARY_BINARY",
-                                         "CATEGORICAL_LEAF",
-                                         "GROVE_PER_CLASS",
-                                         "GROVE_PER_CLASS_FEW_CLASSES",
-                                         "GROVE_PER_CLASS_MANY_CLASSES",
-                                         "VECTOR_LEAF"};
 
 template <leaf_algo_t leaf_algo>
 struct leaf_output_t {

@@ -49,7 +49,6 @@ enum algo_t {
       in a single thread block */
   BATCH_TREE_REORG
 };
-static const char* algo_t_repr[] = {"ALGO_AUTO", "NAIVE", "TREE_REORG", "BATCH_TREE_REORG"};
 
 /** storage_type_t defines whether to import the forests as dense or sparse */
 enum storage_type_t {

@@ -705,30 +705,6 @@ typedef BasePredictSparseFilTest<fil::sparse_node8> PredictSparse8FilTest;
 
 class TreeliteFilTest : public BaseFilTest {
  protected:
-  std::unique_ptr<tl::Model> model;
-
-  void SetUp() override
-  {
-    setup_helper();
-    using namespace treelite::gtil;
-
-    bool cond           = ps.num_classes > 2;
-    std::size_t tl_size = cond ? ps.num_proba_outputs() : ps.num_preds_outputs();
-    float* cpu          = cond ? want_proba_d : want_preds_d;
-    float* gpu          = cond ? proba_d : preds_d;
-
-    std::vector<float> tl_preds_h(tl_size);
-    if (atoi(getenv("tl_w_cpu")) || atoi(getenv("tl_w_gpu")))
-      Predict(&*model, data_h.data(), ps.num_rows, tl_preds_h.data(), false);
-    if (atoi(getenv("tl_w_cpu")))
-      ASSERT_TRUE(raft::devArrMatchHost(
-        tl_preds_h.data(), cpu, tl_size, raft::CompareApprox<float>(ps.tolerance)));
-    if (atoi(getenv("tl_w_gpu")))
-      ASSERT_TRUE(raft::devArrMatchHost(
-        tl_preds_h.data(), gpu, tl_size, raft::CompareApprox<float>(ps.tolerance)));
-    CUDA_CHECK(cudaDeviceSynchronize());
-  }
-
   /** adds nodes[node] of tree starting at index root to builder
       at index at *pkey, increments *pkey,
       and returns the treelite key of the node */
@@ -853,7 +829,7 @@ class TreeliteFilTest : public BaseFilTest {
     }
 
     // commit the model
-    model = model_builder->CommitModel();
+    std::unique_ptr<tl::Model> model = model_builder->CommitModel();
 
     // init FIL forest with the model
     char* forest_shape_str = nullptr;
