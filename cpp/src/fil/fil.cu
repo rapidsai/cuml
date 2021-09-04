@@ -71,10 +71,9 @@ cat_sets_owner::cat_sets_owner(const std::vector<cat_feature_counters>& cf)
       cf[fid].max_matching >= -1, "@fid %zu: max_matching invalid (%d)", fid, cf[fid].max_matching);
     RAFT_EXPECTS(cf[fid].n_nodes >= 0, "@fid %zu: n_nodes invalid (%d)", fid, cf[fid].n_nodes);
 
-    n_nodes[fid] = cf[fid].n_nodes;
+    n_nodes[fid]      = cf[fid].n_nodes;
     max_matching[fid] = cf[fid].max_matching;
-    bits_size +=
-      categorical_sets::sizeof_mask_from_max_matching(max_matching[fid]) * n_nodes[fid];
+    bits_size += categorical_sets::sizeof_mask_from_max_matching(max_matching[fid]) * n_nodes[fid];
 
     RAFT_EXPECTS(bits_size <= INT_MAX,
                  "@fid %zu: cannot store %zu categories given `int` offsets",
@@ -104,7 +103,6 @@ __global__ void transform_k(float* preds,
   if (complement_proba && i % 2 != 0) return;
 
   float result = preds[i];
-  // printf("xform_k preds[%lu]=%f\n", i, result);
   if ((output & output_t::AVG) != 0) result *= inv_num_trees;
   result += global_bias;
   if ((output & output_t::SIGMOID) != 0) result = sigmoid(result);
@@ -683,13 +681,6 @@ std::vector<cat_feature_counters> cat_features_counters(const tl::ModelImpl<T, L
   for (size_t i = 0; i < trees.size(); ++i) {
     cat_features = reduce(cat_features, cat_features_counters(trees[i], model.num_feature));
   }
-  /*
-  for (std::size_t fid = 0; fid < cat_features.size(); ++fid)
-    printf("forest fid %3lu max_matching %8d sizeof_mask %3d\n",
-           fid,
-           cat_features[fid].max_matching,
-           categorical_sets::sizeof_mask_from_max_matching(cat_features[fid].max_matching));
-           */
   return cat_features;
 }
 
@@ -785,7 +776,6 @@ void tl2fil_leaf_payload(fil_node_t* fil_node,
       break;
     default: ASSERT(false, "internal error: invalid leaf_algo");
   };
-  fil_node->print();
 }
 
 template <typename fil_node_t>
@@ -826,17 +816,8 @@ conversion_state<fil_node_t> tl2fil_branch_node(int fil_left_child,
       *bit_pool_size += sizeof_mask;
     }
     ASSERT(split.idx >= 0, "split.idx < 0");
-    /*
-    printf("\ntl_id %d fid %d idx %d sizeof_mask %d max_matching %d\n",
-           tl_node_id,
-           feature_id,
-           split.idx,
-           sizeof_mask,
-           cat_sets.max_matching[feature_id]);
-    */
     std::vector<uint32_t> matching_cats = tree.MatchingCategories(tl_node_id);
-    print_rl(matching_cats.data(), matching_cats.size(), "matching_cats", 1);
-    auto category_it = matching_cats.begin();
+    auto category_it                    = matching_cats.begin();
     // assuming categories from tree.MatchingCategories() are in ascending order
     // we have to initialize all pool bytes, so we iterate over those and keep category_it up to
     // date
@@ -852,7 +833,6 @@ conversion_state<fil_node_t> tl2fil_branch_node(int fil_left_child,
       (uint8_t&)(cat_sets.bits[split.idx + which_8cats]) = _8cats;
     }
     const uint8_t* mask_start = cat_sets.bits + split.idx;
-    print_rl(mask_start, sizeof_mask, "mask", 0);
     ASSERT(category_it == matching_cats.end(), "internal error: didn't convert all categories");
   } else
     ASSERT(false, "only numerical and categorical split nodes are supported");
@@ -862,7 +842,6 @@ conversion_state<fil_node_t> tl2fil_branch_node(int fil_left_child,
   } else {
     node = fil_node_t({}, split, feature_id, default_left, false, is_categorical, fil_left_child);
   }
-  node.print();
   return {node, tl_left, tl_right};
 }
 
@@ -880,15 +859,13 @@ void node2fil_dense(std::vector<dense_node>* pnodes,
 {
   if (tree.IsLeaf(node_id)) {
     (*pnodes)[root + cur] = dense_node({}, {}, 0, false, true, false);
-    // printf("fnid %3d is a   leaf,               ", cur);
     tl2fil_leaf_payload(
       &(*pnodes)[root + cur], root + cur, tree, node_id, forest_params, vector_leaf, leaf_counter);
     return;
   }
 
   // inner node
-  int left = 2 * cur + 1;
-  // printf("fnid %3d is a branch, left index %3d", cur, left);
+  int left                        = 2 * cur + 1;
   conversion_state<dense_node> cs = tl2fil_branch_node<dense_node>(
     left, tree, node_id, forest_params, cat_sets->accessor(), bit_pool_size);
   (*pnodes)[root + cur] = cs.node;
@@ -1171,7 +1148,6 @@ void tl2fil_dense(std::vector<dense_node>* pnodes,
                    cat_sets,
                    &bit_pool_size);
   }
-  // printf("bit_pool_size %lu cat_sets->bits.size() %lu\n", bit_pool_size, cat_sets->bits.size());
   ASSERT(bit_pool_size == cat_sets->bits.size(),
          "internal error: didn't convert the right number of nodes");
 }
@@ -1401,7 +1377,6 @@ void from_treelite(const raft::handle_t& handle,
     }
     default: ASSERT(false, "tl_params->sparse must be one of AUTO, DENSE or SPARSE");
   }
-  cat_sets.accessor().print_max_matching();
 }
 
 void from_treelite(const raft::handle_t& handle,
@@ -1425,19 +1400,19 @@ char* sprintf_shape(const tl::ModelImpl<threshold_t, leaf_t>& model,
                     const cat_sets_owner cat_sets)
 {
   std::stringstream forest_shape = depth_hist_and_max(model);
-  float size_mb =
-    (trees.size() * sizeof(trees.front()) + nodes.size() * sizeof(nodes.front()) + cat_sets.bits.size()) / 1e6;
+  float size_mb = (trees.size() * sizeof(trees.front()) + nodes.size() * sizeof(nodes.front()) +
+                   cat_sets.bits.size()) /
+                  1e6;
   forest_shape << storage_type_repr[storage] << " model size " << std::setprecision(2) << size_mb
                << " MB" << std::endl;
   if (cat_sets.bits.size() > 0) {
     forest_shape << "categorical nodes for each feature id: {";
     std::size_t total_cat_nodes = 0;
-    for(std::size_t n : cat_sets.n_nodes) {
+    for (std::size_t n : cat_sets.n_nodes) {
       forest_shape << n << " ";
       total_cat_nodes += n;
     }
-    forest_shape << "}" << std::endl <<
-      "total categorical nodes: " << total_cat_nodes << std::endl;
+    forest_shape << "}" << std::endl << "total categorical nodes: " << total_cat_nodes << std::endl;
     forest_shape << "maximum matching category for each feature id: {";
     for (std::size_t mm : cat_sets.max_matching)
       forest_shape << mm << " ";

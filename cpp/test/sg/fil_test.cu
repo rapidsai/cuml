@@ -339,9 +339,6 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
         bits_d.data(), bits_precursor_d.data(), cat_sets_h.bits.size());
       raft::update_host(cat_sets_h.bits.data(), bits_d.data(), cat_sets_h.bits.size(), stream);
     }
-    printf("generated:\n");
-    // cat_sets_h.accessor().print_bits();
-    // cat_sets_h.accessor().print_max_matching();
 
     // initialize nodes
     nodes.resize(num_nodes);
@@ -442,9 +439,6 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
   void predict_on_cpu()
   {
-    printf("predicting:\n");
-    // cat_sets_h.print_bits();
-    // cat_sets_h.accessor().print_max_matching();
     // predict on host
     std::vector<float> want_preds_h(ps.num_preds_outputs());
     want_proba_h.resize(ps.num_proba_outputs());
@@ -459,7 +453,6 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
           for (int j = 0; j < ps.num_trees; ++j) {
             pred += infer_one_tree(&nodes[j * num_nodes], &data_h[i * ps.num_cols], base).f;
           }
-          // printf("cpu pred sum %f\n", pred);
           transform(pred, want_proba_h[i * 2 + 1], want_preds_h[i]);
           complement(&(want_proba_h[i * 2]));
         }
@@ -573,7 +566,6 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     fil::val_t output{.f = 0.0f};
     for (;;) {
       const fil::dense_node& node = root[curr];
-      // if (node.is_leaf()) printf("leaf idx %d\n", curr);
       if (node.is_leaf()) return node.template output<val_t>();
       float val = data[node.fid()];
       curr      = tree.child_index<true>(node, curr, val);
@@ -724,7 +716,6 @@ class TreeliteFilTest : public BaseFilTest {
     std::size_t tl_size = cond ? ps.num_proba_outputs() : ps.num_preds_outputs();
     float* cpu          = cond ? want_proba_d : want_preds_d;
     float* gpu          = cond ? proba_d : preds_d;
-    printf("tl_size %lu ==? tl::size %lu\n", tl_size, GetPredictOutputSize(&*model, ps.num_rows));
 
     std::vector<float> tl_preds_h(tl_size);
     if (atoi(getenv("tl_w_cpu")) || atoi(getenv("tl_w_gpu")))
@@ -746,10 +737,8 @@ class TreeliteFilTest : public BaseFilTest {
     int key = (*pkey)++;
     builder->CreateNode(key);
     const fil::dense_node& dense_node = nodes[node];
-    dense_node.print();
     std::vector<uint32_t> left_categories;
     if (dense_node.is_leaf()) {
-      // printf("leaf key %d\n", key);
       switch (ps.leaf_algo) {
         case fil::leaf_algo_t::FLOAT_UNARY_BINARY:
         case fil::leaf_algo_t::GROVE_PER_CLASS:
@@ -782,15 +771,12 @@ class TreeliteFilTest : public BaseFilTest {
       bool default_left = dense_node.def_left();
       float threshold;
       if (dense_node.is_categorical()) {
-        auto cs = cat_sets_h.accessor();
-        // printf("node tl ID %d fil ID %d\n", key, node);
-        print_rl(cs.bits + dense_node.set(), cs.sizeof_mask(dense_node.fid()), "cs.bits", 0);
+        auto cs      = cat_sets_h.accessor();
         uint8_t byte = 0;
         for (int category = 0; category <= cat_sets_h.max_matching[dense_node.fid()]; ++category) {
           if (category % 8 == 0) byte = cat_sets_h.bits[dense_node.set() + category / 8];
           if ((byte & 1 << category % 8) != 0) left_categories.push_back(category);
         }
-        print_rl(left_categories.data(), left_categories.size(), "left_categories", 1);
       } else {
         threshold = dense_node.thresh();
       }
@@ -798,7 +784,6 @@ class TreeliteFilTest : public BaseFilTest {
       int right_key = node_to_treelite(builder, pkey, root, right);
       if (atoi(getenv("ever_categorical")) && !left_categories.empty() &&
           dense_node.is_categorical()) {
-        // printf("c branch key %d left_key %d right_key %d\n", key, left_key, right_key);
         std::swap(left_key, right_key);
         default_left = !default_left;
         builder->SetCategoricalTestNode(
@@ -810,7 +795,6 @@ class TreeliteFilTest : public BaseFilTest {
           threshold = NAN;
         }
         adjust_threshold(&threshold, &left_key, &right_key, &default_left, ps.op, FIL_TO_TREELITE);
-        // printf("n branch key %d left_key %d right_key %d\n", key, left_key, right_key);
         builder->SetNumericalTestNode(key,
                                       dense_node.fid(),
                                       ps.op,
@@ -863,17 +847,13 @@ class TreeliteFilTest : public BaseFilTest {
       int key_counter = 0;
       int root        = i_tree * tree_num_nodes();
       int root_key    = node_to_treelite(tree_builder, &key_counter, root, root);
-      // printf("2treelite\n");
       tree_builder->SetRootNode(root_key);
-      // printf("set root node\n");
       // InsertTree() consumes tree_builder
       TL_CPP_CHECK(model_builder->InsertTree(tree_builder));
-      // printf("inserted tree\n");
     }
 
     // commit the model
     model = model_builder->CommitModel();
-    printf("committed model\n");
 
     // init FIL forest with the model
     char* forest_shape_str = nullptr;

@@ -34,29 +34,6 @@ class handle_t;
 namespace ML {
 namespace fil {
 
-template <typename T>
-__host__ __device__ void print_rl(const T* v, std::size_t size, const char* name, int inc)
-{
-  return;
-  auto print_until = [=](T last, size_t last_idx, size_t i) {
-    if (last_idx != i - 1)
-      printf("[%lu..%lu]->%u..%u ", last_idx, i - 1, last, v[i - 1]);
-    else
-      printf("[%lu]->%u ", last_idx, last);
-  };
-  printf("%s {", name);
-  T last               = v[0];
-  std::size_t last_idx = 0;
-  for (std::size_t i = 1; i < size; ++i)
-    if (v[i] != last + (i - last_idx) * inc) {
-      print_until(last, last_idx, i);
-      last     = v[i];
-      last_idx = i;
-    }
-  print_until(last, last_idx, size);
-  printf("}\n");
-}
-
 const int BITS_PER_BYTE = 8;
 
 /// modpow2 returns a % b == a % pow(2, log2_b)
@@ -158,20 +135,6 @@ struct base_node {
       val = output;
     else
       val = split;
-  }
-  __host__ __device__ void print() const
-  {
-    return;
-    const char* is[] = {"is NOT", "    IS"};
-    const char* lr[] = {" left", "right"};
-    printf("{.f = %9f, .idx = %11d} fid %10d, bits %8x, def %s, %s leaf, %s categorical\n",
-           val.f,
-           val.idx,
-           fid(),
-           set(),
-           lr[def_left()],
-           is[is_leaf()],
-           is[is_categorical()]);
   }
 };
 
@@ -403,9 +366,6 @@ struct categorical_sets {
     // features with similar categorical feature count, we may consider
     // storing node ID within nodes with same feature ID and look up
     // {.max_matching, .first_node_offset} = ...[feature_id]
-    // printf(
-    //  "for fid %d and category %d, checking categories at %d:", node.fid(), category, node.set());
-    print_rl(bits + node.set(), max_matching[node.fid()] + 1, "bits", 0);
     return category <= max_matching[node.fid()] && fetch_bit(bits + node.set(), category);
   }
   static int sizeof_mask_from_max_matching(int max_matching)
@@ -415,21 +375,6 @@ struct categorical_sets {
   int sizeof_mask(int feature_id) const
   {
     return sizeof_mask_from_max_matching(max_matching[feature_id]);
-  }
-  void print_bits() const
-  {
-    printf("bits {");
-    for (size_t byte = 0; byte < bits_size; ++byte)
-      std::cout << std::bitset<8>(bits[byte]) << " ";
-    printf("}\n");
-  }
-
-  void print_max_matching() const
-  {
-    printf("max_matching {");
-    for (size_t fid = 0; fid < max_matching_size; ++fid)
-      printf("%d ", max_matching[fid]);
-    printf("}\n");
   }
 };
 
@@ -443,17 +388,14 @@ struct tree_base {
                                                       int node_idx,
                                                       float val) const
   {
-    const char* lr[] = {" left", "right"};
     bool cond;
 
     if (isnan(val)) {
       cond = !node.def_left();
-      // printf("idx %d val is nan, taking %s\n", node_idx, lr[cond]);
     } else if (CATS_SUPPORTED && node.is_categorical()) {
       cond = cat_sets.category_matches(node, (int)val);
     } else {
       cond = val >= node.thresh();
-      // printf("idx %d %f >= %f taking %s\n", node_idx, val, node.thresh(), lr[cond]);
     }
     return node.left(node_idx) + cond;
   }
@@ -463,7 +405,8 @@ struct tree_base {
 struct cat_sets_owner {
   // arrays from each node ID are concatenated first, then from all categories
   std::vector<uint8_t> bits;
-  // largest matching category in the model, per feature ID. uses int because GPU code can only fit int
+  // largest matching category in the model, per feature ID. uses int because GPU code can only fit
+  // int
   std::vector<int> max_matching;
   // how many categorical nodes use a given feature id. Used for model shape string.
   std::vector<std::size_t> n_nodes;
