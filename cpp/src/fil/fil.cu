@@ -1413,7 +1413,7 @@ char* sprintf_shape(const tl::ModelImpl<threshold_t, leaf_t>& model,
     }
     forest_shape << "}" << std::endl << "total categorical nodes: " << total_cat_nodes << std::endl;
     forest_shape << "maximum matching category for each feature id: {";
-    for (std::size_t mm : cat_sets.max_matching)
+    for (int mm : cat_sets.max_matching)
       forest_shape << mm << " ";
     forest_shape << "}" << std::endl;
   }
