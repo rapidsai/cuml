@@ -1313,7 +1313,7 @@ class CategoricalNB(_BaseDiscreteNB):
     ----------
     category_count_ : ndarray of shape (n_features, n_classes, n_categories)
         With n_categories being the highest category of all the features.
-        The array provides the number of samples encountered for each feature,
+        This array provides the number of samples encountered for each feature,
         class and category of the specific feature.
     class_count_ : ndarray of shape (n_classes,)
         Number of samples encountered for each class during fitting.
@@ -1476,10 +1476,10 @@ class CategoricalNB(_BaseDiscreteNB):
                       (class_c, n_rows, Y))
 
         highest_feature = int(x_coo_data.max()) + 1
-        feature_diff = highest_feature - self.category_count_.shape[2]
+        feature_diff = highest_feature - self.category_count_.shape[1]
         # In case of a partial fit, pad the array to have the highest feature
         if feature_diff > 0:
-            if self.category_count_.shape[2] == 0:
+            if not cp.sparse.issparse(self.category_count_):
                 self.category_count_ = cupyx.scipy.sparse.coo_matrix(
                     (self.n_features_ * n_classes, highest_feature))
             else:
@@ -1583,20 +1583,26 @@ class CategoricalNB(_BaseDiscreteNB):
                                         dtype=dtype)
 
     def _update_feature_log_prob(self, alpha):
+        # smooth_cat_count represents the number of occurence for each
+        # category, class and feature + the alpha parameter
+        # smooth_class_count represents the occurence of each feature in a class ?
         highest_feature = cp.zeros(self.n_features_, dtype=cp.float64)
         if cp.sparse.issparse(self.category_count_):
+            # For sparse data we avoid the creation of the dense matrix
+            # feature_log_prob_. This can be created on the fly during
+            # the prediction without using as much memory.
             features = self.category_count_.row % self.n_features_
             cupyx.scatter_max(highest_feature,
                               features,
                               self.category_count_.col)
             highest_feature = (highest_feature + 1) * alpha
-            smoothed_class_count = self.category_count_.sum(axis=1).reshape((self.n_features_, self.n_classes_)) + \
+            smoothed_class_count = \
+                self.category_count_.sum(axis=1).reshape((self.n_classes_, self.n_features_)).T + \
                 highest_feature[:, cp.newaxis]
             smoothed_cat_count = cupyx.scipy.sparse.coo_matrix(self.category_count_)
             smoothed_cat_count.data = cp.log(smoothed_cat_count.data + alpha)
-            self.smoothed_cat_count = smoothed_cat_count
+            self.smoothed_cat_count = smoothed_cat_count.tocsr()
             self.smoothed_class_count = cp.log(smoothed_class_count)
-            self.feature_log_prob_ = cupyx.scipy.sparse.coo_matrix((0, 0))
         else:
             indices = self.category_count_.nonzero()
             cupyx.scatter_max(highest_feature, indices[0], indices[2])
@@ -1613,18 +1619,30 @@ class CategoricalNB(_BaseDiscreteNB):
                              % (self.n_features_, X.shape[1]))
         n_rows = X.shape[0]
         # self.feature_log_prob_.shape = self.n_features_, self.n_classes_, n_cat
-        if cp.sparse.isspmatrix(self.feature_log_prob_):
-            features_zeros = self.feature_log_prob_[:, :, 0].sum(0)
+        if cp.sparse.isspmatrix(X):
+            # For sparse data we assume that most categories will be zeros,
+            # so we first compute the jll for categories 0
+            features_zeros = self.smoothed_cat_count[:, 0].todense().reshape(self.n_classes_, self.n_features_).T
+            if self.alpha != 1.0:
+                features_zeros[cp.where(features_zeros == 0)] += cp.log(self.alpha)
+            features_zeros -= self.smoothed_class_count
+            features_zeros = features_zeros.sum(0)
             jll = cp.repeat(features_zeros[cp.newaxis, :], n_rows, axis=0)
 
-            # X is assumed to be a COO here
+            X = X.tocoo()
             col_indices = X.col
-            jll_data = self.feature_log_prob_[col_indices, :, X.data] - \
-                self.feature_log_prob_[col_indices, :, 0]
-            
+
+            # Then we adjust with the non-zeros data by adding jll_data (non-zeros)
+            # and substracting jll_zeros which are the zeros that we assumed
             for i in range(self.n_classes_):
-                cupyx.scatter_add(jll[:, i], X.row, jll_data[:, i])
-            
+                jll_data = self.smoothed_cat_count[col_indices + i * self.n_features_, X.data].ravel()
+                jll_zeros = self.smoothed_cat_count[col_indices + i * self.n_features_, 0].todense()[:,0]
+                if self.alpha != 1.0:
+                    jll_data[cp.where(jll_data == 0)] += cp.log(self.alpha)
+                    jll_zeros[cp.where(jll_zeros == 0)] += cp.log(self.alpha)
+                
+                cupyx.scatter_add(jll[:, i], X.row, jll_data)
+
         else:
             col_indices = cp.indices(X.shape)[1].flatten()
             jll = self.feature_log_prob_[col_indices, :, X.ravel()]

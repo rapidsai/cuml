@@ -468,32 +468,22 @@ def test_categorical(x_dtype, y_dtype, is_sparse, nlp_20news):
         pytest.skip("Sparse matrices with integers dtype are not supported")
     X, y = nlp_20news
     n_rows = 2000
-    n_cols = 5000
+    n_cols = 500
 
     X = sparse_scipy_to_cp(X, dtype=cp.float32)
-    y = y.astype(y_dtype)
-
-    X = X.tocsr()
+    X = X.astype(x_dtype).tocsr()[:n_rows, :n_cols]
+    y = y.astype(y_dtype)[:n_rows]
 
     if not is_sparse:
-        X = X.todense().astype(x_dtype)[:n_rows, :n_cols]
-        y = y[:n_rows]
-    else:
-        X = X[:n_rows, :n_cols]
-        y = y[:n_rows]
-        X.data = X.data.astype(x_dtype)
-
-    cuml_model2 = CategoricalNB()
-    cuml_model2.fit(X.todense(), y)
-    cuml_score = cuml_model2.score(X.todense(), y)
+        X = X.todense()
 
     cuml_model = CategoricalNB()
     cuml_model.fit(X, y)
     cuml_score = cuml_model.score(X, y)
-
     cuml_proba = cuml_model.predict_log_proba(X).get()
-    X = X.todense().get()[:n_rows, :n_cols] if is_sparse else X.get()
-    y = y[:n_rows].get() if is_sparse else y.get()
+    
+    X = X.todense().get() if is_sparse else X.get()
+    y = y.get()
     sk_model = skCNB()
     sk_model.fit(X, y)
     sk_score = sk_model.score(X, y)
@@ -508,22 +498,29 @@ def test_categorical(x_dtype, y_dtype, is_sparse, nlp_20news):
     assert sk_score - THRES <= cuml_score <= sk_score + THRES
 
 
-@pytest.mark.parametrize("x_dtype", [cp.int32])
-@pytest.mark.parametrize("y_dtype", [cp.int32,
+@pytest.mark.parametrize("x_dtype", [cp.int32,
                                      cp.float32, cp.float64])
-def test_categorical_partial_fit(x_dtype, y_dtype, nlp_20news):
+@pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
+@pytest.mark.parametrize("is_sparse", [True, False])
+def test_categorical_partial_fit(x_dtype, y_dtype, is_sparse, nlp_20news):
+    if x_dtype == cp.int32 and is_sparse:
+        pytest.skip("Sparse matrices with integers dtype are not supported")
     n_rows = 5000
     n_cols = 500
     chunk_size = 1000
 
     X, y = nlp_20news
 
-    X = sparse_scipy_to_cp(X, 'float32').todense()
-    X = X[:n_rows, :n_cols].astype(x_dtype)
+    X = sparse_scipy_to_cp(X, 'float32').tocsr()[:n_rows]
+    if is_sparse:
+        X.data = X.data.astype(x_dtype)
+        expected_score = 0.5414
+    else:
+        X = X[:, :n_cols].todense().astype(x_dtype)
+        expected_score = 0.1040
     y = y.astype(y_dtype)[:n_rows]
 
     model = CategoricalNB()
-    modelsk = skCNB()
 
     classes = np.unique(y)
     for i in range(math.ceil(X.shape[0] / chunk_size)):
@@ -538,30 +535,30 @@ def test_categorical_partial_fit(x_dtype, y_dtype, nlp_20news):
         else:
             x = X[i*chunk_size:]
             y_c = y[i*chunk_size:]
-        modelsk.partial_fit(x.get(), y_c.get(), classes=classes.get())
         model.partial_fit(x, y_c, classes=classes)
         if upper == -1:
             break
 
-    y_hat = model.predict(X).get()
-    y_sk = modelsk.predict(X.get())
-
-    assert_allclose(model.class_count_.get(), modelsk.class_count_)
-    assert_allclose(y_hat, y_sk)
+    cuml_score = model.score(X, y)
+    THRES = 1e-4
+    assert expected_score - THRES <= cuml_score <= expected_score + THRES
 
 
 @pytest.mark.parametrize("class_prior", [None, 'balanced', 'unbalanced'])
 @pytest.mark.parametrize("alpha", [0.1, 0.5, 1.5])
 @pytest.mark.parametrize("fit_prior", [False, True])
-def test_categorical_parameters(class_prior, alpha, fit_prior, nlp_20news):
+@pytest.mark.parametrize("is_sparse", [False, True])
+def test_categorical_parameters(class_prior, alpha, fit_prior, is_sparse, nlp_20news):
     x_dtype = cp.float32
     y_dtype = cp.int32
     nrows = 2000
-    ncols = 500
+    ncols = 5000
 
     X, y = nlp_20news
 
-    X = sparse_scipy_to_cp(X[:nrows, ncols], x_dtype).todense()
+    X = sparse_scipy_to_cp(X, x_dtype).tocsr()[:nrows, :ncols]
+    if not is_sparse:
+        X = X.todense()
     y = y.astype(y_dtype)[:nrows]
 
     if class_prior == 'balanced':
@@ -579,7 +576,7 @@ def test_categorical_parameters(class_prior, alpha, fit_prior, nlp_20news):
     y_hat = model.predict(X).get()
     y_log_prob = model.predict_log_proba(X).get()
 
-    X = X.get()
+    X = X.todense().get() if is_sparse else X.get()
     model_sk.fit(X, y.get())
     y_hat_sk = model_sk.predict(X)
     y_log_prob_sk = model_sk.predict_log_proba(X)
