@@ -49,7 +49,8 @@ def count_features_coo_kernel(float_dtype, int_dtype):
                     {0} *weights,
                     bool has_weights,
                     int n_classes,
-                    bool square) {
+                    bool square,
+                    bool categorical) {
 
       int i = blockIdx.x * blockDim.x + threadIdx.x;
 
@@ -58,17 +59,53 @@ def count_features_coo_kernel(float_dtype, int_dtype):
       int row = rows[i];
       int col = cols[i];
       {0} val = vals[i];
+      {1} label = labels[row];
+      unsigned out_idx = (col * n_classes) + label;
 
+      if (categorical)
+      {
+        out_idx = (val * n_classes * n_cols) + (label * n_cols) + col;
+        val = 1;
+      }
       if(has_weights)
         val *= weights[i];
 
       if(square) val *= val;
-      {1} label = labels[row];
-      atomicAdd(out + ((col * n_classes) + label), val);
+      atomicAdd(out + out_idx, val);
     }'''
 
     return cuda_kernel_factory(kernel_str, (float_dtype, int_dtype),
                                "count_features_coo")
+
+def count_features_categorical_coo_kernel(float_dtype, int_dtype):
+    """
+    A simple reduction kernel that takes in a sparse (COO) array
+    of features and computes the sum (or sum squared) for each class
+    label
+    """
+
+    kernel_str = r'''(int *out_rows, int *out_cols,
+                    int *rows, int *cols,
+                    {0} *vals, int nnz,
+                    int n_classes, int n_cols,
+                    {1} *labels) {
+
+      int i = blockIdx.x * blockDim.x + threadIdx.x;
+
+      if(i >= nnz) return;
+
+      int row = rows[i];
+      int col = cols[i];
+      {0} val = vals[i];
+      {1} label = labels[row];
+      //out_idx = (val * n_classes * n_cols) + (label * n_cols) + col;
+      //atomicAdd(out + out_idx, val);
+      out_rows[i] = col + n_cols * label;
+      out_cols[i] = val;
+    }'''
+
+    return cuda_kernel_factory(kernel_str, (float_dtype, int_dtype),
+                               "count_features_categorical_coo")
 
 
 def count_classes_kernel(float_dtype, int_dtype):
@@ -531,7 +568,7 @@ class GaussianNB(_BaseNB):
                                 Y,
                                 sample_weight,
                                 sample_weight.shape[0] > 0,
-                                self.n_classes_, False))
+                                self.n_classes_, False, False))
 
             # Run again for variance
             count_features_coo((math.ceil(X.nnz / tpb),), (tpb,),
@@ -546,7 +583,8 @@ class GaussianNB(_BaseNB):
                                 sample_weight,
                                 sample_weight.shape[0] > 0,
                                 self.n_classes_,
-                                True))
+                                True,
+                                False))
         else:
 
             count_features_dense = count_features_dense_kernel(X.dtype,
@@ -932,6 +970,7 @@ class _BaseDiscreteNB(_BaseNB):
                             sample_weight,
                             sample_weight.shape[0] > 0,
                             n_classes,
+                            False,
                             False))
 
         count_classes = count_classes_kernel(x_coo_data.dtype, labels_dtype)
@@ -1272,30 +1311,29 @@ class CategoricalNB(_BaseDiscreteNB):
 
     Attributes
     ----------
-    category_count_ : list of arrays of shape (n_features,)
-        Holds arrays of shape (n_classes, n_categories of respective feature)
-        for each feature. Each array provides the number of samples
-        encountered for each class and category of the specific feature.
+    category_count_ : ndarray of shape (n_features, n_classes, n_categories)
+        With n_categories being the highest category of all the features.
+        The array provides the number of samples encountered for each feature,
+        class and category of the specific feature.
     class_count_ : ndarray of shape (n_classes,)
-        Number of samples encountered for each class during fitting. This
-        value is weighted by the sample weight when provided.
+        Number of samples encountered for each class during fitting.
     class_log_prior_ : ndarray of shape (n_classes,)
         Smoothed empirical log probability for each class.
     classes_ : ndarray of shape (n_classes,)
         Class labels known to the classifier
-    feature_log_prob_ : list of arrays of shape (n_features,)
-        Holds arrays of shape (n_classes, n_categories of respective feature)
-        for each feature. Each array provides the empirical log probability
+    feature_log_prob_ : ndarray of shape (n_features, n_classes, n_categories)
+        With n_categories being the highest category of all the features.
+        Each array provides the empirical log probability
         of categories given the respective feature and class, ``P(x_i|y)``.
     n_features_ : int
         Number of features of each sample.
 
     Examples
     --------
-    >>> import numpy as np
-    >>> rng = np.random.RandomState(1)
-    >>> X = rng.randint(5, size=(6, 100))
-    >>> y = np.array([1, 2, 3, 4, 5, 6])
+    >>> import cupy as cp
+    >>> rng = cp.random.RandomState(1)
+    >>> X = rng.randint(5, size=(6, 100), dtype=cp.int32)
+    >>> y = cp.array([1, 2, 3, 4, 5, 6])
     >>> from cuml.naive_bayes import CategoricalNB
     >>> clf = CategoricalNB()
     >>> clf.fit(X, y)
@@ -1313,23 +1351,35 @@ class CategoricalNB(_BaseDiscreteNB):
         self.fit_prior = fit_prior
 
     def _check_X_y(self, X, y):
-        if X.dtype not in [cp.int32]:
+        if cp.sparse.isspmatrix(X):
             warnings.warn("X dtype is not int32. X will be "
                           "converted, which will increase memory consumption")
-            X = input_to_cupy_array(X, order='K',
-                                    convert_to_dtype=cp.int32).array
-        x_min = X.min()
+            X.data = X.data.astype(cp.int32)
+            x_min = X.data.min()
+        else:
+            if X.dtype not in [cp.int32]:
+                warnings.warn("X dtype is not int32. X will be "
+                            "converted, which will increase memory consumption")
+                X = input_to_cupy_array(X, order='K',
+                                        convert_to_dtype=cp.int32).array
+            x_min = X.min()
         if x_min < 0:
             raise ValueError("Negative values in data passed to CategoricalNB")
         return X, y
 
     def _check_X(self, X):
-        if X.dtype not in [cp.int32]:
+        if cp.sparse.isspmatrix(X):
             warnings.warn("X dtype is not int32. X will be "
                           "converted, which will increase memory consumption")
-            X = input_to_cupy_array(X, order='K',
-                                    convert_to_dtype=cp.int32).array
-        x_min = X.min()
+            X.data = X.data.astype(cp.int32)
+            x_min = X.data.min()
+        else:
+            if X.dtype not in [cp.int32]:
+                warnings.warn("X dtype is not int32. X will be "
+                            "converted, which will increase memory consumption")
+                X = input_to_cupy_array(X, order='K',
+                                        convert_to_dtype=cp.int32).array
+            x_min = X.min()
         if x_min < 0:
             raise ValueError("Negative values in data passed to CategoricalNB")
         return X
@@ -1394,6 +1444,93 @@ class CategoricalNB(_BaseDiscreteNB):
         return super().partial_fit(X, y, classes,
                                    sample_weight=sample_weight)
 
+    def _count_sparse(self, x_coo_rows, x_coo_cols, x_coo_data, x_shape, Y,
+                      classes):
+        """
+        Sum feature counts & class prior counts and add to current model.
+        Parameters
+        ----------
+        x_coo_rows : cupy.ndarray of size (nnz)
+        x_coo_cols : cupy.ndarray of size (nnz)
+        x_coo_data : cupy.ndarray of size (nnz)
+        Y : cupy.array of monotonic class labels
+        """
+        n_classes = classes.shape[0]
+        n_rows = x_shape[0]
+        n_cols = x_shape[1]
+        x_coo_nnz = x_coo_rows.shape[0]
+        labels_dtype = classes.dtype
+        tpb = 256
+
+        if Y.dtype != classes.dtype:
+            warnings.warn("Y dtype does not match classes_ dtype. Y will be "
+                          "converted, which will increase memory consumption")
+        sample_weight = cp.zeros(0)
+
+        # Make sure Y is a cupy array, not CumlArray
+        Y = cp.asarray(Y)
+
+        class_c = cp.zeros(n_classes, order="F", dtype=x_coo_data.dtype)
+        count_classes = count_classes_kernel(x_coo_data.dtype, labels_dtype)
+        count_classes((math.ceil(n_rows / tpb), ), (tpb, ),
+                      (class_c, n_rows, Y))
+
+        highest_feature = int(x_coo_data.max()) + 1
+        feature_diff = highest_feature - self.category_count_.shape[2]
+        # In case of a partial fit, pad the array to have the highest feature
+        if feature_diff > 0:
+            if self.category_count_.shape[2] == 0:
+                self.category_count_ = cupyx.scipy.sparse.coo_matrix(
+                    (self.n_features_ * n_classes, highest_feature))
+            else:
+                self.category_count_ = cupyx.scipy.sparse.coo_matrix(
+                    self.category_count_,
+                    shape=(self.n_features_ * n_classes, highest_feature))
+        highest_feature = self.category_count_.shape[1]
+
+        counts_rows = cp.zeros(x_coo_nnz, dtype=cp.int32)
+        counts_cols = cp.zeros(x_coo_nnz, dtype=cp.int32)
+                          
+        '''int *out_rows, int *out_cols,
+        int *rows, int *cols,
+        {0} *vals, int nnz,
+        int n_classes, int n_cols,
+        {1} *labels
+        //out_idx = (val * n_classes * n_cols) + (label * n_cols) + col;
+        //atomicAdd(out + out_idx, val);
+        out_rows[i] = col + n_cols * label;
+        out_cols[i] = val;
+        
+        // out_rows[i] = val * n_classes + label;
+        //out_rows[i] = val;
+        //out_cols[i] = label * n_cols + col;
+        '''
+        count_features_coo = count_features_categorical_coo_kernel(
+            x_coo_data.dtype, labels_dtype)
+        count_features_coo((math.ceil(x_coo_nnz / tpb), ), (tpb, ),
+                           (counts_rows,
+                            counts_cols,
+                            x_coo_rows,
+                            x_coo_cols,
+                            x_coo_data,
+                            x_coo_nnz,
+                            n_classes,
+                            n_cols,
+                            Y))
+
+        # Adjust with the missing (zeros) data of the sparse matrix
+        counts = cupyx.scipy.sparse.coo_matrix(
+            (cp.ones(x_coo_nnz), (counts_rows, counts_cols)),
+            shape=(self.n_features_ * n_classes, highest_feature)).tocsr()
+
+        #countsmdr = counts.todense().reshape(20,5000,232).transpose((1,0,2))
+        for i in range(n_classes):
+            # counts[:, i, 0] = (Y == i).sum() - counts[:, i].sum(1)
+            # counts[i::n_classes, 0] = (Y == i).sum() - counts[:, (i*n_cols):((i+1)*n_cols-1)].sum(1)
+            counts[i*n_cols:(i+1)*n_cols, 0] = (Y == i).sum() - counts[i*n_cols:(i+1)*n_cols].sum(1)
+        self.category_count_ = (self.category_count_ + counts).tocoo()
+        self.class_count_ = self.class_count_ + class_c
+
     def _count(self, X, Y, classes):
         Y = cp.asarray(Y)
         tpb = 32
@@ -1447,24 +1584,51 @@ class CategoricalNB(_BaseDiscreteNB):
 
     def _update_feature_log_prob(self, alpha):
         highest_feature = cp.zeros(self.n_features_, dtype=cp.float64)
-        indices = cp.nonzero(self.category_count_)
-        cupyx.scatter_max(highest_feature, indices[0], indices[2])
-        highest_feature = (highest_feature + 1) * alpha
-        smoothed_class_count = self.category_count_.sum(axis=2) + \
-            highest_feature[:, cp.newaxis]
-        smoothed_cat_count = self.category_count_ + alpha
-        self.feature_log_prob_ = cp.log(smoothed_cat_count) - \
-            cp.log(smoothed_class_count[:, :, cp.newaxis])
+        if cp.sparse.issparse(self.category_count_):
+            features = self.category_count_.row % self.n_features_
+            cupyx.scatter_max(highest_feature,
+                              features,
+                              self.category_count_.col)
+            highest_feature = (highest_feature + 1) * alpha
+            smoothed_class_count = self.category_count_.sum(axis=1).reshape((self.n_features_, self.n_classes_)) + \
+                highest_feature[:, cp.newaxis]
+            smoothed_cat_count = cupyx.scipy.sparse.coo_matrix(self.category_count_)
+            smoothed_cat_count.data = cp.log(smoothed_cat_count.data + alpha)
+            self.smoothed_cat_count = smoothed_cat_count
+            self.smoothed_class_count = cp.log(smoothed_class_count)
+            self.feature_log_prob_ = cupyx.scipy.sparse.coo_matrix((0, 0))
+        else:
+            indices = self.category_count_.nonzero()
+            cupyx.scatter_max(highest_feature, indices[0], indices[2])
+            highest_feature = (highest_feature + 1) * alpha
+            smoothed_class_count = self.category_count_.sum(axis=2) + \
+                highest_feature[:, cp.newaxis]
+            smoothed_cat_count = self.category_count_ + alpha
+            self.feature_log_prob_ = cp.log(smoothed_cat_count) - \
+                cp.log(smoothed_class_count[:, :, cp.newaxis])
 
     def _joint_log_likelihood(self, X):
         if not X.shape[1] == self.n_features_:
             raise ValueError("Expected input with %d features, got %d instead"
                              % (self.n_features_, X.shape[1]))
         n_rows = X.shape[0]
-        col_indices = cp.indices(X.shape)[1].flatten()
-        jll = self.feature_log_prob_[col_indices, :, X.ravel()]
+        # self.feature_log_prob_.shape = self.n_features_, self.n_classes_, n_cat
+        if cp.sparse.isspmatrix(self.feature_log_prob_):
+            features_zeros = self.feature_log_prob_[:, :, 0].sum(0)
+            jll = cp.repeat(features_zeros[cp.newaxis, :], n_rows, axis=0)
 
-        jll = jll.reshape((n_rows, self.n_features_, self.n_classes_)).sum(1)
+            # X is assumed to be a COO here
+            col_indices = X.col
+            jll_data = self.feature_log_prob_[col_indices, :, X.data] - \
+                self.feature_log_prob_[col_indices, :, 0]
+            
+            for i in range(self.n_classes_):
+                cupyx.scatter_add(jll[:, i], X.row, jll_data[:, i])
+            
+        else:
+            col_indices = cp.indices(X.shape)[1].flatten()
+            jll = self.feature_log_prob_[col_indices, :, X.ravel()]
+            jll = jll.reshape((n_rows, self.n_features_, self.n_classes_)).sum(1)
         jll += self.class_log_prior_
         return jll
 

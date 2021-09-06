@@ -462,26 +462,42 @@ def test_gaussian_parameters(priors, var_smoothing, nlp_20news):
 
 @pytest.mark.parametrize("x_dtype", [cp.int32, cp.float32, cp.float64])
 @pytest.mark.parametrize("y_dtype", [cp.int32, cp.int64])
-def test_categorical(x_dtype, y_dtype, nlp_20news):
+@pytest.mark.parametrize("is_sparse", [True, False])
+def test_categorical(x_dtype, y_dtype, is_sparse, nlp_20news):
+    if x_dtype == cp.int32 and is_sparse:
+        pytest.skip("Sparse matrices with integers dtype are not supported")
     X, y = nlp_20news
     n_rows = 2000
-    n_cols = 500
+    n_cols = 5000
 
     X = sparse_scipy_to_cp(X, dtype=cp.float32)
     y = y.astype(y_dtype)
 
-    X = X.tocsr()[:n_rows, :n_cols].todense().astype(x_dtype)
-    y = y[:n_rows]
+    X = X.tocsr()
+
+    if not is_sparse:
+        X = X.todense().astype(x_dtype)[:n_rows, :n_cols]
+        y = y[:n_rows]
+    else:
+        X = X[:n_rows, :n_cols]
+        y = y[:n_rows]
+        X.data = X.data.astype(x_dtype)
+
+    cuml_model2 = CategoricalNB()
+    cuml_model2.fit(X.todense(), y)
+    cuml_score = cuml_model2.score(X.todense(), y)
 
     cuml_model = CategoricalNB()
-    sk_model = skCNB()
-
-    sk_model.fit(X.get(), y.get())
     cuml_model.fit(X, y)
-    sk_score = sk_model.score(X.get(), y.get())
     cuml_score = cuml_model.score(X, y)
+
     cuml_proba = cuml_model.predict_log_proba(X).get()
-    sk_proba = sk_model.predict_log_proba(X.get())
+    X = X.todense().get()[:n_rows, :n_cols] if is_sparse else X.get()
+    y = y[:n_rows].get() if is_sparse else y.get()
+    sk_model = skCNB()
+    sk_model.fit(X, y)
+    sk_score = sk_model.score(X, y)
+    sk_proba = sk_model.predict_log_proba(X)
 
     THRES = 1e-3
 
