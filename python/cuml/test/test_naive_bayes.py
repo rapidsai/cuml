@@ -471,17 +471,17 @@ def test_categorical(x_dtype, y_dtype, is_sparse, nlp_20news):
     n_cols = 500
 
     X = sparse_scipy_to_cp(X, dtype=cp.float32)
-    X = X.astype(x_dtype).tocsr()[:n_rows, :n_cols]
+    X = X.tocsr()[:n_rows, :n_cols]
     y = y.astype(y_dtype)[:n_rows]
 
     if not is_sparse:
         X = X.todense()
-
+    X = X.astype(x_dtype)
     cuml_model = CategoricalNB()
     cuml_model.fit(X, y)
     cuml_score = cuml_model.score(X, y)
     cuml_proba = cuml_model.predict_log_proba(X).get()
-    
+
     X = X.todense().get() if is_sparse else X.get()
     y = y.get()
     sk_model = skCNB()
@@ -548,11 +548,12 @@ def test_categorical_partial_fit(x_dtype, y_dtype, is_sparse, nlp_20news):
 @pytest.mark.parametrize("alpha", [0.1, 0.5, 1.5])
 @pytest.mark.parametrize("fit_prior", [False, True])
 @pytest.mark.parametrize("is_sparse", [False, True])
-def test_categorical_parameters(class_prior, alpha, fit_prior, is_sparse, nlp_20news):
+def test_categorical_parameters(class_prior, alpha, fit_prior,
+                                is_sparse, nlp_20news):
     x_dtype = cp.float32
     y_dtype = cp.int32
     nrows = 2000
-    ncols = 5000
+    ncols = 500
 
     X, y = nlp_20news
 
