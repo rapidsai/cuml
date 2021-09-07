@@ -21,7 +21,6 @@
 #include <limits>
 #include <raft/cuda_utils.cuh>
 #include "input.cuh"
-#include "node.cuh"
 #include "split.cuh"
 
 namespace ML {
