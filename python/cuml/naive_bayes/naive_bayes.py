@@ -1313,8 +1313,11 @@ class CategoricalNB(_BaseDiscreteNB):
         Class labels known to the classifier
     feature_log_prob_ : ndarray of shape (n_features, n_classes, n_categories)
         With n_categories being the highest category of all the features.
-        Each array provides the empirical log probability
-        of categories given the respective feature and class, ``P(x_i|y)``.
+        Each array of shape (n_classes, n_categories) provides the empirical
+        log probability of categories given the respective feature
+        and class, ``P(x_i|y)``.
+        This attribute is not available when the model has been trained with
+        sparse data.
     n_features_ : int
         Number of features of each sample.
 
@@ -1461,8 +1464,9 @@ class CategoricalNB(_BaseDiscreteNB):
         # Make sure Y is a cupy array, not CumlArray
         Y = cp.asarray(Y)
 
-        class_c = cp.zeros(n_classes, order="F", dtype=x_coo_data.dtype)
-        count_classes = count_classes_kernel(x_coo_data.dtype, labels_dtype)
+        class_c = cp.zeros(n_classes, dtype=self.class_count_.dtype)
+        count_classes = count_classes_kernel(self.class_count_.dtype,
+                                             labels_dtype)
         count_classes((math.ceil(n_rows / tpb), ), (tpb, ),
                       (class_c, n_rows, Y))
 
@@ -1559,10 +1563,6 @@ class CategoricalNB(_BaseDiscreteNB):
                                         dtype=dtype)
 
     def _update_feature_log_prob(self, alpha):
-        # smooth_cat_count represents the number of occurence for each
-        # category, class and feature + the alpha parameter
-        # smooth_class_count represents the occurence of each category
-        # per class and feature
         highest_feature = cp.zeros(self.n_features_, dtype=cp.float64)
         if cp.sparse.issparse(self.category_count_):
             # For sparse data we avoid the creation of the dense matrix
@@ -1615,9 +1615,9 @@ class CategoricalNB(_BaseDiscreteNB):
             X = X.tocoo()
             col_indices = X.col
 
-            # Then we adjust with the non-zeros data by adding
-            # jll_data (non-zeros) and substracting jll_zeros which
-            # are the zeros that we assumed
+            # Adjust with the non-zeros data by adding jll_data (non-zeros)
+            # and substracting jll_zeros which are the zeros
+            # that were first computed
             for i in range(self.n_classes_):
                 jll_data = self.smoothed_cat_count[
                     col_indices + i * self.n_features_, X.data].ravel()
