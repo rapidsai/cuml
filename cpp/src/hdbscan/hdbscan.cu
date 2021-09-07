@@ -17,7 +17,7 @@
 #include <cuml/cluster/hdbscan.hpp>
 #include "detail/condense.cuh"
 
-#include "runner.h"
+#include <hdbscan/runner.h>
 
 namespace ML {
 

@@ -73,35 +73,6 @@ inline bool is_dev_ptr(const void* p)
   }
 }
 
-template <class T, class L>
-std::string get_node_text(const std::string& prefix,
-                          const std::vector<SparseTreeNode<T, L>>& sparsetree,
-                          int idx,
-                          bool isLeft)
-{
-  const SparseTreeNode<T, L>& node = sparsetree[idx];
-
-  std::ostringstream oss;
-
-  // print the value of the node
-  std::stringstream ss;
-  ss << prefix.c_str();
-  ss << (isLeft ? "├" : "└");
-  ss << node;
-
-  oss << ss.str();
-
-  if (!node.IsLeaf()) {
-    // enter the next tree level - left and right branch
-    oss << "\n"
-        << get_node_text(prefix + (isLeft ? "│   " : "    "), sparsetree, node.LeftChildId(), true)
-        << "\n"
-        << get_node_text(
-             prefix + (isLeft ? "│   " : "    "), sparsetree, node.RightChildId(), false);
-  }
-  return oss.str();
-}
-
 template <typename T>
 std::string to_string_high_precision(T x)
 {
@@ -118,11 +89,49 @@ std::string to_string_high_precision(T x)
 }
 
 template <class T, class L>
-std::string get_node_json(const std::string& prefix,
-                          const std::vector<SparseTreeNode<T, L>>& sparsetree,
-                          int idx)
+std::string get_node_text(const std::string& prefix,
+                          const TreeMetaDataNode<T, L>* tree,
+                          int idx,
+                          bool isLeft)
 {
-  const SparseTreeNode<T, L>& node = sparsetree[idx];
+  const SparseTreeNode<T, L>& node = tree->sparsetree[idx];
+
+  std::ostringstream oss;
+
+  // print the value of the node
+  oss << prefix.c_str();
+  oss << (isLeft ? "├" : "└");
+
+  if (node.IsLeaf()) {
+    oss << "(leaf, "
+        << "prediction: [";
+
+    for (int k = 0; k < tree->num_outputs - 1; k++) {
+      oss << tree->vector_leaf[idx * tree->num_outputs + k] << ", ";
+    }
+    oss << tree->vector_leaf[idx * tree->num_outputs + tree->num_outputs - 1];
+
+    oss << "], best_metric_val: " << node.BestMetric() << ")";
+  } else {
+    oss << "("
+        << "colid: " << node.ColumnId() << ", quesval: " << node.QueryValue()
+        << ", best_metric_val: " << node.BestMetric() << ")";
+  }
+
+  if (!node.IsLeaf()) {
+    // enter the next tree level - left and right branch
+    oss << "\n"
+        << get_node_text(prefix + (isLeft ? "│   " : "    "), tree, node.LeftChildId(), true)
+        << "\n"
+        << get_node_text(prefix + (isLeft ? "│   " : "    "), tree, node.RightChildId(), false);
+  }
+  return oss.str();
+}
+
+template <class T, class L>
+std::string get_node_json(const std::string& prefix, const TreeMetaDataNode<T, L>* tree, int idx)
+{
+  const SparseTreeNode<T, L>& node = tree->sparsetree[idx];
 
   std::ostringstream oss;
   if (!node.IsLeaf()) {
@@ -133,31 +142,20 @@ std::string get_node_json(const std::string& prefix,
     oss << ", \"yes\": " << node.LeftChildId() << ", \"no\": " << (node.RightChildId())
         << ", \"children\": [\n";
     // enter the next tree level - left and right branch
-    oss << get_node_json(prefix + "  ", sparsetree, node.LeftChildId()) << ",\n"
-        << get_node_json(prefix + "  ", sparsetree, node.RightChildId()) << "\n"
+    oss << get_node_json(prefix + "  ", tree, node.LeftChildId()) << ",\n"
+        << get_node_json(prefix + "  ", tree, node.RightChildId()) << "\n"
         << prefix << "]}";
   } else {
-    oss << prefix << "{\"nodeid\": " << idx
-        << ", \"leaf_value\": " << to_string_high_precision(0.0);
-    oss << ", \"instance_count\": " << node.InstanceCount();
+    oss << prefix << "{\"nodeid\": " << idx << ", \"leaf_value\": [";
+    for (int k = 0; k < tree->num_outputs - 1; k++) {
+      oss << to_string_high_precision(tree->vector_leaf[idx * tree->num_outputs + k]) << ", ";
+    }
+    oss << to_string_high_precision(
+      tree->vector_leaf[idx * tree->num_outputs + tree->num_outputs - 1]);
+    oss << "], \"instance_count\": " << node.InstanceCount();
     oss << "}";
   }
   return oss.str();
-}
-
-template <typename T, typename L>
-std::ostream& operator<<(std::ostream& os, const SparseTreeNode<T, L>& node)
-{
-  if (node.IsLeaf()) {
-    os << "(leaf, "
-       << "prediction: 0"
-       << ", best_metric_val: " << node.BestMetric() << ")";
-  } else {
-    os << "("
-       << "colid: " << node.ColumnId() << ", quesval: " << node.QueryValue()
-       << ", best_metric_val: " << node.BestMetric() << ")";
-  }
-  return os;
 }
 
 template <class T, class L>
