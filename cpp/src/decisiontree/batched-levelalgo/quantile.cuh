@@ -15,13 +15,13 @@
  */
 
 #pragma once
-#include <thrust/execution_policy.h>
 #include <thrust/fill.h>
 #include <cub/cub.cuh>
+#include <memory>
 #include <raft/cuda_utils.cuh>
+#include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
-#include "quantile.h"
 
 #include <common/nvtx.hpp>
 
@@ -44,52 +44,55 @@ __global__ void computeQuantilesSorted(T* quantiles,
 }
 
 template <typename T>
-void computeQuantiles(
-  T* quantiles, int n_bins, const T* data, int n_rows, int n_cols, cudaStream_t stream)
+std::shared_ptr<rmm::device_uvector<T>> computeQuantiles(
+  int n_bins, const T* data, int n_rows, int n_cols, const raft::handle_t& handle)
 {
-  thrust::fill(rmm::exec_policy(stream), quantiles, quantiles + n_bins * n_cols, 0.0);
+  auto quantiles = std::make_shared<rmm::device_uvector<T>>(n_bins * n_cols, handle.get_stream());
+  thrust::fill(rmm::exec_policy(handle.get_stream()),
+               quantiles->begin(),
+               quantiles->begin() + n_bins * n_cols,
+               0.0);
   // Determine temporary device storage requirements
-  std::unique_ptr<rmm::device_uvector<char>> d_temp_storage = nullptr;
-  size_t temp_storage_bytes                                 = 0;
+  size_t temp_storage_bytes = 0;
 
-  std::unique_ptr<rmm::device_uvector<T>> single_column_sorted = nullptr;
-  single_column_sorted = std::make_unique<rmm::device_uvector<T>>(n_rows, stream);
+  rmm::device_uvector<T> single_column_sorted(n_rows, handle.get_stream());
 
   CUDA_CHECK(cub::DeviceRadixSort::SortKeys(nullptr,
                                             temp_storage_bytes,
                                             data,
-                                            single_column_sorted->data(),
+                                            single_column_sorted.data(),
                                             n_rows,
                                             0,
                                             8 * sizeof(T),
-                                            stream));
+                                            handle.get_stream()));
 
   // Allocate temporary storage for sorting
-  d_temp_storage = std::make_unique<rmm::device_uvector<char>>(temp_storage_bytes, stream);
+  rmm::device_uvector<char> d_temp_storage(temp_storage_bytes, handle.get_stream());
 
   // Compute quantiles column by column
   for (int col = 0; col < n_cols; col++) {
     int col_offset      = col * n_rows;
     int quantile_offset = col * n_bins;
 
-    CUDA_CHECK(cub::DeviceRadixSort::SortKeys((void*)d_temp_storage->data(),
+    CUDA_CHECK(cub::DeviceRadixSort::SortKeys((void*)d_temp_storage.data(),
                                               temp_storage_bytes,
                                               data + col_offset,
-                                              single_column_sorted->data(),
+                                              single_column_sorted.data(),
                                               n_rows,
                                               0,
                                               8 * sizeof(T),
-                                              stream));
+                                              handle.get_stream()));
 
     int blocks = raft::ceildiv(n_bins, 128);
 
-    computeQuantilesSorted<<<blocks, 128, 0, stream>>>(
-      quantiles + quantile_offset, n_bins, single_column_sorted->data(), n_rows);
+    auto s = handle.get_stream();
+    computeQuantilesSorted<<<blocks, 128, 0, s>>>(
+      quantiles->data() + quantile_offset, n_bins, single_column_sorted.data(), n_rows);
 
     CUDA_CHECK(cudaGetLastError());
   }
 
-  return;
+  return quantiles;
 }
 
 }  // namespace DT
