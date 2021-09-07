@@ -37,9 +37,11 @@ from cuml.raft.common.handle cimport handle_t
 from cuml.raft.common.handle import Handle
 from cuml.common import input_to_cuml_array
 from cuml.common import using_output_type
+from cuml.common.input_utils import determine_array_dtype
 from cuml.tsa.arima import ARIMA
 from cuml.tsa.seasonality import seas_test
 from cuml.tsa.stationarity import kpss_test
+import warnings
 
 
 # TODO:
@@ -189,9 +191,15 @@ class AutoARIMA(Base):
                          output_type=output_type)
         self._set_base_attributes(output_type=endog)
 
+        original_dtype = determine_array_dtype(endog)
+        if original_dtype != np.float64:
+            warnings.warn("Only float64 is currently supported. `endog` is"
+                          " converted to float64. This behavior might change"
+                          " in the future.")
+
         # Get device array. Float64 only for now.
         self.d_y, self.n_obs, self.batch_size, self.dtype \
-            = input_to_cuml_array(endog, check_dtype=np.float64)
+            = input_to_cuml_array(endog, convert_to_dtype=np.float64)
 
         self.simple_differencing = simple_differencing
 

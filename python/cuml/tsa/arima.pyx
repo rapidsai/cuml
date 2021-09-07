@@ -34,9 +34,11 @@ from cuml.raft.common.handle cimport handle_t
 from cuml.tsa.batched_lbfgs import batched_fmin_lbfgs_b
 import cuml.common.logger as logger
 from cuml.common import has_scipy
+from cuml.common.input_utils import determine_array_dtype
 from cuml.common.input_utils import input_to_cuml_array
 from cuml.common.input_utils import input_to_host_array
 from cuml.internals import _deprecate_pos_args
+import warnings
 
 
 cdef extern from "cuml/tsa/arima_common.h" namespace "ML":
@@ -335,9 +337,15 @@ class ARIMA(Base):
             raise ValueError("ERROR: Invalid order. "
                              "Required: max(p+s*P, q+s*Q) <= 1024")
 
+        original_dtype = determine_array_dtype(endog)
+        if original_dtype != np.float64:
+            warnings.warn("Only float64 is currently supported. `endog` is"
+                          " converted to float64. This behavior might change"
+                          " in the future.")
+
         # Get device array. Float64 only for now.
         self.d_y, self.n_obs, self.batch_size, self.dtype \
-            = input_to_cuml_array(endog, check_dtype=np.float64)
+            = input_to_cuml_array(endog, convert_to_dtype=np.float64)
 
         if self.n_obs < d + s * D + 1:
             raise ValueError("ERROR: Number of observations too small for the"
