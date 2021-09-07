@@ -41,16 +41,16 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
     params  = ::testing::TestWithParam<CdInputs<T>>::GetParam();
     int len = params.n_row * params.n_col;
 
-    raft::allocate(data, len);
-    raft::allocate(labels, params.n_row);
-    raft::allocate(coef, params.n_col, true);
-    raft::allocate(coef2, params.n_col, true);
-    raft::allocate(coef3, params.n_col, true);
-    raft::allocate(coef4, params.n_col, true);
-    raft::allocate(coef_ref, params.n_col, true);
-    raft::allocate(coef2_ref, params.n_col, true);
-    raft::allocate(coef3_ref, params.n_col, true);
-    raft::allocate(coef4_ref, params.n_col, true);
+    raft::allocate(data, len, stream);
+    raft::allocate(labels, params.n_row, stream);
+    raft::allocate(coef, params.n_col, stream, true);
+    raft::allocate(coef2, params.n_col, stream, true);
+    raft::allocate(coef3, params.n_col, stream, true);
+    raft::allocate(coef4, params.n_col, stream, true);
+    raft::allocate(coef_ref, params.n_col, stream, true);
+    raft::allocate(coef2_ref, params.n_col, stream, true);
+    raft::allocate(coef3_ref, params.n_col, stream, true);
+    raft::allocate(coef4_ref, params.n_col, stream, true);
 
     T data_h[len] = {1.0, 1.2, 2.0, 2.0, 4.5, 2.0, 2.0, 3.0};
     raft::update_device(data, data_h, len, stream);
@@ -187,7 +187,7 @@ class CdTest : public ::testing::TestWithParam<CdInputs<T>> {
   T *coef3, *coef3_ref;
   T *coef4, *coef4_ref;
   T intercept, intercept2;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   raft::handle_t handle;
 };
 

@@ -27,18 +27,14 @@ namespace ML {
 namespace DT {
 
 struct IntBin {
-  std::size_t x;
+  int x;
 
   DI static void IncrementHistogram(IntBin* hist, int nbins, int b, int label)
   {
     auto offset = label * nbins + b;
     IntBin::AtomicAdd(hist + offset, {1});
   }
-  DI static void AtomicAdd(IntBin* address, IntBin val)
-  {
-    static_assert(sizeof(decltype(x)) == sizeof(unsigned long long int), "Unexpected count type");
-    atomicAdd((unsigned long long int*)&address->x, val.x);
-  }
+  DI static void AtomicAdd(IntBin* address, IntBin val) { atomicAdd(&address->x, val.x); }
   DI IntBin& operator+=(const IntBin& b)
   {
     x += b.x;
@@ -51,36 +47,34 @@ struct IntBin {
   }
 };
 
-template <typename DataT_, typename LabelT_>
+template <typename DataT_, typename LabelT_, typename IdxT_>
 class GiniObjectiveFunction {
  public:
   using DataT  = DataT_;
   using LabelT = LabelT_;
-  std::size_t nclasses;
+  using IdxT   = IdxT_;
+  IdxT nclasses;
   DataT min_impurity_decrease;
-  std::size_t min_samples_leaf;
+  IdxT min_samples_leaf;
 
  public:
   using BinT = IntBin;
-  GiniObjectiveFunction(std::size_t nclasses,
-                        DataT min_impurity_decrease,
-                        std::size_t min_samples_leaf)
+  GiniObjectiveFunction(IdxT nclasses, DataT min_impurity_decrease, IdxT min_samples_leaf)
     : nclasses(nclasses),
       min_impurity_decrease(min_impurity_decrease),
       min_samples_leaf(min_samples_leaf)
   {
   }
 
-  DI std::size_t NumClasses() const { return nclasses; }
-  DI Split<DataT> Gain(
-    BinT* scdf_labels, DataT* sbins, std::size_t col, std::size_t len, std::size_t nbins)
+  DI IdxT NumClasses() const { return nclasses; }
+  DI Split<DataT, IdxT> Gain(BinT* scdf_labels, DataT* sbins, IdxT col, IdxT len, IdxT nbins)
   {
-    Split<DataT> sp;
+    Split<DataT, IdxT> sp;
     constexpr DataT One = DataT(1.0);
     DataT invlen        = One / len;
-    for (std::size_t i = threadIdx.x; i < nbins; i += blockDim.x) {
-      std::size_t nLeft = 0;
-      for (std::size_t j = 0; j < nclasses; ++j) {
+    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+      IdxT nLeft = 0;
+      for (IdxT j = 0; j < nclasses; ++j) {
         nLeft += scdf_labels[nbins * j + i].x;
       }
       auto nRight = len - nLeft;
@@ -91,7 +85,7 @@ class GiniObjectiveFunction {
       } else {
         auto invLeft  = One / nLeft;
         auto invRight = One / nRight;
-        for (std::size_t j = 0; j < nclasses; ++j) {
+        for (IdxT j = 0; j < nclasses; ++j) {
           int val_i   = 0;
           auto lval_i = scdf_labels[nbins * j + i].x;
           auto lval   = DataT(lval_i);
@@ -112,47 +106,46 @@ class GiniObjectiveFunction {
     }
     return sp;
   }
-  static DI void SetLeafVector(BinT* shist, int nclasses, DataT *out){
+  static DI void SetLeafVector(BinT* shist, int nclasses, DataT* out)
+  {
     // Output probability
-    int total     = 0;
+    int total = 0;
     for (int i = 0; i < nclasses; i++) {
       total += shist[i].x;
     }
     for (int i = 0; i < nclasses; i++) {
-      out[i] = DataT(shist[i].x)/total;
+      out[i] = DataT(shist[i].x) / total;
     }
   }
 };
 
-template <typename DataT_, typename LabelT_>
+template <typename DataT_, typename LabelT_, typename IdxT_>
 class EntropyObjectiveFunction {
  public:
   using DataT  = DataT_;
   using LabelT = LabelT_;
-  std::size_t nclasses;
+  using IdxT   = IdxT_;
+  IdxT nclasses;
   DataT min_impurity_decrease;
-  std::size_t min_samples_leaf;
+  IdxT min_samples_leaf;
 
  public:
   using BinT = IntBin;
-  EntropyObjectiveFunction(std::size_t nclasses,
-                           DataT min_impurity_decrease,
-                           std::size_t min_samples_leaf)
+  EntropyObjectiveFunction(IdxT nclasses, DataT min_impurity_decrease, IdxT min_samples_leaf)
     : nclasses(nclasses),
       min_impurity_decrease(min_impurity_decrease),
       min_samples_leaf(min_samples_leaf)
   {
   }
-  DI std::size_t NumClasses() const { return nclasses; }
-  DI Split<DataT> Gain(
-    BinT* scdf_labels, DataT* sbins, std::size_t col, std::size_t len, std::size_t nbins)
+  DI IdxT NumClasses() const { return nclasses; }
+  DI Split<DataT, IdxT> Gain(BinT* scdf_labels, DataT* sbins, IdxT col, IdxT len, IdxT nbins)
   {
-    Split<DataT> sp;
+    Split<DataT, IdxT> sp;
     constexpr DataT One = DataT(1.0);
     DataT invlen        = One / len;
-    for (std::size_t i = threadIdx.x; i < nbins; i += blockDim.x) {
-      std::size_t nLeft = 0;
-      for (std::size_t j = 0; j < nclasses; ++j) {
+    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+      IdxT nLeft = 0;
+      for (IdxT j = 0; j < nclasses; ++j) {
         nLeft += scdf_labels[nbins * j + i].x;
       }
       auto nRight = len - nLeft;
@@ -163,7 +156,7 @@ class EntropyObjectiveFunction {
       } else {
         auto invLeft  = One / nLeft;
         auto invRight = One / nRight;
-        for (std::size_t j = 0; j < nclasses; ++j) {
+        for (IdxT j = 0; j < nclasses; ++j) {
           int val_i   = 0;
           auto lval_i = scdf_labels[nbins * j + i].x;
           if (lval_i != 0) {
@@ -190,32 +183,34 @@ class EntropyObjectiveFunction {
     }
     return sp;
   }
-  static DI void SetLeafVector(BinT* shist, int nclasses, DataT *out){
+  static DI void SetLeafVector(BinT* shist, int nclasses, DataT* out)
+  {
     // Output probability
-    int total     = 0;
+    int total = 0;
     for (int i = 0; i < nclasses; i++) {
       total += shist[i].x;
     }
     for (int i = 0; i < nclasses; i++) {
-      out[i] = DataT(shist[i].x)/total;
+      out[i] = DataT(shist[i].x) / total;
     }
   }
 };
 
-template <typename DataT_, typename LabelT_>
+template <typename DataT_, typename LabelT_, typename IdxT_>
 class MSEObjectiveFunction {
  public:
   using DataT  = DataT_;
   using LabelT = LabelT_;
+  using IdxT   = IdxT_;
 
  private:
   DataT min_impurity_decrease;
-  std::size_t min_samples_leaf;
+  IdxT min_samples_leaf;
 
  public:
   struct MSEBin {
     double label_sum;
-    std::size_t count;
+    int count;
 
     DI static void IncrementHistogram(MSEBin* hist, int nbins, int b, double label)
     {
@@ -224,9 +219,7 @@ class MSEObjectiveFunction {
     DI static void AtomicAdd(MSEBin* address, MSEBin val)
     {
       atomicAdd(&address->label_sum, val.label_sum);
-      static_assert(sizeof(decltype(count)) == sizeof(unsigned long long int),
-                    "Unexpected count type");
-      atomicAdd((unsigned long long int*)&address->count, val.count);
+      atomicAdd(&address->count, val.count);
     }
     DI MSEBin& operator+=(const MSEBin& b)
     {
@@ -241,19 +234,16 @@ class MSEObjectiveFunction {
     }
   };
   using BinT = MSEBin;
-  HDI MSEObjectiveFunction(std::size_t nclasses,
-                           DataT min_impurity_decrease,
-                           std::size_t min_samples_leaf)
+  HDI MSEObjectiveFunction(IdxT nclasses, DataT min_impurity_decrease, IdxT min_samples_leaf)
     : min_impurity_decrease(min_impurity_decrease), min_samples_leaf(min_samples_leaf)
   {
   }
-  DI std::size_t NumClasses() const { return 1; }
-  DI Split<DataT> Gain(
-    BinT* shist, DataT* sbins, std::size_t col, std::size_t len, std::size_t nbins)
+  DI IdxT NumClasses() const { return 1; }
+  DI Split<DataT, IdxT> Gain(BinT* shist, DataT* sbins, IdxT col, IdxT len, IdxT nbins)
   {
-    Split<DataT> sp;
+    Split<DataT, IdxT> sp;
     auto invlen = DataT(1.0) / len;
-    for (std::size_t i = threadIdx.x; i < nbins; i += blockDim.x) {
+    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
       auto nLeft  = shist[i].count;
       auto nRight = len - nLeft;
       DataT gain;
@@ -274,7 +264,8 @@ class MSEObjectiveFunction {
     return sp;
   }
 
-  static DI void SetLeafVector(BinT* shist, int nclasses, DataT *out){
+  static DI void SetLeafVector(BinT* shist, int nclasses, DataT* out)
+  {
     for (int i = 0; i < nclasses; i++) {
       out[i] = shist[i].label_sum / shist[i].count;
     }

@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/tree/decisiontree.hpp>
 #include <raft/handle.hpp>
 
@@ -34,6 +33,7 @@ void validity_check(const DecisionTreeParams params)
          "max_features value %f outside permitted (0, 1] range",
          params.max_features);
   ASSERT((params.n_bins > 0), "Invalid n_bins %d", params.n_bins);
+  ASSERT((params.n_bins <= 1024), "n_bins should not be larger than 1024");
   ASSERT((params.split_criterion != 3), "MAE not supported.");
   ASSERT((params.min_samples_leaf >= 1),
          "Invalid value for min_samples_leaf %d. Should be >= 1.",

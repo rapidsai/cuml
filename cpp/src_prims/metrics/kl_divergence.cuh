@@ -23,10 +23,9 @@
 
 #include <math.h>
 #include <raft/cudart_utils.h>
-#include <cuml/common/device_buffer.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
-#include <raft/mr/device/allocator.hpp>
+#include <rmm/device_scalar.hpp>
 
 namespace MLCommon {
 
@@ -60,18 +59,12 @@ namespace Metrics {
  * @param modelPDF: the model array of probability density functions of type DataT
  * @param candidatePDF: the candidate array of probability density functions of type DataT
  * @param size: the size of the data points of type int
- * @param allocator: object that takes care of temporary device memory allocation of type
- * std::shared_ptr<raft::mr::device::allocator>
  * @param stream: the cudaStream object
  */
 template <typename DataT>
-DataT kl_divergence(const DataT* modelPDF,
-                    const DataT* candidatePDF,
-                    int size,
-                    std::shared_ptr<raft::mr::device::allocator> allocator,
-                    cudaStream_t stream)
+DataT kl_divergence(const DataT* modelPDF, const DataT* candidatePDF, int size, cudaStream_t stream)
 {
-  MLCommon::device_buffer<DataT> d_KLDVal(allocator, stream, 1);
+  rmm::device_scalar<DataT> d_KLDVal(stream);
   CUDA_CHECK(cudaMemsetAsync(d_KLDVal.data(), 0, sizeof(DataT), stream));
 
   raft::linalg::mapThenSumReduce<DataT, KLDOp<DataT>, 256, const DataT*>(

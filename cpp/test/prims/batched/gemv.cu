@@ -63,6 +63,8 @@ void naiveBatchGemv(
 template <typename T>
 class BatchGemvTest : public ::testing::TestWithParam<BatchGemvInputs<T>> {
  protected:
+  BatchGemvTest() : out_ref(0, stream), out(0, stream) {}
+
   void SetUp() override
   {
     params = ::testing::TestWithParam<BatchGemvInputs<T>>::GetParam();
@@ -72,32 +74,35 @@ class BatchGemvTest : public ::testing::TestWithParam<BatchGemvInputs<T>> {
     int veclenx = params.batchSize * params.n;
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    raft::allocate(A, len);
-    raft::allocate(x, veclenx);
-    raft::allocate(out_ref, vecleny);
-    raft::allocate(out, vecleny);
-    r.uniform(A, len, T(-1.0), T(1.0), stream);
-    r.uniform(x, veclenx, T(-1.0), T(1.0), stream);
-    CUDA_CHECK(cudaMemsetAsync(out_ref, 0, sizeof(T) * vecleny, stream));
-    naiveBatchGemv(out_ref, A, x, params.m, params.n, params.batchSize, stream);
-    gemv<T, int>(out, A, x, nullptr, T(1.0), T(0.0), params.m, params.n, params.batchSize, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+    rmm::device_uvector<T> A(len, stream);
+    rmm::device_uvector<T> x(veclenx, stream);
+    out_ref.resize(vecleny, stream);
+    out.resize(vecleny, stream);
+
+    r.uniform(A.data(), len, T(-1.0), T(1.0), stream);
+    r.uniform(x.data(), veclenx, T(-1.0), T(1.0), stream);
+    CUDA_CHECK(cudaMemsetAsync(out_ref.data(), 0, sizeof(T) * vecleny, stream));
+    naiveBatchGemv(
+      out_ref.data(), A.data(), x.data(), params.m, params.n, params.batchSize, stream);
+    gemv<T, int>(out.data(),
+                 A.data(),
+                 x.data(),
+                 nullptr,
+                 T(1.0),
+                 T(0.0),
+                 params.m,
+                 params.n,
+                 params.batchSize,
+                 stream);
   }
 
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(A));
-    CUDA_CHECK(cudaFree(x));
-    CUDA_CHECK(cudaFree(out_ref));
-    CUDA_CHECK(cudaFree(out));
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
+  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
  protected:
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   BatchGemvInputs<T> params;
-  T *A, *x, *out_ref, *out;
+  rmm::device_uvector<T> out_ref;
+  rmm::device_uvector<T> out;
 };
 
 const std::vector<BatchGemvInputs<float>> inputsf = {
@@ -115,7 +120,8 @@ typedef BatchGemvTest<float> BatchGemvTestF;
 TEST_P(BatchGemvTestF, Result)
 {
   int vecleny = params.batchSize * params.m;
-  ASSERT_TRUE(devArrMatch(out_ref, out, vecleny, raft::CompareApprox<float>(params.tolerance)));
+  ASSERT_TRUE(
+    devArrMatch(out_ref.data(), out.data(), vecleny, raft::CompareApprox<float>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(BatchGemvTests, BatchGemvTestF, ::testing::ValuesIn(inputsf));
 
@@ -134,7 +140,8 @@ const std::vector<BatchGemvInputs<double>> inputsd = {
 TEST_P(BatchGemvTestD, Result)
 {
   int vecleny = params.batchSize * params.m;
-  ASSERT_TRUE(devArrMatch(out_ref, out, vecleny, raft::CompareApprox<double>(params.tolerance)));
+  ASSERT_TRUE(devArrMatch(
+    out_ref.data(), out.data(), vecleny, raft::CompareApprox<double>(params.tolerance)));
 }
 INSTANTIATE_TEST_CASE_P(BatchGemvTests, BatchGemvTestD, ::testing::ValuesIn(inputsd));
 

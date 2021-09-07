@@ -16,7 +16,6 @@
 #include <raft/cudart_utils.h>
 #include <algorithm>
 #include <iostream>
-#include <raft/mr/device/allocator.hpp>
 #include <random>
 #include <timeSeries/jones_transform.cuh>
 #include "test_utils.h"
@@ -53,7 +52,7 @@ template
 
     std::generate(arr1.begin(), arr1.end(), [&]() { return realGenerator(dre); });
 
-    //>>>>>>>>>>>>>>>>> AR transform golden output generation<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+    //>>>>>>>>> AR transform golden output generation<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     double* newParams = (double*)malloc(nElements * sizeof(double*));
     double* tmp       = (double*)malloc(params.pValue * sizeof(double*));
@@ -93,25 +92,18 @@ template
 
     // allocating and initializing device memory
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(d_golden_ar_trans, nElements, true);
-    raft::allocate(d_computed_ar_trans, nElements, true);
-    raft::allocate(d_params, nElements, true);
+    raft::allocate(d_golden_ar_trans, nElements, stream, true);
+    raft::allocate(d_computed_ar_trans, nElements, stream, true);
+    raft::allocate(d_params, nElements, stream, true);
 
     raft::update_device(d_params, &arr1[0], (size_t)nElements, stream);
     raft::update_device(d_golden_ar_trans, newParams, (size_t)nElements, stream);
-    std::shared_ptr<raft::mr::device::allocator> allocator(new raft::mr::device::default_allocator);
 
     // calling the ar_trans_param CUDA implementation
-    MLCommon::TimeSeries::jones_transform(d_params,
-                                          params.batchSize,
-                                          params.pValue,
-                                          d_computed_ar_trans,
-                                          true,
-                                          false,
-                                          allocator,
-                                          stream);
+    MLCommon::TimeSeries::jones_transform(
+      d_params, params.batchSize, params.pValue, d_computed_ar_trans, true, false, stream);
 
-    //>>>>>>>>>>>>>>>>> MA transform golden output generation<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+    //>>>>>>>>> MA transform golden output generation<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     // for every model in the batch
     for (int i = 0; i < params.batchSize; ++i) {
@@ -147,25 +139,19 @@ template
     }
 
     // allocating and initializing device memory
-    raft::allocate(d_golden_ma_trans, nElements, true);
-    raft::allocate(d_computed_ma_trans, nElements, true);
+    raft::allocate(d_golden_ma_trans, nElements, stream, true);
+    raft::allocate(d_computed_ma_trans, nElements, stream, true);
 
     raft::update_device(d_golden_ma_trans, newParams, (size_t)nElements, stream);
 
     // calling the ma_param_transform CUDA implementation
-    MLCommon::TimeSeries::jones_transform(d_params,
-                                          params.batchSize,
-                                          params.pValue,
-                                          d_computed_ma_trans,
-                                          false,
-                                          false,
-                                          allocator,
-                                          stream);
+    MLCommon::TimeSeries::jones_transform(
+      d_params, params.batchSize, params.pValue, d_computed_ma_trans, false, false, stream);
 
-    //>>>>>>>>>>>>>>>>> AR inverse transform <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+    //>>>>>>>>> AR inverse transform <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
     // allocating and initializing device memory
-    raft::allocate(d_computed_ar_invtrans, nElements, true);
+    raft::allocate(d_computed_ar_invtrans, nElements, stream, true);
 
     // calling the ar_param_inverse_transform CUDA implementation
     MLCommon::TimeSeries::jones_transform(d_computed_ar_trans,
@@ -174,12 +160,11 @@ template
                                           d_computed_ar_invtrans,
                                           true,
                                           true,
-                                          allocator,
                                           stream);
 
-    //>>>>>>>>>>>>>>>>> MA inverse transform <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
+    //>>>>>>>>> MA inverse transform <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
-    raft::allocate(d_computed_ma_invtrans, nElements, true);
+    raft::allocate(d_computed_ma_invtrans, nElements, stream, true);
 
     // calling the ma_param_inverse_transform CUDA implementation
     MLCommon::TimeSeries::jones_transform(d_computed_ma_trans,
@@ -188,7 +173,6 @@ template
                                           d_computed_ma_invtrans,
                                           false,
                                           true,
-                                          allocator,
                                           stream);
   }
 
@@ -214,8 +198,8 @@ template
   DataT* d_computed_ar_invtrans = nullptr;
   DataT* d_computed_ma_invtrans = nullptr;
   DataT* d_params               = nullptr;
-  cudaStream_t stream;
-  int nElements = -1;
+  cudaStream_t stream           = 0;
+  int nElements                 = -1;
 };
 
 // setting test parameter values

@@ -22,11 +22,11 @@
 #include <decisiontree/batched-levelalgo/quantile.cuh>
 #include <decisiontree/decisiontree.cuh>
 
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include <cuml/ensemble/randomforest.hpp>
 
 #include <metrics/scores.cuh>
+#include <raft/random/rng.cuh>
 #include <random/permute.cuh>
 
 #include <raft/cudart_utils.h>
@@ -52,19 +52,19 @@ class RandomForest {
 
   void get_row_sample(int tree_id,
                       int n_rows,
-                      MLCommon::device_buffer<std::size_t>* selected_rows,
-                      const cudaStream_t stream,
-                      const std::shared_ptr<raft::mr::device::allocator> device_allocator)
+                      rmm::device_uvector<int>* selected_rows,
+                      const cudaStream_t stream)
   {
     ML::PUSH_RANGE("bootstrapping row IDs @randomforest.cuh");
-    // TODO(Rory): this is not a good way to set the seed
-    // Incrementing seed changes only one tree in the whole ensemble
-    int rs = rf_params.seed + tree_id;
 
-    raft::random::Rng rng(rs * 1000 | 0xFF00AA, raft::random::GeneratorType::GenKiss99);
+    // Hash these together so they are uncorrelated
+    auto rs = DT::fnv1a32_basis;
+    rs      = DT::fnv1a32(rs, rf_params.seed);
+    rs      = DT::fnv1a32(rs, tree_id);
+    raft::random::Rng rng(rs, raft::random::GeneratorType::GenKiss99);
     if (rf_params.bootstrap) {
       // Use bootstrapped sample set
-      rng.uniformInt<std::size_t>(selected_rows->data(), selected_rows->size(), 0, n_rows, stream);
+      rng.uniformInt<int>(selected_rows->data(), selected_rows->size(), 0, n_rows, stream);
 
     } else {
       // Use all the samples from the dataset
@@ -150,15 +150,11 @@ class RandomForest {
     // ptr.
     // Use a deque instead of vector because it can be used on objects with a deleted copy
     // constructor
-    std::deque<MLCommon::device_buffer<std::size_t>> selected_rows;
+    std::deque<rmm::device_uvector<int>> selected_rows;
     for (int i = 0; i < n_streams; i++) {
-      selected_rows.emplace_back(
-        handle.get_device_allocator(), handle.get_internal_stream(i), n_sampled_rows);
+      selected_rows.emplace_back(n_sampled_rows, handle.get_internal_stream(i));
     }
 
-    // Preprocess once only per forest
-    // Using batched backend
-    // allocate space for d_global_quantiles
     auto global_quantiles =
       DT::computeQuantiles(this->rf_params.tree_params.n_bins, input, n_rows, n_cols, handle);
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
@@ -167,11 +163,8 @@ class RandomForest {
     for (int i = 0; i < this->rf_params.n_trees; i++) {
       int stream_id = omp_get_thread_num();
 
-      this->get_row_sample(i,
-                           n_rows,
-                           &selected_rows[stream_id],
-                           handle.get_internal_stream(stream_id),
-                           handle.get_device_allocator());
+      this->get_row_sample(
+        i, n_rows, &selected_rows[stream_id], handle.get_internal_stream(stream_id));
 
       /* Build individual tree in the forest.
         - input is a pointer to orig data that have n_cols features and n_rows rows.
@@ -182,17 +175,17 @@ class RandomForest {
           (b) a pointer to a list of row numbers w.r.t original data.
       */
 
-      forest->trees[i] = *DT::DecisionTree::fit(handle,
-                                                input,
-                                                n_cols,
-                                                n_rows,
-                                                labels,
-                                                &selected_rows[stream_id],
-                                                n_unique_labels,
-                                                this->rf_params.tree_params,
-                                                this->rf_params.seed,
-                                                global_quantiles,
-                                                i);
+      forest->trees[i] = DT::DecisionTree::fit(handle,
+                                               input,
+                                               n_cols,
+                                               n_rows,
+                                               labels,
+                                               &selected_rows[stream_id],
+                                               n_unique_labels,
+                                               this->rf_params.tree_params,
+                                               this->rf_params.seed,
+                                               global_quantiles,
+                                               i);
     }
     // Cleanup
     for (int i = 0; i < n_streams; i++) {
@@ -233,24 +226,24 @@ class RandomForest {
 
     ML::PatternSetter _("%v");
     for (int row_id = 0; row_id < n_rows; row_id++) {
-      std::vector<T> row_prediction(forest->trees[0].num_outputs);
+      std::vector<T> row_prediction(forest->trees[0]->num_outputs);
       for (int i = 0; i < this->rf_params.n_trees; i++) {
         DT::DecisionTree::predict(user_handle,
-                                  forest->trees[i],
+                                  *forest->trees[i],
                                   &h_input[row_id * row_size],
                                   1,
                                   n_cols,
                                   row_prediction.data(),
-                                  forest->trees[i].num_outputs,
+                                  forest->trees[i]->num_outputs,
                                   verbosity);
       }
-      for (int k = 0; k < forest->trees[0].num_outputs; k++) {
+      for (int k = 0; k < forest->trees[0]->num_outputs; k++) {
         row_prediction[k] /= this->rf_params.n_trees;
       }
       if (rf_type == RF_type::CLASSIFICATION) {  // classification task: use 'majority' prediction
         L best_class = 0;
-        T best_prob   = 0.0;
-        for (int k = 0; k < forest->trees[0].num_outputs; k++) {
+        T best_prob  = 0.0;
+        for (int k = 0; k < forest->trees[0]->num_outputs; k++) {
           if (row_prediction[k] > best_prob) {
             best_class = k;
             best_prob  = row_prediction[k];
@@ -287,12 +280,10 @@ class RandomForest {
   {
     ML::Logger::get().setLevel(verbosity);
     cudaStream_t stream = user_handle.get_stream();
-    auto d_alloc        = user_handle.get_device_allocator();
     RF_metrics stats;
     if (rf_type == RF_type::CLASSIFICATION) {  // task classifiation: get classification metrics
-      float accuracy =
-        MLCommon::Score::accuracy_score(predictions, ref_labels, n_rows, d_alloc, stream);
-      stats = set_rf_metrics_classification(accuracy);
+      float accuracy = MLCommon::Score::accuracy_score(predictions, ref_labels, n_rows, stream);
+      stats          = set_rf_metrics_classification(accuracy);
       if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) print(stats);
 
       /* TODO: Potentially augment RF_metrics w/ more metrics (e.g., precision, F1, etc.).
@@ -303,7 +294,6 @@ class RandomForest {
       MLCommon::Score::regression_metrics(predictions,
                                           ref_labels,
                                           n_rows,
-                                          d_alloc,
                                           stream,
                                           mean_abs_error,
                                           mean_squared_error,

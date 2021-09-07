@@ -51,13 +51,13 @@ class Dbscan : public BlobsFixture<D, int> {
     if (!this->params.rowMajor) { state.SkipWithError("Dbscan only supports row-major inputs"); }
     this->loopOnState(state, [this, &state]() {
       ML::Dbscan::fit(*this->handle,
-                      this->data.X,
+                      this->data.X.data(),
                       this->params.nrows,
                       this->params.ncols,
                       D(dParams.eps),
                       dParams.min_pts,
                       raft::distance::L2SqrtUnexpanded,
-                      this->data.y,
+                      this->data.y.data(),
                       this->core_sample_indices,
                       dParams.max_bytes_per_batch);
       state.SetItemsProcessed(this->params.nrows * this->params.ncols);

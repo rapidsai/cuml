@@ -21,6 +21,7 @@
 #include <cuml/tree/decisiontree.hpp>
 
 #include <map>
+#include <memory>
 
 namespace raft {
 class handle_t;  // forward decl
@@ -110,15 +111,8 @@ void postprocess_labels(int n_rows,
 
 template <class T, class L>
 struct RandomForestMetaData {
-  DT::TreeMetaDataNode<T, L>* trees;
+  std::vector<std::shared_ptr<DT::TreeMetaDataNode<T, L>>> trees;
   RF_params rf_params;
-  // TODO can add prepare, train time, if needed
-
-  RandomForestMetaData() : trees(nullptr) {}
-  ~RandomForestMetaData()
-  {
-    if (trees != nullptr) { delete[] trees; }
-  }
 };
 
 template <class T, class L>

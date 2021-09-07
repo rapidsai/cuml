@@ -16,6 +16,7 @@
 
 #pragma once
 
+#include <common/Timer.h>
 #include "batched-levelalgo/builder.cuh"
 #include "batched-levelalgo/quantile.cuh"
 #include "treelite_util.h"
@@ -25,21 +26,19 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/tree/decisiontree.hpp>
 
-#include <common/Timer.h>
-#include <common/iota.cuh>
-#include <common/nvtx.hpp>
-
 #include <raft/cudart_utils.h>
 #include <memory>
 #include <raft/handle.hpp>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/host/allocator.hpp>
 
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
 
 #include <algorithm>
 #include <climits>
+#include <common/iota.cuh>
+#include <common/nvtx.hpp>
+#include <cuml/common/logger.hpp>
+#include <cuml/tree/decisiontree.hpp>
 #include <iomanip>
 #include <locale>
 #include <map>
@@ -47,6 +46,7 @@
 #include <random>
 #include <type_traits>
 #include <vector>
+#include "treelite_util.h"
 
 /** check for treelite runtime API errors and assert accordingly */
 #define TREELITE_CHECK(call)                                                                     \
@@ -138,7 +138,7 @@ std::string get_node_json(const std::string& prefix,
         << prefix << "]}";
   } else {
     oss << prefix << "{\"nodeid\": " << idx
-        << ", \"leaf_value\": ";
+        << ", \"leaf_value\": " << to_string_high_precision(0.0);
     oss << ", \"instance_count\": " << node.InstanceCount();
     oss << "}";
   }
@@ -150,7 +150,8 @@ std::ostream& operator<<(std::ostream& os, const SparseTreeNode<T, L>& node)
 {
   if (node.IsLeaf()) {
     os << "(leaf, "
-       << "prediction: " << node.Prediction() << ", best_metric_val: " << node.BestMetric() << ")";
+       << "prediction: 0"
+       << ", best_metric_val: " << node.BestMetric() << ")";
   } else {
     os << "("
        << "colid: " << node.ColumnId() << ", quesval: " << node.QueryValue()
@@ -237,11 +238,11 @@ class DecisionTree {
     const int ncols,
     const int nrows,
     const LabelT* labels,
-    MLCommon::device_buffer<std::size_t>* sampled_rows,
+    rmm::device_uvector<int>* rowids,
     int unique_labels,
     DecisionTreeParams params,
     uint64_t seed,
-    std::shared_ptr<MLCommon::device_buffer<DataT>> quantiles,
+    std::shared_ptr<rmm::device_uvector<DataT>> quantiles,
     int treeid)
   {
     if (params.split_criterion ==
@@ -250,45 +251,46 @@ class DecisionTree {
         (std::numeric_limits<LabelT>::is_integer) ? CRITERION::GINI : CRITERION::MSE;
       params.split_criterion = default_criterion;
     }
+    using IdxT = int;
     // Dispatch objective
     if (params.split_criterion == CRITERION::GINI) {
-      return Builder<GiniObjectiveFunction<DataT, LabelT>>(handle,
-                                                           treeid,
-                                                           seed,
-                                                           params,
-                                                           data,
-                                                           labels,
-                                                           nrows,
-                                                           ncols,
-                                                           sampled_rows,
-                                                           unique_labels,
-                                                           quantiles)
+      return Builder<GiniObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+                                                                 treeid,
+                                                                 seed,
+                                                                 params,
+                                                                 data,
+                                                                 labels,
+                                                                 nrows,
+                                                                 ncols,
+                                                                 rowids,
+                                                                 unique_labels,
+                                                                 quantiles)
         .train();
     } else if (params.split_criterion == CRITERION::ENTROPY) {
-      return Builder<EntropyObjectiveFunction<DataT, LabelT>>(handle,
-                                                              treeid,
-                                                              seed,
-                                                              params,
-                                                              data,
-                                                              labels,
-                                                              nrows,
-                                                              ncols,
-                                                              sampled_rows,
-                                                              unique_labels,
-                                                              quantiles)
+      return Builder<EntropyObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+                                                                    treeid,
+                                                                    seed,
+                                                                    params,
+                                                                    data,
+                                                                    labels,
+                                                                    nrows,
+                                                                    ncols,
+                                                                    rowids,
+                                                                    unique_labels,
+                                                                    quantiles)
         .train();
     } else if (params.split_criterion == CRITERION::MSE) {
-      return Builder<MSEObjectiveFunction<DataT, LabelT>>(handle,
-                                                          treeid,
-                                                          seed,
-                                                          params,
-                                                          data,
-                                                          labels,
-                                                          nrows,
-                                                          ncols,
-                                                          sampled_rows,
-                                                          unique_labels,
-                                                          quantiles)
+      return Builder<MSEObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+                                                                treeid,
+                                                                seed,
+                                                                params,
+                                                                data,
+                                                                labels,
+                                                                nrows,
+                                                                ncols,
+                                                                rowids,
+                                                                unique_labels,
+                                                                quantiles)
         .train();
     } else {
       ASSERT(false, "Unknown split criterion.");
@@ -313,8 +315,6 @@ class DecisionTree {
     ASSERT(tree.sparsetree.size() != 0,
            "Cannot predict w/ empty tree, tree size %zu",
            tree.sparsetree.size());
-    ASSERT((n_rows > 0), "Invalid n_rows %d", n_rows);
-    ASSERT((n_cols > 0), "Invalid n_cols %d", n_cols);
 
     predict_all(tree, rows, n_rows, n_cols, predictions, num_outputs);
   }
@@ -339,9 +339,6 @@ class DecisionTree {
                           int num_outputs,
                           int idx)
   {
-    ASSERT(idx >= 0, "Prediction index out of bounds.");
-    ASSERT(idx < tree.sparsetree.size(), "Prediction index out of bounds.");
-
     const auto& n  = tree.sparsetree[idx];
     auto colid     = n.ColumnId();
     DataT quesval  = n.QueryValue();

@@ -20,7 +20,6 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <random/make_arima.cuh>
 #include "test_utils.h"
 
@@ -40,6 +39,8 @@ struct MakeArimaInputs {
 template <typename T>
 class MakeArimaTest : public ::testing::TestWithParam<MakeArimaInputs> {
  protected:
+  MakeArimaTest() : data(0, stream) {}
+
   void SetUp() override
   {
     params = ::testing::TestWithParam<MakeArimaInputs>::GetParam();
@@ -51,17 +52,15 @@ class MakeArimaTest : public ::testing::TestWithParam<MakeArimaInputs> {
     ML::ARIMAOrder order = {
       params.p, params.d, params.q, params.P, params.D, params.Q, params.s, params.k};
 
-    allocator.reset(new raft::mr::device::default_allocator);
     CUDA_CHECK(cudaStreamCreate(&stream));
 
-    raft::allocate(data, params.batch_size * params.n_obs);
+    data.resize(params.batch_size * params.n_obs, stream);
 
     // Create the time series dataset
-    make_arima(data,
+    make_arima(data.data(),
                params.batch_size,
                params.n_obs,
                order,
-               allocator,
                stream,
                scale,
                noise_scale,
@@ -70,17 +69,12 @@ class MakeArimaTest : public ::testing::TestWithParam<MakeArimaInputs> {
                params.gtype);
   }
 
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
+  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
  protected:
   MakeArimaInputs params;
-  T* data;
-  std::shared_ptr<raft::mr::device::allocator> allocator;
-  cudaStream_t stream;
+  rmm::device_uvector<T> data;
+  cudaStream_t stream = 0;
 };
 
 const std::vector<MakeArimaInputs> make_arima_inputs = {

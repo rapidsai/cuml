@@ -72,14 +72,13 @@ class FIL : public RegressionFixture<float> {
     if (!params.rowMajor) { state.SkipWithError("FIL only supports row-major inputs"); }
     if (params.nclasses > 1) {
       // convert regression ranges into [0..nclasses-1]
-      regression_to_classification(data.y, params.nrows, params.nclasses, stream);
+      regression_to_classification(data.y.data(), params.nrows, params.nclasses, stream);
     }
     // create model
     ML::RandomForestRegressorF rf_model;
     auto* mPtr         = &rf_model;
-    mPtr->trees        = nullptr;
     size_t train_nrows = std::min(params.nrows, 1000);
-    fit(*handle, mPtr, data.X, train_nrows, params.ncols, data.y, p_rest.rf);
+    fit(*handle, mPtr, data.X.data(), train_nrows, params.ncols, data.y.data(), p_rest.rf);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     ML::build_treelite_forest(&model, &rf_model, params.ncols, params.nclasses > 1 ? 2 : 1);
@@ -99,8 +98,12 @@ class FIL : public RegressionFixture<float> {
       // Dataset<D, L> allocates y assuming one output value per input row,
       // so not supporting predict_proba yet
       for (int i = 0; i < p_rest.predict_repetitions; i++) {
-        ML::fil::predict(
-          *this->handle, this->forest, this->data.y, this->data.X, this->params.nrows, false);
+        ML::fil::predict(*this->handle,
+                         this->forest,
+                         this->data.y.data(),
+                         this->data.X.data(),
+                         this->params.nrows,
+                         false);
       }
     });
   }
