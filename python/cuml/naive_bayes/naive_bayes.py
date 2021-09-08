@@ -71,35 +71,6 @@ def count_features_coo_kernel(float_dtype, int_dtype):
                                "count_features_coo")
 
 
-def count_features_categorical_coo_kernel(float_dtype, int_dtype):
-    """
-    A simple reduction kernel that takes in a sparse (COO) array
-    of features and computes the sum (or sum squared) for each class
-    label
-    """
-
-    kernel_str = r'''(int *out_rows, int *out_cols,
-                    int *rows, int *cols,
-                    {0} *vals, int nnz,
-                    int n_classes, int n_cols,
-                    {1} *labels) {
-
-      int i = blockIdx.x * blockDim.x + threadIdx.x;
-
-      if(i >= nnz) return;
-
-      int row = rows[i];
-      int col = cols[i];
-      {0} val = vals[i];
-      {1} label = labels[row];
-      out_rows[i] = col + n_cols * label;
-      out_cols[i] = val;
-    }'''
-
-    return cuda_kernel_factory(kernel_str, (float_dtype, int_dtype),
-                               "count_features_categorical_coo")
-
-
 def count_classes_kernel(float_dtype, int_dtype):
     kernel_str = r'''
     ({0} *out, int n_rows, {1} *labels) {
@@ -1483,21 +1454,23 @@ class CategoricalNB(_BaseDiscreteNB):
                     shape=(self.n_features_ * n_classes, highest_feature))
         highest_feature = self.category_count_.shape[1]
 
-        counts_rows = cp.zeros(x_coo_nnz, dtype=cp.int32)
-        counts_cols = cp.zeros(x_coo_nnz, dtype=cp.int32)
-        count_features_coo = count_features_categorical_coo_kernel(
-            x_coo_data.dtype, labels_dtype)
-        count_features_coo((math.ceil(x_coo_nnz / tpb), ), (tpb, ),
-                           (counts_rows,
-                            counts_cols,
-                            x_coo_rows,
-                            x_coo_cols,
-                            x_coo_data,
-                            x_coo_nnz,
-                            n_classes,
-                            n_cols,
-                            Y))
-
+        count_features_coo = cp.ElementwiseKernel(
+            'int32 row, int32 col, int32 val, int32 nnz, int32 n_classes, \
+             int32 n_cols, raw T labels',
+            'int32 out_row, int32 out_col',
+            '''
+            T label = labels[row];
+            out_row = col + n_cols * label;
+            out_col = val;
+            ''',
+            'count_features_categorical_coo_kernel')
+        counts_rows, counts_cols = count_features_coo(x_coo_rows,
+                                                      x_coo_cols,
+                                                      x_coo_data,
+                                                      x_coo_nnz,
+                                                      n_classes,
+                                                      n_cols,
+                                                      Y)
         # Create the sparse category count matrix from the result of
         # the raw kernel
         counts = cupyx.scipy.sparse.coo_matrix(
