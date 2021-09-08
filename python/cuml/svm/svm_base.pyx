@@ -328,7 +328,7 @@ class SVMBase(Base,
         if self._c_kernel != LINEAR:
             raise AttributeError("coef_ is only available for linear kernels")
         if self._model is None:
-            raise RuntimeError("Call fit before prediction")
+            raise AttributeError("Call fit before prediction")
         if self._internal_coef_ is None:
             self._internal_coef_ = self._calc_coef()
         # Call the base class to perform the output conversion
