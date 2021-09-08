@@ -42,7 +42,7 @@ if(BUILD_CUML_BENCH)
 
   target_link_libraries(${CUML_CPP_BENCH_TARGET}
     PUBLIC
-      cuml
+      cuml::${CUML_CPP_TARGET}
       benchmark::benchmark
       raft::raft
       $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_static,treelite::treelite>
@@ -53,7 +53,7 @@ if(BUILD_CUML_BENCH)
     PRIVATE
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src_prims>
   )
-endif(BUILD_CUML_BENCH)
+endif()
 
 ##############################################################################
 # - build prims bench executable ----------------------------------------------
@@ -96,4 +96,4 @@ if(BUILD_CUML_PRIMS_BENCH)
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src_prims>
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
   )
-endif(BUILD_CUML_PRIMS_BENCH)
+endif()

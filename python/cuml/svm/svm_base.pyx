@@ -56,7 +56,7 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
         EPSILON_SVR,
         NU_SVR
 
-    cdef struct svmParameter:
+    cdef struct SvmParameter:
         # parameters for trainig
         double C
         double cache_size
@@ -68,7 +68,7 @@ cdef extern from "cuml/svm/svm_parameter.h" namespace "ML::SVM":
         SvmType svmType
 
 cdef extern from "cuml/svm/svm_model.h" namespace "ML::SVM":
-    cdef cppclass svmModel[math_t]:
+    cdef cppclass SvmModel[math_t]:
         # parameters of a fitted model
         int n_support
         int n_cols
@@ -83,18 +83,18 @@ cdef extern from "cuml/svm/svc.hpp" namespace "ML::SVM":
 
     cdef void svcFit[math_t](const handle_t &handle, math_t *input,
                              int n_rows, int n_cols, math_t *labels,
-                             const svmParameter &param,
+                             const SvmParameter &param,
                              KernelParams &kernel_params,
-                             svmModel[math_t] &model,
+                             SvmModel[math_t] &model,
                              const math_t *sample_weight) except+
 
     cdef void svcPredict[math_t](
         const handle_t &handle, math_t *input, int n_rows, int n_cols,
-        KernelParams &kernel_params, const svmModel[math_t] &model,
+        KernelParams &kernel_params, const SvmModel[math_t] &model,
         math_t *preds, math_t buffer_size, bool predict_class) except +
 
     cdef void svmFreeBuffers[math_t](const handle_t &handle,
-                                     svmModel[math_t] &m) except +
+                                     SvmModel[math_t] &m) except +
 
 
 class SVMBase(Base,
@@ -251,17 +251,17 @@ class SVMBase(Base,
 
     def _dealloc(self):
         # deallocate model parameters
-        cdef svmModel[float] *model_f
-        cdef svmModel[double] *model_d
+        cdef SvmModel[float] *model_f
+        cdef SvmModel[double] *model_d
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         if self._model is not None:
             if self.dtype == np.float32:
-                model_f = <svmModel[float]*><uintptr_t> self._model
+                model_f = <SvmModel[float]*><uintptr_t> self._model
                 if self._freeSvmBuffers:
                     svmFreeBuffers(handle_[0], model_f[0])
                 del model_f
             elif self.dtype == np.float64:
-                model_d = <svmModel[double]*><uintptr_t> self._model
+                model_d = <SvmModel[double]*><uintptr_t> self._model
                 if self._freeSvmBuffers:
                     svmFreeBuffers(handle_[0], model_d[0])
                 del model_d
@@ -311,6 +311,8 @@ class SVMBase(Base,
             return self.gamma
 
     def _calc_coef(self):
+        if (self.n_support_ == 0):
+            return cupy.zeros((1, self.n_cols), dtype=self.dtype)
         with using_output_type("cupy"):
             return cupy.dot(self.dual_coef_, self.support_vectors_)
 
@@ -357,8 +359,8 @@ class SVMBase(Base,
         return _kernel_params
 
     def _get_svm_params(self):
-        """ Wrap the training parameters in an svmParameter obtect """
-        cdef svmParameter param
+        """ Wrap the training parameters in an SvmParameter obtect """
+        cdef SvmParameter param
         param.C = self.C
         param.cache_size = self.cache_size
         param.max_iter = self.max_iter
@@ -371,17 +373,17 @@ class SVMBase(Base,
 
     @cuml.internals.api_base_return_any_skipall
     def _get_svm_model(self):
-        """ Wrap the fitted model parameters into an svmModel structure.
+        """ Wrap the fitted model parameters into an SvmModel structure.
         This is used if the model is loaded by pickle, the self._model struct
         that we can pass to the predictor.
         """
-        cdef svmModel[float] *model_f
-        cdef svmModel[double] *model_d
+        cdef SvmModel[float] *model_f
+        cdef SvmModel[double] *model_d
         if self.dual_coef_ is None:
             # the model is not fitted in this case
             return None
         if self.dtype == np.float32:
-            model_f = new svmModel[float]()
+            model_f = new SvmModel[float]()
             model_f.n_support = self.n_support_
             model_f.n_cols = self.n_cols
             model_f.b = self._intercept_.item()
@@ -399,7 +401,7 @@ class SVMBase(Base,
                 model_f.unique_labels = NULL
             return <uintptr_t>model_f
         else:
-            model_d = new svmModel[double]()
+            model_d = new SvmModel[double]()
             model_d.n_support = self.n_support_
             model_d.n_cols = self.n_cols
             model_d.b = self._intercept_.item()
@@ -419,8 +421,8 @@ class SVMBase(Base,
 
     def _unpack_model(self):
         """ Expose the model parameters as attributes """
-        cdef svmModel[float] *model_f
-        cdef svmModel[double] *model_d
+        cdef SvmModel[float] *model_f
+        cdef SvmModel[double] *model_d
 
         # Mark that the C++ layer should free the parameter vectors
         # If we could pass the deviceArray deallocator as finalizer for the
@@ -428,30 +430,29 @@ class SVMBase(Base,
         self._freeSvmBuffers = True
 
         if self.dtype == np.float32:
-            model_f = <svmModel[float]*><uintptr_t> self._model
-            if model_f.n_support == 0:
-                self._fit_status_ = 1  # incorrect fit
-                return
+            model_f = <SvmModel[float]*><uintptr_t> self._model
             self._intercept_ = CumlArray.full(1, model_f.b, np.float32)
             self.n_support_ = model_f.n_support
 
-            self.dual_coef_ = CumlArray(
-                data=<uintptr_t>model_f.dual_coefs,
-                shape=(1, self.n_support_),
-                dtype=self.dtype,
-                order='F')
+            if model_f.n_support > 0:
+                self.dual_coef_ = CumlArray(
+                    data=<uintptr_t>model_f.dual_coefs,
+                    shape=(1, self.n_support_),
+                    dtype=self.dtype,
+                    order='F')
 
-            self.support_ = CumlArray(
-                data=<uintptr_t>model_f.support_idx,
-                shape=(self.n_support_,),
-                dtype=np.int32,
-                order='F')
+                self.support_ = CumlArray(
+                    data=<uintptr_t>model_f.support_idx,
+                    shape=(self.n_support_,),
+                    dtype=np.int32,
+                    order='F')
 
-            self.support_vectors_ = CumlArray(
-                data=<uintptr_t>model_f.x_support,
-                shape=(self.n_support_, self.n_cols),
-                dtype=self.dtype,
-                order='F')
+                self.support_vectors_ = CumlArray(
+                    data=<uintptr_t>model_f.x_support,
+                    shape=(self.n_support_, self.n_cols),
+                    dtype=self.dtype,
+                    order='F')
+
             self.n_classes_ = model_f.n_classes
             if self.n_classes_ > 0:
                 self._unique_labels_ = CumlArray(
@@ -462,30 +463,29 @@ class SVMBase(Base,
             else:
                 self._unique_labels_ = None
         else:
-            model_d = <svmModel[double]*><uintptr_t> self._model
-            if model_d.n_support == 0:
-                self._fit_status_ = 1  # incorrect fit
-                return
+            model_d = <SvmModel[double]*><uintptr_t> self._model
             self._intercept_ = CumlArray.full(1, model_d.b, np.float64)
             self.n_support_ = model_d.n_support
 
-            self.dual_coef_ = CumlArray(
-                data=<uintptr_t>model_d.dual_coefs,
-                shape=(1, self.n_support_),
-                dtype=self.dtype,
-                order='F')
+            if model_d.n_support > 0:
+                self.dual_coef_ = CumlArray(
+                    data=<uintptr_t>model_d.dual_coefs,
+                    shape=(1, self.n_support_),
+                    dtype=self.dtype,
+                    order='F')
 
-            self.support_ = CumlArray(
-                data=<uintptr_t>model_d.support_idx,
-                shape=(self.n_support_,),
-                dtype=np.int32,
-                order='F')
+                self.support_ = CumlArray(
+                    data=<uintptr_t>model_d.support_idx,
+                    shape=(self.n_support_,),
+                    dtype=np.int32,
+                    order='F')
 
-            self.support_vectors_ = CumlArray(
-                data=<uintptr_t>model_d.x_support,
-                shape=(self.n_support_, self.n_cols),
-                dtype=self.dtype,
-                order='F')
+                self.support_vectors_ = CumlArray(
+                    data=<uintptr_t>model_d.x_support,
+                    shape=(self.n_support_, self.n_cols),
+                    dtype=self.dtype,
+                    order='F')
+
             self.n_classes_ = model_d.n_classes
             if self.n_classes_ > 0:
                 self._unique_labels_ = CumlArray(
@@ -495,6 +495,24 @@ class SVMBase(Base,
                     order='F')
             else:
                 self._unique_labels_ = None
+
+        if self.n_support_ == 0:
+            self.dual_coef_ = CumlArray.empty(
+                shape=(1, 0),
+                dtype=self.dtype,
+                order='F')
+
+            self.support_ = CumlArray.empty(
+                shape=(0,),
+                dtype=np.int32,
+                order='F')
+
+            # Setting all dims to zero due to issue
+            # https://github.com/rapidsai/cuml/issues/4095
+            self.support_vectors_ = CumlArray.empty(
+                shape=(0, 0),
+                dtype=self.dtype,
+                order='F')
 
     def predict(self, X, predict_class, convert_dtype=True) -> CumlArray:
         """
@@ -537,17 +555,17 @@ class SVMBase(Base,
         preds = CumlArray.zeros(n_rows, dtype=self.dtype)
         cdef uintptr_t preds_ptr = preds.ptr
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        cdef svmModel[float]* model_f
-        cdef svmModel[double]* model_d
+        cdef SvmModel[float]* model_f
+        cdef SvmModel[double]* model_d
 
         if self.dtype == np.float32:
-            model_f = <svmModel[float]*><size_t> self._model
+            model_f = <SvmModel[float]*><size_t> self._model
             svcPredict(handle_[0], <float*>X_ptr, <int>n_rows, <int>n_cols,
                        self._get_kernel_params(), model_f[0],
                        <float*>preds_ptr, <float>self.cache_size,
                        <bool> predict_class)
         else:
-            model_d = <svmModel[double]*><size_t> self._model
+            model_d = <SvmModel[double]*><size_t> self._model
             svcPredict(handle_[0], <double*>X_ptr, <int>n_rows, <int>n_cols,
                        self._get_kernel_params(), model_d[0],
                        <double*>preds_ptr, <double>self.cache_size,

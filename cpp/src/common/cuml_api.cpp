@@ -14,17 +14,17 @@
  * limitations under the License.
  */
 
-#include <cuml/cuml_api.h>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/host/allocator.hpp>
-
-#include <raft/cudart_utils.h>
-#include <cuml/common/utils.hpp>
-#include <functional>
-#include <raft/mr/device/allocator.hpp>
-#include <raft/mr/host/allocator.hpp>
 #include "cumlHandle.hpp"
 
+#include <cuml/cuml_api.h>
+#include <cuml/common/utils.hpp>
+
+#include <raft/cudart_utils.h>
+#include <raft/mr/device/allocator.hpp>
+#include <raft/mr/host/allocator.hpp>
+
+#include <cstddef>
+#include <functional>
 namespace ML {
 namespace detail {
 
@@ -126,58 +126,6 @@ extern "C" cumlError_t cumlGetStream(cumlHandle_t handle, cudaStream_t* stream)
   if (status == CUML_SUCCESS) {
     try {
       *stream = handle_ptr->get_stream();
-    }
-    // TODO: Implement this
-    // catch (const MLCommon::Exception& e)
-    //{
-    //    //log e.what()?
-    //    status =  e.getErrorCode();
-    //}
-    catch (...) {
-      status = CUML_ERROR_UNKNOWN;
-    }
-  }
-  return status;
-}
-
-extern "C" cumlError_t cumlSetDeviceAllocator(cumlHandle_t handle,
-                                              cuml_allocate allocate_fn,
-                                              cuml_deallocate deallocate_fn)
-{
-  cumlError_t status;
-  raft::handle_t* handle_ptr;
-  std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
-  if (status == CUML_SUCCESS) {
-    try {
-      std::shared_ptr<ML::detail::deviceAllocatorFunctionWrapper> allocator(
-        new ML::detail::deviceAllocatorFunctionWrapper(allocate_fn, deallocate_fn));
-      handle_ptr->set_device_allocator(allocator);
-    }
-    // TODO: Implement this
-    // catch (const MLCommon::Exception& e)
-    //{
-    //    //log e.what()?
-    //    status =  e.getErrorCode();
-    //}
-    catch (...) {
-      status = CUML_ERROR_UNKNOWN;
-    }
-  }
-  return status;
-}
-
-extern "C" cumlError_t cumlSetHostAllocator(cumlHandle_t handle,
-                                            cuml_allocate allocate_fn,
-                                            cuml_deallocate deallocate_fn)
-{
-  cumlError_t status;
-  raft::handle_t* handle_ptr;
-  std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
-  if (status == CUML_SUCCESS) {
-    try {
-      std::shared_ptr<ML::detail::hostAllocatorFunctionWrapper> allocator(
-        new ML::detail::hostAllocatorFunctionWrapper(allocate_fn, deallocate_fn));
-      handle_ptr->set_host_allocator(allocator);
     }
     // TODO: Implement this
     // catch (const MLCommon::Exception& e)

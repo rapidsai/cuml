@@ -21,8 +21,8 @@
 #include <iostream>
 #include <metrics/batched/silhouette_score.cuh>
 #include <metrics/silhouette_score.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <random>
+#include <rmm/device_uvector.hpp>
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -42,6 +42,8 @@ struct silhouetteScoreParam {
 template <typename LabelT, typename DataT>
 class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam> {
  protected:
+  silhouetteScoreTest() : d_X(0, stream), sampleSilScore(0, stream), d_labels(0, stream) {}
+
   void host_silhouette_score()
   {
     // generating random value test input
@@ -57,20 +59,22 @@ class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam
 
     // allocating and initializing memory to the GPU
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(d_X, nElements, true);
-    raft::allocate(d_labels, nElements, true);
-    raft::allocate(sampleSilScore, nElements);
+    d_X.resize(nElements, stream);
+    d_labels.resize(nElements, stream);
+    CUDA_CHECK(cudaMemsetAsync(d_X.data(), 0, d_X.size() * sizeof(DataT), stream));
+    CUDA_CHECK(cudaMemsetAsync(d_labels.data(), 0, d_labels.size() * sizeof(LabelT), stream));
+    sampleSilScore.resize(nElements, stream);
 
-    raft::update_device(d_X, &h_X[0], (int)nElements, stream);
-    raft::update_device(d_labels, &h_labels[0], (int)nElements, stream);
+    raft::update_device(d_X.data(), &h_X[0], (int)nElements, stream);
+    raft::update_device(d_labels.data(), &h_labels[0], (int)nElements, stream);
 
     // finding the distance matrix
 
-    device_buffer<double> d_distanceMatrix(allocator, stream, nRows * nRows);
+    rmm::device_uvector<double> d_distanceMatrix(nRows * nRows, stream);
     double* h_distanceMatrix = (double*)malloc(nRows * nRows * sizeof(double*));
 
     ML::Metrics::pairwise_distance(
-      handle, d_X, d_X, d_distanceMatrix.data(), nRows, nRows, nCols, params.metric);
+      handle, d_X.data(), d_X.data(), d_distanceMatrix.data(), nRows, nRows, nCols, params.metric);
 
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -158,50 +162,48 @@ class silhouetteScoreTest : public ::testing::TestWithParam<silhouetteScoreParam
     chunk     = params.chunk;
     nElements = nRows * nCols;
 
-    allocator = std::make_shared<raft::mr::device::default_allocator>();
-
     host_silhouette_score();
 
     // calling the silhouette_score CUDA implementation
     computedSilhouetteScore = MLCommon::Metrics::silhouette_score(handle,
-                                                                  d_X,
+                                                                  d_X.data(),
                                                                   nRows,
                                                                   nCols,
-                                                                  d_labels,
+                                                                  d_labels.data(),
                                                                   nLabels,
-                                                                  sampleSilScore,
-                                                                  allocator,
+                                                                  sampleSilScore.data(),
                                                                   stream,
                                                                   params.metric);
 
-    batchedSilhouetteScore = Batched::silhouette_score(
-      handle, d_X, nRows, nCols, d_labels, nLabels, sampleSilScore, chunk, params.metric);
+    batchedSilhouetteScore = Batched::silhouette_score(handle,
+                                                       d_X.data(),
+                                                       nRows,
+                                                       nCols,
+                                                       d_labels.data(),
+                                                       nLabels,
+                                                       sampleSilScore.data(),
+                                                       chunk,
+                                                       params.metric);
   }
 
   // the destructor
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(d_X));
-    CUDA_CHECK(cudaFree(d_labels));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
+  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
   // declaring the data values
   silhouetteScoreParam params;
   int nLabels;
-  DataT* d_X            = nullptr;
-  DataT* sampleSilScore = nullptr;
-  LabelT* d_labels      = nullptr;
+  rmm::device_uvector<DataT> d_X;
+  rmm::device_uvector<DataT> sampleSilScore;
+  rmm::device_uvector<LabelT> d_labels;
   int nRows;
   int nCols;
   int nElements;
   double truthSilhouetteScore    = 0;
   double computedSilhouetteScore = 0;
   double batchedSilhouetteScore  = 0;
-  cudaStream_t stream;
+  cudaStream_t stream            = 0;
   raft::handle_t handle;
   int chunk;
-  std::shared_ptr<raft::mr::device::allocator> allocator;
 };
 
 // setting test parameter values

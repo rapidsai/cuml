@@ -18,6 +18,10 @@
 
 #include "runner.cuh"
 
+#include <common/nvtx.hpp>
+
+#include <cuml/common/logger.hpp>
+
 namespace ML {
 namespace Dbscan {
 namespace MergeLabels {

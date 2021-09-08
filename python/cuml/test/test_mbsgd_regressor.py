@@ -127,3 +127,24 @@ def test_mbsgd_regressor_default(make_dataset):
                      convert_dtype=datatype)
 
     assert cu_r2 > 0.9
+
+
+def test_mbsgd_regressor_set_params():
+    x = np.linspace(0, 1, 50)
+    y = x * 2
+
+    model = cumlMBSGRegressor()
+    model.fit(x, y)
+    coef_before = model.coef_
+
+    model = cumlMBSGRegressor(eta0=0.1, fit_intercept=False)
+    model.fit(x, y)
+    coef_after = model.coef_
+
+    model = cumlMBSGRegressor()
+    model.set_params(**{'eta0': 0.1, 'fit_intercept': False})
+    model.fit(x, y)
+    coef_test = model.coef_
+
+    assert coef_before != coef_after
+    assert coef_after == coef_test

@@ -21,7 +21,6 @@
 #include <raft/linalg/cusolver_wrappers.h>
 #include <raft/linalg/gemv.h>
 #include <raft/linalg/transpose.h>
-#include <cuml/common/device_buffer.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/eig.cuh>
 #include <raft/linalg/gemm.cuh>
@@ -29,9 +28,9 @@
 #include <raft/linalg/svd.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/mr/device/buffer.hpp>
 #include <raft/random/rng.cuh>
+#include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace MLCommon {
@@ -52,8 +51,8 @@ void lstsq(const raft::handle_t& handle,
 
   ASSERT(n_rows > 1, "lstsq: number of rows cannot be less than two");
 
-  int U_len = n_rows * n_cols;
-  int V_len = n_cols * n_cols;
+  size_t U_len = n_rows * n_cols;
+  size_t V_len = n_cols * n_cols;
 
   rmm::device_uvector<math_t> S(n_cols, stream);
   rmm::device_uvector<math_t> V(V_len, stream);
@@ -88,15 +87,14 @@ void lstsqQR(math_t* A,
              math_t* w,
              cusolverDnHandle_t cusolverH,
              cublasHandle_t cublasH,
-             std::shared_ptr<raft::mr::device::allocator> allocator,
              cudaStream_t stream)
 {
   int m = n_rows;
   int n = n_cols;
 
   int info = 0;
-  device_buffer<math_t> d_tau(allocator, stream, n);
-  device_buffer<int> d_info(allocator, stream, 1);
+  rmm::device_uvector<math_t> d_tau(n, stream);
+  rmm::device_scalar<int> d_info(stream);
 
   const cublasSideMode_t side   = CUBLAS_SIDE_LEFT;
   const cublasOperation_t trans = CUBLAS_OP_T;
@@ -125,7 +123,7 @@ void lstsqQR(math_t* A,
 
   lwork = (lwork_geqrf > lwork_ormqr) ? lwork_geqrf : lwork_ormqr;
 
-  device_buffer<math_t> d_work(allocator, stream, lwork);
+  rmm::device_uvector<math_t> d_work(lwork, stream);
 
   CUSOLVER_CHECK(raft::linalg::cusolverDngeqrf(
     cusolverH, m, n, A, lda, d_tau.data(), d_work.data(), lwork, d_info.data(), stream));

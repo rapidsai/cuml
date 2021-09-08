@@ -16,6 +16,22 @@
 
 #pragma once
 
+#include <cuml/common/utils.hpp>
+
+#include <common/fast_int_div.cuh>
+
+#include <raft/cudart_utils.h>
+#include <raft/linalg/cublas_wrappers.h>
+#include <raft/cuda_utils.cuh>
+#include <raft/linalg/binary_op.cuh>
+#include <raft/linalg/unary_op.cuh>
+#include <rmm/device_uvector.hpp>
+
+#include <thrust/execution_policy.h>
+#include <thrust/for_each.h>
+#include <thrust/iterator/counting_iterator.h>
+
+#include <cstddef>
 #include <functional>
 #include <memory>
 #include <stdexcept>
@@ -23,21 +39,6 @@
 #include <type_traits>
 #include <unordered_map>
 #include <vector>
-
-#include <thrust/execution_policy.h>
-#include <thrust/for_each.h>
-#include <thrust/iterator/counting_iterator.h>
-
-#include <raft/cudart_utils.h>
-#include <common/fast_int_div.cuh>
-#include <cuml/common/device_buffer.hpp>
-#include <cuml/common/utils.hpp>
-#include <raft/cuda_utils.cuh>
-#include <raft/mr/device/allocator.hpp>
-
-#include <raft/linalg/cublas_wrappers.h>
-#include <raft/linalg/binary_op.cuh>
-#include <raft/linalg/unary_op.cuh>
 
 namespace MLCommon {
 namespace LinAlg {
@@ -57,6 +58,7 @@ __global__ void identity_matrix_kernel(T* I, int m)
 {
   T* I_b     = I + blockIdx.x * m * m;
   int stride = (m + 1);
+
   for (int idx = threadIdx.x; idx < m; idx += blockDim.x) {
     I_b[idx * stride] = 1;
   }
@@ -155,6 +157,8 @@ class Matrix {
   }
 
  public:
+  using shape_type = std::pair<std::size_t, std::size_t>;
+
   /**
    * @brief Constructor that allocates memory using the memory pool.
    *
@@ -162,24 +166,21 @@ class Matrix {
    * @param[in]  n            Number of columns
    * @param[in]  batch_size   Number of matrices in the batch
    * @param[in]  cublasHandle cuBLAS handle
-   * @param[in]  allocator    Device memory allocator
    * @param[in]  stream       CUDA stream
    * @param[in]  setZero      Should matrix be zeroed on allocation?
    */
-  Matrix(int m,
-         int n,
-         int batch_size,
+  Matrix(std::size_t m,
+         std::size_t n,
+         std::size_t batch_size,
          cublasHandle_t cublasHandle,
-         std::shared_ptr<raft::mr::device::allocator> allocator,
          cudaStream_t stream,
          bool setZero = true)
     : m_batch_size(batch_size),
-      m_allocator(allocator),
       m_cublasHandle(cublasHandle),
       m_stream(stream),
       m_shape(m, n),
-      m_batches(allocator, stream, batch_size),
-      m_dense(allocator, stream, m * n * batch_size),
+      m_batches(batch_size, stream),
+      m_dense(m * n * batch_size, stream),
       d_batches(m_batches.data()),
       d_dense(m_dense.data())
   {
@@ -189,35 +190,30 @@ class Matrix {
   /**
    * @brief Constructor that uses pre-allocated memory.
    * @note The given arrays don't need to be initialized prior to constructing this object.
-   *       Memory ownership is retained by the caller, not this object!
-   *       Some methods might still allocate temporary memory with the provided allocator.
    *
    * @param[in]  m            Number of rows
    * @param[in]  n            Number of columns
    * @param[in]  batch_size   Number of matrices in the batch
    * @param[in]  cublasHandle cuBLAS handle
-   * @param[in]  allocator    Device memory allocator
    * @param[in]  d_batches    Pre-allocated pointers array: batch_size * sizeof(T*)
    * @param[in]  d_dense      Pre-allocated data array: m * n * batch_size * sizeof(T)
    * @param[in]  stream       CUDA stream
    * @param[in]  setZero      Should matrix be zeroed on allocation?
    */
-  Matrix(int m,
-         int n,
-         int batch_size,
+  Matrix(std::size_t m,
+         std::size_t n,
+         std::size_t batch_size,
          cublasHandle_t cublasHandle,
          T** d_batches,
          T* d_dense,
-         std::shared_ptr<raft::mr::device::allocator> allocator,
          cudaStream_t stream,
          bool setZero = true)
     : m_batch_size(batch_size),
-      m_allocator(allocator),
       m_cublasHandle(cublasHandle),
       m_stream(stream),
       m_shape(m, n),
-      m_batches(allocator, stream, 0),
-      m_dense(allocator, stream, 0),
+      m_batches(0, stream),
+      m_dense(0, stream),
       d_batches(d_batches),
       d_dense(d_dense)
   {
@@ -230,14 +226,11 @@ class Matrix {
   //! Copy constructor
   Matrix(const Matrix<T>& other)
     : m_batch_size(other.m_batch_size),
-      m_allocator(other.m_allocator),
       m_cublasHandle(other.m_cublasHandle),
       m_stream(other.m_stream),
       m_shape(other.m_shape),
-      m_batches(other.m_allocator, other.m_stream, other.m_batch_size),
-      m_dense(other.m_allocator,
-              other.m_stream,
-              other.m_shape.first * other.m_shape.second * other.m_batch_size),
+      m_batches(other.m_batch_size, other.m_stream),
+      m_dense(other.m_shape.first * other.m_shape.second * other.m_batch_size, other.m_stream),
       d_batches(m_batches.data()),
       d_dense(m_dense.data())
   {
@@ -268,19 +261,16 @@ class Matrix {
   }
 
   //! Return batches
-  int batches() const { return m_batch_size; }
+  std::size_t batches() const { return m_batch_size; }
 
   //! Return cublas handle
   cublasHandle_t cublasHandle() const { return m_cublasHandle; }
-
-  //! Return allocator
-  std::shared_ptr<raft::mr::device::allocator> allocator() const { return m_allocator; }
 
   //! Return stream
   cudaStream_t stream() const { return m_stream; }
 
   //! Return shape
-  const std::pair<int, int>& shape() const { return m_shape; }
+  const shape_type& shape() const { return m_shape; }
 
   //! Return array of pointers to the offsets in the data buffer
   const T** data() const { return d_batches; }
@@ -305,20 +295,18 @@ class Matrix {
    * @param[in]  m  Number of desired rows
    * @param[in]  n  Number of desired columns
    */
-  void reshape(int m, int n)
+  void reshape(std::size_t m, std::size_t n)
   {
-    const int r = m_shape.first * m_shape.second;
+    const auto r = m_shape.first * m_shape.second;
     ASSERT(r == m * n, "ERROR: Size mismatch - Cannot reshape matrix into desired shape");
-    m_shape = std::pair<int, int>(m, n);
+    m_shape = shape_type(m, n);
   }
 
   //! Stack the matrix by columns creating a long vector
   Matrix<T> vec() const
   {
-    int m = m_shape.first;
-    int n = m_shape.second;
-    int r = m * n;
-    Matrix<T> toVec(r, 1, m_batch_size, m_cublasHandle, m_allocator, m_stream, false);
+    const auto r = m_shape.first * m_shape.second;
+    Matrix<T> toVec(r, 1, m_batch_size, m_cublasHandle, m_stream, false);
     raft::copy(toVec[0], raw_data(), m_batch_size * r, m_stream);
     return toVec;
   }
@@ -332,9 +320,9 @@ class Matrix {
    */
   Matrix<T> mat(int m, int n) const
   {
-    const int r = m_shape.first * m_shape.second;
+    const auto r = m_shape.first * m_shape.second;
     ASSERT(r == m * n, "ERROR: Size mismatch - Cannot reshape array into desired size");
-    Matrix<T> toMat(m, n, m_batch_size, m_cublasHandle, m_allocator, m_stream, false);
+    Matrix<T> toMat(m, n, m_batch_size, m_cublasHandle, m_stream, false);
     raft::copy(toMat[0], raw_data(), m_batch_size * r, m_stream);
 
     return toMat;
@@ -343,7 +331,7 @@ class Matrix {
   //! Visualize the first matrix.
   void print(std::string name) const
   {
-    size_t len = m_shape.first * m_shape.second * m_batch_size;
+    std::size_t len = m_shape.first * m_shape.second * m_batch_size;
     std::vector<T> A(len);
     raft::update_host(A.data(), raw_data(), len, m_stream);
     std::cout << name << "=\n";
@@ -377,7 +365,6 @@ class Matrix {
                   row_vector ? len - period : 1,
                   m_batch_size,
                   m_cublasHandle,
-                  m_allocator,
                   m_stream,
                   false);
 
@@ -417,18 +404,15 @@ class Matrix {
   {
     int n = m_shape.first;
 
-    int* P    = (int*)m_allocator->allocate(sizeof(int) * n * m_batch_size, m_stream);
-    int* info = (int*)m_allocator->allocate(sizeof(int) * m_batch_size, m_stream);
+    rmm::device_uvector<int> P(n * m_batch_size, m_stream);
+    rmm::device_uvector<int> info(m_batch_size, m_stream);
 
     // A copy of A is necessary as the cublas operations write in A
     Matrix<T> Acopy(*this);
 
-    Matrix<T> Ainv(n, n, m_batch_size, m_cublasHandle, m_allocator, m_stream, false);
+    Matrix<T> Ainv(n, n, m_batch_size, m_cublasHandle, m_stream, false);
 
-    Matrix<T>::inv(Acopy, Ainv, P, info);
-
-    m_allocator->deallocate(P, sizeof(int) * n * m_batch_size, m_stream);
-    m_allocator->deallocate(info, sizeof(int) * m_batch_size, m_stream);
+    Matrix<T>::inv(Acopy, Ainv, P.data(), info.data());
 
     return Ainv;
   }
@@ -440,10 +424,10 @@ class Matrix {
    */
   Matrix<T> transpose() const
   {
-    int m = m_shape.first;
-    int n = m_shape.second;
+    auto m = m_shape.first;
+    auto n = m_shape.second;
 
-    Matrix<T> At(n, m, m_batch_size, m_cublasHandle, m_allocator, m_stream);
+    Matrix<T> At(n, m, m_batch_size, m_cublasHandle, m_stream);
 
     const T* d_A = raw_data();
     T* d_At      = At.raw_data();
@@ -471,40 +455,38 @@ class Matrix {
    * @param[in]  m            Number of rows/columns of matrix
    * @param[in]  batch_size   Number of matrices in batch
    * @param[in]  cublasHandle cublas handle
-   * @param[in]  allocator    device allocator
    * @param[in]  stream       cuda stream to schedule work on
    *
    * @return A batched identity matrix
    */
-  static Matrix<T> Identity(int m,
-                            int batch_size,
+  static Matrix<T> Identity(std::size_t m,
+                            std::size_t batch_size,
                             cublasHandle_t cublasHandle,
-                            std::shared_ptr<raft::mr::device::allocator> allocator,
                             cudaStream_t stream)
   {
-    Matrix<T> I(m, m, batch_size, cublasHandle, allocator, stream, true);
+    Matrix<T> I(m, m, batch_size, cublasHandle, stream, true);
 
-    identity_matrix_kernel<T><<<batch_size, std::min(256, m), 0, stream>>>(I.raw_data(), m);
+    identity_matrix_kernel<T>
+      <<<batch_size, std::min(std::size_t{256}, m), 0, stream>>>(I.raw_data(), m);
     CUDA_CHECK(cudaPeekAtLastError());
     return I;
   }
 
  protected:
   //! Shape (rows, cols) of matrices. We assume all matrices in batch have same shape.
-  std::pair<int, int> m_shape;
+  shape_type m_shape;
 
   //! Pointers to each matrix in the contiguous data buffer (strided offsets)
-  device_buffer<T*> m_batches;
+  rmm::device_uvector<T*> m_batches;
   T** d_batches;  // When pre-allocated
 
   //! Data pointer to first element of dense matrix data.
-  device_buffer<T> m_dense;
+  rmm::device_uvector<T> m_dense;
   T* d_dense;  // When pre-allocated
 
   //! Number of matrices in batch
-  int m_batch_size;
+  std::size_t m_batch_size;
 
-  std::shared_ptr<raft::mr::device::allocator> m_allocator;
   cublasHandle_t m_cublasHandle;
   cudaStream_t m_stream;
 };
@@ -567,9 +549,9 @@ __global__ void kronecker_product_kernel(
 template <typename T>
 void b_gemm(bool aT,
             bool bT,
-            int m,
-            int n,
-            int k,
+            std::size_t m,
+            std::size_t n,
+            std::size_t k,
             T alpha,
             const Matrix<T>& A,
             const Matrix<T>& B,
@@ -580,10 +562,10 @@ void b_gemm(bool aT,
   {
     ASSERT(A.batches() == B.batches(), "A and B must have the same number of batches");
     ASSERT(A.batches() == C.batches(), "A and C must have the same number of batches");
-    int Arows = !aT ? A.shape().first : A.shape().second;
-    int Acols = !aT ? A.shape().second : A.shape().first;
-    int Brows = !bT ? B.shape().first : B.shape().second;
-    int Bcols = !bT ? B.shape().second : B.shape().first;
+    auto Arows = !aT ? A.shape().first : A.shape().second;
+    auto Acols = !aT ? A.shape().second : A.shape().first;
+    auto Brows = !bT ? B.shape().first : B.shape().second;
+    auto Bcols = !bT ? B.shape().second : B.shape().first;
     ASSERT(m <= Arows, "m should be <= number of rows of A");
     ASSERT(k <= Acols, "k should be <= number of columns of A");
     ASSERT(k <= Brows, "k should be <= number of rows of B");
@@ -644,7 +626,7 @@ Matrix<T> b_gemm(const Matrix<T>& A, const Matrix<T>& B, bool aT = false, bool b
   ASSERT(k == kB, "Matrix-Multiplication dimensions don't match!");
 
   // Create C(m,n)
-  Matrix<T> C(m, n, A.batches(), A.cublasHandle(), A.allocator(), A.stream());
+  Matrix<T> C(m, n, A.batches(), A.cublasHandle(), A.stream());
 
   b_gemm(aT, bT, m, n, k, (T)1, A, B, (T)0, C);
   return C;
@@ -665,11 +647,11 @@ template <typename T>
 void b_gels(const Matrix<T>& A, Matrix<T>& C)
 {
   ASSERT(A.batches() == C.batches(), "A and C must have the same number of batches");
-  int m = A.shape().first;
+  auto m = A.shape().first;
   ASSERT(C.shape().first == m, "Dimension mismatch: A rows, C rows");
-  int n = A.shape().second;
+  auto n = A.shape().second;
   ASSERT(m > n, "Only overdetermined systems (m > n) are supported");
-  int nrhs = C.shape().second;
+  auto nrhs = C.shape().second;
 
   Matrix<T> Acopy(A);
 
@@ -700,10 +682,10 @@ template <typename T, typename F>
 Matrix<T> b_op_A(const Matrix<T>& A, F unary_op)
 {
   auto batch_size = A.batches();
-  int m           = A.shape().first;
-  int n           = A.shape().second;
+  auto m          = A.shape().first;
+  auto n          = A.shape().second;
 
-  Matrix<T> C(m, n, batch_size, A.cublasHandle(), A.allocator(), A.stream());
+  Matrix<T> C(m, n, batch_size, A.cublasHandle(), A.stream());
 
   raft::linalg::unaryOp(C.raw_data(), A.raw_data(), m * n * batch_size, unary_op, A.stream());
 
@@ -728,10 +710,10 @@ Matrix<T> b_aA_op_B(const Matrix<T>& A, const Matrix<T>& B, F binary_op)
   ASSERT(A.batches() == B.batches(), "A & B must have same number of batches");
 
   auto batch_size = A.batches();
-  int m           = A.shape().first;
-  int n           = A.shape().second;
+  auto m          = A.shape().first;
+  auto n          = A.shape().second;
 
-  Matrix<T> C(m, n, batch_size, A.cublasHandle(), A.allocator(), A.stream());
+  Matrix<T> C(m, n, batch_size, A.cublasHandle(), A.stream());
 
   raft::linalg::binaryOp(
     C.raw_data(), A.raw_data(), B.raw_data(), m * n * batch_size, binary_op, A.stream());
@@ -818,20 +800,20 @@ Matrix<T> b_solve(const Matrix<T>& A, const Matrix<T>& b)
 template <typename T>
 void b_kron(const Matrix<T>& A, const Matrix<T>& B, Matrix<T>& AkB, T alpha = (T)1)
 {
-  int m = A.shape().first;
-  int n = A.shape().second;
+  auto m = A.shape().first;
+  auto n = A.shape().second;
 
-  int p = B.shape().first;
-  int q = B.shape().second;
+  auto p = B.shape().first;
+  auto q = B.shape().second;
 
   // Resulting shape
-  int k_m = m * p;
-  int k_n = n * q;
+  auto k_m = m * p;
+  auto k_n = n * q;
   ASSERT(AkB.shape().first == k_m, "Kronecker product output dimensions mismatch");
   ASSERT(AkB.shape().second == k_n, "Kronecker product output dimensions mismatch");
 
   // Run kronecker
-  dim3 threads(std::min(p, 32), std::min(q, 32));
+  dim3 threads(std::min(p, std::size_t{32}), std::min(q, std::size_t{32}));
   kronecker_product_kernel<T><<<A.batches(), threads, 0, A.stream()>>>(
     A.raw_data(), m, n, B.raw_data(), p, q, AkB.raw_data(), k_m, k_n, alpha);
   CUDA_CHECK(cudaPeekAtLastError());
@@ -848,17 +830,17 @@ void b_kron(const Matrix<T>& A, const Matrix<T>& B, Matrix<T>& AkB, T alpha = (T
 template <typename T>
 Matrix<T> b_kron(const Matrix<T>& A, const Matrix<T>& B)
 {
-  int m = A.shape().first;
-  int n = A.shape().second;
+  auto m = A.shape().first;
+  auto n = A.shape().second;
 
-  int p = B.shape().first;
-  int q = B.shape().second;
+  auto p = B.shape().first;
+  auto q = B.shape().second;
 
   // Resulting shape
-  int k_m = m * p;
-  int k_n = n * q;
+  auto k_m = m * p;
+  auto k_n = n * q;
 
-  Matrix<T> AkB(k_m, k_n, A.batches(), A.cublasHandle(), A.allocator(), A.stream());
+  Matrix<T> AkB(k_m, k_n, A.batches(), A.cublasHandle(), A.stream());
 
   b_kron(A, B, AkB);
 
@@ -972,8 +954,7 @@ Matrix<T> b_lagged_mat(const Matrix<T>& vec, int lags)
   int lagged_height = len - lags;
 
   // Create output matrix
-  Matrix<T> lagged_mat(
-    lagged_height, lags, vec.batches(), vec.cublasHandle(), vec.allocator(), vec.stream(), false);
+  Matrix<T> lagged_mat(lagged_height, lags, vec.batches(), vec.cublasHandle(), vec.stream(), false);
   // Call exhaustive version of the function
   b_lagged_mat(vec, lagged_mat, lags, lagged_height, 0, 0);
 
@@ -1040,12 +1021,12 @@ static __global__ void batched_2dcopy_kernel(const T* in,
 template <typename T>
 void b_2dcopy(const Matrix<T>& in,
               Matrix<T>& out,
-              int in_starting_row,
-              int in_starting_col,
-              int copy_rows,
-              int copy_cols,
-              int out_starting_row = 0,
-              int out_starting_col = 0)
+              std::size_t in_starting_row,
+              std::size_t in_starting_col,
+              std::size_t copy_rows,
+              std::size_t copy_cols,
+              std::size_t out_starting_row = 0,
+              std::size_t out_starting_col = 0)
 {
   ASSERT(in_starting_row + copy_rows <= in.shape().first,
          "[2D copy] Dimension mismatch: rows for input matrix");
@@ -1057,7 +1038,7 @@ void b_2dcopy(const Matrix<T>& in,
          "[2D copy] Dimension mismatch: columns for output matrix");
 
   // Execute the kernel
-  const int TPB = copy_rows * copy_cols > 512 ? 256 : 128;  // quick heuristics
+  const int TPB = copy_rows * copy_cols > std::size_t{512} ? 256 : 128;  // quick heuristics
   batched_2dcopy_kernel<<<in.batches(), TPB, 0, in.stream()>>>(in.raw_data(),
                                                                out.raw_data(),
                                                                in_starting_row,
@@ -1093,7 +1074,7 @@ template <typename T>
 Matrix<T> b_2dcopy(const Matrix<T>& in, int starting_row, int starting_col, int rows, int cols)
 {
   // Create output matrix
-  Matrix<T> out(rows, cols, in.batches(), in.cublasHandle(), in.allocator(), in.stream(), false);
+  Matrix<T> out(rows, cols, in.batches(), in.cublasHandle(), in.stream(), false);
 
   // Call the other overload of the function
   b_2dcopy(in, out, starting_row, starting_col, rows, cols);
@@ -1299,7 +1280,6 @@ void b_hessenberg(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& H)
   int n2         = n * n;
   int batch_size = A.batches();
   auto stream    = A.stream();
-  auto allocator = A.allocator();
 
   // Copy A in H
   raft::copy(H.raw_data(), A.raw_data(), n2 * batch_size, stream);
@@ -1311,7 +1291,7 @@ void b_hessenberg(const Matrix<T>& A, Matrix<T>& U, Matrix<T>& H)
 
   // Create a temporary buffer to store the Householder vectors
   int hh_size = (n * (n - 1)) / 2 - 1;
-  device_buffer<T> hh_buffer(allocator, stream, hh_size * batch_size);
+  rmm::device_uvector<T> hh_buffer(hh_size * batch_size, stream);
 
   // Transform H to Hessenberg form in-place and update U
   int shared_mem_size = n * sizeof(T);
@@ -1826,14 +1806,13 @@ Matrix<T> b_trsyl_uplo(const Matrix<T>& R, const Matrix<T>& S, const Matrix<T>& 
 {
   int batch_size = R.batches();
   auto stream    = R.stream();
-  auto allocator = R.allocator();
   int n          = R.shape().first;
 
   Matrix<T> R2 = b_gemm(R, R);
-  Matrix<T> Y(n, n, batch_size, R.cublasHandle(), allocator, stream, false);
+  Matrix<T> Y(n, n, batch_size, R.cublasHandle(), stream, false);
 
   // Scratch buffer for the solver
-  device_buffer<T> scratch_buffer(allocator, stream, batch_size * n * (n + 2));
+  rmm::device_uvector<T> scratch_buffer(batch_size * n * (n + 2), stream);
   int shared_mem_size = 2 * (n - 1) * sizeof(T);
   trsyl_kernel<<<batch_size, n + 2, shared_mem_size, stream>>>(R.raw_data(),
                                                                R2.raw_data(),
@@ -1900,7 +1879,6 @@ Matrix<T> b_lyapunov(const Matrix<T>& A, Matrix<T>& Q)
 {
   int batch_size = A.batches();
   auto stream    = A.stream();
-  auto allocator = A.allocator();
   int n          = A.shape().first;
   int n2         = n * n;
   auto counting  = thrust::make_counting_iterator(0);
@@ -1910,23 +1888,24 @@ Matrix<T> b_lyapunov(const Matrix<T>& A, Matrix<T>& Q)
     // Use direct solution with Kronecker product
     //
     MLCommon::LinAlg::Batched::Matrix<T> I_m_AxA(
-      n2, n2, batch_size, A.cublasHandle(), allocator, stream, false);
+      n2, n2, batch_size, A.cublasHandle(), stream, false);
     MLCommon::LinAlg::Batched::Matrix<T> I_m_AxA_inv(
-      n2, n2, batch_size, A.cublasHandle(), allocator, stream, false);
-    MLCommon::LinAlg::Batched::Matrix<T> X(
-      n, n, batch_size, A.cublasHandle(), allocator, stream, false);
-    int* P    = (int*)allocator->allocate(sizeof(int) * n * batch_size, stream);
-    int* info = (int*)allocator->allocate(sizeof(int) * batch_size, stream);
-    MLCommon::LinAlg::Batched::_direct_lyapunov_helper(A, Q, X, I_m_AxA, I_m_AxA_inv, P, info, n);
-    allocator->deallocate(P, sizeof(int) * n * batch_size, stream);
-    allocator->deallocate(info, sizeof(int) * batch_size, stream);
+      n2, n2, batch_size, A.cublasHandle(), stream, false);
+    MLCommon::LinAlg::Batched::Matrix<T> X(n, n, batch_size, A.cublasHandle(), stream, false);
+
+    rmm::device_uvector<int> P(n * batch_size, stream);
+    rmm::device_uvector<int> info(batch_size, stream);
+
+    MLCommon::LinAlg::Batched::_direct_lyapunov_helper(
+      A, Q, X, I_m_AxA, I_m_AxA_inv, P.data(), info.data(), n);
+
     return X;
   } else {
     //
     // Transform to Sylvester equation (Popov, 1964)
     //
-    Matrix<T> Bt(n, n, batch_size, A.cublasHandle(), allocator, stream, false);
-    Matrix<T> C(n, n, batch_size, A.cublasHandle(), allocator, stream, false);
+    Matrix<T> Bt(n, n, batch_size, A.cublasHandle(), stream, false);
+    Matrix<T> C(n, n, batch_size, A.cublasHandle(), stream, false);
     {
       Matrix<T> ApI(A);
       Matrix<T> AmI(A);
@@ -1954,12 +1933,12 @@ Matrix<T> b_lyapunov(const Matrix<T>& A, Matrix<T>& Q)
     //
 
     // 1. Shur decomposition of B'
-    Matrix<T> R(n, n, batch_size, A.cublasHandle(), allocator, stream, false);
-    Matrix<T> U(n, n, batch_size, A.cublasHandle(), allocator, stream, false);
+    Matrix<T> R(n, n, batch_size, A.cublasHandle(), stream, false);
+    Matrix<T> U(n, n, batch_size, A.cublasHandle(), stream, false);
     b_schur(Bt, U, R);
 
     // 2. F = -U'CU
-    Matrix<T> F(n, n, batch_size, A.cublasHandle(), allocator, stream, false);
+    Matrix<T> F(n, n, batch_size, A.cublasHandle(), stream, false);
     b_gemm(true, false, n, n, n, (T)-1, U, C * U, (T)0, F);
 
     // 3. Solve RY+YR'=F (where Y=U'XU)

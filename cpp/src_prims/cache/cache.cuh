@@ -16,13 +16,18 @@
 
 #pragma once
 
-#include <raft/cudart_utils.h>
 #include <cub/cub.cuh>
-#include <cuml/common/device_buffer.hpp>
+#include "cache_util.cuh"
+
 #include <cuml/common/logger.hpp>
+
+#include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/mr/device/allocator.hpp>
-#include "cache_util.cuh"
+#include <rmm/device_scalar.hpp>
+#include <rmm/device_uvector.hpp>
+
+#include <cstddef>
 
 namespace MLCommon {
 namespace Cache {
@@ -68,7 +73,7 @@ namespace Cache {
  * Cache<float> cache(h.get_device_allocator(), stream, m);
  *
  * // A buffer that we will reuse to store the cache indices.
- * device_buffer<int> cache_idx(h.get_device_allocator(), stream, n);
+ * rmm::device_uvector<int> cache_idx(h.get_device_allocator(), stream, n);
  *
  * void cached_calc(int *key, int n, int m, float *out, stream) {
  *   int n_cached = 0;
@@ -112,27 +117,22 @@ class Cache {
    * @tparam math_t type of elements to be cached
    * @tparam associativity number of vectors in a cache set
    *
-   * @param allocator device memory allocator
    * @param stream cuda stream
    * @param n_vec number of elements in a single vector that is stored in a
    *   cache entry
    * @param cache_size in MiB
    */
-  Cache(std::shared_ptr<raft::mr::device::allocator> allocator,
-        cudaStream_t stream,
-        int n_vec,
-        float cache_size = 200)
-    : allocator(allocator),
-      n_vec(n_vec),
+  Cache(cudaStream_t stream, int n_vec, float cache_size = 200)
+    : n_vec(n_vec),
       cache_size(cache_size),
-      cache(allocator, stream),
-      cached_keys(allocator, stream),
-      cache_time(allocator, stream),
-      is_cached(allocator, stream),
-      ws_tmp(allocator, stream),
-      idx_tmp(allocator, stream),
-      d_num_selected_out(allocator, stream, 1),
-      d_temp_storage(allocator, stream)
+      cache(0, stream),
+      cached_keys(0, stream),
+      cache_time(0, stream),
+      is_cached(0, stream),
+      ws_tmp(0, stream),
+      idx_tmp(0, stream),
+      d_num_selected_out(stream),
+      d_temp_storage(0, stream)
   {
     ASSERT(n_vec > 0, "Parameter n_vec: shall be larger than zero");
     ASSERT(associativity > 0, "Associativity shall be larger than zero");
@@ -363,8 +363,6 @@ class Cache {
   int GetSize() const { return cached_keys.size(); }
 
  private:
-  std::shared_ptr<raft::mr::device::allocator> allocator;
-
   int n_vec;         //!< Number of elements in a cached vector
   float cache_size;  //!< in MiB
   int n_cache_sets;  //!< number of cache sets
@@ -374,23 +372,23 @@ class Cache {
 
   bool debug_mode = false;
 
-  MLCommon::device_buffer<math_t> cache;     //!< The value of cached vectors
-  MLCommon::device_buffer<int> cached_keys;  //!< Keys stored at each cache loc
-  MLCommon::device_buffer<int> cache_time;   //!< Time stamp for LRU cache
+  rmm::device_uvector<math_t> cache;     //!< The value of cached vectors
+  rmm::device_uvector<int> cached_keys;  //!< Keys stored at each cache loc
+  rmm::device_uvector<int> cache_time;   //!< Time stamp for LRU cache
 
   // Helper arrays for GetCacheIdx
-  MLCommon::device_buffer<bool> is_cached;
-  MLCommon::device_buffer<int> ws_tmp;
-  MLCommon::device_buffer<int> idx_tmp;
+  rmm::device_uvector<bool> is_cached;
+  rmm::device_uvector<int> ws_tmp;
+  rmm::device_uvector<int> idx_tmp;
 
   // Helper arrays for cub
-  MLCommon::device_buffer<int> d_num_selected_out;
-  MLCommon::device_buffer<char> d_temp_storage;
+  rmm::device_scalar<int> d_num_selected_out;
+  rmm::device_uvector<char> d_temp_storage;
   size_t d_temp_storage_size = 0;
 
   void ResizeTmpBuffers(int n, cudaStream_t stream)
   {
-    if (ws_tmp.size() < n) {
+    if (ws_tmp.size() < static_cast<std::size_t>(n)) {
       ws_tmp.resize(n, stream);
       is_cached.resize(n, stream);
       idx_tmp.resize(n, stream);

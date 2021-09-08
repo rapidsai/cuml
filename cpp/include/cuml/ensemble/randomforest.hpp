@@ -19,7 +19,13 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/ensemble/treelite_defs.hpp>
 #include <cuml/tree/decisiontree.hpp>
+
 #include <map>
+#include <memory>
+
+namespace raft {
+class handle_t;  // forward decl
+}
 
 namespace ML {
 
@@ -89,9 +95,6 @@ struct RF_params {
   DT::DecisionTreeParams tree_params;
 };
 
-void validity_check(const RF_params rf_params);
-void print(const RF_params rf_params);
-
 /* Update labels so they are unique from 0 to n_unique_vals.
    Create an old_label to new_label map per random forest.
 */
@@ -108,19 +111,9 @@ void postprocess_labels(int n_rows,
 
 template <class T, class L>
 struct RandomForestMetaData {
-  DT::TreeMetaDataNode<T, L>* trees;
+  std::vector<std::shared_ptr<DT::TreeMetaDataNode<T, L>>> trees;
   RF_params rf_params;
-  // TODO can add prepare, train time, if needed
-
-  RandomForestMetaData() : trees(nullptr) {}
-  ~RandomForestMetaData()
-  {
-    if (trees != nullptr) { delete[] trees; }
-  }
 };
-
-template <class T, class L>
-void null_trees_ptr(RandomForestMetaData<T, L>*& forest);
 
 template <class T, class L>
 void delete_rf_metadata(RandomForestMetaData<T, L>* forest);
@@ -182,21 +175,6 @@ void predict(const raft::handle_t& user_handle,
              int n_cols,
              int* predictions,
              int verbosity = CUML_LEVEL_INFO);
-
-void predictGetAll(const raft::handle_t& user_handle,
-                   const RandomForestClassifierF* forest,
-                   const float* input,
-                   int n_rows,
-                   int n_cols,
-                   int* predictions,
-                   int verbosity = CUML_LEVEL_INFO);
-void predictGetAll(const raft::handle_t& user_handle,
-                   const RandomForestClassifierD* forest,
-                   const double* input,
-                   int n_rows,
-                   int n_cols,
-                   int* predictions,
-                   int verbosity = CUML_LEVEL_INFO);
 
 RF_metrics score(const raft::handle_t& user_handle,
                  const RandomForestClassifierF* forest,

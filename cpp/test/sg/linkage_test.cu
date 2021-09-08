@@ -28,14 +28,12 @@
 #include <raft/linalg/transpose.h>
 #include <raft/sparse/coo.cuh>
 
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 
 #include <test_utils.h>
 
 namespace ML {
 
-using namespace MLCommon;
 using namespace Datasets;
 using namespace std;
 
@@ -64,29 +62,30 @@ template <typename T, typename IdxT>
 template <typename T, typename IdxT>
 class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
  protected:
+  LinkageTest() : labels(0, stream), labels_ref(0, stream) {}
+
   void basicTest()
   {
     raft::handle_t handle;
+    stream = handle.get_stream();
 
     params = ::testing::TestWithParam<LinkageInputs<T, IdxT>>::GetParam();
 
-    device_buffer<T> data(
-      handle.get_device_allocator(), handle.get_stream(), params.n_row * params.n_col);
+    rmm::device_uvector<T> data(params.n_row * params.n_col, stream);
 
     //    // Allocate result labels and expected labels on device
-    raft::allocate(labels, params.n_row);
-    raft::allocate(labels_ref, params.n_row);
+    labels.resize(params.n_row, stream);
+    labels_ref.resize(params.n_row, stream);
     //
     raft::copy(data.data(), params.data.data(), data.size(), handle.get_stream());
-    raft::copy(labels_ref, params.expected_labels.data(), params.n_row, handle.get_stream());
+    raft::copy(labels_ref.data(), params.expected_labels.data(), params.n_row, handle.get_stream());
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     raft::hierarchy::linkage_output<IdxT, T> out_arrs;
-    out_arrs.labels = labels;
+    out_arrs.labels = labels.data();
 
-    device_buffer<IdxT> out_children(
-      handle.get_device_allocator(), handle.get_stream(), (params.n_row - 1) * 2);
+    rmm::device_uvector<IdxT> out_children((params.n_row - 1) * 2, handle.get_stream());
     out_arrs.children = out_children.data();
 
     if (params.use_knn) {
@@ -113,15 +112,10 @@ class LinkageTest : public ::testing::TestWithParam<LinkageInputs<T, IdxT>> {
 
   void SetUp() override { basicTest(); }
 
-  void TearDown() override
-  {
-    //    CUDA_CHECK(cudaFree(labels));
-    //    CUDA_CHECK(cudaFree(labels_ref));
-  }
-
  protected:
+  cudaStream_t stream = 0;
   LinkageInputs<T, IdxT> params;
-  IdxT *labels, *labels_ref;
+  rmm::device_uvector<IdxT> labels, labels_ref;
 
   double score;
 };
@@ -348,7 +342,8 @@ const std::vector<LinkageInputs<float, int>> linkage_inputsf2 = {
 typedef LinkageTest<float, int> LinkageTestF_Int;
 TEST_P(LinkageTestF_Int, Result)
 {
-  EXPECT_TRUE(raft::devArrMatch(labels, labels_ref, params.n_row, raft::Compare<int>()));
+  EXPECT_TRUE(
+    raft::devArrMatch(labels.data(), labels_ref.data(), params.n_row, raft::Compare<int>()));
 }
 
 INSTANTIATE_TEST_CASE_P(LinkageTest, LinkageTestF_Int, ::testing::ValuesIn(linkage_inputsf2));

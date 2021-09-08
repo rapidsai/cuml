@@ -137,7 +137,6 @@ enum CLUSTER_SELECTION_METHOD { EOM = 0, LEAF = 1 };
 
 class RobustSingleLinkageParams {
  public:
-  int k                = 5;
   int min_samples      = 5;
   int min_cluster_size = 5;
   int max_cluster_size = 0;
@@ -311,6 +310,17 @@ template class CondensedHierarchy<int, float>;
 
 /**
  * Executes HDBSCAN clustering on an mxn-dimensional input array, X.
+ *
+ *   Note that while the algorithm is generally deterministic and should
+ *   provide matching results between RAPIDS and the Scikit-learn Contrib
+ *   versions, the construction of the k-nearest neighbors graph and
+ *   minimum spanning tree can introduce differences between the two
+ *   algorithms, especially when several nearest neighbors around a
+ *   point might have the same distance. While the differences in
+ *   the minimum spanning trees alone might be subtle, they can
+ *   (and often will) lead to some points being assigned different
+ *   cluster labels between the two implementations.
+ *
  * @param[in] handle raft handle for resource reuse
  * @param[in] X array (size m, n) on device in row-major format
  * @param m number of rows in X

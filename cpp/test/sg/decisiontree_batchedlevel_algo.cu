@@ -41,6 +41,8 @@ struct DtTestParams {
 template <typename T, typename L, typename I = int>
 class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
  protected:
+  DtBaseTest() : data(0, stream), quantiles(0, stream), labels(0, stream), rowids(0, stream) {}
+
   void SetUp()
   {
     inparams = ::testing::TestWithParam<DtTestParams>::GetParam();
@@ -57,63 +59,51 @@ class DtBaseTest : public ::testing::TestWithParam<DtTestParams> {
                     inparams.min_gain,
                     inparams.splitType,
                     128);
-    auto allocator = handle->get_device_allocator();
-    data           = (T*)allocator->allocate(sizeof(T) * inparams.M * inparams.N, stream);
-    labels         = (L*)allocator->allocate(sizeof(L) * inparams.M, stream);
-    auto* tmp      = (T*)allocator->allocate(sizeof(T) * inparams.M * inparams.N, stream);
-    prepareDataset(tmp);
-    auto alpha = T(1.0), beta = T(0.0);
-    auto cublas = handle->get_cublas_handle();
+    data.resize(inparams.M * inparams.N, stream);
+    labels.resize(inparams.M, stream);
+    tmp.resize(inparams.M * inparams.N, stream);
+    prepareDataset(tmp.data());
+    auto alpha = T(1.0) auto beta = T(0.0);
+    auto cublas                   = handle->get_cublas_handle();
     CUBLAS_CHECK(raft::linalg::cublasgeam(cublas,
                                           CUBLAS_OP_T,
                                           CUBLAS_OP_N,
                                           inparams.M,
                                           inparams.N,
                                           &alpha,
-                                          tmp,
+                                          tmp.data(),
                                           inparams.N,
                                           &beta,
-                                          tmp,
+                                          tmp.data(),
                                           inparams.M,
-                                          data,
+                                          data.data(),
                                           inparams.M,
                                           stream));
     CUDA_CHECK(cudaStreamSynchronize(stream));
-    allocator->deallocate(tmp, sizeof(T) * inparams.M * inparams.N, stream);
-    rowids = (I*)allocator->allocate(sizeof(I) * inparams.M, stream);
-    MLCommon::iota(rowids, 0, 1, inparams.M, stream);
-    quantiles = (T*)allocator->allocate(sizeof(T) * inparams.nbins * inparams.N, stream);
+    rowids.resize(inparams.M, stream);
+    MLCommon::iota(rowids.data(), 0, 1, inparams.M, stream);
+    quantiles.resize(inparams.nbins * inparams.N, stream);
 
     // computing the quantiles
-    computeQuantiles(quantiles, inparams.nbins, data, inparams.M, inparams.N, allocator, stream);
+    computeQuantiles(
+      quantiles, inparams.nbins, data.data(), inparams.M, inparams.N, allocator, stream);
   }
 
-  void TearDown()
-  {
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    auto allocator = handle->get_device_allocator();
-    allocator->deallocate(data, sizeof(T) * inparams.M * inparams.N, stream);
-    allocator->deallocate(labels, sizeof(L) * inparams.M, stream);
-    allocator->deallocate(rowids, sizeof(int) * inparams.M, stream);
-    allocator->deallocate(quantiles, sizeof(T) * inparams.nbins * inparams.N, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    handle.reset();
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
+  void TearDown() { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   std::shared_ptr<raft::handle_t> handle;
-  T *data, *quantiles;
-  L* labels;
-  I* rowids;
+  rmm::device_uvector<T> data, quantiles;
+  rmm::device_uvector<L> labels;
+  rmm::device_uvector<I> rowids;
   DecisionTreeParams params;
   DtTestParams inparams;
-  std::vector<SparseTreeNode<T, L>> sparsetree;
+  std::vector < SparseTreeNode<T, L> sparsetree;
 
   virtual void prepareDataset(T* tmp) = 0;
 };  // class DtBaseTest
 
-const std::vector<DtTestParams> allC = {
+constexpr std::vector<DtTestParams> allC = {
   {1024, 4, 2, 8, 16, 0.00001f, CRITERION::GINI, 12345ULL},
   {1024, 4, 2, 8, 16, 0.00001f, CRITERION::GINI, 12345ULL},
   {1024, 4, 2, 8, 16, 0.00001f, CRITERION::ENTROPY, 12345ULL},
@@ -124,15 +114,13 @@ class DtClassifierTest : public DtBaseTest<T, int> {
  protected:
   void prepareDataset(T* tmp) override
   {
-    auto allocator = this->handle->get_device_allocator();
-    auto inparams  = this->inparams;
+    auto inparams = this->inparams;
     MLCommon::Random::make_blobs<T>(tmp,
-                                    this->labels,
+                                    labels.data(),
                                     inparams.M,
                                     inparams.N,
                                     inparams.nclasses,
-                                    allocator,
-                                    this->stream,
+                                    stream,
                                     true,
                                     nullptr,
                                     nullptr,
@@ -148,16 +136,14 @@ typedef DtClassifierTest<float> DtClsTestF;
 TEST_P(DtClsTestF, Test)
 {
   int num_leaves, depth;
-  grow_tree<float, int, int>(handle->get_device_allocator(),
-                             handle->get_host_allocator(),
-                             data,
+  grow_tree<float, int, int>(data.data(),
                              1,
                              0,
                              inparams.N,
                              inparams.M,
-                             labels,
+                             labels.data(),
                              quantiles,
-                             rowids,
+                             rowids.data(),
                              inparams.M,
                              inparams.nclasses,
                              params,
@@ -170,22 +156,21 @@ TEST_P(DtClsTestF, Test)
 }
 INSTANTIATE_TEST_CASE_P(BatchedLevelAlgo, DtClsTestF, ::testing::ValuesIn(allC));
 
-const std::vector<DtTestParams> allR = {
+constexpr std::vector<DtTestParams> allR = {
   {2048, 4, 2, 8, 16, 0.00001f, CRITERION::MSE, 12345ULL},
   {2048, 4, 2, 8, 16, 0.00001f, CRITERION::MSE, 12345ULL},
 };
 template <typename T>
-class DtRegressorTest : public DtBaseTest<T, T> {
+  class DtRegressorTest : public DtBaseTest<T, T> > {
  protected:
   void prepareDataset(T* tmp) override
   {
-    auto allocator = this->handle->get_device_allocator();
-    auto cublas    = this->handle->get_cublas_handle();
-    auto cusolver  = this->handle->get_cusolver_dn_handle();
-    auto inparams  = this->inparams;
-    MLCommon::Random::make_regression<T>(*(this->handle),
+    auto cublas   = this->handle->get_cublas_handle();
+    auto cusolver = this->handle->get_cusolver_dn_handle();
+    auto inparams = this->inparams;
+    MLCommon::Random::make_regression<T>(*handle,
                                          tmp,
-                                         this->labels,
+                                         labels.data(),
                                          inparams.M,
                                          inparams.N,
                                          inparams.N,
@@ -205,16 +190,14 @@ typedef DtRegressorTest<float> DtRegTestF;
 TEST_P(DtRegTestF, Test)
 {
   int num_leaves, depth;
-  grow_tree(handle->get_device_allocator(),
-            handle->get_host_allocator(),
-            data,
+  grow_tree(data.data(),
             1,
             0,
             inparams.N,
             inparams.M,
-            labels,
+            labels.data(),
             quantiles,
-            rowids,
+            rowids.data(),
             inparams.M,
             1,
             params,

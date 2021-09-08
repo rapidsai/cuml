@@ -14,17 +14,20 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/mr/device/allocator.hpp>
-#include <random>
-#include <vector>
-
 #include <linalg_naive.h>
-#include <raft/cudart_utils.h>
 #include <test_utils.h>
+
 #include <linalg/batched/matrix.cuh>
 #include <sparse/batched/csr.cuh>
-#include "../test_utils.h"
+
+#include <raft/cudart_utils.h>
+#include <raft/mr/device/allocator.hpp>
+
+#include <gtest/gtest.h>
+
+#include <cstddef>
+#include <random>
+#include <vector>
 
 namespace MLCommon {
 namespace Sparse {
@@ -55,7 +58,9 @@ class CSRTest : public ::testing::TestWithParam<CSRInputs<T>> {
     params = ::testing::TestWithParam<CSRInputs<T>>::GetParam();
 
     // Check if the dimensions are valid and compute the output dimensions
-    int m_r, n_r;
+    int m_r{};
+    int n_r{};
+
     switch (params.operation) {
       case SpMV_op:
         ASSERT_TRUE(params.n == params.p);
@@ -97,26 +102,23 @@ class CSRTest : public ::testing::TestWithParam<CSRInputs<T>> {
     }
 
     // Generate random dense matrices/vectors
-    for (int i = 0; i < Bx.size(); i++)
+    for (std::size_t i = 0; i < Bx.size(); i++)
       Bx[i] = udis(gen);
     res_h.resize(params.batch_size * m_r * n_r);
-    for (int i = 0; i < res_h.size(); i++)
+    for (std::size_t i = 0; i < res_h.size(); i++)
       res_h[i] = udis(gen);
 
-    // Create handles, stream, allocator
+    // Create handles, stream
     CUBLAS_CHECK(cublasCreate(&handle));
     CUDA_CHECK(cudaStreamCreate(&stream));
     CUSOLVER_CHECK(cusolverSpCreate(&cusolverSpHandle));
-    auto allocator = std::make_shared<raft::mr::device::default_allocator>();
 
     // Created batched dense matrices
-    LinAlg::Batched::Matrix<T> AbM(
-      params.m, params.n, params.batch_size, handle, allocator, stream);
-    LinAlg::Batched::Matrix<T> BxbM(
-      params.p, params.q, params.batch_size, handle, allocator, stream);
+    LinAlg::Batched::Matrix<T> AbM(params.m, params.n, params.batch_size, handle, stream);
+    LinAlg::Batched::Matrix<T> BxbM(params.p, params.q, params.batch_size, handle, stream);
 
     // Create matrix that will hold the results
-    res_bM = new LinAlg::Batched::Matrix<T>(m_r, n_r, params.batch_size, handle, allocator, stream);
+    res_bM = new LinAlg::Batched::Matrix<T>(m_r, n_r, params.batch_size, handle, stream);
 
     // Copy the data to the device
     raft::update_device(AbM.raw_data(), A.data(), A.size(), stream);
@@ -177,7 +179,7 @@ class CSRTest : public ::testing::TestWithParam<CSRInputs<T>> {
   std::vector<T> res_h;
   cublasHandle_t handle;
   cusolverSpHandle_t cusolverSpHandle;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
 };
 
 // Test parameters (op, batch_size, m, n, nnz, p, q, tolerance)

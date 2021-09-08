@@ -19,8 +19,6 @@
 
 namespace ML {
 
-using namespace MLCommon;
-
 template void RPROJfit(const raft::handle_t& handle,
                        rand_mat<float>* random_matrix,
                        paramsRPROJ* params);

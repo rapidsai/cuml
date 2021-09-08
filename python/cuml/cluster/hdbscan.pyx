@@ -72,7 +72,6 @@ cdef extern from "cuml/cluster/hdbscan.hpp" namespace "ML::HDBSCAN::Common":
         CondensedHierarchy[int, float] &get_condensed_tree()
 
     cdef cppclass HDBSCANParams:
-        int k
         int min_samples
         int min_cluster_size
         int max_cluster_size,
@@ -270,6 +269,16 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
     Recursively merges the pair of clusters that minimally increases a
     given linkage distance.
 
+    Note that while the algorithm is generally deterministic and should
+    provide matching results between RAPIDS and the Scikit-learn Contrib
+    versions, the construction of the k-nearest neighbors graph and
+    minimum spanning tree can introduce differences between the two
+    algorithms, especially when several nearest neighbors around a
+    point might have the same distance. While the differences in
+    the minimum spanning trees alone might be subtle, they can
+    (and often will) lead to some points being assigned different
+    cluster labels between the two implementations.
+
     Parameters
     ----------
     handle : cuml.Handle
@@ -425,12 +434,11 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
                  handle=None,
                  verbose=False,
                  connectivity='knn',
-                 n_neighbors=10,
                  output_type=None):
 
-        super().__init__(handle,
-                         verbose,
-                         output_type)
+        super().__init__(handle=handle,
+                         verbose=verbose,
+                         output_type=output_type)
 
         if min_samples is None:
             min_samples = min_cluster_size
@@ -439,8 +447,8 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
             raise ValueError("'connectivity' can only be one of "
                              "{'knn', 'pairwise'}")
 
-        if n_neighbors > 1023 or n_neighbors < 2:
-            raise ValueError("'n_neighbors' must be a positive number "
+        if 2 < min_samples and min_samples > 1023:
+            raise ValueError("'min_samples' must be a positive number "
                              "between 2 and 1023")
 
         self.min_cluster_size = min_cluster_size
@@ -452,7 +460,6 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         self.alpha = alpha
         self.cluster_selection_method = cluster_selection_method
         self.allow_single_cluster = allow_single_cluster
-        self.n_neighbors = n_neighbors
         self.connectivity = connectivity
 
         self.fit_called_ = False
@@ -609,7 +616,6 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
         self.hdbscan_output_ = <size_t>linkage_output
 
         cdef HDBSCANParams params
-        params.k = self.n_neighbors
         params.min_samples = self.min_samples
         # params.alpha = self.alpha
         params.min_cluster_size = self.min_cluster_size
@@ -720,7 +726,6 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
 
     def get_param_names(self):
         return super().get_param_names() + [
-            "n_neighbors",
             "metric",
             "min_cluster_size",
             "max_cluster_size",
@@ -730,7 +735,6 @@ class HDBSCAN(Base, ClusterMixin, CMajorInputTagMixin):
             "p",
             "allow_single_cluster",
             "connectivity",
-            "n_neighbors",
             "alpha",
             "gen_min_span_tree",
         ]
