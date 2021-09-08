@@ -195,12 +195,6 @@ class AutoARIMA(Base):
                          output_type=output_type)
         self._set_base_attributes(output_type=endog)
 
-        original_dtype = determine_array_dtype(endog)
-        if original_dtype != np.float64:
-            warnings.warn("Only float64 is currently supported. `endog` is"
-                          " converted to float64. This behavior might change"
-                          " in the future.")
-
         # Get device array. Float64 only for now.
         self.d_y, self.n_obs, self.batch_size, self.dtype \
             = input_to_cuml_array(
