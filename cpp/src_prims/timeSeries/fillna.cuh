@@ -139,8 +139,13 @@ void fillna(T* data, int batch_size, int n_obs, cudaStream_t stream)
   CUDA_CHECK(cudaPeekAtLastError());
 
   // Execute scan (backward)
-  cub::DeviceScan::InclusiveScan(
-    d_temp_storage, temp_storage_bytes, itr_bwd, indices.data(), scan_op, batch_size * n_obs);
+  cub::DeviceScan::InclusiveScan(d_temp_storage,
+                                 temp_storage_bytes,
+                                 itr_bwd,
+                                 indices.data(),
+                                 scan_op,
+                                 batch_size * n_obs,
+                                 stream);
 
   // Broadcast last valid values to missing values (backward)
   fillna_broadcast_kernel<false>
