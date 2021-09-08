@@ -63,17 +63,13 @@ def kmeans_sampling(X, k, round_values=True, detailed=False, random_state=0):
 
     if "DataFrame" in str(output_dtype):
         group_names = X.columns
-        X = X.values
-        if "pd" in str(output_dtype):
-            X = cp.array(X.values)
+        X = cp.array(X.values, copy=False)
     if "Series" in str(output_dtype):
         group_names = X.name
-        X = X.values.reshape(-1, 1)
-        if "pd" in str(output_dtype):
-            X = cp.array(X)
+        X = cp.array(X.values.reshape(-1, 1), copy=False)
     else:
         # it's either numpy, cupy or numba
-        X = cp.array(X)
+        X = cp.array(X, copy=False)
         try:
             # more than one column
             group_names = [str(i) for i in range(X.shape[1])]
