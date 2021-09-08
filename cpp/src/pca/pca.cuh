@@ -44,7 +44,7 @@ void truncCompExpVars(const raft::handle_t& handle,
                       const paramsTSVDTemplate<enum_solver> prms,
                       cudaStream_t stream)
 {
-  size_t len = prms.n_cols * prms.n_cols;
+  auto len = prms.n_cols * prms.n_cols;
   rmm::device_uvector<math_t> components_all(len, stream);
   rmm::device_uvector<math_t> explained_var_all(prms.n_cols, stream);
   rmm::device_uvector<math_t> explained_var_ratio_all(prms.n_cols, stream);
@@ -97,12 +97,12 @@ void pcaFit(const raft::handle_t& handle,
   ASSERT(prms.n_components > 0,
          "Parameter n_components: number of components cannot be less than one");
 
-  int n_components = prms.n_components;
+  auto n_components = prms.n_components;
   if (n_components > prms.n_cols) n_components = prms.n_cols;
 
   raft::stats::mean(mu, input, prms.n_cols, prms.n_rows, true, false, stream);
 
-  size_t len = prms.n_cols * prms.n_cols;
+  auto len = prms.n_cols * prms.n_cols;
   rmm::device_uvector<math_t> cov(len, stream);
 
   Stats::cov(handle, cov.data(), input, mu, prms.n_cols, prms.n_rows, true, false, true, stream);
@@ -202,7 +202,7 @@ void pcaInverseTransform(const raft::handle_t& handle,
   ASSERT(prms.n_components > 0,
          "Parameter n_components: number of components cannot be less than one");
 
-  std::size_t components_len = static_cast<std::size_t>(prms.n_cols * prms.n_components);
+  auto components_len = prms.n_cols * prms.n_components;
   rmm::device_uvector<math_t> components_copy{components_len, stream};
   raft::copy(components_copy.data(), components, prms.n_cols * prms.n_components, stream);
 
@@ -262,7 +262,7 @@ void pcaTransform(const raft::handle_t& handle,
   ASSERT(prms.n_components > 0,
          "Parameter n_components: number of components cannot be less than one");
 
-  std::size_t components_len = static_cast<std::size_t>(prms.n_cols * prms.n_components);
+  auto components_len = prms.n_cols * prms.n_components;
   rmm::device_uvector<math_t> components_copy{components_len, stream};
   raft::copy(components_copy.data(), components, prms.n_cols * prms.n_components, stream);
 
