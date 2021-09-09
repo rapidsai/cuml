@@ -20,7 +20,7 @@ from cupyx.scipy.sparse import csr_matrix as gpu_csr_matrix
 from cupyx.scipy.sparse import csc_matrix as gpu_csc_matrix
 from cupyx.scipy.sparse import csc_matrix as gpu_coo_matrix
 from scipy import sparse as cpu_sparse
-from cupy import sparse as gpu_sparse
+from cupyx.scipy import sparse as gpu_sparse
 
 from pandas import DataFrame as pdDataFrame
 from cudf import DataFrame as cuDataFrame

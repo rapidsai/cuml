@@ -16,7 +16,7 @@ import warnings
 import numpy
 import cupy as np
 import cuml
-from cupy import sparse
+from cupyx.scipy import sparse
 
 from ....thirdparty_adapters import (_get_mask,
                                      _masked_column_median,

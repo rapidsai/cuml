@@ -22,7 +22,7 @@ from itertools import combinations_with_replacement as combinations_w_r
 
 import numpy as cpu_np
 import cupy as np
-from cupy import sparse
+from cupyx.scipy import sparse
 from scipy import stats
 from scipy import optimize
 from scipy.special import boxcox
