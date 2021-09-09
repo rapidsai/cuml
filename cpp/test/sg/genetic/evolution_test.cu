@@ -19,13 +19,13 @@
 #include <cuml/genetic/node.h>
 #include <cuml/genetic/program.h>
 #include <gtest/gtest.h>
+#include <raft/cudart_utils.h>
 #include <test_utils.h>
 #include <algorithm>
 #include <cmath>
 #include <cuml/common/logger.hpp>
 #include <iostream>
 #include <raft/handle.hpp>
-#include <raft/cudart_utils.h>
 #include <rmm/device_uvector.hpp>
 #include <vector>
 
@@ -64,14 +64,18 @@ class GeneticEvolutionTest : public ::testing::Test {
     h_testwts.resize(n_tst_rows, 1.0f);
 
     // Initialize device memory
-    d_train =
-      (float*)rmm::mr::get_current_device_resource()->allocate(n_cols * n_tr_rows * sizeof(float), stream);
-    d_trainlab = (float*)rmm::mr::get_current_device_resource()->allocate(n_tr_rows * sizeof(float), stream);
-    d_test =
-      (float*)rmm::mr::get_current_device_resource()->allocate(n_cols * n_tst_rows * sizeof(float), stream);
-    d_testlab = (float*)rmm::mr::get_current_device_resource()->allocate(n_tst_rows * sizeof(float), stream);
-    d_trainwts = (float*)rmm::mr::get_current_device_resource()->allocate(n_tr_rows * sizeof(float), stream);
-    d_testwts = (float*)rmm::mr::get_current_device_resource()->allocate(n_tst_rows * sizeof(float), stream);
+    d_train = (float*)rmm::mr::get_current_device_resource()->allocate(
+      n_cols * n_tr_rows * sizeof(float), stream);
+    d_trainlab =
+      (float*)rmm::mr::get_current_device_resource()->allocate(n_tr_rows * sizeof(float), stream);
+    d_test = (float*)rmm::mr::get_current_device_resource()->allocate(
+      n_cols * n_tst_rows * sizeof(float), stream);
+    d_testlab =
+      (float*)rmm::mr::get_current_device_resource()->allocate(n_tst_rows * sizeof(float), stream);
+    d_trainwts =
+      (float*)rmm::mr::get_current_device_resource()->allocate(n_tr_rows * sizeof(float), stream);
+    d_testwts =
+      (float*)rmm::mr::get_current_device_resource()->allocate(n_tst_rows * sizeof(float), stream);
 
     // Memcpy HtoD
     CUDA_CHECK(cudaMemcpyAsync(

@@ -284,7 +284,6 @@ std::pair<int, int> get_subtree(node* pnodes, int len, std::mt19937& rng)
   // Compute cumulative sum
   std::partial_sum(node_probs.begin(), node_probs.end(), node_probs.begin());
 
-
   start = std::lower_bound(node_probs.begin(), node_probs.end(), bound) - node_probs.begin();
   end   = start;
 

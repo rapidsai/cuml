@@ -201,16 +201,11 @@ void weightedSpearman(const raft::handle_t& h,
 
   thrust::sequence(exec_policy, rank_idx.begin(), rank_idx.end(), 0);
   thrust::sort_by_key(exec_policy, Ycopy.begin(), Ycopy.end(), rank_idx.begin());
-  thrust::adjacent_difference(
-    exec_policy, Ycopy.begin(), Ycopy.end(), rank_diff.begin());
-  thrust::transform(exec_policy,
-                    rank_diff.begin(),
-                    rank_diff.end(),
-                    rank_diff.begin(),
-                    rank_functor());
+  thrust::adjacent_difference(exec_policy, Ycopy.begin(), Ycopy.end(), rank_diff.begin());
+  thrust::transform(
+    exec_policy, rank_diff.begin(), rank_diff.end(), rank_diff.begin(), rank_functor());
   rank_diff[0] = 1;
-  thrust::inclusive_scan(
-    exec_policy, rank_diff.begin(), rank_diff.end(), rank_diff.begin());
+  thrust::inclusive_scan(exec_policy, rank_diff.begin(), rank_diff.end(), rank_diff.begin());
   thrust::copy(rank_diff.begin(),
                rank_diff.end(),
                thrust::make_permutation_iterator(Yrank.begin(), rank_idx.begin()));
@@ -225,22 +220,14 @@ void weightedSpearman(const raft::handle_t& h,
   for (std::size_t i = 0; i < n_progs; ++i) {
     raft::deallocate_all(stream);
     thrust::sequence(exec_policy, rank_idx.begin(), rank_idx.end(), 0);
-    thrust::sort_by_key(exec_policy,
-                        Ypredptr + (i * n_samples),
-                        Ypredptr + ((i + 1) * n_samples),
-                        rank_idx.begin());
-    thrust::adjacent_difference(exec_policy,
-                                Ypredptr + (i * n_samples),
-                                Ypredptr + ((i + 1) * n_samples),
-                                rank_diff.begin());
-    thrust::transform(exec_policy,
-                      rank_diff.begin(),
-                      rank_diff.end(),
-                      rank_diff.begin(),
-                      rank_functor());
+    thrust::sort_by_key(
+      exec_policy, Ypredptr + (i * n_samples), Ypredptr + ((i + 1) * n_samples), rank_idx.begin());
+    thrust::adjacent_difference(
+      exec_policy, Ypredptr + (i * n_samples), Ypredptr + ((i + 1) * n_samples), rank_diff.begin());
+    thrust::transform(
+      exec_policy, rank_diff.begin(), rank_diff.end(), rank_diff.begin(), rank_functor());
     rank_diff[0] = 1;
-    thrust::inclusive_scan(
-      exec_policy, rank_diff.begin(), rank_diff.end(), rank_diff.begin());
+    thrust::inclusive_scan(exec_policy, rank_diff.begin(), rank_diff.end(), rank_diff.begin());
     thrust::copy(
       rank_diff.begin(),
       rank_diff.end(),

@@ -41,7 +41,7 @@ template <typename DataT, int MaxSize>
 struct stack {
   explicit HDI stack() : elements_(0)
   {
-CUDA_PRAGMA_UNROLL
+    CUDA_PRAGMA_UNROLL
     for (int i = 0; i < MaxSize; ++i) {
       regs_[i] = DataT(0);
     }
@@ -68,7 +68,7 @@ CUDA_PRAGMA_UNROLL
    */
   HDI void push(DataT val)
   {
-CUDA_PRAGMA_UNROLL
+    CUDA_PRAGMA_UNROLL
     for (int i = MaxSize - 1; i >= 0; --i) {
       if (elements_ == i) {
         ++elements_;
@@ -90,7 +90,7 @@ CUDA_PRAGMA_UNROLL
    */
   HDI DataT pop()
   {
-CUDA_PRAGMA_UNROLL
+    CUDA_PRAGMA_UNROLL
     for (int i = 0; i < MaxSize; ++i) {
       if (elements_ == (i + 1)) {
         elements_--;
