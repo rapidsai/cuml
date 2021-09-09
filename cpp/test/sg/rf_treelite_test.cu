@@ -24,6 +24,8 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/gemv.h>
 #include <raft/linalg/transpose.h>
+#include <thrust/device_vector.h>
+#include <thrust/host_vector.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/random/rng.cuh>
 
@@ -158,38 +160,19 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
 
   void getResultAndCheck()
   {
+    thrust::device_vector<L> predicted_labels_d(params.n_inference_rows);
     // Predict and compare against known labels
     predict(*handle,
-            forest,
-            inference_data_d,
+            &all_forest_info[0],
+            inference_data_d.data().get(),
             params.n_inference_rows,
             params.n_cols,
-            predicted_labels_d);
-    score(*handle, forest, labels_d, params.n_inference_rows, predicted_labels_d);
-
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-
-    predicted_labels_h.resize(params.n_inference_rows);
-    ref_predicted_labels.resize(params.n_inference_rows);
-
-    raft::update_host(
-      predicted_labels_h.data(), predicted_labels_d, params.n_inference_rows, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
+            predicted_labels_d.data().get());
+    thrust::host_vector<L> predicted_labels_h(predicted_labels_d);
 
     for (int i = 0; i < params.n_inference_rows; i++) {
-      if (is_classification) {
-        ref_predicted_labels[i]      = static_cast<float>(predicted_labels_h[i]);
-        treelite_predicted_labels[i] = treelite_predicted_labels[i] >= 0.5 ? 1 : 0;
-      } else {
-        ref_predicted_labels[i] = static_cast<float>(predicted_labels_h[i]);
-      }
+      EXPECT_EQ(predicted_labels_h[i], treelite_predicted_labels[i]);
     }
-
-    EXPECT_TRUE(raft::devArrMatchHost(ref_predicted_labels.data(),
-                                      treelite_predicted_labels.data(),
-                                      params.n_inference_rows,
-                                      raft::Compare<float>(),
-                                      stream));
   }
 
   void SetUp() override
@@ -213,94 +196,54 @@ class RfTreeliteTestCommon : public ::testing::TestWithParam<RfInputs<T>> {
 
     handle.reset(new raft::handle_t(rf_params.n_streams));
 
-    data_len           = params.n_rows * params.n_cols;
-    inference_data_len = params.n_inference_rows * params.n_cols;
+    auto data_len           = params.n_rows * params.n_cols;
+    auto inference_data_len = params.n_inference_rows * params.n_cols;
 
-    raft::allocate(data_d, data_len, stream);
-    raft::allocate(inference_data_d, inference_data_len, stream);
-
-    raft::allocate(labels_d, params.n_rows, stream);
-    raft::allocate(predicted_labels_d, params.n_inference_rows, stream);
+    data_d.resize(data_len);
+    inference_data_d.resize(inference_data_len);
+    labels_d.resize(params.n_rows);
 
     treelite_predicted_labels.resize(params.n_inference_rows);
-    ref_predicted_labels.resize(params.n_inference_rows);
 
-    CUDA_CHECK(cudaStreamCreate(&stream));
-    handle->set_stream(stream);
-
-    forest          = new typename ML::RandomForestMetaData<T, L>;
-    forest_2        = new typename ML::RandomForestMetaData<T, L>;
-    forest_3        = new typename ML::RandomForestMetaData<T, L>;
-    all_forest_info = {forest, forest_2, forest_3};
+    all_forest_info.resize(3);
     data_h.resize(data_len);
     inference_data_h.resize(inference_data_len);
 
     // Random number generator.
     raft::random::Rng r1(1234ULL);
     // Generate data_d is in column major order.
-    r1.uniform(data_d, data_len, T(0.0), T(10.0), stream);
+    r1.uniform(data_d.data().get(), data_len, T(0.0), T(10.0), handle->get_stream());
     raft::random::Rng r2(4321ULL);
     // Generate inference_data_d which is in row major order.
-    r2.uniform(inference_data_d, inference_data_len, T(0.0), T(10.0), stream);
+    r2.uniform(
+      inference_data_d.data().get(), inference_data_len, T(0.0), T(10.0), handle->get_stream());
 
-    raft::update_host(data_h.data(), data_d, data_len, stream);
-    raft::update_host(inference_data_h.data(), inference_data_d, inference_data_len, stream);
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-  }
-
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaStreamDestroy(stream));
-
-    CUDA_CHECK(cudaFree(data_d));
-    CUDA_CHECK(cudaFree(inference_data_d));
-    CUDA_CHECK(cudaFree(labels_d));
-    CUDA_CHECK(cudaFree(predicted_labels_d));
-
-    delete forest;
-    delete forest_2;
-    delete forest_3;
-    all_forest_info.clear();
-    labels_h.clear();
-    predicted_labels_h.clear();
-    data_h.clear();
-    inference_data_h.clear();
-    treelite_predicted_labels.clear();
-    ref_predicted_labels.clear();
-    treelite_indiv_handles.clear();
+    raft::update_host(data_h.data(), data_d.data().get(), data_len, handle->get_stream());
+    raft::update_host(inference_data_h.data(),
+                      inference_data_d.data().get(),
+                      inference_data_len,
+                      handle->get_stream());
+    CUDA_CHECK(cudaStreamSynchronize(handle->get_stream()));
   }
 
  protected:
   RfInputs<T> params;
   RF_params rf_params;
-  T *data_d, *inference_data_d;
+  thrust::device_vector<T> data_d;
+  thrust::device_vector<T> inference_data_d;
   std::vector<T> data_h;
   std::vector<T> inference_data_h;
   std::vector<ModelHandle> treelite_indiv_handles;
-
-  // Set to 1 for regression and 2 for binary classification
-  // #class for multi-classification
-  int task_category;
-  int is_classification;
-
-  int data_len;
-  int inference_data_len;
-
-  cudaStream_t stream = 0;
-  std::shared_ptr<raft::handle_t> handle;
-  std::vector<float> treelite_predicted_labels;
-  std::vector<float> ref_predicted_labels;
-  std::vector<ML::RandomForestMetaData<T, L>*> all_forest_info;
   std::string test_dir;
   std::string dir_name;
 
-  L *labels_d, *predicted_labels_d;
-  std::vector<L> labels_h;
-  std::vector<L> predicted_labels_h;
+  std::shared_ptr<raft::handle_t> handle;
+  std::vector<float> treelite_predicted_labels;
+  std::vector<ML::RandomForestMetaData<T, L>> all_forest_info;
 
-  RandomForestMetaData<T, L>* forest;
-  RandomForestMetaData<T, L>* forest_2;
-  RandomForestMetaData<T, L>* forest_3;
+  thrust::device_vector<L> labels_d;
+  std::vector<L> labels_h;
+
 };  // namespace ML
 
 template <typename T, typename L>
@@ -308,34 +251,28 @@ class RfConcatTestClf : public RfTreeliteTestCommon<T, L> {
  protected:
   void testClassifier()
   {
-    this->test_dir          = "./concat_test_clf/";
-    this->is_classification = 1;
-    // task_category - 1 for regression, 2 for binary classification
-    // #class for multi-class classification
-    this->task_category = 2;
+    this->test_dir = "./concat_test_clf/";
 
     std::vector<float> temp_label_h;
 
-    cudaStream_t stream = 0;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-
-    rmm::device_uvector<float> weight(this->params.n_cols, stream);
-    rmm::device_uvector<float> temp_label_d(this->params.n_rows, stream);
-    rmm::device_uvector<float> temp_data_d(this->data_len, stream);
+    rmm::device_uvector<float> weight(this->params.n_cols, this->handle->get_stream());
+    rmm::device_uvector<float> temp_label_d(this->params.n_rows, this->handle->get_stream());
+    rmm::device_uvector<float> temp_data_d(this->data_d.size(), this->handle->get_stream());
 
     raft::random::Rng r(1234ULL);
 
     // Generate weight for each feature.
-    r.uniform(weight.data(), this->params.n_cols, T(0.0), T(1.0), this->stream);
+    r.uniform(weight.data(), this->params.n_cols, T(0.0), T(1.0), this->handle->get_stream());
     // Generate noise.
-    r.uniform(temp_label_d.data(), this->params.n_rows, T(0.0), T(10.0), this->stream);
+    r.uniform(
+      temp_label_d.data(), this->params.n_rows, T(0.0), T(10.0), this->handle->get_stream());
 
     raft::linalg::transpose<float>(*(this->handle),
-                                   this->data_d,
+                                   this->data_d.data().get(),
                                    temp_data_d.data(),
                                    this->params.n_rows,
                                    this->params.n_cols,
-                                   this->stream);
+                                   this->handle->get_stream());
 
     raft::linalg::gemv<float>(*(this->handle),
                               temp_data_d.data(),
@@ -346,12 +283,13 @@ class RfConcatTestClf : public RfTreeliteTestCommon<T, L> {
                               true,
                               1.f,
                               1.f,
-                              this->stream);
+                              this->handle->get_stream());
 
     temp_label_h.resize(this->params.n_rows);
-    raft::update_host(temp_label_h.data(), temp_label_d.data(), this->params.n_rows, this->stream);
+    raft::update_host(
+      temp_label_h.data(), temp_label_d.data(), this->params.n_rows, this->handle->get_stream());
 
-    CUDA_CHECK(cudaStreamSynchronize(this->stream));
+    CUDA_CHECK(cudaStreamSynchronize(this->handle->get_stream()));
 
     int value;
     for (int i = 0; i < this->params.n_rows; i++) {
@@ -365,7 +303,10 @@ class RfConcatTestClf : public RfTreeliteTestCommon<T, L> {
       this->labels_h.push_back(value);
     }
 
-    raft::update_device(this->labels_d, this->labels_h.data(), this->params.n_rows, this->stream);
+    raft::update_device(this->labels_d.data().get(),
+                        this->labels_h.data(),
+                        this->params.n_rows,
+                        this->handle->get_stream());
 
     preprocess_labels(this->params.n_rows, this->labels_h, labels_map);
 
@@ -374,28 +315,23 @@ class RfConcatTestClf : public RfTreeliteTestCommon<T, L> {
 
       this->rf_params.n_trees = this->rf_params.n_trees + i;
 
+      auto forest_ptr = &this->all_forest_info[i];
       fit(*(this->handle),
-          this->all_forest_info[i],
-          this->data_d,
+          forest_ptr,
+          this->data_d.data().get(),
           this->params.n_rows,
           this->params.n_cols,
-          this->labels_d,
+          this->labels_d.data().get(),
           labels_map.size(),
           this->rf_params);
-      build_treelite_forest(
-        &model, this->all_forest_info[i], this->params.n_cols, this->task_category);
+      build_treelite_forest(&model, &this->all_forest_info[i], this->params.n_cols);
       this->treelite_indiv_handles.push_back(model);
     }
 
-    CUDA_CHECK(cudaStreamSynchronize(this->stream));
+    CUDA_CHECK(cudaStreamSynchronize(this->handle->get_stream()));
 
     this->ConcatenateTreeliteModels();
     this->getResultAndCheck();
-
-    postprocess_labels(this->params.n_rows, this->labels_h, this->labels_map);
-
-    labels_map.clear();
-    temp_label_h.clear();
   }
 
  protected:
@@ -408,62 +344,62 @@ class RfConcatTestReg : public RfTreeliteTestCommon<T, L> {
  protected:
   void testRegressor()
   {
-    this->test_dir          = "./concat_test_reg/";
-    this->is_classification = 0;
-    // task_category - 1 for regression, 2 for binary classification
-    // #class for multi-class classification
-    this->task_category = 1;
+    this->test_dir = "./concat_test_reg/";
 
-    cudaStream_t stream = 0;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-
-    rmm::device_uvector<float> weight(this->params.n_cols, stream);
-    rmm::device_uvector<float> temp_data_d(this->data_len, stream);
+    rmm::device_uvector<float> weight(this->params.n_cols, this->handle->get_stream());
+    rmm::device_uvector<float> temp_data_d(this->data_d.size(), this->handle->get_stream());
 
     raft::random::Rng r(1234ULL);
 
     // Generate weight for each feature.
-    r.uniform(weight.data(), this->params.n_cols, T(0.0), T(1.0), this->stream);
+    r.uniform(weight.data(), this->params.n_cols, T(0.0), T(1.0), this->handle->get_stream());
     // Generate noise.
-    r.uniform(this->labels_d, this->params.n_rows, T(0.0), T(10.0), this->stream);
+    r.uniform(this->labels_d.data().get(),
+              this->params.n_rows,
+              T(0.0),
+              T(10.0),
+              this->handle->get_stream());
 
     raft::linalg::transpose<float>(*(this->handle),
-                                   this->data_d,
+                                   this->data_d.data().get(),
                                    temp_data_d.data(),
                                    this->params.n_rows,
                                    this->params.n_cols,
-                                   this->stream);
+                                   this->handle->get_stream());
 
     raft::linalg::gemv<float>(*(this->handle),
                               temp_data_d.data(),
                               this->params.n_cols,
                               this->params.n_rows,
                               weight.data(),
-                              this->labels_d,
+                              this->labels_d.data().get(),
                               true,
                               1.f,
                               1.f,
-                              this->stream);
+                              this->handle->get_stream());
 
     this->labels_h.resize(this->params.n_rows);
-    raft::update_host(this->labels_h.data(), this->labels_d, this->params.n_rows, this->stream);
-    CUDA_CHECK(cudaStreamSynchronize(this->stream));
+    raft::update_host(this->labels_h.data(),
+                      this->labels_d.data().get(),
+                      this->params.n_rows,
+                      this->handle->get_stream());
+    CUDA_CHECK(cudaStreamSynchronize(this->handle->get_stream()));
 
     for (int i = 0; i < 3; i++) {
       ModelHandle model;
 
       this->rf_params.n_trees = this->rf_params.n_trees + i;
 
+      auto forest_ptr = &this->all_forest_info[i];
       fit(*(this->handle),
-          this->all_forest_info[i],
-          this->data_d,
+          forest_ptr,
+          this->data_d.data().get(),
           this->params.n_rows,
           this->params.n_cols,
-          this->labels_d,
+          this->labels_d.data().get(),
           this->rf_params);
-      build_treelite_forest(
-        &model, this->all_forest_info[i], this->params.n_cols, this->task_category);
-      CUDA_CHECK(cudaStreamSynchronize(this->stream));
+      build_treelite_forest(&model, &this->all_forest_info[i], this->params.n_cols);
+      CUDA_CHECK(cudaStreamSynchronize(this->handle->get_stream()));
       this->treelite_indiv_handles.push_back(model);
     }
 

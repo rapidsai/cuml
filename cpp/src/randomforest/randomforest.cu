@@ -242,15 +242,21 @@ std::string get_rf_json(const RandomForestMetaData<T, L>* forest)
 template <class T, class L>
 void build_treelite_forest(ModelHandle* model_handle,
                            const RandomForestMetaData<T, L>* forest,
-                           int num_features,
-                           int num_outputs)
+                           int num_features)
 {
   auto parent_model          = tl::Model::Create<T, T>();
   tl::ModelImpl<T, T>* model = dynamic_cast<tl::ModelImpl<T, T>*>(parent_model.get());
   ASSERT(model != nullptr, "Invalid downcast to tl::ModelImpl");
 
-  model->task_type = tl::TaskType::kMultiClfProbDistLeaf;
+  // Determine number of outputs
+  int num_outputs = forest->trees.front()->num_outputs;
+  ASSERT(num_outputs > 0, "Invalid forest");
+  for (const auto& tree : forest->trees) {
+    ASSERT(num_outputs == tree->num_outputs, "Invalid forest");
+  }
+
   if (num_outputs > 1) {
+    model->task_type = tl::TaskType::kMultiClfProbDistLeaf;
     std::strncpy(model->param.pred_transform, "max_index", sizeof(model->param.pred_transform));
   } else {
     model->task_type = tl::TaskType::kBinaryClfRegr;
@@ -767,19 +773,13 @@ template void delete_rf_metadata<double, double>(RandomForestRegressorD* forest)
 
 template void build_treelite_forest<float, int>(ModelHandle* model,
                                                 const RandomForestMetaData<float, int>* forest,
-                                                int num_features,
-                                                int task_category);
+                                                int num_features);
 template void build_treelite_forest<double, int>(ModelHandle* model,
                                                  const RandomForestMetaData<double, int>* forest,
-                                                 int num_features,
-                                                 int task_category);
+                                                 int num_features);
 template void build_treelite_forest<float, float>(ModelHandle* model,
                                                   const RandomForestMetaData<float, float>* forest,
-                                                  int num_features,
-                                                  int task_category);
+                                                  int num_features);
 template void build_treelite_forest<double, double>(
-  ModelHandle* model,
-  const RandomForestMetaData<double, double>* forest,
-  int num_features,
-  int task_category);
+  ModelHandle* model, const RandomForestMetaData<double, double>* forest, int num_features);
 }  // End namespace ML

@@ -162,7 +162,7 @@ auto FilPredict(const raft::handle_t& handle,
   ModelHandle model;
   std::size_t num_outputs = 1;
   if constexpr (std::is_integral_v<LabelT>) { num_outputs = params.n_labels; }
-  build_treelite_forest(&model, forest, params.n_cols, num_outputs);
+  build_treelite_forest(&model, forest, params.n_cols);
   fil::treelite_params_t tl_params{fil::algo_t::ALGO_AUTO,
                                    num_outputs > 1,
                                    1.f / num_outputs,
