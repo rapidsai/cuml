@@ -22,7 +22,7 @@ from cuml.common.memory_utils import with_cupy_rmm
 from cuml.common.import_utils import has_scipy
 import cuml.internals
 from cuml.common.kernel_utils import cuda_kernel_factory
-from cupy.sparse import csr_matrix as cp_csr_matrix,\
+from cupyx.scipy.sparse import csr_matrix as cp_csr_matrix,\
     coo_matrix as cp_coo_matrix, csc_matrix as cp_csc_matrix
 
 

@@ -17,7 +17,7 @@ import pytest
 import numpy as np
 import cupy as cp
 from scipy.sparse import csr_matrix as scipy_csr_matrix
-from cupy.sparse import csr_matrix as cp_csr_matrix
+from cupyx.scipy.sparse import csr_matrix as cp_csr_matrix
 import dask.array as da
 import dask
 

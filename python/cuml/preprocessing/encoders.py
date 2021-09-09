@@ -107,7 +107,7 @@ class OneHotEncoder(Base):
                  categories='auto',
                  drop=None,
                  sparse=True,
-                 dtype=np.float,
+                 dtype=np.float32,
                  handle_unknown='error',
                  handle=None,
                  verbose=False,

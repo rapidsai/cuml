@@ -821,7 +821,7 @@ class _BaseDiscreteNB(_BaseNB):
         Sum feature counts & class prior counts and add to current model.
         Parameters
         ----------
-        X : cupy.ndarray or cupy.sparse matrix of size
+        X : cupy.ndarray or cupyx.scipy.sparse matrix of size
                   (n_rows, n_features)
         Y : cupy.array of monotonic class labels
         """
