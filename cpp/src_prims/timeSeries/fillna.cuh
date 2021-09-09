@@ -74,13 +74,28 @@ struct FillnaOp {
 };
 
 template <bool forward, typename T>
-__global__ void fillna_broadcast_kernel(T* data, int n_elem, FillnaTemp* d_indices)
+__global__ void fillna_interpolate_kernel(T* data,
+                                          int n_elem,
+                                          FillnaTemp* d_indices_fwd,
+                                          FillnaTemp* d_indices_bwd)
 {
-  for (int index0 = blockIdx.x * blockDim.x + threadIdx.x; index0 < n_elem;
-       index0 += gridDim.x * blockDim.x) {
-    int index1     = forward ? index0 : n_elem - 1 - index0;
-    int from_index = d_indices[index0].index;
-    if (from_index != index1) data[index1] = data[from_index];
+  for (int index = blockIdx.x * blockDim.x + threadIdx.x; index < n_elem;
+       index += gridDim.x * blockDim.x) {
+    if (isnan(data[index])) {
+      FillnaTemp fwd = d_indices_fwd[index];
+      FillnaTemp bwd = d_indices_bwd[n_elem - 1 - index];
+      T value_fwd    = data[fwd.index];
+      T value_bwd    = data[bwd.index];
+
+      if (!fwd.is_valid) {
+        data[index] = value_bwd;
+      } else if (!bwd.is_valid) {
+        data[index] = value_fwd;
+      } else {
+        T coef      = (T)(index - fwd.index) / (T)(bwd.index - fwd.index);
+        data[index] = ((T)1 - coef) * value_fwd + coef * value_bwd;
+      }
+    }
   }
 }
 
@@ -90,8 +105,7 @@ namespace MLCommon {
 namespace TimeSeries {
 
 /**
- * Fill NaN values naively with the last known value in each pass,
- * with first a forward pass followed by a backward pass.
+ * Fill NaN values by interpolating between the last and next valid values
  *
  * @param[inout] data       Data which will be processed in-place
  * @param[in]    batch_size Number of series in the batch
@@ -101,7 +115,8 @@ namespace TimeSeries {
 template <typename T>
 void fillna(T* data, int batch_size, int n_obs, cudaStream_t stream)
 {
-  rmm::device_uvector<FillnaTemp> indices(batch_size * n_obs, stream);
+  rmm::device_uvector<FillnaTemp> indices_fwd(batch_size * n_obs, stream);
+  rmm::device_uvector<FillnaTemp> indices_bwd(batch_size * n_obs, stream);
   FillnaTempMaker<true, T> transform_op_fwd(data, batch_size, n_obs);
   FillnaTempMaker<false, T> transform_op_bwd(data, batch_size, n_obs);
   cub::CountingInputIterator<int> counting(0);
@@ -117,7 +132,7 @@ void fillna(T* data, int batch_size, int n_obs, cudaStream_t stream)
   // Allocate temporary storage
   size_t temp_storage_bytes = 0;
   cub::DeviceScan::InclusiveScan(
-    nullptr, temp_storage_bytes, itr_fwd, indices.data(), scan_op, batch_size * n_obs, stream);
+    nullptr, temp_storage_bytes, itr_fwd, indices_fwd.data(), scan_op, batch_size * n_obs, stream);
   rmm::device_uvector<char> temp_storage(temp_storage_bytes, stream);
   void* d_temp_storage = (void*)temp_storage.data();
 
@@ -125,7 +140,16 @@ void fillna(T* data, int batch_size, int n_obs, cudaStream_t stream)
   cub::DeviceScan::InclusiveScan(d_temp_storage,
                                  temp_storage_bytes,
                                  itr_fwd,
-                                 indices.data(),
+                                 indices_fwd.data(),
+                                 scan_op,
+                                 batch_size * n_obs,
+                                 stream);
+
+  // Execute scan (backward)
+  cub::DeviceScan::InclusiveScan(d_temp_storage,
+                                 temp_storage_bytes,
+                                 itr_bwd,
+                                 indices_bwd.data(),
                                  scan_op,
                                  batch_size * n_obs,
                                  stream);
@@ -133,23 +157,9 @@ void fillna(T* data, int batch_size, int n_obs, cudaStream_t stream)
   const int TPB      = 256;
   const int n_blocks = raft::ceildiv<int>(n_obs * batch_size, TPB);
 
-  // Broadcast last valid values to missing values (forward)
-  fillna_broadcast_kernel<true>
-    <<<n_blocks, TPB, 0, stream>>>(data, batch_size * n_obs, indices.data());
-  CUDA_CHECK(cudaPeekAtLastError());
-
-  // Execute scan (backward)
-  cub::DeviceScan::InclusiveScan(d_temp_storage,
-                                 temp_storage_bytes,
-                                 itr_bwd,
-                                 indices.data(),
-                                 scan_op,
-                                 batch_size * n_obs,
-                                 stream);
-
-  // Broadcast last valid values to missing values (backward)
-  fillna_broadcast_kernel<false>
-    <<<n_blocks, TPB, 0, stream>>>(data, batch_size * n_obs, indices.data());
+  // Interpolate valid values
+  fillna_interpolate_kernel<false><<<n_blocks, TPB, 0, stream>>>(
+    data, batch_size * n_obs, indices_fwd.data(), indices_bwd.data());
   CUDA_CHECK(cudaGetLastError());
 }
 

@@ -284,6 +284,34 @@ def mase(y_train, y_test, y_fc, s):
     return np.mean(error / scale)
 
 
+def fill_interpolation(df_in):
+    np_arr = df_in.to_numpy()
+    for ib in range(np_arr.shape[1]):
+        n = len(np_arr)
+        start, end = -1, 0
+        while start < n - 1:
+            if not np.isnan(np_arr[start+1, ib]):
+                start += 1
+                end = start + 1
+            elif end < n and np.isnan(np_arr[end, ib]):
+                end += 1
+            else:
+                if start == -1:
+                    np_arr[:end, ib] = np_arr[end, ib]
+                elif end == n:
+                    np_arr[start+1:, ib] = np_arr[start, ib]
+                else:
+                    for j in range(start+1, end):
+                        coef = (j - start) / (end - start)
+                        np_arr[j, ib] = (
+                            (1. - coef) * np_arr[start, ib]
+                            + coef * np_arr[end, ib]
+                        )
+                start = end
+                end = start + 1
+    return pd.DataFrame(np_arr, columns=df_in.columns)
+
+
 ###############################################################################
 #                                    Tests                                    #
 ###############################################################################
@@ -533,7 +561,7 @@ def test_start_params(key, data, dtype):
     y_train, y_train_cudf, *_ = get_dataset(data, dtype)
 
     # fillna for reference to match cuML initial estimation strategy
-    y_train_nona = y_train.fillna(method="ffill").fillna(method="bfill")
+    y_train_nona = fill_interpolation(y_train)
 
     # Create models
     cuml_model = arima.ARIMA(y_train_cudf,

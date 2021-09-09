@@ -46,6 +46,7 @@ struct FillnaInputs {
   int n_obs;
   std::vector<SeriesDescriptor> descriptors;
   unsigned long long int seed;
+  T tolerance;
 };
 
 template <typename T>
@@ -91,18 +92,43 @@ class FillnaTest : public ::testing::TestWithParam<FillnaInputs<T>> {
     /* Compute using tested prims */
     fillna(y.data(), params.batch_size, params.n_obs, handle.get_stream());
 
-    /* Compute reference results */
+    /* Compute reference results.
+     * Note: this is done with a sliding window: we find ranges of missing
+     * values bordered by valid values at indices `start` and `end`.
+     * Special cases on extremities are also handled with the special values
+     * -1 for `start` and `n_obs` for `end`.
+     */
     for (int bid = 0; bid < params.batch_size; bid++) {
-      // Forward pass
-      for (int i = 1; i < params.n_obs; i++) {
-        if (std::isnan(h_y[bid * params.n_obs + i]))
-          h_y[bid * params.n_obs + i] = h_y[bid * params.n_obs + i - 1];
-      }
-
-      // Backward pass
-      for (int i = params.n_obs - 2; i >= 0; i--) {
-        if (std::isnan(h_y[bid * params.n_obs + i]))
-          h_y[bid * params.n_obs + i] = h_y[bid * params.n_obs + i + 1];
+      int start = -1;
+      int end   = 0;
+      while (start < params.n_obs - 1) {
+        if (!std::isnan(h_y[bid * params.n_obs + start + 1])) {
+          start++;
+          end = start + 1;
+        } else if (end < params.n_obs && std::isnan(h_y[bid * params.n_obs + end])) {
+          end++;
+        } else {
+          if (start == -1) {
+            T value = h_y[bid * params.n_obs + end];
+            for (int j = 0; j < end; j++) {
+              h_y[bid * params.n_obs + j] = value;
+            }
+          } else if (end == params.n_obs) {
+            T value = h_y[bid * params.n_obs + start];
+            for (int j = start + 1; j < params.n_obs; j++) {
+              h_y[bid * params.n_obs + j] = value;
+            }
+          } else {
+            T value0 = h_y[bid * params.n_obs + start];
+            T value1 = h_y[bid * params.n_obs + end];
+            for (int j = start + 1; j < end; j++) {
+              T coef                      = (T)(j - start) / (T)(end - start);
+              h_y[bid * params.n_obs + j] = ((T)1 - coef) * value0 + coef * value1;
+            }
+          }
+          start = end;
+          end++;
+        }
       }
     }
 
@@ -110,7 +136,7 @@ class FillnaTest : public ::testing::TestWithParam<FillnaInputs<T>> {
     match = devArrMatchHost(h_y.data(),
                             y.data(),
                             params.n_obs * params.batch_size,
-                            raft::Compare<T>(),
+                            raft::CompareApprox<T>(params.tolerance),
                             handle.get_stream());
   }
 
@@ -125,13 +151,15 @@ class FillnaTest : public ::testing::TestWithParam<FillnaInputs<T>> {
 };
 
 const std::vector<FillnaInputs<float>> inputsf = {
-  {3, 42, {{10, 0, 0}, {0, 10, 0}, {0, 0, 10}}, 12345U},
-  {4, 100, {{70, 0, 0}, {0, 20, 0}, {0, 0, 63}, {31, 25, 33}, {20, 15, 42}}, 12345U},
+  {1, 20, {{1, 5, 1}}, 12345U, 1e-6},
+  {3, 42, {{10, 0, 0}, {0, 10, 0}, {0, 0, 10}}, 12345U, 1e-6},
+  {4, 100, {{70, 0, 0}, {0, 20, 0}, {0, 0, 63}, {31, 25, 33}, {20, 15, 42}}, 12345U, 1e-6},
 };
 
 const std::vector<FillnaInputs<double>> inputsd = {
-  {3, 42, {{10, 0, 0}, {0, 10, 0}, {0, 0, 10}}, 12345U},
-  {4, 100, {{70, 0, 0}, {0, 20, 0}, {0, 0, 63}, {31, 25, 33}, {20, 15, 42}}, 12345U},
+  {1, 20, {{1, 5, 1}}, 12345U, 1e-6},
+  {3, 42, {{10, 0, 0}, {0, 10, 0}, {0, 0, 10}}, 12345U, 1e-6},
+  {4, 100, {{70, 0, 0}, {0, 20, 0}, {0, 0, 63}, {31, 25, 33}, {20, 15, 42}}, 12345U, 1e-6},
 };
 
 typedef FillnaTest<float> FillnaTestF;
