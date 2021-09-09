@@ -68,9 +68,9 @@ def sparse_random_dataset(request, random_seed):
                                   replace=False)
     X.ravel()[random_loc] = 0
     if request.param == 'cupy-csr':
-        X_sparse = cp.sparse.csr_matrix(X)
+        X_sparse = cupyx.scipy.sparse.csr_matrix(X)
     elif request.param == 'cupy-csc':
-        X_sparse = cp.sparse.csc_matrix(X)
+        X_sparse = cupyx.scipy.sparse.csc_matrix(X)
     return X.get(), X, X_sparse.get(), X_sparse
 
 

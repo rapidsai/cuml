@@ -356,6 +356,6 @@ def csr_polynomial_expansion(X, interaction_only, degree):
                                 d, interaction_only, degree,
                                 expanded_indptr)
 
-    return cp.sparse.csr_matrix((expanded_data, expanded_indices,
+    return cupyx.scipy.sparse.csr_matrix((expanded_data, expanded_indices,
                                  expanded_indptr),
                                 shape=(num_rows, expanded_dimensionality))

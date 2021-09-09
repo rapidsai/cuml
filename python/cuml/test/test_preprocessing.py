@@ -139,12 +139,12 @@ def test_standard_scaler_sparse(failure_logger,
     r_X = scaler.inverse_transform(t_X)
     #  assert type(t_X) == type(X)
     #  assert type(r_X) == type(t_X)
-    if cp.sparse.issparse(X):
-        assert cp.sparse.issparse(t_X)
+    if cupyx.scipy.sparse.issparse(X):
+        assert cupyx.scipy.sparse.issparse(t_X)
     if scipy.sparse.issparse(X):
         assert scipy.sparse.issparse(t_X)
-    if cp.sparse.issparse(t_X):
-        assert cp.sparse.issparse(r_X)
+    if cupyx.scipy.sparse.issparse(t_X):
+        assert cupyx.scipy.sparse.issparse(r_X)
     if scipy.sparse.issparse(t_X):
         assert scipy.sparse.issparse(r_X)
 
@@ -180,8 +180,8 @@ def test_scale_sparse(failure_logger, sparse_clf_dataset,  # noqa: F811
 
     t_X = cu_scale(X, with_mean=False, with_std=with_std, copy=True)
     #  assert type(t_X) == type(X)
-    if cp.sparse.issparse(X):
-        assert cp.sparse.issparse(t_X)
+    if cupyx.scipy.sparse.issparse(X):
+        assert cupyx.scipy.sparse.issparse(t_X)
     if scipy.sparse.issparse(X):
         assert scipy.sparse.issparse(t_X)
 
@@ -230,12 +230,12 @@ def test_maxabs_scaler_sparse(failure_logger,
     r_X = scaler.inverse_transform(t_X)
     #  assert type(t_X) == type(X)
     #  assert type(r_X) == type(t_X)
-    if cp.sparse.issparse(X):
-        assert cp.sparse.issparse(t_X)
+    if cupyx.scipy.sparse.issparse(X):
+        assert cupyx.scipy.sparse.issparse(t_X)
     if scipy.sparse.issparse(X):
         assert scipy.sparse.issparse(t_X)
-    if cp.sparse.issparse(t_X):
-        assert cp.sparse.issparse(r_X)
+    if cupyx.scipy.sparse.issparse(t_X):
+        assert cupyx.scipy.sparse.issparse(r_X)
     if scipy.sparse.issparse(t_X):
         assert scipy.sparse.issparse(r_X)
 
@@ -272,8 +272,8 @@ def test_normalizer_sparse(failure_logger, sparse_clf_dataset,  # noqa: F811
     normalizer = cuNormalizer(norm=norm, copy=True)
     t_X = normalizer.fit_transform(X)
     #  assert type(t_X) == type(X)
-    if cp.sparse.issparse(X):
-        assert cp.sparse.issparse(t_X)
+    if cupyx.scipy.sparse.issparse(X):
+        assert cupyx.scipy.sparse.issparse(t_X)
     if scipy.sparse.issparse(X):
         assert scipy.sparse.issparse(t_X)
 
@@ -314,8 +314,8 @@ def test_normalize_sparse(failure_logger, sparse_clf_dataset,  # noqa: F811
 
     t_X = cu_normalize(X, axis=axis, norm=norm)
     #  assert type(t_X) == type(X)
-    if cp.sparse.issparse(X):
-        assert cp.sparse.issparse(t_X)
+    if cupyx.scipy.sparse.issparse(X):
+        assert cupyx.scipy.sparse.issparse(t_X)
     if scipy.sparse.issparse(X):
         assert scipy.sparse.issparse(t_X)
 
@@ -369,8 +369,8 @@ def test_imputer_sparse(sparse_imputer_dataset,  # noqa: F811
                               strategy=strategy, fill_value=fill_value)
     t_X = imputer.fit_transform(X)
     #  assert type(t_X) == type(X)
-    if cp.sparse.issparse(X):
-        assert cp.sparse.issparse(t_X)
+    if cupyx.scipy.sparse.issparse(X):
+        assert cupyx.scipy.sparse.issparse(t_X)
     if scipy.sparse.issparse(X):
         assert scipy.sparse.issparse(t_X)
 
@@ -423,8 +423,8 @@ def test_poly_features_sparse(failure_logger, sparse_clf_dataset,  # noqa: F811
                                         include_bias=include_bias)
     t_X = polyfeatures.fit_transform(X)
     #  assert type(t_X) == type(X)
-    if cp.sparse.issparse(X):
-        assert cp.sparse.issparse(t_X)
+    if cupyx.scipy.sparse.issparse(X):
+        assert cupyx.scipy.sparse.issparse(t_X)
     if scipy.sparse.issparse(X):
         assert scipy.sparse.issparse(t_X)
 
@@ -455,8 +455,8 @@ def test_add_dummy_feature_sparse(failure_logger,
 
     t_X = cu_add_dummy_feature(X, value=value)
     #  assert type(t_X) == type(X)
-    if cp.sparse.issparse(X):
-        assert cp.sparse.issparse(t_X)
+    if cupyx.scipy.sparse.issparse(X):
+        assert cupyx.scipy.sparse.issparse(t_X)
     if scipy.sparse.issparse(X):
         assert scipy.sparse.issparse(t_X)
 
@@ -483,8 +483,8 @@ def test_binarize_sparse(failure_logger, sparse_clf_dataset,  # noqa: F811
 
     t_X = cu_binarize(X, threshold=threshold, copy=True)
     #  assert type(t_X) == type(X)
-    if cp.sparse.issparse(X):
-        assert cp.sparse.issparse(t_X)
+    if cupyx.scipy.sparse.issparse(X):
+        assert cupyx.scipy.sparse.issparse(t_X)
     if scipy.sparse.issparse(X):
         assert scipy.sparse.issparse(t_X)
 
@@ -515,8 +515,8 @@ def test_binarizer_sparse(failure_logger, sparse_clf_dataset,  # noqa: F811
     binarizer = cuBinarizer(threshold=threshold, copy=True)
     t_X = binarizer.fit_transform(X)
     #  assert type(t_X) == type(X)
-    if cp.sparse.issparse(X):
-        assert cp.sparse.issparse(t_X)
+    if cupyx.scipy.sparse.issparse(X):
+        assert cupyx.scipy.sparse.issparse(t_X)
     if scipy.sparse.issparse(X):
         assert scipy.sparse.issparse(t_X)
 
@@ -570,12 +570,12 @@ def test_robust_scaler_sparse(failure_logger, sparse_clf_dataset,  # noqa: F811
     r_X = scaler.inverse_transform(t_X)
     #  assert type(t_X) == type(X)
     #  assert type(r_X) == type(t_X)
-    if cp.sparse.issparse(X):
-        assert cp.sparse.issparse(t_X)
+    if cupyx.scipy.sparse.issparse(X):
+        assert cupyx.scipy.sparse.issparse(t_X)
     if scipy.sparse.issparse(X):
         assert scipy.sparse.issparse(t_X)
-    if cp.sparse.issparse(t_X):
-        assert cp.sparse.issparse(r_X)
+    if cupyx.scipy.sparse.issparse(t_X):
+        assert cupyx.scipy.sparse.issparse(r_X)
     if scipy.sparse.issparse(t_X):
         assert scipy.sparse.issparse(r_X)
 
@@ -632,8 +632,8 @@ def test_robust_scale_sparse(failure_logger, sparse_clf_dataset,  # noqa: F811
                           quantile_range=quantile_range,
                           copy=True)
     #  assert type(t_X) == type(X)
-    if cp.sparse.issparse(X):
-        assert cp.sparse.issparse(t_X)
+    if cupyx.scipy.sparse.issparse(X):
+        assert cupyx.scipy.sparse.issparse(t_X)
     if scipy.sparse.issparse(X):
         assert scipy.sparse.issparse(t_X)
 
@@ -728,11 +728,11 @@ def test_missing_indicator_sparse(failure_logger,
                                    missing_values=1)
     ft_X = indicator.fit_transform(X)
     # assert type(ft_X) == type(X)
-    assert cp.sparse.issparse(ft_X) or scipy.sparse.issparse(ft_X)
+    assert cupyx.scipy.sparse.issparse(ft_X) or scipy.sparse.issparse(ft_X)
     indicator.fit(X)
     t_X = indicator.transform(X)
     # assert type(t_X) == type(X)
-    assert cp.sparse.issparse(t_X) or scipy.sparse.issparse(t_X)
+    assert cupyx.scipy.sparse.issparse(t_X) or scipy.sparse.issparse(t_X)
 
     indicator = skMissingIndicator(features=features,
                                    missing_values=1)
@@ -769,8 +769,8 @@ def test_function_transformer_sparse(sparse_clf_dataset):  # noqa: F811
                                         accept_sparse=True)
     t_X = transformer.fit_transform(X)
     r_X = transformer.inverse_transform(t_X)
-    assert cp.sparse.issparse(t_X) or scipy.sparse.issparse(t_X)
-    assert cp.sparse.issparse(r_X) or scipy.sparse.issparse(r_X)
+    assert cupyx.scipy.sparse.issparse(t_X) or scipy.sparse.issparse(t_X)
+    assert cupyx.scipy.sparse.issparse(r_X) or scipy.sparse.issparse(r_X)
 
     transformer = skFunctionTransformer(func=lambda x: x * 2,
                                         inverse_func=lambda x: x / 2,

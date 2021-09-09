@@ -191,7 +191,7 @@ def extract_knn_graph(knn_graph, convert_dtype=True, sparse=False):
         csc_matrix = DummyClass
 
     if isinstance(knn_graph, (csc_matrix, cp_csc_matrix)):
-        knn_graph = cp.sparse.csr_matrix(knn_graph)
+        knn_graph = cupyx.scipy.sparse.csr_matrix(knn_graph)
         n_samples = knn_graph.shape[0]
         reordering = knn_graph.data.reshape((n_samples, -1))
         reordering = reordering.argsort()

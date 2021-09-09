@@ -524,9 +524,9 @@ def test_nearest_neighbors_sparse(metric,
     if nrows == 1 and n_neighbors > 1:
         return
 
-    a = cp.sparse.random(nrows, ncols, format='csr', density=density,
+    a = cupyx.scipy.sparse.random(nrows, ncols, format='csr', density=density,
                          random_state=35)
-    b = cp.sparse.random(nrows, ncols, format='csr', density=density,
+    b = cupyx.scipy.sparse.random(nrows, ncols, format='csr', density=density,
                          random_state=38)
 
     if metric == 'jaccard':
