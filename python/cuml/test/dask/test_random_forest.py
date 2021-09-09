@@ -410,32 +410,30 @@ def test_rf_get_json(client, estimator_type, max_depth, n_estimators):
 
     # Test 3: Traverse JSON trees and get the same predictions as cuML RF
     def predict_with_json_tree(tree, x):
-        if 'children' not in tree:
-            assert 'leaf_value' in tree
-            return tree['leaf_value']
-        assert 'split_feature' in tree
-        assert 'split_threshold' in tree
-        assert 'yes' in tree
-        assert 'no' in tree
-        if x[tree['split_feature']] <= tree['split_threshold'] + 1e-5:
-            return predict_with_json_tree(tree['children'][0], x)
-        return predict_with_json_tree(tree['children'][1], x)
+        if "children" not in tree:
+            assert "leaf_value" in tree
+            return tree["leaf_value"]
+        assert "split_feature" in tree
+        assert "split_threshold" in tree
+        assert "yes" in tree
+        assert "no" in tree
+        if x[tree["split_feature"]] <= tree["split_threshold"] + 1e-5:
+            return predict_with_json_tree(tree["children"][0], x)
+        return predict_with_json_tree(tree["children"][1], x)
 
     def predict_with_json_rf_classifier(rf, x):
         # Returns the class with the highest vote. If there is a tie, return
         # the list of all classes with the highest vote.
-        vote = []
+        predictions = []
         for tree in rf:
-            vote.append(predict_with_json_tree(tree, x))
-        vote = np.bincount(vote)
-        max_vote = np.max(vote)
-        majority_vote = np.nonzero(np.equal(vote, max_vote))[0]
-        return majority_vote
+            predictions.append(np.array(predict_with_json_tree(tree, x)))
+        predictions = np.sum(predictions, axis=0)
+        return np.argmax(predictions)
 
     def predict_with_json_rf_regressor(rf, x):
-        pred = 0.
+        pred = 0.0
         for tree in rf:
-            pred += predict_with_json_tree(tree, x)
+            pred += predict_with_json_tree(tree, x)[0]
         return pred / len(rf)
 
     if estimator_type == 'classification':
@@ -443,7 +441,7 @@ def test_rf_get_json(client, estimator_type, max_depth, n_estimators):
         expected_pred = expected_pred.compute().to_array()
         for idx, row in enumerate(X):
             majority_vote = predict_with_json_rf_classifier(json_obj, row)
-            assert expected_pred[idx] in majority_vote
+            assert expected_pred[idx] == majority_vote
     elif estimator_type == 'regression':
         expected_pred = cu_rf_mg.predict(X_dask).astype(np.float32)
         expected_pred = expected_pred.compute().to_array()
