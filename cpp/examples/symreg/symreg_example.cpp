@@ -29,6 +29,7 @@
 #include <cuml/common/logger.hpp>
 
 #include <raft/mr/device/allocator.hpp>
+#include <raft/cudart_utils.h>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -248,8 +249,7 @@ int main(int argc, char* argv[])
     dw_test.data(), w_test.data(), sizeof(float) * n_test_rows, cudaMemcpyHostToDevice, stream));
 
   // Initialize AST
-  d_finalprogs = (cg::program_t)handle.get_device_allocator()->allocate(
-    params.population_size * sizeof(cg::program), stream);
+  raft::allocate(d_finalprogs, params.population_size, stream);
 
   std::vector<std::vector<cg::program>> history;
   history.reserve(params.generations);
@@ -341,8 +341,7 @@ int main(int argc, char* argv[])
 
   /* ======================= Reset data ======================= */
 
-  handle.get_device_allocator()->deallocate(
-    d_finalprogs, sizeof(cuml::genetic::program) * params.population_size, stream);
+  raft::deallocate(d_finalprogs, stream);
   CUDA_RT_CALL(cudaEventDestroy(start));
   CUDA_RT_CALL(cudaEventDestroy(stop));
   CUDA_RT_CALL(cudaStreamDestroy(stream));

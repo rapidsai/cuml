@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -284,7 +284,6 @@ std::pair<int, int> get_subtree(node* pnodes, int len, std::mt19937& rng)
   // Compute cumulative sum
   std::partial_sum(node_probs.begin(), node_probs.end(), node_probs.begin());
 
-  // CUML_LOG_DEBUG("Current bound is %f",bound);
 
   start = std::lower_bound(node_probs.begin(), node_probs.end(), bound) - node_probs.begin();
   end   = start;

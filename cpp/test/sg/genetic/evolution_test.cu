@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@
 #include <cuml/common/logger.hpp>
 #include <iostream>
 #include <raft/handle.hpp>
+#include <raft/cudart_utils.h>
 #include <rmm/device_uvector.hpp>
 #include <vector>
 
@@ -40,7 +41,7 @@ class GeneticEvolutionTest : public ::testing::Test {
  protected:
   void SetUp() override
   {
-    ML::Logger::get().setLevel(CUML_LEVEL_DEBUG);
+    ML::Logger::get().setLevel(CUML_LEVEL_INFO);
     CUDA_CHECK(cudaStreamCreate(&stream));
     handle.set_stream(stream);
 
@@ -64,13 +65,13 @@ class GeneticEvolutionTest : public ::testing::Test {
 
     // Initialize device memory
     d_train =
-      (float*)handle.get_device_allocator()->allocate(n_cols * n_tr_rows * sizeof(float), stream);
-    d_trainlab = (float*)handle.get_device_allocator()->allocate(n_tr_rows * sizeof(float), stream);
+      (float*)rmm::mr::get_current_device_resource()->allocate(n_cols * n_tr_rows * sizeof(float), stream);
+    d_trainlab = (float*)rmm::mr::get_current_device_resource()->allocate(n_tr_rows * sizeof(float), stream);
     d_test =
-      (float*)handle.get_device_allocator()->allocate(n_cols * n_tst_rows * sizeof(float), stream);
-    d_testlab = (float*)handle.get_device_allocator()->allocate(n_tst_rows * sizeof(float), stream);
-    d_trainwts = (float*)handle.get_device_allocator()->allocate(n_tr_rows * sizeof(float), stream);
-    d_testwts = (float*)handle.get_device_allocator()->allocate(n_tst_rows * sizeof(float), stream);
+      (float*)rmm::mr::get_current_device_resource()->allocate(n_cols * n_tst_rows * sizeof(float), stream);
+    d_testlab = (float*)rmm::mr::get_current_device_resource()->allocate(n_tst_rows * sizeof(float), stream);
+    d_trainwts = (float*)rmm::mr::get_current_device_resource()->allocate(n_tr_rows * sizeof(float), stream);
+    d_testwts = (float*)rmm::mr::get_current_device_resource()->allocate(n_tst_rows * sizeof(float), stream);
 
     // Memcpy HtoD
     CUDA_CHECK(cudaMemcpyAsync(
@@ -250,7 +251,7 @@ TEST_F(GeneticEvolutionTest, SymReg)
 {
   raft::CompareApprox<float> compApprox(tolerance);
   program_t final_progs;
-  final_progs = (program_t)handle.get_device_allocator()->allocate(
+  final_progs = (program_t)rmm::mr::get_current_device_resource()->allocate(
     hyper_params.population_size * sizeof(program), stream);
   std::vector<std::vector<program>> history;
   history.reserve(hyper_params.generations);

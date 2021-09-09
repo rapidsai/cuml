@@ -227,21 +227,18 @@ void parallel_evolve(const raft::handle_t& h,
     delete[] tmp.nodes;
 
     // Set current generation device nodes
-    tmp.nodes =
-      (node*)h.get_device_allocator()->allocate(h_nextprogs[i].len * sizeof(node), stream);
-    CUDA_CHECK(cudaMemcpyAsync(tmp.nodes,
-                               h_nextprogs[i].nodes,
-                               h_nextprogs[i].len * sizeof(node),
-                               cudaMemcpyHostToDevice,
-                               stream));
-    CUDA_CHECK(
-      cudaMemcpyAsync(d_nextprogs + i, &tmp, sizeof(program), cudaMemcpyHostToDevice, stream));
+    raft::allocate(tmp.nodes, h_nextprogs[i].len, stream);
+    raft::copy(tmp.nodes,
+               h_nextprogs[i].nodes,
+               h_nextprogs[i].len,
+               stream);
+    raft::copy(
+      d_nextprogs + i, &tmp, 1, stream);
 
     if (generation > 1) {
       // Free device memory allocated to program nodes in previous generation
-      CUDA_CHECK(
-        cudaMemcpyAsync(&tmp, d_oldprogs + i, sizeof(program), cudaMemcpyDeviceToHost, stream));
-      h.get_device_allocator()->deallocate(tmp.nodes, h_oldprogs[i].len * sizeof(node), stream);
+      raft::copy(&tmp, d_oldprogs + i, 1, stream);
+      raft::deallocate(tmp.nodes, stream);
     }
 
     tmp.nodes = nullptr;
@@ -409,8 +406,8 @@ void symFit(const raft::handle_t& handle,
 
   std::vector<float> h_fitness(params.population_size, 0.0f);
 
-  program_t d_currprogs = (program_t)handle.get_device_allocator()->allocate(
-    params.population_size * sizeof(program), stream);
+  program_t d_currprogs; // pointer to current programs
+  raft::allocate(d_currprogs, params.population_size, stream);
   program_t d_nextprogs = final_progs;  // Reuse memory already allocated for final_progs
   final_progs           = nullptr;
 
@@ -491,8 +488,7 @@ void symFit(const raft::handle_t& handle,
   if (growAuto) { params.terminalRatio = 0.0f; }
 
   // Deallocate the previous generation device memory
-  handle.get_device_allocator()->deallocate(
-    d_nextprogs, sizeof(program) * params.population_size, stream);
+  raft::deallocate(d_nextprogs, stream);
   d_currprogs = nullptr;
   d_nextprogs = nullptr;
 }

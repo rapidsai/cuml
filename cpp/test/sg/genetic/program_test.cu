@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020-2021, NVIDIA CORPORATION.
+ * Copyright (c) 2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -23,6 +23,7 @@
 #include <cuml/common/logger.hpp>
 #include <iostream>
 #include <raft/handle.hpp>
+#include <raft/cudart_utils.h>
 #include <vector>
 
 namespace cuml {
@@ -75,15 +76,15 @@ class GeneticProgramTest : public ::testing::Test {
     hw2.resize(5, 1.0f);
 
     // Device memory
-    d_data   = (float*)handle.get_device_allocator()->allocate(75 * sizeof(float), stream);
-    d_y      = (float*)handle.get_device_allocator()->allocate(25 * sizeof(float), stream);
-    d_lYpred = (float*)handle.get_device_allocator()->allocate(500 * sizeof(float), stream);
-    d_lY     = (float*)handle.get_device_allocator()->allocate(250 * sizeof(float), stream);
-    d_lunitW = (float*)handle.get_device_allocator()->allocate(250 * sizeof(float), stream);
-    d_lW     = (float*)handle.get_device_allocator()->allocate(250 * sizeof(float), stream);
-    d_nodes1 = (node*)handle.get_device_allocator()->allocate(7 * sizeof(node), stream);
-    d_nodes2 = (node*)handle.get_device_allocator()->allocate(7 * sizeof(node), stream);
-    d_progs  = (program_t)handle.get_device_allocator()->allocate(2 * sizeof(program), stream);
+    d_data   = (float*)rmm::mr::get_current_device_resource()->allocate(75 * sizeof(float), stream);
+    d_y      = (float*)rmm::mr::get_current_device_resource()->allocate(25 * sizeof(float), stream);
+    d_lYpred = (float*)rmm::mr::get_current_device_resource()->allocate(500 * sizeof(float), stream);
+    d_lY     = (float*)rmm::mr::get_current_device_resource()->allocate(250 * sizeof(float), stream);
+    d_lunitW = (float*)rmm::mr::get_current_device_resource()->allocate(250 * sizeof(float), stream);
+    d_lW     = (float*)rmm::mr::get_current_device_resource()->allocate(250 * sizeof(float), stream);
+    d_nodes1 = (node*)rmm::mr::get_current_device_resource()->allocate(7 * sizeof(node), stream);
+    d_nodes2 = (node*)rmm::mr::get_current_device_resource()->allocate(7 * sizeof(node), stream);
+    d_progs  = (program_t)rmm::mr::get_current_device_resource()->allocate(2 * sizeof(program), stream);
 
     CUDA_CHECK(cudaMemcpyAsync(
       d_lYpred, h_lYpred.data(), 500 * sizeof(float), cudaMemcpyHostToDevice, stream));
@@ -117,10 +118,10 @@ class GeneticProgramTest : public ::testing::Test {
     tmp.nodes = nullptr;
 
     // Small input
-    dx2  = (float*)handle.get_device_allocator()->allocate(15 * sizeof(float), stream);
-    dy2  = (float*)handle.get_device_allocator()->allocate(5 * sizeof(float), stream);
-    dw2  = (float*)handle.get_device_allocator()->allocate(5 * sizeof(float), stream);
-    dyp2 = (float*)handle.get_device_allocator()->allocate(10 * sizeof(float), stream);
+    dx2  = (float*)rmm::mr::get_current_device_resource()->allocate(15 * sizeof(float), stream);
+    dy2  = (float*)rmm::mr::get_current_device_resource()->allocate(5 * sizeof(float), stream);
+    dw2  = (float*)rmm::mr::get_current_device_resource()->allocate(5 * sizeof(float), stream);
+    dyp2 = (float*)rmm::mr::get_current_device_resource()->allocate(10 * sizeof(float), stream);
 
     CUDA_CHECK(
       cudaMemcpyAsync(dx2, hx2.data(), 15 * sizeof(float), cudaMemcpyHostToDevice, stream));
@@ -356,7 +357,7 @@ TEST_F(GeneticProgramTest, PearsonCoeff)
   float h_expected_score[2] = {0.09528403f, 0.08269963f};
   float h_score[2]          = {0.0f, 0.0f};
   float* d_score;
-  d_score             = (float*)handle.get_device_allocator()->allocate(2 * sizeof(float), stream);
+  d_score             = (float*)rmm::mr::get_current_device_resource()->allocate(2 * sizeof(float), stream);
   hyper_params.metric = metric_t::pearson;
 
   // Unitary weights
@@ -398,7 +399,7 @@ TEST_F(GeneticProgramTest, SpearmanCoeff)
   raft::CompareApproxAbs<float> compApprox(tolerance);
   float h_score[2] = {0.0f, 0.0f};
   float* d_score;
-  d_score             = (float*)handle.get_device_allocator()->allocate(2 * sizeof(float), stream);
+  d_score             = (float*)rmm::mr::get_current_device_resource()->allocate(2 * sizeof(float), stream);
   hyper_params.metric = metric_t::spearman;
 
   // Unitary weights
@@ -441,7 +442,7 @@ TEST_F(GeneticProgramTest, MeanSquareLoss)
   raft::CompareApprox<float> compApprox(tolerance);
   float h_score[2] = {0.0f, 0.0f};
   float* d_score;
-  d_score             = (float*)handle.get_device_allocator()->allocate(2 * sizeof(float), stream);
+  d_score             = (float*)rmm::mr::get_current_device_resource()->allocate(2 * sizeof(float), stream);
   hyper_params.metric = metric_t::mse;
 
   // Unitary weights
@@ -483,7 +484,7 @@ TEST_F(GeneticProgramTest, MeanAbsoluteLoss)
   raft::CompareApprox<float> compApprox(tolerance);
   float h_score[2] = {0.0f, 0.0f};
   float* d_score;
-  d_score             = (float*)handle.get_device_allocator()->allocate(2 * sizeof(float), stream);
+  d_score             = (float*)rmm::mr::get_current_device_resource()->allocate(2 * sizeof(float), stream);
   hyper_params.metric = metric_t::mae;
 
   // Unitary weights - big
@@ -527,7 +528,7 @@ TEST_F(GeneticProgramTest, RMSLoss)
   raft::CompareApprox<float> compApprox(tolerance);
   float h_score[2] = {0.0f, 0.0f};
   float* d_score;
-  d_score             = (float*)handle.get_device_allocator()->allocate(2 * sizeof(float), stream);
+  d_score             = (float*)rmm::mr::get_current_device_resource()->allocate(2 * sizeof(float), stream);
   hyper_params.metric = metric_t::rmse;
 
   // Unitary weights
@@ -571,7 +572,7 @@ TEST_F(GeneticProgramTest, LogLoss)
   raft::CompareApprox<float> compApprox(tolerance);
   float h_score[2] = {0.0f, 0.0f};
   float* d_score;
-  d_score             = (float*)handle.get_device_allocator()->allocate(2 * sizeof(float), stream);
+  d_score             = (float*)rmm::mr::get_current_device_resource()->allocate(2 * sizeof(float), stream);
   hyper_params.metric = metric_t::logloss;
 
   // Unitary weights
@@ -602,13 +603,13 @@ TEST_F(GeneticProgramTest, ProgramExecution)
   raft::CompareApprox<float> compApprox(tolerance);
 
   // Enable debug logging
-  ML::Logger::get().setLevel(CUML_LEVEL_DEBUG);
+  ML::Logger::get().setLevel(CUML_LEVEL_INFO);
 
   // Allocate memory
   std::vector<float> h_ypred(n_progs * n_samples, 0.0f);
   float* d_ypred;
   d_ypred =
-    (float*)handle.get_device_allocator()->allocate(n_progs * n_samples * sizeof(float), stream);
+    (float*)rmm::mr::get_current_device_resource()->allocate(n_progs * n_samples * sizeof(float), stream);
 
   // Execute programs
   execute(handle, d_progs, n_samples, n_progs, d_data, d_ypred);
@@ -641,7 +642,7 @@ TEST_F(GeneticProgramTest, ProgramFitnessScore)
   std::vector<float> hactualscores(10);
 
   float* dactualscores =
-    (float*)handle.get_device_allocator()->allocate(10 * sizeof(float), stream);
+    (float*)rmm::mr::get_current_device_resource()->allocate(10 * sizeof(float), stream);
 
   // Start execution for all metrics
   for (int i = 0; i < 5; ++i) {
