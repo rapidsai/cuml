@@ -76,7 +76,6 @@ void fit(const raft::handle_t& handle,
 
 void refine(const raft::handle_t& handle,
             float* X,  // input matrix
-            float* y,  // labels
             int n,
             int d,
             raft::sparse::COO<float, int>* cgraph_coo,

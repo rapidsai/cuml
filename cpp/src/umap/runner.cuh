@@ -178,6 +178,7 @@ void _get_graph(const raft::handle_t& handle,
                 UMAPParams* params,
                 T* cgraph_coo)
 {
+  ML::PUSH_RANGE("umap::supervised::_get_graph");
   cudaStream_t stream = handle.get_stream();
   auto d_alloc        = handle.get_device_allocator();
 
@@ -227,6 +228,99 @@ void _get_graph(const raft::handle_t& handle,
    * Remove zeros from simplicial set
    */
   raft::sparse::op::coo_remove_zeros<TPB_X, value_t>(&rgraph_coo, cgraph_coo, d_alloc, stream);
+  ML::POP_RANGE();
+}
+
+template <typename value_idx, typename value_t, typename umap_inputs, int TPB_X, typename T>
+void _get_graph_supervised(const raft::handle_t& handle,
+                           const umap_inputs& inputs,
+                           UMAPParams* params,
+                           T* cgraph_coo)
+{
+  ML::PUSH_RANGE("umap::supervised::_get_graph_supervised");
+  auto d_alloc        = handle.get_device_allocator();
+  cudaStream_t stream = handle.get_stream();
+
+  int k = params->n_neighbors;
+
+  ML::Logger::get().setLevel(params->verbosity);
+
+  if (params->target_n_neighbors == -1) params->target_n_neighbors = params->n_neighbors;
+
+  ML::PUSH_RANGE("umap::knnGraph");
+  std::unique_ptr<MLCommon::device_buffer<value_idx>> knn_indices_b = nullptr;
+  std::unique_ptr<MLCommon::device_buffer<value_t>> knn_dists_b     = nullptr;
+
+  knn_graph<value_idx, value_t> knn_graph(inputs.n, k);
+
+  /**
+   * If not given precomputed knn graph, compute it
+   */
+  if (inputs.alloc_knn_graph()) {
+    /**
+     * Allocate workspace for kNN graph
+     */
+    knn_indices_b =
+      std::make_unique<MLCommon::device_buffer<value_idx>>(d_alloc, stream, inputs.n * k);
+    knn_dists_b = std::make_unique<MLCommon::device_buffer<value_t>>(d_alloc, stream, inputs.n * k);
+
+    knn_graph.knn_indices = knn_indices_b->data();
+    knn_graph.knn_dists   = knn_dists_b->data();
+  }
+
+  kNNGraph::run<value_idx, value_t, umap_inputs>(
+    handle, inputs, inputs, knn_graph, k, params, d_alloc, stream);
+
+  ML::POP_RANGE();
+
+  /**
+   * Allocate workspace for fuzzy simplicial set.
+   */
+  ML::PUSH_RANGE("umap::simplicial_set");
+  raft::sparse::COO<value_t> rgraph_coo(d_alloc, stream);
+  raft::sparse::COO<value_t> tmp_coo(d_alloc, stream);
+
+  /**
+   * Run Fuzzy simplicial set
+   */
+  // int nnz = n*k*2;
+  FuzzySimplSet::run<TPB_X, value_idx, value_t>(inputs.n,
+                                                knn_graph.knn_indices,
+                                                knn_graph.knn_dists,
+                                                params->n_neighbors,
+                                                &tmp_coo,
+                                                params,
+                                                d_alloc,
+                                                stream);
+  CUDA_CHECK(cudaPeekAtLastError());
+
+  raft::sparse::op::coo_remove_zeros<TPB_X, value_t>(&tmp_coo, &rgraph_coo, d_alloc, stream);
+
+  /**
+   * If target metric is 'categorical', perform
+   * categorical simplicial set intersection.
+   */
+  if (params->target_metric == ML::UMAPParams::MetricType::CATEGORICAL) {
+    CUML_LOG_DEBUG("Performing categorical intersection");
+    Supervised::perform_categorical_intersection<TPB_X, value_t>(
+      inputs.y, &rgraph_coo, cgraph_coo, params, d_alloc, stream);
+
+    /**
+     * Otherwise, perform general simplicial set intersection
+     */
+  } else {
+    CUML_LOG_DEBUG("Performing general intersection");
+    Supervised::perform_general_intersection<TPB_X, value_idx, value_t>(
+      handle, inputs.y, &rgraph_coo, cgraph_coo, params, stream);
+  }
+
+  /**
+   * Remove zeros
+   */
+  raft::sparse::op::coo_sort<value_t>(cgraph_coo, d_alloc, stream);
+
+  raft::sparse::COO<value_t> ocoo(d_alloc, stream);
+  raft::sparse::op::coo_remove_zeros<TPB_X, value_t>(cgraph_coo, &ocoo, d_alloc, stream);
   ML::POP_RANGE();
 }
 
