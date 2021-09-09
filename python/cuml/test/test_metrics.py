@@ -152,7 +152,7 @@ def test_sklearn_search():
                        normalize=normalize, solver="eig")
 
     assert getattr(cu_clf, 'score', False)
-    sk_cu_grid = GridSearchCV(cu_clf, params, cv=5, iid=False)
+    sk_cu_grid = GridSearchCV(cu_clf, params, cv=5)
 
     gdf_data = cudf.DataFrame(X_train)
     gdf_train = cudf.DataFrame(dict(train=y_train))
