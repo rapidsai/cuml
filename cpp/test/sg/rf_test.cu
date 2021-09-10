@@ -178,6 +178,24 @@ auto FilPredict(const raft::handle_t& handle,
 }
 
 template <typename DataT, typename LabelT>
+auto FilPredictProba(const raft::handle_t& handle,
+                     RfTestParams params,
+                     DataT* X_transpose,
+                     RandomForestMetaData<DataT, LabelT>* forest)
+{
+  std::size_t num_outputs = params.n_labels;
+  auto pred = std::make_shared<thrust::device_vector<float>>(params.n_rows * num_outputs);
+  ModelHandle model;
+  static_assert(std::is_integral_v<LabelT>, "Must be classification");
+  build_treelite_forest(&model, forest, params.n_cols);
+  fil::treelite_params_t tl_params{
+    fil::algo_t::ALGO_AUTO, 0, 0.0f, fil::storage_type_t::AUTO, 8, 1, 0, nullptr};
+  fil::forest_t fil_forest;
+  fil::from_treelite(handle, &fil_forest, model, &tl_params);
+  fil::predict(handle, fil_forest, pred->data().get(), X_transpose, params.n_rows, true);
+  return pred;
+}
+template <typename DataT, typename LabelT>
 auto TrainScore(
   const raft::handle_t& handle, RfTestParams params, DataT* X, DataT* X_transpose, LabelT* y)
 {
@@ -351,6 +369,28 @@ class RfSpecialisedTest {
       }
     }
   }
+
+  // Difference between the largest element and second largest
+  DataT MinDifference(DataT* begin, std::size_t len)
+  {
+    std::size_t max_element_index = 0;
+    DataT max_element             = 0.0;
+    for (std::size_t i = 0; i < len; i++) {
+      if (begin[i] > max_element) {
+        max_element_index = i;
+        max_element       = begin[i];
+      }
+    }
+    DataT second_max_element = 0.0;
+    for (std::size_t i = 0; i < len; i++) {
+      if (begin[i] > second_max_element && i != max_element_index) {
+        second_max_element = begin[i];
+      }
+    }
+
+    return std::abs(max_element - second_max_element);
+  }
+
   // Compare fil against native rf predictions
   // Only for single precision models
   void TestFilPredict()
@@ -360,10 +400,26 @@ class RfSpecialisedTest {
     } else {
       raft::handle_t handle(params.n_streams);
       auto fil_pred = FilPredict(handle, params, X_transpose.data().get(), forest.get());
+
       thrust::host_vector<float> h_fil_pred(*fil_pred);
       thrust::host_vector<float> h_pred(*predictions);
+
+      thrust::host_vector<float> h_fil_pred_prob;
+      if constexpr (std::is_integral_v<LabelT>) {
+        h_fil_pred_prob = *FilPredictProba(handle, params, X_transpose.data().get(), forest.get());
+      }
+
       float tol = 1e-2;
       for (std::size_t i = 0; i < h_fil_pred.size(); i++) {
+        // If the output probabilities are very similar for different classes
+        // FIL may output a different class due to numerical differences
+        // Skip these cases
+        if constexpr (std::is_integral_v<LabelT>) {
+          int num_outputs = forest->trees[0]->num_outputs;
+          auto min_diff   = MinDifference(&h_fil_pred_prob[i * num_outputs], num_outputs);
+          if (min_diff < tol) continue;
+        }
+
         EXPECT_LE(abs(h_fil_pred[i] - h_pred[i]), tol);
       }
     }
