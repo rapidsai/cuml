@@ -107,25 +107,39 @@ void predict(raft::handle_t& handle,
   ML::PUSH_RANGE(__func__);
   const auto stream = handle.get_stream();
 
-  bool diff = order.need_diff() && pre_diff && level == 0;
+  bool diff     = order.need_diff() && pre_diff && level == 0;
+  int num_steps = std::max(end - n_obs, 0);
 
   // Prepare data
   int n_obs_kf;
   const double* d_y_kf;
   const double* d_exog_kf;
+  const double* d_exog_fut_kf = d_exog_fut;
   ARIMAOrder order_after_prep = order;
+  rmm::device_uvector<double> exog_fut_buffer(0, stream);
   if (diff) {
     n_obs_kf = n_obs - order.n_diff();
     MLCommon::TimeSeries::prepare_data(
       arima_mem.y_diff, d_y, batch_size, n_obs, order.d, order.D, order.s, stream);
-    MLCommon::TimeSeries::prepare_data(arima_mem.exog_diff,
-                                       d_exog,
-                                       order.n_exog * batch_size,
-                                       n_obs,
-                                       order.d,
-                                       order.D,
-                                       order.s,
-                                       stream);
+    if (order.n_exog > 0) {
+      MLCommon::TimeSeries::prepare_data(arima_mem.exog_diff,
+                                         d_exog,
+                                         order.n_exog * batch_size,
+                                         n_obs,
+                                         order.d,
+                                         order.D,
+                                         order.s,
+                                         stream);
+
+      if (num_steps > 0) {
+        exog_fut_buffer.resize(num_steps * order.n_exog * batch_size, stream);
+
+        /// TODO: prepare future exog with past exog
+        ///       -> need to write an alternative version of prepare_data...
+
+        d_exog_fut_kf = exog_fut_buffer.data();
+      }
+    }
     order_after_prep.d = 0;
     order_after_prep.D = 0;
 
@@ -140,7 +154,6 @@ void predict(raft::handle_t& handle,
   double* d_pred = arima_mem.pred;
 
   // Create temporary array for the forecasts
-  int num_steps = std::max(end - n_obs, 0);
   rmm::device_uvector<double> fc_buffer(num_steps * batch_size, stream);
   double* d_y_fc = fc_buffer.data();
 
@@ -162,6 +175,7 @@ void predict(raft::handle_t& handle,
                   0,
                   num_steps,
                   d_y_fc,
+                  d_exog_fut_kf,
                   level,
                   d_lower,
                   d_upper);
@@ -390,6 +404,7 @@ void batched_loglike(raft::handle_t& handle,
                      int truncate,
                      int fc_steps,
                      double* d_fc,
+                     const double* d_exog_fut,
                      double level,
                      double* d_lower,
                      double* d_upper)
@@ -431,6 +446,7 @@ void batched_loglike(raft::handle_t& handle,
     batched_kalman_filter(handle,
                           arima_mem,
                           d_y,
+                          d_exog,
                           n_obs,
                           Tparams,
                           order,
@@ -439,6 +455,7 @@ void batched_loglike(raft::handle_t& handle,
                           d_pred,
                           fc_steps,
                           d_fc,
+                          d_exog_fut,
                           level,
                           d_lower,
                           d_upper);
@@ -463,12 +480,7 @@ void batched_loglike(raft::handle_t& handle,
                      bool trans,
                      bool host_loglike,
                      LoglikeMethod method,
-                     int truncate,
-                     int fc_steps,
-                     double* d_fc,
-                     double level,
-                     double* d_lower,
-                     double* d_upper)
+                     int truncate)
 {
   ML::PUSH_RANGE(__func__);
 
@@ -497,12 +509,7 @@ void batched_loglike(raft::handle_t& handle,
                   trans,
                   host_loglike,
                   method,
-                  truncate,
-                  fc_steps,
-                  d_fc,
-                  level,
-                  d_lower,
-                  d_upper);
+                  truncate);
 
   ML::POP_RANGE();
 }
@@ -840,9 +847,76 @@ void _arma_least_squares(raft::handle_t& handle,
  */
 void _start_params(raft::handle_t& handle,
                    ARIMAParams<double>& params,
-                   const MLCommon::LinAlg::Batched::Matrix<double>& bm_y,
+                   MLCommon::LinAlg::Batched::Matrix<double>& bm_y,
+                   const MLCommon::LinAlg::Batched::Matrix<double>& bm_exog,
                    const ARIMAOrder& order)
 {
+  int batch_size      = bm_exog.batches();
+  cudaStream_t stream = bm_exog.stream();
+
+  // Estimate exog coefficients and subtract component to endog
+  if (order.n_exog > 0) {
+    // In most cases, the system will be overdetermined and we can use gels
+    if (bm_exog.shape().first > static_cast<unsigned int>(order.n_exog)) {
+      // Make a copy of the exogenous series for in-place gels
+      MLCommon::LinAlg::Batched::Matrix<double> bm_exog_copy(bm_exog);
+      // Make a copy of the endogenous series for in-place gels
+      MLCommon::LinAlg::Batched::Matrix<double> bm_y_copy(bm_y);
+
+      // Least-squares solution of overdetermined system
+      rmm::device_uvector<int> info(batch_size, stream);
+      b_gels(bm_exog_copy, bm_y_copy, info.data());
+
+      // Make a batched matrix around the exogenous coefficients
+      rmm::device_uvector<double*> beta_pointers(batch_size, stream);
+      MLCommon::LinAlg::Batched::Matrix<double> bm_exog_coef(order.n_exog,
+                                                             1,
+                                                             batch_size,
+                                                             bm_exog.cublasHandle(),
+                                                             beta_pointers.data(),
+                                                             params.beta,
+                                                             stream,
+                                                             false);
+
+      // Copy the solution of the system to the parameters array
+      b_2dcopy(bm_y_copy, bm_exog_coef, 0, 0, order.n_exog, 1);
+
+      // Set parameters to zero when solving was not successful
+      auto counting       = thrust::make_counting_iterator(0);
+      int* devInfoArray   = info.data();
+      double* d_exog_coef = bm_exog_coef.raw_data();
+      const int& n_exog   = order.n_exog;
+      thrust::for_each(
+        thrust::cuda::par.on(stream), counting, counting + batch_size, [=] __device__(int bid) {
+          if (devInfoArray[bid] > 0) {
+            for (int i = 0; i < n_exog; i++) {
+              d_exog_coef[bid * n_exog + i] = 0.0;
+            }
+          }
+        });
+
+      // Compute exogenous component and store the result in bm_y_copy
+      b_gemm(false,
+             false,
+             bm_exog.shape().first,
+             1,
+             bm_exog.shape().second,
+             1.0,
+             bm_exog,
+             bm_exog_coef,
+             0.0,
+             bm_y_copy);
+
+      // Subtract exogenous component to endogenous variable
+      b_aA_op_B(bm_y, bm_y_copy, bm_y, [] __device__(double a, double b) { return a - b; });
+    }
+    // In other cases, we initialize to zero
+    else {
+      CUDA_CHECK(
+        cudaMemsetAsync(params.beta, 0, order.n_exog * batch_size * sizeof(double), stream));
+    }
+  }
+
   // Estimate an ARMA fit without seasonality
   if (order.p + order.q + order.k)
     _arma_least_squares(handle,
@@ -884,6 +958,10 @@ void estimate_x0(raft::handle_t& handle,
   auto stream             = handle_impl.get_stream();
   auto cublas_handle      = handle_impl.get_cublas_handle();
 
+  /// TODO: solve exogenous coefficients with only valid rows instead of interpolation?
+  // Pros: better coefficients
+  // Cons: harder to test, a bit more complicated
+
   // Least squares can't deal with missing values: create copy with naive
   // replacements for missing values
   const double* d_y_no_missing;
@@ -904,8 +982,22 @@ void estimate_x0(raft::handle_t& handle,
   MLCommon::TimeSeries::prepare_data(
     bm_yd.raw_data(), d_y_no_missing, batch_size, n_obs, order.d, order.D, order.s, stream);
 
+  // Difference or copy exog
+  MLCommon::LinAlg::Batched::Matrix<double> bm_exog_diff(
+    n_obs - order.d - order.s * order.D, order.n_exog, batch_size, cublas_handle, stream, false);
+  if (order.n_exog > 0) {
+    MLCommon::TimeSeries::prepare_data(bm_exog_diff.raw_data(),
+                                       d_exog,
+                                       order.n_exog * batch_size,
+                                       n_obs,
+                                       order.d,
+                                       order.D,
+                                       order.s,
+                                       stream);
+  }
+
   // Do the computation of the initial parameters
-  _start_params(handle, params, bm_yd, order);
+  _start_params(handle, params, bm_yd, bm_exog_diff, order);
   ML::POP_RANGE();
 }
 

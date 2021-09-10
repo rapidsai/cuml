@@ -32,6 +32,8 @@ namespace ML {
  * @param[in]  arima_mem     Pre-allocated temporary memory
  * @param[in]  d_ys_b        Batched time series
  *                           Shape (nobs, batch_size) (col-major, device)
+ * @param[in]  d_exog_b      Batched exogenous variables
+ *                           Shape (nobs, n_exog * batch_size) (col-major, device)
  * @param[in]  nobs          Number of samples per time series
  * @param[in]  params        ARIMA parameters (device)
  * @param[in]  order         ARIMA hyper-parameters
@@ -41,6 +43,8 @@ namespace ML {
  *                           shape=(nobs-d-s*D, batch_size) (device)
  * @param[in]  fc_steps      Number of steps to forecast
  * @param[in]  d_fc          Array to store the forecast
+ * @param[in]  d_exog_fut    Future values of exogenous variables
+ *                           Shape (fc_steps, n_exog * batch_size) (col-major, device)
  * @param[in]  level         Confidence level for prediction intervals. 0 to
  *                           skip the computation. Else 0 < level < 1
  * @param[out] d_lower       Lower limit of the prediction interval
@@ -49,6 +53,7 @@ namespace ML {
 void batched_kalman_filter(raft::handle_t& handle,
                            const ARIMAMemory<double>& arima_mem,
                            const double* d_ys_b,
+                           const double* d_exog,
                            int nobs,
                            const ARIMAParams<double>& params,
                            const ARIMAOrder& order,
@@ -57,6 +62,7 @@ void batched_kalman_filter(raft::handle_t& handle,
                            double* d_pred,
                            int fc_steps    = 0,
                            double* d_fc    = nullptr,
+                           const double* d_exog_fut = nullptr,
                            double level    = 0,
                            double* d_lower = nullptr,
                            double* d_upper = nullptr);

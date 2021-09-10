@@ -103,12 +103,6 @@ void batched_diff(raft::handle_t& handle,
  * @param[in]  method       Whether to use sum-of-squares or Kalman filter
  * @param[in]  truncate     For CSS, start the sum-of-squares after a given
  *                          number of observations
- * @param[in]  fc_steps     Number of steps to forecast
- * @param[in]  d_fc         Array to store the forecast
- * @param[in]  level        Confidence level for prediction intervals. 0 to
- *                          skip the computation. Else 0 < level < 1
- * @param[out] d_lower      Lower limit of the prediction interval
- * @param[out] d_upper      Upper limit of the prediction interval
  */
 void batched_loglike(raft::handle_t& handle,
                      const ARIMAMemory<double>& arima_mem,
@@ -119,15 +113,10 @@ void batched_loglike(raft::handle_t& handle,
                      const ARIMAOrder& order,
                      const double* d_params,
                      double* loglike,
-                     bool trans           = true,
-                     bool host_loglike    = true,
-                     LoglikeMethod method = MLE,
-                     int truncate         = 0,
-                     int fc_steps         = 0,
-                     double* d_fc         = nullptr,
-                     double level         = 0,
-                     double* d_lower      = nullptr,
-                     double* d_upper      = nullptr);
+                     bool trans               = true,
+                     bool host_loglike        = true,
+                     LoglikeMethod method     = MLE,
+                     int truncate             = 0);
 
 /**
  * Compute the loglikelihood of the given parameter on the given time series
@@ -154,6 +143,8 @@ void batched_loglike(raft::handle_t& handle,
  *                          number of observations
  * @param[in]  fc_steps     Number of steps to forecast
  * @param[in]  d_fc         Array to store the forecast
+ * @param[in]  d_exog_fut   Future values of exogenous variables
+ *                          Shape (fc_steps, n_exog * batch_size) (col-major, device)
  * @param[in]  level        Confidence level for prediction intervals. 0 to
  *                          skip the computation. Else 0 < level < 1
  * @param[out] d_lower      Lower limit of the prediction interval
@@ -168,15 +159,16 @@ void batched_loglike(raft::handle_t& handle,
                      const ARIMAOrder& order,
                      const ARIMAParams<double>& params,
                      double* loglike,
-                     bool trans           = true,
-                     bool host_loglike    = true,
-                     LoglikeMethod method = MLE,
-                     int truncate         = 0,
-                     int fc_steps         = 0,
-                     double* d_fc         = nullptr,
-                     double level         = 0,
-                     double* d_lower      = nullptr,
-                     double* d_upper      = nullptr);
+                     bool trans               = true,
+                     bool host_loglike        = true,
+                     LoglikeMethod method     = MLE,
+                     int truncate             = 0,
+                     int fc_steps             = 0,
+                     double* d_fc             = nullptr,
+                     const double* d_exog_fut = nullptr,
+                     double level             = 0,
+                     double* d_lower          = nullptr,
+                     double* d_upper          = nullptr);
 
 /**
  * Compute the gradient of the log-likelihood

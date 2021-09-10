@@ -692,10 +692,10 @@ class ARIMA(Base):
                 raise ValueError(
                     "Dimensions mismatch: `exog` should contain {}"
                     " observations per column".format(end - self.n_obs))
-            elif n_cols_fut != self.batch_size * self.n_exog:
+            elif n_cols_fut != self.batch_size * order.n_exog:
                 raise ValueError(
                     "Dimensions mismatch: `exog` should have {} columns"
-                    .format(self.batch_size * self.n_exog))
+                    .format(self.batch_size * order.n_exog))
             d_exog_fut_ptr = d_exog_fut.ptr
 
         # allocate predictions and intervals device memory
