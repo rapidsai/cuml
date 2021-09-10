@@ -447,7 +447,7 @@ class SimpleImputer(_BaseImputer, BaseEstimator,
             else:
                 mask = _get_mask(X.data, self.missing_values)
                 indexes = np.repeat(
-                    np.arange(len(X.indptr) - 1, dtype=np.int),
+                    np.arange(len(X.indptr) - 1, dtype=int),
                     np.diff(X.indptr).tolist())[mask]
 
                 X.data[mask] = valid_statistics[indexes].astype(X.dtype,

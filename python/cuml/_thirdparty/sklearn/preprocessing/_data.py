@@ -1238,7 +1238,7 @@ class RobustScaler(TransformerMixin,
                 else:
                     column_data = X[:, feature_idx]
 
-                is_not_nan = ~np.isnan(column_data).astype(np.bool)
+                is_not_nan = ~np.isnan(column_data).astype(bool)
                 column_data = column_data[is_not_nan]
                 quantiles.append(np.percentile(column_data,
                                                self.quantile_range))
