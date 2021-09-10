@@ -16,6 +16,7 @@
 
 
 import cupy as cp
+import cupyx as cpx
 from numba import cuda
 from math import ceil
 
@@ -356,6 +357,6 @@ def csr_polynomial_expansion(X, interaction_only, degree):
                                 d, interaction_only, degree,
                                 expanded_indptr)
 
-    return cupyx.scipy.sparse.csr_matrix((expanded_data, expanded_indices,
+    return cpx.scipy.sparse.csr_matrix((expanded_data, expanded_indices,
                                  expanded_indptr),
                                 shape=(num_rows, expanded_dimensionality))

@@ -383,7 +383,7 @@ def test_unfit_pickle(model_name):
 
 @pytest.mark.parametrize('model_name',
                          all_models.keys())
-@pytest.mark.filterwarnings("ignore:((.|\n)*)unknown((.|\n)*):UserWarning:cuml[.*]")
+@pytest.mark.filterwarnings("ignore:Transformers((.|\n)*):UserWarning:cuml[.*]")
 def test_unfit_clone(model_name):
     if model_name in unfit_clone_xfail:
         pytest.xfail()
@@ -578,7 +578,7 @@ def test_tsne_pickle(tmpdir):
         result["fit_model"] = pickled_model.fit(X)
         result["data"] = X
         result["trust"] = trustworthiness(
-            X, pickled_model.embedding_, 10)
+            X, pickled_model.embedding_, n_neighbors=10)
 
     def create_mod_2():
         model = result["fit_model"]
@@ -586,7 +586,7 @@ def test_tsne_pickle(tmpdir):
 
     def assert_second_model(pickled_model, X):
         trust_after = trustworthiness(
-            X, pickled_model.embedding_, 10)
+            X, pickled_model.embedding_, n_neighbors=10)
         assert result["trust"] == trust_after
 
     pickle_save_load(tmpdir, create_mod, assert_model)
@@ -708,6 +708,7 @@ def test_svc_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info, params):
 @pytest.mark.parametrize('nrows', [unit_param(100)])
 @pytest.mark.parametrize('ncols', [unit_param(20)])
 @pytest.mark.parametrize('n_info', [unit_param(10)])
+@pytest.mark.filterwarnings("ignore:((.|\n)*)n_streams((.|\n)*):UserWarning:cuml[.*]")
 def test_small_rf(tmpdir, key, datatype, nrows, ncols, n_info):
 
     result = {}
