@@ -18,7 +18,6 @@
 
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/transpose.h>
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/decomposition/params.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
@@ -45,11 +44,10 @@ void truncCompExpVars(const raft::handle_t& handle,
                       const paramsTSVDTemplate<enum_solver> prms,
                       cudaStream_t stream)
 {
-  size_t len     = prms.n_cols * prms.n_cols;
-  auto allocator = handle.get_device_allocator();
-  device_buffer<math_t> components_all(allocator, stream, len);
-  device_buffer<math_t> explained_var_all(allocator, stream, prms.n_cols);
-  device_buffer<math_t> explained_var_ratio_all(allocator, stream, prms.n_cols);
+  size_t len = prms.n_cols * prms.n_cols;
+  rmm::device_uvector<math_t> components_all(len, stream);
+  rmm::device_uvector<math_t> explained_var_all(prms.n_cols, stream);
+  rmm::device_uvector<math_t> explained_var_ratio_all(prms.n_cols, stream);
 
   calEig<math_t, enum_solver>(
     handle, in, components_all.data(), explained_var_all.data(), prms, stream);
@@ -105,7 +103,7 @@ void pcaFit(const raft::handle_t& handle,
   raft::stats::mean(mu, input, prms.n_cols, prms.n_rows, true, false, stream);
 
   size_t len = prms.n_cols * prms.n_cols;
-  device_buffer<math_t> cov(handle.get_device_allocator(), stream, len);
+  rmm::device_uvector<math_t> cov(len, stream);
 
   Stats::cov(handle, cov.data(), input, mu, prms.n_cols, prms.n_rows, true, false, true, stream);
   truncCompExpVars(
@@ -159,13 +157,7 @@ void pcaFitTransform(const raft::handle_t& handle,
          prms,
          stream);
   pcaTransform(handle, input, components, trans_input, singular_vals, mu, prms, stream);
-  signFlip(trans_input,
-           prms.n_rows,
-           prms.n_components,
-           components,
-           prms.n_cols,
-           handle.get_device_allocator(),
-           stream);
+  signFlip(trans_input, prms.n_rows, prms.n_components, components, prms.n_cols, stream);
 }
 
 // TODO: implement pcaGetCovariance function

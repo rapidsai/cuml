@@ -14,24 +14,29 @@
  * limitations under the License.
  */
 
-#include <cuml/fil/fil.h>
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
+#include "../../src/fil/internal.cuh"
+
 #include <test_utils.h>
+
+#include <cuml/fil/fil.h>
+
+#include <raft/cudart_utils.h>
+#include <raft/cuda_utils.cuh>
+#include <raft/random/rng.cuh>
+
 #include <treelite/c_api.h>
 #include <treelite/frontend.h>
 #include <treelite/tree.h>
+
+#include <gtest/gtest.h>
+
 #include <cmath>
 #include <cstdio>
 #include <limits>
 #include <memory>
 #include <numeric>
 #include <ostream>
-#include <raft/cuda_utils.cuh>
-#include <raft/random/rng.cuh>
 #include <utility>
-
-#include "../../src/fil/internal.cuh"
 
 #define TL_CPP_CHECK(call) ASSERT(int(call) >= 0, "treelite call error")
 
@@ -158,12 +163,12 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     bool* is_leafs_h    = nullptr;
 
     // allocate GPU data
-    raft::allocate(weights_d, num_nodes);
+    raft::allocate(weights_d, num_nodes, stream);
     // sizeof(float) == sizeof(int)
-    raft::allocate(thresholds_d, num_nodes);
-    raft::allocate(fids_d, num_nodes);
-    raft::allocate(def_lefts_d, num_nodes);
-    raft::allocate(is_leafs_d, num_nodes);
+    raft::allocate(thresholds_d, num_nodes, stream);
+    raft::allocate(fids_d, num_nodes, stream);
+    raft::allocate(def_lefts_d, num_nodes, stream);
+    raft::allocate(is_leafs_d, num_nodes, stream);
 
     // generate on-GPU random data
     raft::random::Rng r(ps.seed);
@@ -206,7 +211,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     // mark leaves
-    for (size_t i = 0; i < ps.num_trees; ++i) {
+    for (int i = 0; i < ps.num_trees; ++i) {
       int num_tree_nodes = tree_num_nodes();
       size_t leaf_start  = num_tree_nodes * i + num_tree_nodes / 2;
       size_t leaf_end    = num_tree_nodes * (i + 1);
@@ -247,9 +252,9 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   {
     // allocate arrays
     size_t num_data = ps.num_rows * ps.num_cols;
-    raft::allocate(data_d, num_data);
+    raft::allocate(data_d, num_data, stream);
     bool* mask_d = nullptr;
-    raft::allocate(mask_d, num_data);
+    raft::allocate(mask_d, num_data, stream);
 
     // generate random data
     raft::random::Rng r(ps.seed);
@@ -370,11 +375,13 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
             class_probabilities.begin();
         }
         break;
+      case fil::leaf_algo_t::GROVE_PER_CLASS_FEW_CLASSES:
+      case fil::leaf_algo_t::GROVE_PER_CLASS_MANY_CLASSES: break;
     }
 
     // copy to GPU
-    raft::allocate(want_preds_d, ps.num_preds_outputs());
-    raft::allocate(want_proba_d, ps.num_proba_outputs());
+    raft::allocate(want_preds_d, ps.num_preds_outputs(), stream);
+    raft::allocate(want_proba_d, ps.num_proba_outputs(), stream);
     raft::update_device(want_preds_d, want_preds_h.data(), ps.num_preds_outputs(), stream);
     raft::update_device(want_proba_d, want_proba_h.data(), ps.num_proba_outputs(), stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -388,8 +395,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     init_forest(&forest);
 
     // predict
-    raft::allocate(preds_d, ps.num_preds_outputs());
-    raft::allocate(proba_d, ps.num_proba_outputs());
+    raft::allocate(preds_d, ps.num_preds_outputs(), stream);
+    raft::allocate(proba_d, ps.num_proba_outputs(), stream);
     fil::predict(handle, forest, preds_d, data_d, ps.num_rows);
     fil::predict(handle, forest, proba_d, data_d, ps.num_rows, true);
     CUDA_CHECK(cudaStreamSynchronize(stream));
@@ -447,7 +454,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
   std::vector<float> vector_leaf;
 
   // parameters
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   raft::handle_t handle;
   FilTestParams ps;
 };
@@ -585,6 +592,8 @@ class TreeliteFilTest : public BaseFilTest {
           builder->SetLeafVectorNode(key, vec);
           break;
         }
+        case fil::leaf_algo_t::GROVE_PER_CLASS_FEW_CLASSES:
+        case fil::leaf_algo_t::GROVE_PER_CLASS_MANY_CLASSES: break;
       }
     } else {
       int left          = root + 2 * (node - root) + 1;

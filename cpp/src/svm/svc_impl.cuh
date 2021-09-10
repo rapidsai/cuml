@@ -30,11 +30,12 @@
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/iterator/counting_iterator.h>
-#include <cuml/common/device_buffer.hpp>
-#include <label/classlabels.cuh>
 #include <matrix/kernelfactory.cuh>
+#include <raft/label/classlabels.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/matrix.cuh>
+#include <rmm/device_uvector.hpp>
+#include <rmm/mr/device/per_device_resource.hpp>
 #include "kernelcache.cuh"
 #include "smosolver.cuh"
 
@@ -47,9 +48,9 @@ void svcFit(const raft::handle_t& handle,
             int n_rows,
             int n_cols,
             math_t* labels,
-            const svmParameter& param,
+            const SvmParameter& param,
             MLCommon::Matrix::KernelParams& kernel_params,
-            svmModel<math_t>& model,
+            SvmModel<math_t>& model,
             const math_t* sample_weight)
 {
   ASSERT(n_cols > 0, "Parameter n_cols: number of columns cannot be less than one");
@@ -61,16 +62,18 @@ void svcFit(const raft::handle_t& handle,
   const raft::handle_t& handle_impl = handle;
 
   cudaStream_t stream = handle_impl.get_stream();
-  MLCommon::Label::getUniqueLabels(labels,
-                                   n_rows,
-                                   &(model.unique_labels),
-                                   &(model.n_classes),
-                                   stream,
-                                   handle_impl.get_device_allocator());
+  {
+    rmm::device_uvector<math_t> unique_labels(0, stream);
+    model.n_classes = raft::label::getUniquelabels(unique_labels, labels, n_rows, stream);
+    rmm::mr::device_memory_resource* rmm_alloc = rmm::mr::get_current_device_resource();
+    model.unique_labels = (math_t*)rmm_alloc->allocate(model.n_classes * sizeof(math_t), stream);
+    raft::copy(model.unique_labels, unique_labels.data(), model.n_classes, stream);
+    CUDA_CHECK(cudaStreamSynchronize(stream));
+  }
 
   ASSERT(model.n_classes == 2, "Only binary classification is implemented at the moment");
 
-  MLCommon::device_buffer<math_t> y(handle_impl.get_device_allocator(), stream, n_rows);
+  rmm::device_uvector<math_t> y(n_rows, stream);
   MLCommon::Label::getOvrLabels(
     labels, n_rows, model.unique_labels, model.n_classes, y.data(), 1, stream);
 
@@ -98,7 +101,7 @@ void svcPredict(const raft::handle_t& handle,
                 int n_rows,
                 int n_cols,
                 MLCommon::Matrix::KernelParams& kernel_params,
-                const svmModel<math_t>& model,
+                const SvmModel<math_t>& model,
                 math_t* preds,
                 math_t buffer_size,
                 bool predict_class)
@@ -119,14 +122,13 @@ void svcPredict(const raft::handle_t& handle,
   const raft::handle_t& handle_impl = handle;
   cudaStream_t stream               = handle_impl.get_stream();
 
-  MLCommon::device_buffer<math_t> K(
-    handle_impl.get_device_allocator(), stream, n_batch * model.n_support);
-  MLCommon::device_buffer<math_t> y(handle_impl.get_device_allocator(), stream, n_rows);
+  rmm::device_uvector<math_t> K(n_batch * model.n_support, stream);
+  rmm::device_uvector<math_t> y(n_rows, stream);
   if (model.n_support == 0) {
     CUDA_CHECK(cudaMemsetAsync(y.data(), 0, n_rows * sizeof(math_t), stream));
   }
-  MLCommon::device_buffer<math_t> x_rbf(handle_impl.get_device_allocator(), stream);
-  MLCommon::device_buffer<int> idx(handle_impl.get_device_allocator(), stream);
+  rmm::device_uvector<math_t> x_rbf(0, stream);
+  rmm::device_uvector<int> idx(0, stream);
 
   cublasHandle_t cublas_handle = handle_impl.get_cublas_handle();
 
@@ -208,15 +210,15 @@ void svcPredict(const raft::handle_t& handle,
 }
 
 template <typename math_t>
-void svmFreeBuffers(const raft::handle_t& handle, svmModel<math_t>& m)
+void svmFreeBuffers(const raft::handle_t& handle, SvmModel<math_t>& m)
 {
-  auto allocator      = handle.get_device_allocator();
-  cudaStream_t stream = handle.get_stream();
-  if (m.dual_coefs) allocator->deallocate(m.dual_coefs, m.n_support * sizeof(math_t), stream);
-  if (m.support_idx) allocator->deallocate(m.support_idx, m.n_support * sizeof(int), stream);
+  cudaStream_t stream                        = handle.get_stream();
+  rmm::mr::device_memory_resource* rmm_alloc = rmm::mr::get_current_device_resource();
+  if (m.dual_coefs) rmm_alloc->deallocate(m.dual_coefs, m.n_support * sizeof(math_t), stream);
+  if (m.support_idx) rmm_alloc->deallocate(m.support_idx, m.n_support * sizeof(int), stream);
   if (m.x_support)
-    allocator->deallocate(m.x_support, m.n_support * m.n_cols * sizeof(math_t), stream);
-  if (m.unique_labels) allocator->deallocate(m.unique_labels, m.n_classes * sizeof(math_t), stream);
+    rmm_alloc->deallocate(m.x_support, m.n_support * m.n_cols * sizeof(math_t), stream);
+  if (m.unique_labels) rmm_alloc->deallocate(m.unique_labels, m.n_classes * sizeof(math_t), stream);
   m.dual_coefs    = nullptr;
   m.support_idx   = nullptr;
   m.x_support     = nullptr;

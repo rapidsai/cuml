@@ -41,10 +41,9 @@ void compute(const raft::handle_t& handle,
              Index_ batch_size,
              cudaStream_t stream)
 {
-  auto execution_policy = ML::thrust_exec_policy(handle.get_device_allocator(), stream);
-  auto counting         = thrust::make_counting_iterator<Index_>(0);
+  auto counting = thrust::make_counting_iterator<Index_>(0);
   thrust::for_each(
-    execution_policy->on(stream), counting, counting + batch_size, [=] __device__(Index_ idx) {
+    handle.get_thrust_policy(), counting, counting + batch_size, [=] __device__(Index_ idx) {
       mask[idx + start_vertex_id] = vd[idx] >= min_pts;
     });
 }

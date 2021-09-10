@@ -23,7 +23,6 @@
 #include <thrust/iterator/counting_iterator.h>
 
 #include <cuml/tsa/arima_common.h>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/random/rng.cuh>
 #include <timeSeries/arima_helpers.cuh>
 
@@ -127,7 +126,6 @@ __global__ void make_arima_kernel(DataT* d_diff,
  * @param[in]  batch_size     Batch size
  * @param[in]  n_obs          Number of observations per series
  * @param[in]  order          ARIMA order
- * @param[in]  allocator      Device memory allocator
  * @param[in]  stream         CUDA stream
  * @param[in]  scale          Scale used to draw the starting values
  * @param[in]  noise_scale    Scale used to draw the residuals
@@ -140,7 +138,6 @@ void make_arima(DataT* out,
                 int batch_size,
                 int n_obs,
                 ML::ARIMAOrder order,
-                std::shared_ptr<raft::mr::device::allocator> allocator,
                 cudaStream_t stream,
                 DataT scale                      = (DataT)1.0,
                 DataT noise_scale                = (DataT)0.2,
@@ -159,8 +156,8 @@ void make_arima(DataT* out,
   // Generate parameters. We draw temporary random parameters and transform
   // them to create the final parameters.
   ML::ARIMAParams<DataT> params_temp, params;
-  params_temp.allocate(order, batch_size, allocator, stream, false);
-  params.allocate(order, batch_size, allocator, stream, true);
+  params_temp.allocate(order, batch_size, stream, false);
+  params.allocate(order, batch_size, stream, true);
   if (order.k) {
     gpu_gen.uniform(params_temp.mu, batch_size, -intercept_scale, intercept_scale, stream);
   }
@@ -180,13 +177,12 @@ void make_arima(DataT* out,
   CUDA_CHECK(cudaMemsetAsync(params_temp.sigma2, 0, batch_size * sizeof(DataT), stream));
   // No need to copy, just reuse the pointer
   params.mu = params_temp.mu;
-  TimeSeries::batched_jones_transform(
-    order, batch_size, false, params_temp, params, allocator, stream);
+  TimeSeries::batched_jones_transform(order, batch_size, false, params_temp, params, stream);
 
   // Generate d+s*D starting values per series with a random walk
   // We first generate random values between -1 and 1 and then use a kernel to
   // create the random walk
-  device_buffer<DataT> starting_values(allocator, stream);
+  rmm::device_uvector<DataT> starting_values(0, stream);
   if (d_sD) {
     starting_values.resize(batch_size * d_sD, stream);
     DataT* d_start_val = starting_values.data();
@@ -208,7 +204,7 @@ void make_arima(DataT* out,
 
   // Create a buffer for the differenced series
   DataT* d_diff;
-  device_buffer<DataT> diff_data(allocator, stream);
+  rmm::device_uvector<DataT> diff_data(0, stream);
   if (d_sD) {
     diff_data.resize(batch_size * (n_obs - d_sD), stream);
     d_diff = diff_data.data();
@@ -217,8 +213,7 @@ void make_arima(DataT* out,
   }
 
   // Generate noise/residuals
-  device_buffer<DataT> residuals(allocator, stream);
-  residuals.resize(batch_size * (n_obs - d_sD), stream);
+  rmm::device_uvector<DataT> residuals(batch_size * (n_obs - d_sD), stream);
   gpu_gen.normal(residuals.data(), batch_size * (n_obs - d_sD), (DataT)0.0, noise_scale, stream);
 
   // Call the main kernel to generate the differenced series

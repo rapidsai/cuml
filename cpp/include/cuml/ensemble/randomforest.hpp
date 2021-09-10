@@ -19,7 +19,13 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/ensemble/treelite_defs.hpp>
 #include <cuml/tree/decisiontree.hpp>
+
 #include <map>
+#include <memory>
+
+namespace raft {
+class handle_t;  // forward decl
+}
 
 namespace ML {
 
@@ -89,9 +95,6 @@ struct RF_params {
   DT::DecisionTreeParams tree_params;
 };
 
-void validity_check(const RF_params rf_params);
-void print(const RF_params rf_params);
-
 /* Update labels so they are unique from 0 to n_unique_vals.
    Create an old_label to new_label map per random forest.
 */
@@ -108,15 +111,8 @@ void postprocess_labels(int n_rows,
 
 template <class T, class L>
 struct RandomForestMetaData {
-  DT::TreeMetaDataNode<T, L>* trees;
+  std::vector<std::shared_ptr<DT::TreeMetaDataNode<T, L>>> trees;
   RF_params rf_params;
-  // TODO can add prepare, train time, if needed
-
-  RandomForestMetaData() : trees(nullptr) {}
-  ~RandomForestMetaData()
-  {
-    if (trees != nullptr) { delete[] trees; }
-  }
 };
 
 template <class T, class L>

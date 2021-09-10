@@ -15,6 +15,8 @@
  */
 
 #include <raft/handle.hpp>
+#include <rmm/device_scalar.hpp>
+#include <rmm/device_uvector.hpp>
 
 #include <decisiontree/quantile/quantile.h>
 #include <gtest/gtest.h>
@@ -55,6 +57,19 @@ class BatchedLevelAlgoUnitTestFixture {
   static constexpr int TPB_DEFAULT = 256;
   static constexpr int TPB_SPLIT   = 128;
 
+  BatchedLevelAlgoUnitTestFixture()
+    : data(0, stream),
+      d_quantiles(0, stream),
+      labels(0, stream),
+      n_new_nodes(0, stream),
+      n_new_leaves(0, stream),
+      new_depth(0, stream),
+      row_ids(0, stream),
+      curr_nodes(0, stream),
+      new_nodes(0, stream)
+  {
+  }
+
   void SetUp()
   {
     params.max_depth             = 2;
@@ -71,80 +86,64 @@ class BatchedLevelAlgoUnitTestFixture {
     h_labels = {-1.0f, 2.0f, 2.0f, 6.0f, -2.0f};
     // X0 + 2 * X1
 
-    raft_handle      = std::make_unique<raft::handle_t>();
-    auto d_allocator = raft_handle->get_device_allocator();
+    raft_handle = std::make_unique<raft::handle_t>();
+    stream      = raft_handle->get_stream();
 
-    data        = static_cast<DataT*>(d_allocator->allocate(sizeof(DataT) * n_row * n_col, 0));
-    d_quantiles = static_cast<DataT*>(d_allocator->allocate(sizeof(DataT) * n_bins * n_col, 0));
-    labels      = static_cast<LabelT*>(d_allocator->allocate(sizeof(LabelT) * n_row, 0));
-    row_ids     = static_cast<IdxT*>(d_allocator->allocate(sizeof(IdxT) * n_row, 0));
+    data.resize(n_row * n_col, stream);
+    d_quantiles.resize(n_bins * n_col, stream);
+    labels.resize(n_row, stream);
+    row_ids.resize(n_row, stream);
 
     // Nodes that exist prior to the invocation of nodeSplitKernel()
-    curr_nodes = static_cast<NodeT*>(d_allocator->allocate(sizeof(NodeT) * max_batch, 0));
+    curr_nodes.resize(max_batch, stream);
     // Nodes that are created new by the invocation of nodeSplitKernel()
-    new_nodes = static_cast<NodeT*>(d_allocator->allocate(sizeof(NodeT) * 2 * max_batch, 0));
+    new_nodes.resize(2 * max_batch, stream);
     // Number of nodes and leaves that are created new by the invocation of
     // nodeSplitKernel()
-    n_new_nodes  = static_cast<IdxT*>(d_allocator->allocate(sizeof(IdxT), 0));
-    n_new_leaves = static_cast<IdxT*>(d_allocator->allocate(sizeof(IdxT), 0));
+    n_new_nodes.resize(1, stream);
+    n_new_leaves.resize(1, stream);
     // New depth reached by the invocation of nodeSplitKernel()
-    new_depth = static_cast<IdxT*>(d_allocator->allocate(sizeof(IdxT), 0));
+    new_depth.resize(1, stream);
 
-    splits = static_cast<SplitT*>(d_allocator->allocate(sizeof(SplitT) * max_batch, 0));
+    raft::allocate(splits, max_batch, stream);
 
-    raft::update_device(data, h_data.data(), n_row * n_col, 0);
-    raft::update_device(labels, h_labels.data(), n_row, 0);
-    computeQuantiles(d_quantiles, n_bins, data, n_row, n_col, d_allocator, nullptr);
-    MLCommon::iota(row_ids, 0, 1, n_row, 0);
+    raft::update_device(data.data(), h_data.data(), n_row * n_col, stream);
+    raft::update_device(labels.data(), h_labels.data(), n_row, stream);
+    computeQuantiles(d_quantiles.data(), n_bins, data.data(), n_row, n_col, nullptr);
+    MLCommon::iota(row_ids.data(), 0, 1, n_row, 0);
 
     CUDA_CHECK(cudaStreamSynchronize(0));
 
-    input.data         = data;
-    input.labels       = labels;
+    input.data         = data.data();
+    input.labels       = labels.data();
     input.M            = n_row;
     input.N            = n_col;
     input.nSampledRows = n_row;
     input.nSampledCols = n_col;
-    input.rowids       = row_ids;
+    input.rowids       = row_ids.data();
     input.numOutputs   = 1;
-    input.quantiles    = d_quantiles;
+    input.quantiles    = d_quantiles.data();
   }
 
   void TearDown()
   {
-    auto d_allocator = raft_handle->get_device_allocator();
-    d_allocator->deallocate(data, sizeof(DataT) * n_row * n_col, 0);
-    d_allocator->deallocate(d_quantiles, sizeof(DataT) * n_bins * n_col, 0);
-    d_allocator->deallocate(labels, sizeof(LabelT) * n_row, 0);
-    d_allocator->deallocate(row_ids, sizeof(IdxT) * n_row, 0);
-    d_allocator->deallocate(curr_nodes, sizeof(NodeT) * max_batch, 0);
-    d_allocator->deallocate(new_nodes, sizeof(NodeT) * 2 * max_batch, 0);
-    d_allocator->deallocate(n_new_nodes, sizeof(IdxT), 0);
-    d_allocator->deallocate(n_new_leaves, sizeof(IdxT), 0);
-    d_allocator->deallocate(new_depth, sizeof(IdxT), 0);
-    d_allocator->deallocate(splits, sizeof(SplitT) * max_batch, 0);
+    auto stream = raft_handle->get_stream();
+    raft::deallocate_all(stream);
   }
 
   DecisionTreeParams params;
 
   std::unique_ptr<raft::handle_t> raft_handle;
+  cudaStream_t stream = 0;
+  InputT input;
 
   std::vector<DataT> h_data;
   std::vector<LabelT> h_labels;
 
-  DataT* d_quantiles;
-  InputT input;
-
-  NodeT* curr_nodes;
-  NodeT* new_nodes;
-  IdxT* n_new_nodes;
-  IdxT* n_new_leaves;
-  IdxT* new_depth;
+  rmm::device_uvector<DataT> data, d_quantiles, labels;
+  rmm::device_uvector<IdxT> n_new_nodes, n_new_leaves, new_depth, row_ids;
+  rmm::device_uvector<NodeT> curr_nodes, new_nodes;
   SplitT* splits;
-
-  DataT* data;
-  DataT* labels;
-  IdxT* row_ids;
 };
 
 class TestNodeSplitKernel : public ::testing::TestWithParam<NodeSplitKernelTestParams>,
@@ -184,15 +183,18 @@ TEST_P(TestNodeSplitKernel, MinSamplesSplitLeaf)
     {{-1.50f, IdxT(-1), DataT(0), DataT(0), NodeT::Leaf}, 0, 2, 1},
     {{3.333333f, IdxT(-1), DataT(0), DataT(0), NodeT::Leaf}, 1, 3, 1},
   };
-  raft::update_device(curr_nodes, h_nodes.data() + 1, batchSize, 0);
-  CUDA_CHECK(cudaMemsetAsync(n_new_nodes, 0, sizeof(IdxT), 0));
-  CUDA_CHECK(cudaMemsetAsync(n_new_leaves, 0, sizeof(IdxT), 0));
-  CUDA_CHECK(cudaMemsetAsync(new_depth, 0, sizeof(IdxT), 0));
-  initSplit<DataT, IdxT, builder.TPB_DEFAULT>(splits, batchSize, 0);
+
+  auto stream = raft_handle->get_stream();
+
+  raft::update_device(curr_nodes.data(), h_nodes.data() + 1, batchSize, stream);
+  CUDA_CHECK(cudaMemsetAsync(n_new_nodes.data(), 0, sizeof(IdxT), stream));
+  CUDA_CHECK(cudaMemsetAsync(n_new_leaves.data(), 0, sizeof(IdxT), stream));
+  CUDA_CHECK(cudaMemsetAsync(new_depth.data(), 0, sizeof(IdxT), stream));
+  initSplit<DataT, IdxT, builder.TPB_DEFAULT>(splits, batchSize, stream);
 
   /* { quesval, colid, best_metric_val, nLeft } */
   std::vector<SplitT> h_splits{{-1.5f, 0, 0.25f, 1}, {2.0f, 1, 3.555556f, 2}};
-  raft::update_device(splits, h_splits.data(), 2, 0);
+  raft::update_device(splits, h_splits.data(), 2, stream);
 
   nodeSplitKernel<DataT, LabelT, IdxT, ObjectiveT, builder.TPB_SPLIT>
     <<<batchSize, builder.TPB_SPLIT, smemSize, 0>>>(params.max_depth,
@@ -201,15 +203,15 @@ TEST_P(TestNodeSplitKernel, MinSamplesSplitLeaf)
                                                     params.max_leaves,
                                                     params.min_impurity_decrease,
                                                     input,
-                                                    curr_nodes,
-                                                    new_nodes,
-                                                    n_new_nodes,
+                                                    curr_nodes.data(),
+                                                    new_nodes.data(),
+                                                    n_new_nodes.data(),
                                                     splits,
-                                                    n_new_leaves,
+                                                    n_new_leaves.data(),
                                                     h_n_total_nodes,
-                                                    new_depth);
+                                                    new_depth.data());
   CUDA_CHECK(cudaGetLastError());
-  raft::update_host(&h_n_new_nodes, n_new_nodes, 1, 0);
+  raft::update_host(&h_n_new_nodes, n_new_nodes.data(), 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(0));
   h_n_total_nodes += h_n_new_nodes;
   EXPECT_EQ(h_n_total_nodes, test_params.expected_n_total_nodes);
@@ -243,24 +245,22 @@ TEST_P(TestMetric, RegressionMetricGain)
                               *   }, start, count, depth
                               * } */
                              {{1.40f, IdxT(-1), DataT(0), DataT(0), NodeT::Leaf}, 0, 5, 0}};
-  raft::update_device(curr_nodes, h_nodes.data(), batchSize, 0);
+
+  auto stream = raft_handle->get_stream();
+
+  raft::update_device(curr_nodes.data(), h_nodes.data(), batchSize, stream);
 
   auto n_col_blks = 1;  // evaluate only one column (feature)
 
   IdxT nPredCounts = max_batch * n_bins * n_col_blks;
 
-  auto d_allocator = raft_handle->get_device_allocator();
-
   // mutex array used for atomically updating best split
-  int* mutex = static_cast<int*>(d_allocator->allocate(sizeof(int) * max_batch, 0));
+  rmm::device_uvector<int> mutex(max_batch, stream);
   // threadblock arrival count
-  int* done_count =
-    static_cast<int*>(d_allocator->allocate(sizeof(int) * max_batch * n_col_blks, 0));
-  ObjectiveT::BinT* hist = static_cast<ObjectiveT::BinT*>(
-    d_allocator->allocate(2 * nPredCounts * sizeof(ObjectiveT::BinT), 0));
+  rmm::device_uvector<int> done_count(max_batch * n_col_blks, stream);
+  rmm::device_uvector<ObjectiveT::BinT> hist(2 * nPredCounts, stream);
 
-  WorkloadInfo<IdxT>* workload_info =
-    static_cast<WorkloadInfo<IdxT>*>(d_allocator->allocate(sizeof(WorkloadInfo<IdxT>), 0));
+  rmm::device_scalar<WorkloadInfo<IdxT>> workload_info(stream);
   WorkloadInfo<IdxT> h_workload_info;
 
   // Just one threadBlock would be used
@@ -268,12 +268,12 @@ TEST_P(TestMetric, RegressionMetricGain)
   h_workload_info.offset_blockid = 0;
   h_workload_info.num_blocks     = 1;
 
-  raft::update_device(workload_info, &h_workload_info, 1, 0);
-  CUDA_CHECK(cudaMemsetAsync(mutex, 0, sizeof(int) * max_batch, 0));
-  CUDA_CHECK(cudaMemsetAsync(done_count, 0, sizeof(int) * max_batch * n_col_blks, 0));
-  CUDA_CHECK(cudaMemsetAsync(hist, 0, 2 * sizeof(DataT) * nPredCounts, 0));
-  CUDA_CHECK(cudaMemsetAsync(n_new_leaves, 0, sizeof(IdxT), 0));
-  initSplit<DataT, IdxT, TPB_DEFAULT>(splits, batchSize, 0);
+  raft::update_device(workload_info.data(), &h_workload_info, 1, stream);
+  CUDA_CHECK(cudaMemsetAsync(mutex.data(), 0, sizeof(int) * max_batch, stream));
+  CUDA_CHECK(cudaMemsetAsync(done_count.data(), 0, sizeof(int) * max_batch * n_col_blks, stream));
+  CUDA_CHECK(cudaMemsetAsync(hist.data(), 0, 2 * sizeof(DataT) * nPredCounts, stream));
+  CUDA_CHECK(cudaMemsetAsync(n_new_leaves.data(), 0, sizeof(IdxT), stream));
+  initSplit<DataT, IdxT, TPB_DEFAULT>(splits, batchSize, stream);
 
   std::vector<SplitT> h_splits(1);
 
@@ -292,25 +292,26 @@ TEST_P(TestMetric, RegressionMetricGain)
   size_t smemSize = std::max(smemSize1, smemSize2);
 
   dim3 grid(1, n_col_blks, 1);
-  computeSplitKernel<DataT, LabelT, IdxT, 32><<<grid, 32, smemSize, 0>>>(hist,
-                                                                         n_bins,
-                                                                         params.max_depth,
-                                                                         params.min_samples_split,
-                                                                         params.max_leaves,
-                                                                         input,
-                                                                         curr_nodes,
-                                                                         0,
-                                                                         done_count,
-                                                                         mutex,
-                                                                         splits,
-                                                                         obj,
-                                                                         0,
-                                                                         workload_info,
-                                                                         1234ULL);
+  computeSplitKernel<DataT, LabelT, IdxT, 32>
+    <<<grid, 32, smemSize, stream>>>(hist.data(),
+                                     n_bins,
+                                     params.max_depth,
+                                     params.min_samples_split,
+                                     params.max_leaves,
+                                     input,
+                                     curr_nodes.data(),
+                                     0,
+                                     done_count.data(),
+                                     mutex.data(),
+                                     splits,
+                                     obj,
+                                     0,
+                                     workload_info.data(),
+                                     1234ULL);
 
-  raft::update_host(h_splits.data(), splits, 1, 0);
+  raft::update_host(h_splits.data(), splits, 1, stream);
   CUDA_CHECK(cudaGetLastError());
-  CUDA_CHECK(cudaStreamSynchronize(0));
+  CUDA_CHECK(cudaStreamSynchronize(stream));
 
   // the split uses feature 0
   // rows 0, 4 go to the left side of the threshold
@@ -357,11 +358,6 @@ TEST_P(TestMetric, RegressionMetricGain)
                         3.0f / 5.0f * metric(h_labels, {1, 2, 3});
 
   EXPECT_FLOAT_EQ(h_splits[0].best_metric_val, expected_gain);
-
-  d_allocator->deallocate(mutex, sizeof(int) * max_batch, 0);
-  d_allocator->deallocate(done_count, sizeof(int) * max_batch * n_col_blks, 0);
-  d_allocator->deallocate(hist, 2 * nPredCounts * sizeof(DataT), 0);
-  d_allocator->deallocate(workload_info, sizeof(WorkloadInfo<IdxT>), 0);
 }
 
 INSTANTIATE_TEST_SUITE_P(BatchedLevelAlgoUnitTest,

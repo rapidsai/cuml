@@ -5,7 +5,7 @@ channels:
 - rapidsai-nightly
 - conda-forge
 dependencies:
-- cudatoolkit=11.0
+- cudatoolkit=11.4
 - rapids-build-env=21.10.*
 - rapids-notebook-env=21.10.*
 - rapids-doc-env=21.10.*

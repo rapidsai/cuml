@@ -17,7 +17,6 @@
 #include <raft/cudart_utils.h>
 #include <common/ml_benchmark.hpp>
 #include <raft/distance/distance.cuh>
-#include <raft/mr/device/allocator.hpp>
 
 namespace MLCommon {
 namespace Bench {
@@ -31,42 +30,34 @@ struct Params {
 template <typename T, raft::distance::DistanceType DType>
 struct Distance : public Fixture {
   Distance(const std::string& name, const Params& p)
-    : Fixture(
-        name,
-        std::shared_ptr<raft::mr::device::allocator>(new raft::mr::device::default_allocator)),
-      params(p)
+    : Fixture(name), params(p), x(0, stream), y(0, stream), out(0, stream), workspace(0, stream)
   {
   }
 
  protected:
   void allocateBuffers(const ::benchmark::State& state) override
   {
-    alloc(x, params.m * params.k, true);
-    alloc(y, params.n * params.k, true);
-    alloc(out, params.m * params.n, true);
-    workspace = nullptr;
-    worksize = raft::distance::getWorkspaceSize<DType, T, T, T>(x, y, params.m, params.n, params.k);
-    if (worksize != 0) { alloc(workspace, worksize, false); }
-  }
-
-  void deallocateBuffers(const ::benchmark::State& state) override
-  {
-    dealloc(x, params.m * params.k);
-    dealloc(y, params.n * params.k);
-    dealloc(out, params.m * params.n);
-    dealloc(workspace, worksize);
+    x.resize(params.m * params.k, stream);
+    y.resize(params.n * params.k, stream);
+    out.resize(params.m * params.n, stream);
+    CUDA_CHECK(cudaMemsetAsync(x.data(), 0, x.size() * sizeof(T), stream));
+    CUDA_CHECK(cudaMemsetAsync(y.data(), 0, y.size() * sizeof(T), stream));
+    CUDA_CHECK(cudaMemsetAsync(out.data(), 0, out.size() * sizeof(T), stream));
+    worksize = raft::distance::getWorkspaceSize<DType, T, T, T>(
+      x.data(), y.data(), params.m, params.n, params.k);
+    workspace.resize(worksize, stream);
   }
 
   void runBenchmark(::benchmark::State& state) override
   {
     loopOnState(state, [this]() {
-      raft::distance::distance<DType, T, T, T>(x,
-                                               y,
-                                               out,
+      raft::distance::distance<DType, T, T, T>(x.data(),
+                                               y.data(),
+                                               out.data(),
                                                params.m,
                                                params.n,
                                                params.k,
-                                               (void*)workspace,
+                                               (void*)workspace.data(),
                                                worksize,
                                                stream,
                                                params.isRowMajor);
@@ -75,8 +66,8 @@ struct Distance : public Fixture {
 
  private:
   Params params;
-  T *x, *y, *out;
-  char* workspace;
+  rmm::device_uvector<T> x, y, out;
+  rmm::device_uvector<char> workspace;
   size_t worksize;
 };  // struct Distance
 

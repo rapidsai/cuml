@@ -71,7 +71,7 @@ void build_condensed_hierarchy(const raft::handle_t& handle,
                                Common::CondensedHierarchy<value_idx, value_t>& condensed_tree)
 {
   cudaStream_t stream = handle.get_stream();
-  auto exec_policy    = rmm::exec_policy(stream);
+  auto exec_policy    = handle.get_thrust_policy();
 
   // Root is the last edge in the dendrogram
   int root = 2 * (n_leaves - 1);

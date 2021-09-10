@@ -18,11 +18,11 @@
 
 #include <thrust/device_ptr.h>
 #include <thrust/scan.h>
-#include <common/allocatorAdapter.hpp>
-#include <raft/cuda_utils.cuh>
+
 #include "../common.cuh"
 #include "pack.h"
 
+#include <raft/cuda_utils.cuh>
 #include <raft/sparse/convert/csr.cuh>
 
 using namespace thrust;
@@ -31,8 +31,6 @@ namespace ML {
 namespace Dbscan {
 namespace AdjGraph {
 namespace Algo {
-
-using namespace MLCommon;
 
 static const int TPB_X = 256;
 
@@ -49,8 +47,7 @@ void launcher(const raft::handle_t& handle,
   device_ptr<Index_> dev_vd      = device_pointer_cast(data.vd);
   device_ptr<Index_> dev_ex_scan = device_pointer_cast(data.ex_scan);
 
-  ML::thrustAllocatorAdapter alloc(handle.get_device_allocator(), stream);
-  exclusive_scan(thrust::cuda::par(alloc).on(stream), dev_vd, dev_vd + batch_size, dev_ex_scan);
+  exclusive_scan(handle.get_thrust_policy(), dev_vd, dev_vd + batch_size, dev_ex_scan);
 
   raft::sparse::convert::csr_adj_graph_batched<Index_, TPB_X>(
     data.ex_scan, data.N, data.adjnnz, batch_size, data.adj, data.adj_graph, stream);

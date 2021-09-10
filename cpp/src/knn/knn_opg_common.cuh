@@ -15,22 +15,24 @@
  */
 
 #pragma once
+
+#include <cuml/common/logger.hpp>
 #include <cuml/neighbors/knn_mg.hpp>
+
 #include <selection/knn.cuh>
 
-#include <cuml/common/device_buffer.hpp>
-#include <cuml/common/logger.hpp>
-#include <raft/comms/comms.hpp>
-#include <raft/mr/device/allocator.hpp>
-
-#include <memory>
-#include <set>
+#include <cumlprims/opg/matrix/data.hpp>
+#include <cumlprims/opg/matrix/part_descriptor.hpp>
 
 #include <raft/cudart_utils.h>
+#include <raft/comms/comms.hpp>
 #include <raft/cuda_utils.cuh>
+#include <raft/mr/device/allocator.hpp>
 #include <raft/spatial/knn/knn.hpp>
 
-#include "knn_opg_common.cuh"
+#include <cstddef>
+#include <memory>
+#include <set>
 
 namespace ML {
 namespace KNN {
@@ -89,7 +91,7 @@ struct opg_knn_param {
   size_t batch_size = 0;                                  /**< Batch size */
   bool verbose;                                           /**< verbose */
 
-  int n_outputs = 0;                      /**< Number of outputs per query (cl&re) */
+  std::size_t n_outputs = 0;              /**< Number of outputs per query (cl&re) */
   std::vector<std::vector<out_t*>>* y;    /**< Labels input array (cl&re) */
   std::vector<Matrix::Data<out_t>*>* out; /**< KNN outputs output array (cl&re) */
 
@@ -141,7 +143,7 @@ struct KNN_RE_params : public opg_knn_param<in_t, ind_t, dist_t, out_t> {
                 size_t k,
                 size_t batch_size,
                 bool verbose,
-                int n_outputs,
+                std::size_t n_outputs,
                 std::vector<std::vector<out_t*>>* y,
                 std::vector<Matrix::Data<out_t>*>* out)
     : opg_knn_param<in_t, ind_t, dist_t, out_t>(knn_op,
@@ -173,7 +175,7 @@ struct KNN_CL_params : public opg_knn_param<in_t, ind_t, dist_t, out_t> {
                 size_t k,
                 size_t batch_size,
                 bool verbose,
-                int n_outputs,
+                std::size_t n_outputs,
                 std::vector<std::vector<out_t*>>* y,
                 std::vector<int>* n_unique,
                 std::vector<out_t*>* uniq_labels,
@@ -205,9 +207,7 @@ struct KNN_CL_params : public opg_knn_param<in_t, ind_t, dist_t, out_t> {
 template <typename in_t, typename ind_t, typename dist_t, typename out_t>
 struct opg_knn_work {
   opg_knn_work(opg_knn_param<in_t, ind_t, dist_t, out_t>& params, raft::handle_t& handle)
-    : res_D(handle.get_device_allocator(), handle.get_stream()),
-      res_I(handle.get_device_allocator(), handle.get_stream()),
-      res(handle.get_device_allocator(), handle.get_stream())
+    : res_D(0, handle.get_stream()), res_I(0, handle.get_stream()), res(0, handle.get_stream())
   {
     this->my_rank           = handle.get_comms().get_rank();
     this->idxRanks          = params.idx_desc->uniqueRanks();
@@ -222,9 +222,9 @@ struct opg_knn_work {
   std::vector<Matrix::RankSizePair*> local_idx_parts;   /**< List of index parts stored locally */
   std::vector<Matrix::RankSizePair*> queryPartsToRanks; /**< Query parts to rank */
 
-  device_buffer<dist_t> res_D; /**< Temporary allocation to exchange distances */
-  device_buffer<ind_t> res_I;  /**< Temporary allocation to exchange indices */
-  device_buffer<out_t> res;    /**< Temporary allocation to exchange outputs (cl&re) */
+  rmm::device_uvector<dist_t> res_D; /**< Temporary allocation to exchange distances */
+  rmm::device_uvector<ind_t> res_I;  /**< Temporary allocation to exchange indices */
+  rmm::device_uvector<out_t> res;    /**< Temporary allocation to exchange outputs (cl&re) */
 };
 
 /*!
@@ -255,9 +255,8 @@ void opg_knn(opg_knn_param<in_t, ind_t, dist_t, out_t>& params, raft::handle_t& 
     size_t total_batches     = raft::ceildiv(part_n_rows, params.batch_size);
     size_t total_n_processed = 0;
 
-    // Loop through batches for each query part
-    for (int cur_batch = 0; cur_batch < total_batches;
-         cur_batch++) {  // For each batch in a query partition
+    // For each batch in a query partition
+    for (std::size_t cur_batch = 0; cur_batch < total_batches; cur_batch++) {
       size_t cur_batch_size = params.batch_size;
 
       if (cur_batch == total_batches - 1)
@@ -270,14 +269,14 @@ void opg_knn(opg_knn_param<in_t, ind_t, dist_t, out_t>& params, raft::handle_t& 
        */
       CUML_LOG_DEBUG("Rank %d: Performing Broadcast", work.my_rank);
 
-      device_buffer<in_t> part_data(handle.get_device_allocator(), handle.get_stream(), 0);
+      rmm::device_uvector<in_t> part_data(0, handle.get_stream());
 
       size_t batch_input_elms   = cur_batch_size * params.query_desc->N;
       size_t batch_input_offset = batch_input_elms * cur_batch;
 
-      in_t* cur_query_ptr;
+      in_t* cur_query_ptr{nullptr};
 
-      device_buffer<in_t> tmp_batch_buf(handle.get_device_allocator(), handle.get_stream(), 0);
+      rmm::device_uvector<in_t> tmp_batch_buf(0, handle.get_stream());
       // current partition's owner rank broadcasts
       if (part_rank == work.my_rank) {
         Matrix::Data<in_t>* data = params.query_data->at(local_parts_completed);
@@ -286,7 +285,7 @@ void opg_knn(opg_knn_param<in_t, ind_t, dist_t, out_t>& params, raft::handle_t& 
         // temporary buffer for the batch so that we can stack rows.
         if (!params.rowMajorQuery && total_batches > 1) {
           tmp_batch_buf.resize(batch_input_elms, handle.get_stream());
-          for (int col_data = 0; col_data < params.query_desc->N; col_data++) {
+          for (std::size_t col_data = 0; col_data < params.query_desc->N; col_data++) {
             raft::copy(tmp_batch_buf.data() + (col_data * cur_batch_size),
                        data->ptr + ((col_data * part_n_rows) + total_n_processed),
                        cur_batch_size,
@@ -430,7 +429,7 @@ void perform_local_knn(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
   std::vector<in_t*> ptrs(params.idx_data->size());
   std::vector<int> sizes(params.idx_data->size());
 
-  for (int cur_idx = 0; cur_idx < params.idx_data->size(); cur_idx++) {
+  for (std::size_t cur_idx = 0; cur_idx < params.idx_data->size(); cur_idx++) {
     ptrs[cur_idx]  = params.idx_data->at(cur_idx)->ptr;
     sizes[cur_idx] = work.local_idx_parts[cur_idx]->size;
   }
@@ -487,9 +486,8 @@ __global__ void copy_label_outputs_from_index_parts_kernel(out_t* out,
   if (i >= n_labels) return;
   uint64_t nn_idx = knn_indices[i];
   int part_idx    = 0;
-  for (; part_idx < n_parts && nn_idx >= offsets[part_idx]; part_idx++)
-    ;
-  part_idx        = min(max((int)0, part_idx - 1), n_parts - 1);
+  for (; part_idx < n_parts && nn_idx >= offsets[part_idx]; part_idx++) {}
+  part_idx        = std::min(std::max(0, part_idx - 1), n_parts - 1);
   uint64_t offset = nn_idx - offsets[part_idx];
   out[i]          = parts[part_idx][offset];
 }
@@ -518,14 +516,14 @@ void copy_label_outputs_from_index_parts(opg_knn_param<in_t, ind_t, dist_t, out_
     if (rsp->rank == work.my_rank) { offsets_h.push_back(offset); }
     offset += rsp->size;
   }
-  uint64_t n_parts = offsets_h.size();
-  device_buffer<uint64_t> offsets_d(handle.get_device_allocator(), handle.get_stream(), n_parts);
+  std::size_t n_parts = offsets_h.size();
+  rmm::device_uvector<uint64_t> offsets_d(n_parts, handle.get_stream());
   raft::update_device(offsets_d.data(), offsets_h.data(), n_parts, handle.get_stream());
 
   std::vector<out_t*> parts_h(n_parts);
-  device_buffer<out_t*> parts_d(handle.get_device_allocator(), handle.get_stream(), n_parts);
-  for (int o = 0; o < params.n_outputs; o++) {
-    for (int p = 0; p < n_parts; p++) {
+  rmm::device_uvector<out_t*> parts_d(n_parts, handle.get_stream());
+  for (std::size_t o = 0; o < params.n_outputs; o++) {
+    for (std::size_t p = 0; p < n_parts; p++) {
       parts_h[p] = params.y->at(p)[o];
     }
     raft::update_device(parts_d.data(), parts_h.data(), n_parts, handle.get_stream());
@@ -576,7 +574,7 @@ void exchange_results(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
 
     if (params.knn_op != knn_operation::knn) {
       requests.resize(2 + params.n_outputs);
-      for (size_t o = 0; o < params.n_outputs; o++) {
+      for (std::size_t o = 0; o < params.n_outputs; o++) {
         handle.get_comms().isend(work.res.data() + (o * batch_elms),
                                  batch_elms,
                                  part_rank,
@@ -618,11 +616,10 @@ void exchange_results(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
             work.res_D.data() + batch_offset, work.res_D.data(), batch_elms, handle.get_stream());
 
           if (params.knn_op != knn_operation::knn) {
-            device_buffer<out_t> tmp_res(
-              handle.get_device_allocator(), handle.get_stream(), params.n_outputs * batch_elms);
+            rmm::device_uvector<out_t> tmp_res(params.n_outputs * batch_elms, handle.get_stream());
             raft::copy_async(tmp_res.data(), work.res.data(), tmp_res.size(), handle.get_stream());
 
-            for (int o = 0; o < params.n_outputs; ++o) {
+            for (std::size_t o = 0; o < params.n_outputs; ++o) {
               // Outputs are stored in target order and then in rank order
               raft::copy_async(
                 work.res.data() + (o * work.idxRanks.size() * batch_elms) + batch_offset,
@@ -656,7 +653,7 @@ void exchange_results(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
         ++request_idx;
 
         if (params.knn_op != knn_operation::knn) {
-          for (size_t o = 0; o < params.n_outputs; o++) {
+          for (std::size_t o = 0; o < params.n_outputs; o++) {
             // Outputs are stored in target order and then in rank order
             out_t* r = work.res.data() + (o * work.idxRanks.size() * batch_elms) + batch_offset;
             handle.get_comms().irecv(r, batch_elms, rank, 0, requests.data() + request_idx);
@@ -703,8 +700,7 @@ void reduce(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
             size_t processed_in_part,
             size_t batch_size)
 {
-  device_buffer<trans_t> trans(
-    handle.get_device_allocator(), handle.get_stream(), work.idxRanks.size());
+  rmm::device_uvector<trans_t> trans(work.idxRanks.size(), handle.get_stream());
   CUDA_CHECK(
     cudaMemsetAsync(trans.data(), 0, work.idxRanks.size() * sizeof(trans_t), handle.get_stream()));
 
@@ -713,15 +709,15 @@ void reduce(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
   ind_t* indices    = nullptr;
   dist_t* distances = nullptr;
 
-  device_buffer<ind_t> indices_b(handle.get_device_allocator(), handle.get_stream());
-  device_buffer<dist_t> distances_b(handle.get_device_allocator(), handle.get_stream());
+  rmm::device_uvector<ind_t> indices_b(0, handle.get_stream());
+  rmm::device_uvector<dist_t> distances_b(0, handle.get_stream());
 
   if (params.knn_op == knn_operation::knn) {
     indices   = params.out_I->at(part_idx)->ptr + batch_offset;
     distances = params.out_D->at(part_idx)->ptr + batch_offset;
   } else {
-    indices_b.resize(batch_size * params.k);
-    distances_b.resize(batch_size * params.k);
+    indices_b.resize(batch_size * params.k, handle.get_stream());
+    distances_b.resize(batch_size * params.k, handle.get_stream());
     indices   = indices_b.data();
     distances = distances_b.data();
   }
@@ -740,8 +736,8 @@ void reduce(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
   CUDA_CHECK(cudaPeekAtLastError());
 
   if (params.knn_op != knn_operation::knn) {
-    device_buffer<out_t> merged_outputs_b(
-      handle.get_device_allocator(), handle.get_stream(), params.n_outputs * batch_size * params.k);
+    rmm::device_uvector<out_t> merged_outputs_b(params.n_outputs * batch_size * params.k,
+                                                handle.get_stream());
     // Get the right labels for indices obtained after local KNN searches
     merge_labels(params,
                  work,
@@ -759,7 +755,7 @@ void reduce(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
       outputs = params.out->at(part_idx)->ptr + (processed_in_part * params.n_outputs);
     } else {
       std::vector<float*>& probas_part = params.probas->at(part_idx);
-      for (int i = 0; i < params.n_outputs; i++) {
+      for (std::size_t i = 0; i < params.n_outputs; i++) {
         float* ptr           = probas_part[i];
         int n_unique_classes = params.n_unique->at(i);
         probas_with_offsets.push_back(ptr + (processed_in_part * n_unique_classes));
@@ -810,9 +806,8 @@ __global__ void merge_labels_kernel(out_t* outputs,
   if (i >= n_labels) return;
   uint64_t nn_idx = knn_indices[i];
   int part_idx    = 0;
-  for (; part_idx < n_parts && nn_idx >= offsets[part_idx]; part_idx++)
-    ;
-  part_idx         = min(max((int)0, part_idx - 1), n_parts - 1);
+  for (; part_idx < n_parts && nn_idx >= offsets[part_idx]; part_idx++) {}
+  part_idx         = std::min(std::max(0, part_idx - 1), n_parts - 1);
   int rank_idx     = parts_to_ranks[part_idx];
   int inbatch_idx  = i / nearest_neighbors;
   uint64_t elm_idx = (rank_idx * n_labels) + inbatch_idx * nearest_neighbors;
@@ -858,8 +853,7 @@ void merge_labels(opg_knn_param_t& params,
     offsets_h.push_back(offset);
     offset += rsp->size;
   }
-  device_buffer<uint64_t> offsets_d(
-    handle.get_device_allocator(), handle.get_stream(), offsets_h.size());
+  rmm::device_uvector<uint64_t> offsets_d(offsets_h.size(), handle.get_stream());
   raft::update_device(offsets_d.data(), offsets_h.data(), offsets_h.size(), handle.get_stream());
 
   std::vector<int> parts_to_ranks_h;
@@ -870,8 +864,7 @@ void merge_labels(opg_knn_param_t& params,
       ++i;
     }
   }
-  device_buffer<int> parts_to_ranks_d(
-    handle.get_device_allocator(), handle.get_stream(), parts_to_ranks_h.size());
+  rmm::device_uvector<int> parts_to_ranks_d(parts_to_ranks_h.size(), handle.get_stream());
   raft::update_device(
     parts_to_ranks_d.data(), parts_to_ranks_h.data(), parts_to_ranks_h.size(), handle.get_stream());
 
@@ -913,7 +906,7 @@ void perform_local_operation(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
 {
   size_t n_labels = batch_size * params.k;
   std::vector<out_t*> y(params.n_outputs);
-  for (int o = 0; o < params.n_outputs; o++) {
+  for (std::size_t o = 0; o < params.n_outputs; o++) {
     y[o] = reinterpret_cast<out_t*>(labels) + (o * n_labels);
   }
 
@@ -953,7 +946,7 @@ void perform_local_operation(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
 {
   size_t n_labels = batch_size * params.k;
   std::vector<out_t*> y(params.n_outputs);
-  for (int o = 0; o < params.n_outputs; o++) {
+  for (std::size_t o = 0; o < params.n_outputs; o++) {
     y[o] = reinterpret_cast<out_t*>(labels) + (o * n_labels);
   }
 
@@ -967,7 +960,6 @@ void perform_local_operation(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
                                                   params.k,
                                                   *(params.uniq_labels),
                                                   *(params.n_unique),
-                                                  handle.get_device_allocator(),
                                                   handle.get_stream(),
                                                   handle.get_internal_streams().data(),
                                                   handle.get_num_internal_streams());
@@ -981,7 +973,6 @@ void perform_local_operation(opg_knn_param<in_t, ind_t, dist_t, out_t>& params,
                                                  params.k,
                                                  *(params.uniq_labels),
                                                  *(params.n_unique),
-                                                 handle.get_device_allocator(),
                                                  handle.get_stream(),
                                                  handle.get_internal_streams().data(),
                                                  handle.get_num_internal_streams());
