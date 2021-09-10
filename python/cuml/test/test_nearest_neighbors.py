@@ -15,6 +15,8 @@
 #
 
 import pytest
+pytestmark = pytest.mark.filterwarnings("ignore:((.|\n)*)#4020((.|\n)*):UserWarning:cuml[.*]")
+
 import math
 
 from cuml.test.utils import array_equal, unit_param, quality_param, \
@@ -475,26 +477,26 @@ def test_knn_graph(input_type, mode, output_type, as_instance,
                       n_features=n_feats, random_state=0)
 
     if as_instance:
-        sparse_sk = sklearn.neighbors.kneighbors_graph(X.get(), k, mode,
+        sparse_sk = sklearn.neighbors.kneighbors_graph(X.get(), k, mode=mode,
                                                        metric=metric, p=p,
                                                        include_self='auto')
     else:
         knn_sk = skKNN(metric=metric, p=p)
         knn_sk.fit(X.get())
-        sparse_sk = knn_sk.kneighbors_graph(X.get(), k, mode)
+        sparse_sk = knn_sk.kneighbors_graph(X.get(), k, mode=mode)
 
     if input_type == "dataframe":
         X = cudf.DataFrame(X)
 
     with cuml.using_output_type(output_type):
         if as_instance:
-            sparse_cu = cuml.neighbors.kneighbors_graph(X, k, mode,
+            sparse_cu = cuml.neighbors.kneighbors_graph(X, k, mode=mode,
                                                         metric=metric, p=p,
                                                         include_self='auto')
         else:
             knn_cu = cuKNN(metric=metric, p=p)
             knn_cu.fit(X)
-            sparse_cu = knn_cu.kneighbors_graph(X, k, mode)
+            sparse_cu = knn_cu.kneighbors_graph(X, k, mode=mode)
 
     assert np.array_equal(sparse_sk.data.shape, sparse_cu.data.shape)
     assert np.array_equal(sparse_sk.indices.shape, sparse_cu.indices.shape)
@@ -514,6 +516,7 @@ def test_knn_graph(input_type, mode, output_type, as_instance,
      (10, 35, 0.8, 4, 10, 20000),
      (40, 35, 0.5, 4, 20000, 10),
      (35, 35, 0.8, 4, 20000, 20000)])
+@pytest.mark.filterwarnings("ignore:(.*)converted(.*)::")
 def test_nearest_neighbors_sparse(metric,
                                   nrows,
                                   ncols,

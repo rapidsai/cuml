@@ -347,7 +347,7 @@ class OneHotEncoder(Base):
 
                 if self.drop_idx_ is not None:
                     drop_idx = self.drop_idx_[feature] + j
-                    mask = cp.ones(col_idx.shape, dtype=cp.bool)
+                    mask = cp.ones(col_idx.shape, dtype=bool)
                     mask[col_idx == drop_idx] = False
                     col_idx = col_idx[mask]
                     row_idx = row_idx[mask]
@@ -454,8 +454,9 @@ class OneHotEncoder(Base):
                 result = cp.asarray(result.as_gpu_matrix())
             except ValueError:
                 warnings.warn("The input one hot encoding contains rows with "
-                              "unknown categories. Arrays do not support null "
-                              "values. Returning output as a DataFrame "
+                              "unknown categories. Since device arrays do not "
+                              "support null values, the output will be "
+                              "returned as a DataFrame "
                               "instead.")
         return result
 

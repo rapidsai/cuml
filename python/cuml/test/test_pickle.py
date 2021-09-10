@@ -324,7 +324,7 @@ def test_umap_pickle(tmpdir, datatype, keys):
 
         result["umap"] = trustworthiness(X_train,
                                          cu_before_pickle_transform,
-                                         n_neighbors)
+                                         n_neighbors=n_neighbors)
         return model, X_train
 
     def assert_model(pickled_model, X_train):
@@ -335,7 +335,7 @@ def test_umap_pickle(tmpdir, datatype, keys):
 
         cu_trust_after = trustworthiness(X_train,
                                          pickled_model.transform(X_train),
-                                         n_neighbors)
+                                         n_neighbors=n_neighbors)
         assert cu_trust_after >= result["umap"] - 0.2
 
     pickle_save_load(tmpdir, create_mod, assert_model)
@@ -366,6 +366,7 @@ def test_decomposition_pickle_xfail(tmpdir, datatype, keys, data_size):
 
 @pytest.mark.parametrize('model_name',
                          all_models.keys())
+@pytest.mark.filterwarnings("ignore:Transformers((.|\n)*):UserWarning:cuml[.*]")
 def test_unfit_pickle(model_name):
     # Any model xfailed in this test cannot be used for hyperparameter sweeps
     # with dask or sklearn
@@ -382,6 +383,7 @@ def test_unfit_pickle(model_name):
 
 @pytest.mark.parametrize('model_name',
                          all_models.keys())
+@pytest.mark.filterwarnings("ignore:((.|\n)*)unknown((.|\n)*):UserWarning:cuml[.*]")
 def test_unfit_clone(model_name):
     if model_name in unfit_clone_xfail:
         pytest.xfail()
