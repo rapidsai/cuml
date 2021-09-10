@@ -60,7 +60,10 @@ struct DeviceEvent {
   operator cudaEvent_t() const { return e; }
   void record(cudaStream_t& stream) { CUDA_CHECK(cudaEventRecord(e, stream)); }
   void record(cudaStream_t&& stream) { CUDA_CHECK(cudaEventRecord(e, stream)); }
-  void wait(cudaStream_t& stream) { CUDA_CHECK(cudaStreamWaitEvent(stream, e)); }
+  void wait(cudaStream_t& stream)
+  {
+    CUDA_CHECK(cudaStreamWaitEvent(stream, e, cudaEventWaitDefault));
+  }
   void wait() { CUDA_CHECK(cudaEventSynchronize(e)); }
   DeviceEvent& operator=(const DeviceEvent& other) = delete;
 };
