@@ -21,6 +21,7 @@
 #include <raft/linalg/cusolver_wrappers.h>
 #include <raft/linalg/gemv.h>
 #include <raft/linalg/transpose.h>
+#include <common/nvtx.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/eig.cuh>
 #include <raft/linalg/gemm.cuh>
@@ -36,47 +37,132 @@
 namespace MLCommon {
 namespace LinAlg {
 
+namespace {
+
+struct DeviceStream {
+ private:
+  cudaStream_t s;
+
+ public:
+  DeviceStream() { CUDA_CHECK(cudaStreamCreateWithFlags(&s, cudaStreamNonBlocking)); }
+  ~DeviceStream() { CUDA_CHECK(cudaStreamDestroy(s)); }
+  operator cudaStream_t() const { return s; }
+  DeviceStream& operator=(const DeviceStream& other) = delete;
+};
+
+struct DeviceEvent {
+ private:
+  cudaEvent_t e;
+
+ public:
+  DeviceEvent() { CUDA_CHECK(cudaEventCreate(&e)); }
+  ~DeviceEvent() { CUDA_CHECK(cudaEventDestroy(e)); }
+  operator cudaEvent_t() const { return e; }
+  void record(cudaStream_t& stream) { CUDA_CHECK(cudaEventRecord(e, stream)); }
+  void record(cudaStream_t&& stream) { CUDA_CHECK(cudaEventRecord(e, stream)); }
+  void wait(cudaStream_t& stream) { CUDA_CHECK(cudaStreamWaitEvent(stream, e)); }
+  void wait() { CUDA_CHECK(cudaEventSynchronize(e)); }
+  DeviceEvent& operator=(const DeviceEvent& other) = delete;
+};
+
+}  // namespace
+
+/** Solves the linear ordinary least squares problem `Aw = b`
+ *  Via SVD decomposition of A or eigenvalue decomposition of `A^T * A`
+ *  (covariance matrix for dataset A).
+ */
 template <typename math_t>
 void lstsq(const raft::handle_t& handle,
-           math_t* A,
-           int n_rows,
-           int n_cols,
-           math_t* b,
+           const math_t* A,
+           const int n_rows,
+           const int n_cols,
+           const math_t* b,
            math_t* w,
-           int algo,
+           const int algo,
            cudaStream_t stream)
 {
-  cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
-  cublasHandle_t cublasH       = handle.get_cublas_handle();
-
+  ML::PUSH_RANGE("Trace::MLCommon::LinAlg::lstsq", stream);
   ASSERT(n_rows > 1, "lstsq: number of rows cannot be less than two");
 
-  size_t U_len = n_rows * n_cols;
-  size_t V_len = n_cols * n_cols;
-
-  rmm::device_uvector<math_t> S(n_cols, stream);
-  rmm::device_uvector<math_t> V(V_len, stream);
-  rmm::device_uvector<math_t> U(U_len, stream);
-
-  // we use a temporary vector to avoid doing re-using w in the last step, the
+  // we use some temporary vectors to avoid doing re-using w in the last step, the
   // gemv, which could cause a very sporadic race condition in Pascal and
   // Turing GPUs that caused it to give the wrong results. Details:
   // https://github.com/rapidsai/cuml/issues/1739
-  rmm::device_uvector<math_t> tmp_vector(n_cols, stream);
+  if (algo == 0 || n_cols == 1 || n_cols > n_rows) {
+    rmm::device_uvector<math_t> workset((n_cols + n_rows + 2) * n_cols, stream);
+    math_t* U  = workset.data();
+    math_t* V  = U + n_rows * n_cols;
+    math_t* S  = V + n_cols * n_cols;
+    math_t* Ub = S + n_cols;
 
-  if (algo == 0 || n_cols == 1) {
-    raft::linalg::svdQR(
-      handle, A, n_rows, n_cols, S.data(), U.data(), V.data(), true, true, true, stream);
+    ML::PUSH_RANGE("Trace::MLCommon::LinAlg::lstsq::svdQR", stream);
+    raft::linalg::svdQR(handle, (math_t*)A, n_rows, n_cols, S, U, V, true, true, true, stream);
+    ML::POP_RANGE(stream);
+    raft::linalg::gemv(handle, U, n_rows, n_cols, b, Ub, true, stream);
+
+    raft::matrix::matrixVectorBinaryDivSkipZero(Ub, S, 1, n_cols, false, true, stream);
+
+    raft::linalg::gemv(handle, V, n_cols, n_cols, Ub, w, false, stream);
   } else if (algo == 1) {
-    raft::linalg::svdEig(handle, A, n_rows, n_cols, S.data(), U.data(), V.data(), true, stream);
+    rmm::device_uvector<math_t> workset(n_cols * n_cols * 3 + n_cols * 2, stream);
+    math_t* Q    = workset.data();
+    math_t* QS   = Q + n_cols * n_cols;
+    math_t* covA = QS + n_cols * n_cols;
+    math_t* S    = covA + n_cols * n_cols;
+    math_t* Ab   = S + n_cols;
+
+    // covA <- A* A
+    math_t alpha = math_t(1);
+    math_t beta  = math_t(0);
+    raft::linalg::gemm(handle,
+                       A,
+                       n_rows,
+                       n_cols,
+                       A,
+                       covA,
+                       n_cols,
+                       n_cols,
+                       CUBLAS_OP_T,
+                       CUBLAS_OP_N,
+                       alpha,
+                       beta,
+                       stream);
+
+    // Ab <- A* b
+    DeviceStream multAb;
+    DeviceEvent multAbDone;
+    raft::linalg::gemv(handle, A, n_rows, n_cols, b, Ab, true, multAb);
+    multAbDone.record(multAb);
+
+    // Q S Q* <- covA
+    ML::PUSH_RANGE("Trace::MLCommon::LinAlg::lstsq::eigDC", stream);
+    raft::linalg::eigDC(handle, covA, n_cols, n_cols, Q, S, stream);
+    ML::POP_RANGE(stream);
+
+    // QS  <- Q invS
+    auto f = [] __device__(math_t a, math_t b) {
+      return raft::myAbs(b) > math_t(1e-10) ? a / b : a;
+    };
+    raft::linalg::matrixVectorOp(QS, Q, S, n_cols, n_cols, false, true, f, stream);
+    // covA <- QS Q* == Q invS Q* == inv(A* A)
+    raft::linalg::gemm(handle,
+                       QS,
+                       n_cols,
+                       n_cols,
+                       Q,
+                       covA,
+                       n_cols,
+                       n_cols,
+                       CUBLAS_OP_N,
+                       CUBLAS_OP_T,
+                       alpha,
+                       beta,
+                       stream);
+    multAbDone.wait(stream);
+    // w <- covA Ab == Q invS Q* A b == inv(A* A) A b
+    raft::linalg::gemv(handle, covA, n_cols, n_cols, Ab, w, false, stream);
   }
-
-  raft::linalg::gemv(handle, U.data(), n_rows, n_cols, b, tmp_vector.data(), true, stream);
-
-  raft::matrix::matrixVectorBinaryDivSkipZero(
-    tmp_vector.data(), S.data(), 1, n_cols, false, true, stream);
-
-  raft::linalg::gemv(handle, V.data(), n_cols, n_cols, tmp_vector.data(), w, false, stream);
+  ML::POP_RANGE(stream);
 }
 
 template <typename math_t>
