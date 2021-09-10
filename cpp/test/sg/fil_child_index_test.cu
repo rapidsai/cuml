@@ -34,11 +34,12 @@ namespace ML {
 using namespace fil;
 
 struct proto_inner_node {
-  bool def_left = false, is_categorical = false;
-  int fid      = 0;     // feature id
-  int set      = 0;     // which bit set represents the matching category list
-  float thresh = 0.0f;  // threshold
-  int left     = 1;     // left child idx
+  bool def_left       = false;  // default left, see base_node::def_left
+  bool is_categorical = false;  // see base_node::is_categorical
+  int fid             = 0;      // feature id, see base_node::fid
+  int set             = 0;      // which bit set represents the matching category list
+  float thresh        = 0.0f;   // threshold, see base_node::thresh
+  int left            = 1;      // left child idx, see sparse_node*::left_index()
   val_t split()
   {
     val_t split;
@@ -66,6 +67,11 @@ std::ostream& operator<<(std::ostream& os, const proto_inner_node& node)
   return os;
 }
 
+/** mechanism to use named aggregate initialization before C++20, and also use
+    the struct defaults. Using it directly only works if all defaulted
+    members come after ones explicitly mentioned. C++ doesn't have reflection,
+    so any non-macro alternative would need a separate list of member accessors.
+**/
 // proto inner node
 #define NODE(...)                                               \
   []() {                                                        \
@@ -114,7 +120,8 @@ std::ostream& operator<<(std::ostream& os, const ChildIndexTestParams& ps)
 
 /** mechanism to use named aggregate initialization before C++20, and also use
     the struct defaults. Using it directly only works if all defaulted
-    members come after ones explicitly mentioned.
+    members come after ones explicitly mentioned. C++ doesn't have reflection,
+    so any non-macro alternative would need a separate list of member accessors.
 **/
 #define CHILD_INDEX_TEST_PARAMS(...)                                      \
   []() {                                                                  \
