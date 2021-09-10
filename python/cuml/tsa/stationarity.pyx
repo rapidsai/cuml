@@ -18,7 +18,7 @@
 import ctypes
 import numpy as np
 from libc.stdint cimport uintptr_t
-from libcpp cimport bool
+from libcpp cimport bool as boolcpp
 
 import cuml.internals
 from cuml.common.array import CumlArray
@@ -31,7 +31,7 @@ cdef extern from "cuml/tsa/stationarity.h" namespace "ML":
     int cpp_kpss "ML::Stationarity::kpss_test" (
         const handle_t& handle,
         const float* d_y,
-        bool* results,
+        boolcpp* results,
         int batch_size,
         int n_obs,
         int d, int D, int s,
@@ -40,7 +40,7 @@ cdef extern from "cuml/tsa/stationarity.h" namespace "ML":
     int cpp_kpss "ML::Stationarity::kpss_test" (
         const handle_t& handle,
         const double* d_y,
-        bool* results,
+        boolcpp* results,
         int batch_size,
         int n_obs,
         int d, int D, int s,
@@ -96,7 +96,7 @@ def kpss_test(y, d=0, D=0, s=0, pval_threshold=0.05,
     if dtype == np.float32:
         cpp_kpss(handle_[0],
                  <float*> d_y_ptr,
-                 <bool*> d_results,
+                 <boolcpp*> d_results,
                  <int> batch_size,
                  <int> n_obs,
                  <int> d, <int> D, <int> s,
@@ -104,7 +104,7 @@ def kpss_test(y, d=0, D=0, s=0, pval_threshold=0.05,
     elif dtype == np.float64:
         cpp_kpss(handle_[0],
                  <double*> d_y_ptr,
-                 <bool*> d_results,
+                 <boolcpp*> d_results,
                  <int> batch_size,
                  <int> n_obs,
                  <int> d, <int> D, <int> s,

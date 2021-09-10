@@ -812,5 +812,5 @@ def build_can_replace_mask(len_mask, mask):
       if mask is None else returns mask
     """
     if mask is None:
-        mask = cudf.Series(cp.ones(len_mask, dtype=cp.bool))
+        mask = cudf.Series(cp.ones(len_mask, dtype=bool))
     return mask

@@ -15,10 +15,7 @@
 
 # distutils: language = c++
 
-import ctypes
 import numpy as np
-from libc.stdint cimport uintptr_t
-from libcpp cimport bool
 
 import cuml.internals
 from cuml.common.array import CumlArray

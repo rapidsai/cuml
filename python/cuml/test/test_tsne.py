@@ -13,8 +13,10 @@
 # limitations under the License.
 #
 
-import numpy as np
 import pytest
+pytestmark = pytest.mark.filterwarnings("ignore:Method 'fft' is experimental::")
+
+import numpy as np
 import scipy
 import cupyx
 
