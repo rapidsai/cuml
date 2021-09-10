@@ -751,13 +751,17 @@ def test_missing_indicator_sparse(failure_logger,
 def test_function_transformer(clf_dataset):  # noqa: F811
     X_np, X = clf_dataset
 
-    transformer = cuFunctionTransformer(func=cp.exp, inverse_func=cp.log)
+    transformer = cuFunctionTransformer(func=cp.exp,
+                                        inverse_func=cp.log,
+                                        check_inverse=False)
     t_X = transformer.fit_transform(X)
     r_X = transformer.inverse_transform(t_X)
     assert type(t_X) == type(X)
     assert type(r_X) == type(t_X)
 
-    transformer = skFunctionTransformer(func=np.exp, inverse_func=np.log)
+    transformer = skFunctionTransformer(func=np.exp,
+                                        inverse_func=np.log,
+                                        check_inverse=False)
     sk_t_X = transformer.fit_transform(X_np)
     sk_r_X = transformer.inverse_transform(sk_t_X)
 
