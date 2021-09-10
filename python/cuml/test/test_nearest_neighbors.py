@@ -15,8 +15,6 @@
 #
 
 import pytest
-pytestmark = pytest.mark.filterwarnings("ignore:((.|\n)*)#4020((.|\n)*):UserWarning:cuml[.*]")
-
 import math
 
 from cuml.test.utils import array_equal, unit_param, quality_param, \
@@ -42,6 +40,10 @@ import sklearn
 import cuml
 from cuml.common import has_scipy
 import gc
+
+
+pytestmark = pytest.mark.filterwarnings("ignore:((.|\n)*)#4020((.|\n)*):"
+                                        "UserWarning:cuml[.*]")
 
 
 def predict(neigh_ind, _y, n_neighbors):
@@ -528,9 +530,9 @@ def test_nearest_neighbors_sparse(metric,
         return
 
     a = cupyx.scipy.sparse.random(nrows, ncols, format='csr', density=density,
-                         random_state=35)
+                                  random_state=35)
     b = cupyx.scipy.sparse.random(nrows, ncols, format='csr', density=density,
-                         random_state=38)
+                                  random_state=38)
 
     if metric == 'jaccard':
         a = a.astype('bool').astype('float32')

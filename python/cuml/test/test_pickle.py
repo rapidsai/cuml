@@ -366,7 +366,8 @@ def test_decomposition_pickle_xfail(tmpdir, datatype, keys, data_size):
 
 @pytest.mark.parametrize('model_name',
                          all_models.keys())
-@pytest.mark.filterwarnings("ignore:Transformers((.|\n)*):UserWarning:cuml[.*]")
+@pytest.mark.filterwarnings("ignore:Transformers((.|\n)*):UserWarning:"
+                            "cuml[.*]")
 def test_unfit_pickle(model_name):
     # Any model xfailed in this test cannot be used for hyperparameter sweeps
     # with dask or sklearn
@@ -383,7 +384,8 @@ def test_unfit_pickle(model_name):
 
 @pytest.mark.parametrize('model_name',
                          all_models.keys())
-@pytest.mark.filterwarnings("ignore:Transformers((.|\n)*):UserWarning:cuml[.*]")
+@pytest.mark.filterwarnings("ignore:Transformers((.|\n)*):UserWarning:"
+                            "cuml[.*]")
 def test_unfit_clone(model_name):
     if model_name in unfit_clone_xfail:
         pytest.xfail()
@@ -708,7 +710,8 @@ def test_svc_pickle_nofit(tmpdir, datatype, nrows, ncols, n_info, params):
 @pytest.mark.parametrize('nrows', [unit_param(100)])
 @pytest.mark.parametrize('ncols', [unit_param(20)])
 @pytest.mark.parametrize('n_info', [unit_param(10)])
-@pytest.mark.filterwarnings("ignore:((.|\n)*)n_streams((.|\n)*):UserWarning:cuml[.*]")
+@pytest.mark.filterwarnings("ignore:((.|\n)*)n_streams((.|\n)*):UserWarning:"
+                            "cuml[.*]")
 def test_small_rf(tmpdir, key, datatype, nrows, ncols, n_info):
 
     result = {}

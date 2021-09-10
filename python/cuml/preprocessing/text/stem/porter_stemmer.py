@@ -15,7 +15,6 @@
 #
 
 import cudf
-import numpy as np
 import cupy as cp
 from .porter_stemmer_utils.suffix_utils import (
     get_stem_series,

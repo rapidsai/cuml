@@ -13,7 +13,6 @@
 # limitations under the License.
 #
 import pytest
-pytestmark = pytest.mark.filterwarnings("ignore: For reproducible results(.*)::cuml[.*]")
 
 import cudf
 import numpy as np
@@ -41,6 +40,10 @@ from sklearn.datasets import fetch_california_housing, \
 from sklearn.model_selection import train_test_split
 
 import treelite
+
+
+pytestmark = pytest.mark.filterwarnings("ignore: For reproducible results(.*)"
+                                        "::cuml[.*]")
 
 
 @pytest.fixture(

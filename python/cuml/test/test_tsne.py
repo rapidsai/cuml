@@ -13,10 +13,8 @@
 # limitations under the License.
 #
 
-import pytest
-pytestmark = pytest.mark.filterwarnings("ignore:Method 'fft' is experimental::")
-
 import numpy as np
+import pytest
 import scipy
 import cupyx
 
@@ -28,6 +26,9 @@ from sklearn.datasets import make_blobs
 from sklearn.manifold import trustworthiness
 from sklearn import datasets
 
+
+pytestmark = pytest.mark.filterwarnings("ignore:Method 'fft' is "
+                                        "experimental::")
 
 DEFAULT_N_NEIGHBORS = 90
 DEFAULT_PERPLEXITY = 30
