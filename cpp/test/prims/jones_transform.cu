@@ -101,7 +101,7 @@ template
 
     // calling the ar_trans_param CUDA implementation
     MLCommon::TimeSeries::jones_transform(
-      d_params, params.batchSize, params.pValue, d_computed_ar_trans, true, false, stream);
+      d_params, params.batchSize, params.pValue, d_computed_ar_trans, true, false, stream, false);
 
     //>>>>>>>>> MA transform golden output generation<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
@@ -146,7 +146,7 @@ template
 
     // calling the ma_param_transform CUDA implementation
     MLCommon::TimeSeries::jones_transform(
-      d_params, params.batchSize, params.pValue, d_computed_ma_trans, false, false, stream);
+      d_params, params.batchSize, params.pValue, d_computed_ma_trans, false, false, stream, false);
 
     //>>>>>>>>> AR inverse transform <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
@@ -224,12 +224,12 @@ const std::vector<JonesTransParam> inputs = {{500, 4, 0.001},
 typedef JonesTransTest<double> JonesTransTestClass;
 TEST_P(JonesTransTestClass, Result)
 {
-  ASSERT_TRUE(raft::devArrMatch(d_computed_ar_trans,
-                                d_golden_ar_trans,
+  ASSERT_TRUE(raft::devArrMatch(d_golden_ar_trans,
+                                d_computed_ar_trans,
                                 nElements,
                                 raft::CompareApprox<double>(params.tolerance)));
-  ASSERT_TRUE(raft::devArrMatch(d_computed_ma_trans,
-                                d_golden_ma_trans,
+  ASSERT_TRUE(raft::devArrMatch(d_golden_ma_trans,
+                                d_computed_ma_trans,
                                 nElements,
                                 raft::CompareApprox<double>(params.tolerance)));
   /*
