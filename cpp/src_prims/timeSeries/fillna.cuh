@@ -105,8 +105,7 @@ namespace MLCommon {
 namespace TimeSeries {
 
 /**
- * Fill NaN values naively with the last known value in each pass,
- * with first a forward pass followed by a backward pass.
+ * Fill NaN values by interpolating between the last and next valid values
  *
  * @param[inout] data       Data which will be processed in-place
  * @param[in]    batch_size Number of series in the batch
@@ -146,9 +145,6 @@ void fillna(T* data, int batch_size, int n_obs, cudaStream_t stream)
                                  batch_size * n_obs,
                                  stream);
 
-  const int TPB      = 256;
-  const int n_blocks = raft::ceildiv<int>(n_obs * batch_size, TPB);
-
   // Execute scan (backward)
   cub::DeviceScan::InclusiveScan(d_temp_storage,
                                  temp_storage_bytes,
@@ -157,6 +153,9 @@ void fillna(T* data, int batch_size, int n_obs, cudaStream_t stream)
                                  scan_op,
                                  batch_size * n_obs,
                                  stream);
+
+  const int TPB      = 256;
+  const int n_blocks = raft::ceildiv<int>(n_obs * batch_size, TPB);
 
   // Interpolate valid values
   fillna_interpolate_kernel<false><<<n_blocks, TPB, 0, stream>>>(

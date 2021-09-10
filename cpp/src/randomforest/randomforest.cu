@@ -163,33 +163,6 @@ void postprocess_labels(int n_rows,
 }
 
 /**
- * @brief Check validity of all random forest hyper-parameters.
- * @param[in] rf_params: random forest hyper-parameters
- */
-void validity_check(const RF_params rf_params)
-{
-  ASSERT((rf_params.n_trees > 0), "Invalid n_trees %d", rf_params.n_trees);
-  ASSERT((rf_params.max_samples > 0) && (rf_params.max_samples <= 1.0),
-         "max_samples value %f outside permitted (0, 1] range",
-         rf_params.max_samples);
-  DT::validity_check(rf_params.tree_params);
-}
-
-/**
- * @brief Print all random forest hyper-parameters.
- * @param[in] rf_params: random forest hyper-parameters
- */
-void print(const RF_params rf_params)
-{
-  ML::PatternSetter _("%v");
-  CUML_LOG_DEBUG("n_trees: %d", rf_params.n_trees);
-  CUML_LOG_DEBUG("bootstrap: %d", rf_params.bootstrap);
-  CUML_LOG_DEBUG("max_samples: %f", rf_params.max_samples);
-  CUML_LOG_DEBUG("n_streams: %d", rf_params.n_streams);
-  DT::print(rf_params.tree_params);
-}
-
-/**
  * @brief Deletes RandomForestMetaData object
  * @param[in] forest: CPU pointer to RandomForestMetaData.
  */
@@ -203,7 +176,7 @@ template <class T, class L>
 std::string _get_rf_text(const RandomForestMetaData<T, L>* forest, bool summary)
 {
   ML::PatternSetter _("%v");
-  if (!forest || !forest->trees) {
+  if (!forest) {
     return "Empty forest";
   } else {
     std::ostringstream oss;
@@ -213,9 +186,9 @@ std::string _get_rf_text(const RandomForestMetaData<T, L>* forest, bool summary)
     for (int i = 0; i < forest->rf_params.n_trees; i++) {
       oss << "Tree #" << i << "\n";
       if (summary) {
-        oss << DT::get_tree_summary_text<T, L>(&(forest->trees[i])) << "\n";
+        oss << DT::get_tree_summary_text<T, L>(forest->trees[i].get()) << "\n";
       } else {
-        oss << DT::get_tree_text<T, L>(&(forest->trees[i])) << "\n";
+        oss << DT::get_tree_text<T, L>(forest->trees[i].get()) << "\n";
       }
     }
     return oss.str();
@@ -225,11 +198,11 @@ std::string _get_rf_text(const RandomForestMetaData<T, L>* forest, bool summary)
 template <class T, class L>
 std::string _get_rf_json(const RandomForestMetaData<T, L>* forest)
 {
-  if (!forest || !forest->trees) { return "[]"; }
+  if (!forest) { return "[]"; }
   std::ostringstream oss;
   oss << "[\n";
   for (int i = 0; i < forest->rf_params.n_trees; i++) {
-    oss << DT::get_tree_json<T, L>(&(forest->trees[i]));
+    oss << DT::get_tree_json<T, L>(forest->trees[i].get());
     if (i < forest->rf_params.n_trees - 1) { oss << ",\n"; }
   }
   oss << "\n]";
@@ -293,16 +266,12 @@ void build_treelite_forest(ModelHandle* model_handle,
   model->average_tree_output = true;
   model->SetTreeLimit(forest->rf_params.n_trees);
 
-  std::vector<Node_ID_info<T, L>> working_queue_1;
-  std::vector<Node_ID_info<T, L>> working_queue_2;
-
-#pragma omp parallel for private(working_queue_1, working_queue_2)
+#pragma omp parallel for
   for (int i = 0; i < forest->rf_params.n_trees; i++) {
-    DT::TreeMetaDataNode<T, L>& rf_tree = forest->trees[i];
+    auto rf_tree = forest->trees[i];
 
-    if (rf_tree.sparsetree.size() != 0) {
-      model->trees[i] =
-        DT::build_treelite_tree<T, L>(rf_tree, num_class, working_queue_1, working_queue_2);
+    if (rf_tree->sparsetree.size() != 0) {
+      model->trees[i] = DT::build_treelite_tree<T, L>(*rf_tree, num_class);
     }
   }
 
@@ -473,8 +442,8 @@ void fit(const raft::handle_t& user_handle,
 {
   ML::PUSH_RANGE("RF::fit @randomforest.cu");
   ML::Logger::get().setLevel(verbosity);
-  ASSERT(!forest->trees, "Cannot fit an existing forest.");
-  forest->trees     = new DT::TreeMetaDataNode<float, int>[rf_params.n_trees];
+  ASSERT(forest->trees.empty(), "Cannot fit an existing forest.");
+  forest->trees.resize(rf_params.n_trees);
   forest->rf_params = rf_params;
 
   std::shared_ptr<RandomForest<float, int>> rf_classifier =
@@ -495,8 +464,8 @@ void fit(const raft::handle_t& user_handle,
 {
   ML::PUSH_RANGE("RF::fit @randomforest.cu");
   ML::Logger::get().setLevel(verbosity);
-  ASSERT(!forest->trees, "Cannot fit an existing forest.");
-  forest->trees     = new DT::TreeMetaDataNode<double, int>[rf_params.n_trees];
+  ASSERT(forest->trees.empty(), "Cannot fit an existing forest.");
+  forest->trees.resize(rf_params.n_trees);
   forest->rf_params = rf_params;
 
   std::shared_ptr<RandomForest<double, int>> rf_classifier =
@@ -528,7 +497,7 @@ void predict(const raft::handle_t& user_handle,
              int* predictions,
              int verbosity)
 {
-  ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
+  ASSERT(!forest->trees.empty(), "Cannot predict! No trees in the forest.");
   std::shared_ptr<RandomForest<float, int>> rf_classifier =
     std::make_shared<RandomForest<float, int>>(forest->rf_params, RF_type::CLASSIFICATION);
   rf_classifier->predict(user_handle, input, n_rows, n_cols, predictions, forest, verbosity);
@@ -542,7 +511,7 @@ void predict(const raft::handle_t& user_handle,
              int* predictions,
              int verbosity)
 {
-  ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
+  ASSERT(!forest->trees.empty(), "Cannot predict! No trees in the forest.");
   std::shared_ptr<RandomForest<double, int>> rf_classifier =
     std::make_shared<RandomForest<double, int>>(forest->rf_params, RF_type::CLASSIFICATION);
   rf_classifier->predict(user_handle, input, n_rows, n_cols, predictions, forest, verbosity);
@@ -587,6 +556,18 @@ RF_metrics score(const raft::handle_t& user_handle,
   return classification_score;
 }
 
+/**
+ * @brief Check validity of all random forest hyper-parameters.
+ * @param[in] rf_params: random forest hyper-parameters
+ */
+void validity_check(const RF_params rf_params)
+{
+  ASSERT((rf_params.n_trees > 0), "Invalid n_trees %d", rf_params.n_trees);
+  ASSERT((rf_params.max_samples > 0) && (rf_params.max_samples <= 1.0),
+         "max_samples value %f outside permitted (0, 1] range",
+         rf_params.max_samples);
+}
+
 RF_params set_rf_params(int max_depth,
                         int max_leaves,
                         float max_features,
@@ -621,6 +602,7 @@ RF_params set_rf_params(int max_depth,
   rf_params.n_streams   = min(cfg_n_streams, omp_get_max_threads());
   if (n_trees < rf_params.n_streams) rf_params.n_streams = n_trees;
   rf_params.tree_params = tree_params;
+  validity_check(rf_params);
   return rf_params;
 }
 
@@ -652,8 +634,8 @@ void fit(const raft::handle_t& user_handle,
 {
   ML::PUSH_RANGE("RF::fit @randomforest.cu");
   ML::Logger::get().setLevel(verbosity);
-  ASSERT(!forest->trees, "Cannot fit an existing forest.");
-  forest->trees     = new DT::TreeMetaDataNode<float, float>[rf_params.n_trees];
+  ASSERT(forest->trees.empty(), "Cannot fit an existing forest.");
+  forest->trees.resize(rf_params.n_trees);
   forest->rf_params = rf_params;
 
   std::shared_ptr<RandomForest<float, float>> rf_regressor =
@@ -673,8 +655,8 @@ void fit(const raft::handle_t& user_handle,
 {
   ML::PUSH_RANGE("RF::fit @randomforest.cu");
   ML::Logger::get().setLevel(verbosity);
-  ASSERT(!forest->trees, "Cannot fit an existing forest.");
-  forest->trees     = new DT::TreeMetaDataNode<double, double>[rf_params.n_trees];
+  ASSERT(forest->trees.empty(), "Cannot fit an existing forest.");
+  forest->trees.resize(rf_params.n_trees);
   forest->rf_params = rf_params;
 
   std::shared_ptr<RandomForest<double, double>> rf_regressor =
@@ -705,7 +687,6 @@ void predict(const raft::handle_t& user_handle,
              float* predictions,
              int verbosity)
 {
-  ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
   std::shared_ptr<RandomForest<float, float>> rf_regressor =
     std::make_shared<RandomForest<float, float>>(forest->rf_params, RF_type::REGRESSION);
   rf_regressor->predict(user_handle, input, n_rows, n_cols, predictions, forest, verbosity);
@@ -719,7 +700,6 @@ void predict(const raft::handle_t& user_handle,
              double* predictions,
              int verbosity)
 {
-  ASSERT(forest->trees, "Cannot predict! No trees in the forest.");
   std::shared_ptr<RandomForest<double, double>> rf_regressor =
     std::make_shared<RandomForest<double, double>>(forest->rf_params, RF_type::REGRESSION);
   rf_regressor->predict(user_handle, input, n_rows, n_cols, predictions, forest, verbosity);

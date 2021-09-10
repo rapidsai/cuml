@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cuml/tree/algo_helper.h>
+#include <cuml/tree/flatnode.h>
 #include <thrust/binary_search.h>
 #include <common/grid_sync.cuh>
 #include <cstdio>
@@ -24,17 +25,22 @@
 #include <raft/cuda_utils.cuh>
 #include "input.cuh"
 #include "metrics.cuh"
-#include "node.cuh"
 #include "split.cuh"
 
 namespace ML {
 namespace DT {
 
+// The range of instances belonging to a particular node
+// This structure refers to a range in the device array input.rowids
+struct InstanceRange {
+  std::size_t begin;
+  std::size_t count;
+};
+
 struct NodeWorkItem {
-  size_t idx;        // Index of the work item in the tree
-  size_t row_start;  // Start of the range of training instances belonging to this node
-  size_t row_count;  // Number of training instances belonging to this node
+  size_t idx;  // Index of the work item in the tree
   int depth;
+  InstanceRange instances;
 };
 
 /**
@@ -55,10 +61,10 @@ template <typename SplitT, typename DataT, typename IdxT>
 HDI bool SplitNotValid(const SplitT& split,
                        DataT min_impurity_decrease,
                        IdxT min_samples_leaf,
-                       IdxT num_rows)
+                       std::size_t num_rows)
 {
   return split.best_metric_val <= min_impurity_decrease || split.nLeft < min_samples_leaf ||
-         (num_rows - split.nLeft) < min_samples_leaf;
+         (IdxT(num_rows) - split.nLeft) < min_samples_leaf;
 }
 
 /**
@@ -81,8 +87,8 @@ DI void partitionSamples(const Input<DataT, LabelT, IdxT>& input,
   size_t smemSize  = sizeof(IdxT) * TPB;
   auto* lcomp      = reinterpret_cast<IdxT*>(smem);
   auto* rcomp      = reinterpret_cast<IdxT*>(smem + smemSize);
-  auto range_start = work_item.row_start;
-  auto range_len   = work_item.row_count;
+  auto range_start = work_item.instances.begin;
+  auto range_len   = work_item.instances.count;
   auto* col        = input.data + split.colid * input.M;
   auto loffset = range_start, part = loffset + split.nLeft, roffset = part;
   auto end  = range_start + range_len;
@@ -131,33 +137,39 @@ __global__ void nodeSplitKernel(IdxT max_depth,
   extern __shared__ char smem[];
   const auto work_item = work_items[blockIdx.x];
   const auto split     = splits[blockIdx.x];
-  if (SplitNotValid(split, min_impurity_decrease, min_samples_leaf, IdxT(work_item.row_count))) {
+  if (SplitNotValid(
+        split, min_impurity_decrease, min_samples_leaf, IdxT(work_item.instances.count))) {
     return;
   }
   partitionSamples<DataT, LabelT, IdxT, TPB>(input, split, work_item, (char*)smem);
 }
 
-template <typename DataT, typename LabelT, typename IdxT, typename ObjectiveT>
+template <typename InputT, typename NodeT, typename ObjectiveT>
 __global__ void leafKernel(ObjectiveT objective,
-                           Input<DataT, LabelT, IdxT> input,
-                           Node<DataT, LabelT, IdxT>* tree)
+                           InputT input,
+                           NodeT* tree,
+                           const InstanceRange* instance_ranges)
 {
   using BinT = typename ObjectiveT::BinT;
   extern __shared__ char shared_memory[];
   auto histogram = reinterpret_cast<BinT*>(shared_memory);
   auto& node     = tree[blockIdx.x];
+  auto range     = instance_ranges[blockIdx.x];
   if (!node.IsLeaf()) return;
   auto tid = threadIdx.x;
   for (int i = tid; i < input.numOutputs; i += blockDim.x) {
     histogram[i] = BinT();
   }
   __syncthreads();
-  for (auto i = node.start + tid; i < node.start + node.count; i += blockDim.x) {
+  for (auto i = range.begin + tid; i < range.begin + range.count; i += blockDim.x) {
     auto label = input.labels[input.rowids[i]];
     BinT::IncrementHistogram(histogram, 1, 0, label);
   }
   __syncthreads();
-  if (tid == 0) { node.makeLeaf(ObjectiveT::LeafPrediction(histogram, input.numOutputs)); }
+  if (tid == 0) {
+    node =
+      NodeT::CreateLeafNode(ObjectiveT::LeafPrediction(histogram, input.numOutputs), range.count);
+  }
 }
 
 /* Returns 'input' rounded up to a correctly-aligned pointer of type OutT* */
@@ -172,7 +184,7 @@ __device__ OutT* alignPointer(InT input)
 const uint32_t fnv1a32_prime = uint32_t(16777619);
 const uint32_t fnv1a32_basis = uint32_t(2166136261);
 
-DI uint32_t fnv1a32(uint32_t hash, uint32_t txt)
+HDI uint32_t fnv1a32(uint32_t hash, uint32_t txt)
 {
   hash ^= (txt >> 0) & 0xFF;
   hash *= fnv1a32_prime;
@@ -307,8 +319,8 @@ __global__ void computeSplitKernel(BinT* hist,
   IdxT nid                             = workload_info_cta.nodeid;
   IdxT large_nid                       = workload_info_cta.large_nodeid;
   const auto work_item                 = work_items[nid];
-  auto range_start                     = work_item.row_start;
-  auto range_len                       = work_item.row_count;
+  auto range_start                     = work_item.instances.begin;
+  auto range_len                       = work_item.instances.count;
 
   IdxT offset_blockid = workload_info_cta.offset_blockid;
   IdxT num_blocks     = workload_info_cta.num_blocks;
