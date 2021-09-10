@@ -734,7 +734,7 @@ def get_condition_flag(word_str_ser, condition):
         return a bool series where flag is valid
     """
     if condition is None:
-        return cudf.Series(cp.ones(len(word_str_ser), np.bool))
+        return cudf.Series(cp.ones(len(word_str_ser), bool))
     else:
         return condition(word_str_ser)
 

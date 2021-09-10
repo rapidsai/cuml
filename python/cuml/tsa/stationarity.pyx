@@ -89,7 +89,7 @@ def kpss_test(y, d=0, D=0, s=0, pval_threshold=0.05,
         handle = Handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
-    results = CumlArray.empty(batch_size, dtype=np.bool)
+    results = CumlArray.empty(batch_size, dtype=bool)
     cdef uintptr_t d_results = results.ptr
 
     # Call C++ function

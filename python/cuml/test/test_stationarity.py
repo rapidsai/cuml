@@ -45,7 +45,7 @@ def kpss_ref(y):
     """Wrapper around statsmodels' KPSS test
     """
     batch_size = y.shape[1]
-    test_results = np.zeros(batch_size, dtype=np.bool)
+    test_results = np.zeros(batch_size, dtype=bool)
     for i in range(batch_size):
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore")

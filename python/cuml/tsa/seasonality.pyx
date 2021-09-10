@@ -84,5 +84,5 @@ def seas_test(y, s, handle=None) -> CumlArray:
 
     # Temporary: Python implementation
     python_res = python_seas_test(h_y, batch_size, n_obs, s)
-    d_res, *_ = input_to_cuml_array(np.array(python_res), check_dtype=np.bool)
+    d_res, *_ = input_to_cuml_array(np.array(python_res), check_dtype=bool)
     return d_res
