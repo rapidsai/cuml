@@ -326,7 +326,7 @@ class DecisionTree {
                           int num_outputs)
   {
     for (std::size_t row_id = 0; row_id < n_rows; row_id++) {
-      predict_one(&rows[row_id * n_cols], tree, preds + row_id * num_outputs, num_outputs, 0);
+      predict_one(&rows[row_id * n_cols], tree, preds + row_id * num_outputs, num_outputs);
     }
   }
 
@@ -334,21 +334,20 @@ class DecisionTree {
   static void predict_one(const DataT* row,
                           const DT::TreeMetaDataNode<DataT, LabelT>& tree,
                           DataT* preds_out,
-                          int num_outputs,
-                          int idx)
+                          int num_outputs)
   {
-    const auto& n  = tree.sparsetree[idx];
-    auto colid     = n.ColumnId();
-    DataT quesval  = n.QueryValue();
-    auto leftchild = n.LeftChildId();
-    if (n.IsLeaf()) {
-      for (int i = 0; i < num_outputs; i++) {
-        preds_out[i] += tree.vector_leaf[idx * num_outputs + i];
+    std::size_t idx = 0;
+    auto n          = tree.sparsetree[idx];
+    while (!n.IsLeaf()) {
+      if (row[n.ColumnId()] <= n.QueryValue()) {
+        idx = n.LeftChildId();
+      } else {
+        idx = n.RightChildId();
       }
-    } else if (row[colid] <= quesval) {
-      predict_one(row, tree, preds_out, num_outputs, n.LeftChildId());
-    } else {
-      predict_one(row, tree, preds_out, num_outputs, n.RightChildId());
+      n = tree.sparsetree[idx];
+    }
+    for (int i = 0; i < num_outputs; i++) {
+      preds_out[i] += tree.vector_leaf[idx * num_outputs + i];
     }
   }
 
