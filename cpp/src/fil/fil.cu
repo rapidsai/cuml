@@ -675,9 +675,9 @@ std::vector<cat_feature_counters> cat_features_counters(const tl::ModelImpl<T, L
 {
   std::vector<cat_feature_counters> cat_features(model.num_feature);
   const auto& trees = model.trees;
-#pragma omp declare reduction(rwz:std::vector<cat_feature_counters>                    \
-                              : omp_out = reduce(omp_out, omp_in)) \
-  initializer(omp_priv = omp_orig)
+#pragma omp declare reduction(rwz:std::vector<cat_feature_counters>  \
+                              : omp_out = reduce(omp_out, omp_in))   \
+            initializer(omp_priv = omp_orig)
 #pragma omp parallel for reduction(rwz : cat_features)
   for (size_t i = 0; i < trees.size(); ++i) {
     cat_features = reduce(cat_features, cat_features_counters(trees[i], model.num_feature));

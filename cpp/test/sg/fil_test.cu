@@ -30,7 +30,6 @@
 
 #include <treelite/c_api.h>
 #include <treelite/frontend.h>
-#include <treelite/gtil.h>
 #include <treelite/tree.h>
 
 #include <gtest/gtest.h>

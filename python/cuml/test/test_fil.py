@@ -496,13 +496,13 @@ def to_categorical(features, n_categorical):
     n_features = features.shape[1]
     df_cols = {}
     # all categorical columns
-    col = features[:, :n_categorical]
-    col2 = col - col.min(axis=1, keepdims=True)  # col range [0, ?]
-    col2 /= col2.max(axis=1, keepdims=True)  # col range [0, 1]
+    cat_cols = features[:, :n_categorical]
+    cat_cols = cat_cols - cat_cols.min(axis=1, keepdims=True)  # range [0, ?]
+    cat_cols /= cat_cols.max(axis=1, keepdims=True)  # range [0, 1]
     # round into rough_n_categories bins
-    col2 = np.round(col2 * 100).astype(int)
+    cat_cols = (cat_cols * 100).astype(int)
     for icol in range(n_categorical):
-        col = col2[:, icol]
+        col = cat_cols[:, icol]
         df_cols[icol] = pd.Series(pd.Categorical(col,
                                                  categories=np.unique(col)))
     # all numerical columns

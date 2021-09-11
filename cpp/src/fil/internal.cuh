@@ -92,7 +92,7 @@ enum output_t {
 union val_t {
   /** threshold value for parent node or output value (e.g. class
       probability or regression summand) for leaf node */
-  float f;
+  float f = NAN;
   /** class label, leaf vector index or categorical node set offset */
   int idx;
 };
@@ -130,8 +130,6 @@ struct base_node {
     bits = (fid & FID_MASK) | (def_left ? DEF_LEFT_MASK : 0) | (is_leaf ? IS_LEAF_MASK : 0) |
            (is_categorical ? IS_CATEGORICAL_MASK : 0);
     if (is_leaf)
-      val = output;
-    else if (is_leaf)
       val = output;
     else
       val = split;
