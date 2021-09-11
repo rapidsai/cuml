@@ -61,14 +61,14 @@ struct FilTestParams {
   float leaf_prob = 0.05;
   // below, categorical nodes means categorical inner nodes
   // probability that a node is categorical (given that its feature is categorical)
-  float node_categorical_prob = 0.0;
+  float node_categorical_prob = 0.0f;
   // probability that a feature is categorical (pertains to data generation, can
   // still be interpreted as numerical by a node)
-  float feature_categorical_prob = 0.0;
+  float feature_categorical_prob = 0.0f;
   // during model creation, how often categories < max_matching are marked as matching?
-  float cat_match_prob = 0.5;
+  float cat_match_prob = 0.5f;
   // Order Of Magnitude for maximum matching category for categorical nodes
-  float max_magnitude_of_matching_cat = 1.0;
+  float max_magnitude_of_matching_cat = 1.0f;
   // output parameters
   output_t output   = output_t::RAW;
   float threshold   = 0.0f;
