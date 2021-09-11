@@ -51,35 +51,36 @@ namespace tl = treelite;
 std::ostream& operator<<(std::ostream& os, const cat_sets_owner& cso)
 {
   os << "\nbits { ";
-  for (uint8_t b : cso.bits)
+  for (uint8_t b : cso.bits) {
     os << std::bitset<8>(b) << " ";
+  }
   os << " }\nmax_matching {";
-  for (int mm : cso.max_matching)
+  for (int mm : cso.max_matching) {
     os << mm << " ";
+  }
   os << " }";
   return os;
 }
 
 cat_sets_owner::cat_sets_owner(const std::vector<cat_feature_counters>& cf)
 {
-  max_matching.resize(cf.size());
-  n_nodes.resize(cf.size());
   std::size_t bits_size = 0;
-  // feature ID
-  for (std::size_t fid = 0; fid < cf.size(); ++fid) {
+
+  for (cat_feature_counters cnt : cf) {
+    max_matching.push_back(cnt.max_matching);
+    n_nodes.push_back(cnt.n_nodes);
+    bits_size += categorical_sets::sizeof_mask_from_max_matching(cnt.max_matching) * cnt.n_nodes;
+
+    int fid = max_matching.size();
     RAFT_EXPECTS(
-      cf[fid].max_matching >= -1, "@fid %zu: max_matching invalid (%d)", fid, cf[fid].max_matching);
-    RAFT_EXPECTS(cf[fid].n_nodes >= 0, "@fid %zu: n_nodes invalid (%d)", fid, cf[fid].n_nodes);
-
-    n_nodes[fid]      = cf[fid].n_nodes;
-    max_matching[fid] = cf[fid].max_matching;
-    bits_size += categorical_sets::sizeof_mask_from_max_matching(max_matching[fid]) * n_nodes[fid];
-
+      cnt.max_matching >= -1, "@fid %zu: max_matching invalid (%d)", fid, cnt.max_matching);
+    RAFT_EXPECTS(cnt.n_nodes >= 0, "@fid %zu: n_nodes invalid (%d)", fid, cnt.n_nodes);
     RAFT_EXPECTS(bits_size <= INT_MAX,
                  "@fid %zu: cannot store %zu categories given `int` offsets",
                  fid,
                  bits_size);
   }
+
   bits.resize(bits_size);
 }
 
@@ -200,7 +201,7 @@ struct forest {
 
     // vector leaf
     if (!vector_leaf.empty()) {
-      vector_leaf_.resize(vector_leaf.size(), h.get_stream());
+      vector_leaf_.resize(vector_leaf.size(), stream);
 
       CUDA_CHECK(cudaMemcpyAsync(vector_leaf_.data(),
                                  vector_leaf.data(),

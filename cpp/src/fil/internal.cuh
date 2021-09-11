@@ -327,7 +327,8 @@ __host__ __device__ __forceinline__ int fetch_bit(const uint8_t* array, int bit)
 }
 
 struct cat_feature_counters {
-  int max_matching = -1, n_nodes = 0;
+  int max_matching = -1;
+  int n_nodes      = 0;
 };
 
 struct categorical_sets {
@@ -335,8 +336,9 @@ struct categorical_sets {
   // arrays from each node ID are concatenated first, then from all categories
   const uint8_t* bits = nullptr;
   // largest matching category in the model, per feature ID
-  const int* max_matching = nullptr;
-  std::size_t bits_size = 0, max_matching_size = 0;
+  const int* max_matching       = nullptr;
+  std::size_t bits_size         = 0;
+  std::size_t max_matching_size = 0;
 
   __host__ __device__ __forceinline__ bool cats_present() const
   {
