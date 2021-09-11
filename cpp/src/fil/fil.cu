@@ -52,7 +52,7 @@ std::ostream& operator<<(std::ostream& os, const cat_sets_owner& cso)
 {
   os << "\nbits { ";
   for (uint8_t b : cso.bits) {
-    os << std::bitset<8>(b) << " ";
+    os << std::bitset<BITS_PER_BYTE>(b) << " ";
   }
   os << " }\nmax_matching {";
   for (int mm : cso.max_matching) {
@@ -824,13 +824,14 @@ conversion_state<fil_node_t> tl2fil_branch_node(int fil_left_child,
     // date
     for (int which_8cats = 0; which_8cats < sizeof_mask; ++which_8cats) {
       uint8_t _8cats = 0;
-      for (int bit = 0; bit < 8; ++bit) {
+      for (int bit = 0; bit < BITS_PER_BYTE; ++bit) {
         if (category_it < matching_cats.end() &&
-            *category_it == (uint32_t)(which_8cats * 8 + bit)) {
+            *category_it == (uint32_t)(which_8cats * BITS_PER_BYTE + bit)) {
           _8cats |= 1 << bit;
           ++category_it;
         }
       }
+      // bits is a const uint8_t* to issue better load instructions in GPU code
       (uint8_t&)(cat_sets.bits[split.idx + which_8cats]) = _8cats;
     }
     ASSERT(category_it == matching_cats.end(), "internal error: didn't convert all categories");
