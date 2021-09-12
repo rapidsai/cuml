@@ -31,6 +31,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 namespace ML {
@@ -255,7 +256,8 @@ void build_treelite_forest(ModelHandle* model_handle,
     ASSERT(num_outputs == tree->num_outputs, "Invalid forest");
   }
 
-  if (num_outputs > 1) {
+  if constexpr (std::is_integral_v<L>) {
+    ASSERT(num_outputs > 1, "Classification problem is only one label.");
     model->task_type = tl::TaskType::kMultiClfProbDistLeaf;
     std::strncpy(model->param.pred_transform, "max_index", sizeof(model->param.pred_transform));
   } else {
