@@ -61,7 +61,7 @@ class TargetEncoder:
     .. code-block:: python
 
         from cudf import DataFrame, Series
-        from cuml.preprocessing.TargetEncoder import TargetEncoder
+        from cuml.preprocessing import TargetEncoder
 
 
         train = DataFrame({'category': ['a', 'b', 'b', 'a'],
