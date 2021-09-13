@@ -201,8 +201,6 @@ int main(int argc, char* argv[])
   raft::handle_t handle;
   std::shared_ptr<raft::mr::device::allocator> allocator(new raft::mr::device::default_allocator());
 
-  handle.set_device_allocator(allocator);
-
   cudaStream_t stream;
   CUDA_RT_CALL(cudaStreamCreate(&stream));
   handle.set_stream(stream);
