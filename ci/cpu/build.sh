@@ -81,10 +81,10 @@ fi
 if [ "$BUILD_CUML" == '1' ]; then
   if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     gpuci_logger "Build conda pkg for cuml"
-    gpuci_conda_retry build --croot ${CONDA_BLD_DIR} conda/recipes/cuml --python=${PYTHON}
+    gpuci_conda_retry build --croot ${CONDA_BLD_DIR} conda/recipes/cuml --python=${PYTHON_VER}
   else
     gpuci_logger "PROJECT FLASH: Build conda pkg for cuml"
-    gpuci_conda_retry build --croot ${CONDA_BLD_DIR} -c ci/artifacts/cuml/cpu/.conda-bld/ --dirty --no-remove-work-dir conda/recipes/cuml --python=${PYTHON}
+    gpuci_conda_retry build --croot ${CONDA_BLD_DIR} -c ci/artifacts/cuml/cpu/.conda-bld/ --dirty --no-remove-work-dir conda/recipes/cuml --python=${PYTHON_VER}
   fi
 fi
 

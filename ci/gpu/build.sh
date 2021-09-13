@@ -259,13 +259,13 @@ if [ -n "${CODECOV_TOKEN}" ]; then
     REPORT_DIR="${WORKSPACE}/python/cuml"
 
     # Base name to use in Codecov UI
-    CODECOV_NAME=${JOB_BASE_NAME:-"${OS},py${PYTHON},cuda${CUDA}"}
+    CODECOV_NAME=${JOB_BASE_NAME:-"${OS},py${PYTHON_VER},cuda${CUDA_VER}"}
 
     # Codecov args needed by both calls
     EXTRA_CODECOV_ARGS="-c"
 
     # Save the OS PYTHON and CUDA flags
-    EXTRA_CODECOV_ARGS="${EXTRA_CODECOV_ARGS} -e OS,PYTHON,CUDA"
+    EXTRA_CODECOV_ARGS="${EXTRA_CODECOV_ARGS} -e OS,PYTHON,CUDA_VER"
 
     # If we have REPORT_HASH, use that instead. This fixes an issue where
     # CodeCov uses a local merge commit created by Jenkins. Since this commit
