@@ -292,16 +292,16 @@ class DecisionTree {
         .train();
     } else if (params.split_criterion == CRITERION::POISSON) {
       return Builder<PoissonObjectiveFunction<DataT, LabelT, IdxT>>(handle,
-                                                              treeid,
-                                                              seed,
-                                                              params,
-                                                              data,
-                                                              labels,
-                                                              nrows,
-                                                              ncols,
-                                                              rowids,
-                                                              unique_labels,
-                                                              quantiles)
+                                                                    treeid,
+                                                                    seed,
+                                                                    params,
+                                                                    data,
+                                                                    labels,
+                                                                    nrows,
+                                                                    ncols,
+                                                                    rowids,
+                                                                    unique_labels,
+                                                                    quantiles)
         .train();
     } else {
       ASSERT(false, "Unknown split criterion.");
