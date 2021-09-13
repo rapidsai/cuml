@@ -32,7 +32,8 @@ import cuml.common.logger as logger
 
 from sklearn.ensemble import RandomForestClassifier as skrfc
 from sklearn.ensemble import RandomForestRegressor as skrfr
-from sklearn.metrics import accuracy_score, mean_squared_error, mean_poisson_deviance
+from sklearn.metrics import accuracy_score, mean_squared_error, \
+    mean_poisson_deviance
 from sklearn.datasets import fetch_california_housing, \
     make_classification, make_regression, load_iris, load_breast_cancer, \
     load_boston
@@ -186,8 +187,9 @@ def special_reg(request):
         )
     return X, y
 
-@pytest.mark.parametrize("lam", [0.001, 0.01, 0.1])
-@pytest.mark.parametrize("max_depth", [2, 4, 7, 10, 25, 50])
+
+@pytest.mark.parametrize("lam", [0.01, 0.1])
+@pytest.mark.parametrize("max_depth", [2, 4])
 def test_poisson_convergence(lam, max_depth):
     np.random.seed(33)
     bootstrap = None
@@ -213,12 +215,13 @@ def test_poisson_convergence(lam, max_depth):
         bootstrap=bootstrap,
         max_features=max_features,
         min_impurity_decrease=min_impurity_decrease).fit(X, y).predict(X)
-
-    mask = mse_preds > 0 # y should not be non-positive for mean_poisson_deviance
+    # y should not be non-positive for mean_poisson_deviance
+    mask = mse_preds > 0
     mse_mpd = mean_poisson_deviance(y[mask], mse_preds[mask])
     poisson_mpd = mean_poisson_deviance(y, poisson_preds)
 
-    # model trained on poisson data with poisson criterion must perform better on poisson loss
+    # model trained on poisson data with
+    # poisson criterion must perform better on poisson loss
     assert mse_mpd >= poisson_mpd
 
 
