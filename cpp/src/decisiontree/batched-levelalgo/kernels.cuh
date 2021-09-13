@@ -244,6 +244,45 @@ DI IdxT select(IdxT k, IdxT treeid, uint32_t nodeid, uint64_t seed, IdxT N)
   return blksum;
 }
 
+template <typename IdxT>
+IdxT select_cpu(IdxT k, IdxT treeid, uint32_t nodeid, uint64_t seed, IdxT N)
+{
+  int blksum;
+  uint32_t pivot_hash;
+  int cnt = 0;
+
+  blksum = 0;
+  // Compute hash for the 'k'th index and use it as pivote for sorting
+  pivot_hash = fnv1a32_basis;
+  pivot_hash = fnv1a32(pivot_hash, uint32_t(k));
+  pivot_hash = fnv1a32(pivot_hash, uint32_t(treeid));
+  pivot_hash = fnv1a32(pivot_hash, uint32_t(nodeid));
+  pivot_hash = fnv1a32(pivot_hash, uint32_t(seed >> 32));
+  pivot_hash = fnv1a32(pivot_hash, uint32_t(seed));
+
+  // Compute hash for rest of the indices and count instances where i_hash is
+  // less than pivot_hash
+  uint32_t i_hash;
+  for (int i = 0; i < N; i ++) {
+    if (i == k) continue;  // Skip since k is the pivote index
+    i_hash = fnv1a32_basis;
+    i_hash = fnv1a32(i_hash, uint32_t(i));
+    i_hash = fnv1a32(i_hash, uint32_t(treeid));
+    i_hash = fnv1a32(i_hash, uint32_t(nodeid));
+    i_hash = fnv1a32(i_hash, uint32_t(seed >> 32));
+    i_hash = fnv1a32(i_hash, uint32_t(seed));
+
+    if (i_hash < pivot_hash)
+      cnt++;
+    else if (i_hash == pivot_hash && i < k)
+      cnt++;
+  }
+
+  if (cnt > 0) 
+    blksum += cnt;
+
+  return blksum;
+}
 /**
  * @brief For every block, converts the smem pdf-histogram to
  *        cdf-histogram inplace using inclusive block-sum-scan and returns
@@ -311,7 +350,9 @@ __global__ void computeSplitKernel(BinT* hist,
                                    ObjectiveT objective,
                                    IdxT treeid,
                                    const WorkloadInfo<IdxT>* workload_info,
-                                   uint64_t seed)
+                                   uint64_t seed,
+                                   const IdxT* colids,
+                                   const IdxT n_blks_for_cols)
 {
   extern __shared__ char smem[];
   // Read workload info for this block
@@ -341,7 +382,12 @@ __global__ void computeSplitKernel(BinT* hist,
     int colIndex = colStart + blockIdx.y;
     col          = select(colIndex, treeid, work_item.idx, seed, input.N);
   }
-
+  if (col != colids[work_item.idx * n_blks_for_cols + blockIdx.y]) {
+    if (threadIdx.x == 0 && blockIdx.x == 0 && blockIdx.y == 0)
+    printf("Hell bells colIndex = %d, treeid = %d, work_item.idx = %lu, seed = %lu, input.N = %d\n"
+           "col = %d, colids[*] = %d\n",
+           colStart + blockIdx.y, treeid, work_item.idx, seed, input.N, col, colids[work_item.idx * n_blks_for_cols + blockIdx.y]);
+  }
   // populating shared memory with initial values
   for (IdxT i = threadIdx.x; i < shared_histogram_len; i += blockDim.x)
     shared_histogram[i] = BinT();

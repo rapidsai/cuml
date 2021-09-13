@@ -188,6 +188,9 @@ struct Builder {
   /** Memory alignment value */
   const size_t alignValue = 512;
 
+  IdxT *colids;
+  IdxT *h_colids;
+
   rmm::device_uvector<char> d_buff;
   std::vector<char> h_buff;
 
@@ -259,11 +262,13 @@ struct Builder {
     d_wsize += calculateAlignedBytes(sizeof(NodeWorkItem) * max_batch);           // d_work_Items
     d_wsize +=                                                                    // workload_info
       calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks);
+    d_wsize += calculateAlignedBytes(sizeof(IdxT) * max_batch * n_blks_for_cols); // colids
 
     // all nodes in the tree
     h_wsize +=  // h_workload_info
       calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks);
     h_wsize += calculateAlignedBytes(sizeof(SplitT) * max_batch);  // splits
+    h_wsize += calculateAlignedBytes(sizeof(IdxT) * max_batch * n_blks_for_cols); // h_colids
 
     ML::POP_RANGE();
     return std::make_pair(d_wsize, h_wsize);
@@ -297,6 +302,8 @@ struct Builder {
     d_wspace += calculateAlignedBytes(sizeof(NodeWorkItem) * max_batch);
     workload_info = reinterpret_cast<WorkloadInfo<IdxT>*>(d_wspace);
     d_wspace += calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks);
+    colids = reinterpret_cast<IdxT*>(d_wspace);
+    d_wspace += calculateAlignedBytes(sizeof(IdxT) * max_batch * n_blks_for_cols);
 
     CUDA_CHECK(
       cudaMemsetAsync(done_count, 0, sizeof(int) * max_batch * n_col_blks, handle.get_stream()));
@@ -307,6 +314,9 @@ struct Builder {
     h_wspace += calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks);
     h_splits = reinterpret_cast<SplitT*>(h_wspace);
     h_wspace += calculateAlignedBytes(sizeof(SplitT) * max_batch);
+    h_colids = reinterpret_cast<IdxT*>(h_wspace);
+    h_wspace += calculateAlignedBytes(sizeof(IdxT) * max_batch * n_blks_for_cols);
+
     ML::POP_RANGE();
   }
 
@@ -366,7 +376,7 @@ struct Builder {
     // iterate through a batch of columns (to reduce the memory pressure) and
     // compute the best split at the end
     for (IdxT c = 0; c < input.nSampledCols; c += n_blks_for_cols) {
-      computeSplit(c, work_items.size(), total_blocks, large_blocks);
+      computeSplit(c, work_items.size(), total_blocks, large_blocks, work_items);
       CUDA_CHECK(cudaGetLastError());
     }
 
@@ -408,7 +418,7 @@ struct Builder {
     return smemSize;
   }
 
-  void computeSplit(IdxT col, IdxT batchSize, size_t total_blocks, size_t large_blocks)
+  void computeSplit(IdxT col, IdxT batchSize, size_t total_blocks, size_t large_blocks, const std::vector<NodeWorkItem>& work_items)
   {
     if (total_blocks == 0) return;
     ML::PUSH_RANGE("Builder::computeSplit @builder_base.cuh [batched-levelalgo]");
@@ -422,6 +432,14 @@ struct Builder {
     CUDA_CHECK(cudaMemsetAsync(hist, 0, sizeof(BinT) * nHistBins, handle.get_stream()));
     ML::PUSH_RANGE("computeSplitClassificationKernel @builder_base.cuh [batched-levelalgo]");
     ObjectiveT objective(input.numOutputs, params.min_impurity_decrease, params.min_samples_leaf);
+
+    for (IdxT i = 0; i < batchSize; i++) {
+      for (IdxT c1 = col; c1 < n_blks_for_cols; c1++) {
+        h_colids[i*n_blks_for_cols + c1] = select_cpu(c1, treeid, work_items[i].idx, seed, input.N);
+      }
+    }
+    CUDA_CHECK(cudaMemcpyAsync(colids, h_colids, sizeof(IdxT) * batchSize * n_blks_for_cols,
+                               cudaMemcpyHostToDevice, handle.get_stream()));
     computeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, handle.get_stream()>>>(hist,
                                                              params.n_bins,
@@ -437,7 +455,9 @@ struct Builder {
                                                              objective,
                                                              treeid,
                                                              workload_info,
-                                                             seed);
+                                                             seed,
+                                                             colids,
+                                                             n_blks_for_cols);
     ML::POP_RANGE();  // computeSplitKernel
     ML::POP_RANGE();  // Builder::computeSplit
   }
