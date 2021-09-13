@@ -327,7 +327,8 @@ class RfSpecialisedTest {
   void TestDeterminism()
   {
     // Regression models use floating point atomics, so are not bitwise reproducible
-    bool is_regression = params.split_criterion == MSE || params.split_criterion == MAE;
+    bool is_regression = params.split_criterion == MSE or params.split_criterion == MAE or
+                         params.split_criterion == POISSON;
     if (is_regression) return;
 
     // Repeat training
@@ -394,7 +395,7 @@ class RfTest : public ::testing::TestWithParam<RfTestParams> {
   void SetUp() override
   {
     RfTestParams params = ::testing::TestWithParam<RfTestParams>::GetParam();
-    bool is_regression  = params.split_criterion == MSE || params.split_criterion == MAE ||
+    bool is_regression  = params.split_criterion == MSE or params.split_criterion == MAE or
                          params.split_criterion == POISSON;
     if (params.double_precision) {
       if (is_regression) {
@@ -529,7 +530,7 @@ class RFQuantileTest : public ::testing::TestWithParam<QuantileTestParameters> {
     int min_items_per_bin = max_items_per_bin - 1;
     int total_items       = 0;
     for (int b = 0; b < params.n_bins; b++) {
-      ASSERT_TRUE(h_histogram[b] == max_items_per_bin || h_histogram[b] == min_items_per_bin)
+      ASSERT_TRUE(h_histogram[b] == max_items_per_bin or h_histogram[b] == min_items_per_bin)
         << "No. samples in bin[" << b << "] = " << h_histogram[b] << " Expected "
         << max_items_per_bin << " or " << min_items_per_bin << std::endl;
       total_items += h_histogram[b];
@@ -689,7 +690,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     auto gain = parent_gini - ((left_n / n) * left_gini + (right_n / n) * right_gini);
 
     // edge cases
-    if (gain <= params.min_impurity_decrease || left_n < params.min_samples_leaf ||
+    if (gain <= params.min_impurity_decrease or left_n < params.min_samples_leaf or
         right_n < params.min_samples_leaf) {
       return -std::numeric_limits<DataT>::max();
     } else {
