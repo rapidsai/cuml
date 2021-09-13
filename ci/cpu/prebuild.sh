@@ -2,7 +2,7 @@
 
 export UPLOAD_CUML=1
 
-if [[ "$PYTHON" == "3.7" ]]; then
+if [[ "$PYTHON_VER" == "3.7" ]]; then
     export UPLOAD_LIBCUML=1
 else
     export UPLOAD_LIBCUML=0
