@@ -152,14 +152,14 @@ std::pair<value_t, value_t> min_max(const value_t* Y, const value_idx n, cudaStr
  * @param[in] params: Parameters for TSNE model.
  */
 template <typename value_idx, typename value_t>
-void FFT_TSNE(value_t* VAL,
-              const value_idx* COL,
-              const value_idx* ROW,
-              const value_idx NNZ,
-              const raft::handle_t& handle,
-              value_t* Y,
-              const value_idx n,
-              const TSNEParams& params)
+value_t FFT_TSNE(value_t* VAL,
+                 const value_idx* COL,
+                 const value_idx* ROW,
+                 const value_idx NNZ,
+                 const raft::handle_t& handle,
+                 value_t* Y,
+                 const value_idx n,
+                 const TSNEParams& params)
 {
   auto stream        = handle.get_stream();
   auto thrust_policy = handle.get_thrust_policy();
@@ -334,6 +334,7 @@ void FFT_TSNE(value_t* VAL,
     random_vector(Y, 0.0000f, 0.0001f, n * 2, stream, params.random_state);
   }
 
+  value_t kl_div = 0;
   for (int iter = 0; iter < params.max_iter; iter++) {
     // Compute charges Q_ij
     {
@@ -513,8 +514,16 @@ void FFT_TSNE(value_t* VAL,
     // Compute attractive forces
     {
       auto num_blocks = raft::ceildiv(NNZ, (value_idx)NTHREADS_1024);
-      FFT::compute_Pij_x_Qij_kernel<<<num_blocks, NTHREADS_1024, 0, stream>>>(
-        attractive_forces_device.data(), VAL, ROW, COL, Y, n, NNZ);
+      if (iter != params.max_iter - 1) {  // not last iter
+        FFT::compute_Pij_x_Qij_kernel<<<num_blocks, NTHREADS_1024, 0, stream>>>(
+          attractive_forces_device.data(), (value_t*)nullptr, VAL, ROW, COL, Y, n, NNZ);
+      } else {  // last iteration
+        rmm::device_uvector<value_t> kl_divergences(n, stream);
+        FFT::compute_Pij_x_Qij_kernel<<<num_blocks, NTHREADS_1024, 0, stream>>>(
+          attractive_forces_device.data(), kl_divergences.data(), VAL, ROW, COL, Y, n, NNZ);
+        kl_div =
+          thrust::reduce(handle.get_thrust_policy(), kl_divergences.begin(), kl_divergences.end());
+      }
     }
 
     // Apply Forces
@@ -572,6 +581,7 @@ void FFT_TSNE(value_t* VAL,
   CUFFT_TRY(cufftDestroy(plan_kernel_tilde));
   CUFFT_TRY(cufftDestroy(plan_dft));
   CUFFT_TRY(cufftDestroy(plan_idft));
+  return kl_div;
 }
 
 }  // namespace TSNE

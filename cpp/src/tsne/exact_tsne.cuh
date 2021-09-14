@@ -35,14 +35,14 @@ namespace TSNE {
  * @param[in] params: Parameters for TSNE model.
  */
 template <typename value_idx, typename value_t>
-void Exact_TSNE(value_t* VAL,
-                const value_idx* COL,
-                const value_idx* ROW,
-                const value_idx NNZ,
-                const raft::handle_t& handle,
-                value_t* Y,
-                const value_idx n,
-                const TSNEParams& params)
+value_t Exact_TSNE(value_t* VAL,
+                   const value_idx* COL,
+                   const value_idx* ROW,
+                   const value_idx NNZ,
+                   const raft::handle_t& handle,
+                   value_t* Y,
+                   const value_idx n,
+                   const TSNEParams& params)
 {
   cudaStream_t stream = handle.get_stream();
   const value_idx dim = params.dim;
@@ -69,6 +69,7 @@ void Exact_TSNE(value_t* VAL,
   thrust::fill(thrust::cuda::par.on(stream), begin, begin + n * dim, 1.0f);
 
   rmm::device_uvector<value_t> gradient(n * dim, stream);
+  rmm::device_uvector<value_t> kl_divergences(n, stream);
   //---------------------------------------------------
 
   // Calculate degrees of freedom
@@ -97,8 +98,19 @@ void Exact_TSNE(value_t* VAL,
     raft::linalg::rowNorm(norm.data(), Y, dim, n, raft::linalg::L2Norm, false, stream);
 
     // Compute attractive forces
-    TSNE::attractive_forces(
-      VAL, COL, ROW, Y, norm.data(), attract.data(), NNZ, n, dim, df_power, recp_df, stream);
+    TSNE::attractive_forces(VAL,
+                            COL,
+                            ROW,
+                            Y,
+                            norm.data(),
+                            attract.data(),
+                            kl_divergences.data(),
+                            NNZ,
+                            n,
+                            dim,
+                            df_power,
+                            recp_df,
+                            stream);
     // Compute repulsive forces
     const float Z = TSNE::repulsive_forces(
       Y, repel.data(), norm.data(), Z_sum.data(), n, dim, df_power, recp_df, stream);
@@ -139,6 +151,10 @@ void Exact_TSNE(value_t* VAL,
       if (iter % 100 == 0) { CUML_LOG_DEBUG("Z at iter = %d = %f", iter, Z); }
     }
   }
+
+  value_t kl_div =
+    thrust::reduce(handle.get_thrust_policy(), kl_divergences.begin(), kl_divergences.end());
+  return kl_div;
 }
 
 }  // namespace TSNE

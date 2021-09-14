@@ -74,7 +74,7 @@ class TSNE_runner {
         " might be a bit strange...");
   }
 
-  void run()
+  value_t run()
   {
     distance_and_perplexity();
 
@@ -86,11 +86,11 @@ class TSNE_runner {
 
     switch (params.algorithm) {
       case TSNE_ALGORITHM::BARNES_HUT:
-        TSNE::Barnes_Hut(VAL, COL, ROW, NNZ, handle, Y, n, params);
-        break;
-      case TSNE_ALGORITHM::FFT: TSNE::FFT_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, params); break;
-      case TSNE_ALGORITHM::EXACT: TSNE::Exact_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, params); break;
+        return TSNE::Barnes_Hut(VAL, COL, ROW, NNZ, handle, Y, n, params);
+      case TSNE_ALGORITHM::FFT: return TSNE::FFT_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, params);
+      case TSNE_ALGORITHM::EXACT: return TSNE::Exact_TSNE(VAL, COL, ROW, NNZ, handle, Y, n, params);
     }
+    return 0;
   }
 
  private:

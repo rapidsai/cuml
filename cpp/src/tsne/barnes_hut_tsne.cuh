@@ -36,14 +36,14 @@ namespace TSNE {
  */
 
 template <typename value_idx, typename value_t>
-void Barnes_Hut(value_t* VAL,
-                const value_idx* COL,
-                const value_idx* ROW,
-                const value_idx NNZ,
-                const raft::handle_t& handle,
-                value_t* Y,
-                const value_idx n,
-                const TSNEParams& params)
+value_t Barnes_Hut(value_t* VAL,
+                   const value_idx* COL,
+                   const value_idx* ROW,
+                   const value_idx NNZ,
+                   const raft::handle_t& handle,
+                   value_t* Y,
+                   const value_idx n,
+                   const TSNEParams& params)
 {
   cudaStream_t stream = handle.get_stream();
 
@@ -119,6 +119,8 @@ void Barnes_Hut(value_t* VAL,
     raft::copy(YY.data(), Y, n, stream);
     raft::copy(YY.data() + nnodes + 1, Y + n, n, stream);
   }
+
+  rmm::device_uvector<value_t> kl_divergences(n, stream);
 
   // Set cache levels for faster algorithm execution
   //---------------------------------------------------
@@ -273,6 +275,7 @@ void Barnes_Hut(value_t* VAL,
       YY.data() + nnodes + 1,
       attr_forces.data(),
       attr_forces.data() + n,
+      kl_divergences.data(),
       NNZ);
     CUDA_CHECK(cudaPeekAtLastError());
     END_TIMER(attractive_time);
@@ -302,6 +305,10 @@ void Barnes_Hut(value_t* VAL,
   // Copy final YY into true output Y
   raft::copy(Y, YY.data(), n, stream);
   raft::copy(Y + n, YY.data() + nnodes + 1, n, stream);
+
+  value_t kl_div =
+    thrust::reduce(handle.get_thrust_policy(), kl_divergences.begin(), kl_divergences.end());
+  return kl_div;
 }
 
 }  // namespace TSNE

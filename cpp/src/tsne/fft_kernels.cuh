@@ -307,6 +307,7 @@ __global__ void compute_repulsive_forces_kernel(
 
 template <typename value_idx, typename value_t>
 __global__ void compute_Pij_x_Qij_kernel(value_t* __restrict__ attr_forces,
+                                         value_t* __restrict__ kl_divergences,
                                          const value_t* __restrict__ pij,
                                          const value_idx* __restrict__ coo_rows,
                                          const value_idx* __restrict__ coo_cols,
@@ -327,11 +328,13 @@ __global__ void compute_Pij_x_Qij_kernel(value_t* __restrict__ attr_forces,
   value_t dx = ix - jx;
   value_t dy = iy - jy;
 
-  value_t denom = 1 + (dx * dx) + (dy * dy);
+  const value_t P  = pij[TID];
+  const value_t Q  = __fdividef(1.0f, 1 + (dx * dx) + (dy * dy));  // without normalization
+  const value_t PQ = P * Q;
 
-  value_t pijqij = pij[TID] / denom;
-  atomicAdd(attr_forces + i, pijqij * dx);
-  atomicAdd(attr_forces + num_points + i, pijqij * dy);
+  atomicAdd(attr_forces + i, PQ * dx);
+  atomicAdd(attr_forces + num_points + i, PQ * dy);
+  if (kl_divergences) atomicAdd(kl_divergences + i, P * log(P / Q));
 }
 
 template <typename value_idx, typename value_t>
