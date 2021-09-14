@@ -633,7 +633,7 @@ cat_feature_counters reduce(cat_feature_counters a, cat_feature_counters b)
 }
 
 std::vector<cat_feature_counters> reduce(std::vector<cat_feature_counters> a,
-                                         const std::vector<cat_feature_counters> b)
+                                         const std::vector<cat_feature_counters>& b)
 {
   for (std::size_t fid = 0; fid < b.size(); ++fid) {
     a[fid] = reduce(a[fid], b[fid]);
@@ -655,7 +655,7 @@ inline std::vector<cat_feature_counters> cat_features_counters(const tl::Tree<T,
       if (tree.SplitType(node_id) == tl::SplitFeatureType::kCategorical &&
           tree.HasMatchingCategories(node_id)) {
         std::vector<uint32_t> matching_cats = tree.MatchingCategories(node_id);
-        uint32_t max_matching_cat           = *(matching_cats.end() - 1);
+        uint32_t max_matching_cat           = matching_cats.back();
         ASSERT(max_matching_cat <= MAX_PRECISE_INT_FLOAT,
                "FIL cannot infer on "
                "more than %d matching categories",
@@ -843,7 +843,7 @@ conversion_state<fil_node_t> tl2fil_branch_node(int fil_left_child,
   } else {
     node = fil_node_t({}, split, feature_id, default_left, false, is_categorical, fil_left_child);
   }
-  return {node, tl_left, tl_right};
+  return conversion_state{node, tl_left, tl_right};
 }
 
 template <typename T, typename L>
@@ -1401,7 +1401,7 @@ char* sprintf_shape(const tl::ModelImpl<threshold_t, leaf_t>& model,
                     const cat_sets_owner cat_sets)
 {
   std::stringstream forest_shape = depth_hist_and_max(model);
-  float size_mb = (trees.size() * sizeof(trees.front()) + nodes.size() * sizeof(nodes.front()) +
+  double size_mb = (trees.size() * sizeof(trees.front()) + nodes.size() * sizeof(nodes.front()) +
                    cat_sets.bits.size()) /
                   1e6;
   forest_shape << storage_type_repr[storage] << " model size " << std::setprecision(2) << size_mb
