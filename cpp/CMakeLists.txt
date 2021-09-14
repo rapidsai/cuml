@@ -249,11 +249,16 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/metrics/pairwise_distance.cu
     src/metrics/pairwise_distance_canberra.cu
     src/metrics/pairwise_distance_chebyshev.cu
+    src/metrics/pairwise_distance_correlation.cu
     src/metrics/pairwise_distance_cosine.cu
     src/metrics/pairwise_distance_euclidean.cu
+    src/metrics/pairwise_distance_hamming.cu
     src/metrics/pairwise_distance_hellinger.cu
+    src/metrics/pairwise_distance_jensen_shannon.cu
+    src/metrics/pairwise_distance_kl_divergence.cu
     src/metrics/pairwise_distance_l1.cu
     src/metrics/pairwise_distance_minkowski.cu
+    src/metrics/pairwise_distance_russell_rao.cu
     src/metrics/r2_score.cu
     src/metrics/rand_index.cu
     src/metrics/silhouette_score.cu
