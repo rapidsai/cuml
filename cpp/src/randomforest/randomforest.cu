@@ -257,7 +257,7 @@ void build_treelite_forest(ModelHandle* model_handle,
   }
 
   if constexpr (std::is_integral_v<L>) {
-    ASSERT(num_outputs > 1, "Classification problem is only one label.");
+    ASSERT(num_outputs > 1, "More than one variable expected for classification problem.");
     model->task_type = tl::TaskType::kMultiClfProbDistLeaf;
     std::strncpy(model->param.pred_transform, "max_index", sizeof(model->param.pred_transform));
   } else {

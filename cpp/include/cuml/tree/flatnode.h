@@ -28,6 +28,7 @@
  * A node in Decision Tree.
  * @tparam T data type
  * @tparam L label type
+ * @tparam IdxT type used for indexing operations
  */
 template <typename DataT, typename LabelT, typename IdxT = int>
 struct SparseTreeNode {

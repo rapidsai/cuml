@@ -146,7 +146,7 @@ __global__ void nodeSplitKernel(IdxT max_depth,
 template <typename InputT, typename NodeT, typename ObjectiveT, typename DataT>
 __global__ void leafKernel(ObjectiveT objective,
                            InputT input,
-                           NodeT* tree,
+                           const NodeT* tree,
                            const InstanceRange* instance_ranges,
                            DataT* leaves)
 {
