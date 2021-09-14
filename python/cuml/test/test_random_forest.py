@@ -1146,7 +1146,6 @@ def test_concat_memory_leak(large_clf, estimator_type):
     assert (used_mem - initial_baseline_mem) < 1e6
 
 
-# @pytest.mark.xfail(strict=True, raises=ValueError)
 def test_rf_nbins_small(small_clf):
     X, y = small_clf
     X = X.astype(np.float32)

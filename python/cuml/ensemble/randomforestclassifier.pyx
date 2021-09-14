@@ -603,7 +603,7 @@ class RandomForestClassifier(BaseRandomForestModel,
         y : {}
         """
         nvtx_range_push("predict RF-Classifier @randomforestclassifier.pyx")
-        if predict_model == "CPU" :
+        if predict_model == "CPU":
             preds = self._predict_model_on_cpu(X,
                                                convert_dtype=convert_dtype)
         elif self.dtype == np.float64:
