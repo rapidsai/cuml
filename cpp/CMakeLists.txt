@@ -458,16 +458,22 @@ functions that share compatible APIs with other RAPIDS projects.
 
 ]=])
 
+set(code_string
+[=[
+thrust_create_target(cuml::Thrust FROM_OPTIONS)
+]=])
+
  rapids_export(INSTALL cuml
     EXPORT_SET cuml-exports
     GLOBAL_TARGETS cuml
     NAMESPACE cuml::
     DOCUMENTATION doc_string
+    FINAL_CODE_BLOCK code_string
     )
 
 ################################################################################################
 # - build export -------------------------------------------------------------------------------
-set(code_string [=[thrust_create_target(cuml::Thrust FROM_OPTIONS)]=])
+
 rapids_export(BUILD cuml
     EXPORT_SET cuml-exports
     GLOBAL_TARGETS cuml
