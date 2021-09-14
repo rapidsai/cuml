@@ -186,7 +186,7 @@ def test_accuracy(nrows, ncols, n_info, datatype):
     # Initialize, fit and predict using cuML's
     # random forest classification model
     cuml_model = curfc(max_features=1.0,
-                       n_bins=8, split_algo=0, split_criterion=0,
+                       n_bins=8, split_criterion=0,
                        min_samples_leaf=2,
                        n_estimators=40, handle=handle, max_leaves=-1,
                        max_depth=16)
