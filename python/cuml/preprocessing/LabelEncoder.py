@@ -55,55 +55,71 @@ class LabelEncoder(Base):
 
     .. code-block:: python
 
-        import cudf
-        import dask_cudf
         from cudf import DataFrame, Series
-        from cuml.dask.preprocessing.LabelEncoder import LabelEncoder
-        from dask.distributed import Client, LocalCluster
 
-        # create a local cluster with 4 workers
-        n_workers = 2
-        cluster = LocalCluster(n_workers=n_workers)
-        client = Client(cluster)
-
-        data = dask_cudf.from_cudf(DataFrame({'category': ['a', 'b', 'c', 'd']}),npartitions=2)
+        data = DataFrame({'category': ['a', 'b', 'c', 'd']})
 
         # There are two functionally equivalent ways to do this
         le = LabelEncoder()
         le.fit(data.category)  # le = le.fit(data.category) also works
         encoded = le.transform(data.category)
+
         print(encoded)
 
         # This method is preferred
         le = LabelEncoder()
         encoded = le.fit_transform(data.category)
+
         print(encoded)
 
         # We can assign this to a new column
-        data = data.assign(encoded=encoded.values) # NOTE - This uses .values different from cudf assign
-        print(data.head()) 
+        data = data.assign(encoded=encoded)
+        print(data.head())
 
         # We can also encode more data
-        test_data = dask_cudf.from_cudf(Series(['c', 'a']), npartitions=2)
+        test_data = Series(['c', 'a'])
         encoded = le.transform(test_data)
+        print(encoded)
 
         # After train, ordinal label can be inverse_transform() back to
         # string labels
         ord_label = cudf.Series([0, 0, 1, 2, 1])
-        ord_label = dask_cudf.from_cudf(ord_label, npartitions=2)
+        ord_label = dask_cudf.from_cudf(data, npartitions=2)
         str_label = le.inverse_transform(ord_label)
-        print(str_label)
+        print(str_label)        
 
     Output:
 
     .. code-block:: python
 
-        <dask_cudf.Series | 9 tasks | 2 npartitions>
-        <dask_cudf.Series | 9 tasks | 2 npartitions>
-          category  encoded
-        0        a        0
-        1        b        1
-        <dask_cudf.Series | 7 tasks | 2 npartitions>
+        0    0
+        1    1
+        2    2
+        3    3
+        dtype: int64
+
+        0    0
+        1    1
+        2    2
+        3    3
+        dtype: int32
+
+        category  encoded
+        0         a        0
+        1         b        1
+        2         c        2
+        3         d        3
+
+        0    2
+        1    0
+        dtype: int64
+
+        0    a
+        1    a
+        2    b
+        3    c
+        4    b
+        dtype: object
 
     """
 
