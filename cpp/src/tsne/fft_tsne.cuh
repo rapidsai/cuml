@@ -514,15 +514,32 @@ value_t FFT_TSNE(value_t* VAL,
     // Compute attractive forces
     {
       auto num_blocks = raft::ceildiv(NNZ, (value_idx)NTHREADS_1024);
-      if (iter != params.max_iter - 1) {  // not last iter
-        FFT::compute_Pij_x_Qij_kernel<<<num_blocks, NTHREADS_1024, 0, stream>>>(
-          attractive_forces_device.data(), (value_t*)nullptr, VAL, ROW, COL, Y, n, NNZ);
-      } else {  // last iteration
+      bool last_iter  = iter == params.max_iter - 1;
+      if (last_iter) {
+        rmm::device_uvector<value_t> Qs(NNZ, stream);
+        rmm::device_uvector<value_t> Qs_norm(n, stream);
         rmm::device_uvector<value_t> kl_divergences(n, stream);
+        CUDA_CHECK(cudaMemsetAsync(Qs_norm.data(), 0, Qs_norm.size() * sizeof(value_t), stream));
+        CUDA_CHECK(cudaMemsetAsync(
+          kl_divergences.data(), 0, kl_divergences.size() * sizeof(value_t), stream));
+
         FFT::compute_Pij_x_Qij_kernel<<<num_blocks, NTHREADS_1024, 0, stream>>>(
-          attractive_forces_device.data(), kl_divergences.data(), VAL, ROW, COL, Y, n, NNZ);
+          attractive_forces_device.data(), Qs.data(), Qs_norm.data(), VAL, ROW, COL, Y, n, NNZ);
+        compute_kl_div<<<num_blocks, NTHREADS_1024, 0, stream>>>(
+          VAL, ROW, Qs.data(), Qs_norm.data(), kl_divergences.data(), NNZ);
         kl_div =
           thrust::reduce(handle.get_thrust_policy(), kl_divergences.begin(), kl_divergences.end());
+      } else {
+        FFT::compute_Pij_x_Qij_kernel<<<num_blocks, NTHREADS_1024, 0, stream>>>(
+          attractive_forces_device.data(),
+          (value_t*)nullptr,
+          (value_t*)nullptr,
+          VAL,
+          ROW,
+          COL,
+          Y,
+          n,
+          NNZ);
       }
     }
 

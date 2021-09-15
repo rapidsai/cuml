@@ -176,3 +176,26 @@ __global__ void min_max_kernel(
     atomicMax(max, block_max);
   }
 }
+
+/**
+ * Compute KL divergence
+ */
+template <typename value_idx, typename value_t>
+__global__ void compute_kl_div(const value_t* restrict Ps,
+                               const value_idx* restrict ROW,
+                               value_t* restrict Qs,
+                               value_t* restrict Qs_norm,
+                               value_t* restrict kl_divergences,
+                               const value_idx NNZ)
+{
+  const auto index = (blockIdx.x * blockDim.x) + threadIdx.x;
+  if (index >= NNZ) return;
+  const auto i = ROW[index];
+
+  if (Qs) {  // check if Kl div calculation is necessary
+    const value_t P = max(Ps[index], FLT_EPSILON);
+    const value_t Q = max(__fdividef(Qs[index], Qs_norm[i]), FLT_EPSILON);
+
+    kl_divergences[index] = P * __logf(__fdividef(P, Q));
+  }
+}

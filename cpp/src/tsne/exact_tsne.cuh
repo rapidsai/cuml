@@ -69,6 +69,9 @@ value_t Exact_TSNE(value_t* VAL,
   thrust::fill(thrust::cuda::par.on(stream), begin, begin + n * dim, 1.0f);
 
   rmm::device_uvector<value_t> gradient(n * dim, stream);
+
+  rmm::device_uvector<value_t> Qs(NNZ, stream);
+  rmm::device_uvector<value_t> Qs_norm(n, stream);
   rmm::device_uvector<value_t> kl_divergences(n, stream);
   //---------------------------------------------------
 
@@ -97,6 +100,14 @@ value_t Exact_TSNE(value_t* VAL,
     // Get row norm of Y
     raft::linalg::rowNorm(norm.data(), Y, dim, n, raft::linalg::L2Norm, false, stream);
 
+    bool last_iter = iter == params.max_iter - 1;
+
+    if (last_iter) {
+      CUDA_CHECK(cudaMemsetAsync(Qs_norm.data(), 0, Qs_norm.size() * sizeof(value_t), stream));
+      CUDA_CHECK(
+        cudaMemsetAsync(kl_divergences.data(), 0, kl_divergences.size() * sizeof(value_t), stream));
+    }
+
     // Compute attractive forces
     TSNE::attractive_forces(VAL,
                             COL,
@@ -104,13 +115,20 @@ value_t Exact_TSNE(value_t* VAL,
                             Y,
                             norm.data(),
                             attract.data(),
-                            kl_divergences.data(),
+                            last_iter ? Qs.data() : nullptr,
+                            last_iter ? Qs_norm.data() : nullptr,
                             NNZ,
                             n,
                             dim,
                             df_power,
                             recp_df,
                             stream);
+
+    if (last_iter) {
+      compute_kl_div<<<raft::ceildiv(NNZ, (value_idx)1024), 1024, 0, stream>>>(
+        VAL, ROW, Qs.data(), Qs_norm.data(), kl_divergences.data(), NNZ);
+    }
+
     // Compute repulsive forces
     const float Z = TSNE::repulsive_forces(
       Y, repel.data(), norm.data(), Z_sum.data(), n, dim, df_power, recp_df, stream);

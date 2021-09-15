@@ -172,7 +172,8 @@ __global__ void attractive_kernel(const value_t* restrict VAL,
                                   const value_t* restrict Y,
                                   const value_t* restrict norm,
                                   value_t* restrict attract,
-                                  value_t* restrict kl_divergences,
+                                  value_t* restrict Qs,
+                                  value_t* restrict Qs_norm,
                                   const value_idx NNZ,
                                   const value_idx n,
                                   const value_idx dim,
@@ -191,16 +192,17 @@ __global__ void attractive_kernel(const value_t* restrict VAL,
     d += Y[k * n + i] * Y[k * n + j];
   const value_t euclidean_d = -2.0f * d + norm[i] + norm[j];
 
-  // TODO: Calculate Kullback-Leibler divergence
-  // #863
-  const value_t P  = VAL[index];
-  const value_t Q  = __powf((1.0f + euclidean_d * recp_df), df_power);  // without normalization
-  const value_t PQ = P * Q;
+  const value_t PQ = __fdividef(VAL[index], __powf((1.0f + euclidean_d * recp_df), df_power));
 
   // Apply forces
   for (int k = 0; k < dim; k++) {
     raft::myAtomicAdd(&attract[k * n + i], PQ * (Y[k * n + i] - Y[k * n + j]));
-    raft::myAtomicAdd(&kl_divergences[i], P * log(P / Q));
+  }
+
+  if (Qs) {  // check if Kl div calculation is necessary
+    const value_t Q_unnormalized = __expf(-euclidean_d);
+    Qs[index]                    = Q_unnormalized;
+    atomicAdd(&Qs_norm[i], Q_unnormalized);
   }
 }
 
@@ -216,7 +218,8 @@ __global__ void attractive_kernel_2d(const value_t* restrict VAL,
                                      const value_t* restrict norm,
                                      value_t* restrict attract1,
                                      value_t* restrict attract2,
-                                     value_t* restrict kl_divergences,
+                                     value_t* restrict Qs,
+                                     value_t* restrict Qs_norm,
                                      const value_idx NNZ)
 {
   const auto index = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -227,17 +230,17 @@ __global__ void attractive_kernel_2d(const value_t* restrict VAL,
   // TODO: can provide any distance ie cosine
   // #862
   const value_t euclidean_d = norm[i] + norm[j] - 2.0f * (Y1[i] * Y1[j] + Y2[i] * Y2[j]);
-
-  // TODO: Calculate Kullback-Leibler divergence
-  // #863
-  const value_t P  = VAL[index];
-  const value_t Q  = __fdividef(1.0f, (1.0f + euclidean_d));  // without normalization
-  const value_t PQ = P * Q;
+  const value_t PQ          = __fdividef(VAL[index], (1.0f + euclidean_d));
 
   // Apply forces
   raft::myAtomicAdd(&attract1[i], PQ * (Y1[i] - Y1[j]));
   raft::myAtomicAdd(&attract2[i], PQ * (Y2[i] - Y2[j]));
-  raft::myAtomicAdd(&kl_divergences[i], P * log(P / Q));
+
+  if (Qs) {  // check if Kl div calculation is necessary
+    const value_t Q_unnormalized = __expf(-euclidean_d);
+    Qs[index]                    = Q_unnormalized;
+    atomicAdd(&Qs_norm[i], Q_unnormalized);
+  }
 }
 
 /****************************************/
@@ -248,7 +251,8 @@ void attractive_forces(const value_t* restrict VAL,
                        const value_t* restrict Y,
                        const value_t* restrict norm,
                        value_t* restrict attract,
-                       value_t* restrict kl_divergences,
+                       value_t* restrict Qs,
+                       value_t* restrict Qs_norm,
                        const value_idx NNZ,
                        const value_idx n,
                        const value_idx dim,
@@ -263,12 +267,12 @@ void attractive_forces(const value_t* restrict VAL,
   // For general embedding dimensions
   if (dim != 2) {
     attractive_kernel<<<raft::ceildiv(NNZ, (value_idx)1024), 1024, 0, stream>>>(
-      VAL, COL, ROW, Y, norm, attract, kl_divergences, NNZ, n, dim, df_power, recp_df);
+      VAL, COL, ROW, Y, norm, attract, Qs, Qs_norm, NNZ, n, dim, df_power, recp_df);
   }
   // For special case dim == 2
   else {
     attractive_kernel_2d<<<raft::ceildiv(NNZ, (value_idx)1024), 1024, 0, stream>>>(
-      VAL, COL, ROW, Y, Y + n, norm, attract, attract + n, kl_divergences, NNZ);
+      VAL, COL, ROW, Y, Y + n, norm, attract, attract + n, Qs, Qs_norm, NNZ);
   }
   CUDA_CHECK(cudaPeekAtLastError());
 }

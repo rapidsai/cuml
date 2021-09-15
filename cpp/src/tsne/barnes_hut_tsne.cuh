@@ -120,6 +120,8 @@ value_t Barnes_Hut(value_t* VAL,
     raft::copy(YY.data() + nnodes + 1, Y + n, n, stream);
   }
 
+  rmm::device_uvector<value_t> Qs(NNZ, stream);
+  rmm::device_uvector<value_t> Qs_norm(n, stream);
   rmm::device_uvector<value_t> kl_divergences(n, stream);
 
   // Set cache levels for faster algorithm execution
@@ -267,6 +269,13 @@ value_t Barnes_Hut(value_t* VAL,
     START_TIMER;
     // TODO: Calculate Kullback-Leibler divergence
     // For general embedding dimensions
+    bool last_iter = iter == params.max_iter - 1;
+    if (last_iter) {
+      CUDA_CHECK(cudaMemsetAsync(Qs_norm.data(), 0, Qs_norm.size() * sizeof(value_t), stream));
+      CUDA_CHECK(
+        cudaMemsetAsync(kl_divergences.data(), 0, kl_divergences.size() * sizeof(value_t), stream));
+    }
+
     BH::attractive_kernel_bh<<<raft::ceildiv(NNZ, (value_idx)1024), 1024, 0, stream>>>(
       VAL,
       COL,
@@ -275,10 +284,17 @@ value_t Barnes_Hut(value_t* VAL,
       YY.data() + nnodes + 1,
       attr_forces.data(),
       attr_forces.data() + n,
-      kl_divergences.data(),
+      last_iter ? Qs.data() : nullptr,
+      last_iter ? Qs_norm.data() : nullptr,
       NNZ);
     CUDA_CHECK(cudaPeekAtLastError());
     END_TIMER(attractive_time);
+
+    if (last_iter) {
+      compute_kl_div<<<raft::ceildiv(NNZ, (value_idx)1024), 1024, 0, stream>>>(
+        VAL, ROW, Qs.data(), Qs_norm.data(), kl_divergences.data(), NNZ);
+      CUDA_CHECK(cudaPeekAtLastError());
+    }
 
     START_TIMER;
     BH::IntegrationKernel<<<blocks * FACTOR6, THREADS6, 0, stream>>>(learning_rate,
