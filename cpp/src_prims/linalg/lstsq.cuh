@@ -24,6 +24,7 @@
 #include <common/nvtx.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/eig.cuh>
+#include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/gemm.cuh>
 #include <raft/linalg/qr.cuh>
 #include <raft/linalg/svd.cuh>
@@ -68,113 +69,278 @@ struct DeviceEvent {
 }  // namespace
 
 /** Solves the linear ordinary least squares problem `Aw = b`
- *  Via SVD decomposition of A or eigenvalue decomposition of `A^T * A`
- *  (covariance matrix for dataset A).
+ *  Via SVD decomposition of `A = U S Vt` using default cuSOLVER routine.
  */
 template <typename math_t>
-void lstsq(const raft::handle_t& handle,
-           const math_t* A,
-           const int n_rows,
-           const int n_cols,
-           const math_t* b,
-           math_t* w,
-           const int algo,
-           cudaStream_t stream)
+void lstsqSvdQR(const raft::handle_t& handle,
+                math_t* A,  // apparently, this must not be const, because cusolverDn<t>gesvd() says
+                            // it's destroyed upon exit of the routine.
+                const int n_rows,
+                const int n_cols,
+                const math_t* b,
+                math_t* w,
+                cudaStream_t stream)
 {
-  ML::PUSH_RANGE("Trace::MLCommon::LinAlg::lstsq", stream);
-  ASSERT(n_rows > 1, "lstsq: number of rows cannot be less than two");
-
   // we use some temporary vectors to avoid doing re-using w in the last step, the
   // gemv, which could cause a very sporadic race condition in Pascal and
   // Turing GPUs that caused it to give the wrong results. Details:
   // https://github.com/rapidsai/cuml/issues/1739
-  if (algo == 0 || n_cols == 1 || n_cols > n_rows) {
-    rmm::device_uvector<math_t> workset((n_cols + n_rows + 2) * n_cols, stream);
-    math_t* U  = workset.data();
-    math_t* V  = U + n_rows * n_cols;
-    math_t* S  = V + n_cols * n_cols;
-    math_t* Ub = S + n_cols;
 
-    ML::PUSH_RANGE("Trace::MLCommon::LinAlg::lstsq::svdQR", stream);
-    raft::linalg::svdQR(handle, (math_t*)A, n_rows, n_cols, S, U, V, true, true, true, stream);
-    ML::POP_RANGE(stream);
-    raft::linalg::gemv(handle, U, n_rows, n_cols, b, Ub, true, stream);
+  // orig
 
-    raft::matrix::matrixVectorBinaryDivSkipZero(Ub, S, 1, n_cols, false, true, stream);
+  // size_t U_len = n_rows * n_cols;
+  // size_t V_len = n_cols * n_cols;
 
-    raft::linalg::gemv(handle, V, n_cols, n_cols, Ub, w, false, stream);
-  } else if (algo == 1) {
-    rmm::device_uvector<math_t> workset(n_cols * n_cols * 3 + n_cols * 2, stream);
-    math_t* Q    = workset.data();
-    math_t* QS   = Q + n_cols * n_cols;
-    math_t* covA = QS + n_cols * n_cols;
-    math_t* S    = covA + n_cols * n_cols;
-    math_t* Ab   = S + n_cols;
+  // rmm::device_uvector<math_t> S(n_cols, stream);
+  // rmm::device_uvector<math_t> V(V_len, stream);
+  // rmm::device_uvector<math_t> U(U_len, stream);
 
-    // covA <- A* A
-    math_t alpha = math_t(1);
-    math_t beta  = math_t(0);
-    raft::linalg::gemm(handle,
-                       A,
-                       n_rows,
-                       n_cols,
-                       A,
-                       covA,
-                       n_cols,
-                       n_cols,
-                       CUBLAS_OP_T,
-                       CUBLAS_OP_N,
-                       alpha,
-                       beta,
-                       stream);
+  // // we use a temporary vector to avoid doing re-using w in the last step, the
+  // // gemv, which could cause a very sporadic race condition in Pascal and
+  // // Turing GPUs that caused it to give the wrong results. Details:
+  // // https://github.com/rapidsai/cuml/issues/1739
+  // rmm::device_uvector<math_t> tmp_vector(n_cols, stream);
+  // raft::linalg::svdQR(
+  //   handle, A, n_rows, n_cols, S.data(), U.data(), V.data(), true, true, true, stream);
+  // raft::linalg::gemv(handle, U.data(), n_rows, n_cols, b, tmp_vector.data(), true, stream);
 
-    // Ab <- A* b
-    DeviceStream multAb;
-    DeviceEvent multAbDone;
-    raft::linalg::gemv(handle, A, n_rows, n_cols, b, Ab, true, multAb);
-    multAbDone.record(multAb);
+  // raft::matrix::matrixVectorBinaryDivSkipZero(
+  //   tmp_vector.data(), S.data(), 1, n_cols, false, true, stream);
 
-    // Q S Q* <- covA
-    ML::PUSH_RANGE("Trace::MLCommon::LinAlg::lstsq::eigDC", stream);
-    raft::linalg::eigDC(handle, covA, n_cols, n_cols, Q, S, stream);
-    ML::POP_RANGE(stream);
+  // raft::linalg::gemv(handle, V.data(), n_cols, n_cols, tmp_vector.data(), w, false, stream);
 
-    // QS  <- Q invS
-    auto f = [] __device__(math_t a, math_t b) {
-      return raft::myAbs(b) > math_t(1e-10) ? a / b : a;
-    };
-    raft::linalg::matrixVectorOp(QS, Q, S, n_cols, n_cols, false, true, f, stream);
-    // covA <- QS Q* == Q invS Q* == inv(A* A)
-    raft::linalg::gemm(handle,
-                       QS,
-                       n_cols,
-                       n_cols,
-                       Q,
-                       covA,
-                       n_cols,
-                       n_cols,
-                       CUBLAS_OP_N,
-                       CUBLAS_OP_T,
-                       alpha,
-                       beta,
-                       stream);
-    multAbDone.wait(stream);
-    // w <- covA Ab == Q invS Q* A b == inv(A* A) A b
-    raft::linalg::gemv(handle, covA, n_cols, n_cols, Ab, w, false, stream);
-  }
-  ML::POP_RANGE(stream);
+  // inlined
+
+  const int minmn              = min(n_rows, n_cols);
+  cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
+  int cusolverWorkSetSize      = 0;
+  CUSOLVER_CHECK(raft::linalg::cusolverDngesvd_bufferSize<math_t>(
+    cusolverH, n_rows, n_cols, &cusolverWorkSetSize));
+
+  rmm::device_uvector<math_t> workset(cusolverWorkSetSize  // cuSolver
+                                        + n_rows * minmn   // U
+                                        + n_cols * n_cols  // V
+                                        + minmn            // S
+                                        + minmn            // U^T * b
+                                        + 1                // devInfo
+                                      ,
+                                      stream);
+  math_t* cusolverWorkSet = workset.data();
+  math_t* U               = cusolverWorkSet + cusolverWorkSetSize;
+  math_t* Vt              = U + n_rows * minmn;
+  math_t* S               = Vt + n_cols * n_cols;
+  math_t* Ub              = S + minmn;
+  int* devInfo            = reinterpret_cast<int*>(Ub + minmn);
+
+  CUSOLVER_CHECK(raft::linalg::cusolverDngesvd<math_t>(cusolverH,
+                                                       'S',
+                                                       'S',
+                                                       n_rows,
+                                                       n_cols,
+                                                       A,
+                                                       n_rows,
+                                                       S,
+                                                       U,
+                                                       n_rows,
+                                                       Vt,
+                                                       n_cols,
+                                                       cusolverWorkSet,
+                                                       cusolverWorkSetSize,
+                                                       nullptr,
+                                                       devInfo,
+                                                       stream));
+  raft::linalg::gemv(handle, U, n_rows, minmn, b, Ub, true, stream);
+  raft::linalg::eltwiseDivideCheckZero(Ub, Ub, S, minmn, stream);
+  math_t alpha = math_t(1);
+  math_t beta  = math_t(0);
+  // wait on https://github.com/rapidsai/raft/pull/327 to enable this.
+  // I have to use cublas here for its non-trivial lda not available in raft::linalg::gemv
+  CUBLAS_CHECK(raft::linalg::cublasgemv<math_t>(handle.get_cublas_handle(),
+                                                CUBLAS_OP_T,
+                                                minmn,
+                                                n_cols,
+                                                &alpha,
+                                                Vt,
+                                                n_cols,
+                                                Ub,
+                                                1,
+                                                &beta,
+                                                w,
+                                                1,
+                                                stream));
 }
 
+/** Solves the linear ordinary least squares problem `Aw = b`
+ *  Via SVD decomposition of `A = U S V^T` using Jacobi iterations (cuSOLVER).
+ */
 template <typename math_t>
-void lstsqQR(math_t* A,
-             int n_rows,
-             int n_cols,
+void lstsqSvdJacobi(const raft::handle_t& handle,
+                    math_t* A,  // apparently, this must not be const, because cusolverDn<t>gesvdj()
+                                // says it's destroyed upon exit of the routine.
+                    const int n_rows,
+                    const int n_cols,
+                    const math_t* b,
+                    math_t* w,
+                    cudaStream_t stream)
+{
+  const int minmn = min(n_rows, n_cols);
+  gesvdjInfo_t gesvdj_params;
+  CUSOLVER_CHECK(cusolverDnCreateGesvdjInfo(&gesvdj_params));
+  int cusolverWorkSetSize      = 0;
+  cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
+  CUSOLVER_CHECK(raft::linalg::cusolverDngesvdj_bufferSize<math_t>(cusolverH,
+                                                                   CUSOLVER_EIG_MODE_VECTOR,
+                                                                   1,
+                                                                   n_rows,
+                                                                   n_cols,
+                                                                   A,
+                                                                   n_rows,
+                                                                   nullptr,
+                                                                   nullptr,
+                                                                   n_rows,
+                                                                   nullptr,
+                                                                   n_cols,
+                                                                   &cusolverWorkSetSize,
+                                                                   gesvdj_params));
+  rmm::device_uvector<math_t> workset(cusolverWorkSetSize  // cuSolver
+                                        + n_rows * minmn   // U
+                                        + n_cols * minmn   // V
+                                        + minmn            // S
+                                        + minmn            // U^T * b
+                                        + 1                // devInfo
+                                      ,
+                                      stream);
+  math_t* cusolverWorkSet = workset.data();
+  math_t* U               = cusolverWorkSet + cusolverWorkSetSize;
+  math_t* V               = U + n_rows * minmn;
+  math_t* S               = V + n_cols * minmn;
+  math_t* Ub              = S + minmn;
+  int* devInfo            = reinterpret_cast<int*>(Ub + minmn);
+  CUSOLVER_CHECK(raft::linalg::cusolverDngesvdj<math_t>(cusolverH,
+                                                        CUSOLVER_EIG_MODE_VECTOR,
+                                                        1,
+                                                        n_rows,
+                                                        n_cols,
+                                                        A,
+                                                        n_rows,
+                                                        S,
+                                                        U,
+                                                        n_rows,
+                                                        V,
+                                                        n_cols,
+                                                        cusolverWorkSet,
+                                                        cusolverWorkSetSize,
+                                                        devInfo,
+                                                        gesvdj_params,
+                                                        stream));
+  raft::linalg::gemv(handle, U, n_rows, minmn, b, Ub, true, stream);
+  raft::linalg::eltwiseDivideCheckZero(Ub, Ub, S, minmn, stream);
+
+  // wait on https://github.com/rapidsai/raft/pull/327 to enable this.
+  // raft::linalg::gemv(handle, V, n_cols, minmn, Ub, w, false, stream);
+  math_t alpha = math_t(1);
+  math_t beta  = math_t(0);
+  CUBLAS_CHECK(raft::linalg::cublasgemv<math_t>(handle.get_cublas_handle(),
+                                                CUBLAS_OP_N,
+                                                n_cols,
+                                                minmn,
+                                                &alpha,
+                                                V,
+                                                n_cols,
+                                                Ub,
+                                                1,
+                                                &beta,
+                                                w,
+                                                1,
+                                                stream));
+}
+
+/** Solves the linear ordinary least squares problem `Aw = b`
+ *  via eigenvalue decomposition of `A^T * A` (covariance matrix for dataset A).
+ *  (`w = (A^T A)^-1  A^T b`)
+ */
+template <typename math_t>
+void lstsqEig(const raft::handle_t& handle,
+              const math_t* A,
+              const int n_rows,
+              const int n_cols,
+              const math_t* b,
+              math_t* w,
+              cudaStream_t stream)
+{
+  rmm::device_uvector<math_t> workset(n_cols * n_cols * 3 + n_cols * 2, stream);
+  math_t* Q    = workset.data();
+  math_t* QS   = Q + n_cols * n_cols;
+  math_t* covA = QS + n_cols * n_cols;
+  math_t* S    = covA + n_cols * n_cols;
+  math_t* Ab   = S + n_cols;
+
+  // covA <- A* A
+  math_t alpha = math_t(1);
+  math_t beta  = math_t(0);
+  raft::linalg::gemm(handle,
+                     A,
+                     n_rows,
+                     n_cols,
+                     A,
+                     covA,
+                     n_cols,
+                     n_cols,
+                     CUBLAS_OP_T,
+                     CUBLAS_OP_N,
+                     alpha,
+                     beta,
+                     stream);
+
+  // Ab <- A* b
+  DeviceStream multAb;
+  DeviceEvent multAbDone;
+  raft::linalg::gemv(handle, A, n_rows, n_cols, b, Ab, true, multAb);
+  multAbDone.record(multAb);
+
+  // Q S Q* <- covA
+  ML::PUSH_RANGE("Trace::MLCommon::LinAlg::lstsq::eigDC", stream);
+  raft::linalg::eigDC(handle, covA, n_cols, n_cols, Q, S, stream);
+  ML::POP_RANGE(stream);
+
+  // QS  <- Q invS
+  auto f = [] __device__(math_t a, math_t b) { return raft::myAbs(b) > math_t(1e-10) ? a / b : a; };
+  raft::linalg::matrixVectorOp(QS, Q, S, n_cols, n_cols, false, true, f, stream);
+  // covA <- QS Q* == Q invS Q* == inv(A* A)
+  raft::linalg::gemm(handle,
+                     QS,
+                     n_cols,
+                     n_cols,
+                     Q,
+                     covA,
+                     n_cols,
+                     n_cols,
+                     CUBLAS_OP_N,
+                     CUBLAS_OP_T,
+                     alpha,
+                     beta,
+                     stream);
+  multAbDone.wait(stream);
+  // w <- covA Ab == Q invS Q* A b == inv(A* A) A b
+  raft::linalg::gemv(handle, covA, n_cols, n_cols, Ab, w, false, stream);
+}
+
+/** Solves the linear ordinary least squares problem `Aw = b`
+ *  via QR decomposition of `A = QR`.
+ *  (triangular system of equations `Rw = Q^T b`)
+ */
+template <typename math_t>
+void lstsqQR(const raft::handle_t& handle,
+             math_t* A,
+             const int n_rows,
+             const int n_cols,
              math_t* b,
              math_t* w,
-             cusolverDnHandle_t cusolverH,
-             cublasHandle_t cublasH,
              cudaStream_t stream)
 {
+  cublasHandle_t cublasH       = handle.get_cublas_handle();
+  cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
+
   int m = n_rows;
   int n = n_cols;
 
@@ -258,6 +424,4 @@ void lstsqQR(math_t* A,
 }
 
 };  // namespace LinAlg
-// end namespace LinAlg
 };  // namespace MLCommon
-// end namespace MLCommon
