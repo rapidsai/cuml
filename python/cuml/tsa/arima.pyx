@@ -433,7 +433,7 @@ class ARIMA(Base):
 
             if cpp_order_diff.n_exog > 0:
                 d_exog_ptr = self.d_exog.ptr
-                d_exog_diff_ptr = self.d_exog_diff.ptr
+                d_exog_diff_ptr = self._d_exog_diff.ptr
                 batched_diff(handle_[0], <double*> d_exog_diff_ptr,
                              <double*> d_exog_ptr,
                              <int> self.batch_size * cpp_order_diff.n_exog,

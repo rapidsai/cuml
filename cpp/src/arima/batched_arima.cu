@@ -134,8 +134,16 @@ void predict(raft::handle_t& handle,
       if (num_steps > 0) {
         exog_fut_buffer.resize(num_steps * order.n_exog * batch_size, stream);
 
-        /// TODO: prepare future exog with past exog
-        ///       -> need to write an alternative version of prepare_data...
+        MLCommon::TimeSeries::prepare_future_data(exog_fut_buffer.data(),
+                                                  d_exog,
+                                                  d_exog_fut,
+                                                  order.n_exog * batch_size,
+                                                  n_obs,
+                                                  num_steps,
+                                                  order.d,
+                                                  order.D,
+                                                  order.s,
+                                                  stream);
 
         d_exog_fut_kf = exog_fut_buffer.data();
       }

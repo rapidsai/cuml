@@ -113,10 +113,10 @@ void batched_loglike(raft::handle_t& handle,
                      const ARIMAOrder& order,
                      const double* d_params,
                      double* loglike,
-                     bool trans               = true,
-                     bool host_loglike        = true,
-                     LoglikeMethod method     = MLE,
-                     int truncate             = 0);
+                     bool trans           = true,
+                     bool host_loglike    = true,
+                     LoglikeMethod method = MLE,
+                     int truncate         = 0);
 
 /**
  * Compute the loglikelihood of the given parameter on the given time series
