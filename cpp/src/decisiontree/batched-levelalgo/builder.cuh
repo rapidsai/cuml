@@ -421,7 +421,7 @@ struct Builder {
     int nHistBins = large_blocks * nbins * colBlks * nclasses;
     CUDA_CHECK(cudaMemsetAsync(hist, 0, sizeof(BinT) * nHistBins, handle.get_stream()));
     ML::PUSH_RANGE("computeSplitClassificationKernel @builder_base.cuh [batched-levelalgo]");
-    ObjectiveT objective(input.numOutputs, params.min_impurity_decrease, params.min_samples_leaf);
+    ObjectiveT objective(input.numOutputs, params.min_samples_leaf);
     computeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, handle.get_stream()>>>(hist,
                                                              params.n_bins,
@@ -450,7 +450,7 @@ struct Builder {
     std::size_t max_batch_size = min(std::size_t(100000), tree->size());
     rmm::device_uvector<NodeT> d_tree(max_batch_size, handle.get_stream());
     rmm::device_uvector<InstanceRange> d_instance_ranges(max_batch_size, handle.get_stream());
-    ObjectiveT objective(input.numOutputs, params.min_impurity_decrease, params.min_samples_leaf);
+    ObjectiveT objective(input.numOutputs, params.min_samples_leaf);
     for (std::size_t batch_begin = 0; batch_begin < tree->size(); batch_begin += max_batch_size) {
       std::size_t batch_end  = min(batch_begin + max_batch_size, tree->size());
       std::size_t batch_size = batch_end - batch_begin;

@@ -576,7 +576,6 @@ struct ObjectiveTestParameters {
   uint64_t seed;
   int n_bins;
   int n_classes;
-  double min_impurity_decrease;
   int min_samples_leaf;
   double tolerance;
 };
@@ -647,9 +646,9 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
                               (n_right / n) * right_phd);  // gain in long form without proxy
 
     // edge cases
-    if (gain <= params.min_impurity_decrease or n_left < params.min_samples_leaf or
-        n_right < params.min_samples_leaf or label_sum < ObjectiveT::eps_ or
-        label_sum_right < ObjectiveT::eps_ or label_sum_left < ObjectiveT::eps_)
+    if (n_left < params.min_samples_leaf or n_right < params.min_samples_leaf or
+        label_sum < ObjectiveT::eps_ or label_sum_right < ObjectiveT::eps_ or
+        label_sum_left < ObjectiveT::eps_)
       return -std::numeric_limits<DataT>::max();
     else
       return gain;
@@ -690,8 +689,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     auto gain = parent_gini - ((left_n / n) * left_gini + (right_n / n) * right_gini);
 
     // edge cases
-    if (gain <= params.min_impurity_decrease or left_n < params.min_samples_leaf or
-        right_n < params.min_samples_leaf) {
+    if (left_n < params.min_samples_leaf or right_n < params.min_samples_leaf) {
       return -std::numeric_limits<DataT>::max();
     } else {
       return gain;
@@ -731,7 +729,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
   {
     srand(params.seed);
     params = ::testing::TestWithParam<ObjectiveTestParameters>::GetParam();
-    ObjectiveT objective(params.n_classes, params.min_impurity_decrease, params.min_samples_leaf);
+    ObjectiveT objective(params.n_classes, params.min_samples_leaf);
 
     auto [cdf_hist, pdf_hist] = GenHist();
 
@@ -749,16 +747,16 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
 };
 
 const std::vector<ObjectiveTestParameters> poisson_objective_test_parameters = {
-  {9507819643927052255LLU, 64, 1, 0.0001, 0, 0.00001},
-  {9507819643927052259LLU, 128, 1, 0.0001, 1, 0.00001},
-  {9507819643927052251LLU, 256, 1, 0.0001, 1, 0.00001},
-  {9507819643927052258LLU, 512, 1, 0.0001, 5, 0.00001},
+  {9507819643927052255LLU, 64, 1, 0, 0.00001},
+  {9507819643927052259LLU, 128, 1, 1, 0.00001},
+  {9507819643927052251LLU, 256, 1, 1, 0.00001},
+  {9507819643927052258LLU, 512, 1, 5, 0.00001},
 };
 const std::vector<ObjectiveTestParameters> gini_objective_test_parameters = {
-  {9507819643927052255LLU, 64, 2, 0.0001, 0, 0.00001},
-  {9507819643927052256LLU, 128, 10, 0.0001, 1, 0.00001},
-  {9507819643927052257LLU, 256, 100, 0.0001, 1, 0.00001},
-  {9507819643927052258LLU, 512, 100, 0.0001, 5, 0.00001},
+  {9507819643927052255LLU, 64, 2, 0, 0.00001},
+  {9507819643927052256LLU, 128, 10, 1, 0.00001},
+  {9507819643927052257LLU, 256, 100, 1, 0.00001},
+  {9507819643927052258LLU, 512, 100, 5, 0.00001},
 };
 
 // poisson objective test

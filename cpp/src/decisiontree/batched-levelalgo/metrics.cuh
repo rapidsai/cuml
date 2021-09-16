@@ -30,7 +30,7 @@ struct CountBin {
   int x;
   CountBin(CountBin const&) = default;
   HDI CountBin(int x_) : x(x_) {}
-  HDI CountBin() : x(0){};
+  HDI CountBin() : x(0) {}
 
   DI static void IncrementHistogram(CountBin* hist, int nbins, int b, int label)
   {
@@ -55,7 +55,7 @@ struct AggregateBin {
   int count;
 
   AggregateBin(AggregateBin const&) = default;
-  HDI AggregateBin() : label_sum(0.0), count(0){};
+  HDI AggregateBin() : label_sum(0.0), count(0) {}
   HDI AggregateBin(double label_sum, int count) : label_sum(label_sum), count(count) {}
 
   DI static void IncrementHistogram(AggregateBin* hist, int nbins, int b, double label)
@@ -87,15 +87,12 @@ class GiniObjectiveFunction {
   using LabelT = LabelT_;
   using IdxT   = IdxT_;
   IdxT nclasses;
-  DataT min_impurity_decrease;
   IdxT min_samples_leaf;
 
  public:
   using BinT = CountBin;
-  GiniObjectiveFunction(IdxT nclasses, DataT min_impurity_decrease, IdxT min_samples_leaf)
-    : nclasses(nclasses),
-      min_impurity_decrease(min_impurity_decrease),
-      min_samples_leaf(min_samples_leaf)
+  GiniObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf)
+    : nclasses(nclasses), min_samples_leaf(min_samples_leaf)
   {
   }
 
@@ -131,12 +128,7 @@ class GiniObjectiveFunction {
       gain -= val * val;
     }
 
-    // if the gain is not "enough", don't bother!
-    if (gain <= min_impurity_decrease)
-      return -std::numeric_limits<DataT>::max();
-
-    else
-      return gain;
+    return gain;
   }
 
   DI Split<DataT, IdxT> Gain(BinT* shist, DataT* sbins, IdxT col, IdxT len, IdxT nbins)
@@ -174,15 +166,12 @@ class EntropyObjectiveFunction {
   using LabelT = LabelT_;
   using IdxT   = IdxT_;
   IdxT nclasses;
-  DataT min_impurity_decrease;
   IdxT min_samples_leaf;
 
  public:
   using BinT = CountBin;
-  EntropyObjectiveFunction(IdxT nclasses, DataT min_impurity_decrease, IdxT min_samples_leaf)
-    : nclasses(nclasses),
-      min_impurity_decrease(min_impurity_decrease),
-      min_samples_leaf(min_samples_leaf)
+  EntropyObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf)
+    : nclasses(nclasses), min_samples_leaf(min_samples_leaf)
   {
   }
   DI IdxT NumClasses() const { return nclasses; }
@@ -221,9 +210,6 @@ class EntropyObjectiveFunction {
         }
       }
 
-      // if the gain is not "enough", don't bother!
-      if (gain <= min_impurity_decrease) return -std::numeric_limits<DataT>::max();
-
       return gain;
     }
   }
@@ -256,15 +242,14 @@ class PoissonObjectiveFunction {
   using IdxT   = IdxT_;
 
  private:
-  DataT min_impurity_decrease;
   IdxT min_samples_leaf;
 
  public:
   using BinT                 = AggregateBin;
   static constexpr auto eps_ = 10 * std::numeric_limits<DataT>::epsilon();
 
-  HDI PoissonObjectiveFunction(IdxT nclasses, DataT min_impurity_decrease, IdxT min_samples_leaf)
-    : min_impurity_decrease(min_impurity_decrease), min_samples_leaf(min_samples_leaf)
+  HDI PoissonObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf)
+    : min_samples_leaf(min_samples_leaf)
   {
   }
   DI IdxT NumClasses() const { return 1; }
@@ -304,12 +289,7 @@ class PoissonObjectiveFunction {
     auto gain        = parent_obj - (left_obj + right_obj);
     gain             = gain / len;
 
-    // if the gain is not "enough", don't bother!
-    if (gain <= min_impurity_decrease)
-      return -std::numeric_limits<DataT>::max();
-
-    else
-      return gain;
+    return gain;
   }
 
   DI Split<DataT, IdxT> Gain(BinT const* shist, DataT const* sbins, IdxT col, IdxT len, IdxT nbins)
@@ -335,13 +315,12 @@ class MSEObjectiveFunction {
   using IdxT   = IdxT_;
 
  private:
-  DataT min_impurity_decrease;
   IdxT min_samples_leaf;
 
  public:
   using BinT = AggregateBin;
-  HDI MSEObjectiveFunction(IdxT nclasses, DataT min_impurity_decrease, IdxT min_samples_leaf)
-    : min_impurity_decrease(min_impurity_decrease), min_samples_leaf(min_samples_leaf)
+  HDI MSEObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf)
+    : min_samples_leaf(min_samples_leaf)
   {
   }
   DI IdxT NumClasses() const { return 1; }
@@ -356,15 +335,12 @@ class MSEObjectiveFunction {
       return -std::numeric_limits<DataT>::max();
     } else {
       auto label_sum       = hist[nbins - 1].label_sum;
-      auto parent_obj      = -label_sum * label_sum * invLen;
+      auto parent_obj      = -label_sum * label_sum / len;
       auto left_obj        = -(hist[i].label_sum * hist[i].label_sum) / nLeft;
       auto right_label_sum = hist[i].label_sum - label_sum;
       auto right_obj       = -(right_label_sum * right_label_sum) / nRight;
       gain                 = parent_obj - (left_obj + right_obj);
       gain *= invLen;
-
-      // if the gain is not "enough", don't bother!
-      if (gain <= min_impurity_decrease) return -std::numeric_limits<DataT>::max();
 
       return gain;
     }
