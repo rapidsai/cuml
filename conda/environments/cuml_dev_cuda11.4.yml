@@ -6,14 +6,14 @@ channels:
 - conda-forge
 dependencies:
 - cudatoolkit=11.4
-- rapids-build-env=21.10.*
-- rapids-notebook-env=21.10.*
-- rapids-doc-env=21.10.*
-- cudf=21.10.*
-- rmm=21.10.*
-- libcumlprims=21.10.*
-- dask-cudf=21.10.*
-- dask-cuda=21.10.*
+- rapids-build-env=21.12.*
+- rapids-notebook-env=21.12.*
+- rapids-doc-env=21.12.*
+- cudf=21.12.*
+- rmm=21.12.*
+- libcumlprims=21.12.*
+- dask-cudf=21.12.*
+- dask-cuda=21.12.*
 - ucx-py=0.22
 - ucx-proc=*=gpu
 - dask-ml
