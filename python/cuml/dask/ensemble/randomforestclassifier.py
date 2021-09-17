@@ -74,7 +74,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
-    split_criterion : int (default = 2)
+    split_criterion : int (default = 0)
         The criterion used to split nodes.
         0 for GINI, 1 for ENTROPY, 5 for CRITERION_END.
         2 and 3 not valid for classification
