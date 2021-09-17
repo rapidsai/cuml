@@ -685,7 +685,7 @@ class ARIMA(Base):
 
         # Future values of the exogenous variables
         cdef uintptr_t d_exog_fut_ptr = <uintptr_t> NULL
-        if order.n_exog:
+        if order.n_exog and end > self.n_obs:
             d_exog_fut, n_obs_fut, n_cols_fut, _ \
                 = input_to_cuml_array(exog, check_dtype=np.float64)
             if n_obs_fut != end - self.n_obs:

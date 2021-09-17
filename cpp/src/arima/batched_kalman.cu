@@ -169,11 +169,11 @@ __global__ void batched_kalman_loop_kernel(const double* ys,
       bool missing;
       {
         // 1. v = y - Z*alpha
-        double pred;
+        double pred = 0.0;
+        if (d_obs_inter != nullptr) { pred += d_obs_inter[bid * nobs + it]; }
         if (n_diff == 0)
-          pred = l_alpha[0];
+          pred += l_alpha[0];
         else {
-          pred = 0.0;
           for (int i = 0; i < rd; i++) {
             pred += l_alpha[i] * l_Z[i];
           }
@@ -272,15 +272,16 @@ __global__ void batched_kalman_loop_kernel(const double* ys,
       double* b_fc   = fc_steps ? d_fc + bid * fc_steps : nullptr;
       double* b_F_fc = conf_int ? d_F_fc + bid * fc_steps : nullptr;
       for (int it = 0; it < fc_steps; it++) {
+        double pred = 0.0;
+        if (d_obs_inter_fut != nullptr) { pred += d_obs_inter_fut[bid * fc_steps + it]; }
         if (n_diff == 0)
-          b_fc[it] = l_alpha[0];
+          pred += l_alpha[0];
         else {
-          double pred = 0.0;
           for (int i = 0; i < rd; i++) {
             pred += l_alpha[i] * l_Z[i];
           }
-          b_fc[it] = pred;
         }
+        b_fc[it] = pred;
 
         // alpha = T*alpha + c
         Mv_l<rd>(l_T, l_alpha, l_tmp);
