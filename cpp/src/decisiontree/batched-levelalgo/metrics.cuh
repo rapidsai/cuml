@@ -304,9 +304,11 @@ class PoissonObjectiveFunction {
     return sp;
   }
 
-  static DI LabelT LeafPrediction(BinT const* shist, int nclasses)
+  static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)
   {
-    return shist[0].label_sum / shist[0].count;
+    for (int i = 0; i < nclasses; i++) {
+      out[i] = shist[i].label_sum / shist[i].count;
+    }
   }
 };
 template <typename DataT_, typename LabelT_, typename IdxT_>
