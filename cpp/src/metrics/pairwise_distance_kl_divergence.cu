@@ -18,44 +18,44 @@
 #include <raft/distance/distance.cuh>
 #include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
-#include "pairwise_distance_canberra.cuh"
+#include "pairwise_distance_kl_divergence.cuh"
 
 namespace ML {
 
 namespace Metrics {
-void pairwise_distance_canberra(const raft::handle_t& handle,
-                                const double* x,
-                                const double* y,
-                                double* dist,
-                                int m,
-                                int n,
-                                int k,
-                                bool isRowMajor,
-                                double metric_arg)
+void pairwise_distance_kl_divergence(const raft::handle_t& handle,
+                                     const double* x,
+                                     const double* y,
+                                     double* dist,
+                                     int m,
+                                     int n,
+                                     int k,
+                                     bool isRowMajor,
+                                     double metric_arg)
 {
   // Allocate workspace
   rmm::device_uvector<char> workspace(1, handle.get_stream());
 
   // Call the distance function
-  raft::distance::pairwise_distance_impl<double, int, raft::distance::DistanceType::Canberra>(
+  raft::distance::pairwise_distance_impl<double, int, raft::distance::DistanceType::KLDivergence>(
     x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
 }
 
-void pairwise_distance_canberra(const raft::handle_t& handle,
-                                const float* x,
-                                const float* y,
-                                float* dist,
-                                int m,
-                                int n,
-                                int k,
-                                bool isRowMajor,
-                                float metric_arg)
+void pairwise_distance_kl_divergence(const raft::handle_t& handle,
+                                     const float* x,
+                                     const float* y,
+                                     float* dist,
+                                     int m,
+                                     int n,
+                                     int k,
+                                     bool isRowMajor,
+                                     float metric_arg)
 {
   // Allocate workspace
   rmm::device_uvector<char> workspace(1, handle.get_stream());
 
   // Call the distance function
-  raft::distance::pairwise_distance_impl<float, int, raft::distance::DistanceType::Canberra>(
+  raft::distance::pairwise_distance_impl<float, int, raft::distance::DistanceType::KLDivergence>(
     x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
 }
 

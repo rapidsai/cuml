@@ -68,7 +68,7 @@ struct FilTestParams {
   // during model creation, how often categories < max_matching are marked as matching?
   float cat_match_prob = 0.5f;
   // Order Of Magnitude for maximum matching category for categorical nodes
-  float max_magnitude_of_matching_cat = 1.0;
+  float max_magnitude_of_matching_cat = 1.0f;
   // output parameters
   output_t output   = output_t::RAW;
   float threshold   = 0.0f;
@@ -174,6 +174,40 @@ __global__ void floats_to_bit_stream_k(uint8_t* dst, float* src, std::size_t siz
   for (int i = 0; i < BITS_PER_BYTE; ++i)
     byte |= (int)src[idx * BITS_PER_BYTE + i] << i;
   dst[idx] = byte;
+}
+
+void adjust_threshold_to_treelite(float* pthreshold,
+                      int* tl_left,
+                      int* tl_right,
+                      bool* default_left,
+                      tl::Operator comparison_op)
+{
+  // in treelite (take left node if val [op] threshold),
+  // the meaning of the condition is reversed compared to FIL;
+  // thus, "<" in treelite corresonds to comparison ">=" used by FIL
+  // https://github.com/dmlc/treelite/blob/master/include/treelite/tree.h#L243
+  if (isnan(*pthreshold)) {
+    std::swap(*tl_left, *tl_right);
+    *default_left = !*default_left;
+    return;
+  }
+  switch (comparison_op) {
+    case tl::Operator::kLT: break;
+    case tl::Operator::kLE:
+      // x <= y is equivalent to x < y', where y' is the next representable float
+      *pthreshold = std::nextafterf(*pthreshold, -std::numeric_limits<float>::infinity());
+      break;
+    case tl::Operator::kGT:
+      // x > y is equivalent to x >= y', where y' is the next representable float
+      // left and right still need to be swapped
+      *pthreshold = std::nextafterf(*pthreshold, -std::numeric_limits<float>::infinity());
+    case tl::Operator::kGE:
+      // swap left and right
+      std::swap(*tl_left, *tl_right);
+      *default_left = !*default_left;
+      break;
+    default: ASSERT(false, "only <, >, <= and >= comparisons are supported");
+  }
 }
 
 class BaseFilTest : public testing::TestWithParam<FilTestParams> {
@@ -767,7 +801,7 @@ class TreeliteFilTest : public BaseFilTest {
           // false
           threshold = NAN;
         }
-        adjust_threshold(&threshold, &left_key, &right_key, &default_left, ps.op, FIL_TO_TREELITE);
+        adjust_threshold_to_treelite(&threshold, &left_key, &right_key, &default_left, ps.op);
         builder->SetNumericalTestNode(key,
                                       dense_node.fid(),
                                       ps.op,

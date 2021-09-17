@@ -42,14 +42,6 @@ __host__ __device__ __forceinline__ int modpow2(int a, int log2_b)
   return a & ((1 << log2_b) - 1);
 }
 
-enum adjust_threshold_direction_t { FIL_TO_TREELITE = -1, TREELITE_TO_FIL = 1 };
-void adjust_threshold(float* pthreshold,
-                      int* tl_left,
-                      int* tl_right,
-                      bool* default_left,
-                      treelite::Operator comparison_op,
-                      adjust_threshold_direction_t dir);
-
 /**
  * output_t are flags that define the output produced by the FIL predictor; a
  * valid output_t values consists of the following, combined using '|' (bitwise

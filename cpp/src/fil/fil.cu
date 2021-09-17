@@ -71,7 +71,7 @@ cat_sets_owner::cat_sets_owner(const std::vector<cat_feature_counters>& cf)
     n_nodes.push_back(cnt.n_nodes);
     bits_size += categorical_sets::sizeof_mask_from_max_matching(cnt.max_matching) * cnt.n_nodes;
 
-    int fid = max_matching.size();
+    std::size_t fid = max_matching.size();
     RAFT_EXPECTS(
       cnt.max_matching >= -1, "@fid %zu: max_matching invalid (%d)", fid, cnt.max_matching);
     RAFT_EXPECTS(cnt.n_nodes >= 0, "@fid %zu: n_nodes invalid (%d)", fid, cnt.n_nodes);
@@ -626,21 +626,23 @@ int max_depth(const tl::ModelImpl<T, L>& model)
   return depth;
 }
 
-cat_feature_counters reduce(cat_feature_counters a, cat_feature_counters b)
+cat_feature_counters reduce_two_feature_counters(cat_feature_counters a, cat_feature_counters b)
 {
   return {.max_matching = std::max(a.max_matching, b.max_matching),
           .n_nodes      = a.n_nodes + b.n_nodes};
 }
 
-std::vector<cat_feature_counters> reduce(std::vector<cat_feature_counters> a,
+std::vector<cat_feature_counters> reduce_two_feature_counter_vectors(std::vector<cat_feature_counters> a,
                                          const std::vector<cat_feature_counters> b)
 {
   for (std::size_t fid = 0; fid < b.size(); ++fid) {
-    a[fid] = reduce(a[fid], b[fid]);
+    a[fid] = reduce_two_feature_counters(a[fid], b[fid]);
   }
   return a;
 }
 
+// constructs a vector of size max_fid (number of features, or columns) from a Treelite tree,
+// where each feature has a maximum matching category and number of categorical nodes
 template <typename T, typename L>
 inline std::vector<cat_feature_counters> cat_features_counters(const tl::Tree<T, L>& tree,
                                                                int max_fid)
@@ -661,7 +663,9 @@ inline std::vector<cat_feature_counters> cat_features_counters(const tl::Tree<T,
                "more than %d matching categories",
                MAX_PRECISE_INT_FLOAT);
         cat_feature_counters& counters = res[tree.SplitIndex(node_id)];
-        counters                       = reduce(counters, {(int)max_matching_cat, 1});
+        // in `struct cat_feature_counters` and GPU structures, max matching category is an int
+        // cast is safe because all precise int floats fit into ints, which are asserted to be 32 bits
+        counters                       = reduce_two_feature_counters(counters, {(int)max_matching_cat, 1});
       }
       stack.push(tree.LeftChild(node_id));
       node_id = tree.RightChild(node_id);
@@ -676,11 +680,11 @@ std::vector<cat_feature_counters> cat_features_counters(const tl::ModelImpl<T, L
   std::vector<cat_feature_counters> cat_features(model.num_feature);
   const auto& trees = model.trees;
 #pragma omp declare reduction(rwz:std::vector<cat_feature_counters>  \
-                              : omp_out = reduce(omp_out, omp_in))   \
+                              : omp_out = reduce_two_feature_counter_vectors(omp_out, omp_in))   \
             initializer(omp_priv = omp_orig)
 #pragma omp parallel for reduction(rwz : cat_features)
   for (size_t i = 0; i < trees.size(); ++i) {
-    cat_features = reduce(cat_features, cat_features_counters(trees[i], model.num_feature));
+    cat_features = reduce_two_feature_counter_vectors(cat_features, cat_features_counters(trees[i], model.num_feature));
   }
   return cat_features;
 }
@@ -689,8 +693,7 @@ void adjust_threshold(float* pthreshold,
                       int* tl_left,
                       int* tl_right,
                       bool* default_left,
-                      tl::Operator comparison_op,
-                      adjust_threshold_direction_t dir)
+                      tl::Operator comparison_op)
 {
   // in treelite (take left node if val [op] threshold),
   // the meaning of the condition is reversed compared to FIL;
@@ -705,13 +708,12 @@ void adjust_threshold(float* pthreshold,
     case tl::Operator::kLT: break;
     case tl::Operator::kLE:
       // x <= y is equivalent to x < y', where y' is the next representable float
-      // adjust_threshold_direction_t::TREELITE_TO_FIL == 1, FIL_TO_TREELITE == -1
-      *pthreshold = std::nextafterf(*pthreshold, dir * std::numeric_limits<float>::infinity());
+      *pthreshold = std::nextafterf(*pthreshold, std::numeric_limits<float>::infinity());
       break;
     case tl::Operator::kGT:
       // x > y is equivalent to x >= y', where y' is the next representable float
       // left and right still need to be swapped
-      *pthreshold = std::nextafterf(*pthreshold, dir * std::numeric_limits<float>::infinity());
+      *pthreshold = std::nextafterf(*pthreshold, std::numeric_limits<float>::infinity());
     case tl::Operator::kGE:
       // swap left and right
       std::swap(*tl_left, *tl_right);
@@ -803,7 +805,7 @@ conversion_state<fil_node_t> tl2fil_branch_node(int fil_left_child,
     default_left   = tree.DefaultLeft(tl_node_id);
     split.f        = static_cast<float>(tree.Threshold(tl_node_id));
     adjust_threshold(
-      &split.f, &tl_left, &tl_right, &default_left, tree.ComparisonOp(tl_node_id), TREELITE_TO_FIL);
+      &split.f, &tl_left, &tl_right, &default_left, tree.ComparisonOp(tl_node_id));
   } else if (tree.SplitType(tl_node_id) == tl::SplitFeatureType::kCategorical) {
     is_categorical = true;
     default_left   = !tree.DefaultLeft(tl_node_id);
@@ -951,7 +953,7 @@ __noinline__ int tree2fil_sparse(std::vector<fil_node_t>& nodes,
     }
 
     // leaf node
-    nodes[root + cur] = fil_node_t({}, {}, 0, false, true, false, false);
+    nodes[root + cur] = fil_node_t({}, {}, 0, false, true, false, 0);
     tl2fil_leaf_payload(
       &nodes[root + cur], root + cur, tree, node_id, forest_params, vector_leaf, leaf_counter);
   }
@@ -1043,10 +1045,10 @@ size_t tl_leaf_vector_size(const tl::ModelImpl<T, L>& model)
   return 0;
 }
 
-// tl2fil_params is the part of conversion from a treelite model
+// tl2fil_common is the part of conversion from a treelite model
 // common for dense and sparse forests
 template <typename T, typename L>
-void tl2fil_params(forest_params_t* params,
+void tl2fil_common(forest_params_t* params,
                    const tl::ModelImpl<T, L>& model,
                    const treelite_params_t* tl_params)
 {
@@ -1127,7 +1129,7 @@ void tl2fil_dense(std::vector<dense_node>* pnodes,
                   cat_sets_owner* cat_sets,
                   std::vector<float>* vector_leaf)
 {
-  tl2fil_params(params, model, tl_params);
+  tl2fil_common(params, model, tl_params);
 
   // convert the nodes
   int num_nodes           = forest_num_nodes(params->num_trees, params->depth);
@@ -1213,7 +1215,7 @@ void tl2fil_sparse(std::vector<int>* ptrees,
                    cat_sets_owner* cat_sets,
                    std::vector<float>* vector_leaf)
 {
-  tl2fil_params(params, model, tl_params);
+  tl2fil_common(params, model, tl_params);
   tl2fil_sparse_check_t<fil_node_t>::check(model);
 
   size_t num_trees = model.trees.size();
