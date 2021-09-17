@@ -1029,25 +1029,23 @@ def test_rf_get_json(estimator_type, max_depth, n_estimators):
     def predict_with_json_rf_classifier(rf, x):
         # Returns the class with the highest vote. If there is a tie, return
         # the list of all classes with the highest vote.
-        vote = []
+        predictions = []
         for tree in rf:
-            vote.append(predict_with_json_tree(tree, x))
-        vote = np.bincount(vote)
-        max_vote = np.max(vote)
-        majority_vote = np.nonzero(np.equal(vote, max_vote))[0]
-        return majority_vote
+            predictions.append(np.array(predict_with_json_tree(tree, x)))
+        predictions = np.sum(predictions, axis=0)
+        return np.argmax(predictions)
 
     def predict_with_json_rf_regressor(rf, x):
         pred = 0.0
         for tree in rf:
-            pred += predict_with_json_tree(tree, x)
+            pred += predict_with_json_tree(tree, x)[0]
         return pred / len(rf)
 
     if estimator_type == "classification":
         expected_pred = cuml_model.predict(X).astype(np.int32)
         for idx, row in enumerate(X):
             majority_vote = predict_with_json_rf_classifier(json_obj, row)
-            assert expected_pred[idx] in majority_vote
+            assert expected_pred[idx] == majority_vote
     elif estimator_type == "regression":
         expected_pred = cuml_model.predict(X).astype(np.float32)
         pred = []
@@ -1203,7 +1201,7 @@ def test_rf_regression_with_identical_labels(split_criterion):
     clf.fit(X, y)
     model_dump = json.loads(clf.get_json())
     assert len(model_dump) == 1
-    expected_dump = {"nodeid": 0, "leaf_value": 1.0, "instance_count": 5}
+    expected_dump = {"nodeid": 0, "leaf_value": [1.0], "instance_count": 5}
     assert model_dump[0] == expected_dump
 
 
@@ -1227,14 +1225,14 @@ def test_rf_binary_classifier_gtil_integration(tmpdir):
     X, y = X.astype(np.float32), y.astype(np.int32)
     clf = curfc(max_depth=3, random_state=0, n_estimators=10)
     clf.fit(X, y)
-    expected_prob = clf.predict_proba(X)[:, 1]
+    expected_pred = clf.predict(X)
 
     checkpoint_path = os.path.join(tmpdir, 'checkpoint.tl')
     clf.convert_to_treelite_model().to_treelite_checkpoint(checkpoint_path)
 
     tl_model = treelite.Model.deserialize(checkpoint_path)
-    out_prob = treelite.gtil.predict(tl_model, X)
-    np.testing.assert_almost_equal(out_prob, expected_prob, decimal=5)
+    out_pred = treelite.gtil.predict(tl_model, X)
+    np.testing.assert_almost_equal(out_pred, expected_pred, decimal=5)
 
 
 def test_rf_multiclass_classifier_gtil_integration(tmpdir):

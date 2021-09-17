@@ -221,15 +221,15 @@ class BaseRandomForestModel(Base):
                     &tl_handle,
                     <RandomForestMetaData[float, int]*>
                     <uintptr_t> self.rf_forest,
-                    <int> self.n_cols,
-                    <int> self.num_classes)
+                    <int> self.n_cols
+                    )
             else:
                 build_treelite_forest(
                     &tl_handle,
                     <RandomForestMetaData[float, float]*>
                     <uintptr_t> self.rf_forest,
-                    <int> self.n_cols,
-                    <int> REGRESSION_MODEL)
+                    <int> self.n_cols
+                    )
 
         self.treelite_handle = <uintptr_t> tl_handle
         return self.treelite_handle
