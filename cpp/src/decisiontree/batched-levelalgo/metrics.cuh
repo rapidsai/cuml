@@ -334,12 +334,12 @@ class MSEObjectiveFunction {
     if (nLeft < min_samples_leaf || nRight < min_samples_leaf) {
       return -std::numeric_limits<DataT>::max();
     } else {
-      auto label_sum       = hist[nbins - 1].label_sum;
-      auto parent_obj      = -label_sum * label_sum / len;
-      auto left_obj        = -(hist[i].label_sum * hist[i].label_sum) / nLeft;
-      auto right_label_sum = hist[i].label_sum - label_sum;
-      auto right_obj       = -(right_label_sum * right_label_sum) / nRight;
-      gain                 = parent_obj - (left_obj + right_obj);
+      auto label_sum        = hist[nbins - 1].label_sum;
+      DataT parent_obj      = -label_sum * label_sum / len;
+      DataT left_obj        = -(hist[i].label_sum * hist[i].label_sum) / nLeft;
+      DataT right_label_sum = hist[i].label_sum - label_sum;
+      DataT right_obj       = -(right_label_sum * right_label_sum) / nRight;
+      gain                  = parent_obj - (left_obj + right_obj);
       gain *= invLen;
 
       return gain;

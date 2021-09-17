@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.ensemble import RandomForestRegressor as cuRFR
 from cuml.dask.ensemble.base import \
@@ -74,7 +73,8 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
     split_criterion : int (default = 2)
         The criterion used to split nodes.
         0 for GINI, 1 for ENTROPY,
-        2 for MSE, 3 for MAE and 4 for POISSON
+        2 for MSE, 3 for MAE, 4 for POISSON,
+        and 5 for CRITERION_END
         0 and 1 not valid for regression
     bootstrap : boolean (default = True)
         Control bootstrapping.
