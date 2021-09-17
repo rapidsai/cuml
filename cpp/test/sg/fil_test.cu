@@ -1288,6 +1288,15 @@ std::vector<FilTestParams> import_sparse_inputs = {
                   num_classes = 3),
   FIL_TEST_PARAMS(leaf_algo = VECTOR_LEAF, num_classes = 2),
   FIL_TEST_PARAMS(leaf_algo = VECTOR_LEAF, num_trees = 19, num_classes = 20),
+  FIL_TEST_PARAMS(node_categorical_prob = 0.5, feature_categorical_prob = 0.5),
+  FIL_TEST_PARAMS(
+    node_categorical_prob = 1.0, feature_categorical_prob = 1.0, cat_match_prob = 1.0),
+  FIL_TEST_PARAMS(
+    node_categorical_prob = 1.0, feature_categorical_prob = 1.0, cat_match_prob = 0.0),
+  FIL_TEST_PARAMS(depth                         = 3,
+                  node_categorical_prob         = 0.5,
+                  feature_categorical_prob      = 0.5,
+                  max_magnitude_of_matching_cat = 5),
 };
 
 TEST_P(TreeliteSparse16FilTest, Import) { compare(); }

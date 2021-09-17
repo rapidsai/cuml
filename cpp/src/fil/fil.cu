@@ -632,13 +632,12 @@ cat_feature_counters reduce_two_feature_counters(cat_feature_counters a, cat_fea
           .n_nodes      = a.n_nodes + b.n_nodes};
 }
 
-std::vector<cat_feature_counters> reduce_two_feature_counter_vectors(std::vector<cat_feature_counters> a,
-                                         const std::vector<cat_feature_counters> b)
+void reduce_two_feature_counter_vectors(std::vector<cat_feature_counters>& a,
+                                         const std::vector<cat_feature_counters>& b)
 {
   for (std::size_t fid = 0; fid < b.size(); ++fid) {
     a[fid] = reduce_two_feature_counters(a[fid], b[fid]);
   }
-  return a;
 }
 
 // constructs a vector of size max_fid (number of features, or columns) from a Treelite tree,
@@ -679,12 +678,12 @@ std::vector<cat_feature_counters> cat_features_counters(const tl::ModelImpl<T, L
 {
   std::vector<cat_feature_counters> cat_features(model.num_feature);
   const auto& trees = model.trees;
-#pragma omp declare reduction(rwz:std::vector<cat_feature_counters>  \
-                              : omp_out = reduce_two_feature_counter_vectors(omp_out, omp_in))   \
+#pragma omp declare reduction(rwz:std::vector<cat_feature_counters>                    \
+                              : reduce_two_feature_counter_vectors(omp_out, omp_in))   \
             initializer(omp_priv = omp_orig)
 #pragma omp parallel for reduction(rwz : cat_features)
   for (size_t i = 0; i < trees.size(); ++i) {
-    cat_features = reduce_two_feature_counter_vectors(cat_features, cat_features_counters(trees[i], model.num_feature));
+    reduce_two_feature_counter_vectors(cat_features, cat_features_counters(trees[i], model.num_feature));
   }
   return cat_features;
 }
@@ -1325,7 +1324,7 @@ void from_treelite(const raft::handle_t& handle,
   if (storage_type == storage_type_t::AUTO) {
     if (tl_params->algo == algo_t::ALGO_AUTO || tl_params->algo == algo_t::NAIVE) {
       int depth = max_depth(model);
-      // max 2**25 dense nodes, 256 MiB dense model size
+      // max 2**25 dense nodes, 256 MiB dense model size. Categorical mask size unlimited.
       const int LOG2_MAX_DENSE_NODES = 25;
       int log2_num_dense_nodes       = depth + 1 + int(ceil(std::log2(model.trees.size())));
       storage_type = log2_num_dense_nodes > LOG2_MAX_DENSE_NODES ? storage_type_t::SPARSE
