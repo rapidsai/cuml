@@ -50,11 +50,12 @@ class NodeQueue {
   std::deque<NodeWorkItem> work_items_;
 
  public:
-  NodeQueue(DecisionTreeParams params, size_t max_nodes, size_t sampled_rows)
+  NodeQueue(DecisionTreeParams params, size_t max_nodes, size_t sampled_rows, int num_outputs)
     : params(params), tree(std::make_shared<DT::TreeMetaDataNode<DataT, LabelT>>())
   {
+    tree->num_outputs = num_outputs;
     tree->sparsetree.reserve(max_nodes);
-    tree->sparsetree.emplace_back(NodeT::CreateLeafNode(0, sampled_rows));
+    tree->sparsetree.emplace_back(NodeT::CreateLeafNode(sampled_rows));
     tree->leaf_counter  = 1;
     tree->depth_counter = 0;
     node_instances_.reserve(max_nodes);
@@ -112,7 +113,7 @@ class NodeQueue {
                                                              parent_range.count);
       tree->leaf_counter++;
       // left
-      tree->sparsetree.emplace_back(NodeT::CreateLeafNode(0, split.nLeft));
+      tree->sparsetree.emplace_back(NodeT::CreateLeafNode(split.nLeft));
       node_instances_.emplace_back(InstanceRange{parent_range.begin, std::size_t(split.nLeft)});
 
       // Do not add a work item if this child is definitely a leaf
@@ -122,7 +123,7 @@ class NodeQueue {
       }
 
       // right
-      tree->sparsetree.emplace_back(NodeT::CreateLeafNode(0, parent_range.count - split.nLeft));
+      tree->sparsetree.emplace_back(NodeT::CreateLeafNode(parent_range.count - split.nLeft));
       node_instances_.emplace_back(
         InstanceRange{parent_range.begin + split.nLeft, parent_range.count - split.nLeft});
 
@@ -314,14 +315,14 @@ struct Builder {
   {
     ML::PUSH_RANGE("Builder::train @builder.cuh [batched-levelalgo]");
     MLCommon::TimerCPU timer;
-    NodeQueue<DataT, LabelT> queue(params, this->maxNodes(), input.nSampledRows);
+    NodeQueue<DataT, LabelT> queue(params, this->maxNodes(), input.nSampledRows, input.numOutputs);
     while (queue.HasWork()) {
       auto work_items                      = queue.Pop();
       auto [splits_host_ptr, splits_count] = doSplit(work_items);
       queue.Push(work_items, splits_host_ptr);
     }
     auto tree = queue.GetTree();
-    this->SetLeafPredictions(&tree->sparsetree, queue.GetInstanceRanges());
+    this->SetLeafPredictions(tree, queue.GetInstanceRanges());
     tree->train_time = timer.getElapsedMilliseconds();
     ML::POP_RANGE();
     return tree;
@@ -443,30 +444,41 @@ struct Builder {
   }
 
   // Set the leaf value predictions in batch
-  void SetLeafPredictions(std::vector<NodeT>* tree,
+  void SetLeafPredictions(std::shared_ptr<DT::TreeMetaDataNode<DataT, LabelT>> tree,
                           const std::vector<InstanceRange>& instance_ranges)
   {
+    tree->vector_leaf.resize(tree->sparsetree.size() * input.numOutputs);
+    ASSERT(tree->sparsetree.size() == instance_ranges.size(),
+           "Expected instance range for each node");
     // do this in batch to reduce peak memory usage in extreme cases
-    std::size_t max_batch_size = min(std::size_t(100000), tree->size());
+    std::size_t max_batch_size = min(std::size_t(100000), tree->sparsetree.size());
     rmm::device_uvector<NodeT> d_tree(max_batch_size, handle.get_stream());
     rmm::device_uvector<InstanceRange> d_instance_ranges(max_batch_size, handle.get_stream());
+    rmm::device_uvector<DataT> d_leaves(max_batch_size * input.numOutputs, handle.get_stream());
+
     ObjectiveT objective(input.numOutputs, params.min_impurity_decrease, params.min_samples_leaf);
-    for (std::size_t batch_begin = 0; batch_begin < tree->size(); batch_begin += max_batch_size) {
-      std::size_t batch_end  = min(batch_begin + max_batch_size, tree->size());
+    for (std::size_t batch_begin = 0; batch_begin < tree->sparsetree.size();
+         batch_begin += max_batch_size) {
+      std::size_t batch_end  = min(batch_begin + max_batch_size, tree->sparsetree.size());
       std::size_t batch_size = batch_end - batch_begin;
       raft::update_device(
-        d_tree.data(), tree->data() + batch_begin, batch_size, handle.get_stream());
+        d_tree.data(), tree->sparsetree.data() + batch_begin, batch_size, handle.get_stream());
       raft::update_device(d_instance_ranges.data(),
                           instance_ranges.data() + batch_begin,
                           batch_size,
                           handle.get_stream());
+
+      CUDA_CHECK(
+        cudaMemsetAsync(d_leaves.data(), 0, sizeof(DataT) * d_leaves.size(), handle.get_stream()));
       size_t smemSize = sizeof(BinT) * input.numOutputs;
       int num_blocks  = batch_size;
       leafKernel<<<num_blocks, TPB_DEFAULT, smemSize, handle.get_stream()>>>(
-        objective, input, d_tree.data(), d_instance_ranges.data());
-      raft::update_host(tree->data() + batch_begin, d_tree.data(), batch_size, handle.get_stream());
+        objective, input, d_tree.data(), d_instance_ranges.data(), d_leaves.data());
+      raft::update_host(tree->vector_leaf.data() + batch_begin * input.numOutputs,
+                        d_leaves.data(),
+                        batch_size * input.numOutputs,
+                        handle.get_stream());
     }
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
   }
 };  // end Builder
 

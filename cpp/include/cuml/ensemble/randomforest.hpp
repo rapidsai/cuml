@@ -130,8 +130,7 @@ std::string get_rf_json(const RandomForestMetaData<T, L>* forest);
 template <class T, class L>
 void build_treelite_forest(ModelHandle* model,
                            const RandomForestMetaData<T, L>* forest,
-                           int num_features,
-                           int task_category);
+                           int num_features);
 
 ModelHandle concatenate_trees(std::vector<ModelHandle> treelite_handles);
 

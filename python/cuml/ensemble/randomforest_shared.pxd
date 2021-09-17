@@ -77,8 +77,8 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
     #
     cdef void build_treelite_forest[T, L](ModelHandle*,
                                           RandomForestMetaData[T, L]*,
-                                          int,
-                                          int) except +
+                                          int
+                                          ) except +
 
     cdef void delete_rf_metadata[T, L](RandomForestMetaData[T, L]*) except +
 
