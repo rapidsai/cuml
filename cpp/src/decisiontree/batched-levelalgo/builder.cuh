@@ -24,6 +24,7 @@
 
 #include <common/Timer.h>
 #include <cuml/tree/flatnode.h>
+#include <cuml/common/pinned_host_vector.hpp>
 #include <common/grid_sync.cuh>
 #include <common/nvtx.hpp>
 #include <cuml/common/logger.hpp>
@@ -189,7 +190,7 @@ struct Builder {
   const size_t alignValue = 512;
 
   rmm::device_uvector<char> d_buff;
-  std::vector<char> h_buff;
+  ML::pinned_host_vector<char> h_buff;
 
   Builder(const raft::handle_t& handle,
           IdxT treeid,

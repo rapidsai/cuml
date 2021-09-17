@@ -17,6 +17,7 @@
 
 #include <cuml/cluster/kmeans_mg.hpp>
 #include <cuml/common/logger.hpp>
+#include <cuml/common/pinned_host_vector.hpp>
 #include <cuml/metrics/metrics.hpp>
 
 #include <ml_cuda_utils.h>
@@ -593,7 +594,7 @@ void shuffleAndGather(const raft::handle_t& handle,
       indices.data(), nullptr, nullptr, in.getSize(1), in.getSize(0), true, stream);
   } else {
     // shuffle indices on host and copy to device...
-    std::vector<IndexT> ht_indices(n_samples);
+    ML::pinned_host_vector<IndexT> ht_indices(n_samples);
 
     std::iota(ht_indices.begin(), ht_indices.end(), 0);
 
@@ -705,7 +706,7 @@ void kmeansPlusPlus(const raft::handle_t& handle,
   auto dataBatchSize = kmeans::detail::getDataBatchSize(params, n_samples);
 
   // temporary buffers
-  std::vector<DataT> h_wt(n_samples);
+  ML::pinned_host_vector<DataT> h_wt(n_samples);
 
   rmm::device_uvector<DataT> distBuffer(n_trials * n_samples, stream);
 
