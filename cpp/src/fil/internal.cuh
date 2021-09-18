@@ -26,6 +26,7 @@
 #include <raft/error.hpp>
 #include <rmm/device_uvector.hpp>
 #include <vector>
+#include <numeric>
 
 namespace raft {
 class handle_t;
@@ -396,6 +397,8 @@ struct cat_sets_owner {
   std::vector<int> max_matching;
   // how many categorical nodes use a given feature id. Used for model shape string.
   std::vector<std::size_t> n_nodes;
+  // per tree, size and offset of bit pool within the overall bit pool
+  std::vector<std::size_t> bit_pool_sizes, bit_pool_offsets;
 
   categorical_sets accessor() const
   {
@@ -406,12 +409,23 @@ struct cat_sets_owner {
       .max_matching_size = max_matching.size(),
     };
   }
+
+  void initialize_from_bit_pool_sizes() {
+    std::partial_sum(bit_pool_sizes.begin(), bit_pool_sizes.end(), bit_pool_offsets.begin());
+    bits.resize(bit_pool_offsets.back());
+  }
+  
   cat_sets_owner() {}
+
+
   cat_sets_owner(std::vector<uint8_t> bits_, std::vector<int> max_matching_)
     : bits(bits_), max_matching(max_matching_)
-  {
-  }
-  cat_sets_owner(const std::vector<cat_feature_counters>& cf);
+  {}
+  
+  // accepting int because GPU code only allows max<int> features
+  cat_sets_owner(int num_features, std::size_t num_trees):
+    bits(0), max_matching(num_features, -1), n_nodes(num_features, 0), bit_pool_offsets(num_trees), bit_pool_sizes(num_trees)
+    {}
 };
 
 std::ostream& operator<<(std::ostream& os, const cat_sets_owner& cso);

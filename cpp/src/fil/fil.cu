@@ -62,28 +62,6 @@ std::ostream& operator<<(std::ostream& os, const cat_sets_owner& cso)
   return os;
 }
 
-cat_sets_owner::cat_sets_owner(const std::vector<cat_feature_counters>& cf)
-{
-  std::size_t bits_size = 0;
-
-  for (cat_feature_counters cnt : cf) {
-    max_matching.push_back(cnt.max_matching);
-    n_nodes.push_back(cnt.n_nodes);
-    bits_size += categorical_sets::sizeof_mask_from_max_matching(cnt.max_matching) * cnt.n_nodes;
-
-    std::size_t fid = max_matching.size();
-    RAFT_EXPECTS(
-      cnt.max_matching >= -1, "@fid %zu: max_matching invalid (%d)", fid, cnt.max_matching);
-    RAFT_EXPECTS(cnt.n_nodes >= 0, "@fid %zu: n_nodes invalid (%d)", fid, cnt.n_nodes);
-    RAFT_EXPECTS(bits_size <= INT_MAX,
-                 "@fid %zu: cannot store %zu categories given `int` offsets",
-                 fid,
-                 bits_size);
-  }
-
-  bits.resize(bits_size);
-}
-
 __host__ __device__ float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
 
 /** performs additional transformations on the array of forest predictions
@@ -626,27 +604,13 @@ int max_depth(const tl::ModelImpl<T, L>& model)
   return depth;
 }
 
-cat_feature_counters reduce_two_feature_counters(cat_feature_counters a, cat_feature_counters b)
-{
-  return {.max_matching = std::max(a.max_matching, b.max_matching),
-          .n_nodes      = a.n_nodes + b.n_nodes};
-}
-
-void reduce_two_feature_counter_vectors(std::vector<cat_feature_counters>& a,
-                                         const std::vector<cat_feature_counters>& b)
-{
-  for (std::size_t fid = 0; fid < b.size(); ++fid) {
-    a[fid] = reduce_two_feature_counters(a[fid], b[fid]);
-  }
-}
-
 // constructs a vector of size max_fid (number of features, or columns) from a Treelite tree,
 // where each feature has a maximum matching category and number of categorical nodes
 template <typename T, typename L>
-inline std::vector<cat_feature_counters> cat_features_counters(const tl::Tree<T, L>& tree,
+inline std::vector<int> max_matching_cat(const tl::Tree<T, L>& tree,
                                                                int max_fid)
 {
-  std::vector<cat_feature_counters> res(max_fid);
+  std::vector<int> res(max_fid);
   std::stack<int> stack;
   stack.push(tree_root(tree));
   while (!stack.empty()) {
@@ -655,16 +619,15 @@ inline std::vector<cat_feature_counters> cat_features_counters(const tl::Tree<T,
     while (!tree.IsLeaf(node_id)) {
       if (tree.SplitType(node_id) == tl::SplitFeatureType::kCategorical &&
           tree.HasMatchingCategories(node_id)) {
-        std::vector<uint32_t> matching_cats = tree.MatchingCategories(node_id);
-        uint32_t max_matching_cat           = *(matching_cats.end() - 1);
+        uint32_t max_matching_cat = tree.MatchingCategories(node_id).back();
         ASSERT(max_matching_cat <= MAX_PRECISE_INT_FLOAT,
                "FIL cannot infer on "
                "more than %d matching categories",
                MAX_PRECISE_INT_FLOAT);
-        cat_feature_counters& counters = res[tree.SplitIndex(node_id)];
+        int* max_matching_res = &res[tree.SplitIndex(node_id)];
         // in `struct cat_feature_counters` and GPU structures, max matching category is an int
         // cast is safe because all precise int floats fit into ints, which are asserted to be 32 bits
-        counters                       = reduce_two_feature_counters(counters, {(int)max_matching_cat, 1});
+        *max_matching_res = std::max(*max_matching_res, (int)max_matching_cat);
       }
       stack.push(tree.LeftChild(node_id));
       node_id = tree.RightChild(node_id);
@@ -673,19 +636,55 @@ inline std::vector<cat_feature_counters> cat_features_counters(const tl::Tree<T,
   return res;
 }
 
+// constructs a vector of size max_fid (number of features, or columns) from a Treelite tree,
+// where each feature has a maximum matching category and number of categorical nodes
 template <typename T, typename L>
-std::vector<cat_feature_counters> cat_features_counters(const tl::ModelImpl<T, L>& model)
+inline std::size_t bit_pool_size(const tl::Tree<T, L>& tree, cat_sets_owner& cat_sets)
 {
-  std::vector<cat_feature_counters> cat_features(model.num_feature);
-  const auto& trees = model.trees;
-#pragma omp declare reduction(rwz:std::vector<cat_feature_counters>                    \
-                              : reduce_two_feature_counter_vectors(omp_out, omp_in))   \
-            initializer(omp_priv = omp_orig)
-#pragma omp parallel for reduction(rwz : cat_features)
-  for (size_t i = 0; i < trees.size(); ++i) {
-    reduce_two_feature_counter_vectors(cat_features, cat_features_counters(trees[i], model.num_feature));
+  std::size_t size = 0;
+  std::stack<int> stack;
+  stack.push(tree_root(tree));
+  while (!stack.empty()) {
+    int node_id = stack.top();
+    stack.pop();
+    while (!tree.IsLeaf(node_id)) {
+      if (tree.SplitType(node_id) == tl::SplitFeatureType::kCategorical &&
+          tree.HasMatchingCategories(node_id)) {
+        int fid = tree.SplitIndex(node_id);
+        size += cat_sets.accessor().sizeof_mask(fid);
+        ++cat_sets.n_nodes[fid];
+      }
+      stack.push(tree.LeftChild(node_id));
+      node_id = tree.RightChild(node_id);
+    }
   }
-  return cat_features;
+  return size;
+}
+
+template<template<typename> class Op, typename T>
+void vec_op_assign(std::vector<T>& dst, const std::vector<T>& extra) {
+  std::transform(dst.begin(), dst.end(), extra.begin(), dst.begin(), Op<T>());
+}
+
+template <typename T, typename L>
+cat_sets_owner allocate_cat_sets_owner(const tl::ModelImpl<T, L>& model)
+{
+#pragma omp declare reduction(vec_int_plus : std::vector<int> \
+    : vec_op_assign<std::plus>(omp_out, omp_in))              \
+  initializer(omp_priv = omp_orig)
+  const auto& trees = model.trees;
+  cat_sets_owner cat_sets(model.num_feature, trees.size());
+  std::vector<int>& max_matching = cat_sets.max_matching;
+#pragma omp parallel for reduction(vec_int_plus : max_matching)
+  for (size_t i = 0; i < trees.size(); ++i) {
+    vec_op_assign<std::plus>(max_matching, max_matching_cat(trees[i], model.num_feature));
+  }
+#pragma omp parallel for
+  for (size_t i = 0; i < trees.size(); ++i) {
+     cat_sets.bit_pool_sizes[i] = bit_pool_size(trees[i], cat_sets);
+  }
+  cat_sets.initialize_from_bit_pool_sizes();
+  return cat_sets;
 }
 
 void adjust_threshold(float* pthreshold,
@@ -811,12 +810,8 @@ conversion_state<fil_node_t> tl2fil_branch_node(int fil_left_child,
     // for FIL, the list of categories is always for the right child
     if (tree.CategoriesListRightChild(tl_node_id) == false) std::swap(tl_left, tl_right);
     int sizeof_mask = cat_sets.sizeof_mask(feature_id);
-    // using the odd syntax because += returns post-addition value
-#pragma omp atomic capture
-    {
-      split.idx = *bit_pool_size;
-      *bit_pool_size += sizeof_mask;
-    }
+    split.idx = *bit_pool_size;
+    *bit_pool_size += sizeof_mask;
     ASSERT(split.idx >= 0, "split.idx < 0");
     std::vector<uint32_t> matching_cats = tree.MatchingCategories(tl_node_id);
     auto category_it                    = matching_cats.begin();
@@ -897,11 +892,11 @@ template <typename T, typename L>
 void tree2fil_dense(std::vector<dense_node>* pnodes,
                     int root,
                     const tl::Tree<T, L>& tree,
+                    std::size_t tree_idx,
                     const forest_params_t& forest_params,
                     std::vector<float>* vector_leaf,
                     size_t* leaf_counter,
-                    cat_sets_owner* cat_sets,
-                    size_t* bit_pool_size)
+                    cat_sets_owner* cat_sets)
 {
   node2fil_dense(pnodes,
                  root,
@@ -912,23 +907,24 @@ void tree2fil_dense(std::vector<dense_node>* pnodes,
                  vector_leaf,
                  leaf_counter,
                  cat_sets,
-                 bit_pool_size);
+                 &cat_sets->bit_pool_offsets[tree_idx]);
 }
 
 template <typename fil_node_t, typename T, typename L>
 __noinline__ int tree2fil_sparse(std::vector<fil_node_t>& nodes,
                                  int root,
                                  const tl::Tree<T, L>& tree,
+                                 std::size_t tree_idx,
                                  const forest_params_t& forest_params,
                                  std::vector<float>* vector_leaf,
                                  size_t* leaf_counter,
-                                 cat_sets_owner* cat_sets,
-                                 size_t* bit_pool_size)
+                                 cat_sets_owner* cat_sets)
 {
   typedef std::pair<int, int> pair_t;
   std::stack<pair_t> stack;
   int built_index = root + 1;
   stack.push(pair_t(tree_root(tree), 0));
+  size_t bit_pool_size = cat_sets->bit_pool_offsets[tree_idx];
   while (!stack.empty()) {
     const pair_t& top = stack.top();
     int node_id       = top.first;
@@ -942,7 +938,7 @@ __noinline__ int tree2fil_sparse(std::vector<fil_node_t>& nodes,
       int left = built_index - root;
       built_index += 2;
       conversion_state<fil_node_t> cs = tl2fil_branch_node<fil_node_t>(
-        left, tree, node_id, forest_params, cat_sets->accessor(), bit_pool_size);
+        left, tree, node_id, forest_params, cat_sets->accessor(), &bit_pool_size);
       nodes[root + cur] = cs.node;
       // push child nodes into the stack
       stack.push(pair_t(cs.tl_right, left + 1));
@@ -1136,22 +1132,19 @@ void tl2fil_dense(std::vector<dense_node>* pnodes,
   if (params->leaf_algo == VECTOR_LEAF) {
     vector_leaf->resize(max_leaves_per_tree * params->num_trees * params->num_classes);
   }
-  *cat_sets = cat_sets_owner(cat_features_counters(model));
+  *cat_sets = allocate_cat_sets_owner(model);
   pnodes->resize(num_nodes, dense_node());
-  size_t bit_pool_size = 0;
   for (std::size_t i = 0; i < model.trees.size(); ++i) {
     size_t leaf_counter = max_leaves_per_tree * i;
     tree2fil_dense(pnodes,
                    i * tree_num_nodes(params->depth),
                    model.trees[i],
+                   i,
                    *params,
                    vector_leaf,
                    &leaf_counter,
-                   cat_sets,
-                   &bit_pool_size);
+                   cat_sets);
   }
-  ASSERT(bit_pool_size == cat_sets->bits.size(),
-         "internal error: didn't convert the right number of nodes");
 }
 
 template <typename fil_node_t>
@@ -1230,26 +1223,23 @@ void tl2fil_sparse(std::vector<int>* ptrees,
     vector_leaf->resize(max_leaves * params->num_classes);
   }
 
-  *cat_sets = cat_sets_owner(cat_features_counters(model));
+  *cat_sets = allocate_cat_sets_owner(model);
   pnodes->resize(total_nodes);
 
-  size_t bit_pool_size = 0;
   // convert the nodes
-#pragma omp parallel for shared(bit_pool_size)
+#pragma omp parallel for
   for (std::size_t i = 0; i < num_trees; ++i) {
     // Max number of leaves processed so far
     size_t leaf_counter = ((*ptrees)[i] + i) / 2;
     tree2fil_sparse(*pnodes,
                     (*ptrees)[i],
                     model.trees[i],
+                    i,
                     *params,
                     vector_leaf,
                     &leaf_counter,
-                    cat_sets,
-                    &bit_pool_size);
+                    cat_sets);
   }
-  ASSERT(bit_pool_size == cat_sets->bits.size(),
-         "internal error: didn't convert the right number of nodes");
 
   params->num_nodes = pnodes->size();
 }

@@ -300,7 +300,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     // uniformily distributed in orders of magnitude: smaller models which
     // still stress large bitfields.
     // up to 10**ps.max_magnitude_of_matching_cat (only if feature is categorical, else -1)
-    std::vector<cat_feature_counters> cf(ps.num_cols);
+    cat_sets_h = cat_sets_owner(ps.num_cols, ps.num_trees);
     std::mt19937 gen(ps.seed);
     std::uniform_real_distribution mmc(-1.0f, ps.max_magnitude_of_matching_cat);
     std::bernoulli_distribution fc(ps.feature_categorical_prob);
@@ -312,9 +312,9 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
         ASSERT(mm < INT_MAX,
                "internal error: max_magnitude_of_matching_cat %f is too large",
                ps.max_magnitude_of_matching_cat);
-        cf[fid].max_matching = (int)mm;
+        cat_sets_h.max_matching[fid] = (int)mm;
       } else {
-        cf[fid].max_matching = -1;
+        cat_sets_h.max_matching[fid] = -1;
       }
     }
     raft::update_host(weights_h.data(), (int*)weights_d, num_nodes, stream);
@@ -344,13 +344,12 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
       if (is_categoricals_h[node_id] == 1.0) {
         // might allocate a categorical set for an unreachable inner node. That's OK.
-        ++cf[fid].n_nodes;
+        cat_sets_h.n_nodes[fid]++;
         node_cat_set[node_id] = bit_pool_size;
-        bit_pool_size += categorical_sets::sizeof_mask_from_max_matching(cf[fid].max_matching);
+        bit_pool_size += cat_sets_h.accessor().sizeof_mask(fid);
       }
     }
-    cat_sets_h = cat_sets_owner(cf);
-    ASSERT(bit_pool_size == cat_sets_h.bits.size(), "didn't convert correct number of nodes");
+    cat_sets_h.bits.resize(bit_pool_size);
     raft::update_device(
       max_matching_cat_d.data(), cat_sets_h.max_matching.data(), ps.num_cols, stream);
     // calculate sizes and allocate arrays for category sets
