@@ -22,11 +22,11 @@
 #include <treelite/tree.h>
 #include <bitset>
 #include <iostream>
+#include <numeric>
 #include <raft/cuda_utils.cuh>
 #include <raft/error.hpp>
 #include <rmm/device_uvector.hpp>
 #include <vector>
-#include <numeric>
 
 namespace raft {
 class handle_t;
@@ -410,22 +410,28 @@ struct cat_sets_owner {
     };
   }
 
-  void initialize_from_bit_pool_sizes() {
+  void initialize_from_bit_pool_sizes()
+  {
     std::partial_sum(bit_pool_sizes.begin(), bit_pool_sizes.end(), bit_pool_offsets.begin());
     bits.resize(bit_pool_offsets.back());
   }
-  
-  cat_sets_owner() {}
 
+  cat_sets_owner() {}
 
   cat_sets_owner(std::vector<uint8_t> bits_, std::vector<int> max_matching_)
     : bits(bits_), max_matching(max_matching_)
-  {}
-  
+  {
+  }
+
   // accepting int because GPU code only allows max<int> features
-  cat_sets_owner(int num_features, std::size_t num_trees):
-    bits(0), max_matching(num_features, -1), n_nodes(num_features, 0), bit_pool_offsets(num_trees), bit_pool_sizes(num_trees)
-    {}
+  cat_sets_owner(int num_features, std::size_t num_trees)
+    : bits(0),
+      max_matching(num_features, -1),
+      n_nodes(num_features, 0),
+      bit_pool_offsets(num_trees),
+      bit_pool_sizes(num_trees)
+  {
+  }
 };
 
 std::ostream& operator<<(std::ostream& os, const cat_sets_owner& cso);

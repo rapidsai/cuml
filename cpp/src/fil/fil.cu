@@ -607,8 +607,7 @@ int max_depth(const tl::ModelImpl<T, L>& model)
 // constructs a vector of size max_fid (number of features, or columns) from a Treelite tree,
 // where each feature has a maximum matching category and number of categorical nodes
 template <typename T, typename L>
-inline std::vector<int> max_matching_cat(const tl::Tree<T, L>& tree,
-                                                               int max_fid)
+inline std::vector<int> max_matching_cat(const tl::Tree<T, L>& tree, int max_fid)
 {
   std::vector<int> res(max_fid);
   std::stack<int> stack;
@@ -626,7 +625,8 @@ inline std::vector<int> max_matching_cat(const tl::Tree<T, L>& tree,
                MAX_PRECISE_INT_FLOAT);
         int* max_matching_res = &res[tree.SplitIndex(node_id)];
         // in `struct cat_feature_counters` and GPU structures, max matching category is an int
-        // cast is safe because all precise int floats fit into ints, which are asserted to be 32 bits
+        // cast is safe because all precise int floats fit into ints, which are asserted to be 32
+        // bits
         *max_matching_res = std::max(*max_matching_res, (int)max_matching_cat);
       }
       stack.push(tree.LeftChild(node_id));
@@ -661,8 +661,9 @@ inline std::size_t bit_pool_size(const tl::Tree<T, L>& tree, cat_sets_owner& cat
   return size;
 }
 
-template<template<typename> class Op, typename T>
-void vec_op_assign(std::vector<T>& dst, const std::vector<T>& extra) {
+template <template <typename> class Op, typename T>
+void vec_op_assign(std::vector<T>& dst, const std::vector<T>& extra)
+{
   std::transform(dst.begin(), dst.end(), extra.begin(), dst.begin(), Op<T>());
 }
 
@@ -681,17 +682,14 @@ cat_sets_owner allocate_cat_sets_owner(const tl::ModelImpl<T, L>& model)
   }
 #pragma omp parallel for
   for (size_t i = 0; i < trees.size(); ++i) {
-     cat_sets.bit_pool_sizes[i] = bit_pool_size(trees[i], cat_sets);
+    cat_sets.bit_pool_sizes[i] = bit_pool_size(trees[i], cat_sets);
   }
   cat_sets.initialize_from_bit_pool_sizes();
   return cat_sets;
 }
 
-void adjust_threshold(float* pthreshold,
-                      int* tl_left,
-                      int* tl_right,
-                      bool* default_left,
-                      tl::Operator comparison_op)
+void adjust_threshold(
+  float* pthreshold, int* tl_left, int* tl_right, bool* default_left, tl::Operator comparison_op)
 {
   // in treelite (take left node if val [op] threshold),
   // the meaning of the condition is reversed compared to FIL;
@@ -802,15 +800,14 @@ conversion_state<fil_node_t> tl2fil_branch_node(int fil_left_child,
     is_categorical = false;
     default_left   = tree.DefaultLeft(tl_node_id);
     split.f        = static_cast<float>(tree.Threshold(tl_node_id));
-    adjust_threshold(
-      &split.f, &tl_left, &tl_right, &default_left, tree.ComparisonOp(tl_node_id));
+    adjust_threshold(&split.f, &tl_left, &tl_right, &default_left, tree.ComparisonOp(tl_node_id));
   } else if (tree.SplitType(tl_node_id) == tl::SplitFeatureType::kCategorical) {
     is_categorical = true;
     default_left   = !tree.DefaultLeft(tl_node_id);
     // for FIL, the list of categories is always for the right child
     if (tree.CategoriesListRightChild(tl_node_id) == false) std::swap(tl_left, tl_right);
     int sizeof_mask = cat_sets.sizeof_mask(feature_id);
-    split.idx = *bit_pool_size;
+    split.idx       = *bit_pool_size;
     *bit_pool_size += sizeof_mask;
     ASSERT(split.idx >= 0, "split.idx < 0");
     std::vector<uint32_t> matching_cats = tree.MatchingCategories(tl_node_id);
@@ -1231,14 +1228,8 @@ void tl2fil_sparse(std::vector<int>* ptrees,
   for (std::size_t i = 0; i < num_trees; ++i) {
     // Max number of leaves processed so far
     size_t leaf_counter = ((*ptrees)[i] + i) / 2;
-    tree2fil_sparse(*pnodes,
-                    (*ptrees)[i],
-                    model.trees[i],
-                    i,
-                    *params,
-                    vector_leaf,
-                    &leaf_counter,
-                    cat_sets);
+    tree2fil_sparse(
+      *pnodes, (*ptrees)[i], model.trees[i], i, *params, vector_leaf, &leaf_counter, cat_sets);
   }
 
   params->num_nodes = pnodes->size();

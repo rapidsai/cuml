@@ -176,11 +176,8 @@ __global__ void floats_to_bit_stream_k(uint8_t* dst, float* src, std::size_t siz
   dst[idx] = byte;
 }
 
-void adjust_threshold_to_treelite(float* pthreshold,
-                      int* tl_left,
-                      int* tl_right,
-                      bool* default_left,
-                      tl::Operator comparison_op)
+void adjust_threshold_to_treelite(
+  float* pthreshold, int* tl_left, int* tl_right, bool* default_left, tl::Operator comparison_op)
 {
   // in treelite (take left node if val [op] threshold),
   // the meaning of the condition is reversed compared to FIL;
