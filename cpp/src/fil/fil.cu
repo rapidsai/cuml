@@ -1384,8 +1384,8 @@ char* sprintf_shape(const tl::ModelImpl<threshold_t, leaf_t>& model,
 {
   std::stringstream forest_shape = depth_hist_and_max(model);
   double size_mb = (trees.size() * sizeof(trees.front()) + nodes.size() * sizeof(nodes.front()) +
-                   cat_sets.bits.size()) /
-                  1e6;
+                    cat_sets.bits.size()) /
+                   1e6;
   forest_shape << storage_type_repr[storage] << " model size " << std::setprecision(2) << size_mb
                << " MB" << std::endl;
   if (cat_sets.bits.size() > 0) {
