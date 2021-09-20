@@ -361,7 +361,7 @@ void initScalableKMeansPlusPlus(const raft::handle_t& handle,
   auto initialCentroid = X.template view<2>({1, n_features}, {cIdx, 0});
 
   // flag the sample that is chosen as initial centroid
-  ML::pinned_host_vector<int> h_isSampleCentroid(n_samples);
+  std::vector<int> h_isSampleCentroid(n_samples);
   std::fill(h_isSampleCentroid.begin(), h_isSampleCentroid.end(), 0);
   h_isSampleCentroid[cIdx] = 1;
 

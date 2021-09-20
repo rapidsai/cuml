@@ -24,10 +24,10 @@
 
 #include <common/Timer.h>
 #include <cuml/tree/flatnode.h>
-#include <cuml/common/pinned_host_vector.hpp>
 #include <common/grid_sync.cuh>
 #include <common/nvtx.hpp>
 #include <cuml/common/logger.hpp>
+#include <cuml/common/pinned_host_vector.hpp>
 #include <cuml/tree/decisiontree.hpp>
 #include <raft/cuda_utils.cuh>
 #include "input.cuh"

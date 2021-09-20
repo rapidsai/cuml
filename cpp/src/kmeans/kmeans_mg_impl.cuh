@@ -139,7 +139,7 @@ void initKMeansPlusPlus(const raft::handle_t& handle,
   int rp = dis(gen);
 
   // buffer to flag the sample that is chosen as initial centroids
-  ML::pinned_host_vector<int> h_isSampleCentroid(n_samples);
+  std::vector<int> h_isSampleCentroid(n_samples);
   std::fill(h_isSampleCentroid.begin(), h_isSampleCentroid.end(), 0);
 
   Tensor<DataT, 2, IndexT> initialCentroid({1, n_features}, stream);

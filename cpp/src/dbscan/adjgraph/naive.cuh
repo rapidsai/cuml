@@ -17,11 +17,11 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
+#include <cuml/common/pinned_host_vector.hpp>
 #include <raft/cuda_utils.cuh>
 #include <vector>
 #include "../common.cuh"
 #include "pack.h"
-#include <cuml/common/pinned_host_vector.hpp>
 
 namespace ML {
 namespace Dbscan {

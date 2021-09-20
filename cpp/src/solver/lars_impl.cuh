@@ -19,6 +19,7 @@
 #include <iostream>
 #include <limits>
 #include <numeric>
+#include <vector>
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
@@ -31,7 +32,6 @@
 #include <cache/cache_util.cuh>
 #include <cub/cub.cuh>
 #include <cuml/common/logger.hpp>
-#include <cuml/common/pinned_host_vector.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/cholesky_r1_update.cuh>
@@ -690,7 +690,7 @@ void larsInit(const raft::handle_t& handle,
               rmm::device_uvector<math_t>& U_buffer,
               math_t** U,
               idx_t* ld_U,
-              ML::pinned_host_vector<idx_t>& indices,
+              std::vector<idx_t>& indices,
               rmm::device_uvector<math_t>& cor,
               int* max_iter,
               math_t* coef_path,
@@ -888,7 +888,7 @@ void larsFit(const raft::handle_t& handle,
   math_t* U  = nullptr;
 
   // Indices of elements in the active set.
-  ML::pinned_host_vector<idx_t> indices(n_cols);
+  std::vector<idx_t> indices(n_cols);
   // Sign of the correlation at the time when the element was added to the
   // active set.
   rmm::device_uvector<math_t> sign(n_cols, stream);
