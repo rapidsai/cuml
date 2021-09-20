@@ -31,6 +31,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 namespace ML {
@@ -242,26 +243,29 @@ std::string get_rf_json(const RandomForestMetaData<T, L>* forest)
 template <class T, class L>
 void build_treelite_forest(ModelHandle* model_handle,
                            const RandomForestMetaData<T, L>* forest,
-                           int num_features,
-                           int task_category)
+                           int num_features)
 {
   auto parent_model          = tl::Model::Create<T, T>();
   tl::ModelImpl<T, T>* model = dynamic_cast<tl::ModelImpl<T, T>*>(parent_model.get());
   ASSERT(model != nullptr, "Invalid downcast to tl::ModelImpl");
 
-  unsigned int num_class;
-  if (task_category > 2) {
-    // Multi-class classification
-    num_class        = task_category;
+  // Determine number of outputs
+  int num_outputs = forest->trees.front()->num_outputs;
+  ASSERT(num_outputs > 0, "Invalid forest");
+  for (const auto& tree : forest->trees) {
+    ASSERT(num_outputs == tree->num_outputs, "Invalid forest");
+  }
+
+  if constexpr (std::is_integral_v<L>) {
+    ASSERT(num_outputs > 1, "More than one variable expected for classification problem.");
     model->task_type = tl::TaskType::kMultiClfProbDistLeaf;
-    std::strcpy(model->param.pred_transform, "max_index");
+    std::strncpy(model->param.pred_transform, "max_index", sizeof(model->param.pred_transform));
   } else {
-    // Binary classification or regression
-    num_class        = 1;
     model->task_type = tl::TaskType::kBinaryClfRegr;
   }
 
-  model->task_param = tl::TaskParam{tl::TaskParam::OutputType::kFloat, false, num_class, num_class};
+  model->task_param = tl::TaskParam{
+    tl::TaskParam::OutputType::kFloat, false, (unsigned int)num_outputs, (unsigned int)num_outputs};
   model->num_feature         = num_features;
   model->average_tree_output = true;
   model->SetTreeLimit(forest->rf_params.n_trees);
@@ -271,7 +275,7 @@ void build_treelite_forest(ModelHandle* model_handle,
     auto rf_tree = forest->trees[i];
 
     if (rf_tree->sparsetree.size() != 0) {
-      model->trees[i] = DT::build_treelite_tree<T, L>(*rf_tree, num_class);
+      model->trees[i] = DT::build_treelite_tree<T, L>(*rf_tree, num_outputs);
     }
   }
 
@@ -771,19 +775,13 @@ template void delete_rf_metadata<double, double>(RandomForestRegressorD* forest)
 
 template void build_treelite_forest<float, int>(ModelHandle* model,
                                                 const RandomForestMetaData<float, int>* forest,
-                                                int num_features,
-                                                int task_category);
+                                                int num_features);
 template void build_treelite_forest<double, int>(ModelHandle* model,
                                                  const RandomForestMetaData<double, int>* forest,
-                                                 int num_features,
-                                                 int task_category);
+                                                 int num_features);
 template void build_treelite_forest<float, float>(ModelHandle* model,
                                                   const RandomForestMetaData<float, float>* forest,
-                                                  int num_features,
-                                                  int task_category);
+                                                  int num_features);
 template void build_treelite_forest<double, double>(
-  ModelHandle* model,
-  const RandomForestMetaData<double, double>* forest,
-  int num_features,
-  int task_category);
+  ModelHandle* model, const RandomForestMetaData<double, double>* forest, int num_features);
 }  // End namespace ML
