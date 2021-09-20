@@ -1165,7 +1165,6 @@ def test_rf_nbins_small(small_clf):
                "the number of samples used for training. "
                "Changing `n_bins` to number of training samples."
                in str(w[-1].message))
-        print(str(w[-1].message))
 
 
 @pytest.mark.parametrize("split_criterion", [2], ids=["mse"])
