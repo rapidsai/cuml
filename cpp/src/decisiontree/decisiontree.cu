@@ -95,14 +95,14 @@ template <class T, class L>
 std::string get_tree_text(const TreeMetaDataNode<T, L>* tree)
 {
   std::string summary = get_tree_summary_text<T, L>(tree);
-  return summary + "\n" + get_node_text<T, L>("", tree->sparsetree, 0, false);
+  return summary + "\n" + get_node_text<T, L>("", tree, 0, false);
 }
 
 template <class T, class L>
 std::string get_tree_json(const TreeMetaDataNode<T, L>* tree)
 {
   std::ostringstream oss;
-  return get_node_json("", tree->sparsetree, 0);
+  return get_node_json("", tree, 0);
 }
 
 // Functions' specializations

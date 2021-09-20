@@ -24,7 +24,6 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
-#include <rmm/device_uvector.hpp>
 
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
@@ -36,6 +35,7 @@
 #include <omp.h>
 
 #include <algorithm>
+#include <bitset>
 #include <cmath>
 #include <cstddef>
 #include <iomanip>
@@ -47,6 +47,41 @@ namespace ML {
 namespace fil {
 
 namespace tl = treelite;
+
+std::ostream& operator<<(std::ostream& os, const cat_sets_owner& cso)
+{
+  os << "\nbits { ";
+  for (uint8_t b : cso.bits) {
+    os << std::bitset<BITS_PER_BYTE>(b) << " ";
+  }
+  os << " }\nmax_matching {";
+  for (int mm : cso.max_matching) {
+    os << mm << " ";
+  }
+  os << " }";
+  return os;
+}
+
+cat_sets_owner::cat_sets_owner(const std::vector<cat_feature_counters>& cf)
+{
+  std::size_t bits_size = 0;
+
+  for (cat_feature_counters cnt : cf) {
+    max_matching.push_back(cnt.max_matching);
+    bits_size += categorical_sets::sizeof_mask_from_max_matching(cnt.max_matching) * cnt.n_nodes;
+
+    int fid = max_matching.size();
+    RAFT_EXPECTS(
+      cnt.max_matching >= -1, "@fid %zu: max_matching invalid (%d)", fid, cnt.max_matching);
+    RAFT_EXPECTS(cnt.n_nodes >= 0, "@fid %zu: n_nodes invalid (%d)", fid, cnt.n_nodes);
+    RAFT_EXPECTS(bits_size <= INT_MAX,
+                 "@fid %zu: cannot store %zu categories given `int` offsets",
+                 fid,
+                 bits_size);
+  }
+
+  bits.resize(bits_size);
+}
 
 __host__ __device__ float sigmoid(float x) { return 1.0f / (1.0f + expf(-x)); }
 
@@ -83,7 +118,7 @@ __global__ void transform_k(float* preds,
 }
 
 struct forest {
-  forest(const raft::handle_t& h) : vector_leaf_(0, h.get_stream()) {}
+  forest(const raft::handle_t& h) : vector_leaf_(0, h.get_stream()), cat_sets_(h.get_stream()) {}
 
   void init_n_items(int device)
   {
@@ -141,8 +176,9 @@ struct forest {
   }
 
   void init_common(const raft::handle_t& h,
-                   const forest_params_t* params,
-                   const std::vector<float>& vector_leaf)
+                   const categorical_sets& cat_sets,
+                   const std::vector<float>& vector_leaf,
+                   const forest_params_t* params)
   {
     depth_                           = params->depth;
     num_trees_                       = params->num_trees;
@@ -157,21 +193,24 @@ struct forest {
     proba_ssp_.num_classes           = params->num_classes;
     class_ssp_                       = proba_ssp_;
 
-    int device = h.get_device();
+    int device          = h.get_device();
+    cudaStream_t stream = h.get_stream();
     init_n_items(device);  // n_items takes priority over blocks_per_sm
     init_fixed_block_count(device, params->blocks_per_sm);
 
     // vector leaf
     if (!vector_leaf.empty()) {
-      vector_leaf_len_ = vector_leaf.size();
-      vector_leaf_.resize(vector_leaf.size(), h.get_stream());
+      vector_leaf_.resize(vector_leaf.size(), stream);
 
       CUDA_CHECK(cudaMemcpyAsync(vector_leaf_.data(),
                                  vector_leaf.data(),
                                  vector_leaf.size() * sizeof(float),
                                  cudaMemcpyHostToDevice,
-                                 h.get_stream()));
+                                 stream));
     }
+
+    // categorical features
+    cat_sets_ = cat_sets_device_owner(cat_sets, stream);
   }
 
   virtual void infer(predict_params params, cudaStream_t stream) = 0;
@@ -316,7 +355,11 @@ struct forest {
     }
   }
 
-  virtual void free(const raft::handle_t& h) { vector_leaf_.release(); }
+  virtual void free(const raft::handle_t& h)
+  {
+    cat_sets_.release();
+    vector_leaf_.release();
+  }
 
   virtual ~forest() {}
 
@@ -330,7 +373,7 @@ struct forest {
   int fixed_block_count_ = 0;
   // Optionally used
   rmm::device_uvector<float> vector_leaf_;
-  size_t vector_leaf_len_ = 0;
+  cat_sets_device_owner cat_sets_;
 };
 
 struct dense_forest : forest {
@@ -363,11 +406,12 @@ struct dense_forest : forest {
   }
 
   void init(const raft::handle_t& h,
+            const categorical_sets& cat_sets,
+            const std::vector<float>& vector_leaf,
             const dense_node* nodes,
-            const forest_params_t* params,
-            const std::vector<float>& vector_leaf)
+            const forest_params_t* params)
   {
-    init_common(h, params, vector_leaf);
+    init_common(h, cat_sets, vector_leaf, params);
     if (algo_ == algo_t::NAIVE) algo_ = algo_t::BATCH_TREE_REORG;
 
     int num_nodes = forest_num_nodes(num_trees_, depth_);
@@ -391,11 +435,12 @@ struct dense_forest : forest {
 
   virtual void infer(predict_params params, cudaStream_t stream) override
   {
-    dense_storage forest(nodes_.data(),
+    dense_storage forest(cat_sets_.accessor(),
+                         vector_leaf_.data(),
+                         nodes_.data(),
                          num_trees_,
                          algo_ == algo_t::NAIVE ? tree_num_nodes(depth_) : 1,
-                         algo_ == algo_t::NAIVE ? 1 : num_trees_,
-                         vector_leaf_.data());
+                         algo_ == algo_t::NAIVE ? 1 : num_trees_);
     fil::infer(forest, params, stream);
   }
 
@@ -417,12 +462,13 @@ struct sparse_forest : forest {
   }
 
   void init(const raft::handle_t& h,
+            const categorical_sets& cat_sets,
+            const std::vector<float>& vector_leaf,
             const int* trees,
             const node_t* nodes,
-            const forest_params_t* params,
-            const std::vector<float>& vector_leaf)
+            const forest_params_t* params)
   {
-    init_common(h, params, vector_leaf);
+    init_common(h, cat_sets, vector_leaf, params);
     if (algo_ == algo_t::ALGO_AUTO) algo_ = algo_t::NAIVE;
     depth_     = 0;  // a placeholder value
     num_nodes_ = params->num_nodes;
@@ -440,7 +486,8 @@ struct sparse_forest : forest {
 
   virtual void infer(predict_params params, cudaStream_t stream) override
   {
-    sparse_storage<node_t> forest(trees_.data(), nodes_.data(), num_trees_, vector_leaf_.data());
+    sparse_storage<node_t> forest(
+      cat_sets_.accessor(), vector_leaf_.data(), trees_.data(), nodes_.data(), num_trees_);
     fil::infer(forest, params, stream);
   }
 
@@ -673,7 +720,7 @@ void node2fil_dense(std::vector<dense_node>* pnodes,
                     size_t* leaf_counter)
 {
   if (tree.IsLeaf(node_id)) {
-    (*pnodes)[root + cur] = dense_node(val_t{.f = NAN}, NAN, 0, false, true);
+    (*pnodes)[root + cur] = dense_node({}, {}, 0, false, true, false);
     tl2fil_leaf_payload(
       &(*pnodes)[root + cur], root + cur, tree, node_id, forest_params, vector_leaf, leaf_counter);
     return;
@@ -687,7 +734,7 @@ void node2fil_dense(std::vector<dense_node>* pnodes,
   float threshold   = static_cast<float>(tree.Threshold(node_id));
   adjust_threshold(&threshold, &tl_left, &tl_right, &default_left, tree.ComparisonOp(node_id));
   (*pnodes)[root + cur] =
-    dense_node(val_t{.f = 0}, threshold, tree.SplitIndex(node_id), default_left, false);
+    dense_node({}, val_t{.f = threshold}, tree.SplitIndex(node_id), default_left, false, false);
   int left = 2 * cur + 1;
   node2fil_dense(pnodes, root, left, tree, tl_left, forest_params, vector_leaf, leaf_counter);
   node2fil_dense(pnodes, root, left + 1, tree, tl_right, forest_params, vector_leaf, leaf_counter);
@@ -738,8 +785,8 @@ int tree2fil_sparse(std::vector<fil_node_t>& nodes,
       // in the array of all nodes of the FIL sparse forest
       int left = built_index - root;
       built_index += 2;
-      nodes[root + cur] =
-        fil_node_t(val_t{.f = 0}, threshold, tree.SplitIndex(node_id), default_left, false, left);
+      nodes[root + cur] = fil_node_t(
+        {}, val_t{.f = threshold}, tree.SplitIndex(node_id), default_left, false, false, left);
 
       // push child nodes into the stack
       stack.push(pair_t(tl_right, left + 1));
@@ -749,7 +796,7 @@ int tree2fil_sparse(std::vector<fil_node_t>& nodes,
     }
 
     // leaf node
-    nodes[root + cur] = fil_node_t(val_t{.f = NAN}, NAN, 0, false, true, 0);
+    nodes[root + cur] = fil_node_t({}, {}, 0, false, true, false, 0);
     tl2fil_leaf_payload(
       &nodes[root + cur], root + cur, tree, node_id, forest_params, vector_leaf, leaf_counter);
   }
@@ -984,7 +1031,7 @@ struct tl2fil_sparse_check_t<sparse_node8> {
     for (std::size_t i = 0; i < trees.size(); ++i) {
       int num_nodes = trees[i].num_nodes;
       ASSERT(num_nodes <= MAX_TREE_NODES,
-             "tree %lu has %d nodes, "
+             "tree %zu has %d nodes, "
              "but only %d supported for 8-byte sparse nodes",
              i,
              num_nodes,
@@ -1035,44 +1082,48 @@ void tl2fil_sparse(std::vector<int>* ptrees,
 
 void init_dense(const raft::handle_t& h,
                 forest_t* pf,
+                const categorical_sets& cat_sets,
+                const std::vector<float>& vector_leaf,
                 const dense_node* nodes,
-                const forest_params_t* params,
-                const std::vector<float>& vector_leaf)
+                const forest_params_t* params)
 {
   check_params(params, true);
   dense_forest* f = new dense_forest(h);
-  f->init(h, nodes, params, vector_leaf);
+  f->init(h, cat_sets, vector_leaf, nodes, params);
   *pf = f;
 }
 
 template <typename fil_node_t>
 void init_sparse(const raft::handle_t& h,
                  forest_t* pf,
+                 const categorical_sets& cat_sets,
+                 const std::vector<float>& vector_leaf,
                  const int* trees,
                  const fil_node_t* nodes,
-                 const forest_params_t* params,
-                 const std::vector<float>& vector_leaf)
+                 const forest_params_t* params)
 {
   check_params(params, false);
   sparse_forest<fil_node_t>* f = new sparse_forest<fil_node_t>(h);
-  f->init(h, trees, nodes, params, vector_leaf);
+  f->init(h, cat_sets, vector_leaf, trees, nodes, params);
   *pf = f;
 }
 
 // explicit instantiations for init_sparse()
 template void init_sparse<sparse_node16>(const raft::handle_t& h,
                                          forest_t* pf,
+                                         const categorical_sets& cat_sets,
+                                         const std::vector<float>& vector_leaf,
                                          const int* trees,
                                          const sparse_node16* nodes,
-                                         const forest_params_t* params,
-                                         const std::vector<float>& vector_leaf);
+                                         const forest_params_t* params);
 
 template void init_sparse<sparse_node8>(const raft::handle_t& h,
                                         forest_t* pf,
+                                        const categorical_sets& cat_sets,
+                                        const std::vector<float>& vector_leaf,
                                         const int* trees,
                                         const sparse_node8* nodes,
-                                        const forest_params_t* params,
-                                        const std::vector<float>& vector_leaf);
+                                        const forest_params_t* params);
 
 template <typename threshold_t, typename leaf_t>
 void from_treelite(const raft::handle_t& handle,
@@ -1111,12 +1162,13 @@ void from_treelite(const raft::handle_t& handle,
   }
 
   forest_params_t params;
+  categorical_sets cat_sets;
   switch (storage_type) {
     case storage_type_t::DENSE: {
       std::vector<dense_node> nodes;
       std::vector<float> vector_leaf;
       tl2fil_dense(&nodes, &params, model, tl_params, &vector_leaf);
-      init_dense(handle, pforest, nodes.data(), &params, vector_leaf);
+      init_dense(handle, pforest, cat_sets, vector_leaf, nodes.data(), &params);
       // sync is necessary as nodes is used in init_dense(),
       // but destructed at the end of this function
       CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
@@ -1130,7 +1182,7 @@ void from_treelite(const raft::handle_t& handle,
       std::vector<sparse_node16> nodes;
       std::vector<float> vector_leaf;
       tl2fil_sparse(&trees, &nodes, &params, model, tl_params, &vector_leaf);
-      init_sparse(handle, pforest, trees.data(), nodes.data(), &params, vector_leaf);
+      init_sparse(handle, pforest, cat_sets, vector_leaf, trees.data(), nodes.data(), &params);
       CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
       if (tl_params->pforest_shape_str) {
         *tl_params->pforest_shape_str = sprintf_shape(model, storage_type, nodes, trees);
@@ -1142,7 +1194,7 @@ void from_treelite(const raft::handle_t& handle,
       std::vector<sparse_node8> nodes;
       std::vector<float> vector_leaf;
       tl2fil_sparse(&trees, &nodes, &params, model, tl_params, &vector_leaf);
-      init_sparse(handle, pforest, trees.data(), nodes.data(), &params, vector_leaf);
+      init_sparse(handle, pforest, cat_sets, vector_leaf, trees.data(), nodes.data(), &params);
       CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
       if (tl_params->pforest_shape_str) {
         *tl_params->pforest_shape_str = sprintf_shape(model, storage_type, nodes, trees);

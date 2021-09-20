@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import pytest
-from sklearn.manifold.t_sne import trustworthiness as sklearn_trustworthiness
+from sklearn.manifold import trustworthiness as sklearn_trustworthiness
 from cuml.metrics import trustworthiness as cuml_trustworthiness
 
 from sklearn.datasets import make_blobs
