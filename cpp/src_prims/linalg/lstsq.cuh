@@ -32,6 +32,7 @@
 #include <raft/matrix/matrix.cuh>
 #include <raft/mr/device/buffer.hpp>
 #include <raft/random/rng.cuh>
+#include <rmm/cuda_stream_view.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -40,31 +41,62 @@ namespace LinAlg {
 
 namespace {
 
-struct DeviceStream {
- private:
-  cudaStream_t s;
-
- public:
-  DeviceStream() { CUDA_CHECK(cudaStreamCreateWithFlags(&s, cudaStreamNonBlocking)); }
-  ~DeviceStream() { CUDA_CHECK(cudaStreamDestroy(s)); }
-  operator cudaStream_t() const { return s; }
-  DeviceStream& operator=(const DeviceStream& other) = delete;
-};
-
+/** Operate a CUDA event if we're in the concurrent mode; no-op otherwise. */
 struct DeviceEvent {
  private:
   cudaEvent_t e;
 
  public:
-  DeviceEvent() { CUDA_CHECK(cudaEventCreate(&e)); }
-  ~DeviceEvent() { CUDA_CHECK(cudaEventDestroy(e)); }
+  DeviceEvent(bool concurrent)
+  {
+    if (concurrent)
+      CUDA_CHECK(cudaEventCreate(&e));
+    else
+      e = nullptr;
+  }
+  ~DeviceEvent()
+  {
+    if (e != nullptr) CUDA_CHECK(cudaEventDestroy(e));
+  }
   operator cudaEvent_t() const { return e; }
-  void record(cudaStream_t& stream) { CUDA_CHECK(cudaEventRecord(e, stream)); }
-  void record(cudaStream_t&& stream) { CUDA_CHECK(cudaEventRecord(e, stream)); }
-  void wait(cudaStream_t& stream) { CUDA_CHECK(cudaStreamWaitEvent(stream, e, 0u)); }
-  void wait() { CUDA_CHECK(cudaEventSynchronize(e)); }
+  void record(cudaStream_t stream)
+  {
+    if (e != nullptr) CUDA_CHECK(cudaEventRecord(e, stream));
+  }
+  void wait(cudaStream_t stream)
+  {
+    if (e != nullptr) CUDA_CHECK(cudaStreamWaitEvent(stream, e, 0u));
+  }
+  void wait()
+  {
+    if (e != nullptr) CUDA_CHECK(cudaEventSynchronize(e));
+  }
   DeviceEvent& operator=(const DeviceEvent& other) = delete;
 };
+
+/**
+ *  @brief Tells if the viewed CUDA stream is implicitly synchronized with the given stream.
+ *
+ *  This can happen e.g.
+ *   if the two views point to the same stream
+ *   or sometimes when one of them is the legacy default stream.
+ */
+bool are_implicitly_synchronized(rmm::cuda_stream_view a, rmm::cuda_stream_view b)
+{
+  // any stream is "synchronized" with itself
+  if (a.value() == b.value()) return true;
+  // legacy + blocking streams
+  unsigned int flags = 0;
+  if (a.is_default()) {
+    CUDA_CHECK(cudaStreamGetFlags(b.value(), &flags));
+    if ((flags & cudaStreamNonBlocking) == 0) return true;
+  }
+  if (b.is_default()) {
+    CUDA_CHECK(cudaStreamGetFlags(a.value(), &flags));
+    if ((flags & cudaStreamNonBlocking) == 0) return true;
+  }
+  return false;
+}
 
 }  // namespace
 
@@ -81,36 +113,6 @@ void lstsqSvdQR(const raft::handle_t& handle,
                 math_t* w,
                 cudaStream_t stream)
 {
-  // we use some temporary vectors to avoid doing re-using w in the last step, the
-  // gemv, which could cause a very sporadic race condition in Pascal and
-  // Turing GPUs that caused it to give the wrong results. Details:
-  // https://github.com/rapidsai/cuml/issues/1739
-
-  // orig
-
-  // size_t U_len = n_rows * n_cols;
-  // size_t V_len = n_cols * n_cols;
-
-  // rmm::device_uvector<math_t> S(n_cols, stream);
-  // rmm::device_uvector<math_t> V(V_len, stream);
-  // rmm::device_uvector<math_t> U(U_len, stream);
-
-  // // we use a temporary vector to avoid doing re-using w in the last step, the
-  // // gemv, which could cause a very sporadic race condition in Pascal and
-  // // Turing GPUs that caused it to give the wrong results. Details:
-  // // https://github.com/rapidsai/cuml/issues/1739
-  // rmm::device_uvector<math_t> tmp_vector(n_cols, stream);
-  // raft::linalg::svdQR(
-  //   handle, A, n_rows, n_cols, S.data(), U.data(), V.data(), true, true, true, stream);
-  // raft::linalg::gemv(handle, U.data(), n_rows, n_cols, b, tmp_vector.data(), true, stream);
-
-  // raft::matrix::matrixVectorBinaryDivSkipZero(
-  //   tmp_vector.data(), S.data(), 1, n_cols, false, true, stream);
-
-  // raft::linalg::gemv(handle, V.data(), n_cols, n_cols, tmp_vector.data(), w, false, stream);
-
-  // inlined
-
   const int minmn              = min(n_rows, n_cols);
   cusolverDnHandle_t cusolverH = handle.get_cusolver_dn_handle();
   int cusolverWorkSetSize      = 0;
@@ -150,24 +152,9 @@ void lstsqSvdQR(const raft::handle_t& handle,
                                                        devInfo,
                                                        stream));
   raft::linalg::gemv(handle, U, n_rows, minmn, b, Ub, true, stream);
-  raft::linalg::eltwiseDivideCheckZero(Ub, Ub, S, minmn, stream);
-  math_t alpha = math_t(1);
-  math_t beta  = math_t(0);
-  // wait on https://github.com/rapidsai/raft/pull/327 to enable this.
-  // I have to use cublas here for its non-trivial lda not available in raft::linalg::gemv
-  CUBLAS_CHECK(raft::linalg::cublasgemv<math_t>(handle.get_cublas_handle(),
-                                                CUBLAS_OP_T,
-                                                minmn,
-                                                n_cols,
-                                                &alpha,
-                                                Vt,
-                                                n_cols,
-                                                Ub,
-                                                1,
-                                                &beta,
-                                                w,
-                                                1,
-                                                stream));
+  auto f = [] __device__(math_t a, math_t b) { return raft::myAbs(b) > math_t(1e-10) ? a / b : a; };
+  raft::linalg::binaryOp(Ub, Ub, S, minmn, f, stream);
+  raft::linalg::gemv(handle, Vt, minmn, n_cols, n_cols, Ub, w, true, stream);
 }
 
 /** Solves the linear ordinary least squares problem `Aw = b`
@@ -234,25 +221,9 @@ void lstsqSvdJacobi(const raft::handle_t& handle,
                                                         gesvdj_params,
                                                         stream));
   raft::linalg::gemv(handle, U, n_rows, minmn, b, Ub, true, stream);
-  raft::linalg::eltwiseDivideCheckZero(Ub, Ub, S, minmn, stream);
-
-  // wait on https://github.com/rapidsai/raft/pull/327 to enable this.
-  // raft::linalg::gemv(handle, V, n_cols, minmn, Ub, w, false, stream);
-  math_t alpha = math_t(1);
-  math_t beta  = math_t(0);
-  CUBLAS_CHECK(raft::linalg::cublasgemv<math_t>(handle.get_cublas_handle(),
-                                                CUBLAS_OP_N,
-                                                n_cols,
-                                                minmn,
-                                                &alpha,
-                                                V,
-                                                n_cols,
-                                                Ub,
-                                                1,
-                                                &beta,
-                                                w,
-                                                1,
-                                                stream));
+  auto f = [] __device__(math_t a, math_t b) { return raft::myAbs(b) > math_t(1e-10) ? a / b : a; };
+  raft::linalg::binaryOp(Ub, Ub, S, minmn, f, stream);
+  raft::linalg::gemv(handle, V, n_cols, minmn, Ub, w, false, stream);
 }
 
 /** Solves the linear ordinary least squares problem `Aw = b`
@@ -268,7 +239,28 @@ void lstsqEig(const raft::handle_t& handle,
               math_t* w,
               cudaStream_t stream)
 {
-  rmm::device_uvector<math_t> workset(n_cols * n_cols * 3 + n_cols * 2, stream);
+  rmm::cuda_stream_view mainStream   = rmm::cuda_stream_view(stream);
+  rmm::cuda_stream_view multAbStream = mainStream;
+  bool concurrent                    = false;
+  {
+    int sp_size = handle.get_num_internal_streams();
+    if (sp_size > 0) {
+      multAbStream = handle.get_internal_stream_view(0);
+      // check if the two streams can run concurrently
+      if (!are_implicitly_synchronized(mainStream, multAbStream)) {
+        concurrent = true;
+      } else if (sp_size > 1) {
+        mainStream   = multAbStream;
+        multAbStream = handle.get_internal_stream_view(1);
+        concurrent   = true;
+      }
+    }
+  }
+  // the event is created only if the given raft handle is capable of running
+  // at least two CUDA streams without implicit synchronization.
+  DeviceEvent multAbDone(concurrent);
+
+  rmm::device_uvector<math_t> workset(n_cols * n_cols * 3 + n_cols * 2, mainStream);
   math_t* Q    = workset.data();
   math_t* QS   = Q + n_cols * n_cols;
   math_t* covA = QS + n_cols * n_cols;
@@ -290,22 +282,20 @@ void lstsqEig(const raft::handle_t& handle,
                      CUBLAS_OP_N,
                      alpha,
                      beta,
-                     stream);
+                     mainStream);
 
   // Ab <- A* b
-  DeviceStream multAb;
-  DeviceEvent multAbDone;
-  raft::linalg::gemv(handle, A, n_rows, n_cols, b, Ab, true, multAb);
-  multAbDone.record(multAb);
+  raft::linalg::gemv(handle, A, n_rows, n_cols, b, Ab, true, multAbStream);
+  multAbDone.record(multAbStream);
 
   // Q S Q* <- covA
-  ML::PUSH_RANGE("Trace::MLCommon::LinAlg::lstsq::eigDC", stream);
-  raft::linalg::eigDC(handle, covA, n_cols, n_cols, Q, S, stream);
-  ML::POP_RANGE(stream);
+  ML::PUSH_RANGE("Trace::MLCommon::LinAlg::lstsq::eigDC", mainStream);
+  raft::linalg::eigDC(handle, covA, n_cols, n_cols, Q, S, mainStream);
+  ML::POP_RANGE(mainStream);
 
   // QS  <- Q invS
   auto f = [] __device__(math_t a, math_t b) { return raft::myAbs(b) > math_t(1e-10) ? a / b : a; };
-  raft::linalg::matrixVectorOp(QS, Q, S, n_cols, n_cols, false, true, f, stream);
+  raft::linalg::matrixVectorOp(QS, Q, S, n_cols, n_cols, false, true, f, mainStream);
   // covA <- QS Q* == Q invS Q* == inv(A* A)
   raft::linalg::gemm(handle,
                      QS,
@@ -319,10 +309,10 @@ void lstsqEig(const raft::handle_t& handle,
                      CUBLAS_OP_T,
                      alpha,
                      beta,
-                     stream);
-  multAbDone.wait(stream);
+                     mainStream);
+  multAbDone.wait(mainStream);
   // w <- covA Ab == Q invS Q* A b == inv(A* A) A b
-  raft::linalg::gemv(handle, covA, n_cols, n_cols, Ab, w, false, stream);
+  raft::linalg::gemv(handle, covA, n_cols, n_cols, Ab, w, false, mainStream);
 }
 
 /** Solves the linear ordinary least squares problem `Aw = b`

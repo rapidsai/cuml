@@ -28,6 +28,7 @@ from libcpp cimport bool
 from libc.stdint cimport uintptr_t
 from libc.stdlib cimport calloc, malloc, free
 
+from cuml import Handle
 from cuml.common.array import CumlArray
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.base import Base
@@ -205,6 +206,10 @@ class LinearRegression(Base,
 
     def __init__(self, *, algorithm='eig', fit_intercept=True, normalize=False,
                  handle=None, verbose=False, output_type=None):
+        if handle is None and algorithm == 'eig':
+            # if possible, create two streams, so that eigenvalue decomposition
+            # can benefit from running independent operations concurrently.
+            handle = Handle(2)
         super().__init__(handle=handle,
                          verbose=verbose,
                          output_type=output_type)
