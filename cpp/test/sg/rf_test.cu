@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+#include <cuml/common/logger.hpp>
 #include <test_utils.h>
 
 #include <decisiontree/batched-levelalgo/kernels.cuh>
@@ -289,23 +290,29 @@ class RfSpecialisedTest {
   // Current model should be at least as accurate as a model with depth - 1
   void TestAccuracyImprovement()
   {
+    CUML_LOG_TRACE("inside test accuracy improvement: %d", __LINE__);
     if (params.max_depth <= 1) { return; }
     // avereraging between models can introduce variance
     if (params.n_trees > 1) { return; }
     // accuracy is not guaranteed to improve with bootstrapping
     if (params.bootstrap) { return; }
+    CUML_LOG_TRACE("%d", __LINE__);
     raft::handle_t handle(params.n_streams);
     RfTestParams alt_params = params;
     alt_params.max_depth--;
+    CUML_LOG_TRACE("%d", __LINE__);
     auto [alt_forest, alt_predictions, alt_metrics] =
       TrainScore(handle, alt_params, X.data().get(), X_transpose.data().get(), y.data().get());
+    CUML_LOG_TRACE("%d", __LINE__);
     double eps = 1e-8;
     if (params.split_criterion == MSE) {
       EXPECT_LE(training_metrics.mean_squared_error, alt_metrics.mean_squared_error + eps);
     } else if (params.split_criterion == MAE) {
       EXPECT_LE(training_metrics.mean_abs_error, alt_metrics.mean_abs_error + eps);
     } else {
+      CUML_LOG_TRACE("%d", __LINE__);
       EXPECT_GE(training_metrics.accuracy, alt_metrics.accuracy);
+      CUML_LOG_TRACE("%d", __LINE__);
     }
   }
   // Regularisation parameters are working correctly
@@ -428,12 +435,19 @@ class RfSpecialisedTest {
   }
   void Test()
   {
+    CUML_LOG_TRACE("inside test");
     TestAccuracyImprovement();
+    CUML_LOG_TRACE("%d", __LINE__);
     TestDeterminism();
+    CUML_LOG_TRACE("%d", __LINE__);
     TestMinImpurity();
+    CUML_LOG_TRACE("%d", __LINE__);
     TestTreeSize();
+    CUML_LOG_TRACE("%d", __LINE__);
     TestInstanceCounts();
+    CUML_LOG_TRACE("%d", __LINE__);
     TestFilPredict();
+    CUML_LOG_TRACE("%d", __LINE__);
   }
 
   RF_metrics training_metrics;

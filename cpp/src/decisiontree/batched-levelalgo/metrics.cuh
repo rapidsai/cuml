@@ -236,25 +236,101 @@ class EntropyObjectiveFunction {
   }
 };
 
+/** @brief The abstract base class for the tweedie family of objective functions:
+ * mean-squared-error(p=0), poisson(p=1), gamma(p=2) and inverse gaussian(p=3)
+ **/
 template <typename DataT_, typename LabelT_, typename IdxT_>
-class PoissonObjectiveFunction {
+class TweedieObjectiveFunction {
+
  public:
   using DataT  = DataT_;
   using LabelT = LabelT_;
   using IdxT   = IdxT_;
+  using BinT                 = AggregateBin;
 
- private:
+ protected:
   IdxT min_samples_leaf;
 
  public:
-  using BinT                 = AggregateBin;
-  static constexpr auto eps_ = 10 * std::numeric_limits<DataT>::epsilon();
 
-  HDI PoissonObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf)
+  HDI TweedieObjectiveFunction(IdxT min_samples_leaf)
     : min_samples_leaf(min_samples_leaf)
   {
   }
+
   DI IdxT NumClasses() const { return 1; }
+
+  HDI virtual DataT GainPerSplit(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft) const = 0;
+
+  DI Split<DataT, IdxT> Gain(BinT const* shist, DataT const* sbins, IdxT col, IdxT len, IdxT nbins) const
+  {
+    Split<DataT, IdxT> sp;
+    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+      auto nLeft = shist[i].count;
+      sp.update({sbins[i], col, GainPerSplit(shist, i, nbins, len, nLeft), nLeft});
+    }
+    return sp;
+  }
+
+  static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)
+  {
+    for (int i = 0; i < nclasses; i++) {
+      out[i] = shist[i].label_sum / shist[i].count;
+    }
+  }
+
+};
+template <typename DataT_, typename LabelT_, typename IdxT_>
+class MSEObjectiveFunction : public TweedieObjectiveFunction<DataT_, LabelT_, IdxT_> {
+ public:
+  using DataT  = DataT_;
+  using LabelT = LabelT_;
+  using IdxT   = IdxT_;
+  // using BinT   = typename TweedieObjectiveFunction<DataT_, LabelT_, IdxT_>::BinT;
+  using BinT = AggregateBin;
+
+  HDI MSEObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf)
+    : TweedieObjectiveFunction<DataT, LabelT, IdxT>{min_samples_leaf}
+  {
+  }
+
+  HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft) const
+  {
+    auto gain{DataT(0)};
+    auto nRight{len - nLeft};
+    auto invLen{DataT(1.0) / len};
+    // if there aren't enough samples in this split, don't bother!
+    if (nLeft < this->min_samples_leaf || nRight < this->min_samples_leaf) {
+      return -std::numeric_limits<DataT>::max();
+    } else {
+      auto label_sum        = hist[nbins - 1].label_sum;
+      DataT parent_obj      = -label_sum * label_sum / len;
+      DataT left_obj        = -(hist[i].label_sum * hist[i].label_sum) / nLeft;
+      DataT right_label_sum = hist[i].label_sum - label_sum;
+      DataT right_obj       = -(right_label_sum * right_label_sum) / nRight;
+      gain                  = parent_obj - (left_obj + right_obj);
+      gain *= invLen;
+
+      return gain;
+    }
+  }
+};
+
+template <typename DataT_, typename LabelT_, typename IdxT_>
+class PoissonObjectiveFunction : public TweedieObjectiveFunction<DataT_, LabelT_, IdxT_> {
+ public:
+  using DataT  = DataT_;
+  using LabelT = LabelT_;
+  using IdxT   = IdxT_;
+  // using BinT   = typename TweedieObjectiveFunction<DataT_, LabelT_, IdxT_>::BinT;
+  using BinT = AggregateBin;
+
+  static constexpr auto eps_ = 10 * std::numeric_limits<DataT>::epsilon();
+
+  HDI PoissonObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf)
+    : TweedieObjectiveFunction<DataT, LabelT, IdxT>{min_samples_leaf}
+  {
+  }
 
   /**
    * @brief compute the poisson impurity reduction (or purity gain) for each split
@@ -267,13 +343,13 @@ class PoissonObjectiveFunction {
    *       The Gain is the difference in the proxy impurities of the parent and the
    *       weighted sum of impurities of its children.
    */
-  HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft)
+  HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft) const
   {
     // get the lens'
     auto nRight = len - nLeft;
 
     // if there aren't enough samples in this split, don't bother!
-    if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
+    if (nLeft < this->min_samples_leaf || nRight < this->min_samples_leaf)
       return -std::numeric_limits<DataT>::max();
 
     auto label_sum       = hist[nbins - 1].label_sum;
@@ -294,79 +370,92 @@ class PoissonObjectiveFunction {
     return gain;
   }
 
-  DI Split<DataT, IdxT> Gain(BinT const* shist, DataT const* sbins, IdxT col, IdxT len, IdxT nbins)
-  {
-    Split<DataT, IdxT> sp;
-    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
-      auto nLeft = shist[i].count;
-      sp.update({sbins[i], col, GainPerSplit(shist, i, nbins, len, nLeft), nLeft});
-    }
-    return sp;
-  }
-
-  static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)
-  {
-    for (int i = 0; i < nclasses; i++) {
-      out[i] = shist[i].label_sum / shist[i].count;
-    }
-  }
-};
-template <typename DataT_, typename LabelT_, typename IdxT_>
-class MSEObjectiveFunction {
- public:
-  using DataT  = DataT_;
-  using LabelT = LabelT_;
-  using IdxT   = IdxT_;
-
- private:
-  IdxT min_samples_leaf;
-
- public:
-  using BinT = AggregateBin;
-  HDI MSEObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf)
-    : min_samples_leaf(min_samples_leaf)
-  {
-  }
-  DI IdxT NumClasses() const { return 1; }
-
-  HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft)
-  {
-    auto gain{DataT(0)};
-    auto nRight{len - nLeft};
-    auto invLen{DataT(1.0) / len};
-    // if there aren't enough samples in this split, don't bother!
-    if (nLeft < min_samples_leaf || nRight < min_samples_leaf) {
-      return -std::numeric_limits<DataT>::max();
-    } else {
-      auto label_sum        = hist[nbins - 1].label_sum;
-      DataT parent_obj      = -label_sum * label_sum / len;
-      DataT left_obj        = -(hist[i].label_sum * hist[i].label_sum) / nLeft;
-      DataT right_label_sum = hist[i].label_sum - label_sum;
-      DataT right_obj       = -(right_label_sum * right_label_sum) / nRight;
-      gain                  = parent_obj - (left_obj + right_obj);
-      gain *= invLen;
-
-      return gain;
-    }
-  }
-
-  DI Split<DataT, IdxT> Gain(BinT const* shist, DataT const* sbins, IdxT col, IdxT len, IdxT nbins)
-  {
-    Split<DataT, IdxT> sp;
-    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
-      auto nLeft = shist[i].count;
-      sp.update({sbins[i], col, GainPerSplit(shist, i, nbins, len, nLeft), nLeft});
-    }
-    return sp;
-  }
-
-  static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)
-  {
-    for (int i = 0; i < nclasses; i++) {
-      out[i] = shist[i].label_sum / shist[i].count;
-    }
-  }
 };
 
-}  // namespace DT
-}  // namespace ML
+// template <typename DataT_, typename LabelT_, typename IdxT_>
+// class GammaObjectiveFunction : public TweedieObjectiveFunction<DataT_, LabelT_, IdxT_> {
+//  public:
+//   using DataT  = DataT_;
+//   using LabelT = LabelT_;
+//   using IdxT   = IdxT_;
+//   // using BinT   = typename TweedieObjectiveFunction<DataT_, LabelT_, IdxT_>::BinT;
+//   using BinT = AggregateBin;
+//   static constexpr auto eps_ = 10 * std::numeric_limits<DataT>::epsilon();
+
+//   HDI GammaObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf)
+//     : TweedieObjectiveFunction<DataT, LabelT, IdxT>{min_samples_leaf}
+//   {
+//   }
+
+//   HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft) const
+//   {
+//     // get the lens'
+//     auto nRight = len - nLeft;
+
+//     // if there aren't enough samples in this split, don't bother!
+//     if (nLeft < this->min_samples_leaf || nRight < this->min_samples_leaf)
+//       return -std::numeric_limits<DataT>::max();
+
+//     auto label_sum       = hist[nbins - 1].label_sum;
+//     auto left_label_sum  = (hist[i].label_sum);
+//     auto right_label_sum = (hist[nbins - 1].label_sum - hist[i].label_sum);
+
+//     // label sum cannot be non-positive
+//     if (label_sum < eps_ || left_label_sum < eps_ || right_label_sum < eps_)
+//       return -std::numeric_limits<DataT>::max();
+
+//     // compute the gain to be
+//     DataT parent_obj = len * raft::myLog(label_sum / len);
+//     DataT left_obj   = nLeft * raft::myLog(left_label_sum / nLeft);
+//     DataT right_obj  = nRight * raft::myLog(right_label_sum / nRight);
+//     auto gain        = parent_obj - (left_obj + right_obj);
+//     gain             = gain / len;
+
+//     return gain;
+//   }
+// };
+
+// template <typename DataT_, typename LabelT_, typename IdxT_>
+// class InverseGaussianObjectiveFunction : public TweedieObjectiveFunction<DataT_, LabelT_, IdxT_> {
+//  public:
+//   using DataT  = DataT_;
+//   using LabelT = LabelT_;
+//   using IdxT   = IdxT_;
+//   // using BinT   = typename TweedieObjectiveFunction<DataT_, LabelT_, IdxT_>::BinT;
+//   using BinT = AggregateBin;
+//   static constexpr auto eps_ = 10 * std::numeric_limits<DataT>::epsilon();
+
+//   HDI InverseGaussianObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf)
+//     : TweedieObjectiveFunction<DataT, LabelT, IdxT>{min_samples_leaf}
+//   {
+//   }
+
+//   HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft) const
+//   {
+//     // get the lens'
+//     auto nRight = len - nLeft;
+
+//     // if there aren't enough samples in this split, don't bother!
+//     if (nLeft < this->min_samples_leaf || nRight < this->min_samples_leaf)
+//       return -std::numeric_limits<DataT>::max();
+
+//     auto label_sum       = hist[nbins - 1].label_sum;
+//     auto left_label_sum  = (hist[i].label_sum);
+//     auto right_label_sum = (hist[nbins - 1].label_sum - hist[i].label_sum);
+
+//     // label sum cannot be non-positive
+//     if (label_sum < eps_ || left_label_sum < eps_ || right_label_sum < eps_)
+//       return -std::numeric_limits<DataT>::max();
+
+//     // compute the gain to be
+//     DataT parent_obj = len * raft::myLog(label_sum / len);
+//     DataT left_obj   = nLeft * raft::myLog(left_label_sum / nLeft);
+//     DataT right_obj  = nRight * raft::myLog(right_label_sum / nRight);
+//     auto gain        = parent_obj - (left_obj + right_obj);
+//     gain             = gain / len;
+
+//     return gain;
+//   }
+// };
+}  // end namespace DT
+}  // end namespace ML
