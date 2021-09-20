@@ -677,8 +677,6 @@ class ARIMA(Base):
         elif end <= self.n_obs and exog is not None:
             raise ValueError("A value was given for `exog` but only in-sample"
                              " predictions were requested")
-        
-        # TODO: check exog dimensions and pass it to cpp_predict
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
         predict_size = end - start
@@ -1029,7 +1027,6 @@ class ARIMA(Base):
         N = self.complexity
         assert len(x) == N * self.batch_size
 
-        # TODO: no CSS with missing observations! (nor exog?)
         cdef LoglikeMethod ll_method = CSS if method == "css" else MLE
         diff = ll_method != MLE or self.simple_differencing
 

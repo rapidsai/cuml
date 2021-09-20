@@ -71,7 +71,15 @@ DI DataT _select_read(const DataT* src0, int size0, const DataT* src1, int idx)
 }
 
 /**
- * @todo Documentation
+ * @brief Prepare future data with a simple or seasonal difference
+ *
+ * @param[in]  in_past  Input (past). Shape (n_past, batch_size) (device)
+ * @param[in]  in_fut   Input (future). Shape (n_fut, batch_size) (device)
+ * @param[out] out      Output. Shape (n_fut, batch_size) (device)
+ * @param[in]  n_past   Number of past observations per series
+ * @param[in]  n_fut    Number of future observations per series
+ * @param[in]  period   Differencing period (1 or s)
+ * @param[in]  stream   CUDA stream
  */
 template <typename T>
 __global__ void _future_diff_kernel(
@@ -87,7 +95,16 @@ __global__ void _future_diff_kernel(
 }
 
 /**
- * @todo Documentation
+ * @brief Prepare future data with two simple and/or seasonal differences
+ *
+ * @param[in]  in_past  Input (past). Shape (n_past, batch_size) (device)
+ * @param[in]  in_fut   Input (future). Shape (n_fut, batch_size) (device)
+ * @param[out] out      Output. Shape (n_fut, batch_size) (device)
+ * @param[in]  n_past   Number of past observations per series
+ * @param[in]  n_fut    Number of future observations per series
+ * @param[in]  period1  First differencing period (1 or s)
+ * @param[in]  period2  Second differencing period (1 or s)
+ * @param[in]  stream   CUDA stream
  */
 template <typename T>
 __global__ void _future_second_diff_kernel(const T* in_past,
@@ -230,7 +247,7 @@ void prepare_data(DataT* d_out,
  *
  * @param[out] d_out       Output. Shape (n_fut, batch_size) (device)
  * @param[in]  d_in_past   Input (past). Shape (n_past, batch_size) (device)
- * @param[in]  d_int_fut   Input (future). Shape (n_fut, batch_size) (device)
+ * @param[in]  d_in_fut    Input (future). Shape (n_fut, batch_size) (device)
  * @param[in]  batch_size  Number of series per batch
  * @param[in]  n_past      Number of past observations per series
  * @param[in]  n_fut       Number of future observations per series
