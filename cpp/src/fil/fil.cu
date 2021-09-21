@@ -72,10 +72,10 @@ cat_sets_owner::cat_sets_owner(const std::vector<cat_feature_counters>& cf)
 
     int fid = max_matching.size();
     RAFT_EXPECTS(
-      cnt.max_matching >= -1, "@fid %zu: max_matching invalid (%d)", fid, cnt.max_matching);
-    RAFT_EXPECTS(cnt.n_nodes >= 0, "@fid %zu: n_nodes invalid (%d)", fid, cnt.n_nodes);
+      cnt.max_matching >= -1, "@fid %d: max_matching invalid (%d)", fid, cnt.max_matching);
+    RAFT_EXPECTS(cnt.n_nodes >= 0, "@fid %d: n_nodes invalid (%d)", fid, cnt.n_nodes);
     RAFT_EXPECTS(bits_size <= INT_MAX,
-                 "@fid %zu: cannot store %zu categories given `int` offsets",
+                 "@fid %d: cannot store %zu categories given `int` offsets",
                  fid,
                  bits_size);
   }
