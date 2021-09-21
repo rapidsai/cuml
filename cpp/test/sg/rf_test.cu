@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 #include <cuml/common/logger.hpp>
 #include <test_utils.h>
 
@@ -285,34 +284,29 @@ class RfSpecialisedTest {
     std::tie(forest, predictions, training_metrics) =
       TrainScore(handle, params, X.data().get(), X_transpose.data().get(), y.data().get());
 
+
     Test();
   }
   // Current model should be at least as accurate as a model with depth - 1
   void TestAccuracyImprovement()
   {
-    CUML_LOG_TRACE("inside test accuracy improvement: %d", __LINE__);
     if (params.max_depth <= 1) { return; }
     // avereraging between models can introduce variance
     if (params.n_trees > 1) { return; }
     // accuracy is not guaranteed to improve with bootstrapping
     if (params.bootstrap) { return; }
-    CUML_LOG_TRACE("%d", __LINE__);
     raft::handle_t handle(params.n_streams);
     RfTestParams alt_params = params;
     alt_params.max_depth--;
-    CUML_LOG_TRACE("%d", __LINE__);
     auto [alt_forest, alt_predictions, alt_metrics] =
       TrainScore(handle, alt_params, X.data().get(), X_transpose.data().get(), y.data().get());
-    CUML_LOG_TRACE("%d", __LINE__);
     double eps = 1e-8;
     if (params.split_criterion == MSE) {
       EXPECT_LE(training_metrics.mean_squared_error, alt_metrics.mean_squared_error + eps);
     } else if (params.split_criterion == MAE) {
       EXPECT_LE(training_metrics.mean_abs_error, alt_metrics.mean_abs_error + eps);
     } else {
-      CUML_LOG_TRACE("%d", __LINE__);
       EXPECT_GE(training_metrics.accuracy, alt_metrics.accuracy);
-      CUML_LOG_TRACE("%d", __LINE__);
     }
   }
   // Regularisation parameters are working correctly
@@ -435,19 +429,12 @@ class RfSpecialisedTest {
   }
   void Test()
   {
-    CUML_LOG_TRACE("inside test");
     TestAccuracyImprovement();
-    CUML_LOG_TRACE("%d", __LINE__);
     TestDeterminism();
-    CUML_LOG_TRACE("%d", __LINE__);
     TestMinImpurity();
-    CUML_LOG_TRACE("%d", __LINE__);
     TestTreeSize();
-    CUML_LOG_TRACE("%d", __LINE__);
     TestInstanceCounts();
-    CUML_LOG_TRACE("%d", __LINE__);
     TestFilPredict();
-    CUML_LOG_TRACE("%d", __LINE__);
   }
 
   RF_metrics training_metrics;
@@ -500,7 +487,8 @@ std::vector<int> min_samples_split       = {2, 10};
 std::vector<float> min_impurity_decrease = {0.0f, 1.0f, 10.0f};
 std::vector<int> n_streams               = {1, 2, 10};
 std::vector<CRITERION> split_criterion   = {
-  CRITERION::POISSON, CRITERION::MSE, CRITERION::GINI, CRITERION::ENTROPY};
+  // CRITERION::POISSON,
+  CRITERION::MSE, CRITERION::GINI, CRITERION::ENTROPY};
 std::vector<int> seed              = {0, 17};
 std::vector<int> n_labels          = {2, 10, 20};
 std::vector<bool> double_precision = {false, true};
@@ -696,7 +684,12 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
   ObjectiveTestParameters params;
 
  public:
-  auto RandUnder(int const end = 10000) { return rand() % end; }
+  auto RandUnder(int const end = 100000) { return rand() % end; }
+
+  auto GenSortedData()
+  {
+
+  }
 
   auto GenHist()
   {
@@ -719,6 +712,91 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
 
     return std::make_pair(cdf_hist, pdf_hist);
   }
+
+  auto InverseGaussianHalfDeviance(
+    std::vector<BinT> const& hist)  //  1/n * 2 * sum((y - y_pred) * (y - y_pred)/(y * (y_pred) * (y_pred)))
+  {
+    BinT aggregate{BinT()};
+    aggregate = std::accumulate(hist.begin(), hist.end(), aggregate);
+    assert(aggregate.count > 0);
+    DataT const y_mean = aggregate.label_sum / aggregate.count;
+    auto ighd{DataT(0.0)}; // ighd: inverse gaussian half deviance
+
+    std::for_each(hist.begin(), hist.end(), [&](BinT const& h) {
+      ighd += (h.label_sum - y_mean) * (h.label_sum - y_mean) / (h.label_sum * y_mean * y_mean); // unit deviance
+    });
+
+    ighd /= aggregate.count;
+    return std::make_tuple(
+      ighd, aggregate.label_sum, static_cast<DataT>(aggregate.count));
+  }
+
+  auto InverseGaussianGroundTruthGain(std::vector<BinT> const& pdf_hist, std::size_t split_bin_index)
+  {
+    std::vector<BinT> left_pdf_hist{pdf_hist.begin(), pdf_hist.begin() + split_bin_index + 1};
+    std::vector<BinT> right_pdf_hist{pdf_hist.begin() + split_bin_index + 1, pdf_hist.end()};
+
+    auto [parent_ighd, label_sum, n]            = InverseGaussianHalfDeviance(pdf_hist);
+    auto [left_ighd, label_sum_left, n_left]    = InverseGaussianHalfDeviance(left_pdf_hist);
+    auto [right_ighd, label_sum_right, n_right] = InverseGaussianHalfDeviance(right_pdf_hist);
+
+
+    auto gain = parent_ighd - ((n_left / n) * left_ighd +  // the minimizing objective function is half deviance
+                              (n_right / n) * right_ighd);  // gain in long form without proxy
+
+    // edge cases
+    if (n_left < params.min_samples_leaf or n_right < params.min_samples_leaf or
+        label_sum < ObjectiveT::eps_ or label_sum_right < ObjectiveT::eps_ or
+        label_sum_left < ObjectiveT::eps_)
+      return -std::numeric_limits<DataT>::max();
+    else
+      return gain;
+  }
+
+  auto GammaHalfDeviance(
+    std::vector<BinT> const& hist)  //  1/n * 2 * sum(log(y_pred/y_true) + y_true/y_pred - 1)
+  {
+    BinT aggregate{BinT()};
+    aggregate = std::accumulate(hist.begin(), hist.end(), aggregate);
+    assert(aggregate.count > 0);
+    DataT const y_mean = aggregate.label_sum / aggregate.count;
+    auto mean_gamma_deviance{DataT(0.0)};
+
+    std::for_each(hist.begin(), hist.end(), [&](BinT const& h) {
+      auto log_y = raft::myLog(h.label_sum ? h.label_sum : DataT(1.0));  // we don't want nans
+      mean_gamma_deviance += h.count*raft::myLog(y_mean) - log_y + h.label_sum/y_mean - DataT(1); // InvGauss formula for each bin
+    });
+
+    mean_gamma_deviance /= aggregate.count;
+    // mean_gamma_deviance = raft::myLog(y_mean);
+    return std::make_tuple(
+      mean_gamma_deviance, aggregate.label_sum, static_cast<DataT>(aggregate.count));
+  }
+
+  auto GammaGroundTruthGain(std::vector<BinT> const& pdf_hist, std::size_t split_bin_index)
+  {
+    std::vector<BinT> left_pdf_hist{pdf_hist.begin(), pdf_hist.begin() + split_bin_index + 1};
+    std::vector<BinT> right_pdf_hist{pdf_hist.begin() + split_bin_index + 1, pdf_hist.end()};
+
+    auto [parent_ghd, label_sum, n]            = GammaHalfDeviance(pdf_hist);
+    auto [left_ghd, label_sum_left, n_left]    = GammaHalfDeviance(left_pdf_hist);
+    auto [right_ghd, label_sum_right, n_right] = GammaHalfDeviance(right_pdf_hist);
+
+
+    auto gain = parent_ghd - ((n_left / n) * left_ghd +  // the minimizing objective function is half deviance
+                              (n_right / n) * right_ghd);  // gain in long form without proxy
+    // DataT gain = n * parent_ghd - (n_left * left_ghd + n_right * right_ghd);
+    // gain = gain / n;
+
+    // edge cases
+    if (n_left < params.min_samples_leaf or n_right < params.min_samples_leaf or
+        label_sum < ObjectiveT::eps_ or label_sum_right < ObjectiveT::eps_ or
+        label_sum_left < ObjectiveT::eps_)
+      return -std::numeric_limits<DataT>::max();
+    else
+      return gain;
+  }
+
 
   auto PoissonHalfDeviance(
     std::vector<BinT> const& hist)  //  1/n * sum(y_true * log(y_true/y_pred) + y_pred - y_true)
@@ -809,6 +887,14 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     {
       return PoissonGroundTruthGain(pdf_hist, split_bin_index);
     } else if constexpr (std::is_same<ObjectiveT,
+                                      GammaObjectiveFunction<DataT, LabelT, IdxT>>::value)  // gini
+    {
+      return GammaGroundTruthGain(pdf_hist, split_bin_index);
+    } else if constexpr (std::is_same<ObjectiveT,
+                                      InverseGaussianObjectiveFunction<DataT, LabelT, IdxT>>::value)  // gini
+    {
+      return InverseGaussianGroundTruthGain(pdf_hist, split_bin_index);
+    } else if constexpr (std::is_same<ObjectiveT,
                                       GiniObjectiveFunction<DataT, LabelT, IdxT>>::value)  // gini
     {
       return GiniGroundTruthGain(pdf_hist, split_bin_index);
@@ -858,6 +944,21 @@ const std::vector<ObjectiveTestParameters> poisson_objective_test_parameters = {
   {9507819643927052251LLU, 256, 1, 1, 0.00001},
   {9507819643927052258LLU, 512, 1, 5, 0.00001},
 };
+
+const std::vector<ObjectiveTestParameters> gamma_objective_test_parameters = {
+  {9507819643927052255LLU, 64, 1, 0, 0.00001},
+  {9507819643927052259LLU, 128, 1, 1, 0.00001},
+  {9507819643927052251LLU, 256, 1, 1, 0.00001},
+  {9507819643927052258LLU, 512, 1, 5, 0.00001},
+};
+
+const std::vector<ObjectiveTestParameters> invgauss_objective_test_parameters = {
+  {9507819643927052255LLU, 64, 1, 0, 0.00001},
+  {9507819643927052259LLU, 128, 1, 1, 0.00001},
+  {9507819643927052251LLU, 256, 1, 1, 0.00001},
+  {9507819643927052258LLU, 512, 1, 5, 0.00001},
+};
+
 const std::vector<ObjectiveTestParameters> gini_objective_test_parameters = {
   {9507819643927052255LLU, 64, 2, 0, 0.00001},
   {9507819643927052256LLU, 128, 10, 1, 0.00001},
@@ -871,6 +972,18 @@ TEST_P(PoissonObjectiveTestD, poissonObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         PoissonObjectiveTestD,
                         ::testing::ValuesIn(poisson_objective_test_parameters));
+// gamma objective test
+typedef ObjectiveTest<GammaObjectiveFunction<double, double, int>> GammaObjectiveTestD;
+TEST_P(GammaObjectiveTestD, GammaObjectiveTest) {}
+INSTANTIATE_TEST_CASE_P(RfTests,
+                        GammaObjectiveTestD,
+                        ::testing::ValuesIn(gamma_objective_test_parameters));
+// InvGauss objective test
+typedef ObjectiveTest<InverseGaussianObjectiveFunction<double, double, int>> InverseGaussianObjectiveTestD;
+TEST_P(InverseGaussianObjectiveTestD, InverseGaussianObjectiveTest) {}
+INSTANTIATE_TEST_CASE_P(RfTests,
+                        InverseGaussianObjectiveTestD,
+                        ::testing::ValuesIn(invgauss_objective_test_parameters));
 
 // gini objective test
 typedef ObjectiveTest<GiniObjectiveFunction<double, int, int>> GiniObjectiveTestD;
