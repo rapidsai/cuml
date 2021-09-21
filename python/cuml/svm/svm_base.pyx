@@ -340,6 +340,15 @@ class SVMBase(Base,
 
     @property
     @cuml.internals.api_base_return_array_skipall
+    def support_(self):
+        return self.support_
+
+    @support_.setter
+    def support_(self, value):
+        self.support_ = value
+
+    @property
+    @cuml.internals.api_base_return_array_skipall
     def intercept_(self):
         return self._intercept_
 
