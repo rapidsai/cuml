@@ -74,12 +74,12 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
-    split_criterion : int (default = 0)
+    split_criterion : int or string (default = 0 ('gini'))
         The criterion used to split nodes.
-        0 for GINI, 1 for ENTROPY, 5 for CRITERION_END.
-        2 and 3 not valid for classification
-    split_algo : 0 for HIST and 1 for GLOBAL_QUANTILE (default = 1)
-        the algorithm to determine how nodes are split in the tree.
+        0 or 'gini' for GINI, 1 or 'entropy' for ENTROPY,
+        2 or 'mse' for MSE,
+        4 or 'poisson' for POISSON,
+        2, 'mse', 4, 'poisson' not valid for classification
     bootstrap : boolean (default = True)
         Control bootstrapping.
         If set, each tree in the forest is built
@@ -108,17 +108,6 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         If float, then min_samples_split represents a fraction and
         ceil(min_samples_split * n_rows) is the minimum number of samples
         for each split.
-    quantile_per_tree : boolean (default = False)
-        Whether quantile is computed for individual RF trees.
-        Only relevant for GLOBAL_QUANTILE split_algo.
-    use_experimental_backend : boolean (default = True)
-        If set to true and the following conditions are also met, a new
-        experimental backend for decision tree training will be used. The
-        new backend is available only if `split_algo = 1` (GLOBAL_QUANTILE)
-        and `quantile_per_tree = False` (No per tree quantile computation).
-        The new backend is considered stable for classification tasks but
-        not yet for regression tasks. The RAPIDS team is continuing
-        optimization and evaluation of the new backend for regression tasks.
     n_streams : int (default = 4 )
         Number of parallel streams used for forest building
     workers : optional, list of strings

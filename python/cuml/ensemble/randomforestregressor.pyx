@@ -161,22 +161,12 @@ class RandomForestRegressor(BaseRandomForestModel,
     -----------
     n_estimators : int (default = 100)
         Number of trees in the forest. (Default changed to 100 in cuML 0.11)
-    split_algo : int (default = 1)
-        The algorithm to determine how nodes are split in the tree.
-        Can be changed only for the old backend [deprecated].
-        0 for HIST and 1 for GLOBAL_QUANTILE. Default is GLOBAL_QUANTILE.
-        The default backend does not support HIST.
-        HIST currently uses a slower tree-building algorithm so
-        GLOBAL_QUANTILE is recommended for most cases.
-
-        .. deprecated:: 21.06
-           Parameter 'split_algo' is deprecated and will be removed in
-           subsequent release.
-    split_criterion : int (default = 2)
+    split_criterion : int or string (default = 2 ('mse'))
         The criterion used to split nodes.
-        0 for GINI, 1 for ENTROPY,
-        2 for MSE, 3 for MAE, 4 for POISSON
-        0 and 1 not valid for regression
+        0 or 'gini' for GINI, 1 or 'entropy' for ENTROPY,
+        2 or 'mse' for MSE,
+        4 or 'poisson' for POISSON,
+        0, 'gini', 1, 'entropy' not valid for regression.
     bootstrap : boolean (default = True)
         Control bootstrapping.
         If True, each tree in the forest is built
@@ -228,9 +218,6 @@ class RandomForestRegressor(BaseRandomForestModel,
         for median of abs error : 'median_ae'
         for mean of abs error : 'mean_ae'
         for mean square error' : 'mse'
-    use_experimental_backend : boolean (default = True)
-        Deprecated and currrently has no effect.
-        .. deprecated:: 21.08
     max_batch_size: int (default = 4096)
         Maximum number of nodes that can be processed in a given batch.
     random_state : int (default = None)
@@ -586,15 +573,16 @@ class RandomForestRegressor(BaseRandomForestModel,
         nvtx_range_push("predict RF-Regressor @randomforestregressor.pyx")
         if predict_model == "CPU":
             preds = self._predict_model_on_cpu(X, convert_dtype)
-
         elif self.dtype == np.float64:
-            raise TypeError("GPU based predict only accepts np.float32 data. \
-                            In order use the GPU predict the model should \
-                            also be trained using a np.float32 dataset. \
-                            If you would like to use np.float64 dtype \
-                            then please use the CPU based predict by \
-                            setting predict_model = 'CPU'")
-
+            warnings.warn("GPU based predict only accepts "
+                          "np.float32 data. The model was "
+                          "trained on np.float64 data hence "
+                          "cannot use GPU-based prediction! "
+                          "\nDefaulting to CPU-based Prediction. "
+                          "\nTo predict on float-64 data, set "
+                          "parameter predict_model = 'CPU'")
+            preds = self._predict_model_on_cpu(X,
+                                               convert_dtype=convert_dtype)
         else:
             preds = self._predict_model_on_gpu(
                 X=X,
