@@ -152,7 +152,6 @@ struct alignas(8) dense_node : base_node {
   dense_node(val_t output, val_t split, int fid, bool def_left, bool is_leaf, bool is_categorical)
     : base_node(output, split, fid, def_left, is_leaf, is_categorical)
   {
-    ASSERT(is_categorical == base_node::is_categorical(), "didn't save is_categorical right");
   }
   /** index of the left child, where curr is the index of the current node */
   __host__ __device__ int left(int curr) const { return 2 * curr + 1; }
@@ -175,7 +174,6 @@ struct alignas(16) sparse_node16 : base_node {
       left_idx(left_index),
       dummy(0)
   {
-    ASSERT(is_categorical == base_node::is_categorical(), "didn't save is_categorical right");
   }
   __host__ __device__ int left_index() const { return left_idx; }
   /** index of the left child, where curr is the index of the current node */
@@ -461,16 +459,18 @@ struct cat_sets_device_owner {
   }
   cat_sets_device_owner(cudaStream_t stream) : bits(0, stream), max_matching(0, stream) {}
   cat_sets_device_owner(categorical_sets cat_sets, cudaStream_t stream)
-    : bits(cat_sets.bits_size, stream), max_matching(cat_sets.max_matching_size, stream)
+  : bits(cat_sets.bits_size, stream), max_matching(cat_sets.max_matching_size, stream)
   {
-    if (cat_sets.max_matching != nullptr) {
+    if (cat_sets.max_matching_size > 0) {
+      ASSERT(cat_sets.max_matching != nullptr, "internal error: cat_sets.max_matching is nil");
       CUDA_CHECK(cudaMemcpyAsync(max_matching.data(),
                                  cat_sets.max_matching,
                                  max_matching.size() * sizeof(int),
                                  cudaMemcpyDefault,
                                  stream));
     }
-    if (cat_sets.bits != nullptr) {
+    if (cat_sets.bits_size > 0) {
+      ASSERT(cat_sets.bits != nullptr, "internal error: cat_sets.bits is nil");
       CUDA_CHECK(cudaMemcpyAsync(
         bits.data(), cat_sets.bits, bits.size() * sizeof(uint8_t), cudaMemcpyDefault, stream));
     }

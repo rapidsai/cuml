@@ -840,23 +840,11 @@ conversion_state<fil_node_t> tl2fil_branch_node(int fil_left_child,
     for (uint32_t which_8cats = 0; which_8cats < (uint32_t)sizeof_mask; ++which_8cats) {
       uint8_t _8cats = 0;
       for (uint32_t bit = 0; bit < BITS_PER_BYTE; ++bit) {
-        if(matching_cats.size() < 10 && matching_cats.back() < 10)
-          printf("before: %u * 8 + %u == %u, %u, 0x%x'%x, 0x%x'%x, _8cats= %u\n",
-          which_8cats, bit, which_8cats * BITS_PER_BYTE + bit,
-          *category_it,
-          twop(category_it)[0], twop(category_it)[1], twop(matching_cats.end())[0], twop(matching_cats.end())[1],
-          _8cats);
         if (category_it < matching_cats.end() &&
             *category_it == which_8cats * BITS_PER_BYTE + bit) {
           _8cats |= 1 << bit;
           ++category_it;
         }
-        if(matching_cats.size() < 10 && matching_cats.back() < 10)
-          printf(" after: %u * 8 + %u == %u, %u, 0x%x'%x, 0x%x'%x, _8cats= %u\n",
-          which_8cats, bit, which_8cats * BITS_PER_BYTE + bit,
-          *category_it,
-          twop(category_it)[0], twop(category_it)[1], twop(matching_cats.end())[0], twop(matching_cats.end())[1],
-          _8cats);
       }
       // bits is a const uint8_t* to issue better load instructions in GPU code
       (uint8_t&)(cat_sets.bits[split.idx + which_8cats]) = _8cats;
