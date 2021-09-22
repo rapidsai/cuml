@@ -310,7 +310,7 @@ struct forest_params_t {
 /// FIL_TPB is the number of threads per block to use with FIL kernels
 const int FIL_TPB = 256;
 
-const uint32_t MAX_PRECISE_INT_FLOAT = 1 << 24;  // 16'777'216
+const int32_t MAX_PRECISE_INT_FLOAT = 1 << 24;  // 16'777'216
 
 __host__ __device__ __forceinline__ int fetch_bit(const uint8_t* array, int bit)
 {
@@ -362,6 +362,14 @@ struct categorical_sets {
   int sizeof_mask(int feature_id) const
   {
     return sizeof_mask_from_max_matching(max_matching[feature_id]);
+  }
+
+  void print_max_matching() const
+  {
+    printf("max_matching {");
+    for (size_t fid = 0; fid < max_matching_size; ++fid)
+      printf("%d ", max_matching[fid]);
+    printf("}\n");
   }
 };
 
