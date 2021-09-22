@@ -44,7 +44,6 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
       order(p.order),
       param(0, rmm::cuda_stream_default),
       loglike(0, rmm::cuda_stream_default),
-      residual(0, rmm::cuda_stream_default),
       temp_mem(0, rmm::cuda_stream_default)
   {
   }
@@ -85,7 +84,6 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
                       order,
                       param.data(),
                       loglike.data(),
-                      residual.data(),
                       true,
                       false);
     });
@@ -101,9 +99,8 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
     // Buffer for the model parameters
     param.resize(order.complexity() * this->params.batch_size, stream);
 
-    // Buffers for the log-likelihood and residuals
+    // Buffers for the log-likelihood
     loglike.resize(this->params.batch_size, stream);
-    residual.resize(this->params.batch_size * this->params.n_obs, stream);
 
     // Temporary memory
     size_t temp_buf_size =
@@ -117,7 +114,6 @@ class ArimaLoglikelihood : public TsFixtureRandom<DataT> {
   ARIMAOrder order;
   rmm::device_uvector<DataT> param;
   rmm::device_uvector<DataT> loglike;
-  rmm::device_uvector<DataT> residual;
   rmm::device_uvector<char> temp_mem;
 };
 

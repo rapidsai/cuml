@@ -57,6 +57,15 @@ void unpack(raft::handle_t& handle,
             const double* param_vec);
 
 /**
+ * Detect missing observations in a time series
+ *
+ * @param[in]  handle     cuML handle
+ * @param[in]  d_y        Time series
+ * @param[in]  n_elem     Total number of elements in the dataset
+ */
+bool detect_missing(raft::handle_t& handle, const double* d_y, int n_elem);
+
+/**
  * Compute the differenced series (seasonal and/or non-seasonal differences)
  *
  * @param[in]  handle     cuML handle
@@ -87,9 +96,6 @@ void batched_diff(raft::handle_t& handle,
  * @param[in]  d_params     Parameters to evaluate grouped by series:
  *                          [mu0, ar.., ma.., mu1, ..] (device)
  * @param[out] loglike      Log-Likelihood of the model per series
- * @param[out] d_vs         The residual between model and original signal.
- *                          shape = (n_obs-d-s*D, batch_size) (device)
- *                          Note: no output when using CSS estimation
  * @param[in]  trans        Run `jones_transform` on params.
  * @param[in]  host_loglike Whether loglike is a host pointer
  * @param[in]  method       Whether to use sum-of-squares or Kalman filter
@@ -110,7 +116,6 @@ void batched_loglike(raft::handle_t& handle,
                      const ARIMAOrder& order,
                      const double* d_params,
                      double* loglike,
-                     double* d_vs,
                      bool trans           = true,
                      bool host_loglike    = true,
                      LoglikeMethod method = MLE,
@@ -137,9 +142,6 @@ void batched_loglike(raft::handle_t& handle,
  * @param[in]  order        ARIMA hyper-parameters
  * @param[in]  params       ARIMA parameters (device)
  * @param[out] loglike      Log-Likelihood of the model per series
- * @param[out] d_vs         The residual between model and original signal.
- *                          shape = (n_obs-d-s*D, batch_size) (device)
- *                          Note: no output when using CSS estimation
  * @param[in]  trans        Run `jones_transform` on params.
  * @param[in]  host_loglike Whether loglike is a host pointer
  * @param[in]  method       Whether to use sum-of-squares or Kalman filter
@@ -160,7 +162,6 @@ void batched_loglike(raft::handle_t& handle,
                      const ARIMAOrder& order,
                      const ARIMAParams<double>& params,
                      double* loglike,
-                     double* d_vs,
                      bool trans           = true,
                      bool host_loglike    = true,
                      LoglikeMethod method = MLE,
@@ -277,12 +278,14 @@ void information_criterion(raft::handle_t& handle,
  * @param[in]  n_obs       Number of samples per time series
  *                         (all series must be identical)
  * @param[in]  order       ARIMA hyper-parameters
+ * @param[in]  missing     Are there missing observations?
  */
 void estimate_x0(raft::handle_t& handle,
                  ARIMAParams<double>& params,
                  const double* d_y,
                  int batch_size,
                  int n_obs,
-                 const ARIMAOrder& order);
+                 const ARIMAOrder& order,
+                 bool missing);
 
 }  // namespace ML
