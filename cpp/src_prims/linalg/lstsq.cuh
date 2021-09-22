@@ -112,11 +112,13 @@ struct DivideByNonZero {
 
 /** Solves the linear ordinary least squares problem `Aw = b`
  *  Via SVD decomposition of `A = U S Vt` using default cuSOLVER routine.
+ *
+ *  @param A - input feature matrix; it's marked [in/out] in the used cuSOLVER routines,
+ *             so it's not guaranteed to stay unmodified.
  */
 template <typename math_t>
 void lstsqSvdQR(const raft::handle_t& handle,
-                math_t* A,  // apparently, this must not be const, because cusolverDn<t>gesvd() says
-                            // it's destroyed upon exit of the routine.
+                math_t* A,
                 const int n_rows,
                 const int n_cols,
                 const math_t* b,
@@ -168,11 +170,13 @@ void lstsqSvdQR(const raft::handle_t& handle,
 
 /** Solves the linear ordinary least squares problem `Aw = b`
  *  Via SVD decomposition of `A = U S V^T` using Jacobi iterations (cuSOLVER).
+ *
+ *  @param A - input feature matrix; it's marked [in/out] in the used cuSOLVER routines,
+ *             so it's not guaranteed to stay unmodified.
  */
 template <typename math_t>
 void lstsqSvdJacobi(const raft::handle_t& handle,
-                    math_t* A,  // apparently, this must not be const, because cusolverDn<t>gesvdj()
-                                // says it's destroyed upon exit of the routine.
+                    math_t* A,
                     const int n_rows,
                     const int n_cols,
                     const math_t* b,
@@ -326,6 +330,11 @@ void lstsqEig(const raft::handle_t& handle,
 /** Solves the linear ordinary least squares problem `Aw = b`
  *  via QR decomposition of `A = QR`.
  *  (triangular system of equations `Rw = Q^T b`)
+ *
+ * @param A[in/out] - input feature matrix.
+ *            Warning: the content of this matrix is modified by the cuSOLVER routines.
+ * @param b[in/out] - input target vector.
+ *            Warning: the content of this vector is modified by the cuSOLVER routines.
  */
 template <typename math_t>
 void lstsqQR(const raft::handle_t& handle,
