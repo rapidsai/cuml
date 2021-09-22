@@ -596,7 +596,7 @@ int max_depth(const tl::ModelImpl<T, L>& model)
 {
   int depth         = 0;
   const auto& trees = model.trees;
-//#pragma omp parallel for reduction(max : depth)
+  //#pragma omp parallel for reduction(max : depth)
   for (size_t i = 0; i < trees.size(); ++i) {
     const auto& tree = trees[i];
     depth            = std::max(depth, max_depth(tree));
@@ -620,7 +620,7 @@ inline std::vector<int> max_matching_cat(const tl::Tree<T, L>& tree, int max_fid
           tree.HasMatchingCategories(node_id)) {
         std::vector<uint32_t> mmv = tree.MatchingCategories(node_id);
         int max_matching_cat;
-        if(mmv.size() > 0) {
+        if (mmv.size() > 0) {
           // in `struct cat_feature_counters` and GPU structures, max matching category is an int
           // cast is safe because all precise int floats fit into ints, which are asserted to be 32
           // bits
@@ -633,10 +633,10 @@ inline std::vector<int> max_matching_cat(const tl::Tree<T, L>& tree, int max_fid
           max_matching_cat = -1;
         }
 
-        if(tree.SplitIndex(node_id) == 44 && max_matching_cat != -1)
+        if (tree.SplitIndex(node_id) == 44 && max_matching_cat != -1)
           printf("node_id %d mm %u\n", node_id, max_matching_cat);
         int* max_matching_res = &res[tree.SplitIndex(node_id)];
-        *max_matching_res = std::max(*max_matching_res, max_matching_cat);
+        *max_matching_res     = std::max(*max_matching_res, max_matching_cat);
       }
       stack.push(tree.LeftChild(node_id));
       node_id = tree.RightChild(node_id);
@@ -672,26 +672,25 @@ inline std::size_t bit_pool_size(const tl::Tree<T, L>& tree, cat_sets_owner& cat
 
 void vec_max(std::vector<int>& dst, const std::vector<int>& extra)
 {
-  std::transform(dst.begin(), dst.end(), extra.begin(), dst.begin(), [] (int a, int b) {return std::max(a,b);});
+  std::transform(dst.begin(), dst.end(), extra.begin(), dst.begin(), [](int a, int b) {
+    return std::max(a, b);
+  });
 }
 
 template <typename T, typename L>
 cat_sets_owner allocate_cat_sets_owner(const tl::ModelImpl<T, L>& model)
 {
-//#pragma omp declare reduction(vec_max_red : std::vector<int> 
-//    : vec_max(omp_out, omp_in))              
-//  initializer(omp_priv = omp_orig)
+  //#pragma omp declare reduction(vec_max_red : std::vector<int>
+  //    : vec_max(omp_out, omp_in))
+  //  initializer(omp_priv = omp_orig)
   const auto& trees = model.trees;
   cat_sets_owner cat_sets(model.num_feature, trees.size());
   std::vector<int>& max_matching = cat_sets.max_matching;
-//#pragma omp parallel for reduction(vec_max_red : max_matching)
+  //#pragma omp parallel for reduction(vec_max_red : max_matching)
   for (size_t i = 0; i < trees.size(); ++i) {
-    printf("tree %zu mm[44] = %d\n", i, max_matching_cat(trees[i], model.num_feature)[44]);
     vec_max(max_matching, max_matching_cat(trees[i], model.num_feature));
-    printf("new mm[44] = %d\n", max_matching[44]);
   }
-  cat_sets.accessor().print_max_matching();
-//#pragma omp parallel for
+  //#pragma omp parallel for
   for (size_t i = 0; i < trees.size(); ++i) {
     cat_sets.bit_pool_sizes[i] = bit_pool_size(trees[i], cat_sets);
   }
@@ -795,7 +794,8 @@ struct conversion_state {
 };
 
 template <class It>
-std::vector<uint32_t> twop(It it) {
+std::vector<uint32_t> twop(It it)
+{
   union {
     void* x;
     uint32_t a[2];
@@ -833,7 +833,8 @@ conversion_state<fil_node_t> tl2fil_branch_node(int fil_left_child,
     ASSERT(split.idx >= 0, "split.idx < 0");
     std::vector<uint32_t> matching_cats = tree.MatchingCategories(tl_node_id);
     auto category_it                    = matching_cats.begin();
-    ASSERT(matching_cats.size() == 0 || matching_cats.data() != nullptr, "internal error: nullptr from treelite");
+    ASSERT(matching_cats.size() == 0 || matching_cats.data() != nullptr,
+           "internal error: nullptr from treelite");
     // assuming categories from tree.MatchingCategories() are in ascending order
     // we have to initialize all pool bytes, so we iterate over those and keep category_it up to
     // date
@@ -1246,7 +1247,7 @@ void tl2fil_sparse(std::vector<int>* ptrees,
   pnodes->resize(total_nodes);
 
   // convert the nodes
-//#pragma omp parallel for
+  //#pragma omp parallel for
   for (std::size_t i = 0; i < num_trees; ++i) {
     // Max number of leaves processed so far
     size_t leaf_counter = ((*ptrees)[i] + i) / 2;

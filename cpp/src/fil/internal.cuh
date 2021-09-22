@@ -459,7 +459,7 @@ struct cat_sets_device_owner {
   }
   cat_sets_device_owner(cudaStream_t stream) : bits(0, stream), max_matching(0, stream) {}
   cat_sets_device_owner(categorical_sets cat_sets, cudaStream_t stream)
-  : bits(cat_sets.bits_size, stream), max_matching(cat_sets.max_matching_size, stream)
+    : bits(cat_sets.bits_size, stream), max_matching(cat_sets.max_matching_size, stream)
   {
     if (cat_sets.max_matching_size > 0) {
       ASSERT(cat_sets.max_matching != nullptr, "internal error: cat_sets.max_matching is nil");
