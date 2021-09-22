@@ -99,6 +99,10 @@ cdef extern from "cuml/tsa/auto_arima.h" namespace "ML":
         const int* d_id_to_pos, const int* d_id_to_sub, double* d_out,
         int batch_size, int n_sub, int n_obs)
 
+cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
+    bool detect_missing(
+        handle_t& handle, const double* d_y, int n_elem)
+
 tests_map = {
     "kpss": kpss_test,
     "seas": seas_test,
@@ -194,6 +198,21 @@ class AutoARIMA(Base):
             = input_to_cuml_array(endog, check_dtype=np.float64)
 
         self.simple_differencing = simple_differencing
+
+        self._initial_calc()
+
+    @cuml.internals.api_base_return_any_skipall
+    def _initial_calc(self):
+        cdef uintptr_t d_y_ptr = self.d_y.ptr
+        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
+
+        # Detect missing observations
+        missing = detect_missing(handle_[0], <double*> d_y_ptr,
+                                 <int> self.batch_size * self.n_obs)
+
+        if missing:
+            raise ValueError(
+                "Missing observations are not supported in AutoARIMA yet")
 
     @cuml.internals.api_return_any()
     def search(self,
