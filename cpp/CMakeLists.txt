@@ -59,10 +59,13 @@ option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies"
 option(DISABLE_DEPRECATION_WARNINGS "Disable depreaction warnings " ON)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(ENABLE_CUMLPRIMS_MG "Enable algorithms that use libcumlprims_mg" ON)
-option(EXPERIMENTAL_FIL_ONLY "Build only FIL into libcuml. Experimental support, other algorithms will be supported soon" OFF)
 option(NVTX "Enable nvtx markers" OFF)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 option(USE_CCACHE "Cache build artifacts with ccache" OFF)
+
+set(CUML_CPP_ALGORITHMS "ALL" CACHE STRING "Experimental: Choose which algorithms are built into libcuml++.so. Only 'FIL' and 'ALL' are supported right now.")
+set_property(CACHE CUML_CPP_ALGORITHMS PROPERTY STRINGS "ALL" "FIL")
+message(VERBOSE "CUML: Building libcuml++ with algoriths: '${CUML_CPP_ALGORITHMS}'.")
 
 message(VERBOSE "CUML: Building libcuml_c shared library. Contains the cuML C API: ${BUILD_CUML_C_LIBRARY}")
 message(VERBOSE "CUML: Building libcuml shared library: ${BUILD_CUML_CPP_LIBRARY}")
@@ -148,7 +151,7 @@ if(NOT BUILD_CUML_CPP_LIBRARY)
   set(BUILD_CUML_EXAMPLES OFF)
 endif()
 
-if(EXPERIMENTAL_FIL_ONLY)
+if(CUML_CPP_ALGORITHMS STREQUAL "FIL")
   set(SINGLEGPU ON)
   set(BUILD_CUML_C_LIBRARY OFF)
   set(BUILD_CUML_EXAMPLES OFF)
@@ -230,73 +233,75 @@ if(BUILD_CUML_CPP_LIBRARY)
 
 
   # FIL components
-  target_sources(${CUML_CPP_TARGET} SHARED
-              src/fil/fil.cu
-              src/fil/infer.cu)
+  target_sources(${CUML_CPP_TARGET}
+    PRIVATE
+      src/fil/fil.cu
+      src/fil/infer.cu)
 
   # Rest of the algorithms
-  if(NOT EXPERIMENTAL_FIL_ONLY)
+  if(CUML_CPP_ALGORITHMS STREQUAL "ALL")
     target_sources(${CUML_CPP_TARGET}
-      src/arima/batched_arima.cu
-      src/arima/batched_kalman.cu
-      src/datasets/make_arima.cu
-      src/datasets/make_blobs.cu
-      src/datasets/make_regression.cu
-      src/dbscan/dbscan.cu
-      src/decisiontree/decisiontree.cu
-      src/explainer/kernel_shap.cu
-      src/explainer/permutation_shap.cu
-      src/fil/fil.cu
-      src/fil/infer.cu
-      src/glm/glm.cu
-      src/genetic/genetic.cu
-      src/genetic/node.cu
-      src/hdbscan/hdbscan.cu
-      src/hdbscan/condensed_hierarchy.cu
-      src/holtwinters/holtwinters.cu
-      src/kmeans/kmeans.cu
-      src/knn/knn.cu
-      src/knn/knn_sparse.cu
-      src/hierarchy/linkage.cu
-      src/metrics/accuracy_score.cu
-      src/metrics/adjusted_rand_index.cu
-      src/metrics/completeness_score.cu
-      src/metrics/entropy.cu
-      src/metrics/homogeneity_score.cu
-      src/metrics/kl_divergence.cu
-      src/metrics/mutual_info_score.cu
-      src/metrics/pairwise_distance.cu
-      src/metrics/pairwise_distance_canberra.cu
-      src/metrics/pairwise_distance_chebyshev.cu
-      src/metrics/pairwise_distance_correlation.cu
-      src/metrics/pairwise_distance_cosine.cu
-      src/metrics/pairwise_distance_euclidean.cu
-      src/metrics/pairwise_distance_hamming.cu
-      src/metrics/pairwise_distance_hellinger.cu
-      src/metrics/pairwise_distance_jensen_shannon.cu
-      src/metrics/pairwise_distance_kl_divergence.cu
-      src/metrics/pairwise_distance_l1.cu
-      src/metrics/pairwise_distance_minkowski.cu
-      src/metrics/pairwise_distance_russell_rao.cu
-      src/metrics/r2_score.cu
-      src/metrics/rand_index.cu
-      src/metrics/silhouette_score.cu
-      src/metrics/trustworthiness.cu
-      src/metrics/v_measure.cu
-      src/pca/pca.cu
-      src/randomforest/randomforest.cu
-      src/random_projection/rproj.cu
-      src/solver/lars.cu
-      src/solver/solver.cu
-      src/spectral/spectral.cu
-      src/svm/svc.cu
-      src/svm/svr.cu
-      src/svm/ws_util.cu
-      src/tsa/auto_arima.cu
-      src/tsa/stationarity.cu
-      src/tsne/tsne.cu
-      src/tsvd/tsvd.cu
-      src/umap/umap.cu)
+      PRIVATE
+        src/arima/batched_arima.cu
+        src/arima/batched_kalman.cu
+        src/datasets/make_arima.cu
+        src/datasets/make_blobs.cu
+        src/datasets/make_regression.cu
+        src/dbscan/dbscan.cu
+        src/decisiontree/decisiontree.cu
+        src/explainer/kernel_shap.cu
+        src/explainer/permutation_shap.cu
+        src/fil/fil.cu
+        src/fil/infer.cu
+        src/glm/glm.cu
+        src/genetic/genetic.cu
+        src/genetic/node.cu
+        src/hdbscan/hdbscan.cu
+        src/hdbscan/condensed_hierarchy.cu
+        src/holtwinters/holtwinters.cu
+        src/kmeans/kmeans.cu
+        src/knn/knn.cu
+        src/knn/knn_sparse.cu
+        src/hierarchy/linkage.cu
+        src/metrics/accuracy_score.cu
+        src/metrics/adjusted_rand_index.cu
+        src/metrics/completeness_score.cu
+        src/metrics/entropy.cu
+        src/metrics/homogeneity_score.cu
+        src/metrics/kl_divergence.cu
+        src/metrics/mutual_info_score.cu
+        src/metrics/pairwise_distance.cu
+        src/metrics/pairwise_distance_canberra.cu
+        src/metrics/pairwise_distance_chebyshev.cu
+        src/metrics/pairwise_distance_correlation.cu
+        src/metrics/pairwise_distance_cosine.cu
+        src/metrics/pairwise_distance_euclidean.cu
+        src/metrics/pairwise_distance_hamming.cu
+        src/metrics/pairwise_distance_hellinger.cu
+        src/metrics/pairwise_distance_jensen_shannon.cu
+        src/metrics/pairwise_distance_kl_divergence.cu
+        src/metrics/pairwise_distance_l1.cu
+        src/metrics/pairwise_distance_minkowski.cu
+        src/metrics/pairwise_distance_russell_rao.cu
+        src/metrics/r2_score.cu
+        src/metrics/rand_index.cu
+        src/metrics/silhouette_score.cu
+        src/metrics/trustworthiness.cu
+        src/metrics/v_measure.cu
+        src/pca/pca.cu
+        src/randomforest/randomforest.cu
+        src/random_projection/rproj.cu
+        src/solver/lars.cu
+        src/solver/solver.cu
+        src/spectral/spectral.cu
+        src/svm/svc.cu
+        src/svm/svr.cu
+        src/svm/ws_util.cu
+        src/tsa/auto_arima.cu
+        src/tsa/stationarity.cu
+        src/tsne/tsne.cu
+        src/tsvd/tsvd.cu
+        src/umap/umap.cu)
   endif()
 
   # multi GPU components
@@ -371,7 +376,7 @@ if(BUILD_CUML_CPP_LIBRARY)
       CUDA::cudart
       CUDA::cusparse
       $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
-      $<$<BOOL:!${EXPERIMENTAL_FIL_ONLY}>FAISS::FAISS>
+      $<$<NOT:$<BOOL:${EXPERIMENTAL_FIL_ONLY}>>:FAISS::FAISS>
       $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_static,treelite::treelite>
       $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_runtime_static,treelite::treelite_runtime>
       $<$<BOOL:${OpenMP_FOUND}>:OpenMP::OpenMP_CXX>
