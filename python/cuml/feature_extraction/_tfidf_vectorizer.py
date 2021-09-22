@@ -256,3 +256,13 @@ class TfidfVectorizer(CountVectorizer):
         """
         X = super().transform(raw_documents)
         return self._tfidf.transform(X, copy=False)
+    
+    def get_feature_names(self):
+        """
+        Array mapping from feature integer indices to feature name.
+        Returns
+        -------
+        feature_names : Series
+            A list of feature names.
+        """
+        return super().get_feature_names()
