@@ -102,7 +102,7 @@ template <typename math_t>
 struct DivideByNonZero {
   constexpr static const math_t eps = math_t(1e-10);
 
-  __device__ math_t operator()(const math_t a, const math_t b)
+  __device__ math_t operator()(const math_t a, const math_t b) const
   {
     return raft::myAbs<math_t>(b) >= eps ? a / b : a;
   }
