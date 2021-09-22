@@ -305,29 +305,29 @@ class DecisionTree {
         .train();
     } else if (params.split_criterion == CRITERION::GAMMA) {
       return Builder<GammaObjectiveFunction<DataT, LabelT, IdxT>>(handle,
-                                                                    treeid,
-                                                                    seed,
-                                                                    params,
-                                                                    data,
-                                                                    labels,
-                                                                    nrows,
-                                                                    ncols,
-                                                                    rowids,
-                                                                    unique_labels,
-                                                                    quantiles)
+                                                                  treeid,
+                                                                  seed,
+                                                                  params,
+                                                                  data,
+                                                                  labels,
+                                                                  nrows,
+                                                                  ncols,
+                                                                  rowids,
+                                                                  unique_labels,
+                                                                  quantiles)
         .train();
     } else if (params.split_criterion == CRITERION::INVERSE_GAUSSIAN) {
       return Builder<InverseGaussianObjectiveFunction<DataT, LabelT, IdxT>>(handle,
-                                                                    treeid,
-                                                                    seed,
-                                                                    params,
-                                                                    data,
-                                                                    labels,
-                                                                    nrows,
-                                                                    ncols,
-                                                                    rowids,
-                                                                    unique_labels,
-                                                                    quantiles)
+                                                                            treeid,
+                                                                            seed,
+                                                                            params,
+                                                                            data,
+                                                                            labels,
+                                                                            nrows,
+                                                                            ncols,
+                                                                            rowids,
+                                                                            unique_labels,
+                                                                            quantiles)
         .train();
     } else {
       ASSERT(false, "Unknown split criterion.");

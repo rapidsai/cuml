@@ -13,8 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#include <cuml/common/logger.hpp>
 #include <test_utils.h>
+#include <cuml/common/logger.hpp>
+#include <icecream.hpp>
 
 #include <decisiontree/batched-levelalgo/kernels.cuh>
 #include <decisiontree/batched-levelalgo/quantile.cuh>
@@ -284,7 +285,6 @@ class RfSpecialisedTest {
     std::tie(forest, predictions, training_metrics) =
       TrainScore(handle, params, X.data().get(), X_transpose.data().get(), y.data().get());
 
-
     Test();
   }
   // Current model should be at least as accurate as a model with depth - 1
@@ -488,7 +488,9 @@ std::vector<float> min_impurity_decrease = {0.0f, 1.0f, 10.0f};
 std::vector<int> n_streams               = {1, 2, 10};
 std::vector<CRITERION> split_criterion   = {
   // CRITERION::POISSON,
-  CRITERION::MSE, CRITERION::GINI, CRITERION::ENTROPY};
+  CRITERION::MSE,
+  CRITERION::GINI,
+  CRITERION::ENTROPY};
 std::vector<int> seed              = {0, 17};
 std::vector<int> n_labels          = {2, 10, 20};
 std::vector<bool> double_precision = {false, true};
@@ -668,6 +670,7 @@ namespace DT {
 
 struct ObjectiveTestParameters {
   uint64_t seed;
+  int n_rows;
   int n_bins;
   int n_classes;
   int min_samples_leaf;
@@ -686,26 +689,52 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
  public:
   auto RandUnder(int const end = 100000) { return rand() % end; }
 
-  auto GenSortedData()
+  auto GenRandomData()
   {
-
+    std::default_random_engine rng;
+    std::vector<DataT> data(params.n_rows);
+    if constexpr (std::is_same<BinT, CountBin>::value)  // classification case
+    {
+      for (auto& iter : data) {
+        iter = RandUnder(params.n_classes);
+      }
+    } else {
+      std::normal_distribution<DataT> normal(1.0, 2.0);
+      for (auto& iter : data) {
+        auto rand_element(DataT(0));
+        while (1) {
+          rand_element = normal(rng);
+          if (rand_element > 0) break;  // only positive random numbers
+        }
+        iter = rand_element;
+      }
+    }
+    return data;
   }
 
-  auto GenHist()
+  auto GenHist(std::vector<DataT> data)
   {
     std::vector<BinT> cdf_hist, pdf_hist;
 
     for (auto c = 0; c < params.n_classes; ++c) {
       for (auto b = 0; b < params.n_bins; ++b) {
-        if constexpr (std::is_same<BinT, CountBin>::value)
-          pdf_hist.emplace_back(RandUnder());
-        else
-          pdf_hist.emplace_back(static_cast<LabelT>(RandUnder()), RandUnder());
+        IdxT bin_width  = raft::ceildiv(params.n_rows, params.n_bins);
+        auto data_begin = data.begin() + b * bin_width;
+        auto data_end   = data_begin + bin_width;
+        if constexpr (std::is_same<BinT, CountBin>::value) {  // classification case
+          auto count(IdxT(0));
+          std::for_each(data_begin, data_end, [&](auto d) {
+            if (d == c) ++count;
+          });
+          pdf_hist.emplace_back(count);
+        } else {  // regression case
+          auto label_sum(DataT(0));
+          label_sum = std::accumulate(data_begin, data_end, DataT(0));
+          pdf_hist.emplace_back(label_sum, bin_width);
+        }
 
         auto cumulative = b > 0 ? cdf_hist.back() : BinT();
-
         cdf_hist.emplace_back(pdf_hist.empty() ? BinT() : pdf_hist.back());
-
         cdf_hist.back() += cumulative;
       }
     }
@@ -714,35 +743,34 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
   }
 
   auto InverseGaussianHalfDeviance(
-    std::vector<BinT> const& hist)  //  1/n * 2 * sum((y - y_pred) * (y - y_pred)/(y * (y_pred) * (y_pred)))
+    std::vector<DataT> const&
+      data)  //  1/n * 2 * sum((y - y_pred) * (y - y_pred)/(y * (y_pred) * (y_pred)))
   {
-    BinT aggregate{BinT()};
-    aggregate = std::accumulate(hist.begin(), hist.end(), aggregate);
-    assert(aggregate.count > 0);
-    DataT const y_mean = aggregate.label_sum / aggregate.count;
-    auto ighd{DataT(0.0)}; // ighd: inverse gaussian half deviance
+    DataT sum        = std::accumulate(data.begin(), data.end(), DataT(0));
+    DataT const mean = sum / data.size();
+    auto ighd{DataT(0.0)};  // ighd: inverse gaussian half deviance
 
-    std::for_each(hist.begin(), hist.end(), [&](BinT const& h) {
-      ighd += (h.label_sum - y_mean) * (h.label_sum - y_mean) / (h.label_sum * y_mean * y_mean); // unit deviance
+    std::for_each(data.begin(), data.end(), [&](auto d) {
+      ighd += (d - mean) * (d - mean) / (d * mean * mean);  // unit deviance
     });
 
-    ighd /= aggregate.count;
-    return std::make_tuple(
-      ighd, aggregate.label_sum, static_cast<DataT>(aggregate.count));
+    ighd /= data.size();
+    return std::make_tuple(ighd, sum, DataT(data.size()));
   }
 
-  auto InverseGaussianGroundTruthGain(std::vector<BinT> const& pdf_hist, std::size_t split_bin_index)
+  auto InverseGaussianGroundTruthGain(std::vector<DataT> const& data, std::size_t split_bin_index)
   {
-    std::vector<BinT> left_pdf_hist{pdf_hist.begin(), pdf_hist.begin() + split_bin_index + 1};
-    std::vector<BinT> right_pdf_hist{pdf_hist.begin() + split_bin_index + 1, pdf_hist.end()};
+    auto bin_width = raft::ceildiv(params.n_rows, params.n_bins);
+    std::vector<DataT> left_data(data.begin(), data.begin() + (split_bin_index + 1) * bin_width);
+    std::vector<DataT> right_data(data.begin() + (split_bin_index + 1) * bin_width, data.end());
 
-    auto [parent_ighd, label_sum, n]            = InverseGaussianHalfDeviance(pdf_hist);
-    auto [left_ighd, label_sum_left, n_left]    = InverseGaussianHalfDeviance(left_pdf_hist);
-    auto [right_ighd, label_sum_right, n_right] = InverseGaussianHalfDeviance(right_pdf_hist);
+    auto [parent_ighd, label_sum, n]            = InverseGaussianHalfDeviance(data);
+    auto [left_ighd, label_sum_left, n_left]    = InverseGaussianHalfDeviance(left_data);
+    auto [right_ighd, label_sum_right, n_right] = InverseGaussianHalfDeviance(right_data);
 
-
-    auto gain = parent_ighd - ((n_left / n) * left_ighd +  // the minimizing objective function is half deviance
-                              (n_right / n) * right_ighd);  // gain in long form without proxy
+    auto gain = parent_ighd -
+                ((n_left / n) * left_ighd +    // the minimizing objective function is half deviance
+                 (n_right / n) * right_ighd);  // gain in long form without proxy
 
     // edge cases
     if (n_left < params.min_samples_leaf or n_right < params.min_samples_leaf or
@@ -754,39 +782,35 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
   }
 
   auto GammaHalfDeviance(
-    std::vector<BinT> const& hist)  //  1/n * 2 * sum(log(y_pred/y_true) + y_true/y_pred - 1)
+    std::vector<DataT> const& data)  //  1/n * 2 * sum(log(y_pred/y_true) + y_true/y_pred - 1)
   {
-    BinT aggregate{BinT()};
-    aggregate = std::accumulate(hist.begin(), hist.end(), aggregate);
-    assert(aggregate.count > 0);
-    DataT const y_mean = aggregate.label_sum / aggregate.count;
-    auto mean_gamma_deviance{DataT(0.0)};
+    DataT sum(0);
+    sum              = std::accumulate(data.begin(), data.end(), DataT(0));
+    DataT const mean = sum / data.size();
+    DataT ghd(0);  // gamma half deviance
 
-    std::for_each(hist.begin(), hist.end(), [&](BinT const& h) {
-      auto log_y = raft::myLog(h.label_sum ? h.label_sum : DataT(1.0));  // we don't want nans
-      mean_gamma_deviance += h.count*raft::myLog(y_mean) - log_y + h.label_sum/y_mean - DataT(1); // InvGauss formula for each bin
+    std::for_each(data.begin(), data.end(), [&](auto& element) {
+      auto log_y = raft::myLog(element ? element : DataT(1.0));
+      ghd += raft::myLog(mean) - log_y + element / mean - 1;
     });
 
-    mean_gamma_deviance /= aggregate.count;
-    // mean_gamma_deviance = raft::myLog(y_mean);
-    return std::make_tuple(
-      mean_gamma_deviance, aggregate.label_sum, static_cast<DataT>(aggregate.count));
+    ghd /= data.size();
+    return std::make_tuple(ghd, sum, DataT(data.size()));
   }
 
-  auto GammaGroundTruthGain(std::vector<BinT> const& pdf_hist, std::size_t split_bin_index)
+  auto GammaGroundTruthGain(std::vector<DataT> const& data, std::size_t split_bin_index)
   {
-    std::vector<BinT> left_pdf_hist{pdf_hist.begin(), pdf_hist.begin() + split_bin_index + 1};
-    std::vector<BinT> right_pdf_hist{pdf_hist.begin() + split_bin_index + 1, pdf_hist.end()};
+    auto bin_width = raft::ceildiv(params.n_rows, params.n_bins);
+    std::vector<DataT> left_data(data.begin(), data.begin() + (split_bin_index + 1) * bin_width);
+    std::vector<DataT> right_data(data.begin() + (split_bin_index + 1) * bin_width, data.end());
 
-    auto [parent_ghd, label_sum, n]            = GammaHalfDeviance(pdf_hist);
-    auto [left_ghd, label_sum_left, n_left]    = GammaHalfDeviance(left_pdf_hist);
-    auto [right_ghd, label_sum_right, n_right] = GammaHalfDeviance(right_pdf_hist);
+    auto [parent_ghd, label_sum, n]            = GammaHalfDeviance(data);
+    auto [left_ghd, label_sum_left, n_left]    = GammaHalfDeviance(left_data);
+    auto [right_ghd, label_sum_right, n_right] = GammaHalfDeviance(right_data);
 
-
-    auto gain = parent_ghd - ((n_left / n) * left_ghd +  // the minimizing objective function is half deviance
-                              (n_right / n) * right_ghd);  // gain in long form without proxy
-    // DataT gain = n * parent_ghd - (n_left * left_ghd + n_right * right_ghd);
-    // gain = gain / n;
+    auto gain =
+      parent_ghd - ((n_left / n) * left_ghd +  // the minimizing objective function is half deviance
+                    (n_right / n) * right_ghd);  // gain in long form without proxy
 
     // edge cases
     if (n_left < params.min_samples_leaf or n_right < params.min_samples_leaf or
@@ -797,34 +821,31 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
       return gain;
   }
 
-
   auto PoissonHalfDeviance(
-    std::vector<BinT> const& hist)  //  1/n * sum(y_true * log(y_true/y_pred) + y_pred - y_true)
+    std::vector<DataT> const& data)  //  1/n * sum(y_true * log(y_true/y_pred) + y_pred - y_true)
   {
-    BinT aggregate{BinT()};
-    aggregate = std::accumulate(hist.begin(), hist.end(), aggregate);
-    assert(aggregate.count > 0);
-    auto const y_mean = aggregate.label_sum / aggregate.count;
+    DataT sum       = std::accumulate(data.begin(), data.end(), DataT(0));
+    auto const mean = sum / data.size();
     auto poisson_half_deviance{DataT(0.0)};
 
-    std::for_each(hist.begin(), hist.end(), [&](BinT const& h) {
-      auto log_y = raft::myLog(h.label_sum ? h.label_sum : DataT(1.0));  // we don't want nans
-      poisson_half_deviance += h.label_sum * (log_y - raft::myLog(y_mean)) + y_mean - h.label_sum;
+    std::for_each(data.begin(), data.end(), [&](auto d) {
+      auto log_y = raft::myLog(d ? d : DataT(1.0));  // we don't want nans
+      poisson_half_deviance += d * (log_y - raft::myLog(mean)) + mean - d;
     });
 
-    poisson_half_deviance /= aggregate.count;
-    return std::make_tuple(
-      poisson_half_deviance, aggregate.label_sum, static_cast<DataT>(aggregate.count));
+    poisson_half_deviance /= data.size();
+    return std::make_tuple(poisson_half_deviance, sum, DataT(data.size()));
   }
 
-  auto PoissonGroundTruthGain(std::vector<BinT> const& pdf_hist, std::size_t split_bin_index)
+  auto PoissonGroundTruthGain(std::vector<DataT> const& data, std::size_t split_bin_index)
   {
-    std::vector<BinT> left_pdf_hist{pdf_hist.begin(), pdf_hist.begin() + split_bin_index + 1};
-    std::vector<BinT> right_pdf_hist{pdf_hist.begin() + split_bin_index + 1, pdf_hist.end()};
+    auto bin_width = raft::ceildiv(params.n_rows, params.n_bins);
+    std::vector<DataT> left_data(data.begin(), data.begin() + (split_bin_index + 1) * bin_width);
+    std::vector<DataT> right_data(data.begin() + (split_bin_index + 1) * bin_width, data.end());
 
-    auto [parent_phd, label_sum, n]            = PoissonHalfDeviance(pdf_hist);
-    auto [left_phd, label_sum_left, n_left]    = PoissonHalfDeviance(left_pdf_hist);
-    auto [right_phd, label_sum_right, n_right] = PoissonHalfDeviance(right_pdf_hist);
+    auto [parent_phd, label_sum, n]            = PoissonHalfDeviance(data);
+    auto [left_phd, label_sum_left, n_left]    = PoissonHalfDeviance(left_data);
+    auto [right_phd, label_sum_right, n_right] = PoissonHalfDeviance(right_data);
 
     auto gain = parent_phd - ((n_left / n) * left_phd +
                               (n_right / n) * right_phd);  // gain in long form without proxy
@@ -838,37 +859,32 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
       return gain;
   }
 
-  auto GiniImpurity(std::vector<BinT> const& hist)
+  auto GiniImpurity(std::vector<DataT> const& data)
   {  // sum((n_c/n_total)(1-(n_c/n_total)))
-    auto gini{double(0)};
-    auto n_bins      = hist.size() / params.n_classes;
-    auto n_instances = std::accumulate(hist.begin(), hist.end(), BinT()).x;  // total instances
+    double gini(0);
     for (auto c = 0; c < params.n_classes; ++c) {
-      auto begin_iter    = hist.begin() + c * n_bins;
-      auto end_iter      = hist.begin() + (c + 1) * n_bins;
-      double class_proba = std::accumulate(begin_iter, end_iter, BinT()).x;  // instances of class c
-      class_proba /= n_instances;               // probability of class c
+      IdxT sum(0);
+      std::for_each(data.begin(), data.end(), [&](auto d) {
+        if (d == DataT(c)) ++sum;
+      });
+      double class_proba = double(sum) / data.size();
       gini += class_proba * (1 - class_proba);  // adding gain
     }
-    return std::make_pair(gini, double(n_instances));
+    return gini;
   }
 
-  auto GiniGroundTruthGain(std::vector<BinT> const& pdf_hist, std::size_t const split_bin_index)
+  auto GiniGroundTruthGain(std::vector<DataT> const& data, std::size_t const split_bin_index)
   {
-    std::vector<BinT> left_pdf_hist, right_pdf_hist;
+    auto bin_width = raft::ceildiv(params.n_rows, params.n_bins);
+    std::vector<DataT> left_data(data.begin(), data.begin() + (split_bin_index + 1) * bin_width);
+    std::vector<DataT> right_data(data.begin() + (split_bin_index + 1) * bin_width, data.end());
 
-    for (auto c = 0; c < params.n_classes; ++c) {  // decompose the pdf_hist
-      auto start = pdf_hist.begin() + c * params.n_bins;
-      auto split = pdf_hist.begin() + c * params.n_bins + split_bin_index + 1;
-      auto end   = pdf_hist.begin() + (c + 1) * params.n_bins;
-
-      left_pdf_hist.insert(left_pdf_hist.end(), start, split);
-      right_pdf_hist.insert(right_pdf_hist.end(), split, end);
-    }
-
-    auto [parent_gini, n]      = GiniImpurity(pdf_hist);
-    auto [left_gini, left_n]   = GiniImpurity(left_pdf_hist);
-    auto [right_gini, right_n] = GiniImpurity(right_pdf_hist);
+    auto parent_gini = GiniImpurity(data);
+    auto left_gini   = GiniImpurity(left_data);
+    auto right_gini  = GiniImpurity(right_data);
+    double n         = data.size();
+    double left_n    = left_data.size();
+    double right_n   = right_data.size();
 
     auto gain = parent_gini - ((left_n / n) * left_gini + (right_n / n) * right_gini);
 
@@ -880,24 +896,25 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     }
   }
 
-  auto GroundTruthGain(std::vector<BinT> const& pdf_hist, std::size_t const split_bin_index)
+  auto GroundTruthGain(std::vector<DataT> const& data, std::size_t const split_bin_index)
   {
     if constexpr (std::is_same<ObjectiveT,
                                PoissonObjectiveFunction<DataT, LabelT, IdxT>>::value)  // poisson
     {
-      return PoissonGroundTruthGain(pdf_hist, split_bin_index);
+      return PoissonGroundTruthGain(data, split_bin_index);
     } else if constexpr (std::is_same<ObjectiveT,
                                       GammaObjectiveFunction<DataT, LabelT, IdxT>>::value)  // gini
     {
-      return GammaGroundTruthGain(pdf_hist, split_bin_index);
-    } else if constexpr (std::is_same<ObjectiveT,
-                                      InverseGaussianObjectiveFunction<DataT, LabelT, IdxT>>::value)  // gini
+      return GammaGroundTruthGain(data, split_bin_index);
+    } else if constexpr (std::is_same<
+                           ObjectiveT,
+                           InverseGaussianObjectiveFunction<DataT, LabelT, IdxT>>::value)  // gini
     {
-      return InverseGaussianGroundTruthGain(pdf_hist, split_bin_index);
+      return InverseGaussianGroundTruthGain(data, split_bin_index);
     } else if constexpr (std::is_same<ObjectiveT,
                                       GiniObjectiveFunction<DataT, LabelT, IdxT>>::value)  // gini
     {
-      return GiniGroundTruthGain(pdf_hist, split_bin_index);
+      return GiniGroundTruthGain(data, split_bin_index);
     }
     return double(0.0);
   }
@@ -923,10 +940,10 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     params = ::testing::TestWithParam<ObjectiveTestParameters>::GetParam();
     ObjectiveT objective(params.n_classes, params.min_samples_leaf);
 
-    auto [cdf_hist, pdf_hist] = GenHist();
-
-    auto split_bin_index   = RandUnder(params.n_bins);
-    auto ground_truth_gain = GroundTruthGain(pdf_hist, split_bin_index);
+    auto data                 = GenRandomData();
+    auto [cdf_hist, pdf_hist] = GenHist(data);
+    auto split_bin_index      = RandUnder(params.n_bins);
+    auto ground_truth_gain    = GroundTruthGain(data, split_bin_index);
 
     auto hypothesis_gain = objective.GainPerSplit(&cdf_hist[0],
                                                   split_bin_index,
@@ -939,31 +956,31 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
 };
 
 const std::vector<ObjectiveTestParameters> poisson_objective_test_parameters = {
-  {9507819643927052255LLU, 64, 1, 0, 0.00001},
-  {9507819643927052259LLU, 128, 1, 1, 0.00001},
-  {9507819643927052251LLU, 256, 1, 1, 0.00001},
-  {9507819643927052258LLU, 512, 1, 5, 0.00001},
+  {9507819643927052255LLU, 2048, 64, 1, 0, 0.00001},
+  {9507819643927052259LLU, 2048, 128, 1, 1, 0.00001},
+  {9507819643927052251LLU, 2048, 256, 1, 1, 0.00001},
+  {9507819643927052258LLU, 2048, 512, 1, 5, 0.00001},
 };
 
 const std::vector<ObjectiveTestParameters> gamma_objective_test_parameters = {
-  {9507819643927052255LLU, 64, 1, 0, 0.00001},
-  {9507819643927052259LLU, 128, 1, 1, 0.00001},
-  {9507819643927052251LLU, 256, 1, 1, 0.00001},
-  {9507819643927052258LLU, 512, 1, 5, 0.00001},
+  {9507819643927052255LLU, 2048, 64, 1, 0, 0.00001},
+  {9507819643927052259LLU, 2048, 128, 1, 1, 0.00001},
+  {9507819643927052251LLU, 2048, 256, 1, 1, 0.00001},
+  {9507819643927052258LLU, 2048, 512, 1, 5, 0.00001},
 };
 
 const std::vector<ObjectiveTestParameters> invgauss_objective_test_parameters = {
-  {9507819643927052255LLU, 64, 1, 0, 0.00001},
-  {9507819643927052259LLU, 128, 1, 1, 0.00001},
-  {9507819643927052251LLU, 256, 1, 1, 0.00001},
-  {9507819643927052258LLU, 512, 1, 5, 0.00001},
+  {9507819643927052255LLU, 2048, 64, 1, 0, 0.00001},
+  {9507819643927052259LLU, 2048, 128, 1, 1, 0.00001},
+  {9507819643927052251LLU, 2048, 256, 1, 1, 0.00001},
+  {9507819643927052258LLU, 2048, 512, 1, 5, 0.00001},
 };
 
 const std::vector<ObjectiveTestParameters> gini_objective_test_parameters = {
-  {9507819643927052255LLU, 64, 2, 0, 0.00001},
-  {9507819643927052256LLU, 128, 10, 1, 0.00001},
-  {9507819643927052257LLU, 256, 100, 1, 0.00001},
-  {9507819643927052258LLU, 512, 100, 5, 0.00001},
+  {9507819643927052255LLU, 2048, 64, 2, 0, 0.00001},
+  {9507819643927052256LLU, 2048, 128, 10, 1, 0.00001},
+  {9507819643927052257LLU, 2048, 256, 100, 1, 0.00001},
+  {9507819643927052258LLU, 2048, 512, 100, 5, 0.00001},
 };
 
 // poisson objective test
@@ -979,7 +996,8 @@ INSTANTIATE_TEST_CASE_P(RfTests,
                         GammaObjectiveTestD,
                         ::testing::ValuesIn(gamma_objective_test_parameters));
 // InvGauss objective test
-typedef ObjectiveTest<InverseGaussianObjectiveFunction<double, double, int>> InverseGaussianObjectiveTestD;
+typedef ObjectiveTest<InverseGaussianObjectiveFunction<double, double, int>>
+  InverseGaussianObjectiveTestD;
 TEST_P(InverseGaussianObjectiveTestD, InverseGaussianObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         InverseGaussianObjectiveTestD,

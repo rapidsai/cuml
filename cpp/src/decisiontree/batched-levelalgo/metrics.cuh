@@ -241,7 +241,6 @@ class EntropyObjectiveFunction {
  **/
 template <typename DataT_, typename LabelT_, typename IdxT_>
 class TweedieObjectiveFunction {
-
  public:
   using DataT  = DataT_;
   using LabelT = LabelT_;
@@ -252,13 +251,9 @@ class TweedieObjectiveFunction {
   IdxT min_samples_leaf;
 
  public:
-  HDI TweedieObjectiveFunction(IdxT min_samples_leaf)
-    : min_samples_leaf(min_samples_leaf)
-  {
-  }
+  HDI TweedieObjectiveFunction(IdxT min_samples_leaf) : min_samples_leaf(min_samples_leaf) {}
 
   DI IdxT NumClasses() const { return 1; }
-
 
   static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)
   {
@@ -266,7 +261,6 @@ class TweedieObjectiveFunction {
       out[i] = shist[i].label_sum / shist[i].count;
     }
   }
-
 };
 
 template <typename DataT_, typename LabelT_, typename IdxT_>
@@ -304,7 +298,8 @@ class MSEObjectiveFunction : public TweedieObjectiveFunction<DataT_, LabelT_, Id
     }
   }
 
-  DI Split<DataT, IdxT> Gain(BinT const* shist, DataT const* sbins, IdxT col, IdxT len, IdxT nbins) const
+  DI Split<DataT, IdxT> Gain(
+    BinT const* shist, DataT const* sbins, IdxT col, IdxT len, IdxT nbins) const
   {
     Split<DataT, IdxT> sp;
     for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
@@ -313,7 +308,6 @@ class MSEObjectiveFunction : public TweedieObjectiveFunction<DataT_, LabelT_, Id
     }
     return sp;
   }
-
 };
 
 template <typename DataT_, typename LabelT_, typename IdxT_>
@@ -370,7 +364,8 @@ class PoissonObjectiveFunction : public TweedieObjectiveFunction<DataT_, LabelT_
     return gain;
   }
 
-  DI Split<DataT, IdxT> Gain(BinT const* shist, DataT const* sbins, IdxT col, IdxT len, IdxT nbins) const
+  DI Split<DataT, IdxT> Gain(
+    BinT const* shist, DataT const* sbins, IdxT col, IdxT len, IdxT nbins) const
   {
     Split<DataT, IdxT> sp;
     for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
@@ -379,17 +374,15 @@ class PoissonObjectiveFunction : public TweedieObjectiveFunction<DataT_, LabelT_
     }
     return sp;
   }
-
-
 };
 
 template <typename DataT_, typename LabelT_, typename IdxT_>
 class GammaObjectiveFunction : public TweedieObjectiveFunction<DataT_, LabelT_, IdxT_> {
  public:
-  using DataT  = DataT_;
-  using LabelT = LabelT_;
-  using IdxT   = IdxT_;
-  using BinT = AggregateBin;
+  using DataT                = DataT_;
+  using LabelT               = LabelT_;
+  using IdxT                 = IdxT_;
+  using BinT                 = AggregateBin;
   static constexpr auto eps_ = 10 * std::numeric_limits<DataT>::epsilon();
 
   HDI GammaObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf)
@@ -399,7 +392,6 @@ class GammaObjectiveFunction : public TweedieObjectiveFunction<DataT_, LabelT_, 
 
   HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft) const
   {
-    printf("inside GAMMA::GainPerSplit\n");
     // get the lens'
     IdxT nRight = len - nLeft;
 
@@ -417,18 +409,16 @@ class GammaObjectiveFunction : public TweedieObjectiveFunction<DataT_, LabelT_, 
 
     // compute the gain to be
     DataT parent_obj = raft::myLog(label_sum / len);
-    printf("parent_obj: %f\n", parent_obj);
-    DataT left_obj   = (DataT(nLeft)/DataT(len)) * raft::myLog(left_label_sum / nLeft);
-    printf("left_obj: %f\n", left_obj);
-    DataT right_obj  = (DataT(nRight)/DataT(len)) * raft::myLog(right_label_sum / nRight);
-    printf("right_obj: %f\n", right_obj);
-    DataT gain        = parent_obj - (left_obj + right_obj);
+    DataT left_obj   = (DataT(nLeft) / DataT(len)) * raft::myLog(left_label_sum / nLeft);
+    DataT right_obj  = (DataT(nRight) / DataT(len)) * raft::myLog(right_label_sum / nRight);
+    DataT gain       = parent_obj - (left_obj + right_obj);
     // gain             = gain / DataT(len);
 
     return gain;
   }
 
-  DI Split<DataT, IdxT> Gain(BinT const* shist, DataT const* sbins, IdxT col, IdxT len, IdxT nbins) const
+  DI Split<DataT, IdxT> Gain(
+    BinT const* shist, DataT const* sbins, IdxT col, IdxT len, IdxT nbins) const
   {
     Split<DataT, IdxT> sp;
     for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
@@ -442,10 +432,10 @@ class GammaObjectiveFunction : public TweedieObjectiveFunction<DataT_, LabelT_, 
 template <typename DataT_, typename LabelT_, typename IdxT_>
 class InverseGaussianObjectiveFunction : public TweedieObjectiveFunction<DataT_, LabelT_, IdxT_> {
  public:
-  using DataT  = DataT_;
-  using LabelT = LabelT_;
-  using IdxT   = IdxT_;
-  using BinT = AggregateBin;
+  using DataT                = DataT_;
+  using LabelT               = LabelT_;
+  using IdxT                 = IdxT_;
+  using BinT                 = AggregateBin;
   static constexpr auto eps_ = 10 * std::numeric_limits<DataT>::epsilon();
 
   HDI InverseGaussianObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf)
@@ -471,16 +461,17 @@ class InverseGaussianObjectiveFunction : public TweedieObjectiveFunction<DataT_,
       return -std::numeric_limits<DataT>::max();
 
     // compute the gain to be
-    DataT parent_obj =  DataT(len) * DataT(len) / label_sum;
-    DataT left_obj   =  DataT(nLeft) * DataT(nLeft) / left_label_sum;
-    DataT right_obj   = DataT(nRight) * DataT(nRight) / right_label_sum;
+    DataT parent_obj = -DataT(len) * DataT(len) / label_sum;
+    DataT left_obj   = -DataT(nLeft) * DataT(nLeft) / left_label_sum;
+    DataT right_obj  = -DataT(nRight) * DataT(nRight) / right_label_sum;
     auto gain        = parent_obj - (left_obj + right_obj);
     gain             = gain / len;
 
     return gain;
   }
 
-  DI Split<DataT, IdxT> Gain(BinT const* shist, DataT const* sbins, IdxT col, IdxT len, IdxT nbins) const
+  DI Split<DataT, IdxT> Gain(
+    BinT const* shist, DataT const* sbins, IdxT col, IdxT len, IdxT nbins) const
   {
     Split<DataT, IdxT> sp;
     for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
