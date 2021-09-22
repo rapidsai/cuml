@@ -23,7 +23,7 @@ set(COMMON_TEST_LINK_LIBRARIES
   CUDA::cufft
   rmm::rmm
   raft::raft
-  FAISS::FAISS
+  $<$<BOOL:${LINK_FAISS}>:FAISS::FAISS>
   GTest::gtest
   GTest::gtest_main
   OpenMP::OpenMP_CXX
@@ -53,7 +53,6 @@ if(BUILD_CUML_TESTS)
         sg/fnv_hash_test.cpp
         sg/genetic/node_test.cpp
         sg/genetic/param_test.cu
-        sg/handle_test.cu
         sg/hdbscan_test.cu
         sg/holtwinters_test.cu
         sg/kmeans_test.cu
@@ -76,7 +75,7 @@ if(BUILD_CUML_TESTS)
         sg/tsne_test.cu
         sg/tsvd_test.cu
         sg/umap_parametrizable_test.cu
-        $<$<BOOL:BUILD_CUML_C_LIBRARY>:sg/handle_test.cu>
+        $<$<BOOL:${BUILD_CUML_C_LIBRARY}>:sg/handle_test.cu>
       )
   endif()
 

@@ -151,10 +151,13 @@ if(NOT BUILD_CUML_CPP_LIBRARY)
   set(BUILD_CUML_EXAMPLES OFF)
 endif()
 
-if(CUML_CPP_ALGORITHMS STREQUAL "FIL")
+if(CUML_CPP_ALGORITHMS STREQUAL "ALL")
+  set(LINK_FAISS ON)
+elseif(CUML_CPP_ALGORITHMS STREQUAL "FIL")
   set(SINGLEGPU ON)
   set(BUILD_CUML_C_LIBRARY OFF)
   set(BUILD_CUML_EXAMPLES OFF)
+  set(LINK_FAISS OFF)
 endif()
 
 # SingleGPU build disables cumlprims_mg and comms components
@@ -376,7 +379,7 @@ if(BUILD_CUML_CPP_LIBRARY)
       CUDA::cudart
       CUDA::cusparse
       $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
-      $<$<NOT:$<BOOL:${EXPERIMENTAL_FIL_ONLY}>>:FAISS::FAISS>
+      $<$<BOOL:${LINK_FAISS}>:FAISS::FAISS>
       $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_static,treelite::treelite>
       $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_runtime_static,treelite::treelite_runtime>
       $<$<BOOL:${OpenMP_FOUND}>:OpenMP::OpenMP_CXX>
