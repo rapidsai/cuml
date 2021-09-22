@@ -164,8 +164,9 @@ class RandomForestRegressor(BaseRandomForestModel,
     split_criterion : int or string (default = 2 ('mse'))
         The criterion used to split nodes.
         0 or 'gini' for GINI, 1 or 'entropy' for ENTROPY,
-        2 or 'mse' for MSE
-        only 2 or 'mse' valid for regression
+        2 or 'mse' for MSE,
+        4 or 'poisson' for POISSON,
+        0, 'gini', 1, 'entropy' not valid for regression.
     bootstrap : boolean (default = True)
         Control bootstrapping.
         If True, each tree in the forest is built
