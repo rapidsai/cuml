@@ -596,7 +596,7 @@ int max_depth(const tl::ModelImpl<T, L>& model)
 {
   int depth         = 0;
   const auto& trees = model.trees;
-  #pragma omp parallel for reduction(max : depth)
+#pragma omp parallel for reduction(max : depth)
   for (size_t i = 0; i < trees.size(); ++i) {
     const auto& tree = trees[i];
     depth            = std::max(depth, max_depth(tree));
@@ -677,17 +677,17 @@ void vec_max(std::vector<int>& dst, const std::vector<int>& extra)
 template <typename T, typename L>
 cat_sets_owner allocate_cat_sets_owner(const tl::ModelImpl<T, L>& model)
 {
-  #pragma omp declare reduction(vec_max_red : std::vector<int> \
+#pragma omp declare reduction(vec_max_red : std::vector<int> \
       : vec_max(omp_out, omp_in))                              \
     initializer(omp_priv = omp_orig)
   const auto& trees = model.trees;
   cat_sets_owner cat_sets(model.num_feature, trees.size());
   std::vector<int>& max_matching = cat_sets.max_matching;
-  #pragma omp parallel for reduction(vec_max_red : max_matching)
+#pragma omp parallel for reduction(vec_max_red : max_matching)
   for (size_t i = 0; i < trees.size(); ++i) {
     vec_max(max_matching, max_matching_cat(trees[i], model.num_feature));
   }
-  #pragma omp parallel for
+#pragma omp parallel for
   for (size_t i = 0; i < trees.size(); ++i) {
     cat_sets.bit_pool_sizes[i] = bit_pool_size(trees[i], cat_sets);
   }
@@ -790,25 +790,14 @@ struct conversion_state {
   int tl_left, tl_right;
 };
 
-template <class It>
-std::vector<uint32_t> twop(It it)
-{
-  union {
-    void* x;
-    uint32_t a[2];
-  } un;
-  un.x = (void*)&*it;
-  return {un.a[0], un.a[1]};
-}
-
 // modifies cat_sets
 template <typename fil_node_t, typename T, typename L>
-conversion_state<fil_node_t> tl2fil_branch_node(int fil_left_child,
-                                                const tl::Tree<T, L>& tree,
-                                                int tl_node_id,
-                                                const forest_params_t& forest_params,
-                                                categorical_sets cat_sets,
-                                                size_t* bit_pool_size)
+conversion_state<fil_node_t> tl2fil_inner_node(int fil_left_child,
+                                               const tl::Tree<T, L>& tree,
+                                               int tl_node_id,
+                                               const forest_params_t& forest_params,
+                                               cat_sets_owner* cat_sets,
+                                               size_t* bit_pool_size)
 {
   int tl_left = tree.LeftChild(tl_node_id), tl_right = tree.RightChild(tl_node_id);
   val_t split{};
@@ -824,7 +813,7 @@ conversion_state<fil_node_t> tl2fil_branch_node(int fil_left_child,
     default_left   = !tree.DefaultLeft(tl_node_id);
     // for FIL, the list of categories is always for the right child
     if (tree.CategoriesListRightChild(tl_node_id) == false) std::swap(tl_left, tl_right);
-    int sizeof_mask = cat_sets.sizeof_mask(feature_id);
+    int sizeof_mask = cat_sets->accessor().sizeof_mask(feature_id);
     split.idx       = *bit_pool_size;
     *bit_pool_size += sizeof_mask;
     ASSERT(split.idx >= 0, "split.idx < 0");
@@ -832,7 +821,7 @@ conversion_state<fil_node_t> tl2fil_branch_node(int fil_left_child,
     auto category_it                    = matching_cats.begin();
     ASSERT(matching_cats.size() == 0 || matching_cats.data() != nullptr,
            "internal error: nullptr from treelite");
-    // assuming categories from tree.MatchingCategories() are in ascending order
+    // treelite guarantees tree.MatchingCategories() are in ascending order
     // we have to initialize all pool bytes, so we iterate over those and keep category_it up to
     // date
     for (uint32_t which_8cats = 0; which_8cats < (uint32_t)sizeof_mask; ++which_8cats) {
@@ -844,12 +833,12 @@ conversion_state<fil_node_t> tl2fil_branch_node(int fil_left_child,
           ++category_it;
         }
       }
-      // bits is a const uint8_t* to issue better load instructions in GPU code
-      (uint8_t&)(cat_sets.bits[split.idx + which_8cats]) = eight_cats;
+      cat_sets->bits[split.idx + which_8cats] = eight_cats;
     }
     ASSERT(category_it == matching_cats.end(), "internal error: didn't convert all categories");
-  } else
+  } else {
     ASSERT(false, "only numerical and categorical split nodes are supported");
+  }
   fil_node_t node;
   if constexpr (std::is_same<fil_node_t, dense_node>()) {
     node = fil_node_t({}, split, feature_id, default_left, false, is_categorical);
@@ -879,9 +868,9 @@ void node2fil_dense(std::vector<dense_node>* pnodes,
   }
 
   // inner node
-  int left                        = 2 * cur + 1;
-  conversion_state<dense_node> cs = tl2fil_branch_node<dense_node>(
-    left, tree, node_id, forest_params, cat_sets->accessor(), bit_pool_size);
+  int left = 2 * cur + 1;
+  conversion_state<dense_node> cs =
+    tl2fil_inner_node<dense_node>(left, tree, node_id, forest_params, cat_sets, bit_pool_size);
   (*pnodes)[root + cur] = cs.node;
   node2fil_dense(pnodes,
                  root,
@@ -954,8 +943,8 @@ __noinline__ int tree2fil_sparse(std::vector<fil_node_t>& nodes,
       // in the array of all nodes of the FIL sparse forest
       int left = built_index - root;
       built_index += 2;
-      conversion_state<fil_node_t> cs = tl2fil_branch_node<fil_node_t>(
-        left, tree, node_id, forest_params, cat_sets->accessor(), &bit_pool_size);
+      conversion_state<fil_node_t> cs =
+        tl2fil_inner_node<fil_node_t>(left, tree, node_id, forest_params, cat_sets, &bit_pool_size);
       nodes[root + cur] = cs.node;
       // push child nodes into the stack
       stack.push(pair_t(cs.tl_right, left + 1));
@@ -1243,8 +1232,8 @@ void tl2fil_sparse(std::vector<int>* ptrees,
   *cat_sets = allocate_cat_sets_owner(model);
   pnodes->resize(total_nodes);
 
-  // convert the nodes
-  #pragma omp parallel for
+// convert the nodes
+#pragma omp parallel for
   for (std::size_t i = 0; i < num_trees; ++i) {
     // Max number of leaves processed so far
     size_t leaf_counter = ((*ptrees)[i] + i) / 2;
