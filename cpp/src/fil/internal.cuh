@@ -361,14 +361,6 @@ struct categorical_sets {
   {
     return sizeof_mask_from_max_matching(max_matching[feature_id]);
   }
-
-  void print_max_matching() const
-  {
-    printf("max_matching {");
-    for (size_t fid = 0; fid < max_matching_size; ++fid)
-      printf("%d ", max_matching[fid]);
-    printf("}\n");
-  }
 };
 
 // lets any tree determine a child index for a node in a generic fasion
@@ -426,7 +418,6 @@ struct cat_sets_owner {
   }
 
   cat_sets_owner() {}
-
   cat_sets_owner(std::vector<uint8_t> bits_, std::vector<int> max_matching_)
     : bits(bits_), max_matching(max_matching_)
   {
