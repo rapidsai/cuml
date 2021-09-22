@@ -332,6 +332,7 @@ class RfSpecialisedTest {
                 raft::ceildiv(params.n_rows, params.min_samples_leaf));
     }
   }
+
   void TestMinImpurity()
   {
     for (int i = 0u; i < forest->rf_params.n_trees; i++) {
@@ -340,11 +341,12 @@ class RfSpecialisedTest {
       }
     }
   }
-  void TestDeterminism()
 
+  void TestDeterminism()
   {
     // Regression models use floating point atomics, so are not bitwise reproducible
-    bool is_regression = params.split_criterion == MSE || params.split_criterion == MAE;
+    bool is_regression = params.split_criterion == MSE or params.split_criterion == MAE or
+                         params.split_criterion == POISSON;
     if (is_regression) return;
 
     // Repeat training
@@ -449,7 +451,8 @@ class RfTest : public ::testing::TestWithParam<RfTestParams> {
   void SetUp() override
   {
     RfTestParams params = ::testing::TestWithParam<RfTestParams>::GetParam();
-    bool is_regression  = params.split_criterion == MSE || params.split_criterion == MAE;
+    bool is_regression  = params.split_criterion == MSE or params.split_criterion == MAE or
+                         params.split_criterion == POISSON;
     if (params.double_precision) {
       if (is_regression) {
         RfSpecialisedTest<double, double> test(params);
@@ -482,10 +485,11 @@ std::vector<int> min_samples_leaf        = {1, 10, 30};
 std::vector<int> min_samples_split       = {2, 10};
 std::vector<float> min_impurity_decrease = {0.0f, 1.0f, 10.0f};
 std::vector<int> n_streams               = {1, 2, 10};
-std::vector<CRITERION> split_criterion   = {CRITERION::MSE, CRITERION::GINI, CRITERION::ENTROPY};
-std::vector<int> seed                    = {0, 17};
-std::vector<int> n_labels                = {2, 10, 20};
-std::vector<bool> double_precision       = {false, true};
+std::vector<CRITERION> split_criterion   = {
+  CRITERION::POISSON, CRITERION::MSE, CRITERION::GINI, CRITERION::ENTROPY};
+std::vector<int> seed              = {0, 17};
+std::vector<int> n_labels          = {2, 10, 20};
+std::vector<bool> double_precision = {false, true};
 
 int n_tests = 100;
 
@@ -511,6 +515,7 @@ INSTANTIATE_TEST_CASE_P(RfTests,
                                                                            n_labels,
                                                                            double_precision)));
 
+//-------------------------------------------------------------------------------------------------------------------------------------
 struct QuantileTestParameters {
   int n_rows;
   int n_bins;
@@ -582,7 +587,7 @@ class RFQuantileTest : public ::testing::TestWithParam<QuantileTestParameters> {
     int min_items_per_bin = max_items_per_bin - 1;
     int total_items       = 0;
     for (int b = 0; b < params.n_bins; b++) {
-      ASSERT_TRUE(h_histogram[b] == max_items_per_bin || h_histogram[b] == min_items_per_bin)
+      ASSERT_TRUE(h_histogram[b] == max_items_per_bin or h_histogram[b] == min_items_per_bin)
         << "No. samples in bin[" << b << "] = " << h_histogram[b] << " Expected "
         << max_items_per_bin << " or " << min_items_per_bin << std::endl;
       total_items += h_histogram[b];
@@ -593,7 +598,6 @@ class RFQuantileTest : public ::testing::TestWithParam<QuantileTestParameters> {
   }
 };
 
-//-------------------------------------------------------------------------------------------------------------------------------------
 const std::vector<QuantileTestParameters> inputs = {{1000, 16, 6078587519764079670LLU},
                                                     {1130, 32, 4884670006177930266LLU},
                                                     {1752, 67, 9175325892580481371LLU},
@@ -619,6 +623,8 @@ INSTANTIATE_TEST_CASE_P(RfTests, RFQuantileBinsLowerBoundTestF, ::testing::Value
 typedef RFQuantileBinsLowerBoundTest<double> RFQuantileBinsLowerBoundTestD;
 TEST_P(RFQuantileBinsLowerBoundTestD, test) {}
 INSTANTIATE_TEST_CASE_P(RfTests, RFQuantileBinsLowerBoundTestD, ::testing::ValuesIn(inputs));
+
+//------------------------------------------------------------------------------------------------------
 
 TEST(RfTest, TextDump)
 {
@@ -655,4 +661,209 @@ Tree #0
   EXPECT_EQ(get_rf_json(forest_ptr), expected_json);
 }
 
+//-------------------------------------------------------------------------------------------------------------------------------------
+namespace DT {
+
+struct ObjectiveTestParameters {
+  uint64_t seed;
+  int n_bins;
+  int n_classes;
+  int min_samples_leaf;
+  double tolerance;
+};
+
+template <typename ObjectiveT>
+class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
+  typedef typename ObjectiveT::DataT DataT;
+  typedef typename ObjectiveT::LabelT LabelT;
+  typedef typename ObjectiveT::IdxT IdxT;
+  typedef typename ObjectiveT::BinT BinT;
+
+  ObjectiveTestParameters params;
+
+ public:
+  auto RandUnder(int const end = 10000) { return rand() % end; }
+
+  auto GenHist()
+  {
+    std::vector<BinT> cdf_hist, pdf_hist;
+
+    for (auto c = 0; c < params.n_classes; ++c) {
+      for (auto b = 0; b < params.n_bins; ++b) {
+        if constexpr (std::is_same<BinT, CountBin>::value)
+          pdf_hist.emplace_back(RandUnder());
+        else
+          pdf_hist.emplace_back(static_cast<LabelT>(RandUnder()), RandUnder());
+
+        auto cumulative = b > 0 ? cdf_hist.back() : BinT();
+
+        cdf_hist.emplace_back(pdf_hist.empty() ? BinT() : pdf_hist.back());
+
+        cdf_hist.back() += cumulative;
+      }
+    }
+
+    return std::make_pair(cdf_hist, pdf_hist);
+  }
+
+  auto PoissonHalfDeviance(
+    std::vector<BinT> const& hist)  //  1/n * sum(y_true * log(y_true/y_pred) + y_pred - y_true)
+  {
+    BinT aggregate{BinT()};
+    aggregate = std::accumulate(hist.begin(), hist.end(), aggregate);
+    assert(aggregate.count > 0);
+    auto const y_mean = aggregate.label_sum / aggregate.count;
+    auto poisson_half_deviance{DataT(0.0)};
+
+    std::for_each(hist.begin(), hist.end(), [&](BinT const& h) {
+      auto log_y = raft::myLog(h.label_sum ? h.label_sum : DataT(1.0));  // we don't want nans
+      poisson_half_deviance += h.label_sum * (log_y - raft::myLog(y_mean)) + y_mean - h.label_sum;
+    });
+
+    poisson_half_deviance /= aggregate.count;
+    return std::make_tuple(
+      poisson_half_deviance, aggregate.label_sum, static_cast<DataT>(aggregate.count));
+  }
+
+  auto PoissonGroundTruthGain(std::vector<BinT> const& pdf_hist, std::size_t split_bin_index)
+  {
+    std::vector<BinT> left_pdf_hist{pdf_hist.begin(), pdf_hist.begin() + split_bin_index + 1};
+    std::vector<BinT> right_pdf_hist{pdf_hist.begin() + split_bin_index + 1, pdf_hist.end()};
+
+    auto [parent_phd, label_sum, n]            = PoissonHalfDeviance(pdf_hist);
+    auto [left_phd, label_sum_left, n_left]    = PoissonHalfDeviance(left_pdf_hist);
+    auto [right_phd, label_sum_right, n_right] = PoissonHalfDeviance(right_pdf_hist);
+
+    auto gain = parent_phd - ((n_left / n) * left_phd +
+                              (n_right / n) * right_phd);  // gain in long form without proxy
+
+    // edge cases
+    if (n_left < params.min_samples_leaf or n_right < params.min_samples_leaf or
+        label_sum < ObjectiveT::eps_ or label_sum_right < ObjectiveT::eps_ or
+        label_sum_left < ObjectiveT::eps_)
+      return -std::numeric_limits<DataT>::max();
+    else
+      return gain;
+  }
+
+  auto GiniImpurity(std::vector<BinT> const& hist)
+  {  // sum((n_c/n_total)(1-(n_c/n_total)))
+    auto gini{double(0)};
+    auto n_bins      = hist.size() / params.n_classes;
+    auto n_instances = std::accumulate(hist.begin(), hist.end(), BinT()).x;  // total instances
+    for (auto c = 0; c < params.n_classes; ++c) {
+      auto begin_iter    = hist.begin() + c * n_bins;
+      auto end_iter      = hist.begin() + (c + 1) * n_bins;
+      double class_proba = std::accumulate(begin_iter, end_iter, BinT()).x;  // instances of class c
+      class_proba /= n_instances;               // probability of class c
+      gini += class_proba * (1 - class_proba);  // adding gain
+    }
+    return std::make_pair(gini, double(n_instances));
+  }
+
+  auto GiniGroundTruthGain(std::vector<BinT> const& pdf_hist, std::size_t const split_bin_index)
+  {
+    std::vector<BinT> left_pdf_hist, right_pdf_hist;
+
+    for (auto c = 0; c < params.n_classes; ++c) {  // decompose the pdf_hist
+      auto start = pdf_hist.begin() + c * params.n_bins;
+      auto split = pdf_hist.begin() + c * params.n_bins + split_bin_index + 1;
+      auto end   = pdf_hist.begin() + (c + 1) * params.n_bins;
+
+      left_pdf_hist.insert(left_pdf_hist.end(), start, split);
+      right_pdf_hist.insert(right_pdf_hist.end(), split, end);
+    }
+
+    auto [parent_gini, n]      = GiniImpurity(pdf_hist);
+    auto [left_gini, left_n]   = GiniImpurity(left_pdf_hist);
+    auto [right_gini, right_n] = GiniImpurity(right_pdf_hist);
+
+    auto gain = parent_gini - ((left_n / n) * left_gini + (right_n / n) * right_gini);
+
+    // edge cases
+    if (left_n < params.min_samples_leaf or right_n < params.min_samples_leaf) {
+      return -std::numeric_limits<DataT>::max();
+    } else {
+      return gain;
+    }
+  }
+
+  auto GroundTruthGain(std::vector<BinT> const& pdf_hist, std::size_t const split_bin_index)
+  {
+    if constexpr (std::is_same<ObjectiveT,
+                               PoissonObjectiveFunction<DataT, LabelT, IdxT>>::value)  // poisson
+    {
+      return PoissonGroundTruthGain(pdf_hist, split_bin_index);
+    } else if constexpr (std::is_same<ObjectiveT,
+                                      GiniObjectiveFunction<DataT, LabelT, IdxT>>::value)  // gini
+    {
+      return GiniGroundTruthGain(pdf_hist, split_bin_index);
+    }
+    return double(0.0);
+  }
+
+  auto NumLeftOfBin(std::vector<BinT> const& cdf_hist, IdxT idx)
+  {
+    auto count{IdxT(0)};
+    for (auto c = 0; c < params.n_classes; ++c) {
+      if constexpr (std::is_same<BinT, CountBin>::value)  // countbin
+      {
+        count += cdf_hist[params.n_bins * c + idx].x;
+      } else  // aggregatebin
+      {
+        count += cdf_hist[params.n_bins * c + idx].count;
+      }
+    }
+    return count;
+  }
+
+  void SetUp() override
+  {
+    srand(params.seed);
+    params = ::testing::TestWithParam<ObjectiveTestParameters>::GetParam();
+    ObjectiveT objective(params.n_classes, params.min_samples_leaf);
+
+    auto [cdf_hist, pdf_hist] = GenHist();
+
+    auto split_bin_index   = RandUnder(params.n_bins);
+    auto ground_truth_gain = GroundTruthGain(pdf_hist, split_bin_index);
+
+    auto hypothesis_gain = objective.GainPerSplit(&cdf_hist[0],
+                                                  split_bin_index,
+                                                  params.n_bins,
+                                                  NumLeftOfBin(cdf_hist, params.n_bins - 1),
+                                                  NumLeftOfBin(cdf_hist, split_bin_index));
+
+    ASSERT_NEAR(ground_truth_gain, hypothesis_gain, params.tolerance);
+  }
+};
+
+const std::vector<ObjectiveTestParameters> poisson_objective_test_parameters = {
+  {9507819643927052255LLU, 64, 1, 0, 0.00001},
+  {9507819643927052259LLU, 128, 1, 1, 0.00001},
+  {9507819643927052251LLU, 256, 1, 1, 0.00001},
+  {9507819643927052258LLU, 512, 1, 5, 0.00001},
+};
+const std::vector<ObjectiveTestParameters> gini_objective_test_parameters = {
+  {9507819643927052255LLU, 64, 2, 0, 0.00001},
+  {9507819643927052256LLU, 128, 10, 1, 0.00001},
+  {9507819643927052257LLU, 256, 100, 1, 0.00001},
+  {9507819643927052258LLU, 512, 100, 5, 0.00001},
+};
+
+// poisson objective test
+typedef ObjectiveTest<PoissonObjectiveFunction<double, double, int>> PoissonObjectiveTestD;
+TEST_P(PoissonObjectiveTestD, poissonObjectiveTest) {}
+INSTANTIATE_TEST_CASE_P(RfTests,
+                        PoissonObjectiveTestD,
+                        ::testing::ValuesIn(poisson_objective_test_parameters));
+
+// gini objective test
+typedef ObjectiveTest<GiniObjectiveFunction<double, int, int>> GiniObjectiveTestD;
+TEST_P(GiniObjectiveTestD, giniObjectiveTest) {}
+INSTANTIATE_TEST_CASE_P(RfTests,
+                        GiniObjectiveTestD,
+                        ::testing::ValuesIn(gini_objective_test_parameters));
+
+}  // end namespace DT
 }  // end namespace ML

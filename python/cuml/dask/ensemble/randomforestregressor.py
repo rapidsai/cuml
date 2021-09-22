@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.ensemble import RandomForestRegressor as cuRFR
 from cuml.dask.ensemble.base import \
@@ -71,8 +70,9 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
     split_criterion : int or string (default = 2 ('mse'))
         The criterion used to split nodes.
         0 or 'gini' for GINI, 1 or 'entropy' for ENTROPY,
-        2 or 'mse' for MSE
-        only 2 or 'mse' valid for regression
+        2 or 'mse' for MSE,
+        4 or 'poisson' for POISSON,
+        0, 'gini', 1, 'entropy' not valid for regression
     bootstrap : boolean (default = True)
         Control bootstrapping.
         If set, each tree in the forest is built
