@@ -1009,7 +1009,11 @@ std::vector<FilTestParams> predict_dense_inputs = {
                   output      = AVG_SOFTMAX,
                   leaf_algo   = GROVE_PER_CLASS,
                   num_classes = FIL_TPB + 1),
-  FIL_TEST_PARAMS(num_cols = 100'000, depth = 5, num_trees = 1, leaf_algo = FLOAT_UNARY_BINARY),
+  FIL_TEST_PARAMS(num_rows  = 10'000,
+                  num_cols  = 100'000,
+                  depth     = 5,
+                  num_trees = 1,
+                  leaf_algo = FLOAT_UNARY_BINARY),
   FIL_TEST_PARAMS(num_rows    = 101,
                   num_cols    = 100'000,
                   depth       = 5,
@@ -1284,7 +1288,7 @@ std::vector<FilTestParams> import_sparse_inputs = {
                   num_classes = 3),
   FIL_TEST_PARAMS(leaf_algo = VECTOR_LEAF, num_classes = 2),
   FIL_TEST_PARAMS(leaf_algo = VECTOR_LEAF, num_trees = 19, num_classes = 20),
-  // FIL_TEST_PARAMS(node_categorical_prob = 0.5, feature_categorical_prob = 0.5),
+  FIL_TEST_PARAMS(node_categorical_prob = 0.5, feature_categorical_prob = 0.5),
   FIL_TEST_PARAMS(
     node_categorical_prob = 1.0, feature_categorical_prob = 1.0, cat_match_prob = 1.0),
   FIL_TEST_PARAMS(

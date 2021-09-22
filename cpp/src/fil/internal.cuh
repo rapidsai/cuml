@@ -418,8 +418,11 @@ struct cat_sets_owner {
 
   void initialize_from_bit_pool_sizes()
   {
-    std::partial_sum(bit_pool_sizes.begin(), bit_pool_sizes.end(), bit_pool_offsets.begin());
-    bits.resize(bit_pool_offsets.back());
+    bit_pool_offsets[0] = 0;
+    for (std::size_t i = 1; i < bit_pool_sizes.size(); ++i) {
+      bit_pool_offsets[i] = bit_pool_offsets[i - 1] + bit_pool_sizes[i - 1];
+    }
+    bits.resize(bit_pool_offsets.back() + bit_pool_sizes.back());
   }
 
   cat_sets_owner() {}
