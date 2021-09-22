@@ -162,7 +162,7 @@ auto FilPredict(const raft::handle_t& handle,
   ModelHandle model;
   std::size_t num_outputs = 1;
   if constexpr (std::is_integral_v<LabelT>) { num_outputs = params.n_labels; }
-  build_treelite_forest(&model, forest, params.n_cols, num_outputs);
+  build_treelite_forest(&model, forest, params.n_cols);
   fil::treelite_params_t tl_params{fil::algo_t::ALGO_AUTO,
                                    num_outputs > 1,
                                    1.f / num_outputs,
@@ -177,6 +177,24 @@ auto FilPredict(const raft::handle_t& handle,
   return pred;
 }
 
+template <typename DataT, typename LabelT>
+auto FilPredictProba(const raft::handle_t& handle,
+                     RfTestParams params,
+                     DataT* X_transpose,
+                     RandomForestMetaData<DataT, LabelT>* forest)
+{
+  std::size_t num_outputs = params.n_labels;
+  auto pred = std::make_shared<thrust::device_vector<float>>(params.n_rows * num_outputs);
+  ModelHandle model;
+  static_assert(std::is_integral_v<LabelT>, "Must be classification");
+  build_treelite_forest(&model, forest, params.n_cols);
+  fil::treelite_params_t tl_params{
+    fil::algo_t::ALGO_AUTO, 0, 0.0f, fil::storage_type_t::AUTO, 8, 1, 0, nullptr};
+  fil::forest_t fil_forest;
+  fil::from_treelite(handle, &fil_forest, model, &tl_params);
+  fil::predict(handle, fil_forest, pred->data().get(), X_transpose, params.n_rows, true);
+  return pred;
+}
 template <typename DataT, typename LabelT>
 auto TrainScore(
   const raft::handle_t& handle, RfTestParams params, DataT* X, DataT* X_transpose, LabelT* y)
@@ -351,6 +369,28 @@ class RfSpecialisedTest {
       }
     }
   }
+
+  // Difference between the largest element and second largest
+  DataT MinDifference(DataT* begin, std::size_t len)
+  {
+    std::size_t max_element_index = 0;
+    DataT max_element             = 0.0;
+    for (std::size_t i = 0; i < len; i++) {
+      if (begin[i] > max_element) {
+        max_element_index = i;
+        max_element       = begin[i];
+      }
+    }
+    DataT second_max_element = 0.0;
+    for (std::size_t i = 0; i < len; i++) {
+      if (begin[i] > second_max_element && i != max_element_index) {
+        second_max_element = begin[i];
+      }
+    }
+
+    return std::abs(max_element - second_max_element);
+  }
+
   // Compare fil against native rf predictions
   // Only for single precision models
   void TestFilPredict()
@@ -360,10 +400,26 @@ class RfSpecialisedTest {
     } else {
       raft::handle_t handle(params.n_streams);
       auto fil_pred = FilPredict(handle, params, X_transpose.data().get(), forest.get());
+
       thrust::host_vector<float> h_fil_pred(*fil_pred);
       thrust::host_vector<float> h_pred(*predictions);
+
+      thrust::host_vector<float> h_fil_pred_prob;
+      if constexpr (std::is_integral_v<LabelT>) {
+        h_fil_pred_prob = *FilPredictProba(handle, params, X_transpose.data().get(), forest.get());
+      }
+
       float tol = 1e-2;
       for (std::size_t i = 0; i < h_fil_pred.size(); i++) {
+        // If the output probabilities are very similar for different classes
+        // FIL may output a different class due to numerical differences
+        // Skip these cases
+        if constexpr (std::is_integral_v<LabelT>) {
+          int num_outputs = forest->trees[0]->num_outputs;
+          auto min_diff   = MinDifference(&h_fil_pred_prob[i * num_outputs], num_outputs);
+          if (min_diff < tol) continue;
+        }
+
         EXPECT_LE(abs(h_fil_pred[i] - h_pred[i]), tol);
       }
     }
@@ -428,7 +484,7 @@ std::vector<float> min_impurity_decrease = {0.0f, 1.0f, 10.0f};
 std::vector<int> n_streams               = {1, 2, 10};
 std::vector<CRITERION> split_criterion   = {CRITERION::MSE, CRITERION::GINI, CRITERION::ENTROPY};
 std::vector<int> seed                    = {0, 17};
-std::vector<int> n_labels                = {2, 10, 30};
+std::vector<int> n_labels                = {2, 10, 20};
 std::vector<bool> double_precision       = {false, true};
 
 int n_tests = 100;
@@ -563,5 +619,40 @@ INSTANTIATE_TEST_CASE_P(RfTests, RFQuantileBinsLowerBoundTestF, ::testing::Value
 typedef RFQuantileBinsLowerBoundTest<double> RFQuantileBinsLowerBoundTestD;
 TEST_P(RFQuantileBinsLowerBoundTestD, test) {}
 INSTANTIATE_TEST_CASE_P(RfTests, RFQuantileBinsLowerBoundTestD, ::testing::ValuesIn(inputs));
+
+TEST(RfTest, TextDump)
+{
+  RF_params rf_params = set_rf_params(2, 2, 1.0, 2, 1, 2, 0.0, true, 1, 1.0, 0, GINI, 1, 128);
+  auto forest         = std::make_shared<RandomForestMetaData<float, int>>();
+
+  std::vector<float> X_host      = {1, 2, 3, 6, 7, 8};
+  thrust::device_vector<float> X = X_host;
+  std::vector<int> y_host        = {0, 0, 1, 1, 1, 0};
+  thrust::device_vector<int> y   = y_host;
+
+  raft::handle_t handle(1);
+  auto forest_ptr = forest.get();
+  fit(handle, forest_ptr, X.data().get(), y.size(), 1, y.data().get(), 2, rf_params);
+
+  std::string expected_start_text = R"(Forest has 1 trees, max_depth 2, and max_leaves 2
+Tree #0
+ Decision Tree depth --> 1 and n_leaves --> 2
+ Tree Fitting - Overall time -->)";
+
+  std::string expected_end_text = R"(└(colid: 0, quesval: 3, best_metric_val: 0.25)
+    ├(leaf, prediction: [0.75, 0.25], best_metric_val: 0)
+    └(leaf, prediction: [0, 1], best_metric_val: 0))";
+
+  EXPECT_TRUE(get_rf_detailed_text(forest_ptr).find(expected_start_text) != std::string::npos);
+  EXPECT_TRUE(get_rf_detailed_text(forest_ptr).find(expected_end_text) != std::string::npos);
+
+  std::string expected_json = R"([
+{"nodeid": 0, "split_feature": 0, "split_threshold": 3, "gain": 0.25, "instance_count": 6, "yes": 1, "no": 2, "children": [
+  {"nodeid": 1, "leaf_value": [0.75, 0.25], "instance_count": 4},
+  {"nodeid": 2, "leaf_value": [0, 1], "instance_count": 2}
+]}
+])";
+  EXPECT_EQ(get_rf_json(forest_ptr), expected_json);
+}
 
 }  // end namespace ML

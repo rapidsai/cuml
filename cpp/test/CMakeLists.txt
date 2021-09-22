@@ -60,7 +60,6 @@ if(BUILD_CUML_TESTS)
     sg/pca_test.cu
     sg/quasi_newton.cu
     sg/rf_test.cu
-    sg/rf_treelite_test.cu
     sg/ridge.cu
     sg/rproj_test.cu
     sg/sgd.cu
@@ -160,6 +159,7 @@ if(BUILD_PRIMS_TESTS)
     prims/entropy.cu
     prims/epsilon_neighborhood.cu
     prims/fast_int_div.cu
+    prims/fillna.cu
     prims/gather.cu
     prims/gram.cu
     prims/grid_sync.cu
