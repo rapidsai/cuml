@@ -132,8 +132,8 @@ class LinearRegression(Base,
     algorithm : {'svd', 'eig', `qr`, 'svd-qr', 'svd-jacobi'}, (default = 'eig')
         Choose an algorithm:
 
-          * 'eig' - use an eigendecomposition of the covariance matrix;
           * 'svd' - alias for svd-jacobi;
+          * 'eig' - use an eigendecomposition of the covariance matrix;
           * 'qr'  - use QR decomposition algorithm and solve `Rx = Q^T y`
           * 'svd-qr' - compute SVD decomposition using QR algorithm
           * 'svd-jacobi' - compute SVD decomposition using Jacobi iterations.

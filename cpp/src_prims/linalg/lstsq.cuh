@@ -98,6 +98,16 @@ bool are_implicitly_synchronized(rmm::cuda_stream_view a, rmm::cuda_stream_view 
   return false;
 }
 
+template <typename math_t>
+struct DivideByNonZero {
+  constexpr static const math_t eps = math_t(1e-10);
+
+  __device__ math_t operator()(const math_t a, const math_t b)
+  {
+    return raft::myAbs<math_t>(b) >= eps ? a / b : a;
+  }
+};
+
 }  // namespace
 
 /** Solves the linear ordinary least squares problem `Aw = b`
@@ -152,8 +162,7 @@ void lstsqSvdQR(const raft::handle_t& handle,
                                                        devInfo,
                                                        stream));
   raft::linalg::gemv(handle, U, n_rows, minmn, b, Ub, true, stream);
-  auto f = [] __device__(math_t a, math_t b) { return raft::myAbs(b) > math_t(1e-10) ? a / b : a; };
-  raft::linalg::binaryOp(Ub, Ub, S, minmn, f, stream);
+  raft::linalg::binaryOp(Ub, Ub, S, minmn, DivideByNonZero<math_t>(), stream);
   raft::linalg::gemv(handle, Vt, minmn, n_cols, n_cols, Ub, w, true, stream);
 }
 
@@ -221,8 +230,7 @@ void lstsqSvdJacobi(const raft::handle_t& handle,
                                                         gesvdj_params,
                                                         stream));
   raft::linalg::gemv(handle, U, n_rows, minmn, b, Ub, true, stream);
-  auto f = [] __device__(math_t a, math_t b) { return raft::myAbs(b) > math_t(1e-10) ? a / b : a; };
-  raft::linalg::binaryOp(Ub, Ub, S, minmn, f, stream);
+  raft::linalg::binaryOp(Ub, Ub, S, minmn, DivideByNonZero<math_t>(), stream);
   raft::linalg::gemv(handle, V, n_cols, minmn, Ub, w, false, stream);
 }
 
@@ -294,8 +302,8 @@ void lstsqEig(const raft::handle_t& handle,
   ML::POP_RANGE(mainStream);
 
   // QS  <- Q invS
-  auto f = [] __device__(math_t a, math_t b) { return raft::myAbs(b) > math_t(1e-10) ? a / b : a; };
-  raft::linalg::matrixVectorOp(QS, Q, S, n_cols, n_cols, false, true, f, mainStream);
+  raft::linalg::matrixVectorOp(
+    QS, Q, S, n_cols, n_cols, false, true, DivideByNonZero<math_t>(), mainStream);
   // covA <- QS Q* == Q invS Q* == inv(A* A)
   raft::linalg::gemm(handle,
                      QS,
