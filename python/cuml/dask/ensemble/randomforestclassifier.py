@@ -77,8 +77,9 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
     split_criterion : int or string (default = 0 ('gini'))
         The criterion used to split nodes.
         0 or 'gini' for GINI, 1 or 'entropy' for ENTROPY,
-        2 or 'mse' for MSE
-        2 or 'mse' not valid for classification
+        2 or 'mse' for MSE,
+        4 or 'poisson' for POISSON,
+        2, 'mse', 4, 'poisson' not valid for classification
     bootstrap : boolean (default = True)
         Control bootstrapping.
         If set, each tree in the forest is built

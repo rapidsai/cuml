@@ -42,6 +42,7 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
         ENTROPY,
         MSE,
         MAE,
+        POISSON,
         CRITERION_END
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
