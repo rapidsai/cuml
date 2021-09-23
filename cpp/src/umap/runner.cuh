@@ -191,9 +191,8 @@ void _get_graph(const raft::handle_t& handle,
     /**
      * Allocate workspace for kNN graph
      */
-    knn_indices_b =
-      std::make_unique<rmm::device_uvector<value_idx>>(inputs.n * k, stream);
-    knn_dists_b = std::make_unique<rmm::device_uvector<value_t>>(inputs.n * k, stream);
+    knn_indices_b = std::make_unique<rmm::device_uvector<value_idx>>(inputs.n * k, stream);
+    knn_dists_b   = std::make_unique<rmm::device_uvector<value_t>>(inputs.n * k, stream);
 
     knn_graph.knn_indices = knn_indices_b->data();
     knn_graph.knn_dists   = knn_dists_b->data();
@@ -249,9 +248,8 @@ void _get_graph_supervised(const raft::handle_t& handle,
     /**
      * Allocate workspace for kNN graph
      */
-    knn_indices_b =
-      std::make_unique<rmm::device_uvector<value_idx>>(inputs.n * k, stream);
-    knn_dists_b = std::make_unique<rmm::device_uvector<value_t>>(inputs.n * k, stream);
+    knn_indices_b = std::make_unique<rmm::device_uvector<value_idx>>(inputs.n * k, stream);
+    knn_dists_b   = std::make_unique<rmm::device_uvector<value_t>>(inputs.n * k, stream);
 
     knn_graph.knn_indices = knn_indices_b->data();
     knn_graph.knn_dists   = knn_dists_b->data();
@@ -323,8 +321,7 @@ void _refine(const raft::handle_t& handle,
   /**
    * Run simplicial set embedding to approximate low-dimensional representation
    */
-  SimplSetEmbed::run<TPB_X, value_t>(
-    inputs.n, inputs.d, cgraph_coo, params, embeddings, stream);
+  SimplSetEmbed::run<TPB_X, value_t>(inputs.n, inputs.d, cgraph_coo, params, embeddings, stream);
 }
 
 template <typename value_idx, typename value_t, typename umap_inputs, int TPB_X>

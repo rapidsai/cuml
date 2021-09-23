@@ -82,13 +82,12 @@ void refine(const raft::handle_t& handle,
             UMAPParams* params,
             float* embeddings);
 
-void get_graph(const raft::handle_t& handle,
-               float* X,  // input matrix
-               float* y,  // labels
-               int n,
-               int d,
-               raft::sparse::COO<float, int>* cgraph_coo,
-               UMAPParams* params);
+std::unique_ptr<raft::sparse::COO<float, int>> get_graph(const raft::handle_t& handle,
+                                                         float* X,  // input matrix
+                                                         float* y,  // labels
+                                                         int n,
+                                                         int d,
+                                                         UMAPParams* params);
 
 void fit_sparse(const raft::handle_t& handle,
                 int* indptr,  // input matrix
