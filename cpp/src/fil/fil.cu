@@ -604,12 +604,13 @@ int max_depth(const tl::ModelImpl<T, L>& model)
   return depth;
 }
 
-// constructs a vector of size max_fid (number of features, or columns) from a Treelite tree,
-// where each feature has a maximum matching category and number of categorical nodes
+// constructs a vector of size n_cols (number of features, or columns) from a Treelite tree,
+// where each feature has a maximum matching category. -1 means no matching categories for this fid
+// in this tree (may be present in other trees of the forest)
 template <typename T, typename L>
-inline std::vector<int> max_matching_cat(const tl::Tree<T, L>& tree, int max_fid)
+inline std::vector<int> max_matching_cat(const tl::Tree<T, L>& tree, int n_cols)
 {
-  std::vector<int> res(max_fid);
+  std::vector<int> res(n_cols);
   std::stack<int> stack;
   stack.push(tree_root(tree));
   while (!stack.empty()) {
@@ -631,8 +632,8 @@ inline std::vector<int> max_matching_cat(const tl::Tree<T, L>& tree, int max_fid
         } else {
           max_matching_cat = -1;
         }
-        int* max_matching_res = &res[tree.SplitIndex(node_id)];
-        *max_matching_res     = std::max(*max_matching_res, max_matching_cat);
+        int& max_matching_res = res[tree.SplitIndex(node_id)];
+        max_matching_res      = std::max(max_matching_res, max_matching_cat);
       }
       stack.push(tree.LeftChild(node_id));
       node_id = tree.RightChild(node_id);
@@ -641,8 +642,8 @@ inline std::vector<int> max_matching_cat(const tl::Tree<T, L>& tree, int max_fid
   return res;
 }
 
-// constructs a vector of size max_fid (number of features, or columns) from a Treelite tree,
-// where each feature has a maximum matching category and number of categorical nodes
+// fills cat_sets.n_nodes[] (size number of features, or columns) from a Treelite tree,
+// where each feature has a number of categorical nodes
 template <typename T, typename L>
 inline std::size_t bit_pool_size(const tl::Tree<T, L>& tree, cat_sets_owner& cat_sets)
 {
