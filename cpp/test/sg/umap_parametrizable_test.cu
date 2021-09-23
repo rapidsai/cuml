@@ -187,13 +187,13 @@ class UMAPParametrizableTest : public ::testing::Test {
 
     if(test_params.refine){
       std::cout << "using refine";
-      raft::sparse::COO<float> cgraph_coo{handle.get_stream()};
       if (test_params.supervised) {
-        ML::UMAP::get_graph(handle, X, y, n_samples, n_features, &cgraph_coo, &umap_params);
+        auto cgraph_coo = ML::UMAP::get_graph(handle, X, y, n_samples, n_features, &umap_params);
+        ML::UMAP::refine(handle, X, n_samples, n_features, cgraph_coo.get(), &umap_params, model_embedding);
       }else{
-        ML::UMAP::get_graph(handle, X, nullptr, n_samples, n_features, &cgraph_coo, &umap_params);
+        auto cgraph_coo = ML::UMAP::get_graph(handle, X, nullptr, n_samples, n_features, &umap_params);
+        ML::UMAP::refine(handle, X, n_samples, n_features, cgraph_coo.get(), &umap_params, model_embedding);
       }
-      ML::UMAP::refine(handle, X, n_samples, n_features, &cgraph_coo, &umap_params, model_embedding);
     }
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
