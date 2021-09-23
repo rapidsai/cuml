@@ -57,7 +57,8 @@ class BaseRandomForestModel(Base):
                       '1': ENTROPY, 'entropy': ENTROPY,
                       '2': MSE, 'mse': MSE,
                       '3': MAE, 'mae': MAE,
-                      '4': CRITERION_END}
+                      '4': POISSON, 'poisson': POISSON,
+                      '5': CRITERION_END}
 
     classes_ = CumlArrayDescriptor()
 

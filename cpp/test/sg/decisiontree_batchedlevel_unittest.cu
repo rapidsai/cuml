@@ -279,7 +279,7 @@ TEST_P(TestMetric, RegressionMetricGain)
 
   CRITERION split_criterion = GetParam();
 
-  ObjectiveT obj(1, params.min_impurity_decrease, params.min_samples_leaf);
+  ObjectiveT obj(1, params.min_samples_leaf);
   size_t smemSize1 = n_bins * sizeof(ObjectiveT::BinT) +  // shist size
                      n_bins * sizeof(DataT) +             // sbins size
                      sizeof(int);                         // sDone size
