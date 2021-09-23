@@ -1224,6 +1224,7 @@ void tl2fil_sparse(std::vector<int>* ptrees,
     ptrees->push_back(model.trees[i].num_nodes + ptrees->back());
   }
   size_t total_nodes = ptrees->back() + model.trees.back().num_nodes;
+
   if (params->leaf_algo == VECTOR_LEAF) {
     size_t max_leaves = (total_nodes + num_trees) / 2;
     vector_leaf->resize(max_leaves * params->num_classes);

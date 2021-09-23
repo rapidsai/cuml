@@ -183,11 +183,7 @@ void adjust_threshold_to_treelite(
   // the meaning of the condition is reversed compared to FIL;
   // thus, "<" in treelite corresonds to comparison ">=" used by FIL
   // https://github.com/dmlc/treelite/blob/master/include/treelite/tree.h#L243
-  if (isnan(*pthreshold)) {
-    std::swap(*tl_left, *tl_right);
-    *default_left = !*default_left;
-    return;
-  }
+  // threshold is never generated as NAN 
   switch (comparison_op) {
     case tl::Operator::kLT: break;
     case tl::Operator::kLE:
@@ -786,17 +782,12 @@ class TreeliteFilTest : public BaseFilTest {
       }
       int left_key  = node_to_treelite(builder, pkey, root, left);
       int right_key = node_to_treelite(builder, pkey, root, right);
-      if (!left_categories.empty() && dense_node.is_categorical()) {
+      if (dense_node.is_categorical()) {
         std::swap(left_key, right_key);
         default_left = !default_left;
         builder->SetCategoricalTestNode(
           key, dense_node.fid(), left_categories, default_left, left_key, right_key);
       } else {
-        if (dense_node.is_categorical()) {
-          // treelite cannot handle empty category lists, so this threshold will always compare
-          // false
-          threshold = NAN;
-        }
         adjust_threshold_to_treelite(&threshold, &left_key, &right_key, &default_left, ps.op);
         builder->SetNumericalTestNode(key,
                                       dense_node.fid(),
