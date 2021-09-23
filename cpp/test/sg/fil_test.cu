@@ -183,7 +183,7 @@ void adjust_threshold_to_treelite(
   // the meaning of the condition is reversed compared to FIL;
   // thus, "<" in treelite corresonds to comparison ">=" used by FIL
   // https://github.com/dmlc/treelite/blob/master/include/treelite/tree.h#L243
-  // threshold is never generated as NAN 
+  // threshold is never generated as NAN
   switch (comparison_op) {
     case tl::Operator::kLT: break;
     case tl::Operator::kLE:
