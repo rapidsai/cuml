@@ -146,7 +146,6 @@ __host__ __device__ __forceinline__ val_t base_node::output<val_t>() const
 }
 
 /** dense_node is a single node of a dense forest */
-// template <bool can_be_categorical>
 struct alignas(8) dense_node : base_node {
   dense_node() = default;
   dense_node(val_t output, val_t split, int fid, bool def_left, bool is_leaf, bool is_categorical)
@@ -158,7 +157,6 @@ struct alignas(8) dense_node : base_node {
 };
 
 /** sparse_node16 is a 16-byte node in a sparse forest */
-// template <bool can_be_categorical>
 struct alignas(16) sparse_node16 : base_node {
   int left_idx;
   int dummy;  // make alignment explicit and reserve for future use

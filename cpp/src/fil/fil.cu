@@ -616,8 +616,7 @@ inline std::vector<int> max_matching_cat(const tl::Tree<T, L>& tree, int max_fid
     int node_id = stack.top();
     stack.pop();
     while (!tree.IsLeaf(node_id)) {
-      if (tree.SplitType(node_id) == tl::SplitFeatureType::kCategorical &&
-          tree.HasMatchingCategories(node_id)) {
+      if (tree.SplitType(node_id) == tl::SplitFeatureType::kCategorical) {
         std::vector<uint32_t> mmv = tree.MatchingCategories(node_id);
         int max_matching_cat;
         if (mmv.size() > 0) {
