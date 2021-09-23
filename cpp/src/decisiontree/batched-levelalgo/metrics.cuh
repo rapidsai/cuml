@@ -236,7 +236,7 @@ class EntropyObjectiveFunction {
   }
 };
 
-/** @brief The abstract base class for the tweedie family of objective functions:
+/** @brief The base class for the tweedie family of objective functions:
  * mean-squared-error(p=0), poisson(p=1), gamma(p=2) and inverse gaussian(p=3)
  **/
 template <typename DataT_, typename LabelT_, typename IdxT_>
@@ -392,9 +392,6 @@ class GammaObjectiveFunction : public TweedieObjectiveFunction<DataT_, LabelT_, 
 
   HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft) const
   {
-    // get the lens'
-    IdxT nRight = len - nLeft;
-
     // if there aren't enough samples in this split, don't bother!
     if (nLeft < this->min_samples_leaf || nRight < this->min_samples_leaf)
       return -std::numeric_limits<DataT>::max();
