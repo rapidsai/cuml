@@ -1314,7 +1314,7 @@ void from_treelite(const raft::handle_t& handle,
   if (storage_type == storage_type_t::AUTO) {
     if (tl_params->algo == algo_t::ALGO_AUTO || tl_params->algo == algo_t::NAIVE) {
       int depth = max_depth(model);
-      // max 2**25 dense nodes, 256 MiB dense model size. Categorical mask size unlimited.
+      // max 2**25 dense nodes, 256 MiB dense model size. Categorical mask size is unlimited.
       const int LOG2_MAX_DENSE_NODES = 25;
       int log2_num_dense_nodes       = depth + 1 + int(ceil(std::log2(model.trees.size())));
       storage_type = log2_num_dense_nodes > LOG2_MAX_DENSE_NODES ? storage_type_t::SPARSE
@@ -1398,7 +1398,7 @@ char* sprintf_shape(const tl::ModelImpl<threshold_t, leaf_t>& model,
   forest_shape << storage_type_repr[storage] << " model size " << std::setprecision(2) << size_mb
                << " MB" << std::endl;
   if (cat_sets.bits.size() > 0) {
-    forest_shape << "categorical nodes for each feature id: {";
+    forest_shape << "number of categorical nodes for each feature id: {";
     std::size_t total_cat_nodes = 0;
     for (std::size_t n : cat_sets.n_nodes) {
       forest_shape << n << " ";

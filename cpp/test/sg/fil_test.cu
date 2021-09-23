@@ -774,8 +774,8 @@ class TreeliteFilTest : public BaseFilTest {
       if (dense_node.is_categorical()) {
         uint8_t byte = 0;
         for (int category = 0; category <= cat_sets_h.max_matching[dense_node.fid()]; ++category) {
-          if (category % 8 == 0) byte = cat_sets_h.bits[dense_node.set() + category / 8];
-          if ((byte & 1 << category % 8) != 0) left_categories.push_back(category);
+          if (category % BITS_PER_BYTE == 0) byte = cat_sets_h.bits[dense_node.set() + category / BITS_PER_BYTE];
+          if ((byte & (1 << category % BITS_PER_BYTE)) != 0) left_categories.push_back(category);
         }
       } else {
         threshold = dense_node.thresh();
