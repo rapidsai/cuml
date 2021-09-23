@@ -43,7 +43,7 @@ requirements:
     - ucx-proc=*=gpu
     - libcumlprims {{ minor_version }}
     - lapack
-    - treelite=2.0.0
+    - treelite=2.1.0
     - faiss-proc=*=cuda
     - gtest=1.10.0
     - gmock
@@ -55,7 +55,7 @@ requirements:
     - ucx-py 0.22
     - ucx-proc=*=gpu
     - {{ pin_compatible('cudatoolkit', max_pin='x.x') }}
-    - treelite=2.0.0
+    - treelite=2.1.0
     - faiss-proc=*=cuda
     - libfaiss 1.7.0 *_cuda
 

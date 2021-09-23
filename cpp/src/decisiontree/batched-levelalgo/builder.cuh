@@ -27,6 +27,7 @@
 #include <common/grid_sync.cuh>
 #include <common/nvtx.hpp>
 #include <cuml/common/logger.hpp>
+#include <cuml/common/pinned_host_vector.hpp>
 #include <cuml/tree/decisiontree.hpp>
 #include <raft/cuda_utils.cuh>
 #include "input.cuh"
@@ -190,7 +191,7 @@ struct Builder {
   const size_t alignValue = 512;
 
   rmm::device_uvector<char> d_buff;
-  std::vector<char> h_buff;
+  ML::pinned_host_vector<char> h_buff;
 
   Builder(const raft::handle_t& handle,
           IdxT treeid,
