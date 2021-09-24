@@ -191,7 +191,6 @@ struct Builder {
   const size_t alignValue = 512;
 
   IdxT *colids;
-  IdxT *h_colids;
 
   rmm::device_uvector<char> d_buff;
   std::vector<char> h_buff;
@@ -277,7 +276,6 @@ struct Builder {
     h_wsize +=  // h_workload_info
       calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks);
     h_wsize += calculateAlignedBytes(sizeof(SplitT) * max_batch);  // splits
-    h_wsize += calculateAlignedBytes(sizeof(IdxT) * max_batch * input.N); // h_colids
 
     ML::POP_RANGE();
     return std::make_pair(d_wsize, h_wsize);
@@ -323,8 +321,6 @@ struct Builder {
     h_wspace += calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks);
     h_splits = reinterpret_cast<SplitT*>(h_wspace);
     h_wspace += calculateAlignedBytes(sizeof(SplitT) * max_batch);
-    h_colids = reinterpret_cast<IdxT*>(h_wspace);
-    h_wspace += calculateAlignedBytes(sizeof(IdxT) * max_batch * input.N);
 
     ML::POP_RANGE();
   }
@@ -386,18 +382,11 @@ struct Builder {
 
     auto [total_blocks, large_blocks] = this->updateWorkloadInfo(work_items);
 
-    // for (IdxT i = 0; i < IdxT(work_items.size()); i++) {
-    //   for (IdxT c1 = 0; c1 < input.N; c1++) {
-
-    //     h_colids[i*input.N + c1] = select_cpu(c1, treeid, work_items[i].idx, seed, input.N);
-    //   }
-    // }
-
-    // CUDA_CHECK(cudaMemcpyAsync(colids, h_colids, sizeof(IdxT) * params.max_batch_size * input.N,
-    //                            cudaMemcpyHostToDevice, handle.get_stream()));
-    for (IdxT i = 0; i < IdxT(work_items.size()); i++) {
-      thrust::shuffle(thrust::cuda::par.on(handle.get_stream()), colids + i*input.N,
-                      colids + (i + 1) * input.N, rng_engine);
+    if (input.nSampledCols != input.N) {
+      for (IdxT i = 0; i < IdxT(work_items.size()); i++) {
+        thrust::shuffle(thrust::cuda::par.on(handle.get_stream()), colids + i*input.N,
+                        colids + (i + 1) * input.N, rng_engine);
+      }
     }
     // iterate through a batch of columns (to reduce the memory pressure) and
     // compute the best split at the end
