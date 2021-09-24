@@ -382,11 +382,17 @@ __global__ void computeSplitKernel(BinT* hist,
     int colIndex = colStart + blockIdx.y;
     col          = select(colIndex, treeid, work_item.idx, seed, input.N);
   }
-  if (col != colids[work_item.idx * n_blks_for_cols + blockIdx.y]) {
-    if (threadIdx.x == 0 && blockIdx.x == 0 && blockIdx.y == 0)
-    printf("Hell bells colIndex = %d, treeid = %d, work_item.idx = %lu, seed = %lu, input.N = %d\n"
-           "col = %d, colids[*] = %d\n",
-           colStart + blockIdx.y, treeid, work_item.idx, seed, input.N, col, colids[work_item.idx * n_blks_for_cols + blockIdx.y]);
+  // if (col != colids[nid * input.N + colStart + blockIdx.y]) {
+  //   // if (threadIdx.x == 0 && blockIdx.x == 16)
+  //   printf("Hell bells colIndex = %d, treeid = %d, work_item.idx = %lu, seed = %lu, input.N = %d\n"
+  //          "col = %d, colids[%lu] = %d, blockIdx.x = %d. blockIdx.y = %d\n",
+  //          colStart + blockIdx.y, treeid, work_item.idx, seed, input.N, col, 
+  //          work_item.idx * n_blks_for_cols + blockIdx.y,
+  //          colids[nid * input.N + colStart + blockIdx.y], blockIdx.x, blockIdx.y);
+  // }
+  if (colids[nid * input.N + colStart + blockIdx.y] >= input.N || 
+      colids[nid * input.N + colStart + blockIdx.y] < 0) {
+    printf("Hell bells\n");
   }
   // populating shared memory with initial values
   for (IdxT i = threadIdx.x; i < shared_histogram_len; i += blockDim.x)

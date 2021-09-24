@@ -29,6 +29,8 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/tree/decisiontree.hpp>
 #include <raft/cuda_utils.cuh>
+#include <thrust/shuffle.h>
+#include <thrust/random.h>
 #include "input.cuh"
 #include "kernels.cuh"
 #include "metrics.cuh"
@@ -194,6 +196,8 @@ struct Builder {
   rmm::device_uvector<char> d_buff;
   std::vector<char> h_buff;
 
+
+  thrust::default_random_engine rng_engine;
   Builder(const raft::handle_t& handle,
           IdxT treeid,
           uint64_t seed,
@@ -229,6 +233,11 @@ struct Builder {
     d_buff.resize(device_workspace_size, handle.get_stream());
     h_buff.resize(host_workspace_size);
     assignWorkspace(d_buff.data(), h_buff.data());
+    
+    uint32_t derived_seed = fnv1a32_basis;
+    derived_seed = fnv1a32(derived_seed, uint32_t(seed >> 32));
+    derived_seed = fnv1a32(derived_seed, uint32_t(seed));
+    rng_engine.seed(derived_seed);
   }
 
   size_t calculateAlignedBytes(const size_t actualSize) const
@@ -262,13 +271,13 @@ struct Builder {
     d_wsize += calculateAlignedBytes(sizeof(NodeWorkItem) * max_batch);           // d_work_Items
     d_wsize +=                                                                    // workload_info
       calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks);
-    d_wsize += calculateAlignedBytes(sizeof(IdxT) * max_batch * n_blks_for_cols); // colids
+    d_wsize += calculateAlignedBytes(sizeof(IdxT) * max_batch * input.N); // colids
 
     // all nodes in the tree
     h_wsize +=  // h_workload_info
       calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks);
     h_wsize += calculateAlignedBytes(sizeof(SplitT) * max_batch);  // splits
-    h_wsize += calculateAlignedBytes(sizeof(IdxT) * max_batch * n_blks_for_cols); // h_colids
+    h_wsize += calculateAlignedBytes(sizeof(IdxT) * max_batch * input.N); // h_colids
 
     ML::POP_RANGE();
     return std::make_pair(d_wsize, h_wsize);
@@ -303,7 +312,7 @@ struct Builder {
     workload_info = reinterpret_cast<WorkloadInfo<IdxT>*>(d_wspace);
     d_wspace += calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks);
     colids = reinterpret_cast<IdxT*>(d_wspace);
-    d_wspace += calculateAlignedBytes(sizeof(IdxT) * max_batch * n_blks_for_cols);
+    d_wspace += calculateAlignedBytes(sizeof(IdxT) * max_batch * input.N);
 
     CUDA_CHECK(
       cudaMemsetAsync(done_count, 0, sizeof(int) * max_batch * n_col_blks, handle.get_stream()));
@@ -315,7 +324,7 @@ struct Builder {
     h_splits = reinterpret_cast<SplitT*>(h_wspace);
     h_wspace += calculateAlignedBytes(sizeof(SplitT) * max_batch);
     h_colids = reinterpret_cast<IdxT*>(h_wspace);
-    h_wspace += calculateAlignedBytes(sizeof(IdxT) * max_batch * n_blks_for_cols);
+    h_wspace += calculateAlignedBytes(sizeof(IdxT) * max_batch * input.N);
 
     ML::POP_RANGE();
   }
@@ -325,6 +334,10 @@ struct Builder {
     ML::PUSH_RANGE("Builder::train @builder.cuh [batched-levelalgo]");
     MLCommon::TimerCPU timer;
     NodeQueue<DataT, LabelT> queue(params, this->maxNodes(), input.nSampledRows);
+    for (IdxT i = 0; i < params.max_batch_size; i++) {
+      thrust::sequence(thrust::cuda::par.on(handle.get_stream()), colids + i*input.N,
+                      colids + (i + 1) * input.N);
+    }
     while (queue.HasWork()) {
       auto work_items                      = queue.Pop();
       auto [splits_host_ptr, splits_count] = doSplit(work_items);
@@ -373,6 +386,19 @@ struct Builder {
 
     auto [total_blocks, large_blocks] = this->updateWorkloadInfo(work_items);
 
+    // for (IdxT i = 0; i < IdxT(work_items.size()); i++) {
+    //   for (IdxT c1 = 0; c1 < input.N; c1++) {
+
+    //     h_colids[i*input.N + c1] = select_cpu(c1, treeid, work_items[i].idx, seed, input.N);
+    //   }
+    // }
+
+    // CUDA_CHECK(cudaMemcpyAsync(colids, h_colids, sizeof(IdxT) * params.max_batch_size * input.N,
+    //                            cudaMemcpyHostToDevice, handle.get_stream()));
+    for (IdxT i = 0; i < IdxT(work_items.size()); i++) {
+      thrust::shuffle(thrust::cuda::par.on(handle.get_stream()), colids + i*input.N,
+                      colids + (i + 1) * input.N, rng_engine);
+    }
     // iterate through a batch of columns (to reduce the memory pressure) and
     // compute the best split at the end
     for (IdxT c = 0; c < input.nSampledCols; c += n_blks_for_cols) {
@@ -433,13 +459,7 @@ struct Builder {
     ML::PUSH_RANGE("computeSplitClassificationKernel @builder_base.cuh [batched-levelalgo]");
     ObjectiveT objective(input.numOutputs, params.min_impurity_decrease, params.min_samples_leaf);
 
-    for (IdxT i = 0; i < batchSize; i++) {
-      for (IdxT c1 = col; c1 < n_blks_for_cols; c1++) {
-        h_colids[i*n_blks_for_cols + c1] = select_cpu(c1, treeid, work_items[i].idx, seed, input.N);
-      }
-    }
-    CUDA_CHECK(cudaMemcpyAsync(colids, h_colids, sizeof(IdxT) * batchSize * n_blks_for_cols,
-                               cudaMemcpyHostToDevice, handle.get_stream()));
+
     computeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, handle.get_stream()>>>(hist,
                                                              params.n_bins,
