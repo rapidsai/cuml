@@ -17,6 +17,7 @@
 
 #include <raft/cudart_utils.h>
 #include <cuml/common/logger.hpp>
+#include <raft/linalg/eltwise.cuh>
 #include "barnes_hut_kernels.cuh"
 #include "utils.cuh"
 
@@ -120,9 +121,9 @@ value_t Barnes_Hut(value_t* VAL,
     raft::copy(YY.data() + nnodes + 1, Y + n, n, stream);
   }
 
-  rmm::device_uvector<value_t> Qs(NNZ, stream);
-  rmm::device_uvector<value_t> Qs_norm(n, stream);
-  rmm::device_uvector<value_t> kl_divergences(n, stream);
+  rmm::device_uvector<value_t> tmp(NNZ, stream);
+  value_t* Qs      = tmp.data();
+  value_t* KL_divs = tmp.data();
 
   // Set cache levels for faster algorithm execution
   //---------------------------------------------------
@@ -263,18 +264,12 @@ value_t Barnes_Hut(value_t* VAL,
     START_TIMER;
     BH::Find_Normalization<<<1, 1, 0, stream>>>(Z_norm.data(), n);
     CUDA_CHECK(cudaPeekAtLastError());
-
     END_TIMER(Reduction_time);
 
     START_TIMER;
     // TODO: Calculate Kullback-Leibler divergence
     // For general embedding dimensions
     bool last_iter = iter == params.max_iter - 1;
-    if (last_iter) {
-      CUDA_CHECK(cudaMemsetAsync(Qs_norm.data(), 0, Qs_norm.size() * sizeof(value_t), stream));
-      CUDA_CHECK(
-        cudaMemsetAsync(kl_divergences.data(), 0, kl_divergences.size() * sizeof(value_t), stream));
-    }
 
     BH::attractive_kernel_bh<<<raft::ceildiv(NNZ, (value_idx)1024), 1024, 0, stream>>>(
       VAL,
@@ -284,15 +279,15 @@ value_t Barnes_Hut(value_t* VAL,
       YY.data() + nnodes + 1,
       attr_forces.data(),
       attr_forces.data() + n,
-      last_iter ? Qs.data() : nullptr,
-      last_iter ? Qs_norm.data() : nullptr,
+      last_iter ? Qs : nullptr,
       NNZ);
     CUDA_CHECK(cudaPeekAtLastError());
     END_TIMER(attractive_time);
 
     if (last_iter) {
+      raft::linalg::scalarMultiply(Qs, Qs, Z_norm.value(stream), NNZ, stream);
       compute_kl_div<<<raft::ceildiv(NNZ, (value_idx)1024), 1024, 0, stream>>>(
-        VAL, ROW, Qs.data(), Qs_norm.data(), kl_divergences.data(), NNZ);
+        VAL, Qs, KL_divs, NNZ);
       CUDA_CHECK(cudaPeekAtLastError());
     }
 
@@ -322,8 +317,7 @@ value_t Barnes_Hut(value_t* VAL,
   raft::copy(Y, YY.data(), n, stream);
   raft::copy(Y + n, YY.data() + nnodes + 1, n, stream);
 
-  value_t kl_div =
-    thrust::reduce(handle.get_thrust_policy(), kl_divergences.begin(), kl_divergences.end());
+  value_t kl_div = thrust::reduce(handle.get_thrust_policy(), KL_divs, KL_divs + NNZ);
   return kl_div;
 }
 

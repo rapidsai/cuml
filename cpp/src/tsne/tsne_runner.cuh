@@ -135,14 +135,6 @@ class TSNE_runner {
 
     START_TIMER;
     //---------------------------------------------------
-    // Normalize distances
-    CUML_LOG_DEBUG("Now normalizing distances so exp(D) doesn't explode.");
-    TSNE::normalize_distances(n, k_graph.knn_dists, params.n_neighbors, stream);
-    //---------------------------------------------------
-    END_TIMER(NormalizeTime);
-
-    START_TIMER;
-    //---------------------------------------------------
     // Optimal perplexity
     CUML_LOG_DEBUG("Searching for optimal perplexity via bisection search.");
     rmm::device_uvector<value_t> P(n * params.n_neighbors, stream);
@@ -157,6 +149,14 @@ class TSNE_runner {
 
     //---------------------------------------------------
     END_TIMER(PerplexityTime);
+
+    START_TIMER;
+    //---------------------------------------------------
+    // Normalize perplexity to prepare for symmetrization
+    value_t P_sum = thrust::reduce(rmm::exec_policy(stream), P.begin(), P.end());
+    raft::linalg::scalarMultiply(P.data(), P.data(), 1.0f / (2.0f * P_sum), P.size(), stream);
+    //---------------------------------------------------
+    END_TIMER(NormalizeTime);
 
     START_TIMER;
     //---------------------------------------------------

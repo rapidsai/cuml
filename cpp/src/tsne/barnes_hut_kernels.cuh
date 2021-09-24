@@ -682,7 +682,6 @@ __global__ void attractive_kernel_bh(const value_t* restrict VAL,
                                      value_t* restrict attract1,
                                      value_t* restrict attract2,
                                      value_t* restrict Qs,
-                                     value_t* restrict Qs_norm,
                                      const value_idx NNZ)
 {
   const auto index = (blockIdx.x * blockDim.x) + threadIdx.x;
@@ -696,16 +695,16 @@ __global__ void attractive_kernel_bh(const value_t* restrict VAL,
   // As a sum of squares, SED is mathematically >= 0. There might be a source of
   // NaNs upstream though, so until we find and fix them, enforce that trait.
   if (!(squared_euclidean_dist >= 0)) squared_euclidean_dist = 0.0f;
-  const value_t PQ = __fdividef(VAL[index], squared_euclidean_dist + 1.0f);
+  const value_t dof = 1.0f;
+  const value_t PQ  = __fdividef(VAL[index], squared_euclidean_dist + dof);
 
   // Apply forces
-  atomicAdd(&attract1[i], PQ * (Y1[i] - Y1[j]));
-  atomicAdd(&attract2[i], PQ * (Y2[i] - Y2[j]));
+  atomicAdd(&attract1[i], PQ * y1d);
+  atomicAdd(&attract2[i], PQ * y2d);
 
-  if (Qs) {  // check if Kl div calculation is necessary
-    const value_t Q_unnormalized = __expf(-squared_euclidean_dist);
-    Qs[index]                    = Q_unnormalized;
-    atomicAdd(&Qs_norm[i], Q_unnormalized);
+  if (Qs) {  // when computing KL div
+    value_t Q_unnormalized = __fdividef(dof, dof + squared_euclidean_dist);
+    Qs[index]              = Q_unnormalized;
   }
 
   // TODO: Convert attractive forces to CSR format

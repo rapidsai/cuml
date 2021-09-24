@@ -308,7 +308,6 @@ __global__ void compute_repulsive_forces_kernel(
 template <typename value_idx, typename value_t>
 __global__ void compute_Pij_x_Qij_kernel(value_t* __restrict__ attr_forces,
                                          value_t* __restrict__ Qs,
-                                         value_t* __restrict__ Qs_norm,
                                          const value_t* __restrict__ pij,
                                          const value_idx* __restrict__ coo_rows,
                                          const value_idx* __restrict__ coo_cols,
@@ -330,14 +329,13 @@ __global__ void compute_Pij_x_Qij_kernel(value_t* __restrict__ attr_forces,
   value_t dy = iy - jy;
 
   const value_t squared_euclidean_dist = (dx * dx) + (dy * dy);
-  const value_t PQ                     = __fdividef(pij[TID], 1 + squared_euclidean_dist);
+  const value_t Q_unnormalized         = 1 + squared_euclidean_dist;
+  const value_t PQ                     = __fdividef(pij[TID], Q_unnormalized);
   atomicAdd(attr_forces + i, PQ * dx);
   atomicAdd(attr_forces + num_points + i, PQ * dy);
 
-  if (Qs) {  // check if Kl div calculation is necessary
-    const value_t Q_unnormalized = __expf(-squared_euclidean_dist);
-    Qs[TID]                      = Q_unnormalized;
-    atomicAdd(&Qs_norm[i], Q_unnormalized);
+  if (Qs) {  // when computing KL div
+    Qs[TID] = Q_unnormalized;
   }
 }
 
