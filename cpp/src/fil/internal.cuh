@@ -400,7 +400,6 @@ struct cat_sets_owner {
 
   categorical_sets accessor() const
   {
-    ASSERT(max_matching.size() > 0, "accessor on empty max_matching");
     return {
       .bits              = bits.data(),
       .max_matching      = max_matching.data(),
