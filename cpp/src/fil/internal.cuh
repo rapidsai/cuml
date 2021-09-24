@@ -313,11 +313,6 @@ __host__ __device__ __forceinline__ int fetch_bit(const uint8_t* array, int bit)
   return (array[bit / BITS_PER_BYTE] >> (bit % BITS_PER_BYTE)) & 1;
 }
 
-struct cat_feature_counters {
-  int max_matching = -1;
-  int n_nodes      = 0;
-};
-
 struct categorical_sets {
   // arrays are const to use fast GPU read instructions by default
   // arrays from each node ID are concatenated first, then from all categories
@@ -384,6 +379,13 @@ struct tree_base {
   }
 };
 
+// -1 means no matching categories
+struct cat_feature_counters {
+  int max_matching = -1;
+  int n_nodes      = 0;
+};
+
+// used only during model import. For inference, trimmed down using cat_sets_owner::accessor()
 // in internal.cuh, as opposed to fil_test.cu, because importing from treelite will require it
 struct cat_sets_owner {
   // arrays from each node ID are concatenated first, then from all categories
@@ -394,10 +396,11 @@ struct cat_sets_owner {
   // how many categorical nodes use a given feature id. Used for model shape string.
   std::vector<std::size_t> n_nodes;
   // per tree, size and offset of bit pool within the overall bit pool
-  std::vector<std::size_t> bit_pool_sizes, bit_pool_offsets;
+  std::vector<std::size_t> bit_pool_offsets;
 
   categorical_sets accessor() const
   {
+    ASSERT(max_matching.size() > 0, "accessor on empty max_matching");
     return {
       .bits              = bits.data(),
       .max_matching      = max_matching.data(),
@@ -406,11 +409,19 @@ struct cat_sets_owner {
     };
   }
 
-  void initialize_from_bit_pool_sizes()
+  void consume_counters(const std::vector<cat_feature_counters>& counters)
   {
-    bit_pool_offsets[0] = 0;
-    for (std::size_t i = 1; i < bit_pool_sizes.size(); ++i) {
-      bit_pool_offsets[i] = bit_pool_offsets[i - 1] + bit_pool_sizes[i - 1];
+    for (cat_feature_counters cf : counters) {
+      max_matching.push_back(cf.max_matching);
+      n_nodes.push_back(cf.n_nodes);
+    }
+  }
+
+  void consume_bit_pool_sizes(const std::vector<std::size_t>& bit_pool_sizes)
+  {
+    bit_pool_offsets.push_back(0);
+    for (std::size_t i = 0; i < bit_pool_sizes.size() - 1; ++i) {
+      bit_pool_offsets.push_back(bit_pool_offsets.back() + bit_pool_sizes[i]);
     }
     bits.resize(bit_pool_offsets.back() + bit_pool_sizes.back());
   }
@@ -418,16 +429,6 @@ struct cat_sets_owner {
   cat_sets_owner() {}
   cat_sets_owner(std::vector<uint8_t> bits_, std::vector<int> max_matching_)
     : bits(bits_), max_matching(max_matching_)
-  {
-  }
-
-  // accepting int because GPU code only allows max<int> features
-  cat_sets_owner(int num_features, std::size_t num_trees)
-    : bits(0),
-      max_matching(num_features, -1),
-      n_nodes(num_features, 0),
-      bit_pool_offsets(num_trees),
-      bit_pool_sizes(num_trees)
   {
   }
 };

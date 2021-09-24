@@ -499,8 +499,9 @@ def to_categorical(features, n_categorical):
     cat_cols = features[:, :n_categorical]
     cat_cols = cat_cols - cat_cols.min(axis=1, keepdims=True)  # range [0, ?]
     cat_cols /= cat_cols.max(axis=1, keepdims=True)  # range [0, 1]
+    rough_n_categories = 100
     # round into rough_n_categories bins
-    cat_cols = (cat_cols * 100).astype(int)
+    cat_cols = (cat_cols * rough_n_categories).astype(int)
     for icol in range(n_categorical):
         col = cat_cols[:, icol]
         df_cols[icol] = pd.Series(pd.Categorical(col,

@@ -293,10 +293,10 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     // uniformily distributed in orders of magnitude: smaller models which
     // still stress large bitfields.
     // up to 10**ps.max_magnitude_of_matching_cat (only if feature is categorical, else -1)
-    cat_sets_h = cat_sets_owner(ps.num_cols, ps.num_trees);
     std::mt19937 gen(ps.seed);
     std::uniform_real_distribution mmc(-1.0f, ps.max_magnitude_of_matching_cat);
     std::bernoulli_distribution fc(ps.feature_categorical_prob);
+    cat_sets_h.max_matching.resize(ps.num_cols);
     for (int fid = 0; fid < ps.num_cols; ++fid) {
       feature_categorical[fid] = fc(gen);
       if (feature_categorical[fid]) {
@@ -330,6 +330,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
     // count nodes for each feature id, while splitting the sets between nodes
     std::size_t bit_pool_size = 0;
+    cat_sets_h.n_nodes        = std::vector<size_t>(ps.num_cols, 0);
     for (std::size_t node_id = 0; node_id < num_nodes; ++node_id) {
       int fid = fids_h[node_id];
 

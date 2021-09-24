@@ -604,13 +604,24 @@ int max_depth(const tl::ModelImpl<T, L>& model)
   return depth;
 }
 
-// constructs a vector of size n_cols (number of features, or columns) from a Treelite tree,
-// where each feature has a maximum matching category. -1 means no matching categories for this fid
-// in this tree (may be present in other trees of the forest)
-template <typename T, typename L>
-inline std::vector<int> max_matching_cat(const tl::Tree<T, L>& tree, int n_cols)
+cat_feature_counters reduce_two_feature_counters(cat_feature_counters a, cat_feature_counters b)
 {
-  std::vector<int> res(n_cols);
+  return {.max_matching = std::max(a.max_matching, b.max_matching),
+          .n_nodes      = a.n_nodes + b.n_nodes};
+}
+
+void eltwise_reduce_two_feature_counter_vectors(std::vector<cat_feature_counters>& dst,
+                                                const std::vector<cat_feature_counters>& extra)
+{
+  std::transform(dst.begin(), dst.end(), extra.begin(), dst.begin(), reduce_two_feature_counters);
+}
+
+// constructs a vector of size n_cols (number of features, or columns) from a Treelite tree,
+// where each feature has a maximum matching category and node count (from this tree alone).
+template <typename T, typename L>
+inline std::vector<cat_feature_counters> cf_vec(const tl::Tree<T, L>& tree, int n_cols)
+{
+  std::vector<cat_feature_counters> res(n_cols);
   std::stack<int> stack;
   stack.push(tree_root(tree));
   while (!stack.empty()) {
@@ -632,8 +643,8 @@ inline std::vector<int> max_matching_cat(const tl::Tree<T, L>& tree, int n_cols)
         } else {
           max_matching_cat = -1;
         }
-        int& max_matching_res = res[tree.SplitIndex(node_id)];
-        max_matching_res      = std::max(max_matching_res, max_matching_cat);
+        cat_feature_counters& counters = res[tree.SplitIndex(node_id)];
+        counters = reduce_two_feature_counters(counters, {max_matching_cat, 1});
       }
       stack.push(tree.LeftChild(node_id));
       node_id = tree.RightChild(node_id);
@@ -645,7 +656,7 @@ inline std::vector<int> max_matching_cat(const tl::Tree<T, L>& tree, int n_cols)
 // fills cat_sets.n_nodes[] (size number of features, or columns) from a Treelite tree,
 // where each feature has a number of categorical nodes
 template <typename T, typename L>
-inline std::size_t bit_pool_size(const tl::Tree<T, L>& tree, cat_sets_owner& cat_sets)
+inline std::size_t bit_pool_size(const tl::Tree<T, L>& tree, const categorical_sets& cat_sets)
 {
   std::size_t size = 0;
   std::stack<int> stack;
@@ -656,8 +667,7 @@ inline std::size_t bit_pool_size(const tl::Tree<T, L>& tree, cat_sets_owner& cat
     while (!tree.IsLeaf(node_id)) {
       if (tree.SplitType(node_id) == tl::SplitFeatureType::kCategorical) {
         int fid = tree.SplitIndex(node_id);
-        size += cat_sets.accessor().sizeof_mask(fid);
-        ++cat_sets.n_nodes[fid];
+        size += cat_sets.sizeof_mask(fid);
       }
       stack.push(tree.LeftChild(node_id));
       node_id = tree.RightChild(node_id);
@@ -666,31 +676,26 @@ inline std::size_t bit_pool_size(const tl::Tree<T, L>& tree, cat_sets_owner& cat
   return size;
 }
 
-void vec_max(std::vector<int>& dst, const std::vector<int>& extra)
-{
-  std::transform(dst.begin(), dst.end(), extra.begin(), dst.begin(), [](int a, int b) {
-    return std::max(a, b);
-  });
-}
-
 template <typename T, typename L>
 cat_sets_owner allocate_cat_sets_owner(const tl::ModelImpl<T, L>& model)
 {
-#pragma omp declare reduction(vec_max_red : std::vector<int> \
-      : vec_max(omp_out, omp_in))                              \
+#pragma omp declare reduction(cf_vec_red : std::vector<cat_feature_counters> \
+      : eltwise_reduce_two_feature_counter_vectors(omp_out, omp_in))                 \
     initializer(omp_priv = omp_orig)
   const auto& trees = model.trees;
-  cat_sets_owner cat_sets(model.num_feature, trees.size());
-  std::vector<int>& max_matching = cat_sets.max_matching;
-#pragma omp parallel for reduction(vec_max_red : max_matching)
+  cat_sets_owner cat_sets;
+  std::vector<cat_feature_counters> counters(model.num_feature);
+#pragma omp parallel for reduction(cf_vec_red : counters)
   for (size_t i = 0; i < trees.size(); ++i) {
-    vec_max(max_matching, max_matching_cat(trees[i], model.num_feature));
+    eltwise_reduce_two_feature_counter_vectors(counters, cf_vec(trees[i], model.num_feature));
   }
+  cat_sets.consume_counters(counters);
+  std::vector<size_t> bit_pool_sizes(trees.size());
 #pragma omp parallel for
   for (size_t i = 0; i < trees.size(); ++i) {
-    cat_sets.bit_pool_sizes[i] = bit_pool_size(trees[i], cat_sets);
+    bit_pool_sizes[i] = bit_pool_size(trees[i], cat_sets.accessor());
   }
-  cat_sets.initialize_from_bit_pool_sizes();
+  cat_sets.consume_bit_pool_sizes(bit_pool_sizes);
   return cat_sets;
 }
 
