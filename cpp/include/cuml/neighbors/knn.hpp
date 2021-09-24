@@ -62,8 +62,7 @@ void brute_force_knn(const raft::handle_t& handle,
                      float metric_arg                    = 2.0f);
 
 void rbc_build_index(const raft::handle_t& handle,
-                     raft::spatial::knn::BallCoverIndex<int64_t, float, int>& index,
-                     int k);
+                     raft::spatial::knn::BallCoverIndex<int64_t, float, int>& index);
 
 void rbc_knn_query(const raft::handle_t& handle,
                    raft::spatial::knn::BallCoverIndex<int64_t, float, int>& index,
