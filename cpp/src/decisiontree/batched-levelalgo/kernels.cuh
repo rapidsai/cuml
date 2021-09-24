@@ -198,92 +198,6 @@ HDI uint32_t fnv1a32(uint32_t hash, uint32_t txt)
 }
 
 /**
- * @brief For a given values of (treeid, nodeid, seed), this function generates
- *        a unique permutation of [0, N - 1] values and returns 'k'th entry in
- *        from the permutation.
- * @return The 'k'th value from the permutation
- * @note This function does not allocated any temporary buffer, all the
- *       necessary values are recomputed.
- */
-template <typename IdxT>
-DI IdxT select(IdxT k, IdxT treeid, uint32_t nodeid, uint64_t seed, IdxT N)
-{
-  __shared__ int blksum;
-  uint32_t pivot_hash;
-  int cnt = 0;
-
-  if (threadIdx.x == 0) { blksum = 0; }
-  // Compute hash for the 'k'th index and use it as pivote for sorting
-  pivot_hash = fnv1a32_basis;
-  pivot_hash = fnv1a32(pivot_hash, uint32_t(k));
-  pivot_hash = fnv1a32(pivot_hash, uint32_t(treeid));
-  pivot_hash = fnv1a32(pivot_hash, uint32_t(nodeid));
-  pivot_hash = fnv1a32(pivot_hash, uint32_t(seed >> 32));
-  pivot_hash = fnv1a32(pivot_hash, uint32_t(seed));
-
-  // Compute hash for rest of the indices and count instances where i_hash is
-  // less than pivot_hash
-  uint32_t i_hash;
-  for (int i = threadIdx.x; i < N; i += blockDim.x) {
-    if (i == k) continue;  // Skip since k is the pivote index
-    i_hash = fnv1a32_basis;
-    i_hash = fnv1a32(i_hash, uint32_t(i));
-    i_hash = fnv1a32(i_hash, uint32_t(treeid));
-    i_hash = fnv1a32(i_hash, uint32_t(nodeid));
-    i_hash = fnv1a32(i_hash, uint32_t(seed >> 32));
-    i_hash = fnv1a32(i_hash, uint32_t(seed));
-
-    if (i_hash < pivot_hash)
-      cnt++;
-    else if (i_hash == pivot_hash && i < k)
-      cnt++;
-  }
-  __syncthreads();
-  if (cnt > 0) atomicAdd(&blksum, cnt);
-  __syncthreads();
-  return blksum;
-}
-
-template <typename IdxT>
-IdxT select_cpu(IdxT k, IdxT treeid, uint32_t nodeid, uint64_t seed, IdxT N)
-{
-  int blksum;
-  uint32_t pivot_hash;
-  int cnt = 0;
-
-  blksum = 0;
-  // Compute hash for the 'k'th index and use it as pivote for sorting
-  pivot_hash = fnv1a32_basis;
-  pivot_hash = fnv1a32(pivot_hash, uint32_t(k));
-  pivot_hash = fnv1a32(pivot_hash, uint32_t(treeid));
-  pivot_hash = fnv1a32(pivot_hash, uint32_t(nodeid));
-  pivot_hash = fnv1a32(pivot_hash, uint32_t(seed >> 32));
-  pivot_hash = fnv1a32(pivot_hash, uint32_t(seed));
-
-  // Compute hash for rest of the indices and count instances where i_hash is
-  // less than pivot_hash
-  uint32_t i_hash;
-  for (int i = 0; i < N; i ++) {
-    if (i == k) continue;  // Skip since k is the pivote index
-    i_hash = fnv1a32_basis;
-    i_hash = fnv1a32(i_hash, uint32_t(i));
-    i_hash = fnv1a32(i_hash, uint32_t(treeid));
-    i_hash = fnv1a32(i_hash, uint32_t(nodeid));
-    i_hash = fnv1a32(i_hash, uint32_t(seed >> 32));
-    i_hash = fnv1a32(i_hash, uint32_t(seed));
-
-    if (i_hash < pivot_hash)
-      cnt++;
-    else if (i_hash == pivot_hash && i < k)
-      cnt++;
-  }
-
-  if (cnt > 0) 
-    blksum += cnt;
-
-  return blksum;
-}
-/**
  * @brief For every block, converts the smem pdf-histogram to
  *        cdf-histogram inplace using inclusive block-sum-scan and returns
  *        the total_sum
@@ -379,7 +293,7 @@ __global__ void computeSplitKernel(BinT* hist,
     col = colStart + blockIdx.y;
   } else {
     int colIndex = colStart + blockIdx.y;
-    col          = colids[nid * input.N + colStart + blockIdx.y];
+    col          = colids[nid * input.N + colIndex];
   }
 
   // populating shared memory with initial values
