@@ -183,12 +183,7 @@ void adjust_threshold_to_treelite(
   // the meaning of the condition is reversed compared to FIL;
   // thus, "<" in treelite corresonds to comparison ">=" used by FIL
   // https://github.com/dmlc/treelite/blob/master/include/treelite/tree.h#L243
-  // TODO(levsnv): remove workaround once confirmed to work with empty category lists in Treelite
-  if (isnan(*pthreshold)) {
-    std::swap(*tl_left, *tl_right);
-    *default_left = !*default_left;
-    return;
-  }
+  // threshold is never generated as NAN
   switch (comparison_op) {
     case tl::Operator::kLT: break;
     case tl::Operator::kLE:
@@ -792,23 +787,12 @@ class TreeliteFilTest : public BaseFilTest {
       }
       int left_key  = node_to_treelite(builder, pkey, root, left);
       int right_key = node_to_treelite(builder, pkey, root, right);
-      // TODO(levsnv): remove workaround once confirmed to work with empty category lists in
-      // Treelite
-      if (!left_categories.empty() && dense_node.is_categorical()) {
-        // Treelite builder APIs don't allow to set categorical_split_right_child
-        // (which child the categories pertain to). Only the Tree API allows that.
-        // in FIL, categories always pertain to the right child, and the default in treelite
-        // is left categories in SetCategoricalTestNode
+      if (dense_node.is_categorical()) {
         std::swap(left_key, right_key);
         default_left = !default_left;
         builder->SetCategoricalTestNode(
           key, dense_node.fid(), left_categories, default_left, left_key, right_key);
       } else {
-        if (dense_node.is_categorical()) {
-          // TODO(levsnv): remove workaround once confirmed to work with empty category lists in
-          // Treelite
-          threshold = NAN;
-        }
         adjust_threshold_to_treelite(&threshold, &left_key, &right_key, &default_left, ps.op);
         builder->SetNumericalTestNode(key,
                                       dense_node.fid(),
