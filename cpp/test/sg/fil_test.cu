@@ -780,15 +780,20 @@ class TreeliteFilTest : public BaseFilTest {
       if (dense_node.is_categorical()) {
         uint8_t byte = 0;
         for (int category = 0; category <= cat_sets_h.max_matching[dense_node.fid()]; ++category) {
-          if (category % 8 == 0) { byte = cat_sets_h.bits[dense_node.set() + category / 8]; }
-          if ((byte & (1 << (category % 8))) != 0) { left_categories.push_back(category); }
+          if (category % BITS_PER_BYTE == 0) {
+            byte = cat_sets_h.bits[dense_node.set() + category / BITS_PER_BYTE];
+          }
+          if ((byte & (1 << (category % BITS_PER_BYTE))) != 0) {
+            left_categories.push_back(category);
+          }
         }
       } else {
         threshold = dense_node.thresh();
       }
       int left_key  = node_to_treelite(builder, pkey, root, left);
       int right_key = node_to_treelite(builder, pkey, root, right);
-      // TODO(levsnv): remove workaround once confirmed to work with empty category lists in Treelite
+      // TODO(levsnv): remove workaround once confirmed to work with empty category lists in
+      // Treelite
       if (!left_categories.empty() && dense_node.is_categorical()) {
         // Treelite builder APIs don't allow to set categorical_split_right_child
         // (which child the categories pertain to). Only the Tree API allows that.
@@ -800,7 +805,8 @@ class TreeliteFilTest : public BaseFilTest {
           key, dense_node.fid(), left_categories, default_left, left_key, right_key);
       } else {
         if (dense_node.is_categorical()) {
-          // TODO(levsnv): remove workaround once confirmed to work with empty category lists in Treelite
+          // TODO(levsnv): remove workaround once confirmed to work with empty category lists in
+          // Treelite
           threshold = NAN;
         }
         adjust_threshold_to_treelite(&threshold, &left_key, &right_key, &default_left, ps.op);
