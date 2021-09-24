@@ -100,7 +100,7 @@ class GiniObjectiveFunction {
 
   HDI DataT GainPerSplit(BinT* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft)
   {
-    auto nRight         = len - nLeft;
+    IdxT nRight         = len - nLeft;
     constexpr DataT One = DataT(1.0);
     auto invlen         = One / len;
     auto invLeft        = One / nLeft;
@@ -175,7 +175,7 @@ class EntropyObjectiveFunction {
 
   HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft)
   {
-    auto nRight{len - nLeft};
+    IdxT nRight{len - nLeft};
     auto gain{DataT(0.0)};
     // if there aren't enough samples in this split, don't bother!
     if (nLeft < min_samples_leaf || nRight < min_samples_leaf) {
@@ -280,7 +280,7 @@ class MSEObjectiveFunction : public TweedieObjectiveFunction<DataT_, LabelT_, Id
   HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft) const
   {
     auto gain{DataT(0)};
-    auto nRight{len - nLeft};
+    IdxT nRight{len - nLeft};
     auto invLen{DataT(1.0) / len};
     // if there aren't enough samples in this split, don't bother!
     if (nLeft < this->min_samples_leaf || nRight < this->min_samples_leaf) {
@@ -292,7 +292,7 @@ class MSEObjectiveFunction : public TweedieObjectiveFunction<DataT_, LabelT_, Id
       DataT right_label_sum = hist[i].label_sum - label_sum;
       DataT right_obj       = -(right_label_sum * right_label_sum) / nRight;
       gain                  = parent_obj - (left_obj + right_obj);
-      gain *= invLen;
+      gain *= 0.5 * invLen;
 
       return gain;
     }
@@ -340,7 +340,7 @@ class PoissonObjectiveFunction : public TweedieObjectiveFunction<DataT_, LabelT_
   HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft) const
   {
     // get the lens'
-    auto nRight = len - nLeft;
+    IdxT nRight = len - nLeft;
 
     // if there aren't enough samples in this split, don't bother!
     if (nLeft < this->min_samples_leaf || nRight < this->min_samples_leaf)
@@ -392,6 +392,7 @@ class GammaObjectiveFunction : public TweedieObjectiveFunction<DataT_, LabelT_, 
 
   HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft) const
   {
+    IdxT nRight = len - nLeft;
     // if there aren't enough samples in this split, don't bother!
     if (nLeft < this->min_samples_leaf || nRight < this->min_samples_leaf)
       return -std::numeric_limits<DataT>::max();
@@ -443,7 +444,7 @@ class InverseGaussianObjectiveFunction : public TweedieObjectiveFunction<DataT_,
   HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft) const
   {
     // get the lens'
-    auto nRight = len - nLeft;
+    IdxT nRight = len - nLeft;
 
     // if there aren't enough samples in this split, don't bother!
     if (nLeft < this->min_samples_leaf || nRight < this->min_samples_leaf)
@@ -462,7 +463,7 @@ class InverseGaussianObjectiveFunction : public TweedieObjectiveFunction<DataT_,
     DataT left_obj   = -DataT(nLeft) * DataT(nLeft) / left_label_sum;
     DataT right_obj  = -DataT(nRight) * DataT(nRight) / right_label_sum;
     auto gain        = parent_obj - (left_obj + right_obj);
-    gain             = gain / len;
+    gain             = gain / (2 * len );
 
     return gain;
   }

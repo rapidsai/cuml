@@ -346,8 +346,7 @@ class RfSpecialisedTest {
   void TestDeterminism()
   {
     // Regression models use floating point atomics, so are not bitwise reproducible
-    bool is_regression = params.split_criterion == MSE or params.split_criterion == MAE or
-                         params.split_criterion == POISSON;
+    bool is_regression = params.split_criterion != GINI and params.split_criterion != ENTROPY;
     if (is_regression) return;
 
     // Repeat training
@@ -452,8 +451,7 @@ class RfTest : public ::testing::TestWithParam<RfTestParams> {
   void SetUp() override
   {
     RfTestParams params = ::testing::TestWithParam<RfTestParams>::GetParam();
-    bool is_regression  = params.split_criterion == MSE or params.split_criterion == MAE or
-                         params.split_criterion == POISSON;
+    bool is_regression = params.split_criterion != GINI and params.split_criterion != ENTROPY;
     if (params.double_precision) {
       if (is_regression) {
         RfSpecialisedTest<double, double> test(params);
@@ -487,6 +485,8 @@ std::vector<int> min_samples_split       = {2, 10};
 std::vector<float> min_impurity_decrease = {0.0f, 1.0f, 10.0f};
 std::vector<int> n_streams               = {1, 2, 10};
 std::vector<CRITERION> split_criterion   = {
+  CRITERION::INVERSE_GAUSSIAN,
+  CRITERION::GAMMA,
   CRITERION::POISSON,
   CRITERION::MSE,
   CRITERION::GINI,
@@ -670,10 +670,7 @@ namespace DT {
 
 struct ObjectiveTestParameters {
   uint64_t seed;
-<<<<<<< HEAD
   int n_rows;
-=======
->>>>>>> d0aaafc51703cbe7efca995f495f7ab9731c9dd0
   int n_bins;
   int n_classes;
   int min_samples_leaf;
@@ -690,8 +687,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
   ObjectiveTestParameters params;
 
  public:
-<<<<<<< HEAD
-  auto RandUnder(int const end = 100000) { return rand() % end; }
+  auto RandUnder(int const end = 10000) { return rand() % end; }
 
   auto GenRandomData()
   {
@@ -699,41 +695,35 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     std::vector<DataT> data(params.n_rows);
     if constexpr (std::is_same<BinT, CountBin>::value)  // classification case
     {
-      for (auto& iter : data) {
-        iter = RandUnder(params.n_classes);
+      for (auto& d : data) {
+        d = RandUnder(params.n_classes);
       }
     } else {
       std::normal_distribution<DataT> normal(1.0, 2.0);
-      for (auto& iter : data) {
+      for (auto& d : data) {
         auto rand_element(DataT(0));
         while (1) {
           rand_element = normal(rng);
           if (rand_element > 0) break;  // only positive random numbers
         }
-        iter = rand_element;
+        d = rand_element;
       }
     }
     return data;
   }
 
   auto GenHist(std::vector<DataT> data)
-=======
-  auto RandUnder(int const end = 10000) { return rand() % end; }
-
-  auto GenHist()
->>>>>>> d0aaafc51703cbe7efca995f495f7ab9731c9dd0
   {
     std::vector<BinT> cdf_hist, pdf_hist;
 
     for (auto c = 0; c < params.n_classes; ++c) {
       for (auto b = 0; b < params.n_bins; ++b) {
-<<<<<<< HEAD
         IdxT bin_width  = raft::ceildiv(params.n_rows, params.n_bins);
         auto data_begin = data.begin() + b * bin_width;
         auto data_end   = data_begin + bin_width;
         if constexpr (std::is_same<BinT, CountBin>::value) {  // classification case
           auto count(IdxT(0));
-          std::for_each(data_begin, data_end, [&](auto d) {
+          std::for_each(data_begin, data_end, [&](auto d){
             if (d == c) ++count;
           });
           pdf_hist.emplace_back(count);
@@ -745,17 +735,6 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
 
         auto cumulative = b > 0 ? cdf_hist.back() : BinT();
         cdf_hist.emplace_back(pdf_hist.empty() ? BinT() : pdf_hist.back());
-=======
-        if constexpr (std::is_same<BinT, CountBin>::value)
-          pdf_hist.emplace_back(RandUnder());
-        else
-          pdf_hist.emplace_back(static_cast<LabelT>(RandUnder()), RandUnder());
-
-        auto cumulative = b > 0 ? cdf_hist.back() : BinT();
-
-        cdf_hist.emplace_back(pdf_hist.empty() ? BinT() : pdf_hist.back());
-
->>>>>>> d0aaafc51703cbe7efca995f495f7ab9731c9dd0
         cdf_hist.back() += cumulative;
       }
     }
@@ -763,7 +742,44 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     return std::make_pair(cdf_hist, pdf_hist);
   }
 
-<<<<<<< HEAD
+
+  auto MSE(
+    std::vector<DataT> const&
+      data)  //  1/n * 1/2 * sum((y - y_pred) * (y - y_pred))
+  {
+    DataT sum        = std::accumulate(data.begin(), data.end(), DataT(0));
+    DataT const mean = sum / data.size();
+    auto mse{DataT(0.0)};  // mse: mean squared error
+
+    std::for_each(data.begin(), data.end(), [&](auto d) {
+      mse += (d - mean) * (d - mean);  // unit deviance
+    });
+
+    mse /= 2 * data.size();
+    return std::make_tuple(mse, sum, DataT(data.size()));
+  }
+
+  auto MSEGroundTruthGain(std::vector<DataT> const& data, std::size_t split_bin_index)
+  {
+    auto bin_width = raft::ceildiv(params.n_rows, params.n_bins);
+    std::vector<DataT> left_data(data.begin(), data.begin() + (split_bin_index + 1) * bin_width);
+    std::vector<DataT> right_data(data.begin() + (split_bin_index + 1) * bin_width, data.end());
+
+    auto [parent_mse, label_sum, n]            = MSE(data);
+    auto [left_mse, label_sum_left, n_left]    = MSE(left_data);
+    auto [right_mse, label_sum_right, n_right] = MSE(right_data);
+
+    auto gain = parent_mse -
+                ((n_left / n) * left_mse +   // the minimizing objective function is half deviance
+                 (n_right / n) * right_mse);  // gain in long form without proxy
+
+    // edge cases
+    if (n_left < params.min_samples_leaf or n_right < params.min_samples_leaf)
+      return -std::numeric_limits<DataT>::max();
+    else
+      return gain;
+  }
+
   auto InverseGaussianHalfDeviance(
     std::vector<DataT> const&
       data)  //  1/n * 2 * sum((y - y_pred) * (y - y_pred)/(y * (y_pred) * (y_pred)))
@@ -776,7 +792,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
       ighd += (d - mean) * (d - mean) / (d * mean * mean);  // unit deviance
     });
 
-    ighd /= data.size();
+    ighd /= 2 * data.size();
     return std::make_tuple(ighd, sum, DataT(data.size()));
   }
 
@@ -868,35 +884,6 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     auto [parent_phd, label_sum, n]            = PoissonHalfDeviance(data);
     auto [left_phd, label_sum_left, n_left]    = PoissonHalfDeviance(left_data);
     auto [right_phd, label_sum_right, n_right] = PoissonHalfDeviance(right_data);
-=======
-  auto PoissonHalfDeviance(
-    std::vector<BinT> const& hist)  //  1/n * sum(y_true * log(y_true/y_pred) + y_pred - y_true)
-  {
-    BinT aggregate{BinT()};
-    aggregate = std::accumulate(hist.begin(), hist.end(), aggregate);
-    assert(aggregate.count > 0);
-    auto const y_mean = aggregate.label_sum / aggregate.count;
-    auto poisson_half_deviance{DataT(0.0)};
-
-    std::for_each(hist.begin(), hist.end(), [&](BinT const& h) {
-      auto log_y = raft::myLog(h.label_sum ? h.label_sum : DataT(1.0));  // we don't want nans
-      poisson_half_deviance += h.label_sum * (log_y - raft::myLog(y_mean)) + y_mean - h.label_sum;
-    });
-
-    poisson_half_deviance /= aggregate.count;
-    return std::make_tuple(
-      poisson_half_deviance, aggregate.label_sum, static_cast<DataT>(aggregate.count));
-  }
-
-  auto PoissonGroundTruthGain(std::vector<BinT> const& pdf_hist, std::size_t split_bin_index)
-  {
-    std::vector<BinT> left_pdf_hist{pdf_hist.begin(), pdf_hist.begin() + split_bin_index + 1};
-    std::vector<BinT> right_pdf_hist{pdf_hist.begin() + split_bin_index + 1, pdf_hist.end()};
-
-    auto [parent_phd, label_sum, n]            = PoissonHalfDeviance(pdf_hist);
-    auto [left_phd, label_sum_left, n_left]    = PoissonHalfDeviance(left_pdf_hist);
-    auto [right_phd, label_sum_right, n_right] = PoissonHalfDeviance(right_pdf_hist);
->>>>>>> d0aaafc51703cbe7efca995f495f7ab9731c9dd0
 
     auto gain = parent_phd - ((n_left / n) * left_phd +
                               (n_right / n) * right_phd);  // gain in long form without proxy
@@ -910,7 +897,43 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
       return gain;
   }
 
-<<<<<<< HEAD
+  auto Entropy(std::vector<DataT> const& data)
+  {  // sum((n_c/n_total)*(log(n_c/n_total)))
+    double entropy(0);
+    for (auto c = 0; c < params.n_classes; ++c) {
+      IdxT sum(0);
+      std::for_each(data.begin(), data.end(), [&](auto d) {
+        if (d == DataT(c)) ++sum;
+      });
+      double class_proba = double(sum) / data.size();
+      entropy += -class_proba * raft::myLog(class_proba ? class_proba : DataT(1)) / raft::myLog(DataT(2));  // adding gain
+    }
+    return entropy;
+  }
+
+  auto EntropyGroundTruthGain(std::vector<DataT> const& data, std::size_t const split_bin_index)
+  {
+    auto bin_width = raft::ceildiv(params.n_rows, params.n_bins);
+    std::vector<DataT> left_data(data.begin(), data.begin() + (split_bin_index + 1) * bin_width);
+    std::vector<DataT> right_data(data.begin() + (split_bin_index + 1) * bin_width, data.end());
+
+    auto parent_entropy = Entropy(data);
+    auto left_entropy   = Entropy(left_data);
+    auto right_entropy  = Entropy(right_data);
+    double n         = data.size();
+    double left_n    = left_data.size();
+    double right_n   = right_data.size();
+
+    auto gain = parent_entropy - ((left_n / n) * left_entropy + (right_n / n) * right_entropy);
+
+    // edge cases
+    if (left_n < params.min_samples_leaf or right_n < params.min_samples_leaf) {
+      return -std::numeric_limits<DataT>::max();
+    } else {
+      return gain;
+    }
+  }
+
   auto GiniImpurity(std::vector<DataT> const& data)
   {  // sum((n_c/n_total)(1-(n_c/n_total)))
     double gini(0);
@@ -937,39 +960,6 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     double n         = data.size();
     double left_n    = left_data.size();
     double right_n   = right_data.size();
-=======
-  auto GiniImpurity(std::vector<BinT> const& hist)
-  {  // sum((n_c/n_total)(1-(n_c/n_total)))
-    auto gini{double(0)};
-    auto n_bins      = hist.size() / params.n_classes;
-    auto n_instances = std::accumulate(hist.begin(), hist.end(), BinT()).x;  // total instances
-    for (auto c = 0; c < params.n_classes; ++c) {
-      auto begin_iter    = hist.begin() + c * n_bins;
-      auto end_iter      = hist.begin() + (c + 1) * n_bins;
-      double class_proba = std::accumulate(begin_iter, end_iter, BinT()).x;  // instances of class c
-      class_proba /= n_instances;               // probability of class c
-      gini += class_proba * (1 - class_proba);  // adding gain
-    }
-    return std::make_pair(gini, double(n_instances));
-  }
-
-  auto GiniGroundTruthGain(std::vector<BinT> const& pdf_hist, std::size_t const split_bin_index)
-  {
-    std::vector<BinT> left_pdf_hist, right_pdf_hist;
-
-    for (auto c = 0; c < params.n_classes; ++c) {  // decompose the pdf_hist
-      auto start = pdf_hist.begin() + c * params.n_bins;
-      auto split = pdf_hist.begin() + c * params.n_bins + split_bin_index + 1;
-      auto end   = pdf_hist.begin() + (c + 1) * params.n_bins;
-
-      left_pdf_hist.insert(left_pdf_hist.end(), start, split);
-      right_pdf_hist.insert(right_pdf_hist.end(), split, end);
-    }
-
-    auto [parent_gini, n]      = GiniImpurity(pdf_hist);
-    auto [left_gini, left_n]   = GiniImpurity(left_pdf_hist);
-    auto [right_gini, right_n] = GiniImpurity(right_pdf_hist);
->>>>>>> d0aaafc51703cbe7efca995f495f7ab9731c9dd0
 
     auto gain = parent_gini - ((left_n / n) * left_gini + (right_n / n) * right_gini);
 
@@ -981,37 +971,33 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     }
   }
 
-<<<<<<< HEAD
   auto GroundTruthGain(std::vector<DataT> const& data, std::size_t const split_bin_index)
-=======
-  auto GroundTruthGain(std::vector<BinT> const& pdf_hist, std::size_t const split_bin_index)
->>>>>>> d0aaafc51703cbe7efca995f495f7ab9731c9dd0
   {
     if constexpr (std::is_same<ObjectiveT,
+                               MSEObjectiveFunction<DataT, LabelT, IdxT>>::value)  // mean squared error
+    {
+      return MSEGroundTruthGain(data, split_bin_index);
+    } else if constexpr (std::is_same<ObjectiveT,
                                PoissonObjectiveFunction<DataT, LabelT, IdxT>>::value)  // poisson
     {
-<<<<<<< HEAD
       return PoissonGroundTruthGain(data, split_bin_index);
     } else if constexpr (std::is_same<ObjectiveT,
-                                      GammaObjectiveFunction<DataT, LabelT, IdxT>>::value)  // gini
+                                      GammaObjectiveFunction<DataT, LabelT, IdxT>>::value)  // gamma
     {
       return GammaGroundTruthGain(data, split_bin_index);
     } else if constexpr (std::is_same<
                            ObjectiveT,
-                           InverseGaussianObjectiveFunction<DataT, LabelT, IdxT>>::value)  // gini
+                           InverseGaussianObjectiveFunction<DataT, LabelT, IdxT>>::value)  // inverse gaussian
     {
       return InverseGaussianGroundTruthGain(data, split_bin_index);
+    } else if constexpr (std::is_same<ObjectiveT,
+                                      EntropyObjectiveFunction<DataT, LabelT, IdxT>>::value)  // entropy
+    {
+      return EntropyGroundTruthGain(data, split_bin_index);
     } else if constexpr (std::is_same<ObjectiveT,
                                       GiniObjectiveFunction<DataT, LabelT, IdxT>>::value)  // gini
     {
       return GiniGroundTruthGain(data, split_bin_index);
-=======
-      return PoissonGroundTruthGain(pdf_hist, split_bin_index);
-    } else if constexpr (std::is_same<ObjectiveT,
-                                      GiniObjectiveFunction<DataT, LabelT, IdxT>>::value)  // gini
-    {
-      return GiniGroundTruthGain(pdf_hist, split_bin_index);
->>>>>>> d0aaafc51703cbe7efca995f495f7ab9731c9dd0
     }
     return double(0.0);
   }
@@ -1037,17 +1023,10 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     params = ::testing::TestWithParam<ObjectiveTestParameters>::GetParam();
     ObjectiveT objective(params.n_classes, params.min_samples_leaf);
 
-<<<<<<< HEAD
     auto data                 = GenRandomData();
     auto [cdf_hist, pdf_hist] = GenHist(data);
     auto split_bin_index      = RandUnder(params.n_bins);
     auto ground_truth_gain    = GroundTruthGain(data, split_bin_index);
-=======
-    auto [cdf_hist, pdf_hist] = GenHist();
-
-    auto split_bin_index   = RandUnder(params.n_bins);
-    auto ground_truth_gain = GroundTruthGain(pdf_hist, split_bin_index);
->>>>>>> d0aaafc51703cbe7efca995f495f7ab9731c9dd0
 
     auto hypothesis_gain = objective.GainPerSplit(&cdf_hist[0],
                                                   split_bin_index,
@@ -1059,8 +1038,14 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
   }
 };
 
+const std::vector<ObjectiveTestParameters> mse_objective_test_parameters = {
+  {9507819643927052255LLU, 2048, 64, 1, 0, 0.00001},
+  {9507819643927052259LLU, 2048, 128, 1, 1, 0.00001},
+  {9507819643927052251LLU, 2048, 256, 1, 1, 0.00001},
+  {9507819643927052258LLU, 2048, 512, 1, 5, 0.00001},
+};
+
 const std::vector<ObjectiveTestParameters> poisson_objective_test_parameters = {
-<<<<<<< HEAD
   {9507819643927052255LLU, 2048, 64, 1, 0, 0.00001},
   {9507819643927052259LLU, 2048, 128, 1, 1, 0.00001},
   {9507819643927052251LLU, 2048, 256, 1, 1, 0.00001},
@@ -1081,32 +1066,32 @@ const std::vector<ObjectiveTestParameters> invgauss_objective_test_parameters = 
   {9507819643927052258LLU, 2048, 512, 1, 5, 0.00001},
 };
 
+const std::vector<ObjectiveTestParameters> entropy_objective_test_parameters = {
+  {9507819643927052255LLU, 2048, 64, 2, 0, 0.00001},
+  {9507819643927052256LLU, 2048, 128, 10, 1, 0.00001},
+  {9507819643927052257LLU, 2048, 256, 100, 1, 0.00001},
+  {9507819643927052258LLU, 2048, 512, 100, 5, 0.00001},
+};
+
 const std::vector<ObjectiveTestParameters> gini_objective_test_parameters = {
   {9507819643927052255LLU, 2048, 64, 2, 0, 0.00001},
   {9507819643927052256LLU, 2048, 128, 10, 1, 0.00001},
   {9507819643927052257LLU, 2048, 256, 100, 1, 0.00001},
   {9507819643927052258LLU, 2048, 512, 100, 5, 0.00001},
-=======
-  {9507819643927052255LLU, 64, 1, 0, 0.00001},
-  {9507819643927052259LLU, 128, 1, 1, 0.00001},
-  {9507819643927052251LLU, 256, 1, 1, 0.00001},
-  {9507819643927052258LLU, 512, 1, 5, 0.00001},
-};
-const std::vector<ObjectiveTestParameters> gini_objective_test_parameters = {
-  {9507819643927052255LLU, 64, 2, 0, 0.00001},
-  {9507819643927052256LLU, 128, 10, 1, 0.00001},
-  {9507819643927052257LLU, 256, 100, 1, 0.00001},
-  {9507819643927052258LLU, 512, 100, 5, 0.00001},
->>>>>>> d0aaafc51703cbe7efca995f495f7ab9731c9dd0
 };
 
+// mse objective test
+typedef ObjectiveTest<MSEObjectiveFunction<double, double, int>> MSEObjectiveTestD;
+TEST_P(MSEObjectiveTestD, MSEObjectiveTest) {}
+INSTANTIATE_TEST_CASE_P(RfTests,
+                        MSEObjectiveTestD,
+                        ::testing::ValuesIn(mse_objective_test_parameters));
 // poisson objective test
 typedef ObjectiveTest<PoissonObjectiveFunction<double, double, int>> PoissonObjectiveTestD;
 TEST_P(PoissonObjectiveTestD, poissonObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         PoissonObjectiveTestD,
                         ::testing::ValuesIn(poisson_objective_test_parameters));
-<<<<<<< HEAD
 // gamma objective test
 typedef ObjectiveTest<GammaObjectiveFunction<double, double, int>> GammaObjectiveTestD;
 TEST_P(GammaObjectiveTestD, GammaObjectiveTest) {}
@@ -1120,8 +1105,13 @@ TEST_P(InverseGaussianObjectiveTestD, InverseGaussianObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         InverseGaussianObjectiveTestD,
                         ::testing::ValuesIn(invgauss_objective_test_parameters));
-=======
->>>>>>> d0aaafc51703cbe7efca995f495f7ab9731c9dd0
+
+// entropy objective test
+typedef ObjectiveTest<EntropyObjectiveFunction<double, int, int>> EntropyObjectiveTestD;
+TEST_P(EntropyObjectiveTestD, entropyObjectiveTest) {}
+INSTANTIATE_TEST_CASE_P(RfTests,
+                        EntropyObjectiveTestD,
+                        ::testing::ValuesIn(entropy_objective_test_parameters));
 
 // gini objective test
 typedef ObjectiveTest<GiniObjectiveFunction<double, int, int>> GiniObjectiveTestD;
