@@ -309,7 +309,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
         ASSERT(mm < INT_MAX,
                "internal error: max_magnitude_of_matching_cat %f is too large",
                ps.max_magnitude_of_matching_cat);
-        cat_sets_h.max_matching[fid] = (int)mm;
+        cat_sets_h.max_matching[fid] = mm;
       } else {
         cat_sets_h.max_matching[fid] = -1;
       }
@@ -342,7 +342,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
       if (is_categoricals_h[node_id] == 1.0) {
         // might allocate a categorical set for an unreachable inner node. That's OK.
-        cat_sets_h.n_nodes[fid]++;
+        ++cat_sets_h.n_nodes[fid];
         node_cat_set[node_id] = bit_pool_size;
         bit_pool_size += cat_sets_h.accessor().sizeof_mask(fid);
       }
@@ -779,8 +779,8 @@ class TreeliteFilTest : public BaseFilTest {
       if (dense_node.is_categorical()) {
         uint8_t byte = 0;
         for (int category = 0; category <= cat_sets_h.max_matching[dense_node.fid()]; ++category) {
-          if (category % 8 == 0) byte = cat_sets_h.bits[dense_node.set() + category / 8];
-          if ((byte & 1 << category % 8) != 0) left_categories.push_back(category);
+          if (category % 8 == 0) { byte = cat_sets_h.bits[dense_node.set() + category / 8]; }
+          if ((byte & (1 << (category % 8))) != 0) { left_categories.push_back(category); }
         }
       } else {
         threshold = dense_node.thresh();

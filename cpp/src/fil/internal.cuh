@@ -371,7 +371,7 @@ struct tree_base {
     if (isnan(val)) {
       cond = !node.def_left();
     } else if (CATS_SUPPORTED && node.is_categorical()) {
-      cond = cat_sets.category_matches(node, (int)val);
+      cond = cat_sets.category_matches(node, static_cast<int>(val));
     } else {
       cond = val >= node.thresh();
     }
@@ -400,6 +400,8 @@ struct cat_sets_owner {
 
   categorical_sets accessor() const
   {
+    ASSERT(bits.size() < INT_MAX,
+           "too many categories/categorical nodes: cannot store bits offset in node");
     return {
       .bits              = bits.data(),
       .max_matching      = max_matching.data(),

@@ -791,7 +791,8 @@ void tl2fil_leaf_payload(fil_node_t* fil_node,
 template <typename fil_node_t>
 struct conversion_state {
   fil_node_t node;
-  int tl_left, tl_right;
+  int tl_left;
+  int tl_right;
 };
 
 // modifies cat_sets
@@ -804,42 +805,27 @@ conversion_state<fil_node_t> tl2fil_inner_node(int fil_left_child,
                                                size_t* bit_pool_offset)
 {
   int tl_left = tree.LeftChild(tl_node_id), tl_right = tree.RightChild(tl_node_id);
-  val_t split{};
-  int feature_id = tree.SplitIndex(tl_node_id);
-  bool is_categorical, default_left;
+  val_t split         = {.f = NAN};  // yes there's a default initializer already
+  int feature_id      = tree.SplitIndex(tl_node_id);
+  bool is_categorical = tree.SplitType(tl_node_id) == tl::SplitFeatureType::kCategorical;
+  bool default_left   = tree.DefaultLeft(tl_node_id);
   if (tree.SplitType(tl_node_id) == tl::SplitFeatureType::kNumerical) {
-    is_categorical = false;
-    default_left   = tree.DefaultLeft(tl_node_id);
-    split.f        = static_cast<float>(tree.Threshold(tl_node_id));
+    split.f = static_cast<float>(tree.Threshold(tl_node_id));
     adjust_threshold(&split.f, &tl_left, &tl_right, &default_left, tree.ComparisonOp(tl_node_id));
   } else if (tree.SplitType(tl_node_id) == tl::SplitFeatureType::kCategorical) {
-    is_categorical = true;
-    default_left   = !tree.DefaultLeft(tl_node_id);
     // for FIL, the list of categories is always for the right child
-    if (tree.CategoriesListRightChild(tl_node_id) == false) std::swap(tl_left, tl_right);
+    if (tree.CategoriesListRightChild(tl_node_id) == false) {
+      std::swap(tl_left, tl_right);
+      default_left = !default_left;
+    }
     int sizeof_mask = cat_sets->accessor().sizeof_mask(feature_id);
     split.idx       = *bit_pool_offset;
     *bit_pool_offset += sizeof_mask;
-    ASSERT(split.idx >= 0, "split.idx < 0");
-    std::vector<uint32_t> matching_cats = tree.MatchingCategories(tl_node_id);
-    auto category_it                    = matching_cats.begin();
-    ASSERT(matching_cats.size() == 0 || matching_cats.data() != nullptr,
-           "internal error: nullptr from treelite");
-    // treelite guarantees tree.MatchingCategories() are in ascending order
-    // we have to initialize all pool bytes, so we iterate over those and keep category_it up to
-    // date
-    for (uint32_t which_8cats = 0; which_8cats < (uint32_t)sizeof_mask; ++which_8cats) {
-      uint8_t eight_cats = 0;
-      for (uint32_t bit = 0; bit < BITS_PER_BYTE; ++bit) {
-        if (category_it < matching_cats.end() &&
-            *category_it == which_8cats * BITS_PER_BYTE + bit) {
-          eight_cats |= 1 << bit;
-          ++category_it;
-        }
-      }
-      cat_sets->bits[split.idx + which_8cats] = eight_cats;
+    // cat_sets->bits have been zero-initialized
+    uint8_t* bits = &cat_sets->bits[split.idx];
+    for (uint32_t category : tree.MatchingCategories(tl_node_id)) {
+      bits[category / BITS_PER_BYTE] |= 1 << (category % BITS_PER_BYTE);
     }
-    ASSERT(category_it == matching_cats.end(), "internal error: didn't convert all categories");
   } else {
     ASSERT(false, "only numerical and categorical split nodes are supported");
   }
@@ -934,7 +920,7 @@ __noinline__ int tree2fil_sparse(std::vector<fil_node_t>& nodes,
   std::stack<pair_t> stack;
   int built_index = root + 1;
   stack.push(pair_t(tree_root(tree), 0));
-  size_t bit_pool_offset = cat_sets->bit_pool_offsets[tree_idx];
+  std::size_t bit_pool_offset = cat_sets->bit_pool_offsets[tree_idx];
   while (!stack.empty()) {
     const pair_t& top = stack.top();
     int node_id       = top.first;
