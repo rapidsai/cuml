@@ -35,7 +35,7 @@ VALID_METRICS = {
     ]),
     "rbc": set([
         "euclidean", "haversine",
-        "l2", "sqeuclidean"
+        "l2"
     ]),
     "ivfflat": set([
         "l2", "euclidean", "sqeuclidean",

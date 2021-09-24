@@ -48,7 +48,7 @@ from cython.operator cimport dereference as deref
 from libcpp cimport bool
 from libcpp.memory cimport shared_ptr
 
-from libc.stdint cimport uintptr_t, int64_t
+from libc.stdint cimport uintptr_t, int64_t, uint32_t
 from libc.stdlib cimport calloc, malloc, free
 
 from libcpp.vector cimport vector
@@ -92,16 +92,15 @@ cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
 
     void rbc_build_index(
         const handle_t &handle,
-        BallCoverIndex[int64_t, float, int] &index,
-        int k
+        BallCoverIndex[int64_t, float, uint32_t] &index,
     ) except +
 
     void rbc_knn_query(
         const handle_t &handle,
-        BallCoverIndex[int64_t, float, int] &index,
-        int k,
+        BallCoverIndex[int64_t, float, uint32_t] &index,
+        uint32_t k,
         float *search_items,
-        int n_search_items,
+        uint32_t n_search_items,
         int64_t *out_inds,
         float *out_dists
     ) except +
@@ -431,14 +430,12 @@ class NearestNeighbors(Base,
         elif self.working_algorithm_ == "rbc":
             metric = self._build_metric_type(self.metric)
 
-            rbc_index = new BallCoverIndex(handle_[0],
-                                           <float*><uintptr_t>self.X_m.ptr,
-                                           <int>self.n_rows,
-                                           <int>n_cols,
-                                           <DistanceType>metric)
+            rbc_index = new BallCoverIndex[int64_t, float, uint32_t](
+                handle_[0], <float*><uintptr_t>self.X_m.ptr,
+                <uint32_t>self.n_rows, <uint32_t>n_cols,
+                <DistanceType>metric)
             rbc_build_index(handle_[0],
-                            deref(rbc_index),
-                            <int>self.n_neighbors)
+                            deref(rbc_index))
             self.knn_index = <uintptr_t>rbc_index
 
         self.n_indices = 1
@@ -609,7 +606,6 @@ class NearestNeighbors(Base,
             X = self.X_m
             n_neighbors += 1
 
-        # TODO: Important that this value does not change for RBC
         if (n_neighbors is None and self.n_neighbors is None) \
                 or n_neighbors <= 0:
             raise ValueError("k or n_neighbors must be a positive integers")
@@ -708,7 +704,8 @@ class NearestNeighbors(Base,
         cdef vector[float*] *inputs = new vector[float*]()
         cdef vector[int] *sizes = new vector[int]()
         cdef knnIndex* knn_index = <knnIndex*> 0
-        cdef BallCoverIndex* rbc_index = <BallCoverIndex*> 0
+        cdef BallCoverIndex[int64_t, float, uint32_t]* rbc_index = \
+            <BallCoverIndex[int64_t, float, uint32_t]*> 0
 
         if self.working_algorithm_ == 'brute':
             inputs.push_back(<float*><uintptr_t>self.X_m.ptr)
@@ -731,12 +728,13 @@ class NearestNeighbors(Base,
                 <float>self.p
             )
         elif self.working_algorithm_ == "rbc":
-            rbc_index = <BallCoverIndex*><uintptr_t> self.knn_index
+            rbc_index = <BallCoverIndex[int64_t, float, uint32_t]*><uintptr_t> \
+                self.knn_index
             rbc_knn_query(handle_[0],
                           deref(rbc_index),
-                          <int> n_neighbors,
+                          <uint32_t> n_neighbors,
                           <float*><uintptr_t>X_m.ptr,
-                          <int> N,
+                          <uint32_t> N,
                           <int64_t*>I_ptr,
                           <float*>D_ptr)
         else:

@@ -507,20 +507,24 @@ def test_knn_graph(input_type, mode, output_type, as_instance,
         assert isspmatrix_csr(sparse_cu)
 
 
+@pytest.mark.parametrize('distance', ["euclidean", "haversine"])
+@pytest.mark.parametrize('n_neighbors', [2, 15])
 @pytest.mark.parametrize('nrows', [unit_param(500), stress_param(70000)])
-def test_nearest_neighbors_rbc(nrows):
+def test_nearest_neighbors_rbc(distance, n_neighbors, nrows):
     X, y = make_blobs(n_samples=nrows,
                       n_features=2, random_state=0)
 
-    knn_cu = cuKNN(metric="euclidean", algorithm="rbc")
+    knn_cu = cuKNN(metric=distance, algorithm="rbc")
     knn_cu.fit(X)
 
-    rbc_d, rbc_i = knn_cu.kneighbors(X[:int(nrows/2), :])
+    rbc_d, rbc_i = knn_cu.kneighbors(X[:int(nrows/2), :],
+                                     n_neighbors=n_neighbors)
 
-    knn_cu2 = cuKNN(metric="sqeuclidean", algorithm="brute")
+    knn_cu2 = cuKNN(metric=distance, algorithm="brute")
     knn_cu2.fit(X)
 
-    brute_d, brute_i = knn_cu2.kneighbors(X[:int(nrows/2), :])
+    brute_d, brute_i = knn_cu2.kneighbors(X[:int(nrows/2), :],
+                                          n_neighbors=n_neighbors)
 
     cp.testing.assert_allclose(rbc_d, brute_d, atol=5e-2,
                                rtol=1e-1)
