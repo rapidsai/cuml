@@ -527,12 +527,14 @@ def test_nearest_neighbors_rbc(distance, n_neighbors, nrows):
                                           n_neighbors=n_neighbors)
 
     cp.testing.assert_allclose(rbc_d, brute_d, atol=5e-2,
-                               rtol=1e-1)
+                               rtol=1e-3)
     rbc_i = cp.sort(rbc_i, axis=1)
     brute_i = cp.sort(brute_i, axis=1)
 
     diff = rbc_i != brute_i
 
+    # Using a very small tolerance for subtle differences
+    # in indices that result from
     assert diff.ravel().sum() < 5
 
 

@@ -66,11 +66,11 @@ if has_scipy():
 
 cdef extern from "raft/spatial/knn/ball_cover_common.h" \
         namespace "raft::spatial::knn":
-    cdef cppclass BallCoverIndex[int64_t, float, int]:
+    cdef cppclass BallCoverIndex[int64_t, float, uint32_t]:
         BallCoverIndex(const handle_t &handle,
                        float *X,
-                       int n_rows,
-                       int n_cols,
+                       uint32_t n_rows,
+                       uint32_t n_cols,
                        DistanceType metric) except +
 
 cdef extern from "cuml/neighbors/knn.hpp" namespace "ML":
@@ -728,8 +728,8 @@ class NearestNeighbors(Base,
                 <float>self.p
             )
         elif self.working_algorithm_ == "rbc":
-            rbc_index = <BallCoverIndex[int64_t, float, uint32_t]*><uintptr_t> \
-                self.knn_index
+            rbc_index = <BallCoverIndex[int64_t, float, uint32_t]*>\
+                <uintptr_t>self.knn_index
             rbc_knn_query(handle_[0],
                           deref(rbc_index),
                           <uint32_t> n_neighbors,
