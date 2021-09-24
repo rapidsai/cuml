@@ -344,15 +344,14 @@ __global__ void computeSplitKernel(BinT* hist,
                                    Input<DataT, LabelT, IdxT> input,
                                    const NodeWorkItem* work_items,
                                    IdxT colStart,
+                                   const IdxT* colids,
                                    int* done_count,
                                    int* mutex,
                                    volatile Split<DataT, IdxT>* splits,
                                    ObjectiveT objective,
                                    IdxT treeid,
                                    const WorkloadInfo<IdxT>* workload_info,
-                                   uint64_t seed,
-                                   const IdxT* colids,
-                                   const IdxT n_blks_for_cols)
+                                   uint64_t seed)
 {
   extern __shared__ char smem[];
   // Read workload info for this block

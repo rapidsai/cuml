@@ -458,15 +458,14 @@ struct Builder {
                                                              input,
                                                              d_work_items,
                                                              col,
+                                                             colids,
                                                              done_count,
                                                              mutex,
                                                              splits,
                                                              objective,
                                                              treeid,
                                                              workload_info,
-                                                             seed,
-                                                             colids,
-                                                             n_blks_for_cols);
+                                                             seed);
     ML::POP_RANGE();  // computeSplitKernel
     ML::POP_RANGE();  // Builder::computeSplit
   }
