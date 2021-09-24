@@ -383,7 +383,7 @@ def test_tfidf_vectorizer_get_feature_names():
     ]
     vectorizer = TfidfVectorizer()
     vectorizer.fit_transform(Series(corpus))
-    output = ['and', 'document', 'first', 'is', 
+    output = ['and', 'document', 'first', 'is',
               'one', 'second', 'the', 'third', 'this']
     assert vectorizer.get_feature_names().to_arrow().to_pylist() == output
 
