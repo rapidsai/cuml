@@ -117,8 +117,8 @@ class KNeighborsRegressor(NearestNeighbors,
 
       knn = KNeighborsRegressor(n_neighbors=10)
 
-      X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.80)
-        
+      X_train, X_test, y_train, y_test = train_test_split(X,y,train_size=0.80)
+      
       knn.fit(X_train, y_train)
 
       knn.predict(X_test)
@@ -130,7 +130,6 @@ class KNeighborsRegressor(NearestNeighbors,
     .. code-block:: python
 
       array([3, 3, 3, 4, 4, 1, 2, 3, 1, 0, 3, 4, 1, 3, 3, 2, 2, 3, 0, 3])
-             
 
     Notes
     ------

@@ -736,8 +736,8 @@ class HashingVectorizer(_VectorizerMixin):
     .. code-block:: python
 
         from cuml.feature_extraction.text import HashingVectorizer
-        import cudf 
-
+        import cudf
+        
         corpus = cudf.Series({
             'This is the first document.',
             'This document is the second document.',
@@ -755,7 +755,6 @@ class HashingVectorizer(_VectorizerMixin):
     .. code-block:: python
 
         <class 'numpy.float32'>
-        <cuml.feature_extraction._vectorizers.HashingVectorizer object at 0x7f1f20244590>
         (4, 16)
 
     See Also
