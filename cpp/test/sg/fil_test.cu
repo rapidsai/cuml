@@ -788,6 +788,10 @@ class TreeliteFilTest : public BaseFilTest {
       int left_key  = node_to_treelite(builder, pkey, root, left);
       int right_key = node_to_treelite(builder, pkey, root, right);
       if (!left_categories.empty() && dense_node.is_categorical()) {
+        // Treelite builder APIs don't allow to set categorical_split_right_child
+        // (which child the categories pertain to). Only the Tree API allows that.
+        // in FIL, categories always pertain to the right child, and the default in treelite
+        // is left categories in SetCategoricalTestNode
         std::swap(left_key, right_key);
         default_left = !default_left;
         builder->SetCategoricalTestNode(
@@ -1245,6 +1249,15 @@ std::vector<FilTestParams> import_dense_inputs = {
   FIL_TEST_PARAMS(print_forest_shape = true),
   FIL_TEST_PARAMS(leaf_algo = VECTOR_LEAF, num_classes = 2),
   FIL_TEST_PARAMS(leaf_algo = VECTOR_LEAF, num_trees = 19, num_classes = 20),
+  FIL_TEST_PARAMS(node_categorical_prob = 0.5, feature_categorical_prob = 0.5),
+  FIL_TEST_PARAMS(
+    node_categorical_prob = 1.0, feature_categorical_prob = 1.0, cat_match_prob = 1.0),
+  FIL_TEST_PARAMS(
+    node_categorical_prob = 1.0, feature_categorical_prob = 1.0, cat_match_prob = 0.0),
+  FIL_TEST_PARAMS(depth                         = 3,
+                  node_categorical_prob         = 0.5,
+                  feature_categorical_prob      = 0.5,
+                  max_magnitude_of_matching_cat = 5),
 };
 
 TEST_P(TreeliteDenseFilTest, Import) { compare(); }

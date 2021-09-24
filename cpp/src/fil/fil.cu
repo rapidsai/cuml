@@ -835,7 +835,7 @@ conversion_state<fil_node_t> tl2fil_inner_node(int fil_left_child,
   } else {
     node = fil_node_t({}, split, feature_id, default_left, false, is_categorical, fil_left_child);
   }
-  return {node, tl_left, tl_right};
+  return conversion_state<fil_node_t>{node, tl_left, tl_right};
 }
 
 template <typename T, typename L>

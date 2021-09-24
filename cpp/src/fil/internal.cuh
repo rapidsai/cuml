@@ -306,7 +306,7 @@ struct forest_params_t {
 /// FIL_TPB is the number of threads per block to use with FIL kernels
 const int FIL_TPB = 256;
 
-const int32_t MAX_PRECISE_INT_FLOAT = 1 << 24;  // 16'777'216
+constexpr int32_t MAX_PRECISE_INT_FLOAT = 1 << 24;  // 16'777'216
 
 __host__ __device__ __forceinline__ int fetch_bit(const uint8_t* array, int bit)
 {
