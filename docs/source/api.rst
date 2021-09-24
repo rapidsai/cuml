@@ -270,6 +270,9 @@ Naive Bayes
 .. autoclass:: cuml.naive_bayes.GaussianNB
     :members:
 
+.. autoclass:: cuml.naive_bayes.CategoricalNB
+    :members:
+
 Stochastic Gradient Descent
 ---------------------------
 

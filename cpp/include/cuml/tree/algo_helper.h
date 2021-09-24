@@ -22,6 +22,7 @@ enum CRITERION {
   ENTROPY,
   MSE,
   MAE,
+  POISSON,
   CRITERION_END,
 };
 

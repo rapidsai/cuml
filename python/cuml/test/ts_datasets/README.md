@@ -18,3 +18,8 @@ This folder contains various datasets to test our time series analysis. Using da
 - `passenger_movements.csv`: Passenger movements (thousands), quarterly 1975-2019.
 - `police_recorded_crime.csv`: Recorded crimes (units) per year, 1878-2014.
 - `population_estimate.csv`: Population estimates (thousands) per year, 1875-2011.
+
+The following files are derived from the Stats NZ dataset by removing observations (to test support for missing observations):
+- `guest_nights_by_region_missing.csv`
+- `hourly_earnings_by_industry_missing.csv`
+- `population_estimate_missing.csv`

@@ -40,6 +40,7 @@ if(BUILD_CUML_TESTS)
   # (please keep the filenames in alphabetical order)
   add_executable(${CUML_CPP_TEST_TARGET}
     sg/cd_test.cu
+    sg/fil_child_index_test.cu
     sg/dbscan_test.cu
     sg/fil_test.cu
     sg/fnv_hash_test.cpp
@@ -59,7 +60,6 @@ if(BUILD_CUML_TESTS)
     sg/pca_test.cu
     sg/quasi_newton.cu
     sg/rf_test.cu
-    sg/rf_treelite_test.cu
     sg/ridge.cu
     sg/rproj_test.cu
     sg/sgd.cu
@@ -159,6 +159,7 @@ if(BUILD_PRIMS_TESTS)
     prims/entropy.cu
     prims/epsilon_neighborhood.cu
     prims/fast_int_div.cu
+    prims/fillna.cu
     prims/gather.cu
     prims/gram.cu
     prims/grid_sync.cu

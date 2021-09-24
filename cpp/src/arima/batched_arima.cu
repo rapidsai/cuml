@@ -23,6 +23,7 @@
 #include <thrust/fill.h>
 #include <thrust/for_each.h>
 #include <thrust/iterator/counting_iterator.h>
+#include <thrust/logical.h>
 
 #include <cuml/tsa/batched_arima.hpp>
 #include <cuml/tsa/batched_kalman.hpp>
@@ -36,6 +37,7 @@
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <rmm/device_uvector.hpp>
 #include <timeSeries/arima_helpers.cuh>
+#include <timeSeries/fillna.cuh>
 
 namespace ML {
 
@@ -69,6 +71,20 @@ void batched_diff(raft::handle_t& handle,
   const auto stream = handle.get_stream();
   MLCommon::TimeSeries::prepare_data(
     d_y_diff, d_y, batch_size, n_obs, order.d, order.D, order.s, stream);
+}
+
+template <typename T>
+struct is_missing {
+  typedef T argument_type;
+  typedef T result_type;
+
+  __thrust_exec_check_disable__ __device__ const T operator()(const T& x) const { return isnan(x); }
+};  // end is_missing
+
+bool detect_missing(raft::handle_t& handle, const double* d_y, int n_elem)
+{
+  return thrust::any_of(
+    thrust::cuda::par.on(handle.get_stream()), d_y, d_y + n_elem, is_missing<double>());
 }
 
 void predict(raft::handle_t& handle,
@@ -108,7 +124,7 @@ void predict(raft::handle_t& handle,
     d_y_kf   = d_y;
   }
 
-  double* d_vs = arima_mem.vs;
+  double* d_pred = arima_mem.pred;
 
   // Create temporary array for the forecasts
   int num_steps = std::max(end - n_obs, 0);
@@ -126,7 +142,6 @@ void predict(raft::handle_t& handle,
                   order_after_prep,
                   params,
                   loglike.data(),
-                  d_vs,
                   false,
                   true,
                   MLE,
@@ -144,13 +159,16 @@ void predict(raft::handle_t& handle,
   // In-sample prediction
   //
 
-  int res_offset = diff ? order.d + order.s * order.D : 0;
-  int p_start    = std::max(start, res_offset);
-  int p_end      = std::min(n_obs, end);
-
   // The prediction loop starts by filling undefined predictions with NaN,
   // then computes the predictions from the observations and residuals
   if (start < n_obs) {
+    int res_offset = diff ? order.d + order.s * order.D : 0;
+    int p_start    = std::max(start, res_offset);
+    int p_end      = std::min(n_obs, end);
+    int dD         = diff ? order.d + order.D : 0;
+    int period1    = order.d ? 1 : order.s;
+    int period2    = order.d == 2 ? 1 : order.s;
+
     thrust::for_each(
       thrust::cuda::par.on(stream), counting, counting + batch_size, [=] __device__(int bid) {
         d_y_p[0] = 0.0;
@@ -158,8 +176,16 @@ void predict(raft::handle_t& handle,
           d_y_p[bid * predict_ld + i] = nan("");
         }
         for (int i = p_start; i < p_end; i++) {
-          d_y_p[bid * predict_ld + i - start] =
-            d_y[bid * n_obs + i] - d_vs[bid * n_obs_kf + i - res_offset];
+          if (dD == 0) {
+            d_y_p[bid * predict_ld + i - start] = d_pred[bid * n_obs + i];
+          } else if (dD == 1) {
+            d_y_p[bid * predict_ld + i - start] =
+              d_y[bid * n_obs + i - period1] + d_pred[bid * n_obs_kf + i - res_offset];
+          } else {
+            d_y_p[bid * predict_ld + i - start] =
+              d_y[bid * n_obs + i - period1] + d_y[bid * n_obs + i - period2] -
+              d_y[bid * n_obs + i - period1 - period2] + d_pred[bid * n_obs_kf + i - res_offset];
+          }
         }
       });
   }
@@ -343,7 +369,6 @@ void batched_loglike(raft::handle_t& handle,
                      const ARIMAOrder& order,
                      const ARIMAParams<double>& params,
                      double* loglike,
-                     double* d_vs,
                      bool trans,
                      bool host_loglike,
                      LoglikeMethod method,
@@ -357,6 +382,8 @@ void batched_loglike(raft::handle_t& handle,
   ML::PUSH_RANGE(__func__);
 
   auto stream = handle.get_stream();
+
+  double* d_pred = arima_mem.pred;
 
   ARIMAParams<double> Tparams = {arima_mem.Tparams_mu,
                                  arima_mem.Tparams_ar,
@@ -396,7 +423,7 @@ void batched_loglike(raft::handle_t& handle,
                           order,
                           batch_size,
                           d_loglike,
-                          d_vs,
+                          d_pred,
                           fc_steps,
                           d_fc,
                           level,
@@ -419,7 +446,6 @@ void batched_loglike(raft::handle_t& handle,
                      const ARIMAOrder& order,
                      const double* d_params,
                      double* loglike,
-                     double* d_vs,
                      bool trans,
                      bool host_loglike,
                      LoglikeMethod method,
@@ -452,7 +478,6 @@ void batched_loglike(raft::handle_t& handle,
                   order,
                   params,
                   loglike,
-                  d_vs,
                   trans,
                   host_loglike,
                   method,
@@ -488,7 +513,6 @@ void batched_loglike_grad(raft::handle_t& handle,
   double* d_x_pert = arima_mem.x_pert;
   raft::copy(d_x_pert, d_x, N * batch_size, stream);
 
-  double* d_vs      = arima_mem.vs;
   double* d_ll_base = arima_mem.loglike_base;
   double* d_ll_pert = arima_mem.loglike_pert;
 
@@ -501,7 +525,6 @@ void batched_loglike_grad(raft::handle_t& handle,
                   order,
                   d_x,
                   d_ll_base,
-                  d_vs,
                   trans,
                   false,
                   method,
@@ -523,7 +546,6 @@ void batched_loglike_grad(raft::handle_t& handle,
                     order,
                     d_x_pert,
                     d_ll_pert,
-                    d_vs,
                     trans,
                     false,
                     method,
@@ -558,11 +580,9 @@ void information_criterion(raft::handle_t& handle,
   ML::PUSH_RANGE(__func__);
   auto stream = handle.get_stream();
 
-  double* d_vs = arima_mem.vs;
-
   /* Compute log-likelihood in d_ic */
   batched_loglike(
-    handle, arima_mem, d_y, batch_size, n_obs, order, params, d_ic, d_vs, false, false, MLE);
+    handle, arima_mem, d_y, batch_size, n_obs, order, params, d_ic, false, false, MLE);
 
   /* Compute information criterion from log-likelihood and base term */
   MLCommon::Metrics::Batched::information_criterion(
@@ -835,18 +855,33 @@ void estimate_x0(raft::handle_t& handle,
                  const double* d_y,
                  int batch_size,
                  int n_obs,
-                 const ARIMAOrder& order)
+                 const ARIMAOrder& order,
+                 bool missing)
 {
   ML::PUSH_RANGE(__func__);
   const auto& handle_impl = handle;
   auto stream             = handle_impl.get_stream();
   auto cublas_handle      = handle_impl.get_cublas_handle();
 
+  // Least squares can't deal with missing values: create copy with naive
+  // replacements for missing values
+  const double* d_y_no_missing;
+  rmm::device_uvector<double> y_no_missing(0, stream);
+  if (missing) {
+    y_no_missing.resize(n_obs * batch_size, stream);
+    d_y_no_missing = y_no_missing.data();
+
+    raft::copy(y_no_missing.data(), d_y, n_obs * batch_size, stream);
+    MLCommon::TimeSeries::fillna(y_no_missing.data(), batch_size, n_obs, stream);
+  } else {
+    d_y_no_missing = d_y;
+  }
+
   // Difference if necessary, copy otherwise
   MLCommon::LinAlg::Batched::Matrix<double> bm_yd(
     n_obs - order.d - order.s * order.D, 1, batch_size, cublas_handle, stream, false);
   MLCommon::TimeSeries::prepare_data(
-    bm_yd.raw_data(), d_y, batch_size, n_obs, order.d, order.D, order.s, stream);
+    bm_yd.raw_data(), d_y_no_missing, batch_size, n_obs, order.d, order.D, order.s, stream);
 
   // Do the computation of the initial parameters
   _start_params(handle, params, bm_yd, order);
