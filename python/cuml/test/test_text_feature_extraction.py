@@ -372,7 +372,20 @@ def test_tfidf_vectorizer(norm, use_idf, smooth_idf, sublinear_tf):
     ).fit_transform(DOCS)
 
     cp.testing.assert_array_almost_equal(tfidf_mat.todense(), ref.toarray())
-
+    
+    
+def test_tfidf_vectorizer_get_feature_names():
+    corpus = [
+        'This is the first document.',
+        'This document is the second document.',
+        'And this is the third one.',
+        'Is this the first document?',
+    ]
+    vectorizer = TfidfVectorizer()
+    X = vectorizer.fit_transform(Series(corpus))
+    output = ['and', 'document', 'first', 'is', 'one', 'second', 'the', 'third', 'this']
+    assert vectorizer.get_feature_names().to_arrow().to_pylist() == output
+    
 
 # ----------------------------------------------------------------
 # HashingVectorizer tests
