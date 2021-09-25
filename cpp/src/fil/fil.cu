@@ -604,22 +604,16 @@ int max_depth(const tl::ModelImpl<T, L>& model)
   return depth;
 }
 
-cat_feature_counters reduce_two_feature_counters(cat_feature_counters a, cat_feature_counters b)
+void elementwise_combine(std::vector<cat_feature_counters>& dst,
+                         const std::vector<cat_feature_counters>& extra)
 {
-  return {.max_matching = std::max(a.max_matching, b.max_matching),
-          .n_nodes      = a.n_nodes + b.n_nodes};
-}
-
-void eltwise_reduce_two_feature_counter_vectors(std::vector<cat_feature_counters>& dst,
-                                                const std::vector<cat_feature_counters>& extra)
-{
-  std::transform(dst.begin(), dst.end(), extra.begin(), dst.begin(), reduce_two_feature_counters);
+  std::transform(dst.begin(), dst.end(), extra.begin(), dst.begin(), cat_feature_counters::combine);
 }
 
 // constructs a vector of size n_cols (number of features, or columns) from a Treelite tree,
 // where each feature has a maximum matching category and node count (from this tree alone).
 template <typename T, typename L>
-inline std::vector<cat_feature_counters> cf_vec(const tl::Tree<T, L>& tree, int n_cols)
+inline std::vector<cat_feature_counters> cat_counter_vec(const tl::Tree<T, L>& tree, int n_cols)
 {
   std::vector<cat_feature_counters> res(n_cols);
   std::stack<int> stack;
@@ -644,7 +638,8 @@ inline std::vector<cat_feature_counters> cf_vec(const tl::Tree<T, L>& tree, int 
           max_matching_cat = -1;
         }
         cat_feature_counters& counters = res[tree.SplitIndex(node_id)];
-        counters = reduce_two_feature_counters(counters, {max_matching_cat, 1});
+        counters =
+          cat_feature_counters::combine(counters, cat_feature_counters{max_matching_cat, 1});
       }
       stack.push(tree.LeftChild(node_id));
       node_id = tree.RightChild(node_id);
@@ -653,8 +648,7 @@ inline std::vector<cat_feature_counters> cf_vec(const tl::Tree<T, L>& tree, int 
   return res;
 }
 
-// fills cat_sets.n_nodes[] (size number of features, or columns) from a Treelite tree,
-// where each feature has a number of categorical nodes
+// computes overall categorical bit pool size for a tree imported from the Treelite tree
 template <typename T, typename L>
 inline std::size_t bit_pool_size(const tl::Tree<T, L>& tree, const categorical_sets& cat_sets)
 {
@@ -679,15 +673,15 @@ inline std::size_t bit_pool_size(const tl::Tree<T, L>& tree, const categorical_s
 template <typename T, typename L>
 cat_sets_owner allocate_cat_sets_owner(const tl::ModelImpl<T, L>& model)
 {
-#pragma omp declare reduction(cf_vec_red : std::vector<cat_feature_counters> \
-      : eltwise_reduce_two_feature_counter_vectors(omp_out, omp_in))                 \
+#pragma omp declare reduction(cat_counter_vec_red : std::vector<cat_feature_counters> \
+      : elementwise_combine(omp_out, omp_in))                 \
     initializer(omp_priv = omp_orig)
   const auto& trees = model.trees;
   cat_sets_owner cat_sets;
   std::vector<cat_feature_counters> counters(model.num_feature);
-#pragma omp parallel for reduction(cf_vec_red : counters)
+#pragma omp parallel for reduction(cat_counter_vec_red : counters)
   for (size_t i = 0; i < trees.size(); ++i) {
-    eltwise_reduce_two_feature_counter_vectors(counters, cf_vec(trees[i], model.num_feature));
+    elementwise_combine(counters, cat_counter_vec(trees[i], model.num_feature));
   }
   cat_sets.consume_counters(counters);
   std::vector<size_t> bit_pool_sizes(trees.size());
@@ -814,7 +808,7 @@ conversion_state<fil_node_t> tl2fil_inner_node(int fil_left_child,
     adjust_threshold(&split.f, &tl_left, &tl_right, &default_left, tree.ComparisonOp(tl_node_id));
   } else if (tree.SplitType(tl_node_id) == tl::SplitFeatureType::kCategorical) {
     // for FIL, the list of categories is always for the right child
-    if (tree.CategoriesListRightChild(tl_node_id) == false) {
+    if (!tree.CategoriesListRightChild(tl_node_id)) {
       std::swap(tl_left, tl_right);
       default_left = !default_left;
     }
@@ -920,7 +914,6 @@ __noinline__ int tree2fil_sparse(std::vector<fil_node_t>& nodes,
   std::stack<pair_t> stack;
   int built_index = root + 1;
   stack.push(pair_t(tree_root(tree), 0));
-  std::size_t bit_pool_offset = cat_sets->bit_pool_offsets[tree_idx];
   while (!stack.empty()) {
     const pair_t& top = stack.top();
     int node_id       = top.first;
@@ -934,7 +927,7 @@ __noinline__ int tree2fil_sparse(std::vector<fil_node_t>& nodes,
       int left = built_index - root;
       built_index += 2;
       conversion_state<fil_node_t> cs = tl2fil_inner_node<fil_node_t>(
-        left, tree, node_id, forest_params, cat_sets, &bit_pool_offset);
+        left, tree, node_id, forest_params, cat_sets, &cat_sets->bit_pool_offsets[tree_idx]);
       nodes[root + cur] = cs.node;
       // push child nodes into the stack
       stack.push(pair_t(cs.tl_right, left + 1));
@@ -1305,7 +1298,8 @@ void from_treelite(const raft::handle_t& handle,
   if (storage_type == storage_type_t::AUTO) {
     if (tl_params->algo == algo_t::ALGO_AUTO || tl_params->algo == algo_t::NAIVE) {
       int depth = max_depth(model);
-      // max 2**25 dense nodes, 256 MiB dense model size. Categorical mask size is unlimited.
+      // max 2**25 dense nodes, 256 MiB dense model size. Categorical mask size is unlimited and not
+      // affected by storage format.
       const int LOG2_MAX_DENSE_NODES = 25;
       int log2_num_dense_nodes       = depth + 1 + int(ceil(std::log2(model.trees.size())));
       storage_type = log2_num_dense_nodes > LOG2_MAX_DENSE_NODES ? storage_type_t::SPARSE

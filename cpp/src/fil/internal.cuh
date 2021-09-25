@@ -383,6 +383,11 @@ struct tree_base {
 struct cat_feature_counters {
   int max_matching = -1;
   int n_nodes      = 0;
+  static cat_feature_counters combine(cat_feature_counters a, cat_feature_counters b)
+  {
+    return {.max_matching = std::max(a.max_matching, b.max_matching),
+            .n_nodes      = a.n_nodes + b.n_nodes};
+  }
 };
 
 // used only during model import. For inference, trimmed down using cat_sets_owner::accessor()
@@ -400,8 +405,6 @@ struct cat_sets_owner {
 
   categorical_sets accessor() const
   {
-    ASSERT(bits.size() < INT_MAX,
-           "too many categories/categorical nodes: cannot store bits offset in node");
     return {
       .bits              = bits.data(),
       .max_matching      = max_matching.data(),
@@ -455,6 +458,8 @@ struct cat_sets_device_owner {
   cat_sets_device_owner(categorical_sets cat_sets, cudaStream_t stream)
     : bits(cat_sets.bits_size, stream), max_matching(cat_sets.max_matching_size, stream)
   {
+    ASSERT(bits.size() <= static_cast<std::size_t>(INT_MAX) + 1ull,
+           "too many categories/categorical nodes: cannot store bits offset in node");
     if (cat_sets.max_matching_size > 0) {
       ASSERT(cat_sets.max_matching != nullptr, "internal error: cat_sets.max_matching is nil");
       CUDA_CHECK(cudaMemcpyAsync(max_matching.data(),

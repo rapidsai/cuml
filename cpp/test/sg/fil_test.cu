@@ -776,7 +776,7 @@ class TreeliteFilTest : public BaseFilTest {
       int left          = root + 2 * (node - root) + 1;
       int right         = root + 2 * (node - root) + 2;
       bool default_left = dense_node.def_left();
-      float threshold;
+      float threshold   = dense_node.is_categorical() ? NAN : dense_node.thresh();
       if (dense_node.is_categorical()) {
         uint8_t byte = 0;
         for (int category = 0; category <= cat_sets_h.max_matching[dense_node.fid()]; ++category) {
@@ -787,8 +787,6 @@ class TreeliteFilTest : public BaseFilTest {
             left_categories.push_back(category);
           }
         }
-      } else {
-        threshold = dense_node.thresh();
       }
       int left_key  = node_to_treelite(builder, pkey, root, left);
       int right_key = node_to_treelite(builder, pkey, root, right);
@@ -804,11 +802,6 @@ class TreeliteFilTest : public BaseFilTest {
         builder->SetCategoricalTestNode(
           key, dense_node.fid(), left_categories, default_left, left_key, right_key);
       } else {
-        if (dense_node.is_categorical()) {
-          // TODO(levsnv): remove workaround once confirmed to work with empty category lists in
-          // Treelite
-          threshold = NAN;
-        }
         adjust_threshold_to_treelite(&threshold, &left_key, &right_key, &default_left, ps.op);
         builder->SetNumericalTestNode(key,
                                       dense_node.fid(),
