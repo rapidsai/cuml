@@ -20,7 +20,7 @@ function(find_and_configure_raft)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
                           "${multiValueArgs}" ${ARGN} )
 
-    if(DEFINED CPM_raft_SOURCE OR FORCE_CLONE_RAFT)
+    if(DEFINED CPM_raft_SOURCE OR NOT DISABLE_FORCE_CLONE_RAFT)
       set(CPM_DL_ALL_CACHE ${CPM_DOWNLOAD_ALL})
       set(CPM_DOWNLOAD_ALL ON)
     endif()
@@ -43,7 +43,7 @@ function(find_and_configure_raft)
       message(VERBOSE "CUML: Using RAFT located in ${raft_DIR}")
     endif()
 
-    if(DEFINED CPM_raft_SOURCE OR FORCE_CLONE_RAFT)
+    if(DEFINED CPM_raft_SOURCE OR NOT DISABLE_FORCE_CLONE_RAFT)
       set(CPM_DOWNLOAD_ALL ${CPM_DL_ALL_CACHE})
     endif()
 

@@ -78,7 +78,7 @@ BUILD_CUML_TESTS=ON
 BUILD_CUML_MG_TESTS=OFF
 BUILD_STATIC_FAISS=OFF
 CMAKE_LOG_LEVEL=WARNING
-FORCE_CLONE_RAFT=ON
+DISABLE_FORCE_CLONE_RAFT=OFF
 
 # Set defaults for vars that may not have been defined externally
 #  FIXME: if INSTALL_PREFIX is not set, check PREFIX, then check
@@ -192,7 +192,7 @@ while true; do
             BUILD_CUML_TESTS=OFF
             ;;
         --nocloneraft )
-            FORCE_CLONE_RAFT=OFF
+            DISABLE_FORCE_CLONE_RAFT=ON
             ;;
         --)
             shift
@@ -245,7 +245,7 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
           -DBUILD_CUML_TESTS=${BUILD_CUML_TESTS} \
           -DBUILD_CUML_MPI_COMMS=${BUILD_CUML_MG_TESTS} \
           -DBUILD_CUML_MG_TESTS=${BUILD_CUML_MG_TESTS} \
-          -DFORCE_CLONE_RAFT=${FORCE_CLONE_RAFT} \
+          -DDISABLE_FORCE_CLONE_RAFT=${DISABLE_FORCE_CLONE_RAFT} \
           -DNVTX=${NVTX} \
           -DUSE_CCACHE=${CCACHE} \
           -DDISABLE_DEPRECATION_WARNING=${BUILD_DISABLE_DEPRECATION_WARNING} \
