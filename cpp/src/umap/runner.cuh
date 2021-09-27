@@ -163,11 +163,13 @@ void _fit(const raft::handle_t& handle,
   ML::POP_RANGE();
 }
 
-template <typename value_idx, typename value_t, typename umap_inputs, int TPB_X, typename T>
+template <typename value_idx, typename value_t, typename umap_inputs, int TPB_X>
 void _get_graph(const raft::handle_t& handle,
                 const umap_inputs& inputs,
                 UMAPParams* params,
-                T* cgraph_coo)
+                raft::sparse::COO<value_t>* cgraph_coo  // assumes single-precision int as the
+                                                        // second template argument for COO
+)
 {
   ML::PUSH_RANGE("umap::supervised::_get_graph");
   cudaStream_t stream = handle.get_stream();
@@ -220,11 +222,14 @@ void _get_graph(const raft::handle_t& handle,
   ML::POP_RANGE();
 }
 
-template <typename value_idx, typename value_t, typename umap_inputs, int TPB_X, typename T>
-void _get_graph_supervised(const raft::handle_t& handle,
-                           const umap_inputs& inputs,
-                           UMAPParams* params,
-                           T* cgraph_coo)
+template <typename value_idx, typename value_t, typename umap_inputs, int TPB_X>
+void _get_graph_supervised(
+  const raft::handle_t& handle,
+  const umap_inputs& inputs,
+  UMAPParams* params,
+  raft::sparse::COO<value_t>* cgraph_coo  // assumes single-precision int as the
+                                          // second template argument for COO
+)
 {
   ML::PUSH_RANGE("umap::supervised::_get_graph_supervised");
   cudaStream_t stream = handle.get_stream();
@@ -310,11 +315,11 @@ void _get_graph_supervised(const raft::handle_t& handle,
   ML::POP_RANGE();
 }
 
-template <typename value_idx, typename value_t, typename umap_inputs, int TPB_X, typename T>
+template <typename value_idx, typename value_t, typename umap_inputs, int TPB_X>
 void _refine(const raft::handle_t& handle,
              const umap_inputs& inputs,
              UMAPParams* params,
-             T* cgraph_coo,
+             raft::sparse::COO<value_t>* cgraph_coo,
              value_t* embeddings)
 {
   cudaStream_t stream = handle.get_stream();
