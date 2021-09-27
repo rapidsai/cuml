@@ -190,7 +190,11 @@ rapids_cpm_init()
 
 include(cmake/thirdparty/get_thrust.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
-include(cmake/thirdparty/get_faiss.cmake)
+
+if(LINK_FAISS)
+  include(cmake/thirdparty/get_faiss.cmake)
+endif()
+
 include(cmake/thirdparty/get_treelite.cmake)
 include(cmake/thirdparty/get_raft.cmake)
 
