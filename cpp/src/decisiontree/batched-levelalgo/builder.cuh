@@ -27,6 +27,7 @@
 #include <common/grid_sync.cuh>
 #include <common/nvtx.hpp>
 #include <cuml/common/logger.hpp>
+#include <cuml/common/pinned_host_vector.hpp>
 #include <cuml/tree/decisiontree.hpp>
 #include <raft/cuda_utils.cuh>
 #include "input.cuh"
@@ -190,7 +191,7 @@ struct Builder {
   const size_t alignValue = 512;
 
   rmm::device_uvector<char> d_buff;
-  std::vector<char> h_buff;
+  ML::pinned_host_vector<char> h_buff;
 
   Builder(const raft::handle_t& handle,
           IdxT treeid,
@@ -422,7 +423,7 @@ struct Builder {
     int nHistBins = large_blocks * nbins * colBlks * nclasses;
     CUDA_CHECK(cudaMemsetAsync(hist, 0, sizeof(BinT) * nHistBins, handle.get_stream()));
     ML::PUSH_RANGE("computeSplitClassificationKernel @builder_base.cuh [batched-levelalgo]");
-    ObjectiveT objective(input.numOutputs, params.min_impurity_decrease, params.min_samples_leaf);
+    ObjectiveT objective(input.numOutputs, params.min_samples_leaf);
     computeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, handle.get_stream()>>>(hist,
                                                              params.n_bins,
@@ -456,7 +457,7 @@ struct Builder {
     rmm::device_uvector<InstanceRange> d_instance_ranges(max_batch_size, handle.get_stream());
     rmm::device_uvector<DataT> d_leaves(max_batch_size * input.numOutputs, handle.get_stream());
 
-    ObjectiveT objective(input.numOutputs, params.min_impurity_decrease, params.min_samples_leaf);
+    ObjectiveT objective(input.numOutputs, params.min_samples_leaf);
     for (std::size_t batch_begin = 0; batch_begin < tree->sparsetree.size();
          batch_begin += max_batch_size) {
       std::size_t batch_end  = min(batch_begin + max_batch_size, tree->sparsetree.size());

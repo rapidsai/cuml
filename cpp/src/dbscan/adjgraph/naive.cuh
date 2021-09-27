@@ -17,6 +17,7 @@
 #pragma once
 
 #include <raft/cudart_utils.h>
+#include <cuml/common/pinned_host_vector.hpp>
 #include <raft/cuda_utils.cuh>
 #include <vector>
 #include "../common.cuh"
@@ -35,14 +36,14 @@ void launcher(const raft::handle_t& handle,
 {
   Index_ k = 0;
   Index_ N = data.N;
-  std::vector<Index_> host_vd(batch_size + 1);
-  std::vector<char> host_adj(((batch_size * N) / 8) + 1);
-  std::vector<Index_> host_ex_scan(batch_size);
+  ML::pinned_host_vector<Index_> host_vd(batch_size + 1);
+  ML::pinned_host_vector<char> host_adj(((batch_size * N) / 8) + 1);
+  ML::pinned_host_vector<Index_> host_ex_scan(batch_size);
   raft::update_host((bool*)host_adj.data(), data.adj, batch_size * N, stream);
   raft::update_host(host_vd.data(), data.vd, batch_size + 1, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
   size_t adjgraph_size = size_t(host_vd[batch_size]);
-  std::vector<Index_> host_adj_graph(adjgraph_size);
+  ML::pinned_host_vector<Index_> host_adj_graph(adjgraph_size);
   for (Index_ i = 0; i < batch_size; i++) {
     for (Index_ j = 0; j < N; j++) {
       /// TODO: change layout or remove; cf #3414
