@@ -74,6 +74,19 @@ void fit(const raft::handle_t& handle,
          UMAPParams* params,
          float* embeddings);
 
+/**
+ * refine performs a UMAP fit on existing embeddings without reinitializing them, which enables
+ * iterative fitting without callbacks.
+ *
+ * @param handle: raft::handle_t
+ * @param X: pointer to input array
+ * @param n: n_samples of input array
+ * @param d: n_features of input array
+ * @param cgraph_coo: pointer to raft::sparse::COO object computed using ML::UMAP::get_graph
+ * @param params: pointer to ML::UMAPParams object
+ * @param embeddings: pointer to current embedding with shape n * n_components, stores updated
+ * embeddings on executing refine
+ */
 void refine(const raft::handle_t& handle,
             float* X,  // input matrix
             int n,
@@ -82,6 +95,18 @@ void refine(const raft::handle_t& handle,
             UMAPParams* params,
             float* embeddings);
 
+/**
+ * returns a simplical set as a raft::sparse:COO object to be consumed by the ML::UMAP::refine
+ * function.
+ *
+ * @param handle: raft::handle_t
+ * @param X: pointer to input array
+ * @param y: pointer to labels array
+ * @param n: n_samples of input array
+ * @param d: n_features of input array
+ * @param params: pointer to ML::UMAPParams object
+ * @return: simplical set (pointer to raft::sparse::COO object)
+ */
 std::unique_ptr<raft::sparse::COO<float, int>> get_graph(const raft::handle_t& handle,
                                                          float* X,  // input matrix
                                                          float* y,  // labels
