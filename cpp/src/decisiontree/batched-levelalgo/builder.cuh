@@ -327,6 +327,7 @@ struct Builder {
 
   std::shared_ptr<DT::TreeMetaDataNode<DataT, LabelT>> train()
   {
+    printf("Using CPU side sampling version\n");
     ML::PUSH_RANGE("Builder::train @builder.cuh [batched-levelalgo]");
     MLCommon::TimerCPU timer;
     NodeQueue<DataT, LabelT> queue(params, this->maxNodes(), input.nSampledRows);
