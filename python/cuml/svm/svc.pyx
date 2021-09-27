@@ -287,13 +287,13 @@ class SVC(SVMBase,
         if self.n_classes_ > 2:
             estimators = self.multiclass_svc.multiclass_estimator.estimators_
             return cp.concatenate(
-                [cp.asarray(cls.support_) for cls in estimators])
+                [cp.asarray(cls._support_) for cls in estimators])
         else:
-            return self.support_ #super().support_
+            return self._support_ #super().support_
 
     @support_.setter
     def support_(self, value):
-        self.support_ = value
+        self._support_ = value
 
     @property
     @cuml.internals.api_base_return_array_skipall

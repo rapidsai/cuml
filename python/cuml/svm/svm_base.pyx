@@ -234,7 +234,8 @@ class SVMBase(Base,
 
         # Attributes (parameters of the fitted model)
         self.dual_coef_ = None
-        self.support_ = None
+        #self.support_ = None
+        self._support_ = None
         self.support_vectors_ = None
         self._intercept_ = None
         self.n_support_ = None
@@ -341,11 +342,11 @@ class SVMBase(Base,
     @property
     @cuml.internals.api_base_return_array_skipall
     def support_(self):
-        return self.support_
+        return self._support_
 
     @support_.setter
     def support_(self, value):
-        self.support_ = value
+        self._support_ = value
 
     @property
     @cuml.internals.api_base_return_array_skipall
