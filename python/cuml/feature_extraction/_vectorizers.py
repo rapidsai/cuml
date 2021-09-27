@@ -737,7 +737,7 @@ class HashingVectorizer(_VectorizerMixin):
 
         from cuml.feature_extraction.text import HashingVectorizer
         import cudf
-        
+
         corpus = cudf.Series({
             'This is the first document.',
             'This document is the second document.',
