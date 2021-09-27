@@ -87,7 +87,7 @@ class LabelEncoder(Base):
         ord_label = dask_cudf.from_cudf(data, npartitions=2)
         str_label = le.inverse_transform(ord_label)
         print(str_label)
-        
+
     Output:
 
     .. code-block:: python

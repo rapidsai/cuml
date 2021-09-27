@@ -124,13 +124,12 @@ class KNeighborsClassifier(NearestNeighbors,
                         n_features=10)
 
       knn = KNeighborsClassifier(n_neighbors=10)
-
+      
       X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.80)
-      
-      knn.fit(X_train, y_train)
-      
-      knn.predict(X_test)
 
+      knn.fit(X_train, y_train)
+
+      knn.predict(X_test)
 
     Output:
 
