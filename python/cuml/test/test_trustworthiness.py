@@ -48,3 +48,11 @@ def test_trustworthiness(input_type, n_samples, n_features, n_components,
     cu_score = cuml_trustworthiness(X, X_embedded, batch_size=batch_size)
 
     assert abs(cu_score - sk_score) <= 1e-3
+
+
+def test_trustworthiness_invalid_input():
+    X, y = make_blobs(n_samples=10, centers=1,
+                      n_features=2, random_state=32)
+
+    with pytest.raises(ValueError):
+        cuml_trustworthiness(X, X, n_neighbors=50)
