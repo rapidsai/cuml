@@ -484,7 +484,7 @@ class SVMBase(Base,
                     dtype=self.dtype,
                     order='F')
 
-                self.support_ = CumlArray(
+                self._support_ = CumlArray(
                     data=<uintptr_t>model_d.support_idx,
                     shape=(self.n_support_,),
                     dtype=np.int32,
@@ -512,7 +512,7 @@ class SVMBase(Base,
                 dtype=self.dtype,
                 order='F')
 
-            self.support_ = CumlArray.empty(
+            self._support_ = CumlArray.empty(
                 shape=(0,),
                 dtype=np.int32,
                 order='F')
