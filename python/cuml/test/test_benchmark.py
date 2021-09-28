@@ -170,8 +170,9 @@ def test_accuracy_runner():
 
 # Only test a few algorithms (which collectively span several types)
 # to reduce runtime burden
-@pytest.mark.parametrize('algo_name', ['UMAP-Supervised',
-                                       'DBSCAN',
+# skipping UMAP-Supervised due to issue
+# https://github.com/rapidsai/cuml/issues/4243
+@pytest.mark.parametrize('algo_name', ['DBSCAN',
                                        'LogisticRegression',
                                        'ElasticNet',
                                        'FIL'])
