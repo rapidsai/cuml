@@ -216,10 +216,10 @@ def test_ivfflat_pred(nrows, ncols, n_neighbors, nlist):
 
 @pytest.mark.parametrize("nlist", [8])
 @pytest.mark.parametrize("M", [16, 32])
-@pytest.mark.parametrize("n_bits", [4, 6])
+@pytest.mark.parametrize("n_bits", [4, stress_param(6)])
 @pytest.mark.parametrize("usePrecomputedTables", [False, True])
 @pytest.mark.parametrize("nrows", [4000])
-@pytest.mark.parametrize("ncols", [128, 512])
+@pytest.mark.parametrize("ncols", [64, stress_param(512)])
 @pytest.mark.parametrize("n_neighbors", [8])
 def test_ivfpq_pred(nrows, ncols, n_neighbors,
                     nlist, M, n_bits, usePrecomputedTables):
