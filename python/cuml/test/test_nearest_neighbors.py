@@ -529,9 +529,6 @@ def test_nearest_neighbors_rbc(distance, n_neighbors, nrows):
     brute_i = cp.argsort(X, axis=1)
     brute_d = pw_dists[brute_i][:, :n_neighbors]
 
-    brute_d, brute_i = knn_cu2.kneighbors(X[:int(nrows/2), :],
-                                          n_neighbors=n_neighbors)
-
     cp.testing.assert_allclose(rbc_d, brute_d, atol=5e-2,
                                rtol=1e-3)
     rbc_i = cp.sort(rbc_i, axis=1)
