@@ -323,7 +323,8 @@ def test_return_dists():
 @pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(70000)])
 @pytest.mark.parametrize('n_feats', [unit_param(3), stress_param(1000)])
-@pytest.mark.parametrize('k', [unit_param(3), unit_param(35), stress_param(50)])
+@pytest.mark.parametrize('k', [unit_param(3), unit_param(35),
+                               stress_param(50)])
 @pytest.mark.parametrize("metric", valid_metrics())
 def test_knn_separate_index_search(input_type, nrows, n_feats, k, metric):
     X, _ = make_blobs(n_samples=nrows,
@@ -377,8 +378,10 @@ def test_knn_separate_index_search(input_type, nrows, n_feats, k, metric):
 
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 @pytest.mark.parametrize('nrows', [unit_param(500), stress_param(70000)])
-@pytest.mark.parametrize('n_feats', [unit_param(3), stress_param(1000)])
-@pytest.mark.parametrize('k', [unit_param(3), unit_param(35), stress_param(50)])
+@pytest.mark.parametrize('n_feats', [unit_param(3),
+                                     stress_param(1000)])
+@pytest.mark.parametrize('k', [unit_param(3), unit_param(35),
+                               stress_param(50)])
 @pytest.mark.parametrize("metric", valid_metrics())
 def test_knn_x_none(input_type, nrows, n_feats, k, metric):
     X, _ = make_blobs(n_samples=nrows,
@@ -467,7 +470,8 @@ def test_nn_downcast_fails(input_type, nrows, n_feats):
 @pytest.mark.parametrize('nrows', [unit_param(10), stress_param(1000)])
 @pytest.mark.parametrize('n_feats', [unit_param(5), stress_param(100)])
 @pytest.mark.parametrize("p", [2, 5])
-@pytest.mark.parametrize('k', [unit_param(3), unit_param(35), stress_param(30)])
+@pytest.mark.parametrize('k', [unit_param(3), unit_param(35),
+                               stress_param(30)])
 @pytest.mark.parametrize("metric", valid_metrics())
 def test_knn_graph(input_type, mode, output_type, as_instance,
                    nrows, n_feats, p, k, metric):
@@ -507,8 +511,6 @@ def test_knn_graph(input_type, mode, output_type, as_instance,
         assert isspmatrix_csr(sparse_cu)
 
 
-<<<<<<< Updated upstream
-=======
 @pytest.mark.parametrize('distance', ["euclidean", "haversine"])
 @pytest.mark.parametrize('n_neighbors', [2, 35])
 @pytest.mark.parametrize('nrows', [unit_param(500), stress_param(70000)])
@@ -540,7 +542,6 @@ def test_nearest_neighbors_rbc(distance, n_neighbors, nrows):
     assert diff.ravel().sum() < 5
 
 
->>>>>>> Stashed changes
 @pytest.mark.parametrize("metric", valid_metrics_sparse())
 @pytest.mark.parametrize(
     'nrows,ncols,density,n_neighbors,batch_size_index,batch_size_query',

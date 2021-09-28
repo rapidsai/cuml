@@ -183,7 +183,7 @@ def test_real_algos_runner(algo_name):
         pytest.xfail()
 
     runner = AccuracyComparisonRunner(
-        [20], [5], dataset_name='classification', test_fraction=0.20
+        [50], [5], dataset_name='classification', test_fraction=0.20
     )
     results = runner.run(pair)[0]
     print(results)
