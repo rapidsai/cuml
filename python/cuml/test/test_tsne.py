@@ -139,8 +139,10 @@ def test_tsne_knn_parameters(dataset, type_knn_graph, method):
     validate_embedding(X, embed)
 
 
+from sklearn.manifold import TSNE as skTSNE
+
 @pytest.mark.parametrize('dataset', test_datasets.values())
-@pytest.mark.parametrize('method', ['fft', 'barnes_hut'])
+@pytest.mark.parametrize('method', ['fft'])
 def test_tsne(dataset, method):
     """
     This tests how TSNE handles a lot of input data across time.

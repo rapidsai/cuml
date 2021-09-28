@@ -66,14 +66,6 @@ void get_distances(const raft::handle_t& handle,
   std::vector<float*> input_vec = {input.X};
   std::vector<int> sizes_vec    = {input.n};
 
-  /**
- * std::vector<float *> &input, std::vector<int> &sizes,
-                     IntType D, float *search_items, IntType n, int64_t *res_I,
-                     float *res_D, IntType k,
-                     std::shared_ptr<deviceAllocator> allocator,
-                     cudaStream_t userStream,
- */
-
   raft::spatial::knn::brute_force_knn(handle,
                                       input_vec,
                                       sizes_vec,
