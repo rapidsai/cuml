@@ -38,6 +38,7 @@
 #include <bitset>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 #include <iomanip>
 #include <limits>
 #include <stack>
@@ -623,7 +624,7 @@ inline std::vector<cat_feature_counters> cat_counter_vec(const tl::Tree<T, L>& t
     stack.pop();
     while (!tree.IsLeaf(node_id)) {
       if (tree.SplitType(node_id) == tl::SplitFeatureType::kCategorical) {
-        std::vector<uint32_t> mmv = tree.MatchingCategories(node_id);
+        std::vector<std::uint32_t> mmv = tree.MatchingCategories(node_id);
         int max_matching_cat;
         if (mmv.size() > 0) {
           // in `struct cat_feature_counters` and GPU structures, max matching category is an int
@@ -680,13 +681,13 @@ cat_sets_owner allocate_cat_sets_owner(const tl::ModelImpl<T, L>& model)
   cat_sets_owner cat_sets;
   std::vector<cat_feature_counters> counters(model.num_feature);
 #pragma omp parallel for reduction(cat_counter_vec_red : counters)
-  for (size_t i = 0; i < trees.size(); ++i) {
+  for (std::size_t i = 0; i < trees.size(); ++i) {
     elementwise_combine(counters, cat_counter_vec(trees[i], model.num_feature));
   }
   cat_sets.consume_counters(counters);
-  std::vector<size_t> bit_pool_sizes(trees.size());
+  std::vector<std::size_t> bit_pool_sizes(trees.size());
 #pragma omp parallel for
-  for (size_t i = 0; i < trees.size(); ++i) {
+  for (std::size_t i = 0; i < trees.size(); ++i) {
     bit_pool_sizes[i] = bit_pool_size(trees[i], cat_sets.accessor());
   }
   cat_sets.consume_bit_pool_sizes(bit_pool_sizes);
@@ -796,7 +797,7 @@ conversion_state<fil_node_t> tl2fil_inner_node(int fil_left_child,
                                                int tl_node_id,
                                                const forest_params_t& forest_params,
                                                cat_sets_owner* cat_sets,
-                                               size_t* bit_pool_offset)
+                                               std::size_t* bit_pool_offset)
 {
   int tl_left = tree.LeftChild(tl_node_id), tl_right = tree.RightChild(tl_node_id);
   val_t split         = {.f = NAN};  // yes there's a default initializer already
@@ -817,7 +818,7 @@ conversion_state<fil_node_t> tl2fil_inner_node(int fil_left_child,
     *bit_pool_offset += sizeof_mask;
     // cat_sets->bits have been zero-initialized
     uint8_t* bits = &cat_sets->bits[split.idx];
-    for (uint32_t category : tree.MatchingCategories(tl_node_id)) {
+    for (std::uint32_t category : tree.MatchingCategories(tl_node_id)) {
       bits[category / BITS_PER_BYTE] |= 1 << (category % BITS_PER_BYTE);
     }
   } else {
@@ -840,9 +841,9 @@ void node2fil_dense(std::vector<dense_node>* pnodes,
                     int node_id,
                     const forest_params_t& forest_params,
                     std::vector<float>* vector_leaf,
-                    size_t* leaf_counter,
+                    std::size_t* leaf_counter,
                     cat_sets_owner* cat_sets,
-                    size_t* bit_pool_offset)
+                    std::size_t* bit_pool_offset)
 {
   if (tree.IsLeaf(node_id)) {
     (*pnodes)[root + cur] = dense_node({}, {}, 0, false, true, false);
@@ -885,7 +886,7 @@ void tree2fil_dense(std::vector<dense_node>* pnodes,
                     std::size_t tree_idx,
                     const forest_params_t& forest_params,
                     std::vector<float>* vector_leaf,
-                    size_t* leaf_counter,
+                    std::size_t* leaf_counter,
                     cat_sets_owner* cat_sets)
 {
   node2fil_dense(pnodes,
@@ -901,14 +902,14 @@ void tree2fil_dense(std::vector<dense_node>* pnodes,
 }
 
 template <typename fil_node_t, typename T, typename L>
-__noinline__ int tree2fil_sparse(std::vector<fil_node_t>& nodes,
-                                 int root,
-                                 const tl::Tree<T, L>& tree,
-                                 std::size_t tree_idx,
-                                 const forest_params_t& forest_params,
-                                 std::vector<float>* vector_leaf,
-                                 size_t* leaf_counter,
-                                 cat_sets_owner* cat_sets)
+int tree2fil_sparse(std::vector<fil_node_t>& nodes,
+                    int root,
+                    const tl::Tree<T, L>& tree,
+                    std::size_t tree_idx,
+                    const forest_params_t& forest_params,
+                    std::vector<float>* vector_leaf,
+                    std::size_t* leaf_counter,
+                    cat_sets_owner* cat_sets)
 {
   typedef std::pair<int, int> pair_t;
   std::stack<pair_t> stack;

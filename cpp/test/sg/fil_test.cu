@@ -335,7 +335,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
     // count nodes for each feature id, while splitting the sets between nodes
     std::size_t bit_pool_size = 0;
-    cat_sets_h.n_nodes        = std::vector<size_t>(ps.num_cols, 0);
+    cat_sets_h.n_nodes        = std::vector<std::size_t>(ps.num_cols, 0);
     for (std::size_t node_id = 0; node_id < num_nodes; ++node_id) {
       int fid = fids_h[node_id];
 
@@ -744,7 +744,7 @@ class TreeliteFilTest : public BaseFilTest {
     int key = (*pkey)++;
     builder->CreateNode(key);
     const fil::dense_node& dense_node = nodes[node];
-    std::vector<uint32_t> left_categories;
+    std::vector<std::uint32_t> left_categories;
     if (dense_node.is_leaf()) {
       switch (ps.leaf_algo) {
         case fil::leaf_algo_t::FLOAT_UNARY_BINARY:
