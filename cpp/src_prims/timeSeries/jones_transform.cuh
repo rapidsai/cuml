@@ -51,9 +51,10 @@ struct PAC {
 * @param tmp: the temporary array used in transformation
 * @param myNewParams: will contain the transformed params
 * @param isAr: tell the type of transform (if ar or ma transform)
+* @param clamp: whether to clamp transformed params between -1 and 1
 */
 template <typename DataT, typename IdxT, int VALUE>
-inline __device__ void transform(DataT* tmp, DataT* myNewParams, bool isAr)
+inline __device__ void transform(DataT* tmp, DataT* myNewParams, bool isAr, bool clamp)
 {
   // do the ar transformation
   PAC<DataT> pac;
@@ -84,6 +85,13 @@ inline __device__ void transform(DataT* tmp, DataT* myNewParams, bool isAr)
       for (int iter = 0; iter < j; ++iter) {
         myNewParams[iter] = tmp[iter];
       }
+    }
+  }
+
+  if (clamp) {
+    // Clamp values to avoid numerical issues when very close to 1
+    for (int i = 0; i < VALUE; ++i) {
+      myNewParams[i] = max(-0.9999, min(myNewParams[i], 0.9999));
     }
   }
 }
@@ -146,10 +154,11 @@ inline __device__ void invtransform(DataT* tmp, DataT* myNewParams, bool isAr)
  * @param batchSize: number of models in a batch
  * @param isAr: if the coefficients to be transformed are Autoregressive or moving average
  * @param isInv: if the transformation type is regular or inverse
+ * @param clamp: whether to clamp transformed params between -1 and 1
  */
 template <typename DataT, int VALUE, typename IdxT, int BLOCK_DIM_X, int BLOCK_DIM_Y>
 __global__ void jones_transform_kernel(
-  DataT* newParams, const DataT* params, IdxT batchSize, bool isAr, bool isInv)
+  DataT* newParams, const DataT* params, IdxT batchSize, bool isAr, bool isInv, bool clamp)
 {
   // calculating the index of the model that the coefficients belong to
   IdxT modelIndex = threadIdx.x + ((IdxT)blockIdx.x * blockDim.x);
@@ -169,7 +178,7 @@ __global__ void jones_transform_kernel(
     if (isInv)
       invtransform<DataT, IdxT, VALUE>(tmp, myNewParams, isAr);
     else
-      transform<DataT, IdxT, VALUE>(tmp, myNewParams, isAr);
+      transform<DataT, IdxT, VALUE>(tmp, myNewParams, isAr, clamp);
 
 // store
 #pragma unroll
@@ -193,6 +202,7 @@ __global__ void jones_transform_kernel(
  * @param isInv: set to true if the transformation is an inverse type transformation, false if
  * regular transform
  * @param stream: the cudaStream object
+ * @param clamp: whether to clamp transformed params between -1 and 1
  */
 template <typename DataT, typename IdxT = int>
 void jones_transform(const DataT* params,
@@ -201,7 +211,8 @@ void jones_transform(const DataT* params,
                      DataT* newParams,
                      bool isAr,
                      bool isInv,
-                     cudaStream_t stream)
+                     cudaStream_t stream,
+                     bool clamp = true)
 {
   ASSERT(batchSize >= 1 && parameter >= 1, "not defined!");
 
@@ -220,35 +231,43 @@ void jones_transform(const DataT* params,
   switch (parameter) {
     case 1:
       jones_transform_kernel<DataT, 1, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
-        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(newParams, params, batchSize, isAr, isInv);
+        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
+          newParams, params, batchSize, isAr, isInv, clamp);
       break;
     case 2:
       jones_transform_kernel<DataT, 2, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
-        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(newParams, params, batchSize, isAr, isInv);
+        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
+          newParams, params, batchSize, isAr, isInv, clamp);
       break;
     case 3:
       jones_transform_kernel<DataT, 3, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
-        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(newParams, params, batchSize, isAr, isInv);
+        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
+          newParams, params, batchSize, isAr, isInv, clamp);
       break;
     case 4:
       jones_transform_kernel<DataT, 4, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
-        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(newParams, params, batchSize, isAr, isInv);
+        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
+          newParams, params, batchSize, isAr, isInv, clamp);
       break;
     case 5:
       jones_transform_kernel<DataT, 5, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
-        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(newParams, params, batchSize, isAr, isInv);
+        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
+          newParams, params, batchSize, isAr, isInv, clamp);
       break;
     case 6:
       jones_transform_kernel<DataT, 6, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
-        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(newParams, params, batchSize, isAr, isInv);
+        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
+          newParams, params, batchSize, isAr, isInv, clamp);
       break;
     case 7:
       jones_transform_kernel<DataT, 7, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
-        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(newParams, params, batchSize, isAr, isInv);
+        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
+          newParams, params, batchSize, isAr, isInv, clamp);
       break;
     case 8:
       jones_transform_kernel<DataT, 8, IdxT, BLOCK_DIM_X, BLOCK_DIM_Y>
-        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(newParams, params, batchSize, isAr, isInv);
+        <<<numBlocks, numThreadsPerBlock, 0, stream>>>(
+          newParams, params, batchSize, isAr, isInv, clamp);
       break;
     default: ASSERT(false, "Unsupported parameter '%d'!", parameter);
   }

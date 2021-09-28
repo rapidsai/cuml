@@ -226,55 +226,33 @@ class RandomForest {
 
     ML::PatternSetter _("%v");
     for (int row_id = 0; row_id < n_rows; row_id++) {
-      if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
-        std::stringstream ss;
-        ss << "Predict for sample: ";
-        for (int i = 0; i < n_cols; i++)
-          ss << h_input[row_id * row_size + i] << ", ";
-        CUML_LOG_DEBUG(ss.str().c_str());
+      std::vector<T> row_prediction(forest->trees[0]->num_outputs);
+      for (int i = 0; i < this->rf_params.n_trees; i++) {
+        DT::DecisionTree::predict(user_handle,
+                                  *forest->trees[i],
+                                  &h_input[row_id * row_size],
+                                  1,
+                                  n_cols,
+                                  row_prediction.data(),
+                                  forest->trees[i]->num_outputs,
+                                  verbosity);
       }
-
+      for (int k = 0; k < forest->trees[0]->num_outputs; k++) {
+        row_prediction[k] /= this->rf_params.n_trees;
+      }
       if (rf_type == RF_type::CLASSIFICATION) {  // classification task: use 'majority' prediction
-        std::map<int, int> prediction_to_cnt;
-        std::pair<std::map<int, int>::iterator, bool> ret;
-        int max_cnt_so_far      = 0;
-        int majority_prediction = -1;
-
-        for (int i = 0; i < this->rf_params.n_trees; i++) {
-          L prediction;
-          DT::DecisionTree::predict(user_handle,
-                                    forest->trees[i].get(),
-                                    &h_input[row_id * row_size],
-                                    1,
-                                    n_cols,
-                                    &prediction,
-                                    verbosity);
-          ret = prediction_to_cnt.insert(std::pair<int, int>(prediction, 1));
-          if (!(ret.second)) { ret.first->second += 1; }
-          // Break ties with smaller label
-          if (max_cnt_so_far < ret.first->second ||
-              (max_cnt_so_far == ret.first->second && ret.first->first < majority_prediction)) {
-            max_cnt_so_far      = ret.first->second;
-            majority_prediction = ret.first->first;
+        L best_class = 0;
+        T best_prob  = 0.0;
+        for (int k = 0; k < forest->trees[0]->num_outputs; k++) {
+          if (row_prediction[k] > best_prob) {
+            best_class = k;
+            best_prob  = row_prediction[k];
           }
         }
 
-        h_predictions[row_id] = majority_prediction;
-      } else {  // regression task: use 'average' prediction
-        L sum_predictions = 0;
-        for (int i = 0; i < this->rf_params.n_trees; i++) {
-          L prediction;
-          DT::DecisionTree::predict(user_handle,
-                                    forest->trees[i].get(),
-                                    &h_input[row_id * row_size],
-                                    1,
-                                    n_cols,
-                                    &prediction,
-                                    verbosity);
-          sum_predictions += prediction;
-        }
-        // Random forest's prediction is the arithmetic mean of all its decision tree predictions.
-        h_predictions[row_id] = sum_predictions / this->rf_params.n_trees;
+        h_predictions[row_id] = best_class;
+      } else {
+        h_predictions[row_id] = row_prediction[0];
       }
     }
 
