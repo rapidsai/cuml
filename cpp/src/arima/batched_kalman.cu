@@ -1267,11 +1267,8 @@ void _batched_kalman_filter(raft::handle_t& handle,
   if (level > 0) {
     constexpr int TPB_conf = 256;
     int n_blocks           = raft::ceildiv<int>(fc_steps * batch_size, TPB_conf);
-    confidence_intervals<<<n_blocks, TPB_conf, 0, stream>>>(d_fc,
-                                                            d_lower,
-                                                            d_upper,
-                                                            fc_steps * batch_size,
-                                                            sqrt(2.0) * erfinv(level));
+    confidence_intervals<<<n_blocks, TPB_conf, 0, stream>>>(
+      d_fc, d_lower, d_upper, fc_steps * batch_size, sqrt(2.0) * erfinv(level));
     CUDA_CHECK(cudaPeekAtLastError());
   }
 }
