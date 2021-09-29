@@ -324,7 +324,7 @@ def test_return_dists():
 @pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(70000)])
 @pytest.mark.parametrize('n_feats', [unit_param(3), stress_param(1000)])
-@pytest.mark.parametrize('k', [unit_param(3), unit_param(35),
+@pytest.mark.parametrize('k', [unit_param(3),
                                stress_param(50)])
 @pytest.mark.parametrize("metric", valid_metrics())
 def test_knn_separate_index_search(input_type, nrows, n_feats, k, metric):
@@ -468,7 +468,7 @@ def test_nn_downcast_fails(input_type, nrows, n_feats):
     ("ndarray", "connectivity", "cupy", False),
     ("ndarray", "distance", "numpy", False),
     ])
-@pytest.mark.parametrize('nrows', [unit_param(10), stress_param(1000)])
+@pytest.mark.parametrize('nrows', [unit_param(100), stress_param(1000)])
 @pytest.mark.parametrize('n_feats', [unit_param(5), stress_param(100)])
 @pytest.mark.parametrize("p", [2, 5])
 @pytest.mark.parametrize('k', [unit_param(3), unit_param(35),
