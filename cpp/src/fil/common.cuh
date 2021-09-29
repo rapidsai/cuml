@@ -177,8 +177,10 @@ struct predict_params : shmem_size_params {
 template <bool COLS_IN_SHMEM = false, int LEAF_ALGO = 0, int N_ITEMS = 1>
 struct KernelTemplateParameters {
   static const bool cols_in_shmem = COLS_IN_SHMEM;
-  static const leaf_algo_t leaf_algo = (leaf_algo_t)LEAF_ALGO;
+  static const leaf_algo_t leaf_algo = static_cast<leaf_algo_t>(LEAF_ALGO);
   static const int n_items = N_ITEMS;
+  typedef KernelTemplateParameters<cols_in_shmem, leaf_algo, n_items + 1> inc_n_items;
+  typedef KernelTemplateParameters<cols_in_shmem, leaf_algo + 1, n_items> inc_leaf_algo;
 };
 
 namespace dispatch {
@@ -188,11 +190,7 @@ void dispatch_on_n_items(Func func, predict_params& params) {
   if (params.n_items == KernelParams::n_items) {
     func.template run<KernelParams>(params);
   } else if constexpr (KernelParams::n_items < 4) {
-    typedef KernelTemplateParameters<KernelParams::cols_in_shmem,
-                                     KernelParams::leaf_algo,
-                                     KernelParams::n_items + 1>
-      Next;
-    dispatch_on_n_items<Next>(func, params);
+    dispatch_on_n_items<class KernelParams::inc_n_items>(func, params);
   } else {
     ASSERT(false, "internal error: n_items > 4 or < 1");
   }
@@ -217,17 +215,11 @@ void dispatch_on_leaf_algo(Func func, predict_params& params) {
       }
     } else {
       params.block_dim_x = FIL_TPB;
-      typedef KernelTemplateParameters<KernelParams::cols_in_shmem,
-                                       KernelParams::leaf_algo>
-        Next;
-      dispatch_on_n_items<Next>(func, params);
+      dispatch_on_n_items<KernelParams>(func, params);
     }
   } else if constexpr (KernelParams::leaf_algo + 1 <
-                       (int)leaf_algo_t::LEAF_ALGO_INVALID) {
-    typedef KernelTemplateParameters<KernelParams::cols_in_shmem,
-                                     KernelParams::leaf_algo + 1>
-      Next;
-    dispatch_on_n_items<Next>(func, params);
+                       static_cast<int>(leaf_algo_t::LEAF_ALGO_INVALID)) {
+    dispatch_on_n_items<class KernelParams::inc_leaf_algo>(func, params);
   } else {
     ASSERT(false, "internal error: dispatch: invalid leaf_algo %d",
            params.leaf_algo);
@@ -252,7 +244,7 @@ void dispatch_on_fil_template_params(Func func, predict_params& params) {
 // we need to instantiate all get_smem_footprint instantiations in infer.cu.
 // The only guarantee is by instantiating
 // dispatch_on_FIL_template<compute_smem_footprint...  in infer.cu. This
-// requires a declaration of this struct with the declaration of the run method
+// requires a declaration of this struct with the declaration of the `run` template
 // (i.e. all but one line) visible from infer.cu, as well as this full
 // definition visible from fil.cu. We'll just define it in common.cuh.
 struct compute_smem_footprint {
