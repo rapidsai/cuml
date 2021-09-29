@@ -25,6 +25,7 @@ from sklearn.neighbors import NearestNeighbors as skKNN
 from cuml.datasets import make_blobs
 
 from sklearn.metrics import pairwise_distances
+from cuml.metrics import pairwise_distances as cuPW
 
 from cuml.common import logger
 
@@ -509,6 +510,45 @@ def test_knn_graph(input_type, mode, output_type, as_instance,
         assert cupyx.scipy.sparse.isspmatrix_csr(sparse_cu)
     else:
         assert isspmatrix_csr(sparse_cu)
+
+
+@pytest.mark.parametrize('distance', ["euclidean", "haversine"])
+@pytest.mark.parametrize('n_neighbors', [2, 12])
+@pytest.mark.parametrize('nrows', [unit_param(1000), stress_param(70000)])
+def test_nearest_neighbors_rbc(distance, n_neighbors, nrows):
+    X, y = make_blobs(n_samples=nrows,
+                      n_features=2, random_state=0)
+
+    knn_cu = cuKNN(metric=distance, algorithm="rbc")
+    knn_cu.fit(X)
+
+    query_rows = int(nrows/2)
+
+    rbc_d, rbc_i = knn_cu.kneighbors(X[:query_rows, :],
+                                     n_neighbors=n_neighbors)
+
+    if distance == 'euclidean':
+        # Need to use unexpanded euclidean distance
+        pw_dists = cuPW(X, metric="l2")
+        brute_i = cp.argsort(pw_dists, axis=1)[:query_rows, :n_neighbors]
+        brute_d = cp.sort(pw_dists, axis=1)[:query_rows, :n_neighbors]
+    else:
+        knn_cu_brute = cuKNN(metric=distance, algorithm="brute")
+        knn_cu_brute.fit(X)
+
+        brute_d, brute_i = knn_cu_brute.kneighbors(
+            X[:query_rows, :], n_neighbors=n_neighbors)
+
+    cp.testing.assert_allclose(rbc_d, brute_d, atol=5e-2,
+                               rtol=1e-3)
+    rbc_i = cp.sort(rbc_i, axis=1)
+    brute_i = cp.sort(brute_i, axis=1)
+
+    diff = rbc_i != brute_i
+
+    # Using a very small tolerance for subtle differences
+    # in indices that result from non-determinism
+    assert diff.ravel().sum() < 5
 
 
 @pytest.mark.parametrize("metric", valid_metrics_sparse())
