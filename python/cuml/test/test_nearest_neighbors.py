@@ -215,11 +215,11 @@ def test_ivfflat_pred(nrows, ncols, n_neighbors, nlist):
 
 
 @pytest.mark.parametrize("nlist", [8])
-@pytest.mark.parametrize("M", [16, 32])
-@pytest.mark.parametrize("n_bits", [4, 6])
+@pytest.mark.parametrize("M", [32])
+@pytest.mark.parametrize("n_bits", [4])
 @pytest.mark.parametrize("usePrecomputedTables", [False, True])
 @pytest.mark.parametrize("nrows", [4000])
-@pytest.mark.parametrize("ncols", [128, 512])
+@pytest.mark.parametrize("ncols", [64, 512])
 @pytest.mark.parametrize("n_neighbors", [8])
 def test_ivfpq_pred(nrows, ncols, n_neighbors,
                     nlist, M, n_bits, usePrecomputedTables):
@@ -323,7 +323,8 @@ def test_return_dists():
 @pytest.mark.parametrize('nrows', [unit_param(500), quality_param(5000),
                          stress_param(70000)])
 @pytest.mark.parametrize('n_feats', [unit_param(3), stress_param(1000)])
-@pytest.mark.parametrize('k', [unit_param(3), stress_param(50)])
+@pytest.mark.parametrize('k', [unit_param(3),
+                               stress_param(50)])
 @pytest.mark.parametrize("metric", valid_metrics())
 def test_knn_separate_index_search(input_type, nrows, n_feats, k, metric):
     X, _ = make_blobs(n_samples=nrows,
@@ -377,8 +378,10 @@ def test_knn_separate_index_search(input_type, nrows, n_feats, k, metric):
 
 @pytest.mark.parametrize('input_type', ['dataframe', 'ndarray'])
 @pytest.mark.parametrize('nrows', [unit_param(500), stress_param(70000)])
-@pytest.mark.parametrize('n_feats', [unit_param(3), stress_param(1000)])
-@pytest.mark.parametrize('k', [unit_param(3), stress_param(50)])
+@pytest.mark.parametrize('n_feats', [unit_param(3),
+                                     stress_param(1000)])
+@pytest.mark.parametrize('k', [unit_param(3), unit_param(35),
+                               stress_param(50)])
 @pytest.mark.parametrize("metric", valid_metrics())
 def test_knn_x_none(input_type, nrows, n_feats, k, metric):
     X, _ = make_blobs(n_samples=nrows,
@@ -464,10 +467,11 @@ def test_nn_downcast_fails(input_type, nrows, n_feats):
     ("ndarray", "connectivity", "cupy", False),
     ("ndarray", "distance", "numpy", False),
     ])
-@pytest.mark.parametrize('nrows', [unit_param(10), stress_param(1000)])
+@pytest.mark.parametrize('nrows', [unit_param(100), stress_param(1000)])
 @pytest.mark.parametrize('n_feats', [unit_param(5), stress_param(100)])
 @pytest.mark.parametrize("p", [2, 5])
-@pytest.mark.parametrize('k', [unit_param(3), stress_param(30)])
+@pytest.mark.parametrize('k', [unit_param(3), unit_param(35),
+                               stress_param(30)])
 @pytest.mark.parametrize("metric", valid_metrics())
 def test_knn_graph(input_type, mode, output_type, as_instance,
                    nrows, n_feats, p, k, metric):
