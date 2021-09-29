@@ -378,12 +378,14 @@ class NearestNeighbors(Base,
 
         if is_sparse(X):
             valid_metrics = cuml.neighbors.VALID_METRICS_SPARSE
+            value_metric_str = "_SPARSE"
             self.X_m = SparseCumlArray(X, convert_to_dtype=cp.float32,
                                        convert_format=False)
             self.n_rows = self.X_m.shape[0]
 
         else:
             valid_metrics = cuml.neighbors.VALID_METRICS
+            valid_metric_str = ""
             self.X_m, self.n_rows, n_cols, dtype = \
                 input_to_cuml_array(X, order='C', check_dtype=np.float32,
                                     convert_to_dtype=(np.float32
@@ -391,11 +393,13 @@ class NearestNeighbors(Base,
                                                       else None))
 
         if self.metric not in \
-                cuml.neighbors.VALID_METRICS[self.working_algorithm_]:
+                valid_metrics[self.working_algorithm_]:
             raise ValueError("Metric %s is not valid. "
-                             "Use sorted(cuml.neighbors.VALID_METRICS[%s]) "
+                             "Use sorted(cuml.neighbors.VALID_METRICS%s[%s]) "
                              "to get valid options." %
-                             (self.metric, self.working_algorithm_))
+                             (valid_metric_str,
+                              self.metric,
+                              self.working_algorithm_))
 
         cdef handle_t* handle_ = <handle_t*><uintptr_t> self.handle.getHandle()
         cdef knnIndexParam* algo_params = <knnIndexParam*> 0
