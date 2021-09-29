@@ -56,7 +56,7 @@ struct DeviceEvent {
   }
   ~DeviceEvent()
   {
-    if (e != nullptr) CUDA_CHECK(cudaEventDestroy(e));
+    if (e != nullptr) CUDA_CHECK_NO_THROW(cudaEventDestroy(e));
   }
   operator cudaEvent_t() const { return e; }
   void record(cudaStream_t stream)
