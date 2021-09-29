@@ -1,4 +1,4 @@
-# Copyright (c) 2021, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -170,8 +170,9 @@ def test_accuracy_runner():
 
 # Only test a few algorithms (which collectively span several types)
 # to reduce runtime burden
-@pytest.mark.parametrize('algo_name', ['UMAP-Supervised',
-                                       'DBSCAN',
+# skipping UMAP-Supervised due to issue
+# https://github.com/rapidsai/cuml/issues/4243
+@pytest.mark.parametrize('algo_name', ['DBSCAN',
                                        'LogisticRegression',
                                        'ElasticNet',
                                        'FIL'])
@@ -183,7 +184,7 @@ def test_real_algos_runner(algo_name):
         pytest.xfail()
 
     runner = AccuracyComparisonRunner(
-        [20], [5], dataset_name='classification', test_fraction=0.20
+        [50], [5], dataset_name='classification', test_fraction=0.20
     )
     results = runner.run(pair)[0]
     print(results)
