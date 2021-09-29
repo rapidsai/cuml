@@ -12,14 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+import warnings
 import cudf
 import numpy as np
 import pytest
 import random
 import json
-import io
 import os
-from contextlib import redirect_stdout
 
 from numba import cuda
 
@@ -32,7 +31,8 @@ import cuml.common.logger as logger
 
 from sklearn.ensemble import RandomForestClassifier as skrfc
 from sklearn.ensemble import RandomForestRegressor as skrfr
-from sklearn.metrics import accuracy_score, mean_squared_error
+from sklearn.metrics import accuracy_score, mean_squared_error, \
+    mean_poisson_deviance
 from sklearn.datasets import fetch_california_housing, \
     make_classification, make_regression, load_iris, load_breast_cancer, \
     load_boston
@@ -187,6 +187,43 @@ def special_reg(request):
     return X, y
 
 
+@pytest.mark.parametrize("lam", [0.01, 0.1])
+@pytest.mark.parametrize("max_depth", [2, 4])
+def test_poisson_convergence(lam, max_depth):
+    np.random.seed(33)
+    bootstrap = None
+    max_features = 1.0
+    n_estimators = 1
+    min_impurity_decrease = 1e-5
+    n_datapoints = 100000
+    # generating random poisson dataset
+    X = np.random.random((n_datapoints, 4)).astype(np.float32)
+    y = np.random.poisson(lam=lam, size=n_datapoints).astype(np.float32)
+
+    poisson_preds = curfr(
+        split_criterion=4,
+        max_depth=max_depth,
+        n_estimators=n_estimators,
+        bootstrap=bootstrap,
+        max_features=max_features,
+        min_impurity_decrease=min_impurity_decrease).fit(X, y).predict(X)
+    mse_preds = curfr(
+        split_criterion=2,
+        max_depth=max_depth,
+        n_estimators=n_estimators,
+        bootstrap=bootstrap,
+        max_features=max_features,
+        min_impurity_decrease=min_impurity_decrease).fit(X, y).predict(X)
+    # y should not be non-positive for mean_poisson_deviance
+    mask = mse_preds > 0
+    mse_mpd = mean_poisson_deviance(y[mask], mse_preds[mask])
+    poisson_mpd = mean_poisson_deviance(y, poisson_preds)
+
+    # model trained on poisson data with
+    # poisson criterion must perform better on poisson loss
+    assert mse_mpd >= poisson_mpd
+
+
 @pytest.mark.parametrize(
     "max_samples", [unit_param(1.0), quality_param(0.90), stress_param(0.95)]
 )
@@ -219,9 +256,7 @@ def test_rf_classification(small_clf, datatype, max_samples, max_features):
         max_leaves=-1,
         max_depth=16,
     )
-    f = io.StringIO()
-    with redirect_stdout(f):
-        cuml_model.fit(X_train, y_train)
+    cuml_model.fit(X_train, y_train)
 
     fil_preds = cuml_model.predict(
         X_test, predict_model="GPU", threshold=0.5, algo="auto"
@@ -400,11 +435,22 @@ def test_rf_classification_float64(small_clf, datatype, convert_dtype):
 
         fil_acc = accuracy_score(y_test, fil_preds)
         assert fil_acc >= (cu_acc - 0.07)  # to be changed to 0.02. see issue #3910: https://github.com/rapidsai/cuml/issues/3910 # noqa
-    else:
-        with pytest.raises(TypeError):
+    # if GPU predict cannot be used, display warning and use CPU predict
+    elif datatype[1] == np.float64:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
             fil_preds = cuml_model.predict(
-                X_test, predict_model="GPU", convert_dtype=convert_dtype
+                X_test, predict_model="GPU",
+                convert_dtype=convert_dtype
             )
+            assert("GPU based predict only accepts "
+                   "np.float32 data. The model was "
+                   "trained on np.float64 data hence "
+                   "cannot use GPU-based prediction! "
+                   "\nDefaulting to CPU-based Prediction. "
+                   "\nTo predict on float-64 data, set "
+                   "parameter predict_model = 'CPU'"
+                   in str(w[-1].message))
 
 
 @pytest.mark.parametrize(
@@ -447,10 +493,21 @@ def test_rf_regression_float64(large_reg, datatype):
         assert fil_r2 >= (cu_r2 - 0.02)
 
     #  because datatype[0] != np.float32 or datatype[0] != datatype[1]
-    with pytest.raises(TypeError):
-        fil_preds = cuml_model.predict(
-            X_test, predict_model="GPU", convert_dtype=False
-        )
+    # display warning when GPU-predict cannot be used and revert to CPU-predict
+    elif datatype[1] == np.float64:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            fil_preds = cuml_model.predict(
+                X_test, predict_model="GPU"
+                )
+            assert("GPU based predict only accepts "
+                   "np.float32 data. The model was "
+                   "trained on np.float64 data hence "
+                   "cannot use GPU-based prediction! "
+                   "\nDefaulting to CPU-based Prediction. "
+                   "\nTo predict on float-64 data, set "
+                   "parameter predict_model = 'CPU'"
+                   in str(w[-1].message))
 
 
 def check_predict_proba(test_proba, baseline_proba, y_test, rel_err):
@@ -991,25 +1048,23 @@ def test_rf_get_json(estimator_type, max_depth, n_estimators):
     def predict_with_json_rf_classifier(rf, x):
         # Returns the class with the highest vote. If there is a tie, return
         # the list of all classes with the highest vote.
-        vote = []
+        predictions = []
         for tree in rf:
-            vote.append(predict_with_json_tree(tree, x))
-        vote = np.bincount(vote)
-        max_vote = np.max(vote)
-        majority_vote = np.nonzero(np.equal(vote, max_vote))[0]
-        return majority_vote
+            predictions.append(np.array(predict_with_json_tree(tree, x)))
+        predictions = np.sum(predictions, axis=0)
+        return np.argmax(predictions)
 
     def predict_with_json_rf_regressor(rf, x):
         pred = 0.0
         for tree in rf:
-            pred += predict_with_json_tree(tree, x)
+            pred += predict_with_json_tree(tree, x)[0]
         return pred / len(rf)
 
     if estimator_type == "classification":
         expected_pred = cuml_model.predict(X).astype(np.int32)
         for idx, row in enumerate(X):
             majority_vote = predict_with_json_rf_classifier(json_obj, row)
-            assert expected_pred[idx] in majority_vote
+            assert expected_pred[idx] == majority_vote
     elif estimator_type == "regression":
         expected_pred = cuml_model.predict(X).astype(np.float32)
         pred = []
@@ -1020,61 +1075,6 @@ def test_rf_get_json(estimator_type, max_depth, n_estimators):
         for i in range(len(pred)):
             assert np.isclose(pred[i], expected_pred[i]), X[i, 19]
         np.testing.assert_almost_equal(pred, expected_pred, decimal=6)
-
-
-@pytest.mark.parametrize("max_depth", [1, 2, 3, 5, 10, 15, 20])
-@pytest.mark.parametrize("n_estimators", [5, 10, 20])
-def test_rf_instance_count(max_depth, n_estimators):
-    X, y = make_classification(
-        n_samples=350,
-        n_features=20,
-        n_clusters_per_class=1,
-        n_informative=10,
-        random_state=123,
-        n_classes=2,
-    )
-    X = X.astype(np.float32)
-    cuml_model = curfc(
-        max_features=1.0,
-        max_samples=1.0,
-        n_bins=16,
-        split_criterion=0,
-        min_samples_leaf=2,
-        random_state=23707,
-        n_streams=1,
-        n_estimators=n_estimators,
-        max_leaves=-1,
-        max_depth=max_depth,
-    )
-    y = y.astype(np.int32)
-
-    # Train model on the data
-    cuml_model.fit(X, y)
-
-    json_out = cuml_model.get_json()
-    json_obj = json.loads(json_out)
-
-    # The instance count of each node must be equal to the sum of
-    # the instance counts of its children. Note that the instance count
-    # is only available with the new backend.
-    def check_instance_count_for_non_leaf(tree):
-        assert "instance_count" in tree
-        if "children" not in tree:
-            return
-        assert "instance_count" in tree["children"][0]
-        assert "instance_count" in tree["children"][1]
-        assert (
-            tree["instance_count"]
-            == tree["children"][0]["instance_count"]
-            + tree["children"][1]["instance_count"]
-        )
-        check_instance_count_for_non_leaf(tree["children"][0])
-        check_instance_count_for_non_leaf(tree["children"][1])
-
-    for tree in json_obj:
-        check_instance_count_for_non_leaf(tree)
-        # The root's count must be equal to the number of rows in the data
-        assert tree["instance_count"] == X.shape[0]
 
 
 @pytest.mark.memleak
@@ -1182,9 +1182,7 @@ def test_concat_memory_leak(large_clf, estimator_type):
     assert (used_mem - initial_baseline_mem) < 1e6
 
 
-@pytest.mark.xfail(strict=True, raises=ValueError)
 def test_rf_nbins_small(small_clf):
-
     X, y = small_clf
     X = X.astype(np.float32)
     y = y.astype(np.int32)
@@ -1194,7 +1192,15 @@ def test_rf_nbins_small(small_clf):
     # Initialize, fit and predict using cuML's
     # random forest classification model
     cuml_model = curfc()
-    cuml_model.fit(X_train[0:3, :], y_train[0:3])
+
+    # display warning when nbins less than samples
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        cuml_model.fit(X_train[0:3, :], y_train[0:3])
+        assert("The number of bins, `n_bins` is greater than "
+               "the number of samples used for training. "
+               "Changing `n_bins` to number of training samples."
+               in str(w[-1].message))
 
 
 @pytest.mark.parametrize("split_criterion", [2], ids=["mse"])
@@ -1220,7 +1226,7 @@ def test_rf_regression_with_identical_labels(split_criterion):
     clf.fit(X, y)
     model_dump = json.loads(clf.get_json())
     assert len(model_dump) == 1
-    expected_dump = {"nodeid": 0, "leaf_value": 1.0, "instance_count": 5}
+    expected_dump = {"nodeid": 0, "leaf_value": [1.0], "instance_count": 5}
     assert model_dump[0] == expected_dump
 
 
@@ -1244,14 +1250,14 @@ def test_rf_binary_classifier_gtil_integration(tmpdir):
     X, y = X.astype(np.float32), y.astype(np.int32)
     clf = curfc(max_depth=3, random_state=0, n_estimators=10)
     clf.fit(X, y)
-    expected_prob = clf.predict_proba(X)[:, 1]
+    expected_pred = clf.predict(X)
 
     checkpoint_path = os.path.join(tmpdir, 'checkpoint.tl')
     clf.convert_to_treelite_model().to_treelite_checkpoint(checkpoint_path)
 
     tl_model = treelite.Model.deserialize(checkpoint_path)
-    out_prob = treelite.gtil.predict(tl_model, X)
-    np.testing.assert_almost_equal(out_prob, expected_prob, decimal=5)
+    out_pred = treelite.gtil.predict(tl_model, X)
+    np.testing.assert_almost_equal(out_pred, expected_pred, decimal=5)
 
 
 def test_rf_multiclass_classifier_gtil_integration(tmpdir):

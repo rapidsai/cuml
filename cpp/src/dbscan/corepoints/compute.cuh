@@ -33,16 +33,19 @@ namespace CorePoints {
  * @param[in]  stream          CUDA stream
  */
 template <typename Index_ = int>
-void compute(const raft::handle_t& handle, const Index_* vd, bool* mask,
-             Index_ min_pts, Index_ start_vertex_id, Index_ batch_size,
-             cudaStream_t stream) {
-  auto execution_policy =
-    ML::thrust_exec_policy(handle.get_device_allocator(), stream);
+void compute(const raft::handle_t& handle,
+             const Index_* vd,
+             bool* mask,
+             Index_ min_pts,
+             Index_ start_vertex_id,
+             Index_ batch_size,
+             cudaStream_t stream)
+{
   auto counting = thrust::make_counting_iterator<Index_>(0);
-  thrust::for_each(execution_policy->on(stream), counting,
-                   counting + batch_size, [=] __device__(Index_ idx) {
-                     mask[idx + start_vertex_id] = vd[idx] >= min_pts;
-                   });
+  thrust::for_each(
+    handle.get_thrust_policy(), counting, counting + batch_size, [=] __device__(Index_ idx) {
+      mask[idx + start_vertex_id] = vd[idx] >= min_pts;
+    });
 }
 
 }  // namespace CorePoints

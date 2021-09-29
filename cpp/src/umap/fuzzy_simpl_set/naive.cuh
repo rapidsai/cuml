@@ -19,7 +19,6 @@
 #include <cuml/manifold/umapparams.h>
 #include <cuml/common/logger.hpp>
 #include <cuml/neighbors/knn.hpp>
-#include <raft/mr/device/allocator.hpp>
 
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
@@ -44,7 +43,7 @@ static const float MAX_FLOAT = std::numeric_limits<float>::max();
 static const float MIN_FLOAT = std::numeric_limits<float>::min();
 
 static const float SMOOTH_K_TOLERANCE = 1e-5;
-static const float MIN_K_DIST_SCALE = 1e-3;
+static const float MIN_K_DIST_SCALE   = 1e-3;
 
 /**
  * Computes a continuous version of the distance to the kth nearest neighbor.
@@ -80,28 +79,32 @@ static const float MIN_K_DIST_SCALE = 1e-3;
  *
  */
 template <int TPB_X, typename value_t>
-__global__ void smooth_knn_dist_kernel(
-  const value_t *knn_dists, int n, float mean_dist, value_t *sigmas,
-  value_t *rhos,  // Size of n, iniitalized to zeros
-  int n_neighbors, float local_connectivity = 1.0, int n_iter = 64,
-  float bandwidth = 1.0) {
+__global__ void smooth_knn_dist_kernel(const value_t* knn_dists,
+                                       int n,
+                                       float mean_dist,
+                                       value_t* sigmas,
+                                       value_t* rhos,  // Size of n, iniitalized to zeros
+                                       int n_neighbors,
+                                       float local_connectivity = 1.0,
+                                       int n_iter               = 64,
+                                       float bandwidth          = 1.0)
+{
   // row-based matrix 1 thread per row
   int row = (blockIdx.x * TPB_X) + threadIdx.x;
-  int i =
-    row * n_neighbors;  // each thread processes one row of the dist matrix
+  int i   = row * n_neighbors;  // each thread processes one row of the dist matrix
 
   if (row < n) {
     float target = __log2f(n_neighbors) * bandwidth;
 
-    float lo = 0.0;
-    float hi = MAX_FLOAT;
+    float lo  = 0.0;
+    float hi  = MAX_FLOAT;
     float mid = 1.0;
 
     int total_nonzero = 0;
-    int max_nonzero = -1;
+    int max_nonzero   = -1;
 
     int start_nonzero = -1;
-    float sum = 0.0;
+    float sum         = 0.0;
 
     for (int idx = 0; idx < n_neighbors; idx++) {
       float cur_dist = knn_dists[i + idx];
@@ -117,16 +120,15 @@ __global__ void smooth_knn_dist_kernel(
 
     float ith_distances_mean = sum / float(n_neighbors);
     if (total_nonzero >= local_connectivity) {
-      int index = int(floor(local_connectivity));
+      int index           = int(floor(local_connectivity));
       float interpolation = local_connectivity - index;
 
       if (index > 0) {
         rhos[row] = knn_dists[i + start_nonzero + (index - 1)];
 
         if (interpolation > SMOOTH_K_TOLERANCE) {
-          rhos[row] +=
-            interpolation * (knn_dists[i + start_nonzero + index] -
-                             knn_dists[i + start_nonzero + (index - 1)]);
+          rhos[row] += interpolation * (knn_dists[i + start_nonzero + index] -
+                                        knn_dists[i + start_nonzero + (index - 1)]);
         }
       } else
         rhos[row] = interpolation * knn_dists[i + start_nonzero];
@@ -144,12 +146,10 @@ __global__ void smooth_knn_dist_kernel(
           psum += 1.0;
       }
 
-      if (fabsf(psum - target) < SMOOTH_K_TOLERANCE) {
-        break;
-      }
+      if (fabsf(psum - target) < SMOOTH_K_TOLERANCE) { break; }
 
       if (psum > target) {
-        hi = mid;
+        hi  = mid;
         mid = (lo + hi) / 2.0;
       } else {
         lo = mid;
@@ -166,8 +166,7 @@ __global__ void smooth_knn_dist_kernel(
       if (sigmas[row] < MIN_K_DIST_SCALE * ith_distances_mean)
         sigmas[row] = MIN_K_DIST_SCALE * ith_distances_mean;
     } else {
-      if (sigmas[row] < MIN_K_DIST_SCALE * mean_dist)
-        sigmas[row] = MIN_K_DIST_SCALE * mean_dist;
+      if (sigmas[row] < MIN_K_DIST_SCALE * mean_dist) sigmas[row] = MIN_K_DIST_SCALE * mean_dist;
     }
   }
 }
@@ -192,12 +191,16 @@ __global__ void smooth_knn_dist_kernel(
  */
 template <int TPB_X, typename value_idx, typename value_t>
 __global__ void compute_membership_strength_kernel(
-  const value_idx *knn_indices,
-  const float *knn_dists,  // nn outputs
-  const value_t *sigmas,
-  const value_t *rhos,                  // continuous dists to nearest neighbors
-  value_t *vals, int *rows, int *cols,  // result coo
-  int n, int n_neighbors) {             // model params
+  const value_idx* knn_indices,
+  const float* knn_dists,  // nn outputs
+  const value_t* sigmas,
+  const value_t* rhos,  // continuous dists to nearest neighbors
+  value_t* vals,
+  int* rows,
+  int* cols,  // result coo
+  int n,
+  int n_neighbors)
+{  // model params
 
   // row-based matrix is best
   int idx = (blockIdx.x * TPB_X) + threadIdx.x;
@@ -205,11 +208,11 @@ __global__ void compute_membership_strength_kernel(
   if (idx < n * n_neighbors) {
     int row = idx / n_neighbors;  // one neighbor per thread
 
-    double cur_rho = rhos[row];
+    double cur_rho   = rhos[row];
     double cur_sigma = sigmas[row];
 
     value_idx cur_knn_ind = knn_indices[idx];
-    double cur_knn_dist = knn_dists[idx];
+    double cur_knn_dist   = knn_dists[idx];
 
     if (cur_knn_ind != -1) {
       double val = 0.0;
@@ -234,19 +237,22 @@ __global__ void compute_membership_strength_kernel(
  * Sets up and runs the knn dist smoothing
  */
 template <int TPB_X, typename value_idx, typename value_t>
-void smooth_knn_dist(int n, const value_idx *knn_indices,
-                     const float *knn_dists, value_t *rhos, value_t *sigmas,
-                     UMAPParams *params, int n_neighbors,
+void smooth_knn_dist(int n,
+                     const value_idx* knn_indices,
+                     const float* knn_dists,
+                     value_t* rhos,
+                     value_t* sigmas,
+                     UMAPParams* params,
+                     int n_neighbors,
                      float local_connectivity,
-                     std::shared_ptr<raft::mr::device::allocator> d_alloc,
-                     cudaStream_t stream) {
+                     cudaStream_t stream)
+{
   dim3 grid(raft::ceildiv(n, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
-  MLCommon::device_buffer<value_t> dist_means_dev(d_alloc, stream, n_neighbors);
+  rmm::device_uvector<value_t> dist_means_dev(n_neighbors, stream);
 
-  raft::stats::mean(dist_means_dev.data(), knn_dists, 1, n_neighbors * n, false,
-                    false, stream);
+  raft::stats::mean(dist_means_dev.data(), knn_dists, 1, n_neighbors * n, false, false, stream);
   CUDA_CHECK(cudaPeekAtLastError());
 
   value_t mean_dist = 0.0;
@@ -275,28 +281,36 @@ void smooth_knn_dist(int n, const value_idx *knn_indices,
  * @param n_neighbors number of neighbors in knn search arrays
  * @param out The output COO sparse matrix
  * @param params UMAPParams config object
- * @param d_alloc the device allocator to use for temp memory
  * @param stream cuda stream to use for device operations
  */
 template <int TPB_X, typename value_idx, typename value_t>
-void launcher(int n, const value_idx *knn_indices, const value_t *knn_dists,
-              int n_neighbors, raft::sparse::COO<value_t> *out,
-              UMAPParams *params,
-              std::shared_ptr<raft::mr::device::allocator> d_alloc,
-              cudaStream_t stream) {
+void launcher(int n,
+              const value_idx* knn_indices,
+              const value_t* knn_dists,
+              int n_neighbors,
+              raft::sparse::COO<value_t>* out,
+              UMAPParams* params,
+              cudaStream_t stream)
+{
   /**
    * Calculate mean distance through a parallel reduction
    */
-  MLCommon::device_buffer<value_t> sigmas(d_alloc, stream, n);
-  MLCommon::device_buffer<value_t> rhos(d_alloc, stream, n);
+  rmm::device_uvector<value_t> sigmas(n, stream);
+  rmm::device_uvector<value_t> rhos(n, stream);
   CUDA_CHECK(cudaMemsetAsync(sigmas.data(), 0, n * sizeof(value_t), stream));
   CUDA_CHECK(cudaMemsetAsync(rhos.data(), 0, n * sizeof(value_t), stream));
 
-  smooth_knn_dist<TPB_X, value_idx, value_t>(
-    n, knn_indices, knn_dists, rhos.data(), sigmas.data(), params, n_neighbors,
-    params->local_connectivity, d_alloc, stream);
+  smooth_knn_dist<TPB_X, value_idx, value_t>(n,
+                                             knn_indices,
+                                             knn_dists,
+                                             rhos.data(),
+                                             sigmas.data(),
+                                             params,
+                                             n_neighbors,
+                                             params->local_connectivity,
+                                             stream);
 
-  raft::sparse::COO<value_t> in(d_alloc, stream, n * n_neighbors, n, n);
+  raft::sparse::COO<value_t> in(stream, n * n_neighbors, n, n);
 
   // check for logging in order to avoid the potentially costly `arr2Str` call!
   if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
@@ -316,9 +330,15 @@ void launcher(int n, const value_idx *knn_indices, const value_t *knn_dists,
   dim3 grid_elm(raft::ceildiv(n * n_neighbors, TPB_X), 1, 1);
   dim3 blk_elm(TPB_X, 1, 1);
 
-  compute_membership_strength_kernel<TPB_X><<<grid_elm, blk_elm, 0, stream>>>(
-    knn_indices, knn_dists, sigmas.data(), rhos.data(), in.vals(), in.rows(),
-    in.cols(), in.n_rows, n_neighbors);
+  compute_membership_strength_kernel<TPB_X><<<grid_elm, blk_elm, 0, stream>>>(knn_indices,
+                                                                              knn_dists,
+                                                                              sigmas.data(),
+                                                                              rhos.data(),
+                                                                              in.vals(),
+                                                                              in.rows(),
+                                                                              in.cols(),
+                                                                              in.n_rows,
+                                                                              n_neighbors);
   CUDA_CHECK(cudaPeekAtLastError());
 
   if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
@@ -334,17 +354,17 @@ void launcher(int n, const value_idx *knn_indices, const value_t *knn_dists,
    */
   float set_op_mix_ratio = params->set_op_mix_ratio;
   raft::sparse::linalg::coo_symmetrize<TPB_X, value_t>(
-    &in, out,
-    [set_op_mix_ratio] __device__(int row, int col, value_t result,
-                                  value_t transpose) {
+    &in,
+    out,
+    [set_op_mix_ratio] __device__(int row, int col, value_t result, value_t transpose) {
       value_t prod_matrix = result * transpose;
-      value_t res = set_op_mix_ratio * (result + transpose - prod_matrix) +
+      value_t res         = set_op_mix_ratio * (result + transpose - prod_matrix) +
                     (1.0 - set_op_mix_ratio) * prod_matrix;
       return res;
     },
-    d_alloc, stream);
+    stream);
 
-  raft::sparse::op::coo_sort<value_t>(out, d_alloc, stream);
+  raft::sparse::op::coo_sort<value_t>(out, stream);
 }
 }  // namespace Naive
 }  // namespace FuzzySimplSet

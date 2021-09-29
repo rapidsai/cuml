@@ -124,3 +124,24 @@ def test_mbsgd_classifier_default(make_dataset):
     cu_acc = accuracy_score(cp.asnumpy(cu_pred), cp.asnumpy(y_test))
 
     assert cu_acc >= 0.69
+
+
+def test_mbsgd_classifier_set_params():
+    x = np.linspace(0, 1, 50)
+    y = (x > 0.5).astype(cp.int32)
+
+    model = cumlMBSGClassifier()
+    model.fit(x, y)
+    coef_before = model.coef_
+
+    model = cumlMBSGClassifier(epochs=20, loss='hinge')
+    model.fit(x, y)
+    coef_after = model.coef_
+
+    model = cumlMBSGClassifier()
+    model.set_params(**{'epochs': 20, 'loss': 'hinge'})
+    model.fit(x, y)
+    coef_test = model.coef_
+
+    assert coef_before != coef_after
+    assert coef_after == coef_test

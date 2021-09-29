@@ -19,7 +19,7 @@
 #include <cuml/tsa/holtwinters_params.h>
 #include <raft/cudart_utils.h>
 #include <raft/linalg/transpose.h>
-#include <cuml/common/device_buffer.hpp>
+#include <rmm/device_uvector.hpp>
 #include "internal/hw_decompose.cuh"
 #include "internal/hw_eval.cuh"
 #include "internal/hw_forecast.cuh"
@@ -28,23 +28,29 @@
 namespace ML {
 
 template <typename Dtype>
-void HWTranspose(const raft::handle_t &handle, Dtype *data_in, int m, int n,
-                 Dtype *data_out) {
-  ASSERT(!(!data_in || !data_out || n < 1 || m < 1), "HW error in in line %d",
-         __LINE__);
-  const raft::handle_t &handle_impl = handle;
+void HWTranspose(const raft::handle_t& handle, Dtype* data_in, int m, int n, Dtype* data_out)
+{
+  ASSERT(!(!data_in || !data_out || n < 1 || m < 1), "HW error in in line %d", __LINE__);
+  const raft::handle_t& handle_impl = handle;
   raft::stream_syncer _(handle_impl);
-  cudaStream_t stream = handle_impl.get_stream();
+  cudaStream_t stream     = handle_impl.get_stream();
   cublasHandle_t cublas_h = handle_impl.get_cublas_handle();
 
   raft::linalg::transpose<Dtype>(handle, data_in, data_out, n, m, stream);
 }
 
-void HoltWintersBufferSize(int n, int batch_size, int frequency, bool use_beta,
-                           bool use_gamma, int *start_leveltrend_len,
-                           int *start_season_len, int *components_len,
-                           int *error_len, int *leveltrend_coef_shift,
-                           int *season_coef_shift) {
+void HoltWintersBufferSize(int n,
+                           int batch_size,
+                           int frequency,
+                           bool use_beta,
+                           bool use_gamma,
+                           int* start_leveltrend_len,
+                           int* start_season_len,
+                           int* components_len,
+                           int* error_len,
+                           int* leveltrend_coef_shift,
+                           int* season_coef_shift)
+{
   int w_len = use_gamma ? frequency : (use_beta ? 2 : 1);
 
   if (start_leveltrend_len) *start_leveltrend_len = batch_size;
@@ -52,22 +58,27 @@ void HoltWintersBufferSize(int n, int batch_size, int frequency, bool use_beta,
 
   if (components_len) *components_len = (n - w_len) * batch_size;
 
-  if (leveltrend_coef_shift)
-    *leveltrend_coef_shift = (n - w_len - 1) * batch_size;
-  if (use_gamma && season_coef_shift)
-    *season_coef_shift = (n - w_len - frequency) * batch_size;
+  if (leveltrend_coef_shift) *leveltrend_coef_shift = (n - w_len - 1) * batch_size;
+  if (use_gamma && season_coef_shift) *season_coef_shift = (n - w_len - frequency) * batch_size;
 
   if (error_len) *error_len = batch_size;
 }
 
 template <typename Dtype>
-void HoltWintersDecompose(const raft::handle_t &handle, const Dtype *ts, int n,
-                          int batch_size, int frequency, Dtype *start_level,
-                          Dtype *start_trend, Dtype *start_season,
-                          int start_periods, ML::SeasonalType seasonal) {
-  const raft::handle_t &handle_impl = handle;
+void HoltWintersDecompose(const raft::handle_t& handle,
+                          const Dtype* ts,
+                          int n,
+                          int batch_size,
+                          int frequency,
+                          Dtype* start_level,
+                          Dtype* start_trend,
+                          Dtype* start_season,
+                          int start_periods,
+                          ML::SeasonalType seasonal)
+{
+  const raft::handle_t& handle_impl = handle;
   raft::stream_syncer _(handle_impl);
-  cudaStream_t stream = handle_impl.get_stream();
+  cudaStream_t stream     = handle_impl.get_stream();
   cublasHandle_t cublas_h = handle_impl.get_cublas_handle();
 
   if (start_level != nullptr && start_trend == nullptr &&
@@ -78,37 +89,69 @@ void HoltWintersDecompose(const raft::handle_t &handle, const Dtype *ts, int n,
     raft::copy(start_level, ts + batch_size, batch_size, stream);
     raft::copy(start_trend, ts + batch_size, batch_size, stream);
     const Dtype alpha = -1.;
-    CUBLAS_CHECK(raft::linalg::cublasaxpy(cublas_h, batch_size, &alpha, ts, 1,
-                                          start_trend, 1, stream));
+    CUBLAS_CHECK(
+      raft::linalg::cublasaxpy(cublas_h, batch_size, &alpha, ts, 1, start_trend, 1, stream));
     // cublas::axpy(batch_size, (Dtype)-1., ts, start_trend);
-  } else if (start_level != nullptr && start_trend != nullptr &&
-             start_season != nullptr) {
-    stl_decomposition_gpu(handle_impl, ts, n, batch_size, frequency,
-                          start_periods, start_level, start_trend, start_season,
+  } else if (start_level != nullptr && start_trend != nullptr && start_season != nullptr) {
+    stl_decomposition_gpu(handle_impl,
+                          ts,
+                          n,
+                          batch_size,
+                          frequency,
+                          start_periods,
+                          start_level,
+                          start_trend,
+                          start_season,
                           seasonal);
   }
 }
 
 template <typename Dtype>
-void HoltWintersEval(const raft::handle_t &handle, const Dtype *ts, int n,
-                     int batch_size, int frequency, const Dtype *start_level,
-                     const Dtype *start_trend, const Dtype *start_season,
-                     const Dtype *alpha, const Dtype *beta, const Dtype *gamma,
-                     Dtype *level, Dtype *trend, Dtype *season, Dtype *xhat,
-                     Dtype *error, ML::SeasonalType seasonal) {
-  const raft::handle_t &handle_impl = handle;
+void HoltWintersEval(const raft::handle_t& handle,
+                     const Dtype* ts,
+                     int n,
+                     int batch_size,
+                     int frequency,
+                     const Dtype* start_level,
+                     const Dtype* start_trend,
+                     const Dtype* start_season,
+                     const Dtype* alpha,
+                     const Dtype* beta,
+                     const Dtype* gamma,
+                     Dtype* level,
+                     Dtype* trend,
+                     Dtype* season,
+                     Dtype* xhat,
+                     Dtype* error,
+                     ML::SeasonalType seasonal)
+{
+  const raft::handle_t& handle_impl = handle;
   raft::stream_syncer _(handle_impl);
   cudaStream_t stream = handle_impl.get_stream();
 
   ASSERT(!((!start_trend) != (!beta) || (!start_season) != (!gamma)),
-         "HW error in in line %d", __LINE__);
-  ASSERT(!(!alpha || !start_level), "HW error in in line %d", __LINE__);
-  ASSERT(!(start_season != nullptr && frequency < 2), "HW error in in line %d",
+         "HW error in in line %d",
          __LINE__);
+  ASSERT(!(!alpha || !start_level), "HW error in in line %d", __LINE__);
+  ASSERT(!(start_season != nullptr && frequency < 2), "HW error in in line %d", __LINE__);
   if (!(!level && !trend && !season && !xhat && !error)) {
-    holtwinters_eval_gpu(handle_impl, ts, n, batch_size, frequency, start_level,
-                         start_trend, start_season, alpha, beta, gamma, level,
-                         trend, season, xhat, error, seasonal);
+    holtwinters_eval_gpu(handle_impl,
+                         ts,
+                         n,
+                         batch_size,
+                         frequency,
+                         start_level,
+                         start_trend,
+                         start_season,
+                         alpha,
+                         beta,
+                         gamma,
+                         level,
+                         trend,
+                         season,
+                         xhat,
+                         error,
+                         seasonal);
   }
 }
 
@@ -117,30 +160,45 @@ void HoltWintersEval(const raft::handle_t &handle, const Dtype *ts, int n,
 // and epsilon majorly influences the fitting based on precision. For a summary,
 // https://github.com/rapidsai/cuml/issues/888
 template <typename Dtype>
-void HoltWintersOptim(const raft::handle_t &handle, const Dtype *ts, int n,
-                      int batch_size, int frequency, const Dtype *start_level,
-                      const Dtype *start_trend, const Dtype *start_season,
-                      Dtype *alpha, bool optim_alpha, Dtype *beta,
-                      bool optim_beta, Dtype *gamma, bool optim_gamma,
-                      Dtype epsilon, Dtype *level, Dtype *trend, Dtype *season,
-                      Dtype *xhat, Dtype *error, OptimCriterion *optim_result,
-                      OptimParams<Dtype> *optim_params,
-                      ML::SeasonalType seasonal) {
-  const raft::handle_t &handle_impl = handle;
+void HoltWintersOptim(const raft::handle_t& handle,
+                      const Dtype* ts,
+                      int n,
+                      int batch_size,
+                      int frequency,
+                      const Dtype* start_level,
+                      const Dtype* start_trend,
+                      const Dtype* start_season,
+                      Dtype* alpha,
+                      bool optim_alpha,
+                      Dtype* beta,
+                      bool optim_beta,
+                      Dtype* gamma,
+                      bool optim_gamma,
+                      Dtype epsilon,
+                      Dtype* level,
+                      Dtype* trend,
+                      Dtype* season,
+                      Dtype* xhat,
+                      Dtype* error,
+                      OptimCriterion* optim_result,
+                      OptimParams<Dtype>* optim_params,
+                      ML::SeasonalType seasonal)
+{
+  const raft::handle_t& handle_impl = handle;
   raft::stream_syncer _(handle_impl);
   cudaStream_t stream = handle_impl.get_stream();
 
   // default values
   OptimParams<Dtype> optim_params_;
-  optim_params_.eps = epsilon;
-  optim_params_.min_param_diff = (Dtype)1e-8;
-  optim_params_.min_error_diff = (Dtype)1e-8;
-  optim_params_.min_grad_norm = (Dtype)1e-4;
-  optim_params_.bfgs_iter_limit = 1000;
+  optim_params_.eps                   = epsilon;
+  optim_params_.min_param_diff        = (Dtype)1e-8;
+  optim_params_.min_error_diff        = (Dtype)1e-8;
+  optim_params_.min_grad_norm         = (Dtype)1e-4;
+  optim_params_.bfgs_iter_limit       = 1000;
   optim_params_.linesearch_iter_limit = 100;
-  optim_params_.linesearch_tau = (Dtype)0.5;
-  optim_params_.linesearch_c = (Dtype)0.8;
-  optim_params_.linesearch_step_size = (Dtype)-1;
+  optim_params_.linesearch_tau        = (Dtype)0.5;
+  optim_params_.linesearch_c          = (Dtype)0.8;
+  optim_params_.linesearch_step_size  = (Dtype)-1;
 
   if (optim_params) {
     if (optim_params->eps > .0) optim_params_.eps = optim_params->eps;
@@ -156,57 +214,84 @@ void HoltWintersOptim(const raft::handle_t &handle, const Dtype *ts, int n,
       optim_params_.linesearch_iter_limit = optim_params->linesearch_iter_limit;
     if (optim_params->linesearch_tau > .0)
       optim_params_.linesearch_tau = optim_params->linesearch_tau;
-    if (optim_params->linesearch_c > .0)
-      optim_params_.linesearch_c = optim_params->linesearch_c;
+    if (optim_params->linesearch_c > .0) optim_params_.linesearch_c = optim_params->linesearch_c;
     if (optim_params->linesearch_step_size > 0)
       optim_params_.linesearch_step_size = optim_params->linesearch_step_size;
   }
 
   ASSERT(alpha && start_level, "HW error in in line %d", __LINE__);
   ASSERT(!((!start_trend) != (!beta) || (!start_season) != (!gamma)),
-         "HW error in in line %d", __LINE__);
+         "HW error in in line %d",
+         __LINE__);
   ASSERT(!(start_season && frequency < 2), "HW error in in line %d", __LINE__);
-  ASSERT(!(!optim_alpha && !optim_beta && !optim_gamma),
-         "HW error in in line %d", __LINE__);
-  ASSERT(!((optim_beta && !beta) || (optim_gamma && !gamma)),
-         "HW error in in line %d", __LINE__);
-  if (!(!alpha && !beta && !gamma & !level && !trend && !season && !xhat &&
-        !error)) {
-    holtwinters_optim_gpu(
-      handle_impl, ts, n, batch_size, frequency, start_level, start_trend,
-      start_season, alpha, optim_alpha, beta, optim_beta, gamma, optim_gamma,
-      level, trend, season, xhat, error, optim_result, seasonal, optim_params_);
+  ASSERT(!(!optim_alpha && !optim_beta && !optim_gamma), "HW error in in line %d", __LINE__);
+  ASSERT(!((optim_beta && !beta) || (optim_gamma && !gamma)), "HW error in in line %d", __LINE__);
+  if (!(!alpha && !beta && !gamma & !level && !trend && !season && !xhat && !error)) {
+    holtwinters_optim_gpu(handle_impl,
+                          ts,
+                          n,
+                          batch_size,
+                          frequency,
+                          start_level,
+                          start_trend,
+                          start_season,
+                          alpha,
+                          optim_alpha,
+                          beta,
+                          optim_beta,
+                          gamma,
+                          optim_gamma,
+                          level,
+                          trend,
+                          season,
+                          xhat,
+                          error,
+                          optim_result,
+                          seasonal,
+                          optim_params_);
   }
 }
 
 template <typename Dtype>
-void HoltWintersForecast(const raft::handle_t &handle, Dtype *forecast, int h,
-                         int batch_size, int frequency, const Dtype *level_coef,
-                         const Dtype *trend_coef, const Dtype *season_coef,
-                         ML::SeasonalType seasonal) {
-  const raft::handle_t &handle_impl = handle;
+void HoltWintersForecast(const raft::handle_t& handle,
+                         Dtype* forecast,
+                         int h,
+                         int batch_size,
+                         int frequency,
+                         const Dtype* level_coef,
+                         const Dtype* trend_coef,
+                         const Dtype* season_coef,
+                         ML::SeasonalType seasonal)
+{
+  const raft::handle_t& handle_impl = handle;
   raft::stream_syncer _(handle_impl);
   cudaStream_t stream = handle_impl.get_stream();
 
-  ASSERT(!(!level_coef && !trend_coef && !season_coef),
-         "HW error in in line %d", __LINE__);
+  ASSERT(!(!level_coef && !trend_coef && !season_coef), "HW error in in line %d", __LINE__);
   ASSERT(!(season_coef && frequency < 2), "HW error in in line %d", __LINE__);
-  holtwinters_forecast_gpu(handle_impl, forecast, h, batch_size, frequency,
-                           level_coef, trend_coef, season_coef, seasonal);
+  holtwinters_forecast_gpu(
+    handle_impl, forecast, h, batch_size, frequency, level_coef, trend_coef, season_coef, seasonal);
 }
 
 // change optim_gamma to false here to test bug in Double Exponential Smoothing
 // https://github.com/rapidsai/cuml/issues/889
 template <typename Dtype>
-void HoltWintersFitHelper(const raft::handle_t &handle, int n, int batch_size,
-                          int frequency, int start_periods,
-                          ML::SeasonalType seasonal, Dtype epsilon, Dtype *data,
-                          Dtype *level_d, Dtype *trend_d, Dtype *season_d,
-                          Dtype *error_d) {
-  const raft::handle_t &handle_impl = handle;
+void HoltWintersFitHelper(const raft::handle_t& handle,
+                          int n,
+                          int batch_size,
+                          int frequency,
+                          int start_periods,
+                          ML::SeasonalType seasonal,
+                          Dtype epsilon,
+                          Dtype* data,
+                          Dtype* level_d,
+                          Dtype* trend_d,
+                          Dtype* season_d,
+                          Dtype* error_d)
+{
+  const raft::handle_t& handle_impl = handle;
   raft::stream_syncer _(handle_impl);
   cudaStream_t stream = handle_impl.get_stream();
-  auto dev_allocator = handle_impl.get_device_allocator();
 
   bool optim_alpha = true, optim_beta = true, optim_gamma = true;
   // initial values for alpha, beta and gamma
@@ -218,76 +303,96 @@ void HoltWintersFitHelper(const raft::handle_t &handle, int n, int batch_size,
   int leveltrend_coef_offset, season_coef_offset;
   int error_len;
 
-  HoltWintersBufferSize(
-    n, batch_size, frequency, optim_beta, optim_gamma,
-    &leveltrend_seed_len,     // = batch_size
-    &season_seed_len,         // = frequency*batch_size
-    &components_len,          // = (n-w_len)*batch_size
-    &error_len,               // = batch_size
-    &leveltrend_coef_offset,  // = (n-wlen-1)*batch_size (last row)
-    &season_coef_offset);     // = (n-wlen-frequency)*batch_size(last freq rows)
+  HoltWintersBufferSize(n,
+                        batch_size,
+                        frequency,
+                        optim_beta,
+                        optim_gamma,
+                        &leveltrend_seed_len,     // = batch_size
+                        &season_seed_len,         // = frequency*batch_size
+                        &components_len,          // = (n-w_len)*batch_size
+                        &error_len,               // = batch_size
+                        &leveltrend_coef_offset,  // = (n-wlen-1)*batch_size (last row)
+                        &season_coef_offset);     // = (n-wlen-frequency)*batch_size(last freq rows)
 
-  Dtype *trend_seed_d = nullptr, *start_season_d = nullptr;
-  Dtype *beta_d = nullptr, *gamma_d = nullptr;
-
-  MLCommon::device_buffer<Dtype> dataset_d(dev_allocator, stream,
-                                           batch_size * n);
-  MLCommon::device_buffer<Dtype> alpha_d(dev_allocator, stream, batch_size);
+  rmm::device_uvector<Dtype> dataset_d(batch_size * n, stream);
+  rmm::device_uvector<Dtype> alpha_d(batch_size, stream);
   raft::update_device(alpha_d.data(), alpha_h.data(), batch_size, stream);
-  MLCommon::device_buffer<Dtype> level_seed_d(dev_allocator, stream,
-                                              leveltrend_seed_len);
+  rmm::device_uvector<Dtype> level_seed_d(leveltrend_seed_len, stream);
+
+  rmm::device_uvector<Dtype> beta_d(0, stream);
+  rmm::device_uvector<Dtype> gamma_d(0, stream);
+  rmm::device_uvector<Dtype> trend_seed_d(0, stream);
+  rmm::device_uvector<Dtype> start_season_d(0, stream);
 
   if (optim_beta) {
-    beta_d =
-      (Dtype *)dev_allocator->allocate(sizeof(Dtype) * batch_size, stream);
-    raft::update_device(beta_d, beta_h.data(), batch_size, stream);
-    trend_seed_d = (Dtype *)dev_allocator->allocate(
-      sizeof(Dtype) * leveltrend_seed_len, stream);
+    beta_d.resize(batch_size, stream);
+    raft::update_device(beta_d.data(), beta_h.data(), batch_size, stream);
+    trend_seed_d.resize(leveltrend_seed_len, stream);
   }
 
   if (optim_gamma) {
-    gamma_d =
-      (Dtype *)dev_allocator->allocate(sizeof(Dtype) * batch_size, stream);
-    raft::update_device(gamma_d, gamma_h.data(), batch_size, stream);
-    start_season_d =
-      (Dtype *)dev_allocator->allocate(sizeof(Dtype) * season_seed_len, stream);
+    gamma_d.resize(batch_size, stream);
+    raft::update_device(gamma_d.data(), gamma_h.data(), batch_size, stream);
+    start_season_d.resize(season_seed_len, stream);
   }
 
   // Step 1: transpose the dataset (ML expects col major dataset)
   HWTranspose(handle, data, batch_size, n, dataset_d.data());
 
   // Step 2: Decompose dataset to get seed for level, trend and seasonal values
-  HoltWintersDecompose(handle, dataset_d.data(), n, batch_size, frequency,
-                       level_seed_d.data(), trend_seed_d, start_season_d,
-                       start_periods, seasonal);
+  HoltWintersDecompose(handle,
+                       dataset_d.data(),
+                       n,
+                       batch_size,
+                       frequency,
+                       level_seed_d.data(),
+                       trend_seed_d.data(),
+                       start_season_d.data(),
+                       start_periods,
+                       seasonal);
 
   // Step 3: Find optimal alpha, beta and gamma values (seasonal HW)
-  HoltWintersOptim(handle, dataset_d.data(), n, batch_size, frequency,
-                   level_seed_d.data(), trend_seed_d, start_season_d,
-                   alpha_d.data(), optim_alpha, beta_d, optim_beta, gamma_d,
-                   optim_gamma, epsilon, level_d, trend_d, season_d,
-                   (Dtype *)nullptr, error_d, (OptimCriterion *)nullptr,
-                   (OptimParams<Dtype> *)nullptr, seasonal);
-
-  // Free the allocated memory on GPU
-  dev_allocator->deallocate(trend_seed_d, sizeof(Dtype) * leveltrend_seed_len,
-                            stream);
-  dev_allocator->deallocate(start_season_d, sizeof(Dtype) * components_len,
-                            stream);
-  dev_allocator->deallocate(beta_d, sizeof(Dtype) * batch_size, stream);
-  dev_allocator->deallocate(gamma_d, sizeof(Dtype) * batch_size, stream);
+  HoltWintersOptim(handle,
+                   dataset_d.data(),
+                   n,
+                   batch_size,
+                   frequency,
+                   level_seed_d.data(),
+                   trend_seed_d.data(),
+                   start_season_d.data(),
+                   alpha_d.data(),
+                   optim_alpha,
+                   beta_d.data(),
+                   optim_beta,
+                   gamma_d.data(),
+                   optim_gamma,
+                   epsilon,
+                   level_d,
+                   trend_d,
+                   season_d,
+                   (Dtype*)nullptr,
+                   error_d,
+                   (OptimCriterion*)nullptr,
+                   (OptimParams<Dtype>*)nullptr,
+                   seasonal);
 }
 
 template <typename Dtype>
-void HoltWintersForecastHelper(const raft::handle_t &handle, int n,
-                               int batch_size, int frequency, int h,
-                               ML::SeasonalType seasonal, Dtype *level_d,
-                               Dtype *trend_d, Dtype *season_d,
-                               Dtype *forecast_d) {
-  const raft::handle_t &handle_impl = handle;
+void HoltWintersForecastHelper(const raft::handle_t& handle,
+                               int n,
+                               int batch_size,
+                               int frequency,
+                               int h,
+                               ML::SeasonalType seasonal,
+                               Dtype* level_d,
+                               Dtype* trend_d,
+                               Dtype* season_d,
+                               Dtype* forecast_d)
+{
+  const raft::handle_t& handle_impl = handle;
   raft::stream_syncer _(handle_impl);
   cudaStream_t stream = handle_impl.get_stream();
-  auto dev_allocator = handle_impl.get_device_allocator();
 
   bool optim_beta = true, optim_gamma = true;
 
@@ -295,20 +400,28 @@ void HoltWintersForecastHelper(const raft::handle_t &handle, int n,
   int leveltrend_coef_offset, season_coef_offset;
   int error_len;
 
-  HoltWintersBufferSize(
-    n, batch_size, frequency, optim_beta, optim_gamma,
-    &leveltrend_seed_len,     // = batch_size
-    &season_seed_len,         // = frequency*batch_size
-    &components_len,          // = (n-w_len)*batch_size
-    &error_len,               // = batch_size
-    &leveltrend_coef_offset,  // = (n-wlen-1)*batch_size (last row)
-    &season_coef_offset);     // = (n-wlen-frequency)*batch_size(last freq rows)
+  HoltWintersBufferSize(n,
+                        batch_size,
+                        frequency,
+                        optim_beta,
+                        optim_gamma,
+                        &leveltrend_seed_len,     // = batch_size
+                        &season_seed_len,         // = frequency*batch_size
+                        &components_len,          // = (n-w_len)*batch_size
+                        &error_len,               // = batch_size
+                        &leveltrend_coef_offset,  // = (n-wlen-1)*batch_size (last row)
+                        &season_coef_offset);     // = (n-wlen-frequency)*batch_size(last freq rows)
 
   // Step 4: Do forecast
-  HoltWintersForecast(handle, forecast_d, h, batch_size, frequency,
+  HoltWintersForecast(handle,
+                      forecast_d,
+                      h,
+                      batch_size,
+                      frequency,
                       level_d + leveltrend_coef_offset,
                       trend_d + leveltrend_coef_offset,
-                      season_d + season_coef_offset, seasonal);
+                      season_d + season_coef_offset,
+                      seasonal);
 }
 
 }  // namespace ML

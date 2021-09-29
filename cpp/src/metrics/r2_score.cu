@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,12 +21,13 @@ namespace ML {
 
 namespace Metrics {
 
-float r2_score_py(const raft::handle_t &handle, float *y, float *y_hat, int n) {
+float r2_score_py(const raft::handle_t& handle, float* y, float* y_hat, int n)
+{
   return MLCommon::Score::r2_score(y, y_hat, n, handle.get_stream());
 }
 
-double r2_score_py(const raft::handle_t &handle, double *y, double *y_hat,
-                   int n) {
+double r2_score_py(const raft::handle_t& handle, double* y, double* y_hat, int n)
+{
   return MLCommon::Score::r2_score(y, y_hat, n, handle.get_stream());
 }
 

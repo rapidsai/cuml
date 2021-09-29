@@ -63,7 +63,7 @@ Preprocessing, Metrics, and Utilities
 Model Selection and Data Splitting
 ----------------------------------
 
- .. autofunction:: cuml.preprocessing.model_selection.train_test_split
+ .. autofunction:: cuml.model_selection.train_test_split
 
 Feature and Label Encoding (Single-GPU)
 ---------------------------------------
@@ -258,10 +258,19 @@ Multiclass Classification
 .. autoclass:: cuml.multiclass.OneVsRestClassifier
     :members:
 
-Mutinomial Naive Bayes
+Naive Bayes
 ----------------------
 
-.. autoclass:: cuml.MultinomialNB
+.. autoclass:: cuml.naive_bayes.MultinomialNB
+    :members:
+
+.. autoclass:: cuml.naive_bayes.BernoulliNB
+    :members:
+
+.. autoclass:: cuml.naive_bayes.GaussianNB
+    :members:
+
+.. autoclass:: cuml.naive_bayes.CategoricalNB
     :members:
 
 Stochastic Gradient Descent
@@ -340,6 +349,14 @@ Agglomerative Clustering
 
 .. autoclass:: cuml.AgglomerativeClustering
     :members:
+
+
+HDBSCAN
+-------
+
+.. autoclass:: cuml.cluster.HDBSCAN
+   :members:
+
 
 Dimensionality Reduction and Manifold Learning
 ==============================================
@@ -556,12 +573,6 @@ Preprocessing
       Normalizer, RobustScaler, SimpleImputer, StandardScaler,
       add_dummy_feature, binarize, minmax_scale, normalize,
       PolynomialFeatures, robust_scale, scale
-
-Clustering
-----------
-
-.. autoclass:: cuml.experimental.cluster.HDBSCAN
-   :members:
 
 Linear Models
 -------------

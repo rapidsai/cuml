@@ -356,8 +356,7 @@ class UMAP(Base,
                  hash_input=False,
                  random_state=None,
                  callback=None,
-                 output_type=None,
-                 target_weights=None):
+                 output_type=None):
 
         super().__init__(handle=handle,
                          verbose=verbose,
@@ -389,16 +388,7 @@ class UMAP(Base,
         self.negative_sample_rate = negative_sample_rate
         self.transform_queue_size = transform_queue_size
         self.target_n_neighbors = target_n_neighbors
-        if target_weights is not None:
-            import warnings
-            warnings.warn("Parameter 'target_weights' is deprecated and"
-                          " will be removed in 21.08. Please use"
-                          " 'target_weight' instead. Setting 'target_weight'"
-                          " as the curent 'target_weights' value",
-                          DeprecationWarning)
-            self.target_weight = target_weights
-        else:
-            self.target_weight = target_weight
+        self.target_weight = target_weight
 
         self.deterministic = random_state is not None
 

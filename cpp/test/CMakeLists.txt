@@ -40,9 +40,8 @@ if(BUILD_CUML_TESTS)
   # (please keep the filenames in alphabetical order)
   add_executable(${CUML_CPP_TEST_TARGET}
     sg/cd_test.cu
+    sg/fil_child_index_test.cu
     sg/dbscan_test.cu
-    sg/decisiontree_batchedlevel_algo.cu
-    sg/decisiontree_batchedlevel_unittest.cu
     sg/fil_test.cu
     sg/fnv_hash_test.cpp
     sg/genetic/node_test.cpp
@@ -60,13 +59,7 @@ if(BUILD_CUML_TESTS)
     sg/ols.cu
     sg/pca_test.cu
     sg/quasi_newton.cu
-    sg/rf_accuracy_test.cu
-    sg/rf_batched_classification_test.cu
-    sg/rf_batched_regression_test.cu
-    sg/rf_depth_test.cu
-    sg/rf_quantiles_test.cu
     sg/rf_test.cu
-    sg/rf_treelite_test.cu
     sg/ridge.cu
     sg/rproj_test.cu
     sg/sgd.cu
@@ -138,7 +131,7 @@ if(BUILD_CUML_MG_TESTS)
 
   else(MPI_CXX_FOUND)
    message("OpenMPI not found. Skipping test '${CUML_MG_TEST_TARGET}'")
-  endif(MPI_CXX_FOUND)
+  endif()
 endif()
 
 ##############################################################################
@@ -166,19 +159,20 @@ if(BUILD_PRIMS_TESTS)
     prims/entropy.cu
     prims/epsilon_neighborhood.cu
     prims/fast_int_div.cu
+    prims/fillna.cu
     prims/gather.cu
     prims/gram.cu
     prims/grid_sync.cu
     prims/hinge.cu
     prims/histogram.cu
     prims/homogeneity_score.cu
-    prims/host_buffer.cu
     prims/jones_transform.cu
     prims/kl_divergence.cu
     prims/knn_classify.cu
     prims/knn_regression.cu
     prims/kselection.cu
     prims/label.cu
+    prims/linalg_block.cu
     prims/linearReg.cu
     prims/log.cu
     prims/logisticReg.cu
@@ -243,4 +237,4 @@ if(BUILD_CUML_C_LIBRARY)
 
   target_link_libraries(${CUML_C_TEST_TARGET} PUBLIC ${CUML_C_TARGET})
 
-endif(BUILD_CUML_C_LIBRARY)
+endif()

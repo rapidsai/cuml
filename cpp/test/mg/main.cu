@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,10 +18,10 @@
 
 #include "test_opg_utils.h"
 
-int main(int argc, char **argv) {
+int main(int argc, char** argv)
+{
   ::testing::InitGoogleTest(&argc, argv);
-  ::testing::AddGlobalTestEnvironment(
-    new MLCommon::Test::opg::MPIEnvironment());
+  ::testing::AddGlobalTestEnvironment(new MLCommon::Test::opg::MPIEnvironment());
 
   return RUN_ALL_TESTS();
 }

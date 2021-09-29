@@ -276,9 +276,14 @@ class NearestNeighbors(Base,
     Notes
     -----
 
-    Warning: IVFPQ might be unstable in this version of cuML.
-    This is due to a known issue in the FAISS release that this
-    cuML version is linked to. (see FAISS issue #1421)
+    Warning: Approximate Nearest Neighbor methods might be unstable
+    in this version of cuML. This is due to a known issue in
+    the FAISS release that this cuML version is linked to.
+    (see cuML issue #4020)
+
+    Warning: For compatibility with libraries that rely on scikit-learn,
+    kwargs allows for passing of arguments that are not explicit in the
+    class constructor, such as 'n_jobs', but they have no effect on behavior.
 
     For an additional example see `the NearestNeighbors notebook
     <https://github.com/rapidsai/cuml/blob/branch-0.15/notebooks/nearest_neighbors_demo.ipynb>`_.
@@ -299,7 +304,8 @@ class NearestNeighbors(Base,
                  p=2,
                  algo_params=None,
                  metric_params=None,
-                 output_type=None):
+                 output_type=None,
+                 **kwargs):
 
         super().__init__(handle=handle,
                          verbose=verbose,
@@ -349,11 +355,11 @@ class NearestNeighbors(Base,
         cdef handle_t* handle_ = <handle_t*><uintptr_t> self.handle.getHandle()
         cdef knnIndexParam* algo_params = <knnIndexParam*> 0
         if self.algorithm in ['ivfflat', 'ivfpq', 'ivfsq']:
-            if self.algorithm == 'ivfpq':
-                warnings.warn("\nWarning: IVFPQ might be unstable in this "
-                              "version of cuML. This is due to a known issue "
-                              "in the FAISS release that this cuML version "
-                              "is linked to. (see FAISS issue #1421)")
+            warnings.warn("\nWarning: Approximate Nearest Neighbor methods "
+                          "might be unstable in this version of cuML. "
+                          "This is due to a known issue in the FAISS "
+                          "release that this cuML version is linked to. "
+                          "(see cuML issue #4020)")
 
             if not is_dense(X):
                 raise ValueError("Approximate Nearest Neigbors methods "

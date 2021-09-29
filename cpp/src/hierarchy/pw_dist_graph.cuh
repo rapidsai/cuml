@@ -19,9 +19,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 
-#include <common/allocatorAdapter.hpp>
-
-#include <raft/distance/distance.cuh>
+#include <cuml/metrics/metrics.hpp>
 
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
@@ -46,10 +44,11 @@ namespace hierarchy {
 namespace detail {
 
 template <typename value_idx>
-__global__ void fill_indices2(value_idx *indices, size_t m, size_t nnz) {
+__global__ void fill_indices2(value_idx* indices, size_t m, size_t nnz)
+{
   value_idx tid = (blockIdx.x * blockDim.x) + threadIdx.x;
   if (tid >= nnz) return;
-  value_idx v = tid % m;
+  value_idx v  = tid % m;
   indices[tid] = v;
 }
 
@@ -67,12 +66,17 @@ __global__ void fill_indices2(value_idx *indices, size_t m, size_t nnz) {
  * @param[out] data
  */
 template <typename value_idx, typename value_t>
-void pairwise_distances(const raft::handle_t &handle, const value_t *X,
-                        size_t m, size_t n, raft::distance::DistanceType metric,
-                        value_idx *indptr, value_idx *indices, value_t *data) {
-  auto d_alloc = handle.get_device_allocator();
-  auto stream = handle.get_stream();
-  auto exec_policy = rmm::exec_policy(stream);
+void pairwise_distances(const raft::handle_t& handle,
+                        const value_t* X,
+                        size_t m,
+                        size_t n,
+                        raft::distance::DistanceType metric,
+                        value_idx* indptr,
+                        value_idx* indices,
+                        value_t* data)
+{
+  auto stream      = handle.get_stream();
+  auto exec_policy = handle.get_thrust_policy();
 
   value_idx nnz = m * m;
 
@@ -83,28 +87,24 @@ void pairwise_distances(const raft::handle_t &handle, const value_t *X,
 
   raft::update_device(indptr + m, &nnz, 1, stream);
 
-  // TODO: Keeping raft device buffer here for now until our
-  // dense pairwise distances API is finished being refactored
-  raft::mr::device::buffer<char> workspace(d_alloc, stream, (size_t)0);
-
   // TODO: It would ultimately be nice if the MST could accept
   // dense inputs directly so we don't need to double the memory
   // usage to hand it a sparse array here.
-  raft::distance::pairwise_distance<value_t, value_idx>(
-    X, X, data, m, m, n, workspace, metric, stream);
-
+  ML::Metrics::pairwise_distance(handle, X, X, data, m, m, n, metric);
   // self-loops get max distance
-  auto transform_in = thrust::make_zip_iterator(
-    thrust::make_tuple(thrust::make_counting_iterator(0), data));
+  auto transform_in =
+    thrust::make_zip_iterator(thrust::make_tuple(thrust::make_counting_iterator(0), data));
 
-  thrust::transform(
-    exec_policy, transform_in, transform_in + nnz, data,
-    [=] __device__(const thrust::tuple<value_idx, value_t> &tup) {
-      value_idx idx = thrust::get<0>(tup);
-      bool self_loop = idx % m == idx / m;
-      return (self_loop * std::numeric_limits<value_t>::max()) +
-             (!self_loop * thrust::get<1>(tup));
-    });
+  thrust::transform(exec_policy,
+                    transform_in,
+                    transform_in + nnz,
+                    data,
+                    [=] __device__(const thrust::tuple<value_idx, value_t>& tup) {
+                      value_idx idx  = thrust::get<0>(tup);
+                      bool self_loop = idx % m == idx / m;
+                      return (self_loop * std::numeric_limits<value_t>::max()) +
+                             (!self_loop * thrust::get<1>(tup));
+                    });
 }
 
 /**
@@ -113,14 +113,17 @@ void pairwise_distances(const raft::handle_t &handle, const value_t *X,
  * @tparam value_t
  */
 template <typename value_idx, typename value_t>
-struct distance_graph_impl<raft::hierarchy::LinkageDistance::PAIRWISE,
-                           value_idx, value_t> {
-  void run(const raft::handle_t &handle, const value_t *X, size_t m, size_t n,
+struct distance_graph_impl<raft::hierarchy::LinkageDistance::PAIRWISE, value_idx, value_t> {
+  void run(const raft::handle_t& handle,
+           const value_t* X,
+           size_t m,
+           size_t n,
            raft::distance::DistanceType metric,
-           rmm::device_uvector<value_idx> &indptr,
-           rmm::device_uvector<value_idx> &indices,
-           rmm::device_uvector<value_t> &data, int c) {
-    auto d_alloc = handle.get_device_allocator();
+           rmm::device_uvector<value_idx>& indptr,
+           rmm::device_uvector<value_idx>& indices,
+           rmm::device_uvector<value_t>& data,
+           int c)
+  {
     auto stream = handle.get_stream();
 
     size_t nnz = m * m;
@@ -128,8 +131,7 @@ struct distance_graph_impl<raft::hierarchy::LinkageDistance::PAIRWISE,
     indices.resize(nnz, stream);
     data.resize(nnz, stream);
 
-    pairwise_distances(handle, X, m, n, metric, indptr.data(), indices.data(),
-                       data.data());
+    pairwise_distances(handle, X, m, n, metric, indptr.data(), indices.data(), data.data());
   }
 };
 

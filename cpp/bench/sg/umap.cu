@@ -31,16 +31,16 @@ struct Params {
 };
 
 template <typename OutT, typename InT, typename IdxT>
-__global__ void castKernel(OutT* out, const InT* in, IdxT len) {
+__global__ void castKernel(OutT* out, const InT* in, IdxT len)
+{
   auto tid = IdxT(blockIdx.x) * blockDim.x + IdxT(threadIdx.x);
-  if (tid < len) {
-    out[tid] = OutT(in[tid]);
-  }
+  if (tid < len) { out[tid] = OutT(in[tid]); }
 }
 template <typename OutT, typename InT, typename IdxT = int>
-void cast(OutT* out, const InT* in, IdxT len, cudaStream_t stream) {
+void cast(OutT* out, const InT* in, IdxT len, cudaStream_t stream)
+{
   static const int TPB = 256;
-  auto nblks = raft::ceildiv<IdxT>(len, TPB);
+  auto nblks           = raft::ceildiv<IdxT>(len, TPB);
   castKernel<OutT, InT, IdxT><<<nblks, TPB, 0, stream>>>(out, in, len);
   CUDA_CHECK(cudaGetLastError());
 }
@@ -48,26 +48,29 @@ void cast(OutT* out, const InT* in, IdxT len, cudaStream_t stream) {
 class UmapBase : public BlobsFixture<float, int> {
  public:
   UmapBase(const std::string& name, const Params& p)
-    : BlobsFixture<float, int>(name, p.data, p.blobs), uParams(p.umap) {}
+    : BlobsFixture<float, int>(name, p.data, p.blobs), uParams(p.umap)
+  {
+  }
 
  protected:
-  void runBenchmark(::benchmark::State& state) override {
+  void runBenchmark(::benchmark::State& state) override
+  {
     using MLCommon::Bench::CudaEventTimer;
-    if (!this->params.rowMajor) {
-      state.SkipWithError("Umap only supports row-major inputs");
-    }
+    if (!this->params.rowMajor) { state.SkipWithError("Umap only supports row-major inputs"); }
     this->loopOnState(state, [this]() { coreBenchmarkMethod(); });
   }
 
   virtual void coreBenchmarkMethod() = 0;
 
-  void allocateTempBuffers(const ::benchmark::State& state) override {
+  void allocateTempBuffers(const ::benchmark::State& state) override
+  {
     alloc(yFloat, this->params.nrows);
     alloc(embeddings, this->params.nrows * uParams.n_components);
-    cast<float, int>(yFloat, this->data.y, this->params.nrows, this->stream);
+    cast<float, int>(yFloat, this->data.y.data(), this->params.nrows, this->stream);
   }
 
-  void deallocateTempBuffers(const ::benchmark::State& state) override {
+  void deallocateTempBuffers(const ::benchmark::State& state) override
+  {
     dealloc(yFloat, this->params.nrows);
     dealloc(embeddings, this->params.nrows * uParams.n_components);
   }
@@ -76,18 +79,19 @@ class UmapBase : public BlobsFixture<float, int> {
   float *yFloat, *embeddings;
 };  // class UmapBase
 
-std::vector<Params> getInputs() {
+std::vector<Params> getInputs()
+{
   std::vector<Params> out;
   Params p;
-  p.data.rowMajor = true;
-  p.blobs.cluster_std = 1.0;
-  p.blobs.shuffle = false;
-  p.blobs.center_box_min = -10.0;
-  p.blobs.center_box_max = 10.0;
-  p.blobs.seed = 12345ULL;
-  p.umap.n_components = 4;
-  p.umap.n_epochs = 500;
-  p.umap.min_dist = 0.9f;
+  p.data.rowMajor                          = true;
+  p.blobs.cluster_std                      = 1.0;
+  p.blobs.shuffle                          = false;
+  p.blobs.center_box_min                   = -10.0;
+  p.blobs.center_box_max                   = 10.0;
+  p.blobs.seed                             = 12345ULL;
+  p.umap.n_components                      = 4;
+  p.umap.n_epochs                          = 500;
+  p.umap.min_dist                          = 0.9f;
   std::vector<std::pair<int, int>> rowcols = {
     {10000, 500},
     {20000, 500},
@@ -106,26 +110,40 @@ std::vector<Params> getInputs() {
 
 class UmapSupervised : public UmapBase {
  public:
-  UmapSupervised(const std::string& name, const Params& p)
-    : UmapBase(name, p) {}
+  UmapSupervised(const std::string& name, const Params& p) : UmapBase(name, p) {}
 
  protected:
-  void coreBenchmarkMethod() {
-    UMAP::fit(*this->handle, this->data.X, yFloat, this->params.nrows,
-              this->params.ncols, nullptr, nullptr, &uParams, embeddings);
+  void coreBenchmarkMethod()
+  {
+    UMAP::fit(*this->handle,
+              this->data.X.data(),
+              yFloat,
+              this->params.nrows,
+              this->params.ncols,
+              nullptr,
+              nullptr,
+              &uParams,
+              embeddings);
   }
 };
 ML_BENCH_REGISTER(Params, UmapSupervised, "blobs", getInputs());
 
 class UmapUnsupervised : public UmapBase {
  public:
-  UmapUnsupervised(const std::string& name, const Params& p)
-    : UmapBase(name, p) {}
+  UmapUnsupervised(const std::string& name, const Params& p) : UmapBase(name, p) {}
 
  protected:
-  void coreBenchmarkMethod() {
-    UMAP::fit(*this->handle, this->data.X, nullptr, this->params.nrows,
-              this->params.ncols, nullptr, nullptr, &uParams, embeddings);
+  void coreBenchmarkMethod()
+  {
+    UMAP::fit(*this->handle,
+              this->data.X.data(),
+              nullptr,
+              this->params.nrows,
+              this->params.ncols,
+              nullptr,
+              nullptr,
+              &uParams,
+              embeddings);
   }
 };
 ML_BENCH_REGISTER(Params, UmapUnsupervised, "blobs", getInputs());
@@ -135,20 +153,38 @@ class UmapTransform : public UmapBase {
   UmapTransform(const std::string& name, const Params& p) : UmapBase(name, p) {}
 
  protected:
-  void coreBenchmarkMethod() {
-    UMAP::transform(*this->handle, this->data.X, this->params.nrows,
-                    this->params.ncols, nullptr, nullptr, this->data.X,
-                    this->params.nrows, embeddings, this->params.nrows,
-                    &uParams, transformed);
+  void coreBenchmarkMethod()
+  {
+    UMAP::transform(*this->handle,
+                    this->data.X.data(),
+                    this->params.nrows,
+                    this->params.ncols,
+                    nullptr,
+                    nullptr,
+                    this->data.X.data(),
+                    this->params.nrows,
+                    embeddings,
+                    this->params.nrows,
+                    &uParams,
+                    transformed);
   }
-  void allocateBuffers(const ::benchmark::State& state) {
+  void allocateBuffers(const ::benchmark::State& state)
+  {
     UmapBase::allocateBuffers(state);
     auto& handle = *this->handle;
     alloc(transformed, this->params.nrows * uParams.n_components);
-    UMAP::fit(handle, this->data.X, yFloat, this->params.nrows,
-              this->params.ncols, nullptr, nullptr, &uParams, embeddings);
+    UMAP::fit(handle,
+              this->data.X.data(),
+              yFloat,
+              this->params.nrows,
+              this->params.ncols,
+              nullptr,
+              nullptr,
+              &uParams,
+              embeddings);
   }
-  void deallocateBuffers(const ::benchmark::State& state) {
+  void deallocateBuffers(const ::benchmark::State& state)
+  {
     dealloc(transformed, this->params.nrows * uParams.n_components);
     UmapBase::deallocateBuffers(state);
   }

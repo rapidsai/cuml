@@ -15,13 +15,12 @@
  */
 
 #pragma once
-#include <vector>
+
 #include "algo_helper.h"
 #include "flatnode.h"
 
-namespace raft {
-class handle_t;
-}
+#include <string>
+#include <vector>
 
 namespace ML {
 
@@ -57,7 +56,8 @@ struct DecisionTreeParams {
    */
   CRITERION split_criterion;
   /**
-   * Minimum impurity decrease required for spliting a node. If the impurity decrease is below this value, node is leafed out. Default is 0.0
+   * Minimum impurity decrease required for spliting a node. If the impurity decrease is below this
+   * value, node is leafed out. Default is 0.0
    */
   float min_impurity_decrease = 0.0f;
 
@@ -86,34 +86,26 @@ struct DecisionTreeParams {
               in a batch. This is used only for batched-level algo. Default
               value 128.
  */
-void set_tree_params(DecisionTreeParams &params, int cfg_max_depth = -1,
-                     int cfg_max_leaves = -1, float cfg_max_features = 1.0f,
-                     int cfg_n_bins = 128, int cfg_min_samples_leaf = 1,
-                     int cfg_min_samples_split = 2,
+void set_tree_params(DecisionTreeParams& params,
+                     int cfg_max_depth               = -1,
+                     int cfg_max_leaves              = -1,
+                     float cfg_max_features          = 1.0f,
+                     int cfg_n_bins                  = 128,
+                     int cfg_min_samples_leaf        = 1,
+                     int cfg_min_samples_split       = 2,
                      float cfg_min_impurity_decrease = 0.0f,
-                     CRITERION cfg_split_criterion = CRITERION_END,
-                     int cfg_max_batch_size = 4096);
-
-/**
- * @brief Check validity of all decision tree hyper-parameters.
- * @param[in] params: decision tree hyper-parameters.
- */
-void validity_check(const DecisionTreeParams params);
-
-/**
- * @brief Print all decision tree hyper-parameters.
- * @param[in] params: decision tree hyper-parameters.
- */
-void print(const DecisionTreeParams params);
+                     CRITERION cfg_split_criterion   = CRITERION_END,
+                     int cfg_max_batch_size          = 4096);
 
 template <class T, class L>
 struct TreeMetaDataNode {
   int treeid;
   int depth_counter;
   int leaf_counter;
-  double prepare_time;
   double train_time;
+  std::vector<T> vector_leaf;
   std::vector<SparseTreeNode<T, L>> sparsetree;
+  int num_outputs;
 };
 
 /**
@@ -124,7 +116,7 @@ struct TreeMetaDataNode {
  * @return High-level tree information as string
  */
 template <class T, class L>
-std::string get_tree_summary_text(const TreeMetaDataNode<T, L> *tree);
+std::string get_tree_summary_text(const TreeMetaDataNode<T, L>* tree);
 
 /**
  * @brief Obtain detailed tree information.
@@ -134,7 +126,7 @@ std::string get_tree_summary_text(const TreeMetaDataNode<T, L> *tree);
  * @return Detailed tree information as string
  */
 template <class T, class L>
-std::string get_tree_text(const TreeMetaDataNode<T, L> *tree);
+std::string get_tree_text(const TreeMetaDataNode<T, L>* tree);
 
 /**
  * @brief Export tree as a JSON string
@@ -144,7 +136,7 @@ std::string get_tree_text(const TreeMetaDataNode<T, L> *tree);
  * @return Tree structure as JSON stsring
  */
 template <class T, class L>
-std::string get_tree_json(const TreeMetaDataNode<T, L> *tree);
+std::string get_tree_json(const TreeMetaDataNode<T, L>* tree);
 
 typedef TreeMetaDataNode<float, int> TreeClassifierF;
 typedef TreeMetaDataNode<double, int> TreeClassifierD;
@@ -152,4 +144,4 @@ typedef TreeMetaDataNode<float, float> TreeRegressorF;
 typedef TreeMetaDataNode<double, double> TreeRegressorD;
 
 }  // End namespace DT
-}  //End namespace ML
+}  // End namespace ML

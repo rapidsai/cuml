@@ -18,14 +18,13 @@
 #include <algorithm>
 #include <iostream>
 #include <metrics/completeness_score.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <random>
 #include "test_utils.h"
 
 namespace MLCommon {
 namespace Metrics {
 
-//parameter structure definition
+// parameter structure definition
 struct completenessParam {
   int nElements;
   int lowerLabelRange;
@@ -34,56 +33,54 @@ struct completenessParam {
   double tolerance;
 };
 
-//test fixture class
+// test fixture class
 template <typename T>
 class completenessTest : public ::testing::TestWithParam<completenessParam> {
  protected:
-  //the constructor
-  void SetUp() override {
-    //getting the parameters
+  // the constructor
+  void SetUp() override
+  {
+    // getting the parameters
     params = ::testing::TestWithParam<completenessParam>::GetParam();
 
-    nElements = params.nElements;
+    nElements       = params.nElements;
     lowerLabelRange = params.lowerLabelRange;
     upperLabelRange = params.upperLabelRange;
 
-    //generating random value test input
+    // generating random value test input
     std::vector<int> arr1(nElements, 0);
     std::vector<int> arr2(nElements, 0);
     std::random_device rd;
     std::default_random_engine dre(rd());
-    std::uniform_int_distribution<int> intGenerator(lowerLabelRange,
-                                                    upperLabelRange);
+    std::uniform_int_distribution<int> intGenerator(lowerLabelRange, upperLabelRange);
 
-    std::generate(arr1.begin(), arr1.end(),
-                  [&]() { return intGenerator(dre); });
+    std::generate(arr1.begin(), arr1.end(), [&]() { return intGenerator(dre); });
     if (params.sameArrays) {
       arr2 = arr1;
     } else {
-      std::generate(arr2.begin(), arr2.end(),
-                    [&]() { return intGenerator(dre); });
+      std::generate(arr2.begin(), arr2.end(), [&]() { return intGenerator(dre); });
     }
 
-    //allocating and initializing memory to the GPU
+    // allocating and initializing memory to the GPU
 
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(truthClusterArray, nElements, true);
-    raft::allocate(predClusterArray, nElements, true);
 
-    raft::update_device(truthClusterArray, &arr1[0], (int)nElements, stream);
-    raft::update_device(predClusterArray, &arr2[0], (int)nElements, stream);
-    std::shared_ptr<raft::mr::device::allocator> allocator(
-      new raft::mr::device::default_allocator);
+    rmm::device_uvector<T> truthClusterArray(nElements, stream);
+    rmm::device_uvector<T> predClusterArray(nElements, stream);
+    raft::update_device(truthClusterArray.data(), arr1.data(), (int)nElements, stream);
+    raft::update_device(predClusterArray.data(), arr2.data(), (int)nElements, stream);
 
-    //calculating the golden output
+    // calculating the golden output
     double truthMI, truthEntropy;
 
-    truthMI = MLCommon::Metrics::mutual_info_score(
-      truthClusterArray, predClusterArray, nElements, lowerLabelRange,
-      upperLabelRange, allocator, stream);
-    truthEntropy =
-      MLCommon::Metrics::entropy(predClusterArray, nElements, lowerLabelRange,
-                                 upperLabelRange, allocator, stream);
+    truthMI      = MLCommon::Metrics::mutual_info_score(truthClusterArray.data(),
+                                                   predClusterArray.data(),
+                                                   nElements,
+                                                   lowerLabelRange,
+                                                   upperLabelRange,
+                                                   stream);
+    truthEntropy = MLCommon::Metrics::entropy(
+      predClusterArray.data(), nElements, lowerLabelRange, upperLabelRange, stream);
 
     if (truthEntropy) {
       truthCompleteness = truthMI / truthEntropy;
@@ -92,46 +89,48 @@ class completenessTest : public ::testing::TestWithParam<completenessParam> {
 
     if (nElements == 0) truthCompleteness = 1.0;
 
-    //calling the completeness CUDA implementation
-    computedCompleteness = MLCommon::Metrics::completeness_score(
-      truthClusterArray, predClusterArray, nElements, lowerLabelRange,
-      upperLabelRange, allocator, stream);
+    // calling the completeness CUDA implementation
+    computedCompleteness = MLCommon::Metrics::completeness_score(truthClusterArray.data(),
+                                                                 predClusterArray.data(),
+                                                                 nElements,
+                                                                 lowerLabelRange,
+                                                                 upperLabelRange,
+                                                                 stream);
   }
 
-  //the destructor
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(truthClusterArray));
-    CUDA_CHECK(cudaFree(predClusterArray));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
+  // the destructor
+  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
-  //declaring the data values
+  // declaring the data values
   completenessParam params;
   T lowerLabelRange, upperLabelRange;
-  T* truthClusterArray = nullptr;
-  T* predClusterArray = nullptr;
-  int nElements = 0;
-  double truthCompleteness = 0;
+  int nElements               = 0;
+  double truthCompleteness    = 0;
   double computedCompleteness = 0;
-  cudaStream_t stream;
+  cudaStream_t stream         = 0;
 };
 
-//setting test parameter values
-const std::vector<completenessParam> inputs = {
-  {199, 1, 10, false, 0.000001},  {200, 15, 100, false, 0.000001},
-  {100, 1, 20, false, 0.000001},  {10, 1, 10, false, 0.000001},
-  {198, 1, 100, false, 0.000001}, {300, 3, 99, false, 0.000001},
-  {199, 1, 10, true, 0.000001},   {200, 15, 100, true, 0.000001},
-  {100, 1, 20, true, 0.000001},   {10, 1, 10, true, 0.000001},
-  {198, 1, 100, true, 0.000001},  {300, 3, 99, true, 0.000001}};
+// setting test parameter values
+const std::vector<completenessParam> inputs = {{199, 1, 10, false, 0.000001},
+                                               {200, 15, 100, false, 0.000001},
+                                               {100, 1, 20, false, 0.000001},
+                                               {10, 1, 10, false, 0.000001},
+                                               {198, 1, 100, false, 0.000001},
+                                               {300, 3, 99, false, 0.000001},
+                                               {199, 1, 10, true, 0.000001},
+                                               {200, 15, 100, true, 0.000001},
+                                               {100, 1, 20, true, 0.000001},
+                                               {10, 1, 10, true, 0.000001},
+                                               {198, 1, 100, true, 0.000001},
+                                               {300, 3, 99, true, 0.000001}};
 
-//writing the test suite
+// writing the test suite
 typedef completenessTest<int> completenessTestClass;
-TEST_P(completenessTestClass, Result) {
+TEST_P(completenessTestClass, Result)
+{
   ASSERT_NEAR(computedCompleteness, truthCompleteness, params.tolerance);
 }
-INSTANTIATE_TEST_CASE_P(completeness, completenessTestClass,
-                        ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(completeness, completenessTestClass, ::testing::ValuesIn(inputs));
 
-}  //end namespace Metrics
-}  //end namespace MLCommon
+}  // end namespace Metrics
+}  // end namespace MLCommon

@@ -14,23 +14,96 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
-#include <raft/cudart_utils.h>
 #include <test_utils.h>
+
+#include <decisiontree/batched-levelalgo/kernels.cuh>
+#include <decisiontree/batched-levelalgo/quantile.cuh>
+
+#include <cuml/fil/fil.h>
+#include <cuml/tree/algo_helper.h>
+#include <cuml/datasets/make_blobs.hpp>
 #include <cuml/ensemble/randomforest.hpp>
+
+#include <random/make_blobs.cuh>
+
+#include <raft/cudart_utils.h>
+#include <raft/linalg/transpose.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
 
+#include <thrust/device_vector.h>
+#include <thrust/host_vector.h>
+#include <thrust/logical.h>
+
+#include <gtest/gtest.h>
+
+#include <cstddef>
+#include <memory>
+#include <random>
+#include <tuple>
+#include <type_traits>
+
 namespace ML {
 
-template <typename T>  // template useless for now.
-struct RfInputs {
+// Utils for changing tuple into struct
+namespace detail {
+template <typename result_type, typename... types, std::size_t... indices>
+result_type make_struct(std::tuple<types...> t,
+                        std::index_sequence<indices...>)  // &, &&, const && etc.
+{
+  return {std::get<indices>(t)...};
+}
+
+}  // namespace detail
+
+template <typename result_type, typename... types>
+result_type make_struct(std::tuple<types...> t)  // &, &&, const && etc.
+{
+  return detail::make_struct<result_type, types...>(
+    t, std::index_sequence_for<types...>{});  // if there is repeated types, then the change for
+                                              // using std::index_sequence_for is trivial
+}
+
+template <int I, typename RandomGenT, typename ParamT, typename T>
+void SampleWithoutReplacemment(RandomGenT& gen, std::vector<ParamT>& sample, std::vector<T> x)
+{
+  std::vector<T> parameter_sample(sample.size());
+  std::shuffle(x.begin(), x.end(), gen);
+  for (size_t i = 0; i < sample.size(); i++) {
+    parameter_sample[i] = x[i % x.size()];
+  }
+  std::shuffle(parameter_sample.begin(), parameter_sample.end(), gen);
+  for (size_t i = 0; i < sample.size(); i++) {
+    std::get<I>(sample[i]) = parameter_sample[i];
+  }
+}
+
+template <int I, typename RandomGenT, typename ParamT, typename T, typename... Args>
+void AddParameters(RandomGenT& gen, std::vector<ParamT>& sample, std::vector<T> x, Args... args)
+{
+  SampleWithoutReplacemment<I>(gen, sample, x);
+  if constexpr (sizeof...(args) > 0) { AddParameters<I + 1>(gen, sample, args...); }
+}
+
+template <typename ParamT, typename... Args>
+std::vector<ParamT> SampleParameters(int num_samples, size_t seed, Args... args)
+{
+  std::vector<typename ParamT::types> tuple_sample(num_samples);
+  std::default_random_engine gen(seed);
+  AddParameters<0>(gen, tuple_sample, args...);
+  std::vector<ParamT> sample(num_samples);
+  for (int i = 0; i < num_samples; i++) {
+    sample[i] = make_struct<ParamT>(tuple_sample[i]);
+  }
+  return sample;
+}
+
+struct RfTestParams {
   int n_rows;
   int n_cols;
   int n_trees;
   float max_features;
   float max_samples;
-  int n_inference_rows;
   int max_depth;
   int max_leaves;
   bool bootstrap;
@@ -40,305 +113,757 @@ struct RfInputs {
   float min_impurity_decrease;
   int n_streams;
   CRITERION split_criterion;
+  int seed;
+  int n_labels;
+  bool double_precision;
+  // c++ has no reflection, so we enumerate the types here
+  // This must be updated if new fields are added
+  using types = std::tuple<int,
+                           int,
+                           int,
+                           float,
+                           float,
+                           int,
+                           int,
+                           bool,
+                           int,
+                           int,
+                           int,
+                           float,
+                           int,
+                           CRITERION,
+                           int,
+                           int,
+                           bool>;
 };
 
-template <typename T>
-::std::ostream& operator<<(::std::ostream& os, const RfInputs<T>& dims) {
+std::ostream& operator<<(std::ostream& os, const RfTestParams& ps)
+{
+  os << "n_rows = " << ps.n_rows << ", n_cols = " << ps.n_cols;
+  os << ", n_trees = " << ps.n_trees << ", max_features = " << ps.max_features;
+  os << ", max_samples = " << ps.max_samples << ", max_depth = " << ps.max_depth;
+  os << ", max_leaves = " << ps.max_leaves << ", bootstrap = " << ps.bootstrap;
+  os << ", n_bins = " << ps.n_bins << ", min_samples_leaf = " << ps.min_samples_leaf;
+  os << ", min_samples_split = " << ps.min_samples_split;
+  os << ", min_impurity_decrease = " << ps.min_impurity_decrease
+     << ", n_streams = " << ps.n_streams;
+  os << ", split_criterion = " << ps.split_criterion << ", seed = " << ps.seed;
+  os << ", n_labels = " << ps.n_labels << ", double_precision = " << ps.double_precision;
   return os;
 }
 
-template <typename T>
-class RfClassifierTest : public ::testing::TestWithParam<RfInputs<T>> {
- protected:
-  void basicTest() {
-    params = ::testing::TestWithParam<RfInputs<T>>::GetParam();
+template <typename DataT, typename LabelT>
+auto FilPredict(const raft::handle_t& handle,
+                RfTestParams params,
+                DataT* X_transpose,
+                RandomForestMetaData<DataT, LabelT>* forest)
+{
+  auto pred = std::make_shared<thrust::device_vector<float>>(params.n_rows);
+  ModelHandle model;
+  std::size_t num_outputs = 1;
+  if constexpr (std::is_integral_v<LabelT>) { num_outputs = params.n_labels; }
+  build_treelite_forest(&model, forest, params.n_cols);
+  fil::treelite_params_t tl_params{fil::algo_t::ALGO_AUTO,
+                                   num_outputs > 1,
+                                   1.f / num_outputs,
+                                   fil::storage_type_t::AUTO,
+                                   8,
+                                   1,
+                                   0,
+                                   nullptr};
+  fil::forest_t fil_forest;
+  fil::from_treelite(handle, &fil_forest, model, &tl_params);
+  fil::predict(handle, fil_forest, pred->data().get(), X_transpose, params.n_rows, false);
+  return pred;
+}
 
-    RF_params rf_params;
-    rf_params = set_rf_params(
-      params.max_depth, params.max_leaves, params.max_features, params.n_bins,
-      params.min_samples_leaf, params.min_samples_split,
-      params.min_impurity_decrease, params.bootstrap, params.n_trees,
-      params.max_samples, 0, params.split_criterion, params.n_streams, 128);
+template <typename DataT, typename LabelT>
+auto FilPredictProba(const raft::handle_t& handle,
+                     RfTestParams params,
+                     DataT* X_transpose,
+                     RandomForestMetaData<DataT, LabelT>* forest)
+{
+  std::size_t num_outputs = params.n_labels;
+  auto pred = std::make_shared<thrust::device_vector<float>>(params.n_rows * num_outputs);
+  ModelHandle model;
+  static_assert(std::is_integral_v<LabelT>, "Must be classification");
+  build_treelite_forest(&model, forest, params.n_cols);
+  fil::treelite_params_t tl_params{
+    fil::algo_t::ALGO_AUTO, 0, 0.0f, fil::storage_type_t::AUTO, 8, 1, 0, nullptr};
+  fil::forest_t fil_forest;
+  fil::from_treelite(handle, &fil_forest, model, &tl_params);
+  fil::predict(handle, fil_forest, pred->data().get(), X_transpose, params.n_rows, true);
+  return pred;
+}
+template <typename DataT, typename LabelT>
+auto TrainScore(
+  const raft::handle_t& handle, RfTestParams params, DataT* X, DataT* X_transpose, LabelT* y)
+{
+  RF_params rf_params = set_rf_params(params.max_depth,
+                                      params.max_leaves,
+                                      params.max_features,
+                                      params.n_bins,
+                                      params.min_samples_leaf,
+                                      params.min_samples_split,
+                                      params.min_impurity_decrease,
+                                      params.bootstrap,
+                                      params.n_trees,
+                                      params.max_samples,
+                                      0,
+                                      params.split_criterion,
+                                      params.n_streams,
+                                      128);
 
-    //--------------------------------------------------------
-    // Random Forest
-    //--------------------------------------------------------
-
-    int data_len = params.n_rows * params.n_cols;
-    raft::allocate(data, data_len);
-    raft::allocate(labels, params.n_rows);
-    raft::allocate(predicted_labels, params.n_inference_rows);
-
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-
-    // Populate data (assume Col major)
-    std::vector<T> data_h = {30.0, 1.0, 2.0, 0.0, 10.0, 20.0, 10.0, 40.0};
-    data_h.resize(data_len);
-    raft::update_device(data, data_h.data(), data_len, stream);
-
-    // Populate labels
-    labels_h = {0, 1, 0, 4};
-    labels_h.resize(params.n_rows);
-    preprocess_labels(params.n_rows, labels_h, labels_map);
-    raft::update_device(labels, labels_h.data(), params.n_rows, stream);
-
-    forest = new typename ML::RandomForestMetaData<T, int>;
-    null_trees_ptr(forest);
-
-    raft::handle_t handle(rf_params.n_streams);
-    handle.set_stream(stream);
-
-    fit(handle, forest, data, params.n_rows, params.n_cols, labels,
-        labels_map.size(), rf_params);
-
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    //print_rf_detailed(forest);
-    // Inference data: same as train, but row major
-    int inference_data_len = params.n_inference_rows * params.n_cols;
-    inference_data_h = {30.0, 10.0, 1.0, 20.0, 2.0, 10.0, 0.0, 40.0};
-    inference_data_h.resize(inference_data_len);
-    raft::allocate(inference_data_d, inference_data_len);
-    raft::update_device(inference_data_d, inference_data_h.data(),
-                        inference_data_len, stream);
-
-    predict(handle, forest, inference_data_d, params.n_inference_rows,
-            params.n_cols, predicted_labels);
-    // Predict and compare against known labels
-    RF_metrics tmp =
-      score(handle, forest, labels, params.n_inference_rows, predicted_labels);
-
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-    accuracy = tmp.accuracy;
+  auto forest     = std::make_shared<RandomForestMetaData<DataT, LabelT>>();
+  auto forest_ptr = forest.get();
+  if constexpr (std::is_integral_v<LabelT>) {
+    fit(handle, forest_ptr, X, params.n_rows, params.n_cols, y, params.n_labels, rf_params);
+  } else {
+    fit(handle, forest_ptr, X, params.n_rows, params.n_cols, y, rf_params);
   }
 
-  void SetUp() override { basicTest(); }
+  auto pred = std::make_shared<thrust::device_vector<LabelT>>(params.n_rows);
+  predict(handle, forest_ptr, X_transpose, params.n_rows, params.n_cols, pred->data().get());
 
-  void TearDown() override {
-    accuracy = -1.0f;  // reset accuracy
-    postprocess_labels(params.n_rows, labels_h, labels_map);
-    inference_data_h.clear();
-    labels_h.clear();
-    labels_map.clear();
+  // Predict and compare against known labels
+  RF_metrics metrics = score(handle, forest_ptr, y, params.n_rows, pred->data().get());
+  return std::make_tuple(forest, pred, metrics);
+}
 
-    CUDA_CHECK(cudaFree(labels));
-    CUDA_CHECK(cudaFree(predicted_labels));
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(inference_data_d));
-    delete forest;
+template <typename DataT, typename LabelT>
+class RfSpecialisedTest {
+ public:
+  RfSpecialisedTest(RfTestParams params) : params(params)
+  {
+    raft::handle_t handle(params.n_streams);
+    X.resize(params.n_rows * params.n_cols);
+    X_transpose.resize(params.n_rows * params.n_cols);
+    y.resize(params.n_rows);
+    // Make data
+    if constexpr (std::is_integral<LabelT>::value) {
+      Datasets::make_blobs(handle,
+                           X.data().get(),
+                           y.data().get(),
+                           params.n_rows,
+                           params.n_cols,
+                           params.n_labels,
+                           false,
+                           nullptr,
+                           nullptr,
+                           5.0,
+                           false,
+                           -10.0f,
+                           10.0f,
+                           params.seed);
+    } else {
+      thrust::device_vector<int> y_temp(params.n_rows);
+      Datasets::make_blobs(handle,
+                           X.data().get(),
+                           y_temp.data().get(),
+                           params.n_rows,
+                           params.n_cols,
+                           params.n_labels,
+                           false,
+                           nullptr,
+                           nullptr,
+                           5.0,
+                           false,
+                           -10.0f,
+                           10.0f,
+                           params.seed);
+      // if regression, make the labels normally distributed
+      raft::random::Rng r(4);
+      thrust::device_vector<double> normal(params.n_rows);
+      r.normal(normal.data().get(), normal.size(), 0.0, 2.0, nullptr);
+      thrust::transform(
+        normal.begin(), normal.end(), y_temp.begin(), y.begin(), thrust::plus<LabelT>());
+    }
+    raft::linalg::transpose(
+      handle, X.data().get(), X_transpose.data().get(), params.n_rows, params.n_cols, nullptr);
+    forest.reset(new typename ML::RandomForestMetaData<DataT, LabelT>);
+    std::tie(forest, predictions, training_metrics) =
+      TrainScore(handle, params, X.data().get(), X_transpose.data().get(), y.data().get());
+
+    Test();
+  }
+  // Current model should be at least as accurate as a model with depth - 1
+  void TestAccuracyImprovement()
+  {
+    if (params.max_depth <= 1) { return; }
+    // avereraging between models can introduce variance
+    if (params.n_trees > 1) { return; }
+    // accuracy is not guaranteed to improve with bootstrapping
+    if (params.bootstrap) { return; }
+    raft::handle_t handle(params.n_streams);
+    RfTestParams alt_params = params;
+    alt_params.max_depth--;
+    auto [alt_forest, alt_predictions, alt_metrics] =
+      TrainScore(handle, alt_params, X.data().get(), X_transpose.data().get(), y.data().get());
+    double eps = 1e-8;
+    if (params.split_criterion == MSE) {
+      EXPECT_LE(training_metrics.mean_squared_error, alt_metrics.mean_squared_error + eps);
+    } else if (params.split_criterion == MAE) {
+      EXPECT_LE(training_metrics.mean_abs_error, alt_metrics.mean_abs_error + eps);
+    } else {
+      EXPECT_GE(training_metrics.accuracy, alt_metrics.accuracy);
+    }
+  }
+  // Regularisation parameters are working correctly
+  void TestTreeSize()
+  {
+    for (int i = 0u; i < forest->rf_params.n_trees; i++) {
+      // Check we have actually built something, otherwise these tests can all pass when the tree
+      // algorithm produces only stumps
+      size_t effective_rows = params.n_rows * params.max_samples;
+      if (params.max_depth > 0 && params.min_impurity_decrease == 0 && effective_rows >= 100) {
+        EXPECT_GT(forest->trees[i]->leaf_counter, 1);
+      }
+
+      // Check number of leaves is accurate
+      int num_leaves = 0;
+      for (auto n : forest->trees[i]->sparsetree) {
+        num_leaves += n.IsLeaf();
+      }
+      EXPECT_EQ(num_leaves, forest->trees[i]->leaf_counter);
+      if (params.max_leaves > 0) { EXPECT_LE(forest->trees[i]->leaf_counter, params.max_leaves); }
+
+      EXPECT_LE(forest->trees[i]->depth_counter, params.max_depth);
+      EXPECT_LE(forest->trees[i]->leaf_counter,
+                raft::ceildiv(params.n_rows, params.min_samples_leaf));
+    }
   }
 
- protected:
-  RfInputs<T> params;
-  T *data, *inference_data_d;
-  int* labels;
-  std::vector<T> inference_data_h;
-  std::vector<int> labels_h;
-  std::map<int, int>
-    labels_map;  //unique map of labels to int vals starting from 0
+  void TestMinImpurity()
+  {
+    for (int i = 0u; i < forest->rf_params.n_trees; i++) {
+      for (auto n : forest->trees[i]->sparsetree) {
+        if (!n.IsLeaf()) { EXPECT_GT(n.BestMetric(), params.min_impurity_decrease); }
+      }
+    }
+  }
 
-  RandomForestMetaData<T, int>* forest;
-  float accuracy = -1.0f;  // overriden in each test SetUp and TearDown
+  void TestDeterminism()
+  {
+    // Regression models use floating point atomics, so are not bitwise reproducible
+    bool is_regression = params.split_criterion == MSE or params.split_criterion == MAE or
+                         params.split_criterion == POISSON;
+    if (is_regression) return;
 
-  int* predicted_labels;
+    // Repeat training
+    raft::handle_t handle(params.n_streams);
+    auto [alt_forest, alt_predictions, alt_metrics] =
+      TrainScore(handle, params, X.data().get(), X_transpose.data().get(), y.data().get());
+
+    for (int i = 0u; i < forest->rf_params.n_trees; i++) {
+      EXPECT_EQ(forest->trees[i]->sparsetree, alt_forest->trees[i]->sparsetree);
+    }
+  }
+  // Instance counts in children sums up to parent.
+  void TestInstanceCounts()
+  {
+    for (int i = 0u; i < forest->rf_params.n_trees; i++) {
+      const auto& tree = forest->trees[i]->sparsetree;
+      for (auto n : tree) {
+        if (!n.IsLeaf()) {
+          auto sum = tree[n.LeftChildId()].InstanceCount() + tree[n.RightChildId()].InstanceCount();
+          EXPECT_EQ(sum, n.InstanceCount());
+        }
+      }
+    }
+  }
+
+  // Difference between the largest element and second largest
+  DataT MinDifference(DataT* begin, std::size_t len)
+  {
+    std::size_t max_element_index = 0;
+    DataT max_element             = 0.0;
+    for (std::size_t i = 0; i < len; i++) {
+      if (begin[i] > max_element) {
+        max_element_index = i;
+        max_element       = begin[i];
+      }
+    }
+    DataT second_max_element = 0.0;
+    for (std::size_t i = 0; i < len; i++) {
+      if (begin[i] > second_max_element && i != max_element_index) {
+        second_max_element = begin[i];
+      }
+    }
+
+    return std::abs(max_element - second_max_element);
+  }
+
+  // Compare fil against native rf predictions
+  // Only for single precision models
+  void TestFilPredict()
+  {
+    if constexpr (std::is_same_v<DataT, double>) {
+      return;
+    } else {
+      raft::handle_t handle(params.n_streams);
+      auto fil_pred = FilPredict(handle, params, X_transpose.data().get(), forest.get());
+
+      thrust::host_vector<float> h_fil_pred(*fil_pred);
+      thrust::host_vector<float> h_pred(*predictions);
+
+      thrust::host_vector<float> h_fil_pred_prob;
+      if constexpr (std::is_integral_v<LabelT>) {
+        h_fil_pred_prob = *FilPredictProba(handle, params, X_transpose.data().get(), forest.get());
+      }
+
+      float tol = 1e-2;
+      for (std::size_t i = 0; i < h_fil_pred.size(); i++) {
+        // If the output probabilities are very similar for different classes
+        // FIL may output a different class due to numerical differences
+        // Skip these cases
+        if constexpr (std::is_integral_v<LabelT>) {
+          int num_outputs = forest->trees[0]->num_outputs;
+          auto min_diff   = MinDifference(&h_fil_pred_prob[i * num_outputs], num_outputs);
+          if (min_diff < tol) continue;
+        }
+
+        EXPECT_LE(abs(h_fil_pred[i] - h_pred[i]), tol);
+      }
+    }
+  }
+  void Test()
+  {
+    TestAccuracyImprovement();
+    TestDeterminism();
+    TestMinImpurity();
+    TestTreeSize();
+    TestInstanceCounts();
+    TestFilPredict();
+  }
+
+  RF_metrics training_metrics;
+  thrust::device_vector<DataT> X;
+  thrust::device_vector<DataT> X_transpose;
+  thrust::device_vector<LabelT> y;
+  RfTestParams params;
+  std::shared_ptr<RandomForestMetaData<DataT, LabelT>> forest;
+  std::shared_ptr<thrust::device_vector<LabelT>> predictions;
 };
 
+// Dispatch tests based on any template parameters
+class RfTest : public ::testing::TestWithParam<RfTestParams> {
+ public:
+  void SetUp() override
+  {
+    RfTestParams params = ::testing::TestWithParam<RfTestParams>::GetParam();
+    bool is_regression  = params.split_criterion == MSE or params.split_criterion == MAE or
+                         params.split_criterion == POISSON;
+    if (params.double_precision) {
+      if (is_regression) {
+        RfSpecialisedTest<double, double> test(params);
+      } else {
+        RfSpecialisedTest<double, int> test(params);
+      }
+    } else {
+      if (is_regression) {
+        RfSpecialisedTest<float, float> test(params);
+      } else {
+        RfSpecialisedTest<float, int> test(params);
+      }
+    }
+  }
+};
+
+TEST_P(RfTest, PropertyBasedTest) {}
+
+// Parameter ranges to test
+std::vector<int> n_rows                  = {10, 100, 1452};
+std::vector<int> n_cols                  = {1, 5, 152, 1014};
+std::vector<int> n_trees                 = {1, 5, 17};
+std::vector<float> max_features          = {0.1f, 0.5f, 1.0f};
+std::vector<float> max_samples           = {0.1f, 0.5f, 1.0f};
+std::vector<int> max_depth               = {1, 10, 30};
+std::vector<int> max_leaves              = {-1, 16, 50};
+std::vector<bool> bootstrap              = {false, true};
+std::vector<int> n_bins                  = {2, 57, 128, 256};
+std::vector<int> min_samples_leaf        = {1, 10, 30};
+std::vector<int> min_samples_split       = {2, 10};
+std::vector<float> min_impurity_decrease = {0.0f, 1.0f, 10.0f};
+std::vector<int> n_streams               = {1, 2, 10};
+std::vector<CRITERION> split_criterion   = {
+  CRITERION::POISSON, CRITERION::MSE, CRITERION::GINI, CRITERION::ENTROPY};
+std::vector<int> seed              = {0, 17};
+std::vector<int> n_labels          = {2, 10, 20};
+std::vector<bool> double_precision = {false, true};
+
+int n_tests = 100;
+
+INSTANTIATE_TEST_CASE_P(RfTests,
+                        RfTest,
+                        ::testing::ValuesIn(SampleParameters<RfTestParams>(n_tests,
+                                                                           0,
+                                                                           n_rows,
+                                                                           n_cols,
+                                                                           n_trees,
+                                                                           max_features,
+                                                                           max_samples,
+                                                                           max_depth,
+                                                                           max_leaves,
+                                                                           bootstrap,
+                                                                           n_bins,
+                                                                           min_samples_leaf,
+                                                                           min_samples_split,
+                                                                           min_impurity_decrease,
+                                                                           n_streams,
+                                                                           split_criterion,
+                                                                           seed,
+                                                                           n_labels,
+                                                                           double_precision)));
+
 //-------------------------------------------------------------------------------------------------------------------------------------
+struct QuantileTestParameters {
+  int n_rows;
+  int n_bins;
+  uint64_t seed;
+};
 
 template <typename T>
-class RfRegressorTest : public ::testing::TestWithParam<RfInputs<T>> {
- protected:
-  void basicTest() {
-    params = ::testing::TestWithParam<RfInputs<T>>::GetParam();
+class RFQuantileBinsLowerBoundTest : public ::testing::TestWithParam<QuantileTestParameters> {
+ public:
+  void SetUp() override
+  {
+    auto params = ::testing::TestWithParam<QuantileTestParameters>::GetParam();
 
-    RF_params rf_params;
-    rf_params = set_rf_params(
-      params.max_depth, params.max_leaves, params.max_features, params.n_bins,
-      params.min_samples_leaf, params.min_samples_split,
-      params.min_impurity_decrease, params.bootstrap, params.n_trees,
-      params.max_samples, 0, params.split_criterion, params.n_streams, 128);
-
-    //--------------------------------------------------------
-    // Random Forest
-    //--------------------------------------------------------
-
-    int data_len = params.n_rows * params.n_cols;
-    raft::allocate(data, data_len);
-    raft::allocate(labels, params.n_rows);
-    raft::allocate(predicted_labels, params.n_inference_rows);
-    cudaStream_t stream;
-    CUDA_CHECK(cudaStreamCreate(&stream));
-
-    // Populate data (assume Col major)
-    std::vector<T> data_h = {0.0, 0.0, 0.0, 0.0, 10.0, 20.0, 30.0, 40.0};
-    data_h.resize(data_len);
-    raft::update_device(data, data_h.data(), data_len, stream);
-
-    // Populate labels
-    labels_h = {1.0, 2.0, 3.0, 4.0};
-    labels_h.resize(params.n_rows);
-    raft::update_device(labels, labels_h.data(), params.n_rows, stream);
-
-    forest = new typename ML::RandomForestMetaData<T, T>;
-    null_trees_ptr(forest);
-
-    raft::handle_t handle(rf_params.n_streams);
-    handle.set_stream(stream);
-
-    fit(handle, forest, data, params.n_rows, params.n_cols, labels, rf_params);
-
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-
-    // Inference data: same as train, but row major
-    int inference_data_len = params.n_inference_rows * params.n_cols;
-    inference_data_h = {0.0, 10.0, 0.0, 20.0, 0.0, 30.0, 0.0, 40.0};
-    inference_data_h.resize(inference_data_len);
-    raft::allocate(inference_data_d, inference_data_len);
-    raft::update_device(inference_data_d, inference_data_h.data(),
-                        inference_data_len, stream);
-
-    predict(handle, forest, inference_data_d, params.n_inference_rows,
-            params.n_cols, predicted_labels);
-    // Predict and compare against known labels
-    RF_metrics tmp =
-      score(handle, forest, labels, params.n_inference_rows, predicted_labels);
-
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-
-    mse = tmp.mean_squared_error;
+    thrust::device_vector<T> data(params.n_rows);
+    thrust::host_vector<T> h_data(params.n_rows);
+    thrust::host_vector<T> h_quantiles(params.n_bins);
+    raft::random::Rng r(8);
+    r.normal(data.data().get(), data.size(), T(0.0), T(2.0), nullptr);
+    raft::handle_t handle;
+    auto quantiles =
+      DT::computeQuantiles(params.n_bins, data.data().get(), params.n_rows, 1, handle);
+    raft::update_host(
+      h_quantiles.data(), quantiles->data(), quantiles->size(), handle.get_stream());
+    h_data = data;
+    for (std::size_t i = 0; i < h_data.size(); ++i) {
+      auto d = h_data[i];
+      // golden lower bound from thrust
+      auto golden_lb = thrust::lower_bound(
+                         thrust::seq, h_quantiles.data(), h_quantiles.data() + params.n_bins, d) -
+                       h_quantiles.data();
+      // lower bound from custom lower_bound impl
+      auto lb = DT::lower_bound(h_quantiles.data(), params.n_bins, d);
+      ASSERT_EQ(golden_lb, lb)
+        << "custom lower_bound method is inconsistent with thrust::lower_bound" << std::endl;
+    }
   }
-
-  void SetUp() override { basicTest(); }
-
-  void TearDown() override {
-    mse = -1.0f;  // reset mse
-    inference_data_h.clear();
-    labels_h.clear();
-
-    CUDA_CHECK(cudaFree(labels));
-    CUDA_CHECK(cudaFree(predicted_labels));
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(inference_data_d));
-    delete forest;
-  }
-
- protected:
-  RfInputs<T> params;
-  T *data, *inference_data_d;
-  T* labels;
-  std::vector<T> inference_data_h;
-  std::vector<T> labels_h;
-
-  RandomForestMetaData<T, T>* forest;
-  float mse = -1.0f;  // overriden in each test SetUp and TearDown
-
-  T* predicted_labels;
 };
+
+template <typename T>
+class RFQuantileTest : public ::testing::TestWithParam<QuantileTestParameters> {
+ public:
+  void SetUp() override
+  {
+    auto params = ::testing::TestWithParam<QuantileTestParameters>::GetParam();
+
+    thrust::device_vector<T> data(params.n_rows);
+    thrust::device_vector<int> histogram(params.n_bins);
+    thrust::host_vector<int> h_histogram(params.n_bins);
+
+    raft::random::Rng r(8);
+    r.normal(data.data().get(), data.size(), T(0.0), T(2.0), nullptr);
+    raft::handle_t handle;
+    std::shared_ptr<rmm::device_uvector<T>> quantiles =
+      DT::computeQuantiles(params.n_bins, data.data().get(), params.n_rows, 1, handle);
+
+    auto d_quantiles = quantiles->data();
+    auto d_histogram = histogram.data().get();
+    thrust::for_each(data.begin(), data.end(), [=] __device__(T x) {
+      for (int j = 0; j < params.n_bins; j++) {
+        if (x <= d_quantiles[j]) {
+          atomicAdd(&d_histogram[j], 1);
+          break;
+        }
+      }
+    });
+
+    h_histogram           = histogram;
+    int max_items_per_bin = raft::ceildiv(params.n_rows, params.n_bins);
+    int min_items_per_bin = max_items_per_bin - 1;
+    int total_items       = 0;
+    for (int b = 0; b < params.n_bins; b++) {
+      ASSERT_TRUE(h_histogram[b] == max_items_per_bin or h_histogram[b] == min_items_per_bin)
+        << "No. samples in bin[" << b << "] = " << h_histogram[b] << " Expected "
+        << max_items_per_bin << " or " << min_items_per_bin << std::endl;
+      total_items += h_histogram[b];
+    }
+    ASSERT_EQ(params.n_rows, total_items)
+      << "Some samples from dataset are either missed of double counted in quantile bins"
+      << std::endl;
+  }
+};
+
+const std::vector<QuantileTestParameters> inputs = {{1000, 16, 6078587519764079670LLU},
+                                                    {1130, 32, 4884670006177930266LLU},
+                                                    {1752, 67, 9175325892580481371LLU},
+                                                    {2307, 99, 9507819643927052255LLU},
+                                                    {5000, 128, 9507819643927052255LLU}};
+
+// float type quantile test
+typedef RFQuantileTest<float> RFQuantileTestF;
+TEST_P(RFQuantileTestF, test) {}
+INSTANTIATE_TEST_CASE_P(RfTests, RFQuantileTestF, ::testing::ValuesIn(inputs));
+
+// double type quantile test
+typedef RFQuantileTest<double> RFQuantileTestD;
+TEST_P(RFQuantileTestD, test) {}
+INSTANTIATE_TEST_CASE_P(RfTests, RFQuantileTestD, ::testing::ValuesIn(inputs));
+
+// float type quantile bins lower bounds test
+typedef RFQuantileBinsLowerBoundTest<float> RFQuantileBinsLowerBoundTestF;
+TEST_P(RFQuantileBinsLowerBoundTestF, test) {}
+INSTANTIATE_TEST_CASE_P(RfTests, RFQuantileBinsLowerBoundTestF, ::testing::ValuesIn(inputs));
+
+// double type quantile bins lower bounds lest
+typedef RFQuantileBinsLowerBoundTest<double> RFQuantileBinsLowerBoundTestD;
+TEST_P(RFQuantileBinsLowerBoundTestD, test) {}
+INSTANTIATE_TEST_CASE_P(RfTests, RFQuantileBinsLowerBoundTestD, ::testing::ValuesIn(inputs));
+
+//------------------------------------------------------------------------------------------------------
+
+TEST(RfTest, TextDump)
+{
+  RF_params rf_params = set_rf_params(2, 2, 1.0, 2, 1, 2, 0.0, true, 1, 1.0, 0, GINI, 1, 128);
+  auto forest         = std::make_shared<RandomForestMetaData<float, int>>();
+
+  std::vector<float> X_host      = {1, 2, 3, 6, 7, 8};
+  thrust::device_vector<float> X = X_host;
+  std::vector<int> y_host        = {0, 0, 1, 1, 1, 0};
+  thrust::device_vector<int> y   = y_host;
+
+  raft::handle_t handle(1);
+  auto forest_ptr = forest.get();
+  fit(handle, forest_ptr, X.data().get(), y.size(), 1, y.data().get(), 2, rf_params);
+
+  std::string expected_start_text = R"(Forest has 1 trees, max_depth 2, and max_leaves 2
+Tree #0
+ Decision Tree depth --> 1 and n_leaves --> 2
+ Tree Fitting - Overall time -->)";
+
+  std::string expected_end_text = R"(└(colid: 0, quesval: 3, best_metric_val: 0.25)
+    ├(leaf, prediction: [0.75, 0.25], best_metric_val: 0)
+    └(leaf, prediction: [0, 1], best_metric_val: 0))";
+
+  EXPECT_TRUE(get_rf_detailed_text(forest_ptr).find(expected_start_text) != std::string::npos);
+  EXPECT_TRUE(get_rf_detailed_text(forest_ptr).find(expected_end_text) != std::string::npos);
+
+  std::string expected_json = R"([
+{"nodeid": 0, "split_feature": 0, "split_threshold": 3, "gain": 0.25, "instance_count": 6, "yes": 1, "no": 2, "children": [
+  {"nodeid": 1, "leaf_value": [0.75, 0.25], "instance_count": 4},
+  {"nodeid": 2, "leaf_value": [0, 1], "instance_count": 2}
+]}
+])";
+  EXPECT_EQ(get_rf_json(forest_ptr), expected_json);
+}
+
 //-------------------------------------------------------------------------------------------------------------------------------------
+namespace DT {
 
-const std::vector<RfInputs<float>> inputsf2_clf = {
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2,
-   CRITERION::GINI},  // single tree forest, bootstrap false, depth 8, 4 bins
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2,
-   CRITERION::GINI},  // single tree forest, bootstrap false, depth of 8, 4 bins
-  {4, 2, 10, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2,
-   CRITERION::
-     GINI},  //forest with 10 trees, all trees should produce identical predictions (no bootstrapping or column subsampling)
-  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 1, 2, 0.0, 2,
-   CRITERION::
-     GINI},  //forest with 10 trees, with bootstrap and column subsampling enabled, 3 bins
-  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 1, 2, 0.0, 1,
-   CRITERION::
-     CRITERION_END},  //forest with 10 trees, with bootstrap and column subsampling enabled, 3 bins, different split algorithm
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::ENTROPY},
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::ENTROPY},
-  {4, 2, 10, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::ENTROPY},
-  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 1, 2, 0.0, 2, CRITERION::ENTROPY},
-  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 1, 2, 0.0, 2, CRITERION::ENTROPY},
-  {50, 10, 10, 0.8f, 0.8f, 10, 7, -1, true, 3, 1, 2, 0.0, 2,
-   CRITERION::ENTROPY}};
+struct ObjectiveTestParameters {
+  uint64_t seed;
+  int n_bins;
+  int n_classes;
+  int min_samples_leaf;
+  double tolerance;
+};
 
-const std::vector<RfInputs<double>> inputsd2_clf = {  // Same as inputsf2_clf
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::GINI},
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::GINI},
-  {4, 2, 10, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::GINI},
-  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 1, 2, 0.0, 2, CRITERION::GINI},
-  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 1, 2, 0.0, 2,
-   CRITERION::CRITERION_END},
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::ENTROPY},
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::ENTROPY},
-  {4, 2, 10, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::ENTROPY},
-  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 1, 2, 0.0, 2, CRITERION::ENTROPY},
-  {4, 2, 10, 0.8f, 0.8f, 4, 7, -1, true, 3, 1, 2, 0.0, 2, CRITERION::ENTROPY},
-  {50, 10, 10, 0.8f, 0.8f, 10, 7, -1, true, 3, 1, 2, 0.0, 2,
-   CRITERION::ENTROPY}};
+template <typename ObjectiveT>
+class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
+  typedef typename ObjectiveT::DataT DataT;
+  typedef typename ObjectiveT::LabelT LabelT;
+  typedef typename ObjectiveT::IdxT IdxT;
+  typedef typename ObjectiveT::BinT BinT;
 
-typedef RfClassifierTest<float> RfClassifierTestF;
-TEST_P(RfClassifierTestF, Fit) {
-  //print_rf_detailed(forest);  // Prints all trees in the forest. Leaf nodes use the remapped values from labels_map.
-  if (!params.bootstrap && (params.max_features == 1.0f)) {
-    ASSERT_TRUE(accuracy == 1.0f);
-  } else {
-    ASSERT_TRUE(accuracy >= 0.75f);  // Empirically derived accuracy range
+  ObjectiveTestParameters params;
+
+ public:
+  auto RandUnder(int const end = 10000) { return rand() % end; }
+
+  auto GenHist()
+  {
+    std::vector<BinT> cdf_hist, pdf_hist;
+
+    for (auto c = 0; c < params.n_classes; ++c) {
+      for (auto b = 0; b < params.n_bins; ++b) {
+        if constexpr (std::is_same<BinT, CountBin>::value)
+          pdf_hist.emplace_back(RandUnder());
+        else
+          pdf_hist.emplace_back(static_cast<LabelT>(RandUnder()), RandUnder());
+
+        auto cumulative = b > 0 ? cdf_hist.back() : BinT();
+
+        cdf_hist.emplace_back(pdf_hist.empty() ? BinT() : pdf_hist.back());
+
+        cdf_hist.back() += cumulative;
+      }
+    }
+
+    return std::make_pair(cdf_hist, pdf_hist);
   }
-}
 
-typedef RfClassifierTest<double> RfClassifierTestD;
-TEST_P(RfClassifierTestD, Fit) {
-  if (!params.bootstrap && (params.max_features == 1.0f)) {
-    ASSERT_TRUE(accuracy == 1.0f);
-  } else {
-    ASSERT_TRUE(accuracy >= 0.75f);
+  auto PoissonHalfDeviance(
+    std::vector<BinT> const& hist)  //  1/n * sum(y_true * log(y_true/y_pred) + y_pred - y_true)
+  {
+    BinT aggregate{BinT()};
+    aggregate = std::accumulate(hist.begin(), hist.end(), aggregate);
+    assert(aggregate.count > 0);
+    auto const y_mean = aggregate.label_sum / aggregate.count;
+    auto poisson_half_deviance{DataT(0.0)};
+
+    std::for_each(hist.begin(), hist.end(), [&](BinT const& h) {
+      auto log_y = raft::myLog(h.label_sum ? h.label_sum : DataT(1.0));  // we don't want nans
+      poisson_half_deviance += h.label_sum * (log_y - raft::myLog(y_mean)) + y_mean - h.label_sum;
+    });
+
+    poisson_half_deviance /= aggregate.count;
+    return std::make_tuple(
+      poisson_half_deviance, aggregate.label_sum, static_cast<DataT>(aggregate.count));
   }
-}
 
-INSTANTIATE_TEST_CASE_P(RfClassifierTests, RfClassifierTestF,
-                        ::testing::ValuesIn(inputsf2_clf));
+  auto PoissonGroundTruthGain(std::vector<BinT> const& pdf_hist, std::size_t split_bin_index)
+  {
+    std::vector<BinT> left_pdf_hist{pdf_hist.begin(), pdf_hist.begin() + split_bin_index + 1};
+    std::vector<BinT> right_pdf_hist{pdf_hist.begin() + split_bin_index + 1, pdf_hist.end()};
 
-INSTANTIATE_TEST_CASE_P(RfClassifierTests, RfClassifierTestD,
-                        ::testing::ValuesIn(inputsd2_clf));
+    auto [parent_phd, label_sum, n]            = PoissonHalfDeviance(pdf_hist);
+    auto [left_phd, label_sum_left, n_left]    = PoissonHalfDeviance(left_pdf_hist);
+    auto [right_phd, label_sum_right, n_right] = PoissonHalfDeviance(right_pdf_hist);
 
-typedef RfRegressorTest<float> RfRegressorTestF;
-TEST_P(RfRegressorTestF, Fit) {
-  //print_rf_detailed(forest);  // Prints all trees in the forest.
-  if (!params.bootstrap && (params.max_features == 1.0f)) {
-    ASSERT_TRUE(mse == 0.0f);
-  } else {
-    ASSERT_TRUE(mse <= 0.2f);
+    auto gain = parent_phd - ((n_left / n) * left_phd +
+                              (n_right / n) * right_phd);  // gain in long form without proxy
+
+    // edge cases
+    if (n_left < params.min_samples_leaf or n_right < params.min_samples_leaf or
+        label_sum < ObjectiveT::eps_ or label_sum_right < ObjectiveT::eps_ or
+        label_sum_left < ObjectiveT::eps_)
+      return -std::numeric_limits<DataT>::max();
+    else
+      return gain;
   }
-}
 
-typedef RfRegressorTest<double> RfRegressorTestD;
-TEST_P(RfRegressorTestD, Fit) {
-  if (!params.bootstrap && (params.max_features == 1.0f)) {
-    ASSERT_TRUE(mse == 0.0f);
-  } else {
-    ASSERT_TRUE(mse <= 0.2f);
+  auto GiniImpurity(std::vector<BinT> const& hist)
+  {  // sum((n_c/n_total)(1-(n_c/n_total)))
+    auto gini{double(0)};
+    auto n_bins      = hist.size() / params.n_classes;
+    auto n_instances = std::accumulate(hist.begin(), hist.end(), BinT()).x;  // total instances
+    for (auto c = 0; c < params.n_classes; ++c) {
+      auto begin_iter    = hist.begin() + c * n_bins;
+      auto end_iter      = hist.begin() + (c + 1) * n_bins;
+      double class_proba = std::accumulate(begin_iter, end_iter, BinT()).x;  // instances of class c
+      class_proba /= n_instances;               // probability of class c
+      gini += class_proba * (1 - class_proba);  // adding gain
+    }
+    return std::make_pair(gini, double(n_instances));
   }
-}
 
-const std::vector<RfInputs<float>> inputsf2_reg = {
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::MSE},
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::MSE},
-  {4, 2, 5, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2,
-   CRITERION::
-     CRITERION_END},  // CRITERION_END uses the default criterion (GINI for classification, MSE for regression)
-  {4, 2, 5, 1.0f, 1.0f, 4, 7, -1, true, 4, 1, 2, 0.0, 2,
-   CRITERION::CRITERION_END}};
+  auto GiniGroundTruthGain(std::vector<BinT> const& pdf_hist, std::size_t const split_bin_index)
+  {
+    std::vector<BinT> left_pdf_hist, right_pdf_hist;
 
-const std::vector<RfInputs<double>> inputsd2_reg = {  // Same as inputsf2_reg
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::MSE},
-  {4, 2, 1, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2, CRITERION::MSE},
-  {4, 2, 5, 1.0f, 1.0f, 4, 7, -1, false, 4, 1, 2, 0.0, 2,
-   CRITERION::CRITERION_END},
-  {4, 2, 5, 1.0f, 1.0f, 4, 7, -1, true, 4, 1, 2, 0.0, 2,
-   CRITERION::CRITERION_END}};
+    for (auto c = 0; c < params.n_classes; ++c) {  // decompose the pdf_hist
+      auto start = pdf_hist.begin() + c * params.n_bins;
+      auto split = pdf_hist.begin() + c * params.n_bins + split_bin_index + 1;
+      auto end   = pdf_hist.begin() + (c + 1) * params.n_bins;
 
-INSTANTIATE_TEST_CASE_P(RfRegressorTests, RfRegressorTestF,
-                        ::testing::ValuesIn(inputsf2_reg));
-INSTANTIATE_TEST_CASE_P(RfRegressorTests, RfRegressorTestD,
-                        ::testing::ValuesIn(inputsd2_reg));
+      left_pdf_hist.insert(left_pdf_hist.end(), start, split);
+      right_pdf_hist.insert(right_pdf_hist.end(), split, end);
+    }
 
+    auto [parent_gini, n]      = GiniImpurity(pdf_hist);
+    auto [left_gini, left_n]   = GiniImpurity(left_pdf_hist);
+    auto [right_gini, right_n] = GiniImpurity(right_pdf_hist);
+
+    auto gain = parent_gini - ((left_n / n) * left_gini + (right_n / n) * right_gini);
+
+    // edge cases
+    if (left_n < params.min_samples_leaf or right_n < params.min_samples_leaf) {
+      return -std::numeric_limits<DataT>::max();
+    } else {
+      return gain;
+    }
+  }
+
+  auto GroundTruthGain(std::vector<BinT> const& pdf_hist, std::size_t const split_bin_index)
+  {
+    if constexpr (std::is_same<ObjectiveT,
+                               PoissonObjectiveFunction<DataT, LabelT, IdxT>>::value)  // poisson
+    {
+      return PoissonGroundTruthGain(pdf_hist, split_bin_index);
+    } else if constexpr (std::is_same<ObjectiveT,
+                                      GiniObjectiveFunction<DataT, LabelT, IdxT>>::value)  // gini
+    {
+      return GiniGroundTruthGain(pdf_hist, split_bin_index);
+    }
+    return double(0.0);
+  }
+
+  auto NumLeftOfBin(std::vector<BinT> const& cdf_hist, IdxT idx)
+  {
+    auto count{IdxT(0)};
+    for (auto c = 0; c < params.n_classes; ++c) {
+      if constexpr (std::is_same<BinT, CountBin>::value)  // countbin
+      {
+        count += cdf_hist[params.n_bins * c + idx].x;
+      } else  // aggregatebin
+      {
+        count += cdf_hist[params.n_bins * c + idx].count;
+      }
+    }
+    return count;
+  }
+
+  void SetUp() override
+  {
+    srand(params.seed);
+    params = ::testing::TestWithParam<ObjectiveTestParameters>::GetParam();
+    ObjectiveT objective(params.n_classes, params.min_samples_leaf);
+
+    auto [cdf_hist, pdf_hist] = GenHist();
+
+    auto split_bin_index   = RandUnder(params.n_bins);
+    auto ground_truth_gain = GroundTruthGain(pdf_hist, split_bin_index);
+
+    auto hypothesis_gain = objective.GainPerSplit(&cdf_hist[0],
+                                                  split_bin_index,
+                                                  params.n_bins,
+                                                  NumLeftOfBin(cdf_hist, params.n_bins - 1),
+                                                  NumLeftOfBin(cdf_hist, split_bin_index));
+
+    ASSERT_NEAR(ground_truth_gain, hypothesis_gain, params.tolerance);
+  }
+};
+
+const std::vector<ObjectiveTestParameters> poisson_objective_test_parameters = {
+  {9507819643927052255LLU, 64, 1, 0, 0.00001},
+  {9507819643927052259LLU, 128, 1, 1, 0.00001},
+  {9507819643927052251LLU, 256, 1, 1, 0.00001},
+  {9507819643927052258LLU, 512, 1, 5, 0.00001},
+};
+const std::vector<ObjectiveTestParameters> gini_objective_test_parameters = {
+  {9507819643927052255LLU, 64, 2, 0, 0.00001},
+  {9507819643927052256LLU, 128, 10, 1, 0.00001},
+  {9507819643927052257LLU, 256, 100, 1, 0.00001},
+  {9507819643927052258LLU, 512, 100, 5, 0.00001},
+};
+
+// poisson objective test
+typedef ObjectiveTest<PoissonObjectiveFunction<double, double, int>> PoissonObjectiveTestD;
+TEST_P(PoissonObjectiveTestD, poissonObjectiveTest) {}
+INSTANTIATE_TEST_CASE_P(RfTests,
+                        PoissonObjectiveTestD,
+                        ::testing::ValuesIn(poisson_objective_test_parameters));
+
+// gini objective test
+typedef ObjectiveTest<GiniObjectiveFunction<double, int, int>> GiniObjectiveTestD;
+TEST_P(GiniObjectiveTestD, giniObjectiveTest) {}
+INSTANTIATE_TEST_CASE_P(RfTests,
+                        GiniObjectiveTestD,
+                        ::testing::ValuesIn(gini_objective_test_parameters));
+
+}  // end namespace DT
 }  // end namespace ML
