@@ -179,15 +179,15 @@ void fit_impl(raft::handle_t& handle,
       handle, explained_var_all.data(), explained_var_ratio_all.data(), prms.n_cols, stream);
 
     raft::matrix::truncZeroOrigin(
-      sVector.data(), prms.n_cols, singular_vals, prms.n_components, 1, stream);
+      sVector.data(), prms.n_cols, singular_vals, prms.n_components, std::size_t(1), stream);
 
     raft::matrix::truncZeroOrigin(
-      explained_var_all.data(), prms.n_cols, explained_var, prms.n_components, 1, stream);
+      explained_var_all.data(), prms.n_cols, explained_var, prms.n_components, std::size_t(1), stream);
     raft::matrix::truncZeroOrigin(explained_var_ratio_all.data(),
                                   prms.n_cols,
                                   explained_var_ratio,
                                   prms.n_components,
-                                  1,
+                                  std::size_t(1),
                                   stream);
 
     raft::linalg::transpose(vMatrix.data(), prms.n_cols, stream);

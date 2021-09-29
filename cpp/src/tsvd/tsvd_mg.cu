@@ -361,10 +361,10 @@ void fit_transform_impl(raft::handle_t& handle,
   Stats::opg::var(handle, var_input_data, input_data, input_desc, mu_data.ptr, streams, n_streams);
 
   rmm::device_uvector<T> total_vars(1, streams[0]);
-  raft::stats::sum(total_vars.data(), var_input_data.ptr, 1, prms.n_cols, false, streams[0]);
+  raft::stats::sum(total_vars.data(), var_input_data.ptr, std::size_t(1), prms.n_cols, false, streams[0]);
 
   T total_vars_h;
-  raft::update_host(&total_vars_h, total_vars.data(), 1, streams[0]);
+  raft::update_host(&total_vars_h, total_vars.data(), std::size_t(1), streams[0]);
   CUDA_CHECK(cudaStreamSynchronize(streams[0]));
   T scalar = T(1) / total_vars_h;
 

@@ -109,6 +109,7 @@ cdef extern from "cuml/decomposition/pca.hpp" namespace "ML":
 class Solver(IntEnum):
     COV_EIG_DQ = <underlying_type_t_solver> solver.COV_EIG_DQ
     COV_EIG_JACOBI = <underlying_type_t_solver> solver.COV_EIG_JACOBI
+    COV_EIG_QR = <underlying_type_t_solver> solver.COV_EIG_QR
 
 
 class PCA(Base,
@@ -335,6 +336,7 @@ class PCA(Base,
         algo_map = {
             'full': Solver.COV_EIG_DQ,
             'auto': Solver.COV_EIG_DQ,
+            'qr': Solver.COV_EIG_QR,
             # 'arpack': NOT_SUPPORTED,
             # 'randomized': NOT_SUPPORTED,
             'jacobi': Solver.COV_EIG_JACOBI

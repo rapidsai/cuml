@@ -113,14 +113,16 @@ void calEig(const raft::handle_t& handle,
                             stream,
                             (math_t)prms.tol,
                             prms.n_iterations);
-  } else {
+  } else if (prms.algorithm == enum_solver::COV_EIG_DQ) {
     raft::linalg::eigDC(handle, in, prms.n_cols, prms.n_cols, components, explained_var, stream);
+  } else {
+    raft::linalg::eigQR(handle, in, prms.n_cols, prms.n_cols, components, explained_var, stream);
   }
 
   raft::matrix::colReverse(components, prms.n_cols, prms.n_cols, stream);
   raft::linalg::transpose(components, prms.n_cols, stream);
 
-  raft::matrix::rowReverse(explained_var, prms.n_cols, 1, stream);
+  raft::matrix::rowReverse(explained_var, prms.n_cols, std::size_t(1), stream);
 }
 
 /**
@@ -281,7 +283,7 @@ void tsvdFitTransform(const raft::handle_t& handle,
   raft::stats::vars(vars.data(), input, mu.data(), prms.n_cols, prms.n_rows, true, false, stream);
 
   rmm::device_scalar<math_t> total_vars(stream);
-  raft::stats::sum(total_vars.data(), vars.data(), 1, prms.n_cols, false, stream);
+  raft::stats::sum(total_vars.data(), vars.data(), std::size_t(1), prms.n_cols, false, stream);
 
   math_t total_vars_h;
   raft::update_host(&total_vars_h, total_vars.data(), 1, stream);

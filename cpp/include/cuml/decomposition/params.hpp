@@ -23,10 +23,13 @@ namespace ML {
  * and conquer method for symmetric matrices
  * @param COV_EIG_JACOBI: covariance of input will be used along with eigen decomposition using
  * jacobi method for symmetric matrices
+ * @param COV_EIG_QR: covariance of input will be used along with eigen decomposition using
+ * QR method for symmetric matrices
  */
 enum class solver : int {
   COV_EIG_DQ,
   COV_EIG_JACOBI,
+  COV_EIG_QR,
 };
 
 class params {

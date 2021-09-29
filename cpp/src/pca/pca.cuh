@@ -30,6 +30,7 @@
 #include <rmm/device_uvector.hpp>
 #include <stats/cov.cuh>
 #include <tsvd/tsvd.cuh>
+#include <iostream>
 
 namespace ML {
 
@@ -41,7 +42,7 @@ void truncCompExpVars(const raft::handle_t& handle,
                       math_t* components,
                       math_t* explained_var,
                       math_t* explained_var_ratio,
-                      const paramsTSVDTemplate<enum_solver> prms,
+                      const paramsTSVDTemplate<enum_solver>& prms,
                       cudaStream_t stream)
 {
   auto len = prms.n_cols * prms.n_cols;
@@ -56,9 +57,9 @@ void truncCompExpVars(const raft::handle_t& handle,
   raft::matrix::ratio(
     handle, explained_var_all.data(), explained_var_ratio_all.data(), prms.n_cols, stream);
   raft::matrix::truncZeroOrigin(
-    explained_var_all.data(), prms.n_cols, explained_var, prms.n_components, 1, stream);
+    explained_var_all.data(), prms.n_cols, explained_var, prms.n_components, std::size_t(1), stream);
   raft::matrix::truncZeroOrigin(
-    explained_var_ratio_all.data(), prms.n_cols, explained_var_ratio, prms.n_components, 1, stream);
+    explained_var_ratio_all.data(), prms.n_cols, explained_var_ratio, prms.n_components, std::size_t(1), stream);
 }
 
 /**
