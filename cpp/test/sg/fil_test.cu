@@ -176,6 +176,38 @@ __global__ void floats_to_bit_stream_k(uint8_t* dst, float* src, std::size_t siz
   dst[idx] = byte;
 }
 
+void adjust_threshold_to_treelite(
+  float* pthreshold, int* tl_left, int* tl_right, bool* default_left, tl::Operator comparison_op)
+{
+  // in treelite (take left node if val [op] threshold),
+  // the meaning of the condition is reversed compared to FIL;
+  // thus, "<" in treelite corresonds to comparison ">=" used by FIL
+  // https://github.com/dmlc/treelite/blob/master/include/treelite/tree.h#L243
+  // TODO(levsnv): remove workaround once confirmed to work with empty category lists in Treelite
+  if (isnan(*pthreshold)) {
+    std::swap(*tl_left, *tl_right);
+    *default_left = !*default_left;
+    return;
+  }
+  switch (comparison_op) {
+    case tl::Operator::kLT: break;
+    case tl::Operator::kLE:
+      // x <= y is equivalent to x < y', where y' is the next representable float
+      *pthreshold = std::nextafterf(*pthreshold, -std::numeric_limits<float>::infinity());
+      break;
+    case tl::Operator::kGT:
+      // x > y is equivalent to x >= y', where y' is the next representable float
+      // left and right still need to be swapped
+      *pthreshold = std::nextafterf(*pthreshold, -std::numeric_limits<float>::infinity());
+    case tl::Operator::kGE:
+      // swap left and right
+      std::swap(*tl_left, *tl_right);
+      *default_left = !*default_left;
+      break;
+    default: ASSERT(false, "only <, >, <= and >= comparisons are supported");
+  }
+}
+
 class BaseFilTest : public testing::TestWithParam<FilTestParams> {
  protected:
   void setup_helper()
@@ -266,10 +298,10 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     // uniformily distributed in orders of magnitude: smaller models which
     // still stress large bitfields.
     // up to 10**ps.max_magnitude_of_matching_cat (only if feature is categorical, else -1)
-    std::vector<cat_feature_counters> cf(ps.num_cols);
     std::mt19937 gen(ps.seed);
     std::uniform_real_distribution mmc(-1.0f, ps.max_magnitude_of_matching_cat);
     std::bernoulli_distribution fc(ps.feature_categorical_prob);
+    cat_sets_h.max_matching.resize(ps.num_cols);
     for (int fid = 0; fid < ps.num_cols; ++fid) {
       feature_categorical[fid] = fc(gen);
       if (feature_categorical[fid]) {
@@ -278,9 +310,9 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
         ASSERT(mm < INT_MAX,
                "internal error: max_magnitude_of_matching_cat %f is too large",
                ps.max_magnitude_of_matching_cat);
-        cf[fid].max_matching = (int)mm;
+        cat_sets_h.max_matching[fid] = mm;
       } else {
-        cf[fid].max_matching = -1;
+        cat_sets_h.max_matching[fid] = -1;
       }
     }
     raft::update_host(weights_h.data(), (int*)weights_d, num_nodes, stream);
@@ -303,6 +335,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
     // count nodes for each feature id, while splitting the sets between nodes
     std::size_t bit_pool_size = 0;
+    cat_sets_h.n_nodes        = std::vector<std::size_t>(ps.num_cols, 0);
     for (std::size_t node_id = 0; node_id < num_nodes; ++node_id) {
       int fid = fids_h[node_id];
 
@@ -310,13 +343,12 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
 
       if (is_categoricals_h[node_id] == 1.0) {
         // might allocate a categorical set for an unreachable inner node. That's OK.
-        ++cf[fid].n_nodes;
+        ++cat_sets_h.n_nodes[fid];
         node_cat_set[node_id] = bit_pool_size;
-        bit_pool_size += categorical_sets::sizeof_mask_from_max_matching(cf[fid].max_matching);
+        bit_pool_size += cat_sets_h.accessor().sizeof_mask(fid);
       }
     }
-    cat_sets_h = cat_sets_owner(cf);
-    ASSERT(bit_pool_size == cat_sets_h.bits.size(), "didn't convert correct number of nodes");
+    cat_sets_h.bits.resize(bit_pool_size);
     raft::update_device(
       max_matching_cat_d.data(), cat_sets_h.max_matching.data(), ps.num_cols, stream);
     // calculate sizes and allocate arrays for category sets
@@ -712,6 +744,7 @@ class TreeliteFilTest : public BaseFilTest {
     int key = (*pkey)++;
     builder->CreateNode(key);
     const fil::dense_node& dense_node = nodes[node];
+    std::vector<std::uint32_t> left_categories;
     if (dense_node.is_leaf()) {
       switch (ps.leaf_algo) {
         case fil::leaf_algo_t::FLOAT_UNARY_BINARY:
@@ -742,33 +775,42 @@ class TreeliteFilTest : public BaseFilTest {
     } else {
       int left          = root + 2 * (node - root) + 1;
       int right         = root + 2 * (node - root) + 2;
-      float threshold   = dense_node.thresh();
       bool default_left = dense_node.def_left();
-      switch (ps.op) {
-        case tl::Operator::kLT: break;
-        case tl::Operator::kLE:
-          // adjust the threshold
-          threshold = std::nextafterf(threshold, -std::numeric_limits<float>::infinity());
-          break;
-        case tl::Operator::kGT:
-          // adjust the threshold; left and right still need to be swapped
-          threshold = std::nextafterf(threshold, -std::numeric_limits<float>::infinity());
-        case tl::Operator::kGE:
-          // swap left and right
-          std::swap(left, right);
-          default_left = !default_left;
-          break;
-        default: ASSERT(false, "comparison operator must be <, >, <= or >=");
+      float threshold   = dense_node.is_categorical() ? NAN : dense_node.thresh();
+      if (dense_node.is_categorical()) {
+        uint8_t byte = 0;
+        for (int category = 0; category <= cat_sets_h.max_matching[dense_node.fid()]; ++category) {
+          if (category % BITS_PER_BYTE == 0) {
+            byte = cat_sets_h.bits[dense_node.set() + category / BITS_PER_BYTE];
+          }
+          if ((byte & (1 << (category % BITS_PER_BYTE))) != 0) {
+            left_categories.push_back(category);
+          }
+        }
       }
       int left_key  = node_to_treelite(builder, pkey, root, left);
       int right_key = node_to_treelite(builder, pkey, root, right);
-      builder->SetNumericalTestNode(key,
-                                    dense_node.fid(),
-                                    ps.op,
-                                    tlf::Value::Create(threshold),
-                                    default_left,
-                                    left_key,
-                                    right_key);
+      // TODO(levsnv): remove workaround once confirmed to work with empty category lists in
+      // Treelite
+      if (!left_categories.empty() && dense_node.is_categorical()) {
+        // Treelite builder APIs don't allow to set categorical_split_right_child
+        // (which child the categories pertain to). Only the Tree API allows that.
+        // in FIL, categories always pertain to the right child, and the default in treelite
+        // is left categories in SetCategoricalTestNode
+        std::swap(left_key, right_key);
+        default_left = !default_left;
+        builder->SetCategoricalTestNode(
+          key, dense_node.fid(), left_categories, default_left, left_key, right_key);
+      } else {
+        adjust_threshold_to_treelite(&threshold, &left_key, &right_key, &default_left, ps.op);
+        builder->SetNumericalTestNode(key,
+                                      dense_node.fid(),
+                                      ps.op,
+                                      tlf::Value::Create(threshold),
+                                      default_left,
+                                      left_key,
+                                      right_key);
+      }
     }
     return key;
   }
@@ -972,7 +1014,11 @@ std::vector<FilTestParams> predict_dense_inputs = {
                   output      = AVG_SOFTMAX,
                   leaf_algo   = GROVE_PER_CLASS,
                   num_classes = FIL_TPB + 1),
-  FIL_TEST_PARAMS(num_cols = 100'000, depth = 5, num_trees = 1, leaf_algo = FLOAT_UNARY_BINARY),
+  FIL_TEST_PARAMS(num_rows  = 10'000,
+                  num_cols  = 100'000,
+                  depth     = 5,
+                  num_trees = 1,
+                  leaf_algo = FLOAT_UNARY_BINARY),
   FIL_TEST_PARAMS(num_rows    = 101,
                   num_cols    = 100'000,
                   depth       = 5,
@@ -1203,6 +1249,15 @@ std::vector<FilTestParams> import_dense_inputs = {
   FIL_TEST_PARAMS(print_forest_shape = true),
   FIL_TEST_PARAMS(leaf_algo = VECTOR_LEAF, num_classes = 2),
   FIL_TEST_PARAMS(leaf_algo = VECTOR_LEAF, num_trees = 19, num_classes = 20),
+  FIL_TEST_PARAMS(node_categorical_prob = 0.5, feature_categorical_prob = 0.5),
+  FIL_TEST_PARAMS(
+    node_categorical_prob = 1.0, feature_categorical_prob = 1.0, cat_match_prob = 1.0),
+  FIL_TEST_PARAMS(
+    node_categorical_prob = 1.0, feature_categorical_prob = 1.0, cat_match_prob = 0.0),
+  FIL_TEST_PARAMS(depth                         = 3,
+                  node_categorical_prob         = 0.5,
+                  feature_categorical_prob      = 0.5,
+                  max_magnitude_of_matching_cat = 5),
 };
 
 TEST_P(TreeliteDenseFilTest, Import) { compare(); }
@@ -1247,6 +1302,15 @@ std::vector<FilTestParams> import_sparse_inputs = {
                   num_classes = 3),
   FIL_TEST_PARAMS(leaf_algo = VECTOR_LEAF, num_classes = 2),
   FIL_TEST_PARAMS(leaf_algo = VECTOR_LEAF, num_trees = 19, num_classes = 20),
+  FIL_TEST_PARAMS(node_categorical_prob = 0.5, feature_categorical_prob = 0.5),
+  FIL_TEST_PARAMS(
+    node_categorical_prob = 1.0, feature_categorical_prob = 1.0, cat_match_prob = 1.0),
+  FIL_TEST_PARAMS(
+    node_categorical_prob = 1.0, feature_categorical_prob = 1.0, cat_match_prob = 0.0),
+  FIL_TEST_PARAMS(depth                         = 3,
+                  node_categorical_prob         = 0.5,
+                  feature_categorical_prob      = 0.5,
+                  max_magnitude_of_matching_cat = 5),
 };
 
 TEST_P(TreeliteSparse16FilTest, Import) { compare(); }
