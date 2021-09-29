@@ -116,7 +116,6 @@ class HDBSCANTest : public ::testing::TestWithParam<HDBSCANInputs<T, IdxT>> {
  protected:
   HDBSCANInputs<T, IdxT> params;
   IdxT* labels_ref;
-  int k;
 
   double score;
 };
