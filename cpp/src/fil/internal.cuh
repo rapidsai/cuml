@@ -18,6 +18,12 @@
 
 #pragma once
 #include <cuml/fil/fil.h>
+#include <treelite/c_api.h>
+#include <treelite/tree.h>
+#include <bitset>
+#include <cstdint>
+#include <iostream>
+#include <numeric>
 #include <raft/cuda_utils.cuh>
 #include <raft/error.hpp>
 #include <rmm/device_uvector.hpp>
@@ -301,19 +307,15 @@ struct forest_params_t {
 /// FIL_TPB is the number of threads per block to use with FIL kernels
 const int FIL_TPB = 256;
 
-const uint32_t MAX_PRECISE_INT_FLOAT = 1 << 24;  // 16'777'216
+constexpr std::int32_t MAX_PRECISE_INT_FLOAT = 1 << 24;  // 16'777'216
 
 __host__ __device__ __forceinline__ int fetch_bit(const uint8_t* array, int bit)
 {
   return (array[bit / BITS_PER_BYTE] >> (bit % BITS_PER_BYTE)) & 1;
 }
 
-struct cat_feature_counters {
-  int max_matching = -1;
-  int n_nodes      = 0;
-};
-
 struct categorical_sets {
+  // arrays are const to use fast GPU read instructions by default
   // arrays from each node ID are concatenated first, then from all categories
   const uint8_t* bits = nullptr;
   // largest matching category in the model, per feature ID
@@ -370,7 +372,7 @@ struct tree_base {
     if (isnan(val)) {
       cond = !node.def_left();
     } else if (CATS_SUPPORTED && node.is_categorical()) {
-      cond = cat_sets.category_matches(node, (int)val);
+      cond = cat_sets.category_matches(node, static_cast<int>(val));
     } else {
       cond = val >= node.thresh();
     }
@@ -378,12 +380,29 @@ struct tree_base {
   }
 };
 
+// -1 means no matching categories
+struct cat_feature_counters {
+  int max_matching = -1;
+  int n_nodes      = 0;
+  static cat_feature_counters combine(cat_feature_counters a, cat_feature_counters b)
+  {
+    return {.max_matching = std::max(a.max_matching, b.max_matching),
+            .n_nodes      = a.n_nodes + b.n_nodes};
+  }
+};
+
+// used only during model import. For inference, trimmed down using cat_sets_owner::accessor()
 // in internal.cuh, as opposed to fil_test.cu, because importing from treelite will require it
 struct cat_sets_owner {
   // arrays from each node ID are concatenated first, then from all categories
   std::vector<uint8_t> bits;
-  // largest matching category in the model, per feature ID
+  // largest matching category in the model, per feature ID. uses int because GPU code can only fit
+  // int
   std::vector<int> max_matching;
+  // how many categorical nodes use a given feature id. Used for model shape string.
+  std::vector<std::size_t> n_nodes;
+  // per tree, size and offset of bit pool within the overall bit pool
+  std::vector<std::size_t> bit_pool_offsets;
 
   categorical_sets accessor() const
   {
@@ -394,12 +413,29 @@ struct cat_sets_owner {
       .max_matching_size = max_matching.size(),
     };
   }
+
+  void consume_counters(const std::vector<cat_feature_counters>& counters)
+  {
+    for (cat_feature_counters cf : counters) {
+      max_matching.push_back(cf.max_matching);
+      n_nodes.push_back(cf.n_nodes);
+    }
+  }
+
+  void consume_bit_pool_sizes(const std::vector<std::size_t>& bit_pool_sizes)
+  {
+    bit_pool_offsets.push_back(0);
+    for (std::size_t i = 0; i < bit_pool_sizes.size() - 1; ++i) {
+      bit_pool_offsets.push_back(bit_pool_offsets.back() + bit_pool_sizes[i]);
+    }
+    bits.resize(bit_pool_offsets.back() + bit_pool_sizes.back());
+  }
+
   cat_sets_owner() {}
   cat_sets_owner(std::vector<uint8_t> bits_, std::vector<int> max_matching_)
     : bits(bits_), max_matching(max_matching_)
   {
   }
-  cat_sets_owner(const std::vector<cat_feature_counters>& cf);
 };
 
 std::ostream& operator<<(std::ostream& os, const cat_sets_owner& cso);
@@ -423,14 +459,18 @@ struct cat_sets_device_owner {
   cat_sets_device_owner(categorical_sets cat_sets, cudaStream_t stream)
     : bits(cat_sets.bits_size, stream), max_matching(cat_sets.max_matching_size, stream)
   {
-    if (cat_sets.max_matching != nullptr) {
+    ASSERT(bits.size() <= static_cast<std::size_t>(INT_MAX) + 1ull,
+           "too many categories/categorical nodes: cannot store bits offset in node");
+    if (cat_sets.max_matching_size > 0) {
+      ASSERT(cat_sets.max_matching != nullptr, "internal error: cat_sets.max_matching is nil");
       CUDA_CHECK(cudaMemcpyAsync(max_matching.data(),
                                  cat_sets.max_matching,
                                  max_matching.size() * sizeof(int),
                                  cudaMemcpyDefault,
                                  stream));
     }
-    if (cat_sets.bits != nullptr) {
+    if (cat_sets.bits_size > 0) {
+      ASSERT(cat_sets.bits != nullptr, "internal error: cat_sets.bits is nil");
       CUDA_CHECK(cudaMemcpyAsync(
         bits.data(), cat_sets.bits, bits.size() * sizeof(uint8_t), cudaMemcpyDefault, stream));
     }
@@ -478,4 +518,6 @@ void init_sparse(const raft::handle_t& h,
                  const forest_params_t* params);
 
 }  // namespace fil
+
+std::string output2str(fil::output_t output);
 }  // namespace ML
