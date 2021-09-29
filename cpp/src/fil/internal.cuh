@@ -18,6 +18,9 @@
 
 #pragma once
 #include <cuml/fil/fil.h>
+#include <raft/cuda_utils.cuh>
+#include <raft/error.hpp>
+#include <rmm/device_uvector.hpp>
 #include <vector>
 
 namespace raft {
@@ -26,6 +29,8 @@ class handle_t;
 
 namespace ML {
 namespace fil {
+
+const int BITS_PER_BYTE = 8;
 
 /// modpow2 returns a % b == a % pow(2, log2_b)
 __host__ __device__ __forceinline__ int modpow2(int a, int log2_b)
@@ -73,51 +78,73 @@ enum output_t {
 
 /** val_t is the payload within a FIL leaf */
 union val_t {
-  /** threshold value for branch node or output value (e.g. class
+  /** threshold value for parent node or output value (e.g. class
       probability or regression summand) for leaf node */
-  float f;
-  /** class label */
+  float f = NAN;
+  /** class label, leaf vector index or categorical node set offset */
   int idx;
 };
 
 /** base_node contains common implementation details for dense and sparse nodes */
 struct base_node {
-  /** val is either the threshold (for inner nodes, always float)
-      or the tree prediction (for leaf nodes) */
+  /** val, for parent nodes, is a threshold or category list offset. For leaf
+      nodes, it is the tree prediction (see see leaf_output_t<leaf_algo_t>::T) */
   val_t val;
   /** bits encode various information about the node, with the exact nature of
       this information depending on the node type; it includes e.g. whether the
       node is a leaf or inner node, and for inner nodes, additional information,
       e.g. the default direction, feature id or child index */
   int bits;
-  static const int FID_MASK      = (1 << 30) - 1;
-  static const int DEF_LEFT_MASK = 1 << 30;
-  static const int IS_LEAF_MASK  = 1 << 31;
+  static const int IS_LEAF_OFFSET        = 31;
+  static const int IS_LEAF_MASK          = 1 << IS_LEAF_OFFSET;
+  static const int DEF_LEFT_OFFSET       = IS_LEAF_OFFSET - 1;
+  static const int DEF_LEFT_MASK         = 1 << DEF_LEFT_OFFSET;
+  static const int IS_CATEGORICAL_OFFSET = DEF_LEFT_OFFSET - 1;
+  static const int IS_CATEGORICAL_MASK   = 1 << IS_CATEGORICAL_OFFSET;
+  static const int FID_MASK              = (1 << IS_CATEGORICAL_OFFSET) - 1;
   template <class o_t>
-  __host__ __device__ o_t output() const
-  {
-    return val;
-  }
+  __host__ __device__ o_t output() const;
+  __host__ __device__ int set() const { return val.idx; }
   __host__ __device__ float thresh() const { return val.f; }
+  __host__ __device__ val_t split() const { return val; }
   __host__ __device__ int fid() const { return bits & FID_MASK; }
   __host__ __device__ bool def_left() const { return bits & DEF_LEFT_MASK; }
   __host__ __device__ bool is_leaf() const { return bits & IS_LEAF_MASK; }
-  __host__ __device__ base_node() : val({.f = 0}), bits(0){};
-  base_node(val_t output, float thresh, int fid, bool def_left, bool is_leaf)
+  __host__ __device__ bool is_categorical() const { return bits & IS_CATEGORICAL_MASK; }
+  __host__ __device__ base_node() : val{}, bits(0) {}
+  base_node(val_t output, val_t split, int fid, bool def_left, bool is_leaf, bool is_categorical)
   {
-    bits = (fid & FID_MASK) | (def_left ? DEF_LEFT_MASK : 0) | (is_leaf ? IS_LEAF_MASK : 0);
+    RAFT_EXPECTS((fid & FID_MASK) == fid, "internal error: feature ID doesn't fit into base_node");
+    bits = (fid & FID_MASK) | (def_left ? DEF_LEFT_MASK : 0) | (is_leaf ? IS_LEAF_MASK : 0) |
+           (is_categorical ? IS_CATEGORICAL_MASK : 0);
     if (is_leaf)
       val = output;
     else
-      val.f = thresh;
+      val = split;
   }
 };
+
+template <>
+__host__ __device__ __forceinline__ float base_node::output<float>() const
+{
+  return val.f;
+}
+template <>
+__host__ __device__ __forceinline__ int base_node::output<int>() const
+{
+  return val.idx;
+}
+template <>
+__host__ __device__ __forceinline__ val_t base_node::output<val_t>() const
+{
+  return val;
+}
 
 /** dense_node is a single node of a dense forest */
 struct alignas(8) dense_node : base_node {
   dense_node() = default;
-  dense_node(val_t output, float thresh, int fid, bool def_left, bool is_leaf)
-    : base_node(output, thresh, fid, def_left, is_leaf)
+  dense_node(val_t output, val_t split, int fid, bool def_left, bool is_leaf, bool is_categorical)
+    : base_node(output, split, fid, def_left, is_leaf, is_categorical)
   {
   }
   /** index of the left child, where curr is the index of the current node */
@@ -129,8 +156,16 @@ struct alignas(16) sparse_node16 : base_node {
   int left_idx;
   int dummy;  // make alignment explicit and reserve for future use
   __host__ __device__ sparse_node16() : left_idx(0), dummy(0) {}
-  sparse_node16(val_t output, float thresh, int fid, bool def_left, bool is_leaf, int left_index)
-    : base_node(output, thresh, fid, def_left, is_leaf), left_idx(left_index), dummy(0)
+  sparse_node16(val_t output,
+                val_t split,
+                int fid,
+                bool def_left,
+                bool is_leaf,
+                bool is_categorical,
+                int left_index)
+    : base_node(output, split, fid, def_left, is_leaf, is_categorical),
+      left_idx(left_index),
+      dummy(0)
   {
   }
   __host__ __device__ int left_index() const { return left_idx; }
@@ -140,28 +175,28 @@ struct alignas(16) sparse_node16 : base_node {
 
 /** sparse_node8 is a node of reduced size (8 bytes) in a sparse forest */
 struct alignas(8) sparse_node8 : base_node {
-  static const int FID_NUM_BITS    = 14;
-  static const int FID_MASK        = (1 << FID_NUM_BITS) - 1;
-  static const int LEFT_OFFSET     = FID_NUM_BITS;
-  static const int LEFT_NUM_BITS   = 16;
-  static const int LEFT_MASK       = ((1 << LEFT_NUM_BITS) - 1) << LEFT_OFFSET;
-  static const int DEF_LEFT_OFFSET = LEFT_OFFSET + LEFT_NUM_BITS;
-  static const int DEF_LEFT_MASK   = 1 << DEF_LEFT_OFFSET;
-  static const int IS_LEAF_OFFSET  = 31;
-  static const int IS_LEAF_MASK    = 1 << IS_LEAF_OFFSET;
+  static const int LEFT_NUM_BITS = 16;
+  static const int FID_NUM_BITS  = IS_CATEGORICAL_OFFSET - LEFT_NUM_BITS;
+  static const int LEFT_OFFSET   = FID_NUM_BITS;
+  static const int FID_MASK      = (1 << FID_NUM_BITS) - 1;
+  static const int LEFT_MASK     = ((1 << LEFT_NUM_BITS) - 1) << LEFT_OFFSET;
   __host__ __device__ int fid() const { return bits & FID_MASK; }
-  __host__ __device__ bool def_left() const { return bits & DEF_LEFT_MASK; }
-  __host__ __device__ bool is_leaf() const { return bits & IS_LEAF_MASK; }
   __host__ __device__ int left_index() const { return (bits & LEFT_MASK) >> LEFT_OFFSET; }
   sparse_node8() = default;
-  sparse_node8(val_t output, float thresh, int fid, bool def_left, bool is_leaf, int left_index)
+  sparse_node8(val_t output,
+               val_t split,
+               int fid,
+               bool def_left,
+               bool is_leaf,
+               bool is_categorical,
+               int left_index)
+    : base_node(output, split, fid, def_left, is_leaf, is_categorical)
   {
-    if (is_leaf)
-      val = output;
-    else
-      val.f = thresh;
-    bits = fid | left_index << LEFT_OFFSET | (def_left ? 1 : 0) << DEF_LEFT_OFFSET |
-           (is_leaf ? 1 : 0) << IS_LEAF_OFFSET;
+    RAFT_EXPECTS((fid & FID_MASK) == fid,
+                 "internal error: feature ID doesn't fit into sparse_node8");
+    RAFT_EXPECTS(((left_index << LEFT_OFFSET) & LEFT_MASK) == (left_index << LEFT_OFFSET),
+                 "internal error: left child index doesn't fit into sparse_node8");
+    bits |= left_index << LEFT_OFFSET;
   }
   /** index of the left child, where curr is the index of the current node */
   __host__ __device__ int left(int curr) const { return left_index(); }
@@ -266,6 +301,147 @@ struct forest_params_t {
 /// FIL_TPB is the number of threads per block to use with FIL kernels
 const int FIL_TPB = 256;
 
+const uint32_t MAX_PRECISE_INT_FLOAT = 1 << 24;  // 16'777'216
+
+__host__ __device__ __forceinline__ int fetch_bit(const uint8_t* array, int bit)
+{
+  return (array[bit / BITS_PER_BYTE] >> (bit % BITS_PER_BYTE)) & 1;
+}
+
+struct cat_feature_counters {
+  int max_matching = -1;
+  int n_nodes      = 0;
+};
+
+struct categorical_sets {
+  // arrays from each node ID are concatenated first, then from all categories
+  const uint8_t* bits = nullptr;
+  // largest matching category in the model, per feature ID
+  const int* max_matching       = nullptr;
+  std::size_t bits_size         = 0;
+  std::size_t max_matching_size = 0;
+
+  __host__ __device__ __forceinline__ bool cats_present() const
+  {
+    // If this is constructed from cat_sets_owner, will return true
+    // default-initialized will return false
+    // Defining edge case: there are categorical nodes, but all have max_matching == -1
+    // (all categorical nodes are empty). node.thresh() would have returned 0.0f
+    // and the branch condition wouldn't have always been false (i.e branched left).
+    // Alternatively, we could have converted all empty categorical nodes to
+    // NAN-threshold numerical nodes.
+    return max_matching != nullptr;
+  }
+
+  // set count is due to tree_idx + node_within_tree_idx are both ints, hence uint32_t result
+  template <typename node_t>
+  __host__ __device__ __forceinline__ int category_matches(node_t node, int category) const
+  {
+    // standard boolean packing. This layout has better ILP
+    // node.set() is global across feature IDs and is an offset (as opposed
+    // to set number). If we run out of uint32_t and we have hundreds of
+    // features with similar categorical feature count, we may consider
+    // storing node ID within nodes with same feature ID and look up
+    // {.max_matching, .first_node_offset} = ...[feature_id]
+    return category <= max_matching[node.fid()] && fetch_bit(bits + node.set(), category);
+  }
+  static int sizeof_mask_from_max_matching(int max_matching)
+  {
+    return raft::ceildiv(max_matching + 1, BITS_PER_BYTE);
+  }
+  int sizeof_mask(int feature_id) const
+  {
+    return sizeof_mask_from_max_matching(max_matching[feature_id]);
+  }
+};
+
+// lets any tree determine a child index for a node in a generic fasion
+// used in fil_test.cu fot its child_index() in CPU predicting
+struct tree_base {
+  categorical_sets cat_sets;
+
+  template <bool CATS_SUPPORTED, typename node_t>
+  __host__ __device__ __forceinline__ int child_index(const node_t& node,
+                                                      int node_idx,
+                                                      float val) const
+  {
+    bool cond;
+
+    if (isnan(val)) {
+      cond = !node.def_left();
+    } else if (CATS_SUPPORTED && node.is_categorical()) {
+      cond = cat_sets.category_matches(node, (int)val);
+    } else {
+      cond = val >= node.thresh();
+    }
+    return node.left(node_idx) + cond;
+  }
+};
+
+// in internal.cuh, as opposed to fil_test.cu, because importing from treelite will require it
+struct cat_sets_owner {
+  // arrays from each node ID are concatenated first, then from all categories
+  std::vector<uint8_t> bits;
+  // largest matching category in the model, per feature ID
+  std::vector<int> max_matching;
+
+  categorical_sets accessor() const
+  {
+    return {
+      .bits              = bits.data(),
+      .max_matching      = max_matching.data(),
+      .bits_size         = bits.size(),
+      .max_matching_size = max_matching.size(),
+    };
+  }
+  cat_sets_owner() {}
+  cat_sets_owner(std::vector<uint8_t> bits_, std::vector<int> max_matching_)
+    : bits(bits_), max_matching(max_matching_)
+  {
+  }
+  cat_sets_owner(const std::vector<cat_feature_counters>& cf);
+};
+
+std::ostream& operator<<(std::ostream& os, const cat_sets_owner& cso);
+
+struct cat_sets_device_owner {
+  // arrays from each node ID are concatenated first, then from all categories
+  rmm::device_uvector<uint8_t> bits;
+  // largest matching category in the model, per feature ID
+  rmm::device_uvector<int> max_matching;
+
+  categorical_sets accessor() const
+  {
+    return {
+      .bits              = bits.data(),
+      .max_matching      = max_matching.data(),
+      .bits_size         = bits.size(),
+      .max_matching_size = max_matching.size(),
+    };
+  }
+  cat_sets_device_owner(cudaStream_t stream) : bits(0, stream), max_matching(0, stream) {}
+  cat_sets_device_owner(categorical_sets cat_sets, cudaStream_t stream)
+    : bits(cat_sets.bits_size, stream), max_matching(cat_sets.max_matching_size, stream)
+  {
+    if (cat_sets.max_matching != nullptr) {
+      CUDA_CHECK(cudaMemcpyAsync(max_matching.data(),
+                                 cat_sets.max_matching,
+                                 max_matching.size() * sizeof(int),
+                                 cudaMemcpyDefault,
+                                 stream));
+    }
+    if (cat_sets.bits != nullptr) {
+      CUDA_CHECK(cudaMemcpyAsync(
+        bits.data(), cat_sets.bits, bits.size() * sizeof(uint8_t), cudaMemcpyDefault, stream));
+    }
+  }
+  void release()
+  {
+    bits.release();
+    max_matching.release();
+  }
+};
+
 /** init_dense uses params and nodes to initialize the dense forest stored in pf
  *  @param h cuML handle used by this function
  *  @param pf pointer to where to store the newly created forest
@@ -276,9 +452,10 @@ const int FIL_TPB = 256;
  */
 void init_dense(const raft::handle_t& h,
                 forest_t* pf,
+                const categorical_sets& cat_sets,
+                const std::vector<float>& vector_leaf,
                 const dense_node* nodes,
-                const forest_params_t* params,
-                const std::vector<float>& vector_leaf);
+                const forest_params_t* params);
 
 /** init_sparse uses params, trees and nodes to initialize the sparse forest
  *  with sparse nodes stored in pf
@@ -294,10 +471,11 @@ void init_dense(const raft::handle_t& h,
 template <typename fil_node_t>
 void init_sparse(const raft::handle_t& h,
                  forest_t* pf,
+                 const categorical_sets& cat_sets,
+                 const std::vector<float>& vector_leaf,
                  const int* trees,
                  const fil_node_t* nodes,
-                 const forest_params_t* params,
-                 const std::vector<float>& vector_leaf);
+                 const forest_params_t* params);
 
 }  // namespace fil
 }  // namespace ML

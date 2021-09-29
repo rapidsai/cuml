@@ -26,7 +26,7 @@ include(rapids-find)
 
 rapids_cuda_init_architectures(CUML)
 
-project(CUML VERSION 21.10.00 LANGUAGES CXX CUDA)
+project(CUML VERSION 21.12.00 LANGUAGES CXX CUDA)
 
 # Write the version header
 rapids_cmake_write_version_file(include/cuml/version_config.hpp)
@@ -57,6 +57,7 @@ option(CUDA_ENABLE_KERNEL_INFO "Enable kernel resource usage info" OFF)
 option(CUDA_ENABLE_LINE_INFO "Enable lineinfo in nvcc" OFF)
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
 option(DISABLE_DEPRECATION_WARNINGS "Disable depreaction warnings " ON)
+option(DISABLE_FORCE_CLONE_RAFT "By default, CPM will clone RAFT even if it's already in the environment. Set to disable that behavior." OFF)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(ENABLE_CUMLPRIMS_MG "Enable algorithms that use libcumlprims_mg" ON)
 option(NVTX "Enable nvtx markers" OFF)
@@ -249,11 +250,16 @@ if(BUILD_CUML_CPP_LIBRARY)
     src/metrics/pairwise_distance.cu
     src/metrics/pairwise_distance_canberra.cu
     src/metrics/pairwise_distance_chebyshev.cu
+    src/metrics/pairwise_distance_correlation.cu
     src/metrics/pairwise_distance_cosine.cu
     src/metrics/pairwise_distance_euclidean.cu
+    src/metrics/pairwise_distance_hamming.cu
     src/metrics/pairwise_distance_hellinger.cu
+    src/metrics/pairwise_distance_jensen_shannon.cu
+    src/metrics/pairwise_distance_kl_divergence.cu
     src/metrics/pairwise_distance_l1.cu
     src/metrics/pairwise_distance_minkowski.cu
+    src/metrics/pairwise_distance_russell_rao.cu
     src/metrics/r2_score.cu
     src/metrics/rand_index.cu
     src/metrics/silhouette_score.cu
@@ -453,16 +459,22 @@ functions that share compatible APIs with other RAPIDS projects.
 
 ]=])
 
+set(code_string
+[=[
+thrust_create_target(cuml::Thrust FROM_OPTIONS)
+]=])
+
  rapids_export(INSTALL cuml
     EXPORT_SET cuml-exports
     GLOBAL_TARGETS cuml
     NAMESPACE cuml::
     DOCUMENTATION doc_string
+    FINAL_CODE_BLOCK code_string
     )
 
 ################################################################################################
 # - build export -------------------------------------------------------------------------------
-set(code_string [=[thrust_create_target(cuml::Thrust FROM_OPTIONS)]=])
+
 rapids_export(BUILD cuml
     EXPORT_SET cuml-exports
     GLOBAL_TARGETS cuml
