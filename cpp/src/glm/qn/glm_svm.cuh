@@ -57,9 +57,14 @@ struct SVRL1Loss : GLMBase<T, SVRL1Loss<T>> {
   }
   inline __device__ T lz(const T y, const T z) const
   {
-    return raft::myMax<T>(0, raft::myAbs<T>(y - z) - sensitivity);
+    T t = y - z;
+    return t > sensitivity ? t - sensitivity : t < -sensitivity ? t + sensitivity : 0;
   }
-  inline __device__ T dlz(const T y, const T z) const { return -y * T(y * z <= 1); }
+  inline __device__ T dlz(const T y, const T z) const
+  {
+    T t = y - z;
+    return t > sensitivity ? -1 : (t < -sensitivity ? 1 : 0);
+  }
 };
 
 template <typename T>
@@ -74,9 +79,14 @@ struct SVRL2Loss : GLMBase<T, SVRL2Loss<T>> {
   inline __device__ T lz(const T y, const T z) const
   {
     T t = raft::myMax<T>(0, raft::myAbs<T>(y - z) - sensitivity);
-    return t * t;
+    T s = t > sensitivity ? t - sensitivity : t < -sensitivity ? t + sensitivity : 0;
+    return s * s;
   }
-  inline __device__ T dlz(const T y, const T z) const { return (z - y) * T(y * z <= 1); }
+  inline __device__ T dlz(const T y, const T z) const
+  {
+    T t = y - z;
+    return -2 * (t > sensitivity ? t - sensitivity : t < -sensitivity ? (t + sensitivity) : 0);
+  }
 };
 
 };  // namespace GLM
