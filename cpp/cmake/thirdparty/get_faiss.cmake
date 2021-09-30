@@ -30,7 +30,7 @@ function(find_and_configure_faiss)
     endif()
 
     rapids_cpm_find(FAISS ${PKG_VERSION}
-        GLOBAL_TARGETS   faiss
+        GLOBAL_TARGETS   faiss FAISS::FAISS
         BUILD_EXPORT_SET cuml-exports
         CPM_ARGS
           GIT_REPOSITORY  https://github.com/facebookresearch/faiss.git
