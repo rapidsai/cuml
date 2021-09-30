@@ -54,7 +54,7 @@ void calCompExpVarsSvd(const raft::handle_t& handle,
   auto cusolver_handle = handle.get_cusolver_dn_handle();
   auto cublas_handle   = handle.get_cublas_handle();
 
-  auto diff     = prms.n_cols - prms.n_components;
+  auto diff    = prms.n_cols - prms.n_components;
   math_t ratio = math_t(diff) / math_t(prms.n_cols);
   ASSERT(ratio >= math_t(0.2),
          "Number of components should be less than at least 80 percent of the "
@@ -113,10 +113,8 @@ void calEig(const raft::handle_t& handle,
                             stream,
                             (math_t)prms.tol,
                             prms.n_iterations);
-  } else if (prms.algorithm == enum_solver::COV_EIG_DQ) {
-    raft::linalg::eigDC(handle, in, prms.n_cols, prms.n_cols, components, explained_var, stream);
   } else {
-    raft::linalg::eigQR(handle, in, prms.n_cols, prms.n_cols, components, explained_var, stream);
+    raft::linalg::eigDC(handle, in, prms.n_cols, prms.n_cols, components, explained_var, stream);
   }
 
   raft::matrix::colReverse(components, prms.n_cols, prms.n_cols, stream);
@@ -137,38 +135,43 @@ void calEig(const raft::handle_t& handle,
  * @{
  */
 template <typename math_t>
-void signFlip(
-  math_t* input, std::size_t n_rows, std::size_t n_cols, math_t* components, std::size_t n_cols_comp, cudaStream_t stream)
+void signFlip(math_t* input,
+              std::size_t n_rows,
+              std::size_t n_cols,
+              math_t* components,
+              std::size_t n_cols_comp,
+              cudaStream_t stream)
 {
   auto counting = thrust::make_counting_iterator(0);
   auto m        = n_rows;
 
-  thrust::for_each(rmm::exec_policy(stream), counting, counting + n_cols, [=] __device__(std::size_t idx) {
-    auto d_i = idx * m;
-    auto end = d_i + m;
+  thrust::for_each(
+    rmm::exec_policy(stream), counting, counting + n_cols, [=] __device__(std::size_t idx) {
+      auto d_i = idx * m;
+      auto end = d_i + m;
 
-    math_t max    = 0.0;
-    std::size_t max_index = 0;
-    for (auto i = d_i; i < end; i++) {
-      math_t val = input[i];
-      if (val < 0.0) { val = -val; }
-      if (val > max) {
-        max       = val;
-        max_index = i;
-      }
-    }
-
-    if (input[max_index] < 0.0) {
+      math_t max            = 0.0;
+      std::size_t max_index = 0;
       for (auto i = d_i; i < end; i++) {
-        input[i] = -input[i];
+        math_t val = input[i];
+        if (val < 0.0) { val = -val; }
+        if (val > max) {
+          max       = val;
+          max_index = i;
+        }
       }
 
-      std::size_t len = n_cols * n_cols_comp;
-      for (auto i = idx; i < len; i = i + n_cols) {
-        components[i] = -components[i];
+      if (input[max_index] < 0.0) {
+        for (auto i = d_i; i < end; i++) {
+          input[i] = -input[i];
+        }
+
+        std::size_t len = n_cols * n_cols_comp;
+        for (auto i = idx; i < len; i = i + n_cols) {
+          components[i] = -components[i];
+        }
       }
-    }
-  });
+    });
 }
 
 /**

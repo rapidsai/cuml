@@ -40,8 +40,12 @@ namespace opg {
 
 // TODO: replace these thrust code with cuda kernels or prims
 template <typename T>
-void findMaxAbsOfColumns(
-  T* input, std::size_t n_rows, std::size_t n_cols, T* max_vals, cudaStream_t stream, bool row_major = false)
+void findMaxAbsOfColumns(T* input,
+                         std::size_t n_rows,
+                         std::size_t n_cols,
+                         T* max_vals,
+                         cudaStream_t stream,
+                         bool row_major = false)
 {
   auto counting = thrust::make_counting_iterator(0);
   auto m        = n_rows;
@@ -50,39 +54,41 @@ void findMaxAbsOfColumns(
   auto execution_policy = rmm::exec_policy(stream);
 
   if (row_major) {
-    thrust::for_each(execution_policy, counting, counting + n_rows, [=] __device__(std::size_t idx) {
-      T max                 = 0.0;
-      std::size_t max_index = 0;
-      std::size_t d_i       = idx;
-      std::size_t end       = d_i + (m * n);
+    thrust::for_each(
+      execution_policy, counting, counting + n_rows, [=] __device__(std::size_t idx) {
+        T max                 = 0.0;
+        std::size_t max_index = 0;
+        std::size_t d_i       = idx;
+        std::size_t end       = d_i + (m * n);
 
-      for (auto i = d_i; i < end; i = i + m) {
-        T val = input[i];
-        if (val < 0.0) { val = -val; }
-        if (val > max) {
-          max       = val;
-          max_index = i;
+        for (auto i = d_i; i < end; i = i + m) {
+          T val = input[i];
+          if (val < 0.0) { val = -val; }
+          if (val > max) {
+            max       = val;
+            max_index = i;
+          }
         }
-      }
-      max_vals[idx] = input[max_index];
-    });
+        max_vals[idx] = input[max_index];
+      });
   } else {
-    thrust::for_each(execution_policy, counting, counting + n_cols, [=] __device__(std::size_t idx) {
-      T max         = 0.0;
-      std::size_t max_index = 0;
-      std::size_t d_i       = idx * m;
-      std::size_t end       = d_i + m;
+    thrust::for_each(
+      execution_policy, counting, counting + n_cols, [=] __device__(std::size_t idx) {
+        T max                 = 0.0;
+        std::size_t max_index = 0;
+        std::size_t d_i       = idx * m;
+        std::size_t end       = d_i + m;
 
-      for (auto i = d_i; i < end; i++) {
-        T val = input[i];
-        if (val < 0.0) { val = -val; }
-        if (val > max) {
-          max       = val;
-          max_index = i;
+        for (auto i = d_i; i < end; i++) {
+          T val = input[i];
+          if (val < 0.0) { val = -val; }
+          if (val > max) {
+            max       = val;
+            max_index = i;
+          }
         }
-      }
-      max_vals[idx] = input[max_index];
-    });
+        max_vals[idx] = input[max_index];
+      });
   }
 }
 
@@ -93,16 +99,17 @@ void flip(T* input, std::size_t n_rows, std::size_t n_cols, T* max_vals, cudaStr
   auto counting = thrust::make_counting_iterator(0);
   auto m        = n_rows;
 
-  thrust::for_each(rmm::exec_policy(stream), counting, counting + n_cols, [=] __device__(std::size_t idx) {
-    auto d_i = idx * m;
-    auto end = d_i + m;
+  thrust::for_each(
+    rmm::exec_policy(stream), counting, counting + n_cols, [=] __device__(std::size_t idx) {
+      auto d_i = idx * m;
+      auto end = d_i + m;
 
-    if (max_vals[idx] < 0.0) {
-      for (auto i = d_i; i < end; i++) {
-        input[i] = -input[i];
+      if (max_vals[idx] < 0.0) {
+        for (auto i = d_i; i < end; i++) {
+          input[i] = -input[i];
+        }
       }
-    }
-  });
+    });
 }
 
 /**

@@ -223,7 +223,7 @@ void inverse_transform_impl(raft::handle_t& handle,
   std::vector<Matrix::RankSizePair*> local_blocks = trans_input_desc.partsToRanks;
 
   for (std::size_t i = 0; i < local_blocks.size(); i++) {
-    auto si  = i % n_streams;
+    auto si = i % n_streams;
     T alpha = T(1);
     T beta  = T(0);
 
@@ -361,7 +361,8 @@ void fit_transform_impl(raft::handle_t& handle,
   Stats::opg::var(handle, var_input_data, input_data, input_desc, mu_data.ptr, streams, n_streams);
 
   rmm::device_uvector<T> total_vars(1, streams[0]);
-  raft::stats::sum(total_vars.data(), var_input_data.ptr, std::size_t(1), prms.n_cols, false, streams[0]);
+  raft::stats::sum(
+    total_vars.data(), var_input_data.ptr, std::size_t(1), prms.n_cols, false, streams[0]);
 
   T total_vars_h;
   raft::update_host(&total_vars_h, total_vars.data(), std::size_t(1), streams[0]);

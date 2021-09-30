@@ -110,8 +110,8 @@ void fit_impl(raft::handle_t& handle,
   // Reference issue https://github.com/rapidsai/cuml/issues/2470
   auto n_streams = input_desc.blocksOwnedBy(rank).size();
   cudaStream_t streams[n_streams];
-  for (auto& stream: streams) {
-    CUDA_CHECK(cudaStreamCreate(&stream));
+  for (std::size_t i = 0; i < n_streams; i++) {
+    CUDA_CHECK(cudaStreamCreate(&streams[i]));
   }
 
   if (prms.algorithm == mg_solver::COV_EIG_JACOBI || prms.algorithm == mg_solver::COV_EIG_DQ) {
@@ -181,8 +181,12 @@ void fit_impl(raft::handle_t& handle,
     raft::matrix::truncZeroOrigin(
       sVector.data(), prms.n_cols, singular_vals, prms.n_components, std::size_t(1), stream);
 
-    raft::matrix::truncZeroOrigin(
-      explained_var_all.data(), prms.n_cols, explained_var, prms.n_components, std::size_t(1), stream);
+    raft::matrix::truncZeroOrigin(explained_var_all.data(),
+                                  prms.n_cols,
+                                  explained_var,
+                                  prms.n_components,
+                                  std::size_t(1),
+                                  stream);
     raft::matrix::truncZeroOrigin(explained_var_ratio_all.data(),
                                   prms.n_cols,
                                   explained_var_ratio,
@@ -370,7 +374,7 @@ void inverse_transform_impl(raft::handle_t& handle,
   }
 
   for (decltype(local_blocks)::size_type i = 0; i < local_blocks.size(); i++) {
-    auto si  = i % n_streams;
+    auto si = i % n_streams;
     T alpha = T(1);
     T beta  = T(0);
 

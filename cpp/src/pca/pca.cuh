@@ -30,7 +30,6 @@
 #include <rmm/device_uvector.hpp>
 #include <stats/cov.cuh>
 #include <tsvd/tsvd.cuh>
-#include <iostream>
 
 namespace ML {
 
@@ -56,10 +55,18 @@ void truncCompExpVars(const raft::handle_t& handle,
     components_all.data(), prms.n_cols, components, prms.n_components, prms.n_cols, stream);
   raft::matrix::ratio(
     handle, explained_var_all.data(), explained_var_ratio_all.data(), prms.n_cols, stream);
-  raft::matrix::truncZeroOrigin(
-    explained_var_all.data(), prms.n_cols, explained_var, prms.n_components, std::size_t(1), stream);
-  raft::matrix::truncZeroOrigin(
-    explained_var_ratio_all.data(), prms.n_cols, explained_var_ratio, prms.n_components, std::size_t(1), stream);
+  raft::matrix::truncZeroOrigin(explained_var_all.data(),
+                                prms.n_cols,
+                                explained_var,
+                                prms.n_components,
+                                std::size_t(1),
+                                stream);
+  raft::matrix::truncZeroOrigin(explained_var_ratio_all.data(),
+                                prms.n_cols,
+                                explained_var_ratio,
+                                prms.n_components,
+                                std::size_t(1),
+                                stream);
 }
 
 /**
