@@ -51,6 +51,8 @@ function(find_and_configure_treelite)
             add_library(treelite::treelite_static ALIAS treelite_static)
             add_library(treelite::treelite_runtime_static ALIAS treelite_runtime_static)
         endif()
+
+        rapids_export(BUILD treelite EXPORT_SET TreeliteTargets)
     endif()
 
     if (Treelite_ADDED AND BUILD_STATIC_LIBS)
