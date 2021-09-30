@@ -135,6 +135,14 @@ class TSNE_runner {
 
     START_TIMER;
     //---------------------------------------------------
+    // Normalize distances
+    CUML_LOG_DEBUG("Now normalizing distances so exp(D) doesn't explode.");
+    TSNE::normalize_distances(k_graph.knn_dists, n * params.n_neighbors, stream);
+    //---------------------------------------------------
+    END_TIMER(NormalizeTime);
+
+    START_TIMER;
+    //---------------------------------------------------
     // Optimal perplexity
     CUML_LOG_DEBUG("Searching for optimal perplexity via bisection search.");
     rmm::device_uvector<value_t> P(n * params.n_neighbors, stream);
@@ -172,12 +180,15 @@ class TSNE_runner {
     END_TIMER(SymmetrizeTime);
   }
 
+ public:
+  raft::sparse::COO<value_t, value_idx> COO_Matrix;
+
+ private:
   const raft::handle_t& handle;
   tsne_input& input;
   knn_graph<value_idx, value_t>& k_graph;
   TSNEParams& params;
 
-  raft::sparse::COO<value_t, value_idx> COO_Matrix;
   value_idx n, p;
   value_t* Y;
 };

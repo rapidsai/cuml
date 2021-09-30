@@ -129,6 +129,19 @@ void get_distances(const raft::handle_t& handle,
   throw raft::exception("Sparse TSNE does not support 64-bit integer indices yet.");
 }
 
+template <typename value_t>
+void normalize_distances(value_t* distances, const size_t total_nn, cudaStream_t stream)
+{
+  auto abs_f      = [] __device__(const value_t& x) { return abs(x); };
+  value_t maxNorm = thrust::transform_reduce(rmm::exec_policy(stream),
+                                             distances,
+                                             distances + total_nn,
+                                             abs_f,
+                                             0.0f,
+                                             thrust::maximum<value_t>());
+  raft::linalg::scalarMultiply(distances, distances, 1.0f / maxNorm, total_nn, stream);
+}
+
 /**
  * @brief Performs P + P.T.
  * @param[in] P: The perplexity matrix (n, k)

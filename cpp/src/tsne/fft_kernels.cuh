@@ -313,7 +313,8 @@ __global__ void compute_Pij_x_Qij_kernel(value_t* __restrict__ attr_forces,
                                          const value_idx* __restrict__ coo_cols,
                                          const value_t* __restrict__ points,
                                          const value_idx num_points,
-                                         const value_idx num_nonzero)
+                                         const value_idx num_nonzero,
+                                         const value_t dof)
 {
   const value_idx TID = threadIdx.x + blockIdx.x * blockDim.x;
   if (TID >= num_nonzero) return;
@@ -328,14 +329,18 @@ __global__ void compute_Pij_x_Qij_kernel(value_t* __restrict__ attr_forces,
   value_t dx = ix - jx;
   value_t dy = iy - jy;
 
-  const value_t squared_euclidean_dist = (dx * dx) + (dy * dy);
-  const value_t Q_unnormalized         = 1 + squared_euclidean_dist;
-  const value_t PQ                     = __fdividef(pij[TID], Q_unnormalized);
+  const value_t dist     = (dx * dx) + (dy * dy);
+  const value_t exponent = (dof + 1.0) / 2.0;
+
+  const value_t P  = pij[TID];
+  const value_t Q  = __powf(dof / (dof + dist), exponent);
+  const value_t PQ = P * Q;
+
   atomicAdd(attr_forces + i, PQ * dx);
   atomicAdd(attr_forces + num_points + i, PQ * dy);
 
   if (Qs) {  // when computing KL div
-    Qs[TID] = Q_unnormalized;
+    Qs[TID] = Q;
   }
 }
 

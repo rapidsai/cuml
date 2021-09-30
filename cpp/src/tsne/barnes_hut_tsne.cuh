@@ -280,15 +280,16 @@ value_t Barnes_Hut(value_t* VAL,
       attr_forces.data(),
       attr_forces.data() + n,
       last_iter ? Qs : nullptr,
-      NNZ);
+      NNZ,
+      fmaxf(params.dim - 1, 1));
     CUDA_CHECK(cudaPeekAtLastError());
     END_TIMER(attractive_time);
 
     if (last_iter) {
-      value_t Q_sum = thrust::reduce(rmm::exec_policy(stream), Qs, Qs + NNZ);
-      raft::linalg::scalarMultiply(Qs, Qs, 1.0f / Q_sum, NNZ, stream);
       value_t P_sum = thrust::reduce(rmm::exec_policy(stream), VAL, VAL + NNZ);
       raft::linalg::scalarMultiply(VAL, VAL, 1.0f / P_sum, NNZ, stream);
+      value_t Q_sum = thrust::reduce(rmm::exec_policy(stream), Qs, Qs + NNZ);
+      raft::linalg::scalarMultiply(Qs, Qs, 1.0f / Q_sum, NNZ, stream);
       compute_kl_div<<<raft::ceildiv(NNZ, (value_idx)1024), 1024, 0, stream>>>(
         VAL, Qs, KL_divs, NNZ);
       CUDA_CHECK(cudaPeekAtLastError());

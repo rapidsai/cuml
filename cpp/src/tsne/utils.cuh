@@ -182,7 +182,7 @@ __global__ void min_max_kernel(
  */
 template <typename value_idx, typename value_t>
 __global__ void compute_kl_div(const value_t* restrict Ps,
-                               value_t* restrict Qs,
+                               const value_t* restrict Qs,
                                value_t* restrict kl_divergences,
                                const value_idx NNZ)
 {
