@@ -57,6 +57,8 @@ function(find_and_configure_faiss)
         add_library(FAISS::FAISS ALIAS faiss)
     endif()
 
+    rapids_export_package(BUILD faiss cuml-exports)
+
 endfunction()
 
 find_and_configure_faiss(VERSION    1.7.0
