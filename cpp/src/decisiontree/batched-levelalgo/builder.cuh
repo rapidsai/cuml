@@ -40,6 +40,7 @@
 #include <deque>
 #include <utility>
 
+#include <sys/time.h>
 namespace ML {
 namespace DT {
 
@@ -140,6 +141,12 @@ class NodeQueue {
   }
 };
 
+static double second (void)
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return (double)tv.tv_sec + (double)tv.tv_usec / 1000000.0;
+}
 /**
  * Internal struct used to do all the heavy-lifting required for tree building
  */
@@ -383,19 +390,25 @@ struct Builder {
 
     auto [total_blocks, large_blocks] = this->updateWorkloadInfo(work_items);
 
+    double start = second();
     if (input.nSampledCols != input.N) {
+      printf("Shuffling %d arrays of size %d, time = ", IdxT(work_items.size()), input.N);
       for (IdxT i = 0; i < IdxT(work_items.size()); i++) {
         thrust::shuffle(thrust::cuda::par.on(handle.get_stream()), colids + i*input.N,
                         colids + (i + 1) * input.N, rng_engine);
       }
     }
+    double stop = second();
+    printf("%e s, ", stop - start);
+    start = second();
     // iterate through a batch of columns (to reduce the memory pressure) and
     // compute the best split at the end
     for (IdxT c = 0; c < input.nSampledCols; c += n_blks_for_cols) {
       computeSplit(c, work_items.size(), total_blocks, large_blocks, work_items);
       CUDA_CHECK(cudaGetLastError());
     }
-
+    stop = second();
+    printf("Split time %e s\n", stop - start);
     // create child nodes (or make the current ones leaf)
     auto smemSize = 2 * sizeof(IdxT) * TPB_DEFAULT;
     ML::PUSH_RANGE("nodeSplitKernel @builder_base.cuh [batched-levelalgo]");
