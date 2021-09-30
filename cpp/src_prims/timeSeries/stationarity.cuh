@@ -35,11 +35,10 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
-#include <cuml/common/device_buffer.hpp>
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/reduce.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/stats/mean.cuh>
+#include <rmm/device_uvector.hpp>
 #include "arima_helpers.cuh"
 
 namespace MLCommon {
@@ -192,7 +191,6 @@ struct which_col : thrust::unary_function<IdxT, IdxT> {
  * @param[out]  results         Boolean array to store the results of the test
  * @param[in]   batch_size      Batch size
  * @param[in]   n_obs           Number of observations
- * @param[in]   allocator       cuML device memory allocator
  * @param[in]   stream          CUDA stream
  * @param[in]   pval_threshold  P-value threshold above which a series is
  *                              considered stationary
@@ -202,7 +200,6 @@ static void _kpss_test(const DataT* d_y,
                        bool* results,
                        IdxT batch_size,
                        IdxT n_obs,
-                       std::shared_ptr<raft::mr::device::allocator> allocator,
                        cudaStream_t stream,
                        DataT pval_threshold)
 {
@@ -213,11 +210,11 @@ static void _kpss_test(const DataT* d_y,
   DataT n_obs_f = static_cast<DataT>(n_obs);
 
   // Compute mean
-  device_buffer<DataT> y_means(allocator, stream, batch_size);
+  rmm::device_uvector<DataT> y_means(batch_size, stream);
   raft::stats::mean(y_means.data(), d_y, batch_size, n_obs, false, false, stream);
 
   // Center the data around its mean
-  device_buffer<DataT> y_cent(allocator, stream, batch_size * n_obs);
+  rmm::device_uvector<DataT> y_cent(batch_size * n_obs, stream);
   raft::linalg::matrixVectorOp(
     y_cent.data(),
     d_y,
@@ -230,7 +227,7 @@ static void _kpss_test(const DataT* d_y,
     stream);
 
   // This calculates the first sum in eq. 10 (first part of s^2)
-  device_buffer<DataT> s2A(allocator, stream, batch_size);
+  rmm::device_uvector<DataT> s2A(batch_size, stream);
   raft::linalg::reduce(s2A.data(),
                        y_cent.data(),
                        batch_size,
@@ -249,7 +246,7 @@ static void _kpss_test(const DataT* d_y,
 
   /* This accumulator will be used for both the calculation of s2B, and later
    * the cumulative sum or y centered */
-  device_buffer<DataT> accumulator(allocator, stream, batch_size * n_obs);
+  rmm::device_uvector<DataT> accumulator(batch_size * n_obs, stream);
 
   // This calculates the second sum in eq. 10 (second part of s^2)
   DataT coeff_base = static_cast<DataT>(2.0) / n_obs_f;
@@ -262,7 +259,7 @@ static void _kpss_test(const DataT* d_y,
     -coeff_base / (lags_f + static_cast<DataT>(1.0)),
     coeff_base);
   CUDA_CHECK(cudaPeekAtLastError());
-  device_buffer<DataT> s2B(allocator, stream, batch_size);
+  rmm::device_uvector<DataT> s2B(batch_size, stream);
   raft::linalg::reduce(s2B.data(),
                        accumulator.data(),
                        batch_size,
@@ -284,7 +281,7 @@ static void _kpss_test(const DataT* d_y,
                                 accumulator.data());
 
   // Eq. 11 (eta)
-  device_buffer<DataT> eta(allocator, stream, batch_size);
+  rmm::device_uvector<DataT> eta(batch_size, stream);
   raft::linalg::reduce(eta.data(),
                        accumulator.data(),
                        batch_size,
@@ -317,7 +314,6 @@ static void _kpss_test(const DataT* d_y,
  * @param[in]   d               Order of simple differencing
  * @param[out]  D               Order of seasonal differencing
  * @param[in]   s               Seasonal period if D > 0 (else unused)
- * @param[in]   allocator       cuML device memory allocator
  * @param[in]   stream          CUDA stream
  * @param[in]   pval_threshold  P-value threshold above which a series is
  *                              considered stationary
@@ -330,7 +326,6 @@ void kpss_test(const DataT* d_y,
                int d,
                int D,
                int s,
-               std::shared_ptr<raft::mr::device::allocator> allocator,
                cudaStream_t stream,
                DataT pval_threshold = 0.05)
 {
@@ -339,7 +334,7 @@ void kpss_test(const DataT* d_y,
   int n_obs_diff = n_obs - d - s * D;
 
   // Compute differenced series
-  device_buffer<DataT> diff_buffer(allocator, stream);
+  rmm::device_uvector<DataT> diff_buffer(0, stream);
   if (d == 0 && D == 0) {
     d_y_diff = d_y;
   } else {
@@ -349,7 +344,7 @@ void kpss_test(const DataT* d_y,
   }
 
   // KPSS test
-  _kpss_test(d_y_diff, results, batch_size, n_obs_diff, allocator, stream, pval_threshold);
+  _kpss_test(d_y_diff, results, batch_size, n_obs_diff, stream, pval_threshold);
 }
 
 };  // end namespace TimeSeries

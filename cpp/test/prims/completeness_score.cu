@@ -18,7 +18,6 @@
 #include <algorithm>
 #include <iostream>
 #include <metrics/completeness_score.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <random>
 #include "test_utils.h"
 
@@ -65,25 +64,23 @@ class completenessTest : public ::testing::TestWithParam<completenessParam> {
     // allocating and initializing memory to the GPU
 
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(truthClusterArray, nElements, true);
-    raft::allocate(predClusterArray, nElements, true);
 
-    raft::update_device(truthClusterArray, &arr1[0], (int)nElements, stream);
-    raft::update_device(predClusterArray, &arr2[0], (int)nElements, stream);
-    std::shared_ptr<raft::mr::device::allocator> allocator(new raft::mr::device::default_allocator);
+    rmm::device_uvector<T> truthClusterArray(nElements, stream);
+    rmm::device_uvector<T> predClusterArray(nElements, stream);
+    raft::update_device(truthClusterArray.data(), arr1.data(), (int)nElements, stream);
+    raft::update_device(predClusterArray.data(), arr2.data(), (int)nElements, stream);
 
     // calculating the golden output
     double truthMI, truthEntropy;
 
-    truthMI      = MLCommon::Metrics::mutual_info_score(truthClusterArray,
-                                                   predClusterArray,
+    truthMI      = MLCommon::Metrics::mutual_info_score(truthClusterArray.data(),
+                                                   predClusterArray.data(),
                                                    nElements,
                                                    lowerLabelRange,
                                                    upperLabelRange,
-                                                   allocator,
                                                    stream);
     truthEntropy = MLCommon::Metrics::entropy(
-      predClusterArray, nElements, lowerLabelRange, upperLabelRange, allocator, stream);
+      predClusterArray.data(), nElements, lowerLabelRange, upperLabelRange, stream);
 
     if (truthEntropy) {
       truthCompleteness = truthMI / truthEntropy;
@@ -93,32 +90,24 @@ class completenessTest : public ::testing::TestWithParam<completenessParam> {
     if (nElements == 0) truthCompleteness = 1.0;
 
     // calling the completeness CUDA implementation
-    computedCompleteness = MLCommon::Metrics::completeness_score(truthClusterArray,
-                                                                 predClusterArray,
+    computedCompleteness = MLCommon::Metrics::completeness_score(truthClusterArray.data(),
+                                                                 predClusterArray.data(),
                                                                  nElements,
                                                                  lowerLabelRange,
                                                                  upperLabelRange,
-                                                                 allocator,
                                                                  stream);
   }
 
   // the destructor
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(truthClusterArray));
-    CUDA_CHECK(cudaFree(predClusterArray));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
+  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
   // declaring the data values
   completenessParam params;
   T lowerLabelRange, upperLabelRange;
-  T* truthClusterArray        = nullptr;
-  T* predClusterArray         = nullptr;
   int nElements               = 0;
   double truthCompleteness    = 0;
   double computedCompleteness = 0;
-  cudaStream_t stream;
+  cudaStream_t stream         = 0;
 };
 
 // setting test parameter values

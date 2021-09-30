@@ -31,11 +31,10 @@ inline void make_arima_helper(const raft::handle_t& handle,
                               DataT intercept_scale,
                               uint64_t seed)
 {
-  auto stream    = handle.get_stream();
-  auto allocator = handle.get_device_allocator();
+  auto stream = handle.get_stream();
 
   MLCommon::Random::make_arima(
-    out, batch_size, n_obs, order, allocator, stream, scale, noise_scale, intercept_scale, seed);
+    out, batch_size, n_obs, order, stream, scale, noise_scale, intercept_scale, seed);
 }
 
 void make_arima(const raft::handle_t& handle,

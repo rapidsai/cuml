@@ -40,7 +40,7 @@ class TSNE_runner {
       input(input_),
       k_graph(k_graph_),
       params(params_),
-      COO_Matrix(handle_.get_device_allocator(), handle_.get_stream())
+      COO_Matrix(handle_.get_stream())
   {
     this->n = input.n;
     this->p = input.d;
@@ -121,7 +121,7 @@ class TSNE_runner {
     }
 
     if (params.square_distances) {
-      auto policy = rmm::exec_policy(stream);
+      auto policy = handle.get_thrust_policy();
 
       thrust::transform(policy,
                         k_graph.knn_dists,

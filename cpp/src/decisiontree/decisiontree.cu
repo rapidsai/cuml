@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/tree/decisiontree.hpp>
 #include <raft/handle.hpp>
 
@@ -23,6 +22,26 @@
 
 namespace ML {
 namespace DT {
+
+void validity_check(const DecisionTreeParams params)
+{
+  ASSERT((params.max_depth >= 0), "Invalid max depth %d", params.max_depth);
+  ASSERT((params.max_leaves == -1) || (params.max_leaves > 0),
+         "Invalid max leaves %d",
+         params.max_leaves);
+  ASSERT((params.max_features > 0) && (params.max_features <= 1.0),
+         "max_features value %f outside permitted (0, 1] range",
+         params.max_features);
+  ASSERT((params.n_bins > 0), "Invalid n_bins %d", params.n_bins);
+  ASSERT((params.n_bins <= 1024), "n_bins should not be larger than 1024");
+  ASSERT((params.split_criterion != 3), "MAE not supported.");
+  ASSERT((params.min_samples_leaf >= 1),
+         "Invalid value for min_samples_leaf %d. Should be >= 1.",
+         params.min_samples_leaf);
+  ASSERT((params.min_samples_split >= 2),
+         "Invalid value for min_samples_split: %d. Should be >= 2.",
+         params.min_samples_split);
+}
 
 /**
  * @brief Set all DecisionTreeParams members.
@@ -58,38 +77,7 @@ void set_tree_params(DecisionTreeParams& params,
   params.split_criterion       = cfg_split_criterion;
   params.min_impurity_decrease = cfg_min_impurity_decrease;
   params.max_batch_size        = cfg_max_batch_size;
-}
-
-void validity_check(const DecisionTreeParams params)
-{
-  ASSERT((params.max_depth >= 0), "Invalid max depth %d", params.max_depth);
-  ASSERT((params.max_leaves == -1) || (params.max_leaves > 0),
-         "Invalid max leaves %d",
-         params.max_leaves);
-  ASSERT((params.max_features > 0) && (params.max_features <= 1.0),
-         "max_features value %f outside permitted (0, 1] range",
-         params.max_features);
-  ASSERT((params.n_bins > 0), "Invalid n_bins %d", params.n_bins);
-  ASSERT((params.split_criterion != 3), "MAE not supported.");
-  ASSERT((params.min_samples_leaf >= 1),
-         "Invalid value for min_samples_leaf %d. Should be >= 1.",
-         params.min_samples_leaf);
-  ASSERT((params.min_samples_split >= 2),
-         "Invalid value for min_samples_split: %d. Should be >= 2.",
-         params.min_samples_split);
-}
-
-void print(const DecisionTreeParams params)
-{
-  CUML_LOG_DEBUG("max_depth: %d", params.max_depth);
-  CUML_LOG_DEBUG("max_leaves: %d", params.max_leaves);
-  CUML_LOG_DEBUG("max_features: %f", params.max_features);
-  CUML_LOG_DEBUG("n_bins: %d", params.n_bins);
-  CUML_LOG_DEBUG("min_samples_leaf: %d", params.min_samples_leaf);
-  CUML_LOG_DEBUG("min_samples_split: %d", params.min_samples_split);
-  CUML_LOG_DEBUG("split_criterion: %d", params.split_criterion);
-  CUML_LOG_DEBUG("min_impurity_decrease: %f", params.min_impurity_decrease);
-  CUML_LOG_DEBUG("max_batch_size: %d", params.max_batch_size);
+  validity_check(params);
 }
 
 template <class T, class L>
@@ -98,12 +86,8 @@ std::string get_tree_summary_text(const TreeMetaDataNode<T, L>* tree)
   std::ostringstream oss;
   oss << " Decision Tree depth --> " << tree->depth_counter << " and n_leaves --> "
       << tree->leaf_counter << "\n"
-      << " Tree Fitting - Overall time --> " << (tree->prepare_time + tree->train_time)
-      << " milliseconds"
-      << "\n"
-      << "   - preparing for fit time: " << tree->prepare_time << " milliseconds"
-      << "\n"
-      << "   - tree growing time: " << tree->train_time << " milliseconds";
+      << " Tree Fitting - Overall time --> " << tree->train_time << " milliseconds"
+      << "\n";
   return oss.str();
 }
 
@@ -111,14 +95,14 @@ template <class T, class L>
 std::string get_tree_text(const TreeMetaDataNode<T, L>* tree)
 {
   std::string summary = get_tree_summary_text<T, L>(tree);
-  return summary + "\n" + get_node_text<T, L>("", tree->sparsetree, 0, false);
+  return summary + "\n" + get_node_text<T, L>("", tree, 0, false);
 }
 
 template <class T, class L>
 std::string get_tree_json(const TreeMetaDataNode<T, L>* tree)
 {
   std::ostringstream oss;
-  return get_node_json("", tree->sparsetree, 0);
+  return get_node_json("", tree, 0);
 }
 
 // Functions' specializations
