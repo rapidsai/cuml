@@ -22,6 +22,7 @@
 #include "glm_logistic.cuh"
 #include "glm_regularizer.cuh"
 #include "glm_softmax.cuh"
+#include "glm_svm.cuh"
 #include "qn_solvers.cuh"
 
 namespace ML {
@@ -91,7 +92,8 @@ inline void qn_fit_x(const raft::handle_t& handle,
                      int* num_iters,
                      int loss_type,
                      cudaStream_t stream,
-                     T* sample_weight = nullptr)
+                     T* sample_weight = nullptr,
+                     T svr_eps        = 0)
 {
   /*
    NB:
@@ -179,6 +181,116 @@ inline void qn_fit_x(const raft::handle_t& handle,
                                 num_iters,
                                 stream);
     } break;
+    case 3: {
+      ASSERT(C == 1, "qn.h: SVC-L1 loss invalid C");
+      SVCL1Loss<T> loss(handle, D, fit_intercept);
+      if (sample_weight) loss.add_sample_weights(sample_weight, N, stream);
+      qn_fit<T, decltype(loss)>(handle,
+                                loss,
+                                X,
+                                y,
+                                Z,
+                                l1,
+                                l2,
+                                max_iter,
+                                grad_tol,
+                                change_tol,
+                                linesearch_max_iter,
+                                lbfgs_memory,
+                                verbosity,
+                                w0_data,
+                                f,
+                                num_iters,
+                                stream);
+    } break;
+    case 4: {
+      ASSERT(C == 1, "qn.h: SVC-L2 loss invalid C");
+      SVCL2Loss<T> loss(handle, D, fit_intercept);
+      if (sample_weight) loss.add_sample_weights(sample_weight, N, stream);
+      qn_fit<T, decltype(loss)>(handle,
+                                loss,
+                                X,
+                                y,
+                                Z,
+                                l1,
+                                l2,
+                                max_iter,
+                                grad_tol,
+                                change_tol,
+                                linesearch_max_iter,
+                                lbfgs_memory,
+                                verbosity,
+                                w0_data,
+                                f,
+                                num_iters,
+                                stream);
+    } break;
+    case 5: {
+      ASSERT(C == 1, "qn.h: SVR-L1 loss invalid C");
+      SVRL1Loss<T> loss(handle, D, fit_intercept, svr_eps);
+      if (sample_weight) loss.add_sample_weights(sample_weight, N, stream);
+      qn_fit<T, decltype(loss)>(handle,
+                                loss,
+                                X,
+                                y,
+                                Z,
+                                l1,
+                                l2,
+                                max_iter,
+                                grad_tol,
+                                change_tol,
+                                linesearch_max_iter,
+                                lbfgs_memory,
+                                verbosity,
+                                w0_data,
+                                f,
+                                num_iters,
+                                stream);
+    } break;
+    case 6: {
+      ASSERT(C == 1, "qn.h: SVR-L2 loss invalid C");
+      SVRL2Loss<T> loss(handle, D, fit_intercept, svr_eps);
+      if (sample_weight) loss.add_sample_weights(sample_weight, N, stream);
+      qn_fit<T, decltype(loss)>(handle,
+                                loss,
+                                X,
+                                y,
+                                Z,
+                                l1,
+                                l2,
+                                max_iter,
+                                grad_tol,
+                                change_tol,
+                                linesearch_max_iter,
+                                lbfgs_memory,
+                                verbosity,
+                                w0_data,
+                                f,
+                                num_iters,
+                                stream);
+    } break;
+    case 7: {
+      ASSERT(C == 1, "qn.h: abs loss (L1) invalid C");
+      AbsLoss<T> loss(handle, D, fit_intercept);
+      if (sample_weight) loss.add_sample_weights(sample_weight, N, stream);
+      qn_fit<T, decltype(loss)>(handle,
+                                loss,
+                                X,
+                                y,
+                                Z,
+                                l1,
+                                l2,
+                                max_iter,
+                                grad_tol,
+                                change_tol,
+                                linesearch_max_iter,
+                                lbfgs_memory,
+                                verbosity,
+                                w0_data,
+                                f,
+                                num_iters,
+                                stream);
+    } break;
     default: {
       ASSERT(false, "qn.h: unknown loss function.");
     }
@@ -207,7 +319,8 @@ void qnFit(const raft::handle_t& handle,
            int* num_iters,
            int loss_type,
            cudaStream_t stream,
-           T* sample_weight = nullptr)
+           T* sample_weight = nullptr,
+           T svr_eps        = 0)
 {
   SimpleDenseMat<T> X(X_data, N, D, X_col_major ? COL_MAJOR : ROW_MAJOR);
   qn_fit_x(handle,
@@ -228,7 +341,8 @@ void qnFit(const raft::handle_t& handle,
            num_iters,
            loss_type,
            stream,
-           sample_weight);
+           sample_weight,
+           svr_eps);
 }
 
 template <typename T>
@@ -255,7 +369,8 @@ void qnFitSparse(const raft::handle_t& handle,
                  int* num_iters,
                  int loss_type,
                  cudaStream_t stream,
-                 T* sample_weight = nullptr)
+                 T* sample_weight = nullptr,
+                 T svr_eps        = 0)
 {
   SimpleSparseMat<T> X(X_values, X_cols, X_row_ids, X_nnz, N, D);
   qn_fit_x(handle,
@@ -276,7 +391,8 @@ void qnFitSparse(const raft::handle_t& handle,
            num_iters,
            loss_type,
            stream,
-           sample_weight);
+           sample_weight,
+           svr_eps);
 }
 
 template <typename T>

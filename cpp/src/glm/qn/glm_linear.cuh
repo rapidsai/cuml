@@ -32,11 +32,21 @@ struct SquaredLoss : GLMBase<T, SquaredLoss<T>> {
 
   inline __device__ T lz(const T y, const T z) const
   {
-    T diff = y - z;
+    T diff = z - y;
     return diff * diff * 0.5;
   }
 
   inline __device__ T dlz(const T y, const T z) const { return z - y; }
+};
+
+template <typename T>
+struct AbsLoss : GLMBase<T, AbsLoss<T>> {
+  typedef GLMBase<T, AbsLoss<T>> Super;
+
+  AbsLoss(const raft::handle_t& handle, int D, bool has_bias) : Super(handle, D, 1, has_bias) {}
+
+  inline __device__ T lz(const T y, const T z) const { return raft::myAbs<T>(z - y); }
+  inline __device__ T dlz(const T y, const T z) const { return z > y ? 1 : (z < y ? -1 : 0); }
 };
 
 };  // namespace GLM
