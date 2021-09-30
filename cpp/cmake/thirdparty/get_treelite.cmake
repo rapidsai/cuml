@@ -53,6 +53,14 @@ function(find_and_configure_treelite)
         endif()
     endif()
 
+    if (Treelite_ADDED AND BUILD_STATIC_LIBS)
+        list(APPEND TREELITE_LIBS treelite::treelite_static treelite::treelite_runtime_static)
+    else()
+        list(APPEND TREELITE_LIBS treelite::treelite treelite::treelite_runtime)
+    endif()
+
+    set(TREELITE_LIBS ${TREELITE_LIBS} PARENT_SCOPE)
+
 endfunction()
 
 find_and_configure_treelite(VERSION     2.1.0

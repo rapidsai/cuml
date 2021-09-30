@@ -385,10 +385,9 @@ if(BUILD_CUML_CPP_LIBRARY)
       CUDA::cusolver
       CUDA::cudart
       CUDA::cusparse
+      ${TREELITE_LIBS}
       $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
       $<$<BOOL:${LINK_FAISS}>:FAISS::FAISS>
-      $<IF:$<BOOL:${Treelite_ADDED} AND ${CUML_USE_TREELITE_STATIC}>,treelite::treelite_static,treelite::treelite>
-      $<IF:$<BOOL:${Treelite_ADDED} AND ${CUML_USE_TREELITE_STATIC}>,treelite::treelite_runtime_static,treelite::treelite_runtime>
       $<$<BOOL:${OpenMP_FOUND}>:OpenMP::OpenMP_CXX>
       $<$<OR:$<BOOL:${BUILD_CUML_STD_COMMS}>,$<BOOL:${BUILD_CUML_MPI_COMMS}>>:NCCL::NCCL>
       $<$<BOOL:${BUILD_CUML_MPI_COMMS}>:${MPI_CXX_LIBRARIES}>

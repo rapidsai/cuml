@@ -28,8 +28,7 @@ set(COMMON_TEST_LINK_LIBRARIES
   GTest::gtest_main
   OpenMP::OpenMP_CXX
   Threads::Threads
-  $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_static,treelite::treelite>
-  $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_runtime_static,treelite::treelite_runtime>
+  ${TREELITE_LIBS}
   $<TARGET_NAME_IF_EXISTS:conda_env>
 )
 

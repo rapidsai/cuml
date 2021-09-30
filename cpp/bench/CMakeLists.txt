@@ -45,8 +45,7 @@ if(BUILD_CUML_BENCH)
       cuml::${CUML_CPP_TARGET}
       benchmark::benchmark
       raft::raft
-      $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_static,treelite::treelite>
-      $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_runtime_static,treelite::treelite_runtime>
+      ${${TREELITE_LIBS}}
   )
 
   target_include_directories(${CUML_CPP_BENCH_TARGET}
@@ -87,8 +86,7 @@ if(BUILD_CUML_PRIMS_BENCH)
       CUDA::cublas
       benchmark::benchmark
       raft::raft
-      $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_static,treelite::treelite>
-      $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_runtime_static,treelite::treelite_runtime>
+      ${TREELITE_LIBS}
   )
 
   target_include_directories(${PRIMS_BENCH_TARGET}
