@@ -46,6 +46,11 @@ function(find_and_configure_faiss)
 
     if(FAISS_ADDED)
       target_include_directories(faiss INTERFACE $<BUILD_INTERFACE:${FAISS_SOURCE_DIR}>)
+      rapids_export(BUILD faiss
+        EXPORT_SET faiss-exports
+        GLOBAL_TARGETS faiss
+        NAMESPACE cuml::
+      )
     endif()
 
     if(TARGET faiss AND NOT TARGET FAISS::FAISS)
