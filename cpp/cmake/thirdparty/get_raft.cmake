@@ -16,7 +16,7 @@
 
 function(find_and_configure_raft)
 
-    set(oneValueArgs VERSION FORK PINNED_TAG)
+    set(oneValueArgs VERSION FORK PINNED_TAG USE_FAISS_STATIC)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
                           "${multiValueArgs}" ${ARGN} )
 
@@ -35,6 +35,7 @@ function(find_and_configure_raft)
             SOURCE_SUBDIR  cpp
             OPTIONS
               "BUILD_TESTS OFF"
+              "RAFT_USE_FAISS_STATIC ${USE_FAISS_STATIC}"
     )
 
     if(raft_ADDED)
@@ -58,4 +59,5 @@ set(CUML_BRANCH_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
 find_and_configure_raft(VERSION    ${CUML_MIN_VERSION_raft}
                         FORK       rapidsai
                         PINNED_TAG branch-${CUML_BRANCH_VERSION_raft}
+                        USE_FAISS_STATIC ${CUML_USE_FAISS_STATIC}
                         )

@@ -16,18 +16,19 @@
 
 function(find_and_configure_treelite)
 
-    set(oneValueArgs VERSION PINNED_TAG)
+    set(oneValueArgs VERSION PINNED_TAG BUILD_STATIC_LIBS)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
                           "${multiValueArgs}" ${ARGN} )
 
     rapids_cpm_find(Treelite ${PKG_VERSION}
-        GLOBAL_TARGETS  treelite::treelite treelite
+        GLOBAL_TARGETS   treelite::treelite treelite
+        BUILD_EXPORT_SET cuml-exports
         CPM_ARGS
             GIT_REPOSITORY  https://github.com/dmlc/treelite.git
             GIT_TAG         ${PKG_PINNED_TAG}
             OPTIONS
               "USE_OPENMP ON"
-              "BUILD_STATIC_LIBS ON"
+              "BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS}"
     )
 
     set(Treelite_ADDED ${Treelite_ADDED} PARENT_SCOPE)
@@ -55,4 +56,5 @@ function(find_and_configure_treelite)
 endfunction()
 
 find_and_configure_treelite(VERSION     2.1.0
-                        PINNED_TAG  e5248931c62e3807248e0b150e27b2530a510634)
+                        PINNED_TAG  e5248931c62e3807248e0b150e27b2530a510634
+                        BUILD_STATIC_LIBS ${CUML_USE_TREELITE_STATIC})

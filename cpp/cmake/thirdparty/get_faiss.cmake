@@ -15,7 +15,7 @@
 #=============================================================================
 
 function(find_and_configure_faiss)
-    set(oneValueArgs VERSION PINNED_TAG)
+    set(oneValueArgs VERSION PINNED_TAG BUILD_STATIC_LIBS)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
                           "${multiValueArgs}" ${ARGN} )
 
@@ -24,14 +24,20 @@ function(find_and_configure_faiss)
         LIBRARY_NAMES faiss
     )
 
+    set(BUILD_SHARED_LIBS OFF)
+    if (NOT BUILD_STATIC_LIBS)
+        set(BUILD_SHARED_LIBS ON)
+    endif()
+
     rapids_cpm_find(FAISS ${PKG_VERSION}
-        GLOBAL_TARGETS  faiss
+        GLOBAL_TARGETS   faiss
+        BUILD_EXPORT_SET cuml-exports
         CPM_ARGS
           GIT_REPOSITORY  https://github.com/facebookresearch/faiss.git
           GIT_TAG         ${PKG_PINNED_TAG}
           OPTIONS
             "FAISS_ENABLE_PYTHON OFF"
-            "BUILD_SHARED_LIBS OFF"
+            "BUILD_SHARED_LIBS ${BUILD_SHARED_LIBS}"
             "CUDAToolkit_ROOT ${CUDAToolkit_LIBRARY_DIR}"
             "FAISS_ENABLE_GPU ON"
             "BUILD_TESTING OFF"
@@ -50,4 +56,5 @@ endfunction()
 
 find_and_configure_faiss(VERSION    1.7.0
                          PINNED_TAG  bde7c0027191f29c9dadafe4f6e68ca0ee31fb30
+                         BUILD_STATIC_LIBS ${CUML_USE_FAISS_STATIC}
                         )

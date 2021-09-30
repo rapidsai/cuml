@@ -63,6 +63,8 @@ option(ENABLE_CUMLPRIMS_MG "Enable algorithms that use libcumlprims_mg" ON)
 option(NVTX "Enable nvtx markers" OFF)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 option(USE_CCACHE "Cache build artifacts with ccache" OFF)
+option(CUML_USE_FAISS_STATIC "Build and statically link the FAISS library for nearest neighbors search on GPU" ON)
+option(CUML_USE_TREELITE_STATIC "Build and statically link the treelite library" ON)
 
 set(CUML_CPP_ALGORITHMS "ALL" CACHE STRING "Experimental: Choose which algorithms are built into libcuml++.so. Only 'FIL' and 'ALL' are supported right now.")
 set_property(CACHE CUML_CPP_ALGORITHMS PROPERTY STRINGS "ALL" "FIL")
@@ -385,8 +387,8 @@ if(BUILD_CUML_CPP_LIBRARY)
       CUDA::cusparse
       $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
       $<$<BOOL:${LINK_FAISS}>:FAISS::FAISS>
-      $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_static,treelite::treelite>
-      $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_runtime_static,treelite::treelite_runtime>
+      $<IF:$<BOOL:${Treelite_ADDED} AND ${CUML_USE_TREELITE_STATIC}>,treelite::treelite_static,treelite::treelite>
+      $<IF:$<BOOL:${Treelite_ADDED} AND ${CUML_USE_TREELITE_STATIC}>,treelite::treelite_runtime_static,treelite::treelite_runtime>
       $<$<BOOL:${OpenMP_FOUND}>:OpenMP::OpenMP_CXX>
       $<$<OR:$<BOOL:${BUILD_CUML_STD_COMMS}>,$<BOOL:${BUILD_CUML_MPI_COMMS}>>:NCCL::NCCL>
       $<$<BOOL:${BUILD_CUML_MPI_COMMS}>:${MPI_CXX_LIBRARIES}>
