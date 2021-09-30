@@ -109,6 +109,7 @@ class UMAPParametrizableTest : public ::testing::Test {
     bool fit_transform;
     bool supervised;
     bool knn_params;
+    bool refine;
     int n_samples;
     int n_features;
     int n_clusters;
@@ -183,6 +184,20 @@ class UMAPParametrizableTest : public ::testing::Test {
                     &umap_params,
                     model_embedding);
     }
+
+    if (test_params.refine) {
+      std::cout << "using refine";
+      if (test_params.supervised) {
+        auto cgraph_coo = ML::UMAP::get_graph(handle, X, y, n_samples, n_features, &umap_params);
+        ML::UMAP::refine(
+          handle, X, n_samples, n_features, cgraph_coo.get(), &umap_params, model_embedding);
+      } else {
+        auto cgraph_coo =
+          ML::UMAP::get_graph(handle, X, nullptr, n_samples, n_features, &umap_params);
+        ML::UMAP::refine(
+          handle, X, n_samples, n_features, cgraph_coo.get(), &umap_params, model_embedding);
+      }
+    }
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
     if (!test_params.fit_transform) {
@@ -249,10 +264,10 @@ class UMAPParametrizableTest : public ::testing::Test {
               << umap_params.random_state << std::endl;
 
     std::cout << "test_params : [" << std::boolalpha << test_params.fit_transform << "-"
-              << test_params.supervised << "-" << test_params.knn_params << "-"
-              << test_params.n_samples << "-" << test_params.n_features << "-"
-              << test_params.n_clusters << "-" << test_params.min_trustworthiness << "]"
-              << std::endl;
+              << test_params.supervised << "-" << test_params.refine << "-"
+              << test_params.knn_params << "-" << test_params.n_samples << "-"
+              << test_params.n_features << "-" << test_params.n_clusters << "-"
+              << test_params.min_trustworthiness << "]" << std::endl;
 
     raft::handle_t handle;
     cudaStream_t stream = handle.get_stream();
@@ -323,14 +338,14 @@ class UMAPParametrizableTest : public ::testing::Test {
 
   void SetUp() override
   {
-    std::vector<TestParams> test_params_vec = {{false, false, false, 2000, 50, 20, 0.45},
-                                               {true, false, false, 2000, 50, 20, 0.45},
-                                               {false, true, false, 2000, 50, 20, 0.45},
-                                               {false, false, true, 2000, 50, 20, 0.45},
-                                               {true, true, false, 2000, 50, 20, 0.45},
-                                               {true, false, true, 2000, 50, 20, 0.45},
-                                               {false, true, true, 2000, 50, 20, 0.45},
-                                               {true, true, true, 2000, 50, 20, 0.45}};
+    std::vector<TestParams> test_params_vec = {{false, false, false, true, 2000, 50, 20, 0.45},
+                                               {true, false, false, false, 2000, 50, 20, 0.45},
+                                               {false, true, false, true, 2000, 50, 20, 0.45},
+                                               {false, false, true, false, 2000, 50, 20, 0.45},
+                                               {true, true, false, true, 2000, 50, 20, 0.45},
+                                               {true, false, true, false, 2000, 50, 20, 0.45},
+                                               {false, true, true, true, 2000, 50, 20, 0.45},
+                                               {true, true, true, false, 2000, 50, 20, 0.45}};
 
     std::vector<UMAPParams> umap_params_vec(4);
     umap_params_vec[0].n_components = 2;
