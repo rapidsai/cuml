@@ -805,6 +805,7 @@ class _BaseDiscreteNB(_BaseNB):
         sample_weight : array-like of shape (n_samples)
             Weights applied to individial samples (1. for unweighted).
         """
+        self.fit_called_ = False
         return self.partial_fit(X, y, sample_weight)
 
     def _init_counters(self, n_effective_classes, n_features, dtype):
@@ -1444,14 +1445,13 @@ class CategoricalNB(_BaseDiscreteNB):
         highest_feature = int(x_coo_data.max()) + 1
         feature_diff = highest_feature - self.category_count_.shape[1]
         # In case of a partial fit, pad the array to have the highest feature
-        if feature_diff > 0:
-            if not cp.sparse.issparse(self.category_count_):
-                self.category_count_ = cupyx.scipy.sparse.coo_matrix(
-                    (self.n_features_ * n_classes, highest_feature))
-            else:
-                self.category_count_ = cupyx.scipy.sparse.coo_matrix(
-                    self.category_count_,
-                    shape=(self.n_features_ * n_classes, highest_feature))
+        if not cp.sparse.issparse(self.category_count_):
+            self.category_count_ = cupyx.scipy.sparse.coo_matrix(
+                (self.n_features_ * n_classes, highest_feature))
+        elif feature_diff > 0:
+            self.category_count_ = cupyx.scipy.sparse.coo_matrix(
+                self.category_count_,
+                shape=(self.n_features_ * n_classes, highest_feature))
         highest_feature = self.category_count_.shape[1]
 
         count_features_coo = cp.ElementwiseKernel(
