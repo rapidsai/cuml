@@ -496,25 +496,28 @@ class TSNE(Base,
         cdef float kl_divergence = 0
         if self.sparse_fit:
             kl_divergence = TSNE_fit_sparse(handle_[0],
-                            <int*><uintptr_t> self.X_m.indptr.ptr,
-                            <int*><uintptr_t> self.X_m.indices.ptr,
-                            <float*><uintptr_t> self.X_m.data.ptr,
-                            <float*> embed_ptr,
-                            <int> self.X_m.nnz,
-                            <int> n,
-                            <int> p,
-                            <int*> knn_indices_raw,
-                            <float*> knn_dists_raw,
-                            <TSNEParams&> deref(params))
+                                            <int*><uintptr_t>
+                                            self.X_m.indptr.ptr,
+                                            <int*><uintptr_t>
+                                            self.X_m.indices.ptr,
+                                            <float*><uintptr_t>
+                                            self.X_m.data.ptr,
+                                            <float*> embed_ptr,
+                                            <int> self.X_m.nnz,
+                                            <int> n,
+                                            <int> p,
+                                            <int*> knn_indices_raw,
+                                            <float*> knn_dists_raw,
+                                            <TSNEParams&> deref(params))
         else:
             kl_divergence = TSNE_fit(handle_[0],
-                            <float*><uintptr_t> self.X_m.ptr,
-                            <float*> embed_ptr,
-                            <int> n,
-                            <int> p,
-                            <int64_t*> knn_indices_raw,
-                            <float*> knn_dists_raw,
-                            <TSNEParams&> deref(params))
+                                     <float*><uintptr_t> self.X_m.ptr,
+                                     <float*> embed_ptr,
+                                     <int> n,
+                                     <int> p,
+                                     <int64_t*> knn_indices_raw,
+                                     <float*> knn_dists_raw,
+                                     <TSNEParams&> deref(params))
 
         self.handle.sync()
         free(params)
