@@ -786,7 +786,7 @@ __device__ INLINE_CONFIG void load_data(float* sdata,
 template <int NITEMS,
           leaf_algo_t leaf_algo,
           bool cols_in_shmem,
-          bool CATS_SUPPORTED,
+          bool cats_supported,
           class storage_type>
 __global__ void infer_k(storage_type forest, predict_params params)
 {
@@ -823,7 +823,7 @@ __global__ void infer_k(storage_type forest, predict_params params)
       typedef typename leaf_output_t<leaf_algo>::T pred_t;
       vec<NITEMS, pred_t> prediction;
       if (tree < forest.num_trees() && thread_num_rows != 0) {
-        prediction = infer_one_tree<NITEMS, CATS_SUPPORTED, pred_t>(
+        prediction = infer_one_tree<NITEMS, cats_supported, pred_t>(
           forest[tree],
           cols_in_shmem ? sdata + thread_row0 * sdata_stride : block_input + thread_row0 * num_cols,
           cols_in_shmem ? sdata_stride : num_cols,
@@ -863,22 +863,25 @@ struct infer_k_storage_template {
   cudaStream_t stream;
 
   template <class KernelParams>
-  void run(predict_params& params) {
-    params.num_blocks = params.num_blocks != 0
-                          ? params.num_blocks
-                          : raft::ceildiv(int(params.num_rows), params.n_items);
-    infer_k<KernelParams::n_items, KernelParams::leaf_algo,
-            KernelParams::cols_in_shmem, storage_type>
-      <<<params.num_blocks, params.block_dim_x, params.shm_sz, stream>>>(
-        forest, params);
+  void run(predict_params& params)
+  {
+    params.cats_present = forest.cats_present();
+    params.num_blocks   = params.num_blocks != 0
+                            ? params.num_blocks
+                            : raft::ceildiv(int(params.num_rows), params.n_items);
+    infer_k<KernelParams::n_items,
+            KernelParams::leaf_algo,
+            KernelParams::cols_in_shmem,
+            KernelParams::cats_supported>
+      <<<params.num_blocks, params.block_dim_x, params.shm_sz, stream>>>(forest, params);
     CUDA_CHECK(cudaPeekAtLastError());
   }
 };
 
 template <typename storage_type>
-void infer(storage_type forest, predict_params params, cudaStream_t stream) {
-  dispatch_on_fil_template_params(
-    infer_k_storage_template<storage_type>{forest, stream}, params);
+void infer(storage_type forest, predict_params params, cudaStream_t stream)
+{
+  dispatch_on_fil_template_params(infer_k_storage_template<storage_type>{forest, stream}, params);
 }
 
 template void infer<dense_storage>(dense_storage forest,

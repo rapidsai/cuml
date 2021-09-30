@@ -97,8 +97,7 @@ __global__ void transform_k(float* preds,
     preds[i] = result;
 }
 
-extern void dispatch_on_fil_template_params(compute_smem_footprint,
-                                            predict_params&);
+extern void dispatch_on_fil_template_params(compute_smem_footprint, predict_params&);
 
 struct forest {
   forest(const raft::handle_t& h) : vector_leaf_(0, h.get_stream()), cat_sets_(h.get_stream()) {}
@@ -134,9 +133,9 @@ struct forest {
         ssp.n_items == 0 ? (algo_ == algo_t::BATCH_TREE_REORG ? 4 : 1) : ssp.n_items;
       for (bool cols_in_shmem : {false, true}) {
         ssp.cols_in_shmem = cols_in_shmem;
-        for (ssp.n_items = min_n_items; ssp.n_items <= max_n_items;
-             ++ssp.n_items) {
-          dispatch_on_fil_template_params(compute_smem_footprint(), ssp);
+        for (ssp.n_items = min_n_items; ssp.n_items <= max_n_items; ++ssp.n_items) {
+          predict_params pp = ssp;
+          dispatch_on_fil_template_params(compute_smem_footprint(), pp);
           if (ssp.shm_sz < max_shm) ssp_ = ssp;
         }
       }
@@ -308,9 +307,7 @@ struct forest {
           params.num_outputs = params.num_classes;
           do_transform = (ot != output_t::RAW && ot != output_t::SOFTMAX) || global_bias != 0.0f;
           break;
-        default:
-          ASSERT(false, "internal error: predict: invalid leaf_algo %d",
-                 params.leaf_algo);
+        default: ASSERT(false, "internal error: predict: invalid leaf_algo %d", params.leaf_algo);
       }
     } else {
       if (params.leaf_algo == leaf_algo_t::FLOAT_UNARY_BINARY) {

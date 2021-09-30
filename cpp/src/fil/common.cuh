@@ -160,6 +160,8 @@ struct predict_params : shmem_size_params {
   algo_t algo;
   // number of outputs for the forest per each data row
   int num_outputs;
+  // are there categorical inner nodes?
+  bool cats_present;
 
   // Data parameters.
   float* preds;
@@ -174,19 +176,33 @@ struct predict_params : shmem_size_params {
   int num_blocks;
 };
 
-template <bool COLS_IN_SHMEM = false, int LEAF_ALGO = 0, int N_ITEMS = 1>
+template <bool COLS_IN_SHMEM  = false,
+          bool CATS_SUPPORTED = false,
+          int LEAF_ALGO       = 0,
+          int N_ITEMS         = 1>
 struct KernelTemplateParameters {
-  static const bool cols_in_shmem = COLS_IN_SHMEM;
+  static const bool cols_in_shmem    = COLS_IN_SHMEM;
+  static const bool cats_supported   = CATS_SUPPORTED;
   static const leaf_algo_t leaf_algo = static_cast<leaf_algo_t>(LEAF_ALGO);
-  static const int n_items = N_ITEMS;
-  typedef KernelTemplateParameters<cols_in_shmem, leaf_algo, n_items + 1> inc_n_items;
-  typedef KernelTemplateParameters<cols_in_shmem, leaf_algo + 1, n_items> inc_leaf_algo;
+  static const int n_items           = N_ITEMS;
+
+  template <bool _cats_supported>
+  using replace_cats_supported =
+    KernelTemplateParameters<cols_in_shmem, _cats_supported, leaf_algo, n_items>;
+  using inc_leaf_algo =
+    KernelTemplateParameters<cols_in_shmem, cats_supported, leaf_algo + 1, n_items>;
+  template <int _leaf_algo>
+  using replace_leaf_algo =
+    KernelTemplateParameters<cols_in_shmem, cats_supported, _leaf_algo, n_items>;
+  using inc_n_items =
+    KernelTemplateParameters<cols_in_shmem, cats_supported, leaf_algo, n_items + 1>;
 };
 
 namespace dispatch {
 
 template <class KernelParams, class Func>
-void dispatch_on_n_items(Func func, predict_params& params) {
+void dispatch_on_n_items(Func func, predict_params& params)
+{
   if (params.n_items == KernelParams::n_items) {
     func.template run<KernelParams>(params);
   } else if constexpr (KernelParams::n_items < 4) {
@@ -197,63 +213,73 @@ void dispatch_on_n_items(Func func, predict_params& params) {
 }
 
 template <class KernelParams, class Func>
-void dispatch_on_leaf_algo(Func func, predict_params& params) {
+void dispatch_on_leaf_algo(Func func, predict_params& params)
+{
   if (params.leaf_algo == KernelParams::leaf_algo) {
     if constexpr (KernelParams::leaf_algo == GROVE_PER_CLASS) {
       if (params.num_classes <= FIL_TPB) {
         params.block_dim_x = FIL_TPB - FIL_TPB % params.num_classes;
-        typedef KernelTemplateParameters<KernelParams::cols_in_shmem,
-                                         GROVE_PER_CLASS_FEW_CLASSES>
-          Next;
+        using Next         = typename KernelParams::replace_leaf_algo<GROVE_PER_CLASS_FEW_CLASSES>;
         dispatch_on_n_items<Next>(func, params);
       } else {
         params.block_dim_x = FIL_TPB;
-        typedef KernelTemplateParameters<KernelParams::cols_in_shmem,
-                                         GROVE_PER_CLASS_MANY_CLASSES>
-          Next;
+        using Next         = typename KernelParams::replace_leaf_algo<GROVE_PER_CLASS_MANY_CLASSES>;
         dispatch_on_n_items<Next>(func, params);
       }
     } else {
       params.block_dim_x = FIL_TPB;
       dispatch_on_n_items<KernelParams>(func, params);
     }
-  } else if constexpr (KernelParams::leaf_algo + 1 <
-                       static_cast<int>(leaf_algo_t::LEAF_ALGO_INVALID)) {
+  } else if constexpr (KernelParams::leaf_algo + 1 < static_cast<int>(LEAF_ALGO_INVALID)) {
     dispatch_on_n_items<class KernelParams::inc_leaf_algo>(func, params);
   } else {
-    ASSERT(false, "internal error: dispatch: invalid leaf_algo %d",
-           params.leaf_algo);
+    ASSERT(false, "internal error: dispatch: invalid leaf_algo %d", params.leaf_algo);
   }
 }
 
-template <class Func>
-void dispatch_on_cols_in_shmem(Func func, predict_params& params) {
-  if (params.cols_in_shmem)
-    dispatch_on_leaf_algo<KernelTemplateParameters<true>>(func, params);
+template <class KernelParams, class Func>
+void dispatch_on_cats_supported(Func func, predict_params& params)
+{
+  if (params.cats_present)
+    dispatch_on_leaf_algo<KernelParams::template replace_cats_supported<true>>(func, params);
   else
-    dispatch_on_leaf_algo<KernelTemplateParameters<false>>(func, params);
+    dispatch_on_leaf_algo<KernelParams::template replace_cats_supported<false>>(func, params);
+}
+
+template <class Func>
+void dispatch_on_cols_in_shmem(Func func, predict_params& params)
+{
+  if (params.cols_in_shmem)
+    dispatch_on_cats_supported<KernelTemplateParameters<true>>(func, params);
+  else
+    dispatch_on_cats_supported<KernelTemplateParameters<false>>(func, params);
 }
 
 }  // namespace dispatch
 
 template <class Func>
-void dispatch_on_fil_template_params(Func func, predict_params& params) {
+void dispatch_on_fil_template_params(Func func, predict_params& params)
+{
   dispatch::dispatch_on_cols_in_shmem(func, params);
 }
 
-// we need to instantiate all get_smem_footprint instantiations in infer.cu.
-// The only guarantee is by instantiating
-// dispatch_on_FIL_template<compute_smem_footprint...  in infer.cu. This
-// requires a declaration of this struct with the declaration of the `run` template
-// (i.e. all but one line) visible from infer.cu, as well as this full
-// definition visible from fil.cu. We'll just define it in common.cuh.
+/* For an example of Func, see this:
+ *
+ * We need to instantiate all get_smem_footprint instantiations in infer.cu.
+ * The only guarantee is by instantiating
+ * dispatch_on_FIL_template<compute_smem_footprint...  in infer.cu. This
+ * requires a declaration of this struct with the declaration of the `run` template
+ * (i.e. all but one line) visible from infer.cu, as well as this full
+ * definition visible from fil.cu. We'll just define it in common.cuh.
+ */
 struct compute_smem_footprint {
   template <class KernelParams>
-  void run(predict_params& ssp) {
+  void run(predict_params& ssp)
+  {
     // need GROVE_PER_CLASS_*_CLASSES
     if constexpr (KernelParams::leaf_algo != GROVE_PER_CLASS) {
-      ssp.shm_sz = ssp.template get_smem_footprint<KernelParams::n_items,
-                                                   KernelParams::leaf_algo>();
+      ssp.shm_sz =
+        ssp.template get_smem_footprint<KernelParams::n_items, KernelParams::leaf_algo>();
     }
   }
 };
