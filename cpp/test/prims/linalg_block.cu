@@ -749,5 +749,131 @@ INSTANTIATE_TEST_CASE_P(BlockAxTests, BlockAxTestF, ::testing::ValuesIn(ax_input
 
 INSTANTIATE_TEST_CASE_P(BlockAxTests, BlockAxTestD, ::testing::ValuesIn(ax_inputsd));
 
+/* Covariance stability */
+
+template <typename T>
+struct BlockCovStabilityInputs {
+  int n;
+  int batch_size;
+  T eps;
+  unsigned long long int seed;
+};
+
+template <typename T>
+::std::ostream& operator<<(::std::ostream& os, const BlockCovStabilityInputs<T>& dims)
+{
+  return os;
+}
+
+template <int BlockSize, typename T>
+__global__ void block_cov_stability_test_kernel(int n, const T* in, T* out)
+{
+  _block_covariance_stability<BlockSize>(n, in + n * n * blockIdx.x, out + n * n * blockIdx.x);
+}
+
+template <int BlockSize, typename T>
+class BlockCovStabilityTest : public ::testing::TestWithParam<BlockCovStabilityInputs<T>> {
+ protected:
+  void basicTest()
+  {
+    raft::handle_t handle;
+
+    params = ::testing::TestWithParam<BlockCovStabilityInputs<T>>::GetParam();
+
+    rmm::device_uvector<T> d_in(params.n * params.n * params.batch_size, handle.get_stream());
+    rmm::device_uvector<T> d_out(params.n * params.n * params.batch_size, handle.get_stream());
+
+    std::vector<T> h_in(params.n * params.n * params.batch_size);
+    std::vector<T> h_out(params.n * params.n * params.batch_size);
+
+    /* Generate random data on device */
+    raft::random::Rng r(params.seed);
+    r.uniform(
+      d_in.data(), params.n * params.n * params.batch_size, (T)-2, (T)2, handle.get_stream());
+
+    /* Copy to host */
+    raft::update_host(
+      h_in.data(), d_in.data(), params.n * params.n * params.batch_size, handle.get_stream());
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
+
+    /* Compute using tested prims */
+    block_cov_stability_test_kernel<BlockSize>
+      <<<params.batch_size, BlockSize, 0, handle.get_stream()>>>(
+        params.n, d_in.data(), d_out.data());
+
+    /* Compute reference results */
+    for (int bid = 0; bid < params.batch_size; bid++) {
+      for (int i = 0; i < params.n - 1; i++) {
+        for (int j = i + 1; j < params.n; j++) {
+          T val = 0.5 * (h_in[bid * params.n * params.n + j * params.n + i] +
+                         h_in[bid * params.n * params.n + i * params.n + j]);
+          h_out[bid * params.n * params.n + j * params.n + i] = val;
+          h_out[bid * params.n * params.n + i * params.n + j] = val;
+        }
+      }
+      for (int i = 0; i < params.n; i++) {
+        h_out[bid * params.n * params.n + i * params.n + i] =
+          abs(h_in[bid * params.n * params.n + i * params.n + i]);
+      }
+    }
+
+    /* Check results */
+    match = devArrMatchHost(h_out.data(),
+                            d_out.data(),
+                            params.n * params.n * params.batch_size,
+                            raft::CompareApprox<T>(params.eps),
+                            handle.get_stream());
+  }
+
+  void SetUp() override { basicTest(); }
+
+  void TearDown() override {}
+
+ protected:
+  BlockCovStabilityInputs<T> params;
+
+  testing::AssertionResult match = testing::AssertionFailure();
+};
+
+const std::vector<BlockCovStabilityInputs<float>> cs_inputsf = {
+  {15, 4, 1e-4, 12345U},
+  {33, 10, 1e-4, 12345U},
+  {220, 130, 1e-4, 12345U},
+};
+
+const std::vector<BlockCovStabilityInputs<double>> cs_inputsd = {
+  {15, 4, 1e-4, 12345U},
+  {33, 10, 1e-4, 12345U},
+  {220, 130, 1e-4, 12345U},
+};
+
+typedef BlockCovStabilityTest<32, float> BlockCovStabilityTestF_32;
+TEST_P(BlockCovStabilityTestF_32, Result) { EXPECT_TRUE(match); }
+
+typedef BlockCovStabilityTest<32, double> BlockCovStabilityTestD_32;
+TEST_P(BlockCovStabilityTestD_32, Result) { EXPECT_TRUE(match); }
+
+typedef BlockCovStabilityTest<256, float> BlockCovStabilityTestF_256;
+TEST_P(BlockCovStabilityTestF_256, Result) { EXPECT_TRUE(match); }
+
+typedef BlockCovStabilityTest<256, double> BlockCovStabilityTestD_256;
+TEST_P(BlockCovStabilityTestD_256, Result) { EXPECT_TRUE(match); }
+
+INSTANTIATE_TEST_CASE_P(BlockCovStabilityTests,
+                        BlockCovStabilityTestF_32,
+                        ::testing::ValuesIn(cs_inputsf));
+
+INSTANTIATE_TEST_CASE_P(BlockCovStabilityTests,
+                        BlockCovStabilityTestD_32,
+                        ::testing::ValuesIn(cs_inputsd));
+
+INSTANTIATE_TEST_CASE_P(BlockCovStabilityTests,
+                        BlockCovStabilityTestF_256,
+                        ::testing::ValuesIn(cs_inputsf));
+
+INSTANTIATE_TEST_CASE_P(BlockCovStabilityTests,
+                        BlockCovStabilityTestD_256,
+                        ::testing::ValuesIn(cs_inputsd));
+
 }  // namespace LinAlg
 }  // namespace MLCommon
