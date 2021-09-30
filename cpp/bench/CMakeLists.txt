@@ -45,7 +45,7 @@ if(BUILD_CUML_BENCH)
       cuml::${CUML_CPP_TARGET}
       benchmark::benchmark
       raft::raft
-      ${${TREELITE_LIBS}}
+      ${TREELITE_LIBS}
   )
 
   target_include_directories(${CUML_CPP_BENCH_TARGET}
