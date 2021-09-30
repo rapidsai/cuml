@@ -495,5 +495,23 @@ DI T _block_xAxt(
   return _block_reduce<BlockSize, Broadcast>(acc, reduction_storage);
 }
 
+/**
+ * @todo: docs
+ * @todo: use shared mem instead of naive implementation!
+ */
+template <int BlockSize, typename T>
+DI void _block_covariance_stability(int n, const T* in, T* out)
+{
+  for (int idx = threadIdx.x; idx < n * n; idx += BlockSize) {
+    int i = idx % n;
+    int j = idx / n;
+
+    if(i == j)
+      out[idx] = abs(in[idx]);
+    else
+      out[idx] = (T)0.5 * (in[n * j + i] + in[n * i + j]);
+  }
+}
+
 }  // namespace LinAlg
 }  // namespace MLCommon

@@ -251,6 +251,20 @@ __global__ void batched_kalman_loop_kernel(const double* ys,
       for (int i = 0; i < rd2; i++) {
         l_P[i] += l_RQR[i];
       }
+
+      // Numerical stability: enforce symmetry of P and positivity of diagonal
+      // P = 0.5 * (tmp + tmp')
+      for (int i = 0; i < rd - 1; i++) {
+        for (int j = i + 1; j < rd; j++) {
+          double new_val  = 0.5 * (l_P[j * rd + i] + l_P[i * rd + j]);
+          l_P[j * rd + i] = new_val;
+          l_P[i * rd + j] = new_val;
+        }
+      }
+      // Pii = abs(Pii)
+      for (int i = 0; i < rd; i++) {
+        l_P[i * rd + i] = abs(l_P[i * rd + i]);
+      }
     }
 
     // Compute log-likelihood
@@ -304,6 +318,20 @@ __global__ void batched_kalman_loop_kernel(const double* ys,
           // P = P + RR'
           for (int i = 0; i < rd2; i++) {
             l_P[i] += l_RQR[i];
+          }
+
+          // Numerical stability: enforce symmetry of P and positivity of diagonal
+          // P = 0.5 * (tmp + tmp')
+          for (int i = 0; i < rd - 1; i++) {
+            for (int j = i + 1; j < rd; j++) {
+              double new_val  = 0.5 * (l_P[j * rd + i] + l_P[i * rd + j]);
+              l_P[j * rd + i] = new_val;
+              l_P[i * rd + j] = new_val;
+            }
+          }
+          // Pii = abs(Pii)
+          for (int i = 0; i < rd; i++) {
+            l_P[i * rd + i] = abs(l_P[i * rd + i]);
           }
         }
       }
@@ -521,13 +549,19 @@ __global__ void _batched_kalman_device_loop_large_kernel(const double* d_ys,
                                                 d_P + bid * rd2,
                                                 shared_mem.gemm_storage);
       __syncthreads();  // For consistency of P
-      // P = P + R*Q*R'
+      // tmp = P + R*Q*R'
       /// TODO: shared mem R instead of precomputed matrix?
       for (int i = threadIdx.x; i < rd2; i += GemmPolicy::BlockSize) {
-        d_P[bid * rd2 + i] += d_RQR[bid * rd2 + i];
+        d_m_tmp[bid * rd2 + i] = d_P[bid * rd2 + i] + d_RQR[bid * rd2 + i];
       }
+      __syncthreads();
 
-      __syncthreads();  // necessary to reuse shared memory
+      // Numerical stability: enforce symmetry of P and positivity of diagonal
+      // P = 0.5 * (tmp + tmp')
+      // Pii = abs(Pii)
+      MLCommon::LinAlg::_block_covariance_stability<GemmPolicy::BlockSize>(
+        rd, d_m_tmp + bid * rd2, d_P + bid * rd2);
+      __syncthreads();
     }
 
     /* Forecast */
@@ -595,8 +629,15 @@ __global__ void _batched_kalman_device_loop_large_kernel(const double* d_ys,
       // P = P + R*Q*R'
       /// TODO: shared mem R instead of precomputed matrix?
       for (int i = threadIdx.x; i < rd2; i += GemmPolicy::BlockSize) {
-        d_P[bid * rd2 + i] += d_RQR[bid * rd2 + i];
+        d_m_tmp[bid * rd2 + i] = d_P[bid * rd2 + i] + d_RQR[bid * rd2 + i];
       }
+
+      __syncthreads();
+      // Numerical stability: enforce symmetry of P and positivity of diagonal
+      // P = 0.5 * (tmp + tmp')
+      // Pii = abs(Pii)
+      MLCommon::LinAlg::_block_covariance_stability<GemmPolicy::BlockSize>(
+        rd, d_m_tmp + bid * rd2, d_P + bid * rd2);
     }
 
     /* Compute log-likelihood */
