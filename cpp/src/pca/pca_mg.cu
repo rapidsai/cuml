@@ -373,7 +373,7 @@ void inverse_transform_impl(raft::handle_t& handle,
       components, singular_vals, prms.n_rows, prms.n_components, true, true, streams[0]);
   }
 
-  for (decltype(local_blocks)::size_type i = 0; i < local_blocks.size(); i++) {
+  for (std::size_t i = 0; i < local_blocks.size(); i++) {
     auto si = i % n_streams;
     T alpha = T(1);
     T beta  = T(0);

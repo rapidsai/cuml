@@ -39,9 +39,9 @@ class params {
 class paramsSolver : public params {
  public:
   // math_t tol = 0.0;
-  float tol           = 0.0;
-  size_t n_iterations = 15;
-  int verbose         = 0;
+  float tol                = 0.0;
+  std::size_t n_iterations = 15;
+  int verbose              = 0;
 };
 
 template <typename enum_solver = solver>
