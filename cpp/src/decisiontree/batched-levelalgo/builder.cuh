@@ -195,6 +195,7 @@ struct Builder {
   ML::pinned_host_vector<char> h_buff;
 
   Builder(const raft::handle_t& handle,
+          cudaStream_t s,
           IdxT treeid,
           uint64_t seed,
           const DecisionTreeParams& p,
@@ -206,7 +207,7 @@ struct Builder {
           IdxT nclasses,
           std::shared_ptr<const rmm::device_uvector<DataT>> quantiles)
     : handle(handle),
-      builder_stream(handle.get_internal_stream(treeid)),
+      builder_stream(s),
       treeid(treeid),
       seed(seed),
       params(p),
