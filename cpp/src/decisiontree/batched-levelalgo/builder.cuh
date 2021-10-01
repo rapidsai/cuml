@@ -378,15 +378,14 @@ struct Builder {
     auto smemSize = 2 * sizeof(IdxT) * TPB_DEFAULT;
     ML::PUSH_RANGE("nodeSplitKernel @builder_base.cuh [batched-levelalgo]");
     nodeSplitKernel<DataT, LabelT, IdxT, ObjectiveT, TPB_DEFAULT>
-      <<<work_items.size(), TPB_DEFAULT, smemSize, builder_stream>>>(
-        params.max_depth,
-        params.min_samples_leaf,
-        params.min_samples_split,
-        params.max_leaves,
-        params.min_impurity_decrease,
-        input,
-        d_work_items,
-        splits);
+      <<<work_items.size(), TPB_DEFAULT, smemSize, builder_stream>>>(params.max_depth,
+                                                                     params.min_samples_leaf,
+                                                                     params.min_samples_split,
+                                                                     params.max_leaves,
+                                                                     params.min_impurity_decrease,
+                                                                     input,
+                                                                     d_work_items,
+                                                                     splits);
     CUDA_CHECK(cudaGetLastError());
     ML::POP_RANGE();
     raft::update_host(h_splits, splits, work_items.size(), builder_stream);
@@ -428,20 +427,20 @@ struct Builder {
     ObjectiveT objective(input.numOutputs, params.min_samples_leaf);
     computeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, builder_stream>>>(hist,
-                                                             params.n_bins,
-                                                             params.max_depth,
-                                                             params.min_samples_split,
-                                                             params.max_leaves,
-                                                             input,
-                                                             d_work_items,
-                                                             col,
-                                                             done_count,
-                                                             mutex,
-                                                             splits,
-                                                             objective,
-                                                             treeid,
-                                                             workload_info,
-                                                             seed);
+                                                        params.n_bins,
+                                                        params.max_depth,
+                                                        params.min_samples_split,
+                                                        params.max_leaves,
+                                                        input,
+                                                        d_work_items,
+                                                        col,
+                                                        done_count,
+                                                        mutex,
+                                                        splits,
+                                                        objective,
+                                                        treeid,
+                                                        workload_info,
+                                                        seed);
     ML::POP_RANGE();  // computeSplitKernel
     ML::POP_RANGE();  // Builder::computeSplit
   }
@@ -466,10 +465,8 @@ struct Builder {
       std::size_t batch_size = batch_end - batch_begin;
       raft::update_device(
         d_tree.data(), tree->sparsetree.data() + batch_begin, batch_size, builder_stream);
-      raft::update_device(d_instance_ranges.data(),
-                          instance_ranges.data() + batch_begin,
-                          batch_size,
-                          builder_stream);
+      raft::update_device(
+        d_instance_ranges.data(), instance_ranges.data() + batch_begin, batch_size, builder_stream);
 
       CUDA_CHECK(
         cudaMemsetAsync(d_leaves.data(), 0, sizeof(DataT) * d_leaves.size(), builder_stream));
