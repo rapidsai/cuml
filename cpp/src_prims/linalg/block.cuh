@@ -533,8 +533,18 @@ DI T _block_xAxt(
 }
 
 /**
- * @todo: docs
- * @todo: bank conflicts
+ * @brief Improves numerical accuracy by making sure that the covariance matrix
+ *        is symmetric and only has positive elements along the diagonal.
+ *
+ * @todo: solve bank conflicts
+ *
+ * @tparam     CovPolicy   Execution policy
+ * @tparam     T           Floating-point type
+ * @tparam     StorageT    Shared memory storage structure type
+ * @param[in]  n           Matrix size
+ * @param[in]  in          Input covariance matrix
+ * @param[out] out         Output covariance matrix
+ * @param[in]  cov_storage Temporary shared memory storage
  */
 template <typename CovPolicy, typename T, typename StorageT>
 DI void _block_covariance_stability(int n, const T* in, T* out, StorageT& cov_storage)
