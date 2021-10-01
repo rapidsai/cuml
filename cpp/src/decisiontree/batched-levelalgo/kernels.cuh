@@ -197,6 +197,14 @@ HDI uint32_t fnv1a32(uint32_t hash, uint32_t txt)
   return hash;
 }
 
+/**
+ * @brief For a given values of (treeid, nodeid, seed), this function generates
+ *        a unique permutation of [0, N - 1] values and returns 'k'th entry in
+ *        from the permutation.
+ * @return The 'k'th value from the permutation
+ * @note This function does not allocated any temporary buffer, all the
+ *       necessary values are recomputed.
+ */
 template <typename IdxT>
 DI IdxT select(IdxT k, IdxT treeid, uint32_t nodeid, uint64_t seed, IdxT N)
 {

@@ -328,7 +328,6 @@ struct Builder {
     h_wspace += calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks);
     h_splits = reinterpret_cast<SplitT*>(h_wspace);
     h_wspace += calculateAlignedBytes(sizeof(SplitT) * max_batch);
-
     ML::POP_RANGE();
   }
 
@@ -338,10 +337,10 @@ struct Builder {
     ML::PUSH_RANGE("Builder::train @builder.cuh [batched-levelalgo]");
     MLCommon::TimerCPU timer;
     NodeQueue<DataT, LabelT> queue(params, this->maxNodes(), input.nSampledRows);
-    for (IdxT i = 0; i < params.max_batch_size; i++) {
-      thrust::sequence(thrust::cuda::par.on(handle.get_stream()), colids + i*input.N,
-                      colids + (i + 1) * input.N);
-    }
+    // for (IdxT i = 0; i < params.max_batch_size; i++) {
+    //   thrust::sequence(thrust::cuda::par.on(handle.get_stream()), colids + i*input.N,
+    //                   colids + (i + 1) * input.N);
+    // }
     while (queue.HasWork()) {
       auto work_items                      = queue.Pop();
       auto [splits_host_ptr, splits_count] = doSplit(work_items);
@@ -410,9 +409,10 @@ struct Builder {
     // iterate through a batch of columns (to reduce the memory pressure) and
     // compute the best split at the end
     for (IdxT c = 0; c < input.nSampledCols; c += n_blks_for_cols) {
-      computeSplit(c, work_items.size(), total_blocks, large_blocks, work_items);
+      computeSplit(c, work_items.size(), total_blocks, large_blocks);
       CUDA_CHECK(cudaGetLastError());
     }
+
     stop = second();
     printf("Split time %e s\n", stop - start);
     // create child nodes (or make the current ones leaf)
@@ -453,7 +453,7 @@ struct Builder {
     return smemSize;
   }
 
-  void computeSplit(IdxT col, IdxT batchSize, size_t total_blocks, size_t large_blocks, const std::vector<NodeWorkItem>& work_items)
+  void computeSplit(IdxT col, IdxT batchSize, size_t total_blocks, size_t large_blocks)
   {
     if (total_blocks == 0) return;
     ML::PUSH_RANGE("Builder::computeSplit @builder_base.cuh [batched-levelalgo]");
