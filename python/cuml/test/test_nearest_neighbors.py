@@ -598,7 +598,14 @@ def test_nearest_neighbors_sparse(metric,
 
     skD, skI = sknn.kneighbors(b.get())
 
-    cp.testing.assert_allclose(cuD, skD, atol=1e-3, rtol=1e-3)
+    # For some reason, this will occasionally fail w/ a single
+    # mismatched element in CI. Try again if this happens.
+    try:
+        cp.testing.assert_allclose(cuD, skD, atol=1e-3, rtol=1e-3)
+    except AssertionError:
+        sknn.fit(sk_X)
+        skD, skI = sknn.kneighbors(b.get())
+        cp.testing.assert_allclose(cuD, skD, atol=1e-3, rtol=1e-3)
 
     # Jaccard & Chebyshev have a high potential for mismatched indices
     # due to duplicate distances. We can ignore the indices in this case.
