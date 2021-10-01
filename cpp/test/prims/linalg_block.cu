@@ -765,13 +765,15 @@ template <typename T>
   return os;
 }
 
-template <int BlockSize, typename T>
+template <typename CovPolicy, typename T>
 __global__ void block_cov_stability_test_kernel(int n, const T* in, T* out)
 {
-  _block_covariance_stability<BlockSize>(n, in + n * n * blockIdx.x, out + n * n * blockIdx.x);
+  __shared__ CovStabilityStorage<CovPolicy, T> cov_stability_storage;
+  _block_covariance_stability<CovPolicy>(
+    n, in + n * n * blockIdx.x, out + n * n * blockIdx.x, cov_stability_storage);
 }
 
-template <int BlockSize, typename T>
+template <typename CovPolicy, typename T>
 class BlockCovStabilityTest : public ::testing::TestWithParam<BlockCovStabilityInputs<T>> {
  protected:
   void basicTest()
@@ -797,8 +799,8 @@ class BlockCovStabilityTest : public ::testing::TestWithParam<BlockCovStabilityI
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     /* Compute using tested prims */
-    block_cov_stability_test_kernel<BlockSize>
-      <<<params.batch_size, BlockSize, 0, handle.get_stream()>>>(
+    block_cov_stability_test_kernel<CovPolicy>
+      <<<params.batch_size, CovPolicy::BlockSize, 0, handle.get_stream()>>>(
         params.n, d_in.data(), d_out.data());
 
     /* Compute reference results */
@@ -847,32 +849,36 @@ const std::vector<BlockCovStabilityInputs<double>> cs_inputsd = {
   {220, 130, 1e-4, 12345U},
 };
 
-typedef BlockCovStabilityTest<32, float> BlockCovStabilityTestF_32;
-TEST_P(BlockCovStabilityTestF_32, Result) { EXPECT_TRUE(match); }
+typedef BlockCovStabilityTest<BlockCovStabilityPolicy<1, 1, 8, 4>, float>
+  BlockCovStabilityTestF_1_1_8_4;
+TEST_P(BlockCovStabilityTestF_1_1_8_4, Result) { EXPECT_TRUE(match); }
 
-typedef BlockCovStabilityTest<32, double> BlockCovStabilityTestD_32;
-TEST_P(BlockCovStabilityTestD_32, Result) { EXPECT_TRUE(match); }
+typedef BlockCovStabilityTest<BlockCovStabilityPolicy<1, 1, 8, 4>, double>
+  BlockCovStabilityTestD_1_1_8_4;
+TEST_P(BlockCovStabilityTestD_1_1_8_4, Result) { EXPECT_TRUE(match); }
 
-typedef BlockCovStabilityTest<256, float> BlockCovStabilityTestF_256;
-TEST_P(BlockCovStabilityTestF_256, Result) { EXPECT_TRUE(match); }
+typedef BlockCovStabilityTest<BlockCovStabilityPolicy<1, 4, 32, 8>, float>
+  BlockCovStabilityTestF_1_4_32_8;
+TEST_P(BlockCovStabilityTestF_1_4_32_8, Result) { EXPECT_TRUE(match); }
 
-typedef BlockCovStabilityTest<256, double> BlockCovStabilityTestD_256;
-TEST_P(BlockCovStabilityTestD_256, Result) { EXPECT_TRUE(match); }
+typedef BlockCovStabilityTest<BlockCovStabilityPolicy<1, 4, 32, 8>, double>
+  BlockCovStabilityTestD_1_4_32_8;
+TEST_P(BlockCovStabilityTestD_1_4_32_8, Result) { EXPECT_TRUE(match); }
 
 INSTANTIATE_TEST_CASE_P(BlockCovStabilityTests,
-                        BlockCovStabilityTestF_32,
+                        BlockCovStabilityTestF_1_1_8_4,
                         ::testing::ValuesIn(cs_inputsf));
 
 INSTANTIATE_TEST_CASE_P(BlockCovStabilityTests,
-                        BlockCovStabilityTestD_32,
+                        BlockCovStabilityTestD_1_1_8_4,
                         ::testing::ValuesIn(cs_inputsd));
 
 INSTANTIATE_TEST_CASE_P(BlockCovStabilityTests,
-                        BlockCovStabilityTestF_256,
+                        BlockCovStabilityTestF_1_4_32_8,
                         ::testing::ValuesIn(cs_inputsf));
 
 INSTANTIATE_TEST_CASE_P(BlockCovStabilityTests,
-                        BlockCovStabilityTestD_256,
+                        BlockCovStabilityTestD_1_4_32_8,
                         ::testing::ValuesIn(cs_inputsd));
 
 }  // namespace LinAlg

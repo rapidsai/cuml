@@ -154,6 +154,34 @@ struct BlockGemvPolicy {
 };
 
 /**
+ * Execution policy for the block covariance numerical stability operation
+ *
+ * @tparam _rpt    Rows worked per thread
+ * @tparam _cpt    Columns worked per thread
+ * @tparam _tr     Number of thread rows
+ * @tparam _tc     Number of thread columns
+ */
+template <int _rpt, int _cpt, int _tr, int _tc>
+struct BlockCovStabilityPolicy {
+  /** Rows worked per thread */
+  static constexpr int RowsPerTh = _rpt;
+  /** Columns worked per thread */
+  static constexpr int ColsPerTh = _cpt;
+  /** Number of thread rows */
+  static constexpr int ThRows = _tr;
+  /** Number of thread columns */
+  static constexpr int ThCols = _tc;
+  /** Number of threads per block */
+  static constexpr int BlockSize = ThRows * ThCols;
+  /** Tile dimension m */
+  static constexpr int Mblk = RowsPerTh * ThRows;
+  /** Tile dimension n */
+  static constexpr int Nblk = ColsPerTh * ThCols;
+  /** Total size of a tile */
+  static constexpr int TileSize = Mblk * Nblk;
+};
+
+/**
  * Structure to hold the shared memory used by a block-local GEMM
  */
 template <typename GemmPolicy, typename T>
@@ -171,6 +199,15 @@ template <typename GemvPolicy, typename T>
 struct GemvStorage {
   /** Accumulators to be reduced per row */
   T acc[GemvPolicy::BlockSize];
+};
+
+/**
+ * Structure to hold the shared memory used by covariance numerical stability operation
+ */
+template <typename CovStabilityPolicy, typename T>
+struct CovStabilityStorage {
+  /** Transposed tile */
+  T tile[CovStabilityPolicy::TileSize];
 };
 
 /**
@@ -497,19 +534,49 @@ DI T _block_xAxt(
 
 /**
  * @todo: docs
- * @todo: use shared mem instead of naive implementation!
+ * @todo: bank conflicts
  */
-template <int BlockSize, typename T>
-DI void _block_covariance_stability(int n, const T* in, T* out)
+template <typename CovPolicy, typename T, typename StorageT>
+DI void _block_covariance_stability(int n, const T* in, T* out, StorageT& cov_storage)
 {
-  for (int idx = threadIdx.x; idx < n * n; idx += BlockSize) {
-    int i = idx % n;
-    int j = idx / n;
+  int th_off_i = threadIdx.x % CovPolicy::ThRows;
+  int th_off_j = threadIdx.x / CovPolicy::ThRows;
 
-    if(i == j)
-      out[idx] = abs(in[idx]);
-    else
-      out[idx] = (T)0.5 * (in[n * j + i] + in[n * i + j]);
+  /* Loop over tiles */
+  for (int blk_j = 0; blk_j < raft::ceildiv<int>(n, CovPolicy::Nblk); blk_j++) {
+    for (int blk_i = 0; blk_i < raft::ceildiv<int>(n, CovPolicy::Mblk); blk_i++) {
+      // Load the tile of the transpose matrix into a N x M shared memory tile
+      _load_tile<false,
+                 CovPolicy::BlockSize,
+                 1,
+                 CovPolicy::Nblk,
+                 CovPolicy::BlockSize / CovPolicy::Nblk,
+                 CovPolicy::RowsPerTh * CovPolicy::ColsPerTh,
+                 CovPolicy::Nblk,
+                 CovPolicy::Mblk>(
+        in, cov_storage.tile, blk_j * CovPolicy::Nblk, blk_i * CovPolicy::Mblk, n, n);
+      __syncthreads();
+
+      // Read from matrix and transposed tile, write to output matrix
+#pragma unroll
+      for (int th_j = 0; th_j < CovPolicy::ColsPerTh; th_j++) {
+#pragma unroll
+        for (int th_i = 0; th_i < CovPolicy::RowsPerTh; th_i++) {
+          int i  = th_off_i + th_i * CovPolicy::ThRows;
+          int j  = th_off_j + th_j * CovPolicy::ThCols;
+          int gi = blk_i * CovPolicy::Mblk + i;
+          int gj = blk_j * CovPolicy::Nblk + j;
+
+          if (gi < n && gj < n) {
+            T in0            = in[gj * n + gi];
+            T in1            = cov_storage.tile[i * CovPolicy::Nblk + j];
+            out[gj * n + gi] = gi == gj ? abs(in0) : 0.5 * (in0 + in1);
+          }
+        }
+      }
+
+      __syncthreads();
+    }
   }
 }
 
