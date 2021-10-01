@@ -197,6 +197,57 @@ HDI uint32_t fnv1a32(uint32_t hash, uint32_t txt)
   return hash;
 }
 
+template <typename IdxT>
+DI IdxT select(IdxT k, IdxT treeid, uint32_t nodeid, uint64_t seed, IdxT N)
+{
+  __shared__ int blksum;
+  uint32_t pivot_hash;
+  int cnt = 0;
+
+  if (threadIdx.x == 0) { blksum = 0; }
+  // Compute hash for the 'k'th index and use it as pivote for sorting
+  pivot_hash = fnv1a32_basis;
+  pivot_hash = fnv1a32(pivot_hash, uint32_t(k));
+  pivot_hash = fnv1a32(pivot_hash, uint32_t(treeid));
+  pivot_hash = fnv1a32(pivot_hash, uint32_t(nodeid));
+  pivot_hash = fnv1a32(pivot_hash, uint32_t(seed >> 32));
+  pivot_hash = fnv1a32(pivot_hash, uint32_t(seed));
+
+  // Compute hash for rest of the indices and count instances where i_hash is
+  // less than pivot_hash
+  uint32_t i_hash;
+  for (int i = threadIdx.x; i < N; i += blockDim.x) {
+    if (i == k) continue;  // Skip since k is the pivote index
+    i_hash = fnv1a32_basis;
+    i_hash = fnv1a32(i_hash, uint32_t(i));
+    i_hash = fnv1a32(i_hash, uint32_t(treeid));
+    i_hash = fnv1a32(i_hash, uint32_t(nodeid));
+    i_hash = fnv1a32(i_hash, uint32_t(seed >> 32));
+    i_hash = fnv1a32(i_hash, uint32_t(seed));
+
+    if (i_hash < pivot_hash)
+      cnt++;
+    else if (i_hash == pivot_hash && i < k)
+      cnt++;
+  }
+  __syncthreads();
+  if (cnt > 0) atomicAdd(&blksum, cnt);
+  __syncthreads();
+  return blksum;
+}
+
+template <typename IdxT>
+__global__ void select_kernel(IdxT* colids, const NodeWorkItem* work_items, IdxT treeid,
+                              uint64_t seed, IdxT N) {
+
+  const auto work_item = work_items[blockIdx.x];
+
+  int blksum = select(IdxT(blockIdx.y), treeid, work_item.idx, seed, N);
+  if (threadIdx.x == 0) {
+    colids[blockIdx.x * N + blockIdx.y] = blksum;
+  }
+}
+
 /**
  * @brief For every block, converts the smem pdf-histogram to
  *        cdf-histogram inplace using inclusive block-sum-scan and returns
@@ -293,7 +344,8 @@ __global__ void computeSplitKernel(BinT* hist,
     col = colStart + blockIdx.y;
   } else {
     int colIndex = colStart + blockIdx.y;
-    col          = colids[nid * input.N + colIndex];
+    // col          = colids[nid * input.N + colIndex];
+    col          = select(colIndex, treeid, work_item.idx, seed, input.N);
   }
 
   // populating shared memory with initial values
