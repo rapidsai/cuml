@@ -55,6 +55,7 @@ function(find_and_configure_treelite)
             if(NOT TARGET treelite::treelite_runtime)
                 add_library(treelite::treelite_runtime ALIAS treelite_runtime)
             endif()
+            install(TARGETS treelite treelite_runtime EXPORT treelite-exports)
         else()
             target_include_directories(treelite_static
                 PUBLIC $<BUILD_INTERFACE:${Treelite_SOURCE_DIR}/include>
@@ -68,6 +69,7 @@ function(find_and_configure_treelite)
             if(NOT TARGET treelite::treelite_runtime_static)
                 add_library(treelite::treelite_runtime_static ALIAS treelite_runtime_static)
             endif()
+            install(TARGETS treelite_static treelite_runtime_static EXPORT treelite-exports)
         endif()
 
         rapids_export(BUILD treelite
