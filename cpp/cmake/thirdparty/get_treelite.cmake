@@ -47,10 +47,7 @@ function(find_and_configure_treelite)
             if(NOT TARGET treelite::treelite_runtime)
                 add_library(treelite::treelite_runtime ALIAS treelite_runtime)
             endif()
-            rapids_export(BUILD treelite EXPORT_SET TreeliteTargets)
-            rapids_export(BUILD treelite_runtime EXPORT_SET TreeliteTargets)
-            rapids_export_package(BUILD treelite cuml-exports)
-            rapids_export_package(BUILD treelite_runtime cuml-exports)
+            install(TARGETS treelite treelite_runtime EXPORT treelite-exports)
             list(APPEND TREELITE_LIBS treelite::treelite treelite::treelite_runtime)
         else()
             target_include_directories(treelite_static
@@ -65,13 +62,14 @@ function(find_and_configure_treelite)
             if(NOT TARGET treelite::treelite_runtime_static)
                 add_library(treelite::treelite_runtime_static ALIAS treelite_runtime_static)
             endif()
-            rapids_export(BUILD treelite_static EXPORT_SET TreeliteTargets)
-            rapids_export(BUILD treelite_runtime_static EXPORT_SET TreeliteTargets)
-            rapids_export_package(BUILD treelite_static cuml-exports)
-            rapids_export_package(BUILD treelite_runtime_static cuml-exports)
             list(APPEND TREELITE_LIBS treelite::treelite_static treelite::treelite_runtime_static)
         endif()
     endif()
+
+    rapids_export(BUILD treelite
+        EXPORT_SET treelite-exports
+        GLOBAL_TARGETS ${TREELITE_LIBS}
+        NAMESPACE cuml::)
 
     set(TREELITE_LIBS ${TREELITE_LIBS} PARENT_SCOPE)
 
