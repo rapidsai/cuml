@@ -513,13 +513,14 @@ def test_knn_graph(input_type, mode, output_type, as_instance,
 
 
 @pytest.mark.parametrize('distance', ["euclidean", "haversine"])
-@pytest.mark.parametrize('n_neighbors', [5, 25])
+@pytest.mark.parametrize('n_neighbors', [4, 25])
 @pytest.mark.parametrize('nrows', [unit_param(10000), stress_param(70000)])
 def test_nearest_neighbors_rbc(distance, n_neighbors, nrows):
     X, y = make_blobs(n_samples=nrows,
-                      centers=400,
+                      centers=25,
+                      shuffle=True,
                       n_features=2,
-                      cluster_std=0.001,
+                      cluster_std=3.0,
                       random_state=42)
 
     knn_cu = cuKNN(metric=distance, algorithm="rbc")
@@ -542,15 +543,14 @@ def test_nearest_neighbors_rbc(distance, n_neighbors, nrows):
         brute_d, brute_i = knn_cu_brute.kneighbors(
             X[:query_rows, :], n_neighbors=n_neighbors)
 
-    assert len(brute_d[brute_d != rbc_d]) <= 1
     rbc_i = cp.sort(rbc_i, axis=1)
     brute_i = cp.sort(brute_i, axis=1)
 
-    diff = rbc_i != brute_i
-
-    # Using a very small tolerance for subtle differences
-    # in indices that result from non-determinism
-    assert diff.ravel().sum() <= 1
+    # TODO: These are failing with 1 or 2 mismatched elements
+    # for very small values of k:
+    # https://github.com/rapidsai/cuml/issues/4262
+    assert len(brute_d[brute_d != rbc_d]) <= 1
+    assert len(brute_i[brute_i != rbc_i]) <= 1
 
 
 @pytest.mark.parametrize("metric", valid_metrics_sparse())
