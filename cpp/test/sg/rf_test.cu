@@ -15,7 +15,6 @@
  */
 #include <test_utils.h>
 #include <cuml/common/logger.hpp>
-#include <icecream.hpp>
 
 #include <decisiontree/batched-levelalgo/kernels.cuh>
 #include <decisiontree/batched-levelalgo/quantile.cuh>
@@ -899,13 +898,13 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
 
   auto Entropy(std::vector<DataT> const& data)
   {  // sum((n_c/n_total)*(log(n_c/n_total)))
-    double entropy(0);
+    DataT entropy(0);
     for (auto c = 0; c < params.n_classes; ++c) {
       IdxT sum(0);
       std::for_each(data.begin(), data.end(), [&](auto d) {
         if (d == DataT(c)) ++sum;
       });
-      double class_proba = double(sum) / data.size();
+      DataT class_proba = DataT(sum) / data.size();
       entropy += -class_proba * raft::myLog(class_proba ? class_proba : DataT(1)) / raft::myLog(DataT(2));  // adding gain
     }
     return entropy;
@@ -920,9 +919,9 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     auto parent_entropy = Entropy(data);
     auto left_entropy   = Entropy(left_data);
     auto right_entropy  = Entropy(right_data);
-    double n         = data.size();
-    double left_n    = left_data.size();
-    double right_n   = right_data.size();
+    DataT n         = data.size();
+    DataT left_n    = left_data.size();
+    DataT right_n   = right_data.size();
 
     auto gain = parent_entropy - ((left_n / n) * left_entropy + (right_n / n) * right_entropy);
 
@@ -936,13 +935,13 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
 
   auto GiniImpurity(std::vector<DataT> const& data)
   {  // sum((n_c/n_total)(1-(n_c/n_total)))
-    double gini(0);
+    DataT gini(0);
     for (auto c = 0; c < params.n_classes; ++c) {
       IdxT sum(0);
       std::for_each(data.begin(), data.end(), [&](auto d) {
         if (d == DataT(c)) ++sum;
       });
-      double class_proba = double(sum) / data.size();
+      DataT class_proba = DataT(sum) / data.size();
       gini += class_proba * (1 - class_proba);  // adding gain
     }
     return gini;
@@ -957,9 +956,9 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     auto parent_gini = GiniImpurity(data);
     auto left_gini   = GiniImpurity(left_data);
     auto right_gini  = GiniImpurity(right_data);
-    double n         = data.size();
-    double left_n    = left_data.size();
-    double right_n   = right_data.size();
+    DataT n         = data.size();
+    DataT left_n    = left_data.size();
+    DataT right_n   = right_data.size();
 
     auto gain = parent_gini - ((left_n / n) * left_gini + (right_n / n) * right_gini);
 
@@ -999,7 +998,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     {
       return GiniGroundTruthGain(data, split_bin_index);
     }
-    return double(0.0);
+    return DataT(0.0);
   }
 
   auto NumLeftOfBin(std::vector<BinT> const& cdf_hist, IdxT idx)
@@ -1086,24 +1085,48 @@ TEST_P(MSEObjectiveTestD, MSEObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         MSEObjectiveTestD,
                         ::testing::ValuesIn(mse_objective_test_parameters));
+typedef ObjectiveTest<MSEObjectiveFunction<float, float, int>> MSEObjectiveTestF;
+TEST_P(MSEObjectiveTestF, MSEObjectiveTest) {}
+INSTANTIATE_TEST_CASE_P(RfTests,
+                        MSEObjectiveTestF,
+                        ::testing::ValuesIn(mse_objective_test_parameters));
+
 // poisson objective test
 typedef ObjectiveTest<PoissonObjectiveFunction<double, double, int>> PoissonObjectiveTestD;
 TEST_P(PoissonObjectiveTestD, poissonObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         PoissonObjectiveTestD,
                         ::testing::ValuesIn(poisson_objective_test_parameters));
+typedef ObjectiveTest<PoissonObjectiveFunction<float, float, int>> PoissonObjectiveTestF;
+TEST_P(PoissonObjectiveTestF, poissonObjectiveTest) {}
+INSTANTIATE_TEST_CASE_P(RfTests,
+                        PoissonObjectiveTestF,
+                        ::testing::ValuesIn(poisson_objective_test_parameters));
+
 // gamma objective test
 typedef ObjectiveTest<GammaObjectiveFunction<double, double, int>> GammaObjectiveTestD;
 TEST_P(GammaObjectiveTestD, GammaObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         GammaObjectiveTestD,
                         ::testing::ValuesIn(gamma_objective_test_parameters));
+typedef ObjectiveTest<GammaObjectiveFunction<float, float, int>> GammaObjectiveTestF;
+TEST_P(GammaObjectiveTestF, GammaObjectiveTest) {}
+INSTANTIATE_TEST_CASE_P(RfTests,
+                        GammaObjectiveTestF,
+                        ::testing::ValuesIn(gamma_objective_test_parameters));
+
 // InvGauss objective test
 typedef ObjectiveTest<InverseGaussianObjectiveFunction<double, double, int>>
   InverseGaussianObjectiveTestD;
 TEST_P(InverseGaussianObjectiveTestD, InverseGaussianObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         InverseGaussianObjectiveTestD,
+                        ::testing::ValuesIn(invgauss_objective_test_parameters));
+typedef ObjectiveTest<InverseGaussianObjectiveFunction<float, float, int>>
+  InverseGaussianObjectiveTestF;
+TEST_P(InverseGaussianObjectiveTestF, InverseGaussianObjectiveTest) {}
+INSTANTIATE_TEST_CASE_P(RfTests,
+                        InverseGaussianObjectiveTestF,
                         ::testing::ValuesIn(invgauss_objective_test_parameters));
 
 // entropy objective test
@@ -1112,12 +1135,22 @@ TEST_P(EntropyObjectiveTestD, entropyObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         EntropyObjectiveTestD,
                         ::testing::ValuesIn(entropy_objective_test_parameters));
+typedef ObjectiveTest<EntropyObjectiveFunction<float, int, int>> EntropyObjectiveTestF;
+TEST_P(EntropyObjectiveTestF, entropyObjectiveTest) {}
+INSTANTIATE_TEST_CASE_P(RfTests,
+                        EntropyObjectiveTestF,
+                        ::testing::ValuesIn(entropy_objective_test_parameters));
 
 // gini objective test
 typedef ObjectiveTest<GiniObjectiveFunction<double, int, int>> GiniObjectiveTestD;
 TEST_P(GiniObjectiveTestD, giniObjectiveTest) {}
 INSTANTIATE_TEST_CASE_P(RfTests,
                         GiniObjectiveTestD,
+                        ::testing::ValuesIn(gini_objective_test_parameters));
+typedef ObjectiveTest<GiniObjectiveFunction<float, int, int>> GiniObjectiveTestF;
+TEST_P(GiniObjectiveTestF, giniObjectiveTest) {}
+INSTANTIATE_TEST_CASE_P(RfTests,
+                        GiniObjectiveTestF,
                         ::testing::ValuesIn(gini_objective_test_parameters));
 
 }  // end namespace DT
