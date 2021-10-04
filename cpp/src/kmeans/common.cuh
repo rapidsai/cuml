@@ -61,6 +61,7 @@
 #include <fstream>
 #include <numeric>
 #include <random>
+#include <vector>
 
 namespace ML {
 
