@@ -242,11 +242,11 @@ class MSEObjectiveFunction {
   using DataT  = DataT_;
   using LabelT = LabelT_;
   using IdxT   = IdxT_;
-  using BinT = AggregateBin;
+  using BinT   = AggregateBin;
   IdxT min_samples_leaf;
 
-  HDI MSEObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf) :
-    min_samples_leaf(min_samples_leaf)
+  HDI MSEObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf)
+    : min_samples_leaf(min_samples_leaf)
   {
   }
 
@@ -298,7 +298,7 @@ class PoissonObjectiveFunction {
   using DataT  = DataT_;
   using LabelT = LabelT_;
   using IdxT   = IdxT_;
-  using BinT = AggregateBin;
+  using BinT   = AggregateBin;
   IdxT min_samples_leaf;
 
   static constexpr auto eps_ = 10 * std::numeric_limits<DataT>::epsilon();
@@ -341,7 +341,7 @@ class PoissonObjectiveFunction {
     DataT parent_obj = -label_sum * raft::myLog(label_sum / len);
     DataT left_obj   = -left_label_sum * raft::myLog(left_label_sum / nLeft);
     DataT right_obj  = -right_label_sum * raft::myLog(right_label_sum / nRight);
-    DataT gain        = parent_obj - (left_obj + right_obj);
+    DataT gain       = parent_obj - (left_obj + right_obj);
     gain             = gain / len;
 
     return gain;
@@ -379,7 +379,7 @@ class GammaObjectiveFunction {
   IdxT min_samples_leaf;
 
   HDI GammaObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf)
-  : min_samples_leaf{min_samples_leaf}
+    : min_samples_leaf{min_samples_leaf}
   {
   }
 
@@ -486,8 +486,8 @@ class InverseGaussianObjectiveFunction {
     DataT parent_obj = -DataT(len) * DataT(len) / label_sum;
     DataT left_obj   = -DataT(nLeft) * DataT(nLeft) / left_label_sum;
     DataT right_obj  = -DataT(nRight) * DataT(nRight) / right_label_sum;
-    DataT gain        = parent_obj - (left_obj + right_obj);
-    gain             = gain / (2 * len );
+    DataT gain       = parent_obj - (left_obj + right_obj);
+    gain             = gain / (2 * len);
 
     return gain;
   }

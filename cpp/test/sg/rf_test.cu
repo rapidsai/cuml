@@ -450,7 +450,7 @@ class RfTest : public ::testing::TestWithParam<RfTestParams> {
   void SetUp() override
   {
     RfTestParams params = ::testing::TestWithParam<RfTestParams>::GetParam();
-    bool is_regression = params.split_criterion != GINI and params.split_criterion != ENTROPY;
+    bool is_regression  = params.split_criterion != GINI and params.split_criterion != ENTROPY;
     if (params.double_precision) {
       if (is_regression) {
         RfSpecialisedTest<double, double> test(params);
@@ -483,16 +483,15 @@ std::vector<int> min_samples_leaf        = {1, 10, 30};
 std::vector<int> min_samples_split       = {2, 10};
 std::vector<float> min_impurity_decrease = {0.0f, 1.0f, 10.0f};
 std::vector<int> n_streams               = {1, 2, 10};
-std::vector<CRITERION> split_criterion   = {
-  CRITERION::INVERSE_GAUSSIAN,
-  CRITERION::GAMMA,
-  CRITERION::POISSON,
-  CRITERION::MSE,
-  CRITERION::GINI,
-  CRITERION::ENTROPY};
-std::vector<int> seed              = {0, 17};
-std::vector<int> n_labels          = {2, 10, 20};
-std::vector<bool> double_precision = {false, true};
+std::vector<CRITERION> split_criterion   = {CRITERION::INVERSE_GAUSSIAN,
+                                          CRITERION::GAMMA,
+                                          CRITERION::POISSON,
+                                          CRITERION::MSE,
+                                          CRITERION::GINI,
+                                          CRITERION::ENTROPY};
+std::vector<int> seed                    = {0, 17};
+std::vector<int> n_labels                = {2, 10, 20};
+std::vector<bool> double_precision       = {false, true};
 
 int n_tests = 100;
 
@@ -722,7 +721,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
         auto data_end   = data_begin + bin_width;
         if constexpr (std::is_same<BinT, CountBin>::value) {  // classification case
           auto count(IdxT(0));
-          std::for_each(data_begin, data_end, [&](auto d){
+          std::for_each(data_begin, data_end, [&](auto d) {
             if (d == c) ++count;
           });
           pdf_hist.emplace_back(count);
@@ -741,10 +740,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     return std::make_pair(cdf_hist, pdf_hist);
   }
 
-
-  auto MSE(
-    std::vector<DataT> const&
-      data)  //  1/n * 1/2 * sum((y - y_pred) * (y - y_pred))
+  auto MSE(std::vector<DataT> const& data)  //  1/n * 1/2 * sum((y - y_pred) * (y - y_pred))
   {
     DataT sum        = std::accumulate(data.begin(), data.end(), DataT(0));
     DataT const mean = sum / data.size();
@@ -768,9 +764,9 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     auto [left_mse, label_sum_left, n_left]    = MSE(left_data);
     auto [right_mse, label_sum_right, n_right] = MSE(right_data);
 
-    auto gain = parent_mse -
-                ((n_left / n) * left_mse +   // the minimizing objective function is half deviance
-                 (n_right / n) * right_mse);  // gain in long form without proxy
+    auto gain =
+      parent_mse - ((n_left / n) * left_mse +  // the minimizing objective function is half deviance
+                    (n_right / n) * right_mse);  // gain in long form without proxy
 
     // edge cases
     if (n_left < params.min_samples_leaf or n_right < params.min_samples_leaf)
@@ -905,7 +901,8 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
         if (d == DataT(c)) ++sum;
       });
       DataT class_proba = DataT(sum) / data.size();
-      entropy += -class_proba * raft::myLog(class_proba ? class_proba : DataT(1)) / raft::myLog(DataT(2));  // adding gain
+      entropy += -class_proba * raft::myLog(class_proba ? class_proba : DataT(1)) /
+                 raft::myLog(DataT(2));  // adding gain
     }
     return entropy;
   }
@@ -919,9 +916,9 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     auto parent_entropy = Entropy(data);
     auto left_entropy   = Entropy(left_data);
     auto right_entropy  = Entropy(right_data);
-    DataT n         = data.size();
-    DataT left_n    = left_data.size();
-    DataT right_n   = right_data.size();
+    DataT n             = data.size();
+    DataT left_n        = left_data.size();
+    DataT right_n       = right_data.size();
 
     auto gain = parent_entropy - ((left_n / n) * left_entropy + (right_n / n) * right_entropy);
 
@@ -956,9 +953,9 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     auto parent_gini = GiniImpurity(data);
     auto left_gini   = GiniImpurity(left_data);
     auto right_gini  = GiniImpurity(right_data);
-    DataT n         = data.size();
-    DataT left_n    = left_data.size();
-    DataT right_n   = right_data.size();
+    DataT n          = data.size();
+    DataT left_n     = left_data.size();
+    DataT right_n    = right_data.size();
 
     auto gain = parent_gini - ((left_n / n) * left_gini + (right_n / n) * right_gini);
 
@@ -972,25 +969,25 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
 
   auto GroundTruthGain(std::vector<DataT> const& data, std::size_t const split_bin_index)
   {
-    if constexpr (std::is_same<ObjectiveT,
-                               MSEObjectiveFunction<DataT, LabelT, IdxT>>::value)  // mean squared error
+    if constexpr (std::is_same<ObjectiveT, MSEObjectiveFunction<DataT, LabelT, IdxT>>::
+                    value)  // mean squared error
     {
       return MSEGroundTruthGain(data, split_bin_index);
-    } else if constexpr (std::is_same<ObjectiveT,
-                               PoissonObjectiveFunction<DataT, LabelT, IdxT>>::value)  // poisson
+    } else if constexpr (std::is_same<ObjectiveT, PoissonObjectiveFunction<DataT, LabelT, IdxT>>::
+                           value)  // poisson
     {
       return PoissonGroundTruthGain(data, split_bin_index);
     } else if constexpr (std::is_same<ObjectiveT,
                                       GammaObjectiveFunction<DataT, LabelT, IdxT>>::value)  // gamma
     {
       return GammaGroundTruthGain(data, split_bin_index);
-    } else if constexpr (std::is_same<
-                           ObjectiveT,
-                           InverseGaussianObjectiveFunction<DataT, LabelT, IdxT>>::value)  // inverse gaussian
+    } else if constexpr (std::is_same<ObjectiveT,
+                                      InverseGaussianObjectiveFunction<DataT, LabelT, IdxT>>::
+                           value)  // inverse gaussian
     {
       return InverseGaussianGroundTruthGain(data, split_bin_index);
-    } else if constexpr (std::is_same<ObjectiveT,
-                                      EntropyObjectiveFunction<DataT, LabelT, IdxT>>::value)  // entropy
+    } else if constexpr (std::is_same<ObjectiveT, EntropyObjectiveFunction<DataT, LabelT, IdxT>>::
+                           value)  // entropy
     {
       return EntropyGroundTruthGain(data, split_bin_index);
     } else if constexpr (std::is_same<ObjectiveT,
