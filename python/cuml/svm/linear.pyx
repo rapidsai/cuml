@@ -375,8 +375,36 @@ cdef class LinearSVM:
 
 
 class LinearSVC(LinearSVM, ClassifierMixin):
-    pass
+
+    REGISTERED_LOSSES = set([
+        'hinge',
+        'squared_hinge'])
+
+    def __init__(self, *args, **kwargs):
+        if 'loss' in kwargs:
+            lt = kwargs['loss']
+            if lt not in self.REGISTERED_LOSSES:
+                raise ValueError(
+                    f"Regression loss type "
+                    f"must be one of {self.REGISTERED_LOSSES}, "
+                    f"but given '{lt}'.")
+        else:
+            self.loss = 'squared_hinge'
 
 
 class LinearSVR(LinearSVM, RegressorMixin):
-    pass
+
+    REGISTERED_LOSSES = set([
+        'epsilon_insensitive',
+        'squared_epsilon_insensitive'])
+
+    def __init__(self, *args, **kwargs):
+        if 'loss' in kwargs:
+            lt = kwargs['loss']
+            if lt not in self.REGISTERED_LOSSES:
+                raise ValueError(
+                    f"Regression loss type "
+                    f"must be one of {self.REGISTERED_LOSSES}, "
+                    f"but given '{lt}'.")
+        else:
+            self.loss = 'epsilon_insensitive'
