@@ -86,6 +86,8 @@ class GiniObjectiveFunction {
   using DataT  = DataT_;
   using LabelT = LabelT_;
   using IdxT   = IdxT_;
+
+ private:
   IdxT nclasses;
   IdxT min_samples_leaf;
 
@@ -162,6 +164,8 @@ class EntropyObjectiveFunction {
   using DataT  = DataT_;
   using LabelT = LabelT_;
   using IdxT   = IdxT_;
+
+ private:
   IdxT nclasses;
   IdxT min_samples_leaf;
 
@@ -243,8 +247,11 @@ class MSEObjectiveFunction {
   using LabelT = LabelT_;
   using IdxT   = IdxT_;
   using BinT   = AggregateBin;
+
+ private:
   IdxT min_samples_leaf;
 
+ public:
   HDI MSEObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf)
     : min_samples_leaf(min_samples_leaf)
   {
@@ -299,8 +306,11 @@ class PoissonObjectiveFunction {
   using LabelT = LabelT_;
   using IdxT   = IdxT_;
   using BinT   = AggregateBin;
+
+ private:
   IdxT min_samples_leaf;
 
+ public:
   static constexpr auto eps_ = 10 * std::numeric_limits<DataT>::epsilon();
 
   HDI PoissonObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf)
@@ -376,8 +386,11 @@ class GammaObjectiveFunction {
   using IdxT                 = IdxT_;
   using BinT                 = AggregateBin;
   static constexpr auto eps_ = 10 * std::numeric_limits<DataT>::epsilon();
+
+ private:
   IdxT min_samples_leaf;
 
+ public:
   HDI GammaObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf)
     : min_samples_leaf{min_samples_leaf}
   {
@@ -449,8 +462,11 @@ class InverseGaussianObjectiveFunction {
   using IdxT                 = IdxT_;
   using BinT                 = AggregateBin;
   static constexpr auto eps_ = 10 * std::numeric_limits<DataT>::epsilon();
+
+ private:
   IdxT min_samples_leaf;
 
+ public:
   HDI InverseGaussianObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf)
     : min_samples_leaf{min_samples_leaf}
   {
