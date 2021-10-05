@@ -58,6 +58,6 @@ set(CUML_BRANCH_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION    ${CUML_MIN_VERSION_raft}
                         FORK       trxcllnt
-                        PINNED_TAG fix/node-rapids-21.10-1
+                        PINNED_TAG fix/node-rapids-21.10
                         USE_FAISS_STATIC ${CUML_USE_FAISS_STATIC}
                         )
