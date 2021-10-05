@@ -102,7 +102,7 @@ class GiniObjectiveFunction {
   {
     IdxT nRight         = len - nLeft;
     constexpr DataT One = DataT(1.0);
-    auto invlen         = One / len;
+    auto invLen         = One / len;
     auto invLeft        = One / nLeft;
     auto invRight       = One / nRight;
     auto gain           = DataT(0.0);
@@ -115,16 +115,16 @@ class GiniObjectiveFunction {
       int val_i   = 0;
       auto lval_i = hist[nbins * j + i].x;
       auto lval   = DataT(lval_i);
-      gain += lval * invLeft * lval * invlen;
+      gain += lval * invLeft * lval * invLen;
 
       val_i += lval_i;
       auto total_sum = hist[nbins * j + nbins - 1].x;
       auto rval_i    = total_sum - lval_i;
       auto rval      = DataT(rval_i);
-      gain += rval * invRight * rval * invlen;
+      gain += rval * invRight * rval * invLen;
 
       val_i += rval_i;
-      auto val = DataT(val_i) * invlen;
+      auto val = DataT(val_i) * invLen;
       gain -= val * val;
     }
 
@@ -254,7 +254,7 @@ class MSEObjectiveFunction {
   {
     auto gain{DataT(0)};
     IdxT nRight{len - nLeft};
-    auto invLen{DataT(1.0) / len};
+    auto invLen = DataT(1.0) / len;
     // if there aren't enough samples in this split, don't bother!
     if (nLeft < min_samples_leaf || nRight < min_samples_leaf) {
       return -std::numeric_limits<DataT>::max();
@@ -304,7 +304,6 @@ class PoissonObjectiveFunction {
   static constexpr auto eps_ = 10 * std::numeric_limits<DataT>::epsilon();
 
   HDI PoissonObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf)
-    // : TweedieObjectiveFunction<DataT, LabelT, IdxT>{min_samples_leaf}
     : min_samples_leaf(min_samples_leaf)
   {
   }
@@ -324,6 +323,7 @@ class PoissonObjectiveFunction {
   {
     // get the lens'
     IdxT nRight = len - nLeft;
+    auto invLen = DataT(1) / len;
 
     // if there aren't enough samples in this split, don't bother!
     if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
@@ -338,11 +338,11 @@ class PoissonObjectiveFunction {
       return -std::numeric_limits<DataT>::max();
 
     // compute the gain to be
-    DataT parent_obj = -label_sum * raft::myLog(label_sum / len);
+    DataT parent_obj = -label_sum * raft::myLog(label_sum * invLen);
     DataT left_obj   = -left_label_sum * raft::myLog(left_label_sum / nLeft);
     DataT right_obj  = -right_label_sum * raft::myLog(right_label_sum / nRight);
     DataT gain       = parent_obj - (left_obj + right_obj);
-    gain             = gain / len;
+    gain             = gain * invLen;
 
     return gain;
   }
@@ -397,6 +397,8 @@ class GammaObjectiveFunction {
   HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft) const
   {
     IdxT nRight = len - nLeft;
+    auto invLen = DataT(1) / len;
+
     // if there aren't enough samples in this split, don't bother!
     if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
       return -std::numeric_limits<DataT>::max();
@@ -410,11 +412,11 @@ class GammaObjectiveFunction {
       return -std::numeric_limits<DataT>::max();
 
     // compute the gain to be
-    DataT parent_obj = len * raft::myLog(label_sum / len);
+    DataT parent_obj = len * raft::myLog(label_sum * invLen);
     DataT left_obj   = nLeft * raft::myLog(left_label_sum / nLeft);
     DataT right_obj  = nRight * raft::myLog(right_label_sum / nRight);
     DataT gain       = parent_obj - (left_obj + right_obj);
-    gain             = gain / DataT(len);
+    gain             = gain * invLen;
 
     return gain;
   }
