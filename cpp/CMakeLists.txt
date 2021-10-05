@@ -194,10 +194,6 @@ rapids_cpm_init()
 include(cmake/thirdparty/get_thrust.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
 
-if(LINK_FAISS)
-  include(cmake/thirdparty/get_faiss.cmake)
-endif()
-
 include(cmake/thirdparty/get_treelite.cmake)
 include(cmake/thirdparty/get_raft.cmake)
 
@@ -387,7 +383,7 @@ if(BUILD_CUML_CPP_LIBRARY)
       CUDA::cusparse
       ${TREELITE_LIBS}
       $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
-      $<$<BOOL:${LINK_FAISS}>:FAISS::FAISS>
+      $<$<BOOL:${LINK_FAISS}>:faiss::faiss>
       $<$<BOOL:${OpenMP_FOUND}>:OpenMP::OpenMP_CXX>
       $<$<OR:$<BOOL:${BUILD_CUML_STD_COMMS}>,$<BOOL:${BUILD_CUML_MPI_COMMS}>>:NCCL::NCCL>
       $<$<BOOL:${BUILD_CUML_MPI_COMMS}>:${MPI_CXX_LIBRARIES}>
@@ -433,7 +429,7 @@ if(BUILD_CUML_C_LIBRARY)
     PUBLIC
       ${CUML_CPP_TARGET}
     PRIVATE
-      FAISS::FAISS
+      faiss::faiss
   )
 
   # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
@@ -496,6 +492,29 @@ set(code_string
 [=[
 thrust_create_target(cuml::Thrust FROM_OPTIONS)
 ]=])
+
+if (TARGET treelite::treelite)
+    string(APPEND code_string
+[=[
+if (TARGET treelite::treelite AND (NOT TARGET treelite))
+    add_library(treelite ALIAS treelite::treelite)
+endif()
+if (TARGET treelite::treelite_runtime AND (NOT TARGET treelite_runtime))
+    add_library(treelite_runtime ALIAS treelite::treelite_runtime)
+endif()
+]=])
+else()
+    string(APPEND code_string
+[=[
+if (TARGET treelite::treelite_static AND (NOT TARGET treelite_static))
+    add_library(treelite_static ALIAS treelite::treelite_static)
+endif()
+if (TARGET treelite::treelite_runtime_static AND (NOT TARGET treelite_runtime_static))
+    add_library(treelite_runtime_static ALIAS treelite::treelite_runtime_static)
+endif()
+]=])
+
+endif()
 
  rapids_export(INSTALL cuml
     EXPORT_SET cuml-exports

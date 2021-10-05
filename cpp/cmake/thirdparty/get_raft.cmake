@@ -20,10 +20,10 @@ function(find_and_configure_raft)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
                           "${multiValueArgs}" ${ARGN} )
 
-    if(DEFINED CPM_raft_SOURCE OR NOT DISABLE_FORCE_CLONE_RAFT)
-      set(CPM_DL_ALL_CACHE ${CPM_DOWNLOAD_ALL})
-      set(CPM_DOWNLOAD_ALL ON)
-    endif()
+    # if(DEFINED CPM_raft_SOURCE OR NOT DISABLE_FORCE_CLONE_RAFT)
+    #   set(CPM_DL_ALL_CACHE ${CPM_DOWNLOAD_ALL})
+    #   set(CPM_DOWNLOAD_ALL ON)
+    # endif()
 
     rapids_cpm_find(raft ${PKG_VERSION}
       GLOBAL_TARGETS      raft::raft
@@ -44,9 +44,9 @@ function(find_and_configure_raft)
       message(VERBOSE "CUML: Using RAFT located in ${raft_DIR}")
     endif()
 
-    if(DEFINED CPM_raft_SOURCE OR NOT DISABLE_FORCE_CLONE_RAFT)
-      set(CPM_DOWNLOAD_ALL ${CPM_DL_ALL_CACHE})
-    endif()
+    # if(DEFINED CPM_raft_SOURCE OR NOT DISABLE_FORCE_CLONE_RAFT)
+    #   set(CPM_DOWNLOAD_ALL ${CPM_DL_ALL_CACHE})
+    # endif()
 
 endfunction()
 
@@ -58,6 +58,6 @@ set(CUML_BRANCH_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION    ${CUML_MIN_VERSION_raft}
                         FORK       trxcllnt
-                        PINNED_TAG fix/node-rapids-21.10
+                        PINNED_TAG fix/node-rapids-21.10-1
                         USE_FAISS_STATIC ${CUML_USE_FAISS_STATIC}
                         )

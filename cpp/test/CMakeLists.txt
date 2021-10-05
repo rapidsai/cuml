@@ -23,7 +23,7 @@ set(COMMON_TEST_LINK_LIBRARIES
   CUDA::cufft
   rmm::rmm
   raft::raft
-  $<$<BOOL:${LINK_FAISS}>:FAISS::FAISS>
+  $<$<BOOL:${LINK_FAISS}>:faiss::faiss>
   GTest::gtest
   GTest::gtest_main
   OpenMP::OpenMP_CXX

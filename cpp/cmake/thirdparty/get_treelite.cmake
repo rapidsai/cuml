@@ -31,6 +31,7 @@ function(find_and_configure_treelite)
               "BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS}"
     )
 
+
     set(Treelite_ADDED ${Treelite_ADDED} PARENT_SCOPE)
 
     if(Treelite_ADDED AND BUILD_STATIC_LIBS)
@@ -55,7 +56,6 @@ function(find_and_configure_treelite)
             if(NOT TARGET treelite::treelite_runtime)
                 add_library(treelite::treelite_runtime ALIAS treelite_runtime)
             endif()
-            install(TARGETS treelite treelite_runtime EXPORT treelite-exports)
         else()
             target_include_directories(treelite_static
                 PUBLIC $<BUILD_INTERFACE:${Treelite_SOURCE_DIR}/include>
@@ -69,15 +69,20 @@ function(find_and_configure_treelite)
             if(NOT TARGET treelite::treelite_runtime_static)
                 add_library(treelite::treelite_runtime_static ALIAS treelite_runtime_static)
             endif()
-            install(TARGETS treelite_static treelite_runtime_static EXPORT treelite-exports)
         endif()
 
         rapids_export(BUILD treelite
-            EXPORT_SET treelite-exports
+            EXPORT_SET TreeliteTargets
             GLOBAL_TARGETS ${TREELITE_LIBS}
-            NAMESPACE cuml::)
+            NAMESPACE treelite::)
     endif()
 
+    # We generate the treelite-config files when we built treelite locally, so always do `find_dependency`
+    rapids_export_package(BUILD treelite cuml-exports)
+
+    # Tell cmake where it can find the generated treelite-config.cmake we wrote.
+    include("${rapids-cmake-dir}/export/find_package_root.cmake")
+    rapids_export_find_package_root(BUILD treelite [=[${CMAKE_CURRENT_LIST_DIR}]=] cuml-exports)
 endfunction()
 
 find_and_configure_treelite(VERSION     2.1.0
