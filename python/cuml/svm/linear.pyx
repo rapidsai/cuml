@@ -21,7 +21,7 @@ import cuml
 
 from cython.operator cimport dereference as deref
 from cuml.common.array import CumlArray
-from cuml.common.mixins import ClassifierMixin
+from cuml.common.mixins import ClassifierMixin, RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.raft.common.handle cimport handle_t
 from cuml.common import input_to_cuml_array
@@ -52,6 +52,7 @@ cdef extern from "cuml/svm/linear.hpp" namespace "ML::SVM":
         double C
         double grad_tol
         double change_tol
+        double svr_sensitivity
 
     cdef cppclass LinearSVMModel[T]:
         const handle_t& handle
@@ -288,6 +289,14 @@ cdef class LinearSVM:
     def change_tol(self, change_tol: float):
         self.params.change_tol = change_tol
 
+    @property
+    def svr_sensitivity(self) -> float:
+        return self.params.svr_sensitivity
+
+    @svr_sensitivity.setter
+    def svr_sensitivity(self, svr_sensitivity: float):
+        self.params.svr_sensitivity = svr_sensitivity
+
     def fit(self, X, y, sample_weight=None, convert_dtype=True):
         """
         Fit the model with X and y.
@@ -366,4 +375,8 @@ cdef class LinearSVM:
 
 
 class LinearSVC(LinearSVM, ClassifierMixin):
+    pass
+
+
+class LinearSVR(LinearSVM, RegressorMixin):
     pass

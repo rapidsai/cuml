@@ -49,43 +49,63 @@ struct SVCL2Loss : GLMBase<T, SVCL2Loss<T>> {
 template <typename T>
 struct SVRL1Loss : GLMBase<T, SVRL1Loss<T>> {
   typedef GLMBase<T, SVRL1Loss<T>> Super;
-  T sensitivity;
+
+  struct Lz {
+    T sensitivity;
+    inline __device__ T operator()(const T y, const T z) const
+    {
+      T t = y - z;
+      return t > sensitivity ? t - sensitivity : t < -sensitivity ? -t - sensitivity : 0;
+    }
+  };
+
+  struct Dlz {
+    T sensitivity;
+    inline __device__ T operator()(const T y, const T z) const
+    {
+      T t = y - z;
+      return t > sensitivity ? -1 : (t < -sensitivity ? 1 : 0);
+    }
+  };
+
+  const Lz lz;
+  const Dlz dlz;
 
   SVRL1Loss(const raft::handle_t& handle, int D, bool has_bias, T sensitivity)
-    : Super(handle, D, 1, has_bias), sensitivity(sensitivity)
+    : Super(handle, D, 1, has_bias), lz{sensitivity}, dlz{sensitivity}
   {
-  }
-  inline __device__ T lz(const T y, const T z) const
-  {
-    T t = y - z;
-    return t > sensitivity ? t - sensitivity : t < -sensitivity ? t + sensitivity : 0;
-  }
-  inline __device__ T dlz(const T y, const T z) const
-  {
-    T t = y - z;
-    return t > sensitivity ? -1 : (t < -sensitivity ? 1 : 0);
   }
 };
 
 template <typename T>
 struct SVRL2Loss : GLMBase<T, SVRL2Loss<T>> {
   typedef GLMBase<T, SVRL2Loss<T>> Super;
-  T sensitivity;
+
+  struct Lz {
+    T sensitivity;
+    inline __device__ T operator()(const T y, const T z) const
+    {
+      T t = raft::myMax<T>(0, raft::myAbs<T>(y - z) - sensitivity);
+      T s = t > sensitivity ? t - sensitivity : t < -sensitivity ? t + sensitivity : 0;
+      return s * s;
+    }
+  };
+
+  struct Dlz {
+    T sensitivity;
+    inline __device__ T operator()(const T y, const T z) const
+    {
+      T t = y - z;
+      return -2 * (t > sensitivity ? t - sensitivity : t < -sensitivity ? (t + sensitivity) : 0);
+    }
+  };
+
+  const Lz lz;
+  const Dlz dlz;
 
   SVRL2Loss(const raft::handle_t& handle, int D, bool has_bias, T sensitivity)
-    : Super(handle, D, 1, has_bias), sensitivity(sensitivity)
+    : Super(handle, D, 1, has_bias), lz{sensitivity}, dlz{sensitivity}
   {
-  }
-  inline __device__ T lz(const T y, const T z) const
-  {
-    T t = raft::myMax<T>(0, raft::myAbs<T>(y - z) - sensitivity);
-    T s = t > sensitivity ? t - sensitivity : t < -sensitivity ? t + sensitivity : 0;
-    return s * s;
-  }
-  inline __device__ T dlz(const T y, const T z) const
-  {
-    T t = y - z;
-    return -2 * (t > sensitivity ? t - sensitivity : t < -sensitivity ? (t + sensitivity) : 0);
   }
 };
 

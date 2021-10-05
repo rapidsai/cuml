@@ -122,6 +122,122 @@ struct GLMBase : GLMDims {
                                        thrust::plus<T>());
   }
 
+  template <typename L>
+  inline void getLoss_impl(T* loss_val,
+                           SimpleDenseMat<T>& Z,
+                           const SimpleVec<T>& y,
+                           cudaStream_t stream,
+                           // SFINAE: Loss::lz is a "Functor" struct
+                           decltype(std::declval<decltype(L::lz)>().operator()(0, 0)))
+  {
+    auto lz_copy = static_cast<Loss*>(this)->lz;
+    if (this->sample_weights) {
+      T normalization = 1.0 / this->weights_sum;
+      raft::linalg::mapThenSumReduce(
+        loss_val,
+        y.len,
+        [lz_copy, normalization] __device__(const T y, const T z, const T weight) {
+          return lz_copy(y, z) * (weight * normalization);
+        },
+        stream,
+        y.data,
+        Z.data,
+        sample_weights);
+    } else {
+      T normalization = 1.0 / y.len;
+      raft::linalg::mapThenSumReduce(
+        loss_val,
+        y.len,
+        [lz_copy, normalization] __device__(const T y, const T z) {
+          return lz_copy(y, z) * normalization;
+        },
+        stream,
+        y.data,
+        Z.data);
+    }
+  }
+
+  template <typename L>
+  inline void getLoss_impl(
+    T* loss_val, SimpleDenseMat<T>& Z, const SimpleVec<T>& y, cudaStream_t stream, ...)
+  {
+    Loss* loss = static_cast<Loss*>(this);
+    if (this->sample_weights) {
+      T normalization = 1.0 / this->weights_sum;
+      raft::linalg::mapThenSumReduce(
+        loss_val,
+        y.len,
+        [loss, normalization] __device__(const T y, const T z, const T weight) {
+          return loss->lz(y, z) * (weight * normalization);
+        },
+        stream,
+        y.data,
+        Z.data,
+        sample_weights);
+    } else {
+      T normalization = 1.0 / y.len;
+      raft::linalg::mapThenSumReduce(
+        loss_val,
+        y.len,
+        [loss, normalization] __device__(const T y, const T z) {
+          return loss->lz(y, z) * normalization;
+        },
+        stream,
+        y.data,
+        Z.data);
+    }
+  }
+
+  template <typename L>
+  inline void getDZ_impl(SimpleDenseMat<T>& Z,
+                         const SimpleVec<T>& y,
+                         cudaStream_t stream,
+                         // SFINAE: Loss::dlz is a "Functor" struct
+                         decltype(std::declval<decltype(L::dlz)>().operator()(0, 0)))
+  {
+    auto dlz_copy = static_cast<Loss*>(this)->dlz;
+    if (this->sample_weights) {  // Sample weights are in use
+      raft::linalg::map(
+        Z.data,
+        y.len,
+        [dlz_copy] __device__(const T y, const T z, const T weight) {
+          return weight * dlz_copy(y, z);
+        },
+        stream,
+        y.data,
+        Z.data,
+        sample_weights);
+    } else {  // Sample weights are not used
+      raft::linalg::binaryOp(Z.data, y.data, Z.data, y.len, dlz_copy, stream);
+    }
+  }
+
+  template <typename L>
+  inline void getDZ_impl(SimpleDenseMat<T>& Z, const SimpleVec<T>& y, cudaStream_t stream, ...)
+  {
+    Loss* loss = static_cast<Loss*>(this);
+    if (this->sample_weights) {  // Sample weights are in use
+      raft::linalg::map(
+        Z.data,
+        y.len,
+        [loss] __device__(const T y, const T z, const T weight) {
+          return weight * loss->dlz(y, z);
+        },
+        stream,
+        y.data,
+        Z.data,
+        sample_weights);
+    } else {  // Sample weights are not used
+      raft::linalg::binaryOp(
+        Z.data,
+        y.data,
+        Z.data,
+        y.len,
+        [loss] __device__(const T y, const T z) { return loss->dlz(y, z); },
+        stream);
+    }
+  }
+
   /*
    * Computes the following:
    * 1. Z <- dL/DZ
@@ -135,30 +251,11 @@ struct GLMBase : GLMDims {
                            cudaStream_t stream)
   {
     // Base impl assumes simple case C = 1
-    Loss* loss = static_cast<Loss*>(this);
-
     // TODO would be nice to have a kernel that fuses these two steps
     // This would be easy, if mapThenSumReduce allowed outputing the result of
     // map (supporting inplace)
-    if (this->sample_weights) {  // Sample weights are in use
-      T normalization = 1.0 / this->weights_sum;
-      auto f_l        = [=] __device__(const T y, const T z, const T weight) {
-        return loss->lz(y, z) * (weight * normalization);
-      };
-      raft::linalg::mapThenSumReduce(loss_val, y.len, f_l, stream, y.data, Z.data, sample_weights);
-
-      auto f_dl = [=] __device__(const T y, const T z, const T weight) {
-        return weight * loss->dlz(y, z);
-      };
-      raft::linalg::map(Z.data, y.len, f_dl, stream, y.data, Z.data, sample_weights);
-    } else {  // Sample weights are not used
-      T normalization = 1.0 / y.len;
-      auto f_l = [=] __device__(const T y, const T z) { return loss->lz(y, z) * normalization; };
-      raft::linalg::mapThenSumReduce(loss_val, y.len, f_l, stream, y.data, Z.data);
-
-      auto f_dl = [=] __device__(const T y, const T z) { return loss->dlz(y, z); };
-      raft::linalg::binaryOp(Z.data, y.data, Z.data, y.len, f_dl, stream);
-    }
+    getLoss_impl<Loss>(loss_val, Z, y, stream, 0);
+    getDZ_impl<Loss>(Z, y, stream, 0);
   }
 
   inline void loss_grad(T* loss_val,
