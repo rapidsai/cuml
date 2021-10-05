@@ -81,7 +81,8 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         4 or 'poisson' for POISSON,
         5 or 'gamma' for GAMMA,
         6 or 'inverse_gaussian' for INVERSE_GAUSSIAN,
-        2, 'mse', 4, 'poisson', 5, 'gamma', 6, 'inverse_gaussian' not valid for classification
+        2, 'mse', 4, 'poisson', 5, 'gamma', 6, 'inverse_gaussian' not valid
+        for classification
     bootstrap : boolean (default = True)
         Control bootstrapping.
         If set, each tree in the forest is built

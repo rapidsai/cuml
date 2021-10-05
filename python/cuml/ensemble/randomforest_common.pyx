@@ -61,7 +61,7 @@ class BaseRandomForestModel(Base):
                       '5': GAMMA, 'gamma': GAMMA,
                       '6': INVERSE_GAUSSIAN,
                       'inverse_gaussian': INVERSE_GAUSSIAN,
-                      '6': CRITERION_END}
+                      '7': CRITERION_END}
 
     classes_ = CumlArrayDescriptor()
 

@@ -231,10 +231,13 @@ def test_tweedie_convergence(max_depth, split_criterion):
     mask = mse_preds > 0
     mse_tweedie_deviance = mean_tweedie_deviance(y[mask],
                                                  mse_preds[mask],
-                                                 power=tweedie[split_criterion]["power"])
+                                                 power=tweedie
+                                                 [split_criterion]["power"])
     tweedie_tweedie_deviance = mean_tweedie_deviance(y[mask],
                                                      tweedie_preds[mask],
-                                                     power=tweedie[split_criterion]["power"])
+                                                     power=tweedie
+                                                     [split_criterion]["power"]
+                                                     )
 
     # model trained on tweedie data with
     # tweedie criterion must perform better on tweedie loss
