@@ -15,9 +15,12 @@
  */
 
 #pragma once
-#include <raft/cudart_utils.h>
+
 #include "hw_eval.cuh"
 #include "hw_utils.cuh"
+
+#include <raft/cudart_utils.h>
+#include <raft/mr/device/buffer.hpp>
 
 template <typename Dtype>
 __device__ Dtype golden_step(Dtype a, Dtype b, Dtype c)
@@ -863,7 +866,6 @@ void holtwinters_optim_gpu(const raft::handle_t& handle,
                            const ML::OptimParams<Dtype> optim_params)
 {
   cudaStream_t stream = handle.get_stream();
-  auto dev_allocator  = handle.get_device_allocator();
 
   // int total_blocks = GET_NUM_BLOCKS(batch_size);
   // int threads_per_block = GET_THREADS_PER_BLOCK(batch_size);
@@ -871,12 +873,12 @@ void holtwinters_optim_gpu(const raft::handle_t& handle,
   int threads_per_block = 128;
 
   // How much sm needed for shared kernel
-  size_t sm_needed  = sizeof(Dtype) * threads_per_block * frequency;
+  int sm_needed     = sizeof(Dtype) * threads_per_block * frequency;
   bool is_additive  = seasonal == ML::SeasonalType::ADDITIVE;
   bool single_param = (optim_alpha + optim_beta + optim_gamma > 1) ? false : true;
 
   if (sm_needed > raft::getSharedMemPerBlock()) {  // Global memory //
-    MLCommon::device_buffer<Dtype> pseason(dev_allocator, stream, batch_size * frequency);
+    rmm::device_uvector<Dtype> pseason(batch_size * frequency, stream);
     holtwinters_optim_gpu_global_kernel<Dtype>
       <<<total_blocks, threads_per_block, 0, stream>>>(ts,
                                                        n,

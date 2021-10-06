@@ -22,11 +22,11 @@
 #include <math.h>
 #include <raft/cudart_utils.h>
 #include <cub/cub.cuh>
-#include <cuml/common/device_buffer.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/divide.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
-#include <raft/mr/device/allocator.hpp>
+#include <rmm/device_scalar.hpp>
+#include <rmm/device_uvector.hpp>
 
 namespace MLCommon {
 
@@ -58,7 +58,6 @@ namespace Metrics {
  * @param lowerLabelRange
  * @param upperLabelRange
  * @param workspace: device buffer containing workspace memory
- * @param allocator: default allocator to allocate memory
  * @param stream: the cuda stream where to launch this kernel
  */
 template <typename LabelT>
@@ -67,8 +66,7 @@ void countLabels(const LabelT* labels,
                  int nRows,
                  LabelT lowerLabelRange,
                  LabelT upperLabelRange,
-                 MLCommon::device_buffer<char>& workspace,
-                 std::shared_ptr<raft::mr::device::allocator> allocator,
+                 rmm::device_uvector<char>& workspace,
                  cudaStream_t stream)
 {
   int num_levels            = upperLabelRange - lowerLabelRange + 2;
@@ -107,8 +105,6 @@ void countLabels(const LabelT* labels,
  * @param size: the size of the data points of type int
  * @param lowerLabelRange: the lower bound of the range of labels
  * @param upperLabelRange: the upper bound of the range of labels
- * @param allocator: object that takes care of temporary device memory allocation of type
- * std::shared_ptr<raft::mr::device::allocator>
  * @param stream: the cudaStream object
  * @return the entropy score
  */
@@ -117,7 +113,6 @@ double entropy(const T* clusterArray,
                const int size,
                const T lowerLabelRange,
                const T upperLabelRange,
-               std::shared_ptr<raft::mr::device::allocator> allocator,
                cudaStream_t stream)
 {
   if (!size) return 1.0;
@@ -125,23 +120,16 @@ double entropy(const T* clusterArray,
   T numUniqueClasses = upperLabelRange - lowerLabelRange + 1;
 
   // declaring, allocating and initializing memory for bincount array and entropy values
-  MLCommon::device_buffer<double> prob(allocator, stream, numUniqueClasses);
+  rmm::device_uvector<double> prob(numUniqueClasses, stream);
   CUDA_CHECK(cudaMemsetAsync(prob.data(), 0, numUniqueClasses * sizeof(double), stream));
-  MLCommon::device_buffer<double> d_entropy(allocator, stream, 1);
+  rmm::device_scalar<double> d_entropy(stream);
   CUDA_CHECK(cudaMemsetAsync(d_entropy.data(), 0, sizeof(double), stream));
 
   // workspace allocation
-  device_buffer<char> workspace(allocator, stream, 1);
+  rmm::device_uvector<char> workspace(1, stream);
 
   // calculating the bincounts and populating the prob array
-  countLabels(clusterArray,
-              prob.data(),
-              size,
-              lowerLabelRange,
-              upperLabelRange,
-              workspace,
-              allocator,
-              stream);
+  countLabels(clusterArray, prob.data(), size, lowerLabelRange, upperLabelRange, workspace, stream);
 
   // scalar dividing by size
   raft::linalg::divideScalar<double>(

@@ -137,7 +137,6 @@ enum CLUSTER_SELECTION_METHOD { EOM = 0, LEAF = 1 };
 
 class RobustSingleLinkageParams {
  public:
-  int k                = 5;
   int min_samples      = 5;
   int min_cluster_size = 5;
   int max_cluster_size = 0;

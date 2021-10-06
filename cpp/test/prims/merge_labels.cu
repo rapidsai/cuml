@@ -71,7 +71,7 @@ class MergeLabelsTest : public ::testing::TestWithParam<MergeLabelsInputs<Index_
  protected:
   MergeLabelsInputs<Index_> params;
   raft::handle_t handle;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   rmm::device_uvector<Index_> labels_a, labels_b, expected, R;
   rmm::device_uvector<bool> mask, m;
 };

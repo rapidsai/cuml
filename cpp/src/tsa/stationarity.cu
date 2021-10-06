@@ -35,10 +35,8 @@ inline void kpss_test_helper(const raft::handle_t& handle,
 {
   const auto& handle_impl = handle;
   cudaStream_t stream     = handle_impl.get_stream();
-  auto allocator          = handle_impl.get_device_allocator();
 
-  MLCommon::TimeSeries::kpss_test(
-    d_y, results, batch_size, n_obs, d, D, s, allocator, stream, pval_threshold);
+  MLCommon::TimeSeries::kpss_test(d_y, results, batch_size, n_obs, d, D, s, stream, pval_threshold);
 }
 
 void kpss_test(const raft::handle_t& handle,

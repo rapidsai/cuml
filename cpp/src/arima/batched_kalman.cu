@@ -25,12 +25,14 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
-#include <common/nvtx.hpp>
-#include <linalg/batched/matrix.cuh>
-#include <linalg/block.cuh>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
 #include <raft/linalg/binary_op.cuh>
+#include <rmm/device_uvector.hpp>
+
+#include <common/nvtx.hpp>
+#include <linalg/batched/matrix.cuh>
+#include <linalg/block.cuh>
 #include <timeSeries/arima_helpers.cuh>
 
 namespace ML {
@@ -81,25 +83,25 @@ DI void MM_l(const double* A, const double* B, double* out)
  * Kalman loop kernel. Each thread computes kalman filter for a single series
  * and stores relevant matrices in registers.
  *
- * @tparam     r          Dimension of the state vector
- * @param[in]  ys         Batched time series
- * @param[in]  nobs       Number of observation per series
- * @param[in]  T          Batched transition matrix.            (r x r)
- * @param[in]  Z          Batched "design" vector               (1 x r)
- * @param[in]  RQR        Batched R*Q*R'                        (r x r)
- * @param[in]  P          Batched P                             (r x r)
- * @param[in]  alpha      Batched state vector                  (r x 1)
- * @param[in]  intercept  Do we fit an intercept?
- * @param[in]  d_mu       Batched intercept                     (1)
- * @param[in]  batch_size Batch size
- * @param[out] vs         Batched residuals                     (nobs)
- * @param[out] Fs         Batched variance of prediction errors (nobs)
- * @param[out] sum_logFs  Batched sum of the logs of Fs         (1)
- * @param[in]  n_diff       d + s*D
- * @param[in]  fc_steps   Number of steps to forecast
- * @param[out] d_fc       Array to store the forecast
- * @param[in]  conf_int   Whether to compute confidence intervals
- * @param[out] d_F_fc     Batched variance of forecast errors   (fc_steps)
+ * @tparam     r           Dimension of the state vector
+ * @param[in]  ys          Batched time series
+ * @param[in]  nobs        Number of observation per series
+ * @param[in]  T           Batched transition matrix.            (r x r)
+ * @param[in]  Z           Batched "design" vector               (1 x r)
+ * @param[in]  RQR         Batched R*Q*R'                        (r x r)
+ * @param[in]  P           Batched P                             (r x r)
+ * @param[in]  alpha       Batched state vector                  (r x 1)
+ * @param[in]  intercept   Do we fit an intercept?
+ * @param[in]  d_mu        Batched intercept                     (1)
+ * @param[in]  batch_size  Batch size
+ * @param[out] d_pred      Predictions                           (nobs)
+ * @param[out] d_loglike   Log-likelihood                        (1)
+ * @param[out] d_ll_sigma2 Sigma^2 term in the log-likelihood    (1)
+ * @param[in]  n_diff      d + s*D
+ * @param[in]  fc_steps    Number of steps to forecast
+ * @param[out] d_fc        Array to store the forecast
+ * @param[in]  conf_int    Whether to compute confidence intervals
+ * @param[out] d_F_fc      Batched variance of forecast errors   (fc_steps)
  */
 template <int rd>
 __global__ void batched_kalman_loop_kernel(const double* ys,
@@ -112,9 +114,9 @@ __global__ void batched_kalman_loop_kernel(const double* ys,
                                            bool intercept,
                                            const double* d_mu,
                                            int batch_size,
-                                           double* vs,
-                                           double* Fs,
-                                           double* sum_logFs,
+                                           double* d_pred,
+                                           double* d_loglike,
+                                           double* d_ll_sigma2,
                                            int n_diff,
                                            int fc_steps   = 0,
                                            double* d_fc   = nullptr,
@@ -150,57 +152,74 @@ __global__ void batched_kalman_loop_kernel(const double* ys,
     }
 
     double b_sum_logFs = 0.0;
+    double b_ll_s2     = 0.0;
+    int n_obs_ll       = 0;
     const double* b_ys = ys + bid * nobs;
-    double* b_vs       = vs + bid * nobs;
-    double* b_Fs       = Fs + bid * nobs;
-
-    double mu = intercept ? d_mu[bid] : 0.0;
+    double* b_pred     = d_pred + bid * nobs;
+    double mu          = intercept ? d_mu[bid] : 0.0;
 
     for (int it = 0; it < nobs; it++) {
-      // 1. v = y - Z*alpha
-      double vs_it = b_ys[it];
-      if (n_diff == 0)
-        vs_it -= l_alpha[0];
-      else {
-        for (int i = 0; i < rd; i++) {
-          vs_it -= l_alpha[i] * l_Z[i];
+      double _Fs, vs_it;
+      bool missing;
+      {
+        // 1. v = y - Z*alpha
+        double pred;
+        if (n_diff == 0)
+          pred = l_alpha[0];
+        else {
+          pred = 0.0;
+          for (int i = 0; i < rd; i++) {
+            pred += l_alpha[i] * l_Z[i];
+          }
         }
-      }
-      b_vs[it] = vs_it;
+        b_pred[it] = pred;
+        double yt  = b_ys[it];
+        missing    = isnan(yt);
 
-      // 2. F = Z*P*Z'
-      double _Fs;
-      if (n_diff == 0)
-        _Fs = l_P[0];
-      else {
-        _Fs = 0.0;
-        for (int i = 0; i < rd; i++) {
-          for (int j = 0; j < rd; j++) {
-            _Fs += l_P[j * rd + i] * l_Z[i] * l_Z[j];
+        if (!missing) {
+          vs_it = yt - pred;
+
+          // 2. F = Z*P*Z'
+          if (n_diff == 0)
+            _Fs = l_P[0];
+          else {
+            _Fs = 0.0;
+            for (int i = 0; i < rd; i++) {
+              for (int j = 0; j < rd; j++) {
+                _Fs += l_P[j * rd + i] * l_Z[i] * l_Z[j];
+              }
+            }
+          }
+
+          if (it >= n_diff) {
+            b_sum_logFs += log(_Fs);
+            b_ll_s2 += vs_it * vs_it / _Fs;
+            n_obs_ll++;
           }
         }
       }
-      b_Fs[it] = _Fs;
-      if (it >= n_diff) b_sum_logFs += log(_Fs);
 
       // 3. K = 1/Fs[it] * T*P*Z'
       // TP = T*P
       MM_l<rd>(l_T, l_P, l_TP);
-      // K = 1/Fs[it] * TP*Z'
-      double _1_Fs = 1.0 / _Fs;
-      if (n_diff == 0) {
-        for (int i = 0; i < rd; i++) {
-          l_K[i] = _1_Fs * l_TP[i];
+      if (!missing) {
+        // K = 1/Fs[it] * TP*Z'
+        double _1_Fs = 1.0 / _Fs;
+        if (n_diff == 0) {
+          for (int i = 0; i < rd; i++) {
+            l_K[i] = _1_Fs * l_TP[i];
+          }
+        } else {
+          Mv_l<rd>(_1_Fs, l_TP, l_Z, l_K);
         }
-      } else
-        Mv_l<rd>(_1_Fs, l_TP, l_Z, l_K);
+      }
 
       // 4. alpha = T*alpha + K*vs[it] + c
       // tmp = T*alpha
       Mv_l<rd>(l_T, l_alpha, l_tmp);
       // alpha = tmp + K*vs[it]
       for (int i = 0; i < rd; i++) {
-        l_alpha[i] = l_tmp[i] + l_K[i] * vs_it;
+        l_alpha[i] = l_tmp[i] + (missing ? 0.0 : l_K[i] * vs_it);
       }
       // alpha = alpha + c
       l_alpha[n_diff] += mu;
@@ -210,15 +229,17 @@ __global__ void batched_kalman_loop_kernel(const double* ys,
       for (int i = 0; i < rd2; i++) {
         l_tmp[i] = l_T[i];
       }
-      // L = L - K * Z
-      if (n_diff == 0) {
-        for (int i = 0; i < rd; i++) {
-          l_tmp[i] -= l_K[i];
-        }
-      } else {
-        for (int i = 0; i < rd; i++) {
-          for (int j = 0; j < rd; j++) {
-            l_tmp[j * rd + i] -= l_K[i] * l_Z[j];
+      if (!missing) {
+        // L = L - K * Z
+        if (n_diff == 0) {
+          for (int i = 0; i < rd; i++) {
+            l_tmp[i] -= l_K[i];
+          }
+        } else {
+          for (int i = 0; i < rd; i++) {
+            for (int j = 0; j < rd; j++) {
+              l_tmp[j * rd + i] -= l_K[i] * l_Z[j];
+            }
           }
         }
       }
@@ -231,7 +252,14 @@ __global__ void batched_kalman_loop_kernel(const double* ys,
         l_P[i] += l_RQR[i];
       }
     }
-    sum_logFs[bid] = b_sum_logFs;
+
+    // Compute log-likelihood
+    {
+      double n_obs_ll_f = static_cast<double>(n_obs_ll);
+      b_ll_s2 /= n_obs_ll_f;
+      if (conf_int) d_ll_sigma2[bid] = b_ll_s2;
+      d_loglike[bid] = -.5 * (b_sum_logFs + n_obs_ll_f * (b_ll_s2 + log(2 * M_PI)));
+    }
 
     // Forecast
     {
@@ -312,9 +340,9 @@ union KalmanLoopSharedMemory {
  * @param[in]  intercept   Do we fit an intercept?
  * @param[in]  d_mu        Batched intercept                     (1)
  * @param[in]  rd          State vector dimension
- * @param[out] d_vs        Batched residuals                     (nobs)
- * @param[out] d_Fs        Batched variance of prediction errors (nobs)
- * @param[out] d_sum_logFs Batched sum of the logs of Fs         (1)
+ * @param[out] d_pred      Predictions                           (nobs)
+ * @param[out] d_loglike   Log-likelihood                        (1)
+ * @param[out] d_ll_sigma2 Sigma^2 term in the log-likelihood    (1)
  * @param[in]  n_diff      d + s*D
  * @param[in]  fc_steps    Number of steps to forecast
  * @param[out] d_fc        Array to store the forecast
@@ -335,9 +363,9 @@ __global__ void _batched_kalman_device_loop_large_kernel(const double* d_ys,
                                                          bool intercept,
                                                          const double* d_mu,
                                                          int rd,
-                                                         double* d_vs,
-                                                         double* d_Fs,
-                                                         double* d_sum_logFs,
+                                                         double* d_pred,
+                                                         double* d_loglike,
+                                                         double* d_ll_sigma2,
                                                          int n_diff,
                                                          int fc_steps,
                                                          double* d_fc,
@@ -367,31 +395,69 @@ __global__ void _batched_kalman_device_loop_large_kernel(const double* d_ys,
     /* Initialization */
     double mu_       = intercept ? d_mu[bid] : 0.0;
     double sum_logFs = 0.0;
+    double ll_s2     = 0.0;
+    int n_obs_ll     = 0;
+    int it;
 
-    /* Kalman loop */
-    for (int it = 0; it < n_obs; it++) {
-      // 1.
-      double vt = d_ys[bid * n_obs + it];
+    /* Skip missing observations at the start */
+    {
+      double pred0;
       if (n_diff == 0) {
-        vt -= shared_alpha[0];
+        pred0 = shared_alpha[0];
       } else {
-        vt -= MLCommon::LinAlg::_block_dot<GemmPolicy::BlockSize, true>(
+        pred0 = 0.0;
+        pred0 += MLCommon::LinAlg::_block_dot<GemmPolicy::BlockSize, true>(
           rd, shared_Z, shared_alpha, shared_mem.reduction_storage);
         __syncthreads();  // necessary to reuse shared memory
       }
-      if (threadIdx.x == 0) d_vs[bid * n_obs + it] = vt;
 
-      // 2.
-      double _F;
-      if (n_diff == 0) {
-        _F = (d_P + bid * rd2)[0];
-      } else {
-        _F = MLCommon::LinAlg::_block_xAxt<GemmPolicy::BlockSize, true, false>(
-          rd, shared_Z, d_P + bid * rd2, shared_mem.reduction_storage);
-        __syncthreads();  // necessary to reuse shared memory
+      for (it = 0; it < n_obs && isnan(d_ys[bid * n_obs + it]); it++) {
+        if (threadIdx.x == 0) d_pred[bid * n_obs + it] = pred0;
       }
-      if (threadIdx.x == 0) d_Fs[bid * n_obs + it] = _F;
-      if (threadIdx.x == 0 && it >= n_diff) sum_logFs += log(_F);
+    }
+
+    /* Kalman loop */
+    for (; it < n_obs; it++) {
+      double vt, _F;
+      bool missing;
+      {
+        // 1. pred = Z*alpha
+        //    v = y - pred
+        double pred;
+        if (n_diff == 0) {
+          pred = shared_alpha[0];
+        } else {
+          pred = 0.0;
+          pred += MLCommon::LinAlg::_block_dot<GemmPolicy::BlockSize, true>(
+            rd, shared_Z, shared_alpha, shared_mem.reduction_storage);
+          __syncthreads();  // necessary to reuse shared memory
+        }
+        double yt = d_ys[bid * n_obs + it];
+        missing   = isnan(yt);
+
+        if (!missing) {
+          vt = yt - pred;
+
+          // 2. F = Z*P*Z'
+          if (n_diff == 0) {
+            _F = (d_P + bid * rd2)[0];
+          } else {
+            _F = MLCommon::LinAlg::_block_xAxt<GemmPolicy::BlockSize, true, false>(
+              rd, shared_Z, d_P + bid * rd2, shared_mem.reduction_storage);
+            __syncthreads();  // necessary to reuse shared memory
+          }
+        }
+
+        if (threadIdx.x == 0) {
+          d_pred[bid * n_obs + it] = pred;
+
+          if (it >= n_diff && !missing) {
+            sum_logFs += log(_F);
+            ll_s2 += vt * vt / _F;
+            n_obs_ll++;
+          }
+        }
+      }
 
       // 3. K = 1/Fs[it] * T*P*Z'
       // TP = T*P (also used later)
@@ -406,13 +472,15 @@ __global__ void _batched_kalman_device_loop_large_kernel(const double* d_ys,
                                                 d_TP + bid * rd2,
                                                 shared_mem.gemm_storage);
       __syncthreads();  // for consistency of TP
-      // K = 1/Fs[it] * TP*Z'
-      double _1_Fs = 1.0 / _F;
-      if (n_diff == 0) {
-        MLCommon::LinAlg::_block_ax(rd, _1_Fs, d_TP + bid * rd2, shared_K);
-      } else {
-        MLCommon::LinAlg::_block_gemv<GemvPolicy, false>(
-          rd, rd, _1_Fs, d_TP + bid * rd2, shared_Z, shared_K, shared_mem.gemv_storage[0]);
+      if (!missing) {
+        // K = 1/Fs[it] * TP*Z'
+        double _1_Fs = 1.0 / _F;
+        if (n_diff == 0) {
+          MLCommon::LinAlg::_block_ax(rd, _1_Fs, d_TP + bid * rd2, shared_K);
+        } else {
+          MLCommon::LinAlg::_block_gemv<GemvPolicy, false>(
+            rd, rd, _1_Fs, d_TP + bid * rd2, shared_Z, shared_K, shared_mem.gemv_storage[0]);
+        }
       }
 
       // 4. alpha = T*alpha + K*vs[it] + c
@@ -423,18 +491,18 @@ __global__ void _batched_kalman_device_loop_large_kernel(const double* d_ys,
       // alpha = vec1 + K*vs[it] + c
       for (int i = threadIdx.x; i < rd; i += GemmPolicy::BlockSize) {
         double c_       = (i == n_diff) ? mu_ : 0.0;
-        shared_alpha[i] = shared_vec0[i] + vt * shared_K[i] + c_;
+        shared_alpha[i] = shared_vec0[i] + c_ + (missing ? 0.0 : vt * shared_K[i]);
       }
 
       // 5. L = T - K * Z
       if (n_diff == 0) {
         for (int i = threadIdx.x; i < rd2; i += GemmPolicy::BlockSize) {
-          double _KZ             = (i < rd) ? shared_K[i] : 0.0;
+          double _KZ             = (i < rd && !missing) ? shared_K[i] : 0.0;
           d_m_tmp[bid * rd2 + i] = d_T[bid * rd2 + i] - _KZ;
         }
       } else {
         for (int i = threadIdx.x; i < rd2; i += GemmPolicy::BlockSize) {
-          double _KZ             = shared_K[i % rd] * shared_Z[i / rd];
+          double _KZ             = missing ? 0.0 : shared_K[i % rd] * shared_Z[i / rd];
           d_m_tmp[bid * rd2 + i] = d_T[bid * rd2 + i] - _KZ;
         }
       }
@@ -531,8 +599,13 @@ __global__ void _batched_kalman_device_loop_large_kernel(const double* d_ys,
       }
     }
 
-    /* Write to global mem */
-    if (threadIdx.x == 0) d_sum_logFs[bid] = sum_logFs;
+    /* Compute log-likelihood */
+    if (threadIdx.x == 0) {
+      double n_obs_ll_f = static_cast<double>(n_obs_ll);
+      ll_s2 /= n_obs_ll_f;
+      if (conf_int) d_ll_sigma2[bid] = ll_s2;
+      d_loglike[bid] = -.5 * (sum_logFs + n_obs_ll_f * (ll_s2 + log(2 * M_PI)));
+    }
   }
 }
 
@@ -550,9 +623,9 @@ __global__ void _batched_kalman_device_loop_large_kernel(const double* d_ys,
  * @param[in]  intercept    Do we fit an intercept?
  * @param[in]  d_mu         Batched intercept                     (1)
  * @param[in]  rd           Dimension of the state vector
- * @param[out] d_vs         Batched residuals                     (nobs)
- * @param[out] d_Fs         Batched variance of prediction errors (nobs)
- * @param[out] d_sum_logFs  Batched sum of the logs of Fs         (1)
+ * @param[out] d_pred       Predictions                           (nobs)
+ * @param[out] d_loglike    Log-likelihood                        (1)
+ * @param[out] d_ll_sigma2  Sigma^2 term in the log-likelihood    (1)
  * @param[in]  n_diff       d + s*D
  * @param[in]  fc_steps     Number of steps to forecast
  * @param[out] d_fc         Array to store the forecast
@@ -571,9 +644,9 @@ void _batched_kalman_device_loop_large(const ARIMAMemory<double>& arima_mem,
                                        bool intercept,
                                        const double* d_mu,
                                        int rd,
-                                       double* d_vs,
-                                       double* d_Fs,
-                                       double* d_sum_logFs,
+                                       double* d_pred,
+                                       double* d_loglike,
+                                       double* d_ll_sigma2,
                                        int n_diff,
                                        int fc_steps   = 0,
                                        double* d_fc   = nullptr,
@@ -584,7 +657,6 @@ void _batched_kalman_device_loop_large(const ARIMAMemory<double>& arima_mem,
                 "Gemm and gemv policies: block size mismatch");
 
   auto stream       = T.stream();
-  auto allocator    = T.allocator();
   auto cublasHandle = T.cublasHandle();
   int batch_size    = T.batches();
 
@@ -595,18 +667,10 @@ void _batched_kalman_device_loop_large(const ARIMAMemory<double>& arima_mem,
                                                   cublasHandle,
                                                   arima_mem.m_tmp_batches,
                                                   arima_mem.m_tmp_dense,
-                                                  allocator,
                                                   stream,
                                                   false);
-  MLCommon::LinAlg::Batched::Matrix<double> TP(rd,
-                                               rd,
-                                               batch_size,
-                                               cublasHandle,
-                                               arima_mem.TP_batches,
-                                               arima_mem.TP_dense,
-                                               allocator,
-                                               stream,
-                                               false);
+  MLCommon::LinAlg::Batched::Matrix<double> TP(
+    rd, rd, batch_size, cublasHandle, arima_mem.TP_batches, arima_mem.TP_dense, stream, false);
 
   int grid_size          = std::min(batch_size, 65536);
   size_t shared_mem_size = 4 * rd * sizeof(double);
@@ -624,9 +688,9 @@ void _batched_kalman_device_loop_large(const ARIMAMemory<double>& arima_mem,
                                                                     intercept,
                                                                     d_mu,
                                                                     rd,
-                                                                    d_vs,
-                                                                    d_Fs,
-                                                                    d_sum_logFs,
+                                                                    d_pred,
+                                                                    d_loglike,
+                                                                    d_ll_sigma2,
                                                                     n_diff,
                                                                     fc_steps,
                                                                     d_fc,
@@ -647,9 +711,9 @@ void batched_kalman_loop(raft::handle_t& handle,
                          bool intercept,
                          const double* d_mu,
                          const ARIMAOrder& order,
-                         double* vs,
-                         double* Fs,
-                         double* sum_logFs,
+                         double* d_pred,
+                         double* d_loglike,
+                         double* d_ll_sigma2,
                          int fc_steps   = 0,
                          double* d_fc   = nullptr,
                          bool conf_int  = false,
@@ -675,9 +739,9 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                          intercept,
                                                          d_mu,
                                                          batch_size,
-                                                         vs,
-                                                         Fs,
-                                                         sum_logFs,
+                                                         d_pred,
+                                                         d_loglike,
+                                                         d_ll_sigma2,
                                                          n_diff,
                                                          fc_steps,
                                                          d_fc,
@@ -696,9 +760,9 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                          intercept,
                                                          d_mu,
                                                          batch_size,
-                                                         vs,
-                                                         Fs,
-                                                         sum_logFs,
+                                                         d_pred,
+                                                         d_loglike,
+                                                         d_ll_sigma2,
                                                          n_diff,
                                                          fc_steps,
                                                          d_fc,
@@ -717,9 +781,9 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                          intercept,
                                                          d_mu,
                                                          batch_size,
-                                                         vs,
-                                                         Fs,
-                                                         sum_logFs,
+                                                         d_pred,
+                                                         d_loglike,
+                                                         d_ll_sigma2,
                                                          n_diff,
                                                          fc_steps,
                                                          d_fc,
@@ -738,9 +802,9 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                          intercept,
                                                          d_mu,
                                                          batch_size,
-                                                         vs,
-                                                         Fs,
-                                                         sum_logFs,
+                                                         d_pred,
+                                                         d_loglike,
+                                                         d_ll_sigma2,
                                                          n_diff,
                                                          fc_steps,
                                                          d_fc,
@@ -759,9 +823,9 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                          intercept,
                                                          d_mu,
                                                          batch_size,
-                                                         vs,
-                                                         Fs,
-                                                         sum_logFs,
+                                                         d_pred,
+                                                         d_loglike,
+                                                         d_ll_sigma2,
                                                          n_diff,
                                                          fc_steps,
                                                          d_fc,
@@ -780,9 +844,9 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                          intercept,
                                                          d_mu,
                                                          batch_size,
-                                                         vs,
-                                                         Fs,
-                                                         sum_logFs,
+                                                         d_pred,
+                                                         d_loglike,
+                                                         d_ll_sigma2,
                                                          n_diff,
                                                          fc_steps,
                                                          d_fc,
@@ -801,9 +865,9 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                          intercept,
                                                          d_mu,
                                                          batch_size,
-                                                         vs,
-                                                         Fs,
-                                                         sum_logFs,
+                                                         d_pred,
+                                                         d_loglike,
+                                                         d_ll_sigma2,
                                                          n_diff,
                                                          fc_steps,
                                                          d_fc,
@@ -822,9 +886,9 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                          intercept,
                                                          d_mu,
                                                          batch_size,
-                                                         vs,
-                                                         Fs,
-                                                         sum_logFs,
+                                                         d_pred,
+                                                         d_loglike,
+                                                         d_ll_sigma2,
                                                          n_diff,
                                                          fc_steps,
                                                          d_fc,
@@ -851,9 +915,9 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                                   intercept,
                                                                   d_mu,
                                                                   rd,
-                                                                  vs,
-                                                                  Fs,
-                                                                  sum_logFs,
+                                                                  d_pred,
+                                                                  d_loglike,
+                                                                  d_ll_sigma2,
                                                                   n_diff,
                                                                   fc_steps,
                                                                   d_fc,
@@ -873,9 +937,9 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                                   intercept,
                                                                   d_mu,
                                                                   rd,
-                                                                  vs,
-                                                                  Fs,
-                                                                  sum_logFs,
+                                                                  d_pred,
+                                                                  d_loglike,
+                                                                  d_ll_sigma2,
                                                                   n_diff,
                                                                   fc_steps,
                                                                   d_fc,
@@ -897,9 +961,9 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                                   intercept,
                                                                   d_mu,
                                                                   rd,
-                                                                  vs,
-                                                                  Fs,
-                                                                  sum_logFs,
+                                                                  d_pred,
+                                                                  d_loglike,
+                                                                  d_ll_sigma2,
                                                                   n_diff,
                                                                   fc_steps,
                                                                   d_fc,
@@ -919,9 +983,9 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                                   intercept,
                                                                   d_mu,
                                                                   rd,
-                                                                  vs,
-                                                                  Fs,
-                                                                  sum_logFs,
+                                                                  d_pred,
+                                                                  d_loglike,
+                                                                  d_ll_sigma2,
                                                                   n_diff,
                                                                   fc_steps,
                                                                   d_fc,
@@ -942,9 +1006,9 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                                 intercept,
                                                                 d_mu,
                                                                 rd,
-                                                                vs,
-                                                                Fs,
-                                                                sum_logFs,
+                                                                d_pred,
+                                                                d_loglike,
+                                                                d_ll_sigma2,
                                                                 n_diff,
                                                                 fc_steps,
                                                                 d_fc,
@@ -964,53 +1028,15 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                                 intercept,
                                                                 d_mu,
                                                                 rd,
-                                                                vs,
-                                                                Fs,
-                                                                sum_logFs,
+                                                                d_pred,
+                                                                d_loglike,
+                                                                d_ll_sigma2,
                                                                 n_diff,
                                                                 fc_steps,
                                                                 d_fc,
                                                                 conf_int,
                                                                 d_F_fc);
     }
-  }
-}
-
-template <int NUM_THREADS>
-__global__ void batched_kalman_loglike_kernel(const double* d_vs,
-                                              const double* d_Fs,
-                                              const double* d_sumLogFs,
-                                              int nobs,
-                                              int batch_size,
-                                              double* d_loglike,
-                                              double* d_sigma2,
-                                              int n_diff,
-                                              double level)
-{
-  using BlockReduce = cub::BlockReduce<double, NUM_THREADS>;
-  __shared__ typename BlockReduce::TempStorage temp_storage;
-
-  int tid           = threadIdx.x;
-  int bid           = blockIdx.x;
-  double bid_sigma2 = 0.0;
-  for (int it = 0; it < nobs; it += NUM_THREADS) {
-    // vs and Fs are in time-major order (memory layout: column major)
-    int idx         = (it + tid) + bid * nobs;
-    double d_vs2_Fs = 0.0;
-    if (it + tid >= n_diff && it + tid < nobs) {
-      double _vi = d_vs[idx];
-      d_vs2_Fs   = _vi * _vi / d_Fs[idx];
-    }
-    __syncthreads();
-    double partial_sum = BlockReduce(temp_storage).Sum(d_vs2_Fs, nobs - it);
-    bid_sigma2 += partial_sum;
-  }
-  if (tid == 0) {
-    double nobs_diff_f = static_cast<double>(nobs - n_diff);
-    bid_sigma2 /= nobs_diff_f;
-    if (level != 0) d_sigma2[bid] = bid_sigma2;
-    d_loglike[bid] =
-      -.5 * (d_sumLogFs[bid] + nobs_diff_f * bid_sigma2 + nobs_diff_f * (log(2 * M_PI)));
   }
 }
 
@@ -1051,7 +1077,6 @@ void _lyapunov_wrapper(raft::handle_t& handle,
   if (r <= 5) {
     auto stream       = handle.get_stream();
     auto cublasHandle = handle.get_cublas_handle();
-    auto allocator    = handle.get_device_allocator();
     int batch_size    = A.batches();
     int r2            = r * r;
 
@@ -1065,7 +1090,6 @@ void _lyapunov_wrapper(raft::handle_t& handle,
                                                       cublasHandle,
                                                       arima_mem.I_m_AxA_batches,
                                                       arima_mem.I_m_AxA_dense,
-                                                      allocator,
                                                       stream,
                                                       false);
     MLCommon::LinAlg::Batched::Matrix<double> I_m_AxA_inv(r2,
@@ -1074,7 +1098,6 @@ void _lyapunov_wrapper(raft::handle_t& handle,
                                                           cublasHandle,
                                                           arima_mem.I_m_AxA_inv_batches,
                                                           arima_mem.I_m_AxA_inv_dense,
-                                                          allocator,
                                                           stream,
                                                           false);
 
@@ -1096,8 +1119,7 @@ void _batched_kalman_filter(raft::handle_t& handle,
                             const MLCommon::LinAlg::Batched::Matrix<double>& Zb,
                             const MLCommon::LinAlg::Batched::Matrix<double>& Tb,
                             const MLCommon::LinAlg::Batched::Matrix<double>& Rb,
-                            double* d_vs,
-                            double* d_Fs,
+                            double* d_pred,
                             double* d_loglike,
                             const double* d_sigma2,
                             bool intercept,
@@ -1111,7 +1133,6 @@ void _batched_kalman_filter(raft::handle_t& handle,
   const size_t batch_size = Zb.batches();
   auto stream             = handle.get_stream();
   auto cublasHandle       = handle.get_cublas_handle();
-  auto allocator          = handle.get_device_allocator();
 
   auto counting = thrust::make_counting_iterator(0);
 
@@ -1119,15 +1140,8 @@ void _batched_kalman_filter(raft::handle_t& handle,
   int rd     = order.rd();
   int r      = order.r();
 
-  MLCommon::LinAlg::Batched::Matrix<double> RQb(rd,
-                                                1,
-                                                batch_size,
-                                                cublasHandle,
-                                                arima_mem.RQ_batches,
-                                                arima_mem.RQ_dense,
-                                                allocator,
-                                                stream,
-                                                true);
+  MLCommon::LinAlg::Batched::Matrix<double> RQb(
+    rd, 1, batch_size, cublasHandle, arima_mem.RQ_batches, arima_mem.RQ_dense, stream, true);
   double* d_RQ      = RQb.raw_data();
   const double* d_R = Rb.raw_data();
   thrust::for_each(
@@ -1137,28 +1151,14 @@ void _batched_kalman_filter(raft::handle_t& handle,
         d_RQ[bid * rd + i] = d_R[bid * rd + i] * sigma2;
       }
     });
-  MLCommon::LinAlg::Batched::Matrix<double> RQR(rd,
-                                                rd,
-                                                batch_size,
-                                                cublasHandle,
-                                                arima_mem.RQR_batches,
-                                                arima_mem.RQR_dense,
-                                                allocator,
-                                                stream,
-                                                false);
+  MLCommon::LinAlg::Batched::Matrix<double> RQR(
+    rd, rd, batch_size, cublasHandle, arima_mem.RQR_batches, arima_mem.RQR_dense, stream, false);
   MLCommon::LinAlg::Batched::b_gemm(false, true, rd, rd, 1, 1.0, RQb, Rb, 0.0, RQR);
 
   // Durbin Koopman "Time Series Analysis" pg 138
   ML::PUSH_RANGE("Init P");
-  MLCommon::LinAlg::Batched::Matrix<double> P(rd,
-                                              rd,
-                                              batch_size,
-                                              cublasHandle,
-                                              arima_mem.P_batches,
-                                              arima_mem.P_dense,
-                                              allocator,
-                                              stream,
-                                              true);
+  MLCommon::LinAlg::Batched::Matrix<double> P(
+    rd, rd, batch_size, cublasHandle, arima_mem.P_batches, arima_mem.P_dense, stream, true);
   {
     double* d_P = P.raw_data();
 
@@ -1175,33 +1175,18 @@ void _batched_kalman_filter(raft::handle_t& handle,
         });
 
       // Initialize the stationary part by solving a Lyapunov equation
-      MLCommon::LinAlg::Batched::Matrix<double> Ts(r,
-                                                   r,
-                                                   batch_size,
-                                                   cublasHandle,
-                                                   arima_mem.Ts_batches,
-                                                   arima_mem.Ts_dense,
-                                                   allocator,
-                                                   stream,
-                                                   false);
+      MLCommon::LinAlg::Batched::Matrix<double> Ts(
+        r, r, batch_size, cublasHandle, arima_mem.Ts_batches, arima_mem.Ts_dense, stream, false);
       MLCommon::LinAlg::Batched::Matrix<double> RQRs(r,
                                                      r,
                                                      batch_size,
                                                      cublasHandle,
                                                      arima_mem.RQRs_batches,
                                                      arima_mem.RQRs_dense,
-                                                     allocator,
                                                      stream,
                                                      false);
-      MLCommon::LinAlg::Batched::Matrix<double> Ps(r,
-                                                   r,
-                                                   batch_size,
-                                                   cublasHandle,
-                                                   arima_mem.Ps_batches,
-                                                   arima_mem.Ps_dense,
-                                                   allocator,
-                                                   stream,
-                                                   false);
+      MLCommon::LinAlg::Batched::Matrix<double> Ps(
+        r, r, batch_size, cublasHandle, arima_mem.Ps_batches, arima_mem.Ps_dense, stream, false);
 
       MLCommon::LinAlg::Batched::b_2dcopy(Tb, Ts, n_diff, n_diff, r, r);
       MLCommon::LinAlg::Batched::b_2dcopy(RQR, RQRs, n_diff, n_diff, r, r);
@@ -1229,20 +1214,12 @@ void _batched_kalman_filter(raft::handle_t& handle,
                                                   handle.get_cublas_handle(),
                                                   arima_mem.alpha_batches,
                                                   arima_mem.alpha_dense,
-                                                  handle.get_device_allocator(),
                                                   stream,
                                                   false);
   if (intercept) {
     // Compute I-T*
-    MLCommon::LinAlg::Batched::Matrix<double> ImT(r,
-                                                  r,
-                                                  batch_size,
-                                                  cublasHandle,
-                                                  arima_mem.ImT_batches,
-                                                  arima_mem.ImT_dense,
-                                                  allocator,
-                                                  stream,
-                                                  false);
+    MLCommon::LinAlg::Batched::Matrix<double> ImT(
+      r, r, batch_size, cublasHandle, arima_mem.ImT_batches, arima_mem.ImT_dense, stream, false);
     const double* d_T = Tb.raw_data();
     double* d_ImT     = ImT.raw_data();
     thrust::for_each(
@@ -1271,7 +1248,6 @@ void _batched_kalman_filter(raft::handle_t& handle,
                                                       cublasHandle,
                                                       arima_mem.ImT_inv_batches,
                                                       arima_mem.ImT_inv_dense,
-                                                      allocator,
                                                       stream,
                                                       false);
     MLCommon::LinAlg::Batched::Matrix<double>::inv(
@@ -1309,27 +1285,14 @@ void _batched_kalman_filter(raft::handle_t& handle,
                       intercept,
                       d_mu,
                       order,
-                      d_vs,
-                      d_Fs,
-                      arima_mem.sumLogF_buffer,
+                      d_pred,
+                      d_loglike,
+                      arima_mem.sigma2_buffer,
                       fc_steps,
                       d_fc,
                       level > 0,
                       d_lower);
 
-  // Finalize loglikelihood and prediction intervals
-  constexpr int NUM_THREADS = 128;
-  batched_kalman_loglike_kernel<NUM_THREADS>
-    <<<batch_size, NUM_THREADS, 0, stream>>>(d_vs,
-                                             d_Fs,
-                                             arima_mem.sumLogF_buffer,
-                                             nobs,
-                                             batch_size,
-                                             d_loglike,
-                                             arima_mem.sigma2_buffer,
-                                             n_diff,
-                                             level);
-  CUDA_CHECK(cudaPeekAtLastError());
   if (level > 0) {
     confidence_intervals<<<batch_size, fc_steps, 0, stream>>>(
       d_fc, arima_mem.sigma2_buffer, d_lower, d_upper, fc_steps, sqrt(2.0) * erfinv(level));
@@ -1454,7 +1417,7 @@ void batched_kalman_filter(raft::handle_t& handle,
                            const ARIMAOrder& order,
                            int batch_size,
                            double* d_loglike,
-                           double* d_vs,
+                           double* d_pred,
                            int fc_steps,
                            double* d_fc,
                            double level,
@@ -1465,38 +1428,16 @@ void batched_kalman_filter(raft::handle_t& handle,
 
   auto cublasHandle = handle.get_cublas_handle();
   auto stream       = handle.get_stream();
-  auto allocator    = handle.get_device_allocator();
 
   // see (3.18) in TSA by D&K
   int rd = order.rd();
 
-  MLCommon::LinAlg::Batched::Matrix<double> Zb(1,
-                                               rd,
-                                               batch_size,
-                                               cublasHandle,
-                                               arima_mem.Z_batches,
-                                               arima_mem.Z_dense,
-                                               allocator,
-                                               stream,
-                                               false);
-  MLCommon::LinAlg::Batched::Matrix<double> Tb(rd,
-                                               rd,
-                                               batch_size,
-                                               cublasHandle,
-                                               arima_mem.T_batches,
-                                               arima_mem.T_dense,
-                                               allocator,
-                                               stream,
-                                               false);
-  MLCommon::LinAlg::Batched::Matrix<double> Rb(rd,
-                                               1,
-                                               batch_size,
-                                               cublasHandle,
-                                               arima_mem.R_batches,
-                                               arima_mem.R_dense,
-                                               allocator,
-                                               stream,
-                                               false);
+  MLCommon::LinAlg::Batched::Matrix<double> Zb(
+    1, rd, batch_size, cublasHandle, arima_mem.Z_batches, arima_mem.Z_dense, stream, false);
+  MLCommon::LinAlg::Batched::Matrix<double> Tb(
+    rd, rd, batch_size, cublasHandle, arima_mem.T_batches, arima_mem.T_dense, stream, false);
+  MLCommon::LinAlg::Batched::Matrix<double> Rb(
+    rd, 1, batch_size, cublasHandle, arima_mem.R_batches, arima_mem.R_dense, stream, false);
 
   init_batched_kalman_matrices(handle,
                                params.ar,
@@ -1521,8 +1462,7 @@ void batched_kalman_filter(raft::handle_t& handle,
                          Zb,
                          Tb,
                          Rb,
-                         d_vs,
-                         arima_mem.F_buffer,
+                         d_pred,
                          d_loglike,
                          params.sigma2,
                          static_cast<bool>(order.k),
@@ -1545,7 +1485,6 @@ void batched_jones_transform(raft::handle_t& handle,
                              double* h_Tparams)
 {
   int N                       = order.complexity();
-  auto allocator              = handle.get_device_allocator();
   auto stream                 = handle.get_stream();
   double* d_params            = arima_mem.d_params;
   double* d_Tparams           = arima_mem.d_Tparams;
@@ -1566,8 +1505,7 @@ void batched_jones_transform(raft::handle_t& handle,
 
   params.unpack(order, batch_size, d_params, stream);
 
-  MLCommon::TimeSeries::batched_jones_transform(
-    order, batch_size, isInv, params, Tparams, allocator, stream);
+  MLCommon::TimeSeries::batched_jones_transform(order, batch_size, isInv, params, Tparams, stream);
   Tparams.mu = params.mu;
 
   Tparams.pack(order, batch_size, d_Tparams, stream);

@@ -14,24 +14,11 @@
 # limitations under the License.
 #=============================================================================
 
-function(find_and_configure_nccl)
+function(find_and_configure_spdlog)
 
-    if(TARGET spdlog::spdlog)
-        return()
-    endif()
-
-    set(oneValueArgs VERSION PINNED_TAG)
-    cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
-                          "${multiValueArgs}" ${ARGN} )
-
-    rapids_cpm_find(spdlog ${PKG_VERSION}
-        CPM_ARGS
-            GIT_REPOSITORY  https://github.com/gabime/spdlog.git
-            GIT_TAG         ${PKG_PINNED_TAG}
-            DOWNLOAD_ONLY   YES
-    )
+    include(${rapids-cmake-dir}/cpm/spdlog.cmake)
+    rapids_cpm_spdlog()
 
 endfunction()
 
-find_and_configure_nccl(VERSION     1.7.0
-                        PINNED_TAG  1.7.0)
+find_and_configure_spdlog()

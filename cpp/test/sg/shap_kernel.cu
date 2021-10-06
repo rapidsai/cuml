@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 
-#include <gtest/gtest.h>
 #include <cuml/explainer/kernel_shap.hpp>
-#include <raft/mr/device/allocator.hpp>
+
+#include <test_utils.h>
 
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
+#include <raft/mr/device/allocator.hpp>
 
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
@@ -28,8 +29,8 @@
 #include <test_utils.h>
 
 namespace MLCommon {
-class raft::mr::device::allocator;
 }
+#include <gtest/gtest.h>
 
 namespace ML {
 
@@ -54,12 +55,12 @@ class MakeKSHAPDatasetTest : public ::testing::TestWithParam<MakeKSHAPDatasetInp
     params  = ::testing::TestWithParam<MakeKSHAPDatasetInputs>::GetParam();
     nrows_X = params.nrows_exact + params.nrows_sampled;
 
-    raft::allocate(background, params.nrows_background * params.ncols);
-    raft::allocate(observation, params.ncols);
-    raft::allocate(nsamples, params.nrows_sampled / 2);
+    raft::allocate(background, params.nrows_background * params.ncols, stream);
+    raft::allocate(observation, params.ncols, stream);
+    raft::allocate(nsamples, params.nrows_sampled / 2, stream);
 
-    raft::allocate(X, nrows_X * params.ncols);
-    raft::allocate(dataset, nrows_X * params.nrows_background * params.ncols);
+    raft::allocate(X, nrows_X * params.ncols, stream);
+    raft::allocate(dataset, nrows_X * params.nrows_background * params.ncols, stream);
 
     thrust::device_ptr<T> b_ptr   = thrust::device_pointer_cast(background);
     thrust::device_ptr<T> o_ptr   = thrust::device_pointer_cast(observation);
@@ -200,9 +201,8 @@ class MakeKSHAPDatasetTest : public ::testing::TestWithParam<MakeKSHAPDatasetInp
   bool test_sampled_X;
   bool test_scatter_exact;
   bool test_scatter_sampled;
-  std::shared_ptr<raft::mr::device::allocator> allocator;
   raft::handle_t handle;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
 };
 
 const std::vector<MakeKSHAPDatasetInputs> inputsf = {{10, 10, 12, 2, 3, 1234ULL},

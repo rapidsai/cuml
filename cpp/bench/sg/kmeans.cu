@@ -45,12 +45,12 @@ class KMeans : public BlobsFixture<D> {
     this->loopOnState(state, [this]() {
       ML::kmeans::fit_predict(*this->handle,
                               kParams,
-                              this->data.X,
+                              this->data.X.data(),
                               this->params.nrows,
                               this->params.ncols,
                               nullptr,
                               centroids,
-                              this->data.y,
+                              this->data.y.data(),
                               inertia,
                               nIter);
     });
