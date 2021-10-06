@@ -41,8 +41,8 @@
 #include <raft/matrix/matrix.cuh>
 #include <rmm/device_uvector.hpp>
 
-#include "glm/ols.cuh"
-#include "glm/qn/qn.cuh"
+#include <glm/ols.cuh>
+#include <glm/qn/qn.cuh>
 
 #include <cuml/svm/linear.hpp>
 

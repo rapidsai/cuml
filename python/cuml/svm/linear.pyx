@@ -36,10 +36,14 @@ cdef extern from "cuml/svm/linear.hpp" namespace "ML::SVM":
             L2 "ML::SVM::LinearSVMParams::L2"
 
         enum Loss:
-            HINGE "ML::SVM::LinearSVMParams::HINGE"
-            SQUARED_HINGE "ML::SVM::LinearSVMParams::SQUARED_HINGE"
-            EPSILON_INSENSITIVE "ML::SVM::LinearSVMParams::EPSILON_INSENSITIVE"
-            SQUARED_EPSILON_INSENSITIVE "ML::SVM::LinearSVMParams::SQUARED_EPSILON_INSENSITIVE"
+            HINGE "ML::SVM::LinearSVMParams::\
+                HINGE"
+            SQUARED_HINGE "ML::SVM::LinearSVMParams::\
+                SQUARED_HINGE"
+            EPSILON_INSENSITIVE "ML::SVM::LinearSVMParams::\
+                EPSILON_INSENSITIVE"
+            SQUARED_EPSILON_INSENSITIVE "ML::SVM::LinearSVMParams::\
+                SQUARED_EPSILON_INSENSITIVE"
 
         Penalty penalty
         Loss loss
@@ -86,6 +90,8 @@ cdef class LinearSVM:
     cdef readonly object dtype
     cdef LinearSVMModelPtr model
 
+    non_default_attrs: set
+
     cdef void reset_model(self):
         if self.model.untyped != 0:
             if self.dtype == np.float32:
@@ -96,11 +102,22 @@ cdef class LinearSVM:
         self.dtype = None
 
     def __cinit__(self, handle: typing.Optional[cuml.Handle] = None, **kwargs):
+        self.non_default_attrs = set()
         self.handle = handle if handle is not None else cuml.Handle()
         self.reset_model()
 
     def __dealloc__(self):
         self.reset_model()
+
+    def __getnewargs_ex__(self):
+        return (), {'handle': self.handle}
+
+    def __getstate__(self):
+        return {k: getattr(self, k) for k in self.non_default_attrs}
+
+    def __setstate__(self, state):
+        for k, v in state.items():
+            setattr(self, k, v)
 
     def __init__(
             self,
@@ -118,6 +135,8 @@ cdef class LinearSVM:
             grad_tol: typing.Optional[float] = None,
             change_tol: typing.Optional[float] = None,
             svr_sensitivity: typing.Optional[float] = None):
+        super().__init__()
+
         if penalty is not None:
             self.penalty = penalty
         if loss is not None:
@@ -190,19 +209,20 @@ cdef class LinearSVM:
             self.params.penalty = LinearSVMParams.Penalty.L2
         else:
             raise AttributeError(f"Unknown penalty string value: {penalty}")
+        self.non_default_attrs.add('penalty')
 
     @property
     def loss(self) -> str:
-        ls = self.params.loss
-        if ls == LinearSVMParams.Loss.HINGE:
+        loss = self.params.loss
+        if loss == LinearSVMParams.Loss.HINGE:
             return "hinge"
-        if ls == LinearSVMParams.Loss.SQUARED_HINGE:
+        if loss == LinearSVMParams.Loss.SQUARED_HINGE:
             return "squared_hinge"
-        if ls == LinearSVMParams.Loss.EPSILON_INSENSITIVE:
+        if loss == LinearSVMParams.Loss.EPSILON_INSENSITIVE:
             return "epsilon_insensitive"
-        if ls == LinearSVMParams.Loss.SQUARED_EPSILON_INSENSITIVE:
+        if loss == LinearSVMParams.Loss.SQUARED_EPSILON_INSENSITIVE:
             return "squared_epsilon_insensitive"
-        raise AttributeError(f"Unknown loss enum value: {ls}")
+        raise AttributeError(f"Unknown loss enum value: {loss}")
 
     @loss.setter
     def loss(self, loss: str):
@@ -216,6 +236,7 @@ cdef class LinearSVM:
             self.params.loss = LinearSVMParams.Loss.SQUARED_EPSILON_INSENSITIVE
         else:
             raise AttributeError(f"Unknown loss string value: {loss}")
+        self.non_default_attrs.add('loss')
 
     @property
     def fit_intercept(self) -> bool:
@@ -224,6 +245,7 @@ cdef class LinearSVM:
     @fit_intercept.setter
     def fit_intercept(self, fit_intercept: bool):
         self.params.fit_intercept = fit_intercept
+        self.non_default_attrs.add('fit_intercept')
 
     @property
     def penalized_intercept(self) -> bool:
@@ -232,6 +254,7 @@ cdef class LinearSVM:
     @penalized_intercept.setter
     def penalized_intercept(self, penalized_intercept: bool):
         self.params.penalized_intercept = penalized_intercept
+        self.non_default_attrs.add('penalized_intercept')
 
     @property
     def max_iter(self) -> int:
@@ -240,6 +263,7 @@ cdef class LinearSVM:
     @max_iter.setter
     def max_iter(self, max_iter: int):
         self.params.max_iter = max_iter
+        self.non_default_attrs.add('max_iter')
 
     @property
     def linesearch_max_iter(self) -> int:
@@ -248,6 +272,7 @@ cdef class LinearSVM:
     @linesearch_max_iter.setter
     def linesearch_max_iter(self, linesearch_max_iter: int):
         self.params.linesearch_max_iter = linesearch_max_iter
+        self.non_default_attrs.add('linesearch_max_iter')
 
     @property
     def lbfgs_memory(self) -> int:
@@ -256,6 +281,7 @@ cdef class LinearSVM:
     @lbfgs_memory.setter
     def lbfgs_memory(self, lbfgs_memory: int):
         self.params.lbfgs_memory = lbfgs_memory
+        self.non_default_attrs.add('lbfgs_memory')
 
     @property
     def verbosity(self) -> int:
@@ -264,6 +290,7 @@ cdef class LinearSVM:
     @verbosity.setter
     def verbosity(self, verbosity: int):
         self.params.verbosity = verbosity
+        self.non_default_attrs.add('verbosity')
 
     @property
     def C(self) -> float:
@@ -272,6 +299,7 @@ cdef class LinearSVM:
     @C.setter
     def C(self, C: float):
         self.params.C = C
+        self.non_default_attrs.add('C')
 
     @property
     def grad_tol(self) -> float:
@@ -280,6 +308,7 @@ cdef class LinearSVM:
     @grad_tol.setter
     def grad_tol(self, grad_tol: float):
         self.params.grad_tol = grad_tol
+        self.non_default_attrs.add('grad_tol')
 
     @property
     def change_tol(self) -> float:
@@ -288,6 +317,7 @@ cdef class LinearSVM:
     @change_tol.setter
     def change_tol(self, change_tol: float):
         self.params.change_tol = change_tol
+        self.non_default_attrs.add('change_tol')
 
     @property
     def svr_sensitivity(self) -> float:
@@ -296,6 +326,7 @@ cdef class LinearSVM:
     @svr_sensitivity.setter
     def svr_sensitivity(self, svr_sensitivity: float):
         self.params.svr_sensitivity = svr_sensitivity
+        self.non_default_attrs.add('svr_sensitivity')
 
     def fit(self, X, y, sample_weight=None, convert_dtype=True):
         """
@@ -381,15 +412,23 @@ class LinearSVC(LinearSVM, ClassifierMixin):
         'squared_hinge'])
 
     def __init__(self, *args, **kwargs):
-        if 'loss' in kwargs:
-            lt = kwargs['loss']
-            if lt not in self.REGISTERED_LOSSES:
-                raise ValueError(
-                    f"Regression loss type "
-                    f"must be one of {self.REGISTERED_LOSSES}, "
-                    f"but given '{lt}'.")
-        else:
+        super().__init__(*args, **kwargs)
+        # set classification-specific defaults
+        if 'loss' not in kwargs:
             self.loss = 'squared_hinge'
+
+    @property
+    def loss(self):
+        return LinearSVM.loss.__get__(self)
+
+    @loss.setter
+    def loss(self, loss: str):
+        if loss not in self.REGISTERED_LOSSES:
+            raise ValueError(
+                f"Classification loss type "
+                f"must be one of {self.REGISTERED_LOSSES}, "
+                f"but given '{loss}'.")
+        LinearSVM.loss.__set__(self, loss)
 
 
 class LinearSVR(LinearSVM, RegressorMixin):
@@ -399,12 +438,20 @@ class LinearSVR(LinearSVM, RegressorMixin):
         'squared_epsilon_insensitive'])
 
     def __init__(self, *args, **kwargs):
-        if 'loss' in kwargs:
-            lt = kwargs['loss']
-            if lt not in self.REGISTERED_LOSSES:
-                raise ValueError(
-                    f"Regression loss type "
-                    f"must be one of {self.REGISTERED_LOSSES}, "
-                    f"but given '{lt}'.")
-        else:
+        super().__init__(*args, **kwargs)
+        # set regression-specific defaults
+        if 'loss' not in kwargs:
             self.loss = 'epsilon_insensitive'
+
+    @property
+    def loss(self):
+        return LinearSVM.loss.__get__(self)
+
+    @loss.setter
+    def loss(self, loss: str):
+        if loss not in self.REGISTERED_LOSSES:
+            raise ValueError(
+                f"Regression loss type "
+                f"must be one of {self.REGISTERED_LOSSES}, "
+                f"but given '{loss}'.")
+        LinearSVM.loss.__set__(self, loss)
