@@ -33,8 +33,10 @@ function(find_and_configure_treelite)
 
 
     set(Treelite_ADDED ${Treelite_ADDED} PARENT_SCOPE)
+    list(APPEND TREELITE_LIBS_NO_PREFIX treelite treelite_runtime)
 
     if(Treelite_ADDED AND BUILD_STATIC_LIBS)
+        list(APPEND TREELITE_LIBS_NO_PREFIX treelite_static treelite_runtime_static)
         list(APPEND TREELITE_LIBS treelite::treelite_static treelite::treelite_runtime_static)
     else()
         list(APPEND TREELITE_LIBS treelite::treelite treelite::treelite_runtime)
@@ -73,7 +75,7 @@ function(find_and_configure_treelite)
 
         rapids_export(BUILD treelite
             EXPORT_SET TreeliteTargets
-            GLOBAL_TARGETS ${TREELITE_LIBS}
+            GLOBAL_TARGETS ${TREELITE_LIBS_NO_PREFIX}
             NAMESPACE treelite::)
     endif()
 
