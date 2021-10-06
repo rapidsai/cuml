@@ -147,10 +147,7 @@ struct forest {
     int max_threads_per_sm, sm_count;
     CUDA_CHECK(
       cudaDeviceGetAttribute(&max_threads_per_sm, cudaDevAttrMaxThreadsPerMultiProcessor, device));
-    int max_blocks_per_sm = max_threads_per_sm / FIL_TPB;
-    ASSERT(blocks_per_sm <= max_blocks_per_sm,
-           "on this GPU, FIL blocks_per_sm cannot exceed %d",
-           max_blocks_per_sm);
+    blocks_per_sm = std::min(blocks_per_sm, max_threads_per_sm / FIL_TPB);
     CUDA_CHECK(cudaDeviceGetAttribute(&sm_count, cudaDevAttrMultiProcessorCount, device));
     fixed_block_count_ = blocks_per_sm * sm_count;
   }
