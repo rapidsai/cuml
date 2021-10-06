@@ -20,28 +20,30 @@ function(find_and_configure_treelite)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
                           "${multiValueArgs}" ${ARGN} )
 
+    if(NOT BUILD_STATIC_LIBS)
+        list(APPEND TREELITE_LIBS treelite::treelite treelite::treelite_runtime)
+    else()
+        list(APPEND TREELITE_LIBS treelite::treelite_static treelite::treelite_runtime_static)
+    endif()
+
     rapids_cpm_find(Treelite ${PKG_VERSION}
-        GLOBAL_TARGETS   treelite::treelite treelite
-        BUILD_EXPORT_SET cuml-exports
+        GLOBAL_TARGETS       ${TREELITE_LIBS}
+        BUILD_EXPORT_SET     cuml-exports
         CPM_ARGS
-            GIT_REPOSITORY  https://github.com/dmlc/treelite.git
-            GIT_TAG         ${PKG_PINNED_TAG}
+            GIT_REPOSITORY   https://github.com/dmlc/treelite.git
+            GIT_TAG          ${PKG_PINNED_TAG}
             OPTIONS
               "USE_OPENMP ON"
               "BUILD_STATIC_LIBS ${BUILD_STATIC_LIBS}"
     )
 
 
-    set(Treelite_ADDED ${Treelite_ADDED} PARENT_SCOPE)
     list(APPEND TREELITE_LIBS_NO_PREFIX treelite treelite_runtime)
-
     if(Treelite_ADDED AND BUILD_STATIC_LIBS)
         list(APPEND TREELITE_LIBS_NO_PREFIX treelite_static treelite_runtime_static)
-        list(APPEND TREELITE_LIBS treelite::treelite_static treelite::treelite_runtime_static)
-    else()
-        list(APPEND TREELITE_LIBS treelite::treelite treelite::treelite_runtime)
     endif()
 
+    set(Treelite_ADDED ${Treelite_ADDED} PARENT_SCOPE)
     set(TREELITE_LIBS ${TREELITE_LIBS} PARENT_SCOPE)
 
     if(Treelite_ADDED)
