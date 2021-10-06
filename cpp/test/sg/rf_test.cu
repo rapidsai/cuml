@@ -699,7 +699,7 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
     } else {
       std::normal_distribution<DataT> normal(1.0, 2.0);
       for (auto& d : data) {
-        auto rand_element(DataT(0));
+        auto rand_element{DataT(0)};
         while (1) {
           rand_element = normal(rng);
           if (rand_element > 0) break;  // only positive random numbers
@@ -720,13 +720,13 @@ class ObjectiveTest : public ::testing::TestWithParam<ObjectiveTestParameters> {
         auto data_begin = data.begin() + b * bin_width;
         auto data_end   = data_begin + bin_width;
         if constexpr (std::is_same<BinT, CountBin>::value) {  // classification case
-          auto count(IdxT(0));
+          auto count{IdxT(0)};
           std::for_each(data_begin, data_end, [&](auto d) {
             if (d == c) ++count;
           });
           pdf_hist.emplace_back(count);
         } else {  // regression case
-          auto label_sum(DataT(0));
+          auto label_sum{DataT(0)};
           label_sum = std::accumulate(data_begin, data_end, DataT(0));
           pdf_hist.emplace_back(label_sum, bin_width);
         }
