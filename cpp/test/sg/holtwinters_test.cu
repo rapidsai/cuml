@@ -76,7 +76,7 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs<T>> {
     raft::allocate(SSE_error_ptr, batch_size, stream);
     raft::allocate(forecast_ptr, batch_size * h, stream);
 
-    raft::allocate(data, batch_size * n);
+    raft::allocate(data, batch_size * n, stream);
     raft::update_device(data, dataset_h, batch_size * n, stream);
 
     raft::handle_t handle;
@@ -123,7 +123,7 @@ class HoltWintersTest : public ::testing::TestWithParam<HoltWintersInputs<T>> {
   }
 
  public:
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   HoltWintersInputs<T> params;
   T *dataset_h, *test;
   T* data;

@@ -24,7 +24,6 @@
 #include <cuml/datasets/make_blobs.hpp>
 #include <cuml/metrics/metrics.hpp>
 #include <raft/distance/distance.cuh>
-#include <raft/mr/device/allocator.hpp>
 
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/transpose.h>
@@ -32,12 +31,10 @@
 
 #include <test_utils.h>
 
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 
 namespace ML {
 
-using namespace MLCommon;
 using namespace Datasets;
 using namespace Metrics;
 using namespace std;
@@ -72,16 +69,14 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
   void basicTest()
   {
     raft::handle_t handle;
+    auto stream = handle.get_stream();
 
     params = ::testing::TestWithParam<DbscanInputs<T, IdxT>>::GetParam();
 
-    device_buffer<T> out(
-      handle.get_device_allocator(), handle.get_stream(), params.n_row * params.n_col);
-    device_buffer<IdxT> l(handle.get_device_allocator(), handle.get_stream(), params.n_row);
-    device_buffer<T> dist(
-      handle.get_device_allocator(),
-      handle.get_stream(),
-      params.metric == raft::distance::Precomputed ? params.n_row * params.n_row : 0);
+    rmm::device_uvector<T> out(params.n_row * params.n_col, stream);
+    rmm::device_uvector<IdxT> l(params.n_row, stream);
+    rmm::device_uvector<T> dist(
+      params.metric == raft::distance::Precomputed ? params.n_row * params.n_row : 0, stream);
 
     make_blobs(handle,
                out.data(),
@@ -109,8 +104,8 @@ class DbscanTest : public ::testing::TestWithParam<DbscanInputs<T, IdxT>> {
                                      raft::distance::L2SqrtUnexpanded);
     }
 
-    raft::allocate(labels, params.n_row);
-    raft::allocate(labels_ref, params.n_row);
+    raft::allocate(labels, params.n_row, stream);
+    raft::allocate(labels_ref, params.n_row, stream);
 
     raft::copy(labels_ref, l.data(), params.n_row, handle.get_stream());
 
@@ -227,13 +222,14 @@ class Dbscan2DSimple : public ::testing::TestWithParam<DBScan2DArrayInputs<T>> {
   void basicTest()
   {
     raft::handle_t handle;
+    auto stream = handle.get_stream();
 
     params = ::testing::TestWithParam<DBScan2DArrayInputs<T>>::GetParam();
 
-    raft::allocate(inputs, params.n_row * 2);
-    raft::allocate(labels, params.n_row);
-    raft::allocate(labels_ref, params.n_out);
-    raft::allocate(core_sample_indices_d, params.n_row);
+    raft::allocate(inputs, params.n_row * 2, stream);
+    raft::allocate(labels, params.n_row, stream);
+    raft::allocate(labels_ref, params.n_out, stream);
+    raft::allocate(core_sample_indices_d, params.n_row, stream);
 
     raft::copy(inputs, params.points, params.n_row * 2, handle.get_stream());
     raft::copy(labels_ref, params.out, params.n_out, handle.get_stream());

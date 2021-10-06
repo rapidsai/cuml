@@ -55,7 +55,7 @@ void get_probabilities(const raft::handle_t& handle,
                        value_t* probabilities)
 {
   auto stream      = handle.get_stream();
-  auto exec_policy = rmm::exec_policy(stream);
+  auto exec_policy = handle.get_thrust_policy();
 
   auto parents    = condensed_tree.get_parents();
   auto children   = condensed_tree.get_children();

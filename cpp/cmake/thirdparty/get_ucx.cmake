@@ -15,9 +15,6 @@
 #=============================================================================
 
 function(find_and_configure_ucx)
-    set(oneValueArgs VERSION PINNED_TAG)
-    cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
-                          "${multiValueArgs}" ${ARGN} )
 
     rapids_find_generate_module(ucx
         HEADER_NAMES  ucp/api/ucp.h

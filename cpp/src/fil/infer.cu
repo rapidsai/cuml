@@ -14,14 +14,29 @@
  * limitations under the License.
  */
 
+#include "common.cuh"
+
+#include <fil/internal.cuh>
+
+#include <cuml/fil/multi_sum.cuh>
+
+#include <raft/cudart_utils.h>
+#include <raft/cuda_utils.cuh>
+
+#include <thrust/functional.h>
+
 #include <algorithm>
 #include <cmath>
 
-#include <raft/cudart_utils.h>
-#include <thrust/functional.h>
-#include <cuml/fil/multi_sum.cuh>
-#include <fil/internal.cuh>
-#include "common.cuh"
+#ifndef CUDA_PRAGMA_UNROLL
+#ifdef __CUDA_ARCH__
+#define CUDA_PRAGMA_UNROLL _Pragma("unroll")
+#else
+#define CUDA_PRAGMA_UNROLL
+#endif  // __CUDA_ARCH__
+#endif  // CUDA_PRAGMA_UNROLL
+
+#define INLINE_CONFIG __forceinline__
 
 namespace ML {
 namespace fil {
@@ -39,7 +54,7 @@ struct Vectorized {
                                                                           vec<NITEMS, T> b) const
   {
     vec<NITEMS, T> c;
-#pragma unroll
+    CUDA_PRAGMA_UNROLL
     for (int i = 0; i < NITEMS; i++)
       c[i] = op(a[i], b[i]);
     return c;
@@ -57,7 +72,7 @@ struct vec {
   T data[N];
   explicit __host__ __device__ vec(T t)
   {
-#pragma unroll
+    CUDA_PRAGMA_UNROLL
     for (int i = 0; i < N; ++i)
       data[i] = t;
   }
@@ -96,7 +111,7 @@ template <int NITEMS>
 __device__ __forceinline__ vec<NITEMS, best_margin_label> to_vec(int c, vec<NITEMS, float> margin)
 {
   vec<NITEMS, best_margin_label> ret;
-#pragma unroll
+  CUDA_PRAGMA_UNROLL
   for (int i = 0; i < NITEMS; ++i)
     ret[i] = best_margin_label(c, margin[i]);
   return ret;
@@ -108,7 +123,7 @@ struct ArgMax {
     vec<NITEMS, best_margin_label> a, vec<NITEMS, best_margin_label> b) const
   {
     vec<NITEMS, best_margin_label> c;
-#pragma unroll
+    CUDA_PRAGMA_UNROLL
     for (int i = 0; i < NITEMS; i++)
       c[i] = cub::ArgMax()(a[i], b[i]);
     return c;
@@ -125,7 +140,7 @@ __device__ __forceinline__ vec<NITEMS, output_type> tree_leaf_output(tree_type t
                                                                      int (&leaves)[NITEMS])
 {
   vec<NITEMS, output_type> out(0);
-#pragma unroll
+  CUDA_PRAGMA_UNROLL
   for (int j = 0; j < NITEMS; ++j) {
     if (FULL_NITEMS || j < n_rows) {
       /** dependent names are not considered templates by default, unless it's a
@@ -138,7 +153,7 @@ __device__ __forceinline__ vec<NITEMS, output_type> tree_leaf_output(tree_type t
   return out;
 }
 
-template <int NITEMS, typename output_type, typename tree_type>
+template <int NITEMS, bool CATS_SUPPORTED, typename output_type, typename tree_type>
 __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(tree_type tree,
                                                                    const float* input,
                                                                    int cols,
@@ -151,14 +166,12 @@ __device__ __forceinline__ vec<NITEMS, output_type> infer_one_tree(tree_type tre
   for (int j = 0; j < NITEMS; ++j)
     curr[j] = 0;
   do {
-#pragma unroll
+    CUDA_PRAGMA_UNROLL
     for (int j = 0; j < NITEMS; ++j) {
       auto n = tree[curr[j]];
       mask &= ~(n.is_leaf() << j);
       if ((mask & (1 << j)) != 0) {
-        float val = input[j * cols + n.fid()];
-        bool cond = isnan(val) ? !n.def_left() : val >= n.thresh();
-        curr[j]   = n.left(curr[j]) + cond;
+        curr[j] = tree.child_index<CATS_SUPPORTED>(n, curr[j], input[j * cols + n.fid()]);
       }
     }
   } while (mask != 0);
@@ -181,8 +194,7 @@ __device__ __forceinline__ vec<1, output_type> infer_one_tree(tree_type tree,
   for (;;) {
     auto n = tree[curr];
     if (n.is_leaf()) break;
-    float val = input[n.fid()];
-    bool cond = isnan(val) ? !n.def_left() : val >= n.thresh();
+    bool cond = tree.child_index<true>(n, curr, input[n.fid()]);
     curr      = n.left(curr) + cond;
   }
   vec<1, output_type> out;
@@ -278,12 +290,12 @@ struct tree_aggregator_t {
     acc += single_tree_prediction;
   }
 
-  __device__ __forceinline__ void finalize(float* block_out,
-                                           int block_num_rows,
-                                           int output_stride,
-                                           output_t transform,
-                                           int num_trees,
-                                           int log2_threads_per_tree)
+  __device__ INLINE_CONFIG void finalize(float* block_out,
+                                         int block_num_rows,
+                                         int output_stride,
+                                         output_t transform,
+                                         int num_trees,
+                                         int log2_threads_per_tree)
   {
     if (FIL_TPB != 1 << log2_threads_per_tree) {  // anything to reduce?
       // ensure input columns can be overwritten (no threads traversing trees)
@@ -306,7 +318,7 @@ struct tree_aggregator_t {
     }
 
     if (threadIdx.x * NITEMS >= block_num_rows) return;
-#pragma unroll
+    CUDA_PRAGMA_UNROLL
     for (int row = 0; row < NITEMS; ++row) {
       int out_preds_i = threadIdx.x * NITEMS + row;
       if (out_preds_i < block_num_rows) block_out[out_preds_i * output_stride] = acc[row];
@@ -352,7 +364,7 @@ __device__ __forceinline__ void write_best_class(
   best = block_reduce(best, vectorized(cub::ArgMax()), tmp_storage);
   // write it out to global memory
   if (threadIdx.x > 0) return;
-#pragma unroll
+  CUDA_PRAGMA_UNROLL
   for (int row = 0; row < best.NITEMS; ++row)
     if (row < num_rows) out[row] = best[row].key;
 }
@@ -393,8 +405,8 @@ __device__ __forceinline__ void normalize_softmax_and_write(Iterator begin,
       *it /= trees_per_class;
   }
   if ((transform & output_t::SOFTMAX) != 0) block_softmax(begin, end, tmp_storage);
-// write result to global memory
-#pragma unroll
+  // write result to global memory
+  CUDA_PRAGMA_UNROLL
   for (int row = 0; row < begin->NITEMS; ++row) {
     for (int c = threadIdx.x; c < end - begin; c += blockDim.x)
       if (row < num_rows) out[row * (end - begin) + c] = begin[c][row];
@@ -460,12 +472,12 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_FEW_CLASSES> {
     acc += single_tree_prediction;
   }
 
-  __device__ __forceinline__ void finalize(float* out,
-                                           int num_rows,
-                                           int num_outputs,
-                                           output_t transform,
-                                           int num_trees,
-                                           int log2_threads_per_tree)
+  __device__ INLINE_CONFIG void finalize(float* out,
+                                         int num_rows,
+                                         int num_outputs,
+                                         output_t transform,
+                                         int num_trees,
+                                         int log2_threads_per_tree)
   {
     __syncthreads();  // free up input row in case it was in shared memory
     // load margin into shared memory
@@ -532,12 +544,12 @@ struct tree_aggregator_t<NITEMS, GROVE_PER_CLASS_MANY_CLASSES> {
     __syncthreads();
   }
 
-  __device__ __forceinline__ void finalize(float* out,
-                                           int num_rows,
-                                           int num_outputs,
-                                           output_t transform,
-                                           int num_trees,
-                                           int log2_threads_per_tree)
+  __device__ INLINE_CONFIG void finalize(float* out,
+                                         int num_rows,
+                                         int num_outputs,
+                                         output_t transform,
+                                         int num_trees,
+                                         int log2_threads_per_tree)
   {
     class_margins_to_global_memory(per_class_margin,
                                    per_class_margin + num_classes,
@@ -631,12 +643,12 @@ struct tree_aggregator_t<NITEMS, VECTOR_LEAF> {
       }
     }
   }
-  __device__ __forceinline__ void finalize(float* out,
-                                           int num_rows,
-                                           int num_outputs,
-                                           output_t transform,
-                                           int num_trees,
-                                           int log2_threads_per_tree)
+  __device__ INLINE_CONFIG void finalize(float* out,
+                                         int num_rows,
+                                         int num_outputs,
+                                         output_t transform,
+                                         int num_trees,
+                                         int log2_threads_per_tree)
   {
     if (num_classes < blockDim.x) {
       __syncthreads();
@@ -683,9 +695,9 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
     : num_classes(params.num_classes), votes((int*)accumulate_workspace)
   {
     for (int c = threadIdx.x; c < num_classes; c += FIL_TPB * NITEMS)
-#pragma unroll
-      for (int item = 0; item < NITEMS; ++item)
-        votes[c * NITEMS + item] = 0;
+      CUDA_PRAGMA_UNROLL
+    for (int item = 0; item < NITEMS; ++item)
+      votes[c * NITEMS + item] = 0;
     // __syncthreads() is called in infer_k
   }
   __device__ __forceinline__ void accumulate(vec<NITEMS, int> single_tree_prediction,
@@ -693,7 +705,7 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
                                              int thread_num_rows)
   {
     if (thread_num_rows == 0) return;
-#pragma unroll
+    CUDA_PRAGMA_UNROLL
     for (int item = 0; item < NITEMS; ++item) {
       raft::myAtomicAdd(votes + single_tree_prediction[item] * NITEMS + item, 1);
     }
@@ -704,7 +716,7 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
   {
     __syncthreads();
     for (int c = threadIdx.x; c < num_classes; c += blockDim.x) {
-#pragma unroll
+      CUDA_PRAGMA_UNROLL
       for (int row = 0; row < num_rows; ++row)
         out[row * num_classes + c] = votes[c * NITEMS + row];
     }
@@ -728,12 +740,12 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
       out[row] = best_class;
     }
   }
-  __device__ __forceinline__ void finalize(float* out,
-                                           int num_rows,
-                                           int num_outputs,
-                                           output_t transform,
-                                           int num_trees,
-                                           int log2_threads_per_tree)
+  __device__ INLINE_CONFIG void finalize(float* out,
+                                         int num_rows,
+                                         int num_outputs,
+                                         output_t transform,
+                                         int num_trees,
+                                         int log2_threads_per_tree)
   {
     if (num_outputs > 1) {
       // only supporting num_outputs == num_classes
@@ -744,7 +756,38 @@ struct tree_aggregator_t<NITEMS, CATEGORICAL_LEAF> {
   }
 };
 
-template <int NITEMS, leaf_algo_t leaf_algo, bool cols_in_shmem, class storage_type>
+__device__ INLINE_CONFIG void load_data(float* sdata,
+                                        const float* block_input,
+                                        predict_params params,
+                                        int rows_per_block,
+                                        int block_num_rows)
+{
+  int num_cols     = params.num_cols;
+  int sdata_stride = params.sdata_stride();
+  // cache the row for all threads to reuse
+  // 2021: latest SMs still do not have >256KiB of shared memory/block required to
+  // exceed the uint16_t
+  CUDA_PRAGMA_UNROLL
+  for (uint16_t input_idx = threadIdx.x; input_idx < block_num_rows * num_cols;
+       input_idx += blockDim.x) {
+    // for even num_cols, we need to pad sdata_stride to reduce bank conflicts
+    // assuming here that sdata_stride == num_cols + 1
+    // then, idx / num_cols * sdata_stride + idx % num_cols == idx + idx / num_cols
+    uint16_t sdata_idx =
+      sdata_stride == num_cols ? input_idx : input_idx + input_idx / (uint16_t)num_cols;
+    sdata[sdata_idx] = block_input[input_idx];
+  }
+  CUDA_PRAGMA_UNROLL
+  for (int idx = block_num_rows * sdata_stride; idx < rows_per_block * sdata_stride;
+       idx += blockDim.x)
+    sdata[idx] = 0.0f;
+}
+
+template <int NITEMS,
+          leaf_algo_t leaf_algo,
+          bool cols_in_shmem,
+          bool CATS_SUPPORTED,
+          class storage_type>
 __global__ void infer_k(storage_type forest, predict_params params)
 {
   extern __shared__ char smem[];
@@ -758,25 +801,8 @@ __global__ void infer_k(storage_type forest, predict_params params)
     int block_num_rows =
       max(0, (int)min((int64_t)rows_per_block, (int64_t)params.num_rows - block_row0));
     const float* block_input = params.data + block_row0 * num_cols;
-    if (cols_in_shmem) {
-      // cache the row for all threads to reuse
-      // 2021: latest SMs still do not have >256KiB of shared memory/block required to
-      // exceed the uint16_t
-#pragma unroll
-      for (uint16_t input_idx = threadIdx.x; input_idx < block_num_rows * num_cols;
-           input_idx += blockDim.x) {
-        // for even num_cols, we need to pad sdata_stride to reduce bank conflicts
-        // assuming here that sdata_stride == num_cols + 1
-        // then, idx / num_cols * sdata_stride + idx % num_cols == idx + idx / num_cols
-        uint16_t sdata_idx =
-          sdata_stride == num_cols ? input_idx : input_idx + input_idx / (uint16_t)num_cols;
-        sdata[sdata_idx] = block_input[input_idx];
-      }
-#pragma unroll
-      for (int idx = block_num_rows * sdata_stride; idx < rows_per_block * sdata_stride;
-           idx += blockDim.x)
-        sdata[idx] = 0.0f;
-    }
+    if constexpr (cols_in_shmem)
+      load_data(sdata, block_input, params, rows_per_block, block_num_rows);
 
     tree_aggregator_t<NITEMS, leaf_algo> acc(
       params, (char*)sdata + params.cols_shmem_size(), sdata, forest.vector_leaf_);
@@ -797,7 +823,7 @@ __global__ void infer_k(storage_type forest, predict_params params)
       typedef typename leaf_output_t<leaf_algo>::T pred_t;
       vec<NITEMS, pred_t> prediction;
       if (tree < forest.num_trees() && thread_num_rows != 0) {
-        prediction = infer_one_tree<NITEMS, pred_t>(
+        prediction = infer_one_tree<NITEMS, CATS_SUPPORTED, pred_t>(
           forest[tree],
           cols_in_shmem ? sdata + thread_row0 * sdata_stride : block_input + thread_row0 * num_cols,
           cols_in_shmem ? sdata_stride : num_cols,
@@ -854,7 +880,7 @@ void shmem_size_params::compute_smem_footprint()
   }
 }
 
-template <leaf_algo_t leaf_algo, bool cols_in_shmem, typename storage_type>
+template <leaf_algo_t leaf_algo, bool COLS_IN_SHMEM, bool CATS_SUPPORTED, typename storage_type>
 void infer_k_nitems_launcher(storage_type forest,
                              predict_params params,
                              cudaStream_t stream,
@@ -862,19 +888,19 @@ void infer_k_nitems_launcher(storage_type forest,
 {
   switch (params.n_items) {
     case 1:
-      infer_k<1, leaf_algo, cols_in_shmem>
+      infer_k<1, leaf_algo, COLS_IN_SHMEM, CATS_SUPPORTED>
         <<<params.num_blocks, block_dim_x, params.shm_sz, stream>>>(forest, params);
       break;
     case 2:
-      infer_k<2, leaf_algo, cols_in_shmem>
+      infer_k<2, leaf_algo, COLS_IN_SHMEM, CATS_SUPPORTED>
         <<<params.num_blocks, block_dim_x, params.shm_sz, stream>>>(forest, params);
       break;
     case 3:
-      infer_k<3, leaf_algo, cols_in_shmem>
+      infer_k<3, leaf_algo, COLS_IN_SHMEM, CATS_SUPPORTED>
         <<<params.num_blocks, block_dim_x, params.shm_sz, stream>>>(forest, params);
       break;
     case 4:
-      infer_k<4, leaf_algo, cols_in_shmem>
+      infer_k<4, leaf_algo, COLS_IN_SHMEM, CATS_SUPPORTED>
         <<<params.num_blocks, block_dim_x, params.shm_sz, stream>>>(forest, params);
       break;
     default: ASSERT(false, "internal error: nitems > 4");
@@ -882,18 +908,31 @@ void infer_k_nitems_launcher(storage_type forest,
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
+template <leaf_algo_t leaf_algo, bool COLS_IN_SHMEM, typename storage_type>
+void infer_k_categorical_launcher(storage_type forest,
+                                  predict_params params,
+                                  cudaStream_t stream,
+                                  int blockdim_x)
+{
+  if (forest.cats_present()) {
+    infer_k_nitems_launcher<leaf_algo, COLS_IN_SHMEM, true>(forest, params, stream, blockdim_x);
+  } else {
+    infer_k_nitems_launcher<leaf_algo, COLS_IN_SHMEM, false>(forest, params, stream, blockdim_x);
+  }
+}
+
 template <leaf_algo_t leaf_algo, typename storage_type>
-void infer_k_launcher(storage_type forest,
-                      predict_params params,
-                      cudaStream_t stream,
-                      int blockdim_x)
+void infer_k_cols_launcher(storage_type forest,
+                           predict_params params,
+                           cudaStream_t stream,
+                           int blockdim_x)
 {
   params.num_blocks = params.num_blocks != 0 ? params.num_blocks
                                              : raft::ceildiv(int(params.num_rows), params.n_items);
   if (params.cols_in_shmem) {
-    infer_k_nitems_launcher<leaf_algo, true>(forest, params, stream, blockdim_x);
+    infer_k_categorical_launcher<leaf_algo, true>(forest, params, stream, blockdim_x);
   } else {
-    infer_k_nitems_launcher<leaf_algo, false>(forest, params, stream, blockdim_x);
+    infer_k_categorical_launcher<leaf_algo, false>(forest, params, stream, blockdim_x);
   }
 }
 
@@ -902,22 +941,22 @@ void infer(storage_type forest, predict_params params, cudaStream_t stream)
 {
   switch (params.leaf_algo) {
     case FLOAT_UNARY_BINARY:
-      infer_k_launcher<FLOAT_UNARY_BINARY>(forest, params, stream, FIL_TPB);
+      infer_k_cols_launcher<FLOAT_UNARY_BINARY>(forest, params, stream, FIL_TPB);
       break;
     case GROVE_PER_CLASS:
       if (params.num_classes > FIL_TPB) {
         params.leaf_algo = GROVE_PER_CLASS_MANY_CLASSES;
-        infer_k_launcher<GROVE_PER_CLASS_MANY_CLASSES>(forest, params, stream, FIL_TPB);
+        infer_k_cols_launcher<GROVE_PER_CLASS_MANY_CLASSES>(forest, params, stream, FIL_TPB);
       } else {
         params.leaf_algo = GROVE_PER_CLASS_FEW_CLASSES;
-        infer_k_launcher<GROVE_PER_CLASS_FEW_CLASSES>(
+        infer_k_cols_launcher<GROVE_PER_CLASS_FEW_CLASSES>(
           forest, params, stream, FIL_TPB - FIL_TPB % params.num_classes);
       }
       break;
     case CATEGORICAL_LEAF:
-      infer_k_launcher<CATEGORICAL_LEAF>(forest, params, stream, FIL_TPB);
+      infer_k_cols_launcher<CATEGORICAL_LEAF>(forest, params, stream, FIL_TPB);
       break;
-    case VECTOR_LEAF: infer_k_launcher<VECTOR_LEAF>(forest, params, stream, FIL_TPB); break;
+    case VECTOR_LEAF: infer_k_cols_launcher<VECTOR_LEAF>(forest, params, stream, FIL_TPB); break;
     default: ASSERT(false, "internal error: invalid leaf_algo");
   }
 }

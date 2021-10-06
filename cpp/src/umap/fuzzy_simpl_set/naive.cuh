@@ -19,7 +19,6 @@
 #include <cuml/manifold/umapparams.h>
 #include <cuml/common/logger.hpp>
 #include <cuml/neighbors/knn.hpp>
-#include <raft/mr/device/allocator.hpp>
 
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
@@ -246,13 +245,12 @@ void smooth_knn_dist(int n,
                      UMAPParams* params,
                      int n_neighbors,
                      float local_connectivity,
-                     std::shared_ptr<raft::mr::device::allocator> d_alloc,
                      cudaStream_t stream)
 {
   dim3 grid(raft::ceildiv(n, TPB_X), 1, 1);
   dim3 blk(TPB_X, 1, 1);
 
-  MLCommon::device_buffer<value_t> dist_means_dev(d_alloc, stream, n_neighbors);
+  rmm::device_uvector<value_t> dist_means_dev(n_neighbors, stream);
 
   raft::stats::mean(dist_means_dev.data(), knn_dists, 1, n_neighbors * n, false, false, stream);
   CUDA_CHECK(cudaPeekAtLastError());
@@ -283,7 +281,6 @@ void smooth_knn_dist(int n,
  * @param n_neighbors number of neighbors in knn search arrays
  * @param out The output COO sparse matrix
  * @param params UMAPParams config object
- * @param d_alloc the device allocator to use for temp memory
  * @param stream cuda stream to use for device operations
  */
 template <int TPB_X, typename value_idx, typename value_t>
@@ -293,14 +290,13 @@ void launcher(int n,
               int n_neighbors,
               raft::sparse::COO<value_t>* out,
               UMAPParams* params,
-              std::shared_ptr<raft::mr::device::allocator> d_alloc,
               cudaStream_t stream)
 {
   /**
    * Calculate mean distance through a parallel reduction
    */
-  MLCommon::device_buffer<value_t> sigmas(d_alloc, stream, n);
-  MLCommon::device_buffer<value_t> rhos(d_alloc, stream, n);
+  rmm::device_uvector<value_t> sigmas(n, stream);
+  rmm::device_uvector<value_t> rhos(n, stream);
   CUDA_CHECK(cudaMemsetAsync(sigmas.data(), 0, n * sizeof(value_t), stream));
   CUDA_CHECK(cudaMemsetAsync(rhos.data(), 0, n * sizeof(value_t), stream));
 
@@ -312,10 +308,9 @@ void launcher(int n,
                                              params,
                                              n_neighbors,
                                              params->local_connectivity,
-                                             d_alloc,
                                              stream);
 
-  raft::sparse::COO<value_t> in(d_alloc, stream, n * n_neighbors, n, n);
+  raft::sparse::COO<value_t> in(stream, n * n_neighbors, n, n);
 
   // check for logging in order to avoid the potentially costly `arr2Str` call!
   if (ML::Logger::get().shouldLogFor(CUML_LEVEL_DEBUG)) {
@@ -367,10 +362,9 @@ void launcher(int n,
                     (1.0 - set_op_mix_ratio) * prod_matrix;
       return res;
     },
-    d_alloc,
     stream);
 
-  raft::sparse::op::coo_sort<value_t>(out, d_alloc, stream);
+  raft::sparse::op::coo_sort<value_t>(out, stream);
 }
 }  // namespace Naive
 }  // namespace FuzzySimplSet

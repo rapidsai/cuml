@@ -17,8 +17,6 @@
 #include <cuml/matrix/kernelparams.h>
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
-#include <cuml/common/device_buffer.hpp>
-#include <cuml/common/host_buffer.hpp>
 #include <iostream>
 #include <matrix/grammatrix.cuh>
 #include <matrix/kernelfactory.cuh>
@@ -85,12 +83,7 @@ template <typename math_t>
 class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
  protected:
   GramMatrixTest()
-    : params(GetParam()),
-      stream(0),
-      x1(0, stream),
-      x2(0, stream),
-      gram(0, stream),
-      gram_host(handle.get_host_allocator(), stream)
+    : params(GetParam()), stream(0), x1(0, stream), x2(0, stream), gram(0, stream), gram_host(0)
   {
     CUDA_CHECK(cudaStreamCreate(&stream));
 
@@ -103,14 +96,15 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
     size = get_offset(params.n2 - 1, params.n_cols - 1, params.ld2, params.is_row_major) + 1;
     x2.resize(size, stream);
     size = get_offset(params.n1 - 1, params.n2 - 1, params.ld_out, params.is_row_major) + 1;
+
     gram.resize(size, stream);
+    CUDA_CHECK(cudaMemsetAsync(gram.data(), 0, gram.size() * sizeof(math_t), stream));
     gram_host.resize(gram.size());
+    std::fill(gram_host.begin(), gram_host.end(), 0);
 
     raft::random::Rng r(42137ULL);
     r.uniform(x1.data(), x1.size(), math_t(0), math_t(1), stream);
     r.uniform(x2.data(), x2.size(), math_t(0), math_t(1), stream);
-    CUDA_CHECK(cudaMemsetAsync(gram.data(), 0, gram.size() * sizeof(math_t), stream));
-    CUDA_CHECK(cudaMemsetAsync(gram_host.data(), 0, gram_host.size() * sizeof(math_t), stream));
   }
 
   ~GramMatrixTest() override { CUDA_CHECK_NO_THROW(cudaStreamDestroy(stream)); }
@@ -118,9 +112,9 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
   // Calculate the Gram matrix on the host.
   void naiveKernel()
   {
-    host_buffer<math_t> x1_host(handle.get_host_allocator(), stream, x1.size());
+    std::vector<math_t> x1_host(x1.size());
     raft::update_host(x1_host.data(), x1.data(), x1.size(), stream);
-    host_buffer<math_t> x2_host(handle.get_host_allocator(), stream, x2.size());
+    std::vector<math_t> x2_host(x2.size());
     raft::update_host(x2_host.data(), x2.data(), x2.size(), stream);
     CUDA_CHECK(cudaStreamSynchronize(stream));
 
@@ -176,15 +170,13 @@ class GramMatrixTest : public ::testing::TestWithParam<GramMatrixInputs> {
   }
 
   raft::handle_t handle;
-  cudaStream_t stream;
+  cudaStream_t stream = 0;
   GramMatrixInputs params;
-
-  std::shared_ptr<raft::mr::host::allocator> host_allocator;
 
   rmm::device_uvector<math_t> x1;
   rmm::device_uvector<math_t> x2;
   rmm::device_uvector<math_t> gram;
-  raft::mr::host::buffer<math_t> gram_host;
+  std::vector<math_t> gram_host;
 };
 
 typedef GramMatrixTest<float> GramMatrixTestFloat;

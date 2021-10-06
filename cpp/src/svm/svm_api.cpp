@@ -46,7 +46,7 @@ cumlError_t cumlSpSvcFit(cumlHandle_t handle,
                          int* n_classes,
                          float** unique_labels)
 {
-  ML::SVM::svmParameter param;
+  ML::SVM::SvmParameter param;
   param.C              = C;
   param.cache_size     = cache_size;
   param.max_iter       = max_iter;
@@ -60,7 +60,7 @@ cumlError_t cumlSpSvcFit(cumlHandle_t handle,
   kernel_param.gamma  = gamma;
   kernel_param.coef0  = coef0;
 
-  ML::SVM::svmModel<float> model;
+  ML::SVM::SvmModel<float> model;
 
   cumlError_t status;
   raft::handle_t* handle_ptr;
@@ -112,7 +112,7 @@ cumlError_t cumlDpSvcFit(cumlHandle_t handle,
                          int* n_classes,
                          double** unique_labels)
 {
-  ML::SVM::svmParameter param;
+  ML::SVM::SvmParameter param;
   param.C              = C;
   param.cache_size     = cache_size;
   param.max_iter       = max_iter;
@@ -126,7 +126,7 @@ cumlError_t cumlDpSvcFit(cumlHandle_t handle,
   kernel_param.gamma  = gamma;
   kernel_param.coef0  = coef0;
 
-  ML::SVM::svmModel<double> model;
+  ML::SVM::SvmModel<double> model;
 
   cumlError_t status;
   raft::handle_t* handle_ptr;
@@ -179,7 +179,7 @@ cumlError_t cumlSpSvcPredict(cumlHandle_t handle,
   kernel_param.gamma  = gamma;
   kernel_param.coef0  = coef0;
 
-  ML::SVM::svmModel<float> model;
+  ML::SVM::SvmModel<float> model;
   model.n_support     = n_support;
   model.b             = b;
   model.dual_coefs    = dual_coefs;
@@ -233,7 +233,7 @@ cumlError_t cumlDpSvcPredict(cumlHandle_t handle,
   kernel_param.gamma  = gamma;
   kernel_param.coef0  = coef0;
 
-  ML::SVM::svmModel<double> model;
+  ML::SVM::SvmModel<double> model;
   model.n_support     = n_support;
   model.b             = b;
   model.dual_coefs    = dual_coefs;

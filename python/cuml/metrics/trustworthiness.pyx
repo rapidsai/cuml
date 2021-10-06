@@ -88,6 +88,9 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
         warnings.warn("Parameter should_downcast is deprecated, use "
                       "convert_dtype instead. ")
 
+    if n_neighbors > X.shape[0]:
+        raise ValueError("n_neighbors must be <= the number of rows.")
+
     handle = cuml.raft.common.handle.Handle() if handle is None else handle
 
     cdef uintptr_t d_X_ptr

@@ -74,27 +74,26 @@ struct RegressionParams {
  */
 template <typename D, typename L, typename IdxT = int>
 struct Dataset {
+  Dataset() : X(0, rmm::cuda_stream_default), y(0, rmm::cuda_stream_default) {}
   /** input data */
-  D* X;
+  rmm::device_uvector<D> X;
   /** labels or output associated with each row of input data */
-  L* y;
+  rmm::device_uvector<L> y;
 
   /** allocate space needed for the dataset */
   void allocate(const raft::handle_t& handle, const DatasetParams& p)
   {
-    auto allocator = handle.get_device_allocator();
-    auto stream    = handle.get_stream();
-    X              = (D*)allocator->allocate(p.nrows * p.ncols * sizeof(D), stream);
-    y              = (L*)allocator->allocate(p.nrows * sizeof(L), stream);
+    auto stream = handle.get_stream();
+    X.resize(p.nrows * p.ncols, stream);
+    y.resize(p.nrows, stream);
   }
 
   /** free-up the buffers */
   void deallocate(const raft::handle_t& handle, const DatasetParams& p)
   {
-    auto allocator = handle.get_device_allocator();
-    auto stream    = handle.get_stream();
-    allocator->deallocate(X, p.nrows * p.ncols * sizeof(D), stream);
-    allocator->deallocate(y, p.nrows * sizeof(L), stream);
+    auto stream = handle.get_stream();
+    X.release();
+    y.release();
   }
 
   /** whether the current dataset is for classification or regression */
@@ -109,19 +108,20 @@ struct Dataset {
     const auto& handle_impl = handle;
     auto stream             = handle_impl.get_stream();
     auto cublas_handle      = handle_impl.get_cublas_handle();
-    auto allocator          = handle_impl.get_device_allocator();
 
     // Make blobs will generate labels of type IdxT which has to be an integer
     // type. We cast it to a different output type if needed.
     IdxT* tmpY;
+    rmm::device_uvector<IdxT> tmpY_vec(0, stream);
     if (std::is_same<L, IdxT>::value) {
-      tmpY = (IdxT*)y;
+      tmpY = (IdxT*)y.data();
     } else {
-      tmpY = (IdxT*)allocator->allocate(p.nrows * sizeof(IdxT), stream);
+      tmpY_vec.resize(p.nrows, stream);
+      tmpY = tmpY_vec.data();
     }
 
     ML::Datasets::make_blobs(handle,
-                             X,
+                             X.data(),
                              tmpY,
                              p.nrows,
                              p.ncols,
@@ -136,8 +136,7 @@ struct Dataset {
                              b.seed);
     if (!std::is_same<L, IdxT>::value) {
       raft::linalg::unaryOp(
-        y, tmpY, p.nrows, [] __device__(IdxT z) { return (L)z; }, stream);
-      allocator->deallocate(tmpY, p.nrows * sizeof(IdxT), stream);
+        y.data(), tmpY, p.nrows, [] __device__(IdxT z) { return (L)z; }, stream);
     }
   }
 
@@ -152,14 +151,16 @@ struct Dataset {
     auto stream             = handle_impl.get_stream();
     auto cublas_handle      = handle_impl.get_cublas_handle();
     auto cusolver_handle    = handle_impl.get_cusolver_dn_handle();
-    auto allocator          = handle_impl.get_device_allocator();
 
-    D* tmpX = X;
-
-    if (!p.rowMajor) { tmpX = (D*)allocator->allocate(p.nrows * p.ncols * sizeof(D), stream); }
+    D* tmpX = X.data();
+    rmm::device_uvector<D> tmpX_vec(0, stream);
+    if (!p.rowMajor) {
+      tmpX_vec.resize(p.nrows * p.ncols, stream);
+      tmpX = tmpX_vec.data();
+    }
     MLCommon::Random::make_regression(handle,
                                       tmpX,
-                                      y,
+                                      y.data(),
                                       p.nrows,
                                       p.ncols,
                                       r.n_informative,
@@ -172,10 +173,7 @@ struct Dataset {
                                       D(r.noise),
                                       r.shuffle,
                                       r.seed);
-    if (!p.rowMajor) {
-      raft::linalg::transpose(handle, tmpX, X, p.nrows, p.ncols, stream);
-      allocator->deallocate(tmpX, p.nrows * p.ncols * sizeof(D), stream);
-    }
+    if (!p.rowMajor) { raft::linalg::transpose(handle, tmpX, X.data(), p.nrows, p.ncols, stream); }
   }
 
   /**

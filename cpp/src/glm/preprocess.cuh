@@ -24,6 +24,7 @@
 #include <raft/stats/mean.cuh>
 #include <raft/stats/mean_center.cuh>
 #include <raft/stats/stddev.cuh>
+#include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 
 namespace ML {
@@ -89,7 +90,7 @@ void postProcessData(const raft::handle_t& handle,
   ASSERT(n_rows > 1, "Parameter n_rows: number of rows cannot be less than two");
 
   cublasHandle_t cublas_handle = handle.get_cublas_handle();
-  rmm::device_uvector<math_t> d_intercept(1, stream);
+  rmm::device_scalar<math_t> d_intercept(stream);
 
   if (normalize) {
     raft::matrix::matrixVectorBinaryMult(input, norm2_input, n_rows, n_cols, false, true, stream);
@@ -101,9 +102,7 @@ void postProcessData(const raft::handle_t& handle,
     handle, mu_input, 1, n_cols, coef, d_intercept.data(), 1, 1, CUBLAS_OP_N, CUBLAS_OP_N, stream);
 
   raft::linalg::subtract(d_intercept.data(), mu_labels, d_intercept.data(), 1, stream);
-  raft::update_host(intercept, d_intercept.data(), 1, stream);
-
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  *intercept = d_intercept.value(stream);
 
   raft::stats::meanAdd(input, input, mu_input, n_cols, n_rows, false, true, stream);
   raft::stats::meanAdd(labels, labels, mu_labels, 1, n_rows, false, true, stream);

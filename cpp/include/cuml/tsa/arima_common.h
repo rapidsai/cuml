@@ -70,23 +70,18 @@ struct ARIMAParams {
    * @tparam      AllocatorT Type of allocator used
    * @param[in]   order      ARIMA order
    * @param[in]   batch_size Batch size
-   * @param[in]   alloc      Allocator
    * @param[in]   stream     CUDA stream
    * @param[in]   tr         Whether these are the transformed parameters
    */
-  template <typename AllocatorT>
-  void allocate(const ARIMAOrder& order,
-                int batch_size,
-                AllocatorT& alloc,
-                cudaStream_t stream,
-                bool tr = false)
+  void allocate(const ARIMAOrder& order, int batch_size, cudaStream_t stream, bool tr = false)
   {
-    if (order.k && !tr) mu = (DataT*)alloc->allocate(batch_size * sizeof(DataT), stream);
-    if (order.p) ar = (DataT*)alloc->allocate(order.p * batch_size * sizeof(DataT), stream);
-    if (order.q) ma = (DataT*)alloc->allocate(order.q * batch_size * sizeof(DataT), stream);
-    if (order.P) sar = (DataT*)alloc->allocate(order.P * batch_size * sizeof(DataT), stream);
-    if (order.Q) sma = (DataT*)alloc->allocate(order.Q * batch_size * sizeof(DataT), stream);
-    sigma2 = (DataT*)alloc->allocate(batch_size * sizeof(DataT), stream);
+    rmm::mr::device_memory_resource* rmm_alloc = rmm::mr::get_current_device_resource();
+    if (order.k && !tr) mu = (DataT*)rmm_alloc->allocate(batch_size * sizeof(DataT), stream);
+    if (order.p) ar = (DataT*)rmm_alloc->allocate(order.p * batch_size * sizeof(DataT), stream);
+    if (order.q) ma = (DataT*)rmm_alloc->allocate(order.q * batch_size * sizeof(DataT), stream);
+    if (order.P) sar = (DataT*)rmm_alloc->allocate(order.P * batch_size * sizeof(DataT), stream);
+    if (order.Q) sma = (DataT*)rmm_alloc->allocate(order.Q * batch_size * sizeof(DataT), stream);
+    sigma2 = (DataT*)rmm_alloc->allocate(batch_size * sizeof(DataT), stream);
   }
 
   /**
@@ -95,23 +90,18 @@ struct ARIMAParams {
    * @tparam      AllocatorT Type of allocator used
    * @param[in]   order      ARIMA order
    * @param[in]   batch_size Batch size
-   * @param[in]   alloc      Allocator
    * @param[in]   stream     CUDA stream
    * @param[in]   tr         Whether these are the transformed parameters
    */
-  template <typename AllocatorT>
-  void deallocate(const ARIMAOrder& order,
-                  int batch_size,
-                  AllocatorT& alloc,
-                  cudaStream_t stream,
-                  bool tr = false)
+  void deallocate(const ARIMAOrder& order, int batch_size, cudaStream_t stream, bool tr = false)
   {
-    if (order.k && !tr) alloc->deallocate(mu, batch_size * sizeof(DataT), stream);
-    if (order.p) alloc->deallocate(ar, order.p * batch_size * sizeof(DataT), stream);
-    if (order.q) alloc->deallocate(ma, order.q * batch_size * sizeof(DataT), stream);
-    if (order.P) alloc->deallocate(sar, order.P * batch_size * sizeof(DataT), stream);
-    if (order.Q) alloc->deallocate(sma, order.Q * batch_size * sizeof(DataT), stream);
-    alloc->deallocate(sigma2, batch_size * sizeof(DataT), stream);
+    rmm::mr::device_memory_resource* rmm_alloc = rmm::mr::get_current_device_resource();
+    if (order.k && !tr) rmm_alloc->deallocate(mu, batch_size * sizeof(DataT), stream);
+    if (order.p) rmm_alloc->deallocate(ar, order.p * batch_size * sizeof(DataT), stream);
+    if (order.q) rmm_alloc->deallocate(ma, order.q * batch_size * sizeof(DataT), stream);
+    if (order.P) rmm_alloc->deallocate(sar, order.P * batch_size * sizeof(DataT), stream);
+    if (order.Q) rmm_alloc->deallocate(sma, order.Q * batch_size * sizeof(DataT), stream);
+    rmm_alloc->deallocate(sigma2, batch_size * sizeof(DataT), stream);
   }
 
   /**
@@ -210,9 +200,9 @@ struct ARIMAMemory {
   T *params_mu, *params_ar, *params_ma, *params_sar, *params_sma, *params_sigma2, *Tparams_mu,
     *Tparams_ar, *Tparams_ma, *Tparams_sar, *Tparams_sma, *Tparams_sigma2, *d_params, *d_Tparams,
     *Z_dense, *R_dense, *T_dense, *RQR_dense, *RQ_dense, *P_dense, *alpha_dense, *ImT_dense,
-    *ImT_inv_dense, *v_tmp_dense, *m_tmp_dense, *K_dense, *TP_dense, *vs, *y_diff, *loglike,
-    *loglike_base, *loglike_pert, *x_pert, *F_buffer, *sumLogF_buffer, *sigma2_buffer,
-    *I_m_AxA_dense, *I_m_AxA_inv_dense, *Ts_dense, *RQRs_dense, *Ps_dense;
+    *ImT_inv_dense, *v_tmp_dense, *m_tmp_dense, *K_dense, *TP_dense, *pred, *y_diff, *loglike,
+    *loglike_base, *loglike_pert, *x_pert, *sigma2_buffer, *I_m_AxA_dense, *I_m_AxA_inv_dense,
+    *Ts_dense, *RQRs_dense, *Ps_dense;
   T **Z_batches, **R_batches, **T_batches, **RQR_batches, **RQ_batches, **P_batches,
     **alpha_batches, **ImT_batches, **ImT_inv_batches, **v_tmp_batches, **m_tmp_batches,
     **K_batches, **TP_batches, **I_m_AxA_batches, **I_m_AxA_inv_batches, **Ts_batches,
@@ -289,11 +279,9 @@ struct ARIMAMemory {
     append_buffer<assign>(K_batches, batch_size);
     append_buffer<assign>(TP_dense, rd * rd * batch_size);
     append_buffer<assign>(TP_batches, batch_size);
-    append_buffer<assign>(F_buffer, n_obs * batch_size);
-    append_buffer<assign>(sumLogF_buffer, batch_size);
     append_buffer<assign>(sigma2_buffer, batch_size);
 
-    append_buffer<assign>(vs, n_obs * batch_size);
+    append_buffer<assign>(pred, n_obs * batch_size);
     append_buffer<assign>(y_diff, n_obs * batch_size);
     append_buffer<assign>(loglike, batch_size);
     append_buffer<assign>(loglike_base, batch_size);

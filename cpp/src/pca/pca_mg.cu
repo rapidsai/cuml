@@ -14,23 +14,26 @@
  * limitations under the License.
  */
 
-#include <raft/cudart_utils.h>
-#include <raft/linalg/transpose.h>
-#include <cuml/common/device_buffer.hpp>
+#include "pca.cuh"
+
 #include <cuml/decomposition/pca.hpp>
 #include <cuml/decomposition/pca_mg.hpp>
 #include <cuml/decomposition/sign_flip_mg.hpp>
+
 #include <opg/linalg/qr_based_svd.hpp>
 #include <opg/matrix/matrix_utils.hpp>
 #include <opg/stats/cov.hpp>
 #include <opg/stats/mean.hpp>
 #include <opg/stats/mean_center.hpp>
+
+#include <raft/cudart_utils.h>
+#include <raft/linalg/transpose.h>
 #include <raft/comms/comms.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/matrix/math.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <raft/stats/mean_center.cuh>
-#include "pca.cuh"
+
+#include <cstddef>
 
 using namespace MLCommon;
 
@@ -53,15 +56,13 @@ void fit_impl(raft::handle_t& handle,
               int n_streams,
               bool verbose)
 {
-  const auto& comm             = handle.get_comms();
-  cublasHandle_t cublas_handle = handle.get_cublas_handle();
-  const auto allocator         = handle.get_device_allocator();
+  const auto& comm = handle.get_comms();
 
   Matrix::Data<T> mu_data{mu, size_t(prms.n_cols)};
 
   Stats::opg::mean(handle, mu_data, input_data, input_desc, streams, n_streams);
 
-  device_buffer<T> cov_data(allocator, streams[0], prms.n_cols * prms.n_cols);
+  rmm::device_uvector<T> cov_data(prms.n_cols * prms.n_cols, streams[0]);
   size_t cov_data_size = cov_data.size();
   Matrix::Data<T> cov{cov_data.data(), cov_data_size};
 
@@ -133,7 +134,6 @@ void fit_impl(raft::handle_t& handle,
   } else if (prms.algorithm == mg_solver::QR) {
     const raft::handle_t& h = handle;
     cudaStream_t stream     = h.get_stream();
-    const auto allocator    = h.get_device_allocator();
     const auto& comm        = h.get_comms();
 
     // Center the data
@@ -148,9 +148,9 @@ void fit_impl(raft::handle_t& handle,
     std::vector<Matrix::Data<T>*> uMatrixParts;
     Matrix::opg::allocate(h, uMatrixParts, input_desc, rank, stream);
 
-    device_buffer<T> sVector(allocator, stream, prms.n_cols);
+    rmm::device_uvector<T> sVector(prms.n_cols, stream);
 
-    device_buffer<T> vMatrix(allocator, stream, prms.n_cols * prms.n_cols);
+    rmm::device_uvector<T> vMatrix(prms.n_cols * prms.n_cols, stream);
 
     CUDA_CHECK(cudaMemset(vMatrix.data(), 0, prms.n_cols * prms.n_cols * sizeof(T)));
 
@@ -170,8 +170,8 @@ void fit_impl(raft::handle_t& handle,
     sign_flip(handle, uMatrixParts, input_desc, vMatrix.data(), prms.n_cols, streams, n_streams);
 
     // Calculate instance variables
-    device_buffer<T> explained_var_all(allocator, stream, prms.n_cols);
-    device_buffer<T> explained_var_ratio_all(allocator, stream, prms.n_cols);
+    rmm::device_uvector<T> explained_var_all(prms.n_cols, stream);
+    rmm::device_uvector<T> explained_var_ratio_all(prms.n_cols, stream);
 
     T scalar = 1.0 / (prms.n_rows - 1);
     raft::matrix::power(sVector.data(), explained_var_all.data(), scalar, prms.n_cols, stream);
@@ -222,8 +222,6 @@ void transform_impl(raft::handle_t& handle,
                     int n_streams,
                     bool verbose)
 {
-  cublasHandle_t cublas_h                         = handle.get_cublas_handle();
-  const auto allocator                            = handle.get_device_allocator();
   std::vector<Matrix::RankSizePair*> local_blocks = input_desc.partsToRanks;
 
   if (prms.whiten) {
@@ -234,7 +232,7 @@ void transform_impl(raft::handle_t& handle,
       components, singular_vals, prms.n_cols, prms.n_components, true, true, streams[0]);
   }
 
-  for (int i = 0; i < input.size(); i++) {
+  for (std::size_t i = 0; i < input.size(); i++) {
     int si = i % n_streams;
 
     raft::stats::meanCenter(input[i]->ptr,
@@ -361,8 +359,6 @@ void inverse_transform_impl(raft::handle_t& handle,
                             int n_streams,
                             bool verbose)
 {
-  cublasHandle_t cublas_h                         = handle.get_cublas_handle();
-  const auto allocator                            = handle.get_device_allocator();
   std::vector<Matrix::RankSizePair*> local_blocks = trans_input_desc.partsToRanks;
 
   if (prms.whiten) {
@@ -373,7 +369,7 @@ void inverse_transform_impl(raft::handle_t& handle,
       components, singular_vals, prms.n_rows, prms.n_components, true, true, streams[0]);
   }
 
-  for (int i = 0; i < local_blocks.size(); i++) {
+  for (std::size_t i = 0; i < local_blocks.size(); i++) {
     int si  = i % n_streams;
     T alpha = T(1);
     T beta  = T(0);
