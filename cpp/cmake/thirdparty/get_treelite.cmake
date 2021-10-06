@@ -28,7 +28,7 @@ function(find_and_configure_treelite)
 
     rapids_cpm_find(Treelite ${PKG_VERSION}
         GLOBAL_TARGETS       ${TREELITE_LIBS}
-        BUILD_EXPORT_SET     cuml-exports
+        INSTALL_EXPORT_SET   cuml-exports
         CPM_ARGS
             GIT_REPOSITORY   https://github.com/dmlc/treelite.git
             GIT_TAG          ${PKG_PINNED_TAG}
