@@ -73,18 +73,18 @@ function(find_and_configure_treelite)
             endif()
         endif()
 
-        rapids_export(BUILD treelite
+        rapids_export(BUILD Treelite
             EXPORT_SET TreeliteTargets
             GLOBAL_TARGETS ${TREELITE_LIBS_NO_PREFIX}
             NAMESPACE treelite::)
     endif()
 
     # We generate the treelite-config files when we built treelite locally, so always do `find_dependency`
-    rapids_export_package(BUILD treelite cuml-exports)
+    rapids_export_package(BUILD Treelite cuml-exports)
 
     # Tell cmake where it can find the generated treelite-config.cmake we wrote.
     include("${rapids-cmake-dir}/export/find_package_root.cmake")
-    rapids_export_find_package_root(BUILD treelite [=[${CMAKE_CURRENT_LIST_DIR}]=] cuml-exports)
+    rapids_export_find_package_root(BUILD Treelite [=[${CMAKE_CURRENT_LIST_DIR}]=] cuml-exports)
 endfunction()
 
 find_and_configure_treelite(VERSION     2.1.0
