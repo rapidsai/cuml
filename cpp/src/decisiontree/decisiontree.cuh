@@ -310,6 +310,7 @@ class DecisionTree {
         .train();
     } else if (params.split_criterion == CRITERION::GAMMA) {
       return Builder<GammaObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+                                                                  s,
                                                                   treeid,
                                                                   seed,
                                                                   params,
@@ -323,6 +324,7 @@ class DecisionTree {
         .train();
     } else if (params.split_criterion == CRITERION::INVERSE_GAUSSIAN) {
       return Builder<InverseGaussianObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+                                                                            s,
                                                                             treeid,
                                                                             seed,
                                                                             params,
