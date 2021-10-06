@@ -11,7 +11,7 @@ The example can be build either as part of cuML or can also be build as a standa
 ### Standalone build
 While building standalone use `CMakeLists_standalone.txt` and configure with:
 ```bash
-$ cmake .. -DCUML_LIBRARY_DIR=/path/to/libcuml.so -DCUML_INCLUDE_DIR=/path/to/cuml/headers
+$ cmake .. -Dcuml_ROOT=/path/to/cuml
 ```
 then build with `make`
 ```bash

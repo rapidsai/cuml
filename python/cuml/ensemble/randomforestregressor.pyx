@@ -151,12 +151,15 @@ class RandomForestRegressor(BaseRandomForestModel,
     -----------
     n_estimators : int (default = 100)
         Number of trees in the forest. (Default changed to 100 in cuML 0.11)
-    split_criterion : int (default = 2)
-        The criterion used to split nodes.\n
-            * 0 for Gini impurity,
-            * 1 for Entropy (Information Gain),
-            * 2 for MSE (Mean Squared Error).
-        0 and 1 not valid for regression
+    split_criterion : int or string (default = 2 ('mse'))
+        The criterion used to split nodes.
+            * 0 or 'gini' for GINI
+            * 1 or 'entropy' for ENTROPY
+            * 2 or 'mse' for MSE
+            * 4 or 'poisson' for POISSON
+            * 5 or 'gamma' for GAMMA
+            * 6 or 'inverse_gaussian' for INVERSE_GAUSSIAN,
+        0, 'gini', 1 and 'entropy' not valid for regression.
     bootstrap : boolean (default = True)
         Control bootstrapping.\n
             * If ``True``, eachtree in the forest is built
@@ -579,15 +582,16 @@ class RandomForestRegressor(BaseRandomForestModel,
         nvtx_range_push("predict RF-Regressor @randomforestregressor.pyx")
         if predict_model == "CPU":
             preds = self._predict_model_on_cpu(X, convert_dtype)
-
         elif self.dtype == np.float64:
-            raise TypeError("GPU based predict only accepts np.float32 data. \
-                            In order use the GPU predict the model should \
-                            also be trained using a np.float32 dataset. \
-                            If you would like to use np.float64 dtype \
-                            then please use the CPU based predict by \
-                            setting predict_model = 'CPU'")
-
+            warnings.warn("GPU based predict only accepts "
+                          "np.float32 data. The model was "
+                          "trained on np.float64 data hence "
+                          "cannot use GPU-based prediction! "
+                          "\nDefaulting to CPU-based Prediction. "
+                          "\nTo predict on float-64 data, set "
+                          "parameter predict_model = 'CPU'")
+            preds = self._predict_model_on_cpu(X,
+                                               convert_dtype=convert_dtype)
         else:
             preds = self._predict_model_on_gpu(
                 X=X,

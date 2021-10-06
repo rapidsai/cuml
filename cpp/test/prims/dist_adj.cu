@@ -60,7 +60,7 @@ void naiveDistanceAdj(bool* dist,
 {
   static const dim3 TPB(16, 32, 1);
   dim3 nblks(raft::ceildiv(m, (int)TPB.x), raft::ceildiv(n, (int)TPB.y), 1);
-  naiveDistanceAdjKernel<DataType><<<nblks, TPB>>>(dist, x, y, m, n, k, eps, isRowMajor);
+  naiveDistanceAdjKernel<DataType> < <<nblks, TPB>>(dist, x, y, m, n, k, eps, isRowMajor);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -81,53 +81,55 @@ template <typename DataType>
 template <typename DataType>
 class DistanceAdjTest : public ::testing::TestWithParam<DistanceAdjInputs<DataType>> {
  public:
+  DistanceAdjTest() : x(0, stream), y(0, stream), dist_ref(0, stream), dist(0, stream) {}
+
   void SetUp() override
   {
-    params = ::testing::TestWithParam<DistanceAdjInputs<DataType>>::GetParam();
+    params = ::testing::TestWithParam < DistanceAdjInputs<DataType>::GetParam();
     raft::random::Rng r(params.seed);
-    int m           = params.m;
-    int n           = params.n;
-    int k           = params.k;
-    bool isRowMajor = params.isRowMajor;
-    cudaStream_t stream;
+    auto m              = params.m;
+    auto n              = params.n;
+    auto k              = params.k;
+    bool isRowMajor     = params.isRowMajor;
+    cudaStream_t stream = 0;
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(x, m * k);
-    raft::allocate(y, n * k);
-    raft::allocate(dist_ref, m * n);
-    raft::allocate(dist, m * n);
-    r.uniform(x, m * k, DataType(-1.0), DataType(1.0), stream);
-    r.uniform(y, n * k, DataType(-1.0), DataType(1.0), stream);
+    x        = rmm::device_scalar<DataType>(m * k, stream);
+    y        = rmm::device_scalar<DataType>(n * k, stream);
+    dist_ref = rmm::device_scalar<bool>(m * n, stream);
+    dist     = rmm::device_scalar<bool>(m * n, stream);
+    r.uniform(x.data(), m * k, DataType(-1.0), DataType(1.0), stream);
+    r.uniform(y.data(), n * k, DataType(-1.0), DataType(1.0), stream);
 
     DataType threshold = params.eps;
 
-    naiveDistanceAdj(dist_ref, x, y, m, n, k, threshold, isRowMajor);
-    char* workspace = nullptr;
+    naiveDistanceAdj(dist_ref.data(), x.data(), y.data(), m, n, k, threshold, isRowMajor);
     size_t worksize =
       getWorkspaceSize<raft::distance::DistanceType::L2Expanded, DataType, DataType, bool>(
         x, y, m, n, k);
-    if (worksize != 0) { raft::allocate(workspace, worksize); }
+
+    rmm::device_uvector<char> workspace(worksize, stream);
 
     auto fin_op = [threshold] __device__(DataType d_val, int g_d_idx) {
       return d_val <= threshold;
     };
-    distance<raft::distance::DistanceType::L2Expanded, DataType, DataType, bool>(
-      x, y, dist, m, n, k, workspace, worksize, fin_op, stream, isRowMajor);
+    distance<raft::distance::DistanceType::L2Expanded, DataType, DataType, bool>(x.data(),
+                                                                                 y.data(),
+                                                                                 dist.data(),
+                                                                                 m,
+                                                                                 n,
+                                                                                 k,
+                                                                                 workspace.data(),
+                                                                                 worksize,
+                                                                                 fin_op,
+                                                                                 stream,
+                                                                                 isRowMajor);
     CUDA_CHECK(cudaStreamDestroy(stream));
-    CUDA_CHECK(cudaFree(workspace));
-  }
-
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(x));
-    CUDA_CHECK(cudaFree(y));
-    CUDA_CHECK(cudaFree(dist_ref));
-    CUDA_CHECK(cudaFree(dist));
   }
 
  protected:
   DistanceAdjInputs<DataType> params;
-  DataType *x, *y;
-  bool *dist_ref, *dist;
+  rmm::device_scalar<DataType> x, y;
+  rmm::device_scalar<bool> dist_ref, dist;
 };
 
 const std::vector<DistanceAdjInputs<float>> inputsf = {
@@ -145,7 +147,7 @@ TEST_P(DistanceAdjTestF, Result)
 {
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(devArrMatch(dist_ref, dist, m, n, raft::Compare<bool>()));
+  ASSERT_TRUE(devArrMatch(dist_ref.data(), dist.data(), m, n, raft::Compare<bool>()));
 }
 INSTANTIATE_TEST_CASE_P(DistanceAdjTests, DistanceAdjTestF, ::testing::ValuesIn(inputsf));
 
@@ -164,7 +166,7 @@ TEST_P(DistanceAdjTestD, Result)
 {
   int m = params.isRowMajor ? params.m : params.n;
   int n = params.isRowMajor ? params.n : params.m;
-  ASSERT_TRUE(devArrMatch(dist_ref, dist, m, n, raft::Compare<bool>()));
+  ASSERT_TRUE(devArrMatch(dist_ref.data(), dist.data(), m, n, raft::Compare<bool>()));
 }
 INSTANTIATE_TEST_CASE_P(DistanceAdjTests, DistanceAdjTestD, ::testing::ValuesIn(inputsd));
 

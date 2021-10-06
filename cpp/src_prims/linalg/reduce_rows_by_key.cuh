@@ -16,13 +16,13 @@
 
 #pragma once
 
-#define MAX_BLOCKS 65535u
-
-#include <stdlib.h>
-#include <cub/cub.cuh>
-#include <limits>
 #include <raft/cuda_utils.cuh>
 
+#include <cub/cub.cuh>
+
+#include <limits>
+
+#define MAX_BLOCKS 65535u
 namespace MLCommon {
 namespace LinAlg {
 
@@ -100,8 +100,8 @@ __launch_bounds__(SUM_ROWS_SMALL_K_DIMX, 4) __global__
   typedef cub::BlockReduce<quad<DataType>, SUM_ROWS_SMALL_K_DIMX> BlockReduce;
   __shared__ typename BlockReduce::TempStorage temp_storage;
 
-  for (int idim = blockIdx.y; idim < ncols; idim += gridDim.y) {
-    if (idim != blockIdx.y) __syncthreads();  // we're reusing temp_storage
+  for (int idim = static_cast<int>(blockIdx.y); idim < ncols; idim += gridDim.y) {
+    if (idim != static_cast<int>(blockIdx.y)) __syncthreads();  // we're reusing temp_storage
 
     // threadIdx.x stores partial sum for current dim and key=threadIdx.x in this reg
     quad<DataType> thread_sums;
@@ -139,7 +139,7 @@ __launch_bounds__(SUM_ROWS_SMALL_K_DIMX, 4) __global__
     if (threadIdx.x < 32) {
       // We only need 4
       thread_sums = cub::ShuffleIndex<32>(thread_sums, 0, 0xffffffff);
-      if (threadIdx.x < nkeys) {
+      if (static_cast<int>(threadIdx.x) < nkeys) {
         if (threadIdx.x == 0) raft::myAtomicAdd(&d_sums[threadIdx.x * ncols + idim], thread_sums.x);
         if (threadIdx.x == 1) raft::myAtomicAdd(&d_sums[threadIdx.x * ncols + idim], thread_sums.y);
         if (threadIdx.x == 2) raft::myAtomicAdd(&d_sums[threadIdx.x * ncols + idim], thread_sums.z);
@@ -382,7 +382,8 @@ void reduce_rows_by_key(const DataIteratorT d_A,
     sum_rows_by_key_small_nkeys(
       d_A, lda, d_keys_char, d_weights, nrows, ncols, nkeys, d_sums, stream);
   } else {
-    for (KeyType key_offset = 0; key_offset < nkeys; key_offset += SUM_ROWS_BY_KEY_LARGE_K_MAX_K) {
+    for (KeyType key_offset = 0; key_offset < static_cast<KeyType>(nkeys);
+         key_offset += SUM_ROWS_BY_KEY_LARGE_K_MAX_K) {
       KeyType this_call_nkeys = std::min(SUM_ROWS_BY_KEY_LARGE_K_MAX_K, nkeys);
       sum_rows_by_key_large_nkeys_rowmajor(
         d_A, lda, d_keys, d_weights, nrows, ncols, key_offset, this_call_nkeys, d_sums, stream);

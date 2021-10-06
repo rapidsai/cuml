@@ -19,27 +19,26 @@
 #include <iostream>
 #include <limits>
 #include <numeric>
+#include <vector>
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/gemv.h>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
-#include <thrust/execution_policy.h>
 #include <thrust/iterator/counting_iterator.h>
 #include <thrust/sequence.h>
 #include <thrust/sort.h>
 #include <cache/cache_util.cuh>
-#include <common/allocatorAdapter.hpp>
 #include <cub/cub.cuh>
-#include <cuml/common/device_buffer.hpp>
-#include <cuml/common/host_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/cholesky_r1_update.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
 #include <raft/linalg/unary_op.cuh>
+#include <rmm/device_scalar.hpp>
+#include <rmm/device_uvector.hpp>
 
 namespace ML {
 namespace Solver {
@@ -74,7 +73,7 @@ LarsFitStatus selectMostCorrelated(idx_t n_active,
                                    idx_t n,
                                    math_t* correlation,
                                    math_t* cj,
-                                   MLCommon::device_buffer<math_t>& workspace,
+                                   rmm::device_uvector<math_t>& workspace,
                                    idx_t* max_idx,
                                    idx_t n_rows,
                                    idx_t* indices,
@@ -270,7 +269,7 @@ void updateCholesky(const raft::handle_t& handle,
                     idx_t ld_U,
                     const math_t* G0,
                     idx_t ld_G,
-                    MLCommon::device_buffer<math_t>& workspace,
+                    rmm::device_uvector<math_t>& workspace,
                     math_t eps,
                     cudaStream_t stream)
 {
@@ -471,7 +470,7 @@ LarsFitStatus calcEquiangularVec(const raft::handle_t& handle,
                                  idx_t ld_U,
                                  math_t* G0,
                                  idx_t ld_G,
-                                 MLCommon::device_buffer<math_t>& workspace,
+                                 rmm::device_uvector<math_t>& workspace,
                                  math_t* ws,
                                  math_t* A,
                                  math_t* u_eq,
@@ -688,11 +687,11 @@ void larsInit(const raft::handle_t& handle,
               const math_t* y,
               math_t* Gram,
               idx_t ld_G,
-              MLCommon::device_buffer<math_t>& U_buffer,
+              rmm::device_uvector<math_t>& U_buffer,
               math_t** U,
               idx_t* ld_U,
-              MLCommon::host_buffer<idx_t>& indices,
-              MLCommon::device_buffer<math_t>& cor,
+              std::vector<idx_t>& indices,
+              rmm::device_uvector<math_t>& cor,
               int* max_iter,
               math_t* coef_path,
               cudaStream_t stream)
@@ -703,10 +702,10 @@ void larsInit(const raft::handle_t& handle,
     *ld_U                   = raft::alignTo<idx_t>(*max_iter, align_bytes);
     try {
       U_buffer.resize((*ld_U) * (*max_iter), stream);
-    } catch (std::bad_alloc) {
+    } catch (std::bad_alloc const&) {
       THROW(
         "Not enough GPU memory! The memory usage depends quadraticaly on the "
-        "n_nonzero_coefs parameter, try to decrease it!");
+        "n_nonzero_coefs parameter, try to decrease it.");
     }
     *U = U_buffer.data();
   } else {
@@ -881,30 +880,29 @@ void larsFit(const raft::handle_t& handle,
   if (Gram && ld_G == 0) ld_G = n_cols;
 
   cudaStream_t stream = handle.get_stream();
-  auto allocator      = handle.get_device_allocator();
 
   // We will use either U_buffer.data() to store the Cholesky factorization, or
   // store it in place at Gram. Pointer U will point to the actual storage.
-  MLCommon::device_buffer<math_t> U_buffer(allocator, stream);
+  rmm::device_uvector<math_t> U_buffer(0, stream);
   idx_t ld_U = 0;
   math_t* U  = nullptr;
 
   // Indices of elements in the active set.
-  MLCommon::host_buffer<idx_t> indices(handle.get_host_allocator(), stream, n_cols);
+  std::vector<idx_t> indices(n_cols);
   // Sign of the correlation at the time when the element was added to the
   // active set.
-  MLCommon::device_buffer<math_t> sign(allocator, stream, n_cols);
+  rmm::device_uvector<math_t> sign(n_cols, stream);
 
   // Correlation between the residual mu = y - X.T*beta and columns of X
-  MLCommon::device_buffer<math_t> cor(allocator, stream, n_cols);
+  rmm::device_uvector<math_t> cor(n_cols, stream);
 
   // Temporary arrays used by the solver
-  MLCommon::device_buffer<math_t> A(allocator, stream, 1);
-  MLCommon::device_buffer<math_t> a_vec(allocator, stream, n_cols);
-  MLCommon::device_buffer<math_t> gamma(allocator, stream, 1);
-  MLCommon::device_buffer<math_t> u_eq(allocator, stream, n_rows);
-  MLCommon::device_buffer<math_t> ws(allocator, stream, max_iter);
-  MLCommon::device_buffer<math_t> workspace(allocator, stream, n_cols);
+  rmm::device_scalar<math_t> A(stream);
+  rmm::device_uvector<math_t> a_vec(n_cols, stream);
+  rmm::device_scalar<math_t> gamma(stream);
+  rmm::device_uvector<math_t> u_eq(n_rows, stream);
+  rmm::device_uvector<math_t> ws(max_iter, stream);
+  rmm::device_uvector<math_t> workspace(n_cols, stream);
 
   larsInit(handle,
            X,
@@ -1083,22 +1081,21 @@ void larsPredict(const raft::handle_t& handle,
                  math_t* preds)
 {
   cudaStream_t stream = handle.get_stream();
-  auto allocator      = handle.get_device_allocator();
-  MLCommon::device_buffer<math_t> beta_sorted(allocator, stream);
-  MLCommon::device_buffer<math_t> X_active_cols(allocator, stream);
-  auto execution_policy = ML::thrust_exec_policy(allocator, stream);
+  rmm::device_uvector<math_t> beta_sorted(0, stream);
+  rmm::device_uvector<math_t> X_active_cols(0, stream);
+  auto execution_policy = handle.get_thrust_policy();
 
   if (n_active == 0 || n_rows == 0) return;
 
   if (n_active == n_cols) {
     // We make a copy of the beta coefs and sort them
     beta_sorted.resize(n_active, stream);
-    MLCommon::device_buffer<idx_t> idx_sorted(allocator, stream, n_active);
+    rmm::device_uvector<idx_t> idx_sorted(n_active, stream);
     raft::copy(beta_sorted.data(), beta, n_active, stream);
     raft::copy(idx_sorted.data(), active_idx, n_active, stream);
     thrust::device_ptr<math_t> beta_ptr(beta_sorted.data());
     thrust::device_ptr<idx_t> idx_ptr(idx_sorted.data());
-    thrust::sort_by_key(execution_policy->on(stream), idx_ptr, idx_ptr + n_active, beta_ptr);
+    thrust::sort_by_key(execution_policy, idx_ptr, idx_ptr + n_active, beta_ptr);
     beta = beta_sorted.data();
   } else {
     // We collect active columns of X to contiguous space
@@ -1111,7 +1108,7 @@ void larsPredict(const raft::handle_t& handle,
   }
   // Initialize preds = intercept
   thrust::device_ptr<math_t> pred_ptr(preds);
-  thrust::fill(execution_policy->on(stream), pred_ptr, pred_ptr + n_rows, intercept);
+  thrust::fill(execution_policy, pred_ptr, pred_ptr + n_rows, intercept);
   math_t one = 1;
   CUBLAS_CHECK(raft::linalg::cublasgemv(handle.get_cublas_handle(),
                                         CUBLAS_OP_N,

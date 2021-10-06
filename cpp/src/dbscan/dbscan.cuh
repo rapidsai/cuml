@@ -16,13 +16,15 @@
 
 #pragma once
 
-#include <common/nvtx.hpp>
-#include <cuml/cluster/dbscan.hpp>
-#include <cuml/common/device_buffer.hpp>
-#include <cuml/common/logger.hpp>
 #include "runner.cuh"
 
+#include <common/nvtx.hpp>
+
+#include <cuml/cluster/dbscan.hpp>
+#include <cuml/common/logger.hpp>
+
 #include <algorithm>
+#include <cstddef>
 
 namespace ML {
 namespace Dbscan {
@@ -65,7 +67,7 @@ size_t compute_batch_size(size_t& estimated_memory,
 
   // To avoid overflow, we need: batch_size <= MAX_LABEL / n_rows (floor div)
   Index_ MAX_LABEL = std::numeric_limits<Index_>::max();
-  if (batch_size > MAX_LABEL / n_rows) {
+  if (batch_size > static_cast<std::size_t>(MAX_LABEL / n_rows)) {
     Index_ new_batch_size = MAX_LABEL / n_rows;
     CUML_LOG_WARN(
       "Batch size limited by the chosen integer type (%d bytes). %d -> %d. "
@@ -77,7 +79,8 @@ size_t compute_batch_size(size_t& estimated_memory,
   }
 
   // Warn when a smaller index type could be used
-  if (sizeof(Index_) > sizeof(int) && batch_size < std::numeric_limits<int>::max() / n_rows) {
+  if ((sizeof(Index_) > sizeof(int)) &&
+      (batch_size < std::numeric_limits<int>::max() / static_cast<std::size_t>(n_rows))) {
     CUML_LOG_WARN(
       "You are using an index type of size (%d bytes) but a smaller index "
       "type (%d bytes) would be sufficient. Using the smaller integer type "
@@ -110,8 +113,11 @@ void dbscanFitImpl(const raft::handle_t& handle,
   int algo_adj = 1;
   int algo_ccl = 2;
 
-  int my_rank, n_rank;
-  Index_ start_row, n_owned_rows;
+  int my_rank{0};
+  int n_rank{1};
+  Index_ start_row{0};
+  Index_ n_owned_rows{n_rows};
+
   if (opg) {
     const auto& comm     = handle.get_comms();
     my_rank              = comm.get_rank();
@@ -122,10 +128,6 @@ void dbscanFitImpl(const raft::handle_t& handle,
     n_owned_rows         = max(Index_(0), end_row - start_row);
     // Note: it is possible for a node to have no work in theory. It won't
     // happen in practice (because n_rows is much greater than n_rank)
-  } else {
-    my_rank      = 0;
-    n_rank       = 1;
-    n_owned_rows = n_rows;
   }
 
   CUML_LOG_DEBUG("#%d owns %ld rows", (int)my_rank, (unsigned long)n_owned_rows);
@@ -179,7 +181,7 @@ void dbscanFitImpl(const raft::handle_t& handle,
 
   CUML_LOG_DEBUG("Workspace size: %lf MB", (double)workspaceSize * 1e-6);
 
-  MLCommon::device_buffer<char> workspace(handle.get_device_allocator(), stream, workspaceSize);
+  rmm::device_uvector<char> workspace(workspaceSize, stream);
   Dbscan::run<T, Index_, opg>(handle,
                               input,
                               n_rows,

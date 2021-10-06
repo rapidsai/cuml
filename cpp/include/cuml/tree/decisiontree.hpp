@@ -15,13 +15,12 @@
  */
 
 #pragma once
-#include <vector>
+
 #include "algo_helper.h"
 #include "flatnode.h"
 
-namespace raft {
-class handle_t;
-}
+#include <string>
+#include <vector>
 
 namespace ML {
 
@@ -98,26 +97,15 @@ void set_tree_params(DecisionTreeParams& params,
                      CRITERION cfg_split_criterion   = CRITERION_END,
                      int cfg_max_batch_size          = 4096);
 
-/**
- * @brief Check validity of all decision tree hyper-parameters.
- * @param[in] params: decision tree hyper-parameters.
- */
-void validity_check(const DecisionTreeParams params);
-
-/**
- * @brief Print all decision tree hyper-parameters.
- * @param[in] params: decision tree hyper-parameters.
- */
-void print(const DecisionTreeParams params);
-
 template <class T, class L>
 struct TreeMetaDataNode {
   int treeid;
   int depth_counter;
   int leaf_counter;
-  double prepare_time;
   double train_time;
+  std::vector<T> vector_leaf;
   std::vector<SparseTreeNode<T, L>> sparsetree;
+  int num_outputs;
 };
 
 /**

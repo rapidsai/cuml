@@ -16,7 +16,6 @@
 #
 
 # distutils: language = c++
-
 import numpy as np
 import rmm
 import warnings
@@ -152,11 +151,15 @@ class RandomForestClassifier(BaseRandomForestModel,
     -----------
     n_estimators : int (default = 100)
         Number of trees in the forest. (Default changed to 100 in cuML 0.11)
-    split_criterion : int (default = 0)
-        The criterion used to split nodes.\n
-         * 0 for Gini impurity,
-         * 1 for Entropy (Information Gain).
-        2 and 3 not valid for classification
+    split_criterion : int or string (default = 0 ('gini'))
+        The criterion used to split nodes.
+            * 0 or 'gini' for GINI
+            * 1 or 'entropy' for ENTROPY,
+            * 2 or 'mse' for MSE
+            * 4 or 'poisson' for POISSON
+            * 5 or 'gamma' for GAMMA
+            * 6 or 'inverse_gaussian' for INVERSE_GAUSSIAN
+        only 0/'gini' and 1/'entropy' valid for classification
     bootstrap : boolean (default = True)
         Control bootstrapping.\n
             * If ``True``, eachtree in the forest is built on a bootstrapped
@@ -560,8 +563,7 @@ class RandomForestClassifier(BaseRandomForestModel,
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
     def predict(self, X, predict_model="GPU", threshold=0.5,
-                algo='auto', num_classes=None,
-                convert_dtype=True,
+                algo='auto', convert_dtype=True,
                 fil_sparse_format='auto') -> CumlArray:
         """
         Predicts the labels for X.
@@ -590,13 +592,6 @@ class RandomForestClassifier(BaseRandomForestModel,
         threshold : float (default = 0.5)
             Threshold used for classification. Optional and required only
             while performing the predict operation on the GPU.
-        num_classes : int (default = None)
-            number of different classes present in the dataset.
-
-            .. deprecated:: 0.16
-                Parameter 'num_classes' is deprecated and will be removed in
-                an upcoming version. The number of classes passed must match
-                the number of classes the model was trained on.
 
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
@@ -618,24 +613,19 @@ class RandomForestClassifier(BaseRandomForestModel,
         y : {}
         """
         nvtx_range_push("predict RF-Classifier @randomforestclassifier.pyx")
-        if num_classes:
-            warnings.warn("num_classes is deprecated and will be removed"
-                          " in an upcoming version")
-            if num_classes != self.num_classes:
-                raise NotImplementedError("limiting num_classes for predict"
-                                          " is not implemented")
         if predict_model == "CPU":
             preds = self._predict_model_on_cpu(X,
                                                convert_dtype=convert_dtype)
-
         elif self.dtype == np.float64:
-            raise TypeError("GPU based predict only accepts np.float32 data. \
-                            In order use the GPU predict the model should \
-                            also be trained using a np.float32 dataset. \
-                            If you would like to use np.float64 dtype \
-                            then please use the CPU based predict by \
-                            setting predict_model = 'CPU'")
-
+            warnings.warn("GPU based predict only accepts "
+                          "np.float32 data. The model was "
+                          "trained on np.float64 data hence "
+                          "cannot use GPU-based prediction! "
+                          "\nDefaulting to CPU-based Prediction. "
+                          "\nTo predict on float-64 data, set "
+                          "parameter predict_model = 'CPU'")
+            preds = self._predict_model_on_cpu(X,
+                                               convert_dtype=convert_dtype)
         else:
             preds = \
                 self._predict_model_on_gpu(X=X, output_class=True,
@@ -651,7 +641,7 @@ class RandomForestClassifier(BaseRandomForestModel,
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)')],
                            return_values=[('dense', '(n_samples, 1)')])
     def predict_proba(self, X, algo='auto',
-                      num_classes=None, convert_dtype=True,
+                      convert_dtype=True,
                       fil_sparse_format='auto') -> CumlArray:
         """
         Predicts class probabilites for X. This function uses the GPU
@@ -673,14 +663,6 @@ class RandomForestClassifier(BaseRandomForestModel,
              * ``'auto'`` - choose the algorithm automatically. Currently
              * ``'batch_tree_reorg'`` is used for dense storage
                and 'naive' for sparse storage
-
-        num_classes : int (default = None)
-            number of different classes present in the dataset.
-
-            .. deprecated:: 0.16
-                Parameter 'num_classes' is deprecated and will be removed in
-                an upcoming version. The number of classes passed must match
-                the number of classes the model was trained on.
 
         convert_dtype : bool, optional (default = True)
             When set to True, the predict method will, when necessary, convert
@@ -709,15 +691,6 @@ class RandomForestClassifier(BaseRandomForestModel,
                             then please use the CPU based predict by \
                             setting predict_model = 'CPU'")
 
-        if num_classes:
-            warnings.warn("num_classes is deprecated and will be removed"
-                          " in an upcoming version")
-            if num_classes != self.num_classes:
-                raise NotImplementedError("The number of classes in the test "
-                                          "dataset should be equal to the "
-                                          "number of classes present in the "
-                                          "training dataset.")
-
         preds_proba = \
             self._predict_model_on_gpu(X, output_class=True,
                                        algo=algo,
@@ -730,7 +703,7 @@ class RandomForestClassifier(BaseRandomForestModel,
     @insert_into_docstring(parameters=[('dense', '(n_samples, n_features)'),
                                        ('dense_intdtype', '(n_samples, 1)')])
     def score(self, X, y, threshold=0.5,
-              algo='auto', num_classes=None, predict_model="GPU",
+              algo='auto', predict_model="GPU",
               convert_dtype=True, fil_sparse_format='auto'):
         """
         Calculates the accuracy metric score of the model for X.
@@ -756,13 +729,6 @@ class RandomForestClassifier(BaseRandomForestModel,
             threshold is used to for classification
             This is optional and required only while performing the
             predict operation on the GPU.
-        num_classes : int (default = None)
-            number of different classes present in the dataset.
-
-            .. deprecated:: 0.16
-                Parameter 'num_classes' is deprecated and will be removed in
-                an upcoming version. The number of classes passed must match
-                the number of classes the model was trained on.
 
         convert_dtype : boolean, default=True
             whether to convert input data to correct dtype automatically
@@ -804,7 +770,6 @@ class RandomForestClassifier(BaseRandomForestModel,
                              threshold=threshold, algo=algo,
                              convert_dtype=convert_dtype,
                              predict_model=predict_model,
-                             num_classes=num_classes,
                              fil_sparse_format=fil_sparse_format)
 
         cdef uintptr_t preds_ptr

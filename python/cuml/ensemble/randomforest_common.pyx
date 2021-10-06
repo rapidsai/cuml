@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 import ctypes
 import cupy as cp
 import math
@@ -54,8 +53,15 @@ class BaseRandomForestModel(Base):
                     'random_state', 'warm_start', 'class_weight',
                     'criterion']
 
-    criterion_dict = {'0': GINI, '1': ENTROPY, '2': MSE,
-                      '3': MAE, '4': CRITERION_END}
+    criterion_dict = {'0': GINI, 'gini': GINI,
+                      '1': ENTROPY, 'entropy': ENTROPY,
+                      '2': MSE, 'mse': MSE,
+                      '3': MAE, 'mae': MAE,
+                      '4': POISSON, 'poisson': POISSON,
+                      '5': GAMMA, 'gamma': GAMMA,
+                      '6': INVERSE_GAUSSIAN,
+                      'inverse_gaussian': INVERSE_GAUSSIAN,
+                      '7': CRITERION_END}
 
     classes_ = CumlArrayDescriptor()
 
@@ -213,15 +219,15 @@ class BaseRandomForestModel(Base):
                     &tl_handle,
                     <RandomForestMetaData[float, int]*>
                     <uintptr_t> self.rf_forest,
-                    <int> self.n_cols,
-                    <int> self.num_classes)
+                    <int> self.n_cols
+                    )
             else:
                 build_treelite_forest(
                     &tl_handle,
                     <RandomForestMetaData[float, float]*>
                     <uintptr_t> self.rf_forest,
-                    <int> self.n_cols,
-                    <int> REGRESSION_MODEL)
+                    <int> self.n_cols
+                    )
 
         self.treelite_handle = <uintptr_t> tl_handle
         return self.treelite_handle
@@ -239,8 +245,10 @@ class BaseRandomForestModel(Base):
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64],
                                 order='F')
         if self.n_bins > self.n_rows:
-            raise ValueError("The number of bins,`n_bins` can not be greater"
-                             " than the number of samples used for training.")
+            warnings.warn("The number of bins, `n_bins` is greater than "
+                          "the number of samples used for training. "
+                          "Changing `n_bins` to number of training samples.")
+            self.n_bins = self.n_rows
 
         if self.RF_type == CLASSIFICATION:
             y_m, _, _, y_dtype = \
@@ -321,14 +329,14 @@ class BaseRandomForestModel(Base):
                                 check_cols=self.n_cols)
 
         if dtype == np.float64 and not convert_dtype:
-            raise TypeError("GPU based predict only accepts np.float32 data. \
-                            Please set convert_dtype=True to convert the test \
-                            data to the same dtype as the data used to train, \
-                            ie. np.float32. If you would like to use test \
-                            data of dtype=np.float64 please set \
-                            predict_model='CPU' to use the CPU implementation \
-                            of predict.")
-
+            warnings.warn("GPU based predict only accepts "
+                          "np.float32 data. The model was "
+                          "trained on np.float64 data hence "
+                          "cannot use GPU-based prediction! "
+                          "\nDefaulting to CPU-based Prediction. "
+                          "\nTo predict on float-64 data, set "
+                          "parameter predict_model = 'CPU'")
+            return self._predict_model_on_cpu(X, convert_dtype=convert_dtype)
         treelite_handle = self._obtain_treelite_handle()
 
         storage_type = \
@@ -357,6 +365,7 @@ class BaseRandomForestModel(Base):
         self.treelite_serialized_model = None
 
         super().set_params(**params)
+        return self
 
 
 def _check_fil_parameter_validity(depth, algo, fil_sparse_format):
