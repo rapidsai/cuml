@@ -191,11 +191,8 @@ endif()
 # add third party dependencies using CPM
 rapids_cpm_init()
 
-include(cmake/thirdparty/get_thrust.cmake)
-include(cmake/thirdparty/get_rmm.cmake)
-
-include(cmake/thirdparty/get_treelite.cmake)
 include(cmake/thirdparty/get_raft.cmake)
+include(cmake/thirdparty/get_treelite.cmake)
 
 if(NOT SINGLEGPU)
   include(cmake/thirdparty/get_nccl.cmake)
@@ -206,11 +203,7 @@ if(ENABLE_CUMLPRIMS_MG)
   include(cmake/thirdparty/get_cumlprims_mg.cmake)
 endif()
 
-if(BUILD_CUML_TESTS OR BUILD_PRIMS_TESTS)
-  include(cmake/thirdparty/get_gtest.cmake)
-endif()
-
-if(BUILD_CUML_BENCH)
+if(BUILD_CUML_BENCH OR BUILD_CUML_PRIMS_BENCH)
   include(cmake/thirdparty/get_gbench.cmake)
 endif()
 
@@ -371,16 +364,9 @@ if(BUILD_CUML_CPP_LIBRARY)
 
   target_link_libraries(${CUML_CPP_TARGET}
     PUBLIC
-      rmm::rmm
-      cuml::Thrust
       raft::raft
     PRIVATE
-      CUDA::cublas
       CUDA::cufft
-      CUDA::curand
-      CUDA::cusolver
-      CUDA::cudart
-      CUDA::cusparse
       ${TREELITE_LIBS}
       $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
       $<$<BOOL:${LINK_FAISS}>:faiss::faiss>
@@ -488,10 +474,7 @@ functions that share compatible APIs with other RAPIDS projects.
 
 ]=])
 
-set(code_string
-[=[
-thrust_create_target(cuml::Thrust FROM_OPTIONS)
-]=])
+set(code_string )
 
 if (TARGET treelite::treelite)
     string(APPEND code_string
@@ -516,7 +499,7 @@ endif()
 
 endif()
 
- rapids_export(INSTALL cuml
+rapids_export(INSTALL cuml
     EXPORT_SET cuml-exports
     GLOBAL_TARGETS cuml
     NAMESPACE cuml::

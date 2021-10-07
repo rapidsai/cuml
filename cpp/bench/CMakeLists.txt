@@ -44,7 +44,6 @@ if(BUILD_CUML_BENCH)
     PUBLIC
       cuml::${CUML_CPP_TARGET}
       benchmark::benchmark
-      raft::raft
       ${TREELITE_LIBS}
   )
 
@@ -82,10 +81,8 @@ if(BUILD_CUML_PRIMS_BENCH)
 
   target_link_libraries(${PRIMS_BENCH_TARGET}
     PUBLIC
-      cuml
-      CUDA::cublas
+      cuml::${CUML_CPP_TARGET}
       benchmark::benchmark
-      raft::raft
       ${TREELITE_LIBS}
   )
 

@@ -15,14 +15,7 @@
 #=============================================================================
 
 set(COMMON_TEST_LINK_LIBRARIES
-  CUDA::cublas
-  CUDA::curand
-  CUDA::cusolver
-  CUDA::cudart
-  CUDA::cusparse
   CUDA::cufft
-  rmm::rmm
-  raft::raft
   $<$<BOOL:${LINK_FAISS}>:faiss::faiss>
   GTest::gtest
   GTest::gtest_main
@@ -93,7 +86,7 @@ if(BUILD_CUML_TESTS)
 
   target_link_libraries(${CUML_CPP_TEST_TARGET}
     PRIVATE
-        ${CUML_CPP_TARGET}
+        cuml::${CUML_CPP_TARGET}
         $<$<BOOL:${BUILD_CUML_C_LIBRARY}>:${CUML_C_TARGET}>
         ${COMMON_TEST_LINK_LIBRARIES}
     )
@@ -128,7 +121,7 @@ if(BUILD_CUML_MG_TESTS)
       )
 
     target_link_libraries(${CUML_MG_TEST_TARGET}
-      ${CUML_CPP_TARGET}
+      cuml::${CUML_CPP_TARGET}
       ${COMMON_TEST_LINK_LIBRARIES}
       NCCL::NCCL
       ${MPI_CXX_LIBRARIES}
@@ -220,7 +213,7 @@ if(BUILD_PRIMS_TESTS)
 
   target_link_libraries(${PRIMS_TEST_TARGET}
     PRIVATE
-      ${CUML_CPP_TARGET}
+      cuml::${CUML_CPP_TARGET}
       ${COMMON_TEST_LINK_LIBRARIES}
   )
 
