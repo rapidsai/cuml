@@ -18,6 +18,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/label/classlabels.cuh>
 #include <raft/spatial/knn/ann.hpp>
+#include <raft/spatial/knn/ball_cover.hpp>
 #include <raft/spatial/knn/knn.hpp>
 #include <rmm/device_uvector.hpp>
 
@@ -62,6 +63,24 @@ void brute_force_knn(const raft::handle_t& handle,
                                       nullptr,
                                       metric,
                                       metric_arg);
+}
+
+void rbc_build_index(const raft::handle_t& handle,
+                     raft::spatial::knn::BallCoverIndex<int64_t, float, uint32_t>& index)
+{
+  raft::spatial::knn::rbc_build_index(handle, index);
+}
+
+void rbc_knn_query(const raft::handle_t& handle,
+                   raft::spatial::knn::BallCoverIndex<int64_t, float, uint32_t>& index,
+                   uint32_t k,
+                   const float* search_items,
+                   uint32_t n_search_items,
+                   int64_t* out_inds,
+                   float* out_dists)
+{
+  raft::spatial::knn::rbc_knn_query(
+    handle, index, k, search_items, n_search_items, out_inds, out_dists);
 }
 
 void approx_knn_build_index(raft::handle_t& handle,
