@@ -196,17 +196,17 @@ def test_tweedie_convergence(max_depth, split_criterion):
     max_features = 1.0
     n_estimators = 1
     min_impurity_decrease = 1e-5
-    n_datapoints = 100000
+    n_datapoints = 1000
     tweedie = {
         "poisson":
             {"power": 1,
-             "gen": np.random.poisson, "args": [0.1]},
+             "gen": np.random.poisson, "args": [0.01]},
         "gamma":
             {"power": 2,
-             "gen": np.random.gamma, "args": [1.0]},
+             "gen": np.random.gamma, "args": [2.0]},
         "inverse_gaussian":
             {"power": 3,
-             "gen": np.random.wald, "args": [0.1, 1.0]}
+             "gen": np.random.wald, "args": [0.1, 2.0]}
     }
     # generating random dataset with tweedie distribution
     X = np.random.random((n_datapoints, 4)).astype(np.float32)
