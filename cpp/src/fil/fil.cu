@@ -97,8 +97,6 @@ __global__ void transform_k(float* preds,
     preds[i] = result;
 }
 
-extern void dispatch_on_fil_template_params(compute_smem_footprint, predict_params&);
-
 struct forest {
   forest(const raft::handle_t& h) : vector_leaf_(0, h.get_stream()), cat_sets_(h.get_stream()) {}
 
@@ -136,7 +134,7 @@ struct forest {
         for (ssp.n_items = min_n_items; ssp.n_items <= max_n_items; ++ssp.n_items) {
           predict_params pp = ssp;
           dispatch_on_fil_template_params(compute_smem_footprint(), pp);
-          if (ssp.shm_sz < max_shm) ssp_ = ssp;
+          if (pp.shm_sz < max_shm) ssp_ = pp;
         }
       }
       ASSERT(max_shm >= ssp_.shm_sz,
@@ -163,6 +161,11 @@ struct forest {
                    const std::vector<float>& vector_leaf,
                    const forest_params_t* params)
   {
+    int device          = h.get_device();
+    cudaStream_t stream = h.get_stream();
+    // categorical features
+    cat_sets_ = cat_sets_device_owner(cat_sets, stream);
+
     depth_                           = params->depth;
     num_trees_                       = params->num_trees;
     algo_                            = params->algo;
@@ -174,10 +177,9 @@ struct forest {
     proba_ssp_.leaf_algo             = params->leaf_algo;
     proba_ssp_.num_cols              = params->num_cols;
     proba_ssp_.num_classes           = params->num_classes;
+    proba_ssp_.cats_present          = cat_sets_.accessor().cats_present();
     class_ssp_                       = proba_ssp_;
 
-    int device          = h.get_device();
-    cudaStream_t stream = h.get_stream();
     init_n_items(device);  // n_items takes priority over blocks_per_sm
     init_fixed_block_count(device, params->blocks_per_sm);
 
@@ -191,9 +193,6 @@ struct forest {
                                  cudaMemcpyHostToDevice,
                                  stream));
     }
-
-    // categorical features
-    cat_sets_ = cat_sets_device_owner(cat_sets, stream);
   }
 
   virtual void infer(predict_params params, cudaStream_t stream) = 0;
@@ -307,6 +306,7 @@ struct forest {
           params.num_outputs = params.num_classes;
           do_transform = (ot != output_t::RAW && ot != output_t::SOFTMAX) || global_bias != 0.0f;
           break;
+        case fil::leaf_algo_t::LEAF_ALGO_INVALID:
         default: ASSERT(false, "internal error: predict: invalid leaf_algo %d", params.leaf_algo);
       }
     } else {
@@ -539,6 +539,7 @@ void check_params(const forest_params_t* params, bool dense)
              "num_classes >= 2 is required for "
              "leaf_algo == VECTOR_LEAF");
       break;
+    case fil::leaf_algo_t::LEAF_ALGO_INVALID:
     default:
       ASSERT(false,
              "leaf_algo must be FLOAT_UNARY_BINARY, CATEGORICAL_LEAF"
@@ -782,6 +783,7 @@ void tl2fil_leaf_payload(fil_node_t* fil_node,
       ASSERT(!tl_tree.HasLeafVector(tl_node_id),
              "some but not all treelite leaves have leaf_vector()");
       break;
+    case fil::leaf_algo_t::LEAF_ALGO_INVALID:
     default: ASSERT(false, "internal error: invalid leaf_algo");
   };
 }

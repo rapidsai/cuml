@@ -855,7 +855,7 @@ size_t shmem_size_params::get_smem_footprint()
 }
 
 // make sure to instantiate all possible get_smem_footprint instantiations
-void dispatch_on_fil_template_params(compute_smem_footprint, predict_params&);
+template void dispatch_on_fil_template_params(compute_smem_footprint, predict_params&);
 
 template <typename storage_type>
 struct infer_k_storage_template {
@@ -865,10 +865,9 @@ struct infer_k_storage_template {
   template <class KernelParams>
   void run(predict_params& params)
   {
-    params.cats_present = forest.cats_present();
-    params.num_blocks   = params.num_blocks != 0
-                            ? params.num_blocks
-                            : raft::ceildiv(int(params.num_rows), params.n_items);
+    params.num_blocks = params.num_blocks != 0
+                          ? params.num_blocks
+                          : raft::ceildiv(int(params.num_rows), params.n_items);
     infer_k<KernelParams::n_items,
             KernelParams::leaf_algo,
             KernelParams::cols_in_shmem,

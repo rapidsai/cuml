@@ -130,6 +130,9 @@ struct shmem_size_params {
   /// are the input columns are prefetched into shared
   /// memory before inferring the row in question
   bool cols_in_shmem = true;
+  // are there categorical inner nodes? doesnt' currently affect shared memory size,
+  // but participates in template dispatch and may affect it later
+  bool cats_present;
   /// log2_threads_per_tree determines how many threads work on a single tree
   /// at once inside a block (sharing trees means splitting input rows)
   int log2_threads_per_tree = 0;
@@ -160,8 +163,6 @@ struct predict_params : shmem_size_params {
   algo_t algo;
   // number of outputs for the forest per each data row
   int num_outputs;
-  // are there categorical inner nodes?
-  bool cats_present;
 
   // Data parameters.
   float* preds;
@@ -231,7 +232,7 @@ void dispatch_on_leaf_algo(Func func, predict_params& params)
       dispatch_on_n_items<KernelParams>(func, params);
     }
   } else if constexpr (KernelParams::leaf_algo + 1 < static_cast<int>(LEAF_ALGO_INVALID)) {
-    dispatch_on_n_items<class KernelParams::inc_leaf_algo>(func, params);
+    dispatch_on_leaf_algo<class KernelParams::inc_leaf_algo>(func, params);
   } else {
     ASSERT(false, "internal error: dispatch: invalid leaf_algo %d", params.leaf_algo);
   }
@@ -241,9 +242,9 @@ template <class KernelParams, class Func>
 void dispatch_on_cats_supported(Func func, predict_params& params)
 {
   if (params.cats_present)
-    dispatch_on_leaf_algo<KernelParams::template replace_cats_supported<true>>(func, params);
+    dispatch_on_leaf_algo<typename KernelParams::replace_cats_supported<true>>(func, params);
   else
-    dispatch_on_leaf_algo<KernelParams::template replace_cats_supported<false>>(func, params);
+    dispatch_on_leaf_algo<typename KernelParams::replace_cats_supported<false>>(func, params);
 }
 
 template <class Func>
