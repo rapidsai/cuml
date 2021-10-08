@@ -204,6 +204,12 @@ class TSNE(Base,
         module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
 
+    Attributes
+    ----------
+    kl_divergence_ : float
+        Kullback-Leibler divergence after optimization. An experimental
+        feature at this time.
+
     References
     -----------
     .. [1] `van der Maaten, L.J.P.
@@ -522,7 +528,7 @@ class TSNE(Base,
         self.handle.sync()
         free(params)
 
-        self.kl_divergence_ = kl_divergence
+        self._kl_divergence_ = kl_divergence
         if self.verbose:
             print("[t-SNE] KL divergence: {}".format(kl_divergence))
         return self
@@ -580,6 +586,18 @@ class TSNE(Base,
         params.square_distances = <bool> self.square_distances
         params.algorithm = algo
         return <size_t> params
+
+    @property
+    def kl_divergence_(self):
+        if self.method == 'barnes_hut':
+            warnings.warn("The calculation of the Kullback-Leibler "
+                          "divergence is still an experimental feature "
+                          "while using the Barnes Hut algorithm.")
+        return self._kl_divergence_
+
+    @kl_divergence_.setter
+    def kl_divergence_(self, value):
+        self._kl_divergence_ = value
 
     def __del__(self):
 
