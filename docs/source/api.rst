@@ -63,7 +63,7 @@ Preprocessing, Metrics, and Utilities
 Model Selection and Data Splitting
 ----------------------------------
 
- .. autofunction:: cuml.preprocessing.model_selection.train_test_split
+ .. autofunction:: cuml.model_selection.train_test_split
 
 Feature and Label Encoding (Single-GPU)
 ---------------------------------------

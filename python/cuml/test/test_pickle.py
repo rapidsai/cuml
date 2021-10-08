@@ -24,7 +24,7 @@ from cuml.test.utils import array_equal, unit_param, stress_param, \
 from cuml.test.test_svm import compare_svm, compare_probabilistic_svm
 from sklearn.base import clone
 from sklearn.datasets import load_iris, make_classification, make_regression
-from sklearn.manifold.t_sne import trustworthiness
+from sklearn.manifold import trustworthiness
 from sklearn.model_selection import train_test_split
 
 

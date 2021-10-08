@@ -46,6 +46,7 @@ HELP="$0 [<target> ...] [<flag> ...]
    --codecov        - Enable code coverage support by compiling with Cython linetracing
                       and profiling enabled (WARNING: Impacts performance)
    --ccache         - Use ccache to cache previous compilations
+   --nocloneraft    - CMake will clone RAFT even if it is in the environment, use this flag to disable that behavior
 
  default action (no args) is to build and install 'libcuml', 'cuml', and 'prims' targets only for the detected GPU arch
 
@@ -77,6 +78,7 @@ BUILD_CUML_TESTS=ON
 BUILD_CUML_MG_TESTS=OFF
 BUILD_STATIC_FAISS=OFF
 CMAKE_LOG_LEVEL=WARNING
+DISABLE_FORCE_CLONE_RAFT=OFF
 
 # Set defaults for vars that may not have been defined externally
 #  FIXME: if INSTALL_PREFIX is not set, check PREFIX, then check
@@ -129,6 +131,7 @@ LONG_ARGUMENT_LIST=(
     "codecov"
     "ccache"
     "nolibcumltest"
+    "nocloneraft"
 )
 
 # Short arguments
@@ -188,6 +191,9 @@ while true; do
         --nolibcumltest )
             BUILD_CUML_TESTS=OFF
             ;;
+        --nocloneraft )
+            DISABLE_FORCE_CLONE_RAFT=ON
+            ;;
         --)
             shift
             break
@@ -239,6 +245,7 @@ if completeBuild || hasArg libcuml || hasArg prims || hasArg bench || hasArg pri
           -DBUILD_CUML_TESTS=${BUILD_CUML_TESTS} \
           -DBUILD_CUML_MPI_COMMS=${BUILD_CUML_MG_TESTS} \
           -DBUILD_CUML_MG_TESTS=${BUILD_CUML_MG_TESTS} \
+          -DDISABLE_FORCE_CLONE_RAFT=${DISABLE_FORCE_CLONE_RAFT} \
           -DNVTX=${NVTX} \
           -DUSE_CCACHE=${CCACHE} \
           -DDISABLE_DEPRECATION_WARNING=${BUILD_DISABLE_DEPRECATION_WARNING} \
