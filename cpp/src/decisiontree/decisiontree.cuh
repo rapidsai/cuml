@@ -232,6 +232,7 @@ class DecisionTree {
   template <class DataT, class LabelT>
   static std::shared_ptr<DT::TreeMetaDataNode<DataT, LabelT>> fit(
     const raft::handle_t& handle,
+    const cudaStream_t s,
     const DataT* data,
     const int ncols,
     const int nrows,
@@ -253,6 +254,7 @@ class DecisionTree {
     // Dispatch objective
     if (params.split_criterion == CRITERION::GINI) {
       return Builder<GiniObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+                                                                 s,
                                                                  treeid,
                                                                  seed,
                                                                  params,
@@ -266,6 +268,7 @@ class DecisionTree {
         .train();
     } else if (params.split_criterion == CRITERION::ENTROPY) {
       return Builder<EntropyObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+                                                                    s,
                                                                     treeid,
                                                                     seed,
                                                                     params,
@@ -279,6 +282,7 @@ class DecisionTree {
         .train();
     } else if (params.split_criterion == CRITERION::MSE) {
       return Builder<MSEObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+                                                                s,
                                                                 treeid,
                                                                 seed,
                                                                 params,
@@ -289,6 +293,20 @@ class DecisionTree {
                                                                 rowids,
                                                                 unique_labels,
                                                                 quantiles)
+        .train();
+    } else if (params.split_criterion == CRITERION::POISSON) {
+      return Builder<PoissonObjectiveFunction<DataT, LabelT, IdxT>>(handle,
+                                                                    s,
+                                                                    treeid,
+                                                                    seed,
+                                                                    params,
+                                                                    data,
+                                                                    labels,
+                                                                    nrows,
+                                                                    ncols,
+                                                                    rowids,
+                                                                    unique_labels,
+                                                                    quantiles)
         .train();
     } else {
       ASSERT(false, "Unknown split criterion.");

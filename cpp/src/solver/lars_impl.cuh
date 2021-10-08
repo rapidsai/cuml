@@ -19,6 +19,7 @@
 #include <iostream>
 #include <limits>
 #include <numeric>
+#include <vector>
 
 #include <raft/cudart_utils.h>
 #include <raft/linalg/cublas_wrappers.h>

@@ -162,9 +162,9 @@ class RandomForest {
 #pragma omp parallel for num_threads(n_streams)
     for (int i = 0; i < this->rf_params.n_trees; i++) {
       int stream_id = omp_get_thread_num();
+      auto s        = handle.get_internal_stream(stream_id);
 
-      this->get_row_sample(
-        i, n_rows, &selected_rows[stream_id], handle.get_internal_stream(stream_id));
+      this->get_row_sample(i, n_rows, &selected_rows[stream_id], s);
 
       /* Build individual tree in the forest.
         - input is a pointer to orig data that have n_cols features and n_rows rows.
@@ -176,6 +176,7 @@ class RandomForest {
       */
 
       forest->trees[i] = DT::DecisionTree::fit(handle,
+                                               s,
                                                input,
                                                n_cols,
                                                n_rows,
