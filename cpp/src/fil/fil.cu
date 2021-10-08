@@ -97,6 +97,11 @@ __global__ void transform_k(float* preds,
     preds[i] = result;
 }
 
+// needed to avoid expanding the dispatch template into unresolved
+// compute_smem_footprint::run<KernelParams>() calls. In infer.cu, we don't export those symbols,
+// but rather one symbol for the whole template specialization, as below.
+extern template void dispatch_on_fil_template_params(compute_smem_footprint, predict_params&);
+
 struct forest {
   forest(const raft::handle_t& h) : vector_leaf_(0, h.get_stream()), cat_sets_(h.get_stream()) {}
 

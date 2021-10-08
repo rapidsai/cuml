@@ -36,7 +36,7 @@
 #endif  // __CUDA_ARCH__
 #endif  // CUDA_PRAGMA_UNROLL
 
-#define INLINE_CONFIG __forceinline__
+#define INLINE_CONFIG __noinline__
 
 namespace ML {
 namespace fil {
@@ -852,6 +852,15 @@ size_t shmem_size_params::get_smem_footprint()
     tree_aggregator_t<NITEMS, leaf_algo>::smem_accumulate_footprint(num_classes) +
     cols_shmem_size();
   return std::max(accumulate_footprint, finalize_footprint);
+}
+
+template <class KernelParams>
+void compute_smem_footprint::run(predict_params& ssp)
+{
+  // need GROVE_PER_CLASS_*_CLASSES
+  if constexpr (KernelParams::leaf_algo != GROVE_PER_CLASS) {
+    ssp.shm_sz = ssp.template get_smem_footprint<KernelParams::n_items, KernelParams::leaf_algo>();
+  }
 }
 
 // make sure to instantiate all possible get_smem_footprint instantiations

@@ -275,14 +275,7 @@ void dispatch_on_fil_template_params(Func func, predict_params& params)
  */
 struct compute_smem_footprint {
   template <class KernelParams>
-  void run(predict_params& ssp)
-  {
-    // need GROVE_PER_CLASS_*_CLASSES
-    if constexpr (KernelParams::leaf_algo != GROVE_PER_CLASS) {
-      ssp.shm_sz =
-        ssp.template get_smem_footprint<KernelParams::n_items, KernelParams::leaf_algo>();
-    }
-  }
+  void run(predict_params& ssp);
 };
 
 // infer() calls the inference kernel with the parameters on the stream
