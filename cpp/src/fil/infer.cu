@@ -855,24 +855,24 @@ size_t shmem_size_params::get_smem_footprint()
 }
 
 template <class KernelParams>
-void compute_smem_footprint::run(predict_params& ssp)
+int compute_smem_footprint::run(predict_params ssp)
 {
   // need GROVE_PER_CLASS_*_CLASSES
   if constexpr (KernelParams::leaf_algo != GROVE_PER_CLASS) {
-    ssp.shm_sz = ssp.template get_smem_footprint<KernelParams::n_items, KernelParams::leaf_algo>();
+    return ssp.template get_smem_footprint<KernelParams::n_items, KernelParams::leaf_algo>();
   }
 }
 
 // make sure to instantiate all possible get_smem_footprint instantiations
-template void dispatch_on_fil_template_params(compute_smem_footprint, predict_params&);
+template int dispatch_on_fil_template_params(compute_smem_footprint, predict_params);
 
 template <typename storage_type>
 struct infer_k_storage_template {
   storage_type forest;
   cudaStream_t stream;
 
-  template <class KernelParams>
-  void run(predict_params& params)
+  template <class KernelParams = KernelTemplateParameters<>>
+  void run(predict_params params)
   {
     params.num_blocks = params.num_blocks != 0
                           ? params.num_blocks

@@ -98,9 +98,9 @@ __global__ void transform_k(float* preds,
 }
 
 // needed to avoid expanding the dispatch template into unresolved
-// compute_smem_footprint::run<KernelParams>() calls. In infer.cu, we don't export those symbols,
+// compute_smem_footprint::run() calls. In infer.cu, we don't export those symbols,
 // but rather one symbol for the whole template specialization, as below.
-extern template void dispatch_on_fil_template_params(compute_smem_footprint, predict_params&);
+extern template int dispatch_on_fil_template_params(compute_smem_footprint, predict_params);
 
 struct forest {
   forest(const raft::handle_t& h) : vector_leaf_(0, h.get_stream()), cat_sets_(h.get_stream()) {}
@@ -137,9 +137,8 @@ struct forest {
       for (bool cols_in_shmem : {false, true}) {
         ssp.cols_in_shmem = cols_in_shmem;
         for (ssp.n_items = min_n_items; ssp.n_items <= max_n_items; ++ssp.n_items) {
-          predict_params pp = ssp;
-          dispatch_on_fil_template_params(compute_smem_footprint(), pp);
-          if (pp.shm_sz < max_shm) ssp_ = pp;
+          ssp.shm_sz = dispatch_on_fil_template_params(compute_smem_footprint(), ssp);
+          if (ssp.shm_sz < max_shm) ssp_ = ssp;
         }
       }
       ASSERT(max_shm >= ssp_.shm_sz,

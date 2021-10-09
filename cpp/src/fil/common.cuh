@@ -130,9 +130,9 @@ struct shmem_size_params {
   /// are the input columns are prefetched into shared
   /// memory before inferring the row in question
   bool cols_in_shmem = true;
-  // are there categorical inner nodes? doesnt' currently affect shared memory size,
+  // are there categorical inner nodes? doesn't currently affect shared memory size,
   // but participates in template dispatch and may affect it later
-  bool cats_present;
+  bool cats_present = false;
   /// log2_threads_per_tree determines how many threads work on a single tree
   /// at once inside a block (sharing trees means splitting input rows)
   int log2_threads_per_tree = 0;
@@ -159,6 +159,7 @@ struct shmem_size_params {
 // predict_params are parameters for prediction
 struct predict_params : shmem_size_params {
   predict_params(shmem_size_params ssp) : shmem_size_params(ssp) {}
+  predict_params() {}
   // Model parameters.
   algo_t algo;
   // number of outputs for the forest per each data row
@@ -202,80 +203,74 @@ struct KernelTemplateParameters {
 namespace dispatch {
 
 template <class KernelParams, class Func>
-void dispatch_on_n_items(Func func, predict_params& params)
+auto dispatch_on_n_items(Func func, predict_params params) -> decltype(func.run(params))
 {
   if (params.n_items == KernelParams::n_items) {
-    func.template run<KernelParams>(params);
+    return func.template run<KernelParams>(params);
   } else if constexpr (KernelParams::n_items < 4) {
-    dispatch_on_n_items<class KernelParams::inc_n_items>(func, params);
+    return dispatch_on_n_items<class KernelParams::inc_n_items>(func, params);
   } else {
     ASSERT(false, "internal error: n_items > 4 or < 1");
   }
+  return func.run(params);  // appeasing the compiler
 }
 
 template <class KernelParams, class Func>
-void dispatch_on_leaf_algo(Func func, predict_params& params)
+auto dispatch_on_leaf_algo(Func func, predict_params params) -> decltype(func.run(params))
 {
   if (params.leaf_algo == KernelParams::leaf_algo) {
     if constexpr (KernelParams::leaf_algo == GROVE_PER_CLASS) {
       if (params.num_classes <= FIL_TPB) {
         params.block_dim_x = FIL_TPB - FIL_TPB % params.num_classes;
         using Next         = typename KernelParams::replace_leaf_algo<GROVE_PER_CLASS_FEW_CLASSES>;
-        dispatch_on_n_items<Next>(func, params);
+        return dispatch_on_n_items<Next>(func, params);
       } else {
         params.block_dim_x = FIL_TPB;
         using Next         = typename KernelParams::replace_leaf_algo<GROVE_PER_CLASS_MANY_CLASSES>;
-        dispatch_on_n_items<Next>(func, params);
+        return dispatch_on_n_items<Next>(func, params);
       }
     } else {
       params.block_dim_x = FIL_TPB;
-      dispatch_on_n_items<KernelParams>(func, params);
+      return dispatch_on_n_items<KernelParams>(func, params);
     }
   } else if constexpr (KernelParams::leaf_algo + 1 < static_cast<int>(LEAF_ALGO_INVALID)) {
-    dispatch_on_leaf_algo<class KernelParams::inc_leaf_algo>(func, params);
+    return dispatch_on_leaf_algo<class KernelParams::inc_leaf_algo>(func, params);
   } else {
     ASSERT(false, "internal error: dispatch: invalid leaf_algo %d", params.leaf_algo);
   }
+  return func.run(params);  // appeasing the compiler
 }
 
 template <class KernelParams, class Func>
-void dispatch_on_cats_supported(Func func, predict_params& params)
+auto dispatch_on_cats_supported(Func func, predict_params params) -> decltype(func.run(params))
 {
-  if (params.cats_present)
-    dispatch_on_leaf_algo<typename KernelParams::replace_cats_supported<true>>(func, params);
-  else
-    dispatch_on_leaf_algo<typename KernelParams::replace_cats_supported<false>>(func, params);
+  return params.cats_present
+           ? dispatch_on_leaf_algo<typename KernelParams::replace_cats_supported<true>>(func,
+                                                                                        params)
+           : dispatch_on_leaf_algo<typename KernelParams::replace_cats_supported<false>>(func,
+                                                                                         params);
 }
 
 template <class Func>
-void dispatch_on_cols_in_shmem(Func func, predict_params& params)
+auto dispatch_on_cols_in_shmem(Func func, predict_params params) -> decltype(func.run(params))
 {
-  if (params.cols_in_shmem)
-    dispatch_on_cats_supported<KernelTemplateParameters<true>>(func, params);
-  else
-    dispatch_on_cats_supported<KernelTemplateParameters<false>>(func, params);
+  return params.cols_in_shmem
+           ? dispatch_on_cats_supported<KernelTemplateParameters<true>>(func, params)
+           : dispatch_on_cats_supported<KernelTemplateParameters<false>>(func, params);
 }
 
 }  // namespace dispatch
 
 template <class Func>
-void dispatch_on_fil_template_params(Func func, predict_params& params)
+auto dispatch_on_fil_template_params(Func func, predict_params params) -> decltype(func.run(params))
 {
-  dispatch::dispatch_on_cols_in_shmem(func, params);
+  return dispatch::dispatch_on_cols_in_shmem(func, params);
 }
 
-/* For an example of Func, see this:
- *
- * We need to instantiate all get_smem_footprint instantiations in infer.cu.
- * The only guarantee is by instantiating
- * dispatch_on_FIL_template<compute_smem_footprint...  in infer.cu. This
- * requires a declaration of this struct with the declaration of the `run` template
- * (i.e. all but one line) visible from infer.cu, as well as this full
- * definition visible from fil.cu. We'll just define it in common.cuh.
- */
+// For an example of Func, see this:
 struct compute_smem_footprint {
-  template <class KernelParams>
-  void run(predict_params& ssp);
+  template <class KernelParams = KernelTemplateParameters<>>
+  int run(predict_params ssp);
 };
 
 // infer() calls the inference kernel with the parameters on the stream
