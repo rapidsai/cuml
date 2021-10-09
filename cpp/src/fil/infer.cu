@@ -871,7 +871,7 @@ struct infer_k_storage_template {
   storage_type forest;
   cudaStream_t stream;
 
-  template <class KernelParams = KernelTemplateParameters<>>
+  template <class KernelParams = KernelTemplateParams<>>
   void run(predict_params params)
   {
     params.num_blocks = params.num_blocks != 0

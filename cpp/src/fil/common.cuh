@@ -139,7 +139,7 @@ struct shmem_size_params {
   /// n_items is how many input samples (items) any thread processes. If 0 is given,
   /// choose the reasonable most (<=4) that fit into shared memory. See init_n_items()
   int n_items = 0;
-  // block_dim_x is the CUDA block size
+  // block_dim_x is the CUDA block size. Set by dispatch_on_leaf_algo(...)
   int block_dim_x = 0;
   /// shm_sz is the associated shared memory footprint
   int shm_sz = INT_MAX;
@@ -178,26 +178,23 @@ struct predict_params : shmem_size_params {
   int num_blocks;
 };
 
-template <bool COLS_IN_SHMEM  = false,
-          bool CATS_SUPPORTED = false,
-          int LEAF_ALGO       = 0,
-          int N_ITEMS         = 1>
-struct KernelTemplateParameters {
-  static const bool cols_in_shmem    = COLS_IN_SHMEM;
-  static const bool cats_supported   = CATS_SUPPORTED;
-  static const leaf_algo_t leaf_algo = static_cast<leaf_algo_t>(LEAF_ALGO);
-  static const int n_items           = N_ITEMS;
+template <bool COLS_IN_SHMEM_  = false,
+          bool CATS_SUPPORTED_ = false,
+          int LEAF_ALGO_       = 0,
+          int N_ITEMS_         = 1>
+struct KernelTemplateParams {
+  static const bool COLS_IN_SHMEM    = COLS_IN_SHMEM_;
+  static const bool CATS_SUPPORTED   = CATS_SUPPORTED_;
+  static const leaf_algo_t LEAF_ALGO = static_cast<leaf_algo_t>(LEAF_ALGO_);
+  static const int N_ITEMS           = N_ITEMS_;
 
   template <bool _cats_supported>
-  using replace_cats_supported =
-    KernelTemplateParameters<cols_in_shmem, _cats_supported, leaf_algo, n_items>;
-  using inc_leaf_algo =
-    KernelTemplateParameters<cols_in_shmem, cats_supported, leaf_algo + 1, n_items>;
+  using ReplaceCatsSupported =
+    KernelTemplateParams<COLS_IN_SHMEM, _cats_supported, LEAF_ALGO, N_ITEMS>;
+  using IncLeafAlgo = KernelTemplateParams<COLS_IN_SHMEM, CATS_SUPPORTED, LEAF_ALGO + 1, N_ITEMS>;
   template <int _leaf_algo>
-  using replace_leaf_algo =
-    KernelTemplateParameters<cols_in_shmem, cats_supported, _leaf_algo, n_items>;
-  using inc_n_items =
-    KernelTemplateParameters<cols_in_shmem, cats_supported, leaf_algo, n_items + 1>;
+  using ReplaceLeafAlgo = KernelTemplateParams<COLS_IN_SHMEM, CATS_SUPPORTED, _leaf_algo, N_ITEMS>;
+  using IncNItems = KernelTemplateParams<COLS_IN_SHMEM, CATS_SUPPORTED, LEAF_ALGO, N_ITEMS + 1>;
 };
 
 namespace dispatch {
@@ -208,7 +205,7 @@ auto dispatch_on_n_items(Func func, predict_params params) -> decltype(func.run(
   if (params.n_items == KernelParams::n_items) {
     return func.template run<KernelParams>(params);
   } else if constexpr (KernelParams::n_items < 4) {
-    return dispatch_on_n_items<class KernelParams::inc_n_items>(func, params);
+    return dispatch_on_n_items<class KernelParams::IncNItems>(func, params);
   } else {
     ASSERT(false, "internal error: n_items > 4 or < 1");
   }
@@ -222,11 +219,11 @@ auto dispatch_on_leaf_algo(Func func, predict_params params) -> decltype(func.ru
     if constexpr (KernelParams::leaf_algo == GROVE_PER_CLASS) {
       if (params.num_classes <= FIL_TPB) {
         params.block_dim_x = FIL_TPB - FIL_TPB % params.num_classes;
-        using Next         = typename KernelParams::replace_leaf_algo<GROVE_PER_CLASS_FEW_CLASSES>;
+        using Next         = typename KernelParams::ReplaceLeafAlgo<GROVE_PER_CLASS_FEW_CLASSES>;
         return dispatch_on_n_items<Next>(func, params);
       } else {
         params.block_dim_x = FIL_TPB;
-        using Next         = typename KernelParams::replace_leaf_algo<GROVE_PER_CLASS_MANY_CLASSES>;
+        using Next         = typename KernelParams::ReplaceLeafAlgo<GROVE_PER_CLASS_MANY_CLASSES>;
         return dispatch_on_n_items<Next>(func, params);
       }
     } else {
@@ -234,7 +231,7 @@ auto dispatch_on_leaf_algo(Func func, predict_params params) -> decltype(func.ru
       return dispatch_on_n_items<KernelParams>(func, params);
     }
   } else if constexpr (KernelParams::leaf_algo + 1 < static_cast<int>(LEAF_ALGO_INVALID)) {
-    return dispatch_on_leaf_algo<class KernelParams::inc_leaf_algo>(func, params);
+    return dispatch_on_leaf_algo<class KernelParams::IncLeafAlgo>(func, params);
   } else {
     ASSERT(false, "internal error: dispatch: invalid leaf_algo %d", params.leaf_algo);
   }
@@ -245,18 +242,17 @@ template <class KernelParams, class Func>
 auto dispatch_on_cats_supported(Func func, predict_params params) -> decltype(func.run(params))
 {
   return params.cats_present
-           ? dispatch_on_leaf_algo<typename KernelParams::replace_cats_supported<true>>(func,
-                                                                                        params)
-           : dispatch_on_leaf_algo<typename KernelParams::replace_cats_supported<false>>(func,
-                                                                                         params);
+           ? dispatch_on_leaf_algo<typename KernelParams::ReplaceCatsSupported<true>>(func, params)
+           : dispatch_on_leaf_algo<typename KernelParams::ReplaceCatsSupported<false>>(func,
+                                                                                       params);
 }
 
 template <class Func>
 auto dispatch_on_cols_in_shmem(Func func, predict_params params) -> decltype(func.run(params))
 {
   return params.cols_in_shmem
-           ? dispatch_on_cats_supported<KernelTemplateParameters<true>>(func, params)
-           : dispatch_on_cats_supported<KernelTemplateParameters<false>>(func, params);
+           ? dispatch_on_cats_supported<KernelTemplateParams<true>>(func, params)
+           : dispatch_on_cats_supported<KernelTemplateParams<false>>(func, params);
 }
 
 }  // namespace dispatch
@@ -269,7 +265,7 @@ auto dispatch_on_fil_template_params(Func func, predict_params params) -> declty
 
 // For an example of Func, see this:
 struct compute_smem_footprint {
-  template <class KernelParams = KernelTemplateParameters<>>
+  template <class KernelParams = KernelTemplateParams<>>
   int run(predict_params ssp);
 };
 
