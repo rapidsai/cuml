@@ -202,9 +202,9 @@ namespace dispatch {
 template <class KernelParams, class Func>
 auto dispatch_on_n_items(Func func, predict_params params) -> decltype(func.run(params))
 {
-  if (params.n_items == KernelParams::n_items) {
+  if (params.n_items == KernelParams::N_ITEMS) {
     return func.template run<KernelParams>(params);
-  } else if constexpr (KernelParams::n_items < 4) {
+  } else if constexpr (KernelParams::N_ITEMS < 4) {
     return dispatch_on_n_items<class KernelParams::IncNItems>(func, params);
   } else {
     ASSERT(false, "internal error: n_items > 4 or < 1");
@@ -215,8 +215,8 @@ auto dispatch_on_n_items(Func func, predict_params params) -> decltype(func.run(
 template <class KernelParams, class Func>
 auto dispatch_on_leaf_algo(Func func, predict_params params) -> decltype(func.run(params))
 {
-  if (params.leaf_algo == KernelParams::leaf_algo) {
-    if constexpr (KernelParams::leaf_algo == GROVE_PER_CLASS) {
+  if (params.leaf_algo == KernelParams::LEAF_ALGO) {
+    if constexpr (KernelParams::LEAF_ALGO == GROVE_PER_CLASS) {
       if (params.num_classes <= FIL_TPB) {
         params.block_dim_x = FIL_TPB - FIL_TPB % params.num_classes;
         using Next         = typename KernelParams::ReplaceLeafAlgo<GROVE_PER_CLASS_FEW_CLASSES>;
@@ -230,7 +230,7 @@ auto dispatch_on_leaf_algo(Func func, predict_params params) -> decltype(func.ru
       params.block_dim_x = FIL_TPB;
       return dispatch_on_n_items<KernelParams>(func, params);
     }
-  } else if constexpr (KernelParams::leaf_algo + 1 < static_cast<int>(LEAF_ALGO_INVALID)) {
+  } else if constexpr (KernelParams::IncLeafAlgo::LEAF_ALGO < LEAF_ALGO_INVALID) {
     return dispatch_on_leaf_algo<class KernelParams::IncLeafAlgo>(func, params);
   } else {
     ASSERT(false, "internal error: dispatch: invalid leaf_algo %d", params.leaf_algo);

@@ -857,10 +857,7 @@ size_t shmem_size_params::get_smem_footprint()
 template <class KernelParams>
 int compute_smem_footprint::run(predict_params ssp)
 {
-  // need GROVE_PER_CLASS_*_CLASSES
-  if constexpr (KernelParams::leaf_algo != GROVE_PER_CLASS) {
-    return ssp.template get_smem_footprint<KernelParams::n_items, KernelParams::leaf_algo>();
-  }
+  return ssp.template get_smem_footprint<KernelParams::N_ITEMS, KernelParams::LEAF_ALGO>();
 }
 
 // make sure to instantiate all possible get_smem_footprint instantiations
@@ -877,10 +874,10 @@ struct infer_k_storage_template {
     params.num_blocks = params.num_blocks != 0
                           ? params.num_blocks
                           : raft::ceildiv(int(params.num_rows), params.n_items);
-    infer_k<KernelParams::n_items,
-            KernelParams::leaf_algo,
-            KernelParams::cols_in_shmem,
-            KernelParams::cats_supported>
+    infer_k<KernelParams::N_ITEMS,
+            KernelParams::LEAF_ALGO,
+            KernelParams::COLS_IN_SHMEM,
+            KernelParams::CATS_SUPPORTED>
       <<<params.num_blocks, params.block_dim_x, params.shm_sz, stream>>>(forest, params);
     CUDA_CHECK(cudaPeekAtLastError());
   }
