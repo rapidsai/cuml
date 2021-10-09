@@ -137,7 +137,7 @@ struct shmem_size_params {
   /// at once inside a block (sharing trees means splitting input rows)
   int log2_threads_per_tree = 0;
   /// n_items is how many input samples (items) any thread processes. If 0 is given,
-  /// choose the reasonable most (<=4) that fit into shared memory. See init_n_items()
+  /// choose the reasonable most (<= MAX_N_ITEMS) that fit into shared memory. See init_n_items()
   int n_items = 0;
   // block_dim_x is the CUDA block size. Set by dispatch_on_leaf_algo(...)
   int block_dim_x = 0;
@@ -159,7 +159,6 @@ struct shmem_size_params {
 // predict_params are parameters for prediction
 struct predict_params : shmem_size_params {
   predict_params(shmem_size_params ssp) : shmem_size_params(ssp) {}
-  predict_params() {}
   // Model parameters.
   algo_t algo;
   // number of outputs for the forest per each data row
