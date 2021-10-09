@@ -191,7 +191,7 @@ struct KernelTemplateParams {
   template <bool _cats_supported>
   using ReplaceCatsSupported =
     KernelTemplateParams<COLS_IN_SHMEM, _cats_supported, LEAF_ALGO, N_ITEMS>;
-  using IncLeafAlgo = KernelTemplateParams<COLS_IN_SHMEM, CATS_SUPPORTED, LEAF_ALGO + 1, N_ITEMS>;
+  using NextLeafAlgo = KernelTemplateParams<COLS_IN_SHMEM, CATS_SUPPORTED, LEAF_ALGO + 1, N_ITEMS>;
   template <int _leaf_algo>
   using ReplaceLeafAlgo = KernelTemplateParams<COLS_IN_SHMEM, CATS_SUPPORTED, _leaf_algo, N_ITEMS>;
   using IncNItems = KernelTemplateParams<COLS_IN_SHMEM, CATS_SUPPORTED, LEAF_ALGO, N_ITEMS + 1>;
@@ -230,8 +230,8 @@ auto dispatch_on_leaf_algo(Func func, predict_params params) -> decltype(func.ru
       params.block_dim_x = FIL_TPB;
       return dispatch_on_n_items<KernelParams>(func, params);
     }
-  } else if constexpr (KernelParams::IncLeafAlgo::LEAF_ALGO < LEAF_ALGO_INVALID) {
-    return dispatch_on_leaf_algo<class KernelParams::IncLeafAlgo>(func, params);
+  } else if constexpr (KernelParams::NextLeafAlgo::LEAF_ALGO < LEAF_ALGO_INVALID) {
+    return dispatch_on_leaf_algo<class KernelParams::NextLeafAlgo>(func, params);
   } else {
     ASSERT(false, "internal error: dispatch: invalid leaf_algo %d", params.leaf_algo);
   }
