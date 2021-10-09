@@ -36,7 +36,7 @@
 #endif  // __CUDA_ARCH__
 #endif  // CUDA_PRAGMA_UNROLL
 
-#define INLINE_CONFIG __noinline__
+#define INLINE_CONFIG __forceinline__
 
 namespace ML {
 namespace fil {
@@ -786,7 +786,7 @@ __device__ INLINE_CONFIG void load_data(float* sdata,
 template <int NITEMS,
           leaf_algo_t leaf_algo,
           bool cols_in_shmem,
-          bool cats_supported,
+          bool CATS_SUPPORTED,
           class storage_type>
 __global__ void infer_k(storage_type forest, predict_params params)
 {
@@ -823,7 +823,7 @@ __global__ void infer_k(storage_type forest, predict_params params)
       typedef typename leaf_output_t<leaf_algo>::T pred_t;
       vec<NITEMS, pred_t> prediction;
       if (tree < forest.num_trees() && thread_num_rows != 0) {
-        prediction = infer_one_tree<NITEMS, cats_supported, pred_t>(
+        prediction = infer_one_tree<NITEMS, CATS_SUPPORTED, pred_t>(
           forest[tree],
           cols_in_shmem ? sdata + thread_row0 * sdata_stride : block_input + thread_row0 * num_cols,
           cols_in_shmem ? sdata_stride : num_cols,

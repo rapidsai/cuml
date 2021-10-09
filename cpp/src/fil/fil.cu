@@ -162,11 +162,6 @@ struct forest {
                    const std::vector<float>& vector_leaf,
                    const forest_params_t* params)
   {
-    int device          = h.get_device();
-    cudaStream_t stream = h.get_stream();
-    // categorical features
-    cat_sets_ = cat_sets_device_owner(cat_sets, stream);
-
     depth_                           = params->depth;
     num_trees_                       = params->num_trees;
     algo_                            = params->algo;
@@ -178,9 +173,11 @@ struct forest {
     proba_ssp_.leaf_algo             = params->leaf_algo;
     proba_ssp_.num_cols              = params->num_cols;
     proba_ssp_.num_classes           = params->num_classes;
-    proba_ssp_.cats_present          = cat_sets_.accessor().cats_present();
+    proba_ssp_.cats_present          = cat_sets.cats_present();
     class_ssp_                       = proba_ssp_;
 
+    int device          = h.get_device();
+    cudaStream_t stream = h.get_stream();
     init_n_items(device);  // n_items takes priority over blocks_per_sm
     init_fixed_block_count(device, params->blocks_per_sm);
 
@@ -194,6 +191,9 @@ struct forest {
                                  cudaMemcpyHostToDevice,
                                  stream));
     }
+
+    // categorical features
+    cat_sets_ = cat_sets_device_owner(cat_sets, stream);
   }
 
   virtual void infer(predict_params params, cudaStream_t stream) = 0;
