@@ -204,10 +204,10 @@ auto dispatch_on_n_items(Func func, predict_params params) -> decltype(func.run(
 {
   if (params.n_items == KernelParams::N_ITEMS) {
     return func.template run<KernelParams>(params);
-  } else if constexpr (KernelParams::N_ITEMS < 4) {
+  } else if constexpr (KernelParams::N_ITEMS < MAX_N_ITEMS) {
     return dispatch_on_n_items<class KernelParams::IncNItems>(func, params);
   } else {
-    ASSERT(false, "internal error: n_items > 4 or < 1");
+    ASSERT(false, "internal error: n_items > %d or < 1", MAX_N_ITEMS);
   }
   return func.run(params);  // appeasing the compiler
 }

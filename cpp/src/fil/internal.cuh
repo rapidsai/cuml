@@ -301,7 +301,7 @@ struct forest_params_t {
   // at once inside a block (sharing trees means splitting input rows)
   int threads_per_tree;
   // n_items is how many input samples (items) any thread processes. If 0 is given,
-  // choose most (up to 4) that fit into shared memory.
+  // choose most (up to MAX_N_ITEMS) that fit into shared memory.
   int n_items;
 };
 
