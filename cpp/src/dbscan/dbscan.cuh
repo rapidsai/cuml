@@ -60,6 +60,9 @@ size_t compute_batch_size(size_t& estimated_memory,
   // from the over-estimation of the sparse adjacency matrix
 
   // Batch size determined based on available memory
+  if (est_mem_per_row == 0) {
+    THROW("Estimated memory per row is 0 for DBScan");
+  }
   size_t batch_size = (max_mbytes_per_batch * 1000000 - est_mem_fixed) / est_mem_per_row;
 
   // Limit batch size to number of owned rows
@@ -117,6 +120,10 @@ void dbscanFitImpl(const raft::handle_t& handle,
   int n_rank{1};
   Index_ start_row{0};
   Index_ n_owned_rows{n_rows};
+
+  if (n_rows == 0) {
+    THROW("No rows in the input array. DBScan cannot be fitted!");
+  }
 
   if (opg) {
     const auto& comm     = handle.get_comms();
