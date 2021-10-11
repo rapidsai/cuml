@@ -392,15 +392,21 @@ struct Builder {
     double start = second();
     if (input.nSampledCols != input.N) {
       // printf("Shuffling %d arrays of size %d, time = ", IdxT(work_items.size()), input.N);
-      // for (IdxT i = 0; i < IdxT(work_items.size()); i++) {
-      //   thrust::shuffle(thrust::cuda::par.on(handle.get_stream()), colids + i*input.N,
-      //                   colids + (i + 1) * input.N, rng_engine);
-      // }
+      for (IdxT i = 0; i < IdxT(work_items.size()); i++) {
+        thrust::shuffle(thrust::cuda::par.on(handle.get_stream()), colids + i*input.N,
+                        colids + (i + 1) * input.N, rng_engine);
+      }
       dim3 grid;
       grid.x = work_items.size();
       grid.y = input.nSampledCols;
       grid.z = 1;
       select_kernel<<<grid, 128, 0, handle.get_stream()>>>(colids, d_work_items, treeid, seed, input.N);
+      // dim3 grid;
+      // grid.x = (work_items.size() + 127) / 128;
+      // grid.y = 1;
+      // grid.z = 1;
+      // adaptive_sample_kernel<<<grid, 128, 0, handle.get_stream()>>>(
+      //   colids, d_work_items, treeid, seed, input.N, input.nSampledCols);
     }
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
     double stop = second();
@@ -412,6 +418,7 @@ struct Builder {
       computeSplit(c, work_items.size(), total_blocks, large_blocks);
       CUDA_CHECK(cudaGetLastError());
     }
+    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
     stop = second();
     printf("Split time %e s\n", stop - start);

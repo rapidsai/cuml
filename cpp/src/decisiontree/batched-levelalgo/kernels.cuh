@@ -248,11 +248,56 @@ template <typename IdxT>
 __global__ void select_kernel(IdxT* colids, const NodeWorkItem* work_items, IdxT treeid,
                               uint64_t seed, IdxT N) {
 
-  const auto work_item = work_items[blockIdx.x];
+  const uint32_t nodeid = work_items[blockIdx.x].idx;
 
-  int blksum = select(IdxT(blockIdx.y), treeid, work_item.idx, seed, N);
+  int blksum = select(IdxT(blockIdx.y), treeid, nodeid, seed, N);
   if (threadIdx.x == 0) {
     colids[blockIdx.x * N + blockIdx.y] = blksum;
+  }
+}
+
+template <typename UT>
+__device__ uint32_t kiss99(UT& z, UT& w, UT& jsr, UT& jcong) {
+    uint32_t MWC;
+    z = 36969*(z&65535) + (z >> 16);
+    w = 18000*(w&65535) + (w >> 16);
+    MWC = ((z << 16) + w);
+    jsr ^= (jsr << 17);
+    jsr ^= (jsr >> 13);
+    jsr ^= (jsr << 5);
+    jcong = 69069*jcong + 1234567;
+    return ((MWC ^ jcong) + jsr);
+}
+
+template <typename IdxT>
+__global__ void adaptive_sample_kernel(int* colids, const NodeWorkItem* work_items, IdxT treeid,
+                                       uint64_t seed, int N, int M) {
+
+  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+  const uint32_t nodeid = work_items[tid].idx;
+  uint32_t z, w, jsr, jcong;
+
+  z     = fnv1a32_basis;
+  w     = fnv1a32(z, uint32_t(treeid));
+  jsr   = fnv1a32(w, uint32_t(nodeid));
+  jcong = fnv1a32(jsr, uint32_t(seed >> 32));
+  z     = fnv1a32(jcong, uint32_t(seed));
+  w     = fnv1a32(z, uint32_t(treeid));
+  jsr   = fnv1a32(w, uint32_t(nodeid));
+  jcong = fnv1a32(jsr, uint32_t(seed >> 32));
+
+  int selected_count = 0;
+  for (int i = 0; i < N; i++) {
+    uint32_t toss;
+    toss = kiss99(z, w, jsr, jcong);
+    uint64_t lhs = uint64_t(M - selected_count);
+    lhs <<= 32;
+    uint64_t rhs = uint64_t(toss) * (N - i);
+    if (lhs > rhs) {
+      colids[tid * N + selected_count] = i;
+      selected_count ++;
+      if (selected_count == M) break;
+    }
   }
 }
 
@@ -348,14 +393,18 @@ __global__ void computeSplitKernel(BinT* hist,
 
   // obtaining the feature to test split on
   IdxT col;
+  int colIndex = colStart + blockIdx.y;
   if (input.nSampledCols == input.N) {
     col = colStart + blockIdx.y;
   } else {
-    int colIndex = colStart + blockIdx.y;
-    // col          = colids[nid * input.N + colIndex];
-    col          = select(colIndex, treeid, work_item.idx, seed, input.N);
+    colIndex = colStart + blockIdx.y;
+    col          = colids[nid * input.N + colIndex];
+    // col          = select(colIndex, treeid, work_item.idx, seed, input.N);
   }
 
+  // if (col != colids[nid * input.N + colIndex]) {
+  //   printf("hell bells\n");
+  // }
   // populating shared memory with initial values
   for (IdxT i = threadIdx.x; i < shared_histogram_len; i += blockDim.x)
     shared_histogram[i] = BinT();
