@@ -209,3 +209,4 @@ linkcode_resolve = make_linkcode_resolve(
 # backticks`) to be a python object. See
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#confval-default_role
 default_role = "py:obj"
+nbsphinx_allow_errors=True

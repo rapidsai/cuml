@@ -74,15 +74,15 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
-    split_criterion : int or string (default = 0 ('gini'))
-        The criterion used to split nodes.
-         * 0 or 'gini' for GINI
-         * 1 or 'entropy' for ENTROPY
-         * 2 or 'mse' for MSE
-         * 4 or 'poisson' for POISSON
-         * 5 or 'gamma' for GAMMA
-         * 6 or 'inverse_gaussian' for INVERSE_GAUSSIAN
-        2, 'mse', 4, 'poisson', 5, 'gamma', 6, 'inverse_gaussian' not valid
+    split_criterion : int or string (default = ``0`` (``'gini'``))
+        The criterion used to split nodes.\n
+         * ``0`` or ``'gini'`` for gini impurity
+         * ``1`` or ``'entropy'`` for information gain (entropy)
+         * ``2`` or ``'mse'`` for mean squared error
+         * ``4`` or ``'poisson'`` for poisson half deviance
+         * ``5`` or ``'gamma'`` for gamma half deviance
+         * ``6`` or ``'inverse_gaussian'`` for inverse gaussian deviance
+        ``2``, ``'mse'``, ``4``, ``'poisson'``, ``5``, ``'gamma'``, ``6``, ``'inverse_gaussian'`` not valid
         for classification
     bootstrap : boolean (default = True)
         Control bootstrapping.\n
