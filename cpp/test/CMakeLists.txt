@@ -23,7 +23,7 @@ set(COMMON_TEST_LINK_LIBRARIES
   CUDA::cufft
   rmm::rmm
   raft::raft
-  FAISS::FAISS
+  $<$<BOOL:${LINK_FAISS}>:FAISS::FAISS>
   GTest::gtest
   GTest::gtest_main
   OpenMP::OpenMP_CXX
@@ -38,39 +38,46 @@ set(COMMON_TEST_LINK_LIBRARIES
 
 if(BUILD_CUML_TESTS)
   # (please keep the filenames in alphabetical order)
+
+  # Separable executable for each test targetted for 21.12, meanwhile
+  # we can just separate FIL here, full algorithm support in progress
   add_executable(${CUML_CPP_TEST_TARGET}
-    sg/cd_test.cu
-    sg/dbscan_test.cu
-    sg/fil_test.cu
-    sg/fnv_hash_test.cpp
-    sg/genetic/node_test.cpp
-    sg/genetic/param_test.cu
-    sg/handle_test.cu
-    sg/hdbscan_test.cu
-    sg/holtwinters_test.cu
-    sg/kmeans_test.cu
-    sg/knn_test.cu
-    sg/lars_test.cu
-    sg/linkage_test.cu
-    sg/logger.cpp
-    sg/multi_sum_test.cu
-    sg/nvtx_test.cpp
-    sg/ols.cu
-    sg/pca_test.cu
-    sg/quasi_newton.cu
-    sg/rf_test.cu
-    sg/rf_treelite_test.cu
-    sg/ridge.cu
-    sg/rproj_test.cu
-    sg/sgd.cu
-    sg/shap_kernel.cu
-    sg/svc_test.cu
-    sg/trustworthiness_test.cu
-    sg/tsne_test.cu
-    sg/tsvd_test.cu
-    sg/umap_parametrizable_test.cu
-    $<$<BOOL:BUILD_CUML_C_LIBRARY>:sg/handle_test.cu>
-  )
+    sg/fil_child_index_test.cu
+    sg/fil_test.cu)
+
+  if(CUML_CPP_ALGORITHMS STREQUAL "ALL")
+    target_sources(${CUML_CPP_TEST_TARGET}
+      PRIVATE
+        sg/cd_test.cu
+        sg/dbscan_test.cu
+        sg/fnv_hash_test.cpp
+        sg/genetic/node_test.cpp
+        sg/genetic/param_test.cu
+        sg/hdbscan_test.cu
+        sg/holtwinters_test.cu
+        sg/kmeans_test.cu
+        sg/knn_test.cu
+        sg/lars_test.cu
+        sg/linkage_test.cu
+        sg/logger.cpp
+        sg/multi_sum_test.cu
+        sg/nvtx_test.cpp
+        sg/ols.cu
+        sg/pca_test.cu
+        sg/quasi_newton.cu
+        sg/rf_test.cu
+        sg/ridge.cu
+        sg/rproj_test.cu
+        sg/sgd.cu
+        sg/shap_kernel.cu
+        sg/svc_test.cu
+        sg/trustworthiness_test.cu
+        sg/tsne_test.cu
+        sg/tsvd_test.cu
+        sg/umap_parametrizable_test.cu
+        $<$<BOOL:${BUILD_CUML_C_LIBRARY}>:sg/handle_test.cu>
+      )
+  endif()
 
   target_compile_options(${CUML_CPP_TEST_TARGET}
         PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CUML_CXX_FLAGS}>"
@@ -87,8 +94,8 @@ if(BUILD_CUML_TESTS)
 
   target_link_libraries(${CUML_CPP_TEST_TARGET}
     PRIVATE
-      cuml
-        $<$<BOOL:BUILD_CUML_C_LIBRARY>:${CUML_C_TARGET}>
+        ${CUML_CPP_TARGET}
+        $<$<BOOL:${BUILD_CUML_C_LIBRARY}>:${CUML_C_TARGET}>
         ${COMMON_TEST_LINK_LIBRARIES}
     )
 
@@ -122,7 +129,7 @@ if(BUILD_CUML_MG_TESTS)
       )
 
     target_link_libraries(${CUML_MG_TEST_TARGET}
-      cuml
+      ${CUML_CPP_TARGET}
       ${COMMON_TEST_LINK_LIBRARIES}
       NCCL::NCCL
       ${MPI_CXX_LIBRARIES}
@@ -159,6 +166,7 @@ if(BUILD_PRIMS_TESTS)
     prims/entropy.cu
     prims/epsilon_neighborhood.cu
     prims/fast_int_div.cu
+    prims/fillna.cu
     prims/gather.cu
     prims/gram.cu
     prims/grid_sync.cu
@@ -213,7 +221,7 @@ if(BUILD_PRIMS_TESTS)
 
   target_link_libraries(${PRIMS_TEST_TARGET}
     PRIVATE
-      cuml
+      ${CUML_CPP_TARGET}
       ${COMMON_TEST_LINK_LIBRARIES}
   )
 
