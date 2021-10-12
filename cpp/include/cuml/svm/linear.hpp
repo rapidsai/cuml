@@ -51,7 +51,7 @@ struct LinearSVMParams {
   Penalty penalty = L2;
   /** The loss function. */
   Loss loss = HINGE;
-  /** Whether to fit bias term. */
+  /** Whether to fit the bias term. */
   bool fit_intercept = true;
   /** When true, the bias term is treated the same way as other data features.
    *  Enabling this feature forces an extra copying the input data X.
@@ -68,7 +68,7 @@ struct LinearSVMParams {
    */
   int lbfgs_memory = 5;
   /** Triggers extra output when greater than zero. */
-  int verbosity = 0;
+  int verbose = 0;
   /**
    * The constant scaling factor of the main term in the loss function.
    * (You can also think of that as the inverse factor of the penalty term).
@@ -78,8 +78,14 @@ struct LinearSVMParams {
   double grad_tol = 0.0001;
   /** The threshold on the function change for the underlying QN solver. */
   double change_tol = 0.0001;
-  /** The epsilon-sensitivity parameter (applicable to the SVM-regression loss functions). */
+  /** The epsilon-sensitivity parameter (applicable to the SVM-regression (SVR) loss functions). */
   double svr_sensitivity = 0.0;
+  /** The value considered 'one' in the binary classification problem
+   *  (applicable to the SVM-classification (SVC) loss functions).
+   *  This value is converted into `1.0` during training, whereas all the other values
+   *  in the training target data (`y`) are converted into `-1.0`.
+   */
+  double H1_value = 1.0;
 };
 
 template <typename T>
@@ -100,9 +106,9 @@ class LinearSVMModel {
                  const T* y,
                  const T* sampleWeight);
 
-  void predict(const T* X, const int nRows, const int nCols, T* out);
+  void predict(const T* X, const int nRows, const int nCols, T* out) const;
 
-  T getIntercept()
+  T getIntercept() const
   {
     if (params.fit_intercept) return w.back_element(handle.get_stream());
     return 0;
@@ -110,7 +116,7 @@ class LinearSVMModel {
 
   T* getCoefsPtr() { return w.data(); }
 
-  int getCoefsCount() { return w.size() - 1; }
+  int getCoefsCount() const { return w.size() - 1; }
 };
 
 }  // namespace SVM

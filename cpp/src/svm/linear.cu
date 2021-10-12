@@ -87,7 +87,8 @@ inline bool isRegression(LinearSVMParams::Loss loss)
 
 template <typename T>
 struct SignFun {
-  __device__ T operator()(const T x) const { return x > 0 ? 1 : -1; }
+  const T H1_value;
+  __device__ T operator()(const T x) const { return x == H1_value ? 1 : -1; }
 };
 
 };  // namespace
@@ -126,7 +127,7 @@ LinearSVMModel<T>::LinearSVMModel(const raft::handle_t& handle,
   if (!isRegression(params.loss)) {
     y1Buf.resize(nRows, stream);
     y1 = y1Buf.data();
-    raft::linalg::unaryOp(y1, y, nRows, SignFun<T>(), stream);
+    raft::linalg::unaryOp(y1, y, nRows, SignFun<T>{T(params.H1_value)}, stream);
   }
 
   int qn_loss = 99;
@@ -152,7 +153,7 @@ LinearSVMModel<T>::LinearSVMModel(const raft::handle_t& handle,
                 T(params.change_tol),
                 params.linesearch_max_iter,
                 params.lbfgs_memory,
-                params.verbosity,
+                params.verbose,
                 w.data(),
                 &target,
                 &num_iters,
@@ -169,7 +170,7 @@ LinearSVMModel<T>::LinearSVMModel(const raft::handle_t& handle,
 }
 
 template <typename T>
-void LinearSVMModel<T>::predict(const T* X, const int nRows, const int nCols, T* out)
+void LinearSVMModel<T>::predict(const T* X, const int nRows, const int nCols, T* out) const
 {
   ASSERT(nCols == this->nCols,
          "Number of features passed to predict() must be the same as for fitting (%d != %d).",
@@ -177,7 +178,7 @@ void LinearSVMModel<T>::predict(const T* X, const int nRows, const int nCols, T*
          this->nCols);
   cudaStream_t stream = handle.get_stream();
   raft::linalg::gemv(handle, X, nRows, nCols, w.data(), out, false, stream);
-  T* p = w.data() + nCols;
+  const T* p = w.data() + nCols;
   if (isRegression(params.loss)) {
     raft::linalg::unaryOp(
       out, out, nRows, [p] __device__(T x) -> T { return x + *p; }, stream);
