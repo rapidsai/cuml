@@ -374,4 +374,4 @@ def test_dbscan_on_empty_array():
     X = np.array([])
     cuml_dbscan = cuDBSCAN()
 
-    assert_raises(RuntimeError, cuml_dbscan.fit, X)
+    assert_raises(ValueError, cuml_dbscan.fit, X)
