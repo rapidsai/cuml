@@ -47,7 +47,7 @@ void pairwise_distance_hamming(const raft::handle_t& handle,
                                bool isRowMajor,
                                float metric_arg)
 {
-  raft::distance::pairwise_distance<double, int>(
+  raft::distance::pairwise_distance<float, int>(
     handle, x, y, dist, m, n, k, raft::distance::DistanceType::HammingUnexpanded, isRowMajor);
 }
 
