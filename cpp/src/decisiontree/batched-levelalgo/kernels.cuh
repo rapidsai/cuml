@@ -245,34 +245,33 @@ DI IdxT select(IdxT k, IdxT treeid, uint32_t nodeid, uint64_t seed, IdxT N)
 }
 
 template <typename IdxT>
-__global__ void select_kernel(IdxT* colids, const NodeWorkItem* work_items, IdxT treeid,
-                              uint64_t seed, IdxT N) {
-
+__global__ void select_kernel(
+  IdxT* colids, const NodeWorkItem* work_items, IdxT treeid, uint64_t seed, IdxT N)
+{
   const uint32_t nodeid = work_items[blockIdx.x].idx;
 
   int blksum = select(IdxT(blockIdx.y), treeid, nodeid, seed, N);
-  if (threadIdx.x == 0) {
-    colids[blockIdx.x * N + blockIdx.y] = blksum;
-  }
+  if (threadIdx.x == 0) { colids[blockIdx.x * N + blockIdx.y] = blksum; }
 }
 
-__device__ uint32_t static kiss99(uint32_t& z, uint32_t& w, uint32_t& jsr, uint32_t& jcong) {
-    uint32_t MWC;
-    z = 36969*(z&65535) + (z >> 16);
-    w = 18000*(w&65535) + (w >> 16);
-    MWC = ((z << 16) + w);
-    jsr ^= (jsr << 17);
-    jsr ^= (jsr >> 13);
-    jsr ^= (jsr << 5);
-    jcong = 69069*jcong + 1234567;
-    return ((MWC ^ jcong) + jsr);
+__device__ uint32_t static kiss99(uint32_t& z, uint32_t& w, uint32_t& jsr, uint32_t& jcong)
+{
+  uint32_t MWC;
+  z   = 36969 * (z & 65535) + (z >> 16);
+  w   = 18000 * (w & 65535) + (w >> 16);
+  MWC = ((z << 16) + w);
+  jsr ^= (jsr << 17);
+  jsr ^= (jsr >> 13);
+  jsr ^= (jsr << 5);
+  jcong = 69069 * jcong + 1234567;
+  return ((MWC ^ jcong) + jsr);
 }
 
 template <typename IdxT>
-__global__ void adaptive_sample_kernel(int* colids, const NodeWorkItem* work_items, IdxT treeid,
-                                       uint64_t seed, int N, int M) {
-
-  int tid = threadIdx.x + blockIdx.x * blockDim.x;
+__global__ void adaptive_sample_kernel(
+  int* colids, const NodeWorkItem* work_items, IdxT treeid, uint64_t seed, int N, int M)
+{
+  int tid               = threadIdx.x + blockIdx.x * blockDim.x;
   const uint32_t nodeid = work_items[tid].idx;
   uint32_t z, w, jsr, jcong;
 
@@ -288,13 +287,13 @@ __global__ void adaptive_sample_kernel(int* colids, const NodeWorkItem* work_ite
   int selected_count = 0;
   for (int i = 0; i < N; i++) {
     uint32_t toss;
-    toss = kiss99(z, w, jsr, jcong);
+    toss         = kiss99(z, w, jsr, jcong);
     uint64_t lhs = uint64_t(M - selected_count);
     lhs <<= 32;
     uint64_t rhs = uint64_t(toss) * (N - i);
     if (lhs > rhs) {
       colids[tid * N + selected_count] = i;
-      selected_count ++;
+      selected_count++;
       if (selected_count == M) break;
     }
   }

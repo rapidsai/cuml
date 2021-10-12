@@ -188,7 +188,7 @@ struct Builder {
   /** Memory alignment value */
   const size_t alignValue = 512;
 
-  IdxT *colids;
+  IdxT* colids;
 
   rmm::device_uvector<char> d_buff;
   std::vector<char> h_buff;
@@ -227,7 +227,7 @@ struct Builder {
     auto [device_workspace_size, host_workspace_size] = workspaceSize();
     d_buff.resize(device_workspace_size, handle.get_stream());
     h_buff.resize(host_workspace_size);
-    assignWorkspace(d_buff.data(), h_buff.data()); 
+    assignWorkspace(d_buff.data(), h_buff.data());
   }
 
   size_t calculateAlignedBytes(const size_t actualSize) const
@@ -261,7 +261,7 @@ struct Builder {
     d_wsize += calculateAlignedBytes(sizeof(NodeWorkItem) * max_batch);           // d_work_Items
     d_wsize +=                                                                    // workload_info
       calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks);
-    d_wsize += calculateAlignedBytes(sizeof(IdxT) * max_batch * input.N);         // colids
+    d_wsize += calculateAlignedBytes(sizeof(IdxT) * max_batch * input.N);  // colids
 
     // all nodes in the tree
     h_wsize +=  // h_workload_info
@@ -370,11 +370,11 @@ struct Builder {
 
     // Call feature sampling kernel
     if (input.nSampledCols != input.N) {
-      // dim3 grid;
-      // grid.x = work_items.size();
-      // grid.y = input.nSampledCols;
-      // grid.z = 1;
-      // select_kernel<<<grid, 128, 0, handle.get_stream()>>>(colids, d_work_items, treeid, seed, input.N);
+      dim3 grid;
+      grid.x = work_items.size();
+      grid.y = input.nSampledCols;
+      grid.z = 1;
+      select_kernel<<<grid, 128, 0, handle.get_stream()>>>(colids, d_work_items, treeid, seed, input.N);
       dim3 grid;
       grid.x = (work_items.size() + 127) / 128;
       grid.y = 1;
