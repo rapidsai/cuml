@@ -29,8 +29,6 @@
 #include <cuml/common/logger.hpp>
 #include <cuml/tree/decisiontree.hpp>
 #include <raft/cuda_utils.cuh>
-#include <thrust/shuffle.h>
-#include <thrust/random.h>
 #include "input.cuh"
 #include "kernels.cuh"
 #include "metrics.cuh"
@@ -203,7 +201,6 @@ struct Builder {
   std::vector<char> h_buff;
 
 
-  thrust::default_random_engine rng_engine;
   Builder(const raft::handle_t& handle,
           IdxT treeid,
           uint64_t seed,
@@ -240,10 +237,6 @@ struct Builder {
     h_buff.resize(host_workspace_size);
     assignWorkspace(d_buff.data(), h_buff.data());
     
-    uint32_t derived_seed = fnv1a32_basis;
-    derived_seed = fnv1a32(derived_seed, uint32_t(seed >> 32));
-    derived_seed = fnv1a32(derived_seed, uint32_t(seed));
-    rng_engine.seed(derived_seed);
   }
 
   size_t calculateAlignedBytes(const size_t actualSize) const
@@ -337,10 +330,6 @@ struct Builder {
     ML::PUSH_RANGE("Builder::train @builder.cuh [batched-levelalgo]");
     MLCommon::TimerCPU timer;
     NodeQueue<DataT, LabelT> queue(params, this->maxNodes(), input.nSampledRows);
-    // for (IdxT i = 0; i < params.max_batch_size; i++) {
-    //   thrust::sequence(thrust::cuda::par.on(handle.get_stream()), colids + i*input.N,
-    //                   colids + (i + 1) * input.N);
-    // }
     while (queue.HasWork()) {
       auto work_items                      = queue.Pop();
       auto [splits_host_ptr, splits_count] = doSplit(work_items);
@@ -389,39 +378,28 @@ struct Builder {
 
     auto [total_blocks, large_blocks] = this->updateWorkloadInfo(work_items);
 
-    double start = second();
+    // Call feature sampling kernel
     if (input.nSampledCols != input.N) {
-      // printf("Shuffling %d arrays of size %d, time = ", IdxT(work_items.size()), input.N);
-      for (IdxT i = 0; i < IdxT(work_items.size()); i++) {
-        thrust::shuffle(thrust::cuda::par.on(handle.get_stream()), colids + i*input.N,
-                        colids + (i + 1) * input.N, rng_engine);
-      }
-      dim3 grid;
-      grid.x = work_items.size();
-      grid.y = input.nSampledCols;
-      grid.z = 1;
-      select_kernel<<<grid, 128, 0, handle.get_stream()>>>(colids, d_work_items, treeid, seed, input.N);
       // dim3 grid;
-      // grid.x = (work_items.size() + 127) / 128;
-      // grid.y = 1;
+      // grid.x = work_items.size();
+      // grid.y = input.nSampledCols;
       // grid.z = 1;
-      // adaptive_sample_kernel<<<grid, 128, 0, handle.get_stream()>>>(
-      //   colids, d_work_items, treeid, seed, input.N, input.nSampledCols);
+      // select_kernel<<<grid, 128, 0, handle.get_stream()>>>(colids, d_work_items, treeid, seed, input.N);
+      dim3 grid;
+      grid.x = (work_items.size() + 127) / 128;
+      grid.y = 1;
+      grid.z = 1;
+      adaptive_sample_kernel<<<grid, 128, 0, handle.get_stream()>>>(
+        colids, d_work_items, treeid, seed, input.N, input.nSampledCols);
     }
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
-    double stop = second();
-    printf("%e s, ", stop - start);
-    start = second();
+
     // iterate through a batch of columns (to reduce the memory pressure) and
     // compute the best split at the end
     for (IdxT c = 0; c < input.nSampledCols; c += n_blks_for_cols) {
       computeSplit(c, work_items.size(), total_blocks, large_blocks);
       CUDA_CHECK(cudaGetLastError());
     }
-    CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    stop = second();
-    printf("Split time %e s\n", stop - start);
     // create child nodes (or make the current ones leaf)
     auto smemSize = 2 * sizeof(IdxT) * TPB_DEFAULT;
     ML::PUSH_RANGE("nodeSplitKernel @builder_base.cuh [batched-levelalgo]");
