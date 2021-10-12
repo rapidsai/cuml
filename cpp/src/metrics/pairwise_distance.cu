@@ -17,7 +17,7 @@
 
 #include <raft/sparse/distance/common.h>
 #include <cuml/metrics/metrics.hpp>
-#include <raft/distance/distance.cuh>
+#include <raft/distance/distance.hpp>
 #include <raft/handle.hpp>
 #include <raft/sparse/distance/distance.cuh>
 #include "pairwise_distance_canberra.cuh"

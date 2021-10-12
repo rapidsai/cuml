@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-#include <raft/distance/distance.cuh>
+#include <raft/distance/distance.hpp>
 #include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
 #include "pairwise_distance_euclidean.cuh"
@@ -34,32 +34,7 @@ void pairwise_distance_euclidean(const raft::handle_t& handle,
                                  bool isRowMajor,
                                  double metric_arg)
 {
-  // Allocate workspace
-  rmm::device_uvector<char> workspace(1, handle.get_stream());
-
-  // Call the distance function
-  switch (metric) {
-    case raft::distance::DistanceType::L2Expanded:
-      raft::distance::pairwise_distance_impl<double, int, raft::distance::DistanceType::L2Expanded>(
-        x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
-      break;
-    case raft::distance::DistanceType::L2SqrtExpanded:
-      raft::distance::
-        pairwise_distance_impl<double, int, raft::distance::DistanceType::L2SqrtExpanded>(
-          x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
-      break;
-    case raft::distance::DistanceType::L2Unexpanded:
-      raft::distance::
-        pairwise_distance_impl<double, int, raft::distance::DistanceType::L2Unexpanded>(
-          x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
-      break;
-    case raft::distance::DistanceType::L2SqrtUnexpanded:
-      raft::distance::
-        pairwise_distance_impl<double, int, raft::distance::DistanceType::L2SqrtUnexpanded>(
-          x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
-      break;
-    default: THROW("Unknown or unsupported distance metric '%d'!", (int)metric);
-  }
+  raft::distance::pairwise_distance<double, int>(handle, x, y, dist, m, n, k, metric, isRowMajor);
 }
 
 void pairwise_distance_euclidean(const raft::handle_t& handle,
@@ -73,32 +48,7 @@ void pairwise_distance_euclidean(const raft::handle_t& handle,
                                  bool isRowMajor,
                                  float metric_arg)
 {
-  // Allocate workspace
-  rmm::device_uvector<char> workspace(1, handle.get_stream());
-
-  // Call the distance function
-  switch (metric) {
-    case raft::distance::DistanceType::L2Expanded:
-      raft::distance::pairwise_distance_impl<float, int, raft::distance::DistanceType::L2Expanded>(
-        x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
-      break;
-    case raft::distance::DistanceType::L2SqrtExpanded:
-      raft::distance::
-        pairwise_distance_impl<float, int, raft::distance::DistanceType::L2SqrtExpanded>(
-          x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
-      break;
-    case raft::distance::DistanceType::L2Unexpanded:
-      raft::distance::
-        pairwise_distance_impl<float, int, raft::distance::DistanceType::L2Unexpanded>(
-          x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
-      break;
-    case raft::distance::DistanceType::L2SqrtUnexpanded:
-      raft::distance::
-        pairwise_distance_impl<float, int, raft::distance::DistanceType::L2SqrtUnexpanded>(
-          x, y, dist, m, n, k, workspace, handle.get_stream(), isRowMajor);
-      break;
-    default: THROW("Unknown or unsupported distance metric '%d'!", (int)metric);
-  }
+  raft::distance::pairwise_distance<float, int>(handle, x, y, dist, m, n, k, metric, isRowMajor);
 }
 
 }  // namespace Metrics
