@@ -370,11 +370,12 @@ struct Builder {
 
     // Call feature sampling kernel
     if (input.nSampledCols != input.N) {
-      dim3 grid;
-      grid.x = work_items.size();
-      grid.y = input.nSampledCols;
-      grid.z = 1;
-      select_kernel<<<grid, 128, 0, handle.get_stream()>>>(colids, d_work_items, treeid, seed, input.N);
+      // dim3 grid;
+      // grid.x = work_items.size();
+      // grid.y = input.nSampledCols;
+      // grid.z = 1;
+      // select_kernel<<<grid, 128, 0, handle.get_stream()>>>(
+      //   colids, d_work_items, treeid, seed, input.N);
       dim3 grid;
       grid.x = (work_items.size() + 127) / 128;
       grid.y = 1;
