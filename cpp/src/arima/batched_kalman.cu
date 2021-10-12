@@ -96,7 +96,6 @@ DI void MM_l(const double* A, const double* B, double* out)
  * @param[in]  batch_size  Batch size
  * @param[out] d_pred      Predictions                           (nobs)
  * @param[out] d_loglike   Log-likelihood                        (1)
- * @param[out] d_ll_sigma2 Sigma^2 term in the log-likelihood    (1)
  * @param[in]  n_diff      d + s*D
  * @param[in]  fc_steps    Number of steps to forecast
  * @param[out] d_fc        Array to store the forecast
@@ -116,7 +115,6 @@ __global__ void batched_kalman_loop_kernel(const double* ys,
                                            int batch_size,
                                            double* d_pred,
                                            double* d_loglike,
-                                           double* d_ll_sigma2,
                                            int n_diff,
                                            int fc_steps   = 0,
                                            double* d_fc   = nullptr,
@@ -271,7 +269,6 @@ __global__ void batched_kalman_loop_kernel(const double* ys,
     {
       double n_obs_ll_f = static_cast<double>(n_obs_ll);
       b_ll_s2 /= n_obs_ll_f;
-      if (conf_int) d_ll_sigma2[bid] = b_ll_s2;
       d_loglike[bid] = -.5 * (b_sum_logFs + n_obs_ll_f * (b_ll_s2 + log(2 * M_PI)));
     }
 
@@ -372,7 +369,6 @@ union KalmanLoopSharedMemory {
  * @param[in]  rd          State vector dimension
  * @param[out] d_pred      Predictions                           (nobs)
  * @param[out] d_loglike   Log-likelihood                        (1)
- * @param[out] d_ll_sigma2 Sigma^2 term in the log-likelihood    (1)
  * @param[in]  n_diff      d + s*D
  * @param[in]  fc_steps    Number of steps to forecast
  * @param[out] d_fc        Array to store the forecast
@@ -395,7 +391,6 @@ __global__ void _batched_kalman_device_loop_large_kernel(const double* d_ys,
                                                          int rd,
                                                          double* d_pred,
                                                          double* d_loglike,
-                                                         double* d_ll_sigma2,
                                                          int n_diff,
                                                          int fc_steps,
                                                          double* d_fc,
@@ -646,7 +641,6 @@ __global__ void _batched_kalman_device_loop_large_kernel(const double* d_ys,
     if (threadIdx.x == 0) {
       double n_obs_ll_f = static_cast<double>(n_obs_ll);
       ll_s2 /= n_obs_ll_f;
-      if (conf_int) d_ll_sigma2[bid] = ll_s2;
       d_loglike[bid] = -.5 * (sum_logFs + n_obs_ll_f * (ll_s2 + log(2 * M_PI)));
     }
   }
@@ -668,7 +662,6 @@ __global__ void _batched_kalman_device_loop_large_kernel(const double* d_ys,
  * @param[in]  rd           Dimension of the state vector
  * @param[out] d_pred       Predictions                           (nobs)
  * @param[out] d_loglike    Log-likelihood                        (1)
- * @param[out] d_ll_sigma2  Sigma^2 term in the log-likelihood    (1)
  * @param[in]  n_diff       d + s*D
  * @param[in]  fc_steps     Number of steps to forecast
  * @param[out] d_fc         Array to store the forecast
@@ -689,7 +682,6 @@ void _batched_kalman_device_loop_large(const ARIMAMemory<double>& arima_mem,
                                        int rd,
                                        double* d_pred,
                                        double* d_loglike,
-                                       double* d_ll_sigma2,
                                        int n_diff,
                                        int fc_steps   = 0,
                                        double* d_fc   = nullptr,
@@ -735,7 +727,6 @@ void _batched_kalman_device_loop_large(const ARIMAMemory<double>& arima_mem,
                                                                     rd,
                                                                     d_pred,
                                                                     d_loglike,
-                                                                    d_ll_sigma2,
                                                                     n_diff,
                                                                     fc_steps,
                                                                     d_fc,
@@ -758,7 +749,6 @@ void batched_kalman_loop(raft::handle_t& handle,
                          const ARIMAOrder& order,
                          double* d_pred,
                          double* d_loglike,
-                         double* d_ll_sigma2,
                          int fc_steps   = 0,
                          double* d_fc   = nullptr,
                          bool conf_int  = false,
@@ -786,7 +776,6 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                          batch_size,
                                                          d_pred,
                                                          d_loglike,
-                                                         d_ll_sigma2,
                                                          n_diff,
                                                          fc_steps,
                                                          d_fc,
@@ -807,7 +796,6 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                          batch_size,
                                                          d_pred,
                                                          d_loglike,
-                                                         d_ll_sigma2,
                                                          n_diff,
                                                          fc_steps,
                                                          d_fc,
@@ -828,7 +816,6 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                          batch_size,
                                                          d_pred,
                                                          d_loglike,
-                                                         d_ll_sigma2,
                                                          n_diff,
                                                          fc_steps,
                                                          d_fc,
@@ -849,7 +836,6 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                          batch_size,
                                                          d_pred,
                                                          d_loglike,
-                                                         d_ll_sigma2,
                                                          n_diff,
                                                          fc_steps,
                                                          d_fc,
@@ -870,7 +856,6 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                          batch_size,
                                                          d_pred,
                                                          d_loglike,
-                                                         d_ll_sigma2,
                                                          n_diff,
                                                          fc_steps,
                                                          d_fc,
@@ -891,7 +876,6 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                          batch_size,
                                                          d_pred,
                                                          d_loglike,
-                                                         d_ll_sigma2,
                                                          n_diff,
                                                          fc_steps,
                                                          d_fc,
@@ -912,7 +896,6 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                          batch_size,
                                                          d_pred,
                                                          d_loglike,
-                                                         d_ll_sigma2,
                                                          n_diff,
                                                          fc_steps,
                                                          d_fc,
@@ -933,7 +916,6 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                          batch_size,
                                                          d_pred,
                                                          d_loglike,
-                                                         d_ll_sigma2,
                                                          n_diff,
                                                          fc_steps,
                                                          d_fc,
@@ -963,7 +945,6 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                                              rd,
                                                                              d_pred,
                                                                              d_loglike,
-                                                                             d_ll_sigma2,
                                                                              n_diff,
                                                                              fc_steps,
                                                                              d_fc,
@@ -986,7 +967,6 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                                              rd,
                                                                              d_pred,
                                                                              d_loglike,
-                                                                             d_ll_sigma2,
                                                                              n_diff,
                                                                              fc_steps,
                                                                              d_fc,
@@ -1011,7 +991,6 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                                              rd,
                                                                              d_pred,
                                                                              d_loglike,
-                                                                             d_ll_sigma2,
                                                                              n_diff,
                                                                              fc_steps,
                                                                              d_fc,
@@ -1034,7 +1013,6 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                                              rd,
                                                                              d_pred,
                                                                              d_loglike,
-                                                                             d_ll_sigma2,
                                                                              n_diff,
                                                                              fc_steps,
                                                                              d_fc,
@@ -1058,7 +1036,6 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                                            rd,
                                                                            d_pred,
                                                                            d_loglike,
-                                                                           d_ll_sigma2,
                                                                            n_diff,
                                                                            fc_steps,
                                                                            d_fc,
@@ -1081,7 +1058,6 @@ void batched_kalman_loop(raft::handle_t& handle,
                                                                            rd,
                                                                            d_pred,
                                                                            d_loglike,
-                                                                           d_ll_sigma2,
                                                                            n_diff,
                                                                            fc_steps,
                                                                            d_fc,
@@ -1097,25 +1073,21 @@ void batched_kalman_loop(raft::handle_t& handle,
  * @note: One block per batch member, one thread per forecast time step
  *
  * @param[in]    d_fc       Mean forecasts
- * @param[in]    d_sigma2   sum(v_t * v_t / F_t) / n_obs_diff
  * @param[inout] d_lower    Input: F_{n+t}
  *                          Output: lower bound of the confidence intervals
  * @param[out]   d_upper    Upper bound of the confidence intervals
- * @param[in]    fc_steps   Number of forecast steps
+ * @param[in]    n_elem     Total number of elements (fc_steps * batch_size)
  * @param[in]    multiplier Coefficient associated with the confidence level
  */
-__global__ void confidence_intervals(const double* d_fc,
-                                     const double* d_sigma2,
-                                     double* d_lower,
-                                     double* d_upper,
-                                     int fc_steps,
-                                     double multiplier)
+__global__ void confidence_intervals(
+  const double* d_fc, double* d_lower, double* d_upper, int n_elem, double multiplier)
 {
-  int idx       = blockIdx.x * fc_steps + threadIdx.x;
-  double fc     = d_fc[idx];
-  double margin = multiplier * sqrt(d_lower[idx] * d_sigma2[blockIdx.x]);
-  d_lower[idx]  = fc - margin;
-  d_upper[idx]  = fc + margin;
+  for (int idx = threadIdx.x; idx < n_elem; idx += blockDim.x * gridDim.x) {
+    double fc     = d_fc[idx];
+    double margin = multiplier * sqrt(d_lower[idx]);
+    d_lower[idx]  = fc - margin;
+    d_upper[idx]  = fc + margin;
+  }
 }
 
 void _lyapunov_wrapper(raft::handle_t& handle,
@@ -1338,15 +1310,16 @@ void _batched_kalman_filter(raft::handle_t& handle,
                       order,
                       d_pred,
                       d_loglike,
-                      arima_mem.sigma2_buffer,
                       fc_steps,
                       d_fc,
                       level > 0,
                       d_lower);
 
   if (level > 0) {
-    confidence_intervals<<<batch_size, fc_steps, 0, stream>>>(
-      d_fc, arima_mem.sigma2_buffer, d_lower, d_upper, fc_steps, sqrt(2.0) * erfinv(level));
+    constexpr int TPB_conf = 256;
+    int n_blocks           = raft::ceildiv<int>(fc_steps * batch_size, TPB_conf);
+    confidence_intervals<<<n_blocks, TPB_conf, 0, stream>>>(
+      d_fc, d_lower, d_upper, fc_steps * batch_size, sqrt(2.0) * erfinv(level));
     CUDA_CHECK(cudaPeekAtLastError());
   }
 }
