@@ -19,8 +19,8 @@
 
 #include <raft/handle.hpp>
 
-#include <raft/distance/distance.hpp>
 #include <raft/sparse/distance/common.h>
+#include <raft/distance/distance.hpp>
 #include <raft/sparse/distance/distance.cuh>
 
 namespace ML {
@@ -37,8 +37,8 @@ void pairwise_distance(const raft::handle_t& handle,
                        bool isRowMajor,
                        double metric_arg)
 {
-    raft::distance::pairwise_distance<double, int>(
-      handle, x, y, dist, m, n, k, raft::distance::DistanceType::Canberra, isRowMajor);
+  raft::distance::pairwise_distance<double, int>(
+    handle, x, y, dist, m, n, k, raft::distance::DistanceType::Canberra, isRowMajor);
 }
 
 void pairwise_distance(const raft::handle_t& handle,
