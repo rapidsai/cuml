@@ -190,10 +190,8 @@ __global__ void attractive_kernel(const value_t* restrict VAL,
     dist += Y[k * n + i] * Y[k * n + j];
   dist = norm[i] + norm[j] - 2.0f * dist;
 
-  const value_t exponent = (dof + 1.0) / 2.0;
-
   const value_t P  = VAL[index];
-  const value_t Q  = __powf(dof / (dof + dist), exponent);
+  const value_t Q  = compute_q(dist, dof);
   const value_t PQ = P * Q;
 
   // Apply forces
@@ -231,10 +229,8 @@ __global__ void attractive_kernel_2d(const value_t* restrict VAL,
   // #862
   const value_t dist = norm[i] + norm[j] - 2.0f * (Y1[i] * Y1[j] + Y2[i] * Y2[j]);
 
-  const value_t exponent = (dof + 1.0) / 2.0;
-
   const value_t P  = VAL[index];
-  const value_t Q  = __powf(dof / (dof + dist), exponent);
+  const value_t Q  = compute_q(dist, dof);
   const value_t PQ = P * Q;
 
   // Apply forces

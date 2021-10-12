@@ -522,10 +522,7 @@ value_t FFT_TSNE(value_t* VAL,
 
         FFT::compute_Pij_x_Qij_kernel<<<num_blocks, NTHREADS_1024, 0, stream>>>(
           attractive_forces_device.data(), Qs, VAL, ROW, COL, Y, n, NNZ, dof);
-        value_t Q_sum = thrust::reduce(rmm::exec_policy(stream), Qs, Qs + NNZ);
-        raft::linalg::scalarMultiply(Qs, Qs, 1.0f / Q_sum, NNZ, stream);
-        compute_kl_div<<<num_blocks, NTHREADS_1024, 0, stream>>>(VAL, Qs, KL_divs, NNZ);
-        kl_div = thrust::reduce(handle.get_thrust_policy(), KL_divs, KL_divs + NNZ);
+        kl_div = compute_kl_div(VAL, Qs, KL_divs, NNZ, stream);
       } else {
         FFT::compute_Pij_x_Qij_kernel<<<num_blocks, NTHREADS_1024, 0, stream>>>(
           attractive_forces_device.data(), (value_t*)nullptr, VAL, ROW, COL, Y, n, NNZ, dof);

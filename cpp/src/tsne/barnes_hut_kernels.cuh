@@ -697,10 +697,9 @@ __global__ void attractive_kernel_bh(const value_t* restrict VAL,
   // NaNs upstream though, so until we find and fix them, enforce that trait.
   if (!(dist >= 0)) dist = 0.0f;
 
-  const value_t exponent = (dof + 1.0) / 2.0;
-  const value_t P        = VAL[index];
-  const value_t Q        = __powf(dof / (dof + dist), exponent);
-  const value_t PQ       = P * Q;
+  const value_t P  = VAL[index];
+  const value_t Q  = compute_q(dist, dof);
+  const value_t PQ = P * Q;
 
   // Apply forces
   atomicAdd(&attract1[i], PQ * y1d);

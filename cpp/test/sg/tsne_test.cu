@@ -75,12 +75,8 @@ float get_kl_div(TSNEParams& params,
     total_nn,
     [=] __device__(float dist) { return __powf(dof / (dof + dist), exponent); },
     stream);
-  float Q_sum = thrust::reduce(rmm::exec_policy(stream), Qs, Qs + total_nn);
-  raft::linalg::scalarMultiply(Qs, Qs, 1.0f / Q_sum, total_nn, stream);
 
-  compute_kl_div<<<raft::ceildiv(total_nn, (size_t)1024), 1024, 0, stream>>>(
-    Ps, Qs, KL_divs, total_nn);
-  float kl_div = thrust::reduce(rmm::exec_policy(stream), KL_divs, KL_divs + total_nn);
+  float kl_div = compute_kl_div(Ps, Qs, KL_divs, total_nn, stream);
   return kl_div;
 }
 
@@ -90,15 +86,20 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
 
   void assert_results(const char* test, TSNEResults& results)
   {
-    std::cout << "Testing " << test << ":" << std::endl;
-    std::cout << "\ttrustworthiness = " << results.trustworthiness << std::endl;
-    std::cout << "\tkl_div = " << results.kl_div << std::endl;
-    std::cout << "\tkl_div_ref = " << results.kl_div_ref << std::endl;
-    ASSERT_TRUE(results.trustworthiness > trustworthiness_threshold);
+    bool test_tw      = results.trustworthiness > trustworthiness_threshold;
     double kl_div_tol = 0.2;
-    ASSERT_TRUE(results.kl_div_ref - kl_div_tol < results.kl_div &&
-                results.kl_div < results.kl_div_ref + kl_div_tol);
-    std::cout << std::endl;
+    bool test_kl_div  = results.kl_div_ref - kl_div_tol < results.kl_div &&
+                       results.kl_div < results.kl_div_ref + kl_div_tol;
+
+    if (!test_tw || !test_kl_div) {
+      std::cout << "Testing " << test << ":" << std::endl;
+      std::cout << "\ttrustworthiness = " << results.trustworthiness << std::endl;
+      std::cout << "\tkl_div = " << results.kl_div << std::endl;
+      std::cout << "\tkl_div_ref = " << results.kl_div_ref << std::endl;
+      std::cout << std::endl;
+    }
+    ASSERT_TRUE(test_tw);
+    ASSERT_TRUE(test_kl_div);
   }
 
   TSNEResults runTest(TSNE_ALGORITHM algo, bool knn = false)

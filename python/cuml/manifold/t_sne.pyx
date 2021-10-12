@@ -84,7 +84,7 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
 
 cdef extern from "cuml/manifold/tsne.h" namespace "ML":
 
-    cdef float TSNE_fit(
+    cdef void TSNE_fit(
         handle_t &handle,
         float *X,
         float *Y,
@@ -92,9 +92,10 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         int p,
         int64_t* knn_indices,
         float* knn_dists,
-        TSNEParams &params) except +
+        TSNEParams &params,
+        float* kl_div) except +
 
-    cdef float TSNE_fit_sparse(
+    cdef void TSNE_fit_sparse(
         const handle_t &handle,
         int *indptr,
         int *indices,
@@ -105,7 +106,8 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         int p,
         int* knn_indices,
         float* knn_dists,
-        TSNEParams &params) except +
+        TSNEParams &params,
+        float* kl_div) except +
 
 
 class TSNE(Base,
@@ -501,29 +503,31 @@ class TSNE(Base,
 
         cdef float kl_divergence = 0
         if self.sparse_fit:
-            kl_divergence = TSNE_fit_sparse(handle_[0],
-                                            <int*><uintptr_t>
-                                            self.X_m.indptr.ptr,
-                                            <int*><uintptr_t>
-                                            self.X_m.indices.ptr,
-                                            <float*><uintptr_t>
-                                            self.X_m.data.ptr,
-                                            <float*> embed_ptr,
-                                            <int> self.X_m.nnz,
-                                            <int> n,
-                                            <int> p,
-                                            <int*> knn_indices_raw,
-                                            <float*> knn_dists_raw,
-                                            <TSNEParams&> deref(params))
+            TSNE_fit_sparse(handle_[0],
+                            <int*><uintptr_t>
+                            self.X_m.indptr.ptr,
+                            <int*><uintptr_t>
+                            self.X_m.indices.ptr,
+                            <float*><uintptr_t>
+                            self.X_m.data.ptr,
+                            <float*> embed_ptr,
+                            <int> self.X_m.nnz,
+                            <int> n,
+                            <int> p,
+                            <int*> knn_indices_raw,
+                            <float*> knn_dists_raw,
+                            <TSNEParams&> deref(params),
+                            &kl_divergence)
         else:
-            kl_divergence = TSNE_fit(handle_[0],
-                                     <float*><uintptr_t> self.X_m.ptr,
-                                     <float*> embed_ptr,
-                                     <int> n,
-                                     <int> p,
-                                     <int64_t*> knn_indices_raw,
-                                     <float*> knn_dists_raw,
-                                     <TSNEParams&> deref(params))
+            TSNE_fit(handle_[0],
+                     <float*><uintptr_t> self.X_m.ptr,
+                     <float*> embed_ptr,
+                     <int> n,
+                     <int> p,
+                     <int64_t*> knn_indices_raw,
+                     <float*> knn_dists_raw,
+                     <TSNEParams&> deref(params),
+                     &kl_divergence)
 
         self.handle.sync()
         free(params)

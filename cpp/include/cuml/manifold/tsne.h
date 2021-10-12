@@ -117,6 +117,7 @@ struct TSNEParams {
  * @param[in]  knn_indices         Array containing nearest neighors indices.
  * @param[in]  knn_dists           Array containing nearest neighors distances.
  * @param[in]  params              Parameters for TSNE model
+ * @param[in]  kl_div              (optional) KL divergence
  * @return The Kullback–Leibler divergence
  *
  * The CUDA implementation is derived from the excellent CannyLabs open source
@@ -126,14 +127,15 @@ struct TSNEParams {
  * approach is available in their article t-SNE-CUDA: GPU-Accelerated t-SNE and
  * its Applications to Modern Data (https://arxiv.org/abs/1807.11824).
  */
-float TSNE_fit(const raft::handle_t& handle,
-               float* X,
-               float* Y,
-               int n,
-               int p,
-               int64_t* knn_indices,
-               float* knn_dists,
-               TSNEParams& params);
+void TSNE_fit(const raft::handle_t& handle,
+              float* X,
+              float* Y,
+              int n,
+              int p,
+              int64_t* knn_indices,
+              float* knn_dists,
+              TSNEParams& params,
+              float* kl_div = nullptr);
 
 /**
  * @brief Dimensionality reduction via TSNE using either Barnes Hut O(NlogN)
@@ -150,6 +152,7 @@ float TSNE_fit(const raft::handle_t& handle,
  * @param[in]  knn_indices         Array containing nearest neighors indices.
  * @param[in]  knn_dists           Array containing nearest neighors distances.
  * @param[in]  params              Parameters for TSNE model
+ * @param[in]  kl_div              (optional) KL divergence
  * @return The Kullback–Leibler divergence
  *
  * The CUDA implementation is derived from the excellent CannyLabs open source
@@ -159,16 +162,17 @@ float TSNE_fit(const raft::handle_t& handle,
  * approach is available in their article t-SNE-CUDA: GPU-Accelerated t-SNE and
  * its Applications to Modern Data (https://arxiv.org/abs/1807.11824).
  */
-float TSNE_fit_sparse(const raft::handle_t& handle,
-                      int* indptr,
-                      int* indices,
-                      float* data,
-                      float* Y,
-                      int nnz,
-                      int n,
-                      int p,
-                      int* knn_indices,
-                      float* knn_dists,
-                      TSNEParams& params);
+void TSNE_fit_sparse(const raft::handle_t& handle,
+                     int* indptr,
+                     int* indices,
+                     float* data,
+                     float* Y,
+                     int nnz,
+                     int n,
+                     int p,
+                     int* knn_indices,
+                     float* knn_dists,
+                     TSNEParams& params,
+                     float* kl_div = nullptr);
 
 }  // namespace ML

@@ -329,11 +329,10 @@ __global__ void compute_Pij_x_Qij_kernel(value_t* __restrict__ attr_forces,
   value_t dx = ix - jx;
   value_t dy = iy - jy;
 
-  const value_t dist     = (dx * dx) + (dy * dy);
-  const value_t exponent = (dof + 1.0) / 2.0;
+  const value_t dist = (dx * dx) + (dy * dy);
 
   const value_t P  = pij[TID];
-  const value_t Q  = __powf(dof / (dof + dist), exponent);
+  const value_t Q  = compute_q(dist, dof);
   const value_t PQ = P * Q;
 
   atomicAdd(attr_forces + i, PQ * dx);

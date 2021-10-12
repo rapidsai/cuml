@@ -129,6 +129,13 @@ void get_distances(const raft::handle_t& handle,
   throw raft::exception("Sparse TSNE does not support 64-bit integer indices yet.");
 }
 
+/**
+ * @brief   Find the maximum element in the distances matrix, then divide all entries by this.
+ *          This promotes exp(distances) to not explode.
+ * @param[in] distances: The output sorted distances from KNN
+ * @param[in] total_nn: The number of rows in the data X
+ * @param[in] stream: The GPU stream
+ */
 template <typename value_t>
 void normalize_distances(value_t* distances, const size_t total_nn, cudaStream_t stream)
 {

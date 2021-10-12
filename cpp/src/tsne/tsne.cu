@@ -30,14 +30,15 @@ value_t _fit(const raft::handle_t& handle,
   return runner.run();  // returns the Kullback–Leibler divergence
 }
 
-float TSNE_fit(const raft::handle_t& handle,
-               float* X,
-               float* Y,
-               int n,
-               int p,
-               int64_t* knn_indices,
-               float* knn_dists,
-               TSNEParams& params)
+void TSNE_fit(const raft::handle_t& handle,
+              float* X,
+              float* Y,
+              int n,
+              int p,
+              int64_t* knn_indices,
+              float* knn_dists,
+              TSNEParams& params,
+              float* kl_div)
 {
   ASSERT(n > 0 && p > 0 && params.dim > 0 && params.n_neighbors > 0 && X != NULL && Y != NULL,
          "Wrong input args");
@@ -45,22 +46,24 @@ float TSNE_fit(const raft::handle_t& handle,
   manifold_dense_inputs_t<float> input(X, Y, n, p);
   knn_graph<int64_t, float> k_graph(n, params.n_neighbors, knn_indices, knn_dists);
 
-  return _fit<manifold_dense_inputs_t<float>, knn_indices_dense_t, float>(
+  float kl_div_v = _fit<manifold_dense_inputs_t<float>, knn_indices_dense_t, float>(
     handle, input, k_graph, params);
-  // returns the Kullback–Leibler divergence
+
+  if (kl_div) { *kl_div = kl_div_v; }
 }
 
-float TSNE_fit_sparse(const raft::handle_t& handle,
-                      int* indptr,
-                      int* indices,
-                      float* data,
-                      float* Y,
-                      int nnz,
-                      int n,
-                      int p,
-                      int* knn_indices,
-                      float* knn_dists,
-                      TSNEParams& params)
+void TSNE_fit_sparse(const raft::handle_t& handle,
+                     int* indptr,
+                     int* indices,
+                     float* data,
+                     float* Y,
+                     int nnz,
+                     int n,
+                     int p,
+                     int* knn_indices,
+                     float* knn_dists,
+                     TSNEParams& params,
+                     float* kl_div)
 {
   ASSERT(n > 0 && p > 0 && params.dim > 0 && params.n_neighbors > 0 && indptr != NULL &&
            indices != NULL && data != NULL && Y != NULL,
@@ -69,9 +72,10 @@ float TSNE_fit_sparse(const raft::handle_t& handle,
   manifold_sparse_inputs_t<int, float> input(indptr, indices, data, Y, nnz, n, p);
   knn_graph<int, float> k_graph(n, params.n_neighbors, knn_indices, knn_dists);
 
-  return _fit<manifold_sparse_inputs_t<int, float>, knn_indices_sparse_t, float>(
+  float kl_div_v = _fit<manifold_sparse_inputs_t<int, float>, knn_indices_sparse_t, float>(
     handle, input, k_graph, params);
-  // returns the Kullback–Leibler divergence
+
+  if (kl_div) { *kl_div = kl_div_v; }
 }
 
 }  // namespace ML

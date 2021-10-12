@@ -45,6 +45,7 @@ value_t Exact_TSNE(value_t* VAL,
                    const TSNEParams& params)
 {
   cudaStream_t stream = handle.get_stream();
+  value_t kl_div      = 0;
   const value_idx dim = params.dim;
 
   if (params.initialize_embeddings)
@@ -116,14 +117,7 @@ value_t Exact_TSNE(value_t* VAL,
                             fmaxf(params.dim - 1, 1),
                             stream);
 
-    if (last_iter) {
-      value_t P_sum = thrust::reduce(rmm::exec_policy(stream), VAL, VAL + NNZ);
-      raft::linalg::scalarMultiply(VAL, VAL, 1.0f / P_sum, NNZ, stream);
-      value_t Q_sum = thrust::reduce(rmm::exec_policy(stream), Qs, Qs + NNZ);
-      raft::linalg::scalarMultiply(Qs, Qs, 1.0f / Q_sum, NNZ, stream);
-      compute_kl_div<<<raft::ceildiv(NNZ, (value_idx)1024), 1024, 0, stream>>>(
-        VAL, Qs, KL_divs, NNZ);
-    }
+    if (last_iter) { kl_div = compute_kl_div(VAL, Qs, KL_divs, NNZ, stream); }
 
     // Compute repulsive forces
     const float Z = TSNE::repulsive_forces(
@@ -165,7 +159,7 @@ value_t Exact_TSNE(value_t* VAL,
       if (iter % 100 == 0) { CUML_LOG_DEBUG("Z at iter = %d = %f", iter, Z); }
     }
   }
-  value_t kl_div = thrust::reduce(handle.get_thrust_policy(), KL_divs, KL_divs + NNZ);
+
   return kl_div;
 }
 
