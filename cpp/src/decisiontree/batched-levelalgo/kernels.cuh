@@ -397,13 +397,9 @@ __global__ void computeSplitKernel(BinT* hist,
     col = colStart + blockIdx.y;
   } else {
     colIndex = colStart + blockIdx.y;
-    col          = colids[nid * input.N + colIndex];
-    // col          = select(colIndex, treeid, work_item.idx, seed, input.N);
+    col      = colids[nid * input.N + colIndex];
   }
 
-  // if (col != colids[nid * input.N + colIndex]) {
-  //   printf("hell bells\n");
-  // }
   // populating shared memory with initial values
   for (IdxT i = threadIdx.x; i < shared_histogram_len; i += blockDim.x)
     shared_histogram[i] = BinT();

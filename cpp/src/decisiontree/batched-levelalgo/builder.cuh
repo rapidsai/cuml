@@ -38,7 +38,6 @@
 #include <deque>
 #include <utility>
 
-#include <sys/time.h>
 namespace ML {
 namespace DT {
 
@@ -139,12 +138,6 @@ class NodeQueue {
   }
 };
 
-static double second (void)
-{
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return (double)tv.tv_sec + (double)tv.tv_usec / 1000000.0;
-}
 /**
  * Internal struct used to do all the heavy-lifting required for tree building
  */
@@ -200,7 +193,6 @@ struct Builder {
   rmm::device_uvector<char> d_buff;
   std::vector<char> h_buff;
 
-
   Builder(const raft::handle_t& handle,
           IdxT treeid,
           uint64_t seed,
@@ -235,8 +227,7 @@ struct Builder {
     auto [device_workspace_size, host_workspace_size] = workspaceSize();
     d_buff.resize(device_workspace_size, handle.get_stream());
     h_buff.resize(host_workspace_size);
-    assignWorkspace(d_buff.data(), h_buff.data());
-    
+    assignWorkspace(d_buff.data(), h_buff.data()); 
   }
 
   size_t calculateAlignedBytes(const size_t actualSize) const
@@ -270,7 +261,7 @@ struct Builder {
     d_wsize += calculateAlignedBytes(sizeof(NodeWorkItem) * max_batch);           // d_work_Items
     d_wsize +=                                                                    // workload_info
       calculateAlignedBytes(sizeof(WorkloadInfo<IdxT>) * max_blocks);
-    d_wsize += calculateAlignedBytes(sizeof(IdxT) * max_batch * input.N); // colids
+    d_wsize += calculateAlignedBytes(sizeof(IdxT) * max_batch * input.N);         // colids
 
     // all nodes in the tree
     h_wsize +=  // h_workload_info
@@ -326,7 +317,6 @@ struct Builder {
 
   std::shared_ptr<DT::TreeMetaDataNode<DataT, LabelT>> train()
   {
-    printf("Using CPU side sampling version\n");
     ML::PUSH_RANGE("Builder::train @builder.cuh [batched-levelalgo]");
     MLCommon::TimerCPU timer;
     NodeQueue<DataT, LabelT> queue(params, this->maxNodes(), input.nSampledRows);
@@ -452,8 +442,6 @@ struct Builder {
     CUDA_CHECK(cudaMemsetAsync(hist, 0, sizeof(BinT) * nHistBins, handle.get_stream()));
     ML::PUSH_RANGE("computeSplitClassificationKernel @builder_base.cuh [batched-levelalgo]");
     ObjectiveT objective(input.numOutputs, params.min_impurity_decrease, params.min_samples_leaf);
-
-
     computeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
       <<<grid, TPB_DEFAULT, smemSize, handle.get_stream()>>>(hist,
                                                              params.n_bins,
