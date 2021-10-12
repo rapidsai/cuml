@@ -256,8 +256,7 @@ __global__ void select_kernel(IdxT* colids, const NodeWorkItem* work_items, IdxT
   }
 }
 
-template <typename UT>
-__device__ uint32_t kiss99(UT& z, UT& w, UT& jsr, UT& jcong) {
+__device__ uint32_t static kiss99(uint32_t& z, uint32_t& w, uint32_t& jsr, uint32_t& jcong) {
     uint32_t MWC;
     z = 36969*(z&65535) + (z >> 16);
     w = 18000*(w&65535) + (w >> 16);
