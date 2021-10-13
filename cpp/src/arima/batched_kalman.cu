@@ -79,6 +79,26 @@ DI void MM_l(const double* A, const double* B, double* out)
   }
 }
 
+/** Improve stability by making a covariance matrix symmetric and forcing
+ * diagonal elements to be positive
+ */
+template <int n>
+DI void numerical_stability(double* A)
+{
+  // A = 0.5 * (A + A')
+  for (int i = 0; i < n - 1; i++) {
+    for (int j = i + 1; j < n; j++) {
+      double new_val = 0.5 * (A[j * n + i] + A[i * n + j]);
+      A[j * n + i]   = new_val;
+      A[i * n + j]   = new_val;
+    }
+  }
+  // Aii = abs(Aii)
+  for (int i = 0; i < n; i++) {
+    A[i * n + i] = abs(A[i * n + i]);
+  }
+}
+
 /**
  * Kalman loop kernel. Each thread computes kalman filter for a single series
  * and stores relevant matrices in registers.
@@ -251,18 +271,7 @@ __global__ void batched_kalman_loop_kernel(const double* ys,
       }
 
       // Numerical stability: enforce symmetry of P and positivity of diagonal
-      // P = 0.5 * (tmp + tmp')
-      for (int i = 0; i < rd - 1; i++) {
-        for (int j = i + 1; j < rd; j++) {
-          double new_val  = 0.5 * (l_P[j * rd + i] + l_P[i * rd + j]);
-          l_P[j * rd + i] = new_val;
-          l_P[i * rd + j] = new_val;
-        }
-      }
-      // Pii = abs(Pii)
-      for (int i = 0; i < rd; i++) {
-        l_P[i * rd + i] = abs(l_P[i * rd + i]);
-      }
+      numerical_stability<rd>(l_P);
     }
 
     // Compute log-likelihood
@@ -318,18 +327,7 @@ __global__ void batched_kalman_loop_kernel(const double* ys,
           }
 
           // Numerical stability: enforce symmetry of P and positivity of diagonal
-          // P = 0.5 * (tmp + tmp')
-          for (int i = 0; i < rd - 1; i++) {
-            for (int j = i + 1; j < rd; j++) {
-              double new_val  = 0.5 * (l_P[j * rd + i] + l_P[i * rd + j]);
-              l_P[j * rd + i] = new_val;
-              l_P[i * rd + j] = new_val;
-            }
-          }
-          // Pii = abs(Pii)
-          for (int i = 0; i < rd; i++) {
-            l_P[i * rd + i] = abs(l_P[i * rd + i]);
-          }
+          numerical_stability<rd>(l_P);
         }
       }
     }
