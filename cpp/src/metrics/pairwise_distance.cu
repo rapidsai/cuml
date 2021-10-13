@@ -21,7 +21,7 @@
 
 #include <raft/sparse/distance/common.h>
 #include <raft/distance/distance.hpp>
-#include <raft/sparse/distance/distance.cuh>
+#include <raft/sparse/distance/distance.hpp>
 
 namespace ML {
 
