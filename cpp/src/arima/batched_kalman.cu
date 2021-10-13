@@ -929,7 +929,7 @@ void batched_kalman_loop(raft::handle_t& handle,
       if (batch_size <= 2 * num_sm) {
         using GemmPolicy = MLCommon::LinAlg::BlockGemmPolicy<1, 16, 1, 1, 16, 16>;
         using GemvPolicy = MLCommon::LinAlg::BlockGemvPolicy<16, 16>;
-        using CovPolicy  = MLCommon::LinAlg::BlockCovStabilityPolicy<1, 1, 16, 16>;
+        using CovPolicy  = MLCommon::LinAlg::BlockPolicy<1, 1, 16, 16>;
         _batched_kalman_device_loop_large<GemmPolicy, GemvPolicy, CovPolicy>(arima_mem,
                                                                              ys,
                                                                              nobs,
@@ -951,7 +951,7 @@ void batched_kalman_loop(raft::handle_t& handle,
       } else {
         using GemmPolicy = MLCommon::LinAlg::BlockGemmPolicy<1, 16, 1, 4, 16, 4>;
         using GemvPolicy = MLCommon::LinAlg::BlockGemvPolicy<16, 4>;
-        using CovPolicy  = MLCommon::LinAlg::BlockCovStabilityPolicy<1, 4, 16, 4>;
+        using CovPolicy  = MLCommon::LinAlg::BlockPolicy<1, 4, 16, 4>;
         _batched_kalman_device_loop_large<GemmPolicy, GemvPolicy, CovPolicy>(arima_mem,
                                                                              ys,
                                                                              nobs,
@@ -975,7 +975,7 @@ void batched_kalman_loop(raft::handle_t& handle,
       if (batch_size <= 2 * num_sm) {
         using GemmPolicy = MLCommon::LinAlg::BlockGemmPolicy<1, 32, 1, 4, 32, 8>;
         using GemvPolicy = MLCommon::LinAlg::BlockGemvPolicy<32, 8>;
-        using CovPolicy  = MLCommon::LinAlg::BlockCovStabilityPolicy<1, 4, 32, 8>;
+        using CovPolicy  = MLCommon::LinAlg::BlockPolicy<1, 4, 32, 8>;
         _batched_kalman_device_loop_large<GemmPolicy, GemvPolicy, CovPolicy>(arima_mem,
                                                                              ys,
                                                                              nobs,
@@ -997,7 +997,7 @@ void batched_kalman_loop(raft::handle_t& handle,
       } else {
         using GemmPolicy = MLCommon::LinAlg::BlockGemmPolicy<1, 32, 1, 8, 32, 4>;
         using GemvPolicy = MLCommon::LinAlg::BlockGemvPolicy<32, 4>;
-        using CovPolicy  = MLCommon::LinAlg::BlockCovStabilityPolicy<1, 8, 32, 4>;
+        using CovPolicy  = MLCommon::LinAlg::BlockPolicy<1, 8, 32, 4>;
         _batched_kalman_device_loop_large<GemmPolicy, GemvPolicy, CovPolicy>(arima_mem,
                                                                              ys,
                                                                              nobs,
@@ -1020,7 +1020,7 @@ void batched_kalman_loop(raft::handle_t& handle,
     } else if (rd > 64 && rd <= 128) {
       using GemmPolicy = MLCommon::LinAlg::BlockGemmPolicy<1, 16, 1, 16, 128, 2>;
       using GemvPolicy = MLCommon::LinAlg::BlockGemvPolicy<128, 2>;
-      using CovPolicy  = MLCommon::LinAlg::BlockCovStabilityPolicy<1, 8, 64, 4>;
+      using CovPolicy  = MLCommon::LinAlg::BlockPolicy<1, 8, 64, 4>;
       _batched_kalman_device_loop_large<GemmPolicy, GemvPolicy, CovPolicy>(arima_mem,
                                                                            ys,
                                                                            nobs,
@@ -1042,7 +1042,7 @@ void batched_kalman_loop(raft::handle_t& handle,
     } else {
       using GemmPolicy = MLCommon::LinAlg::BlockGemmPolicy<1, 32, 1, 16, 64, 4>;
       using GemvPolicy = MLCommon::LinAlg::BlockGemvPolicy<64, 4>;
-      using CovPolicy  = MLCommon::LinAlg::BlockCovStabilityPolicy<1, 16, 64, 4>;
+      using CovPolicy  = MLCommon::LinAlg::BlockPolicy<1, 16, 64, 4>;
       _batched_kalman_device_loop_large<GemmPolicy, GemvPolicy, CovPolicy>(arima_mem,
                                                                            ys,
                                                                            nobs,

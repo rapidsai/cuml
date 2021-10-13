@@ -70,19 +70,16 @@ namespace MLCommon {
 namespace LinAlg {
 
 /**
- * Execution policy for a block-local GEMM
+ * Generic block policy, that can be inherited by more specific policies.
+ * Describes the shape of a tile worked by a thread block.
  *
- * @tparam _veclen Length for vectorized loads (1 or 2 for fp64 + 4 for fp32)
- * @tparam _kblk   Tile dimension k
  * @tparam _rpt    Rows worked per thread
  * @tparam _cpt    Columns worked per thread
  * @tparam _tr     Number of thread rows
  * @tparam _tc     Number of thread columns
  */
-template <int _veclen, int _kblk, int _rpt, int _cpt, int _tr, int _tc>
-struct BlockGemmPolicy {
-  /** Length for vectorized loads */
-  static constexpr int VecLen = _veclen;
+template <int _rpt, int _cpt, int _tr, int _tc>
+struct BlockPolicy {
   /** Rows worked per thread */
   static constexpr int RowsPerTh = _rpt;
   /** Columns worked per thread */
@@ -93,46 +90,66 @@ struct BlockGemmPolicy {
   static constexpr int ThRows = _tr;
   /** Number of thread columns */
   static constexpr int ThCols = _tc;
-  /** Tile dimension k */
-  static constexpr int Kblk = _kblk;
   /** Tile dimension m */
   static constexpr int Mblk = RowsPerTh * ThRows;
   /** Tile dimension n */
   static constexpr int Nblk = ColsPerTh * ThCols;
+  /** Total size of a tile */
+  static constexpr int TileSize = Mblk * Nblk;
   /** Number of threads per block */
   static constexpr int BlockSize = ThRows * ThCols;
+};
+
+/**
+ * Execution policy for a block-local GEMM
+ *
+ * @tparam _veclen Length for vectorized loads (1 or 2 for fp64 + 4 for fp32)
+ * @tparam _kblk   Tile dimension k
+ * @tparam _rpt    Rows worked per thread
+ * @tparam _cpt    Columns worked per thread
+ * @tparam _tr     Number of thread rows
+ * @tparam _tc     Number of thread columns
+ */
+template <int _veclen, int _kblk, int _rpt, int _cpt, int _tr, int _tc>
+struct BlockGemmPolicy : BlockPolicy<_rpt, _cpt, _tr, _tc> {
+  using Base = BlockPolicy<_rpt, _cpt, _tr, _tc>;
+
+  /** Length for vectorized loads */
+  static constexpr int VecLen = _veclen;
+  /** Tile dimension k */
+  static constexpr int Kblk = _kblk;
 
   /** Number of threads required to load a single column of the A tile */
-  static constexpr int AN_LdRows = Mblk / VecLen;
+  static constexpr int AN_LdRows = Base::Mblk / VecLen;
   /** Number of threads required to load a single row of the A' tile */
   static constexpr int AT_LdRows = Kblk / VecLen;
   /** Number of threads required to load a single column of the B tile */
   static constexpr int BN_LdRows = Kblk / VecLen;
   /** Number of threads required to load a single row of the B' tile */
-  static constexpr int BT_LdRows = Nblk / VecLen;
+  static constexpr int BT_LdRows = Base::Nblk / VecLen;
 
   /* Check that the block size is a multiple of LdRows, i.e one load
    * with the whole block corresponds to a number of full columns */
-  static_assert(BlockSize % AN_LdRows == 0);
-  static_assert(BlockSize % AT_LdRows == 0);
-  static_assert(BlockSize % BN_LdRows == 0);
-  static_assert(BlockSize % BT_LdRows == 0);
+  static_assert(Base::BlockSize % AN_LdRows == 0);
+  static_assert(Base::BlockSize % AT_LdRows == 0);
+  static_assert(Base::BlockSize % BN_LdRows == 0);
+  static_assert(Base::BlockSize % BT_LdRows == 0);
 
   /** Number of columns of the A tile in one load with the whole block */
-  static constexpr int AN_LdCols = BlockSize / AN_LdRows;
+  static constexpr int AN_LdCols = Base::BlockSize / AN_LdRows;
   /** Number of rows of the A' tile in one load with the whole block */
-  static constexpr int AT_LdCols = BlockSize / AT_LdRows;
+  static constexpr int AT_LdCols = Base::BlockSize / AT_LdRows;
   /** Number of columns of the B tile in one load with the whole block */
-  static constexpr int BN_LdCols = BlockSize / BN_LdRows;
+  static constexpr int BN_LdCols = Base::BlockSize / BN_LdRows;
   /** Number of rows of the B' tile in one load with the whole block */
-  static constexpr int BT_LdCols = BlockSize / BT_LdRows;
+  static constexpr int BT_LdCols = Base::BlockSize / BT_LdRows;
 
   /* Number of loads per thread necessary to load the A tile */
   static constexpr int AN_LdCount = Kblk / AN_LdCols;
   /* Number of loads per thread necessary to load the A' tile */
-  static constexpr int AT_LdCount = Mblk / AT_LdCols;
+  static constexpr int AT_LdCount = Base::Mblk / AT_LdCols;
   /* Number of loads per thread necessary to load the B tile */
-  static constexpr int BN_LdCount = Nblk / BN_LdCols;
+  static constexpr int BN_LdCount = Base::Nblk / BN_LdCols;
   /* Number of loads per thread necessary to load the B' tile */
   static constexpr int BT_LdCount = Kblk / BT_LdCols;
 };
@@ -151,34 +168,6 @@ struct BlockGemvPolicy {
   static constexpr int ThCols = _tc;
   /** Number of threads per block */
   static constexpr int BlockSize = ThRows * ThCols;
-};
-
-/**
- * Execution policy for the block covariance numerical stability operation
- *
- * @tparam _rpt    Rows worked per thread
- * @tparam _cpt    Columns worked per thread
- * @tparam _tr     Number of thread rows
- * @tparam _tc     Number of thread columns
- */
-template <int _rpt, int _cpt, int _tr, int _tc>
-struct BlockCovStabilityPolicy {
-  /** Rows worked per thread */
-  static constexpr int RowsPerTh = _rpt;
-  /** Columns worked per thread */
-  static constexpr int ColsPerTh = _cpt;
-  /** Number of thread rows */
-  static constexpr int ThRows = _tr;
-  /** Number of thread columns */
-  static constexpr int ThCols = _tc;
-  /** Number of threads per block */
-  static constexpr int BlockSize = ThRows * ThCols;
-  /** Tile dimension m */
-  static constexpr int Mblk = RowsPerTh * ThRows;
-  /** Tile dimension n */
-  static constexpr int Nblk = ColsPerTh * ThCols;
-  /** Total size of a tile */
-  static constexpr int TileSize = Mblk * Nblk;
 };
 
 /**

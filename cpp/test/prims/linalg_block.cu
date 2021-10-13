@@ -849,20 +849,16 @@ const std::vector<BlockCovStabilityInputs<double>> cs_inputsd = {
   {220, 130, 1e-4, 12345U},
 };
 
-typedef BlockCovStabilityTest<BlockCovStabilityPolicy<1, 1, 8, 4>, float>
-  BlockCovStabilityTestF_1_1_8_4;
+typedef BlockCovStabilityTest<BlockPolicy<1, 1, 8, 4>, float> BlockCovStabilityTestF_1_1_8_4;
 TEST_P(BlockCovStabilityTestF_1_1_8_4, Result) { EXPECT_TRUE(match); }
 
-typedef BlockCovStabilityTest<BlockCovStabilityPolicy<1, 1, 8, 4>, double>
-  BlockCovStabilityTestD_1_1_8_4;
+typedef BlockCovStabilityTest<BlockPolicy<1, 1, 8, 4>, double> BlockCovStabilityTestD_1_1_8_4;
 TEST_P(BlockCovStabilityTestD_1_1_8_4, Result) { EXPECT_TRUE(match); }
 
-typedef BlockCovStabilityTest<BlockCovStabilityPolicy<1, 4, 32, 8>, float>
-  BlockCovStabilityTestF_1_4_32_8;
+typedef BlockCovStabilityTest<BlockPolicy<1, 4, 32, 8>, float> BlockCovStabilityTestF_1_4_32_8;
 TEST_P(BlockCovStabilityTestF_1_4_32_8, Result) { EXPECT_TRUE(match); }
 
-typedef BlockCovStabilityTest<BlockCovStabilityPolicy<1, 4, 32, 8>, double>
-  BlockCovStabilityTestD_1_4_32_8;
+typedef BlockCovStabilityTest<BlockPolicy<1, 4, 32, 8>, double> BlockCovStabilityTestD_1_4_32_8;
 TEST_P(BlockCovStabilityTestD_1_4_32_8, Result) { EXPECT_TRUE(match); }
 
 INSTANTIATE_TEST_CASE_P(BlockCovStabilityTests,
