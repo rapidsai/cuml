@@ -37,7 +37,7 @@ from cuml.common import logger
 from sklearn import datasets
 from sklearn.cluster import KMeans
 from sklearn.datasets import make_blobs
-from sklearn.manifold.t_sne import trustworthiness
+from sklearn.manifold import trustworthiness
 from sklearn.metrics import adjusted_rand_score
 
 dataset_names = ['iris', 'digits', 'wine', 'blobs']
@@ -231,7 +231,7 @@ def test_umap_fit_transform_trust(name, target_metric):
         data = wine.data
         labels = wine.target
     else:
-        data, labels = make_blobs(n_samples=5000, n_features=10,
+        data, labels = make_blobs(n_samples=500, n_features=10,
                                   centers=10, random_state=42)
 
     model = umap.UMAP(n_neighbors=10, min_dist=0.01,
@@ -336,8 +336,15 @@ def test_umap_fit_transform_against_fit_and_transform():
     assert joblib.hash(ft_embedding) != joblib.hash(fit_embedding_diff_input)
 
 
-@pytest.mark.parametrize('n_components', [2, 21, 25, 50])
-@pytest.mark.parametrize('random_state', [None, 8, np.random.RandomState(42)])
+@pytest.mark.parametrize('n_components,random_state',
+                         [unit_param(2, None),
+                          unit_param(2, 8),
+                          unit_param(2, np.random.RandomState(42)),
+                          unit_param(21, None),
+                          unit_param(21, np.random.RandomState(42)),
+                          unit_param(25, 8),
+                          unit_param(50, None),
+                          stress_param(50, 8)])
 def test_umap_fit_transform_reproducibility(n_components, random_state):
 
     n_samples = 8000
@@ -372,8 +379,15 @@ def test_umap_fit_transform_reproducibility(n_components, random_state):
         assert mean_diff > 0.5
 
 
-@pytest.mark.parametrize('n_components', [2, 21, 25, 50])
-@pytest.mark.parametrize('random_state', [None, 8, np.random.RandomState(42)])
+@pytest.mark.parametrize('n_components,random_state',
+                         [unit_param(2, None),
+                          unit_param(2, 8),
+                          unit_param(2, np.random.RandomState(42)),
+                          unit_param(21, None),
+                          unit_param(25, 8),
+                          unit_param(25, np.random.RandomState(42)),
+                          unit_param(50, None),
+                          stress_param(50, 8)])
 def test_umap_transform_reproducibility(n_components, random_state):
 
     n_samples = 5000
@@ -417,7 +431,8 @@ def test_umap_transform_reproducibility(n_components, random_state):
 def test_umap_fit_transform_trustworthiness_with_consistency_enabled():
     iris = datasets.load_iris()
     data = iris.data
-    algo = cuUMAP(n_neighbors=10, min_dist=0.01, random_state=42)
+    algo = cuUMAP(n_neighbors=10, min_dist=0.01, init="random",
+                  random_state=42)
     embedding = algo.fit_transform(data, convert_dtype=True)
     trust = trustworthiness(iris.data, embedding, 10)
     assert trust >= 0.97
@@ -430,7 +445,8 @@ def test_umap_transform_trustworthiness_with_consistency_enabled():
         [True, False], data.shape[0], replace=True, p=[0.5, 0.5])
     fit_data = data[selection]
     transform_data = data[~selection]
-    model = cuUMAP(n_neighbors=10, min_dist=0.01, random_state=42)
+    model = cuUMAP(n_neighbors=10, min_dist=0.01, init="random",
+                   random_state=42)
     model.fit(fit_data, convert_dtype=True)
     embedding = model.transform(transform_data, convert_dtype=True)
     trust = trustworthiness(transform_data, embedding, 10)
@@ -464,19 +480,21 @@ def test_umap_knn_parameters(n_neighbors):
 
     def fit_transform_embed(knn_graph=None):
         model = cuUMAP(random_state=42,
+                       init='random',
                        n_neighbors=n_neighbors)
         return model.fit_transform(data, knn_graph=knn_graph,
                                    convert_dtype=True)
 
     def transform_embed(knn_graph=None):
         model = cuUMAP(random_state=42,
+                       init='random',
                        n_neighbors=n_neighbors)
         model.fit(data, knn_graph=knn_graph, convert_dtype=True)
         return model.transform(data, knn_graph=knn_graph,
                                convert_dtype=True)
 
     def test_trustworthiness(embedding):
-        trust = trustworthiness(data, embedding, 10)
+        trust = trustworthiness(data, embedding, n_neighbors)
         assert trust >= 0.92
 
     def test_equality(e1, e2):
@@ -504,7 +522,6 @@ def test_umap_knn_parameters(n_neighbors):
     test_trustworthiness(embedding6)
     test_trustworthiness(embedding7)
 
-    # test_equality(embedding1, embedding2)
     test_equality(embedding2, embedding3)
     test_equality(embedding3, embedding4)
     test_equality(embedding5, embedding6)

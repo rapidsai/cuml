@@ -18,6 +18,7 @@
 
 #include <label/merge_labels.cuh>
 
+#include <raft/handle.hpp>
 namespace ML {
 namespace Dbscan {
 namespace MergeLabels {
@@ -34,11 +35,16 @@ namespace MergeLabels {
  * @param[in]    stream      CUDA stream
  */
 template <typename Index_ = int, int TPB_X = 256>
-void run(const raft::handle_t& handle, Index_* labels_a, const Index_* labels_b,
-         const bool* mask, Index_* work_buffer, bool* m, Index_ N,
-         cudaStream_t stream) {
-  MLCommon::Label::merge_labels<Index_, TPB_X>(labels_a, labels_b, mask,
-                                               work_buffer, m, N, stream);
+void run(const raft::handle_t& handle,
+         Index_* labels_a,
+         const Index_* labels_b,
+         const bool* mask,
+         Index_* work_buffer,
+         bool* m,
+         Index_ N,
+         cudaStream_t stream)
+{
+  MLCommon::Label::merge_labels<Index_, TPB_X>(labels_a, labels_b, mask, work_buffer, m, N, stream);
 }
 
 }  // namespace MergeLabels

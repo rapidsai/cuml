@@ -23,7 +23,7 @@ from cuml.test.utils import stress_param
 from cuml.neighbors import NearestNeighbors as cuKNN
 
 from sklearn.datasets import make_blobs
-from sklearn.manifold.t_sne import trustworthiness
+from sklearn.manifold import trustworthiness
 from sklearn import datasets
 
 

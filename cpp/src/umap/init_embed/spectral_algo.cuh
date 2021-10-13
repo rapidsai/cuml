@@ -17,7 +17,6 @@
 #pragma once
 
 #include <cuml/manifold/umapparams.h>
-#include <cuml/common/device_buffer.hpp>
 
 #include <raft/sparse/coo.cuh>
 
@@ -38,47 +37,59 @@ namespace SpectralInit {
 using namespace ML;
 
 /**
-   * Performs a spectral layout initialization
-   */
-template <typename value_idx, typename T>
-void launcher(const raft::handle_t &handle, int n, int d,
-              const value_idx *knn_indices, const T *knn_dists,
-              raft::sparse::COO<float> *coo, UMAPParams *params, T *embedding) {
+ * Performs a spectral layout initialization
+ */
+template <typename T>
+void launcher(const raft::handle_t& handle,
+              int n,
+              int d,
+              raft::sparse::COO<float>* coo,
+              UMAPParams* params,
+              T* embedding)
+{
   cudaStream_t stream = handle.get_stream();
 
-  ASSERT(n > params->n_components,
-         "Spectral layout requires n_samples > n_components");
+  ASSERT(n > params->n_components, "Spectral layout requires n_samples > n_components");
 
-  MLCommon::device_buffer<T> tmp_storage(handle.get_device_allocator(), stream,
-                                         n * params->n_components);
+  rmm::device_uvector<T> tmp_storage(n * params->n_components, stream);
 
   uint64_t seed = params->random_state;
 
-  Spectral::fit_embedding(handle, coo->rows(), coo->cols(), coo->vals(),
-                          coo->nnz, n, params->n_components, tmp_storage.data(),
+  Spectral::fit_embedding(handle,
+                          coo->rows(),
+                          coo->cols(),
+                          coo->vals(),
+                          coo->nnz,
+                          n,
+                          params->n_components,
+                          tmp_storage.data(),
                           seed);
 
-  raft::linalg::transpose(handle, tmp_storage.data(), embedding, n,
-                          params->n_components, stream);
+  raft::linalg::transpose(handle, tmp_storage.data(), embedding, n, params->n_components, stream);
 
   raft::linalg::unaryOp<T>(
-    tmp_storage.data(), tmp_storage.data(), n * params->n_components,
-    [=] __device__(T input) { return fabsf(input); }, stream);
+    tmp_storage.data(),
+    tmp_storage.data(),
+    n * params->n_components,
+    [=] __device__(T input) { return fabsf(input); },
+    stream);
 
   thrust::device_ptr<T> d_ptr = thrust::device_pointer_cast(tmp_storage.data());
-  T max = *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr,
-                                d_ptr + (n * params->n_components)));
+  T max =
+    *(thrust::max_element(thrust::cuda::par.on(stream), d_ptr, d_ptr + (n * params->n_components)));
 
   // Reuse tmp_storage to add random noise
   raft::random::Rng r(seed);
   r.normal(tmp_storage.data(), n * params->n_components, 0.0f, 0.0001f, stream);
 
   raft::linalg::unaryOp<T>(
-    embedding, embedding, n * params->n_components,
-    [=] __device__(T input) { return (10.0f / max) * input; }, stream);
+    embedding,
+    embedding,
+    n * params->n_components,
+    [=] __device__(T input) { return (10.0f / max) * input; },
+    stream);
 
-  raft::linalg::add(embedding, embedding, tmp_storage.data(),
-                    n * params->n_components, stream);
+  raft::linalg::add(embedding, embedding, tmp_storage.data(), n * params->n_components, stream);
 
   CUDA_CHECK(cudaPeekAtLastError());
 }

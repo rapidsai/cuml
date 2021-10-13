@@ -27,7 +27,7 @@ namespace Stationarity {
 /**
  * @brief Perform the KPSS stationarity test on the data differenced according
  *        to the given order
- * 
+ *
  * @param[in]   handle          cuML handle
  * @param[in]   d_y             Input data (column-major, series in columns)
  * @param[out]  results         Boolean device array to store the results
@@ -39,11 +39,23 @@ namespace Stationarity {
  * @param[in]   pval_threshold  P-value threshold above which a series is
  *                              considered stationary
  */
-void kpss_test(const raft::handle_t& handle, const float* d_y, bool* results,
-               int batch_size, int n_obs, int d, int D, int s,
+void kpss_test(const raft::handle_t& handle,
+               const float* d_y,
+               bool* results,
+               int batch_size,
+               int n_obs,
+               int d,
+               int D,
+               int s,
                float pval_threshold);
-void kpss_test(const raft::handle_t& handle, const double* d_y, bool* results,
-               int batch_size, int n_obs, int d, int D, int s,
+void kpss_test(const raft::handle_t& handle,
+               const double* d_y,
+               bool* results,
+               int batch_size,
+               int n_obs,
+               int d,
+               int D,
+               int s,
                double pval_threshold);
 
 }  // namespace Stationarity

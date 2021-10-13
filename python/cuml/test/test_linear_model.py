@@ -31,8 +31,10 @@ from cuml.test.utils import (
 )
 import rmm
 
+from scipy.sparse import csr_matrix
+
 import sklearn
-from sklearn.datasets import make_regression, make_classification
+from sklearn.datasets import make_regression, make_classification, load_digits
 from sklearn.datasets import load_breast_cancer
 from sklearn.linear_model import LinearRegression as skLinearRegression
 from sklearn.linear_model import Ridge as skRidge
@@ -347,20 +349,74 @@ def test_logistic_regression_model_default(dtype):
     assert culog.score(X_test, y_test) >= sklog.score(X_test, y_test) - 0.022
 
 
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+@pytest.mark.parametrize("order", ["C", "F"])
+@pytest.mark.parametrize("sparse_input", [False, True])
+@pytest.mark.parametrize("fit_intercept", [False, True])
+@pytest.mark.parametrize("penalty", ["none", "l1", "l2"])
+def test_logistic_regression_model_digits(
+        dtype, order, sparse_input, fit_intercept, penalty):
+
+    # smallest sklearn score with max_iter = 10000
+    # put it as a constant here, because sklearn 0.23.1 needs a lot of iters
+    # to converge and has a bug returning an unrelated error if not converged.
+    acceptable_score = 0.95
+
+    digits = load_digits()
+
+    X_dense = digits.data.astype(dtype)
+    X_dense.reshape(X_dense.shape, order=order)
+    X = csr_matrix(X_dense) if sparse_input else X_dense
+
+    y = digits.target.astype(dtype)
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42)
+
+    culog = cuLog(fit_intercept=fit_intercept, penalty=penalty)
+    culog.fit(X_train, y_train)
+    score = culog.score(X_test, y_test)
+
+    assert score >= acceptable_score
+
+
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_logistic_regression_sparse_only(dtype, nlp_20news):
+
+    # sklearn score with max_iter = 10000
+    sklearn_score = 0.878
+    acceptable_score = sklearn_score - 0.01
+
+    X, y = nlp_20news
+
+    X = csr_matrix(X.astype(dtype))
+    y = y.get().astype(dtype)
+
+    X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=42)
+
+    culog = cuLog()
+    culog.fit(X_train, y_train)
+    score = culog.score(X_test, y_test)
+
+    assert score >= acceptable_score
+
+
 @pytest.mark.parametrize("dtype, nrows, num_classes, fit_intercept", [
     (np.float32, 10, 2, True),
     (np.float64, 100, 10, False),
     (np.float64, 100, 2, True)
 ])
 @pytest.mark.parametrize("column_info", [(20, 10)])
+@pytest.mark.parametrize("sparse_input", [False, True])
 def test_logistic_regression_decision_function(
-    dtype, nrows, column_info, num_classes, fit_intercept
+    dtype, nrows, column_info, num_classes, fit_intercept, sparse_input
 ):
     ncols, n_info = column_info
     X_train, X_test, y_train, y_test = make_classification_dataset(
         datatype=dtype, nrows=nrows, ncols=ncols,
         n_info=n_info, num_classes=num_classes
     )
+    X_train = csr_matrix(X_train) if sparse_input else X_train
+    X_test = csr_matrix(X_test) if sparse_input else X_test
 
     y_train = y_train.astype(dtype)
     y_test = y_test.astype(dtype)
@@ -390,14 +446,17 @@ def test_logistic_regression_decision_function(
     (np.float64, 100, 2, True)
 ])
 @pytest.mark.parametrize("column_info", [(20, 10)])
+@pytest.mark.parametrize("sparse_input", [False, True])
 def test_logistic_regression_predict_proba(
-    dtype, nrows, column_info, num_classes, fit_intercept
+    dtype, nrows, column_info, num_classes, fit_intercept, sparse_input
 ):
     ncols, n_info = column_info
     X_train, X_test, y_train, y_test = make_classification_dataset(
         datatype=dtype, nrows=nrows, ncols=ncols,
         n_info=n_info, num_classes=num_classes
     )
+    X_train = csr_matrix(X_train) if sparse_input else X_train
+    X_test = csr_matrix(X_test) if sparse_input else X_test
 
     y_train = y_train.astype(dtype)
     y_test = y_test.astype(dtype)
@@ -571,3 +630,30 @@ def test_logistic_regression_weighting(regression_dataset,
     skOut = sklog.predict(data)
     assert array_equal(skOut, cuOut, unit_tol=unit_tol,
                        total_tol=total_tol)
+
+
+@pytest.mark.parametrize('algo', [cuLog, cuRidge])
+def test_linear_models_set_params(algo):
+    x = np.linspace(0, 1, 50)
+    y = 2 * x
+
+    model = algo()
+    model.fit(x, y)
+    coef_before = model.coef_
+
+    if algo == cuLog:
+        params = {'penalty': "none", 'C': 1, 'max_iter': 30}
+        model = algo(penalty='none', C=1, max_iter=30)
+    else:
+        model = algo(solver='svd', alpha=0.1)
+        params = {'solver': "svd", 'alpha': 0.1}
+    model.fit(x, y)
+    coef_after = model.coef_
+
+    model = algo()
+    model.set_params(**params)
+    model.fit(x, y)
+    coef_test = model.coef_
+
+    assert not array_equal(coef_before, coef_after)
+    assert array_equal(coef_after, coef_test)

@@ -17,8 +17,9 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <distance/epsilon_neighborhood.cuh>
-#include <raft/mr/device/allocator.hpp>
+#include <memory>
 #include <random/make_blobs.cuh>
+#include <rmm/device_uvector.hpp>
 #include "test_utils.h"
 
 namespace MLCommon {
@@ -31,67 +32,81 @@ struct EpsInputs {
 };
 
 template <typename T, typename IdxT>
-::std::ostream& operator<<(::std::ostream& os, const EpsInputs<T, IdxT>& p) {
+::std::ostream& operator<<(::std::ostream& os, const EpsInputs<T, IdxT>& p)
+{
   return os;
 }
 
 template <typename T, typename IdxT>
 class EpsNeighTest : public ::testing::TestWithParam<EpsInputs<T, IdxT>> {
  protected:
-  void SetUp() override {
+  EpsNeighTest() : data(0, stream), adj(0, stream), labels(0, stream), vd(0, stream) {}
+
+  void SetUp() override
+  {
     param = ::testing::TestWithParam<EpsInputs<T, IdxT>>::GetParam();
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(data, param.n_row * param.n_col);
-    raft::allocate(labels, param.n_row);
+    data.resize(param.n_row * param.n_col, stream);
+    labels.resize(param.n_row, stream);
     batchSize = param.n_row / param.n_batches;
-    raft::allocate(adj, param.n_row * batchSize);
-    raft::allocate(vd, batchSize + 1, true);
-    allocator.reset(new raft::mr::device::default_allocator);
-    Random::make_blobs<T, IdxT>(data, labels, param.n_row, param.n_col,
-                                param.n_centers, allocator, stream, true,
-                                nullptr, nullptr, T(0.01), false);
+    adj.resize(param.n_row * batchSize, stream);
+    vd.resize(batchSize + 1, stream);
+    CUDA_CHECK(cudaMemsetAsync(vd.data(), 0, vd.size() * sizeof(IdxT), stream));
+    Random::make_blobs<T, IdxT>(data.data(),
+                                labels.data(),
+                                param.n_row,
+                                param.n_col,
+                                param.n_centers,
+                                stream,
+                                true,
+                                nullptr,
+                                nullptr,
+                                T(0.01),
+                                false);
   }
 
-  void TearDown() override {
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-    CUDA_CHECK(cudaFree(data));
-    CUDA_CHECK(cudaFree(labels));
-    CUDA_CHECK(cudaFree(adj));
-    CUDA_CHECK(cudaFree(vd));
-  }
+  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
   EpsInputs<T, IdxT> param;
-  cudaStream_t stream;
-  T* data;
-  bool* adj;
-  IdxT *labels, *vd;
+  cudaStream_t stream = 0;
+  rmm::device_uvector<T> data;
+  rmm::device_uvector<bool> adj;
+  rmm::device_uvector<IdxT> labels, vd;
   IdxT batchSize;
-  std::shared_ptr<raft::mr::device::allocator> allocator;
 };  // class EpsNeighTest
 
 const std::vector<EpsInputs<float, int>> inputsfi = {
-  {15000, 16, 5, 1, 2.f},     {14000, 16, 5, 1, 2.f},
-  {15000, 17, 5, 1, 2.f},     {14000, 17, 5, 1, 2.f},
-  {15000, 18, 5, 1, 2.f},     {14000, 18, 5, 1, 2.f},
-  {15000, 32, 5, 1, 2.f},     {14000, 32, 5, 1, 2.f},
-  {20000, 10000, 10, 1, 2.f}, {20000, 10000, 10, 2, 2.f},
+  {15000, 16, 5, 1, 2.f},
+  {14000, 16, 5, 1, 2.f},
+  {15000, 17, 5, 1, 2.f},
+  {14000, 17, 5, 1, 2.f},
+  {15000, 18, 5, 1, 2.f},
+  {14000, 18, 5, 1, 2.f},
+  {15000, 32, 5, 1, 2.f},
+  {14000, 32, 5, 1, 2.f},
+  {20000, 10000, 10, 1, 2.f},
+  {20000, 10000, 10, 2, 2.f},
 };
 typedef EpsNeighTest<float, int> EpsNeighTestFI;
-TEST_P(EpsNeighTestFI, Result) {
+TEST_P(EpsNeighTestFI, Result)
+{
   for (int i = 0; i < param.n_batches; ++i) {
-    CUDA_CHECK(
-      cudaMemsetAsync(adj, 0, sizeof(bool) * param.n_row * batchSize, stream));
-    CUDA_CHECK(cudaMemsetAsync(vd, 0, sizeof(int) * (batchSize + 1), stream));
-    epsUnexpL2SqNeighborhood<float, int>(
-      adj, vd, data, data + (i * batchSize * param.n_col), param.n_row,
-      batchSize, param.n_col, param.eps * param.eps, stream);
-    ASSERT_TRUE(raft::devArrMatch(param.n_row / param.n_centers, vd, batchSize,
-                                  raft::Compare<int>(), stream));
+    CUDA_CHECK(cudaMemsetAsync(adj.data(), 0, sizeof(bool) * param.n_row * batchSize, stream));
+    CUDA_CHECK(cudaMemsetAsync(vd.data(), 0, sizeof(int) * (batchSize + 1), stream));
+    epsUnexpL2SqNeighborhood<float, int>(adj.data(),
+                                         vd.data(),
+                                         data.data(),
+                                         data.data() + (i * batchSize * param.n_col),
+                                         param.n_row,
+                                         batchSize,
+                                         param.n_col,
+                                         param.eps * param.eps,
+                                         stream);
+    ASSERT_TRUE(raft::devArrMatch(
+      param.n_row / param.n_centers, vd.data(), batchSize, raft::Compare<int>(), stream));
   }
 }
-INSTANTIATE_TEST_CASE_P(EpsNeighTests, EpsNeighTestFI,
-                        ::testing::ValuesIn(inputsfi));
+INSTANTIATE_TEST_CASE_P(EpsNeighTests, EpsNeighTestFI, ::testing::ValuesIn(inputsfi));
 
 };  // namespace Distance
 };  // namespace MLCommon
