@@ -57,6 +57,8 @@ struct LinearSVMParams {
    *  Enabling this feature forces an extra copying the input data X.
    */
   bool penalized_intercept = false;
+  /** Whether to estimate probabilities using Platt scaling (applicable to SVC). */
+  bool probability = false;
   /** Maximum number of iterations for the underlying QN solver. */
   int max_iter = 1000;
   /**
@@ -95,6 +97,8 @@ class LinearSVMModel {
   const raft::handle_t& handle;
   const int nRows;
   const int nCols;
+  /** Vector of size 2 for the probabolistic model coefficients. */
+  rmm::device_uvector<T> probScale;
   /** Always contains nCols + 1 values, where the last value is the bias (possibly zero). */
   rmm::device_uvector<T> w;
 
@@ -107,6 +111,9 @@ class LinearSVMModel {
                  const T* sampleWeight);
 
   void predict(const T* X, const int nRows, const int nCols, T* out) const;
+
+  /** For SVC, predict the probability of H1. */
+  void predict_proba(const T* X, const int nRows, const int nCols, const bool log, T* out) const;
 
   T getIntercept() const
   {

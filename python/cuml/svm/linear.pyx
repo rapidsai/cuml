@@ -21,6 +21,7 @@ import numpy as np
 import cupy as cp
 import cuml
 
+import cuml.internals
 from cython.operator cimport dereference as deref
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
@@ -28,7 +29,7 @@ from cuml.common.mixins import ClassifierMixin, RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.raft.common.handle cimport handle_t, _Stream
 from rmm._lib.device_uvector cimport device_uvector
-from cuml.common import input_to_cuml_array
+from cuml.common import input_to_cuml_array, input_to_host_array
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool as cppbool, nullptr
 
@@ -61,6 +62,7 @@ cdef extern from "cuml/svm/linear.hpp" namespace "ML::SVM":
         Loss loss
         cppbool fit_intercept
         cppbool penalized_intercept
+        cppbool probability
         int max_iter
         int linesearch_max_iter
         int lbfgs_memory
@@ -86,6 +88,9 @@ cdef extern from "cuml/svm/linear.hpp" namespace "ML::SVM":
             const T* sampleWeight) except +
         void predict(
             const T* X, const int nRows, const int nCols, T* out) except +
+        void predict_proba(
+            const T* X, const int nRows, const int nCols,
+            const cppbool log, T* out) except +
         T getIntercept()
         T* getCoefsPtr()
         int getCoefsCount()
@@ -353,6 +358,31 @@ cdef class LinearSVM:
 
         return y
 
+    def predict_proba(self, X, log=False, convert_dtype=True) -> CumlArray:
+        convert_to_dtype = self.dtype if convert_dtype else None
+        X_m, n_rows, n_cols, _ = \
+            input_to_cuml_array(X, check_dtype=self.dtype,
+                                convert_to_dtype=convert_to_dtype)
+
+        cdef uintptr_t X_ptr = X_m.ptr
+
+        y = CumlArray.empty(shape=(n_rows, 2), dtype=X_m.dtype, order='F')
+        cdef uintptr_t y_ptr = y.ptr
+
+        if self.dtype == np.float32:
+            self.model.float32.predict_proba(
+                <const float*>X_ptr, n_rows, n_cols, log,
+                (<float*>y_ptr) + <int>n_rows)
+        elif self.dtype == np.float64:
+            self.model.float64.predict_proba(
+                <const double*>X_ptr, n_rows, n_cols, log,
+                (<double*>y_ptr) + <int>n_rows)
+        else:
+            raise TypeError('Input data type should be float32 or float64')
+
+        y[:, 0] = CumlArray.ones(shape=(n_rows, ), dtype=y.dtype) - y[:, 1]
+        return y
+
 
 class LinearSVC(LinearSVM, Base, ClassifierMixin):
     '''
@@ -441,6 +471,8 @@ class LinearSVC(LinearSVM, Base, ClassifierMixin):
         This value is converted into `1.0` during training, whereas all the
         other values in the training target data (`y`)
         are converted into `-1.0`.
+    probability: bool (default = False)
+        Enable or disable probability estimates.
     multiclass_strategy : {{'ovo' or 'ovr'}} (default = 'ovo')
         Multiclass classification strategy. ``'ovo'`` uses `OneVsOneClassifier
         <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsOneClassifier.html>`_
@@ -488,6 +520,8 @@ class LinearSVC(LinearSVM, Base, ClassifierMixin):
             kwargs['loss'] = 'squared_hinge'
         if 'multiclass_strategy' not in kwargs:
             kwargs['multiclass_strategy'] = 'ovr'
+        if 'probability' not in kwargs:
+            kwargs['probability'] = False
 
         super().__init__(*args, **kwargs)
 
@@ -531,11 +565,13 @@ class LinearSVC(LinearSVM, Base, ClassifierMixin):
                     sample_weight=sample_weight,
                     convert_dtype=convert_dtype)
             del X_m, y_m
-            return
+            return self
 
         # multiclass
+        params = self.get_params()
+        params["probability"] = True
         self.multiclass_svc = MulticlassClassifier(
-            estimator=self,
+            estimator=LinearSVC(**params),
             handle=self.handle, verbose=self.verbose,
             output_type=self.output_type,
             strategy=self.multiclass_strategy)
@@ -550,12 +586,25 @@ class LinearSVC(LinearSVM, Base, ClassifierMixin):
             res = LinearSVM.predict(self, X, convert_dtype)
         return res.to_output(out_type)
 
-    def predict_proba(self, X, convert_dtype=True) -> CumlArray:
-        if self._classes_.shape[0] == 2:
-            r = cp.asarray(self.predict(X, convert_dtype=True))
-            p, _, _, _ = input_to_cuml_array(cp.stack([1 - r, r], axis=1))
-            return p
-        raise RuntimeError("Probabolistic SVM is not implemented")
+
+    def predict_proba(self, X, log=False, convert_dtype=True) -> CumlArray:
+        """
+        Predicts the class probabilities for X.
+
+        The model has to be trained with probability=True to use this method.
+
+        Parameters
+        ----------
+        log: boolean (default = False)
+                Whether to return log probabilities.
+
+        """
+        out_type = self._get_output_type(X)
+        if self._classes_.shape[0] > 2:
+            res = self.multiclass_svc.predict_proba(X, log)
+        else:
+            res = LinearSVM.predict_proba(self, X, log, convert_dtype)
+        return res.to_output(out_type)
 
     def get_param_names(self):
         return [
@@ -566,6 +615,7 @@ class LinearSVC(LinearSVM, Base, ClassifierMixin):
             'loss',
             'fit_intercept',
             'penalized_intercept',
+            'probability',
             'max_iter',
             'linesearch_max_iter',
             'lbfgs_memory',
@@ -573,7 +623,7 @@ class LinearSVC(LinearSVM, Base, ClassifierMixin):
             'grad_tol',
             'change_tol',
             'H1_value',
-            'multiclass_strategy'
+            'multiclass_strategy',
         ]
 
 
@@ -651,3 +701,6 @@ LinearSVR.__doc__ = \
 #   2. multiclass strategy
 #   3. decide where transform labels into multiclass 1, -1
 #   4. Also food for thought:
+#
+# https://scikit-learn.org/stable/modules/svm.html#svm-multi-class
+# https://github.com/scikit-learn/scikit-learn/blob/ccf8e749bac06aa456d8de2d06dbe0d8c507ac3f/sklearn/multiclass.py#L598

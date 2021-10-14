@@ -91,6 +91,91 @@ struct SignFun {
   __device__ T operator()(const T x) const { return x == H1_value ? 1 : -1; }
 };
 
+template <typename T>
+struct IndicatorFun {
+  const T H1_value;
+  __device__ T operator()(const T x) const { return T(x == H1_value); }
+};
+
+template <typename T>
+void predict_linear(const raft::handle_t& handle,
+                    const T* X,
+                    const T* w,
+                    const int nRows,
+                    const int nCols,
+                    T* out,
+                    cudaStream_t stream)
+{
+  raft::linalg::gemv(handle, X, nRows, nCols, w, out, false, stream);
+  const T* p = w + nCols;
+  raft::linalg::unaryOp(
+    out, out, nRows, [p] __device__(T x) -> T { return x + *p; }, stream);
+}
+
+template <typename T>
+void predict_indicator(const raft::handle_t& handle,
+                       const T* X,
+                       const T* w,
+                       const int nRows,
+                       const int nCols,
+                       T* out,
+                       cudaStream_t stream)
+{
+  raft::linalg::gemv(handle, X, nRows, nCols, w, out, false, stream);
+  const T* p = w + nCols;
+  raft::linalg::unaryOp(
+    out, out, nRows, [p] __device__(T x) -> T { return T((x + *p) > 0); }, stream);
+}
+
+template <typename T>
+void predict_prob(const raft::handle_t& handle,
+                  const T* X,
+                  const T* w,
+                  const T* probScale,
+                  const int nRows,
+                  const int nCols,
+                  T* out,
+                  cudaStream_t stream)
+{
+  raft::linalg::gemv(handle, X, nRows, nCols, w, out, false, stream);
+  const T* p = w + nCols;
+  raft::linalg::unaryOp(
+    out,
+    out,
+    nRows,
+    [p, probScale] __device__(T x) -> T {
+      T z = probScale[0] * (x + *p) + probScale[1];
+      T t = raft::myExp(z < 0 ? z : -z);
+      T q = 1 / (1 + t);
+      return q * (z < 0 ? t : T(1.0));
+    },
+    stream);
+}
+
+template <typename T>
+void predict_log_prob(const raft::handle_t& handle,
+                      const T* X,
+                      const T* w,
+                      const T* probScale,
+                      const int nRows,
+                      const int nCols,
+                      T* out,
+                      cudaStream_t stream)
+{
+  raft::linalg::gemv(handle, X, nRows, nCols, w, out, false, stream);
+  const T* p = w + nCols;
+  raft::linalg::unaryOp(
+    out,
+    out,
+    nRows,
+    [p, probScale] __device__(T x) -> T {
+      T z = probScale[0] * (x + *p) + probScale[1];
+      T t = -raft::myLog(1 + raft::myExp(z < 0 ? z : -z));
+      return t + (z < 0 ? z : T(0));
+    },
+    stream);
+}
+
 };  // namespace
 
 template <typename T>
@@ -101,7 +186,12 @@ LinearSVMModel<T>::LinearSVMModel(const raft::handle_t& handle,
                                   const int nCols,
                                   const T* y,
                                   const T* sampleWeight)
-  : params(params), handle(handle), nRows(nRows), nCols(nCols), w(nCols + 1, handle.get_stream())
+  : params(params),
+    handle(handle),
+    nRows(nRows),
+    nCols(nCols),
+    w(nCols + 1, handle.get_stream()),
+    probScale(params.probability ? 2 : 0, handle.get_stream())
 {
   ML::PUSH_RANGE("Trace::LinearSVMModel::fit");
   cudaStream_t stream = handle.get_stream();
@@ -167,6 +257,41 @@ LinearSVMModel<T>::LinearSVMModel(const raft::handle_t& handle,
     "LinearSVM finished fitting in %d iterations out of maximum %d.", num_iters, params.max_iter);
 
   ML::POP_RANGE();
+  if (!params.probability) return;
+  ML::PUSH_RANGE("Trace::LinearSVMModel::fit-probabilities");
+
+  rmm::device_uvector<T> xwBuf(nRows, stream);
+  T* xw = xwBuf.data();
+  predict_linear(handle, X, w.data(), nRows, nCols, xw, stream);
+  raft::linalg::unaryOp(y1, y, nRows, IndicatorFun<T>{T(params.H1_value)}, stream);
+
+  GLM::qnFit<T>(handle,
+                xw,
+                true,
+                y1,
+                nRows,
+                1 /* D = 1 for only one parameter besides bias */,
+                2 /* C = 2 classes forced by LogisticLoss */,
+                true /* bias is the second parameter to fit */,
+                0,
+                0,
+                params.max_iter,
+                T(params.grad_tol),
+                T(params.change_tol),
+                params.linesearch_max_iter,
+                params.lbfgs_memory,
+                params.verbose,
+                probScale.data(),
+                &target,
+                &num_iters,
+                0 /* logistic loss*/,
+                stream,
+                (T*)sampleWeight);
+  CUML_LOG_DEBUG("LinearSVM finished fitting probabilities in %d iterations out of maximum %d.",
+                 num_iters,
+                 params.max_iter);
+
+  ML::POP_RANGE();
 }
 
 template <typename T>
@@ -177,14 +302,33 @@ void LinearSVMModel<T>::predict(const T* X, const int nRows, const int nCols, T*
          nCols,
          this->nCols);
   cudaStream_t stream = handle.get_stream();
-  raft::linalg::gemv(handle, X, nRows, nCols, w.data(), out, false, stream);
-  const T* p = w.data() + nCols;
   if (isRegression(params.loss)) {
-    raft::linalg::unaryOp(
-      out, out, nRows, [p] __device__(T x) -> T { return x + *p; }, stream);
+    predict_linear(handle, X, w.data(), nRows, nCols, out, stream);
   } else {
-    raft::linalg::unaryOp(
-      out, out, nRows, [p] __device__(T x) -> T { return T((x + *p) > 0); }, stream);
+    predict_indicator(handle, X, w.data(), nRows, nCols, out, stream);
+  }
+  CUDA_CHECK(cudaStreamSynchronize(stream));
+}
+
+template <typename T>
+void LinearSVMModel<T>::predict_proba(
+  const T* X, const int nRows, const int nCols, const bool log, T* out) const
+{
+  ASSERT(nCols == this->nCols,
+         "Number of features passed to predict() must be the same as for fitting (%d != %d).",
+         nCols,
+         this->nCols);
+  ASSERT(!isRegression(params.loss),
+         "Predicting probabilities is not available for the regression model");
+  ASSERT(
+    params.probability,
+    "The model was not trained to output probabilities (LinearSVMParams.probability == false).");
+
+  cudaStream_t stream = handle.get_stream();
+  if (log) {
+    predict_log_prob(handle, X, w.data(), probScale.data(), nRows, nCols, out, stream);
+  } else {
+    predict_prob(handle, X, w.data(), probScale.data(), nRows, nCols, out, stream);
   }
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
