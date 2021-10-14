@@ -54,7 +54,7 @@ Other `build.sh` options:
 $ ./build.sh clean                     # remove any prior build artifacts and configuration (start over)
 $ ./build.sh libcuml -v                # build and install libcuml with verbose output
 $ ./build.sh libcuml -g                # build and install libcuml for debug
-$ PARALLEL_LEVEL=4 ./build.sh libcuml  # build and install libcuml limiting parallel build jobs to 4 (make -j4)
+$ PARALLEL_LEVEL=8 ./build.sh libcuml  # build and install libcuml limiting parallel build jobs to 8 (ninja -j8)
 $ ./build.sh libcuml -n                # build libcuml but do not install
 $ ./build.sh prims --allgpuarch        # build the ML prims tests for all supported GPU architectures
 $ ./build.sh cuml --singlegpu          # build the cuML python package without MNMG algorithms
