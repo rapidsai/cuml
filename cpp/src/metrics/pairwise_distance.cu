@@ -19,7 +19,7 @@
 #include <cuml/metrics/metrics.hpp>
 #include <raft/distance/distance.hpp>
 #include <raft/handle.hpp>
-#include <raft/sparse/distance/distance.cuh>
+#include <raft/sparse/distance/distance.hpp>
 #include "pairwise_distance_canberra.cuh"
 #include "pairwise_distance_chebyshev.cuh"
 #include "pairwise_distance_correlation.cuh"

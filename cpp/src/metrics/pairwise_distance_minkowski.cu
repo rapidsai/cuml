@@ -33,16 +33,8 @@ void pairwise_distance_minkowski(const raft::handle_t& handle,
                                  bool isRowMajor,
                                  double metric_arg)
 {
-  raft::distance::pairwise_distance<double, int>(handle,
-                                                 x,
-                                                 y,
-                                                 dist,
-                                                 m,
-                                                 n,
-                                                 k,
-                                                 raft::distance::DistanceType::LpUnexpanded,
-                                                 isRowMajor,
-                                                 metric_arg);
+  raft::distance::distance<raft::distance::DistanceType::LpUnexpanded, double, double, double, int>(
+    x, y, dist, m, n, k, handle.get_stream(), isRowMajor, metric_arg);
 }
 
 void pairwise_distance_minkowski(const raft::handle_t& handle,
@@ -55,16 +47,8 @@ void pairwise_distance_minkowski(const raft::handle_t& handle,
                                  bool isRowMajor,
                                  float metric_arg)
 {
-  raft::distance::pairwise_distance<float, int>(handle,
-                                                x,
-                                                y,
-                                                dist,
-                                                m,
-                                                n,
-                                                k,
-                                                raft::distance::DistanceType::LpUnexpanded,
-                                                isRowMajor,
-                                                metric_arg);
+  raft::distance::distance<raft::distance::DistanceType::LpUnexpanded, float, float, float, int>(
+    x, y, dist, m, n, k, handle.get_stream(), isRowMajor, metric_arg);
 }
 
 }  // namespace Metrics

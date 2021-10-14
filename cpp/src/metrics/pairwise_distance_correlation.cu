@@ -33,8 +33,10 @@ void pairwise_distance_correlation(const raft::handle_t& handle,
                                    bool isRowMajor,
                                    double metric_arg)
 {
-  raft::distance::pairwise_distance<double, int>(
-    handle, x, y, dist, m, n, k, raft::distance::DistanceType::CorrelationExpanded, isRowMajor);
+  // Call the distance function
+  raft::distance::
+    distance<raft::distance::DistanceType::CorrelationExpanded, double, double, double, int>(
+      x, y, dist, m, n, k, handle.get_stream(), isRowMajor);
 }
 
 void pairwise_distance_correlation(const raft::handle_t& handle,
@@ -47,8 +49,10 @@ void pairwise_distance_correlation(const raft::handle_t& handle,
                                    bool isRowMajor,
                                    float metric_arg)
 {
-  raft::distance::pairwise_distance<float, int>(
-    handle, x, y, dist, m, n, k, raft::distance::DistanceType::CorrelationExpanded, isRowMajor);
+  // Call the distance function
+  raft::distance::
+    distance<raft::distance::DistanceType::CorrelationExpanded, float, float, float, int>(
+      x, y, dist, m, n, k, handle.get_stream(), isRowMajor);
 }
 
 }  // namespace Metrics

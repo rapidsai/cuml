@@ -33,16 +33,9 @@ void pairwise_distance_russell_rao(const raft::handle_t& handle,
                                    bool isRowMajor,
                                    double metric_arg)
 {
-  raft::distance::pairwise_distance<double, int>(handle,
-                                                 x,
-                                                 y,
-                                                 dist,
-                                                 m,
-                                                 n,
-                                                 k,
-                                                 raft::distance::DistanceType::RusselRaoExpanded,
-                                                 isRowMajor,
-                                                 metric_arg);
+  raft::distance::
+    distance<raft::distance::DistanceType::RusselRaoExpanded, double, double, double, int>(
+      x, y, dist, m, n, k, handle.get_stream(), isRowMajor);
 }
 
 void pairwise_distance_russell_rao(const raft::handle_t& handle,
@@ -55,16 +48,9 @@ void pairwise_distance_russell_rao(const raft::handle_t& handle,
                                    bool isRowMajor,
                                    float metric_arg)
 {
-  raft::distance::pairwise_distance<float, int>(handle,
-                                                x,
-                                                y,
-                                                dist,
-                                                m,
-                                                n,
-                                                k,
-                                                raft::distance::DistanceType::RusselRaoExpanded,
-                                                isRowMajor,
-                                                metric_arg);
+  raft::distance::
+    distance<raft::distance::DistanceType::RusselRaoExpanded, float, float, float, int>(
+      x, y, dist, m, n, k, handle.get_stream(), isRowMajor);
 }
 
 }  // namespace Metrics
