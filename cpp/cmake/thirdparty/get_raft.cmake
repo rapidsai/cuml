@@ -30,8 +30,8 @@ function(find_and_configure_raft)
       BUILD_EXPORT_SET    cuml-exports
       INSTALL_EXPORT_SET  cuml-exports
         CPM_ARGS
-            GIT_REPOSITORY https://github.com/${PKG_FORK}/raft.git
-            GIT_TAG        ${PKG_PINNED_TAG}
+            GIT_REPOSITORY https://github.com/divyegala/raft.git
+            GIT_TAG        imp-21.10-handle_stream
             SOURCE_SUBDIR  cpp
             OPTIONS
               "BUILD_TESTS OFF"

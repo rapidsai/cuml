@@ -143,8 +143,7 @@ class Base(TagsMixin,
         # stream and handle example:
 
         stream = cuml.cuda.Stream()
-        handle = cuml.Handle()
-        handle.setStream(stream)
+        handle = cuml.Handle(stream=stream)
 
         algo = MyAlgo(handle=handle)
         algo.fit(...)
@@ -160,13 +159,14 @@ class Base(TagsMixin,
     def __init__(self, *,
                  handle=None,
                  verbose=False,
-                 output_type=None):
+                 output_type=None,
+                 handle_kwargs=None):
         """
         Constructor. All children must call init method of this base class.
 
         """
-        self.handle = cuml.raft.common.handle.Handle() if handle is None \
-            else handle
+        self.handle = cuml.raft.common.handle.Handle(**handle_kwargs) \
+            if handle is None else handle
 
         # Internally, self.verbose follows the spdlog/c++ standard of
         # 0 is most logging, and logging decreases from there.

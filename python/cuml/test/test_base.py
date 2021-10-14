@@ -40,9 +40,8 @@ def test_base_class_usage():
 
 
 def test_base_class_usage_with_handle():
-    handle = cuml.Handle()
     stream = cuml.cuda.Stream()
-    handle.setStream(stream)
+    handle = cuml.Handle(stream=stream)
     base = cuml.Base(handle=handle)
     base.handle.sync()
     del base
