@@ -43,6 +43,8 @@ cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":
         MSE,
         MAE,
         POISSON,
+        GAMMA,
+        INVERSE_GAUSSIAN,
         CRITERION_END
 
 cdef extern from "cuml/ensemble/randomforest.hpp" namespace "ML":

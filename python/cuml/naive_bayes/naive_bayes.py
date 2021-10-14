@@ -720,7 +720,7 @@ class _BaseDiscreteNB(_BaseNB):
 
         sample_weight : array-like of shape (n_samples)
                         Weights applied to individual samples (1. for
-                        unweighted). Currently sample weight is ignored
+                        unweighted). Currently sample weight is ignored.
 
         Returns
         -------
@@ -804,7 +804,9 @@ class _BaseDiscreteNB(_BaseNB):
         y : array-like shape (n_samples) Target values.
         sample_weight : array-like of shape (n_samples)
             Weights applied to individial samples (1. for unweighted).
+            Currently sample weight is ignored.
         """
+        self.fit_called_ = False
         return self.partial_fit(X, y, sample_weight)
 
     def _init_counters(self, n_effective_classes, n_features, dtype):
@@ -990,6 +992,22 @@ class MultinomialNB(_BaseDiscreteNB):
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
 
+    Attributes
+    ----------
+    class_count_ : ndarray of shape (n_classes)
+        Number of samples encountered for each class during fitting.
+    class_log_prior_ : ndarray of shape (n_classes)
+        Log probability of each class (smoothed).
+    classes_ : ndarray of shape (n_classes,)
+        Class labels known to the classifier
+    feature_count_ : ndarray of shape (n_classes, n_features)
+        Number of samples encountered for each (class, feature)
+        during fitting.
+    feature_log_prob_ : ndarray of shape (n_classes, n_features)
+        Empirical log probability of features given a class, P(x_i|y).
+    n_features_ : int
+        Number of features of each sample.
+
     Examples
     --------
 
@@ -1127,16 +1145,14 @@ class BernoulliNB(_BaseDiscreteNB):
     Attributes
     ----------
     class_count_ : ndarray of shape (n_classes)
-        Number of samples encountered for each class during fitting. This
-        value is weighted by the sample weight when provided.
+        Number of samples encountered for each class during fitting.
     class_log_prior_ : ndarray of shape (n_classes)
         Log probability of each class (smoothed).
     classes_ : ndarray of shape (n_classes,)
         Class labels known to the classifier
     feature_count_ : ndarray of shape (n_classes, n_features)
         Number of samples encountered for each (class, feature)
-        during fitting. This value is weighted by the sample weight when
-        provided.
+        during fitting.
     feature_log_prob_ : ndarray of shape (n_classes, n_features)
         Empirical log probability of features given a class, P(x_i|y).
     n_features_ : int
@@ -1444,14 +1460,13 @@ class CategoricalNB(_BaseDiscreteNB):
         highest_feature = int(x_coo_data.max()) + 1
         feature_diff = highest_feature - self.category_count_.shape[1]
         # In case of a partial fit, pad the array to have the highest feature
-        if feature_diff > 0:
-            if not cp.sparse.issparse(self.category_count_):
-                self.category_count_ = cupyx.scipy.sparse.coo_matrix(
-                    (self.n_features_ * n_classes, highest_feature))
-            else:
-                self.category_count_ = cupyx.scipy.sparse.coo_matrix(
-                    self.category_count_,
-                    shape=(self.n_features_ * n_classes, highest_feature))
+        if not cp.sparse.issparse(self.category_count_):
+            self.category_count_ = cupyx.scipy.sparse.coo_matrix(
+                (self.n_features_ * n_classes, highest_feature))
+        elif feature_diff > 0:
+            self.category_count_ = cupyx.scipy.sparse.coo_matrix(
+                self.category_count_,
+                shape=(self.n_features_ * n_classes, highest_feature))
         highest_feature = self.category_count_.shape[1]
 
         count_features_coo = cp.ElementwiseKernel(
