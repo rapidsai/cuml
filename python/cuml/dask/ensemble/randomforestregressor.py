@@ -72,6 +72,8 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         0 or 'gini' for GINI, 1 or 'entropy' for ENTROPY,
         2 or 'mse' for MSE,
         4 or 'poisson' for POISSON,
+        5 or 'gamma' for GAMMA,
+        6 or 'inverse_gaussian' for INVERSE_GAUSSIAN,
         0, 'gini', 1, 'entropy' not valid for regression
     bootstrap : boolean (default = True)
         Control bootstrapping.

@@ -16,6 +16,8 @@
 import numpy as np
 import pytest
 import os
+import pandas as pd
+from random import sample, seed
 
 from cuml import ForestInference
 from cuml.test.utils import array_equal, unit_param, \
@@ -35,18 +37,21 @@ if has_xgboost():
     import xgboost as xgb
 
 
-def simulate_data(m, n, k=2, random_state=None, classification=True,
-                  bias=0.0):
+def simulate_data(m, n, k=2, n_informative='auto', random_state=None,
+                  classification=True, bias=0.0):
+    if n_informative == 'auto':
+        n_informative = n // 5
     if classification:
         features, labels = make_classification(n_samples=m,
                                                n_features=n,
-                                               n_informative=int(n/5),
+                                               n_informative=n_informative,
+                                               n_redundant=n - n_informative,
                                                n_classes=k,
                                                random_state=random_state)
     else:
         features, labels = make_regression(n_samples=m,
                                            n_features=n,
-                                           n_informative=int(n/5),
+                                           n_informative=n_informative,
                                            n_targets=1,
                                            bias=bias,
                                            random_state=random_state)
@@ -486,16 +491,59 @@ def test_output_args(small_classifier_and_preds):
     assert array_equal(fil_preds, xgb_preds, 1e-3)
 
 
+def to_categorical(features, n_categorical):
+    # the main bottleneck (>80%) of to_categorical() is the pandas operations
+    n_features = features.shape[1]
+    df_cols = {}
+    # all categorical columns
+    cat_cols = features[:, :n_categorical]
+    cat_cols = cat_cols - cat_cols.min(axis=1, keepdims=True)  # range [0, ?]
+    cat_cols /= cat_cols.max(axis=1, keepdims=True)  # range [0, 1]
+    rough_n_categories = 100
+    # round into rough_n_categories bins
+    cat_cols = (cat_cols * rough_n_categories).astype(int)
+    for icol in range(n_categorical):
+        col = cat_cols[:, icol]
+        df_cols[icol] = pd.Series(pd.Categorical(col,
+                                                 categories=np.unique(col)))
+    # all numerical columns
+    for icol in range(n_categorical, n_features):
+        df_cols[icol] = pd.Series(features[:, icol])
+    # shuffle the columns around
+    seed(42)
+    new_idx = sample(range(n_features), k=n_features)
+    df_cols = {i: df_cols[new_idx[i]] for i in range(n_features)}
+
+    return pd.DataFrame(df_cols)
+
+
 @pytest.mark.parametrize('num_classes', [2, 5])
+@pytest.mark.parametrize('n_categorical', [0, 5])
 @pytest.mark.skipif(has_lightgbm() is False, reason="need to install lightgbm")
-def test_lightgbm(tmp_path, num_classes):
+def test_lightgbm(tmp_path, num_classes, n_categorical):
     import lightgbm as lgb
-    X, y = simulate_data(500,
-                         10 if num_classes == 2 else 50,
+
+    if n_categorical > 0:
+        n_features = 10
+        n_rows = 1000
+        n_informative = n_features
+    else:
+        n_features = 10 if num_classes == 2 else 50
+        n_rows = 500
+        n_informative = 'auto'
+
+    X, y = simulate_data(n_rows,
+                         n_features,
                          num_classes,
+                         n_informative=n_informative,
                          random_state=43210,
                          classification=True)
-    train_data = lgb.Dataset(X, label=y)
+    if n_categorical > 0:
+        X_fit = to_categorical(X, n_categorical)
+    else:
+        X_fit = X
+
+    train_data = lgb.Dataset(X_fit, label=y)
     num_round = 5
     model_path = str(os.path.join(tmp_path, 'lgb.model'))
 
@@ -522,7 +570,7 @@ def test_lightgbm(tmp_path, num_classes):
         lgm = lgb.LGBMClassifier(objective='multiclass',
                                  boosting_type='gbdt',
                                  n_estimators=num_round)
-        lgm.fit(X, y)
+        lgm.fit(X_fit, y)
         lgm.booster_.save_model(model_path)
         fm = ForestInference.load(model_path,
                                   algo='TREE_REORG',

@@ -86,6 +86,8 @@ class GiniObjectiveFunction {
   using DataT  = DataT_;
   using LabelT = LabelT_;
   using IdxT   = IdxT_;
+
+ private:
   IdxT nclasses;
   IdxT min_samples_leaf;
 
@@ -98,11 +100,14 @@ class GiniObjectiveFunction {
 
   DI IdxT NumClasses() const { return nclasses; }
 
+  /**
+   * @brief compute the gini impurity reduction for each split
+   */
   HDI DataT GainPerSplit(BinT* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft)
   {
-    auto nRight         = len - nLeft;
+    IdxT nRight         = len - nLeft;
     constexpr DataT One = DataT(1.0);
-    auto invlen         = One / len;
+    auto invLen         = One / len;
     auto invLeft        = One / nLeft;
     auto invRight       = One / nRight;
     auto gain           = DataT(0.0);
@@ -115,16 +120,16 @@ class GiniObjectiveFunction {
       int val_i   = 0;
       auto lval_i = hist[nbins * j + i].x;
       auto lval   = DataT(lval_i);
-      gain += lval * invLeft * lval * invlen;
+      gain += lval * invLeft * lval * invLen;
 
       val_i += lval_i;
       auto total_sum = hist[nbins * j + nbins - 1].x;
       auto rval_i    = total_sum - lval_i;
       auto rval      = DataT(rval_i);
-      gain += rval * invRight * rval * invlen;
+      gain += rval * invRight * rval * invLen;
 
       val_i += rval_i;
-      auto val = DataT(val_i) * invlen;
+      auto val = DataT(val_i) * invLen;
       gain -= val * val;
     }
 
@@ -162,6 +167,8 @@ class EntropyObjectiveFunction {
   using DataT  = DataT_;
   using LabelT = LabelT_;
   using IdxT   = IdxT_;
+
+ private:
   IdxT nclasses;
   IdxT min_samples_leaf;
 
@@ -173,9 +180,12 @@ class EntropyObjectiveFunction {
   }
   DI IdxT NumClasses() const { return nclasses; }
 
+  /**
+   * @brief compute the Entropy (or information gain) for each split
+   */
   HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft)
   {
-    auto nRight{len - nLeft};
+    IdxT nRight{len - nLeft};
     auto gain{DataT(0.0)};
     // if there aren't enough samples in this split, don't bother!
     if (nLeft < min_samples_leaf || nRight < min_samples_leaf) {
@@ -237,24 +247,95 @@ class EntropyObjectiveFunction {
 };
 
 template <typename DataT_, typename LabelT_, typename IdxT_>
-class PoissonObjectiveFunction {
+class MSEObjectiveFunction {
  public:
   using DataT  = DataT_;
   using LabelT = LabelT_;
   using IdxT   = IdxT_;
+  using BinT   = AggregateBin;
 
  private:
   IdxT min_samples_leaf;
 
  public:
-  using BinT                 = AggregateBin;
+  HDI MSEObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf)
+    : min_samples_leaf(min_samples_leaf)
+  {
+  }
+
+  /**
+   * @brief compute the Mean squared error impurity reduction (or purity gain) for each split
+   *
+   * @note This method is used to speed up the search for the best split
+   *       by calculating the gain using a proxy mean squared error reduction.
+   *       It is a proxy quantity such that the split that maximizes this value
+   *       also maximizes the impurity improvement. It neglects all constant terms
+   *       of the impurity decrease for a given split.
+   *       The Gain is the difference in the proxy impurities of the parent and the
+   *       weighted sum of impurities of its children
+   *       and is mathematically equivalent to the respective differences of
+   *       mean-squared errors.
+   */
+  HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft) const
+  {
+    auto gain{DataT(0)};
+    IdxT nRight{len - nLeft};
+    auto invLen = DataT(1.0) / len;
+    // if there aren't enough samples in this split, don't bother!
+    if (nLeft < min_samples_leaf || nRight < min_samples_leaf) {
+      return -std::numeric_limits<DataT>::max();
+    } else {
+      auto label_sum        = hist[nbins - 1].label_sum;
+      DataT parent_obj      = -label_sum * label_sum * invLen;
+      DataT left_obj        = -(hist[i].label_sum * hist[i].label_sum) / nLeft;
+      DataT right_label_sum = hist[i].label_sum - label_sum;
+      DataT right_obj       = -(right_label_sum * right_label_sum) / nRight;
+      gain                  = parent_obj - (left_obj + right_obj);
+      gain *= DataT(0.5) * invLen;
+
+      return gain;
+    }
+  }
+
+  DI Split<DataT, IdxT> Gain(
+    BinT const* shist, DataT const* sbins, IdxT col, IdxT len, IdxT nbins) const
+  {
+    Split<DataT, IdxT> sp;
+    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+      auto nLeft = shist[i].count;
+      sp.update({sbins[i], col, GainPerSplit(shist, i, nbins, len, nLeft), nLeft});
+    }
+    return sp;
+  }
+
+  DI IdxT NumClasses() const { return 1; }
+
+  static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)
+  {
+    for (int i = 0; i < nclasses; i++) {
+      out[i] = shist[i].label_sum / shist[i].count;
+    }
+  }
+};
+
+template <typename DataT_, typename LabelT_, typename IdxT_>
+class PoissonObjectiveFunction {
+ public:
+  using DataT  = DataT_;
+  using LabelT = LabelT_;
+  using IdxT   = IdxT_;
+  using BinT   = AggregateBin;
+
+ private:
+  IdxT min_samples_leaf;
+
+ public:
   static constexpr auto eps_ = 10 * std::numeric_limits<DataT>::epsilon();
 
   HDI PoissonObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf)
     : min_samples_leaf(min_samples_leaf)
   {
   }
-  DI IdxT NumClasses() const { return 1; }
 
   /**
    * @brief compute the poisson impurity reduction (or purity gain) for each split
@@ -265,12 +346,15 @@ class PoissonObjectiveFunction {
    *       also maximizes the impurity improvement. It neglects all constant terms
    *       of the impurity decrease for a given split.
    *       The Gain is the difference in the proxy impurities of the parent and the
-   *       weighted sum of impurities of its children.
+   *       weighted sum of impurities of its children
+   *       and is mathematically equivalent to the respective differences of
+   *       poisson half deviances.
    */
-  HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft)
+  HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft) const
   {
     // get the lens'
-    auto nRight = len - nLeft;
+    IdxT nRight = len - nLeft;
+    auto invLen = DataT(1) / len;
 
     // if there aren't enough samples in this split, don't bother!
     if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
@@ -285,16 +369,17 @@ class PoissonObjectiveFunction {
       return -std::numeric_limits<DataT>::max();
 
     // compute the gain to be
-    DataT parent_obj = -label_sum * raft::myLog(label_sum / len);
+    DataT parent_obj = -label_sum * raft::myLog(label_sum * invLen);
     DataT left_obj   = -left_label_sum * raft::myLog(left_label_sum / nLeft);
     DataT right_obj  = -right_label_sum * raft::myLog(right_label_sum / nRight);
-    auto gain        = parent_obj - (left_obj + right_obj);
-    gain             = gain / len;
+    DataT gain       = parent_obj - (left_obj + right_obj);
+    gain             = gain * invLen;
 
     return gain;
   }
 
-  DI Split<DataT, IdxT> Gain(BinT const* shist, DataT const* sbins, IdxT col, IdxT len, IdxT nbins)
+  DI Split<DataT, IdxT> Gain(
+    BinT const* shist, DataT const* sbins, IdxT col, IdxT len, IdxT nbins) const
   {
     Split<DataT, IdxT> sp;
     for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
@@ -304,6 +389,8 @@ class PoissonObjectiveFunction {
     return sp;
   }
 
+  DI IdxT NumClasses() const { return 1; }
+
   static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)
   {
     for (int i = 0; i < nclasses; i++) {
@@ -311,46 +398,67 @@ class PoissonObjectiveFunction {
     }
   }
 };
+
 template <typename DataT_, typename LabelT_, typename IdxT_>
-class MSEObjectiveFunction {
+class GammaObjectiveFunction {
  public:
-  using DataT  = DataT_;
-  using LabelT = LabelT_;
-  using IdxT   = IdxT_;
+  using DataT                = DataT_;
+  using LabelT               = LabelT_;
+  using IdxT                 = IdxT_;
+  using BinT                 = AggregateBin;
+  static constexpr auto eps_ = 10 * std::numeric_limits<DataT>::epsilon();
 
  private:
   IdxT min_samples_leaf;
 
  public:
-  using BinT = AggregateBin;
-  HDI MSEObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf)
-    : min_samples_leaf(min_samples_leaf)
+  HDI GammaObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf)
+    : min_samples_leaf{min_samples_leaf}
   {
   }
-  DI IdxT NumClasses() const { return 1; }
 
-  HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft)
+  /**
+   * @brief compute the gamma impurity reduction (or purity gain) for each split
+   *
+   * @note This method is used to speed up the search for the best split
+   *       by calculating the gain using a proxy gamma half deviance reduction.
+   *       It is a proxy quantity such that the split that maximizes this value
+   *       also maximizes the impurity improvement. It neglects all constant terms
+   *       of the impurity decrease for a given split.
+   *       The Gain is the difference in the proxy impurities of the parent and the
+   *       weighted sum of impurities of its children
+   *       and is mathematically equivalent to the respective differences of
+   *       gamma half deviances.
+   */
+  HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft) const
   {
-    auto gain{DataT(0)};
-    auto nRight{len - nLeft};
-    auto invLen{DataT(1.0) / len};
+    IdxT nRight = len - nLeft;
+    auto invLen = DataT(1) / len;
+
     // if there aren't enough samples in this split, don't bother!
-    if (nLeft < min_samples_leaf || nRight < min_samples_leaf) {
+    if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
       return -std::numeric_limits<DataT>::max();
-    } else {
-      auto label_sum        = hist[nbins - 1].label_sum;
-      DataT parent_obj      = -label_sum * label_sum / len;
-      DataT left_obj        = -(hist[i].label_sum * hist[i].label_sum) / nLeft;
-      DataT right_label_sum = hist[i].label_sum - label_sum;
-      DataT right_obj       = -(right_label_sum * right_label_sum) / nRight;
-      gain                  = parent_obj - (left_obj + right_obj);
-      gain *= invLen;
 
-      return gain;
-    }
+    DataT label_sum       = hist[nbins - 1].label_sum;
+    DataT left_label_sum  = (hist[i].label_sum);
+    DataT right_label_sum = (hist[nbins - 1].label_sum - hist[i].label_sum);
+
+    // label sum cannot be non-positive
+    if (label_sum < eps_ || left_label_sum < eps_ || right_label_sum < eps_)
+      return -std::numeric_limits<DataT>::max();
+
+    // compute the gain to be
+    DataT parent_obj = len * raft::myLog(label_sum * invLen);
+    DataT left_obj   = nLeft * raft::myLog(left_label_sum / nLeft);
+    DataT right_obj  = nRight * raft::myLog(right_label_sum / nRight);
+    DataT gain       = parent_obj - (left_obj + right_obj);
+    gain             = gain * invLen;
+
+    return gain;
   }
 
-  DI Split<DataT, IdxT> Gain(BinT const* shist, DataT const* sbins, IdxT col, IdxT len, IdxT nbins)
+  DI Split<DataT, IdxT> Gain(
+    BinT const* shist, DataT const* sbins, IdxT col, IdxT len, IdxT nbins) const
   {
     Split<DataT, IdxT> sp;
     for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
@@ -359,6 +467,7 @@ class MSEObjectiveFunction {
     }
     return sp;
   }
+  DI IdxT NumClasses() const { return 1; }
 
   static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)
   {
@@ -368,5 +477,82 @@ class MSEObjectiveFunction {
   }
 };
 
-}  // namespace DT
-}  // namespace ML
+template <typename DataT_, typename LabelT_, typename IdxT_>
+class InverseGaussianObjectiveFunction {
+ public:
+  using DataT                = DataT_;
+  using LabelT               = LabelT_;
+  using IdxT                 = IdxT_;
+  using BinT                 = AggregateBin;
+  static constexpr auto eps_ = 10 * std::numeric_limits<DataT>::epsilon();
+
+ private:
+  IdxT min_samples_leaf;
+
+ public:
+  HDI InverseGaussianObjectiveFunction(IdxT nclasses, IdxT min_samples_leaf)
+    : min_samples_leaf{min_samples_leaf}
+  {
+  }
+
+  /**
+   * @brief compute the inverse gaussian impurity reduction (or purity gain) for each split
+   *
+   * @note This method is used to speed up the search for the best split
+   *       by calculating the gain using a proxy inverse gaussian half deviance reduction.
+   *       It is a proxy quantity such that the split that maximizes this value
+   *       also maximizes the impurity improvement. It neglects all constant terms
+   *       of the impurity decrease for a given split.
+   *       The Gain is the difference in the proxy impurities of the parent and the
+   *       weighted sum of impurities of its children
+   *       and is mathematically equivalent to the respective differences of
+   *       inverse gaussian deviances.
+   */
+  HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft) const
+  {
+    // get the lens'
+    IdxT nRight = len - nLeft;
+
+    // if there aren't enough samples in this split, don't bother!
+    if (nLeft < min_samples_leaf || nRight < min_samples_leaf)
+      return -std::numeric_limits<DataT>::max();
+
+    auto label_sum       = hist[nbins - 1].label_sum;
+    auto left_label_sum  = (hist[i].label_sum);
+    auto right_label_sum = (hist[nbins - 1].label_sum - hist[i].label_sum);
+
+    // label sum cannot be non-positive
+    if (label_sum < eps_ || left_label_sum < eps_ || right_label_sum < eps_)
+      return -std::numeric_limits<DataT>::max();
+
+    // compute the gain to be
+    DataT parent_obj = -DataT(len) * DataT(len) / label_sum;
+    DataT left_obj   = -DataT(nLeft) * DataT(nLeft) / left_label_sum;
+    DataT right_obj  = -DataT(nRight) * DataT(nRight) / right_label_sum;
+    DataT gain       = parent_obj - (left_obj + right_obj);
+    gain             = gain / (2 * len);
+
+    return gain;
+  }
+
+  DI Split<DataT, IdxT> Gain(
+    BinT const* shist, DataT const* sbins, IdxT col, IdxT len, IdxT nbins) const
+  {
+    Split<DataT, IdxT> sp;
+    for (IdxT i = threadIdx.x; i < nbins; i += blockDim.x) {
+      auto nLeft = shist[i].count;
+      sp.update({sbins[i], col, GainPerSplit(shist, i, nbins, len, nLeft), nLeft});
+    }
+    return sp;
+  }
+  DI IdxT NumClasses() const { return 1; }
+
+  static DI void SetLeafVector(BinT const* shist, int nclasses, DataT* out)
+  {
+    for (int i = 0; i < nclasses; i++) {
+      out[i] = shist[i].label_sum / shist[i].count;
+    }
+  }
+};
+}  // end namespace DT
+}  // end namespace ML
