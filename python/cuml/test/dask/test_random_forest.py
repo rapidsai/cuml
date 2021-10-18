@@ -277,7 +277,7 @@ def test_rf_classification_dask_fil_predict_proba(partitions_per_worker,
     fil_preds = cu_rf_mg.predict(X_test_df).compute()
     fil_preds = fil_preds.to_array()
     fil_preds_proba = cu_rf_mg.predict_proba(X_test_df).compute()
-    fil_preds_proba = cp.asnumpy(fil_preds_proba.as_gpu_matrix())
+    fil_preds_proba = fil_preds_proba.to_numpy()
     np.testing.assert_equal(fil_preds, np.argmax(fil_preds_proba, axis=1))
 
     y_proba = np.zeros(np.shape(fil_preds_proba))

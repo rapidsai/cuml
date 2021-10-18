@@ -451,7 +451,7 @@ class OneHotEncoder(Base):
             j += enc_size
         if self.input_type == 'array':
             try:
-                result = cp.asarray(result.as_gpu_matrix())
+                result = result.to_cupy()
             except ValueError:
                 warnings.warn("The input one hot encoding contains rows with "
                               "unknown categories. Arrays do not support null "

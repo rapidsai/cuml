@@ -362,7 +362,7 @@ def test_output(output_type, dtype, out_dtype, order, shape):
                 inp = inp.reshape(inp.shape[0], 1)
             comp = cudf.DataFrame(inp)
             comp = comp == res
-            assert np.all(comp.as_gpu_matrix().copy_to_host())
+            assert np.all(comp.to_numpy())
 
         # check for e2e cartesian product:
         if output_type not in ['dataframe', 'cudf']:

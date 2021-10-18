@@ -573,7 +573,7 @@ def rf_classification(
         X_test_df = cudf.DataFrame(X_test)
         cuml_model.fit(X_train_df, y_train_df)
         cu_proba_gpu = np.array(
-            cuml_model.predict_proba(X_test_df).as_gpu_matrix()
+            cuml_model.predict_proba(X_test_df).to_cupy()
         )
         cu_preds_cpu = cuml_model.predict(
             X_test_df, predict_model="CPU"
