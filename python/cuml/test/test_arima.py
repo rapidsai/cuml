@@ -420,9 +420,9 @@ def _predict_common(key, data, dtype, start, end, num_steps=None, level=None,
     np.testing.assert_allclose(cuml_pred, ref_preds, rtol=0.001, atol=0.01)
     if level is not None:
         np.testing.assert_allclose(
-            cuml_lower, ref_lower, rtol=0.03, atol=0.01)
+            cuml_lower, ref_lower, rtol=0.005, atol=0.01)
         np.testing.assert_allclose(
-            cuml_upper, ref_upper, rtol=0.03, atol=0.01)
+            cuml_upper, ref_upper, rtol=0.005, atol=0.01)
 
 
 @pytest.mark.parametrize('key, data', test_data)

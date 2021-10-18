@@ -359,10 +359,10 @@ def test_gaussian_fit_predict(x_dtype, y_dtype, is_sparse,
 
     X, y = nlp_20news
     model = GaussianNB()
-    n_rows = 1000
-
+    n_rows = 500
+    n_cols = int(2e5)
     X = sparse_scipy_to_cp(X, x_dtype)
-    X = X.tocsr()[:n_rows]
+    X = X.tocsr()[:n_rows, :n_cols]
 
     if is_sparse:
         y = y.astype(y_dtype)[:n_rows]

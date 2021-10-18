@@ -100,6 +100,9 @@ class GiniObjectiveFunction {
 
   DI IdxT NumClasses() const { return nclasses; }
 
+  /**
+   * @brief compute the gini impurity reduction for each split
+   */
   HDI DataT GainPerSplit(BinT* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft)
   {
     IdxT nRight         = len - nLeft;
@@ -177,6 +180,9 @@ class EntropyObjectiveFunction {
   }
   DI IdxT NumClasses() const { return nclasses; }
 
+  /**
+   * @brief compute the Entropy (or information gain) for each split
+   */
   HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft)
   {
     IdxT nRight{len - nLeft};
@@ -257,6 +263,19 @@ class MSEObjectiveFunction {
   {
   }
 
+  /**
+   * @brief compute the Mean squared error impurity reduction (or purity gain) for each split
+   *
+   * @note This method is used to speed up the search for the best split
+   *       by calculating the gain using a proxy mean squared error reduction.
+   *       It is a proxy quantity such that the split that maximizes this value
+   *       also maximizes the impurity improvement. It neglects all constant terms
+   *       of the impurity decrease for a given split.
+   *       The Gain is the difference in the proxy impurities of the parent and the
+   *       weighted sum of impurities of its children
+   *       and is mathematically equivalent to the respective differences of
+   *       mean-squared errors.
+   */
   HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft) const
   {
     auto gain{DataT(0)};
@@ -327,7 +346,9 @@ class PoissonObjectiveFunction {
    *       also maximizes the impurity improvement. It neglects all constant terms
    *       of the impurity decrease for a given split.
    *       The Gain is the difference in the proxy impurities of the parent and the
-   *       weighted sum of impurities of its children.
+   *       weighted sum of impurities of its children
+   *       and is mathematically equivalent to the respective differences of
+   *       poisson half deviances.
    */
   HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft) const
   {
@@ -405,7 +426,9 @@ class GammaObjectiveFunction {
    *       also maximizes the impurity improvement. It neglects all constant terms
    *       of the impurity decrease for a given split.
    *       The Gain is the difference in the proxy impurities of the parent and the
-   *       weighted sum of impurities of its children.
+   *       weighted sum of impurities of its children
+   *       and is mathematically equivalent to the respective differences of
+   *       gamma half deviances.
    */
   HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft) const
   {
@@ -481,7 +504,9 @@ class InverseGaussianObjectiveFunction {
    *       also maximizes the impurity improvement. It neglects all constant terms
    *       of the impurity decrease for a given split.
    *       The Gain is the difference in the proxy impurities of the parent and the
-   *       weighted sum of impurities of its children.
+   *       weighted sum of impurities of its children
+   *       and is mathematically equivalent to the respective differences of
+   *       inverse gaussian deviances.
    */
   HDI DataT GainPerSplit(BinT const* hist, IdxT i, IdxT nbins, IdxT len, IdxT nLeft) const
   {

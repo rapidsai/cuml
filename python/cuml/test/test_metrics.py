@@ -1446,3 +1446,11 @@ def test_kl_divergence(nfeatures, input_type, dtypeP, dtypeQ):
         cu_res = cu_kl_divergence(P, Q, convert_dtype=False)
 
     cp.testing.assert_array_almost_equal(cu_res, sk_res)
+
+
+def test_mean_squared_error():
+    y1 = np.array([[1], [2], [3]])
+    y2 = y1.squeeze()
+
+    assert mean_squared_error(y1, y2) == 0
+    assert mean_squared_error(y2, y1) == 0
