@@ -79,7 +79,7 @@ struct LinearSVMParams {
   /** The threshold on the gradient for the underlying QN solver. */
   double grad_tol = 0.0001;
   /** The threshold on the function change for the underlying QN solver. */
-  double change_tol = 0.0001;
+  double change_tol = 0.00001;
   /** The epsilon-sensitivity parameter (applicable to the SVM-regression (SVR) loss functions). */
   double svr_sensitivity = 0.0;
   /** The value considered 'one' in the binary classification problem
@@ -97,9 +97,20 @@ class LinearSVMModel {
   const raft::handle_t& handle;
   const int nRows;
   const int nCols;
-  /** Vector of size 2 for the probabolistic model coefficients. */
+  /** Sorted, unique values of input array `y`. */
+  rmm::device_uvector<T> classes;
+  /**
+   * Vector of the probabolistic model coefficients.
+   * It's size is `0` if `LinearSVMParams.probability == false`.
+   * Otherwise, it's size is `n_classes + (n_classes > 2 ? 1 : 0)`.
+   */
   rmm::device_uvector<T> probScale;
-  /** Always contains nCols + 1 values, where the last value is the bias (possibly zero). */
+  /**
+   * C-style (row-major) matrix of coefficients of size `coefCols * coefRows`
+   * where
+   *   coefRows = nCols + (params.fit_intercept ? 1 : 0)
+   *   coefCols = n_classes == 2 ? 1 : n_classes
+   */
   rmm::device_uvector<T> w;
 
   LinearSVMModel(const raft::handle_t& handle,
@@ -114,16 +125,6 @@ class LinearSVMModel {
 
   /** For SVC, predict the probability of H1. */
   void predict_proba(const T* X, const int nRows, const int nCols, const bool log, T* out) const;
-
-  T getIntercept() const
-  {
-    if (params.fit_intercept) return w.back_element(handle.get_stream());
-    return 0;
-  }
-
-  T* getCoefsPtr() { return w.data(); }
-
-  int getCoefsCount() const { return w.size() - 1; }
 };
 
 }  // namespace SVM

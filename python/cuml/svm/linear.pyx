@@ -77,6 +77,9 @@ cdef extern from "cuml/svm/linear.hpp" namespace "ML::SVM":
         const handle_t& handle
         const int nRows
         const int nCols
+        device_uvector[T] classes
+        device_uvector[T] probScale
+        device_uvector[T] w
 
         LinearSVMModel(
             const handle_t& handle,
@@ -91,9 +94,6 @@ cdef extern from "cuml/svm/linear.hpp" namespace "ML::SVM":
         void predict_proba(
             const T* X, const int nRows, const int nCols,
             const cppbool log, T* out) except +
-        T getIntercept()
-        T* getCoefsPtr()
-        int getCoefsCount()
 
 
 cdef union LinearSVMModelPtr:
@@ -213,8 +213,10 @@ cdef class LinearSVM:
         self.reset_model()
         # special treatment of argument 'tol'
         if tol is not None:
+            default_to_ratio = \
+                LinearSVM_defaults.change_tol / LinearSVM_defaults.grad_tol
             self.grad_tol = tol
-            self.change_tol = tol
+            self.change_tol = tol * default_to_ratio
 
     def __dealloc__(self):
         self.reset_model()
@@ -253,27 +255,67 @@ cdef class LinearSVM:
         super().__init__(**remaining_kwargs)
 
     @property
-    def intercept_(self):
+    def n_classes_(self):
         if self.dtype == np.float32:
-            return [self.model.float32.getIntercept()]
+            return self.model.float32.classes.size()
         if self.dtype == np.float64:
-            return [self.model.float64.getIntercept()]
+            return self.model.float32.classes.size()
         raise AttributeError('Train the model first')
+
+    @property
+    def intercept_(self):
+        cl = self.n_classes_
+        if cl == 2:
+            cl = 1
+        if not self.fit_intercept:
+            return CumlArray.zeros(shape=(cl, ), dtype=self.dtype)
+        cdef uintptr_t b_ptr
+        k = 0
+        if self.dtype == np.float32:
+            k = self.model.float32.nCols
+            b_ptr = <uintptr_t> (self.model.float32.w.data() + <int>(k*cl))
+        elif self.dtype == np.float64:
+            k = self.model.float64.nCols
+            b_ptr = <uintptr_t> (self.model.float64.w.data() + <int>(k*cl))
+        else:
+            raise AttributeError('Train the model first')
+        return CumlArray(
+            b_ptr, dtype=self.dtype, shape=(cl, ), owner=self, order='C'
+            ).to_output(output_type='numpy')
 
     @property
     def coef_(self):
         cdef uintptr_t w_ptr
         k = 0
+        cl = self.n_classes_
+        if cl == 2:
+            cl = 1
         if self.dtype == np.float32:
-            k = self.model.float32.getCoefsCount()
-            w_ptr = <uintptr_t> self.model.float32.getCoefsPtr()
+            k = self.model.float32.nCols
+            w_ptr = <uintptr_t> self.model.float32.w.data()
         elif self.dtype == np.float64:
-            k = self.model.float64.getCoefsCount()
-            w_ptr = <uintptr_t> self.model.float64.getCoefsPtr()
+            k = self.model.float64.nCols
+            w_ptr = <uintptr_t> self.model.float64.w.data()
+        else:
+            raise AttributeError('Train the model first')
+        return CumlArray(  # NB: on the c-side it's shape is C-major (k, cl)
+            w_ptr, dtype=self.dtype, shape=(cl, k), owner=self, order='F'
+            ).to_output(output_type='numpy')
+
+    @property
+    def classes_(self):
+        cdef uintptr_t c_ptr
+        cl = self.n_classes_
+        if cl == 2:
+            cl = 1
+        if self.dtype == np.float32:
+            c_ptr = <uintptr_t> self.model.float32.classes.data()
+        elif self.dtype == np.float64:
+            c_ptr = <uintptr_t> self.model.float64.classes.data()
         else:
             raise AttributeError('Train the model first')
         return CumlArray(
-            w_ptr, dtype=self.dtype, shape=(1, k), owner=self, order='F'
+            c_ptr, dtype=self.dtype, shape=(cl, ), owner=self, order='F'
             ).to_output(output_type='numpy')
 
     def get_param_names(self):
@@ -342,7 +384,7 @@ cdef class LinearSVM:
 
         cdef uintptr_t X_ptr = X_m.ptr
 
-        y = CumlArray.empty(shape=(X_m.shape[0],), dtype=X_m.dtype, order='F')
+        y = CumlArray.empty(shape=(n_rows,), dtype=X_m.dtype, order='F')
         cdef uintptr_t y_ptr = y.ptr
 
         if self.dtype == np.float32:
@@ -358,30 +400,30 @@ cdef class LinearSVM:
 
         return y
 
-    def predict_proba(self, X, log=False, convert_dtype=True) -> CumlArray:
-        convert_to_dtype = self.dtype if convert_dtype else None
-        X_m, n_rows, n_cols, _ = \
-            input_to_cuml_array(X, check_dtype=self.dtype,
-                                convert_to_dtype=convert_to_dtype)
+    # def predict_proba(self, X, log=False, convert_dtype=True) -> CumlArray:
+    #     convert_to_dtype = self.dtype if convert_dtype else None
+    #     X_m, n_rows, n_cols, _ = \
+    #         input_to_cuml_array(X, check_dtype=self.dtype,
+    #                             convert_to_dtype=convert_to_dtype)
 
-        cdef uintptr_t X_ptr = X_m.ptr
+    #     cdef uintptr_t X_ptr = X_m.ptr
 
-        y = CumlArray.empty(shape=(n_rows, 2), dtype=X_m.dtype, order='F')
-        cdef uintptr_t y_ptr = y.ptr
+    #     y = CumlArray.empty(shape=(n_rows, 2), dtype=X_m.dtype, order='F')
+    #     cdef uintptr_t y_ptr = y.ptr
 
-        if self.dtype == np.float32:
-            self.model.float32.predict_proba(
-                <const float*>X_ptr, n_rows, n_cols, log,
-                (<float*>y_ptr) + <int>n_rows)
-        elif self.dtype == np.float64:
-            self.model.float64.predict_proba(
-                <const double*>X_ptr, n_rows, n_cols, log,
-                (<double*>y_ptr) + <int>n_rows)
-        else:
-            raise TypeError('Input data type should be float32 or float64')
+    #     if self.dtype == np.float32:
+    #         self.model.float32.predict_proba(
+    #             <const float*>X_ptr, n_rows, n_cols, log,
+    #             (<float*>y_ptr) + <int>n_rows)
+    #     elif self.dtype == np.float64:
+    #         self.model.float64.predict_proba(
+    #             <const double*>X_ptr, n_rows, n_cols, log,
+    #             (<double*>y_ptr) + <int>n_rows)
+    #     else:
+    #         raise TypeError('Input data type should be float32 or float64')
 
-        y[:, 0] = CumlArray.ones(shape=(n_rows, ), dtype=y.dtype) - y[:, 1]
-        return y
+    #     y[:, 0] = CumlArray.ones(shape=(n_rows, ), dtype=y.dtype) - y[:, 1]
+    #     return y
 
 
 class LinearSVC(LinearSVM, Base, ClassifierMixin):
@@ -541,70 +583,78 @@ class LinearSVC(LinearSVM, Base, ClassifierMixin):
 
     def fit(self, X, y, sample_weight=None, convert_dtype=True):
         self._set_output_type(X)
+        return LinearSVM.fit(
+                self,
+                X, y,
+                sample_weight=sample_weight,
+                convert_dtype=convert_dtype)
+        # X_m, n_rows, n_cols, dtype = \
+        #     input_to_cuml_array(X, order='F')
 
-        X_m, n_rows, n_cols, dtype = \
-            input_to_cuml_array(X, order='F')
+        # cdef uintptr_t X_ptr = X_m.ptr
+        # convert_to_dtype = dtype if convert_dtype else None
+        # y_m, _, _, _ = \
+        #     input_to_cuml_array(y, check_dtype=dtype,
+        #                         convert_to_dtype=convert_to_dtype,
+        #                         check_rows=n_rows, check_cols=1)
 
-        cdef uintptr_t X_ptr = X_m.ptr
-        convert_to_dtype = dtype if convert_dtype else None
-        y_m, _, _, _ = \
-            input_to_cuml_array(y, check_dtype=dtype,
-                                convert_to_dtype=convert_to_dtype,
-                                check_rows=n_rows, check_cols=1)
+        # self._classes_ = cp.unique(cp.asarray(y_m))
+        # if self._classes_.shape[0] == 1:
+        #     raise ValueError(
+        #         "Only one unique target value is found, training is not possible.")
 
-        self._classes_ = cp.unique(cp.asarray(y_m))
-        if self._classes_.shape[0] == 1:
-            raise ValueError(
-                "Only one unique target value is found, training is not possible.")
+        # if self._classes_.shape[0] == 2:
+        #     self.H1_value = self._classes_[1].item()
+        #     LinearSVM.fit(
+        #             self,
+        #             X_m, y_m,
+        #             sample_weight=sample_weight,
+        #             convert_dtype=convert_dtype)
+        #     del X_m, y_m
+        #     return self
 
-        if self._classes_.shape[0] == 2:
-            self.H1_value = self._classes_[1].item()
-            LinearSVM.fit(
-                    self,
-                    X_m, y_m,
-                    sample_weight=sample_weight,
-                    convert_dtype=convert_dtype)
-            del X_m, y_m
-            return self
-
-        # multiclass
-        params = self.get_params()
-        params["probability"] = True
-        self.multiclass_svc = MulticlassClassifier(
-            estimator=LinearSVC(**params),
-            handle=self.handle, verbose=self.verbose,
-            output_type=self.output_type,
-            strategy=self.multiclass_strategy)
-        self.multiclass_svc.fit(X_m, y_m)
-        return self.multiclass_svc
+        # # multiclass
+        # params = self.get_params()
+        # params["probability"] = True
+        # self.multiclass_svc = MulticlassClassifier(
+        #     estimator=LinearSVC(**params),
+        #     handle=self.handle, verbose=self.verbose,
+        #     output_type=self.output_type,
+        #     strategy=self.multiclass_strategy)
+        # self.multiclass_svc.fit(X_m, y_m)
+        # return self.multiclass_svc
 
     def predict(self, X, convert_dtype=True) -> CumlArray:
         out_type = self._get_output_type(X)
-        if self._classes_.shape[0] > 2:
-            res = self.multiclass_svc.predict(X)
-        else:
-            res = LinearSVM.predict(self, X, convert_dtype)
-        return res.to_output(out_type)
+        return LinearSVM.predict(
+                self,
+                X,
+                convert_dtype=convert_dtype).to_output(out_type)
+        # if self._classes_.shape[0] > 2:
+        #     res = self.multiclass_svc.predict(X)
+        # else:
+        #     res = LinearSVM.predict(self, X, convert_dtype)
+        # return res.to_output(out_type)
 
 
-    def predict_proba(self, X, log=False, convert_dtype=True) -> CumlArray:
-        """
-        Predicts the class probabilities for X.
+    # def predict_proba(self, X, log=False, convert_dtype=True) -> CumlArray:
+    #     """
+    #     Predicts the class probabilities for X.
 
-        The model has to be trained with probability=True to use this method.
+    #     The model has to be trained with probability=True to use this method.
 
-        Parameters
-        ----------
-        log: boolean (default = False)
-                Whether to return log probabilities.
+    #     Parameters
+    #     ----------
+    #     log: boolean (default = False)
+    #             Whether to return log probabilities.
 
-        """
-        out_type = self._get_output_type(X)
-        if self._classes_.shape[0] > 2:
-            res = self.multiclass_svc.predict_proba(X, log)
-        else:
-            res = LinearSVM.predict_proba(self, X, log, convert_dtype)
-        return res.to_output(out_type)
+    #     """
+    #     out_type = self._get_output_type(X)
+    #     if self._classes_.shape[0] > 2:
+    #         res = self.multiclass_svc.predict_proba(X, log)
+    #     else:
+    #         res = LinearSVM.predict_proba(self, X, log, convert_dtype)
+    #     return res.to_output(out_type)
 
     def get_param_names(self):
         return [
