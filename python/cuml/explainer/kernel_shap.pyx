@@ -645,8 +645,13 @@ def _weighted_linear_regression(X,
         # from nonzero_inds and some additional arrays
         # nonzero_inds tells us which cols of X to use
         y = y - X[:, nonzero_inds[-1]] * (fx - expected_value)
-        Xw = cp.transpose(
-            cp.transpose(X[:, nonzero_inds[:-1]]) - X[:, nonzero_inds[-1]])
+        if len(nonzero_inds) == 1:
+            # when only one index is nonzero, use that column
+            Xw = X[:, nonzero_inds]
+        else:
+            Xw = cp.transpose(
+                    cp.transpose(
+                        X[:, nonzero_inds[:-1]]) - X[:, nonzero_inds[-1]])
 
         Xw = Xw * cp.sqrt(weights[:, cp.newaxis])
         y = y * cp.sqrt(weights)
