@@ -82,8 +82,8 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
          * ``4`` or ``'poisson'`` for poisson half deviance
          * ``5`` or ``'gamma'`` for gamma half deviance
          * ``6`` or ``'inverse_gaussian'`` for inverse gaussian deviance
-        ``2``, ``'mse'``, ``4``, ``'poisson'``, ``5``, ``'gamma'``, ``6``, ``'inverse_gaussian'`` not valid
-        for classification
+        ``2``, ``'mse'``, ``4``, ``'poisson'``, ``5``, ``'gamma'``, ``6``,
+        ``'inverse_gaussian'`` not valid for classification
     bootstrap : boolean (default = True)
         Control bootstrapping.\n
          * If ``True``, each tree in the forest is built on a bootstrapped
