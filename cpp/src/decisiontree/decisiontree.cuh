@@ -18,6 +18,7 @@
 
 #include <common/Timer.h>
 #include "batched-levelalgo/builder.cuh"
+#include "batched-levelalgo/metrics.cuh"
 #include "batched-levelalgo/quantile.cuh"
 #include "treelite_util.h"
 
@@ -252,7 +253,7 @@ class DecisionTree {
     }
     using IdxT = int;
     // Dispatch objective
-    if (params.split_criterion == CRITERION::GINI) {
+    if (params.split_criterion == CRITERION::GINI and not std::is_same<DataT, LabelT>::value) {
       return Builder<GiniObjectiveFunction<DataT, LabelT, IdxT>>(handle,
                                                                  s,
                                                                  treeid,
@@ -266,7 +267,7 @@ class DecisionTree {
                                                                  unique_labels,
                                                                  quantiles)
         .train();
-    } else if (params.split_criterion == CRITERION::ENTROPY) {
+    } else if (params.split_criterion == CRITERION::ENTROPY and not std::is_same<DataT, LabelT>::value) {
       return Builder<EntropyObjectiveFunction<DataT, LabelT, IdxT>>(handle,
                                                                     s,
                                                                     treeid,
@@ -280,7 +281,7 @@ class DecisionTree {
                                                                     unique_labels,
                                                                     quantiles)
         .train();
-    } else if (params.split_criterion == CRITERION::MSE) {
+    } else if (params.split_criterion == CRITERION::MSE and std::is_same<DataT, LabelT>::value) {
       return Builder<MSEObjectiveFunction<DataT, LabelT, IdxT>>(handle,
                                                                 s,
                                                                 treeid,
@@ -294,7 +295,7 @@ class DecisionTree {
                                                                 unique_labels,
                                                                 quantiles)
         .train();
-    } else if (params.split_criterion == CRITERION::POISSON) {
+    } else if (params.split_criterion == CRITERION::POISSON and std::is_same<DataT, LabelT>::value) {
       return Builder<PoissonObjectiveFunction<DataT, LabelT, IdxT>>(handle,
                                                                     s,
                                                                     treeid,
@@ -308,7 +309,7 @@ class DecisionTree {
                                                                     unique_labels,
                                                                     quantiles)
         .train();
-    } else if (params.split_criterion == CRITERION::GAMMA) {
+    } else if (params.split_criterion == CRITERION::GAMMA and std::is_same<DataT, LabelT>::value) {
       return Builder<GammaObjectiveFunction<DataT, LabelT, IdxT>>(handle,
                                                                   s,
                                                                   treeid,
@@ -322,7 +323,7 @@ class DecisionTree {
                                                                   unique_labels,
                                                                   quantiles)
         .train();
-    } else if (params.split_criterion == CRITERION::INVERSE_GAUSSIAN) {
+    } else if (params.split_criterion == CRITERION::INVERSE_GAUSSIAN and std::is_same<DataT, LabelT>::value) {
       return Builder<InverseGaussianObjectiveFunction<DataT, LabelT, IdxT>>(handle,
                                                                             s,
                                                                             treeid,

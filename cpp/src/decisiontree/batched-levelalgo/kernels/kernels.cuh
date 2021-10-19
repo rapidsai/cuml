@@ -16,56 +16,19 @@
 
 #pragma once
 
-#include <cuml/tree/algo_helper.h>
-#include <cuml/tree/flatnode.h>
 #include <thrust/binary_search.h>
 #include <common/grid_sync.cuh>
 #include <cstdio>
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
-#include "input.cuh"
-#include "metrics.cuh"
-#include "split.cuh"
+#include "../metrics.cuh"
+#include "kernels.h"
 
 namespace ML {
 namespace DT {
 
-// The range of instances belonging to a particular node
-// This structure refers to a range in the device array input.rowids
-struct InstanceRange {
-  std::size_t begin;
-  std::size_t count;
-};
+static constexpr int TPB_DEFAULT = 128;
 
-struct NodeWorkItem {
-  size_t idx;  // Index of the work item in the tree
-  int depth;
-  InstanceRange instances;
-};
-
-/**
- * This struct has information about workload of a single threadblock of
- * computeSplit kernels of classification and regression
- */
-template <typename IdxT>
-struct WorkloadInfo {
-  IdxT nodeid;        // Node in the batch on which the threadblock needs to work
-  IdxT large_nodeid;  // counts only large nodes (nodes that require more than one block along x-dim
-                      // for histogram calculation)
-  IdxT offset_blockid;  // Offset threadblock id among all the blocks that are
-                        // working on this node
-  IdxT num_blocks;      // Total number of blocks that are working on the node
-};
-
-template <typename SplitT, typename DataT, typename IdxT>
-HDI bool SplitNotValid(const SplitT& split,
-                       DataT min_impurity_decrease,
-                       IdxT min_samples_leaf,
-                       std::size_t num_rows)
-{
-  return split.best_metric_val <= min_impurity_decrease || split.nLeft < min_samples_leaf ||
-         (IdxT(num_rows) - split.nLeft) < min_samples_leaf;
-}
 
 /**
  * @brief Partition the samples to left/right nodes based on the best split
@@ -179,23 +142,7 @@ __device__ OutT* alignPointer(InT input)
   return reinterpret_cast<OutT*>(raft::alignTo(reinterpret_cast<size_t>(input), sizeof(OutT)));
 }
 
-// 32-bit FNV1a hash
-// Reference: http://www.isthe.com/chongo/tech/comp/fnv/index.html
-const uint32_t fnv1a32_prime = uint32_t(16777619);
-const uint32_t fnv1a32_basis = uint32_t(2166136261);
 
-HDI uint32_t fnv1a32(uint32_t hash, uint32_t txt)
-{
-  hash ^= (txt >> 0) & 0xFF;
-  hash *= fnv1a32_prime;
-  hash ^= (txt >> 8) & 0xFF;
-  hash *= fnv1a32_prime;
-  hash ^= (txt >> 16) & 0xFF;
-  hash *= fnv1a32_prime;
-  hash ^= (txt >> 24) & 0xFF;
-  hash *= fnv1a32_prime;
-  return hash;
-}
 
 /**
  * @brief For a given values of (treeid, nodeid, seed), this function generates
@@ -274,22 +221,6 @@ DI BinT pdf_to_cdf(BinT* shared_histogram, IdxT nbins)
   return total_aggregate;
 }
 
-template <typename DataT, typename IdxT>
-HDI IdxT lower_bound(DataT* sbins, IdxT nbins, DataT d)
-{
-  IdxT start = 0;
-  IdxT end   = nbins - 1;
-  IdxT mid;
-  while (start < end) {
-    mid = (start + end) / 2;
-    if (sbins[mid] < d) {
-      start = mid + 1;
-    } else {
-      end = mid;
-    }
-  }
-  return start;
-}
 
 template <typename DataT,
           typename LabelT,

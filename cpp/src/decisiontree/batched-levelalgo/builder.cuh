@@ -20,8 +20,6 @@
 #include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
 
-#include "metrics.cuh"
-
 #include <common/Timer.h>
 #include <cuml/tree/flatnode.h>
 #include <common/grid_sync.cuh>
@@ -30,10 +28,7 @@
 #include <cuml/common/pinned_host_vector.hpp>
 #include <cuml/tree/decisiontree.hpp>
 #include <raft/cuda_utils.cuh>
-#include "input.cuh"
-#include "kernels.cuh"
-#include "metrics.cuh"
-#include "split.cuh"
+#include "kernels/kernels.h"
 
 #include <common/nvtx.hpp>
 #include <deque>

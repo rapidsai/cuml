@@ -16,7 +16,8 @@
 #include <test_utils.h>
 #include <cuml/common/logger.hpp>
 
-#include <decisiontree/batched-levelalgo/kernels.cuh>
+#include <decisiontree/batched-levelalgo/kernels/kernels.h>
+#include <decisiontree/batched-levelalgo/metrics.cuh>
 #include <decisiontree/batched-levelalgo/quantile.cuh>
 
 #include <cuml/fil/fil.h>
@@ -32,6 +33,7 @@
 #include <raft/handle.hpp>
 
 #include <thrust/device_vector.h>
+#include <thrust/binary_search.h>
 #include <thrust/host_vector.h>
 #include <thrust/logical.h>
 
