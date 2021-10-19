@@ -324,7 +324,7 @@ def input_to_cuml_array(X,
         if order == 'K':
             X_m = CumlArray(data=X.to_cupy())
         else:
-            X_m = CumlArray(data=cp.array(X.to_cupy(order=order)))
+            X_m = CumlArray(data=cp.array(X.to_cupy(), order=order))
 
     elif isinstance(X, CumlArray):
         X_m = X
