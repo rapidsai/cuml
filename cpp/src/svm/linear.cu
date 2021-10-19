@@ -27,7 +27,6 @@
 #include <cuml/svm/svm_parameter.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/gemv.h>
-#include <raft/linalg/transpose.h>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/fill.h>
@@ -53,35 +52,153 @@ namespace SVM {
 
 namespace {
 
-template <typename T>
-__global__ void transpose(
-  T* out, const T* in, const T* mul, const int nRows, const int nCols, const bool withBias)
-{
-  int nCols1 = withBias ? nCols + 1 : nCols;
-  for (int i = blockIdx.x * blockDim.x + threadIdx.x; i < nCols1; i += blockDim.x * gridDim.x) {
-    for (int j = blockIdx.y * blockDim.y + threadIdx.y; j < nRows; j += blockDim.y * gridDim.y) {
-      out[i + j * nCols1] = mul[j] * (i == nCols ? T(1.0) : in[i * nRows + j]);
-    }
-  }
-}
-
-template <typename T>
+template <typename T, int BX = 32, int BY = 8>
 __global__ void predictClass(
   T* out, const T* z, const T* classes, const int nRows, const int coefCols)
 {
-  const int i = blockIdx.x * blockDim.x + threadIdx.x;
+  const int i = threadIdx.y + blockIdx.y * BY;
   if (i >= nRows) return;
-  T maxval = -std::numeric_limits<T>::infinity();
-  int maxj = 0;
-  for (int j = 0; j < coefCols; j++) {
-    T t = z[i + j * nRows];
+  const T* row = z + i * coefCols;
+  T maxval     = std::numeric_limits<T>::lowest();
+  int maxj     = 0;
+  for (int j = threadIdx.x; j < coefCols; j += BX) {
+    T t = row[j];
     if (t > maxval) {
       maxj   = j;
       maxval = t;
     }
   }
-  out[i] = classes[coefCols == 1 ? maxval > 0 : maxj];
+  if (coefCols == 1 && threadIdx.x == 0) { out[i] = classes[maxval > 0]; }
+  if constexpr (BX > 1) {
+    typedef cub::WarpReduce<cub::KeyValuePair<int, T>, BX> WarpRed;
+    __shared__ typename WarpRed::TempStorage warpStore[BY];
+    auto maxkv =
+      WarpRed(warpStore[threadIdx.y]).Reduce(cub::KeyValuePair(maxj, maxval), cub::ArgMax());
+    if (threadIdx.x == 0) out[i] = classes[maxkv.key];
+  }
 }
+
+template <typename T, int BlockSize = 256, int BX = 32>
+struct PredictClass {
+  static inline void run(
+    T* out, const T* z, const T* classes, const int nRows, const int coefCols, cudaStream_t stream)
+  {
+    if constexpr (BX > 1) {
+      if (coefCols <= (BX >> 1))
+        return PredictClass<T, BlockSize, std::max<int>(BX >> 1, 1)>::run(
+          out, z, classes, nRows, coefCols, stream);
+    }
+    const int BY = BlockSize / BX;
+    const dim3 bs(BX, BY, 1);
+    const dim3 gs(1, raft::ceildiv(nRows, BY), 1);
+    printf("predictClass<T, %d, %d><<(%d, %d, %d), (%d, %d, %d)>>>()\n",
+           BX,
+           BY,
+           gs.x,
+           gs.y,
+           gs.z,
+           bs.x,
+           bs.y,
+           bs.z);
+    predictClass<T, BX, BY><<<gs, bs, 0, stream>>>(out, z, classes, nRows, coefCols);
+  }
+};
+
+template <typename T, bool Log, bool Binary, int BX = 32, int BY = 8>
+__global__ void predictProba(T* out, const T* z, const int nRows, const int nClasses)
+{
+  typedef cub::WarpReduce<T, BX> WarpRed;
+  __shared__ typename WarpRed::TempStorage shm[BY];
+  typename WarpRed::TempStorage& warpStore = shm[threadIdx.y];
+
+  const int i = threadIdx.y + blockIdx.y * BY;
+  if (i >= nRows) return;
+  const T* rowIn = z + i * (Binary ? 1 : nClasses);
+  T* rowOut      = out + i * nClasses;
+
+  // the largest 'z' in the row (for substract it from z for numeric stability).
+  T t      = std::numeric_limits<T>::lowest();
+  T maxVal = t;
+  int j    = threadIdx.x;
+  if constexpr (Binary) {
+    t      = rowIn[0];
+    maxVal = raft::myMax<T>(t, 0);
+    t      = T(j) * t;  // set z[0] = 0, z[1] = t
+  } else {
+    for (; j < nClasses; j += BX) {
+      t      = rowIn[j];
+      maxVal = raft::myMax<T>(maxVal, t);
+    }
+    j -= BX;
+    maxVal = WarpRed(warpStore).Reduce(maxVal, cub::Max());
+    maxVal = cub::ShuffleIndex<BX>(maxVal, 0, 0xFFFFFFFFU);
+  }
+  // At this point, either `j` refers to the last valid column idx worked
+  // by the current thread, or `j` is negative.
+  // We traverse the columns array in the opposite direction in the next
+  // block. This allows us to avoid extra global memory accesses when
+  // BX >= nClasses, which is a very common case.
+
+  T et;         // Numerator of the softmax.
+  T smSum = 0;  // Denominator of the softmax.
+  while (j >= 0) {
+    et = raft::myExp<T>(t - maxVal);
+    smSum += et;
+    if (j < BX) break;
+    j -= BX;
+    t = rowIn[j];
+  }
+  smSum = WarpRed(warpStore).Reduce(smSum, cub::Sum());
+  smSum = cub::ShuffleIndex<BX>(smSum, 0, 0xFFFFFFFFU);
+
+  // Now, either `j` refers to the first valid column idx worked by the
+  // current thread, or `j` is negative (no work at all).
+  // Traverse in the forward direction again to save the results.
+  // Note, no extra memory reads when BX >= nClasses!
+  if (j < 0) return;
+  T d = Log ? -maxVal - raft::myLog<T>(smSum) : 1 / smSum;
+  while (j < nClasses) {
+    rowOut[j] = Log ? t + d : et * d;
+    j += BX;
+    if (j >= nClasses) break;
+    t = rowIn[j];
+    if constexpr (Log) et = raft::myExp<T>(t - maxVal);
+  }
+}
+
+template <typename T, int BlockSize = 256, int BX = 32>
+struct PredictProba {
+  static inline void run(
+    T* out, const T* z, const int nRows, const int nClasses, const bool log, cudaStream_t stream)
+  {
+    if constexpr (BX > 2) {
+      if (nClasses <= (BX >> 1))
+        return PredictProba<T, BlockSize, std::max<int>(BX >> 1, 2)>::run(
+          out, z, nRows, nClasses, log, stream);
+    }
+    const int BY      = BlockSize / BX;
+    const bool Binary = BX == 2;
+    const dim3 bs(BX, BY, 1);
+    const dim3 gs(1, raft::ceildiv(nRows, BY), 1);
+    printf("PredictProba<T, %d, %d><<(%d, %d, %d), (%d, %d, %d)>>>(binary = %d, log = %d)\n",
+           BX,
+           BY,
+           gs.x,
+           gs.y,
+           gs.z,
+           bs.x,
+           bs.y,
+           bs.z,
+           Binary,
+           log);
+    if constexpr (Binary)
+      ASSERT((void*)out != (void*)z, "PredictProba for the binary case cannot be inplace.");
+    if (log)
+      predictProba<T, true, Binary, BX, BY><<<gs, bs, 0, stream>>>(out, z, nRows, nClasses);
+    else
+      predictProba<T, false, Binary, BX, BY><<<gs, bs, 0, stream>>>(out, z, nRows, nClasses);
+  }
+};
 
 template <typename T>
 __global__ void rowMajorGetCol(T* out, const T* in, const int i, const int nRows, const int nCols)
@@ -131,11 +248,11 @@ inline bool isRegression(LinearSVMParams::Loss loss)
          loss == LinearSVMParams::SQUARED_EPSILON_INSENSITIVE;
 }
 
-template <typename T>
-struct SignFun {
-  const T H1_value;
-  __device__ T operator()(const T x) const { return x == H1_value ? 1 : -1; }
-};
+// template <typename T>
+// struct SignFun {
+//   const T H1_value;
+//   __device__ T operator()(const T x) const { return x == H1_value ? 1 : -1; }
+// };
 
 template <typename T>
 struct OvrSelector {
@@ -144,90 +261,11 @@ struct OvrSelector {
   __device__ T operator()(const T x) const { return x == classes[selected] ? 1 : -1; }
 };
 
-template <typename T>
-struct IndicatorFun {
-  const T H1_value;
-  __device__ T operator()(const T x) const { return T(x == H1_value); }
-};
-
-template <typename T>
-void predict_linear(const raft::handle_t& handle,
-                    const T* X,
-                    const T* w,
-                    const int nRows,
-                    const int nCols,
-                    T* out,
-                    cudaStream_t stream)
-{
-  raft::linalg::gemv(handle, X, nRows, nCols, w, out, false, stream);
-  const T* p = w + nCols;
-  raft::linalg::unaryOp(
-    out, out, nRows, [p] __device__(T x) -> T { return x + *p; }, stream);
-}
-
-template <typename T>
-void predict_indicator(const raft::handle_t& handle,
-                       const T* X,
-                       const T* w,
-                       const int nRows,
-                       const int nCols,
-                       T* out,
-                       cudaStream_t stream)
-{
-  raft::linalg::gemv(handle, X, nRows, nCols, w, out, false, stream);
-  const T* p = w + nCols;
-  raft::linalg::unaryOp(
-    out, out, nRows, [p] __device__(T x) -> T { return T((x + *p) > 0); }, stream);
-}
-
-template <typename T>
-void predict_prob(const raft::handle_t& handle,
-                  const T* X,
-                  const T* w,
-                  const T* probScale,
-                  const int nRows,
-                  const int nCols,
-                  T* out,
-                  cudaStream_t stream)
-{
-  raft::linalg::gemv(handle, X, nRows, nCols, w, out, false, stream);
-  const T* p = w + nCols;
-  raft::linalg::unaryOp(
-    out,
-    out,
-    nRows,
-    [p, probScale] __device__(T x) -> T {
-      T z = probScale[0] * (x + *p) + probScale[1];
-      T t = raft::myExp(z < 0 ? z : -z);
-      T q = 1 / (1 + t);
-      return q * (z < 0 ? t : T(1.0));
-    },
-    stream);
-}
-
-template <typename T>
-void predict_log_prob(const raft::handle_t& handle,
-                      const T* X,
-                      const T* w,
-                      const T* probScale,
-                      const int nRows,
-                      const int nCols,
-                      T* out,
-                      cudaStream_t stream)
-{
-  raft::linalg::gemv(handle, X, nRows, nCols, w, out, false, stream);
-  const T* p = w + nCols;
-  raft::linalg::unaryOp(
-    out,
-    out,
-    nRows,
-    [p, probScale] __device__(T x) -> T {
-      T z = probScale[0] * (x + *p) + probScale[1];
-      T t = -raft::myLog(1 + raft::myExp(z < 0 ? z : -z));
-      return t + (z < 0 ? z : T(0));
-    },
-    stream);
-}
+// template <typename T>
+// struct IndicatorFun {
+//   const T H1_value;
+//   __device__ T operator()(const T x) const { return T(x == H1_value); }
+// };
 
 };  // namespace
 
@@ -343,89 +381,86 @@ LinearSVMModel<T>::LinearSVMModel(const raft::handle_t& handle,
   }
 
   ML::POP_RANGE();
-  // if (!params.probability) return;
-  // ML::PUSH_RANGE("Trace::LinearSVMModel::fit-probabilities");
-  // probScale.resize(coefRows + 1, stream);
+  if (!params.probability) return;
 
-  // rmm::device_uvector<T> xwBuf(nRows, stream);
-  // T* xw = xwBuf.data();
-  // predict_linear(handle, X, w.data(), nRows, nCols, xw, stream);
+  ML::PUSH_RANGE("Trace::LinearSVMModel::fit-probabilities");
+  probScale.resize(coefCols * (coefCols + 1), stream);
+
+  rmm::device_uvector<T> xwBuf(nRows * coefCols, stream);
+  T* xw = xwBuf.data();
+  predict_linear(X, nRows, nCols, xw);
+
+  // here we should encode the labels into corresponding `classes` indices.
+  // for now, we assume labels are the values from 0 to classes.size() - 1.
   // raft::linalg::unaryOp(y1, y, nRows, IndicatorFun<T>{T(params.H1_value)}, stream);
 
-  // GLM::qnFit<T>(handle,
-  //               xw,
-  //               true,
-  //               y1,
-  //               nRows,
-  //               1 /* D = 1 for only one parameter besides bias */,
-  //               2 /* C = 2 classes forced by LogisticLoss */,
-  //               true /* bias is the second parameter to fit */,
-  //               0,
-  //               0,
-  //               params.max_iter,
-  //               T(params.grad_tol),
-  //               T(params.change_tol),
-  //               params.linesearch_max_iter,
-  //               params.lbfgs_memory,
-  //               params.verbose,
-  //               probScale.data(),
-  //               &target,
-  //               &num_iters,
-  //               0 /* logistic loss*/,
-  //               stream,
-  //               (T*)sampleWeight);
-  // CUML_LOG_DEBUG("LinearSVM finished fitting probabilities in %d iterations out of maximum %d.",
-  //                num_iters,
-  //                params.max_iter);
+  GLM::qnFit<T>(handle,
+                xw,
+                false,
+                (T*)y,
+                nRows,
+                coefCols,
+                nClasses,
+                true,
+                0,
+                0,
+                params.max_iter,
+                T(params.grad_tol),
+                T(params.change_tol),
+                params.linesearch_max_iter,
+                params.lbfgs_memory,
+                params.verbose,
+                probScale.data(),
+                &target,
+                &num_iters,
+                nClasses == 2 ? 0 /* logistic loss*/ : 2 /** softmax */,
+                stream,
+                (T*)sampleWeight);
 
-  // ML::POP_RANGE();
+  CUML_LOG_DEBUG("LinearSVM finished fitting probabilities in %d iterations out of maximum %d.",
+                 num_iters,
+                 params.max_iter);
+
+  ML::POP_RANGE();
+}
+
+template <typename T>
+void LinearSVMModel<T>::predict_linear(const T* X, const int nRows, const int nCols, T* out) const
+{
+  ASSERT(nCols == this->nCols,
+         "Number of features passed to predicting must be the same as for fitting (%d != %d).",
+         nCols,
+         this->nCols);
+  cudaStream_t stream = handle.get_stream();
+  const int nClasses  = classes.size();
+  // const int coefRows = nCols + params.fit_intercept;
+  const int coefCols = nClasses <= 2 ? 1 : nClasses;
+
+  raft::linalg::gemm<T>(
+    handle, out, (T*)X, (T*)w.data(), nRows, coefCols, nCols, false, true, false, stream);
+
+  if (params.fit_intercept)
+    raft::linalg::matrixVectorOp(
+      out, out, w.data() + nCols * coefCols, nRows, coefCols, false, false, cub::Sum(), stream);
 }
 
 template <typename T>
 void LinearSVMModel<T>::predict(const T* X, const int nRows, const int nCols, T* out) const
 {
-  ASSERT(nCols == this->nCols,
-         "Number of features passed to predict() must be the same as for fitting (%d != %d).",
-         nCols,
-         this->nCols);
+  if (isRegression(params.loss)) return predict_linear(X, nRows, nCols, out);
+
   cudaStream_t stream = handle.get_stream();
-  if (isRegression(params.loss)) {
-    predict_linear(handle, X, w.data(), nRows, nCols, out, stream);
-  } else {
-    const int nClasses = classes.size();
-    // const int coefRows = nCols + params.fit_intercept;
-    const int coefCols = nClasses <= 2 ? 1 : nClasses;
-
-    rmm::device_uvector<T> temp(nRows * coefCols, stream);
-    raft::linalg::gemm<T>(
-      handle, temp.data(), (T*)X, (T*)w.data(), nRows, coefCols, nCols, true, true, false, stream);
-
-    if (params.fit_intercept)
-      raft::linalg::matrixVectorOp(
-        temp.data(),
-        temp.data(),
-        w.data() + nCols * coefCols,
-        nRows,
-        coefCols,
-        true,
-        false,
-        [] __device__(T a, T b) { return a + b; },
-        stream);
-
-    predictClass<T><<<dim3(raft::ceildiv(nRows, 256), 1, 1), dim3(256, 1, 1), 0, stream>>>(
-      out, temp.data(), classes.data(), nRows, coefCols);
-  }
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  const int nClasses  = classes.size();
+  const int coefCols  = nClasses <= 2 ? 1 : nClasses;
+  rmm::device_uvector<T> temp(nRows * coefCols, stream);
+  predict_linear(X, nRows, nCols, temp.data());
+  PredictClass<T>::run(out, temp.data(), classes.data(), nRows, coefCols, stream);
 }
 
 template <typename T>
 void LinearSVMModel<T>::predict_proba(
   const T* X, const int nRows, const int nCols, const bool log, T* out) const
 {
-  ASSERT(nCols == this->nCols,
-         "Number of features passed to predict() must be the same as for fitting (%d != %d).",
-         nCols,
-         this->nCols);
   ASSERT(!isRegression(params.loss),
          "Predicting probabilities is not available for the regression model");
   ASSERT(
@@ -433,12 +468,13 @@ void LinearSVMModel<T>::predict_proba(
     "The model was not trained to output probabilities (LinearSVMParams.probability == false).");
 
   cudaStream_t stream = handle.get_stream();
-  if (log) {
-    predict_log_prob(handle, X, w.data(), probScale.data(), nRows, nCols, out, stream);
-  } else {
-    predict_prob(handle, X, w.data(), probScale.data(), nRows, nCols, out, stream);
-  }
-  CUDA_CHECK(cudaStreamSynchronize(stream));
+  const int nClasses  = classes.size();
+  const int coefCols  = nClasses <= 2 ? 1 : nClasses;
+  rmm::device_uvector<T> temp(nRows * coefCols, stream);
+  predict_linear(X, nRows, nCols, temp.data());
+
+  PredictProba<T>::run(out, temp.data(), nRows, classes.size(), log, handle.get_stream());
+  // cudaStream_t stream = handle.get_stream();
 }
 
 template class LinearSVMModel<float>;

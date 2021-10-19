@@ -123,8 +123,15 @@ class LinearSVMModel {
 
   void predict(const T* X, const int nRows, const int nCols, T* out) const;
 
-  /** For SVC, predict the probability of H1. */
+  /** For SVC, predict the probabilities for each outcome. */
   void predict_proba(const T* X, const int nRows, const int nCols, const bool log, T* out) const;
+
+ private:
+  /**
+   * The linear part of prediction: X * w + intercept.
+   * The result is row-major.
+   */
+  void predict_linear(const T* X, const int nRows, const int nCols, T* out) const;
 };
 
 }  // namespace SVM
