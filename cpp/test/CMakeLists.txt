@@ -14,77 +14,47 @@
 # limitations under the License.
 #=============================================================================
 
-set(COMMON_TEST_LINK_LIBRARIES
-  CUDA::cublas
-  CUDA::curand
-  CUDA::cusolver
-  CUDA::cudart
-  CUDA::cusparse
-  CUDA::cufft
-  rmm::rmm
-  raft::raft
-  $<$<BOOL:${LINK_FAISS}>:FAISS::FAISS>
-  GTest::gtest
-  GTest::gtest_main
-  OpenMP::OpenMP_CXX
-  Threads::Threads
-  $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_static,treelite::treelite>
-  $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_runtime_static,treelite::treelite_runtime>
-  $<TARGET_NAME_IF_EXISTS:conda_env>
-)
+function(ConfigureTest)
 
-##############################################################################
-# - build ml_test executable -------------------------------------------------
+  set(options OPTIONAL FAISS)
+  set(oneValueArgs PREFIX NAME PATH)
+  set(multiValueArgs TARGETS CONFIGURATIONS)
 
-if(BUILD_CUML_TESTS)
-  # (please keep the filenames in alphabetical order)
+  cmake_parse_arguments(ConfigureTest "${options}" "${oneValueArgs}"
+                          "${multiValueArgs}" ${ARGN} )
 
-  # Separable executable for each test targetted for 21.12, meanwhile
-  # we can just separate FIL here, full algorithm support in progress
-  add_executable(${CUML_CPP_TEST_TARGET}
-    sg/fil_child_index_test.cu
-    sg/fil_test.cu)
+  set(TEST_NAME ${ConfigureTest_PREFIX}_${ConfigureTest_NAME})
 
-  if(CUML_CPP_ALGORITHMS STREQUAL "ALL")
-    target_sources(${CUML_CPP_TEST_TARGET}
-      PRIVATE
-        sg/cd_test.cu
-        sg/dbscan_test.cu
-        sg/fnv_hash_test.cpp
-        sg/genetic/node_test.cpp
-        sg/genetic/param_test.cu
-        sg/hdbscan_test.cu
-        sg/holtwinters_test.cu
-        sg/kmeans_test.cu
-        sg/knn_test.cu
-        sg/lars_test.cu
-        sg/linkage_test.cu
-        sg/logger.cpp
-        sg/multi_sum_test.cu
-        sg/nvtx_test.cpp
-        sg/ols.cu
-        sg/pca_test.cu
-        sg/quasi_newton.cu
-        sg/rf_test.cu
-        sg/ridge.cu
-        sg/rproj_test.cu
-        sg/sgd.cu
-        sg/shap_kernel.cu
-        sg/svc_test.cu
-        sg/trustworthiness_test.cu
-        sg/tsne_test.cu
-        sg/tsvd_test.cu
-        sg/umap_parametrizable_test.cu
-        $<$<BOOL:${BUILD_CUML_C_LIBRARY}>:sg/handle_test.cu>
-      )
-  endif()
+  add_executable(${TEST_NAME} ${ConfigureTest_PATH})
 
-  target_compile_options(${CUML_CPP_TEST_TARGET}
+  target_link_libraries(${TEST_NAME}
+  PRIVATE
+    ${CUML_CPP_TARGET}
+    $<$<BOOL:BUILD_CUML_C_LIBRARY>:${CUML_C_TARGET}>
+    CUDA::cublas
+    CUDA::curand
+    CUDA::cusolver
+    CUDA::cudart
+    CUDA::cusparse
+    CUDA::cufft
+    rmm::rmm
+    raft::raft
+    FAISS::FAISS
+    GTest::gtest
+    GTest::gtest_main
+    OpenMP::OpenMP_CXX
+    Threads::Threads
+    $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_static,treelite::treelite>
+    $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_runtime_static,treelite::treelite_runtime>
+    $<TARGET_NAME_IF_EXISTS:conda_env>
+  )
+
+  target_compile_options(${TEST_NAME}
         PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CUML_CXX_FLAGS}>"
                 "$<$<COMPILE_LANGUAGE:CUDA>:${CUML_CUDA_FLAGS}>"
   )
 
-  target_include_directories(${CUML_CPP_TEST_TARGET}
+  target_include_directories(${TEST_NAME}
     PRIVATE
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src>
@@ -92,12 +62,78 @@ if(BUILD_CUML_TESTS)
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/prims>
   )
 
-  target_link_libraries(${CUML_CPP_TEST_TARGET}
-    PRIVATE
-        ${CUML_CPP_TARGET}
-        $<$<BOOL:${BUILD_CUML_C_LIBRARY}>:${CUML_C_TARGET}>
-        ${COMMON_TEST_LINK_LIBRARIES}
-    )
+  add_test(NAME ${TEST_NAME} COMMAND ${TEST_NAME})
+
+endfunction()
+
+
+##############################################################################
+# - build ml_test executable -------------------------------------------------
+
+if(BUILD_CUML_TESTS)
+
+  ConfigureTest(PREFIX SG NAME CD_TEST PATH sg/cd_test.cu)
+  # # (please keep the filenames in alphabetical order)
+
+  # # Separable executable for each test targetted for 21.12, meanwhile
+  # # we can just separate FIL here, full algorithm support in progress
+  # add_executable(${CUML_CPP_TEST_TARGET}
+  #   sg/fil_child_index_test.cu
+  #   sg/fil_test.cu)
+
+  # if(CUML_CPP_ALGORITHMS STREQUAL "ALL")
+  #   target_sources(${CUML_CPP_TEST_TARGET}
+  #     PRIVATE
+  #       sg/cd_test.cu
+  #       sg/dbscan_test.cu
+  #       sg/fnv_hash_test.cpp
+  #       sg/genetic/node_test.cpp
+  #       sg/genetic/param_test.cu
+  #       sg/hdbscan_test.cu
+  #       sg/holtwinters_test.cu
+  #       sg/kmeans_test.cu
+  #       sg/knn_test.cu
+  #       sg/lars_test.cu
+  #       sg/linkage_test.cu
+  #       sg/logger.cpp
+  #       sg/multi_sum_test.cu
+  #       sg/nvtx_test.cpp
+  #       sg/ols.cu
+  #       sg/pca_test.cu
+  #       sg/quasi_newton.cu
+  #       sg/rf_test.cu
+  #       sg/ridge.cu
+  #       sg/rproj_test.cu
+  #       sg/sgd.cu
+  #       sg/shap_kernel.cu
+  #       sg/svc_test.cu
+  #       sg/trustworthiness_test.cu
+  #       sg/tsne_test.cu
+  #       sg/tsvd_test.cu
+  #       sg/umap_parametrizable_test.cu
+  #       $<$<BOOL:${BUILD_CUML_C_LIBRARY}>:sg/handle_test.cu>
+  #     )
+  # endif()
+
+  # target_compile_options(${CUML_CPP_TEST_TARGET}
+  #       PRIVATE "$<$<COMPILE_LANGUAGE:CXX>:${CUML_CXX_FLAGS}>"
+  #               "$<$<COMPILE_LANGUAGE:CUDA>:${CUML_CUDA_FLAGS}>"
+  # )
+
+  # target_include_directories(${CUML_CPP_TEST_TARGET}
+  #   PRIVATE
+  #     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../include>
+  #     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src>
+  #     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src_prims>
+  #     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/prims>
+  # )
+
+  # target_link_libraries(${CUML_CPP_TEST_TARGET}
+  #   PRIVATE
+  #       ${CUML_CPP_TARGET}
+  #       $<$<BOOL:${BUILD_CUML_C_LIBRARY}>:${CUML_C_TARGET}>
+  #       ${COMMON_TEST_LINK_LIBRARIES}
+  #   )
 
 endif()
 
