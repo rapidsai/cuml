@@ -18,7 +18,7 @@
 #include <raft/cudart_utils.h>
 #include <test_utils.h>
 #include <linalg/batched/gemv.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include "../test_utils.h"
 
 namespace MLCommon {

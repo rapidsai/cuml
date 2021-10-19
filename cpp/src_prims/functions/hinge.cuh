@@ -28,8 +28,8 @@
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
 #include <raft/mr/device/buffer.hpp>
-#include <raft/stats/mean.cuh>
-#include <raft/stats/sum.cuh>
+#include <raft/stats/mean.hpp>
+#include <raft/stats/sum.hpp>
 #include <rmm/device_uvector.hpp>
 #include "penalty.cuh"
 

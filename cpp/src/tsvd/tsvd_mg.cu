@@ -30,7 +30,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/matrix/math.cuh>
-#include <raft/stats/mean_center.cuh>
+#include <raft/stats/mean_center.hpp>
 
 #include <cstddef>
 

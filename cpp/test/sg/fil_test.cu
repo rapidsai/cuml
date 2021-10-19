@@ -26,7 +26,7 @@
 #include <thrust/functional.h>
 #include <thrust/transform.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 
 #include <treelite/c_api.h>
 #include <treelite/frontend.h>

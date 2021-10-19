@@ -23,7 +23,7 @@
 #include <raft/linalg/add.cuh>
 
 #include <raft/linalg/transpose.h>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 
 #include <cuml/cluster/spectral.hpp>
 #include <iostream>

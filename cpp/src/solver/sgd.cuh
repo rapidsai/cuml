@@ -32,8 +32,8 @@
 #include <raft/linalg/unary_op.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
-#include <raft/stats/mean.cuh>
-#include <raft/stats/mean_center.cuh>
+#include <raft/stats/mean.hpp>
+#include <raft/stats/mean_center.hpp>
 #include <rmm/device_uvector.hpp>
 #include "learning_rate.h"
 #include "shuffle.h"

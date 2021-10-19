@@ -30,9 +30,9 @@
 #include <raft/linalg/gemm.cuh>
 #include <raft/matrix/math.cuh>
 #include <raft/matrix/matrix.cuh>
-#include <raft/stats/mean.cuh>
+#include <raft/stats/mean.hpp>
 #include <raft/stats/stddev.cuh>
-#include <raft/stats/sum.cuh>
+#include <raft/stats/sum.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 #include <rmm/exec_policy.hpp>
