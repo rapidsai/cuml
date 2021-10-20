@@ -64,10 +64,6 @@ option(NVTX "Enable nvtx markers" OFF)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 option(USE_CCACHE "Cache build artifacts with ccache" OFF)
 
-set(CUML_CPP_ALGORITHMS "ALL" CACHE STRING "Experimental: Choose which algorithms are built into libcuml++.so. Only 'FIL' and 'ALL' are supported right now.")
-set_property(CACHE CUML_CPP_ALGORITHMS PROPERTY STRINGS "ALL" "FIL")
-message(VERBOSE "CUML: Building libcuml++ with algoriths: '${CUML_CPP_ALGORITHMS}'.")
-
 message(VERBOSE "CUML: Building libcuml_c shared library. Contains the cuML C API: ${BUILD_CUML_C_LIBRARY}")
 message(VERBOSE "CUML: Building libcuml shared library: ${BUILD_CUML_CPP_LIBRARY}")
 message(VERBOSE "CUML: Building cuML algorithm tests: ${BUILD_CUML_TESTS}")
@@ -87,6 +83,9 @@ message(VERBOSE "CUML: Enabling lineinfo in nvcc: ${CUDA_ENABLE_LINE_INFO}")
 message(VERBOSE "CUML: Enabling nvtx markers: ${NVTX}")
 message(VERBOSE "CUML: Disabling all mnmg components and comms libraries: ${SINGLEGPU}")
 message(VERBOSE "CUML: Cache build artifacts with ccache: ${USE_CCACHE}")
+
+set(CUML_CPP_ALGORITHMS "ALL" CACHE STRING "Experimental: Choose which algorithms are built into libcuml++.so. Only 'FIL' and 'ALL' are supported right now.")
+message(VERBOSE "CUML: Building libcuml++ with algoriths: '${CUML_CPP_ALGORITHMS}'.")
 
 # Set RMM logging level
 set(RMM_LOGGING_LEVEL "INFO" CACHE STRING "Choose the logging level.")
@@ -136,8 +135,11 @@ rapids_find_package(CUDAToolkit REQUIRED
     )
 include(cmake/modules/ConfigureCUDA.cmake)
 
+
 ##############################################################################
 # - Set options based on user defined one  -----------------------------------
+
+include(cmake/modules/ConfigureAlgorithms.cmake)
 
 # Enabling libcuml enables building libcuml++
 if(BUILD_CUML_C_LIBRARY)
@@ -150,15 +152,6 @@ if(NOT BUILD_CUML_CPP_LIBRARY)
   set(BUILD_CUML_TESTS OFF)
   set(BUILD_CUML_MG_TESTS OFF)
   set(BUILD_CUML_EXAMPLES OFF)
-endif()
-
-if(CUML_CPP_ALGORITHMS STREQUAL "ALL")
-  set(LINK_FAISS ON)
-elseif(CUML_CPP_ALGORITHMS STREQUAL "FIL")
-  set(SINGLEGPU ON)
-  set(BUILD_CUML_C_LIBRARY OFF)
-  set(BUILD_CUML_EXAMPLES OFF)
-  set(LINK_FAISS OFF)
 endif()
 
 # SingleGPU build disables cumlprims_mg and comms components
@@ -233,44 +226,102 @@ endif()
 if(BUILD_CUML_CPP_LIBRARY)
 
   # single GPU components
-
   # common components
   add_library(${CUML_CPP_TARGET} SHARED
               src/common/logger.cpp
               src/common/nvtx.cu)
 
-
-  # FIL components
-  target_sources(${CUML_CPP_TARGET}
-    PRIVATE
-      src/fil/fil.cu
-      src/fil/infer.cu)
-
-  # Rest of the algorithms
-  if(CUML_CPP_ALGORITHMS STREQUAL "ALL")
+  if(all_algo OR arima_algo)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
         src/arima/batched_arima.cu
-        src/arima/batched_kalman.cu
+        src/arima/batched_kalman.cu)
+  endif()
+
+  if(all_algo OR datasets_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
         src/datasets/make_arima.cu
         src/datasets/make_blobs.cu
-        src/datasets/make_regression.cu
-        src/dbscan/dbscan.cu
-        src/decisiontree/decisiontree.cu
+        src/datasets/make_regression.cu)
+  endif()
+
+  if(all_algo OR dbscan_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
+        src/dbscan/dbscan.cu)
+  endif()
+
+  if(all_algo OR decisiontree_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
+        src/decisiontree/decisiontree.cu)
+  endif()
+
+  if(all_algo OR explainer_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
         src/explainer/kernel_shap.cu
-        src/explainer/permutation_shap.cu
+        src/explainer/permutation_shap.cu)
+  endif()
+
+  # FIL components
+  if(all_algo OR fil_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
         src/fil/fil.cu
-        src/fil/infer.cu
-        src/glm/glm.cu
+        src/fil/infer.cu)
+  endif()
+
+  # todo: organize linear models better
+  if(all_algo OR linearregression_algo OR ridge_algo OR lasso_algo OR logisticregression_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
+        src/glm/glm.cu)
+  endif()
+
+  if(all_algo or genetic_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
         src/genetic/genetic.cu
-        src/genetic/node.cu
+        src/genetic/node.cu)
+  endif()
+
+  if(all_algo or hdbscan_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
         src/hdbscan/hdbscan.cu
-        src/hdbscan/condensed_hierarchy.cu
-        src/holtwinters/holtwinters.cu
-        src/kmeans/kmeans.cu
+        src/hdbscan/condensed_hierarchy.cu)
+  endif()
+
+  if(all_algo or holtwinters_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
+        src/holtwinters/holtwinters.cu)
+  endif()
+
+  if(all_algo or kmeans_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
+        src/kmeans/kmeans.cu)
+  endif()
+
+  if(all_algo or knn_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
         src/knn/knn.cu
-        src/knn/knn_sparse.cu
-        src/hierarchy/linkage.cu
+        src/knn/knn_sparse.cu)
+  endif()
+
+  if(all_algo or hierarchicalclustering_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
+        src/hierarchy/linkage.cu)
+  endif()
+
+  if(all_algo or metrics_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
         src/metrics/accuracy_score.cu
         src/metrics/adjusted_rand_index.cu
         src/metrics/completeness_score.cu
@@ -295,20 +346,71 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/metrics/rand_index.cu
         src/metrics/silhouette_score.cu
         src/metrics/trustworthiness.cu
-        src/metrics/v_measure.cu
-        src/pca/pca.cu
-        src/randomforest/randomforest.cu
-        src/random_projection/rproj.cu
+        src/metrics/v_measure.cu)
+  endif()
+
+  if(all_algo or pca_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
+        src/pca/pca.cu)
+  endif()
+
+  if(all_algo or randomforest_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
+        src/randomforest/randomforest.cu)
+  endif()
+
+  if(all_algo or randomprojection_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
+        src/random_projection/rproj.cu)
+  endif()
+
+  # todo: separate solvers better
+  if(all_algo or solvers_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
         src/solver/lars.cu
-        src/solver/solver.cu
-        src/spectral/spectral.cu
-        src/svm/svc.cu
+        src/solver/solver.cu)
+  endif()
+
+  if(all_algo or spectralclustering_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
+        src/spectral/spectral.cu)
+  endif()
+
+  if(all_algo or svm_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
+        rc/svm/svc.cu
         src/svm/svr.cu
-        src/svm/ws_util.cu
+        src/svm/ws_util.cu)
+  endif()
+
+  if(all_algo or autoarima_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
         src/tsa/auto_arima.cu
-        src/tsa/stationarity.cu
-        src/tsne/tsne.cu
-        src/tsvd/tsvd.cu
+        src/tsa/stationarity.cu)
+  endif()
+
+  if(all_algo or tsne_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
+        src/tsne/tsne.cu)
+  endif()
+
+  if(all_algo or tsvd_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
+        src/tsvd/tsvd.cu)
+  endif()
+
+  if(all_algo or tsne_algo)
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
         src/umap/umap.cu)
   endif()
 
