@@ -212,6 +212,8 @@ struct alignas(8) sparse_node8 : base_node {
     and how FIL aggregates them into class margins/regression result/best class
 **/
 enum leaf_algo_t {
+  /** For iteration purposes */
+  MIN_LEAF_ALGO = 0,
   /** storing a class probability or regression summand. We add all margins
       together and determine regression result or use threshold to determine
       one of the two classes. **/
@@ -239,7 +241,7 @@ enum leaf_algo_t {
   /** Leaf contains an index into a vector of class probabilities. **/
   VECTOR_LEAF = 5,
   // to be extended
-  LEAF_ALGO_INVALID  // no explicit numerical value
+  MAX_LEAF_ALGO = 5
 };
 
 template <leaf_algo_t leaf_algo>

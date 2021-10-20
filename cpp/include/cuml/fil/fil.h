@@ -72,6 +72,7 @@ struct forest;
 /** forest_t is the predictor handle */
 typedef forest* forest_t;
 
+/** MAX_N_ITEMS determines the maximum allowed value for tl_params::n_items */
 constexpr int MAX_N_ITEMS = 4;
 
 /** treelite_params_t are parameters for importing treelite models */

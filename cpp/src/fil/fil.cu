@@ -307,7 +307,6 @@ struct forest {
           params.num_outputs = params.num_classes;
           do_transform = (ot != output_t::RAW && ot != output_t::SOFTMAX) || global_bias != 0.0f;
           break;
-        case fil::leaf_algo_t::LEAF_ALGO_INVALID:
         default: ASSERT(false, "internal error: predict: invalid leaf_algo %d", params.leaf_algo);
       }
     } else {
@@ -540,7 +539,6 @@ void check_params(const forest_params_t* params, bool dense)
              "num_classes >= 2 is required for "
              "leaf_algo == VECTOR_LEAF");
       break;
-    case fil::leaf_algo_t::LEAF_ALGO_INVALID:
     default:
       ASSERT(false,
              "leaf_algo must be FLOAT_UNARY_BINARY, CATEGORICAL_LEAF"
@@ -784,7 +782,6 @@ void tl2fil_leaf_payload(fil_node_t* fil_node,
       ASSERT(!tl_tree.HasLeafVector(tl_node_id),
              "some but not all treelite leaves have leaf_vector()");
       break;
-    case fil::leaf_algo_t::LEAF_ALGO_INVALID:
     default: ASSERT(false, "internal error: invalid leaf_algo");
   };
 }

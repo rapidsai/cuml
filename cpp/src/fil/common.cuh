@@ -177,22 +177,29 @@ struct predict_params : shmem_size_params {
   int num_blocks;
 };
 
-template <bool COLS_IN_SHMEM_  = false,
-          bool CATS_SUPPORTED_ = false,
-          int LEAF_ALGO_       = 0,
-          int N_ITEMS_         = 1>
+constexpr leaf_algo_t next_leaf_algo(leaf_algo_t algo)
+{
+  return static_cast<leaf_algo_t>(algo + 1);
+}
+
+template <bool COLS_IN_SHMEM_    = false,
+          bool CATS_SUPPORTED_   = false,
+          leaf_algo_t LEAF_ALGO_ = MIN_LEAF_ALGO,
+          int N_ITEMS_           = 1>
 struct KernelTemplateParams {
   static const bool COLS_IN_SHMEM    = COLS_IN_SHMEM_;
   static const bool CATS_SUPPORTED   = CATS_SUPPORTED_;
-  static const leaf_algo_t LEAF_ALGO = static_cast<leaf_algo_t>(LEAF_ALGO_);
+  static const leaf_algo_t LEAF_ALGO = LEAF_ALGO_;
   static const int N_ITEMS           = N_ITEMS_;
 
   template <bool _cats_supported>
   using ReplaceCatsSupported =
     KernelTemplateParams<COLS_IN_SHMEM, _cats_supported, LEAF_ALGO, N_ITEMS>;
-  using NextLeafAlgo = KernelTemplateParams<COLS_IN_SHMEM, CATS_SUPPORTED, LEAF_ALGO + 1, N_ITEMS>;
-  template <int _leaf_algo>
-  using ReplaceLeafAlgo = KernelTemplateParams<COLS_IN_SHMEM, CATS_SUPPORTED, _leaf_algo, N_ITEMS>;
+  using NextLeafAlgo =
+    KernelTemplateParams<COLS_IN_SHMEM, CATS_SUPPORTED, next_leaf_algo(LEAF_ALGO), N_ITEMS>;
+  template <leaf_algo_t NEW_LEAF_ALGO>
+  using ReplaceLeafAlgo =
+    KernelTemplateParams<COLS_IN_SHMEM, CATS_SUPPORTED, NEW_LEAF_ALGO, N_ITEMS>;
   using IncNItems = KernelTemplateParams<COLS_IN_SHMEM, CATS_SUPPORTED, LEAF_ALGO, N_ITEMS + 1>;
 };
 
@@ -215,7 +222,7 @@ typename Func::return_t dispatch_on_n_items(Func func, predict_params params)
   } else if constexpr (KernelParams::N_ITEMS < MAX_N_ITEMS) {
     return dispatch_on_n_items<class KernelParams::IncNItems>(func, params);
   } else {
-    ASSERT(false, "internal error: n_items > %d or < 1", MAX_N_ITEMS);
+    ASSERT(false, "n_items > %d or < 1", MAX_N_ITEMS);
   }
   return Func::return_t();  // appeasing the compiler
 }
@@ -238,7 +245,7 @@ typename Func::return_t dispatch_on_leaf_algo(Func func, predict_params params)
       params.block_dim_x = FIL_TPB;
       return dispatch_on_n_items<KernelParams>(func, params);
     }
-  } else if constexpr (KernelParams::NextLeafAlgo::LEAF_ALGO < LEAF_ALGO_INVALID) {
+  } else if constexpr (next_leaf_algo(KernelParams::LEAF_ALGO) <= MAX_LEAF_ALGO) {
     return dispatch_on_leaf_algo<class KernelParams::NextLeafAlgo>(func, params);
   } else {
     ASSERT(false, "internal error: dispatch: invalid leaf_algo %d", params.leaf_algo);
