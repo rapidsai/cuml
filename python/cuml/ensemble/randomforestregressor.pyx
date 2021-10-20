@@ -129,11 +129,10 @@ class RandomForestRegressor(BaseRandomForestModel,
     .. code-block:: python
 
         import numpy as np
-        from cuml.test.utils import get_handle
-        from cuml.ensemble import RandomForestRegressor as curfc
+        from cuml.ensemble import RandomForestRegressor as curfr
         X = np.asarray([[0,10],[0,20],[0,30],[0,40]], dtype=np.float32)
         y = np.asarray([0.0,1.0,2.0,3.0], dtype=np.float32)
-        cuml_model = curfc(max_features=1.0, n_bins=128,
+        cuml_model = curfr(max_features=1.0, n_bins=128,
                             min_samples_leaf=1,
                             min_samples_split=2,
                             n_estimators=40, accuracy_metric='r2')

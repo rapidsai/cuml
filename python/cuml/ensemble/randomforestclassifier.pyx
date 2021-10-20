@@ -240,19 +240,6 @@ class RandomForestClassifier(BaseRandomForestModel,
         during GPU inference.
       * While training the model for multi class classification problems,
         using deep trees or `max_features=1.0` provides better performance.
-      * Prediction of classes is currently different from how scikit-learn
-        predicts:
-          * scikit-learn predicts random forest classifiers by obtaining class
-            probabilities from each component tree, then averaging these class
-            probabilities over all the ensemble members, and finally resolving
-            to the label with highest probability as prediction.
-          * cuml random forest classifier prediction differs in that, each
-            component tree generates labels instead of class probabilities;
-            with the most frequent label over all the trees (the statistical
-            mode) resolved as prediction.
-        The above differences might cause marginal variations in accuracy in
-        tradeoff to better performance.
-        See: https://github.com/rapidsai/cuml/issues/3764
 
     For additional docs, see `scikitlearn's RandomForestClassifier
     <https://scikit-learn.org/stable/modules/generated/sklearn.ensemble.RandomForestClassifier.html>`_.

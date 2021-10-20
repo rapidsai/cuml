@@ -513,7 +513,7 @@ class RandomForestClassifier(BaseRandomForestModel, DelayedPredictionMixin,
 
         Returns
         -------
-        y : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, 1)
+        y : Dask cuDF dataframe or CuPy backed Dask Array (n_rows, n_classes)
         """
         if self._get_internal_model() is None:
             self._set_internal_model(self._concat_treelite_models())
