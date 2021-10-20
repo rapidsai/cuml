@@ -408,7 +408,7 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/tsvd/tsvd.cu)
   endif()
 
-  if(all_algo OR tsne_algo)
+  if(all_algo OR umap_algo)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
         src/umap/umap.cu)
