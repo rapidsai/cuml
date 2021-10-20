@@ -384,7 +384,6 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
           std::memcpy(&w.f, &weights_h[i], sizeof w.f);
           break;
         case fil::leaf_algo_t::VECTOR_LEAF: w.idx = i; break;
-        case fil::leaf_algo_t::LEAF_ALGO_INVALID:
         default: ASSERT(false, "internal error: invalid ps.leaf_algo");
       }
       // make sure nodes are categorical only when their feature ID is categorical
@@ -547,8 +546,7 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
         }
         break;
       case fil::leaf_algo_t::GROVE_PER_CLASS_FEW_CLASSES:
-      case fil::leaf_algo_t::GROVE_PER_CLASS_MANY_CLASSES:
-      case fil::leaf_algo_t::LEAF_ALGO_INVALID: break;
+      case fil::leaf_algo_t::GROVE_PER_CLASS_MANY_CLASSES: break;
     }
 
     // copy to GPU
@@ -772,8 +770,7 @@ class TreeliteFilTest : public BaseFilTest {
           break;
         }
         case fil::leaf_algo_t::GROVE_PER_CLASS_FEW_CLASSES:
-        case fil::leaf_algo_t::GROVE_PER_CLASS_MANY_CLASSES:
-        case fil::leaf_algo_t::LEAF_ALGO_INVALID: break;
+        case fil::leaf_algo_t::GROVE_PER_CLASS_MANY_CLASSES: break;
       }
     } else {
       int left          = root + 2 * (node - root) + 1;

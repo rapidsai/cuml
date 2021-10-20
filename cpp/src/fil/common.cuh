@@ -214,8 +214,8 @@ struct dispatch_functor {
 
 namespace dispatch {
 
-template <class KernelParams, class Func>
-typename Func::return_t dispatch_on_n_items(Func func, predict_params params)
+template <class KernelParams, class Func, class T = typename Func::return_t>
+T dispatch_on_n_items(Func func, predict_params params)
 {
   if (params.n_items == KernelParams::N_ITEMS) {
     return func.template run<KernelParams>(params);
@@ -224,11 +224,11 @@ typename Func::return_t dispatch_on_n_items(Func func, predict_params params)
   } else {
     ASSERT(false, "n_items > %d or < 1", MAX_N_ITEMS);
   }
-  return Func::return_t();  // appeasing the compiler
+  return T();  // appeasing the compiler
 }
 
-template <class KernelParams, class Func>
-typename Func::return_t dispatch_on_leaf_algo(Func func, predict_params params)
+template <class KernelParams, class Func, class T = typename Func::return_t>
+T dispatch_on_leaf_algo(Func func, predict_params params)
 {
   if (params.leaf_algo == KernelParams::LEAF_ALGO) {
     if constexpr (KernelParams::LEAF_ALGO == GROVE_PER_CLASS) {
@@ -250,11 +250,11 @@ typename Func::return_t dispatch_on_leaf_algo(Func func, predict_params params)
   } else {
     ASSERT(false, "internal error: dispatch: invalid leaf_algo %d", params.leaf_algo);
   }
-  return Func::return_t();  // appeasing the compiler
+  return T();  // appeasing the compiler
 }
 
-template <class KernelParams, class Func>
-typename Func::return_t dispatch_on_cats_supported(Func func, predict_params params)
+template <class KernelParams, class Func, class T = typename Func::return_t>
+T dispatch_on_cats_supported(Func func, predict_params params)
 {
   return params.cats_present
            ? dispatch_on_leaf_algo<typename KernelParams::ReplaceCatsSupported<true>>(func, params)
@@ -262,8 +262,8 @@ typename Func::return_t dispatch_on_cats_supported(Func func, predict_params par
                                                                                        params);
 }
 
-template <class Func>
-typename Func::return_t dispatch_on_cols_in_shmem(Func func, predict_params params)
+template <class Func, class T = typename Func::return_t>
+T dispatch_on_cols_in_shmem(Func func, predict_params params)
 {
   return params.cols_in_shmem
            ? dispatch_on_cats_supported<KernelTemplateParams<true>>(func, params)
@@ -272,8 +272,8 @@ typename Func::return_t dispatch_on_cols_in_shmem(Func func, predict_params para
 
 }  // namespace dispatch
 
-template <class Func>
-typename Func::return_t dispatch_on_fil_template_params(Func func, predict_params params)
+template <class Func, class T = typename Func::return_t>
+T dispatch_on_fil_template_params(Func func, predict_params params)
 {
   return dispatch::dispatch_on_cols_in_shmem(func, params);
 }
