@@ -280,46 +280,46 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/glm/glm.cu)
   endif()
 
-  if(all_algo or genetic_algo)
+  if(all_algo OR genetic_algo)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
         src/genetic/genetic.cu
         src/genetic/node.cu)
   endif()
 
-  if(all_algo or hdbscan_algo)
+  if(all_algo OR hdbscan_algo)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
         src/hdbscan/hdbscan.cu
         src/hdbscan/condensed_hierarchy.cu)
   endif()
 
-  if(all_algo or holtwinters_algo)
+  if(all_algo OR holtwinters_algo)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
         src/holtwinters/holtwinters.cu)
   endif()
 
-  if(all_algo or kmeans_algo)
+  if(all_algo OR kmeans_algo)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
         src/kmeans/kmeans.cu)
   endif()
 
-  if(all_algo or knn_algo)
+  if(all_algo OR knn_algo)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
         src/knn/knn.cu
         src/knn/knn_sparse.cu)
   endif()
 
-  if(all_algo or hierarchicalclustering_algo)
+  if(all_algo OR hierarchicalclustering_algo)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
         src/hierarchy/linkage.cu)
   endif()
 
-  if(all_algo or metrics_algo)
+  if(all_algo OR metrics_algo)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
         src/metrics/accuracy_score.cu
@@ -349,39 +349,39 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/metrics/v_measure.cu)
   endif()
 
-  if(all_algo or pca_algo)
+  if(all_algo OR pca_algo)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
         src/pca/pca.cu)
   endif()
 
-  if(all_algo or randomforest_algo)
+  if(all_algo OR randomforest_algo)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
         src/randomforest/randomforest.cu)
   endif()
 
-  if(all_algo or randomprojection_algo)
+  if(all_algo OR randomprojection_algo)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
         src/random_projection/rproj.cu)
   endif()
 
   # todo: separate solvers better
-  if(all_algo or solvers_algo)
+  if(all_algo OR solvers_algo)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
         src/solver/lars.cu
         src/solver/solver.cu)
   endif()
 
-  if(all_algo or spectralclustering_algo)
+  if(all_algo OR spectralclustering_algo)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
         src/spectral/spectral.cu)
   endif()
 
-  if(all_algo or svm_algo)
+  if(all_algo OR svm_algo)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
         rc/svm/svc.cu
@@ -389,26 +389,26 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/svm/ws_util.cu)
   endif()
 
-  if(all_algo or autoarima_algo)
+  if(all_algo OR autoarima_algo)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
         src/tsa/auto_arima.cu
         src/tsa/stationarity.cu)
   endif()
 
-  if(all_algo or tsne_algo)
+  if(all_algo OR tsne_algo)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
         src/tsne/tsne.cu)
   endif()
 
-  if(all_algo or tsvd_algo)
+  if(all_algo OR tsvd_algo)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
         src/tsvd/tsvd.cu)
   endif()
 
-  if(all_algo or tsne_algo)
+  if(all_algo OR tsne_algo)
     target_sources(${CUML_CPP_TARGET}
       PRIVATE
         src/umap/umap.cu)
