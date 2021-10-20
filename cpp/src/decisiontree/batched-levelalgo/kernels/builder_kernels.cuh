@@ -16,13 +16,13 @@
 
 #pragma once
 
+#include "builder_kernels.h"
+
 #include <thrust/binary_search.h>
 #include <common/grid_sync.cuh>
 #include <cstdio>
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
-#include "../metrics.cuh"
-#include "kernels.h"
 
 namespace ML {
 namespace DT {
@@ -34,7 +34,9 @@ static constexpr int TPB_DEFAULT = 128;
  * @brief Partition the samples to left/right nodes based on the best split
  * @return the position of the left child node in the nodes list. However, this
  *         value is valid only for threadIdx.x == 0.
+ *
  * @note this should be called by only one block from all participating blocks
+ *
  *       'smem' should be atleast of size `sizeof(IdxT) * TPB * 2`
  */
 template <typename DataT, typename LabelT, typename IdxT, int TPB>

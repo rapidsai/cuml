@@ -15,9 +15,9 @@
  */
 
 #include <cuml/tree/decisiontree.hpp>
+#include <cuml/tree/flatnode.h>
 #include <raft/handle.hpp>
 
-#include <cuml/tree/flatnode.h>
 #include "decisiontree.cuh"
 
 namespace ML {

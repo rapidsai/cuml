@@ -19,11 +19,8 @@
 #include <common/nvtx.hpp>
 
 #include <decisiontree/treelite_util.h>
-#include <decisiontree/batched-levelalgo/quantile.cuh>
+#include <decisiontree/batched-levelalgo/quantiles.cuh>
 #include <decisiontree/decisiontree.cuh>
-
-#include <cuml/common/logger.hpp>
-#include <cuml/ensemble/randomforest.hpp>
 
 #include <metrics/scores.cuh>
 #include <raft/random/rng.cuh>

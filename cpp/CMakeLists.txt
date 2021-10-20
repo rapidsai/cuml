@@ -273,18 +273,19 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/datasets/make_blobs.cu
         src/datasets/make_regression.cu
         src/dbscan/dbscan.cu
-        src/decisiontree/batched-levelalgo/kernels/mse-float.cu
-        src/decisiontree/batched-levelalgo/kernels/mse-double.cu
-        src/decisiontree/batched-levelalgo/kernels/poisson-float.cu
-        src/decisiontree/batched-levelalgo/kernels/poisson-double.cu
-        src/decisiontree/batched-levelalgo/kernels/gamma-float.cu
-        src/decisiontree/batched-levelalgo/kernels/gamma-double.cu
-        src/decisiontree/batched-levelalgo/kernels/inverse_gaussian-float.cu
-        src/decisiontree/batched-levelalgo/kernels/inverse_gaussian-double.cu
-        src/decisiontree/batched-levelalgo/kernels/gini-float.cu
-        src/decisiontree/batched-levelalgo/kernels/gini-double.cu
-        src/decisiontree/batched-levelalgo/kernels/entropy-float.cu
         src/decisiontree/batched-levelalgo/kernels/entropy-double.cu
+        src/decisiontree/batched-levelalgo/kernels/entropy-float.cu
+        src/decisiontree/batched-levelalgo/kernels/gamma-double.cu
+        src/decisiontree/batched-levelalgo/kernels/gamma-float.cu
+        src/decisiontree/batched-levelalgo/kernels/gini-double.cu
+        src/decisiontree/batched-levelalgo/kernels/gini-float.cu
+        src/decisiontree/batched-levelalgo/kernels/inverse_gaussian-double.cu
+        src/decisiontree/batched-levelalgo/kernels/inverse_gaussian-float.cu
+        src/decisiontree/batched-levelalgo/kernels/mse-double.cu
+        src/decisiontree/batched-levelalgo/kernels/mse-float.cu
+        src/decisiontree/batched-levelalgo/kernels/poisson-double.cu
+        src/decisiontree/batched-levelalgo/kernels/poisson-float.cu
+        src/decisiontree/batched-levelalgo/kernels/quantiles.cu
         src/decisiontree/decisiontree.cu
         src/explainer/kernel_shap.cu
         src/explainer/permutation_shap.cu

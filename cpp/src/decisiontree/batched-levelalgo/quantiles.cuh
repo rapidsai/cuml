@@ -15,6 +15,7 @@
  */
 
 #pragma once
+
 #include <thrust/fill.h>
 #include <cub/cub.cuh>
 #include <memory>
@@ -32,16 +33,7 @@ template <typename T>
 __global__ void computeQuantilesSorted(T* quantiles,
                                        const int n_bins,
                                        const T* sorted_data,
-                                       const int length)
-{
-  int tid          = threadIdx.x + blockIdx.x * blockDim.x;
-  double bin_width = static_cast<double>(length) / n_bins;
-  int index        = int(round((tid + 1) * bin_width)) - 1;
-  index            = min(max(0, index), length - 1);
-  if (tid < n_bins) { quantiles[tid] = sorted_data[index]; }
-
-  return;
-}
+                                       const int length);
 
 template <typename T>
 std::shared_ptr<rmm::device_uvector<T>> computeQuantiles(

@@ -17,7 +17,8 @@
 #pragma once
 
 
-#include "../metrics.cuh"
+#include "../bins.cuh"
+#include "../objectives.cuh"
 
 namespace ML {
 namespace DT {

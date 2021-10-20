@@ -22,13 +22,9 @@
 
 #include <common/Timer.h>
 #include <cuml/tree/flatnode.h>
-#include <common/grid_sync.cuh>
-#include <common/nvtx.hpp>
-#include <cuml/common/logger.hpp>
 #include <cuml/common/pinned_host_vector.hpp>
-#include <cuml/tree/decisiontree.hpp>
 #include <raft/cuda_utils.cuh>
-#include "kernels/kernels.h"
+#include "kernels/builder_kernels.h"
 
 #include <common/nvtx.hpp>
 #include <deque>

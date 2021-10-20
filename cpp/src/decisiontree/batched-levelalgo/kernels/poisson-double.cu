@@ -20,7 +20,7 @@
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
 #include <cuml/tree/flatnode.h>
-#include "kernels.cuh"
+#include "builder_kernels.cuh"
 
 namespace ML {
 namespace DT {
