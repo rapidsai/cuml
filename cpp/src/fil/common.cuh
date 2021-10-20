@@ -196,10 +196,19 @@ struct KernelTemplateParams {
   using IncNItems = KernelTemplateParams<COLS_IN_SHMEM, CATS_SUPPORTED, LEAF_ALGO, N_ITEMS + 1>;
 };
 
+// inherit from this struct to pass the functor to dispatch_on_fil_template_params()
+// compiler will prevent defining a .run() method with a different output type
+template <typename T>
+struct dispatch_functor {
+  typedef T return_t;
+  template <class KernelParams = KernelTemplateParams<>>
+  T run(predict_params);
+};
+
 namespace dispatch {
 
 template <class KernelParams, class Func>
-auto dispatch_on_n_items(Func func, predict_params params) -> decltype(func.run(params))
+typename Func::return_t dispatch_on_n_items(Func func, predict_params params)
 {
   if (params.n_items == KernelParams::N_ITEMS) {
     return func.template run<KernelParams>(params);
@@ -208,11 +217,11 @@ auto dispatch_on_n_items(Func func, predict_params params) -> decltype(func.run(
   } else {
     ASSERT(false, "internal error: n_items > %d or < 1", MAX_N_ITEMS);
   }
-  return func.run(params);  // appeasing the compiler
+  return Func::return_t();  // appeasing the compiler
 }
 
 template <class KernelParams, class Func>
-auto dispatch_on_leaf_algo(Func func, predict_params params) -> decltype(func.run(params))
+typename Func::return_t dispatch_on_leaf_algo(Func func, predict_params params)
 {
   if (params.leaf_algo == KernelParams::LEAF_ALGO) {
     if constexpr (KernelParams::LEAF_ALGO == GROVE_PER_CLASS) {
@@ -234,11 +243,11 @@ auto dispatch_on_leaf_algo(Func func, predict_params params) -> decltype(func.ru
   } else {
     ASSERT(false, "internal error: dispatch: invalid leaf_algo %d", params.leaf_algo);
   }
-  return func.run(params);  // appeasing the compiler
+  return Func::return_t();  // appeasing the compiler
 }
 
 template <class KernelParams, class Func>
-auto dispatch_on_cats_supported(Func func, predict_params params) -> decltype(func.run(params))
+typename Func::return_t dispatch_on_cats_supported(Func func, predict_params params)
 {
   return params.cats_present
            ? dispatch_on_leaf_algo<typename KernelParams::ReplaceCatsSupported<true>>(func, params)
@@ -247,7 +256,7 @@ auto dispatch_on_cats_supported(Func func, predict_params params) -> decltype(fu
 }
 
 template <class Func>
-auto dispatch_on_cols_in_shmem(Func func, predict_params params) -> decltype(func.run(params))
+typename Func::return_t dispatch_on_cols_in_shmem(Func func, predict_params params)
 {
   return params.cols_in_shmem
            ? dispatch_on_cats_supported<KernelTemplateParams<true>>(func, params)
@@ -257,15 +266,16 @@ auto dispatch_on_cols_in_shmem(Func func, predict_params params) -> decltype(fun
 }  // namespace dispatch
 
 template <class Func>
-auto dispatch_on_fil_template_params(Func func, predict_params params) -> decltype(func.run(params))
+typename Func::return_t dispatch_on_fil_template_params(Func func, predict_params params)
 {
   return dispatch::dispatch_on_cols_in_shmem(func, params);
 }
 
-// For an example of Func, see this:
-struct compute_smem_footprint {
+// For an example of Func declaration, see this.
+// the .run(predict_params) method will be defined in infer.cu
+struct compute_smem_footprint : dispatch_functor<int> {
   template <class KernelParams = KernelTemplateParams<>>
-  int run(predict_params ssp);
+  int run(predict_params);
 };
 
 // infer() calls the inference kernel with the parameters on the stream

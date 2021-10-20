@@ -864,9 +864,13 @@ int compute_smem_footprint::run(predict_params ssp)
 template int dispatch_on_fil_template_params(compute_smem_footprint, predict_params);
 
 template <typename storage_type>
-struct infer_k_storage_template {
+struct infer_k_storage_template : dispatch_functor<void> {
   storage_type forest;
   cudaStream_t stream;
+  infer_k_storage_template(storage_type forest_, cudaStream_t stream_)
+    : forest(forest_), stream(stream_)
+  {
+  }
 
   template <class KernelParams = KernelTemplateParams<>>
   void run(predict_params params)
@@ -886,7 +890,7 @@ struct infer_k_storage_template {
 template <typename storage_type>
 void infer(storage_type forest, predict_params params, cudaStream_t stream)
 {
-  dispatch_on_fil_template_params(infer_k_storage_template<storage_type>{forest, stream}, params);
+  dispatch_on_fil_template_params(infer_k_storage_template<storage_type>(forest, stream), params);
 }
 
 template void infer<dense_storage>(dense_storage forest,
