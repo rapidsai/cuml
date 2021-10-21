@@ -31,7 +31,7 @@ function(find_and_configure_raft)
       INSTALL_EXPORT_SET  cuml-exports
         CPM_ARGS
             GIT_REPOSITORY https://github.com/cjnolet/raft.git
-            GIT_TAG        imp-2112-public_api
+            GIT_TAG        imp-2112-ext_libs
             SOURCE_SUBDIR  cpp
             OPTIONS
               "BUILD_TESTS OFF"
@@ -57,5 +57,5 @@ set(CUML_BRANCH_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION    ${CUML_MIN_VERSION_raft}
                         FORK       cjnolet
-                        PINNED_TAG imp-2112-public_api
+                        PINNED_TAG imp-2112-ext_libs
                         )
