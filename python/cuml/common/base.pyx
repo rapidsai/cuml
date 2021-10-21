@@ -160,7 +160,7 @@ class Base(TagsMixin,
                  handle=None,
                  verbose=False,
                  output_type=None,
-                 handle_kwargs=None):
+                 handle_kwargs={}):
         """
         Constructor. All children must call init method of this base class.
 
