@@ -22,9 +22,9 @@
 #include <raft/cudart_utils.h>
 #include <raft/handle.hpp>
 
-#include "treelite_util.h"
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
+#include "treelite_util.h"
 
 #include <algorithm>
 #include <climits>
@@ -257,7 +257,8 @@ class DecisionTree {
                                                                  unique_labels,
                                                                  quantiles)
         .train();
-    } else if (not std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::ENTROPY){
+    } else if (not std::is_same<DataT, LabelT>::value and
+               params.split_criterion == CRITERION::ENTROPY) {
       return Builder<EntropyObjectiveFunction<DataT, LabelT, IdxT>>(handle,
                                                                     s,
                                                                     treeid,
@@ -271,7 +272,7 @@ class DecisionTree {
                                                                     unique_labels,
                                                                     quantiles)
         .train();
-    } else if (std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::MSE ) {
+    } else if (std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::MSE) {
       return Builder<MSEObjectiveFunction<DataT, LabelT, IdxT>>(handle,
                                                                 s,
                                                                 treeid,
@@ -285,7 +286,8 @@ class DecisionTree {
                                                                 unique_labels,
                                                                 quantiles)
         .train();
-    } else if (std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::POISSON ) {
+    } else if (std::is_same<DataT, LabelT>::value and
+               params.split_criterion == CRITERION::POISSON) {
       return Builder<PoissonObjectiveFunction<DataT, LabelT, IdxT>>(handle,
                                                                     s,
                                                                     treeid,
@@ -299,7 +301,7 @@ class DecisionTree {
                                                                     unique_labels,
                                                                     quantiles)
         .train();
-    } else if (std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::GAMMA ) {
+    } else if (std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::GAMMA) {
       return Builder<GammaObjectiveFunction<DataT, LabelT, IdxT>>(handle,
                                                                   s,
                                                                   treeid,
@@ -313,7 +315,8 @@ class DecisionTree {
                                                                   unique_labels,
                                                                   quantiles)
         .train();
-    } else if (std::is_same<DataT, LabelT>::value and params.split_criterion == CRITERION::INVERSE_GAUSSIAN) {
+    } else if (std::is_same<DataT, LabelT>::value and
+               params.split_criterion == CRITERION::INVERSE_GAUSSIAN) {
       return Builder<InverseGaussianObjectiveFunction<DataT, LabelT, IdxT>>(handle,
                                                                             s,
                                                                             treeid,

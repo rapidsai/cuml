@@ -29,7 +29,6 @@ namespace DT {
 
 static constexpr int TPB_DEFAULT = 128;
 
-
 /**
  * @brief Partition the samples to left/right nodes based on the best split
  * @return the position of the left child node in the nodes list. However, this
@@ -144,8 +143,6 @@ __device__ OutT* alignPointer(InT input)
   return reinterpret_cast<OutT*>(raft::alignTo(reinterpret_cast<size_t>(input), sizeof(OutT)));
 }
 
-
-
 /**
  * @brief For a given values of (treeid, nodeid, seed), this function generates
  *        a unique permutation of [0, N - 1] values and returns 'k'th entry in
@@ -222,7 +219,6 @@ DI BinT pdf_to_cdf(BinT* shared_histogram, IdxT nbins)
   // return the total sum
   return total_aggregate;
 }
-
 
 template <typename DataT,
           typename LabelT,
@@ -346,5 +342,39 @@ __global__ void computeSplitKernel(BinT* hist,
   sp.evalBestSplit(smem, splits + nid, mutex + nid);
 }
 
+// "almost" instantiation templates to avoid code-duplication
+template __global__ void nodeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT>(
+  _IdxT max_depth,
+  _IdxT min_samples_leaf,
+  _IdxT min_samples_split,
+  _IdxT max_leaves,
+  _DataT min_impurity_decrease,
+  Input<_DataT, _LabelT, _IdxT> input,
+  NodeWorkItem* work_items,
+  const Split<_DataT, _IdxT>* splits);
+
+template __global__ void leafKernel<_InputT, _NodeT, _ObjectiveT, _DataT>(
+  _ObjectiveT objective,
+  _InputT input,
+  const _NodeT* tree,
+  const InstanceRange* instance_ranges,
+  _DataT* leaves);
+template __global__ void
+computeSplitKernel<_DataT, _LabelT, _IdxT, TPB_DEFAULT, _ObjectiveT, _BinT>(
+  _BinT* hist,
+  _IdxT nbins,
+  _IdxT max_depth,
+  _IdxT min_samples_split,
+  _IdxT max_leaves,
+  Input<_DataT, _LabelT, _IdxT> input,
+  const NodeWorkItem* work_items,
+  _IdxT colStart,
+  int* done_count,
+  int* mutex,
+  volatile Split<_DataT, _IdxT>* splits,
+  _ObjectiveT objective,
+  _IdxT treeid,
+  const WorkloadInfo<_IdxT>* workload_info,
+  uint64_t seed);
 }  // namespace DT
 }  // namespace ML

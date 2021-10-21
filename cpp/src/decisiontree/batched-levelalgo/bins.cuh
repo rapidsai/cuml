@@ -70,5 +70,5 @@ struct AggregateBin {
     return b;
   }
 };
-} // DT
-} // ML
+}  // namespace DT
+}  // namespace ML

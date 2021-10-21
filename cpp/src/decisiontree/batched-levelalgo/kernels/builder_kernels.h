@@ -16,7 +16,6 @@
 
 #pragma once
 
-
 #include "../bins.cuh"
 #include "../objectives.cuh"
 

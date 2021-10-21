@@ -14,61 +14,24 @@
  * limitations under the License.
  */
 
+#include <cuml/tree/flatnode.h>
 #include <thrust/binary_search.h>
 #include <common/grid_sync.cuh>
 #include <cstdio>
 #include <cub/cub.cuh>
 #include <raft/cuda_utils.cuh>
-#include <cuml/tree/flatnode.h>
-#include "builder_kernels.cuh"
+#include "builder_kernels.h"
 
 namespace ML {
 namespace DT {
-  using DataT      = float;
-  using LabelT     = float;
-  using IdxT       = int;
-  using ObjectiveT = PoissonObjectiveFunction<DataT, LabelT, IdxT>;
-  using BinT       = AggregateBin;
-  using InputT     = Input<DataT, LabelT, IdxT>;
-  using NodeT      = SparseTreeNode<DataT, LabelT, IdxT>;
-  // "almost" instantiation templates to avoid code-duplication
-  template
-  __global__ void nodeSplitKernel< DataT,  LabelT,  IdxT,  TPB_DEFAULT>(IdxT max_depth,
-                                  IdxT min_samples_leaf,
-                                  IdxT min_samples_split,
-                                  IdxT max_leaves,
-                                  DataT min_impurity_decrease,
-                                  Input<DataT, LabelT, IdxT> input,
-                                  NodeWorkItem* work_items,
-                                  const Split<DataT, IdxT>* splits);
-
-  template
-  __global__ void leafKernel< InputT,  NodeT,  ObjectiveT,  DataT>(ObjectiveT objective,
-                            InputT input,
-                            const NodeT* tree,
-                            const InstanceRange* instance_ranges,
-                            DataT* leaves);
-  template
-  __global__ void computeSplitKernel< DataT,
-            LabelT,
-            IdxT,
-            TPB_DEFAULT,
-            ObjectiveT,
-            BinT>(BinT* hist,
-                                    IdxT nbins,
-                                    IdxT max_depth,
-                                    IdxT min_samples_split,
-                                    IdxT max_leaves,
-                                    Input<DataT, LabelT, IdxT> input,
-                                    const NodeWorkItem* work_items,
-                                    IdxT colStart,
-                                    int* done_count,
-                                    int* mutex,
-                                    volatile Split<DataT, IdxT>* splits,
-                                    ObjectiveT objective,
-                                    IdxT treeid,
-                                    const WorkloadInfo<IdxT>* workload_info,
-                                    uint64_t seed);
-
+using _DataT      = float;
+using _LabelT     = float;
+using _IdxT       = int;
+using _ObjectiveT = PoissonObjectiveFunction<_DataT, _LabelT, _IdxT>;
+using _BinT       = AggregateBin;
+using _InputT     = Input<_DataT, _LabelT, _IdxT>;
+using _NodeT      = SparseTreeNode<_DataT, _LabelT, _IdxT>;
 }  // namespace DT
 }  // namespace ML
+
+#include "builder_kernels.cuh"

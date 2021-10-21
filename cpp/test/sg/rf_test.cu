@@ -31,8 +31,8 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/handle.hpp>
 
-#include <thrust/device_vector.h>
 #include <thrust/binary_search.h>
+#include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 #include <thrust/logical.h>
 

@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-
 #include <cuml/tree/flatnode.h>
 #include <cuml/common/logger.hpp>
 #include <cuml/ensemble/randomforest.hpp>

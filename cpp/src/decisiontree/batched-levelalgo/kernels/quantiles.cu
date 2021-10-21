@@ -34,18 +34,15 @@ __global__ void computeQuantilesSorted(T* quantiles,
   return;
 }
 
-
 // specialization
-template
-__global__ void computeQuantilesSorted<float>(float* quantiles,
-                                       const int n_bins,
-                                       const float* sorted_data,
-                                       const int length);
-template
-__global__ void computeQuantilesSorted<double>(double* quantiles,
-                                       const int n_bins,
-                                       const double* sorted_data,
-                                       const int length);
+template __global__ void computeQuantilesSorted<float>(float* quantiles,
+                                                       const int n_bins,
+                                                       const float* sorted_data,
+                                                       const int length);
+template __global__ void computeQuantilesSorted<double>(double* quantiles,
+                                                        const int n_bins,
+                                                        const double* sorted_data,
+                                                        const int length);
 
-} // end namespace DT
-} // end namespace ML
+}  // end namespace DT
+}  // end namespace ML
