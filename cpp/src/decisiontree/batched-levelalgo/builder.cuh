@@ -369,7 +369,7 @@ struct Builder {
     // create child nodes (or make the current ones leaf)
     auto smemSize = 2 * sizeof(IdxT) * TPB_DEFAULT;
     ML::PUSH_RANGE("nodeSplitKernel @builder_base.cuh [batched-levelalgo]");
-    nodeSplitKernel<DataT, LabelT, IdxT, ObjectiveT, TPB_DEFAULT>
+    nodeSplitKernel<DataT, LabelT, IdxT, TPB_DEFAULT>
       <<<work_items.size(), TPB_DEFAULT, smemSize, builder_stream>>>(params.max_depth,
                                                                      params.min_samples_leaf,
                                                                      params.min_samples_split,

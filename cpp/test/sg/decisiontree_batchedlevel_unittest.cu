@@ -195,7 +195,7 @@ TEST_P(TestNodeSplitKernel, MinSamplesSplitLeaf)
   std::vector<SplitT> h_splits{{-1.5f, 0, 0.25f, 1}, {2.0f, 1, 3.555556f, 2}};
   raft::update_device(splits, h_splits.data(), 2, stream);
 
-  nodeSplitKernel<DataT, LabelT, IdxT, ObjectiveT, builder.TPB_SPLIT>
+  nodeSplitKernel<DataT, LabelT, IdxT, builder.TPB_SPLIT>
     <<<batchSize, builder.TPB_SPLIT, smemSize, 0>>>(params.max_depth,
                                                     test_params.min_samples_leaf,
                                                     test_params.min_samples_split,

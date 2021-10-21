@@ -60,7 +60,7 @@ HDI bool SplitNotValid(const SplitT& split,
          (IdxT(num_rows) - split.nLeft) < min_samples_leaf;
 }
 
-template <typename DataT, typename LabelT, typename IdxT, typename ObjectiveT, int TPB>
+template <typename DataT, typename LabelT, typename IdxT, int TPB>
 __global__ void nodeSplitKernel(IdxT max_depth,
                                 IdxT min_samples_leaf,
                                 IdxT min_samples_split,

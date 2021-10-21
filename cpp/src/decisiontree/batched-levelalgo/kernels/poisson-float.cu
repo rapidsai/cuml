@@ -24,42 +24,51 @@
 
 namespace ML {
 namespace DT {
-template
-__global__ void nodeSplitKernel<float, float, int, PoissonObjectiveFunction<float, float, int>, TPB_DEFAULT>(int max_depth,
-                                int min_samples_leaf,
-                                int min_samples_split,
-                                int max_leaves,
-                                float min_impurity_decrease,
-                                Input<float, float, int> input,
-                                NodeWorkItem* work_items,
-                                const Split<float, int>* splits);
-template
-__global__ void leafKernel< Input<float, float, int>,  SparseTreeNode<float, float, int>,  PoissonObjectiveFunction<float, float, int>,  float>
-(PoissonObjectiveFunction<float, float, int> objective,
-                           Input<float, float, int> input,
-                           const SparseTreeNode<float, float, int>* tree,
-                           const InstanceRange* instance_ranges,
-                           float* leaves);
-template
-__global__ void computeSplitKernel< float,
-           float,
-           int,
-           TPB_DEFAULT,
-           PoissonObjectiveFunction<float, float, int>,
-           AggregateBin>(AggregateBin* hist,
-                                   int nbins,
-                                   int max_depth,
-                                   int min_samples_split,
-                                   int max_leaves,
-                                   Input<float, float, int> input,
-                                   const NodeWorkItem* work_items,
-                                   int colStart,
-                                   int* done_count,
-                                   int* mutex,
-                                   volatile Split<float, int>* splits,
-                                   PoissonObjectiveFunction<float, float, int> objective,
-                                   int treeid,
-                                   const WorkloadInfo<int>* workload_info,
-                                   uint64_t seed);
+  using DataT      = float;
+  using LabelT     = float;
+  using IdxT       = int;
+  using ObjectiveT = PoissonObjectiveFunction<DataT, LabelT, IdxT>;
+  using BinT       = AggregateBin;
+  using InputT     = Input<DataT, LabelT, IdxT>;
+  using NodeT      = SparseTreeNode<DataT, LabelT, IdxT>;
+  // "almost" instantiation templates to avoid code-duplication
+  template
+  __global__ void nodeSplitKernel< DataT,  LabelT,  IdxT,  TPB_DEFAULT>(IdxT max_depth,
+                                  IdxT min_samples_leaf,
+                                  IdxT min_samples_split,
+                                  IdxT max_leaves,
+                                  DataT min_impurity_decrease,
+                                  Input<DataT, LabelT, IdxT> input,
+                                  NodeWorkItem* work_items,
+                                  const Split<DataT, IdxT>* splits);
+
+  template
+  __global__ void leafKernel< InputT,  NodeT,  ObjectiveT,  DataT>(ObjectiveT objective,
+                            InputT input,
+                            const NodeT* tree,
+                            const InstanceRange* instance_ranges,
+                            DataT* leaves);
+  template
+  __global__ void computeSplitKernel< DataT,
+            LabelT,
+            IdxT,
+            TPB_DEFAULT,
+            ObjectiveT,
+            BinT>(BinT* hist,
+                                    IdxT nbins,
+                                    IdxT max_depth,
+                                    IdxT min_samples_split,
+                                    IdxT max_leaves,
+                                    Input<DataT, LabelT, IdxT> input,
+                                    const NodeWorkItem* work_items,
+                                    IdxT colStart,
+                                    int* done_count,
+                                    int* mutex,
+                                    volatile Split<DataT, IdxT>* splits,
+                                    ObjectiveT objective,
+                                    IdxT treeid,
+                                    const WorkloadInfo<IdxT>* workload_info,
+                                    uint64_t seed);
+
 }  // namespace DT
 }  // namespace ML
