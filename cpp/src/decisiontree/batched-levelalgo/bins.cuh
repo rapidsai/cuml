@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#pragma once
+#include <raft/cuda_utils.cuh>
 
 namespace ML {
 namespace DT {

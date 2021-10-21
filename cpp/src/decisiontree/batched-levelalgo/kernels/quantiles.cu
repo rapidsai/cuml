@@ -34,7 +34,7 @@ __global__ void computeQuantilesSorted(T* quantiles,
   return;
 }
 
-// specialization
+// instantiation
 template __global__ void computeQuantilesSorted<float>(float* quantiles,
                                                        const int n_bins,
                                                        const float* sorted_data,

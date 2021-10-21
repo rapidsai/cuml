@@ -16,7 +16,7 @@
 #include <test_utils.h>
 #include <cuml/common/logger.hpp>
 
-#include <decisiontree/batched-levelalgo/kernels/builder_kernels.h>
+#include <decisiontree/batched-levelalgo/kernels/builder_kernels.cuh>
 #include <decisiontree/batched-levelalgo/quantiles.cuh>
 
 #include <cuml/fil/fil.h>

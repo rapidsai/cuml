@@ -24,7 +24,7 @@
 #include <cuml/tree/flatnode.h>
 #include <cuml/common/pinned_host_vector.hpp>
 #include <raft/cuda_utils.cuh>
-#include "kernels/builder_kernels.h"
+#include "kernels/builder_kernels.cuh"
 
 #include <common/nvtx.hpp>
 #include <deque>

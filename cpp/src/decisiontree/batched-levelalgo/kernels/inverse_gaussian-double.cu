@@ -15,12 +15,9 @@
  */
 
 #include <cuml/tree/flatnode.h>
-#include <thrust/binary_search.h>
-#include <common/grid_sync.cuh>
-#include <cstdio>
-#include <cub/cub.cuh>
-#include <raft/cuda_utils.cuh>
-#include "builder_kernels.h"
+
+#include "../bins.cuh"
+#include "../objectives.cuh"
 
 namespace ML {
 namespace DT {
@@ -34,4 +31,4 @@ using _NodeT      = SparseTreeNode<_DataT, _LabelT, _IdxT>;
 }  // namespace DT
 }  // namespace ML
 
-#include "builder_kernels.cuh"
+#include "builder_kernels_impl.cuh"
