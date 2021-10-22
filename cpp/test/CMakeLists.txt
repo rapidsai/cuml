@@ -126,7 +126,6 @@ if(BUILD_CUML_MG_TESTS)
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src_prims>
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/prims>
-
       )
 
     target_link_libraries(${CUML_MG_TEST_TARGET}
