@@ -16,6 +16,8 @@
  */
 
 #pragma once
+
+#include <raft/distance/distance_specializations.hpp>
 #include <raft/distance/distance.hpp>
 #include <raft/handle.hpp>
 
