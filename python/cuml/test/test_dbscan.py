@@ -14,6 +14,7 @@
 #
 
 import numpy as np
+from numpy.testing import assert_raises
 import pytest
 
 from cuml.test.utils import get_handle
@@ -366,3 +367,11 @@ def test_dbscan_no_calc_core_point_indices():
 
     # Make sure we are None
     assert(cuml_dbscan.core_sample_indices_ is None)
+
+
+def test_dbscan_on_empty_array():
+
+    X = np.array([])
+    cuml_dbscan = cuDBSCAN()
+
+    assert_raises(ValueError, cuml_dbscan.fit, X)
