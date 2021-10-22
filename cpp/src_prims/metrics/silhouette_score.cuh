@@ -25,7 +25,7 @@
 #include <linalg/reduce_cols_by_key.cuh>
 #include <numeric>
 #include <raft/cuda_utils.cuh>
-#include <raft/distance/distance.cuh>
+#include <raft/distance/distance.hpp>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/map_then_reduce.cuh>
