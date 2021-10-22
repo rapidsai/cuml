@@ -31,7 +31,7 @@ cdef extern from "cuml/decomposition/params.hpp" namespace "ML" nogil:
 
     cdef cppclass paramsSolver(params):
         float tol
-        size_t n_iterations
+        unsigned n_iterations
         int verbose
 
     cdef cppclass paramsTSVD(paramsSolver):

@@ -40,7 +40,7 @@ class paramsSolver : public params {
  public:
   // math_t tol = 0.0;
   float tol                = 0.0;
-  std::size_t n_iterations = 15;
+  std::uint32_t n_iterations = 15;
   int verbose              = 0;
 };
 
