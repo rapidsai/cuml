@@ -16,6 +16,7 @@
 
 #include <cuml/metrics/metrics.hpp>
 #include <raft/spatial/knn/knn.hpp>
+#include <raft/spatial/knn/knn_specializations.hpp>
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
 #include <selection/columnWiseSort.cuh>
@@ -99,19 +100,19 @@ void run_knn(const raft::handle_t& h,
   ptrs[0]  = input;
   sizes[0] = n;
 
-  raft::spatial::knn::brute_force_knn(h,
-                                      ptrs,
-                                      sizes,
-                                      d,
-                                      input,
-                                      n,
-                                      indices,
-                                      distances,
-                                      n_neighbors,
-                                      true,
-                                      true,
-                                      nullptr,
-                                      distance_type);
+  raft::spatial::knn::brute_force_knn<int64_t, float, int>(h,
+                                                           ptrs,
+                                                           sizes,
+                                                           d,
+                                                           input,
+                                                           n,
+                                                           indices,
+                                                           distances,
+                                                           n_neighbors,
+                                                           true,
+                                                           true,
+                                                           nullptr,
+                                                           distance_type);
 }
 
 /**

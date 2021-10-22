@@ -19,7 +19,9 @@
 #include <raft/label/classlabels.cuh>
 #include <raft/spatial/knn/ann.hpp>
 #include <raft/spatial/knn/ball_cover.hpp>
+
 #include <raft/spatial/knn/knn.hpp>
+#include <raft/spatial/knn/knn_specializations.hpp>
 #include <rmm/device_uvector.hpp>
 
 #include <cuml/common/logger.hpp>
@@ -49,20 +51,20 @@ void brute_force_knn(const raft::handle_t& handle,
 {
   ASSERT(input.size() == sizes.size(), "input and sizes vectors must be the same size");
 
-  raft::spatial::knn::brute_force_knn(handle,
-                                      input,
-                                      sizes,
-                                      D,
-                                      search_items,
-                                      n,
-                                      res_I,
-                                      res_D,
-                                      k,
-                                      rowMajorIndex,
-                                      rowMajorQuery,
-                                      nullptr,
-                                      metric,
-                                      metric_arg);
+  raft::spatial::knn::brute_force_knn<int64_t, float, int>(handle,
+                                                           input,
+                                                           sizes,
+                                                           D,
+                                                           search_items,
+                                                           n,
+                                                           res_I,
+                                                           res_D,
+                                                           k,
+                                                           rowMajorIndex,
+                                                           rowMajorQuery,
+                                                           nullptr,
+                                                           metric,
+                                                           metric_arg);
 }
 
 void rbc_build_index(const raft::handle_t& handle,

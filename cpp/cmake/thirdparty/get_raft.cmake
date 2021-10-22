@@ -26,7 +26,7 @@ function(find_and_configure_raft)
     endif()
 
     rapids_cpm_find(raft ${PKG_VERSION}
-      GLOBAL_TARGETS      raft::raft raft::raft_distance
+      GLOBAL_TARGETS      raft::raft raft::raft_distance raft::raft_nn
       BUILD_EXPORT_SET    cuml-exports
       INSTALL_EXPORT_SET  cuml-exports
         CPM_ARGS
