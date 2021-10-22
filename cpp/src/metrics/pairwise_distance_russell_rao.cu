@@ -15,7 +15,6 @@
  * limitations under the License.
  */
 
-#include <raft/distance/distance.hpp>
 #include <raft/handle.hpp>
 #include <rmm/device_uvector.hpp>
 #include "pairwise_distance_russell_rao.cuh"
