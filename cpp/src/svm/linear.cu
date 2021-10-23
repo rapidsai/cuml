@@ -91,15 +91,6 @@ struct PredictClass {
     const int BY = BlockSize / BX;
     const dim3 bs(BX, BY, 1);
     const dim3 gs(1, raft::ceildiv(nRows, BY), 1);
-    printf("predictClass<T, %d, %d><<(%d, %d, %d), (%d, %d, %d)>>>()\n",
-           BX,
-           BY,
-           gs.x,
-           gs.y,
-           gs.z,
-           bs.x,
-           bs.y,
-           bs.z);
     predictClass<T, BX, BY><<<gs, bs, 0, stream>>>(out, z, classes, nRows, coefCols);
   }
 };
@@ -180,17 +171,6 @@ struct PredictProba {
     const bool Binary = BX == 2;
     const dim3 bs(BX, BY, 1);
     const dim3 gs(1, raft::ceildiv(nRows, BY), 1);
-    printf("PredictProba<T, %d, %d><<(%d, %d, %d), (%d, %d, %d)>>>(binary = %d, log = %d)\n",
-           BX,
-           BY,
-           gs.x,
-           gs.y,
-           gs.z,
-           bs.x,
-           bs.y,
-           bs.z,
-           Binary,
-           log);
     if constexpr (Binary)
       ASSERT((void*)out != (void*)z, "PredictProba for the binary case cannot be inplace.");
     if (log)
