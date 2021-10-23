@@ -14,33 +14,38 @@
  * limitations under the License.
  */
 
-/** @file treelite-import.cu converts from treelite format to a FIL-centric CPU-RAM format, so that fil.cu can make a `forest` object out of it. */
+/** @file treelite-import.cu converts from treelite format to a FIL-centric CPU-RAM format, so that
+ * fil.cu can make a `forest` object out of it. */
 
 #include "common.cuh"
+#include "internal.cuh"
 
 #include <cuml/fil/fil.h>
 #include <cuml/fil/fnv_hash.h>
-#include <cuml/common/logger.hpp>
+#include <cuml/common/logger.hpp>  // for CUML_LOG_WARN
 
 #include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
+#include <raft/error.hpp>   // for ASSERT
+#include <raft/handle.hpp>  // for handle_t
 
+#include <bits/stdint-uintn.h>  // for uint8_t
 #include <treelite/c_api.h>
 #include <treelite/tree.h>
+#include <iosfwd>  // for ios, stringstream
 
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 
-#include <omp.h>
+#include <omp.h>  // for omp
+
+#include <cmath>    // for NAN
+#include <cstddef>  // for size_t
+#include <cstdint>  // for uint8_t
 
 #include <algorithm>
-#include <bitset>
-#include <cmath>
-#include <cstddef>
-#include <cstdint>
+#include <bitset>  // for bitset
 #include <iomanip>
-#include <limits>
 #include <stack>
 #include <utility>
 
@@ -866,4 +871,3 @@ char* sprintf_shape(const tl::ModelImpl<threshold_t, leaf_t>& model,
 
 }  // namespace fil
 }  // namespace ML
-

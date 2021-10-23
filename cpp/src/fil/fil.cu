@@ -15,36 +15,25 @@
  */
 
 /** @file fil.cu implements loading the forest into the FIL `forest` object
-    (the persisting result of import) and implementing `forest` methods like `predict` 
+    (the persisting result of import) and implementing `forest` methods like `predict`
     (the main inference kernel is defined in infer.cu). */
 
 #include "common.cuh"
+#include "internal.cuh"
 
 #include <cuml/fil/fil.h>
-#include <cuml/fil/fnv_hash.h>
 #include <cuml/common/logger.hpp>
 
-#include <raft/cudart_utils.h>
-#include <raft/handle.hpp>
-
-#include <treelite/c_api.h>
-#include <treelite/tree.h>
+#include <raft/cudart_utils.h>  // for CUDA_CHECK
+#include <raft/error.hpp>       // for ASSERT
+#include <raft/handle.hpp>      // for handle_t
 
 #include <thrust/device_ptr.h>
 #include <thrust/device_vector.h>
 #include <thrust/host_vector.h>
 
-#include <omp.h>
-
-#include <algorithm>
-#include <bitset>
-#include <cmath>
-#include <cstddef>
-#include <cstdint>
-#include <iomanip>
-#include <limits>
-#include <stack>
-#include <utility>
+#include <cmath>    // for expf
+#include <cstddef>  // for size_t
 
 namespace ML {
 namespace fil {
