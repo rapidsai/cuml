@@ -228,24 +228,12 @@ inline bool isRegression(LinearSVMParams::Loss loss)
          loss == LinearSVMParams::SQUARED_EPSILON_INSENSITIVE;
 }
 
-// template <typename T>
-// struct SignFun {
-//   const T H1_value;
-//   __device__ T operator()(const T x) const { return x == H1_value ? 1 : -1; }
-// };
-
 template <typename T>
 struct OvrSelector {
   const T* classes;
   const int selected;
   __device__ T operator()(const T x) const { return x == classes[selected] ? 1 : -1; }
 };
-
-// template <typename T>
-// struct IndicatorFun {
-//   const T H1_value;
-//   __device__ T operator()(const T x) const { return T(x == H1_value); }
-// };
 
 template <typename T>
 void predict_linear(const raft::handle_t& handle,
@@ -384,47 +372,49 @@ LinearSVMModel<T>::LinearSVMModel(const raft::handle_t& handle,
   }
 
   ML::POP_RANGE();
-  if (!params.probability) return;
 
-  ML::PUSH_RANGE("Trace::LinearSVMModel::fit-probabilities");
-  probScale.resize(coefCols * (coefCols + 1), stream);
+  /** TODO: probabolisting calibration is disabled for now, multiclass case is not ready. */
+  // if (!params.probability) return;
 
-  rmm::device_uvector<T> xwBuf(nRows * coefCols, stream);
-  T* xw = xwBuf.data();
-  predict_linear(handle, X, w.data(), nRows, nCols, coefCols, params.fit_intercept, xw, stream);
+  // ML::PUSH_RANGE("Trace::LinearSVMModel::fit-probabilities");
+  // probScale.resize(coefCols * (coefCols + 1), stream);
 
-  // here we should encode the labels into corresponding `classes` indices.
-  // for now, we assume labels are the values from 0 to classes.size() - 1.
-  // raft::linalg::unaryOp(y1, y, nRows, IndicatorFun<T>{T(params.H1_value)}, stream);
+  // rmm::device_uvector<T> xwBuf(nRows * coefCols, stream);
+  // T* xw = xwBuf.data();
+  // predict_linear(handle, X, w.data(), nRows, nCols, coefCols, params.fit_intercept, xw, stream);
 
-  GLM::qnFit<T>(handle,
-                xw,
-                false,
-                (T*)y,
-                nRows,
-                coefCols,
-                nClasses,
-                true,
-                0,
-                0,
-                params.max_iter,
-                T(params.grad_tol),
-                T(params.change_tol),
-                params.linesearch_max_iter,
-                params.lbfgs_memory,
-                params.verbose,
-                probScale.data(),
-                &target,
-                &num_iters,
-                nClasses == 2 ? 0 /* logistic loss*/ : 2 /** softmax */,
-                stream,
-                (T*)sampleWeight);
+  // // here we should encode the labels into corresponding `classes` indices.
+  // // for now, we assume labels are the values from 0 to classes.size() - 1.
+  // // raft::linalg::unaryOp(y1, y, nRows, IndicatorFun<T>{T(params.H1_value)}, stream);
 
-  CUML_LOG_DEBUG("LinearSVM finished fitting probabilities in %d iterations out of maximum %d.",
-                 num_iters,
-                 params.max_iter);
+  // GLM::qnFit<T>(handle,
+  //               xw,
+  //               false,
+  //               (T*)y,
+  //               nRows,
+  //               coefCols,
+  //               nClasses,
+  //               true,
+  //               0,
+  //               0,
+  //               params.max_iter,
+  //               T(params.grad_tol),
+  //               T(params.change_tol),
+  //               params.linesearch_max_iter,
+  //               params.lbfgs_memory,
+  //               params.verbose,
+  //               probScale.data(),
+  //               &target,
+  //               &num_iters,
+  //               nClasses == 2 ? 0 /* logistic loss*/ : 2 /** softmax */,
+  //               stream,
+  //               (T*)sampleWeight);
 
-  ML::POP_RANGE();
+  // CUML_LOG_DEBUG("LinearSVM finished fitting probabilities in %d iterations out of maximum %d.",
+  //                num_iters,
+  //                params.max_iter);
+
+  // ML::POP_RANGE();
 }
 
 template <typename T>
@@ -460,8 +450,9 @@ void LinearSVMModel<T>::predict_proba(
   predict_linear(
     handle, X, w.data(), nRows, nCols, coefCols, params.fit_intercept, temp.data(), stream);
 
+  /** TODO: apply probScale calibration! */
+
   PredictProba<T>::run(out, temp.data(), nRows, classes.size(), log, handle.get_stream());
-  // cudaStream_t stream = handle.get_stream();
 }
 
 template class LinearSVMModel<float>;
