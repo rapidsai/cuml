@@ -193,7 +193,6 @@ cdef class LinearSVMWrapper:
     cdef object handle
     cdef LinearSVMModelPtr model
 
-    cdef readonly int n_classes_
     cdef object __coef_
     cdef object __intercept_
     cdef object __classes_
@@ -217,7 +216,7 @@ cdef class LinearSVMWrapper:
         rmm.cudaMemcpyAsync(
             <void*><uintptr_t>target.ptr,
             <void*><uintptr_t>source.ptr,
-            <size_t>(source.size * source.dtype.itemsize),
+            <size_t>(source.nbytes),
             rmm.cudaMemcpyDeviceToDevice,
             stream)
         if synchronize:
@@ -298,25 +297,26 @@ cdef class LinearSVMWrapper:
             wRows = nCols + (1 if params.fit_intercept else 0)
             nClasses = classes.shape[0] if classes is not None else 0
 
-            wSize = coefs.size + (
-                intercept.size if params.fit_intercept else 0)
+            wSize = wCols * wRows
             if self.dtype == np.float32:
                 self.model.float32 = new LinearSVMModel[float](
                     deref(h), params)
                 self.model.float32.w.resize(wSize, sview)
                 if classes is not None:
-                    self.model.float32.classes.resize(classes.size, sview)
+                    self.model.float32.classes.resize(nClasses, sview)
                 if probScale is not None:
-                    self.model.float32.probScale.resize(probScale.size, sview)
+                    pSize = probScale.nbytes / self.dtype.itemsize
+                    self.model.float32.probScale.resize(pSize, sview)
 
             elif self.dtype == np.float64:
                 self.model.float64 = new LinearSVMModel[double](
                     deref(h), params)
                 self.model.float64.w.resize(wSize, sview)
                 if classes is not None:
-                    self.model.float64.classes.resize(classes.size, sview)
+                    self.model.float64.classes.resize(nClasses, sview)
                 if probScale is not None:
-                    self.model.float64.probScale.resize(probScale.size, sview)
+                    pSize = probScale.nbytes / self.dtype.itemsize
+                    self.model.float64.probScale.resize(pSize, sview)
             else:
                 raise TypeError('Input data type should be float32 or float64')
 
@@ -338,7 +338,6 @@ cdef class LinearSVMWrapper:
             classes_ptr = <uintptr_t>self.model.float64.classes.data()
             probScale_ptr = <uintptr_t>self.model.float64.probScale.data()
 
-        self.n_classes_ = nClasses
         self.__coef_ = CumlArray(
             coef_ptr, dtype=self.dtype,
             shape=(wCols, nCols), owner=self, order='F')
@@ -429,7 +428,7 @@ cdef class LinearSVMWrapper:
 
     def predict_proba(self, X, log=False) -> CumlArray:
         y = CumlArray.empty(
-            shape=(X.shape[0], self.n_classes_),
+            shape=(X.shape[0], self.classes_.shape[0]),
             dtype=self.dtype, order='C')
 
         if self.dtype == np.float32:
@@ -466,7 +465,7 @@ class LinearSVM(Base):
 
     def __getstate__(self):
         state = self.__dict__.copy()
-        del state['_model_']
+        state['_model_'] = None
         return state
 
     def __init__(self, **kwargs):
@@ -506,7 +505,9 @@ class LinearSVM(Base):
     @property
     @cuml.internals.api_base_return_array_skipall
     def n_classes_(self) -> int:
-        return self.model_.n_classes_
+        if self.classes_ is not None:
+            return self.classes_.shape[0]
+        return self.model_.classes_.shape[0]
 
     def get_param_names(self):
         return LinearSVM_defaults.get_param_names()
