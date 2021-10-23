@@ -93,18 +93,11 @@ struct LinearSVMParams {
 template <typename T>
 class LinearSVMModel {
  public:
-  const LinearSVMParams params;
   const raft::handle_t& handle;
-  const int nRows;
-  const int nCols;
+  const LinearSVMParams params;
+
   /** Sorted, unique values of input array `y`. */
   rmm::device_uvector<T> classes;
-  /**
-   * Vector of the probabolistic model coefficients.
-   * It's size is `0` if `LinearSVMParams.probability == false`.
-   * Otherwise, it's size is `n_classes + (n_classes > 2 ? 1 : 0)`.
-   */
-  rmm::device_uvector<T> probScale;
   /**
    * C-style (row-major) matrix of coefficients of size `coefCols * coefRows`
    * where
@@ -112,7 +105,17 @@ class LinearSVMModel {
    *   coefCols = n_classes == 2 ? 1 : n_classes
    */
   rmm::device_uvector<T> w;
+  /**
+   * Vector of the probabolistic model coefficients.
+   * It's size is `0` if `LinearSVMParams.probability == false`.
+   * Otherwise, it's size is `n_classes + (n_classes > 2 ? 1 : 0)`.
+   */
+  rmm::device_uvector<T> probScale;
 
+  /** Construct the model without training. */
+  LinearSVMModel(const raft::handle_t& handle, const LinearSVMParams params);
+
+  /** Train the model. */
   LinearSVMModel(const raft::handle_t& handle,
                  const LinearSVMParams params,
                  const T* X,
@@ -125,13 +128,6 @@ class LinearSVMModel {
 
   /** For SVC, predict the probabilities for each outcome. */
   void predict_proba(const T* X, const int nRows, const int nCols, const bool log, T* out) const;
-
- private:
-  /**
-   * The linear part of prediction: X * w + intercept.
-   * The result is row-major.
-   */
-  void predict_linear(const T* X, const int nRows, const int nCols, T* out) const;
 };
 
 }  // namespace SVM

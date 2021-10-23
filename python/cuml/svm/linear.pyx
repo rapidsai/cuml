@@ -21,22 +21,22 @@ import numpy as np
 import cupy as cp
 import cuml
 
+from rmm._lib.cuda_stream_view cimport cuda_stream_view
+from rmm._lib.device_uvector cimport device_uvector
+cimport rmm._lib.lib as rmm
+
 import cuml.internals
 from cython.operator cimport dereference as deref
+from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.mixins import ClassifierMixin, RegressorMixin
 from cuml.common.doc_utils import generate_docstring
 from cuml.raft.common.handle cimport handle_t, _Stream
-from rmm._lib.device_uvector cimport device_uvector
 from cuml.common import input_to_cuml_array, input_to_host_array
 from libc.stdint cimport uintptr_t
 from libcpp cimport bool as cppbool, nullptr
 
-from cuml.common.import_utils import has_sklearn
-if has_sklearn():
-    from cuml.multiclass import MulticlassClassifier
-    from sklearn.calibration import CalibratedClassifierCV
 
 __all__ = ['LinearSVC', 'LinearSVR']
 
@@ -57,7 +57,6 @@ cdef extern from "cuml/svm/linear.hpp" namespace "ML::SVM":
             SQUARED_EPSILON_INSENSITIVE"
 
     cdef struct LinearSVMParams:
-
         Penalty penalty
         Loss loss
         cppbool fit_intercept
@@ -75,12 +74,12 @@ cdef extern from "cuml/svm/linear.hpp" namespace "ML::SVM":
 
     cdef cppclass LinearSVMModel[T]:
         const handle_t& handle
-        const int nRows
-        const int nCols
         device_uvector[T] classes
-        device_uvector[T] probScale
         device_uvector[T] w
-
+        device_uvector[T] probScale
+        LinearSVMModel(
+            const handle_t& handle,
+            const LinearSVMParams params) except +
         LinearSVMModel(
             const handle_t& handle,
             const LinearSVMParams params,
@@ -94,12 +93,6 @@ cdef extern from "cuml/svm/linear.hpp" namespace "ML::SVM":
         void predict_proba(
             const T* X, const int nRows, const int nCols,
             const cppbool log, T* out) except +
-
-
-cdef union LinearSVMModelPtr:
-    uintptr_t untyped
-    LinearSVMModel[float] * float32
-    LinearSVMModel[double] * float64
 
 
 cdef class LSVMPWrapper_:
@@ -190,50 +183,301 @@ del __add_prop
 LinearSVM_defaults = LSVMPWrapper()
 '''Default parameter values for LinearSVM, re-exported from C++.'''
 
-cdef class LinearSVM:
-    cdef public object handle
+cdef union LinearSVMModelPtr:
+    uintptr_t untyped
+    LinearSVMModel[float] * float32
+    LinearSVMModel[double] * float64
+
+cdef class LinearSVMWrapper:
     cdef readonly object dtype
+    cdef object handle
     cdef LinearSVMModelPtr model
 
-    cdef void reset_model(self):
+    cdef readonly int n_classes_
+    cdef object __coef_
+    cdef object __intercept_
+    cdef object __classes_
+    cdef object __probScale_
+
+    def copy_array(
+            self,
+            target: CumlArray, source: CumlArray,
+            synchronize: bool = True):
+        cdef _Stream stream = (
+            <handle_t*><size_t>self.handle.getHandle()
+            ).get_stream()
+        if source.shape != target.shape:
+            raise AttributeError(
+                f"Expected an array of shape {target.shape}, "
+                f"but got {source.shape}")
+        if source.dtype != target.dtype:
+            raise AttributeError(
+                f"Expected an array of type {target.dtype}, "
+                f"but got {source.dtype}")
+        rmm.cudaMemcpyAsync(
+            <void*><uintptr_t>target.ptr,
+            <void*><uintptr_t>source.ptr,
+            <size_t>(source.size * source.dtype.itemsize),
+            rmm.cudaMemcpyDeviceToDevice,
+            stream)
+        if synchronize:
+            rmm.cudaStreamSynchronize(stream)
+
+    def __cinit__(
+            self,
+            handle: cuml.Handle,
+            paramsWrapper: LSVMPWrapper,
+            coefs: typing.Optional[CumlArray] = None,
+            intercept: typing.Optional[CumlArray] = None,
+            classes: typing.Optional[CumlArray] = None,
+            probScale: typing.Optional[CumlArray] = None,
+            X: typing.Optional[CumlArray] = None,
+            y: typing.Optional[CumlArray] = None,
+            sampleWeight: typing.Optional[CumlArray] = None):
+        cdef LinearSVMParams params = paramsWrapper.params
+        self.handle = handle
+
+        # check if parameters are passed correctly
+        do_training = False
+        if coefs is None:
+            do_training = True
+            if X is None or y is None:
+                raise TypeError(
+                    "You must provide either the weights "
+                    "or input data (X, y) to the LinearSVMWrapper")
+        else:
+            do_training = False
+            if coefs.shape[0] > 1 and classes is None:
+                raise TypeError(
+                    "You must provide classes along with the weights "
+                    "to the LinearSVMWrapper classifier")
+            if params.probability and probScale is None:
+                raise TypeError(
+                    "You must provide probability scales "
+                    "to the LinearSVMWrapper probabolistic classifier")
+            if params.fit_intercept and intercept is None:
+                raise TypeError(
+                    "You must provide intercept value to the LinearSVMWrapper"
+                    " estimator with fit_intercept enabled")
+
+        self.dtype = X.dtype if do_training else coefs.dtype
+        cdef handle_t* h = <handle_t*><size_t>handle.getHandle()
+        cdef _Stream stream = h.get_stream()
+        cdef cuda_stream_view sview = cuda_stream_view(stream)
+        nClasses = 0
+        nCols = 0
+        wCols = 0
+        wRows = 0
+
+        if do_training:
+            nCols = X.shape[1]
+            sw_ptr = sampleWeight.ptr if sampleWeight is not None else 0
+            if self.dtype == np.float32:
+                self.model.float32 = new LinearSVMModel[float](
+                    deref(h), params,
+                    <const float*><uintptr_t>X.ptr,
+                    X.shape[0], nCols,
+                    <const float*><uintptr_t>y.ptr,
+                    <const float*><uintptr_t>sw_ptr)
+                nClasses = self.model.float32.classes.size()
+            elif self.dtype == np.float64:
+                self.model.float64 = new LinearSVMModel[double](
+                    deref(h), params,
+                    <const double*><uintptr_t>X.ptr,
+                    X.shape[0], nCols,
+                    <const double*><uintptr_t>y.ptr,
+                    <const double*><uintptr_t>sw_ptr)
+                nClasses = self.model.float64.classes.size()
+            else:
+                raise TypeError('Input data type should be float32 or float64')
+            wCols = 1 if nClasses <= 2 else nClasses
+            wRows = nCols + (1 if params.fit_intercept else 0)
+        else:
+            nCols = coefs.shape[1]
+            wCols = coefs.shape[0]
+            wRows = nCols + (1 if params.fit_intercept else 0)
+            nClasses = classes.shape[0] if classes is not None else 0
+
+            wSize = coefs.size + (
+                intercept.size if params.fit_intercept else 0)
+            if self.dtype == np.float32:
+                self.model.float32 = new LinearSVMModel[float](
+                    deref(h), params)
+                self.model.float32.w.resize(wSize, sview)
+                if classes is not None:
+                    self.model.float32.classes.resize(classes.size, sview)
+                if probScale is not None:
+                    self.model.float32.probScale.resize(probScale.size, sview)
+
+            elif self.dtype == np.float64:
+                self.model.float64 = new LinearSVMModel[double](
+                    deref(h), params)
+                self.model.float64.w.resize(wSize, sview)
+                if classes is not None:
+                    self.model.float64.classes.resize(classes.size, sview)
+                if probScale is not None:
+                    self.model.float64.probScale.resize(probScale.size, sview)
+            else:
+                raise TypeError('Input data type should be float32 or float64')
+
+        # prepare the attribute arrays
+        cdef uintptr_t coef_ptr = 0
+        cdef uintptr_t intercept_ptr = 0
+        cdef uintptr_t classes_ptr = 0
+        cdef uintptr_t probScale_ptr = 0
+        if self.dtype == np.float32:
+            coef_ptr = <uintptr_t>self.model.float32.w.data()
+            intercept_ptr = <uintptr_t>(
+                self.model.float32.w.data() + <int>(nCols * wCols))
+            classes_ptr = <uintptr_t>self.model.float32.classes.data()
+            probScale_ptr = <uintptr_t>self.model.float32.probScale.data()
+        elif self.dtype == np.float64:
+            coef_ptr = <uintptr_t>self.model.float64.w.data()
+            intercept_ptr = <uintptr_t>(
+                self.model.float64.w.data() + <int>(nCols * wCols))
+            classes_ptr = <uintptr_t>self.model.float64.classes.data()
+            probScale_ptr = <uintptr_t>self.model.float64.probScale.data()
+
+        self.n_classes_ = nClasses
+        self.__coef_ = CumlArray(
+            coef_ptr, dtype=self.dtype,
+            shape=(wCols, nCols), owner=self, order='F')
+        self.__intercept_ = CumlArray(
+            intercept_ptr, dtype=self.dtype,
+            shape=(wCols, ), owner=self, order='F'
+            ) if params.fit_intercept else None
+        self.__classes_ = CumlArray(
+            classes_ptr, dtype=self.dtype,
+            shape=(nClasses, ), owner=self, order='F'
+            ) if nClasses > 0 else None
+        self.__probScale_ = CumlArray(
+            probScale_ptr, dtype=self.dtype,
+            shape=(2 * wCols, ), owner=self, order='F'
+            ) if params.probability else None
+
+        # copy the passed state
+        if not do_training:
+            self.copy_array(self.__coef_, coefs, False)
+            if intercept is not None:
+                self.copy_array(self.__intercept_, intercept, False)
+            if classes is not None:
+                self.copy_array(self.__classes_, classes, False)
+            if probScale is not None:
+                self.copy_array(self.__probScale_, probScale, False)
+
+        handle.sync()
+
+    def __dealloc__(self):
         if self.model.untyped != 0:
             if self.dtype == np.float32:
                 del self.model.float32
             elif self.dtype == np.float64:
                 del self.model.float64
         self.model.untyped = 0
-        self.dtype = None
 
-    def __cinit__(
-            self,
-            handle: typing.Optional[cuml.Handle] = None,
-            tol: typing.Optional[float] = None,
-            **kwargs):
-        self.handle = handle if handle is not None else cuml.Handle()
-        self.reset_model()
-        # special treatment of argument 'tol'
+    @property
+    def coef_(self) -> CumlArray:
+        return self.__coef_
+
+    @coef_.setter
+    def coef_(self, coef: CumlArray):
+        self.copy_array(self.__coef_, coef)
+
+    @property
+    def intercept_(self) -> CumlArray:
+        return self.__intercept_
+
+    @intercept_.setter
+    def intercept_(self, intercept: CumlArray):
+        self.copy_array(self.__intercept_, intercept)
+
+    @property
+    def classes_(self) -> CumlArray:
+        return self.__classes_
+
+    @classes_.setter
+    def classes_(self, classes: CumlArray):
+        self.copy_array(self.__classes_, classes)
+
+    @property
+    def probScale_(self) -> CumlArray:
+        return self.__probScale_
+
+    @probScale_.setter
+    def probScale_(self, probScale: CumlArray):
+        self.copy_array(self.__probScale_, probScale)
+
+    def predict(self, X: CumlArray) -> CumlArray:
+        y = CumlArray.empty(
+            shape=(X.shape[0],),
+            dtype=self.dtype, order='C')
+
+        if self.dtype == np.float32:
+            self.model.float32.predict(
+                <const float*><uintptr_t>X.ptr,
+                X.shape[0], X.shape[1],
+                <float*><uintptr_t>y.ptr)
+        elif self.dtype == np.float64:
+            self.model.float64.predict(
+                <const double*><uintptr_t>X.ptr,
+                X.shape[0], X.shape[1],
+                <double*><uintptr_t>y.ptr)
+        else:
+            raise TypeError('Input data type should be float32 or float64')
+
+        return y
+
+    def predict_proba(self, X, log=False) -> CumlArray:
+        y = CumlArray.empty(
+            shape=(X.shape[0], self.n_classes_),
+            dtype=self.dtype, order='C')
+
+        if self.dtype == np.float32:
+            self.model.float32.predict_proba(
+                <const float*><uintptr_t>X.ptr,
+                X.shape[0], X.shape[1], log,
+                <float*><uintptr_t>y.ptr)
+        elif self.dtype == np.float64:
+            self.model.float64.predict_proba(
+                <const double*><uintptr_t>X.ptr,
+                X.shape[0], X.shape[1], log,
+                <double*><uintptr_t>y.ptr)
+        else:
+            raise TypeError('Input data type should be float32 or float64')
+
+        return y
+
+
+class LinearSVM(Base):
+
+    _model_: typing.Optional[LinearSVMWrapper]
+
+    coef_ = CumlArrayDescriptor()
+    intercept_ = CumlArrayDescriptor()
+    classes_ = CumlArrayDescriptor()
+    probScale_ = CumlArrayDescriptor()
+
+    @property
+    def model_(self) -> LinearSVMWrapper:
+        if self._model_ is None:
+            raise AttributeError(
+                'The model is not trained yet (call fit() first).')
+        return self._model_
+
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        del state['_model_']
+        return state
+
+    def __init__(self, **kwargs):
+        # `tol` is special in that it's not present in get_parameter_names,
+        # so having a special logic here does not affect pickling/cloning.
+        tol = kwargs.pop('tol', None)
         if tol is not None:
             default_to_ratio = \
                 LinearSVM_defaults.change_tol / LinearSVM_defaults.grad_tol
             self.grad_tol = tol
             self.change_tol = tol * default_to_ratio
-
-    def __dealloc__(self):
-        self.reset_model()
-
-    def __getnewargs_ex__(self):
-        return (), {'handle': self.handle}
-
-    def __getstate__(self):
-        return self.__dict__
-
-    def __setstate__(self, state):
-        for k, v in state.items():
-            setattr(self, k, v)
-
-    def __init__(self, **kwargs):
-        # ignore special arguments (they are set during __cinit__ anyway)
-        kwargs.pop('tol', None)
         # All arguments are optional (they have defaults),
         # yet we need to check for unused arguments
         allowed_keys = set(self.get_param_names())
@@ -253,180 +497,94 @@ cdef class LinearSVM:
             setattr(self, key, getattr(LinearSVM_defaults, key, None))
 
         super().__init__(**remaining_kwargs)
+        self._model_ = None
+        self.coef_ = None
+        self.intercept_ = None
+        self.classes_ = None
+        self.probScale_ = None
 
     @property
-    def n_classes_(self):
-        if self.dtype == np.float32:
-            return self.model.float32.classes.size()
-        if self.dtype == np.float64:
-            return self.model.float32.classes.size()
-        raise AttributeError('Train the model first')
-
-    @property
-    def intercept_(self):
-        cl = self.n_classes_
-        if cl == 2:
-            cl = 1
-        if not self.fit_intercept:
-            return CumlArray.zeros(shape=(cl, ), dtype=self.dtype)
-        cdef uintptr_t b_ptr
-        k = 0
-        if self.dtype == np.float32:
-            k = self.model.float32.nCols
-            b_ptr = <uintptr_t> (self.model.float32.w.data() + <int>(k*cl))
-        elif self.dtype == np.float64:
-            k = self.model.float64.nCols
-            b_ptr = <uintptr_t> (self.model.float64.w.data() + <int>(k*cl))
-        else:
-            raise AttributeError('Train the model first')
-        return CumlArray(
-            b_ptr, dtype=self.dtype, shape=(cl, ), owner=self, order='C'
-            ).to_output(output_type='numpy')
-
-    @property
-    def coef_(self):
-        cdef uintptr_t w_ptr
-        k = 0
-        cl = self.n_classes_
-        if cl == 2:
-            cl = 1
-        if self.dtype == np.float32:
-            k = self.model.float32.nCols
-            w_ptr = <uintptr_t> self.model.float32.w.data()
-        elif self.dtype == np.float64:
-            k = self.model.float64.nCols
-            w_ptr = <uintptr_t> self.model.float64.w.data()
-        else:
-            raise AttributeError('Train the model first')
-        return CumlArray(  # NB: on the c-side it's shape is C-major (k, cl)
-            w_ptr, dtype=self.dtype, shape=(cl, k), owner=self, order='F'
-            ).to_output(output_type='numpy')
-
-    @property
-    def classes_(self):
-        cdef uintptr_t c_ptr
-        cl = self.n_classes_
-        if cl == 2:
-            cl = 1
-        if self.dtype == np.float32:
-            c_ptr = <uintptr_t> self.model.float32.classes.data()
-        elif self.dtype == np.float64:
-            c_ptr = <uintptr_t> self.model.float64.classes.data()
-        else:
-            raise AttributeError('Train the model first')
-        return CumlArray(
-            c_ptr, dtype=self.dtype, shape=(cl, ), owner=self, order='F'
-            ).to_output(output_type='numpy')
+    @cuml.internals.api_base_return_array_skipall
+    def n_classes_(self) -> int:
+        return self.model_.n_classes_
 
     def get_param_names(self):
         return LinearSVM_defaults.get_param_names()
 
-    def fit(self, X, y, sample_weight=None, convert_dtype=True):
-        """
-        Fit the model with X and y.
+    def fit(self, X, y, sample_weight=None, convert_dtype=True) -> 'LinearSVM':
 
-        """
-        self.reset_model()
-
-        # Fit binary classifier
-        X_m, n_rows, n_cols, self.dtype = \
-            input_to_cuml_array(X, order='F')
-
-        cdef uintptr_t X_ptr = X_m.ptr
+        X_m, n_rows, n_cols, self.dtype = input_to_cuml_array(X, order='F')
         convert_to_dtype = self.dtype if convert_dtype else None
-        y_m, _, _, _ = \
-            input_to_cuml_array(y, check_dtype=self.dtype,
-                                convert_to_dtype=convert_to_dtype,
-                                check_rows=n_rows, check_cols=1)
+        y_m = input_to_cuml_array(
+            y, check_dtype=self.dtype,
+            convert_to_dtype=convert_to_dtype,
+            check_rows=n_rows, check_cols=1).array
+        sample_weight_m = input_to_cuml_array(
+            sample_weight, check_dtype=self.dtype,
+            convert_to_dtype=convert_to_dtype,
+            check_rows=n_rows, check_cols=1
+            ).array if sample_weight is not None else None
 
-        cdef uintptr_t y_ptr = y_m.ptr
+        self._model_ = LinearSVMWrapper(
+            handle=self.handle,
+            paramsWrapper=LSVMPWrapper(
+                **{k: getattr(self, k) for k in self.get_param_names()}
+            ),
+            X=X_m, y=y_m,
+            sampleWeight=sample_weight_m)
+        self.coef_ = self._model_.coef_
+        self.intercept_ = self._model_.intercept_
+        self.classes_ = self._model_.classes_
+        self.probScale_ = self._model_.probScale_
 
-        # sample_weight = self._apply_class_weight(sample_weight, y_m)
-        cdef uintptr_t sample_weight_ptr = <uintptr_t> nullptr
-        if sample_weight is not None:
-            sample_weight_m, _, _, _ = \
-                input_to_cuml_array(sample_weight, check_dtype=self.dtype,
-                                    convert_to_dtype=convert_to_dtype,
-                                    check_rows=n_rows, check_cols=1)
-            sample_weight_ptr = sample_weight_m.ptr
+        return self
 
-        cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        cdef LinearSVMParams params = LSVMPWrapper(
-            **{k: getattr(self, k) for k in self.get_param_names()}
-        ).params
-        if self.dtype == np.float32:
-            self.model.float32 = new LinearSVMModel[float](
-                deref(handle_),
-                params,
-                <const float*>X_ptr,
-                n_rows, n_cols,
-                <const float*>y_ptr,
-                <const float*>sample_weight_ptr)
-        elif self.dtype == np.float64:
-            self.model.float64 = new LinearSVMModel[double](
-                deref(handle_),
-                params,
-                <const double*>X_ptr,
-                n_rows, n_cols,
-                <const double*>y_ptr,
-                <const double*>sample_weight_ptr)
+    def __sync_model(self):
+        '''
+        Update the model on C++ side lazily before calling predict.
+        '''
+        if self._model_ is None:
+            self._model_ = LinearSVMWrapper(
+                handle=self.handle,
+                paramsWrapper=LSVMPWrapper(
+                    **{k: getattr(self, k) for k in self.get_param_names()}
+                ),
+                coefs=self.coef_,
+                intercept=self.intercept_,
+                classes=self.classes_,
+                probScale=self.probScale_)
+            self.coef_ = self._model_.coef_
+            self.intercept_ = self._model_.intercept_
+            self.classes_ = self._model_.classes_
+            self.probScale_ = self._model_.probScale_
         else:
-            raise TypeError('Input data type should be float32 or float64')
-
-        del X_m
-        del y_m
+            if self.coef_ is not self.model_.coef_:
+                self.model_.coef_ = self.coef_
+            if self.intercept_ is not self.model_.intercept_:
+                self.model_.intercept_ = self.intercept_
+            if self.classes_ is not self.model_.classes_:
+                self.model_.classes_ = self.classes_
+            if self.probScale_ is not self.model_.probScale_:
+                self.model_.probScale_ = self.probScale_
 
     def predict(self, X, convert_dtype=True) -> CumlArray:
         convert_to_dtype = self.dtype if convert_dtype else None
-        X_m, n_rows, n_cols, _ = \
-            input_to_cuml_array(X, check_dtype=self.dtype,
-                                convert_to_dtype=convert_to_dtype)
+        X_m, n_rows, n_cols, _ = input_to_cuml_array(
+            X, check_dtype=self.dtype,
+            convert_to_dtype=convert_to_dtype)
+        self.__sync_model()
+        return self.model_.predict(X_m)
 
-        cdef uintptr_t X_ptr = X_m.ptr
-
-        y = CumlArray.empty(shape=(n_rows,), dtype=X_m.dtype, order='F')
-        cdef uintptr_t y_ptr = y.ptr
-
-        if self.dtype == np.float32:
-            self.model.float32.predict(
-                <const float*>X_ptr, n_rows, n_cols,
-                <float*>y_ptr)
-        elif self.dtype == np.float64:
-            self.model.float64.predict(
-                <const double*>X_ptr, n_rows, n_cols,
-                <double*>y_ptr)
-        else:
-            raise TypeError('Input data type should be float32 or float64')
-
-        return y
-
-    # def predict_proba(self, X, log=False, convert_dtype=True) -> CumlArray:
-    #     convert_to_dtype = self.dtype if convert_dtype else None
-    #     X_m, n_rows, n_cols, _ = \
-    #         input_to_cuml_array(X, check_dtype=self.dtype,
-    #                             convert_to_dtype=convert_to_dtype)
-
-    #     cdef uintptr_t X_ptr = X_m.ptr
-
-    #     y = CumlArray.empty(shape=(n_rows, 2), dtype=X_m.dtype, order='F')
-    #     cdef uintptr_t y_ptr = y.ptr
-
-    #     if self.dtype == np.float32:
-    #         self.model.float32.predict_proba(
-    #             <const float*>X_ptr, n_rows, n_cols, log,
-    #             (<float*>y_ptr) + <int>n_rows)
-    #     elif self.dtype == np.float64:
-    #         self.model.float64.predict_proba(
-    #             <const double*>X_ptr, n_rows, n_cols, log,
-    #             (<double*>y_ptr) + <int>n_rows)
-    #     else:
-    #         raise TypeError('Input data type should be float32 or float64')
-
-    #     y[:, 0] = CumlArray.ones(shape=(n_rows, ), dtype=y.dtype) - y[:, 1]
-    #     return y
+    def predict_proba(self, X, log=False, convert_dtype=True) -> CumlArray:
+        convert_to_dtype = self.dtype if convert_dtype else None
+        X_m, n_rows, n_cols, _ = input_to_cuml_array(
+            X, check_dtype=self.dtype,
+            convert_to_dtype=convert_to_dtype)
+        self.__sync_model()
+        return self.model_.predict_proba(X_m, log=log)
 
 
-class LinearSVC(LinearSVM, Base, ClassifierMixin):
+class LinearSVC(LinearSVM, ClassifierMixin):
     '''
     LinearSVC (Support Vector Classification with the linear kernel)
 
@@ -567,7 +725,6 @@ class LinearSVC(LinearSVM, Base, ClassifierMixin):
 
         super().__init__(*args, **kwargs)
 
-
     @property
     def loss(self):
         return self.__loss
@@ -580,81 +737,6 @@ class LinearSVC(LinearSVM, Base, ClassifierMixin):
                 f"must be one of {self.REGISTERED_LOSSES}, "
                 f"but given '{loss}'.")
         self.__loss = loss
-
-    def fit(self, X, y, sample_weight=None, convert_dtype=True):
-        self._set_output_type(X)
-        return LinearSVM.fit(
-                self,
-                X, y,
-                sample_weight=sample_weight,
-                convert_dtype=convert_dtype)
-        # X_m, n_rows, n_cols, dtype = \
-        #     input_to_cuml_array(X, order='F')
-
-        # cdef uintptr_t X_ptr = X_m.ptr
-        # convert_to_dtype = dtype if convert_dtype else None
-        # y_m, _, _, _ = \
-        #     input_to_cuml_array(y, check_dtype=dtype,
-        #                         convert_to_dtype=convert_to_dtype,
-        #                         check_rows=n_rows, check_cols=1)
-
-        # self._classes_ = cp.unique(cp.asarray(y_m))
-        # if self._classes_.shape[0] == 1:
-        #     raise ValueError(
-        #         "Only one unique target value is found, training is not possible.")
-
-        # if self._classes_.shape[0] == 2:
-        #     self.H1_value = self._classes_[1].item()
-        #     LinearSVM.fit(
-        #             self,
-        #             X_m, y_m,
-        #             sample_weight=sample_weight,
-        #             convert_dtype=convert_dtype)
-        #     del X_m, y_m
-        #     return self
-
-        # # multiclass
-        # params = self.get_params()
-        # params["probability"] = True
-        # self.multiclass_svc = MulticlassClassifier(
-        #     estimator=LinearSVC(**params),
-        #     handle=self.handle, verbose=self.verbose,
-        #     output_type=self.output_type,
-        #     strategy=self.multiclass_strategy)
-        # self.multiclass_svc.fit(X_m, y_m)
-        # return self.multiclass_svc
-
-    def predict(self, X, convert_dtype=True) -> CumlArray:
-        out_type = self._get_output_type(X)
-        return LinearSVM.predict(
-                self,
-                X,
-                convert_dtype=convert_dtype).to_output(out_type)
-        # if self._classes_.shape[0] > 2:
-        #     res = self.multiclass_svc.predict(X)
-        # else:
-        #     res = LinearSVM.predict(self, X, convert_dtype)
-        # return res.to_output(out_type)
-
-
-    # def predict_proba(self, X, log=False, convert_dtype=True) -> CumlArray:
-    #     """
-    #     Predicts the class probabilities for X.
-
-    #     The model has to be trained with probability=True to use this method.
-
-    #     Parameters
-    #     ----------
-    #     log: boolean (default = False)
-    #             Whether to return log probabilities.
-
-    #     """
-    #     out_type = self._get_output_type(X)
-    #     if self._classes_.shape[0] > 2:
-    #         res = self.multiclass_svc.predict_proba(X, log)
-    #     else:
-    #         res = LinearSVM.predict_proba(self, X, log, convert_dtype)
-    #     return res.to_output(out_type)
 
     def get_param_names(self):
         return [
@@ -682,7 +764,7 @@ LinearSVC.__doc__ = \
     re.sub(r"\{ *([^ ]+) *\}", r"{\1}", LinearSVC.__doc__).format(**locals())
 
 
-class LinearSVR(LinearSVM, Base, RegressorMixin):
+class LinearSVR(LinearSVM, RegressorMixin):
     '''LinearSVR'''
 
     REGISTERED_LOSSES = set([

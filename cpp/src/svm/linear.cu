@@ -267,7 +267,36 @@ struct OvrSelector {
 //   __device__ T operator()(const T x) const { return T(x == H1_value); }
 // };
 
+template <typename T>
+void predict_linear(const raft::handle_t& handle,
+                    const T* X,
+                    const T* w,
+                    const int nRows,
+                    const int nCols,
+                    const int coefCols,
+                    const bool fitIntercept,
+                    T* out,
+                    cudaStream_t stream)
+{
+  raft::linalg::gemm<T>(
+    handle, out, (T*)X, (T*)w, nRows, coefCols, nCols, false, true, false, stream);
+
+  if (fitIntercept)
+    raft::linalg::matrixVectorOp(
+      out, out, w + nCols * coefCols, nRows, coefCols, false, false, cub::Sum(), stream);
+}
+
 };  // namespace
+
+template <typename T>
+LinearSVMModel<T>::LinearSVMModel(const raft::handle_t& handle, const LinearSVMParams params)
+  : handle(handle),
+    params(params),
+    classes(0, handle.get_stream()),
+    w(0, handle.get_stream()),
+    probScale(0, handle.get_stream())
+{
+}
 
 template <typename T>
 LinearSVMModel<T>::LinearSVMModel(const raft::handle_t& handle,
@@ -277,13 +306,7 @@ LinearSVMModel<T>::LinearSVMModel(const raft::handle_t& handle,
                                   const int nCols,
                                   const T* y,
                                   const T* sampleWeight)
-  : params(params),
-    handle(handle),
-    nRows(nRows),
-    nCols(nCols),
-    classes(0, handle.get_stream()),
-    probScale(0, handle.get_stream()),
-    w(0, handle.get_stream())
+  : LinearSVMModel<T>::LinearSVMModel(handle, params)
 {
   cudaStream_t stream = handle.get_stream();
   const int nClasses =
@@ -388,7 +411,7 @@ LinearSVMModel<T>::LinearSVMModel(const raft::handle_t& handle,
 
   rmm::device_uvector<T> xwBuf(nRows * coefCols, stream);
   T* xw = xwBuf.data();
-  predict_linear(X, nRows, nCols, xw);
+  predict_linear(handle, X, w.data(), nRows, nCols, coefCols, params.fit_intercept, xw, stream);
 
   // here we should encode the labels into corresponding `classes` indices.
   // for now, we assume labels are the values from 0 to classes.size() - 1.
@@ -425,35 +448,18 @@ LinearSVMModel<T>::LinearSVMModel(const raft::handle_t& handle,
 }
 
 template <typename T>
-void LinearSVMModel<T>::predict_linear(const T* X, const int nRows, const int nCols, T* out) const
-{
-  ASSERT(nCols == this->nCols,
-         "Number of features passed to predicting must be the same as for fitting (%d != %d).",
-         nCols,
-         this->nCols);
-  cudaStream_t stream = handle.get_stream();
-  const int nClasses  = classes.size();
-  // const int coefRows = nCols + params.fit_intercept;
-  const int coefCols = nClasses <= 2 ? 1 : nClasses;
-
-  raft::linalg::gemm<T>(
-    handle, out, (T*)X, (T*)w.data(), nRows, coefCols, nCols, false, true, false, stream);
-
-  if (params.fit_intercept)
-    raft::linalg::matrixVectorOp(
-      out, out, w.data() + nCols * coefCols, nRows, coefCols, false, false, cub::Sum(), stream);
-}
-
-template <typename T>
 void LinearSVMModel<T>::predict(const T* X, const int nRows, const int nCols, T* out) const
 {
-  if (isRegression(params.loss)) return predict_linear(X, nRows, nCols, out);
-
   cudaStream_t stream = handle.get_stream();
   const int nClasses  = classes.size();
   const int coefCols  = nClasses <= 2 ? 1 : nClasses;
+  if (isRegression(params.loss))
+    return predict_linear(
+      handle, X, w.data(), nRows, nCols, coefCols, params.fit_intercept, out, stream);
+
   rmm::device_uvector<T> temp(nRows * coefCols, stream);
-  predict_linear(X, nRows, nCols, temp.data());
+  predict_linear(
+    handle, X, w.data(), nRows, nCols, coefCols, params.fit_intercept, temp.data(), stream);
   PredictClass<T>::run(out, temp.data(), classes.data(), nRows, coefCols, stream);
 }
 
@@ -471,7 +477,8 @@ void LinearSVMModel<T>::predict_proba(
   const int nClasses  = classes.size();
   const int coefCols  = nClasses <= 2 ? 1 : nClasses;
   rmm::device_uvector<T> temp(nRows * coefCols, stream);
-  predict_linear(X, nRows, nCols, temp.data());
+  predict_linear(
+    handle, X, w.data(), nRows, nCols, coefCols, params.fit_intercept, temp.data(), stream);
 
   PredictProba<T>::run(out, temp.data(), nRows, classes.size(), log, handle.get_stream());
   // cudaStream_t stream = handle.get_stream();
