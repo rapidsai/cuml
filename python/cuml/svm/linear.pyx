@@ -18,25 +18,19 @@
 import re
 import typing
 import numpy as np
-import cupy as cp
 import cuml
-
-from rmm._lib.cuda_stream_view cimport cuda_stream_view
-from rmm._lib.device_uvector cimport device_uvector
-cimport rmm._lib.lib as rmm
-
-import cuml.internals
 from cython.operator cimport dereference as deref
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
 from cuml.common.mixins import ClassifierMixin, RegressorMixin
-from cuml.common.doc_utils import generate_docstring
 from cuml.raft.common.handle cimport handle_t, _Stream
-from cuml.common import input_to_cuml_array, input_to_host_array
+from cuml.common import input_to_cuml_array
 from libc.stdint cimport uintptr_t
-from libcpp cimport bool as cppbool, nullptr
-
+from libcpp cimport bool as cppbool
+from rmm._lib.cuda_stream_view cimport cuda_stream_view
+from rmm._lib.device_uvector cimport device_uvector
+cimport rmm._lib.lib as rmm
 
 __all__ = ['LinearSVC', 'LinearSVR']
 
@@ -70,7 +64,6 @@ cdef extern from "cuml/svm/linear.hpp" namespace "ML::SVM":
         double grad_tol
         double change_tol
         double svr_sensitivity
-        double H1_value
 
     cdef cppclass LinearSVMModel[T]:
         const handle_t& handle
@@ -469,7 +462,7 @@ class LinearSVM(Base):
         return state
 
     def __init__(self, **kwargs):
-        # `tol` is special in that it's not present in get_parameter_names,
+        # `tol` is special in that it's not present in get_param_names,
         # so having a special logic here does not affect pickling/cloning.
         tol = kwargs.pop('tol', None)
         if tol is not None:
@@ -480,7 +473,7 @@ class LinearSVM(Base):
         # All arguments are optional (they have defaults),
         # yet we need to check for unused arguments
         allowed_keys = set(self.get_param_names())
-        super_keys = getattr(super(), 'get_param_names', lambda: [])()
+        super_keys = set(super().get_param_names())
         remaining_kwargs = {}
         for key, val in kwargs.items():
             if key not in allowed_keys or key in super_keys:
@@ -503,14 +496,10 @@ class LinearSVM(Base):
         self.probScale_ = None
 
     @property
-    @cuml.internals.api_base_return_array_skipall
     def n_classes_(self) -> int:
         if self.classes_ is not None:
             return self.classes_.shape[0]
         return self.model_.classes_.shape[0]
-
-    def get_param_names(self):
-        return LinearSVM_defaults.get_param_names()
 
     def fit(self, X, y, sample_weight=None, convert_dtype=True) -> 'LinearSVM':
 
@@ -528,9 +517,7 @@ class LinearSVM(Base):
 
         self._model_ = LinearSVMWrapper(
             handle=self.handle,
-            paramsWrapper=LSVMPWrapper(
-                **{k: getattr(self, k) for k in self.get_param_names()}
-            ),
+            paramsWrapper=LSVMPWrapper(**self.get_params()),
             X=X_m, y=y_m,
             sampleWeight=sample_weight_m)
         self.coef_ = self._model_.coef_
@@ -547,9 +534,7 @@ class LinearSVM(Base):
         if self._model_ is None:
             self._model_ = LinearSVMWrapper(
                 handle=self.handle,
-                paramsWrapper=LSVMPWrapper(
-                    **{k: getattr(self, k) for k in self.get_param_names()}
-                ),
+                paramsWrapper=LSVMPWrapper(**self.get_params()),
                 coefs=self.coef_,
                 intercept=self.intercept_,
                 classes=self.classes_,
@@ -666,15 +651,10 @@ class LinearSVC(LinearSVM, ClassifierMixin):
         This is a helper transient parameter that, when present, sets both
         `grad_tol` and `change_tol` to the same value. When any of the two
         `***_tol` parameters are passed as well, they take the precedence.
-    H1_value : {LinearSVM_defaults.H1_value.__class__.__name__ \
-            } (default = {LinearSVM_defaults.H1_value})
-        he value considered 'one' in the binary classification problem.
-        This value is converted into `1.0` during training, whereas all the
-        other values in the training target data (`y`)
-        are converted into `-1.0`.
-    probability: bool (default = False)
+    probability: {LinearSVM_defaults.probability.__class__.__name__ \
+            } (default = {LinearSVM_defaults.probability})
         Enable or disable probability estimates.
-    multiclass_strategy : {{'ovo' or 'ovr'}} (default = 'ovo')
+    multiclass_strategy : {{currently, only 'ovr'}} (default = 'ovr')
         Multiclass classification strategy. ``'ovo'`` uses `OneVsOneClassifier
         <https://scikit-learn.org/stable/modules/generated/sklearn.multiclass.OneVsOneClassifier.html>`_
         while ``'ovr'`` selects `OneVsRestClassifier
@@ -687,14 +667,14 @@ class LinearSVC(LinearSVM, ClassifierMixin):
 
     Attributes
     ----------
-    intercept_ : float
+    intercept_ : float, shape (n_classes,)
         The constant in the decision function
-    coef_ : float, shape (1, n_cols)
-        Only available for linear kernels. It is the normal of the
-        hyperplane.
-        coef_ = sum_k=1..n_support dual_coef_[k] * support_vectors[k,:]
-    classes_: shape (n_classes_,)
-        Array of class labels
+    coef_ : float, shape (n_classes, n_cols)
+        The vectors defining the hyperplanes that separate the classes.
+    classes_: float, shape (n_classes_,)
+        Array of class labels.
+    probScale_: float, shape (n_classes_ * 2,)
+        Probability calibration constants (for the probabolistic output).
     n_classes_ : int
         Number of classes
 
@@ -755,7 +735,6 @@ class LinearSVC(LinearSVM, ClassifierMixin):
             'C',
             'grad_tol',
             'change_tol',
-            'H1_value',
             'multiclass_strategy',
         ]
 
@@ -766,7 +745,113 @@ LinearSVC.__doc__ = \
 
 
 class LinearSVR(LinearSVM, RegressorMixin):
-    '''LinearSVR'''
+    '''
+    LinearSVR (Support Vector Regression with the linear kernel)
+
+    Construct a linear SVM regressor for training and predictions.
+
+    Examples
+    --------
+    .. code-block:: python
+
+        import numpy as np
+        from cuml.svm import LinearSVR
+        X = np.array([[1], [2], [3], [4], [5]], dtype=np.float32)
+        y = np.array([1.1, 4, 5, 3.9, 8.], dtype=np.float32)
+        reg = LinearSVR(loss='epsilon_insensitive', C=10, svr_sensitivity=0.1)
+        reg.fit(X, y)
+        print("Predicted values:", reg.predict(X))
+
+    Output:
+
+    .. code-block:: none
+
+        Predicted labels: [1.3187336 2.9640512 4.609369  6.2546864 7.9000034]
+
+    Parameters
+    ----------
+    handle : cuml.Handle
+        Specifies the cuml.handle that holds internal CUDA state for
+        computations in this model. Most importantly, this specifies the CUDA
+        stream that will be used for the model's computations, so users can
+        run different models concurrently in different streams by creating
+        handles in several streams.
+        If it is None, a new one is created.
+    penalty : {{'l1', 'l2'}} (default = '{LinearSVM_defaults.penalty}')
+        The regularization term of the target function.
+    loss : {LinearSVR.REGISTERED_LOSSES} (default = 'epsilon_insensitive')
+        The loss term of the target function.
+    fit_intercept : {LinearSVM_defaults.fit_intercept.__class__.__name__ \
+            } (default = {LinearSVM_defaults.fit_intercept})
+        Whether to fit the bias term. Set to False if you expect that the
+        data is already centered.
+    penalized_intercept : { \
+            LinearSVM_defaults.penalized_intercept.__class__.__name__ \
+            } (default = {LinearSVM_defaults.penalized_intercept})
+        When true, the bias term is treated the same way as other features;
+        i.e. it's penalized by the regularization term of the target function.
+        Enabling this feature forces an extra copying the input data X.
+    max_iter : {LinearSVM_defaults.max_iter.__class__.__name__ \
+            } (default = {LinearSVM_defaults.max_iter})
+        Maximum number of iterations for the underlying solver.
+    linesearch_max_iter : { \
+            LinearSVM_defaults.linesearch_max_iter.__class__.__name__ \
+            } (default = {LinearSVM_defaults.linesearch_max_iter})
+        Maximum number of linesearch (inner loop) iterations for
+        the underlying (QN) solver.
+    lbfgs_memory : { \
+            LinearSVM_defaults.lbfgs_memory.__class__.__name__ \
+            } (default = {LinearSVM_defaults.lbfgs_memory})
+        Number of vectors approximating the hessian for the underlying QN
+        solver (l-bfgs).
+    verbose : { \
+            LinearSVM_defaults.verbose.__class__.__name__ \
+            } (default = {LinearSVM_defaults.verbose})
+        Sets logging level. It must be one of `cuml.common.logger.level_*`.
+        See :ref:`verbosity-levels` for more info.
+    C : {LinearSVM_defaults.C.__class__.__name__ \
+            } (default = {LinearSVM_defaults.C})
+        The constant scaling factor of the loss term in the target formula
+          `F(X, y) = penalty(X) + C * loss(X, y)`.
+    grad_tol : {LinearSVM_defaults.grad_tol.__class__.__name__ \
+            } (default = {LinearSVM_defaults.grad_tol})
+        The threshold on the gradient for the underlying QN solver.
+    change_tol : {LinearSVM_defaults.change_tol.__class__.__name__ \
+            } (default = {LinearSVM_defaults.change_tol})
+        The threshold on the function change for the underlying QN solver.
+    tol : Optional[float] (default = None)
+        Tolerance for the stopping criterion.
+        This is a helper transient parameter that, when present, sets both
+        `grad_tol` and `change_tol` to the same value. When any of the two
+        `***_tol` parameters are passed as well, they take the precedence.
+    svr_sensitivity : {LinearSVM_defaults.svr_sensitivity.__class__.__name__ \
+            } (default = {LinearSVM_defaults.svr_sensitivity})
+        The epsilon-sensitivity parameter for the SVR loss function.
+    output_type : {{'input', 'cudf', 'cupy', 'numpy', 'numba'}} (default=None)
+        Variable to control output type of the results and attributes of
+        the estimator. If None, it'll inherit the output type set at the
+        module level, `cuml.global_settings.output_type`.
+        See :ref:`output-data-type-configuration` for more info.
+
+    Attributes
+    ----------
+    intercept_ : float, shape (1,)
+        The constant in the decision function
+    coef_ : float, shape (1, n_cols)
+        The coefficients of the linear decision function.
+
+    Notes
+    -----
+    The model uses the quasi-newton (QN) solver to find the solution in the
+    primal space. Thus, in contrast to generic :class:`SVC<cuml.svm.SVR>`
+    model, it does not compute the support coefficients/vectors.
+
+    Check the solver's documentation for more details
+    :class:`Quasi-Newton (L-BFGS/OWL-QN)<cuml.QN>`.
+
+    For additional docs, see `scikitlearn's SVR
+    <https://scikit-learn.org/stable/modules/generated/sklearn.svm.LinearSVR.html>`_.
+    '''
 
     REGISTERED_LOSSES = set([
         'epsilon_insensitive',
@@ -814,26 +899,3 @@ class LinearSVR(LinearSVM, RegressorMixin):
 # Format docstring to see the re-exported defaults etc.
 LinearSVR.__doc__ = \
     re.sub(r"\{ *([^ ]+) *\}", r"{\1}", LinearSVR.__doc__).format(**locals())
-
-
-# [WIP]
-# !! Checkout requirements in python/cuml/common/base.pyx
-#     I must satisfy them to integrate into the cuml ML algo infrastructure
-#
-# NB: [FEA] scikit-learn based meta estimators
-#     https://github.com/rapidsai/cuml/issues/2876
-#
-#     [REVIEW] Sklearn-based preprocessin
-#     https://github.com/rapidsai/cuml/pull/2645
-#
-#     [FEA] Implement probability calibration using device arrays
-#     https://github.com/rapidsai/cuml/issues/2608
-#
-# Need:
-#   1. classes a.k.a. unique_labels
-#   2. multiclass strategy
-#   3. decide where transform labels into multiclass 1, -1
-#   4. Also food for thought:
-#
-# https://scikit-learn.org/stable/modules/svm.html#svm-multi-class
-# https://github.com/scikit-learn/scikit-learn/blob/ccf8e749bac06aa456d8de2d06dbe0d8c507ac3f/sklearn/multiclass.py#L598

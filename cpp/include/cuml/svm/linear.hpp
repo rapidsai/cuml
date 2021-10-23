@@ -82,12 +82,6 @@ struct LinearSVMParams {
   double change_tol = 0.00001;
   /** The epsilon-sensitivity parameter (applicable to the SVM-regression (SVR) loss functions). */
   double svr_sensitivity = 0.0;
-  /** The value considered 'one' in the binary classification problem
-   *  (applicable to the SVM-classification (SVC) loss functions).
-   *  This value is converted into `1.0` during training, whereas all the other values
-   *  in the training target data (`y`) are converted into `-1.0`.
-   */
-  double H1_value = 1.0;
 };
 
 template <typename T>
