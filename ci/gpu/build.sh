@@ -15,7 +15,7 @@ function hasArg {
 
 # Set path and build parallel level
 export PATH=/opt/conda/bin:/usr/local/cuda/bin:$PATH
-export PARALLEL_LEVEL=${PARALLEL_LEVEL:-4}
+export PARALLEL_LEVEL=${PARALLEL_LEVEL:-8}
 export CONDA_ARTIFACT_PATH=${WORKSPACE}/ci/artifacts/cuml/cpu/.conda-bld/
 
 # Set home to the job's workspace
@@ -53,7 +53,7 @@ gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvid
       "libcumlprims=${MINOR_VERSION}" \
       "dask-cudf=${MINOR_VERSION}" \
       "dask-cuda=${MINOR_VERSION}" \
-      "ucx-py=0.22.*" \
+      "ucx-py=0.23.*" \
       "ucx-proc=*=gpu" \
       "xgboost=1.4.2dev.rapidsai${MINOR_VERSION}" \
       "rapids-build-env=${MINOR_VERSION}.*" \
@@ -122,8 +122,8 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
 
     gpuci_logger "Install the main version of dask and distributed"
     set -x
-    pip install "git+https://github.com/dask/distributed.git@2021.09.1" --upgrade --no-deps
-    pip install "git+https://github.com/dask/dask.git@2021.09.1" --upgrade --no-deps
+    pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
+    pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
     set +x
 
     gpuci_logger "Python pytest for cuml"
@@ -195,8 +195,8 @@ else
 
     gpuci_logger "Install the main version of dask and distributed"
     set -x
-    pip install "git+https://github.com/dask/distributed.git@2021.09.1" --upgrade --no-deps
-    pip install "git+https://github.com/dask/dask.git@2021.09.1" --upgrade --no-deps
+    pip install "git+https://github.com/dask/distributed.git@main" --upgrade --no-deps
+    pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
     set +x
 
     gpuci_logger "Building cuml"
