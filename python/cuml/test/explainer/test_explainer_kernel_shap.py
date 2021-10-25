@@ -21,9 +21,11 @@ import math
 import pytest
 import sklearn.neighbors
 
+from cuml import Lasso
 from cuml import KernelExplainer
 from cuml.common.import_utils import has_scipy
 from cuml.common.import_utils import has_shap
+from cuml.datasets import make_regression
 from cuml.test.conftest import create_synthetic_dataset
 from cuml.test.utils import ClassEnumerator
 from cuml.test.utils import get_shap_values
@@ -320,6 +322,18 @@ def test_l1_regularization(exact_shap_regression_dataset, l1_type):
             l1_reg=l1_type
         )
     assert isinstance(nz, cp.ndarray)
+
+
+def test_typeerror_input():
+    X, y = make_regression(n_samples=100, n_features=10, random_state=10)
+    clf = Lasso()
+    clf.fit(X, y)
+    exp = KernelExplainer(model=clf.predict, data=X, nsamples=10)
+    try:
+        _ = exp.shap_values(X)
+        assert True
+    except TypeError:
+        assert False
 
 
 ###############################################################################

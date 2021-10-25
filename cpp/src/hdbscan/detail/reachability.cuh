@@ -34,7 +34,7 @@
 #include <rmm/exec_policy.hpp>
 
 #include <cuml/neighbors/knn.hpp>
-#include <raft/distance/distance.cuh>
+#include <raft/distance/distance.hpp>
 
 #include <thrust/transform.h>
 
