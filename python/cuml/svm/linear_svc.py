@@ -151,8 +151,6 @@ class LinearSVC(LinearSVM, ClassifierMixin):
             kwargs['loss'] = 'squared_hinge'
         if 'multiclass_strategy' not in kwargs:
             kwargs['multiclass_strategy'] = 'ovr'
-        if 'probability' not in kwargs:
-            kwargs['probability'] = False
 
         super().__init__(*args, **kwargs)
 
