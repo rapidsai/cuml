@@ -17,37 +17,32 @@
 /** @file treelite-import.cu converts from treelite format to a FIL-centric CPU-RAM format, so that
  * fil.cu can make a `forest` object out of it. */
 
-#include "common.cuh"
-#include "internal.cuh"
+#include "common.cuh"    // for num_trees, tree_num_nodes
+#include "internal.cuh"  // for MAX_PRECISE_INT_FLOAT, BITS_PER_BYTE, cat_feature_counters, cat_sets, cat_sets_owner, categorical_sets, leaf_algo_t
 
-#include <cuml/fil/fil.h>
-#include <cuml/fil/fnv_hash.h>
+#include <cuml/fil/fil.h>  // for algo_t, from_treelite, storage_type_repr, storage_type_t, treelite_params_t
+#include <cuml/fil/fnv_hash.h>     // for fowler_noll_vo_fingerprint64_32
 #include <cuml/common/logger.hpp>  // for CUML_LOG_WARN
 
-#include <raft/cudart_utils.h>
-#include <raft/error.hpp>   // for ASSERT
-#include <raft/handle.hpp>  // for handle_t
+#include <raft/cudart_utils.h>  // for CUDA_CHECK
+#include <raft/error.hpp>       // for ASSERT
+#include <raft/handle.hpp>      // for handle_t
 
-#include <bits/stdint-uintn.h>  // for uint8_t
-#include <treelite/c_api.h>
-#include <treelite/tree.h>
-#include <iosfwd>  // for ios, stringstream
-
-#include <thrust/device_ptr.h>
-#include <thrust/device_vector.h>
-#include <thrust/host_vector.h>
+#include <treelite/base.h>   // for Operator, SplitFeatureType, kGE, kGT, kLE, kLT, kNumerical
+#include <treelite/c_api.h>  // for ModelHandle
+#include <treelite/tree.h>   // for Tree
 
 #include <omp.h>  // for omp
 
-#include <cmath>    // for NAN
-#include <cstddef>  // for size_t
-#include <cstdint>  // for uint8_t
-
-#include <algorithm>
-#include <bitset>  // for bitset
-#include <iomanip>
-#include <stack>
-#include <utility>
+#include <algorithm>    // for std::max
+#include <bitset>       // for std::bitset
+#include <cmath>        // for NAN
+#include <cstddef>      // for std::size_t
+#include <cstdint>      // for uint8_t
+#include <iosfwd>       // for ios, stringstream
+#include <stack>        // for std::stack
+#include <string>       // for std::string
+#include <type_traits>  // for std::is_same
 
 namespace ML {
 namespace fil {
