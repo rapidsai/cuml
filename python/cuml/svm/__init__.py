@@ -15,5 +15,5 @@
 #
 from cuml.svm.svc import SVC
 from cuml.svm.svr import SVR
-from cuml.svm.linear import LinearSVC
-from cuml.svm.linear import LinearSVR
+from cuml.svm.linear_svc import LinearSVC
+from cuml.svm.linear_svr import LinearSVR
