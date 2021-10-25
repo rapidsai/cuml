@@ -283,6 +283,20 @@ class SVC(SVMBase,
 
     @property
     @cuml.internals.api_base_return_array_skipall
+    def support_(self):
+        if self.n_classes_ > 2:
+            estimators = self.multiclass_svc.multiclass_estimator.estimators_
+            return cp.concatenate(
+                [cp.asarray(cls._support_) for cls in estimators])
+        else:
+            return self._support_ #super().support_
+
+    @support_.setter
+    def support_(self, value):
+        self._support_ = value
+
+    @property
+    @cuml.internals.api_base_return_array_skipall
     def intercept_(self):
         if self.n_classes_ > 2:
             estimators = self.multiclass_svc.multiclass_estimator.estimators_
@@ -372,6 +386,21 @@ class SVC(SVMBase,
             estimator=SVC(**params), handle=self.handle, verbose=self.verbose,
             output_type=self.output_type, strategy=strategy)
         self.multiclass_svc.fit(X, y)
+        
+        # Loop through multiclass estimators and re-align support_ indices
+        classes = np.unique(y)
+        n_classes = len(classes)
+        if strategy == 'ovo':
+            estimator_index = 0
+            for i in range(n_classes):
+                for j in range(i + 1, n_classes):
+                    cond = np.logical_or(y == classes[i], y == classes[j])
+                    with cuml.using_output_type('numpy'):
+                        ovo_support = list(self.multiclass_svc.multiclass_estimator.estimators_[estimator_index].support_)
+                    # Align individual "ovo" estimator's support_ to multi-class dataset's indices
+                    self.multiclass_svc.multiclass_estimator.estimators_[estimator_index].support_ = np.where(cond)[0][ovo_support]
+                    estimator_index += 1
+        
         self._fit_status_ = 0
         return self
 
