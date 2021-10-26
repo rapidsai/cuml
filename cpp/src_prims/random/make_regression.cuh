@@ -29,7 +29,7 @@
 #include <raft/handle.hpp>
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/qr.cuh>
-#include <raft/matrix/matrix.cuh>
+#include <raft/matrix/matrix.hpp>
 #include <raft/mr/device/buffer.hpp>
 #include <raft/random/rng.hpp>
 #include <rmm/device_uvector.hpp>

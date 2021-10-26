@@ -23,8 +23,8 @@
 #include <raft/handle.hpp>
 #include <raft/linalg/eig.cuh>
 #include <raft/linalg/eltwise.cuh>
-#include <raft/matrix/math.cuh>
-#include <raft/matrix/matrix.cuh>
+#include <raft/matrix/math.hpp>
+#include <raft/matrix/matrix.hpp>
 #include <raft/stats/mean.hpp>
 #include <raft/stats/mean_center.hpp>
 #include <rmm/device_uvector.hpp>
