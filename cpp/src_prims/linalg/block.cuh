@@ -70,19 +70,16 @@ namespace MLCommon {
 namespace LinAlg {
 
 /**
- * Execution policy for a block-local GEMM
+ * Generic block policy, that can be inherited by more specific policies.
+ * Describes the shape of a tile worked by a thread block.
  *
- * @tparam _veclen Length for vectorized loads (1 or 2 for fp64 + 4 for fp32)
- * @tparam _kblk   Tile dimension k
  * @tparam _rpt    Rows worked per thread
  * @tparam _cpt    Columns worked per thread
  * @tparam _tr     Number of thread rows
  * @tparam _tc     Number of thread columns
  */
-template <int _veclen, int _kblk, int _rpt, int _cpt, int _tr, int _tc>
-struct BlockGemmPolicy {
-  /** Length for vectorized loads */
-  static constexpr int VecLen = _veclen;
+template <int _rpt, int _cpt, int _tr, int _tc>
+struct BlockPolicy {
   /** Rows worked per thread */
   static constexpr int RowsPerTh = _rpt;
   /** Columns worked per thread */
@@ -93,46 +90,66 @@ struct BlockGemmPolicy {
   static constexpr int ThRows = _tr;
   /** Number of thread columns */
   static constexpr int ThCols = _tc;
-  /** Tile dimension k */
-  static constexpr int Kblk = _kblk;
   /** Tile dimension m */
   static constexpr int Mblk = RowsPerTh * ThRows;
   /** Tile dimension n */
   static constexpr int Nblk = ColsPerTh * ThCols;
+  /** Total size of a tile */
+  static constexpr int TileSize = Mblk * Nblk;
   /** Number of threads per block */
   static constexpr int BlockSize = ThRows * ThCols;
+};
+
+/**
+ * Execution policy for a block-local GEMM
+ *
+ * @tparam _veclen Length for vectorized loads (1 or 2 for fp64 + 4 for fp32)
+ * @tparam _kblk   Tile dimension k
+ * @tparam _rpt    Rows worked per thread
+ * @tparam _cpt    Columns worked per thread
+ * @tparam _tr     Number of thread rows
+ * @tparam _tc     Number of thread columns
+ */
+template <int _veclen, int _kblk, int _rpt, int _cpt, int _tr, int _tc>
+struct BlockGemmPolicy : BlockPolicy<_rpt, _cpt, _tr, _tc> {
+  using Base = BlockPolicy<_rpt, _cpt, _tr, _tc>;
+
+  /** Length for vectorized loads */
+  static constexpr int VecLen = _veclen;
+  /** Tile dimension k */
+  static constexpr int Kblk = _kblk;
 
   /** Number of threads required to load a single column of the A tile */
-  static constexpr int AN_LdRows = Mblk / VecLen;
+  static constexpr int AN_LdRows = Base::Mblk / VecLen;
   /** Number of threads required to load a single row of the A' tile */
   static constexpr int AT_LdRows = Kblk / VecLen;
   /** Number of threads required to load a single column of the B tile */
   static constexpr int BN_LdRows = Kblk / VecLen;
   /** Number of threads required to load a single row of the B' tile */
-  static constexpr int BT_LdRows = Nblk / VecLen;
+  static constexpr int BT_LdRows = Base::Nblk / VecLen;
 
   /* Check that the block size is a multiple of LdRows, i.e one load
    * with the whole block corresponds to a number of full columns */
-  static_assert(BlockSize % AN_LdRows == 0);
-  static_assert(BlockSize % AT_LdRows == 0);
-  static_assert(BlockSize % BN_LdRows == 0);
-  static_assert(BlockSize % BT_LdRows == 0);
+  static_assert(Base::BlockSize % AN_LdRows == 0);
+  static_assert(Base::BlockSize % AT_LdRows == 0);
+  static_assert(Base::BlockSize % BN_LdRows == 0);
+  static_assert(Base::BlockSize % BT_LdRows == 0);
 
   /** Number of columns of the A tile in one load with the whole block */
-  static constexpr int AN_LdCols = BlockSize / AN_LdRows;
+  static constexpr int AN_LdCols = Base::BlockSize / AN_LdRows;
   /** Number of rows of the A' tile in one load with the whole block */
-  static constexpr int AT_LdCols = BlockSize / AT_LdRows;
+  static constexpr int AT_LdCols = Base::BlockSize / AT_LdRows;
   /** Number of columns of the B tile in one load with the whole block */
-  static constexpr int BN_LdCols = BlockSize / BN_LdRows;
+  static constexpr int BN_LdCols = Base::BlockSize / BN_LdRows;
   /** Number of rows of the B' tile in one load with the whole block */
-  static constexpr int BT_LdCols = BlockSize / BT_LdRows;
+  static constexpr int BT_LdCols = Base::BlockSize / BT_LdRows;
 
   /* Number of loads per thread necessary to load the A tile */
   static constexpr int AN_LdCount = Kblk / AN_LdCols;
   /* Number of loads per thread necessary to load the A' tile */
-  static constexpr int AT_LdCount = Mblk / AT_LdCols;
+  static constexpr int AT_LdCount = Base::Mblk / AT_LdCols;
   /* Number of loads per thread necessary to load the B tile */
-  static constexpr int BN_LdCount = Nblk / BN_LdCols;
+  static constexpr int BN_LdCount = Base::Nblk / BN_LdCols;
   /* Number of loads per thread necessary to load the B' tile */
   static constexpr int BT_LdCount = Kblk / BT_LdCols;
 };
@@ -171,6 +188,15 @@ template <typename GemvPolicy, typename T>
 struct GemvStorage {
   /** Accumulators to be reduced per row */
   T acc[GemvPolicy::BlockSize];
+};
+
+/**
+ * Structure to hold the shared memory used by covariance numerical stability operation
+ */
+template <typename CovStabilityPolicy, typename T>
+struct CovStabilityStorage {
+  /** Transposed tile */
+  T tile[CovStabilityPolicy::TileSize];
 };
 
 /**
@@ -493,6 +519,64 @@ DI T _block_xAxt(
 
   /* Complete reduction and return dot product */
   return _block_reduce<BlockSize, Broadcast>(acc, reduction_storage);
+}
+
+/**
+ * @brief Improves numerical accuracy by making sure that the covariance matrix
+ *        is symmetric and only has positive elements along the diagonal.
+ *
+ * @todo: solve bank conflicts
+ *
+ * @tparam     CovPolicy   Execution policy
+ * @tparam     T           Floating-point type
+ * @tparam     StorageT    Shared memory storage structure type
+ * @param[in]  n           Matrix size
+ * @param[in]  in          Input covariance matrix
+ * @param[out] out         Output covariance matrix
+ * @param[in]  cov_storage Temporary shared memory storage
+ */
+template <typename CovPolicy, typename T, typename StorageT>
+DI void _block_covariance_stability(int n, const T* in, T* out, StorageT& cov_storage)
+{
+  int th_off_i = threadIdx.x % CovPolicy::ThRows;
+  int th_off_j = threadIdx.x / CovPolicy::ThRows;
+
+  /* Loop over tiles */
+  for (int blk_j = 0; blk_j < raft::ceildiv<int>(n, CovPolicy::Nblk); blk_j++) {
+    for (int blk_i = 0; blk_i < raft::ceildiv<int>(n, CovPolicy::Mblk); blk_i++) {
+      // Load the tile of the transpose matrix into a N x M shared memory tile
+      _load_tile<false,
+                 CovPolicy::BlockSize,
+                 1,
+                 CovPolicy::Nblk,
+                 CovPolicy::BlockSize / CovPolicy::Nblk,
+                 CovPolicy::RowsPerTh * CovPolicy::ColsPerTh,
+                 CovPolicy::Nblk,
+                 CovPolicy::Mblk>(
+        in, cov_storage.tile, blk_j * CovPolicy::Nblk, blk_i * CovPolicy::Mblk, n, n);
+      __syncthreads();
+
+      // Read from matrix and transposed tile, write to output matrix
+#pragma unroll
+      for (int th_j = 0; th_j < CovPolicy::ColsPerTh; th_j++) {
+#pragma unroll
+        for (int th_i = 0; th_i < CovPolicy::RowsPerTh; th_i++) {
+          int i  = th_off_i + th_i * CovPolicy::ThRows;
+          int j  = th_off_j + th_j * CovPolicy::ThCols;
+          int gi = blk_i * CovPolicy::Mblk + i;
+          int gj = blk_j * CovPolicy::Nblk + j;
+
+          if (gi < n && gj < n) {
+            T in0            = in[gj * n + gi];
+            T in1            = cov_storage.tile[i * CovPolicy::Nblk + j];
+            out[gj * n + gi] = gi == gj ? abs(in0) : 0.5 * (in0 + in1);
+          }
+        }
+      }
+
+      __syncthreads();
+    }
+  }
 }
 
 }  // namespace LinAlg
