@@ -21,7 +21,7 @@
 #include <thrust/reduce.h>
 #include <linalg/power.cuh>
 #include <memory>
-#include <raft/distance/distance.cuh>
+#include <raft/distance/distance.hpp>
 #include <raft/linalg/eltwise.cuh>
 #include <raft/linalg/subtract.cuh>
 #include <raft/spatial/knn/knn.hpp>

@@ -16,7 +16,7 @@
 
 #include <raft/cudart_utils.h>
 #include <common/ml_benchmark.hpp>
-#include <raft/distance/distance.cuh>
+#include <raft/distance/distance.hpp>
 
 namespace MLCommon {
 namespace Bench {
