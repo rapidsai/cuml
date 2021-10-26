@@ -26,7 +26,7 @@
 #include <raft/matrix/matrix.hpp>
 #include <raft/stats/mean.hpp>
 #include <raft/stats/mean_center.hpp>
-#include <raft/stats/stddev.cuh>
+#include <raft/stats/stddev.hpp>
 #include <raft/stats/sum.hpp>
 #include <rmm/device_uvector.hpp>
 #include "preprocess.cuh"
