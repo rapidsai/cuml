@@ -198,7 +198,8 @@ def checkCopyright_main():
 
     (args, dirs) = argparser.parse_known_args()
     try:
-        ExemptFiles = [re.compile(pathName) for pathName in args.exclude]
+        ExemptFiles = ExemptFiles + [pathName for pathName in args.exclude]
+        ExemptFiles = [re.compile(file) for file in ExemptFiles]
     except re.error as reException:
         print("Regular expression error:")
         print(reException)
