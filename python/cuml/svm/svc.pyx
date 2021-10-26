@@ -387,18 +387,18 @@ class SVC(SVMBase,
             output_type=self.output_type, strategy=strategy)
         self.multiclass_svc.fit(X, y)
         
-        # Loop through multiclass estimators and re-align support_ indices
-        classes = np.unique(y)
-        n_classes = len(classes)
+        # if using one-vs-one we align support_ indices to those of full dataset
         if strategy == 'ovo':
+            y = cp.array(y)
+            classes = cp.unique(y)
+            n_classes = len(classes)
             estimator_index = 0
+            # Loop through multiclass estimators and re-align support_ indices
             for i in range(n_classes):
                 for j in range(i + 1, n_classes):
-                    cond = np.logical_or(y == classes[i], y == classes[j])
-                    with cuml.using_output_type('numpy'):
-                        ovo_support = list(self.multiclass_svc.multiclass_estimator.estimators_[estimator_index].support_)
-                    # Align individual "ovo" estimator's support_ to multi-class dataset's indices
-                    self.multiclass_svc.multiclass_estimator.estimators_[estimator_index].support_ = np.where(cond)[0][ovo_support]
+                    cond = cp.logical_or(y == classes[i], y == classes[j])
+                    ovo_support = cp.array(self.multiclass_svc.multiclass_estimator.estimators_[estimator_index].support_)
+                    self.multiclass_svc.multiclass_estimator.estimators_[estimator_index].support_ = cp.nonzero(cond)[0][ovo_support]
                     estimator_index += 1
         
         self._fit_status_ = 0
