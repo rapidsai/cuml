@@ -26,7 +26,7 @@
 #include <raft/cudart_utils.h>
 #include <raft/linalg/distance_type.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/distance/distance.cuh>
+#include <raft/distance/distance.hpp>
 #include <raft/mr/device/allocator.hpp>
 
 #include <faiss/gpu/GpuDistance.h>
