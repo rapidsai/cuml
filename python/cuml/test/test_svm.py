@@ -166,6 +166,8 @@ def compare_svm(svm1, svm2, X, y, b_tol=None, coef_tol=None,
             print("Skipping decision function test due to low  accuracy",
                   accuracy2)
 
+    ## Compare support_ (dataset indicies of points that form the support vectors)
+
 
 def make_dataset(dataset, n_rows, n_cols, n_classes=2, n_informative=2):
     np.random.seed(137)
