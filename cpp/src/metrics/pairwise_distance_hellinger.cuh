@@ -16,7 +16,7 @@
  */
 #pragma once
 
-#include <raft/distance/distance.cuh>
+#include <raft/distance/distance.hpp>
 #include <raft/handle.hpp>
 
 namespace ML {
@@ -29,7 +29,6 @@ void pairwise_distance_hellinger(const raft::handle_t& handle,
                                  int m,
                                  int n,
                                  int k,
-                                 raft::distance::DistanceType metric,
                                  bool isRowMajor,
                                  double metric_arg);
 
@@ -40,7 +39,6 @@ void pairwise_distance_hellinger(const raft::handle_t& handle,
                                  int m,
                                  int n,
                                  int k,
-                                 raft::distance::DistanceType metric,
                                  bool isRowMajor,
                                  float metric_arg);
 }  // namespace Metrics

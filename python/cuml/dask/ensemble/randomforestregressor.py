@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 from cuml.dask.common.base import DelayedPredictionMixin
 from cuml.ensemble import RandomForestRegressor as cuRFR
 from cuml.dask.ensemble.base import \
@@ -68,14 +67,14 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         run different models concurrently in different streams by creating
         handles in several streams.
         If it is None, a new one is created.
-    split_algo : int (default = 1)
-        0 for HIST, 1 for GLOBAL_QUANTILE
-        The type of algorithm to be used to create the trees.
-    split_criterion : int (default = 2)
+    split_criterion : int or string (default = 2 ('mse'))
         The criterion used to split nodes.
-        0 for GINI, 1 for ENTROPY,
-        2 for MSE, 3 for MAE and 4 for CRITERION_END.
-        0 and 1 not valid for regression
+        0 or 'gini' for GINI, 1 or 'entropy' for ENTROPY,
+        2 or 'mse' for MSE,
+        4 or 'poisson' for POISSON,
+        5 or 'gamma' for GAMMA,
+        6 or 'inverse_gaussian' for INVERSE_GAUSSIAN,
+        0, 'gini', 1, 'entropy' not valid for regression
     bootstrap : boolean (default = True)
         Control bootstrapping.
         If set, each tree in the forest is built
@@ -118,17 +117,6 @@ class RandomForestRegressor(BaseRandomForestModel, DelayedPredictionMixin,
         for median of abs error : 'median_ae'
         for mean of abs error : 'mean_ae'
         for mean square error' : 'mse'
-    quantile_per_tree : boolean (default = False)
-        Whether quantile is computed for individual RF trees.
-        Only relevant for GLOBAL_QUANTILE split_algo.
-    use_experimental_backend : boolean (default = False)
-        If set to true and the following conditions are also met, a new
-        experimental backend for decision tree training will be used. The
-        new backend is available only if `split_algo = 1` (GLOBAL_QUANTILE)
-        and `quantile_per_tree = False` (No per tree quantile computation).
-        The new backend is considered stable for classification tasks but
-        not yet for regression tasks. The RAPIDS team is continuing
-        optimization and evaluation of the new backend for regression tasks.
     n_streams : int (default = 4 )
         Number of parallel streams used for forest building
     workers : optional, list of strings
