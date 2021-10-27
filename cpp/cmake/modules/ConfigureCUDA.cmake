@@ -33,6 +33,9 @@ if(DISABLE_DEPRECATION_WARNING)
     list(APPEND CUML_CUDA_FLAGS -Xcompiler=-Wno-deprecated-declarations)
 endif()
 
+# make sure we produce smallest binary size
+list(APPEND CUML_CUDA_FLAGS -Xfatbin=-compress-all)
+
 # Option to enable line info in CUDA device compilation to allow introspection when profiling / memchecking
 if(CUDA_ENABLE_LINE_INFO)
   list(APPEND CUML_CUDA_FLAGS -lineinfo)
