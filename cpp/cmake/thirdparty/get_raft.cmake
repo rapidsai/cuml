@@ -57,5 +57,5 @@ set(CUML_BRANCH_VERSION_raft "${CUML_VERSION_MAJOR}.${CUML_VERSION_MINOR}")
 # CPM_raft_SOURCE=/path/to/local/raft
 find_and_configure_raft(VERSION    ${CUML_MIN_VERSION_raft}
                         FORK       cjnolet
-                        PINNED_TAG imp-2112-ext_libs
+                        PINNED_TAG fea-2112-rbc_high_dims
                         )
