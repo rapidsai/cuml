@@ -18,19 +18,16 @@
     (the persisting result of import) and implementing `forest` methods like `predict`
     (the main inference kernel is defined in infer.cu). */
 
-#include "common.cuh"
-#include "internal.cuh"
+#include "common.cuh"    // for predict_params, sparse_storage, dense_storage
+#include "internal.cuh"  // for cat_sets_device_owner, categorical_sets, output_t,
 
-#include <cuml/fil/fil.h>
-#include <cuml/common/logger.hpp>
+#include <cuml/fil/fil.h>  // for algo_t,
 
-#include <raft/cudart_utils.h>  // for CUDA_CHECK
-#include <raft/error.hpp>       // for ASSERT
-#include <raft/handle.hpp>      // for handle_t
-
-#include <thrust/device_ptr.h>
-#include <thrust/device_vector.h>
-#include <thrust/host_vector.h>
+#include <raft/cudart_utils.h>     // for CUDA_CHECK, cudaStream_t,
+#include <raft/error.hpp>          // for ASSERT
+#include <raft/handle.hpp>         // for handle_t
+#include <rmm/device_uvector.hpp>  // for device_uvector
+#include <thrust/host_vector.h>    // for host_vector
 
 #include <cmath>    // for expf
 #include <cstddef>  // for size_t
