@@ -38,7 +38,7 @@ namespace genetic {
  *
  */
 class GeneticEvolutionTest : public ::testing::Test {
- protected:
+ public:
   void SetUp() override
   {
     ML::Logger::get().setLevel(CUML_LEVEL_INFO);
@@ -56,52 +56,53 @@ class GeneticEvolutionTest : public ::testing::Test {
     hyper_params.p_hoist_mutation      = 0.05;
     hyper_params.p_point_mutation      = 0.1;
     hyper_params.parsimony_coefficient = 0.01;
-    // hyper_params.metric = metric_t::mae;
-    // hyper_params.function_set = {node::type::add, node::type::sub, node::type::mul};
 
     // Initialize weights
     h_trainwts.resize(n_tr_rows, 1.0f);
     h_testwts.resize(n_tst_rows, 1.0f);
 
     // Initialize device memory
-    d_train = (float*)rmm::mr::get_current_device_resource()->allocate(
-      n_cols * n_tr_rows * sizeof(float), stream);
-    d_trainlab =
-      (float*)rmm::mr::get_current_device_resource()->allocate(n_tr_rows * sizeof(float), stream);
-    d_test = (float*)rmm::mr::get_current_device_resource()->allocate(
-      n_cols * n_tst_rows * sizeof(float), stream);
-    d_testlab =
-      (float*)rmm::mr::get_current_device_resource()->allocate(n_tst_rows * sizeof(float), stream);
-    d_trainwts =
-      (float*)rmm::mr::get_current_device_resource()->allocate(n_tr_rows * sizeof(float), stream);
-    d_testwts =
-      (float*)rmm::mr::get_current_device_resource()->allocate(n_tst_rows * sizeof(float), stream);
+    d_train    = std::make_unique<rmm::device_uvector<float>>(n_cols * n_tr_rows, stream);
+    d_trainlab = std::make_unique<rmm::device_uvector<float>>(n_tr_rows, stream);
+    d_test     = std::make_unique<rmm::device_uvector<float>>(n_cols * n_tst_rows, stream);
+    d_testlab  = std::make_unique<rmm::device_uvector<float>>(n_tst_rows, stream);
+    d_trainwts = std::make_unique<rmm::device_uvector<float>>(n_tr_rows, stream);
+    d_testwts  = std::make_unique<rmm::device_uvector<float>>(n_tst_rows, stream);
 
     // Memcpy HtoD
-    CUDA_CHECK(cudaMemcpyAsync(
-      d_train, h_train.data(), n_cols * n_tr_rows * sizeof(float), cudaMemcpyHostToDevice, stream));
-    CUDA_CHECK(cudaMemcpyAsync(
-      d_trainlab, h_trainlab.data(), n_tr_rows * sizeof(float), cudaMemcpyHostToDevice, stream));
-    CUDA_CHECK(cudaMemcpyAsync(
-      d_test, h_test.data(), n_cols * n_tst_rows * sizeof(float), cudaMemcpyHostToDevice, stream));
-    CUDA_CHECK(cudaMemcpyAsync(
-      d_testlab, h_testlab.data(), n_tst_rows * sizeof(float), cudaMemcpyHostToDevice, stream));
-    CUDA_CHECK(cudaMemcpyAsync(
-      d_trainwts, h_trainwts.data(), n_tr_rows * sizeof(float), cudaMemcpyHostToDevice, stream));
-    CUDA_CHECK(cudaMemcpyAsync(
-      d_testwts, h_testwts.data(), n_tst_rows * sizeof(float), cudaMemcpyHostToDevice, stream));
+    CUDA_CHECK(cudaMemcpyAsync(d_train->data(),
+                               h_train.data(),
+                               n_cols * n_tr_rows * sizeof(float),
+                               cudaMemcpyHostToDevice,
+                               stream));
+    CUDA_CHECK(cudaMemcpyAsync(d_trainlab->data(),
+                               h_trainlab.data(),
+                               n_tr_rows * sizeof(float),
+                               cudaMemcpyHostToDevice,
+                               stream));
+    CUDA_CHECK(cudaMemcpyAsync(d_test->data(),
+                               h_test.data(),
+                               n_cols * n_tst_rows * sizeof(float),
+                               cudaMemcpyHostToDevice,
+                               stream));
+    CUDA_CHECK(cudaMemcpyAsync(d_testlab->data(),
+                               h_testlab.data(),
+                               n_tst_rows * sizeof(float),
+                               cudaMemcpyHostToDevice,
+                               stream));
+    CUDA_CHECK(cudaMemcpyAsync(d_trainwts->data(),
+                               h_trainwts.data(),
+                               n_tr_rows * sizeof(float),
+                               cudaMemcpyHostToDevice,
+                               stream));
+    CUDA_CHECK(cudaMemcpyAsync(d_testwts->data(),
+                               h_testwts.data(),
+                               n_tst_rows * sizeof(float),
+                               cudaMemcpyHostToDevice,
+                               stream));
   }
 
-  void TearDown() override
-  {
-    CUDA_CHECK(cudaFree(d_train));
-    CUDA_CHECK(cudaFree(d_trainlab));
-    CUDA_CHECK(cudaFree(d_trainwts));
-    CUDA_CHECK(cudaFree(d_test));
-    CUDA_CHECK(cudaFree(d_testlab));
-    CUDA_CHECK(cudaFree(d_testwts));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
+  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
   raft::handle_t handle;
   cudaStream_t stream;
@@ -243,12 +244,8 @@ class GeneticEvolutionTest : public ::testing::Test {
   std::vector<float> h_trainwts;
   std::vector<float> h_testwts;
 
-  float* d_train;
-  float* d_trainlab;
-  float* d_test;
-  float* d_testlab;
-  float* d_trainwts;
-  float* d_testwts;
+  std::unique_ptr<rmm::device_uvector<float>> d_train, d_trainlab, d_test, d_testlab, d_trainwts,
+    d_testwts;
 };
 
 TEST_F(GeneticEvolutionTest, SymReg)
@@ -266,8 +263,15 @@ TEST_F(GeneticEvolutionTest, SymReg)
 
   cudaEventRecord(start, stream);
 
-  symFit(
-    handle, d_train, d_trainlab, d_trainwts, n_tr_rows, n_cols, hyper_params, final_progs, history);
+  symFit(handle,
+         d_train->data(),
+         d_trainlab->data(),
+         d_trainwts->data(),
+         n_tr_rows,
+         n_cols,
+         hyper_params,
+         final_progs,
+         history);
 
   cudaEventRecord(stop, stream);
   cudaEventSynchronize(stop);
@@ -303,7 +307,7 @@ TEST_F(GeneticEvolutionTest, SymReg)
   cudaEventRecord(start, stream);
 
   cuml::genetic::symRegPredict(
-    handle, d_test, n_tst_rows, final_progs + best_idx, d_predlabels.data());
+    handle, d_test->data(), n_tst_rows, final_progs + best_idx, d_predlabels.data());
 
   std::vector<float> h_predlabels(n_tst_rows, 0.0f);
   CUDA_CHECK(cudaMemcpy(
@@ -313,6 +317,8 @@ TEST_F(GeneticEvolutionTest, SymReg)
   cudaEventSynchronize(stop);
   float inference_time;
   cudaEventElapsedTime(&inference_time, start, stop);
+  rmm::mr::get_current_device_resource()->deallocate(
+    final_progs, hyper_params.population_size * sizeof(program), stream);
 
   std::cout << "Some Predicted test values:" << std::endl;
   std::copy(

@@ -218,7 +218,6 @@ void weightedSpearman(const raft::handle_t& h,
   thrust::device_ptr<math_t> Ypredrankptr = thrust::device_pointer_cast<math_t>(Ypredrank.data());
 
   for (std::size_t i = 0; i < n_progs; ++i) {
-    raft::deallocate_all(stream);
     thrust::sequence(exec_policy, rank_idx.begin(), rank_idx.end(), 0);
     thrust::sort_by_key(
       exec_policy, Ypredptr + (i * n_samples), Ypredptr + ((i + 1) * n_samples), rank_idx.begin());

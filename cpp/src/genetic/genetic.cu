@@ -227,14 +227,16 @@ void parallel_evolve(const raft::handle_t& h,
     delete[] tmp.nodes;
 
     // Set current generation device nodes
-    raft::allocate(tmp.nodes, h_nextprogs[i].len, stream);
+    tmp.nodes = (node*)rmm::mr::get_current_device_resource()->allocate(
+      h_nextprogs[i].len * sizeof(node), stream);
     raft::copy(tmp.nodes, h_nextprogs[i].nodes, h_nextprogs[i].len, stream);
     raft::copy(d_nextprogs + i, &tmp, 1, stream);
 
     if (generation > 1) {
       // Free device memory allocated to program nodes in previous generation
       raft::copy(&tmp, d_oldprogs + i, 1, stream);
-      raft::deallocate(tmp.nodes, stream);
+      rmm::mr::get_current_device_resource()->deallocate(
+        tmp.nodes, h_nextprogs[i].len * sizeof(node), stream);
     }
 
     tmp.nodes = nullptr;
@@ -403,7 +405,8 @@ void symFit(const raft::handle_t& handle,
   std::vector<float> h_fitness(params.population_size, 0.0f);
 
   program_t d_currprogs;  // pointer to current programs
-  raft::allocate(d_currprogs, params.population_size, stream);
+  d_currprogs = (program_t)rmm::mr::get_current_device_resource()->allocate(
+    params.population_size * sizeof(program), stream);
   program_t d_nextprogs = final_progs;  // Reuse memory already allocated for final_progs
   final_progs           = nullptr;
 
@@ -484,7 +487,8 @@ void symFit(const raft::handle_t& handle,
   if (growAuto) { params.terminalRatio = 0.0f; }
 
   // Deallocate the previous generation device memory
-  raft::deallocate(d_nextprogs, stream);
+  rmm::mr::get_current_device_resource()->deallocate(
+    d_nextprogs, params.population_size * sizeof(program), stream);
   d_currprogs = nullptr;
   d_nextprogs = nullptr;
 }
