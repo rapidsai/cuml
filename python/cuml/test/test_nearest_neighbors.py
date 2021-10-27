@@ -657,3 +657,8 @@ def test_haversine_fails_high_dimensions():
                  algorithm='brute')
 
     cunn.fit(data).kneighbors(data)
+
+def test_n_jobs_parameter_passthrough():
+    cunn = cuKNN()
+    cunn.set_params(**{"n_jobs": 12})
+
