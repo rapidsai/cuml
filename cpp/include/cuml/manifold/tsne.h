@@ -117,7 +117,7 @@ struct TSNEParams {
  * @param[in]  knn_indices         Array containing nearest neighors indices.
  * @param[in]  knn_dists           Array containing nearest neighors distances.
  * @param[in]  params              Parameters for TSNE model
- * @return The Kullback–Leibler divergence
+ * @param[out] kl_div              (optional) KL divergence output
  *
  * The CUDA implementation is derived from the excellent CannyLabs open source
  * implementation here: https://github.com/CannyLab/tsne-cuda/. The CannyLabs
@@ -151,7 +151,7 @@ void TSNE_fit(const raft::handle_t& handle,
  * @param[in]  knn_indices         Array containing nearest neighors indices.
  * @param[in]  knn_dists           Array containing nearest neighors distances.
  * @param[in]  params              Parameters for TSNE model
- * @return The Kullback–Leibler divergence
+ * @param[out] kl_div              (optional) KL divergence output
  *
  * The CUDA implementation is derived from the excellent CannyLabs open source
  * implementation here: https://github.com/CannyLab/tsne-cuda/. The CannyLabs
