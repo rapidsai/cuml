@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-/** @file treelite-import.cu converts from treelite format to a FIL-centric CPU-RAM format, so that
+/** @file treelite_import.cu converts from treelite format to a FIL-centric CPU-RAM format, so that
  * fil.cu can make a `forest` object out of it. */
 
 #include "common.cuh"    // for num_trees, tree_num_nodes
