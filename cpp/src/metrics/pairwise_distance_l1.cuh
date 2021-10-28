@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 #pragma once
-#include <raft/distance/distance.cuh>
+#include <raft/distance/distance.hpp>
 #include <raft/handle.hpp>
 
 namespace ML {

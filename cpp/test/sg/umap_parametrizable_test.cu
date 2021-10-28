@@ -33,7 +33,7 @@
 
 #include <raft/cudart_utils.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/distance/distance.cuh>
+#include <raft/distance/distance.hpp>
 #include <raft/handle.hpp>
 #include <raft/mr/device/allocator.hpp>
 #include <selection/knn.cuh>
