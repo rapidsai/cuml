@@ -299,7 +299,6 @@ TEST_F(GeneticEvolutionTest, SymReg)
             << std::endl;
   // std::cout << "Best AST length : " << history[n_gen-1][best_idx].len << std::endl;
   std::cout << "Best AST equation is : " << eqn << std::endl;
-  ASSERT_TRUE(compApprox(history[n_gen - 1][best_idx].raw_fitness_, 0.0036f));
 
   // Predict values for test dataset
   rmm::device_uvector<float> d_predlabels(n_tst_rows, stream);
@@ -317,9 +316,19 @@ TEST_F(GeneticEvolutionTest, SymReg)
   cudaEventSynchronize(stop);
   float inference_time;
   cudaEventElapsedTime(&inference_time, start, stop);
+
+  // deallocate the nodes allocated for the last generation inside SymFit
+  for (auto i = 0; i < hyper_params.population_size; ++i) {
+    program tmp = program();
+    raft::copy(&tmp, final_progs + i, 1, stream);
+    rmm::mr::get_current_device_resource()->deallocate(tmp.nodes, tmp.len * sizeof(node), stream);
+    tmp.nodes = nullptr;
+  }
+  // deallocate the final programs from device memory
   rmm::mr::get_current_device_resource()->deallocate(
     final_progs, hyper_params.population_size * sizeof(program), stream);
 
+  ASSERT_TRUE(compApprox(history[n_gen - 1][best_idx].raw_fitness_, 0.0036f));
   std::cout << "Some Predicted test values:" << std::endl;
   std::copy(
     h_predlabels.begin(), h_predlabels.begin() + 10, std::ostream_iterator<float>(std::cout, ";"));
