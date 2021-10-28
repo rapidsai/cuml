@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-/** @file fil.cu implements loading the forest into the FIL `forest` object
-    (the persisting result of import) and implementing `forest` methods like `predict`
-    (the main inference kernel is defined in infer.cu). */
+/** @file fil.cu fil.cu implements the forest data types (dense and sparse), including their
+creation and prediction (the main inference kernel is defined in infer.cu). */
 
 #include "common.cuh"    // for predict_params, sparse_storage, dense_storage
 #include "internal.cuh"  // for cat_sets_device_owner, categorical_sets, output_t,
