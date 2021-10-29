@@ -351,7 +351,7 @@ struct categorical_sets {
     (not matching, branch left). -0.0f represents category 0.
     If (float)(int)category != category, we will discard the fractional part.
     E.g. 3.8f represents category 3 regardless of max_matching value.
-    FIL will reject a model where an integer within [0, max_matching] cannot be represented
+    FIL will reject a model where an integer within [0, max_matching + 1] cannot be represented
     precisely as a 32-bit float.
     */
     return category < static_cast<float>(max_matching[node.fid()] + 1) && category >= 0.0f &&
