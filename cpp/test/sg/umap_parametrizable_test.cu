@@ -15,7 +15,6 @@
  */
 
 #include <test_utils.h>
-
 #include <umap/runner.cuh>
 
 #include <cuml/manifold/umapparams.h>
