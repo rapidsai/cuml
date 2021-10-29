@@ -36,7 +36,7 @@ from cuml.common.memory_utils import _check_array_contiguity
 if has_scipy():
     import scipy.sparse
 
-cuml_array = namedtuple('cuml_array', 'array n_rows n_cols dtype')
+cuml_array = namedtuple('cuml_array', 'array n_rows n_cols dtype index')
 
 # inp_array is deprecated and will be dropped once cuml array is adopted
 # in all algos. Github issue #1716
@@ -406,7 +406,16 @@ def input_to_cuml_array(X,
         X_m = cp.array(X_m, copy=False, order=order)
         X_m = CumlArray(data=X_m)
 
-    return cuml_array(array=X_m, n_rows=n_rows, n_cols=n_cols, dtype=X_m.dtype)
+    if hasattr(X, index):
+        index = X.index
+    else:
+        index = None
+
+    return cuml_array(array=X_m,
+                      n_rows=n_rows,
+                      n_cols=n_cols,
+                      dtype=X_m.dtype,
+                      index=index)
 
 
 @nvtx.annotate(message="common.input_utils.input_to_cupy_array",

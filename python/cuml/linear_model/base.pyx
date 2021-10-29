@@ -67,17 +67,15 @@ class LinearPredictMixin:
         Predicts `y` values for `X`.
 
         """
-        cdef uintptr_t X_ptr
-        X_m, n_rows, n_cols, dtype = \
-            input_to_cuml_array(X, check_dtype=self.dtype,
-                                convert_to_dtype=(self.dtype if convert_dtype
-                                                  else None),
-                                check_cols=self.n_cols)
-        X_ptr = X_m.ptr
-
+        # X_m, n_rows, n_cols, dtype = \
+        X_m = input_to_cuml_array(X, check_dtype=self.dtype,
+                                  convert_to_dtype=(self.dtype if convert_dtype
+                                                    else None),
+                                  check_cols=self.n_cols)
+        cdef uintptr_t X_ptr = X_m.array.ptr
         cdef uintptr_t coef_ptr = self.coef_.ptr
 
-        preds = CumlArray.zeros(n_rows, dtype=dtype)
+        preds = CumlArray.zeros(X_m.n_rows, dtype=X_m.dtype)
         cdef uintptr_t preds_ptr = preds.ptr
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
@@ -85,16 +83,16 @@ class LinearPredictMixin:
         if dtype.type == np.float32:
             gemmPredict(handle_[0],
                         <float*>X_ptr,
-                        <int>n_rows,
-                        <int>n_cols,
+                        <int>X_m.n_rows,
+                        <int>X_m.n_cols,
                         <float*>coef_ptr,
                         <float>self.intercept_,
                         <float*>preds_ptr)
         else:
             gemmPredict(handle_[0],
                         <double*>X_ptr,
-                        <int>n_rows,
-                        <int>n_cols,
+                        <int>X_m.n_rows,
+                        <int>X_m.n_cols,
                         <double*>coef_ptr,
                         <double>self.intercept_,
                         <double*>preds_ptr)
