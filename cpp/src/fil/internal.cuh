@@ -340,7 +340,7 @@ struct categorical_sets {
 
   // set count is due to tree_idx + node_within_tree_idx are both ints, hence uint32_t result
   template <typename node_t>
-  __host__ __device__ __forceinline__ int category_matches(node_t node, int category) const
+  __host__ __device__ __forceinline__ int category_matches(node_t node, float category) const
   {
     // standard boolean packing. This layout has better ILP
     // node.set() is global across feature IDs and is an offset (as opposed
@@ -349,12 +349,15 @@ struct categorical_sets {
     // storing node ID within nodes with same feature ID and look up
     // {.max_matching, .first_node_offset} = ...[feature_id]
 
-    /* category < 0 is equivalent to out-of-dictionary category (not matching, branch left)
-     importing ensured no categorical nodes (hence, features) with max_matching == -1 (or,
-     consequently, max_matching < 0)
+    /* category < 0.0f or category > INT_MAX is equivalent to out-of-dictionary category
+    (not matching, branch left). -0.0f represents category 0.
+    If (float)(int)category != category, we will discard the fractional part.
+    E.g. 3.8f represents category 3 regardless of max_matching value.
+    FIL will reject a model where an integer within [0, max_matching] cannot be represented
+    precisely as a 32-bit float.
     */
-    return static_cast<uint32_t>(category) <= static_cast<uint32_t>(max_matching[node.fid()]) &&
-           fetch_bit(bits + node.set(), category);
+    return category < static_cast<float>(max_matching[node.fid()] + 1) && category >= 0.0f &&
+           fetch_bit(bits + node.set(), static_cast<int>(category));
   }
   static int sizeof_mask_from_max_matching(int max_matching)
   {
@@ -389,7 +392,7 @@ struct tree_base {
         conversion truncates; that is, the fractional part is discarded. The behavior is undefined
         if the truncated value cannot be represented in the destination type.
       */
-      cond = cat_sets.category_matches(node, static_cast<int>(val));
+      cond = cat_sets.category_matches(node, val);
     } else {
       cond = val >= node.thresh();
     }
