@@ -309,7 +309,7 @@ const int FIL_TPB = 256;
 
 constexpr std::int32_t MAX_PRECISE_INT_FLOAT = 1 << 24;  // 16'777'216
 
-__host__ __device__ __forceinline__ int fetch_bit(const uint8_t* array, int bit)
+__host__ __device__ __forceinline__ int fetch_bit(const uint8_t* array, uint32_t bit)
 {
   return (array[bit / BITS_PER_BYTE] >> (bit % BITS_PER_BYTE)) & 1;
 }
@@ -345,7 +345,13 @@ struct categorical_sets {
     // features with similar categorical feature count, we may consider
     // storing node ID within nodes with same feature ID and look up
     // {.max_matching, .first_node_offset} = ...[feature_id]
-    return category <= max_matching[node.fid()] && fetch_bit(bits + node.set(), category);
+
+    /* category < 0 is equivalent to out-of-dictionary category (not matching, branch left)
+     importing ensured no categorical nodes (hence, features) with max_matching == -1 (or,
+     consequently, max_matching < 0)
+    */
+    return static_cast<uint32_t>(category) <= static_cast<uint32_t>(max_matching[node.fid()]) &&
+           fetch_bit(bits + node.set(), category);
   }
   static int sizeof_mask_from_max_matching(int max_matching)
   {
@@ -372,6 +378,14 @@ struct tree_base {
     if (isnan(val)) {
       cond = !node.def_left();
     } else if (CATS_SUPPORTED && node.is_categorical()) {
+      /* cannot cast float directly to uint32_t since C++ standard doesn't mandate two's complement
+      in that case:
+      http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n4296.pdf
+      4.9 Floating-integral conversions [conv.fpint]
+        1 A prvalue of a floating point type can be converted to a prvalue of an integer type. The
+        conversion truncates; that is, the fractional part is discarded. The behavior is undefined
+        if the truncated value cannot be represented in the destination type.
+      */
       cond = cat_sets.category_matches(node, static_cast<int>(val));
     } else {
       cond = val >= node.thresh();

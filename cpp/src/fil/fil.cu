@@ -802,8 +802,9 @@ conversion_state<fil_node_t> tl2fil_inner_node(int fil_left_child,
   int tl_left = tree.LeftChild(tl_node_id), tl_right = tree.RightChild(tl_node_id);
   val_t split         = {.f = NAN};  // yes there's a default initializer already
   int feature_id      = tree.SplitIndex(tl_node_id);
-  bool is_categorical = tree.SplitType(tl_node_id) == tl::SplitFeatureType::kCategorical;
-  bool default_left   = tree.DefaultLeft(tl_node_id);
+  bool is_categorical = tree.SplitType(tl_node_id) == tl::SplitFeatureType::kCategorical &&
+                        tree.MatchingCategories(tl_node_id).size() > 0;
+  bool default_left = tree.DefaultLeft(tl_node_id);
   if (tree.SplitType(tl_node_id) == tl::SplitFeatureType::kNumerical) {
     split.f = static_cast<float>(tree.Threshold(tl_node_id));
     adjust_threshold(&split.f, &tl_left, &tl_right, &default_left, tree.ComparisonOp(tl_node_id));
@@ -813,13 +814,18 @@ conversion_state<fil_node_t> tl2fil_inner_node(int fil_left_child,
       std::swap(tl_left, tl_right);
       default_left = !default_left;
     }
-    int sizeof_mask = cat_sets->accessor().sizeof_mask(feature_id);
-    split.idx       = *bit_pool_offset;
-    *bit_pool_offset += sizeof_mask;
-    // cat_sets->bits have been zero-initialized
-    uint8_t* bits = &cat_sets->bits[split.idx];
-    for (std::uint32_t category : tree.MatchingCategories(tl_node_id)) {
-      bits[category / BITS_PER_BYTE] |= 1 << (category % BITS_PER_BYTE);
+    if (tree.MatchingCategories(tl_node_id).size() > 0) {
+      int sizeof_mask = cat_sets->accessor().sizeof_mask(feature_id);
+      split.idx       = *bit_pool_offset;
+      *bit_pool_offset += sizeof_mask;
+      // cat_sets->bits have been zero-initialized
+      uint8_t* bits = &cat_sets->bits[split.idx];
+      for (std::uint32_t category : tree.MatchingCategories(tl_node_id)) {
+        bits[category / BITS_PER_BYTE] |= 1 << (category % BITS_PER_BYTE);
+      }
+    } else {
+      // always branch left in FIL. Already accounted for Treelite branching direction above.
+      split.f = NAN;
     }
   } else {
     ASSERT(false, "only numerical and categorical split nodes are supported");
