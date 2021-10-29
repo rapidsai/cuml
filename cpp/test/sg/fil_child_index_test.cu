@@ -214,11 +214,29 @@ std::vector<ChildIndexTestParams> params = {
                           input            = -5,
                           correct          = 1),
   // Skipping category < 0 and dummy categorical node: max_matching == -1. Prevented by FIL import.
-  // cannot match ( > max_matching)
+  // cannot match ( > INT_MAX)
   CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
-                          cso.bits         = {},
+                          cso.bits         = {0b1111'1111},
+                          cso.max_matching = {7},
+                          input            = (float)(1ll << 33ll),
+                          correct          = 1),
+  // cannot match ( > max_matching and integer)
+  CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
+                          cso.bits         = {0b1111'1111},
                           cso.max_matching = {1},
                           input            = 2,
+                          correct          = 1),
+  // matches ( > max_matching only due to fractional part)
+  CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
+                          cso.bits         = {0b1111'1111},
+                          cso.max_matching = {1},
+                          input            = 1.1f,
+                          correct          = 2),
+  // cannot match ( > max_matching not only due to fractional part)
+  CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
+                          cso.bits         = {0b1111'1111},
+                          cso.max_matching = {1},
+                          input            = 2.1f,
                           correct          = 1),
   // does not match (bits[category] == 0, category == 0)
   CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
@@ -226,7 +244,13 @@ std::vector<ChildIndexTestParams> params = {
                           cso.max_matching = {0},
                           input            = 0,
                           correct          = 1),
-  // matches
+  // matches (negative zero)
+  CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
+                          cso.bits         = {0b0000'0001},
+                          cso.max_matching = {0},
+                          input            = -0.0f,
+                          correct          = 2),
+  // matches (positive zero)
   CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
                           cso.bits         = {0b0000'0001},
                           cso.max_matching = {0},
@@ -251,6 +275,18 @@ std::vector<ChildIndexTestParams> params = {
                           cso.max_matching = {2, 0},
                           input            = 2,
                           correct          = 1),
+  // default left
+  CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true, def_left = true),
+                          cso.bits         = {0b0000'0101},
+                          cso.max_matching = {2},
+                          input            = NAN,
+                          correct          = 1),
+  // default right
+  CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true, def_left = false),
+                          cso.bits         = {0b0000'0101},
+                          cso.max_matching = {2},
+                          input            = NAN,
+                          correct          = 2),
 };
 
 TEST_P(ChildIndexTestDense, Predict) { check(); }

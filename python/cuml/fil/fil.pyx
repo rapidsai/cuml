@@ -289,7 +289,17 @@ cdef class ForestInference_impl():
         Parameters
         ----------
         X : float32 array-like (device or host) shape = (n_samples, n_features)
-            For optimal performance, pass a device array with C-style layout
+            For optimal performance, pass a device array with C-style layout.
+            For categorical features: category < 0.0 or category > 2.0**31-1.0 is
+            equivalent to out-of-dictionary category (not matching).
+            -0.0 represents category 0.
+            If float(int(category)) != category, we will discard the
+            fractional part. E.g. 3.8 represents category 3 regardless of
+            max_matching value. FIL will reject a model where an integer
+            within [0, max_matching] cannot be represented precisely
+            as a float32.
+            NANs work the same between numerical and categorical inputs:
+            they are missing values and follow Treelite's DefaultLeft.
         preds : float32 device array, shape = n_samples
         predict_proba : bool, whether to output class probabilities(vs classes)
             Supported only for binary classification. output format
