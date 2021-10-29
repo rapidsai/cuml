@@ -45,6 +45,14 @@ std::string stringify(const program& prog);
  * fitness)
  * @param history         host vector containing the list of all programs in every generation
  * (sorted by decreasing fitness)
+ *
+ * @note This module allocates extra device memory for the nodes of the last generation that is
+ * pointed by `final_progs[i].nodes` for each program `i` in `final_progs`. The amount of memory
+ * allocated is found at runtime, and is `final_progs[i].len * sizeof(node)` for each program `i`.
+ * The reason this isn't deallocated within the function is because the resulting memory is needed
+ * for executing predictions in `symRegPredict`, `symClfPredict`, `symClfPredictProbs` and
+ * `symTransform` functions. The above device memory is expected to be explicitly deallocated by the
+ * caller AFTER calling the predict function.
  */
 void symFit(const raft::handle_t& handle,
             const float* input,
