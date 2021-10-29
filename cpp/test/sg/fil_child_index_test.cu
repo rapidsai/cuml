@@ -207,11 +207,18 @@ std::vector<ChildIndexTestParams> params = {
   CHILD_INDEX_TEST_PARAMS(parent_node_idx = 4, input = NAN, correct = 10),  // !def_left
   CHILD_INDEX_TEST_PARAMS(
     node = NODE(def_left = true), input = NAN, parent_node_idx = 4, correct = 9),  // !def_left
+  // cannot match ( < 0 and realistic max_matching)
+  CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
+                          cso.bits         = {},
+                          cso.max_matching = {10},
+                          input            = -5,
+                          correct          = 1),
+  // Skipping category < 0 and dummy categorical node: max_matching == -1. Prevented by FIL import.
   // cannot match ( > max_matching)
   CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
                           cso.bits         = {},
-                          cso.max_matching = {-1},
-                          input            = 0,
+                          cso.max_matching = {1},
+                          input            = 2,
                           correct          = 1),
   // does not match (bits[category] == 0, category == 0)
   CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
@@ -228,7 +235,7 @@ std::vector<ChildIndexTestParams> params = {
   // matches
   CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
                           cso.bits         = {0b0000'0101},
-                          cso.max_matching = {2, -1},
+                          cso.max_matching = {2, 0},
                           input            = 2,
                           correct          = 2),
   // does not match (bits[category] == 0, category > 0)
@@ -241,7 +248,7 @@ std::vector<ChildIndexTestParams> params = {
   CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
                           node.fid         = 1,
                           cso.bits         = {0b0000'0101},
-                          cso.max_matching = {2, -1},
+                          cso.max_matching = {2, 0},
                           input            = 2,
                           correct          = 1),
 };

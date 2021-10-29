@@ -161,7 +161,8 @@ struct replace_some_floating_with_categorical {
   {
     int max_matching_cat = max_matching_cat_d[data_idx % num_cols];
     if (max_matching_cat == -1) return data;
-    return roundf((data * 0.5f + 0.5f) * max_matching_cat);
+    // also test invalid (negative) categories
+    return roundf((data * 0.5f + 0.5f) * max_matching_cat - 1.0);
   }
 };
 
@@ -305,8 +306,8 @@ class BaseFilTest : public testing::TestWithParam<FilTestParams> {
     for (int fid = 0; fid < ps.num_cols; ++fid) {
       feature_categorical[fid] = fc(gen);
       if (feature_categorical[fid]) {
-        // even for some categorical features, we will have no matching categories
-        float mm = pow(10, mmc(gen)) - 1.0f;
+        // categorical features will never have max_matching == -1
+        float mm = pow(10, mmc(gen));
         ASSERT(mm < INT_MAX,
                "internal error: max_magnitude_of_matching_cat %f is too large",
                ps.max_magnitude_of_matching_cat);
