@@ -24,11 +24,11 @@ from cuml.datasets import make_classification, make_blobs, make_regression
 #Helpers
 @pytest.fixture(scope="module", params=([100,1000,10000]))
 def regressionData(request):
-    return make_regression(request.param, nfeatures=15)
+    return make_regression(request.param, n_features=15)
 
 @pytest.fixture(scope="module", params=([100,1000,10000]))
 def clfData(request):
-    return make_classification(request.param, nfeatures=15)
+    return make_classification(request.param, n_features=15)
 
 # Record the current RMM settings so reinitialize() will be called only when a
 # change is needed (RMM defaults both values to False). This allows the
@@ -58,3 +58,10 @@ def bench_linear_regression(gpubenchmark, regressionData):
     gpubenchmark(mod.fit,
                  regressionData[0],
                  regressionData[1])
+    
+@pytest.mark.ML
+def bench_logistic(gpubenchmark, clfData):
+    mod = cuml.linear_model.LogisticRegression()
+    gpubenchmark(mod.fit,
+                 clfData[0],
+                 clfData[1])
