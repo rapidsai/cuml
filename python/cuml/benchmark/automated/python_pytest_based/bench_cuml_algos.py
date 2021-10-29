@@ -18,12 +18,17 @@ except ImportError:
 
 import cuml
 import rmm
-from .params import FIXTURE_PARAMS
+from cuml.datasets import make_classification, make_blobs, make_regression
 
 ########
 #Helpers
-def createData():
-    pass
+@pytest.fixture(scope="module", params=([100,1000,10000]))
+def regressionData(request):
+    return make_regression(request.param, nfeatures=15)
+
+@pytest.fixture(scope="module", params=([100,1000,10000]))
+def clfData(request):
+    return make_classification(request.param, nfeatures=15)
 
 # Record the current RMM settings so reinitialize() will be called only when a
 # change is needed (RMM defaults both values to False). This allows the
@@ -45,3 +50,11 @@ def reinitRMM(managed_mem, pool_alloc):
         )
         RMM_SETTINGS.update(managed_mem=managed_mem,
                             pool_alloc=pool_alloc)
+
+
+@pytest.mark.ML
+def bench_linear_regression(gpubenchmark, regressionData):
+    mod = cuml.linear_model.LinearRegression()
+    gpubenchmark(mod.fit,
+                 regressionData[0],
+                 regressionData[1])
