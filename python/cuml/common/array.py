@@ -96,7 +96,12 @@ class CumlArray(Buffer):
 
     @nvtx.annotate(message="common.CumlArray.__init__", category="utils",
                    domain="cuml_python")
-    def __init__(self, data=None, owner=None, dtype=None, shape=None,
+    def __init__(self,
+                 data=None,
+                 index=None,
+                 owner=None,
+                 dtype=None,
+                 shape=None,
                  order=None):
 
         # Checks of parameters
@@ -146,6 +151,7 @@ class CumlArray(Buffer):
         else:
             flattened_data = data
 
+        self.index = index
         super().__init__(data=flattened_data,
                          owner=owner,
                          size=size)
@@ -265,7 +271,8 @@ class CumlArray(Buffer):
                 mat = cp.asarray(self, dtype=output_dtype)
                 if len(mat.shape) == 1:
                     mat = mat.reshape(mat.shape[0], 1)
-                return DataFrame(mat)
+                return DataFrame(mat,
+                                 index=self.index)
             else:
                 raise ValueError('cuDF unsupported Array dtype')
 
@@ -275,7 +282,9 @@ class CumlArray(Buffer):
             if len(self.shape) == 1:
                 if self.dtype not in [np.uint8, np.uint16, np.uint32,
                                       np.uint64, np.float16]:
-                    return Series(self, dtype=output_dtype)
+                    return Series(self,
+                                  dtype=output_dtype,
+                                  index=self.index)
                 else:
                     raise ValueError('cuDF unsupported Array dtype')
             elif self.shape[1] > 1:

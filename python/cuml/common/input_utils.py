@@ -36,7 +36,7 @@ from cuml.common.memory_utils import _check_array_contiguity
 if has_scipy():
     import scipy.sparse
 
-cuml_array = namedtuple('cuml_array', 'array n_rows n_cols dtype index')
+cuml_array = namedtuple('cuml_array', 'array n_rows n_cols dtype')
 
 # inp_array is deprecated and will be dropped once cuml array is adopted
 # in all algos. Github issue #1716
@@ -308,6 +308,11 @@ def input_to_cuml_array(X,
                           safe_dtype=safe_dtype_conversion)
         check_dtype = False
 
+    if hasattr(X, "index"):
+        index = X.index
+    else:
+        index = None
+
     # format conversion
 
     if (isinstance(X, cudf.Series)):
@@ -322,9 +327,11 @@ def input_to_cuml_array(X,
 
     if isinstance(X, cudf.DataFrame):
         if order == 'K':
-            X_m = CumlArray(data=X.as_gpu_matrix(order='F'))
+            X_m = CumlArray(data=X.as_gpu_matrix(order='F'),
+                            index=index)
         else:
-            X_m = CumlArray(data=X.as_gpu_matrix(order=order))
+            X_m = CumlArray(data=X.as_gpu_matrix(order=order),
+                            index=index)
 
     elif isinstance(X, CumlArray):
         X_m = X
@@ -359,7 +366,8 @@ def input_to_cuml_array(X,
 
         cp_arr = cp.array(X, copy=make_copy, order=order)
 
-        X_m = CumlArray(data=cp_arr)
+        X_m = CumlArray(data=cp_arr,
+                        index=index)
 
         if deepcopy:
             X_m = copy.deepcopy(X_m)
@@ -406,16 +414,10 @@ def input_to_cuml_array(X,
         X_m = cp.array(X_m, copy=False, order=order)
         X_m = CumlArray(data=X_m)
 
-    if hasattr(X, index):
-        index = X.index
-    else:
-        index = None
-
     return cuml_array(array=X_m,
                       n_rows=n_rows,
                       n_cols=n_cols,
-                      dtype=X_m.dtype,
-                      index=index)
+                      dtype=X_m.dtype)
 
 
 @nvtx.annotate(message="common.input_utils.input_to_cupy_array",
