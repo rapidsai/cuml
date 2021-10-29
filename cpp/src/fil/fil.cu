@@ -661,7 +661,7 @@ inline std::size_t bit_pool_size(const tl::Tree<T, L>& tree, const categorical_s
     stack.pop();
     while (!tree.IsLeaf(node_id)) {
       if (tree.SplitType(node_id) == tl::SplitFeatureType::kCategorical &&
-          tree.MatchingCategories(tl_node_id).size() > 0) {
+          tree.MatchingCategories(node_id).size() > 0) {
         int fid = tree.SplitIndex(node_id);
         size += cat_sets.sizeof_mask(fid);
       }
