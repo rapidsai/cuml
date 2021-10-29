@@ -384,14 +384,6 @@ struct tree_base {
     if (isnan(val)) {
       cond = !node.def_left();
     } else if (CATS_SUPPORTED && node.is_categorical()) {
-      /* cannot cast float directly to uint32_t since C++ standard doesn't mandate two's complement
-      in that case:
-      http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n4296.pdf
-      4.9 Floating-integral conversions [conv.fpint]
-        1 A prvalue of a floating point type can be converted to a prvalue of an integer type. The
-        conversion truncates; that is, the fractional part is discarded. The behavior is undefined
-        if the truncated value cannot be represented in the destination type.
-      */
       cond = cat_sets.category_matches(node, val);
     } else {
       cond = val >= node.thresh();
