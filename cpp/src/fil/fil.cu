@@ -631,10 +631,10 @@ inline std::vector<cat_feature_counters> cat_counter_vec(const tl::Tree<T, L>& t
           // cast is safe because all precise int floats fit into ints, which are asserted to be 32
           // bits
           max_matching_cat = mmv.back();
-          ASSERT(max_matching_cat < MAX_PRECISE_INT_FLOAT,
+          ASSERT(max_matching_cat <= MAX_PRECISE_INT_FLOAT,
                  "FIL cannot infer on "
                  "more than %d matching categories",
-                 MAX_PRECISE_INT_FLOAT - 2);
+                 MAX_PRECISE_INT_FLOAT);
         } else {
           max_matching_cat = -1;
         }
