@@ -356,7 +356,6 @@ def input_to_cuml_array(X,
             if not _check_array_contiguity(X):
                 debug("Non contiguous array or view detected, a "
                       "contiguous copy of the data will be done.")
-                # X = cp.array(X, order=order, copy=True)
                 make_copy = True
 
         # If we have a host array, we copy it first before changing order
@@ -412,7 +411,8 @@ def input_to_cuml_array(X,
 
     if (check_order(X_m.order)):
         X_m = cp.array(X_m, copy=False, order=order)
-        X_m = CumlArray(data=X_m)
+        X_m = CumlArray(data=X_m,
+                        index=index)
 
     return cuml_array(array=X_m,
                       n_rows=n_rows,

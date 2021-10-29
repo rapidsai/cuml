@@ -333,7 +333,12 @@ class CumlArray(Buffer):
     @classmethod
     @nvtx.annotate(message="common.CumlArray.full", category="utils",
                    domain="cuml_python")
-    def full(cls, shape, value, dtype, order='F'):
+    def full(cls,
+             shape,
+             value,
+             dtype,
+             order='F',
+             index=None):
         """
         Create an Array with an allocated DeviceBuffer initialized to value.
 
@@ -347,12 +352,16 @@ class CumlArray(Buffer):
             Whether to create a F-major or C-major array.
         """
 
-        return CumlArray(cp.full(shape, value, dtype, order))
+        return CumlArray(cp.full(shape, value, dtype, order), index=index)
 
     @classmethod
     @nvtx.annotate(message="common.CumlArray.zeros", category="utils",
                    domain="cuml_python")
-    def zeros(cls, shape, dtype='float32', order='F'):
+    def zeros(cls,
+              shape,
+              dtype='float32',
+              order='F',
+              index=None):
         """
         Create an Array with an allocated DeviceBuffer initialized to zeros.
 
@@ -365,12 +374,17 @@ class CumlArray(Buffer):
         order: string, optional
             Whether to create a F-major or C-major array.
         """
-        return CumlArray.full(value=0, shape=shape, dtype=dtype, order=order)
+        return CumlArray.full(value=0, shape=shape, dtype=dtype, order=order,
+                              index=index)
 
     @classmethod
     @nvtx.annotate(message="common.CumlArray.ones", category="utils",
                    domain="cuml_python")
-    def ones(cls, shape, dtype='float32', order='F'):
+    def ones(cls,
+             shape,
+             dtype='float32',
+             order='F',
+             index=None):
         """
         Create an Array with an allocated DeviceBuffer initialized to zeros.
 
@@ -383,7 +397,8 @@ class CumlArray(Buffer):
         order: string, optional
             Whether to create a F-major or C-major array.
         """
-        return CumlArray.full(value=1, shape=shape, dtype=dtype, order=order)
+        return CumlArray.full(value=1, shape=shape, dtype=dtype, order=order,
+                              index=index)
 
 
 def _check_low_level_type(data):
