@@ -308,7 +308,7 @@ struct forest_params_t {
 const int FIL_TPB = 256;
 
 // as far as FIL is concerned, 16'777'214 is the most we can do.
-constexpr std::int32_t MAX_PRECISE_INT_FLOAT = 1 << 24 - 2;
+constexpr std::int32_t MAX_PRECISE_INT_FLOAT = (1 << 24) - 2;
 
 __host__ __device__ __forceinline__ int fetch_bit(const uint8_t* array, uint32_t bit)
 {
