@@ -58,6 +58,7 @@ if(BUILD_CUML_TESTS)
         sg/kmeans_test.cu
         sg/knn_test.cu
         sg/lars_test.cu
+        sg/linear_svm_test.cu
         sg/linkage_test.cu
         sg/logger.cpp
         sg/multi_sum_test.cu
