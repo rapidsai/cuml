@@ -196,32 +196,6 @@ __global__ void rowMajorSetCol(T* out, const T* in, const int i, const int nRows
   out[i + j * nCols] = in[j];
 }
 
-template <typename T, int BlockSize>
-__global__ void initWeights(
-  T* out, const T* in, const int nRows, const int nCols, const int coefCols)
-{
-  typedef cub::BlockReduce<T, BlockSize> BlockSum;
-  __shared__ typename BlockSum::TempStorage shm;
-  const int i = blockIdx.x;
-  T t         = 0;
-  T s         = 0;
-  if (i < nCols) {
-    for (int j = threadIdx.x; j < nRows; j += BlockSize)
-      t += in[i * nRows + j];
-    s = BlockSum(shm).Sum(t);
-  }
-  if (coefCols == 1) {
-    if (threadIdx.x == 0) out[i] = s / T(nRows);
-  } else {
-    __shared__ T r;
-    if (threadIdx.x == 0) r = s / T(nRows);
-    __syncthreads();
-    t = r;
-    for (int j = threadIdx.x; j < coefCols; j += BlockSize)
-      out[j + i * coefCols] = t;
-  }
-}
-
 inline bool isRegression(LinearSVMParams::Loss loss)
 {
   return loss == LinearSVMParams::EPSILON_INSENSITIVE ||
@@ -288,8 +262,7 @@ LinearSVMModel<T>::LinearSVMModel(const raft::handle_t& handle,
 
   ML::PUSH_RANGE("Trace::LinearSVMModel::fit");
   w.resize(coefCols * coefRows, stream);
-  initWeights<T, 256>
-    <<<dim3(coefRows, 1, 1), dim3(256, 1, 1), 0, stream>>>(w.data(), X, nRows, nCols, coefCols);
+  CUDA_CHECK(cudaMemsetAsync(w.data(), 0, w.size() * sizeof(T), stream));
 
   auto nCols1   = nCols + int(params.fit_intercept && params.penalized_intercept);
   int num_iters = 0;
