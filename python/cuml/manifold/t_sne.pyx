@@ -92,7 +92,8 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         int p,
         int64_t* knn_indices,
         float* knn_dists,
-        TSNEParams &params) except +
+        TSNEParams &params,
+        float* kl_div) except +
 
     cdef void TSNE_fit_sparse(
         const handle_t &handle,
@@ -105,7 +106,8 @@ cdef extern from "cuml/manifold/tsne.h" namespace "ML":
         int p,
         int* knn_indices,
         float* knn_dists,
-        TSNEParams &params) except +
+        TSNEParams &params,
+        float* kl_div) except +
 
 
 class TSNE(Base,
@@ -203,6 +205,12 @@ class TSNE(Base,
         the estimator. If None, it'll inherit the output type set at the
         module level, `cuml.global_settings.output_type`.
         See :ref:`output-data-type-configuration` for more info.
+
+    Attributes
+    ----------
+    kl_divergence_ : float
+        Kullback-Leibler divergence after optimization. An experimental
+        feature at this time.
 
     References
     -----------
@@ -493,18 +501,23 @@ class TSNE(Base,
         cdef TSNEParams* params = <TSNEParams*> <size_t> \
             self._build_tsne_params(algo)
 
+        cdef float kl_divergence = 0
         if self.sparse_fit:
             TSNE_fit_sparse(handle_[0],
-                            <int*><uintptr_t> self.X_m.indptr.ptr,
-                            <int*><uintptr_t> self.X_m.indices.ptr,
-                            <float*><uintptr_t> self.X_m.data.ptr,
+                            <int*><uintptr_t>
+                            self.X_m.indptr.ptr,
+                            <int*><uintptr_t>
+                            self.X_m.indices.ptr,
+                            <float*><uintptr_t>
+                            self.X_m.data.ptr,
                             <float*> embed_ptr,
                             <int> self.X_m.nnz,
                             <int> n,
                             <int> p,
                             <int*> knn_indices_raw,
                             <float*> knn_dists_raw,
-                            <TSNEParams&> deref(params))
+                            <TSNEParams&> deref(params),
+                            &kl_divergence)
         else:
             TSNE_fit(handle_[0],
                      <float*><uintptr_t> self.X_m.ptr,
@@ -513,11 +526,15 @@ class TSNE(Base,
                      <int> p,
                      <int64_t*> knn_indices_raw,
                      <float*> knn_dists_raw,
-                     <TSNEParams&> deref(params))
+                     <TSNEParams&> deref(params),
+                     &kl_divergence)
 
         self.handle.sync()
         free(params)
 
+        self._kl_divergence_ = kl_divergence
+        if self.verbose:
+            print("[t-SNE] KL divergence: {}".format(kl_divergence))
         return self
 
     @generate_docstring(convert_dtype_cast='np.float32',
@@ -573,6 +590,18 @@ class TSNE(Base,
         params.square_distances = <bool> self.square_distances
         params.algorithm = algo
         return <size_t> params
+
+    @property
+    def kl_divergence_(self):
+        if self.method == 'barnes_hut':
+            warnings.warn("The calculation of the Kullback-Leibler "
+                          "divergence is still an experimental feature "
+                          "while using the Barnes Hut algorithm.")
+        return self._kl_divergence_
+
+    @kl_divergence_.setter
+    def kl_divergence_(self, value):
+        self._kl_divergence_ = value
 
     def __del__(self):
 
