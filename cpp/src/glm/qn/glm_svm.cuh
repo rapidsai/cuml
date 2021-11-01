@@ -85,8 +85,8 @@ struct SVRL2Loss : GLMBase<T, SVRL2Loss<T>> {
     T sensitivity;
     inline __device__ T operator()(const T y, const T z) const
     {
-      T t = raft::myMax<T>(0, raft::myAbs<T>(y - z) - sensitivity);
-      T s = t > sensitivity ? t - sensitivity : t < -sensitivity ? t + sensitivity : 0;
+      T t = y - z;
+      T s = t > sensitivity ? t - sensitivity : t < -sensitivity ? -t - sensitivity : 0;
       return s * s;
     }
   };
