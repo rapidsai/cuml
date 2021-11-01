@@ -151,7 +151,7 @@ class CumlArray(Buffer):
         else:
             flattened_data = data
 
-        self.index = index
+        self._index = index
         super().__init__(data=flattened_data,
                          owner=owner,
                          size=size)
@@ -182,6 +182,16 @@ class CumlArray(Buffer):
             else:
                 self.strides = ary_interface['strides']
                 self.order = _strides_to_order(self.strides, self.dtype)
+
+    # We use the index as a property to allow for validation/processing
+    # in the future if needed
+    @property
+    def index(self):
+        return self._index
+
+    @index.setter
+    def index(self, index):
+        self._index = index
 
     @with_cupy_rmm
     def __getitem__(self, slice):
