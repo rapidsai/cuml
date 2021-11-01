@@ -37,7 +37,6 @@ if has_scipy():
     import scipy.sparse
 
 cuml_array = namedtuple('cuml_array', 'array n_rows n_cols dtype')
-cupy_array = namedtuple('cupy_array', 'array index')
 
 # inp_array is deprecated and will be dropped once cuml array is adopted
 # in all algos. Github issue #1716

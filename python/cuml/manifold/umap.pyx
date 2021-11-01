@@ -537,7 +537,6 @@ class UMAP(Base,
                                        convert_format=False)
             self.n_rows, self.n_dims = self.X_m.shape
             self.sparse_fit = True
-            index = None
 
         # Handle dense inputs
         else:
@@ -546,7 +545,6 @@ class UMAP(Base,
                                     convert_to_dtype=(np.float32
                                                       if convert_dtype
                                                       else None))
-            index = self.X_m.index
 
         if self.n_rows <= 1:
             raise ValueError("There needs to be more than 1 sample to "
@@ -563,7 +561,7 @@ class UMAP(Base,
         self.embedding_ = CumlArray.zeros((self.n_rows,
                                            self.n_components),
                                           order="C", dtype=np.float32,
-                                          index=index)
+                                          index=self.X_m.index)
 
         if self.hash_input:
             with using_output_type("numpy"):

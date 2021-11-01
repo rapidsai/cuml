@@ -382,7 +382,6 @@ class NearestNeighbors(Base,
             self.X_m = SparseCumlArray(X, convert_to_dtype=cp.float32,
                                        convert_format=False)
             self.n_rows = self.X_m.shape[0]
-            self._output_index = None
 
         else:
             valid_metrics = cuml.neighbors.VALID_METRICS
@@ -392,7 +391,7 @@ class NearestNeighbors(Base,
                                     convert_to_dtype=(np.float32
                                                       if convert_dtype
                                                       else None))
-            self._output_index = self.X_m.index
+        self._output_index = self.X_m.index
 
         if self.metric not in \
                 valid_metrics[self.working_algorithm_]:
@@ -635,7 +634,6 @@ class NearestNeighbors(Base,
 
         if hasattr(self, 'X_m') and isinstance(self.X_m, SparseCumlArray):
             D_ndarr, I_ndarr = self._kneighbors_sparse(X, n_neighbors)
-            output_index = None
         else:
             D_ndarr, I_ndarr = self._kneighbors_dense(X, n_neighbors,
                                                       convert_dtype)
@@ -657,6 +655,7 @@ class NearestNeighbors(Base,
             # expanded metrics. This code correct numerical instabilities
             # that could arise.
             if metric_is_l2_based:
+                index = I_ndarr.index
                 X = input_to_cupy_array(X).array
                 I_cparr = I_ndarr.to_output('cupy')
 
@@ -673,7 +672,9 @@ class NearestNeighbors(Base,
                 I_cparr = cp.take_along_axis(I_cparr, correct_order, axis=1)
 
                 D_ndarr = cuml.common.input_to_cuml_array(D_cparr).array
+                D_ndarr.index = index
                 I_ndarr = cuml.common.input_to_cuml_array(I_cparr).array
+                I_ndarr.index = index
 
         I_ndarr = I_ndarr.to_output(out_type)
         D_ndarr = D_ndarr.to_output(out_type)

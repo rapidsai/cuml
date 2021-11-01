@@ -426,7 +426,6 @@ class TSNE(Base,
                                        convert_format=False)
             n, p = self.X_m.shape
             self.sparse_fit = True
-            index = None
         # Handle dense inputs
         else:
             self.X_m, n, p, _ = \
@@ -434,7 +433,6 @@ class TSNE(Base,
                                     convert_to_dtype=(np.float32
                                                       if convert_dtype
                                                       else None))
-            index = self.X_m.index
 
         if n <= 1:
             raise ValueError("There needs to be more than 1 sample to build "
@@ -457,7 +455,7 @@ class TSNE(Base,
             (n, self.n_components),
             order="F",
             dtype=np.float32,
-            index=index)
+            index=self.X_m.index)
 
         cdef uintptr_t embed_ptr = self.embedding_.ptr
 
