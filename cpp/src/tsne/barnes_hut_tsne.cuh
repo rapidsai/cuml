@@ -17,6 +17,7 @@
 
 #include <raft/cudart_utils.h>
 #include <cuml/common/logger.hpp>
+#include <raft/linalg/eltwise.cuh>
 #include "barnes_hut_kernels.cuh"
 #include "utils.cuh"
 
@@ -36,16 +37,18 @@ namespace TSNE {
  */
 
 template <typename value_idx, typename value_t>
-void Barnes_Hut(value_t* VAL,
-                const value_idx* COL,
-                const value_idx* ROW,
-                const value_idx NNZ,
-                const raft::handle_t& handle,
-                value_t* Y,
-                const value_idx n,
-                const TSNEParams& params)
+value_t Barnes_Hut(value_t* VAL,
+                   const value_idx* COL,
+                   const value_idx* ROW,
+                   const value_idx NNZ,
+                   const raft::handle_t& handle,
+                   value_t* Y,
+                   const value_idx n,
+                   const TSNEParams& params)
 {
   cudaStream_t stream = handle.get_stream();
+
+  value_t kl_div = 0;
 
   // Get device properites
   //---------------------------------------------------
@@ -119,6 +122,10 @@ void Barnes_Hut(value_t* VAL,
     raft::copy(YY.data(), Y, n, stream);
     raft::copy(YY.data() + nnodes + 1, Y + n, n, stream);
   }
+
+  rmm::device_uvector<value_t> tmp(NNZ, stream);
+  value_t* Qs      = tmp.data();
+  value_t* KL_divs = tmp.data();
 
   // Set cache levels for faster algorithm execution
   //---------------------------------------------------
@@ -259,12 +266,13 @@ void Barnes_Hut(value_t* VAL,
     START_TIMER;
     BH::Find_Normalization<<<1, 1, 0, stream>>>(Z_norm.data(), n);
     CUDA_CHECK(cudaPeekAtLastError());
-
     END_TIMER(Reduction_time);
 
     START_TIMER;
     // TODO: Calculate Kullback-Leibler divergence
     // For general embedding dimensions
+    bool last_iter = iter == params.max_iter - 1;
+
     BH::attractive_kernel_bh<<<raft::ceildiv(NNZ, (value_idx)1024), 1024, 0, stream>>>(
       VAL,
       COL,
@@ -273,9 +281,16 @@ void Barnes_Hut(value_t* VAL,
       YY.data() + nnodes + 1,
       attr_forces.data(),
       attr_forces.data() + n,
-      NNZ);
+      last_iter ? Qs : nullptr,
+      NNZ,
+      fmaxf(params.dim - 1, 1));
     CUDA_CHECK(cudaPeekAtLastError());
     END_TIMER(attractive_time);
+
+    if (last_iter) {
+      kl_div = compute_kl_div(VAL, Qs, KL_divs, NNZ, stream);
+      CUDA_CHECK(cudaPeekAtLastError());
+    }
 
     START_TIMER;
     BH::IntegrationKernel<<<blocks * FACTOR6, THREADS6, 0, stream>>>(learning_rate,
@@ -302,6 +317,8 @@ void Barnes_Hut(value_t* VAL,
   // Copy final YY into true output Y
   raft::copy(Y, YY.data(), n, stream);
   raft::copy(Y + n, YY.data() + nnodes + 1, n, stream);
+
+  return kl_div;
 }
 
 }  // namespace TSNE
