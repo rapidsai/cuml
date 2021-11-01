@@ -122,12 +122,37 @@ struct GLMBase : GLMDims {
                                        thrust::plus<T>());
   }
 
+  /*
+    === A note on getLoss_impl and getDZ_impl. ===
+
+    These two helpers are implemented in two variants each; one supports lz and dlz being
+    plain member functions, and another supports lz and dlz being stateful functors.
+
+    Implementation:
+    To distinguish between the two implementations, I use SFINAE approach: a dummy argument,
+    which type is sound only when lz/dlz is a functor (otherwise the first implementation
+    does not compile and the compiler chooses the second one).
+
+    Reasoning:
+      a. Pointers to member functions cannot be captured in lambdas as variables,
+         but I can capture the Loss pointer and get the member from there;
+      b. I cannot get value members from the captured Loss pointer (because its content is on the
+    host), but I can capture individual members, such as Lz functor with its state.
+
+      NB 1: this whole thing is not needed if we decide lz and dlz must always be functors.
+
+      NB 2: another approach would be to force simple-function-implementation be static functions
+            instead of member functions, but that always crashes at runtime for unknown reasons.
+
+   */
+
   template <typename L>
   inline void getLoss_impl(T* loss_val,
                            SimpleDenseMat<T>& Z,
                            const SimpleVec<T>& y,
                            cudaStream_t stream,
                            // SFINAE: Loss::lz is a "Functor" struct
+                           // see the "note on getLoss_impl and getDZ_impl" above
                            decltype(std::declval<decltype(L::lz)>().operator()(0, 0)))
   {
     auto lz_copy = static_cast<Loss*>(this)->lz;
@@ -193,6 +218,7 @@ struct GLMBase : GLMDims {
                          const SimpleVec<T>& y,
                          cudaStream_t stream,
                          // SFINAE: Loss::dlz is a "Functor" struct
+                         // see the "note on getLoss_impl and getDZ_impl" above
                          decltype(std::declval<decltype(L::dlz)>().operator()(0, 0)))
   {
     auto dlz_copy = static_cast<Loss*>(this)->dlz;
