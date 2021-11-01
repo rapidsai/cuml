@@ -39,6 +39,17 @@ namespace genetic {
  */
 class GeneticEvolutionTest : public ::testing::Test {
  public:
+  GeneticEvolutionTest()
+    : d_train(0, cudaStream_t(0)),
+      d_trainlab(0, cudaStream_t(0)),
+      d_test(0, cudaStream_t(0)),
+      d_testlab(0, cudaStream_t(0)),
+      d_trainwts(0, cudaStream_t(0)),
+      d_testwts(0, cudaStream_t(0))
+  {
+  }
+
+ protected:
   void SetUp() override
   {
     ML::Logger::get().setLevel(CUML_LEVEL_INFO);
@@ -61,41 +72,41 @@ class GeneticEvolutionTest : public ::testing::Test {
     h_trainwts.resize(n_tr_rows, 1.0f);
     h_testwts.resize(n_tst_rows, 1.0f);
 
-    // Initialize device memory
-    d_train    = std::make_unique<rmm::device_uvector<float>>(n_cols * n_tr_rows, stream);
-    d_trainlab = std::make_unique<rmm::device_uvector<float>>(n_tr_rows, stream);
-    d_test     = std::make_unique<rmm::device_uvector<float>>(n_cols * n_tst_rows, stream);
-    d_testlab  = std::make_unique<rmm::device_uvector<float>>(n_tst_rows, stream);
-    d_trainwts = std::make_unique<rmm::device_uvector<float>>(n_tr_rows, stream);
-    d_testwts  = std::make_unique<rmm::device_uvector<float>>(n_tst_rows, stream);
+    // resize device memory
+    d_train.resize(n_cols * n_tr_rows, stream);
+    d_trainlab.resize(n_tr_rows, stream);
+    d_test.resize(n_cols * n_tst_rows, stream);
+    d_testlab.resize(n_tst_rows, stream);
+    d_trainwts.resize(n_tr_rows, stream);
+    d_testwts.resize(n_tst_rows, stream);
 
     // Memcpy HtoD
-    CUDA_CHECK(cudaMemcpyAsync(d_train->data(),
+    CUDA_CHECK(cudaMemcpyAsync(d_train.data(),
                                h_train.data(),
                                n_cols * n_tr_rows * sizeof(float),
                                cudaMemcpyHostToDevice,
                                stream));
-    CUDA_CHECK(cudaMemcpyAsync(d_trainlab->data(),
+    CUDA_CHECK(cudaMemcpyAsync(d_trainlab.data(),
                                h_trainlab.data(),
                                n_tr_rows * sizeof(float),
                                cudaMemcpyHostToDevice,
                                stream));
-    CUDA_CHECK(cudaMemcpyAsync(d_test->data(),
+    CUDA_CHECK(cudaMemcpyAsync(d_test.data(),
                                h_test.data(),
                                n_cols * n_tst_rows * sizeof(float),
                                cudaMemcpyHostToDevice,
                                stream));
-    CUDA_CHECK(cudaMemcpyAsync(d_testlab->data(),
+    CUDA_CHECK(cudaMemcpyAsync(d_testlab.data(),
                                h_testlab.data(),
                                n_tst_rows * sizeof(float),
                                cudaMemcpyHostToDevice,
                                stream));
-    CUDA_CHECK(cudaMemcpyAsync(d_trainwts->data(),
+    CUDA_CHECK(cudaMemcpyAsync(d_trainwts.data(),
                                h_trainwts.data(),
                                n_tr_rows * sizeof(float),
                                cudaMemcpyHostToDevice,
                                stream));
-    CUDA_CHECK(cudaMemcpyAsync(d_testwts->data(),
+    CUDA_CHECK(cudaMemcpyAsync(d_testwts.data(),
                                h_testwts.data(),
                                n_tst_rows * sizeof(float),
                                cudaMemcpyHostToDevice,
@@ -244,8 +255,12 @@ class GeneticEvolutionTest : public ::testing::Test {
   std::vector<float> h_trainwts;
   std::vector<float> h_testwts;
 
-  std::unique_ptr<rmm::device_uvector<float>> d_train, d_trainlab, d_test, d_testlab, d_trainwts,
-    d_testwts;
+  rmm::device_uvector<float> d_train;
+  rmm::device_uvector<float> d_trainlab;
+  rmm::device_uvector<float> d_test;
+  rmm::device_uvector<float> d_testlab;
+  rmm::device_uvector<float> d_trainwts;
+  rmm::device_uvector<float> d_testwts;
 };
 
 TEST_F(GeneticEvolutionTest, SymReg)
@@ -264,9 +279,9 @@ TEST_F(GeneticEvolutionTest, SymReg)
   cudaEventRecord(start, stream);
 
   symFit(handle,
-         d_train->data(),
-         d_trainlab->data(),
-         d_trainwts->data(),
+         d_train.data(),
+         d_trainlab.data(),
+         d_trainwts.data(),
          n_tr_rows,
          n_cols,
          hyper_params,
@@ -297,7 +312,6 @@ TEST_F(GeneticEvolutionTest, SymReg)
   CUML_LOG_DEBUG("Best Index = %d", best_idx);
   std::cout << "Raw fitness score on train set is " << history[n_gen - 1][best_idx].raw_fitness_
             << std::endl;
-  // std::cout << "Best AST length : " << history[n_gen-1][best_idx].len << std::endl;
   std::cout << "Best AST equation is : " << eqn << std::endl;
 
   // Predict values for test dataset
@@ -306,7 +320,7 @@ TEST_F(GeneticEvolutionTest, SymReg)
   cudaEventRecord(start, stream);
 
   cuml::genetic::symRegPredict(
-    handle, d_test->data(), n_tst_rows, final_progs + best_idx, d_predlabels.data());
+    handle, d_test.data(), n_tst_rows, final_progs + best_idx, d_predlabels.data());
 
   std::vector<float> h_predlabels(n_tst_rows, 0.0f);
   CUDA_CHECK(cudaMemcpy(
