@@ -255,7 +255,7 @@ class _BaseNB(Base, ClassifierMixin):
         if log_prob_x.ndim < 2:
             log_prob_x = log_prob_x.reshape((1, log_prob_x.shape[0]))
         result = jll - log_prob_x.T
-        result = CumlArray(data=result, index=X.index)
+        result = CumlArray(data=result, index=index)
         return result
 
     @generate_docstring(
