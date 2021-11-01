@@ -324,7 +324,11 @@ class CumlArray(Buffer):
     @classmethod
     @nvtx.annotate(message="common.CumlArray.empty", category="utils",
                    domain="cuml_python")
-    def empty(cls, shape, dtype, order='F'):
+    def empty(cls,
+              shape,
+              dtype,
+              order='F',
+              index=None):
         """
         Create an empty Array with an allocated but uninitialized DeviceBuffer
 
@@ -338,7 +342,7 @@ class CumlArray(Buffer):
             Whether to create a F-major or C-major array.
         """
 
-        return CumlArray(cp.empty(shape, dtype, order))
+        return CumlArray(cp.empty(shape, dtype, order), index=index)
 
     @classmethod
     @nvtx.annotate(message="common.CumlArray.full", category="utils",

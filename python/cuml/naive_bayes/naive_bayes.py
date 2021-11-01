@@ -225,12 +225,12 @@ class _BaseNB(Base, ClassifierMixin):
         # https://github.com/rapidsai/cuml/issues/2216
         if scipy_sparse_isspmatrix(X) or cupyx.scipy.sparse.isspmatrix(X):
             X = _convert_x_sparse(X)
+            index = None
         else:
             X = input_to_cuml_array(X, order='K',
                                     check_dtype=[cp.float32,
                                                  cp.float64,
                                                  cp.int32])
-
             index = X.index
             # todo: improve index management for cupy based codebases
             X = X.array.to_output('cupy')
@@ -255,7 +255,7 @@ class _BaseNB(Base, ClassifierMixin):
         if log_prob_x.ndim < 2:
             log_prob_x = log_prob_x.reshape((1, log_prob_x.shape[0]))
         result = jll - log_prob_x.T
-        result = CumlArray(data=result, index=index)
+        result = CumlArray(data=result, index=X.index)
         return result
 
     @generate_docstring(
