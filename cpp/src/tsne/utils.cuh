@@ -205,6 +205,7 @@ value_t compute_kl_div(value_t* restrict Ps,
                        const size_t NNZ,
                        cudaStream_t stream)
 {
+  std::cout << "just for testing" << std::endl;
   value_t P_sum = thrust::reduce(rmm::exec_policy(stream), Ps, Ps + NNZ);
   raft::linalg::scalarMultiply(Ps, Ps, 1.0f / P_sum, NNZ, stream);
 
