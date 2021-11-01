@@ -133,12 +133,12 @@ class LinearSVR(LinearSVM, RegressorMixin):
         'epsilon_insensitive',
         'squared_epsilon_insensitive'])
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, **kwargs):
         # set regression-specific defaults
         if 'loss' not in kwargs:
             kwargs['loss'] = 'epsilon_insensitive'
 
-        super().__init__(*args, **kwargs)
+        super().__init__(**kwargs)
 
     @property
     def loss(self):

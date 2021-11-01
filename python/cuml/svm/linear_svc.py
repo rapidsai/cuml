@@ -145,14 +145,14 @@ class LinearSVC(LinearSVM, ClassifierMixin):
         'hinge',
         'squared_hinge'])
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, **kwargs):
         # set classification-specific defaults
         if 'loss' not in kwargs:
             kwargs['loss'] = 'squared_hinge'
         if 'multiclass_strategy' not in kwargs:
             kwargs['multiclass_strategy'] = 'ovr'
 
-        super().__init__(*args, **kwargs)
+        super().__init__(**kwargs)
 
     @property
     def loss(self):
