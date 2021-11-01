@@ -382,6 +382,7 @@ class NearestNeighbors(Base,
             self.X_m = SparseCumlArray(X, convert_to_dtype=cp.float32,
                                        convert_format=False)
             self.n_rows = self.X_m.shape[0]
+            self._output_index = None
 
         else:
             valid_metrics = cuml.neighbors.VALID_METRICS
@@ -391,6 +392,7 @@ class NearestNeighbors(Base,
                                     convert_to_dtype=(np.float32
                                                       if convert_dtype
                                                       else None))
+            self._output_index = self.X_m.index
 
         if self.metric not in \
                 valid_metrics[self.working_algorithm_]:
@@ -633,6 +635,7 @@ class NearestNeighbors(Base,
 
         if hasattr(self, 'X_m') and isinstance(self.X_m, SparseCumlArray):
             D_ndarr, I_ndarr = self._kneighbors_sparse(X, n_neighbors)
+            output_index = None
         else:
             D_ndarr, I_ndarr = self._kneighbors_dense(X, n_neighbors,
                                                       convert_dtype)
@@ -702,9 +705,11 @@ class NearestNeighbors(Base,
 
         # Need to establish result matrices for indices (Nxk)
         # and for distances (Nxk)
-        I_ndarr = CumlArray.zeros((N, n_neighbors), dtype=np.int64, order="C")
+        I_ndarr = CumlArray.zeros((N, n_neighbors), dtype=np.int64, order="C",
+                                  index=X_m.index)
         D_ndarr = CumlArray.zeros((N, n_neighbors),
-                                  dtype=np.float32, order="C")
+                                  dtype=np.float32, order="C",
+                                  index=X_m.index)
 
         cdef uintptr_t I_ptr = I_ndarr.ptr
         cdef uintptr_t D_ptr = D_ndarr.ptr

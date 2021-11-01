@@ -310,7 +310,8 @@ class CD(Base,
         cdef uintptr_t X_ptr = X_m.ptr
         cdef uintptr_t coef_ptr = self.coef_.ptr
 
-        preds = CumlArray.zeros(n_rows, dtype=self.dtype)
+        preds = CumlArray.zeros(n_rows, dtype=self.dtype,
+                                index=X_m.index)
         cdef uintptr_t preds_ptr = preds.ptr
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
