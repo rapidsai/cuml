@@ -17,7 +17,7 @@
 #pragma once
 
 #include <raft/cuda_utils.cuh>
-#include <raft/distance/distance.cuh>
+#include <raft/distance/distance.hpp>
 #include <raft/linalg/gemm.cuh>
 #include "grammatrix.cuh"
 
