@@ -92,7 +92,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
                        results.kl_div < results.kl_div_ref + kl_div_tol;
 
     if (!test_tw || !test_kl_div) {
-      std::cout << "Testing " << test << ":" << std::endl;
+      std::cout << "\tTesting " << test << ":" << std::endl;
       std::cout << "\ttrustworthiness = " << results.trustworthiness << std::endl;
       std::cout << "\tkl_div = " << results.kl_div << std::endl;
       std::cout << "\tkl_div_ref = " << results.kl_div_ref << std::endl;
