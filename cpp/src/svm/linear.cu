@@ -279,12 +279,12 @@ LinearSVMModel<T>::LinearSVMModel(const raft::handle_t& handle,
     thrust::fill(thrust::cuda::par.on(stream), p, p + nRows, 1.0);
   }
 
-  int qn_loss = 99;
+  auto qn_loss = (ML::GLM::QN_LOSS_TYPE)99;
   switch (params.loss) {
-    case LinearSVMParams::HINGE: qn_loss = 3; break;
-    case LinearSVMParams::SQUARED_HINGE: qn_loss = 4; break;
-    case LinearSVMParams::EPSILON_INSENSITIVE: qn_loss = 5; break;
-    case LinearSVMParams::SQUARED_EPSILON_INSENSITIVE: qn_loss = 6; break;
+    case LinearSVMParams::HINGE: qn_loss = ML::GLM::QN_LOSS_SVC_L1; break;
+    case LinearSVMParams::SQUARED_HINGE: qn_loss = ML::GLM::QN_LOSS_SVC_L2; break;
+    case LinearSVMParams::EPSILON_INSENSITIVE: qn_loss = ML::GLM::QN_LOSS_SVR_L1; break;
+    case LinearSVMParams::SQUARED_EPSILON_INSENSITIVE: qn_loss = ML::GLM::QN_LOSS_SVR_L2; break;
     default: break;
   }
 

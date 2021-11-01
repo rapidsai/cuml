@@ -30,7 +30,7 @@ struct SVCL1Loss : GLMBase<T, SVCL1Loss<T>> {
 
   SVCL1Loss(const raft::handle_t& handle, int D, bool has_bias) : Super(handle, D, 1, has_bias) {}
   inline __device__ T lz(const T y, const T z) const { return raft::myMax<T>(0, 1 - y * z); }
-  inline __device__ T dlz(const T y, const T z) const { return -y * T(y * z <= 1); }
+  inline __device__ T dlz(const T y, const T z) const { return y * z <= 1 ? -y : 0; }
 };
 
 template <typename T>
@@ -43,7 +43,7 @@ struct SVCL2Loss : GLMBase<T, SVCL2Loss<T>> {
     T t = raft::myMax<T>(0, 1 - y * z);
     return t * t;
   }
-  inline __device__ T dlz(const T y, const T z) const { return (z - y) * T(y * z <= 1); }
+  inline __device__ T dlz(const T y, const T z) const { return y * z <= 1 ? z - y : 0; }
 };
 
 template <typename T>
