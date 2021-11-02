@@ -1,4 +1,0 @@
-,algo,input,n_samples,n_features
-0,RandomForestClassifier,numpy,200000,64
-1,RandomForestClassifier,numpy,200000,64
-2,RandomForestClassifier,numpy,200000,64
