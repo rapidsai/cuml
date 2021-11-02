@@ -130,6 +130,17 @@ __global__ void _future_second_diff_kernel(const T* in_past,
  * @brief Kernel to undifference the data with up to two levels of simple
  *        and/or seasonal differencing.
  * @note  One thread per series.
+ *
+ * @tparam       double_diff true for two differences, false for one
+ * @tparam       DataT       Data type
+ * @param[inout] d_fc        Forecasts, modified in-place
+ * @param[in]    d_in        Past observations
+ * @param[in]    num_steps   Number of forecast steps
+ * @param[in]    batch_size  Batch size
+ * @param[in]    in_ld       Leading dimension of d_in
+ * @param[in]    n_in        Number of past observations
+ * @param[in]    s0          1st differencing period
+ * @param[in]    s1          2nd differencing period if relevant
  */
 template <bool double_diff, typename DataT>
 __global__ void _undiff_kernel(DataT* d_fc,
@@ -293,7 +304,13 @@ void prepare_future_data(DataT* d_out,
 }
 
 /**
- * @brief Finalizes a forecast by undifferencing
+ * @brief Finalizes a forecast by undifferencing.
+ *
+ * This is used when doing "simple differencing" for integrated models (d > 0 or D > 0), i.e the
+ * series are differenced prior to running the Kalman filter. Forecasts output by the Kalman filter
+ * are then for the differenced series and we need to couple this with past observations to compute
+ * forecasts for the non-differenced series. This is not needed when differencing is handled by the
+ * Kalman filter.
  *
  * @note: It is assumed that d + D <= 2. This is enforced on the Python side
  *

@@ -155,8 +155,6 @@ __global__ void batched_kalman_loop_kernel(const double* ys,
   double l_tmp[rd2];
   double l_TP[rd2];
 
-  /// TODO: use intercept
-
   int bid = blockDim.x * blockIdx.x + threadIdx.x;
 
   if (bid < batch_size) {
@@ -1214,7 +1212,9 @@ void _batched_kalman_filter(raft::handle_t& handle,
   int rd     = order.rd();
   int r      = order.r();
 
-  // Compute observation intercept (exogenous component)
+  // Compute observation intercept (exogenous component).
+  // The observation intercept is a linear combination of the values of
+  // exogenous variables for this observation.
   rmm::device_uvector<double> obs_intercept(0, stream);
   rmm::device_uvector<double> obs_intercept_fut(0, stream);
   if (order.n_exog > 0) {

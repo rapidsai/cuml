@@ -862,7 +862,8 @@ void _start_params(raft::handle_t& handle,
   int batch_size      = bm_exog.batches();
   cudaStream_t stream = bm_exog.stream();
 
-  // Estimate exog coefficients and subtract component to endog
+  // Estimate exog coefficients and subtract component to endog.
+  // Exog coefficients are estimated by fitting a linear regression with X=exog, y=endog
   if (order.n_exog > 0) {
     // In most cases, the system will be overdetermined and we can use gels
     if (bm_exog.shape().first > static_cast<unsigned int>(order.n_exog)) {
