@@ -181,6 +181,11 @@ else
     chrpath -d libcuml++.so
     patchelf --replace-needed `patchelf --print-needed libcuml++.so | grep faiss` libfaiss.so libcuml++.so
 
+    gpuci_logger "Building doxygen C++ docs"
+    #Need to run in standard directory, not our artifact dir
+    unset LIBCUML_BUILD_DIR
+    $WORKSPACE/build.sh cppdocs -v
+
     gpuci_logger "GoogleTest for libcuml"
     cd $LIBCUML_BUILD_DIR
     chrpath -d ./test/ml
@@ -240,11 +245,6 @@ else
         cd $WORKSPACE/ci/artifacts/cuml/cpu/conda_work/cpp/build
         python ../scripts/cuda-memcheck.py -tool memcheck -exe ./test/prims
     fi
-
-    gpuci_logger "Building doxygen C++ docs"
-    #Need to run in standard directory, not our artifact dir
-    unset LIBCUML_BUILD_DIR
-    $WORKSPACE/build.sh cppdocs -v
 
 fi
 
