@@ -219,8 +219,8 @@ test_111_111_12_missing = ARIMAData(
     tolerance_integration=0.03
 )
 
-# ARIMA(1,1,1)(1,1,1)_12 (missing observations and exogenous variables)
-test_111_111_12_missing_exog = ARIMAData(
+# ARIMA(1,1,1)(1,1,1)_12 (missing obs, exogenous variables, intercept)
+test_111_111_12c_missing_exog = ARIMAData(
     batch_size=12,
     n_obs=279,
     n_test=20,
@@ -250,7 +250,7 @@ test_data = [
     ((1, 1, 2, 0, 1, 2, 4, 0), test_112_012_4),
     stress_param((1, 1, 1, 1, 1, 1, 12, 0), test_111_111_12),
     stress_param((1, 1, 1, 1, 1, 1, 12, 0), test_111_111_12_missing),
-    stress_param((1, 1, 1, 1, 1, 1, 12, 0), test_111_111_12_missing_exog),
+    stress_param((1, 0, 1, 1, 1, 1, 12, 1), test_111_111_12c_missing_exog),
 ]
 
 # Dictionary for lazy-loading of datasets
