@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -104,13 +104,15 @@ def _prepare_input_reg(y_true, y_pred, sample_weight, multioutput):
     Helper function to avoid code duplication for regression metrics.
     Converts inputs to CumlArray and check multioutput parameter validity.
     """
+    y_true = y_true.squeeze() if len(y_true) > 1 else y_true
     y_true, n_rows, n_cols, ytype = \
         input_to_cuml_array(y_true, check_dtype=[np.float32, np.float64,
                                                  np.int32, np.int64])
 
+    y_pred = y_pred.squeeze() if len(y_pred) > 1 else y_pred
     y_pred, _, _, _ = \
-        input_to_cuml_array(y_pred, check_dtype=ytype,
-                            check_rows=n_rows, check_cols=n_cols)
+        input_to_cuml_array(y_pred, check_dtype=ytype, check_rows=n_rows,
+                            check_cols=n_cols)
 
     if sample_weight is not None:
         sample_weight, _, _, _ = \

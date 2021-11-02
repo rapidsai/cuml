@@ -85,7 +85,7 @@ test_002c = ARIMAData(
     n_obs=20,
     n_test=2,
     dataset="net_migrations_auckland_by_age",
-    tolerance_integration=0.01
+    tolerance_integration=0.05
 )
 
 # ARIMA(0,1,0) with intercept
@@ -216,7 +216,7 @@ test_111_111_12_missing = ARIMAData(
     n_obs=279,
     n_test=20,
     dataset="guest_nights_by_region_missing",
-    tolerance_integration=0.001
+    tolerance_integration=0.03
 )
 
 # ARIMA(1,1,1)(1,1,1)_12 (missing observations and exogenous variables)
@@ -333,10 +333,7 @@ def mase(y_train, y_test, y_fc, s):
     y_fc_np = input_to_host_array(y_fc).array
 
     diff = np.abs(y_train_np[s:] - y_train_np[:-s])
-    scale = np.zeros(y_train_np.shape[1])
-    for ib in range(y_train_np.shape[1]):
-        scale[ib] = diff[~np.isnan(diff)].mean(axis=0)
-    scale = diff[~np.isnan(diff[:, ib]), ib].mean()
+    scale = np.nanmean(diff, axis=0)
 
     error = np.abs(y_fc_np - y_test_np).mean(axis=0)
     return np.mean(error / scale)
@@ -497,9 +494,9 @@ def _predict_common(key, data, dtype, start, end, num_steps=None, level=None,
     np.testing.assert_allclose(cuml_pred, ref_preds, rtol=0.002, atol=0.01)
     if level is not None:
         np.testing.assert_allclose(
-            cuml_lower, ref_lower, rtol=0.03, atol=0.01)
+            cuml_lower, ref_lower, rtol=0.005, atol=0.01)
         np.testing.assert_allclose(
-            cuml_upper, ref_upper, rtol=0.03, atol=0.01)
+            cuml_upper, ref_upper, rtol=0.005, atol=0.01)
 
 
 @pytest.mark.parametrize('key, data', test_data)

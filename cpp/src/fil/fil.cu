@@ -97,6 +97,11 @@ __global__ void transform_k(float* preds,
     preds[i] = result;
 }
 
+// needed to avoid expanding the dispatch template into unresolved
+// compute_smem_footprint::run() calls. In infer.cu, we don't export those symbols,
+// but rather one symbol for the whole template specialization, as below.
+extern template int dispatch_on_fil_template_params(compute_smem_footprint, predict_params);
+
 struct forest {
   forest(const raft::handle_t& h) : vector_leaf_(0, h.get_stream()), cat_sets_(h.get_stream()) {}
 
@@ -125,14 +130,14 @@ struct forest {
       shmem_size_params& ssp_ = predict_proba ? proba_ssp_ : class_ssp_;
       ssp_.predict_proba      = predict_proba;
       shmem_size_params ssp   = ssp_;
-      // if n_items was not provided, try from 1 to 4. Otherwise, use as-is.
+      // if n_items was not provided, try from 1 to MAX_N_ITEMS. Otherwise, use as-is.
       int min_n_items = ssp.n_items == 0 ? 1 : ssp.n_items;
       int max_n_items =
-        ssp.n_items == 0 ? (algo_ == algo_t::BATCH_TREE_REORG ? 4 : 1) : ssp.n_items;
+        ssp.n_items == 0 ? (algo_ == algo_t::BATCH_TREE_REORG ? MAX_N_ITEMS : 1) : ssp.n_items;
       for (bool cols_in_shmem : {false, true}) {
         ssp.cols_in_shmem = cols_in_shmem;
         for (ssp.n_items = min_n_items; ssp.n_items <= max_n_items; ++ssp.n_items) {
-          ssp.compute_smem_footprint();
+          ssp.shm_sz = dispatch_on_fil_template_params(compute_smem_footprint(), ssp);
           if (ssp.shm_sz < max_shm) ssp_ = ssp;
         }
       }
@@ -147,10 +152,7 @@ struct forest {
     int max_threads_per_sm, sm_count;
     CUDA_CHECK(
       cudaDeviceGetAttribute(&max_threads_per_sm, cudaDevAttrMaxThreadsPerMultiProcessor, device));
-    int max_blocks_per_sm = max_threads_per_sm / FIL_TPB;
-    ASSERT(blocks_per_sm <= max_blocks_per_sm,
-           "on this GPU, FIL blocks_per_sm cannot exceed %d",
-           max_blocks_per_sm);
+    blocks_per_sm = std::min(blocks_per_sm, max_threads_per_sm / FIL_TPB);
     CUDA_CHECK(cudaDeviceGetAttribute(&sm_count, cudaDevAttrMultiProcessorCount, device));
     fixed_block_count_ = blocks_per_sm * sm_count;
   }
@@ -171,6 +173,7 @@ struct forest {
     proba_ssp_.leaf_algo             = params->leaf_algo;
     proba_ssp_.num_cols              = params->num_cols;
     proba_ssp_.num_classes           = params->num_classes;
+    proba_ssp_.cats_present          = cat_sets.cats_present();
     class_ssp_                       = proba_ssp_;
 
     int device          = h.get_device();
@@ -304,7 +307,7 @@ struct forest {
           params.num_outputs = params.num_classes;
           do_transform = (ot != output_t::RAW && ot != output_t::SOFTMAX) || global_bias != 0.0f;
           break;
-        default: ASSERT(false, "internal error: invalid leaf_algo_");
+        default: ASSERT(false, "internal error: predict: invalid leaf_algo %d", params.leaf_algo);
       }
     } else {
       if (params.leaf_algo == leaf_algo_t::FLOAT_UNARY_BINARY) {
