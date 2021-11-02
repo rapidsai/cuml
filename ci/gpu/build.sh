@@ -164,6 +164,13 @@ if [[ -z "$PROJECT_FLASH" || "$PROJECT_FLASH" == "0" ]]; then
     fi
 else
     #Project Flash
+
+    gpuci_logger "Building doxygen C++ docs"
+    #Need to run in standard directory, not our artifact dir
+    # unset LIBCUML_BUILD_DIR
+    $WORKSPACE/build.sh cppdocs -v
+    $WORKSPACE/build.sh clean
+
     export LIBCUML_BUILD_DIR="$WORKSPACE/ci/artifacts/cuml/cpu/conda_work/cpp/build"
     export LD_LIBRARY_PATH="$LIBCUML_BUILD_DIR:$LD_LIBRARY_PATH"
 
@@ -180,11 +187,6 @@ else
     chrpath -d libcuml.so
     chrpath -d libcuml++.so
     patchelf --replace-needed `patchelf --print-needed libcuml++.so | grep faiss` libfaiss.so libcuml++.so
-
-    gpuci_logger "Building doxygen C++ docs"
-    #Need to run in standard directory, not our artifact dir
-    # unset LIBCUML_BUILD_DIR
-    $WORKSPACE/build.sh cppdocs -v
 
     gpuci_logger "GoogleTest for libcuml"
     cd $LIBCUML_BUILD_DIR
