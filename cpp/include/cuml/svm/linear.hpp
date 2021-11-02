@@ -110,18 +110,28 @@ class LinearSVMModel {
   LinearSVMModel(const raft::handle_t& handle, const LinearSVMParams params);
 
   /** Train the model. */
-  LinearSVMModel(const raft::handle_t& handle,
-                 const LinearSVMParams params,
-                 const T* X,
-                 const int nRows,
-                 const int nCols,
-                 const T* y,
-                 const T* sampleWeight);
+  LinearSVMModel(
+    const raft::handle_t& handle,
+    const LinearSVMParams params,
+    /** Input data matrix of size [nRows * nCols] in column-major format. */
+    const T* X,
+    const int nRows,
+    const int nCols,
+    /** Single vector of either real (regression) or categorical (classification) values. */
+    const T* y,
+    const T* sampleWeight);
 
   void predict(const T* X, const int nRows, const int nCols, T* out) const;
 
   /** For SVC, predict the probabilities for each outcome. */
-  void predict_proba(const T* X, const int nRows, const int nCols, const bool log, T* out) const;
+  void predict_proba(
+    /** Input data matrix of size [nRows * nCols] in column-major format. */
+    const T* X,
+    const int nRows,
+    const int nCols,
+    const bool log,
+    /** Single vector of either real (regression) or categorical (classification) values. */
+    T* out) const;
 };
 
 }  // namespace SVM
