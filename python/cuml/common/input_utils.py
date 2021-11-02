@@ -21,7 +21,6 @@ import nvtx
 import cudf
 import cupy as cp
 import cupyx
-import dask_cudf
 import numba.cuda
 import numpy as np
 import pandas as pd
@@ -29,13 +28,16 @@ import cuml.internals
 import cuml.common.array
 from cuml.common.array import CumlArray
 from cuml.common.array_sparse import SparseCumlArray
-from cuml.common.import_utils import has_scipy
+from cuml.common.import_utils import has_scipy, has_dask_cudf
 from cuml.common.logger import debug
 from cuml.common.memory_utils import ArrayInfo
 from cuml.common.memory_utils import _check_array_contiguity
 
 if has_scipy():
     import scipy.sparse
+
+if has_dask_cudf():
+    import dask_cudf
 
 cuml_array = namedtuple('cuml_array', 'array n_rows n_cols dtype')
 
@@ -311,6 +313,10 @@ def input_to_cuml_array(X,
 
     # format conversion
 
+    if isinstance(X, (dask_cudf.core.Series, dask_cudf.core.DataFrame)):
+        # TODO: Warn, but not when using dask_sql
+        X = X.compute()
+
     if (isinstance(X, cudf.Series)):
         if X.null_count != 0:
             raise ValueError("Error: cuDF Series has missing/null values, "
@@ -320,10 +326,6 @@ def input_to_cuml_array(X,
     if isinstance(X, pd.DataFrame) or isinstance(X, pd.Series):
         # pandas doesn't support custom order in to_numpy
         X = cp.asarray(X.to_numpy(copy=False), order=order)
-
-    if isinstance(X, dask_cudf.core.DataFrame) or \
-        isinstance(X, dask_cudf.core.Series):
-        X = X.compute()
 
     if isinstance(X, cudf.DataFrame):
         if order == 'K':
@@ -561,7 +563,8 @@ def convert_dtype(X,
     if the conversion would lose information.
     """
 
-    if isinstance(X, dask_cudf.core.Series):
+    if isinstance(X, (dask_cudf.core.Series, dask_cudf.core.DataFrame)):
+        # TODO: Warn, but not when using dask_sql
         X = X.compute()
 
     if safe_dtype:
@@ -605,8 +608,6 @@ def _typecast_will_lose_information(X, target_dtype):
     else:
         target_dtype_range = np.finfo(target_dtype)
 
-    if isinstance(X, dask_cudf.core.Series):
-        X = X.compute()
 
     if isinstance(X, (np.ndarray, cp.ndarray, pd.Series, cudf.Series)):
         if X.dtype.type == target_dtype:
