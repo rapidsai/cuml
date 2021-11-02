@@ -1,0 +1,4 @@
+,algo,input,cu_time,cpu_time,cuml_acc,cpu_acc,speedup,n_samples,n_features,max_depth,n_estimators,n_bins,n_streams,n_jobs,n_classes
+0,RandomForestClassifier,numpy,8.43101453781128,50.22557735443115,0.9951,0.99496,5.95724003667415,200000,64,8,500,128,4,-1,2
+1,RandomForestClassifier,numpy,8.65808916091919,61.1655011177063,0.99512,0.99502,7.064549692303312,200000,64,10,500,128,4,-1,2
+2,RandomForestClassifier,numpy,11.966409683227539,93.34815239906311,0.9951,0.99506,7.800848781727952,200000,64,16,500,128,4,-1,2

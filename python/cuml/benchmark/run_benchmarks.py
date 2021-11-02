@@ -20,6 +20,12 @@ import numpy as np
 import json
 
 
+PrecisionMap = {
+    "fp32" : np.float32,
+    "fp64" : np.float64,
+}
+
+
 def extract_param_overrides(params_to_sweep):
     """
     Parameters
@@ -192,7 +198,15 @@ if __name__ == '__main__':
         '--n-reps',
         type=int,
         default=1)
+    parser.add_argument(
+        '--dtype',
+        choices=['fp32', 'fp64'],
+        default='fp32',
+        help='Precision of the dataset to benchmark with',
+    )
     args = parser.parse_args()
+
+    args.dtype = PrecisionMap[args.dtype]
 
     if args.print_algorithms:
         for algo in algorithms.all_algorithms():
@@ -255,6 +269,7 @@ if __name__ == '__main__':
         cuml_param_override_list=cuml_param_override_list,
         cpu_param_override_list=cpu_param_override_list,
         dataset_param_override_list=dataset_param_override_list,
+        dtype=args.dtype,
         run_cpu=(not args.skip_cpu),
         raise_on_error=args.raise_on_error,
         n_reps=args.n_reps
