@@ -183,7 +183,7 @@ else
 
     gpuci_logger "Building doxygen C++ docs"
     #Need to run in standard directory, not our artifact dir
-    unset LIBCUML_BUILD_DIR
+    # unset LIBCUML_BUILD_DIR
     $WORKSPACE/build.sh cppdocs -v
 
     gpuci_logger "GoogleTest for libcuml"
