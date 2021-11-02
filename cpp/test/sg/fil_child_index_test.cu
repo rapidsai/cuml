@@ -230,13 +230,19 @@ std::vector<ChildIndexTestParams> params = {
   CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
                           cso.bits         = {0b1111'1111},
                           cso.max_matching = {1},
-                          input            = 1.1f,
+                          input            = 1.8f,
                           correct          = 2),
   // cannot match ( > max_matching not only due to fractional part)
   CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
                           cso.bits         = {0b1111'1111},
                           cso.max_matching = {1},
                           input            = 2.1f,
+                          correct          = 1),
+  // cannot match ( > max_matching not only due to fractional part)
+  CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
+                          cso.bits         = {0b1111'1111},
+                          cso.max_matching = {1},
+                          input            = 2.8f,
                           correct          = 1),
   // does not match (bits[category] == 0, category == 0)
   CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
@@ -268,7 +274,7 @@ std::vector<ChildIndexTestParams> params = {
                           cso.max_matching = {2},
                           input            = 1,
                           correct          = 1),
-  // cannot match (max_matching[fid=1] == -1)
+  // cannot match (max_matching[fid=1] < input)
   CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
                           node.fid         = 1,
                           cso.bits         = {0b0000'0101},

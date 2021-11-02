@@ -310,7 +310,8 @@ struct forest_params_t {
 /// FIL_TPB is the number of threads per block to use with FIL kernels
 const int FIL_TPB = 256;
 
-constexpr std::int32_t MAX_PRECISE_INT_FLOAT = 1 << 24;  // 16'777'216
+// as far as FIL is concerned, 16'777'214 is the most we can do.
+constexpr std::int32_t MAX_PRECISE_INT_FLOAT = (1 << 24) - 2;
 
 __host__ __device__ __forceinline__ int fetch_bit(const uint8_t* array, uint32_t bit)
 {
@@ -353,7 +354,7 @@ struct categorical_sets {
     (not matching, branch left). -0.0f represents category 0.
     If (float)(int)category != category, we will discard the fractional part.
     E.g. 3.8f represents category 3 regardless of max_matching value.
-    FIL will reject a model where an integer within [0, max_matching] cannot be represented
+    FIL will reject a model where an integer within [0, max_matching + 1] cannot be represented
     precisely as a 32-bit float.
     */
     return category < static_cast<float>(max_matching[node.fid()] + 1) && category >= 0.0f &&
