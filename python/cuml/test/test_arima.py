@@ -287,7 +287,8 @@ def get_dataset(data, dtype):
         if data.dataset_exog is not None:
             exog = pd.read_csv(
                 os.path.join(data_path, "{}.csv".format(data.dataset_exog)),
-                usecols=range(1, data.n_exog * data.batch_size + 1), dtype=dtype)
+                usecols=range(1, data.n_exog * data.batch_size + 1),
+                dtype=dtype)
             exog_past, exog_fut = train_test_split(exog, test_size=data.n_test,
                                                    shuffle=False)
             exog_past_cudf = cudf.from_pandas(exog_past).fillna(np.nan)

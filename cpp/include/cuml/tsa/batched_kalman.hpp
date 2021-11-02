@@ -60,12 +60,12 @@ void batched_kalman_filter(raft::handle_t& handle,
                            int batch_size,
                            double* d_loglike,
                            double* d_pred,
-                           int fc_steps    = 0,
-                           double* d_fc    = nullptr,
+                           int fc_steps             = 0,
+                           double* d_fc             = nullptr,
                            const double* d_exog_fut = nullptr,
-                           double level    = 0,
-                           double* d_lower = nullptr,
-                           double* d_upper = nullptr);
+                           double level             = 0,
+                           double* d_lower          = nullptr,
+                           double* d_upper          = nullptr);
 
 /**
  * Convenience function for batched "jones transform" used in ARIMA to ensure

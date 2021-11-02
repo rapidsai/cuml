@@ -664,7 +664,7 @@ class ARIMA(Base):
             elif level > 0 and start < self.n_obs:
                 raise ValueError("ERROR: Prediction intervals can only be"
                                  " computed for out-of-sample predictions")
-        
+
         if end is None:
             end = self.n_obs
 
@@ -1086,7 +1086,7 @@ class ARIMA(Base):
 
         cdef uintptr_t d_y_kf_ptr = \
             self._d_y_diff.ptr if self.simple_differencing else self.d_y.ptr
-        
+
         cdef uintptr_t d_exog_kf_ptr = <uintptr_t> NULL
         if order.n_exog:
             d_exog_kf_ptr = (self._d_exog_diff.ptr if self.simple_differencing
