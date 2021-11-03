@@ -139,8 +139,6 @@ struct shmem_size_params {
   /// n_items is how many input samples (items) any thread processes. If 0 is given,
   /// choose the reasonable most (<= MAX_N_ITEMS) that fit into shared memory. See init_n_items()
   int n_items = 0;
-  /// max_shm is the maximum opt-in shared memory on the device
-  int max_shm = 0;
   // block_dim_x is the CUDA block size. Set by dispatch_on_leaf_algo(...)
   int block_dim_x = 0;
   /// shm_sz is the associated shared memory footprint

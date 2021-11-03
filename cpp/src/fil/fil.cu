@@ -79,8 +79,7 @@ struct forest {
   void init_n_items(int device)
   {
     /// the most shared memory a kernel can request on the GPU in question
-    int max_shm = 0;
-    CUDA_CHECK(cudaDeviceGetAttribute(&max_shm, cudaDevAttrMaxSharedMemoryPerBlockOptin, device));
+    CUDA_CHECK(cudaDeviceGetAttribute(&max_shm_, cudaDevAttrMaxSharedMemoryPerBlockOptin, device));
     /* Our GPUs have been growing the shared memory size generation after
        generation. Eventually, a CUDA GPU might come by that supports more
        shared memory that would fit into unsigned 16-bit int. For such a GPU,
@@ -105,10 +104,10 @@ struct forest {
         ssp.cols_in_shmem = cols_in_shmem;
         for (ssp.n_items = min_n_items; ssp.n_items <= max_n_items; ++ssp.n_items) {
           ssp.shm_sz = dispatch_on_fil_template_params(compute_smem_footprint(), ssp);
-          if (ssp.shm_sz < max_shm) ssp_ = ssp;
+          if (ssp.shm_sz < max_shm_) ssp_ = ssp;
         }
       }
-      ASSERT(ssp_.max_shm >= ssp_.shm_sz,
+      ASSERT(max_shm_ >= ssp_.shm_sz,
              "FIL out of shared memory. Perhaps the maximum number of \n"
              "supported classes is exceeded? 5'000 would still be safe.");
     }
