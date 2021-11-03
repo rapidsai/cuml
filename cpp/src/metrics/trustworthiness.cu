@@ -15,7 +15,10 @@
  */
 
 #include <metrics/trustworthiness_score.cuh>
-#include <raft/distance/distance.cuh>
+
+#include <cuml/metrics/metrics.hpp>
+
+#include <raft/distance/distance.hpp>
 #include <raft/handle.hpp>
 
 namespace ML {
@@ -23,29 +26,41 @@ namespace Metrics {
 
 /**
  * @brief Compute the trustworthiness score
- * @param h: Raft handle
- * @param X[in]: Data in original dimension
- * @param X_embedded[in]: Data in target dimension (embedding)
- * @param n[in]: Number of samples
- * @param m[in]: Number of features in high/original dimension
- * @param d[in]: Number of features in low/embedded dimension
- * @param n_neighbors[in]: Number of neighbors considered by 
- *   trustworthiness score
+ *
+ * @param h Raft handle
+ * @param X Data in original dimension
+ * @param X_embedded Data in target dimension (embedding)
+ * @param n Number of samples
+ * @param m Number of features in high/original dimension
+ * @param d Number of features in low/embedded dimension
+ * @param n_neighbors Number of neighbors considered by trustworthiness score
+ * @param batchSize Batch size
  * @tparam distance_type: Distance type to consider
  * @return Trustworthiness score
  */
 template <typename math_t, raft::distance::DistanceType distance_type>
-double trustworthiness_score(const raft::handle_t& h, const math_t* X,
-                             math_t* X_embedded, int n, int m, int d,
-                             int n_neighbors, int batchSize) {
+double trustworthiness_score(const raft::handle_t& h,
+                             const math_t* X,
+                             math_t* X_embedded,
+                             int n,
+                             int m,
+                             int d,
+                             int n_neighbors,
+                             int batchSize)
+{
   return MLCommon::Score::trustworthiness_score<math_t, distance_type>(
     h, X, X_embedded, n, m, d, n_neighbors, batchSize);
 }
 
-template double
-trustworthiness_score<float, raft::distance::DistanceType::L2SqrtUnexpanded>(
-  const raft::handle_t& h, const float* X, float* X_embedded, int n, int m,
-  int d, int n_neighbors, int batchSize);
+template double trustworthiness_score<float, raft::distance::DistanceType::L2SqrtUnexpanded>(
+  const raft::handle_t& h,
+  const float* X,
+  float* X_embedded,
+  int n,
+  int m,
+  int d,
+  int n_neighbors,
+  int batchSize);
 
-};  //end namespace Metrics
-};  //end namespace ML
+};  // end namespace Metrics
+};  // end namespace ML

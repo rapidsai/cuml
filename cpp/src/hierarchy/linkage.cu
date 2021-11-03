@@ -24,31 +24,38 @@ class handle_t;
 
 namespace ML {
 
-void single_linkage_pairwise(const raft::handle_t &handle, const float *X,
-                             size_t m, size_t n,
-                             raft::hierarchy::linkage_output<int, float> *out,
+void single_linkage_pairwise(const raft::handle_t& handle,
+                             const float* X,
+                             size_t m,
+                             size_t n,
+                             raft::hierarchy::linkage_output<int, float>* out,
                              raft::distance::DistanceType metric,
-                             int n_clusters) {
-  raft::hierarchy::single_linkage<int, float,
-                                  raft::hierarchy::LinkageDistance::PAIRWISE>(
+                             int n_clusters)
+{
+  raft::hierarchy::single_linkage<int, float, raft::hierarchy::LinkageDistance::PAIRWISE>(
     handle, X, m, n, metric, out, 0, n_clusters);
 }
 
-void single_linkage_neighbors(const raft::handle_t &handle, const float *X,
-                              size_t m, size_t n,
-                              raft::hierarchy::linkage_output<int, float> *out,
-                              raft::distance::DistanceType metric, int c,
-                              int n_clusters) {
-  raft::hierarchy::single_linkage<int, float,
-                                  raft::hierarchy::LinkageDistance::KNN_GRAPH>(
+void single_linkage_neighbors(const raft::handle_t& handle,
+                              const float* X,
+                              size_t m,
+                              size_t n,
+                              raft::hierarchy::linkage_output<int, float>* out,
+                              raft::distance::DistanceType metric,
+                              int c,
+                              int n_clusters)
+{
+  raft::hierarchy::single_linkage<int, float, raft::hierarchy::LinkageDistance::KNN_GRAPH>(
     handle, X, m, n, metric, out, c, n_clusters);
 }
 
 struct distance_graph_impl_int_float
-  : public raft::hierarchy::detail::distance_graph_impl<
-      raft::hierarchy::LinkageDistance::PAIRWISE, int, float> {};
+  : public raft::hierarchy::detail::
+      distance_graph_impl<raft::hierarchy::LinkageDistance::PAIRWISE, int, float> {
+};
 struct distance_graph_impl_int_double
-  : public raft::hierarchy::detail::distance_graph_impl<
-      raft::hierarchy::LinkageDistance::PAIRWISE, int, double> {};
+  : public raft::hierarchy::detail::
+      distance_graph_impl<raft::hierarchy::LinkageDistance::PAIRWISE, int, double> {
+};
 
 };  // end namespace ML

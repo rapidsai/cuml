@@ -13,7 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-
 import ctypes
 import cupy as cp
 import math
@@ -41,31 +40,42 @@ from cuml.common.array_descriptor import CumlArrayDescriptor
 class BaseRandomForestModel(Base):
     _param_names = ['n_estimators', 'max_depth', 'handle',
                     'max_features', 'n_bins',
-                    'split_algo', 'split_criterion', 'min_samples_leaf',
+                    'split_criterion', 'min_samples_leaf',
                     'min_samples_split',
                     'min_impurity_decrease',
-                    'bootstrap', 'bootstrap_features',
+                    'bootstrap',
                     'verbose', 'max_samples',
-                    'max_leaves', 'quantile_per_tree',
-                    'accuracy_metric', 'use_experimental_backend',
-                    'max_batch_size']
+                    'max_leaves',
+                    'accuracy_metric',
+                    'max_batch_size', 'n_streams', 'dtype',
+                    'output_type', 'min_weight_fraction_leaf', 'n_jobs',
+                    'max_leaf_nodes', 'min_impurity_split', 'oob_score',
+                    'random_state', 'warm_start', 'class_weight',
+                    'criterion']
 
-    criterion_dict = {'0': GINI, '1': ENTROPY, '2': MSE,
-                      '3': MAE, '4': CRITERION_END}
+    criterion_dict = {'0': GINI, 'gini': GINI,
+                      '1': ENTROPY, 'entropy': ENTROPY,
+                      '2': MSE, 'mse': MSE,
+                      '3': MAE, 'mae': MAE,
+                      '4': POISSON, 'poisson': POISSON,
+                      '5': GAMMA, 'gamma': GAMMA,
+                      '6': INVERSE_GAUSSIAN,
+                      'inverse_gaussian': INVERSE_GAUSSIAN,
+                      '7': CRITERION_END}
 
     classes_ = CumlArrayDescriptor()
 
-    def __init__(self, *, split_criterion, n_streams=8, n_estimators=100,
-                 max_depth=16, handle=None, max_features='auto', n_bins=8,
-                 split_algo=1, bootstrap=True, bootstrap_features=False,
+    def __init__(self, *, split_criterion, n_streams=4, n_estimators=100,
+                 max_depth=16, handle=None, max_features='auto', n_bins=128,
+                 bootstrap=True,
                  verbose=False, min_samples_leaf=1, min_samples_split=2,
                  max_samples=1.0, max_leaves=-1, accuracy_metric=None,
                  dtype=None, output_type=None, min_weight_fraction_leaf=None,
                  n_jobs=None, max_leaf_nodes=None, min_impurity_decrease=0.0,
                  min_impurity_split=None, oob_score=None, random_state=None,
-                 warm_start=None, class_weight=None, quantile_per_tree=False,
-                 criterion=None, use_experimental_backend=True,
-                 max_batch_size=128):
+                 warm_start=None, class_weight=None,
+                 criterion=None,
+                 max_batch_size=4096, **kwargs):
 
         sklearn_params = {"criterion": criterion,
                           "min_weight_fraction_leaf": min_weight_fraction_leaf,
@@ -84,6 +94,15 @@ class BaseRandomForestModel(Base):
                     "(https://docs.rapids.ai/api/cuml/nightly/"
                     "api.html#random-forest) for more information")
 
+        for key in kwargs.keys():
+            if key not in self._param_names:
+                raise TypeError(
+                    " The variable ", key,
+                    " is not supported in cuML,"
+                    " please read the cuML documentation at "
+                    "(https://docs.rapids.ai/api/cuml/nightly/"
+                    "api.html#random-forest) for more information")
+
         if ((random_state is not None) and (n_streams != 1)):
             warnings.warn("For reproducible results in Random Forest"
                           " Classifier or for almost reproducible results"
@@ -91,10 +110,6 @@ class BaseRandomForestModel(Base):
                           "recommended. If n_streams is > 1, results may vary "
                           "due to stream/thread timing differences, even when "
                           "random_state is set")
-        if quantile_per_tree:
-            warnings.warn("The 'quantile_per_tree' parameter is deprecated "
-                          "and will be removed in 21.06 release. Instead use "
-                          "higher number of global quantile bins.")
         if handle is None:
             handle = Handle(n_streams)
 
@@ -106,7 +121,6 @@ class BaseRandomForestModel(Base):
         if max_depth < 0:
             raise ValueError("Must specify max_depth >0 ")
 
-        self.split_algo = split_algo
         if (str(split_criterion) not in
                 BaseRandomForestModel.criterion_dict.keys()):
             warnings.warn("The split criterion chosen was not present"
@@ -120,7 +134,6 @@ class BaseRandomForestModel(Base):
         self.min_samples_leaf = min_samples_leaf
         self.min_samples_split = min_samples_split
         self.min_impurity_decrease = min_impurity_decrease
-        self.bootstrap_features = bootstrap_features
         self.max_samples = max_samples
         self.max_leaves = max_leaves
         self.n_estimators = n_estimators
@@ -131,8 +144,6 @@ class BaseRandomForestModel(Base):
         self.n_cols = None
         self.dtype = dtype
         self.accuracy_metric = accuracy_metric
-        self.quantile_per_tree = quantile_per_tree
-        self.use_experimental_backend = use_experimental_backend
         self.max_batch_size = max_batch_size
         self.n_streams = handle.getNumInternalStreams()
         self.random_state = random_state
@@ -208,15 +219,15 @@ class BaseRandomForestModel(Base):
                     &tl_handle,
                     <RandomForestMetaData[float, int]*>
                     <uintptr_t> self.rf_forest,
-                    <int> self.n_cols,
-                    <int> self.num_classes)
+                    <int> self.n_cols
+                    )
             else:
                 build_treelite_forest(
                     &tl_handle,
                     <RandomForestMetaData[float, float]*>
                     <uintptr_t> self.rf_forest,
-                    <int> self.n_cols,
-                    <int> REGRESSION_MODEL)
+                    <int> self.n_cols
+                    )
 
         self.treelite_handle = <uintptr_t> tl_handle
         return self.treelite_handle
@@ -234,8 +245,10 @@ class BaseRandomForestModel(Base):
             input_to_cuml_array(X, check_dtype=[np.float32, np.float64],
                                 order='F')
         if self.n_bins > self.n_rows:
-            raise ValueError("The number of bins,`n_bins` can not be greater"
-                             " than the number of samples used for training.")
+            warnings.warn("The number of bins, `n_bins` is greater than "
+                          "the number of samples used for training. "
+                          "Changing `n_bins` to number of training samples.")
+            self.n_bins = self.n_rows
 
         if self.RF_type == CLASSIFICATION:
             y_m, _, _, y_dtype = \
@@ -316,14 +329,14 @@ class BaseRandomForestModel(Base):
                                 check_cols=self.n_cols)
 
         if dtype == np.float64 and not convert_dtype:
-            raise TypeError("GPU based predict only accepts np.float32 data. \
-                            Please set convert_dtype=True to convert the test \
-                            data to the same dtype as the data used to train, \
-                            ie. np.float32. If you would like to use test \
-                            data of dtype=np.float64 please set \
-                            predict_model='CPU' to use the CPU implementation \
-                            of predict.")
-
+            warnings.warn("GPU based predict only accepts "
+                          "np.float32 data. The model was "
+                          "trained on np.float64 data hence "
+                          "cannot use GPU-based prediction! "
+                          "\nDefaulting to CPU-based Prediction. "
+                          "\nTo predict on float-64 data, set "
+                          "parameter predict_model = 'CPU'")
+            return self._predict_model_on_cpu(X, convert_dtype=convert_dtype)
         treelite_handle = self._obtain_treelite_handle()
 
         storage_type = \
@@ -352,6 +365,7 @@ class BaseRandomForestModel(Base):
         self.treelite_serialized_model = None
 
         super().set_params(**params)
+        return self
 
 
 def _check_fil_parameter_validity(depth, algo, fil_sparse_format):

@@ -32,12 +32,11 @@ namespace VertexDeg {
 namespace Precomputed {
 
 template <typename value_t, typename index_t>
-__global__ void dist_to_adj_kernel(const value_t* X, bool* adj, index_t N,
-                                   index_t start_vertex_id, index_t batch_size,
-                                   value_t eps) {
+__global__ void dist_to_adj_kernel(
+  const value_t* X, bool* adj, index_t N, index_t start_vertex_id, index_t batch_size, value_t eps)
+{
   for (index_t i = threadIdx.x; i < batch_size; i += blockDim.x) {
-    adj[batch_size * blockIdx.x + i] =
-      X[N * blockIdx.x + start_vertex_id + i] <= eps;
+    adj[batch_size * blockIdx.x + i] = X[N * blockIdx.x + start_vertex_id + i] <= eps;
   }
 }
 
@@ -45,9 +44,12 @@ __global__ void dist_to_adj_kernel(const value_t* X, bool* adj, index_t N,
  * Calculates the vertex degree array and the epsilon neighborhood adjacency matrix for the batch.
  */
 template <typename value_t, typename index_t = int>
-void launcher(const raft::handle_t& handle, Pack<value_t, index_t> data,
-              index_t start_vertex_id, index_t batch_size,
-              cudaStream_t stream) {
+void launcher(const raft::handle_t& handle,
+              Pack<value_t, index_t> data,
+              index_t start_vertex_id,
+              index_t batch_size,
+              cudaStream_t stream)
+{
   const value_t& eps = data.eps;
 
   // Note: the matrix is symmetric. We take advantage of this to have two
@@ -71,11 +73,14 @@ void launcher(const raft::handle_t& handle, Pack<value_t, index_t> data,
   index_t* d_nnz = data.vd + batch_size;
   CUDA_CHECK(cudaMemsetAsync(d_nnz, 0, sizeof(index_t), stream));
   raft::linalg::coalescedReduction<value_t, index_t, long_index_t>(
-    data.vd, data.x + start_vertex_id * data.N, data.N, batch_size, (index_t)0,
-    stream, false,
-    [eps] __device__(value_t dist, long_index_t idx) {
-      return static_cast<index_t>(dist <= eps);
-    },
+    data.vd,
+    data.x + start_vertex_id * data.N,
+    data.N,
+    batch_size,
+    (index_t)0,
+    stream,
+    false,
+    [eps] __device__(value_t dist, long_index_t idx) { return static_cast<index_t>(dist <= eps); },
     raft::Sum<index_t>(),
     [d_nnz] __device__(index_t degree) {
       atomicAdd(d_nnz, degree);
@@ -84,8 +89,12 @@ void launcher(const raft::handle_t& handle, Pack<value_t, index_t> data,
 
   // Transform the distance matrix into a neighborhood matrix
   dist_to_adj_kernel<<<data.N, std::min(batch_size, (index_t)256), 0, stream>>>(
-    data.x, data.adj, (long_index_t)data.N, (long_index_t)start_vertex_id,
-    (long_index_t)batch_size, data.eps);
+    data.x,
+    data.adj,
+    (long_index_t)data.N,
+    (long_index_t)start_vertex_id,
+    (long_index_t)batch_size,
+    data.eps);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 

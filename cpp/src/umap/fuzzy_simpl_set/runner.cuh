@@ -16,7 +16,6 @@
 #pragma once
 
 #include <cuml/manifold/umapparams.h>
-#include <raft/mr/device/allocator.hpp>
 #include "naive.cuh"
 
 #include <raft/sparse/coo.cuh>
@@ -35,19 +34,23 @@ using namespace ML;
  * @param n_neighbors number of neighbors
  * @param coo input knn-graph
  * @param params umap parameters
- * @param alloc device allocator
  * @param stream cuda stream
  * @param algorithm algo type to choose
  */
 template <int TPB_X, typename value_idx, typename T>
-void run(int n, const value_idx *knn_indices, const T *knn_dists,
-         int n_neighbors, raft::sparse::COO<T> *coo, UMAPParams *params,
-         std::shared_ptr<raft::mr::device::allocator> alloc,
-         cudaStream_t stream, int algorithm = 0) {
+void run(int n,
+         const value_idx* knn_indices,
+         const T* knn_dists,
+         int n_neighbors,
+         raft::sparse::COO<T>* coo,
+         UMAPParams* params,
+         cudaStream_t stream,
+         int algorithm = 0)
+{
   switch (algorithm) {
     case 0:
       Naive::launcher<TPB_X, value_idx, T>(
-        n, knn_indices, knn_dists, n_neighbors, coo, params, alloc, stream);
+        n, knn_indices, knn_dists, n_neighbors, coo, params, stream);
       break;
   }
 }

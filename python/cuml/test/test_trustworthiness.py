@@ -13,7 +13,7 @@
 # limitations under the License.
 
 import pytest
-from sklearn.manifold.t_sne import trustworthiness as sklearn_trustworthiness
+from sklearn.manifold import trustworthiness as sklearn_trustworthiness
 from cuml.metrics import trustworthiness as cuml_trustworthiness
 
 from sklearn.datasets import make_blobs
@@ -48,3 +48,11 @@ def test_trustworthiness(input_type, n_samples, n_features, n_components,
     cu_score = cuml_trustworthiness(X, X_embedded, batch_size=batch_size)
 
     assert abs(cu_score - sk_score) <= 1e-3
+
+
+def test_trustworthiness_invalid_input():
+    X, y = make_blobs(n_samples=10, centers=1,
+                      n_features=2, random_state=32)
+
+    with pytest.raises(ValueError):
+        cuml_trustworthiness(X, X, n_neighbors=50)

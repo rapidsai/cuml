@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,13 +24,15 @@ class TimerCPU {
 
   void reset() { this->time = std::chrono::high_resolution_clock::now(); }
 
-  double getElapsedSeconds() const {
+  double getElapsedSeconds() const
+  {
     return 1.0e-6 * std::chrono::duration_cast<std::chrono::microseconds>(
                       std::chrono::high_resolution_clock::now() - this->time)
                       .count();
   }
 
-  double getElapsedMilliseconds() const {
+  double getElapsedMilliseconds() const
+  {
     return 1.0e-3 * std::chrono::duration_cast<std::chrono::microseconds>(
                       std::chrono::high_resolution_clock::now() - this->time)
                       .count();

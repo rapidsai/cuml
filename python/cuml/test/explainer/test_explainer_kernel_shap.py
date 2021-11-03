@@ -21,9 +21,11 @@ import math
 import pytest
 import sklearn.neighbors
 
+from cuml import Lasso
 from cuml import KernelExplainer
 from cuml.common.import_utils import has_scipy
 from cuml.common.import_utils import has_shap
+from cuml.datasets import make_regression
 from cuml.test.conftest import create_synthetic_dataset
 from cuml.test.utils import ClassEnumerator
 from cuml.test.utils import get_shap_values
@@ -322,6 +324,18 @@ def test_l1_regularization(exact_shap_regression_dataset, l1_type):
     assert isinstance(nz, cp.ndarray)
 
 
+def test_typeerror_input():
+    X, y = make_regression(n_samples=100, n_features=10, random_state=10)
+    clf = Lasso()
+    clf.fit(X, y)
+    exp = KernelExplainer(model=clf.predict, data=X, nsamples=10)
+    try:
+        _ = exp.shap_values(X)
+        assert True
+    except TypeError:
+        assert False
+
+
 ###############################################################################
 #                                 Precomputed results                         #
 #                               and testing variables                         #
@@ -376,10 +390,30 @@ golden_classification_result = [
 ]
 
 housing_regression_result = np.array(
-    [[-0.7222878, 0.00888237, -0.07044561, -0.02764106, -0.01486777,
-      -0.19961227, -0.1367276, -0.11073875],
-     [-0.688218, 0.04260924, -0.12853414, 0.06109668, -0.01486243,
-      -0.0627693, -0.17290883, -0.02488524]], dtype=np.float32)
+    [
+        [
+            -0.73860609,
+            0.00557072,
+            -0.05829297,
+            -0.01582018,
+            -0.01010366,
+            -0.23167623,
+            -0.470639,
+            -0.07584473,
+        ],
+        [
+            -0.6410764,
+            0.01369913,
+            -0.09492759,
+            0.02654463,
+            -0.00911134,
+            -0.05953105,
+            -0.51266433,
+            -0.0853608,
+        ],
+    ],
+    dtype=np.float32,
+)
 
 cuml_skl_class_dict = {
     cuml.LinearRegression: sklearn.linear_model.LinearRegression,

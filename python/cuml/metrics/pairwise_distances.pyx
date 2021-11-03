@@ -38,10 +38,12 @@ from cuml.metrics.distance_type cimport DistanceType
 cdef extern from "cuml/metrics/metrics.hpp" namespace "ML::Metrics":
     void pairwise_distance(const handle_t &handle, const double *x,
                            const double *y, double *dist, int m, int n, int k,
-                           DistanceType metric, bool isRowMajor) except +
+                           DistanceType metric, bool isRowMajor,
+                           double metric_arg) except +
     void pairwise_distance(const handle_t &handle, const float *x,
                            const float *y, float *dist, int m, int n, int k,
-                           DistanceType metric, bool isRowMajor) except +
+                           DistanceType metric, bool isRowMajor,
+                           float metric_arg) except +
     void pairwiseDistance_sparse(const handle_t &handle, float *x, float *y,
                                  float *dist, int x_nrows, int y_nrows,
                                  int n_cols, int x_nnz, int y_nnz,
@@ -67,17 +69,26 @@ PAIRWISE_DISTANCE_METRICS = {
     "l1": DistanceType.L1,
     "l2": DistanceType.L2SqrtUnexpanded,
     "manhattan": DistanceType.L1,
-    "sqeuclidean": DistanceType.L2Expanded
+    "sqeuclidean": DistanceType.L2Expanded,
+    "canberra": DistanceType.Canberra,
+    "chebyshev": DistanceType.Linf,
+    "minkowski": DistanceType.LpUnexpanded,
+    "hellinger": DistanceType.HellingerExpanded,
+    "correlation": DistanceType.CorrelationExpanded,
+    "jensenshannon": DistanceType.JensenShannon,
+    "hamming": DistanceType.HammingUnexpanded,
+    "kldivergence": DistanceType.KLDivergence,
+    "russellrao": DistanceType.RusselRaoExpanded
 }
 
 PAIRWISE_DISTANCE_SPARSE_METRICS = {
     "cityblock": DistanceType.L1,
     "cosine": DistanceType.CosineExpanded,
-    "euclidean": DistanceType.L2SqrtUnexpanded,
+    "euclidean": DistanceType.L2SqrtExpanded,
     "l1": DistanceType.L1,
-    "l2": DistanceType.L2SqrtUnexpanded,
+    "l2": DistanceType.L2SqrtExpanded,
     "manhattan": DistanceType.L1,
-    "sqeuclidean": DistanceType.L2Unexpanded,
+    "sqeuclidean": DistanceType.L2Expanded,
     "canberra": DistanceType.Canberra,
     "inner_product": DistanceType.InnerProduct,
     "minkowski": DistanceType.LpUnexpanded,
@@ -127,7 +138,7 @@ def _determine_metric(metric_str, is_sparse=False):
 
 @cuml.internals.api_return_array(get_output_type=True)
 def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
-                       convert_dtype=True, **kwds):
+                       convert_dtype=True, metric_arg=2, **kwds):
     """
     Compute the distance matrix from a vector array `X` and optional `Y`.
 
@@ -211,6 +222,11 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
     handle = Handle() if handle is None else handle
     cdef handle_t *handle_ = <handle_t*> <size_t> handle.getHandle()
 
+    if metric in ['russellrao'] and not np.all(X.data == 1.):
+        warnings.warn("X was converted to boolean for metric {}"
+                      .format(metric))
+        X = np.where(X != 0., 1.0, 0.0)
+
     # Get the input arrays, preserve order and type where possible
     X_m, n_samples_x, n_features_x, dtype_x = \
         input_to_cuml_array(X, order="K", check_dtype=[np.float32, np.float64])
@@ -229,12 +245,16 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
         if (n_samples_x == 1 or n_features_x == 1):
             input_order = "K"
 
+        if metric in ['russellrao'] and not np.all(Y.data == 1.):
+            warnings.warn("Y was converted to boolean for metric {}"
+                          .format(metric))
+            Y = np.where(Y != 0., 1.0, 0.0)
+
         Y_m, n_samples_y, n_features_y, dtype_y = \
             input_to_cuml_array(Y, order=input_order,
                                 convert_to_dtype=(dtype_x if convert_dtype
                                                   else None),
                                 check_dtype=[dtype_x])
-
         # Get the order from Y if necessary (It's possible to set order="F" in
         # input_to_cuml_array and have Y_m.order=="C")
         if (input_order == "K"):
@@ -275,7 +295,8 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
                           <int> n_samples_y,
                           <int> n_features_x,
                           <DistanceType> metric_val,
-                          <bool> is_row_major)
+                          <bool> is_row_major,
+                          <float> metric_arg)
     elif (dtype_x == np.float64):
         pairwise_distance(handle_[0],
                           <double*> d_X_ptr,
@@ -285,7 +306,8 @@ def pairwise_distances(X, Y=None, metric="euclidean", handle=None,
                           <int> n_samples_y,
                           <int> n_features_x,
                           <DistanceType> metric_val,
-                          <bool> is_row_major)
+                          <bool> is_row_major,
+                          <double> metric_arg)
     else:
         raise NotImplementedError("Unsupported dtype: {}".format(dtype_x))
 

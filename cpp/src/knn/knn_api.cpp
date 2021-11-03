@@ -49,20 +49,31 @@ namespace ML {
  * @param[in] expanded should lp-based distances be returned in their expanded
  *    form (e.g., without raising to the 1/p power).
  */
-cumlError_t knn_search(const cumlHandle_t handle, float **input, int *sizes,
-                       int n_params, int D, float *search_items, int n,
-                       int64_t *res_I, float *res_D, int k, bool rowMajorIndex,
-                       bool rowMajorQuery, int metric_type, float metric_arg,
-                       bool expanded) {
+cumlError_t knn_search(const cumlHandle_t handle,
+                       float** input,
+                       int* sizes,
+                       int n_params,
+                       int D,
+                       float* search_items,
+                       int n,
+                       int64_t* res_I,
+                       float* res_D,
+                       int k,
+                       bool rowMajorIndex,
+                       bool rowMajorQuery,
+                       int metric_type,
+                       float metric_arg,
+                       bool expanded)
+{
   cumlError_t status;
-  raft::handle_t *handle_ptr;
+  raft::handle_t* handle_ptr;
   std::tie(handle_ptr, status) = ML::handleMap.lookupHandlePointer(handle);
   raft::distance::DistanceType metric_distance_type =
     static_cast<raft::distance::DistanceType>(metric_type);
 
   std::vector<cudaStream_t> int_streams = handle_ptr->get_internal_streams();
 
-  std::vector<float *> input_vec(n_params);
+  std::vector<float*> input_vec(n_params);
   std::vector<int> sizes_vec(n_params);
   for (int i = 0; i < n_params; i++) {
     input_vec.push_back(input[i]);
@@ -71,9 +82,19 @@ cumlError_t knn_search(const cumlHandle_t handle, float **input, int *sizes,
 
   if (status == CUML_SUCCESS) {
     try {
-      ML::brute_force_knn(*handle_ptr, input_vec, sizes_vec, D, search_items, n,
-                          res_I, res_D, k, rowMajorIndex, rowMajorQuery,
-                          metric_distance_type, metric_arg);
+      ML::brute_force_knn(*handle_ptr,
+                          input_vec,
+                          sizes_vec,
+                          D,
+                          search_items,
+                          n,
+                          res_I,
+                          res_D,
+                          k,
+                          rowMajorIndex,
+                          rowMajorQuery,
+                          metric_distance_type,
+                          metric_arg);
     } catch (...) {
       status = CUML_ERROR_UNKNOWN;
     }

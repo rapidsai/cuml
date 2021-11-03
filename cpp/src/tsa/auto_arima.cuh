@@ -29,8 +29,7 @@
 
 #include <raft/cudart_utils.h>
 #include <common/fast_int_div.cuh>
-#include <cuml/common/device_buffer.hpp>
-#include <raft/mr/device/allocator.hpp>
+#include <rmm/device_uvector.hpp>
 
 namespace ML {
 namespace TimeSeries {
@@ -41,25 +40,26 @@ namespace TimeSeries {
  * @param[in]  mask       Input boolean array
  * @param[out] cumul      Output cumulative sum
  * @param[in]  mask_size  Size of the arrays
- * @param[in]  allocator  Device memory allocator
  * @param[in]  stream     CUDA stream
  */
-void cumulative_sum_helper(
-  const bool* mask, int* cumul, int mask_size,
-  std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream) {
+void cumulative_sum_helper(const bool* mask, int* cumul, int mask_size, cudaStream_t stream)
+{
   // Determine temporary storage size
   size_t temp_storage_bytes = 0;
-  cub::DeviceScan::InclusiveSum(NULL, temp_storage_bytes, mask, cumul,
-                                mask_size, stream);
+  cub::DeviceScan::InclusiveSum(
+    NULL, temp_storage_bytes, reinterpret_cast<const char*>(mask), cumul, mask_size, stream);
 
   // Allocate temporary storage
-  MLCommon::device_buffer<uint8_t> temp_storage(allocator, stream,
-                                                temp_storage_bytes);
+  rmm::device_uvector<uint8_t> temp_storage(temp_storage_bytes, stream);
   void* d_temp_storage = (void*)temp_storage.data();
 
   // Execute the scan
-  cub::DeviceScan::InclusiveSum(d_temp_storage, temp_storage_bytes, mask, cumul,
-                                mask_size, stream);
+  cub::DeviceScan::InclusiveSum(d_temp_storage,
+                                temp_storage_bytes,
+                                reinterpret_cast<const char*>(mask),
+                                cumul,
+                                mask_size,
+                                stream);
 }
 
 /**
@@ -69,35 +69,38 @@ void cumulative_sum_helper(
  * @param[in]  d_mask     Boolean mask
  * @param[out] d_index    Index of each series in its new batch
  * @param[in]  batch_size Batch size
- * @param[in]  allocator  Device memory allocator
  * @param[in]  stream     CUDA stream
  * @return The number of 'true' series in the mask
  */
-inline int divide_by_mask_build_index(
-  const bool* d_mask, int* d_index, int batch_size,
-  std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream) {
+inline int divide_by_mask_build_index(const bool* d_mask,
+                                      int* d_index,
+                                      int batch_size,
+                                      cudaStream_t stream)
+{
   // Inverse mask
-  MLCommon::device_buffer<bool> inv_mask(allocator, stream, batch_size);
-  thrust::transform(thrust::cuda::par.on(stream), d_mask, d_mask + batch_size,
-                    inv_mask.data(), thrust::logical_not<bool>());
+  rmm::device_uvector<bool> inv_mask(batch_size, stream);
+  thrust::transform(thrust::cuda::par.on(stream),
+                    d_mask,
+                    d_mask + batch_size,
+                    inv_mask.data(),
+                    thrust::logical_not<bool>());
 
   // Cumulative sum of the inverse mask
-  MLCommon::device_buffer<int> index0(allocator, stream, batch_size);
-  cumulative_sum_helper(inv_mask.data(), index0.data(), batch_size, allocator,
-                        stream);
+  rmm::device_uvector<int> index0(batch_size, stream);
+  cumulative_sum_helper(inv_mask.data(), index0.data(), batch_size, stream);
 
   // Cumulative sum of the mask
-  MLCommon::device_buffer<int> index1(allocator, stream, batch_size);
-  cumulative_sum_helper(d_mask, index1.data(), batch_size, allocator, stream);
+  rmm::device_uvector<int> index1(batch_size, stream);
+  cumulative_sum_helper(d_mask, index1.data(), batch_size, stream);
 
   // Combine both cumulative sums according to the mask and subtract 1
   const int* d_index0 = index0.data();
   const int* d_index1 = index1.data();
-  auto counting = thrust::make_counting_iterator(0);
-  thrust::for_each(thrust::cuda::par.on(stream), counting,
-                   counting + batch_size, [=] __device__(int i) {
-                     d_index[i] = (d_mask[i] ? d_index1[i] : d_index0[i]) - 1;
-                   });
+  auto counting       = thrust::make_counting_iterator(0);
+  thrust::for_each(
+    thrust::cuda::par.on(stream), counting, counting + batch_size, [=] __device__(int i) {
+      d_index[i] = (d_mask[i] ? d_index1[i] : d_index0[i]) - 1;
+    });
 
   // Compute and return the number of true elements in the mask
   int true_elements;
@@ -117,12 +120,15 @@ inline int divide_by_mask_build_index(
  * @param[in]  n_obs      Number of data points per series
  */
 template <typename DataT>
-__global__ void divide_by_mask_kernel(const DataT* d_in, const bool* d_mask,
-                                      const int* d_index, DataT* d_out0,
-                                      DataT* d_out1, int n_obs) {
+__global__ void divide_by_mask_kernel(const DataT* d_in,
+                                      const bool* d_mask,
+                                      const int* d_index,
+                                      DataT* d_out0,
+                                      DataT* d_out1,
+                                      int n_obs)
+{
   const DataT* b_in = d_in + n_obs * blockIdx.x;
-  DataT* b_out =
-    (d_mask[blockIdx.x] ? d_out1 : d_out0) + n_obs * d_index[blockIdx.x];
+  DataT* b_out      = (d_mask[blockIdx.x] ? d_out1 : d_out0) + n_obs * d_index[blockIdx.x];
 
   for (int i = threadIdx.x; i < n_obs; i += blockDim.x) {
     b_out[i] = b_in[i];
@@ -143,16 +149,21 @@ __global__ void divide_by_mask_kernel(const DataT* d_in, const bool* d_mask,
  * @param[in]  stream     CUDA stream
  */
 template <typename DataT>
-inline void divide_by_mask_execute(const DataT* d_in, const bool* d_mask,
-                                   const int* d_index, DataT* d_out0,
-                                   DataT* d_out1, int batch_size, int n_obs,
-                                   cudaStream_t stream) {
+inline void divide_by_mask_execute(const DataT* d_in,
+                                   const bool* d_mask,
+                                   const int* d_index,
+                                   DataT* d_out0,
+                                   DataT* d_out1,
+                                   int batch_size,
+                                   int n_obs,
+                                   cudaStream_t stream)
+{
   if (n_obs == 1) {
     auto counting = thrust::make_counting_iterator(0);
-    thrust::for_each(thrust::cuda::par.on(stream), counting,
-                     counting + batch_size, [=] __device__(int i) {
-                       (d_mask[i] ? d_out1 : d_out0)[d_index[i]] = d_in[i];
-                     });
+    thrust::for_each(
+      thrust::cuda::par.on(stream), counting, counting + batch_size, [=] __device__(int i) {
+        (d_mask[i] ? d_out1 : d_out0)[d_index[i]] = d_in[i];
+      });
   } else {
     int TPB = std::min(64, n_obs);
     divide_by_mask_kernel<<<batch_size, TPB, 0, stream>>>(
@@ -183,55 +194,57 @@ struct which_col : thrust::unary_function<int, int> {
  * @param[out] h_size     Size of each sub-batch (host)
  * @param[in]  batch_size Batch size
  * @param[in]  n_sub      Number of sub-batches
- * @param[in]  allocator  Device memory allocator
  * @param[in]  stream     CUDA stream
  */
 template <typename DataT>
-inline void divide_by_min_build_index(
-  const DataT* d_matrix, int* d_batch, int* d_index, int* h_size,
-  int batch_size, int n_sub,
-  std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream) {
+inline void divide_by_min_build_index(const DataT* d_matrix,
+                                      int* d_batch,
+                                      int* d_index,
+                                      int* h_size,
+                                      int batch_size,
+                                      int n_sub,
+                                      cudaStream_t stream)
+{
   auto counting = thrust::make_counting_iterator(0);
 
   // In the first pass, compute d_batch and initialize the matrix that will
   // be used to compute d_size and d_index (1 for the first occurence of the
   // minimum of each row, else 0)
-  MLCommon::device_buffer<int> cumul(allocator, stream, batch_size * n_sub);
+  rmm::device_uvector<int> cumul(batch_size * n_sub, stream);
   int* d_cumul = cumul.data();
-  CUDA_CHECK(
-    cudaMemsetAsync(d_cumul, 0, batch_size * n_sub * sizeof(int), stream));
-  thrust::for_each(thrust::cuda::par.on(stream), counting,
-                   counting + batch_size, [=] __device__(int i) {
-                     int min_id = 0;
-                     DataT min_value = d_matrix[i];
-                     for (int j = 1; j < n_sub; j++) {
-                       DataT Mij = d_matrix[j * batch_size + i];
-                       min_id = (Mij < min_value) ? j : min_id;
-                       min_value = min(Mij, min_value);
-                     }
-                     d_batch[i] = min_id;
-                     d_cumul[min_id * batch_size + i] = 1;
-                   });
+  CUDA_CHECK(cudaMemsetAsync(d_cumul, 0, batch_size * n_sub * sizeof(int), stream));
+  thrust::for_each(
+    thrust::cuda::par.on(stream), counting, counting + batch_size, [=] __device__(int i) {
+      int min_id      = 0;
+      DataT min_value = d_matrix[i];
+      for (int j = 1; j < n_sub; j++) {
+        DataT Mij = d_matrix[j * batch_size + i];
+        min_id    = (Mij < min_value) ? j : min_id;
+        min_value = min(Mij, min_value);
+      }
+      d_batch[i]                       = min_id;
+      d_cumul[min_id * batch_size + i] = 1;
+    });
 
   // In the second pass, we compute the cumulative sum of each column of this
   // mask matrix
   thrust::transform_iterator<which_col, thrust::counting_iterator<int>> t_first(
     counting, which_col(batch_size));
-  thrust::inclusive_scan_by_key(thrust::cuda::par.on(stream), t_first,
-                                t_first + batch_size * n_sub, d_cumul, d_cumul);
+  thrust::inclusive_scan_by_key(
+    thrust::cuda::par.on(stream), t_first, t_first + batch_size * n_sub, d_cumul, d_cumul);
 
   // In the third pass, we compute d_index from d_cumul and d_batch
-  thrust::for_each(thrust::cuda::par.on(stream), counting,
-                   counting + batch_size, [=] __device__(int i) {
-                     d_index[i] = d_cumul[d_batch[i] * batch_size + i] - 1;
-                   });
+  thrust::for_each(
+    thrust::cuda::par.on(stream), counting, counting + batch_size, [=] __device__(int i) {
+      d_index[i] = d_cumul[d_batch[i] * batch_size + i] - 1;
+    });
 
   // Finally we also compute h_size from d_cumul
-  MLCommon::device_buffer<int> size_buffer(allocator, stream, n_sub);
+  rmm::device_uvector<int> size_buffer(n_sub, stream);
   int* d_size = size_buffer.data();
-  thrust::for_each(
-    thrust::cuda::par.on(stream), counting, counting + n_sub,
-    [=] __device__(int j) { d_size[j] = d_cumul[(j + 1) * batch_size - 1]; });
+  thrust::for_each(thrust::cuda::par.on(stream), counting, counting + n_sub, [=] __device__(int j) {
+    d_size[j] = d_cumul[(j + 1) * batch_size - 1];
+  });
   raft::update_host(h_size, d_size, n_sub, stream);
   CUDA_CHECK(cudaStreamSynchronize(stream));
 }
@@ -246,11 +259,11 @@ inline void divide_by_min_build_index(
  * @param[in]  n_obs      Number of data points per series
  */
 template <typename DataT>
-__global__ void divide_by_min_kernel(const DataT* d_in, const int* d_batch,
-                                     const int* d_index, DataT** d_out,
-                                     int n_obs) {
+__global__ void divide_by_min_kernel(
+  const DataT* d_in, const int* d_batch, const int* d_index, DataT** d_out, int n_obs)
+{
   const DataT* b_in = d_in + n_obs * blockIdx.x;
-  DataT* b_out = d_out[d_batch[blockIdx.x]] + n_obs * d_index[blockIdx.x];
+  DataT* b_out      = d_out[d_batch[blockIdx.x]] + n_obs * d_index[blockIdx.x];
 
   for (int i = threadIdx.x; i < n_obs; i += blockDim.x) {
     b_out[i] = b_in[i];
@@ -268,28 +281,32 @@ __global__ void divide_by_min_kernel(const DataT* d_in, const int* d_batch,
  * @param[in]  batch_size Batch size
  * @param[in]  n_sub      Number of sub-batches
  * @param[in]  n_obs      Number of data points per series
- * @param[in]  allocator  Device memory allocator
  * @param[in]  stream     CUDA stream
  */
 template <typename DataT>
-inline void divide_by_min_execute(
-  const DataT* d_in, const int* d_batch, const int* d_index, DataT** hd_out,
-  int batch_size, int n_sub, int n_obs,
-  std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream) {
+inline void divide_by_min_execute(const DataT* d_in,
+                                  const int* d_batch,
+                                  const int* d_index,
+                                  DataT** hd_out,
+                                  int batch_size,
+                                  int n_sub,
+                                  int n_obs,
+                                  cudaStream_t stream)
+{
   // Create a device array of pointers to each sub-batch
-  MLCommon::device_buffer<DataT*> out_buffer(allocator, stream, n_sub);
+  rmm::device_uvector<DataT*> out_buffer(n_sub, stream);
   DataT** d_out = out_buffer.data();
   raft::update_device(d_out, hd_out, n_sub, stream);
 
   if (n_obs == 1) {
     auto counting = thrust::make_counting_iterator(0);
     thrust::for_each(
-      thrust::cuda::par.on(stream), counting, counting + batch_size,
-      [=] __device__(int i) { d_out[d_batch[i]][d_index[i]] = d_in[i]; });
+      thrust::cuda::par.on(stream), counting, counting + batch_size, [=] __device__(int i) {
+        d_out[d_batch[i]][d_index[i]] = d_in[i];
+      });
   } else {
     int TPB = std::min(64, n_obs);
-    divide_by_min_kernel<<<batch_size, TPB, 0, stream>>>(d_in, d_batch, d_index,
-                                                         d_out, n_obs);
+    divide_by_min_kernel<<<batch_size, TPB, 0, stream>>>(d_in, d_batch, d_index, d_out, n_obs);
     CUDA_CHECK(cudaPeekAtLastError());
   }
 }
@@ -306,14 +323,16 @@ inline void divide_by_min_execute(
  *                           sub-batch
  */
 __global__ void build_division_map_kernel(const int* const* d_id,
-                                          const int* d_size, int* d_id_to_pos,
-                                          int* d_id_to_model) {
+                                          const int* d_size,
+                                          int* d_id_to_pos,
+                                          int* d_id_to_model)
+{
   const int* b_id = d_id[blockIdx.x];
-  int b_size = d_size[blockIdx.x];
+  int b_size      = d_size[blockIdx.x];
 
   for (int i = threadIdx.x; i < b_size; i += blockDim.x) {
-    int original_id = b_id[i];
-    d_id_to_pos[original_id] = i;
+    int original_id            = b_id[i];
+    d_id_to_pos[original_id]   = i;
     d_id_to_model[original_id] = blockIdx.x;
   }
 }
@@ -331,28 +350,29 @@ __global__ void build_division_map_kernel(const int* const* d_id,
  *                           sub-batch
  * @param[in]  batch_size    Batch size
  * @param[in]  n_sub         Number of sub-batches
- * @param[in]  allocator     Device memory allocator
  * @param[in]  stream        CUDA stream
  */
-inline void build_division_map(
-  const int* const* hd_id, const int* h_size, int* d_id_to_pos,
-  int* d_id_to_model, int batch_size, int n_sub,
-  std::shared_ptr<raft::mr::device::allocator> allocator, cudaStream_t stream) {
+inline void build_division_map(const int* const* hd_id,
+                               const int* h_size,
+                               int* d_id_to_pos,
+                               int* d_id_to_model,
+                               int batch_size,
+                               int n_sub,
+                               cudaStream_t stream)
+{
   // Copy the pointers to the id trackers of each sub-batch to the device
-  MLCommon::device_buffer<int*> id_ptr_buffer(allocator, stream, n_sub);
+  rmm::device_uvector<int*> id_ptr_buffer(n_sub, stream);
   const int** d_id = const_cast<const int**>(id_ptr_buffer.data());
   raft::update_device(d_id, hd_id, n_sub, stream);
 
   // Copy the size of each sub-batch to the device
-  MLCommon::device_buffer<int> size_buffer(allocator, stream, n_sub);
+  rmm::device_uvector<int> size_buffer(n_sub, stream);
   int* d_size = size_buffer.data();
   raft::update_device(d_size, h_size, n_sub, stream);
 
   int avg_size = batch_size / n_sub;
-  int TPB =
-    avg_size > 256 ? 256 : (avg_size > 128 ? 128 : (avg_size > 64 ? 64 : 32));
-  build_division_map_kernel<<<n_sub, TPB, 0, stream>>>(
-    d_id, d_size, d_id_to_pos, d_id_to_model);
+  int TPB      = avg_size > 256 ? 256 : (avg_size > 128 ? 128 : (avg_size > 64 ? 64 : 32));
+  build_division_map_kernel<<<n_sub, TPB, 0, stream>>>(d_id, d_size, d_id_to_pos, d_id_to_model);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 
@@ -368,13 +388,11 @@ inline void build_division_map(
  * @param[in]  n_obs       Number of observations (or forecasts) per series
  */
 template <typename DataT>
-__global__ void merge_series_kernel(const DataT* const* d_in,
-                                    const int* d_id_to_pos,
-                                    const int* d_id_to_sub, DataT* d_out,
-                                    int n_obs) {
-  const DataT* b_in =
-    d_in[d_id_to_sub[blockIdx.x]] + n_obs * d_id_to_pos[blockIdx.x];
-  DataT* b_out = d_out + n_obs * blockIdx.x;
+__global__ void merge_series_kernel(
+  const DataT* const* d_in, const int* d_id_to_pos, const int* d_id_to_sub, DataT* d_out, int n_obs)
+{
+  const DataT* b_in = d_in[d_id_to_sub[blockIdx.x]] + n_obs * d_id_to_pos[blockIdx.x];
+  DataT* b_out      = d_out + n_obs * blockIdx.x;
 
   for (int i = threadIdx.x; i < n_obs; i += blockDim.x) {
     b_out[i] = b_in[i];
@@ -396,23 +414,25 @@ __global__ void merge_series_kernel(const DataT* const* d_in,
  * @param[in]  batch_size  Batch size
  * @param[in]  n_sub       Number of sub-batches
  * @param[in]  n_obs       Number of observations (or forecasts) per series
- * @param[in]  allocator   Device memory allocator
  * @param[in]  stream      CUDA stream
  */
 template <typename DataT>
-inline void merge_series(const DataT* const* hd_in, const int* d_id_to_pos,
-                         const int* d_id_to_sub, DataT* d_out, int batch_size,
-                         int n_sub, int n_obs,
-                         std::shared_ptr<raft::mr::device::allocator> allocator,
-                         cudaStream_t stream) {
+inline void merge_series(const DataT* const* hd_in,
+                         const int* d_id_to_pos,
+                         const int* d_id_to_sub,
+                         DataT* d_out,
+                         int batch_size,
+                         int n_sub,
+                         int n_obs,
+                         cudaStream_t stream)
+{
   // Copy the pointers to each sub-batch to the device
-  MLCommon::device_buffer<DataT*> in_buffer(allocator, stream, n_sub);
+  rmm::device_uvector<DataT*> in_buffer(n_sub, stream);
   const DataT** d_in = const_cast<const DataT**>(in_buffer.data());
   raft::update_device(d_in, hd_in, n_sub, stream);
 
   int TPB = std::min(64, n_obs);
-  merge_series_kernel<<<batch_size, TPB, 0, stream>>>(
-    d_in, d_id_to_pos, d_id_to_sub, d_out, n_obs);
+  merge_series_kernel<<<batch_size, TPB, 0, stream>>>(d_in, d_id_to_pos, d_id_to_sub, d_out, n_obs);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 

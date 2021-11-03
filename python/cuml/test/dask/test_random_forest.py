@@ -331,36 +331,24 @@ def test_rf_concatenation_dask(client, model_type):
         assert local_tl.num_trees == n_estimators
 
 
-@pytest.mark.parametrize('model_type', ['classification', 'regression'])
 @pytest.mark.parametrize('ignore_empty_partitions', [True, False])
-def test_single_input(client, model_type, ignore_empty_partitions):
+def test_single_input_regression(client, ignore_empty_partitions):
     X, y = make_classification(n_samples=1, n_classes=1)
     X = X.astype(np.float32)
-    if model_type == 'classification':
-        y = y.astype(np.int32)
-    else:
-        y = y.astype(np.float32)
+    y = y.astype(np.float32)
 
     X, y = _prep_training_data(client, X, y,
                                partitions_per_worker=2)
-    if model_type == 'classification':
-        cu_rf_mg = cuRFC_mg(n_bins=1,
-                            ignore_empty_partitions=ignore_empty_partitions)
-    else:
-        cu_rf_mg = cuRFR_mg(n_bins=1,
-                            ignore_empty_partitions=ignore_empty_partitions)
+    cu_rf_mg = cuRFR_mg(n_bins=1,
+                        ignore_empty_partitions=ignore_empty_partitions)
 
     if ignore_empty_partitions or \
        len(client.scheduler_info()['workers'].keys()) == 1:
         cu_rf_mg.fit(X, y)
         cuml_mod_predict = cu_rf_mg.predict(X)
         cuml_mod_predict = cp.asnumpy(cp.array(cuml_mod_predict.compute()))
-
         y = cp.asnumpy(cp.array(y.compute()))
-
-        acc_score = accuracy_score(cuml_mod_predict, y)
-
-        assert acc_score == 1.0
+        assert y[0] == cuml_mod_predict[0]
 
     else:
         with pytest.raises(ValueError):
@@ -382,14 +370,14 @@ def test_rf_get_json(client, estimator_type, max_depth, n_estimators):
     X = X.astype(np.float32)
     if estimator_type == 'classification':
         cu_rf_mg = cuRFC_mg(max_features=1.0, max_samples=1.0,
-                            n_bins=16, split_algo=0, split_criterion=0,
+                            n_bins=16, split_criterion=0,
                             min_samples_leaf=2, random_state=23707,
                             n_streams=1, n_estimators=n_estimators,
                             max_leaves=-1, max_depth=max_depth)
         y = y.astype(np.int32)
     elif estimator_type == 'regression':
         cu_rf_mg = cuRFR_mg(max_features=1.0, max_samples=1.0,
-                            n_bins=16, split_algo=0,
+                            n_bins=16,
                             min_samples_leaf=2, random_state=23707,
                             n_streams=1, n_estimators=n_estimators,
                             max_leaves=-1, max_depth=max_depth)
@@ -410,32 +398,30 @@ def test_rf_get_json(client, estimator_type, max_depth, n_estimators):
 
     # Test 3: Traverse JSON trees and get the same predictions as cuML RF
     def predict_with_json_tree(tree, x):
-        if 'children' not in tree:
-            assert 'leaf_value' in tree
-            return tree['leaf_value']
-        assert 'split_feature' in tree
-        assert 'split_threshold' in tree
-        assert 'yes' in tree
-        assert 'no' in tree
-        if x[tree['split_feature']] <= tree['split_threshold']:
-            return predict_with_json_tree(tree['children'][0], x)
-        return predict_with_json_tree(tree['children'][1], x)
+        if "children" not in tree:
+            assert "leaf_value" in tree
+            return tree["leaf_value"]
+        assert "split_feature" in tree
+        assert "split_threshold" in tree
+        assert "yes" in tree
+        assert "no" in tree
+        if x[tree["split_feature"]] <= tree["split_threshold"] + 1e-5:
+            return predict_with_json_tree(tree["children"][0], x)
+        return predict_with_json_tree(tree["children"][1], x)
 
     def predict_with_json_rf_classifier(rf, x):
         # Returns the class with the highest vote. If there is a tie, return
         # the list of all classes with the highest vote.
-        vote = []
+        predictions = []
         for tree in rf:
-            vote.append(predict_with_json_tree(tree, x))
-        vote = np.bincount(vote)
-        max_vote = np.max(vote)
-        majority_vote = np.nonzero(np.equal(vote, max_vote))[0]
-        return majority_vote
+            predictions.append(np.array(predict_with_json_tree(tree, x)))
+        predictions = np.sum(predictions, axis=0)
+        return np.argmax(predictions)
 
     def predict_with_json_rf_regressor(rf, x):
-        pred = 0.
+        pred = 0.0
         for tree in rf:
-            pred += predict_with_json_tree(tree, x)
+            pred += predict_with_json_tree(tree, x)[0]
         return pred / len(rf)
 
     if estimator_type == 'classification':
@@ -443,7 +429,7 @@ def test_rf_get_json(client, estimator_type, max_depth, n_estimators):
         expected_pred = expected_pred.compute().to_array()
         for idx, row in enumerate(X):
             majority_vote = predict_with_json_rf_classifier(json_obj, row)
-            assert expected_pred[idx] in majority_vote
+            assert expected_pred[idx] == majority_vote
     elif estimator_type == 'regression':
         expected_pred = cu_rf_mg.predict(X_dask).astype(np.float32)
         expected_pred = expected_pred.compute().to_array()
@@ -470,7 +456,7 @@ def test_rf_instance_count(client, max_depth, n_estimators):
                                n_classes=2)
     X = X.astype(np.float32)
     cu_rf_mg = cuRFC_mg(max_features=1.0, max_samples=1.0,
-                        n_bins=16, split_algo=1, split_criterion=0,
+                        n_bins=16, split_criterion=0,
                         min_samples_leaf=2, random_state=23707, n_streams=1,
                         n_estimators=n_estimators, max_leaves=-1,
                         max_depth=max_depth)
@@ -627,7 +613,7 @@ def test_rf_broadcast(model_type, fit_broadcast, transform_broadcast, client):
         cuml_mod_predict = cuml_mod_predict.compute()
         cuml_mod_predict = cp.asnumpy(cuml_mod_predict)
         acc_score = accuracy_score(cuml_mod_predict, y_test, normalize=True)
-        assert acc_score >= 0.72
+        assert acc_score >= 0.70
 
     else:
         cuml_mod = cuRFR_mg(n_estimators=10, max_depth=8, n_bins=16,

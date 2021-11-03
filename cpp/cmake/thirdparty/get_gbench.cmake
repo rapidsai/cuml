@@ -16,10 +16,6 @@
 
 function(find_and_configure_gbench)
 
-    if(TARGET benchmark::benchmark)
-        return()
-    endif()
-
     set(oneValueArgs VERSION PINNED_TAG)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
                           "${multiValueArgs}" ${ARGN} )
@@ -32,10 +28,9 @@ function(find_and_configure_gbench)
             OPTIONS
               "BENCHMARK_ENABLE_GTEST_TESTS OFF"
               "BENCHMARK_ENABLE_TESTING OFF"
-              "CMAKE_INSTALL_PREFIX <INSTALL_DIR>"
+              "BENCHMARK_ENABLE_INSTALL OFF"
               "CMAKE_BUILD_TYPE Release"
               "CMAKE_INSTALL_LIBDIR lib"
-            # BUILD_BYPRODUCTS  ${benchmark_BINARY_DIR}/lib/libbenchmark.a
     )
 
     if(NOT TARGET benchmark::benchmark)

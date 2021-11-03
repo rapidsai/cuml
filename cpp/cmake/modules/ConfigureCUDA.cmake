@@ -25,8 +25,10 @@ endif()
 list(APPEND CUML_CUDA_FLAGS --expt-extended-lambda --expt-relaxed-constexpr)
 
 # set warnings as errors
-# list(APPEND CUML_CUDA_FLAGS -Werror=cross-execution-space-call)
-# list(APPEND CUML_CUDA_FLAGS -Xcompiler=-Wall,-Werror,-Wno-error=deprecated-declarations)
+if(CMAKE_CUDA_COMPILER_VERSION VERSION_GREATER_EQUAL 11.2.0)
+    list(APPEND CUML_CUDA_FLAGS -Werror=all-warnings)
+endif()
+list(APPEND CUML_CUDA_FLAGS -Xcompiler=-Wall,-Werror,-Wno-error=deprecated-declarations)
 
 if(DISABLE_DEPRECATION_WARNING)
     list(APPEND CUML_CXX_FLAGS -Wno-deprecated-declarations)
@@ -36,11 +38,15 @@ endif()
 # Option to enable line info in CUDA device compilation to allow introspection when profiling / memchecking
 if(CUDA_ENABLE_LINE_INFO)
   list(APPEND CUML_CUDA_FLAGS -lineinfo)
-endif(LINE_INFO)
+endif()
 
 if(CUDA_ENABLE_KERNEL_INFO)
   list(APPEND CUML_CUDA_FLAGS -Xptxas=-v)
-endif(KERNEL_INFO)
+endif()
+
+if(OpenMP_FOUND)
+    list(APPEND CUML_CUDA_FLAGS -Xcompiler=${OpenMP_CXX_FLAGS})
+endif()
 
 # Debug options
 if(CMAKE_BUILD_TYPE MATCHES Debug)

@@ -67,6 +67,9 @@ cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
         handle_t& handle, ARIMAParams[double]& params,
         const ARIMAOrder& order, int batch_size, const double* param_vec)
 
+    bool detect_missing(
+        handle_t& handle, const double* d_y, int n_elem)
+
     void batched_diff(
         handle_t& handle, double* d_y_diff, const double* d_y, int batch_size,
         int n_obs, const ARIMAOrder& order)
@@ -74,14 +77,14 @@ cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
     void batched_loglike(
         handle_t& handle, const ARIMAMemory[double]& arima_mem,
         const double* y, int batch_size, int nobs, const ARIMAOrder& order,
-        const double* params, double* loglike, double* d_vs, bool trans,
-        bool host_loglike, LoglikeMethod method, int truncate)
+        const double* params, double* loglike, bool trans, bool host_loglike,
+        LoglikeMethod method, int truncate)
 
     void batched_loglike(
         handle_t& handle, const ARIMAMemory[double]& arima_mem,
         const double* y, int batch_size, int n_obs, const ARIMAOrder& order,
-        const ARIMAParams[double]& params, double* loglike, double* d_vs,
-        bool trans, bool host_loglike, LoglikeMethod method, int truncate)
+        const ARIMAParams[double]& params, double* loglike, bool trans,
+        bool host_loglike, LoglikeMethod method, int truncate)
 
     void batched_loglike_grad(
         handle_t& handle, const ARIMAMemory[double]& arima_mem,
@@ -103,7 +106,7 @@ cdef extern from "cuml/tsa/batched_arima.hpp" namespace "ML":
 
     void estimate_x0(
         handle_t& handle, ARIMAParams[double]& params, const double* d_y,
-        int batch_size, int nobs, const ARIMAOrder& order)
+        int batch_size, int nobs, const ARIMAOrder& order, bool missing)
 
 
 cdef extern from "cuml/tsa/batched_kalman.hpp" namespace "ML":
@@ -150,7 +153,8 @@ class ARIMA(Base):
     See https://en.wikipedia.org/wiki/Autoregressive_integrated_moving_average
 
     This class can fit an ARIMA(p,d,q) or ARIMA(p,d,q)(P,D,Q)_s model to a
-    batch of time series of the same length with no missing values.
+    batch of time series of the same length (or various lengths, using missing
+    values at the start for padding).
     The implementation is designed to give the best performance when using
     large batches of time series.
 
@@ -160,6 +164,7 @@ class ARIMA(Base):
         The time series data, assumed to have each time series in columns.
         Acceptable formats: cuDF DataFrame, cuDF Series, NumPy ndarray,
         Numba device ndarray, cuda array interface compliant array like CuPy.
+        Missing values are accepted, represented by NaN.
     order : Tuple[int, int, int]
         The ARIMA order (p, d, q) of the model
     seasonal_order: Tuple[int, int, int, int]
@@ -329,8 +334,8 @@ class ARIMA(Base):
             raise ValueError("ERROR: Invalid order. At least one parameter"
                              " among p, q, P, Q and fit_intercept must be"
                              " non-zero")
-        if p > 4 or P > 4 or q > 4 or Q > 4:
-            raise ValueError("ERROR: Invalid order. Required: p,q,P,Q <= 4")
+        if p > 8 or P > 8 or q > 8 or Q > 8:
+            raise ValueError("ERROR: Invalid order. Required: p,q,P,Q <= 8")
         if max(p + s * P, q + s * Q) > 1024:
             raise ValueError("ERROR: Invalid order. "
                              "Required: max(p+s*P, q+s*Q) <= 1024")
@@ -364,18 +369,30 @@ class ARIMA(Base):
         the CumlArrayDescriptors work
         """
 
-        # Compute the differenced series
         cdef uintptr_t d_y_ptr = self.d_y.ptr
         cdef uintptr_t d_y_diff_ptr = self._d_y_diff.ptr
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
-        batched_diff(handle_[0], <double*> d_y_diff_ptr, <double*> d_y_ptr,
-                     <int> self.batch_size, <int> self.n_obs, self.order)
-
-        # Create a version of the order for the differenced series
         cdef ARIMAOrder cpp_order_diff = self.order
-        cpp_order_diff.d = 0
-        cpp_order_diff.D = 0
-        self.order_diff = cpp_order_diff
+
+        # Detect missing observations
+        self.missing = detect_missing(handle_[0], <double*> d_y_ptr,
+                                      <int> self.batch_size * self.n_obs)
+        if self.missing and self.simple_differencing:
+            logger.warn("Missing observations detected."
+                        " Forcing simple_differencing=False")
+            self.simple_differencing = False
+
+        if self.simple_differencing:
+            # Compute the differenced series
+            batched_diff(handle_[0], <double*> d_y_diff_ptr, <double*> d_y_ptr,
+                         <int> self.batch_size, <int> self.n_obs, self.order)
+
+            # Create a version of the order for the differenced series
+            cpp_order_diff.d = 0
+            cpp_order_diff.D = 0
+            self.order_diff = cpp_order_diff
+        else:
+            self.order_diff = None
 
     def __str__(self):
         cdef ARIMAOrder order = self.order
@@ -574,9 +591,9 @@ class ARIMA(Base):
                              " the data and the prediction")
         elif end <= start:
             raise ValueError("ERROR(`predict`): end <= start")
-        elif start < order.d + order.D * order.s:
-            logger.warn("WARNING(`predict`): predictions before {} are"
-                        " undefined, will be set to NaN"
+        elif self.simple_differencing and start < order.d + order.D * order.s:
+            logger.warn("Predictions before {} are undefined when using"
+                        " simple_differencing=True, will be set to NaN"
                         .format(order.d + order.D * order.s))
 
         if level is not None:
@@ -710,7 +727,8 @@ class ARIMA(Base):
 
         # Call C++ function
         estimate_x0(handle_[0], cpp_params, <double*> d_y_ptr,
-                    <int> self.batch_size, <int> self.n_obs, order)
+                    <int> self.batch_size, <int> self.n_obs, order,
+                    <bool> self.missing)
 
     @cuml.internals.api_base_return_any_skipall
     def fit(self,
@@ -798,6 +816,10 @@ class ARIMA(Base):
         method = method.lower()
         if method not in {"css", "css-ml", "ml"}:
             raise ValueError("Unknown method: {}".format(method))
+        if self.missing and (method == "css" or method == "css-ml"):
+            logger.warn("Missing observations detected."
+                        " Forcing method=\"ml\"")
+            method = "ml"
         if method == "css" or method == "css-ml":
             x, self.niter = fit_helper(x0, "css")
         if method == "css-ml" or method == "ml":
@@ -849,11 +871,7 @@ class ARIMA(Base):
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()
 
-        # TODO: don't create vs array every time!
         n_obs_kf = (self.n_obs_diff if diff else self.n_obs)
-        d_vs = CumlArray.empty((n_obs_kf, self.batch_size), dtype=np.float64,
-                               order="F")
-        cdef uintptr_t d_vs_ptr = d_vs.ptr
 
         cdef uintptr_t d_temp_mem = self._temp_mem.ptr
         arima_mem_ptr = new ARIMAMemory[double](
@@ -863,8 +881,7 @@ class ARIMA(Base):
         batched_loglike(handle_[0], arima_mem_ptr[0], <double*> d_y_kf_ptr,
                         <int> self.batch_size, <int> n_obs_kf, order_kf,
                         <double*> d_x_ptr, <double*> vec_loglike.data(),
-                        <double*> d_vs_ptr, <bool> trans, <bool> True,
-                        ll_method, <int> truncate)
+                        <bool> trans, <bool> True, ll_method, <int> truncate)
 
         del arima_mem_ptr
 
@@ -964,10 +981,6 @@ class ARIMA(Base):
         cdef LoglikeMethod ll_method = MLE
         diff = self.simple_differencing
 
-        d_vs = CumlArray.empty((n_obs_kf, self.batch_size), dtype=np.float64,
-                               order="F")
-        cdef uintptr_t d_vs_ptr = d_vs.ptr
-
         cdef uintptr_t d_temp_mem = self._temp_mem.ptr
         arima_mem_ptr = new ARIMAMemory[double](
             order, <int> self.batch_size, <int> self.n_obs,
@@ -976,8 +989,7 @@ class ARIMA(Base):
         batched_loglike(handle_[0], arima_mem_ptr[0], <double*> d_y_kf_ptr,
                         <int> self.batch_size, <int> n_obs_kf, order_kf,
                         cpp_params, <double*> vec_loglike.data(),
-                        <double*> d_vs_ptr, <bool> False, <bool> True,
-                        ll_method, <int> 0)
+                        <bool> False, <bool> True, ll_method, <int> 0)
 
         del arima_mem_ptr
 

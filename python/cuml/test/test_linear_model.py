@@ -630,3 +630,30 @@ def test_logistic_regression_weighting(regression_dataset,
     skOut = sklog.predict(data)
     assert array_equal(skOut, cuOut, unit_tol=unit_tol,
                        total_tol=total_tol)
+
+
+@pytest.mark.parametrize('algo', [cuLog, cuRidge])
+def test_linear_models_set_params(algo):
+    x = np.linspace(0, 1, 50)
+    y = 2 * x
+
+    model = algo()
+    model.fit(x, y)
+    coef_before = model.coef_
+
+    if algo == cuLog:
+        params = {'penalty': "none", 'C': 1, 'max_iter': 30}
+        model = algo(penalty='none', C=1, max_iter=30)
+    else:
+        model = algo(solver='svd', alpha=0.1)
+        params = {'solver': "svd", 'alpha': 0.1}
+    model.fit(x, y)
+    coef_after = model.coef_
+
+    model = algo()
+    model.set_params(**params)
+    model.fit(x, y)
+    coef_test = model.coef_
+
+    assert not array_equal(coef_before, coef_after)
+    assert array_equal(coef_after, coef_test)

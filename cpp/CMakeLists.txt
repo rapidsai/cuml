@@ -15,13 +15,9 @@
 #=============================================================================
 
 cmake_minimum_required(VERSION 3.20.1 FATAL_ERROR)
-include(FetchContent)
-FetchContent_Declare(
-  rapids-cmake
-  GIT_REPOSITORY https://github.com/rapidsai/rapids-cmake.git
-  GIT_TAG        origin/branch-21.06
-  )
-FetchContent_MakeAvailable(rapids-cmake)
+file(DOWNLOAD https://raw.githubusercontent.com/rapidsai/rapids-cmake/branch-21.10/RAPIDS.cmake
+    ${CMAKE_BINARY_DIR}/RAPIDS.cmake)
+include(${CMAKE_BINARY_DIR}/RAPIDS.cmake)
 include(rapids-cmake)
 include(rapids-cpm)
 include(rapids-cuda)
@@ -30,11 +26,10 @@ include(rapids-find)
 
 rapids_cuda_init_architectures(CUML)
 
-project(CUML VERSION 21.08.00 LANGUAGES CXX CUDA)
+project(CUML VERSION 21.12.00 LANGUAGES CXX CUDA)
 
 # Write the version header
-include(cmake/modules/Version.cmake)
-write_version()
+rapids_cmake_write_version_file(include/cuml/version_config.hpp)
 
 ##############################################################################
 # - build type ---------------------------------------------------------------
@@ -62,11 +57,16 @@ option(CUDA_ENABLE_KERNEL_INFO "Enable kernel resource usage info" OFF)
 option(CUDA_ENABLE_LINE_INFO "Enable lineinfo in nvcc" OFF)
 option(DETECT_CONDA_ENV "Enable detection of conda environment for dependencies" ON)
 option(DISABLE_DEPRECATION_WARNINGS "Disable depreaction warnings " ON)
+option(DISABLE_FORCE_CLONE_RAFT "By default, CPM will clone RAFT even if it's already in the environment. Set to disable that behavior." OFF)
 option(DISABLE_OPENMP "Disable OpenMP" OFF)
 option(ENABLE_CUMLPRIMS_MG "Enable algorithms that use libcumlprims_mg" ON)
 option(NVTX "Enable nvtx markers" OFF)
 option(SINGLEGPU "Disable all mnmg components and comms libraries" OFF)
 option(USE_CCACHE "Cache build artifacts with ccache" OFF)
+
+set(CUML_CPP_ALGORITHMS "ALL" CACHE STRING "Experimental: Choose which algorithms are built into libcuml++.so. Only 'FIL' and 'ALL' are supported right now.")
+set_property(CACHE CUML_CPP_ALGORITHMS PROPERTY STRINGS "ALL" "FIL")
+message(VERBOSE "CUML: Building libcuml++ with algoriths: '${CUML_CPP_ALGORITHMS}'.")
 
 message(VERBOSE "CUML: Building libcuml_c shared library. Contains the cuML C API: ${BUILD_CUML_C_LIBRARY}")
 message(VERBOSE "CUML: Building libcuml shared library: ${BUILD_CUML_CPP_LIBRARY}")
@@ -119,13 +119,20 @@ endif()
 ##############################################################################
 # - compiler options ---------------------------------------------------------
 
+if (NOT DISABLE_OPENMP)
+  find_package(OpenMP)
+  if(OpenMP_FOUND)
+    message(STATUS "CUML: OpenMP found in ${OPENMP_INCLUDE_DIRS}")
+  endif()
+endif()
+
 # * find CUDAToolkit package
 # * determine GPU architectures
 # * enable the CMake CUDA language
 # * set other CUDA compilation flags
 rapids_find_package(CUDAToolkit REQUIRED
-    BUILD_EXPORT_SET raft-exports
-    INSTALL_EXPORT_SET raft-exports
+    BUILD_EXPORT_SET cuml-exports
+    INSTALL_EXPORT_SET cuml-exports
     )
 include(cmake/modules/ConfigureCUDA.cmake)
 
@@ -135,7 +142,7 @@ include(cmake/modules/ConfigureCUDA.cmake)
 # Enabling libcuml enables building libcuml++
 if(BUILD_CUML_C_LIBRARY)
   set(BUILD_CUML_CPP_LIBRARY ON)
-endif(BUILD_CUML_C_LIBRARY)
+endif()
 
 # Disabling libcuml++ disables building algorithm tests and examples
 if(NOT BUILD_CUML_CPP_LIBRARY)
@@ -143,7 +150,16 @@ if(NOT BUILD_CUML_CPP_LIBRARY)
   set(BUILD_CUML_TESTS OFF)
   set(BUILD_CUML_MG_TESTS OFF)
   set(BUILD_CUML_EXAMPLES OFF)
-endif(NOT BUILD_CUML_CPP_LIBRARY)
+endif()
+
+if(CUML_CPP_ALGORITHMS STREQUAL "ALL")
+  set(LINK_FAISS ON)
+elseif(CUML_CPP_ALGORITHMS STREQUAL "FIL")
+  set(SINGLEGPU ON)
+  set(BUILD_CUML_C_LIBRARY OFF)
+  set(BUILD_CUML_EXAMPLES OFF)
+  set(LINK_FAISS OFF)
+endif()
 
 # SingleGPU build disables cumlprims_mg and comms components
 if(SINGLEGPU)
@@ -154,35 +170,32 @@ if(SINGLEGPU)
   set(BUILD_CUML_MPI_COMMS OFF)
   set(ENABLE_CUMLPRIMS_MG OFF)
   set(WITH_UCX OFF)
-endif(SINGLEGPU)
+endif()
 
 if(BUILD_CUML_MG_TESTS AND NOT SINGLEGPU)
   message(STATUS "Detected BUILD_CUML_MG_TESTS set to ON. Enabling BUILD_CUML_MPI_COMMS")
   set(BUILD_CUML_MPI_COMMS ON)
-endif(BUILD_CUML_MG_TESTS AND NOT SINGLEGPU)
+endif()
 
 if(USE_CCACHE)
   set(CMAKE_C_COMPILER_LAUNCHER ccache)
   set(CMAKE_CXX_COMPILER_LAUNCHER ccache)
   set(CMAKE_CUDA_COMPILER_LAUNCHER ccache)
-endif(USE_CCACHE)
+endif()
 
 ##############################################################################
 # - Requirements -------------------------------------------------------------
-
-if (NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
-  find_package(OpenMP)
-  if(OpenMP_FOUND)
-    message(STATUS "CUML: OpenMP found in ${OPENMP_INCLUDE_DIRS}")
-  endif(OpenMP_FOUND)
-endif(NOT DISABLE_OPENMP OR NOT ${DISABLE_OPENMP})
 
 # add third party dependencies using CPM
 rapids_cpm_init()
 
 include(cmake/thirdparty/get_thrust.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
-include(cmake/thirdparty/get_faiss.cmake)
+
+if(LINK_FAISS)
+  include(cmake/thirdparty/get_faiss.cmake)
+endif()
+
 include(cmake/thirdparty/get_treelite.cmake)
 include(cmake/thirdparty/get_raft.cmake)
 
@@ -206,60 +219,98 @@ endif()
 ##############################################################################
 # - build libcuml++ shared library -------------------------------------------
 
+if(BUILD_CUML_C_LIBRARY OR BUILD_CUML_CPP_LIBRARY)
+  file(WRITE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld"
+[=[
+SECTIONS
+{
+.nvFatBinSegment : { *(.nvFatBinSegment) }
+.nv_fatbin : { *(.nv_fatbin) }
+}
+]=])
+endif()
+
 if(BUILD_CUML_CPP_LIBRARY)
 
   # single GPU components
+
+  # common components
   add_library(${CUML_CPP_TARGET} SHARED
-    src/arima/batched_arima.cu
-    src/arima/batched_kalman.cu
-    src/common/logger.cpp
-    src/common/nvtx.cu
-    src/datasets/make_arima.cu
-    src/datasets/make_blobs.cu
-    src/datasets/make_regression.cu
-    src/dbscan/dbscan.cu
-    src/decisiontree/decisiontree.cu
-    src/explainer/kernel_shap.cu
-    src/explainer/permutation_shap.cu
-    src/fil/fil.cu
-    src/fil/infer.cu
-    src/glm/glm.cu
-    src/genetic/genetic.cu
-    src/genetic/node.cu
-    src/hdbscan/hdbscan.cu
-    src/hdbscan/condensed_hierarchy.cu
-    src/holtwinters/holtwinters.cu
-    src/kmeans/kmeans.cu
-    src/knn/knn.cu
-    src/knn/knn_sparse.cu
-    src/hierarchy/linkage.cu
-    src/metrics/accuracy_score.cu
-    src/metrics/adjusted_rand_index.cu
-    src/metrics/completeness_score.cu
-    src/metrics/entropy.cu
-    src/metrics/homogeneity_score.cu
-    src/metrics/kl_divergence.cu
-    src/metrics/mutual_info_score.cu
-    src/metrics/pairwise_distance.cu
-    src/metrics/r2_score.cu
-    src/metrics/rand_index.cu
-    src/metrics/silhouette_score.cu
-    src/metrics/trustworthiness.cu
-    src/metrics/v_measure.cu
-    src/pca/pca.cu
-    src/randomforest/randomforest.cu
-    src/random_projection/rproj.cu
-    src/solver/lars.cu
-    src/solver/solver.cu
-    src/spectral/spectral.cu
-    src/svm/svc.cu
-    src/svm/svr.cu
-    src/svm/ws_util.cu
-    src/tsa/auto_arima.cu
-    src/tsa/stationarity.cu
-    src/tsne/tsne.cu
-    src/tsvd/tsvd.cu
-    src/umap/umap.cu)
+              src/common/logger.cpp
+              src/common/nvtx.cu)
+
+
+  # FIL components
+  target_sources(${CUML_CPP_TARGET}
+    PRIVATE
+      src/fil/fil.cu
+      src/fil/infer.cu)
+
+  # Rest of the algorithms
+  if(CUML_CPP_ALGORITHMS STREQUAL "ALL")
+    target_sources(${CUML_CPP_TARGET}
+      PRIVATE
+        src/arima/batched_arima.cu
+        src/arima/batched_kalman.cu
+        src/datasets/make_arima.cu
+        src/datasets/make_blobs.cu
+        src/datasets/make_regression.cu
+        src/dbscan/dbscan.cu
+        src/decisiontree/decisiontree.cu
+        src/explainer/kernel_shap.cu
+        src/explainer/permutation_shap.cu
+        src/fil/fil.cu
+        src/fil/infer.cu
+        src/glm/glm.cu
+        src/genetic/genetic.cu
+        src/genetic/node.cu
+        src/hdbscan/hdbscan.cu
+        src/hdbscan/condensed_hierarchy.cu
+        src/holtwinters/holtwinters.cu
+        src/kmeans/kmeans.cu
+        src/knn/knn.cu
+        src/knn/knn_sparse.cu
+        src/hierarchy/linkage.cu
+        src/metrics/accuracy_score.cu
+        src/metrics/adjusted_rand_index.cu
+        src/metrics/completeness_score.cu
+        src/metrics/entropy.cu
+        src/metrics/homogeneity_score.cu
+        src/metrics/kl_divergence.cu
+        src/metrics/mutual_info_score.cu
+        src/metrics/pairwise_distance.cu
+        src/metrics/pairwise_distance_canberra.cu
+        src/metrics/pairwise_distance_chebyshev.cu
+        src/metrics/pairwise_distance_correlation.cu
+        src/metrics/pairwise_distance_cosine.cu
+        src/metrics/pairwise_distance_euclidean.cu
+        src/metrics/pairwise_distance_hamming.cu
+        src/metrics/pairwise_distance_hellinger.cu
+        src/metrics/pairwise_distance_jensen_shannon.cu
+        src/metrics/pairwise_distance_kl_divergence.cu
+        src/metrics/pairwise_distance_l1.cu
+        src/metrics/pairwise_distance_minkowski.cu
+        src/metrics/pairwise_distance_russell_rao.cu
+        src/metrics/r2_score.cu
+        src/metrics/rand_index.cu
+        src/metrics/silhouette_score.cu
+        src/metrics/trustworthiness.cu
+        src/metrics/v_measure.cu
+        src/pca/pca.cu
+        src/randomforest/randomforest.cu
+        src/random_projection/rproj.cu
+        src/solver/lars.cu
+        src/solver/solver.cu
+        src/spectral/spectral.cu
+        src/svm/svc.cu
+        src/svm/svr.cu
+        src/svm/ws_util.cu
+        src/tsa/auto_arima.cu
+        src/tsa/stationarity.cu
+        src/tsne/tsne.cu
+        src/tsvd/tsvd.cu
+        src/umap/umap.cu)
+  endif()
 
   # multi GPU components
   # todo: separate mnmg that require cumlprims from those that don't
@@ -278,7 +329,7 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/solver/cd_mg.cu
         src/tsvd/tsvd_mg.cu
     )
-  endif(NOT SINGLEGPU)
+  endif()
 
   add_library(cuml::${CUML_CPP_TARGET} ALIAS ${CUML_CPP_TARGET})
 
@@ -309,13 +360,13 @@ if(BUILD_CUML_CPP_LIBRARY)
   target_include_directories(${CUML_CPP_TARGET}
     PUBLIC
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
-      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src_prims>
       $<BUILD_INTERFACE:$<$<BOOL:${ENABLE_CUMLPRIMS_MG}>:${cumlprims_mg_INCLUDE_DIRS}>>
-      $<$<BOOL:Treelite_ADDED>:${Treelite_SOURCE_DIR}/include>
     PRIVATE
-      $<$<OR:$<BOOL:BUILD_CUML_STD_COMMS>,$<BOOL:BUILD_CUML_MPI_COMMS>>:${NCCL_INCLUDE_DIRS}>
-      $<$<BOOL:BUILD_CUML_MPI_COMMS>:${MPI_CXX_INCLUDE_PATH}>
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/metrics>
+      $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src_prims>
+      $<$<OR:$<BOOL:${BUILD_CUML_STD_COMMS}>,$<BOOL:${BUILD_CUML_MPI_COMMS}>>:${NCCL_INCLUDE_DIRS}>
+      $<$<BOOL:${BUILD_CUML_MPI_COMMS}>:${MPI_CXX_INCLUDE_PATH}>
     INTERFACE
       $<INSTALL_INTERFACE:include>
   )
@@ -332,11 +383,11 @@ if(BUILD_CUML_CPP_LIBRARY)
       CUDA::cusolver
       CUDA::cudart
       CUDA::cusparse
-      $<$<BOOL:NVTX>:CUDA::nvToolsExt>
-      FAISS::FAISS
+      $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
+      $<$<BOOL:${LINK_FAISS}>:FAISS::FAISS>
       $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_static,treelite::treelite>
       $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_runtime_static,treelite::treelite_runtime>
-      $<$<BOOL:OpenMP_FOUND>:OpenMP::OpenMP_CXX>
+      $<$<BOOL:${OpenMP_FOUND}>:OpenMP::OpenMP_CXX>
       $<$<OR:$<BOOL:${BUILD_CUML_STD_COMMS}>,$<BOOL:${BUILD_CUML_MPI_COMMS}>>:NCCL::NCCL>
       $<$<BOOL:${BUILD_CUML_MPI_COMMS}>:${MPI_CXX_LIBRARIES}>
       $<$<BOOL:${ENABLE_CUMLPRIMS_MG}>:cumlprims_mg::cumlprims_mg>
@@ -347,8 +398,10 @@ if(BUILD_CUML_CPP_LIBRARY)
   target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libdmlc.a")
   # same as above, but for protobuf library
   target_link_options(${CUML_CPP_TARGET} PRIVATE "-Wl,--exclude-libs,libprotobuf.a")
+  # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
+  target_link_options(${CUML_CPP_TARGET} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
 
-endif(BUILD_CUML_CPP_LIBRARY)
+endif()
 
 #############################################################################
 # - build libcuml C shared library -------------------------------------------
@@ -382,6 +435,9 @@ if(BUILD_CUML_C_LIBRARY)
       FAISS::FAISS
   )
 
+  # ensure CUDA symbols aren't relocated to the middle of the debug build binaries
+  target_link_options(${CUML_C_TARGET} PRIVATE "${CMAKE_CURRENT_BINARY_DIR}/fatbin.ld")
+
 endif()
 
 ##############################################################################
@@ -397,13 +453,14 @@ endif()
 
 if(BUILD_CUML_EXAMPLES)
   add_subdirectory(examples)
-endif(BUILD_CUML_EXAMPLES)
+endif()
 
 # ###################################################################################################
 # # - install targets -------------------------------------------------------------------------------
+rapids_cmake_install_lib_dir( lib_dir )
+include(CPack)
 
-set(CUML_TARGETS
-      ${CUML_CPP_TARGET})
+set(CUML_TARGETS ${CUML_CPP_TARGET})
 
 if(BUILD_CUML_C_LIBRARY)
   list(APPEND CUML_TARGETS
@@ -413,12 +470,12 @@ endif()
 install(TARGETS
           ${CUML_TARGETS}
         DESTINATION
-          lib
+          ${lib_dir}
         EXPORT
           cuml-exports)
 
-install(DIRECTORY include/
-        DESTINATION include)
+install(DIRECTORY include/cuml/
+        DESTINATION include/cuml)
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/include/cuml/version_config.hpp
         DESTINATION include/cuml)
@@ -434,16 +491,22 @@ functions that share compatible APIs with other RAPIDS projects.
 
 ]=])
 
+set(code_string
+[=[
+thrust_create_target(cuml::Thrust FROM_OPTIONS)
+]=])
+
  rapids_export(INSTALL cuml
     EXPORT_SET cuml-exports
     GLOBAL_TARGETS cuml
     NAMESPACE cuml::
     DOCUMENTATION doc_string
+    FINAL_CODE_BLOCK code_string
     )
 
 ################################################################################################
 # - build export -------------------------------------------------------------------------------
-set(code_string [=[thrust_create_target(cuml::Thrust FROM_OPTIONS)]=])
+
 rapids_export(BUILD cuml
     EXPORT_SET cuml-exports
     GLOBAL_TARGETS cuml
@@ -457,7 +520,7 @@ rapids_export(BUILD cuml
 
 if(BUILD_CUML_BENCH OR BUILD_CUML_PRIMS_BENCH)
   add_subdirectory(bench)
-endif(BUILD_CUML_BENCH)
+endif()
 
 ##############################################################################
 # - doxygen targets ----------------------------------------------------------

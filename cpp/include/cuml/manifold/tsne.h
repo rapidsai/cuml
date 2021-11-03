@@ -106,8 +106,8 @@ struct TSNEParams {
 };
 
 /**
- * @brief Dimensionality reduction via TSNE using Barnes-Hut, Fourier Interpolation, or naive methods.
- *       or brute force O(N^2).
+ * @brief Dimensionality reduction via TSNE using Barnes-Hut, Fourier Interpolation, or naive
+ * methods. or brute force O(N^2).
  *
  * @param[in]  handle              The GPU handle.
  * @param[in]  X                   The row-major dataset in device memory.
@@ -125,8 +125,14 @@ struct TSNEParams {
  * approach is available in their article t-SNE-CUDA: GPU-Accelerated t-SNE and
  * its Applications to Modern Data (https://arxiv.org/abs/1807.11824).
  */
-void TSNE_fit(const raft::handle_t &handle, float *X, float *Y, int n, int p,
-              int64_t *knn_indices, float *knn_dists, TSNEParams &params);
+void TSNE_fit(const raft::handle_t& handle,
+              float* X,
+              float* Y,
+              int n,
+              int p,
+              int64_t* knn_indices,
+              float* knn_dists,
+              TSNEParams& params);
 
 /**
  * @brief Dimensionality reduction via TSNE using either Barnes Hut O(NlogN)
@@ -151,8 +157,16 @@ void TSNE_fit(const raft::handle_t &handle, float *X, float *Y, int n, int p,
  * approach is available in their article t-SNE-CUDA: GPU-Accelerated t-SNE and
  * its Applications to Modern Data (https://arxiv.org/abs/1807.11824).
  */
-void TSNE_fit_sparse(const raft::handle_t &handle, int *indptr, int *indices,
-                     float *data, float *Y, int nnz, int n, int p,
-                     int *knn_indices, float *knn_dists, TSNEParams &params);
+void TSNE_fit_sparse(const raft::handle_t& handle,
+                     int* indptr,
+                     int* indices,
+                     float* data,
+                     float* Y,
+                     int nnz,
+                     int n,
+                     int p,
+                     int* knn_indices,
+                     float* knn_dists,
+                     TSNEParams& params);
 
 }  // namespace ML

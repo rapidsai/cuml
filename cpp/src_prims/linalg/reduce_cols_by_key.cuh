@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -28,10 +28,9 @@ namespace LinAlg {
 ///@todo: specialize this to support shared-mem based atomics
 
 template <typename T, typename KeyIteratorT, typename IdxType>
-__global__ void reduce_cols_by_key_kernel(const T* data,
-                                          const KeyIteratorT keys, T* out,
-                                          IdxType nrows, IdxType ncols,
-                                          IdxType nkeys) {
+__global__ void reduce_cols_by_key_kernel(
+  const T* data, const KeyIteratorT keys, T* out, IdxType nrows, IdxType ncols, IdxType nkeys)
+{
   typedef typename std::iterator_traits<KeyIteratorT>::value_type KeyType;
 
   IdxType idx = blockIdx.x * blockDim.x + threadIdx.x;
@@ -39,7 +38,7 @@ __global__ void reduce_cols_by_key_kernel(const T* data,
   ///@todo: yikes! use fast-int-div
   IdxType colId = idx % ncols;
   IdxType rowId = idx / ncols;
-  KeyType key = keys[colId];
+  KeyType key   = keys[colId];
   raft::myAtomicAdd(out + rowId * nkeys + key, data[idx]);
 }
 
@@ -62,16 +61,20 @@ __global__ void reduce_cols_by_key_kernel(const T* data,
  * @param stream cuda stream to launch the kernel onto
  */
 template <typename T, typename KeyIteratorT, typename IdxType = int>
-void reduce_cols_by_key(const T* data, const KeyIteratorT keys, T* out,
-                        IdxType nrows, IdxType ncols, IdxType nkeys,
-                        cudaStream_t stream) {
+void reduce_cols_by_key(const T* data,
+                        const KeyIteratorT keys,
+                        T* out,
+                        IdxType nrows,
+                        IdxType ncols,
+                        IdxType nkeys,
+                        cudaStream_t stream)
+{
   typedef typename std::iterator_traits<KeyIteratorT>::value_type KeyType;
 
   CUDA_CHECK(cudaMemsetAsync(out, 0, sizeof(T) * nrows * nkeys, stream));
   constexpr int TPB = 256;
-  int nblks = (int)raft::ceildiv<IdxType>(nrows * ncols, TPB);
-  reduce_cols_by_key_kernel<<<nblks, TPB, 0, stream>>>(data, keys, out, nrows,
-                                                       ncols, nkeys);
+  int nblks         = (int)raft::ceildiv<IdxType>(nrows * ncols, TPB);
+  reduce_cols_by_key_kernel<<<nblks, TPB, 0, stream>>>(data, keys, out, nrows, ncols, nkeys);
   CUDA_CHECK(cudaPeekAtLastError());
 }
 

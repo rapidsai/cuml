@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2019-2020, NVIDIA CORPORATION.
+ * Copyright (c) 2019-2021, NVIDIA CORPORATION.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,11 +22,12 @@ namespace ML {
 
 namespace Metrics {
 
-float accuracy_score_py(const raft::handle_t &handle, const int *predictions,
-                        const int *ref_predictions, int n) {
-  return MLCommon::Score::accuracy_score(predictions, ref_predictions, n,
-                                         handle.get_device_allocator(),
-                                         handle.get_stream());
+float accuracy_score_py(const raft::handle_t& handle,
+                        const int* predictions,
+                        const int* ref_predictions,
+                        int n)
+{
+  return MLCommon::Score::accuracy_score(predictions, ref_predictions, n, handle.get_stream());
 }
 }  // namespace Metrics
 }  // namespace ML

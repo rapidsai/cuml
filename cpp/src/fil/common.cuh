@@ -31,74 +31,83 @@
 namespace ML {
 namespace fil {
 
-__host__ __device__ __forceinline__ int tree_num_nodes(int depth) {
-  return (1 << (depth + 1)) - 1;
-}
+__host__ __device__ __forceinline__ int tree_num_nodes(int depth) { return (1 << (depth + 1)) - 1; }
 
-__host__ __device__ __forceinline__ int forest_num_nodes(int num_trees,
-                                                         int depth) {
+__host__ __device__ __forceinline__ int forest_num_nodes(int num_trees, int depth)
+{
   return num_trees * tree_num_nodes(depth);
 }
 
-template <>
-__host__ __device__ __forceinline__ float base_node::output<float>() const {
-  return val.f;
-}
-template <>
-__host__ __device__ __forceinline__ int base_node::output<int>() const {
-  return val.idx;
-}
+struct storage_base {
+  categorical_sets sets_;
+  float* vector_leaf_;
+  bool cats_present() const { return sets_.cats_present(); }
+};
 
 /** dense_tree represents a dense tree */
-struct dense_tree {
-  __host__ __device__ dense_tree(dense_node* nodes, int node_pitch)
-    : nodes_(nodes), node_pitch_(node_pitch) {}
-  __host__ __device__ const dense_node& operator[](int i) const {
-    return nodes_[i * node_pitch_];
+
+struct dense_tree : tree_base {
+  __host__ __device__ dense_tree(categorical_sets cat_sets, dense_node* nodes, int node_pitch)
+    : tree_base{cat_sets}, nodes_(nodes), node_pitch_(node_pitch)
+  {
   }
+  __host__ __device__ const dense_node& operator[](int i) const { return nodes_[i * node_pitch_]; }
   dense_node* nodes_ = nullptr;
-  int node_pitch_ = 0;
+  int node_pitch_    = 0;
 };
 
 /** dense_storage stores the forest as a collection of dense nodes */
-struct dense_storage {
-  __host__ __device__ dense_storage(dense_node* nodes, int num_trees,
-                                    int tree_stride, int node_pitch)
-    : nodes_(nodes),
+struct dense_storage : storage_base {
+  __host__ __device__ dense_storage(categorical_sets cat_sets,
+                                    float* vector_leaf,
+                                    dense_node* nodes,
+                                    int num_trees,
+                                    int tree_stride,
+                                    int node_pitch)
+    : storage_base{cat_sets, vector_leaf},
+      nodes_(nodes),
       num_trees_(num_trees),
       tree_stride_(tree_stride),
-      node_pitch_(node_pitch) {}
+      node_pitch_(node_pitch)
+  {
+  }
   __host__ __device__ int num_trees() const { return num_trees_; }
-  __host__ __device__ dense_tree operator[](int i) const {
-    return dense_tree(nodes_ + i * tree_stride_, node_pitch_);
+  __host__ __device__ dense_tree operator[](int i) const
+  {
+    return dense_tree(sets_, nodes_ + i * tree_stride_, node_pitch_);
   }
   dense_node* nodes_ = nullptr;
-  int num_trees_ = 0;
-  int tree_stride_ = 0;
-  int node_pitch_ = 0;
+  int num_trees_     = 0;
+  int tree_stride_   = 0;
+  int node_pitch_    = 0;
 };
 
 /** sparse_tree is a sparse tree */
 template <typename node_t>
-struct sparse_tree {
-  __host__ __device__ sparse_tree(node_t* nodes) : nodes_(nodes) {}
-  __host__ __device__ const node_t& operator[](int i) const {
-    return nodes_[i];
+struct sparse_tree : tree_base {
+  __host__ __device__ sparse_tree(categorical_sets cat_sets, node_t* nodes)
+    : tree_base{cat_sets}, nodes_(nodes)
+  {
   }
+  __host__ __device__ const node_t& operator[](int i) const { return nodes_[i]; }
   node_t* nodes_ = nullptr;
 };
 
 /** sparse_storage stores the forest as a collection of sparse nodes */
 template <typename node_t>
-struct sparse_storage {
-  int* trees_ = nullptr;
+struct sparse_storage : storage_base {
+  int* trees_    = nullptr;
   node_t* nodes_ = nullptr;
   int num_trees_ = 0;
-  __host__ __device__ sparse_storage(int* trees, node_t* nodes, int num_trees)
-    : trees_(trees), nodes_(nodes), num_trees_(num_trees) {}
+  __host__ __device__ sparse_storage(
+    categorical_sets cat_sets, float* vector_leaf, int* trees, node_t* nodes, int num_trees)
+    : storage_base{cat_sets, vector_leaf}, trees_(trees), nodes_(nodes), num_trees_(num_trees)
+  {
+  }
   __host__ __device__ int num_trees() const { return num_trees_; }
-  __host__ __device__ sparse_tree<node_t> operator[](int i) const {
-    return sparse_tree<node_t>(&nodes_[trees_[i]]);
+  __host__ __device__ sparse_tree<node_t> operator[](int i) const
+  {
+    return sparse_tree<node_t>(sets_, &nodes_[trees_[i]]);
   }
 };
 
@@ -121,26 +130,34 @@ struct shmem_size_params {
   /// are the input columns are prefetched into shared
   /// memory before inferring the row in question
   bool cols_in_shmem = true;
+  // are there categorical inner nodes? doesn't currently affect shared memory size,
+  // but participates in template dispatch and may affect it later
+  bool cats_present = false;
   /// log2_threads_per_tree determines how many threads work on a single tree
   /// at once inside a block (sharing trees means splitting input rows)
   int log2_threads_per_tree = 0;
   /// n_items is how many input samples (items) any thread processes. If 0 is given,
-  /// choose the reasonable most (<=4) that fit into shared memory. See init_n_items()
+  /// choose the reasonable most (<= MAX_N_ITEMS) that fit into shared memory. See init_n_items()
   int n_items = 0;
+<<<<<<< HEAD
   /// max_shm is the maximum opt-in shared memory on the device
   int max_shm = 0;
   // blockdim_x is the CUDA block size
   int blockdim_x = 0;
+=======
+  // block_dim_x is the CUDA block size. Set by dispatch_on_leaf_algo(...)
+  int block_dim_x = 0;
+>>>>>>> rapidsai/branch-21.12
   /// shm_sz is the associated shared memory footprint
   int shm_sz = INT_MAX;
 
-  __host__ __device__ int sdata_stride() {
+  __host__ __device__ int sdata_stride()
+  {
     return num_cols | 1;  // pad to odd
   }
-  __host__ __device__ int cols_shmem_size() {
-    return cols_in_shmem
-             ? sizeof(float) * sdata_stride() * n_items << log2_threads_per_tree
-             : 0;
+  __host__ __device__ int cols_shmem_size()
+  {
+    return cols_in_shmem ? sizeof(float) * sdata_stride() * n_items << log2_threads_per_tree : 0;
   }
   template <int NITEMS, leaf_algo_t leaf_algo>
   size_t get_smem_footprint();
@@ -163,89 +180,178 @@ struct predict_params : shmem_size_params {
   // to signal infer kernel to apply softmax and also average prior to that
   // for GROVE_PER_CLASS for predict_proba
   output_t transform;
+  // number of blocks to launch
   int num_blocks;
 };
 
+<<<<<<< HEAD
 namespace dispatch {
 
-template <template <bool, leaf_algo_t, int> class Func, typename storage_type,
-          bool cols_in_shmem, leaf_algo_t leaf_algo, int n_items,
+template <template <bool, leaf_algo_t, int> class Func,
+          typename storage_type,
+          bool cols_in_shmem,
+          leaf_algo_t leaf_algo,
+          int n_items,
           typename... Args>
-void dispatch_final(predict_params& params, Args... args) {
-  Func<cols_in_shmem, leaf_algo, n_items>::template run<storage_type>(params,
-                                                                      args...);
+void dispatch_final(predict_params& params, Args... args)
+{
+  Func<cols_in_shmem, leaf_algo, n_items>::template run<storage_type>(params, args...);
 }
 
-template <template <bool, leaf_algo_t, int> class Func, typename storage_type,
-          bool cols_in_shmem, leaf_algo_t leaf_algo, typename... Args>
-void dispatch_on_n_items(predict_params& params, Args... args) {
+template <template <bool, leaf_algo_t, int> class Func,
+          typename storage_type,
+          bool cols_in_shmem,
+          leaf_algo_t leaf_algo,
+          typename... Args>
+void dispatch_on_n_items(predict_params& params, Args... args)
+{
   switch (params.n_items) {
-    case 1:
-      dispatch_final<Func, storage_type, cols_in_shmem, leaf_algo, 1>(params,
-                                                                      args...);
-      break;
-    case 2:
-      dispatch_final<Func, storage_type, cols_in_shmem, leaf_algo, 2>(params,
-                                                                      args...);
-      break;
-    case 3:
-      dispatch_final<Func, storage_type, cols_in_shmem, leaf_algo, 3>(params,
-                                                                      args...);
-      break;
-    case 4:
-      dispatch_final<Func, storage_type, cols_in_shmem, leaf_algo, 4>(params,
-                                                                      args...);
-      break;
-    default:
-      ASSERT(false, "internal error: n_items > 4");
+    case 1: dispatch_final<Func, storage_type, cols_in_shmem, leaf_algo, 1>(params, args...); break;
+    case 2: dispatch_final<Func, storage_type, cols_in_shmem, leaf_algo, 2>(params, args...); break;
+    case 3: dispatch_final<Func, storage_type, cols_in_shmem, leaf_algo, 3>(params, args...); break;
+    case 4: dispatch_final<Func, storage_type, cols_in_shmem, leaf_algo, 4>(params, args...); break;
+    default: ASSERT(false, "internal error: n_items > 4");
   }
 }
 
-template <template <bool, leaf_algo_t, int> class Func, typename storage_type,
-          bool cols_in_shmem, typename... Args>
-void dispatch_on_leaf_algo(predict_params& params, Args... args) {
+template <template <bool, leaf_algo_t, int> class Func,
+          typename storage_type,
+          bool cols_in_shmem,
+          typename... Args>
+void dispatch_on_leaf_algo(predict_params& params, Args... args)
+{
   switch (params.leaf_algo) {
     case FLOAT_UNARY_BINARY:
       params.blockdim_x = FIL_TPB;
-      dispatch_on_n_items<Func, storage_type, cols_in_shmem,
-                          FLOAT_UNARY_BINARY>(params, args...);
+      dispatch_on_n_items<Func, storage_type, cols_in_shmem, FLOAT_UNARY_BINARY>(params, args...);
       break;
     case GROVE_PER_CLASS:
       if (params.num_classes > FIL_TPB) {
         params.blockdim_x = FIL_TPB;
-        dispatch_on_n_items<Func, storage_type, cols_in_shmem,
-                            GROVE_PER_CLASS_MANY_CLASSES>(params, args...);
+        dispatch_on_n_items<Func, storage_type, cols_in_shmem, GROVE_PER_CLASS_MANY_CLASSES>(
+          params, args...);
       } else {
         params.blockdim_x = FIL_TPB - FIL_TPB % params.num_classes;
-        dispatch_on_n_items<Func, storage_type, cols_in_shmem,
-                            GROVE_PER_CLASS_FEW_CLASSES>(params, args...);
+        dispatch_on_n_items<Func, storage_type, cols_in_shmem, GROVE_PER_CLASS_FEW_CLASSES>(
+          params, args...);
       }
       break;
     case CATEGORICAL_LEAF:
       params.blockdim_x = FIL_TPB;
-      dispatch_on_n_items<Func, storage_type, cols_in_shmem, CATEGORICAL_LEAF>(
-        params, args...);
+      dispatch_on_n_items<Func, storage_type, cols_in_shmem, CATEGORICAL_LEAF>(params, args...);
       break;
-    default:
-      ASSERT(false, "internal error: dispatch: invalid leaf_algo %d",
-             params.leaf_algo);
+    default: ASSERT(false, "internal error: dispatch: invalid leaf_algo %d", params.leaf_algo);
   }
 }
 
-template <template <bool, leaf_algo_t, int> class Func, typename storage_type,
-          typename... Args>
-void dispatch_on_cols_in_shmem(predict_params& params, Args... args) {
+template <template <bool, leaf_algo_t, int> class Func, typename storage_type, typename... Args>
+void dispatch_on_cols_in_shmem(predict_params& params, Args... args)
+{
   if (params.cols_in_shmem)
     dispatch_on_leaf_algo<Func, storage_type, true>(params, args...);
   else
     dispatch_on_leaf_algo<Func, storage_type, false>(params, args...);
+=======
+constexpr leaf_algo_t next_leaf_algo(leaf_algo_t algo)
+{
+  return static_cast<leaf_algo_t>(algo + 1);
+}
+
+template <bool COLS_IN_SHMEM_ = false,
+          bool CATS_SUPPORTED_ = false,
+          leaf_algo_t LEAF_ALGO_ = MIN_LEAF_ALGO,
+          int N_ITEMS_ = 1>
+struct KernelTemplateParams {
+  static const bool COLS_IN_SHMEM = COLS_IN_SHMEM_;
+  static const bool CATS_SUPPORTED = CATS_SUPPORTED_;
+  static const leaf_algo_t LEAF_ALGO = LEAF_ALGO_;
+  static const int N_ITEMS = N_ITEMS_;
+
+  template <bool _cats_supported>
+  using ReplaceCatsSupported =
+    KernelTemplateParams<COLS_IN_SHMEM, _cats_supported, LEAF_ALGO, N_ITEMS>;
+  using NextLeafAlgo =
+    KernelTemplateParams<COLS_IN_SHMEM, CATS_SUPPORTED, next_leaf_algo(LEAF_ALGO), N_ITEMS>;
+  template <leaf_algo_t NEW_LEAF_ALGO>
+  using ReplaceLeafAlgo =
+    KernelTemplateParams<COLS_IN_SHMEM, CATS_SUPPORTED, NEW_LEAF_ALGO, N_ITEMS>;
+  using IncNItems = KernelTemplateParams<COLS_IN_SHMEM, CATS_SUPPORTED, LEAF_ALGO, N_ITEMS + 1>;
+};
+
+// inherit from this struct to pass the functor to dispatch_on_fil_template_params()
+// compiler will prevent defining a .run() method with a different output type
+template <typename T>
+struct dispatch_functor {
+  typedef T return_t;
+  template <class KernelParams = KernelTemplateParams<>>
+  T run(predict_params);
+};
+
+namespace dispatch {
+
+template <class KernelParams, class Func, class T = typename Func::return_t>
+T dispatch_on_n_items(Func func, predict_params params)
+{
+  if (params.n_items == KernelParams::N_ITEMS) {
+    return func.template run<KernelParams>(params);
+  } else if constexpr (KernelParams::N_ITEMS < MAX_N_ITEMS) {
+    return dispatch_on_n_items<class KernelParams::IncNItems>(func, params);
+  } else {
+    ASSERT(false, "n_items > %d or < 1", MAX_N_ITEMS);
+  }
+  return T();  // appeasing the compiler
+}
+
+template <class KernelParams, class Func, class T = typename Func::return_t>
+T dispatch_on_leaf_algo(Func func, predict_params params)
+{
+  if (params.leaf_algo == KernelParams::LEAF_ALGO) {
+    if constexpr (KernelParams::LEAF_ALGO == GROVE_PER_CLASS) {
+      if (params.num_classes <= FIL_TPB) {
+        params.block_dim_x = FIL_TPB - FIL_TPB % params.num_classes;
+        using Next = typename KernelParams::ReplaceLeafAlgo<GROVE_PER_CLASS_FEW_CLASSES>;
+        return dispatch_on_n_items<Next>(func, params);
+      } else {
+        params.block_dim_x = FIL_TPB;
+        using Next = typename KernelParams::ReplaceLeafAlgo<GROVE_PER_CLASS_MANY_CLASSES>;
+        return dispatch_on_n_items<Next>(func, params);
+      }
+    } else {
+      params.block_dim_x = FIL_TPB;
+      return dispatch_on_n_items<KernelParams>(func, params);
+    }
+  } else if constexpr (next_leaf_algo(KernelParams::LEAF_ALGO) <= MAX_LEAF_ALGO) {
+    return dispatch_on_leaf_algo<class KernelParams::NextLeafAlgo>(func, params);
+  } else {
+    ASSERT(false, "internal error: dispatch: invalid leaf_algo %d", params.leaf_algo);
+  }
+  return T();  // appeasing the compiler
+}
+
+template <class KernelParams, class Func, class T = typename Func::return_t>
+T dispatch_on_cats_supported(Func func, predict_params params)
+{
+  return params.cats_present
+           ? dispatch_on_leaf_algo<typename KernelParams::ReplaceCatsSupported<true>>(func, params)
+           : dispatch_on_leaf_algo<typename KernelParams::ReplaceCatsSupported<false>>(func,
+                                                                                       params);
+}
+
+template <class Func, class T = typename Func::return_t>
+T dispatch_on_cols_in_shmem(Func func, predict_params params)
+{
+  return params.cols_in_shmem
+           ? dispatch_on_cats_supported<KernelTemplateParams<true>>(func, params)
+           : dispatch_on_cats_supported<KernelTemplateParams<false>>(func, params);
+>>>>>>> rapidsai/branch-21.12
 }
 
 }  // namespace dispatch
 
-template <template <bool, leaf_algo_t, int> class Func, typename storage_type,
-          typename... Args>
-void dispatch_on_FIL_template_params(predict_params& params, Args... args) {
+<<<<<<< HEAD
+template <template <bool, leaf_algo_t, int> class Func, typename storage_type, typename... Args>
+void dispatch_on_FIL_template_params(predict_params& params, Args... args)
+{
   dispatch::dispatch_on_cols_in_shmem<Func, storage_type>(params, args...);
 }
 
@@ -258,9 +364,23 @@ void dispatch_on_FIL_template_params(predict_params& params, Args... args) {
 template <bool cols_in_shmem, leaf_algo_t leaf_algo, int n_items>
 struct compute_smem_footprint {
   template <typename storage_type>
-  static void run(predict_params& ssp) {
+  static void run(predict_params& ssp)
+  {
     ssp.shm_sz = ssp.get_smem_footprint<n_items, leaf_algo>();
   }
+=======
+template <class Func, class T = typename Func::return_t>
+T dispatch_on_fil_template_params(Func func, predict_params params)
+{
+  return dispatch::dispatch_on_cols_in_shmem(func, params);
+}
+
+// For an example of Func declaration, see this.
+// the .run(predict_params) method will be defined in infer.cu
+struct compute_smem_footprint : dispatch_functor<int> {
+  template <class KernelParams = KernelTemplateParams<>>
+  int run(predict_params);
+>>>>>>> rapidsai/branch-21.12
 };
 
 // infer() calls the inference kernel with the parameters on the stream

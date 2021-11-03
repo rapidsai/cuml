@@ -19,14 +19,13 @@
 #include <iostream>
 #include <metrics/contingencyMatrix.cuh>
 #include <metrics/mutual_info_score.cuh>
-#include <raft/mr/device/allocator.hpp>
 #include <random>
 #include "test_utils.h"
 
 namespace MLCommon {
 namespace Metrics {
 
-//parameter structure definition
+// parameter structure definition
 struct mutualInfoParam {
   int nElements;
   int lowerLabelRange;
@@ -35,56 +34,54 @@ struct mutualInfoParam {
   double tolerance;
 };
 
-//test fixture class
+// test fixture class
 template <typename T>
 class mutualInfoTest : public ::testing::TestWithParam<mutualInfoParam> {
  protected:
-  //the constructor
-  void SetUp() override {
-    //getting the parameters
+  // the constructor
+  void SetUp() override
+  {
+    // getting the parameters
     params = ::testing::TestWithParam<mutualInfoParam>::GetParam();
 
-    nElements = params.nElements;
+    nElements       = params.nElements;
     lowerLabelRange = params.lowerLabelRange;
     upperLabelRange = params.upperLabelRange;
 
-    //generating random value test input
+    // generating random value test input
     std::vector<int> arr1(nElements, 0);
     std::vector<int> arr2(nElements, 0);
     std::random_device rd;
     std::default_random_engine dre(rd());
-    std::uniform_int_distribution<int> intGenerator(lowerLabelRange,
-                                                    upperLabelRange);
+    std::uniform_int_distribution<int> intGenerator(lowerLabelRange, upperLabelRange);
 
-    std::generate(arr1.begin(), arr1.end(),
-                  [&]() { return intGenerator(dre); });
+    std::generate(arr1.begin(), arr1.end(), [&]() { return intGenerator(dre); });
     if (params.sameArrays) {
       arr2 = arr1;
     } else {
-      std::generate(arr2.begin(), arr2.end(),
-                    [&]() { return intGenerator(dre); });
+      std::generate(arr2.begin(), arr2.end(), [&]() { return intGenerator(dre); });
     }
 
-    //generating the golden output
-    //calculating the contingency matrix
+    // generating the golden output
+    // calculating the contingency matrix
     int numUniqueClasses = upperLabelRange - lowerLabelRange + 1;
-    size_t sizeOfMat = numUniqueClasses * numUniqueClasses * sizeof(int);
-    int *hGoldenOutput = (int *)malloc(sizeOfMat);
+    size_t sizeOfMat     = numUniqueClasses * numUniqueClasses * sizeof(int);
+    int* hGoldenOutput   = (int*)malloc(sizeOfMat);
     memset(hGoldenOutput, 0, sizeOfMat);
     int i, j;
     for (i = 0; i < nElements; i++) {
-      int row = arr1[i] - lowerLabelRange;
+      int row    = arr1[i] - lowerLabelRange;
       int column = arr2[i] - lowerLabelRange;
 
       hGoldenOutput[row * numUniqueClasses + column] += 1;
     }
 
-    int *a = (int *)malloc(numUniqueClasses * sizeof(int));
-    int *b = (int *)malloc(numUniqueClasses * sizeof(int));
+    int* a = (int*)malloc(numUniqueClasses * sizeof(int));
+    int* b = (int*)malloc(numUniqueClasses * sizeof(int));
     memset(a, 0, numUniqueClasses * sizeof(int));
     memset(b, 0, numUniqueClasses * sizeof(int));
 
-    //and also the reducing contingency matrix along row and column
+    // and also the reducing contingency matrix along row and column
     for (i = 0; i < numUniqueClasses; ++i) {
       for (j = 0; j < numUniqueClasses; ++j) {
         a[i] += hGoldenOutput[i * numUniqueClasses + j];
@@ -92,14 +89,13 @@ class mutualInfoTest : public ::testing::TestWithParam<mutualInfoParam> {
       }
     }
 
-    //calculating the truth mutual information
+    // calculating the truth mutual information
     for (int i = 0; i < numUniqueClasses; ++i) {
       for (int j = 0; j < numUniqueClasses; ++j) {
         if (a[i] * b[j] != 0 && hGoldenOutput[i * numUniqueClasses + j] != 0) {
           truthmutualInfo +=
             (double)(hGoldenOutput[i * numUniqueClasses + j]) *
-            (log((double)(double(nElements) *
-                          hGoldenOutput[i * numUniqueClasses + j])) -
+            (log((double)(double(nElements) * hGoldenOutput[i * numUniqueClasses + j])) -
              log((double)(a[i] * b[j])));
         }
       }
@@ -107,56 +103,61 @@ class mutualInfoTest : public ::testing::TestWithParam<mutualInfoParam> {
 
     truthmutualInfo /= nElements;
 
-    //allocating and initializing memory to the GPU
+    // allocating and initializing memory to the GPU
     CUDA_CHECK(cudaStreamCreate(&stream));
-    raft::allocate(firstClusterArray, nElements, true);
-    raft::allocate(secondClusterArray, nElements, true);
 
-    raft::update_device(firstClusterArray, &arr1[0], (int)nElements, stream);
-    raft::update_device(secondClusterArray, &arr2[0], (int)nElements, stream);
-    std::shared_ptr<raft::mr::device::allocator> allocator(
-      new raft::mr::device::default_allocator);
+    rmm::device_uvector<T> firstClusterArray(nElements, stream);
+    rmm::device_uvector<T> secondClusterArray(nElements, stream);
+    CUDA_CHECK(
+      cudaMemsetAsync(firstClusterArray.data(), 0, firstClusterArray.size() * sizeof(T), stream));
+    CUDA_CHECK(
+      cudaMemsetAsync(secondClusterArray.data(), 0, secondClusterArray.size() * sizeof(T), stream));
 
-    //calling the mutualInfo CUDA implementation
-    computedmutualInfo = MLCommon::Metrics::mutual_info_score(
-      firstClusterArray, secondClusterArray, nElements, lowerLabelRange,
-      upperLabelRange, allocator, stream);
+    raft::update_device(firstClusterArray.data(), &arr1[0], (int)nElements, stream);
+    raft::update_device(secondClusterArray.data(), &arr2[0], (int)nElements, stream);
+
+    // calling the mutualInfo CUDA implementation
+    computedmutualInfo = MLCommon::Metrics::mutual_info_score(firstClusterArray.data(),
+                                                              secondClusterArray.data(),
+                                                              nElements,
+                                                              lowerLabelRange,
+                                                              upperLabelRange,
+                                                              stream);
   }
 
-  //the destructor
-  void TearDown() override {
-    CUDA_CHECK(cudaFree(firstClusterArray));
-    CUDA_CHECK(cudaFree(secondClusterArray));
-    CUDA_CHECK(cudaStreamDestroy(stream));
-  }
+  // the destructor
+  void TearDown() override { CUDA_CHECK(cudaStreamDestroy(stream)); }
 
-  //declaring the data values
+  // declaring the data values
   mutualInfoParam params;
   T lowerLabelRange, upperLabelRange;
-  T *firstClusterArray = nullptr;
-  T *secondClusterArray = nullptr;
-  int nElements = 0;
-  double truthmutualInfo = 0;
+  int nElements             = 0;
+  double truthmutualInfo    = 0;
   double computedmutualInfo = 0;
-  cudaStream_t stream;
+  cudaStream_t stream       = 0;
 };
 
-//setting test parameter values
-const std::vector<mutualInfoParam> inputs = {
-  {199, 1, 10, false, 0.000001},  {200, 15, 100, false, 0.000001},
-  {100, 1, 20, false, 0.000001},  {10, 1, 10, false, 0.000001},
-  {198, 1, 100, false, 0.000001}, {300, 3, 99, false, 0.000001},
-  {199, 1, 10, true, 0.000001},   {200, 15, 100, true, 0.000001},
-  {100, 1, 20, true, 0.000001},   {10, 1, 10, true, 0.000001},
-  {198, 1, 100, true, 0.000001},  {300, 3, 99, true, 0.000001}};
+// setting test parameter values
+const std::vector<mutualInfoParam> inputs = {{199, 1, 10, false, 0.000001},
+                                             {200, 15, 100, false, 0.000001},
+                                             {100, 1, 20, false, 0.000001},
+                                             {10, 1, 10, false, 0.000001},
+                                             {198, 1, 100, false, 0.000001},
+                                             {300, 3, 99, false, 0.000001},
+                                             {199, 1, 10, true, 0.000001},
+                                             {200, 15, 100, true, 0.000001},
+                                             {100, 1, 20, true, 0.000001},
+                                             {10, 1, 10, true, 0.000001},
+                                             {198, 1, 100, true, 0.000001},
+                                             {300, 3, 99, true, 0.000001}};
 
-//writing the test suite
+// writing the test suite
 typedef mutualInfoTest<int> mutualInfoTestClass;
-TEST_P(mutualInfoTestClass, Result) {
+TEST_P(mutualInfoTestClass, Result)
+{
   ASSERT_NEAR(computedmutualInfo, truthmutualInfo, params.tolerance);
 }
-INSTANTIATE_TEST_CASE_P(mutualInfo, mutualInfoTestClass,
-                        ::testing::ValuesIn(inputs));
+INSTANTIATE_TEST_CASE_P(mutualInfo, mutualInfoTestClass, ::testing::ValuesIn(inputs));
 
-}  //end namespace Metrics
-}  //end namespace MLCommon
+}  // end namespace Metrics
+}  // end namespace MLCommon

@@ -33,26 +33,36 @@ template <typename D>
 class KMeans : public BlobsFixture<D> {
  public:
   KMeans(const std::string& name, const Params& p)
-    : BlobsFixture<D>(name, p.data, p.blobs), kParams(p.kmeans) {}
+    : BlobsFixture<D>(name, p.data, p.blobs), kParams(p.kmeans)
+  {
+  }
 
  protected:
-  void runBenchmark(::benchmark::State& state) override {
+  void runBenchmark(::benchmark::State& state) override
+  {
     using MLCommon::Bench::CudaEventTimer;
-    if (!this->params.rowMajor) {
-      state.SkipWithError("KMeans only supports row-major inputs");
-    }
+    if (!this->params.rowMajor) { state.SkipWithError("KMeans only supports row-major inputs"); }
     this->loopOnState(state, [this]() {
-      ML::kmeans::fit_predict(*this->handle, kParams, this->data.X,
-                              this->params.nrows, this->params.ncols, nullptr,
-                              centroids, this->data.y, inertia, nIter);
+      ML::kmeans::fit_predict(*this->handle,
+                              kParams,
+                              this->data.X.data(),
+                              this->params.nrows,
+                              this->params.ncols,
+                              nullptr,
+                              centroids,
+                              this->data.y.data(),
+                              inertia,
+                              nIter);
     });
   }
 
-  void allocateTempBuffers(const ::benchmark::State& state) override {
+  void allocateTempBuffers(const ::benchmark::State& state) override
+  {
     this->alloc(centroids, this->params.nclasses * this->params.ncols);
   }
 
-  void deallocateTempBuffers(const ::benchmark::State& state) override {
+  void deallocateTempBuffers(const ::benchmark::State& state) override
+  {
     this->dealloc(centroids, this->params.nclasses * this->params.ncols);
   }
 
@@ -63,30 +73,35 @@ class KMeans : public BlobsFixture<D> {
   int nIter;
 };
 
-std::vector<Params> getInputs() {
+std::vector<Params> getInputs()
+{
   std::vector<Params> out;
   Params p;
-  p.data.rowMajor = true;
-  p.blobs.cluster_std = 1.0;
-  p.blobs.shuffle = false;
-  p.blobs.center_box_min = -10.0;
-  p.blobs.center_box_max = 10.0;
-  p.blobs.seed = 12345ULL;
-  p.kmeans.init = ML::kmeans::KMeansParams::InitMethod(0);
-  p.kmeans.max_iter = 300;
-  p.kmeans.tol = 1e-4;
-  p.kmeans.verbosity = CUML_LEVEL_INFO;
-  p.kmeans.seed = int(p.blobs.seed);
-  p.kmeans.metric = 0;  // L2
-  p.kmeans.inertia_check = true;
+  p.data.rowMajor                          = true;
+  p.blobs.cluster_std                      = 1.0;
+  p.blobs.shuffle                          = false;
+  p.blobs.center_box_min                   = -10.0;
+  p.blobs.center_box_max                   = 10.0;
+  p.blobs.seed                             = 12345ULL;
+  p.kmeans.init                            = ML::kmeans::KMeansParams::InitMethod(0);
+  p.kmeans.max_iter                        = 300;
+  p.kmeans.tol                             = 1e-4;
+  p.kmeans.verbosity                       = CUML_LEVEL_INFO;
+  p.kmeans.seed                            = int(p.blobs.seed);
+  p.kmeans.metric                          = 0;  // L2
+  p.kmeans.inertia_check                   = true;
   std::vector<std::pair<int, int>> rowcols = {
-    {160000, 64}, {320000, 64}, {640000, 64}, {80000, 500}, {160000, 2000},
+    {160000, 64},
+    {320000, 64},
+    {640000, 64},
+    {80000, 500},
+    {160000, 2000},
   };
   for (auto& rc : rowcols) {
     p.data.nrows = rc.first;
     p.data.ncols = rc.second;
     for (auto nclass : std::vector<int>({8, 16, 32})) {
-      p.data.nclasses = nclass;
+      p.data.nclasses     = nclass;
       p.kmeans.n_clusters = p.data.nclasses;
       for (auto bs_shift : std::vector<int>({16, 18})) {
         p.kmeans.batch_samples = 1 << bs_shift;

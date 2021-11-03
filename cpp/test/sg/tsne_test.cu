@@ -15,6 +15,8 @@
  */
 
 #include <cuml/manifold/tsne.h>
+#include <cuml/metrics/metrics.hpp>
+
 #include <datasets/boston.h>
 #include <datasets/breast_cancer.h>
 #include <datasets/diabetes.h>
@@ -23,10 +25,8 @@
 #include <raft/cudart_utils.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <cuml/common/device_buffer.hpp>
 #include <cuml/common/logger.hpp>
 #include <iostream>
-#include <metrics/trustworthiness.cuh>
 #include <raft/mr/device/allocator.hpp>
 #include <tsne/distances.cuh>
 #include <vector>
@@ -44,42 +44,39 @@ struct TSNEInput {
 
 class TSNETest : public ::testing::TestWithParam<TSNEInput> {
  protected:
-  void assert_score(double score, const char *test, const double threshold) {
+  void assert_score(double score, const char* test, const double threshold)
+  {
     printf("%s", test);
     printf("score = %f\n", score);
     ASSERT_TRUE(threshold < score);
   }
 
-  double runTest(TSNE_ALGORITHM algo, bool knn = false) {
+  double runTest(TSNE_ALGORITHM algo, bool knn = false)
+  {
     raft::handle_t handle;
 
     // Allocate memory
-    device_buffer<float> X_d(handle.get_device_allocator(), handle.get_stream(),
-                             n * p);
+    rmm::device_uvector<float> X_d(n * p, handle.get_stream());
     raft::update_device(X_d.data(), dataset.data(), n * p, handle.get_stream());
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    device_buffer<float> Y_d(handle.get_device_allocator(), handle.get_stream(),
-                             n * 2);
+    rmm::device_uvector<float> Y_d(n * 2, handle.get_stream());
 
-    MLCommon::device_buffer<int64_t> knn_indices(handle.get_device_allocator(),
-                                                 handle.get_stream(), n * 90);
+    rmm::device_uvector<int64_t> knn_indices(n * 90, handle.get_stream());
 
-    MLCommon::device_buffer<float> knn_dists(handle.get_device_allocator(),
-                                             handle.get_stream(), n * 90);
+    rmm::device_uvector<float> knn_dists(n * 90, handle.get_stream());
 
     manifold_dense_inputs_t<float> input(X_d.data(), Y_d.data(), n, p);
-    knn_graph<int64_t, float> k_graph(n, 90, knn_indices.data(),
-                                      knn_dists.data());
+    knn_graph<int64_t, float> k_graph(n, 90, knn_indices.data(), knn_dists.data());
 
     if (knn) TSNE::get_distances(handle, input, k_graph, handle.get_stream());
 
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
 
-    model_params.n_neighbors = 90;
+    model_params.n_neighbors   = 90;
     model_params.min_grad_norm = 1e-12;
-    model_params.verbosity = CUML_LEVEL_DEBUG;
-    model_params.algorithm = algo;
+    model_params.verbosity     = CUML_LEVEL_DEBUG;
+    model_params.algorithm     = algo;
 
     TSNE_fit(handle,
              X_d.data(),                       // X
@@ -90,7 +87,7 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
              knn ? knn_dists.data() : NULL,    // knn_dists
              model_params);                    // model parameters
 
-    float *embeddings_h = (float *)malloc(sizeof(float) * n * 2);
+    float* embeddings_h = (float*)malloc(sizeof(float) * n * 2);
     assert(embeddings_h != NULL);
     raft::update_host(&embeddings_h[0], Y_d.data(), n * 2, handle.get_stream());
     CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
@@ -105,18 +102,17 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
     }
 
     // Move transposed embeddings back to device, as trustworthiness requires C contiguous format
-    raft::update_device(Y_d.data(), C_contiguous_embedding, n * 2,
-                        handle.get_stream());
+    raft::update_device(Y_d.data(), C_contiguous_embedding, n * 2, handle.get_stream());
 
     free(embeddings_h);
 
     // Test trustworthiness
-    return trustworthiness_score<
-      float, raft::distance::DistanceType::L2SqrtUnexpanded>(
+    return trustworthiness_score<float, raft::distance::DistanceType::L2SqrtUnexpanded>(
       handle, X_d.data(), Y_d.data(), n, p, 2, 5);
   }
 
-  void basicTest() {
+  void basicTest()
+  {
     printf("BH\n");
     score_bh = runTest(TSNE_ALGORITHM::BARNES_HUT);
     printf("EXACT\n");
@@ -132,11 +128,12 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
     knn_score_fft = runTest(TSNE_ALGORITHM::FFT, true);
   }
 
-  void SetUp() override {
-    params = ::testing::TestWithParam<TSNEInput>::GetParam();
-    n = params.n;
-    p = params.p;
-    dataset = params.dataset;
+  void SetUp() override
+  {
+    params                    = ::testing::TestWithParam<TSNEInput>::GetParam();
+    n                         = params.n;
+    p                         = params.p;
+    dataset                   = params.dataset;
     trustworthiness_threshold = params.trustworthiness_threshold;
     basicTest();
   }
@@ -160,12 +157,12 @@ class TSNETest : public ::testing::TestWithParam<TSNEInput> {
 const std::vector<TSNEInput> inputs = {
   {Digits::n_samples, Digits::n_features, Digits::digits, 0.98},
   {Boston::n_samples, Boston::n_features, Boston::boston, 0.98},
-  {BreastCancer::n_samples, BreastCancer::n_features,
-   BreastCancer::breast_cancer, 0.98},
+  {BreastCancer::n_samples, BreastCancer::n_features, BreastCancer::breast_cancer, 0.98},
   {Diabetes::n_samples, Diabetes::n_features, Diabetes::diabetes, 0.90}};
 
 typedef TSNETest TSNETestF;
-TEST_P(TSNETestF, Result) {
+TEST_P(TSNETestF, Result)
+{
   assert_score(score_bh, "bh\n", trustworthiness_threshold);
   assert_score(score_exact, "exact\n", trustworthiness_threshold);
   assert_score(score_fft, "fft\n", trustworthiness_threshold);

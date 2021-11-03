@@ -20,6 +20,11 @@ function(find_and_configure_raft)
     cmake_parse_arguments(PKG "${options}" "${oneValueArgs}"
                           "${multiValueArgs}" ${ARGN} )
 
+    if(DEFINED CPM_raft_SOURCE OR NOT DISABLE_FORCE_CLONE_RAFT)
+      set(CPM_DL_ALL_CACHE ${CPM_DOWNLOAD_ALL})
+      set(CPM_DOWNLOAD_ALL ON)
+    endif()
+
     rapids_cpm_find(raft ${PKG_VERSION}
       GLOBAL_TARGETS      raft::raft
       BUILD_EXPORT_SET    cuml-exports
@@ -30,10 +35,17 @@ function(find_and_configure_raft)
             SOURCE_SUBDIR  cpp
             OPTIONS
               "BUILD_TESTS OFF"
-
     )
 
-    message(VERBOSE "CUML: Using RAFT located in ${raft_SOURCE_DIR}")
+    if(raft_ADDED)
+      message(VERBOSE "CUML: Using RAFT located in ${raft_SOURCE_DIR}")
+    else()
+      message(VERBOSE "CUML: Using RAFT located in ${raft_DIR}")
+    endif()
+
+    if(DEFINED CPM_raft_SOURCE OR NOT DISABLE_FORCE_CLONE_RAFT)
+      set(CPM_DOWNLOAD_ALL ${CPM_DL_ALL_CACHE})
+    endif()
 
 endfunction()
 

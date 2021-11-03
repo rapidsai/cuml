@@ -54,7 +54,7 @@ def _silhouette_coeff(
         X, labels, metric='euclidean', sil_scores=None, chunksize=None,
         handle=None):
     """Function wrapped by silhouette_score and silhouette_samples to compute
-    silhouette coefficients
+    silhouette coefficients.
 
     Parameters
     ----------
@@ -64,16 +64,16 @@ def _silhouette_coeff(
         The assigned cluster labels for each sample.
     metric : string
         A string representation of the distance metric to use for evaluating
-        the silhouette schore. Available options are "cityblock", "cosine",
+        the silhouette score. Available options are "cityblock", "cosine",
         "euclidean", "l1", "l2", "manhattan", and "sqeuclidean".
     sil_scores : array_like, shape = (1, n_samples), dtype='float64'
         An optional array in which to store the silhouette score for each
         sample.
     chunksize : integer (default = None)
-        An integer, 1 <= chunksize <= n_rows to tile the pairwise distance
+        An integer, 1 <= chunksize <= n_samples to tile the pairwise distance
         matrix computations, so as to reduce the quadratic memory usage of
         having the entire pairwise distance matrix in GPU memory.
-        If None, chunksize will automically be set to 40000, which through
+        If None, chunksize will automatically be set to 40000, which through
         experiments has proved to be a safe number for the computation
         to run on a GPU with 16 GB VRAM.
     handle : cuml.Handle
@@ -156,7 +156,7 @@ def cython_silhouette_score(
         metric='euclidean',
         chunksize=None,
         handle=None):
-    """Calculate the mean silhouette coefficient for the provided data
+    """Calculate the mean silhouette coefficient for the provided data.
 
     Given a set of cluster labels for every sample in the provided data,
     compute the mean intra-cluster distance (a) and the mean nearest-cluster
@@ -171,13 +171,13 @@ def cython_silhouette_score(
         The assigned cluster labels for each sample.
     metric : string
         A string representation of the distance metric to use for evaluating
-        the silhouette schore. Available options are "cityblock", "cosine",
+        the silhouette score. Available options are "cityblock", "cosine",
         "euclidean", "l1", "l2", "manhattan", and "sqeuclidean".
     chunksize : integer (default = None)
-        An integer, 1 <= chunksize <= n_rows to tile the pairwise distance
+        An integer, 1 <= chunksize <= n_samples to tile the pairwise distance
         matrix computations, so as to reduce the quadratic memory usage of
         having the entire pairwise distance matrix in GPU memory.
-        If None, chunksize will automically be set to 40000, which through
+        If None, chunksize will automatically be set to 40000, which through
         experiments has proved to be a safe number for the computation
         to run on a GPU with 16 GB VRAM.
     handle : cuml.Handle
@@ -200,7 +200,7 @@ def cython_silhouette_samples(
         metric='euclidean',
         chunksize=None,
         handle=None):
-    """Calculate the silhouette coefficient for each sample in the provided data
+    """Calculate the silhouette coefficient for each sample in the provided data.
 
     Given a set of cluster labels for every sample in the provided data,
     compute the mean intra-cluster distance (a) and the mean nearest-cluster
@@ -215,13 +215,13 @@ def cython_silhouette_samples(
         The assigned cluster labels for each sample.
     metric : string
         A string representation of the distance metric to use for evaluating
-        the silhouette schore. Available options are "cityblock", "cosine",
+        the silhouette score. Available options are "cityblock", "cosine",
         "euclidean", "l1", "l2", "manhattan", and "sqeuclidean".
     chunksize : integer (default = None)
-        An integer, 1 <= chunksize <= n_rows to tile the pairwise distance
+        An integer, 1 <= chunksize <= n_samples to tile the pairwise distance
         matrix computations, so as to reduce the quadratic memory usage of
         having the entire pairwise distance matrix in GPU memory.
-        If None, chunksize will automically be set to 40000, which through
+        If None, chunksize will automatically be set to 40000, which through
         experiments has proved to be a safe number for the computation
         to run on a GPU with 16 GB VRAM.
     handle : cuml.Handle
