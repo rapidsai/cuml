@@ -304,8 +304,6 @@ struct forest {
     }
   }
 
-  int max_shm() { return max_shm_; }
-
   virtual void free(const raft::handle_t& h)
   {
     cat_sets_.release();
