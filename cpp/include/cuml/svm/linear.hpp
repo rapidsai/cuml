@@ -41,9 +41,9 @@ struct LinearSVMParams {
     HINGE,
     /** `max(1 - y_i x_i w, 0)^2` */
     SQUARED_HINGE,
-    /** `max(|y_i - x_i w| - svr_sensitivity, 0)` */
+    /** `max(|y_i - x_i w| - epsilon, 0)` */
     EPSILON_INSENSITIVE,
-    /** `max(|y_i - x_i w| - svr_sensitivity, 0)^2` */
+    /** `max(|y_i - x_i w| - epsilon, 0)^2` */
     SQUARED_EPSILON_INSENSITIVE
   };
 
@@ -81,7 +81,7 @@ struct LinearSVMParams {
   /** The threshold on the function change for the underlying QN solver. */
   double change_tol = 0.00001;
   /** The epsilon-sensitivity parameter (applicable to the SVM-regression (SVR) loss functions). */
-  double svr_sensitivity = 0.0;
+  double epsilon = 0.0;
 };
 
 template <typename T>

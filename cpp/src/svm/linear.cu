@@ -333,7 +333,7 @@ LinearSVMModel<T>::LinearSVMModel(const raft::handle_t& handle,
                   qn_loss,
                   stream,
                   (T*)sampleWeight,
-                  T(params.svr_sensitivity));
+                  T(params.epsilon));
 
     if (coefCols > 1)
       rowMajorSetCol<T><<<dim3(raft::ceildiv(coefRows, 256), 1, 1), dim3(256, 1, 1), 0, stream>>>(

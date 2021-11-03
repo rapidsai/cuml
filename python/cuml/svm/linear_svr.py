@@ -34,7 +34,7 @@ class LinearSVR(LinearSVM, RegressorMixin):
         from cuml.svm import LinearSVR
         X = np.array([[1], [2], [3], [4], [5]], dtype=np.float32)
         y = np.array([1.1, 4, 5, 3.9, 8.], dtype=np.float32)
-        reg = LinearSVR(loss='epsilon_insensitive', C=10, svr_sensitivity=0.1)
+        reg = LinearSVR(loss='epsilon_insensitive', C=10, epsilon=0.1)
         reg.fit(X, y)
         print("Predicted values:", reg.predict(X))
 
@@ -100,8 +100,8 @@ class LinearSVR(LinearSVM, RegressorMixin):
         This is a helper transient parameter that, when present, sets both
         `grad_tol` and `change_tol` to the same value. When any of the two
         `***_tol` parameters are passed as well, they take the precedence.
-    svr_sensitivity : {LinearSVM_defaults.svr_sensitivity.__class__.__name__ \
-            } (default = {LinearSVM_defaults.svr_sensitivity})
+    epsilon : {LinearSVM_defaults.epsilon.__class__.__name__ \
+            } (default = {LinearSVM_defaults.epsilon})
         The epsilon-sensitivity parameter for the SVR loss function.
     output_type : {{'input', 'cudf', 'cupy', 'numpy', 'numba'}} (default=None)
         Variable to control output type of the results and attributes of
@@ -168,7 +168,7 @@ class LinearSVR(LinearSVM, RegressorMixin):
             'C',
             'grad_tol',
             'change_tol',
-            'svr_sensitivity'
+            'epsilon'
         ]
 
 

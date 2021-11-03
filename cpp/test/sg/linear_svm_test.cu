@@ -281,9 +281,9 @@ struct TestRegTargets {
     // The regularization parameter strongly affects the model perfomance in some cases,
     // a larger-than-default value of C seems to always yeild better scores on this generated
     // dataset.
-    mp.C               = 100.0;
-    mp.svr_sensitivity = std::get<5>(ps);
-    mp.verbose         = 2;
+    mp.C       = 100.0;
+    mp.epsilon = std::get<5>(ps);
+    mp.verbose = 2;
     return {.nRowsTrain  = 1000,
             .nRowsTest   = 100,
             .nCols       = std::get<3>(ps),
