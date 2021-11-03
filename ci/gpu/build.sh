@@ -46,7 +46,7 @@ gpuci_logger "Activate conda env"
 conda activate rapids
 
 gpuci_logger "Install dependencies"
-gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly -c nvidia \
+gpuci_mamba_retry install -c conda-forge -c rapidsai -c rapidsai-nightly/label/testing -c rapidsai-nightly -c nvidia \
       "cudatoolkit=${CUDA_REL}" \
       "cudf=${MINOR_VERSION}" \
       "rmm=${MINOR_VERSION}" \
