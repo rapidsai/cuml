@@ -139,15 +139,10 @@ struct shmem_size_params {
   /// n_items is how many input samples (items) any thread processes. If 0 is given,
   /// choose the reasonable most (<= MAX_N_ITEMS) that fit into shared memory. See init_n_items()
   int n_items = 0;
-<<<<<<< HEAD
   /// max_shm is the maximum opt-in shared memory on the device
   int max_shm = 0;
-  // blockdim_x is the CUDA block size
-  int blockdim_x = 0;
-=======
   // block_dim_x is the CUDA block size. Set by dispatch_on_leaf_algo(...)
   int block_dim_x = 0;
->>>>>>> rapidsai/branch-21.12
   /// shm_sz is the associated shared memory footprint
   int shm_sz = INT_MAX;
 
@@ -184,88 +179,20 @@ struct predict_params : shmem_size_params {
   int num_blocks;
 };
 
-<<<<<<< HEAD
-namespace dispatch {
-
-template <template <bool, leaf_algo_t, int> class Func,
-          typename storage_type,
-          bool cols_in_shmem,
-          leaf_algo_t leaf_algo,
-          int n_items,
-          typename... Args>
-void dispatch_final(predict_params& params, Args... args)
-{
-  Func<cols_in_shmem, leaf_algo, n_items>::template run<storage_type>(params, args...);
-}
-
-template <template <bool, leaf_algo_t, int> class Func,
-          typename storage_type,
-          bool cols_in_shmem,
-          leaf_algo_t leaf_algo,
-          typename... Args>
-void dispatch_on_n_items(predict_params& params, Args... args)
-{
-  switch (params.n_items) {
-    case 1: dispatch_final<Func, storage_type, cols_in_shmem, leaf_algo, 1>(params, args...); break;
-    case 2: dispatch_final<Func, storage_type, cols_in_shmem, leaf_algo, 2>(params, args...); break;
-    case 3: dispatch_final<Func, storage_type, cols_in_shmem, leaf_algo, 3>(params, args...); break;
-    case 4: dispatch_final<Func, storage_type, cols_in_shmem, leaf_algo, 4>(params, args...); break;
-    default: ASSERT(false, "internal error: n_items > 4");
-  }
-}
-
-template <template <bool, leaf_algo_t, int> class Func,
-          typename storage_type,
-          bool cols_in_shmem,
-          typename... Args>
-void dispatch_on_leaf_algo(predict_params& params, Args... args)
-{
-  switch (params.leaf_algo) {
-    case FLOAT_UNARY_BINARY:
-      params.blockdim_x = FIL_TPB;
-      dispatch_on_n_items<Func, storage_type, cols_in_shmem, FLOAT_UNARY_BINARY>(params, args...);
-      break;
-    case GROVE_PER_CLASS:
-      if (params.num_classes > FIL_TPB) {
-        params.blockdim_x = FIL_TPB;
-        dispatch_on_n_items<Func, storage_type, cols_in_shmem, GROVE_PER_CLASS_MANY_CLASSES>(
-          params, args...);
-      } else {
-        params.blockdim_x = FIL_TPB - FIL_TPB % params.num_classes;
-        dispatch_on_n_items<Func, storage_type, cols_in_shmem, GROVE_PER_CLASS_FEW_CLASSES>(
-          params, args...);
-      }
-      break;
-    case CATEGORICAL_LEAF:
-      params.blockdim_x = FIL_TPB;
-      dispatch_on_n_items<Func, storage_type, cols_in_shmem, CATEGORICAL_LEAF>(params, args...);
-      break;
-    default: ASSERT(false, "internal error: dispatch: invalid leaf_algo %d", params.leaf_algo);
-  }
-}
-
-template <template <bool, leaf_algo_t, int> class Func, typename storage_type, typename... Args>
-void dispatch_on_cols_in_shmem(predict_params& params, Args... args)
-{
-  if (params.cols_in_shmem)
-    dispatch_on_leaf_algo<Func, storage_type, true>(params, args...);
-  else
-    dispatch_on_leaf_algo<Func, storage_type, false>(params, args...);
-=======
 constexpr leaf_algo_t next_leaf_algo(leaf_algo_t algo)
 {
   return static_cast<leaf_algo_t>(algo + 1);
 }
 
-template <bool COLS_IN_SHMEM_ = false,
-          bool CATS_SUPPORTED_ = false,
+template <bool COLS_IN_SHMEM_    = false,
+          bool CATS_SUPPORTED_   = false,
           leaf_algo_t LEAF_ALGO_ = MIN_LEAF_ALGO,
-          int N_ITEMS_ = 1>
+          int N_ITEMS_           = 1>
 struct KernelTemplateParams {
-  static const bool COLS_IN_SHMEM = COLS_IN_SHMEM_;
-  static const bool CATS_SUPPORTED = CATS_SUPPORTED_;
+  static const bool COLS_IN_SHMEM    = COLS_IN_SHMEM_;
+  static const bool CATS_SUPPORTED   = CATS_SUPPORTED_;
   static const leaf_algo_t LEAF_ALGO = LEAF_ALGO_;
-  static const int N_ITEMS = N_ITEMS_;
+  static const int N_ITEMS           = N_ITEMS_;
 
   template <bool _cats_supported>
   using ReplaceCatsSupported =
@@ -309,11 +236,11 @@ T dispatch_on_leaf_algo(Func func, predict_params params)
     if constexpr (KernelParams::LEAF_ALGO == GROVE_PER_CLASS) {
       if (params.num_classes <= FIL_TPB) {
         params.block_dim_x = FIL_TPB - FIL_TPB % params.num_classes;
-        using Next = typename KernelParams::ReplaceLeafAlgo<GROVE_PER_CLASS_FEW_CLASSES>;
+        using Next         = typename KernelParams::ReplaceLeafAlgo<GROVE_PER_CLASS_FEW_CLASSES>;
         return dispatch_on_n_items<Next>(func, params);
       } else {
         params.block_dim_x = FIL_TPB;
-        using Next = typename KernelParams::ReplaceLeafAlgo<GROVE_PER_CLASS_MANY_CLASSES>;
+        using Next         = typename KernelParams::ReplaceLeafAlgo<GROVE_PER_CLASS_MANY_CLASSES>;
         return dispatch_on_n_items<Next>(func, params);
       }
     } else {
@@ -343,32 +270,10 @@ T dispatch_on_cols_in_shmem(Func func, predict_params params)
   return params.cols_in_shmem
            ? dispatch_on_cats_supported<KernelTemplateParams<true>>(func, params)
            : dispatch_on_cats_supported<KernelTemplateParams<false>>(func, params);
->>>>>>> rapidsai/branch-21.12
 }
 
 }  // namespace dispatch
 
-<<<<<<< HEAD
-template <template <bool, leaf_algo_t, int> class Func, typename storage_type, typename... Args>
-void dispatch_on_FIL_template_params(predict_params& params, Args... args)
-{
-  dispatch::dispatch_on_cols_in_shmem<Func, storage_type>(params, args...);
-}
-
-// we need to instantiate all get_smem_footprint instantiations in infer.cu.
-// The only guarantee is by instantiating
-// dispatch_on_FIL_template<compute_smem_footprint...  in infer.cu. This
-// requires a declaration of this struct with the declaration of the run method
-// (i.e. all but one line) visible from infer.cu, as well as this full
-// definition visible from fil.cu. We'll just define it in common.cuh.
-template <bool cols_in_shmem, leaf_algo_t leaf_algo, int n_items>
-struct compute_smem_footprint {
-  template <typename storage_type>
-  static void run(predict_params& ssp)
-  {
-    ssp.shm_sz = ssp.get_smem_footprint<n_items, leaf_algo>();
-  }
-=======
 template <class Func, class T = typename Func::return_t>
 T dispatch_on_fil_template_params(Func func, predict_params params)
 {
@@ -380,12 +285,18 @@ T dispatch_on_fil_template_params(Func func, predict_params params)
 struct compute_smem_footprint : dispatch_functor<int> {
   template <class KernelParams = KernelTemplateParams<>>
   int run(predict_params);
->>>>>>> rapidsai/branch-21.12
 };
 
 // infer() calls the inference kernel with the parameters on the stream
 template <typename storage_type>
 void infer(storage_type forest, predict_params params, cudaStream_t stream);
+
+template <int NITEMS,
+          leaf_algo_t leaf_algo,
+          bool cols_in_shmem,
+          bool CATS_SUPPORTED,
+          class storage_type>
+__global__ void infer_k(storage_type forest, predict_params params);
 
 }  // namespace fil
 }  // namespace ML
