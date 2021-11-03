@@ -329,11 +329,13 @@ cdef class ForestInference_impl():
                     shape += (2,)
                 else:
                     shape += (self.num_class,)
-            preds = CumlArray.empty(shape=shape, dtype=np.float32, order='C')
-        elif (not isinstance(preds, cudf.Series) and
-              not rmm.is_cuda_array(preds)):
-            raise ValueError("Invalid type for output preds,"
-                             " need GPU array")
+            preds = CumlArray.empty(shape=shape, dtype=np.float32, order='C',
+                                    index=X_m.index)
+        else:
+            if not hasattr(preds, "__cuda_array_interface__"):
+                raise ValueError("Invalid type for output preds,"
+                                 " need GPU array")
+            preds.index = X_m.index
 
         cdef uintptr_t preds_ptr
         preds_ptr = preds.ptr
