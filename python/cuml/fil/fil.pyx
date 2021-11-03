@@ -290,8 +290,8 @@ cdef class ForestInference_impl():
         ----------
         X : float32 array-like (device or host) shape = (n_samples, n_features)
             For optimal performance, pass a device array with C-style layout.
-            For categorical features: category < 0.0 or category > 16'777'214 is
-            equivalent to out-of-dictionary category (not matching).
+            For categorical features: category < 0.0 or category > 16'777'214
+            is equivalent to out-of-dictionary category (not matching).
             -0.0 represents category 0.
             If float(int(category)) != category, we will discard the
             fractional part. E.g. 3.8 represents category 3 regardless of
