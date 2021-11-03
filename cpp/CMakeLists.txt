@@ -244,7 +244,8 @@ if(BUILD_CUML_CPP_LIBRARY)
   target_sources(${CUML_CPP_TARGET}
     PRIVATE
       src/fil/fil.cu
-      src/fil/infer.cu)
+      src/fil/infer.cu
+      src/fil/treelite_import.cu)
 
   # Rest of the algorithms
   if(CUML_CPP_ALGORITHMS STREQUAL "ALL")
