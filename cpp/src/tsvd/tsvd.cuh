@@ -166,7 +166,7 @@ void signFlip(math_t* input,
           input[i] = -input[i];
         }
 
-        std::size_t len = n_cols * n_cols_comp;
+        auto len = n_cols * n_cols_comp;
         for (auto i = idx; i < len; i = i + n_cols) {
           components[i] = -components[i];
         }

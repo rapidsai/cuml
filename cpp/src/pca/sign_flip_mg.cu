@@ -131,7 +131,7 @@ void sign_flip_imp(raft::handle_t& handle,
                    T* components,
                    std::size_t n_components,
                    cudaStream_t* streams,
-                   std::size_t n_stream)
+                   std::uint32_t n_stream)
 {
   int rank = handle.get_comms().get_rank();
 
@@ -147,7 +147,7 @@ void sign_flip_imp(raft::handle_t& handle,
       input[i]->ptr, local_blocks[i]->size, n_components, mv_loc, streams[i % n_stream]);
   }
 
-  for (std::size_t i = 0; i < n_stream; i++) {
+  for (std::uint32_t i = 0; i < n_stream; i++) {
     CUDA_CHECK(cudaStreamSynchronize(streams[i]));
   }
 
@@ -165,7 +165,7 @@ void sign_flip_imp(raft::handle_t& handle,
       input[i]->ptr, local_blocks[i]->size, n_components, max_vals.data(), streams[i % n_stream]);
   }
 
-  for (std::size_t i = 0; i < n_stream; i++) {
+  for (std::uint32_t i = 0; i < n_stream; i++) {
     CUDA_CHECK(cudaStreamSynchronize(streams[i]));
   }
 
@@ -178,7 +178,7 @@ void sign_flip(raft::handle_t& handle,
                float* components,
                std::size_t n_components,
                cudaStream_t* streams,
-               std::size_t n_stream)
+               std::uint32_t n_stream)
 {
   sign_flip_imp(handle, input_data, input_desc, components, n_components, streams, n_stream);
 }
@@ -189,7 +189,7 @@ void sign_flip(raft::handle_t& handle,
                double* components,
                std::size_t n_components,
                cudaStream_t* streams,
-               std::size_t n_stream)
+               std::uint32_t n_stream)
 {
   sign_flip_imp(handle, input_data, input_desc, components, n_components, streams, n_stream);
 }

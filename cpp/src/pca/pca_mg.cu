@@ -53,7 +53,7 @@ void fit_impl(raft::handle_t& handle,
               T* noise_vars,
               paramsPCAMG prms,
               cudaStream_t* streams,
-              std::size_t n_streams,
+              std::uint32_t n_streams,
               bool verbose)
 {
   const auto& comm = handle.get_comms();
@@ -110,7 +110,7 @@ void fit_impl(raft::handle_t& handle,
   // Reference issue https://github.com/rapidsai/cuml/issues/2470
   auto n_streams = input_desc.blocksOwnedBy(rank).size();
   cudaStream_t streams[n_streams];
-  for (std::size_t i = 0; i < n_streams; i++) {
+  for (std::uint32_t i = 0; i < n_streams; i++) {
     CUDA_CHECK(cudaStreamCreate(&streams[i]));
   }
 
@@ -128,7 +128,7 @@ void fit_impl(raft::handle_t& handle,
              streams,
              n_streams,
              verbose);
-    for (std::size_t i = 0; i < n_streams; i++) {
+    for (std::uint32_t i = 0; i < n_streams; i++) {
       CUDA_CHECK(cudaStreamSynchronize(streams[i]));
     }
   } else if (prms.algorithm == mg_solver::QR) {
@@ -140,7 +140,7 @@ void fit_impl(raft::handle_t& handle,
     Matrix::Data<T> mu_data{mu, prms.n_cols};
     Stats::opg::mean(handle, mu_data, input_data, input_desc, streams, n_streams);
     Stats::opg::mean_center(input_data, input_desc, mu_data, comm, streams, n_streams);
-    for (std::size_t i = 0; i < n_streams; i++) {
+    for (std::uint32_t i = 0; i < n_streams; i++) {
       CUDA_CHECK(cudaStreamSynchronize(streams[i]));
     }
 
@@ -204,11 +204,11 @@ void fit_impl(raft::handle_t& handle,
     Stats::opg::mean_add(input_data, input_desc, mu_data, comm, streams, n_streams);
   }
 
-  for (std::size_t i = 0; i < n_streams; i++) {
+  for (std::uint32_t i = 0; i < n_streams; i++) {
     CUDA_CHECK(cudaStreamSynchronize(streams[i]));
   }
 
-  for (std::size_t i = 0; i < n_streams; i++) {
+  for (std::uint32_t i = 0; i < n_streams; i++) {
     CUDA_CHECK(cudaStreamDestroy(streams[i]));
   }
 }
@@ -223,7 +223,7 @@ void transform_impl(raft::handle_t& handle,
                     T* mu,
                     const paramsPCAMG prms,
                     cudaStream_t* streams,
-                    std::size_t n_streams,
+                    std::uint32_t n_streams,
                     bool verbose)
 {
   std::vector<Matrix::RankSizePair*> local_blocks = input_desc.partsToRanks;
@@ -282,7 +282,7 @@ void transform_impl(raft::handle_t& handle,
       components, components, scalar, prms.n_cols * prms.n_components, streams[0]);
   }
 
-  for (std::size_t i = 0; i < n_streams; i++) {
+  for (std::uint32_t i = 0; i < n_streams; i++) {
     CUDA_CHECK(cudaStreamSynchronize(streams[i]));
   }
 }
@@ -303,7 +303,7 @@ void transform_impl(raft::handle_t& handle,
 template <typename T>
 void transform_impl(raft::handle_t& handle,
                     Matrix::RankSizePair** rank_sizes,
-                    std::size_t n_parts,
+                    std::uint32_t n_parts,
                     Matrix::Data<T>** input,
                     T* components,
                     Matrix::Data<T>** trans_input,
@@ -325,7 +325,7 @@ void transform_impl(raft::handle_t& handle,
   // TODO: These streams should come from raft::handle_t
   auto n_streams = n_parts;
   cudaStream_t streams[n_streams];
-  for (std::size_t i = 0; i < n_streams; i++) {
+  for (std::uint32_t i = 0; i < n_streams; i++) {
     CUDA_CHECK(cudaStreamCreate(&streams[i]));
   }
 
@@ -341,11 +341,11 @@ void transform_impl(raft::handle_t& handle,
                  n_streams,
                  verbose);
 
-  for (std::size_t i = 0; i < n_streams; i++) {
+  for (std::uint32_t i = 0; i < n_streams; i++) {
     CUDA_CHECK(cudaStreamSynchronize(streams[i]));
   }
 
-  for (std::size_t i = 0; i < n_streams; i++) {
+  for (std::uint32_t i = 0; i < n_streams; i++) {
     CUDA_CHECK(cudaStreamDestroy(streams[i]));
   }
 }
@@ -360,7 +360,7 @@ void inverse_transform_impl(raft::handle_t& handle,
                             T* mu,
                             paramsPCAMG prms,
                             cudaStream_t* streams,
-                            std::size_t n_streams,
+                            std::uint32_t n_streams,
                             bool verbose)
 {
   std::vector<Matrix::RankSizePair*> local_blocks = trans_input_desc.partsToRanks;
@@ -410,7 +410,7 @@ void inverse_transform_impl(raft::handle_t& handle,
       components, components, scalar, prms.n_rows * prms.n_components, streams[0]);
   }
 
-  for (std::size_t i = 0; i < n_streams; i++) {
+  for (std::uint32_t i = 0; i < n_streams; i++) {
     CUDA_CHECK(cudaStreamSynchronize(streams[i]));
   }
 }
@@ -431,7 +431,7 @@ void inverse_transform_impl(raft::handle_t& handle,
 template <typename T>
 void inverse_transform_impl(raft::handle_t& handle,
                             Matrix::RankSizePair** rank_sizes,
-                            std::size_t n_parts,
+                            std::uint32_t n_parts,
                             Matrix::Data<T>** trans_input,
                             T* components,
                             Matrix::Data<T>** input,
@@ -451,7 +451,7 @@ void inverse_transform_impl(raft::handle_t& handle,
   // TODO: These streams should come from raft::handle_t
   auto n_streams = n_parts;
   cudaStream_t streams[n_streams];
-  for (std::size_t i = 0; i < n_streams; i++) {
+  for (std::uint32_t i = 0; i < n_streams; i++) {
     CUDA_CHECK(cudaStreamCreate(&streams[i]));
   }
 
@@ -467,11 +467,11 @@ void inverse_transform_impl(raft::handle_t& handle,
                          n_streams,
                          verbose);
 
-  for (std::size_t i = 0; i < n_streams; i++) {
+  for (std::uint32_t i = 0; i < n_streams; i++) {
     CUDA_CHECK(cudaStreamSynchronize(streams[i]));
   }
 
-  for (std::size_t i = 0; i < n_streams; i++) {
+  for (std::uint32_t i = 0; i < n_streams; i++) {
     CUDA_CHECK(cudaStreamDestroy(streams[i]));
   }
 }
@@ -495,7 +495,7 @@ void inverse_transform_impl(raft::handle_t& handle,
 template <typename T>
 void fit_transform_impl(raft::handle_t& handle,
                         Matrix::RankSizePair** rank_sizes,
-                        std::size_t n_parts,
+                        std::uint32_t n_parts,
                         Matrix::Data<T>** input,
                         Matrix::Data<T>** trans_input,
                         T* components,
@@ -517,7 +517,7 @@ void fit_transform_impl(raft::handle_t& handle,
   // TODO: These streams should come from raft::handle_t
   auto n_streams = n_parts;
   cudaStream_t streams[n_streams];
-  for (std::size_t i = 0; i < n_streams; i++) {
+  for (std::uint32_t i = 0; i < n_streams; i++) {
     CUDA_CHECK(cudaStreamCreate(&streams[i]));
   }
 
@@ -549,11 +549,11 @@ void fit_transform_impl(raft::handle_t& handle,
 
   sign_flip(handle, trans_data, input_desc, components, prms.n_components, streams, n_streams);
 
-  for (std::size_t i = 0; i < n_streams; i++) {
+  for (std::uint32_t i = 0; i < n_streams; i++) {
     CUDA_CHECK(cudaStreamSynchronize(streams[i]));
   }
 
-  for (std::size_t i = 0; i < n_streams; i++) {
+  for (std::uint32_t i = 0; i < n_streams; i++) {
     CUDA_CHECK(cudaStreamDestroy(streams[i]));
   }
 }
@@ -610,7 +610,7 @@ void fit(raft::handle_t& handle,
 
 void fit_transform(raft::handle_t& handle,
                    Matrix::RankSizePair** rank_sizes,
-                   std::size_t n_parts,
+                   std::uint32_t n_parts,
                    Matrix::floatData_t** input,
                    Matrix::floatData_t** trans_input,
                    float* components,
@@ -639,7 +639,7 @@ void fit_transform(raft::handle_t& handle,
 
 void fit_transform(raft::handle_t& handle,
                    Matrix::RankSizePair** rank_sizes,
-                   std::size_t n_parts,
+                   std::uint32_t n_parts,
                    Matrix::doubleData_t** input,
                    Matrix::doubleData_t** trans_input,
                    double* components,
@@ -668,7 +668,7 @@ void fit_transform(raft::handle_t& handle,
 
 void transform(raft::handle_t& handle,
                Matrix::RankSizePair** rank_sizes,
-               std::size_t n_parts,
+               std::uint32_t n_parts,
                Matrix::Data<float>** input,
                float* components,
                Matrix::Data<float>** trans_input,
@@ -683,7 +683,7 @@ void transform(raft::handle_t& handle,
 
 void transform(raft::handle_t& handle,
                Matrix::RankSizePair** rank_sizes,
-               std::size_t n_parts,
+               std::uint32_t n_parts,
                Matrix::Data<double>** input,
                double* components,
                Matrix::Data<double>** trans_input,
@@ -698,7 +698,7 @@ void transform(raft::handle_t& handle,
 
 void inverse_transform(raft::handle_t& handle,
                        Matrix::RankSizePair** rank_sizes,
-                       std::size_t n_parts,
+                       std::uint32_t n_parts,
                        Matrix::Data<float>** trans_input,
                        float* components,
                        Matrix::Data<float>** input,
@@ -713,7 +713,7 @@ void inverse_transform(raft::handle_t& handle,
 
 void inverse_transform(raft::handle_t& handle,
                        Matrix::RankSizePair** rank_sizes,
-                       std::size_t n_parts,
+                       std::uint32_t n_parts,
                        Matrix::Data<double>** trans_input,
                        double* components,
                        Matrix::Data<double>** input,
