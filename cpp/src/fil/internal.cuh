@@ -323,20 +323,15 @@ struct categorical_sets {
   // arrays from each node ID are concatenated first, then from all categories
   const uint8_t* bits = nullptr;
   // largest matching category in the model, per feature ID
-  const int* max_matching       = nullptr;
-  std::size_t bits_size         = 0;
-  std::size_t max_matching_size = 0;
+  const float* min_out_of_range     = nullptr;
+  std::size_t bits_size             = 0;
+  std::size_t min_out_of_range_size = 0;
 
   __host__ __device__ __forceinline__ bool cats_present() const
   {
-    // If this is constructed from cat_sets_owner, will return true
-    // default-initialized will return false
-    // Defining edge case: there are categorical nodes, but all have max_matching == -1
-    // (all categorical nodes are empty). node.thresh() would have returned 0.0f
-    // and the branch condition wouldn't have always been false (i.e branched left).
-    // Alternatively, we could have converted all empty categorical nodes to
-    // NAN-threshold numerical nodes.
-    return max_matching != nullptr;
+    // If this is constructed from cat_sets_owner, will return true; but false by default
+    // We have converted all empty categorical nodes to NAN-threshold numerical nodes.
+    return min_out_of_range != nullptr;
   }
 
   // set count is due to tree_idx + node_within_tree_idx are both ints, hence uint32_t result
@@ -348,25 +343,25 @@ struct categorical_sets {
     // to set number). If we run out of uint32_t and we have hundreds of
     // features with similar categorical feature count, we may consider
     // storing node ID within nodes with same feature ID and look up
-    // {.max_matching, .first_node_offset} = ...[feature_id]
+    // {.min_out_of_range, .first_node_offset} = ...[feature_id]
 
     /* category < 0.0f or category > INT_MAX is equivalent to out-of-dictionary category
     (not matching, branch left). -0.0f represents category 0.
     If (float)(int)category != category, we will discard the fractional part.
-    E.g. 3.8f represents category 3 regardless of max_matching value.
-    FIL will reject a model where an integer within [0, max_matching + 1] cannot be represented
+    E.g. 3.8f represents category 3 regardless of min_out_of_range value.
+    FIL will reject a model where an integer within [0, min_out_of_range] cannot be represented
     precisely as a 32-bit float.
     */
-    return category < static_cast<float>(max_matching[node.fid()] + 1) && category >= 0.0f &&
+    return category < min_out_of_range[node.fid()] && category >= 0.0f &&
            fetch_bit(bits + node.set(), static_cast<int>(category));
   }
-  static int sizeof_mask_from_max_matching(int max_matching)
+  static int sizeof_mask_from_min_out_of_range(int min_out_of_range)
   {
-    return raft::ceildiv(max_matching + 1, BITS_PER_BYTE);
+    return raft::ceildiv((int)min_out_of_range, BITS_PER_BYTE);
   }
   int sizeof_mask(int feature_id) const
   {
-    return sizeof_mask_from_max_matching(max_matching[feature_id]);
+    return sizeof_mask_from_min_out_of_range(min_out_of_range[feature_id]);
   }
 };
 
@@ -411,7 +406,7 @@ struct cat_sets_owner {
   std::vector<uint8_t> bits;
   // largest matching category in the model, per feature ID. uses int because GPU code can only fit
   // int
-  std::vector<int> max_matching;
+  std::vector<float> min_out_of_range;
   // how many categorical nodes use a given feature id. Used for model shape string.
   std::vector<std::size_t> n_nodes;
   // per tree, size and offset of bit pool within the overall bit pool
@@ -420,17 +415,17 @@ struct cat_sets_owner {
   categorical_sets accessor() const
   {
     return {
-      .bits              = bits.data(),
-      .max_matching      = max_matching.data(),
-      .bits_size         = bits.size(),
-      .max_matching_size = max_matching.size(),
+      .bits                  = bits.data(),
+      .min_out_of_range      = min_out_of_range.data(),
+      .bits_size             = bits.size(),
+      .min_out_of_range_size = min_out_of_range.size(),
     };
   }
 
   void consume_counters(const std::vector<cat_feature_counters>& counters)
   {
     for (cat_feature_counters cf : counters) {
-      max_matching.push_back(cf.max_matching);
+      min_out_of_range.push_back(cf.max_matching + 1);
       n_nodes.push_back(cf.n_nodes);
     }
   }
@@ -445,8 +440,8 @@ struct cat_sets_owner {
   }
 
   cat_sets_owner() {}
-  cat_sets_owner(std::vector<uint8_t> bits_, std::vector<int> max_matching_)
-    : bits(bits_), max_matching(max_matching_)
+  cat_sets_owner(std::vector<uint8_t> bits_, std::vector<float> min_out_of_range_)
+    : bits(bits_), min_out_of_range(min_out_of_range_)
   {
   }
 };
@@ -457,28 +452,29 @@ struct cat_sets_device_owner {
   // arrays from each node ID are concatenated first, then from all categories
   rmm::device_uvector<uint8_t> bits;
   // largest matching category in the model, per feature ID
-  rmm::device_uvector<int> max_matching;
+  rmm::device_uvector<float> min_out_of_range;
 
   categorical_sets accessor() const
   {
     return {
-      .bits              = bits.data(),
-      .max_matching      = max_matching.data(),
-      .bits_size         = bits.size(),
-      .max_matching_size = max_matching.size(),
+      .bits                  = bits.data(),
+      .min_out_of_range      = min_out_of_range.data(),
+      .bits_size             = bits.size(),
+      .min_out_of_range_size = min_out_of_range.size(),
     };
   }
-  cat_sets_device_owner(cudaStream_t stream) : bits(0, stream), max_matching(0, stream) {}
+  cat_sets_device_owner(cudaStream_t stream) : bits(0, stream), min_out_of_range(0, stream) {}
   cat_sets_device_owner(categorical_sets cat_sets, cudaStream_t stream)
-    : bits(cat_sets.bits_size, stream), max_matching(cat_sets.max_matching_size, stream)
+    : bits(cat_sets.bits_size, stream), min_out_of_range(cat_sets.min_out_of_range_size, stream)
   {
     ASSERT(bits.size() <= static_cast<std::size_t>(INT_MAX) + 1ull,
            "too many categories/categorical nodes: cannot store bits offset in node");
-    if (cat_sets.max_matching_size > 0) {
-      ASSERT(cat_sets.max_matching != nullptr, "internal error: cat_sets.max_matching is nil");
-      CUDA_CHECK(cudaMemcpyAsync(max_matching.data(),
-                                 cat_sets.max_matching,
-                                 max_matching.size() * sizeof(int),
+    if (cat_sets.min_out_of_range_size > 0) {
+      ASSERT(cat_sets.min_out_of_range != nullptr,
+             "internal error: cat_sets.min_out_of_range is nil");
+      CUDA_CHECK(cudaMemcpyAsync(min_out_of_range.data(),
+                                 cat_sets.min_out_of_range,
+                                 min_out_of_range.size() * sizeof(float),
                                  cudaMemcpyDefault,
                                  stream));
     }
@@ -491,7 +487,7 @@ struct cat_sets_device_owner {
   void release()
   {
     bits.release();
-    max_matching.release();
+    min_out_of_range.release();
   }
 };
 

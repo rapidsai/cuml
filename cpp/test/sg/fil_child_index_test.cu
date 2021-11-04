@@ -86,18 +86,18 @@ struct ProtoCategorySets {
   // each bit set for each feature id is in a separate vector
   // read each uint8_t from right to left, and the vector(s) - from left to right
   std::vector<std::vector<uint8_t>> bits;
-  std::vector<int> max_matching;
+  std::vector<float> min_out_of_range;
   operator cat_sets_owner()
   {
-    ASSERT(
-      bits.size() == max_matching.size(),
-      "internal error: ProtoCategorySets::bits.size() != ProtoCategorySets::max_matching.size()");
+    ASSERT(bits.size() == min_out_of_range.size(),
+           "internal error: ProtoCategorySets::bits.size() != "
+           "ProtoCategorySets::min_out_of_range.size()");
     std::vector<uint8_t> flat;
     for (std::vector<uint8_t> v : bits) {
       for (uint8_t b : v)
         flat.push_back(b);
     }
-    return {flat, max_matching};
+    return {flat, min_out_of_range};
   }
 };
 
@@ -207,92 +207,92 @@ std::vector<ChildIndexTestParams> params = {
   CHILD_INDEX_TEST_PARAMS(parent_node_idx = 4, input = NAN, correct = 10),  // !def_left
   CHILD_INDEX_TEST_PARAMS(
     node = NODE(def_left = true), input = NAN, parent_node_idx = 4, correct = 9),  // !def_left
-  // cannot match ( < 0 and realistic max_matching)
-  CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
-                          cso.bits         = {},
-                          cso.max_matching = {10},
-                          input            = -5,
-                          correct          = 1),
-  // Skipping category < 0 and dummy categorical node: max_matching == -1. Prevented by FIL import.
-  // cannot match ( > INT_MAX)
-  CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
-                          cso.bits         = {0b1111'1111},
-                          cso.max_matching = {7},
-                          input            = (float)(1ll << 33ll),
-                          correct          = 1),
-  // cannot match ( > max_matching and integer)
-  CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
-                          cso.bits         = {0b1111'1111},
-                          cso.max_matching = {1},
-                          input            = 2,
-                          correct          = 1),
-  // matches ( > max_matching only due to fractional part)
-  CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
-                          cso.bits         = {0b1111'1111},
-                          cso.max_matching = {1},
-                          input            = 1.8f,
-                          correct          = 2),
-  // cannot match ( > max_matching not only due to fractional part)
-  CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
-                          cso.bits         = {0b1111'1111},
-                          cso.max_matching = {1},
-                          input            = 2.1f,
-                          correct          = 1),
-  // cannot match ( > max_matching not only due to fractional part)
-  CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
-                          cso.bits         = {0b1111'1111},
-                          cso.max_matching = {1},
-                          input            = 2.8f,
-                          correct          = 1),
+  // cannot match ( < 0 and realistic min_out_of_range)
+  CHILD_INDEX_TEST_PARAMS(node                 = NODE(is_categorical = true),
+                          cso.bits             = {},
+                          cso.min_out_of_range = {11},
+                          input                = -5,
+                          correct              = 1),
+  // Skipping category < 0 and dummy categorical node: min_out_of_range == 0. Prevented by FIL
+  // import. cannot match ( > INT_MAX)
+  CHILD_INDEX_TEST_PARAMS(node                 = NODE(is_categorical = true),
+                          cso.bits             = {0b1111'1111},
+                          cso.min_out_of_range = {8},
+                          input                = (float)(1ll << 33ll),
+                          correct              = 1),
+  // cannot match ( > min_out_of_range and integer)
+  CHILD_INDEX_TEST_PARAMS(node                 = NODE(is_categorical = true),
+                          cso.bits             = {0b1111'1111},
+                          cso.min_out_of_range = {2},
+                          input                = 2,
+                          correct              = 1),
+  // matches ( < min_out_of_range because comparison is floating-point and there's no rounding)
+  CHILD_INDEX_TEST_PARAMS(node                 = NODE(is_categorical = true),
+                          cso.bits             = {0b1111'1111},
+                          cso.min_out_of_range = {2},
+                          input                = 1.8f,
+                          correct              = 2),
+  // cannot match ( >= min_out_of_range not only due to fractional part)
+  CHILD_INDEX_TEST_PARAMS(node                 = NODE(is_categorical = true),
+                          cso.bits             = {0b1111'1111},
+                          cso.min_out_of_range = {2},
+                          input                = 2.1f,
+                          correct              = 1),
+  // cannot match ( >= min_out_of_range not only due to fractional part)
+  CHILD_INDEX_TEST_PARAMS(node                 = NODE(is_categorical = true),
+                          cso.bits             = {0b1111'1111},
+                          cso.min_out_of_range = {2},
+                          input                = 2.8f,
+                          correct              = 1),
   // does not match (bits[category] == 0, category == 0)
-  CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
-                          cso.bits         = {0b0000'0000},
-                          cso.max_matching = {0},
-                          input            = 0,
-                          correct          = 1),
+  CHILD_INDEX_TEST_PARAMS(node                 = NODE(is_categorical = true),
+                          cso.bits             = {0b0000'0000},
+                          cso.min_out_of_range = {1},
+                          input                = 0,
+                          correct              = 1),
   // matches (negative zero)
-  CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
-                          cso.bits         = {0b0000'0001},
-                          cso.max_matching = {0},
-                          input            = -0.0f,
-                          correct          = 2),
+  CHILD_INDEX_TEST_PARAMS(node                 = NODE(is_categorical = true),
+                          cso.bits             = {0b0000'0001},
+                          cso.min_out_of_range = {1},
+                          input                = -0.0f,
+                          correct              = 2),
   // matches (positive zero)
-  CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
-                          cso.bits         = {0b0000'0001},
-                          cso.max_matching = {0},
-                          input            = 0,
-                          correct          = 2),
+  CHILD_INDEX_TEST_PARAMS(node                 = NODE(is_categorical = true),
+                          cso.bits             = {0b0000'0001},
+                          cso.min_out_of_range = {1},
+                          input                = 0,
+                          correct              = 2),
   // matches
-  CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
-                          cso.bits         = {0b0000'0101},
-                          cso.max_matching = {2, 0},
-                          input            = 2,
-                          correct          = 2),
+  CHILD_INDEX_TEST_PARAMS(node                 = NODE(is_categorical = true),
+                          cso.bits             = {0b0000'0101},
+                          cso.min_out_of_range = {3, 1},
+                          input                = 2,
+                          correct              = 2),
   // does not match (bits[category] == 0, category > 0)
-  CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
-                          cso.bits         = {0b0000'0101},
-                          cso.max_matching = {2},
-                          input            = 1,
-                          correct          = 1),
-  // cannot match (max_matching[fid=1] < input)
-  CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true),
-                          node.fid         = 1,
-                          cso.bits         = {0b0000'0101},
-                          cso.max_matching = {2, 0},
-                          input            = 2,
-                          correct          = 1),
+  CHILD_INDEX_TEST_PARAMS(node                 = NODE(is_categorical = true),
+                          cso.bits             = {0b0000'0101},
+                          cso.min_out_of_range = {3},
+                          input                = 1,
+                          correct              = 1),
+  // cannot match (min_out_of_range[fid=1] <= input)
+  CHILD_INDEX_TEST_PARAMS(node                 = NODE(is_categorical = true),
+                          node.fid             = 1,
+                          cso.bits             = {0b0000'0101},
+                          cso.min_out_of_range = {3, 1},
+                          input                = 2,
+                          correct              = 1),
   // default left
-  CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true, def_left = true),
-                          cso.bits         = {0b0000'0101},
-                          cso.max_matching = {2},
-                          input            = NAN,
-                          correct          = 1),
+  CHILD_INDEX_TEST_PARAMS(node                 = NODE(is_categorical = true, def_left = true),
+                          cso.bits             = {0b0000'0101},
+                          cso.min_out_of_range = {3},
+                          input                = NAN,
+                          correct              = 1),
   // default right
-  CHILD_INDEX_TEST_PARAMS(node             = NODE(is_categorical = true, def_left = false),
-                          cso.bits         = {0b0000'0101},
-                          cso.max_matching = {2},
-                          input            = NAN,
-                          correct          = 2),
+  CHILD_INDEX_TEST_PARAMS(node                 = NODE(is_categorical = true, def_left = false),
+                          cso.bits             = {0b0000'0101},
+                          cso.min_out_of_range = {3},
+                          input                = NAN,
+                          correct              = 2),
 };
 
 TEST_P(ChildIndexTestDense, Predict) { check(); }
