@@ -27,7 +27,7 @@ namespace GLM {
  * @param n_cols        number of columns of the feature matrix
  * @param labels        device pointer to label vector of length n_rows
  * @param coef          device pointer to hold the solution for weights of size n_cols
- * @param intercept     device pointer to hold the solution for bias term of size 1
+ * @param intercept     host pointer to hold the solution for bias term of size 1
  * @param fit_intercept if true, fit intercept
  * @param normalize     if true, normalize data to zero mean, unit variance
  * @param algo          specifies which solver to use (0: SVD, 1: Eigendecomposition, 2:
@@ -62,10 +62,10 @@ void olsFit(const raft::handle_t& handle,
  * @param n_rows        number of rows of the feature matrix
  * @param n_cols        number of columns of the feature matrix
  * @param labels        device pointer to label vector of length n_rows
- * @param alpha         device pointer to parameters of the l2 regularizer
+ * @param alpha         host pointer to parameters of the l2 regularizer
  * @param n_alpha       number of regularization parameters
  * @param coef          device pointer to hold the solution for weights of size n_cols
- * @param intercept     device pointer to hold the solution for bias term of size 1
+ * @param intercept     host pointer to hold the solution for bias term of size 1
  * @param fit_intercept if true, fit intercept
  * @param normalize     if true, normalize data to zero mean, unit variance
  * @param algo          specifies which solver to use (0: SVD, 1: Eigendecomposition)
