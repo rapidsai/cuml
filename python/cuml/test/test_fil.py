@@ -512,6 +512,10 @@ def to_categorical(features, n_categorical):
     new_matrix = new_features[:, new_idx]
     for icol in range(n_categorical):
         col = cat_cols[:, icol]
+        # randomly inject invalid categories
+        n_rows = features.shape[0]
+        invalid_idx = sample(range(n_rows), k = n_rows // 10 + 1)
+        col[invalid_idx] += rough_n_categories
         df_cols[icol] = pd.Series(pd.Categorical(col,
                                                  categories=np.unique(col)))
     # all numerical columns
