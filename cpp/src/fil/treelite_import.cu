@@ -329,96 +329,23 @@ conversion_state<fil_node_t> tl2fil_inner_node(int fil_left_child,
   } else {
     ASSERT(false, "only numerical and categorical split nodes are supported");
   }
-  fil_node_t node;
-  if constexpr (std::is_same<fil_node_t, dense_node>()) {
-    node = fil_node_t({}, split, feature_id, default_left, false, is_categorical);
-  } else {
-    node = fil_node_t({}, split, feature_id, default_left, false, is_categorical, fil_left_child);
-  }
+  fil_node_t node({}, split, feature_id, default_left, false, is_categorical, fil_left_child);
   return conversion_state<fil_node_t>{node, tl_left, tl_right};
 }
 
-template <typename T, typename L>
-void node2fil_dense(std::vector<dense_node>* pnodes,
-                    int root,
-                    int cur,
-                    const tl::Tree<T, L>& tree,
-                    int node_id,
-                    const forest_params_t& forest_params,
-                    std::vector<float>* vector_leaf,
-                    std::size_t* leaf_counter,
-                    cat_sets_owner* cat_sets,
-                    std::size_t* bit_pool_offset)
-{
-  if (tree.IsLeaf(node_id)) {
-    (*pnodes)[root + cur] = dense_node({}, {}, 0, false, true, false);
-    tl2fil_leaf_payload(
-      &(*pnodes)[root + cur], root + cur, tree, node_id, forest_params, vector_leaf, leaf_counter);
-    return;
-  }
-
-  // inner node
-  int left = 2 * cur + 1;
-  conversion_state<dense_node> cs =
-    tl2fil_inner_node<dense_node>(left, tree, node_id, forest_params, cat_sets, bit_pool_offset);
-  (*pnodes)[root + cur] = cs.node;
-  node2fil_dense(pnodes,
-                 root,
-                 left,
-                 tree,
-                 cs.tl_left,
-                 forest_params,
-                 vector_leaf,
-                 leaf_counter,
-                 cat_sets,
-                 bit_pool_offset);
-  node2fil_dense(pnodes,
-                 root,
-                 left + 1,
-                 tree,
-                 cs.tl_right,
-                 forest_params,
-                 vector_leaf,
-                 leaf_counter,
-                 cat_sets,
-                 bit_pool_offset);
-}
-
-template <typename T, typename L>
-void tree2fil_dense(std::vector<dense_node>* pnodes,
-                    int root,
-                    const tl::Tree<T, L>& tree,
-                    std::size_t tree_idx,
-                    const forest_params_t& forest_params,
-                    std::vector<float>* vector_leaf,
-                    std::size_t* leaf_counter,
-                    cat_sets_owner* cat_sets)
-{
-  node2fil_dense(pnodes,
-                 root,
-                 0,
-                 tree,
-                 tree_root(tree),
-                 forest_params,
-                 vector_leaf,
-                 leaf_counter,
-                 cat_sets,
-                 &cat_sets->bit_pool_offsets[tree_idx]);
-}
-
 template <typename fil_node_t, typename T, typename L>
-int tree2fil_sparse(std::vector<fil_node_t>& nodes,
-                    int root,
-                    const tl::Tree<T, L>& tree,
-                    std::size_t tree_idx,
-                    const forest_params_t& forest_params,
-                    std::vector<float>* vector_leaf,
-                    std::size_t* leaf_counter,
-                    cat_sets_owner* cat_sets)
+int tree2fil(std::vector<fil_node_t>& nodes,
+             int root,
+             const tl::Tree<T, L>& tree,
+             std::size_t tree_idx,
+             const forest_params_t& forest_params,
+             std::vector<float>* vector_leaf,
+             std::size_t* leaf_counter,
+             cat_sets_owner* cat_sets)
 {
   typedef std::pair<int, int> pair_t;
   std::stack<pair_t> stack;
-  int built_index = root + 1;
+  int sparse_index = root + 1;
   stack.push(pair_t(tree_root(tree), 0));
   while (!stack.empty()) {
     const pair_t& top = stack.top();
@@ -430,8 +357,8 @@ int tree2fil_sparse(std::vector<fil_node_t>& nodes,
       // reserve space for child nodes
       // left is the offset of the left child node relative to the tree root
       // in the array of all nodes of the FIL sparse forest
-      int left = built_index - root;
-      built_index += 2;
+      int left = std::is_same<fil_node_t, dense_node>() ? 2 * cur + 1 : sparse_index - root;
+      sparse_index += 2;
       conversion_state<fil_node_t> cs = tl2fil_inner_node<fil_node_t>(
         left, tree, node_id, forest_params, cat_sets, &cat_sets->bit_pool_offsets[tree_idx]);
       nodes[root + cur] = cs.node;
@@ -631,14 +558,14 @@ void tl2fil_dense(std::vector<dense_node>* pnodes,
   pnodes->resize(num_nodes, dense_node());
   for (std::size_t i = 0; i < model.trees.size(); ++i) {
     size_t leaf_counter = max_leaves_per_tree * i;
-    tree2fil_dense(pnodes,
-                   i * tree_num_nodes(params->depth),
-                   model.trees[i],
-                   i,
-                   *params,
-                   vector_leaf,
-                   &leaf_counter,
-                   cat_sets);
+    tree2fil(*pnodes,
+             i * tree_num_nodes(params->depth),
+             model.trees[i],
+             i,
+             *params,
+             vector_leaf,
+             &leaf_counter,
+             cat_sets);
   }
 }
 
@@ -727,7 +654,7 @@ void tl2fil_sparse(std::vector<int>* ptrees,
   for (std::size_t i = 0; i < num_trees; ++i) {
     // Max number of leaves processed so far
     size_t leaf_counter = ((*ptrees)[i] + i) / 2;
-    tree2fil_sparse(
+    tree2fil(
       *pnodes, (*ptrees)[i], model.trees[i], i, *params, vector_leaf, &leaf_counter, cat_sets);
   }
 

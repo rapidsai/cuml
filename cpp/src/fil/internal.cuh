@@ -149,9 +149,16 @@ __host__ __device__ __forceinline__ val_t base_node::output<val_t>() const
 /** dense_node is a single node of a dense forest */
 struct alignas(8) dense_node : base_node {
   dense_node() = default;
-  dense_node(val_t output, val_t split, int fid, bool def_left, bool is_leaf, bool is_categorical)
+  dense_node(val_t output,
+             val_t split,
+             int fid,
+             bool def_left,
+             bool is_leaf,
+             bool is_categorical,
+             int left_index = -1)
     : base_node(output, split, fid, def_left, is_leaf, is_categorical)
   {
+    // ignoring left_index, this is useful to unify import from treelite
   }
   /** index of the left child, where curr is the index of the current node */
   __host__ __device__ int left(int curr) const { return 2 * curr + 1; }
