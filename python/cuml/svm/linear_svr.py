@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-import re
 
 from cuml.common.mixins import RegressorMixin
 from cuml.svm.linear import LinearSVM, LinearSVM_defaults  # noqa: F401
@@ -80,9 +79,7 @@ class LinearSVR(LinearSVM, RegressorMixin):
             } (default = {LinearSVM_defaults.lbfgs_memory})
         Number of vectors approximating the hessian for the underlying QN
         solver (l-bfgs).
-    verbose : { \
-            LinearSVM_defaults.verbose.__class__.__name__ \
-            } (default = {LinearSVM_defaults.verbose})
+    verbose : int or boolean, default=False
         Sets logging level. It must be one of `cuml.common.logger.level_*`.
         See :ref:`verbosity-levels` for more info.
     C : {LinearSVM_defaults.C.__class__.__name__ \
@@ -103,7 +100,7 @@ class LinearSVR(LinearSVM, RegressorMixin):
     epsilon : {LinearSVM_defaults.epsilon.__class__.__name__ \
             } (default = {LinearSVM_defaults.epsilon})
         The epsilon-sensitivity parameter for the SVR loss function.
-    output_type : {{'input', 'cudf', 'cupy', 'numpy', 'numba'}} (default=None)
+    output_type : {{'input', 'cudf', 'cupy', 'numpy', 'numba'}}, default=None
         Variable to control output type of the results and attributes of
         the estimator. If None, it'll inherit the output type set at the
         module level, `cuml.global_settings.output_type`.
@@ -170,8 +167,3 @@ class LinearSVR(LinearSVM, RegressorMixin):
             'change_tol',
             'epsilon'
         ]
-
-
-# Format docstring to see the re-exported defaults etc.
-LinearSVR.__doc__ = \
-    re.sub(r"\{ *([^ ]+) *\}", r"{\1}", LinearSVR.__doc__).format(**locals())

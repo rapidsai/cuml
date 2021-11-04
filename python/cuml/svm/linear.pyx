@@ -15,10 +15,14 @@
 
 # distutils: language = c++
 
+import re
+import inspect
 import typing
 import numpy as np
 import cuml
+from collections import OrderedDict
 from cython.operator cimport dereference as deref
+from cuml.internals.base_helpers import BaseMetaClass
 from cuml.common.array_descriptor import CumlArrayDescriptor
 from cuml.common.array import CumlArray
 from cuml.common.base import Base
@@ -438,7 +442,66 @@ cdef class LinearSVMWrapper:
         return y
 
 
-class LinearSVM(Base):
+class WithReexportedParams(BaseMetaClass):
+    '''Additional post-processing for children of the base class:
+
+        1. Adds keyword arguments from the base classes to the signature.
+           Note, this does not affect __init__ method itself, only its
+           signature - i.e. how it appears in inspect/help/docs.
+           __init__ method must have `**kwargs` argument for this to
+           make sense.
+
+        2. Applies string.format() to the class docstring with the globals()
+           in the scope of the __init__ method.
+           This allows to write variable names (e.g. some constants) in docs,
+           such that they are substituted with their actual values.
+           Useful for reexporting default values from somewhere else.
+    '''
+
+    def __new__(cls, name, bases, attrs):
+
+        def get_class_params(init, parents):
+            # collect the keyword arguments from the class hierarchy
+            params = OrderedDict()
+            for k in parents:
+                params.update(
+                    get_class_params(getattr(k, '__init__', None), k.__bases__)
+                )
+            if init is not None:
+                sig = inspect.signature(init)
+                for k, v in sig.parameters.items():
+                    if v.kind == inspect.Parameter.KEYWORD_ONLY:
+                        params[k] = v
+                del sig
+            return params
+
+        init = attrs.get('__init__', None)
+        if init is not None:
+            # insert keyword arguments from parents
+            ppams = get_class_params(init, bases)
+            sig = inspect.signature(init)
+            params = [
+                p for p in sig.parameters.values()
+                if p.kind != inspect.Parameter.KEYWORD_ONLY
+            ]
+            params[1:1] = ppams.values()
+            attrs['__init__'].__signature__ = sig.replace(parameters=params)
+            del sig
+
+            # format documentation -- replace variables with values
+            doc = attrs.get('__doc__', None)
+            if doc is not None:
+                globs = init.__globals__.copy()
+                globs[name] = type(name, (), attrs)
+                attrs['__doc__'] = \
+                    re.sub(r"\{ *([^ ]+) *\}", r"{\1}", doc).format(**globs)
+                del globs
+            del doc
+        del init
+        return super().__new__(cls, name, bases, attrs)
+
+
+class LinearSVM(Base, metaclass=WithReexportedParams):
 
     _model_: typing.Optional[LinearSVMWrapper]
 
