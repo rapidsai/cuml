@@ -143,6 +143,9 @@ class LinearSVC(LinearSVM, ClassifierMixin):
         'squared_hinge'])
 
     def __init__(self, **kwargs):
+        # NB: the keyword arguments are filtered in python/cuml/svm/linear.pyx
+        #     the default parameter values are reexported from
+        #                                      cpp/include/cuml/svm/linear.hpp
         # set classification-specific defaults
         if 'loss' not in kwargs:
             kwargs['loss'] = 'squared_hinge'

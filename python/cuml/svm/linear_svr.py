@@ -131,6 +131,9 @@ class LinearSVR(LinearSVM, RegressorMixin):
         'squared_epsilon_insensitive'])
 
     def __init__(self, **kwargs):
+        # NB: the keyword arguments are filtered in python/cuml/svm/linear.pyx
+        #     the default parameter values are reexported from
+        #                                      cpp/include/cuml/svm/linear.hpp
         # set regression-specific defaults
         if 'loss' not in kwargs:
             kwargs['loss'] = 'epsilon_insensitive'
