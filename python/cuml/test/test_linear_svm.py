@@ -13,10 +13,11 @@
 # limitations under the License.
 #
 import math
+import cupy as cp
 import numpy as np
 import pytest
-import sklearn.datasets as data
-import sklearn.model_selection as dsel
+import cuml.datasets as data
+import cuml.model_selection as dsel
 from cuml.test.utils import unit_param, quality_param, stress_param
 
 import sklearn.svm as sk
@@ -31,9 +32,12 @@ ERROR_TOLERANCE_ABS = 0.01
 def good_enough(myscore: float, refscore: float, training_size: int):
     myerr = 1.0 - myscore
     referr = 1.0 - refscore
-    # extra discount for uncertainty based on the training data;
-    # totally empirical
-    c = (2000 + training_size) / (500 + 10 * training_size)
+    # Extra discount for uncertainty based on the training data.
+    # Totally empirical; for <10 samples, the error is allowed
+    # to be ~50%, which is a total randomness. But this is ok,
+    # since we don't expect the model to be trained from this few
+    # samples.
+    c = (10000 + training_size) / (200 + 5 * training_size)
     thresh_rel = referr * (1 + ERROR_TOLERANCE_REL * c)
     thresh_abs = referr + ERROR_TOLERANCE_ABS * c
     good_rel = myerr <= thresh_rel
@@ -47,13 +51,12 @@ def good_enough(myscore: float, refscore: float, training_size: int):
 def make_regression_dataset(datatype, nrows, ncols):
     ninformative = max(min(ncols, 5), int(math.ceil(ncols / 5)))
     X, y = data.make_regression(
+        dtype=datatype,
         n_samples=nrows + 1000,
         n_features=ncols,
         random_state=SEED,
         n_informative=ninformative
     )
-    X = X.astype(datatype)
-    y = y.astype(datatype)
     return dsel.train_test_split(X, y, random_state=SEED, train_size=nrows)
 
 
@@ -68,6 +71,7 @@ def make_classification_dataset(datatype, nrows, ncols, nclasses):
         max(2, math.ceil(ncols / 20)))
     try:
         X, y = data.make_classification(
+                dtype=datatype,
                 n_samples=nrows + 1000,
                 n_features=ncols,
                 random_state=SEED,
@@ -77,12 +81,17 @@ def make_classification_dataset(datatype, nrows, ncols, nclasses):
                 n_redundant=n_redundant,
                 n_classes=nclasses
             )
+
+        r = dsel.train_test_split(X, y, random_state=SEED, train_size=nrows)
+
+        if len(cp.unique(r[2])) < nclasses:
+            raise ValueError("Training data does not have all classes.")
+
+        return r
+
     except ValueError:
         pytest.skip(
             "Skipping the test for invalid combination of ncols/nclasses")
-    X = X.astype(datatype)
-    y = y.astype(datatype)
-    return dsel.train_test_split(X, y, random_state=SEED, train_size=nrows)
 
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
@@ -96,8 +105,7 @@ def make_classification_dataset(datatype, nrows, ncols, nclasses):
     unit_param((100, 300)),
     quality_param((10000, 10)),
     quality_param((10000, 50)),
-    stress_param((1000000, 1000)),
-    stress_param((100000, 10000))])
+    stress_param((100000, 1000))])
 def test_regression_basic(datatype, loss, dims):
 
     nrows, ncols = dims
@@ -107,13 +115,20 @@ def test_regression_basic(datatype, loss, dims):
 
     # solving in primal is not supported by sklearn for this loss type.
     skdual = loss == 'epsilon_insensitive'
-    skm = sk.LinearSVR(loss=loss, max_iter=10000, dual=skdual)
-    cum = cu.LinearSVR(loss=loss, max_iter=10000)
+    # limit the max iterations for sklearn to reduce the max test time
+    cuit = 10000
+    skit = max(10, min(cuit, cuit * 1000 / nrows))
 
-    skm.fit(X_train, y_train)
+    skm = sk.LinearSVR(loss=loss, max_iter=skit, dual=skdual)
+    cum = cu.LinearSVR(loss=loss, max_iter=cuit)
+
+    skm.fit(X_train.get(), y_train.get())
     cum.fit(X_train, y_train)
 
-    good_enough(cum.score(X_test, y_test), skm.score(X_test, y_test), nrows)
+    good_enough(
+        cum.score(X_test, y_test),
+        skm.score(X_test.get(), y_test.get()),
+        nrows)
 
 
 @pytest.mark.parametrize("loss", [
@@ -132,13 +147,21 @@ def test_regression_eps(loss, epsilon, dims):
 
     # solving in primal is not supported by sklearn for this loss type.
     skdual = loss == 'epsilon_insensitive'
-    skm = sk.LinearSVR(loss=loss, epsilon=epsilon, max_iter=10000, dual=skdual)
-    cum = cu.LinearSVR(loss=loss, epsilon=epsilon, max_iter=10000)
+    # limit the max iterations for sklearn to reduce the max test time
+    cuit = 10000
+    skit = max(10, min(cuit, cuit * 1000 / nrows))
 
-    skm.fit(X_train, y_train)
+    skm = sk.LinearSVR(loss=loss, epsilon=epsilon, max_iter=skit, dual=skdual)
+    cum = cu.LinearSVR(loss=loss, epsilon=epsilon, max_iter=cuit)
+
+    skm.fit(X_train.get(), y_train.get())
     cum.fit(X_train, y_train)
 
-    good_enough(cum.score(X_test, y_test), skm.score(X_test, y_test), nrows)
+    good_enough(
+        cum.score(X_test, y_test),
+        skm.score(X_test.get(), y_test.get()),
+        nrows)
+
 
 @pytest.mark.parametrize("datatype", [np.float32, np.float64])
 @pytest.mark.parametrize("penalty", [
@@ -153,8 +176,7 @@ def test_regression_eps(loss, epsilon, dims):
     unit_param((100, 300)),
     quality_param((10000, 10)),
     quality_param((10000, 50)),
-    stress_param((1000000, 1000)),
-    stress_param((100000, 10000))])
+    stress_param((100000, 1000))])
 @pytest.mark.parametrize("nclasses", [2, 3, 5, 8])
 def test_classification(datatype, penalty, loss, dims, nclasses):
 
@@ -169,10 +191,17 @@ def test_classification(datatype, penalty, loss, dims, nclasses):
         pytest.skip(
             "sklearn does not support this combination of loss and penalty")
 
-    skm = sk.LinearSVC(loss=loss, penalty=penalty, max_iter=10000, dual=skdual)
-    cum = cu.LinearSVC(loss=loss, penalty=penalty, max_iter=10000)
+    # limit the max iterations for sklearn to reduce the max test time
+    cuit = 10000
+    skit = max(10, min(cuit, cuit * 1000 / nrows))
 
-    skm.fit(X_train, y_train)
+    skm = sk.LinearSVC(loss=loss, penalty=penalty, max_iter=skit, dual=skdual)
+    cum = cu.LinearSVC(loss=loss, penalty=penalty, max_iter=cuit)
+
+    skm.fit(X_train.get(), y_train.get())
     cum.fit(X_train, y_train)
 
-    good_enough(cum.score(X_test, y_test), skm.score(X_test, y_test), nrows)
+    good_enough(
+        cum.score(X_test, y_test),
+        skm.score(X_test.get(), y_test.get()),
+        nrows)
