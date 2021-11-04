@@ -280,11 +280,6 @@ class TSNE(Base,
         if n_components < 0:
             raise ValueError("n_components = {} should be more "
                              "than 0.".format(n_components))
-        # Enable warning once n_components >= 2 is supported.
-        # if n_components != 2 and (method == 'barnes_hut' or method == 'fft'):
-        #     warnings.warn("Barnes Hut and FFT only work when "
-        #                   "n_components == 2. Switching to exact.")
-        #     method = 'exact'
         if n_components != 2:
             raise ValueError("Currently TSNE supports n_components = 2; "
                              "but got n_components = {}".format(n_components))
