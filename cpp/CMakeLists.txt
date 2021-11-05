@@ -195,6 +195,7 @@ include(cmake/thirdparty/get_thrust.cmake)
 find_path(
 CUB_INCLUDE "cub" HINTS "$ENV{CUML_ROOT}/_deps/thrust-src"
                         "${CMAKE_CURRENT_BINARY_DIR}/_deps/thrust-src"
+                        "$ENV{CONDA_PREFIX}/include"
 )
 
 message(STATUS "CUML: Setting CUB_INCLUDE to ${CUB_INCLUDE}")
