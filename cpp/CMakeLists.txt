@@ -190,13 +190,14 @@ endif()
 rapids_cpm_init()
 
 include(cmake/thirdparty/get_thrust.cmake)
+
 # need to find cub's include directory after change to rapids-cmake 21.12
-  find_path(
-  CUB_INCLUDE "cub" HINTS "$ENV{CUML_ROOT}/_deps/thrust-src"
-                          "${CUML_CPP_BUILD_DIR}/_deps/thrust-src" "$ENV{CONDA_PREFIX}/include"
+find_path(
+CUB_INCLUDE "cub" HINTS "$ENV{CUML_ROOT}/_deps/thrust-src"
+                        "${CMAKE_CURRENT_BINARY_DIR}/_deps/thrust-src"
 )
 
-message(STATUS "CUB: CUB_INCLUDE set to ${CUB_INCLUDE}")
+message(STATUS "CUML: Setting CUB_INCLUDE to ${CUB_INCLUDE}")
 
 include(cmake/thirdparty/get_rmm.cmake)
 
@@ -387,7 +388,6 @@ if(BUILD_CUML_CPP_LIBRARY)
       cuml::Thrust
       raft::raft
     PRIVATE
-      CUB::CUB
       CUDA::cublas
       CUDA::cufft
       CUDA::curand
