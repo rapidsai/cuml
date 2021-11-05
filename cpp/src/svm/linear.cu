@@ -52,6 +52,12 @@ namespace SVM {
 
 namespace {
 
+/** The cuda kernel for classification. Call it via PredictClass::run(..).
+ *
+ * @param out - [out] vector of classes (nRows,)
+ * @param z   - [in] row-major matrix of scores (nRows, coefCols)
+ * @param coefCols - nClasses > 2 ? nClasses : 1
+ * */
 template <typename T, int BX = 32, int BY = 8>
 __global__ void predictClass(
   T* out, const T* z, const T* classes, const int nRows, const int coefCols)
@@ -78,8 +84,21 @@ __global__ void predictClass(
   }
 }
 
+/**
+ * The wrapper struct on top of predictClass that recursively selects the best BX
+ * (largest BX satisfying `BX < coefCols*2`) and then schedules the kernel launch.
+ */
 template <typename T, int BlockSize = 256, int BX = 32>
 struct PredictClass {
+  static_assert(BX <= 32, "BX must be not larger than warpSize");
+  static_assert(BX <= BlockSize, "BX must be not larger than BlockSize");
+  /**
+   * Predict classes using the scores.
+   *
+   * @param out - [out] vector of classes (nRows,)
+   * @param z   - [in] row-major matrix of scores (nRows, coefCols)
+   * @param coefCols - nClasses > 2 ? nClasses : 1
+   * */
   static inline void run(
     T* out, const T* z, const T* classes, const int nRows, const int coefCols, cudaStream_t stream)
   {
@@ -95,6 +114,11 @@ struct PredictClass {
   }
 };
 
+/**
+ * The cuda kernel for classification. Call it via PredictProba::run(..).
+ * @param out - [out] row-major matrix of probabilities (nRows, nClasses)
+ * @param z   - [in] row-major matrix of scores (nRows, Binary ? 1 : nClasses)
+ */
 template <typename T, bool Log, bool Binary, int BX = 32, int BY = 8>
 __global__ void predictProba(T* out, const T* z, const int nRows, const int nClasses)
 {
@@ -157,8 +181,20 @@ __global__ void predictProba(T* out, const T* z, const int nRows, const int nCla
   }
 }
 
+/**
+ * The wrapper struct on top of predictProba that recursively selects the best BX
+ * (largest BX satisfying `BX < coefCols*2`) and then schedules the kernel launch.
+ */
 template <typename T, int BlockSize = 256, int BX = 32>
 struct PredictProba {
+  static_assert(BX <= 32, "BX must be not larger than warpSize");
+  static_assert(BX <= BlockSize, "BX must be not larger than BlockSize");
+  /**
+   * Predict probabilities using the scores.
+   *
+   * @param out - [out] row-major matrix of probabilities (nRows, nClasses)
+   * @param z   - [in] row-major matrix of scores (nRows, Binary ? 1 : nClasses)
+   */
   static inline void run(
     T* out, const T* z, const int nRows, const int nClasses, const bool log, cudaStream_t stream)
   {
@@ -202,6 +238,7 @@ inline bool isRegression(LinearSVMParams::Loss loss)
          loss == LinearSVMParams::SQUARED_EPSILON_INSENSITIVE;
 }
 
+/** A functor that maps the multiclass problem onto the one-vs-rest binary problem */
 template <typename T>
 struct OvrSelector {
   const T* classes;
@@ -209,6 +246,7 @@ struct OvrSelector {
   __device__ T operator()(const T x) const { return x == classes[selected] ? 1 : -1; }
 };
 
+/** The linear part of the prediction. */
 template <typename T>
 void predict_linear(const raft::handle_t& handle,
                     const T* X,
