@@ -274,7 +274,7 @@ LinearSVMModel<T>::LinearSVMModel(const raft::handle_t& handle,
   if (params.fit_intercept && params.penalized_intercept) {
     X1Buf.resize(nCols1 * nRows, stream);
     X1 = X1Buf.data();
-    CUDA_CHECK(cudaMemcpyAsync(X1, X, sizeof(T) * nCols * nRows, cudaMemcpyDeviceToDevice, stream));
+    raft::copy(X1, X, nCols * nRows, stream);
     thrust::device_ptr<T> p(X1 + nCols * nRows);
     thrust::fill(thrust::cuda::par.on(stream), p, p + nRows, 1.0);
   }
