@@ -53,6 +53,7 @@ struct LinearSVMTest : public ::testing::TestWithParam<typename ParamsReader::Pa
     : testing::TestWithParam<typename ParamsReader::Params>(),
       params(
         ParamsReader::read(::testing::TestWithParam<typename ParamsReader::Params>::GetParam())),
+      handle(8),
       stream(handle.get_stream_view())
   {
   }

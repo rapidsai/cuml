@@ -21,12 +21,14 @@
 
 #include <iostream>
 #include <random>
+#include <thread>
 
 #include <cublas_v2.h>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/gemv.h>
+#include <raft/linalg/transpose.h>
 #include <thrust/copy.h>
 #include <thrust/device_ptr.h>
 #include <thrust/fill.h>
@@ -216,22 +218,6 @@ struct PredictProba {
   }
 };
 
-template <typename T>
-__global__ void rowMajorGetCol(T* out, const T* in, const int i, const int nRows, const int nCols)
-{
-  const int j = blockIdx.x * blockDim.x + threadIdx.x;
-  if (j >= nRows) return;
-  out[j] = in[i + j * nCols];
-}
-
-template <typename T>
-__global__ void rowMajorSetCol(T* out, const T* in, const int i, const int nRows, const int nCols)
-{
-  const int j = blockIdx.x * blockDim.x + threadIdx.x;
-  if (j >= nRows) return;
-  out[i + j * nCols] = in[j];
-}
-
 inline bool isRegression(LinearSVMParams::Loss loss)
 {
   return loss == LinearSVMParams::EPSILON_INSENSITIVE ||
@@ -302,10 +288,8 @@ LinearSVMModel<T>::LinearSVMModel(const raft::handle_t& handle,
   w.resize(coefCols * coefRows, stream);
   CUDA_CHECK(cudaMemsetAsync(w.data(), 0, w.size() * sizeof(T), stream));
 
-  auto nCols1   = nCols + int(params.fit_intercept && params.penalized_intercept);
-  int num_iters = 0;
-  T target;
-  T iC = params.C > 0 ? (1.0 / params.C) : 1.0;
+  auto nCols1 = nCols + int(params.fit_intercept && params.penalized_intercept);
+  T iC        = params.C > 0 ? (1.0 / params.C) : 1.0;
 
   T* X1 = (T*)X;
   rmm::device_uvector<T> X1Buf(0, stream);
@@ -331,28 +315,49 @@ LinearSVMModel<T>::LinearSVMModel(const raft::handle_t& handle,
   rmm::device_uvector<T> y1Buf(0, stream);
   rmm::device_uvector<T> w1Buf(0, stream);
   if (nClasses > 1) {
-    y1Buf.resize(nRows, stream);
+    y1Buf.resize(nRows * coefCols, stream);
     y1 = y1Buf.data();
   }
   if (coefCols > 1) {
-    w1Buf.resize(coefRows, stream);
+    w1Buf.resize(w.size(), stream);
     w1 = w1Buf.data();
   }
 
   // one-vs-rest logic goes over each class
-  for (int class_i = 0; class_i < coefCols; class_i++) {
+  std::vector<T> targets(coefCols);
+  std::vector<int> num_iters(coefCols);
+  int n_streams    = handle.get_num_internal_streams();
+  bool parallel    = n_streams > 1 && coefCols > 1;
+  T* classes1      = classes.data();
+  auto solveBinary = [&handle,
+                      y1,
+                      w1,
+                      parallel,
+                      stream,
+                      nClasses,
+                      nRows,
+                      coefRows,
+                      params,
+                      X1,
+                      y,
+                      n_streams,
+                      classes1,
+                      nCols1,
+                      iC,
+                      qn_loss,
+                      sampleWeight](int class_i) {
+    T* yi  = y1 + nRows * class_i;
+    T* wi  = w1 + coefRows * class_i;
+    auto s = parallel ? handle.get_internal_stream(class_i % n_streams) : stream;
     if (nClasses > 1) {
-      raft::linalg::unaryOp(
-        y1, y, nRows, OvrSelector<T>{classes.data(), nClasses == 2 ? 1 : class_i}, stream);
+      raft::linalg::unaryOp(yi, y, nRows, OvrSelector<T>{classes1, nClasses == 2 ? 1 : class_i}, s);
     }
-    if (coefCols > 1)
-      rowMajorGetCol<T><<<dim3(raft::ceildiv(coefRows, 256), 1, 1), dim3(256, 1, 1), 0, stream>>>(
-        w1, w.data(), class_i, coefRows, coefCols);
-
+    T target;
+    int num_iters;
     GLM::qnFit<T>(handle,
                   X1,
                   true,
-                  y1,
+                  yi,
                   nRows,
                   nCols1,
                   1,
@@ -365,22 +370,30 @@ LinearSVMModel<T>::LinearSVMModel(const raft::handle_t& handle,
                   params.linesearch_max_iter,
                   params.lbfgs_memory,
                   params.verbose,
-                  w1,
+                  wi,
                   &target,
                   &num_iters,
                   qn_loss,
-                  stream,
+                  s,
                   (T*)sampleWeight,
                   T(params.epsilon));
-
-    if (coefCols > 1)
-      rowMajorSetCol<T><<<dim3(raft::ceildiv(coefRows, 256), 1, 1), dim3(256, 1, 1), 0, stream>>>(
-        w.data(), w1, class_i, coefRows, coefCols);
-
-    CUDA_CHECK(cudaStreamSynchronize(stream));
-    CUML_LOG_DEBUG(
-      "LinearSVM finished fitting in %d iterations out of maximum %d.", num_iters, params.max_iter);
+  };
+  if (parallel) {
+    std::vector<std::thread> threads;
+    threads.reserve(coefCols);
+    int class_i = 0;
+    std::generate_n(std::back_inserter(threads), coefCols, [&solveBinary, &class_i] {
+      return std::move(std::thread(solveBinary, class_i++));
+    });
+    for (auto& thread : threads)
+      thread.join();                    // make sure all stream actions are recorded...
+    handle.wait_on_internal_streams();  // ... and executed
+  } else {
+    for (int class_i = 0; class_i < coefCols; class_i++)
+      solveBinary(class_i);
   }
+
+  if (coefCols > 1) raft::linalg::transpose(handle, w1, w.data(), coefRows, coefCols, stream);
 
   ML::POP_RANGE();
 
