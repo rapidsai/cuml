@@ -35,6 +35,8 @@ struct LinearSVMTestParams {
   int nCols;
   /** nClasses == 1 implies regression. */
   int nClasses;
+  /** Standard deviation of clusters or noise. */
+  double errStd;
   double bias;
   double tolerance;
   uint64_t seed;
@@ -136,7 +138,7 @@ struct LinearSVMTest : public ::testing::TestWithParam<typename ParamsReader::Pa
                                     params.bias,
                                     -1,
                                     T(0),
-                                    T(0),
+                                    T(params.errStd),
                                     true,
                                     params.seed);
       raft::linalg::transpose(handle, Xt.data(), X.data(), params.nCols, nRows, stream);
@@ -167,7 +169,7 @@ struct LinearSVMTest : public ::testing::TestWithParam<typename ParamsReader::Pa
                                false,
                                centers.data(),
                                nullptr,
-                               std::pow(T(0.31), d),
+                               T(params.errStd),
                                true,
                                0,
                                0,
@@ -230,6 +232,7 @@ struct TestClasTargets {
             .nRowsTest   = 100,
             .nCols       = std::get<3>(ps),
             .nClasses    = std::get<2>(ps),
+            .errStd      = 0.4,
             .bias        = 0.0,
             .tolerance   = 0.05,
             .seed        = 42ULL,
@@ -254,8 +257,28 @@ struct TestClasBias {
             .nRowsTest   = 100,
             .nCols       = std::get<3>(ps),
             .nClasses    = std::get<2>(ps),
+            .errStd      = 0.2,
             .bias        = std::get<4>(ps),
             .tolerance   = 0.05,
+            .seed        = 42ULL,
+            .modelParams = mp};
+  }
+};
+
+auto TestClasManyClassesParams = ::testing::Values(2, 3, 8, 15, 31, 32, 33, 67);
+
+struct TestClasManyClasses {
+  typedef int Params;
+  static LinearSVMTestParams read(Params ps)
+  {
+    LinearSVMParams mp;
+    return {.nRowsTrain  = 1000,
+            .nRowsTest   = 1000,
+            .nCols       = 200,
+            .nClasses    = ps,
+            .errStd      = 1.0,
+            .bias        = 0,
+            .tolerance   = 0.01,
             .seed        = 42ULL,
             .modelParams = mp};
   }
@@ -288,6 +311,7 @@ struct TestRegTargets {
             .nRowsTest   = 100,
             .nCols       = std::get<3>(ps),
             .nClasses    = 1,
+            .errStd      = 0.02,
             .bias        = std::get<4>(ps),
             .tolerance   = 0.05,
             .seed        = 42ULL,
@@ -298,6 +322,8 @@ struct TestRegTargets {
 TEST_ErrorRate(TestClasTargets, float);
 TEST_ErrorRate(TestClasTargets, double);
 TEST_ErrorRate(TestClasBias, float);
+TEST_ErrorRate(TestClasManyClasses, float);
+TEST_ErrorRate(TestClasManyClasses, double);
 TEST_ErrorRate(TestRegTargets, float);
 TEST_ErrorRate(TestRegTargets, double);
 
