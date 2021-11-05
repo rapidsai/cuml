@@ -533,8 +533,7 @@ class TSNE(Base,
         free(params)
 
         self._kl_divergence_ = kl_divergence
-        if self.verbose:
-            print("[t-SNE] KL divergence: {}".format(kl_divergence))
+        logger.debug("[TSNE] KL Divergence: %f" % kl_divergence)
         return self
 
     @generate_docstring(convert_dtype_cast='np.float32',
