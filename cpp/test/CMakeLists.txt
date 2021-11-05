@@ -90,6 +90,7 @@ if(BUILD_CUML_TESTS)
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src>
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/../src_prims>
       $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/prims>
+      "${CUB_INCLUDE}"
   )
 
   target_link_libraries(${CUML_CPP_TEST_TARGET}
