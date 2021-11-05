@@ -373,8 +373,10 @@ class NearestNeighbors(Base,
             else:
                 self.working_algorithm_ = "brute"
 
-        if self.algorithm == "rbc" and self.n_dims > 2:
-            raise ValueError("rbc algorithm currently only supports 2d data")
+        if self.algorithm == "rbc" and self.n_dims > 2 and \
+            self.metric not in ["euclidean", "l2"]:
+            raise ValueError("The rbc algorithm in >2 dimensions is only"
+                             " supported for the Euclidean metric currently.")
 
         if is_sparse(X):
             valid_metrics = cuml.neighbors.VALID_METRICS_SPARSE
