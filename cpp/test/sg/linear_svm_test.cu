@@ -21,6 +21,7 @@
 #include <cuml/datasets/make_regression.hpp>
 #include <cuml/svm/linear.hpp>
 #include <raft/linalg/map_then_reduce.cuh>
+#include <raft/linalg/reduce.cuh>
 #include <raft/linalg/unary_op.cuh>
 #include <raft/random/rng.cuh>
 #include <rmm/device_scalar.hpp>
@@ -119,6 +120,109 @@ struct LinearSVMTest : public ::testing::TestWithParam<typename ParamsReader::Pa
              << "Error rate = " << error << " > tolerance = " << params.tolerance;
   }
 
+  testing::AssertionResult probabilitySumsToOne()
+  {
+    if (!params.modelParams.probability)
+      return testing::AssertionFailure() << "Non-probabolistic model does not support this test.";
+    if (params.nClasses < 2)
+      return testing::AssertionFailure() << "Regression model does not support this test.";
+
+    auto [XBuf, yBuf]    = genData(params.nRowsTrain + params.nRowsTest);
+    auto [XTrain, XTest] = splitData(XBuf, params.nRowsTrain, params.nCols);
+    auto [yTrain, yTest] = splitData(yBuf, params.nRowsTrain, 1);
+    LinearSVMModel<T> model(handle,
+                            params.modelParams,
+                            XTrain.data(),
+                            params.nRowsTrain,
+                            params.nCols,
+                            yTrain.data(),
+                            (const T*)nullptr);
+
+    rmm::device_scalar<T> errorBuf(stream);
+    rmm::device_uvector<T> yProbs(yTest.size() * params.nClasses, stream);
+    model.predict_proba(XTest.data(), params.nRowsTest, params.nCols, false, yProbs.data());
+
+    rmm::device_uvector<T> yOut(yTest.size(), stream);
+    raft::linalg::reduce<T, T, int>(
+      yOut.data(), yProbs.data(), params.nClasses, params.nRowsTest, 0, true, true, stream);
+    raft::linalg::mapThenReduce(
+      errorBuf.data(),
+      params.nRowsTest,
+      T(0),
+      [] __device__(const T yOut) { return raft::myAbs<T>(1.0 - yOut); },
+      cub::Max(),
+      stream,
+      yOut.data());
+    T error = errorBuf.value(stream);
+    if (error <= params.tolerance)
+      return testing::AssertionSuccess();
+    else
+      return testing::AssertionFailure()
+             << "Sum of probabilities deviated from zero (error = " << error << ")";
+  }
+
+  testing::AssertionResult probabilityErrorRate()
+  {
+    if (!params.modelParams.probability)
+      return testing::AssertionFailure() << "Non-probabolistic model does not support this test.";
+    if (params.nClasses < 2)
+      return testing::AssertionFailure() << "Regression model does not support this test.";
+
+    auto [XBuf, yBuf]    = genData(params.nRowsTrain + params.nRowsTest);
+    auto [XTrain, XTest] = splitData(XBuf, params.nRowsTrain, params.nCols);
+    auto [yTrain, yTest] = splitData(yBuf, params.nRowsTrain, 1);
+    LinearSVMModel<T> model(handle,
+                            params.modelParams,
+                            XTrain.data(),
+                            params.nRowsTrain,
+                            params.nCols,
+                            yTrain.data(),
+                            (const T*)nullptr);
+
+    rmm::device_scalar<T> errorBuf(stream);
+    rmm::device_uvector<T> yProbs(yTest.size() * params.nClasses, stream);
+    rmm::device_uvector<T> yOut(yTest.size(), stream);
+    model.predict_proba(XTest.data(), params.nRowsTest, params.nCols, false, yProbs.data());
+
+    raft::linalg::reduce<T, T, int>(
+      yOut.data(),
+      yProbs.data(),
+      params.nClasses,
+      params.nRowsTest,
+      0,
+      true,
+      true,
+      stream,
+      false,
+      [] __device__(const T p, const int i) { return T(i * 2) + p + 0.5; },
+      [] __device__(const T a, const T b) { return fmod(a, 2) >= fmod(b, 2) ? a : b; });
+    raft::linalg::mapThenSumReduce(
+      errorBuf.data(),
+      params.nRowsTest,
+      [] __device__(const T yRef, const T yOut) {
+        T p = yOut - 2 * yRef;
+        return T(p <= 0 || p >= 2);
+      },
+      stream,
+      yTest.data(),
+      yOut.data());
+    // getting the error value forces the stream synchronization
+    T error = errorBuf.value(stream) / T(params.nRowsTest);
+
+    if (error <= params.tolerance) return testing::AssertionSuccess();
+
+    std::cout << "out: ";
+    for (int i = 0; i < params.nRowsTest; i++)
+      std::cout << yOut.element(i, stream) << ", ";
+    std::cout << std::endl;
+    std::cout << "ref: ";
+    for (int i = 0; i < params.nRowsTest; i++)
+      std::cout << yTest.element(i, stream) << ", ";
+    std::cout << std::endl;
+    return testing::AssertionFailure()
+           << "Error rate = " << error << " > tolerance = " << params.tolerance;
+  }
+
   /** Generate a required amount of (X, y) data at once. */
   std::tuple<rmm::device_uvector<T>, rmm::device_uvector<T>> genData(const int nRows)
   {
@@ -210,12 +314,12 @@ struct LinearSVMTest : public ::testing::TestWithParam<typename ParamsReader::Pa
   }
 };
 
-#define TEST_ErrorRate(TestClass, ElemType)                       \
+#define TEST_SVM(fun, TestClass, ElemType)                        \
   typedef LinearSVMTest<float, TestClass> TestClass##_##ElemType; \
-  TEST_P(TestClass##_##ElemType, ErrorRate)                       \
+  TEST_P(TestClass##_##ElemType, fun)                             \
   {                                                               \
     if (!isInputValid()) GTEST_SKIP();                            \
-    ASSERT_TRUE(errorRate());                                     \
+    ASSERT_TRUE(fun());                                           \
   }                                                               \
   INSTANTIATE_TEST_SUITE_P(LinearSVM, TestClass##_##ElemType, TestClass##Params)
 
@@ -266,7 +370,7 @@ struct TestClasBias {
   }
 };
 
-auto TestClasManyClassesParams = ::testing::Values(2, 3, 8, 15, 31, 32, 33, 67);
+auto TestClasManyClassesParams = ::testing::Values(2, 3, 16, 31, 32, 33, 67);
 
 struct TestClasManyClasses {
   typedef int Params;
@@ -275,6 +379,47 @@ struct TestClasManyClasses {
     LinearSVMParams mp;
     return {.nRowsTrain  = 1000,
             .nRowsTest   = 1000,
+            .nCols       = 200,
+            .nClasses    = ps,
+            .errStd      = 1.0,
+            .bias        = 0,
+            .tolerance   = 0.01,
+            .seed        = 42ULL,
+            .modelParams = mp};
+  }
+};
+
+auto TestClasProbsSumParams = ::testing::Values(2, 3, 16, 31, 32, 33, 67);
+
+struct TestClasProbsSum {
+  typedef int Params;
+  static LinearSVMTestParams read(Params ps)
+  {
+    LinearSVMParams mp;
+    mp.probability = true;
+    mp.max_iter    = 100;
+    return {.nRowsTrain  = 100,
+            .nRowsTest   = 100,
+            .nCols       = 80,
+            .nClasses    = ps,
+            .errStd      = 1.0,
+            .bias        = 0,
+            .tolerance   = 1e-5,
+            .seed        = 42ULL,
+            .modelParams = mp};
+  }
+};
+
+auto TestClasProbsParams = ::testing::Values(2, 3, 16, 31, 32, 33, 67);
+
+struct TestClasProbs {
+  typedef int Params;
+  static LinearSVMTestParams read(Params ps)
+  {
+    LinearSVMParams mp;
+    mp.probability = true;
+    return {.nRowsTrain  = 1000,
+            .nRowsTest   = 100,
             .nCols       = 200,
             .nClasses    = ps,
             .errStd      = 1.0,
@@ -320,13 +465,17 @@ struct TestRegTargets {
   }
 };
 
-TEST_ErrorRate(TestClasTargets, float);
-TEST_ErrorRate(TestClasTargets, double);
-TEST_ErrorRate(TestClasBias, float);
-TEST_ErrorRate(TestClasManyClasses, float);
-TEST_ErrorRate(TestClasManyClasses, double);
-TEST_ErrorRate(TestRegTargets, float);
-TEST_ErrorRate(TestRegTargets, double);
+TEST_SVM(errorRate, TestClasTargets, float);
+TEST_SVM(errorRate, TestClasTargets, double);
+TEST_SVM(errorRate, TestClasBias, float);
+TEST_SVM(errorRate, TestClasManyClasses, float);
+TEST_SVM(errorRate, TestClasManyClasses, double);
+TEST_SVM(errorRate, TestRegTargets, float);
+TEST_SVM(errorRate, TestRegTargets, double);
+TEST_SVM(probabilitySumsToOne, TestClasProbsSum, float);
+TEST_SVM(probabilitySumsToOne, TestClasProbsSum, double);
+TEST_SVM(probabilityErrorRate, TestClasProbs, float);
+TEST_SVM(probabilityErrorRate, TestClasProbs, double);
 
 }  // namespace SVM
 }  // namespace ML

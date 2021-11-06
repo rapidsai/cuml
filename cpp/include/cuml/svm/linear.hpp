@@ -93,16 +93,18 @@ class LinearSVMModel {
   /** Sorted, unique values of input array `y`. */
   rmm::device_uvector<T> classes;
   /**
-   * C-style (row-major) matrix of coefficients of size `coefCols * coefRows`
+   * C-style (row-major) matrix of coefficients of size `(coefRows, coefCols)`
    * where
    *   coefRows = nCols + (params.fit_intercept ? 1 : 0)
    *   coefCols = n_classes == 2 ? 1 : n_classes
    */
   rmm::device_uvector<T> w;
   /**
-   * Vector of the probabolistic model coefficients.
-   * It's size is `0` if `LinearSVMParams.probability == false`.
-   * Otherwise, it's size is `n_classes + (n_classes > 2 ? 1 : 0)`.
+   * C-style (row-major) matrix of the probabolistic model calibration coefficients.
+   * It's empty if `LinearSVMParams.probability == false`.
+   * Otherwise, it's size is `(2, coefCols)`.
+   * where
+   *   coefCols = n_classes == 2 ? 1 : n_classes
    */
   rmm::device_uvector<T> probScale;
 
@@ -130,7 +132,6 @@ class LinearSVMModel {
     const int nRows,
     const int nCols,
     const bool log,
-    /** Single vector of either real (regression) or categorical (classification) values. */
     T* out) const;
 };
 

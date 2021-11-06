@@ -179,7 +179,7 @@ __global__ void predictProba(T* out, const T* z, const int nRows, const int nCla
     j += BX;
     if (j >= nClasses) break;
     t = rowIn[j];
-    if constexpr (Log) et = raft::myExp<T>(t - maxVal);
+    if constexpr (!Log) et = raft::myExp<T>(t - maxVal);
   }
 }
 
@@ -229,10 +229,15 @@ template <typename T>
 struct OvrSelector {
   const T* classes;
   const int selected;
-  __device__ T operator()(const T x) const { return x == classes[selected] ? 1 : -1; }
+  __device__ T operator()(const T x) const { return x == classes[selected] ? 1 : 0; }
 };
 
-/** The linear part of the prediction. */
+/** The linear part of the prediction.
+ *
+ * @param X - [in] column-major matrix of size (nRows, nCols)
+ * @param w - [in] row-major matrix of size [nCols + fitIntercept, coefCols]
+ * @param out - [out] row-major matrix of size [nRows, coefCols]
+ */
 template <typename T>
 void predict_linear(const raft::handle_t& handle,
                     const T* X,
@@ -249,7 +254,7 @@ void predict_linear(const raft::handle_t& handle,
 
   if (fitIntercept)
     raft::linalg::matrixVectorOp(
-      out, out, w + nCols * coefCols, nRows, coefCols, false, false, cub::Sum(), stream);
+      out, out, w + nCols * coefCols, coefCols, nRows, true, true, cub::Sum(), stream);
 }
 
 };  // namespace
@@ -286,7 +291,6 @@ LinearSVMModel<T>::LinearSVMModel(const raft::handle_t& handle,
 
   ML::PUSH_RANGE("Trace::LinearSVMModel::fit");
   w.resize(coefCols * coefRows, stream);
-  CUDA_CHECK(cudaMemsetAsync(w.data(), 0, w.size() * sizeof(T), stream));
 
   auto nCols1 = nCols + int(params.fit_intercept && params.penalized_intercept);
   T iC        = params.C > 0 ? (1.0 / params.C) : 1.0;
@@ -310,10 +314,14 @@ LinearSVMModel<T>::LinearSVMModel(const raft::handle_t& handle,
     default: break;
   }
 
-  T* y1 = (T*)y;
-  T* w1 = w.data();
+  if (params.probability) { probScale.resize(coefCols * 2, stream); }
+
+  T* y1  = (T*)y;
+  T* w1  = w.data();
+  T* ps1 = probScale.data();
   rmm::device_uvector<T> y1Buf(0, stream);
   rmm::device_uvector<T> w1Buf(0, stream);
+  rmm::device_uvector<T> psBuf(probScale.size(), stream);
   if (nClasses > 1) {
     y1Buf.resize(nRows * coefCols, stream);
     y1 = y1Buf.data();
@@ -321,6 +329,15 @@ LinearSVMModel<T>::LinearSVMModel(const raft::handle_t& handle,
   if (coefCols > 1) {
     w1Buf.resize(w.size(), stream);
     w1 = w1Buf.data();
+    if (params.probability) {
+      psBuf.resize(probScale.size(), stream);
+      ps1 = psBuf.data();
+    }
+  }
+  CUDA_CHECK(cudaMemsetAsync(w1, 0, w.size() * sizeof(T), stream));
+  if (params.probability) {
+    thrust::device_ptr<thrust::tuple<T, T>> p((thrust::tuple<T, T>*)ps1);
+    thrust::fill(thrust::cuda::par.on(stream), p, p + coefCols, thrust::make_tuple(T(1), T(0)));
   }
 
   // one-vs-rest logic goes over each class
@@ -338,10 +355,13 @@ LinearSVMModel<T>::LinearSVMModel(const raft::handle_t& handle,
                       nRows,
                       coefRows,
                       params,
+                      X,
                       X1,
+                      ps1,
                       y,
                       n_streams,
                       classes1,
+                      nCols,
                       nCols1,
                       iC,
                       qn_loss,
@@ -377,6 +397,37 @@ LinearSVMModel<T>::LinearSVMModel(const raft::handle_t& handle,
                   s,
                   (T*)sampleWeight,
                   T(params.epsilon));
+
+    if (!params.probability) return;
+    // Calibrate probabilities
+    T* psi = ps1 + 2 * class_i;
+    rmm::device_uvector<T> xwBuf(nRows, s);
+    T* xw = xwBuf.data();
+    predict_linear(handle, X, wi, nRows, nCols, 1, params.fit_intercept, xw, s);
+
+    GLM::qnFit<T>(handle,
+                  xw,
+                  false,
+                  yi,
+                  nRows,
+                  1,
+                  2,
+                  true,
+                  0,
+                  /** L2 regularization reflects the flat prior. */
+                  1 / T(1 + nRows),
+                  params.max_iter,
+                  T(params.grad_tol),
+                  T(params.change_tol),
+                  params.linesearch_max_iter,
+                  params.lbfgs_memory,
+                  params.verbose,
+                  psi,
+                  &target,
+                  &num_iters,
+                  ML::GLM::QN_LOSS_LOGISTIC,
+                  s,
+                  (T*)sampleWeight);
   };
   if (parallel) {
     std::vector<std::thread> threads;
@@ -393,52 +444,13 @@ LinearSVMModel<T>::LinearSVMModel(const raft::handle_t& handle,
       solveBinary(class_i);
   }
 
-  if (coefCols > 1) raft::linalg::transpose(handle, w1, w.data(), coefRows, coefCols, stream);
+  if (coefCols > 1) {
+    raft::linalg::transpose(handle, w1, w.data(), coefRows, coefCols, stream);
+    if (params.probability)
+      raft::linalg::transpose(handle, ps1, probScale.data(), 2, coefCols, stream);
+  }
 
   ML::POP_RANGE();
-
-  /** TODO: probabolisting calibration is disabled for now, multiclass case is not ready. */
-  // if (!params.probability) return;
-
-  // ML::PUSH_RANGE("Trace::LinearSVMModel::fit-probabilities");
-  // probScale.resize(coefCols * (coefCols + 1), stream);
-
-  // rmm::device_uvector<T> xwBuf(nRows * coefCols, stream);
-  // T* xw = xwBuf.data();
-  // predict_linear(handle, X, w.data(), nRows, nCols, coefCols, params.fit_intercept, xw, stream);
-
-  // // here we should encode the labels into corresponding `classes` indices.
-  // // for now, we assume labels are the values from 0 to classes.size() - 1.
-  // // raft::linalg::unaryOp(y1, y, nRows, IndicatorFun<T>{T(params.H1_value)}, stream);
-
-  // GLM::qnFit<T>(handle,
-  //               xw,
-  //               false,
-  //               (T*)y,
-  //               nRows,
-  //               coefCols,
-  //               nClasses,
-  //               true,
-  //               0,
-  //               0,
-  //               params.max_iter,
-  //               T(params.grad_tol),
-  //               T(params.change_tol),
-  //               params.linesearch_max_iter,
-  //               params.lbfgs_memory,
-  //               params.verbose,
-  //               probScale.data(),
-  //               &target,
-  //               &num_iters,
-  //               nClasses == 2 ? 0 /* logistic loss*/ : 2 /** softmax */,
-  //               stream,
-  //               (T*)sampleWeight);
-
-  // CUML_LOG_DEBUG("LinearSVM finished fitting probabilities in %d iterations out of maximum %d.",
-  //                num_iters,
-  //                params.max_iter);
-
-  // ML::POP_RANGE();
 }
 
 template <typename T>
@@ -471,12 +483,25 @@ void LinearSVMModel<T>::predict_proba(
   const int nClasses  = classes.size();
   const int coefCols  = nClasses <= 2 ? 1 : nClasses;
   rmm::device_uvector<T> temp(nRows * coefCols, stream);
-  predict_linear(
-    handle, X, w.data(), nRows, nCols, coefCols, params.fit_intercept, temp.data(), stream);
 
-  /** TODO: apply probScale calibration! */
+  // linear part
+  predict_linear(handle, X, w.data(), nRows, nCols, coefCols, params.fit_intercept, out, stream);
 
-  PredictProba<T>::run(out, temp.data(), nRows, classes.size(), log, handle.get_stream());
+  // probability calibration
+  raft::linalg::matrixVectorOp(
+    temp.data(),
+    out,
+    probScale.data(),
+    probScale.data() + coefCols,
+    coefCols,
+    nRows,
+    true,
+    true,
+    [] __device__(const T x, const T a, const T b) { return a * x + b; },
+    stream);
+
+  // apply sigmoid/softmax
+  PredictProba<T>::run(out, temp.data(), nRows, nClasses, log, stream);
 }
 
 template class LinearSVMModel<float>;

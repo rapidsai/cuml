@@ -37,11 +37,11 @@ enum QN_LOSS_TYPE : int {
    */
   QN_LOSS_SOFTMAX = 2,
   /** Hinge.
-   *  Expected target: {-1, 1}.
+   *  Expected target: {0, 1}.
    */
   QN_LOSS_SVC_L1 = 3,
   /** Squared-hinge.
-   *  Expected target: {-1, 1}.
+   *  Expected target: {0, 1}.
    */
   QN_LOSS_SVC_L2 = 4,
   /** Epsilon-insensitive.

@@ -346,7 +346,7 @@ cdef class LinearSVMWrapper:
             ) if nClasses > 0 else None
         self.__probScale_ = CumlArray(
             probScale_ptr, dtype=self.dtype,
-            shape=(2 * wCols, ), owner=self, order='F'
+            shape=(wCols, 2), owner=self, order='F'
             ) if params.probability else None
 
         # copy the passed state

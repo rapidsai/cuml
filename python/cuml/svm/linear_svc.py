@@ -120,7 +120,7 @@ class LinearSVC(LinearSVM, ClassifierMixin):
         The vectors defining the hyperplanes that separate the classes.
     classes_: float, shape (n_classes_,)
         Array of class labels.
-    probScale_: float, shape (n_classes_ * 2,)
+    probScale_: float, shape (n_classes_, 2)
         Probability calibration constants (for the probabolistic output).
     n_classes_ : int
         Number of classes
