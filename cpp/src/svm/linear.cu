@@ -19,14 +19,13 @@
  * @brief Fit linear SVM.
  */
 
-#include <iostream>
 #include <random>
-#include <thread>
 #include <type_traits>
 
 #include <cublas_v2.h>
 #include <cuml/svm/svm_model.h>
 #include <cuml/svm/svm_parameter.h>
+#include <omp.h>
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/gemv.h>
 #include <raft/linalg/transpose.h>
@@ -371,31 +370,13 @@ LinearSVMModel<T> LinearSVMModel<T>::fit(const raft::handle_t& handle,
   // one-vs-rest logic goes over each class
   std::vector<T> targets(coefCols);
   std::vector<int> num_iters(coefCols);
-  int n_streams    = handle.get_num_internal_streams();
-  bool parallel    = n_streams > 1 && coefCols > 1;
-  auto solveBinary = [&handle,
-                      y1,
-                      w1,
-                      parallel,
-                      stream,
-                      nClasses,
-                      nRows,
-                      coefRows,
-                      params,
-                      X,
-                      X1,
-                      ps1,
-                      y,
-                      n_streams,
-                      &model,
-                      nCols,
-                      nCols1,
-                      iC,
-                      qn_loss,
-                      sampleWeight](int class_i) {
+  const int n_streams = coefCols > 1 ? handle.get_num_internal_streams() : 1;
+  bool parallel       = n_streams > 1;
+#pragma omp parallel for num_threads(n_streams)
+  for (int class_i = 0; class_i < coefCols; class_i++) {
     T* yi  = y1 + nRows * class_i;
     T* wi  = w1 + coefRows * class_i;
-    auto s = parallel ? handle.get_internal_stream(class_i % n_streams) : stream;
+    auto s = parallel ? handle.get_internal_stream(omp_get_thread_num()) : stream;
     if (nClasses > 1) {
       raft::linalg::unaryOp(
         yi, y, nRows, OvrSelector<T>{model.classes, nClasses == 2 ? 1 : class_i}, s);
@@ -426,7 +407,7 @@ LinearSVMModel<T> LinearSVMModel<T>::fit(const raft::handle_t& handle,
                   (T*)sampleWeight,
                   T(params.epsilon));
 
-    if (!params.probability) return;
+    if (!params.probability) continue;
     // Calibrate probabilities
     T* psi = ps1 + 2 * class_i;
     rmm::device_uvector<T> xwBuf(nRows, s);
@@ -456,21 +437,8 @@ LinearSVMModel<T> LinearSVMModel<T>::fit(const raft::handle_t& handle,
                   ML::GLM::QN_LOSS_LOGISTIC,
                   s,
                   (T*)sampleWeight);
-  };
-  if (parallel) {
-    std::vector<std::thread> threads;
-    threads.reserve(coefCols);
-    int class_i = 0;
-    std::generate_n(std::back_inserter(threads), coefCols, [&solveBinary, &class_i] {
-      return std::move(std::thread(solveBinary, class_i++));
-    });
-    for (auto& thread : threads)
-      thread.join();                    // make sure all stream actions are recorded...
-    handle.wait_on_internal_streams();  // ... and executed
-  } else {
-    for (int class_i = 0; class_i < coefCols; class_i++)
-      solveBinary(class_i);
   }
+  if (parallel) handle.wait_on_internal_streams();
 
   if (coefCols > 1) {
     raft::linalg::transpose(handle, w1, model.w, coefRows, coefCols, stream);
