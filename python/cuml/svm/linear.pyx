@@ -374,7 +374,6 @@ cdef class LinearSVMWrapper:
             LinearSVMModel[double].free(
                 deref(self.handle), self.model.float64)
 
-
     @property
     def coef_(self) -> CumlArray:
         return self.__coef_
