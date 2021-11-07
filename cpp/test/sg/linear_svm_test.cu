@@ -228,18 +228,11 @@ struct LinearSVMTest : public ::testing::TestWithParam<typename ParamsReader::Pa
     T error = errorBuf.value(stream) / T(params.nRowsTest);
 
     LinearSVMModel<T>::free(handle, model);
-    if (error <= params.tolerance) return testing::AssertionSuccess();
-
-    std::cout << "out: ";
-    for (int i = 0; i < params.nRowsTest; i++)
-      std::cout << yOut.element(i, stream) << ", ";
-    std::cout << std::endl;
-    std::cout << "ref: ";
-    for (int i = 0; i < params.nRowsTest; i++)
-      std::cout << yTest.element(i, stream) << ", ";
-    std::cout << std::endl;
-    return testing::AssertionFailure()
-           << "Error rate = " << error << " > tolerance = " << params.tolerance;
+    if (error <= params.tolerance)
+      return testing::AssertionSuccess();
+    else
+      return testing::AssertionFailure()
+             << "Error rate = " << error << " > tolerance = " << params.tolerance;
   }
 
   /** Generate a required amount of (X, y) data at once. */
