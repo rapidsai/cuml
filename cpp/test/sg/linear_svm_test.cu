@@ -78,16 +78,17 @@ struct LinearSVMTest : public ::testing::TestWithParam<typename ParamsReader::Pa
     auto [XBuf, yBuf]    = genData(params.nRowsTrain + params.nRowsTest);
     auto [XTrain, XTest] = splitData(XBuf, params.nRowsTrain, params.nCols);
     auto [yTrain, yTest] = splitData(yBuf, params.nRowsTrain, 1);
-    LinearSVMModel<T> model(handle,
-                            params.modelParams,
-                            XTrain.data(),
-                            params.nRowsTrain,
-                            params.nCols,
-                            yTrain.data(),
-                            (const T*)nullptr);
+    auto model           = LinearSVMModel<T>::fit(handle,
+                                        params.modelParams,
+                                        XTrain.data(),
+                                        params.nRowsTrain,
+                                        params.nCols,
+                                        yTrain.data(),
+                                        (const T*)nullptr);
 
     rmm::device_uvector<T> yOut(yTest.size(), stream);
-    model.predict(XTest.data(), params.nRowsTest, params.nCols, yOut.data());
+    LinearSVMModel<T>::predict(
+      handle, params.modelParams, model, XTest.data(), params.nRowsTest, params.nCols, yOut.data());
 
     rmm::device_scalar<T> errorBuf(stream);
     if (params.nClasses == 1)  // regression
@@ -113,6 +114,7 @@ struct LinearSVMTest : public ::testing::TestWithParam<typename ParamsReader::Pa
     // getting the error value forces the stream synchronization
     T error = errorBuf.value(stream) / T(params.nRowsTest);
 
+    LinearSVMModel<T>::free(handle, model);
     if (error <= params.tolerance)
       return testing::AssertionSuccess();
     else
@@ -130,17 +132,24 @@ struct LinearSVMTest : public ::testing::TestWithParam<typename ParamsReader::Pa
     auto [XBuf, yBuf]    = genData(params.nRowsTrain + params.nRowsTest);
     auto [XTrain, XTest] = splitData(XBuf, params.nRowsTrain, params.nCols);
     auto [yTrain, yTest] = splitData(yBuf, params.nRowsTrain, 1);
-    LinearSVMModel<T> model(handle,
-                            params.modelParams,
-                            XTrain.data(),
-                            params.nRowsTrain,
-                            params.nCols,
-                            yTrain.data(),
-                            (const T*)nullptr);
+    auto model           = LinearSVMModel<T>::fit(handle,
+                                        params.modelParams,
+                                        XTrain.data(),
+                                        params.nRowsTrain,
+                                        params.nCols,
+                                        yTrain.data(),
+                                        (const T*)nullptr);
 
     rmm::device_scalar<T> errorBuf(stream);
     rmm::device_uvector<T> yProbs(yTest.size() * params.nClasses, stream);
-    model.predict_proba(XTest.data(), params.nRowsTest, params.nCols, false, yProbs.data());
+    LinearSVMModel<T>::predictProba(handle,
+                                    params.modelParams,
+                                    model,
+                                    XTest.data(),
+                                    params.nRowsTest,
+                                    params.nCols,
+                                    false,
+                                    yProbs.data());
 
     rmm::device_uvector<T> yOut(yTest.size(), stream);
     raft::linalg::reduce<T, T, int>(
@@ -154,6 +163,8 @@ struct LinearSVMTest : public ::testing::TestWithParam<typename ParamsReader::Pa
       stream,
       yOut.data());
     T error = errorBuf.value(stream);
+
+    LinearSVMModel<T>::free(handle, model);
     if (error <= params.tolerance)
       return testing::AssertionSuccess();
     else
@@ -171,18 +182,25 @@ struct LinearSVMTest : public ::testing::TestWithParam<typename ParamsReader::Pa
     auto [XBuf, yBuf]    = genData(params.nRowsTrain + params.nRowsTest);
     auto [XTrain, XTest] = splitData(XBuf, params.nRowsTrain, params.nCols);
     auto [yTrain, yTest] = splitData(yBuf, params.nRowsTrain, 1);
-    LinearSVMModel<T> model(handle,
-                            params.modelParams,
-                            XTrain.data(),
-                            params.nRowsTrain,
-                            params.nCols,
-                            yTrain.data(),
-                            (const T*)nullptr);
+    auto model           = LinearSVMModel<T>::fit(handle,
+                                        params.modelParams,
+                                        XTrain.data(),
+                                        params.nRowsTrain,
+                                        params.nCols,
+                                        yTrain.data(),
+                                        (const T*)nullptr);
 
     rmm::device_scalar<T> errorBuf(stream);
     rmm::device_uvector<T> yProbs(yTest.size() * params.nClasses, stream);
     rmm::device_uvector<T> yOut(yTest.size(), stream);
-    model.predict_proba(XTest.data(), params.nRowsTest, params.nCols, false, yProbs.data());
+    LinearSVMModel<T>::predictProba(handle,
+                                    params.modelParams,
+                                    model,
+                                    XTest.data(),
+                                    params.nRowsTest,
+                                    params.nCols,
+                                    false,
+                                    yProbs.data());
 
     raft::linalg::reduce<T, T, int>(
       yOut.data(),
@@ -209,6 +227,7 @@ struct LinearSVMTest : public ::testing::TestWithParam<typename ParamsReader::Pa
     // getting the error value forces the stream synchronization
     T error = errorBuf.value(stream) / T(params.nRowsTest);
 
+    LinearSVMModel<T>::free(handle, model);
     if (error <= params.tolerance) return testing::AssertionSuccess();
 
     std::cout << "out: ";

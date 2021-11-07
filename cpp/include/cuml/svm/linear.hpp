@@ -22,7 +22,6 @@
  */
 
 #include <raft/handle.hpp>
-#include <rmm/device_uvector.hpp>
 
 namespace ML {
 namespace SVM {
@@ -85,54 +84,109 @@ struct LinearSVMParams {
 };
 
 template <typename T>
-class LinearSVMModel {
- public:
-  const raft::handle_t& handle;
-  const LinearSVMParams params;
-
-  /** Sorted, unique values of input array `y`. */
-  rmm::device_uvector<T> classes;
+struct LinearSVMModel {
   /**
    * C-style (row-major) matrix of coefficients of size `(coefRows, coefCols)`
    * where
    *   coefRows = nCols + (params.fit_intercept ? 1 : 0)
-   *   coefCols = n_classes == 2 ? 1 : n_classes
+   *   coefCols = nClasses == 2 ? 1 : nClasses
    */
-  rmm::device_uvector<T> w;
+  T* w;
+  /** Sorted, unique values of input array `y`. */
+  T* classes = nullptr;
   /**
    * C-style (row-major) matrix of the probabolistic model calibration coefficients.
    * It's empty if `LinearSVMParams.probability == false`.
    * Otherwise, it's size is `(2, coefCols)`.
    * where
-   *   coefCols = n_classes == 2 ? 1 : n_classes
+   *   coefCols = nClasses == 2 ? 1 : nClasses
    */
-  rmm::device_uvector<T> probScale;
+  T* probScale = nullptr;
+  /** Number of classes (not applicable for regression). */
+  int nClasses = 0;
+  /** Number of rows of `w`, which is the number of data features plus maybe bias. */
+  int coefRows;
 
-  /** Construct the model without training. */
-  LinearSVMModel(const raft::handle_t& handle, const LinearSVMParams params);
+  /** It's 1 for binary classification or regression; nClasses for multiclass. */
+  inline int coefCols() const { return nClasses <= 2 ? 1 : nClasses; }
 
-  /** Train the model. */
-  LinearSVMModel(
-    const raft::handle_t& handle,
-    const LinearSVMParams params,
-    /** Input data matrix of size [nRows * nCols] in column-major format. */
-    const T* X,
-    const int nRows,
-    const int nCols,
-    /** Single vector of either real (regression) or categorical (classification) values. */
-    const T* y,
-    const T* sampleWeight);
+  /**
+   * @brief Allocate and fit the LinearSVM model.
+   *
+   * @param [in] handle the cuML handle.
+   * @param [in] params the model parameters.
+   * @param [in] X the input data matrix of size (nRows, nCols) in column-major format.
+   * @param [in] nRows the number of input samples.
+   * @param [in] nCols the number of feature dimensions.
+   * @param [in] y the target - a single vector of either real (regression) or
+   *               categorical (classification) values (nRows, ).
+   * @param [in] sampleWeight the non-negative weights for the training sample (nRows, ).
+   * @return the trained model (don't forget to call `free` on it after use).
+   */
+  static LinearSVMModel<T> fit(const raft::handle_t& handle,
+                               const LinearSVMParams& params,
+                               const T* X,
+                               const int nRows,
+                               const int nCols,
+                               const T* y,
+                               const T* sampleWeight);
 
-  void predict(const T* X, const int nRows, const int nCols, T* out) const;
+  /**
+   * @brief Explicitly allocate the data for the model without training it.
+   *
+   * @param [in] handle the cuML handle.
+   * @param [in] params the model parameters.
+   * @param [in] nCols the number of feature dimensions.
+   * @param [in] nClasses the number of classes in the dataset (not applicable for regression).
+   * @return the trained model (don't forget to call `free` on it after use).
+   */
+  static LinearSVMModel<T> allocate(const raft::handle_t& handle,
+                                    const LinearSVMParams& params,
+                                    const int nCols,
+                                    const int nClasses = 0);
 
-  /** For SVC, predict the probabilities for each outcome. */
-  void predict_proba(
-    /** Input data matrix of size [nRows * nCols] in column-major format. */
-    const T* X,
-    const int nRows,
-    const int nCols,
-    const bool log,
-    T* out) const;
+  /** @brief Free the allocated memory. The model is not usable after the call of this method. */
+  static void free(const raft::handle_t& handle, LinearSVMModel<T>& model);
+
+  /**
+   * @brief Predict using the trained LinearSVM model.
+   *
+   * @param [in] handle the cuML handle.
+   * @param [in] params the model parameters.
+   * @param [in] model the trained model.
+   * @param [in] X the input data matrix of size (nRows, nCols) in column-major format.
+   * @param [in] nRows the number of input samples.
+   * @param [in] nCols the number of feature dimensions.
+   * @param [out] out the predictions (nRows, ).
+   */
+  static void predict(const raft::handle_t& handle,
+                      const LinearSVMParams& params,
+                      const LinearSVMModel<T>& model,
+                      const T* X,
+                      const int nRows,
+                      const int nCols,
+                      T* out);
+
+  /**
+   * @brief For SVC, predict the probabilities for each outcome.
+   *
+   * @param [in] handle the cuML handle.
+   * @param [in] params the model parameters.
+   * @param [in] model the trained model.
+   * @param [in] X the input data matrix of size (nRows, nCols) in column-major format.
+   * @param [in] nRows the number of input samples.
+   * @param [in] nCols the number of feature dimensions.
+   * @param [in] log whether to output log-probabilities instead of probabilities.
+   * @param [out] out the estimated probabilities (nRows, nClasses) in row-major format.
+   */
+  static void predictProba(const raft::handle_t& handle,
+                           const LinearSVMParams& params,
+                           const LinearSVMModel<T>& model,
+                           const T* X,
+                           const int nRows,
+                           const int nCols,
+                           const bool log,
+                           T* out);
 };
 
 }  // namespace SVM

@@ -69,23 +69,47 @@ cdef extern from "cuml/svm/linear.hpp" namespace "ML::SVM":
 
     cdef cppclass LinearSVMModel[T]:
         const handle_t& handle
-        device_uvector[T] classes
-        device_uvector[T] w
-        device_uvector[T] probScale
-        LinearSVMModel(
+        T* classes
+        T* w
+        T* probScale
+        int nClasses
+        int coefRows
+        int coefCols()
+
+        @staticmethod
+        LinearSVMModel[T] allocate(
             const handle_t& handle,
-            const LinearSVMParams params) except +
-        LinearSVMModel(
+            const LinearSVMParams& params,
+            const int nCols,
+            const int nClasses) except +
+
+        @staticmethod
+        void free(
             const handle_t& handle,
-            const LinearSVMParams params,
+            const LinearSVMModel[T]& model) except +
+
+        @staticmethod
+        LinearSVMModel[T] fit(
+            const handle_t& handle,
+            const LinearSVMParams& params,
             const T* X,
             const int nRows,
             const int nCols,
             const T* y,
             const T* sampleWeight) except +
+
+        @staticmethod
         void predict(
+            const handle_t& handle,
+            const LinearSVMParams& params,
+            const LinearSVMModel[T]& model,
             const T* X, const int nRows, const int nCols, T* out) except +
-        void predict_proba(
+
+        @staticmethod
+        void predictProba(
+            const handle_t& handle,
+            const LinearSVMParams& params,
+            const LinearSVMModel[T]& model,
             const T* X, const int nRows, const int nCols,
             const cppbool log, T* out) except +
 
@@ -178,15 +202,15 @@ del __add_prop
 LinearSVM_defaults = LSVMPWrapper()
 '''Default parameter values for LinearSVM, re-exported from C++.'''
 
-cdef union LinearSVMModelPtr:
-    uintptr_t untyped
-    LinearSVMModel[float] * float32
-    LinearSVMModel[double] * float64
+cdef union SomeLinearSVMModel:
+    LinearSVMModel[float] float32
+    LinearSVMModel[double] float64
 
 cdef class LinearSVMWrapper:
     cdef readonly object dtype
-    cdef object handle
-    cdef LinearSVMModelPtr model
+    cdef handle_t* handle
+    cdef LinearSVMParams params
+    cdef SomeLinearSVMModel model
 
     cdef object __coef_
     cdef object __intercept_
@@ -197,9 +221,7 @@ cdef class LinearSVMWrapper:
             self,
             target: CumlArray, source: CumlArray,
             synchronize: bool = True):
-        cdef _Stream stream = (
-            <handle_t*><size_t>self.handle.getHandle()
-            ).get_stream()
+        cdef _Stream stream = self.handle.get_stream()
         if source.shape != target.shape:
             raise AttributeError(
                 f"Expected an array of shape {target.shape}, "
@@ -228,8 +250,8 @@ cdef class LinearSVMWrapper:
             X: typing.Optional[CumlArray] = None,
             y: typing.Optional[CumlArray] = None,
             sampleWeight: typing.Optional[CumlArray] = None):
-        cdef LinearSVMParams params = paramsWrapper.params
-        self.handle = handle
+        self.handle = <handle_t*><size_t>handle.getHandle()
+        self.params = paramsWrapper.params
 
         # check if parameters are passed correctly
         do_training = False
@@ -245,93 +267,76 @@ cdef class LinearSVMWrapper:
                 raise TypeError(
                     "You must provide classes along with the weights "
                     "to the LinearSVMWrapper classifier")
-            if params.probability and probScale is None:
+            if self.params.probability and probScale is None:
                 raise TypeError(
                     "You must provide probability scales "
                     "to the LinearSVMWrapper probabolistic classifier")
-            if params.fit_intercept and intercept is None:
+            if self.params.fit_intercept and intercept is None:
                 raise TypeError(
                     "You must provide intercept value to the LinearSVMWrapper"
                     " estimator with fit_intercept enabled")
 
         self.dtype = X.dtype if do_training else coefs.dtype
-        cdef handle_t* h = <handle_t*><size_t>handle.getHandle()
-        cdef _Stream stream = h.get_stream()
+        cdef _Stream stream = self.handle.get_stream()
         cdef cuda_stream_view sview = cuda_stream_view(stream)
         nClasses = 0
         nCols = 0
-        wCols = 0
-        wRows = 0
+
+        if self.dtype != np.float32 and self.dtype != np.float64:
+            raise TypeError('Input data type must be float32 or float64')
 
         if do_training:
             nCols = X.shape[1]
             sw_ptr = sampleWeight.ptr if sampleWeight is not None else 0
             if self.dtype == np.float32:
-                self.model.float32 = new LinearSVMModel[float](
-                    deref(h), params,
+                self.model.float32 = LinearSVMModel[float].fit(
+                    deref(self.handle), self.params,
                     <const float*><uintptr_t>X.ptr,
                     X.shape[0], nCols,
                     <const float*><uintptr_t>y.ptr,
                     <const float*><uintptr_t>sw_ptr)
-                nClasses = self.model.float32.classes.size()
+                nClasses = self.model.float32.nClasses
             elif self.dtype == np.float64:
-                self.model.float64 = new LinearSVMModel[double](
-                    deref(h), params,
+                self.model.float64 = LinearSVMModel[double].fit(
+                    deref(self.handle), self.params,
                     <const double*><uintptr_t>X.ptr,
                     X.shape[0], nCols,
                     <const double*><uintptr_t>y.ptr,
                     <const double*><uintptr_t>sw_ptr)
-                nClasses = self.model.float64.classes.size()
-            else:
-                raise TypeError('Input data type should be float32 or float64')
-            wCols = 1 if nClasses <= 2 else nClasses
-            wRows = nCols + (1 if params.fit_intercept else 0)
+                nClasses = self.model.float64.nClasses
         else:
             nCols = coefs.shape[1]
-            wCols = coefs.shape[0]
-            wRows = nCols + (1 if params.fit_intercept else 0)
             nClasses = classes.shape[0] if classes is not None else 0
-
-            wSize = wCols * wRows
             if self.dtype == np.float32:
-                self.model.float32 = new LinearSVMModel[float](
-                    deref(h), params)
-                self.model.float32.w.resize(wSize, sview)
-                if classes is not None:
-                    self.model.float32.classes.resize(nClasses, sview)
-                if probScale is not None:
-                    pSize = probScale.nbytes / self.dtype.itemsize
-                    self.model.float32.probScale.resize(pSize, sview)
-
+                self.model.float32 = LinearSVMModel[float].allocate(
+                    deref(self.handle), self.params, nCols, nClasses)
             elif self.dtype == np.float64:
-                self.model.float64 = new LinearSVMModel[double](
-                    deref(h), params)
-                self.model.float64.w.resize(wSize, sview)
-                if classes is not None:
-                    self.model.float64.classes.resize(nClasses, sview)
-                if probScale is not None:
-                    pSize = probScale.nbytes / self.dtype.itemsize
-                    self.model.float64.probScale.resize(pSize, sview)
-            else:
-                raise TypeError('Input data type should be float32 or float64')
+                self.model.float64 = LinearSVMModel[double].allocate(
+                    deref(self.handle), self.params, nCols, nClasses)
 
         # prepare the attribute arrays
         cdef uintptr_t coef_ptr = 0
         cdef uintptr_t intercept_ptr = 0
         cdef uintptr_t classes_ptr = 0
         cdef uintptr_t probScale_ptr = 0
+        wCols = 0
+        wRows = 0
         if self.dtype == np.float32:
-            coef_ptr = <uintptr_t>self.model.float32.w.data()
+            wCols = self.model.float32.coefCols()
+            wRows = self.model.float32.coefRows
+            coef_ptr = <uintptr_t>self.model.float32.w
             intercept_ptr = <uintptr_t>(
-                self.model.float32.w.data() + <int>(nCols * wCols))
-            classes_ptr = <uintptr_t>self.model.float32.classes.data()
-            probScale_ptr = <uintptr_t>self.model.float32.probScale.data()
+                self.model.float32.w + <int>(nCols * wCols))
+            classes_ptr = <uintptr_t>self.model.float32.classes
+            probScale_ptr = <uintptr_t>self.model.float32.probScale
         elif self.dtype == np.float64:
-            coef_ptr = <uintptr_t>self.model.float64.w.data()
+            wCols = self.model.float64.coefCols()
+            wRows = self.model.float64.coefRows
+            coef_ptr = <uintptr_t>self.model.float64.w
             intercept_ptr = <uintptr_t>(
-                self.model.float64.w.data() + <int>(nCols * wCols))
-            classes_ptr = <uintptr_t>self.model.float64.classes.data()
-            probScale_ptr = <uintptr_t>self.model.float64.probScale.data()
+                self.model.float64.w + <int>(nCols * wCols))
+            classes_ptr = <uintptr_t>self.model.float64.classes
+            probScale_ptr = <uintptr_t>self.model.float64.probScale
 
         self.__coef_ = CumlArray(
             coef_ptr, dtype=self.dtype,
@@ -339,7 +344,7 @@ cdef class LinearSVMWrapper:
         self.__intercept_ = CumlArray(
             intercept_ptr, dtype=self.dtype,
             shape=(wCols, ), owner=self, order='F'
-            ) if params.fit_intercept else None
+            ) if self.params.fit_intercept else None
         self.__classes_ = CumlArray(
             classes_ptr, dtype=self.dtype,
             shape=(nClasses, ), owner=self, order='F'
@@ -347,7 +352,7 @@ cdef class LinearSVMWrapper:
         self.__probScale_ = CumlArray(
             probScale_ptr, dtype=self.dtype,
             shape=(wCols, 2), owner=self, order='F'
-            ) if params.probability else None
+            ) if self.params.probability else None
 
         # copy the passed state
         if not do_training:
@@ -362,12 +367,13 @@ cdef class LinearSVMWrapper:
         handle.sync()
 
     def __dealloc__(self):
-        if self.model.untyped != 0:
-            if self.dtype == np.float32:
-                del self.model.float32
-            elif self.dtype == np.float64:
-                del self.model.float64
-        self.model.untyped = 0
+        if self.dtype == np.float32:
+            LinearSVMModel[float].free(
+                deref(self.handle), self.model.float32)
+        elif self.dtype == np.float64:
+            LinearSVMModel[double].free(
+                deref(self.handle), self.model.float64)
+
 
     @property
     def coef_(self) -> CumlArray:
@@ -407,12 +413,18 @@ cdef class LinearSVMWrapper:
             dtype=self.dtype, order='C')
 
         if self.dtype == np.float32:
-            self.model.float32.predict(
+            LinearSVMModel[float].predict(
+                deref(self.handle),
+                self.params,
+                self.model.float32,
                 <const float*><uintptr_t>X.ptr,
                 X.shape[0], X.shape[1],
                 <float*><uintptr_t>y.ptr)
         elif self.dtype == np.float64:
-            self.model.float64.predict(
+            LinearSVMModel[double].predict(
+                deref(self.handle),
+                self.params,
+                self.model.float64,
                 <const double*><uintptr_t>X.ptr,
                 X.shape[0], X.shape[1],
                 <double*><uintptr_t>y.ptr)
@@ -427,12 +439,18 @@ cdef class LinearSVMWrapper:
             dtype=self.dtype, order='C')
 
         if self.dtype == np.float32:
-            self.model.float32.predict_proba(
+            LinearSVMModel[float].predictProba(
+                deref(self.handle),
+                self.params,
+                self.model.float32,
                 <const float*><uintptr_t>X.ptr,
                 X.shape[0], X.shape[1], log,
                 <float*><uintptr_t>y.ptr)
         elif self.dtype == np.float64:
-            self.model.float64.predict_proba(
+            LinearSVMModel[double].predictProba(
+                deref(self.handle),
+                self.params,
+                self.model.float64,
                 <const double*><uintptr_t>X.ptr,
                 X.shape[0], X.shape[1], log,
                 <double*><uintptr_t>y.ptr)
