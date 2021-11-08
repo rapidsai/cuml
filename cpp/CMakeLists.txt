@@ -190,7 +190,8 @@ endif()
 rapids_cpm_init()
 
 message(STATUS "CUML: Overriding thrust settings to set alwas_download.")
-rapids_cpm_package_override(${CMAKE_CURRENT_BINARY_DIR}/cmake/override_cpm.json)
+include(${rapids-cmake-dir}/cpm/package_override.cmake)
+rapids_cpm_package_override(${CMAKE_CURRENT_SOURCE_DIR}/cmake/override_cpm.json)
 
 include(cmake/thirdparty/get_thrust.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
