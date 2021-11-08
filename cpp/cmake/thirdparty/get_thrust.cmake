@@ -17,15 +17,11 @@
 function(find_and_configure_thrust)
   include(${rapids-cmake-dir}/cpm/thrust.cmake)
 
-
-  set(CPM_DL_ALL_CACHE ${CPM_DOWNLOAD_ALL})
-  set(CPM_DOWNLOAD_ALL ON)
   rapids_cpm_thrust(
     NAMESPACE cuml
     BUILD_EXPORT_SET cuml-exports
     INSTALL_EXPORT_SET cuml-exports
   )
-  set(CPM_DOWNLOAD_ALL ${CPM_DL_ALL_CACHE})
 
 endfunction()
 
