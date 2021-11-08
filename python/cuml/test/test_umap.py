@@ -96,7 +96,7 @@ def test_supervised_umap_trustworthiness_on_iris():
     embedding = cuUMAP(n_neighbors=10, random_state=0,
                        min_dist=0.01).fit_transform(
         data, iris.target, convert_dtype=True)
-    trust = trustworthiness(iris.data, embedding, 10)
+    trust = trustworthiness(iris.data, embedding, n_neighbors=10)
     assert trust >= 0.97
 
 
@@ -109,7 +109,7 @@ def test_semisupervised_umap_trustworthiness_on_iris():
                        min_dist=0.01).fit_transform(
         data, target, convert_dtype=True)
 
-    trust = trustworthiness(iris.data, embedding, 10)
+    trust = trustworthiness(iris.data, embedding, n_neighbors=10)
     assert trust >= 0.97
 
 
@@ -119,7 +119,7 @@ def test_umap_trustworthiness_on_iris():
     embedding = cuUMAP(n_neighbors=10, min_dist=0.01,
                        random_state=0).fit_transform(
         data, convert_dtype=True)
-    trust = trustworthiness(iris.data, embedding, 10)
+    trust = trustworthiness(iris.data, embedding, n_neighbors=10)
     assert trust >= 0.97
 
 
@@ -140,7 +140,7 @@ def test_umap_transform_on_iris(target_metric):
 
     assert not np.isnan(embedding).any()
 
-    trust = trustworthiness(new_data, embedding, 10)
+    trust = trustworthiness(new_data, embedding, n_neighbors=10)
     assert trust >= 0.85
 
 
@@ -183,7 +183,8 @@ def test_umap_transform_on_digits_sparse(target_metric, input_type,
     if input_type == 'cupy':
         embedding = embedding.get()
 
-    trust = trustworthiness(digits.data[~digits_selection], embedding, 15)
+    trust = trustworthiness(digits.data[~digits_selection], embedding,
+                            n_neighbors=15)
     assert trust >= 0.96
 
 
@@ -208,7 +209,8 @@ def test_umap_transform_on_digits(target_metric):
     new_data = digits.data[~digits_selection]
 
     embedding = fitter.transform(new_data, convert_dtype=True)
-    trust = trustworthiness(digits.data[~digits_selection], embedding, 15)
+    trust = trustworthiness(digits.data[~digits_selection], embedding,
+                            n_neighbors=15)
     assert trust >= 0.96
 
 
@@ -241,8 +243,8 @@ def test_umap_fit_transform_trust(name, target_metric):
     embedding = model.fit_transform(data)
     cuml_embedding = cuml_model.fit_transform(data, convert_dtype=True)
 
-    trust = trustworthiness(data, embedding, 10)
-    cuml_trust = trustworthiness(data, cuml_embedding, 10)
+    trust = trustworthiness(data, embedding, n_neighbors=10)
+    cuml_trust = trustworthiness(data, cuml_embedding, n_neighbors=10)
 
     assert array_equal(trust, cuml_trust, 1e-1, with_sign=True)
 
@@ -278,6 +280,7 @@ def test_umap_data_formats(input_type, should_downcast,
 
 
 @pytest.mark.parametrize('target_metric', ["categorical", "euclidean"])
+@pytest.mark.filterwarnings("ignore:(.*)connected(.*):UserWarning:sklearn[.*]")
 def test_umap_fit_transform_score_default(target_metric):
 
     n_samples = 500
@@ -434,7 +437,7 @@ def test_umap_fit_transform_trustworthiness_with_consistency_enabled():
     algo = cuUMAP(n_neighbors=10, min_dist=0.01, init="random",
                   random_state=42)
     embedding = algo.fit_transform(data, convert_dtype=True)
-    trust = trustworthiness(iris.data, embedding, 10)
+    trust = trustworthiness(iris.data, embedding, n_neighbors=10)
     assert trust >= 0.97
 
 
@@ -449,10 +452,11 @@ def test_umap_transform_trustworthiness_with_consistency_enabled():
                    random_state=42)
     model.fit(fit_data, convert_dtype=True)
     embedding = model.transform(transform_data, convert_dtype=True)
-    trust = trustworthiness(transform_data, embedding, 10)
+    trust = trustworthiness(transform_data, embedding, n_neighbors=10)
     assert trust >= 0.92
 
 
+@pytest.mark.filterwarnings("ignore:(.*)zero(.*)::scipy[.*]|umap[.*]")
 def test_exp_decay_params():
     def compare_exp_decay_params(a=None, b=None, min_dist=0.1, spread=1.0):
         cuml_model = cuUMAP(a=a, b=b, min_dist=min_dist, spread=spread)
@@ -494,7 +498,7 @@ def test_umap_knn_parameters(n_neighbors):
                                convert_dtype=True)
 
     def test_trustworthiness(embedding):
-        trust = trustworthiness(data, embedding, n_neighbors)
+        trust = trustworthiness(data, embedding, n_neighbors=n_neighbors)
         assert trust >= 0.92
 
     def test_equality(e1, e2):
