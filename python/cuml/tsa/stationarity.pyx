@@ -1,4 +1,4 @@
-# Copyright (c) 2019-2020, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -18,7 +18,7 @@
 import ctypes
 import numpy as np
 from libc.stdint cimport uintptr_t
-from libcpp cimport bool
+from libcpp cimport bool as boolcpp
 
 import cuml.internals
 from cuml.common.array import CumlArray
@@ -31,7 +31,7 @@ cdef extern from "cuml/tsa/stationarity.h" namespace "ML":
     int cpp_kpss "ML::Stationarity::kpss_test" (
         const handle_t& handle,
         const float* d_y,
-        bool* results,
+        boolcpp* results,
         int batch_size,
         int n_obs,
         int d, int D, int s,
@@ -40,7 +40,7 @@ cdef extern from "cuml/tsa/stationarity.h" namespace "ML":
     int cpp_kpss "ML::Stationarity::kpss_test" (
         const handle_t& handle,
         const double* d_y,
-        bool* results,
+        boolcpp* results,
         int batch_size,
         int n_obs,
         int d, int D, int s,
@@ -89,14 +89,14 @@ def kpss_test(y, d=0, D=0, s=0, pval_threshold=0.05,
         handle = Handle()
     cdef handle_t* handle_ = <handle_t*><size_t>handle.getHandle()
 
-    results = CumlArray.empty(batch_size, dtype=np.bool)
+    results = CumlArray.empty(batch_size, dtype=bool)
     cdef uintptr_t d_results = results.ptr
 
     # Call C++ function
     if dtype == np.float32:
         cpp_kpss(handle_[0],
                  <float*> d_y_ptr,
-                 <bool*> d_results,
+                 <boolcpp*> d_results,
                  <int> batch_size,
                  <int> n_obs,
                  <int> d, <int> D, <int> s,
@@ -104,7 +104,7 @@ def kpss_test(y, d=0, D=0, s=0, pval_threshold=0.05,
     elif dtype == np.float64:
         cpp_kpss(handle_[0],
                  <double*> d_y_ptr,
-                 <bool*> d_results,
+                 <boolcpp*> d_results,
                  <int> batch_size,
                  <int> n_obs,
                  <int> d, <int> D, <int> s,

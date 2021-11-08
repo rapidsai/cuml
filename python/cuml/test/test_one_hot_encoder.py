@@ -129,6 +129,8 @@ def test_onehot_categories(as_array):
 
 
 @pytest.mark.parametrize('as_array', [True, False], ids=['cupy', 'cudf'])
+@pytest.mark.filterwarnings("ignore:((.|\n)*)unknown((.|\n)*):UserWarning:"
+                            "cuml[.*]")
 def test_onehot_fit_handle_unknown(as_array):
     X = DataFrame({'chars': ['a', 'b'], 'int': [0, 2]})
     Y = DataFrame({'chars': ['c', 'b'], 'int': [0, 2]})
@@ -166,6 +168,8 @@ def test_onehot_transform_handle_unknown(as_array):
 
 
 @pytest.mark.parametrize('as_array', [True, False], ids=['cupy', 'cudf'])
+@pytest.mark.filterwarnings("ignore:((.|\n)*)unknown((.|\n)*):UserWarning:"
+                            "cuml[.*]")
 def test_onehot_inverse_transform_handle_unknown(as_array):
     X = DataFrame({'chars': ['a', 'b'], 'int': [0, 2]})
     Y_ohe = cp.array([[0., 0., 1., 0.],

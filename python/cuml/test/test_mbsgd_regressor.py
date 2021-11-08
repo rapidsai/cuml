@@ -64,6 +64,7 @@ def make_dataset(request):
         ('constant', 'elasticnet'),
     ]
 )
+@pytest.mark.filterwarnings("ignore:Maximum::sklearn[.*]")
 def test_mbsgd_regressor_vs_skl(lrate, penalty, make_dataset):
     nrows, datatype, X_train, X_test, y_train, y_test = make_dataset
 
@@ -85,7 +86,7 @@ def test_mbsgd_regressor_vs_skl(lrate, penalty, make_dataset):
                                          tol=0.0, penalty=penalty,
                                          random_state=0)
 
-        skl_sgd_regressor.fit(cp.asnumpy(X_train), cp.asnumpy(y_train))
+        skl_sgd_regressor.fit(cp.asnumpy(X_train), cp.asnumpy(y_train).ravel())
         skl_pred = skl_sgd_regressor.predict(cp.asnumpy(X_test))
         skl_r2 = r2_score(skl_pred, cp.asnumpy(y_test),
                           convert_dtype=datatype)

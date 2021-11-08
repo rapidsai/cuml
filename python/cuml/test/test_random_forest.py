@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
+
+import pytest
+
 import warnings
 import cudf
 import numpy as np
-import pytest
 import random
 import json
 import os
@@ -39,6 +41,10 @@ from sklearn.datasets import fetch_california_housing, \
 from sklearn.model_selection import train_test_split
 
 import treelite
+
+
+pytestmark = pytest.mark.filterwarnings("ignore: For reproducible results(.*)"
+                                        "::cuml[.*]")
 
 
 @pytest.fixture(
@@ -420,6 +426,7 @@ def test_rf_classification_seed(small_clf, datatype):
     "datatype", [(np.float64, np.float32), (np.float32, np.float64)]
 )
 @pytest.mark.parametrize("convert_dtype", [True, False])
+@pytest.mark.filterwarnings("ignore:To use pickling(.*)::cuml[.*]")
 def test_rf_classification_float64(small_clf, datatype, convert_dtype):
 
     X, y = small_clf
@@ -476,6 +483,7 @@ def test_rf_classification_float64(small_clf, datatype, convert_dtype):
 @pytest.mark.parametrize(
     "datatype", [(np.float64, np.float32), (np.float32, np.float64)]
 )
+@pytest.mark.filterwarnings("ignore:To use pickling(.*)::cuml[.*]")
 def test_rf_regression_float64(large_reg, datatype):
 
     X, y = large_reg

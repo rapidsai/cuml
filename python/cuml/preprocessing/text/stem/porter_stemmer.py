@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,7 +15,6 @@
 #
 
 import cudf
-import numpy as np
 import cupy as cp
 from .porter_stemmer_utils.suffix_utils import (
     get_stem_series,
@@ -734,7 +733,7 @@ def get_condition_flag(word_str_ser, condition):
         return a bool series where flag is valid
     """
     if condition is None:
-        return cudf.Series(cp.ones(len(word_str_ser), np.bool))
+        return cudf.Series(cp.ones(len(word_str_ser), bool))
     else:
         return condition(word_str_ser)
 
@@ -812,5 +811,5 @@ def build_can_replace_mask(len_mask, mask):
       if mask is None else returns mask
     """
     if mask is None:
-        mask = cudf.Series(cp.ones(len_mask, dtype=cp.bool))
+        mask = cudf.Series(cp.ones(len_mask, dtype=bool))
     return mask
