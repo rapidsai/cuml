@@ -189,6 +189,9 @@ endif()
 # add third party dependencies using CPM
 rapids_cpm_init()
 
+message(STATUS "CUML: Overriding thrust settings to set alwas_download.")
+rapids_cpm_package_override(${CMAKE_CURRENT_BINARY_DIR}/cmake/override_cpm.json)
+
 include(cmake/thirdparty/get_thrust.cmake)
 include(cmake/thirdparty/get_rmm.cmake)
 
