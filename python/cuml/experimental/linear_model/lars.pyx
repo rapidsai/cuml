@@ -317,7 +317,7 @@ class Lars(Base, RegressorMixin):
             X = cp.copy(X)
 
         if self.eps is None:
-            self.eps = np.finfo(np.float).eps
+            self.eps = np.finfo(float).eps
 
         self._fit_cpp(X, y, Gram, x_scale)
 
