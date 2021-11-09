@@ -328,11 +328,11 @@ struct forest {
 
 template <typename storage_type>
 struct enable_smem_carveout : dispatch_functor<void> {
-  const int MAX_SHM_STD = 48 * 1024;  // maximum architecture-independent size
+  static const int MAX_SHM_STD = 48 * 1024;  // maximum architecture-independent size
   const int max_shm;
   enable_smem_carveout(int max_shm_) : max_shm(max_shm_) {}
 
-  template <class KernelParams = KernelTemplateParams<>>
+  template <typename KernelParams = KernelTemplateParams<>>
   void run(predict_params p)
   {
     void (*kernel)(storage_type, predict_params) = infer_k<KernelParams::N_ITEMS,
