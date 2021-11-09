@@ -310,8 +310,9 @@ struct forest_params_t {
 /// FIL_TPB is the number of threads per block to use with FIL kernels
 const int FIL_TPB = 256;
 
-// as far as FIL is concerned, 16'777'214 is the most we can do.
-constexpr std::int32_t MAX_PRECISE_INT_FLOAT = (1 << 24) - 2;
+// 1 << 24 is the largest integer representable exactly as a float.
+// To avoid edge cases, 16'777'214 is the most FIL will use.
+constexpr std::int32_t MAX_FIL_INT_FLOAT = (1 << 24) - 2;
 
 __host__ __device__ __forceinline__ int fetch_bit(const uint8_t* array, uint32_t bit)
 {
@@ -323,15 +324,16 @@ struct categorical_sets {
   // arrays from each node ID are concatenated first, then from all categories
   const uint8_t* bits = nullptr;
   // largest matching category in the model, per feature ID
-  const float* min_out_of_range     = nullptr;
-  std::size_t bits_size             = 0;
-  std::size_t min_out_of_range_size = 0;
+  const float* fid_cats = nullptr;
+  std::size_t bits_size = 0;
+  // either 0 or num_cols. When 0, indicates intended empty array.
+  std::size_t fid_cats_size = 0;
 
   __host__ __device__ __forceinline__ bool cats_present() const
   {
     // If this is constructed from cat_sets_owner, will return true; but false by default
     // We have converted all empty categorical nodes to NAN-threshold numerical nodes.
-    return min_out_of_range != nullptr;
+    return fid_cats != nullptr;
   }
 
   // set count is due to tree_idx + node_within_tree_idx are both ints, hence uint32_t result
@@ -343,26 +345,23 @@ struct categorical_sets {
     // to set number). If we run out of uint32_t and we have hundreds of
     // features with similar categorical feature count, we may consider
     // storing node ID within nodes with same feature ID and look up
-    // {.min_out_of_range, .first_node_offset} = ...[feature_id]
+    // {.fid_cats, .first_node_offset} = ...[feature_id]
 
     /* category < 0.0f or category > INT_MAX is equivalent to out-of-dictionary category
     (not matching, branch left). -0.0f represents category 0.
     If (float)(int)category != category, we will discard the fractional part.
-    E.g. 3.8f represents category 3 regardless of min_out_of_range value.
-    FIL will reject a model where an integer within [0, min_out_of_range] cannot be represented
+    E.g. 3.8f represents category 3 regardless of fid_cats value.
+    FIL will reject a model where an integer within [0, fid_cats] cannot be represented
     precisely as a 32-bit float.
     */
-    return category < min_out_of_range[node.fid()] && category >= 0.0f &&
+    return category < fid_cats[node.fid()] && category >= 0.0f &&
            fetch_bit(bits + node.set(), static_cast<int>(category));
   }
-  static int sizeof_mask_from_min_out_of_range(int min_out_of_range)
+  static int sizeof_mask_from_fid_cats(int fid_cats)
   {
-    return raft::ceildiv((int)min_out_of_range, BITS_PER_BYTE);
+    return raft::ceildiv(fid_cats, BITS_PER_BYTE);
   }
-  int sizeof_mask(int feature_id) const
-  {
-    return sizeof_mask_from_min_out_of_range(min_out_of_range[feature_id]);
-  }
+  int sizeof_mask(int feature_id) const { return sizeof_mask_from_fid_cats(fid_cats[feature_id]); }
 };
 
 // lets any tree determine a child index for a node in a generic fasion
@@ -406,7 +405,7 @@ struct cat_sets_owner {
   std::vector<uint8_t> bits;
   // largest matching category in the model, per feature ID. uses int because GPU code can only fit
   // int
-  std::vector<float> min_out_of_range;
+  std::vector<float> fid_cats;
   // how many categorical nodes use a given feature id. Used for model shape string.
   std::vector<std::size_t> n_nodes;
   // per tree, size and offset of bit pool within the overall bit pool
@@ -415,17 +414,17 @@ struct cat_sets_owner {
   categorical_sets accessor() const
   {
     return {
-      .bits                  = bits.data(),
-      .min_out_of_range      = min_out_of_range.data(),
-      .bits_size             = bits.size(),
-      .min_out_of_range_size = min_out_of_range.size(),
+      .bits          = bits.data(),
+      .fid_cats      = fid_cats.data(),
+      .bits_size     = bits.size(),
+      .fid_cats_size = fid_cats.size(),
     };
   }
 
   void consume_counters(const std::vector<cat_feature_counters>& counters)
   {
     for (cat_feature_counters cf : counters) {
-      min_out_of_range.push_back(cf.max_matching + 1);
+      fid_cats.push_back(cf.max_matching + 1);
       n_nodes.push_back(cf.n_nodes);
     }
   }
@@ -440,8 +439,8 @@ struct cat_sets_owner {
   }
 
   cat_sets_owner() {}
-  cat_sets_owner(std::vector<uint8_t> bits_, std::vector<float> min_out_of_range_)
-    : bits(bits_), min_out_of_range(min_out_of_range_)
+  cat_sets_owner(std::vector<uint8_t> bits_, std::vector<float> fid_cats_)
+    : bits(bits_), fid_cats(fid_cats_)
   {
   }
 };
@@ -452,29 +451,28 @@ struct cat_sets_device_owner {
   // arrays from each node ID are concatenated first, then from all categories
   rmm::device_uvector<uint8_t> bits;
   // largest matching category in the model, per feature ID
-  rmm::device_uvector<float> min_out_of_range;
+  rmm::device_uvector<float> fid_cats;
 
   categorical_sets accessor() const
   {
     return {
-      .bits                  = bits.data(),
-      .min_out_of_range      = min_out_of_range.data(),
-      .bits_size             = bits.size(),
-      .min_out_of_range_size = min_out_of_range.size(),
+      .bits          = bits.data(),
+      .fid_cats      = fid_cats.data(),
+      .bits_size     = bits.size(),
+      .fid_cats_size = fid_cats.size(),
     };
   }
-  cat_sets_device_owner(cudaStream_t stream) : bits(0, stream), min_out_of_range(0, stream) {}
+  cat_sets_device_owner(cudaStream_t stream) : bits(0, stream), fid_cats(0, stream) {}
   cat_sets_device_owner(categorical_sets cat_sets, cudaStream_t stream)
-    : bits(cat_sets.bits_size, stream), min_out_of_range(cat_sets.min_out_of_range_size, stream)
+    : bits(cat_sets.bits_size, stream), fid_cats(cat_sets.fid_cats_size, stream)
   {
-    ASSERT(bits.size() <= static_cast<std::size_t>(INT_MAX) + 1ull,
+    ASSERT(bits.size() <= static_cast<std::size_t>(INT_MAX) + std::size_t(1),
            "too many categories/categorical nodes: cannot store bits offset in node");
-    if (cat_sets.min_out_of_range_size > 0) {
-      ASSERT(cat_sets.min_out_of_range != nullptr,
-             "internal error: cat_sets.min_out_of_range is nil");
-      CUDA_CHECK(cudaMemcpyAsync(min_out_of_range.data(),
-                                 cat_sets.min_out_of_range,
-                                 min_out_of_range.size() * sizeof(float),
+    if (cat_sets.fid_cats_size > 0) {
+      ASSERT(cat_sets.fid_cats != nullptr, "internal error: cat_sets.fid_cats is nil");
+      CUDA_CHECK(cudaMemcpyAsync(fid_cats.data(),
+                                 cat_sets.fid_cats,
+                                 fid_cats.size() * sizeof(float),
                                  cudaMemcpyDefault,
                                  stream));
     }
@@ -487,7 +485,7 @@ struct cat_sets_device_owner {
   void release()
   {
     bits.release();
-    min_out_of_range.release();
+    fid_cats.release();
   }
 };
 
