@@ -76,7 +76,8 @@ extern template int dispatch_on_fil_template_params(compute_smem_footprint, pred
 struct forest {
   forest(const raft::handle_t& h) : vector_leaf_(0, h.get_stream()), cat_sets_(h.get_stream()) {}
 
-  void init_smem_size(int device) {
+  void init_shmem_size(int device)
+  {
     /// the most shared memory a kernel can request on the GPU in question
     CUDA_CHECK(cudaDeviceGetAttribute(&max_shm_, cudaDevAttrMaxSharedMemoryPerBlockOptin, device));
     /* Our GPUs have been growing the shared memory size generation after
@@ -147,7 +148,7 @@ struct forest {
 
     int device          = h.get_device();
     cudaStream_t stream = h.get_stream();
-    init_smem_size(device);
+    init_shmem_size(device);
     init_n_items(device);  // n_items takes priority over blocks_per_sm
     init_fixed_block_count(device, params->blocks_per_sm);
 
@@ -331,21 +332,20 @@ struct forest {
 };
 
 template <typename storage_type>
-struct opt_into_arch_dependent_smem : dispatch_functor<void> {
-  const int MAX_SHM_STD = 48 * 1024;  // maximum architecture-independent size
+struct opt_into_arch_dependent_shmem : dispatch_functor<void> {
   const int max_shm;
-  opt_into_arch_dependent_smem(int max_shm_) : max_shm(max_shm_) {}
-
-  template <class KernelParams = KernelTemplateParams<>>
+  opt_into_arch_dependent_shmem(int max_shm_) : max_shm(max_shm_) {}
+  
+  template <typename KernelParams = KernelTemplateParams<>>
   void run(predict_params p)
   {
-    void (*kernel)(storage_type, predict_params) = infer_k<KernelParams::N_ITEMS,
-                                                           KernelParams::LEAF_ALGO,
-                                                           KernelParams::COLS_IN_SHMEM,
-                                                           KernelParams::CATS_SUPPORTED,
-                                                           storage_type>;
-    if (p.shm_sz > MAX_SHM_STD) {
-      CUDA_CHECK_NO_THROW(
+    auto kernel = infer_k<KernelParams::N_ITEMS,
+                          KernelParams::LEAF_ALGO,
+                          KernelParams::COLS_IN_SHMEM,
+                          KernelParams::CATS_SUPPORTED,
+                          storage_type>;
+    if (p.shm_sz > MAX_SHM_STD && p.shm_sz <= max_shm) {
+      CUDA_CHECK(
         cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, max_shm));
     }
   }
@@ -403,7 +403,7 @@ struct dense_forest : forest {
                                cudaMemcpyHostToDevice,
                                h.get_stream()));
 
-    dispatch_on_fil_template_params(opt_into_arch_dependent_smem<dense_storage>(max_shm_),
+    dispatch_on_fil_template_params(opt_into_arch_dependent_shmem<dense_storage>(max_shm_),
                                     (predict_params)class_ssp_);
     // copy must be finished before freeing the host data
     CUDA_CHECK(cudaStreamSynchronize(h.get_stream()));
@@ -461,7 +461,7 @@ struct sparse_forest : forest {
     CUDA_CHECK(cudaMemcpyAsync(
       nodes_.data(), nodes, sizeof(node_t) * num_nodes_, cudaMemcpyHostToDevice, h.get_stream()));
 
-    dispatch_on_fil_template_params(opt_into_arch_dependent_smem<sparse_storage<node_t>>(max_shm_),
+    dispatch_on_fil_template_params(opt_into_arch_dependent_shmem<sparse_storage<node_t>>(max_shm_),
                                     (predict_params)class_ssp_);
   }
 
