@@ -1,5 +1,5 @@
 #
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,23 +25,18 @@ cdef extern from "cuml/decomposition/params.hpp" namespace "ML" nogil:
         COV_EIG_JACOBI "ML::solver::COV_EIG_JACOBI"
 
     cdef cppclass params:
-        int n_rows
-        int n_cols
+        size_t n_rows
+        size_t n_cols
         int gpu_id
 
     cdef cppclass paramsSolver(params):
-        int n_rows
-        int n_cols
         float tol
-        int n_iterations
-        int random_state
+        unsigned n_iterations
         int verbose
 
     cdef cppclass paramsTSVD(paramsSolver):
-        int n_components
-        int max_sweeps
+        size_t n_components
         solver algorithm  # = solver::COV_EIG_DQ
-        bool trans_input
 
     cdef cppclass paramsPCA(paramsTSVD):
         bool copy
