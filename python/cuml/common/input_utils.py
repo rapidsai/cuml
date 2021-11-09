@@ -579,7 +579,7 @@ def convert_dtype(X,
         X = X.compute()
 
     if safe_dtype:
-        would_lose_info = False  # _typecast_will_lose_information(X, to_dtype)
+        would_lose_info = _typecast_will_lose_information(X, to_dtype)
         if would_lose_info:
             raise TypeError("Data type conversion would lose information.")
 
