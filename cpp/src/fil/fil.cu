@@ -344,10 +344,9 @@ struct opt_into_arch_dependent_shmem : dispatch_functor<void> {
                           KernelParams::COLS_IN_SHMEM,
                           KernelParams::CATS_SUPPORTED,
                           storage_type>;
-    if (p.shm_sz > MAX_SHM_STD && p.shm_sz <= max_shm) {
-      CUDA_CHECK(
-        cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, max_shm));
-    }
+    // p.shm_sz might be > max_shm or < MAX_SHM_STD, but we should not check for either, because
+    // we don't run on both proba_ssp_ and class_ssp_ (only class_ssp_). This should be quick.
+    CUDA_CHECK(cudaFuncSetAttribute(kernel, cudaFuncAttributeMaxDynamicSharedMemorySize, max_shm));
   }
 };
 
@@ -403,6 +402,7 @@ struct dense_forest : forest {
                                cudaMemcpyHostToDevice,
                                h.get_stream()));
 
+    // predict_proba is a runtime parameter, and opt-in is unconditional
     dispatch_on_fil_template_params(opt_into_arch_dependent_shmem<dense_storage>(max_shm_),
                                     (predict_params)class_ssp_);
     // copy must be finished before freeing the host data
@@ -461,6 +461,7 @@ struct sparse_forest : forest {
     CUDA_CHECK(cudaMemcpyAsync(
       nodes_.data(), nodes, sizeof(node_t) * num_nodes_, cudaMemcpyHostToDevice, h.get_stream()));
 
+    // predict_proba is a runtime parameter, and opt-in is unconditional
     dispatch_on_fil_template_params(opt_into_arch_dependent_shmem<sparse_storage<node_t>>(max_shm_),
                                     (predict_params)class_ssp_);
   }
