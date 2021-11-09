@@ -335,7 +335,7 @@ template <typename storage_type>
 struct opt_into_arch_dependent_shmem : dispatch_functor<void> {
   const int max_shm;
   opt_into_arch_dependent_shmem(int max_shm_) : max_shm(max_shm_) {}
-  
+
   template <typename KernelParams = KernelTemplateParams<>>
   void run(predict_params p)
   {

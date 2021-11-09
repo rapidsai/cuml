@@ -1041,7 +1041,7 @@ std::vector<FilTestParams> predict_dense_inputs = {
                   leaf_algo   = CATEGORICAL_LEAF,
                   num_classes = 3),
   // use shared memory opt-in carveout if available, or infer out of L1 cache
-  FIL_TEST_PARAMS(num_rows = 103, num_cols = ((48 + 1) * 1024) / sizeof(float), algo = NAIVE),
+  FIL_TEST_PARAMS(num_rows = 103, num_cols = MAX_SHM_STD / sizeof(float) + 1024, algo = NAIVE),
   FIL_TEST_PARAMS(num_rows    = 103,
                   num_cols    = MAX_SHM_STD / sizeof(float) + 1024,
                   leaf_algo   = GROVE_PER_CLASS,
