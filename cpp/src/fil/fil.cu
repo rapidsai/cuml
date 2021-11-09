@@ -76,8 +76,7 @@ extern template int dispatch_on_fil_template_params(compute_smem_footprint, pred
 struct forest {
   forest(const raft::handle_t& h) : vector_leaf_(0, h.get_stream()), cat_sets_(h.get_stream()) {}
 
-  void init_n_items(int device)
-  {
+  void init_smem_size(int device) {
     /// the most shared memory a kernel can request on the GPU in question
     CUDA_CHECK(cudaDeviceGetAttribute(&max_shm_, cudaDevAttrMaxSharedMemoryPerBlockOptin, device));
     /* Our GPUs have been growing the shared memory size generation after
@@ -86,9 +85,13 @@ struct forest {
        we would have otherwise silently overflowed the index calculation due
        to short division. It would have failed cpp tests, but we might forget
        about this source of bugs, if not for the failing assert. */
-    ASSERT(max_shm_ < 262144,
+    ASSERT((unsigned)max_shm_ < sizeof(float) * (unsigned)std::numeric_limits<uint16_t>::max(),
            "internal error: please use a larger type inside"
            " infer_k for column count");
+  }
+
+  void init_n_items(int device)
+  {
     // searching for the most items per block while respecting the shared
     // memory limits creates a full linear programming problem.
     // solving it in a single equation looks less tractable than this
@@ -144,6 +147,7 @@ struct forest {
 
     int device          = h.get_device();
     cudaStream_t stream = h.get_stream();
+    init_smem_size(device);
     init_n_items(device);  // n_items takes priority over blocks_per_sm
     init_fixed_block_count(device, params->blocks_per_sm);
 
@@ -327,10 +331,10 @@ struct forest {
 };
 
 template <typename storage_type>
-struct enable_smem_carveout : dispatch_functor<void> {
+struct opt_into_arch_dependent_smem : dispatch_functor<void> {
   const int MAX_SHM_STD = 48 * 1024;  // maximum architecture-independent size
   const int max_shm;
-  enable_smem_carveout(int max_shm_) : max_shm(max_shm_) {}
+  opt_into_arch_dependent_smem(int max_shm_) : max_shm(max_shm_) {}
 
   template <class KernelParams = KernelTemplateParams<>>
   void run(predict_params p)
@@ -399,7 +403,7 @@ struct dense_forest : forest {
                                cudaMemcpyHostToDevice,
                                h.get_stream()));
 
-    dispatch_on_fil_template_params(enable_smem_carveout<dense_storage>(max_shm_),
+    dispatch_on_fil_template_params(opt_into_arch_dependent_smem<dense_storage>(max_shm_),
                                     (predict_params)class_ssp_);
     // copy must be finished before freeing the host data
     CUDA_CHECK(cudaStreamSynchronize(h.get_stream()));
@@ -457,7 +461,7 @@ struct sparse_forest : forest {
     CUDA_CHECK(cudaMemcpyAsync(
       nodes_.data(), nodes, sizeof(node_t) * num_nodes_, cudaMemcpyHostToDevice, h.get_stream()));
 
-    dispatch_on_fil_template_params(enable_smem_carveout<sparse_storage<node_t>>(max_shm_),
+    dispatch_on_fil_template_params(opt_into_arch_dependent_smem<sparse_storage<node_t>>(max_shm_),
                                     (predict_params)class_ssp_);
   }
 

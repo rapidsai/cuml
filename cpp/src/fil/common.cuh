@@ -289,12 +289,5 @@ struct compute_smem_footprint : dispatch_functor<int> {
 template <typename storage_type>
 void infer(storage_type forest, predict_params params, cudaStream_t stream);
 
-template <int NITEMS,
-          leaf_algo_t leaf_algo,
-          bool cols_in_shmem,
-          bool CATS_SUPPORTED,
-          class storage_type>
-__global__ void infer_k(storage_type forest, predict_params params);
-
 }  // namespace fil
 }  // namespace ML

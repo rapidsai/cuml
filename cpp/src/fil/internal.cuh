@@ -522,7 +522,11 @@ void init_sparse(const raft::handle_t& h,
 
 struct predict_params;
 
-template <int NITEMS, leaf_algo_t leaf_algo, bool cols_in_shmem, class storage_type>
+template <int NITEMS,
+          leaf_algo_t leaf_algo,
+          bool cols_in_shmem,
+          bool CATS_SUPPORTED,
+          class storage_type>
 __global__ void infer_k(storage_type forest, predict_params params);
 
 }  // namespace fil
