@@ -569,12 +569,12 @@ def test_lightgbm(tmp_path, num_classes, n_categorical):
                  'num_class': 1}
         bst = lgb.train(param, train_data, num_round)
         bst.save_model(model_path)
-        # binary classification
-        gbm_proba = bst.predict(X)
         fm = ForestInference.load(model_path,
                                   algo='TREE_REORG',
                                   output_class=True,
                                   model_type="lightgbm")
+        # binary classification
+        gbm_proba = bst.predict(X)
         fil_proba = fm.predict_proba(X)[:, 1]
         gbm_preds = (gbm_proba > 0.5).astype(int)
         fil_preds = fm.predict(X)
