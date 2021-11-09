@@ -26,6 +26,8 @@ from sklearn.impute import SimpleImputer as skSimpleImputer
 import cuml.metrics
 import cuml.decomposition
 import cuml.naive_bayes
+from cuml.dask import neighbors, cluster, manifold, \
+    decomposition, linear_model  # noqa: F401
 from cuml.common.import_utils import has_umap
 import numpy as np
 import tempfile
@@ -556,6 +558,127 @@ def all_algorithms():
             name="SparseCSRPolynomialFeatures",
             accepts_labels=False,
             bench_func=fit_transform
+        ),
+
+        AlgorithmPair(
+            None,
+            cuml.dask.neighbors.KNeighborsClassifier,
+            shared_args={},
+            cuml_args={},
+            name="MNMG.KNeighborsClassifier",
+            accepts_labels=True,
+            accuracy_function=cuml.metrics.accuracy_score
+        ),
+
+        AlgorithmPair(
+            None,
+            cuml.dask.cluster.KMeans,
+            shared_args=dict(init="k-means++", n_clusters=8,
+                             max_iter=300, n_init=1),
+            cuml_args=dict(oversampling_factor=0),
+            name="MNMG.KMeans",
+            accepts_labels=False,
+            accuracy_function=metrics.homogeneity_score,
+        ),
+
+        AlgorithmPair(
+            None,
+            cuml.dask.cluster.DBSCAN,
+            shared_args=dict(eps=3, min_samples=2),
+            cpu_args=dict(algorithm="brute"),
+            name="MNMG.DBSCAN",
+            accepts_labels=False,
+        ),
+
+        AlgorithmPair(
+            None,
+            cuml.dask.manifold.UMAP,
+            shared_args=dict(n_neighbors=5, n_epochs=500),
+            name="MNMG.UMAP-Unsupervised",
+            accepts_labels=True,
+            accuracy_function=cuml.metrics.trustworthiness,
+        ),
+
+        AlgorithmPair(
+            None,
+            cuml.dask.manifold.UMAP,
+            shared_args=dict(n_neighbors=5, n_epochs=500),
+            name="MNMG.UMAP-Supervised",
+            accepts_labels=True,
+            accuracy_function=cuml.metrics.trustworthiness,
+        ),
+
+        AlgorithmPair(
+            None,
+            cuml.dask.neighbors.NearestNeighbors,
+            shared_args=dict(n_neighbors=1024),
+            cpu_args=dict(algorithm="brute", n_jobs=-1),
+            cuml_args={},
+            name="MNMG.NearestNeighbors",
+            accepts_labels=False,
+            bench_func=fit_kneighbors,
+        ),
+
+        AlgorithmPair(
+            None,
+            cuml.dask.decomposition.TruncatedSVD,
+            shared_args=dict(n_components=10),
+            name="MNMG.tSVD",
+            accepts_labels=False,
+        ),
+
+        AlgorithmPair(
+            None,
+            cuml.dask.decomposition.PCA,
+            shared_args=dict(n_components=10),
+            name="MNMG.PCA",
+            accepts_labels=False,
+        ),
+
+        AlgorithmPair(
+            None,
+            cuml.dask.linear_model.LinearRegression,
+            shared_args={},
+            name="MNMG.LinearRegression",
+            accepts_labels=True,
+            accuracy_function=metrics.r2_score,
+        ),
+
+        AlgorithmPair(
+            None,
+            cuml.dask.linear_model.Lasso,
+            shared_args={},
+            name="MNMG.Lasso",
+            accepts_labels=True,
+            accuracy_function=metrics.r2_score,
+        ),
+
+        AlgorithmPair(
+            None,
+            cuml.dask.linear_model.ElasticNet,
+            shared_args={"alpha": 0.1, "l1_ratio": 0.5},
+            name="MNMG.ElasticNet",
+            accepts_labels=True,
+            accuracy_function=metrics.r2_score,
+        ),
+
+        AlgorithmPair(
+            None,
+            cuml.dask.linear_model.Ridge,
+            shared_args={},
+            name="MNMG.Ridge",
+            accepts_labels=True,
+            accuracy_function=metrics.r2_score,
+        ),
+
+        AlgorithmPair(
+            None,
+            cuml.dask.neighbors.KNeighborsRegressor,
+            shared_args={},
+            cuml_args={},
+            name="MNMG.KNeighborsRegressor",
+            accepts_labels=True,
+            accuracy_function=cuml.metrics.r2_score
         )
     ]
 
