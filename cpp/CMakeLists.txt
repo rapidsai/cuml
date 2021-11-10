@@ -201,6 +201,7 @@ if(LINK_FAISS)
 endif()
 
 include(cmake/thirdparty/get_treelite.cmake)
+include(cmake/thirdparty/get_gputreeshap.cmake)
 include(cmake/thirdparty/get_raft.cmake)
 
 if(NOT SINGLEGPU)
@@ -264,6 +265,7 @@ if(BUILD_CUML_CPP_LIBRARY)
         src/decisiontree/decisiontree.cu
         src/explainer/kernel_shap.cu
         src/explainer/permutation_shap.cu
+        src/explainer/tree_shap.cu
         src/fil/fil.cu
         src/fil/infer.cu
         src/glm/glm.cu
@@ -388,6 +390,7 @@ if(BUILD_CUML_CPP_LIBRARY)
       CUDA::cusolver
       CUDA::cudart
       CUDA::cusparse
+      GPUTreeShap::GPUTreeShap
       $<$<BOOL:${NVTX}>:CUDA::nvToolsExt>
       $<$<BOOL:${LINK_FAISS}>:FAISS::FAISS>
       $<IF:$<BOOL:${Treelite_ADDED}>,treelite::treelite_static,treelite::treelite>
