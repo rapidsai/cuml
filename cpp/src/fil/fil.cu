@@ -86,7 +86,7 @@ struct forest {
        we would have otherwise silently overflowed the index calculation due
        to short division. It would have failed cpp tests, but we might forget
        about this source of bugs, if not for the failing assert. */
-    ASSERT((unsigned)max_shm_ < sizeof(float) * (unsigned)std::numeric_limits<uint16_t>::max(),
+    ASSERT(max_shm_ < int(sizeof(float)) * std::numeric_limits<uint16_t>::max(),
            "internal error: please use a larger type inside"
            " infer_k for column count");
   }
