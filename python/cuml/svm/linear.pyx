@@ -72,16 +72,16 @@ cdef extern from "cuml/svm/linear.hpp" namespace "ML::SVM":
         T* classes
         T* w
         T* probScale
-        int nClasses
-        int coefRows
-        int coefCols()
+        size_t nClasses
+        size_t coefRows
+        size_t coefCols()
 
         @staticmethod
         LinearSVMModel[T] allocate(
             const handle_t& handle,
             const LinearSVMParams& params,
-            const int nCols,
-            const int nClasses) except +
+            const size_t nCols,
+            const size_t nClasses) except +
 
         @staticmethod
         void free(
@@ -93,8 +93,8 @@ cdef extern from "cuml/svm/linear.hpp" namespace "ML::SVM":
             const handle_t& handle,
             const LinearSVMParams& params,
             const T* X,
-            const int nRows,
-            const int nCols,
+            const size_t nRows,
+            const size_t nCols,
             const T* y,
             const T* sampleWeight) except +
 
@@ -103,14 +103,16 @@ cdef extern from "cuml/svm/linear.hpp" namespace "ML::SVM":
             const handle_t& handle,
             const LinearSVMParams& params,
             const LinearSVMModel[T]& model,
-            const T* X, const int nRows, const int nCols, T* out) except +
+            const T* X,
+            const size_t nRows, const size_t nCols, T* out) except +
 
         @staticmethod
         void predictProba(
             const handle_t& handle,
             const LinearSVMParams& params,
             const LinearSVMModel[T]& model,
-            const T* X, const int nRows, const int nCols,
+            const T* X,
+            const size_t nRows, const size_t nCols,
             const cppbool log, T* out) except +
 
 

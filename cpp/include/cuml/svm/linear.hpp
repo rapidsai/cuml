@@ -103,12 +103,12 @@ struct LinearSVMModel {
    */
   T* probScale = nullptr;
   /** Number of classes (not applicable for regression). */
-  int nClasses = 0;
+  std::size_t nClasses = 0;
   /** Number of rows of `w`, which is the number of data features plus maybe bias. */
-  int coefRows;
+  std::size_t coefRows;
 
   /** It's 1 for binary classification or regression; nClasses for multiclass. */
-  inline int coefCols() const { return nClasses <= 2 ? 1 : nClasses; }
+  inline std::size_t coefCols() const { return nClasses <= 2 ? 1 : nClasses; }
 
   /**
    * @brief Allocate and fit the LinearSVM model.
@@ -126,8 +126,8 @@ struct LinearSVMModel {
   static LinearSVMModel<T> fit(const raft::handle_t& handle,
                                const LinearSVMParams& params,
                                const T* X,
-                               const int nRows,
-                               const int nCols,
+                               const std::size_t nRows,
+                               const std::size_t nCols,
                                const T* y,
                                const T* sampleWeight);
 
@@ -142,8 +142,8 @@ struct LinearSVMModel {
    */
   static LinearSVMModel<T> allocate(const raft::handle_t& handle,
                                     const LinearSVMParams& params,
-                                    const int nCols,
-                                    const int nClasses = 0);
+                                    const std::size_t nCols,
+                                    const std::size_t nClasses = 0);
 
   /** @brief Free the allocated memory. The model is not usable after the call of this method. */
   static void free(const raft::handle_t& handle, LinearSVMModel<T>& model);
@@ -163,8 +163,8 @@ struct LinearSVMModel {
                       const LinearSVMParams& params,
                       const LinearSVMModel<T>& model,
                       const T* X,
-                      const int nRows,
-                      const int nCols,
+                      const std::size_t nRows,
+                      const std::size_t nCols,
                       T* out);
 
   /**
@@ -183,8 +183,8 @@ struct LinearSVMModel {
                            const LinearSVMParams& params,
                            const LinearSVMModel<T>& model,
                            const T* X,
-                           const int nRows,
-                           const int nCols,
+                           const std::size_t nRows,
+                           const std::size_t nCols,
                            const bool log,
                            T* out);
 };

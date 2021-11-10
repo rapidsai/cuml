@@ -54,6 +54,14 @@ namespace SVM {
 
 namespace {
 
+inline int narrowDown(std::size_t n)
+{
+  ASSERT(std::size_t(std::numeric_limits<int>::max()) >= n,
+         "LinearSVM supports input sizes only within `int` range at this point (got = %zu)",
+         n);
+  return int(n);
+}
+
 /** The cuda kernel for classification. Call it via PredictClass::run(..).
  *
  * @param out - [out] vector of classes (nRows,)
@@ -239,18 +247,27 @@ struct OvrSelector {
  * @param out - [out] row-major matrix of size [nRows, coefCols]
  */
 template <typename T>
-void predict_linear(const raft::handle_t& handle,
-                    const T* X,
-                    const T* w,
-                    const int nRows,
-                    const int nCols,
-                    const int coefCols,
-                    const bool fitIntercept,
-                    T* out,
-                    cudaStream_t stream)
+void predictLinear(const raft::handle_t& handle,
+                   const T* X,
+                   const T* w,
+                   const std::size_t nRows,
+                   const std::size_t nCols,
+                   const std::size_t coefCols,
+                   const bool fitIntercept,
+                   T* out,
+                   cudaStream_t stream)
 {
-  raft::linalg::gemm<T>(
-    handle, out, (T*)X, (T*)w, nRows, coefCols, nCols, false, true, false, stream);
+  raft::linalg::gemm<T>(handle,
+                        out,
+                        (T*)X,
+                        (T*)w,
+                        narrowDown(nRows),
+                        narrowDown(coefCols),
+                        narrowDown(nCols),
+                        false,
+                        true,
+                        false,
+                        stream);
 
   if (fitIntercept)
     raft::linalg::matrixVectorOp(
@@ -262,17 +279,17 @@ void predict_linear(const raft::handle_t& handle,
 template <typename T>
 LinearSVMModel<T> LinearSVMModel<T>::allocate(const raft::handle_t& handle,
                                               const LinearSVMParams& params,
-                                              const int nCols,
-                                              const int nClasses)
+                                              const std::size_t nCols,
+                                              const std::size_t nClasses)
 {
-  auto stream        = handle.get_stream_view();
-  auto res           = rmm::mr::get_current_device_resource();
-  const int coefRows = nCols + params.fit_intercept;
-  const int coefCols = nClasses <= 2 ? 1 : nClasses;
-  const int wSize    = coefRows * coefCols;
-  const int cSize    = nClasses >= 2 ? nClasses : 0;
-  const int pSize    = params.probability ? 2 * coefCols : 0;
-  auto bytes         = static_cast<T*>(res->allocate(sizeof(T) * (wSize + cSize + pSize), stream));
+  auto stream                = handle.get_stream_view();
+  auto res                   = rmm::mr::get_current_device_resource();
+  const std::size_t coefRows = nCols + params.fit_intercept;
+  const std::size_t coefCols = nClasses <= 2 ? 1 : nClasses;
+  const std::size_t wSize    = coefRows * coefCols;
+  const std::size_t cSize    = nClasses >= 2 ? nClasses : 0;
+  const std::size_t pSize    = params.probability ? 2 * coefCols : 0;
+  auto bytes = static_cast<T*>(res->allocate(sizeof(T) * (wSize + cSize + pSize), stream));
   return LinearSVMModel<T>{.w         = bytes,
                            .classes   = cSize > 0 ? bytes + wSize : nullptr,
                            .probScale = pSize > 0 ? bytes + wSize + cSize : nullptr,
@@ -283,13 +300,13 @@ LinearSVMModel<T> LinearSVMModel<T>::allocate(const raft::handle_t& handle,
 template <typename T>
 void LinearSVMModel<T>::free(const raft::handle_t& handle, LinearSVMModel<T>& model)
 {
-  auto stream        = handle.get_stream_view();
-  auto res           = rmm::mr::get_current_device_resource();
-  const int coefRows = model.coefRows;
-  const int coefCols = model.coefCols();
-  const int wSize    = coefRows * coefCols;
-  const int cSize    = model.nClasses;
-  const int pSize    = model.probScale == nullptr ? 2 * coefCols : 0;
+  auto stream                = handle.get_stream_view();
+  auto res                   = rmm::mr::get_current_device_resource();
+  const std::size_t coefRows = model.coefRows;
+  const std::size_t coefCols = model.coefCols();
+  const std::size_t wSize    = coefRows * coefCols;
+  const std::size_t cSize    = model.nClasses;
+  const std::size_t pSize    = model.probScale == nullptr ? 2 * coefCols : 0;
   res->deallocate(model.w, sizeof(T) * (wSize + cSize + pSize), stream);
   model.w         = nullptr;
   model.classes   = nullptr;
@@ -300,14 +317,14 @@ template <typename T>
 LinearSVMModel<T> LinearSVMModel<T>::fit(const raft::handle_t& handle,
                                          const LinearSVMParams& params,
                                          const T* X,
-                                         const int nRows,
-                                         const int nCols,
+                                         const std::size_t nRows,
+                                         const std::size_t nCols,
                                          const T* y,
                                          const T* sampleWeight)
 {
   cudaStream_t stream = handle.get_stream();
   rmm::device_uvector<T> classesBuf(0, stream);
-  const int nClasses =
+  const std::size_t nClasses =
     isRegression(params.loss) ? 0 : raft::label::getUniquelabels(classesBuf, (T*)y, nRows, stream);
   ASSERT(isRegression(params.loss) || nClasses > 1,
          "Found only one unique value in the target data, whereas at least two are required "
@@ -316,8 +333,8 @@ LinearSVMModel<T> LinearSVMModel<T>::fit(const raft::handle_t& handle,
   auto model = LinearSVMModel<T>::allocate(handle, params, nCols, nClasses);
   if (model.classes != nullptr) raft::copy(model.classes, classesBuf.data(), nClasses, stream);
 
-  const int coefCols = model.coefCols();
-  const int coefRows = model.coefRows;
+  const int coefCols         = narrowDown(model.coefCols());
+  const std::size_t coefRows = model.coefRows;
 
   ML::PUSH_RANGE("Trace::LinearSVMModel::fit");
 
@@ -387,8 +404,8 @@ LinearSVMModel<T> LinearSVMModel<T>::fit(const raft::handle_t& handle,
                   X1,
                   true,
                   yi,
-                  nRows,
-                  nCols1,
+                  narrowDown(nRows),
+                  narrowDown(nCols1),
                   1,
                   params.fit_intercept && !params.penalized_intercept,
                   T(params.penalty == LinearSVMParams::L1 ? iC : 0.0),
@@ -412,13 +429,13 @@ LinearSVMModel<T> LinearSVMModel<T>::fit(const raft::handle_t& handle,
     T* psi = ps1 + 2 * class_i;
     rmm::device_uvector<T> xwBuf(nRows, s);
     T* xw = xwBuf.data();
-    predict_linear(handle, X, wi, nRows, nCols, 1, params.fit_intercept, xw, s);
+    predictLinear(handle, X, wi, nRows, nCols, 1, params.fit_intercept, xw, s);
 
     GLM::qnFit<T>(handle,
                   xw,
                   false,
                   yi,
-                  nRows,
+                  narrowDown(nRows),
                   1,
                   2,
                   true,
@@ -455,18 +472,18 @@ void LinearSVMModel<T>::predict(const raft::handle_t& handle,
                                 const LinearSVMParams& params,
                                 const LinearSVMModel<T>& model,
                                 const T* X,
-                                const int nRows,
-                                const int nCols,
+                                const std::size_t nRows,
+                                const std::size_t nCols,
                                 T* out)
 {
-  auto stream        = handle.get_stream_view();
-  const int coefCols = model.coefCols();
+  auto stream         = handle.get_stream_view();
+  const auto coefCols = model.coefCols();
   if (isRegression(params.loss))
-    return predict_linear(
+    return predictLinear(
       handle, X, model.w, nRows, nCols, coefCols, params.fit_intercept, out, stream);
 
   rmm::device_uvector<T> temp(nRows * coefCols, stream);
-  predict_linear(
+  predictLinear(
     handle, X, model.w, nRows, nCols, coefCols, params.fit_intercept, temp.data(), stream);
   PredictClass<T>::run(out, temp.data(), model.classes, nRows, coefCols, stream);
 }
@@ -480,8 +497,8 @@ void LinearSVMModel<T>::predictProba(const raft::handle_t& handle,
                                      const LinearSVMParams& params,
                                      const LinearSVMModel<T>& model,
                                      const T* X,
-                                     const int nRows,
-                                     const int nCols,
+                                     const std::size_t nRows,
+                                     const std::size_t nCols,
                                      const bool log,
                                      T* out)
 {
@@ -493,12 +510,12 @@ void LinearSVMModel<T>::predictProba(const raft::handle_t& handle,
   ASSERT(model.probScale != nullptr,
          "The model was not trained to output probabilities (model.probScale == nullptr).");
 
-  auto stream        = handle.get_stream_view();
-  const int coefCols = model.coefCols();
+  auto stream         = handle.get_stream_view();
+  const auto coefCols = model.coefCols();
   rmm::device_uvector<T> temp(nRows * coefCols, stream);
 
   // linear part
-  predict_linear(handle, X, model.w, nRows, nCols, coefCols, params.fit_intercept, out, stream);
+  predictLinear(handle, X, model.w, nRows, nCols, coefCols, params.fit_intercept, out, stream);
 
   // probability calibration
   raft::linalg::matrixVectorOp(
