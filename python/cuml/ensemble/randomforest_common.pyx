@@ -46,8 +46,8 @@ class BaseRandomForestModel(Base):
                     'bootstrap',
                     'verbose', 'max_samples',
                     'max_leaves',
-                    'accuracy_metric',
-                    'max_batch_size', 'n_streams', 'dtype',
+                    'accuracy_metric', 'max_batch_size',
+                    'n_streams', 'dtype',
                     'output_type', 'min_weight_fraction_leaf', 'n_jobs',
                     'max_leaf_nodes', 'min_impurity_split', 'oob_score',
                     'random_state', 'warm_start', 'class_weight',
@@ -106,7 +106,7 @@ class BaseRandomForestModel(Base):
         if ((random_state is not None) and (n_streams != 1)):
             warnings.warn("For reproducible results in Random Forest"
                           " Classifier or for almost reproducible results"
-                          " in Random Forest Regressor, n_streams==1 is "
+                          " in Random Forest Regressor, n_streams=1 is "
                           "recommended. If n_streams is > 1, results may vary "
                           "due to stream/thread timing differences, even when "
                           "random_state is set")

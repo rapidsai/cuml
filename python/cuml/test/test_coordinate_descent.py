@@ -35,6 +35,7 @@ from sklearn.model_selection import train_test_split
 @pytest.mark.parametrize('column_info', [unit_param([20, 10]),
                          quality_param([100, 50]),
                          stress_param([1000, 500])])
+@pytest.mark.filterwarnings("ignore:Objective did not converge::sklearn[.*]")
 def test_lasso(datatype, X_type, alpha, algorithm,
                nrows, column_info):
     ncols, n_info = column_info
@@ -103,6 +104,7 @@ def test_lasso_default(datatype, nrows, column_info):
 @pytest.mark.parametrize('column_info', [unit_param([20, 10]),
                          quality_param([100, 50]),
                          stress_param([1000, 500])])
+@pytest.mark.filterwarnings("ignore:Objective did not converge::sklearn[.*]")
 def test_elastic_net(datatype, X_type, alpha, algorithm,
                      nrows, column_info):
     ncols, n_info = column_info
