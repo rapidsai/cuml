@@ -307,9 +307,10 @@ struct forest_params_t {
 /// FIL_TPB is the number of threads per block to use with FIL kernels
 const int FIL_TPB = 256;
 
-constexpr std::int32_t MAX_PRECISE_INT_FLOAT = 1 << 24;  // 16'777'216
+// as far as FIL is concerned, 16'777'214 is the most we can do.
+constexpr std::int32_t MAX_PRECISE_INT_FLOAT = (1 << 24) - 2;
 
-__host__ __device__ __forceinline__ int fetch_bit(const uint8_t* array, int bit)
+__host__ __device__ __forceinline__ int fetch_bit(const uint8_t* array, uint32_t bit)
 {
   return (array[bit / BITS_PER_BYTE] >> (bit % BITS_PER_BYTE)) & 1;
 }
@@ -337,7 +338,7 @@ struct categorical_sets {
 
   // set count is due to tree_idx + node_within_tree_idx are both ints, hence uint32_t result
   template <typename node_t>
-  __host__ __device__ __forceinline__ int category_matches(node_t node, int category) const
+  __host__ __device__ __forceinline__ int category_matches(node_t node, float category) const
   {
     // standard boolean packing. This layout has better ILP
     // node.set() is global across feature IDs and is an offset (as opposed
@@ -345,7 +346,16 @@ struct categorical_sets {
     // features with similar categorical feature count, we may consider
     // storing node ID within nodes with same feature ID and look up
     // {.max_matching, .first_node_offset} = ...[feature_id]
-    return category <= max_matching[node.fid()] && fetch_bit(bits + node.set(), category);
+
+    /* category < 0.0f or category > INT_MAX is equivalent to out-of-dictionary category
+    (not matching, branch left). -0.0f represents category 0.
+    If (float)(int)category != category, we will discard the fractional part.
+    E.g. 3.8f represents category 3 regardless of max_matching value.
+    FIL will reject a model where an integer within [0, max_matching + 1] cannot be represented
+    precisely as a 32-bit float.
+    */
+    return category < static_cast<float>(max_matching[node.fid()] + 1) && category >= 0.0f &&
+           fetch_bit(bits + node.set(), static_cast<int>(category));
   }
   static int sizeof_mask_from_max_matching(int max_matching)
   {
@@ -372,7 +382,7 @@ struct tree_base {
     if (isnan(val)) {
       cond = !node.def_left();
     } else if (CATS_SUPPORTED && node.is_categorical()) {
-      cond = cat_sets.category_matches(node, static_cast<int>(val));
+      cond = cat_sets.category_matches(node, val);
     } else {
       cond = val >= node.thresh();
     }

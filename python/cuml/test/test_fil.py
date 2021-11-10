@@ -17,7 +17,7 @@ import numpy as np
 import pytest
 import os
 import pandas as pd
-from random import sample, seed
+from math import ceil
 
 from cuml import ForestInference
 from cuml.test.utils import array_equal, unit_param, \
@@ -491,17 +491,33 @@ def test_output_args(small_classifier_and_preds):
     assert array_equal(fil_preds, xgb_preds, 1e-3)
 
 
-def to_categorical(features, n_categorical):
+def to_categorical(features, n_categorical, invalid_pct, rng):
+    """ returns data in two formats: pandas (for LightGBM) and numpy (for FIL)
+    """
     # the main bottleneck (>80%) of to_categorical() is the pandas operations
     n_features = features.shape[1]
     df_cols = {}
     # all categorical columns
     cat_cols = features[:, :n_categorical]
-    cat_cols = cat_cols - cat_cols.min(axis=1, keepdims=True)  # range [0, ?]
-    cat_cols /= cat_cols.max(axis=1, keepdims=True)  # range [0, 1]
+    cat_cols = cat_cols - cat_cols.min(axis=0, keepdims=True)  # range [0, ?]
+    cat_cols /= cat_cols.max(axis=0, keepdims=True)  # range [0, 1]
     rough_n_categories = 100
     # round into rough_n_categories bins
     cat_cols = (cat_cols * rough_n_categories).astype(int)
+    # randomly inject invalid categories
+    invalid_idx = rng.choice(
+        a=cat_cols.size,
+        size=ceil(cat_cols.size * invalid_pct / 100),
+        replace=False,
+        shuffle=False)
+    cat_cols.flat[invalid_idx] += rough_n_categories
+
+    new_features = features.copy()
+    new_features[:, :n_categorical] = cat_cols
+
+    # shuffle the columns around
+    new_idx = rng.choice(n_features, n_features, replace=False, shuffle=True)
+    new_matrix = new_features[:, new_idx]
     for icol in range(n_categorical):
         col = cat_cols[:, icol]
         df_cols[icol] = pd.Series(pd.Categorical(col,
@@ -510,11 +526,9 @@ def to_categorical(features, n_categorical):
     for icol in range(n_categorical, n_features):
         df_cols[icol] = pd.Series(features[:, icol])
     # shuffle the columns around
-    seed(42)
-    new_idx = sample(range(n_features), k=n_features)
     df_cols = {i: df_cols[new_idx[i]] for i in range(n_features)}
 
-    return pd.DataFrame(df_cols)
+    return pd.DataFrame(df_cols), new_matrix
 
 
 @pytest.mark.parametrize('num_classes', [2, 5])
@@ -532,14 +546,16 @@ def test_lightgbm(tmp_path, num_classes, n_categorical):
         n_rows = 500
         n_informative = 'auto'
 
+    state = np.random.RandomState(43210)
     X, y = simulate_data(n_rows,
                          n_features,
                          num_classes,
                          n_informative=n_informative,
-                         random_state=43210,
+                         random_state=state,
                          classification=True)
+    rng = np.random.default_rng(hash(state))
     if n_categorical > 0:
-        X_fit = to_categorical(X, n_categorical)
+        X_fit, X = to_categorical(X, n_categorical, 10, rng)
     else:
         X_fit = X
 
@@ -560,7 +576,7 @@ def test_lightgbm(tmp_path, num_classes, n_categorical):
         # binary classification
         gbm_proba = bst.predict(X)
         fil_proba = fm.predict_proba(X)[:, 1]
-        gbm_preds = (gbm_proba > 0.5)
+        gbm_preds = (gbm_proba > 0.5).astype(int)
         fil_preds = fm.predict(X)
         assert array_equal(gbm_preds, fil_preds)
         np.testing.assert_allclose(gbm_proba, fil_proba,
@@ -572,11 +588,11 @@ def test_lightgbm(tmp_path, num_classes, n_categorical):
                                  n_estimators=num_round)
         lgm.fit(X_fit, y)
         lgm.booster_.save_model(model_path)
+        lgm_preds = lgm.predict(X).astype(int)
         fm = ForestInference.load(model_path,
                                   algo='TREE_REORG',
                                   output_class=True,
                                   model_type="lightgbm")
-        lgm_preds = lgm.predict(X)
         assert array_equal(lgm.booster_.predict(X).argmax(axis=1), lgm_preds)
         assert array_equal(lgm_preds, fm.predict(X))
         # lightgbm uses float64 thresholds, while FIL uses float32
