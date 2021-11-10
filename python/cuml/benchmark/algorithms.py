@@ -573,9 +573,9 @@ def all_algorithms():
         AlgorithmPair(
             None,
             cuml.dask.cluster.KMeans,
-            shared_args=dict(init="k-means++", n_clusters=8,
-                             max_iter=300, n_init=1),
-            cuml_args=dict(oversampling_factor=0),
+            shared_args=dict(n_clusters=8, max_iter=300, n_init=1),
+            cpu_args=dict(init="k-means++"),
+            cuml_args=dict(init="scalable-k-means++"),
             name="MNMG.KMeans",
             accepts_labels=False,
             accuracy_function=metrics.homogeneity_score,

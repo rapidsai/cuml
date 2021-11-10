@@ -18,16 +18,32 @@ def bench_mnmg_kmeans(gpubenchmark, n_rows, n_features, client):
                     'blobs', n_rows, n_features, client=client)
 
 
+@pytest.mark.skip('DBSCAN needs to be updated to allow Dask Arrays/Dataframes')
 @pytest.mark.skipif(not has_pytest_benchmark(),
                     reason='pytest-benchmark missing')
-@pytest.mark.parametrize('algo_name', ['MNMG.DBSCAN',
-                                       'MNMG.UMAP-Unsupervised',
-                                       'MNMG.UMAP-Supervised',
-                                       'MNMG.NearestNeighbors'
-                                       ])
+@pytest.mark.parametrize('algo_name', ['MNMG.DBSCAN'])
 @pytest.mark.ML
-def bench_mnmg_with_blobs(gpubenchmark, algo_name, client):
-    # Lump together a bunch of simple blobs-based tests
+def bench_mnmg_dbscan(gpubenchmark, algo_name, client):
+    _benchmark_algo(gpubenchmark, algo_name,
+                    'blobs', 10000, 100, client=client)
+
+
+@pytest.mark.skipif(not has_pytest_benchmark(),
+                    reason='pytest-benchmark missing')
+@pytest.mark.parametrize('algo_name', ['MNMG.NearestNeighbors'])
+@pytest.mark.ML
+def bench_mnmg_nearest_neighbors(gpubenchmark, algo_name, client):
+    _benchmark_algo(gpubenchmark, algo_name,
+                    'blobs', 10000, 100, client=client)
+
+
+@pytest.mark.skip('MNMG UMAP requires a trained local model, work needed')
+@pytest.mark.skipif(not has_pytest_benchmark(),
+                    reason='pytest-benchmark missing')
+@pytest.mark.parametrize('algo_name', ['MNMG.UMAP-Unsupervised',
+                                       'MNMG.UMAP-Supervised'])
+@pytest.mark.ML
+def bench_mnmg_umap(gpubenchmark, algo_name, client):
     _benchmark_algo(gpubenchmark, algo_name,
                     'blobs', 10000, 100, client=client)
 
