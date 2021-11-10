@@ -199,6 +199,10 @@ else
     pip install "git+https://github.com/dask/dask.git@main" --upgrade --no-deps
     set +x
 
+    # https://docs.rapids.ai/maintainers/depmgmt/
+    gpuci_conda_retry remove --force rapids-build-env rapids-notebook-env
+    gpuci_mamba_retry install -y "scikit-learn=1.0.0"
+
     gpuci_logger "Building cuml"
     "$WORKSPACE/build.sh" -v cuml --codecov
 
