@@ -404,7 +404,7 @@ struct dense_forest : forest {
 
     // predict_proba is a runtime parameter, and opt-in is unconditional
     dispatch_on_fil_template_params(opt_into_arch_dependent_shmem<dense_storage>(max_shm_),
-                                    (predict_params)class_ssp_);
+                                    static_cast<predict_params>(class_ssp_));
     // copy must be finished before freeing the host data
     CUDA_CHECK(cudaStreamSynchronize(h.get_stream()));
     h_nodes_.clear();
@@ -463,7 +463,7 @@ struct sparse_forest : forest {
 
     // predict_proba is a runtime parameter, and opt-in is unconditional
     dispatch_on_fil_template_params(opt_into_arch_dependent_shmem<sparse_storage<node_t>>(max_shm_),
-                                    (predict_params)class_ssp_);
+                                    static_cast<predict_params>(class_ssp_));
   }
 
   virtual void infer(predict_params params, cudaStream_t stream) override
