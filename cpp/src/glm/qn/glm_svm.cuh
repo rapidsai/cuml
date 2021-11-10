@@ -28,16 +28,25 @@ template <typename T>
 struct SVCL1Loss : GLMBase<T, SVCL1Loss<T>> {
   typedef GLMBase<T, SVCL1Loss<T>> Super;
 
-  SVCL1Loss(const raft::handle_t& handle, int D, bool has_bias) : Super(handle, D, 1, has_bias) {}
-  inline __device__ T lz(const T y, const T z) const
+  const struct Lz {
+    inline __device__ T operator()(const T y, const T z) const
+    {
+      T s = 2 * y - 1;
+      return raft::myMax<T>(0, 1 - s * z);
+    }
+  } lz;
+
+  const struct Dlz {
+    inline __device__ T operator()(const T y, const T z) const
+    {
+      T s = 2 * y - 1;
+      return s * z <= 1 ? -s : 0;
+    }
+  } dlz;
+
+  SVCL1Loss(const raft::handle_t& handle, int D, bool has_bias)
+    : Super(handle, D, 1, has_bias), lz{}, dlz{}
   {
-    T s = 2 * y - 1;
-    return raft::myMax<T>(0, 1 - s * z);
-  }
-  inline __device__ T dlz(const T y, const T z) const
-  {
-    T s = 2 * y - 1;
-    return s * z <= 1 ? -s : 0;
   }
 };
 
@@ -45,17 +54,26 @@ template <typename T>
 struct SVCL2Loss : GLMBase<T, SVCL2Loss<T>> {
   typedef GLMBase<T, SVCL2Loss<T>> Super;
 
-  SVCL2Loss(const raft::handle_t& handle, int D, bool has_bias) : Super(handle, D, 1, has_bias) {}
-  inline __device__ T lz(const T y, const T z) const
+  const struct Lz {
+    inline __device__ T operator()(const T y, const T z) const
+    {
+      T s = 2 * y - 1;
+      T t = raft::myMax<T>(0, 1 - s * z);
+      return t * t;
+    }
+  } lz;
+
+  const struct Dlz {
+    inline __device__ T operator()(const T y, const T z) const
+    {
+      T s = 2 * y - 1;
+      return s * z <= 1 ? z - s : 0;
+    }
+  } dlz;
+
+  SVCL2Loss(const raft::handle_t& handle, int D, bool has_bias)
+    : Super(handle, D, 1, has_bias), lz{}, dlz{}
   {
-    T s = 2 * y - 1;
-    T t = raft::myMax<T>(0, 1 - s * z);
-    return t * t;
-  }
-  inline __device__ T dlz(const T y, const T z) const
-  {
-    T s = 2 * y - 1;
-    return s * z <= 1 ? z - s : 0;
   }
 };
 
@@ -63,26 +81,23 @@ template <typename T>
 struct SVRL1Loss : GLMBase<T, SVRL1Loss<T>> {
   typedef GLMBase<T, SVRL1Loss<T>> Super;
 
-  struct Lz {
+  const struct Lz {
     T sensitivity;
     inline __device__ T operator()(const T y, const T z) const
     {
       T t = y - z;
       return t > sensitivity ? t - sensitivity : t < -sensitivity ? -t - sensitivity : 0;
     }
-  };
+  } lz;
 
-  struct Dlz {
+  const struct Dlz {
     T sensitivity;
     inline __device__ T operator()(const T y, const T z) const
     {
       T t = y - z;
       return t > sensitivity ? -1 : (t < -sensitivity ? 1 : 0);
     }
-  };
-
-  const Lz lz;
-  const Dlz dlz;
+  } dlz;
 
   SVRL1Loss(const raft::handle_t& handle, int D, bool has_bias, T sensitivity)
     : Super(handle, D, 1, has_bias), lz{sensitivity}, dlz{sensitivity}
@@ -94,7 +109,7 @@ template <typename T>
 struct SVRL2Loss : GLMBase<T, SVRL2Loss<T>> {
   typedef GLMBase<T, SVRL2Loss<T>> Super;
 
-  struct Lz {
+  const struct Lz {
     T sensitivity;
     inline __device__ T operator()(const T y, const T z) const
     {
@@ -102,19 +117,16 @@ struct SVRL2Loss : GLMBase<T, SVRL2Loss<T>> {
       T s = t > sensitivity ? t - sensitivity : t < -sensitivity ? -t - sensitivity : 0;
       return s * s;
     }
-  };
+  } lz;
 
-  struct Dlz {
+  const struct Dlz {
     T sensitivity;
     inline __device__ T operator()(const T y, const T z) const
     {
       T t = y - z;
       return -2 * (t > sensitivity ? t - sensitivity : t < -sensitivity ? (t + sensitivity) : 0);
     }
-  };
-
-  const Lz lz;
-  const Dlz dlz;
+  } dlz;
 
   SVRL2Loss(const raft::handle_t& handle, int D, bool has_bias, T sensitivity)
     : Super(handle, D, 1, has_bias), lz{sensitivity}, dlz{sensitivity}

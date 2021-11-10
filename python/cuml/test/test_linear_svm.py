@@ -37,7 +37,7 @@ def good_enough(myscore: float, refscore: float, training_size: int):
     # to be ~50%, which is a total randomness. But this is ok,
     # since we don't expect the model to be trained from this few
     # samples.
-    c = (10000 + training_size) / (200 + 5 * training_size)
+    c = (10000 + training_size) / (100 + 5 * training_size)
     thresh_rel = referr * (1 + ERROR_TOLERANCE_REL * c)
     thresh_abs = referr + ERROR_TOLERANCE_ABS * c
     good_rel = myerr <= thresh_rel

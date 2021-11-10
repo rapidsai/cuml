@@ -123,40 +123,27 @@ struct GLMBase : GLMDims {
   }
 
   /*
-    === A note on getLoss_impl and getDZ_impl. ===
-
-    These two helpers are implemented in two variants each; one supports lz and dlz being
-    plain member functions, and another supports lz and dlz being stateful functors.
-
-    Implementation:
-    To distinguish between the two implementations, I use SFINAE approach: a dummy argument,
-    which type is sound only when lz/dlz is a functor (otherwise the first implementation
-    does not compile and the compiler chooses the second one).
-
-    Reasoning:
-      a. Pointers to member functions cannot be captured in lambdas as variables,
-         but I can capture the Loss pointer and get the member from there;
-      b. I cannot get value members from the captured Loss pointer (because its content is on the
-    host), but I can capture individual members, such as Lz functor with its state.
-
-      NB 1: this whole thing is not needed if we decide lz and dlz must always be functors.
-
-      NB 2: another approach would be to force simple-function-implementation be static functions
-            instead of member functions, but that always crashes at runtime for unknown reasons.
-
+   * Computes the following:
+   * 1. Z <- dL/DZ
+   * 2. loss_val <- sum loss(Z)
+   *
+   * Default: elementwise application of loss and its derivative
+   *
+   * NB: for this method to work, loss implementations must have two functor fields `lz` and `dlz`.
+   *     These two compute loss value and its derivative w.r.t. `z`.
    */
-
-  template <typename L>
-  inline void getLoss_impl(T* loss_val,
+  inline void getLossAndDZ(T* loss_val,
                            SimpleDenseMat<T>& Z,
                            const SimpleVec<T>& y,
-                           cudaStream_t stream,
-                           // SFINAE: Loss::lz is a "Functor" struct
-                           // see the "note on getLoss_impl and getDZ_impl" above
-                           decltype(std::declval<decltype(L::lz)>().operator()(0, 0)))
+                           cudaStream_t stream)
   {
-    auto lz_copy = static_cast<Loss*>(this)->lz;
-    if (this->sample_weights) {
+    // Base impl assumes simple case C = 1
+    // TODO would be nice to have a kernel that fuses these two steps
+    // This would be easy, if mapThenSumReduce allowed outputing the result of
+    // map (supporting inplace)
+    auto lz_copy  = static_cast<Loss*>(this)->lz;
+    auto dlz_copy = static_cast<Loss*>(this)->dlz;
+    if (this->sample_weights) {  // Sample weights are in use
       T normalization = 1.0 / this->weights_sum;
       raft::linalg::mapThenSumReduce(
         loss_val,
@@ -168,61 +155,6 @@ struct GLMBase : GLMDims {
         y.data,
         Z.data,
         sample_weights);
-    } else {
-      T normalization = 1.0 / y.len;
-      raft::linalg::mapThenSumReduce(
-        loss_val,
-        y.len,
-        [lz_copy, normalization] __device__(const T y, const T z) {
-          return lz_copy(y, z) * normalization;
-        },
-        stream,
-        y.data,
-        Z.data);
-    }
-  }
-
-  template <typename L>
-  inline void getLoss_impl(
-    T* loss_val, SimpleDenseMat<T>& Z, const SimpleVec<T>& y, cudaStream_t stream, ...)
-  {
-    Loss* loss = static_cast<Loss*>(this);
-    if (this->sample_weights) {
-      T normalization = 1.0 / this->weights_sum;
-      raft::linalg::mapThenSumReduce(
-        loss_val,
-        y.len,
-        [loss, normalization] __device__(const T y, const T z, const T weight) {
-          return loss->lz(y, z) * (weight * normalization);
-        },
-        stream,
-        y.data,
-        Z.data,
-        sample_weights);
-    } else {
-      T normalization = 1.0 / y.len;
-      raft::linalg::mapThenSumReduce(
-        loss_val,
-        y.len,
-        [loss, normalization] __device__(const T y, const T z) {
-          return loss->lz(y, z) * normalization;
-        },
-        stream,
-        y.data,
-        Z.data);
-    }
-  }
-
-  template <typename L>
-  inline void getDZ_impl(SimpleDenseMat<T>& Z,
-                         const SimpleVec<T>& y,
-                         cudaStream_t stream,
-                         // SFINAE: Loss::dlz is a "Functor" struct
-                         // see the "note on getLoss_impl and getDZ_impl" above
-                         decltype(std::declval<decltype(L::dlz)>().operator()(0, 0)))
-  {
-    auto dlz_copy = static_cast<Loss*>(this)->dlz;
-    if (this->sample_weights) {  // Sample weights are in use
       raft::linalg::map(
         Z.data,
         y.len,
@@ -234,54 +166,18 @@ struct GLMBase : GLMDims {
         Z.data,
         sample_weights);
     } else {  // Sample weights are not used
-      raft::linalg::binaryOp(Z.data, y.data, Z.data, y.len, dlz_copy, stream);
-    }
-  }
-
-  template <typename L>
-  inline void getDZ_impl(SimpleDenseMat<T>& Z, const SimpleVec<T>& y, cudaStream_t stream, ...)
-  {
-    Loss* loss = static_cast<Loss*>(this);
-    if (this->sample_weights) {  // Sample weights are in use
-      raft::linalg::map(
-        Z.data,
+      T normalization = 1.0 / y.len;
+      raft::linalg::mapThenSumReduce(
+        loss_val,
         y.len,
-        [loss] __device__(const T y, const T z, const T weight) {
-          return weight * loss->dlz(y, z);
+        [lz_copy, normalization] __device__(const T y, const T z) {
+          return lz_copy(y, z) * normalization;
         },
         stream,
         y.data,
-        Z.data,
-        sample_weights);
-    } else {  // Sample weights are not used
-      raft::linalg::binaryOp(
-        Z.data,
-        y.data,
-        Z.data,
-        y.len,
-        [loss] __device__(const T y, const T z) { return loss->dlz(y, z); },
-        stream);
+        Z.data);
+      raft::linalg::binaryOp(Z.data, y.data, Z.data, y.len, dlz_copy, stream);
     }
-  }
-
-  /*
-   * Computes the following:
-   * 1. Z <- dL/DZ
-   * 2. loss_val <- sum loss(Z)
-   *
-   * Default: elementwise application of loss and its derivative
-   */
-  inline void getLossAndDZ(T* loss_val,
-                           SimpleDenseMat<T>& Z,
-                           const SimpleVec<T>& y,
-                           cudaStream_t stream)
-  {
-    // Base impl assumes simple case C = 1
-    // TODO would be nice to have a kernel that fuses these two steps
-    // This would be easy, if mapThenSumReduce allowed outputing the result of
-    // map (supporting inplace)
-    getLoss_impl<Loss>(loss_val, Z, y, stream, 0);
-    getDZ_impl<Loss>(Z, y, stream, 0);
   }
 
   inline void loss_grad(T* loss_val,
