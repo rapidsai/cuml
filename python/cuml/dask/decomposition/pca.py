@@ -158,7 +158,7 @@ class PCA(BaseDecomposition,
 
     def __init__(self, *, client=None, verbose=False, **kwargs):
 
-        super().__init__(PCA._create_pca,
+        super().__init__(model_func=PCA._create_pca,
                          client=client,
                          verbose=verbose,
                          **kwargs)

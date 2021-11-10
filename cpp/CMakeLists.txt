@@ -191,6 +191,10 @@ endif()
 # add third party dependencies using CPM
 rapids_cpm_init()
 
+message(STATUS "CUML: Overriding thrust settings to set alwas_download.")
+include(${rapids-cmake-dir}/cpm/package_override.cmake)
+rapids_cpm_package_override(${CMAKE_CURRENT_SOURCE_DIR}/cmake/override_cpm.json)
+
 include(cmake/thirdparty/get_raft.cmake)
 include(cmake/thirdparty/get_treelite.cmake)
 
@@ -235,7 +239,8 @@ if(BUILD_CUML_CPP_LIBRARY)
   target_sources(${CUML_CPP_TARGET}
     PRIVATE
       src/fil/fil.cu
-      src/fil/infer.cu)
+      src/fil/infer.cu
+      src/fil/treelite_import.cu)
 
   # Rest of the algorithms
   if(CUML_CPP_ALGORITHMS STREQUAL "ALL")

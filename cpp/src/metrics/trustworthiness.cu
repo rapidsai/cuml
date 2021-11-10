@@ -18,7 +18,7 @@
 
 #include <cuml/metrics/metrics.hpp>
 
-#include <raft/distance/distance.cuh>
+#include <raft/distance/distance.hpp>
 #include <raft/handle.hpp>
 
 namespace ML {

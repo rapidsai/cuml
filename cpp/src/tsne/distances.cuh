@@ -66,14 +66,6 @@ void get_distances(const raft::handle_t& handle,
   std::vector<float*> input_vec = {input.X};
   std::vector<int> sizes_vec    = {input.n};
 
-  /**
- * std::vector<float *> &input, std::vector<int> &sizes,
-                     IntType D, float *search_items, IntType n, int64_t *res_I,
-                     float *res_D, IntType k,
-                     std::shared_ptr<deviceAllocator> allocator,
-                     cudaStream_t userStream,
- */
-
   raft::spatial::knn::brute_force_knn(handle,
                                       input_vec,
                                       sizes_vec,
@@ -140,35 +132,21 @@ void get_distances(const raft::handle_t& handle,
 /**
  * @brief   Find the maximum element in the distances matrix, then divide all entries by this.
  *          This promotes exp(distances) to not explode.
- * @param[in] n: The number of rows in the data X.
- * @param[in] distances: The output sorted distances from KNN.
- * @param[in] n_neighbors: The number of nearest neighbors you want.
- * @param[in] stream: The GPU stream.
+ * @param[in] distances: The output sorted distances from KNN
+ * @param[in] total_nn: The number of rows in the data X
+ * @param[in] stream: The GPU stream
  */
-template <typename value_idx, typename value_t>
-void normalize_distances(const value_idx n,
-                         value_t* distances,
-                         const int n_neighbors,
-                         cudaStream_t stream)
+template <typename value_t>
+void normalize_distances(value_t* distances, const size_t total_nn, cudaStream_t stream)
 {
-  // Now D / max(abs(D)) to allow exp(D) to not explode
-
-  auto policy = rmm::exec_policy(stream);
-
-  auto functional_abs = [] __device__(const value_t& x) { return abs(x); };
-
-  value_t maxNorm = thrust::transform_reduce(
-    policy, distances, distances + n * n_neighbors, functional_abs, 0.0f, thrust::maximum<float>());
-
-  if (maxNorm == 0.0f) { maxNorm = 1.0f; }
-
-  thrust::constant_iterator<float> division_iterator(1.0f / maxNorm);
-  thrust::transform(policy,
-                    distances,
-                    distances + n * n_neighbors,
-                    division_iterator,
-                    distances,
-                    thrust::multiplies<float>());
+  auto abs_f      = [] __device__(const value_t& x) { return abs(x); };
+  value_t maxNorm = thrust::transform_reduce(rmm::exec_policy(stream),
+                                             distances,
+                                             distances + total_nn,
+                                             abs_f,
+                                             0.0f,
+                                             thrust::maximum<value_t>());
+  raft::linalg::scalarMultiply(distances, distances, 1.0f / maxNorm, total_nn, stream);
 }
 
 /**
@@ -191,10 +169,6 @@ void symmetrize_perplexity(float* P,
                            cudaStream_t stream,
                            const raft::handle_t& handle)
 {
-  // Perform (P + P.T) / P_sum * early_exaggeration
-  const value_t div = 1.0f / (2.0f * n);
-  raft::linalg::scalarMultiply(P, P, div, n * k, stream);
-
   // Symmetrize to form P + P.T
   raft::sparse::linalg::from_knn_symmetrize_matrix<value_idx, value_t>(
     indices, P, n, k, COO_Matrix, stream);
