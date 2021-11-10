@@ -357,7 +357,7 @@ int tree2fil(std::vector<fil_node_t>& nodes,
       // reserve space for child nodes
       // left is the offset of the left child node relative to the tree root
       // in the array of all nodes of the FIL sparse forest
-      int left = std::is_same<fil_node_t, dense_node>() ? 2 * cur + 1 : sparse_index - root;
+      int left = is_dense<fil_node_t>() ? 2 * cur + 1 : sparse_index - root;
       sparse_index += 2;
       conversion_state<fil_node_t> cs = tl2fil_inner_node<fil_node_t>(
         left, tree, node_id, forest_params, cat_sets, &cat_sets->bit_pool_offsets[tree_idx]);
@@ -705,8 +705,8 @@ void from_treelite(const raft::handle_t& handle,
       std::vector<dense_node> nodes;
       std::vector<float> vector_leaf;
       tl2fil_dense(&nodes, &params, model, tl_params, &cat_sets, &vector_leaf);
-      init_dense(handle, pforest, cat_sets.accessor(), vector_leaf, nodes.data(), &params);
-      // sync is necessary as nodes is used in init_dense(),
+      init(handle, pforest, cat_sets.accessor(), vector_leaf, nullptr, nodes.data(), &params);
+      // sync is necessary as nodes is used in init(),
       // but destructed at the end of this function
       CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
       if (tl_params->pforest_shape_str) {
@@ -719,7 +719,7 @@ void from_treelite(const raft::handle_t& handle,
       std::vector<sparse_node16> nodes;
       std::vector<float> vector_leaf;
       tl2fil_sparse(&trees, &nodes, &params, model, tl_params, &cat_sets, &vector_leaf);
-      init_sparse(
+      init(
         handle, pforest, cat_sets.accessor(), vector_leaf, trees.data(), nodes.data(), &params);
       CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
       if (tl_params->pforest_shape_str) {
@@ -732,7 +732,7 @@ void from_treelite(const raft::handle_t& handle,
       std::vector<sparse_node8> nodes;
       std::vector<float> vector_leaf;
       tl2fil_sparse(&trees, &nodes, &params, model, tl_params, &cat_sets, &vector_leaf);
-      init_sparse(
+      init(
         handle, pforest, cat_sets.accessor(), vector_leaf, trees.data(), nodes.data(), &params);
       CUDA_CHECK(cudaStreamSynchronize(handle.get_stream()));
       if (tl_params->pforest_shape_str) {
