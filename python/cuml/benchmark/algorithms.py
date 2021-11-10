@@ -399,7 +399,7 @@ def all_algorithms():
         AlgorithmPair(
             treelite,
             cuml.ForestInference,
-            shared_args=dict(num_rounds=100, max_depth=10),
+            shared_args=dict(),
             cuml_args=dict(
                 fil_algo="AUTO",
                 output_class=False,
