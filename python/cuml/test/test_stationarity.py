@@ -1,4 +1,4 @@
-# Copyright (c) 2019, NVIDIA CORPORATION.
+# Copyright (c) 2019-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ def kpss_ref(y):
     """Wrapper around statsmodels' KPSS test
     """
     batch_size = y.shape[1]
-    test_results = np.zeros(batch_size, dtype=np.bool)
+    test_results = np.zeros(batch_size, dtype=bool)
     for i in range(batch_size):
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore")
