@@ -466,7 +466,7 @@ struct cat_sets_device_owner {
   cat_sets_device_owner(categorical_sets cat_sets, cudaStream_t stream)
     : bits(cat_sets.bits_size, stream), fid_cats(cat_sets.fid_cats_size, stream)
   {
-    ASSERT(bits.size() <= static_cast<std::size_t>(INT_MAX) + std::size_t(1),
+    ASSERT(bits.size() <= std::size_t(INT_MAX) + std::size_t(1),
            "too many categories/categorical nodes: cannot store bits offset in node");
     if (cat_sets.fid_cats_size > 0) {
       ASSERT(cat_sets.fid_cats != nullptr, "internal error: cat_sets.fid_cats is nil");
