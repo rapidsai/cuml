@@ -27,7 +27,7 @@ export CONDA_BLD_DIR="$WORKSPACE/.conda-bld"
 cd "$WORKSPACE"
 
 # If nightly build, append current YYMMDD to version
-if [ "${IS_STABLE_BUILD}" != "true" ] ; then
+if [ "${IS_STABLE_BUILD}" == "true" ] ; then
   export VERSION_SUFFIX=`date +%y%m%d`
 fi
 
@@ -43,7 +43,7 @@ gpuci_logger "Activate conda env"
 conda activate rapids
 
 # Remove rapidsai-nightly channel if it is stable build
-if [ "${IS_STABLE_BUILD}" != "true" ]; then
+if [ "${IS_STABLE_BUILD}" == "true" ]; then
   conda config --system --remove channels rapidsai-nightly
 fi
 
