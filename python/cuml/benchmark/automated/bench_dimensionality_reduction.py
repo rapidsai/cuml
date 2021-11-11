@@ -1,6 +1,5 @@
 import pytest
-from .init_pytest_bench import *  # noqa: F401,F403
-from .utils import _benchmark_algo
+from .utils.utils import _benchmark_algo
 from cuml.common.import_utils import has_pytest_benchmark
 
 #

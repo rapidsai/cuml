@@ -187,5 +187,6 @@ class Profiler:
         self._display_results(results)
 
 
-profiler = Profiler()
-profiler.profile(sys.argv[1])
+if __name__ == "__main__":
+    profiler = Profiler()
+    profiler.profile(sys.argv[1])
