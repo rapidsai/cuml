@@ -113,9 +113,9 @@ def test_cuml_rf_classifier():
                        n_streams=1, n_estimators=10, max_leaves=-1,
                        max_depth=16, accuracy_metric="mse")
     cuml_model.fit(X, y)
+    pred = cuml_model.predict(X)
     tl_model = cuml_model.convert_to_treelite_model()
 
     explainer = TreeExplainer(model=tl_model)
     out = explainer.shap_values(X)
-    print(out)
-    print(out.shape)
+    np.testing.assert_almost_equal(np.sum(out, axis=1), pred, decimal=3)

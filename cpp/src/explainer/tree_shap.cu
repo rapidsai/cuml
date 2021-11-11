@@ -64,6 +64,7 @@ enum class CondType : uint8_t {
 class ExtractedPath {
  public:
   CondType cond_type;
+  int num_tree;
   float global_bias;
   tl::TaskType task_type;
   tl::TaskParam task_param;
@@ -269,6 +270,7 @@ extract_paths_impl(const tl::ModelImpl<ThresholdType, LeafType>& model) {
   paths->task_type = model.task_type;
   paths->task_param = model.task_param;
   paths->average_tree_output = model.average_tree_output;
+  paths->num_tree = static_cast<int>(model.trees.size());
 
   return static_cast<ExtractedPathHandle>(path_container.release());
 }
@@ -300,7 +302,15 @@ void gpu_treeshap(ExtractedPathHandle extracted_paths, const float* data,
                               + (n_rows * num_groups * (n_cols + 1)));
   });
   float global_bias = path_ref.global_bias;
+  int num_tree = path_ref.num_tree;
   auto count_iter = thrust::make_counting_iterator(0);
+  if (path_ref.average_tree_output) {
+    thrust::for_each(thrust::device, count_iter,
+        count_iter + (n_rows * num_groups * (n_cols + 1)),
+      [=] __device__(std::size_t idx) {
+        out_preds[idx] /= num_tree;
+      });
+  }
   thrust::for_each(thrust::device, count_iter,
       count_iter + (n_rows * num_groups),
     [=] __device__(std::size_t idx) {
