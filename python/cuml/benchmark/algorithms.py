@@ -40,7 +40,6 @@ from cuml.preprocessing import StandardScaler, MinMaxScaler, \
 from cuml.benchmark.bench_helper_funcs import (
     fit,
     fit_kneighbors,
-    fit_transform,
     predict,
     _build_cpu_skl_classifier,
     _build_fil_skl_classifier,
@@ -230,7 +229,6 @@ def all_algorithms():
             cuml.random_projection.GaussianRandomProjection,
             shared_args=dict(n_components=10),
             name="GaussianRandomProjection",
-            bench_func=fit_transform,
             accepts_labels=False,
         ),
         AlgorithmPair(
@@ -238,7 +236,6 @@ def all_algorithms():
             cuml.random_projection.SparseRandomProjection,
             shared_args=dict(n_components=10),
             name="SparseRandomProjection",
-            bench_func=fit_transform,
             accepts_labels=False,
         ),
         AlgorithmPair(
@@ -436,7 +433,7 @@ def all_algorithms():
             cuml.manifold.UMAP,
             shared_args=dict(n_neighbors=5, n_epochs=500),
             name="UMAP-Unsupervised",
-            accepts_labels=True,
+            accepts_labels=False,
             accuracy_function=cuml.metrics.trustworthiness,
         ),
         AlgorithmPair(
@@ -452,112 +449,98 @@ def all_algorithms():
             StandardScaler,
             shared_args=dict(),
             name="StandardScaler",
-            accepts_labels=False,
-            bench_func=fit_transform
+            accepts_labels=False
         ),
         AlgorithmPair(
             sklearn.preprocessing.MinMaxScaler,
             MinMaxScaler,
             shared_args=dict(),
             name="MinMaxScaler",
-            accepts_labels=False,
-            bench_func=fit_transform
+            accepts_labels=False
         ),
         AlgorithmPair(
             sklearn.preprocessing.MaxAbsScaler,
             MaxAbsScaler,
             shared_args=dict(),
             name="MaxAbsScaler",
-            accepts_labels=False,
-            bench_func=fit_transform
+            accepts_labels=False
         ),
         AlgorithmPair(
             sklearn.preprocessing.Normalizer,
             Normalizer,
             shared_args=dict(),
             name="Normalizer",
-            accepts_labels=False,
-            bench_func=fit_transform
+            accepts_labels=False
         ),
         AlgorithmPair(
             skSimpleImputer,
             SimpleImputer,
             shared_args=dict(),
             name="SimpleImputer",
-            accepts_labels=False,
-            bench_func=fit_transform
+            accepts_labels=False
         ),
         AlgorithmPair(
             sklearn.preprocessing.RobustScaler,
             RobustScaler,
             shared_args=dict(),
             name="RobustScaler",
-            accepts_labels=False,
-            bench_func=fit_transform
+            accepts_labels=False
         ),
         AlgorithmPair(
             sklearn.preprocessing.PolynomialFeatures,
             PolynomialFeatures,
             shared_args=dict(),
             name="PolynomialFeatures",
-            accepts_labels=False,
-            bench_func=fit_transform
+            accepts_labels=False
         ),
         AlgorithmPair(
             sklearn.preprocessing.StandardScaler,
             StandardScaler,
             shared_args=dict(),
             name="SparseCSRStandardScaler",
-            accepts_labels=False,
-            bench_func=fit_transform
+            accepts_labels=False
         ),
         AlgorithmPair(
             sklearn.preprocessing.MinMaxScaler,
             MinMaxScaler,
             shared_args=dict(),
             name="SparseCSRMinMaxScaler",
-            accepts_labels=False,
-            bench_func=fit_transform
+            accepts_labels=False
         ),
         AlgorithmPair(
             sklearn.preprocessing.MaxAbsScaler,
             MaxAbsScaler,
             shared_args=dict(),
             name="SparseCSRMaxAbsScaler",
-            accepts_labels=False,
-            bench_func=fit_transform
+            accepts_labels=False
         ),
         AlgorithmPair(
             sklearn.preprocessing.Normalizer,
             Normalizer,
             shared_args=dict(),
             name="SparseCSRNormalizer",
-            accepts_labels=False,
-            bench_func=fit_transform
+            accepts_labels=False
         ),
         AlgorithmPair(
             sklearn.preprocessing.RobustScaler,
             RobustScaler,
             shared_args=dict(),
             name="SparseCSCRobustScaler",
-            accepts_labels=False,
-            bench_func=fit_transform
+            accepts_labels=False
         ),
         AlgorithmPair(
             skSimpleImputer,
             SimpleImputer,
             shared_args=dict(),
             name="SparseCSCSimpleImputer",
-            accepts_labels=False,
-            bench_func=fit_transform
+            accepts_labels=False
         ),
         AlgorithmPair(
             sklearn.preprocessing.PolynomialFeatures,
             PolynomialFeatures,
             shared_args=dict(),
             name="SparseCSRPolynomialFeatures",
-            accepts_labels=False,
-            bench_func=fit_transform
+            accepts_labels=False
         ),
 
         AlgorithmPair(
@@ -595,7 +578,7 @@ def all_algorithms():
             cuml.dask.manifold.UMAP,
             shared_args=dict(n_neighbors=5, n_epochs=500),
             name="MNMG.UMAP-Unsupervised",
-            accepts_labels=True,
+            accepts_labels=False,
             accuracy_function=cuml.metrics.trustworthiness,
         ),
 
