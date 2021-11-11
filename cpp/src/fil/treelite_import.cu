@@ -612,11 +612,11 @@ struct tl2fil_t {
 
     size_t num_trees = model.trees.size();
 
-    trees.reserve(num_trees);
+    trees.reserve(num_trees + 1);
     trees.push_back(0);
     for (size_t i = 0; i < num_trees; ++i) {
-      int num_nodes = is_dense<fil_node_t>() ? forest_num_nodes(params.num_trees, params.depth)
-                                             : model.trees[i].num_nodes;
+      int num_nodes =
+        is_dense<fil_node_t>() ? tree_num_nodes(params.depth) : model.trees[i].num_nodes;
       trees.push_back(num_nodes + trees.back());
     }
     size_t total_nodes = trees.back();

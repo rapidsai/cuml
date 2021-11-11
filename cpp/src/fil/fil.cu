@@ -378,8 +378,6 @@ struct dense_forest : forest {
     } else {
       transform_trees(nodes);
     }
-    printf(
-      "dense_forest::init nodes: GPU %p CPU %p API %p\n", nodes_.data(), h_nodes_.data(), nodes);
     CUDA_CHECK(cudaMemcpyAsync(nodes_.data(),
                                h_nodes_.data(),
                                num_nodes * sizeof(dense_node),
@@ -393,7 +391,6 @@ struct dense_forest : forest {
 
   virtual void infer(predict_params params, cudaStream_t stream) override
   {
-    printf("dense_forest::infer nodes: GPU %p\n", nodes_.data());
     dense_storage forest(cat_sets_.accessor(),
                          vector_leaf_.data(),
                          nodes_.data(),
