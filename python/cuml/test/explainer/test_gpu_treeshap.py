@@ -106,15 +106,14 @@ def test_xgb_multiclass_classifier(objective):
     np.testing.assert_almost_equal(out, correct_out)
 
 def test_cuml_rf_classifier():
-    X, y = load_iris(return_X_y=True)
-    X, y = X.astype(np.float32), y.astype(np.int32)
-    cuml_model = curfc(max_features=1.0, max_samples=0.1, n_bins=128,
+    X, y = fetch_california_housing(return_X_y=True)
+    X, y = X.astype(np.float32), y.astype(np.float32)
+    cuml_model = curfr(max_features=1.0, max_samples=0.1, n_bins=128,
                        min_samples_leaf=2, random_state=123,
                        n_streams=1, n_estimators=10, max_leaves=-1,
                        max_depth=16, accuracy_metric="mse")
     cuml_model.fit(X, y)
     tl_model = cuml_model.convert_to_treelite_model()
-    print(dir(tl_model))
 
     explainer = TreeExplainer(model=tl_model)
     out = explainer.shap_values(X)

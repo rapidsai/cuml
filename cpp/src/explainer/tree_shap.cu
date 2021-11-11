@@ -178,9 +178,6 @@ extract_paths_impl(const tl::ModelImpl<ThresholdType, LeafType>& model) {
   if (!std::is_same<ThresholdType, LeafType>::value) {
     RAFT_FAIL("ThresholdType and LeafType must be identical");
   }
-  if (model.average_tree_output) {
-    RAFT_FAIL("Tree model with average_tree_output=True is not supported yet");
-  }
   if (model.task_type != tl::TaskType::kBinaryClfRegr
       && model.task_type != tl::TaskType::kMultiClfGrovePerClass) {
     RAFT_FAIL("Only tree models with task type kBinaryClfRegr, "
