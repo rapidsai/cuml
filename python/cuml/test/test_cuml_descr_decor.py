@@ -41,7 +41,7 @@ test_dtypes_short = [
 test_shapes = [10, (10, 1), (10, 5), (1, 10)]
 
 
-class TestEstimator(cuml.Base):
+class DummyTestEstimator(cuml.Base):
 
     input_any_ = CumlArrayDescriptor()
 
@@ -57,7 +57,7 @@ class TestEstimator(cuml.Base):
         return self.input_any_
 
     # === Standard Functions ===
-    def fit(self, X, convert_dtype=True) -> "TestEstimator":
+    def fit(self, X, convert_dtype=True) -> "DummyTestEstimator":
 
         return self
 
@@ -115,7 +115,7 @@ def test_pickle(input_type):
     if (input_type == "numba"):
         pytest.skip("numba arrays cant be picked at this time")
 
-    est = TestEstimator()
+    est = DummyTestEstimator()
 
     X_in = create_input(input_type, np.float32, (10, 5), "C")
 
@@ -128,7 +128,7 @@ def test_pickle(input_type):
                                    create_output(X_in, out_type))
 
     est_pickled_bytes = pickle.dumps(est)
-    est_unpickled: TestEstimator = pickle.loads(est_pickled_bytes)
+    est_unpickled: DummyTestEstimator = pickle.loads(est_pickled_bytes)
 
     # Assert that we only resture the input
     assert est_unpickled.__dict__["input_any_"].input_type == input_type
@@ -163,7 +163,7 @@ def test_dec_input_output(input_type, input_dtype, input_shape, output_type):
     X_out = create_output(X_in, output_type)
 
     # Test with output_type="input"
-    est = TestEstimator(output_type="input")
+    est = DummyTestEstimator(output_type="input")
 
     est.store_input(X_in)
 
@@ -185,7 +185,7 @@ def test_dec_input_output(input_type, input_dtype, input_shape, output_type):
         assert array_identical(est.input_any_, X_out)
 
     # Now Test with output_type=output_type
-    est = TestEstimator(output_type=output_type)
+    est = DummyTestEstimator(output_type=output_type)
 
     est.store_input(X_in)
 
@@ -211,7 +211,7 @@ def test_auto_fit(input_type, input_dtype, input_shape):
     X_in = create_input(input_type, input_dtype, input_shape, "C")
 
     # Test with output_type="input"
-    est = TestEstimator()
+    est = DummyTestEstimator()
 
     est.fit(X_in)
 
@@ -243,7 +243,7 @@ def test_auto_predict(input_type, base_output_type, global_output_type):
     X_in = create_input(input_type, np.float32, (10, 10), "F")
 
     # Test with output_type="input"
-    est = TestEstimator()
+    est = DummyTestEstimator()
 
     # With cuml.global_settings.output_type == None, this should return the
     # input type
@@ -254,7 +254,7 @@ def test_auto_predict(input_type, base_output_type, global_output_type):
     assert array_identical(X_in, X_out)
 
     # Test with output_type=base_output_type
-    est = TestEstimator(output_type=base_output_type)
+    est = DummyTestEstimator(output_type=base_output_type)
 
     # With cuml.global_settings.output_type == None, this should return the
     # base_output_type

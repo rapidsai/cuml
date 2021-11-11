@@ -53,10 +53,8 @@ cdef extern from "cuml/decomposition/pca_mg.hpp" namespace "ML":
         QR "ML::mg_solver::QR"
 
     cdef cppclass paramsTSVDMG(paramsSolver):
-        int n_components
-        int max_sweeps
+        size_t n_components
         mg_solver algorithm  # = solver::COV_EIG_DQ
-        bool trans_input
 
     cdef cppclass paramsPCAMG(paramsTSVDMG):
         bool copy
