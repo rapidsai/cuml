@@ -1298,7 +1298,9 @@ def test_sparse_pairwise_distances_exceptions():
         metric if metric != 'hellinger'
         else pytest.param(
             metric,
-            marks=pytest.mark.xfail(reason="intermittent failure (Issue #4354)")
+            marks=pytest.mark.xfail(
+                reason="intermittent failure (Issue #4354)"
+            )
         )
         for metric in PAIRWISE_DISTANCE_SPARSE_METRICS.keys()
     ]
