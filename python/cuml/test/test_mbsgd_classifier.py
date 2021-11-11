@@ -61,6 +61,7 @@ def make_dataset(request):
         ('constant', 'elasticnet', 'hinge'),
     ]
 )
+@pytest.mark.filterwarnings("ignore:Maximum::sklearn[.*]")
 def test_mbsgd_classifier_vs_skl(lrate, penalty, loss, make_dataset):
     nrows, X_train, X_test, y_train, y_test = make_dataset
 

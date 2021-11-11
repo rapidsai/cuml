@@ -43,7 +43,7 @@ using namespace MLCommon;
  * @param n_cols        number of columns of the feature matrix
  * @param labels        device pointer to label vector of length n_rows
  * @param coef          device pointer to hold the solution for weights of size n_cols
- * @param intercept     device pointer to hold the solution for bias term of size 1
+ * @param intercept     host pointer to hold the solution for bias term of size 1
  * @param fit_intercept if true, fit intercept
  * @param normalize     if true, normalize data to zero mean, unit variance
  * @param stream        cuda stream

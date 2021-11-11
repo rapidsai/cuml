@@ -145,6 +145,8 @@ def test_base_subclass_init_matches_docs(child_class: str):
 
 
 @pytest.mark.parametrize('child_class', list(all_base_children.keys()))
+# ignore ColumnTransformer init warning
+@pytest.mark.filterwarnings("ignore:Transformers are required")
 def test_base_children_get_param_names(child_class: str):
 
     """

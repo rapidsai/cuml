@@ -54,8 +54,8 @@ def _get_array_ptr(obj):
 
 @cuml.internals.api_return_any()
 def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
-                    metric='euclidean', should_downcast=True,
-                    convert_dtype=False, batch_size=512) -> double:
+                    metric='euclidean',
+                    convert_dtype=True, batch_size=512) -> double:
     """
     Expresses to what extent the local structure is retained in embedding.
     The score is defined in the range [0, 1].
@@ -83,10 +83,8 @@ def trustworthiness(X, X_embedded, handle=None, n_neighbors=5,
             Trustworthiness of the low-dimensional embedding
     """
 
-    if should_downcast:
-        convert_dtype = True
-        warnings.warn("Parameter should_downcast is deprecated, use "
-                      "convert_dtype instead. ")
+    if n_neighbors > X.shape[0]:
+        raise ValueError("n_neighbors must be <= the number of rows.")
 
     if n_neighbors > X.shape[0]:
         raise ValueError("n_neighbors must be <= the number of rows.")
