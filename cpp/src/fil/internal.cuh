@@ -323,17 +323,17 @@ struct categorical_sets {
   // arrays are const to use fast GPU read instructions by default
   // arrays from each node ID are concatenated first, then from all categories
   const uint8_t* bits = nullptr;
-  // largest matching category in the model, per feature ID
-  const float* fid_cats = nullptr;
-  std::size_t bits_size = 0;
+  // number of matching categories FIL stores in the bit array, per feature ID
+  const float* fid_num_cats = nullptr;
+  std::size_t bits_size     = 0;
   // either 0 or num_cols. When 0, indicates intended empty array.
-  std::size_t fid_cats_size = 0;
+  std::size_t fid_num_cats_size = 0;
 
   __host__ __device__ __forceinline__ bool cats_present() const
   {
     // If this is constructed from cat_sets_owner, will return true; but false by default
     // We have converted all empty categorical nodes to NAN-threshold numerical nodes.
-    return fid_cats != nullptr;
+    return fid_num_cats != nullptr;
   }
 
   // set count is due to tree_idx + node_within_tree_idx are both ints, hence uint32_t result
@@ -345,23 +345,26 @@ struct categorical_sets {
     // to set number). If we run out of uint32_t and we have hundreds of
     // features with similar categorical feature count, we may consider
     // storing node ID within nodes with same feature ID and look up
-    // {.fid_cats, .first_node_offset} = ...[feature_id]
+    // {.fid_num_cats, .first_node_offset} = ...[feature_id]
 
     /* category < 0.0f or category > INT_MAX is equivalent to out-of-dictionary category
     (not matching, branch left). -0.0f represents category 0.
     If (float)(int)category != category, we will discard the fractional part.
-    E.g. 3.8f represents category 3 regardless of fid_cats value.
-    FIL will reject a model where an integer within [0, fid_cats] cannot be represented
+    E.g. 3.8f represents category 3 regardless of fid_num_cats value.
+    FIL will reject a model where an integer within [0, fid_num_cats] cannot be represented
     precisely as a 32-bit float.
     */
-    return category < fid_cats[node.fid()] && category >= 0.0f &&
-           fetch_bit(bits + node.set(), static_cast<int>(category));
+    return category < fid_num_cats[node.fid()] && category >= 0.0f &&
+           fetch_bit(bits + node.set(), static_cast<uint32_t>(static_cast<int>(category)));
   }
-  static int sizeof_mask_from_fid_cats(int fid_cats)
+  static int sizeof_mask_from_num_cats(int num_cats)
   {
-    return raft::ceildiv(fid_cats, BITS_PER_BYTE);
+    return raft::ceildiv(num_cats, BITS_PER_BYTE);
   }
-  int sizeof_mask(int feature_id) const { return sizeof_mask_from_fid_cats(fid_cats[feature_id]); }
+  int sizeof_mask(int feature_id) const
+  {
+    return sizeof_mask_from_num_cats(static_cast<int>(fid_num_cats[feature_id]));
+  }
 };
 
 // lets any tree determine a child index for a node in a generic fasion
@@ -405,7 +408,7 @@ struct cat_sets_owner {
   std::vector<uint8_t> bits;
   // largest matching category in the model, per feature ID. uses int because GPU code can only fit
   // int
-  std::vector<float> fid_cats;
+  std::vector<float> fid_num_cats;
   // how many categorical nodes use a given feature id. Used for model shape string.
   std::vector<std::size_t> n_nodes;
   // per tree, size and offset of bit pool within the overall bit pool
@@ -414,17 +417,17 @@ struct cat_sets_owner {
   categorical_sets accessor() const
   {
     return {
-      .bits          = bits.data(),
-      .fid_cats      = fid_cats.data(),
-      .bits_size     = bits.size(),
-      .fid_cats_size = fid_cats.size(),
+      .bits              = bits.data(),
+      .fid_num_cats      = fid_num_cats.data(),
+      .bits_size         = bits.size(),
+      .fid_num_cats_size = fid_num_cats.size(),
     };
   }
 
   void consume_counters(const std::vector<cat_feature_counters>& counters)
   {
     for (cat_feature_counters cf : counters) {
-      fid_cats.push_back(cf.max_matching + 1);
+      fid_num_cats.push_back(static_cast<float>(cf.max_matching + 1));
       n_nodes.push_back(cf.n_nodes);
     }
   }
@@ -439,8 +442,8 @@ struct cat_sets_owner {
   }
 
   cat_sets_owner() {}
-  cat_sets_owner(std::vector<uint8_t> bits_, std::vector<float> fid_cats_)
-    : bits(bits_), fid_cats(fid_cats_)
+  cat_sets_owner(std::vector<uint8_t> bits_, std::vector<float> fid_num_cats_)
+    : bits(bits_), fid_num_cats(fid_num_cats_)
   {
   }
 };
@@ -451,28 +454,28 @@ struct cat_sets_device_owner {
   // arrays from each node ID are concatenated first, then from all categories
   rmm::device_uvector<uint8_t> bits;
   // largest matching category in the model, per feature ID
-  rmm::device_uvector<float> fid_cats;
+  rmm::device_uvector<float> fid_num_cats;
 
   categorical_sets accessor() const
   {
     return {
-      .bits          = bits.data(),
-      .fid_cats      = fid_cats.data(),
-      .bits_size     = bits.size(),
-      .fid_cats_size = fid_cats.size(),
+      .bits              = bits.data(),
+      .fid_num_cats      = fid_num_cats.data(),
+      .bits_size         = bits.size(),
+      .fid_num_cats_size = fid_num_cats.size(),
     };
   }
-  cat_sets_device_owner(cudaStream_t stream) : bits(0, stream), fid_cats(0, stream) {}
+  cat_sets_device_owner(cudaStream_t stream) : bits(0, stream), fid_num_cats(0, stream) {}
   cat_sets_device_owner(categorical_sets cat_sets, cudaStream_t stream)
-    : bits(cat_sets.bits_size, stream), fid_cats(cat_sets.fid_cats_size, stream)
+    : bits(cat_sets.bits_size, stream), fid_num_cats(cat_sets.fid_num_cats_size, stream)
   {
     ASSERT(bits.size() <= std::size_t(INT_MAX) + std::size_t(1),
            "too many categories/categorical nodes: cannot store bits offset in node");
-    if (cat_sets.fid_cats_size > 0) {
-      ASSERT(cat_sets.fid_cats != nullptr, "internal error: cat_sets.fid_cats is nil");
-      CUDA_CHECK(cudaMemcpyAsync(fid_cats.data(),
-                                 cat_sets.fid_cats,
-                                 fid_cats.size() * sizeof(float),
+    if (cat_sets.fid_num_cats_size > 0) {
+      ASSERT(cat_sets.fid_num_cats != nullptr, "internal error: cat_sets.fid_num_cats is nil");
+      CUDA_CHECK(cudaMemcpyAsync(fid_num_cats.data(),
+                                 cat_sets.fid_num_cats,
+                                 fid_num_cats.size() * sizeof(float),
                                  cudaMemcpyDefault,
                                  stream));
     }
@@ -485,7 +488,7 @@ struct cat_sets_device_owner {
   void release()
   {
     bits.release();
-    fid_cats.release();
+    fid_num_cats.release();
   }
 };
 

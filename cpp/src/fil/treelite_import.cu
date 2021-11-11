@@ -56,8 +56,8 @@ std::ostream& operator<<(std::ostream& os, const cat_sets_owner& cso)
     os << std::bitset<BITS_PER_BYTE>(b) << " ";
   }
   os << " }\nmax_matching {";
-  for (int fid_cats : cso.fid_cats) {
-    os << fid_cats - 1 << " ";
+  for (float fid_num_cats : cso.fid_num_cats) {
+    os << static_cast<int>(fid_num_cats) - 1 << " ";
   }
   os << " }";
   return os;
@@ -859,8 +859,8 @@ char* sprintf_shape(const tl::ModelImpl<threshold_t, leaf_t>& model,
     }
     forest_shape << "}" << std::endl << "total categorical nodes: " << total_cat_nodes << std::endl;
     forest_shape << "maximum matching category for each feature id: {";
-    for (int fid_cats : cat_sets.fid_cats)
-      forest_shape << fid_cats - 1 << " ";
+    for (float fid_num_cats : cat_sets.fid_num_cats)
+      forest_shape << static_cast<int>(fid_num_cats) - 1 << " ";
     forest_shape << "}" << std::endl;
   }
   // stream may be discontiguous
