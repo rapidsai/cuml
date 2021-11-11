@@ -511,8 +511,8 @@ def to_categorical(features, n_categorical, invalid_frac, random_state):
     cat_cols = (cat_cols * rough_n_categories).astype(int)
 
     # mix categorical and numerical columns
-    new_col_idx =
-      rng.choice(n_features, n_features, replace=False, shuffle=True)
+    new_col_idx = \
+        rng.choice(n_features, n_features, replace=False, shuffle=True)
     df_cols = {}
     for icol in range(n_categorical):
         col = cat_cols[:, icol]
