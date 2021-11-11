@@ -114,6 +114,16 @@ struct sparse_storage : storage_base {
 typedef sparse_storage<sparse_node16> sparse_storage16;
 typedef sparse_storage<sparse_node8> sparse_storage8;
 
+template <typename fil_node_t>
+struct node2storage {
+  using T = sparse_storage<fil_node_t>;
+};
+
+template <>
+struct node2storage<dense_node> {
+  using T = dense_storage;
+};
+
 /// all model parameters mostly required to compute shared memory footprint,
 /// also the footprint itself
 struct shmem_size_params {

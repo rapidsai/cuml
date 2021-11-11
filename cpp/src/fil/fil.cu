@@ -378,6 +378,8 @@ struct dense_forest : forest {
     } else {
       transform_trees(nodes);
     }
+    printf(
+      "dense_forest::init nodes: GPU %p CPU %p API %p\n", nodes_.data(), h_nodes_.data(), nodes);
     CUDA_CHECK(cudaMemcpyAsync(nodes_.data(),
                                h_nodes_.data(),
                                num_nodes * sizeof(dense_node),
@@ -391,6 +393,7 @@ struct dense_forest : forest {
 
   virtual void infer(predict_params params, cudaStream_t stream) override
   {
+    printf("dense_forest::infer nodes: GPU %p\n", nodes_.data());
     dense_storage forest(cat_sets_.accessor(),
                          vector_leaf_.data(),
                          nodes_.data(),
@@ -535,18 +538,18 @@ void check_params(const forest_params_t* params, bool dense)
 }
 
 template <typename fil_node_t>
-struct forest_from_node_t {
+struct node2forest {
   using T = sparse_forest<fil_node_t>;
 };
 
-template<>
-struct forest_from_node_t<dense_node> {
+template <>
+struct node2forest<dense_node> {
   using T = dense_forest;
 };
 
 /** initializes a forest of any type
-* When fil_node_t == dense_node, const int* trees is ignored
-*/
+ * When fil_node_t == dense_node, const int* trees is ignored
+ */
 template <typename fil_node_t>
 void init(const raft::handle_t& h,
           forest_t* pf,
@@ -557,7 +560,7 @@ void init(const raft::handle_t& h,
           const forest_params_t* params)
 {
   check_params(params, is_dense<fil_node_t>());
-  auto f = new typename forest_from_node_t<fil_node_t>::T(h);
+  auto f = new typename node2forest<fil_node_t>::T(h);
   f->init(h, cat_sets, vector_leaf, trees, nodes, params);
   *pf = f;
 }

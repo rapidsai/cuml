@@ -218,9 +218,9 @@ struct alignas(8) sparse_node8 : base_node {
 struct dense_forest;
 
 template <typename T>
-constexpr bool is_dense() {
-  return std::is_same<T, dense_node>()
-  || std::is_same<T, dense_forest>();
+constexpr bool is_dense()
+{
+  return std::is_same<T, dense_node>() || std::is_same<T, dense_forest>();
 }
 
 /** leaf_algo_t describes what the leaves in a FIL forest store (predict)
