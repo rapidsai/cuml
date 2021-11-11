@@ -17,6 +17,7 @@
 from cuml.common import input_to_cuml_array
 from cuml.common.array import CumlArray
 from cuml.internals import api_return_array
+from cuml.fil.fil import TreeliteModel
 
 from libc.stdint cimport uintptr_t
 import numpy as np
@@ -46,7 +47,7 @@ cdef class TreeExplainer_impl():
     cdef size_t num_class
 
     def __cinit__(self, handle=None):
-        self.model_ptr = <ModelHandle> <uintptr_t> handle.value
+        self.model_ptr = <ModelHandle> <uintptr_t> handle
         self.extracted_paths = NULL
         self.num_class = 0
         if TreeliteQueryNumClass(self.model_ptr, &self.num_class) != 0:
@@ -80,10 +81,12 @@ class TreeExplainer:
     """
     Explainer for tree models, using GPUTreeSHAP
     """
-    def __init__(self,
-                 *,
-                 model):
-        self.impl_ = TreeExplainer_impl(handle=model.handle)
+    def __init__(self, *, model):
+        if isinstance(model, TreeliteModel):
+            handle = model.handle
+        else:
+            handle = model.handle.value
+        self.impl_ = TreeExplainer_impl(handle=handle)
 
     def shap_values(self, X) -> CumlArray:
         """

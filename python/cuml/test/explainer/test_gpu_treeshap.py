@@ -20,6 +20,8 @@ import numpy as np
 from cuml.explainer.tree_shap import TreeExplainer
 from cuml.common.import_utils import has_xgboost
 from cuml.common.import_utils import has_lightgbm
+from cuml.ensemble import RandomForestClassifier as curfc
+from cuml.ensemble import RandomForestRegressor as curfr
 from sklearn.datasets import fetch_california_housing, load_iris
 from sklearn.model_selection import train_test_split
 
@@ -102,3 +104,19 @@ def test_xgb_multiclass_classifier(objective):
     out = explainer.shap_values(X_test)
     correct_out = xgb_model.predict(dtest, pred_contribs=True)
     np.testing.assert_almost_equal(out, correct_out)
+
+def test_cuml_rf_classifier():
+    X, y = load_iris(return_X_y=True)
+    X, y = X.astype(np.float32), y.astype(np.int32)
+    cuml_model = curfc(max_features=1.0, max_samples=0.1, n_bins=128,
+                       min_samples_leaf=2, random_state=123,
+                       n_streams=1, n_estimators=10, max_leaves=-1,
+                       max_depth=16, accuracy_metric="mse")
+    cuml_model.fit(X, y)
+    tl_model = cuml_model.convert_to_treelite_model()
+    print(dir(tl_model))
+
+    explainer = TreeExplainer(model=tl_model)
+    out = explainer.shap_values(X)
+    print(out)
+    print(out.shape)

@@ -90,6 +90,10 @@ cdef class TreeliteModel():
     cdef ModelHandle get_handle(self):
         return self.handle
 
+    @property
+    def handle(self):
+        return <uintptr_t>(self.handle)
+
     def __dealloc__(self):
         if self.handle != NULL and self.owns_handle:
             TreeliteFreeModel(self.handle)
