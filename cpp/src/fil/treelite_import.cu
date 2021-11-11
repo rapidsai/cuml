@@ -727,7 +727,7 @@ void from_treelite(const raft::handle_t& handle,
 // allocates caller-owned char* using malloc()
 template <typename threshold_t, typename leaf_t, typename node_t>
 char* sprintf_shape(const tl::ModelImpl<threshold_t, leaf_t>& model,
-                    storage_type_t storage_type,
+                    storage_type_t storage,
                     const std::vector<node_t>& nodes,
                     const std::vector<int>& trees,
                     const cat_sets_owner cat_sets)
@@ -736,8 +736,8 @@ char* sprintf_shape(const tl::ModelImpl<threshold_t, leaf_t>& model,
   double size_mb = (trees.size() * sizeof(trees.front()) + nodes.size() * sizeof(nodes.front()) +
                     cat_sets.bits.size()) /
                    1e6;
-  forest_shape << storage_type_repr[storage_type] << " model size " << std::setprecision(2)
-               << size_mb << " MB" << std::endl;
+  forest_shape << storage_type_repr[storage] << " model size " << std::setprecision(2) << size_mb
+               << " MB" << std::endl;
   if (cat_sets.bits.size() > 0) {
     forest_shape << "number of categorical nodes for each feature id: {";
     std::size_t total_cat_nodes = 0;
