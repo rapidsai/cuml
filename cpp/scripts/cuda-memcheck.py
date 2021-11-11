@@ -1,4 +1,4 @@
-# Copyright (c) 2020, NVIDIA CORPORATION.
+# Copyright (c) 2020-2021, NVIDIA CORPORATION.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,11 +17,22 @@ import os
 import subprocess
 import argparse
 import time
+import re
+import sys
+
+
+ToolOptions = {
+    "memcheck": "--leak-check=full",
+    "initcheck": "--track-unused-memory=yes",
+    "racecheck": "",
+    "synccheck": ""
+}
+CommentRegex = re.compile(r"\s*#.+")
 
 
 def parse_args():
     argparser = argparse.ArgumentParser(
-        "Runs googletest unit-tests with cuda-memcheck enabled")
+        "Runs googletest unit-tests with compute-sanitizer enabled")
     argparser.add_argument("-exe", type=str, default=None,
                            help="The googletest executable to be run")
     argparser.add_argument("-pwd", type=str, default=None,
@@ -60,6 +71,7 @@ def get_testlist(exe, workdir):
         # only consider fixtures and main tests
         if line[:2] == "  " or line.startswith("Running "):
             continue
+        line = CommentRegex.sub("", line)
         tests.append(line + "*")
     return tests
 
@@ -70,10 +82,12 @@ def run_tests(args, testlist):
     failed = []
     total = len(testlist)
     for test in testlist:
-        cmd = "cuda-memcheck --tool %s %s --gtest_filter=%s" % \
-            (args.tool, args.exe, test)
+        cmd = "compute-sanitizer --require-cuda-init=no --tool %s %s %s " % \
+            (args.tool, ToolOptions[args.tool], args.exe)
+        cmd += "--gtest_filter=%s" % test
         print("[%d/%d Failed:%d] Checking %s ... " % \
               (idx, total, len(failed), test), end="")
+        sys.stdout.flush()
         retcode, out = run_cmd(cmd, args.pwd)
         print("[%s]" % ("PASS" if retcode == 0 else "FAIL"))
         if retcode != 0:
