@@ -1293,7 +1293,16 @@ def test_sparse_pairwise_distances_exceptions():
         sparse_pairwise_distances(X, Y, metric="euclidean")
 
 
-@pytest.mark.parametrize("metric", PAIRWISE_DISTANCE_SPARSE_METRICS.keys())
+@pytest.mark.parametrize(
+    "metric", [
+        metric if metric != 'hellinger'
+        else pytest.param(
+            metric,
+            marks=pytest.mark.xfail("intermittent failure (Issue #4354)")
+        )
+        for metric in PAIRWISE_DISTANCE_SPARSE_METRICS.keys()
+    ]
+)
 @pytest.mark.parametrize("matrix_size,density", [
     unit_param((1000, 100), 0.4),
     unit_param((20, 10000), 0.01),
