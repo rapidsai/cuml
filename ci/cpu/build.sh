@@ -43,7 +43,7 @@ gpuci_logger "Activate conda env"
 conda activate rapids
 
 # Remove rapidsai-nightly channel if it is stable build
-if [ "${IS_STABLE_BUILD}" != "true" ]; then
+if [ "${IS_STABLE_BUILD}" = "true" ]; then
   conda config --system --remove channels rapidsai-nightly
 fi
 
