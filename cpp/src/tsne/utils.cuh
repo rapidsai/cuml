@@ -32,8 +32,8 @@
 #include <thrust/transform.h>
 
 #include <sys/time.h>
-#include <raft/random/rng.cuh>
-#include <raft/stats/sum.cuh>
+#include <raft/random/rng.hpp>
+#include <raft/stats/sum.hpp>
 
 #include <unistd.h>
 #include <chrono>

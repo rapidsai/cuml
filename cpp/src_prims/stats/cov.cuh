@@ -18,7 +18,7 @@
 
 #include <raft/linalg/cublas_wrappers.h>
 #include <raft/linalg/gemm.cuh>
-#include <raft/stats/mean_center.cuh>
+#include <raft/stats/mean_center.hpp>
 
 namespace MLCommon {
 namespace Stats {
