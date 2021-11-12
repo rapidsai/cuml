@@ -308,10 +308,7 @@ def input_to_cuml_array(X,
                           safe_dtype=safe_dtype_conversion)
         check_dtype = False
 
-    if hasattr(X, "index"):
-        index = X.index
-    else:
-        index = None
+    index =  getattr(X, 'index', None)
 
     # format conversion
 
