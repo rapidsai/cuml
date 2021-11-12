@@ -661,4 +661,4 @@ def test_haversine_fails_high_dimensions():
 
 def test_n_jobs_parameter_passthrough():
     cunn = cuKNN()
-    cunn.set_params(**{"n_jobs": 12})
+    cunn.set_params(n_jobs=12)
