@@ -15,7 +15,7 @@
  */
 
 #pragma once
-#include <raft/matrix/math.cuh>
+#include <raft/matrix/math.hpp>
 #include <rmm/device_uvector.hpp>
 #include "glm_base.cuh"
 #include "glm_linear.cuh"
