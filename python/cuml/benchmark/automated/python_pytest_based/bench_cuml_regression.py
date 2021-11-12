@@ -22,7 +22,7 @@ from cuml.common.import_utils import has_pytest_benchmark
 #
 @pytest.mark.skipif(not has_pytest_benchmark(),
                     reason='pytest-benchmark missing')
-@pytest.mark.parametrize('n_rows', [1000, 10000])
+@pytest.mark.parametrize('n_rows', [50000])
 @pytest.mark.parametrize('n_features', [5, 500])
 @pytest.mark.ML
 def bench_linear_regression(gpubenchmark, n_rows, n_features):
@@ -31,7 +31,7 @@ def bench_linear_regression(gpubenchmark, n_rows, n_features):
 
 @pytest.mark.skipif(not has_pytest_benchmark(),
                     reason='pytest-benchmark missing')
-@pytest.mark.parametrize('n_rows', [1000, 10000])
+@pytest.mark.parametrize('n_rows', [50000])
 @pytest.mark.parametrize('n_features', [5, 500])
 @pytest.mark.ML
 def bench_lasso(gpubenchmark, n_rows, n_features):
@@ -40,10 +40,11 @@ def bench_lasso(gpubenchmark, n_rows, n_features):
         'Lasso',
         'regression',
         n_rows, n_features)
-    
+
+
 @pytest.mark.skipif(not has_pytest_benchmark(),
                     reason='pytest-benchmark missing')
-@pytest.mark.parametrize('n_rows', [1000, 10000])
+@pytest.mark.parametrize('n_rows', [50000])
 @pytest.mark.parametrize('n_features', [5, 500])
 @pytest.mark.ML
 def bench_elastic(gpubenchmark, n_rows, n_features):
@@ -52,11 +53,11 @@ def bench_elastic(gpubenchmark, n_rows, n_features):
         'ElasticNet',
         'regression',
         n_rows, n_features)
-    
+
 
 @pytest.mark.skipif(not has_pytest_benchmark(),
                     reason='pytest-benchmark missing')
-@pytest.mark.parametrize('n_rows', [1000, 10000])
+@pytest.mark.parametrize('n_rows', [50000])
 @pytest.mark.parametrize('n_features', [5, 500])
 @pytest.mark.ML
 def bench_ridge(gpubenchmark, n_rows, n_features):
@@ -65,10 +66,11 @@ def bench_ridge(gpubenchmark, n_rows, n_features):
         'Ridge',
         'regression',
         n_rows, n_features)
-    
+
+
 @pytest.mark.skipif(not has_pytest_benchmark(),
                     reason='pytest-benchmark missing')
-@pytest.mark.parametrize('n_rows', [1000, 10000])
+@pytest.mark.parametrize('n_rows', [50000])
 @pytest.mark.parametrize('n_features', [5, 500])
 @pytest.mark.ML
 def bench_knnregressor(gpubenchmark, n_rows, n_features):
@@ -78,18 +80,19 @@ def bench_knnregressor(gpubenchmark, n_rows, n_features):
         'regression',
         n_rows, n_features)
 
+
 @pytest.mark.skipif(not has_pytest_benchmark(),
                     reason='pytest-benchmark missing')
-@pytest.mark.parametrize('n_rows', [1000, 10000])
+@pytest.mark.parametrize('n_rows', [50000])
 @pytest.mark.parametrize('n_features', [5, 500])
 @pytest.mark.ML
 def bench_svr_rbf(gpubenchmark, n_rows, n_features):
     _benchmark_algo(gpubenchmark, 'SVR-RBF', 'regression', n_rows, n_features)
 
-    
+
 @pytest.mark.skipif(not has_pytest_benchmark(),
                     reason='pytest-benchmark missing')
-@pytest.mark.parametrize('n_rows', [1000, 10000])
+@pytest.mark.parametrize('n_rows', [50000])
 @pytest.mark.parametrize('n_features', [5, 500])
 @pytest.mark.ML
 def bench_svr_linear(gpubenchmark, n_rows, n_features):
