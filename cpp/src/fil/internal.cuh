@@ -503,10 +503,10 @@ struct cat_sets_device_owner {
 /** init uses params, trees and nodes to initialize the forest
  *  with nodes stored in pf
  *  @tparam fil_node_t node type to use with the forest;
- *    must be sparse_node16 or sparse_node8 or dense_node
+ *    must be sparse_node16, sparse_node8 or dense_node
  *  @param h cuML handle used by this function
  *  @param pf pointer to where to store the newly created forest
- *  @param trees indices of tree roots in the nodes arrray, of length params->ntrees
+ *  @param trees for sparse forests, indices of tree roots in the nodes arrray, of length params->ntrees; ignored for dense forests
  *  @param nodes nodes for the forest, of length params->num_nodes for sparse
       or (2**(params->depth + 1) - 1) * params->ntrees for dense forests
  *  @param params pointer to parameters used to initialize the forest

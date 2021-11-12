@@ -329,7 +329,7 @@ conversion_state<fil_node_t> tl2fil_inner_node(int fil_left_child,
   } else {
     ASSERT(false, "only numerical and categorical split nodes are supported");
   }
-  fil_node_t node({}, split, feature_id, default_left, false, is_categorical, fil_left_child);
+  fil_node_t node(val_t{}, split, feature_id, default_left, false, is_categorical, fil_left_child);
   return conversion_state<fil_node_t>{node, tl_left, tl_right};
 }
 
@@ -549,7 +549,7 @@ struct tl2fil_sparse_check_t {
 
 template <>
 struct tl2fil_sparse_check_t<dense_node> {
-  // no extra check for 16-byte sparse nodes
+  // no extra check for dense nodes
   template <typename threshold_t, typename leaf_t>
   static void check(const tl::ModelImpl<threshold_t, leaf_t>& model)
   {
