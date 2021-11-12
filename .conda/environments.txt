@@ -1,1 +1,2 @@
 /conda/envs/gdf
+/opt/conda
