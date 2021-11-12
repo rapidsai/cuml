@@ -17,7 +17,7 @@
 #include <gtest/gtest.h>
 #include <raft/cudart_utils.h>
 #include <linalg/ternary_op.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 #include "test_utils.h"
 
 namespace MLCommon {
