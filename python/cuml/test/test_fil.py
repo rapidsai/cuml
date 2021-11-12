@@ -531,7 +531,8 @@ def to_categorical(features, n_categorical, invalid_frac, random_state):
         shuffle=False)
     cat_cols.flat[invalid_idx] += rough_n_categories
     # mix categorical and numerical columns
-    predict_matrix = np.concat([cat_cols, features[:, n_categorical:]])
+    predict_matrix = np.concatenate([cat_cols, features[:, n_categorical:]],
+                                    axis=1)
     predict_matrix[:, new_col_idx] = predict_matrix
 
     return fit_df, predict_matrix
