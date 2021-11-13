@@ -67,17 +67,15 @@ class LinearPredictMixin:
         Predicts `y` values for `X`.
 
         """
-        cdef uintptr_t X_ptr
         X_m, n_rows, n_cols, dtype = \
             input_to_cuml_array(X, check_dtype=self.dtype,
                                 convert_to_dtype=(self.dtype if convert_dtype
                                                   else None),
                                 check_cols=self.n_cols)
-        X_ptr = X_m.ptr
-
+        cdef uintptr_t X_ptr = X_m.ptr
         cdef uintptr_t coef_ptr = self.coef_.ptr
 
-        preds = CumlArray.zeros(n_rows, dtype=dtype)
+        preds = CumlArray.zeros(n_rows, dtype=dtype, index=X_m.index)
         cdef uintptr_t preds_ptr = preds.ptr
 
         cdef handle_t* handle_ = <handle_t*><size_t>self.handle.getHandle()

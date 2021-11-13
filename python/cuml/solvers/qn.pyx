@@ -789,7 +789,8 @@ class QN(Base,
                 order='K'
             )
 
-        preds = CumlArray.zeros(shape=n_rows, dtype=self.dtype)
+        preds = CumlArray.zeros(shape=n_rows, dtype=self.dtype,
+                                index=X_m.index)
         cdef uintptr_t coef_ptr = self._coef_.ptr
         cdef uintptr_t pred_ptr = preds.ptr
 
