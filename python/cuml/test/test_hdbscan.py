@@ -150,9 +150,9 @@ def test_hdbscan_blobs(nrows, ncols, nclusters,
                        max_cluster_size,
                        min_samples):
 
-    X, y = make_blobs(int(nrows),
-                      ncols,
-                      nclusters,
+    X, y = make_blobs(n_samples=int(nrows),
+                      n_features=ncols,
+                      centers=nclusters,
                       cluster_std=0.7,
                       shuffle=False,
                       random_state=42)
@@ -429,9 +429,9 @@ def test_hdbscan_empty_cluster_tree():
 
 def test_hdbscan_plots():
 
-    X, y = make_blobs(int(100),
-                      100,
-                      10,
+    X, y = make_blobs(n_samples=int(100),
+                      n_features=100,
+                      centers=10,
                       cluster_std=0.7,
                       shuffle=False,
                       random_state=42)

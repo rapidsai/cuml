@@ -21,12 +21,12 @@
 #include <raft/linalg/add.cuh>
 #include <raft/linalg/norm.cuh>
 #include <raft/linalg/subtract.cuh>
-#include <raft/matrix/math.cuh>
-#include <raft/matrix/matrix.cuh>
-#include <raft/stats/mean.cuh>
-#include <raft/stats/mean_center.cuh>
-#include <raft/stats/stddev.cuh>
-#include <raft/stats/sum.cuh>
+#include <raft/matrix/math.hpp>
+#include <raft/matrix/matrix.hpp>
+#include <raft/stats/mean.hpp>
+#include <raft/stats/mean_center.hpp>
+#include <raft/stats/stddev.hpp>
+#include <raft/stats/sum.hpp>
 #include <rmm/device_uvector.hpp>
 #include "preprocess.cuh"
 
@@ -43,7 +43,7 @@ using namespace MLCommon;
  * @param n_cols        number of columns of the feature matrix
  * @param labels        device pointer to label vector of length n_rows
  * @param coef          device pointer to hold the solution for weights of size n_cols
- * @param intercept     device pointer to hold the solution for bias term of size 1
+ * @param intercept     host pointer to hold the solution for bias term of size 1
  * @param fit_intercept if true, fit intercept
  * @param normalize     if true, normalize data to zero mean, unit variance
  * @param stream        cuda stream

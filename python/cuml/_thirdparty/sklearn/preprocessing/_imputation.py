@@ -16,7 +16,7 @@ import warnings
 import numpy
 import cupy as np
 import cuml
-from cupy import sparse
+from cupyx.scipy import sparse
 
 from ....thirdparty_adapters import (_get_mask,
                                      _masked_column_median,
@@ -447,7 +447,7 @@ class SimpleImputer(_BaseImputer, BaseEstimator,
             else:
                 mask = _get_mask(X.data, self.missing_values)
                 indexes = np.repeat(
-                    np.arange(len(X.indptr) - 1, dtype=np.int),
+                    np.arange(len(X.indptr) - 1, dtype=int),
                     np.diff(X.indptr).tolist())[mask]
 
                 X.data[mask] = valid_statistics[indexes].astype(X.dtype,

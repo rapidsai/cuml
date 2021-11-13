@@ -32,8 +32,8 @@
 #include <thrust/transform.h>
 
 #include <sys/time.h>
-#include <raft/random/rng.cuh>
-#include <raft/stats/sum.cuh>
+#include <raft/random/rng.hpp>
+#include <raft/stats/sum.hpp>
 
 #include <unistd.h>
 #include <chrono>
@@ -221,7 +221,7 @@ value_t compute_kl_div(value_t* restrict Ps,
 template <typename value_t>
 __device__ value_t compute_q(value_t dist, value_t dof)
 {
-  const value_t exponent = (dof + 1.0) / 2.0;
+  const value_t exponent = (dof + 1.0f) / 2.0f;
   const value_t Q        = __powf(dof / (dof + dist), exponent);
   return Q;
 }

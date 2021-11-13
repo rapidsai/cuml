@@ -19,7 +19,9 @@ import numpy as np
 import operator
 import nvtx
 
-from rmm import DeviceBuffer
+# Temporarily disabled due to CUDA 11.0 issue
+# https://github.com/rapidsai/cuml/issues/4332
+# from rmm import DeviceBuffer
 from cudf import DataFrame
 from cudf import Series
 from cudf.core.buffer import Buffer
@@ -421,7 +423,10 @@ def _check_low_level_type(data):
     elif not (
         hasattr(data, "__array_interface__")
         or hasattr(data, "__cuda_array_interface__")
-    ) or isinstance(data, (DeviceBuffer, Buffer)):
+        # Temporarily disabled due to CUDA 11.0 issue
+        # https://github.com/rapidsai/cuml/issues/4332
+        # ) or isinstance(data, (DeviceBuffer, Buffer)):
+    ) or isinstance(data, Buffer):
         return True
     else:
         return False

@@ -26,7 +26,7 @@
 #include <thrust/functional.h>
 #include <thrust/transform.h>
 #include <raft/cuda_utils.cuh>
-#include <raft/random/rng.cuh>
+#include <raft/random/rng.hpp>
 
 #include <treelite/c_api.h>
 #include <treelite/frontend.h>
@@ -1038,6 +1038,21 @@ std::vector<FilTestParams> predict_dense_inputs = {
                   depth       = 5,
                   num_trees   = 1,
                   algo        = BATCH_TREE_REORG,
+                  leaf_algo   = CATEGORICAL_LEAF,
+                  num_classes = 3),
+  // use shared memory opt-in carveout if available, or infer out of L1 cache
+  FIL_TEST_PARAMS(num_rows = 103, num_cols = MAX_SHM_STD / sizeof(float) + 1024, algo = NAIVE),
+  FIL_TEST_PARAMS(num_rows    = 103,
+                  num_cols    = MAX_SHM_STD / sizeof(float) + 1024,
+                  leaf_algo   = GROVE_PER_CLASS,
+                  num_classes = 5),
+  FIL_TEST_PARAMS(num_rows    = 103,
+                  num_cols    = MAX_SHM_STD / sizeof(float) + 1024,
+                  num_trees   = FIL_TPB + 1,
+                  leaf_algo   = GROVE_PER_CLASS,
+                  num_classes = FIL_TPB + 1),
+  FIL_TEST_PARAMS(num_rows    = 103,
+                  num_cols    = MAX_SHM_STD / sizeof(float) + 1024,
                   leaf_algo   = CATEGORICAL_LEAF,
                   num_classes = 3),
   FIL_TEST_PARAMS(algo = BATCH_TREE_REORG, threads_per_tree = 2),

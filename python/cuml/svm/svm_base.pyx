@@ -341,6 +341,8 @@ class SVMBase(Base,
     @property
     @cuml.internals.api_base_return_array_skipall
     def intercept_(self):
+        if self._intercept_ is None:
+            raise AttributeError("intercept_ called before fit.")
         return self._intercept_
 
     @intercept_.setter
