@@ -172,7 +172,8 @@ class TSNE(Base,
         0.8. (Barnes-Hut only.)
     learning_rate_method : str 'adaptive', 'none' or None (default 'adaptive')
         Either adaptive or None. 'adaptive' tunes the learning rate, early
-        exaggeration, perplexity and n_neighbors automatically based on input size.
+        exaggeration, perplexity and n_neighbors automatically based on
+        input size.
     n_neighbors : int (default 90)
         The number of datapoints you want to use in the
         attractive forces. Smaller values are better for preserving
