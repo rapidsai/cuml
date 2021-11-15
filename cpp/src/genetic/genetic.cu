@@ -25,8 +25,7 @@
 #include <raft/cuda_utils.cuh>
 #include <raft/linalg/binary_op.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/random/rng.cuh>
-#include <raft/random/rng_impl.cuh>
+#include <raft/random/rng.hpp>
 
 #include <algorithm>
 #include <numeric>

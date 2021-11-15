@@ -19,11 +19,11 @@
 #include <raft/linalg/matrix_vector_op.cuh>
 #include <raft/linalg/strided_reduction.cuh>
 #include <raft/linalg/unary_op.cuh>
-#include <raft/matrix/math.cuh>
-#include <raft/stats/mean.cuh>
-#include <raft/stats/mean_center.cuh>
-#include <raft/stats/stddev.cuh>
-#include <raft/stats/sum.cuh>
+#include <raft/matrix/math.hpp>
+#include <raft/stats/mean.hpp>
+#include <raft/stats/mean_center.hpp>
+#include <raft/stats/stddev.hpp>
+#include <raft/stats/sum.hpp>
 
 #include <rmm/device_scalar.hpp>
 #include <rmm/device_uvector.hpp>
